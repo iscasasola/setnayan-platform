@@ -181,7 +181,11 @@ test('5 · the toolbar: Animate is live on the four; the six samples stay grey a
   assert.match(TOOLS, /if \(blockAt !== 'gifts'\) return setBlockIsReal\(true\);[\s\S]{0,200}findMakerSection\(doc, 'f:gifts'\)\?\.hasAttribute\('data-welcome-gifts'\)/);
   assert.match(src('app/[slug]/_components/guest-doorway-strip.tsx'), /<section className="space-y-3" data-welcome-gifts=""/, 'the real E-Gifts block no longer says it is one');
   assert.match(TOOLS, /const block = blockAt && blockIsReal \? blockAt : null;/);
-  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(block !== null && t === 'animate'\);/);
+  /* 🔁 RE-AIMED 2026-10-10 (Background for the four blocks — owner: "there should always be animate and background?"
+     → "yes"): a block's own tools are now TWO, Background beside Animate, so the clause names both. The claim this pin
+     holds — a tool is live on a block only when the block is one of the four AND is really drawn (`block`) — is the
+     same; what Background does there is held by `a-fixed-block-has-its-own-background.test.ts`. */
+  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(block !== null && \(t === 'bg' \|\| t === 'animate'\)\);/);
   /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency — owner: "please make Edit | Style | Background | Animate Consistent in
      design"): the part rule is as it was, and one clause is added to it — a tool whose rows would be EMPTY on the
      picked thing is grey too (`emptyHere`: on the reply pages Style has a row only for a line with a look and for the
@@ -211,7 +215,9 @@ test('5 · the toolbar: Animate is live on the four; the six samples stay grey a
   }
   assert.equal(new Set(Object.values(BLOCK_SAMPLE_WHY)).size, 6, 'two samples say the same thing');
   assert.match(TOOLS, /const sample = picked && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_SAMPLE_WHY\[makerPartCanvasOn\(stageKey, picked\) \?\? ''\] : undefined;/);
-  assert.match(TOOLS, /const empty = blockAt && !blockIsReal && t === 'animate' \? BLOCK_EMPTY_WHY : undefined;\s*return sample \?\? empty \?\? makerPartToolWhy\(picked, t\);/);
+  /* 🔁 RE-AIMED 2026-10-10 (same change): E-Gifts with nothing for a guest to see says so for Background too — it
+     would otherwise answer "edit it in Studio", which is no longer where a block's background is. */
+  assert.match(TOOLS, /const empty = blockAt && !blockIsReal && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_EMPTY_WHY : undefined;\s*return sample \?\? empty \?\? makerPartToolWhy\(picked, t\);/);
   assert.match(TOOLS, /if \(!toolWorks\(t\)\) return setWhy\(\(w\) => \(\{ words: whyNot\(t\), n: \(w\?\.n \?\? 0\) \+ 1 \}\)\);/);
   assert.match(BLOCK_EMPTY_WHY, /^Guests see nothing here until /);
   /* Nothing a couple reads here says "celebration". */

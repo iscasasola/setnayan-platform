@@ -290,7 +290,7 @@ test('picking the Digital pass never replaces the canvas in Stages — it is pic
      2026-10-09: "how come background not fixed and no animate?" — `the-rsvp-lines-have-a-look.test.ts` §10), so those
      two are live there (`rsvpLooks`). Every other part is decided exactly as before — the claim this line holds. */
   /* 🔁 RE-AIMED AGAIN 2026-10-10: the tools a picked thing has a save for BEYOND the part rule are now one named
-     function, `ownTool` (a reply card or line: Background · Animate; a fixed block with one real root: Animate —
+     function, `ownTool` (a reply card or line: Background · Animate; a fixed block with one real root: Background · Animate —
      `a-fixed-block-has-its-own-motion.test.ts` §5). The part rule itself is decided exactly as before. */
   /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency — owner: "please make Edit | Style | Background | Animate Consistent in
      design"): the part rule is as it was, and one clause is added to it — a tool whose rows would be EMPTY on the

@@ -3218,13 +3218,15 @@ html.dark {
        ordinary page value when nothing pins it, exactly today's behaviour)
        fixes every such utility class inside a plate, current and future,
        without editing each widget. */
-    /* 🔴 THE FALLBACK IS `--color-ink-page`, NEVER `--color-ink` ITSELF (measured 2026-10-10). This line read
-       `var(--color-ink-on-plate, var(--color-ink))`: a property that names itself, even in a fallback, is a
-       cycle, and the browser makes it INVALID on the plate. Nothing crashed and the words still read (they
-       inherited the plate's `color`), so it shipped for two weeks — but every OTHER use of the ink inside a
-       plate lost its declaration: the plate's own border and its printed inner frame computed to `none`,
-       `text-ink/80` drew at full strength and `border-ink/15` drew a full-ink line. `.sn-editorial` carries
-       the page's ink under that second name (beside the font mapping, further down this file). */
+    /* 🔴 THE FALLBACK IS `--color-ink-page`, NEVER `--color-ink` ITSELF (measured 2026-10-10, Chromium). This line
+       read `var(--color-ink-on-plate, var(--color-ink))`. A property that names itself is a cycle, and wherever
+       the browser REACHES that fallback the property becomes INVALID on the plate: the plate's border and its
+       printed inner frame compute to `none`, `text-ink/80` draws at full strength and `border-ink/15` draws a
+       full-ink line (words still read — they inherit the plate's `color`). WHERE IT SHOWED: only where nothing
+       pins `--color-ink-on-plate` — the Maker lab's guest pages, measured. A real guest page pins it (the look's
+       composed variables always carry it), so the fallback was never reached there: the live sample event's
+       plate measured ink `0 0 0`, edge and frame `solid` the same day. A latent fault, not a live one — but one
+       unpinned surface away from every plate. `.sn-editorial` carries the page's ink under the second name. */
     --color-ink: var(--color-ink-on-plate, var(--color-ink-page));
     color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));

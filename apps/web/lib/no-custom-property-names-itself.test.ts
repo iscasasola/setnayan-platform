@@ -4,12 +4,16 @@
  * `--x: var(--y, var(--x))` reads like "use --y, else whatever --x already was". It is not: a custom property that
  * depends on itself is a CYCLE, and the browser makes the property INVALID on that element. Nothing throws. Text
  * usually still reads (it inherits a `color` from somewhere), so the fault is silent — but every other use of the
- * property on that element and under it loses its declaration.
+ * property on that element and under it loses its declaration. (Chromium only reaches the cycle when the first name
+ * is unset — which is exactly why it hides: it works wherever the first name happens to be pinned.)
  *
- * Measured 2026-10-10 on `.sn-editorial .pahina-plate`, which shadowed `--color-ink` that way from 2026-09-25: on
- * every plate a guest saw, the plate's border and its printed inner frame computed to `none`, `text-ink/80` drew at
- * full strength and `border-ink/15` drew a full-ink line. The fix gives the page's ink a second name on the element
- * that sets it (`--color-ink-page` on `.sn-editorial`) and falls back to THAT.
+ * Measured 2026-10-10 (Chromium) on `.sn-editorial .pahina-plate`, which shadowed `--color-ink` that way from
+ * 2026-09-25. WHERE the browser reached the self-naming fallback — wherever nothing pinned `--color-ink-on-plate`,
+ * which was the Maker lab's guest pages — the plate's border and its printed inner frame computed to `none`,
+ * `text-ink/80` drew at full strength and `border-ink/15` drew a full-ink line. Real guest pages pin the plate's ink,
+ * so the fallback was never reached there and they were fine (the live sample event measured `solid` / `solid` the
+ * same day): a latent fault, one unpinned surface away from every plate. The fix gives the page's ink a second name
+ * on the element that sets it (`--color-ink-page` on `.sn-editorial`) and falls back to THAT.
  *
  * This guard reads the property, not a phrasing: any declaration, any name, any file under `app/` that ends `.css`.
  */

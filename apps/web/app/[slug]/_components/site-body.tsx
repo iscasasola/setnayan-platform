@@ -1213,6 +1213,13 @@ export async function SiteBody({
      choice → exactly what it did before (`dayOn`'s second argument). */
   const dayOn = (type: 'dress_code' | 'what_to_bring' | 'schedule' | 'venue_map', today: boolean) =>
     stageChoiceOr(widgets, type, 'event', phasesEnabled, today);
+  /* 📖 THE LOVE STORY HIDDEN ON THIS STAGE IS NOT TOLD ON THIS STAGE. The plan
+     takes the scene off; the story's own fall-backs must stand down with it —
+     the prose that stands in for a missing scene, the Story tab, and the line
+     and the gallery the Save-the-Date film carries itself. With no choice for
+     the stage they all do what they did (a scene hidden by the event-wide eye
+     still falls back to the prose). */
+  const storyOffHere = hiddenOnStage(widgets, 'our_love_story', lifecyclePhase, phasesEnabled);
   const dayWelcomeFacts = {
     bodyNormal: plan.body === 'normal' && pageStage === 'event',
     dressCodeOn: dayOn('dress_code', widgetShouldRender(widgetByType(widgets, 'dress_code'))),
@@ -1401,7 +1408,9 @@ export async function SiteBody({
         venueName={firstPlace ? firstPlace.name : event.venue_name}
         venueAddress={firstPlace ? firstPlace.address : event.venue_address}
         publicId={event.public_id}
-        loveStory={event.love_story}
+        loveStory={storyOffHere ? null : event.love_story}
+        // 👁 The film's stand-in draws a countdown of its own: off when the couple hid it on this stage.
+        countdown={!hiddenOnStage(widgets, 'countdown', lifecyclePhase, phasesEnabled)}
         // Anonymous with no hero media: the STD view carries the text hero
         // (that tree has no monogram hero fallback). Guest: the monogram hero
         // already renders above, so never here. (plan.stdShowTextHero)
@@ -1421,7 +1430,8 @@ export async function SiteBody({
         receptionVenue={stdVenues?.reception ?? null}
         receptionCity={stdFilmPlaceLine(stdVenues?.receptionCity, event)}
         galleryUrls={
-          ownsStdReveal
+          // 👁 The gallery hidden on this stage is not the film's closing beat either.
+          ownsStdReveal && !hiddenOnStage(widgets, 'our_photos', lifecyclePhase, phasesEnabled)
             ? ourPhotoUrls.length
               ? ourPhotoUrls
               : heroPhotoUrl
@@ -1528,7 +1538,8 @@ export async function SiteBody({
       story:
         weddingOnly.love_story &&
         bodyRenders &&
-        storyTabHasChapter(event.love_story, storySceneShown),
+        storyTabHasChapter(event.love_story, storySceneShown) &&
+        !storyOffHere,
       // "Gallery" = the live photo wall ON THE DAY (the livestream is a separate
       // concern) and the recap's own photo run AFTER it. Two different sections
       // in two different phases, one tab — which is what a guest coming back the
@@ -2248,13 +2259,13 @@ export async function SiteBody({
               </div>
             ) : null}
             <div id={storySceneShown ? undefined : SITE_MENU_ANCHORS.story} className="scroll-mt-6">
-              {storySceneShown ? null : !weddingOnly.love_story ? null : event.love_story ? (
+              {storySceneShown ? null : storyOffHere || !weddingOnly.love_story ? null : event.love_story ? (
                 <OurStory loveStory={event.love_story} variant="full" />
               ) : plan.openBrowse ? (
                 <SectionEmptyPlate kind="story" pastTense={archiveTense} occasion={clientWords.occasion} />
               ) : null}
             </div>
-            </>, { quiet: !storyScene && (storySceneShown || !weddingOnly.love_story || !(event.love_story || plan.openBrowse)) })}
+            </>, { quiet: !storyScene && (storySceneShown || storyOffHere || !weddingOnly.love_story || !(event.love_story || plan.openBrowse)) })}
           </>
         ))}
         {/* Me tab — under open-browse a cookie-less visitor gets designed
@@ -2499,7 +2510,7 @@ export async function SiteBody({
         (makerPages ? detailsSceneList.some((w) => sceneOwnPage(w) === 'details') : detailsSceneList.length > 0),
       // A type with no two people has no love story (same gate as the public page).
       // …and only once there is a chapter to land on (`storyTabHasChapter`).
-      story: weddingOnly.love_story && guestBodyRenders && storyTabHasChapter(event.love_story, storySceneShown),
+      story: weddingOnly.love_story && guestBodyRenders && storyTabHasChapter(event.love_story, storySceneShown) && !storyOffHere,
       // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
       // gate below), the recap's photo run after it. A guest's own "photos of
       // you" strip is deliberately NOT a third answer: it closes with the
@@ -3571,7 +3582,7 @@ export async function SiteBody({
               {/* Menu-shell "Story" anchor (PR6) — present only when a love story
                   exists (OurStory renders nothing otherwise), matching
                   menuSections.story. */}
-              {menuOn && !tabs.on && event.love_story && !storySceneShown ? (
+              {menuOn && !tabs.on && event.love_story && !storySceneShown && !storyOffHere ? (
                 <span id={SITE_MENU_ANCHORS.story} aria-hidden className="sr-only" />
               ) : null}
               {/* 📱 On a tabbed page this is Our Love Story's own page: the
@@ -3586,7 +3597,7 @@ export async function SiteBody({
                   </HubScenes>
                 </div>
               ) : null}
-              {storySceneShown ? null : <OurStory loveStory={event.love_story} variant="full" />}
+              {storySceneShown ? null : storyOffHere ? null : <OurStory loveStory={event.love_story} variant="full" />}
               </>, { chapters: true, className: 'space-y-12', id: SITE_MENU_ANCHORS.story })}
               {/* ✍ GUEST COLUMNS ARE NOT ON THE WELCOME ANY MORE (owner 2026-10-04,
                   DECISION_LOG "STORY-TAB PLACEMENT CORRECTED AND APPROVED"):

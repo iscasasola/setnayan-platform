@@ -152,7 +152,7 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
           and the three buttons; the row names, the group heads, the key and the status line are bare, and the groups
           are parted by one thin divider. */}
       <div data-guests-see="" className="flex min-h-full flex-col bg-inherit">
-        <div role="table" aria-label={W.title} className="flex-1 bg-inherit px-1">
+        <div role="table" aria-label={W.title} className="flex-1 bg-inherit px-2">
           <div role="row" className="sticky top-0 z-10 flex items-end bg-inherit pb-1.5 pt-1">
             <span role="columnheader" className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink/45">
               {W.shownAt}
@@ -212,7 +212,7 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* THE LOWER THIRD — what the last tap did · the key · the three buttons. */}
-        <div data-gs-lower="" className="sticky bottom-0 z-10 border-t border-ink/10 bg-inherit px-1 pb-1 pt-2">
+        <div data-gs-lower="" className="sticky bottom-0 z-10 border-t border-ink/10 bg-inherit px-2 pb-1 pt-2">
           {asking ? (
             <div data-gs-leave="" className="flex flex-col gap-2">
               <p className="text-[13.5px] font-semibold text-ink">{W.leaveTitle}</p>
@@ -245,10 +245,14 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center gap-2">
-                <ActionButton tone="neutral" icon={Undo} label={W.undo} iconOnly onClick={takeBack} disabled={pending} data-testid="guests-see-undo" />
-                <ActionButton tone="neutral" icon={RotateCcw} label={W.back} quiet onClick={backToPicks} disabled={pending} className="min-w-0 flex-1 justify-center" data-testid="guests-see-back" />
-                <ActionButton tone="brand" icon={Check} label={guestsSeeApplyLabel(n)} main waiting={n === 0 || pending} onClick={apply} className="min-w-0 flex-1 justify-center" data-testid="guests-see-apply" />
+              {/* TWO LINES, as the prototype draws them: ↺ and "Back to our picks", then Apply as one full-width pill —
+                  so "Apply · 12 changes" has the whole width and never runs past the sheet at 360 or 375. */}
+              <div data-gs-buttons="" className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <ActionButton tone="neutral" icon={Undo} label={W.undo} iconOnly onClick={takeBack} disabled={pending} data-testid="guests-see-undo" />
+                  <ActionButton tone="neutral" icon={RotateCcw} label={W.back} quiet onClick={backToPicks} disabled={pending} className="min-w-0 flex-1 justify-center" data-testid="guests-see-back" />
+                </div>
+                <ActionButton tone="brand" icon={Check} label={guestsSeeApplyLabel(n)} main waiting={n === 0 || pending} onClick={apply} className="w-full justify-center" data-testid="guests-see-apply" />
               </div>
             </>
           )}

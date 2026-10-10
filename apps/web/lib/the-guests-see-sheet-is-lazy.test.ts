@@ -79,3 +79,18 @@ test('5 · colour tokens only', () => {
   assert.doesNotMatch(src, /\b(?:bg|text|border|ring|fill|stroke)-(?:white|black)\b|#[0-9a-fA-F]{3,8}\b|rgba?\(/);
   assert.match(src, /border-ink bg-ink text-paper/);
 });
+
+test('6 · the three buttons fit a phone: ↺ and "Back to our picks" on one line, Apply on a full-width line of its own', () => {
+  /* Seen 2026-10-11 at 375: with the three on one line, "Apply · 1 change" ran past the sheet's right edge. The
+     prototype draws Apply as one full-width pill under "Back to our picks"; so does this. The measured half of this
+     check is the lab's (`public/review/what-guests-see/notes.json` `fits`: 375 and 360, counts 0 · 1 · 12). */
+  const src = stripComments(read(SHEET));
+  const buttons = src.slice(src.indexOf('<div data-gs-buttons=""'), src.indexOf('</>', src.indexOf('<div data-gs-buttons=""')));
+  assert.match(buttons, /<div data-gs-buttons="" className="flex flex-col gap-2">\s*<div className="flex items-center gap-2">[\s\S]*?guests-see-undo[\s\S]*?guests-see-back[\s\S]*?<\/div>\s*<ActionButton[^>]*className="w-full justify-center" data-testid="guests-see-apply" \/>/);
+  assert.equal((buttons.match(/<ActionButton/g) ?? []).length, 3);
+  // The 16 px gutter: the sheet's own 8 (`MakerSheet` px-2) and 8 here.
+  assert.match(src, /role="table" aria-label=\{W\.title\} className="flex-1 bg-inherit px-2"/);
+  assert.match(src, /data-gs-lower="" className="sticky bottom-0 z-10 border-t border-ink\/10 bg-inherit px-2 /);
+  assert.match(read(PARTS), /flex-col rounded-t-3xl bg-white px-2 /);
+});
+

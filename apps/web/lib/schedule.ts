@@ -190,30 +190,77 @@ export async function insertScheduleBlocks(
   return { blocks: sortScheduleBlocks((data ?? []) as ScheduleBlockRow[]), error: null };
 }
 
+/**
+ * 🔒 WHAT A GUEST MAY SEE OF THE SCHEDULE — THE ONE RULE, IN ONE PLACE.
+ *
+ * Three conditions, and a moment must pass all of them to be named to a guest:
+ *
+ *   1. `is_public = true`            — the couple did not hide it (the eye on the rail);
+ *   2. `audience IS NULL`            — it is for Everyone. A moment "Only for · Entourage /
+ *                                      Sponsors / Family / Suppliers" (Studio › Schedule › For ▾)
+ *                                      is that role's Arrive by, never the whole room's. NULL is
+ *                                      Everyone (`lib/schedule-audience.ts`);
+ *   3. `visibility <> 'coordinator_only'` — it is not a coordinator's unreleased prep block.
+ *
+ * 🔑 WHY A HELPER AND NOT THREE LINES AT EACH READ. Every guest page reads the
+ * schedule on the SERVICE-ROLE client, which passes straight through RLS — so
+ * these filters are not a courtesy on top of a database fence, they ARE the
+ * fence. The guests' schedule had all three; the guests' Story page was written
+ * with only the first, and a moment the couple made "Only for · Entourage" was
+ * named on a public page with its time, its place and its supplier (2026-10-08).
+ * The comment above that query already said what it meant to do. A rule copied
+ * by hand is a rule that is one condition short somewhere.
+ *
+ * EVERY guest-facing read of `event_schedule_blocks` goes through here —
+ * `lib/the-guests-schedule-has-one-fence.test.ts` holds the list of them and
+ * fails when one stops.
+ *
+ * `excludeStaged` — condition 3. ON unless a caller says otherwise. The only
+ * caller that passes it is `fetchPublicScheduleBlocks`, which has always taken
+ * it from ITS callers (the `coordinator_prep_release` control) and keeps doing
+ * exactly that. Do not pass `false` from a new read.
+ *
+ * Structural on purpose, so the real PostgREST builder and a test's recording
+ * stub both fit and this client-imported module stays free of the server
+ * client's types. `Q` is asked only to HAVE the three filters: asking the
+ * compiler to prove what each one returns walks the builder's whole parsed
+ * select type and dies of it (TS2589, measured on the canonical SELECT below).
+ * Every one of the three hands the same builder back, which is what the chain
+ * type inside says.
+ */
+type GuestScheduleFilters = {
+  eq(column: 'is_public', value: true): GuestScheduleFilters;
+  is(column: 'audience', value: null): GuestScheduleFilters;
+  neq(column: 'visibility', value: 'coordinator_only'): GuestScheduleFilters;
+};
+
+export function onlyWhatGuestsMaySee<Q extends { eq: unknown; is: unknown; neq: unknown }>(
+  query: Q,
+  opts: { excludeStaged?: boolean } = {},
+): Q {
+  const fenced = (query as unknown as GuestScheduleFilters).eq('is_public', true).is('audience', null);
+  if (opts.excludeStaged === false) return fenced as unknown as Q;
+  return fenced.neq('visibility', 'coordinator_only') as unknown as Q;
+}
+
 export async function fetchPublicScheduleBlocks(
   supabase: SupabaseClient,
   eventId: string,
   excludeStaged = false,
 ): Promise<ScheduleBlockRow[]> {
-  let query = supabase
-    .from('event_schedule_blocks')
-    .select(SELECT)
-    .eq('event_id', eventId)
-    .eq('is_public', true)
-    // 👥 The guests' schedule is the EVERYONE moments only (For ▾, owner
-    // 2026-10-06/07): a role's moment is that role's Arrive by, never the
-    // whole room's. NULL is Everyone (`lib/schedule-audience.ts`).
-    .is('audience', null);
+  // 🔒 The rule is `onlyWhatGuestsMaySee`, above — public, for Everyone, and
+  // (when asked) not a coordinator's unreleased prep.
+  //
   // Guest day-of site runs on the SERVICE-ROLE admin client, which BYPASSES
   // RLS — so a coordinator's unreleased prep block must be excluded here in app
   // code (the RLS public_read tightening does not protect the admin path). The
   // caller passes `excludeStaged` (the coordinator_prep_release control): this
   // module is client-imported, so it must NOT read the server-only control
   // itself. With excludeStaged=false we never reference the column.
-  if (excludeStaged) {
-    query = query.neq('visibility', 'coordinator_only');
-  }
-  const { data, error } = await query
+  const { data, error } = await onlyWhatGuestsMaySee(
+    supabase.from('event_schedule_blocks').select(SELECT).eq('event_id', eventId),
+    { excludeStaged },
+  )
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });
   if (error) throw new Error(`fetchPublicScheduleBlocks failed: ${error.message}`);

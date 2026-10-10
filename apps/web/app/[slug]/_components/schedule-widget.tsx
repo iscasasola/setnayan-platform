@@ -300,7 +300,7 @@ export function ScheduleWidget({
         ) : null}
       </div>
       {showRunOfShow && eventId ? (
-        <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} compact />
+        <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} compact forGuests />
       ) : null}
       {sceneStyle === 'one-per-screen' ? (
         <ScheduleOneChapter moments={moments} currentIndex={currentIndex} upNextIndex={showUpNext ? upNextIndex : -1} />

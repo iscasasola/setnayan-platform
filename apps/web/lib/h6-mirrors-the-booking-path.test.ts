@@ -30,8 +30,9 @@
  *      20271223386305) — the step that BOOKS under the lock handshake — asks
  *      the same count the same way, so the ask, the yes and the search can
  *      never disagree about a card's daily limit.
- *   5. THE CALLERS — only the bench asks to hide; everyone else is unchanged;
- *      and only server code, with the admin client, ever calls the mirror.
+ *   5. THE CALLERS — only the bench and Find ask to hide; everyone else is
+ *      unchanged; and only server code, with the admin client, ever calls the
+ *      mirror. Find joined on 2026-10-10 by the owner's sentence (see the pin).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -544,7 +545,19 @@ function callArgs(src: string): string[] {
   return out;
 }
 
-test('only the bench asks to hide — every other caller is unchanged', () => {
+/**
+ * Two callers hide, each by an owner's sentence — and nobody else:
+ *   · the BENCH search (the overlay, the inline "more" row) — 2026-09-11: "if
+ *     there are no more available booking for that day for that service card,
+ *     it should not show";
+ *   · FIND a supplier (`vendors/categories/page.tsx`) — 2026-10-10: "service
+ *     card will not show if they are not available to that date/s or that
+ *     location."
+ * A third caller that starts hiding, or either of these that stops, fails here.
+ * Which CALL on the Find page holds the flag is pinned per call in
+ * lib/find-shows-only-what-can-be-booked.test.ts.
+ */
+test('only the bench and Find ask to hide — every other caller is unchanged', () => {
   const seen: Record<string, string[]> = {};
   for (const file of [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib'))]) {
     const src = stripComments(readFileSync(file, 'utf8'));
@@ -558,8 +571,9 @@ test('only the bench asks to hide — every other caller is unchanged', () => {
     'app/dashboard/[eventId]/progress/_actions/free-venue-shortlist.ts': ['unchanged'],
     'app/dashboard/[eventId]/vendors/_actions/inline-more-row.ts': ['hides'],
     'app/dashboard/[eventId]/vendors/_actions/unlock-category.ts': ['unchanged'],
-    // Find a supplier (P3) lists a category's suppliers as the search ranks them.
-    'app/dashboard/[eventId]/vendors/categories/page.tsx': ['unchanged'],
+    // Find a supplier — owner 2026-10-10: "service card will not show if they
+    // are not available to that date/s or that location."
+    'app/dashboard/[eventId]/vendors/categories/page.tsx': ['hides'],
     'app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx': ['hides', 'hides'],
     'app/dashboard/[eventId]/vendors/build-3state-fallback-actions.ts': ['unchanged'],
   });

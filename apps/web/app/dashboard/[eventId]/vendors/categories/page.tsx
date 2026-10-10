@@ -188,6 +188,12 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
       eventId,
       ...benchSearchScopeForTile(openTile.tile),
       query: q || undefined,
+      // Owner, 2026-10-10: "service card will not show if they are not
+      // available to that date/s or that location." Find is the bench search's
+      // successor, so it hides what the bench hides: a supplier the couple has
+      // never met whose every card here is refused on the event's date. A
+      // supplier with no calendar set is NOT refused — they stay.
+      hideUnbookable: true,
     });
     const rows = applyFindFilter(res.results, picked);
     return (

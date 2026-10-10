@@ -391,12 +391,13 @@ export async function searchCategoryVendors(input: {
   /** When TRUE, hard-drop vendors that carry facet tags but match ZERO selected
    *  facets. Vendors with no facet data are NEVER dropped (graceful degrade). */
   facetHardFilter?: boolean;
-  /** H6 (owner 2026-09-11) — BENCH ONLY: drop suppliers with no booking left on
-   *  the couple's date (every in-scope card refused by the booking path, on the
-   *  day, or on every day of a month-only date). Suppliers the couple already
-   *  knows are never dropped. Off by default, so every other caller — the
-   *  unlock, the 3-state fallback, the free-venue shortlist — is unchanged.
-   *  See lib/bench-bookable-days. */
+  /** H6 (owner 2026-09-11) — the BENCH search, and since 2026-10-10 FIND
+   *  ("service card will not show if they are not available to that date/s"):
+   *  drop suppliers with no booking left on the couple's date (every in-scope
+   *  card refused by the booking path, on the day, or on every day of a
+   *  month-only date). Suppliers the couple already knows are never dropped.
+   *  Off by default, so every other caller — the unlock, the 3-state fallback,
+   *  the free-venue shortlist — is unchanged. See lib/bench-bookable-days. */
   hideUnbookable?: boolean;
 }): Promise<CategorySearchResult> {
   const eventId = String(input.eventId ?? '').trim();

@@ -240,7 +240,10 @@ test('4 · one card, never two: the markup each ground leans on is there', () =>
   const mapSample = seatSamples.slice(0, seatSamples.indexOf("'find_your_seat:table-number'"));
   assert.doesNotMatch(mapSample, /\b(?:bg|border|text)-ink\b/, 'a shape of the Map’s sample is drawn with the plate’s own ink: it will not show');
   assert.equal((mapSample.match(/bg-\[color:color-mix\(in_srgb,currentColor_\d+%,transparent\)\]/g) ?? []).length, 3);
-  assert.ok(CSS.includes('--color-ink: var(--color-ink-on-plate, var(--color-ink));'), 'the plate’s ink no longer names itself — the Map’s sample may use the ink utilities again');
+  /* ⤷ 2026-10-10 (train-d): the plate fix (e0c048f7b) made the plate's fallback `--color-ink-page`, so the plate's ink no
+     longer names ITSELF. This pin followed the old text; it now holds the fixed text (and the old one stays gone). */
+  assert.ok(CSS.includes('--color-ink: var(--color-ink-on-plate, var(--color-ink-page));'), 'the plate’s ink fallback is no longer the page’s own ink under its second name');
+  assert.ok(!CSS.includes('--color-ink: var(--color-ink-on-plate, var(--color-ink));'), 'the plate’s ink names itself again — a cycle, the plate loses its edge and frame');
   assert.equal((seatSamples.match(/bg-paper-deep/g) ?? []).length, 1, 'a seat sample other than the place card is on paper');
   /* For every tile, a seat rule reaches the card or the bare root — never a drawing of both kinds. */
   for (const g of BLOCK_GROUNDS) {

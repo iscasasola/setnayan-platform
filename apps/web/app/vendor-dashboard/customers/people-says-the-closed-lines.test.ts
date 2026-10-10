@@ -154,6 +154,11 @@ test('2 · the three closed lines are the row’s own line — the SAME predicat
 
   const missed = peopleRowView(LOURDES, facts({ meetingPassed: true }), NOW);
   assert.deepEqual([missed.line, missed.closed, missed.opens], ['meeting time passed', 'meeting', 'card']);
+
+  // An unaccepted inquiry outranks every closed line: it is what is owed, and its row must open the
+  // conversation — the customer card is not reachable before the inquiry is accepted.
+  const owed = peopleRowView(ANA, facts({ delayFlagged: true, meetingPassed: true, askClosedAt: ago(30) }), NOW);
+  assert.deepEqual([owed.pill.label, owed.line, owed.opens, owed.closed], ['Asked', 'waiting 2 h', 'thread', null]);
 });
 
 test('3 · a read that failed claims NOTHING — never the empty answer', () => {

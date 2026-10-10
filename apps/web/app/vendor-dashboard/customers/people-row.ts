@@ -141,10 +141,8 @@ function closedDay(expiresAt: string | null): string | null {
 }
 
 export function peopleRowView(r: PipelineCustomer, f: PeopleFacts, nowMs: number): PeopleRowView {
-  // ── The three closed lines first: each replaces what the lane would say. ──
-  const unswept = r.waitingKind === 'booking_ask' && lockAskPhase(r.expiresAt, nowMs) !== 'answerable';
-  if (unswept || f.askClosedAt) {
-    const day = closedDay(unswept ? r.expiresAt : f.askClosedAt);
+  const closedWindow = (expiresAt: string | null): PeopleRowView => {
+    const day = closedDay(expiresAt);
     return {
       pill: { label: 'Closed', tone: 'quiet' },
       line: day ? `booking window closed ${day}` : 'booking window closed',
@@ -152,7 +150,28 @@ export function peopleRowView(r: PipelineCustomer, f: PeopleFacts, nowMs: number
       opens: 'card',
       closed: 'window',
     };
+  };
+
+  // ── Somebody is waiting on an answer: that is what the row says, first. ──
+  if (r.lane === 'waiting' && r.waitingKind === 'booking_ask') {
+    // …unless the window to answer has shut (expiry is lazy: the row can still
+    // read `pending` long after the deadline). Then it is a closed line.
+    if (lockAskPhase(r.expiresAt, nowMs) !== 'answerable') return closedWindow(r.expiresAt);
+    // The 48-hour window: said in the shared words once it is inside its last day.
+    const hours = lockRequestHoursLeft(r.expiresAt, new Date(nowMs));
+    const fuse = hours !== null && hours < 24 ? lockRequestFuseLabel(r.expiresAt, new Date(nowMs)) : null;
+    return { pill: { label: 'Booking', tone: 'warn' }, line: fuse ?? 'asked to book', lineTone: fuse ? 'warn' : null, opens: 'card', closed: null };
   }
+  if (r.lane === 'waiting' && r.waitingKind === 'inquiry') {
+    // An unaccepted inquiry outranks every closed line: it is the one thing on
+    // this row that is owed, and the customer card is not reachable before it
+    // is accepted — so the row must go to the conversation.
+    const age = r.waitingSince ? waitingAge(r.waitingSince, nowMs) : null;
+    return { pill: LANE_PILL.waiting, line: age?.label ?? null, lineTone: age?.overdue ? 'warn' : null, opens: 'thread', closed: null };
+  }
+
+  // ── The three closed lines: each replaces what the lane would say. ──
+  if (f.askClosedAt) return closedWindow(f.askClosedAt);
   if (f.delayFlagged) {
     return {
       pill: LANE_PILL[r.lane],
@@ -167,16 +186,6 @@ export function peopleRowView(r: PipelineCustomer, f: PeopleFacts, nowMs: number
     return { pill: LANE_PILL[r.lane], line: 'meeting time passed', lineTone: 'warn', opens: 'card', closed: 'meeting' };
   }
 
-  if (r.lane === 'waiting' && r.waitingKind === 'inquiry') {
-    const age = r.waitingSince ? waitingAge(r.waitingSince, nowMs) : null;
-    return { pill: LANE_PILL.waiting, line: age?.label ?? null, lineTone: age?.overdue ? 'warn' : null, opens: 'thread', closed: null };
-  }
-  if (r.lane === 'waiting' && r.waitingKind === 'booking_ask') {
-    // The 48-hour window: said in the shared words once it is inside its last day.
-    const hours = lockRequestHoursLeft(r.expiresAt, new Date(nowMs));
-    const fuse = hours !== null && hours < 24 ? lockRequestFuseLabel(r.expiresAt, new Date(nowMs)) : null;
-    return { pill: { label: 'Booking', tone: 'warn' }, line: fuse ?? 'asked to book', lineTone: fuse ? 'warn' : null, opens: 'card', closed: null };
-  }
   if (r.lane === 'holding') {
     return {
       pill: LANE_PILL.holding,

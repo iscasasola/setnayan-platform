@@ -26,6 +26,11 @@
  *       The day the switch is turned on, the same test demands the held pair instead (one page pair per hand-over,
  *       the scenes block's cell, the island) — both arms were run before this was committed.
  *   (5) IT IS TOOLING — no file of the app imports the fixture or the helper: they add nothing to any page or bundle.
+ *   (6) A COVER STORED TO LEAVE BY SCRUB (the hero row: hand-over zero, `hub-scenes.tsx` `HubCoverHold`) — while
+ *       "Scrub out" ships dark the page is TODAY'S PAGE, byte for byte, and mounts no island: the fence the cover's
+ *       hand-over is wired inside. Written BEFORE the wiring (2026-10-10), so it was green on the unwired page.
+ *       Sabotage, before the wiring: the page's own count asked through the lab's door
+ *       (`hubScrubHoldsAtMost(widgets, proWatermarkHidden, true)`) → (6) red, naming the first changed character.
  *
  * 📌 MEASURED WITH THE SWITCH TURNED ON BY HAND (2026-10-10), for whoever turns it on for good: on this tabbed
  * Invitation the Countdown and the note are each drawn in a scenes block of their OWN on Welcome, so a Countdown
@@ -60,7 +65,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { renderSiteBodyFixture, renderSiteBodyFixtureFull } from './site-body-fixture-render';
 import { FIXTURE_BLOCKS, FIXTURE_SCRUB_SCENE, FIXTURE_WORDS, fixtureWidgets, fixtureWidgetsWithAScrubScene } from './site-body-fixture';
 import { SCRUB_OUT_OFFERED } from './scrub-out-offered';
-import { HubCoverHold, HubPageHold, HubScenes, hubScrubHoldsAtMost } from '../app/[slug]/_components/hub-scenes';
+import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost } from '../app/[slug]/_components/hub-scenes';
+import { LAB_SCRUB_COVER } from '../app/dev/maker-lab/lab-scrub';
 
 const GOLDEN = join(__dirname, 'site-body-fixture.golden.html');
 
@@ -209,6 +215,30 @@ test('(4) a scene stored to leave by Scrub, on a real page: while Scrub ships da
   /* A free event may not Scrub: its page stays the plain page even with the switch on. */
   const free = await renderSiteBodyFixtureFull({ widgets });
   assert.equal(count(free.html, 'class="hub-page-cell"') + count(free.html, 'class="hub-cell"') + free.mounts.HubScrub!, 0);
+});
+
+test('(6) a COVER stored to leave by Scrub, on a real page: while Scrub ships dark it is today’s page, byte for byte, and no island', async () => {
+  const widgets = fixtureWidgets({ hero: LAB_SCRUB_COVER });
+  /* Anti-vacuity: the hero row really stores it — it would hand over, and the page would wrap itself for it, the
+     moment "Scrub out" is offered (asked through the lab's door, as (3) and (4) do). */
+  assert.equal(hubCoverLeaves(widgets, true, true), true, 'the variant page’s cover stores no hand-over');
+  assert.equal(hubScrubHoldsAtMost(widgets, true, true), 1, 'the hero row is not counted by the page’s own hold');
+  assert.equal(hubScrubHoldsAtMost(fixtureWidgets(), true, true), 0, 'anti-vacuity: the plain fixture page stores a Scrub');
+  /* On a Pro event (where Scrub is allowed at all) and on a free one. */
+  for (const pro of [true, false]) {
+    const today = await renderSiteBodyFixture({ proWatermarkHidden: pro });
+    const stored = await renderSiteBodyFixtureFull({ proWatermarkHidden: pro, widgets });
+    assert.deepEqual(stored.complaints, []);
+    assert.ok(stored.html.length > 20_000, 'an empty shell');
+    if (SCRUB_OUT_OFFERED && pro) {
+      /* ☀ OFFERED. The cover of the real page is not handed over yet — this arm is written with the wiring
+         (`HubCoverHold` in `site-body.tsx`). Until then switching Scrub on must not pass here by saying nothing. */
+      assert.fail('"Scrub out" is offered, and the cover’s hand-over on the real page has no guard yet');
+    }
+    /* 🌑 DARK (and a free event, always): today's page — not a box, not a class, not a mark, not a script. */
+    assert.ok(stored.html === today, `a cover stored to leave by Scrub changed the page (${pro ? 'Pro' : 'free'} event) — ${firstDifference(stored.html, today)}`);
+    assert.equal(stored.mounts.HubScrub, 0, `a page whose cover does not leave mounts the Scrub island (${pro ? 'Pro' : 'free'} event)`);
+  }
 });
 
 test('(5) it is tooling: no file of the app imports the fixture, the helper or the golden', () => {

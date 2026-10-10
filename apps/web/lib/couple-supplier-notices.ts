@@ -179,6 +179,18 @@ export const COUPLE_SUPPLIER_NOTICES = {
     event: 'name_and_date',
     why: 'nothing more is owed on the booking',
   },
+  change_order_proposed: {
+    to: 'either',
+    reach: 'email',
+    event: 'name_and_date',
+    why: 'a change to what the couple owes waits on the other side’s yes',
+  },
+  change_order_answered: {
+    to: 'either',
+    reach: 'email',
+    event: 'name_and_date',
+    why: 'the answer to a change in what the couple owes; a yes moves the total',
+  },
   pax_surcharge_changed: {
     to: 'couple',
     reach: 'email',
@@ -339,26 +351,16 @@ export const COUPLE_SUPPLIER_NOTICES = {
     why: 'news with nothing to answer — a supplier replied to a review already left',
   },
   /*
-    ⛔ FOUR OF THIS TYPE'S TEN EMIT SITES MOVE MONEY, AND THEY CANNOT BE EMAILED
-    WITHOUT EMAILING THE OTHER SIX (counted 2026-10-10:
-    `grep -rn "type: 'schedule_suggestion'" app lib`). The four are the change
-    orders — raiseChangeOrder, respondChangeOrder, vendorRaiseChangeOrder,
-    vendorRespondChangeOrder — each a signed `vendor_change_orders.delta_amount_php`
-    on what the couple owes. The other six are meeting asks, terms, a handover
-    and a schedule answer. Nothing on a notification row or in
-    `emitNotification`'s arguments tells them apart: the allowlist and the
-    reason line are both keyed on the TYPE, and the only difference is the
-    title's wording. So it needs its own types, i.e. a migration, not written:
-
-        ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'change_order_proposed';
-        ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'change_order_answered';
-
-    Then move the four sites onto them, email both, and declare both here.
+    One type, six things: schedule answers, meeting asks, terms, a handover.
+    lib/notifications.ts keeps it in-app. Until 2026-10-10 it ALSO carried the
+    four change-order notices, which move what the couple owes — those now have
+    their own two types above (migration 20271267016300) and are emailed.
+    Six emit sites remain (2026-10-10); guard test 8 names the four that left.
   */
   schedule_suggestion: {
     to: 'either',
     reach: 'app_only',
-    why: 'one type carries schedule answers, meeting asks, terms, a handover AND change orders; lib/notifications.ts keeps it in-app, and the four change-order sites cannot be emailed apart from the other six without a type of their own',
+    why: 'schedule answers, meeting asks, terms and a handover — none moves money; lib/notifications.ts keeps the generic schedule register in-app',
   },
   papic_challenge_pending: {
     to: 'couple',

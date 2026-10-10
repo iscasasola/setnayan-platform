@@ -608,3 +608,35 @@ test('7 · a pending booking request that is taken away tells the supplier — W
   );
   assert.match(remove, /if \(tookAnAskAway && removed\?\.marketplace_vendor_id\) \{\s*try \{\s*await tellSupplierLockRequestWithdrawn\(/, 'the notice is no longer tied to a waiting request');
 });
+
+/* ═══ 8 · A CHANGE IN WHAT IS OWED HAS ITS OWN TYPE, AND THE ROW'S FIGURE ═══ */
+
+test('8 · the four change-order notices left the in-app-only register, and the other six stayed', () => {
+  const COUPLE = 'app/dashboard/[eventId]/vendors/actions.ts';
+  const SUPPLIER = 'app/vendor-dashboard/clients/[eventId]/actions.ts';
+  const doors: Array<[string, string, string]> = [
+    [COUPLE, 'raiseChangeOrder', 'change_order_proposed'],
+    [COUPLE, 'respondChangeOrder', 'change_order_answered'],
+    [SUPPLIER, 'vendorRaiseChangeOrder', 'change_order_proposed'],
+    [SUPPLIER, 'vendorRespondChangeOrder', 'change_order_answered'],
+  ];
+  for (const [file, fn, type] of doors) {
+    const body = functionBody(file, fn);
+    assert.equal(body.split(`type: '${type}'`).length - 1, 1, `${fn} must emit ${type} exactly once`);
+    assert.ok(!body.includes("type: 'schedule_suggestion'"), `${fn} still sends a money change on the in-app-only schedule register`);
+    // The figure comes off the row — read back after a raise, selected on an answer.
+    assert.match(
+      body,
+      type === 'change_order_proposed' ? /await readChangeOrderJustRaised\(/ : /\.select\('[a-z_, ]*delta_amount_php'\)/,
+      `${fn} no longer reads the figure off vendor_change_orders`,
+    );
+    // …and never off the form: the typed amount must not reach the notice.
+    const notice = body.slice(body.indexOf('changeOrder'));
+    assert.doesNotMatch(notice, /\b(delta|magnitude)\b/, `${fn} passes the typed amount into the notice`);
+  }
+  // The other six are untouched: still six, still the generic type.
+  const rest = sitesOf('schedule_suggestion');
+  console.log(`# schedule_suggestion sites left: ${rest.length} (${[...new Set(rest.map((s) => s.file))].join(', ')})`);
+  assert.equal(rest.length, 6, 'a schedule/meeting/handover notice moved or a new one appeared — schedule_suggestion had six sites after the change orders left');
+  assert.equal(sitesOf('change_order_proposed').length + sitesOf('change_order_answered').length, 4);
+});

@@ -11,6 +11,12 @@ import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
 import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
+import {
+  changeOrderAnsweredNotice,
+  changeOrderProposedNotice,
+  type ChangeOrderForNotice,
+} from '@/lib/change-order-notice';
+import { readChangeOrderJustRaised } from '@/lib/change-order-notice.server';
 import { depositAnswerReturnTo, vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { uploadPublicAsset } from '@/lib/storage';
@@ -851,13 +857,25 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
         .select('user_id')
         .eq('event_id', eventId)
         .eq('member_type', 'couple');
+      // Its OWN type since 2026-10-10 — it moves what the couple owes, so it is
+      // emailed; `schedule_suggestion` (in-app only) carried it before. The
+      // figure is read back off the row, never taken from the form.
+      const notice = changeOrderProposedNotice({
+        from: 'supplier',
+        supplierName: vendorName,
+        row: await readChangeOrderJustRaised(admin, {
+          eventVendorId,
+          raisedByUserId: user.id,
+        }),
+        typedTitle: title as string,
+      });
       for (const m of members ?? []) {
         if (!m.user_id) continue;
         await emitNotification({
           userId: m.user_id,
-          type: 'schedule_suggestion',
-          title: `${vendorName} proposed a change order`,
-          body: `${(title as string).trim().slice(0, 120)} — open the supplier to accept or decline.`,
+          type: 'change_order_proposed',
+          title: notice.title,
+          body: notice.body,
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }
@@ -917,11 +935,15 @@ export async function vendorRespondChangeOrder(formData: FormData) {
       const admin = createAdminClient();
       const { data: co } = await admin
         .from('vendor_change_orders')
-        .select('event_vendor_id, title')
+        .select('event_vendor_id, title, delta_amount_php')
         .eq('change_order_id', changeOrderId)
         .maybeSingle();
       const eventVendorId = (co as { event_vendor_id?: string } | null)?.event_vendor_id ?? null;
-      const coTitle = (co as { title?: string } | null)?.title ?? 'Change order';
+      const notice = changeOrderAnsweredNotice({
+        by: 'supplier',
+        decision,
+        row: (co as ChangeOrderForNotice | null) ?? null,
+      });
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -931,9 +953,9 @@ export async function vendorRespondChangeOrder(formData: FormData) {
         if (!m.user_id) continue;
         await emitNotification({
           userId: m.user_id,
-          type: 'schedule_suggestion',
-          title: decision === 'accept' ? 'Change order accepted' : 'Change order declined',
-          body: `Your supplier ${decision === 'accept' ? 'accepted' : 'declined'} "${coTitle.slice(0, 80)}".`,
+          type: 'change_order_answered',
+          title: notice.title,
+          body: notice.body,
           relatedUrl: eventVendorId
             ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`
             : `/dashboard/${eventId}/vendors`,

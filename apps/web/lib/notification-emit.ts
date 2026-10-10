@@ -395,6 +395,14 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   */
   'quote_accepted',
   'quote_declined',
+  /*
+    💸 A CHANGE ORDER (2026-10-10) → whichever side did not act. It is a signed
+    amount on what the couple owes, and all four of its notices rode
+    `schedule_suggestion`, which is in-app only. Enum values: 20271267016300.
+    Transactional — the price of their own booking — so NOT marketing-gated.
+  */
+  'change_order_proposed',
+  'change_order_answered',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

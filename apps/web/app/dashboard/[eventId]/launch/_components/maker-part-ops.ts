@@ -38,6 +38,8 @@ export type MakerPartRaw = {
   scenes: readonly MakerScene[];
   move: (id: string, delta: number) => void;
   eyeWrite: (scene: MakerScene) => void;
+  /** 👁 What the eye took off a stage since the last render that agreed — `"<stage>:<scene id>"` (`lib/maker-list-gates.ts`). */
+  hereOff: Readonly<Record<string, true>>;
   sceneRemovers: Readonly<Record<string, ReactNode>>;
   navigator: WorkProps['navigator'];
   elementEditing: WorkProps['elementEditing'];

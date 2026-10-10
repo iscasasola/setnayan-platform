@@ -1247,6 +1247,8 @@ export function StageTools({
     lineWhy: rsvpList.stays,
     away: rsvpList.away,
     name: rsvpCard ? RSVP_CARD_NAME : undefined,
+    /* 🫥 A part taken off this page is let go of — its tools fold with it (`add-part-sheet.tsx` `onGone`). */
+    onGone: deselect,
   });
   /* ── ✍ THE PICKED PART'S WORDS, FOR EDIT'S ROWS — read off the page (`part-words.ts`): what the page draws is what
      can be typed, so a part whose words the page does not draw keeps its one door. Read again whenever the canvas

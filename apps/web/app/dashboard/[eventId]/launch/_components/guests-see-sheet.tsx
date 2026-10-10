@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Check, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { stageEyeValue } from '@/lib/stage-eye';
 import {
   GUESTS_SEE_COLUMNS,
   GUESTS_SEE_WORDS as W,
@@ -15,6 +16,7 @@ import {
   guestsSeeOn,
   guestsSeePatch,
   guestsSeeToggle,
+  guestsSeeWithRemoved,
   type GuestsSeeCell,
   type GuestsSeeRow,
   type GuestsSeeTable,
@@ -50,13 +52,28 @@ export function guestsSeeWorkArea(): { eventId: string; table: GuestsSeeTable; d
      imported here, so this file stays free of the server's modules. No door, no sheet: the row is not offered. */
   const door = raw?.elementEditing?.draftAction;
   if (!raw || !table || !door) return null;
-  return { eventId: raw.eventId, table, door };
+  return { eventId: raw.eventId, table: guestsSeeWithRemovedFrom(table, raw), door };
+}
+
+/**
+ * 🗑 WHAT THE CANVAS JUST TOOK OFF, FOR THE TABLE (`lib/guests-see-table.ts` `guestsSeeWithRemoved`): each part the
+ * work area holds off a stage (`hereOff`, `"<stage>:<scene id>"`) with the value the eye stored for it
+ * (`stageEyeValue` — the very value it sent).
+ */
+function guestsSeeWithRemovedFrom(table: GuestsSeeTable, raw: Pick<MakerPartRaw, 'hereOff' | 'scenes' | 'navigator'>): GuestsSeeTable {
+  const removed = Object.keys(raw.hereOff ?? {}).flatMap((key) => {
+    const at = key.indexOf(':');
+    const stage = key.slice(0, at) as keyof MakerPartRaw['navigator']['stageEye'];
+    const type = raw.scenes.find((sc) => sc.id === key.slice(at + 1))?.type;
+    return type ? [{ type, stage, stored: stageEyeValue((raw.navigator.stageEye?.[stage] as Record<string, { base: boolean } | undefined> | undefined)?.[type], false) }] : [];
+  });
+  return guestsSeeWithRemoved(table, removed);
 }
 
 const HEAD = 'w-12 shrink-0 px-0.5 text-center text-[9.5px] font-semibold leading-[1.15] text-ink/60';
 const CELL = 'relative flex h-11 w-12 shrink-0 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ink/40';
 
-function Mark({ cell, on }: { cell: GuestsSeeCell; on: boolean }) {
+function Mark({ cell, on, dim = false }: { cell: GuestsSeeCell; on: boolean; dim?: boolean }) {
   if (cell.kind === 'dash') return <span aria-hidden data-gs-mark="dash" className="h-[2px] w-3 rounded-full bg-ink/35" />;
   if (cell.kind === 'locked') {
     return on ? (
@@ -70,7 +87,10 @@ function Mark({ cell, on }: { cell: GuestsSeeCell; on: boolean }) {
       <span
         aria-hidden
         data-gs-mark={on ? 'on' : 'off'}
-        className={`flex h-[22px] w-[22px] items-center justify-center rounded-md border-[1.5px] ${on ? 'border-sn-accent bg-sn-accent text-sn-on-accent' : 'border-ink/30 text-transparent'}`}
+        /* A row with nothing written yet keeps its ticks and wears them faint (the prototype's `.r.empty … .bx{opacity:.4}`) —
+           the line under its name says why. */
+        className={`flex h-[22px] w-[22px] items-center justify-center rounded-md border-[1.5px] ${on ? 'border-sn-accent bg-sn-accent text-sn-on-accent' : 'border-ink/30 text-transparent'} ${dim ? 'opacity-40' : ''}`}
+        {...(dim ? { 'data-gs-dim': '' } : {})}
       >
         <Check className="h-3.5 w-3.5" strokeWidth={3} />
       </span>
@@ -190,7 +210,7 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
                         onClick={() => tap(row, col)}
                         className={`${CELL} active:scale-95`}
                       >
-                        <Mark cell={cell} on={on} />
+                        <Mark cell={cell} on={on} dim={row.empty} />
                       </button>
                     ) : (
                       <button

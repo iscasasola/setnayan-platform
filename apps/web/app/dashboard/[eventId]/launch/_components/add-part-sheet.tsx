@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { listWithGates } from '@/lib/maker-list-gates';
+import { listWithGates, partTakenOff } from '@/lib/maker-list-gates';
 import { usePopupBehind } from '@/lib/use-popup-behind';
 import { createPortal } from 'react-dom';
 import { Check, Plus, Trash2, X } from 'lucide-react';
@@ -87,8 +87,9 @@ export function partOpsOf(raw: MakerPartRaw): MakerPartOps {
     eventId: raw.eventId,
     stage,
     /* 🗑 The list as the work area's own scenes say it is: a scene taken off a moment ago (a held save — no render
-       follows it) is one ＋ can bring back (`lib/maker-list-gates.ts`). */
-    list: listWithGates(raw.list, raw.scenes),
+       follows it) is one ＋ can bring back (`lib/maker-list-gates.ts`) — by the event-wide gates, and by the eye's
+       own per-stage value (`hereOff`), which is what Remove writes now. */
+    list: listWithGates(raw.list, raw.scenes, raw.hereOff),
     fullOrder: raw.fullOrder,
     afterLastShown: raw.afterLastShown,
     scenes: raw.scenes,
@@ -277,6 +278,13 @@ type PartEditsProps = {
   /** ✋ The frame steps aside (a line of the RSVP stage is held to be moved, or lines are being picked for a group —
    *  the prototype draws no frame then). The part stays picked. */
   away?: boolean;
+  /**
+   * 🫥 THE PICKED PART IS NO LONGER ON THIS PAGE — the couple took it off (Remove a moment ago, a box unticked in
+   * "What guests see", an Undo of its ＋). Whoever holds the selection lets go: the panel went on reading
+   * "You're editing · Invitation › Welcome › Countdown" with a live Remove for a part the page no longer drew, and
+   * that Remove would have put it BACK (the eye is a toggle) — the walk of 2026-10-11, M09.
+   */
+  onGone?: () => void;
 };
 
 /**
@@ -302,7 +310,7 @@ export function PartEdits(props: PartEditsProps) {
   return usePartEdits(props).node;
 }
 
-export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null, lineWhy = null, away = false }: PartEditsProps): PartEditsNow {
+export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null, lineWhy = null, away = false, onGone }: PartEditsProps): PartEditsNow {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (line?.key ?? MAKER_PARTS[picked].el ?? null) : null;
@@ -342,6 +350,14 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   /* The work area's writes, read again whenever the part changes (and its render lands). */
   const renderStamp = useMaker()?.renderStamp;
   useEffect(() => setOps(askPartOps()), [canvas, renderStamp, adding, removing]);
+
+  /* 🫥 The work area's list folds the picked part as taken off by the couple (`listWithGates`): let go of it. */
+  const gone = partTakenOff(ops, canvas);
+  const onGoneRef = useRef(onGone);
+  onGoneRef.current = onGone;
+  useEffect(() => {
+    if (gone) onGoneRef.current?.();
+  }, [gone, canvas]);
 
   const mv = isReveal ? ({ kind: 'fixed' } as Movable) : movableOf(ops, canvas);
   const ownScene = mv.kind === 'scene' && mv.own;

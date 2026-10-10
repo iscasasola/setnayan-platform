@@ -4,6 +4,7 @@ import { INVITE_THEMES } from '@/lib/invite-themes';
 import type { InvitationWidgetRow, LifecyclePhase } from '@/lib/invitation-widgets';
 import type { PostEventMakerRead } from '@/lib/post-event-scenes';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
+import type { GuestsSeeInput } from '@/lib/what-guests-see';
 import { LAB_SAMPLE } from './guest/lab-sample';
 
 /**
@@ -19,7 +20,11 @@ export function labNavigatorInput(rows: readonly InvitationWidgetRow[]): Omit<Pa
       widgets: rows,
       openBrowse: true,
       weddingOnlyParts: resolveWeddingOnlyParts(WEDDING_PROFILE),
-      content: {},
+      /* 🧩 WHAT THE SAMPLE HAS NOTHING IN: the three scenes the lab's canvas draws as an empty scene's place
+         (`guest/page.tsx`: the love story, the gallery, the reminders — `MakerEmptyScene`). The lab said "everything
+         is written", so "What guests see" ticked a part the canvas could not draw with no word of why (the walk of
+         2026-10-11, M08); now each of those rows says it: "Nothing written yet — guests will not see it." */
+      content: LAB_EMPTY,
       solemn: false,
       hasHeroMedia: false,
       hasEntourage: true,
@@ -50,6 +55,15 @@ export function labNavigatorInput(rows: readonly InvitationWidgetRow[]): Omit<Pa
     },
     photoUrls: {},
   };
+}
+
+/** The scenes the sample has nothing in yet — one list for the Maker's lists, the table and the canvas. */
+export const LAB_EMPTY: Readonly<Partial<Record<'our_love_story' | 'our_photos' | 'what_to_bring', false>>> = { our_love_story: false, our_photos: false, what_to_bring: false };
+
+/** The lab's facts as `sceneOnStage` takes them (`lib/what-guests-see.ts`) — the same ones the navigator is built from. */
+export function labSeen(rows: readonly InvitationWidgetRow[]): Pick<GuestsSeeInput, 'widgets' | 'openBrowse' | 'weddingOnlyParts' | 'content' | 'solemn' | 'countdownPast'> {
+  const plan = labNavigatorInput(rows).plan;
+  return { widgets: rows, openBrowse: plan.openBrowse, weddingOnlyParts: plan.weddingOnlyParts, content: plan.content, solemn: plan.solemn, countdownPast: plan.countdownPast };
 }
 
 /**

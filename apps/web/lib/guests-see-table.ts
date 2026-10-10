@@ -200,8 +200,9 @@ export function guestsSeePatch(writes: GuestsSeeWrites): { widgets: Record<strin
  * THE TABLE AFTER ITS PENDING TICKS WERE KEPT — each written cell now stores that
  * choice and shows what it asked for (`value ?? base`). The sheet lays this over
  * the table it was handed until the Maker's next render brings the server's own.
+ * It is also how the table learns of a part the CANVAS just took off (`guests-see-sheet.tsx` `guestsSeeWithRemoved`).
  */
-export function guestsSeeKept(table: GuestsSeeTable, writes: GuestsSeeWrites): GuestsSeeTable {
+export function guestsSeeKept(table: GuestsSeeTable, writes: GuestsSeeWrites, shown?: boolean): GuestsSeeTable {
   return {
     groups: table.groups.map((g) => ({
       ...g,
@@ -212,9 +213,26 @@ export function guestsSeeKept(table: GuestsSeeTable, writes: GuestsSeeWrites): G
           const id = cellId(row, col);
           if (!(id in writes)) return cell;
           const value = writes[id] ?? null;
-          return { ...cell, choice: value, on: value ?? cell.base };
+          /* `shown` given: the caller KNOWS what the page now draws there (the canvas's own Remove: not drawn —
+             whatever the table's `base` says of a place off the list). */
+          return { ...cell, choice: value, on: shown ?? value ?? cell.base };
         }),
       })),
     })),
   };
+}
+
+/**
+ * 🗑 THE TABLE WITH WHAT THE CANVAS JUST TOOK OFF. A Remove on the page is drawn at the tap and owes no render (the
+ * Maker's eye holds a hide), so the table the work area was handed is the LAST render's — and still ticks the box of
+ * the part just removed (the walk of 2026-10-11, M06: "Countdown × Invitation is STILL TICKED"). Each removed part
+ * comes with the value the eye stored for it; its box is then empty, holds that choice, and a second tap writes what
+ * it would after the next render. Nothing else in the table moves.
+ */
+export function guestsSeeWithRemoved(
+  table: GuestsSeeTable,
+  removed: ReadonlyArray<{ type: string; stage: string; stored: boolean | null }>,
+): GuestsSeeTable {
+  if (removed.length === 0) return table;
+  return guestsSeeKept(table, Object.fromEntries(removed.map((r) => [`${r.type}:${r.stage}`, r.stored])), false);
 }

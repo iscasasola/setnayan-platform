@@ -15,7 +15,6 @@ import {
   defaultMotion,
   isLayeredLogo,
   LOGO_FRAME,
-  LOGO_WRITE_CELLS,
   type LogoDuring,
   type LogoFrameKind,
   type LogoIn,
@@ -24,11 +23,10 @@ import {
   type LogoMotion,
   type LogoOut,
   type LogoWritePath,
-  penAlong,
   R,
-  resampleWrite,
   sanitizeRotate,
 } from './logo-layers';
+import { LOGO_WRITE_CELLS, penAlong, resampleWrite } from './logo-layers-player';
 
 export const LOGO_IN_LABEL: Record<LogoIn, string> = { draw: 'Draw on', rise: 'Rise', fade: 'Fade', none: 'None' };
 export const LOGO_DURING_LABEL: Record<LogoDuring, string> = { still: 'Still', drift: 'Drift' };

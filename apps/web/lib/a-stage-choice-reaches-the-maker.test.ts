@@ -39,7 +39,8 @@ import { join } from 'node:path';
 
 import { STAGE_SCENES, STAGE_SHOW_KEY, stageRowOrder, stagePlacesAfterMove } from './stage-scenes';
 import { WIDGET_CATALOG_BY_TYPE, isWidgetType, widgetInPhase, type InvitationWidgetRow, type LifecyclePhase, type WidgetType } from './invitation-widgets';
-import { hiddenOnStageLine, makerStageList, type MakerStageInput } from './maker-scene-list';
+import { ON_THE_DAYS_WELCOME, hiddenOnStageLine, makerStageList, type MakerStageInput } from './maker-scene-list';
+import { sceneOnStage } from './what-guests-see';
 import { configWithDraftedStage, emptyHubDraft, mergeHubDraft } from './hub-draft';
 import { stripComments } from './strip-comments';
 
@@ -119,7 +120,7 @@ test('3 · added to a stage: listed after the stage’s own scenes; refused wher
       const l = list(rows({ [type]: { is_visible: eye, show: { event: true } } }), 'event');
       assert.ok(!scenes(l).includes(type));
       const fold = foldOf(l, type)!;
-      assert.equal(fold.reason, 'On the day, each guest meets it on their Welcome.');
+      assert.equal(fold.reason, ON_THE_DAYS_WELCOME);
       assert.equal(fold.hiddenByCouple, false, 'shown on The Day reads as hidden by the couple');
     }
   }
@@ -211,4 +212,21 @@ test('6 · the move action swaps in a list that has an added scene — one added
   assert.equal(body.match(/stageRowOrder\(rows, stage,/g)?.length, 1, 'the move swaps in the stage’s own full order');
   const STORE = stripComments(readFileSync(join(__dirname, 'hub-draft-store.ts'), 'utf8'));
   assert.match(STORE, /return \(widgetType, config\) => configWithDraftedStage\(config, widgets\[widgetType\]\);/);
+});
+
+test('7 · on The Day the fold says WHERE guests meet the dress code and the reminders — never "Not part of this stage"', () => {
+  /* The fault (confirmed in step 1): a guest reads both on The Day — the Day's Welcome draws them, and the recorded
+     page says so (`every-stage-is-todays-page` (1): "the Day's Welcome carries the reminders"; `sceneOnStage` puts
+     them off the list at 'welcome') — while the Maker folded them as another stage's. A list correction: no page moves. */
+  for (const type of ['dress_code', 'what_to_bring'] as const) {
+    const seen = sceneOnStage({ widgets: rows(), stage: 'event' }, type)!;
+    assert.deepEqual([seen.drawn, seen.offList], [true, 'welcome'], 'anti-vacuity: a guest meets it on The Day');
+    const fold = foldOf(list(rows(), 'event'), type)!;
+    assert.equal(fold.reason, ON_THE_DAYS_WELCOME);
+    assert.equal(fold.hiddenByCouple, false);
+    // Switched off for the whole event, the Welcome does not draw it — and the fold says that instead.
+    assert.match(foldOf(list(rows({ [type]: { is_visible: false } }), 'event'), type)!.reason, /^Hidden from guests/);
+    // On a stage that really leaves it out, the old line stands.
+    assert.match(foldOf(list(rows(), 'save_the_date'), type)!.reason, /^Not part of this stage\./);
+  }
 });

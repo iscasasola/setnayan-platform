@@ -55,7 +55,7 @@ import { postEventRunKey } from './post-event-draft';
 import type { SceneTemplateId } from './scene-templates';
 import { splitAroundEntourage, stageShowsEntourage } from './stage-scenes';
 import { welcomeParts } from './invitation-welcome';
-import { hiddenOnStage, sceneMeetsGuestsOn, stageChoice, whyNotInStageList } from './what-guests-see';
+import { DAY_WELCOME_SCENES, hiddenOnStage, sceneMeetsGuestsOn, stageChoice, whyNotInStageList } from './what-guests-see';
 
 /** The sections that are always in their place on a stage — never dragged. */
 export type MakerFixedKey =
@@ -157,6 +157,9 @@ export type MakerFolded = {
    */
   hiddenHere?: true;
 };
+
+/** The fold's line for the two scenes the Day's Welcome draws itself (the guest's look, the reminders). */
+export const ON_THE_DAYS_WELCOME = 'On the day, each guest meets it on their Welcome.';
 
 /** The fold's line for a scene the couple hid on this stage alone — the table's own phrase ("Hidden on The Day."). */
 export const hiddenOnStageLine = (stage: LifecyclePhase): string => `Hidden on ${PUBLIC_STAGE_LABELS[stage]}.`;
@@ -677,7 +680,10 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     if (choice === false) reason = hiddenOnStageLine(stage);
     else if (!visible) reason = 'Hidden from guests — tap the eye to show it.';
     else if (GUEST_ONLY.has(t)) reason = "Only on each guest's own link.";
-    else if (refused === 'DAY_WELCOME_SCENES') reason = 'On the day, each guest meets it on their Welcome.';
+    /* 🧭 ON THE DAY THE WELCOME DRAWS IT (`welcomePartsOnTheDay`): the dress code (the guest's look) and the reminders
+       are not in the day's list of scenes, and a guest still meets them — so the fold says where, never "Not part of
+       this stage" (which sent a couple looking for a scene their guests were already reading). */
+    else if (stage === 'event' && DAY_WELCOME_SCENES.includes(t)) reason = ON_THE_DAYS_WELCOME;
     else if (refused === 'resolveWidgetTerminalState') reason = 'Retired after the day.';
     else if (choice !== true && !openBrowse && !widgetInPhase(t, stage)) reason = `Not part of this stage. ${showsOn(t)}`;
     else if (!PUBLIC_WIDGET_ALLOWLIST.includes(t)) reason = "Only on each guest's own link.";

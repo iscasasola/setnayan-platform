@@ -4,19 +4,19 @@
  * The rows are the page's own, moved here unchanged so they can be drawn twice
  * — the suppliers in reach, and (once asked for) the ones farther away — and so
  * `/dev/suppliers-lab?find=<category>` can draw the SAME rows on fixtures at
- * 375 px. No 'use client': it is rendered on the server, and only the two
- * pressable bits (Save · Ask for a quote) are client components.
+ * 375 px. No 'use client': it is rendered on the server, and only the
+ * pressable bit (Ask for a quote) is a client component.
  */
 import Link from 'next/link';
 import { ChevronRight, Star } from 'lucide-react';
 import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import type { CategoryVendorResult } from '../../_actions/category-search';
-import { FindAskButton, SaveToBenchButton, ShowFartherButton } from './find-supplier-controls';
+import { FindAskButton, ShowFartherButton } from './find-supplier-controls';
 
 export type FindSupplierRow = Pick<
   CategoryVendorResult,
-  'vendorProfileId' | 'name' | 'logoUrl' | 'city' | 'startsAtPhp' | 'rating' | 'reviewCount' | 'relationshipDepth' | 'alreadyAdded'
+  'vendorProfileId' | 'name' | 'logoUrl' | 'city' | 'startsAtPhp' | 'rating' | 'reviewCount' | 'relationshipDepth'
 >;
 
 export function FindSupplierList({
@@ -25,7 +25,7 @@ export function FindSupplierList({
   rows,
 }: {
   eventId: string;
-  /** The category being browsed — what a Save files the supplier under. */
+  /** The category being browsed — what asking files the supplier under. */
   tile: string;
   rows: readonly FindSupplierRow[];
 }) {
@@ -86,15 +86,11 @@ export function FindSupplierList({
                   </Link>
                 </>
               ) : (
-                <>
-                  <SaveToBenchButton
-                    eventId={eventId}
-                    vendorProfileId={r.vendorProfileId}
-                    tile={tile}
-                    initiallySaved={r.alreadyAdded}
-                  />
-                  <FindAskButton eventId={eventId} vendorProfileId={r.vendorProfileId} tile={tile} />
-                </>
+                // ONE button — the approved row (`ib('chat','Ask for a quote',…,
+                // 'main')`). "Save" is retired here: owner 2026-10-07, "Save is
+                // retired because the marketplace now sits on the page". Asking
+                // saves the supplier as it asks (`FindAskButton`).
+                <FindAskButton eventId={eventId} vendorProfileId={r.vendorProfileId} tile={tile} />
               )}
             </div>
           </li>

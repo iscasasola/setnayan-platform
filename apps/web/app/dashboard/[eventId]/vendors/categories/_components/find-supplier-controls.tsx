@@ -8,8 +8,9 @@
  *    shipped PickMenu with `picked` (several-of-many = one dropdown with
  *    checkmarks, INTERACTION_RULES §2); a pick rewrites `?f=` and the server
  *    re-renders the list.
- *  - `SaveToBenchButton` — the same `saveVendorToPicks` the bench's search
- *    sheet calls, with the event on screen and the category being browsed.
+ *  - `FindAskButton` — "Ask for a quote", the row's ONE button. (The row's
+ *    "Save" is retired — owner 2026-10-07: "Save is retired because the
+ *    marketplace now sits on the page"; asking saves, see the button.)
  *  - `ShowFartherButton` — the bench search's "Show suppliers farther away"
  *    (`category-search-overlay.tsx`), its words and its look. Here a press
  *    adds `far=1` to the address and the server re-renders with the second
@@ -17,7 +18,7 @@
  */
 import { useState, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Bookmark, Check, MessageCircle } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
 import { haptic } from '@/lib/haptics';
@@ -58,62 +59,6 @@ export function FindFilterMenu() {
       dataAttr="data-find-filter"
       compact
     />
-  );
-}
-
-export function SaveToBenchButton({
-  eventId,
-  vendorProfileId,
-  tile,
-  initiallySaved,
-}: {
-  eventId: string;
-  vendorProfileId: string;
-  tile: string;
-  initiallySaved: boolean;
-}) {
-  const [saved, setSaved] = useState(initiallySaved);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const save = () => {
-    setError(null);
-    const fd = new FormData();
-    fd.set('vendor_profile_id', vendorProfileId);
-    fd.set('event_id', eventId);
-    fd.set('tile', tile);
-    startTransition(async () => {
-      const res = await saveVendorToPicks(fd);
-      if (res.status === 'ok' || res.status === 'already_saved') setSaved(true);
-      else setError("Couldn't save — try again.");
-    });
-  };
-
-  if (saved) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-ink/60">
-        <Check className="h-3.5 w-3.5" aria-hidden />
-        Saved
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex flex-col">
-      <button
-        type="button"
-        onClick={save}
-        disabled={pending}
-        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-2 text-[12.5px] font-semibold text-ink transition-colors hover:bg-ink/5 disabled:opacity-60"
-      >
-        <Bookmark className="h-3.5 w-3.5" aria-hidden />
-        {pending ? 'Saving…' : 'Save'}
-      </button>
-      {error ? (
-        <span role="alert" className="mt-1 text-[11px] text-danger-700">
-          {error}
-        </span>
-      ) : null}
-    </span>
   );
 }
 

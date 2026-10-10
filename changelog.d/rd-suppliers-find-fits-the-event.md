@@ -157,6 +157,25 @@ words for "N, none free").
   or holding a window, reads "Nobody is free on <day> · <day>." / "Nobody is
   free on <start> – <end>." — its words, nothing added but the dates.
 
+### 6 · A Find row has one button
+
+- **"Ask for a quote" is one button everywhere on this page** — the button
+  rule's main `ActionButton`, the same component, tone and icon as the supplier
+  sheet's (and the prototype's `ib('chat','Ask for a quote',…,'main')`). The
+  row's older hand-styled pill is gone.
+- **"Save" is retired on Find's rows** — owner 2026-10-07: *"Save is retired
+  because the marketplace now sits on the page"*. The approved unfolded row has
+  one button; Save survived only in the prototype's `find` sheet, which nothing
+  in the prototype opens. Nothing depends on a supplier being saved first:
+  asking saves (`FindAskButton` → `saveVendorToPicks` with the event and the
+  category on screen, then `contactShortlistVendor`), as "More to compare" and
+  the sheet already do. A side effect worth knowing: the old pill anchored the
+  inquiry on the supplier's FIRST card whatever category was being browsed; it
+  now anchors on their card in that category.
+- `port-control-baseline.json` regenerated with its generator: the Find route
+  no longer shows `<ContactShortlistVendorButton>` (replaced by
+  `<FindAskButton>`) or `<SaveToBenchButton>` (retired, ruling above).
+
 SPEC IMPACT: None beyond the row already filed — `DECISION_LOG.md` 2026-10-10
 "SEARCH SHOWS ONLY WHAT CAN BE BOOKED FOR THIS EVENT; ONE INQUIRY COVERS EVERY
 CATEGORY THE COUPLE TICKS" (the controller filed it; this change implements it).

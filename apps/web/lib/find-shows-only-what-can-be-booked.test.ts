@@ -312,3 +312,25 @@ test('🔑 asking saves: the press files the supplier under the category on scre
   assert.match(ask.slice(save, contact), /if \(saved\.status !== 'ok' && saved\.status !== 'already_saved'\) \{[\s\S]*?return;\s*\}/);
   assert.equal((ask.match(/contactShortlistVendor\(/g) ?? []).length, 1);
 });
+
+// ── "SAVE" IS RETIRED ON FIND'S ROWS ──────────────────────────────────────
+// Owner, 2026-10-07 (SUPPLIERS_PAGE_CHECK): "Save is retired because the
+// marketplace now sits on the page". The approved unfolded row has ONE button,
+// ib('chat','Ask for a quote',…,'main'); "Save" survived only in the
+// prototype's `find` sheet, which nothing in the prototype opens.
+test('🔑 a Find row has ONE button — "Ask for a quote"; Save is retired, and nothing here needs a supplier saved first', () => {
+  for (const [name, src] of [['the list', LIST], ['the controls', CONTROLS], ['the page', read(FIND)]] as const) {
+    assert.doesNotMatch(src, /SaveToBenchButton/, `${name} still draws Save`);
+    assert.doesNotMatch(src, />\s*Save\s*</, `${name} still says Save on a control`);
+    assert.doesNotMatch(src, /Bookmark/, `${name} still carries the Save icon`);
+  }
+  // The un-booked row's actions: exactly one control.
+  const actions = LIST.slice(LIST.indexOf('{isBooked ? ('), LIST.indexOf('</li>'));
+  const unbooked = actions.slice(actions.indexOf(') : ('));
+  assert.deepEqual(unbooked.match(/<[A-Z][A-Za-z]*/g), ['<FindAskButton'], 'the row offers something besides the one ask');
+  // The only caller of the save on this page is the ask itself — it saves as it asks.
+  assert.equal((CONTROLS.match(/saveVendorToPicks\(/g) ?? []).length, 1);
+  assert.ok(fnSlice(CONTROLS, 'FindAskButton').includes('await saveVendorToPicks(fd)'));
+  // …and no row reads whether the supplier was saved before.
+  assert.doesNotMatch(LIST, /alreadyAdded|initiallySaved/);
+});

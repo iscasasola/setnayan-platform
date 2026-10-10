@@ -11,15 +11,16 @@
  *   one search · "Popular for <type>" (a wake: "What families usually need") ·
  *   the host's groups (Venue & food · Look & style · Photos & video · Music &
  *   program · Paperwork) · "Booked ✓" on a category already booked ·
- *   a category (`?c=<tile>`) → its suppliers with ONE Filter ▾ + Save to bench /
- *   Ask for a quote.
+ *   a category (`?c=<tile>`) → its suppliers with ONE Filter ▾ + Ask for a
+ *   quote. (Frame 7's "Save to bench" is retired — owner 2026-10-07: "Save is
+ *   retired because the marketplace now sits on the page"; asking saves.)
  *
  * 🔑 WHICH categories show is NOT decided on this page. It is the bench's own
  * scope (`buildShortlistFolders` with no vendor rows — `applicable_event_types`
  * from Admin › Event type › Scope categories, `marketplace_hidden`, faith), so
  * Find a supplier and the bench can never disagree about what a birthday books.
  * `lib/supplier-find.ts` only regroups it. Server component: nothing here ships
- * to the shared bundle; the Filter ▾ and Save are one small client file.
+ * to the shared bundle; the Filter ▾ and the row's one button are one small client file.
  */
 
 import { Suspense } from 'react';

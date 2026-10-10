@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
@@ -130,6 +131,17 @@ function labRsvpConfig(raw: string | string[] | undefined): { look: unknown } | 
   } catch {
     return null;
   }
+}
+
+/**
+ * 🏷 THE TAB'S TITLE, AS A REAL GUEST PAGE WORDS IT (`app/[slug]/page.tsx` `generateMetadata`, the title a page that
+ * does not name the couple wears: the event type's own word + "invitation" — "Wedding invitation"). The lab's guest
+ * page had no title of its own, so its tab read the SITE's default line (the walk of 2026-10-11, M16). That line —
+ * the brand's — is not this file's to change.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const words = await eventWordsFor('wedding').catch(() => null);
+  return { title: `${(words?.eventWord ?? 'event').replace(/^./, (c) => c.toUpperCase())} invitation`, robots: { index: false, follow: false } };
 }
 
 /** maria-and-jose's board stand-in — Oxblood & olive, the prototype's first palette. */

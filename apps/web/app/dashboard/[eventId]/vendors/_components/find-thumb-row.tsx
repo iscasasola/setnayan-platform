@@ -50,8 +50,9 @@ export function FindThumbRow({
   scope: string;
   /** Called 250 ms after the last keystroke, with the text as typed. */
   onSearch: (text: string) => void;
-  /** Opens "add your own" — for the open category, or asking which first. */
-  onAdd: () => void;
+  /** Opens "add your own" — for the open category, or asking which first —
+   *  with the name already typed in the box, if any. */
+  onAdd: (typed: string) => void;
 }) {
   const { mode, leaving, thumbUp } = useSuppliersMode();
   const [host, setHost] = useState<HTMLElement | null>(null);
@@ -115,7 +116,15 @@ export function FindThumbRow({
         words={words}
         text={text}
         onText={setText}
-        onAdd={onAdd}
+        onAdd={() => {
+          // The typed name goes INTO the walk; the box is then the search box
+          // again, empty (the prototype's `add()`), and the list hears it now.
+          const typed = text;
+          said.current = '';
+          setText('');
+          onSearch('');
+          onAdd(typed);
+        }}
       />
     </div>,
     host,
@@ -181,7 +190,14 @@ function ThumbControls({
           className="h-full min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/55"
         />
       </label>
-      <ActionButton tone="brand" icon={Plus} label="Add your own" onClick={onAdd} className={ADD_FILLED} />
+      {/* With a name typed the button is simply "Add" — the name is the "your own". */}
+      <ActionButton
+        tone="brand"
+        icon={Plus}
+        label={text.trim() ? 'Add' : 'Add your own'}
+        onClick={onAdd}
+        className={ADD_FILLED}
+      />
     </div>
   );
 }

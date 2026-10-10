@@ -91,6 +91,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion, type VendorReviewStatus } from './_components/plan-budget-accordion';
 import { reviewState } from '@/lib/completion-handshake';
 import { ShortlistCategories } from './_components/shortlist-categories';
+import { readInviteStatusByVendorId } from '@/lib/supplier-invite-status.server';
 import {
   PendingLockProposals,
   type PendingLockProposal,
@@ -422,6 +423,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const reviewStatusRead = startRead(readReviewStatus());
   const coveredTilesRead = startRead(readCoveredTiles());
   const excludedTilesRead = startRead(readExcludedTiles());
+  // Where each self-added supplier's claim link stands (owner 2026-10-10: the
+  // couple is told when the supplier declines or never answers). One read, the
+  // one-screen page only; `null` from it = the read failed, and the card says so.
+  const inviteStatusRead = isExploreReplanEnabled()
+    ? startRead(readInviteStatusByVendorId(supabase, vendors.map((v) => v.vendor_id), Date.now()))
+    : null;
 
   // Coordinator "propose a lock" (spec § 4) — pending proposals for the couple
   // to confirm. Only the couple sees the confirm strip (the money-adjacent
@@ -1882,6 +1889,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // the bench renders byte-identically to pre-replan production. Fail-soft: a
   // read error degrades to the normal rails (the surface is unaffected).
   const coveredByTile: Record<string, string> = await coveredTilesRead;
+  const inviteStatusByVendorId = inviteStatusRead ? await inviteStatusRead : undefined;
   async function readCoveredTiles(): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
     if (!isExploreReplanEnabled()) return out;
@@ -2140,6 +2148,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         payHrefByVendorId={Object.fromEntries(
           teamRowList.flatMap((r) => (r.action?.kind === 'pay' ? [[r.vendorId, r.action.href] as const] : [])),
         )}
+        // A self-added supplier's claim link: sent · declined · ran out · joined.
+        inviteStatusByVendorId={inviteStatusByVendorId}
         // Explore Replan PR-G1 — the convergence banner between the Coverage
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.

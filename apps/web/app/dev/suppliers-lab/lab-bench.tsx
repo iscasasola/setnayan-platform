@@ -8,15 +8,32 @@
  */
 import type { ComponentProps } from 'react';
 import { MoreRowStandInCtx, ShortlistCategories } from '@/app/dashboard/[eventId]/vendors/_components/shortlist-categories';
-import { LAB_MARKET, labSheet } from './fixtures';
+import { AddOwnStandInCtx } from '@/app/dashboard/[eventId]/_components/add-your-own-walk';
+import { LAB_CLAIM_URL, LAB_MARKET, labNameMatches, labSheet } from './fixtures';
 
 export function LabBench({
   fail,
   sheetFail,
   slow,
+  claimQrSvg,
   ...props
-}: ComponentProps<typeof ShortlistCategories> & { fail: boolean; sheetFail: boolean; slow: boolean }) {
+}: ComponentProps<typeof ShortlistCategories> & {
+  fail: boolean;
+  sheetFail: boolean;
+  slow: boolean;
+  /** The sample claim link's QR, drawn on the server (the QR library is server-only). */
+  claimQrSvg: string;
+}) {
   return (
+    // "Add your own": the walk's three calls, answered here — the lab has no
+    // session, so the real actions would all refuse.
+    <AddOwnStandInCtx.Provider
+      value={{
+        search: async (query, category) => labNameMatches(query, category),
+        inquire: async () => ({ ok: true }),
+        add: async () => ({ ok: true, eventVendorId: 'v-tita', invite: { url: LAB_CLAIM_URL, qrSvg: claimQrSvg } }),
+      }}
+    >
     <MoreRowStandInCtx.Provider
       value={async ({ tile, query, sheetFor }) => {
         if (sheetFor) {
@@ -33,5 +50,6 @@ export function LabBench({
     >
       <ShortlistCategories {...props} />
     </MoreRowStandInCtx.Provider>
+    </AddOwnStandInCtx.Provider>
   );
 }

@@ -12,7 +12,9 @@ import {
 import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin } from 'lucide-react';
 import {
   addManualSupplier,
+  readSupplierInvite,
   updateSelfAddedSupplier,
+  type SupplierInviteView,
   type SelfAddedSupplierPrefill,
   attachMarketplaceVendorToCategory,
   searchMarketplaceVendorsByName,
@@ -33,6 +35,7 @@ import { SupplierConnectPanel } from './supplier-connect-panel';
 import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
 import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
+import { OWN_RECORD_PILL } from '@/lib/add-your-own';
 
 // Modal for the "+ Add new manual vendor" path inside ManualVendorDropdown.
 //
@@ -422,6 +425,16 @@ export function NewManualVendorModal({
                   ? 'Complete or improve what you agreed with them.'
                   : 'Save once · reuse anywhere on your plan.'}
             </p>
+            {/* What the couple typed is THEIR RECORD until the supplier joins
+                (the approved prototype's pill, 2026-10-10). */}
+            {edit ? (
+              <span
+                data-own-record-pill=""
+                className="mt-2 inline-flex rounded-full bg-warn-100 px-2.5 py-0.5 text-[11px] font-medium text-warn-900"
+              >
+                {OWN_RECORD_PILL}
+              </span>
+            ) : null}
           </div>
           <button
             type="button"
@@ -565,7 +578,9 @@ export function NewManualVendorModal({
               <Field
                 label="Contact person"
                 htmlFor="manual-vendor-contact-person"
-                required
+                // A record made by the four-step walk may hold only one of the
+                // two contacts; editing it must not demand the other.
+                required={!isEdit}
                 step={1}
                 hint="Who to call · usually the same as Supplier name."
               >
@@ -574,7 +589,7 @@ export function NewManualVendorModal({
                   name="contact_person"
                   type="text"
                   defaultValue={edit?.contactPerson}
-                  required
+                  required={!isEdit}
                   maxLength={128}
                   disabled={pending}
                   placeholder="e.g. Marcel Santos"
@@ -585,7 +600,7 @@ export function NewManualVendorModal({
               <Field
                 label="Contact number"
                 htmlFor="manual-vendor-contact-number"
-                required
+                required={!isEdit}
                 step={2}
                 hint="Mobile preferred · e.g. +63 917 555 1234"
               >
@@ -596,7 +611,7 @@ export function NewManualVendorModal({
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
-                  required
+                  required={!isEdit}
                   maxLength={32}
                   disabled={pending}
                   placeholder="+63 9XX XXX XXXX"
@@ -702,6 +717,14 @@ export function NewManualVendorModal({
             </>
           )}
 
+          {/* THEIR CLAIM LINK, on the record itself (the approved prototype's
+              record sheet ends with it) — the same panel the walk's last step
+              and the card's Connect show. Opening the record only READS the
+              link; making one is the panel's own button. */}
+          {edit && mode.kind === 'manual' ? (
+            <RecordLinkBlock eventId={eventId} vendorId={edit.vendorId} vendorName={edit.name || 'them'} />
+          ) : null}
+
           {errorMsg ? (
             <p
               role="alert"
@@ -755,6 +778,46 @@ export function NewManualVendorModal({
       </div>
     </div>
   );
+}
+
+/**
+ * The record's claim link — read first (three states, like `ConnectSupplierModal`:
+ * still reading · no link yet · the link), so a couple who only opened their
+ * record is never invited to mint a link that already exists.
+ */
+function RecordLinkBlock({
+  eventId,
+  vendorId,
+  vendorName,
+}: {
+  eventId: string;
+  vendorId: string;
+  vendorName: string;
+}) {
+  const [invite, setInvite] = useState<SupplierInviteView | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    readSupplierInvite(eventId, vendorId)
+      .then((v) => {
+        if (live) setInvite(v);
+      })
+      .catch(() => {
+        // Unreadable → offer "Create their link": that writer is idempotent and
+        // hands back the existing link rather than making a second.
+        if (live) setInvite(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [eventId, vendorId]);
+  if (invite === undefined) {
+    return (
+      <p className="rounded-xl border border-ink/10 bg-paper p-3 text-xs text-ink/55">
+        Checking for their link…
+      </p>
+    );
+  }
+  return <SupplierConnectPanel eventId={eventId} vendorId={vendorId} vendorName={vendorName} initial={invite} />;
 }
 
 // ============================================================================

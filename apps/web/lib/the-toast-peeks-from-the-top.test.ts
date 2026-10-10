@@ -15,6 +15,7 @@
  *   (8) AN ACTION (owner 2026-10-09 — the guest list's Undo): optional, a small pill at the right, the toast stays 6 s,
  *       only that pill takes a tap, announced as a live region — and with no action the markup is today's, byte for byte.
  *   (7) ONE DRAWING — the Stages panel's "added / removed / moved" is this toast, not a strip of its own.
+ *   (9) A SENTENCE IS READ IN FULL (2026-10-11) — one line or two, never a third; and never over the screen's own top bar.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,7 +24,10 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { PEEK_TOAST_ACTION_MS, PEEK_TOAST_LEAVE_MS, PEEK_TOAST_MS, PEEK_TOAST_PILL, PEEK_TOAST_PLACE, PEEK_TOAST_SLIDE, PEEK_TOAST_TONE, PeekToast } from '../app/_components/toast/peek-toast';
+import {
+  PEEK_TOAST_ACTION_MS, PEEK_TOAST_LEAVE_MS, PEEK_TOAST_MS, PEEK_TOAST_PILL, PEEK_TOAST_PLACE, PEEK_TOAST_SLIDE, PEEK_TOAST_TONE, PEEK_TOAST_UNDER,
+  PEEK_TOAST_UNDER_GAP, PEEK_TOAST_WORDS, PeekToast, peekToastUnder,
+} from '../app/_components/toast/peek-toast';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -43,9 +47,47 @@ test('(1) it sits at the TOP centre, under the safe area, over everything — an
     assert.ok(has(PEEK_TOAST_PLACE, c), `the toast’s place lost “${c}”`);
   }
   assert.ok(!PEEK_TOAST_PLACE.split(/\s+/).some((c) => /^(?:bottom-|inset-0$|inset-y-)/.test(c)), 'the toast reaches the bottom of the screen');
-  /* Its words: one line, centred, cut — never wrapped off the screen. */
-  assert.ok(has(PEEK_TOAST_PILL, 'rounded-full') && has(PEEK_TOAST_PILL, 'h-12') && has(PEEK_TOAST_PILL, 'justify-center') && has(PEEK_TOAST_PILL, 'max-w-full'));
-  assert.match(html, /<span class="min-w-0 truncate">Countdown moved<\/span>/);
+  /* Its words: centred, never wider than the screen — and read in full (9, below). */
+  assert.ok(has(PEEK_TOAST_PILL, 'justify-center') && has(PEEK_TOAST_PILL, 'text-center') && has(PEEK_TOAST_PILL, 'max-w-full'));
+  assert.match(html, /<span class="min-w-0 line-clamp-2 \[text-wrap:balance\]">Countdown moved<\/span>/);
+});
+
+/**
+ * (9) A SENTENCE IS READ IN FULL — the merged copy's walk, 2026-10-11, M13 · M14: "A screen takes up to 4 added
+ * lines. Remov…" (399 px of words in a 277 px line): the half that says what to do was the half cut. The owner's
+ * approved prototype (`maker_rsvp_add_drag_group_2026-10-09.html`, `#say`) wraps the sentence in its pill. So: one
+ * line, or two — never a third (it is still a notice, not a card) — and never over the screen's own top bar.
+ */
+test('(9) a sentence is read in full: one line or two, never a third — and never over the top bar’s buttons', async () => {
+  /* The pill is AT LEAST its 48 px and grows for a second line; a fixed height is what cut the sentence. */
+  assert.ok(has(PEEK_TOAST_PILL, 'min-h-12'), 'the pill has no floor');
+  assert.ok(!PEEK_TOAST_PILL.split(/\s+/).some((c) => /^h-\d|^h-\[/.test(c)), 'the pill is a fixed height again — a second line cannot fit');
+  assert.ok(has(PEEK_TOAST_PILL, 'leading-[1.25]'), 'two lines have no set leading (the prototype’s 1.25)');
+  /* The words wrap, and stop at two lines. */
+  assert.equal(PEEK_TOAST_WORDS, 'min-w-0 line-clamp-2 [text-wrap:balance]');
+  for (const c of ['truncate', 'whitespace-nowrap', 'line-clamp-1']) assert.ok(!has(PEEK_TOAST_WORDS, c) && !has(PEEK_TOAST_PILL, c), `the words are one line again (“${c}”)`);
+  /* Every caller: the component's own span is the only place words are drawn. */
+  assert.equal((SRC.match(/\{children\}/g) ?? []).length, 1);
+  assert.match(SRC, /<span className=\{PEEK_TOAST_WORDS\}>\{children\}<\/span>/);
+  /* Still a pill-shaped notice: rounded ends, never a square card. */
+  assert.ok(has(PEEK_TOAST_PILL, 'rounded-full'), 'the notice lost its rounded ends');
+
+  /* UNDER THE SCREEN'S OWN TOP BAR — measured, never guessed. */
+  const bar = (top: number, bottom: number) => ({ getBoundingClientRect: () => ({ top, bottom, height: bottom - top }) });
+  const doc = (els: unknown[]) => ({ querySelectorAll: () => ({ forEach: (fn: (el: unknown) => void) => els.forEach(fn) }) }) as never;
+  assert.equal(peekToastUnder(doc([])), 0, 'a screen with no top bar moved the toast');
+  assert.equal(peekToastUnder(doc([bar(0, 52)])), 52, 'the Maker’s bar is not seen');
+  assert.equal(peekToastUnder(doc([bar(0, 0)])), 0, 'a bar that is not drawn (display:none) pushed the toast down');
+  assert.equal(peekToastUnder(doc([bar(300, 352)])), 0, 'a bar that is not at the top pushed the toast down');
+  assert.equal(peekToastUnder(doc([bar(0, 600)])), 0, 'a sheet that starts at the top was taken for a bar');
+  assert.equal(peekToastUnder(doc([bar(0, 52), bar(0, 96)])), 96, 'two bars: the toast must clear the lower one');
+  assert.match(PEEK_TOAST_UNDER, /\[data-maker-toolbar\]/);
+  assert.match(read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx'), /data-maker-toolbar=""/, 'anti-vacuity: the Maker’s top bar lost its mark');
+  assert.equal(PEEK_TOAST_UNDER_GAP, 8);
+  assert.match(SRC, /useLayoutEffect\(\(\) => setUnder\(peekToastUnder\(document\)\), \[\]\);/);
+  assert.match(SRC, /style=\{under > 0 \? \{ top: under \+ PEEK_TOAST_UNDER_GAP \} : undefined\}/);
+  /* With no bar the markup is the place's own (no inline top): every other screen keeps the place it had. */
+  assert.doesNotMatch(await draw({}), /<div data-peek-toast="" data-tone="ok" class="[^"]*" style=/);
 });
 
 test('(2) a good result is the accent with a ✓ — and the file writes no colour for it', async () => {
@@ -82,7 +124,7 @@ test('(3b) a NOTE is neither a result nor a fault: white with a hairline and ink
   assert.doesNotMatch(PEEK_TOAST_TONE.note, /sn-accent|danger/, 'a note wears a result’s colour');
   assert.match(note, /<svg[^>]*lucide-info\b/, 'a note has no mark of its own');
   assert.doesNotMatch(note, /lucide-check\b|lucide-triangle-alert\b|Try again/, 'a note reads as done, or as a fault');
-  assert.match(note, /<span class="min-w-0 truncate">Nothing to change here — edit it in Studio\.<\/span>/);
+  assert.match(note, /<span class="min-w-0 line-clamp-2 \[text-wrap:balance\]">Nothing to change here — edit it in Studio\.<\/span>/);
 });
 
 test('(4) it leaves by itself and tells the caller — one life per message, cleaned up', () => {
@@ -126,7 +168,7 @@ test('(8) an action: a small pill at the right, 6 s, the only tap — and withou
   const plain = await draw({}, 'Removed Maria');
   const withAction = await draw({ action: { label: 'Undo', onPress: () => {} } }, 'Removed Maria');
   /* The pill: after the words, a real button, taking the tap the toast otherwise refuses. */
-  assert.match(withAction, /<span class="min-w-0 truncate">Removed Maria<\/span><button type="button" data-peek-toast-action="" class="[^"]*pointer-events-auto[^"]*">Undo<\/button>/);
+  assert.match(withAction, /<span class="min-w-0 line-clamp-2 \[text-wrap:balance\]">Removed Maria<\/span><button type="button" data-peek-toast-action="" class="[^"]*pointer-events-auto[^"]*">Undo<\/button>/);
   assert.match(withAction, /role="status" aria-live="polite"/, 'a toast with an action is not announced');
   assert.match(withAction, /class="[^"]*!pr-2[^"]*"/, 'the pill has no room at the right');
   /* The place still refuses every tap but the pill's. */
@@ -140,7 +182,7 @@ test('(8) an action: a small pill at the right, 6 s, the only tap — and withou
   );
   assert.equal(
     plain.replace(/<svg[\s\S]*?<\/svg>/, '<MARK/>'),
-    '<div data-peek-toast="" data-tone="ok" class="' + PEEK_TOAST_PLACE + '"><div role="status" data-down="false" style="transform:translateY(calc(-100% - 12px - env(safe-area-inset-top) - 24px));transition:transform calc(var(--sn-pill-dur) * 0.52) var(--sn-pill-spring)" class="' + PEEK_TOAST_PILL + ' ' + PEEK_TOAST_TONE.ok + '"><MARK/><span class="min-w-0 truncate">Removed Maria</span></div></div>',
+    '<div data-peek-toast="" data-tone="ok" class="' + PEEK_TOAST_PLACE + '"><div role="status" data-down="false" style="transform:translateY(calc(-100% - 12px - env(safe-area-inset-top) - 24px));transition:transform calc(var(--sn-pill-dur) * 0.52) var(--sn-pill-spring)" class="' + PEEK_TOAST_PILL + ' ' + PEEK_TOAST_TONE.ok + '"><MARK/><span class="' + PEEK_TOAST_WORDS + '">Removed Maria</span></div></div>',
     'the no-action markup is no longer what it was',
   );
   /* An action-bearing failure still shows "Try again" too, and a plain "Try again" toast has no action pill. */

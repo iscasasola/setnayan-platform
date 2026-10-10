@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
-import { buildSitePaletteVars, ledPaletteFromMoodBoard } from './site-palette';
+import { ledPaletteFromMoodBoard } from './site-palette';
+import { buildSitePaletteVars } from './site-palette-vars';
 
 // Local contrast math (independent of the impl) so the test verifies the real
 // output meets WCAG AA, not just that it produced something.

@@ -5,7 +5,7 @@ import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { CountdownWidget } from '@/app/[slug]/_components/countdown';
 import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
 import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
-import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
+import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
 import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-widget';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
 import { WelcomeGifts } from '@/app/[slug]/_components/guest-doorway-strip';
@@ -35,6 +35,9 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
+import { labEntourage, labDressConfig, labRolePalette } from './lab-sample';
+import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
+import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -173,6 +176,30 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      `makerMark`). The Scrub island reads them: a page that has one is being edited, and holds nothing until ▶ is
      held (`hub-scrub.tsx`); the same address opened plainly is a guest's page, and its hand-overs run. */
   const mark = (key: string) => (scrub && sp.editor !== '1' ? null : <span hidden data-maker-section={key} />);
+  /* 👗 The REAL dress code, fed the sample (`./lab-sample.ts`) — the palette look it wears is the one picked in the Maker. */
+  const dressCode = words ? (
+    <DressCodeWidget
+      words={words}
+      config={labDressConfig(LAB_BOARD)}
+      ceremonyType={null}
+      genderSeparation={null}
+      rolePalette={labRolePalette(LAB_BOARD)}
+      roleNames={null}
+      sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')}
+      paletteLook={paletteLookOfRow(rowOf('dress_code'))}
+      dosLook={dosLookOfRow(rowOf('dress_code'))}
+      makerSample
+    />
+  ) : null;
+  /* 🚶 The REAL Wedding March (`EntourageSection`, as `site-body.tsx` mounts it): the sample entourage, in its picked Style. */
+  const marchBlock = (
+    <div data-lab-scene="entourage" className="border-t border-ink/10 px-4 py-8 text-left">
+      {/* 🧱 The March's own mark, right BEFORE the real block as the real page puts it (`lib/block-looks.ts`) — inside
+          the lab's wrapper, so a look lands on the block a guest sees and not on the lab's own padding. */}
+      <span hidden {...{ [BLOCK_MARK_ATTR]: 'entourage' }} />
+      <EntourageSection groups={labEntourage()} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
+    </div>
+  );
   /* 🧩 THE LAB'S SCENES, each drawn ONCE — placed by the ordinary sample below, or (`?scrub=1`) by the Scrub chain. */
   const scene: Record<LabScrubScene | 'our_love_story', ReactNode> = {
     countdown: (
@@ -214,22 +241,21 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </HubCanvasFrame>
     ),
     dress_code: (
-      /* 🎨 Dress code's palette LOOK (`canvas.palette`), read through the real
-         resolver; the lab stands in for the widget's drawing with its name. */
-      <section data-lab-scene="dress_code" className="border-t border-ink/10 px-4 py-16">
-        <p className="pahina-eyebrow">
-          <span>Dress code</span>
-        </p>
-        <p className="mt-3 font-serif text-2xl" data-lab-palette={paletteLookOfRow(rowOf('dress_code'))}>
-          Palette look: {paletteLookOfRow(rowOf('dress_code'))}
-        </p>
-      </section>
+      /* 👗 The REAL Dress code (`DressCodeWidget`, as `hideable-widget-render.tsx` draws it for the Maker's canvas) on a
+         sample dress code and Mood Board, in its drafted Style, palette look and do's look. */
+      <HubCanvasFrame widget={{ ...rowOf('dress_code'), widget_id: 'lab-dress-code' } as never} hubTheme="house" ownClipPlays>
+        <section data-lab-scene="dress_code" className="border-t border-ink/10 px-4 py-8 text-left">
+          {dressCode}
+        </section>
+      </HubCanvasFrame>
     ),
   };
   const giftsBlock = (
     /* The lab wraps the gift card; the Maker asks the block's root whether it is the real card (`data-welcome-gifts`),
        so the wrapper says so when the real card is what it holds — else Animate is grey here and cannot be tried. */
     <div data-lab-scene="gifts" {...(words ? { 'data-welcome-gifts': '' } : {})} className="border-t border-ink/10 px-4 py-8 text-left">
+      {/* 🧱 E-Gifts' own mark, right BEFORE the real block (`lib/block-looks.ts`) — inside the lab's wrapper. */}
+      <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
       {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')} /> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
     </div>
   );
@@ -253,16 +279,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     countdown: <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />,
     schedule: <ScheduleWidget blocks={LAB_BLOCKS_LONG as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />,
     special_message: <SpecialMessageWidget text="We cannot wait to celebrate with you." signedBy="Maria & Jose" sceneStyle={sceneStyleOfRow(rowOf('special_message'), stage, 'wedding')} />,
-    dress_code: (
-      <>
-        <p className="pahina-eyebrow">
-          <span>Dress code</span>
-        </p>
-        <p className="mt-3 font-serif text-2xl" data-lab-palette={paletteLookOfRow(rowOf('dress_code'))}>
-          Garden formal, in warm earth tones
-        </p>
-      </>
-    ),
+    dress_code: <>{dressCode}</>,
     venue_map: <VenueWidget event={LAB_VENUE_EVENT as never} sceneStyle={sceneStyleOfRow(rowOf('venue_map'), stage, 'wedding')} map="none" blocks={LAB_BLOCKS as never} />,
   };
   /* 🎬 THE COVER AS HAND-OVER ZERO (`hub-scenes.tsx` `HubCoverHold`): on the chain the lab's cover is the hero row, and
@@ -322,11 +339,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             'w:schedule': scene.schedule,
             'w:venue_map': scene.venue_map,
             'w:dress_code': scene.dress_code,
+            'f:entourage': marchBlock,
           }}
         />
         {sp.editor === '1' && !preview ? <EditorBridge /> : null}
         {only ? <style>{canvasOnlyCss(only)}</style> : null}
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        {/* 🧱 The fixed blocks' own looks on The Day's pages too, as the real page carries them — this branch had the
+            March's mark and no style, so a look picked on The Day › Welcome drew nothing here (seen 2026-10-10). */}
+        <style {...{ [BLOCK_LOOKS_STYLE_ATTR]: '' }}>{blockLooksCss(readBlockLooks({ block_looks: labBlocks }))}</style>
       </main>
     );
   }
@@ -514,8 +535,6 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             </HubScenes>
           </div>
           <div className="sn-editorial">
-            {/* 🧱 E-Gifts' own mark, as the real page puts it: before the Maker's marker (`lib/block-looks.ts`). */}
-            <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
             {mark('f:gifts')}
             {giftsBlock}
             {mark('f:look')}
@@ -531,8 +550,6 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           {/* 🔤 Three of the page's eyebrows, as the real scenes draw them — inside the
               editorial scope the guest page wears (`.sn-editorial`). */}
           <div className="sn-editorial">
-            {/* 🧱 E-Gifts' own mark, as the real page puts it: before the Maker's marker (`lib/block-looks.ts`). */}
-            <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
             {mark('f:gifts')}
             {giftsBlock}
             {mark('w:our_love_story')}
@@ -547,6 +564,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             {scene.venue_map}
             {mark('w:dress_code')}
             {scene.dress_code}
+            {/* 🚶 No `data-maker-section` marker: the real page names the March by its `#site-entourage` id alone (`maker-section-find.ts`). */}
+            {marchBlock}
           </div>
         </>
       )}

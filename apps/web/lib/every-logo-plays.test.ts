@@ -30,14 +30,18 @@ import { join, relative } from 'node:path';
 import Module from 'node:module';
 import { stripComments } from './strip-comments';
 import {
-  composeLogoSvg,
-  logoAttributePlayable,
-  logoElementPlayable,
   logoHasMotion,
   logoInSeconds,
   sanitizeLogoMotion,
   type LogoLayer,
 } from './logo-layers';
+import {
+  logoAttributePlayable,
+  logoElementPlayable,
+} from './logo-layers-player';
+import {
+  composeLogoSvg,
+} from './logo-layers-edit';
 import { coupleLogoPlays } from './couple-logo-plays';
 import { arrivalMotion, coupleLogoPlayKey, createLogoArrivals, logoPhaseOnMount } from './couple-logo-arrival';
 

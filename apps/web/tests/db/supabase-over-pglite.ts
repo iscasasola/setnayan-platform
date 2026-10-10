@@ -205,12 +205,25 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
    */
   private async selectList(): Promise<string | { relationError: string }> {
     if (!this.projection || this.projection.trim() === '*') return '*';
+    // A DATE column comes back from PostgREST as the string 'YYYY-MM-DD'; PGlite
+    // hands back a JS Date. Code that reads `event_date` as a string (every
+    // due-date computation) would silently see garbage, so named DATE columns
+    // are rendered the way production renders them.
+    const dateCols = new Set(
+      (
+        await this.pg.query<{ column_name: string }>(
+          `SELECT column_name FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = $1 AND data_type = 'date'`,
+          [this.table],
+        )
+      ).rows.map((r) => r.column_name),
+    );
     const parts: string[] = [];
     for (const token of splitProjection(this.projection)) {
       const embed = EMBED.exec(token);
       if (!embed) {
         assertModelled(IDENT.test(token), `select column ${token} on ${this.table}`);
-        parts.push(`"${token}"`);
+        parts.push(dateCols.has(token) ? `to_char("${token}", 'YYYY-MM-DD') AS "${token}"` : `"${token}"`);
         continue;
       }
       const [, alias, child, fk, colList] = embed as unknown as [string, string, string, string, string];

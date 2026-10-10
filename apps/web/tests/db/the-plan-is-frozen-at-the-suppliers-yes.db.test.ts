@@ -26,12 +26,15 @@
  * `notifications` row so the enum label is proven insertable; the real emitter
  * (email, push) is not run.
  *
- * MUTATIONS (each seen red, restored):
- *   · skip the freeze at the yes                       → test 1 (0 plan rows)
- *   · make the yes path tell every couple member       → test 1 (2 notices)
- *   · anchor the yes path on the request day           → test 2 (due dates differ)
- *   · seed 50/50 for a package row                     → test 5
+ * MUTATIONS (2026-10-11, each run against this file under the lock, seen red in
+ * the test named, restored and hash-checked):
+ *   · delete the package skip                          → test 5
  *   · address the notice to a guess when nobody asked  → test 4
+ *   · compute the plan without the accepted changes    → test 6
+ *   · seed the 50/50 estimate over a real schedule     → test 3
+ * And once, by accident, the real thing: the shared function first imported its
+ * helpers from the wrong module, every unit test and the lint stayed green, and
+ * tests 1–4 and 6 here went red with "computePlanInstances is not a function".
  */
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';

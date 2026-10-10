@@ -5,7 +5,7 @@ import {
   computePlanInstances,
   defaultPaymentScheduleRows,
   type PaymentScheduleItemRow,
-} from '@/lib/lock-impact-inputs';
+} from '@/lib/vendor-service-payment-schedules';
 import {
   agreedTotalNow,
   CHANGE_LINES_EMBED,

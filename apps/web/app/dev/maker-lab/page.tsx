@@ -122,7 +122,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
     type: r.widget_type,
     label: makerSceneLabel(r.widget_type),
     /* The draft's eye and Auto · Hidden, as the real Maker hands them — a removed scene is one ＋ can bring back. */
-    mode: r.mode,
+    mode: r.mode ?? ('auto' as const),
     isVisible: r.is_visible,
     hasContent: true,
     transitionLabel: 'Scroll',

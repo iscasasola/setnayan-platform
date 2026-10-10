@@ -2041,7 +2041,16 @@ export function hubDraftMovedStages(draft: HubDraftState, live: HubLiveState): L
   const placed = new Set<string>();
   for (const w of Object.values(draft.widgets)) for (const stage of Object.keys(w?.stage_order ?? {})) placed.add(stage);
   if (placed.size === 0) return [];
-  const drafted = live.widgets.map((row) => {
+  /* 👁 WHO IS ON THE STAGE is the draft's too (`stage_show` — a scene the couple ADDED to a stage has a place there,
+     `stageRowOrder`). Both sequences are read over the SAME members — the drafted ones — and differ only by the
+     places: with the live members, two scenes added to a stage and then put in another order were "no move", so
+     their order was neither counted nor written, and Apply drew them in the default order (found 2026-10-11 by
+     `the-table-the-maker-and-the-page-agree.test.ts`, seed 26). Adding a scene alone is still no move. */
+  const members = live.widgets.map((row) => {
+    const shows = draft.widgets[row.widget_type as WidgetType]?.stage_show;
+    return shows === undefined || row.is_always_on ? row : { ...row, config_json: configWithStageShow(row.config_json, shows) as typeof row.config_json };
+  });
+  const drafted = members.map((row) => {
     const places = draft.widgets[row.widget_type as WidgetType]?.stage_order;
     return places === undefined ? row : { ...row, config_json: configWithStageOrder(row.config_json, places) as typeof row.config_json };
   });
@@ -2049,7 +2058,7 @@ export function hubDraftMovedStages(draft: HubDraftState, live: HubLiveState): L
     stageRowOrder(rows, stage, (type, s) => widgetInPhase(type as WidgetType, s))
       .map((r) => r.widget_id)
       .join(' ');
-  return (Object.keys(STAGE_SCENES) as LifecyclePhase[]).filter((stage) => placed.has(stage) && sequence(live.widgets, stage) !== sequence(drafted, stage));
+  return (Object.keys(STAGE_SCENES) as LifecyclePhase[]).filter((stage) => placed.has(stage) && sequence(members, stage) !== sequence(drafted, stage));
 }
 
 export function classifyHubDraft(
@@ -2127,11 +2136,19 @@ export function classifyHubDraft(
        is the WHOLE merged key, so Apply sets it exactly as the preview showed. */
     if (w.stage_order !== undefined) {
       const liveKey = configWithStageOrder(row.config_json, {})[STAGE_ORDER_KEY] ?? null;
-      const nextKey = configWithStageOrder(row.config_json, w.stage_order)[STAGE_ORDER_KEY] ?? null;
       /* ↕ …AND ONLY WHERE A STAGE'S ORDER REALLY COMES OUT DIFFERENT (`hubDraftMovedStages`). A move saves every
          scene's place on the stage (0, 1, 2 …), so the keys differ from a live page that never stored places even
          when the scenes are back in the order guests have — that is not a change, and nothing is written for it. */
       const stages = movedStages.filter((stage) => stage in w.stage_order!);
+      /* ⚠ …AND ONLY THE MOVED STAGES' PLACES ARE WRITTEN. The value was the row's whole drafted key — so a row moved
+         on the Invitation carried its place on Save the Date too, though that stage's order had been put back and
+         was "no change". Its NEIGHBOURS there, with no moved stage of their own, were written nothing: Save the Date
+         went live with SOME of its scenes placed, and a placed scene comes before an unplaced one (`inStageOrder`) —
+         the gallery fell from first to last on a stage nobody had changed, and ✓ read "1 change" straight after
+         Apply. (Found 2026-10-11 by `the-table-the-maker-and-the-page-agree.test.ts`, seed 12.) A stage whose order
+         is not in `stages` keeps exactly the places guests have. */
+      const moved = Object.fromEntries(Object.entries(w.stage_order).filter(([stage]) => (stages as string[]).includes(stage)));
+      const nextKey = configWithStageOrder(row.config_json, moved)[STAGE_ORDER_KEY] ?? null;
       if (JSON.stringify(liveKey) !== JSON.stringify(nextKey) && stages.length > 0) {
         items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'stage_order', value: nextKey, change: 'change', pro: false, stages });
       }

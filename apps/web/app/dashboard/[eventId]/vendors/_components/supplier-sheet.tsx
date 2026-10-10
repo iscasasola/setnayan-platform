@@ -484,8 +484,15 @@ export default function SupplierSheet({
               {tickedCount === 0 && target.threadId ? (
                 <ActionButton tone={chat.tone} icon={MessageCircle} label="Open chat" href={`/dashboard/${eventId}/messages/${target.threadId}`} prefetch={false} />
               ) : tickedCount === 0 && target.booked ? null : (
+                // THE SHEET'S ONE MAIN ACTION, by the button rule
+                // (BUTTON_RULE_2026-10-07: "Filled (main verb) / outlined (the
+                // rest)"; a message is blue). It was outlined like Follow and
+                // Share beside it, so nothing in the row read as the thing to
+                // press. The card's own "Ask for a quote" is `main` too
+                // (`verb('ask', { main: true })`).
                 <ActionButton
                   tone={quote.tone}
+                  main
                   icon={MessageCircle}
                   label={busy ? 'Asking…' : quote.label}
                   disabled={busy}

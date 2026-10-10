@@ -225,6 +225,11 @@ test('🔑 with a conversation already open, ticking a category turns "Open chat
   // No ticks: exactly what it was. Any tick: the ask button, thread or not, booked or not.
   assert.match(SHEET, /\{tickedCount === 0 && target\.threadId \? \(\s*<ActionButton tone=\{chat\.tone\} icon=\{MessageCircle\} label="Open chat"/);
   assert.match(SHEET, /\) : tickedCount === 0 && target\.booked \? null : \(\s*<ActionButton\s*tone=\{quote\.tone\}/);
+  // …and it is the row's MAIN verb (the button rule: the main verb is filled,
+  // the rest outlined) — exactly one filled button in the sheet's row.
+  const row = SHEET.slice(SHEET.indexOf('<SheetCtaRow>'), SHEET.indexOf('</SheetCtaRow>'));
+  assert.equal(count(row, /^\s*main$/gm), 1, 'the sheet’s row has no main verb, or more than one');
+  assert.match(row, /tone=\{quote\.tone\}\s*main\s*icon=\{MessageCircle\}\s*label=\{busy \? 'Asking…' : quote\.label\}\s*disabled=\{busy\}\s*onClick=\{inquire\}/);
   assert.match(SHEET, /const tickedCount = tickable\.filter\(\(o\) => ticked\.has\(o\.tile\)\)\.length;/);
   // A category the couple already has them under is said, not offered again.
   assert.match(SHEET, /const tickable = \(data\?\.others \?\? \[\]\)\.filter\(\(o\) => !target\.onPage\[o\.tile\]\);/);

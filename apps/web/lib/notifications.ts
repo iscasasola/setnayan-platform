@@ -453,8 +453,9 @@ export type NotificationType =
      change orders) and is in-app only. This one is on EMAIL_ENABLED_TYPES —
      a request nobody sees waits forever. Enum value: 20271262858364. */
   | 'schedule_change_requested'
-  /* 🤝 A COUPLE ANSWERED A QUOTE (2026-10-10). → the SUPPLIER, in the app and by
-     email. `respond_vendor_proposal` recorded the answer and told nobody: the
+  /* 🤝 A COUPLE ANSWERED A QUOTE (2026-10-10). → the SUPPLIER, in the app (NOT
+     by email — owner 2026-10-11, "we manage without emails").
+     `respond_vendor_proposal` recorded the answer and told nobody: the
      supplier learned it only by opening the customer card. Emitted from
      `respondToProposal`, only when the function did not refuse (it raises
      `already_resolved` on a second press, so it cannot repeat).
@@ -466,10 +467,10 @@ export type NotificationType =
   /* 💸 A CHANGE ORDER — a signed amount on what the couple owes
      (`vendor_change_orders.delta_amount_php`). `proposed` → whichever side did
      NOT raise it, who must accept or decline; `answered` → the side that raised
-     it. Both emailed. Until 2026-10-10 all four emit sites rode
-     `schedule_suggestion`, which is in-app only and carries six unrelated
-     things; nothing on a notification row told a money change from a meeting
-     ask. ⚠ ENUM values in 20271267016300. */
+     it. Both told in the app (NOT emailed — owner 2026-10-11). Until 2026-10-10
+     all four emit sites rode `schedule_suggestion`, which carries six unrelated
+     things; a money change now has its own label, tone and words, and names
+     its figure. ⚠ ENUM values in 20271267016300. */
   | 'change_order_proposed'
   | 'change_order_answered';
 

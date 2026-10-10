@@ -65,18 +65,8 @@ export const COUPLE_SUPPLIER_NOTICES = {
     why: 'the answer the couple is waiting on; it opens the conversation',
   },
   inquiry_declined: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
-  quote_accepted: {
-    to: 'supplier',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'the couple chose this quote; the supplier should hold the date in mind and expect the ask to book',
-  },
-  quote_declined: {
-    to: 'supplier',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'the supplier is waiting on this answer and can send another quote',
-  },
+  quote_accepted: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
+  quote_declined: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
   chat_message: {
     to: 'either',
     reach: 'email',
@@ -154,18 +144,8 @@ export const COUPLE_SUPPLIER_NOTICES = {
     event: 'name_and_date',
     why: 'nothing more is owed on the booking',
   },
-  change_order_proposed: {
-    to: 'either',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'a change to what the couple owes waits on the other side’s yes',
-  },
-  change_order_answered: {
-    to: 'either',
-    reach: 'email',
-    event: 'name_and_date',
-    why: 'the answer to a change in what the couple owes; a yes moves the total',
-  },
+  change_order_proposed: { to: 'either', reach: 'app_only', why: NO_NEW_EMAILS },
+  change_order_answered: { to: 'either', reach: 'app_only', why: NO_NEW_EMAILS },
   pax_surcharge_changed: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   // ── The date ──────────────────────────────────────────────────────────────
   date_change_requested: {
@@ -314,7 +294,7 @@ export const COUPLE_SUPPLIER_NOTICES = {
     One type, six things: schedule answers, meeting asks, terms, a handover.
     lib/notifications.ts keeps it in-app. Until 2026-10-10 it ALSO carried the
     four change-order notices, which move what the couple owes — those now have
-    their own two types above (migration 20271267016300) and are emailed.
+    their own two types above (migration 20271267016300), told in the app.
     Six emit sites remain (2026-10-10); guard test 8 names the four that left.
   */
   schedule_suggestion: {

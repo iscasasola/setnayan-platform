@@ -3,11 +3,11 @@
  *
  * 🔴 WHY (2026-10-10). A change order is a signed amount on what the couple owes
  * (`vendor_change_orders.delta_amount_php`). Its four notices rode
- * `schedule_suggestion` — in-app only, shared with meeting asks and handovers —
- * so a change to the price of a booking reached nobody away from the app, and
- * the notice named no figure. They now have their own two types
- * (`change_order_proposed`, `change_order_answered`, enum values in migration
- * 20271267016300), both emailed.
+ * `schedule_suggestion`, shared with meeting asks and handovers, and the notice
+ * named no figure. They now have their own two types (`change_order_proposed`,
+ * `change_order_answered`, enum values in migration 20271267016300) with their
+ * own label, tone and words. Told in the app, NOT emailed (owner 2026-10-11:
+ * "we manage without emails").
  *
  * 🔑 THE FIGURE IS THE ROW'S, NEVER THE FORM'S. Every amount printed here is
  * `delta_amount_php` READ BACK from `vendor_change_orders` and passed through

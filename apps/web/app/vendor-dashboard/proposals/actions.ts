@@ -364,7 +364,7 @@ async function tellSupplierQuoteAnswered(proposalId: string, response: QuoteAnsw
     // The conversation holds the quote card and its answer; the quotes list is
     // the fallback for a quote that somehow has no thread.
     relatedUrl: threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/proposals',
-    // Which event: a supplier-side link carries none, so the email is told here.
+    // Which event this notice belongs to — a supplier-side link carries none.
     eventId: row.event_id,
   });
 }

@@ -361,22 +361,6 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     removed; `couple-supplier-notices-reach-email.test.ts` fails if a notice
     declared app-only is emailed.
   */
-  /*
-    🤝 A COUPLE ANSWERED A QUOTE (2026-10-10) → the SUPPLIER. The answer decides
-    whether they keep a date in mind for this couple, and until now it reached
-    them only if they opened the customer card. Enum values: 20271267016300.
-    Transactional — their own quote — so NOT in the marketing-gated set.
-  */
-  'quote_accepted',
-  'quote_declined',
-  /*
-    💸 A CHANGE ORDER (2026-10-10) → whichever side did not act. It is a signed
-    amount on what the couple owes, and all four of its notices rode
-    `schedule_suggestion`, which is in-app only. Enum values: 20271267016300.
-    Transactional — the price of their own booking — so NOT marketing-gated.
-  */
-  'change_order_proposed',
-  'change_order_answered',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

@@ -3,9 +3,9 @@
  * quote, and is never told they are booked.
  *
  * 🔴 WHY (2026-10-10). `respond_vendor_proposal` recorded the answer and nothing
- * told the supplier. The allowlist, reason line, link and event rows are held by
- * `couple-supplier-notices-reach-email.test.ts`; this file holds the two things
- * that one cannot: THE WORDS (executed), and THE DOOR (that the action tells
+ * told the supplier. It is an IN-APP notice (owner 2026-10-11: no new emails);
+ * `couple-supplier-notices-reach-email.test.ts` fails if it is ever emailed.
+ * This file holds the two things that one cannot: THE WORDS (executed), and THE DOOR (that the action tells
  * exactly when the function did not refuse, and tells nobody otherwise).
  *
  * SABOTAGE (each seen red, restored): say "booked" on accept · tell on error ·

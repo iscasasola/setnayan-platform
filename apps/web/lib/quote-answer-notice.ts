@@ -11,8 +11,9 @@
  * 🔑 THE YES USES THE CUSTOMER CARD'S OWN SENTENCE, FROM THE SAME FUNCTION.
  * `supplierNextMove` already tells a supplier what an accepted quote means —
  * "The booking locks when they ask and you agree — nothing to do until then."
- * An email that said anything else (above all "you are booked") would state the
- * one thing that has not happened: accepting a quote is not booking it.
+ * A notice that said anything else (above all "you are booked") would state
+ * the one thing that has not happened: accepting a quote is not booking it.
+ * In-app only: owner 2026-10-11, "we manage without emails".
  *
  * Pure. No I/O.
  */

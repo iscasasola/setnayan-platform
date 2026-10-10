@@ -4978,9 +4978,10 @@ export async function raiseChangeOrder(
       .maybeSingle();
     const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
     if (vendorUserId) {
-      // Its OWN type since 2026-10-10 — it moves what the couple owes, so it is
-      // emailed; `schedule_suggestion` (in-app only) carried it before. The
-      // figure is read back off the row, never taken from the form.
+      // Its OWN type since 2026-10-10 — it moves what the couple owes, so it
+      // has its own label and names its figure; `schedule_suggestion` carried
+      // it before. In-app only (owner 2026-10-11). The figure is read back off
+      // the row, never taken from the form.
       const notice = changeOrderProposedNotice({
         from: 'couple',
         row: await readChangeOrderJustRaised(createAdminClient(), {

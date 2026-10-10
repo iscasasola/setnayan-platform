@@ -2,8 +2,9 @@
  * change-order-notice.test.ts — a change in what the couple owes says how much,
  * from the row, and says it the same way to both sides.
  *
- * The allowlist, reason lines, links and event rows are held by
- * `couple-supplier-notices-reach-email.test.ts` (test 8 pins the four sites).
+ * In-app notices (owner 2026-10-11: no new emails) —
+ * `couple-supplier-notices-reach-email.test.ts` fails if one is emailed, and
+ * its test 8 pins the four sites.
  * This file executes THE WORDS.
  *
  * SABOTAGE (each seen red, restored): print the figure with toLocaleString ·

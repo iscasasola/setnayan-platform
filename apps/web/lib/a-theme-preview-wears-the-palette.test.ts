@@ -33,7 +33,7 @@ import {
   themeColours,
   themeSeedPalette,
 } from '@/lib/theme-colours';
-import { buildSitePaletteVars } from '@/lib/site-palette';
+import { buildSitePaletteVars } from '@/lib/site-palette-vars';
 import { printLookFor } from '@/lib/print-pieces';
 import {
   eventColumnChange,
@@ -493,7 +493,8 @@ test('the measurers are handed the dressed theme at every picture call site', ()
 test('every scope that sets the ornament gild also sets the WORDS gild — a nested scope never inherits a stale one', () => {
   const sets = (src: string) => [...src.matchAll(/'--color-gild':\s*([^,\n]+)/g)].length;
   const setsText = (src: string) => [...src.matchAll(/'--color-gild-text':\s*([^,\n]+)/g)].length;
-  for (const f of ['lib/adaptive-theme.ts', 'lib/theme-colours.ts', 'lib/site-palette.ts']) {
+  // `buildSitePaletteVars` (the gild scope) moved from `lib/site-palette.ts` to `lib/site-palette-vars.ts` (2026-10-10), so the file to scan is the new one.
+  for (const f of ['lib/adaptive-theme.ts', 'lib/theme-colours.ts', 'lib/site-palette-vars.ts']) {
     const src = read(f);
     assert.ok(sets(src) > 0, `${f} no longer sets --color-gild — this check went vacuous`);
     assert.equal(setsText(src), sets(src), `${f}: a scope sets --color-gild without --color-gild-text`);

@@ -1,0 +1,56 @@
+# The throw-away Supabase stack the release rehearsal starts on a GitHub runner.
+# Copied to a scratch folder as supabase/config.toml by
+# .github/workflows/release-rehearsal.yml — it is NOT the repo's Supabase config
+# (the repo has none: production is driven by `supabase link` + `db push`).
+#
+# The scratch folder has NO migrations on purpose: `supabase start` would apply
+# them in plain filename order and stop at the first back-numbered file. The
+# rehearsal applies them itself (tests/rehearsal/apply-migrations.mts).
+#
+# Postgres 17 = production's major version (setnayan-prod reports 17.6, read
+# from the Supabase project page on 2026-10-08). Bump it when production moves.
+project_id = "setnayan-rehearsal"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = false
+
+[local_smtp]
+enabled = false
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/**"]
+jwt_expiry = 3600
+enable_signup = true
+enable_anonymous_sign_ins = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[analytics]
+enabled = false
+
+[edge_runtime]
+enabled = false

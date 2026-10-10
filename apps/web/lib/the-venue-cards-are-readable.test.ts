@@ -35,7 +35,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { INVITE_THEMES, INVITE_THEME_IDS, type InviteThemeId } from '@/lib/invite-themes';
-import { buildSitePaletteVars } from '@/lib/site-palette';
+import { buildSitePaletteVars } from '@/lib/site-palette-vars';
 import { dressedTheme, paletteColourVars } from '@/lib/theme-colours';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';

@@ -92,7 +92,10 @@ test('3 · the stand-ins are the Maker canvas’s alone — never a guest’s �
   const at = body.indexOf('makerDayPartsOn(pageStage, place)');
   assert.ok(at > 0, 'the canvas reads the navigator’s list, place by place');
   assert.match(body.slice(at - 40, at), /isMakerCanvas\s*\?\s*$/, 'drawn only on the Maker’s canvas');
-  assert.match(body.slice(at, at + 200), /makerMark\(`f:\$\{part\}`\)/, 'each with its navigator marker');
+  /* 🔁 RE-AIMED 2026-10-10 (a sample made real — `lib/block-looks.ts`): one line now stands before the marker — the
+     hidden mark of a part whose real block takes a look (`sampleBlockMark`) — so the window is 60 characters longer.
+     The claim is the same: each stand-in is drawn with its navigator marker. */
+  assert.match(body.slice(at, at + 260), /makerMark\(`f:\$\{part\}`\)/, 'each with its navigator marker');
   // The three places sit where the navigator lists them: before the stage's
   // sections, right after them, and after the entourage.
   const before = body.indexOf("makerDayStandIns('before')");

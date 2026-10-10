@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { deriveMonogram } from '@/lib/monogram';
-import { buildSitePaletteVars } from '@/lib/site-palette';
+import { buildSitePaletteVars } from '@/lib/site-palette-vars';
 import type { RolePalette } from '@/lib/mood-board';
 
 /**

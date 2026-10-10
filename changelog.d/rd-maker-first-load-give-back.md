@@ -1,0 +1,29 @@
+## 2026-10-10 · perf(maker): code only the lazy Logo screens use leaves the files the Maker loads first
+
+A pure move, no behaviour change. `lib/logo-layers.ts` is on the Maker's first load (it holds the
+sanitiser, `logoHasMotion` and `centreLogoOnItsInk` that first-load modules call), but most of its
+bytes are only used by the lazily loaded Logo page and its player. Those halves now sit in modules
+that only the lazy files import, so the Maker's first download no longer carries them.
+
+- **Move 1 — the editor half → `lib/logo-layers-edit.ts`** (40 declarations: the editor's labels
+  and inks, placement/rails/snapping, the stack, the frames drawn, composing and reading back the
+  saved file). Imported by `launch/_components/maker-logo.tsx` only (plus tests). Code and comments
+  unchanged; no re-export left behind. `R`, `resampleWrite` and `penAlong` stay in `logo-layers.ts`
+  (now exported) because the player half needs them too. Source gz: `logo-layers.ts` 18,830 B →
+  13,468 B; new file 6,957 B.
+
+- **Move 2 — the page-colour builders → `lib/site-palette-vars.ts`** (`buildSitePaletteVars`,
+  `moodBoardSiteColours` and the helpers only they use: `hubPool`, `gildFromPool`, the gild/veil
+  fallbacks). `lib/site-palette.ts` is first-load only for `readableTextOn` (`hub-legibility`); the
+  builders are used by `theme-colours` (lazy/server), `icon-source` and tests. A new file rather than
+  `theme-colours.ts` because that file already imports a different `channels`. The shared colour
+  maths (`hexToRgb`, `luminance`, `contrast`, `blend`, …) stays in `site-palette.ts`, now exported.
+  Source gz: `site-palette.ts` 10,689 B -> 7,726 B; new file 4,313 B.
+
+- **Move 3 — the player half → `lib/logo-layers-player.ts`** (22 declarations: the Out timings, the
+  pen's progress, the writing path's cells and reveal plan, the soft tip, the playable-element
+  allowlist, plus the pen geometry the editor's `writePartPassages` shares — `resampleWrite`,
+  `penAlong`, `LOGO_WRITE_CELLS`). Imported by `layered-logo-player.tsx` and the editor half only.
+  Source gz: `logo-layers.ts` 13,468 B -> 8,672 B; new file 5,863 B.
+
+SPEC IMPACT: None

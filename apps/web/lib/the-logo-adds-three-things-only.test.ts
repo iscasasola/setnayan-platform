@@ -20,16 +20,18 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import {
-  LOGO_INKS,
   LOGO_OUT,
-  LOGO_OUT_LABEL,
-  composeLogoSvg,
-  layerTransform,
-  logoColourChoices,
   sanitizeLogoLayers,
   sanitizeLogoMotion,
   type LogoLayer,
 } from './logo-layers';
+import {
+  LOGO_INKS,
+  LOGO_OUT_LABEL,
+  composeLogoSvg,
+  layerTransform,
+  logoColourChoices,
+} from './logo-layers-edit';
 
 const L = join(__dirname, '../app/dashboard/[eventId]/launch/_components/maker-logo.tsx');
 const editor = () => stripComments(readFileSync(L, 'utf8'));

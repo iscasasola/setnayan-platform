@@ -89,6 +89,7 @@ import { RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealSt
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { BlockAnimateRows, CameraPartTools, StagePlayStatus } from './details-lazy';
 import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas } from '@/lib/block-looks';
+import { BlockGroundRows } from './stage-panel/block-background';
 import { CameraPage } from './stage-panel/camera-page';
 import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-panel/post-event-edit';
 import { PostEventShown } from './stage-panel/post-event-shown';
@@ -1148,9 +1149,10 @@ export function StageTools({
      one line why. Edit and Style are every part's. The Reveal, the Camera, the pass and the RSVP pages have no
      Background or Animate — and the Camera, a full-screen design, has Style alone; nor has any part with no save for
      it (E-Gifts, What to wear …). With nothing picked every tool is live — the rows under it are empty until a part is. */
-  /* 🧱 A FIXED BLOCK WITH ONE REAL ROOT (`lib/block-looks.ts`: the March, The details, E-Gifts, Happening now) has
-     its own Animate. E-Gifts only while the canvas draws the REAL block — with no gift link it draws a Maker-only
-     empty card, and a guest sees nothing there to move. */
+  /* 🧱 A FIXED BLOCK WITH ONE REAL ROOT (`lib/block-looks.ts`: the March, The details, E-Gifts, Happening now — and
+     Your seat and the Digital pass, samples here whose real block each guest's page draws from one root) has
+     its own Animate and its own Background (None · Plain · Frosted). E-Gifts only while the canvas draws the REAL
+     block — with no gift link it draws a Maker-only empty card, and a guest sees nothing there to move or to dress. */
   const blockAt = !rsvpOpen && picked ? blockOfCanvas(makerPartCanvasOn(stageKey, picked)) : null;
   const [blockIsReal, setBlockIsReal] = useState(true);
   useEffect(() => {
@@ -1160,8 +1162,8 @@ export function StageTools({
   }, [blockAt, shownPage]);
   const block = blockAt && blockIsReal ? blockAt : null;
   /** 🎨 A tool the PICKED thing has a save for beyond the part rule: a reply card or line (Background · Animate), a
-   *  fixed block with one real root (Animate). */
-  const ownTool = (t: MakerPartTool) => (rsvpLooks && (t === 'bg' || t === 'animate')) || (block !== null && t === 'animate');
+   *  fixed block with one real root (Background · Animate). */
+  const ownTool = (t: MakerPartTool) => (rsvpLooks && (t === 'bg' || t === 'animate')) || (block !== null && (t === 'bg' || t === 'animate'));
   /** 🚫 …and a tool whose rows would be EMPTY here: on the reply pages Style has a row only for a line with a look and
    *  for the When-yes card (`rsvpStyleHasRows`) — the form's card (its settings are Edit's), the names, the date and
    *  the rest have none. Grey, and a tap says the tool's own line. */
@@ -1174,6 +1176,8 @@ export function StageTools({
   shownToolRef.current = shownTool;
   /** 🧱 The toolbar's own rows are a fixed block's Animate (the work area's tool stands aside). */
   const blockRows = open && block !== null && shownTool === 'animate';
+  /** 🃏 …or its Background: the three tiles, in the same four rows. */
+  const blockGround = open && block !== null && shownTool === 'bg';
   /* …said to the work area's body under the selector (`StageStyle` shows that tool's part of the scene's Format). */
   useEffect(() => setStageTool(shownTool), [shownTool]);
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
@@ -1186,7 +1190,7 @@ export function StageTools({
        own plain line, never "edit it in Studio": what there is to change is in the tools beside it. */
     if (emptyHere(t)) return makerPartToolWhy(null, t);
     const sample = picked && (t === 'bg' || t === 'animate') ? BLOCK_SAMPLE_WHY[makerPartCanvasOn(stageKey, picked) ?? ''] : undefined;
-    const empty = blockAt && !blockIsReal && t === 'animate' ? BLOCK_EMPTY_WHY : undefined;
+    const empty = blockAt && !blockIsReal && (t === 'bg' || t === 'animate') ? BLOCK_EMPTY_WHY : undefined;
     return sample ?? empty ?? makerPartToolWhy(picked, t);
   };
   const pickTool = (t: MakerPartTool) => {
@@ -1330,7 +1334,7 @@ export function StageTools({
       data-stage-open={open ? '' : undefined}
       data-stage-edit-own={rsvpLineTypes && shownTool === 'edit' ? '' : undefined}
       data-stage-edit-card={rsvpCardEdits && shownTool === 'edit' ? '' : undefined}
-      data-stage-own-rows={blockRows ? '' : undefined}
+      data-stage-own-rows={blockRows || blockGround ? '' : undefined}
       data-stage-tool-now={shownTool}
       data-stage-row4={lookOn ? '' : undefined}
       aria-hidden={away || undefined}
@@ -1521,6 +1525,8 @@ export function StageTools({
         {open && cameraOpen && !editOn ? <CameraPartTools /> : null}
         {/* 🧱 A fixed block's own Animate — the toolbar's four rows, on the block's own save. */}
         {blockRows && block ? <BlockAnimateRows key={block} block={block} /> : null}
+        {/* 🃏 …and its own Background — None · Plain · Frosted, on the same save. */}
+        {blockGround && block ? <BlockGroundRows key={block} block={block} /> : null}
       </div>
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
       {/* ══ 🎛 THE CAMERA'S PAGE IS THE CAMERA (owner 2026-10-09: "Camera is a full screen design") — drawn on the canvas's

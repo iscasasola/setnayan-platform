@@ -3,18 +3,20 @@
 import { useEffect, useRef } from 'react';
 import {
   isLayeredLogo,
+  logoInSeconds,
+  sanitizeLogoMotion,
+} from '@/lib/logo-layers';
+import {
   logoAttributePlayable,
   logoElementPlayable,
-  logoInSeconds,
   LOGO_OUT_HOLD_SECONDS,
   LOGO_OUT_SECONDS,
   parseWritePathD,
   penProgress,
   LOGO_WRITE_TIP_OPACITY,
   revealLayersAt,
-  sanitizeLogoMotion,
   writeRevealPlan,
-} from '@/lib/logo-layers';
+} from '@/lib/logo-layers-player';
 import { boxToPart, logoParts, partCovers } from '@/lib/logo-parts-dom';
 import { arrivalMotion } from '@/lib/couple-logo-arrival';
 

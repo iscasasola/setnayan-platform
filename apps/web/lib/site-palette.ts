@@ -40,7 +40,7 @@ export function hexToRgb(hex: string): RGB | null {
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
-export function channels(c: RGB): string {
+function channels(c: RGB): string {
   return `${Math.round(c.r)} ${Math.round(c.g)} ${Math.round(c.b)}`;
 }
 
@@ -183,7 +183,7 @@ function palettePool(palette: RolePalette | null | undefined): RGB[] {
   return pool;
 }
 
-export function toHex(c: RGB): string {
+function toHex(c: RGB): string {
   const h = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0');
   return `#${h(c.r)}${h(c.g)}${h(c.b)}`;
 }

@@ -57,6 +57,7 @@ import {
 import { CANVAS_REFRESH_MESSAGE, HUB_DRAFT_BAR_FIELD, MAKER_CANVAS_REDRAW_EVENT, makerNeedsRender, makerSave, makerUnheldSavesInFlight, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
 import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { stageEyeValue } from '@/lib/stage-eye';
+import { hereOffAfterRender } from '@/lib/maker-list-gates';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import { movedOrder, optimisticStageList, sameOrder, stageOrderPatch } from '@/lib/maker-reorder';
 
@@ -424,14 +425,26 @@ export function MakerWork({
   /* 👁 THE EYE IS PER STAGE (owner 2026-10-10, "WHAT GUESTS SEE"). A scene the eye just took off THIS stage —
      `"<stage>:<scene id>"` — drawn as hidden at the tap; the server's list takes over once it has dropped it. */
   const [hereOff, setHereOff] = useState<Record<string, true>>({});
+  /* ↩ …AND THE SERVER'S LIST TAKES OVER TOO WHEN IT STILL DRAWS THE SCENE AFTER A WRITE THAT BRINGS A RENDER. A hide
+     is held (no render follows it), so it used to wait here until a render DROPPED the scene — and one that never
+     does (↺ took the Remove back; "Back to our picks"; a Reset) left the scene marked off for good: the navigator
+     drew it hidden, the next Remove was read as "show", and nothing could be done to it (measured 2026-10-11 in the
+     lab: Remove › ↺ › Remove). Every write that owes a render says so before it leaves (`MAKER_UNHELD_WRITE_EVENT`);
+     what was held off by then is the render's to decide. (`hereOffAfterRender`, `lib/maker-list-gates.ts`.) */
+  const hereOffNow = useRef(hereOff);
+  hereOffNow.current = hereOff;
+  const hereOffAsked = useRef<Set<string>>(new Set());
   useEffect(() => {
-    setHereOff((h) => {
-      const keep = Object.keys(h).filter((k) => {
-        const at = k.indexOf(':');
-        return navigator.stageLists[k.slice(0, at) as LifecyclePhase]?.shown.some((t) => t.kind === 'scene' && t.widgetId === k.slice(at + 1));
-      });
-      return keep.length === Object.keys(h).length ? h : Object.fromEntries(keep.map((k) => [k, true as const]));
-    });
+    const ask = () => {
+      for (const k of Object.keys(hereOffNow.current)) hereOffAsked.current.add(k);
+    };
+    window.addEventListener(MAKER_UNHELD_WRITE_EVENT, ask);
+    return () => window.removeEventListener(MAKER_UNHELD_WRITE_EVENT, ask);
+  }, []);
+  useEffect(() => {
+    const asked = hereOffAsked.current;
+    hereOffAsked.current = new Set();
+    setHereOff((h) => hereOffAfterRender(h, navigator.stageLists, asked));
   }, [navigator]);
   const scenes = useMemo(
     () => (Object.keys(gates).length === 0 ? scenesProp : scenesProp.map((sc) => (gates[sc.id] ? { ...sc, ...gates[sc.id] } : sc))),
@@ -1922,7 +1935,7 @@ export function MakerWork({
   /* ＋ ↕ 🗑 THE NEW MAKER'S PART EDITS (`add-part-sheet.tsx`, lazy) ask THIS work area for its
      own writes — the eye, the one-save move, Remove for good, "+ Add a scene" (`maker-part-ops.ts`). */
   const partOps = useRef<MakerPartRaw | null>(null);
-  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
+  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, hereOff, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
   useEffect(() => {
     const ask = (e: Event) => (e as CustomEvent<(raw: MakerPartRaw) => void>).detail?.(partOps.current!);
     window.addEventListener(MAKER_PART_OPS_EVENT, ask);

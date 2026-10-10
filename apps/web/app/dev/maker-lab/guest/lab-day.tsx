@@ -5,6 +5,7 @@ import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 import { MakerGuestScenes } from '@/app/[slug]/_components/maker-guest-scenes';
 import { BLOCK_MARK_ATTR, blockOfCanvas } from '@/lib/block-looks';
 import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
+import type { WidgetType } from '@/lib/invitation-widgets';
 import { makerStagesPageOf, makerStagesPages } from '@/lib/maker-stage-filing';
 import { sceneStylesOn } from '@/lib/scene-styles';
 
@@ -28,6 +29,8 @@ import { sceneStylesOn } from '@/lib/scene-styles';
 export function LabDayPages({
   tab,
   paged = true,
+  draws,
+  maker,
   mark,
   given,
   styleOf,
@@ -38,6 +41,10 @@ export function LabDayPages({
   /** False for a miniature (`?only=`): one part alone is asked for, so no page is hidden — as the real canvas, whose
    *  tabs are off whenever one scene is asked for (`site-body.tsx` `stagesCanvas`). */
   paged?: boolean;
+  /** Does The Day draw this scene — in its list, or in one of the places off it? (`../guest/page.tsx` `dayDraws`: the page's own answer on the lab's drafted rows.) */
+  draws: (type: WidgetType) => boolean;
+  /** The Maker's canvas (`?editor=1`) — the only reader an empty scene's place is drawn for. */
+  maker: boolean;
   mark: (key: string) => ReactNode;
   /** The lab's own nodes, by canvas key (`f:hero`, `w:schedule`, `w:venue_map`, `w:dress_code`, `f:entourage`). */
   given: Readonly<Record<string, ReactNode>>;
@@ -83,9 +90,12 @@ export function LabDayPages({
     ['f:entourage', given['f:entourage']],
     [
       'w:our_photos',
-      <div key="gallery" className="border-t border-ink/10 px-4 py-8" data-lab-scene="our_photos">
-        <MakerEmptyScene type="our_photos" styleId={galleryStyle} />
-      </div>,
+      /* An empty scene's place: the Maker's canvas alone, as on the real page (`maker-empty-scene.tsx`). */
+      maker ? (
+        <div key="gallery" className="border-t border-ink/10 px-4 py-8" data-lab-scene="our_photos">
+          <MakerEmptyScene type="our_photos" styleId={galleryStyle} />
+        </div>
+      ) : null,
     ],
     ['f:photos_of_you', dayPart('photos_of_you')],
     ['f:find_your_seat', dayPart('find_your_seat')],
@@ -98,6 +108,8 @@ export function LabDayPages({
   const byPage = new Map<string, ReactNode[]>();
   for (const [key, node] of drawn) {
     if (!node) continue;
+    /* 👁 A SCENE IS DRAWN ONLY WHERE THE DAY DRAWS IT — taken off The Day in the Maker or the table, it is gone here. */
+    if (key.startsWith('w:') && !draws(key.slice(2) as WidgetType)) continue;
     const page = makerStagesPageOf('event', key, keys);
     filled.add(page);
     byPage.set(page, [

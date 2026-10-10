@@ -2,11 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { emptyHubDraft, type HubDraft } from '@/lib/hub-draft';
+import { emptyHubDraft, overlayHubDraftWidgets, type HubDraft, type HubDraftWidget } from '@/lib/hub-draft';
 import { stageOrderPatch } from '@/lib/maker-reorder';
+import { buildMakerNavigatorData } from '@/app/dashboard/[eventId]/website/editor/_components/maker-navigator-data';
+import { GUESTS_SEE_COLUMNS, guestsSeeBackToPicks, guestsSeePatch, guestsSeeToggle, type GuestsSeeWrites } from '@/lib/guests-see-table';
+import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
+import { stageEyeValue } from '@/lib/stage-eye';
+import { sceneOnStage } from '@/lib/what-guests-see';
 import {
   LAB_APPLY_MESSAGE,
   LAB_BAR_COOKIE,
+  LAB_OWN_COOKIE_KEYS,
   LAB_ROWS_COOKIE,
   labBarFromCookie,
   labDraftCookies,
@@ -15,7 +21,7 @@ import {
   labDraftedRows,
   labRows,
 } from './lab-draft';
-import { labStageTiles } from './lab-navigator';
+import { labNavigatorInput, labSeen, labStageTiles } from './lab-navigator';
 
 /**
  * 🧪 THE LAB'S DRAFT IS THE REAL DRAFT (the walk of 2026-10-11, P01 · P02 · P05).
@@ -101,6 +107,139 @@ test('P02 — Remove takes the Message off the page; ＋ (the eye again) brings 
   const back = save(removed, { widgets: { special_message: { is_visible: true } } }).draft;
   assert.deepEqual(invitation(back), invitation(emptyHubDraft()));
   assert.equal(count(back).changeCount, 0);
+});
+
+/* ── THE JUNCTION ON THE LAB'S OWN PLUMBING (the merged copy's walk, 2026-10-11, M01–M08) ──────────────────────────
+   The two tests above took a scene off with `is_visible` — what the eye USED to write. The merged Maker's Remove and
+   the "What guests see" table both write `stage_show[stage]`, the lab's cookie had a hand-kept list of four keys, and
+   that one was not in it: every tick and every Remove reached the draft and the ✓ count, and no page drew it. These
+   send what the real Maker sends (`stageEyeValue`, `guestsSeeToggle` → `guestsSeePatch`) through the lab's door and
+   read the lab's two pages the way they read themselves. */
+
+const labPages = (d: HubDraft) => {
+  const rows = labDraftedRows(labDraftCookies(d, false)[LAB_ROWS_COOKIE] ?? undefined);
+  const nav = buildMakerNavigatorData({ postEvent: null, ...labNavigatorInput(rows) });
+  const box = (type: string, stage: LifecyclePhase) => {
+    const row = nav.guestsSee.groups.flatMap((g) => g.rows).find((r) => r.scene === type)!;
+    const col = GUESTS_SEE_COLUMNS.findIndex((c) => c.stage === stage);
+    return { row, col, cell: row.cells[col] as Extract<(typeof row.cells)[number], { kind: 'box' }> };
+  };
+  /* The canvas draws a stage from the same rows (`guest/page.tsx`: `labStageTiles(labDraftedRows(cookie), stage)`). */
+  const canvas = (stage: LifecyclePhase) => labStageTiles(rows, stage).filter((k) => k.startsWith('w:')).map((k) => k.slice(2));
+  return { rows, nav, box, canvas };
+};
+const tick = (d: HubDraft, ...cells: Array<[string, LifecyclePhase]>) => {
+  const at = labPages(d);
+  let writes: GuestsSeeWrites = {};
+  for (const [type, stage] of cells) writes = guestsSeeToggle(at.nav.guestsSee, writes, type, at.box(type, stage).col).writes;
+  return save(d, guestsSeePatch(writes)).draft;
+};
+const eye = (d: HubDraft, type: WidgetType, stage: LifecyclePhase, want: boolean) =>
+  save(d, { widgets: { [type]: { stage_show: { [stage]: stageEyeValue(labPages(d).nav.stageEye[stage][type], want) } } } }).draft;
+
+test('M01 · M04 — a box unticked in "What guests see" is off that stage’s canvas, and the table opened again says so', () => {
+  const start = labPages(emptyHubDraft());
+  assert.ok(start.canvas('rsvp').includes('special_message') && start.box('special_message', 'rsvp').cell.on, 'anti-vacuity: Message is on the Invitation');
+  const d = tick(emptyHubDraft(), ['special_message', 'rsvp']);
+  const after = labPages(d);
+  assert.equal(after.canvas('rsvp').includes('special_message'), false, 'M01: an unticked part stays drawn on the Invitation');
+  assert.ok(after.canvas('editorial').includes('special_message'), 'it left Post Event too');
+  assert.equal(after.box('special_message', 'rsvp').cell.on, false, 'M04: the reopened table forgets the Apply');
+  assert.equal(after.box('special_message', 'rsvp').cell.choice, false);
+  assert.equal(count(d).changeCount, 1);
+});
+
+test('M02 — a ticked EMPTY box is drawn on its stage — a written scene, and one with nothing in it yet', () => {
+  const d = tick(emptyHubDraft(), ['special_message', 'save_the_date'], ['our_photos', 'rsvp']);
+  const after = labPages(d);
+  assert.ok(after.canvas('save_the_date').includes('special_message'), 'M02: Message ticked on Save the Date is not drawn there');
+  assert.ok(after.canvas('rsvp').includes('our_photos'), 'M02: Our photos ticked on the Invitation is not drawn there');
+  /* The sample has no photos: the box keeps its tick and the row says why a guest will not see it. */
+  assert.deepEqual([after.box('our_photos', 'rsvp').cell.on, after.box('our_photos', 'rsvp').row.empty], [true, true]);
+  assert.equal(after.box('special_message', 'save_the_date').cell.on, true);
+});
+
+test('M05 — "Back to our picks" after three boxes: it changes them, and ✓ returns to 0', () => {
+  let d = tick(emptyHubDraft(), ['special_message', 'rsvp']);
+  d = tick(d, ['special_message', 'save_the_date'], ['our_photos', 'rsvp']);
+  assert.equal(count(d).changeCount, 2);
+  const back = guestsSeeBackToPicks(labPages(d).nav.guestsSee, {});
+  assert.equal(back.changed, true, 'M05: "These are our picks already." while three boxes are changed');
+  d = save(d, guestsSeePatch(back.writes)).draft;
+  assert.deepEqual(labPages(d).nav.guestsSee, labPages(emptyHubDraft()).nav.guestsSee);
+  assert.equal(count(d).changeCount, 0, 'M05: ✓ still holds changes that no screen shows');
+});
+
+test('M06 · M07 · M03 — Remove on the canvas unticks exactly its box, stays removed when the Maker is opened again, and ＋ offers it back', () => {
+  const start = labPages(emptyHubDraft());
+  const d = eye(emptyHubDraft(), 'countdown', 'rsvp', false);
+  assert.deepEqual(d.widgets.countdown?.stage_show, { rsvp: false });
+  const after = labPages(labDraftFrom(JSON.stringify(d))); // the Maker opened again: the draft read back from the browser
+  assert.equal(after.canvas('rsvp').includes('countdown'), false, 'M07: the removed part is drawn again when the Maker is reopened');
+  assert.ok(after.canvas('save_the_date').includes('countdown'), 'Remove on the Invitation took it off Save the Date');
+  const flipped = start.nav.guestsSee.groups.flatMap((g) => g.rows).flatMap((r) =>
+    r.cells.flatMap((c, i) => (c.kind === 'box' && c.on !== (after.box(r.scene!, GUESTS_SEE_COLUMNS[i]!.stage as LifecyclePhase).cell.on) ? [`${r.scene}:${GUESTS_SEE_COLUMNS[i]!.stage}`] : [])),
+  );
+  assert.deepEqual(flipped, ['countdown:rsvp'], 'M06: the canvas Remove did not untick exactly its own box');
+  /* M03 after a reload: the stage's fold says the couple took it off — that is what ＋ offers (`add-part-sheet.tsx`). */
+  const fold = after.nav.stageLists.rsvp.folded.find((f) => f.key === 'w:countdown');
+  assert.ok(fold?.hiddenByCouple && fold.widgetId, 'M03: ＋ says "Every part is already on this page."');
+  /* ＋ brings it back on THIS stage, in place, and nothing is left waiting. */
+  const back = eye(d, 'countdown', 'rsvp', true);
+  assert.deepEqual(labPages(back).canvas('rsvp'), start.canvas('rsvp'));
+  assert.equal(count(back).changeCount, 0);
+});
+
+test('M08 — before any tap, every box agrees with the canvas — or its row says the scene has nothing in it yet', () => {
+  const at = labPages(emptyHubDraft());
+  let boxes = 0;
+  for (const row of at.nav.guestsSee.groups.flatMap((g) => g.rows)) {
+    row.cells.forEach((cell, i) => {
+      const stage = GUESTS_SEE_COLUMNS[i]!.stage;
+      if (cell.kind !== 'box' || !row.scene || !stage) return;
+      boxes += 1;
+      const seen = sceneOnStage({ ...labSeen(at.rows), stage, reader: 'guest', content: {} }, row.scene)!;
+      const drawn = at.canvas(stage).includes(row.scene) || seen.offList !== null;
+      assert.equal(cell.on, drawn, `${row.scene} × ${stage}: the box is ${cell.on ? 'ticked' : 'empty'} and the canvas ${drawn ? 'draws it' : 'does not'}`);
+    });
+  }
+  assert.ok(boxes >= 28, `anti-vacuity: only ${boxes} boxes were compared`);
+  /* The three the sample has nothing in say so — the tester's "ticked, not drawn" rows. */
+  const empty = at.nav.guestsSee.groups.flatMap((g) => g.rows).filter((r) => r.empty).map((r) => r.scene);
+  assert.deepEqual(empty.sort(), ['our_love_story', 'our_photos', 'what_to_bring']);
+  /* …and The Day's gallery is drawn only where The Day draws it (`guest/page.tsx` `dayDraws`). */
+  assert.equal(at.box('our_photos', 'event').cell.on, false);
+  assert.equal(at.canvas('event').includes('our_photos'), false);
+  assert.match(read('guest', 'lab-day.tsx'), /if \(key\.startsWith\('w:'\) && !draws\(key\.slice\(2\) as WidgetType\)\) continue;/);
+});
+
+test('the lab’s pages are handed EVERY key of a scene’s draft — the list of what is left out is the two with a cookie of their own', () => {
+  /* A draft that sets every key a scene's draft can carry (`HubDraftWidget`). */
+  const every: Record<keyof HubDraftWidget, unknown> = {
+    mode: 'hidden',
+    is_visible: false,
+    display_order: 9,
+    canvas: { inFx: { fade: true } },
+    main: { ground: 'pattern', pattern: 'dots' },
+    music: { button: 'disc' },
+    stage_order: { rsvp: 3 },
+    stage_show: { rsvp: false, event: true },
+    std_lead: 'photos',
+    custom: { title: 'Ours', body: 'Words.' },
+    venue: { ceremony: { source: 'own' } },
+    removed: true,
+  };
+  const keys = Object.keys(every) as Array<keyof HubDraftWidget>;
+  const d: HubDraft = { ...emptyHubDraft(), widgets: { countdown: every as HubDraftWidget } };
+  const rows = JSON.parse(decodeURIComponent(labDraftCookies(d, false)[LAB_ROWS_COOKIE] ?? '{}')) as Record<string, Record<string, unknown>>;
+  assert.deepEqual(Object.keys(rows.countdown ?? {}).sort(), keys.filter((k) => !(LAB_OWN_COOKIE_KEYS as readonly string[]).includes(k)).sort(), 'a key of the draft is not handed to the lab’s pages');
+  assert.deepEqual([...LAB_OWN_COOKIE_KEYS], ['canvas', 'main']);
+  /* …and no hand-kept list is back in its place. */
+  assert.doesNotMatch(read('lab-draft.ts'), /w\.stage_order !== undefined \? \{ stage_order/);
+  /* What the real overlay lays for the keys the sample's rows take, it lays here: place, eye, mode, per-stage choice,
+     and the Save the Date's Film · Photos pick on the gallery's row. */
+  const real: HubDraft = { ...emptyHubDraft(), widgets: { countdown: { mode: 'hidden', is_visible: false, display_order: 9, stage_order: { rsvp: 3 }, stage_show: { rsvp: false, event: true } }, our_photos: { std_lead: 'photos' } } };
+  assert.deepEqual(labDraftedRows(labDraftCookies(real, false)[LAB_ROWS_COOKIE] ?? undefined), overlayHubDraftWidgets(labRows(), real));
 });
 
 test('leaving and coming back keeps the draft — its count, its history and what the page draws', () => {

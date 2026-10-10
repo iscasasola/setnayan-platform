@@ -43,7 +43,9 @@ import { LabDayPages } from './lab-day';
 import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette } from './lab-sample';
 import { LabStagePages } from './lab-stage';
 import { LAB_ROWS_COOKIE, labDraftedRows } from '../lab-draft';
-import { labStageTiles } from '../lab-navigator';
+import { labSeen, labStageTiles } from '../lab-navigator';
+import { sceneOnStage } from '@/lib/what-guests-see';
+import type { WidgetType } from '@/lib/invitation-widgets';
 import { heroCanvasOf } from '@/app/[slug]/_lib/hero-design-of';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
@@ -241,6 +243,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const stageNow: HubStage = stage ?? 'rsvp';
   const labRowsNow = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value);
   const stageTiles = labStageTiles(labRowsNow, stageNow, labStory);
+  /* 🗓 DOES THE DAY DRAW THIS SCENE? — its own list, or one of the two places off it (the Welcome's dress code and
+     reminders, a guest's own schedule and directions): the page's one answer (`sceneOnStage`), on the lab's rows
+     with its draft over them. The lab's Day drew a fixed set — the gallery always, whatever the table said (the walk
+     of 2026-10-11, M08: "Our photos × The Day EMPTY but drawn"). */
+  const dayDraws = (type: WidgetType): boolean =>
+    stageTiles.includes(`w:${type}`) || (sceneOnStage({ ...labSeen(labRowsNow), stage: 'event', reader: 'guest' }, type)?.offList ?? null) !== null;
   /* 🧭 THE REAL HERO (`PahinaMasthead`, the guest page's own) — ONE mount for every page of the lab's canvas, wearing
      the hero row's drafted canvas as the real page does (`site-body.tsx` `heroElements`): a typed Title, a part's
      colour, size and motion, the design picked. The lab's masthead read none of it, so a typed Title was gone at the
@@ -290,9 +298,14 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 🧩 THE LAB'S SCENES, each drawn ONCE — placed by the ordinary sample below, or (`?scrub=1`) by the Scrub chain. */
   const scene: Record<LabScrubScene | 'our_love_story', ReactNode> = {
     countdown: (
-      <section data-lab-scene="countdown" className="border-t border-ink/10 px-4 py-8">
-        <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />
-      </section>
+      /* 🌗 In the REAL scene frame, as every scene of the guest page is (`hideable-widget-render.tsx` wraps each in
+         `HubCanvasFrame`). The lab drew the Countdown bare, so its Background picked a tile, raised ✓ and drew
+         nothing (the walk of 2026-10-11, M11) — the lab's fault alone: the real page has always framed it. */
+      <HubCanvasFrame widget={{ ...rowOf('countdown'), widget_id: 'lab-countdown' } as never} hubTheme="house" ownClipPlays mediaUrls={LAB_MEDIA}>
+        <section data-lab-scene="countdown" className="border-t border-ink/10 px-4 py-8">
+          <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />
+        </section>
+      </HubCanvasFrame>
     ),
     /* 🧩 AN EMPTY SCENE IS THE MAKER'S CANVAS ALONE (`makerCanvas`), as on the real page (`site-body.tsx`
        `isMakerCanvas`; `maker-empty-scene.tsx`: "A guest never receives this markup"). The lab drew "Only you see this"
@@ -349,12 +362,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')} /> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
     </div>
   );
-  /* 👤 The Invitation's "Guest's look" — the guest page's own stand-in (the Maker's What to wear part). */
-  const lookBlock = (
+  /* 👤 The Invitation's "Guest's look" — the guest page's own stand-in (the Maker's What to wear part). THE MAKER'S
+     CANVAS ONLY, as on the real page (`guest-welcome.tsx`: `maker ? <MakerWelcomeLook/> : null` — "a guest never
+     receives this markup"). The lab drew it whoever asked, so its guest preview read "Each guest sees their own look,
+     from your Mood Board" to a guest (the walk of 2026-10-11, M15). */
+  const lookBlock = makerCanvas ? (
     <div data-lab-scene="look" className="border-t border-ink/10 px-4 py-8 text-left">
       <MakerWelcomeLook look={look('my_wear')} />
     </div>
-  );
+  ) : null;
   /* 👤 WHAT EACH GUEST GETS — the greeting, the pass, the reply — as the REAL canvas stands in for them
      (`MakerGuestScenes`: "Each guest sees their own"), each behind its own marker so it can be picked. The Maker's
      canvas only: a page opened plainly has no guest to draw them for. (They were two bare headings of the lab's own —
@@ -445,6 +461,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         <LabDayPages
           tab={typeof sp.tab === 'string' ? sp.tab : undefined}
           paged={!only}
+          draws={dayDraws}
+          maker={makerCanvas}
           mark={mark}
           styleOf={(part) => fixedSceneStyleOf(labEvent.style_preferences, part, stage, 'wedding')}
           galleryStyle={sceneStyleOfRow(rowOf('our_photos'), stage, 'wedding')}

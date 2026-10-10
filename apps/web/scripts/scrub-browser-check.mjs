@@ -824,7 +824,9 @@ if (!ONLY || ONLY === '16') {
       const barEnd = await p.evaluate(() => document.querySelector('[data-sticky-top]').getBoundingClientRect().bottom);
       say(Boolean(whole) && whole.zero.t >= barEnd - 0.5 && whole.mate.b <= foot + 0.5 && Math.abs(whole.mate.t - whole.zero.b - tg.doorToMate) < 0.1 && tg.doorToMate > 40 && seen.every((f) => f.zero.t >= barEnd - 0.5), `${size}: when the arrival completes the door and the Countdown are both whole on the screen (${whole ? `${r(whole.zero.t)}–${r(whole.mate.b)}` : '—'}; the top bar ends ${r(barEnd)}, the page's foot begins ${r(foot)}), as far apart as the page lays them out (${whole ? r(whole.mate.t - whole.zero.b) : '—'}px; today ${r(tg.doorToMate)}px)`);
       const visible = fwd.filter((f) => f.cover.o > 0.02 && f.pout < 1 && f.pout > 0);
-      const done = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && hold.length && f.s >= hold.at(-1).s + Math.round(H * 0.11) + 32);
+      /* (A short page ends where its last hand-over does — the engine lengthens it exactly that far — so there may be
+         no position past the hold: then the page's last position is the one read.) */
+      const done = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && hold.length && f.s >= hold.at(-1).s + Math.round(H * 0.11) + 32) ?? (fwd.at(-1).pout >= 1 && fwd.at(-1).zero.o >= 0.99 ? fwd.at(-1) : undefined);
       say(visible.length > 3 && visible.every((f) => f.after.t >= Math.max(f.cover.b, f.mate.b) - 1) && Boolean(done) && Math.abs(done.after.t - done.mate.b - tg.mateToAfter) < 0.1, `${size}: what follows the two never lies over the cover or over them, and stands under the Countdown at the page's own distance once the cover has gone (${done ? r(done.after.t - done.mate.b) : '—'}px; today ${r(tg.mateToAfter)}px)`);
       const sig = (f) => JSON.stringify([f.all, f.pout.toFixed(3)]);
       say(fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); }), `${size}: back == down at every one of ${fwd.length} positions`);

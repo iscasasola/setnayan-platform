@@ -17,6 +17,7 @@ import {
   type ChangeOrderForNotice,
 } from '@/lib/change-order-notice';
 import { readChangeOrderJustRaised } from '@/lib/change-order-notice.server';
+import { freezePaymentPlanAfterSupplierAgreed } from '@/lib/booking-payment-plan.server';
 import { depositAnswerReturnTo, vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { uploadPublicAsset } from '@/lib/storage';
@@ -1131,6 +1132,25 @@ export async function vendorAgreeToLock(formData: FormData) {
     } catch (e) {
       console.error(
         `[vendorAgreeToLock] couple notify failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
+  // 💸 THE YES MADE A BOOKING — FREEZE ITS PAYMENT PLAN. Until 2026-10-10 this
+  // happened only on the couple's direct press, below the line where the
+  // handshake returns; a booking made the normal way (ask → yes) had no plan
+  // row and `payment_info_sent` never fired. The SAME function the direct path
+  // calls, on `ok` ONLY: `ok` is answered by the one call that flips the row to
+  // booked (a second press answers `already`), so the plan and its notice are
+  // written once. Its own try: a plan failure must not undo the booking, and
+  // must not be undone by the notice above failing.
+  if (!error && env.status === 'ok' && eventId) {
+    try {
+      await freezePaymentPlanAfterSupplierAgreed(createAdminClient(), { eventId, eventVendorId });
+    } catch (e) {
+      console.error(
+        `[vendorAgreeToLock] payment-plan snapshot failed for vendor_id=${eventVendorId}:`,
         e,
       );
     }

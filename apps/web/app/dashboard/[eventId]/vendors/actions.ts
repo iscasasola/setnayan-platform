@@ -71,8 +71,6 @@ import {
 } from '@/lib/schedule-pools';
 import {
   centavosToPhp,
-  computePlanInstances,
-  defaultPaymentScheduleRows,
   downpaymentPolicyFromRows,
   isProtectedPolicy,
   pctOfTotalPhp,
@@ -86,6 +84,7 @@ import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { tellSupplierLockRequestWithdrawn } from '@/lib/lock-request-notices.server';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
+import { freezePaymentPlanAtBooking } from '@/lib/booking-payment-plan.server';
 import {
   changeOrderAnsweredNotice,
   changeOrderProposedNotice,
@@ -116,13 +115,10 @@ import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
-  lockMayOverwritePlan,
   planInstancesToRows,
-  redateOnLockInstalments,
   type EditablePlanRow,
 } from '@/lib/self-added-payment-plan';
 import { geocodeAddressWithCity } from '@/lib/geo';
-import { manilaTodayIso } from '@/lib/vendor-cashflow';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -2035,29 +2031,26 @@ export async function finalizeVendor(
   //
   // They belong to the agreement.
   //
-  // ⚠ THIS BLOCK ENDED "…and they run from vendorAgreeToLock." THEY DO NOT.
-  // Read 2026-10-10, symbol by symbol: `vendorAgreeToLock`
-  // (app/vendor-dashboard/clients/[eventId]/actions.ts) calls the
-  // `vendor_agree_to_lock` RPC (status → contracted, slot capacity, the package
-  // cascade), then `stamp_setnayan_gift_at_lock`, then
-  // `narrowEventDateAfterAgreement`, then emits `lock_request_agreed` to the
-  // couple. That is all. It does NOT freeze the payment plan
-  // (`event_vendor_payment_plan` has no writer on that path — its writers are
-  // this function below the `return`, `saveSelfAddedPaymentPlan`, and the
-  // Locked-QR claim in SQL) and does NOT emit `payment_info_sent`. Its
-  // TypeScript also calls none of the rival sweep, the displacement, the
-  // category auto-complete or the lock-proposal auto-resolve listed above
-  // (whether a database trigger on the status change does any of those was
-  // not traced — only the plan and its notice were followed to the end).
+  // ⚠ THIS BLOCK ENDED "…and they run from vendorAgreeToLock." UNTIL 2026-10-10
+  // NONE OF THEM DID. `vendorAgreeToLock` called the `vendor_agree_to_lock` RPC,
+  // stamped the gift, narrowed the date and told the couple "they said yes" —
+  // and that was all, so a booking made through the handshake had no frozen
+  // payment plan and no "your payment info is ready".
   //
-  // So with the handshake ON, a marketplace booking the supplier agrees to has
-  // NO frozen plan. The couple is told the yes ("They will send you their
-  // payment details next"), and what stands in for the plan is the supplier's
-  // own "ask for a payment" (`vendorAskForPayment` → `vendor_payment_asked`).
-  // Deliberately NOT fixed here: writing the plan at the agreement is a money
-  // path and an owner call (which date anchors the instalments). Measure with
+  // ✅ THE PAYMENT PLAN AND ITS NOTICE NOW DO: both callers go through
+  // `freezePaymentPlanAtBooking` (lib/booking-payment-plan.server.ts).
+  //
+  // ⛔ STILL NOT RUN AT THE YES, each for a stated reason:
+  //   · the reservation-terms evidence (`snapshotPolicyAcknowledgement`, below):
+  //     its input is the policy text the couple acknowledged AT THE ASK, and
+  //     nothing stores that between the ask and the yes;
+  //   · the rival sweep, the displacement, the category auto-complete and the
+  //     lock-proposal auto-resolve: not traced past this file's TypeScript.
+  // Bookings made before this change can be counted with
   //   select count(*) from event_vendors ev
   //    where ev.lock_request_state = 'agreed'
+  //      and ev.marketplace_vendor_id is not null
+  //      and ev.event_vendor_package_id is null
   //      and not exists (select 1 from event_vendor_payment_plan p
   //                       where p.event_vendor_id = ev.vendor_id);
   // ══════════════════════════════════════════════════════════════════════
@@ -2258,183 +2251,22 @@ export async function finalizeVendor(
   try {
     const planAdmin = createAdminClient();
 
-    // Pull the booking total + event date for the resolution inputs.
-    const [{ data: evRow, error: evRowErr }, { data: eventRow }] = await Promise.all([
-      planAdmin
-        .from('event_vendors')
-        // Plan amounts are shares of the agreed total NOW (changes included).
-        .select(`total_cost_php, ${CHANGE_LINES_EMBED}`)
-        .eq('event_id', eventId)
-        .eq('vendor_id', vendorId)
-        .maybeSingle(),
-      planAdmin
-        .from('events')
-        .select('event_date')
-        .eq('event_id', eventId)
-        .maybeSingle(),
-    ]);
-    if (evRowErr) {
-      console.error('[lockVendor] payment-plan booking total read failed:', evRowErr.message);
-    }
-    const planRow = evRow as
-      | { total_cost_php: number | null; change_lines?: ChangeLineRow[] | null }
-      | null;
-    const totalCostPhp = agreedTotalNow(planRow?.total_cost_php ?? null, planRow?.change_lines);
-    const eventDateIso =
-      (eventRow as { event_date: string | null } | null)?.event_date ?? null;
-    // A self-added supplier's lock day is the day the couple clicked, in
-    // Manila — a 7am lock is not "yesterday". The marketplace path keeps its
-    // existing UTC day; changing it is a separate decision.
-    const lockDateIso = targetVendor.marketplace_vendor_id
-      ? new Date().toISOString().slice(0, 10)
-      : manilaTodayIso();
-
-    // Read the booked service's schedule template (seq-ordered). Off-platform /
-    // serviceless bookings → no rows → empty plan (direct-pay fallback).
-    let scheduleRows: PaymentScheduleItemRow[] = [];
-    if (targetVendor.service_id) {
-      const { data: rows } = await planAdmin
-        .from('vendor_service_payment_schedules')
-        .select('*')
-        .eq('vendor_service_id', targetVendor.service_id)
-        .order('seq', { ascending: true });
-      scheduleRows = (rows ?? []) as PaymentScheduleItemRow[];
-    }
-
-    // Default-seed: a marketplace vendor with a known total but NO configured
-    // schedule would otherwise hand the couple an empty plan / silent "pay
-    // directly". Seed a 50/50 ESTIMATED plan instead (flagged below) so the
-    // couple always sees a downpayment + balance they can confirm. Skipped when
-    // there's no total to estimate against — an empty plan is the honest state.
-    const seededDefault = scheduleRows.length === 0 && totalCostPhp != null;
-    if (seededDefault) {
-      scheduleRows = defaultPaymentScheduleRows();
-    }
-
-    const instances = computePlanInstances({
-      scheduleRows,
-      totalCostPhp,
-      lockDateIso,
-      eventDateIso,
+    // 🔑 ONE FUNCTION, TWO CALLERS (lib/booking-payment-plan.server.ts). This is
+    // the DIRECT path: the couple's press made the booking, so the plan is
+    // frozen now and the person who pressed is told. With the handshake on,
+    // this line is never reached — the function returned at the ask above — and
+    // `vendorAgreeToLock` calls the same function when the supplier says yes.
+    await freezePaymentPlanAtBooking(planAdmin, {
+      eventId,
+      vendorId,
+      booking: {
+        vendor_name: (targetVendor.vendor_name as string | null) ?? null,
+        marketplace_vendor_id: (targetVendor.marketplace_vendor_id as string | null) ?? null,
+        service_id: (targetVendor.service_id as string | null) ?? null,
+      },
+      tellUserId: user.id,
+      tag: 'finalizeVendor',
     });
-
-    // ── 🔒 THE COUPLE'S OWN PLAN SURVIVES THE LOCK (2026-09-21) ────────────
-    // This snapshot was written when only a marketplace supplier could have a
-    // plan, and its upsert below REPLACED whatever was there. Since 2026-09-20
-    // a couple can author a plan for a supplier they added — and locking that
-    // supplier found no service schedule, seeded a generic 50/50 ESTIMATE, and
-    // overwrote the plan the couple had typed. `lockMayOverwritePlan`
-    // (lib/self-added-payment-plan.ts, executed by its test) holds the rule.
-    //
-    // ⚠ AN UNREADABLE PLAN IS NOT AN ABSENT ONE. If this read fails, a
-    // self-added supplier's plan is LEFT ALONE rather than overwritten blind —
-    // the couple's typed plan is the only copy, and a generic estimate is
-    // recoverable while their plan is not. A marketplace booking keeps the
-    // existing refresh behaviour, since its truth is the supplier's schedule.
-    const onPlatformBooking = Boolean(targetVendor.marketplace_vendor_id);
-    const { data: existingPlan, error: existingPlanErr } = await planAdmin
-      .from('event_vendor_payment_plan')
-      .select('instances_json, is_default_seeded')
-      .eq('event_id', eventId)
-      .eq('event_vendor_id', vendorId)
-      .maybeSingle();
-    if (existingPlanErr) {
-      // Recorded, not just branched on: `ugat-both-ends.db.test.ts` refuses a
-      // money read whose error selects a branch that leaves no trace. The plan
-      // is still protected below — this line is so someone can see it happened.
-      console.error(
-        `[finalizeVendor] could not read the existing payment plan for vendor_id=${vendorId} event_id=${eventId} — ${
-          onPlatformBooking ? 'refreshing it from the supplier schedule' : 'leaving the couple’s plan untouched'
-        }:`,
-        existingPlanErr.message,
-      );
-    }
-    const keepCouplePlan = existingPlanErr
-      ? !onPlatformBooking
-      : !lockMayOverwritePlan({
-          onPlatform: onPlatformBooking,
-          existingInstances: Array.isArray(
-            (existingPlan as { instances_json?: unknown } | null)?.instances_json,
-          )
-            ? ((existingPlan as { instances_json: unknown[] }).instances_json)
-            : null,
-          existingIsDefaultSeeded:
-            (existingPlan as { is_default_seeded?: boolean } | null)?.is_default_seeded === true,
-        });
-
-    // Upsert one plan row per (event, event_vendor) — re-locking refreshes it.
-    // Skipped entirely when the couple's own plan must survive (see above); the
-    // "your payment info is ready" notice below still fires, because it is.
-    //
-    // 📅 THE LOCK DAY (owner 2026-09-21: "on the date you clicked on lock").
-    // For a supplier the couple added themselves, TODAY is the day their
-    // "N days after lock" instalments count from. It is stamped on the plan
-    // (`on_lock_anchor_date`) so later edits read it back instead of sliding,
-    // and the couple's kept plan is re-dated to it — until now those rows were
-    // anchored on the day the supplier was added. Only "after lock" dates move
-    // (`redateOnLockInstalments`, executed by its test).
-    const stampLockDay = !onPlatformBooking;
-    const { error: planErr } = keepCouplePlan
-      ? await planAdmin
-          .from('event_vendor_payment_plan')
-          .update(
-            existingPlanErr
-              ? // Unreadable plan: record the day, touch nothing else.
-                { on_lock_anchor_date: lockDateIso }
-              : {
-                  on_lock_anchor_date: lockDateIso,
-                  instances_json: redateOnLockInstalments(
-                    (existingPlan as { instances_json?: unknown } | null)?.instances_json,
-                    lockDateIso,
-                  ),
-                  updated_at: new Date().toISOString(),
-                },
-          )
-          .eq('event_id', eventId)
-          .eq('event_vendor_id', vendorId)
-      : await planAdmin
-      .from('event_vendor_payment_plan')
-      .upsert(
-        {
-          event_id: eventId,
-          event_vendor_id: vendorId,
-          instances_json: instances,
-          // Flag an estimated 50/50 fallback so the couple's workspace can label
-          // it "estimated — confirm with your vendor". Always written, so a
-          // re-lock after the vendor sets a real schedule flips this back false.
-          is_default_seeded: seededDefault,
-          // #15 (money bug-hunt): a re-lock re-snapshots the instances, so the
-          // plan must start UNCLEARED — otherwise a previously-cleared plan keeps
-          // cleared_at and a freshly-recomputed (possibly larger) balance shows
-          // as fully settled. planAdmin is service_role, so this bypasses the
-          // cleared_at write-guard. The couple re-confirms via the gated path.
-          cleared_at: null,
-          cleared_by: null,
-          ...(stampLockDay ? { on_lock_anchor_date: lockDateIso } : {}),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'event_id,event_vendor_id' },
-      );
-    if (planErr) {
-      console.error(
-        `[finalizeVendor] payment-plan snapshot upsert failed for vendor_id=${vendorId} event_id=${eventId}:`,
-        planErr.message,
-      );
-    } else {
-      // Tell the COUPLE (the acting host) their payment info is ready. Deep-link
-      // to the per-vendor workspace Payments section.
-      await emitNotification({
-        userId: user.id,
-        type: 'payment_info_sent',
-        title: 'Your payment info is ready',
-        body: seededDefault
-          ? `Your booking with ${targetVendor.vendor_name as string} is confirmed. We've prepared an estimated payment plan — open the workspace to review it and confirm the terms with your supplier.`
-          : instances.length > 0
-            ? `Your booking is confirmed. We've prepared the payment plan for ${targetVendor.vendor_name as string} — open the workspace to see each payment and how to pay.`
-            : `Your booking with ${targetVendor.vendor_name as string} is confirmed. Open the workspace to see how to pay them directly.`,
-        relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/workspace#payments`,
-      });
-    }
 
     // No-Show Downpayment Protection — freeze the acknowledged reservation
     // policy into immutable evidence. reservationSnapshot is non-null only when

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React, { createElement } from 'react';
+import { stripComments } from '@/lib/strip-comments';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 /* `tsx --test` compiles a `.tsx` component to the classic runtime (bare `React.createElement`), so React is put in
@@ -36,7 +37,7 @@ test('the field is drawn in plain words — no "slug", no "chars"', async () => 
   const src = readFileSync(join(APP, 'dashboard', '[eventId]', 'invitation', '_components', 'slug-field.tsx'), 'utf8');
   assert.match(src, />Available — tap Save address to keep it\.</);
   assert.match(src, />This is your address now\.</);
-  assert.doesNotMatch(src.replace(/\/\*[\s\S]*?\*\//g, ''), />[^<{]*\bslug\b[^<{]*</i, 'a line of the field still says "slug"');
+  assert.doesNotMatch(stripComments(src), />[^<{]*\bslug\b[^<{]*</i, 'a line of the field still says "slug"');
 });
 
 test('the format check is one the browser can run', async () => {
@@ -57,7 +58,7 @@ test('the format check is one the browser can run', async () => {
 
 test('Go live says "Event Hub", and its preview link is a finger tall', () => {
   const src = readFileSync(join(APP, 'dashboard', '[eventId]', 'studio', 'save-the-date', '_components', 'launch-std-button.tsx'), 'utf8');
-  const jsx = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*(\*|\/\/).*$/gm, '');
+  const jsx = stripComments(src);
   assert.doesNotMatch(jsx, /your page|wedding page|Your page/, 'the guest page is called a "page" again');
   for (const line of ['Your Event Hub is private', 'to make your Event Hub public — now, or at a time you choose.', 'Make your Event Hub public now?', 'Preview your Event Hub', 'your Event Hub is live.', 'View your Event Hub', 'Your Event Hub becomes public on'])
     assert.ok(jsx.includes(line), `missing: ${line}`);

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 /**
  * 🔤 A TITLE LOOK PICKED IN THE MAKER IS DRAWN ON THE PAGE — ON THE PLAIN MASTHEAD TOO.
@@ -21,7 +22,8 @@ import { join } from 'node:path';
  * This holds the ARITHMETIC, on the stylesheet itself: every rule of every Title look out-ranks the eyebrow rule it
  * shares an element with.
  */
-const CSS = readFileSync(join(process.cwd(), 'app', 'globals.css'), 'utf8');
+/* Comments off first (the one stripper): a selector is read from the rules, never from the prose about them. */
+const CSS = stripComments(readFileSync(join(process.cwd(), 'app', 'globals.css'), 'utf8'));
 const MASTHEAD = readFileSync(join(process.cwd(), 'app', '[slug]', '_components', 'pahina-masthead.tsx'), 'utf8');
 
 /** A selector's specificity [ids, classes · attributes · pseudo-classes, elements · pseudo-elements]; `:is()` = its best argument. */
@@ -48,7 +50,6 @@ const beats = (a: [number, number, number], b: [number, number, number]) => a[0]
 /** Every selector in the sheet that names a Title look, split on commas. */
 const lookSelectors = [...CSS.matchAll(/(^|\})\s*([^{}]*data-part-look="eyebrow\.[a-z-]+"[^{}]*)\{/gm)].flatMap((m) =>
   m[2]!
-    .replace(/\/\*[\s\S]*?\*\//g, '')
     .split(/,(?![^(]*\))/)
     .map((x) => x.trim())
     .filter(Boolean),

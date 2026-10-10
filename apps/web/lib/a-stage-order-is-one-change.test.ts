@@ -40,7 +40,7 @@ const rows = (places: Partial<Record<WidgetType, Partial<Record<LifecyclePhase, 
     config_json: places[type] ? { stage_order: places[type] } : {}, created_at: '', updated_at: '', mode: 'auto',
   })) as InvitationWidgetRow[];
 const liveOf = (widgets: InvitationWidgetRow[]): HubLiveState => ({ events: {}, widgets });
-const orderOn = (widgets: readonly InvitationWidgetRow[], stage: LifecyclePhase) => stageRowOrder(widgets, stage, (t, s) => widgetInPhase(t as WidgetType, s)).map((r) => r.widget_id);
+const orderOn = (widgets: HubLiveState['widgets'], stage: LifecyclePhase) => stageRowOrder(widgets, stage, (t, s) => widgetInPhase(t as WidgetType, s)).map((r) => r.widget_id);
 const typeOf = (id: string) => id.slice(2);
 const move = (d: HubDraft, order: string[], stage: LifecyclePhase) => mergeHubDraft(d, stageOrderPatch(order, typeOf, stage)!);
 const orderChanges = (d: HubDraft, live: HubLiveState) => hubDraftCountedChanges(planHubDraftApply(d, live, false)).filter((c) => c.item.kind === 'widget' && c.item.field === 'stage_order');

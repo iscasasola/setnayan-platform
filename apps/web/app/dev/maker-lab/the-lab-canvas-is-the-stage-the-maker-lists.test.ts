@@ -109,8 +109,8 @@ test('P03 — the lab offers a Studio tile only for a page its Studio draws', ()
   const page = read('maker-lab', 'page.tsx');
   assert.match(page, /const LAB_STUDIO_NOT_DRAWN: ReadonlyArray<\(typeof STUDIO_TILE_KEYS\)\[number\]> = \['seats'\];/);
   assert.match(page, /tiles: STUDIO_TILE_KEYS\.filter\(\(key\) => !LAB_STUDIO_NOT_DRAWN\.includes\(key\)\)\.map\(/);
-  /* The reason, held: the lab hands `MakerDetails` no seat plan. The day it does, the tile comes back with it. */
-  assert.doesNotMatch(read('details-lab', 'details-lab-node.tsx'), /\bseatPlan=/, 'the lab draws a seat plan now — offer its tile (drop it from LAB_STUDIO_NOT_DRAWN)');
+  /* The reason is held by its own guard — `lib/the-seat-plan-chrome-wears-the-templates.test.ts` (4): no lab draws
+     the seat plan. The day one does, that guard fails and this tile comes back with it. */
 });
 
 test('P07 — one sample event: Studio’s pages say the canvas’s date, venue, message and address', () => {

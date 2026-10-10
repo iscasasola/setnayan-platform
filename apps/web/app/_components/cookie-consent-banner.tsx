@@ -87,7 +87,13 @@ export function CookieConsentBanner() {
   const [mounted, setMounted] = useState(false);
   const [decided, setDecided] = useState(true);
   const [manage, setManage] = useState(false);
-  const [analytics, setAnalytics] = useState(true);
+  // ☐ THE OPTIONAL BOX STARTS UNTICKED — consent is something a person does, never
+  // something done for them (the app's standing rule: `app/signup/consent-is-
+  // affirmative.test.ts`, `lib/terms-agreement.ts`). Until 2026-10-11 it started
+  // TICKED: a visitor who opened "Manage" and pressed Save without touching the
+  // box was recorded as having said yes to analytics. It shows a yes only when a
+  // yes is already stored. `optional-analytics-waits-for-a-yes.test.ts` holds it.
+  const [analytics, setAnalytics] = useState(false);
   const [storeShell, setStoreShell] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
   // How far to lift off the true bottom edge so this banner sits ABOVE the
@@ -198,8 +204,12 @@ export function CookieConsentBanner() {
     setStoreShell(isNativeApp());
     const c = readConsent();
     setDecided(c !== null);
-    setAnalytics(c?.analytics ?? true);
+    setAnalytics(c?.analytics ?? false);
     const onOpen = () => {
+      // Re-opened from "Cookie settings": the box shows the choice as it is
+      // STORED NOW (it may have been made a moment ago, in this same visit) —
+      // and nothing at all when none was made.
+      setAnalytics(readConsent()?.analytics ?? false);
       setDecided(false);
       setManage(true);
     };

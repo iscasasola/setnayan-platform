@@ -39,6 +39,7 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { isHardSinglePickGroup } from '@/lib/wedding-plan-groups';
 import { markCategoryComplete } from '../category-decision-actions';
 import { formatCount } from '@/lib/format-number';
+import { analyticsAllowed } from '@/lib/cookie-consent';
 
 /**
  * AccordionLockButton + ChangePickButton — the Plan + Budget card's lock /
@@ -340,20 +341,23 @@ export function AccordionLockButton({
             // ask "done with this service, or add another?" (owner 2026-07-27).
             askDone: isExploreReplanEnabled() && !isHardSinglePickGroup(groupId),
           });
-          try {
-            const mod = await import('posthog-js');
-            const client = (mod.default ?? mod) as unknown as {
-              capture?: (e: string, p?: Record<string, unknown>) => void;
-            };
-            client.capture?.('vendor_locked', {
-              event_id: eventId,
-              vendor_id: vendorId,
-              group_id: groupId,
-              group_label: groupLabel,
-              source,
-            });
-          } catch {
-            // PostHog optional — never block UX.
+          // No yes, no analytics — and no SDK download either (`lib/cookie-consent.ts`).
+          if (analyticsAllowed()) {
+            try {
+              const mod = await import('posthog-js');
+              const client = (mod.default ?? mod) as unknown as {
+                capture?: (e: string, p?: Record<string, unknown>) => void;
+              };
+              client.capture?.('vendor_locked', {
+                event_id: eventId,
+                vendor_id: vendorId,
+                group_id: groupId,
+                group_label: groupLabel,
+                source,
+              });
+            } catch {
+              // PostHog optional — never block UX.
+            }
           }
           return;
         }

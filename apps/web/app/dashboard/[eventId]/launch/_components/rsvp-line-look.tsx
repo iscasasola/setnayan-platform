@@ -238,11 +238,22 @@ export const RSVP_LINE_GROUND_LINE = 'This sits on the RSVP card’s background.
  * BACKGROUND FOR THE CARD — None · Plain · Frosted, as the toolbar's own picture tiles (`stage-background.tsx`'s
  * tile: the same face, the same ring when picked, its name written on it). Plain is today's card and stores nothing.
  */
-export function RsvpCardGroundRows({ now, onPick }: { now: RsvpCardGround | null; onPick: (ground: RsvpCardGround | null) => void }) {
+export function RsvpCardGroundRows({
+  now,
+  onPick,
+  label = 'The card’s background',
+  line = RSVP_CARD_GROUND_LINE,
+}: {
+  now: RsvpCardGround | null;
+  onPick: (ground: RsvpCardGround | null) => void;
+  /** 🫧 A GROUP of lines wears the same three tiles: what the tiles are called, and the sentence under them. */
+  label?: string;
+  line?: string;
+}) {
   const picked = now ?? 'plain';
   return (
     <div className="contents" data-rsvp-card-ground={picked}>
-      <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" role="group" aria-label="The card’s background">
+      <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" role="group" aria-label={label}>
         {RSVP_CARD_TILES.map((t) => (
           <button key={t.key} type="button" aria-pressed={t.key === picked} aria-label={t.name} data-rsvp-card-tile={t.key} onClick={() => onPick(t.key === 'plain' ? null : t.key)} className={SP_BG_TILE}>
             <span className={SP_BG_TILE_FACE} style={t.key === 'frost' ? { background: 'linear-gradient(135deg, rgba(255,255,255,.9), rgba(217,185,154,.55))' } : undefined} data-tile-face={t.key === 'none' ? 'none' : 'flat'}>
@@ -254,18 +265,27 @@ export function RsvpCardGroundRows({ now, onPick }: { now: RsvpCardGround | null
           </button>
         ))}
       </div>
-      <p className={`${SP_ROWS_ROW} row-start-2 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-rsvp-row="2">{RSVP_CARD_GROUND_LINE}</p>
+      <p className={`${SP_ROWS_ROW} row-start-2 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-rsvp-row="2">{line}</p>
     </div>
   );
 }
 
 /** BACKGROUND FOR A LINE — it has none of its own: one line says whose it sits on, and the one button opens that. */
-export function RsvpLineGroundRow({ onOpenCard }: { onOpenCard: () => void }) {
+export function RsvpLineGroundRow({
+  onOpenCard,
+  words = RSVP_LINE_GROUND_LINE,
+  label = 'Open the card',
+}: {
+  onOpenCard: () => void;
+  /** 🫧 A line inside a GROUP sits on its group's background: the same row, the group's words. */
+  words?: string;
+  label?: string;
+}) {
   return (
     <div className={`${SP_ROWS_ROW} row-start-1 justify-between`} data-rsvp-row="1" data-rsvp-line-ground="">
-      <p className="min-w-0 text-[13px] text-[var(--sp-ink)]">{RSVP_LINE_GROUND_LINE}</p>
+      <p className="min-w-0 text-[13px] text-[var(--sp-ink)]">{words}</p>
       <span className="shrink-0" data-rsvp-open-card="">
-        <ActionButton tone="neutral" icon={Square} label="Open the card" onClick={onOpenCard} />
+        <ActionButton tone="neutral" icon={Square} label={label} onClick={onOpenCard} />
       </span>
     </div>
   );

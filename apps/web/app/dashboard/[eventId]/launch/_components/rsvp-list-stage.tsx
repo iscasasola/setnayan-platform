@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { RSVP_LIST_DONE_EVENT, RSVP_LIST_SAY_EVENT, RSVP_LIST_WORDS, rsvpGroupId, type RsvpListDone } from '@/lib/rsvp-layout-edit';
+import { RSVP_GROUP_PICK_EVENT, RSVP_LIST_DONE_EVENT, RSVP_LIST_PICK_EVENT, RSVP_LIST_SAY_EVENT, RSVP_LIST_WORDS, rsvpGroupId, type RsvpListDone, type RsvpListPick } from '@/lib/rsvp-layout-edit';
 import { RSVP_ADDED_MAX, RSVP_GROUP_ATTR, RSVP_SCREEN_LINES, rsvpAddedId, rsvpLookCard, type RsvpAddedLine, type RsvpLookCard } from '@/lib/rsvp-look';
 import { RSVP_SITE_SOURCE, isRsvpStageScene } from '@/lib/rsvp-stage';
 import { RSVP_ADDED_NAME } from '@/app/[slug]/_components/rsvp-lines';
 import { RSVP_LINE_NAME } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { RSVP_SCENE_PART, rsvpGroupRows, rsvpLineRow, rsvpLinesBox, rsvpTopRows } from './rsvp-canvas-arrange';
 import { attachRsvpDrag, type RsvpDragSubject } from './rsvp-canvas-drag';
-import { RsvpAddLineSheet, askRsvpListEdit } from './rsvp-line-list';
+import { RsvpAddLineSheet, RsvpGroupPickBar, askRsvpListEdit } from './rsvp-line-list';
 
 /**
  * ＋ THE TOOLBAR'S HALF OF THE RSVP STAGE'S LIST (owner's ruling 2026-10-09; approved prototype
@@ -30,6 +30,13 @@ import { RsvpAddLineSheet, askRsvpListEdit } from './rsvp-line-list';
  *     inside a group, the WHOLE GROUP unless that very line is the picked one. A drop asks the panel for ONE edit
  *     (`do: 'place'`), like every other change; what was held is picked. While a line is held the frame steps aside.
  *
+ *   · 🫧 GROUP (the prototype's picking mode): Edit's last row asks for it (`RSVP_GROUP_PICK_EVENT`); the lines of
+ *     the screen step apart and wear a ring, a tap ticks one (or lets it go), the lower third is the picking bar
+ *     (`RsvpGroupPickBar`), and Done asks the panel for ONE edit (`do: 'group'`). A group cannot go inside a group; a
+ *     line already in one cannot be picked; nothing is held or framed while picking. A GROUP is then a part like a
+ *     line: tapped on its own paper it is picked, framed, moved, and takes ＋ — its tools are Edit and Background
+ *     (Style and Animate stay grey and say why: `groupWhy`).
+ *
  * What is on the page is read FROM the page (the same-origin frame): the toolbar holds no copy of the config, so a
  * name can never disagree with what the couple is looking at.
  */
@@ -44,8 +51,23 @@ export const RSVP_SAVE_STAYS = { earlier: RSVP_LIST_WORDS.save, later: RSVP_LIST
 const APART_ATTR = 'data-rsvp-apart';
 const APART_CSS = `[${APART_ATTR}]{margin-block:36px!important}`;
 
-type Meta = { name: string | null; inGroup: boolean; own: boolean; add: { above: boolean; below: boolean } | null };
-const NONE: Meta = { name: null, inGroup: false, own: false, add: null };
+/**
+ * 🫧 THE MARKS WHILE LINES ARE PICKED (the prototype's `.can` · `.tick` · `.cant`): every line that can join steps
+ * apart and wears a ring to its left, a picked one a tick and an outline, a group stands back (it cannot join).
+ * On the Maker's sample only. Colour tokens only (owner 2026-10-11) — the page's paper and ink, the one accent.
+ */
+export const RSVP_PICK_ATTR = 'data-rsvp-pick';
+const PICK_CSS =
+  `[${RSVP_PICK_ATTR}]{position:relative;margin:12px 0 12px 24px!important}` +
+  `[${RSVP_PICK_ATTR}="can"]::after,[${RSVP_PICK_ATTR}="tick"]::after{content:'';position:absolute;left:-26px;top:50%;box-sizing:border-box;width:18px;height:18px;margin-top:-9px;display:grid;place-items:center;border-radius:50%;border:1.5px solid rgb(var(--color-ink) / .4);background:rgb(var(--color-cream));font:700 11px/1 system-ui,sans-serif;letter-spacing:0;text-transform:none}` +
+  `[${RSVP_PICK_ATTR}="tick"]::after{content:'✓';border-color:rgb(var(--sn-accent));background:rgb(var(--sn-accent));color:rgb(var(--sn-on-accent))}` +
+  `[${RSVP_PICK_ATTR}="tick"]{outline:2px solid rgb(var(--sn-accent));outline-offset:2px}` +
+  `[${RSVP_PICK_ATTR}="cant"]{opacity:.4}`;
+/** What a grey tool says on a group (the prototype's two sentences). */
+const GROUP_WHY = { style: RSVP_LIST_WORDS.groupStyle, animate: RSVP_LIST_WORDS.groupAnimate } as const;
+
+type Meta = { name: string | null; inGroup: boolean; own: boolean; group: boolean; add: { above: boolean; below: boolean } | null };
+const NONE: Meta = { name: null, inGroup: false, own: false, group: false, add: null };
 
 function frameDoc(frameSel: string): Document | null {
   return document.querySelector<HTMLIFrameElement>(frameSel)?.contentDocument ?? null;
@@ -114,9 +136,13 @@ export function useRsvpListStage({
   inGroup: boolean;
   /** Its Edit rows are the RSVP panel's (an added line's words, a group's place) — the toolbar's own stand aside. */
   own: boolean;
+  /** A GROUP is picked: its tools are Edit and Background — what its grey Style and Animate say. Null: not a group. */
+  groupWhy: { style: string; animate: string } | null;
   /** Where ＋ stands on the picked thing's frame — null: nowhere. */
   add: { above: boolean; below: boolean; onAdd: (where: 'above' | 'below') => void } | null;
-  /** The picked part's frame steps aside: a line is held. */
+  /** 🎟 The pass's Save button is picked: what its grey Earlier · Later · Remove say (`RSVP_SAVE_STAYS`). Null: any other. */
+  stays: typeof RSVP_SAVE_STAYS | null;
+  /** The picked part's frame steps aside: a line is held, or lines are being picked for a group. */
   away: boolean;
   node: ReactNode;
 } {
@@ -124,6 +150,10 @@ export function useRsvpListStage({
   const [stamp, setStamp] = useState(0);
   const [meta, setMeta] = useState<Meta>(NONE);
   const [adding, setAdding] = useState<'above' | 'below' | null>(null);
+  /** 🫧 Lines being picked for a group: the screen's card, and the names ticked so far. Null: not picking. */
+  const [multi, setMulti] = useState<{ part: RsvpLookCard; names: string[] } | null>(null);
+  const multiNow = useRef(multi);
+  multiNow.current = multi;
 
   /* What the picked thing IS, read off the page — again after every edit of the list. */
   useLayoutEffect(() => {
@@ -138,6 +168,7 @@ export function useRsvpListStage({
       name: isGroup ? 'Group' : added ? RSVP_ADDED_NAME[added] : null,
       inGroup: Boolean(node && !isGroup && node.parentElement?.closest(`[${RSVP_GROUP_ATTR}]`)),
       own: isGroup || added !== null,
+      group: isGroup,
       add: node && inList ? { above: true, below: true } : foot ? { above: true, below: false } : null,
     });
   }, [listPart, line, frameSel, stamp]);
@@ -167,7 +198,20 @@ export function useRsvpListStage({
       if (!done) return;
       if (done.said) onSay(done.said);
       if (done.ok && done.edit.do !== 'words') onPick(done.pick, done.edit.do === 'add' ? 'edit' : done.edit.do === 'group' ? 'bg' : undefined, done.edit.part);
+      /* The group was made: picking is over (refused — a fifth group — it stays, and the reason is said). */
+      if (done.ok && done.edit.do === 'group') setMulti(null);
       setStamp((n) => n + 1);
+    };
+    /* "Open the group", from a line inside it. */
+    const onOpen = (e: Event) => {
+      const d = (e as CustomEvent<RsvpListPick>).detail;
+      if (d && typeof d.name === 'string' && rsvpLookCard(d.part)) onPick(d.name, d.tool, d.part);
+    };
+    /* 🫧 Edit's last row asked for a group: picking starts from the line it was asked on. */
+    const onGroup = (e: Event) => {
+      const d = (e as CustomEvent<{ part?: unknown; line?: unknown }>).detail;
+      const part = rsvpLookCard(typeof d?.part === 'string' ? d.part : null);
+      if (part && typeof d?.line === 'string') setMulti({ part, names: [d.line] });
     };
     const onSaid = (e: Event) => {
       const words = (e as CustomEvent<string>).detail;
@@ -175,11 +219,56 @@ export function useRsvpListStage({
     };
     window.addEventListener(RSVP_LIST_DONE_EVENT, onDone);
     window.addEventListener(RSVP_LIST_SAY_EVENT, onSaid);
+    window.addEventListener(RSVP_LIST_PICK_EVENT, onOpen);
+    window.addEventListener(RSVP_GROUP_PICK_EVENT, onGroup);
     return () => {
       window.removeEventListener(RSVP_LIST_DONE_EVENT, onDone);
       window.removeEventListener(RSVP_LIST_SAY_EVENT, onSaid);
+      window.removeEventListener(RSVP_LIST_PICK_EVENT, onOpen);
+      window.removeEventListener(RSVP_GROUP_PICK_EVENT, onGroup);
     };
   }, [on, onPick, onSay]);
+
+  /* 🫧 PICKING THE LINES OF A GROUP — the marks on the page, and a tap that ticks instead of picking. Heard on the
+     frame's WINDOW, before the page's own tap (which would pick the line as a part). */
+  const say = useRef(onSay);
+  say.current = onSay;
+  useEffect(() => setMulti(null), [on, frameSel]); /* another screen, or the stage closed: picking is over */
+  useEffect(() => {
+    if (!multi) return;
+    const doc = frameDoc(frameSel);
+    const win = doc?.defaultView;
+    const box = doc ? rsvpLinesBox(doc, multi.part) : null;
+    if (!doc || !win || !box) return;
+    const style = doc.createElement('style');
+    style.setAttribute('data-rsvp-pick-rule', '');
+    style.textContent = PICK_CSS;
+    doc.head.appendChild(style);
+    const rows = rsvpTopRows(box, multi.part);
+    for (const { name, row } of rows) row.setAttribute(RSVP_PICK_ATTR, rsvpGroupId(name) ? 'cant' : multi.names.includes(name) ? 'tick' : 'can');
+    const onTap = (e: Event) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const target = e.target as Element | null;
+      if (!target || target.nodeType !== 1) return;
+      const hit = rows.find((r) => r.row.contains(target));
+      if (!hit) return;
+      /* A group cannot go inside a group; a line already in one must be ungrouped first (the prototype's two lines). */
+      if (rsvpGroupId(hit.name)) return say.current(target.closest('[data-rsvp-line]') ? RSVP_LIST_WORDS.inGroupPick : RSVP_LIST_WORDS.isGroup);
+      setMulti((m) => (m ? { part: m.part, names: m.names.includes(hit.name) ? m.names.filter((n) => n !== hit.name) : [...m.names, hit.name] } : m));
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMulti(null);
+    };
+    win.addEventListener('click', onTap, true);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      win.removeEventListener('click', onTap, true);
+      window.removeEventListener('keydown', onKey);
+      style.remove();
+      for (const { row } of rows) row.removeAttribute(RSVP_PICK_ATTR);
+    };
+  }, [multi, frameSel]);
 
   /* ✋ HOLD TO MOVE — on the frame of the screen on show; wired again when that page says it is up (a frame that
      loads later, or loads again, is a new document). */
@@ -203,7 +292,8 @@ export function useRsvpListStage({
     const part = on ? framePart(frameSel) : null;
     if (!doc?.body || !part) return;
     const undo = attachRsvpDrag<DragSubject>(doc, {
-      subject: (target) => rsvpDragSubject(doc, part, target, lineNow.current),
+      /* Nothing is held while lines are picked for a group (the prototype's `S.multi` guard). */
+      subject: (target) => (multiNow.current ? null : rsvpDragSubject(doc, part, target, lineNow.current)),
       onLift: () => setHeld(true),
       onDrop: (subject, before) => {
         setHeld(false);
@@ -249,5 +339,30 @@ export function useRsvpListStage({
           document.body,
         )
       : null;
-  return { name: meta.name, inGroup: meta.inGroup, own: meta.own, add: meta.add ? { ...meta.add, onAdd } : null, away: held, node };
+  const bar = multi ? (
+    <RsvpGroupPickBar
+      count={multi.names.length}
+      onWhy={onSay}
+      onCancel={() => setMulti(null)}
+      onDone={() => {
+        const m = multiNow.current;
+        if (m) askRsvpListEdit({ do: 'group', part: m.part, lines: m.names });
+      }}
+    />
+  ) : null;
+  return {
+    name: meta.name,
+    inGroup: meta.inGroup,
+    own: meta.own,
+    groupWhy: meta.group ? GROUP_WHY : null,
+    add: meta.add ? { ...meta.add, onAdd } : null,
+    stays: on && part === 'pass' && line === 'save' ? RSVP_SAVE_STAYS : null,
+    away: held || multi !== null,
+    node: (
+      <>
+        {node}
+        {bar}
+      </>
+    ),
+  };
 }

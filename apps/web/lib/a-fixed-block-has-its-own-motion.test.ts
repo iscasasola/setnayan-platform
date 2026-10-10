@@ -273,7 +273,9 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
      → "yes"): a block's own tools are now TWO, Background beside Animate, so the clause names both. The claim this pin
      holds — a tool is live on a block only when the block is one of the four AND is really drawn (`block`) — is the
      same; what Background does there is held by `a-fixed-block-has-its-own-background.test.ts`. */
-  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(block !== null && \(t === 'bg' \|\| t === 'animate'\)\);/);
+  /* (Re-aimed 2026-10-11, the RSVP stage's step 7: a GROUP of a reply screen's lines has Background but no Animate —
+     the block's half of the rule, which is this test's claim, is word for word what it was.) */
+  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| \(t === 'animate' && !rsvpList\.groupWhy\)\)\) \|\| \(block !== null && \(t === 'bg' \|\| t === 'animate'\)\);/);
   /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency — owner: "please make Edit | Style | Background | Animate Consistent in
      design"): the part rule is as it was, and one clause is added to it — a tool whose rows would be EMPTY on the
      picked thing is grey too (`emptyHere`: on the reply pages Style has a row only for a line with a look and for the

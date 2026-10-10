@@ -120,5 +120,35 @@ Message), a held line drags to a new place, and several lines can share one back
   here they are the page's paper and ink, the one accent and the app's large shadow — so a dark page is still read.
 - While a line is held the picked part's frame steps aside (`usePartEdits` `away`).
 
+**7 · Group — several lines on one background of their own**
+
+- Edit's last row › Group turns on PICKING (the prototype's mode): the lines of the screen step apart and wear a ring,
+  a tap ticks one (again: lets it go), and the lower third is the picking bar — "Group · pick the lines", one sentence
+  that says how, "N picked", Done · Cancel (`RsvpGroupPickBar`). The count is plain words; Done under two is grey and
+  a tap says "Pick at least two lines." A group cannot be ticked, nor a line already in one — each says the
+  prototype's sentence. Nothing is held or framed while picking; Escape, Cancel or another screen ends it unchanged.
+- Done is ONE edit (`do: 'group'`): the group stands where the first of its lines stood, is picked, and opens on
+  Background — None · Plain · Frosted, the card's own three tiles (`RsvpCardGroundRows`, one drawing) with the
+  group's sentence. THE CARD STANDS ASIDE: making the first group of a screen sets its card to None and remembers
+  what it was; the last Ungroup puts it back; a ground the couple picks for the card in between stands.
+- A GROUP IS A PART: a tap on its own paper picks it ("RSVP › Form › Group"), it wears the frame and ＋, it is held
+  and moved as one, and its last row is ↑ Earlier · ↓ Later · Ungroup. Its tools are Edit and Background; Style and
+  Animate are grey and say the prototype's two sentences (a group has no Animate — the reader keeps room for one,
+  nothing offers it). A line inside a group reads "RSVP › Form › Group › Question", moves inside its group, takes ＋
+  (the new line joins the group), and under Background says "This sits on its group's background." with "Open the
+  group". Group on a line already in one is grey and says why; so is Group on a screen that holds its four.
+- 🔒 A REPLY IS NEVER LOST TO A GROUP: the real card, drawn for a guest, with Yes and No grouped, apart, in two
+  groups, moved, with a line added between them — one "attending" and one "declined", inside the reply's one
+  fieldset, which still has its name; grouped then ungrouped is today's page to the byte
+  (`the-rsvp-stage-groups-lines` § 5). The cap of four groups is the edit's own, not only the button's (§ 3).
+  20 sabotages of this step (`scratchpad/rsvp-adg/sab7.py` lists them), each caught — three only after their guards
+  were mended (the bar's number, the line-in-a-group branch, the fifth group).
+- COLOUR TOKENS ONLY in the picking marks and the bar (owner 2026-10-11); a frame only round what is pressed.
+- PINS RE-AIMED, each with its reason beside it: `ownTool` in two fixed-block guards and one RSVP guard (a group has
+  Background but no Animate); "the frame's only control is ＋" (two arms now draw it: a line of a fixed page, a part
+  of a stage); "the tool is set only by a tap on the selector" (the prototype opens a line just added on Edit and a
+  group just made on Background); the last row's count in the panel (three: a group's Edit draws it too). The
+  toolbar's pinned `why={edits.why}` is word for word again: the Save button's reasons go through the frame's hook.
+
 SPEC IMPACT: None beyond the locked record already in the corpus (`Maker_RSVP_Per_Element_Add_Drag_Group_LOCKED_2026-10-09.md`
 §4–§5 names the cap and the migration). The measured numbers confirm §5's (24,576 / 19,000).

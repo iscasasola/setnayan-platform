@@ -167,10 +167,15 @@ test('5 · Edit’s last row: ↑ Earlier · ↓ Later · Group · Remove — wh
   /* The panel draws it as row 4 for a line of a screen's card — and the Save button keeps the toolbar's own three,
      its grey steps saying the controller's sentence. */
   const PANEL = src(`${L}/maker-rsvp-ask.tsx`);
-  assert.equal((PANEL.match(/\{placeRow\}/g) ?? []).length, 2, 'the last row is not drawn for both a line of the page’s own and a line the couple added');
+  /* (Three since step 7: a GROUP's Edit draws it too — Earlier · Later · Ungroup.) */
+  assert.equal((PANEL.match(/\{placeRow\}/g) ?? []).length, 3, 'the last row is not drawn for a line of the page’s own, a line the couple added and a group');
   const { RSVP_SAVE_STAYS } = await import('../app/dashboard/[eventId]/launch/_components/rsvp-list-stage');
   assert.deepEqual(RSVP_SAVE_STAYS, { earlier: 'The Save button stays under the ticket.', later: 'The Save button stays under the ticket.', remove: 'This line is part of the RSVP — it stays. Lines you add can be removed.' });
-  assert.match(src(`${L}/stage-tools.tsx`), /why=\{rsvpOpen && picked === 'pass' && rsvpLine === 'save' \? RSVP_SAVE_STAYS : edits\.why\}/);
+  /* Said through the part's own steps (the toolbar's `why={edits.why}` stays word for word): the stage hands the
+     frame's hook the Save button's reasons, and the hook answers with them in place of the part's. */
+  assert.match(src(`${L}/rsvp-list-stage.tsx`), /stays: on && part === 'pass' && line === 'save' \? RSVP_SAVE_STAYS : null,/);
+  assert.match(src(`${L}/stage-tools.tsx`), /lineWhy: rsvpList\.stays,/);
+  assert.match(src(`${L}/add-part-sheet.tsx`), /why: lineWhy \?\? makerPartStepWhy\(label \|\| 'This part', canMove, canRemove\),/);
 });
 
 test('6 · a line the couple added is a part like any other: a tap names it, it takes a look, Style has its rows', () => {

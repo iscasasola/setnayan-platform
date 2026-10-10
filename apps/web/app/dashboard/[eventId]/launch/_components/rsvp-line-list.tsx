@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Group, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Group, Plus, Trash2, Ungroup, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { TypedRow } from '@/app/_components/form-row';
-import { SP_ROWS_ROW, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import {
   RSVP_ADD_KINDS,
   RSVP_LIST_EDIT_EVENT,
@@ -34,6 +34,9 @@ import { STAGE_EDIT_ROW_FIT } from './stage-panel/stage-edit';
  *   · `RsvpLinePlaceRow` — Edit's LAST row (owner 2026-10-09: "always set this as the last row"): ↑ Earlier · ↓ Later ·
  *     Group · Remove, the same buttons `StageEdit` draws on every part (`ActionButton`; a step that cannot be taken
  *     keeps its button, grey, and a tap on it says why — never a dead tap).
+ *   · `RsvpGroupPickBar` — GROUP: the lower third while lines are being picked for one background ("Group · pick the
+ *     lines", how, "N picked", Done · Cancel). Drawn over the toolbar's own rows, inside it; the count is plain words
+ *     (owner 2026-10-11: a frame only round what is pressed), Done and Cancel are the app's buttons.
  *   · `RsvpAddedEditRows` — a line the couple added: its words, in the app's typed row, and the one line that says it
  *     has no automatic words. It arrives EMPTY with that box open (controller 2026-10-10: no made-up word or date
  *     may ever print to a guest).
@@ -111,19 +114,23 @@ export function RsvpAddLineSheet({ where, anchorName, onAdd, onClose }: { where:
  * What each button of the last row does for the thing picked, and — where it cannot — the one sentence a tap on its
  * grey button says. `place` null: a line with no place in a list (the Hint: it stays at the card's foot).
  */
-export function rsvpPlaceSteps(part: RsvpLookCard, name: string, place: RsvpPlaceOf | null, onGroup: () => void) {
+export function rsvpPlaceSteps(part: RsvpLookCard, name: string, place: RsvpPlaceOf | null, onGroup: () => void, groupsFull = false) {
   const inGroup = Boolean(place?.group);
+  /** A GROUP is picked: its last row is Earlier · Later · Ungroup (the prototype's — it is never removed, only ungrouped). */
+  const isGroup = place !== null && place.holds !== null;
   const foot = place === null;
   const step = (dir: -1 | 1) => () => askRsvpListEdit({ do: 'step', part, name, dir });
   return {
     earlier: place && place.at > 0 ? step(-1) : null,
     later: place && place.at < place.beside - 1 ? step(1) : null,
-    group: place && !inGroup ? onGroup : null,
+    /* A screen that already holds its four groups says so at the button, before a line is picked. */
+    group: place && !inGroup && !isGroup && !groupsFull ? onGroup : null,
     remove: place?.added ? () => askRsvpListEdit({ do: 'remove', part, line: name }) : null,
+    ungroup: isGroup ? () => askRsvpListEdit({ do: 'ungroup', part, group: name }) : null,
     why: {
       earlier: foot ? RSVP_LIST_WORDS.hint : RSVP_LIST_WORDS.first(inGroup),
       later: foot ? RSVP_LIST_WORDS.hint : RSVP_LIST_WORDS.last(inGroup),
-      group: foot ? RSVP_LIST_WORDS.hint : RSVP_LIST_WORDS.inGroup,
+      group: foot ? RSVP_LIST_WORDS.hint : inGroup ? RSVP_LIST_WORDS.inGroup : RSVP_LIST_WORDS.groupsFull,
       remove: RSVP_LIST_WORDS.ownLine,
     },
   };
@@ -142,12 +149,64 @@ export function RsvpLinePlaceRow({ steps, onWhy, className = '' }: { steps: Retu
       <span className="contents" data-rsvp-place="later" onClick={steps.later ? undefined : () => onWhy(steps.why.later)}>
         <ActionButton tone="neutral" icon={ArrowDown} label="Later" waiting={!steps.later} onClick={steps.later ?? undefined} className={PLACE_STEP} />
       </span>
-      <span className="contents" data-rsvp-place="group" onClick={steps.group ? undefined : () => onWhy(steps.why.group)}>
-        <ActionButton tone="neutral" icon={Group} label="Group" waiting={!steps.group} onClick={steps.group ?? undefined} className={PLACE_STEP} />
-      </span>
-      <span className="contents" data-rsvp-place="remove" onClick={steps.remove ? undefined : () => onWhy(steps.why.remove)}>
-        <ActionButton tone="danger" icon={Trash2} label="Remove" waiting={!steps.remove} onClick={steps.remove ?? undefined} className={PLACE_STEP} />
-      </span>
+      {steps.ungroup ? (
+        /* 🫧 A group: Ungroup stands where Group and Remove stand for a line. */
+        <span className="contents" data-rsvp-place="ungroup">
+          <ActionButton tone="neutral" icon={Ungroup} label="Ungroup" onClick={steps.ungroup} className={PLACE_STEP} />
+        </span>
+      ) : (
+        <>
+          <span className="contents" data-rsvp-place="group" onClick={steps.group ? undefined : () => onWhy(steps.why.group)}>
+            <ActionButton tone="neutral" icon={Group} label="Group" waiting={!steps.group} onClick={steps.group ?? undefined} className={PLACE_STEP} />
+          </span>
+          <span className="contents" data-rsvp-place="remove" onClick={steps.remove ? undefined : () => onWhy(steps.why.remove)}>
+            <ActionButton tone="danger" icon={Trash2} label="Remove" waiting={!steps.remove} onClick={steps.remove ?? undefined} className={PLACE_STEP} />
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── 🫧 Group: picking the lines ──────────────────────────────────────────── */
+
+/** While lines are picked the stage's own panel (which lies over the toolbar's rows) stands aside — by rule, so no
+ *  state can fall out of step with the bar being there. */
+const PICKING_PANEL_RULE = '[data-maker-shell]:has([data-rsvp-group-picking]) [data-phone-chrome="panel"]{visibility:hidden!important;pointer-events:none!important}';
+
+/**
+ * THE LOWER THIRD WHILE LINES ARE PICKED FOR A GROUP (the prototype's picking mode): the toolbar's line reads
+ * "Group · pick the lines", the four tools are away, one sentence says how, and one row says how many are picked
+ * beside Done and Cancel. Done with fewer than two keeps its button, grey, and a tap says why.
+ */
+export function RsvpGroupPickBar({ count, onDone, onCancel, onWhy }: { count: number; onDone: () => void; onCancel: () => void; onWhy: (words: string) => void }) {
+  const [lead, what] = RSVP_LIST_WORDS.pickTitle.split(' · ');
+  const ready = count >= 2;
+  return (
+    <div data-rsvp-group-picking="" role="group" aria-label="Group" className="absolute inset-0 z-[5] flex flex-col rounded-t-2xl bg-[var(--sp-page)] px-[10px]">
+      <style>{PICKING_PANEL_RULE}</style>
+      <div aria-hidden className={STAGE_BAR_HANDLE}>
+        <span className="h-1 w-10 rounded-full bg-[var(--sp-line2)]" />
+      </div>
+      <p data-rsvp-pick-title="" className={STAGE_BAR_LINE}>
+        {lead} · <b className="font-semibold text-[var(--sp-ink)]">{what}</b>
+      </p>
+      <div className={SP_ROWS}>
+        <p data-rsvp-row="1" data-rsvp-pick-how="" className={`${SP_ROWS_ROW} row-start-1 px-1 text-[13px] leading-snug text-[var(--sp-ink)]`}>
+          {RSVP_LIST_WORDS.pickHow}
+        </p>
+        <div data-rsvp-row="2" className={`${SP_ROWS_ROW} row-start-2`}>
+          <b data-rsvp-picked={count} aria-live="polite" className="min-w-0 flex-1 px-1 text-[15px] font-semibold text-[var(--sp-ink)]">
+            {RSVP_LIST_WORDS.picked(count)}
+          </b>
+          <span className="contents" data-rsvp-pick-done="" onClick={ready ? undefined : () => onWhy(RSVP_LIST_WORDS.tooFew)}>
+            <ActionButton tone="brand" main icon={Check} label="Done" waiting={!ready} onClick={ready ? onDone : undefined} />
+          </span>
+          <span className="contents" data-rsvp-pick-cancel="">
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onCancel} />
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

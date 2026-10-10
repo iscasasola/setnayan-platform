@@ -18,12 +18,12 @@ import {
 } from '@/lib/rsvp-stage';
 import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
-import { RSVP_CONFIG_FULL, readRsvpLook, rsvpAddedId, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith, rsvpSheetKeepsLine } from '@/lib/rsvp-look';
+import { RSVP_CONFIG_FULL, RSVP_GROUPS_MAX, readRsvpLook, rsvpAddedId, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith, rsvpSheetKeepsLine } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
-import { RSVP_GROUP_PICK_EVENT, RSVP_LIST_DONE_EVENT, RSVP_LIST_EDIT_EVENT, RSVP_LIST_SAY_EVENT, rsvpLayoutEdit, rsvpPlaceOf, type RsvpLayoutEdit, type RsvpListDone } from '@/lib/rsvp-layout-edit';
-import { RsvpAddedEditRows, RsvpLinePlaceRow, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
+import { RSVP_GROUP_PICK_EVENT, RSVP_LIST_DONE_EVENT, RSVP_LIST_EDIT_EVENT, RSVP_LIST_PICK_EVENT, RSVP_LIST_SAY_EVENT, RSVP_LIST_WORDS, rsvpGroupId, rsvpLayoutEdit, rsvpPlaceOf, rsvpScreenCounts, type RsvpLayoutEdit, type RsvpListDone, type RsvpListPick } from '@/lib/rsvp-layout-edit';
+import { RsvpAddedEditRows, RsvpLinePlaceRow, askRsvpListEdit, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { DetailsPieceOnly } from './details-piece';
@@ -567,7 +567,7 @@ export function MakerRsvpSettings({
     const placeRow =
       listPart && picked.line ? (
         <RsvpLinePlaceRow
-          steps={rsvpPlaceSteps(listPart, picked.line, rsvpPlaceOf(local, listPart, picked.line), () => window.dispatchEvent(new CustomEvent(RSVP_GROUP_PICK_EVENT, { detail: { part: listPart, line: picked.line } })))}
+          steps={rsvpPlaceSteps(listPart, picked.line, rsvpPlaceOf(local, listPart, picked.line), () => window.dispatchEvent(new CustomEvent(RSVP_GROUP_PICK_EVENT, { detail: { part: listPart, line: picked.line } })), rsvpScreenCounts(local, listPart).groups >= RSVP_GROUPS_MAX)}
           onWhy={sayOnToolbar}
         />
       ) : null;
@@ -614,6 +614,31 @@ export function MakerRsvpSettings({
           </FormRows>
           {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
           {placeRow}
+        </div>
+      );
+    }
+    /* 🫧 A GROUP picked (`g:<id>`, a tap on its own paper) — the prototype's two tools for it:
+         Edit        one sentence (how many lines it holds, that they move as one), and the last row — ↑ Earlier ·
+                     ↓ Later · Ungroup;
+         Background  None · Plain · Frosted, the card's own three tiles, and whose background lies behind it.
+       Each change is ONE edit of the list through the door above (`do: 'ground'`, `'ungroup'`, `'step'`). */
+    const groupPlace = listPart && rsvpGroupId(picked.line) ? rsvpPlaceOf(local, listPart, picked.line) : null;
+    if (listPart && picked.line && groupPlace && (picked.tool === 'edit' || picked.tool === 'bg')) {
+      const group = picked.line;
+      const holds = groupPlace.holds ?? 0;
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-group={group}>
+          {picked.tool === 'edit' ? (
+            <>
+              <p data-rsvp-row="1" data-rsvp-group-holds={holds} className={`${RSVP_ROW[1]} row-span-2 !items-start px-1 pt-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`}>
+                {RSVP_LIST_WORDS.groupHolds(holds)}
+              </p>
+              {placeRow}
+            </>
+          ) : (
+            <RsvpCardGroundRows now={groupPlace.ground} label="The group’s background" line={RSVP_LIST_WORDS.groupGround(holds)} onPick={(g) => askRsvpListEdit({ do: 'ground', part: listPart, group, ground: g })} />
+          )}
+          {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
         </div>
       );
     }
@@ -673,6 +698,16 @@ export function MakerRsvpSettings({
               {rsvpSheetKeepsLine(readRsvpLook(local).card?.rsvp?.g)}
             </p>
           ) : null}
+        </div>
+      );
+    }
+    /* 🫧 …and a line INSIDE A GROUP sits on its group's: the same row, the group's words, and the button opens the group. */
+    const lineGroup = listPart && picked.line ? (rsvpPlaceOf(local, listPart, picked.line)?.group ?? null) : null;
+    if (picked.tool === 'bg' && lookLine && listPart && lineGroup) {
+      const open: RsvpListPick = { part: listPart, name: lineGroup, tool: 'bg' };
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-ground={lookLine}>
+          <RsvpLineGroundRow words={RSVP_LIST_WORDS.onGroup} label={RSVP_LIST_WORDS.openGroup} onOpenCard={() => window.dispatchEvent(new CustomEvent(RSVP_LIST_PICK_EVENT, { detail: open }))} />
         </div>
       );
     }

@@ -268,6 +268,9 @@ type PartEditsProps = {
    * opening the scenes' sheet. Absent: no ＋ on a fixed page, as before.
    */
   lineAdd?: { above: boolean; below: boolean; onAdd: (where: 'above' | 'below') => void } | null;
+  /** A LINE of a fixed page that says its own reasons for its grey steps (the pass's Save button: "The Save button
+   *  stays under the ticket."). Absent: the part's own (`makerPartStepWhy`). */
+  lineWhy?: { earlier: string; later: string; remove: string } | null;
   /** ✋ The frame steps aside (a line of the RSVP stage is held to be moved, or lines are being picked for a group —
    *  the prototype draws no frame then). The part stays picked. */
   away?: boolean;
@@ -296,7 +299,7 @@ export function PartEdits(props: PartEditsProps) {
   return usePartEdits(props).node;
 }
 
-export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null, away = false }: PartEditsProps): PartEditsNow {
+export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null, lineWhy = null, away = false }: PartEditsProps): PartEditsNow {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (line?.key ?? MAKER_PARTS[picked].el ?? null) : null;
@@ -485,7 +488,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
     later: canStep(1) ? () => stepMove(1) : null,
     remove: canRemove ? () => setRemoving(true) : null,
     removeWord: ownScene ? 'Delete' : 'Remove',
-    why: makerPartStepWhy(label || 'This part', canMove, canRemove),
+    why: lineWhy ?? makerPartStepWhy(label || 'This part', canMove, canRemove),
   };
   if (typeof document === 'undefined') return { node: null, ...now };
   /* What just happened is said even once the part is let go (a move re-renders the page). */

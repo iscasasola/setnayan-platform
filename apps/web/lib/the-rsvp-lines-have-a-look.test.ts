@@ -579,7 +579,8 @@ test('10 · WIRING: Background and Animate are live on a reply card and its line
   assert.match(src(`${L}/add-part-sheet.tsx`), /\{line\?\.name \?\? name \?\? label\}/);
   /* The two tools that were grey on every reply part are live on a card and on a line — and only there. */
   assert.match(TOOLS, /const rsvpLooks = rsvpCard !== null \|\| \(rsvpOpen && rsvpLookLine\(picked, rsvpLine\) !== null\);/);
-  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| /);
+  /* (Re-aimed 2026-10-11, step 7: a GROUP of lines has Background but no Animate — a card and a line keep both.) */
+  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| \(t === 'animate' && !rsvpList\.groupWhy\)\)\) \|\| /);
   assert.match(TOOLS, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| /);
   /* "Open the card": the line is let go; the pass's Save button sits on the When-yes card. */
   assert.equal(RSVP_OPEN_CARD_EVENT, 'setnayan:rsvp-open-card');

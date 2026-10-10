@@ -347,7 +347,9 @@ test('6 · the draft carries it and counts it: one change toward Apply, free; pu
 
 test('7 · the toolbar: Background is live on the four (E-Gifts only when real), with the RSVP card’s tiles', () => {
   const TOOLS = src(`${L}/stage-tools.tsx`);
-  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(block !== null && \(t === 'bg' \|\| t === 'animate'\)\);/);
+  /* (Re-aimed 2026-10-11, the RSVP stage's step 7: a GROUP of a reply screen's lines has Background but no Animate —
+     the block's half of the rule, which is this test's claim, is word for word what it was.) */
+  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| \(t === 'animate' && !rsvpList\.groupWhy\)\)\) \|\| \(block !== null && \(t === 'bg' \|\| t === 'animate'\)\);/);
   /* `block` is null for a sample, for a scene with its own canvas, and for E-Gifts with nothing drawn for a guest. */
   assert.match(TOOLS, /const block = blockAt && blockIsReal \? blockAt : null;/);
   assert.match(TOOLS, /const empty = blockAt && !blockIsReal && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_EMPTY_WHY : undefined;/);

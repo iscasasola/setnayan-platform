@@ -70,7 +70,7 @@ import {
 import { rsvpLineWord } from '@/lib/rsvp-form-words';
 import { rsvpLookCard, rsvpLookLine, rsvpStyleHasRows } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
-import { RSVP_SAVE_STAYS, useRsvpListStage } from './rsvp-list-stage';
+import { useRsvpListStage } from './rsvp-list-stage';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
@@ -1181,7 +1181,9 @@ export function StageTools({
   const block = blockAt && blockIsReal ? blockAt : null;
   /** 🎨 A tool the PICKED thing has a save for beyond the part rule: a reply card or line (Background · Animate), a
    *  fixed block with one real root (Background · Animate). */
-  const ownTool = (t: MakerPartTool) => (rsvpLooks && (t === 'bg' || t === 'animate')) || (block !== null && (t === 'bg' || t === 'animate'));
+  /* 🫧 …but a GROUP of a reply screen's lines has Background only: it arrives with the page, and its lines each
+     have their own Animate (controller 2026-10-10 — "do not offer"; the prototype's own line says so on a tap). */
+  const ownTool = (t: MakerPartTool) => (rsvpLooks && (t === 'bg' || (t === 'animate' && !rsvpList.groupWhy))) || (block !== null && (t === 'bg' || t === 'animate'));
   /** 🚫 …and a tool whose rows would be EMPTY here: on the reply pages Style has a row only for a line with a look and
    *  for the When-yes card (`rsvpStyleHasRows`) — the form's card (its settings are Edit's), the names, the date and
    *  the rest have none. Grey, and a tap says the tool's own line. */
@@ -1206,6 +1208,7 @@ export function StageTools({
   const whyNot = (t: MakerPartTool): string => {
     /* A tool with no row on the reply pages names itself ("Style has nothing to change on this part.") — the rule's
        own plain line, never "edit it in Studio": what there is to change is in the tools beside it. */
+    if (rsvpList.groupWhy && (t === 'style' || t === 'animate')) return rsvpList.groupWhy[t];
     if (emptyHere(t)) return makerPartToolWhy(null, t);
     const sample = picked && (t === 'bg' || t === 'animate') ? BLOCK_SAMPLE_WHY[makerPartCanvasOn(stageKey, picked) ?? ''] : undefined;
     const empty = blockAt && !blockIsReal && (t === 'bg' || t === 'animate') ? BLOCK_EMPTY_WHY : undefined;
@@ -1238,6 +1241,7 @@ export function StageTools({
     frame: rsvpOpen ? frameSel : undefined,
     line: rsvpLine && rsvpLineName ? { key: rsvpLine, name: rsvpLineName } : null,
     lineAdd: rsvpList.add,
+    lineWhy: rsvpList.stays,
     away: rsvpList.away,
     name: rsvpCard ? RSVP_CARD_NAME : undefined,
   });
@@ -1534,7 +1538,7 @@ export function StageTools({
           </div>
         ) : null}
         {editOn && !rsvpLineTypes ? (
-          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} why={rsvpOpen && picked === 'pass' && rsvpLine === 'save' ? RSVP_SAVE_STAYS : edits.why} onWhy={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : null} />
+          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} why={edits.why} onWhy={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : null} />
         ) : null}
         {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾ — under Style. Mounted unseen while another part (or Edit)
             is on, so the page's Reveal draws the opening chosen. ══ */}

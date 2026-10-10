@@ -363,6 +363,9 @@ export const RSVP_LIST_DONE_EVENT = 'setnayan:rsvp-list-done';
 export const RSVP_LIST_SAY_EVENT = 'setnayan:rsvp-list-say';
 /** The toolbar is asked to let the couple pick lines for a group, starting from this one — `detail: { part, line }`. */
 export const RSVP_GROUP_PICK_EVENT = 'setnayan:rsvp-group-pick';
+/** Pick this thing of a screen's list (a group, from a line inside it: "Open the group") — `detail: { part, name, tool? }`. */
+export const RSVP_LIST_PICK_EVENT = 'setnayan:rsvp-list-pick';
+export type RsvpListPick = { part: RsvpLookCard; name: string; tool?: 'edit' | 'bg' };
 export type RsvpListDone =
   | { edit: RsvpLayoutEdit; ok: true; /** What to pick now — null: let go. */ pick: string | null; /** What happened, to say (or nothing). */ said: string | null }
   | { edit: RsvpLayoutEdit; ok: false; said: string };

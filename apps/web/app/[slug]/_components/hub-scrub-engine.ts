@@ -30,7 +30,8 @@ const PAGE = '.hub-page-cell';
 const COVER = '.hub-cover-cell';
 const THROUGH = '.hub-scenes, .hub-cell, .hub-stage, .hub-after, .hub-below, .sn-hub-cards, [data-hub-wrap]';
 /** `stick`: where the STAGE's top stands while its scene is held — above the scene's own line by whatever the stage holds before it.
- *  `lift`: the cover's rest-of-the-page, on a hand-over from the cover — what follows its arrival rises by a number said there. */
+ *  `lift`: on a hand-over from the cover, the box the rise of what follows its arrival is SAID on — the page's own first
+ *  stage, so every box marked under it reads the one number, whichever of the page's groups it is in. */
 type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; pair: ScrubPair; rest: number; stick: number; lift?: HTMLElement };
 
 const px = (n: number) => `${Math.round(n * 100) / 100}px`;
@@ -131,9 +132,16 @@ export function armHubScrub(root: HTMLElement): () => void {
   let zero: HTMLElement | null = null;
   /**
    * WHAT FOLLOWS THE COVER'S ARRIVAL, as boxes: every later sibling of the arrival and of each wrapper it sits in, up
-   * to the rest of the page — each marked (`data-hub-zlift`) so the stylesheet can hold it under the lower of the two.
+   * to THE PAGE'S OWN STAGE — each marked (`data-hub-zlift`) so the stylesheet can hold it under the lower of the two.
    * Only a box in the ordinary flow: one the page pins or places itself (`position` anything but static) is left
    * exactly as it is, and the nest's own boxes carry their rise themselves (`--hub-rise`).
+   *
+   * 🧱 UP TO THE STAGE, NOT ONLY THE COVER'S OWN REST (2026-10-10). On the real invitation the cover is not a sibling
+   * of the rest of the page: it sits with the reply card in the page's FIRST GROUP (`site-body.tsx` `group(leadTab, …)`
+   * — one tab's box), and everything else is in LATER groups, outside the cover's rest-of-the-page box. A walk that
+   * stopped at that box marked nothing there, so the next group stood where the arrival ends — over the cover, in
+   * plain sight, while it was still leaving. The walk now goes on through the cover's cell and each box it sits in;
+   * a group that is not shown (another tab: no box) is passed over, and marked when its tab is.
    */
   let lifted: HTMLElement[] = [];
   const followers = (from: HTMLElement, upTo: HTMLElement): HTMLElement[] => {
@@ -199,14 +207,14 @@ export function armHubScrub(root: HTMLElement): () => void {
       put(pages[0].cell, '--hub-len', px(pair.len));
       const up = arrives ? pair.up - (docTop(arrives) - docTop(coverRest)) : 0;
       put(coverRest, '--hub-up', px(up));
-      put(coverRest, '--hub-zrise', '0px');
+      put(pages[0].stage, '--hub-zrise', '0px');
       /* …AND READ BACK. The cover is the page's own markup, not a scene's: a bottom margin on its last child runs out
          through its box and is added to this one, and the arrival would stand that much lower than its line. So the
          distance is measured as it was actually laid out, and what is over is taken off — once; it is a sum. */
       const over = arrives ? docTop(arrives) - (docTop(cover) + cover.offsetHeight) - pair.up : 0;
       if (Math.abs(over) > 0.5) put(coverRest, '--hub-up', px(up - over));
       const next = arrives?.nextElementSibling ?? null;
-      held.push({ cell: pages[0].cell, stage: pages[0].stage, scene: cover, after: coverRest, below: next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null, arrival: arrives, pair, rest: 0, stick, lift: coverRest });
+      held.push({ cell: pages[0].cell, stage: pages[0].stage, scene: cover, after: coverRest, below: next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null, arrival: arrives, pair, rest: 0, stick, lift: pages[0].stage });
       arrivedAt = arrives ? { scene: arrives, top: pair.arrivalTop } : null;
       /* Played with the scenes: the cover first, then its arrival (unless that is a scene the list already has). */
       scenes = [cover, ...(arrives && !scenes.includes(arrives) ? [arrives] : []), ...scenes];
@@ -220,7 +228,7 @@ export function armHubScrub(root: HTMLElement): () => void {
     zero = arrives;
     /* (Read with the marks off: a marked box is no longer `static`.) */
     for (const el of lifted) put(el, 'data-hub-zlift', null);
-    lifted = arrives && coverRest ? followers(arrives, coverRest) : [];
+    lifted = arrives && pages[0] ? followers(arrives, pages[0].stage) : [];
     for (const el of lifted) put(el, 'data-hub-zlift', '');
     for (const cell of root.querySelectorAll<HTMLElement>(CELL)) {
       const stage = cell.querySelector<HTMLElement>(':scope > .hub-stage');
@@ -411,12 +419,32 @@ export function armHubScrub(root: HTMLElement): () => void {
     root.addEventListener('load', again, true);
     void document.fonts?.ready.then(again);
     if (typeof ResizeObserver !== 'undefined') {
-      let first = true;
-      sizes = new ResizeObserver(() => {
-        if (first) first = false;
-        else again();
+      /* THE OBSERVER'S FIRST DELIVERY IS NOT A CHANGE — it reports each box as it was given it. (This was a flag,
+         "skip the first call", which leans on the first call always coming. The specification gives a box with no
+         size none; Chromium reports it anyway — probed 2026-10-10 — and no other engine has been tried. With every
+         watched box on a tab that is not shown, an engine that kept to the text would have had its one call that
+         mattered — the tab being shown — swallowed by the flag.) So each box's height is remembered instead: a box
+         with no size as it is watched is known to be 0, any other is learnt from its first report, and only a
+         height that DIFFERS is measured again. */
+      const was = new Map<Element, number>();
+      sizes = new ResizeObserver((entries) => {
+        let changed = false;
+        for (const e of entries) {
+          const h = e.contentRect.height;
+          if (was.has(e.target) && was.get(e.target) !== h) changed = true;
+          was.set(e.target, h);
+        }
+        if (changed) again();
       });
-      for (const s of scenes) sizes.observe(s);
+      const watch = (el: HTMLElement) => {
+        if (!el.offsetHeight) was.set(el, 0);
+        sizes?.observe(el);
+      };
+      for (const s of scenes) watch(s);
+      /* …and the cover, even when it has no box as the page is armed (the first tab is not the one shown): the
+         moment its tab is, it has a size, and its hand-over is measured. */
+      const cover = root.querySelector<HTMLElement>(`${COVER} > .hub-cover`);
+      if (cover) watch(cover);
     }
   } catch (e) {
     fail(e);

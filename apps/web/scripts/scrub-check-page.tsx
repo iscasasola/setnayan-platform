@@ -22,6 +22,13 @@
  *       cover-reveal <island.js> (armed by the island, under the Reveal's mark) · cover-margin (the cover's last
  *       line has a bottom margin that runs out through the cover's box — on a cover tall enough that what arrives
  *       is drawn OVER it: only then is the margin ADDED to the distance; under a short cover the larger one wins)
+ *   tsx scripts/scrub-check-page.tsx <out.html> <engine.js> cover-groups — 🧱 THE REAL INVITATION'S SHAPE: the cover
+ *       is NOT a sibling of the rest of the page. An article of GROUPS (one a tab, `site-body.tsx` `group()`): the
+ *       first holds a landing mark, the cover through the REAL `HubCoverHold` and ONE block after it (the reply
+ *       card); everything else is in LATER groups — one that is not shown (another tab), a box the page pins
+ *       itself, a greeting, the scenes in the hub's own card wrapper, the foot. And: cover-groups-today (the cover
+ *       does not hand over) · cover-groups-noscript · cover-groups-tab (opened on ANOTHER tab: the first group has
+ *       no box until the check shows it)
  *   tsx scripts/scrub-check-page.tsx <out.html> - cards              — THE HUB IS CARDS, FRAMED OR NOT: no Scrub at
  *       all — five scenes in the hub's own card wrapper, each through the REAL frame (`HubCanvasFrame`)
  *
@@ -161,20 +168,63 @@ if (coverMode) {
   /* The cover is the hero row: it Leaves by Scrub, as "Scene leaves ◆" on one of its parts stores it. Asked through
      the REAL question (`hubCoverLeaves`) — `cover-today` is the same row with Scrub out not offered: today's page. */
   const hero = { widget_type: 'hero', config_json: { canvas: LAB_SCRUB_COVER } };
-  const leaves = hubCoverLeaves([hero] as never, true, coverMode !== 'cover-today');
-  const page = renderToStaticMarkup(
+  const leaves = hubCoverLeaves([hero] as never, true, !coverMode.endsWith('-today'));
+  const cover = (
+    <header data-cover="" className={`cover col${coverMode === 'cover-tall' ? ' tall' : coverMode === 'cover-margin' ? ' margin' : ''}`}>
+      <p style={{ margin: 0, font: '700 11px/1.3 sans-serif', letterSpacing: '.3em', color: '#A9834B' }}>TOGETHER WITH THEIR FAMILIES</p>
+      <h1 style={{ margin: '28px 0 12px', font: '400 44px/1.1 Georgia, serif' }}>Maria &amp; Jose</h1>
+      <p style={{ margin: coverMode === 'cover-margin' ? '0 0 40px' : 0, font: '400 20px/1.3 Georgia, serif', color: '#A9834B' }}>December 12, 2026</p>
+    </header>
+  );
+  /* 🧱 `cover-groups…` — the real invitation's shape (see the docblock): the page's hold around an ARTICLE of groups.
+     `-tab`: the page is opened on another tab, so the first group — the cover's — and the greeting are not shown,
+     and the group that is not shown elsewhere IS. The scenes and the foot are on both: when the first tab is shown
+     the ONLY watched box that gains a size is the cover — nothing else tells the engine to measure again. */
+  const groups = coverMode.startsWith('cover-groups');
+  const otherTab = coverMode === 'cover-groups-tab';
+  const page = groups ? renderToStaticMarkup(
+    <HubPageHold holds={hubScrubHolds(widgets as never, true, true) + (leaves ? 1 : 0)}>
+      <article data-article="">
+        <div className="grp" data-grp="lead" hidden={otherTab ? true : undefined}>
+          {/* The page's landing mark: a box with no size, before the cover. */}
+          <div id="top" aria-hidden="true" />
+          <HubCoverHold leaves={leaves} cover={cover}>
+            <section data-block="Reply" className="block col">
+              <b>Will you join us?</b>
+              <br />
+              RSVP
+            </section>
+          </HubCoverHold>
+        </div>
+        <div className="grp" data-grp="other" hidden={otherTab ? undefined : true}>
+          <section data-block="OtherTab" className="block col">
+            Another tab’s page.
+          </section>
+        </div>
+        <div className="pin" data-pinned="">
+          A pill the page pins itself
+        </div>
+        <div className="grp" data-grp="greeting" hidden={otherTab ? true : undefined}>
+          <section data-block="Greeting" className="block col">
+            <b>Personal greeting</b>
+            <br />
+            Dear Teresita, we would love you there.
+          </section>
+        </div>
+        <div className="grp" data-grp="scenes">
+          <div className="sn-hub-cards col" dangerouslySetInnerHTML={{ __html: scenes }} />
+        </div>
+        <div className="grp" data-grp="foot">
+          <div className="foot col" data-foot="">
+            The page after the scenes.
+          </div>
+        </div>
+      </article>
+    </HubPageHold>,
+  ) : renderToStaticMarkup(
     <HubPageHold holds={hubScrubHolds(widgets as never, true, true) + (leaves ? 1 : 0)}>
       <div className="strip col">SETNAYAN · INVITATION</div>
-      <HubCoverHold
-        leaves={leaves}
-        cover={
-          <header data-cover="" className={`cover col${coverMode === 'cover-tall' ? ' tall' : coverMode === 'cover-margin' ? ' margin' : ''}`}>
-            <p style={{ margin: 0, font: '700 11px/1.3 sans-serif', letterSpacing: '.3em', color: '#A9834B' }}>TOGETHER WITH THEIR FAMILIES</p>
-            <h1 style={{ margin: '28px 0 12px', font: '400 44px/1.1 Georgia, serif' }}>Maria &amp; Jose</h1>
-            <p style={{ margin: coverMode === 'cover-margin' ? '0 0 40px' : 0, font: '400 20px/1.3 Georgia, serif', color: '#A9834B' }}>December 12, 2026</p>
-          </header>
-        }
-      >
+      <HubCoverHold leaves={leaves} cover={cover}>
         {/* A marker with no size, as the real page puts before a block: it is never what arrives. */}
         <span hidden data-marker="" />
         {coverMode === 'cover-block' ? (
@@ -199,7 +249,7 @@ if (coverMode) {
   /* `cover-reveal`: armed by the page's own ISLAND (the caller hands the island's bundle), with the Reveal's mark on
      the page before it mounts — as the overlay writes it while a guest is looking at the opening. */
   const arm =
-    coverMode === 'cover-today' || coverMode === 'cover-noscript'
+    coverMode.endsWith('-today') || coverMode.endsWith('-noscript')
       ? ''
       : coverMode === 'cover-reveal'
         ? `<script>document.documentElement.setAttribute('data-reveal-up', '');</script><script src="file://${engine}"></script>`
@@ -212,6 +262,7 @@ if (coverMode) {
 .col{max-width:430px;margin:0 auto;padding:0 16px}.strip{padding:10px 16px;font:600 10px/1.6 sans-serif;letter-spacing:.3em;color:#A9834B;border-bottom:1px solid #ddd}
 .cover{box-sizing:border-box;min-height:62vh;padding:9vh 24px 40px;text-align:center}.cover.tall{min-height:130vh}.cover.margin{min-height:0;padding-top:34vh;padding-bottom:0}
 .block{padding:28px 16px;border-top:1px solid #ddd;text-align:center}.foot{padding:40px 24px;height:60px;box-sizing:border-box}
+.pin{position:sticky;top:8px;z-index:5;width:fit-content;margin:0 auto;padding:4px 12px;border-radius:99px;background:#2C2A29;color:#fff;font:600 11px/1.6 sans-serif}
 #line{position:fixed;left:0;right:0;top:50%;border-top:1.5px dashed rgba(194,78,36,.6);pointer-events:none;z-index:9}</style></head>
 <body><div id="line"></div>${page}
 ${arm}

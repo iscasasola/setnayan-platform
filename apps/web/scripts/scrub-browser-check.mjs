@@ -40,6 +40,13 @@
  *      cover; a page whose cover is its ONLY Scrub plays; a cover taller than the screen is scrolled through; with
  *      no script the page is the plain page. Under a closed Reveal (its mark on the page) nothing is held and the
  *      page says why; the hand-overs arm the moment it goes.
+ *  15. 🧱 THE REAL INVITATION'S SHAPE: the cover is not a sibling of the rest of the page — it shares the page's FIRST
+ *      GROUP with the reply card, and everything else is in LATER groups, outside the cover's own rest-of-the-page
+ *      box. The reply card arrives where the cover leaves; the next group never lies over the cover while it can be
+ *      seen, and stands right under the reply card once it has gone; a group that is not shown and a box the page
+ *      pins itself are left alone; with no script every block is where today's page has it. And a page a tab,
+ *      opened on ANOTHER tab: nothing is held for a cover that is not shown; the first tab shown (no reload), its
+ *      hand-over is measured and plays; hidden again, every mark is off.
  *
  * Not part of the unit suite (it needs a browser): run it by hand, one job at a time.
  *   node scripts/scrub-browser-check.mjs <playwright-dir> <scratch-dir> [pictures-dir]
@@ -66,7 +73,7 @@ execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-island
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-page-island.html`, `${scratch}/scrub-island.js`, 'page-island'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-bar.html`, `${scratch}/scrub-engine.js`, 'bar'], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-real-cards.html`, '-', 'cards'], { cwd: WEB, stdio: 'pipe' });
-for (const m of ['cover', 'cover-tall', 'cover-block', 'cover-only', 'cover-noscript', 'cover-today', 'cover-margin']) execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-${m}.html`, `${scratch}/scrub-engine.js`, m], { cwd: WEB, stdio: 'pipe' });
+for (const m of ['cover', 'cover-tall', 'cover-block', 'cover-only', 'cover-noscript', 'cover-today', 'cover-margin', 'cover-groups', 'cover-groups-today', 'cover-groups-noscript', 'cover-groups-tab']) execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-${m}.html`, `${scratch}/scrub-engine.js`, m], { cwd: WEB, stdio: 'pipe' });
 execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-cover-reveal.html`, `${scratch}/scrub-island.js`, 'cover-reveal'], { cwd: WEB, stdio: 'pipe' });
 
 /* Before any page script: remember the browser's own scrolling, and count every way a script could take it over. */
@@ -101,7 +108,9 @@ const SNAP = () => {
 const SIZES = [[890, 1548], [940, 1608], [1280, 770], [375, 812], [375, 667], [441, 882]];
 /* `SCRUB_ONLY_MAKER=1` plays the cases after the five sizes alone, `SCRUB_ONE_SIZE=1` one size (re-runs while working,
    a sabotage) — never a pass for the rest: the last line says so. */
-const PLAYED = process.env.SCRUB_ONLY_MAKER ? [] : process.env.SCRUB_ONE_SIZE ? [SIZES[3]] : SIZES;
+/* `SCRUB_ONLY=15` plays that one numbered block alone — a re-run while working on it, a sabotage. The same rule. */
+const ONLY = process.env.SCRUB_ONLY ?? null;
+const PLAYED = process.env.SCRUB_ONLY_MAKER || ONLY ? [] : process.env.SCRUB_ONE_SIZE ? [SIZES[3]] : SIZES;
 const b = await chromium.launch();
 let failed = 0;
 const say = (ok, line) => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${line}`); };
@@ -192,7 +201,7 @@ for (const { size: [W, H], file, tag } of RUNS) {
 
 /* 7. THE MAKER'S CANVAS — the island decides (no watcher here: putting the mid-screen scene back as the preview opens
    is the island's one legitimate scroll, on this canvas only). */
-for (const [W, H] of [[375, 812], [1280, 770]]) {
+if (!ONLY) for (const [W, H] of [[375, 812], [1280, 770]]) {
   const size = `${W}x${H} maker's canvas`;
   const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage();
   await p.goto(`file://${scratch}/scrub-real-maker.html`); await p.waitForTimeout(500);
@@ -249,7 +258,7 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
 }
 
 /* 8. AN EMPTY SCENE — the second scene of the chain drew nothing. */
-for (const [W, H] of [[375, 812], [1280, 770]]) {
+if (!ONLY) for (const [W, H] of [[375, 812], [1280, 770]]) {
   const size = `${W}x${H} an empty scene`;
   /* The longest stretch of scrolling, while the scenes are under the centre line, with NOTHING of any scene to read. */
   const blankest = async (file) => {
@@ -276,7 +285,7 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
 }
 
 /* 9. OFF IS NEVER SILENT — the page's own island and the lab's badge, in each state. */
-{
+if (!ONLY) {
   const [W, H] = [375, 812];
   const badge = (p) => p.evaluate(() => ({ line: document.querySelector('[data-lab-scrub-line]')?.textContent ?? null, off: document.querySelector('.hub-scenes').getAttribute('data-hub-scrub-off'), on: document.querySelector('.hub-scenes').hasAttribute('data-hub-scrub-on') }));
   /* ON — and the number in the badge is the number on the page. */
@@ -327,7 +336,7 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
 
 /* 11. THE PAGE'S OWN HOLD UNDER `html { overflow-x: clip }` (the stylesheet sets it on a page with a full-width scene:
    `html:has(.hub-shape-full)`). A sticky box stops working inside anything that scrolls; `clip` must not be that. */
-{
+if (!ONLY) {
   const [W, H] = [375, 812]; const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage();
   await p.goto(`file://${scratch}/scrub-real-page.html`); await p.waitForTimeout(500);
   await p.evaluate(() => { const d = document.createElement('div'); d.className = 'hub-shape-full'; document.querySelector('[data-foot]').appendChild(d); });
@@ -347,7 +356,7 @@ for (const [W, H] of [[375, 812], [1280, 770]]) {
    (2026-10-09: the engine kept its own — 76 px, or 9 % — while the stylesheet's line under the invitation's bar is
    100 px; a long arrival began above the line, under the progress mark.) The page stands still while it arrives, so
    every position of the arrival is the same place: on the line, and below everything the page pins at its top. */
-for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
+if (!ONLY) for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
   const size = `${W}x${H} a long arrival under the pinned top bar`;
   const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140)));
   await p.goto(`file://${scratch}/scrub-real-bar.html`); await p.waitForTimeout(500);
@@ -377,7 +386,7 @@ for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
 
 /* 13. THE HUB IS CARDS, FRAMED OR NOT (2026-10-09: the card rule only reached a section that was its wrapper's own
    child, so a scene given nothing but a Build in — drawn inside a frame — stood as bare words on the page). */
-{
+if (!ONLY) {
   const [W, H] = [375, 812]; const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage();
   /* The card, as the browser draws it on a section: its corners, hairline, paper, room and shadow. */
   const cardOf = (sel) => p.evaluate((q) => [...document.querySelectorAll(q)].map((e) => { const cs = getComputedStyle(e); return { name: e.getAttribute('data-name'), card: [cs.borderTopLeftRadius, cs.borderTopWidth, cs.backgroundColor, cs.paddingTop, cs.paddingLeft, cs.boxShadow].join(' | '), shadow: cs.boxShadow !== 'none' }; }), sel);
@@ -399,7 +408,7 @@ for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
 
 /* 14. 🎬 THE COVER AS HAND-OVER ZERO. `today`: the same page with the cover NOT handing over and no script — what a
    guest has now. Everything the cover's hand-over is measured against at scroll 0 is read from THAT page. */
-{
+if (!ONLY) {
   const COVER_SNAP = () => {
     const box = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return { t: r.top, b: r.bottom, o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity) }; };
     const cover = document.querySelector('.hub-cover') ?? document.querySelector('[data-cover]');
@@ -493,6 +502,87 @@ for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
     await ctx.close();
   }
 }
+/* 15. 🧱 THE REAL INVITATION'S SHAPE (`cover-groups`): the cover is NOT a sibling of the rest of the page. It sits in
+   the page's FIRST GROUP with the reply card; everything else is in LATER groups — outside the cover's own
+   rest-of-the-page box. `today`: the same page with the cover NOT handing over and no script. */
+if (!ONLY || ONLY === '15') {
+  const SNAP15 = () => {
+    const box = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return { t: r.top, b: r.bottom, o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity) }; };
+    const cover = document.querySelector('.hub-cover') ?? document.querySelector('[data-cover]');
+    const scene = (n) => { const e = document.querySelector(`[data-name="${n}"]`); return e ? (e.closest('.hub-scene') ?? e) : null; };
+    const pin = document.querySelector('[data-pinned]');
+    return {
+      s: Math.round(scrollY), max: document.documentElement.scrollHeight - innerHeight,
+      cover: box(cover), words: box(document.querySelector('[data-cover] h1')), pout: Number(cover.style.getPropertyValue('--hub-pout') || 0),
+      zero: box(document.querySelector('[data-hub-zero]')), zeroIs: document.querySelector('[data-hub-zero]')?.getAttribute('data-block') ?? document.querySelector('[data-hub-zero] [data-name]')?.getAttribute('data-name') ?? null,
+      reply: box(document.querySelector('[data-block="Reply"]')), greeting: box(document.querySelector('[data-block="Greeting"]')), other: box(document.querySelector('[data-block="OtherTab"]')), foot: box(document.querySelector('[data-foot]')),
+      cdOut: Number(scene('Countdown')?.style.getPropertyValue('--hub-pout') || 0),
+      /* What the engine marked as "what follows the arrival", by the group (or block) it is. */
+      lifted: [...document.querySelectorAll('[data-hub-zlift]')].map((e) => e.getAttribute('data-grp') ?? e.getAttribute('data-block') ?? e.className),
+      pin: { marked: pin.hasAttribute('data-hub-zlift'), position: getComputedStyle(pin).position, top: getComputedStyle(pin).top },
+      hiddenMarked: [...document.querySelectorAll('[hidden]')].filter((e) => [...e.attributes].some((a) => /^data-hub-z/.test(a.name))).length,
+      all: [...document.querySelectorAll('[data-cover], [data-block], [data-name], [data-foot]')].filter((e) => e.getClientRects().length).map((e) => { const x = e.closest('.hub-scene') ?? e; const r = x.getBoundingClientRect(); const cs = getComputedStyle(x); return [e.getAttribute('data-block') ?? e.getAttribute('data-name') ?? (e.hasAttribute('data-cover') ? 'cover' : 'foot'), Math.round(r.top), (cs.visibility === 'hidden' ? 0 : Number(cs.opacity)).toFixed(2)]; }),
+      holds: [...document.querySelectorAll('.hub-page-cell')].map((c) => parseFloat(getComputedStyle(c, '::after').height) || 0),
+      on: document.querySelector('.hub-page-cell')?.hasAttribute('data-hub-page-on') ?? false,
+      off: document.querySelector('.hub-page-cell')?.getAttribute('data-hub-scrub-off') ?? document.querySelector('.hub-scenes')?.getAttribute('data-hub-scrub-off') ?? null,
+      sticky: [...document.querySelectorAll('.hub-page-stage, .hub-stage')].some((e) => getComputedStyle(e).position === 'sticky'),
+    };
+  };
+  const open = async (file, W, H) => { const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140))); await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(500); const at = async (y) => { await p.evaluate((yy) => scrollTo(0, yy), y); await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); return p.evaluate(SNAP15); }; return { ctx, p, errs, at }; };
+  const r = (n) => (n === null || n === undefined ? '—' : Math.round(n * 10) / 10);
+  for (const [W, H] of [[375, 812], [375, 667], [441, 882], [1280, 770]]) {
+    const size = `${W}x${H} the real invitation's shape`;
+    const t = await open('scrub-cover-groups-today.html', W, H); const today = await t.at(0); await t.ctx.close();
+    const { ctx, p, errs, at } = await open('scrub-cover-groups.html', W, H);
+    const top = await at(0);
+    say(errs.length === 0 && top.on && top.off === null && top.sticky && top.holds.length === 4 && top.holds.every((h) => h > 0), `${size}: armed, no page error, one page pair a hand-over — the cover's and the scenes' three (${top.holds.map(r).join(' · ')}${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''})`);
+    say(Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && Math.abs(top.words.t - today.words.t) < 0.01 && top.cover.o === 1 && top.pout === 0 && top.zeroIs === 'Reply' && top.zero.o === 0, `${size}: at scroll 0 the cover is exactly where today's page has it, whole, 0 % built out, and what arrives (${top.zeroIs}) is not there yet (${r(top.cover.t)}–${r(top.cover.b)} against ${r(today.cover.t)}–${r(today.cover.b)})`);
+    /* WHAT FOLLOWS, FOUND IN THE LATER GROUPS: every group after the cover's that has a box and is in the ordinary
+       flow — not the one that is not shown, not the box the page pins itself. */
+    say(JSON.stringify(top.lifted) === JSON.stringify(['greeting', 'scenes', 'foot']) && top.hiddenMarked === 0 && !top.pin.marked && top.pin.position === 'sticky' && top.pin.top === '8px', `${size}: what follows the arrival is found in the page's LATER groups (marked: ${top.lifted.join(' · ') || 'none'}); a group that is not shown and a box the page pins itself are left alone (the pill: ${top.pin.position}, top ${top.pin.top}${top.pin.marked ? ', MARKED' : ''})`);
+    const fwd = []; for (let y = 0; y < top.max; y += 16) fwd.push(await at(y)); fwd.push(await at(top.max));
+    const back = [await at(top.max)]; for (let y = top.max - (top.max % 16); y >= 0; y -= 16) back.push(await at(y));
+    const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);
+    const out = Math.round(H * 0.55);
+    say(hold.length > 3 && hold.every((f) => Math.abs(f.cover.t - today.cover.t) < 0.6) && hold.every((f) => Math.abs(f.pout - f.s / out) < 0.02) && fwd.some((f) => f.pout >= 1 && f.cover.o === 0), `${size}: the page stands still while the cover builds out over 55 % of a screen, and it completes (${hold.length} positions; moved at most ${r(Math.max(0, ...hold.map((f) => Math.abs(f.cover.t - today.cover.t))))}px)`);
+    const seen = fwd.filter((f) => f.zero && f.zero.o > 0.02 && f.pout < 1);
+    say(seen.length > 0 && fwd.every((f) => !(f.zero.o > 0.02 && f.pout < 0.79)) && seen.every((f) => Math.abs((f.zero.t + f.zero.b) / 2 - H / 2) < 1.5 && f.zero.t >= today.cover.t - 0.5), `${size}: the reply card arrives at the centred line, at the last 20 %, never above the cover (middle ${seen[0] ? r((seen[0].zero.t + seen[0].zero.b) / 2) : '—'} against ${H / 2}; first seen with the cover ${seen[0] ? Math.round(seen[0].pout * 100) : '—'} % out)`);
+    /* 🧱 THE PROPERTY THIS SHAPE EXISTS FOR: the NEXT GROUP never lies over the cover while the cover can be seen. */
+    const over = fwd.filter((f) => f.cover.o > 0.02 && f.pout < 1 && f.greeting && (f.greeting.t < f.cover.b - 1 || f.greeting.t < f.zero.b - 1));
+    const lowest = Math.min(...fwd.filter((f) => f.cover.o > 0.02 && f.pout < 1).map((f) => f.greeting.t - f.cover.b));
+    say(over.length === 0 && fwd.filter((f) => f.cover.o > 0.02 && f.pout < 1).length > 3, `${size}: the next group — outside the cover's own rest — never lies over the cover while it can be seen (nearest: ${r(lowest)}px below the cover's bottom${over.length ? `; OVER IT at ${over[0].s}: the group's top ${r(over[0].greeting.t)}, the cover ends ${r(over[0].cover.b)}` : ''})`);
+    /* …and once the cover has gone it has risen to stand right under what arrived. */
+    const done = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && f.s >= Math.round(H * 0.66) + 16 && f.cdOut === 0);
+    /* (Today's own distance between the two: the pill the page pins itself is in the flow between them.) */
+    const apart = today.greeting.t - today.reply.b;
+    say(Boolean(done) && Math.abs(done.greeting.t - done.zero.b - apart) < 1.5, `${size}: once the cover has gone the next group stands under what arrived, as far from it as on today's page (${done ? r(done.greeting.t - done.zero.b) : '—'}px; today ${r(apart)}px)`);
+    const sig = (f) => JSON.stringify([f.all, f.pout.toFixed(3)]);
+    say(fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); }), `${size}: back == down at every one of ${fwd.length} positions`);
+    say(fwd.some((f) => f.cdOut >= 1) && fwd.at(-1).all.at(-1)[2] === '1.00', `${size}: the scenes in a later group still hand over, to the end of the page`);
+    if (pics) { for (const [name, pick] of [['0-opens', () => 0], ['1-half-out', () => fwd.find((f) => f.pout >= 0.5)?.s], ['2-reply-arrives', () => fwd.find((f) => f.pout >= 0.9)?.s], ['3-arrived', () => done?.s]]) { const y = pick(); if (y !== undefined) { await at(y); await p.screenshot({ path: `${pics}/c15-groups-${W}x${H}-${name}.png` }); } } }
+    await ctx.close();
+    /* With no script: the plain page — every block exactly where today's page has it. */
+    const n = await open('scrub-cover-groups-noscript.html', W, H); const plain = await n.at(0); await n.ctx.close();
+    say(!plain.sticky && !plain.on && plain.lifted.length === 0 && JSON.stringify(plain.all) === JSON.stringify(today.all) && plain.all.every((x) => x[2] === '1.00'), `${size}: with no script the page is the plain page — every block where today's page has it (${plain.all.map((x) => `${x[0]} ${x[1]}`).join(' · ')})`);
+  }
+  /* A PAGE A TAB — opened on ANOTHER tab: the cover's group has no box, nothing of it is held. Shown (the hub shell
+     flips `hidden` on the groups — no reload), its hand-over is measured and plays; hidden again, every mark is off.
+     The scenes are on BOTH tabs here, so the cover is the only watched box whose size changes with the tab. */
+  {
+    const [W, H] = [375, 812]; const { ctx, p, errs, at } = await open('scrub-cover-groups-tab.html', W, H);
+    const show = async (lead) => { await p.evaluate((on) => { for (const g of document.querySelectorAll('[data-grp]')) { const n = g.getAttribute('data-grp'); if (n !== 'foot' && n !== 'scenes') g.hidden = n === 'other' ? on : !on; } scrollTo(0, 0); }, lead); await p.waitForTimeout(400); };
+    const held = (f) => f.holds.filter((h) => h > 0).length;
+    const away = await at(0);
+    say(errs.length === 0 && away.on && away.off === null && away.cover === null && away.other?.o === 1 && held(away) === 3 && away.holds[3] === 0 && away.lifted.length === 0, `${W}x${H} a page a tab, opened on another tab: armed; the scenes' three hand-overs hold, and nothing is held or marked for a cover that is not shown (page pairs ${away.holds.map(r).join(' · ')}${away.off ? `; off: ${away.off}` : ''}${errs.length ? `; ${errs[0]}` : ''})`);
+    await show(true);
+    const first = await at(0); const half = await at(Math.round(H * 0.55 * 0.5));
+    say(first.cover?.o === 1 && first.pout === 0 && held(first) === 4 && JSON.stringify(first.lifted) === JSON.stringify(['greeting', 'scenes', 'foot']) && half.pout > 0.45 && half.pout < 0.55 && Math.abs(half.cover.t - first.cover.t) < 0.6, `${W}x${H} …the first tab shown: the cover's hand-over is measured with no reload — whole at the top, then held and half out half-way (out ${first.pout} → ${half.pout}; the cover ${r(first.cover?.t)} → ${r(half.cover?.t)}; page pairs ${first.holds.map(r).join(' · ')})`);
+    await show(false);
+    const gone = await at(0);
+    say(gone.cover === null && gone.other?.o === 1 && held(gone) === 3 && gone.lifted.length === 0 && gone.hiddenMarked === 0 && Math.abs(gone.foot.t - away.foot.t) < 0.6, `${W}x${H} …and the other tab again: nothing held for the cover, every mark of it off, the page as it opened (page pairs ${gone.holds.map(r).join(' · ')}; marked ${gone.lifted.length}; the foot ${r(gone.foot.t)} against ${r(away.foot.t)})`);
+    await ctx.close();
+  }
+}
 await b.close();
-console.log(failed ? `\n${failed} FAILED` : PLAYED.length === SIZES.length ? '\nALL OK' : '\nPART ONLY — OK (not every size was played)');
+console.log(failed ? `\n${failed} FAILED` : PLAYED.length === SIZES.length ? '\nALL OK' : ONLY ? `\nPART ONLY — OK (block ${ONLY} alone — not a pass for the rest)` : '\nPART ONLY — OK (not every size was played)');
 process.exit(failed ? 1 : 0);

@@ -8433,7 +8433,9 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
      leaks out and is counted twice). What follows the arrival sits under the lower of the two until the cover has
      gone (`top`, never a transform — see above): the engine marks each such box, `data-hub-zlift`, and only a box
      in the ordinary flow — one the page pins or places itself is never touched; the nest's own boxes carry their
-     rise themselves.
+     rise themselves. A marked box can be ANYWHERE under the page's first stage, not only in the cover's own rest:
+     on the real invitation the cover shares the page's first group with the reply card and everything else is in
+     later groups (`hub-scrub-engine.ts` `followers`), so the rise is said on that stage and read from there.
      The cover's cell also carries the page's top line, for a page whose cover is its only Scrub. */
   .hub-page-cell[data-hub-page-on] .hub-cover-cell { scroll-padding-top: var(--hub-pin); }
   .hub-page-cell[data-hub-page-on] .hub-cover-after { display: flow-root; margin-top: var(--hub-up, 0px); }
@@ -8441,7 +8443,7 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
   .hub-page-cell[data-hub-page-on] [data-hub-zero] { opacity: var(--hub-o, 1); }
   .hub-page-cell[data-hub-page-on] .hub-cover[data-hub-away],
   .hub-page-cell[data-hub-page-on] [data-hub-zero][data-hub-away] { visibility: hidden; }
-  .hub-page-cell[data-hub-page-on] .hub-cover-after [data-hub-zlift] { position: relative; top: var(--hub-zrise, 0px); }
+  .hub-page-cell[data-hub-page-on] [data-hub-zlift] { position: relative; top: var(--hub-zrise, 0px); }
   /* THE SAME PLACE — the rest of the page begins OVER the leaving scene (how far: the engine's measure). */
   .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { margin-top: var(--hub-up, 1rem); }
   /* WHAT FOLLOWS THE PAIR sits under the lower of the two until the leaving one has gone, then under the arrival

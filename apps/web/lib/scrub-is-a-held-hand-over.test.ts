@@ -458,7 +458,10 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
   }
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover-after \{ display: flow-root; margin-top: var\(--hub-up, 0px\); \}/);
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover,\s*\.hub-page-cell\[data-hub-page-on\] \[data-hub-zero\] \{ opacity: var\(--hub-o, 1\); \}/);
-  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover-after \[data-hub-zlift\] \{ position: relative; top: var\(--hub-zrise, 0px\); \}/);
+  /* (RE-AIMED 2026-10-10 — the claim changed: this rule read `.hub-cover-after [data-hub-zlift]`, a box inside the
+     cover's own rest. On the real invitation what follows the arrival is in the page's LATER GROUPS, outside that
+     box, so the engine marks up to the page's own stage and says the rise there — see `followers`, below.) */
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \[data-hub-zlift\] \{ position: relative; top: var\(--hub-zrise, 0px\); \}/);
 
   /* THE ENGINE: the page's FIRST pair, the cover's laid-out top as where it stands, the next box on the page. */
   const engine = read(`${B}/hub-scrub-engine.ts`);
@@ -471,4 +474,16 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
      box and is added to the one the engine sets (seen in the browser: the arrival 40 px below its line). */
   assert.match(engine, /const over = arrives \? docTop\(arrives\) - \(docTop\(cover\) \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(coverRest, '--hub-up', px\(up - over\)\);/);
   assert.match(engine, /getComputedStyle\(sib\)\.position === 'static'/);
+  /* …and "what follows" is looked for UP TO THE PAGE'S OWN STAGE — the later groups of a real page are not inside the
+     cover's rest — with the rise said on that stage, where every marked box can read it; and the cover is watched
+     for a size of its own, so a page armed on another tab measures the hand-over when the first tab is shown. */
+  assert.match(engine, /lifted = arrives && pages\[0\] \? followers\(arrives, pages\[0\]\.stage\) : \[\];/);
+  assert.match(engine, /put\(pages\[0\]\.stage, '--hub-zrise', '0px'\);/);
+  assert.match(engine, /arrival: arrives, pair, rest: 0, stick, lift: pages\[0\]\.stage \}\);/);
+  assert.doesNotMatch(engine, /followers\(arrives, coverRest\)|put\(coverRest, '--hub-zrise'/, 'what follows the cover is looked for, or lifted, only inside the cover’s own rest');
+  assert.match(engine, /const cover = root\.querySelector<HTMLElement>\(`\$\{COVER\} > \.hub-cover`\);\s*if \(cover\) watch\(cover\);/);
+  /* …and a box that had no size as it was watched is KNOWN to be 0 — its first report is then a change, not skipped. */
+  assert.match(engine, /if \(!el\.offsetHeight\) was\.set\(el, 0\);/);
+  assert.match(engine, /if \(was\.has\(e\.target\) && was\.get\(e\.target\) !== h\) changed = true;/);
+  assert.doesNotMatch(engine, /let first = true/, 'the observer skips its first call by a flag — a page armed on another tab never measures its cover');
 });

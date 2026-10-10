@@ -28,11 +28,18 @@ const CELL = '.hub-cell';
 const PAGE = '.hub-page-cell';
 /** The cover's own boxes (`hub-scenes.tsx` `HubCoverHold`) and the page wrappers an arrival is looked for THROUGH. */
 const COVER = '.hub-cover-cell';
-const THROUGH = '.hub-scenes, .hub-cell, .hub-stage, .hub-after, .hub-below, .sn-hub-cards, [data-hub-wrap]';
+const THROUGH = '.hub-scenes, .hub-cell, .hub-stage, .hub-after, .hub-below, .sn-hub-cards, [data-hub-wrap], [data-hub-tab]';
+/**
+ * 🤝 THE PAGE'S ONE ACTION, AS THE PAGE ITSELF MARKS IT — the reply row under the names (`guest-me-parts.tsx`
+ * `ReplyCardRow`) and the row that stands in its place (`arrival-action.tsx` `ArrivalActionRow`) both carry
+ * `data-arrival-action`; the stranger's door (`get-inside.tsx`) carries `data-get-inside`. Read as what the block
+ * IS, never measured: a block is "the action row" when it is one of these, or is the box that holds one.
+ */
+const ACTION_ROW = '[data-arrival-action], [data-get-inside]';
 /** `stick`: where the STAGE's top stands while its scene is held — above the scene's own line by whatever the stage holds before it.
  *  `lift`: on a hand-over from the cover, the box the rise of what follows its arrival is SAID on — the page's own first
  *  stage, so every box marked under it reads the one number, whichever of the page's groups it is in. */
-type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; pair: ScrubPair; rest: number; stick: number; lift?: HTMLElement };
+type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; mate?: HTMLElement | null; pair: ScrubPair; rest: number; stick: number; lift?: HTMLElement };
 
 const px = (n: number) => `${Math.round(n * 100) / 100}px`;
 const num = (n: number) => String(Math.round(n * 1000) / 1000);
@@ -128,8 +135,11 @@ export function armHubScrub(root: HTMLElement): () => void {
     }
     return null;
   };
-  /** The block that arrived after the cover at the last measure — its marks are taken off when another takes its place. */
-  let zero: HTMLElement | null = null;
+  /** What arrived after the cover at the last measure (one block, or the action row and the block with it) — a block's
+   *  marks are taken off when it is no longer part of it. */
+  let zeros: HTMLElement[] = [];
+  /** The box OUTSIDE the cover's own rest that was pulled up to the cover at the last measure, if any (`data-hub-zrest`). */
+  let zrest: HTMLElement | null = null;
   /**
    * WHAT FOLLOWS THE COVER'S ARRIVAL, as boxes: every later sibling of the arrival and of each wrapper it sits in, up
    * to THE PAGE'S OWN STAGE — each marked (`data-hub-zlift`) so the stylesheet can hold it under the lower of the two.
@@ -198,37 +208,74 @@ export function armHubScrub(root: HTMLElement): () => void {
        that is not a scene, and find what follows it. Only on a page with its own hold: a cover has no cell. */
     const cover = coverCell?.querySelector<HTMLElement>(':scope > .hub-cover') ?? null;
     const coverRest = coverCell?.querySelector<HTMLElement>(':scope > .hub-cover-after') ?? null;
+    /* (Everything below is read with last time's marks off: a marked box is no longer `static`.) */
+    for (const el of lifted) put(el, 'data-hub-zlift', null);
+    lifted = [];
     let arrives: HTMLElement | null = null;
-    if (pages[0] && cover && coverRest && cover.offsetHeight > 0) {
+    let mate: HTMLElement | null = null;
+    let outside: HTMLElement | null = null;
+    if (pages[0] && coverCell && cover && coverRest && cover.offsetHeight > 0) {
+      const page = pages[0].stage;
+      const through = (el: HTMLElement) => (el.matches(THROUGH) ? (nextBox(el) ?? el) : el);
+      /* 🚪 THE COVER NEVER FADES TO NOTHING. What arrives is looked for in the cover's own rest first — and when that
+         box holds nothing a guest can see (a reply row that drew nothing; a cover that is the last thing in its
+         group, as the stranger's photo cover is), in the next box on the page after the cover's cell. That box,
+         not the cover's rest, is then the one pulled up to the cover (`data-hub-zrest`). */
       arrives = nextBox(coverRest);
-      const pair = scrubPair({ h: cover.offsetHeight, oneByOne: false }, arrives ? elementOf(arrives) : { h: 0, oneByOne: false }, view, docTop(cover));
+      if (!arrives) {
+        outside = followers(coverCell, page)[0] ?? null;
+        arrives = outside ? through(outside) : null;
+      }
+      const pulled = outside ?? coverRest;
+      /* 🤝 TOGETHER (owner 2026-10-10, asked what should stand where the names built out — the RSVP button alone, or
+         the button and the countdown: *"Together."*; his own sentence: *"maria jose must build out and until we say i
+         do should be where maria jose build out"*). When what arrives is THE PAGE'S ACTION ROW (`ACTION_ROW` — what
+         the block is, never how tall it is), the block after it on the page arrives WITH it: one arrival, placed as
+         one unit, the page's own distance between the two kept exactly as it is laid out. A long second half makes
+         a long unit, and a long unit is the ordinary long arrival — tops at the top of the room, running on below. */
+      if (arrives && (arrives.matches(ACTION_ROW) || arrives.querySelector(ACTION_ROW))) mate = followers(arrives, page).map(through)[0] ?? null;
+      const unit: ScrubElement = arrives ? { h: mate ? docTop(mate) + mate.offsetHeight - docTop(arrives) : arrives.offsetHeight, oneByOne: oneByOne(mate ?? arrives) } : { h: 0, oneByOne: false };
+      const pair = scrubPair({ h: cover.offsetHeight, oneByOne: false }, unit, view, docTop(cover));
       const stick = pair.top - (docTop(cover) - docTop(pages[0].stage));
       put(pages[0].stage, '--hub-top', px(stick));
       put(pages[0].cell, '--hub-len', px(pair.len));
-      const up = arrives ? pair.up - (docTop(arrives) - docTop(coverRest)) : 0;
-      put(coverRest, '--hub-up', px(up));
+      const up = arrives ? pair.up - (docTop(arrives) - docTop(pulled)) : 0;
+      if (outside) put(coverRest, '--hub-up', '0px');
+      put(pulled, '--hub-up', px(up));
+      if (outside) put(outside, 'data-hub-zrest', '');
       put(pages[0].stage, '--hub-zrise', '0px');
       /* …AND READ BACK. The cover is the page's own markup, not a scene's: a bottom margin on its last child runs out
          through its box and is added to this one, and the arrival would stand that much lower than its line. So the
-         distance is measured as it was actually laid out, and what is over is taken off — once; it is a sum. */
+         distance is measured as it was actually laid out, and what is over is taken off — once; it is a sum. (The
+         same for a box outside the cover's rest: whatever lies between it and the cover is read, not reasoned.) */
       const over = arrives ? docTop(arrives) - (docTop(cover) + cover.offsetHeight) - pair.up : 0;
-      if (Math.abs(over) > 0.5) put(coverRest, '--hub-up', px(up - over));
-      const next = arrives?.nextElementSibling ?? null;
-      held.push({ cell: pages[0].cell, stage: pages[0].stage, scene: cover, after: coverRest, below: next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null, arrival: arrives, pair, rest: 0, stick, lift: pages[0].stage });
-      arrivedAt = arrives ? { scene: arrives, top: pair.arrivalTop } : null;
-      /* Played with the scenes: the cover first, then its arrival (unless that is a scene the list already has). */
-      scenes = [cover, ...(arrives && !scenes.includes(arrives) ? [arrives] : []), ...scenes];
+      if (Math.abs(over) > 0.5) put(pulled, '--hub-up', px(up - over));
+      const last = mate ?? arrives;
+      const next = last?.nextElementSibling ?? null;
+      held.push({ cell: pages[0].cell, stage: pages[0].stage, scene: cover, after: coverRest, below: next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null, arrival: arrives, mate, pair, rest: 0, stick, lift: pages[0].stage });
+      /* (The one of the two that can be a scene with a hand-over of its own is the second.) */
+      arrivedAt = arrives ? (mate ? { scene: mate, top: pair.arrivalTop + (docTop(mate) - docTop(arrives)) } : { scene: arrives, top: pair.arrivalTop }) : null;
+      /* Played with the scenes: the cover first, then what arrives (unless it is a scene the list already has). */
+      scenes = [cover, ...[arrives, mate].filter((el): el is HTMLElement => el !== null && !scenes.includes(el)), ...scenes];
     }
-    if (zero && zero !== arrives) {
-      put(zero, '--hub-o', '1');
-      put(zero, 'data-hub-away', null);
-      put(zero, 'data-hub-zero', null);
+    const arriving = [arrives, mate].filter((el): el is HTMLElement => el !== null);
+    for (const z of zeros) {
+      if (arriving.includes(z)) continue;
+      put(z, '--hub-o', '1');
+      put(z, 'data-hub-away', null);
+      put(z, 'data-hub-zero', null);
     }
-    if (arrives) put(arrives, 'data-hub-zero', '');
-    zero = arrives;
-    /* (Read with the marks off: a marked box is no longer `static`.) */
-    for (const el of lifted) put(el, 'data-hub-zlift', null);
-    lifted = arrives && pages[0] ? followers(arrives, pages[0].stage) : [];
+    for (const z of arriving) put(z, 'data-hub-zero', '');
+    zeros = arriving;
+    if (zrest && zrest !== outside) {
+      put(zrest, 'data-hub-zrest', null);
+      /* (Said outright, never unset: a length left unset while armed is inherited from whatever is around it.) */
+      put(zrest, '--hub-up', '0px');
+    }
+    zrest = outside;
+    /* What follows — after the LAST of what arrives. */
+    const lastIn = mate ?? arrives;
+    lifted = lastIn && pages[0] ? followers(lastIn, pages[0].stage) : [];
     for (const el of lifted) put(el, 'data-hub-zlift', '');
     for (const cell of root.querySelectorAll<HTMLElement>(CELL)) {
       const stage = cell.querySelector<HTMLElement>(':scope > .hub-stage');
@@ -326,6 +373,8 @@ export function armHubScrub(root: HTMLElement): () => void {
       const m = scrubMoment(t, h.pair, lens, h.rest);
       of(h.scene).pout = m.out;
       if (h.arrival) Object.assign(of(h.arrival), { pin: m.in, gate: m.rows, handed: true });
+      /* 🤝 …and the block that arrives WITH it: the same moment, the same fade. */
+      if (h.mate) Object.assign(of(h.mate), { pin: m.in, gate: m.rows, handed: true });
       /* What follows a pair rises as the hand-over plays. After the COVER it is whatever the page draws next, in
          plain sight — so it stays under the cover until the cover has completely gone, and rises only then (`rows`:
          the same moment an arrival's rows may begin). */

@@ -29,6 +29,11 @@
  *       itself, a greeting, the scenes in the hub's own card wrapper, the foot. And: cover-groups-today (the cover
  *       does not hand over) · cover-groups-noscript · cover-groups-tab (opened on ANOTHER tab: the first group has
  *       no box until the check shows it)
+ *       🤝 And TOGETHER (owner 2026-10-10): cover-groups-row (the block after the cover is THE PAGE'S ACTION ROW — it
+ *       carries the real rows' own mark, `data-arrival-action` — so the block after it, in the next group, arrives
+ *       WITH it) · cover-groups-row-long (that second block is taller than the screen) · cover-groups-norow (the
+ *       cover's group holds nothing after the cover: the next group's block arrives alone) — each with its own
+ *       `-today` and `-noscript`. These three keep the page's own 48 px between groups and have no pinned pill.
  *   tsx scripts/scrub-check-page.tsx <out.html> - cards              — THE HUB IS CARDS, FRAMED OR NOT: no Scrub at
  *       all — five scenes in the hub's own card wrapper, each through the REAL frame (`HubCanvasFrame`)
  *
@@ -177,44 +182,55 @@ if (coverMode) {
     </header>
   );
   /* 🧱 `cover-groups…` — the real invitation's shape (see the docblock): the page's hold around an ARTICLE of groups.
+     Each group carries the real page's own mark for one (`data-hub-tab`, `site-body.tsx` `group()`), which is what
+     the engine looks a group THROUGH by.
      `-tab`: the page is opened on another tab, so the first group — the cover's — and the greeting are not shown,
      and the group that is not shown elsewhere IS. The scenes and the foot are on both: when the first tab is shown
      the ONLY watched box that gains a size is the cover — nothing else tells the engine to measure again. */
   const groups = coverMode.startsWith('cover-groups');
   const otherTab = coverMode === 'cover-groups-tab';
+  /* 🤝 The three "together" pages (see the docblock). */
+  const actionRow = coverMode.includes('-row');
+  const noRow = coverMode.includes('-norow');
+  const together = actionRow || noRow;
+  const long = coverMode.includes('-long');
   const page = groups ? renderToStaticMarkup(
     <HubPageHold holds={hubScrubHolds(widgets as never, true, true) + (leaves ? 1 : 0)}>
-      <article data-article="">
-        <div className="grp" data-grp="lead" hidden={otherTab ? true : undefined}>
+      <article data-article="" className={together ? 'gap' : undefined}>
+        <div className="grp" data-grp="lead" data-hub-tab="lead" hidden={otherTab ? true : undefined}>
           {/* The page's landing mark: a box with no size, before the cover. */}
           <div id="top" aria-hidden="true" />
           <HubCoverHold leaves={leaves} cover={cover}>
-            <section data-block="Reply" className="block col">
-              <b>Will you join us?</b>
-              <br />
-              RSVP
-            </section>
+            {noRow ? null : (
+              <section data-block="Reply" className="block col" {...(actionRow ? { 'data-arrival-action': 'ask' } : {})}>
+                <b>Will you join us?</b>
+                <br />
+                RSVP
+              </section>
+            )}
           </HubCoverHold>
         </div>
-        <div className="grp" data-grp="other" hidden={otherTab ? undefined : true}>
+        <div className="grp" data-grp="other" data-hub-tab="other" hidden={otherTab ? undefined : true}>
           <section data-block="OtherTab" className="block col">
             Another tab’s page.
           </section>
         </div>
-        <div className="pin" data-pinned="">
-          A pill the page pins itself
-        </div>
-        <div className="grp" data-grp="greeting" hidden={otherTab ? true : undefined}>
-          <section data-block="Greeting" className="block col">
+        {together ? null : (
+          <div className="pin" data-pinned="">
+            A pill the page pins itself
+          </div>
+        )}
+        <div className="grp" data-grp="greeting" data-hub-tab="greeting" hidden={otherTab ? true : undefined}>
+          <section data-block="Greeting" className="block col" style={long ? { minHeight: '150vh' } : undefined}>
             <b>Personal greeting</b>
             <br />
             Dear Teresita, we would love you there.
           </section>
         </div>
-        <div className="grp" data-grp="scenes">
+        <div className="grp" data-grp="scenes" data-hub-tab="scenes">
           <div className="sn-hub-cards col" dangerouslySetInnerHTML={{ __html: scenes }} />
         </div>
-        <div className="grp" data-grp="foot">
+        <div className="grp" data-grp="foot" data-hub-tab="foot">
           <div className="foot col" data-foot="">
             The page after the scenes.
           </div>
@@ -262,6 +278,7 @@ if (coverMode) {
 .col{max-width:430px;margin:0 auto;padding:0 16px}.strip{padding:10px 16px;font:600 10px/1.6 sans-serif;letter-spacing:.3em;color:#A9834B;border-bottom:1px solid #ddd}
 .cover{box-sizing:border-box;min-height:62vh;padding:9vh 24px 40px;text-align:center}.cover.tall{min-height:130vh}.cover.margin{min-height:0;padding-top:34vh;padding-bottom:0}
 .block{padding:28px 16px;border-top:1px solid #ddd;text-align:center}.foot{padding:40px 24px;height:60px;box-sizing:border-box}
+.gap>.grp~.grp:not([hidden]){margin-top:48px}
 .pin{position:sticky;top:8px;z-index:5;width:fit-content;margin:0 auto;padding:4px 12px;border-radius:99px;background:#2C2A29;color:#fff;font:600 11px/1.6 sans-serif}
 #line{position:fixed;left:0;right:0;top:50%;border-top:1.5px dashed rgba(194,78,36,.6);pointer-events:none;z-index:9}</style></head>
 <body><div id="line"></div>${page}

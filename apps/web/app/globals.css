@@ -8451,6 +8451,14 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
      every rule here must), with none of the reveal's transition: a fade under the thumb is the thumb's, never 0.7 s
      behind it. */
   .hub-page-cell[data-hub-page-on] .hub-page-stage [data-pahina-chapters] > [data-hub-zero] { opacity: var(--hub-o, 1); transition: none; }
+  /* 🚪 THE COVER NEVER FADES TO NOTHING. When the cover's own rest holds nothing a guest can see (a reply row that
+     drew nothing; a cover that is the last thing in its group), what arrives is the next box on the page, and THAT
+     box is the one the engine pulls up to the cover (`data-hub-zrest`): its own top margin — the page's rhythm — is
+     replaced by the engine's measure for as long as it is marked. Marked important: the rhythm it replaces is the
+     page's own and can be written any way, as strong as it likes ("between my children" is three classes and marks
+     already) — and a margin that lost to it would leave the arrival a whole screen from where it is drawn (seen in
+     the browser check: 196 px low under a four-strong rule). */
+  .hub-page-cell[data-hub-page-on] [data-hub-zrest] { margin-top: var(--hub-up, 0px) !important; }
   .hub-page-cell[data-hub-page-on] [data-hub-zlift] { position: relative; top: var(--hub-zrise, 0px); }
   /* THE SAME PLACE — the rest of the page begins OVER the leaving scene (how far: the engine's measure). */
   .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { margin-top: var(--hub-up, 1rem); }

@@ -41,6 +41,20 @@ guest's page until that constant is turned on, which is the owner's go. LOCAL br
   every one of today's 310 boxes stands where it stood (cover → reply row 48 px → 48 px; reply row → next group
   48 px → 48 px), and the scroll reveal's chapters in the first group are the same three plus the cell.
 
+- **TOGETHER** (owner 2026-10-10, asked what should stand where the names built out — the RSVP button alone, or
+  the button and the countdown: *"Together."*). When what arrives after the cover is the page's ACTION ROW, the block
+  after it arrives WITH it — one fade, one unit, centred as one, the page's own distance between them (48 px) kept.
+  Decided by what the block IS, never by its height: the engine keys on the marks the page's rows already carry —
+  `data-arrival-action` (the reply row, and the row that stands in its place) and `data-get-inside` (the stranger's
+  door). On the real guest page: the RSVP button and "Until we say 'I do'". A long second block makes a long unit —
+  the ordinary long arrival: from the top of the room down, then scrolled through; never shrunk or clipped.
+- **The cover never fades to nothing.** When the cover's group holds nothing after the cover (a guest the page has
+  no action for; a cover that is the last thing in its group), the next block on the page arrives, alone, and the
+  box that holds it is the one pulled up to the cover (`data-hub-zrest`).
+- The owner's numbers are untouched (55 % · enters at 80 % · runs 22 % · held where it stands).
+- Proof: block 17 of the browser check (generated pages: the pair, the long second block, nothing after the cover)
+  and block 16 on the real guest page at 375×812, 375×667, 441×882 and 1280×770.
+
 ⚠ Chromium only. Nothing here has run on iOS Safari (WebKit).
 
 SPEC IMPACT: None (the owner's rulings in `Maker_Animate_Preview_Scrub_LOCKED_2026-10-09.md` are unchanged; no

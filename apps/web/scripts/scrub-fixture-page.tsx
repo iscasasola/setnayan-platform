@@ -15,6 +15,9 @@
  *   fixture-cover-reveal.html      …the same, with the Reveal's mark on the page before the island mounts.
  *   fixture-cover-scene.html       …and the Schedule stored to leave by Scrub too (it is on Details: another tab).
  *   fixture-cover-scene-details.html   …the same page OPENED ON DETAILS (the cover's tab is not the one shown).
+ *   fixture-norow-today.html · fixture-cover-norow-plain.html · fixture-cover-norow.html
+ *                                  the same three for A GUEST WHOSE REPLY ROW DRAWS NOTHING (no reply status at all:
+ *                                  the page has no action to offer them) — the cover's group ends with the cover.
  *
  * 🚪 THE DOOR. "Scrub out" is a constant and it is off; `SiteBody` takes no prop for it and this script must not need
  * one. So, FOR THIS PROCESS ONLY, the module that holds the constant is handed to the page with the constant read
@@ -52,7 +55,7 @@ let offered = false;
 
 /* After the door: the fixture helper installs its own seam as it loads (the database client, the island's count). */
 const { renderSiteBodyFixtureFull } = require('../lib/site-body-fixture-render') as typeof import('../lib/site-body-fixture-render');
-const { fixtureWidgets } = require('../lib/site-body-fixture') as typeof import('../lib/site-body-fixture');
+const { fixtureWidgets, siteBodyFixtureProps } = require('../lib/site-body-fixture') as typeof import('../lib/site-body-fixture');
 const { LAB_SCRUB_COVER, LAB_SCRUB_SAMPLE } = require('../app/dev/maker-lab/lab-scrub') as typeof import('../app/dev/maker-lab/lab-scrub');
 
 const [outDir, island] = (() => {
@@ -66,7 +69,13 @@ const [outDir, island] = (() => {
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
-type Page = { file: string; offered: boolean; widgets: ReturnType<typeof fixtureWidgets>; activeTab?: string; script: 'none' | 'island' | 'island-under-reveal' };
+type Page = { file: string; offered: boolean; widgets: ReturnType<typeof fixtureWidgets>; activeTab?: string; noRow?: boolean; script: 'none' | 'island' | 'island-under-reveal' };
+/** The fixture's guest with NO reply status: `resolveArrivalAction` has nothing to say to them, so no row is drawn. */
+const guestWithNoRow = () => {
+  const { identity } = siteBodyFixtureProps();
+  if (identity.kind !== 'guest') throw new Error('scrub-fixture-page: the fixture identity is no longer a guest');
+  return { ...identity, guest: { ...identity.guest, rsvp_status: null } } as typeof identity;
+};
 const cover = () => fixtureWidgets({ hero: LAB_SCRUB_COVER });
 const coverAndScene = () => fixtureWidgets({ hero: LAB_SCRUB_COVER, schedule: LAB_SCRUB_SAMPLE.schedule });
 const PAGES: Page[] = [
@@ -76,12 +85,16 @@ const PAGES: Page[] = [
   { file: 'fixture-cover-reveal.html', offered: true, widgets: cover(), script: 'island-under-reveal' },
   { file: 'fixture-cover-scene.html', offered: true, widgets: coverAndScene(), script: 'island' },
   { file: 'fixture-cover-scene-details.html', offered: true, widgets: coverAndScene(), activeTab: 'details', script: 'island' },
+  { file: 'fixture-norow-today.html', offered: false, widgets: cover(), noRow: true, script: 'none' },
+  { file: 'fixture-cover-norow-plain.html', offered: true, widgets: cover(), noRow: true, script: 'none' },
+  { file: 'fixture-cover-norow.html', offered: true, widgets: cover(), noRow: true, script: 'island' },
 ];
 
 async function main() {
   for (const page of PAGES) {
     offered = page.offered;
-    const drawn = await renderSiteBodyFixtureFull({ proWatermarkHidden: true, widgets: page.widgets, ...(page.activeTab ? { activeTab: page.activeTab } : {}) });
+    const drawn = await renderSiteBodyFixtureFull({ proWatermarkHidden: true, widgets: page.widgets, ...(page.activeTab ? { activeTab: page.activeTab } : {}), ...(page.noRow ? { identity: guestWithNoRow() } : {}) });
+    if (Boolean(page.noRow) === drawn.html.includes('data-arrival-action=')) throw new Error(`scrub-fixture-page: ${page.file} — the reply row is ${page.noRow ? 'drawn for a guest it should not be drawn for' : 'missing'}`);
     offered = false;
     if (drawn.complaints.length) throw new Error(`scrub-fixture-page: ${page.file} — the page complained while rendering: ${drawn.complaints[0]}`);
     const cells = count(drawn.html, 'class="hub-cover-cell');

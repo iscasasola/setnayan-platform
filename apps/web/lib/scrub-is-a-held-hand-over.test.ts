@@ -479,21 +479,42 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
 
   /* THE ENGINE: the page's FIRST pair, the cover's laid-out top as where it stands, the next box on the page. */
   const engine = read(`${B}/hub-scrub-engine.ts`);
-  assert.match(engine, /const pair = scrubPair\(\{ h: cover\.offsetHeight, oneByOne: false \}, arrives \? elementOf\(arrives\) : \{ h: 0, oneByOne: false \}, view, docTop\(cover\)\);/);
+  /* (RE-AIMED 2026-10-10 — the claim changed: what arrives is no longer always ONE box measured by its own height.
+     The owner, asked whether the RSVP button or the button and the countdown should stand where the names built out:
+     "Together." So what arrives is a UNIT — the action row and the block after it, the page's own distance between
+     them included — or one box as before; the cover's side of the pair, and where it stands, are unchanged.) */
+  assert.match(engine, /const unit: ScrubElement = arrives \? \{ h: mate \? docTop\(mate\) \+ mate\.offsetHeight - docTop\(arrives\) : arrives\.offsetHeight, oneByOne: oneByOne\(mate \?\? arrives\) \} : \{ h: 0, oneByOne: false \};\s*const pair = scrubPair\(\{ h: cover\.offsetHeight, oneByOne: false \}, unit, view, docTop\(cover\)\);/);
+  /* 🤝 TOGETHER: decided by what the block IS — the page's own marks for its one action — never by its height; the
+     block after it is looked for up to the page's stage, through the page's groups; both are marked, and both are
+     given the same moment of the hand-over. */
+  assert.match(engine, /const ACTION_ROW = '\[data-arrival-action\], \[data-get-inside\]';/);
+  assert.match(engine, /if \(arrives && \(arrives\.matches\(ACTION_ROW\) \|\| arrives\.querySelector\(ACTION_ROW\)\)\) mate = followers\(arrives, page\)\.map\(through\)\[0\] \?\? null;/);
+  assert.match(engine, /const THROUGH = '[^']*\[data-hub-tab\]';/, 'a group of the page (one tab’s box) is not looked through for the block that arrives');
+  assert.match(engine, /if \(h\.arrival\) Object\.assign\(of\(h\.arrival\), \{ pin: m\.in, gate: m\.rows, handed: true \}\);[\s\S]{0,160}if \(h\.mate\) Object\.assign\(of\(h\.mate\), \{ pin: m\.in, gate: m\.rows, handed: true \}\);/);
+  for (const marked of ['data-arrival-action', 'data-get-inside']) assert.ok(['app/[slug]/_components/arrival-action.tsx', 'app/[slug]/_components/guest-me-parts.tsx', 'app/[slug]/_components/get-inside.tsx'].some((f) => read(f).includes(marked)), `no row of the page carries ${marked} any more — the engine would pair nothing`);
+  assert.doesNotMatch(engine.match(/if \(arrives && \(arrives\.matches\(ACTION_ROW\)[^\n]*/)?.[0] ?? 'offsetHeight', /offsetHeight|\.h\b|room|innerHeight/, 'the action row is decided by a height');
+  /* 🚪 THE COVER NEVER FADES TO NOTHING: nothing a guest can see in the cover's own rest → the next box on the page
+     after the cover's cell arrives, and THAT box is the one pulled up to the cover. */
+  assert.match(engine, /arrives = nextBox\(coverRest\);\s*if \(!arrives\) \{\s*outside = followers\(coverCell, page\)\[0\] \?\? null;\s*arrives = outside \? through\(outside\) : null;\s*\}\s*const pulled = outside \?\? coverRest;/);
+  assert.match(engine, /if \(outside\) put\(outside, 'data-hub-zrest', ''\);/);
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \[data-hub-zrest\] \{ margin-top: var\(--hub-up, 0px\) !important; \}/);
   assert.match(engine, /const stick = pair\.top - \(docTop\(cover\) - docTop\(pages\[0\]\.stage\)\);\s*put\(pages\[0\]\.stage, '--hub-top', px\(stick\)\);\s*put\(pages\[0\]\.cell, '--hub-len', px\(pair\.len\)\);/);
   assert.match(engine, /if \(!el\.offsetHeight \|\| el\.offsetParent === null\) continue;\s*return el\.matches\(THROUGH\) \? \(nextBox\(el\) \?\? el\) : el;/);
   /* …what follows the arrival stays under the cover until the cover has completely gone; a box the page pins is never moved. */
   assert.match(engine, /const lower = h\.lift \? 1 - m\.rows : m\.below;/);
   /* …and the distance to the arrival is READ BACK: a bottom margin on the cover's own last child runs out through its
      box and is added to the one the engine sets (seen in the browser: the arrival 40 px below its line). */
-  assert.match(engine, /const over = arrives \? docTop\(arrives\) - \(docTop\(cover\) \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(coverRest, '--hub-up', px\(up - over\)\);/);
+  /* (RE-AIMED 2026-10-10: the box that is pulled up is the cover's own rest OR, when that holds nothing, the next box
+     on the page — `pulled`; the read-back is the same sum.) */
+  assert.match(engine, /const over = arrives \? docTop\(arrives\) - \(docTop\(cover\) \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(pulled, '--hub-up', px\(up - over\)\);/);
   assert.match(engine, /getComputedStyle\(sib\)\.position === 'static'/);
   /* …and "what follows" is looked for UP TO THE PAGE'S OWN STAGE — the later groups of a real page are not inside the
      cover's rest — with the rise said on that stage, where every marked box can read it; and the cover is watched
      for a size of its own, so a page armed on another tab measures the hand-over when the first tab is shown. */
-  assert.match(engine, /lifted = arrives && pages\[0\] \? followers\(arrives, pages\[0\]\.stage\) : \[\];/);
+  /* (RE-AIMED 2026-10-10: "what follows" begins after the LAST of what arrives — the block that came with the row.) */
+  assert.match(engine, /const lastIn = mate \?\? arrives;\s*lifted = lastIn && pages\[0\] \? followers\(lastIn, pages\[0\]\.stage\) : \[\];/);
   assert.match(engine, /put\(pages\[0\]\.stage, '--hub-zrise', '0px'\);/);
-  assert.match(engine, /arrival: arrives, pair, rest: 0, stick, lift: pages\[0\]\.stage \}\);/);
+  assert.match(engine, /arrival: arrives, mate, pair, rest: 0, stick, lift: pages\[0\]\.stage \}\);/);
   assert.doesNotMatch(engine, /followers\(arrives, coverRest\)|put\(coverRest, '--hub-zrise'/, 'what follows the cover is looked for, or lifted, only inside the cover’s own rest');
   assert.match(engine, /const cover = root\.querySelector<HTMLElement>\(`\$\{COVER\} > \.hub-cover`\);\s*if \(cover\) watch\(cover\);/);
   /* …and a box that had no size as it was watched is KNOWN to be 0 — its first report is then a change, not skipped. */

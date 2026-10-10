@@ -91,3 +91,50 @@ export async function tellCoupleLockRequestExpired(
   }
   return told;
 }
+
+/**
+ * Tell the SUPPLIER that a booking request they were asked to answer is gone.
+ *
+ * Two doors take a pending request away, and until 2026-10-10 only one said so:
+ *
+ *   · the couple pressing Withdraw (`withdrawVendorLockRequest`) — told them;
+ *   · the couple pressing ✕ Remove on that supplier's card (`deleteVendor`),
+ *     which deletes the row the request lives on — told nobody. The answer card
+ *     vanished from the supplier's Today with no word, which is the exact harm
+ *     the withdrawal notice was written to prevent.
+ *
+ * Returns whether somebody was told (`false`: the shop has no account to tell).
+ */
+export async function tellSupplierLockRequestWithdrawn(
+  admin: Admin,
+  args: { eventId: string; marketplaceVendorId: string },
+): Promise<boolean> {
+  const [{ data: vProfile, error: profileError }, { data: evtRow }] = await Promise.all([
+    admin
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', args.marketplaceVendorId)
+      .maybeSingle(),
+    admin.from('events').select('display_name').eq('event_id', args.eventId).maybeSingle(),
+  ]);
+  if (profileError) {
+    console.error(
+      `[lock-request-notices] could not read who to tell that the request was withdrawn, vendor_profile_id=${args.marketplaceVendorId}:`,
+      profileError.message,
+    );
+    return false;
+  }
+  const vendorUserId = (vProfile as { user_id: string | null } | null)?.user_id ?? null;
+  if (!vendorUserId) return false;
+  const who = (evtRow as { display_name: string } | null)?.display_name ?? 'A couple';
+  await emitNotification({
+    userId: vendorUserId,
+    type: 'lock_request_withdrawn',
+    title: `${who} took their booking request back`,
+    body: `${who} has withdrawn the booking request you were asked to answer. Nothing is owed either way, and the date is free on your calendar again.`,
+    relatedUrl: '/vendor-dashboard',
+    // Which event: a supplier-side link carries none, so the email is told here.
+    eventId: args.eventId,
+  });
+  return true;
+}

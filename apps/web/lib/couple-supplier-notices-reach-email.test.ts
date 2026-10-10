@@ -577,3 +577,31 @@ test('6 · a booking request that lapses tells the couple from all three doors �
     'the sweep must tell only the rows expire_stale_lock_requests returned',
   );
 });
+
+/* ═══ 7 · A REQUEST TAKEN AWAY IS TOLD FROM BOTH DOORS ══════════════════════ */
+
+test('7 · a pending booking request that is taken away tells the supplier — Withdraw, and ✕ Remove', () => {
+  const emitters = sitesOf('lock_request_withdrawn').map((s) => s.file);
+  assert.deepEqual(emitters, ['lib/lock-request-notices.server.ts'], 'the withdrawn notice is written in more than one place');
+
+  const ACTIONS = 'app/dashboard/[eventId]/vendors/actions.ts';
+  const withdraw = functionBody(ACTIONS, 'withdrawVendorLockRequest');
+  assert.equal(withdraw.split('await tellSupplierLockRequestWithdrawn(').length - 1, 1, 'Withdraw no longer tells the supplier');
+
+  const remove = functionBody(ACTIONS, 'deleteVendor');
+  const read = remove.indexOf(".select('category, status, marketplace_vendor_id, lock_request_state')");
+  const del = remove.indexOf('.delete()');
+  const tell = remove.indexOf('await tellSupplierLockRequestWithdrawn(');
+  console.log(`# deleteVendor: read@${read} delete@${del} tell@${tell}`);
+  // The request lives ON the row being deleted, so it has to be read first…
+  assert.ok(read > -1 && read < del, 'deleteVendor must read the request off the row BEFORE deleting it');
+  // …and the supplier is told only once the removal has really happened.
+  assert.ok(tell > del, 'deleteVendor must tell the supplier after the row is gone, not before');
+  // Told when a request was waiting — by the shared derivation, never the raw column.
+  assert.match(
+    remove,
+    /const tookAnAskAway =\s*lockRequestStateOf\([\s\S]{0,200}?\) === 'requested';/,
+    'deleteVendor must decide "a request was waiting" with lockRequestStateOf',
+  );
+  assert.match(remove, /if \(tookAnAskAway && removed\?\.marketplace_vendor_id\) \{\s*try \{\s*await tellSupplierLockRequestWithdrawn\(/, 'the notice is no longer tied to a waiting request');
+});

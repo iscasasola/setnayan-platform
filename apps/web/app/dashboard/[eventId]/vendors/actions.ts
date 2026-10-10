@@ -84,6 +84,8 @@ import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.ser
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { tellSupplierLockRequestWithdrawn } from '@/lib/lock-request-notices.server';
+import { lockRequestStateOf } from '@/lib/lock-request-state';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { isBudgetBuildEnabled } from '@/lib/budget-build';
 import { computeLockImpact, type LockImpact } from '@/lib/lock-impact';
@@ -490,7 +492,7 @@ export async function deleteVendor(formData: FormData) {
   // and the status for the booked-row guard below.
   const { data: removing } = await supabase
     .from('event_vendors')
-    .select('category, status')
+    .select('category, status, marketplace_vendor_id, lock_request_state')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -526,6 +528,53 @@ export async function deleteVendor(formData: FormData) {
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
+
+  // 🔴 THE ROW JUST DELETED MAY HAVE CARRIED A BOOKING REQUEST THE SUPPLIER WAS
+  // ASKED TO ANSWER. Deleting it takes the request away exactly as Withdraw
+  // does — the answer card disappears from their Today — and until 2026-10-10
+  // this door told them nothing. Read off the row BEFORE the delete (it is
+  // gone now); a row already booked is not a pending ask whatever marker it
+  // carries. Best-effort: the removal is done and a notice must not undo it.
+  const removed = (removing ?? null) as {
+    status?: VendorStatus;
+    marketplace_vendor_id?: string | null;
+    lock_request_state?: string | null;
+  } | null;
+  // The ONE derivation of "is a request still waiting" (lib/lock-request-state.ts)
+  // — never the raw column. `true`, not the flag: this asks what the ROW says,
+  // exactly as the expiry sweep does, because a request written while the
+  // handshake was on is still on the supplier's Today if the flag goes off.
+  const tookAnAskAway =
+    lockRequestStateOf(
+      { status: removed?.status ?? null, lock_request_state: removed?.lock_request_state ?? null },
+      true,
+    ) === 'requested';
+  if (tookAnAskAway && removed?.marketplace_vendor_id) {
+    try {
+      await tellSupplierLockRequestWithdrawn(createAdminClient(), {
+        eventId,
+        marketplaceVendorId: removed.marketplace_vendor_id,
+      });
+    } catch (e) {
+      console.error(
+        `[deleteVendor] withdrawn-request notify failed for vendor_id=${vendorId} event_id=${eventId}:`,
+        e,
+      );
+    }
+  }
+  /*
+    ⛔ NOT TOLD, AND IT SHOULD BE: a supplier removed while a CONVERSATION is
+    still open (no booking request, just a thread). No notification type says
+    "the couple set you aside" — `inquiry_displaced` means the thread was
+    released because they booked someone else, and this thread is NOT released:
+    it stays open and the supplier can still answer and quote. Saying it needs
+    a new enum value, i.e. a migration, which was not written on 2026-10-10:
+
+        ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'supplier_removed';
+
+    Until then the supplier's Today keeps showing "Reply to a new inquiry" for
+    a couple who removed them.
+  */
 
   // Re-anchor "ground 0" if a RECEPTION venue pick was just removed — the
   // distance chips for every other vendor fall back to the next reception
@@ -3018,26 +3067,12 @@ export async function withdrawVendorLockRequest(
     } | null;
     vendorName = row?.vendor_name ?? vendorName;
     if (row?.marketplace_vendor_id && eventId) {
-      const [{ data: vProfile }, { data: evtRow }] = await Promise.all([
-        admin
-          .from('vendor_profiles')
-          .select('user_id')
-          .eq('vendor_profile_id', row.marketplace_vendor_id)
-          .maybeSingle(),
-        admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
-      ]);
-      const vendorUserId = (vProfile as { user_id: string | null } | null)?.user_id ?? null;
-      const who = (evtRow as { display_name: string } | null)?.display_name ?? 'A couple';
-      if (vendorUserId) {
-        await emitNotification({
-          userId: vendorUserId,
-          type: 'lock_request_withdrawn',
-          title: `${who} took their booking request back`,
-          body: `${who} has withdrawn the booking request you were asked to answer. Nothing is owed either way, and the date is free on your calendar again.`,
-          relatedUrl: '/vendor-dashboard',
-          eventId,
-        });
-      }
+      // The words live in ONE place: ✕ Remove on a card with a pending request
+      // takes the request away too, and has to say the same sentence.
+      await tellSupplierLockRequestWithdrawn(admin, {
+        eventId,
+        marketplaceVendorId: row.marketplace_vendor_id,
+      });
     }
   } catch (e) {
     console.error(

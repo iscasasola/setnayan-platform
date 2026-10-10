@@ -21,6 +21,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const APP = join(__dirname, '..', 'app');
 
@@ -36,7 +37,7 @@ function cssFiles(dir: string, out: string[] = []): string[] {
 
 /** Every `--name: value;` in a sheet whose value contains `var(--name` — with the comments taken out first. */
 export function selfNamingDeclarations(css: string): string[] {
-  const bare = css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+  const bare = stripComments(css);
   const hits: string[] = [];
   const decl = /(^|[;{\s])(--[A-Za-z0-9_-]+)\s*:\s*([^;{}]*)/g;
   for (let m = decl.exec(bare); m; m = decl.exec(bare)) {

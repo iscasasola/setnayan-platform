@@ -40,7 +40,7 @@ export function hexToRgb(hex: string): RGB | null {
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
-export function channels(c: RGB): string {
+function channels(c: RGB): string {
   return `${Math.round(c.r)} ${Math.round(c.g)} ${Math.round(c.b)}`;
 }
 
@@ -183,10 +183,15 @@ function palettePool(palette: RolePalette | null | undefined): RGB[] {
   return pool;
 }
 
-export function toHex(c: RGB): string {
+function toHex(c: RGB): string {
   const h = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0');
   return `#${h(c.r)}${h(c.g)}${h(c.b)}`;
 }
+
+/* Shared with `lib/site-palette-vars.ts` (the builders moved out of the Maker's first load) under names of their own:
+   `lib/hub-legibility.ts` and `app/[slug]/_lib/pro-site-vars.ts` each keep a DIFFERENT local `toHex`/`channels` and
+   import from this module, so exporting the plain names trips the duplicated-rule guard (lint:dup-rule, GUARD 1). */
+export { channels as paletteChannels, toHex as paletteToHex };
 
 /** Lighten `c` toward white by `amount` (0 = unchanged, 1 = white). */
 export function lighten(c: RGB, amount: number): RGB {

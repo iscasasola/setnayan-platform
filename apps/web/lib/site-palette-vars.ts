@@ -15,7 +15,7 @@
 import type { RolePalette } from './mood-board';
 import {
   blend,
-  channels,
+  paletteChannels as channels,
   chroma,
   contrast,
   darken,
@@ -28,7 +28,7 @@ import {
   PLATE_MIN_CONTRAST_BAR,
   PLATE_MUTED_ALPHA_BAR,
   type RGB,
-  toHex,
+  paletteToHex as toHex,
   veilColorFromPalette,
   WHITE,
 } from './site-palette';

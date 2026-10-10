@@ -10,8 +10,8 @@
  *   · the move action (`website/widgets/actions.ts` `moveWithinStage`) — the list a drag swaps in, live and in the
  *     draft (`configWithDraftedStage`).
  *
- *   1. hidden on a stage: not listed there, folded with "Hidden from guests on this stage." — marked `hiddenHere`,
- *      NOT `hiddenByCouple` (the eye writes the event-wide value and could not bring it back) — every other stage's
+ *   1. hidden on a stage: not listed there, folded with "Hidden on <stage>." — marked `hiddenHere` and (since the eye
+ *      writes the stage's own value, step 2) `hiddenByCouple`, so the eye brings it back there — every other stage's
  *      list and fold as they were;
  *   2. shown on a stage over the event-wide eye: listed there; folded as hidden-by-the-couple on the others;
  *   3. added to a stage: listed there, after the stage's own scenes; refused where it cannot be, with the reason;
@@ -30,7 +30,7 @@
  *   C · the "Our story" tile made deaf (`!hiddenOnStage(…)` removed)                            → 4 red;
  *   D · the move action handed the drafted ORDERS only (`stage_show` not laid)                  → 6 red;
  *   E · the plan under the Maker's list made to ignore the choice (as in the stage-list file)   → 1, 2, 3, 4, 5 red;
- *   F · `hiddenByCouple` made to follow the eye for a scene hidden here                         → 1 red.
+ *   F · `hiddenByCouple` made to follow the event-wide eye alone for a scene hidden here        → 1 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,7 +39,7 @@ import { join } from 'node:path';
 
 import { STAGE_SCENES, STAGE_SHOW_KEY, stageRowOrder, stagePlacesAfterMove } from './stage-scenes';
 import { WIDGET_CATALOG_BY_TYPE, isWidgetType, widgetInPhase, type InvitationWidgetRow, type LifecyclePhase, type WidgetType } from './invitation-widgets';
-import { HIDDEN_ON_THIS_STAGE, makerStageList, type MakerStageInput } from './maker-scene-list';
+import { hiddenOnStageLine, makerStageList, type MakerStageInput } from './maker-scene-list';
 import { configWithDraftedStage, emptyHubDraft, mergeHubDraft } from './hub-draft';
 import { stripComments } from './strip-comments';
 
@@ -79,13 +79,16 @@ test('1 · hidden on a stage: not listed there, folded as hidden HERE, and every
       assert.ok(!scenes(here).includes(type), `${type} hidden on ${stage} is still listed (openBrowse ${openBrowse})`);
       const fold = foldOf(here, type);
       assert.ok(fold, 'it left the stage without a line saying why');
-      assert.equal(fold.reason, HIDDEN_ON_THIS_STAGE);
+      /* 🔁 RE-AIMED in step 2 (2026-10-11): the eye now writes the stage's own value, so a scene hidden here IS brought
+         back by it — `hiddenByCouple` is true again, `hiddenHere` says which kind, and the line is the sheet's phrase. */
+      assert.equal(fold.reason, hiddenOnStageLine(stage));
+      assert.match(fold.reason, /^Hidden on (Save the Date|Invitation|The Day|Post Event)\.$/);
       assert.equal(fold.hiddenHere, true);
-      assert.equal(fold.hiddenByCouple, false, 'the eye is offered for a scene it cannot bring back');
+      assert.equal(fold.hiddenByCouple, true, 'a scene hidden on this stage is offered no eye to bring it back');
       for (const s of STAGES) if (s !== stage) assert.deepEqual(list(stored, s, { openBrowse }), before[s], `${type} hidden on ${stage} changed the Maker’s ${s}`);
       // Hidden here AND switched off by the eye: still "hidden here" — the eye alone would not bring it back to this stage.
       const both = foldOf(list(rows({ ...PHOTOS, [type]: { is_visible: false, mode: 'hidden', show: { [stage]: false } } }), stage, { openBrowse }), type)!;
-      assert.deepEqual([both.reason, both.hiddenHere, both.hiddenByCouple], [HIDDEN_ON_THIS_STAGE, true, false]);
+      assert.deepEqual([both.reason, both.hiddenHere, both.hiddenByCouple], [hiddenOnStageLine(stage), true, true]);
     }
   }
 });

@@ -159,7 +159,7 @@ test('1 · PROPERTY: the function, the page’s plan and the Maker’s list agre
         }
         assert.equal(fold.hiddenHere === true, s.choice === false, `${s.type}: "hidden here" — ${where}`);
         // Off the list a scene may still be drawn (the prose, the film) — then nobody calls it hidden.
-        if (s.offList === null && s.notPossible === null) assert.equal(Boolean(fold.hiddenByCouple || fold.hiddenHere), s.hiddenByCouple, `${s.type}: hidden by the couple — ${where}`);
+        if (s.offList === null && s.notPossible === null) assert.equal(fold.hiddenByCouple, s.hiddenByCouple, `${s.type}: hidden by the couple — ${where}`);
         if (s.choice !== null) stored += 1;
         if (s.choice === true && !s.drawn) refused += 1;
       }

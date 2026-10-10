@@ -162,7 +162,7 @@ test('6 · a scene of their own, hidden today, cannot reach guests one stage at 
 
 test('7 · the Apply sheet names each stage that moved, and which way', () => {
   assert.equal(stageShowWhat({}, { event: false }), 'Hidden on The Day');
-  assert.equal(stageShowWhat({ [STAGE_SHOW_KEY]: { rsvp: false, event: true } }, { save_the_date: true, event: true }), 'Shown on Save the Date, Our pick on Invitation');
+  assert.equal(stageShowWhat({ [STAGE_SHOW_KEY]: { rsvp: false, event: true } }, { save_the_date: true, event: true }), 'Added to Save the Date, Back to our pick on Invitation');
   const live = rows();
   const lines = hubDraftChangeLines(draftOf({ widgets: { our_love_story: { stage_show: { save_the_date: false, editorial: false } } } }), { events: {}, widgets: live }, false);
   assert.deepEqual(lines, [{ place: 'Our love story', what: 'Hidden on Save the Date, Hidden on Post Event', pro: false, held: false }]);

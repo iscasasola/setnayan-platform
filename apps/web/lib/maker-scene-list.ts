@@ -152,17 +152,14 @@ export type MakerFolded = {
   hiddenByCouple: boolean;
   /**
    * 👁 The couple hid it ON THIS STAGE (`config_json.stage_show`, owner 2026-10-10
-   * "WHAT GUESTS SEE"). Kept apart from `hiddenByCouple` on purpose: the eye
-   * writes the event-wide value, so it could not bring this one back — and a
-   * control that does nothing is worse than none. The table that writes the
-   * per-stage value is the next step; it re-aims the eye and may then fold the
-   * two together.
+   * "WHAT GUESTS SEE") — also `hiddenByCouple`: since the eye writes the stage's
+   * own value, it brings this one back on this stage.
    */
   hiddenHere?: true;
 };
 
-/** The fold's line for a scene the couple hid on this stage alone. */
-export const HIDDEN_ON_THIS_STAGE = 'Hidden from guests on this stage.';
+/** The fold's line for a scene the couple hid on this stage alone — the table's own phrase ("Hidden on The Day."). */
+export const hiddenOnStageLine = (stage: LifecyclePhase): string => `Hidden on ${PUBLIC_STAGE_LABELS[stage]}.`;
 
 export type MakerStageList = {
   stage: LifecyclePhase;
@@ -677,7 +674,7 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     const visible = choice === true || eyeOn;
     const refused = choice === true ? whyNotInStageList(w, { stage, reader: 'anonymous', film: plan.body === 'save_the_date' }) : null;
     let reason: string;
-    if (choice === false) reason = HIDDEN_ON_THIS_STAGE;
+    if (choice === false) reason = hiddenOnStageLine(stage);
     else if (!visible) reason = 'Hidden from guests — tap the eye to show it.';
     else if (GUEST_ONLY.has(t)) reason = "Only on each guest's own link.";
     else if (refused === 'DAY_WELCOME_SCENES') reason = 'On the day, each guest meets it on their Welcome.';
@@ -695,7 +692,7 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
       type: t,
       label: makerSceneLabel(t),
       reason,
-      hiddenByCouple: choice !== false && !visible,
+      hiddenByCouple: choice === false || !visible,
       ...(choice === false ? { hiddenHere: true as const } : {}),
     });
   }

@@ -153,9 +153,9 @@ function canvasWhat(liveConfig: unknown, next: unknown): string {
 }
 
 /**
- * 👁 What a per-stage choice changed, stage by stage, in the stages' own order:
- * "Shown on Save the Date", "Hidden on The Day", and "Our pick on Post Event"
- * for a choice taken back. `next` is the whole merged key Apply writes.
+ * 👁 What a per-stage choice changed, stage by stage, in the stages' own order,
+ * in the "What guests see" sheet's own phrases: "Added to Save the Date",
+ * "Hidden on The Day", and "Back to our pick on Post Event" for a choice taken back. `next` is the whole merged key Apply writes.
  */
 export function stageShowWhat(liveConfig: unknown, next: unknown): string {
   const was = sanitizeStageShow(isPlainObjectValue(liveConfig) ? liveConfig[STAGE_SHOW_KEY] : null) ?? {};
@@ -165,7 +165,7 @@ export function stageShowWhat(liveConfig: unknown, next: unknown): string {
     const a = was[st] ?? null;
     const b = now[st] ?? null;
     if (a === b) continue;
-    words.push(`${b === true ? 'Shown' : b === false ? 'Hidden' : 'Our pick'} on ${PUBLIC_STAGE_LABELS[st]}`);
+    words.push(b === true ? `Added to ${PUBLIC_STAGE_LABELS[st]}` : b === false ? `Hidden on ${PUBLIC_STAGE_LABELS[st]}` : `Back to our pick on ${PUBLIC_STAGE_LABELS[st]}`);
   }
   return words.length > 0 ? words.join(', ') : 'Shown or hidden';
 }

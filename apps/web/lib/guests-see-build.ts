@@ -152,3 +152,25 @@ export function buildGuestsSeeTable(input: GuestsSeeTableInput): GuestsSeeTable 
   if (own.length > 0) groups.push({ title: GUESTS_SEE_WORDS.ownScenes, rows: own });
   return { groups };
 }
+
+/**
+ * 👁 WHAT THE MAKER'S EYE NEEDS, per stage and scene: is the scene in the stage's
+ * list with NO choice stored for that stage (`base`), and the choice stored
+ * (`choice`). The eye writes the same value the table does — the wanted state,
+ * or `null` when the stage lists it that way anyway — so it asks `base` of the
+ * LIST (what the canvas draws), never of a place off it: a love story hidden by
+ * the event-wide eye is still told as prose, and "show" must bring the SCENE.
+ */
+export type StageEye = { base: boolean; choice: boolean | null };
+export function buildStageEyes(input: GuestsSeeTableInput): Record<LifecyclePhase, Partial<Record<WidgetType, StageEye>>> {
+  const out = { save_the_date: {}, rsvp: {}, event: {}, editorial: {} } as Record<LifecyclePhase, Partial<Record<WidgetType, StageEye>>>;
+  for (const stage of Object.keys(out) as LifecyclePhase[]) {
+    for (const w of input.widgets) {
+      if (w.is_always_on) continue;
+      const now = sceneOnStage({ ...input, stage, reader: 'guest' }, w.widget_type);
+      const bare = sceneOnStage({ ...input, widgets: withoutChoice(input.widgets, w.widget_type, stage), stage, reader: 'guest' }, w.widget_type);
+      if (now && bare) out[stage][w.widget_type] = { base: bare.inList, choice: now.choice };
+    }
+  }
+  return out;
+}

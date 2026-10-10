@@ -32,7 +32,7 @@ import { sceneOnStage } from './what-guests-see';
 import { buildGuestsSeeTable } from './guests-see-build';
 import {
   GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, guestsSeeApplyLabel, guestsSeeBackToPicks, guestsSeeChanges, guestsSeeOn, guestsSeePatch,
-  guestsSeeToggle, type GuestsSeeTable, type GuestsSeeWrites,
+  guestsSeeToggle, type GuestsSeeCell, type GuestsSeeTable, type GuestsSeeWrites,
 } from './guests-see-table';
 import { emptyHubDraft, mergeHubDraft, overlayHubDraftWidgets, sanitizeHubDraft } from './hub-draft';
 
@@ -251,7 +251,7 @@ test('8 · the table and the guest page cannot disagree: each box says what the 
     const page = await renderStagePage(c, rows, withALook(c));
     assert.deepEqual(page.complaints, []);
     for (const { key, words } of ON_THE_PAGE) {
-      const cell = rowOf(t, key).cells[COL[col.key]]!;
+      const cell: GuestsSeeCell = rowOf(t, key).cells[COL[col.key]]!;
       if (cell.kind !== 'box') continue;
       assert.equal(page.html.includes(words), cell.on, `${key} × ${col.label}: the sheet shows ${cell.on ? 'a tick' : 'an empty box'} (choice ${cell.choice}), the page ${page.html.includes(words) ? 'draws it' : 'does not'}`);
       asked += 1;

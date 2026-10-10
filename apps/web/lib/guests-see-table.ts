@@ -30,6 +30,7 @@
  * carries — so the table can only show what the builder read.
  */
 import type { LifecyclePhase, WidgetType } from './invitation-widgets';
+import { formatCount } from './format-number';
 
 /** The five columns, in order. `stage` null = the RSVP reply screens (no scene is drawn there yet). */
 export const GUESTS_SEE_COLUMNS = [
@@ -105,7 +106,7 @@ export const GUESTS_SEE_WORDS = {
 } as const;
 
 const joinAnd = (a: readonly string[]) => (a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
 export const guestsSeeApplyLabel = (n: number) => (n > 0 ? `${GUESTS_SEE_WORDS.apply} · ${plural(n, 'change', 'changes')}` : GUESTS_SEE_WORDS.apply);
 export const guestsSeeLeaveLine = (n: number) => `${plural(n, 'change', 'changes')} will be lost.`;
 
@@ -191,4 +192,27 @@ export function guestsSeePatch(writes: GuestsSeeWrites): { widgets: Record<strin
     (widgets[type] ??= { stage_show: {} }).stage_show[id.slice(at + 1)] = value;
   }
   return Object.keys(widgets).length > 0 ? { widgets } : null;
+}
+
+/**
+ * THE TABLE AFTER ITS PENDING TICKS WERE KEPT — each written cell now stores that
+ * choice and shows what it asked for (`value ?? base`). The sheet lays this over
+ * the table it was handed until the Maker's next render brings the server's own.
+ */
+export function guestsSeeKept(table: GuestsSeeTable, writes: GuestsSeeWrites): GuestsSeeTable {
+  return {
+    groups: table.groups.map((g) => ({
+      ...g,
+      rows: g.rows.map((row) => ({
+        ...row,
+        cells: row.cells.map((cell, col) => {
+          if (cell.kind !== 'box') return cell;
+          const id = cellId(row, col);
+          if (!(id in writes)) return cell;
+          const value = writes[id] ?? null;
+          return { ...cell, choice: value, on: value ?? cell.base };
+        }),
+      })),
+    })),
+  };
 }

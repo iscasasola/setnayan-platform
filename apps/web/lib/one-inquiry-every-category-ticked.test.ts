@@ -179,11 +179,16 @@ test('the tick list is the shipped "Also ask about" block — its words and its 
   const legend = /<legend className="font-mono text-\[10px\] uppercase tracking-\[0\.18em\] text-ink\/50">\s*Also ask about\s*<\/legend>/;
   assert.match(COMPOSER, legend, 'the composer no longer says "Also ask about" — re-copy the block');
   assert.match(SHEET, legend);
-  // The same checkbox, one shade apart: inside the dashboard a bare gold `text-`
-  // class is refused (gold-is-not-text.test.ts — its bill only gets shorter).
-  const box = 'className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"';
-  assert.ok(COMPOSER.includes(box), 'the composer changed its checkbox — re-copy the block');
-  assert.ok(SHEET.includes(box.replace('text-terracotta ', 'text-terracotta-700 ')), 'the sheet drew its own checkbox');
+  // THE TICK IS THE APP'S ACCENT. A native checkbox takes its fill from
+  // `accent-color`, never from a text colour. The composer's box is classed
+  // `text-terracotta focus:ring-terracotta` — a forms-plugin idiom — and this app
+  // has no forms plugin, so that class paints nothing and its boxes tick browser
+  // blue (seen in the sheet's own picture at 375 px, 2026-10-10). The sheet
+  // wears the token the app's ticked boxes really wear: the RSVP's.
+  const rsvp = read('app/[slug]/_components/rsvp-widget.tsx');
+  assert.match(rsvp, /type="checkbox"[\s\S]{0,400}className="[^"]*\baccent-terracotta\b[^"]*"/, 'the RSVP tick changed its token — re-copy it');
+  assert.match(SHEET, /type="checkbox"[\s\S]{0,900}className="h-4 w-4 shrink-0 accent-terracotta"/, 'the sheet’s tick is not the app’s accent');
+  assert.doesNotMatch(read('tailwind.config.ts'), /tailwindcss\/forms/, 'a forms plugin arrived — the composer’s class paints now; re-read this test');
   assert.doesNotMatch(SHEET, /text-terracotta(?!-)/, 'bare gold as a text class is back on the sheet');
   for (const state of ["'border-terracotta/50 bg-terracotta/5 text-ink'", "'border-ink/10 bg-cream/80 text-ink/80 hover:border-terracotta/40'"]) {
     assert.ok(COMPOSER.includes(state) && SHEET.includes(state), `the ticked / unticked look drifted: ${state}`);
@@ -204,10 +209,7 @@ test('frames only on what you press: each tick is framed; the heading and the he
   // The frame (rounded + border) is on the tick's own label, and nowhere else in the list.
   assert.match(SHEET, /const TICK_ROW = '[^']*\brounded-lg border\b[^']*';/);
   assert.equal(count(also, /\$\{TICK_ROW\}/g), 1, 'the frame is not on the tick row');
-  // (The checkbox is itself pressed; take its own class out before looking.)
-  const readOnly = also.replace('className="h-4 w-4 rounded border-ink/30 text-terracotta-700 focus:ring-terracotta"', '');
-  assert.notEqual(readOnly, also, 'the checkbox class moved — this check would look at nothing');
-  assert.equal(count(readOnly, /\brounded\b|\brounded-/g), 0, 'something that is only read got a box');
+  assert.equal(count(also, /\brounded\b|\brounded-/g), 0, 'something that is only read got a box');
   // Inside the frame: the checkbox and the category's name. Nothing that is only read.
   const label = also.slice(also.indexOf('<label'), also.indexOf('</label>'));
   assert.doesNotMatch(label, /can be in the same quote/, 'the helper line is inside the frame');

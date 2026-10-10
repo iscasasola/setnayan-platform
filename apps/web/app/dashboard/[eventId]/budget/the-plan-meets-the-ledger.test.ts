@@ -83,6 +83,7 @@ function bucket(bucketId: string, committedPhp: number, hasBenchmark: boolean): 
 
 function money(byBucket: MoneyBucket[]): EventMoney {
   return {
+    reads: { suppliers: 'ok', orders: 'ok', costs: 'ok' },
     targetPhp: 930_000,
     estimated: 0,
     committed: byBucket.reduce((s, b) => s + b.committedPhp, 0),

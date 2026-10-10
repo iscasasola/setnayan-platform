@@ -45,6 +45,7 @@ function bucket(p: Partial<MoneyBucket> & { bucketId: string }): MoneyBucket {
 /** `due` became REQUIRED on EventMoney in PR #5105 — carried, not omitted. */
 function money(byBucket: MoneyBucket[], lines: MoneyLine[] = []): EventMoney {
   return {
+    reads: { suppliers: 'ok', orders: 'ok', costs: 'ok' },
     targetPhp: 930_000,
     estimated: 0,
     committed: byBucket.reduce((s, b) => s + b.committedPhp, 0),

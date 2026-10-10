@@ -99,6 +99,7 @@ import {
 import { PLAN_GROUPS } from './wedding-plan-groups';
 import type { EventVendorRow, VendorCategory } from './vendors';
 import { formatCentavosPhp, formatPhp } from './php';
+import { logQueryError } from './supabase/error-detect';
 
 // ── Public shape ─────────────────────────────────────────────────────────────
 
@@ -287,7 +288,65 @@ export type MoneySourceNote = {
   isEstimate: boolean;
 };
 
+/**
+ * Did one of the three sources a couple's money is drawn from ANSWER?
+ *
+ * Supabase RESOLVES with `{ error }` instead of throwing, so until 2026-10-08 a
+ * refused select here arrived as `data: null`, `?? []` turned it into "no rows",
+ * and the page printed ₱0 and an empty group to a couple who had bought three
+ * things — byte-identical to an event that had bought none. Same disease as
+ * `lib/guests.ts` (`fetchGuestsByEventMeasured`) and the supplier dashboard's
+ * `reads-are-honest.test.ts`; same cure: the measurement travels WITH the
+ * figures, so the render can switch on it.
+ *
+ * One key per group the Budget page draws (BUDGET_PAGE_2026-10-08 §2):
+ */
+export type MoneyReadState = 'ok' | 'failed';
+export type MoneyReadStatus = {
+  /**
+   * "Booked suppliers" — `event_vendors` + `event_vendor_line_items` +
+   * `event_vendor_payments` (+ the catalogue pricing and the locked package
+   * total that decide a supplier's AGREED figure). One refusal anywhere in the
+   * set fails the group: a supplier row without its payments reads "nothing
+   * paid", which is a wrong number, not a partial one.
+   */
+  suppliers: MoneyReadState;
+  /** "Bought on Setnayan" — `orders`. */
+  orders: MoneyReadState;
+  /** "Your expenses" — `event_costs`. */
+  costs: MoneyReadState;
+};
+
+/** Every source answered. What the pure core assumes when it is handed its rows. */
+export const MONEY_READS_OK: MoneyReadStatus = Object.freeze({
+  suppliers: 'ok',
+  orders: 'ok',
+  costs: 'ok',
+}) as MoneyReadStatus;
+
+/** No source answered — the resolver threw before any of them could. */
+export const MONEY_READS_FAILED: MoneyReadStatus = Object.freeze({
+  suppliers: 'failed',
+  orders: 'failed',
+  costs: 'failed',
+}) as MoneyReadStatus;
+
+/** True only when all three sources answered, i.e. the totals are WHOLE. */
+export function moneyReadsAllOk(money: Pick<EventMoney, 'reads'>): boolean {
+  return (
+    money.reads.suppliers === 'ok' && money.reads.orders === 'ok' && money.reads.costs === 'ok'
+  );
+}
+
 export type EventMoney = {
+  /**
+   * Which of the three sources answered. 🛑 READ THIS BEFORE PRINTING
+   * `committed`, `paid` OR A ZERO-STATE: when a source is `'failed'` its rows
+   * are ABSENT from every figure below — the totals are a floor, not a fact —
+   * and its group is unknown, not empty. `knownMoneyTotals()` is the reading
+   * that cannot get this wrong.
+   */
+  reads: MoneyReadStatus;
   /** `events.estimated_budget_centavos` in PHP. null = no target set. */
   targetPhp: number | null;
   /** Guesses. NEVER part of `committed` or `stillOwed`. §18.5 rule 3. */
@@ -435,6 +494,14 @@ export type MoneyInputs = {
   benchmarks: BenchmarkMoneyRow[];
   /** Plan-group ids in scope for this event, so unseeded leaves can be named. */
   scopePlanGroupIds?: string[];
+  /**
+   * Which sources actually answered. Omitted → `MONEY_READS_OK`: a caller that
+   * hands the pure core its rows has, by construction, read them (every unit
+   * fixture and the parity harness). `resolveEventMoney` — the one caller that
+   * reaches a database — ALWAYS passes it, and `budget-read-is-honest.test.ts`
+   * holds that.
+   */
+  reads?: MoneyReadStatus;
   /**
    * The instant "overdue" is measured against. Injected, never read from the
    * clock inside the core, so every due-date boundary (-1 · 0 · +1 · +7 · +8 ·
@@ -1466,6 +1533,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
   const overBudgetBy = targetPhp !== null ? committed - targetPhp : 0;
 
   const money: EventMoney = {
+    reads: inputs.reads ?? MONEY_READS_OK,
     targetPhp,
     estimated: toPhp(estimatedC),
     committed,
@@ -1592,12 +1660,43 @@ function isMissingColumn(error: { code?: string } | null | undefined): boolean {
   return error?.code === '42703';
 }
 
+/** An empty list, NAMED — so "unknown renders as none" is greppable below. */
+function noRows<T>(): T[] {
+  return [];
+}
+
+type SelectResult = { data: unknown; error: { code?: string; message?: string } | null };
+
+/**
+ * The rows of one select — or `null` when it was REFUSED.
+ *
+ * 🛑 NEVER `[]` FOR A REFUSAL. `data ?? []` is the line that made a failed read
+ * indistinguishable from an empty table; returning `null` makes the caller say
+ * out loud what a refusal means, and `resolveEventMoney` says it in `reads`.
+ */
+function rowsOrRefused<T>(
+  res: SelectResult,
+  onRefused: (error: unknown) => void,
+  opts: { missingRelationIsEmpty?: boolean } = {},
+): T[] | null {
+  if (res.error) {
+    if (opts.missingRelationIsEmpty && isMissingRelation(res.error)) return [];
+    onRefused(res.error);
+    return null;
+  }
+  return Array.isArray(res.data) ? (res.data as T[]) : [];
+}
+
 /**
  * THE resolver. Every surface that prints a peso asks this and nothing else.
  *
  * Read-only: it issues SELECTs and returns arithmetic. It writes nothing,
  * caches nothing, and never throws on a missing table or column — a budget
  * page that renders a warning is strictly better than one that 500s.
+ *
+ * ⚖ AND IT SAYS WHICH SOURCES ANSWERED (`EventMoney.reads`, B0 · 2026-10-08).
+ * A refused select is not an empty table. Read `reads` — or `knownMoneyTotals`
+ * — before printing a total or a zero-state.
  */
 export async function resolveEventMoney(
   supabase: SupabaseClient,
@@ -1648,69 +1747,116 @@ export async function resolveEventMoney(
         .order('created_at', { ascending: true }),
     ]);
 
+  // ── WHICH SOURCES ANSWERED (B0 · 2026-10-08) ─────────────────────────────
+  // Supabase resolves with `{ error }`; it does not throw. Every `data ?? []`
+  // that used to sit here turned a REFUSED select into "no rows", and the page
+  // then said ₱0 / "nothing yet" to a couple who had rows. `rowsOrRefused`
+  // returns `null` for a refusal instead — the type forces each caller below to
+  // say what a refusal means — and `reads` carries the answer to the render.
+  const refused = (table: string, error: unknown) =>
+    logQueryError(`resolveEventMoney (${table})`, error, { event_id: eventId }, 'graceful_degrade');
+
   // Migration-drift fallback: the vendor SELECT names columns added late
   // (voided_by_fraud, package_role). On an un-migrated env PostgREST 42703s
   // the WHOLE query, which would zero the budget rather than degrade it.
-  let vendorRows = (vendorsRes.data ?? []) as unknown as VendorMoneyRow[];
+  let vendorRows: VendorMoneyRow[] | null;
   if (vendorsRes.error && isMissingColumn(vendorsRes.error)) {
     const retry = await supabase
       .from('event_vendors')
       .select('*')
       .eq('event_id', eventId)
       .order('created_at', { ascending: true });
-    vendorRows = (retry.data ?? []) as unknown as VendorMoneyRow[];
+    vendorRows = rowsOrRefused<VendorMoneyRow>(retry, (e) => refused('event_vendors', e));
+  } else {
+    vendorRows = rowsOrRefused<VendorMoneyRow>(vendorsRes, (e) => refused('event_vendors', e));
   }
 
-  const lineItems = (lineItemsRes.data ?? []) as unknown as LineItemMoneyRow[];
-  const payments = (paymentsRes.data ?? []) as unknown as PaymentMoneyRow[];
-  const orders =
-    ordersRes.error && isMissingRelation(ordersRes.error)
-      ? []
-      : ((ordersRes.data ?? []) as unknown as OrderMoneyRow[]);
+  const lineItemRows = rowsOrRefused<LineItemMoneyRow>(lineItemsRes, (e) =>
+    refused('event_vendor_line_items', e),
+  );
+  const paymentRows = rowsOrRefused<PaymentMoneyRow>(paymentsRes, (e) =>
+    refused('event_vendor_payments', e),
+  );
+  // A MISSING relation is an ANSWER, not a refusal: on an environment where the
+  // table has not been migrated in, there are provably no rows to lose, and a
+  // budget page that renders without the source is strictly better than one
+  // that 500s. Every OTHER error on these two is a refusal.
+  const orderRows = rowsOrRefused<OrderMoneyRow>(ordersRes, (e) => refused('orders', e), {
+    missingRelationIsEmpty: true,
+  });
+  // BA7's table — same rule as `orders` above.
+  const costRows = rowsOrRefused<EventCostMoneyRow>(costsRes, (e) => refused('event_costs', e), {
+    missingRelationIsEmpty: true,
+  });
+  // Benchmarks feed `hasBenchmark` and nothing a couple owes. A refusal leaves
+  // every leaf at "no typical price yet" — already the honest unknown (§18.5
+  // rule 5) — so it is logged and is not one of the three money reads.
   const benchmarks =
-    benchmarksRes.error && isMissingRelation(benchmarksRes.error)
-      ? []
-      : ((benchmarksRes.data ?? []) as unknown as BenchmarkMoneyRow[]);
-  // Same graceful-degrade as `orders` above: on an environment where BA7's
-  // migration has not landed PostgREST answers 42P01, and a budget page that
-  // renders without this source is strictly better than one that 500s.
-  const costs =
-    costsRes.error && isMissingRelation(costsRes.error)
-      ? []
-      : ((costsRes.data ?? []) as unknown as EventCostMoneyRow[]);
+    rowsOrRefused<BenchmarkMoneyRow>(benchmarksRes, (e) => refused('budget_leaf_benchmarks', e), {
+      missingRelationIsEmpty: true,
+    }) ?? noRows();
+  if (eventRes.error) refused('events_host', eventRes.error);
 
   // The vendor-authored catalogue half — reuse the shipped resolver rather
   // than re-deriving package / service pricing (Rule 0: extend, never re-draw).
-  const pricing = await buildVendorPricingLookup(
-    supabase,
-    eventId,
-    vendorRows as unknown as EventVendorRow[],
-  ).catch(() => new Map() as VendorPricingLookup);
+  // It decides a supplier's AGREED figure, so a throw here fails the supplier
+  // read rather than quietly pricing every package at its fallback.
+  let pricingRefused = false;
+  const pricing =
+    vendorRows === null
+      ? (new Map() as VendorPricingLookup)
+      : await buildVendorPricingLookup(
+          supabase,
+          eventId,
+          vendorRows as unknown as EventVendorRow[],
+        ).catch((e: unknown) => {
+          pricingRefused = true;
+          refused('supplier pricing lookup', e);
+          return new Map() as VendorPricingLookup;
+        });
 
   // R4's fallback — the agreed total locked at booking time, for an anchor row
   // whose total_cost_php was never written.
   const bookingIds = Array.from(
     new Set(
-      vendorRows
+      (vendorRows ?? noRows<VendorMoneyRow>())
         .map((v) => v.event_vendor_package_id)
         .filter((id): id is string => typeof id === 'string' && id.length > 0),
     ),
   );
   const packageLockedCentavos = new Map<string, number>();
+  let packagesRefused = false;
   if (bookingIds.length > 0) {
     const res = await supabase
       .from('event_vendor_packages')
       .select('booking_id, total_locked_centavos, status')
       .in('booking_id', bookingIds);
-    for (const row of (res.data ?? []) as Array<{
+    const packageRows = rowsOrRefused<{
       booking_id: string;
       total_locked_centavos: number | string | null;
       status: string;
-    }>) {
+    }>(res, (e) => refused('event_vendor_packages', e));
+    if (packageRows === null) packagesRefused = true;
+    for (const row of packageRows ?? noRows()) {
       if (row.status !== 'locked') continue;
       packageLockedCentavos.set(row.booking_id, Number(row.total_locked_centavos ?? 0));
     }
   }
+
+  // ONE refusal anywhere in the supplier set fails the whole group, and the
+  // group then contributes NOTHING: a supplier row drawn without its payments
+  // reads "₱0 paid", which is not a partial truth, it is a wrong one.
+  const suppliersOk =
+    vendorRows !== null &&
+    lineItemRows !== null &&
+    paymentRows !== null &&
+    !pricingRefused &&
+    !packagesRefused;
+  const reads: MoneyReadStatus = {
+    suppliers: suppliersOk ? 'ok' : 'failed',
+    orders: orderRows !== null ? 'ok' : 'failed',
+    costs: costRows !== null ? 'ok' : 'failed',
+  };
 
   const targetCentavos =
     (eventRes.data as { estimated_budget_centavos?: number | null } | null)
@@ -1718,15 +1864,87 @@ export async function resolveEventMoney(
 
   return computeEventMoney({
     targetCentavos: targetCentavos === null ? null : Number(targetCentavos),
-    vendors: vendorRows,
-    lineItems,
-    payments,
-    orders,
-    costs,
-    pricing,
+    // Unknown renders as none — and `reads` is what says it is unknown.
+    vendors: suppliersOk ? (vendorRows ?? noRows()) : noRows(),
+    lineItems: suppliersOk ? (lineItemRows ?? noRows()) : noRows(),
+    payments: suppliersOk ? (paymentRows ?? noRows()) : noRows(),
+    orders: orderRows ?? noRows(),
+    costs: costRows ?? noRows(),
+    pricing: suppliersOk ? pricing : (new Map() as VendorPricingLookup),
     packageLockedCentavos,
     benchmarks,
+    reads,
     // The clock enters here and nowhere else — the core stays deterministic.
     now: new Date(),
   });
+}
+
+/**
+ * `resolveEventMoney`, for a caller that RENDERS: it never rejects. A throw
+ * (the network died mid-flight, a helper blew up) comes back as an `EventMoney`
+ * whose three reads are all `'failed'`, so the page has one shape to switch on
+ * instead of a `.catch(() => null)` that then falls back to some other
+ * arithmetic — which is how a failure came to look like a small, tidy budget.
+ *
+ * `resolveEventMoney` itself keeps rejecting, on purpose: its other callers
+ * (the export route, the Home lens, the AI snapshot) each already decide what a
+ * throw means for them, and none of them reads `reads` yet.
+ */
+export async function resolveEventMoneySettled(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<EventMoney> {
+  try {
+    return await resolveEventMoney(supabase, eventId);
+  } catch (e) {
+    logQueryError('resolveEventMoneySettled', e, { event_id: eventId }, 'graceful_degrade');
+    return unreadEventMoney();
+  }
+}
+
+/** The `EventMoney` of a ledger nobody managed to read. Every figure is unknown. */
+export function unreadEventMoney(): EventMoney {
+  return computeEventMoney({
+    targetCentavos: null,
+    vendors: [],
+    lineItems: [],
+    payments: [],
+    orders: [],
+    costs: [],
+    pricing: new Map() as VendorPricingLookup,
+    packageLockedCentavos: new Map(),
+    benchmarks: [],
+    reads: MONEY_READS_FAILED,
+  });
+}
+
+/**
+ * What a summary may STATE about this ledger (BUDGET_PAGE_2026-10-08 §2,
+ * "Honest reads"). The one reading of `EventMoney` that cannot print a figure
+ * nobody measured:
+ *
+ *   · `agreedPhp` / `paidPhp` are `null` — UNKNOWN, never 0 — the moment any
+ *     source was refused, because both are sums over all three and a sum with a
+ *     term missing is not a smaller answer, it is a wrong one;
+ *   · `owedAtLeastPhp` is what is owed across the sources that DID answer. When
+ *     `partial` it is a floor ("₱994,400+"), and it is still worth saying: a
+ *     couple must not lose sight of a payment that is due because an unrelated
+ *     read failed.
+ */
+export type KnownMoneyTotals = {
+  agreedPhp: number | null;
+  paidPhp: number | null;
+  owedAtLeastPhp: number;
+  /** A source was refused: the two `null`s above are unknown, and owed is a floor. */
+  partial: boolean;
+};
+
+export function knownMoneyTotals(money: EventMoney): KnownMoneyTotals {
+  const partial = !moneyReadsAllOk(money);
+  return {
+    agreedPhp: partial ? null : money.committed,
+    paidPhp: partial ? null : money.paid,
+    owedAtLeastPhp: money.stillOwed,
+    partial,
+  };
 }

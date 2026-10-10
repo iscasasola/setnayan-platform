@@ -645,3 +645,30 @@ test('8 · the four change-order notices left the in-app-only register, and the 
   assert.equal(rest.length, 6, 'a schedule/meeting/handover notice moved or a new one appeared — schedule_suggestion had six sites after the change orders left');
   assert.equal(sitesOf('change_order_proposed').length + sitesOf('change_order_answered').length, 4);
 });
+
+/* ═══ 9 · A RELEASED SUPPLIER READS THE OWNER'S APPROVED SENTENCE ═══════════ */
+
+test('9 · the "released" notice says the approved 2026-09-22 sentence, read from its one home', async () => {
+  const { closingCopy } = await import('./thread-closing-copy');
+  // The sentence the owner approved for a supplier whose couple booked another.
+  const approved = closingCopy({ inquiry_status: 'displaced' }, 'vendor', { counterpartyLabel: '' }).sentence;
+  assert.equal(approved, 'Released — the couple booked another supplier. Nothing you need to do.');
+
+  const fn = functionBody('app/dashboard/[eventId]/vendors/actions.ts', 'finalizeVendor');
+  const at = fn.indexOf("type: 'inquiry_displaced'");
+  assert.ok(at > -1, 'the released notice is gone from finalizeVendor');
+  const call = fn.slice(fn.lastIndexOf('emitNotification({', at), fn.indexOf('});', at));
+  // Its body is the module's sentence — a variable, never a second copy of the words.
+  assert.match(call, /body: released,/, 'the released notice types its own words');
+  assert.match(
+    fn,
+    /const released = closingCopy\(\{ inquiry_status: 'displaced' \}, 'vendor', \{\s*counterpartyLabel: '',\s*\}\)\.sentence;/,
+    'the released notice no longer reads the approved sentence from thread-closing-copy',
+  );
+  // The words live in ONE file.
+  assert.ok(!code('app/dashboard/[eventId]/vendors/actions.ts').includes('booked another supplier'), 'the approved sentence was retyped in the actions file');
+  // A promise the app does not keep: nothing tells a supplier a thread reopened.
+  assert.doesNotMatch(fn, /let you know if it reopens/, 'the notice promises a reopening notice that does not exist');
+  // And it stays in the app.
+  assert.equal(NOTICES.inquiry_displaced?.reach, 'app_only');
+});

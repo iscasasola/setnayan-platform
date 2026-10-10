@@ -270,11 +270,8 @@ export const COUPLE_SUPPLIER_NOTICES = {
     why: 'the answer the couple is waiting on, with the supplier’s reason',
   },
   // ── Deliberately a tray badge ─────────────────────────────────────────────
-  inquiry_displaced: {
-    to: 'supplier',
-    reach: 'app_only',
-    why: 'nothing to do and nothing lost — an open inquiry closed because the couple booked someone else',
-  },
+  // The owner's approved words (2026-09-22) live in lib/thread-closing-copy.ts.
+  inquiry_displaced: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
   inquiry_no_response: {
     to: 'couple',
     reach: 'app_only',

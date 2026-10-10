@@ -84,6 +84,7 @@ import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { tellSupplierLockRequestWithdrawn } from '@/lib/lock-request-notices.server';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
+import { closingCopy } from '@/lib/thread-closing-copy';
 import { freezePaymentPlanAtBooking } from '@/lib/booking-payment-plan.server';
 import {
   changeOrderAnsweredNotice,
@@ -2371,6 +2372,25 @@ export async function finalizeVendor(
   // two entertainers) excludes no one. Best-effort + fail-soft: the lock already
   // succeeded, so a displacement/notify hiccup never rolls it back. Gated behind
   // the payment-gated-lock flag so it ships dormant until the owner flips it.
+  //
+  // ⚠ THE MOMENT THIS RUNS IS NOT THE MOMENT THE RULINGS NAME (read 2026-10-11;
+  // NOT changed — it is the owner's to settle).
+  //   · THE CODE releases the rivals HERE: the couple's press on the DIRECT
+  //     path, status → contracted, before the supplier has accepted any money.
+  //     Under the lock handshake `finalizeVendor` returns above this block and
+  //     nothing releases anybody — not `vendorAgreeToLock`, not
+  //     `vendor_agree_to_lock`, and no database trigger writes 'displaced'.
+  //   · THE RULINGS release them at PAYMENT-VERIFIED, i.e. when the supplier
+  //     accepts the payment (`vendorAcknowledgeDeposit` / `confirmVendorPayment`
+  //     → `runDepositAcknowledgedEffects`, status → deposit_paid):
+  //     "removals execute only on Payment-Verified", "the cascade fires on
+  //     deposit_paid (the real lock), never on the mere request"
+  //     (Customer_Vendor_Marketplace_Architecture_2026-06-04 §3, §5a, §10);
+  //     "locking applies only once the vendor accepts the payment"
+  //     (DECISION_LOG 2026-07-27).
+  // Moving it is more than a move: the thread write below is the COUPLE's RLS
+  // write and `refund_displaced_inquiry_unlock` is couple-scoped
+  // (current_couple_event_ids), while Payment-Verified is the SUPPLIER's action.
   // ----------------------------------------------------------------------
   if (isPaymentGatedLockEnabled() && isHardSingle) {
     try {
@@ -2479,6 +2499,18 @@ export async function finalizeVendor(
                 .filter((v) => !!v.user_id)
                 .map((v) => [v.vendor_profile_id, v.user_id as string]),
             );
+            // 🗣 THE OWNER'S APPROVED SENTENCE, READ FROM ITS ONE HOME — never
+            // retyped (2026-09-22, "the sentences are fine, keep them"). The
+            // thread this notice opens closes with the same words, so the tray
+            // and the conversation cannot disagree.
+            // The old body ended "We’ll let you know if it reopens." Nothing
+            // does: `revertVendorToConsidering` puts a displaced thread back
+            // without a word to anybody, and the "date reopened — still
+            // interested?" prompt ruled on 2026-06-12 is not built. A promise
+            // the app does not keep is removed, not reworded.
+            const released = closingCopy({ inquiry_status: 'displaced' }, 'vendor', {
+              counterpartyLabel: '',
+            }).sentence;
             for (const t of openThreads) {
               const uid = userByVpid.get(t.vendor_profile_id);
               if (!uid) continue;
@@ -2486,8 +2518,9 @@ export async function finalizeVendor(
                 userId: uid,
                 type: 'inquiry_displaced',
                 title: 'An inquiry was released',
-                body: 'The couple booked another supplier for this service, so your inquiry has been released. We’ll let you know if it reopens.',
+                body: released,
                 relatedUrl: `/vendor-dashboard/messages/${t.thread_id}`,
+                eventId,
               });
             }
           }

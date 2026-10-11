@@ -54,6 +54,7 @@ import { manilaToday } from '@/lib/std-views';
 import { meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalAction } from '@/lib/arrival-action';
 import { BLOCK_MARK_ATTR, readBlockLooks } from '@/lib/block-looks';
 import { rsvpReplyOpen } from '@/lib/site-body-plan';
+import { partsHiddenOn } from '@/lib/what-guests-see';
 import { cookies } from 'next/headers';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
@@ -1964,6 +1965,10 @@ async function InvitationBody({
   const meTermsCarried = rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value);
   // ✉ `replyHref` — set when Me leads with the reply (`meLeadsWithReply`,
   // decided in SiteBody from the plan it resolves): the ticket waits for a Yes.
+  /* 👁 THE PARTS THE COUPLE HID ON THIS STAGE ("What guests see", pass 2 — `config_json.part_show` on the hero row).
+     The body withholds them itself (`site-body.tsx` `partsOff`); the Me slot and the bar below are drawn HERE, from
+     this function's own facts, so they ask the same one reading. Empty when nothing is stored for the stage. */
+  const partsOffHere = partsHiddenOn(widgets, lifecyclePhase, phasesEnabled);
   const meSlotFor = (replyHref: string | null) => isEditorCanvas ? null : (
     <>
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
@@ -1983,7 +1988,7 @@ async function InvitationBody({
     ) : null}
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
         (4)) — the same line the Details scene carries; never a bar slot. */}
-    {seatPassActive ? (
+    {seatPassActive && !partsOffHere.has('seat') ? (
       <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
     ) : null}
     <GuestMe
@@ -2071,7 +2076,7 @@ async function InvitationBody({
     barDrawn: menuOnHere,
     makerCanvas: isEditorCanvas,
   });
-  const galleryCountHere = guestLiveGallery?.total ?? 0;
+  const galleryCountHere = partsOffHere.has('photosofyou') ? 0 : (guestLiveGallery?.total ?? 0);
 
   const venueOpen = venueIsOpen({
     rsvpStatus: guest.rsvp_status,
@@ -2124,7 +2129,7 @@ async function InvitationBody({
         meSection={
           guestPageTabbed ? (
             ({ replyHref }: { replyHref: string | null }) => (
-              <GuestMeSection meSlot={meSlotFor(replyHref)} photosHref={photosLeftThePage ? `/papic/me/${guest.qr_token}` : null} galleryCount={galleryCountHere} asTab />
+              <GuestMeSection meSlot={meSlotFor(replyHref)} photosHref={photosLeftThePage && !partsOffHere.has('photosofyou') ? `/papic/me/${guest.qr_token}` : null} galleryCount={galleryCountHere} asTab />
             )
           ) : null
         }
@@ -2140,8 +2145,8 @@ async function InvitationBody({
         qrToken={guest.qr_token}
         invitationUrl={invitationUrl}
         qrSvg={qrSvg}
-        cameraReady={guestRollCameraReady}
-        papicGuestActive={papicGuestActive}
+        cameraReady={guestRollCameraReady && !partsOffHere.has('camera')}
+        papicGuestActive={papicGuestActive && !partsOffHere.has('camera')}
         hasAccount={Boolean(viewerAccount)}
         galleryCount={galleryCountHere}
         hubHref={
@@ -2158,7 +2163,7 @@ async function InvitationBody({
         // never disagree — and neither can the two owners of `#site-me`.
         menuOn={menuOnHere}
         meSlot={guestPageTabbed ? null : meSlot}
-        mePhotosHref={photosLeftThePage ? `/papic/me/${guest.qr_token}` : null}
+        mePhotosHref={photosLeftThePage && !partsOffHere.has('photosofyou') ? `/papic/me/${guest.qr_token}` : null}
         meInPage={guestPageTabbed}
       />
       )}

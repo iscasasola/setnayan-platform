@@ -149,8 +149,8 @@ function visible(html: string): string {
 }
 const STAGE_DATE: Record<LifecyclePhase, string> = { save_the_date: '2027-06-12', rsvp: '2026-12-12', event: '2026-10-10', editorial: '2026-10-01' };
 /** The part's own words / link on the page — gone when it is hidden. Null: told by the page changing (the ticket's picture). */
-const OWN: Record<FixedPart, string | null> = {
-  gifts: '/pabuya', entourage: PART_WORDS.sponsor, seat: PART_WORDS.table, live: 'fxtr-stream', camera: '/papic/guest', photosofyou: 'Photos of you',
+const OWN: Record<FixedPart, readonly string[] | null> = {
+  gifts: ['/pabuya'], entourage: [PART_WORDS.sponsor], seat: [PART_WORDS.table, '/venue'], live: ['fxtr-stream'], camera: ['/papic/guest'], photosofyou: ['Photos of you'],
   pass: null, reply: null, announce: null,
 };
 
@@ -181,18 +181,28 @@ test('4 · ONLY BOXES THAT WORK: every box of every fixed row is flipped on the 
       const own = OWN[part];
       if (cell.on) {
         if (own) {
-          assert.ok(before.includes(own), `anti-vacuity: ${name} — the page does not draw it to begin with`);
-          assert.ok(!page.html.includes(own), `${name}: hidden, and the page still carries "${own}"`);
+          assert.ok(own.some((o) => before.includes(o)), `anti-vacuity: ${name} — the page does not draw it to begin with`);
+          for (const o of own) assert.ok(!page.html.includes(o), `${name}: hidden, and the page still carries "${o}"`);
         }
       } else {
         adds += 1;
-        if (own) assert.ok(!before.includes(own) && page.html.includes(own), `${name}: added, and the page does not draw it`);
+        if (own) assert.ok(own.every((o) => !before.includes(o)) && own.some((o) => page.html.includes(o)), `${name}: added, and the page does not draw it`);
       }
     }
   }
   console.log(`  ${boxes} boxes of the fixed rows flipped on the real page (${adds} of them an add) · ${dead.length} changed nothing${dead.length ? `: ${dead.join(' · ')}` : ''}`);
   assert.deepEqual(dead, [], 'a box that changes nothing a guest sees must not be a box');
   assert.ok(boxes >= 19 && adds >= 1, `anti-vacuity: ${boxes} boxes, ${adds} adds`);
+});
+
+test('4b · the seat has two doors on The Day — the table in Me and the room walk in the menu — and both close', async () => {
+  const c: StageCase = { stage: 'event', reader: 'guest', arrangement: 'plain' };
+  const more = withEveryPart(c);
+  const before = (await renderStagePage(c, stageWidgets(), more)).html;
+  assert.ok(before.includes(PART_WORDS.table) && before.includes('/venue'), 'anti-vacuity: The Day draws the table and the room walk');
+  const after = (await renderStagePage(c, withParts({ seat: { event: false } }), more)).html;
+  assert.ok(!after.includes(PART_WORDS.table), 'the table is still named');
+  assert.ok(!after.includes('/venue'), 'the room walk is still offered');
 });
 
 test('5 · nothing stored: the withholding touches nothing', async () => {

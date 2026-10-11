@@ -203,7 +203,7 @@ export function withEveryPart(c: StageCase, more: Partial<SiteBodyFixtureProps> 
           },
         }
       : {}),
-    doorwayFacts: { seatingSurfaceEnabled: false, seatingPublished: false, pabuyaRouteEnabled: true, enabledEgiftCount: 2, pabuyaViewerAllowed: true },
+    doorwayFacts: { seatingSurfaceEnabled: true, seatingPublished: true, pabuyaRouteEnabled: true, enabledEgiftCount: 2, pabuyaViewerAllowed: true },
     entourage: [{ key: 'principal', label: 'Principal Sponsors', rows: [[person(PART_WORDS.sponsor, 'ninong'), person('Corazon Villareal', 'ninang')]], names: {} }] as never,
     watchLive: { embedUrl: PART_WORDS.stream, watchUrl: 'https://youtu.be/fxtr-stream' },
     hostCameraOpen: true,

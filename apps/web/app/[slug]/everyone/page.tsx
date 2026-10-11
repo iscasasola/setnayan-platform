@@ -8,6 +8,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { isHostMemberType } from '../_lib/host-scope';
+import { partDoorHidden } from '../_lib/part-door.server';
 import { loadEntourageSectionOrder, loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import {
   buildEntourage,
@@ -134,7 +135,7 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
       `role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`,
     );
   // Same section order the invitation prints — the couple's, when they set one.
-  const groups = buildEntourage(
+  const castGroups = buildEntourage(
     (castRows ?? []) as EntourageGuestRow[],
     await loadEntourageSectionOrder(admin, event.event_id),
     // The couple's own words for roles (owner 2026-09-30) — the same ones the invitation prints.
@@ -142,6 +143,9 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
     // …and the event's Name style (owner 2026-09-30) — the names in the same style too.
     nameStyle,
   );
+  // 👁 The couple hid the Entourage on the stage the event is at ("What guests see"): this page keeps its own
+  // "hasn't been shared yet" line — the state it already has for no entourage. One reading: `_lib/part-door.server.ts`.
+  const groups = (await partDoorHidden(admin, event.event_id, 'entourage')) ? [] : castGroups;
 
   /*
     🔒 THE GATED READ RUNS ONLY FOR SOMEONE THE EVENT RECOGNISES, and it is its

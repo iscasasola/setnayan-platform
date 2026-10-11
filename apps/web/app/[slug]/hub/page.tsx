@@ -46,6 +46,7 @@ import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile, giftIsMoneyDance, solemnAdjustedPhase } from '../_lib/event-words';
 import { dayHubDoor, dayHubOpens } from '../_lib/day-hub';
+import { hiddenPartDoors } from '../_lib/part-door.server';
 import { STAGE_BAR } from '../_lib/stage-bar';
 import { resolveAlbumDoor } from '../_lib/album-door.server';
 import { readGuestSession } from '@/lib/guest-session';
@@ -235,6 +236,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // A rehearsal IS the host's preview of The Day — `?phase=event`, without the address.
   const forcedPhase: LifecyclePhase | null = door === 'rehearsal' ? 'event' : (phaseOverride ?? pinnedPhase);
   const lifecyclePhase: LifecyclePhase = door === 'rehearsal' ? 'event' : pageStage;
+  // 👁 The parts the couple hid on this stage ("What guests see") — the hub draws its own seat, gift, live and camera
+  // doors, so it asks the same one reading the event's page asks (`_lib/part-door.server.ts`). Empty when nothing is stored.
+  const partsOff = await hiddenPartDoors(createAdminClient(), event.event_id, lifecyclePhase);
 
   const dayOfPhase: DayOfPhase = forcedPhase
     ? forcedPhase === 'event'
@@ -317,6 +321,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   if (isLive) {
     watchEmbed = resolveWatchLinks(await readEventWatchUrls(admin, event.event_id));
   }
+  if (partsOff.has('live')) watchEmbed = null;
 
   // ── Candid camera (PAPIC_GUEST) ownership — ONE read, reused for the camera
   // CTA AND the face-enroll gate. For an identified guest the candid CTA shows
@@ -324,7 +329,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // window is enforced inside /papic/guest); for a no-guest viewer it's
   // live-only (matches public-event-day-bar.tsx). ───────────────────────────
   const papicGuestOwned = await eventPapicGuestActive(admin, event.event_id);
-  const candidActive = guest ? papicGuestOwned : isLive && papicGuestOwned;
+  const candidActive = !partsOff.has('camera') && (guest ? papicGuestOwned : isLive && papicGuestOwned);
 
   // ── Per-guest day-of reads (skip entirely for a no-guest viewer). ──────────
   let guestRollCameraReady = false;
@@ -477,6 +482,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       liveWall = null; // wall trouble must never break the hub
     }
   }
+  if (partsOff.has('live')) liveWall = null;
   // THE ALBUM DOOR — the same decision the rooms footer and the public
   // event-day bar make, taken from the one place that makes it.
   //
@@ -514,7 +520,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   //     might be permitted differently. It is skipped entirely while the switch
   //     is off, so a dark flag costs nothing.
   const seatingSurfaceOn = surfaceEnabled(eventTypeProfile, 'seating');
-  const seatingPublished = seatingSurfaceOn
+  const seatingPublished = seatingSurfaceOn && !partsOff.has('seat')
     ? await guestsMaySeeSeatsFor(admin, event.event_id)
     : false;
   // 🪑 The seat tile names the table only when guests may see their seats —
@@ -571,7 +577,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     seatingSurfaceEnabled: seatingSurfaceOn,
     seatingPublished,
     pabuyaRouteEnabled,
-    enabledEgiftCount,
+    enabledEgiftCount: partsOff.has('gifts') ? 0 : enabledEgiftCount,
     pabuyaViewerAllowed,
   });
 
@@ -677,7 +683,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         </article>
       )}
 
-      {guest ? (
+      {guest && partsOff.has('seat') ? null : guest ? (
         <article
           className={`space-y-1 rounded-2xl border p-5 ${
             arrived && seatLabel

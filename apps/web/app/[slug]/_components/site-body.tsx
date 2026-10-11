@@ -600,6 +600,8 @@ export async function SiteBody({
     if (partsOff.has('camera')) hostCameraOpen = false;
     if (partsOff.has('entourage')) entourage = [];
     if (partsOff.has('gifts') && doorwayFacts) doorwayFacts = { ...doorwayFacts, enabledEgiftCount: 0 };
+    // …and the seat finder's own door (the link in the body, the room walk in the menu) reads `seatingPublished`.
+    if (partsOff.has('seat') && doorwayFacts) doorwayFacts = { ...doorwayFacts, seatingPublished: false };
     if (identity.kind === 'guest') {
       identity = {
         ...identity,

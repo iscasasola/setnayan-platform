@@ -1,6 +1,7 @@
 import { RoomFooter } from '../_components/room-footer';
 import { giftRegistryHref } from '@/lib/gift-registry';
 import { loadRoomLinks } from '../_lib/room-links.server';
+import { partDoorHidden } from '../_lib/part-door.server';
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -90,6 +91,9 @@ export default async function PabuyaPublicPage({
   if (!(await canViewSlugEvent(event.event_id, event.landing_page_visibility))) {
     redirect(`/${slug}`);
   }
+  // 👁 The couple hid E-Gifts on the stage the event is at ("What guests see"): the same exit as "Accept gifts? — No"
+  // above — there is no gift page — for a guest who kept the address. One reading: `_lib/part-door.server.ts`.
+  if (await partDoorHidden(createAdminClient(), event.event_id, 'gifts')) notFound();
 
   const admin = createAdminClient();
   const methods = await fetchEgiftMethods(admin, event.event_id, {

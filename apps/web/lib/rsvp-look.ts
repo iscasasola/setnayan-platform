@@ -127,6 +127,10 @@ export function rsvpPictureRef(raw: unknown): string | null {
 /** A picture line's Look: Wide (nothing stored — the prototype's 112 px) or Tall (176 px). */
 export const RSVP_PICTURE_LOOKS = ['wide', 'tall'] as const;
 export type RsvpPictureLook = (typeof RSVP_PICTURE_LOOKS)[number];
+/** How tall each Look draws a picture, in px — the approved prototype's (`.k-picture` 112 · `[data-look="tall"]` 176). */
+export const RSVP_PICTURE_HEIGHT: Readonly<Record<RsvpPictureLook, number>> = { wide: 112, tall: 176 };
+/** The Look's name in Style › Look ▾ (the prototype's words). */
+export const RSVP_PICTURE_LOOK_NAME: Readonly<Record<RsvpPictureLook, string>> = { wide: 'Wide', tall: 'Tall' };
 export const RSVP_ADDED_PREFIX = 'a:';
 export type RsvpAddedName = `a:${string}`;
 export const rsvpAddedName = (id: string): RsvpAddedName => `${RSVP_ADDED_PREFIX}${id}`;
@@ -554,7 +558,9 @@ export function rsvpLookRules(look: RsvpLook, parts: readonly string[], board: r
       const colour = hubElementColor(typeof v.c === 'number' ? board[v.c - 1] : v.c);
       const font = sanitizeHubFontKey(v.f);
       const face = font ? `font-family:var(${HUB_FONT_BY_KEY[font].cssVar}), ${HUB_FONT_BY_KEY[font].fallback};` : '';
-      const rules = `${colour ? `color:${colour};` : ''}${face}${v.s ? `zoom:${v.s / 100};` : ''}${motionRules(v)}`;
+      /* 🖼 A picture's Look: Tall is a fixed height (Wide, nothing stored, is the picture's own class). */
+      const tall = a.k === 'p' && v.l === 'tall' ? `height:${RSVP_PICTURE_HEIGHT.tall}px;` : '';
+      const rules = `${colour ? `color:${colour};` : ''}${face}${v.s ? `zoom:${v.s / 100};` : ''}${tall}${motionRules(v)}`;
       if (rules) out.push({ selector: `[data-rsvp-line="${name}"][data-rsvp-line]`, rules, moves: Boolean(v.i) });
     }
     /* 🫧 A group's background, when it is not Plain (its own paper, the wrapper's classes — `rsvp-lines.tsx`). */

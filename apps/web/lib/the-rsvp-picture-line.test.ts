@@ -12,10 +12,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { RSVP_ADDED_PICTURE_MAX, readRsvpLook, rsvpAddedName, rsvpPictureRef, rsvpScreenLayout } from './rsvp-look';
+import { RSVP_ADDED_PICTURE_MAX, RSVP_PICTURE_HEIGHT, readRsvpLook, rsvpAddedName, rsvpLookCss, rsvpLookWith, rsvpPictureRef, rsvpScreenLayout } from './rsvp-look';
+import { stripComments } from './strip-comments';
 import { rsvpLayoutEdit } from './rsvp-layout-edit';
 
 const WEB = join(__dirname, '..');
+const L = 'app/dashboard/[eventId]/launch/_components';
+const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const EVENT = '0b7c2c5e-1f0a-4e6b-9d55-6f1d2a3b4c5d';
 const REF = `r2://setnayan-media/events/${EVENT}/scene-background/1c9a7f4e-2b3d-4e5f-8a9b-0c1d2e3f4a5b-garden.jpg`;
 
@@ -87,4 +90,28 @@ test('3 · the edits: a picture is added WITH its file (one edit), replaced as o
   const gone = rsvpLayoutEdit(config, { do: 'remove', part: 'rsvp', line: 'a:1' });
   assert.ok(gone.ok);
   assert.equal(gone.look, undefined);
+});
+
+test('4 · the Look: Wide is nothing stored (112 px, the picture’s own), Tall is one key and one fixed rule (176 px)', () => {
+  assert.deepEqual(RSVP_PICTURE_HEIGHT, { wide: 112, tall: 176 });
+  const base = { look: { added: { rsvp: [{ id: '1', k: 'p', p: REF }] } } };
+  const tall = rsvpLookWith(base, 'a:1', { l: 'tall' });
+  assert.deepEqual((tall as { lines: unknown }).lines, { 'a:1': { l: 'tall' } });
+  assert.equal(rsvpLookCss(readRsvpLook({ look: tall }), ['rsvp'], []), '[data-rsvp-line="a:1"][data-rsvp-line]{height:176px;}');
+  /* Back to Wide: the key goes, and so does the rule. */
+  const wide = rsvpLookWith({ look: tall }, 'a:1', { l: null });
+  assert.equal((wide as { lines?: unknown }).lines, undefined);
+  assert.equal(rsvpLookCss(readRsvpLook({ look: wide }), ['rsvp'], []), '');
+  /* A Build in rides with it, as on any line. */
+  const moving = rsvpLookWith({ look: tall }, 'a:1', { i: { fade: true } });
+  assert.match(rsvpLookCss(readRsvpLook({ look: moving }), ['rsvp'], []), /^\[data-rsvp-line="a:1"\]\[data-rsvp-line\]\{height:176px;--rl-o:/);
+  /* The panel: Style on a picture is Look ▾ (Wide · Tall) — the RSVP rows' own dropdown — and nothing else. */
+  const LOOK = src(`${L}/rsvp-line-look.tsx`);
+  assert.match(LOOK, /<Dd\s+stacked\s+small="Look"\s+label="Look"\s+data="rsvp-picture-look"\s+value=\{value\}\s+options=\{RSVP_PICTURE_LOOKS\.map\(\(key\) => \(\{ key, label: RSVP_PICTURE_LOOK_NAME\[key\] \}\)\)\}\s+onPick=\{\(key\) => onPick\(\{ l: key === 'tall' \? 'tall' : null \}\)\}/);
+  const PANEL = src(`${L}/maker-rsvp-ask.tsx`);
+  assert.match(PANEL, /<RsvpPictureLookRows line=\{pictureLine\} now=\{readRsvpLook\(local\)\.lines\?\.\[pictureLine\] \?\? \{\}\} onPick=\{\(patch\) => void save\(\{ look: rsvpLookWith\(latest\.current, pictureLine, patch\) \}, '“Look”'\)\} \/>/);
+  /* The branch is taken for a picture the couple added — asked of the stored list, not of the page. */
+  assert.match(PANEL, /const stylePicture = picked\.tool === 'style' && listPart && picked\.line && rsvpAddedIsPicture\(rsvpPlaceOf\(local, listPart, picked\.line\)\?\.added\);\s*if \(stylePicture && lookLine && lookLine\.startsWith\('a:'\)\) \{/);
+  /* …asked BEFORE a text line's Font · Colour · Size, so a picture never gets those. */
+  assert.ok(PANEL.indexOf('<RsvpPictureLookRows') < PANEL.indexOf('<RsvpLineLookRows'), 'a picture would be given a text line’s Style');
 });

@@ -524,7 +524,9 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
         delta = swapsForDrop(o.fullOrder, folded.widgetId, before === folded.widgetId ? null : before);
       }
       o.add(folded.widgetId, delta);
-      settle('add', `${makerPartLabelOn(stage, key)} added ${where}`, () => bringOntoScreen(c));
+      /* Said as it landed: above / below the picked scene — or, off a fixed part, on this page (its own place). */
+      const onHere = shownPageOf(stage);
+      settle('add', `${makerPartLabelOn(stage, key)} added ${mv.kind === 'scene' ? where : onHere ? `on ${onHere.label}` : 'to this page'}`, () => bringOntoScreen(c));
       return;
     }
     const scene = makerPostEventSceneOf(stage, key);
@@ -668,6 +670,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
           stage={stage}
           where={adding}
           anchorLabel={label}
+          placed={mv.kind === 'scene'}
           ops={ops}
           onAdd={add}
           onOwn={() => {
@@ -743,13 +746,26 @@ function OwnScenePicker({ onClose, children }: { onClose: () => void; children: 
  * shows — "added" said over a screen that looks the same. Once the page on show is the new one, it is scrolled to.
  */
 function bringOntoScreen(canvasKey: string): void {
-  try {
-    const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
-    const marker = doc?.querySelector(`[data-maker-section="${canvasKey}"]`);
-    (marker?.nextElementSibling ?? marker)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  } catch {
-    /* a canvas that cannot be read keeps its place */
-  }
+  const bring = () => {
+    try {
+      const frame = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
+      const marker = frame?.contentDocument?.querySelector(`[data-maker-section="${canvasKey}"]`);
+      const part = marker?.nextElementSibling ?? marker;
+      const view = frame?.contentWindow;
+      if (!part || !view) return;
+      const r = part.getBoundingClientRect();
+      /* Already on the screen (some of it, in the upper part a phone shows above the tools): left where it is. */
+      if (r.height > 0 && r.top < view.innerHeight * 0.6 && r.bottom > 40) return;
+      /* At once — a gliding scroll was cut short by the page's own (a reload carries the old place over). */
+      part.scrollIntoView({ block: 'center', behavior: 'auto' });
+    } catch {
+      /* a canvas that cannot be read keeps its place */
+    }
+  };
+  bring();
+  /* …and once the page has settled (the buffered canvas carries its scroll over a moment after the swap). */
+  window.setTimeout(bring, 450);
+  window.setTimeout(bring, 1100);
 }
 
 /** The page a tabbed canvas has ON SHOW, with the stage's pages as its tabs name them — null on a canvas drawn as one page (or unreadable). */
@@ -768,6 +784,12 @@ function readShownPage(stage: MakerStageKey): { stage: LifecyclePhase; pages: Ar
  * 📄 THE OTHER PAGE A PART IS DRAWN ON — null when it is the page on show (or the stage is one page). The canvas's own
  * filing (`makerStagesPageOf`), so what ＋ says and where the canvas draws it are one reading.
  */
+/** The page on show, as its tab names it — null on a stage drawn as one page. */
+function shownPageOf(stage: MakerStageKey): { key: string; label: string } | null {
+  const here = readShownPage(stage);
+  return here ? (here.pages.find((p) => p.key === here.shown) ?? null) : null;
+}
+
 function otherPageOf(stage: MakerStageKey, canvasKey: string): { key: string; label: string } | null {
   const here = readShownPage(stage);
   if (!here) return null;
@@ -781,6 +803,7 @@ function AddPartSheet({
   stage,
   where,
   anchorLabel,
+  placed,
   ops,
   onAdd,
   onOwn,
@@ -789,6 +812,9 @@ function AddPartSheet({
   stage: MakerStageKey;
   where: 'above' | 'below';
   anchorLabel: string;
+  /** The picked part is a SCENE, so a part of this page really lands above / below it. Off a fixed part (the
+   *  Greeting, the cover) the added part takes its own place on the page — and nothing here says "above". */
+  placed: boolean;
   ops: MakerPartOps | null;
   onAdd: (key: MakerPartKey) => void;
   onOwn: () => void;
@@ -823,13 +849,18 @@ function AddPartSheet({
   const used = own && 'action' in own && own.presets ? own.presets.used : (ops?.scenes.filter((s) => isCustomSectionType(s.type)).length ?? 0);
   const left = makerOwnScenesLeft(used);
   const proMark = own && 'action' in own && own.tried ? makerProMark({ owns: false, storeShell: false }) : null;
-  /* 🏷 THE HEADER NEVER PROMISES A PLACE A PART WILL NOT GO. While every part offered is this page's it says the
-     place, as always ("Add above Greeting"). Once the list holds a part of another page it says only "Add a part",
-     and each row says its own place: the other page's name, or "above Greeting" for a part of this page. */
+  /* 🏷 THE HEADER NEVER PROMISES A PLACE A PART WILL NOT GO. It names the place ("Add above Schedule") only while
+     that is true of every row: the picked part is a scene, and every part offered is this page's. Otherwise it says
+     "Add a part" and each row says its own place — another page's name; "above Schedule" for a part of this page
+     when the picked part is a scene; this page's name when it is not (off the Greeting or the cover a part takes its
+     OWN place on the page — "Message added above" was said of a Message drawn below the Countdown). */
   const mixed = groups.some((g) => g.parts.some((p) => p.onPage));
-  const placeOf = (p: MakerPartOffer) => (p.onPage ? `on ${p.onPage.label}` : mixed ? `${where} ${anchorLabel}` : null);
+  const exact = placed && !mixed;
+  const here = shownPageOf(stage);
+  const placeOf = (p: MakerPartOffer) =>
+    p.onPage ? `on ${p.onPage.label}` : exact ? null : placed ? `${where} ${anchorLabel}` : here ? `on ${here.label}` : null;
   return (
-    <MakerSheet label={mixed ? 'Add a part' : `Add ${where} ${anchorLabel}`} onClose={onClose}>
+    <MakerSheet label={exact ? `Add ${where} ${anchorLabel}` : 'Add a part'} onClose={onClose}>
       <div className="flex flex-col pb-1" data-add-part-sheet={where}>
         {/* Nothing can be added to this STAGE at all — never said while another page's part could be. */}
         {groups.length === 0 ? <p className="px-3 py-2 text-[13.5px] text-ink/60">Every part is already on this page.</p> : null}

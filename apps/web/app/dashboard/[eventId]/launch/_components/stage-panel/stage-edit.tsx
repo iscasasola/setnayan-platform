@@ -104,7 +104,7 @@ export function StageEdit({
         </div>
       )}
       {second}
-      <div className={`${SP_ROWS_ROW} row-start-4`} data-stage-edit-row="place">
+      <div className={`${SP_ROWS_ROW} row-start-4`} data-stage-edit-row="place" aria-busy={working ? true : undefined} data-working={working ?? undefined}>
         {/* A step with nowhere to go is still a button — grey, its pill kept (`waiting`, the approved gallery § 9: "a
             button that cannot be used yet is grey") — and a tap on it says why (its own press does nothing; the tap
             is heard on the wrapper, which draws nothing). A live step is the neutral button: ink on the toolbar's

@@ -175,7 +175,7 @@ test('5 · Edit’s last row: ↑ Earlier · ↓ Later · Group · Remove — wh
      frame's hook the Save button's reasons, and the hook answers with them in place of the part's. */
   assert.match(src(`${L}/rsvp-list-stage.tsx`), /stays: on && part === 'pass' && line === 'save' \? RSVP_SAVE_STAYS : null,/);
   assert.match(src(`${L}/stage-tools.tsx`), /lineWhy: rsvpList\.stays,/);
-  assert.match(src(`${L}/add-part-sheet.tsx`), /why: [^\n]*\blineWhy \?\? makerPartStepWhy\(label \|\| 'This part', canMove, canRemove\)/);
+  assert.match(src(`${L}/add-part-sheet.tsx`), /why: [^\n]*\blineWhy \?\? \{ \.\.\.makerPartStepWhy\(label \|\| 'This part', canMove, canRemove\)/);
 });
 
 test('6 · a line the couple added is a part like any other: a tap names it, it takes a look, Style has its rows', () => {

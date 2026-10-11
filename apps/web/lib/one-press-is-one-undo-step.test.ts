@@ -218,10 +218,12 @@ test('＋ the sheet: every row says its own place once a part of another page is
   assert.match(sheet, /pageOf: \(canvasKey\) => otherPageOf\(stage, canvasKey\),/);
   const other = sheet.slice(sheet.indexOf('function otherPageOf('), sheet.indexOf('function AddPartSheet('));
   assert.match(other, /makerStagesPageOf\(here\.stage, canvasKey, here\.pages\.map\(\(p\) => p\.key\)\)/);
-  /* The header names a place only while every part offered goes there. */
-  assert.match(sheet, /const mixed = groups\.some\(\(g\) => g\.parts\.some\(\(p\) => p\.onPage\)\);/);
-  assert.match(sheet, /label=\{mixed \? 'Add a part' : `Add \$\{where\} \$\{anchorLabel\}`\}/);
-  assert.match(sheet, /p\.onPage \? `on \$\{p\.onPage\.label\}` : mixed \? `\$\{where\} \$\{anchorLabel\}` : null/);
+  /* The header names a place only while every part offered goes there: the picked part is a scene (a part lands
+     above / below it) AND no row is another page's. Otherwise each row says its own place. */
+  assert.match(sheet, /const mixed = groups\.some\(\(g\) => g\.parts\.some\(\(p\) => p\.onPage\)\);\s*const exact = placed && !mixed;/);
+  assert.match(sheet, /label=\{exact \? `Add \$\{where\} \$\{anchorLabel\}` : 'Add a part'\}/);
+  assert.match(sheet, /p\.onPage \? `on \$\{p\.onPage\.label\}` : exact \? null : placed \? `\$\{where\} \$\{anchorLabel\}` : here \? `on \$\{here\.label\}` : null/);
+  assert.match(sheet, /placed=\{mv\.kind === 'scene'\}/);
   /* "Every part is already…" only for an empty list — and the list is the stage's. */
   assert.equal((sheet.match(/Every part is already on this page\./g) ?? []).length, 1);
   assert.match(sheet, /\{groups\.length === 0 \? <p[^>]*>Every part is already on this page\.<\/p> : null\}/);

@@ -85,7 +85,7 @@ test('Earlier · Later · ＋: one press at a time, and the toast waits for the 
   const add = sheet.slice(sheet.indexOf('const add = '), sheet.indexOf('const removeYes = '));
   /* ＋: said after the page shows it — and the part is brought onto the screen first, so "added" is never said over a
      screen that looks the same (it is added above or below the picked part, which can be just past the edge). */
-  assert.match(add, /o\.add\(folded\.widgetId, delta\);\s*settle\('add', `\$\{makerPartLabelOn\(stage, key\)\} added \$\{where\}`, \(\) => bringOntoScreen\(c\)\);/);
+  assert.match(add, /o\.add\(folded\.widgetId, delta\);\s*const onHere = shownPageOf\(stage\);\s*settle\('add', `\$\{makerPartLabelOn\(stage, key\)\} added \$\{mv\.kind === 'scene' \? where : onHere \? `on \$\{onHere\.label\}` : 'to this page'\}`, \(\) => bringOntoScreen\(c\)\);/);
   const bring = sheet.slice(sheet.indexOf('function bringOntoScreen('));
   assert.match(bring.slice(0, bring.indexOf('\n}\n')), /querySelector\(`\[data-maker-section="\$\{canvasKey\}"\]`\)[\s\S]*?\.scrollIntoView\(/);
   /* `settle`: busy from the press; words (and the bringing) only for 'shown'. */

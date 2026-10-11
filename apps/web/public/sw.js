@@ -226,6 +226,37 @@ function isHostCanvasClient(client) {
   return !!at && isHostCanvasUrl(at);
 }
 
+// ---------------------------------------------------------------------------
+// A GUEST'S OWN VISIT IS ONE RENDER (2026-10-12). The guest page asks the
+// worker to keep its own address for offline (`GuestPreload`) — but when the
+// worker ANSWERED that navigation, the day-of handler below is already keeping
+// it (`DAYOF_CACHE`), so fetching it again was a second full server render of
+// the guest page on every visit after the first. So the preload skips exactly
+// one address: the SENDER'S OWN, and only while the day-of copy of it is held
+// (or still being written — `DAYOF_WRITES`, its body may still be streaming).
+// A page the worker did not answer (the first visit, a pass hop, a hard
+// reload) has no such copy, and its preload is made exactly as before.
+// ---------------------------------------------------------------------------
+const DAYOF_WRITES = new Map();
+
+function clientAddress(client) {
+  const at = client ? sameOriginUrl(client.url) : null;
+  if (!at) return null;
+  at.hash = '';
+  return at.href;
+}
+
+async function dayOfCopyHeld(href) {
+  try {
+    const writing = DAYOF_WRITES.get(href);
+    if (writing) await writing;
+    const cache = await caches.open(DAYOF_CACHE);
+    return Boolean(await cache.match(href));
+  } catch {
+    return false;
+  }
+}
+
 // A navigation to one of these path shapes is the day-of guest experience —
 // cache it stale-while-revalidate in DAYOF_CACHE. `/[slug]` is the guest's
 // personal landing page; `/[slug]/find-my-table` is the table/floorplan view.
@@ -792,6 +823,7 @@ self.addEventListener('message', (event) => {
         })
       : [];
     if (urls.length === 0) return;
+    const own = clientAddress(event.source);
 
     event.waitUntil(
       (async () => {
@@ -799,6 +831,9 @@ self.addEventListener('message', (event) => {
         await Promise.all(
           urls.map(async (url) => {
             try {
+              // The sender's own page, already kept for the day: not fetched again.
+              const at = sameOriginUrl(url);
+              if (own && at && at.href === own && (await dayOfCopyHeld(own))) return;
               const res = await fetch(url, { mode: 'no-cors' });
               // `no-cors` responses are opaque but still cacheable. Skip
               // anything the browser flagged as a real failure.
@@ -878,12 +913,19 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response && response.ok) {
             const clone = response.clone();
-            caches.open(DAYOF_CACHE).then((cache) => {
+            const writing = caches.open(DAYOF_CACHE).then((cache) =>
               cache.put(request, clone).then(() => {
                 recordAccess(DAYOF_CACHE, request.url);
                 return enforceLimits(DAYOF_CACHE);
+              }),
+            );
+            // The page's own preload waits for this copy instead of fetching it again.
+            DAYOF_WRITES.set(request.url, writing);
+            writing
+              .catch(() => undefined)
+              .then(() => {
+                if (DAYOF_WRITES.get(request.url) === writing) DAYOF_WRITES.delete(request.url);
               });
-            });
           }
           return response;
         })

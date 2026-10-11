@@ -29,7 +29,7 @@
  *   - the warm-up (three other stages) ................. 6 → 3
  *   - six canvas loads (open · 3 warm · 2 presses) ..... 12 → 6   (11 in the measured session: its first had no worker yet)
  *   - a framed miniature that runs scripts ............. 2 → 1
- *   - a guest's own visit .............................. 2 → 2    (unchanged — see "A GUEST'S VISIT IS STILL TWO" below)
+ *   - a guest's own visit .............................. 2 → 2 → 1 (the second cut, below: "A GUEST'S OWN VISIT IS ONE")
  *
  * SEEN IN A REAL BROWSER TOO (headless Chromium, 2026-10-12): the real worker — its production branch forced on for
  * localhost — in front of stand-in pages and a request log. Before: three canvases → 6 requests for the guest page (each
@@ -48,9 +48,17 @@
  *   - the canvas-address filter on the preload list removed → "no sender can have a host canvas address kept"
  *   - a guest's preload refused as well (`return` for every sender) → "a guest's own visit is exactly as before" (+3 more)
  *
- * ⚠ A GUEST'S VISIT IS STILL TWO RENDERS, and this file pins that number rather than hiding it: the navigation, then the
- * preload of the same address. It is the guest's offline copy when they arrived on a personal link (a pass hop the worker
- * never caches), so it was left exactly as it is; removing the double is a guest-page decision, not a Maker one.
+ * 🔑 A GUEST'S OWN VISIT IS ONE RENDER (second cut, 2026-10-12, asked for by the guest-page speed branch): it was the
+ * navigation, then the preload of the same address. When the worker ANSWERED the navigation, the day-of handler is
+ * already keeping that page, so the preload now skips exactly one address — the sender's own — and only while the day-of
+ * copy of it is held or still being written (`DAYOF_WRITES`, `dayOfCopyHeld`). A page the worker did not answer (the
+ * first visit, before the worker controls it; a guest who arrived on a personal link — a pass hop the worker never
+ * caches; a hard reload) has no such copy, and its preload is made exactly as before: that is still their offline copy.
+ * Mutation-tested 2026-10-12 (each red, then discarded):
+ *   - the skip removed (the preload fetches the sender's own page again)  → "a guest's own visit is one render…"
+ *   - the "day-of copy held" condition removed (skip whenever it is the sender's own) → "…the first visit…"
+ *   - the wait for a copy still being written removed                    → "…a copy still being written…"
+ *   - the sender's-own-address condition removed (skip any held address)  → "…another page's own address…"
  */
 
 import { test } from 'node:test';
@@ -77,12 +85,15 @@ type Client = { url: string; frameType?: string; type?: string } | undefined;
 
 function boot() {
   const stores = new Map<string, Map<string, Response>>();
+  /** While set, every cache write waits for it — a navigation's body still streaming in. */
+  const slowPut: { until: Promise<void> | null } = { until: null };
   const open = (name: string) => {
     let s = stores.get(name);
     if (!s) stores.set(name, (s = new Map()));
     return {
       match: async (k: Keyish) => s!.get(keyOf(k))?.clone(),
       put: async (k: Keyish, res: Response) => {
+        if (slowPut.until) await slowPut.until;
         s!.set(keyOf(k), new Response(await res.arrayBuffer(), { status: res.status, headers: res.headers }));
       },
       delete: async (k: Keyish) => s!.delete(keyOf(k)),
@@ -182,7 +193,7 @@ function boot() {
   };
   const kept = (cache: string) => [...(stores.get(cache)?.keys() ?? [])].map(rel).sort();
   const keptAnywhere = () => [...stores.entries()].flatMap(([name, s]) => [...s.keys()].map((u) => `${name} ${rel(u)}`));
-  return { dispatch, load, sent, net, renders, kept, keptAnywhere };
+  return { dispatch, load, sent, net, renders, kept, keptAnywhere, slowPut };
 }
 
 /** The Maker's canvas, as `BufferedCanvasFrame` mounts it: an iframe of the stage's address, inside the Maker. */
@@ -297,7 +308,7 @@ test('the Maker’s code, images and fonts are cached as before', async () => {
 
 // ── a guest (and the host's own dashboard) — unchanged ─────────────────────
 
-test('a guest’s own visit is exactly as before: answered, kept for the day, and its preload fetched', async () => {
+test('a guest’s own visit is one render: answered, kept for the day, its icons preloaded — and its own page not fetched again', async () => {
   for (const referrer of ['', 'https://www.facebook.com/', `${ORIGIN}/`, `${ORIGIN}/${SLUG}`]) {
     const w = boot();
     await w.dispatch('install');
@@ -305,7 +316,7 @@ test('a guest’s own visit is exactly as before: answered, kept for the day, an
     assert.equal(nav.responded, true, `referrer "${referrer}": the guest's navigation is no longer answered (no offline copy)`);
     assert.equal(await nav.response!.text(), `/${SLUG} #1`);
     assert.deepEqual(w.kept(DAYOF), [`/${SLUG}`], 'the guest’s page is no longer kept for the day');
-    assert.deepEqual(w.kept(IMAGES), ['/ana-ben', '/icon-192.svg', '/icon-512.svg', '/manifest.json'], 'the guest’s preload is no longer kept');
+    assert.deepEqual(w.kept(IMAGES), ['/icon-192.svg', '/icon-512.svg', '/manifest.json'], 'the guest’s preload is no longer kept');
     assert.deepEqual(
       w.sent,
       [
@@ -313,13 +324,59 @@ test('a guest’s own visit is exactly as before: answered, kept for the day, an
         { url: '/manifest.json', mode: 'no-cors' },
         { url: '/icon-192.svg', mode: 'no-cors' },
         { url: '/icon-512.svg', mode: 'no-cors' },
-        { url: `/${SLUG}`, mode: 'no-cors' },
       ],
       'what the worker asks the network for on a guest’s visit changed',
     );
-    // ⚠ Two renders, as today — pinned, not hidden (see the header).
-    assert.equal(w.renders(), 2);
+    assert.equal(w.renders(), 1, `a guest's own visit cost ${w.renders()} renders of the guest page (was 2)`);
+    // …and the page is still there with no signal: the day-of copy.
+    w.net.down = true;
+    const offline = await w.load(`/${SLUG}`, { hydrates: false });
+    assert.equal(await offline.response!.text(), `/${SLUG} #1`);
   }
+});
+
+test('a guest’s first visit — the worker did not answer the page — still has its own page preloaded: that is its offline copy', async () => {
+  const w = boot();
+  await w.dispatch('install');
+  // The page loaded before the worker controlled it: no fetch event, only the message once the worker is ready.
+  await w.dispatch('message', {
+    data: { type: 'PRELOAD_ASSETS', urls: ['/manifest.json', '/icon-192.svg', '/icon-512.svg', `/${SLUG}`] },
+    source: { url: `${ORIGIN}/${SLUG}`, frameType: 'top-level', type: 'window' },
+  });
+  assert.ok(w.kept(IMAGES).includes(`/${SLUG}`), 'the first visit’s page was not kept — the guest has no offline copy');
+  w.net.down = true;
+  const back = await w.load(`/${SLUG}`, { hydrates: false });
+  assert.equal(await back.response!.text(), `/${SLUG} #1`);
+});
+
+test('a guest’s own page whose day-of copy is still being written is waited for — not fetched a second time', async () => {
+  const w = boot();
+  await w.dispatch('install');
+  let release!: () => void;
+  w.slowPut.until = new Promise<void>((r) => (release = r));
+  await w.load(`/${SLUG}`, { hydrates: false }); // answered; the copy's body is still coming in
+  assert.deepEqual(w.kept(DAYOF), [], 'the stand-in did not hold the write back');
+  const preload = w.dispatch('message', {
+    data: { type: 'PRELOAD_ASSETS', urls: [`/${SLUG}`] },
+    source: { url: `${ORIGIN}/${SLUG}`, frameType: 'top-level', type: 'window' },
+  });
+  setTimeout(() => release(), 30);
+  await preload;
+  assert.deepEqual(w.kept(DAYOF), [`/${SLUG}`]);
+  assert.equal(w.renders(), 1, `the preload fetched the page while its day-of copy was being written: ${JSON.stringify(w.sent)}`);
+});
+
+test('another page’s preload of an address held for the day is fetched as before — only the sender’s OWN page is skipped', async () => {
+  const w = boot();
+  await w.dispatch('install');
+  await w.load(`/${SLUG}`, { hydrates: false });
+  // The same guest, now on their table page, asks for the landing to be kept — it is not that page's own address.
+  await w.dispatch('message', {
+    data: { type: 'PRELOAD_ASSETS', urls: [`/${SLUG}`] },
+    source: { url: `${ORIGIN}/${SLUG}/find-my-table`, frameType: 'top-level', type: 'window' },
+  });
+  assert.equal(w.renders(), 2, 'a page other than the sender’s own was skipped');
+  assert.ok(w.kept(IMAGES).includes(`/${SLUG}`));
 });
 
 test('a guest with no signal still gets the kept page, and the offline page for one never seen', async () => {

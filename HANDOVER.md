@@ -7,12 +7,19 @@
 
 | Step | State |
 |---|---|
-| 0 · merge main, FULL `tsc`, slug suite | ✅ `tsc --noEmit` rc 0 on the merged tree; 319 test files / 1,583 tests green (one pin of main's home test lowered 8 → 7: this branch's `skuActiveInRender` made the home page's cold view shallower) |
-| 1 · the `events` row ONCE | ✅ built + pinned (`events` reads per view = 1). ⚠ full `tsc` AFTER this step: see "Checks" below |
-| 2 · fewer requests overall | ⏳ in progress — see the table below |
-| 3 · invited guest depth ≤ 6 | not started |
+| 0 · merge main, FULL `tsc`, slug suite | ✅ `tsc --noEmit` rc 0 on the merged tree (commit `db86a0aa4`'s tree, before step 1); 319 test files / 1,583 tests green (one pin of main's home test lowered 8 → 7: this branch's `skuActiveInRender` made the home page's cold view shallower) |
+| 1 · the `events` row ONCE | ✅ built + pinned (`events` reads per view = 1) — commit `65a43d20a` |
+| 2 · fewer requests overall | ✅ a stranger 15 (16 on the day) · an invited guest 19 (23 on the day) — commit `38c512430`. Target was ≤ 15 / ≤ 20: met before the day, **missed on the day by 1 (stranger) and 3 (invited)** |
+| 3 · invited guest depth ≤ 6 | ✅ before the day (6). ⚠ 7 on the day — the day-of layer itself is 2 deep there (the album door waits for the wall), and `loadGuestContext` waits for the layer |
 | 4 · the two invite pages | not started |
 | 5 · remembered reads | not started |
+
+⚠ **CHECKS OWED:** full `tsc` has NOT yet run on steps 1–3 (the heavy lock had four jobs queued). The nearest guards
+and the harness are green. If you inherit this before a line below says "tsc rc 0 at <commit>", run it first:
+`cd apps/web && rm -rf .next && L=~/Documents/Claude/Projects/heavy-lock.sh && "$L" acquire "tsc speed" && { NODE_OPTIONS=--max-old-space-size=8192 ../../node_modules/.bin/tsc --noEmit -p tsconfig.json; rc=$?; "$L" release "tsc speed"; echo rc=$rc; }`
+Likely places for a type error: the generic `select<S extends string>` wrappers (`theOneEventRead`, `loadGuestOwnRow` in
+`app/[slug]/_lib/loaders.ts`), `eventRowOnce`'s `R` at each call site, the `faceWishAhead` / UGC-terms unions in
+`loadGuestContext`.
 
 ### Step 1 — how the row is read once
 - `lib/event-row-once.ts` (new): `holdEventRow` / `eventRowOnce` / `withoutOnceExtras`. Per-render Map (React `cache()`),
@@ -32,18 +39,55 @@
 - Guards: `lib/event-row-once.test.ts` (9) · `lib/guest-page-reads.test.ts` (`events` reads = 1 per view; the page's
   row carries no extra).
 
+### Steps 2–3 — every read, before → after (harness; "inv" = invited guest only, "day" = on the day only)
+
+| Read | Round 3 | Now | How / why it is safe |
+|---|---|---|---|
+| `events` shell | 1 | 1 | carries the extras now |
+| `events(entourage_section_order)` · `(role_names)` · `(print_details)` · `(panood_watch_url…)` · `(event_date, event_date_precision)` · `(papic_on)` | 6 | 0 | answered from the held row (`eventRowOnce`); own read kept as fallback |
+| `events(rsvp_backdrop)` (before the day) | 1 | 0 | same |
+| inv · `events(papic_on)` ×2 more · `events(papic_face_mode,…)` | 3 | 0 | same |
+| `invitation_widgets` (Venue scene's config) | 1 | 0 | taken from the scene rows `loadWidgets` reads anyway; a failed scenes read = "no choices", the same answer a refused read gave (and the page throws on it, as before) |
+| `invitation_widgets` (all scenes) | 1 | 1 | |
+| `orders` · `bundle_components` · `rpc/event_host_is_internal` · `rpc/event_comp_active_skus` · `rpc/event_host_holds_founder_seat` | 5 | 5 | the ownership chain — untouched (gates paid features; merging needs a database function, out of bounds) |
+| `data_privacy_controls` | 1 (2 inv) | 1 | a guest-tree render reads every control's status in one request (`readDataPrivacyControlsTogether`); fail-closed the same way |
+| `event_vendors` (venue bookings) | 1 | 1 | |
+| `rpc/papic_event_pool_status` | 1 (3 inv) | 1 | `eventPapicGuestAccess` asked once per render (`askedOnce`); outside a render nothing is remembered |
+| `guests` (entourage) · `march_not_walking` · `event_floor_plan` · `event_schedule_blocks` · `event_recaps` | 5 | 5 | |
+| day · `paparazzi_seats` | 1 | 1 | |
+| inv · `guests` (own row) | 1 | 1 | its own loader now, started beside the day-of layer |
+| inv · `guests(face_tagging_wanted)` | 1 | 0 | rides in the own-row read; 42703 → the row alone + the separate tolerant read, as before |
+| inv · `event_vendors` (suppliers' credits) · `papic_limited_snapshots` · `scan_events` | 3 | 3 | credits are DRAWN only after the day (`eventIsBehind`, site-body) — a candidate to skip before/on the day, not done: the rule also needs `lifecyclePhase`, which the loader is not handed |
+| inv+day · `photo_tags` · `papic_guest_captures` · `guest_checkins` | 3 | 3 | |
+
 ### Numbers (harness — a FLOOR for the shape, not production's count)
 
-| Viewer | Requests: round 3 → now | `events` reads | Depth |
+| Viewer | Requests: round 3 → now | `events` reads | Depth: round 3 → now |
 |---|---|---|---|
-| Stranger, before the day | 23 → 16 | 8 → 1 | 5 |
-| Stranger, on the day | 23 → 17 | 7 → 1 | 6 |
-| Invited guest, before the day | 34 → 24 | 11 → 1 | 7 |
-| Invited guest, on the day | 37 → 28 | 10 → 1 | 8 |
+| Stranger, before the day | 23 → **15** | 8 → **1** | 5 → 5 |
+| Stranger, on the day | 23 → **16** | 7 → **1** | 6 → 6 |
+| Invited guest, before the day | 34 → **19** | 11 → **1** | 7 → **6** |
+| Invited guest, on the day | 37 → **23** | 10 → **1** | 8 → **7** |
 
 ⚠ The harness stops at `loadGuestContext`. The real page asks MORE for an invited guest after it, one after another
 (`readSeatHolder`, the checklist ticks, `yourGuestsFor`, the pass card ×2, `guestStagesOn` — `page.tsx` after
-`guest-context`). Those are not counted and not touched yet.
+`guest-context`). Those are not counted and not touched.
+⚠ The harness event has nothing switched on. A real event with face enrollment active, seats published and Papic on
+runs a longer tail inside `loadGuestContext` (enrollment → account face; seat → table → the plan's three reads; the
+quota block) — not measured.
+⚠ With `data_privacy_controls` read together, production saves more than the harness shows (the layout's day-of
+announcement gate and the shared-gallery gate are the same one read).
+
+### Next, in order
+1. Full `tsc` + the suite on the current head (see CHECKS OWED).
+2. Invited guest ≤ 6 deep ON THE DAY: either hand `loadGuestContext` the schedule as a promise and start it beside the
+   day-of layer under the same three conditions as the row (`session` verified, names this event, no `?as=`) — no
+   extra request; or start the album door with the wall on the day (one wasted request when the wall is showing).
+3. On-the-day requests (16 / 23 vs ≤ 15 / ≤ 20): the suppliers' credits before the day is behind (−1 invited);
+   embedding one-row lookups in the one event read (`event_floor_plan(published_at)`) needs PostgREST relationship
+   checks against production first — an ambiguous embed would fail the one read on EVERY view.
+4. The two invite pages (step 4) — untouched; they already get the one event read wherever they call `loadEventShell`.
+5. Remembered reads (step 5) — untouched.
 
 ---
 

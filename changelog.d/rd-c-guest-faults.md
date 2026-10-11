@@ -247,6 +247,15 @@ gained the film's wrapper (+33 bytes; +282 where the film itself plays, for
 the one line of style and script).
 Guard: `lib/std-film-seen.test.ts`.
 
+**Two older guards re-aimed after the whole preflight** (it found them; both
+are consequences, not new faults): `every-stage-keeps-the-approved-order`
+— the Maker's Save the Date stage list no longer holds the reply (the list IS
+what guests are shown; every other row is the 2026-10-05 approved order) — and
+`a-guests-pages-are-filed-like-the-makers` — one fewer `home` group (the
+scan-trail switch moved beside the sign-out). ⚠ The first is a visible change
+in the Maker: on an open-browsing event the Save the Date stage loses its RSVP
+tile. No Maker file was edited; it follows the shared plan.
+
 SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
 2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
 face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG

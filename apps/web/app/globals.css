@@ -4914,6 +4914,10 @@ html.dark {
  * "tap to edit" pointer on every section. Set and cleared by the bridge alone; no guest's page ever carries it. */
 html[data-maker-guest] [data-maker-empty] { display: none !important; }
 html[data-maker-guest] [data-setnayan-editor-bound] { cursor: auto !important; }
+/* 🎭 …and the Reveal's TILE (`stage-tools.tsx`, "Opens once, over the cover — then every page after it opens plain"):
+ * the Maker's own picture of the opening, put at the top of the page so it can be tapped. A guest's page never has
+ * it (the opening plays OVER the cover), and the preview opened on it (the walk of 2026-10-11, P10). */
+html[data-maker-guest] [data-maker-reveal-part] { display: none !important; }
 
 /* FROM THE CENTRE (`<Slider from="centre">` — a value that rests in the middle and goes both ways, Darker ↔ Lighter):
  * the accent runs from the middle of the line out to the knob, on whichever side it is; at rest nothing is filled. */
@@ -8455,23 +8459,34 @@ html [data-part-look="mark.between-rules"]::after { content: ''; height: 1px; wi
 html [data-part-look="mark.large"] { zoom: 1.3; }
 
 /* ── Title ── */
-html [data-part-look="eyebrow.serif"] {
+/* ⚖ EVERY TITLE LOOK NAMES ITS ATTRIBUTE TWICE (`[data-part-look="eyebrow.x"][data-part-look]`, specificity 0,2,1) —
+ * ON PURPOSE. On the PLAIN masthead (a cover photo or video, a stranger's banner, a solemn event) the Title is the
+ * page's eyebrow — `<p class="pahina-eyebrow">` — and the whole guest page stands inside `.sn-editorial`
+ * (`guest-look-scope.tsx`), where `.sn-editorial .pahina-eyebrow` (0,2,0) sets its face, size, spacing, caps, colour,
+ * `display` and a trailing hairline. Written once (0,1,1) every look LOST those to it: measured 2026-10-11 on the real
+ * guest page with a cover photo — Serif drew the shipped face unchanged (mono, 10.56 px, uppercase), The pill kept
+ * the eyebrow's dark ink on its orange ground, Flanked's right rule was the eyebrow's hairline. (The Card — the cover
+ * with no photo — writes its Title as utilities, and never lost anything: nothing changes there.)
+ * `lib/a-title-look-is-drawn-on-the-page.test.ts` holds the arithmetic. */
+html [data-part-look="eyebrow.serif"][data-part-look] {
   font-family: var(--font-pahina-display), Georgia, serif; text-transform: none; letter-spacing: 0.02em; font-size: 1.5rem; font-weight: 500; color: rgb(var(--color-ink));
 }
-html [data-part-look="eyebrow.flanked"] {
+html [data-part-look="eyebrow.flanked"][data-part-look] {
   display: inline-flex; align-items: center; gap: 0.55em; font-family: var(--font-pahina-display), Georgia, serif; font-style: italic;
   text-transform: none; letter-spacing: 0; font-size: 1.35rem; font-weight: 400; color: rgb(var(--color-ink) / 0.85);
 }
-html [data-part-look="eyebrow.flanked"]::before,
-html [data-part-look="eyebrow.flanked"]::after { content: ''; position: static; display: block; width: 1.6em; height: 1px; flex: none; background: rgb(var(--color-gild)); }
-html [data-part-look="eyebrow.ruled"] {
+html [data-part-look="eyebrow.flanked"][data-part-look]::before,
+html [data-part-look="eyebrow.flanked"][data-part-look]::after { content: ''; position: static; display: block; width: 1.6em; height: 1px; flex: none; background: rgb(var(--color-gild)); }
+html [data-part-look="eyebrow.ruled"][data-part-look] {
   display: inline-block; letter-spacing: 0.4em; padding: 0.75em 0.2em 0.75em 0.6em;
   border-top: 1px solid rgb(var(--color-gild) / 0.7); border-bottom: 1px solid rgb(var(--color-gild) / 0.7);
 }
-html [data-part-look="eyebrow.pill"] {
+html [data-part-look="eyebrow.pill"][data-part-look] {
   display: inline-block; border-radius: 9999px; padding: 0.6em 1.35em 0.6em 1.6em; letter-spacing: 0.32em;
   background: rgb(var(--color-mulberry)); color: rgb(var(--color-cream));
 }
+/* …and a look that is not the eyebrow's own shape drops the eyebrow's trailing hairline (Flanked draws its own two). */
+html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"])[data-part-look]::after { content: none; }
 html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.flanked"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"]) > span { color: inherit; }
 
 /* ── E-Gifts ── */

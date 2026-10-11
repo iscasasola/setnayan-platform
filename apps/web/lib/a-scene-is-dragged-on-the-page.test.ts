@@ -672,11 +672,12 @@ test('(7) the drag rides no first load and no guest’s page: it is reached only
   for (const f of files.filter((p) => relative(WEB, p).startsWith('app/[slug]/'))) assert.doesNotMatch(readFileSync(f, 'utf8'), /scene-drag|data-scene-drag|attachSceneDrag/, `${relative(WEB, f)} knows the drag`);
 });
 
-test('(1) the lift is the prototype’s 1.03 where it fits — and otherwise the prototype’s own lifted width, its ring in sight', () => {
+test('(1) the lift is the prototype’s 1.03 where it fits — and otherwise as large as keeps the prototype’s own room from the page’s edge, its ring whole', () => {
   /* `.scene.lifted{transform:scale(1.03)}` · `.scene.lifted.tobin{transform:scale(.62);opacity:.55}`. The prototype's
-     scenes stand inside its page's margin (375 px phone, `.page{padding:8px 10px 24px}` → 355 px): lifted, 365.65 px.
-     A guest's scene runs edge to edge; by 1.03 its ring would leave the screen. So: 1.03 where that fits, else the
-     width the prototype's lifted scene has on the same screen. */
+     scenes stand inside its page's margin (a 375 px page, `.page{padding:8px 10px 24px}` → 355 px): lifted, 365.65 px,
+     4.675 px from each edge of the page. A guest's scene runs edge to edge of its page (a frame — what leaves it is
+     cut off); by 1.03 its ring would be cut. So: 1.03 where that fits, else as large as keeps the prototype's own
+     4.675 px on each side. (Walked 2026-10-12: the Maker's page is 359 px wide at 375 — lifted 349.65 px, 0.974.) */
   const hands = raw(`${L}/scene-canvas-drag.ts`);
   assert.match(hands, /const LIFT_SCALE = 1\.03;/);
   assert.match(hands, /const BIN_SCALE = 0\.62;\s*const BIN_DIM = 0\.55;/);
@@ -687,12 +688,12 @@ test('(1) the lift is the prototype’s 1.03 where it fits — and otherwise the
   const scaleOf = (sceneW: number, screenW: number) => Math.min(1.03, (screenW - 2 * inset) / sceneW);
   /* the prototype's own scene, on its own phone: lifted by 1.03 exactly */
   assert.ok(Math.abs(scaleOf(355, 375) - 1.03) < 1e-12);
-  /* a guest's edge-to-edge scene on that phone: as wide as the prototype's lifted scene, never wider than the screen */
+  /* an edge-to-edge scene on a page that wide: as wide as the prototype's lifted scene, never wider than its page */
   assert.ok(Math.abs(scaleOf(375, 375) * 375 - 365.65) < 1e-9, `lifted to ${scaleOf(375, 375) * 375} px`);
-  for (const screen of [320, 360, 375, 390, 414, 430, 768, 1000]) {
+  for (const screen of [304, 344, 359, 374, 398, 414, 752, 984]) {
     for (const scene of [screen, screen - 20, screen - 48, screen / 2]) {
       const w = scaleOf(scene, screen) * scene;
-      assert.ok((screen - w) / 2 >= 2 + 2.6, `a ${scene} px scene on a ${screen} px screen: its 2 px ring is ${((screen - w) / 2 - 2).toFixed(2)} px from the edge`);
+      assert.ok((screen - w) / 2 >= 2 + 2.6, `a ${scene} px scene on a ${screen} px page: its 2 px ring is ${((screen - w) / 2 - 2).toFixed(2)} px from the edge`);
       assert.ok(scaleOf(scene, screen) <= 1.03);
     }
   }

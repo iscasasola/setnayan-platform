@@ -53,11 +53,15 @@ export const SCENE_TAG_FACE = 'rounded-sm bg-sn-accent text-sn-on-accent px-[7px
 /** The prototype's `.scene.lifted{transform:scale(1.03)}` and `.tobin{transform:scale(.62);opacity:.55}`. */
 const LIFT_SCALE = 1.03;
 /**
- * …and the room a lifted scene keeps from the screen's edge — THE PROTOTYPE'S OWN. Its scenes stand inside the page's
- * margin (a 375 px phone, scenes 355 px wide): lifted by 1.03 they are 365.65 px wide and keep 4.675 px on each side.
- * A guest's scene runs edge to edge, and lifted by 1.03 its ring would be pushed off the screen — and a ring past the
- * screen is no ring. So a scene is lifted by 1.03 WHERE THAT FITS, and otherwise to exactly the width the prototype's
- * lifted scene has on the same screen: as wide as it can be with its whole ring in sight (the ring is 2 px outside).
+ * …and the room a lifted scene keeps from the PAGE'S edge — THE PROTOTYPE'S OWN. Its scenes stand inside the page's
+ * margin (a 375 px page, scenes 355 px wide): lifted by 1.03 they are 365.65 px wide and keep 4.675 px on each side.
+ * A guest's scene runs from edge to edge of its page, and the page is a frame of its own — whatever leaves the frame
+ * is cut off. Lifted by 1.03 such a scene would lose its ring on both sides, and a ring cut off is no ring. So a
+ * scene is lifted by 1.03 WHERE THAT FITS, and otherwise as large as it can be with the prototype's own 4.675 px kept
+ * on each side (its ring, 2 px outside it, whole).
+ * MEASURED in the lab at 375 × 812 (2026-10-12): the page's frame is 359 px wide and so is a scene; lifted it is
+ * 349.65 px (scale 0.974), 4.68 px from each edge of the page. The prototype's own picture is 365.65 px on a page as
+ * wide as the phone — the Maker's page stands 8 px inside the phone, which this file does not change.
  */
 const LIFT_INSET_PX = (375 - 355 * LIFT_SCALE) / 2;
 /** The dashed gap stands where the prototype's does: inside its page's margin (`.page{padding:8px 10px 24px}`), so its

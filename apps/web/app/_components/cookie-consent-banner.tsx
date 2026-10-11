@@ -233,6 +233,7 @@ export function CookieConsentBanner() {
       ref={barRef}
       role="region"
       data-app-chrome=""
+      data-cookie-consent=""
       aria-label="Cookie consent"
       /* COMPACT SLIM SHEET below `sm`, not the old floating rounded card
          (mobile audit 2026-09, item 1): `inset-x-3 bottom-3` covered real

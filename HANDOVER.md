@@ -21,7 +21,8 @@
   missing, it did not finish: run it (`cd apps/web && rm -rf .next && L=~/Documents/Claude/Projects/heavy-lock.sh &&
   "$L" acquire "tsc speed" && { NODE_OPTIONS=--max-old-space-size=8192 ../../node_modules/.bin/tsc --noEmit -p
   tsconfig.json; rc=$?; "$L" release "tsc speed"; echo rc=$rc; }`).
-- FINAL TSC: (not yet recorded)
+- FINAL TSC: **rc 0** — full `tsc --noEmit` under the heavy lock on the clean tree at `c4fca8e79` (the last commit
+  that touches code; everything after it is `HANDOVER.md`).
 - **The slug suite** (every test under `app/[slug]` + the lib tests that name a touched file): 320 files, 1,596 tests,
   0 failed, on the tree at `a48db1512`. Plus the 42 tests that name the two invite pages and
   `lib/security/select-column-scan.test.ts`: green.
@@ -32,7 +33,14 @@
   a reader naming other columns than it reads · the guest's reads waiting for the day-of layer again. All seven reacted.
 - **`pnpm preflight`**: the whole run was started once and STOPPED — on this loaded machine it ran one test file at a
   time (16 of 630 in ~8 minutes). Its quick half (`--only guards,lint,types,pins`) was run instead: see PREFLIGHT below.
-- PREFLIGHT (quick half): (not yet recorded)
+- PREFLIGHT (quick half, on `a48db1512`): 43 cheap CI guards PASS · 223 of the 226 tests that name or import a
+  changed file PASS. It found three real faults, all fixed in `3b4ed7631` / `c4fca8e79`: the 3 test-file type errors;
+  a dead eslint-disable comment in the harness; `page.tsx` had become a new reader of `lib/see-as`
+  (`see-as-draws-the-guest-components`) — the early guest context now asks only "no `?as=` at all".
+- PREFLIGHT (whole-tree guards, on `c4fca8e79`): **STOPPED at the account's stop point with 392 of 404 files
+  reported — its result table was never printed, so it is NOT a pass.** Re-run:
+  `node scripts/preflight.mjs --only tree` from the worktree root. The 27 source-scanning DB tests (`--only db`)
+  were never run.
 - ⚠ The scratchpad directory is SHARED by every builder of the controller session: another builder's run overwrote a
   log named `preflight-1.log`. Use a sub-directory of your own for logs.
 
@@ -94,7 +102,13 @@ quota block) — not measured.
 announcement gate and the shared-gallery gate are the same one read).
 
 ### Next, in order
-1. If "FINAL TSC" above is not recorded: run the full `tsc`, then the suite.
+1. `node scripts/preflight.mjs --only tree,db` from the worktree root (the two halves that did not finish), fix what
+   is red. Then the whole `pnpm preflight` once before any push.
+1b. 🔁 **A GUEST'S OWN VISIT STILL COSTS TWO RENDERS whenever the service worker controls the page** (note from another
+   builder, 2026-10-12): the navigation itself, plus `GuestPreload`'s own preload of `/<slug>`
+   (`app/[slug]/_components/guest-preload.tsx` → `public/sw.js` `PRELOAD_ASSETS`). Every request this branch saved is
+   paid twice there. That cut belongs to this branch and is NOT made (`public/sw.js` was another builder's file this
+   round): stop the preload from re-fetching the page the guest is already on.
 2. `invite/enter` body (step 4's other half): inside `InviteEnterBody` nothing redirects or 404s, so the reads that
    need only the event (`resolveProfile`, `resolveEventOwnerSlug`, `eventWordsFor`, the schedule) and those that need
    only the guest id (`plusOneSeatsFor`, the pass card pair, `readSeatHolder`, `readTicketSeats`) can each be

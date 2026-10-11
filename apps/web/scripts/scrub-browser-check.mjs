@@ -642,7 +642,7 @@ if (!ONLY || ONLY === '16') {
     return {
       s: Math.round(scrollY), max: document.documentElement.scrollHeight - innerHeight,
       cover: box(cover), names: box(document.querySelector('main header[data-pahina-first-screen] h1')), pout: Number(cover?.style.getPropertyValue('--hub-pout') || 0),
-      zero: box(document.querySelector('[data-hub-zero]')), zeroVar: Number(document.querySelector('[data-hub-zero]')?.style.getPropertyValue('--hub-o') || 1), zeroIs: document.querySelector('[data-hub-zero]')?.hasAttribute('data-arrival-action') ? 'the reply row' : document.querySelector('[data-hub-zero]')?.querySelector('[data-get-inside]') ? 'the door' : (document.querySelector('[data-hub-zero]')?.tagName ?? null),
+      zero: box(document.querySelector('[data-hub-zero]')), zeroVar: Number(document.querySelector('[data-hub-zero]')?.style.getPropertyValue('--hub-o') || 1), zeroIs: document.querySelector('[data-hub-zero]')?.hasAttribute('data-arrival-action') ? 'the reply row' : document.querySelector('[data-hub-zero]')?.matches('[data-get-inside]') || document.querySelector('[data-hub-zero]')?.querySelector('[data-get-inside]') ? 'the door' : (document.querySelector('[data-hub-zero]')?.tagName ?? null),
       row: box(document.querySelector('[data-arrival-action]')), next: box(shown[1] ?? null), nextIs: shown[1]?.getAttribute('data-hub-tab') ?? null,
       /* 🤝 What arrives WITH the row (the second marked block), and the first group after what arrives. */
       zeros: document.querySelectorAll('[data-hub-zero]').length, mate: box(document.querySelectorAll('[data-hub-zero]')[1] ?? null) ?? { t: NaN, b: NaN, o: -1 }, mateSays: document.querySelectorAll('[data-hub-zero]')[1]?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 22) ?? null,
@@ -696,6 +696,13 @@ if (!ONLY || ONLY === '16') {
     const place = stands ? Math.abs(heldAt - today.cover.t) < 0.6 && hold.every((f) => Math.abs(f.pout - f.s / out) < 0.02) : fits ? Math.abs((hold[0].cover.t + hold[0].cover.b) / 2 - H / 2) < 1.5 : Math.abs(hold[0].cover.b - H / 2) < 1.5;
     say(hold.length > 3 && hold.every((f) => Math.abs(f.cover.t - heldAt) < 0.6) && place && fwd.some((f) => f.pout >= 1 && f.cover.o === 0), `${size}: the page stands still while the cover builds out, and it completes — ${stands ? `held where it stands (${r(heldAt)}px), over 55 % of a screen from the first thumb travel` : `it cannot be seen whole from where it stands (${r(today.cover.t)}–${r(today.cover.b)} on ${H}px), so it is scrolled to its line first: ${fits ? `centred (${r(hold[0]?.cover.t)}–${r(hold[0]?.cover.b)})` : `its bottom on the centre line (${r(hold[0]?.cover.b)})`}`} (${hold.length} positions)`);
     say(hold.every((f) => Math.abs(f.bar.t) < 0.01), `${size}: the pinned top bar never moves`);
+    /* ⏸ NO "STUCK" STRETCH (owner 2026-10-09, an open point: a still stretch that read as stuck). While the page is
+       held for the cover, SOMETHING a guest can see changes at every sampled position: the cover's fade, or the
+       arrival's. The longest run of positions at which nothing changed is reported in pixels of thumb travel. */
+    const drawn = (f) => JSON.stringify([f.cover.o.toFixed(3), f.zero.o.toFixed(3), f.mate.o.toFixed(3), Math.round(f.cover.t), Math.round(f.after?.t ?? 0)]);
+    let still = 0; let run = 0;
+    for (let i = 1; i < fwd.length; i++) { const held = fwd[i].pout < 1 || fwd[i].zero.o < 0.99; if (held && fwd[i].pout > 0 && drawn(fwd[i]) === drawn(fwd[i - 1])) { run += fwd[i].s - fwd[i - 1].s; still = Math.max(still, run); } else run = 0; }
+    say(still <= 16, `${size}: no still stretch while the page is held for the cover — the longest run with nothing changing is ${still}px of thumb travel (the hold is ${r(top.holds[0])}px long)`);
     const seen = fwd.filter((f) => f.zero && (f.zero.o > 0.02 || f.mate.o > 0.02) && f.pout < 1);
     /* ONE arrival: the two at the same number at every position, neither before the last 20 % — and placed as ONE
        unit (the row's top to the Countdown's bottom): centred when the cover is held where it stands. */
@@ -792,7 +799,8 @@ if (!ONLY || ONLY === '16') {
      thing in the page's first group: the door is in the NEXT group, which the engine pulls up to the cover). */
   const GAPS_S = () => {
     const R = (e) => e.getBoundingClientRect();
-    const cover = document.querySelector('main header[data-pahina-first-screen]'); const door = document.querySelector('main [data-get-inside]').closest('.space-y-4');
+    const cover = document.querySelector('main header[data-pahina-first-screen]'); /* (The door's row draws no box of its own since 2026-10-11 — `.sn-door-row`, `display: contents` — so the door is read itself.) */
+    const door = document.querySelector('main [data-get-inside]');
     const [m, n] = document.querySelector('article .sn-hub-cards').querySelectorAll(':scope > section');
     document.documentElement.classList.add('pahina-js');
     const hidden = [cover, door].filter((e) => { for (let x = e; x && x.tagName !== 'MAIN'; x = x.parentElement) if (Number(getComputedStyle(x).opacity) === 0) return true; return false; }).length;

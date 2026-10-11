@@ -28,9 +28,10 @@ Everything proven is proven in **Chromium only**; nothing has run on iOS Safari.
 - Save the Date is not wired (its cover is the film; needs its own design).
 
 ## Next three steps
-1. Full `tsc` under the heavy lock on the merged tree → rc 0 (remove `apps/web/.next` first; 8192 MB heap).
-2. Fix `GAPS_S` in block 16, run the whole browser check under the lock, read the stranger's rows; pictures at
-   375×812 first (`c16-real-…-together.png`, `c16-stranger-…-together.png` in the pictures dir you pass).
+1. DONE 2026-10-12: full `tsc` on the merged tree, under the lock → rc 0, 0 errors.
+2. `GAPS_S` is fixed (the door is read itself) and block 16 now also measures "no still stretch while the page is
+   held for the cover". STILL TO DO: run the whole browser check under the lock on the merged tree and read the
+   stranger's rows; pictures at 375×812 first (`c16-real-…-together.png`, `c16-stranger-…-together.png`).
 3. The owner's three open points (see the report): the still stretch, the heading clipped on iPhone, the cover.
 
 ## How to run the walk

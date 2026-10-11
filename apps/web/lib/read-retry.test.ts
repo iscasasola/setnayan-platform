@@ -22,6 +22,7 @@ import {
   SCHEMA_BLIP_DIGEST,
   SCHEMA_RETRY_DELAYS_MS,
   SchemaBlipError,
+  isNetworkReadFailure,
   isSchemaBlip,
   isTransientReadError,
   nextReconnect,
@@ -107,6 +108,65 @@ test('transient: every PGRST00x, and a bare 5xx', () => {
   assert.equal(isTransientReadError(null, 503), false, 'no error is never a blip');
 });
 
+// ── 1b · a read that never reached the database (owner 2026-10-11: "make sure requests does not cause a crash") ──
+
+/** What postgrest-js resolves with when the fetch itself failed (after its own three GET retries): no HTTP answer. */
+const NO_ANSWER: Result = { data: null, error: { code: '', message: 'TypeError: fetch failed', details: 'Caused by: Error: read ECONNRESET', hint: '' }, status: 0 };
+const ABORTED: Result = { data: null, error: { code: '', message: 'AbortError: This operation was aborted', hint: 'Request was aborted (timeout or manual cancellation)' }, status: 0 };
+
+test('THE TABLE — what each read outcome is, to the gate that must not say "this page does not exist"', async () => {
+  type Row = { name: string; result: Result; transient: boolean; network: boolean; reads: number };
+  const again = SCHEMA_RETRY_DELAYS_MS.length + 1;
+  const table: Row[] = [
+    // No HTTP answer: transient (never "no such row") — and NOT run again by the helper (the library already did, for 7 s).
+    { name: 'status 0 · fetch failed', result: NO_ANSWER, transient: true, network: true, reads: 1 },
+    { name: 'status 0 · aborted / timed out', result: ABORTED, transient: true, network: true, reads: 1 },
+    // The database could not answer just now: transient, and retried for the window.
+    { name: '500', result: { data: null, error: { code: '', message: 'Internal Server Error' }, status: 500 }, transient: true, network: false, reads: again },
+    { name: '502', result: { data: null, error: { code: '', message: 'Bad gateway' }, status: 502 }, transient: true, network: false, reads: again },
+    { name: '503 PGRST002', result: BLIP, transient: true, network: false, reads: again },
+    { name: '503 PGRST001', result: { data: null, error: { code: 'PGRST001', message: 'Database connection error' }, status: 503 }, transient: true, network: false, reads: again },
+    { name: '503 PGRST000', result: { data: null, error: { code: 'PGRST000', message: 'Could not connect with the database' }, status: 503 }, transient: true, network: false, reads: again },
+    { name: '504 PGRST003', result: { data: null, error: { code: 'PGRST003', message: 'Timed out acquiring connection from connection pool' }, status: 504 }, transient: true, network: false, reads: again },
+    // The database ANSWERED, with a refusal: read once, and the caller's own path (a 404, a redirect) stands.
+    { name: '500 · 57014 statement timeout', result: { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' }, status: 500 }, transient: false, network: false, reads: 1 },
+    { name: '403 · 42501 RLS', result: RLS, transient: false, network: false, reads: 1 },
+    { name: '400 · 42703 phantom column', result: { data: null, error: { code: '42703', message: 'column events.nope does not exist' }, status: 400 }, transient: false, network: false, reads: 1 },
+    { name: '404 · PGRST205 no such table', result: { data: null, error: { code: 'PGRST205', message: "Could not find the table 'public.nope' in the schema cache" }, status: 404 }, transient: false, network: false, reads: 1 },
+    { name: '406 · PGRST116 .single() found no row', result: { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' }, status: 406 }, transient: false, network: false, reads: 1 },
+    // A REAL "no such row": `.maybeSingle()` answers 200, no error, no data. Never a blip — the page truly is not there.
+    { name: '200 · no row', result: ok(null), transient: false, network: false, reads: 1 },
+    { name: '200 · the row', result: ok({ member_type: 'couple' }), transient: false, network: false, reads: 1 },
+  ];
+  for (const row of table) {
+    assert.equal(isTransientReadError(row.result.error, row.result.status), row.transient, `${row.name}: transient`);
+    assert.equal(isNetworkReadFailure(row.result.error, row.result.status), row.network, `${row.name}: network-level`);
+    const s = scripted([row.result]);
+    const got = await withSchemaRetry(s.read, noSleep);
+    assert.equal(s.calls(), row.reads, `${row.name}: read ${s.calls()} times`);
+    assert.equal(got, row.result, `${row.name}: the result was changed on its way back`);
+  }
+});
+
+test('a read with no HTTP answer is told by its status — or, where the caller has none, by the fetch error’s own words', () => {
+  for (const message of ['TypeError: fetch failed', 'TypeError: Failed to fetch', 'TypeError: Load failed', 'TypeError: NetworkError when attempting to fetch resource.', 'FetchError: fetch failed', 'fetch failed']) {
+    assert.equal(isNetworkReadFailure({ message }), true, message);
+    assert.equal(isNetworkReadFailure({ message }, null), true, `${message} (status null)`);
+    assert.equal(isTransientReadError({ message }, null), true, message);
+  }
+  // A thrown read, as EventLayout hands it on.
+  assert.equal(isTransientReadError(new TypeError('fetch failed'), 0), true);
+  assert.equal(isTransientReadError(new Error('anything at all'), 0), true, 'status 0 is no answer, whatever the words');
+  // A real status always wins over the words: the database DID answer.
+  assert.equal(isNetworkReadFailure({ message: 'TypeError: fetch failed' }, 403), false);
+  assert.equal(isNetworkReadFailure({ message: 'permission denied for table event_members' }), false);
+  assert.equal(isNetworkReadFailure({ message: 'the prefetch failed to warm' }), false, 'the words are anchored, not found anywhere');
+  // No error is never a failure — `status: 0` with data would be a client bug, not a blip.
+  assert.equal(isNetworkReadFailure(null, 0), false);
+  assert.equal(isTransientReadError(null, 0), false);
+  assert.equal(isTransientReadError(undefined), false);
+});
+
 test('the blip error carries its digest to the browser', () => {
   const e = new SchemaBlipError('x', BLIP.error);
   assert.equal(e.digest, SCHEMA_BLIP_DIGEST);
@@ -176,6 +236,15 @@ test('fetchUserEvents keeps its contract (never throws) and still retries a blip
   assert.deepEqual(await fetchUserEvents(refused.client, 'u-plain-refused', 'couple'), []);
 });
 
+test('fetchUserEventsOrReconnect: a read that never reached the database THROWS the blip — never [] (Home must not say "nothing is yours")', async () => {
+  const s = stubClient([NO_ANSWER, ok(MEMBERSHIP)]);
+  await assert.rejects(fetchUserEventsOrReconnect(s.client, 'u-no-answer', 'couple'), (e: unknown) => isSchemaBlip(e));
+  assert.equal(s.calls(), 1, 'the library already retried this read — the helper must not multiply it');
+  // …and the degrading fetcher keeps its contract: it never throws.
+  const plain = stubClient([NO_ANSWER]);
+  assert.deepEqual(await fetchUserEvents(plain.client, 'u-no-answer-plain', 'couple'), []);
+});
+
 // ── 3 · the browser's reconnect ────────────────────────────────────────────
 
 test('the browser reconnects a few times, then gives up to the honest error', () => {
@@ -215,6 +284,17 @@ test('EventLayout: membership, co-host and event reads throw a blip before notFo
   throwsBefore(f, /withSchemaRetry\(\(\) =>\s*supabase\s*\.from\('event_moderators'\)/, 'EventLayout (event_moderators)', 'notFound()');
   throwsBefore(f, /withSchemaRetry\(\(\) =>\s*supabase\.from\('events'\)\.select\(fullSelect\)/, 'EventLayout (events)', 'if (!event) notFound()');
   assert.match(src(f), /fetchUserEventsOrReconnect\(supabase, user\.id, 'guest'\)\.catch\(\(err: unknown\) => \{\s*rethrowIfSchemaBlip\(err\);/);
+});
+
+test('EventLayout: an event read that THREW is handed on as "no answer" (status 0), never as "no row"', () => {
+  const s = src('app/dashboard/[eventId]/layout.tsx');
+  const read = s.indexOf(".from('events').select(fullSelect)");
+  const caught = s.indexOf('} catch (caught) {', read);
+  const gate = s.indexOf('if (!event) notFound()', read);
+  assert.ok(read > -1 && caught > read && gate > caught, 're-anchor — the event read moved');
+  const handler = s.slice(caught, s.indexOf('})();', caught));
+  assert.match(handler, /return \{ data: null, error: thrown, status: 0 as const \};/, 'a thrown read is not reported as no answer');
+  assert.doesNotMatch(handler, /error: null/, 'a thrown read comes back as "no error, no row" — the gate would 404 on it');
 });
 
 test('the Maker: its membership read throws a blip before the redirect out', () => {

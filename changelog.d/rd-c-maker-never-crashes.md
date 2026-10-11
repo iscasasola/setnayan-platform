@@ -36,6 +36,19 @@ reject; every `makerSave` / `makerRedrawSave` call's rejection is taken where it
 schedule · cancel. **Not covered at all:** plain `<form action={serverAction}>` posts — React runs those in a
 transition of its own and there is no `await` in our source to find.
 
+**2 · A read that could not be made never says the page does not exist.** supabase-js resolves a dropped connection
+as `status: 0`; `isTransientReadError` did not count it, so `dashboard/[eventId]/layout.tsx` answered `notFound()`
+("This page doesn't exist on Setnayan.") and `launch/page.tsx` redirected silently to the event's home.
+`lib/read-retry.ts`: `isNetworkReadFailure` (status 0, or — where a caller has no status — the fetch error's own
+words), counted transient, so every gate that already threw `schemaBlipError` now throws it for this too →
+"Reconnecting…" → the honest error. It is **not** run again by `withSchemaRetry`: postgrest-js has already retried
+that GET three times over seven seconds, and five rounds of that is half a minute of blank page. EventLayout's event
+read, when it THREW, came back as `{ data: null, error: null }` (→ `notFound()`); it is handed on as `status: 0`.
+"No such row", an RLS refusal, a 4xx and a statement timeout keep their caller's path exactly as before. Behaviour
+that changes with it, on purpose: Home (`fetchUserEventsOrReconnect`) shows "Reconnecting…" on a dropped connection
+instead of an empty board. Guard: the table in `lib/read-retry.test.ts` (0 · 500 · 502 · 503 · 504 · PGRST000–003 ·
+57014 · 42501 · 42703 · PGRST205 · PGRST116 · a real "no row" — transient? network? read how many times?).
+
 Not verified: a real phone, a real network drop, a real event; the Maker's first-load JS budget (no build was run —
 the browser code added is `hubDraftAnswer`, already in the first load, and a few `try/catch`).
 

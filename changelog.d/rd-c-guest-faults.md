@@ -36,4 +36,13 @@ Guard: `app/[slug]/_components/the-loading-screen-is-this-stages.test.ts`
 (the rule and `resolveSiteBodyPlan` on all 960 combinations; the quiet screen
 rendered).
 
+**N11 · Me has the page's own side gutter.** On a page that is one scroll (the
+Save the Date, Post Event) Me is drawn by `GuestHubBar` as a sibling of the
+page, outside its column, and every line ran edge to edge at 320 / 375 / 390 /
+768. `GuestMeSection` (`app/[slug]/_components/guest-hub-bar.tsx`) now sets
+that section in the page's own column (`ME_OWN_COLUMN`: the plate, `px-4`,
+`sm:px-6` — the classes of the Save the Date page's column and the shell's).
+The tabbed Me (Invitation · The Day) already had its gutter and is unchanged.
+Guard: `app/[slug]/_components/me-has-the-pages-gutter.test.ts`.
+
 SPEC IMPACT: None.

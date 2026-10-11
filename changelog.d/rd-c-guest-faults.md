@@ -269,6 +269,18 @@ wedding. `every-stage-is-todays-page.golden.json`: 8 one-scroll guest pages
 gained the foot's wrapper (+48 bytes; +86 on the film page).
 Guard: `me-has-the-pages-gutter.test.ts` (4) (5).
 
+**Release fix B — a named guest gets the one seat waiting state too.** The
+first build replaced each page's stranger branch only: as a named guest
+`/find-seat` still read "not set yet · You're on the list… No need to check
+back — this updates by itself" and `/seat` "Your seat is being arranged. On
+the day…". Before seats are shown, both now draw `SeatsShowOnTheDay` for a
+named guest as well (`/find-my-table` already did — its gate is asked before
+it looks up whose table it is). "No need to check back" stays where it is
+true: once seats are shown and this guest has no table yet. Also `/everyone`:
+"Check back closer to the day." gains "The date is still to be confirmed."
+on an event with no date (`withDayNote`). No golden moved.
+Guard: `seats-show-on-the-day.test.ts` (4) (5).
+
 SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
 2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
 face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG

@@ -296,24 +296,33 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
           "No need to check back — this updates by itself" (A4) is a promise. */}
       <LiveRefresher eventDate={event.event_date as string | null} />
       <RefreshOnReturn />
-      <YourSeat
-        firstName={firstName}
-        names={names}
-        occasionLine={occasionLine}
-        dayOf={dayOf}
-        doorsOpenLabel={doorsOpenLabel}
-        published={published}
-        tables={tables}
-        entrance={entrance}
-        table={table ? { table_id: table.table_id, table_label: table.table_label, capacity: table.capacity ?? null } : null}
-        mates={mates}
-        seatsOpen={table ? seatsStillOpen(table.capacity, mates.length) : 0}
-        venueHref={venueHref}
-        inviteHref={backHref}
-        slug={slug}
-        plural={words.twoPeople}
-        pass={pass}
-      />
+      {/* 🪑 ONE WAITING STATE, FOR EVERY VIEWER (owner 2026-10-11; the tester's walk as a named guest): before seats
+          are shown, a guest on the list read "You're on the list… No need to check back — this updates by itself"
+          here while the other two seat pages said to come back on the day. Now this page draws the same state a
+          stranger gets (`NotPostedYet` → `SeatsShowOnTheDay`). `YourSeat` is for once seats are shown — where "not
+          seated yet · this updates by itself" is true. */}
+      {published ? (
+        <YourSeat
+          firstName={firstName}
+          names={names}
+          occasionLine={occasionLine}
+          dayOf={dayOf}
+          doorsOpenLabel={doorsOpenLabel}
+          published={published}
+          tables={tables}
+          entrance={entrance}
+          table={table ? { table_id: table.table_id, table_label: table.table_label, capacity: table.capacity ?? null } : null}
+          mates={mates}
+          seatsOpen={table ? seatsStillOpen(table.capacity, mates.length) : 0}
+          venueHref={venueHref}
+          inviteHref={backHref}
+          slug={slug}
+          plural={words.twoPeople}
+          pass={pass}
+        />
+      ) : (
+        <NotPostedYet slug={slug} backHref={backHref} eventDate={event.event_date as string | null} />
+      )}
     </SeatFrame>
   );
 }

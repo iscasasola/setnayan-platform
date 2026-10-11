@@ -409,12 +409,11 @@ async function PersonalPass({
   // personal scan; no scan insert here.)
   const published = await guestsMaySeeSeatsFor(admin, event.event_id);
   if (!published) {
+    // 🪑 The one waiting state, for a named guest too (owner 2026-10-11) — this branch had a card of its own, with
+    // no word that an event with no date has no day yet.
     return (
       <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
-        <PromptCard
-          title="Your seat"
-          body={`Your seat is being arranged. On the day, your exact table and a map to it will appear right here.`}
-        />
+        <SeatsShowOnTheDay eventDate={event.event_date} />
       </SeatPassShell>
     );
   }

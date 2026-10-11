@@ -93,21 +93,33 @@ execFileSync(tsx, ['scripts/scrub-check-page.tsx', `${scratch}/scrub-cover-revea
 /* (16) THE REAL GUEST PAGE, written out for the fixture invitation — and the app's own stylesheet compiled for those
    pages alone (the pages above link `globals.css` raw, which carries the hub's rules and none of the utilities the
    real page is spaced with). */
-execFileSync(tsx, ['scripts/scrub-fixture-page.tsx', scratch, `${scratch}/scrub-island.js`], { cwd: WEB, stdio: 'pipe' });
+execFileSync(esbuild, [`${WEB}/scripts/scrub-check-door.tsx`, '--bundle', '--minify', '--format=iife', '--jsx=automatic', '--define:process.env.NODE_ENV="production"', `--outfile=${scratch}/scrub-door.js`], { cwd: WEB, stdio: 'pipe' });
+execFileSync(tsx, ['scripts/scrub-fixture-page.tsx', scratch, `${scratch}/scrub-island.js`, `${scratch}/scrub-door.js`], { cwd: WEB, stdio: 'pipe' });
 execFileSync(`${WEB}/node_modules/.bin/tailwindcss`, ['-i', 'app/globals.css', '-o', `${scratch}/fixture.css`, '--content', `${scratch}/fixture-*.html`], { cwd: WEB, stdio: 'pipe' });
 
 /* Before any page script: remember the browser's own scrolling, and count every way a script could take it over. */
 const WATCH = () => {
   const real = window.scrollTo.bind(window);
   window.__go = (y) => real(0, y);
-  window.__took = { scrollSet: 0, prevented: 0, listeners: [] };
+  /* `listeners`: every wheel / touch / key / non-passive scroll listener anything on the page adds — EXCEPT React's own
+     event delegation on a React root's container (any React page has it: `createRoot` marks the container, then puts
+     one listener per event on it). Those go to `delegated`, with whether each can hold the page back (not passive). */
+  window.__took = { scrollSet: 0, prevented: 0, listeners: [], delegated: [] };
   for (const k of ['scrollTo', 'scroll', 'scrollBy']) window[k] = () => { window.__took.scrollSet++; };
   Element.prototype.scrollIntoView = function () { window.__took.scrollSet++; };
   for (const proto of [Element.prototype, HTMLElement.prototype]) for (const k of ['scrollTop', 'scrollLeft']) { const d = Object.getOwnPropertyDescriptor(Element.prototype, k); if (d?.set) Object.defineProperty(proto, k, { ...d, set(v) { window.__took.scrollSet++; d.set.call(this, v); } }); }
   const pd = Event.prototype.preventDefault;
   Event.prototype.preventDefault = function () { if (/wheel|touch|scroll|pointer|key/.test(this.type)) window.__took.prevented++; return pd.call(this); };
   const add = EventTarget.prototype.addEventListener;
-  EventTarget.prototype.addEventListener = function (type, fn, opt) { if (/^(wheel|mousewheel|touchstart|touchmove|touchend|keydown)$/.test(type) || (type === 'scroll' && !(opt && typeof opt === 'object' && opt.passive))) window.__took.listeners.push(type); return add.call(this, type, fn, opt); };
+  EventTarget.prototype.addEventListener = function (type, fn, opt) {
+    const passive = Boolean(opt && typeof opt === 'object' && opt.passive);
+    if (/^(wheel|mousewheel|touchstart|touchmove|touchend|keydown)$/.test(type) || (type === 'scroll' && !passive)) {
+      const reactRoot = this instanceof Element && Object.keys(this).some((k) => k.startsWith('__reactContainer$'));
+      if (reactRoot) window.__took.delegated.push(`${type}${passive ? '' : ' (not passive)'}`);
+      else window.__took.listeners.push(type);
+    }
+    return add.call(this, type, fn, opt);
+  };
 };
 const SNAP = () => {
   const scenes = [...document.querySelectorAll('.hub-scene')].map((e) => {
@@ -194,7 +206,7 @@ for (const { size: [W, H], file, tag } of RUNS) {
   say(finished, `${size} every hand-over finished before the page ends (${end.scenes.filter((e) => e.holds).map((e) => `${e.n} ${e.pout}`).join(', ')}; last scene at ${end.scenes.at(-1).o})`);
   say(took.scrollSet === 0 && took2.scrollSet === 0, `${size} the script never set the scroll position (${took2.scrollSet})`);
   say(took2.prevented === 0, `${size} no default prevented (${took2.prevented})`);
-  say(took2.listeners.length === 0, `${size} no wheel / touch / key / non-passive scroll listener (${took2.listeners.join(',') || 'none'})`);
+  say(took2.listeners.length === 0 && took2.delegated.length === 0, `${size} no wheel / touch / key / non-passive scroll listener (${[...took2.listeners, ...took2.delegated].join(',') || 'none'})`);
   say(wheel > 300, `${size} a real wheel moved the page (${wheel}px)`);
   if (touch !== null) say(touch > 150, `${size} a real touch drag moved the page (${touch}px)`);
   if (pics) {
@@ -611,7 +623,7 @@ if (!ONLY || ONLY === '16') {
   /* Every box of the page, in page order — less the boxes a hand-over adds (`skip`), so the two pages line up. */
   const BOXES = () => {
     const ours = /^(?:hub-page-cell|hub-page-stage|hub-cover-cell|hub-cover|hub-cover-after)$/;
-    return [...document.querySelectorAll('main, main *')].filter((e) => !(e instanceof SVGElement && e.tagName !== 'svg') && e.tagName !== 'SCRIPT' && !ours.test(e.getAttribute('class') ?? '') && !/^hub-cover-after /.test(e.getAttribute('class') ?? '')).map((e) => { const r = e.getBoundingClientRect(); return `${e.tagName.toLowerCase()} ${Math.round(r.left * 100) / 100} ${Math.round((r.top + scrollY) * 100) / 100} ${Math.round(r.width * 100) / 100} ${Math.round(r.height * 100) / 100}`; });
+    return [...document.querySelectorAll('main, main *')].filter((e) => !(e instanceof SVGElement && e.tagName !== 'svg') && e.tagName !== 'SCRIPT' && !e.closest('[data-check-only]') && !ours.test(e.getAttribute('class') ?? '') && !/^hub-cover-after /.test(e.getAttribute('class') ?? '')).map((e) => { const r = e.getBoundingClientRect(); return `${e.tagName.toLowerCase()} ${Math.round(r.left * 100) / 100} ${Math.round((r.top + scrollY) * 100) / 100} ${Math.round(r.width * 100) / 100} ${Math.round(r.height * 100) / 100}`; });
   };
   /* THE SCROLL REVEAL'S IDEA OF A CHAPTER — the observer's own selector (`pahina-motion.tsx`), read with the reveal's
      flag on and NOTHING revealed yet: which boxes it would watch, and which of them the stylesheet hides until then. */
@@ -651,7 +663,7 @@ if (!ONLY || ONLY === '16') {
       after: box([...document.querySelectorAll('[data-hub-zlift]')].find((e) => e.getClientRects().length) ?? null), zrest: [...document.querySelectorAll('[data-hub-zrest]')].map((e) => e.getAttribute('data-hub-tab') ?? e.tagName.toLowerCase()),
       lifted: [...document.querySelectorAll('[data-hub-zlift]')].map((e) => e.getAttribute('data-hub-tab') ?? e.tagName.toLowerCase()),
       hiddenMarked: [...document.querySelectorAll('[hidden]')].filter((e) => [...e.attributes].some((a) => /^data-hub-z/.test(a.name))).length,
-      bar: { t: bar.getBoundingClientRect().top, marked: bar.hasAttribute('data-hub-zlift') },
+      bar: { t: bar.getBoundingClientRect().top, b: bar.getBoundingClientRect().bottom, marked: bar.hasAttribute('data-hub-zlift') },
       schedOut: Number(sched?.style.getPropertyValue('--hub-pout') || 0), sched: box(sched),
       all: [...document.querySelectorAll('main header[data-pahina-first-screen], [data-arrival-action], article > [data-hub-tab]')].filter((e) => e.getClientRects().length).map((e) => { const x = e.closest('.hub-cover') ?? e; const r = e.getBoundingClientRect(); const cs = getComputedStyle(x); return [Math.round(r.top), (cs.visibility === 'hidden' ? 0 : Number(cs.opacity)).toFixed(2)]; }),
       holds: [...document.querySelectorAll('.hub-page-cell')].map((c) => parseFloat(getComputedStyle(c, '::after').height) || 0),
@@ -698,6 +710,12 @@ if (!ONLY || ONLY === '16') {
     const place = stands ? Math.abs(heldAt - today.cover.t) < 0.6 && hold.every((f) => Math.abs(f.pout - f.s / out) < 0.02) : fits ? Math.abs((hold[0].cover.t + hold[0].cover.b) / 2 - H / 2) < 1.5 : Math.abs(hold[0].cover.b - H / 2) < 1.5;
     say(hold.length > 3 && hold.every((f) => Math.abs(f.cover.t - heldAt) < 0.6) && place && fwd.some((f) => f.pout >= 1 && f.cover.o === 0), `${size}: the page stands still while the cover builds out, and it completes — ${stands ? `held where it stands (${r(heldAt)}px), over 55 % of a screen from the first thumb travel` : `it cannot be seen whole from where it stands (${r(today.cover.t)}–${r(today.cover.b)} on ${H}px), so it is scrolled to its line first: ${fits ? `centred (${r(hold[0]?.cover.t)}–${r(hold[0]?.cover.b)})` : `its bottom on the centre line (${r(hold[0]?.cover.b)})`}`} (${hold.length} positions)`);
     say(hold.every((f) => Math.abs(f.bar.t) < 0.01), `${size}: the pinned top bar never moves`);
+    /* 🔝 THE NAMES ARE NEVER UNDER THE PINNED BAR (owner 2026-10-09, an open point: "the heading clipped at the top on
+       iPhone"). While the page is held for the cover and the cover can still be seen, the couple's names — the cover's
+       own heading — stand wholly below the bar. A cover too tall for the room is held by the ordinary rule (its bottom
+       on the centre line), which can put its top under the bar: this row says whether it does, in pixels. */
+    const clipped = hold.filter((f) => f.cover.o > 0.02 && f.names && f.names.t < f.bar.b - 0.5);
+    say(clipped.length === 0 && hold.length > 0 && hold.every((f) => f.names), `${size}: while the cover is held its names are never under the pinned top bar${clipped.length ? ` — UNDER IT at ${clipped.length} of ${hold.length} held positions: the names' top ${r(clipped[0].names.t)}px, the bar ends ${r(clipped[0].bar.b)}px (the cover ${r(coverH)}px tall on a ${H}px screen)` : ` (nearest ${r(Math.min(...hold.map((f) => f.names.t - f.bar.b)))}px below it)`}`);
     /* ⏸ NO "STUCK" STRETCH (owner 2026-10-09, an open point: a still stretch that read as stuck). While the page is
        held for the cover, SOMETHING a guest can see changes at every sampled position: the cover's fade, or the
        arrival's. The longest run of positions at which nothing changed is reported in pixels of thumb travel. */
@@ -736,21 +754,33 @@ if (!ONLY || ONLY === '16') {
     say(!calm.on && !calm.sticky && calm.off === 'reduce motion' && calm.cover.o === 1 && calm.row.o === 1 && Math.abs(calmLow.cover.t - (calm.cover.t - 200)) < 0.6 && calmLow.pout === 0, `${size}: with reduce motion the page is the plain page — nothing held, the cover scrolls away, and it says why ("${calm.off}")`);
   }
   /* 👆 A PHONE, BY TOUCH (375 × 812, a touch screen, a phone's viewport): a real finger drag moves the real page —
-     nothing prevented, the script never setting the scroll position — and that travel IS the cover's Build out:
-     the cover stays where it stood while it fades under the finger. */
+     nothing prevented, the script never setting the scroll position, nothing listening that COULD hold the finger
+     back — and that travel IS the cover's Build out: the cover stays where it stood while it fades under the finger,
+     built out exactly as far as the finger moved the page (55 % of a screen = all of it). The drag is slow and the
+     finger rests before it lifts — no fling — and it is SHORTER than the hold, so the cover is caught part-way. What
+     the check's own React root delegates (any React page has it: one listener per event on the root's container) is
+     read apart, and every touch / wheel one of those must be passive: a passive listener cannot stop a scroll. */
   {
     const [W, H] = [375, 812]; const ctx = await b.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
     await ctx.addInitScript(WATCH);
     const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140)));
     await p.goto(`file://${scratch}/fixture-cover.html`); await p.waitForTimeout(900);
     const before = await p.evaluate(SNAP16);
+    const out = Math.round(H * 0.55);
+    const stands = before.cover.t >= 0 && before.cover.b <= H - 24;
     const cdp = await ctx.newCDPSession(p);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 180, y: H - 160 }] });
-    for (let k = 1; k <= 10; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 180, y: H - 160 - k * 30 }] });
+    for (let k = 1; k <= 12; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 180, y: H - 160 - k * 20 }] }); await p.waitForTimeout(30); }
+    await p.waitForTimeout(400); /* the finger rests: nothing left to fling */
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await p.waitForTimeout(700);
     const after = await p.evaluate(SNAP16); const took = await p.evaluate(() => window.__took);
-    say(errs.length === 0 && before.on && before.pout === 0 && after.s > 150 && after.pout > 0.2 && after.pout < 1 && Math.abs(after.cover.t - before.cover.t) < 0.6 && took.scrollSet === 0 && took.prevented === 0 && took.listeners.length === 0, `${W}x${H} the real guest page, by touch: a real finger drag moved the page ${after.s}px with nothing prevented and no touch listener (${took.listeners.join(',') || 'none'}), and that travel built the cover out to ${Math.round(after.pout * 100)} % where it stood (${Math.round(before.cover.t)} → ${Math.round(after.cover.t)})${errs.length ? ` — ${errs[0]}` : ''}`);
+    /* (A finger's scroll can be held back only from `touchstart` / `touchmove` (or a wheel's): `touchend` comes after
+       the scroll it ends — React delegates it not passive, and it can cancel a tap's click, never a scroll.) */
+    const canHold = took.delegated.filter((x) => /^(touchstart|touchmove|wheel|mousewheel) /.test(x) && x.endsWith('(not passive)'));
+    say(errs.length === 0 && before.on && before.pout === 0 && stands && after.s > 120 && after.s < out && took.scrollSet === 0 && took.prevented === 0, `${W}x${H} the real guest page, by touch: a real finger drag of 240px moved the page ${after.s}px — inside the cover's ${out}px hold — with nothing prevented (${took.prevented}) and the scroll never set by a script (${took.scrollSet})${errs.length ? ` — ${errs[0]}` : ''}`);
+    say(took.listeners.length === 0 && canHold.length === 0, `${W}x${H} the real guest page, by touch: nothing on the page listens to touch, wheel or keys (${took.listeners.join(',') || 'none'}), and of React's own delegation on its root none that could hold a finger back (${canHold.join(',') || 'none'}; delegated: ${took.delegated.length})`);
+    say(Math.abs(after.pout - after.s / out) < 0.02 && after.pout > 0.2 && after.pout < 0.95 && Math.abs(after.cover.t - before.cover.t) < 0.6, `${W}x${H} the real guest page, by touch: that travel IS the Build out — ${Math.round(after.pout * 100)} % out for ${after.s}px of ${out}px (${Math.round((after.s / out) * 100)} %), the cover where it stood (${Math.round(before.cover.t)} → ${Math.round(after.cover.t)})`);
     if (pics) await p.screenshot({ path: `${pics}/c16-real-${W}x${H}-touch-drag-together.png` });
     await ctx.close();
   }
@@ -847,6 +877,9 @@ if (!ONLY || ONLY === '16') {
       const back = [await at(top.max)]; for (let y = top.max - (top.max % 16); y >= 0; y -= 16) back.push(await at(y));
       const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);
       say(hold.length > 3 && hold.every((f) => Math.abs(f.cover.t - hold[0].cover.t) < 0.6 && Math.abs(f.bar.t) < 0.01) && fwd.some((f) => f.pout >= 1 && f.cover.o === 0), `${size}: the page (and its pinned bar) stands still while the cover builds out, and it completes (${hold.length} positions, the cover at ${r(hold[0]?.cover.t)}px)`);
+      /* 🔝 The names never under the pinned bar while the cover is held (as on the guest's page, above). */
+      const clipped = hold.filter((f) => f.cover.o > 0.02 && f.names && f.names.t < f.bar.b - 0.5);
+      say(clipped.length === 0 && hold.length > 0 && hold.every((f) => f.names), `${size}: while the cover is held its names are never under the pinned top bar${clipped.length ? ` — UNDER IT at ${clipped.length} of ${hold.length} held positions: the names' top ${r(clipped[0].names.t)}px, the bar ends ${r(clipped[0].bar.b)}px (the cover ${r(today.cover.b - today.cover.t)}px tall on a ${H}px screen)` : ` (nearest ${r(Math.min(...hold.map((f) => f.names.t - f.bar.b)))}px below it)`}`);
       const seen = fwd.filter((f) => (f.zero.o > 0.02 || f.mate.o > 0.02) && f.pout < 1);
       say(seen.length > 0 && fwd.every((f) => Math.abs(f.zero.o - f.mate.o) < 0.011) && fwd.every((f) => !((f.zero.o > 0.02 || f.mate.o > 0.02) && f.pout < 0.79)), `${size}: the door and the Countdown arrive TOGETHER — one fade at every one of ${fwd.length} positions, not before the last 20 % (first seen with the cover ${seen[0] ? Math.round(seen[0].pout * 100) : '—'} % out; the unit ${seen[0] ? `${r(seen[0].zero.t)}–${r(seen[0].mate.b)}` : '—'}, the centre line ${H / 2})`);
       const whole = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && f.mate.o >= 0.99);
@@ -863,6 +896,39 @@ if (!ONLY || ONLY === '16') {
       if (pics) { for (const [name, pick] of [['0-opens', () => 0], ['2-door-arrives', () => fwd.find((f) => f.pout >= 0.9)?.s], ['3-arrived', () => whole?.s]]) { const y = pick(); if (y !== undefined) { await at(y); await p.screenshot({ path: `${pics}/c16-stranger-${kind === 'photo' ? 'photo-' : ''}${W}x${H}-${name}-together.png` }); } } }
       await ctx.close();
     }
+  }
+  /* 🚪📏 THE FIRST-SCREEN FIT AND A WRAPPED COVER, TOGETHER — main's fit (`first-screen-door.tsx`, a client island the
+     other pages here do not run): on a short screen TODAY's stranger cover closes up its air, shrinks its mark and draws
+     whole parts below "Get inside", so the door is whole on the first screen. Wrapped, the door is not in the cover's
+     flow — it is the arrival, drawn by the hand-over — so nothing the fit could give moves it: the fit must stand
+     aside, write nothing, and leave every box where the wrapped page draws it without the fit — and STAY still (a fit
+     that answered the hand-over's re-measure fed a loop: the page changed length every ~120 ms at 375 × 560). With
+     reduce motion the wrapped page is the plain page, the door back in the cover's flow: there the fit makes room
+     exactly as it does today, box for box. Played at a short phone and a very short one (375 × 560: the fit's every
+     lever in use today). */
+  const FIT = () => {
+    const door = document.querySelector('main details[data-get-inside]'); const scr = door.closest('[data-pahina-first-screen]'); const d = door.getBoundingClientRect();
+    return { armed: scr.hasAttribute('data-first-screen-fit'), written: [scr.style.getPropertyValue('--fs-air'), scr.style.getPropertyValue('--fs-mark')].filter(Boolean).length + document.querySelectorAll('[data-fs-shift]').length, doorT: d.top, doorB: d.bottom, rest: parseFloat(getComputedStyle(door).scrollMarginBottom) || 0 };
+  };
+  for (const [W, H] of [[375, 667], [375, 560]]) {
+    const size = `${W}x${H} the stranger's page with the first-screen fit running`;
+    const t = await open('fixture-stranger-today-fit.html', W, H); const tf = await t.p.evaluate(FIT);
+    if (pics) await t.p.screenshot({ path: `${pics}/c16-stranger-fit-${W}x${H}-today.png` });
+    await t.ctx.close();
+    say(t.errs.length === 0 && tf.armed && tf.written > 0 && tf.doorT >= 0 && tf.doorB <= H - tf.rest + 0.5, `${size}: TODAY the fit makes room — it writes its plan (${tf.written} values) and "Get inside" is whole on the first screen (${r(tf.doorT)}–${r(tf.doorB)}; the bottom bar's edge ${r(H - tf.rest)})${t.errs.length ? ` — ${t.errs[0]}` : ''}`);
+    const a = await open('fixture-stranger-cover.html', W, H); const c = await open('fixture-stranger-cover-fit.html', W, H);
+    const cf = await c.p.evaluate(FIT);
+    const top = await a.at(0); let differ = null; let n = 0; let held = null;
+    for (let y = 0; y <= top.max; y += 32) { await a.at(y); const f = await c.at(y); if (held === null && f.pout > 0.05) held = y; const [x, z] = [await a.p.evaluate(BOXES), await c.p.evaluate(BOXES)]; n++; const k = x.findIndex((v, i) => v !== z[i]); if (k >= 0 || x.length !== z.length) { differ = `${y}px: "${x[k]}" → "${z[k]}"`; break; } }
+    say(c.errs.length === 0 && cf.armed && cf.written === 0 && differ === null && n > 10, `${size}: WRAPPED the fit stands aside — armed, it writes nothing (${cf.written} values): every box stands where the wrapped page draws it without the fit, at all ${n} positions${differ ? ` — differs at ${differ}` : ''}${c.errs.length ? ` — ${c.errs[0]}` : ''}`);
+    await c.at(0); const lengths = new Set(); for (let i = 0; i < 20; i++) { lengths.add(await c.p.evaluate(() => `${Math.round(document.querySelector('main').getBoundingClientRect().height)} ${document.querySelectorAll('[data-fs-shift]').length}`)); await c.p.waitForTimeout(50); }
+    say(lengths.size === 1, `${size}: …and it stays still — one page length over a second at rest (${[...lengths].join(' · ')})`);
+    const tz = await open('fixture-stranger-today-fit.html', W, H, { reducedMotion: 'reduce' }); const todayCalm = await tz.p.evaluate(BOXES); await tz.ctx.close();
+    const cz = await open('fixture-stranger-cover-fit.html', W, H, { reducedMotion: 'reduce' }); const calm = await cz.p.evaluate(BOXES); const calmFit = await cz.p.evaluate(FIT); const calmOff = await cz.p.evaluate(() => document.querySelector('.hub-page-cell')?.getAttribute('data-hub-scrub-off') ?? null); await cz.ctx.close();
+    const k = todayCalm.findIndex((v, i) => v !== calm[i]);
+    say(calmOff === 'reduce motion' && calmFit.written > 0 && calmFit.doorB <= H - calmFit.rest + 0.5 && todayCalm.length === calm.length && k < 0, `${size}: with reduce motion the wrapped page is today's fitted page — the fit writes its plan (${calmFit.written} values), "Get inside" whole on the first screen (${r(calmFit.doorT)}–${r(calmFit.doorB)}), every one of ${calm.length} boxes where today's has it${k >= 0 ? ` — the first that differs: "${todayCalm[k]}" → "${calm[k]}"` : ''}`);
+    if (pics) { await c.at(0); await c.p.screenshot({ path: `${pics}/c16-stranger-fit-${W}x${H}-wrapped-0-opens.png` }); if (held !== null) { await c.at(held); await c.p.screenshot({ path: `${pics}/c16-stranger-fit-${W}x${H}-wrapped-1-held.png` }); } }
+    await a.ctx.close(); await c.ctx.close();
   }
 }
 /* 17. 🤝 TOGETHER (owner 2026-10-10, asked what should stand where the names built out — the RSVP button alone, or the

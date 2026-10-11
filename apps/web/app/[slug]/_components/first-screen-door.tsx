@@ -22,6 +22,17 @@ import { MARK_MIN, fitFirstScreen, layoutFirstScreen, type FitPlan, type FitSnap
  * Only the frameless card cover is fitted (`data-cover-frameless`). On any other
  * cover the door is simply in flow, as it always was. Draws nothing; without
  * script the page is the page as written.
+ *
+ * 🎚 WHILE THE COVER HANDS OVER BY SCRUB it stands aside (`handedOver`): the
+ * page's hold is armed (`data-hub-page-on`, `hub-scrub-engine.ts`), the door is
+ * no longer in the cover's flow — it is what ARRIVES when the cover has built
+ * out, drawn where the hand-over puts it — so there is no first screen to make
+ * room on, and nothing the fit gives could move it. Fitting anyway fed a loop:
+ * the fit shrank the cover, the hand-over re-measured and moved the door, the
+ * fit undid its plan, and so on — the page changed length every ~120 ms on a
+ * 375 × 560 screen (measured, Chromium). So, armed: nothing written, any plan
+ * taken back; when the hold is off again (reduce motion, the Reveal still up,
+ * no hand-over at all) it fits exactly as before. The arming is watched.
  */
 export function FirstScreenDoor() {
   const mark = useRef<HTMLSpanElement>(null);
@@ -100,10 +111,15 @@ export function FirstScreenDoor() {
     };
 
     let plan: FitPlan | null = null;
+    const handedOver = () => door.closest('[data-hub-page-on]') !== null;
     const fit = () => {
       if (screen.getBoundingClientRect().height === 0) return; // streamed in hidden, or another tab is showing
       const list = blocks();
       clear(list);
+      if (handedOver()) {
+        plan = null;
+        return;
+      }
       if (door.open && plan) {
         // An open door keeps the plan it opened on; only the distances follow its new height.
         set(plan.air, plan.mark);
@@ -151,12 +167,17 @@ export function FirstScreenDoor() {
     sized?.observe(screen);
     const banner = typeof MutationObserver === 'undefined' ? null : new MutationObserver(soon);
     banner?.observe(root, { attributes: true, attributeFilter: ['style'] });
+    // The cover's hand-over arming or standing down (the page's hold, when the cover is wrapped to leave by Scrub).
+    const hold = door.closest('.hub-page-cell');
+    const armed = hold && typeof MutationObserver !== 'undefined' ? new MutationObserver(soon) : null;
+    if (hold) armed?.observe(hold, { attributes: true, attributeFilter: ['data-hub-page-on'] });
     window.addEventListener('resize', soon);
     door.addEventListener('toggle', onToggle);
     void document.fonts?.ready.then(soon);
     return () => {
       sized?.disconnect();
       banner?.disconnect();
+      armed?.disconnect();
       if (frame) cancelAnimationFrame(frame);
       window.removeEventListener('resize', soon);
       door.removeEventListener('toggle', onToggle);

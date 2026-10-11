@@ -4,7 +4,7 @@
  * (read that file's docblock for what the render is and is not). Used by `scripts/scrub-browser-check.mjs` (16): the
  * cover as hand-over zero ON THE REAL PAGE'S OWN MARKUP — its groups, its chapters, its `space-y-12`, its pinned bar.
  *
- *   tsx scripts/scrub-fixture-page.tsx <out-dir> <island.js>
+ *   tsx scripts/scrub-fixture-page.tsx <out-dir> <island.js> <door.js>
  *
  * WRITES, into <out-dir> (every page is a Pro event: Scrub is an Event Hub Pro arrangement):
  *   fixture-today.html             the fixture page AS IT IS TODAY — the cover stored to leave by Scrub, "Scrub out"
@@ -22,6 +22,9 @@
  *                                  THE STRANGER'S TREE (the link and no key): the text-only cover, the door after it.
  *   fixture-stranger-photo-today.html · fixture-stranger-photo-cover-plain.html · fixture-stranger-photo-cover.html
  *                                  …and the stranger's photo cover: the last thing in the page's first group.
+ *   fixture-stranger-today-fit.html · fixture-stranger-cover-fit.html
+ *                                  the text-only stranger's page WITH THE FIRST-SCREEN FIT RUNNING (`first-screen-door.tsx`,
+ *                                  mounted by <door.js>): today's page as a short phone draws it, and the wrapped one.
  *
  * 🚪 THE DOOR. "Scrub out" is a constant and it is off; `SiteBody` takes no prop for it and this script must not need
  * one. So, FOR THIS PROCESS ONLY, the module that holds the constant is handed to the page with the constant read
@@ -62,18 +65,18 @@ const { renderSiteBodyFixtureFull } = require('../lib/site-body-fixture-render')
 const { fixtureStranger, fixtureWidgets, siteBodyFixtureProps } = require('../lib/site-body-fixture') as typeof import('../lib/site-body-fixture');
 const { LAB_SCRUB_COVER, LAB_SCRUB_SAMPLE } = require('../app/dev/maker-lab/lab-scrub') as typeof import('../app/dev/maker-lab/lab-scrub');
 
-const [outDir, island] = (() => {
-  const [, , dir, js] = process.argv;
-  if (!dir || !js) {
-    console.error('usage: tsx scripts/scrub-fixture-page.tsx <out-dir> <island.js>');
+const [outDir, island, doorJs] = (() => {
+  const [, , dir, js, door] = process.argv;
+  if (!dir || !js || !door) {
+    console.error('usage: tsx scripts/scrub-fixture-page.tsx <out-dir> <island.js> <door.js>');
     process.exit(2);
   }
-  return [dir, js] as const;
+  return [dir, js, door] as const;
 })();
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
-type Page = { file: string; offered: boolean; widgets: ReturnType<typeof fixtureWidgets>; activeTab?: string; noRow?: boolean; stranger?: 'text' | 'photo'; script: 'none' | 'island' | 'island-under-reveal' };
+type Page = { file: string; offered: boolean; widgets: ReturnType<typeof fixtureWidgets>; activeTab?: string; noRow?: boolean; stranger?: 'text' | 'photo'; script: 'none' | 'island' | 'island-under-reveal' | 'door' | 'island-and-door' };
 /** The fixture's guest with NO reply status: `resolveArrivalAction` has nothing to say to them, so no row is drawn.
  *  ⚠ A state the guest row's own type does not allow (`rsvp_status` is never null there) — forced here on purpose, as
  *  the one way to draw the guest tree with nothing after its cover: the page must not fade its cover to nothing even
@@ -101,6 +104,8 @@ const PAGES: Page[] = [
   { file: 'fixture-stranger-photo-today.html', offered: false, widgets: cover(), stranger: 'photo', script: 'none' },
   { file: 'fixture-stranger-photo-cover-plain.html', offered: true, widgets: cover(), stranger: 'photo', script: 'none' },
   { file: 'fixture-stranger-photo-cover.html', offered: true, widgets: cover(), stranger: 'photo', script: 'island' },
+  { file: 'fixture-stranger-today-fit.html', offered: false, widgets: cover(), stranger: 'text', script: 'door' },
+  { file: 'fixture-stranger-cover-fit.html', offered: true, widgets: cover(), stranger: 'text', script: 'island-and-door' },
 ];
 
 async function main() {
@@ -116,7 +121,9 @@ async function main() {
     const scripts =
       page.script === 'none'
         ? ''
-        : `${page.script === 'island-under-reveal' ? `<script>document.documentElement.setAttribute('data-reveal-up', '');</script>` : ''}<script src="file://${island}"></script>`;
+        : page.script === 'door'
+          ? `<script src="file://${doorJs}"></script>`
+          : `${page.script === 'island-under-reveal' ? `<script>document.documentElement.setAttribute('data-reveal-up', '');</script>` : ''}<script src="file://${island}"></script>${page.script === 'island-and-door' ? `<script src="file://${doorJs}"></script>` : ''}`;
     writeFileSync(
       join(outDir, page.file),
       `<!doctype html><html lang="en"><head><meta charset="utf8"><meta name="viewport" content="width=device-width, initial-scale=1">

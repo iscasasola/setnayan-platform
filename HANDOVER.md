@@ -19,19 +19,43 @@ Report of the round before the join: head `efa2926b3` (see `changelog.d/rd-c-gue
    named like the lib's `stageShowsEntourage`; 3 pins re-aimed with reasons); the photos door const is `myPhotosHref`
    (so the screens map still sees the door); `lib/ugat/screens.generated.json` regenerated — 1 entry moved (`/[slug]`
    gains a redirect door from `seat/page.tsx`). `node scripts/preflight.mjs --only guards` → 43 pass.
-4. **Checks** — FULL TSC rc 0 on head f727888e4 (`.next` removed first, 8192 MB). Sweep + preflight still QUEUED/RUNNING in a detached script (scratchpad `c-join.sh` → `c-join.log`): `rm -rf apps/web/.next`
-   + full tsc (8192 MB) → `j-tsc.out`; sweep of 710 files (my tests + all 162 `app/[slug]` tests + Maker neighbours)
-   → `j-sweep.out`; the WHOLE `pnpm preflight` → `j-preflight.out`. Each under its own hold of the heavy lock.
-   If the scratchpad is gone, rerun by hand: from `apps/web`,
-   `NODE_OPTIONS=--max-old-space-size=8192 ../../node_modules/.bin/tsc --noEmit`, then from the root `pnpm preflight`.
-5. **Lab walk 375×812** — NOT RUN. Script ready in the scratchpad (`j-lab.sh` + `j-shots.mjs`, pictures `joined-…` into
-   `controller-2026-10-08/batch-c/guests-see/`, notes `joined-notes.json`).
+4. **Checks** — HALF-DONE (stopped at the account limit, 2026-10-12).
+   - DONE: full tsc rc 0 on head f727888e4 (`apps/web/.next` removed first, 8192 MB heap); `node scripts/preflight.mjs
+     --only guards` → 43 pass; my own test files green on the merged tree (fixed-rows-are-real-boxes,
+     a-hidden-part-closes-its-doors, guests-see-table, the-guests-see-sheet-is-lazy, lab-draft, maker-part-groups,
+     each-stage-does-one-job, a-fixed-block-has-its-own-motion, a-guests-pages-are-filed-like-the-makers,
+     each-guest-page-has-one-main-action).
+   - NOT RUN: the sweep (my tests + all 162 `app/[slug]` tests + Maker neighbours, 710 files) and the WHOLE
+     `pnpm preflight`. Both were queued behind the heavy lock and never got their turn; I left the line.
+5. **Lab walk 375×812** — NOT RUN. No `joined-…` picture exists.
 
-## Next (do in this order)
+Nothing of mine is running; I do not hold the heavy lock and am not in its line; `apps/web/.next` is removed.
 
-- Read the three outputs of step 4; fix what the join broke (never weaken a guard); commit.
-- Run the lab walk (step 5) under the heavy lock; LOOK at each picture.
-- Reply to the coordinator: head sha; conflicts → how resolved; the two cells; `/seat`; checks; walk; not verified.
+## Half-done, by file + symbol
+
+- Nothing is half-written in code: every commit is a whole step and the tree is clean.
+- UNPROVEN after the join (code written, checks not run): `app/[slug]/seat/page.tsx` (the two `partDoorHidden(…, 'seat')`
+  gates), `app/[slug]/_lib/part-door.server.ts` (`hiddenPartDoors` now reads through `guestRead`),
+  `app/[slug]/_components/site-body.tsx` (`entourageShownOn`), `app/[slug]/page.tsx` (`myPhotosHref`),
+  `lib/guests-see-build.ts` (`FIXED.live.cols = 'XLBBB'`). tsc is green for all of them; only the wide sweep and the
+  whole preflight have not seen them.
+
+## The next three steps
+
+1. Under the heavy lock, from `apps/web`: run the sweep — every `app/[slug]/**/*.test.ts` plus the tests that name
+   `site-body`, `maker-scene-list`, `guests-see`, `hub-draft`, `what-guests-see`, `stage-scenes`, `part-door`,
+   `seat/page` (`../../node_modules/.bin/tsx --test --test-concurrency=3 <files>`; bracketed paths as `[[]slug[]]`;
+   NEVER an empty list). Then from the root: `pnpm preflight`. Fix what fails; never weaken a guard. Commit.
+2. Lab walk at 375×812 (`/dev/maker-lab?studio=1`, own dev server on a free port, stop it by its own PID): the table
+   (six box rows; Live × Save the Date a dash; Your seat ticked ×4), untick E-Gifts × Invitation → Apply → the
+   Invitation canvas loses `f:gifts`; publish with ✓; the Studio row's status; the RSVP fold; Remove Countdown on the
+   canvas → its box unticks → ＋ offers it back. Pictures `joined-…` into
+   `controller-2026-10-08/batch-c/guests-see/`. LOOK at each picture.
+3. Reply to the coordinator (head sha; conflicts → none, how the join was reconciled; the two cells; `/seat`; checks;
+   walk; not verified). Tell them plainly: (a) Live × Save the Date is a dash but a stream on air is still drawn
+   there (owner 2026-09-02, the player follows the broadcast) and cannot be unticked; (b) Your seat stays ticked on
+   Save the Date and Post Event because unticking by default would hide what a guest sees today; (c) sub-pages and
+   the hub were never opened in a browser; (d) at 1280 the table has no door (`lg:hidden` bar).
 
 ## Rules that bit before
 

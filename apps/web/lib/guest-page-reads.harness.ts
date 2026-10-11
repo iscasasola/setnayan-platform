@@ -89,13 +89,26 @@ function resetCount() {
   returned = 0;
 }
 
+/** `GUEST_PAGE_READS_WHO=1` — name who sent each request (the app's own frames), for whoever is cutting reads. */
+function whoAsked(): string {
+  const holder: { stack?: string } = {};
+  Error.stackTraceLimit = 60;
+  Error.captureStackTrace(holder);
+  return (holder.stack ?? '')
+    .split('\n')
+    .filter((l) => /apps\/web\/(lib|app)\//.test(l) && !/guest-page-reads\.harness|db-error-log|read-limit/.test(l))
+    .slice(0, 4)
+    .map((l) => l.replace(/^\s*at (async )?/, '').replace(/\(?[^() ]*apps\/web\//, '(').replace(/:\d+\)?$/, ')'))
+    .join(' ← ');
+}
+
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = new URL(typeof input === 'string' || input instanceof URL ? String(input) : input.url);
   const table = url.pathname.replace(/^\/rest\/v1\//, '');
   const select = url.searchParams.get('select') ?? '';
   const step = returned + 1;
   const what = table === 'events' ? `events(${select.split(',').slice(0, 2).join(',')}${select.split(',').length > 2 ? ',…' : ''})` : table;
-  sent.push({ step, what });
+  sent.push({ step, what: process.env.GUEST_PAGE_READS_WHO ? `${what}  ← ${whoAsked()}` : what });
   await new Promise((r) => setTimeout(r, 3));
   returned = Math.max(returned, step);
   const method = init?.method ?? 'GET';

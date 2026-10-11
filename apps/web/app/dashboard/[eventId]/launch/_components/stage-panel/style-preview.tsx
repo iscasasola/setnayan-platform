@@ -29,6 +29,20 @@ import { styleCardFit } from '@/lib/maker-stage-room';
 
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
 
+/**
+ * 🧯 A CARD THAT CAN BE SEEN — the only kind that asks for its miniature. A miniature is a whole server render of the
+ * guest page, and a hidden iframe still loads: the look body waits under Edit with `visibility:hidden`
+ * (`stage-tools.tsx`), so every card of a picked part was rendered although the couple never opened Style —
+ * measured 2026-10-11, 11 of the 22 guest-page renders of one Maker session (`MAKER-WHO-ASKS.md`). In sight = laid
+ * out (`display:none` has no box) and not hidden; how near the screen it is, is the caller's IntersectionObserver.
+ */
+export function styleCardInSight(el: Element, view: Pick<Window, 'getComputedStyle'> = window): boolean {
+  return el.getClientRects().length > 0 && view.getComputedStyle(el).visibility !== 'hidden';
+}
+/** What `visibility`-hides the look body (`stage-tools.tsx`'s rules read these on `[data-stage-tools]`) — a change is
+ *  when a waiting card looks again. A `display:none` that lifts gives the card a box, which its observer is told of. */
+const SIGHT_ATTRIBUTES = ['data-stage-tool-now', 'data-stage-edit-own', 'data-stage-edit-card', 'data-stage-own-rows', 'aria-hidden'];
+
 /** The canvas's own address → the same page, one part, one style. Null: no canvas to read yet. */
 export function stylePreviewSrc(canvasSrc: string, canvasKey: string, sceneType: string, styleId: string, origin: string): string | null {
   try {
@@ -124,9 +138,41 @@ export function StylePreview({
   onDrawn?: (shape: { w: number; h: number }) => void;
 }) {
   const canvas = useCanvasSrc();
-  const src = canvas && canvasKey ? stylePreviewSrc(canvas.src, canvasKey, sceneType, styleId, window.location.origin) : null;
-  const width = canvas?.width ?? 375;
   const box = useRef<HTMLSpanElement>(null);
+  /* 🧯 Asked for once — the first moment the card is near the screen (`rootMargin`: the strip's next card) AND in
+     sight (`styleCardInSight`). Never un-asked: a card drawn stays drawn when Edit hides it again. */
+  const [asked, setAsked] = useState(false);
+  useEffect(() => {
+    const b = box.current;
+    if (asked || !b) return;
+    const look = () => {
+      if (styleCardInSight(b)) setAsked(true);
+    };
+    if (typeof IntersectionObserver === 'undefined') {
+      look();
+      return;
+    }
+    let near = false;
+    const io = new IntersectionObserver(
+      (es) => {
+        near = es.some((e) => e.isIntersecting);
+        if (near) look();
+      },
+      { rootMargin: '0px 96px' },
+    );
+    io.observe(b);
+    /* Showing the look body moves no box, so the observer above is not told: the toolbar's state is watched instead. */
+    const mo = new MutationObserver(() => {
+      if (near) look();
+    });
+    mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: SIGHT_ATTRIBUTES });
+    return () => {
+      io.disconnect();
+      mo.disconnect();
+    };
+  }, [asked]);
+  const src = asked && canvas && canvasKey ? stylePreviewSrc(canvas.src, canvasKey, sceneType, styleId, window.location.origin) : null;
+  const width = canvas?.width ?? 375;
   const frame = useRef<HTMLIFrameElement>(null);
   const [fit, setFit] = useState<{ k: number; x: number; y: number; h: number } | null>(null);
   /** The part's box on its page, and the page's own ground — kept so the fit is worked out again when the card changes size. */

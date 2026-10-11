@@ -4,7 +4,7 @@
 
 | Step | State |
 |---|---|
-| `preflight --only tree,db` | ⏳ queued under the heavy lock (label `speed-guest`) — result below when it lands |
+| `preflight --only tree,db` | ✅ ran on `9ada4abb0`: 403 of 404 whole-tree guard files PASS, 27 DB source-scan files (175 tests) PASS, ONE red — `app/[slug]/_lib/the-first-arrival-is-not-a-return.test.ts` read only the awaiting block after round 4 moved the `scan_events` read into `readFirstScan` (started ahead). Re-pointed in `e4c1ffa29` (holds the block AND the read; sabotage “newest scan” → red) |
 | `InviteEnterBody` side by side | ✅ `4fd871ece` — ten reads started at the top of the body, each awaited where it was. Guard: section 2b of `lib/the-guest-page-starts-its-reads-together.test.ts`, sabotaged red 4 ways (read asked again in place · a write started ahead · a start never awaited · the canvas asked) |
 | The guest's second render (`GuestPreload` → sw `PRELOAD_ASSETS`) | ✅ the `guest-preload.tsx` half, `ac36157d5`: `/<slug>` is not re-fetched when `performance`'s navigation entry says THIS document came through the worker (`workerStart > 0`) as exactly `/<slug>` (no query) — the worker's network-first guest branch already cached it. Any other arrival still warms it. Test `app/[slug]/_components/guest-preload.test.ts` (3), sabotaged red 3 ways. `public/sw.js` NOT touched (owned by `rd/maker-asks-once` this round) — no sw hunk is needed for this cut |
 | whole `pnpm preflight` · draft PR | pending |

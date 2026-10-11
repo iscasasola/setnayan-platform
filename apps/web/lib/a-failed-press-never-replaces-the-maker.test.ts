@@ -17,6 +17,7 @@
  *      — or returned promise — in a function given to a transition is caught: in a `try/catch` that does not rethrow,
  *      by a `.catch(…)` on the expression, or by a function that never rejects (`lib/transition-await-scan.ts`).
  *      What is still open is in `STILL_OPEN` below, by file, with a ceiling and the reason — it may only go down.
+ *      (One file is left there; it belongs to another branch.)
  *   2. Every call to a Maker save door (`makerSave` · `makerRedrawSave`) — each REJECTS when the request never
  *      answered — has its rejection taken where it is written, or sits in a function named in `CAUGHT_BY_THE_CALLER`
  *      with the place that catches it.
@@ -26,7 +27,7 @@
  *
  * ── NOT CLAIMED (so a green is not over-read) ───────────────────────────────────────────────────────────────────────
  *   · A plain `<form action={serverAction}>` post: React runs it in a transition of its own and there is no `await`
- *     in our source to find. The Maker still has such forms; a post that never answers is NOT covered by this file.
+ *     in our source to find. Those are held by `lib/a-bare-form-post-never-replaces-the-maker.test.ts` (`SafeForm`).
  *   · That the catch SAYS something. A silent `catch {}` passes here; the words are each component's own test.
  *   · Anything outside the Maker's reach — the guest list, seating on its own page, the supplier pages.
  *   · That a request really fails this way on a phone. This reads source; the failure was measured once, by hand, on
@@ -111,22 +112,12 @@ const answers = new Set(Object.keys(ANSWERS));
  * 🧾 STILL OPEN — presses the Maker can reach whose request, unanswered, still takes the screen. Each number is a
  * CEILING (fewer passes; more fails), so a fix on another branch never turns this red.
  *
- * None of these is in the Maker's own two folders. Each is another tool's component the Maker mounts in a panel:
+ * Round 2 (2026-10-11) closed every tool listed here in round 1 — the seating plan's 31 presses (`runGated` answers
+ * now), the floor plan's Save, the checkout drawer, the schedule's Announce, the Mood Board's remove-a-photo and the
+ * Save the Date's launch · schedule · cancel. ONE entry is left, and it is another builder's file:
  */
 const STILL_OPEN: Record<string, { ceiling: number; why: string }> = {
-  [`${EVENT}/seating/_components/seating-editor.tsx`]: {
-    ceiling: 31,
-    why: 'The seating plan (its own tool, drawn in a Maker panel). Every press goes through `runGated`, which rethrows; the plan has no line to say a failed move in. Its own piece of work.',
-  },
-  [`${EVENT}/studio/indoor-blueprint/_components/blueprint-studio.tsx`]: { ceiling: 1, why: 'The floor plan’s Save, inside the seating tool — with it.' },
-  [`${EVENT}/_components/inline-checkout-drawer.tsx`]: {
-    ceiling: 2,
-    why: 'The checkout drawer (voucher · place order). A payment press needs its own honest words — an order whose answer was lost may have been placed.',
-  },
   [`${EVENT}/guests/_components/send-invite.tsx`]: { ceiling: 2, why: 'The guest list’s Mark as sent and invite message — being fixed on the guest-list branch (rd/c-requests-never-crash).' },
-  [`${EVENT}/schedule/_components/announce-button.tsx`]: { ceiling: 1, why: 'The schedule’s Announce — it sends a notice to people; a retry must not send it twice. Its own piece.' },
-  [`${EVENT}/studio/mood-board/_components/inspiration-board.tsx`]: { ceiling: 1, why: 'The Mood Board’s remove-a-photo.' },
-  [`${EVENT}/studio/save-the-date/_components/launch-std-button.tsx`]: { ceiling: 3, why: 'Launch · schedule · cancel the Save the Date — guest-facing sends, each its own honest line.' },
 };
 
 const FOUND = SCOPE.map((file) => ({ file, awaits: scanTransitionAwaits(file, read(file), { answers }) })).filter((f) => f.awaits.length > 0);

@@ -12,6 +12,7 @@ import { sceneOnStage } from '@/lib/what-guests-see';
 import {
   LAB_APPLY_MESSAGE,
   LAB_BAR_COOKIE,
+  LAB_NAMES_COOKIE,
   LAB_OWN_COOKIE_KEYS,
   LAB_ROWS_COOKIE,
   labBarFromCookie,
@@ -20,6 +21,7 @@ import {
   labDraftFrom,
   labDraftStep,
   labDraftedRows,
+  labNamesFrom,
   labRenderedSummary,
   labPublishedFrom,
   labRows,
@@ -408,6 +410,18 @@ test('↺ answers with its own count: asked, Undo and Reset return the bar of th
   /* Not asked: no bar, as before. */
   const quiet = labDraftStep(d, { intent: 'undo' }, false);
   assert.ok(quiet.result.ok && quiet.result.bar === undefined);
+});
+
+test('the lab’s cover draws the DRAFTED names — and the sample’s again once they are taken back', () => {
+  const typed = labDraftStep(emptyHubDraft(), { intent: 'save', patch: JSON.stringify({ events: { display_name: 'Bolognese' } }) }, false).draft;
+  const c = labDraftCookies(typed, false);
+  assert.equal(labNamesFrom(c[LAB_NAMES_COOKIE] ?? undefined, 'Maria & Jose'), 'Bolognese');
+  const two = labDraftStep(typed, { intent: 'save', patch: JSON.stringify({ events: { display_name: 'Bolognese & Pasta' } }) }, false).draft;
+  assert.equal(labNamesFrom(labDraftCookies(two, false)[LAB_NAMES_COOKIE] ?? undefined, 'Maria & Jose'), 'Bolognese & Pasta');
+  const back = labDraftStep(labDraftStep(two, { intent: 'undo' }, false).draft, { intent: 'undo' }, false).draft;
+  assert.equal(labDraftCookies(back, false)[LAB_NAMES_COOKIE], null);
+  assert.equal(labNamesFrom(undefined, 'Maria & Jose'), 'Maria & Jose');
+  assert.equal(labNamesFrom('%E0%A4%A', 'Maria & Jose'), 'Maria & Jose', 'a cookie that cannot be read is drawn');
 });
 
 /* ── wiring: the lab's shell and pages really go through this file ─────────────────────────────────────────────── */

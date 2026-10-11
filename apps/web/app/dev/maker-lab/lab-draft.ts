@@ -263,6 +263,22 @@ export function labDraftFrom(stored: string | null | undefined): HubDraft {
 export const LAB_ROWS_COOKIE = 'lab_rows';
 /** The draft's summary as the lab's "server" reports it on a render (P05: it reported 0, always). */
 export const LAB_BAR_COOKIE = 'lab_bar';
+/**
+ * ✍ The drafted Names (`events.display_name`), for the canvas's cover. The lab's cover drew the sample's "Maria & Jose"
+ * whatever was typed, so the owner's case — a cover DRAWN for one name, then two typed into it — could not be walked
+ * here (2026-10-11: "it did not make the secondary font").
+ */
+export const LAB_NAMES_COOKIE = 'lab_names';
+/** The names the lab's cover draws: the drafted line, else the sample's. */
+export function labNamesFrom(value: string | undefined, sample: string): string {
+  if (!value) return sample;
+  try {
+    const typed = decodeURIComponent(value).trim();
+    return typed && typed.length <= 200 ? typed : sample;
+  } catch {
+    return sample;
+  }
+}
 
 const json = (v: unknown) => encodeURIComponent(JSON.stringify(v));
 /**
@@ -306,6 +322,7 @@ export function labDraftCookies(draftOnly: HubDraft, scrub: boolean, published: 
     lab_blocks: prefs?.block_looks && typeof prefs.block_looks === 'object' ? json(prefs.block_looks) : null,
     [LAB_EDITORIAL_COOKIE]: draft.editorial && some(draft.editorial) ? json(draft.editorial) : null,
     [LAB_BAR_COOKIE]: bar.hasChanges || bar.canUndo ? json({ n: bar.changeCount, pro: bar.proCount, undo: bar.canUndo }) : null,
+    [LAB_NAMES_COOKIE]: typeof draft.events.display_name === 'string' && draft.events.display_name.trim() ? encodeURIComponent(draft.events.display_name) : null,
   };
 }
 

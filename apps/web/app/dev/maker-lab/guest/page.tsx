@@ -43,7 +43,7 @@ import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
 import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette } from './lab-sample';
 import { LabStagePages } from './lab-stage';
-import { LAB_ROWS_COOKIE, labDraftedRows } from '../lab-draft';
+import { LAB_NAMES_COOKIE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom } from '../lab-draft';
 import { labSeen, labStageTiles } from '../lab-navigator';
 import { sceneOnStage } from '@/lib/what-guests-see';
 import type { WidgetType } from '@/lib/invitation-widgets';
@@ -266,9 +266,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      colour, size and motion, the design picked. The lab's masthead read none of it, so a typed Title was gone at the
      next reload — and an Undo of it could not be seen (the walk of 2026-10-11, P01 · P05). */
   const heroCanvas = heroCanvasOf([rowOf('hero')] as never);
+  /* ✍ The cover draws the DRAFTED names, as the real canvas does — so a cover drawn for one name can be typed into. */
+  const labNames = labNamesFrom((await cookies()).get(LAB_NAMES_COOKIE)?.value, LAB_SAMPLE.names);
   const masthead = (
     <PahinaMasthead
-      displayName={LAB_SAMPLE.names}
+      displayName={labNames}
       eventDate={LAB_SAMPLE.date}
       venueName={LAB_SAMPLE.venueLine}
       eyebrow={LAB_SAMPLE.openingLine}

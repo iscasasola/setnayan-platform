@@ -123,7 +123,9 @@ test('P07 — one sample event: Studio’s pages say the canvas’s date, venue,
   /* The Maker lab always asks for that shape… */
   assert.match(read('maker-lab', 'page.tsx'), /detailsLabNode\(\{ \.\.\.sp, shape: 'mj'/);
   /* …and the canvas and the Look sample draw the same facts. */
-  assert.match(GUEST, /displayName=\{LAB_SAMPLE\.names\}\s*eventDate=\{LAB_SAMPLE\.date\}\s*venueName=\{LAB_SAMPLE\.venueLine\}/);
+  /* (The names are the sample's until some are typed: the cover draws the drafted line — `labNamesFrom`.) */
+  assert.match(GUEST, /const labNames = labNamesFrom\(\(await cookies\(\)\)\.get\(LAB_NAMES_COOKIE\)\?\.value, LAB_SAMPLE\.names\);/);
+  assert.match(GUEST, /displayName=\{labNames\}\s*eventDate=\{LAB_SAMPLE\.date\}\s*venueName=\{LAB_SAMPLE\.venueLine\}/);
   assert.match(read('maker-lab', 'maker-lab-shell.tsx'), /words: \{ names: LAB_SAMPLE\.names, date: LAB_SAMPLE\.dateLabel, line: LAB_SAMPLE\.venue \}/);
   assert.equal(new Date(`${LAB_SAMPLE.date}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }), LAB_SAMPLE.dateLabel);
   assert.ok(LAB_SAMPLE.venueLine.startsWith(LAB_SAMPLE.venue));

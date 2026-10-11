@@ -46,6 +46,8 @@ export async function renderGuestsScreen(opts: {
   guests: GuestRow[];
   measured?: boolean;
   gview?: 'list' | 'map' | 'share';
+  /** The "we couldn't load your groups / tables" sentence (`lib/guest-list-unread.ts`). */
+  notLoaded?: string | null;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
@@ -63,6 +65,7 @@ export async function renderGuestsScreen(opts: {
           gview: opts.gview ?? 'list',
           guests: opts.guests,
           measured: opts.measured ?? true,
+          notLoaded: opts.notLoaded ?? null,
           hasSides: true,
           groupsByGuest: {},
           groups: [],

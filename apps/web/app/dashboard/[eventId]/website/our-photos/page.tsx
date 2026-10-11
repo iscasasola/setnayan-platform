@@ -15,6 +15,7 @@ import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 export const metadata = { title: 'Photos you add' };
 
@@ -138,7 +139,7 @@ export default async function OurPhotosEditorPage({
         ) : null}
       </div>
 
-      <form action={updateAction} className="space-y-4">
+      <SafeForm action={updateAction} className="space-y-4">
         {!proActive ? (
           <>
             {/* To the draft — and back here, where the couple pressed Save. */}
@@ -162,7 +163,7 @@ export default async function OurPhotosEditorPage({
           help={`JPG, PNG, or WebP. Up to 10 MB each · up to ${formatCount(MAX_PHOTOS)} photos. Drag to add more; remove any you don't want before saving.`}
         />
         <SubmitButton pendingLabel="Saving…" className="button-primary">Save gallery</SubmitButton>
-      </form>
+      </SafeForm>
     </section>
   );
 }

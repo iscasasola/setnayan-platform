@@ -173,6 +173,10 @@ type Props = {
  */
 type EditableField = ConflictField | 'ceremony_venue';
 
+/** 📵 What a row says when its request never answered (no signal, a 5xx) — the row stays open with the value in it. */
+const NOT_SAVED = 'That did not save. Please try again.';
+const NOT_CHECKED = 'We could not check your booked suppliers just now. Please try again.';
+
 /** Does this field run the booked-vendor conflict preview before saving? */
 function hasConflictPreview(field: EditableField): field is ConflictField {
   return field !== 'ceremony_venue';
@@ -253,9 +257,16 @@ export function GovernedFields({
       // Keep the current primary; only the overlay changes.
       fd.set('ceremony_type', ceremony);
       fd.set('secondary_ceremony_type', next ? CHINESE_SECONDARY_KEY : '');
-      const res = await setEventCeremonyType(fd);
-      if (!res.ok) {
-        setOverlayError(res.message);
+      /* 📵 A request that never answered is SAID in the row — thrown into this transition it replaced the whole page
+         (and, in the Maker, the whole Maker) with the app's error screen. */
+      let res: Awaited<ReturnType<typeof setEventCeremonyType>> | null;
+      try {
+        res = await setEventCeremonyType(fd);
+      } catch {
+        res = null;
+      }
+      if (!res?.ok) {
+        setOverlayError(res?.message ?? NOT_SAVED);
         return;
       }
       setOverlaySaved(true);
@@ -300,8 +311,18 @@ export function GovernedFields({
     setSavedField(null);
   }, [proposal]);
 
+  /* 📵 Returns an error message, or null on success — and NEVER throws: a request that did not answer (no signal, a
+     5xx) is a message like any other refusal. Every caller awaits this inside a transition, where a throw replaced
+     the whole page (and, in the Maker, the whole Maker) with the app's error screen. */
   async function applyField(field: EditableField, value: string): Promise<string | null> {
-    // returns an error message, or null on success
+    try {
+      return await sendField(field, value);
+    } catch {
+      return NOT_SAVED;
+    }
+  }
+
+  async function sendField(field: EditableField, value: string): Promise<string | null> {
     const fd = new FormData();
     fd.set('event_id', eventId);
     if (field === 'ceremony') {
@@ -389,7 +410,16 @@ export function GovernedFields({
       fd.set('event_id', eventId);
       fd.set('field', field);
       fd.set('proposed_value', value);
-      const res = await previewPersonalizationConflicts(fd);
+      let res: Awaited<ReturnType<typeof previewPersonalizationConflicts>> | null;
+      try {
+        res = await previewPersonalizationConflicts(fd);
+      } catch {
+        res = null; // 📵 did not answer — said below, never thrown into the transition
+      }
+      if (!res) {
+        setError(NOT_CHECKED);
+        return;
+      }
       if (!res.ok) {
         setError(res.message);
         return;
@@ -442,8 +472,13 @@ export function GovernedFields({
       pf.set('event_id', eventId);
       pf.set('field', field);
       pf.set('proposed_value', value);
-      const res = await previewPersonalizationConflicts(pf);
-      if (res.ok) setConflicts(res.conflicts);
+      /* 📵 The service IS removed; a re-check that did not answer leaves the list as it was, and says so. */
+      try {
+        const res = await previewPersonalizationConflicts(pf);
+        if (res.ok) setConflicts(res.conflicts);
+      } catch {
+        setError(NOT_CHECKED);
+      }
       router.refresh();
     });
   }

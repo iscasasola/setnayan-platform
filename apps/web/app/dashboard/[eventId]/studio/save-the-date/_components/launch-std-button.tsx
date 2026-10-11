@@ -67,6 +67,20 @@ function toManilaInputValue(d: Date): string {
   return `${p.year}-${p.month}-${p.day}T${hour}:${p.minute}`;
 }
 
+/**
+ * 📵 A press that never answered is a REFUSAL, never a throw. Each of the three presses below awaits its action
+ * inside a transition, where a rejection (no signal, a 5xx) replaced the whole page with the app's error screen.
+ * This hands back `{ ok: false }` instead — the shape every refusal of these actions already has — so each press
+ * says its own existing "Could not … — please try again." and changes nothing on screen.
+ */
+async function answered<T extends { ok: boolean; error?: string }>(send: () => Promise<T>): Promise<T | { ok: false; error?: undefined; scheduledAtIso?: undefined }> {
+  try {
+    return await send();
+  } catch {
+    return { ok: false };
+  }
+}
+
 export function LaunchStdButton({
   eventId,
   slug,
@@ -92,10 +106,16 @@ export function LaunchStdButton({
   function doLaunch() {
     setError(null);
     start(async () => {
-      const res = await save.run(() => launchSaveTheDate(eventId), {
-        steps: ['Launching your Save-the-Date'],
-        hint: 'Please wait',
-      });
+      /* 📵 `save.run` rethrows. A launch that never answered (no signal, a 5xx) is the refusal it already has words
+         for — thrown into this transition it replaced the whole page with the app's error screen. Nothing on screen
+         moves: a launch that was not confirmed NEVER looks launched (`launched` is only set on `ok`). Pressing
+         again is safe — launching is one flag, and no email is sent by it. */
+      const res = await answered(() =>
+        save.run(() => launchSaveTheDate(eventId), {
+          steps: ['Launching your Save-the-Date'],
+          hint: 'Please wait',
+        }),
+      );
       if (res.ok) {
         setLaunched(true);
         setScheduledAt(null);
@@ -114,9 +134,9 @@ export function LaunchStdButton({
       return;
     }
     start(async () => {
-      const res = await save.run(
-        () => scheduleSaveTheDateLaunch(eventId, pickValue),
-        { steps: ['Scheduling the launch'], hint: 'Please wait' },
+      /* 📵 Not confirmed → not shown as scheduled; the picked time stays in the box. */
+      const res = await answered(() =>
+        save.run(() => scheduleSaveTheDateLaunch(eventId, pickValue), { steps: ['Scheduling the launch'], hint: 'Please wait' }),
       );
       if (res.ok && res.scheduledAtIso) {
         setScheduledAt(res.scheduledAtIso);
@@ -132,10 +152,13 @@ export function LaunchStdButton({
   function doCancel() {
     setError(null);
     start(async () => {
-      const res = await save.run(() => cancelScheduledLaunch(eventId), {
-        steps: ['Cancelling the schedule'],
-        hint: 'Please wait',
-      });
+      /* 📵 Not confirmed → the schedule STILL SHOWS: a cancel that was not confirmed never looks cancelled. */
+      const res = await answered(() =>
+        save.run(() => cancelScheduledLaunch(eventId), {
+          steps: ['Cancelling the schedule'],
+          hint: 'Please wait',
+        }),
+      );
       if (res.ok) {
         setScheduledAt(null);
         setPicking(false);

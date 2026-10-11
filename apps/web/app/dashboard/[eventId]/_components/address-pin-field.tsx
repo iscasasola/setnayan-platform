@@ -85,7 +85,9 @@ export function AddressPinField({
     }
     setNote(null);
     startLocating(async () => {
-      const r = await locateAddressPin(address);
+      /* 📵 A lookup that never answered (no signal, a 5xx) is a miss like any other — the map is open below. Thrown
+         into this transition it replaced the whole page (in the Maker, the whole Maker) with the app's error screen. */
+      const r = await locateAddressPin(address).catch(() => null);
       if (r) {
         setPin({ lat: r.lat, lng: r.lng });
         setNote(null);

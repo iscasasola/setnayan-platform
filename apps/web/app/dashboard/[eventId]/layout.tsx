@@ -248,13 +248,13 @@ export default async function EventLayout({ children, params }: Props) {
       }
       return fullRes;
     } catch (caught) {
-      logQueryError(
-        'EventLayout (events SELECT threw)',
-        caught instanceof Error ? caught : new Error(String(caught)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return { data: null, error: null };
+      const thrown = caught instanceof Error ? caught : new Error(String(caught));
+      logQueryError('EventLayout (events SELECT threw)', thrown, { event_id: eventId, user_id: user.id }, 'will_throw');
+      /* 📵 A read that THREW got no answer at all — that is not "no such event". It used to come back as
+         `{ data: null, error: null }`, which the gate below read as a missing row and answered `notFound()`
+         ("This page doesn't exist on Setnayan."). `status: 0` is how a read with no HTTP answer is told
+         (`isNetworkReadFailure`), so the gate throws the house "Reconnecting…" instead. */
+      return { data: null, error: thrown, status: 0 as const };
     }
   })();
   // Unread-message count for the Messages-icon badge. countUnreadMessages

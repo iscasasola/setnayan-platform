@@ -3,7 +3,8 @@ import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, blockOfCanvas, 
 import Link from 'next/link';
 import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 import { daysToGo } from '@/lib/countdown-target';
-import { actionOpensReply, meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalAction } from '@/lib/arrival-action';
+import { actionOpensReply, meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
+import { inviteReplyPath } from '@/lib/invite-arrival';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
@@ -1073,6 +1074,16 @@ export async function SiteBody({
      🕐 Manila decides the day. `manilaToday()` formats now in Asia/Manila;
      `new Date('YYYY-MM-DD')` would be midnight UTC — the previous day here —
      and would flip the day-of branch eight hours early. */
+  /* 🚪 ONE REPLY FORM (owner 2026-10-11, on a guest's walk: Me's button opened a sheet — "Save RSVP", no Terms
+     tick, sendable with no answer — while the top "RSVP" loaded the reply page — "Send my reply", Terms tick, an
+     answer required). Every reply door on this page now opens the reply PAGE (`replyDoor`), and the reply SHEET is
+     not drawn for a guest at all.
+     🧩 WHAT IS LEFT, AND WHY: the sheet is still drawn in the Maker's canvas (`replySheetDrawn`), because the Maker's
+     own "RSVP page" opens the Event Hub with it up (`…&editor=1&as=replied#your-details`,
+     `lib/maker-made-once-pages.ts`) and edits the card through it — pointing that at the reply page's own canvas is
+     a Maker change. A guest is never served it. */
+  const replyDoor = inviteReplyPath(event.slug ?? '');
+  const replySheetDrawn = plan.rsvpShouldRender && isEditorCanvas;
   const arrivalAction =
     identity.kind === 'guest'
       ? resolveArrivalAction({
@@ -1837,7 +1848,7 @@ export async function SiteBody({
         {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? blockMark('spotlight') : null}
         {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? makerMark('f:spotlight') : null}
         {plan.spotlight && plan.spotlight.kind !== 'find_invite' ? (
-          <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} />
+          <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} replyHref={replyDoor} />
         ) : null}
         {/* When a hero photo/video is uploaded, render a full-bleed banner
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
@@ -2692,6 +2703,14 @@ export async function SiteBody({
     const tabs = pageTabsFor(guestBar);
     pageTabs = tabs;
     const { group } = tabs;
+    /* ⚖ THE SCAN-TRAIL OPT-OUT — ONE SMALL LINE, WITH THE GUEST'S OWN THINGS (RA 10173: it may move, never
+       vanish). Owner 2026-09-30 moved it off the page body into the "Your details" sheet; the sheet is no longer
+       drawn for a guest (owner 2026-10-11, one reply form), so it now stands directly above "Sign out of this
+       invitation" — on Me on a tabbed page, at the foot of a page that is one scroll. In the Maker's canvas the
+       sheet still carries it (below), so there are exactly two mounts, complements of one expression. */
+    const scanTrail = replySheetDrawn ? null : (
+      <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
+    );
     // 👁 A See as sample guest has no session to sign out of — no form at all.
     const signOut = sampleViewer !== null ? null : (
       /* 🔎 LEGIBLE, AND NEVER BY ACCIDENT (a guest's walk 2026-10-11): this was 12px
@@ -3011,7 +3030,7 @@ export async function SiteBody({
           {group(readerAt('f:spotlight', 'home'), <>
           {plan.spotlight ? blockMark('spotlight') : null}
           {plan.spotlight ? makerMark('f:spotlight') : null}
-          {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} /> : null}
+          {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} occasion={clientWords.occasion} replyHref={replyDoor} /> : null}
           {/* 🎫 NO "HI AGAIN · YOUR INVITATION SUMMARY" CARD (owner 2026-09-30).
               Its reply, seat, meal and "coming up" were a second statement of
               what the top control, the Digital ticket on Me and the Your details
@@ -3436,7 +3455,7 @@ export async function SiteBody({
                   {actionOpensReply(arrivalAction) ||
                   (tabs.on && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined')) ? null : (
                   <a
-                    href="#your-details"
+                    href={replyDoor}
                     className="flex min-h-[52px] w-full items-center justify-between gap-3 text-sm text-ink/80 underline-offset-4 transition-colors hover:text-ink hover:underline"
                   >
                     {
@@ -3545,20 +3564,6 @@ export async function SiteBody({
                   guest leaves a scan trail whether or not they ever gave a
                   selfie, so this cannot hide behind the selfie test above.
                   See scan-trail-notice.tsx. */}
-              {/* Not in the Maker's canvas, and never for the SAMPLE guest of
-                  the "After they reply" preview — it has no row to read, and
-                  the honest "we couldn't check" line would be a lie about a
-                  person who does not exist (owner 2026-09-27). */}
-              {/* ⚖ …in the page body ONLY when there is no reply sheet to carry
-                  it (owner 2026-09-30: off the page, into "Your details"). The
-                  opt-out is the guest's right under RA 10173, so it may move
-                  but never vanish: with the sheet it renders there, below. */}
-              {plan.rsvpShouldRender ? null : (
-                group('home', (
-                <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
-                ), { chapters: true, className: 'space-y-12' })
-              )}
-
               {/* Hideable widgets render here in display_order. The host
                   controls visibility + order via the widget editor at
                   /dashboard/[eventId]/website/widgets — invitation_widgets
@@ -3692,7 +3697,8 @@ export async function SiteBody({
               PR11: GuestHubBar renders the real `#site-me` section under the
               same `menuOn` condition, so this marker would now be a second
               element with the same id — and the first one wins. Removed. */}
-          {/* Footer with sign-out — on a tabbed page it is Me's (below). */}
+          {/* Footer with the scan-trail line and the sign-out — on a tabbed page they are Me's (below). */}
+          {tabs.on ? null : scanTrail}
           {tabs.on ? null : signOut}
         </article>
         </HubPageHold>
@@ -3743,7 +3749,7 @@ export async function SiteBody({
                     replyOpen: plan.rsvpShouldRender,
                     isPlusOne: Boolean(guest.plus_one_of_guest_id),
                   })
-                    ? `#${REPLY_SHEET_ANCHOR}`
+                    ? replyDoor
                     : null,
                 })
               : meSection;
@@ -3765,13 +3771,14 @@ export async function SiteBody({
             ) : null}
             {plan.rsvpShouldRender && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined') && !actionOpensReply(arrivalAction) ? (
               <a
-                href="#your-details"
+                href={replyDoor}
                 data-me-change-reply=""
                 className="button-secondary flex w-full"
               >
                 {plan.guestListClosed ? 'Update your details' : 'Change your reply'}
               </a>
             ) : null}
+            {scanTrail}
             {signOut}
           </div>
         )) : null}
@@ -3790,7 +3797,7 @@ export async function SiteBody({
             Gated on the SAME `plan.rsvpShouldRender` as the control above, so
             the trigger and its destination can never disagree about existing —
             which is the whole of `the-reply-card-can-be-reached.test.ts`. */}
-        {plan.rsvpShouldRender ? (
+        {replySheetDrawn ? (
           <RsvpSheet
             heading={rsvpSheetHeading({
               status: guest.rsvp_status,

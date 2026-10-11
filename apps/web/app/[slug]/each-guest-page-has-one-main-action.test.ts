@@ -82,11 +82,12 @@ test('Welcome · no account card, and the reply sheet has ONE door per state', (
   // The reply section's own line stands down whenever another door opens the sheet.
   assert.match(
     body,
-    /\{actionOpensReply\(arrivalAction\) \|\|\s*\(tabs\.on && \(guest\.rsvp_status === 'attending' \|\| guest\.rsvp_status === 'declined'\)\) \? null : \(\s*<a\s+href="#your-details"/,
+    /\{actionOpensReply\(arrivalAction\) \|\|\s*\(tabs\.on && \(guest\.rsvp_status === 'attending' \|\| guest\.rsvp_status === 'declined'\)\) \? null : \(\s*<a\s+href=\{replyDoor\}/,
   );
+  // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
   // …and Me's "Change your reply" stands down while the Welcome's action is that door.
   const me = body.slice(body.indexOf("group('me'"));
-  assert.match(me.slice(0, me.indexOf('data-me-change-reply')), /&& !actionOpensReply\(arrivalAction\) \? \(\s*<a\s+href="#your-details"\s*$/);
+  assert.match(me.slice(0, me.indexOf('data-me-change-reply')), /&& !actionOpensReply\(arrivalAction\) \? \(\s*<a\s+href=\{replyDoor\}\s*$/);
   // The face-data controls sit with Me's Face tagging row on a tabbed page.
   assert.match(body, /\{tabs\.on \? null : group\('home', guest\.photo_source === 'selfie' \? \(\s*<FaceDataNotice/);
   assert.match(me, /\{guest\.photo_source === 'selfie' \? \(\s*<FaceDataNotice/);

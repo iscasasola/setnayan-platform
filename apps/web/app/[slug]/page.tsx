@@ -51,7 +51,7 @@ import { inviteReplyPath } from '@/lib/invite-arrival';
 import { LANDING_OPEN_PARAM, LANDING_OPEN_VALUE } from '@/lib/guest-landing';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
-import { meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalAction } from '@/lib/arrival-action';
+import { meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { BLOCK_MARK_ATTR, readBlockLooks } from '@/lib/block-looks';
 import { rsvpReplyOpen } from '@/lib/site-body-plan';
 import { cookies } from 'next/headers';
@@ -2099,7 +2099,7 @@ async function InvitationBody({
       }),
       isPlusOne: Boolean(guest.plus_one_of_guest_id),
     })
-      ? `#${REPLY_SHEET_ANCHOR}`
+      ? inviteReplyPath(event.slug ?? slug)
       : null,
   );
 

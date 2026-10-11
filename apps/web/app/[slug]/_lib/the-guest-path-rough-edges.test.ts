@@ -60,7 +60,9 @@ test('2 · the Me tab’s anchor does not open the reply sheet; the reply’s ow
   for (const rsvpStatus of ['pending', 'attending', 'declined'] as const) {
     const a = resolveArrivalAction({ slug: 'w', rsvpStatus, today: '2020-01-01' });
     assert.ok(a);
-    assert.equal(hashOpensSheet(a.href), true, `${rsvpStatus}: the RSVP / Change control no longer reaches the sheet`);
+    // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
+    assert.equal(a.href, '/w/invite/reply', `${rsvpStatus}: the RSVP / Change control no longer reaches the reply page`);
+    assert.equal(hashOpensSheet(a.href), false, `${rsvpStatus}: the control raises a sheet again`);
     // (No separate "Change" since 2026-10-03 — the status label IS the door.)
   }
 });
@@ -71,7 +73,8 @@ test('2 · "Change your reply" is a button ON Me, gated like the sheet it opens'
   const gate = BODY.lastIndexOf('plan.rsvpShouldRender', at);
   assert.ok(gate > BODY.indexOf("group('me'"), 'the button is not gated on the sheet’s own gate — it could point at nothing');
   const tag = BODY.slice(BODY.lastIndexOf('<a', at), BODY.indexOf('</a>', at));
-  assert.match(tag, /href="#your-details"/);
+  // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
+  assert.match(tag, /href=\{replyDoor\}/);
   assert.match(tag, /Change your reply/);
   // Only a guest who HAS replied; a pending guest is asked from the Home door.
   assert.match(BODY.slice(gate, at), /'attending'[\s\S]{0,60}'declined'/);

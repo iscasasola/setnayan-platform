@@ -194,6 +194,31 @@ the three are the same component and page.
 Guard: `lib/the-reply-waits-for-the-invitation.test.ts`
 (`site-body-plan.openbrowse.test.ts` re-aimed for the Save the Date).
 
+**3 · 4 · N10 · N16 — one reply form: every reply door opens the reply page; a
+guest is never served the reply sheet.** Me's button opened a sheet ("Save
+RSVP", no Terms tick, sendable with no answer) while the top "RSVP" loaded the
+reply page ("Send my reply", Terms tick, an answer required). Now every door —
+the action under the mark (`resolveArrivalAction`), the reply card, the lead
+card (`SpotlightCard`), the reply section's line, the ticket's "Reply to the
+invitation" and "Change your reply" on Me (tabbed and one-scroll), and the
+account connect route — goes to `inviteReplyPath(slug)`. The sheet is not
+drawn for a guest (`replySheetDrawn = plan.rsvpShouldRender && isEditorCanvas`,
+`site-body.tsx`). The scan-trail opt-out, which lived at the foot of the sheet,
+now stands directly above "Sign out of this invitation" (RA 10173 — moved,
+never gone). The reply card itself is untouched (its record still matches).
+LEFT, AND WHY: `rsvp-sheet.tsx` / `rsvp-sheet-state.ts` and the sheet's mount
+stay for the Maker's canvas — the Maker's own "RSVP page" opens the Event Hub
+with the sheet up (`lib/maker-made-once-pages.ts`, a Maker file) and edits the
+card through it; deleting them is a Maker change. N14's Back fix still holds
+for that sheet. The Event Hub page's `?rsvp=` flash lines stay (harmless: no
+form on the page posts there any more). N16 (the 268px "Nº" header inside the
+sheet) is moot — no guest reaches a sheet.
+`site-body-fixture.golden.html` and `every-stage-is-todays-page.golden.json`
+regenerated: the four guest pages whose reply is open lost the sheet (~8.8 KB
+each) and nothing else; no stranger page moved.
+Guard: `app/[slug]/_components/one-reply-form.test.ts` (ten older guards
+re-aimed from the sheet's anchor to the reply page).
+
 SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
 2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
 face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG

@@ -219,6 +219,34 @@ each) and nothing else; no stranger page moved.
 Guard: `app/[slug]/_components/one-reply-form.test.ts` (ten older guards
 re-aimed from the sheet's anchor to the reply page).
 
+**5 · 6 · N08 · N09 — the Save-the-Date film plays in full once per phone, and
+on an event with no date its closing card is the page.**
+- **Once per phone** (`lib/std-film-seen.ts`, `StdFilmHandoff`): when the
+  guest leaves the film ("See our page") or the film ends, this phone
+  remembers it — `localStorage`, one key per event (`sn:std-film-seen:<event
+  public id>`), no account, nothing sent to us. On later visits the page is
+  there straight away with "Watch our film again"; a one-line script before
+  paint keeps the film (still in the server's HTML) from being drawn while the
+  page's script loads. Clearing the browser's site data, a private window or a
+  different browser shows the film once more; a browser that refuses storage
+  shows it every visit, as before. A lift the page made itself (landing on a
+  section) does not count as watching it. Not in the Maker's canvas.
+- **"See our page" while it plays**: both controls are 44px on the glass at
+  every screen (`stagePressPx` — the film's stage is scaled, so 44 stage px
+  was 37px at 375 and 32px at 320), and the persistent one is there from the
+  moment the film starts (≤ 0.7 s with no opening playing; with a paid opening,
+  when the opening lifts — unchanged). "Watch our film again" is 44px too.
+- **No date → the closing card is the top of the page**: `closing` on
+  `StdFilmHandoff` draws the Save the Date's own still view (`SaveTheDateView`
+  with the film off — "Save the date", the names, "Full invitation to follow.
+  We can't wait to celebrate with you.") above the page, so after the film, or
+  instead of it on later visits, the guest is on that card. With a date,
+  nothing is added.
+`every-stage-is-todays-page.golden.json` regenerated: the Save the Date pages
+gained the film's wrapper (+33 bytes; +282 where the film itself plays, for
+the one line of style and script).
+Guard: `lib/std-film-seen.test.ts`.
+
 SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
 2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
 face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG

@@ -1414,6 +1414,13 @@ export async function SiteBody({
         marker={makerMark('f:film')}
         asSlide={isMakerCanvas}
         autoplay={!isMakerCanvas}
+        /* 🎞 Once per phone (owner 2026-10-11) — keyed by the event, never by a guest; only where the film
+           itself plays (its plain stand-in, `?film=0`, has nothing to remember). */
+        seenKey={isMakerCanvas || !stdFilm ? null : event.public_id}
+        /* 🃏 An event with NO DATE has almost nothing under its film, so the film's closing card — the Save the
+           Date's own still view — is the top of the page (owner 2026-10-11). With a date the page has its own
+           scenes (the countdown, the photos), and nothing is added. Never in the Maker's canvas. */
+        closing={!isMakerCanvas && stdFilm && !event.event_date ? stdStillView() : null}
       >
         {normalBody()}
       </StdFilmHandoff>
@@ -1470,6 +1477,26 @@ export async function SiteBody({
         // no opening to wait for, no full screen.
         slide={isMakerCanvas}
       />
+  );
+
+  /**
+   * 🃏 The film's closing card, standing still — the Save the Date's own plain view (`SaveTheDateView` with the
+   * film off: "Save the date", the names, the love story's first line, "Full invitation to follow…"). The SAME
+   * component and words the `?film=0` page has always drawn; nothing new is written here.
+   */
+  const stdStillView = () => (
+    <SaveTheDateView
+      displayName={event.display_name}
+      dateIso={event.event_date}
+      venueName={firstPlace ? firstPlace.name : event.venue_name}
+      venueAddress={firstPlace ? firstPlace.address : event.venue_address}
+      publicId={event.public_id}
+      loveStory={storyOffHere ? null : event.love_story}
+      countdown={!hiddenOnStage(widgets, 'countdown', lifecyclePhase, phasesEnabled)}
+      // The page under the film draws no cover of its own, so the still view carries the names.
+      showTextHero
+      film={false}
+    />
   );
 
   /** The anonymous tree — verbatim the old PublicLanding body. */

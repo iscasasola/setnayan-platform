@@ -47,6 +47,13 @@ full render on every visit after the first. `sw.js` now skips exactly the SENDER
 pass hop and a hard reload still get their preload copy. A guest's visit **2 → 1**, offline reload still served (vm test
 + headless Chromium against the real worker; 4 mutations red).
 
+**Found by the lab's request log, fixed:** (i) the warmed stage was THROWN AWAY — mounted, then 300 ms later the
+Maker's open pick (`markEl`) dropped every kept frame not yet `ready` (`canvasPosts`), so its render was wasted and the
+stage loaded again when opened (on main: all three). A drawn pick now WAITS for a kept frame still loading and is posted
+at its `ready`. (ii) With Style open, a stage switch asked every card for the stage being LEFT, then the new one —
+`useCanvasSrc` now reads the page on show two frames after mount. The lab walk (open · pick · Style · The Day): **19
+guest-page renders + 1 Maker render → 5**.
+
 **Cause 4, a press re-renders the Maker — named, not built here**: it belongs to the drag-and-drop branch
 (`rd/c-drag-scenes`), which already draws the move on the page; the exact hunk for it is in this branch's
 `HANDOVER.md` ("THE HELD MOVE").

@@ -43,7 +43,18 @@ for the same walk (cause 4 — the presses — is the drag branch's; with its he
    guest visit under the worker 2 → **1** (`/ana-ben navigate/empty` only), offline reload still serves the page;
    first-ever visit 1 → 1 (unchanged — that one never had a preload copy in the stand-in either: no controller yet).
    → **Controller: tell `rd/speed-guest-page` this cut is HERE; it should NOT also edit `sw.js`'s `PRELOAD_ASSETS`.**
-5. Changelog fragment `changelog.d/rd-maker-asks-once.md` (rewritten for all four; SPEC IMPACT: the ruling d93cacd is
+5. **FOUND IN THE LAB, FIXED — the warmed stage was thrown away** (25e18e3ca). Frame add/remove + message events showed
+   the one warmed stage mounted, then 300 ms later the Maker's open pick (`markEl`, `scrollTo`) DROPPED it
+   (`canvasPosts` dropped every kept frame not yet `ready`) — its server render wasted, the stage loaded again when
+   opened. (On main the same happened to all three warmed stages.) Now a DRAWN pick `wait`s for a kept frame still
+   loading and is posted, in order, at its `ready` (cap `MAX_WAITING_PICKS` = 200, past it the frame is let go); a
+   REDRAW still drops it (it may predate the save). Test + 2 sabotages red. Lab after the fix: the warmed frame is held
+   and opening The Day requests NOTHING.
+6. **FOUND IN THE LAB, FIXED — Style cards asked for the stage being LEFT** (b510cdeae). With Style open, a stage switch
+   mounted the cards in the commit that switches, while the frame on show was still the old stage: each card asked for
+   the old stage's page, then the new one's. `useCanvasSrc` now reads two animation frames after mount (and at 600 ms; an
+   unchanged address asks nothing new). Test + sabotage red.
+7. Changelog fragment `changelog.d/rd-maker-asks-once.md` (rewritten for all four; SPEC IMPACT: the ruling d93cacd is
    what this builds — no new corpus edit).
 
 ## THE HELD MOVE — for `rd/c-drag-scenes` (CAUSE 4; NOT built here — drag is that branch's)
@@ -140,7 +151,23 @@ the ones `editor-shell.tsx` already imports on main.
 **Walk it** (lab, phone): drop, then a SECOND drop at once — the second must land where the finger says (the engine reads
 DOM order, which is now the server's again after the redraw); a refused save slides back AND reloads.
 
-## LAB (the request log) — see `LAB RESULTS` below once filled
+## LAB RESULTS (2026-10-12, `/dev/maker-lab?studio=1`, phone 375×812, touch; request log at a proxy in front of `next dev`)
+Guest-page requests that reached the server, per action (canvas pages · Style-card pages · Maker renders):
+| action | BEFORE (origin/main files) | AFTER (this branch, final) |
+|---|---|---|
+| open the Maker (Invitation; the Maker auto-picks the Title, toolbar on Edit) | 1 canvas + 1 warm (**Save the Date** — the old tie-break warmed the EARLIER stage) + **5 style cards** nobody can see | 1 canvas + 1 warm (**The Day**, the next one) |
+| pick the Countdown (Edit) | **+5 style cards** | 0 |
+| open Style | 0 (already loaded behind Edit) | 3 (the picked card + its neighbours in sight, of 11 mounted) |
+| Later | 1 Maker render (rsc) + 1 canvas reload | not walked after (the driver's pick stayed on the Title, which has no move; press code is unchanged — cause 4) |
+| switch to The Day | 1 canvas + 5 style cards | **0** (the warmed frame is shown) |
+| **total for the walk** | **19 guest-page renders + 1 Maker render** | **5** (presses aside) |
+The worker is a pass-through on localhost (`DEV_HOST`), so cause 1 and the guest cut are counted by the worker probe.
+Frame events (diag.mjs) prove the warm-drop and its fix; pictures: `~/Documents/Claude/Projects/controller-2026-10-12/asks-once/shots/`
+(`before-*` = main, `after2-*` = final), JSON `…/asks-once/{before,after2}.json`.
+SEEN, NOT CHANGED: the lab's open has a hydration mismatch warning (both before and after); the open auto-picks the
+Title (so Style's first cards are the Title's).
+
+## LAB (how)
 Scripts (session scratchpad `…/scratchpad/lab/`): `proxy.mjs` (a logging proxy: method, address, `sec-fetch-dest`,
 `sec-fetch-mode`, referer, rsc header, server action), `walk.mjs` (phone 375×812, touch: open → another stage → pick a part
 → Style → Earlier → Later; per action the guest-page requests by kind), `run2.sh` (one lock hold: `next dev` :3516 behind
@@ -159,7 +186,8 @@ cut are counted by the worker probe (`scratchpad/probe/`), not here.
 - preflight quick half at 3a39f8941: 43 guards · eslint (6) · tsc (13 files) · 83 test files / 767 tests — all PASS.
 
 ## NEXT STEPS
-1. Lab + whole preflight (queued under the lock, `run2.sh`) → fill LAB RESULTS, push, draft PR per the brief.
+1. DONE: draft PR #6477 (CI 28/28 green at f21d8ddce; Maker first load 504.4 KB / 507.0 KB budget; shared 201.5 / 202 KB).
+   The two lab fixes (25e18e3ca, b510cdeae) are pushed after a second whole preflight.
 2. Controller → `rd/speed-guest-page`: the `sw.js` guest cut is on this branch (3a39f8941).
 3. Controller → `rd/c-drag-scenes`: THE HELD MOVE above.
 4. After deploy: the logging preview + a real phone (Safari's frameType, how soon iOS takes the new `sw.js`).

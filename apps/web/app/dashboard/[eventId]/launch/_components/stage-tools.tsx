@@ -1515,8 +1515,10 @@ export function StageTools({
           `[data-maker-shell]:has([data-stage-tools][data-stage-line]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
           '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transition:none}' +
           /* 🕊 Reduce Motion: a short FADE in place of the slide (the prototype's `.ltin{transition:opacity}`) — the
-             toolbar fades out and only then gives its room up; on release the room is back at once and it fades in. */
-          `[data-stage-tools]{transition:opacity ${SCENE_COLLAPSE_CALM_MS}ms linear}[data-stage-tools][data-scene-slide="away"]{opacity:0}` +
+             toolbar fades out and only then gives its room up; on release the room is back at once and it fades in.
+             (`!important`: the app's Reduce Motion reset cuts every transition to nothing — measured 1e-06 s on this
+             toolbar, 2026-10-11 — and this one fade is the approved motion for exactly that setting: opacity only.) */
+          `[data-stage-tools]{transition:opacity ${SCENE_COLLAPSE_CALM_MS}ms linear!important}[data-stage-tools][data-scene-slide="away"]{opacity:0}` +
           `[data-maker-lower-third]:has(>[data-stage-tools][data-scene-slide="away"]){transition:height 0s linear ${SCENE_COLLAPSE_CALM_MS}ms!important}` +
           '[data-maker-lower-third]:has(>[data-stage-tools][data-scene-slide="back"]){transition:none!important}' +
           `[data-maker-shell]:has([data-stage-tools][data-scene-slide="away"]) [data-stage-guest-bar]{transition:bottom 0s linear ${SCENE_COLLAPSE_CALM_MS}ms!important}` +

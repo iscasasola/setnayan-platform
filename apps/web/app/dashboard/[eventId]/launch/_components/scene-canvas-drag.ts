@@ -297,10 +297,10 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     if (!h) return;
     const band = host.band();
     const v = sceneEdgeScroll(h.y, band.top, band.bottom, h.overBin);
-    if (v) {
-      win.scrollBy(0, v);
-      place();
-    }
+    if (v) win.scrollBy(0, v);
+    /* Every frame, not only when the finger moves: the page may have scrolled under a still finger, and the bin
+       comes up (and is only then something to be over) after the lift. */
+    place();
     raf = win.requestAnimationFrame(loop);
   };
 

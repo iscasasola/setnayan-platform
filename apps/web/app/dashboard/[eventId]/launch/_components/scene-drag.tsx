@@ -212,6 +212,8 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
 
   /* ── the canvas: the hold, the lift, the drop ── */
   const pad = useRef<{ doc: Document; base: string; extra: number; off: () => void } | null>(null);
+  /** When the scene now held was lifted — the bin is not up before the toolbar has slid away. */
+  const liftedAt = useRef(0);
   /** The frame's box on the screen, and how much it is scaled. */
   const frameNow = () => {
     const frame = document.querySelector<HTMLIFrameElement>(now.current.frameSel);
@@ -247,10 +249,15 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
       put(null);
       setOver(false);
       setHeld(true);
+      liftedAt.current = Date.now();
       now.current.pick(subject);
     },
     onBin: (on) => setOver(on),
     binBox: (): SceneBox | null => {
+      /* 🗑 THE BIN COUNTS ONLY ONCE IT IS UP. It comes up from where the lower third's top edge was — exactly where a
+         thumb takes hold of the last scene on the screen. Read before it had arrived, a scene lifted there was "on
+         the bin" at once, and letting go would have taken it off the page (measured in the lab, 2026-10-11). */
+      if (Date.now() - liftedAt.current < SCENE_COLLAPSE_MS) return null;
       const f = frameNow();
       const b = binRef.current?.getBoundingClientRect();
       if (!f || !b || b.width === 0) return null;

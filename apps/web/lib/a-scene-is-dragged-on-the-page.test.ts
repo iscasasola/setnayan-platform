@@ -447,6 +447,13 @@ test('(6) the bin’s reach, the page that scrolls by itself, and the room the p
   assert.equal(scenePadDone(400, 2000 + 300, 700, 300), true);
   assert.equal(scenePadDone(1300, 2000 + 300, 700, 300), true, 'at its old end exactly');
   assert.equal(scenePadDone(1301, 2000 + 300, 700, 300), false, 'taking the room would pull the page');
+  /* 🗑 THE BIN COUNTS ONLY ONCE IT IS UP: it comes up from where the lower third's top edge was — where a thumb takes
+     hold of the last scene on the screen. Read before it arrived, a scene lifted there was on the bin at once. */
+  const binSide = src(`${L}/scene-drag.tsx`);
+  assert.match(binSide, /binBox: \(\): SceneBox \| null => \{\s*if \(Date\.now\(\) - liftedAt\.current < SCENE_COLLAPSE_MS\) return null;/);
+  assert.match(binSide, /setHeld\(true\);\s*liftedAt\.current = Date\.now\(\);/);
+  /* …and where the finger is, is read every frame — not only when it moves. */
+  assert.match(src(`${L}/scene-canvas-drag.ts`), /if \(v\) win\.scrollBy\(0, v\);\s*place\(\);\s*raf = win\.requestAnimationFrame\(loop\);/);
   /* …and it is taken only after the panel is back (never while the page is still taller on screen). */
   const side = src(`${L}/scene-drag.tsx`);
   assert.match(side, /doc\.body\.style\.paddingBottom = `\$\{had \+ extra\}px`;[\s\S]{0,200}?setHeld\(true\);/, 'the room is not given BEFORE the page grows');
@@ -559,7 +566,7 @@ test('(7) the lower third slides away while a scene is held and back on release 
   assert.match(tools, /\[data-scene-slide="away"\]\) \[data-stage-guest-tab\]:not\(\[aria-current="page"\]\)\{opacity:\.35\}/);
   /* 🕊 Reduce Motion: a short fade, and the room is given up only after it. */
   const calm = tools.slice(tools.indexOf('@media (prefers-reduced-motion:reduce)'));
-  assert.match(calm, /`\[data-stage-tools\]\{transition:opacity \$\{SCENE_COLLAPSE_CALM_MS\}ms linear\}\[data-stage-tools\]\[data-scene-slide="away"\]\{opacity:0\}`/);
+  assert.match(calm, /`\[data-stage-tools\]\{transition:opacity \$\{SCENE_COLLAPSE_CALM_MS\}ms linear!important\}\[data-stage-tools\]\[data-scene-slide="away"\]\{opacity:0\}`/);
   assert.match(calm, /\[data-scene-slide="away"\]\)\{transition:height 0s linear \$\{SCENE_COLLAPSE_CALM_MS\}ms!important\}/);
   /* The bin comes and goes with the same motion, in the thumb zone. */
   const side = raw(`${L}/scene-drag.tsx`);

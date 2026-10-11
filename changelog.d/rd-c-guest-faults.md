@@ -140,6 +140,17 @@ same sentence shows under the button). A no is never asked. The card's HTML is
 unchanged (its record still matches). The key gate is unchanged.
 Guard: `lib/mobile-number.test.ts`.
 
+**10 · N17 — face registration: the camera starts only when "I'm 18+ and agree
+to face tagging" is ticked.** ⚠ This CHANGES the screen approved on 2026-09-30
+("Camera first", frame A), by the owner's word of 2026-10-11. It is the same
+one screen (`app/[slug]/_components/selfie-capture.tsx`): until the tick the
+camera area is the still ground and the oval — no stream, no permission
+prompt, no spinner; ticking starts the camera (`cameraMayStart`), unticking
+stops it and releases it. "Take selfie" now also waits for the camera to
+answer (a press in the second it takes to start was told "camera blocked").
+No word on the screen changed.
+Guard: `app/[slug]/_components/the-camera-waits-for-the-tick.test.ts`.
+
 SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
 2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
 face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG

@@ -166,13 +166,19 @@ function standingAfter(el: Element): HTMLElement[] {
   return out;
 }
 
-/**
- * Wire one canvas's document. Returns the undo (the frame was replaced, the stage left). `optimistic()` is true
- * while a dropped order is still held by slides on this document — the page the save brings replaces it.
- */
-export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: () => void; optimistic: () => boolean } {
+export type SceneDragWired = {
+  /** The frame was replaced, or the stage left. */
+  detach: () => void;
+  /** A dropped order is still held by slides on this document — the page the save brings replaces it. */
+  optimistic: () => boolean;
+  /** Slide a scene to `slot` among the parts it may land among, without a drag; the slide-back, or null. */
+  place: (subject: SceneDragSubject, slot: number) => (() => void) | null;
+};
+
+/** Wire one canvas's document. */
+export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWired {
   const view = doc.defaultView;
-  if (!view) return { detach: () => {}, optimistic: () => false };
+  if (!view) return { detach: () => {}, optimistic: () => false, place: () => null };
   const win: Window & typeof globalThis = view;
   let pending: Pending | null = null;
   let held: Held | null = null;
@@ -213,6 +219,52 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
     h.between.forEach((els, j) => els.forEach((el) => slide(h, el, now.between[j] ?? 0)));
     h.gap.style.transform = `translateY(${now.gap.top - h.rows[h.at]!.top}px)`;
     return now;
+  };
+
+  /** A scene's rows as the page lays them out now: where it stands among the parts it may land among. */
+  const measure = (subject: SceneDragSubject) => {
+    const at = subject.beside.findIndex((b) => b.el === subject.el);
+    const rows = subject.beside.map(({ el }) => {
+      const b = el.getBoundingClientRect();
+      return { top: b.top + win.scrollY, height: b.height };
+    });
+    const between = subject.beside.map((b, j) => (j === 0 ? [] : standingBetween(subject.beside[j - 1]!.el, b.el)));
+    return { at, rows, between };
+  };
+
+  /**
+   * ▾ A STEP WITHOUT A DRAG (the tag's Move up · Move down): the scene and the others glide to the places the step
+   * makes, at once — the prototype's `moveBy` — and stay there until the page the save brings draws that order.
+   * Returns the slide-back (a refused save), or null when nothing can be slid now.
+   */
+  const placeNow = (subject: SceneDragSubject, slot: number): (() => void) | null => {
+    if (held || slid || !subject.el.isConnected) return null;
+    const { at, rows, between } = measure(subject);
+    if (at < 0 || slot === at || slot < 0 || slot >= rows.length) return null;
+    const now = sceneReflow(rows, at, slot);
+    const wore = new Map<HTMLElement, { transition: string; transform: string }>();
+    const go = (el: HTMLElement, dy: number) => {
+      if (!wore.has(el)) wore.set(el, { transition: el.style.transition, transform: el.style.transform });
+      el.style.transition = glide();
+      el.style.transform = Math.abs(dy) < 0.5 ? wore.get(el)!.transform : `translateY(${dy}px)`;
+    };
+    subject.beside.forEach(({ el }, i) => go(el, now.tops[i]! - rows[i]!.top));
+    between.forEach((els, j) => els.forEach((el) => go(el, now.between[j] ?? 0)));
+    slid = true;
+    return () => {
+      if (!slid) return;
+      slid = false;
+      for (const [el, w] of wore) {
+        el.style.transition = glide();
+        el.style.transform = w.transform;
+      }
+      win.setTimeout(
+        () => {
+          for (const [el, w] of wore) el.style.transition = w.transition;
+        },
+        calm() ? 0 : SCENE_GLIDE_MS + 20,
+      );
+    };
   };
 
   const place = () => {
@@ -282,14 +334,9 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
     if (verdict === 'no') return;
     if (!subject.movable) return refuse(subject, 'fixed');
     if (verdict === 'busy') return refuse(subject, 'busy');
-    const at = subject.beside.findIndex((b) => b.el === subject.el);
+    const { at, rows, between } = measure(subject);
     if (at < 0) return;
     const r = subject.el.getBoundingClientRect();
-    const rows = subject.beside.map(({ el }) => {
-      const b = el.getBoundingClientRect();
-      return { top: b.top + win.scrollY, height: b.height };
-    });
-    const between = subject.beside.map((b, j) => (j === 0 ? [] : standingBetween(subject.beside[j - 1]!.el, b.el)));
     /* The gap — where it would land, drawn over the page (the prototype's `.gap`: dashed, the scene's own height). */
     const gap = doc.createElement('div');
     gap.setAttribute('aria-hidden', 'true');
@@ -580,6 +627,7 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
   doc.addEventListener('selectstart', onSelect);
   return {
     optimistic: () => slid,
+    place: placeNow,
     detach: () => {
       if (held) end(true);
       stopPending();

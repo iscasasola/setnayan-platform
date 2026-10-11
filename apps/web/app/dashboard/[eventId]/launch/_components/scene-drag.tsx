@@ -18,7 +18,7 @@ import {
   scenePadDone,
   type SceneBox,
 } from '@/lib/maker-scene-drag';
-import { attachSceneDrag, type SceneDragHost, type SceneDragSubject, type SceneDrop } from './scene-canvas-drag';
+import { attachSceneDrag, type SceneDragHost, type SceneDragSubject, type SceneDragWired, type SceneDrop } from './scene-canvas-drag';
 
 /**
  * ✋ 🗑 THE DRAG, ON THE MAKER'S SIDE (owner 2026-10-11, DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT
@@ -82,6 +82,9 @@ export type SceneDragNow = {
   say: (words: string) => void;
   /** A step made without a drag (the tag's menu): the line follows it the same way. */
   run: (step: SceneStep, done: Promise<CanvasSettle>, revert?: () => void) => void;
+  /** …and the page shows it at once: the part under `target` slides `by` places among the parts it may land among.
+   *  The slide-back for a refused save — null when nothing could be slid (the page then waits for the save). */
+  slide: (target: Element, by: -1 | 1) => (() => void) | null;
 };
 
 type LineBody = { kind: 'saving' } | { kind: 'words'; words: string; err: boolean } | { kind: 'removed'; label: string };
@@ -299,10 +302,16 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
      frame; the old document, and whatever a drop left slid on it, goes with it). */
   const on = input.on;
   const frameSel = input.frameSel;
+  const wiredNow = useRef<SceneDragWired | null>(null);
+  const slide = useCallback((target: Element, by: -1 | 1) => {
+    const subject = now.current.subject(target, target.ownerDocument);
+    const at = subject ? subject.beside.findIndex((b) => b.el === subject.el) : -1;
+    return subject && subject.movable && at >= 0 ? (wiredNow.current?.place(subject, at + by) ?? null) : null;
+  }, []);
   useEffect(() => {
     if (!on) return;
     let doc: Document | null = null;
-    let wired: ReturnType<typeof attachSceneDrag> | null = null;
+    let wired: SceneDragWired | null = null;
     const through: SceneDragHost = {
       subject: (t) => host.current!.subject(t),
       verdict: () => host.current!.verdict(),
@@ -328,12 +337,14 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
       wired = null;
       doc = next;
       if (next) wired = attachSceneDrag(next, through);
+      wiredNow.current = wired;
     };
     look();
     const id = window.setInterval(look, 250);
     return () => {
       window.clearInterval(id);
       wired?.detach();
+      wiredNow.current = null;
       setHeld(false);
       setOver(false);
     };
@@ -405,5 +416,5 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
     </div>
   ) : null;
 
-  return { held, node, status, statusKey: line?.n ?? null, say, run };
+  return { held, node, status, statusKey: line?.n ?? null, say, run, slide };
 }

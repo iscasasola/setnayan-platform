@@ -559,7 +559,10 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
     const o = askPartOps();
     const t = o && canMove ? neighbour(o, dir) : null;
     const done = o && t ? dropOn(o, t, dir < 0 ? 'above' : 'below') : null;
-    if (done) drag.run({ type: 'move', label, key: canvas }, done);
+    if (!done) return;
+    /* It sits in its new place at once (the prototype's `moveBy`), slid there until the page the save brings draws it. */
+    const section = canvas ? findMakerSection(document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? document, canvas) : null;
+    drag.run({ type: 'move', label, key: canvas }, done, (section ? drag.slide(section, dir) : null) ?? undefined);
   };
 
   /* ── ＋ add a part ── */

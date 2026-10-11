@@ -11,7 +11,7 @@ Built from the approved prototype (`prototypes/maker_drag_scenes_2026-10-11.html
 - **A quick swipe still scrolls** — the page's pan is refused only once the hold has fired.
 - **A part that keeps its place** (the Reveal, the cover, the reply card, E-Gifts, the Wedding March) does not lift: it nudges, and the line says why.
 - **A save that is refused** slides the scene back, then: "That did not save. Nothing changed — please try again."
-- **Whoever cannot drag**: the picked part's name tag is now a button — Move up · Move down · Remove (the Maker's one bottom sheet). Alt + ↑ ↓ and Delete do the same from a keyboard.
+- **Whoever cannot drag**: the picked part's name tag is now a button — Move up · Move down · Remove (the Maker's one bottom sheet; a step is seen at once, as a drop is). Alt + ↑ ↓ and Delete do the same from a keyboard.
 - The other page tabs dim while a scene is lifted; a scene stays on its page.
 
 **The Earlier · Later · Remove row is removed** from Edit's last row. Row 4 is the toolbar's own line under the tools now.
@@ -32,7 +32,6 @@ Built from the approved prototype (`prototypes/maker_drag_scenes_2026-10-11.html
 **Not built, said plainly:**
 
 - **Desktop (≥ 1024).** The prototype's desktop is the three-column new Maker (parts · page · tools). That Maker is a phone's only today (`maker-shell.tsx`: `ss = stagesStudio && phone`); the shipped desktop Maker keeps its navigator's own drag and eye. Mounting a press-drag on its canvas would take over the mouse selection its letter-by-letter styling uses, and it has no home for the line or the tag's menu. The drag's hands do take a mouse (press and move, no hold) wherever the Stages panel is drawn.
-- **The tag's steps are not optimistic.** Move up · Move down show "Saving…" until the page redraws, as the buttons did; only a drop is seen at once.
 - **A real iPhone.** The hold, the callout and the rubber-band are proven in Chromium's touch emulation only.
 
 SPEC IMPACT: None new — this builds DECISION_LOG 2026-10-11, "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN ("JUST LIKE INSTAGRAM"); THE LOWER THIRD COLLAPSES WHILE A SCENE IS HELD; BATCH C." (status there: NOT BUILT → built, not live). The row's "desktop = mouse drag" is not built (see above) — for the owner to rule where it lives once the desktop Stages Maker exists.

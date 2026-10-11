@@ -59,8 +59,9 @@ test("2 · the page's frame: the seat line, the bar's camera and the photos door
   assert.match(PAGE, /papicGuestActive=\{papicGuestActive && !partsOffHere\.has\('camera'\)\}/);
   assert.match(PAGE, /const galleryCountHere = partsOffHere\.has\('photosofyou'\) \? 0 : \(guestLiveGallery\?\.total \?\? 0\);/);
   // Both doors to the guest's own photos — the bar's and the Me section's.
-  assert.equal((PAGE.match(/photosLeftThePage && !partsOffHere\.has\('photosofyou'\) \? `\/papic\/me\/\$\{guest\.qr_token\}` : null/g) ?? []).length, 2);
-  assert.equal((PAGE.match(/photosLeftThePage \? `\/papic\/me\//g) ?? []).length, 0, 'a photos door that does not ask');
+  assert.match(PAGE, /const myPhotosDoor = partsOffHere\.has\('photosofyou'\) \? null : `\/papic\/me\/\$\{guest\.qr_token\}`;/);
+  assert.equal((PAGE.match(/[pP]hotosHref=\{photosLeftThePage \? myPhotosDoor : null\}/g) ?? []).length, 2);
+  assert.equal((PAGE.match(/`\/papic\/me\/\$\{guest\.qr_token\}`/g) ?? []).length, 1, 'a photos door that does not ask');
 });
 
 test("3 · the part's own page takes the exit it already had", () => {

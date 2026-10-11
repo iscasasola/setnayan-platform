@@ -260,7 +260,10 @@ test('8 · the Maker shows the same: a hidden part’s tile leaves the stage’s
   assert.ok(list(withParts({ entourage: { save_the_date: true } }), 'save_the_date').includes('f:entourage'));
   // The canvas draws its stand-ins from the same list, minus the same parts.
   const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
-  assert.match(BODY, /makerDayPartsOn\(pageStage, place\)\.filter\(\(part\) => !fixedTileHidden\(part, partsOff\)\)\.map\(/);
+  assert.match(BODY, /const dayPartHere = \(part: Parameters<typeof fixedTileHidden>\[0\]\) => !fixedTileHidden\(part, partsOff\);/);
+  assert.match(BODY, /makerDayPartsOn\(pageStage, place\)\.filter\(dayPartHere\)\.map\(/);
+  // …and its gift place, which the canvas draws whether or not a gift method is on (`welcomeParts` `maker`).
+  assert.match(BODY, /giftsOff: event\.gifts_on === false,\s*\}\)\.filter\(\(part\) => part !== 'gifts' \|\| !partsOff\.has\('gifts'\)\);/);
 });
 
 test('9 · the Studio row says whose picks the table holds; Apply answers with the count and redraws the page at once', () => {

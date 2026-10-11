@@ -631,8 +631,7 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     reminders: null,
     giftHref: null,
     maker: true,
-    // 👁 …and no gift place on a stage the couple hid E-Gifts on — as the page (`site-body.tsx` `partsOff`).
-    giftsOff: input.giftsOff || partsOff.has('gifts'),
+    giftsOff: input.giftsOff,
   });
   const drawn = new Set<string>();
   const sceneTile = (w: InvitationWidgetRow): MakerTile => {
@@ -649,7 +648,10 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   };
   for (const part of welcome) {
     if (part === 'look') shown.push(fixed('look'));
-    else if (part === 'gifts') shown.push(fixed('gifts'));
+    else if (part === 'gifts') {
+      // 👁 …and no gift tile on a stage the couple hid E-Gifts on — as the page (`site-body.tsx` `partsOff`).
+      if (!fixedTileHidden('gifts', partsOff)) shown.push(fixed('gifts'));
+    }
     else {
       const row = drawable.find((w) => w.widget_type === 'what_to_bring');
       if (row) shown.push(sceneTile(row));

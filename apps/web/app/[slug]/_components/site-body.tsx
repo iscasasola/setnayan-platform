@@ -1537,9 +1537,9 @@ export async function SiteBody({
       // 👁 See as › Signed out: the stranger's Welcome, not the canvas's every place.
       maker: isMakerCanvas && sampleViewer === null,
       // 🗂 "Accept gifts? — No" (Your info): the canvas draws no gift place either.
-      // 👁 …and no gift place on a stage the couple hid E-Gifts on (`partsOff`, above).
-      giftsOff: event.gifts_on === false || partsOff.has('gifts'),
-    });
+      giftsOff: event.gifts_on === false,
+      // 👁 …and no gift place on a stage the couple hid E-Gifts on (`partsOff`, above) — the canvas's too.
+    }).filter((part) => part !== 'gifts' || !partsOff.has('gifts'));
     /* 🧭 Stages canvas: each Welcome place is on its own page (`at` — the guest's look is Me's, E-Gifts Welcome's),
        so each is its own run; for every reader the Welcome is one run, as before. */
     const welcomeRuns: ReadonlyArray<readonly (typeof welcome)[number][]> = stagesPages
@@ -1671,9 +1671,11 @@ export async function SiteBody({
        tap it and pick its style. Same list, same order, same places as the
        navigator (`makerDayPartsOn`): before the stage's sections, right after
        them, or after the entourage. */
+    /* 👁 …minus a part the couple hid on this stage ("What guests see" — `partsOff`), as the navigator's list drops it. */
+    const dayPartHere = (part: Parameters<typeof fixedTileHidden>[0]) => !fixedTileHidden(part, partsOff);
     const makerDayStandIns = (place: MakerDayPartPlace) =>
       isMakerCanvas
-        ? makerDayPartsOn(pageStage, place).filter((part) => !fixedTileHidden(part, partsOff)).map((part) => (
+        ? makerDayPartsOn(pageStage, place).filter(dayPartHere).map((part) => (
             <Fragment key={part}>
               {group(at(`f:${part}`, scenesTab), <>
               {sampleBlockMark(`f:${part}`)}

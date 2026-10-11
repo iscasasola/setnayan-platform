@@ -1971,6 +1971,8 @@ async function InvitationBody({
   const partsOffHere = partsHiddenOn(widgets, lifecyclePhase, phasesEnabled);
   /* The seat fact, withheld at its source: Me's seat line below and the body's own seat places read this one name. */
   const seatPassActive = seatPassHeld && !partsOffHere.has('seat');
+  /* The door to the guest's own photos (the bar's and Me's) — none on a stage the couple hid Photos of you on. */
+  const myPhotosDoor = partsOffHere.has('photosofyou') ? null : `/papic/me/${guest.qr_token}`;
   const meSlotFor = (replyHref: string | null) => isEditorCanvas ? null : (
     <>
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
@@ -2131,7 +2133,7 @@ async function InvitationBody({
         meSection={
           guestPageTabbed ? (
             ({ replyHref }: { replyHref: string | null }) => (
-              <GuestMeSection meSlot={meSlotFor(replyHref)} photosHref={photosLeftThePage && !partsOffHere.has('photosofyou') ? `/papic/me/${guest.qr_token}` : null} galleryCount={galleryCountHere} asTab />
+              <GuestMeSection meSlot={meSlotFor(replyHref)} photosHref={photosLeftThePage ? myPhotosDoor : null} galleryCount={galleryCountHere} asTab />
             )
           ) : null
         }
@@ -2165,7 +2167,7 @@ async function InvitationBody({
         // never disagree — and neither can the two owners of `#site-me`.
         menuOn={menuOnHere}
         meSlot={guestPageTabbed ? null : meSlot}
-        mePhotosHref={photosLeftThePage && !partsOffHere.has('photosofyou') ? `/papic/me/${guest.qr_token}` : null}
+        mePhotosHref={photosLeftThePage ? myPhotosDoor : null}
         meInPage={guestPageTabbed}
       />
       )}

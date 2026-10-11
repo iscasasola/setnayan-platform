@@ -193,7 +193,11 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
           are parted by one thin divider. */}
       <div data-guests-see="" className="flex min-h-full flex-col bg-inherit">
         <div role="table" aria-label={W.title} className="flex-1 bg-inherit px-2">
-          <div role="row" className="sticky top-0 z-10 flex items-end bg-inherit pb-1.5 pt-1">
+          {/* 📌 THE PINNED HEAD HAS AN EDGE (owner's run 2026-10-11: "SHOWN AT" read as overlapping "THE BASICS" when
+              scrolled). The head is opaque, so a group's label slides under it — but with no line under the head the
+              label was cut by nothing, two small grey labels touching. The prototype's head carries this line
+              (`.thead{border-bottom:1px solid var(--line)}`); a divider, not a frame. */}
+          <div role="row" data-gs-head="" className="sticky top-0 z-10 flex items-end border-b border-ink/10 bg-inherit pb-1.5 pt-1">
             <span role="columnheader" className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink/45">
               {W.shownAt}
             </span>

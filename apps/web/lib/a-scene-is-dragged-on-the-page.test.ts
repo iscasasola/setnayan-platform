@@ -522,7 +522,16 @@ test('(7) a scene of the couple’s own is never taken silently; ↺ is the Make
   /* A HELD SCENE IS PICKED AS A TAP PICKS — the page's own tap, so the Maker hears exactly what a finger's tap tells
      it and moves the page for no pick the page itself made; and it is picked WHERE IT IS (`stageStill`): the page is
      never brought to the picked part's middle under the finger that holds it, nor after the drop. */
-  assert.match(sheet, /pick: \(s\) => \{\s*if \(s\.key === canvas\) return;\s*stageStill\.key = s\.key === REVEAL_STUB \? null : s\.key;\s*const view = s\.el\.ownerDocument\.defaultView;\s*if \(view\) s\.el\.dispatchEvent\(new view\.MouseEvent\('click', \{ bubbles: true, cancelable: true, view \}\)\);/);
+  assert.match(sheet, /const tapPart = \(box: Element, key: string \| null, still: boolean\) => \{[\s\S]{0,160}?if \(still\) stageStill\.key = key;\s*box\.dispatchEvent\(new view\.MouseEvent\('click', \{ bubbles: true, cancelable: true, view \}\)\);/);
+  assert.match(sheet, /if \(s\.key === canvas\) return;\s*tapPart\(s\.el, s\.key, true\);/);
+  /* A part that keeps its place is tapped where the finger is, and named as that tap names it (the cover is several
+     parts) — so the line says "Names keeps its place…" of the names, as the prototype does. */
+  assert.match(sheet, /if \(!s\.movable\) return tapPart\(s\.target\.isConnected && s\.el\.contains\(s\.target\) \? s\.target : s\.el, null, false\);/);
+  /* After a scene leaves by the bin, the next scene is picked the same still way — the page stays where it is. */
+  assert.match(sheet, /if \(next && box\) tapPart\(box, next\.key, true\);\s*else onRemoved\?\.\(\);/);
+  /* The tap the Maker makes is not the finger's: only the finger's own is swallowed after a drop. */
+  assert.match(src(`${L}/scene-canvas-drag.ts`), /const eat = \(e: Event\) => \{\s*if \(!e\.isTrusted\) return;/);
+  assert.match(sheet, /makerPartOfTap\(stage, shownPageOf\(stage\)\?\.key \?\? null, key, piece\) \?\? makerPartOfCanvas\(stage, key\)/);
   assert.match(src(`${L}/stage-tools.tsx`), /if \(!open \|\| !pickedKey\) return;\s*if \(stageStill\.key === pickedKey\) return;\s*stageStill\.key = null;/);
   /* The hands tell the host BEFORE the tap a held part leaves behind is swallowed (the pick is a tap of its own). */
   assert.match(src(`${L}/scene-canvas-drag.ts`), /host\.onRefuse\(subject, why\);\s*swallowTap\(\);/);

@@ -65,6 +65,8 @@ export type SceneDragSubject = {
   key: string;
   /** Its box on the page. */
   el: HTMLElement;
+  /** What the finger is on, inside it — a tap there is what picks a part that keeps its place. */
+  target: Element;
   /** Its name, as the Maker says it — the lifted scene's tag. */
   label: string;
   /** A scene that moves. False: it keeps its place — it nudges, and the host says why. */
@@ -539,6 +541,8 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
   /** The tap a drop (or a held part) leaves behind picks nothing — heard on the window, before the page. */
   function swallowTap() {
     const eat = (e: Event) => {
+      /* Only the FINGER'S own tap: a tap the Maker makes on the page to pick a part (`add-part-sheet.tsx`) goes through. */
+      if (!e.isTrusted) return;
       e.preventDefault();
       e.stopImmediatePropagation();
     };

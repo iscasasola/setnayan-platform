@@ -20,7 +20,7 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { isCustomSectionType } from '@/lib/custom-sections';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
-import { MAKER_PARTS, makerPartStepHeldWhy, makerPartStepWhy, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
+import { MAKER_PARTS, makerPartOfTap, makerPartStepHeldWhy, makerPartStepWhy, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
 import { heldByEntourage } from '@/lib/stage-scenes';
 import {
   makerDropDelta,
@@ -622,7 +622,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
         if (moved?.sectionOrder !== undefined) draft = { ...draft, sectionOrder: moved.sectionOrder };
       }
     }
-    saveEditorial(draft, `${makerPartLabelOn(stage, key)} added ${where}`);
+    void saveEditorial(draft, `${makerPartLabelOn(stage, key)} added ${where}`);
   };
 
   /* ── 🗑 take it off ── */
@@ -654,12 +654,21 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
     }
     return null;
   };
-  /** After a scene left the page: the next scene the page still draws is picked (the prototype's `removeScene`) — or what an arrival would pick. */
+  /** The page's own tap on a part's box — what picks it; `still`: picked where it is (`stageStill`), the page not moved. */
+  const tapPart = (box: Element, key: string | null, still: boolean) => {
+    const view = box.ownerDocument.defaultView;
+    if (!view) return;
+    if (still) stageStill.key = key;
+    box.dispatchEvent(new view.MouseEvent('click', { bubbles: true, cancelable: true, view }));
+  };
+  /** After a scene left the page: the next scene the page still draws is picked, where it is (the prototype's
+   *  `removeScene`) — or what an arrival would pick. */
   const pickAfter = (gone: string | null) => {
     const o = askPartOps();
     const next = o?.list.shown.find((t) => t.kind === 'scene' && t.key !== gone && partBox(t.key) !== null);
-    const part = next ? makerPartOfCanvas(stage, next.key) : null;
-    if (part) onPick?.(part);
+    const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
+    const box = next && doc ? findMakerSection(doc, next.key) : null;
+    if (next && box) tapPart(box, next.key, true);
     else onRemoved?.();
   };
   const removeNow = () => {
@@ -672,8 +681,10 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
 
   /* ── ✋ a scene held on the page (`scene-drag.tsx`) ── */
   /** A part of this stage's page, by its canvas key — as the steps name the picked one. */
-  const atKey = (o: MakerPartOps | null, key: string): At => {
-    const part = key === REVEAL_STUB ? ('reveal' as MakerPartKey) : makerPartOfCanvas(stage, key);
+  const atKey = (o: MakerPartOps | null, key: string, piece: string | null = null): At => {
+    /* Its name is the part a tap THERE picks (the cover is several parts: the names, the date …) — `makerPartOfTap`,
+       the toolbar's own reading of a tap. */
+    const part = key === REVEAL_STUB ? ('reveal' as MakerPartKey) : (makerPartOfTap(stage, shownPageOf(stage)?.key ?? null, key, piece) ?? makerPartOfCanvas(stage, key));
     const tile = o?.list.shown.find((t) => t.key === key || (t.kind === 'post-event' && t.anchor === key));
     return { mv: key === REVEAL_STUB ? { kind: 'fixed' } : movableOf(o, key), canvas: key, label: part ? makerPartLabelOn(stage, part) : (tile?.label ?? 'This part') };
   };
@@ -688,7 +699,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
       const o = askPartOps();
       if (!o) return null;
       const reveal = target.closest<HTMLElement>('[data-maker-reveal-part]');
-      if (reveal) return { key: REVEAL_STUB, el: reveal, label: atKey(o, REVEAL_STUB).label, movable: false, beside: [] };
+      if (reveal) return { key: REVEAL_STUB, el: reveal, target, label: atKey(o, REVEAL_STUB).label, movable: false, beside: [] };
       let hit: { key: string; el: HTMLElement } | null = null;
       const keys = [...Array.from(doc.querySelectorAll('[data-maker-section]')).map((m) => m.getAttribute('data-maker-section') ?? ''), 'f:entourage', 'f:story'];
       for (const k of keys) {
@@ -696,28 +707,31 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
         if (sec && sec.contains(target) && (!hit || hit.el.contains(sec))) hit = { key: k, el: sec };
       }
       if (!hit) return null;
-      const at = atKey(o, hit.key);
-      if (!mayMove(at.mv)) return { key: hit.key, el: hit.el, label: at.label, movable: false, beside: [] };
+      const piece = target.closest('[data-el]');
+      const at = atKey(o, hit.key, piece && hit.el.contains(piece) ? piece.getAttribute('data-el') : null);
+      if (!mayMove(at.mv)) return { key: hit.key, el: hit.el, target, label: at.label, movable: false, beside: [] };
       const mine = partBox(hit.key);
       const rows = [...moveTargets(o, at).map((t) => ({ key: t.key, top: t.top })), { key: hit.key, top: mine?.top ?? 0 }].sort((a, b) => a.top - b.top);
       const beside = rows.flatMap((r) => {
         const sec = r.key === hit!.key ? hit!.el : findMakerSection(doc, r.key);
         return sec ? [{ key: r.key, el: sec }] : [];
       });
-      return { key: hit.key, el: hit.el, label: at.label, movable: true, beside };
+      return { key: hit.key, el: hit.el, target, label: at.label, movable: true, beside };
     },
     /* A part that keeps its place says the step's own shipped reason; the Reveal, the prototype's line for it. */
     why: (s) => (s.key === REVEAL_STUB ? SCENE_DRAG_WORDS.revealWhy : makerPartStepWhy(s.label, false, false).earlier),
     busyWhy: PART_WORKING_WHY,
-    /* Held or lifted, it is the picked part (the prototype's `pick` in `lift` and `nudge`) — picked AS A TAP PICKS:
-       the page's own tap, on the part (the bridge then tells the Maker exactly what a finger's tap tells it, and the
-       Maker moves the page for no pick the page itself made). And picked WHERE IT IS: the toolbar does not bring it
-       to the middle of the page under the finger (`stageStill`). A part already picked is left alone. */
+    /* Held or lifted, it is the picked part (the prototype's `pick` in `lift` and `nudge`) — picked AS A TAP PICKS: by
+       the page's own tap, so the bridge tells the Maker exactly what a finger's tap tells it.
+         · A SCENE that lifts is tapped on its own box, and picked WHERE IT IS: the toolbar does not bring it to the
+           middle of the page under the finger that holds it, nor after the drop (`stageStill`).
+         · A part that KEEPS ITS PLACE is tapped where the finger is — the names, the date — and is picked as any tap
+           picks it.
+       A scene already picked is left alone. */
     pick: (s) => {
+      if (!s.movable) return tapPart(s.target.isConnected && s.el.contains(s.target) ? s.target : s.el, null, false);
       if (s.key === canvas) return;
-      stageStill.key = s.key === REVEAL_STUB ? null : s.key;
-      const view = s.el.ownerDocument.defaultView;
-      if (view) s.el.dispatchEvent(new view.MouseEvent('click', { bubbles: true, cancelable: true, view }));
+      tapPart(s.el, s.key, true);
     },
     drop: (s, target, where) => {
       const o = askPartOps();

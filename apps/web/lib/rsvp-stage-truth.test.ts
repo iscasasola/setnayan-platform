@@ -88,7 +88,7 @@ test('3 · the stage: hears unheld writes for the session; on the truth it drops
     /const pending = makerWritesPending\(canvasWriteKey\(RSVP_DRAFT_TYPE\)\) > 0 \|\| makerSavesInFlight\(\) > 0;\s*if \(!rsvpStageTruth\.lands\(current, pending\)\) return;/,
     'a render is taken for the truth over an RSVP write still on its way',
   );
-  assert.match(STAGE, /noteDraftedCanvas\(RSVP_DRAFT_TYPE, current as HubSectionCanvas, current as HubSectionCanvas\);\s*latest\.current = current;\s*postAll\(\);\s*setTruth\(\(n\) => n \+ 1\);\s*\}, \[current, postAll\]\);/);
+  assert.match(STAGE, /noteDraftedCanvas\(RSVP_DRAFT_TYPE, current as HubSectionCanvas, current as HubSectionCanvas\);\s*latest\.current = current;\s*postAll\(\);\s*setTruth\(\(n\) => n \+ 1\);\s*window\.dispatchEvent\(new Event\(RSVP_STAGE_TRUTH_EVENT\)\);\s*\}, \[current, postAll\]\);/);
   /* Both of the stage's panels are re-seeded (a phone's rows and the desktop's list). */
   assert.equal((STAGE.match(/\btruth=\{truth\}/g) ?? []).length, 2);
   const PANEL = src(`${L}/maker-rsvp-ask.tsx`);
@@ -114,4 +114,9 @@ test('5 · the lab can show it: its RSVP stage is handed the draft’s own confi
   assert.match(LAB, /\}, \[scrub, renderStamp\]\);\s*const rsvpProps = useMemo/);
   assert.match(LAB, /current: rsvpNow,/);
   assert.doesNotMatch(LAB, /current: sanitizeRsvpAskConfig\(\{\}\),/, 'the lab hands the RSVP stage a constant again');
+});
+
+test('6 · a picked line the truth no longer holds (one the couple added, or a group) is let go', () => {
+  const LIST = src(`${L}/rsvp-list-stage.tsx`);
+  assert.match(LIST, /if \(!on \|\| !listPart \|\| !line \|\| !\(rsvpAddedId\(line\) \|\| rsvpGroupId\(line\)\)\) return;\s*const onTruth = \(\) => \{\s*const doc = frameDoc\(frameSel\);\s*if \(doc && !nodeOf\(doc, listPart, line\)\) letGo\.current\(null\);\s*\};\s*window\.addEventListener\(RSVP_STAGE_TRUTH_EVENT, onTruth\);/, 'a gone line stays picked after an undo');
 });

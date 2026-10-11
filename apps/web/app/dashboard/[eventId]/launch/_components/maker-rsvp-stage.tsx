@@ -11,7 +11,7 @@ import type { RsvpAskConfig, RsvpWordKey } from '@/lib/rsvp-ask';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight, makerWritesPending } from '@/lib/maker-refresh';
-import { rsvpStageTruth } from '@/lib/rsvp-stage-truth';
+import { RSVP_STAGE_TRUTH_EVENT, rsvpStageTruth } from '@/lib/rsvp-stage-truth';
 import {
   RSVP_PREVIEW_EVENT,
   RSVP_REPLY_BY_EVENT,
@@ -316,6 +316,7 @@ export function MakerRsvpStage({
     latest.current = current;
     postAll();
     setTruth((n) => n + 1);
+    window.dispatchEvent(new Event(RSVP_STAGE_TRUTH_EVENT));
   }, [current, postAll]);
 
   /* Opening the When yes scene plays its pick (a frame already loaded; a new

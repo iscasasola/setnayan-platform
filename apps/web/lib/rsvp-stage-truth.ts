@@ -55,3 +55,10 @@ export function createRsvpStageTruth(): RsvpStageTruth {
 }
 
 export const rsvpStageTruth = createRsvpStageTruth();
+
+/**
+ * Said on the window once the stage has handed its frames such a truth — so a pick of a line the couple ADDED (or of
+ * a group) that the truth no longer holds is let go (`rsvp-list-stage.tsx`). Walked 2026-10-12: ＋ a Picture → ↺ ↺
+ * took it away, and the toolbar still read "Picture" with a text line's Style for a line that was not there.
+ */
+export const RSVP_STAGE_TRUTH_EVENT = 'setnayan:rsvp-stage-truth';

@@ -11,6 +11,7 @@ import { RSVP_SCENE_PART, rsvpGroupRows, rsvpLineRow, rsvpLinesBox, rsvpTopRows 
 import { attachRsvpDrag, type RsvpDragSubject } from './rsvp-canvas-drag';
 import { RsvpAddLineSheet, RsvpGroupPickBar, RsvpPictureSheet, askRsvpListEdit } from './rsvp-line-list';
 import { useMaker } from './maker-context';
+import { RSVP_STAGE_TRUTH_EVENT } from '@/lib/rsvp-stage-truth';
 
 /**
  * ＋ THE TOOLBAR'S HALF OF THE RSVP STAGE'S LIST (owner's ruling 2026-10-09; approved prototype
@@ -232,6 +233,20 @@ export function useRsvpListStage({
       window.removeEventListener(RSVP_GROUP_PICK_EVENT, onGroup);
     };
   }, [on, onPick, onSay]);
+
+  /* ↺ A LINE THE COUPLE ADDED (or a group), picked, that an Undo · Restore · Reset took away is let go — the stage
+     says when its frames hold the truth again (`RSVP_STAGE_TRUTH_EVENT`). A line of the page's own is never gone. */
+  const letGo = useRef(onPick);
+  letGo.current = onPick;
+  useEffect(() => {
+    if (!on || !listPart || !line || !(rsvpAddedId(line) || rsvpGroupId(line))) return;
+    const onTruth = () => {
+      const doc = frameDoc(frameSel);
+      if (doc && !nodeOf(doc, listPart, line)) letGo.current(null);
+    };
+    window.addEventListener(RSVP_STAGE_TRUTH_EVENT, onTruth);
+    return () => window.removeEventListener(RSVP_STAGE_TRUTH_EVENT, onTruth);
+  }, [on, listPart, line, frameSel]);
 
   /* 🫧 PICKING THE LINES OF A GROUP — the marks on the page, and a tap that ticks instead of picking. Heard on the
      frame's WINDOW, before the page's own tap (which would pick the line as a part). */

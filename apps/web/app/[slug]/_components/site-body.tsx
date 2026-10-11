@@ -20,6 +20,7 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // The event hub's sanctioned column widths — a page-level column outside the
 // four is a defect, and `measures.test.ts` counts them.
 import { PLATE } from '../_lib/measures';
+import { greetingWhen } from '../_lib/day-words';
 import { guestRoleLabel, plusOneSeats } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
@@ -2575,8 +2576,8 @@ export async function SiteBody({
        two would mean two elements with one id, and a second drawing of the
        ticket. Guarded by `the-hub-shows-the-ticket.test.ts`. */
 
-    /** The day, as the greeting says it — '' for an event with no date yet. */
-    const greetingDate = formatEventDate(event.event_date);
+    /** The day, as the greeting may say it — only as much as the hosts decided (`greetingWhen`); null with no date. */
+    const greetingAt = greetingWhen(event.event_date, event.event_date_precision);
     const greetingBlock = plan.greetingShouldRender ? (
       /* Pahina §7: the greeting's setting. 🎩 NO CASUAL GREETING (owner
          2026-09-30, DECISION_LOG "NO CASUAL GREETINGS": *"no casual
@@ -2588,17 +2589,25 @@ export async function SiteBody({
           {/* 📅 NO DATE, NO "on" (a guest's walk 2026-10-11: "We'd love to celebrate with you on . You're
               joining us as…"). An event with no date yet says the same sentence without the day — the words the
               Maker's own drawing of this line already uses (`maker-guest-scenes.tsx`). */}
-          {greetingDate ? (
+          {greetingAt?.day ? (
             <>
               {clientWords.solemn
                 ? 'We hope you can be with us on'
                 : 'We’d love to celebrate with you on'}{' '}
-              <span className="font-medium text-ink">{greetingDate}</span>
+              <span className="font-medium text-ink">{greetingAt.day}</span>
             </>
-          ) : clientWords.solemn ? (
-            'We hope you can be with us'
           ) : (
-            'We’d love to celebrate with you'
+            <>
+              {clientWords.solemn ? 'We hope you can be with us' : 'We’d love to celebrate with you'}
+              {/* 🗓 Only a month or a year decided: "…in August 2027" / "…sometime in 2027" — never the
+                  placeholder day the column holds (`greetingWhen`). */}
+              {greetingAt?.loosely ? (
+                <>
+                  {' '}
+                  <span className="font-medium text-ink">{greetingAt.loosely}</span>
+                </>
+              ) : null}
+            </>
           )}
           {venueNamesLine(event, ' and ') ? (
             <>

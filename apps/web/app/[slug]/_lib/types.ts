@@ -75,6 +75,14 @@ export type EventRow = {
    * the next reader cannot cast their way past it.
    */
   event_end_date?: string | null;
+  /**
+   * How much of `event_date` the hosts have decided: 'year' · 'month' · 'day'
+   * (`events.event_date_precision`, NOT NULL, default 'year'). For a year or a
+   * month the date column holds a PLACEHOLDER day — never print it as a day
+   * (`greetingWhen`, `lib/join-door-meta.ts`). Optional: a caller that never
+   * read the column (a fixture) keeps the day, as before.
+   */
+  event_date_precision?: string | null;
   /** The organiser closed this celebration out (`events.cleared_at`). Day-of
    *  surfaces are over once it is set, whatever the calendar says. Selected for
    *  the same reason as the field above. */

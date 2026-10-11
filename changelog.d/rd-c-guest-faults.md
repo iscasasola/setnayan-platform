@@ -120,6 +120,15 @@ page is the story, not the invitation's cover; `loadingScreenFor` now answers
 "quiet" for it too (`stageIsTheStory`, the plan's own `showEditorial` fact).
 Guard: `the-loading-screen-is-this-stages.test.ts` (the plan on 960 combinations).
 
+**The hub's greeting says only as much of the date as the hosts decided**
+(found while fixing N06). `events.event_date` holds a placeholder day when
+`event_date_precision` is 'month' or 'year', and the greeting printed it in
+full. `greetingWhen` (`app/[slug]/_lib/day-words.ts`) asks the same formatter
+`lib/join-door-meta.ts` does: "…with you in August 2027." / "…with you
+sometime in 2027." / a real day as before. `loadEventShell` now reads the
+column. NOT changed: the cover and the film still print `event_date` in full.
+Guard: `lib/a-dateless-event-prints-no-hole.test.ts` (1b).
+
 SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
 2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
 face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG

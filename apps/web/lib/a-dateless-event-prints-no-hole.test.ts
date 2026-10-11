@@ -22,6 +22,7 @@
  *   · the greeting in `site-body.tsx` put back to the unconditional "…with you on" + the date → (1) red (the page
  *     prints "on ."), (3) red (the bare call site is named);
  *   · `withDayNote` made to return the sentence alone → (2) red;
+ *   · (1b, 2026-10-11) `greetingWhen` made to treat every precision as a day → (1b) red;
  *   · the `withDayNote(` taken off `find-my-table/page.tsx` → (4) red.
  */
 import { test } from 'node:test';
@@ -32,7 +33,7 @@ import { join } from 'node:path';
 import { renderSiteBodyFixture } from './site-body-fixture-render';
 import { FIXTURE_EVENT, FIXTURE_WORDS } from './site-body-fixture';
 import { stripComments } from './strip-comments';
-import { DATE_STILL_TO_BE_CONFIRMED, withDayNote } from '../app/[slug]/_lib/day-words';
+import { DATE_STILL_TO_BE_CONFIRMED, greetingWhen, withDayNote } from '../app/[slug]/_lib/day-words';
 
 const WEB = join(__dirname, '..');
 
@@ -99,6 +100,28 @@ test('(1) the real guest page of an event with no date has no sentence with a ho
   }
 });
 
+test('(1b) only a month or a year decided: the greeting says that much, and never the placeholder day', async () => {
+  // The rule.
+  assert.deepEqual(greetingWhen('2026-12-12', 'day'), { day: FIXTURE_WORDS.dateWords });
+  assert.deepEqual(greetingWhen('2026-12-12', undefined), { day: FIXTURE_WORDS.dateWords }, 'a caller that never read the column changed');
+  assert.deepEqual(greetingWhen('2026-12-01', 'month'), { loosely: 'in December 2026' });
+  assert.deepEqual(greetingWhen('2027-03-09', 'year'), { loosely: 'sometime in 2027' });
+  for (const none of [greetingWhen(null, 'day'), greetingWhen('', 'year'), greetingWhen('2026-12-12', 'week'), greetingWhen('2026-12-12', null)]) {
+    assert.equal(none, null, 'a when is said that nobody decided');
+  }
+  // The real page.
+  const lineOf = (html: string) => linesOf(html).find((l) => l.includes('You’re joining us as')) ?? '';
+  for (const [precision, says] of [['month', 'in December 2026'], ['year', 'sometime in 2026']] as const) {
+    const html = await renderSiteBodyFixture({ event: { ...FIXTURE_EVENT, event_date_precision: precision } });
+    const line = lineOf(html);
+    assert.ok(line.includes(`We’d love to celebrate with you ${says}`), `${precision}: the greeting reads ${JSON.stringify(line)}`);
+    assert.ok(!line.includes('December 12'), `${precision}: the greeting prints the placeholder day`);
+    assert.deepEqual(holesIn(`<p>${line}</p>`), [], `${precision}: the greeting has a hole in it`);
+  }
+  const day = lineOf(await renderSiteBodyFixture({ event: { ...FIXTURE_EVENT, event_date_precision: 'day' } }));
+  assert.ok(day.includes(`with you on ${FIXTURE_WORDS.dateWords}`), `a real day is no longer printed: ${JSON.stringify(day)}`);
+});
+
 test('(2) "on the day" is followed by one plain sentence when the event has no date — and left alone when it has one', () => {
   const s = 'Your table shows here on the day.';
   assert.equal(withDayNote(s, '2026-12-12'), s);
@@ -133,7 +156,6 @@ test('(3) every place a guest page formats the event’s date is a shape that ca
   ];
   /** A date kept in a name: the name, and what must stand in front of every place it is printed. */
   const NAMED: Record<string, { name: string; guard: RegExp }> = {
-    'app/[slug]/_components/site-body.tsx': { name: 'greetingDate', guard: /\{greetingDate \? \(/ },
     'app/[slug]/_components/maker-guest-scenes.tsx': { name: 'date', guard: /\{date \? ` on \$\{date\}` : ''\}/ },
     'app/[slug]/_components/pahina-keepsake.tsx': { name: 'dateLabel', guard: /\{dateLabel \? \(/ },
     'app/[slug]/_components/pahina-masthead.tsx': { name: 'dateLabel', guard: /dateLabel \? / },

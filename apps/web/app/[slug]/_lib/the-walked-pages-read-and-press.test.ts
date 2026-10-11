@@ -79,7 +79,7 @@ const PRESS: Array<[string, string]> = [
   ['seat/page.tsx', 'Back to your invitation'],
   ['find-my-table/page.tsx', 'Back to your invitation'],
   ['find-seat/page.tsx', 'Back to the invitation\n      </SeatBackLink>'],
-  ['venue/page.tsx', '← Back to the {noun}'],
+  ['venue/page.tsx', '← Back to the invitation'],
 ];
 
 test('READ — each sentence on the walked pages is at least 4.5:1 on the page', () => {

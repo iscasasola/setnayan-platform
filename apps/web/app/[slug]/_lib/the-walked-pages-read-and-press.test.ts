@@ -121,6 +121,7 @@ const PRESS: Array<[string, string]> = [
   ['avatar/page.tsx', '← Back\n          </Link>'],
   ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}'],
   ['recap/page.tsx', 'Open their page'],
+  ['avatar/_components/avatar-maker.tsx', 'See me in the room →'],
 ];
 
 /** Presses a thumb finds by WIDTH too — a word or an icon narrower than 44px on its own. */

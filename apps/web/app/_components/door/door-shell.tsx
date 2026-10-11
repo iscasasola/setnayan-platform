@@ -366,7 +366,7 @@ export function DoorShell({
           <p className="mt-4 text-center text-xs" data-door-made-with="">
             <Link
               href="/"
-              className="inline-flex min-h-8 items-center rounded-full bg-surface/90 px-3 text-ink/75 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
+              className="inline-flex min-h-11 items-center rounded-full bg-surface/90 px-3 text-ink/75 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
             >
               Made with Setnayan
             </Link>

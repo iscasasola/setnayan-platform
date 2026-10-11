@@ -87,7 +87,7 @@ function Chip({
       aria-pressed={on}
       aria-label={ariaLabel}
       className={
-        'rounded-lg px-2.5 py-1.5 text-xs transition ' +
+        'min-w-[44px] rounded-lg px-2.5 py-1.5 text-xs transition ' +
         (on ? 'bg-white text-[#0b0d12]' : 'bg-white/10 text-white/75 hover:bg-white/20')
       }
     >
@@ -380,7 +380,7 @@ export function AvatarMaker({
         ) : null}
         <Link
           href={`/${slug}/venue`}
-          className="rounded-xl px-3 py-2 text-sm text-white/60 hover:text-white"
+          className="inline-flex min-h-[44px] items-center rounded-xl px-3 py-2 text-sm text-white/60 hover:text-white"
         >
           See me in the room →
         </Link>

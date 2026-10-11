@@ -1,5 +1,6 @@
 import { RoomFooter } from '../_components/room-footer';
 import { loadRoomLinks } from '../_lib/room-links.server';
+import { partDoorHidden } from '../_lib/part-door.server';
 import type { RoomLink } from '../_lib/room-links';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -220,6 +221,12 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
       redirect(`/${slug}/seat/claim?t=${encodeURIComponent(t)}`);
     }
 
+    // 👁 The couple hid "Your seat" on the stage the event is at ("What guests see"): no table is read or shown — the
+    // scan goes back to the event's page, the exit the free finders take (`find-seat`, `find-my-table`). A guest's
+    // PERSONAL code went through the claim hop just above first, so it still signs them in and records the scan.
+    // One reading: `_lib/part-door.server.ts`.
+    if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
+
     // Table hit → stateless public table view (publication-gated below).
     const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
     const entrance = await fetchEntrance(admin, event.event_id);
@@ -247,6 +254,9 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   }
 
   // ── Shape B: clean URL (no token) → personal pass from the session cookie ──
+  // 👁 …and none on a stage the couple hid "Your seat" on — the same exit as above. This is where the claim hop lands,
+  // so a guest who scanned their own code arrives on the event's page, signed in, with no seat shown.
+  if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
   const session = await readGuestSession();
   if (!session || session.event_id !== event.event_id) {
     return (

@@ -77,6 +77,20 @@ test("3 · the part's own page takes the exit it already had", () => {
     const read = page.search(/\.from\('(seating_tables|event_tables|table_assignments|guests)'\)/);
     assert.ok(read === -1 || gate < read, `${name}: a table or a guest is read before the door is asked`);
   }
+  /* The venue QR (`/seat`) follows the same rule (controller 2026-10-12) — twice, because it has two ways in: a table
+     sign's code, and the clean address a guest's own code lands on after the claim hop. Each asks before a table is
+     read; the claim hop itself is NOT gated, so a guest's own scan still signs them in and is still recorded. */
+  const SEAT = src('app/[slug]/seat/page.tsx');
+  assert.equal((SEAT.match(/if \(await partDoorHidden\(admin, event\.event_id, 'seat'\)\) redirect\(`\/\$\{slug\}`\);/g) ?? []).length, 2);
+  const claimHop = SEAT.indexOf('redirect(`/${slug}/seat/claim?t=');
+  const firstGate = SEAT.indexOf("partDoorHidden(admin, event.event_id, 'seat')");
+  const secondGate = SEAT.indexOf("partDoorHidden(admin, event.event_id, 'seat')", firstGate + 1);
+  const tableRead = SEAT.indexOf('await fetchTables(admin, event.event_id)');
+  const sessionRead = SEAT.indexOf('await readGuestSession()');
+  assert.ok(claimHop > 0 && claimHop < firstGate, 'the gate stands before the claim hop — a hidden seat would stop a guest signing in');
+  assert.ok(firstGate < tableRead, 'a table is read before the door is asked (the table sign)');
+  assert.ok(secondGate > tableRead && secondGate < sessionRead, 'the personal pass is reached before the door is asked');
+  assert.doesNotMatch(src('app/[slug]/seat/claim/route.ts'), /partDoorHidden|hiddenPartDoors/);
   // Entourage: the page keeps its own "hasn't been shared yet" line — its state for no entourage.
   const ALL = src('app/[slug]/everyone/page.tsx');
   assert.match(ALL, /const groups = \(await partDoorHidden\(admin, event\.event_id, 'entourage'\)\) \? \[\] : castGroups;/);

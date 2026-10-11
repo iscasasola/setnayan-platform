@@ -64,11 +64,11 @@ export function useSceneCanvas(
       /* 📵 A save that never answered (no signal, a 5xx) is a refusal, SAID in the row — thrown into this transition it
          replaced the whole Maker with the app's error screen (`hubDraftAnswer`). The pick stays chosen: the next save
          on this scene carries the whole canvas, so it is sent again with it. */
-      const res = await hubDraftAnswer('save', () =>
+      const res = await hubDraftAnswer('save', async () =>
         opts.redraw
-          ? makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh())
+          ? await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh())
           : // One refresh after the last save in flight (`lib/maker-refresh.ts`).
-            makerSave(() => draftAction(eventId, fd), () => router.refresh()),
+            await makerSave(() => draftAction(eventId, fd), () => router.refresh()),
       );
       if (!res.ok) setError(res.error);
     });

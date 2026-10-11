@@ -180,7 +180,7 @@ test('4 · the page asks the measured form of all five, and says what they answe
   assert.equal(count(PAGE, 'notLoaded={guestListUnreadLine(sideReads)}'), 1);
   // An unread plan is never the stage a table is suggested from; unread seats suggest no table at all.
   assert.match(PAGE, /const floorPlan = floorPlanRead\.measured \? floorPlanRead\.plan : null;/);
-  assert.match(PAGE, /!countsTowardEvent\(g\) \|\| !sideReads\.seats\s*\? null/);
+  assert.match(PAGE, /placed \|\| !sideReads\.seats \|\| [^?]*\?\s*null\s*: suggestTableFor\(/);
 });
 
 test('5 · the screen draws it — under a list that was read, once, with the list’s own Try again', async () => {

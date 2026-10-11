@@ -680,7 +680,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           // 📏 …and nobody is SUGGESTED a table from seat reads that did not all happen:
           // with the assignments unread everyone looks unseated, and with the floor
           // plan unread the stage is a guess.
-          placed || g.rsvp_status === 'declined' || !countsTowardEvent(g) || !sideReads.seats
+          placed || !sideReads.seats || g.rsvp_status === 'declined' || !countsTowardEvent(g)
             ? null
             : suggestTableFor(g, tables, assignments, stage);
         return [g.guest_id, { placed, suggested }];

@@ -47,5 +47,19 @@ push (it must never reach main). Scripts and pictures: `~/Documents/Claude/Proje
   quiet "Picture" box (by design for an unsignable file). The live canvas after the add uses the local file.
 - DB room test (`tests/db/rsvp-ask-config-has-room.db.test.ts`) NOT YET RE-RUN with the new fixture (heavy lane).
 
-## 4 · checks — not started (full tsc, room db test, preflight: heavy lane)
-## 5 · push / draft PR — not started
+- WALK 1 (`pic.out`, 812): ＋ sheet = Heading · Message · Picture ✓ · chooser opens ✓ · after the upload the canvas
+  shows the IMG at 279 × 112, `alt=""`, from the local file ✓ · Edit = Replace · Earlier · Later · Group · Remove ✓ ·
+  Look ▾ Tall → 176 px ✓ · ↺ → 112 · ↺ → gone, draft empty ✓. FAULT FOUND: one upload made TWO picture lines
+  (FileUpload emits onChange inside a state updater; React runs it twice in dev) → fixed (`handed` ref, commit
+  "fix(rsvp): one upload is one picture line…"). 667 run broke on the DRIVER (＋ below is not drawn at 667) → fixed.
+- RE-WALK queued/running (`pic2.out`).
+
+## 4 · checks
+- Room db test re-run with the picture look + real ref: 6/6 (`room.log`): pictures 11,219 JSON → 12,737 stored; worst
+  stays the text case 17,327 → 19,025 (unchanged), ratio ×1.284, edge 17,809 → 22,905 < 24,576.
+- Preflight #1 (head 50a54ab48, 36 min): 48 pass, 2 FAIL — radius lint (rounded-[14px]) and
+  `the-rsvp-page-follows-the-maker.test.ts` § 7 (pinned `[currentKey]`, the fault-1 fix made it `[currentKey, truth]`)
+  → both fixed in e0a5ee609. Whole-tree guards 389 files/2,775 tests PASS; DB scanners 35/249 PASS.
+- Full tsc at 7168 MB ran OUT OF HEAP (rc 134); rerun at 10240 (the package's own `typecheck` setting) queued with
+  preflight's quick half (`heavy2.out`).
+## 5 · push / draft PR — not started (PR body drafted: `pr-body.md`; HANDOVER.md is deleted in the commit before push)

@@ -90,6 +90,7 @@ import { TicketPicture } from '../../_components/ticket-picture';
 import { TicketPopup } from '../../_components/ticket-popup';
 import { InAppBar } from '../../_components/in-app-bar';
 import { LandingPreReply, LandingSaveTheDate } from '../_components/landing-pre-reply';
+import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,7 +107,11 @@ type Props = {
  * the Event Hub names, through the ONE helper (`eventShortcutMetadata`). Without
  * them a phone would make a tile of our generic app, or a screenshot.
  */
-export async function generateMetadata({ params, searchParams }: Props) {
+export async function generateMetadata(props: Props) {
+  return withGuestReadLimitQuiet('slug/invite/enter/metadata', () => inviteEnterMetadata(props));
+}
+
+async function inviteEnterMetadata({ params, searchParams }: Props) {
   const { slug } = await params;
   const shell = await loadEventShell(slug).catch(() => null);
   const tileCode = shell?.event_id && !asksForHostCanvas(await searchParams)
@@ -246,7 +251,13 @@ async function leaveForTheHub(
 const RSVP_YES_PARTS = ['yesnote', 'pass'] as const;
 const RSVP_NO_PARTS = ['nonote'] as const;
 
-export default async function InviteEnterPage({ params, searchParams }: Props) {
+// ⏱ Every read on the way in has a bounded wait; an essential one that never answers
+// is "didn't load", never a dead link (`lib/read-limit.ts`). The page is the function below.
+export default async function InviteEnterPage(props: Props) {
+  return withGuestReadLimit('slug/invite/enter', () => inviteEnterPage(props));
+}
+
+async function inviteEnterPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
 

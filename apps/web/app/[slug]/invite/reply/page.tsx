@@ -40,6 +40,7 @@ import { overlayHubDraftEvent, overlayHubDraftWidgets } from '@/lib/hub-draft';
 import { sceneStyleOfRow } from '@/lib/scene-style-of-row';
 import { rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
 import { loadPreviewPerson } from '../../_lib/preview-person.server';
+import { withGuestReadLimit } from '@/lib/read-limit';
 
 /** The Maker part this page draws lines of (`RSVP_LOOK_LINES`, `lib/rsvp-look.ts`). */
 const RSVP_FORM_PARTS = ['rsvp'] as const;
@@ -75,7 +76,12 @@ type Props = {
  * The write is `RsvpWidget` → `submitInviteReply` → `submitRsvp`, the same save
  * the Event Hub's own card makes, with every guard it carries.
  */
-export default async function InviteReplyPage({ params, searchParams }: Props) {
+export default async function InviteReplyPage(props: Props) {
+  // ⏱ Bounded waits; an essential read that never answers is "didn't load" (`lib/read-limit.ts`).
+  return withGuestReadLimit('slug/invite/reply', () => inviteReplyPage(props));
+}
+
+async function inviteReplyPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
 

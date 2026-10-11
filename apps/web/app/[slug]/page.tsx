@@ -154,6 +154,7 @@ import { SiteBody } from './_components/site-body';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { startAhead } from '@/lib/start-ahead';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
+import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
 
 // Task #13 (Phase 1 day-of PWA fix, 2026-05-22) — swap `dynamic = 'force-dynamic'`
 // for ISR so this surface can be CDN-cached AND served from SHELL_CACHE when a
@@ -247,7 +248,13 @@ type Props = {
 // on the slug alone, so generateMetadata and the page body keep sharing one DB
 // roundtrip exactly as before.
 
-export async function generateMetadata({ params, searchParams }: Props) {
+export async function generateMetadata(props: Props) {
+  // ⏱ The same bounded wait — but the metadata is never the part that fails: a
+  // lapse is recorded for the request, and the page says the honest words.
+  return withGuestReadLimitQuiet('slug/metadata', () => invitationMetadata(props));
+}
+
+async function invitationMetadata({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
   if (!slug || RESERVED_SLUGS.has(slug)) notFound();
@@ -393,7 +400,17 @@ export async function generateMetadata({ params, searchParams }: Props) {
 // revealSealConfig · coerceRevealTemplate · displayNameOf — moved verbatim to
 // _components/site-body.tsx with the body trees that consume them.)
 
-export default async function PublicInvitationPage({ params, searchParams }: Props) {
+/* ⏱ NO GUEST WAITS FOREVER FOR A READ (`lib/read-limit.ts`, 2026-10-12). Every
+   read this page sends has a bounded wait, and if an ESSENTIAL one — the event,
+   the scenes, the guest's own row — does not answer, the guest is shown the
+   boundary's honest words instead of a "not found" or an empty page decided
+   from a read that never came back. The page itself is the function below,
+   unchanged. */
+export default async function PublicInvitationPage(props: Props) {
+  return withGuestReadLimit('slug', () => publicInvitationPage(props));
+}
+
+async function publicInvitationPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
   const invite = (search.invite ?? '').trim();
@@ -694,21 +711,30 @@ async function skeletonStdLead(
  * the body work (which is slow). Nothing here moved a line — it is the same
  * code, one function deeper.
  */
-async function InvitationBody({
-  event: liveEvent,
-  slug,
-  search,
-  admin,
-  inviteError,
-  eventTypeProfile,
-}: {
+type InvitationBodyProps = {
   event: EventShellRow;
   slug: string;
   search: Awaited<Props['searchParams']>;
   admin: ReturnType<typeof createAdminClient>;
   inviteError: string | null;
   eventTypeProfile: Awaited<ReturnType<typeof resolveProfile>>;
-}) {
+};
+
+/* ⏱ The body's reads carry the same bounded wait as the page's (`lib/read-limit.ts`);
+   React calls this later than the page function, so it opens its own scope —
+   one deadline per request all the same. The body is the function below, unchanged. */
+async function InvitationBody(props: InvitationBodyProps) {
+  return withGuestReadLimit('slug/invitation-body', () => invitationBody(props));
+}
+
+async function invitationBody({
+  event: liveEvent,
+  slug,
+  search,
+  admin,
+  inviteError,
+  eventTypeProfile,
+}: InvitationBodyProps) {
   // Server-render timing (Maker phone-polish, 2026-09-26) — one structured
   // stdout line per render → log drain, the same instrument already proven
   // on `vendor-dashboard/layout.tsx`. This route's own docblock has said

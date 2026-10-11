@@ -48,6 +48,8 @@ export function BlueprintStudio({
   const [entrance, setEntrance] = useState<EntrancePos>(initialEntrance);
   const [dragging, setDragging] = useState(false);
   const [dirty, setDirty] = useState(false);
+  /* 📵 The save never answered (no signal, a 5xx): said beside Save, the handle stays where it was dragged, Save stays lit. */
+  const [notSaved, setNotSaved] = useState(false);
   const [pending, startTransition] = useTransition();
   const saveLoader = useSaveLoader();
 
@@ -76,11 +78,19 @@ export function BlueprintStudio({
     fd.set('event_id', eventId);
     fd.set('entrance_x', String(entrance.x));
     fd.set('entrance_y', String(entrance.y));
+    setNotSaved(false);
     startTransition(async () => {
-      await saveLoader.run(() => saveAction(fd), {
-        steps: ['Saving your blueprint'],
-        hint: 'Saving',
-      });
+      /* `saveLoader.run` rethrows — thrown into this transition it replaced the whole page (in the Maker, the whole
+         Maker) with the app's error screen. A save that did not land never reads as saved: "Unsaved" stays. */
+      try {
+        await saveLoader.run(() => saveAction(fd), {
+          steps: ['Saving your blueprint'],
+          hint: 'Saving',
+        });
+      } catch {
+        setNotSaved(true);
+        return;
+      }
       setDirty(false);
     });
   };
@@ -93,7 +103,11 @@ export function BlueprintStudio({
           Drag the entrance handle onto your floor plan
         </p>
         <div className="flex items-center gap-2">
-          {dirty ? (
+          {notSaved ? (
+            <span role="alert" className="text-xs text-warn-700">
+              That did not save. Please try again.
+            </span>
+          ) : dirty ? (
             <span className="font-mono text-[11px] text-warn-700">Unsaved</span>
           ) : null}
           <button

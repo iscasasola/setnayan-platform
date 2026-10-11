@@ -144,8 +144,11 @@ test('E · the seat shows only from 00:00 Manila on the event date', () => {
   ], 'a table was named before the day');
   // Frame 6 — on the day, two lines: the door, then the table.
   assert.deepEqual(howToUseLines({ seatDay: true, dateLabel: 'March 13', table: 'Table 7' }), ['Show this at the door.', 'Find Table 7 in the reception.']);
-  // The page reads the seat only on the day.
-  assert.match(ENTER, /const ownSeat = canvas \|\| !seatDay \? null : /, 'the landing page reads a seat before the day');
+  // The page reads the seat only on the day (the read leaves with the body's others — 2026-10-12 — and is asked
+  // only then; the seat is taken only from that read).
+  assert.match(ENTER, /const ticketSeatsAhead = canvas \|\| !seatDay \? null : startAhead\(readTicketSeats\(/, 'the landing page reads a seat before the day');
+  assert.equal(ENTER.split('readTicketSeats(').length - 1, 1, 'the seat is read a second way');
+  assert.match(ENTER, /const ownSeat = ticketSeatsAhead \? /, 'the seat shown is not the one read on the day');
 });
 
 // ═══ F · the pop-up, once per version ═══════════════════════════════════════

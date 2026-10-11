@@ -31,7 +31,7 @@ export function NotYouSwitch({
       Not you?{' '}
       <button
         type="submit"
-        className="min-h-[44px] font-medium text-ink underline underline-offset-4 hover:text-link"
+        className="min-h-[44px] min-w-[44px] font-medium text-ink underline underline-offset-4 hover:text-link"
       >
         Switch
       </button>

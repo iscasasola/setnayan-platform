@@ -104,12 +104,20 @@ function Swatch({ hex, on, onClick, name }: { hex: string; on: boolean; onClick:
       aria-pressed={on}
       aria-label={name}
       title={name}
-      style={{ backgroundColor: hex }}
-      className={
-        'h-7 w-7 rounded-full border transition ' +
-        (on ? 'border-white ring-2 ring-white/70' : 'border-white/25 hover:border-white/60')
-      }
-    />
+      /* 🎯 A 44×44 ROUND press area around the 28px swatch (2026-10-12, guest walk N23: 28 wide). The button is
+         sized to the floor itself so globals.css's button min-height cannot stretch a circle into an oval —
+         which is what the bare `h-7 w-7` button became (28×44). The swatch is drawn inside, unchanged. */
+      className="group grid h-11 w-11 place-items-center rounded-full"
+    >
+      <span
+        aria-hidden
+        style={{ backgroundColor: hex }}
+        className={
+          'block h-7 w-7 rounded-full border transition ' +
+          (on ? 'border-white ring-2 ring-white/70' : 'border-white/25 group-hover:border-white/60')
+        }
+      />
+    </button>
   );
 }
 

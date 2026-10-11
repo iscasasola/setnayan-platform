@@ -56,7 +56,7 @@ function linkClassesAround(rel: string, words: string): string[] {
   const at = src.indexOf(words);
   assert.ok(at > 0, `${rel}: ${JSON.stringify(words)} is no longer on the page — this row is pointing at nothing`);
   const before = src.slice(Math.max(0, at - 700), at);
-  const all = [...before.matchAll(/<(?:Link|a|SeatBackLink)\b[^>]*?className="([^"]*)"/g)];
+  const all = [...before.matchAll(/<(?:Link|a|SeatBackLink|button)\b[^>]*?className="([^"]*)"/g)];
   assert.ok(all.length > 0, `${rel}: no link was found around ${JSON.stringify(words)}`);
   return all[all.length - 1]![1]!.split(/\s+/);
 }
@@ -80,6 +80,25 @@ const PRESS: Array<[string, string]> = [
   ['find-my-table/page.tsx', 'Back to your invitation'],
   ['find-seat/page.tsx', 'Back to the invitation\n      </SeatBackLink>'],
   ['venue/page.tsx', '← Back to the invitation'],
+  // 2026-10-12 · the rest of N23 as the live re-walk of d2e38b7 listed it.
+  ['_components/not-you-switch.tsx', 'Switch\n      </button>'],
+  ['_components/rsvp-widget.tsx', 'Terms\n        </Link>'],
+  ['_components/rsvp-widget.tsx', 'Privacy Notice\n        </Link>'],
+  ['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'],
+  ['pabuya/page.tsx', '<Logo height={26} />'],
+  ['seat/page.tsx', '<Logo height={28} />'],
+  ['avatar/page.tsx', '← Back\n          </Link>'],
+  ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}'],
+  ['recap/page.tsx', 'Open their page'],
+];
+
+/** Presses a thumb finds by WIDTH too — a word or an icon narrower than 44px on its own. */
+const WIDE: Array<[string, string]> = [
+  ['_components/not-you-switch.tsx', 'Switch\n      </button>'],
+  ['_components/rsvp-widget.tsx', 'Terms\n        </Link>'],
+  ['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'],
+  ['pabuya/page.tsx', '<Logo height={26} />'],
+  ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}'],
 ];
 
 test('READ — each sentence on the walked pages is at least 4.5:1 on the page', () => {
@@ -104,4 +123,25 @@ test('PRESS — each way back on the walked pages is at least 44px tall', () => 
     if (!tall) small.push(`app/[slug]/${rel}: the link ${JSON.stringify(words.slice(0, 40))} is under 44px (${cls.join(' ')})`);
   }
   assert.deepEqual(small, []);
+});
+
+test('WIDE — each narrow press on the walked pages is at least 44px wide as well', () => {
+  const narrow: string[] = [];
+  for (const [rel, words] of WIDE) {
+    const cls = linkClassesAround(rel, words);
+    const wide = cls.some((c) => /^min-w-\[(\d+)px\]$/.test(c) && Number(c.match(/\d+/)![0]) >= 44) || cls.some((c) => /^(?:w|min-w)-(?:11|12|14|16)$/.test(c));
+    if (!wide) narrow.push(`app/[slug]/${rel}: the press around ${JSON.stringify(words.slice(0, 40))} is under 44px wide (${cls.join(' ')})`);
+  }
+  assert.deepEqual(narrow, []);
+});
+
+test('a ROUND press stays round — its height and width are the same floor', () => {
+  // globals.css gives every <button> a 44px min-height: a circle sized only by h-7 w-7 became a 28×44 oval.
+  for (const [rel, words] of [['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'], ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}']] as const) {
+    const cls = linkClassesAround(rel, words);
+    assert.ok(cls.includes('rounded-full'), `${rel}: no longer round (${cls.join(' ')})`);
+    const h = cls.find((c) => /^h-\d+$/.test(c));
+    const w = cls.find((c) => /^w-\d+$/.test(c));
+    assert.ok(h && w && h.slice(2) === w.slice(2), `${rel}: a round press must be square — ${h} × ${w}`);
+  }
 });

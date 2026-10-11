@@ -190,6 +190,18 @@
     margin-left: auto;
     margin-right: auto;
   }
+  /* The setup cards (`SetupFrame`, [data-setup-card]) are a single column too, but
+     their root is none of the blocks above — so the centred flex parent shrank each
+     card to the width of its own words (a different width on every card, 413px on
+     "Who's getting married?"). Same cap as every other single-column screen, which is
+     also the approved desktop drawing ("the same card, centred, ~560 px" —
+     prototypes/event_onboarding_phone_2026-10-01_fable.html, section D). Width only:
+     the parent already centres it, and no rule here may set a margin or padding on a
+     setup card (the-setup-cards-keep-their-spacing.test.ts). */
+  .onbw .screen.active:not(.onb-twopane) > [data-setup-card] {
+    width: 100%;
+    max-width: 560px;
+  }
   /* Single-column screens keep their thumb-dock reset too (their tapzone is a
      content panel here, not a bottom-pinned dock). */
   .onbw .screen.active:not(.onb-twopane) > .tapzone {

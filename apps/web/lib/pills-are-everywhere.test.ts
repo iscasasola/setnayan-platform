@@ -229,8 +229,10 @@ test('(2b) the concierge-abuse sections, RENDERED — a refused read is “—�
 
 test('(3b) onboarding’s own CSS gives the song selector its padding back and nothing else — the look stays the template’s', () => {
   const css = stripComments(readFileSync(join(WEB, 'app/onboarding/wedding/_styles/onboarding.css'), 'utf8'));
-  // The reason the two rules exist at all; if the reset goes, they can go too.
-  assert.match(css, /\.onbw \*\{box-sizing:border-box;margin:0;padding:0\}/, 'anti-vacuity: onboarding’s padding reset moved — the song selector’s two padding rules may no longer be needed');
+  // The reason the two rules exist at all; if the reset goes, they can go too. Since 2026-10-11 the reset stops at the
+  // setup cards (`:not(:where([data-setup-card],…))` — the-setup-cards-keep-their-spacing.test.ts); the song bank is
+  // not one, so it is still reset and still needs its two rules.
+  assert.match(css, /\.onbw \*(?::not\([^{]*\))?\{(?:[^}]*;)?padding:0\}/, 'anti-vacuity: onboarding’s padding reset moved — the song selector’s two padding rules may no longer be needed');
   const rules = [...css.matchAll(/\.onbw \.songbank \.song-seg(?![-\w])[^{]*\{([^}]*)\}/g)].map((m) => m[1]!);
   assert.equal(rules.length, 2, `the song selector has ${rules.length} rules of its own in onboarding.css — expected the track’s and its buttons’ padding`);
   for (const body of rules) assert.doesNotMatch(body, /background|color|border|radius|shadow|font|transition/, `onboarding.css draws the song selector’s look again: {${body}}`);

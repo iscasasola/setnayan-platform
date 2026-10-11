@@ -13,6 +13,18 @@
  * `.pba` (or any other surface's scope) again.
  * Prototype asset paths (assets/*) are rewritten to the Next public path (/onboarding/*).
  * Edit the prototype + re-scope (prepend `.onbw` to every rule); do not hand-tweak this file.
+ *
+ * THE RESET STOPS AT THE SETUP CARDS (2026-10-11). The prototype's `*{margin:0;padding:0}`
+ * became `.onbw *{…}`, which is as strong as one Tailwind class (`.px-4`, `.mt-6`) and is
+ * loaded after them — so it won. The approved setup cards (`SetupFrame`,
+ * app/onboarding/_shared/setup-card.tsx, and the wedding's own cards) are spaced ONLY with
+ * Tailwind classes and are drawn inside `.onbw`: every margin and padding on them came out
+ * 0 (fields with the placeholder on the left edge, pills with no padding, counter · title ·
+ * line · control stacked with no space — the owner's walk of the live flow). The reset now
+ * leaves a setup card (`[data-setup-card]`) and everything in it alone; every other element
+ * under `.onbw` is reset exactly as before (`:where()` adds no weight, so the rule is still
+ * one class strong and every `.onbw .x{…}` rule below still beats it).
+ * Held by app/onboarding/_shared/the-setup-cards-keep-their-spacing.test.ts.
  */
 
 .onbw{
@@ -23,7 +35,7 @@
     --sans:var(--font-sans),'Manrope',-apple-system,system-ui,sans-serif;
     --serif:var(--font-display),'Cormorant Garamond',Georgia,serif;
     --mono:var(--font-mono),'DM Mono',ui-monospace,monospace;
-  }.onbw *{box-sizing:border-box;margin:0;padding:0}.onbw{background:#E9E6DF;font-family:var(--sans);color:var(--ink);
+  }.onbw *{box-sizing:border-box}.onbw *:not(:where([data-setup-card],[data-setup-card] *)){margin:0;padding:0}.onbw{background:#E9E6DF;font-family:var(--sans);color:var(--ink);
     -webkit-font-smoothing:antialiased;display:flex;justify-content:center;
     min-height:100vh;padding:0;}.onbw .phone{width:100%;max-width:430px;height:100vh;height:100dvh;background:var(--paper);overflow:hidden;
     display:flex;flex-direction:column;position:relative;box-shadow:0 0 60px rgba(0,0,0,.12);}

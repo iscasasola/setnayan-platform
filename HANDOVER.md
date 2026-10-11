@@ -25,8 +25,10 @@ Report of the round before the join: head `efa2926b3` (see `changelog.d/rd-c-gue
      a-hidden-part-closes-its-doors, guests-see-table, the-guests-see-sheet-is-lazy, lab-draft, maker-part-groups,
      each-stage-does-one-job, a-fixed-block-has-its-own-motion, a-guests-pages-are-filed-like-the-makers,
      each-guest-page-has-one-main-action).
-   - NOT RUN: the sweep (my tests + all 162 `app/[slug]` tests + Maker neighbours, 710 files) and the WHOLE
-     `pnpm preflight`. Both were queued behind the heavy lock and never got their turn; I left the line.
+   - DONE 2026-10-12 (round 2): the sweep — 386 test files (every `app/[slug]` test + every test naming site-body,
+     maker-scene-list, guests-see, hub-draft, what-guests-see, stage-scenes, part-door, part_show) → 3261 tests,
+     3261 pass, 0 fail, rc 0, 187 s, under the lock.
+   - Whole `pnpm preflight`: queued behind the lock (round 2).
 5. **Lab walk 375×812** — NOT RUN. No `joined-…` picture exists.
 
 Nothing of mine is running; I do not hold the heavy lock and am not in its line; `apps/web/.next` is removed.

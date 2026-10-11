@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { splitCoupleNames } from '@/lib/couple-names';
 import { formatEventDate } from '@/lib/events';
 import { formatHubDate, formatHubTime } from '@/lib/hub-date-formats';
 import {
@@ -38,49 +39,9 @@ import { HERO_DESIGN_ATTR, HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/
  * its animated-SKU logic) is passed in via `monogramSlot`, untouched.
  */
 
-/**
- * Split "Maria & Jose" / "Maria and Jose" into stacked lines. Falls back to a
- * single line when no separator is found (solo-named events, debuts).
- *
- * `twoPeople` is the event's own fact — `terminology.person_b` is non-null, i.e.
- * this event HAS two people at its centre (`EventWords.twoPeople`). When it is
- * FALSE the name is one line whatever punctuation it contains, because the
- * stacked-with-a-gild-joiner treatment is the WEDDING masthead and an ampersand
- * in a company name is not two people:
- *
- *     "Ayala & Partners Year-End"  →  ONE line   (was: "Ayala" & "Partners…")
- *     "Bench & Co Summer Outing"   →  ONE line   (was: "Bench" & "Co Summer…")
- *     "Maria & Juan" (a wedding)   →  still split, unchanged
- *
- * 🔒 IT DEFAULTS TO `true`, WHICH IS TODAY'S BEHAVIOUR, and that direction is
- * deliberate — the same reasoning as `event-words-provider.tsx`'s wedding
- * fallback. Production is weddings; a caller that has not been wired yet must
- * keep splitting rather than silently flattening a real couple's masthead onto
- * one line. The invisibility that creates is closed by a guard, not by a scary
- * default: `event-words.test.ts` asserts every call site passes the flag.
- */
-export function splitCoupleNames(
-  displayName: string,
-  twoPeople = true,
-): {
-  first: string;
-  second: string | null;
-  joiner: string | null;
-} {
-  if (!twoPeople) return { first: displayName, second: null, joiner: null };
-  const amp = /\s*&\s*/.exec(displayName);
-  if (amp) {
-    const [first = '', ...rest] = displayName.split(/\s*&\s*/);
-    return { first, second: rest.join(' & ') || null, joiner: '&' };
-  }
-  const and = /\s+and\s+/i.exec(displayName);
-  if (and) {
-    const first = displayName.slice(0, and.index);
-    const second = displayName.slice(and.index + and[0].length);
-    return { first, second: second || null, joiner: 'and' };
-  }
-  return { first: displayName, second: null, joiner: null };
-}
+/* The one rule for splitting a name line into its people — its own file, so the Maker's canvas reads the same one
+   (`lib/couple-names.ts`). Re-exported: every caller that named it here still finds it here. */
+export { splitCoupleNames };
 
 export function PahinaMasthead({
   displayName,

@@ -85,15 +85,27 @@ function readLabDraft(scrub: boolean) {
     return labDraftFrom(null);
   }
 }
+/** 📣 Where the browser keeps what the lab has PUBLISHED (✓ Apply) — the state the draft is read against. */
+const labLiveKey = (scrub: boolean) => (scrub ? 'lab_live_scrub_v1' : 'lab_live_v1');
+function readLabPublished(scrub: boolean) {
+  const { labPublishedFrom } = labEngineNow();
+  try {
+    return labPublishedFrom(window.localStorage.getItem(labLiveKey(scrub)));
+  } catch {
+    return null;
+  }
+}
 /**
- * The draft's state, handed to the lab's server-drawn pages: every cookie written from the STATE (`labDraftCookies`),
- * a cleared one cleared. True when a cookie CHANGED — the pages then need drawing again.
+ * The draft's state, handed to the lab's server-drawn pages: every cookie written from the STATE (`labDraftCookies`
+ * — what is published with the draft over it), a cleared one cleared. True when a cookie CHANGED — the pages then
+ * need drawing again.
  */
 function writeLabCookies(draft: ReturnType<LabDraftEngine['labDraftFrom']>, scrub: boolean): boolean {
   const { labDraftCookies } = labEngineNow();
+  const published = readLabPublished(scrub);
   const held = new Map(document.cookie.split('; ').map((c) => [c.slice(0, c.indexOf('=')), c.slice(c.indexOf('=') + 1)] as const));
   let changed = false;
-  for (const [name, value] of Object.entries(labDraftCookies(draft, scrub))) {
+  for (const [name, value] of Object.entries(labDraftCookies(draft, scrub, published))) {
     if ((held.get(name) ?? null) === value) continue;
     changed = true;
     document.cookie = value === null ? `${name}=; path=/; max-age=0; SameSite=Lax` : `${name}=${value}; path=/; SameSite=Lax`;
@@ -125,9 +137,14 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
   const { labDraftStep } = await labEngine();
   const scrub = labScrubOn();
-  const { draft, result } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD) }, scrub);
+  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD) }, scrub, readLabPublished(scrub));
   if (result.ok) {
     try {
+      /* 📣 ✓ Apply moved the draft into the lab's published state — kept first, so the pages are drawn from both. */
+      if (result.intent === 'apply') {
+        if (published) window.localStorage.setItem(labLiveKey(scrub), JSON.stringify(published));
+        else window.localStorage.removeItem(labLiveKey(scrub));
+      }
       window.localStorage.setItem(labDraftKey(scrub), JSON.stringify(draft));
     } catch {
       performance.mark('lab-draft-answered');
@@ -203,6 +220,14 @@ export function MakerLabShell({
     let here = true;
     void labEngine().then(
       () => {
+        /* 🧹 `?unpublish=1`: the lab starts with nothing published again (✓ Apply publishes here — `lab-draft.ts`). */
+        if (new URLSearchParams(window.location.search).get('unpublish') === '1') {
+          try {
+            window.localStorage.removeItem(labLiveKey(scrub));
+          } catch {
+            /* a browser that keeps nothing has nothing published */
+          }
+        }
         if (here && writeLabCookies(readLabDraft(scrub), scrub)) requestMakerRefresh();
       },
       () => {},
@@ -226,7 +251,7 @@ export function MakerLabShell({
     let here = true;
     void labEngine().then(
       ({ labRenderedSummary }) => {
-        if (here) setBar(standIn ? summary : labRenderedSummary(readLabDraft(scrub), scrub));
+        if (here) setBar(standIn ? summary : labRenderedSummary(readLabDraft(scrub), scrub, readLabPublished(scrub)));
       },
       () => {},
     );

@@ -20,6 +20,7 @@ import {
   isHubDraftIntent,
   type HubDraftActionResult,
   type HubDraftBarLive,
+  type HubDraftIntent,
   type HubDraftRefusal,
   type HubDraftSummary,
   type HubResetScope,
@@ -27,6 +28,7 @@ import {
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { makerSaveStatusText, onMakerSave, type MakerSaveStatus } from '@/lib/maker-save-status';
+import { canvasSettleWatch } from '@/lib/maker-settle';
 import { formatCount } from '@/lib/format-number';
 import { placePanelAt, type PanelPlace } from '@/lib/maker-panel-place';
 import { MAKER_BAR_PHONE } from '@/lib/maker-phone-room';
@@ -127,11 +129,26 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   march_stopped: 'stopped partway — the moves before it are live; open it to see where everyone walks now',
 };
 
+/** The intents the canvas RELOADS for (never drawn by the bridge): the page shows them seconds after the press. */
+const DRAFT_INTENT_RELOADS: readonly HubDraftIntent[] = ['undo', 'restore', 'reset'];
+
 function useDraftIntent(eventId: string, action: HubDraftDoor) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [result, setResult] = useState<HubDraftActionResult | null>(null);
-  const run = (fields: Record<string, string>) =>
+  /* ⏳ ONE PRESS, ONE STEP (owner 2026-10-11: "pressed undo twice before it reversed that edit"). The action answers
+     in a moment; the page shows it seconds later, after the Maker's render and the canvas's reload. In that gap ↺ was
+     live again with nothing changed on screen, and the second press was a SECOND undo. The bar now stays busy from
+     the press until the page shows it (`lib/maker-settle.ts`) — watched OUTSIDE the transition below, which must end
+     for the Maker's own render to commit. */
+  const [settling, setSettling] = useState<HubDraftIntent | null>(null);
+  const run = (fields: Record<string, string>) => {
+    const intent = isHubDraftIntent(fields.intent) ? fields.intent : null;
+    const watch = intent && DRAFT_INTENT_RELOADS.includes(intent) ? canvasSettleWatch() : null;
+    if (watch) {
+      setSettling(intent);
+      void watch.done.then(() => setSettling(null));
+    }
     start(async () => {
       const fd = new FormData();
       for (const [k, v] of Object.entries(fields)) fd.set(k, v);
@@ -141,12 +158,13 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
          own response for a draft-only intent. */
       /* 📵 …and a request that never left (no signal) is ANSWERED, never thrown into this transition — a throw here
          replaced the whole Maker with the app's error screen (`hubDraftAnswer`, measured 2026-10-11). */
-      const r = await hubDraftAnswer(isHubDraftIntent(fields.intent) ? fields.intent : null, () =>
-        makerSave(() => action(eventId, fd), () => router.refresh()),
-      );
+      const r = await hubDraftAnswer(intent, () => makerSave(() => action(eventId, fd), () => router.refresh()));
+      /* Refused: no render is coming — the bar is given back now, with the reason said beside ✓. */
+      if (!r.ok) watch?.cancel();
       setResult(r);
     });
-  return { pending, result, run };
+  };
+  return { pending: pending || settling !== null, working: settling, result, run };
 }
 
 function ResultLine({ result }: { result: HubDraftActionResult | null }) {
@@ -246,7 +264,7 @@ export function HubDraftToolbar({
   const [sheetOpen, setSheetOpen] = useState(false);
   const asksForPro = !storeShell && proHref !== null && proEffects.length > 0;
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
-  const { pending, result, run } = useDraftIntent(eventId, draftAction);
+  const { pending, working, result, run } = useDraftIntent(eventId, draftAction);
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<PanelPlace | null>(null);
   const [asking, setAsking] = useState(false);
@@ -440,7 +458,8 @@ export function HubDraftToolbar({
           bar="icon"
           phone={{ width: MAKER_BAR_PHONE.undoTop }}
           disabled={pending || !summary.canUndo}
-          disabledReason="Nothing to undo yet"
+          disabledReason={working === 'undo' ? 'Undoing — one moment' : 'Nothing to undo yet'}
+          working={working === 'undo'}
           onClick={() => act({ intent: 'undo' })}
         />
         {/* 👁 The shell's Preview menu, beside Undo (owner 2026-10-04: ⋯ → Preview). */}

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { emptyHubDraft, overlayHubDraftWidgets, type HubDraft, type HubDraftWidget } from '@/lib/hub-draft';
-import { stageOrderPatch } from '@/lib/maker-reorder';
+import { stageAddPatch, stageOrderPatch } from '@/lib/maker-reorder';
 import { buildMakerNavigatorData } from '@/app/dashboard/[eventId]/website/editor/_components/maker-navigator-data';
 import { GUESTS_SEE_COLUMNS, guestsSeeBackToPicks, guestsSeePatch, guestsSeeToggle, type GuestsSeeWrites } from '@/lib/guests-see-table';
 import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
@@ -20,6 +20,7 @@ import {
   labDraftStep,
   labDraftedRows,
   labRenderedSummary,
+  labPublishedFrom,
   labRows,
 } from './lab-draft';
 import { labNavigatorInput, labSeen, labStageTiles } from './lab-navigator';
@@ -293,7 +294,7 @@ test('R01 — the bar a render brings lists exactly as many changes as it counts
   assert.deepEqual(rendered(d).changes, [], 'nothing waiting, and something is still listed');
   /* …and the shell hands the bar THIS, not the cookie's count alone. */
   const shell = read('maker-lab-shell.tsx');
-  assert.match(shell, /setBar\(standIn \? summary : labRenderedSummary\(readLabDraft\(scrub\), scrub\)\);/);
+  assert.match(shell, /setBar\(standIn \? summary : labRenderedSummary\(readLabDraft\(scrub\), scrub, readLabPublished\(scrub\)\)\);/);
   assert.match(shell, /<HubDraftToolbar eventId=\{eventId\} summary=\{bar\}/);
   /* The REAL Maker's render has always named them (this is the lab's fault alone): one reader, right after the count. */
   const store = readFileSync(join(process.cwd(), 'lib', 'hub-draft-store.ts'), 'utf8');
@@ -312,7 +313,7 @@ test('leaving and coming back keeps the draft — its count, its history and wha
   assert.deepEqual(labDraftFrom('{not json'), emptyHubDraft());
 });
 
-test('Restore throws the draft away; Reset goes into it and can be undone; Apply says the sample cannot go live', () => {
+test('Restore throws the draft away; Reset goes into it and can be undone; what the sample cannot do is said', () => {
   const d = save(emptyHubDraft(), FADE).draft;
   const restored = labDraftStep(d, { intent: 'restore' }, false);
   assert.deepEqual(restored.draft, emptyHubDraft());
@@ -323,10 +324,58 @@ test('Restore throws the draft away; Reset goes into it and can be undone; Apply
   assert.deepEqual(labDraftStep(reset.draft, { intent: 'undo' }, false).draft.widgets, d.widgets);
   assert.equal(labDraftStep(d, { intent: 'reset', stage: 'nowhere' }, false).result.ok, false);
 
-  const apply = labDraftStep(d, { intent: 'apply' }, false);
-  assert.deepEqual(apply.result, { ok: false, intent: 'apply', error: LAB_APPLY_MESSAGE });
-  assert.equal(apply.draft, d, 'a refused step changed the draft');
+  const drop = labDraftStep(d, { intent: 'drop' }, false);
+  assert.deepEqual(drop.result, { ok: false, intent: 'drop', error: LAB_APPLY_MESSAGE });
+  assert.equal(drop.draft, d, 'a refused step changed the draft');
   assert.doesNotMatch(LAB_APPLY_MESSAGE, /celebration|website|\bsite\b/i);
+});
+
+/* ── 📣 a published state under the draft (the owner's run of 2026-10-11) ──────────────────────────────────────── */
+
+const rowsCookie = (d: HubDraft, published: ReturnType<typeof labDraftStep>['published']) => labDraftCookies(d, false, published)[LAB_ROWS_COOKIE] ?? undefined;
+const venueOnInvitation = (d: HubDraft, published: ReturnType<typeof labDraftStep>['published']) => labStageTiles(labDraftedRows(rowsCookie(d, published)), 'rsvp').includes('w:venue_map');
+
+test('✓ Apply PUBLISHES in the lab: the planner’s changes go live, the draft is left empty with no Undo history', () => {
+  /* The Venue hidden on the Invitation (the eye / a tick), then Applied. */
+  const hidden = save(emptyHubDraft(), { widgets: { venue_map: { stage_show: { rsvp: false } } } }).draft;
+  assert.equal(count(hidden).changeCount, 1);
+  const applied = labDraftStep(hidden, { intent: 'apply' }, false, null);
+  assert.deepEqual(applied.result, { ok: true, intent: 'apply', applied: 1, held: [] });
+  assert.deepEqual(applied.draft, emptyHubDraft(), 'the draft kept what went live — or its Undo history');
+  assert.deepEqual(applied.published, { events: {}, widgets: { venue_map: { stage_show: { rsvp: false } } } });
+  /* Nothing is waiting, ↺ has nothing — and the page STILL draws the hide: it is published now. */
+  const bar = labBarFromCookie(labDraftCookies(applied.draft, false, applied.published)[LAB_BAR_COOKIE] ?? undefined);
+  assert.deepEqual([bar.changeCount, bar.canUndo], [0, false]);
+  assert.equal(venueOnInvitation(applied.draft, applied.published), false, 'the published hide is not drawn');
+  /* Stored and read back whole. */
+  assert.deepEqual(labPublishedFrom(JSON.stringify(applied.published)), applied.published);
+  assert.equal(labPublishedFrom(null), null);
+  assert.equal(labPublishedFrom('{not json'), null);
+});
+
+test('THE OWNER’S CASE: a PUBLISHED hide, then ＋ — one Undo step, drawn at once, and one ↺ takes it all back', () => {
+  const published = labDraftStep(save(emptyHubDraft(), { widgets: { venue_map: { stage_show: { rsvp: false } } } }).draft, { intent: 'apply' }, false, null).published;
+  assert.equal(venueOnInvitation(emptyHubDraft(), published), false);
+  /* ＋ → Venue, as the Maker sends it now: its place and its showing in ONE patch (the eye stores `null` — the
+     published choice taken back — because the stage's own list has the Venue). */
+  const order = ['countdown', 'special_message', 'venue_map', 'our_love_story', 'event_details', 'schedule', 'dress_code', 'what_to_bring'];
+  const patch = stageAddPatch(order.map((t) => `w-${t}`), (id) => id.slice(2), 'rsvp', 'venue_map', null)!;
+  const step = labDraftStep(emptyHubDraft(), { intent: 'save', patch: JSON.stringify(patch) }, false, published);
+  assert.equal(step.draft.history.length, 1, 'one press, more than one Undo step');
+  assert.equal(venueOnInvitation(step.draft, published), true, 'the draft’s `null` did not take the published hide back');
+  const tiles = labStageTiles(labDraftedRows(rowsCookie(step.draft, published)), 'rsvp').filter((k) => k.startsWith('w:'));
+  assert.equal(tiles[tiles.indexOf('w:special_message') + 1], 'w:venue_map', 'not in the place it was added');
+  /* It counts against what is PUBLISHED: the hide taken back, and the new order. */
+  assert.ok(labBarFromCookie(labDraftCookies(step.draft, false, published)[LAB_BAR_COOKIE] ?? undefined).changeCount >= 1);
+  /* One ↺: the draft is empty again and the page is the published one — the Venue off the Invitation. */
+  const undone = labDraftStep(step.draft, { intent: 'undo' }, false, published);
+  assert.deepEqual(undone.draft, emptyHubDraft());
+  assert.equal(venueOnInvitation(undone.draft, published), false);
+  /* Applied: the hide is gone from what is published, and guests of the sample would see the Venue. */
+  const live = labDraftStep(step.draft, { intent: 'apply' }, false, published);
+  assert.equal(live.result.ok, true);
+  assert.equal(venueOnInvitation(live.draft, live.published), true);
+  assert.equal(labStageTiles(overlayHubDraftWidgets(labRows(), live.published), 'rsvp').includes('w:venue_map'), true);
 });
 
 test('the Scrub chain is its own draft: its start is what guests "see", so opening it counts nothing', () => {

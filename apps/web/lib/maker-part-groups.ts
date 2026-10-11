@@ -136,6 +136,12 @@ export function makerPartOffers(input: {
   stage: MakerStageKey;
   present: ReadonlySet<string>;
   pathOf: (key: MakerPartKey, canvas: string) => MakerPartAddPath;
+  /**
+   * 📄 On a stage drawn as tabs: is this canvas key filed on the page ON SHOW? A part of another page is not offered
+   * here — the canvas would draw it there, and ＋ would say "added" over a page that shows nothing new
+   * (owner 2026-10-11). Absent (a stage that is one page): every part is this page's.
+   */
+  onThisPage?: (canvas: string) => boolean;
 }): Array<{ label: string; parts: MakerPartOffer[] }> {
   const seen = new Set<MakerPartKey>();
   const out: Array<{ label: string; parts: MakerPartOffer[] }> = [];
@@ -145,6 +151,7 @@ export function makerPartOffers(input: {
       if (seen.has(key)) continue;
       const canvas = makerPartCanvasOn(input.stage, key);
       if (!canvas || input.present.has(canvas)) continue;
+      if (input.onThisPage && !input.onThisPage(canvas)) continue;
       const path = input.pathOf(key, canvas);
       if (!path) continue;
       seen.add(key);

@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { listWithGates, partTakenOff } from '@/lib/maker-list-gates';
+import { whenCanvasShowsIt } from '@/lib/maker-settle';
+import { makerStagesPageOf, makerStagesPages } from '@/lib/maker-stage-filing';
+import { shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
+import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { usePopupBehind } from '@/lib/use-popup-behind';
 import { createPortal } from 'react-dom';
 import { Check, Plus, Trash2, X } from 'lucide-react';
@@ -97,6 +101,10 @@ export function partOpsOf(raw: MakerPartRaw): MakerPartOps {
     eye: (id) => {
       const sc = byId.get(id);
       if (sc) raw.eyeWrite(sc);
+    },
+    add: (id, delta) => {
+      const sc = byId.get(id);
+      if (sc) raw.addHere(sc, delta);
     },
     removers: raw.sceneRemovers,
     postEvent: nav && nav !== 'unreadable' ? nav.arrangement : null,
@@ -304,7 +312,15 @@ export type PartEditsNow = {
   removeWord: 'Remove' | 'Delete';
   /** The one plain line a tap on a grey step answers with — never a dead tap. */
   why: { earlier: string; later: string; remove: string };
+  /** ⏳ The press still on its way to the page (`lib/maker-settle.ts`) — its step shows it; every step waits for it. */
+  working: PartWorking | null;
 };
+
+/** The presses the canvas reloads for: a step earlier · later, a part brought back. */
+export type PartWorking = 'earlier' | 'later' | 'add';
+
+/** What a step answers while another press is still on its way to the page. */
+export const PART_WORKING_WHY = 'One moment — the page is catching up.';
 
 export function PartEdits(props: PartEditsProps) {
   return usePartEdits(props).node;
@@ -326,6 +342,20 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   const [toast, setToastNow] = useState<{ words: string; n: number } | null>(null);
   const setToast = useCallback((words: string) => setToastNow((t) => ({ words, n: (t?.n ?? 0) + 1 })), []);
   const [ops, setOps] = useState<MakerPartOps | null>(null);
+  /* ⏳ ONE PRESS AT A TIME, AND NOTHING SAID BEFORE THE PAGE SHOWS IT (owner 2026-10-11, Message › Earlier: *"first
+     press a pop up says it moved but didn't only moved on the second click"*). A move and a part brought back reach
+     the canvas by a reload, seconds after the press on a real connection; the toast was up at the press and every
+     step was live. `settle` holds the row busy from the press and says the words only once the page on screen is the
+     new one (`lib/maker-settle.ts`). A write that was refused is said by the toolbar's own line; a page that never
+     comes says nothing it cannot show. */
+  const [working, setWorking] = useState<PartWorking | null>(null);
+  const settle = (what: PartWorking, words: string) => {
+    setWorking(what);
+    void whenCanvasShowsIt().then((how) => {
+      setWorking(null);
+      if (how === 'shown') setToast(words);
+    });
+  };
 
   /* The part's box, every frame while it is picked (one rect read — the canvas scrolls under it). */
   useEffect(() => {
@@ -414,8 +444,8 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
       const shown = o.list.shown.flatMap((x) => (x.kind === 'scene' ? [x.widgetId] : []));
       const delta = makerDropDelta({ fullOrder: o.fullOrder, shown, afterLastShown: o.afterLastShown, id: mv.id, target: t.id, where });
       if (delta !== 0) {
-        setToast(`${label} moved`);
         o.move(mv.id, delta);
+        settle(where === 'above' ? 'earlier' : 'later', `${label} moved`);
       }
     } else if (mv.kind === 'post-event' && mv.runKey && o.postEvent) {
       const run = postEventRun(o.postEvent);
@@ -443,6 +473,11 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   };
 
   /* ── ＋ add a part ── */
+  /** ＋ pressed: the sheet opens — unless a press is still on its way to the page (one at a time). */
+  const askAdd = (where: 'above' | 'below') => {
+    if (working) return;
+    setAdding(where);
+  };
   const add = (key: MakerPartKey) => {
     const o = askPartOps();
     const where = adding;
@@ -453,15 +488,16 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
     if (c.startsWith('w:')) {
       const folded = o.list.folded.find((f) => f.key === c);
       if (!folded?.widgetId) return;
-      /* Where: above / below the picked scene in the stage's order — the work area's one-save move. */
+      /* Where: above / below the picked scene in the stage's order. ITS PLACE AND ITS SHOWING ARE ONE SAVE (`o.add`
+         — they were the move and then the eye: two Undo steps for one press, owner 2026-10-11). */
+      let delta = 0;
       if (mv.kind === 'scene') {
         const shown = o.list.shown.flatMap((t) => (t.kind === 'scene' ? [t.widgetId] : []));
         const before = where === 'above' ? mv.id : (shown[shown.indexOf(mv.id) + 1] ?? o.afterLastShown);
-        const delta = swapsForDrop(o.fullOrder, folded.widgetId, before === folded.widgetId ? null : before);
-        if (delta !== 0) o.move(folded.widgetId, delta);
+        delta = swapsForDrop(o.fullOrder, folded.widgetId, before === folded.widgetId ? null : before);
       }
-      setToast(`${makerPartLabelOn(stage, key)} added ${where}`);
-      o.eye(folded.widgetId);
+      o.add(folded.widgetId, delta);
+      settle('add', `${makerPartLabelOn(stage, key)} added ${where}`);
       return;
     }
     const scene = makerPostEventSceneOf(stage, key);
@@ -503,11 +539,12 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   /* The toolbar's Edit row reads these (`PartEditsNow`); `box` re-renders this as the page settles, so they stay true. */
   const canStep = (dir: -1 | 1) => Boolean(typeof document !== 'undefined' && canMove && ops && box && neighbour(ops, dir));
   const now: Omit<PartEditsNow, 'node'> = {
-    earlier: canStep(-1) ? () => stepMove(-1) : null,
-    later: canStep(1) ? () => stepMove(1) : null,
-    remove: canRemove ? () => setRemoving(true) : null,
+    earlier: working ? null : canStep(-1) ? () => stepMove(-1) : null,
+    later: working ? null : canStep(1) ? () => stepMove(1) : null,
+    remove: working ? null : canRemove ? () => setRemoving(true) : null,
     removeWord: ownScene ? 'Delete' : 'Remove',
-    why: lineWhy ?? makerPartStepWhy(label || 'This part', canMove, canRemove),
+    why: working ? { earlier: PART_WORKING_WHY, later: PART_WORKING_WHY, remove: PART_WORKING_WHY } : (lineWhy ?? makerPartStepWhy(label || 'This part', canMove, canRemove)),
+    working,
   };
   if (typeof document === 'undefined') return { node: null, ...now };
   /* What just happened is said even once the part is let go (a move re-renders the page). */
@@ -566,12 +603,12 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
           ) : (
             <>
               {edgesOf.addAbove ? (
-                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" onClick={() => setAdding('above')} className={EDGE_BTN} style={{ ...tapAt(box.left + box.width / 2, fr!.top, fe!.tapAbove), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>
+                <button type="button" aria-label={`Add above ${label}`} data-part-add="above" aria-busy={working === 'add' || undefined} onClick={() => askAdd('above')} className={EDGE_BTN} style={{ ...tapAt(box.left + box.width / 2, fr!.top, fe!.tapAbove), visibility: onEdge(fr!.top) ? undefined : 'hidden' }}>
                   <span className={ADD_FACE}>+</span>
                 </button>
               ) : null}
               {edgesOf.addBelow && onEdge(fr!.top + fr!.height) ? (
-                <button type="button" aria-label={`Add below ${label}`} data-part-add="below" onClick={() => setAdding('below')} className={EDGE_BTN} style={tapAt(box.left + box.width / 2, fr!.top + fr!.height, fe!.tapBelow)}>
+                <button type="button" aria-label={`Add below ${label}`} data-part-add="below" aria-busy={working === 'add' || undefined} onClick={() => askAdd('below')} className={EDGE_BTN} style={tapAt(box.left + box.width / 2, fr!.top + fr!.height, fe!.tapBelow)}>
                   <span className={ADD_FACE}>+</span>
                 </button>
               ) : null}
@@ -663,6 +700,19 @@ function OwnScenePicker({ onClose, children }: { onClose: () => void; children: 
   );
 }
 
+/** The page a tabbed canvas has ON SHOW, with the stage's page list — null on a canvas drawn as one page (or unreadable). */
+function readShownPage(stage: MakerStageKey): { stage: LifecyclePhase; pages: string[]; shown: string } | null {
+  try {
+    const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
+    const shown = doc ? shownHubTab(doc) : null;
+    if (!shown || !(LIFECYCLE_STAGES as readonly string[]).includes(stage)) return null;
+    return { stage: stage as LifecyclePhase, pages: makerStagesPages(stage as LifecyclePhase).map((p) => p.key), shown };
+  } catch {
+    return null;
+  }
+}
+const LIFECYCLE_STAGES = ['save_the_date', 'rsvp', 'event', 'editorial'] as const;
+
 /** ＋ "Add above / below <part>" — the parts not on this page, grouped; then a scene of their own. */
 function AddPartSheet({
   stage,
@@ -684,9 +734,15 @@ function AddPartSheet({
   const drawn = new Set(readDrawnOrder());
   /* A scene the couple hid may still be drawn ghosted: it is NOT on the page. */
   for (const f of ops?.list.folded ?? []) if (f.hiddenByCouple) drawn.delete(f.key);
+  /* 📄 ＋ OFFERS WHAT THIS PAGE CAN SHOW (owner 2026-10-11: ＋ below Message → Venue said "Venue added" and nothing
+     appeared — he was on Welcome, and the canvas files the Venue on Details). On a stage drawn as tabs a part is
+     offered only on its own page (`makerStagesPageOf`, the canvas's own filing) — so what ＋ adds is on the screen
+     it was added from, in the place it was added. A stage that is one page offers everything, as before. */
+  const here = readShownPage(stage);
   const groups = makerPartOffers({
     stage,
     present: drawn,
+    onThisPage: here ? (canvasKey) => makerStagesPageOf(here.stage, canvasKey, here.pages) === here.shown : undefined,
     pathOf: (key, canvas): MakerPartAddPath => {
       if (!ops) return null;
       if (canvas.startsWith('w:')) {

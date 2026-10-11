@@ -38,6 +38,7 @@
  * Only in the Maker's canvas: it is reached from `EditorBridge`, which a guest
  * page never mounts.
  */
+import { splitCoupleNames } from '@/lib/couple-names';
 import type { CanvasBringUp } from './canvas-bring-up';
 import {
   HUB_TYPE_PARTS,
@@ -178,12 +179,40 @@ export function partWords(part: HTMLElement): string {
 export function setPartWords(part: HTMLElement, text: string): void {
   const people = peopleOf(part);
   if (people.length > 1) {
-    const [first = '', ...rest] = text.split(/\s*&\s*/);
-    people[0]!.textContent = first;
-    people[1]!.textContent = rest.join(' & ');
+    /* The page's OWN split (`lib/couple-names.ts`) — "&" and " and " alike, as the cover will be drawn. */
+    const names = splitCoupleNames(text, true);
+    people[0]!.textContent = names.first;
+    people[1]!.textContent = names.second ?? '';
+    tidyNames(part);
     return;
   }
   (people[0] ?? typeTargetOf(part)).textContent = text;
+}
+
+/**
+ * 🔗 A JOINER NEVER STANDS OVER NOTHING. The cover was drawn for two people — "Maria / and / Jose" — and the names
+ * typed now are ONE ("TEsting Event"): the second person's line is empty, and the joiner and that line step aside,
+ * exactly as the page will draw it at its next render (the masthead draws a joiner only when there is a second
+ * name). Owner, 2026-10-11, on his own event: the cover read "TEsting Event / and / (nothing)" while he typed and
+ * after Done. Put back the moment a second name is there. The Maker's canvas only — a guest's page is drawn by the
+ * server and never had it.
+ */
+export function tidyNames(part: HTMLElement): void {
+  const people = peopleOf(part);
+  if (people.length < 2) return;
+  const alone = words(people[1]!).length === 0;
+  for (const el of [part.matches('[data-el="joiner"]') ? null : part.querySelector<HTMLElement>('[data-el="joiner"]'), people[1]!]) {
+    if (!el) continue;
+    /* `display` is set on the element itself: each line is a `block` by class, and a class beats the `hidden`
+       attribute's own rule — the attribute alone left the joiner on screen. */
+    if (alone) {
+      el.setAttribute('hidden', '');
+      el.style.setProperty('display', 'none');
+    } else {
+      el.removeAttribute('hidden');
+      el.style.removeProperty('display');
+    }
+  }
 }
 
 function rectOf(el: HTMLElement): TypeRect {
@@ -266,6 +295,8 @@ export function createCanvasTyping(
     const s = session;
     if (!s) return;
     if (cancel) setPartWords(s.part, s.before);
+    /* 🔗 Typed on the page itself: a second name typed away leaves no joiner behind (`tidyNames`). */
+    else if (s.el === 'names') tidyNames(s.part);
     send('end', cancel ? { cancel: true } : {});
     s.off();
     s.target.removeAttribute('contenteditable');

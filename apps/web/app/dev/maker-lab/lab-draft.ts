@@ -1,12 +1,15 @@
 import {
   HUB_DRAFT_TOO_LARGE_MESSAGE,
   emptyHubDraft,
+  hubDraftCountedChanges,
   hubDraftForWrite,
+  hubDraftItemLabel,
   hubResetPatch,
   isHubDraftIntent,
   isHubResetScope,
   mergeHubDraft,
   overlayHubDraftWidgets,
+  planHubDraftApply,
   sanitizeHubDraft,
   summarizeHubDraft,
   undoHubDraft,
@@ -21,6 +24,7 @@ import {
 } from '@/lib/hub-draft';
 import { hubDraftChangeLines } from '@/lib/hub-draft-change-lines';
 import { hubDraftProEffects, hubProEffectView } from '@/lib/hub-pro-effects';
+import { makerSceneLabel } from '@/lib/maker-scene-list';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
 import { LAB_EDITORIAL_COOKIE } from './lab-post-event';
 import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
@@ -48,7 +52,15 @@ import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
  * 🔑 WHERE IT IS KEPT. The whole draft (its Undo history included) is the browser's (`localStorage`, by the caller);
  * the lab's two pages are drawn by the server, so the draft's STATE is handed to them in the lab's cookies
  * (`labDraftCookies`) — written afresh from the state after every step, so an Undo takes back what the page shows
- * too. No write leaves the browser. Apply answers that the sample cannot go live: the lab has no live page.
+ * too. No write leaves the browser.
+ *
+ * 📣 A PUBLISHED STATE UNDER THE DRAFT (2026-10-11). The owner ran the new Maker on his real event and hit four faults
+ * no lab walk had: every walk here had NOTHING published — a draft over an untouched sample — so a hide that was
+ * already live, then ＋, could not happen. ✓ Apply now PUBLISHES in the lab: the real planner (`planHubDraftApply`)
+ * decides what goes, it is folded into the lab's own published state (`published`, the browser's — a draft state laid
+ * over the sample's rows), and the draft is left with what Apply held back and no Undo history, as the real action
+ * leaves it. Everything after reads the draft AGAINST that published state (`labLive`), and the pages are drawn from
+ * both. Still no database: "live" here is this browser's.
  *
  * Pure. No DOM, no I/O — `lab-draft.test.ts` runs it bare.
  */
@@ -94,17 +106,36 @@ export function labRows(): InvitationWidgetRow[] {
 }
 
 /** What the draft is compared against: the sample's rows — on the Scrub chain (`?scrub=1`), wearing the chain's start. */
-export function labLive(scrub: boolean): HubLiveState {
+/** A draft STATE with nothing in it — the lab with nothing published. */
+const noState = (): HubDraftState => ({ events: {}, widgets: {} });
+const stateOf = ({ history: _history, v: _v, ...state }: HubDraft): HubDraftState => state;
+const asDraft = (state: HubDraftState | null | undefined): HubDraft => ({ v: 1, ...(state ?? noState()), history: [] });
+
+/** `over` laid on `under` by the real merge (a widget's fields one by one, a stage's place and show stage by stage). */
+function layState(under: HubDraftState | null | undefined, over: HubDraftState): HubDraftState {
+  return stateOf(mergeHubDraft(asDraft(under), over as HubDraftPatch));
+}
+
+/**
+ * What the draft is compared against: the sample's rows — on the Scrub chain (`?scrub=1`), wearing the chain's start
+ * — with what the lab has PUBLISHED laid over them, by the page's own overlay.
+ */
+export function labLive(scrub: boolean, published: HubDraftState | null = null): HubLiveState {
   const start = labScrubCanvases(scrub, {});
+  const sample = labRows().map((r) => (start[r.widget_type] ? { ...r, config_json: { canvas: start[r.widget_type] } as InvitationWidgetRow['config_json'] } : r));
+  if (!published) return { events: {}, widgets: sample };
+  const styles = Object.fromEntries(Object.entries(published.fixedStyles ?? {}).filter(([, v]) => v !== null));
   return {
-    events: {},
-    widgets: labRows().map((r) => (start[r.widget_type] ? { ...r, config_json: { canvas: start[r.widget_type] } as InvitationWidgetRow['config_json'] } : r)),
+    events: { ...published.events },
+    widgets: overlayHubDraftWidgets(sample, published),
+    ...(published.editorial ? { editorial: published.editorial } : {}),
+    ...(Object.keys(styles).length > 0 ? { fixedStyles: styles as HubLiveState['fixedStyles'] } : {}),
   };
 }
 
 /** The ✓ bar for the lab's draft — the SAME summary, named changes and Pro effects the real save answers with. */
-export function labDraftBar(draft: HubDraft, scrub: boolean): HubDraftBarLive {
-  const live = labLive(scrub);
+export function labDraftBar(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null): HubDraftBarLive {
+  const live = labLive(scrub, published);
   return {
     free: { ...summarizeHubDraft(draft, live, false), changes: hubDraftChangeLines(draft, live, false) },
     owned: { ...summarizeHubDraft(draft, live, true), changes: hubDraftChangeLines(draft, live, true) },
@@ -113,22 +144,44 @@ export function labDraftBar(draft: HubDraft, scrub: boolean): HubDraftBarLive {
   };
 }
 
-/**
- * ✓ WHAT A RENDER OF THE LAB HANDS THE DRAFT BAR — the count AND the changes by name, as the real Maker's render does
- * (`lib/hub-draft-store.ts` `loadHubDraftBarData`: `summary.changes = hubDraftChangeLines(…)`, on every render).
- *
- * The lab's "server" knew the count alone (`LAB_BAR_COOKIE`: `n · pro · undo`). So after anything that brings a
- * render — a Style pick, any ↺, opening the Maker again — the Apply sheet read *"2 changes guests do not see yet"*
- * and listed nothing (the re-walk of 2026-10-11, R01); after a save that answers with the bar itself (words, a
- * background, a motion) the lines were there. The draft is the browser's, so the browser reads it whole: this is
- * what the shell hands the bar once it is on the page (`maker-lab-shell.tsx`).
- */
-export function labRenderedSummary(draft: HubDraft, scrub: boolean): HubDraftSummary {
-  return labDraftBar(draft, scrub).free;
+/** The bar a RENDER of the lab is drawn with — the count AND its named lines, as the real render's bar carries them. */
+export function labRenderedSummary(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null): HubDraftSummary {
+  return labDraftBar(draft, scrub, published).free;
 }
 
-/** The sample cannot go live — said in the bar's own line, never a silent nothing. */
-export const LAB_APPLY_MESSAGE = 'This is the sample event — nothing here goes live. Your changes stay in the draft.';
+/** A stored published state, read back through the real sanitiser — anything unreadable is nothing published. */
+export function labPublishedFrom(stored: string | null | undefined): HubDraftState | null {
+  if (!stored) return null;
+  try {
+    const state = stateOf(sanitizeHubDraft(JSON.parse(stored)));
+    return Object.keys(state.events).length + Object.keys(state.widgets).length + Object.keys(state.editorial ?? {}).length + Object.keys(state.fixedStyles ?? {}).length > 0 ? state : null;
+  } catch {
+    return null;
+  }
+}
+
+/** `state` without the keys Apply HELD BACK (`remaining`) — what actually went live. */
+function withoutHeld(state: HubDraftState, held: HubDraftState): HubDraftState {
+  const events = Object.fromEntries(Object.entries(state.events).filter(([k]) => !(k in held.events))) as HubDraftState['events'];
+  const widgets: HubDraftState['widgets'] = {};
+  for (const [type, w] of Object.entries(state.widgets)) {
+    if (!w) continue;
+    const heldW = (held.widgets[type as WidgetType] ?? {}) as Record<string, unknown>;
+    const kept = Object.fromEntries(Object.entries(w).filter(([k]) => !(k in heldW)));
+    if (Object.keys(kept).length > 0) widgets[type as WidgetType] = kept as HubDraftWidget;
+  }
+  const editorial = Object.fromEntries(Object.entries(state.editorial ?? {}).filter(([k]) => !(k in (held.editorial ?? {}))));
+  const fixedStyles = Object.fromEntries(Object.entries(state.fixedStyles ?? {}).filter(([k]) => !(k in (held.fixedStyles ?? {}))));
+  return {
+    events,
+    widgets,
+    ...(Object.keys(editorial).length > 0 ? { editorial: editorial as HubDraftState['editorial'] } : {}),
+    ...(Object.keys(fixedStyles).length > 0 ? { fixedStyles: fixedStyles as HubDraftState['fixedStyles'] } : {}),
+  };
+}
+
+/** What the sample cannot do at all (take one Pro effect off, ask a booked supplier to move a date) — said, never silent. */
+export const LAB_APPLY_MESSAGE = 'This is the sample event — that needs a real event. Your changes stay in the draft.';
 
 /**
  * ONE STEP OF THE DRAFT, answered as `hubDraftAction` answers (`HubDraftActionResult`). `fields` are the form's own
@@ -138,23 +191,25 @@ export function labDraftStep(
   current: HubDraft,
   fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown },
   scrub: boolean,
-): { draft: HubDraft; result: HubDraftActionResult } {
+  /** What the lab has published so far (`labPublishedFrom`) — null: nothing. Changed only by `apply`. */
+  published: HubDraftState | null = null,
+): { draft: HubDraft; result: HubDraftActionResult; published: HubDraftState | null } {
   const intent = isHubDraftIntent(fields.intent) ? fields.intent : null;
-  if (!intent) return { draft: current, result: { ok: false, intent, error: 'That did not look like an Event Hub change.' } };
-  const done = (draft: HubDraft, withBar = false): { draft: HubDraft; result: HubDraftActionResult } => {
+  if (!intent) return { draft: current, published, result: { ok: false, intent, error: 'That did not look like an Event Hub change.' } };
+  const done = (draft: HubDraft, withBar = false): { draft: HubDraft; result: HubDraftActionResult; published: HubDraftState | null } => {
     let fitted: HubDraft;
     try {
       /* The one door every real draft write passes (`writeHubDraft`): the oldest Undo states go until it fits. */
       fitted = hubDraftForWrite(draft);
     } catch {
-      return { draft: current, result: { ok: false, intent, error: HUB_DRAFT_TOO_LARGE_MESSAGE } };
+      return { draft: current, published, result: { ok: false, intent, error: HUB_DRAFT_TOO_LARGE_MESSAGE } };
     }
-    return { draft: fitted, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub) } : {}) } };
+    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published) } : {}) } };
   };
   if (intent === 'restore') return done(emptyHubDraft());
   if (intent === 'undo') return done(undoHubDraft(current));
   if (intent === 'reset') {
-    if (!isHubResetScope(fields.stage)) return { draft: current, result: { ok: false, intent, error: 'Choose which stage to reset.' } };
+    if (!isHubResetScope(fields.stage)) return { draft: current, published, result: { ok: false, intent, error: 'Choose which stage to reset.' } };
     return done(mergeHubDraft(current, hubResetPatch(fields.stage)));
   }
   if (intent === 'save') {
@@ -162,13 +217,33 @@ export function labDraftStep(
     try {
       patch = JSON.parse(String(fields.patch ?? '{}')) as HubDraftPatch;
     } catch {
-      return { draft: current, result: { ok: false, intent, error: 'That change could not be read.' } };
+      return { draft: current, published, result: { ok: false, intent, error: 'That change could not be read.' } };
     }
     /* ⚡ The bar comes back with the save only when the save asked for it (`HUB_DRAFT_BAR_FIELD`) — as the real one. */
     return done(mergeHubDraft(current, patch), fields.bar === '1');
   }
-  /* apply · drop · date_change need a live page, an order, a booked supplier: the sample has none. */
-  return { draft: current, result: { ok: false, intent, error: LAB_APPLY_MESSAGE } };
+  if (intent === 'apply') {
+    /* ✓ APPLY PUBLISHES — IN THE LAB. The real planner decides, against what is published now: what is written, what a
+       couple without Event Hub Pro is held on. What went is folded into the lab's published state by the real merge;
+       the draft keeps only what was held, and no Undo history — as the real action leaves it. (A held scene's FREE
+       part is not split out here: the whole scene waits. The lab's one shortcut.) */
+    const plan = planHubDraftApply(current, labLive(scrub, published), false);
+    const went = withoutHeld(stateOf(current), plan.remaining);
+    const next = layState(published, went);
+    const some = Object.keys(next.events).length + Object.keys(next.widgets).length + Object.keys(next.editorial ?? {}).length + Object.keys(next.fixedStyles ?? {}).length > 0;
+    return {
+      draft: { v: 1, ...plan.remaining, history: [] },
+      published: some ? next : null,
+      result: {
+        ok: true,
+        intent,
+        applied: hubDraftCountedChanges({ ...plan, refused: [] }).length,
+        held: plan.refused.map((item) => ({ label: hubDraftItemLabel(item, makerSceneLabel), reason: 'needs_pro' as const })),
+      },
+    };
+  }
+  /* drop · date_change need an order to pay with, a booked supplier to ask: the sample has neither. */
+  return { draft: current, published, result: { ok: false, intent, error: LAB_APPLY_MESSAGE } };
 }
 
 /** A stored draft, read back through the real sanitiser — anything unreadable is no draft. */
@@ -200,7 +275,10 @@ const some = (o: Record<string, unknown>) => Object.keys(o).length > 0;
  * THE LAB'S COOKIES FOR A DRAFT — every one, written from the STATE (never from the last patch), `null` = cleared.
  * So an Undo, a Restore and a Reset take back what the pages draw, exactly as they take back the draft.
  */
-export function labDraftCookies(draft: HubDraft, scrub: boolean): Record<string, string | null> {
+export function labDraftCookies(draftOnly: HubDraft, scrub: boolean, published: HubDraftState | null = null): Record<string, string | null> {
+  /* 📣 The pages draw what is PUBLISHED with the draft laid over it (the real merge: a draft's `null` over a published
+     hide is the hide taken back). The ✓ count below is still the draft against what is published. */
+  const draft: HubDraftState = published ? layState(published, stateOf(draftOnly)) : draftOnly;
   const canvases: Record<string, unknown> = {};
   const rows: Record<string, unknown> = {};
   for (const [type, w] of Object.entries(draft.widgets)) {
@@ -217,7 +295,7 @@ export function labDraftCookies(draft: HubDraft, scrub: boolean): Record<string,
   const hero = draft.widgets.hero;
   const prefs = (draft.events.style_preferences ?? null) as { camera_look?: unknown; block_looks?: unknown } | null;
   const styles = Object.fromEntries(Object.entries(draft.fixedStyles ?? {}).filter(([, v]) => v !== null));
-  const bar = summarizeHubDraft(draft, labLive(scrub), false);
+  const bar = summarizeHubDraft(draftOnly, labLive(scrub, published), false);
   return {
     [labWidgetsCookie(scrub)]: some(canvases) ? json(canvases) : null,
     [LAB_ROWS_COOKIE]: some(rows) ? json(rows) : null,

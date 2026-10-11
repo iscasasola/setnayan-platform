@@ -59,7 +59,7 @@ import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { stageEyeValue } from '@/lib/stage-eye';
 import { hereOffAfterRender } from '@/lib/maker-list-gates';
 import { announceMakerSave } from '@/lib/maker-save-status';
-import { movedOrder, optimisticStageList, sameOrder, stageOrderPatch } from '@/lib/maker-reorder';
+import { movedOrder, optimisticStageList, sameOrder, stageAddPatch, stageOrderPatch } from '@/lib/maker-reorder';
 
 const REORDER_FAILED = 'That move could not be saved. Your scenes are back where they were — please try again.';
 const GATE_FAILED = 'That could not be saved. The scene is back as it was — please try again.';
@@ -1808,6 +1808,51 @@ export function MakerWork({
     post(dir, { widget_id: id, return_to: back(id, rest) }, { rest });
   };
 
+  /* ＋ A SCENE BROUGHT BACK TO THIS STAGE — ITS PLACE AND ITS SHOWING IN ONE SAVE (owner 2026-10-11: "pressed undo
+     twice before it reversed that edit"). ＋ ran `move` and then the eye: two saves, two Undo steps for one press —
+     and one ↺ left the scene placed and still hidden. One patch now (`lib/maker-reorder.ts` `stageAddPatch`), drawn as
+     a show is drawn (the canvas reloads for the render it brings), serialised with the moves. Without the draft door
+     (the editor outside the Maker) it is the two shipped writes, as before. */
+  const addHere = (scene: MakerScene, delta: number) => {
+    const order = delta !== 0 ? movedOrder(fullOrder, scene.id, delta) : null;
+    const value = stageEyeValue(navigator.stageEye?.[stage]?.[scene.type as WidgetType], true);
+    const patch = elementEditing ? stageAddPatch(order, (x) => sceneById.get(x)?.type, stage, scene.type, value) : null;
+    if (!elementEditing || !patch) {
+      if (delta !== 0) move(scene.id, delta);
+      return eyeWrite(scene);
+    }
+    const key = `${stage}:${scene.id}`;
+    releaseCanvas();
+    if (order) {
+      setOrderOverride({ stage, order });
+      reorderInFlight.current += 1;
+    }
+    setHereOff((h) => {
+      const next = { ...h };
+      delete next[key];
+      return next;
+    });
+    announceMakerSave({ state: 'saving' });
+    const draftAction = elementEditing.draftAction;
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify(patch));
+    reorderQueue.current = reorderQueue.current
+      .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh))
+      .catch(() => ({ ok: false as const, intent: 'save' as const, error: GATE_FAILED }))
+      .then((res) => {
+        if (order) reorderInFlight.current -= 1;
+        if (res.ok) {
+          if (order && reorderInFlight.current === 0) reorderLandedAt.current = renderStampRef.current;
+          announceMakerSave({ state: 'saved' });
+          return;
+        }
+        /* ↩ Refused: nothing was placed and nothing is shown — the list goes back, and the toolbar says so. */
+        if (order) setOrderOverride(null);
+        announceMakerSave({ state: 'error', text: res.error || GATE_FAILED });
+      });
+  };
+
   /** One step of a chain — from the shell's own hold (`pendingChain`) or a deep link's `?chain=`. */
   const runChain = (step: string) => {
     const [op, id, arg] = step.split('.');
@@ -1935,7 +1980,7 @@ export function MakerWork({
   /* ＋ ↕ 🗑 THE NEW MAKER'S PART EDITS (`add-part-sheet.tsx`, lazy) ask THIS work area for its
      own writes — the eye, the one-save move, Remove for good, "+ Add a scene" (`maker-part-ops.ts`). */
   const partOps = useRef<MakerPartRaw | null>(null);
-  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, hereOff, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
+  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, addHere, hereOff, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
   useEffect(() => {
     const ask = (e: Event) => (e as CustomEvent<(raw: MakerPartRaw) => void>).detail?.(partOps.current!);
     window.addEventListener(MAKER_PART_OPS_EVENT, ask);

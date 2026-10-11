@@ -184,6 +184,45 @@ test('a read that is NOT `cache()`d keeps its promise: started once, awaited onc
   }
 });
 
+/* ═══ 2b · THE LANDING (`invite/enter`) ══════════════════════════════════ */
+
+const ENTER = read('app/[slug]/invite/enter/page.tsx');
+
+test('the landing starts its body\'s reads together — only reads, only past the routing, each awaited once', () => {
+  const BODY = ENTER.slice(ENTER.indexOf('const InviteEnterBody = async () => {'));
+  assert.ok(BODY.length > 2000, 'the landing\'s body moved — re-anchor this test');
+  // Every start is inside the body: past `notFound()`, the redirects and the guest's own row.
+  assert.equal(ENTER.indexOf('startAhead('), ENTER.indexOf('startAhead(', ENTER.indexOf('const InviteEnterBody = async () => {')));
+  assert.deepEqual(
+    aheadCalls(ENTER).sort(),
+    [
+      'resolveProfile', 'resolveEventOwnerSlug', 'resolveEventQrLook', 'eventWordsFor', 'plusOneSeatsFor',
+      'passCardEligibilityFor', 'plusOnePassCardIds', 'createClient', 'readSeatHolder', 'readTicketSeats',
+    ].sort(),
+  );
+  // Never the tile code (a write) and never the ceremony time (one screen's read).
+  assert.doesNotMatch(ENTER, /startAhead\(\s*(tileCodeOnce|ensureTileReentryCode|mintReentryCode|fetchPublicScheduleBlocks|isCoordinatorPrepReleaseEnabled)\(/);
+  for (const name of [
+    'profileAhead', 'ownerSlugAhead', 'qrLookAhead', 'wordsAhead', 'seatsAhead', 'passCardAhead',
+    'plusOneTicketIdsAhead', 'viewerAhead', 'seatHolderAhead', 'ticketSeatsAhead',
+  ]) {
+    assert.equal(count(BODY, `const ${name} = `), 1, `${name} is not started`);
+    // (the ticket pair is awaited together — held on the line below)
+    if (name === 'passCardAhead' || name === 'plusOneTicketIdsAhead') continue;
+    assert.equal(count(BODY, `await ${name}`), 1, `${name} is not awaited exactly once — never awaited, its failure would be swallowed`);
+  }
+  assert.match(BODY, /await Promise\.all\(\[passCardAhead, plusOneTicketIdsAhead\]\)/);
+  // …and each read is asked once (the started call is the only call).
+  for (const call of ['resolveEventOwnerSlug(', 'resolveEventQrLook(', 'plusOneSeatsFor(', 'passCardEligibilityFor(', 'plusOnePassCardIds(', 'readSeatHolder(', 'readTicketSeats(', 'auth.getUser(']) {
+    assert.equal(count(BODY, call), 1, `${call} is asked twice in the landing's body`);
+  }
+  // The canvas skips what it always skipped: the sample has no seats, holder, QR look or table.
+  for (const name of ['qrLookAhead', 'seatsAhead', 'seatHolderAhead']) {
+    assert.match(BODY, new RegExp(`const ${name} = canvas \\? null : startAhead\\(`), `${name} is asked on the Maker's canvas`);
+  }
+  assert.match(BODY, /const ticketSeatsAhead = canvas \|\| !seatDay \? null : startAhead\(readTicketSeats\(/);
+});
+
 /* ═══ 3 · THE BODY'S TIME HAS NAMES ══════════════════════════════════════ */
 
 function flushed(run: (t: ServerTimer) => Promise<void>): Promise<{ total_ms: number; phases: Array<{ label: string; ms: number }> }> {

@@ -92,6 +92,7 @@ import { TicketPopup } from '../../_components/ticket-popup';
 import { InAppBar } from '../../_components/in-app-bar';
 import { LandingPreReply, LandingSaveTheDate } from '../_components/landing-pre-reply';
 import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
+import { startAhead } from '@/lib/start-ahead';
 
 export const dynamic = 'force-dynamic';
 
@@ -382,6 +383,26 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   // best-effort, like the layout's own: unread, the fallback is the house door.
   const loadingLook = await loadGuestLook(slug).catch(() => null);
   const InviteEnterBody = async () => {
+  /* ⏩ THE LANDING'S READS LEAVE TOGETHER (2026-10-12). Nothing in this body redirects or 404s, and every read
+     started here is awaited on EVERY path before the pre-reply return below — so each one that needs only the
+     event or this guest's id leaves now and is awaited on its own line, unchanged: the same answer, the same
+     failure from the same `await`, no read added (`lib/start-ahead.ts`). Each was one round trip after another.
+     NOT started: the tile code (a WRITE) and the ceremony time (one screen only). A Maker canvas skips the same
+     reads it always skipped (`null` = not asked). */
+  const seatDay = ticketShowsTable({
+    eventDate: event.event_date as string | null,
+    eventDatePrecision: event.event_date_precision as string | null,
+  });
+  const profileAhead = startAhead(resolveProfile(event.event_type as string));
+  const ownerSlugAhead = startAhead(resolveEventOwnerSlug(admin, event.event_id as string));
+  const qrLookAhead = canvas ? null : startAhead(resolveEventQrLook(admin, event.event_id as string, event as QrLookRow));
+  const wordsAhead = startAhead(eventWordsFor(event.event_type as string));
+  const seatsAhead = canvas ? null : startAhead(plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string));
+  const passCardAhead = startAhead(passCardEligibilityFor(admin, guest.guest_id as string));
+  const plusOneTicketIdsAhead = startAhead(plusOnePassCardIds(admin, event.event_id as string, guest.guest_id as string));
+  const viewerAhead = startAhead(createClient().then((supabase) => supabase.auth.getUser()));
+  const seatHolderAhead = canvas ? null : startAhead(readSeatHolder(event.event_id as string, guest.guest_id as string));
+  const ticketSeatsAhead = canvas || !seatDay ? null : startAhead(readTicketSeats(admin, event.event_id as string));
   const cookieStore = await cookies();
 
   // What happened to the reply they just saved — the same sentences the
@@ -422,7 +443,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
      app/[slug]/page.tsx runs to pick its own face, so the door cannot drift
      from the page. No threshold is named here or in that module. */
   const destination = arrivalDestinationFor({
-    profile: await resolveProfile(event.event_type as string),
+    profile: await profileAhead,
     eventDate: event.event_date as string | null,
     eventEndDate: (event.event_end_date as string | null) ?? null,
     launchMode: (event.launch_mode as string | null) ?? null,
@@ -441,7 +462,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
      id it could be asked to look something up with. Same renderer, same url
      as the Event Hub's own card (`buildInvitationUrl` is the only speller). */
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
-  const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id as string);
+  const ownerSlug = await ownerSlugAhead;
   const qrParams = {
     appUrl,
     // The DB-canonical slug, not the raw route param (matched case-insensitively).
@@ -450,15 +471,15 @@ async function inviteEnterPage({ params, searchParams }: Props) {
     ownerSlug,
   };
   // The sample on the Maker's canvas has no key of its own — its QR says SAMPLE.
-  const qrSvg = canvas
+  const qrSvg = canvas || !qrLookAhead
     ? SIMULATED_GUEST_QR_SVG
     : await renderInvitationQrSvg({
         ...qrParams,
         // The event's look (lib/qr-look.ts): the Setnayan mark, or the couple's own on Pro.
-        look: await resolveEventQrLook(admin, event.event_id as string, event as QrLookRow),
+        look: await qrLookAhead,
       });
   const invitationUrl = canvas ? SIMULATED_GUEST_INVITATION_TEXT : buildInvitationUrl(qrParams);
-  const words = await eventWordsFor(event.event_type as string);
+  const words = await wordsAhead;
   const guestName =
     (guest.display_name as string | null)?.trim() ||
     `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() ||
@@ -466,28 +487,24 @@ async function inviteEnterPage({ params, searchParams }: Props) {
 
   // ── THE PLUS-ONES THIS GUEST BRINGS — counted for the ticket's "and N guests".
   // (Their invites and tickets are handed on from Me — owner 2026-10-03.)
-  const seats = canvas ? [] : await plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string);
+  const seats = seatsAhead ? await seatsAhead : [];
 
   // ── 🎟 THE TICKETS (owner 2026-09-29, DECISION_LOG "TICKETS ON THE THANK-YOU
   // SCREEN"; prototype guest_ticket_flow_2026-09-29.html frame A): their own
   // Digital ticket and one per NAMED plus-one who has one — the same cards the
   // route draws and "Save" hands over, and only for an accepted guest who is
   // coming (`passCardEligibility`). A blank seat keeps "Add name".
-  const [passCard, plusOneTicketIds] = await Promise.all([
-    passCardEligibilityFor(admin, guest.guest_id as string),
-    plusOnePassCardIds(admin, event.event_id as string, guest.guest_id as string),
-  ]);
+  const [passCard, plusOneTicketIds] = await Promise.all([passCardAhead, plusOneTicketIdsAhead]);
   const namedComing = seats.filter((s) => plusOneTicketIds.has(s.guest_id)).length;
 
   // ── THE ONE ACCOUNT BUTTON — the same decision the Event Hub's card makes.
-  const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await viewerAhead;
   const account = guestAccountState({
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
-    seatHolderUserId: canvas ? null : await readSeatHolder(event.event_id as string, guest.guest_id as string),
+    seatHolderUserId: seatHolderAhead ? await seatHolderAhead : null,
     seatName: seatDisplayName({
       display_name: guest.display_name as string | null,
       first_name: guest.first_name as string | null,
@@ -541,12 +558,8 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   /* 🧩 The Maker's "When no" sample is a guest who said no: no ticket (a real one's is withdrawn — `cannotCome`;
      the sample has no row to read that from, so it is said here). Canvas only — false for every guest. */
   const noTicketSample = canvas && reply === 'no';
-  const seatDay = ticketShowsTable({
-    eventDate: event.event_date as string | null,
-    eventDatePrecision: event.event_date_precision as string | null,
-  });
-  // 🎟 On the day the ticket carries the seat — the same read the ticket route draws from.
-  const ownSeat = canvas || !seatDay ? null : ((await readTicketSeats(admin, event.event_id as string)).get(guest.guest_id as string) ?? null);
+  // 🎟 On the day the ticket carries the seat — the same read the ticket route draws from (started above).
+  const ownSeat = ticketSeatsAhead ? ((await ticketSeatsAhead).get(guest.guest_id as string) ?? null) : null;
   // The couple's wording AND their Name style (owner 2026-09-30) — `{name}` is composed in it.
   const storedWords = parsePrintDetails((event as { print_details?: unknown }).print_details);
   const message = landingMessage({

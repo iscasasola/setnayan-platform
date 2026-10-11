@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import satori from 'satori';
 import sharp from 'sharp';
+import { cardPhotoSignal } from '@/lib/social/card-photo-fetch';
 
 /**
  * apps/web/lib/social/realstory-card.tsx — the per-editorial Open Graph share
@@ -419,7 +420,7 @@ export async function renderRealStoryOgJpeg(
   const d = DIMS[format];
   if (input.heroPhotoUrl) {
     try {
-      const res = await fetch(input.heroPhotoUrl);
+      const res = await fetch(input.heroPhotoUrl, { signal: cardPhotoSignal() });
       if (res.ok) {
         const photo = Buffer.from(await res.arrayBuffer());
         const base = await sharp(photo)
@@ -436,7 +437,8 @@ export async function renderRealStoryOgJpeg(
           .toBuffer();
       }
     } catch {
-      // Photo unreachable / undecodable → fall through to the branded card.
+      // Photo unreachable / undecodable / slower than the limit
+      // (`cardPhotoSignal`, lib/social/card-photo-fetch.ts) → the branded card.
     }
   }
   const svg = await satori(cardTree(input, format) as unknown as React.ReactNode, {

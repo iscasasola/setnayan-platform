@@ -113,6 +113,20 @@ export function labDraftBar(draft: HubDraft, scrub: boolean): HubDraftBarLive {
   };
 }
 
+/**
+ * ✓ WHAT A RENDER OF THE LAB HANDS THE DRAFT BAR — the count AND the changes by name, as the real Maker's render does
+ * (`lib/hub-draft-store.ts` `loadHubDraftBarData`: `summary.changes = hubDraftChangeLines(…)`, on every render).
+ *
+ * The lab's "server" knew the count alone (`LAB_BAR_COOKIE`: `n · pro · undo`). So after anything that brings a
+ * render — a Style pick, any ↺, opening the Maker again — the Apply sheet read *"2 changes guests do not see yet"*
+ * and listed nothing (the re-walk of 2026-10-11, R01); after a save that answers with the bar itself (words, a
+ * background, a motion) the lines were there. The draft is the browser's, so the browser reads it whole: this is
+ * what the shell hands the bar once it is on the page (`maker-lab-shell.tsx`).
+ */
+export function labRenderedSummary(draft: HubDraft, scrub: boolean): HubDraftSummary {
+  return labDraftBar(draft, scrub).free;
+}
+
 /** The sample cannot go live — said in the bar's own line, never a silent nothing. */
 export const LAB_APPLY_MESSAGE = 'This is the sample event — nothing here goes live. Your changes stay in the draft.';
 

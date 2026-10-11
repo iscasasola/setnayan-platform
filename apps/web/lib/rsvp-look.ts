@@ -37,6 +37,9 @@ import { hubElementColor } from './element-style';
 import { HUB_FONT_BY_KEY, sanitizeHubFontKey, type HubFontKey } from './hub-fonts';
 import { motionFxFrame, sanitizeMotionFx, type MotionFx } from './motion-effects';
 import { RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR } from './rsvp-stage-shared';
+import { RSVP_ADDED_PICTURE_MAX, rsvpPictureRef } from './rsvp-picture-ref';
+
+export { rsvpPictureRef };
 
 export { RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR };
 
@@ -113,16 +116,20 @@ export type RsvpAddedPicture = { id: string; k: 'p'; p: string };
 export type RsvpAddedLine = RsvpAddedText | RsvpAddedPicture;
 export const rsvpAddedIsPicture = (line: RsvpAddedLine | null | undefined): line is RsvpAddedPicture => line?.k === 'p';
 
-/**
- * 🖼 A PICTURE LINE'S FILE, read strictly: an `r2://` ref into the PUBLIC media bucket, inside an event's own
- * `scene-background` folder (the shipped scene upload's — `sceneBackgroundPathPrefix`), a key `/api/upload` could have
- * minted (`<uuid>-<sanitized name>`, `[A-Za-z0-9._-]`), at most `RSVP_ADDED_PICTURE_MAX` characters. Anything else is
- * not a picture (null) — a URL, another bucket, another folder, `..`. Which EVENT's folder is asked where the event is
- * known: the draft door holds a ref outside this event's own folder (`hub-draft-actions.ts`).
- */
-const RSVP_PICTURE_REF = /^r2:\/\/setnayan-media\/events\/[0-9a-fA-F-]{36}\/scene-background\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
-export function rsvpPictureRef(raw: unknown): string | null {
-  return typeof raw === 'string' && raw.length <= RSVP_ADDED_PICTURE_MAX && RSVP_PICTURE_REF.test(raw) && !raw.includes('..') ? raw : null;
+/* 🖼 A picture line's file is read by `rsvpPictureRef` (`rsvp-picture-ref.ts` — the rule on its own, import-free, so the
+   draft door can ask it without this reader). */
+/** Every picture ref a config's three screens hold, by the one strict reader, deduped — what a page signs
+ *  (`signRsvpPictures`) and what Apply holds to the event's own folder (`hub-draft-actions.ts`). */
+export function rsvpPictureRefs(config: unknown): string[] {
+  const look = readRsvpLook(config);
+  const out = new Set<string>();
+  for (const part of RSVP_LOOK_CARDS) {
+    for (const line of look.added?.[part] ?? []) {
+      const ref = line.k === 'p' ? rsvpPictureRef(line.p) : null;
+      if (ref) out.add(ref);
+    }
+  }
+  return [...out];
 }
 /** A picture line's Look: Wide (nothing stored — the prototype's 112 px) or Tall (176 px). */
 export const RSVP_PICTURE_LOOKS = ['wide', 'tall'] as const;
@@ -626,12 +633,7 @@ export const RSVP_GROUPS_MAX = 4;
 export const RSVP_ADDED_KINDS = ['h', 'm', 'p'] as const;
 export type RsvpAddedKind = (typeof RSVP_ADDED_KINDS)[number];
 export const RSVP_ADDED_TEXT_MAX: Record<'h' | 'm', number> = { h: 80, m: 240 };
-/**
- * A picture's reference is never longer than this: `r2://setnayan-media/events/<uuid>/scene-background/` (81) +
- * `/api/upload`'s `<uuid>-` (37) + its longest sanitized file name (120, `MAX_FILENAME_LEN`) = 238. (It was 200 while
- * the picture was only measured for, which would have dropped a picture whose file had a long name.)
- */
-export const RSVP_ADDED_PICTURE_MAX = 240;
+export { RSVP_ADDED_PICTURE_MAX };
 export const RSVP_LAYOUT_ID = /^[a-z0-9]{1,4}$/;
 export function rsvpConfigBytes(config: unknown): number {
   return new TextEncoder().encode(JSON.stringify(config ?? {})).length;

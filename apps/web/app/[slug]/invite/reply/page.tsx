@@ -31,6 +31,7 @@ import { ArrivalLoading } from '../_components/arrival-loading';
 import { wearTheHub } from '../_lib/wear-the-hub';
 import { RsvpLookStyle } from '../../_components/rsvp-look-style';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
+import { signRsvpPictures } from '@/lib/rsvp-pictures.server';
 import { celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { GuestLookScope } from '../../_components/guest-look-scope';
@@ -119,6 +120,8 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   // stranger gets the one "Get inside" button.
   const session = canvas ? null : await readGuestSessionForEvent(event.event_id as string);
   if (!canvas && !session) redirect(`/${home}`);
+  /* 🖼 The reply card's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`). */
+  const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
 
   const { data: guest, error: guestError } = canvas
     ? {
@@ -415,6 +418,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           /* 🧱 The card's lines in the couple's order, with the lines they added and their groups (the Maker's RSVP
              stage). From the config this page already holds — no new read; null for a couple who arranged nothing. */
           lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), 'rsvp')}
+          pictures={rsvpPictures}
         />
         </CanvasSection>
       </DoorShell>

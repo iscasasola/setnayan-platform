@@ -314,7 +314,7 @@ export function useRsvpListStage({
       /* A full screen says so at ＋ — the sheet would only offer what cannot be taken. */
       const doc = frameDoc(frameSel);
       const box = doc ? rsvpLinesBox(doc, listPart) : null;
-      if (box && box.querySelectorAll('p[data-rsvp-added]').length >= RSVP_ADDED_MAX) return onSay(RSVP_LIST_WORDS.full);
+      if (box && box.querySelectorAll('[data-rsvp-added]').length >= RSVP_ADDED_MAX) return onSay(RSVP_LIST_WORDS.full);
       setAdding(where);
     },
     [frameSel, listPart, onSay],

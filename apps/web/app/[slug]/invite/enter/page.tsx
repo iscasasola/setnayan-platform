@@ -43,6 +43,7 @@ import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { RsvpLookStyle } from '../../_components/rsvp-look-style';
 import { RsvpNoteLines } from '../../_components/rsvp-note-lines';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
+import { signRsvpPictures } from '@/lib/rsvp-pictures.server';
 import { WhenYesCelebration } from '../../_components/when-yes-celebration';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
@@ -283,6 +284,8 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     }
   }
   const event = overlayHubDraftEvent(liveEvent as Record<string, unknown>, hostDraft) as typeof liveEvent;
+  /* 🖼 The note's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`). */
+  const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
   const home = event.slug as string;
 
   // The guest's KEY for THIS event — their pass, or the seat their signed-in
@@ -745,6 +748,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
               ownMessage={ownMessage}
               firstName={firstName}
               lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), reply === 'no' ? 'nonote' : 'yesnote')}
+              pictures={rsvpPictures}
             />
           )}
         </div>

@@ -12,9 +12,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { RSVP_ADDED_PICTURE_MAX, RSVP_PICTURE_HEIGHT, readRsvpLook, rsvpAddedName, rsvpLookCss, rsvpLookWith, rsvpPictureRef, rsvpScreenLayout } from './rsvp-look';
+import { RSVP_ADDED_PICTURE_MAX, RSVP_PICTURE_HEIGHT, readRsvpLook, rsvpAddedName, rsvpLookCss, rsvpLookWith, rsvpPictureRef, rsvpPictureRefs, rsvpScreenLayout } from './rsvp-look';
 import { stripComments } from './strip-comments';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+/* The pages' JSX is compiled for a global React under this runner (the house's way — `the-note-after-a-reply-is-todays-page.test.ts`). */
+(globalThis as unknown as { React: unknown }).React = React;
 import { rsvpLayoutEdit } from './rsvp-layout-edit';
+import { rsvpPictureRefsIn } from './rsvp-picture-ref';
 
 const WEB = join(__dirname, '..');
 const L = 'app/dashboard/[eventId]/launch/_components';
@@ -114,4 +120,67 @@ test('4 · the Look: Wide is nothing stored (112 px, the picture’s own), Tall 
   assert.match(PANEL, /const stylePicture = picked\.tool === 'style' && listPart && picked\.line && rsvpAddedIsPicture\(rsvpPlaceOf\(local, listPart, picked\.line\)\?\.added\);\s*if \(stylePicture && lookLine && lookLine\.startsWith\('a:'\)\) \{/);
   /* …asked BEFORE a text line's Font · Colour · Size, so a picture never gets those. */
   assert.ok(PANEL.indexOf('<RsvpPictureLookRows') < PANEL.indexOf('<RsvpLineLookRows'), 'a picture would be given a text line’s Style');
+});
+
+/* ── 5 · the drawing ───────────────────────────────────────────────────────── */
+
+async function draw(items: unknown, opts: { canvas?: boolean; pictures?: Record<string, string> } = {}): Promise<string> {
+  const { RsvpLines } = await import('../app/[slug]/_components/rsvp-lines');
+  return renderToStaticMarkup(React.createElement(RsvpLines as never, { items, own: { question: React.createElement('p', { 'data-rsvp-line': 'question' }, 'Q') }, ...opts } as never));
+}
+
+test('5 · a guest sees the picture, decorative — and NOTHING for a file that is gone; the sample shows its name', async () => {
+  const URL_ = 'https://signed.example/garden.jpg?sig=1';
+  const look = readRsvpLook({ look: { added: { rsvp: [{ id: '1', k: 'p', p: REF }] }, order: { rsvp: ['eyebrow', 'question', 'a:1', 'yes', 'no'] } } });
+  const items = rsvpScreenLayout(look, 'rsvp')!.filter((i) => 'line' in i && (i.line === 'question' || i.line === 'a:1'));
+  /* A guest, the file signed: the picture, alt="" (decorative), the prototype's 112 px, nothing of the Maker's. */
+  const guest = await draw(items, { pictures: { [REF]: URL_ } });
+  assert.equal(guest, '<p data-rsvp-line="question">Q</p><img data-rsvp-line="a:1" src="https://signed.example/garden.jpg?sig=1" alt="" loading="lazy" decoding="async" class="my-2.5 block h-[112px] w-full rounded-[14px] object-cover"/>');
+  /* A guest, the file gone (the page was handed no URL for it): nothing at all — no box, no broken image. */
+  assert.equal(await draw(items), '<p data-rsvp-line="question">Q</p>');
+  /* …and a group whose only line is a gone picture is not drawn either. */
+  const grouped = readRsvpLook({ look: { added: { rsvp: [{ id: '1', k: 'p', p: REF }] }, groups: { rsvp: [{ id: 'g1', of: ['a:1'] }] } } });
+  const groupItems = rsvpScreenLayout(grouped, 'rsvp')!.filter((i) => !('line' in i));
+  assert.equal(groupItems.length, 1);
+  assert.equal(await draw(groupItems), '');
+  /* The Maker's sample: the picture, named for the canvas — or, with no file to draw, its name in a quiet box. */
+  assert.match(await draw(items, { canvas: true, pictures: { [REF]: URL_ } }), /<img data-rsvp-line="a:1" data-rsvp-added="p" data-rsvp-picture="r2:\/\/setnayan-media\/events\/[^"]+-garden\.jpg" src=/);
+  assert.match(await draw(items, { canvas: true }), /<p data-rsvp-line="a:1" data-rsvp-added="p" data-rsvp-empty="" data-rsvp-picture="[^"]+" class="[^"]*bg-ink\/\[0\.06\][^"]*">Picture<\/p>/);
+});
+
+test('6 · the pages sign the files once, a gone file is left out, and every place a guest replies is handed them', () => {
+  const SIGN = src('lib/rsvp-pictures.server.ts');
+  assert.match(SIGN, /^import 'server-only';/m);
+  assert.match(SIGN, /if \(refs\.length === 0 \|\| !isR2Configured\(\)\) return \{\};/, 'a config with no picture would cost a request');
+  assert.match(SIGN, /const head = await r2HeadOutcome\(\{ bucket: R2_BUCKETS\.media, key: ref\.slice\(PUBLIC_PREFIX\.length\) \}\);\s*if \(head\.kind === 'absent'\) return;\s*const url = await displayUrlForStoredAsset\(ref\);\s*if \(url\) urls\[ref\] = url;/);
+  /* Read by the one strict reader — only refs into an event's own scene-background folder are ever signed. */
+  assert.match(SIGN, /const refs = rsvpPictureRefs\(config\);/);
+  assert.deepEqual(rsvpPictureRefsIn({ look: { added: { rsvp: [{ id: '1', k: 'p', p: REF }, { id: '2', k: 'm', p: REF.replace('garden', 'x') }] } } }), [REF]);
+  assert.deepEqual(rsvpPictureRefs({ look: { added: { rsvp: [{ id: '1', k: 'p', p: REF }], nonote: [{ id: '2', k: 'p', p: REF }, { id: '3', k: 'p', p: 'https://x/y.jpg' }] } } }), [REF]);
+  /* 🔒 Apply holds a picture that is not an upload into THIS event's own folder (a draft is a public POST). */
+  const APPLY = src('app/dashboard/[eventId]/website/hub-draft-actions.ts');
+  assert.match(APPLY, /if \(item\.kind === 'event' && item\.column === 'rsvp_ask_config' && rsvpPictureRefsIn\(item\.value\)\.some\(\(r\) => !r\.startsWith\(ownScenePrefix\)\)\) \{\s*if \(!item\.freePart\) held\.push\(\{ item, reason: 'not_your_photo' \}\);\s*continue;/);
+  assert.match(APPLY, /const ownScenePrefix = `r2:\/\/\$\{PUBLIC_R2_BUCKET\}\/events\/\$\{eventId\}\/\$\{SCENE_BACKGROUND_FOLDER\}\/`;/);
+  for (const [page, call] of [
+    ['app/[slug]/invite/reply/page.tsx', /lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), 'rsvp'\)\}\s*pictures=\{rsvpPictures\}/],
+    ['app/[slug]/invite/enter/page.tsx', /lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), reply === 'no' \? 'nonote' : 'yesnote'\)\}\s*pictures=\{rsvpPictures\}/],
+    ['app/[slug]/_components/site-body.tsx', /lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), 'rsvp'\)\}\s*pictures=\{rsvpPictures\}/],
+  ] as const) {
+    const PAGE = src(page);
+    assert.match(PAGE, /const rsvpPictures = await signRsvpPictures\(event\.rsvp_ask_config\);/, `${page} does not sign its pictures`);
+    assert.match(PAGE, call, `${page} does not hand its pictures to the lines`);
+  }
+  /* The widget and the note pass them on to the one drawer. */
+  assert.match(src('app/[slug]/_components/rsvp-widget.tsx'), /canvas=\{previewEveryQuestion\}\s*pictures=\{pictures\}/);
+  assert.equal((src('app/[slug]/_components/rsvp-note-lines.tsx').match(/pictures=\{pictures\}/g) ?? []).length, 2);
+});
+
+test('7 · the Maker’s canvas draws a picture the moment it is added — from its local address, or the page’s own', () => {
+  const ARRANGE = src(`${L}/rsvp-canvas-arrange.ts`);
+  assert.match(ARRANGE, /if \(line\.added\.k === 'p'\) return pictureNode\(line\.line, line\.added\.p\);/);
+  assert.match(ARRANGE, /const local = rsvpPictureUrl\(ref\);\s*const same = was && was\.getAttribute\('data-rsvp-picture'\) === ref && \(was\.tagName === 'IMG' \|\| !local\);/);
+  assert.match(ARRANGE, /img\.alt = '';/);
+  /* A picture the couple took off goes from the canvas like any added line (not only a `<p>`). */
+  assert.match(ARRANGE, /box\.querySelectorAll<HTMLElement>\('\[data-rsvp-added\]'\)\.forEach\(\(p\) => \{\s*if \(!kept\.has\(p\)\) p\.remove\(\);/);
+  assert.match(src(`${L}/rsvp-list-stage.tsx`), /box\.querySelectorAll\('\[data-rsvp-added\]'\)\.length >= RSVP_ADDED_MAX/);
 });

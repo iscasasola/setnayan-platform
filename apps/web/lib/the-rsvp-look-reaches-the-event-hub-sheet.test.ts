@@ -50,7 +50,7 @@ test('1 · the sheet is handed the list and the look — from the config the pag
   const end = HUB.indexOf('</RsvpSheet>', at);
   assert.ok(at > 0 && end > at, 'anti-vacuity: the reply sheet’s form box was not found');
   const box = HUB.slice(at, end);
-  assert.match(box, /<RsvpWidget\b[\s\S]*?lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), 'rsvp'\)\}\s*\/>/);
+  assert.match(box, /<RsvpWidget\b[\s\S]*?lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), 'rsvp'\)\}\s*pictures=\{rsvpPictures\}\s*\/>/);
   assert.match(box, /\/>\s*(?:\{\s*\}\s*)?<RsvpLookStyle config=\{event\.rsvp_ask_config\} board=\{celebrationColours\(boardSwatches\(event\.role_palette\)\)\} parts=\{RSVP_SHEET_PARTS\} surface="sheet" \/>\s*<\/div>/, 'the look is not mounted after the card, inside the card’s own box');
   assert.match(HUB, /const RSVP_SHEET_PARTS = \['rsvp'\] as const;/);
   /* Once each on the whole page — and nothing is read for them that the page did not already hold. */

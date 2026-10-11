@@ -196,6 +196,7 @@ import { HubPageHold, HubScenes, hubScrubHoldsAtMost } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
 import { RsvpLookStyle } from './rsvp-look-style';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
+import { signRsvpPictures } from '@/lib/rsvp-pictures.server';
 import { celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
@@ -642,6 +643,8 @@ export async function SiteBody({
   // the song-request card). An absent key is ON, so an event that never opens
   // the panel renders byte-identically to before this existed.
   const rsvpAsk = resolveRsvpAsk(event.rsvp_ask_config);
+  // 🖼 The reply sheet's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`).
+  const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
   // The Love Story's photos (Event Hub Pro) ride the SAME one signing pass as
   // the section backgrounds — one Promise.all per page, one allow-list.
   const canvasMediaRefs = [
@@ -3886,6 +3889,7 @@ export async function SiteBody({
                    the invitation's reply page draws (`rsvpScreenLayout`, the one strict reader), from the config
                    this page already holds. Null for a couple who arranged nothing: the card as it always was. */
                 lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), 'rsvp')}
+                pictures={rsvpPictures}
               />
               {/* 🎨 EACH LINE'S LOOK REACHES THIS SHEET TOO (2026-10-10 — a dead setting until now: a Font, a Colour,
                   a Size, a Build in set on the Maker's RSVP stage showed on the invitation's reply page and never

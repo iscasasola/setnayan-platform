@@ -97,6 +97,16 @@ import {
 } from '@/app/dashboard/[eventId]/checkout/actions';
 import { computeVatFromBase } from '@/lib/receipts';
 
+/** 📵 The voucher check never answered. The action's own words for "could not check" — nothing is redeemed by a check. */
+const VOUCHER_NOT_CHECKED = 'We couldn’t check that code. Please try again.';
+/**
+ * 📵 The order submit never answered. NOT "your order failed" — an unanswered request may have reached us. It says what
+ * is known: we could not confirm it, this page charges nothing, and sending it again cannot make a second order (the
+ * drawer's one pre-minted reference + UNIQUE `orders.reference_code`).
+ */
+const ORDER_NOT_CONFIRMED =
+  'We couldn’t confirm that your order reached us, and nothing was charged here. Please send it again — sending it twice cannot create a second order.';
+
 export type InlineCheckoutDrawerProps = {
   serviceKey: string;
   displayName: string;
@@ -538,7 +548,16 @@ export function InlineCheckoutDrawer({
                       fd.set('code', voucherInput);
                       fd.set('service_key', serviceKey);
                       fd.set('original_centavos', originalPriceCentavos);
-                      const result = await applyVoucherAction(null, fd);
+                      /* 📵 A check that never answered (no signal, a 5xx) is the same answer the action gives when it
+                         cannot check — said under the box, the code still typed. Thrown into this transition it
+                         replaced the whole page with the app's error screen, mid-payment. Nothing is redeemed by
+                         a check: a voucher is only used when an order is placed. */
+                      let result: ApplyVoucherResult;
+                      try {
+                        result = await applyVoucherAction(null, fd);
+                      } catch {
+                        result = { applied: false, code: null, discount_centavos: '0', final_centavos: originalPriceCentavos, discount_php: '', final_php: '', reason: VOUCHER_NOT_CHECKED };
+                      }
                       setVoucherResult(result);
                       if (result.applied) {
                         // Lock the input visually · user can Remove to retry.
@@ -625,7 +644,22 @@ export function InlineCheckoutDrawer({
                       );
                     }
                     startSubmitTransition(async () => {
-                      const result = await submitOrderAction(fd);
+                      /* 📵 MONEY. A submit that never answered (no signal, a 5xx) must not take the screen — the
+                         person has ALREADY sent their transfer and the proof is in this form. Thrown into this
+                         transition it replaced the page with the app's error screen and the form went with it.
+                         It is answered as a refusal instead, in the form's own alert line, with every field and
+                         the screenshot still here.
+                         🔑 What the line may claim: an unanswered request is not known to have failed — the order
+                         may have reached us. So it never says "not ordered"; it says we could not confirm, that
+                         this page charges nothing, and that sending again is safe. It IS safe: every submit from
+                         this drawer carries the ONE reference minted when it opened (`preminted_reference`), and
+                         `orders.reference_code` is UNIQUE — a second order with it cannot be created. */
+                      let result: SubmitOrderResult;
+                      try {
+                        result = await submitOrderAction(fd);
+                      } catch {
+                        result = { ok: false, reason: ORDER_NOT_CONFIRMED };
+                      }
                       // Anon-draft: the order was blocked because the buyer
                       // hasn't secured their account. Route to /signup (convert
                       // in place) with a return path back to this page so they

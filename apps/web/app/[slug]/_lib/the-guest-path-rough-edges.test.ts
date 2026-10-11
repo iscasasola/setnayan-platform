@@ -147,7 +147,8 @@ test('3 · a couple who switched Mobile off, a closed list and the Maker’s can
 
 test('3 · the save refuses a yes without the number, with a sentence — and a decline is never asked', () => {
   const actions = code('app/[slug]/actions.ts');
-  const at = actions.indexOf("status === 'attending' && ask.mobile && !contactMobile");
+  // 🔁 RE-AIMED 2026-10-11 (N18): "no number" is now "fewer than seven digits" (`mobileIsEnough`) — the same refusal.
+  const at = actions.indexOf("status === 'attending' && ask.mobile && !mobileIsEnough(contactMobile)");
   assert.ok(at > -1, 'submitRsvp accepts a yes with no mobile when the couple asks for one');
   assert.match(actions.slice(Math.max(0, at - 40), at), /!replyLocked/, 'a closed list is refused a number');
   assert.match(actions.slice(at, at + 400), /rsvp=mobile/);

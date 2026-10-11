@@ -35,6 +35,7 @@ import {
   rsvpTermsCarried,
 } from '@/lib/terms-agreement';
 import { SAVE_METHOD_FIELD, saveMethodFromForm, saveMethodSignsIn } from '@/lib/guest-one-path';
+import { mobileIsEnough } from '@/lib/mobile-number';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
 import { eventConnectPath } from '@/lib/signup-landing';
@@ -458,7 +459,11 @@ export async function submitRsvp(
   // to the form with the sentence. A decline is never asked for one (`rsvpGate`:
   // "a decline must not go on to ask for the rest"), and a closed list — where the
   // gate never closes — takes no new requirement.
-  if (!replyLocked && status === 'attending' && ask.mobile && !contactMobile) {
+  //
+  // 📱 …AND "abc" IS NOT A NUMBER (a guest's walk 2026-10-11; owner the same day):
+  // a yes needs at least seven digits (`mobileIsEnough`, lib/mobile-number.ts) —
+  // the same sentence, the same way back. A decline is still never asked.
+  if (!replyLocked && status === 'attending' && ask.mobile && !mobileIsEnough(contactMobile)) {
     if (toInvite && evRsvp?.slug) redirect(`${inviteReplyPath(evRsvp.slug)}?rsvp=mobile`);
     redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=mobile` : eventAddressUnread('submitRsvp · mobile'));
   }

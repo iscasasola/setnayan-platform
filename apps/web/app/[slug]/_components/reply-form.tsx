@@ -13,6 +13,7 @@ import {
 import { unstable_rethrow } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { REPLY_NOT_SENT, makeReplySender } from '@/lib/reply-send';
+import { MOBILE_NEEDED, mobileIsEnough } from '@/lib/mobile-number';
 
 /**
  * THE REPLY CARD'S `<form>` — the same element, with the press caught.
@@ -79,6 +80,8 @@ export function ReplyForm({
 } & Record<`data-${string}`, string | boolean | undefined>) {
   const [sending, setSending] = useState(false);
   const [notSent, setNotSent] = useState(false);
+  /** A yes with no usable mobile number: nothing is sent, and the form says why (lib/mobile-number.ts). */
+  const [mobileNeeded, setMobileNeeded] = useState(false);
   const [signal, setSignal] = useState<{ thrown: unknown } | null>(null);
   const sender = useRef<ReturnType<typeof makeReplySender> | null>(null);
   if (!sender.current) sender.current = makeReplySender({ rethrow: unstable_rethrow });
@@ -99,14 +102,28 @@ export function ReplyForm({
   // on screen (a sheet's own scroller, a phone's home bar) without moving a
   // page that already shows it.
   useEffect(() => {
-    if (notSent) line.current?.scrollIntoView({ block: 'nearest' });
-  }, [notSent]);
+    if (notSent || mobileNeeded) line.current?.scrollIntoView({ block: 'nearest' });
+  }, [notSent, mobileNeeded]);
 
   // Next's not-found (never its redirect — see above), handed to its boundary.
   if (signal) throw signal.thrown;
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    /* 📱 A YES NEEDS A NUMBER OF AT LEAST SEVEN DIGITS (owner 2026-10-11). The
+       card marks the box `required` exactly when a number is needed — a yes, on
+       an open list, when the couple asks for one (rsvp-widget.tsx) — so that is
+       the one fact read here; the browser itself already stops an EMPTY box.
+       Nothing is sent, the form is untouched, and the reason is said under the
+       button in the words the server uses for the same refusal. */
+    const mobile = e.currentTarget.querySelector<HTMLInputElement>('input[name="contact_mobile"]:not([type="hidden"])');
+    if (mobile && mobile.required && !mobileIsEnough(mobile.value)) {
+      setNotSent(false);
+      setMobileNeeded(true);
+      mobile.focus();
+      return;
+    }
+    setMobileNeeded(false);
     const send = sender.current!;
     // A second press while one is out sends nothing. `pressed` is set HERE,
     // synchronously — state would still read "not sending" for a second submit
@@ -154,6 +171,11 @@ export function ReplyForm({
         {notSent ? (
           <p ref={line} role="alert" data-reply-not-sent="" className="scroll-mb-6 text-sm font-medium text-terracotta-700">
             {REPLY_NOT_SENT}
+          </p>
+        ) : null}
+        {mobileNeeded && !notSent ? (
+          <p ref={line} role="alert" data-reply-mobile-needed="" className="scroll-mb-6 text-sm font-medium text-terracotta-700">
+            {MOBILE_NEEDED}
           </p>
         ) : null}
       </form>

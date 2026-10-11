@@ -129,6 +129,17 @@ sometime in 2027." / a real day as before. `loadEventShell` now reads the
 column. NOT changed: the cover and the film still print `event_date` in full.
 Guard: `lib/a-dateless-event-prints-no-hole.test.ts` (1b).
 
+**7 · N18 — a yes needs a mobile number of at least seven digits.** The card
+marked Mobile "(required)" and "abc" went through: both halves only asked
+"is it empty?". `mobileIsEnough` (`lib/mobile-number.ts`: digits counted after
+spaces, dashes, +, brackets and dots are taken away) is now asked by the
+server (`submitRsvp`, for a yes on an open list when the couple asks for a
+mobile — nothing is written, the guest comes back to `?rsvp=mobile`) and by the
+browser (`ReplyForm`'s own handler, before it sends: the form is kept and the
+same sentence shows under the button). A no is never asked. The card's HTML is
+unchanged (its record still matches). The key gate is unchanged.
+Guard: `lib/mobile-number.test.ts`.
+
 SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
 2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
 face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG

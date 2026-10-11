@@ -1081,6 +1081,8 @@ export async function SiteBody({
           eventDate: event.event_date,
           today: manilaToday(),
           hasPass: Boolean(guestToken),
+          // A door to the reply only where the reply is open — never "RSVP" on the Save the Date.
+          replyOpen: plan.rsvpShouldRender,
         })
       : null;
   const doorways = doorwayFacts

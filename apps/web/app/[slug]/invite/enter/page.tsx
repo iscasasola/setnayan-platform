@@ -6,7 +6,12 @@ import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { inviteReplyPath } from '@/lib/invite-arrival';
-import { arrivalDestinationFor, arrivalDestinationWords } from '@/lib/invite-destination';
+import { arrivalDestinationFor, arrivalDestinationWords, replyIsAsked } from '@/lib/invite-destination';
+import { joinDoorMeta } from '@/lib/join-door-meta';
+import { fetchPublicScheduleBlocks } from '@/lib/schedule';
+import { blockTime, ceremonyBlock } from '@/lib/print-pieces';
+import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { renderInvitationQrSvg, buildInvitationUrl } from '@/lib/qr';
@@ -74,6 +79,7 @@ import {
   landingDayLabel,
   landingHeadline,
   landingMessage,
+  landingWhenWhere,
   landingReplyOf,
   landingTicketOf,
   openBeforeReplyHref,
@@ -83,7 +89,7 @@ import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
 import { TicketPicture } from '../../_components/ticket-picture';
 import { TicketPopup } from '../../_components/ticket-popup';
 import { InAppBar } from '../../_components/in-app-bar';
-import { LandingPreReply } from '../_components/landing-pre-reply';
+import { LandingPreReply, LandingSaveTheDate } from '../_components/landing-pre-reply';
 
 export const dynamic = 'force-dynamic';
 
@@ -501,6 +507,9 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      full after, none after a No) · How to use it · Open the invitation.
      Every rule is lib/guest-landing.ts, executed by its test. */
   const reply = landingReplyOf(status);
+  /* 📅 IS A REPLY ASKED FOR YET? Not while this door opens the Save the Date (owner
+     2026-10-11) — the same reading as `destination` above, never a second one. */
+  const replyAsked = replyIsAsked(destination);
   /* 📲 The tile's code for today — the SAME call the metadata makes
      (`tileCodeOnce`), so its row is stored before the page is done. Only after
      a Yes, where the ShortcutLine is offered; never on the Maker canvas. */
@@ -535,6 +544,8 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     eventDate: (event.event_date as string | null) ?? null,
     datePrecision: (event.event_date_precision as string | null) ?? null,
     reply,
+    // 📅 While the event is still its Save the Date nothing is asked (owner 2026-10-11).
+    askToReply: replyAsked || canvas,
   });
   const howTo = howToUseLines({
     seatDay,
@@ -591,22 +602,65 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      only once a reply exists, further down this same page. Not for a plus-one whose
      bringer's reply already gave them a FULL ticket: they keep Save, their guests
      and the account button. */
+  /* 📅 The Save the Date landing's one door and its eyebrow — said here, above the pre-reply return, which
+     draws only its component. The door is the Event Hub itself: while nothing is asked the key gate lets an
+     unreplied guest straight in (`replyAskedInStage`, app/[slug]/page.tsx). */
+  const saveTheDateDoor = { href: `/${home}`, label: destinationWords.cta };
+  const stageEyebrow = replyAsked ? undefined : PUBLIC_STAGE_LABELS.save_the_date;
+
   if (unreplied && ticket !== 'full') {
+    /* 🗓 WHEN AND WHERE, ONE LINE (owner 2026-10-11) — the reply door's own line (`joinDoorMeta`), plus the
+       ceremony's time beside a real day. The time is the Schedule's Ceremony block AS GUESTS ARE SHOWN IT (the
+       public, for-everyone moments only — `fetchPublicScheduleBlocks`); a read that fails leaves the time out
+       rather than the page. Read here, for this one screen only. */
+    const precision = (event.event_date_precision as string | null) ?? null;
+    let ceremonyTime: string | null = null;
+    if (precision === 'day' && event.event_date) {
+      try {
+        ceremonyTime = blockTime(
+          ceremonyBlock(await fetchPublicScheduleBlocks(admin, event.event_id as string, await isCoordinatorPrepReleaseEnabled())),
+        );
+      } catch {
+        ceremonyTime = null;
+      }
+    }
+    const whenWhere = landingWhenWhere({
+      when: joinDoorMeta({ event_date: (event.event_date as string | null) ?? null, event_date_precision: precision, venue_name: null }) ?? null,
+      realDay: precision === 'day',
+      time: ceremonyTime,
+      place: (event.venue_name as string | null) ?? null,
+    });
     return (
       <GuestLookScope {...lookScopeProps(hub.look)}>
         {hub.ground}
         <InAppBar handoff={inApp} />
-        <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
+        <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : stageEyebrow} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
           {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
+          {/* 📅 STILL THE SAVE THE DATE: the landing says so and asks for nothing — no "please reply", no Reply
+              button, no ticket promised for a reply nobody is offered (`LandingSaveTheDate`). The invitation's
+              launch — the clock, or the couple's pin — brings today's landing back. */}
+          {replyAsked ? null : (
+            <LandingSaveTheDate
+              message={message}
+              hosts={hosts}
+              whenWhere={whenWhere}
+              openHref={saveTheDateDoor.href}
+              openLabel={saveTheDateDoor.label}
+              awaitingLine={passCard === 'awaiting' ? passCardLine(passCard) : null}
+            />
+          )}
+          {replyAsked ? (
           <LandingPreReply
             message={message}
             hosts={hosts}
             replyHref={inviteReplyPath(home)}
             replyByLabel={replyByLabel}
+            whenWhere={whenWhere}
             fadedTicket={ticket === 'faded'}
             ticketSrc={PASS_CARD_ROUTE}
             awaitingLine={passCard === 'awaiting' ? passCardLine(passCard) : null}
           />
+          ) : null}
           {unlisted && !justIn ? (
             <DoorNotice>
               You weren&rsquo;t on the original list, so we&rsquo;ve let the hosts know — they&rsquo;ll
@@ -698,12 +752,14 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         {/* 2 · REPLY TO THE INVITATION — the one main button, only until they
             reply (then a small "Change my reply" stays at the foot). */}
         {unreplied ? (
+          !replyAsked ? null : (
           <div data-landing="reply">
             <Link className="button-primary w-full" href={inviteReplyPath(home)} data-landing-reply="">
               {LANDING_WORDS.reply}
             </Link>
             {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/55">Please reply by {replyByLabel}</p> : null}
           </div>
+          )
         ) : null}
 
         {unlisted && !justIn ? (

@@ -162,6 +162,38 @@ it (2026-09-30, `guestsMaySeeSeatsFor`) is unchanged. `/find-seat` keeps its
 "Find your seat · soon" header and the room placeholder around it.
 Guard: `app/[slug]/_components/seats-show-on-the-day.test.ts`.
 
+**1 · 2 · 9 · N04 · N05 · N02 — the landing ("Your invitation").** One commit:
+the three are the same component and page.
+- **2 · Until the invitation has launched, the guest is shown "Save the Date"
+  and asked for nothing.** One rule — `replyAskedInStage`
+  (`lib/invitation-widgets.ts`), read by the landing as
+  `replyIsAsked(destination)` (`lib/invite-destination.ts`); both are the
+  lifecycle engine's own stage (clock, pin, solemn register), no new
+  threshold. While the stage is the Save the Date: the landing draws
+  `LandingSaveTheDate` (eyebrow "Save the Date", the couple's words without
+  "Please reply below…", ONE button "Open the save the date", no ticket); the
+  Event Hub has no reply on the page (`rsvpReplyOpen` — open browsing too), no
+  "RSVP" under the mark (`resolveArrivalAction` `replyOpen`), no "Reply to the
+  invitation" on Me, and the key gate sends nobody to the reply. ⚠ This closes
+  the reply for EVERY event in its Save the Date stage, not only one with no
+  date; a couple who wants replies sooner pins "Invitation". The reply page
+  itself still answers a typed address (it has no stage reading).
+  Also: the action under the mark is no longer offered on ANY page whose reply
+  is not open (The Day without open browsing, Post Event) — it pointed at a
+  sheet that was not there. `every-stage-is-todays-page.golden.json`
+  regenerated: those ten guest pages lost exactly that row (−387 bytes), and
+  the Save the Date · browse page its sheet.
+- **1 · When and where, one line, above the Reply button**
+  (`landingWhenWhere`, `lib/guest-landing.ts`): the reply door's own line
+  (`joinDoorMeta`) plus the ceremony's time beside a real day, read through
+  the guests' own schedule read (public, for-everyone moments). Nothing set,
+  no line.
+- **9 · Under the faint ticket: "Your ticket — ready once you reply."** Not
+  drawn on the Save the Date landing (no reply is offered there, so neither
+  the ticket nor its line).
+Guard: `lib/the-reply-waits-for-the-invitation.test.ts`
+(`site-body-plan.openbrowse.test.ts` re-aimed for the Save the Date).
+
 SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
 2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
 face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG

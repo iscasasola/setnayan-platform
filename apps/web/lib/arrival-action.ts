@@ -68,6 +68,15 @@ export type ArrivalActionInput = {
   hasPass?: boolean;
   /** Where the RSVP lives on this page. */
   rsvpHref?: string;
+  /**
+   * Is the reply open on this page (`plan.rsvpShouldRender`)? FALSE — the
+   * guest's stage is the Save the Date (owner 2026-10-11, `replyAskedInStage`),
+   * or the couple switched the reply off — and no action that opens the reply
+   * is offered: not "RSVP", not the status that doubles as "change it". The day
+   * and after-the-day actions are not about the reply and are unaffected.
+   * OPTIONAL and absent = open, so every caller written before it is unchanged.
+   */
+  replyOpen?: boolean;
 };
 
 function isIsoDay(v: string | null | undefined): v is string {
@@ -113,6 +122,11 @@ export function meLeadsWithReply(input: {
  * rather than being given a second, weaker one.
  */
 export function resolveArrivalAction(input: ArrivalActionInput): ArrivalAction | null {
+  const action = arrivalActionOf(input);
+  return input.replyOpen === false && actionOpensReply(action) ? null : action;
+}
+
+function arrivalActionOf(input: ArrivalActionInput): ArrivalAction | null {
   const rsvp = input.rsvpStatus ?? null;
   if (rsvp === null) return null;
 

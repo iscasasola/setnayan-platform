@@ -98,6 +98,7 @@ import {
   isWebsitePhasesEnabled,
   getLifecyclePhase,
   manualLaunchPhase,
+  replyAskedInStage,
   widgetByType,
   widgetShouldRender,
 } from '@/lib/invitation-widgets';
@@ -1781,7 +1782,10 @@ async function InvitationBody({
     askMeal: resolveRsvpAsk(event.rsvp_ask_config).meal,
     askMobile: resolveRsvpAsk(event.rsvp_ask_config).mobile,
     locked: gateLocked,
-    guestsReply: readGuestsReply(event.rsvp_ask_config),
+    // 📅 …AND NOBODY IS ASKED YET WHILE THE STAGE IS THE SAVE THE DATE (owner
+    // 2026-10-11, `replyAskedInStage`): the gate's own "no reply needed" arm —
+    // the key opens the door, and the door is the Save the Date.
+    guestsReply: readGuestsReply(event.rsvp_ask_config) && replyAskedInStage({ phasesEnabled, lifecyclePhase }),
   });
   // 🚪 "Open the invitation" on the guest's landing page (owner 2026-09-30,
   // prototype guest_landing_page frame 1) opens it BEFORE a reply — the landing

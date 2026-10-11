@@ -52,6 +52,8 @@ export const LANDING_WORDS = {
   /** Frame 1b — the thin bar of ours inside Messenger / Instagram / Facebook. */
   inAppSafari: 'Open in Safari to save your ticket',
   inAppChrome: 'Open in Chrome to save your ticket',
+  /** Under the faint ticket before a reply (owner 2026-10-11) — why it is faint. */
+  ticketWaiting: 'Your ticket — ready once you reply.',
   replied: 'You replied — see you there',
   repliedSolemn: 'You replied — thank you',
 } as const;
@@ -130,6 +132,12 @@ export function landingMessage(input: InviteEventFacts & {
   /** `guestFullName` — the name as the couple entered it. */
   formalName: string | null | undefined;
   reply: LandingReply;
+  /**
+   * FALSE while no reply is asked for yet (the guest's stage is the Save the
+   * Date — `replyIsAsked`, lib/invite-destination.ts): the message is the
+   * couple's words alone, with no "Please reply below…" on the end.
+   */
+  askToReply?: boolean;
   now?: Date;
 }): string {
   const template = sanitizeInviteTemplate(input.template) ?? defaultInviteTemplate({ solemn: input.solemn });
@@ -153,9 +161,38 @@ export function landingMessage(input: InviteEventFacts & {
     })
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
-  if (input.reply !== 'unreplied') return filled;
+  if (input.reply !== 'unreplied' || input.askToReply === false) return filled;
   const ask = input.solemn ? 'Please reply below.' : 'Please reply below — your ticket is ready once you do.';
   return filled ? `${filled} ${ask}` : ask;
+}
+
+// ─── When and where ─────────────────────────────────────────────────────────
+
+/**
+ * THE ONE LINE OF WHEN AND WHERE above the landing's button (owner 2026-10-11:
+ * a guest was asked to reply without being told when or where).
+ *
+ * The shape is the reply door's own line (`joinDoorMeta`: "Friday, December
+ * 18, 2026 · Seda Vertis North") — the page hands in that module's `when`, so
+ * a date the hosts set only to a month or a year is said only that far, and a
+ * date nobody set is not said. The TIME is the Schedule's Ceremony block as
+ * guests are shown it, and only beside a real day — a time with no day says
+ * nothing. Whatever is missing is left out whole: never a separator with
+ * nothing after it, and with nothing set, no line at all (null).
+ */
+export function landingWhenWhere(input: {
+  /** `joinDoorMeta({ …, venue_name: null })` — the date as far as it is decided. */
+  when: string | null | undefined;
+  /** The date is a real day (`event_date_precision === 'day'`). */
+  realDay: boolean;
+  /** "2:30 PM" — the ceremony's start as guests see it; null when there is none. */
+  time: string | null | undefined;
+  place: string | null | undefined;
+}): string | null {
+  const when = (input.when ?? '').trim();
+  const time = when && input.realDay ? (input.time ?? '').trim() : '';
+  const place = (input.place ?? '').trim();
+  return [when, time, place].filter(Boolean).join(' · ') || null;
 }
 
 // ─── How to use it ──────────────────────────────────────────────────────────

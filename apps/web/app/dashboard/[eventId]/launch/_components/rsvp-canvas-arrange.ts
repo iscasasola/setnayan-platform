@@ -96,6 +96,7 @@ export function arrangeRsvpScreen(doc: Document, part: RsvpLookCard, look: RsvpL
   const kept = new Set<Element>();
   const lineNode = (line: RsvpLayoutLine): HTMLElement | null => {
     if (!line.added) return own.get(line.line) ?? null;
+    if (line.added.k === 'p') return null;
     const { k, t } = line.added;
     const p = box.querySelector<HTMLElement>(`p[data-rsvp-line="${CSS.escape(line.line)}"]`) ?? doc.createElement('p');
     setAttr(p, 'data-rsvp-line', line.line);

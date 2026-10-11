@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { RSVP_GROUP_ATTR, rsvpLayoutIsGroup, type RsvpAddedLine, type RsvpLayoutItem, type RsvpLayoutLine } from '@/lib/rsvp-look';
+import { RSVP_GROUP_ATTR, rsvpLayoutIsGroup, type RsvpAddedLine, type RsvpAddedText, type RsvpLayoutItem, type RsvpLayoutLine } from '@/lib/rsvp-look';
 
 /**
  * 🧱 THE LINES OF A REPLY SCREEN, DRAWN FROM A LIST — the form's card, the When-yes note and the When-no note
@@ -25,9 +25,9 @@ import { RSVP_GROUP_ATTR, rsvpLayoutIsGroup, type RsvpAddedLine, type RsvpLayout
  *
  * A server component with no state and no script: a guest downloads nothing for it.
  */
-export const RSVP_ADDED_NAME: Readonly<Record<RsvpAddedLine['k'], string>> = { h: 'Heading', m: 'Message' };
+export const RSVP_ADDED_NAME: Readonly<Record<RsvpAddedLine['k'], string>> = { h: 'Heading', m: 'Message', p: 'Picture' };
 /** How an added line is set — one face each, the card's own: a serif heading, a quiet message. */
-export const RSVP_ADDED_CLASS: Readonly<Record<RsvpAddedLine['k'], string>> = {
+export const RSVP_ADDED_CLASS: Readonly<Record<RsvpAddedText['k'], string>> = {
   h: 'font-serif text-xl font-medium leading-tight text-ink',
   m: 'text-sm leading-relaxed text-ink/80',
 };
@@ -50,6 +50,7 @@ export const RSVP_GROUP_CLASS = 'sn-glass-bare space-y-2 rounded-2xl bg-cream/95
 
 /** Is there anything of this line to draw? One of the page's own always; an added one when it has words — or on the sample. */
 function drawn(line: RsvpLayoutLine, canvas: boolean): boolean {
+  if (line.added?.k === 'p') return false;
   return !line.added || canvas || Boolean(line.added.t);
 }
 
@@ -70,7 +71,7 @@ export function RsvpLines({
 }) {
   const one = (line: RsvpLayoutLine): ReactNode => {
     if (!line.added) return <Keyed key={line.line}>{own[line.line] ?? null}</Keyed>;
-    if (!drawn(line, canvas)) return null;
+    if (!drawn(line, canvas) || line.added.k === 'p') return null;
     const { k, t } = line.added;
     return (
       <p

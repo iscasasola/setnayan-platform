@@ -19,7 +19,7 @@ import {
   type RsvpListDone,
   type RsvpPlaceOf,
 } from '@/lib/rsvp-layout-edit';
-import { RSVP_ADDED_MAX, RSVP_ADDED_TEXT_MAX, rsvpAddedId, type RsvpAddedLine, type RsvpLookCard } from '@/lib/rsvp-look';
+import { RSVP_ADDED_MAX, RSVP_ADDED_TEXT_MAX, rsvpAddedId, type RsvpAddedLine, type RsvpAddedText, type RsvpLookCard } from '@/lib/rsvp-look';
 import { RSVP_ADDED_NAME } from '@/app/[slug]/_components/rsvp-lines';
 import { RSVP_LINE_NAME } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { MakerSheet } from './stages-studio-parts';
@@ -222,7 +222,7 @@ export function RsvpAddedEditRows({
   onKeep,
 }: {
   line: string;
-  added: RsvpAddedLine;
+  added: RsvpAddedText;
   /** It was added a moment ago: its box opens, so the couple types straight away. */
   openNow: boolean;
   onType: (text: string) => void;

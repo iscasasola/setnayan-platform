@@ -18,7 +18,7 @@ import {
 } from '@/lib/rsvp-stage';
 import { RSVP_LINE_NAME, RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
-import { RSVP_CONFIG_FULL, RSVP_GROUPS_MAX, readRsvpLook, rsvpAddedId, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith, rsvpSheetKeepsLine } from '@/lib/rsvp-look';
+import { RSVP_CONFIG_FULL, RSVP_GROUPS_MAX, readRsvpLook, rsvpAddedId, rsvpAddedIsPicture, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith, rsvpSheetKeepsLine } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
@@ -599,7 +599,7 @@ export function MakerRsvpSettings({
     /* ＋ EDIT, a line the couple ADDED: its words (it has no automatic ones — it shows only what they write), then
        the same last row. Typed in its row the page shows it at once; kept, it is one edit of the list. */
     const addedLine = listPart && picked.line && rsvpAddedId(picked.line) ? (rsvpPlaceOf(local, listPart, picked.line)?.added ?? null) : null;
-    if (picked.tool === 'edit' && listPart && picked.line && addedLine) {
+    if (picked.tool === 'edit' && listPart && picked.line && addedLine && !rsvpAddedIsPicture(addedLine)) {
       const line = picked.line;
       const wordsEdit = (text: string): RsvpLayoutEdit => ({ do: 'words', part: listPart, line, text });
       return (

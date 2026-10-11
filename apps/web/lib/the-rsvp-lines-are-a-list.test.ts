@@ -88,7 +88,7 @@ test('1b · a group stands where its first line stands, holds its lines in the s
 });
 
 test('2 · the size limits were measured for the shape this reader keeps: the worst case comes back whole', () => {
-  for (const kind of ['m', 'h'] as const) {
+  for (const kind of ['m', 'h', 'p'] as const) {
     const worst = worstRsvpAskConfig({ kind });
     const kept = readRsvpLook(worst);
     assert.deepEqual(kept, worst.look, `the reader dropped part of the worst case (${kind}) — the database test is measuring a shape the app cannot save`);
@@ -102,7 +102,7 @@ test('2 · the size limits were measured for the shape this reader keeps: the wo
   }
   /* A typed line longer than its cap is cut to it — so nothing typed can outgrow the measurement. */
   const long = readRsvpLook({ look: { added: { rsvp: [{ id: 'n1', k: 'h', t: '漢'.repeat(500) }, { id: 'n2', k: 'm', t: '漢'.repeat(500) }] } } });
-  assert.deepEqual(long.added?.rsvp?.map((a) => a.t?.length), [80, 240]);
+  assert.deepEqual(long.added?.rsvp?.map((a) => (a.k === 'p' ? null : a.t?.length)), [80, 240]);
 });
 
 test('3 · the writers keep it: a look saved from the panel carries the list, and an added line takes a look like any other', () => {

@@ -108,7 +108,10 @@ class MakerOpen {
   }
   /** Every mounted frame says `ready`; a frame loading for the shown stage is promoted. */
   settle() {
-    for (const f of this.all()) this.up.add(canvasFrameId(f));
+    for (const f of this.all()) {
+      this.up.add(canvasFrameId(f));
+      this.waiting.delete(canvasFrameId(f));
+    }
     if (this.s.loading) this.s = promoteCanvasFrame(this.s, canvasFrameId(this.s.loading));
   }
   /** An idle moment — the component's warm effect (it warms `min(budget, MAX_WARM_AHEAD)`). */
@@ -130,9 +133,12 @@ class MakerOpen {
     }
     this.settle();
   }
-  private broadcast(refresh: boolean) {
+  /** Drawn picks waiting for a kept frame still loading, by id — posted at its `ready`. */
+  waiting = new Map<string, number>();
+  broadcast(refresh: boolean) {
     const to = canvasPosts(this.s, (id) => this.up.has(id), refresh);
     if (refresh) this.refreshes.push(...to.post);
+    for (const id of to.wait) this.waiting.set(id, (this.waiting.get(id) ?? 0) + 1);
     for (const id of to.owe) this.owed.add(id);
     if (to.drop.length > 0) this.s = dropWarmFrames(this.s, new Set(to.drop));
   }
@@ -385,6 +391,23 @@ test('a kept stage that missed a redraw pays ONCE, when it is shown — never a 
   assert.equal(canvasFrameId(m.s.shown).split(':')[0], 'rsvp');
 });
 
+test('🔥 the Maker’s open pick, drawn while the warmed stage is still loading, does NOT throw it away — and opening that stage then loads nothing', () => {
+  // Lab, 2026-10-12 (request log + frame events): the warmed stage was mounted, the open pick's `markEl` dropped it
+  // 300 ms later, before its page said `ready` — the server render wasted, the stage loaded again when opened.
+  const m = new MakerOpen('rsvp');
+  m.settle(); // the page on screen is up
+  m.idle(); // the next stage is warmed — mounted, still loading
+  assert.equal(m.fetches(), 2);
+  const warmId = canvasFrameId((m.s.warm ?? [])[0]!);
+  m.broadcast(false); // the Maker's open pick, drawn by the bridge
+  assert.equal(m.s.warm?.length, 1, 'the warmed stage was let go by a pick drawn while it loaded');
+  assert.equal(m.waiting.get(warmId), 1, 'the pick waits for it');
+  m.settle(); // it says ready — and is posted what it missed
+  assert.equal(m.waiting.has(warmId), false);
+  m.show('event');
+  assert.equal(m.fetches(), 2, `opening the warmed stage loaded it again: ${m.loads.join(' · ')}`);
+});
+
 test('the routing itself: a refresh never reaches a kept frame; what the bridge draws reaches every frame that is up', () => {
   const fr = (st: string): CanvasFrame => ({ key: `${st}:1:`, group: `${st}:`, src: `/x?phase=${st}` });
   const s: CanvasFrames = { shown: fr('rsvp'), loading: fr('rsvp2'), warm: [fr('event'), fr('editorial')] };
@@ -392,11 +415,13 @@ test('the routing itself: a refresh never reaches a kept frame; what the bridge 
   const refresh = canvasPosts(s, up, true);
   assert.deepEqual(refresh.post, [canvasFrameId(fr('rsvp')), canvasFrameId(fr('rsvp2'))]);
   assert.deepEqual(refresh.owe, [canvasFrameId(fr('event'))]);
-  assert.deepEqual(refresh.drop, [canvasFrameId(fr('editorial'))]);
+  assert.deepEqual(refresh.drop, [canvasFrameId(fr('editorial'))], 'a redraw for a frame still loading: it may predate the save — let go');
+  assert.deepEqual(refresh.wait, []);
   const pick = canvasPosts(s, up, false);
   assert.deepEqual(pick.post, [canvasFrameId(fr('rsvp')), canvasFrameId(fr('rsvp2')), canvasFrameId(fr('event'))]);
   assert.deepEqual(pick.owe, []);
-  assert.deepEqual(pick.drop, [canvasFrameId(fr('editorial'))]);
+  assert.deepEqual(pick.wait, [canvasFrameId(fr('editorial'))], 'a drawn pick WAITS for a kept frame still loading');
+  assert.deepEqual(pick.drop, [], 'a drawn pick threw a loading kept frame away');
 });
 
 /* ═══ 3 · ONE CANVAS DOCUMENT PER OPEN — NO IFRAME IN THE SERVER'S HTML ══ */
@@ -499,6 +524,9 @@ test('the component: one warm effect, on idle, reading saves, the Maker render, 
   assert.match(cast, /canvasPosts\(framesRef\.current, \(id\) => id in readyOf\.current, message === CANVAS_REFRESH_MESSAGE\)/);
   assert.match(cast, /for \(const id of to\.post\) els\.current\[id\]\?\.contentWindow\?\.postMessage\(message, window\.location\.origin\);/);
   assert.equal((cast.match(/postMessage\(/g) ?? []).length, 1, 'one way out of the broadcast: the ids canvasPosts allows');
+  assert.match(cast, /for \(const id of to\.wait\) \{\s+const q = \(waiting\.current\[id\] \?\?= \[\]\);/, 'a drawn pick waits for a kept frame still loading');
+  // …and is posted, in order, the moment that frame says `ready`.
+  assert.match(buffer, /readyOf\.current\[id\] = data;\s+const missed = waiting\.current\[id\];\s+delete waiting\.current\[id\];\s+for \(const m of missed \?\? \[\]\) el\.contentWindow\?\.postMessage\(m, window\.location\.origin\);/);
   assert.match(buffer, /if \(owed\.current\.delete\(shownId\) && !framesRef\.current\.loading\) els\.current\[shownId\]\?\.contentWindow\?\.postMessage\(CANVAS_REFRESH_MESSAGE, window\.location\.origin\);/);
 
   // The shell hands the canvas its budget (save-data and small phones → 0), and says when the Maker has

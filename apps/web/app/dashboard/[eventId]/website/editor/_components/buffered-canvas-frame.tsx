@@ -167,17 +167,26 @@ export function warmOnce(
  * by itself reaches every frame that is up. A REFRESH is a server render of the
  * guest page, so it goes to the page on screen (and the one loading for it)
  * only: a kept stage `owe`s it — paid the moment it is shown — and a kept frame
- * not yet up is `drop`ped (it could not take a pick either). Pure.
+ * not yet up is `drop`ped (it may have been rendered before the save).
+ *
+ * 🔥 What the bridge DRAWS reaches a kept frame still loading LATER: it `wait`s
+ * and is posted the moment that frame says `ready`, in order. Measured in the lab
+ * 2026-10-12 (request log + frame events): the one warmed stage was mounted, and
+ * 300 ms later the Maker's open pick (`markEl`, `scrollTo`) DROPPED it before its
+ * page was up — a whole server render thrown away, and the stage loaded again
+ * when the couple opened it. Pure.
  */
 export function canvasPosts(
   state: CanvasFrames,
   up: (id: string) => boolean,
   refresh: boolean,
-): { post: string[]; owe: string[]; drop: string[] } {
-  const out = { post: [state.shown, state.loading].filter((f): f is CanvasFrame => !!f).map(canvasFrameId), owe: [] as string[], drop: [] as string[] };
-  for (const id of (state.warm ?? []).map(canvasFrameId)) (!up(id) ? out.drop : refresh ? out.owe : out.post).push(id);
+): { post: string[]; owe: string[]; wait: string[]; drop: string[] } {
+  const out = { post: [state.shown, state.loading].filter((f): f is CanvasFrame => !!f).map(canvasFrameId), owe: [] as string[], wait: [] as string[], drop: [] as string[] };
+  for (const id of (state.warm ?? []).map(canvasFrameId)) (!up(id) ? (refresh ? out.drop : out.wait) : refresh ? out.owe : out.post).push(id);
   return out;
 }
+/** At most this many drawn picks wait for one loading kept frame; past it the frame is let go (it loads again when opened). */
+export const MAX_WAITING_PICKS = 200;
 
 /** The warm frames wanted beside what is shown and loading, within the budget. */
 function wantedWarm(state: CanvasFrames, wanted: readonly CanvasFrame[], max: number): CanvasFrame[] {
@@ -321,6 +330,8 @@ export function BufferedCanvasFrame({
   const readyOf = useRef<Record<string, unknown>>({});
   /** Frames whose document finished loading (`load`). The server has done its work for them — enough for the warm to move on, bridge or no bridge. */
   const loaded = useRef(new Set<string>());
+  /** Picks the bridge drew while a kept frame was still loading — posted at its `ready` (`canvasPosts` `wait`). */
+  const waiting = useRef<Record<string, unknown[]>>({});
 
   useEffect(() => {
     setFrames((s) => trimWarmFrames(planCanvasFrames(s, { key: frameKey, group, src }), wantedRef.current, warmMax));
@@ -368,6 +379,10 @@ export function BufferedCanvasFrame({
       for (const [id, el] of Object.entries(els.current)) {
         if (el && event.source === el.contentWindow) {
           readyOf.current[id] = data;
+          /* 🔥 What the bridge drew while this kept frame was loading, in order (`canvasPosts` `wait`). */
+          const missed = waiting.current[id];
+          delete waiting.current[id];
+          for (const m of missed ?? []) el.contentWindow?.postMessage(m, window.location.origin);
           tick();
         }
       }
@@ -448,7 +463,13 @@ export function BufferedCanvasFrame({
       const to = canvasPosts(framesRef.current, (id) => id in readyOf.current, message === CANVAS_REFRESH_MESSAGE);
       for (const id of to.post) els.current[id]?.contentWindow?.postMessage(message, window.location.origin);
       for (const id of to.owe) owed.current.add(id);
-      if (to.drop.length > 0) setFrames((prev) => dropWarmFrames(prev, new Set(to.drop)));
+      const drop = new Set(to.drop);
+      for (const id of to.wait) {
+        const q = (waiting.current[id] ??= []);
+        if (q.length >= MAX_WAITING_PICKS) drop.add(id);
+        else q.push(message);
+      }
+      if (drop.size > 0) setFrames((prev) => dropWarmFrames(prev, drop));
     };
     return () => {
       broadcastRef.current = null;
@@ -459,6 +480,7 @@ export function BufferedCanvasFrame({
   useEffect(() => {
     const live = new Set([frames.shown, frames.loading, ...(frames.warm ?? [])].filter(Boolean).map((f) => canvasFrameId(f!)));
     /* (Only a frame that was up can owe a redraw, so one sweep forgets both.) */
+    for (const id of Object.keys(waiting.current)) if (!live.has(id)) delete waiting.current[id];
     for (const id of [...Object.keys(readyOf.current), ...loaded.current]) {
       if (live.has(id)) continue;
       delete readyOf.current[id];

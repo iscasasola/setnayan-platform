@@ -11,9 +11,11 @@ import {
   guestsSeeApplyLabel,
   guestsSeeBackToPicks,
   guestsSeeChanges,
+  guestsSeeHasEmptyRow,
   guestsSeeKept,
   guestsSeeLeaveLine,
   guestsSeeOn,
+  guestsSeeOpeningLine,
   guestsSeePatch,
   guestsSeeToggle,
   guestsSeeWithRemoved,
@@ -104,7 +106,8 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
   const [table, setTable] = useState<GuestsSeeTable | null>(area?.table ?? null);
   const [writes, setWrites] = useState<GuestsSeeWrites>({});
   const [undo, setUndo] = useState<GuestsSeeWrites[]>([]);
-  const [line, setLine] = useState<string>(W.quiet);
+  /* What is true of the table as it opens: our picks — or how many boxes the couple has set by hand (`guestsSeeOpeningLine`). */
+  const [line, setLine] = useState<string>(() => guestsSeeOpeningLine(area?.table));
   const [asking, setAsking] = useState(false);
   const [pending, start] = useTransition();
   const n = guestsSeeChanges(writes);
@@ -254,14 +257,16 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
                   [
                     [{ kind: 'box', on: true, ourPick: false, base: true, choice: null }, true, W.legendOn],
                     [{ kind: 'box', on: false, ourPick: false, base: false, choice: null }, false, W.legendOff],
+                    /* The pale tick — only while a row on screen wears one. */
+                    ...(guestsSeeHasEmptyRow(table) ? ([[{ kind: 'box', on: true, ourPick: false, base: true, choice: null }, true, W.legendEmpty, true]] as const) : []),
                     [null, false, W.legendPick],
                     [{ kind: 'locked', on: true, why: '' }, true, W.legendLocked],
                     [{ kind: 'dash', why: '' }, false, W.legendDash],
-                  ] as Array<[GuestsSeeCell | null, boolean, string]>
-                ).map(([cell, on, words]) => (
-                  <li key={words} className="flex items-center gap-1.5">
+                  ] as Array<[GuestsSeeCell | null, boolean, string, boolean?]>
+                ).map(([cell, on, words, dim]) => (
+                  <li key={words} className="flex items-center gap-1.5" {...(dim ? { 'data-gs-key': 'empty' } : {})}>
                     <span aria-hidden className="relative flex h-5 w-5 scale-75 items-center justify-center">
-                      {cell ? <Mark cell={cell} on={on} /> : <span className="h-1 w-1 rounded-full bg-ink/40" />}
+                      {cell ? <Mark cell={cell} on={on} dim={dim === true} /> : <span className="h-1 w-1 rounded-full bg-ink/40" />}
                     </span>
                     {words}
                   </li>

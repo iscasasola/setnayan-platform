@@ -104,6 +104,9 @@ export const GUESTS_SEE_WORDS = {
      "you have not changed it". (The prototype's word here is "Always shown": untrue of a row that is merely locked.) */
   legendLocked: 'Cannot be changed here yet',
   legendDash: 'Not possible yet',
+  /* The pale tick's entry in the key — the first words of the row's own line (`emptyNote`), so the key and the row
+     say one thing. (The re-walk of 2026-10-11, R03: the pale tick had no entry.) */
+  legendEmpty: 'Nothing written yet',
   ourPick: 'our pick',
 } as const;
 
@@ -166,17 +169,37 @@ export function guestsSeeToggle(table: GuestsSeeTable, writes: GuestsSeeWrites, 
  */
 export function guestsSeeBackToPicks(table: GuestsSeeTable, writes: GuestsSeeWrites): GuestsSeeTap {
   const next: Record<string, boolean | null> = {};
-  let boxes = 0;
   for (const row of rowsOf(table)) {
     row.cells.forEach((cell, col) => {
-      if (cell.kind !== 'box') return;
-      if (cell.choice !== null) next[cellId(row, col)] = null;
-      if (guestsSeeOn(row, col, writes) !== cell.base) boxes += 1;
+      if (cell.kind === 'box' && cell.choice !== null) next[cellId(row, col)] = null;
     });
   }
+  const boxes = guestsSeeHandSet(table, writes);
   if (boxes === 0) return { writes, line: GUESTS_SEE_WORDS.alreadyOurs, changed: false };
   return { writes: next, line: `${GUESTS_SEE_WORDS.back}. ${plural(boxes, 'box', 'boxes')} changed — Apply to keep it.`, changed: true };
 }
+
+/** How many boxes are NOT what the stage shows with no choice — the boxes "Back to our picks" would change. */
+export function guestsSeeHandSet(table: GuestsSeeTable, writes: GuestsSeeWrites = {}): number {
+  let boxes = 0;
+  for (const row of rowsOf(table)) row.cells.forEach((cell, col) => {
+    if (cell.kind === 'box' && guestsSeeOn(row, col, writes) !== cell.base) boxes += 1;
+  });
+  return boxes;
+}
+
+/**
+ * THE LINE THE SHEET OPENS ON. "Nothing changed yet — our picks do the work." is for a table that IS our picks; a
+ * table opened again with a box the couple set by hand said it all the same (the re-walk of 2026-10-11, R03, under a
+ * visibly unticked Message). With boxes set by hand it counts them, in the sheet's own words.
+ */
+export function guestsSeeOpeningLine(table: GuestsSeeTable | null | undefined): string {
+  const n = table ? guestsSeeHandSet(table) : 0;
+  return n === 0 ? GUESTS_SEE_WORDS.quiet : `${plural(n, 'box', 'boxes')} changed from our picks.`;
+}
+
+/** Does any row have nothing written yet? (Then the key explains the pale tick.) */
+export const guestsSeeHasEmptyRow = (table: GuestsSeeTable): boolean => rowsOf(table).some((r) => r.empty);
 
 /** How many entries Apply would write. */
 export const guestsSeeChanges = (writes: GuestsSeeWrites): number => Object.keys(writes).length;

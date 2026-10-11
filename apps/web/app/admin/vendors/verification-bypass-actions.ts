@@ -41,6 +41,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { bypassExpiryFrom } from '@/lib/verification-bypass';
 import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * The same gate every other admin vendor action uses, copied rather than
@@ -123,6 +124,8 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
       updated_at: grantedAt.toISOString(),
     })
     .eq('vendor_profile_id', vendorId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('shops');
   if (error) throw new Error(error.message);
 
   // SUP-31 — the shop is TOLD it is live. After the notify, because a failed
@@ -183,6 +186,8 @@ export async function revokeVerificationBypass(formData: FormData): Promise<void
     .from('vendor_profiles')
     .update({ public_visibility: 'hidden' })
     .eq('vendor_profile_id', vendorId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('shops');
   if (error) throw new Error(error.message);
   await admin
     .from('vendor_verification_bypasses')

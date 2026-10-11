@@ -89,6 +89,21 @@ export const getEventTypeVocab = cache(async (): Promise<EventTypeRow[]> => {
 });
 
 /**
+ * The same roster from rows SOMEBODY ELSE ALREADY READ — the viewer-free sibling
+ * of `getEventTypeVocab`, for a caller that holds the ACTIVE `event_type_vocab`
+ * rows in roster order (the home page remembers them). The table is public-read
+ * (`USING (TRUE)`), so these are the rows the session read returns; they go
+ * through the same `toRow`, and an empty result is the same fallback roster.
+ * Pure: no read, no session.
+ */
+export function eventTypesFromPublicRows(
+  rows: ReadonlyArray<Record<string, unknown> & { event_type: string }>,
+): EventTypeRow[] {
+  if (rows.length === 0) return [...EVENT_TYPES_FALLBACK];
+  return rows.map((r) => toRow(r as unknown as VocabRow));
+}
+
+/**
  * The couple-side create-event roster: ACTIVE + ENABLED only. What the
  * full-page picker, the EventSwitcher add-event sheet, and the create-event
  * server action accept.

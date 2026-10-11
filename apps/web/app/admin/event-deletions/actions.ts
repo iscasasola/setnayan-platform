@@ -9,6 +9,7 @@ import {
   sweepEventMedia,
 } from '@/lib/event-media-sweep';
 import { emitNotification } from '@/lib/notification-emit';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * /admin/event-deletions — a couple has asked us to remove a celebration that
@@ -138,6 +139,8 @@ export async function approveEventDeletion(formData: FormData) {
     .delete()
     .eq('event_id', req.event_id)
     .select('event_id');
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('events');
   if (delErr) throw new Error(delErr.message);
 
   /*

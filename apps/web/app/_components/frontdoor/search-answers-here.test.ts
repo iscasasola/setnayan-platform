@@ -174,8 +174,20 @@ test('both shop readers share one visibility gate', () => {
     0,
     'a reader applies the visibility gate inline instead of using LIVE_SHOP_GATE',
   );
+  // ⚡ 2026-10-11 — the shelf's COUNT and ROWS reads moved to
+  // `lib/home-public-reads-core.ts`, where they are remembered; the search
+  // stayed here. Three reads, two files, one gate — counted across both.
+  const shelf = stripComments(read('lib/home-public-reads-core.ts'));
+  assert.match(
+    shelf,
+    /import \{[^}]*LIVE_SHOP_GATE[^}]*\} from '@\/lib\/live-shops'/,
+    'the remembered shelf read no longer imports the shared live-shop gate',
+  );
+  assert.equal((shelf.match(/\.eq\('public_visibility'/g) ?? []).length, 0);
+  assert.equal((shelf.match(/public_visibility:\s*'verified'/g) ?? []).length, 0);
   assert.equal(
-    (src.match(/\.match\(LIVE_SHOP_GATE\)/g) ?? []).length,
+    (src.match(/\.match\(LIVE_SHOP_GATE\)/g) ?? []).length +
+      (shelf.match(/\.match\(LIVE_SHOP_GATE\)/g) ?? []).length,
     3,
     'expected exactly three reads behind the gate — the shelf COUNT, the shelf ' +
       'ROWS and the search. A new read must apply the gate too; a dropped one ' +

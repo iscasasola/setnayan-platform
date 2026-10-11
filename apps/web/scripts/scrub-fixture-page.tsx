@@ -74,11 +74,14 @@ const [outDir, island] = (() => {
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
 type Page = { file: string; offered: boolean; widgets: ReturnType<typeof fixtureWidgets>; activeTab?: string; noRow?: boolean; stranger?: 'text' | 'photo'; script: 'none' | 'island' | 'island-under-reveal' };
-/** The fixture's guest with NO reply status: `resolveArrivalAction` has nothing to say to them, so no row is drawn. */
+/** The fixture's guest with NO reply status: `resolveArrivalAction` has nothing to say to them, so no row is drawn.
+ *  ⚠ A state the guest row's own type does not allow (`rsvp_status` is never null there) — forced here on purpose, as
+ *  the one way to draw the guest tree with nothing after its cover: the page must not fade its cover to nothing even
+ *  then. Not a claim that a real guest is ever in it. */
 const guestWithNoRow = () => {
   const { identity } = siteBodyFixtureProps();
   if (identity.kind !== 'guest') throw new Error('scrub-fixture-page: the fixture identity is no longer a guest');
-  return { ...identity, guest: { ...identity.guest, rsvp_status: null } } as typeof identity;
+  return { ...identity, guest: { ...identity.guest, rsvp_status: null } } as unknown as typeof identity;
 };
 const cover = () => fixtureWidgets({ hero: LAB_SCRUB_COVER });
 const coverAndScene = () => fixtureWidgets({ hero: LAB_SCRUB_COVER, schedule: LAB_SCRUB_SAMPLE.schedule });

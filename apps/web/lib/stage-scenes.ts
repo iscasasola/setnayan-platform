@@ -327,3 +327,35 @@ export function splitAroundEntourage<T extends { widget_type: string }>(
   const isLate = (w: T) => (late as readonly string[]).includes(w.widget_type);
   return { before: scenes.filter((w) => !isLate(w)), after: scenes.filter(isLate) };
 }
+
+/** Is this scene one the stage draws after the entourage, whatever place the couple's order gives it? */
+export function sceneFollowsEntourage(stage: string, type: string): boolean {
+  const late = (STAGE_SCENES_AFTER_ENTOURAGE as Readonly<Record<string, readonly string[] | undefined>>)[stage];
+  return late !== undefined && late.includes(type) && (STAGE_FIXED.entourage as readonly string[]).includes(stage);
+}
+
+/**
+ * ↑ ↓ DOES MOVING A SCENE PAST THIS NEIGHBOUR CHANGE THE PAGE? Only when both are on the same side of the entourage.
+ *
+ * Owner, 2026-10-11, on his real event (Invitation › Details): he pressed Earlier on "What to bring" — "the do not
+ * work … no it is not showing". The move WAS saved (`stage_order.rsvp`: venue_map 6 → 7, what_to_bring 7 → 6) and
+ * the canvas was fetched again — and drew the same page, because the page draws What to bring AFTER the entourage
+ * whatever its place says (`splitAroundEntourage`). The Maker offered a step the page cannot show.
+ *
+ * Every reader of "can this step be taken" asks here (`add-part-sheet.tsx` `moveTargets`), so a step is offered only
+ * where the page will show it. Held by `lib/a-step-always-changes-the-page.test.ts`.
+ */
+export function stepChangesThePage(stage: string, moving: string, past: string): boolean {
+  return sceneFollowsEntourage(stage, moving) === sceneFollowsEntourage(stage, past);
+}
+
+/**
+ * Which way the entourage holds a scene on this page, given the other scenes the page draws: 'after' — it follows
+ * the entourage and something else does not (it cannot go earlier than the entourage); 'before' — the reverse.
+ * Null: nothing on this page is on the other side.
+ */
+export function heldByEntourage(stage: string, type: string, others: readonly string[]): 'after' | 'before' | null {
+  const late = sceneFollowsEntourage(stage, type);
+  if (!others.some((t) => sceneFollowsEntourage(stage, t) !== late)) return null;
+  return late ? 'after' : 'before';
+}

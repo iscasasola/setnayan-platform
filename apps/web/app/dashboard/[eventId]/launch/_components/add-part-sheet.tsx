@@ -19,7 +19,8 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { isCustomSectionType } from '@/lib/custom-sections';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
-import { MAKER_PARTS, makerPartStepWhy, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
+import { MAKER_PARTS, makerPartStepHeldWhy, makerPartStepWhy, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
+import { heldByEntourage, stepChangesThePage } from '@/lib/stage-scenes';
 import {
   makerDropDelta,
   makerOwnScenesLeft,
@@ -220,14 +221,14 @@ function visibleBand(frameSel: string = SHOWN_FRAME): { top: number; bottom: num
 
 /** What the picked part is, for the edges: a scene the navigator moves, a Post Event scene, or a fixed part. */
 type Movable =
-  | { kind: 'scene'; id: string; own: boolean }
+  | { kind: 'scene'; id: string; own: boolean; type: string }
   | { kind: 'post-event'; scene: string; runKey: string | null; switchKey: string | null }
   | { kind: 'fixed' };
 
 function movableOf(ops: MakerPartOps | null, canvas: string | null): Movable {
   if (!ops || !canvas) return { kind: 'fixed' };
   const t = ops.list.shown.find((x) => x.key === canvas || (x.kind === 'post-event' && x.anchor === canvas));
-  if (t?.kind === 'scene') return { kind: 'scene', id: t.widgetId, own: isCustomSectionType(t.type) };
+  if (t?.kind === 'scene') return { kind: 'scene', id: t.widgetId, own: isCustomSectionType(t.type), type: t.type };
   if (t?.kind === 'post-event') return { kind: 'post-event', scene: t.scene, runKey: t.runKey, switchKey: t.switchKey };
   return { kind: 'fixed' };
 }
@@ -440,6 +441,10 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
       const key = t.kind === 'post-event' ? t.anchor : t.key;
       if (!key || key === canvas) continue;
       if (mv.kind === 'scene' && t.kind !== 'scene') continue;
+      /* 🚶 NEVER PAST THE ENTOURAGE (owner 2026-10-11: Earlier on What to bring saved a move the page could not show
+         — "the do not work"). A scene the page draws after the entourage is not a neighbour of one before it
+         (`stepChangesThePage`): the order would change and the page would not. */
+      if (mv.kind === 'scene' && t.kind === 'scene' && !stepChangesThePage(stage, mv.type, t.type)) continue;
       if (mv.kind === 'post-event' && (t.kind !== 'post-event' || !t.runKey || t.runKey === mv.runKey)) continue;
       const b = partBox(key);
       if (!b) continue;
@@ -560,12 +565,22 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
 
   /* The toolbar's Edit row reads these (`PartEditsNow`); `box` re-renders this as the page settles, so they stay true. */
   const canStep = (dir: -1 | 1) => Boolean(typeof document !== 'undefined' && canMove && ops && box && neighbour(ops, dir));
+  /** 🚶 The line for a step the ENTOURAGE holds — by name, in place of "already first / last" (which it is not). */
+  const heldWhy = (): Partial<{ earlier: string; later: string }> => {
+    if (!ops || !canMove || mv.kind !== 'scene') return {};
+    const others = ops.list.shown.flatMap((t) => (t.kind === 'scene' && t.widgetId !== mv.id ? [t.type as string] : []));
+    const held = heldByEntourage(stage, mv.type, others);
+    const march = ops.list.shown.find((t) => t.kind === 'fixed' && t.fixed === 'entourage')?.label;
+    if (!held || !march) return {};
+    const words = makerPartStepHeldWhy(label || 'This part', held, march);
+    return held === 'after' ? (canStep(-1) ? {} : { earlier: words }) : canStep(1) ? {} : { later: words };
+  };
   const now: Omit<PartEditsNow, 'node'> = {
     earlier: working ? null : canStep(-1) ? () => stepMove(-1) : null,
     later: working ? null : canStep(1) ? () => stepMove(1) : null,
     remove: working ? null : canRemove ? () => setRemoving(true) : null,
     removeWord: ownScene ? 'Delete' : 'Remove',
-    why: working ? { earlier: PART_WORKING_WHY, later: PART_WORKING_WHY, remove: PART_WORKING_WHY } : (lineWhy ?? makerPartStepWhy(label || 'This part', canMove, canRemove)),
+    why: working ? { earlier: PART_WORKING_WHY, later: PART_WORKING_WHY, remove: PART_WORKING_WHY } : (lineWhy ?? { ...makerPartStepWhy(label || 'This part', canMove, canRemove), ...heldWhy() }),
     working,
   };
   if (typeof document === 'undefined') return { node: null, ...now };

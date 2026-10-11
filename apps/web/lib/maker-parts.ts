@@ -545,6 +545,14 @@ export function makerPartStepWhy(label: string, canMove: boolean, canRemove: boo
 }
 
 /**
+ * WHY A STEP IS GREY BECAUSE OF THE ENTOURAGE (`lib/stage-scenes.ts` `heldByEntourage`): a scene the page draws after
+ * it stays after it, and the others stay before it — said by name, never "already first" of a part that is not.
+ */
+export function makerPartStepHeldWhy(label: string, held: 'after' | 'before', entourage: string): string {
+  return `${label} stays ${held} the ${entourage}.`;
+}
+
+/**
  * 👆 THE PART PICKED ON ARRIVING at a stage's page (owner 2026-10-09: something is always picked): the first part the
  * page DRAWS (`ordered`, top to bottom) that Edit has a row for — its words to type, or its one door — so the first
  * thing seen is never an empty tool. Never the Reveal (it leads three pages and has only Style). A page whose parts

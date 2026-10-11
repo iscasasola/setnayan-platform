@@ -109,6 +109,11 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
   /* What is true of the table as it opens: our picks — or how many boxes the couple has set by hand (`guestsSeeOpeningLine`). */
   const [line, setLine] = useState<string>(() => guestsSeeOpeningLine(area?.table));
   const [asking, setAsking] = useState(false);
+  /* 🗂 THE RSVP COLUMN FOLDS AWAY (the prototype's case A ↔ A4: "Hide the RSVP column" · "Show RSVP"). It is the reply
+     screens and nothing in it can be changed, so a couple may give its width to the four stages. For this opening of
+     the sheet only — nothing is stored, and no tick is lost: a folded column has no boxes. */
+  const [rsvpShown, setRsvpShown] = useState(true);
+  const shownCol = (col: number) => rsvpShown || GUESTS_SEE_COLUMNS[col]!.stage !== null;
   const [pending, start] = useTransition();
   const n = guestsSeeChanges(writes);
 
@@ -192,11 +197,13 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
             <span role="columnheader" className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink/45">
               {W.shownAt}
             </span>
-            {GUESTS_SEE_COLUMNS.map((c) => (
-              <span key={c.key} role="columnheader" data-gs-col={c.key} className={HEAD}>
-                {c.label}
-              </span>
-            ))}
+            {GUESTS_SEE_COLUMNS.map((c, col) =>
+              shownCol(col) ? (
+                <span key={c.key} role="columnheader" data-gs-col={c.key} className={HEAD}>
+                  {c.label}
+                </span>
+              ) : null,
+            )}
           </div>
           {table.groups.map((g, gi) => (
             <div key={g.title} role="rowgroup" data-gs-group={g.title} className={gi > 0 ? 'mt-2 border-t border-ink/10' : undefined}>
@@ -209,6 +216,7 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
                     {row.empty ? <span className="block text-[11px] font-normal leading-snug text-ink/55">{W.emptyNote}</span> : null}
                   </span>
                   {row.cells.map((cell, col) => {
+                    if (!shownCol(col)) return null;
                     const on = guestsSeeOn(row, col, writes);
                     const name = `${row.label} · ${GUESTS_SEE_COLUMNS[col]!.label}`;
                     return cell.kind === 'box' ? (
@@ -243,7 +251,18 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           ))}
-          <p className="px-0.5 pb-3 pt-3 text-[11.5px] leading-snug text-ink/55">{W.rsvpCaption}</p>
+          <p data-gs-rsvp-caption="" className="px-0.5 pb-3 pt-3 text-[11.5px] leading-snug text-ink/55">
+            {rsvpShown ? W.rsvpCaption : W.rsvpFolded}{' '}
+            <button
+              type="button"
+              data-gs-rsvp-fold={rsvpShown ? 'hide' : 'show'}
+              aria-expanded={rsvpShown}
+              onClick={() => setRsvpShown((v) => !v)}
+              className="ml-1 inline-flex min-h-11 items-center rounded-full px-3 text-[12px] font-semibold text-ink ring-1 ring-ink/15 active:scale-95"
+            >
+              {rsvpShown ? W.rsvpHide : W.rsvpShow}
+            </button>
+          </p>
         </div>
 
         {/* THE LOWER THIRD — what the last tap did · the key · the three buttons. */}

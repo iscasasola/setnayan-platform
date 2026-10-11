@@ -96,6 +96,10 @@ export const GUESTS_SEE_WORDS = {
   emptyTail: ' Nothing written yet — guests will not see it until you write it.',
   placeNote: 'The address and map open once a guest has replied.',
   rsvpCaption: 'The RSVP column is the reply screens. Nothing can be changed there yet.',
+  /* The prototype's fold (case A ↔ A4), its words. */
+  rsvpHide: 'Hide the RSVP column',
+  rsvpFolded: 'RSVP is folded away — it is the reply screens; the reply card stays always on.',
+  rsvpShow: 'Show RSVP',
   ownScenes: 'Your own scenes',
   ownScene: 'Your own scene',
   back: 'Back to our picks',

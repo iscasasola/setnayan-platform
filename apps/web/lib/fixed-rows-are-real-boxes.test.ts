@@ -276,3 +276,20 @@ test('9 · the Studio row says whose picks the table holds; Apply answers with t
   assert.match(apply, /fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);\s*const r = await makerSave\(\(\) => area\.door\(area\.eventId, fd\), requestMakerRefresh\);\s*if \(!r\.ok\) return setLine\(r\.error \|\| W\.notKept\);\s*requestCanvasRedraw\(\);/);
   assert.equal((apply.match(/makerSave\(/g) ?? []).length, 1, 'one Apply is one save');
 });
+
+test('10 · the RSVP column folds away and comes back — the prototype’s two sentences; a folded column loses no tick', () => {
+  assert.equal(GUESTS_SEE_WORDS.rsvpHide, 'Hide the RSVP column');
+  assert.equal(GUESTS_SEE_WORDS.rsvpShow, 'Show RSVP');
+  assert.equal(GUESTS_SEE_WORDS.rsvpFolded, 'RSVP is folded away — it is the reply screens; the reply card stays always on.');
+  // The folded sentence is TRUE of the table as built: the reply card is always on the reply screens, and no cell of that column is a box.
+  const t = table();
+  const rsvp = GUESTS_SEE_COLUMNS.findIndex((c) => c.stage === null);
+  assert.deepEqual(rowOf(t, 'reply').cells[rsvp], { kind: 'locked', on: true, why: GUESTS_SEE_WORDS.alwaysReply });
+  assert.deepEqual(t.groups.flatMap((g) => g.rows).filter((r) => r.cells[rsvp]!.kind === 'box').map((r) => r.key), [], 'a box in a column that folds would hide a pending tick');
+  const SHEET = stripComments(readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/launch/_components/guests-see-sheet.tsx'), 'utf8'));
+  assert.match(SHEET, /const shownCol = \(col: number\) => rsvpShown \|\| GUESTS_SEE_COLUMNS\[col\]!\.stage !== null;/);
+  assert.match(SHEET, /\{rsvpShown \? W\.rsvpCaption : W\.rsvpFolded\}/);
+  assert.match(SHEET, /\{rsvpShown \? W\.rsvpHide : W\.rsvpShow\}/);
+  // The header and every row drop the same column.
+  assert.equal((SHEET.match(/shownCol\(col\)/g) ?? []).length, 2);
+});

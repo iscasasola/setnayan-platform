@@ -4,6 +4,25 @@ Branch `rd/scrub-cover-on-the-real-invitation` · worktree `~/Documents/Claude/P
 (never pushed, no PR). **Built, not live.** `lib/scrub-out-offered.ts` `SCRUB_OUT_OFFERED = false` — do not turn it on.
 Everything proven is proven in **Chromium only**; nothing has run on iOS Safari. Stopped at the account's limit.
 
+## Round 3 (2026-10-12) — IN PROGRESS (commit 0ac615287 and after)
+- Touch check fixed to test its claim (slow drag, rests before lifting, inside the hold; travel == Build out by
+  `--hub-pout` AND the drawn fade; React's own root delegation read apart — only a non-passive
+  touchstart/touchmove/wheel counts as able to hold a finger back). Block 16 alone: touch rows green.
+- FOUND + FIXED: main's first-screen fit (`first-screen-door.tsx`) and the wrapped stranger cover fed a LOOP on short
+  screens — the page changed length every ~120 ms at 375x560, 375x600, 320x568 (fit shrinks the cover → hand-over
+  re-measures and moves the door → fit undoes its plan → …). The fit now stands aside while the page's hold is armed
+  (`data-hub-page-on`), and watches the arming. Switch off: the mark never exists, so it is today's fit exactly.
+- FOUND, NOT FIXED (owner decision): while the cover is held, its NAMES are under the pinned top bar on a short
+  screen — 375x667 guest and stranger (names' top 7.5 px, the bar ends 69 px; the cover 582 px on a 667 screen is
+  held by the ordinary rule, its bottom on the centre line); the stranger's PHOTO cover at 375x812 and 1280x770 has
+  its names wholly above the screen for the whole hold (−375 px / −599 px). Likely the owner's open point 2 ("the
+  heading clipped at the top on iPhone": Safari's bars make most iPhones a short screen). New rows in block 16 say it.
+- Switch OFF = today's page, proven: the real `SiteBody` rendered for 24 cases (guest · no-row guest · stranger text
+  · stranger photo · guest on Details · stranger on Details × plain · cover-Scrub · scene-Scrub · both) on this branch
+  and on origin/main d2e38b7c1: byte-identical, and no island mounted; flipping the switch by hand makes all 18 Scrub
+  cases differ (the comparison can see a change). Every stylesheet rule the branch adds needs `[data-hub-page-on]`.
+- Queued under the lock: the WHOLE browser check (walk lane), then `next lint` and the sweep (heavy lane).
+
 ## Done
 - `origin/main` d2e38b7c1 MERGED IN (a87125049). Two conflicts (the fixture test's "tooling" list — both kept; the
   controls baseline — regenerated). Full `tsc` on the merged tree under the lock: rc 0.

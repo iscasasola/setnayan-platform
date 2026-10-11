@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { guestRead } from '@/lib/guest-read';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor } from '../_lib/event-words';
+import { hasntAfter } from '../_lib/names-verb';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { isRecapPublished, assembleRecapModel, type RecapModel } from '@/lib/auto-recap';
@@ -218,7 +219,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
           <Sparkles aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.5} />
           <h1 className="mt-4 font-display text-3xl italic">The recap isn&rsquo;t ready yet</h1>
           <p className="mt-3 max-w-prose text-ink/65">
-            {event.display_name} hasn&rsquo;t published their {words.eventWord} recap. Check back
+            {event.display_name} {hasntAfter(event.display_name, words.twoPeople)} published their {words.eventWord} recap. Check back
             soon — or visit their page in the meantime.
           </p>
           <Link

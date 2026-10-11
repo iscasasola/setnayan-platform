@@ -67,4 +67,14 @@ read that never happens for anyone else), in the event's Name style.
 Guard: `app/[slug]/everyone/only-guests-see-the-guests.test.ts` (two new
 tests; `a-failed-read-is-not-an-absence.test.ts` re-aimed at the new sentence).
 
+**N21 · The verb after the hosts' names agrees with how many they are.**
+"Marco & Marga hasn't set up e-gifts yet." (`app/[slug]/pabuya/page.tsx`) and
+"Marco & Marga hasn't published their wedding recap."
+(`app/[slug]/recap/page.tsx`) now read "haven't" for two people and "hasn't"
+for one, through `hasntAfter` (`app/[slug]/_lib/names-verb.ts`) — which asks
+the masthead's own split (`splitCoupleNames` + `EventWords.twoPeople`), so the
+cover and the sentence cannot disagree about the same name.
+Guard: `app/[slug]/_lib/names-verb.test.ts` (also names any guest page that
+puts a fixed singular verb straight after the event's name).
+
 SPEC IMPACT: None.

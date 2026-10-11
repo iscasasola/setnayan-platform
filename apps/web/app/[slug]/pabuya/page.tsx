@@ -9,6 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { guestRead } from '@/lib/guest-read';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor, giftIsMoneyDance } from '../_lib/event-words';
+import { hasntAfter } from '../_lib/names-verb';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { giftsAreOn } from '@/lib/event-answers';
@@ -315,7 +316,7 @@ export default async function PabuyaPublicPage({
           </>
         ) : registryHref ? null : (
           <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/60">
-            {hostName} hasn&rsquo;t set up e-gifts yet. Check back soon — or
+            {hostName} {hasntAfter(event.display_name, words.twoPeople)} set up e-gifts yet. Check back soon — or
             visit their page in the meantime.
           </p>
         )}

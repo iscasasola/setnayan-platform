@@ -44,17 +44,19 @@ import { CANVAS_REFRESH_MESSAGE, makerSavesStarted } from '@/lib/maker-refresh';
  * asked to see. That, times a few edits a minute, is what exhausted the
  * database's connection pool.
  *
- * 🔥 THE OTHER STAGES ARE WARMED ONCE PER OPEN, AND ONLY THEN (`warmOnce`;
- * owner 2026-10-08, on the first visit to another stage: *"For as long as it
- * doesnt take kore than 1 second"*). After the stage on screen is up (its
- * bridge said `ready`, or its document finished loading), on an idle moment,
- * with the tab visible: one hidden frame at a time — the next one only when
- * the last is up — each stage at most once. The first save of the open ENDS it — nothing
- * is warmed after a save, during one, or again. And a save's redraw
- * (`CANVAS_REFRESH_MESSAGE`, a server render of the page) goes to the page on
- * screen only: a kept stage OWES it and pays when it is shown (`canvasPosts`).
- * So an open costs at most `warmMax` extra guest pages, once, and a save costs
- * none — ever. Holding a frame that is already loaded costs the server nothing.
+ * 🔥 ONE OTHER STAGE IS WARMED PER OPEN — THE NEXT ONE — AND ONLY THEN
+ * (`warmOnce`, `MAX_WARM_AHEAD`; owner 2026-10-12, asked "every stage up front
+ * or only the next?", verbatim: *"which has the fewest requests and fastest load
+ * time"* — superseding 2026-09-28's "load everything up front" for stage pages).
+ * The next stage in order (`warmStageOrder`; the previous one from the last
+ * stage), after the stage on screen is up (its bridge said `ready`, or its
+ * document finished loading), on an idle moment, with the tab visible, at most
+ * once. The first save of the open ENDS it — nothing is warmed after a save,
+ * during one, or again. And a save's redraw (`CANVAS_REFRESH_MESSAGE`, a server
+ * render of the page) goes to the page on screen only: a kept stage OWES it and
+ * pays when it is shown (`canvasPosts`). So an open costs at most ONE extra
+ * guest page, once, and a save costs none — ever. A stage the couple OPENED is
+ * still kept (up to `warmMax`): holding a loaded frame costs the server nothing.
  *
  * 🧯 NO IFRAME IN THE SERVER'S HTML (measured on production, 2026-10-08: the
  * canvas document was fetched TWICE on every Maker open, the same address, a
@@ -205,6 +207,20 @@ export function warmCanvasBudget(device: { phone: boolean; deviceMemory?: number
   return MAX_WARM_FRAMES;
 }
 export const MAX_WARM_FRAMES = 3;
+/** 🔥 How many stages an open WARMS (loads unasked): the next one only (owner 2026-10-12). Keeping is `MAX_WARM_FRAMES`. */
+export const MAX_WARM_AHEAD = 1;
+
+/**
+ * The other stages in the order they are warmed in, and kept in when the budget
+ * is short: nearest first, and of two as near, the LATER one — so the one stage
+ * an open warms is the next (the previous one from the last stage). Pure.
+ */
+export function warmStageOrder<T>(stage: T, order: readonly T[]): T[] {
+  const at = order.indexOf(stage);
+  return order
+    .filter((s) => s !== stage)
+    .sort((a, b) => Math.abs(order.indexOf(a) - at) - Math.abs(order.indexOf(b) - at) || order.indexOf(b) - order.indexOf(a));
+}
 
 /** A frame with no bridge never says `ready`; it is shown this long after `load`. */
 const NO_BRIDGE_MS = 1_200;
@@ -364,7 +380,7 @@ export function BufferedCanvasFrame({
     };
   }, []);
 
-  /* 🔥 THE ONE WARM OF THIS OPEN (`warmOnce`): on idle, one stage at a time,
+  /* 🔥 THE ONE WARM OF THIS OPEN (`warmOnce`): on idle, the next stage only (`MAX_WARM_AHEAD`),
      and over for good at the first save: a write this document has started
      since this canvas mounted (`opened`), or a Maker render since (`warmOver`). */
   const warmLeft = useRef<readonly CanvasFrame[] | null>(null);
@@ -373,7 +389,7 @@ export function BufferedCanvasFrame({
     if (warmMax <= 0 || warmLeft.current?.length === 0) return;
     return whenIdle(() => {
       const s = framesRef.current;
-      const step = warmOnce(s, warmLeft.current, wantedRef.current, warmMax, {
+      const step = warmOnce(s, warmLeft.current, wantedRef.current, Math.min(warmMax, MAX_WARM_AHEAD), {
         ready: (f) => canvasFrameId(f) in readyOf.current || loaded.current.has(canvasFrameId(f)),
         hidden: document.visibilityState === 'hidden',
         saved: warmOver || makerSavesStarted() !== opened.current,

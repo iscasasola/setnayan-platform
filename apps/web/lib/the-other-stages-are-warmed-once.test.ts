@@ -9,11 +9,15 @@
  * owner then ruled on what a first visit to another stage may cost, verbatim:
  * *"For as long as it doesnt take kore than 1 second"*.
  *
- * So the warm is back with one shape only, and this file COUNTS it:
+ * So the warm is back with one shape only, and this file COUNTS it. Owner,
+ * 2026-10-12, asked "every stage up front or only the next?", verbatim:
+ * *"which has the fewest requests and fastest load time"* — the NEXT one only:
  *
- *   · PER OPEN  — the page on screen, then each other stage at most ONCE, one
- *                 at a time, on idle, after the page on screen said `ready`;
- *                 none with the tab hidden, none on save-data or a small phone;
+ *   · PER OPEN  — the page on screen, then ONE other stage — the next (the
+ *                 previous one from the last stage) — ONCE, on idle, after the
+ *                 page on screen said `ready`; none with the tab hidden, none
+ *                 on save-data or a small phone. A stage the couple opened is
+ *                 still kept (up to `MAX_WARM_FRAMES`);
  *   · PER SAVE  — nothing but the page on screen. The first save of the open
  *                 ENDS the warm; nothing is warmed while one is in flight, or
  *                 after one, or again. A save's redraw (a server render) goes
@@ -35,6 +39,7 @@ import { join } from 'node:path';
 import React from 'react';
 import { stripComments } from './strip-comments';
 import {
+  MAX_WARM_AHEAD,
   MAX_WARM_FRAMES,
   canvasFrameId,
   canvasPosts,
@@ -44,10 +49,12 @@ import {
   trimWarmFrames,
   warmCanvasBudget,
   warmOnce,
+  warmStageOrder,
   type CanvasFrame,
   type CanvasFrames,
 } from '../app/dashboard/[eventId]/website/editor/_components/buffered-canvas-frame';
 import { announceUnheldWrite, makerLatestWrite, makerSave, makerSavesStarted } from './maker-refresh';
+import { PUBLIC_STAGE_ORDER } from './public-site-stage-labels';
 
 const STAGES = ['save_the_date', 'rsvp', 'event', 'editorial'] as const;
 type Stage = (typeof STAGES)[number];
@@ -78,9 +85,9 @@ class MakerOpen {
   frame(stage: Stage): CanvasFrame {
     return { key: `${stage}:${this.stamp}:`, group: `${stage}:`, src: `/ana-ben?phase=${stage}&editor=1` };
   }
-  /** What the shell passes as `warm`: the other stages, at the canvas's stamp; none in "view as". */
+  /** What the shell passes as `warm`: the other stages in `warmStageOrder`, at the canvas's stamp; none in "view as". */
   wanted(): CanvasFrame[] {
-    return this.seeAs ? [] : STAGES.filter((x) => x !== this.stage).map((x) => this.frame(x));
+    return this.seeAs ? [] : warmStageOrder<Stage>(this.stage, STAGES).map((x) => this.frame(x));
   }
   private all(): CanvasFrame[] {
     return [this.s.shown, this.s.loading, ...(this.s.warm ?? [])].filter((f): f is CanvasFrame => f !== null);
@@ -104,9 +111,9 @@ class MakerOpen {
     for (const f of this.all()) this.up.add(canvasFrameId(f));
     if (this.s.loading) this.s = promoteCanvasFrame(this.s, canvasFrameId(this.s.loading));
   }
-  /** An idle moment — the component's warm effect. */
+  /** An idle moment — the component's warm effect (it warms `min(budget, MAX_WARM_AHEAD)`). */
   idle() {
-    const step = warmOnce(this.s, this.left, this.wanted(), this.max, {
+    const step = warmOnce(this.s, this.left, this.wanted(), Math.min(this.max, MAX_WARM_AHEAD), {
       ready: (f) => this.up.has(canvasFrameId(f)),
       hidden: this.hidden,
       saved: this.saved,
@@ -157,12 +164,12 @@ class MakerOpen {
 
 /* ═══ 1 · PER OPEN ═══════════════════════════════════════════════════════ */
 
-test('one open: the page on screen, then each other stage ONCE — 4 guest pages, and not one more however long it idles', () => {
+test('one open: the page on screen, then the NEXT stage ONCE — 2 guest pages, and not one more however long it idles', () => {
   const m = new MakerOpen('rsvp');
   assert.equal(m.fetches(), 1, 'opening the Maker loads the stage on screen');
   m.warmFully();
-  assert.equal(m.fetches(), 4, `one open fetched ${m.fetches()} guest pages: ${m.loads.join(' · ')}`);
-  assert.deepEqual(new Set(m.loads.map((id) => id.split(':')[0])), new Set(STAGES), 'each stage exactly once');
+  assert.equal(m.fetches(), 2, `one open fetched ${m.fetches()} guest pages: ${m.loads.join(' · ')}`);
+  assert.deepEqual(m.loads.map((id) => id.split(':')[0]), ['rsvp', 'event'], 'the stage on screen, then the next one');
   assert.deepEqual(m.left, [], 'the warm is spent');
   // …and a hundred more idle moments, `ready`s and tab switches add nothing.
   for (let i = 0; i < 100; i += 1) {
@@ -170,8 +177,24 @@ test('one open: the page on screen, then each other stage ONCE — 4 guest pages
     m.settle();
     m.idle();
   }
-  assert.equal(m.fetches(), 4);
+  assert.equal(m.fetches(), 2);
   assert.equal(m.refreshes.length, 0, 'an open posts no refresh');
+});
+
+test('🔥 the one stage warmed is the NEXT one — the previous one from the last stage — on every stage', () => {
+  // Owner 2026-10-12: *"which has the fewest requests and fastest load time"* → the next stage only.
+  assert.equal(MAX_WARM_AHEAD, 1, 'an open warms ONE stage');
+  assert.deepEqual([...STAGES], [...PUBLIC_STAGE_ORDER], 'this driver walks the stages in the order the Maker does');
+  const next = { save_the_date: 'rsvp', rsvp: 'event', event: 'editorial', editorial: 'event' } as const;
+  for (const st of STAGES) {
+    assert.equal(warmStageOrder(st, PUBLIC_STAGE_ORDER)[0], next[st], `from ${st}`);
+    const m = new MakerOpen(st);
+    m.warmFully();
+    assert.deepEqual(m.loads.map((id) => id.split(':')[0]), [st, next[st]], `an open on ${st} fetched ${m.loads.join(' · ')}`);
+  }
+  // The rest stay in nearest-first order — the order the KEPT stages are let go in when the budget is short.
+  assert.deepEqual(warmStageOrder('rsvp', PUBLIC_STAGE_ORDER), ['event', 'save_the_date', 'editorial']);
+  assert.deepEqual(warmStageOrder('editorial', PUBLIC_STAGE_ORDER), ['event', 'rsvp', 'save_the_date']);
 });
 
 test('nothing is warmed before the stage on screen has said ready — and then one stage at a time', () => {
@@ -191,12 +214,13 @@ test('nothing is warmed before the stage on screen has said ready — and then o
     m.settle();
   }
   assert.equal(most, 1, 'never two pages loading at once');
-  assert.equal(m.fetches(), 4);
+  assert.equal(m.fetches(), 2);
 });
 
 test('a warmed stage whose bridge never says ready does not stall the warm — its document having LOADED is enough to start the next', () => {
   // A real browser, 2026-10-08 (dev harness): the first warmed stage finished loading and still had not
   // said `ready` 13 s later, so the other two were never warmed. "Up" is `ready` OR the iframe's `load`.
+  // The pure step at a count of 3 (the component asks it for 1 since 2026-10-12 — the chaining rule stays true).
   const m = new MakerOpen('rsvp');
   const loaded = new Set<string>();
   const step = () => {
@@ -224,7 +248,7 @@ test('a hidden tab warms nothing; back in view, the warm happens — once', () =
   assert.equal(m.fetches(), 1, 'a stage was warmed for a tab nobody is looking at');
   m.hidden = false;
   m.warmFully();
-  assert.equal(m.fetches(), 4);
+  assert.equal(m.fetches(), 2);
 });
 
 test('save-data, and a small phone: no budget, nothing warmed', () => {
@@ -233,11 +257,11 @@ test('save-data, and a small phone: no budget, nothing warmed', () => {
     m.warmFully();
     assert.equal(m.fetches(), 1, `warmed on ${JSON.stringify(device)}`);
   }
-  // 🔎 Positive control: the same open on a laptop does warm.
+  // 🔎 Positive control: the same open on a laptop does warm — one stage.
   const laptop = new MakerOpen('rsvp', warmCanvasBudget({ phone: false }));
   laptop.warmFully();
-  assert.equal(laptop.fetches(), 4);
-  // A budget of 1 warms one stage — the nearest — and stops.
+  assert.equal(laptop.fetches(), 2);
+  // A budget of 1 warms the same one stage — the next — and stops.
   const one = new MakerOpen('rsvp', 1);
   one.warmFully();
   assert.equal(one.fetches(), 2);
@@ -248,13 +272,13 @@ test('save-data, and a small phone: no budget, nothing warmed', () => {
   assert.equal(late.left, null);
   late.max = MAX_WARM_FRAMES;
   late.warmFully();
-  assert.equal(late.fetches(), 4);
+  assert.equal(late.fetches(), 2);
 });
 
 test('the warm is ONE list, decided once: a stage let go afterwards is not fetched again by an idle moment', () => {
   const m = new MakerOpen('rsvp');
   m.warmFully();
-  assert.equal(m.fetches(), 4);
+  assert.equal(m.fetches(), 2);
   // "View as" lets go of every kept stage; back from it, the Maker idles for as long as you like.
   m.seeAs = true;
   m.show('rsvp');
@@ -262,10 +286,10 @@ test('the warm is ONE list, decided once: a stage let go afterwards is not fetch
   m.seeAs = false;
   m.show('rsvp');
   m.warmFully();
-  assert.equal(m.fetches(), 4, `a stage was warmed a second time in one open: ${m.loads.join(' · ')}`);
+  assert.equal(m.fetches(), 2, `a stage was warmed a second time in one open: ${m.loads.join(' · ')}`);
   // The couple opening one themselves still loads it — that is a tap, not a warm.
   m.show('event');
-  assert.equal(m.fetches(), 5);
+  assert.equal(m.fetches(), 3);
 });
 
 test('"view as" warms nothing, and a stage the couple opened themselves is not fetched a second time', () => {
@@ -279,11 +303,14 @@ test('"view as" warms nothing, and a stage the couple opened themselves is not f
   m.show('event'); // opened by hand before any idle moment
   assert.equal(m.fetches(), 2);
   m.warmFully();
-  assert.equal(m.fetches(), 4, 'rsvp and event were loaded by the couple; only the other two are warmed');
+  assert.equal(m.fetches(), 3, 'rsvp and event were loaded by the couple; only the stage next to the one on screen is warmed');
   assert.equal(m.loads.filter((id) => id.startsWith('event:')).length, 1);
-  // Touring every stage afterwards loads nothing: they are all held.
+  assert.ok(m.loads.at(-1)!.startsWith('editorial:'), `the warm took ${m.loads.at(-1)}`);
+  // Touring every stage afterwards loads only the one never opened nor warmed — once; the rest are held.
+  for (const st of STAGES) m.show(st);
   for (const st of STAGES) m.show(st);
   assert.equal(m.fetches(), 4);
+  assert.equal(m.loads.filter((id) => id.startsWith('save_the_date:')).length, 1);
 });
 
 /* ═══ 2 · PER SAVE ═══════════════════════════════════════════════════════ */
@@ -314,7 +341,7 @@ test('a save in the middle of the warm stops it there — the stages not yet war
 test('after a full warm, every kind of save costs the page on screen and nothing else — 0 · 1 · 1', () => {
   const m = new MakerOpen('rsvp');
   m.warmFully();
-  assert.equal(m.fetches(), 4);
+  assert.equal(m.fetches(), 2);
   const cost = (kind: 'drawn' | 'redraw' | 'render') => {
     const before = m.fetches();
     m.save(kind);
@@ -332,7 +359,7 @@ test('after a full warm, every kind of save costs the page on screen and nothing
   }
   assert.equal(m.fetches() - before, 20);
   assert.ok(m.refreshes.every((id) => id.startsWith('rsvp:')), `a kept stage was re-rendered behind the couple: ${m.refreshes.join(' · ')}`);
-  assert.ok(m.loads.slice(4).every((id) => id.startsWith('rsvp:')), `a kept stage was reloaded: ${m.loads.slice(4).join(' · ')}`);
+  assert.ok(m.loads.slice(2).every((id) => id.startsWith('rsvp:')), `a kept stage was reloaded: ${m.loads.slice(2).join(' · ')}`);
 });
 
 test('a kept stage that missed a redraw pays ONCE, when it is shown — never a stale page kept, never paid twice', () => {
@@ -351,10 +378,11 @@ test('a kept stage that missed a redraw pays ONCE, when it is shown — never a 
   m.save('render');
   m.settle();
   const mid = m.fetches();
-  m.show('editorial');
+  assert.ok((m.s.warm ?? []).some((f) => f.key === 'rsvp:1:'), 'rsvp is kept, from before the render');
+  m.show('rsvp');
   assert.equal(m.fetches() - mid, 1, 'ONE fetch: the fresh page carries the redraw it owed, so the old frame is not re-rendered as well');
-  assert.ok(m.loads.at(-1)!.startsWith('editorial:2:'));
-  assert.equal(canvasFrameId(m.s.shown).split(':')[0], 'editorial');
+  assert.ok(m.loads.at(-1)!.startsWith('rsvp:2:'));
+  assert.equal(canvasFrameId(m.s.shown).split(':')[0], 'rsvp');
 });
 
 test('the routing itself: a refresh never reaches a kept frame; what the bridge draws reaches every frame that is up', () => {
@@ -459,6 +487,11 @@ test('the component: one warm effect, on idle, reading saves, the Maker render, 
   assert.doesNotMatch(effect, /warmLeft\.current = null/, 'the warm must never be re-armed');
   // No timer or interval drives it: a `ready`, the tab coming back, the budget, a Maker render — nothing else.
   assert.match(effect, /\}, \[warmTick, warmMax, warmOver\]\);/);
+  // 🔥 It warms the NEXT stage only: the budget handed to the step is capped at MAX_WARM_AHEAD (owner 2026-10-12).
+  assert.match(effect, /const step = warmOnce\(s, warmLeft\.current, wantedRef\.current, Math\.min\(warmMax, MAX_WARM_AHEAD\), \{/);
+  // …in the order the Maker hands it: `warmStageOrder` over the stages as the site lives through them.
+  assert.match(shell, /\? warmStageOrder<LifecyclePhase>\(stage, PUBLIC_STAGE_ORDER\)\.map\(\(s\) => \(\{/);
+  assert.doesNotMatch(shell, /function warmStageOrder/, 'ONE warm order — the one this file tests');
   assert.doesNotMatch(buffer, /setInterval|requestIdleCallback|nextWarmFrame/);
 
   // The redraw goes where `canvasPosts` says, and a kept stage pays when shown.

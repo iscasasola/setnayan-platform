@@ -153,8 +153,7 @@ export function typeTargetOf(part: HTMLElement, hit?: Element | null): HTMLEleme
 
 /** Each person's name in the names part (`[data-el-person]`, stamped by the masthead in the Maker only). */
 function peopleOf(part: HTMLElement): HTMLElement[] {
-  /* The part's own lines — never the pair kept inside the canvas's template (`layNames`). */
-  return Array.from(part.querySelectorAll<HTMLElement>('[data-el-person]')).filter((p) => !p.closest('template'));
+  return Array.from(part.querySelectorAll<HTMLElement>('[data-el-person]'));
 }
 
 const words = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ').trim();
@@ -187,18 +186,28 @@ export function setPartWords(part: HTMLElement, text: string): void {
 const kids = (part: HTMLElement) => Array.from(part.children) as HTMLElement[];
 const personAt = (part: HTMLElement, i: 0 | 1) => kids(part).find((c) => c.getAttribute('data-el-person') === String(i)) ?? null;
 const joinerIn = (part: HTMLElement) => kids(part).find((c) => c.getAttribute('data-el') === 'joiner') ?? null;
-const twoNamesOf = (part: HTMLElement) =>
-  (kids(part).find((c) => c.tagName === 'TEMPLATE' && c.hasAttribute('data-el-names-two')) as HTMLTemplateElement | undefined) ?? null;
+/** The masthead's holder for the second name's two elements (`data-el-names-two` — never shown, Maker only). */
+const twoNamesOf = (part: HTMLElement) => kids(part).find((c) => c.hasAttribute('data-el-names-two')) ?? null;
 
 /** The joiner and the second line a cover put away for one name — the SAME elements come back (their look with them). */
 const PUT_AWAY = new WeakMap<HTMLElement, { joiner: HTMLElement | null; second: HTMLElement }>();
 
-/** A new joiner and second line, as the masthead draws them for this design (`<template data-el-names-two>`). */
-function freshPair(tpl: HTMLTemplateElement | null): { joiner: HTMLElement | null; second: HTMLElement } | null {
-  if (!tpl) return null;
-  /* A template the server sent keeps its elements in `content`; one React drew in the browser keeps them as children. */
-  const inside = tpl.content && tpl.content.children.length > 0 ? tpl.content.children : tpl.children;
-  const made = Array.from(inside).map((c) => c.cloneNode(true) as HTMLElement);
+/** The holder keeps its two elements' stamps under away names, so no reader of the page's parts finds them there. */
+const AWAY_STAMPS = [['data-el-away', 'data-el'], ['data-el-person-away', 'data-el-person']] as const;
+
+/** A new joiner and second line, as the masthead draws them for this design — copies of the holder's, by their real names. */
+function freshPair(holder: HTMLElement | null): { joiner: HTMLElement | null; second: HTMLElement } | null {
+  if (!holder) return null;
+  const made = Array.from(holder.children).map((c) => {
+    const copy = c.cloneNode(true) as HTMLElement;
+    for (const [awayName, name] of AWAY_STAMPS) {
+      const v = copy.getAttribute(awayName);
+      if (v === null) continue;
+      copy.removeAttribute(awayName);
+      copy.setAttribute(name, v);
+    }
+    return copy;
+  });
   const second = made.find((c) => c.getAttribute('data-el-person') === '1');
   return second ? { joiner: made.find((c) => c.getAttribute('data-el') === 'joiner') ?? null, second } : null;
 }
@@ -214,8 +223,9 @@ function freshPair(tpl: HTMLTemplateElement | null): { joiner: HTMLElement | nul
  * So the line is split by the page's own rule (`splitCoupleNames`) and laid out with the page's own elements:
  *   · one name  → the first person's line alone; the joiner and the second line are taken OFF the page (kept, to come
  *                 back as they were), exactly as the masthead draws no joiner without a second name;
- *   · two names → first · joiner · second; when the cover was drawn for one name they are made from the masthead's
- *                 own template, so the joiner is the masthead's element, in its own face;
+ *   · two names → first · joiner · second; when the cover was drawn for one name they are copies of the pair the
+ *                 masthead itself drew for the canvas (`data-el-names-two`), so the joiner is the masthead's
+ *                 element, in its own face;
  *   · the joiner's WORD is the page's: the couple's own when they chose one, else what the line gives — "and", or
  *     "&" as this cover writes it (`data-amp`: the card says "and").
  * Returns false for a part that is not the names of two people (one person at the centre: one line, as typed).
@@ -227,9 +237,9 @@ function freshPair(tpl: HTMLTemplateElement | null): { joiner: HTMLElement | nul
  */
 export function layNames(part: HTMLElement, text: string): boolean {
   const first = personAt(part, 0);
-  const tpl = twoNamesOf(part);
+  const holder = twoNamesOf(part);
   let second = personAt(part, 1);
-  if (!first || (!second && !tpl && !PUT_AWAY.has(part))) return false;
+  if (!first || (!second && !holder && !PUT_AWAY.has(part))) return false;
   const names = splitCoupleNames(text, true);
   let joiner = joinerIn(part);
   if (!names.second) {
@@ -242,7 +252,7 @@ export function layNames(part: HTMLElement, text: string): boolean {
     return true;
   }
   if (!second) {
-    const pair = PUT_AWAY.get(part) ?? freshPair(tpl);
+    const pair = PUT_AWAY.get(part) ?? freshPair(holder);
     if (!pair) return false;
     PUT_AWAY.delete(part);
     ({ joiner, second } = pair);
@@ -252,7 +262,7 @@ export function layNames(part: HTMLElement, text: string): boolean {
   first.textContent = names.first;
   second.textContent = names.second;
   if (joiner) {
-    const auto = names.joiner === '&' ? (tpl?.getAttribute('data-amp') ?? '&') : (names.joiner ?? '');
+    const auto = names.joiner === '&' ? (holder?.getAttribute('data-amp') ?? '&') : (names.joiner ?? '');
     /* The couple's own word is one that is not the automatic word this joiner was last drawn with. */
     const said = words(joiner);
     const own = said !== '' && said !== (joiner.getAttribute('data-el-word') ?? '') ? said : null;

@@ -206,31 +206,42 @@ export function PahinaMasthead({
    * "Bolognese & Pasta" — "it did not make the secondary font": the cover had been drawn for ONE name, so there was
    * no joiner and no second line on the page to type into, and the whole line landed in the first).
    *
-   * In the Maker's canvas only, for an event with two people at its centre, the names part carries a `<template>`
-   * holding the joiner and the second person's line EXACTLY as this file draws them (`pair`, the same call the live
-   * names use) — so the canvas never keeps a copy of a design's classes. A template's content is inert: it is not
-   * laid out, no `[data-el]` reader finds it, and a guest's page never has it. `data-amp` is what "&" is drawn as on
-   * this cover (the card writes "and"). `type-in-place-canvas.ts` `layNames` reads it.
+   * In the Maker's canvas only, for an event with two people at its centre, the names part ends with a holder that
+   * is never shown (`data-el-names-two`, `display: none`) carrying the joiner and the second person's line EXACTLY as
+   * this file draws them — the same `pair` call the live names use — so the canvas never keeps a copy of a design's
+   * classes. Its two elements wear their stamps under AWAY names (`data-el-away`, `data-el-person-away`): no reader
+   * of the page's parts finds them, and the canvas gives them their real names as it puts a copy on the page
+   * (`type-in-place-canvas.ts` `layNames`). `data-amp` is what "&" is drawn as on this cover (the card writes
+   * "and"). A guest's page never has it.
+   *
+   * ⚠ Real elements, not a `<template>`: the page is hydrated, and a template's children live in its `content` —
+   * React finds none where it drew two and throws the page away to draw it again (measured in the lab, 2026-10-11).
    */
+  const away = (stamps: Record<string, unknown>) => {
+    /* (`data-el-word` — the joiner's automatic word — is left off: the canvas writes the typed line's.) */
+    const { 'data-el': el0, 'data-el-person': person0, 'data-el-word': _word, ...rest } = stamps;
+    void _word;
+    return { ...rest, ...(el0 !== undefined ? { 'data-el-away': el0 } : {}), ...(person0 !== undefined ? { 'data-el-person-away': person0 } : {}) };
+  };
+  const joinerStamp = (forCanvas?: boolean) => (forCanvas ? away(el('joiner')) : el('joiner'));
+  const secondStamp = (forCanvas?: boolean) => (forCanvas ? away(person(1)) : person(1));
   const namesTwo = (pair: (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => ReactNode) =>
     stampElements && twoPeople ? (
-      <template data-el-names-two="" data-amp={card ? 'and' : '&'}>
+      <span data-el-names-two="" data-amp={card ? 'and' : '&'} hidden aria-hidden style={{ display: 'none' }}>
         {pair(ownJoiner ?? '', '', true)}
-      </template>
+      </span>
     ) : null;
   /** The Card's joiner and second line (design 1, with `card`) — and the plain cover's (design 1, a hero photo). */
   const stackedPair = (size: string) => (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => (
     <>
-      <span {...el('joiner')} {...forCanvasJoiner(forCanvas)} className={`block font-pahina ${size} italic text-gild`} aria-hidden>
+      <span {...joinerStamp(forCanvas)} className={`block font-pahina ${size} italic text-gild`} aria-hidden>
         {joiner}
       </span>
-      <span {...person(1)} className="block">{second}</span>
+      <span {...secondStamp(forCanvas)} className="block">{second}</span>
     </>
   );
   const cardPair = stackedPair('text-[0.5em]');
   const plainPair = stackedPair('text-[0.42em]');
-  /** The template's joiner names no automatic word of its own — the canvas writes the one the typed line gives. */
-  const forCanvasJoiner = (forCanvas?: boolean) => (forCanvas && stampElements ? { 'data-el-word': '' } : {});
 
   /* 🔗 THE LINK DOWN INTO THE HUB — a part like the others (owner 2026-09-28,
      tapping it in the Maker: "why can't i update the text"). Its words are the
@@ -358,8 +369,7 @@ export function PahinaMasthead({
     const PAIR = (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => (
       <>
         <span
-          {...el('joiner')}
-          {...forCanvasJoiner(forCanvas)}
+          {...joinerStamp(forCanvas)}
           className={
             design === 'marquee'
               ? 'block font-pahina text-[0.5em] italic leading-[1.1] text-gild sm:inline sm:text-[0.55em]'
@@ -371,7 +381,7 @@ export function PahinaMasthead({
         >
           {joiner}
         </span>
-        <span {...person(1)} className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
+        <span {...secondStamp(forCanvas)} className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
           {second}
         </span>
       </>

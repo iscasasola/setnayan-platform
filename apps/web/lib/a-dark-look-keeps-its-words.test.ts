@@ -508,7 +508,7 @@ test('(8) no word token is left behind: every colour the Mood Board sizes agains
   // The three places measured live on 2026-10-11 set their words in it.
   // (The card's joiner is drawn by `stackedPair` since 2026-10-11 — one call for the names and for the canvas's pair.)
   const masthead = stripComments(read('app/[slug]/_components/pahina-masthead.tsx'));
-  assert.match(masthead, /\{\.\.\.el\('joiner'\)\}[^>]*className=\{`block font-pahina \$\{size\} italic text-gild`\}/);
+  assert.match(masthead, /\{\.\.\.joinerStamp\(forCanvas\)\} className=\{`block font-pahina \$\{size\} italic text-gild`\}/);
   assert.match(masthead, /const cardPair = stackedPair\('text-\[0\.5em\]'\);/);
   assert.match(stripComments(read('app/[slug]/_components/schedule-widget.tsx')), /data-schedule-time[\s\S]{0,400}text-gild|text-gild[\s\S]{0,400}data-schedule-time/);
   assert.match(stripComments(read('app/[slug]/_components/dress-code-widget.tsx')), /text-gild/);

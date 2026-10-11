@@ -31,16 +31,22 @@
  *   - a framed miniature that runs scripts ............. 2 → 1
  *   - a guest's own visit .............................. 2 → 2    (unchanged — see "A GUEST'S VISIT IS STILL TWO" below)
  *
+ * SEEN IN A REAL BROWSER TOO (headless Chromium, 2026-10-12): the real worker — its production branch forced on for
+ * localhost — in front of stand-in pages and a request log. Before: three canvases → 6 requests for the guest page (each
+ * canvas forwarded by the worker, `mode=navigate dest=empty`, then a bare `/<slug>` with `referer: /sw.js` — the measured
+ * log's own lines); after: 3 (`dest=iframe`, the browser's own). A guest's own visit: 2 and 2, the same caches, and the
+ * page still served with the network off. Safari itself was not run here — only a phone can say.
+ *
  * Mutation-tested 2026-10-12 on a scratch copy of sw.js (each turned the named test red, then was discarded):
- *   - `isHostCanvasClient(event.source)` removed from the message listener → "one Maker canvas load is one render" (+4 more)
+ *   - `isHostCanvasClient(event.source)` removed from the message listener → "one Maker canvas load is one render" (+5 more)
  *   - the `frameType === 'nested'` line removed        → "a framed page with a bare address…"
  *   - the client-address half removed                  → "…a browser that does not say the page is framed"
- *   - `isHostAppNavigation` removed from `fetch`       → "the worker answers no navigation the host's app makes"
- *   - the `editor`/`phase` test removed                → "…whatever the browser calls the request"
+ *   - `isHostAppNavigation` removed from `fetch`       → "the worker answers no navigation the host's app makes" (+5 more)
+ *   - the `editor`/`phase` test removed (and `phase` alone) → "…whatever the browser calls the request"
  *   - the frame destinations removed                   → "a framed page with a bare address…"
- *   - the referrer half removed                        → "a page opened from the host's app…"
+ *   - the referrer half removed (and /site-editor/ alone) → "a page opened from the host's app…"
  *   - the canvas-address filter on the preload list removed → "no sender can have a host canvas address kept"
- *   - a guest's preload refused as well (`return` for every sender) → "a guest's own visit is exactly as before"
+ *   - a guest's preload refused as well (`return` for every sender) → "a guest's own visit is exactly as before" (+3 more)
  *
  * ⚠ A GUEST'S VISIT IS STILL TWO RENDERS, and this file pins that number rather than hiding it: the navigation, then the
  * preload of the same address. It is the guest's offline copy when they arrived on a personal link (a pass hop the worker

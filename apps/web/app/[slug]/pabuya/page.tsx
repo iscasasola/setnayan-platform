@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestRead } from '@/lib/guest-read';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor, giftIsMoneyDance } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
@@ -43,13 +44,17 @@ export const metadata = {
 
 const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from('events')
-    .select(
-      'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message, gifts_on, gift_registry_url',
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  // 🔌 A failed read throws (the guest boundary) — never "This link can't be
+  // found." for an event that is there (lib/guest-read.ts).
+  const data = await guestRead('pabuya (event)', () =>
+    admin
+      .from('events')
+      .select(
+        'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message, gifts_on, gift_registry_url',
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   return data as {
     event_id: string;
     slug: string | null;

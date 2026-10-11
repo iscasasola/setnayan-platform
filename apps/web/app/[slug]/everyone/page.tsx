@@ -3,6 +3,8 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { GuestReadError, guestRead } from '@/lib/guest-read';
+import { withSchemaRetry } from '@/lib/read-retry';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
@@ -51,11 +53,15 @@ export const metadata = {
  */
 const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from('events')
-    .select('event_id, slug, display_name, landing_page_visibility')
-    .ilike('slug', slug)
-    .maybeSingle();
+  // 🔌 A failed read throws (the guest boundary) — never "This link can't be
+  // found." for an event that is there (lib/guest-read.ts).
+  const data = await guestRead('everyone (event)', () =>
+    admin
+      .from('events')
+      .select('event_id, slug, display_name, landing_page_visibility')
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   return data as {
     event_id: string;
     slug: string | null;
@@ -124,15 +130,21 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
   const admin = createAdminClient();
 
   const nameStyle = await loadEventNameStyle(admin, event.event_id);
-  const { data: castRows } = await admin
-    .from('guests')
-    // + who is a real couple — the same read as the invitation's section.
-    .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`)
-    .eq('event_id', event.event_id)
-    .is('deleted_at', null)
-    .or(
-      `role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`,
-    );
+  // 🔌 "The entourage hasn't been shared yet." is a statement about the couple.
+  // It is made only when the read ANSWERED with nobody in it; a read that
+  // failed throws instead (the guest boundary).
+  const { data: castRows, error: castError } = await withSchemaRetry(() =>
+    admin
+      .from('guests')
+      // + who is a real couple — the same read as the invitation's section.
+      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`)
+      .eq('event_id', event.event_id)
+      .is('deleted_at', null)
+      .or(
+        `role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`,
+      ),
+  );
+  if (castError) throw new GuestReadError('everyone (entourage)', castError);
   // Same section order the invitation prints — the couple's, when they set one.
   const groups = buildEntourage(
     (castRows ?? []) as EntourageGuestRow[],
@@ -151,11 +163,15 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
   */
   let guests: string[] = [];
   if (recognised) {
-    const { data: guestRows } = await admin
+    // 🔌 The same for "No one else is on the list yet." — said of a list that
+    // was read, never of one that could not be. (Kept a plain statement under
+    // `if (recognised)`: the gate above must stay visible to a source guard.)
+    const { data: guestRows, error: guestRowsError } = await admin
       .from('guests')
       .select(ENTOURAGE_COLUMNS)
       .eq('event_id', event.event_id)
       .is('deleted_at', null);
+    if (guestRowsError) throw new GuestReadError('everyone (guest list)', guestRowsError);
     guests = plainGuestNames((guestRows ?? []) as EntourageGuestRow[], nameStyle);
   }
 

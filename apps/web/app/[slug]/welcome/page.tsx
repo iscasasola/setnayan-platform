@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestRead } from '@/lib/guest-read';
 import { composeFormalName } from '@/lib/formal-name';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
@@ -69,13 +70,17 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   if (!session) redirect(`/${slug}`);
 
   const admin = createAdminClient();
-  const { data: event } = await admin
-    .from('events')
-    .select(
-      `event_id, display_name, event_date, slug, event_type, rsvp_ask_config, guest_count_locked_at, guest_list_edit_deadline, ${QR_LOOK_COLUMNS}`,
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  // 🔌 A failed read throws (the guest boundary) — never "This link can't be
+  // found." for an event that is there (lib/guest-read.ts).
+  const event = await guestRead('welcome (event)', () =>
+    admin
+      .from('events')
+      .select(
+        `event_id, display_name, event_date, slug, event_type, rsvp_ask_config, guest_count_locked_at, guest_list_edit_deadline, ${QR_LOOK_COLUMNS}`,
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   if (!event) notFound();
 
   if (event.event_id !== session.event_id) redirect(`/${slug}`);
@@ -85,16 +90,21 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   // guest list, whatever kind of event they had been invited to.
   const words = await eventWordsFor(event.event_type as string);
 
-  const { data: guest } = await admin
-    .from('guests')
-    // The shared guest-name columns (the five parts among them), not a hand-picked few.
-    .select(
-      `${ENTOURAGE_COLUMNS}, email, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at, meal_preference, dietary_restrictions`,
-    )
-    .eq('guest_id', session.guest_id)
-    .eq('event_id', event.event_id)
-    .is('deleted_at', null)
-    .maybeSingle();
+  // 🔌 A plus-one whose row could not be READ is not "no such guest": that
+  // answer sends them back to the event's page, which sends an unnamed
+  // plus-one straight back here. A failed read throws (the guest boundary).
+  const guest = await guestRead('welcome (guest)', () =>
+    admin
+      .from('guests')
+      // The shared guest-name columns (the five parts among them), not a hand-picked few.
+      .select(
+        `${ENTOURAGE_COLUMNS}, email, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at, meal_preference, dietary_restrictions`,
+      )
+      .eq('guest_id', session.guest_id)
+      .eq('event_id', event.event_id)
+      .is('deleted_at', null)
+      .maybeSingle(),
+  );
   if (!guest) redirect(`/${home}`);
 
   // Only a plus-one has this door; everyone else has the reply.

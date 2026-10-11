@@ -7,6 +7,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Camera, Film, Quote, Radio, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestRead } from '@/lib/guest-read';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor } from '../_lib/event-words';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
@@ -45,14 +46,17 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from('events')
-    .select(
-      `event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, scheduled_launch_at, ${HERO_MONOGRAM_COLUMNS}`,
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
-  return data;
+  // 🔌 A failed read throws (the guest boundary) — never "This link can't be
+  // found." for an event that is there (lib/guest-read.ts).
+  return guestRead('recap (event)', () =>
+    admin
+      .from('events')
+      .select(
+        `event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, scheduled_launch_at, ${HERO_MONOGRAM_COLUMNS}`,
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
 });
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {

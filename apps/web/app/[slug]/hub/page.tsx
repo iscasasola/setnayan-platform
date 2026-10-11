@@ -42,6 +42,7 @@ import {
   QrCode,
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestRead } from '@/lib/guest-read';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile, giftIsMoneyDance, solemnAdjustedPhase } from '../_lib/event-words';
@@ -122,15 +123,21 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // gate. The watch URLs are NOT selected here: they come from their own
   // tolerant read (readEventWatchUrls) so a not-yet-migrated Facebook column
   // cannot 42703 this select and 404 the whole hub.
-  const { data: event } = await admin
-    .from('events')
-    .select(
-      // The CANONICAL monogram list + the QR look's two columns, never a
-      // hand-typed near-copy: the guest's code below wears the event's look.
-      `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at, event_end_date, launch_mode, manual_phase`,
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  // 🔌 A FAILED READ IS NOT A MISSING EVENT (2026-10-11, lib/guest-read.ts): the
+  // read is retried through a blip and THROWS if it still failed — the guest
+  // boundary, "This invitation didn't load. … Your link is fine". `null` below
+  // now means one thing: the read answered and no event has this address.
+  const event = await guestRead('hub (event)', () =>
+    admin
+      .from('events')
+      .select(
+        // The CANONICAL monogram list + the QR look's two columns, never a
+        // hand-typed near-copy: the guest's code below wears the event's look.
+        `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at, event_end_date, launch_mode, manual_phase`,
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   if (!event) notFound();
 
   // Same surface gate as /[slug]: the public couple website is the 'website'
@@ -250,17 +257,20 @@ export default async function EventHubPage({ params, searchParams }: Props) {
 
   // ── Identified guest row (personal panels). A cookie for a DIFFERENT event,
   // or no cookie, degrades to public panels only. ───────────────────────────
+  // 🔌 A guest whose own row could not be READ is not a stranger: on the day
+  // this row is their ticket's code and their seat. A failed read throws (the
+  // guest boundary) rather than drawing the hub without them in it.
   const guest = guestSessionMatches
-    ? (
-        await admin
+    ? await guestRead('hub (guest)', () =>
+        admin
           .from('guests')
           .select(
             'guest_id, first_name, last_name, display_name, rsvp_status, qr_token, plus_one_of_guest_id, plus_one_name_confirmed_at',
           )
           .eq('guest_id', session!.guest_id)
           .is('deleted_at', null)
-          .maybeSingle()
-      ).data
+          .maybeSingle(),
+      )
     : null;
 
   // A TBA +1 who hasn't confirmed their own name yet must finish onboarding

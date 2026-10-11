@@ -49,6 +49,16 @@ that changes with it, on purpose: Home (`fetchUserEventsOrReconnect`) shows "Rec
 instead of an empty board. Guard: the table in `lib/read-retry.test.ts` (0 · 500 · 502 · 503 · 504 · PGRST000–003 ·
 57014 · 42501 · 42703 · PGRST205 · PGRST116 · a real "no row" — transient? network? read how many times?).
 
+**3 · The guest list's groups and seats say when they could not be read.** On `guests/page.tsx` a failed groups,
+memberships, assignments, tables or floor-plan read fell back to empty: every guest with no group, nobody at a table,
+no word. Each is now measured — `fetchGuestGroupsByEventMeasured`, `fetchGroupMembershipsByEventMeasured`
+(`lib/guests.ts`), `fetchFloorPlanMeasured` (`lib/seating.ts`), and `measuredOr` (`lib/measured-read.ts`) for the two
+that throw (which are now also logged — the plain catch left no trail). The page says it in the counts strip, in the
+list's own words and with the list's own Try again: "We couldn’t load your groups / tables / groups and tables this
+time. Nothing has been lost." (`lib/guest-list-unread.ts`; new strings). No table is suggested from seat reads that
+did not all happen. Guard: `lib/guest-list-side-reads-are-honest.test.ts` (the reads against a stubbed client, the
+sentence, the page's fan-out, and the line drawn by the real screen).
+
 Not verified: a real phone, a real network drop, a real event; the Maker's first-load JS budget (no build was run —
 the browser code added is `hubDraftAnswer`, already in the first load, and a few `try/catch`).
 

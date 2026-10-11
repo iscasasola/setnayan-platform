@@ -348,6 +348,19 @@ export async function fetchFloorPlan(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<FloorPlanRow> {
+  return (await fetchFloorPlanMeasured(supabase, eventId)).plan;
+}
+
+/**
+ * The floor plan, and WHETHER THE READ HAPPENED. `measured: false` = refused or never answered: `plan` is the
+ * DEFAULT plan because nobody knows where the couple put the stage — not because they left it there. A caller that
+ * ranks, suggests or states anything from the stage's position asks this; the plain form above cannot tell a real
+ * default from an unread one. (No row yet is an ANSWER: `measured: true`, the defaults.) Never throws.
+ */
+export async function fetchFloorPlanMeasured(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ plan: FloorPlanRow; measured: boolean }> {
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
@@ -359,12 +372,12 @@ export async function fetchFloorPlan(
   // the defaults so the seating page never crashes on the floor-plan read.
   if (error) {
     console.error('[supabase-error] seating: event_floor_plan (using defaults)', error, { eventId });
-    return { ...DEFAULT_FLOOR_PLAN };
+    return { plan: { ...DEFAULT_FLOOR_PLAN }, measured: false };
   }
-  if (!data) return { ...DEFAULT_FLOOR_PLAN };
+  if (!data) return { plan: { ...DEFAULT_FLOOR_PLAN }, measured: true };
   const D = DEFAULT_FLOOR_PLAN;
   const num = (v: unknown, fb: number) => (v === null || v === undefined ? fb : Number(v));
-  return {
+  const plan: FloorPlanRow = {
     stage_x: num(data.stage_x, D.stage_x),
     stage_y: num(data.stage_y, D.stage_y),
     stage_w: num(data.stage_w, D.stage_w),
@@ -414,6 +427,7 @@ export async function fetchFloorPlan(
       return v === 'all' || v === 'none' || v === 'table' ? v : D.venue_photo_visibility;
     })(),
   };
+  return { plan, measured: true };
 }
 
 // Real-world footprint WIDTH (metres) of each table type including its ring of

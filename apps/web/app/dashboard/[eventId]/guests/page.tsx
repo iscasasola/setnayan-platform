@@ -11,8 +11,8 @@ import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import {
   countsTowardEvent,
-  fetchGroupMembershipsByEvent,
-  fetchGuestGroupsByEvent,
+  fetchGroupMembershipsByEventMeasured,
+  fetchGuestGroupsByEventMeasured,
   fetchGuestsByEventMeasured,
   guestDisplayName,
   RSVP_LABELS,
@@ -47,7 +47,9 @@ import {
 import { resolveRoleSet } from '@/lib/role-sets';
 import { detailsItemHref } from '@/lib/maker-details-items';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
-import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
+import { fetchAssignments, fetchFloorPlanMeasured, fetchTables } from '@/lib/seating';
+import { measuredOr } from '@/lib/measured-read';
+import { guestListUnreadLine } from '@/lib/guest-list-unread';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { eventHasSides, SIDELESS_SIDE } from '@/lib/guest-side-question';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -349,7 +351,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guestsRead, eventRow, groups, membershipsMap, joinUrl, pendingClaims, assignments, tables, arrived, floorPlan] =
+  const [guestsRead, eventRow, groupsRead, membershipsRead, joinUrl, pendingClaims, assignmentsRead, tablesRead, arrived, floorPlanRead] =
     await Promise.all([
       // The roster draws requests as their own rows; computeGuestStats leaves them out of every count.
       fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true }),
@@ -362,8 +364,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug')
         .eq('event_id', eventId)
         .maybeSingle(),
-      fetchGuestGroupsByEvent(supabase, eventId),
-      fetchGroupMembershipsByEvent(supabase, eventId),
+      // 📏 MEASURED (2026-10-11): a refused groups read used to come back as "no groups" and draw every guest
+      // without one — the same fault the guest read itself had. Each says whether it happened; see `sideReads` below.
+      fetchGuestGroupsByEventMeasured(supabase, eventId),
+      fetchGroupMembershipsByEventMeasured(supabase, eventId),
       fetchJoinUrl(supabase, eventId),
       // Unlisted joiners awaiting the couple's reconcile (Invite/Join v2,
       // 0000 ADDENDUM 2026-06-25). These are real guest rows optimistically
@@ -402,13 +406,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       // and this Promise.all must never take down the whole Guests tab (the
       // roster/RSVP/invites) over a transient seat-read blip — the documented
       // "log loudly, return empty, never throw" invariant (Sentry 3284377371).
-      // On failure seats degrade to 0/suggested exactly as before. Mirrors the
-      // dashboard overview's fetchTables(...).catch(() => []).
-      fetchAssignments(supabase, eventId).catch(
-        () => [] as Awaited<ReturnType<typeof fetchAssignments>>,
+      // 📏 …and MEASURED (2026-10-11). The catch used to be `.catch(() => [])`: the tab
+      // survived, and then drew NOBODY AT A TABLE — to a couple who had seated all 180 —
+      // with no word that the seat read had failed. `measuredOr` keeps the degrade
+      // (it never throws) and says whether the value is real; the page says so in
+      // the counts strip when it is not (`sideReads` below). The refusal is logged
+      // here — the plain catch left no trail at all.
+      measuredOr(fetchAssignments(supabase, eventId), [] as Awaited<ReturnType<typeof fetchAssignments>>, (e) =>
+        logQueryError('GuestsPage.assignments', e, { event_id: eventId }, 'graceful_degrade'),
       ),
-      fetchTables(supabase, eventId).catch(
-        () => [] as Awaited<ReturnType<typeof fetchTables>>,
+      measuredOr(fetchTables(supabase, eventId), [] as Awaited<ReturnType<typeof fetchTables>>, (e) =>
+        logQueryError('GuestsPage.tables', e, { event_id: eventId }, 'graceful_degrade'),
       ),
       supabase
         .from('guest_checkins')
@@ -419,8 +427,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       // (matching Auto-Arrange), not the hardcoded top-center default. Folds into
       // this same parallel fan-out (fetchFloorPlan is a fast PK-indexed singleton,
       // never the slowest read) and is guarded like the other seat reads: a blip
-      // degrades to the default anchor rather than taking down the Guests tab.
-      fetchFloorPlan(supabase, eventId).catch(() => null),
+      // degrades to the default anchor rather than taking down the Guests tab —
+      // 📏 and says it did (`measured: false`), so no table is SUGGESTED from a stage
+      // position nobody read.
+      fetchFloorPlanMeasured(supabase, eventId),
       // The guest drawer's QR used to fold a CUSTOM_QR_GUEST ownership read in
       // here. That product folded into Event Hub Pro (owner 2026-09-27): the
       // drawer's PNG route now draws every guest's code in the event's look, so
@@ -437,6 +447,19 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const profileNames = await accountNamesByGuest(supabase, eventId);
   const guests = guestsRead.rows.map((g) => withProfileName(g, profileNames));
   const guestsMeasured = guestsRead.measured;
+  // 📏 THE READS BESIDE THE LIST — each value, and whether it is real. A refused read is
+  // still an empty stand-in (the tab never crashes over one), but the page now KNOWS,
+  // and `sideReads` is what it says: one line in the counts strip, "We couldn’t load
+  // your groups / tables this time. Nothing has been lost." (`lib/guest-list-unread.ts`).
+  const groups = groupsRead.groups;
+  const membershipsMap = membershipsRead.memberships;
+  const assignments = assignmentsRead.value;
+  const tables = tablesRead.value;
+  const floorPlan = floorPlanRead.measured ? floorPlanRead.plan : null;
+  const sideReads = {
+    groups: groupsRead.measured && membershipsRead.measured,
+    seats: assignmentsRead.measured && tablesRead.measured && floorPlanRead.measured,
+  };
   // Self-join reconcile queue — the ids feed the inline blush roster rows; the
   // count still drives the /guests/claims banner + the mobile carousel badge.
   const selfJoinIds = ((pendingClaims.data ?? []) as { guest_id: string }[]).map(
@@ -654,7 +677,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         // seated or declined guest never shows the dashed hint.
         const suggested =
           // A request is not seated or suggested a seat until Keep or Link.
-          placed || g.rsvp_status === 'declined' || !countsTowardEvent(g)
+          // 📏 …and nobody is SUGGESTED a table from seat reads that did not all happen:
+          // with the assignments unread everyone looks unseated, and with the floor
+          // plan unread the stage is a guess.
+          placed || g.rsvp_status === 'declined' || !countsTowardEvent(g) || !sideReads.seats
             ? null
             : suggestTableFor(g, tables, assignments, stage);
         return [g.guest_id, { placed, suggested }];
@@ -866,6 +892,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       gview={gview}
       guests={rosterAll}
       measured={guestsMeasured}
+      notLoaded={guestListUnreadLine(sideReads)}
       hasSides={hasSides}
       groupsByGuest={groupsByGuest}
       groups={groups.map((g) => ({ group_id: g.group_id, label: g.label }))}

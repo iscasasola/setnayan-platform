@@ -25,7 +25,7 @@ import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BANNER = stripComments(readFileSync(join(HERE, 'cookie-consent-banner.tsx'), 'utf8'));
-const CSS = readFileSync(join(HERE, 'home/home-reskin.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(readFileSync(join(HERE, 'home/home-reskin.css'), 'utf8'));
 
 function zOf(selectorSource: string): number {
   const re = new RegExp(`(?:^|\\n)${selectorSource}\\s*\\{([^}]*)\\}`, 'g');

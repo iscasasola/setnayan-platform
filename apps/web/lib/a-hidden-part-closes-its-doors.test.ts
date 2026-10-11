@@ -103,10 +103,13 @@ test('4 · the Day hub: its seat card, gift door, stream, wall and camera ask �
 
 test('5 · the door helper: the PUBLISHED hero row, the one reading, and a failed read is never an answer', () => {
   const DOOR = src('app/[slug]/_lib/part-door.server.ts');
-  assert.match(DOOR, /\.from\('invitation_widgets'\)\s*\.select\('config_json'\)\s*\.eq\('event_id', eventId\)\s*\.eq\('widget_type', 'hero'\)/);
+  assert.match(DOOR, /guestRead\('part door \(hero row\)', \(\) =>\s*admin\s*\.from\('invitation_widgets'\)\s*\.select\('config_json'\)\s*\.eq\('event_id', eventId\)\s*\.eq\('widget_type', 'hero'\)/);
   assert.doesNotMatch(DOOR, /hub_draft|event_hub_drafts|overlayHubDraftWidgets|readHubDraft/, 'a draft never reaches a guest');
   assert.equal((DOOR.match(/return partsHiddenOn\(widgets, /g) ?? []).length, 2);
-  assert.equal((DOOR.match(/throw new Error\(/g) ?? []).length, 2, 'both reads throw when they fail');
+  // Both reads are the guest side's one read: retried through a blip, and a failure THROWS (lib/guest-read.ts) —
+  // never a bare `const { data } = await admin…`, which answers a failed read as "nothing stored".
+  assert.equal((DOOR.match(/guestRead\('part door \(/g) ?? []).length, 2, 'a read of the door that can fail silently');
+  assert.equal((DOOR.match(/admin\s*\.from\(/g) ?? []).length, 2);
   // The stage is the event's: the couple's pin, else the clock, then the solemn adjustment — the page's composition.
   assert.match(DOOR, /solemnAdjustedPhase\(\s*manualLaunchPhase\(e\.launch_mode, e\.manual_phase\) \?\?\s*getLifecyclePhase\(/);
   // The common case costs one read: nothing stored returns before the event is asked for.

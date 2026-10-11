@@ -3,6 +3,7 @@ import 'server-only';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { guestRead } from '@/lib/guest-read';
 import { getLifecyclePhase, isWebsitePhasesEnabled, manualLaunchPhase, type LifecyclePhase } from '@/lib/invitation-widgets';
 import { PART_SHOW_KEY, type FixedPart } from '@/lib/stage-scenes';
 import { partsHiddenOn } from '@/lib/what-guests-see';
@@ -26,8 +27,9 @@ import { solemnAdjustedPhase } from './event-words';
  * ⚡ ONE SMALL READ IN THE COMMON CASE: the hero row is read first, and an event that never stored a choice for this
  * part returns "nothing hidden" before anything else is asked.
  *
- * 🔴 A FAILED READ THROWS. "Could not read the couple's choice" is neither "hidden" nor "shown": answering either
- * would draw a part the couple hid, or close a page they did not close. The route's error screen says to try again.
+ * 🔴 A FAILED READ THROWS — through the guest side's ONE read (`guestRead`, lib/guest-read.ts: retried through a blip,
+ * then the guest boundary's "This invitation didn't load. … Your link is fine"). "Could not read the couple's choice"
+ * is neither "hidden" nor "shown": answering either would draw a part the couple hid, or close a page they did not close.
  */
 export async function hiddenPartDoors(
   admin: ReturnType<typeof createAdminClient>,
@@ -35,14 +37,15 @@ export async function hiddenPartDoors(
   /** A page that already resolved its own stage (the Day hub, a host's rehearsal of it) says so; otherwise the event's. */
   at?: LifecyclePhase,
 ): Promise<ReadonlySet<FixedPart>> {
-  const hero = await admin
-    .from('invitation_widgets')
-    .select('config_json')
-    .eq('event_id', eventId)
-    .eq('widget_type', 'hero')
-    .maybeSingle();
-  if (hero.error) throw new Error(`part door: the hero row could not be read (${hero.error.message})`);
-  const config = (hero.data?.config_json ?? null) as Record<string, unknown> | null;
+  const hero = (await guestRead('part door (hero row)', () =>
+    admin
+      .from('invitation_widgets')
+      .select('config_json')
+      .eq('event_id', eventId)
+      .eq('widget_type', 'hero')
+      .maybeSingle(),
+  )) as { config_json?: unknown } | null;
+  const config = (hero?.config_json ?? null) as Record<string, unknown> | null;
   const stored = config?.[PART_SHOW_KEY] as Record<string, unknown> | undefined;
   if (!stored || typeof stored !== 'object' || Object.keys(stored).length === 0) return NO_PART;
   const widgets = [{ widget_type: 'hero', config_json: config }];
@@ -50,14 +53,15 @@ export async function hiddenPartDoors(
   const phasesEnabled = isWebsitePhasesEnabled() || surfaceEnabled(profile, 'website');
   if (at) return partsHiddenOn(widgets, at, phasesEnabled);
 
-  const facts = await admin
-    .from('events')
-    .select('event_date, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (facts.error) throw new Error(`part door: the event could not be read (${facts.error.message})`);
-  if (!facts.data) return NO_PART;
-  const e = facts.data as {
+  const facts = await guestRead('part door (event)', () =>
+    admin
+      .from('events')
+      .select('event_date, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
+  if (!facts) return NO_PART;
+  const e = facts as {
     event_date: string | null;
     event_end_date: string | null;
     venue_latitude: number | null;

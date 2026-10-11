@@ -22,12 +22,18 @@ Hold 350 ms lifts · gap opens · edge auto-scroll · lower third slides away an
 
 Checks: full `tsc` rc 0 on the final code (run it with `apps/web/.next` deleted — with `.next/types` present it runs out of heap at 7 GB); 507 neighbouring tests and 2,530 Maker-related tests pass; 23 sabotages each went red and were restored.
 
-## Known faults (from the last walk, not yet fixed)
+## Session of 2026-10-12 (second builder) — what changed, in order
 
-1. **The line's Undo button does not undo after a bin drop** (walk C3). The line clears and nothing comes back. The top ↺ works and says "<Scene> is back"; a plain `button.click()` from the console works too. `scene-drag.tsx` `pressUndo` now defers the click with `setTimeout(press, 0)` — that change was never seen passing. Start here.
-2. **Holding the Reveal said "Logo keeps its place on this page."** (walk D2). Earlier runs said "The Reveal is always first on this page." Not diagnosed: either the walk's touch point lands on the cover (`rectOf('reveal')` uses top + 90), or `subject()` in `add-part-sheet.tsx` misses the stub. Check the stub's height first.
+0. `origin/main` (d2e38b7c1) merged in with a real merge commit (646ecbe75). No conflicts; no generated file was touched by this branch.
+1. **FAULT 1 fixed and walked** (22272c1e0, 46bb7a73d). Cause: the Maker's Undo was found by `aria-label="Undo"` as well as by its bar item — and the line's own Undo is an `ActionButton`, whose `aria-label` is its word. The line's button WAS "the Maker's Undo" to that selector: its own press was heard as ↺, the step was forgotten and the line cleared. Now `SCENE_UNDO_BUTTON` (`lib/maker-scene-drag.ts`) = `[data-maker-shell] [data-maker-draft-actions] button[data-bar-item="Undo"]`, pressed from inside the line's own press (the `setTimeout` deferral guarded against this same fault and is gone). A second fault under it: the scene ↺ put back was picked and let go of in the same breath (`usePartEdits` read "taken off" from the list the render still held) — the list is now asked again at that moment. Walk C3: back where it was · "Message is back" · ONE press of ↺ · ↺ off again · Message picked.
+2. **FAULT 2 was the walk's own touch point, not the product** (74cb13c82). Holding the cover picks a part of it and the page glides to that part's middle; the walk measured the Reveal while the page still moved and the finger landed on the cover, which said — truthfully — "Logo keeps its place on this page." The walk now waits for the page to stop (`steady`) and checks what is under the finger (`under`) before it holds. D2: "The Reveal is always first on this page.", the Reveal picked. A test pins the Reveal's route in `subject()`.
+
+⚠ THE LAB UNDER LOAD. With other builders' jobs running (load average 13) the dev server sometimes took 6–25 s to answer the render an Undo asks for. The Maker then says nothing until the page shows it (and nothing at all past its own settle timeout) — the scene still comes back. The walk's waits are polls now (`until`), not fixed sleeps. If C3 fails, read how long the `_rsc` answer took before calling it a fault.
+
+## Known faults
+
 3. Failed save shows two lines at once: the shipped top-bar line (server/lab reason) and the prototype's line in row 4. Left as is.
-4. Pre-existing, not mine: a grey "Move down" on Welcome says "Countdown stays before the Wedding March." though the March is on Details (`heldWhy` reads the stage list, not the page).
+4. Pre-existing, not this branch's: a grey "Move down" on Welcome says "Countdown stays before the Wedding March." though the March is on Details (`heldWhy` reads the stage list, not the page).
 
 ## Contract points
 
@@ -35,9 +41,9 @@ Checks: full `tsc` rc 0 on the final code (run it with `apps/web/.next` deleted 
 |---|---|
 | Hold, lift, gap, edge scroll, collapse/expand, scene under finger | built, walked |
 | Bin, "Drop here to remove" | built, walked. The bin counts only 280 ms after the lift (it rises from where a thumb grabs the last scene — the prototype has that flaw) |
-| "<Scene> removed · Undo" | line built; **its Undo button is fault 1** |
+| "<Scene> removed · Undo" | built, walked — one press, back in its place, "<Scene> is back", the scene picked |
 | Failed-save slide-back + words | built, walked (move and remove) |
-| Locked parts nudge and say why | built; **Reveal line is fault 2** |
+| Locked parts nudge and say why | built, walked (the Reveal says its own line) |
 | Tag menu fallback | built as the Maker's one bottom sheet (`MakerSheet`), not the prototype's small popover — owner to confirm |
 | Other tabs dimmed, no cross-page drag | built, walked |
 | Own scene → "Delete this scene?" from the bin | built, guarded by test, **not walked** (the lab sample has no scene of the couple's own) |

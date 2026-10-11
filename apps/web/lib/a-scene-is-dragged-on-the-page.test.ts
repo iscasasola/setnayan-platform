@@ -593,6 +593,32 @@ test('(7) the line’s Undo is never mistaken for the Maker’s own ↺ — one 
   assert.match(side, /say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);
 });
 
+test('(7) the Reveal, held, says its own line — it is read before any marked part, and never lifts', () => {
+  /* WALKED 2026-10-12 (lab walk D2): a finger on the Reveal's drawn part → no lift, a nudge, "The Reveal is always
+     first on this page.", the Reveal picked. (The walk that once read "Logo keeps its place on this page." there had
+     put its finger on the cover: holding the cover picks a part of it, the page glides to that part's middle, and
+     the Reveal had been measured while the page still moved. The line was true of what was under the finger.) */
+  const sheet = src(`${L}/add-part-sheet.tsx`);
+  const subject = sheet.slice(sheet.indexOf('subject: (target, doc): SceneDragSubject | null => {'), sheet.indexOf('why: (s) =>'));
+  assert.ok(subject.length > 200, 'anti-vacuity: the drag’s `subject` was not found');
+  /* Read FIRST: the Reveal's part stands outside every marked section, so nothing after it could name it. */
+  const reveal = subject.indexOf("target.closest<HTMLElement>('[data-maker-reveal-part]')");
+  assert.ok(reveal > 0 && reveal < subject.indexOf("doc.querySelectorAll('[data-maker-section]')"), 'the Reveal is not read before the marked parts');
+  assert.match(subject, /if \(reveal\) return \{ key: REVEAL_STUB, el: reveal, target, label: atKey\(o, REVEAL_STUB\)\.label, movable: false, beside: \[\] \};/);
+  /* Its line is the prototype's own; every other part that keeps its place says the shipped step's reason. */
+  assert.match(sheet, /why: \(s\) => \(s\.key === REVEAL_STUB \? SCENE_DRAG_WORDS\.revealWhy : makerPartStepWhy\(s\.label, false, false\)\.earlier\),/);
+  assert.equal(SCENE_DRAG_WORDS.revealWhy, 'The Reveal is always first on this page.');
+  /* It never moves, whatever the list says of it. */
+  assert.match(sheet, /mv: key === REVEAL_STUB \? \{ kind: 'fixed' \} : movableOf\(o, key\)/);
+  assert.equal(sceneMovesAmong('rsvp', [], { kind: 'fixed' }, 'reveal:part').length, 0);
+  /* A part that does not move is refused BEFORE anything is measured or lifted — and the host is told why. */
+  const hands = src(`${L}/scene-canvas-drag.ts`);
+  const lift = hands.slice(hands.indexOf('const lift = (x: number, y: number) => {'), hands.indexOf('const unlook = '));
+  assert.ok(lift.indexOf("if (!subject.movable) return refuse(subject, 'fixed');") > 0 && lift.indexOf("if (!subject.movable) return refuse(subject, 'fixed');") < lift.indexOf('measure(subject)'), 'a fixed part is measured for a lift');
+  /* anti-vacuity: the part the Maker draws for the Reveal still carries the mark `subject` reads. */
+  assert.match(raw(`${L}/stage-tools.tsx`), /part\.setAttribute\('data-maker-reveal-part', ''\);/);
+});
+
 test('(7) the lower third slides away while a scene is held and back on release — both motions seen; a fade under Reduce Motion', () => {
   const tools = raw(`${L}/stage-tools.tsx`);
   /* Told to be nothing tall while it is held — the same door as ▶ and typing. */

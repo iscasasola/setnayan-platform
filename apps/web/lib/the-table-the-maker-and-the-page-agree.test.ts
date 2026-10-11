@@ -329,7 +329,7 @@ test('2 · a scene with NOTHING IN IT YET (open browsing on): its ticks stay, a 
 
   // Remove the empty love story's prompt from the Invitation: it is stored (not "back to our pick"), and it stays off.
   const patch = eyePatch(now, 'our_love_story', 'rsvp', false);
-  assert.deepEqual(patch.widgets.our_love_story.stage_show, { rsvp: false }, 'Remove on an empty scene stored nothing');
+  assert.deepEqual(patch.widgets.our_love_story?.stage_show, { rsvp: false }, 'Remove on an empty scene stored nothing');
   draft = save(draft, patch);
   now = render(live, draft, facts);
   assert.ok(!sceneKeys(now, 'rsvp').includes('our_love_story'), 'a removed empty scene is back on the next render');

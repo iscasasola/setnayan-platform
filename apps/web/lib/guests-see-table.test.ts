@@ -40,7 +40,7 @@ import { sceneOnStage } from './what-guests-see';
 import { buildGuestsSeeTable } from './guests-see-build';
 import {
   GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, guestsSeeApplyLabel, guestsSeeBackToPicks, guestsSeeChanges, guestsSeeOn, guestsSeePatch,
-  guestsSeeToggle, type GuestsSeeCell, type GuestsSeeTable, type GuestsSeeWrites,
+  guestsSeeToggle, guestsSeeWithRemoved, type GuestsSeeCell, type GuestsSeeTable, type GuestsSeeWrites,
 } from './guests-see-table';
 import { emptyHubDraft, mergeHubDraft, overlayHubDraftWidgets, sanitizeHubDraft } from './hub-draft';
 
@@ -327,3 +327,42 @@ test('9 · ONLY BOXES THAT WORK ARE BOXES: flipping every box changes what a gue
   assert.deepEqual(dead, [], 'a box that changes nothing a guest sees must be a dash');
 });
 
+
+
+/**
+ * 10 · THE TABLE LEARNS OF A PART THE CANVAS JUST TOOK OFF (the merged copy's walk, 2026-10-11, M06). A Remove on the
+ * page is drawn at the tap and owes no render (the eye holds a hide), so the table the work area holds is the last
+ * render's — "Countdown × Invitation is STILL TICKED". The work area hands the sheet what it took off and what the eye
+ * stored for it (`guests-see-sheet.tsx` `guestsSeeWorkArea` → `guestsSeeWithRemoved`).
+ */
+test('10 · a part the canvas just took off: exactly its box is empty, holds what the eye stored, and a tap on it writes what it would after a render', async () => {
+  const rows = stageWidgets({});
+  const t = table(rows);
+  const all = (x: GuestsSeeTable) => x.groups.flatMap((g) => g.rows).flatMap((r) => r.cells.map((c, i) => `${r.key}:${i}:${c.kind === 'box' ? `${c.on}/${c.choice}` : c.kind}`));
+  assert.equal((rowOf(t, 'countdown').cells[COL.rsvp] as Extract<GuestsSeeCell, { kind: 'box' }>).on, true, 'anti-vacuity: the Countdown is on the Invitation');
+  // Our pick, removed on the Invitation: the eye stored `false`.
+  const after = guestsSeeWithRemoved(t, [{ type: 'countdown', stage: 'rsvp', stored: false }]);
+  const cell = rowOf(after, 'countdown').cells[COL.rsvp] as Extract<GuestsSeeCell, { kind: 'box' }>;
+  assert.deepEqual([cell.on, cell.choice], [false, false], 'M06: the box of the part just removed is still ticked');
+  const moved = all(after).filter((c, i) => c !== all(t)[i]);
+  assert.equal(moved.length, 1, `the Remove changed ${moved.length} boxes: ${moved.join(' ')}`);
+  // It is what the next render brings — the same table the real draft draws.
+  const stored = sanitizeHubDraft({ v: 1, events: {}, history: [], widgets: { countdown: { stage_show: { rsvp: false } } } });
+  assert.deepEqual(all(after), all(table(overlayHubDraftWidgets(rows, stored))), 'the table laid over is not the table the next render draws');
+  // A tap on it brings it back: the choice is taken back (`null`), exactly as after a render.
+  assert.deepEqual(guestsSeeToggle(after, NONE, 'countdown', COL.rsvp).writes, { 'countdown:rsvp': null });
+  // A part the couple had ADDED to a stage, removed there: the eye took the choice back (`null`) — the box is empty all the same.
+  const added = table(stageWidgets({ schedule: show({ save_the_date: true }) }));
+  const un = rowOf(guestsSeeWithRemoved(added, [{ type: 'schedule', stage: 'save_the_date', stored: null }]), 'schedule').cells[COL.save_the_date] as Extract<GuestsSeeCell, { kind: 'box' }>;
+  assert.deepEqual([un.on, un.choice], [false, null]);
+  // Nothing removed → the very same table; an unknown scene or stage moves nothing.
+  assert.equal(guestsSeeWithRemoved(t, []), t);
+  assert.deepEqual(all(guestsSeeWithRemoved(t, [{ type: 'nothing', stage: 'rsvp', stored: false }, { type: 'countdown', stage: 'lunch', stored: false }])), all(t));
+  // …and the sheet reads the work area's table THROUGH it, with the value the eye sent.
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const sheet = readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/launch/_components/guests-see-sheet.tsx'), 'utf8');
+  assert.match(sheet, /return \{ eventId: raw\.eventId, table: guestsSeeWithRemovedFrom\(table, raw\), door \};/);
+  assert.match(sheet, /stored: stageEyeValue\(/);
+  assert.match(sheet, /return guestsSeeWithRemoved\(table, removed\);/);
+});

@@ -49,7 +49,7 @@ function motionOf(transition: string, property: string): { ms: number; curve: st
   return { ms: ms(duration!), curve: curve.join(' ') };
 }
 
-test('1 · every button in the bench is ONE height — 40 px, link or button', () => {
+test('1 · every button in the bench is ONE height — the finger’s 44 px, link or button', () => {
   // Why it is needed at all: a <button> is floored at 44 px, a link is not.
   assert.match(
     GLOBALS,

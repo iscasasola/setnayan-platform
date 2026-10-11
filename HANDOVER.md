@@ -57,8 +57,7 @@ refuses link-preview robots).
   secret, so no guest pass can be minted locally (and it points at prod). The live Chromium walks above stand in.
 - Why desktop Safari lost the pass in 13 s is not determined (see CAUSE). Worth a real-Safari walk by the
   controller/owner after deploy: link → landing → Reply.
-- Preflight: quick half GREEN after regenerating the ugat screens map (6cc8f406a). WHOLE preflight queued in the
-  HEAVY lane as `reply-door` (6th in line at 23:22Z) — then push + draft PR. Nothing pushed yet.
+- Preflight: WHOLE run GREEN at 3ef69416e (48 checks, 14m51s; run without the lock on the controller's order). Pushed; draft PR — see top of report.
 
 ## Live walks done (read-only, nothing sent)
 - Chromium, maria-and-jose guest 2a1d5a99 (token read from prod into a 0600 scratch file, never printed): Reply → questions.

@@ -39,8 +39,17 @@ a floor for the shape, not production's number:
   share a 10 s deadline. An essential read that does not answer ends the page
   with the guest boundary's words; a decoration read is left out for that view
   and logged. Writes are never limited.
+- **The landing (`invite/enter`) starts its body's reads together**: the event
+  type, the owner's slug, the QR look, the words, the plus-ones, the ticket
+  pair, the account, the seat holder and (on the day) the table — each started
+  at the top of the body and awaited where it was. Not the tile code (a write),
+  not the ceremony time (one screen). The Maker's canvas skips what it skipped.
+- **One visit, one render**: `GuestPreload` no longer asks the service worker
+  to fetch `/<slug>` again when this very visit came through the worker as
+  exactly `/<slug>` (it already cached it on the way in). Any other arrival
+  still warms it. `public/sw.js` untouched.
 - NOT built: remembering same-for-everybody facts between visits; the Maker's
-  canvas path; starting `invite/enter`'s body reads side by side.
+  canvas path.
 
 SPEC IMPACT: None. No schema, no migration, no env switch, no copy. The 6 s /
 10 s limits and which reads count as decoration are a session's choices, not

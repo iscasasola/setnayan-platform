@@ -19,6 +19,15 @@ Everything proven is proven in **Chromium only**; nothing has run on iOS Safari.
   tree; main's guest golden is UNTOUCHED by the wiring (guard (2) green against it). The stranger's golden was
   regenerated from the merged tree: 3 changes, all main's (the link's words, the door row, the fit island's marker).
 
+## 2026-10-12, after the merge — what the whole browser check said, and what was changed for it
+- Whole check on the merged tree (7843eec03, under the lock): 503 ok, 16 red — ALL in block 16's stranger part.
+  Blocks 1–15, 17 and the guest page of 16 (four sizes, the no-reply-row guest, the Reveal, the tabs) are green.
+- Why red: the stranger's door row draws no box now, so the engine met the button and the line under it as two
+  boxes and paired THEM, leaving the Countdown behind. Fixed in `hub-scrub-engine.ts` (`row`, `rowEnd`, `mates`): a
+  boxless row that holds the page's action arrives WHOLE, and the block after its last box arrives with it.
+  Two of the 16 were the check's own reading of "today's distance" (it measured from the button, not the row).
+- NOT YET RE-RUN after that fix: block 16 (`SCRUB_ONLY=16`), which now also holds the real touch drag at 375×812.
+
 ## Half-done / not yet re-proven on the merged tree
 - The browser check (`scripts/scrub-browser-check.mjs`, blocks 14–17) last ran green (515) on e97cb2962, BEFORE the
   merge. On the merged tree it has not had its turn yet — in particular block 16's stranger part reads the door by

@@ -39,7 +39,7 @@ const ACTION_ROW = '[data-arrival-action], [data-get-inside]';
 /** `stick`: where the STAGE's top stands while its scene is held — above the scene's own line by whatever the stage holds before it.
  *  `lift`: on a hand-over from the cover, the box the rise of what follows its arrival is SAID on — the page's own first
  *  stage, so every box marked under it reads the one number, whichever of the page's groups it is in. */
-type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; mate?: HTMLElement | null; pair: ScrubPair; rest: number; stick: number; lift?: HTMLElement };
+type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; mates?: HTMLElement[]; pair: ScrubPair; rest: number; stick: number; lift?: HTMLElement };
 
 const px = (n: number) => `${Math.round(n * 100) / 100}px`;
 const num = (n: number) => String(Math.round(n * 1000) / 1000);
@@ -224,6 +224,8 @@ export function armHubScrub(root: HTMLElement): () => void {
     lifted = [];
     let arrives: HTMLElement | null = null;
     let mate: HTMLElement | null = null;
+    /** What arrives first: one block — or every box of an action row that draws no box of its own. */
+    let row: HTMLElement[] = [];
     let outside: HTMLElement | null = null;
     if (pages[0] && coverCell && cover && coverRest && cover.offsetHeight > 0) {
       const page = pages[0].stage;
@@ -244,8 +246,16 @@ export function armHubScrub(root: HTMLElement): () => void {
          the block is, never how tall it is), the block after it on the page arrives WITH it: one arrival, placed as
          one unit, the page's own distance between the two kept exactly as it is laid out. A long second half makes
          a long unit, and a long unit is the ordinary long arrival — tops at the top of the room, running on below. */
-      if (arrives && (arrives.matches(ACTION_ROW) || arrives.querySelector(ACTION_ROW))) mate = followers(arrives, page).map(through)[0] ?? null;
-      const unit: ScrubElement = arrives ? { h: mate ? docTop(mate) + mate.offsetHeight - docTop(arrives) : arrives.offsetHeight, oneByOne: oneByOne(mate ?? arrives) } : { h: 0, oneByOne: false };
+      /* (THE ROW IS THE WHOLE ROW. The stranger's door stands in a row that draws no box of its own — `.sn-door-row`,
+         `display: contents`: the button, and the line under it. The engine met them as two boxes and paired the
+         button with its own caption, leaving the Countdown behind. A row with no box that holds the page's action
+         IS the action row: every box of it arrives, and the block after the LAST of them arrives with them.) */
+      const held0 = arrives?.parentElement ?? null;
+      row = arrives ? (held0 && boxless(held0) && held0.querySelector(ACTION_ROW) ? (Array.from(held0.children) as HTMLElement[]).filter((el) => el.offsetHeight > 0 && el.offsetParent !== null) : [arrives]) : [];
+      const rowEnd = row[row.length - 1] ?? null;
+      if (rowEnd && row.some((el) => el.matches(ACTION_ROW) || el.querySelector(ACTION_ROW) !== null)) mate = followers(rowEnd, page).map(through)[0] ?? null;
+      const unitEnd = mate ?? rowEnd;
+      const unit: ScrubElement = arrives && unitEnd ? { h: docTop(unitEnd) + unitEnd.offsetHeight - docTop(arrives), oneByOne: oneByOne(unitEnd) } : { h: 0, oneByOne: false };
       const pair = scrubPair({ h: cover.offsetHeight, oneByOne: false }, unit, view, docTop(cover));
       const stick = pair.top - (docTop(cover) - docTop(pages[0].stage));
       put(pages[0].stage, '--hub-top', px(stick));
@@ -261,15 +271,15 @@ export function armHubScrub(root: HTMLElement): () => void {
          same for a box outside the cover's rest: whatever lies between it and the cover is read, not reasoned.) */
       const over = arrives ? docTop(arrives) - (docTop(cover) + cover.offsetHeight) - pair.up : 0;
       if (Math.abs(over) > 0.5) put(pulled, '--hub-up', px(up - over));
-      const last = mate ?? arrives;
+      const last = unitEnd;
       const next = last?.nextElementSibling ?? null;
-      held.push({ cell: pages[0].cell, stage: pages[0].stage, scene: cover, after: coverRest, below: next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null, arrival: arrives, mate, pair, rest: 0, stick, lift: pages[0].stage });
+      held.push({ cell: pages[0].cell, stage: pages[0].stage, scene: cover, after: coverRest, below: next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null, arrival: arrives, mates: [...row.slice(1), ...(mate ? [mate] : [])], pair, rest: 0, stick, lift: pages[0].stage });
       /* (The one of the two that can be a scene with a hand-over of its own is the second.) */
       arrivedAt = arrives ? (mate ? { scene: mate, top: pair.arrivalTop + (docTop(mate) - docTop(arrives)) } : { scene: arrives, top: pair.arrivalTop }) : null;
       /* Played with the scenes: the cover first, then what arrives (unless it is a scene the list already has). */
-      scenes = [cover, ...[arrives, mate].filter((el): el is HTMLElement => el !== null && !scenes.includes(el)), ...scenes];
+      scenes = [cover, ...[...row, mate].filter((el): el is HTMLElement => el !== null && !scenes.includes(el)), ...scenes];
     }
-    const arriving = [arrives, mate].filter((el): el is HTMLElement => el !== null);
+    const arriving = [...row, mate].filter((el): el is HTMLElement => el !== null);
     for (const z of zeros) {
       if (arriving.includes(z)) continue;
       put(z, '--hub-o', '1');
@@ -285,7 +295,7 @@ export function armHubScrub(root: HTMLElement): () => void {
     }
     zrest = outside;
     /* What follows — after the LAST of what arrives. */
-    const lastIn = mate ?? arrives;
+    const lastIn = mate ?? row[row.length - 1] ?? null;
     lifted = lastIn && pages[0] ? followers(lastIn, pages[0].stage) : [];
     for (const el of lifted) put(el, 'data-hub-zlift', '');
     for (const cell of root.querySelectorAll<HTMLElement>(CELL)) {
@@ -385,7 +395,7 @@ export function armHubScrub(root: HTMLElement): () => void {
       of(h.scene).pout = m.out;
       if (h.arrival) Object.assign(of(h.arrival), { pin: m.in, gate: m.rows, handed: true });
       /* 🤝 …and the block that arrives WITH it: the same moment, the same fade. */
-      if (h.mate) Object.assign(of(h.mate), { pin: m.in, gate: m.rows, handed: true });
+      for (const el of h.mates ?? []) Object.assign(of(el), { pin: m.in, gate: m.rows, handed: true });
       /* What follows a pair rises as the hand-over plays. After the COVER it is whatever the page draws next, in
          plain sight — so it stays under the cover until the cover has completely gone, and rises only then (`rows`:
          the same moment an arrival's rows may begin). */

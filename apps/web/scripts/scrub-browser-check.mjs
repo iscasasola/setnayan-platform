@@ -642,10 +642,12 @@ if (!ONLY || ONLY === '16') {
     return {
       s: Math.round(scrollY), max: document.documentElement.scrollHeight - innerHeight,
       cover: box(cover), names: box(document.querySelector('main header[data-pahina-first-screen] h1')), pout: Number(cover?.style.getPropertyValue('--hub-pout') || 0),
-      zero: box(document.querySelector('[data-hub-zero]')), zeroVar: Number(document.querySelector('[data-hub-zero]')?.style.getPropertyValue('--hub-o') || 1), zeroIs: document.querySelector('[data-hub-zero]')?.hasAttribute('data-arrival-action') ? 'the reply row' : document.querySelector('[data-hub-zero]')?.matches('[data-get-inside]') || document.querySelector('[data-hub-zero]')?.querySelector('[data-get-inside]') ? 'the door' : (document.querySelector('[data-hub-zero]')?.tagName ?? null),
+      /* (What arrives first can be several boxes — a row that draws no box of its own: read from the first's top to
+         the last-but-one's bottom; the block that arrives WITH the row is the LAST marked one.) */
+      zero: (() => { const zs = [...document.querySelectorAll('[data-hub-zero]')].filter((e) => e.getClientRects().length); const z = box(zs[0] ?? null); if (z && zs.length > 2) z.b = zs[zs.length - 2].getBoundingClientRect().bottom; return z; })(), zeroVar: Number(document.querySelector('[data-hub-zero]')?.style.getPropertyValue('--hub-o') || 1), zeroIs: document.querySelector('[data-hub-zero]')?.hasAttribute('data-arrival-action') ? 'the reply row' : document.querySelector('[data-hub-zero]')?.matches('[data-get-inside]') || document.querySelector('[data-hub-zero]')?.querySelector('[data-get-inside]') ? 'the door' : (document.querySelector('[data-hub-zero]')?.tagName ?? null),
       row: box(document.querySelector('[data-arrival-action]')), next: box(shown[1] ?? null), nextIs: shown[1]?.getAttribute('data-hub-tab') ?? null,
       /* 🤝 What arrives WITH the row (the second marked block), and the first group after what arrives. */
-      zeros: document.querySelectorAll('[data-hub-zero]').length, mate: box(document.querySelectorAll('[data-hub-zero]')[1] ?? null) ?? { t: NaN, b: NaN, o: -1 }, mateSays: document.querySelectorAll('[data-hub-zero]')[1]?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 22) ?? null,
+      zeros: document.querySelectorAll('[data-hub-zero]').length, mate: box(document.querySelectorAll('[data-hub-zero]').length > 1 ? [...document.querySelectorAll('[data-hub-zero]')].at(-1) : null) ?? { t: NaN, b: NaN, o: -1 }, mateSays: [...document.querySelectorAll('[data-hub-zero]')].slice(1).at(-1)?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 22) ?? null,
       after: box([...document.querySelectorAll('[data-hub-zlift]')].find((e) => e.getClientRects().length) ?? null), zrest: [...document.querySelectorAll('[data-hub-zrest]')].map((e) => e.getAttribute('data-hub-tab') ?? e.tagName.toLowerCase()),
       lifted: [...document.querySelectorAll('[data-hub-zlift]')].map((e) => e.getAttribute('data-hub-tab') ?? e.tagName.toLowerCase()),
       hiddenMarked: [...document.querySelectorAll('[hidden]')].filter((e) => [...e.attributes].some((a) => /^data-hub-z/.test(a.name))).length,
@@ -819,10 +821,11 @@ if (!ONLY || ONLY === '16') {
   const GAPS_S = () => {
     const R = (e) => e.getBoundingClientRect();
     const cover = document.querySelector('main header[data-pahina-first-screen]'); /* (The door's row draws no box of its own since 2026-10-11 — `.sn-door-row`, `display: contents` — so the door is read itself.) */
-    const door = document.querySelector('main [data-get-inside]');
+    const row = [...document.querySelector('main [data-get-inside]').parentElement.children].filter((e) => e.getClientRects().length);
+    const door = { getBoundingClientRect: () => ({ top: row[0].getBoundingClientRect().top, bottom: row.at(-1).getBoundingClientRect().bottom, height: row.at(-1).getBoundingClientRect().bottom - row[0].getBoundingClientRect().top }) };
     const [m, n] = document.querySelector('article .sn-hub-cards').querySelectorAll(':scope > section');
     document.documentElement.classList.add('pahina-js');
-    const hidden = [cover, door].filter((e) => { for (let x = e; x && x.tagName !== 'MAIN'; x = x.parentElement) if (Number(getComputedStyle(x).opacity) === 0) return true; return false; }).length;
+    const hidden = [cover, ...row].filter((e) => { for (let x = e; x && x.tagName !== 'MAIN'; x = x.parentElement) if (Number(getComputedStyle(x).opacity) === 0) return true; return false; }).length;
     const chapters = document.querySelectorAll('.sn-editorial [data-pahina-chapters] > *').length;
     document.documentElement.classList.remove('pahina-js');
     return { coverToDoor: R(door).top - R(cover).bottom, doorToMate: R(m).top - R(door).bottom, mateToAfter: R(n).top - R(m).bottom, coverH: R(cover).height, doorH: R(door).height, hidden, chapters };
@@ -839,7 +842,7 @@ if (!ONLY || ONLY === '16') {
       const t1 = await open(file('today'), W, H); const today = await t1.at(0); await t1.ctx.close();
       const { ctx, p, errs, at } = await open(file('cover'), W, H);
       const top = await at(0);
-      say(errs.length === 0 && top.on && top.off === null && top.sticky && top.cells === 1 && top.holds.length === 1 && top.holds[0] > 0 && top.zeroIs === 'the door' && top.zeros === 2 && /Until we say/.test(top.mateSays ?? '') && top.zero.o === 0 && top.mate.o === 0 && (kind === 'photo' ? top.zrest.length === 1 && top.zrest[0] === 'home' : top.zrest.length === 0) && Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && top.cover.o === 1 && top.pout === 0, `${size}: armed, one page pair; the cover where today's page has it (${r(top.cover.t)}–${r(top.cover.b)}), whole; what arrives is ${top.zeroIs} TOGETHER with the block after it ("${top.mateSays}…"), neither there yet${kind === 'photo' ? ` — the door's group is the box pulled up to the cover (${top.zrest.join(',') || 'NONE'})` : ''}${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''}`);
+      say(errs.length === 0 && top.on && top.off === null && top.sticky && top.cells === 1 && top.holds.length === 1 && top.holds[0] > 0 && top.zeroIs === 'the door' && top.zeros === (kind === 'photo' ? 2 : 3) && /Until we say/.test(top.mateSays ?? '') && top.zero.o === 0 && top.mate.o === 0 && (kind === 'photo' ? top.zrest.length === 1 && top.zrest[0] === 'home' : top.zrest.length === 0) && Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && top.cover.o === 1 && top.pout === 0, `${size}: armed, one page pair; the cover where today's page has it (${r(top.cover.t)}–${r(top.cover.b)}), whole; what arrives is ${top.zeroIs} TOGETHER with the block after it ("${top.mateSays}…"), neither there yet${kind === 'photo' ? ` — the door's group is the box pulled up to the cover (${top.zrest.join(',') || 'NONE'})` : ''}${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''}`);
       const fwd = []; for (let y = 0; y < top.max; y += 16) fwd.push(await at(y)); fwd.push(await at(top.max));
       const back = [await at(top.max)]; for (let y = top.max - (top.max % 16); y >= 0; y -= 16) back.push(await at(y));
       const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);

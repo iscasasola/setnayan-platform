@@ -60,7 +60,7 @@ test('the ＋ sheet reads the list through it — the gates AND what the eye too
   assert.doesNotMatch(sheet, /^\s*list: raw\.list,/m, 'the sheet reads the last render’s list again');
   /* …and the work area hands it over: the value its own eye keeps (`hereOff`), not a copy. */
   const shell = readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'editor-shell.tsx'), 'utf8');
-  assert.match(shell, /partOps\.current = \{[^}]*\beyeWrite, hereOff,/);
+  assert.match(shell, /partOps\.current = \{[^}]*\beyeWrite,[^}]*\bhereOff,/);
   assert.match(shell, /const \[hereOff, setHereOff\] = useState/);
 });
 

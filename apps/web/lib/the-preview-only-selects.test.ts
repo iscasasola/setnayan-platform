@@ -103,7 +103,7 @@ test('(2) no buttons on the frame: its outline and its name — and ＋, the one
   /* The whole frame lets taps through to the page under it; only ＋ takes one. */
   assert.match(frame, /className="pointer-events-none fixed inset-0 z-\[86\] lg:hidden"/);
   /* Moving and removing did not go away: they are the toolbar's Edit › Earlier · Later · Remove, from the same hook. */
-  assert.match(edges, /earlier: canStep\(-1\) \? \(\) => stepMove\(-1\) : null,\s*later: canStep\(1\) \? \(\) => stepMove\(1\) : null,\s*remove: canRemove \? \(\) => setRemoving\(true\) : null,/);
+  assert.match(edges, /earlier: (?:working \? null : )?canStep\(-1\) \? \(\) => stepMove\(-1\) : null,\s*later: (?:working \? null : )?canStep\(1\) \? \(\) => stepMove\(1\) : null,\s*remove: (?:working \? null : )?canRemove \? \(\) => setRemoving\(true\) : null,/);
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /<StageEdit [^>]*earlier=\{edits\.earlier\} later=\{edits\.later\} remove=\{edits\.remove\} removeWord=\{edits\.removeWord\} /);
   /* The page's own outline is put away too — one highlight (the frame), nothing of the canvas's to press. */

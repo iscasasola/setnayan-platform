@@ -52,8 +52,12 @@ test('hubDraftAction: save · reset · undo · restore revalidate nothing; Apply
   ];
   for (const [intent, body] of bodies) {
     assert.doesNotMatch(body, REVALIDATES, `${intent}: a draft-only write re-rendered the whole Maker in its response`);
-    assert.match(body, /return done\(\);/, `${intent}: the branch was not found whole`);
+    /* Undo and Reset answer through `answerWithBar` (the write, and the bar beside it — 2026-10-11); it is held below. */
+    assert.match(body, /return (?:done\(\)|answerWithBar\([^;]*\));/, `${intent}: the branch was not found whole`);
   }
+  const withBar = src.slice(src.indexOf('const answerWithBar = '), src.indexOf("if (intent === 'save')"));
+  assert.match(withBar, /writeHubDraft\(supabase, eventId, next\)/, 'anti-vacuity: the one answer Undo and Reset share was not found');
+  assert.doesNotMatch(withBar, REVALIDATES, 'undo · reset: a draft-only write re-rendered the whole Maker in its response');
   const apply = src.slice(src.indexOf('const live = await readHubLiveState('));
   assert.match(apply, /revalidateGuestSite\(/, 'Apply changes the live page — its guest page must be revalidated');
 });

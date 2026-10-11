@@ -160,7 +160,13 @@ test('(7) the Stages panel says what happened with THIS toast — no strip of it
   assert.doesNotMatch(sheet, /data-part-toast|role="status"/, 'the panel still draws a status strip of its own');
   /* Each message is a new toast (its own life), and the four things said are still said. */
   assert.match(sheet, /const setToast = useCallback\(\(words: string\) => setToastNow\(\(t\) => \(\{ words, n: \(t\?\.n \?\? 0\) \+ 1 \}\)\), \[\]\);/);
-  assert.equal((sheet.match(/setToast\(/g) ?? []).length, 4, 'a message the panel used to say is gone (moved · added · added · removed)');
+  /* 🔁 RE-AIMED 2026-10-11: a move and the scenes' ＋ say theirs through `settle` — once the page shows it, never at the
+     press (owner: "a pop up says it moved but didn't") — and `settle` ends in the one `setToast(words)`. */
+  assert.match(sheet, /const settle = \(what: PartWorking, words: string[^{]*\{[\s\S]{0,260}?setToast\(words\);/);
+  const direct = (sheet.match(/setToast\(/g) ?? []).length - 1;
+  const settled = (sheet.match(/(?<![.\w])settle\(/g) ?? []).length;
+  assert.equal(settled, 2, 'the move or the scenes’ ＋ no longer waits for the page before it speaks');
+  assert.equal(direct + settled, 4, 'a message the panel used to say is gone (moved · added · added · removed)');
 });
 
 test('(8) an action: a small pill at the right, 6 s, the only tap — and without one the toast is today\'s, byte for byte', async () => {

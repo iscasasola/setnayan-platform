@@ -607,13 +607,13 @@ test('6 · a reply page is a FIXED page: its parts have the frame — never ＋,
   const scenesArm = EDGES.indexOf('{edgesOf.addAbove ? (', gate);
   const gateEnd = EDGES.indexOf('{toast && !error ? (');
   assert.ok(gate > 0 && scenesArm > gate && gateEnd > scenesArm, 'the fixed-page gate is gone');
-  const scenesAdd = [...EDGES.matchAll(/onClick=\{\(\) => setAdding\('(?:above|below)'\)\}/g)];
+  const scenesAdd = [...EDGES.matchAll(/onClick=\{\(\) => askAdd\('(?:above|below)'\)\}/g)];
   assert.equal(scenesAdd.length, 2, 'anti-vacuity: the scenes’ two ＋ were not found');
   for (const m of scenesAdd) assert.ok(m.index! > scenesArm && m.index! < gateEnd, 'the scenes’ ＋ is offered on a reply page');
   /* …and on a fixed page the only ＋ is a line's, which never opens the scenes' sheet. */
   const fixedArm = EDGES.slice(gate, scenesArm);
   assert.match(fixedArm, /^\{fixedPages \? \(\s*lineAdd \? \(/);
-  assert.doesNotMatch(fixedArm, /setAdding|AddPartSheet/, 'a line’s ＋ opens the scenes’ sheet');
+  assert.doesNotMatch(fixedArm, /setAdding|askAdd|AddPartSheet/, 'a line’s ＋ opens the scenes’ sheet');
   /* Four ＋ in the file — the line's two in the fixed arm, the scenes' two in the other — and none outside the gate. */
   assert.equal((EDGES.match(/data-part-add=/g) ?? []).length, 4, 'a ＋ is drawn outside the gate');
   assert.equal((fixedArm.match(/data-part-add=/g) ?? []).length, 2);
@@ -622,7 +622,7 @@ test('6 · a reply page is a FIXED page: its parts have the frame — never ＋,
   assert.match(EDGES, /const canMove = edgesOf\.grip && [^;]* && !fixedPages;/);
   /* …and those two answers are all Edit's last row is offered. */
   assert.match(EDGES, /const canStep = \(dir: -1 \| 1\) => Boolean\(typeof document !== 'undefined' && canMove && /);
-  assert.match(EDGES, /remove: canRemove \? \(\) => setRemoving\(true\) : null,/);
+  assert.match(EDGES, /remove: (?:working \? null : )?canRemove \? \(\) => setRemoving\(true\) : null,/);
 });
 
 /* ══ 7 · A GUEST'S PAGES ARE UNTOUCHED ═══════════════════════════════════════ */

@@ -219,7 +219,7 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
      the tap its grey button swallows; a live step's wrapper hears nothing. */
   const edit = read(`${L}/stage-panel/stage-edit.tsx`);
   for (const step of ['earlier', 'later', 'remove']) {
-    assert.match(edit, new RegExp(`<span className="contents" data-stage-edit-step="${step}" onClick=\\{${step} \\? undefined : \\(\\) => onWhy\\(why\\.${step}\\)\\}>`), `a grey ${step} is a dead tap`);
+    assert.match(edit, new RegExp(`<span className="contents" data-stage-edit-step="${step}"(?: aria-busy=\\{working === '${step}' \\|\\| undefined\\})? onClick=\\{${step} \\? undefined : \\(\\) => onWhy\\(why\\.${step}\\)\\}>`), `a grey ${step} is a dead tap`);
   }
   assert.match(read(`${L}/stage-tools.tsx`), /why=\{edits\.why\} onWhy=\{\(words\) => setWhy\(\(w\) => \(\{ words, n: \(w\?\.n \?\? 0\) \+ 1 \}\)\)\}/, 'the line is not said through the toolbar’s toast');
   /* The line, by what the part can do: it does not move at all · it moves but is at an end · it cannot be taken off. */
@@ -235,7 +235,7 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
   assert.ok(hook.length > 4000, 'anti-vacuity: the part edits were not found');
   assert.match(hook, /const stepMove = \(dir: -1 \| 1\) => \{\s*const o = askPartOps\(\);\s*const t = o && canMove \? neighbour\(o, dir\) : null;\s*if \(o && t\) dropOn\(o, t, dir < 0 \? 'above' : 'below'\);\s*\};/);
   assert.equal((hook.match(/o\.move\(mv\.id, delta\)/g) ?? []).length, 1, 'a second order write for the picked scene');
-  assert.match(hook, /remove: canRemove \? \(\) => setRemoving\(true\) : null,/, 'Remove does not ask first (the one confirm)');
+  assert.match(hook, /remove: (?:working \? null : )?canRemove \? \(\) => setRemoving\(true\) : null,/, 'Remove does not ask first (the one confirm)');
 });
 
 test('(4) one selector, not two: the scene’s Format shows the toolbar’s tool and has no Look | Background | Arrange of its own', async () => {

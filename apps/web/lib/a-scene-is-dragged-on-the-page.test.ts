@@ -466,7 +466,7 @@ test('(7) a swipe still scrolls: the pan is blocked only once the hold has fired
   assert.doesNotMatch(hands, /touch-action|touchAction/, 'the page’s own pan is switched off');
   /* Before the hold ends a move is a scroll: the hold is cancelled and nothing is prevented. */
   const move = hands.slice(hands.indexOf('const onMove = '), hands.indexOf('const onUp = '));
-  assert.match(move, /if \(p\.touch\) \{\s*if \(moved > SCENE_SCROLL_PX\) stopPending\(\);\s*return;\s*\}/);
+  assert.match(move, /if \(p\.touch\) \{\s*if \(moved > SCENE_SCROLL_PX\) stopPending\(\);\s*else \{\s*p\.lx = e\.clientX;\s*p\.ly = e\.clientY;\s*\}\s*return;\s*\}/);
   assert.ok(move.indexOf('return;') < move.indexOf('e.preventDefault()'), 'a finger’s move is prevented before the hold has fired');
   /* A long press raises no browser menu and selects nothing; a field being typed in keeps its selection. */
   assert.match(hands, /const onMenu = \(e: Event\) => \{\s*if \(pending\?\.touch \|\| held\) e\.preventDefault\(\);\s*\};/);
@@ -485,6 +485,9 @@ test('(7) a refused save slides the scene back BEFORE the line speaks; nothing i
   /* A page that never came: nothing is claimed. */
   assert.match(run, /if \(how === 'timeout'\) return put\(null\);/);
   /* The drop hands the slide-back; a move that had nothing to write is slid back at once. */
+  /* The toolbar starts back at the RELEASE — while the scene settles, as the prototype's does — not after it. */
+  assert.match(src(`${L}/scene-canvas-drag.ts`), /swallowTap\(\);\s*host\.onRelease\(\);/);
+  assert.match(side, /onRelease: \(\) => \{[\s\S]{0,1400}?setHeld\(false\);\s*setOver\(false\);\s*\},\s*onDrop: /);
   assert.match(side, /const done = now\.current\.drop\(subject, drop\.target, drop\.where\);\s*if \(!done\) return drop\.revert\(\);\s*return run\(step\('move'\), done, drop\.revert\);/);
   /* The hands: the dropped order is held by slides until the page is redrawn; `revert` takes them off. */
   const hands = src(`${L}/scene-canvas-drag.ts`);
@@ -507,11 +510,22 @@ test('(7) a scene of the couple’s own is never taken silently; ↺ is the Make
   /* ↺: the line's Undo PRESSES the Maker's own button — never a second door to the draft. */
   assert.match(side, /const UNDO_BUTTON = '\[data-maker-shell\] button\[data-bar-item="Undo"\], \[data-maker-shell\] button\[aria-label="Undo"\]';/);
   assert.match(side, /const button = document\.querySelector<HTMLButtonElement>\(UNDO_BUTTON\);[\s\S]{0,260}?button\.click\(\);/);
+  /* …in a task of its own: a click made inside another click's handling is not handed out (measured in the lab,
+     2026-10-11 — the line cleared and nothing was undone). */
+  assert.match(side, /window\.setTimeout\(press, 0\);\s*\};/);
+  assert.doesNotMatch(side, /\n\s*press\(\);\s*\};/, 'the Maker’s Undo is pressed from inside the line’s own press');
   assert.match(raw('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx'), /label="Undo"[\s\S]{0,400}?onClick=\{\(\) => act\(\{ intent: 'undo' \}\)\}/, 'anti-vacuity: the Maker’s Undo is no longer that button');
   assert.match(raw('app/dashboard/[eventId]/website/_components/hub-draft-button.tsx'), /aria-label=\{said\}[\s\S]{0,200}?data-bar-item=\{phone \? label : undefined\}/, 'anti-vacuity: the button no longer names itself');
   /* What it says of an undo is only said of the step made HERE (no other save since), once the page shows it. */
   assert.match(side, /if \(step\.saves !== makerSavesStarted\(\)\) return;/);
   assert.match(side, /void whenCanvasShowsIt\(\)\.then\(\(how\) => \{\s*if \(how !== 'shown'\) return;\s*say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);
+  /* A HELD SCENE IS PICKED AS A TAP PICKS — the page's own tap, so the Maker hears exactly what a finger's tap tells
+     it and moves the page for no pick the page itself made; and it is picked WHERE IT IS (`stageStill`): the page is
+     never brought to the picked part's middle under the finger that holds it, nor after the drop. */
+  assert.match(sheet, /pick: \(s\) => \{\s*if \(s\.key === canvas\) return;\s*stageStill\.key = s\.key === REVEAL_STUB \? null : s\.key;\s*const view = s\.el\.ownerDocument\.defaultView;\s*if \(view\) s\.el\.dispatchEvent\(new view\.MouseEvent\('click', \{ bubbles: true, cancelable: true, view \}\)\);/);
+  assert.match(src(`${L}/stage-tools.tsx`), /if \(!open \|\| !pickedKey\) return;\s*if \(stageStill\.key === pickedKey\) return;\s*stageStill\.key = null;/);
+  /* The hands tell the host BEFORE the tap a held part leaves behind is swallowed (the pick is a tap of its own). */
+  assert.match(src(`${L}/scene-canvas-drag.ts`), /host\.onRefuse\(subject, why\);\s*swallowTap\(\);/);
   /* While a scene is held the Maker's frame steps aside (the lifted scene wears its own ring and the SAME name tag). */
   assert.match(sheet, /const framed = edges && !drag\.held;/);
   const tag = /const PART_TAG = `([^`]+)`;/.exec(raw(`${L}/add-part-sheet.tsx`))?.[1]?.replace('${PART_ACCENT}', 'bg-sn-accent text-sn-on-accent');

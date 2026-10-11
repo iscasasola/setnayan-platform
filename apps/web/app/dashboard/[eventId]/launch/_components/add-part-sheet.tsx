@@ -44,11 +44,12 @@ import { SceneTemplatePicker } from '../../website/editor/_components/scene-temp
 import { MakerSheet } from './stages-studio-parts';
 import { PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, ownScenePlaceOrder } from '@/lib/own-scene-place';
 import { MakerRevealStageContext } from './maker-reveal';
+import { stageStill } from './stage-panel/store';
 import { MAKER_PART_OPS_EVENT, type MakerPartOps, type MakerPartRaw } from './maker-part-ops';
 import type { SceneDragSubject } from './scene-canvas-drag';
 import { heldSaveWatch, useSceneDrag } from './scene-drag';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
-import { MAKER_STAGE_PICK_EVENT, useMaker } from './maker-context';
+import { useMaker } from './maker-context';
 
 /**
  * ＋ ↕ 🗑 🎭 THE PARTS OF A PAGE — ADD, MOVE, TAKE OFF; AND THE REVEAL AS A PART
@@ -705,11 +706,15 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
     /* A part that keeps its place says the step's own shipped reason; the Reveal, the prototype's line for it. */
     why: (s) => (s.key === REVEAL_STUB ? SCENE_DRAG_WORDS.revealWhy : makerPartStepWhy(s.label, false, false).earlier),
     busyWhy: PART_WORKING_WHY,
-    /* Held or lifted, it is the picked part (the prototype's `pick` in `lift` and `nudge`) — picked where it is: the
-       page is not brought to its middle under the finger (`still`). */
+    /* Held or lifted, it is the picked part (the prototype's `pick` in `lift` and `nudge`) — picked AS A TAP PICKS:
+       the page's own tap, on the part (the bridge then tells the Maker exactly what a finger's tap tells it, and the
+       Maker moves the page for no pick the page itself made). And picked WHERE IT IS: the toolbar does not bring it
+       to the middle of the page under the finger (`stageStill`). A part already picked is left alone. */
     pick: (s) => {
-      if (s.key === REVEAL_STUB) return onPick?.('reveal');
-      window.dispatchEvent(new CustomEvent(MAKER_STAGE_PICK_EVENT, { detail: { key: s.key, still: true } }));
+      if (s.key === canvas) return;
+      stageStill.key = s.key === REVEAL_STUB ? null : s.key;
+      const view = s.el.ownerDocument.defaultView;
+      if (view) s.el.dispatchEvent(new view.MouseEvent('click', { bubbles: true, cancelable: true, view }));
     },
     drop: (s, target, where) => {
       const o = askPartOps();

@@ -72,7 +72,7 @@ import { rsvpLineWord } from '@/lib/rsvp-form-words';
 import { rsvpLookCard, rsvpLookLine, rsvpStyleHasRows } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { useRsvpListStage } from './rsvp-list-stage';
-import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
+import { setStagePanelNow, setStageRevealColours, setStageTool, stageStill, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
 import { StageLookRow } from './stage-panel/stage-look-row';
@@ -561,13 +561,12 @@ export function StageTools({
      band lines up with its top. The canvas is a same-origin frame, scrolled here directly. */
   const pickedKey = picked ? MAKER_PARTS[picked].canvas : null;
   const pickedEl = picked ? (MAKER_PARTS[picked].el ?? null) : null;
-  /** ✋ The part a hold on the page picked (`scene-drag.tsx`): it is picked where it is — the page is never brought to
-   *  its middle under the finger, nor after the drop. Any other pick clears it. */
-  const stillAt = useRef<string | null>(null);
   useEffect(() => {
     if (!open || !pickedKey) return;
-    if (stillAt.current === pickedKey) return;
-    stillAt.current = null;
+    /* ✋ A part a hold on the page picked is picked where it is (`stageStill`): the page is never brought to its
+       middle under the finger that holds a scene, nor after the drop. Any other pick clears it. */
+    if (stageStill.key === pickedKey) return;
+    stageStill.key = null;
     /* Once its tools are up — and again after the page under it settles (a page jump scrolls the canvas). */
     const t = window.setTimeout(() => centrePart(pickedKey, pickedEl, frameSel), STAGE_PANEL_MS + 40);
     const t2 = window.setTimeout(() => centrePart(pickedKey, pickedEl, frameSel), STAGE_PANEL_MS + 900);
@@ -717,15 +716,10 @@ export function StageTools({
   /* ⌨ A FIRST tap on a part's words (the work area took the caret back): the part is picked. */
   useEffect(() => {
     const onPick = (e: Event) => {
-      const d = (e as CustomEvent<{ key?: unknown; el?: unknown; still?: unknown }>).detail;
+      const d = (e as CustomEvent<{ key?: unknown; el?: unknown }>).detail;
       if (!d || typeof d.key !== 'string') return;
       const el = typeof d.el === 'string' ? d.el : null;
       const k = makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, el) ?? makerPartOfCanvas(where.current.stageKey, d.key);
-      /* ✋ A hold on the page: picked where it is (`stillAt`) — and a part already picked is not picked again. */
-      if (d.still === true) {
-        stillAt.current = k ? MAKER_PARTS[k].canvas : null;
-        if (k && k === pickedRef.current && openToolRef.current !== null) return;
-      }
       setTapped(el);
       if (k) return pickPart(k);
       /* A part the map does not name: the canvas's own selection, all the same. */

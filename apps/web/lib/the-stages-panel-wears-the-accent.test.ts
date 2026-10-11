@@ -260,7 +260,7 @@ test('(5) the ▾ is the dropdown’s own accent; the frame and its chips are th
   assert.match(edges, /data-part-outline="" className=\{PART_OUTLINE\}/);
   /* (🔁 Re-aimed 2026-10-11 (DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN"): Remove was Edit's danger button. It is the bin now — red under the finger, by the
      danger TOKEN — and the menu's Remove row, the same token.) */
-  assert.match(read(`${L}/scene-drag.tsx`), /'bg-\[var\(--sp-bad\)\] text-\[rgb\(var\(--sn-on-accent\)\)\] /, 'the bin under the finger is not the danger token');
+  assert.match(read(`${L}/scene-drag.tsx`), /held && over \? 'bg-\[var\(--sp-bad\)\] text-\[rgb\(var\(--sn-on-accent\)\)\]' : /, 'the bin under the finger is not the danger token');
   assert.match(edges, /r\.danger \? '!text-\[rgb\(var\(--color-danger\)\)\]' : ''/, 'the menu’s Remove is not the danger token');
   assert.equal((edges.match(/shrink-0 text-sn-accent" strokeWidth=\{2\.4\}/g) ?? []).length, 2, 'the ＋ sheet’s marks are not the accent');
 });

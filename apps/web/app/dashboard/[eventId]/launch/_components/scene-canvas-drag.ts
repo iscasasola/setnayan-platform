@@ -52,6 +52,9 @@ const GAP_LINE = '1.5px dashed rgb(var(--color-ink) / 0.28)';
 export const SCENE_TAG_FACE = 'rounded-sm bg-sn-accent text-sn-on-accent px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]';
 /** The prototype's `.scene.lifted{transform:scale(1.03)}` and `.tobin{transform:scale(.62);opacity:.55}`. */
 const LIFT_SCALE = 1.03;
+/** …and the room its ring keeps from the screen's edge: the prototype's scenes stand inside the page's own margin; a
+ *  guest's scene runs edge to edge, and a ring pushed past the screen is no ring. */
+const LIFT_INSET_PX = 8;
 const BIN_SCALE = 0.62;
 const BIN_DIM = 0.55;
 /** The lifted scene's own look eases in (the prototype's `.16s`). */
@@ -90,15 +93,17 @@ export type SceneDragHost = {
   onLift(subject: SceneDragSubject): void;
   /** The finger came onto / left the bin. */
   onBin(over: boolean): void;
+  /** Let go (or the gesture was cancelled): the lower third starts back NOW, while the scene settles. */
+  onRelease(): void;
   /** The bin's box in THIS page's own coordinates (the frame's viewport) — null: no bin up. */
   binBox(): SceneBox | null;
   /** The page's visible band in this page's own coordinates: its top, and where the guests' bar begins. */
   band(): { top: number; bottom: number };
-  /** Let go. */
+  /** …and once it has settled: what the drop was. */
   onDrop(subject: SceneDragSubject, drop: SceneDrop): void;
 };
 
-type Pending = { subject: SceneDragSubject; x: number; y: number; touch: boolean; pid: number; timer: number | null };
+type Pending = { subject: SceneDragSubject; x: number; y: number; /** where the finger is by now */ lx: number; ly: number; touch: boolean; pid: number; timer: number | null };
 
 type Held = {
   subject: SceneDragSubject;
@@ -114,8 +119,12 @@ type Held = {
   x: number;
   y: number;
   grab: number;
+  /** How large the lifted scene is drawn: the prototype's 1.03 — or what fits the screen with its ring in sight. */
+  scale: number;
   overBin: boolean;
   was: Partial<Record<LookKey, string>>;
+  /** Every other box that was slid, with what it wore before — given back when the slide is taken off. */
+  wore: Map<HTMLElement, { transition: string; transform: string }>;
   pid: number;
 };
 
@@ -189,18 +198,19 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
     } else el.style.transform = `translateY(${dy}px) scale(${scale})`;
   };
 
-  const slide = (el: HTMLElement, dy: number) => {
+  const slide = (h: Held, el: HTMLElement, dy: number) => {
+    if (!h.wore.has(el)) h.wore.set(el, { transition: el.style.transition, transform: el.style.transform });
     el.style.transition = glide();
-    el.style.transform = Math.abs(dy) < 0.5 ? '' : `translateY(${dy}px)`;
+    el.style.transform = Math.abs(dy) < 0.5 ? h.wore.get(el)!.transform : `translateY(${dy}px)`;
   };
 
   /** The others, the gap and whatever stands between them, drawn for the gap at `slot`. */
   const open = (h: Held) => {
     const now = sceneReflow(h.rows, h.at, h.slot);
     h.subject.beside.forEach(({ el }, i) => {
-      if (i !== h.at) slide(el, now.tops[i]! - h.rows[i]!.top);
+      if (i !== h.at) slide(h, el, now.tops[i]! - h.rows[i]!.top);
     });
-    h.between.forEach((els, j) => els.forEach((el) => slide(el, now.between[j] ?? 0)));
+    h.between.forEach((els, j) => els.forEach((el) => slide(h, el, now.between[j] ?? 0)));
     h.gap.style.transform = `translateY(${now.gap.top - h.rows[h.at]!.top}px)`;
     return now;
   };
@@ -217,7 +227,7 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
       h.subject.el.style.opacity = over ? String(BIN_DIM) : '1';
       if (over) buzz();
     }
-    put(h.subject.el, dy, over ? BIN_SCALE : LIFT_SCALE);
+    put(h.subject.el, dy, over ? BIN_SCALE : h.scale);
     const r = h.subject.el.getBoundingClientRect();
     h.tag.style.transform = `translate(${Math.max(2, r.left - 2)}px,${r.top - 11}px)`;
     h.tag.style.opacity = over ? '0' : '1';
@@ -256,8 +266,10 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
         { duration: 360, easing: 'ease' },
       );
     }
-    swallowTap();
+    /* The host picks the part by the page's own tap — so it is told first, and only then is the tap the finger's
+       release leaves behind swallowed. */
     host.onRefuse(subject, why);
+    swallowTap();
   };
 
   const lift = (x: number, y: number) => {
@@ -284,9 +296,9 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
     gap.setAttribute('data-scene-drag-gap', '');
     Object.assign(gap.style, {
       position: 'absolute',
-      left: `${r.left + win.scrollX}px`,
+      left: `${Math.max(r.left, LIFT_INSET_PX) + win.scrollX}px`,
       top: `${rows[at]!.top}px`,
-      width: `${r.width}px`,
+      width: `${Math.min(r.right, win.innerWidth - LIFT_INSET_PX) - Math.max(r.left, LIFT_INSET_PX)}px`,
       height: `${r.height}px`,
       boxSizing: 'border-box',
       border: GAP_LINE,
@@ -320,7 +332,14 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
     el.style.borderRadius = ROUND;
     el.style.boxShadow = LIFT_SHADOW;
     doc.documentElement.setAttribute('data-scene-drag-held', '');
-    held = { subject, rows, names: subject.beside.map((b) => b.key), at, slot: at, between, gap, tag, x, y, grab: y - r.top, overBin: false, was, pid: p.pid };
+    const scale = r.width > 0 ? Math.min(LIFT_SCALE, (win.innerWidth - 2 * LIFT_INSET_PX) / r.width) : LIFT_SCALE;
+    held = { subject, rows, names: subject.beside.map((b) => b.key), at, slot: at, between, gap, tag, x, y, grab: y - r.top, scale, overBin: false, was, wore: new Map(), pid: p.pid };
+    /* A mouse press may have begun a selection: a held scene selects nothing. */
+    try {
+      win.getSelection()?.removeAllRanges();
+    } catch {
+      /* no selection to clear */
+    }
     try {
       /* A mouse may leave the frame (the bin's reach runs to its edge): the drag keeps hearing it. */
       el.ownerDocument.documentElement.setPointerCapture(p.pid);
@@ -346,19 +365,18 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
     doc.documentElement.removeAttribute('data-scene-drag-held');
   };
 
-  /** Everything back where the page laid it out. */
+  /** Everything back where the page laid it out — and wearing what it wore before it was slid. */
   const back = (h: Held, glides: boolean) => {
-    for (const { el } of h.subject.beside) {
-      if (el === h.subject.el) continue;
-      el.style.transition = glides ? glide() : 'none';
-      el.style.transform = '';
+    const moving = glides && !calm();
+    for (const [el, wore] of h.wore) {
+      el.style.transition = moving ? glide() : 'none';
+      el.style.transform = wore.transform;
     }
-    h.between.forEach((els) =>
-      els.forEach((el) => {
-        el.style.transition = glides ? glide() : 'none';
-        el.style.transform = '';
-      }),
-    );
+    const dress = () => {
+      for (const [el, wore] of h.wore) el.style.transition = wore.transition;
+    };
+    if (moving) win.setTimeout(dress, SCENE_GLIDE_MS + 20);
+    else win.requestAnimationFrame(dress);
   };
 
   const end = (cancel: boolean) => {
@@ -373,6 +391,7 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
       /* it was never captured */
     }
     swallowTap();
+    host.onRelease();
     const el = h.subject.el;
     const ms = calm() ? 0 : SCENE_GLIDE_MS;
     if (!cancel && h.overBin) {
@@ -490,9 +509,9 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
     if (!subject) return;
     const { clientX: x, clientY: y } = e;
     const touch = e.pointerType !== 'mouse';
-    pending = { subject, x, y, touch, pid: e.pointerId, timer: null };
+    pending = { subject, x, y, lx: x, ly: y, touch, pid: e.pointerId, timer: null };
     /* A finger HOLDS (the hold lifts where the finger is by then); a mouse lifts on its first real move. */
-    if (touch) pending.timer = win.setTimeout(() => lift(pending?.x ?? x, pending?.y ?? y), SCENE_HOLD_MS);
+    if (touch) pending.timer = win.setTimeout(() => lift(pending?.lx ?? x, pending?.ly ?? y), SCENE_HOLD_MS);
   };
 
   const onMove = (e: PointerEvent) => {
@@ -502,6 +521,10 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): { detach: (
       if (p.touch) {
         /* Moving before the hold ends is a scroll — let it be one. */
         if (moved > SCENE_SCROLL_PX) stopPending();
+        else {
+          p.lx = e.clientX;
+          p.ly = e.clientY;
+        }
         return;
       }
       if (moved > SCENE_MOUSE_LIFT_PX) {

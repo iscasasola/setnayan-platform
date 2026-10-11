@@ -104,3 +104,11 @@ export function setStageAnimatePhase(p: AnimatePhase): void {
   animatePhase = p;
   ping();
 }
+
+/**
+ * ✋ THE PART A HOLD ON THE PAGE PICKED (`scene-drag.tsx`) — by its canvas key. It is picked WHERE IT IS: the toolbar
+ * does not bring the page to its middle for this pick (`stage-tools.tsx` `centrePart`), because the page must stay
+ * still under the finger that holds a scene — and stay where a drop left it. Read once, then cleared by any other pick.
+ */
+export const stageStill: { key: string | null } = { key: null };
+

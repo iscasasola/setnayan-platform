@@ -194,7 +194,9 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
       if (button.disabled && tries++ < 10) return void window.setTimeout(press, 120);
       button.click();
     };
-    press();
+    /* Pressed in a task of its own — never inside this button's own click (a click made while React is still
+       handing one out is not handed out: measured in the lab, 2026-10-11 — the line cleared and nothing was undone). */
+    window.setTimeout(press, 0);
   };
 
   /* ── the canvas: the hold, the lift, the drop ── */
@@ -252,7 +254,7 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
       const bottom = Math.min(f.r.bottom, bar && bar.height > 0 ? bar.top : Infinity, lt && lt.height > 0 ? lt.top : Infinity);
       return { top: 0, bottom: (bottom - f.r.top) / f.k };
     },
-    onDrop: (subject, drop: SceneDrop) => {
+    onRelease: () => {
       /* The room at the page's end goes once the panel is BACK (never while the page is still taller on screen) —
          and only when taking it leaves the page where it is (`scenePadDone`); else at the first scroll that does. */
       const p = pad.current;
@@ -278,6 +280,8 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
       }
       setHeld(false);
       setOver(false);
+    },
+    onDrop: (subject, drop: SceneDrop) => {
       const step = (type: SceneStep['type']): SceneStep => ({ type, label: subject.label, key: subject.key });
       if (drop.kind === 'none') return;
       if (drop.kind === 'move') {
@@ -305,6 +309,7 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
       onRefuse: (s, w) => host.current!.onRefuse(s, w),
       onLift: (s) => host.current!.onLift(s),
       onBin: (o) => host.current!.onBin(o),
+      onRelease: () => host.current!.onRelease(),
       binBox: () => host.current!.binBox(),
       band: () => host.current!.band(),
       onDrop: (s, d) => host.current!.onDrop(s, d),
@@ -351,13 +356,13 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
             /* The prototype's `.bin`: a 64 px circle in the thumb zone, 30 px over the foot of the page (the guests'
                bar, where the stage has one), up only while a scene is lifted; red, larger and tilted under the finger. */
             className={`pointer-events-none absolute left-1/2 z-[27] grid h-16 w-16 place-items-center rounded-full motion-reduce:!transition-opacity lg:hidden ${
-              held && over
-                ? 'bg-[var(--sp-bad)] text-[rgb(var(--sn-on-accent))] shadow-[0_0_0_1.5px_var(--sp-bad),var(--m-shadow-md)]'
-                : 'bg-[var(--sp-paper)] text-[var(--sp-ink)] shadow-[0_0_0_1.5px_var(--sp-line2),var(--m-shadow-md)]'
+              held && over ? 'bg-[var(--sp-bad)] text-[rgb(var(--sn-on-accent))]' : 'bg-[var(--sp-paper)] text-[var(--sp-ink)]'
             } ${held ? 'opacity-100' : 'opacity-0'}`}
             style={{
               bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom) + var(--scene-bin-over, 30px))',
               transform: `translate(-50%, ${held ? 0 : 24}px) scale(${held ? (over ? 1.22 : 1) : 0.6})`,
+              /* Its line and its lift: the toolbar's own line, the app's own shadow — tokens, never a colour typed here. */
+              boxShadow: `0 0 0 1.5px var(${held && over ? '--sp-bad' : '--sp-line2'}), var(--m-shadow-md)`,
               transition: `transform ${SCENE_COLLAPSE_MS}ms ${SCENE_COLLAPSE_EASE}, opacity ${held ? SCENE_COLLAPSE_MS : SCENE_COLLAPSE_CALM_MS}ms ${SCENE_COLLAPSE_EASE}, bottom ${SCENE_COLLAPSE_MS}ms ${SCENE_COLLAPSE_EASE}, background-color 200ms ease, box-shadow 200ms ease`,
             }}
           >
@@ -390,7 +395,9 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
       ) : line.kind === 'removed' ? (
         <>
           <span className="min-w-0 truncate">{SCENE_DRAG_WORDS.removed(line.label)}</span>
-          <ActionButton tone="neutral" icon={Undo2} label={SCENE_DRAG_WORDS.undo} onClick={pressUndo} data-scene-undo="" className="!h-11 shrink-0" />
+          <span className="contents" data-scene-undo="">
+            <ActionButton tone="neutral" icon={Undo2} label={SCENE_DRAG_WORDS.undo} onClick={pressUndo} className="!h-11 shrink-0" />
+          </span>
         </>
       ) : (
         <span>{line.words}</span>

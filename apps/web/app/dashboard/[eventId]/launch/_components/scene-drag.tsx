@@ -1,0 +1,409 @@
+'use client';
+
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { Trash2, Undo2 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { makerSavesInFlight, makerSavesStarted } from '@/lib/maker-refresh';
+import { onMakerSave } from '@/lib/maker-save-status';
+import { CANVAS_SETTLE_TIMEOUT_MS, whenCanvasShowsIt, type CanvasSettle } from '@/lib/maker-settle';
+import {
+  SCENE_COLLAPSE_CALM_MS,
+  SCENE_COLLAPSE_EASE,
+  SCENE_COLLAPSE_MS,
+  SCENE_DRAG_WORDS,
+  SCENE_STATUS_MS,
+  sceneHeldSaveDone,
+  sceneLiftAllowed,
+  scenePadDone,
+  type SceneBox,
+} from '@/lib/maker-scene-drag';
+import { attachSceneDrag, type SceneDragHost, type SceneDragSubject, type SceneDrop } from './scene-canvas-drag';
+
+/**
+ * ✋ 🗑 THE DRAG, ON THE MAKER'S SIDE (owner 2026-10-11, DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT
+ * ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN"; approved prototype `prototypes/maker_drag_scenes_2026-10-11.html`).
+ *
+ * The scene itself is held in the canvas's own document (`scene-canvas-drag.ts`). What is the MAKER'S is here:
+ *
+ *   THE BIN       comes up in the thumb zone while a scene is lifted — "Drop here to remove" — and goes with it.
+ *   THE COLLAPSE  `held` is true from the lift to the release: whoever holds the lower third slides it away so the
+ *                 whole page shows, and back (`SCENE_COLLAPSE_MS`, `SCENE_COLLAPSE_EASE` — both motions seen; a
+ *                 short fade under Reduce Motion). The page keeps its place: it is given room at its end for as
+ *                 long as it is taller, and the room goes only once the panel is back (`scenePadDone`).
+ *   THE LINE      under the tools (the toolbar's row 4, where Earlier · Later · Remove stood): "Saving…" from the
+ *                 drop until the page shows it; "<Scene> removed" beside Undo; "That did not save. Nothing changed —
+ *                 please try again." after the scene has slid back; why a part keeps its place.
+ *   ↺             the Maker's own Undo, one press: the line's Undo button PRESSES it (never a second door to the
+ *                 draft), and whichever way it was pressed the line says "Move undone" / "<Scene> is back" — only
+ *                 when the step it took back is the one made here (no other save since).
+ *
+ * 🔒 NOTHING HERE WRITES. Every move and every remove is the work area's own, handed in (`drop`, `remove` —
+ * `add-part-sheet.tsx`); this file waits for how each ended and says it.
+ *
+ * In the lazy Stages chunk: none of it is in the Maker's first load, none of it in a guest's page.
+ */
+
+/** A step of the drag's (or of its menu): what the line says of it, and what ↺ would take back. */
+export type SceneStep = { type: 'move' | 'remove'; label: string; key: string | null };
+
+export type SceneDragInput = {
+  /** The stage's own canvas is on show and takes a hold. */
+  on: boolean;
+  /** The frame the stage's page is drawn in. */
+  frameSel: string;
+  /** A press is still on its way to the page — no second lift. */
+  working: boolean;
+  /** A sheet or a menu of the part's is open — the press is not the drag's. */
+  sheetOpen: boolean;
+  subject: (target: Element, doc: Document) => SceneDragSubject | null;
+  /** Why a part keeps its place. */
+  why: (subject: SceneDragSubject) => string;
+  /** What is said of a hold while the page is still catching up. */
+  busyWhy: string;
+  /** Held (or lifted): it is the picked part. */
+  pick: (subject: SceneDragSubject) => void;
+  /** Land it beside `target` — ONE order write. Null: nothing to write. */
+  drop: (subject: SceneDragSubject, target: string, where: 'above' | 'below') => Promise<CanvasSettle> | null;
+  /** Off the page. 'asking': a scene of their own — its Delete sheet is open and nothing has gone. Null: it stays. */
+  remove: (subject: SceneDragSubject) => 'asking' | Promise<CanvasSettle> | null;
+  /** ↺ took one of these steps back, and the page shows it. */
+  undone: (step: SceneStep) => void;
+};
+
+export type SceneDragNow = {
+  held: boolean;
+  /** The bin — portalled onto the Maker's shell. */
+  node: ReactNode;
+  /** The line under the tools; null when it has nothing to say. */
+  status: ReactNode;
+  /** Which saying it is — a new number each time the line speaks; null with nothing to say. */
+  statusKey: number | null;
+  say: (words: string) => void;
+  /** A step made without a drag (the tag's menu): the line follows it the same way. */
+  run: (step: SceneStep, done: Promise<CanvasSettle>, revert?: () => void) => void;
+};
+
+type LineBody = { kind: 'saving' } | { kind: 'words'; words: string; err: boolean } | { kind: 'removed'; label: string };
+type Line = LineBody & { n: number };
+
+/** The Maker's own Undo, in its top bar (`hub-draft-button.tsx` names it: `data-bar-item`, `aria-label`). */
+const UNDO_BUTTON = '[data-maker-shell] button[data-bar-item="Undo"], [data-maker-shell] button[aria-label="Undo"]';
+
+/**
+ * A HELD save (the bridge already drew it — no reload follows, so there is no new page to wait for): done when the
+ * save this press started has answered (`sceneHeldSaveDone`); 'failed' the moment the Maker says it was refused.
+ * Call it AT the press.
+ */
+export function heldSaveWatch(timeoutMs: number = CANVAS_SETTLE_TIMEOUT_MS): Promise<CanvasSettle> {
+  if (typeof window === 'undefined') return Promise.resolve('shown');
+  const from = makerSavesStarted();
+  return new Promise<CanvasSettle>((resolve) => {
+    const began = Date.now();
+    let over = false;
+    const end = (how: CanvasSettle) => {
+      if (over) return;
+      over = true;
+      window.clearInterval(tick);
+      off();
+      resolve(how);
+    };
+    const off = onMakerSave((s) => {
+      if (s.state === 'error') end('failed');
+    });
+    const tick = window.setInterval(() => {
+      if (sceneHeldSaveDone(from, { started: makerSavesStarted(), inFlight: makerSavesInFlight() })) end('shown');
+      else if (Date.now() - began > timeoutMs) end('timeout');
+    }, 120);
+  });
+}
+
+export function useSceneDrag(input: SceneDragInput): SceneDragNow {
+  const now = useRef(input);
+  now.current = input;
+  const [held, setHeld] = useState(false);
+  const [over, setOver] = useState(false);
+  const [line, setLine] = useState<Line | null>(null);
+  const lineN = useRef(0);
+  const binRef = useRef<HTMLDivElement>(null);
+  /** The last step made here that ↺ would take back — with the count of the Maker's saves when it landed. */
+  const last = useRef<(SceneStep & { saves: number }) | null>(null);
+  /** The save the line is waiting for. */
+  const saving = useRef(false);
+
+  const put = useCallback((next: LineBody | null) => {
+    lineN.current += 1;
+    setLine(next ? { ...next, n: lineN.current } : null);
+  }, []);
+  const say = useCallback((words: string, err = false) => put(words ? { kind: 'words', words, err } : null), [put]);
+  /* A line that is not kept leaves by itself (the prototype's `say`: Saving… and "<Scene> removed" · Undo stay). */
+  useEffect(() => {
+    if (line?.kind !== 'words') return;
+    const n = line.n;
+    const id = window.setTimeout(() => setLine((l) => (l?.n === n ? null : l)), SCENE_STATUS_MS);
+    return () => window.clearTimeout(id);
+  }, [line]);
+
+  const run = useCallback(
+    (step: SceneStep, done: Promise<CanvasSettle>, revert?: () => void) => {
+      saving.current = true;
+      put({ kind: 'saving' });
+      void done.then((how) => {
+        saving.current = false;
+        if (how === 'failed') {
+          /* The scene slides back, THEN the honest line. */
+          revert?.();
+          last.current = null;
+          return say(SCENE_DRAG_WORDS.failed, true);
+        }
+        /* A page that never came says nothing it cannot show. */
+        if (how === 'timeout') return put(null);
+        last.current = { ...step, saves: makerSavesStarted() };
+        put(step.type === 'remove' ? { kind: 'removed', label: step.label } : null);
+      });
+    },
+    [put, say],
+  );
+
+  /* ── ↺ the Maker's own Undo: when it takes back the step made here, the line says so once the page shows it ── */
+  useEffect(() => {
+    const onUndo = (e: MouseEvent) => {
+      const button = (e.target as Element | null)?.closest?.(UNDO_BUTTON) as HTMLButtonElement | null;
+      const step = last.current;
+      if (!button || button.disabled || !step) return;
+      last.current = null;
+      /* Something else was saved since: ↺ takes THAT back, and this line has nothing true to say of it. */
+      if (step.saves !== makerSavesStarted()) return;
+      put(null);
+      void whenCanvasShowsIt().then((how) => {
+        if (how !== 'shown') return;
+        say(step.type === 'remove' ? SCENE_DRAG_WORDS.back(step.label) : SCENE_DRAG_WORDS.moveUndone);
+        now.current.undone(step);
+      });
+    };
+    document.addEventListener('click', onUndo, true);
+    return () => document.removeEventListener('click', onUndo, true);
+  }, [put, say]);
+  /** The line's Undo PRESSES the Maker's own (one door to the draft; its busy rule and its reload are that button's). */
+  const pressUndo = () => {
+    let tries = 0;
+    const press = () => {
+      const button = document.querySelector<HTMLButtonElement>(UNDO_BUTTON);
+      if (!button) return;
+      /* The count that enables it comes back with the save — a moment after the line could be pressed. */
+      if (button.disabled && tries++ < 10) return void window.setTimeout(press, 120);
+      button.click();
+    };
+    press();
+  };
+
+  /* ── the canvas: the hold, the lift, the drop ── */
+  const pad = useRef<{ doc: Document; base: string; extra: number; off: () => void } | null>(null);
+  /** The frame's box on the screen, and how much it is scaled. */
+  const frameNow = () => {
+    const frame = document.querySelector<HTMLIFrameElement>(now.current.frameSel);
+    if (!frame) return null;
+    const r = frame.getBoundingClientRect();
+    return { frame, r, k: frame.clientWidth > 0 ? r.width / frame.clientWidth : 1 };
+  };
+  const host = useRef<SceneDragHost | null>(null);
+  host.current = {
+    subject: (target) => now.current.subject(target, target.ownerDocument),
+    verdict: () => sceneLiftAllowed({ working: now.current.working || saving.current, away: !now.current.on, sheetOpen: now.current.sheetOpen }),
+    onRefuse: (subject, why) => {
+      if (why === 'busy') return say(now.current.busyWhy);
+      now.current.pick(subject);
+      say(now.current.why(subject));
+    },
+    onLift: (subject) => {
+      /* The page is about to be taller on screen by the lower third's height: it is given that much room at its end
+         FIRST, so its place cannot be pulled from under the finger when it grows. */
+      const f = frameNow();
+      const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
+      const doc = subject.el.ownerDocument;
+      const win = doc.defaultView;
+      if (f && lt && win && lt.height > 0) {
+        /* (A room still waiting from the last hold is taken first — it is measured afresh.) */
+        pad.current?.off();
+        const base = doc.body.style.paddingBottom;
+        const had = Number.parseFloat(win.getComputedStyle(doc.body).paddingBottom) || 0;
+        const extra = Math.ceil(lt.height / f.k);
+        doc.body.style.paddingBottom = `${had + extra}px`;
+        pad.current = { doc, base, extra, off: () => {} };
+      }
+      put(null);
+      setOver(false);
+      setHeld(true);
+      now.current.pick(subject);
+    },
+    onBin: (on) => setOver(on),
+    binBox: (): SceneBox | null => {
+      const f = frameNow();
+      const b = binRef.current?.getBoundingClientRect();
+      if (!f || !b || b.width === 0) return null;
+      return { left: (b.left - f.r.left) / f.k, right: (b.right - f.r.left) / f.k, top: (b.top - f.r.top) / f.k, bottom: (b.bottom - f.r.top) / f.k };
+    },
+    band: () => {
+      const f = frameNow();
+      if (!f) return { top: 0, bottom: 0 };
+      /* The page ends where the guests' bar begins (it lies over the frame's foot), or at the lower third. */
+      const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
+      const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
+      const bottom = Math.min(f.r.bottom, bar && bar.height > 0 ? bar.top : Infinity, lt && lt.height > 0 ? lt.top : Infinity);
+      return { top: 0, bottom: (bottom - f.r.top) / f.k };
+    },
+    onDrop: (subject, drop: SceneDrop) => {
+      /* The room at the page's end goes once the panel is BACK (never while the page is still taller on screen) —
+         and only when taking it leaves the page where it is (`scenePadDone`); else at the first scroll that does. */
+      const p = pad.current;
+      const win = p?.doc.defaultView;
+      if (p && win) {
+        const root = p.doc.scrollingElement ?? p.doc.documentElement;
+        const take = () => {
+          if (!scenePadDone(win.scrollY, root.scrollHeight, win.innerHeight, p.extra)) return false;
+          p.doc.body.style.paddingBottom = p.base;
+          return true;
+        };
+        const onScroll = () => {
+          if (take()) win.removeEventListener('scroll', onScroll);
+        };
+        const timer = win.setTimeout(() => {
+          if (!take()) win.addEventListener('scroll', onScroll, { passive: true });
+        }, SCENE_COLLAPSE_MS + 80);
+        p.off = () => {
+          win.clearTimeout(timer);
+          win.removeEventListener('scroll', onScroll);
+          p.doc.body.style.paddingBottom = p.base;
+        };
+      }
+      setHeld(false);
+      setOver(false);
+      const step = (type: SceneStep['type']): SceneStep => ({ type, label: subject.label, key: subject.key });
+      if (drop.kind === 'none') return;
+      if (drop.kind === 'move') {
+        const done = now.current.drop(subject, drop.target, drop.where);
+        if (!done) return drop.revert();
+        return run(step('move'), done, drop.revert);
+      }
+      const done = now.current.remove(subject);
+      if (!done || done === 'asking') return drop.restore();
+      drop.gone();
+      run(step('remove'), done, drop.restore);
+    },
+  };
+  /* The engine is wired to the canvas ON SHOW — and again to each page a reload brings (a reload always mounts a new
+     frame; the old document, and whatever a drop left slid on it, goes with it). */
+  const on = input.on;
+  const frameSel = input.frameSel;
+  useEffect(() => {
+    if (!on) return;
+    let doc: Document | null = null;
+    let wired: ReturnType<typeof attachSceneDrag> | null = null;
+    const through: SceneDragHost = {
+      subject: (t) => host.current!.subject(t),
+      verdict: () => host.current!.verdict(),
+      onRefuse: (s, w) => host.current!.onRefuse(s, w),
+      onLift: (s) => host.current!.onLift(s),
+      onBin: (o) => host.current!.onBin(o),
+      binBox: () => host.current!.binBox(),
+      band: () => host.current!.band(),
+      onDrop: (s, d) => host.current!.onDrop(s, d),
+    };
+    const look = () => {
+      let next: Document | null = null;
+      try {
+        next = document.querySelector<HTMLIFrameElement>(frameSel)?.contentDocument ?? null;
+      } catch {
+        next = null;
+      }
+      /* A page still arriving has no parts to hold yet. */
+      if (next && (next.readyState === 'loading' || !next.body || !next.querySelector('[data-maker-section]'))) next = null;
+      if (next === doc) return;
+      wired?.detach();
+      wired = null;
+      doc = next;
+      if (next) wired = attachSceneDrag(next, through);
+    };
+    look();
+    const id = window.setInterval(look, 250);
+    return () => {
+      window.clearInterval(id);
+      wired?.detach();
+      setHeld(false);
+      setOver(false);
+    };
+  }, [on, frameSel]);
+  useEffect(() => () => pad.current?.off(), []);
+
+  /* The bin stands on the Maker's shell, over the foot of the page (found once the hook is on the page — the first
+     render in the browser is the server's: `the-maker-first-render-is-the-servers.test.ts`). */
+  const [shell, setShell] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => setShell(document.querySelector<HTMLElement>('[data-maker-shell]')), []);
+  /* …and the shell says a scene is held, for the rules that ride the collapse (the guests' bar, the work area's tool). */
+  useEffect(() => {
+    if (!shell || !held) return;
+    shell.setAttribute('data-scene-held', '');
+    return () => shell.removeAttribute('data-scene-held');
+  }, [shell, held]);
+
+  const node =
+    shell && on
+      ? createPortal(
+          <div
+            ref={binRef}
+            data-scene-bin=""
+            data-scene-bin-up={held ? '' : undefined}
+            data-scene-bin-hot={held && over ? '' : undefined}
+            aria-hidden
+            /* The prototype's `.bin`: a 64 px circle in the thumb zone, 30 px over the foot of the page (the guests'
+               bar, where the stage has one), up only while a scene is lifted; red, larger and tilted under the finger. */
+            className={`pointer-events-none absolute left-1/2 z-[27] grid h-16 w-16 place-items-center rounded-full motion-reduce:!transition-opacity lg:hidden ${
+              held && over
+                ? 'bg-[var(--sp-bad)] text-[rgb(var(--sn-on-accent))] shadow-[0_0_0_1.5px_var(--sp-bad),var(--m-shadow-md)]'
+                : 'bg-[var(--sp-paper)] text-[var(--sp-ink)] shadow-[0_0_0_1.5px_var(--sp-line2),var(--m-shadow-md)]'
+            } ${held ? 'opacity-100' : 'opacity-0'}`}
+            style={{
+              bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom) + var(--scene-bin-over, 30px))',
+              transform: `translate(-50%, ${held ? 0 : 24}px) scale(${held ? (over ? 1.22 : 1) : 0.6})`,
+              transition: `transform ${SCENE_COLLAPSE_MS}ms ${SCENE_COLLAPSE_EASE}, opacity ${held ? SCENE_COLLAPSE_MS : SCENE_COLLAPSE_CALM_MS}ms ${SCENE_COLLAPSE_EASE}, bottom ${SCENE_COLLAPSE_MS}ms ${SCENE_COLLAPSE_EASE}, background-color 200ms ease, box-shadow 200ms ease`,
+            }}
+          >
+            <Trash2 aria-hidden className={`h-[26px] w-[26px] transition-transform duration-200 ${held && over ? '-rotate-12' : ''}`} strokeWidth={1.8} />
+            <span
+              data-scene-bin-word=""
+              className={`absolute -top-[30px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--sp-paper)] px-2.5 py-[3px] text-[12px] tracking-[0.02em] shadow-[var(--m-shadow-sm)] ${
+                held && over ? 'font-semibold text-[var(--sp-bad)]' : 'text-[var(--sp-ink)]'
+              }`}
+            >
+              {SCENE_DRAG_WORDS.bin}
+            </span>
+          </div>,
+          shell,
+        )
+      : null;
+
+  const status = line ? (
+    <div
+      data-scene-status={line.kind}
+      role={line.kind === 'words' && line.err ? 'alert' : 'status'}
+      aria-live="polite"
+      className={`flex w-full min-w-0 items-center justify-center gap-3 px-1 text-center text-[14px] leading-tight ${line.kind === 'words' && line.err ? 'text-[var(--sp-bad)]' : 'text-[var(--sp-ink2)]'}`}
+    >
+      {line.kind === 'saving' ? (
+        <>
+          <span aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-[var(--sp-line2)] border-t-[var(--sp-cta)] motion-reduce:animate-none" />
+          <span>{SCENE_DRAG_WORDS.saving}</span>
+        </>
+      ) : line.kind === 'removed' ? (
+        <>
+          <span className="min-w-0 truncate">{SCENE_DRAG_WORDS.removed(line.label)}</span>
+          <ActionButton tone="neutral" icon={Undo2} label={SCENE_DRAG_WORDS.undo} onClick={pressUndo} data-scene-undo="" className="!h-11 shrink-0" />
+        </>
+      ) : (
+        <span>{line.words}</span>
+      )}
+    </div>
+  ) : null;
+
+  return { held, node, status, statusKey: line?.n ?? null, say, run };
+}

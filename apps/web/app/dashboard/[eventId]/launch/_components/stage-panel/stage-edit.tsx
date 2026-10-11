@@ -1,8 +1,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import { QuietBar } from './kit';
@@ -21,16 +19,16 @@ import { orderPartWords, partWordsId, type PartWordsField } from './part-words';
  *             be done there. Example: Schedule, Love Story, Wedding March, Logo"*), its ONE door in row 1
  *             ("Open in Studio › Schedule"; the date and the place: "Change it in Suppliers") — `QuietBar`.
  *   row 2     on a Post Event scene: "Shown to guests", the one switch (`second`) — and then row 1 holds ONE text.
- *   row 4     ↑ Earlier · ↓ Later · Remove — ALWAYS the last row (owner: *"always set this as the last row"*), on
- *             every part: a part that cannot move or cannot be taken off keeps the button, grey (`waiting`), and a
- *             tap on a grey one says why.
+ *   row 4     THE LINE UNDER THE TOOLS — drawn by the toolbar itself, over this row (`stage-tools.tsx`
+ *             `data-stage-status`): "Saving…", "<Scene> removed" beside Undo, why a part keeps its place. It was
+ *             ↑ Earlier · ↓ Later · Remove (owner 2026-10-09: *"always set this as the last row"*) until a scene
+ *             could be held on the page and dragged, or dropped on the bin (owner 2026-10-11: *"what if we drag the
+ *             scene on the preview instead of having this"*); whoever cannot drag has the same three steps on the
+ *             picked part's name tag (`add-part-sheet.tsx` `PartMenuSheet`).
  *
- * The toolbar's OWN rows: nothing here is the work area's, so Edit is the same on every part. The moves are the
- * frame's own writes (`usePartEdits`, `add-part-sheet.tsx`) — one order write a step, the one confirm before a remove.
+ * The toolbar's OWN rows: nothing here is the work area's, so Edit is the same on every part.
  * No "Add" (owner: the ＋ on the page stays the way to add a part).
  */
-/** A button of the last row: a third of it, 44 px, its word never wrapped. */
-const EDIT_STEP = '!h-11 min-w-0 !flex-1 !px-2 [&>.lbl]:truncate';
 /** The grid row of each text — written out, so the stylesheet has them. */
 const WORDS_ROW = ['row-start-1', 'row-start-2', 'row-start-3'] as const;
 /** A typed row inside one of the four rows: the template's own line, at the row's 44 px while it is shut. */
@@ -43,17 +41,8 @@ export function StageEdit({
   tapped,
   onType,
   onKeep,
-  earlier,
-  later,
-  remove,
-  removeWord,
-  why,
-  onWhy,
-  working = null,
   second = null,
 }: {
-  /** ⏳ The step whose press is still on its way to the page (`add-part-sheet.tsx` `settle`) — it shows it is working. */
-  working?: 'earlier' | 'later' | 'add' | null;
   /**
    * 🎞 A part's ONE simple setting, in row 2 (owner: *"same goes to simple edits"*) — a Post Event scene's "Shown to
    * guests" switch (`post-event-shown.tsx`; it places itself). Such a part shows ONE text in row 1 — the one last
@@ -68,15 +57,6 @@ export function StageEdit({
   onType: (field: PartWordsField, text: string) => void;
   /** Keep the words: the ONE draft write. */
   onKeep: (field: PartWordsField, text: string) => Promise<{ ok: true } | { ok: false; error: string }>;
-  /** One place earlier / later on the page — null: nowhere to go (the button is grey). */
-  earlier: (() => void) | null;
-  later: (() => void) | null;
-  /** Ask to take the part off (it asks first) — null: a part that stays (the button is grey). */
-  remove: (() => void) | null;
-  removeWord: string;
-  /** Why a grey step cannot, by step — said when it is tapped (never a dead tap). */
-  why: { earlier: string; later: string; remove: string };
-  onWhy: (words: string) => void;
 }) {
   const shown = orderPartWords(fields, tapped).slice(0, second ? 1 : WORDS_ROW.length);
   return (
@@ -104,21 +84,6 @@ export function StageEdit({
         </div>
       )}
       {second}
-      <div className={`${SP_ROWS_ROW} row-start-4`} data-stage-edit-row="place" aria-busy={working ? true : undefined} data-working={working ?? undefined}>
-        {/* A step with nowhere to go is still a button — grey, its pill kept (`waiting`, the approved gallery § 9: "a
-            button that cannot be used yet is grey") — and a tap on it says why (its own press does nothing; the tap
-            is heard on the wrapper, which draws nothing). A live step is the neutral button: ink on the toolbar's
-            ground; Remove is the danger tone, red word and line. */}
-        <span className="contents" data-stage-edit-step="earlier" aria-busy={working === 'earlier' || undefined} onClick={earlier ? undefined : () => onWhy(why.earlier)}>
-          <ActionButton tone="neutral" icon={ArrowUp} label="Earlier" waiting={!earlier} onClick={earlier ?? undefined} className={working === 'earlier' ? `${EDIT_STEP} animate-pulse` : EDIT_STEP} />
-        </span>
-        <span className="contents" data-stage-edit-step="later" aria-busy={working === 'later' || undefined} onClick={later ? undefined : () => onWhy(why.later)}>
-          <ActionButton tone="neutral" icon={ArrowDown} label="Later" waiting={!later} onClick={later ?? undefined} className={working === 'later' ? `${EDIT_STEP} animate-pulse` : EDIT_STEP} />
-        </span>
-        <span className="contents" data-stage-edit-step="remove" onClick={remove ? undefined : () => onWhy(why.remove)}>
-          <ActionButton tone="danger" icon={Trash2} label={removeWord} waiting={!remove} onClick={remove ?? undefined} className={EDIT_STEP} />
-        </span>
-      </div>
     </div>
   );
 }

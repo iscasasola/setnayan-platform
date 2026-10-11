@@ -44,10 +44,9 @@ import { SceneTemplatePicker } from '../../website/editor/_components/scene-temp
 import { MakerSheet } from './stages-studio-parts';
 import { PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, ownScenePlaceOrder } from '@/lib/own-scene-place';
 import { MakerRevealStageContext } from './maker-reveal';
-import { stageStill } from './stage-panel/store';
 import { MAKER_PART_OPS_EVENT, type MakerPartOps, type MakerPartRaw } from './maker-part-ops';
 import type { SceneDragSubject } from './scene-canvas-drag';
-import { heldSaveWatch, useSceneDrag } from './scene-drag';
+import { heldSaveWatch, stageStill, useSceneDrag } from './scene-drag';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { useMaker } from './maker-context';
 

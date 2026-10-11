@@ -44,6 +44,14 @@ import { attachSceneDrag, type SceneDragHost, type SceneDragSubject, type SceneD
  * In the lazy Stages chunk: none of it is in the Maker's first load, none of it in a guest's page.
  */
 
+/**
+ * ✋ THE PART A HOLD ON THE PAGE PICKED — by its canvas key. It is picked WHERE IT IS: the toolbar does not bring the
+ * page to its middle for this pick (`stage-tools.tsx` `centrePart`), because the page must stay still under the
+ * finger that holds a scene — and stay where a drop left it. Read once, then cleared by any other pick. (Kept in this
+ * file, which only the lazy Stages panel loads — never in a module the Maker's first load shares.)
+ */
+export const stageStill: { key: string | null } = { key: null };
+
 /** A step of the drag's (or of its menu): what the line says of it, and what ↺ would take back. */
 export type SceneStep = { type: 'move' | 'remove'; label: string; key: string | null };
 

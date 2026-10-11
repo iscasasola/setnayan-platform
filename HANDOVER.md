@@ -19,7 +19,7 @@ Report of the round before the join: head `efa2926b3` (see `changelog.d/rd-c-gue
    named like the lib's `stageShowsEntourage`; 3 pins re-aimed with reasons); the photos door const is `myPhotosHref`
    (so the screens map still sees the door); `lib/ugat/screens.generated.json` regenerated — 1 entry moved (`/[slug]`
    gains a redirect door from `seat/page.tsx`). `node scripts/preflight.mjs --only guards` → 43 pass.
-4. **Checks** — QUEUED/RUNNING in a detached script (scratchpad `c-join.sh` → `c-join.log`): `rm -rf apps/web/.next`
+4. **Checks** — FULL TSC rc 0 on head f727888e4 (`.next` removed first, 8192 MB). Sweep + preflight still QUEUED/RUNNING in a detached script (scratchpad `c-join.sh` → `c-join.log`): `rm -rf apps/web/.next`
    + full tsc (8192 MB) → `j-tsc.out`; sweep of 710 files (my tests + all 162 `app/[slug]` tests + Maker neighbours)
    → `j-sweep.out`; the WHOLE `pnpm preflight` → `j-preflight.out`. Each under its own hold of the heavy lock.
    If the scratchpad is gone, rerun by hand: from `apps/web`,

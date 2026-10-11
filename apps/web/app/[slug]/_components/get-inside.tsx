@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { UploadYourQr } from './upload-your-qr';
+import { FirstScreenDoor } from './first-screen-door';
 import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
 
 /**
@@ -27,6 +28,16 @@ import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
  *     the host picks 'I approve each one'"). A press, not the render: a page
  *     render may not write the guest cookie (lib/guest-membership-session.ts).
  *
+ * 🚪 THE FIRST SCREEN MAKES ROOM FOR THE DOOR (2026-10-11). Measured on the live
+ * sample event: the button's own place is under the date, at y 715 — entirely
+ * below a 375 × 667 screen, and under the bottom bar at 375 × 812. A first cut
+ * docked it over the cover and it then sat on the couple's names or the date.
+ * So the button stays IN THE COVER'S FLOW and the cover makes room: its air
+ * closes up, its mark is drawn smaller, and — only if it must — whole parts of
+ * the cover move below the button, the link first and the names never
+ * (`_lib/first-screen-fit.ts` is the rule; `FirstScreenDoor` measures and
+ * writes it). `dock={false}` on the Maker's canvas, which is not a first screen.
+ *
  * 🔒 THIS IS THE DOOR, NOT THE GATE. What stays inside (camera, gallery,
  * announcements, seat, exact venue) is withheld by the SERVER before this page
  * renders — this button only says how to become someone it would render for.
@@ -38,7 +49,10 @@ export function GetInside({
   theOrganizer,
   mayAskToJoin = false,
   joinAction,
+  dock = true,
 }: {
+  /** Fit the first screen around the signed-out door (see above). */
+  dock?: boolean;
   /**
    * One QR for everyone, no approval (`oneQrLetsYouIn`, lib/rsvp-ask.ts): the
    * join door's own action, bound to this event by the page
@@ -97,7 +111,7 @@ export function GetInside({
   }
   const signIn = slug ? `/login?next=${encodeURIComponent(`/${slug}`)}` : '/login';
   const door = (
-    <details className="group mx-auto max-w-md" data-get-inside="door">
+    <details className={`group mx-auto max-w-md${dock ? ' sn-door-dock' : ''}`} data-get-inside="door">
       <summary className="button-primary flex min-h-[56px] w-full cursor-pointer list-none flex-col items-center justify-center gap-0.5 [&::-webkit-details-marker]:hidden">
         <span className="text-base">Get inside</span>
         {/* Names only what opens underneath (guest text audit 2026-09-30): the
@@ -107,6 +121,7 @@ export function GetInside({
       {/* The poster's door (owner 2026-09-27: "sign in to enter or upload your
           qr to login") — exactly two things: the guest's own QR, read on the
           phone, or their account. */}
+      {dock ? <FirstScreenDoor /> : null}
       <div className="mt-4 space-y-4">
         {slug ? <UploadYourQr slug={slug} /> : null}
         <Link

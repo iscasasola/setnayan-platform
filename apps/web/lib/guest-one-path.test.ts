@@ -230,7 +230,8 @@ test('4 · the callback and signUp ask the event question, not the 120-second cl
   assert.match(signup, /signupLanding\(\{ accountType, next, fromEvent \}\)/);
   // The connect route lands an unanswered guest AT the reply.
   const connect = read('app/join/[eventId]/connect/route.ts');
-  assert.match(connect, /dest = `\/\$\{slug\}\$\{REPLY_SHEET_HASH\}`/);
+  // 🔁 RE-AIMED 2026-10-11: AT the reply PAGE — the one reply form (it was the reply sheet's anchor).
+  assert.match(connect, /if \(slug && !thenReply && \(await seatAwaitsReply\(eventId, user\.id\)\)\) \{\s*dest = inviteReplyPath\(slug\);/);
   // The one Save's Google / Apple return through the connect route.
   const actions = read('app/[slug]/actions.ts');
   const save = actions.slice(actions.indexOf('export async function startAccountSaveAction'));

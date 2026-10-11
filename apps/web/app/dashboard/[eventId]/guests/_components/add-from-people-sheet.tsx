@@ -51,6 +51,7 @@ import {
 import { SIDE_LABELS, type GuestSide } from '@/lib/guests';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { useGuestActions } from './guest-actions-context';
+import { hearAction } from './hear-action';
 import { formatCount } from '@/lib/format-number';
 
 const OPEN_EVENT = 'setnayan:add-from-people-open';
@@ -224,10 +225,13 @@ export function AddFromPeopleSheet({
     if (pickedKeys.length === 0 || pending) return;
     setError(null);
     startTransition(async () => {
-      const res = await addGuestsFromPeople(
-        eventId,
-        pickedKeys.map((k) => ({ key: k })),
-        side,
+      // 🔌 `hearAction`: a failed request answers like a refusal — the sheet and the ticks stay, and it says so.
+      const res = await hearAction(() =>
+        addGuestsFromPeople(
+          eventId,
+          pickedKeys.map((k) => ({ key: k })),
+          side,
+        ),
       );
       if (!res.ok) {
         setError(plainRefusal(res.error, 'Couldn’t add them just now. Try again.'));

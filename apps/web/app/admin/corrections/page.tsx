@@ -307,7 +307,7 @@ function ShopAddressCorrection() {
               <input
                 name="new_slug"
                 required
-                pattern="[a-z0-9-]{3,32}"
+                pattern="[a-z0-9\-]{3,32}"
                 placeholder="banaweblooms"
                 className="input-field w-full font-mono text-sm"
               />

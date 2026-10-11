@@ -12,6 +12,7 @@ import { sanitizeStudioSvg, type StudioConfig, type StudioAnimKind } from '@/lib
 import { stashMonogramDraft } from '@/lib/monogram-studio/draft';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
+import { analyticsAllowed } from '@/lib/cookie-consent';
 
 /**
  * PublicMonogramStudio — the FREE, no-login Vector Monogram Studio on
@@ -76,6 +77,8 @@ async function rasterizeToPng(svg: string, longEdge = 1600): Promise<Blob | null
 /** Fire-and-forget analytics — no PII, never blocks the download. */
 function track(event: string, props?: Record<string, unknown>) {
   try {
+    // No yes, no analytics — and no SDK download either (`lib/cookie-consent.ts`).
+    if (!analyticsAllowed()) return;
     void import('posthog-js')
       .then((m) => {
         const ph = (m as { default?: { capture?: (e: string, p?: Record<string, unknown>) => void } }).default;

@@ -163,7 +163,7 @@ function HideableWidgetBody({
             Event details
           </p>
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Detail label="Date" value={formatEventDate(event.event_date) || '—'} />
+            <Detail label="Date" value={formatEventDate(event.event_date) || 'To be confirmed'} />
             {/* 🏛💒 One row per venue — "Ceremony" / "Reception" — when the page
                 loaded them (lib/event-venues.ts, withheld with the event). */}
             {event.venues?.length ? (

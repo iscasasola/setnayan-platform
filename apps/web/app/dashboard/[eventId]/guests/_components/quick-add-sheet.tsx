@@ -26,6 +26,7 @@ import {
 import { resolveRoleSet } from '@/lib/role-sets';
 import { SIDELESS_SIDE, eventHasSides } from '@/lib/guest-side-question';
 import { useGuestActions } from './guest-actions-context';
+import { hearAction } from './hear-action';
 import { parsePersonName } from '@/lib/person-name-parse';
 import { findDuplicates, norm, TAG } from '@/lib/guest-dedupe';
 import { SIDE_CONTROL_BORDER } from '@/lib/side-colors';
@@ -231,16 +232,20 @@ export function QuickAddSheet({
         // two boxes as one line so a title never lands in first_name, while a
         // plain "Bob" + "Casasola" is returned unchanged by the parser.
         const parts = parsePersonName(`${f} ${l}`.trim());
-        const res = await quickAddGuest(eventId, {
-          first_name: parts.firstName || f,
-          last_name: parts.lastName || l,
-          name_prefix: parts.prefix || null,
-          middle_name: parts.middleName || null,
-          name_suffix: parts.suffix || null,
-          side,
-          role,
-          group_id: groupId || null,
-        });
+        // 🔌 `hearAction`: a request that FAILED (offline, 5xx, a throw) answers like a refusal, so the sheet and the
+        // typed name stay and the line below is said — it used to replace the whole roster with the error screen.
+        const res = await hearAction(() =>
+          quickAddGuest(eventId, {
+            first_name: parts.firstName || f,
+            last_name: parts.lastName || l,
+            name_prefix: parts.prefix || null,
+            middle_name: parts.middleName || null,
+            name_suffix: parts.suffix || null,
+            side,
+            role,
+            group_id: groupId || null,
+          }),
+        );
         if (!res.ok) {
           setError(plainRefusal(res.error, 'Couldn’t save that. Try again.'));
           return;
@@ -296,7 +301,7 @@ export function QuickAddSheet({
     (g: ExistingGuest) => {
       setError(null);
       startTransition(async () => {
-        const res = await addRoleToGuest(eventId, g.guest_id, role);
+        const res = await hearAction(() => addRoleToGuest(eventId, g.guest_id, role));
         if (!res.ok) {
           setError(plainRefusal(res.error, 'Couldn’t save that. Try again.'));
           return;
@@ -317,7 +322,7 @@ export function QuickAddSheet({
     (g: ExistingGuest) => {
       setError(null);
       startTransition(async () => {
-        const res = await setGuestPrimaryRole(eventId, g.guest_id, role);
+        const res = await hearAction(() => setGuestPrimaryRole(eventId, g.guest_id, role));
         if (!res.ok) {
           setError(plainRefusal(res.error, 'Couldn’t save that. Try again.'));
           return;
@@ -361,7 +366,7 @@ export function QuickAddSheet({
     }
     setGroupError(null);
     startGroupTransition(async () => {
-      const res = await quickCreateGroup(eventId, label);
+      const res = await hearAction(() => quickCreateGroup(eventId, label));
       if (!res.ok) {
         setGroupError(plainRefusal(res.error, 'Couldn’t make that group. Try again.'));
         return;

@@ -70,7 +70,8 @@ async function door(studio: boolean, source: 'mark' | 'names' = 'mark') {
 }
 async function tools(kind: 'frame' | 'text' | 'image', over: Record<string, unknown> = {}, studio = true) {
   const { LayerTools } = await import(`../${LOGO}`);
-  const { frameBody, defaultMotion } = await import('./logo-layers');
+  const { defaultMotion } = await import('./logo-layers');
+  const { frameBody } = await import('./logo-layers-edit');
   const layer = {
     id: 'a1',
     kind,

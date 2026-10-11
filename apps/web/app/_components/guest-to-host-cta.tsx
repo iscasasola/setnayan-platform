@@ -16,6 +16,7 @@
 // Every capture is wrapped in try/catch — telemetry MUST NOT break the page.
 
 import { useEffect, useRef } from 'react';
+import { analyticsAllowed } from '@/lib/cookie-consent';
 
 type GuestToHostCtaProps = {
   /** Where on the guest page this CTA rendered, e.g. 'rsvp_confirmation'. */
@@ -30,6 +31,8 @@ type GuestToHostCtaProps = {
 
 async function capture(event: string, properties: Record<string, unknown>) {
   try {
+    // No yes, no analytics — and no SDK download either (`lib/cookie-consent.ts`).
+    if (!analyticsAllowed()) return;
     const ph = (await import('posthog-js')).default;
     ph.capture?.(event, properties);
   } catch {

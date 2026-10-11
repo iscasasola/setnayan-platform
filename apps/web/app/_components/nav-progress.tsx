@@ -17,9 +17,13 @@
  *
  * BEHAVIOUR
  *   - START on a navigation the user can perceive: a same-origin, path-changing
- *     <a> click (capture phase, before Next handles it) or a back/forward
- *     (popstate). Same-path hash/query changes and external / new-tab / download
- *     links are ignored.
+ *     <a> click (capture phase, before Next handles it) or a path-changing
+ *     back/forward (popstate). Same-path hash/query changes and external /
+ *     new-tab / download links are ignored — BY BOTH DOORS, through the one
+ *     rule (`navStartsTheLine`, lib/nav-progress-rule.ts). Until 2026-10-11
+ *     only the click asked it: Back between two tabs of one page (`?tab=`)
+ *     started a line nothing could finish, and it crawled for the full ten
+ *     seconds over a page that was already drawn.
  *   - DEBOUNCED ~120ms: the bar only appears if the navigation actually takes a
  *     moment. With the staleTimes Router-Cache window, many revisits resolve
  *     in <120ms — those show NOTHING (no flash), which is the point.
@@ -34,11 +38,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { navStartsTheLine } from '@/lib/nav-progress-rule';
 
 export function NavProgress() {
   const pathname = usePathname();
   // null = hidden; a number 0-100 = visible at that width %.
   const [width, setWidth] = useState<number | null>(null);
+  // The pathname the page is showing — what a Back / Forward is measured from.
+  const last = useRef(pathname);
 
   // Mutable timer/handles + a "did the bar actually show" flag, kept in a ref
   // so the start/finish helpers don't need to live in React state.
@@ -116,10 +123,13 @@ export function NavProgress() {
       if (url.origin !== window.location.origin) return;
       // Only path-changing navigations — same-path hash/query changes resolve
       // without a usePathname() change, so they'd never "complete" the bar.
-      if (url.pathname === window.location.pathname) return;
+      if (!navStartsTheLine(window.location.pathname, url.pathname)) return;
       begin();
     }
     function onPopState() {
+      // The address has already moved; the page still shows `last.current`.
+      // Back between two tabs of one page changes no pathname — no line.
+      if (!navStartsTheLine(last.current, window.location.pathname)) return;
       begin();
     }
     document.addEventListener('click', onClick, { capture: true });
@@ -135,7 +145,6 @@ export function NavProgress() {
   }, []);
 
   // COMPLETE trigger: the pathname changed → the new route has rendered.
-  const last = useRef(pathname);
   useEffect(() => {
     if (last.current !== pathname) {
       last.current = pathname;

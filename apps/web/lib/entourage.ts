@@ -1197,6 +1197,25 @@ function pairUp(people: readonly EntouragePerson[], sides: GroupSpec['sides']): 
 }
 
 /**
+ * "ALSO COMING" MEANS THEY SAID YES.
+ *
+ * A guest's walk, 2026-10-11 (fault N19): the page's "Also coming" list was
+ * every plain guest ON THE LIST — people who had not replied, people who had
+ * declined, and the reader themself before they had answered. A name under
+ * "coming" is a statement about that person, and the only one who can make it
+ * is the person: their own yes (`guests.rsvp_status = 'attending'`). Not
+ * replied, maybe and declined are not "coming".
+ *
+ * Pure, and the caller's read asks for the one extra column itself
+ * (`${ENTOURAGE_COLUMNS}, rsvp_status`) — see the "DO NOT WIDEN" note above.
+ * WHO may read these names at all is still the 2026-09-15 ruling and still the
+ * page's gate (`plainGuestNames` below): this only decides WHICH names.
+ */
+export function guestsWhoSaidYes<T extends { rsvp_status?: string | null }>(rows: readonly T[]): T[] {
+  return rows.filter((r) => r.rsvp_status === 'attending');
+}
+
+/**
  * THE GUESTS WHO HOLD NO ROLE — the other half of "everyone who will be there".
  *
  * ⚖ OWNER 2026-09-15, asked who may read these names: **guests and hosts only.**

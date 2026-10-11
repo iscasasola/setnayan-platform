@@ -53,7 +53,8 @@ test('1–2 · one control into the reply sheet, and never a Yes / No button, in
     const { html } = await cardFor(s);
     assert.ok(html, `${s}: no card`);
     assert.equal(controls(html).length, 1, `${s}: ${controls(html).length} controls in the card`);
-    assert.match(html, /href="\/ana-ben#your-details"/, `${s}: the card does not open the reply sheet`);
+    // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
+    assert.match(html, /href="\/ana-ben\/invite\/reply"/, `${s}: the card does not open the reply page`);
     assert.doesNotMatch(html, YES_NO, `${s}: the card draws a Yes / No answer`);
     assert.doesNotMatch(html, /<form|type="radio"|<button/, `${s}: the card is a form`);
   }

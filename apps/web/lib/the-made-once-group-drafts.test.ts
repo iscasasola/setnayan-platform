@@ -32,7 +32,8 @@ const FILES = [PANELS, `${DIR}/maker-reveal.tsx`, `${DIR}/maker-logo.tsx`];
 
 test('every form in the made-once panels posts to the draft', () => {
   const src = read(PANELS);
-  const forms = src.split(/<form\b/).slice(1);
+  /* `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings. */
+  const forms = src.split(/<(?:form|SafeForm)\b/).slice(1);
   console.log(`[made-once] forms in ${PANELS}: ${forms.length}`);
   assert.ok(forms.length >= 2, 'anti-vacuity: the hero upload and its removal are forms');
   for (const f of forms) {

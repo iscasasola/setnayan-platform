@@ -109,17 +109,19 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
   useEffect(() => {
     if (!isPostHogConfigured()) return;
     if (consentReady) return;
-    let cancelled = false;
-    void loadPostHog().then((client) => {
-      if (cancelled || !client) return;
-      if (!isLoaded(client)) return; // never initialized ⇒ nothing to stop
-      client.opt_out_capturing();
-      client.reset();
-      lastIdentifiedRef.current = undefined;
-    });
-    return () => {
-      cancelled = true;
-    };
+    /* 🔒 NEVER LOAD THE SDK IN ORDER TO SWITCH IT OFF (2026-10-11). This effect
+       used to call `loadPostHog()` here — and `consentReady` starts false, so
+       every visitor who had NOT said yes downloaded the analytics SDK on their
+       first render, only for this to find it was never started. Nothing was
+       captured, but "optional" code was loading before any yes. The module is
+       in hand already whenever there is anything to stop: it is only ever
+       started after a yes, in this same session. A grant still in flight is
+       cancelled by its own effect's cleanup and never starts. */
+    const client = posthogModule;
+    if (!client || !isLoaded(client)) return; // never started ⇒ nothing to stop
+    client.opt_out_capturing();
+    client.reset();
+    lastIdentifiedRef.current = undefined;
   }, [consentReady]);
 
   // Init once consent is granted. The library guards against double-init

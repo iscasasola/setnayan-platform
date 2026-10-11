@@ -3218,7 +3218,16 @@ html.dark {
        ordinary page value when nothing pins it, exactly today's behaviour)
        fixes every such utility class inside a plate, current and future,
        without editing each widget. */
-    --color-ink: var(--color-ink-on-plate, var(--color-ink));
+    /* 🔴 THE FALLBACK IS `--color-ink-page`, NEVER `--color-ink` ITSELF (measured 2026-10-10, Chromium). This line
+       read `var(--color-ink-on-plate, var(--color-ink))`. A property that names itself is a cycle, and wherever
+       the browser REACHES that fallback the property becomes INVALID on the plate: the plate's border and its
+       printed inner frame compute to `none`, `text-ink/80` draws at full strength and `border-ink/15` draws a
+       full-ink line (words still read — they inherit the plate's `color`). WHERE IT SHOWED: only where nothing
+       pins `--color-ink-on-plate` — the Maker lab's guest pages, measured. A real guest page pins it (the look's
+       composed variables always carry it), so the fallback was never reached there: the live sample event's
+       plate measured ink `0 0 0`, edge and frame `solid` the same day. A latent fault, not a live one — but one
+       unpinned surface away from every plate. `.sn-editorial` carries the page's ink under the second name. */
+    --color-ink: var(--color-ink-on-plate, var(--color-ink-page));
     color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
@@ -3313,7 +3322,7 @@ html.dark {
        the reply card's own content paints with the `text-ink` utility, which
        reads the page ink directly and skips this rule's inherited `color:`. */
     position: relative;
-    --color-ink: var(--color-ink-on-plate, var(--color-ink));
+    --color-ink: var(--color-ink-on-plate, var(--color-ink-page));
     color: rgb(var(--color-ink-on-plate, var(--color-ink)));
     background: rgb(var(--color-paper-deep));
     border: 1px solid rgb(var(--color-ink) / 0.1);
@@ -3336,6 +3345,77 @@ html.dark {
     height: 0;
   }
 } /* @layer components — Pahina foundation */
+
+/* ── 🚪 THE FIRST SCREEN MAKES ROOM FOR ITS ONE ACTION (2026-10-11) ──────────
+   Measured on the live sample event: a stranger's one button, "Get inside",
+   has its place under the date at y 715 — entirely below a 375 × 667 screen,
+   and under the bottom bar at 375 × 812 (32 of its 56 px showing). A first cut
+   docked the button OVER the cover; re-measured, it sat on the couple's names
+   or the date in 5 of 8 first screens.
+
+   So nothing floats. The button is in the cover's flow and the cover makes
+   room for it — `app/[slug]/_lib/first-screen-fit.ts` is the rule (air first,
+   then the mark smaller, then whole parts below the button; the names never),
+   `first-screen-door.tsx` measures the page and writes the plan as:
+
+     · `--fs-air`   1 → 0 on the first-screen block: how much of the cover's own
+                    air is kept (its padding, the mark's margin, the gap above
+                    the button, and 1.5rem of the column's top padding);
+     · `--fs-mark`  1 → 0.55: the mark's box and its drawing, together;
+     · `--fs-shift` on each block that moves: it is drawn that far from its own
+                    place. The page's flow is untouched, so nothing after the
+                    cover moves, and no block is ever drawn on another.
+
+   With no plan written every value below is exactly the utility it stands in
+   for (pt-8 · pb-7 · mt-5 · h-[9.5rem] · scale-[1.85] · the row's 1.5rem), so a
+   screen the cover already fits — and every page without the script — is
+   untouched.
+
+   `.sn-door-row` is the row the button sits in (`site-body.tsx`): no box of its
+   own, its two margins the `space-y-6` / `space-y-4` it replaced, at the same
+   weight. `--sn-door-rest` is the guest page's "clear of the bottom bar" offset
+   (4.75rem + the safe area; from `xl` the bar is a side rail) — the fit's limit,
+   and where an opened door is scrolled to (`scroll-margin-bottom`).
+   `app/_components/the-first-screen-keeps-its-action.test.ts` holds all of it. */
+@layer components {
+  .sn-door-row {
+    display: contents;
+  }
+  :not([hidden]) ~ .sn-door-row > :first-child {
+    margin-top: calc(0.75rem + 0.75rem * var(--fs-air, 1));
+  }
+  .sn-door-row > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1rem;
+  }
+  .sn-door-dock {
+    --sn-door-rest: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    scroll-margin-bottom: var(--sn-door-rest);
+  }
+  @media (min-width: 1280px) {
+    .sn-door-dock {
+      --sn-door-rest: 1rem;
+    }
+  }
+  [data-first-screen-fit] {
+    margin-top: calc(-1.5rem * (1 - var(--fs-air, 1)));
+  }
+  [data-first-screen-fit] [data-cover-frameless] > div {
+    padding-top: calc(0.5rem + 1.5rem * var(--fs-air, 1));
+    padding-bottom: calc(0.5rem + 1.25rem * var(--fs-air, 1));
+  }
+  [data-first-screen-fit] [data-cover-frameless] [data-motion='arrive-mark'] {
+    height: calc(9.5rem * var(--fs-mark, 1));
+    margin-top: calc(0.5rem + 0.75rem * var(--fs-air, 1));
+  }
+  [data-first-screen-fit] [data-cover-frameless] [data-motion='arrive-mark'] > div {
+    --tw-scale-x: calc(1.85 * var(--fs-mark, 1));
+    --tw-scale-y: calc(1.85 * var(--fs-mark, 1));
+  }
+  [data-first-screen-fit] [data-fs-shift] {
+    position: relative;
+    top: var(--fs-shift, 0px);
+  }
+}
 
 /* ── Candlelight art direction (wave A PR-5b, design spec §4) ────────────────
    The deliberate variation axis: ONE switch, two genuinely different-feeling
@@ -3725,6 +3805,36 @@ html.dark {
   --font-display: var(--font-editorial-display);
   --font-sans: var(--font-editorial-sans);
   --font-mono: var(--font-editorial-mono);
+  /* 🖋 THE PAGE'S OWN INK UNDER A SECOND NAME — what a plate falls back to when no look pins
+     `--color-ink-on-plate`. The plate rules shadow `--color-ink` for their subtree, and a custom property
+     cannot name ITSELF in its own value, not even as a fallback: the browser calls it a cycle and the
+     property becomes invalid on that element (see `.pahina-plate`). This element is where the page's ink is
+     set — the theme's `[data-hub-theme]` mapping and the look's inline variables sit on it
+     (`guest-look-scope.tsx`) — so the name resolves here, once, to the ink the page really wears. */
+  --color-ink-page: var(--color-ink);
+  /* 🖋 …AND THE PAGE'S GILD WORDS, the same way and for the same reason (2026-10-11). `text-gild` reads
+     `var(--color-gild-text, var(--color-gild))`; this is that answer under a second name, for the surfaces
+     below to fall back to. */
+  --color-gild-text-page: var(--color-gild-text, var(--color-gild));
+}
+
+/* 🟨 A SURFACE WITH A GROUND OF ITS OWN KEEPS A GILD WORD THAT READS ON *THAT* GROUND (2026-10-11).
+   A plate and a veil row are not the page: a couple's dark background leaves them as they were. The dark sample
+   event's "WHEN" label sits on its GOLD date card; once the words' gild followed the dark page it read 1.01 : 1
+   there. So each such surface shadows `--color-gild-text` for its subtree — the plate's own idiom for its ink,
+   above — with the look's value for THAT ground (`pinSurfaceWordInks`, `app/[slug]/_lib/pro-site-vars.ts`),
+   and the page's own value wherever no look pins one: exactly what it drew before.
+   The selectors are the ground-painting classes the guest components use; `lib/a-dark-look-keeps-its-words
+   .test.ts` (9) re-reads the components and fails when one paints a plate or a veil ROW this list does not
+   name. (The opaque `bg-veil` is a picture well — a map, a portrait — and holds no words.) */
+.sn-editorial :is(.pahina-plate, .pahina-deckle, .bg-paper-deep, .bg-paper-deep\/95) {
+  --color-gild-text: var(--color-gild-text-on-plate, var(--color-gild-text-page));
+}
+.sn-editorial .bg-veil\/60 {
+  --color-gild-text: var(--color-gild-text-on-veil-60, var(--color-gild-text-page));
+}
+.sn-editorial .bg-veil\/50 {
+  --color-gild-text: var(--color-gild-text-on-veil-50, var(--color-gild-text-page));
 }
 
 /* ── Event Hub theme MATERIALS (owner 2026-09-22) ────────────────────────────
@@ -4804,6 +4914,10 @@ html.dark {
  * "tap to edit" pointer on every section. Set and cleared by the bridge alone; no guest's page ever carries it. */
 html[data-maker-guest] [data-maker-empty] { display: none !important; }
 html[data-maker-guest] [data-setnayan-editor-bound] { cursor: auto !important; }
+/* 🎭 …and the Reveal's TILE (`stage-tools.tsx`, "Opens once, over the cover — then every page after it opens plain"):
+ * the Maker's own picture of the opening, put at the top of the page so it can be tapped. A guest's page never has
+ * it (the opening plays OVER the cover), and the preview opened on it (the walk of 2026-10-11, P10). */
+html[data-maker-guest] [data-maker-reveal-part] { display: none !important; }
 
 /* FROM THE CENTRE (`<Slider from="centre">` — a value that rests in the middle and goes both ways, Darker ↔ Lighter):
  * the accent runs from the middle of the line out to the knob, on whichever side it is; at rest nothing is filled. */
@@ -8345,23 +8459,34 @@ html [data-part-look="mark.between-rules"]::after { content: ''; height: 1px; wi
 html [data-part-look="mark.large"] { zoom: 1.3; }
 
 /* ── Title ── */
-html [data-part-look="eyebrow.serif"] {
+/* ⚖ EVERY TITLE LOOK NAMES ITS ATTRIBUTE TWICE (`[data-part-look="eyebrow.x"][data-part-look]`, specificity 0,2,1) —
+ * ON PURPOSE. On the PLAIN masthead (a cover photo or video, a stranger's banner, a solemn event) the Title is the
+ * page's eyebrow — `<p class="pahina-eyebrow">` — and the whole guest page stands inside `.sn-editorial`
+ * (`guest-look-scope.tsx`), where `.sn-editorial .pahina-eyebrow` (0,2,0) sets its face, size, spacing, caps, colour,
+ * `display` and a trailing hairline. Written once (0,1,1) every look LOST those to it: measured 2026-10-11 on the real
+ * guest page with a cover photo — Serif drew the shipped face unchanged (mono, 10.56 px, uppercase), The pill kept
+ * the eyebrow's dark ink on its orange ground, Flanked's right rule was the eyebrow's hairline. (The Card — the cover
+ * with no photo — writes its Title as utilities, and never lost anything: nothing changes there.)
+ * `lib/a-title-look-is-drawn-on-the-page.test.ts` holds the arithmetic. */
+html [data-part-look="eyebrow.serif"][data-part-look] {
   font-family: var(--font-pahina-display), Georgia, serif; text-transform: none; letter-spacing: 0.02em; font-size: 1.5rem; font-weight: 500; color: rgb(var(--color-ink));
 }
-html [data-part-look="eyebrow.flanked"] {
+html [data-part-look="eyebrow.flanked"][data-part-look] {
   display: inline-flex; align-items: center; gap: 0.55em; font-family: var(--font-pahina-display), Georgia, serif; font-style: italic;
   text-transform: none; letter-spacing: 0; font-size: 1.35rem; font-weight: 400; color: rgb(var(--color-ink) / 0.85);
 }
-html [data-part-look="eyebrow.flanked"]::before,
-html [data-part-look="eyebrow.flanked"]::after { content: ''; position: static; display: block; width: 1.6em; height: 1px; flex: none; background: rgb(var(--color-gild)); }
-html [data-part-look="eyebrow.ruled"] {
+html [data-part-look="eyebrow.flanked"][data-part-look]::before,
+html [data-part-look="eyebrow.flanked"][data-part-look]::after { content: ''; position: static; display: block; width: 1.6em; height: 1px; flex: none; background: rgb(var(--color-gild)); }
+html [data-part-look="eyebrow.ruled"][data-part-look] {
   display: inline-block; letter-spacing: 0.4em; padding: 0.75em 0.2em 0.75em 0.6em;
   border-top: 1px solid rgb(var(--color-gild) / 0.7); border-bottom: 1px solid rgb(var(--color-gild) / 0.7);
 }
-html [data-part-look="eyebrow.pill"] {
+html [data-part-look="eyebrow.pill"][data-part-look] {
   display: inline-block; border-radius: 9999px; padding: 0.6em 1.35em 0.6em 1.6em; letter-spacing: 0.32em;
   background: rgb(var(--color-mulberry)); color: rgb(var(--color-cream));
 }
+/* …and a look that is not the eyebrow's own shape drops the eyebrow's trailing hairline (Flanked draws its own two). */
+html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"])[data-part-look]::after { content: none; }
 html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.flanked"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"]) > span { color: inherit; }
 
 /* ── E-Gifts ── */

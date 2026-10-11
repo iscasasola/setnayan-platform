@@ -128,8 +128,16 @@ export function armHubScrub(root: HTMLElement): () => void {
    * greeting, the ticket. A box with no size (a marker, an anchor) and one that is not in the flow (a pinned pill)
    * are not it; the nest's own boxes and a wrapper the page marks (`data-hub-wrap`) are looked THROUGH.
    */
+  const boxless = (el: HTMLElement) => el.childElementCount > 0 && getComputedStyle(el).display === 'contents';
   const nextBox = (box: HTMLElement): HTMLElement | null => {
     for (const el of Array.from(box.children) as HTMLElement[]) {
+      /* A row that draws NO BOX of its own (`display: contents` — the stranger's door row, `.sn-door-row`) is its
+         children, laid out in its place: it has no size to ask, so it is looked through. */
+      if (!el.offsetHeight && boxless(el)) {
+        const inside = nextBox(el);
+        if (inside) return inside;
+        continue;
+      }
       if (!el.offsetHeight || el.offsetParent === null) continue;
       return el.matches(THROUGH) ? (nextBox(el) ?? el) : el;
     }
@@ -158,7 +166,10 @@ export function armHubScrub(root: HTMLElement): () => void {
     const out: HTMLElement[] = [];
     for (let el: HTMLElement | null = from; el && el !== upTo; el = el.parentElement) {
       for (let sib = el.nextElementSibling as HTMLElement | null; sib; sib = sib.nextElementSibling as HTMLElement | null) {
-        if (sib.offsetHeight && !sib.matches('.hub-after, .hub-below') && getComputedStyle(sib).position === 'static') out.push(sib);
+        /* (A row with no box of its own stands for its children: they are the boxes that follow.) */
+        for (const box of !sib.offsetHeight && boxless(sib) ? (Array.from(sib.children) as HTMLElement[]) : [sib]) {
+          if (box.offsetHeight && !box.matches('.hub-after, .hub-below') && getComputedStyle(box).position === 'static') out.push(box);
+        }
       }
     }
     return out;

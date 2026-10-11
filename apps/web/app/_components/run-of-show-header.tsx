@@ -145,17 +145,26 @@ export function RunOfShowHeader({
   const onAdvance = (blockId: string) => {
     setNotice(null);
     startTransition(async () => {
-      const result = await save.run(() => advanceScheduleBlock(eventId, blockId), {
-        steps: ['Advancing the timeline'],
-        hint: 'Saving',
-      });
-      // `ok` is the only status that moved the timeline. Anything else has to
-      // say something — and a refusal carries its own sentence, so prefer it
-      // over a generic one.
-      if (result && result.status !== 'ok') {
-        setNotice(result.message ?? 'That didn’t go through. Please try again.');
+      /* 📵 A press that never answered (no signal, a 5xx) is SAID here like any refusal — `save.run` rethrows, and
+         thrown into this transition it replaced the whole page with the app's error screen, on the day. */
+      try {
+        const result = await save.run(() => advanceScheduleBlock(eventId, blockId), {
+          steps: ['Advancing the timeline'],
+          hint: 'Saving',
+        });
+        // `ok` is the only status that moved the timeline. Anything else has to
+        // say something — and a refusal carries its own sentence, so prefer it
+        // over a generic one.
+        if (result && result.status !== 'ok') {
+          setNotice(result.message ?? 'That didn’t go through. Please try again.');
+        }
+      } catch {
+        setNotice('That didn’t go through. Please try again.');
       }
-      await refetch();
+      /* The list is re-read either way — an answer lost on the way back may still have moved the timeline, and the
+         press names its block, so the rows must show what is true before anyone presses again. A re-read that fails
+         says nothing new: the live subscription above re-reads on the next change. */
+      await refetch().catch(() => undefined);
     });
   };
 

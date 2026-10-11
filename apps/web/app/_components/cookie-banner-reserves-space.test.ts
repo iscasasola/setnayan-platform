@@ -58,8 +58,13 @@ test('the banner MEASURES the route\'s own bottom chrome before positioning itse
   );
   // The measurement only counts something genuinely ANCHORED to the bottom
   // edge (never a modal/backdrop) — the two guard clauses that make that so.
-  assert.match(SRC, /r\.bottom < vh - 4/, 'lost the "touching the bottom edge" check');
-  assert.match(SRC, /r\.top < vh \* 0\.5/, 'lost the "not a modal/sheet" check');
+  // 🔁 RE-AIMED 2026-10-11: the geometry moved to `lib/bottom-chrome.ts` so a
+  // test can RUN it (`the-first-screen-keeps-its-action.test.ts`); the banner
+  // hands it the boxes it found. Both halves are held here.
+  assert.match(SRC, /return bottomChromeLift\(boxes, window\.innerHeight\)/, 'the banner no longer asks lib/bottom-chrome for the lift');
+  const GEOMETRY = stripComments(read('../../lib/bottom-chrome.ts'));
+  assert.match(GEOMETRY, /r\.bottom < vh - 4/, 'lost the "touching the bottom edge" check');
+  assert.match(GEOMETRY, /r\.top < vh \* 0\.5/, 'lost the "not a modal/sheet" check');
 });
 
 test('the measured lift is actually APPLIED to the banner\'s own position', () => {
@@ -90,7 +95,7 @@ test('the OLD floating-card position is gone — it must not silently come back'
   assert.match(SRC, /\binset-x-0\b/, 'the mobile banner is no longer edge-to-edge');
 });
 
-test('the Cookie policy link and the Manage / Learn more controls clear 40px', () => {
+test('the Cookie policy link and the Manage / Learn more controls are full 44px tap targets', () => {
   // Matched at the TAG BOUNDARY (opening `<Link …>` or `<button …>` directly
   // followed by the label text) rather than a bare substring — `RAW.indexOf`
   // on "Manage" finds `setManage` first, which is not the control at all.
@@ -103,10 +108,12 @@ test('the Cookie policy link and the Manage / Learn more controls clear 40px', (
   for (const label of ['Cookie policy', 'Manage', 'Learn more']) {
     const m = new RegExp(`<(Link|button)((?:[^>]|=>)*)>\\s*${label}`).exec(RAW);
     assert.ok(m, `could not find the "${label}" control at its tag boundary`);
+    // 44, not 40 (2026-10-11): the guest walk measured "Manage" at 58 × 40 and
+    // "Cookie policy" at 86 × 40 — under the owner's 44 × 44 rule.
     assert.match(
       m![2]!,
-      /min-h-\[40px\]/,
-      `"${label}"'s opening tag has no min-h-[40px] — it is a sub-40px tap ` +
+      /min-h-\[44px\]/,
+      `"${label}"'s opening tag has no min-h-[44px] — it is a sub-44px tap ` +
         'target again',
     );
   }

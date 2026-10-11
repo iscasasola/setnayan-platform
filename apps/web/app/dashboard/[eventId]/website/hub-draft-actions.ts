@@ -89,9 +89,11 @@ import {
   isHubDraftIntent,
   isHubResetScope,
   mergeHubDraft,
+  heldStageShow,
   planHubDraftApply,
   presetSceneOf,
   undoHubDraft,
+  type HubDraft,
   type HubDraftActionResult,
   type HubDraftItem,
   type HubDraftPatch,
@@ -107,7 +109,7 @@ import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-wri
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
-import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
+import { STAGE_ORDER_KEY, STAGE_SHOW_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { HUB_MUSIC_KEY } from '@/lib/hub-music-button';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -185,6 +187,17 @@ export async function hubDraftAction(
     const current = (await readHubDraft(supabase, eventId)) ?? emptyHubDraft();
 
     /* ── SAVE · RESET · UNDO — the draft only, never the live page ──────── */
+    /* ↺ ONE PRESS, ITS OWN ANSWER (owner 2026-10-11: "pressed undo twice before it reversed that edit"). Undo and
+       Reset bring a whole render of the Maker, and until it landed the toolbar still read the count from BEFORE the
+       press. Asked for (`HUB_DRAFT_BAR_FIELD`), the bar comes back with the write — read beside it, from the same
+       draft, by the reader a save's answer uses — so ✓ and ↺ show the step the moment the action answers. */
+    const answerWithBar = async (next: HubDraft): Promise<HubDraftActionResult> => {
+      const [, bar] = await Promise.all([
+        writeHubDraft(supabase, eventId, next),
+        formData.get(HUB_DRAFT_BAR_FIELD) === '1' ? hubDraftBarAfterSave(supabase, eventId, next) : Promise.resolve(null),
+      ]);
+      return bar ? { ...done(), bar } : done();
+    };
     if (intent === 'save') {
       let patch: HubDraftPatch;
       try {
@@ -260,14 +273,12 @@ export async function hubDraftAction(
     if (intent === 'reset') {
       const scope = formData.get('stage');
       if (!isHubResetScope(scope)) return { ok: false, intent, error: 'Choose which stage to reset.' };
-      await writeHubDraft(supabase, eventId, mergeHubDraft(current, hubResetPatch(scope)));
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
-      return done();
+      return answerWithBar(mergeHubDraft(current, hubResetPatch(scope)));
     }
     if (intent === 'undo') {
-      await writeHubDraft(supabase, eventId, undoHubDraft(current));
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
-      return done();
+      return answerWithBar(undoHubDraft(current));
     }
     /* 💎 DROP ONE PRO EFFECT (the Apply sheet's ×, owner 2026-09-28). The list
        is recomputed HERE from the stored draft — the same one decision the
@@ -859,6 +870,8 @@ export async function hubDraftAction(
                 ? HUB_MUSIC_KEY
               : item.field === 'stage_order'
                 ? STAGE_ORDER_KEY
+                : item.field === 'stage_show'
+                  ? STAGE_SHOW_KEY
                 : item.field === 'std_lead'
                   ? STD_LEAD_KEY
                   : item.field === 'custom'
@@ -977,6 +990,9 @@ export async function hubDraftAction(
       } else if (item.field === 'is_visible') {
         // 🎬 A scene of their own, held for Pro, stays SHOWN in the draft.
         (remaining.widgets[item.widgetType] ??= {}).is_visible = item.value as boolean;
+      } else if (item.field === 'stage_show') {
+        // 👁 …and on the stages it was set to show on.
+        (remaining.widgets[item.widgetType] ??= {}).stage_show = heldStageShow(item.value);
       } else if (item.field === 'custom') {
         // ✍ Its words, held for Pro, stay in the draft too.
         (remaining.widgets[item.widgetType] ??= {}).custom = item.value as CustomSectionContent | null;

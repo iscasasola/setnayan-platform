@@ -18,6 +18,12 @@ type CheckResult =
      silence is the bug. */
   | { status: 'unverified' };
 
+/**
+ * The address's shape, as the field checks it while typing — the same 3–32 small letters, digits and hyphens the
+ * server enforces (`/^[a-z0-9-]{3,32}$/`, `invitation/actions.ts`). Written for the `v` flag (see the input).
+ */
+export const SLUG_INPUT_PATTERN = '[a-z0-9\\-]{3,32}';
+
 type Props = {
   eventId: string;
   initialSlug: string;
@@ -29,6 +35,8 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [pending, startTransition] = useTransition();
+  /* 📵 The save never answered (no signal, a 5xx). Said under the box; the address stays typed and Save stays lit. */
+  const [notSaved, setNotSaved] = useState(false);
   const debounceRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -69,7 +77,20 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
 
   return (
     <form
-      action={(formData) => startTransition(() => saveAction(formData))}
+      action={(formData) => {
+        setNotSaved(false);
+        startTransition(async () => {
+          try {
+            await saveAction(formData);
+          } catch (e) {
+            /* A redirect is how this action ANSWERS — saved or refused, it lands back here with the reason. Only a
+               request that never answered is caught: thrown into this transition it replaced the whole page (in the
+               Maker, the whole Maker) with the app's error screen. */
+            if (e instanceof Error && /NEXT_REDIRECT/.test(e.message)) throw e;
+            setNotSaved(true);
+          }
+        });
+      }}
       className="space-y-2"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -77,7 +98,7 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
           htmlFor="slug"
           className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 sm:mr-2"
         >
-          Slug
+          Address
         </label>
         <div className="flex-1">
           <div className="relative">
@@ -87,7 +108,9 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
               value={value}
               onChange={(e) => setValue(e.target.value.toLowerCase())}
               placeholder="maria-and-juan"
-              pattern="[a-z0-9-]{3,32}"
+              /* The hyphen is ESCAPED: browsers compile `pattern` with the `v` flag, where a bare `-` in a class is a
+                 syntax error — the check was dropped and the console said so (the walk of 2026-10-11, P08). */
+              pattern={SLUG_INPUT_PATTERN}
               className="input-field w-full pr-8 font-mono text-sm"
             />
             <StatusBadge busy={busy} check={check} />
@@ -100,17 +123,22 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
             }}
           />
           <StatusLine check={check} />
+          {notSaved ? (
+            <p role="alert" className="mt-1 text-xs text-warn-700">
+              That did not save. Please try again.
+            </p>
+          ) : null}
         </div>
         <button
           type="submit"
           disabled={!canSave || pending}
           className="button-secondary disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {pending ? 'Saving…' : 'Save slug'}
+          {pending ? 'Saving…' : 'Save address'}
         </button>
       </div>
       <p className="text-xs text-ink/50">
-        3–32 chars · lowercase letters, numbers, hyphens. Changes redirect old links for{' '}
+        3 to 32 characters: small letters, numbers and hyphens. Old links keep working for{' '}
         {slugForwardingLabel()}.
       </p>
     </form>
@@ -159,11 +187,11 @@ function StatusLine({ check }: { check: CheckResult | null }) {
   if (!check) return null;
   if (check.status === 'available') {
     return (
-      <p className="mt-1 text-xs text-success-700">Available — click Save slug to claim it.</p>
+      <p className="mt-1 text-xs text-success-700">Available — tap Save address to keep it.</p>
     );
   }
   if (check.status === 'current') {
-    return <p className="mt-1 text-xs text-ink/55">That&rsquo;s your current slug.</p>;
+    return <p className="mt-1 text-xs text-ink/55">This is your address now.</p>;
   }
   if (check.status === 'taken') {
     return <p className="mt-1 text-xs text-danger-700">Taken — try one of these:</p>;

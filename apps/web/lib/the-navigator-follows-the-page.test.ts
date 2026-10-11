@@ -218,6 +218,13 @@ test('3b · a section the couple hid is folded with the eye, not lost', () => {
   assert.ok(!list.shown.some((t) => t.key === 'w:dress_code'));
   const f = list.folded.find((x) => x.type === 'dress_code');
   assert.ok(f?.hiddenByCouple, 'the fold must offer the eye back');
+  /* 🔁 RE-AIMED 2026-10-11 ("WHAT GUESTS SEE", step 2): the eye now hides a section on ONE stage
+     (`config_json.stage_show[stage]`). That section is folded with the eye too — on that stage only — and says where. */
+  const here = rows(OWNER_ORDER).map((r) => (r.widget_type === 'dress_code' ? { ...r, config_json: { stage_show: { rsvp: false } } } : r));
+  const hidden = makerStageList({ ...OWNER, widgets: here, stage: 'rsvp' });
+  assert.ok(!hidden.shown.some((t) => t.key === 'w:dress_code'));
+  const fh = hidden.folded.find((x) => x.type === 'dress_code');
+  assert.deepEqual([fh?.hiddenByCouple, fh?.hiddenHere, fh?.reason], [true, true, 'Hidden on Invitation.']);
 });
 
 test('4 · a reorder moves the navigator exactly as it moves the page', () => {

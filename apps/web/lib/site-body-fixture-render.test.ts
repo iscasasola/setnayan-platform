@@ -143,10 +143,15 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
   assert.ok(html.includes(FIXTURE_WORDS.dressTitle), 'the dress code');
   assert.ok(count(html, FIXTURE_WORDS.venue) >= 3 && count(html, FIXTURE_WORDS.ceremony) >= 3, 'both venues, in the details, the run of show and the map');
   for (const b of FIXTURE_BLOCKS) assert.ok(html.includes(b.label.replace('&', '&amp;')), `the run of show: ${b.label}`);
-  /* A GUEST's page, not a stranger's: their own line, their reply sheet, their name on the place card. */
+  /* A GUEST's page, not a stranger's: their own line, their door to the reply, their name on the place card.
+     🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): a guest's page no longer draws the reply SHEET; every reply
+     door on it opens the reply PAGE. */
   assert.ok(html.includes('You’re joining us as'), 'the guest’s own line');
-  assert.ok(html.includes('id="rsvp-sheet-heading"'), 'the reply sheet');
-  assert.ok(html.includes(FIXTURE_WORDS.guestFirst), 'the guest’s name');
+  assert.ok(!html.includes('id="rsvp-sheet-heading"'), 'the reply sheet is drawn for a guest again — two reply forms');
+  assert.ok(html.includes('href="/maria-and-jose/invite/reply"'), 'the guest has no door to the reply page');
+  assert.ok(!html.includes('#your-details'), 'a door on the guest page still points at the sheet');
+  /* (The guest's NAME was on this page only inside the reply card. It is on the reply page and on Me now, which
+     this component does not draw — so it is no longer looked for here.) */
   assert.doesNotMatch(html, /Scan your personal QR/, 'this is the stranger’s page');
 
   /* What the page asked the (empty) database — as a set: this renderer may run an async component more than once. */
@@ -298,7 +303,8 @@ test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, wi
   assert.equal(count(html, '<article data-pahina-chapters="true">'), 1, 'the stranger’s article');
   assert.equal(count(html, '<article data-pahina-chapters="true" class="space-y-12">'), 0, 'this is the guest’s tree');
   assert.match(html, /<div data-pahina-first-screen="" class="space-y-6 text-center"><header data-pahina-first-screen="" class="text-center">/, 'the text-only masthead, in its marked wrapper');
-  assert.match(html, /<\/header><div class="space-y-4">[\s\S]{0,400}data-get-inside="/, 'the one door, right under the masthead');
+  /* (2026-10-11 on main: the door's row draws no box of its own now — `sn-door-row`, `display: contents`.) */
+  assert.match(html, /<\/header><div class="sn-door-row">[\s\S]{0,400}data-get-inside="/, 'the one door, right under the masthead');
   const [first, second] = FIXTURE_WORDS.names.split(' & ');
   assert.match(html, new RegExp(`<h1[^>]*data-hub-names=""[^>]*><span class="block">${first}</span><span[^>]*>and</span><span class="block">${second}</span></h1>`));
   assert.ok(html.includes('Until we say ‘I do’') && html.includes(FIXTURE_WORDS.venue), 'the general details');
@@ -306,7 +312,7 @@ test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, wi
   /* …and with a photo the stranger's OTHER masthead: the cover alone in the page's first group, the door in the next. */
   const photo = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), ...PHOTO });
   assert.deepEqual(photo.complaints, []);
-  assert.match(photo.html, /<div id="site-home" aria-hidden="true" class="scroll-mt-6"><\/div><header data-pahina-first-screen="" class="text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="space-y-4">/, 'the photo cover is not the last thing in the first group, with the door in the next');
+  assert.match(photo.html, /<div id="site-home" aria-hidden="true" class="scroll-mt-6"><\/div><header data-pahina-first-screen="" class="text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">/, 'the photo cover is not the last thing in the first group, with the door in the next');
   assert.ok(photo.html.includes('fixture-hero.jpg'));
 
   /* BYTE FOR BYTE: twice the same, and the committed page (`UPDATE_GOLDEN=1` to accept an intended change). */
@@ -353,15 +359,17 @@ test('(8) the STRANGER’s cover stored to leave by Scrub: while Scrub ships dar
         const CELL = '<div data-pahina-first-screen="" class="hub-cover-cell"><div data-pahina-chapters="" class="hub-cover" data-hub-fx="">';
         const REST = '</header></div><div data-pahina-chapters="" class="hub-cover-after empty:hidden"></div></div>';
         assert.ok(stored.html.includes(`<div id="site-home" aria-hidden="true" class="scroll-mt-6"></div>${CELL}<header data-pahina-first-screen=""`), 'the photo masthead is not in the cover’s box, in the first group');
-        assert.ok(stored.html.includes(`${REST}</div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="space-y-4">`), 'the rest box is not empty, or the door is not the next group’s');
+        assert.ok(stored.html.includes(`${REST}</div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">`), 'the rest box is not empty, or the door is not the next group’s');
         unwrapped = unwrapped.replace(CELL, '').replace(REST, '</header>');
       } else {
         /* THE TEXT-ONLY COVER — inside its marked first-screen wrapper, the door in the rest box with the wrapper's
            own 1.5rem said on it. */
         const CELL = '<div class="hub-cover-cell"><div class="hub-cover" data-hub-fx="">';
-        const REST = '</header></div><div class="hub-cover-after mt-6 space-y-6 empty:hidden">';
+        /* (The door is the first thing after the cover here — no "Get tickets" — so the rest box says the door's own
+           top margin, the one the first-screen fit closes up: `STRANGER_TEXT_COVER_BOXES_DOOR_FIRST`.) */
+        const REST = '</header></div><div class="hub-cover-after mt-[calc(0.75rem+0.75rem*var(--fs-air,1))] space-y-6 empty:hidden">';
         assert.ok(stored.html.includes(`<div data-pahina-first-screen="" class="space-y-6 text-center">${CELL}<header data-pahina-first-screen=""`), 'the text-only masthead is not in the cover’s box, in its wrapper');
-        assert.ok(stored.html.includes(`${REST}<div class="space-y-4">`) && /hub-cover-after mt-6 space-y-6 empty:hidden"><div class="space-y-4">[\s\S]{0,400}data-get-inside="/.test(stored.html), 'the door is not what follows the cover in its box');
+        assert.ok(stored.html.includes(`${REST}<div class="sn-door-row">`) && stored.html.slice(stored.html.indexOf(REST), stored.html.indexOf(REST) + 700).includes('data-get-inside="'), 'the door is not what follows the cover in its box');
         unwrapped = unwrapped.replace(CELL, '').replace(REST, '</header>');
         /* (The rest box and the cell close right after the door, before the wrapper and the group do: two closing
            tags out of a run of them, just before the next group.) */
@@ -379,9 +387,37 @@ test('(8) the STRANGER’s cover stored to leave by Scrub: while Scrub ships dar
 
 test('(5) it is tooling: no file of the app imports the fixture, the helper or the golden', () => {
   const WEB = join(__dirname, '..');
-  /* (2026-10-10: and the script that writes the fixture page out for a real browser — `scripts/scrub-browser-check.mjs`
-     (16). A script is run by hand and bundled into nothing; the claim is unchanged: no file of the APP imports these.) */
-  const OURS = new Set(['lib/site-body-fixture.ts', 'lib/site-body-fixture-render.ts', 'lib/site-body-fixture-render.test.ts', 'scripts/scrub-fixture-page.tsx']);
+  /* 🔁 RE-AIMED 2026-10-10: one more guard draws the real page with the helper — `a-sample-block-look-reaches-the-real-
+     page.test.ts` (a look kept for Your seat lands on the guest's own block, and costs a guest nothing until then).
+     It is a test, shipped to nobody; the claim is the same — no file of the APP imports the fixture. */
+  /* 🔁 AND 2026-10-11: `the-link-down-names-what-it-opens.test.ts` draws the real page for six viewers (a stranger
+     among them) to read the cover's link off it. A test again; the claim is unchanged. */
+  /* 🔁 RE-AIMED 2026-10-10 (again): "WHAT GUESTS SEE" draws the real page on every stage with the same helper —
+     `stage-pages-fixture.ts` (tooling: the same couple with every scene filled) and the tests that read it. Tests and
+     tooling, shipped to nobody; the claim is unchanged. */
+  const OURS = new Set([
+    'lib/site-body-fixture.ts',
+    'lib/site-body-fixture-render.ts',
+    'lib/site-body-fixture-render.test.ts',
+    'lib/a-sample-block-look-reaches-the-real-page.test.ts',
+    'lib/the-link-down-names-what-it-opens.test.ts',
+    'lib/a-dark-look-keeps-its-words.test.ts',
+    'lib/stage-pages-fixture.ts',
+    'lib/every-stage-is-todays-page.test.ts',
+    'lib/a-stage-choice-decides-the-stage-list.test.ts',
+    'lib/what-guests-see.test.ts',
+    /* 🔁 AND 2026-10-11: the same page drawn for an event with NO date, to read its lines for a hole. A test. */
+    'lib/a-dateless-event-prints-no-hole.test.ts',
+    /* …and the page's ONE sign-out, read off the real page for its size, its contrast and its one control. A test. */
+    'app/[slug]/_components/the-sign-out-asks-first.test.ts',
+    /* …and the same page for "one reply form": no sheet on a guest's page, the sheet on the Maker's canvas. A test. */
+    'app/[slug]/_components/one-reply-form.test.ts',
+    /* …and the guest's foot (the record note, the sign-out) read off it for the page's gutter. A test. */
+    'app/[slug]/_components/me-has-the-pages-gutter.test.ts',
+    /* …and (2026-10-10, the cover's hand-over) the script that writes the fixture page out for a real browser —
+       `scripts/scrub-browser-check.mjs` (16). Run by hand, bundled into nothing; the claim is unchanged. */
+    'scripts/scrub-fixture-page.tsx',
+  ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {
       const rel = `${dir}/${name}`;

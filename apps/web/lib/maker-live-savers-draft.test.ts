@@ -115,8 +115,8 @@ test('Apply re-screens a drafted Love Story\'s NEW photos before the live write'
 test('the Maker panels post the draft field (and the scrapbook, and the Details special message)', () => {
   const C = `${W}editor/_components/`;
   const cases: Array<[string, RegExp]> = [
-    [`${C}pro-panels.tsx`, /export function ColorsPanel[\s\S]*?<form action=\{action\}[^>]*>[\s\S]*?<HubDraftField \/>/],
-    [`${C}text-panel.tsx`, /<form action=\{action\}[^>]*>[\s\S]*?<HubDraftField \/>/],
+    [`${C}pro-panels.tsx`, /export function ColorsPanel[\s\S]*?<SafeForm action=\{action\}[^>]*>[\s\S]*?<HubDraftField \/>/],
+    [`${C}text-panel.tsx`, /<SafeForm action=\{action\}[^>]*>[\s\S]*?<HubDraftField \/>/],
     [`${C}authoring-panels.tsx`, /export function StoryPanel[\s\S]*?<HubDraftField \/>/],
     [`${C}authoring-panels.tsx`, /export function DressCodePanel[\s\S]*?<HubDraftField \/>/],
     [`${C}authoring-panels.tsx`, /<PhotoMomentsEditor eventId=\{eventId\} initial=\{initial\} draft \/>/],

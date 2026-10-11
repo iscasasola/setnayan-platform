@@ -195,13 +195,23 @@ export function InspirationBoard({
   }
 
   function onRemove(slot: string, pos: number) {
+    const was = tiles[key(slot, pos)];
+    setError(null);
     setTiles((t) => ({ ...t, [key(slot, pos)]: undefined }));
     startTransition(async () => {
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('slot_key', slot);
       fd.set('slot_position', String(pos));
-      await removeMoodboardSlot(fd);
+      /* 📵 A remove that never answered (no signal, a 5xx) is SAID, and the photo is put back — it was not removed.
+         Thrown into this transition it replaced the whole page (in the Maker, the whole Maker) with the app's
+         error screen. */
+      try {
+        await removeMoodboardSlot(fd);
+      } catch {
+        setTiles((t) => ({ ...t, [key(slot, pos)]: was }));
+        setError('Could not remove — please try again.');
+      }
     });
   }
 

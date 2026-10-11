@@ -31,11 +31,13 @@ import { parse as parseFont } from 'opentype.js';
 import {
   LOGO_FRAME,
   centreLogoOnItsInk,
-  composeLogoSvg,
   defaultMotion,
-  parseLogoSvg,
   type LogoLayer,
 } from './logo-layers';
+import {
+  composeLogoSvg,
+  parseLogoSvg,
+} from './logo-layers-edit';
 import { resolveEventMonogramSvg, safeMonogramSvg } from './monogram-svg-safe';
 import { heroMarkSvg } from './hero-monogram-data';
 import { unwrapMark } from './event-app-icon';

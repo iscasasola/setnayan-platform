@@ -514,7 +514,11 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
   /* (RE-AIMED 2026-10-10: the box that is pulled up is the cover's own rest OR, when that holds nothing, the next box
      on the page — `pulled`; the read-back is the same sum.) */
   assert.match(engine, /const over = arrives \? docTop\(arrives\) - \(docTop\(cover\) \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(pulled, '--hub-up', px\(up - over\)\);/);
-  assert.match(engine, /getComputedStyle\(sib\)\.position === 'static'/);
+  /* (RE-AIMED 2026-10-12: a row that draws no box of its own — `display: contents`, the stranger's door row after the
+     merge — stands for its children; the box asked is each of those, or the sibling itself. The claim is unchanged.) */
+  assert.match(engine, /getComputedStyle\(box\)\.position === 'static'/);
+  assert.match(engine, /const boxless = \(el: HTMLElement\) => el\.childElementCount > 0 && getComputedStyle\(el\)\.display === 'contents';/);
+  assert.match(engine, /if \(!el\.offsetHeight && boxless\(el\)\) \{\s*const inside = nextBox\(el\);\s*if \(inside\) return inside;\s*continue;\s*\}/);
   /* …and "what follows" is looked for UP TO THE PAGE'S OWN STAGE — the later groups of a real page are not inside the
      cover's rest — with the rise said on that stage, where every marked box can read it; and the cover is watched
      for a size of its own, so a page armed on another tab measures the hand-over when the first tab is shown. */

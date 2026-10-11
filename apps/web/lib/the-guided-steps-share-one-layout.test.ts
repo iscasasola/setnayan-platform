@@ -407,7 +407,7 @@ test('(16) the Schedule’s Journey · Preparation · Event Day wears the one se
 test('(17) The Day: ONE "Happening now", and "event" — never "celebration" — on the live card', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SpotlightCard } = await import('../app/[slug]/_components/spotlight-card');
-  const html = renderToStaticMarkup(React.createElement(SpotlightCard, { spotlight: { kind: 'watch_live' } as never }));
+  const html = renderToStaticMarkup(React.createElement(SpotlightCard, { spotlight: { kind: 'watch_live' } as never, replyHref: '/x/invite/reply' }));
   assert.match(html, /Watch the event live/, 'the live card says something else');
   assert.doesNotMatch(html, /celebration/);
   assert.match(read('app/[slug]/_components/site-body.tsx'), /dayOfPhase === 'live' && plan\.spotlight\?\.kind !== 'watch_live' \?/, 'the masthead pill doubles the live card again');

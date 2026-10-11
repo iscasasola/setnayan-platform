@@ -18,9 +18,11 @@
  * `HubDraftSummary.changes`, so none of this reaches the Maker's first-load JS.
  */
 import { CAMERA_LOOK_LABEL } from '@/lib/camera-look';
-import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type WidgetType } from '@/lib/invitation-widgets';
+import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type LifecyclePhase, type WidgetType } from '@/lib/invitation-widgets';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
-import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { MAKER_PARTS } from '@/lib/maker-parts';
+import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
+import { STAGE_SHOW_KEY, sanitizeStageShow } from '@/lib/stage-scenes';
 import { LOOK_PART_LABEL, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
@@ -132,8 +134,54 @@ const FACET_WORD: Record<CanvasFacetGroup, string> = {
 };
 
 /** Where a scene lives: "Invitation · When & where" when it is on one stage, else just its name. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   🏷 ONE NAME PER THING — the Maker's own word for the part (re-walk 2026-10-11, R02)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The sheet named ONE part three ways: the Title's words and motion were "Names & date" (the cover's row), its Style
+   "The title" (`FIXED_STYLE_LABEL`), and the part the Maker calls "Message" was "Special message" (the catalogue).
+   The couple reads "You're editing · Invitation › Welcome › TITLE" while they change it — that word is the part's
+   label in `MAKER_PARTS`, and it is the one the sheet now uses, wherever the changed thing IS a part:
+
+     · a scene's row            → the part drawn at `w:<type>`           ("Message", "Venue", "Gallery");
+     · a part's Style           → the part whose layouts are that scene  ("Title" for `hero_eyebrow`);
+     · the cover's canvas       → the part(s) of the cover that changed  ("Title"; "Title, Names") — only when
+                                   nothing ELSE of the cover changed; the cover as a whole keeps its row's name.
+
+   No name is invented here: where the Maker has no part for a thing (a scene of their own, the cover as a whole),
+   the name it had stands. */
+
+/** The Maker's word for the part drawn at a canvas key (and, on the cover, at one of its elements). */
+export function makerPartWordAt(canvas: string, el: string | null = null): string | null {
+  for (const part of Object.values(MAKER_PARTS)) if (part.canvas === canvas && (part.el ?? null) === el) return part.label;
+  return null;
+}
+/** The Maker's word for the part whose Style a styled scene is (`hero_eyebrow` → "Title"). */
+export function makerPartWordOfStyle(scene: string): string | null {
+  for (const part of Object.values(MAKER_PARTS)) if (part.layouts.kind === 'scene' && part.layouts.type === scene) return part.label;
+  return null;
+}
+
+/** The cover's parts a drafted canvas changes — null when something that is NOT one part's own changed too. */
+function coverPartsChanged(liveConfig: unknown, next: unknown): string[] | null {
+  const live = sanitizeHubCanvas(liveConfig) as Record<string, unknown>;
+  const drafted = ((next as Record<string, unknown> | null) ?? {}) as Record<string, unknown>;
+  const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  for (const key of new Set([...Object.keys(live), ...Object.keys(drafted)])) if (key !== 'elements' && !same(live[key], drafted[key])) return null;
+  const was = (live.elements ?? {}) as Record<string, unknown>;
+  const now = (drafted.elements ?? {}) as Record<string, unknown>;
+  const words: string[] = [];
+  for (const el of new Set([...Object.keys(was), ...Object.keys(now)])) {
+    if (same(was[el], now[el])) continue;
+    const word = makerPartWordAt('f:hero', el);
+    if (!word) return null;
+    if (!words.includes(word)) words.push(word);
+  }
+  return words.length > 0 && words.length <= 2 ? words : null;
+}
+
 function scenePlace(t: WidgetType): string {
-  const name = makerSceneLabel(t) || WIDGET_CATALOG_BY_TYPE[t]?.label || 'A scene';
+  const name = makerPartWordAt(`w:${t}`) || makerSceneLabel(t) || WIDGET_CATALOG_BY_TYPE[t]?.label || 'A scene';
   const stages = WIDGET_PHASES[t] ?? [];
   return stages.length === 1 ? `${PUBLIC_STAGE_LABELS[stages[0]!]} · ${name}` : name;
 }
@@ -151,8 +199,26 @@ function canvasWhat(liveConfig: unknown, next: unknown): string {
   return words.length === 0 ? 'Look' : words.slice(0, 2).join(', ');
 }
 
+/**
+ * 👁 What a per-stage choice changed, stage by stage, in the stages' own order,
+ * in the "What guests see" sheet's own phrases: "Added to Save the Date",
+ * "Hidden on The Day", and "Back to our pick on Post Event" for a choice taken back. `next` is the whole merged key Apply writes.
+ */
+export function stageShowWhat(liveConfig: unknown, next: unknown): string {
+  const was = sanitizeStageShow(isPlainObjectValue(liveConfig) ? liveConfig[STAGE_SHOW_KEY] : null) ?? {};
+  const now = sanitizeStageShow(next) ?? {};
+  const words: string[] = [];
+  for (const st of PUBLIC_STAGE_ORDER) {
+    const a = was[st] ?? null;
+    const b = now[st] ?? null;
+    if (a === b) continue;
+    words.push(b === true ? `Added to ${PUBLIC_STAGE_LABELS[st]}` : b === false ? `Hidden on ${PUBLIC_STAGE_LABELS[st]}` : `Back to our pick on ${PUBLIC_STAGE_LABELS[st]}`);
+  }
+  return words.length > 0 ? words.join(', ') : 'Shown or hidden';
+}
+
 /** One draft item → where · what. Exhaustive over the item kinds and widget fields. */
-export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { place: string; what: string } {
+export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stage?: LifecyclePhase): { place: string; what: string } {
   switch (item.kind) {
     case 'event': {
       /* 🎨 A theme's colours placed on an empty Mood Board (owner 2026-10-05)
@@ -200,7 +266,7 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
       return { place: place || 'Post Event', what: what ? what[0]!.toUpperCase() + what.slice(1) : 'Your story' };
     }
     case 'fixed-style':
-      return { place: FIXED_STYLE_LABEL[item.scene], what: 'Style' };
+      return { place: makerPartWordOfStyle(item.scene) ?? FIXED_STYLE_LABEL[item.scene], what: 'Style' };
     /* 🚶 The Wedding March's drafted moves, ONE line (owner 2026-10-06, "Wait for
        apply"): "Wedding March · 3 changes" — one per drop the couple made. */
     case 'march':
@@ -217,9 +283,17 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
         case 'mode':
         case 'is_visible':
           return { place, what: 'Shown or hidden' };
+        case 'stage_show': {
+          /* 👁 Per stage (owner 2026-10-10, "WHAT GUESTS SEE"): the line names each
+             stage that moved and which way — "Hidden on The Day". */
+          const row = live.widgets.find((r) => r.widget_id === item.widgetId);
+          return { place, what: stageShowWhat(row?.config_json, item.value) };
+        }
         case 'display_order':
-        case 'stage_order':
           return { place, what: 'Order' };
+        case 'stage_order':
+          /* ↕ A stage's order is ONE line, named for the stage ("Invitation · Order") — never one per scene. */
+          return { place: stage ? PUBLIC_STAGE_LABELS[stage] : place, what: 'Order' };
         case 'custom':
           return { place, what: 'Words' };
         case 'venue':
@@ -228,7 +302,9 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
           return { place, what: 'Deleted for good' };
         case 'canvas': {
           const row = live.widgets.find((r) => r.widget_id === item.widgetId);
-          return { place, what: canvasWhat(row?.config_json, item.value) };
+          /* 🏷 The cover: named for the part of it that changed (the Title, the Names…) — see "ONE NAME PER THING". */
+          const parts = item.widgetType === 'hero' ? coverPartsChanged(row?.config_json, item.value) : null;
+          return { place: parts ? parts.join(', ') : place, what: canvasWhat(row?.config_json, item.value) };
         }
       }
     }
@@ -241,8 +317,8 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
  */
 export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveState, ownsPro: boolean): HubDraftChangeLine[] {
   if (!draft) return [];
-  return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held }) => ({
-    ...hubDraftChangePlace(item, live),
+  return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held, stage }) => ({
+    ...hubDraftChangePlace(item, live, stage),
     pro: item.pro,
     held,
   }));

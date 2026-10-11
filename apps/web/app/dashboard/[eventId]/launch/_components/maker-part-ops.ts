@@ -38,6 +38,10 @@ export type MakerPartRaw = {
   scenes: readonly MakerScene[];
   move: (id: string, delta: number) => void;
   eyeWrite: (scene: MakerScene) => void;
+  /** ＋ A scene brought back to this stage, `delta` places from where it stands — its place AND its showing, ONE save. */
+  addHere: (scene: MakerScene, delta: number) => void;
+  /** 👁 What the eye took off a stage since the last render that agreed — `"<stage>:<scene id>"` (`lib/maker-list-gates.ts`). */
+  hereOff: Readonly<Record<string, true>>;
   sceneRemovers: Readonly<Record<string, ReactNode>>;
   navigator: WorkProps['navigator'];
   elementEditing: WorkProps['elementEditing'];
@@ -61,6 +65,9 @@ export type MakerPartOps = {
   move: (id: string, delta: number) => void;
   /** 👁 The navigator's eye on a scene — hides a shown one, brings a hidden one back (drafted). */
   eye: (id: string) => void;
+  /** ＋ Bring a hidden scene back to this stage, `delta` places from where it stands in the full order — ONE draft save
+   *  (its place and its showing together), so one ↺ takes the whole press back. */
+  add: (id: string, delta: number) => void;
   /** 🗑 A scene of their own's shipped "Remove for good" form, by widget id. */
   removers: Readonly<Record<string, ReactNode>>;
   /** 🎞 Post Event's arrangement as the Maker shows it (live with the draft over it) — null off Post Event. */

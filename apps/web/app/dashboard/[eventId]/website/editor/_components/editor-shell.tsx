@@ -56,8 +56,10 @@ import {
 } from './element-preview';
 import { CANVAS_REFRESH_MESSAGE, HUB_DRAFT_BAR_FIELD, MAKER_CANVAS_REDRAW_EVENT, makerNeedsRender, makerSave, makerUnheldSavesInFlight, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
 import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { stageEyeValue } from '@/lib/stage-eye';
+import { hereOffAfterRender } from '@/lib/maker-list-gates';
 import { announceMakerSave } from '@/lib/maker-save-status';
-import { movedOrder, optimisticStageList, sameOrder, stageOrderPatch } from '@/lib/maker-reorder';
+import { movedOrder, optimisticStageList, sameOrder, stageAddPatch, stageOrderPatch } from '@/lib/maker-reorder';
 
 const REORDER_FAILED = 'That move could not be saved. Your scenes are back where they were — please try again.';
 const GATE_FAILED = 'That could not be saved. The scene is back as it was — please try again.';
@@ -420,6 +422,30 @@ export function MakerWork({
      render takes over as soon as it agrees (or the pick is put back if the save
      is refused). `gateWrite` below. */
   const [gates, setGates] = useState<Record<string, Pick<MakerScene, 'mode' | 'isVisible'>>>({});
+  /* 👁 THE EYE IS PER STAGE (owner 2026-10-10, "WHAT GUESTS SEE"). A scene the eye just took off THIS stage —
+     `"<stage>:<scene id>"` — drawn as hidden at the tap; the server's list takes over once it has dropped it. */
+  const [hereOff, setHereOff] = useState<Record<string, true>>({});
+  /* ↩ …AND THE SERVER'S LIST TAKES OVER TOO WHEN IT STILL DRAWS THE SCENE AFTER A WRITE THAT BRINGS A RENDER. A hide
+     is held (no render follows it), so it used to wait here until a render DROPPED the scene — and one that never
+     does (↺ took the Remove back; "Back to our picks"; a Reset) left the scene marked off for good: the navigator
+     drew it hidden, the next Remove was read as "show", and nothing could be done to it (measured 2026-10-11 in the
+     lab: Remove › ↺ › Remove). Every write that owes a render says so before it leaves (`MAKER_UNHELD_WRITE_EVENT`);
+     what was held off by then is the render's to decide. (`hereOffAfterRender`, `lib/maker-list-gates.ts`.) */
+  const hereOffNow = useRef(hereOff);
+  hereOffNow.current = hereOff;
+  const hereOffAsked = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const ask = () => {
+      for (const k of Object.keys(hereOffNow.current)) hereOffAsked.current.add(k);
+    };
+    window.addEventListener(MAKER_UNHELD_WRITE_EVENT, ask);
+    return () => window.removeEventListener(MAKER_UNHELD_WRITE_EVENT, ask);
+  }, []);
+  useEffect(() => {
+    const asked = hereOffAsked.current;
+    hereOffAsked.current = new Set();
+    setHereOff((h) => hereOffAfterRender(h, navigator.stageLists, asked));
+  }, [navigator]);
   const scenes = useMemo(
     () => (Object.keys(gates).length === 0 ? scenesProp : scenesProp.map((sc) => (gates[sc.id] ? { ...sc, ...gates[sc.id] } : sc))),
     [scenesProp, gates],
@@ -1573,6 +1599,7 @@ export function MakerWork({
       scene,
       { mode: after.mode ?? scene.mode, isVisible: after.isVisible ?? scene.isVisible },
       sceneFormat?.openBrowse,
+      navigator.stageEye?.[stage]?.[scene.type as WidgetType]?.choice,
     );
     return effect === 'hide' ? { hide: scene } : effect === 'none' ? { still: true } : {};
   };
@@ -1664,9 +1691,54 @@ export function MakerWork({
     return true;
   };
 
-  /* Each write is drawn as the PAGE reads it (`drawHow`): a scene taken off is
-     hidden now and held; one put back reloads. */
+  /** Is this scene drawn on the stage on screen — the server's list, with a hide of this session laid over it? */
+  const shownHere = (scene: MakerScene) =>
+    stageLists[stage].shown.some((t) => t.kind === 'scene' && t.widgetId === scene.id) && !hereOff[`${stage}:${scene.id}`];
+  /* 👁 THE EYE WRITES THE STAGE'S OWN VALUE (owner 2026-10-10, "WHAT GUESTS SEE" — the same value the table's tick
+     writes, `config_json.stage_show[stage]`): hide = off THIS stage; show = on THIS stage. Never the event-wide
+     `is_visible` / `mode`, so a scene is never taken off — or put back on — a stage the couple is not looking at.
+     What is stored is the wanted state, or `null` when the stage's list has it that way with no choice (`stageEye`).
+     A hide is drawn at the tap and held; a show reloads the canvas — as before. */
   const eyeWrite = (scene: MakerScene) => {
+    if (!elementEditing) return eyeWriteEverywhere(scene);
+    const key = `${stage}:${scene.id}`;
+    const want = !shownHere(scene);
+    const value = stageEyeValue(navigator.stageEye?.[stage]?.[scene.type as WidgetType], want);
+    if (want) releaseCanvas();
+    else hideOnCanvas(scene);
+    const held = !want;
+    setHereOff((h) => {
+      const next = { ...h };
+      if (want) delete next[key];
+      else next[key] = true;
+      return next;
+    });
+    const draftAction = elementEditing.draftAction;
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ widgets: { [scene.type]: { stage_show: { [stage]: value } } } }));
+    if (held) fd.set(HUB_DRAFT_BAR_FIELD, '1');
+    reorderQueue.current = reorderQueue.current
+      .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh, { held }))
+      .catch(() => ({ ok: false as const, intent: 'save' as const, error: GATE_FAILED }))
+      .then((res) => {
+        if (res.ok) return;
+        /* ↩ Refused: the scene is put back as it was — on the canvas too. */
+        setHereOff((h) => {
+          const next = { ...h };
+          if (want) next[key] = true;
+          else delete next[key];
+          return next;
+        });
+        if (!want) broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key: `w:${scene.type}`, shown: true });
+        releaseCanvas();
+        announceMakerSave({ state: 'error', text: res.error || GATE_FAILED });
+      });
+  };
+  /* The eye where there is no draft door (the editor outside the Maker): the event-wide switch, as it always was.
+     Each write is drawn as the PAGE reads it (`drawHow`): a scene taken off is
+     hidden now and held; one put back reloads. */
+  const eyeWriteEverywhere = (scene: MakerScene) => {
     const showing = sceneShowing(scene);
     if (showing && scene.mode === 'shown') {
       if (gateWrite(scene, { mode: 'hidden', isVisible: false })) return;
@@ -1734,6 +1806,51 @@ export function MakerWork({
     const n = Math.abs(delta);
     const rest = n > 1 ? `${dir}.${id}.${n - 1}` : undefined;
     post(dir, { widget_id: id, return_to: back(id, rest) }, { rest });
+  };
+
+  /* ＋ A SCENE BROUGHT BACK TO THIS STAGE — ITS PLACE AND ITS SHOWING IN ONE SAVE (owner 2026-10-11: "pressed undo
+     twice before it reversed that edit"). ＋ ran `move` and then the eye: two saves, two Undo steps for one press —
+     and one ↺ left the scene placed and still hidden. One patch now (`lib/maker-reorder.ts` `stageAddPatch`), drawn as
+     a show is drawn (the canvas reloads for the render it brings), serialised with the moves. Without the draft door
+     (the editor outside the Maker) it is the two shipped writes, as before. */
+  const addHere = (scene: MakerScene, delta: number) => {
+    const order = delta !== 0 ? movedOrder(fullOrder, scene.id, delta) : null;
+    const value = stageEyeValue(navigator.stageEye?.[stage]?.[scene.type as WidgetType], true);
+    const patch = elementEditing ? stageAddPatch(order, (x) => sceneById.get(x)?.type, stage, scene.type, value) : null;
+    if (!elementEditing || !patch) {
+      if (delta !== 0) move(scene.id, delta);
+      return eyeWrite(scene);
+    }
+    const key = `${stage}:${scene.id}`;
+    releaseCanvas();
+    if (order) {
+      setOrderOverride({ stage, order });
+      reorderInFlight.current += 1;
+    }
+    setHereOff((h) => {
+      const next = { ...h };
+      delete next[key];
+      return next;
+    });
+    announceMakerSave({ state: 'saving' });
+    const draftAction = elementEditing.draftAction;
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify(patch));
+    reorderQueue.current = reorderQueue.current
+      .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh))
+      .catch(() => ({ ok: false as const, intent: 'save' as const, error: GATE_FAILED }))
+      .then((res) => {
+        if (order) reorderInFlight.current -= 1;
+        if (res.ok) {
+          if (order && reorderInFlight.current === 0) reorderLandedAt.current = renderStampRef.current;
+          announceMakerSave({ state: 'saved' });
+          return;
+        }
+        /* ↩ Refused: nothing was placed and nothing is shown — the list goes back, and the toolbar says so. */
+        if (order) setOrderOverride(null);
+        announceMakerSave({ state: 'error', text: res.error || GATE_FAILED });
+      });
   };
 
   /** One step of a chain — from the shell's own hold (`pendingChain`) or a deep link's `?chain=`. */
@@ -1863,7 +1980,7 @@ export function MakerWork({
   /* ＋ ↕ 🗑 THE NEW MAKER'S PART EDITS (`add-part-sheet.tsx`, lazy) ask THIS work area for its
      own writes — the eye, the one-save move, Remove for good, "+ Add a scene" (`maker-part-ops.ts`). */
   const partOps = useRef<MakerPartRaw | null>(null);
-  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
+  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, addHere, hereOff, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
   useEffect(() => {
     const ask = (e: Event) => (e as CustomEvent<(raw: MakerPartRaw) => void>).detail?.(partOps.current!);
     window.addEventListener(MAKER_PART_OPS_EVENT, ask);
@@ -2022,7 +2139,7 @@ export function MakerWork({
       arrange: (
         <SceneArrangeTab
           mode={selectedScene.mode}
-          isVisible={selectedScene.isVisible}
+          isVisible={elementEditing ? shownHere(selectedScene) : selectedScene.isVisible}
           hasContent={selectedScene.hasContent}
           openBrowse={sceneFormat?.openBrowse ?? true}
           pending={pending}
@@ -2317,7 +2434,8 @@ export function MakerWork({
             const header = navRows[i]?.header ?? null;
             const scene = tile.kind === 'scene' ? (sceneById.get(tile.widgetId) ?? null) : null;
             const on = tileIsSelected(tile, selection);
-            const showing = scene ? sceneShowing(scene) : tile.kind === 'post-event' ? tile.drawn : true;
+            /* 👁 A scene in the stage's list IS drawn here (the server decided it, per stage) — unless the eye just hid it. */
+            const showing = scene ? (elementEditing ? !hereOff[`${stage}:${scene.id}`] : sceneShowing(scene)) : tile.kind === 'post-event' ? tile.drawn : true;
             const next = list.shown[i + 1];
             /* ↕ Every scene drags within its stage (owner 2026-09-27). */
             const canDrag = tile.kind === 'scene' && !pending;

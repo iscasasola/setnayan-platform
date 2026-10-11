@@ -49,6 +49,16 @@
  * reads this table's order; a scene with no saved place (one added later) goes
  * after the placed ones.
  *
+ * 👁 SHOWN OR HIDDEN, PER STAGE (owner 2026-10-10, DECISION_LOG "WHAT GUESTS SEE":
+ * *"give them freedom to pick what they want to add. but have our recommendation
+ * as the checked one"*). Beside its place, a section's row may carry
+ * `config_json.stage_show[stage]`: `false` = the couple hid it on that stage,
+ * `true` = the couple shows it on that stage — over the event-wide eye, and on a
+ * stage this table would leave it out of. No entry for a stage = this table and
+ * the event-wide eye decide, exactly as before. The table is now OUR PICK, not a
+ * limit. Stored and read here; WHAT it decides is one function,
+ * `sceneOnStage` in `lib/what-guests-see.ts`.
+ *
  * 🎞 SAVE THE DATE: FILM OR PHOTOS (same ruling). The couple picks which one
  * leads: `config_json.std_lead` on the gallery's own row (`our_photos`),
  * 'film' | 'photos'. Unset → the film where this kind of event has one,
@@ -106,6 +116,49 @@ export function configWithStageOrder(
   }
   if (Object.keys(merged).length > 0) base[STAGE_ORDER_KEY] = merged;
   else delete base[STAGE_ORDER_KEY];
+  return base;
+}
+
+/** The `config_json` key holding the couple's per-stage shown / hidden choice. */
+export const STAGE_SHOW_KEY = 'stage_show';
+
+/**
+ * A section's per-stage choices — only well-formed ones (`true` / `false`).
+ * `null` for a stage is kept (it means "back to our pick for this stage") so a
+ * draft can carry it to Apply; `stageShown` reads it as "no choice".
+ */
+export function sanitizeStageShow(raw: unknown): Partial<Record<LifecyclePhase, boolean | null>> | null {
+  if (!isPlain(raw)) return null;
+  const out: Partial<Record<LifecyclePhase, boolean | null>> = {};
+  for (const st of STAGES) {
+    if (!(st in raw)) continue;
+    const v = raw[st];
+    if (v === null || typeof v === 'boolean') out[st] = v;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/** The couple's choice for this row on `stage`: `true` shown, `false` hidden, `null` none (our pick decides). */
+export function stageShown(config: unknown, stage: LifecyclePhase): boolean | null {
+  if (!isPlain(config)) return null;
+  const v = sanitizeStageShow(config[STAGE_SHOW_KEY])?.[stage];
+  return typeof v === 'boolean' ? v : null;
+}
+
+/** `config_json` with these per-stage choices merged in (null removes one); every sibling key kept. */
+export function configWithStageShow(
+  config: unknown,
+  shows: Partial<Record<LifecyclePhase, boolean | null>>,
+): Record<string, unknown> {
+  const base = isPlain(config) ? { ...config } : {};
+  const now = sanitizeStageShow(base[STAGE_SHOW_KEY]) ?? {};
+  const merged: Record<string, boolean> = {};
+  for (const st of STAGES) {
+    const v = st in shows ? shows[st] : now[st];
+    if (typeof v === 'boolean') merged[st] = v;
+  }
+  if (Object.keys(merged).length > 0) base[STAGE_SHOW_KEY] = merged;
+  else delete base[STAGE_SHOW_KEY];
   return base;
 }
 
@@ -167,12 +220,21 @@ export function stagesOfScene(type: WidgetType): LifecyclePhase[] {
   return (Object.keys(STAGE_SCENES) as LifecyclePhase[]).filter((s) => STAGE_SCENES[s].includes(type));
 }
 
+/** Is this type named by SOME stage's list? (The couple's own scenes and "Two ways to celebrate" are not.) */
+function isSceneOfSomeStage(type: string): boolean {
+  return (Object.values(STAGE_SCENES) as ReadonlyArray<readonly string[]>).some((list) => list.includes(type));
+}
+
 /**
  * A stage's scenes in the stage's order. The couple's order first: every scene
  * they placed on this stage, by its place. Then the stage's DEFAULT for the
  * rest — scenes the table names in the table's order, then anything else (the
  * couple's own scenes) by `display_order`. Nothing is dropped here —
  * membership is the phase fence's job.
+ *
+ * 👁 A scene the couple ADDED to this stage (`stage_show[stage] = true` on a
+ * scene of another stage's list) goes LAST by default: after the stage's own
+ * scenes and after the couple's own. Once dragged it sits at its place.
  */
 export function inStageOrder<T extends { widget_type: string; display_order: number; config_json?: unknown }>(
   rows: readonly T[],
@@ -181,7 +243,8 @@ export function inStageOrder<T extends { widget_type: string; display_order: num
   const order = STAGE_SCENES[stage] as readonly string[];
   const rank = (t: string) => {
     const i = order.indexOf(t);
-    return i < 0 ? order.length : i;
+    if (i >= 0) return i;
+    return order.length + (isSceneOfSomeStage(t) ? 1 : 0);
   };
   const byDefault = (a: T, b: T) => rank(a.widget_type) - rank(b.widget_type) || a.display_order - b.display_order;
   return [...rows].sort((a, b) => {
@@ -199,12 +262,19 @@ export function inStageOrder<T extends { widget_type: string; display_order: num
  * the stage's order — the list a move swaps in, so a drag past a hidden or
  * guest-only scene is counted right. The navigator's scenes are a subsequence
  * of it by construction (same order; membership is `inStage`, the phase fence).
+ *
+ * 👁 A scene the couple added to this stage (`stage_show[stage] = true`) is on
+ * the stage too, so it has a place to be dragged from and to.
  */
 export function stageRowOrder<
   T extends { widget_type: string; display_order: number; is_always_on: boolean; config_json?: unknown },
 >(rows: readonly T[], stage: LifecyclePhase, inStage: (type: string, stage: LifecyclePhase) => boolean): T[] {
   return inStageOrder(
-    rows.filter((r) => !r.is_always_on && inStage(r.widget_type, stage)),
+    rows.filter(
+      (r) =>
+        !r.is_always_on &&
+        (inStage(r.widget_type, stage) || (isSceneOfSomeStage(r.widget_type) && stageShown(r.config_json, stage) === true)),
+    ),
     stage,
   );
 }
@@ -256,4 +326,36 @@ export function splitAroundEntourage<T extends { widget_type: string }>(
   if (late.length === 0) return { before: [...scenes], after: [] };
   const isLate = (w: T) => (late as readonly string[]).includes(w.widget_type);
   return { before: scenes.filter((w) => !isLate(w)), after: scenes.filter(isLate) };
+}
+
+/** Is this scene one the stage draws after the entourage, whatever place the couple's order gives it? */
+export function sceneFollowsEntourage(stage: string, type: string): boolean {
+  const late = (STAGE_SCENES_AFTER_ENTOURAGE as Readonly<Record<string, readonly string[] | undefined>>)[stage];
+  return late !== undefined && late.includes(type) && (STAGE_FIXED.entourage as readonly string[]).includes(stage);
+}
+
+/**
+ * ↑ ↓ DOES MOVING A SCENE PAST THIS NEIGHBOUR CHANGE THE PAGE? Only when both are on the same side of the entourage.
+ *
+ * Owner, 2026-10-11, on his real event (Invitation › Details): he pressed Earlier on "What to bring" — "the do not
+ * work … no it is not showing". The move WAS saved (`stage_order.rsvp`: venue_map 6 → 7, what_to_bring 7 → 6) and
+ * the canvas was fetched again — and drew the same page, because the page draws What to bring AFTER the entourage
+ * whatever its place says (`splitAroundEntourage`). The Maker offered a step the page cannot show.
+ *
+ * Every reader of "can this step be taken" asks here (`add-part-sheet.tsx` `moveTargets`), so a step is offered only
+ * where the page will show it. Held by `lib/a-step-always-changes-the-page.test.ts`.
+ */
+export function stepChangesThePage(stage: string, moving: string, past: string): boolean {
+  return sceneFollowsEntourage(stage, moving) === sceneFollowsEntourage(stage, past);
+}
+
+/**
+ * Which way the entourage holds a scene on this page, given the other scenes the page draws: 'after' — it follows
+ * the entourage and something else does not (it cannot go earlier than the entourage); 'before' — the reverse.
+ * Null: nothing on this page is on the other side.
+ */
+export function heldByEntourage(stage: string, type: string, others: readonly string[]): 'after' | 'before' | null {
+  const late = sceneFollowsEntourage(stage, type);
+  if (!others.some((t) => sceneFollowsEntourage(stage, t) !== late)) return null;
+  return late ? 'after' : 'before';
 }

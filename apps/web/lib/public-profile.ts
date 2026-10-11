@@ -6,6 +6,7 @@ import type { EventDatePrecision } from '@/lib/events';
 import {
   resolveProfile as resolveEventTypeProfile,
   surfaceEnabled,
+  type EventTypeProfile,
 } from '@/lib/event-type-profile';
 
 // Shared resolver for the public account profile at setnayan.com/u/[user-slug].
@@ -156,13 +157,34 @@ export type PublicGateEventFields = {
 export async function filterPubliclyVisibleEvents<T extends PublicGateEventFields>(
   events: T[],
 ): Promise<T[]> {
+  const withSlug = events.filter((e) => !!e.slug);
+  if (withSlug.length === 0) return [];
+  // Resolve once per distinct event_type (resolveEventTypeProfile is React-cached)
+  // — and all of them together: one type's answer never waits on another's.
+  const types = [...new Set(withSlug.map((e) => e.event_type ?? ''))];
+  const profiles = await Promise.all(types.map((et) => resolveEventTypeProfile(et)));
+  const byType = new Map(types.map((et, i) => [et, profiles[i] as EventTypeProfile]));
+  return filterPubliclyVisibleEventsGiven(events, (et) => byType.get(et) ?? null);
+}
+
+/**
+ * THE SAME GATE, with each event type's profile handed in — for a caller that
+ * already holds them (the home page works them out from the public rows it
+ * remembers). Both halves are applied here, together, for both callers; this is
+ * where the rule is written. Pure: no read, no session.
+ *
+ * A type whose profile is not handed in is NOT listed — the safe direction.
+ */
+export function filterPubliclyVisibleEventsGiven<T extends PublicGateEventFields>(
+  events: T[],
+  profileOf: (eventType: string) => EventTypeProfile | null,
+): T[] {
   const withSlug = events.filter((e): e is T & { slug: string } => !!e.slug);
   if (withSlug.length === 0) return [];
-  // Resolve once per distinct event_type (resolveEventTypeProfile is React-cached).
   const websiteByType = new Map<string, boolean>();
   for (const et of new Set(withSlug.map((e) => e.event_type ?? ''))) {
-    const profile = await resolveEventTypeProfile(et);
-    websiteByType.set(et, surfaceEnabled(profile, 'website'));
+    const profile = profileOf(et);
+    websiteByType.set(et, profile ? surfaceEnabled(profile, 'website') : false);
   }
   return withSlug.filter(
     (e) =>

@@ -290,7 +290,7 @@ test('picking the Digital pass never replaces the canvas in Stages — it is pic
      2026-10-09: "how come background not fixed and no animate?" — `the-rsvp-lines-have-a-look.test.ts` §10), so those
      two are live there (`rsvpLooks`). Every other part is decided exactly as before — the claim this line holds. */
   /* 🔁 RE-AIMED AGAIN 2026-10-10: the tools a picked thing has a save for BEYOND the part rule are now one named
-     function, `ownTool` (a reply card or line: Background · Animate; a fixed block with one real root: Animate —
+     function, `ownTool` (a reply card or line: Background · Animate; a fixed block with one real root: Background · Animate —
      `a-fixed-block-has-its-own-motion.test.ts` §5). The part rule itself is decided exactly as before. */
   /* 🔁 RE-AIMED 2026-10-10 (toolbar consistency — owner: "please make Edit | Style | Background | Animate Consistent in
      design"): the part rule is as it was, and one clause is added to it — a tool whose rows would be EMPTY on the
@@ -502,7 +502,8 @@ test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the 
   /* The SAME value the Mood Board's switch holds, the whole config, through the one draft door — never a second key. */
   assert.match(fn, /const next: DressCodeConfig = \{ \.\.\.before, show_figure: show \};/);
   assert.match(fn, /const saveEvents = useHeldEventsSave\(eventId, draftAction\);/);
-  assert.match(fn, /const res = await saveEvents\(\{ dress_code_config: next \}\);/);
+  /* 📵 …sent through `hubDraftAnswer`, so a save that never answered is said in the row, not thrown into its transition. */
+  assert.match(fn, /const res = await hubDraftAnswer\('save', \(\) => saveEvents\(\{ dress_code_config: next \}\)\);/);
   const held = read(`${EDITOR}/use-scene-canvas.ts`);
   const hook = held.slice(held.indexOf('export function useHeldEventsSave'));
   assert.match(hook, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);/, 'the one draft door, an events patch');

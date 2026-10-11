@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import satori from 'satori';
 import sharp from 'sharp';
+import { cardPhotoSignal } from '@/lib/social/card-photo-fetch';
 
 /**
  * apps/web/lib/social/vendor-card.tsx — the Open Graph share card for a
@@ -235,7 +236,7 @@ function cardTree(input: VendorCardInput): VNode {
 async function logoTile(logoUrl: string | null | undefined): Promise<Buffer | null> {
   if (!logoUrl) return null;
   try {
-    const res = await fetch(logoUrl);
+    const res = await fetch(logoUrl, { signal: cardPhotoSignal() });
     if (!res.ok) return null;
     const bytes = Buffer.from(await res.arrayBuffer());
     const inner = LOGO_SIZE - 2;

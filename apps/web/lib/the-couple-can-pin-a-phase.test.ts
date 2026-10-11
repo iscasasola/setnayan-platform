@@ -87,6 +87,15 @@ test('every site that picks the face composes the pin', () => {
 
   const door = src('lib/invite-destination.ts');
   assert.match(door, /manualLaunchPhase\(input\.launchMode, input\.manualPhase\)/);
+
+  // The day's hub (`/[slug]/hub`) — the fourth site, since 2026-10-11. It read the
+  // calendar alone, so a couple who pinned "The Day" got a live page and a hub
+  // that was not (`app/[slug]/_lib/the-day-hub-follows-the-stage.test.ts`).
+  const hub = src('app/[slug]/hub/page.tsx');
+  assert.match(hub, /manualLaunchPhase\(event\.launch_mode, event\.manual_phase\)/);
+  // (A host rehearsing the day before the day is forced to 'event'; everyone else takes the preview, then the pin.)
+  assert.match(hub, /forcedPhase: LifecyclePhase \| null = door === 'rehearsal' \? 'event' : \(phaseOverride \?\? pinnedPhase\)/);
+  assert.match(hub, /const dayOfPhase: DayOfPhase = forcedPhase/);
 });
 
 test('every loader feeding a face selects the two columns', () => {

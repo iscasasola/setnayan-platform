@@ -125,17 +125,33 @@ export function makerPartOfCanvas(stage: MakerStageKey, canvas: string): MakerPa
  */
 export type MakerPartAddPath = { kind: 'add' } | { kind: 'waiting'; note: string } | null;
 
-export type MakerPartOffer = { key: MakerPartKey; label: string; path: Exclude<MakerPartAddPath, null> };
+export type MakerPartOffer = {
+  key: MakerPartKey;
+  label: string;
+  path: Exclude<MakerPartAddPath, null>;
+  /** 📄 The page that will draw it, when that is NOT the page on show — its key, and the name its tab shows ("Details"). */
+  onPage: { key: string; label: string } | null;
+};
 
 /**
- * ＋ THE SHEET'S LIST: the parts NOT already on this page (`present` = the
- * canvas keys the page drew), grouped, each with how it is added. Empty groups
- * are left out. A part is listed once, in its first group.
+ * ＋ THE SHEET'S LIST: the parts NOT already on this STAGE (`present` = the
+ * canvas keys the stage's pages drew), grouped, each with how it is added. Empty
+ * groups are left out. A part is listed once, in its first group.
+ *
+ * 📄 THE LIST IS THE STAGE'S, WHICHEVER PAGE ＋ WAS PRESSED ON (owner 2026-10-11, on Welcome with the Map and the
+ * Dress code hidden: *"does not show the scenes to add"*). A part another page draws is still offered — and says so
+ * (`onPage`), so the row never promises a place the part will not go. `pageOf` changes that one field and nothing
+ * else: which parts are offered does not depend on the page (held by `lib/one-press-is-one-undo-step.test.ts`).
  */
 export function makerPartOffers(input: {
   stage: MakerStageKey;
   present: ReadonlySet<string>;
   pathOf: (key: MakerPartKey, canvas: string) => MakerPartAddPath;
+  /**
+   * 📄 On a stage drawn as tabs: the OTHER page this canvas key is filed on — null when it is the page on show.
+   * Absent (a stage that is one page): every part is this page's.
+   */
+  pageOf?: (canvas: string) => { key: string; label: string } | null;
 }): Array<{ label: string; parts: MakerPartOffer[] }> {
   const seen = new Set<MakerPartKey>();
   const out: Array<{ label: string; parts: MakerPartOffer[] }> = [];
@@ -148,7 +164,7 @@ export function makerPartOffers(input: {
       const path = input.pathOf(key, canvas);
       if (!path) continue;
       seen.add(key);
-      parts.push({ key, label: makerPartLabelOn(input.stage, key), path });
+      parts.push({ key, label: makerPartLabelOn(input.stage, key), path, onPage: input.pageOf?.(canvas) ?? null });
     }
     if (parts.length) out.push({ label: g.label, parts });
   }

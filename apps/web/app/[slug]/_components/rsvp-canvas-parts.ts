@@ -84,9 +84,18 @@ export const RSVP_LINE_NAME: Readonly<Record<string, string>> = {
   message: 'Message',
   save: 'Save button',
 };
+/**
+ * ＋ 🫧 A LINE THE COUPLE ADDED (`a:<id>`) AND A GROUP OF LINES (`g:<id>`) are parts of a screen's card too (owner's
+ * ruling 2026-10-09 — ＋, drag, Group). Named by the page (`data-rsvp-line="a:…"`, `data-rsvp-group="…"`); the id is
+ * the app's own short one. Only a screen's CARD holds them — never the pass, the greeting or the masthead.
+ */
+const RSVP_LIST_NAME = /^[ag]:[a-z0-9]{1,4}$/;
+export const RSVP_GROUP_ATTR = 'data-rsvp-group';
 /** A line of a section, or null when that section has no such line (a stray attribute picks nothing). */
 export function rsvpLineOf(section: string | null | undefined, line: string | null | undefined): string | null {
-  return section && line && RSVP_SECTION_LINES[section]?.includes(line) ? line : null;
+  if (!section || !line) return null;
+  if (RSVP_SECTION_LINES[section]?.includes(line)) return line;
+  return RSVP_LIST_NAME.test(line) && (RSVP_CARD_GROUPS as readonly string[]).includes(section) ? line : null;
 }
 
 /** The words TYPED on the page (the reply-by line is a date — it is set in the form's own tools, never typed). */
@@ -194,7 +203,8 @@ export function rsvpPartOfTap(target: TapEl | null): RsvpTapPart | null {
   for (let node = target; node; node = node.parentElement) {
     word ??= node.getAttribute('data-rsvp-word');
     el ??= node.getAttribute('data-el');
-    line ??= node.getAttribute(RSVP_LINE_ATTR);
+    /* The nearest line — or, on a group's own paper (no line under the finger), the group. */
+    line ??= node.getAttribute(RSVP_LINE_ATTR) ?? (node.getAttribute(RSVP_GROUP_ATTR) ? `g:${node.getAttribute(RSVP_GROUP_ATTR)}` : null);
     const key = node.previousElementSibling?.getAttribute('data-maker-section') ?? null;
     if (!key) continue;
     if (key === RSVP_CANVAS_HERO) {

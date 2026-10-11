@@ -81,6 +81,7 @@ import {
   chatAttachmentIsSubjectsOwn,
   type ChatAttachmentRow,
 } from '@/lib/erasure/chat-attachment-provenance';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 export type ErasureAdminClient = ReturnType<typeof createAdminClient>;
 
@@ -1449,6 +1450,8 @@ export async function eraseUserAccount(
       updated_at: nowIso,
     })
     .eq('user_id', targetUserId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('people');
   if (pErr) await auditFail('users-anonymize', pErr.message);
 
   // 2. Kill live sessions so the lockout is immediate on every device.

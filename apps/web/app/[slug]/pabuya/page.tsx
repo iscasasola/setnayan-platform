@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestRead } from '@/lib/guest-read';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor, giftIsMoneyDance } from '../_lib/event-words';
+import { hasntAfter } from '../_lib/names-verb';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { giftsAreOn } from '@/lib/event-answers';
@@ -43,13 +45,17 @@ export const metadata = {
 
 const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from('events')
-    .select(
-      'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message, gifts_on, gift_registry_url',
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  // 🔌 A failed read throws (the guest boundary) — never "This link can't be
+  // found." for an event that is there (lib/guest-read.ts).
+  const data = await guestRead('pabuya (event)', () =>
+    admin
+      .from('events')
+      .select(
+        'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message, gifts_on, gift_registry_url',
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   return data as {
     event_id: string;
     slug: string | null;
@@ -310,7 +316,7 @@ export default async function PabuyaPublicPage({
           </>
         ) : registryHref ? null : (
           <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/60">
-            {hostName} hasn&rsquo;t set up e-gifts yet. Check back soon — or
+            {hostName} {hasntAfter(event.display_name, words.twoPeople)} set up e-gifts yet. Check back soon — or
             visit their page in the meantime.
           </p>
         )}

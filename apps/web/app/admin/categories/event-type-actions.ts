@@ -12,6 +12,7 @@ import {
   surfacesStrandedWithoutWebsite,
   strandedWithoutWebsiteMessage,
 } from '@/lib/event-type-profile';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * Setnayan HQ · Event type panel actions — the per-type category scoping,
@@ -329,6 +330,8 @@ export async function upsertEventTypeProfile(formData: FormData) {
   const { error } = await admin
     .from('event_type_profiles')
     .upsert(row, { onConflict: 'event_type' });
+  // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
+  clearHomeShelf('eventTypes');
   if (error) {
     // 23503 = FK violation → the key isn't a known event_type_vocab row.
     if (error.code === '23503') {

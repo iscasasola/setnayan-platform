@@ -468,10 +468,19 @@ test('(10) the lab: its RSVP stand-in screens carry the real pages’ part marks
   assert.deepEqual([...new Set(marks)], ['f:greeting', 'f:rsvp', 'f:yesnote', 'f:pass', 'f:nonote']);
   for (const k of marks) assert.ok(real.has(k), `${k} is not a part of the real RSVP pages`);
   // Each word carries its key, in the section the real page puts it in.
-  const words = [...screens.matchAll(/rsvpWordBridgeKey\((?:i === 0 \? 'attending' : 'declined'|'(\w+)')\)/g)].map((m) => m[1] ?? 'attending|declined');
-  /* 🔁 RE-AIMED 2026-10-09: the form's eyebrow, question and hint are words now (every line is its own part), and
-     the stand-in names them as the real card does. Still each word with its key, in page order. */
-  assert.deepEqual(words, ['eyebrow', 'question', 'attending|declined', 'hint', 'thanksHeading', 'thanksMessage', 'declineHeading', 'declineMessage']);
+  /* 🔁 RE-AIMED 2026-10-10: the lab no longer keeps a hand-made copy of the card and the notes — it draws the REAL
+     ones (`RsvpWidget` as the Reply door on the Maker's sample, `RsvpNoteLines` for each note), so every word and
+     every line's name is the real page's by construction and cannot drift. What is held now: that it IS the real
+     components, each straight after its own marker, and that no hand-made answer is left behind. */
+  assert.match(screens, /\{rsvp === 'form' \? mark\('f:rsvp'\) : null\}\s*\{rsvp === 'form' \? \(\s*(?:\/\*[\s\S]*?\*\/\s*)?<div className="mt-4 space-y-4">\s*<RsvpWidget\b[\s\S]*?doorAction=\{labReply\}[\s\S]*?previewEveryQuestion/, 'the lab’s form is not the real reply card on the Maker’s sample');
+  for (const [marker, reply, keys] of [['f:yesnote', 'yes', "heading: 'thanksHeading', message: 'thanksMessage'"], ['f:nonote', 'no', "heading: 'declineHeading', message: 'declineMessage'"]] as const) {
+    const at = screens.indexOf(`{mark('${marker}')}`);
+    const note = screens.slice(at, screens.indexOf('/>', screens.indexOf('<RsvpNoteLines', at)));
+    assert.ok(at > 0 && note.includes(`<div data-landing="message"`) && note.includes(`reply="${reply}"`) && note.includes(`wordKeys={{ ${keys} }}`), `the lab’s ${marker} is not the real note`);
+  }
+  assert.doesNotMatch(screens, /name="rsvp_status"|rsvpWordBridgeKey\(/, 'a hand-made copy of a reply screen is back in the lab');
+  /* The one line the lab still names itself: the pass's Save button (the pass is a stand-in — a guest's own ticket). */
+  assert.deepEqual([...screens.matchAll(/data-rsvp-line="(\w+)"/g)].map((m) => m[1]), ['save']);
   assert.equal(RSVP_WORD_SECTION.attending, 'f:rsvp');
   assert.equal(RSVP_WORD_SECTION.thanksHeading, 'f:yesnote');
   // EXECUTED — the shipped tap reader over the lab's own shape: marker · form › fieldset › label › span[word].
@@ -484,7 +493,7 @@ test('(10) the lab: its RSVP stand-in screens carry the real pages’ part marks
      word under the finger. */
   const word = node({ 'data-rsvp-word': 'rsvp:attending' }, node({ 'data-rsvp-line': 'yes' }, node({}, form, null), null), null);
   assert.deepEqual(rsvpPartOfTap(word as never), { key: 'f:rsvp', el: null, word: 'rsvp:attending', line: 'yes' });
-  assert.match(screens, /data-rsvp-line=\{i === 0 \? 'yes' : 'no'\}/, 'the lab’s answers do not name their line');
+  /* (The answers name their line in the real card — the lab draws that card: `the-rsvp-stage-is-parts.test.ts` § 8.) */
   assert.equal(rsvpPartOfTap(node({}, null, null) as never), null, 'a tap on the ground picks a part');
   // A picked day is not read as refused: both labs' Reply-by stand-ins answer as the action does when it lands.
   assert.match(read('app/dev/maker-lab/maker-lab-shell.tsx'), /replyByAction: \(async \(\) => \(\{ ok: true \}\)\) as never,/);

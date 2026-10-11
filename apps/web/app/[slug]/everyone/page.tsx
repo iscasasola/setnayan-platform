@@ -3,6 +3,8 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { GuestReadError, guestRead } from '@/lib/guest-read';
+import { withSchemaRetry } from '@/lib/read-retry';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
@@ -11,6 +13,7 @@ import { isHostMemberType } from '../_lib/host-scope';
 import { loadEntourageSectionOrder, loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import {
   buildEntourage,
+  guestsWhoSaidYes,
   plainGuestNames,
   ENTOURAGE_COLUMNS,
   ENTOURAGE_COUPLE_FIELDS,
@@ -18,6 +21,7 @@ import {
   type EntourageGuestRow,
 } from '@/lib/entourage';
 import { EntourageSection } from '../_components/entourage-section';
+import { withDayNote } from '../_lib/day-words';
 
 export const metadata = {
   title: 'Everyone who will be there',
@@ -51,16 +55,21 @@ export const metadata = {
  */
 const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from('events')
-    .select('event_id, slug, display_name, landing_page_visibility')
-    .ilike('slug', slug)
-    .maybeSingle();
+  // 🔌 A failed read throws (the guest boundary) — never "This link can't be
+  // found." for an event that is there (lib/guest-read.ts).
+  const data = await guestRead('everyone (event)', () =>
+    admin
+      .from('events')
+      .select('event_id, slug, display_name, landing_page_visibility, event_date')
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   return data as {
     event_id: string;
     slug: string | null;
     display_name: string | null;
     landing_page_visibility: string | null;
+    event_date: string | null;
   } | null;
 });
 
@@ -124,15 +133,21 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
   const admin = createAdminClient();
 
   const nameStyle = await loadEventNameStyle(admin, event.event_id);
-  const { data: castRows } = await admin
-    .from('guests')
-    // + who is a real couple — the same read as the invitation's section.
-    .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`)
-    .eq('event_id', event.event_id)
-    .is('deleted_at', null)
-    .or(
-      `role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`,
-    );
+  // 🔌 "The entourage hasn't been shared yet." is a statement about the couple.
+  // It is made only when the read ANSWERED with nobody in it; a read that
+  // failed throws instead (the guest boundary).
+  const { data: castRows, error: castError } = await withSchemaRetry(() =>
+    admin
+      .from('guests')
+      // + who is a real couple — the same read as the invitation's section.
+      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`)
+      .eq('event_id', event.event_id)
+      .is('deleted_at', null)
+      .or(
+        `role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`,
+      ),
+  );
+  if (castError) throw new GuestReadError('everyone (entourage)', castError);
   // Same section order the invitation prints — the couple's, when they set one.
   const groups = buildEntourage(
     (castRows ?? []) as EntourageGuestRow[],
@@ -151,15 +166,27 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
   */
   let guests: string[] = [];
   if (recognised) {
-    const { data: guestRows } = await admin
+    // 🔌 The same for "No one else has said yes yet." — said of a list that
+    // was read, never of one that could not be. (Kept a plain statement under
+    // `if (recognised)`: the gate above must stay visible to a source guard.)
+    const { data: guestRows, error: guestRowsError } = await admin
       .from('guests')
-      .select(ENTOURAGE_COLUMNS)
+      // + each guest's own answer: "Also coming" is the people who said yes.
+      .select(`${ENTOURAGE_COLUMNS}, rsvp_status`)
       .eq('event_id', event.event_id)
       .is('deleted_at', null);
-    guests = plainGuestNames((guestRows ?? []) as EntourageGuestRow[], nameStyle);
+    if (guestRowsError) throw new GuestReadError('everyone (guest list)', guestRowsError);
+    /* ✅ ONLY A GUEST'S OWN YES PUTS THEM UNDER "ALSO COMING" (a guest's walk
+       2026-10-11: the list held people who had not replied, the reader among
+       them). The names themselves are for guests and hosts by the 2026-09-15
+       ruling — that is the gate above, unchanged. */
+    guests = plainGuestNames(
+      guestsWhoSaidYes((guestRows ?? []) as Array<EntourageGuestRow & { rsvp_status?: string | null }>),
+      nameStyle,
+    );
   }
 
-  const name = event.display_name ?? 'this celebration';
+  const name = event.display_name ?? 'this event';
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
@@ -178,8 +205,9 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
       {groups.length > 0 ? (
         <EntourageSection groups={groups} />
       ) : (
-        <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/60">
-          The entourage hasn&rsquo;t been shared yet. Check back closer to the day.
+        <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/70">
+          The entourage hasn&rsquo;t been shared yet.{' '}
+          {withDayNote('Check back closer to the day.', event.event_date)}
         </p>
       )}
 
@@ -199,15 +227,15 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
               ))}
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-ink/60">
-              No one else is on the list yet.
+            <p className="mt-4 text-sm text-ink/70">
+              No one else has said yes yet.
             </p>
           )
         ) : (
           /* ⚠ SAY WHY, AND SAY IT AS A FACT ABOUT THE READER — not "you are not
              allowed". A relative opening a forwarded link is not doing anything
              wrong; they simply are not holding an invitation. */
-          <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-8 text-center text-sm text-ink/60">
+          <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-8 text-center text-sm text-ink/70">
             The rest of the guest list is for invited guests. Open your own
             invitation link, or scan your QR, and it will appear here.
           </p>
@@ -215,11 +243,12 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
       </section>
 
       <footer className="mt-12 border-t border-ink/10 pt-8 text-center">
-        {/* min-h-[40px] + matching negative margin (mobile audit item 3:
-            measured 18px) — grows the hit area without shifting the text. */}
+        {/* min-h-[44px] + matching negative margin (mobile audit item 3:
+            measured 18px; a guest's walk 2026-10-11: still under 44) — grows
+            the hit area without shifting the text. */}
         <Link
           href={`/${slug}`}
-          className="inline-flex min-h-[40px] items-center py-2.5 -my-2.5 text-sm text-ink/60 underline underline-offset-4"
+          className="inline-flex min-h-[44px] items-center py-3 -my-3 text-sm text-ink/70 underline underline-offset-4"
         >
           Back to the invitation
         </Link>

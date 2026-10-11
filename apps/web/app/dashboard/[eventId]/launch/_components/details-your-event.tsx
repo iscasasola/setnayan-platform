@@ -382,7 +382,15 @@ export function DateEditor({
     });
   };
   /** The governed row's day → the draft (after its booked-supplier preview). */
-  const saveDay = async (value: string) => (await draftDate({ event_date: value, event_date_precision: 'day' }))?.error ?? null;
+  /* 📵 Handed to the governed row, which awaits it inside its own transition: a save that never answered (no signal,
+     a 5xx) comes back as a reason in words, never a throw — a throw there replaced the whole Maker. */
+  const saveDay = async (value: string) => {
+    try {
+      return (await draftDate({ event_date: value, event_date_precision: 'day' }))?.error ?? null;
+    } catch {
+      return 'That day did not save. Please try again.';
+    }
+  };
 
   return (
     <section data-details-date="" className="flex flex-col gap-3">

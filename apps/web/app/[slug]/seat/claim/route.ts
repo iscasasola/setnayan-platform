@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestSession } from '@/lib/guest-session';
 import { recordScan } from '@/lib/scan-trail';
+import { withSchemaRetry } from '@/lib/read-retry';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { didNotLoadAnswer } from '@/lib/guest-did-not-load';
 
 /**
  * /[slug]/seat/claim?slug=&t=  — the personal-QR cookie-set hop for the Seat
@@ -24,9 +27,34 @@ import { recordScan } from '@/lib/scan-trail';
  * stateless public wayfinding). If `t` here resolves to a table token (or
  * nothing), there's no guest session to set — we bounce to …/{slug}/seat?t=…
  * so the pass page resolves the public table view (or notFound) on its own.
+ *
+ * 🔌 A READ THAT FAILED IS NOT "NO SUCH EVENT" OR "NOT A GUEST'S CODE"
+ * (2026-10-11). Both reads below threw their `error` away. A failed EVENT read
+ * bounced the guest to the event's page with their code dropped — a stranger
+ * at the door, a printed QR in hand. A failed CODE read was taken for a table
+ * code and forwarded to the pass page, which (reading the same code a moment
+ * later) sends a guest's code straight back here. Each read is now retried
+ * through a blip (`withSchemaRetry`) and one that still failed is answered IN
+ * PLACE with the guest boundary's words — `didNotLoadAnswer`, the same answer
+ * as `/[slug]/redeem`: the address keeps the code, so "Try again" re-runs this
+ * hop. A throw (a cookie that could not be written) gets the same answer.
+ * 🛡 app/[slug]/a-failed-read-is-not-an-absence.test.ts
  */
 
 export async function GET(request: NextRequest) {
+  // The address this request can be asked again at — set once the slug and the
+  // code are in hand, built with the URL API (never raw caller text).
+  const retry: { href: string | null } = { href: null };
+  try {
+    return await claim(request, retry);
+  } catch (err) {
+    if (!retry.href) throw err;
+    logQueryError('seat claim (threw)', err, {}, 'graceful_degrade');
+    return didNotLoadAnswer(retry.href);
+  }
+}
+
+async function claim(request: NextRequest, retry: { href: string | null }): Promise<NextResponse> {
   const url = new URL(request.url);
   // Slug comes from the route segment; accept the query param too for parity
   // with redeem, but the path segment is authoritative.
@@ -39,13 +67,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(fallback);
   }
 
+  {
+    const again = new URL(url.pathname, url.origin);
+    again.searchParams.set('t', token);
+    retry.href = `${again.pathname}${again.search}`;
+  }
+  const tryAgainHref = retry.href;
+
   const admin = createAdminClient();
 
-  const { data: event } = await admin
-    .from('events')
-    .select('event_id, slug')
-    .ilike('slug', slug)
-    .maybeSingle();
+  const { data: event, error: eventError } = await withSchemaRetry(() =>
+    admin.from('events').select('event_id, slug').ilike('slug', slug).maybeSingle(),
+  );
+  if (eventError) {
+    logQueryError('seat claim (events)', eventError, { slug }, 'graceful_degrade');
+    return didNotLoadAnswer(tryAgainHref);
+  }
 
   if (!event) {
     return NextResponse.redirect(fallback);
@@ -54,13 +91,20 @@ export async function GET(request: NextRequest) {
   // Resolve the token as a GUEST token. If it isn't one (e.g. a table token),
   // skip the cookie-set and forward to the stateless pass URL (still carrying
   // the token, since a table view resolves from it).
-  const { data: guest } = await admin
-    .from('guests')
-    .select('guest_id, event_id, qr_token')
-    .eq('event_id', event.event_id)
-    .eq('qr_token', token)
-    .is('deleted_at', null)
-    .maybeSingle();
+  const { data: guest, error: guestError } = await withSchemaRetry(() =>
+    admin
+      .from('guests')
+      .select('guest_id, event_id, qr_token')
+      .eq('event_id', event.event_id)
+      .eq('qr_token', token)
+      .is('deleted_at', null)
+      .maybeSingle(),
+  );
+  // Could not READ the code ≠ not a guest's code. Answered before the forward.
+  if (guestError) {
+    logQueryError('seat claim (guests by code)', guestError, { event_id: event.event_id }, 'graceful_degrade');
+    return didNotLoadAnswer(tryAgainHref);
+  }
 
   if (guest && guest.event_id === event.event_id) {
     await setGuestSession({

@@ -767,6 +767,39 @@ export const resolveProfile = cache(
   },
 );
 
+/**
+ * The Event-Type Profile from a row SOMEBODY ELSE ALREADY READ — the viewer-free
+ * sibling of `resolveProfile`, for a caller that holds the table's public rows
+ * (the home page remembers them: `lib/home-public-reads-core.ts`).
+ *
+ * 🔒 THE SAME MEANING, NOT A SECOND ONE. `event_type_profiles` is public-read
+ * (`USING (TRUE)`), so the row is the one `resolveProfile` would have been
+ * handed; it goes through the same `toProfile`, and a type with no row gets the
+ * same `fallbackFor`. Pure: no read, no session. `resolveProfile` is untouched
+ * and still asks through the viewer's own client.
+ *
+ * A column a row does not carry is `null` here, exactly as `resolveProfile`
+ * fills the later-migration columns when it has to read without them.
+ */
+export function profileFromPublicRow(
+  eventType: string,
+  row: (Record<string, unknown> & { event_type: string }) | null | undefined,
+): EventTypeProfile {
+  if (!row) return fallbackFor(eventType);
+  return toProfile({
+    marketplace_enabled: null,
+    event_class: null,
+    layer_mode: null,
+    multi_day: null,
+    guest_word: null,
+    gifts_mode: null,
+    team_first: null,
+    look_set: null,
+    camera_default: null,
+    ...row,
+  } as ProfileRow);
+}
+
 /** Convenience: does this profile enable a given surface? */
 export function surfaceEnabled(
   profile: EventTypeProfile,

@@ -265,7 +265,20 @@ export function pinPlateInk(
  *     label is the paper, so the FILL is what must read against it; `-600` is
  *     its hover) and every `text-mulberry` word — one pair, read both ways;
  *   · `--color-terracotta*` — eyebrows, links and the footer's sign-off;
- *   · `--color-link*`       — `.button-secondary` (`bg-cream text-link`) and inline links.
+ *   · `--color-link*`       — `.button-secondary` (`bg-cream text-link`) and inline links;
+ *   · `--color-gild-text`   — every `text-gild` word: the "and" between the names,
+ *     the programme's times, "Our colours" (`tailwind.config.ts` textColor.gild
+ *     reads it before the ornament's `--color-gild`).
+ *
+ * 🔴 THE LAST ONE WAS MISSING UNTIL 2026-10-11. `--color-gild-text` became a WORD
+ * token on 2026-10-05 (`buildSitePaletteVars`: the ornament's hue "moved until it
+ * reads on the paper and the cards") and was never added here. So when a
+ * background took the page to the other side, every other word followed and
+ * this one stayed where the Mood Board had sized it for a LIGHT paper. Measured
+ * on the live sample event (a rose board under a dark ombré): the "and" between
+ * the names, the programme's times and "Our colours" all painted rgb(63 58 52)
+ * on rgb(30 34 41) — 1.4 : 1. The ombré names the ORNAMENT (`--color-gild`) and
+ * says nothing about its words; that is this list's job.
  */
 export const WORD_INK_TOKENS: readonly string[] = [
   '--color-mulberry',
@@ -276,6 +289,7 @@ export const WORD_INK_TOKENS: readonly string[] = [
   '--color-terracotta-700',
   '--color-link',
   '--color-link-600',
+  '--color-gild-text',
 ];
 
 /**
@@ -295,9 +309,18 @@ export const HOUSE_WORD_TOKENS: Readonly<Record<string, string>> = {
   '--color-terracotta-700': '140 105 50',
   '--color-link': '59 78 103',
   '--color-link-600': '48 64 85',
+  // House names only the ornament's gild; its words fall back to it (`pageWordBase`).
+  '--color-gild': '169 131 75',
+  // The two surfaces that keep a ground of their own under the page's (`pinSurfaceWordInks`).
+  '--color-paper-deep': '241 241 240',
+  '--color-veil': '243 236 225',
 };
 export const CANDLELIGHT_WORD_TOKENS: Readonly<Record<string, string>> = {
   '--color-cream': '24 22 20',
+  '--color-gild': '201 163 106',
+  '--color-gild-text': '201 163 106',
+  '--color-paper-deep': '33 30 27',
+  '--color-veil': '44 39 34',
   '--color-mulberry': '201 163 106',
   '--color-mulberry-600': '201 163 106',
   '--color-mulberry-700': '201 163 106',
@@ -316,12 +339,27 @@ export function pageWordBase(
   art: 'candlelight' | null = null,
 ): Record<string, string> {
   const theme = INVITE_THEMES[themeId] ?? INVITE_THEMES.house;
+  /* A theme's STYLESHEET block names the ornament's gild and not its words (`globals.css`, "THE TEN
+     THEMES ON THE PAGE") — `themeBlockVars` carries both because it is also what a seeded palette
+     writes inline. Modelling a name the stylesheet does not set would hide the fallback the browser
+     takes: under an ombré the words become the OMBRÉ's gild, whatever the theme's was. */
+  const { '--color-gild-text': _notInTheStylesheet, ...themeSheet } = theme.id === 'house' ? ({} as Record<string, string>) : themeBlockVars(theme);
+  void _notInTheStylesheet;
   return {
     ...HOUSE_WORD_TOKENS,
     ...(art === 'candlelight' ? CANDLELIGHT_WORD_TOKENS : {}),
-    ...(theme.id === 'house' ? {} : themeBlockVars(theme)),
+    ...themeSheet,
     ...(palette ?? {}),
   };
+}
+
+/**
+ * The colour `text-gild` paints for a resolved bag: `var(--color-gild-text, var(--color-gild))`
+ * (`tailwind.config.ts`) — the WORDS' gild where a layer names one, else the ornament's
+ * (House's `:root` and a theme's stylesheet block name only the ornament).
+ */
+export function gildWordsOf(v: Readonly<Record<string, string>>): string | undefined {
+  return v['--color-gild-text'] ?? v['--color-gild'];
 }
 
 /** The worst contrast of `colour` over every ground it is read on. */
@@ -386,14 +424,98 @@ export function pinWordInks(
   const grounds = changedSides ? [paper, ...ramp.filter((c) => rgbOf(c))] : [paper];
   const pinned: Record<string, string> = {};
   for (const token of WORD_INK_TOKENS) {
-    const sized = base[token];
+    const gildWords = token === '--color-gild-text';
+    const sized = gildWords ? gildWordsOf(base) : base[token];
     if (!sized || !rgbOf(sized)) continue;
     // The couple's own layer set this one — its answer stands.
     if (vars[token] !== undefined && vars[token] !== sized) continue;
+    // …and so does an ornament gild their layer re-set (the ombré's), where the words fall back to it.
+    if (gildWords && vars[token] === undefined && vars['--color-gild'] !== undefined && vars['--color-gild'] !== base['--color-gild']) continue;
     // AA — or what the word read at before the paper moved, when that was less.
     const target = Math.min(PLATE_MIN_CONTRAST, contrastOf(sized, basePaper));
     if (worstOver(sized, grounds) >= target) continue;
     pinned[token] = wordInkOn(sized, grounds, target);
+  }
+  // The page's words are settled; now the surfaces that keep a ground of their own under them
+  // (`pinSurfaceWordInks`, below) — the gold date card must not inherit a word moved for the dark page.
+  return pinSurfaceWordInks(Object.keys(pinned).length > 0 ? { ...vars, ...pinned } : vars, base);
+}
+
+// ── A WORD FOLLOWS THE GROUND IT IS DRAWN ON, NOT THE PAGE'S (2026-10-11) ─────────────
+//
+// `pinWordInks` above moves a word token for the PAPER the page ends with. But a page
+// is not one ground: a plate (`.pahina-plate`, `.pahina-deckle`, `bg-paper-deep`) and a
+// veil row (`bg-veil`, `/60`, `/50`) keep a ground of their OWN, which a background does
+// not touch. Measured on the preview of this very branch: the dark sample event's
+// "WHEN" label and calendar icon sit on its GOLD date card. Live they read
+// rgb(63 58 52) on rgb(197 160 89) — 4.58 : 1. Once the words' gild followed the dark
+// page (167 164 162), they read 1.01 : 1 on the gold — invisible. One token, two
+// grounds, and the fix for one broke the other.
+//
+// 🔑 THE RULE: A SURFACE WITH ITS OWN GROUND KEEPS A WORD THAT READS ON *THAT* GROUND.
+// `pinWordInks` ends by calling this, so every caller of it — the guest page, the Look
+// sample, a dark shade — gets both halves and cannot take one without the other.
+// The stylesheet makes each such surface shadow `--color-gild-text` for its subtree
+// (`globals.css`, beside `--color-ink-page` — the same idiom the plate's ink already
+// uses): `var(--color-gild-text-on-plate, var(--color-gild-text-page))`. With nothing
+// pinned that is the page's value, exactly as before. This function pins the surface's
+// own token ONLY where the page's value no longer reads there — and then to the colour
+// the surface was sized with (the Mood Board sized its gild words on the paper AND the
+// plate), moved only if even that does not read. So a look whose surfaces still read is
+// returned UNCHANGED, and no word on a surface is ever harder to read than it was
+// before the couple's background, up to AA.
+//
+// 🔒 Held by `lib/a-dark-look-keeps-its-words.test.ts` (9): every gild word on the REAL
+// rendered page, against the ground of its nearest surface, on every Look.
+
+/**
+ * The surfaces that keep a ground of their own, the token their gild words read, and what paints them:
+ * the plate (opaque `--color-paper-deep`), and a veil ROW — the veil at its strength over the card, whose
+ * ground is the page's paper. Each strength has its own token: on a mid-tone ground a word that reads at
+ * one strength can be unreadable at the next, and one colour cannot serve both.
+ * (The opaque `bg-veil` is a picture well — a map, a portrait — and holds no words.)
+ * The test re-reads the guest components and fails if one paints a plate or a veil row not listed here.
+ */
+export const GILD_SURFACES = [
+  { key: 'plate', token: '--color-gild-text-on-plate', classes: ['pahina-plate', 'pahina-deckle', 'bg-paper-deep', 'bg-paper-deep/95'], veil: null },
+  { key: 'veil-60', token: '--color-gild-text-on-veil-60', classes: ['bg-veil/60'], veil: 0.6 },
+  { key: 'veil-50', token: '--color-gild-text-on-veil-50', classes: ['bg-veil/50'], veil: 0.5 },
+] as const;
+export type GildSurface = (typeof GILD_SURFACES)[number];
+
+/** The colour a surface paints behind its words, for a resolved bag — or null when the bag cannot say. */
+export function surfaceGround(v: Readonly<Record<string, string>>, surface: GildSurface): string | null {
+  const paper = v['--color-cream'];
+  const own = surface.veil === null ? v['--color-paper-deep'] : v['--color-veil'];
+  if (!paper || !own || !rgbOf(paper) || !rgbOf(own)) return null;
+  return surface.veil === null ? own : blendOver(own, paper, surface.veil);
+}
+
+/**
+ * The composed vars with the words' gild readable on each surface that keeps its own
+ * ground — see the rule above. `base` is `pageWordBase(…)`: what the tokens resolve to
+ * UNDER the couple's background. Returns `vars` itself when nothing had to be pinned.
+ */
+export function pinSurfaceWordInks(
+  vars: Record<string, string> | null,
+  base: Readonly<Record<string, string>>,
+): Record<string, string> | null {
+  if (!vars) return vars;
+  const after = { ...base, ...vars };
+  const words = gildWordsOf(after);
+  const sized = gildWordsOf(base);
+  if (!words || !sized || !rgbOf(words) || !rgbOf(sized)) return vars;
+  const pinned: Record<string, string> = {};
+  for (const surface of GILD_SURFACES) {
+    if (vars[surface.token] !== undefined) continue; // a layer named it — its answer stands
+    const now = surfaceGround(after, surface);
+    const was = surfaceGround(base, surface);
+    if (!now || !was) continue;
+    // AA — or what the word read at on this surface before the background, when that was less.
+    const target = Math.min(PLATE_MIN_CONTRAST, contrastOf(sized, was));
+    if (contrastOf(words, now) >= target) continue; // the page's value still reads here
+    // The colour the surface was sized with — moved away from its ground only if even that no longer reads.
+    pinned[surface.token] = wordInkOn(sized, [now], target);
   }
   return Object.keys(pinned).length > 0 ? { ...vars, ...pinned } : vars;
 }

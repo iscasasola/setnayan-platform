@@ -151,8 +151,12 @@ test('(3) the lab draws the chain as the guest page draws scenes, and the Maker 
   assert.deepEqual(merged.countdown, LAB_SCRUB_SAMPLE.countdown);
   const shell = read('app/dev/maker-lab/maker-lab-shell.tsx');
   assert.match(shell, /publicLandingUrl=\{scrub \? LAB_SCRUB_GUEST : '\/dev\/maker-lab\/guest'\}/);
-  assert.match(shell, /const jar = labWidgetsCookie\(new URLSearchParams\(window\.location\.search\)\.get\('scrub'\) === '1'\);/);
-  assert.match(shell, /document\.cookie = `\$\{jar\}=/);
+  /* 🔁 2026-10-11: the lab's draft is the real draft's own reducers now (`app/dev/maker-lab/lab-draft.ts`), and its
+     cookies are written from the draft's STATE — the chain's canvases still to the chain's own jar, with its own draft. */
+  assert.match(shell, /const scrub = labScrubOn\(\);\s*const \{ draft, result(?:, published)? \} = labDraftStep\(readLabDraft\(scrub\), [^;]*, scrub(?:, readLabPublished\(scrub\))?\);/);
+  assert.match(shell, /writeLabCookies\(draft, scrub\);/);
+  assert.match(shell, /const labDraftKey = \(scrub: boolean\) => \(scrub \? 'lab_draft_scrub_v1' : 'lab_draft_v1'\);/);
+  assert.match(read('app/dev/maker-lab/lab-draft.ts'), /\[labWidgetsCookie\(scrub\)\]: some\(canvases\) \? json\(canvases\) : null,/);
   /* The Maker writes `?phase=…&editor=1` after the address: it must be a path with a page behind it that turns the chain on. */
   assert.doesNotMatch(LAB_SCRUB_GUEST, /[?#]/);
   assert.equal(LAB_SCRUB_GUEST, '/dev/maker-lab/guest/scrub');

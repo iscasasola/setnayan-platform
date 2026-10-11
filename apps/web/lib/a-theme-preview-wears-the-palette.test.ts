@@ -33,7 +33,7 @@ import {
   themeColours,
   themeSeedPalette,
 } from '@/lib/theme-colours';
-import { buildSitePaletteVars } from '@/lib/site-palette';
+import { buildSitePaletteVars } from '@/lib/site-palette-vars';
 import { printLookFor } from '@/lib/print-pieces';
 import {
   eventColumnChange,
@@ -474,7 +474,11 @@ test('the measurers are handed the dressed theme at every picture call site', ()
   const panel = read('app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx');
   assert.match(panel, /const theme = useMemo\(\(\) => \(\{ \.\.\.INVITE_THEMES\[themeId\], palette: colours \}\), \[themeId, colours\]\);/);
   assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /colours=\{themeColours\(mainThemeId, \(drafted as \{ role_palette\?: unknown \}\)\.role_palette\)\.colours\}/);
-  assert.match(read('lib/event-poster.server.ts'), /colours: themeColours\(theme, event\.role_palette\)\.colours,/);
+  // ⚡ 2026-10-11 — the poster's composing moved to `eventPosterGiven`
+  // (`lib/event-poster-given.ts`), which `resolveEventPoster` calls; the dressed
+  // theme is handed to the measurer there, for both of its callers.
+  assert.match(read('lib/event-poster-given.ts'), /colours: themeColours\(theme, event\.role_palette\)\.colours,/);
+  assert.match(read('lib/event-poster.server.ts'), /return eventPosterGiven\(event, heroSrc, \{/);
   assert.match(read('lib/event-poster.ts'), /const theme = input\.colours \? \{ \.\.\.own, palette: input\.colours \} : own;/);
   assert.match(read('app/[slug]/_lib/theme-ground.ts'), /hubLegibility\(input\.colours \? \{ \.\.\.t, palette: input\.colours \} : t, \{ kind: 'theme' \}\)/);
   assert.match(read('app/[slug]/_components/host-draft-look.tsx'), /resolveThemeGround\(look\.theme, \{ ownColours: Boolean\(look\.vars\), colours: look\.colours \}\)/);
@@ -493,7 +497,8 @@ test('the measurers are handed the dressed theme at every picture call site', ()
 test('every scope that sets the ornament gild also sets the WORDS gild — a nested scope never inherits a stale one', () => {
   const sets = (src: string) => [...src.matchAll(/'--color-gild':\s*([^,\n]+)/g)].length;
   const setsText = (src: string) => [...src.matchAll(/'--color-gild-text':\s*([^,\n]+)/g)].length;
-  for (const f of ['lib/adaptive-theme.ts', 'lib/theme-colours.ts', 'lib/site-palette.ts']) {
+  // `buildSitePaletteVars` (the gild scope) moved from `lib/site-palette.ts` to `lib/site-palette-vars.ts` (2026-10-10), so the file to scan is the new one.
+  for (const f of ['lib/adaptive-theme.ts', 'lib/theme-colours.ts', 'lib/site-palette-vars.ts']) {
     const src = read(f);
     assert.ok(sets(src) > 0, `${f} no longer sets --color-gild — this check went vacuous`);
     assert.equal(setsText(src), sets(src), `${f}: a scope sets --color-gild without --color-gild-text`);

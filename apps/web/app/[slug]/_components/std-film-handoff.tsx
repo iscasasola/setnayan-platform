@@ -1,10 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Play } from 'lucide-react';
 import { landedOnTheFirstPage } from '@/lib/reveal-stages';
 import { STD_FILM_EXIT_EVENT } from './save-the-date-film';
 import { StageAutoplay } from './stage-autoplay';
+import {
+  STD_FILM_SEEN_ATTR,
+  exitCountsAsSeen,
+  filmLiftAtLanding,
+  markStdFilmSeen,
+  stdFilmSeen,
+  stdFilmSeenBootScript,
+  stdFilmSeenKey,
+} from '@/lib/std-film-seen';
+
+/** This phone's storage, or null where the browser refuses it (private mode, blocked site data). */
+function phoneStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * The return trip. Dispatched when the visitor asks for the film back, so the
@@ -78,7 +96,26 @@ export function StdFilmHandoff({
   marker = null,
   asSlide = false,
   autoplay = false,
+  seenKey = null,
+  closing = null,
 }: {
+  /**
+   * 🎞 ONCE PER PHONE (owner 2026-10-11) — the event's own id. With it, a phone
+   * that has already left the film (by "See our page" or by the film's end)
+   * gets the page straight away on its next visits, and "Watch our film again"
+   * brings the film back (`lib/std-film-seen.ts` has what "once per phone"
+   * is). Null — the Maker's canvas, or no id — remembers nothing.
+   */
+  seenKey?: string | null;
+  /**
+   * 🃏 THE FILM'S CLOSING CARD, AS THE TOP OF THE PAGE (owner 2026-10-11, on an
+   * event with no date: under the film the page was nearly empty). The Save the
+   * Date's own still view — its words, the names, "Full invitation to follow" —
+   * drawn in place above the page, so after the film (or instead of it on later
+   * visits) the guest is on that card. Null where the page under the film has
+   * its own scenes.
+   */
+  closing?: React.ReactNode;
   /** The full-screen film. Rendered until the visitor asks to leave it. */
   film: React.ReactNode;
   /** The browsable site, which was always beneath it. */
@@ -96,18 +133,31 @@ export function StdFilmHandoff({
   autoplay?: boolean;
 }) {
   const [showFilm, setShowFilm] = useState(true);
+  const storageKey = asSlide ? null : stdFilmSeenKey(seenKey);
+  /** The exit about to be heard is the page's own lift at landing — not the guest leaving the film. */
+  const liftedAtLanding = useRef(false);
 
   useEffect(() => {
-    const onExit = () => setShowFilm(false);
+    const onExit = () => {
+      setShowFilm(false);
+      // 🎞 The guest's own press, or the film's own end: this phone has seen it.
+      if (exitCountsAsSeen({ asSlide, liftedAtLanding: liftedAtLanding.current })) markStdFilmSeen(phoneStorage(), storageKey);
+      liftedAtLanding.current = false;
+    };
     window.addEventListener(STD_FILM_EXIT_EVENT, onExit);
     // ⬅ Landed part-way down → the film starts lifted (docblock above). Never
     // in the Maker's canvas, where the film is a slide and nothing is lifted.
-    if (
-      filmLiftedOnLanding(
+    // 🎞 …and so does a phone that has already seen it (owner 2026-10-11).
+    const lift = filmLiftAtLanding({
+      asSlide,
+      landedDownThePage: filmLiftedOnLanding(
         { hash: window.location.hash, scrollY: window.scrollY, viewportHeight: window.innerHeight },
         asSlide,
-      )
-    ) {
+      ),
+      seen: stdFilmSeen(phoneStorage(), storageKey),
+    });
+    if (lift) {
+      liftedAtLanding.current = true;
       window.dispatchEvent(new CustomEvent(STD_FILM_EXIT_EVENT));
     }
     return () => window.removeEventListener(STD_FILM_EXIT_EVENT, onExit);
@@ -150,13 +200,28 @@ export function StdFilmHandoff({
 
           ⚠ Do NOT "fix" this by turning `fullBleed` off — that would put the
           Setnayan header and footer back over a paid full-screen film. */}
+      {/* 🃏 The closing card as the top of the page (see `closing`) — the same column, above the page. */}
+      {closing ? (
+        <div data-std-closing="" className="mx-auto w-full max-w-3xl px-4 pt-10 sm:px-6 sm:pt-14">
+          {closing}
+        </div>
+      ) : null}
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
 
-      {showFilm ? (
+      {/* 🎞 A phone that remembers the film is not shown it while the page's script loads: the mark is set before
+          paint, and the film — still in the server's HTML — is not drawn (`stdFilmSeenBootScript`). */}
+      {storageKey ? (
         <>
+          <style>{`[${STD_FILM_SEEN_ATTR}] [data-std-film-wrap]{display:none}`}</style>
+          {/* biome-ignore lint/security/noDangerouslySetInnerHtml: one inline line, before paint; the key is JSON-quoted */}
+          <script dangerouslySetInnerHTML={{ __html: stdFilmSeenBootScript(storageKey) }} />
+        </>
+      ) : null}
+      {showFilm ? (
+        <div data-std-film-wrap="">
           {marker}
           {film}
-        </>
+        </div>
       ) : (
         // The way back. Quiet on purpose — the film has already played, and a
         // loud control here would compete with the couple's own page.
@@ -164,10 +229,12 @@ export function StdFilmHandoff({
           <button
             type="button"
             onClick={() => {
+              // Asked for by hand: the "seen" mark must not hide the film this time.
+              document.documentElement.removeAttribute(STD_FILM_SEEN_ATTR);
               setShowFilm(true);
               window.dispatchEvent(new CustomEvent(STD_FILM_RETURN_EVENT));
             }}
-            className="inline-flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-xs font-medium text-ink/65 transition-colors hover:border-ink/30 hover:text-ink"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-xs font-medium text-ink/70 transition-colors hover:border-ink/30 hover:text-ink"
           >
             <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Watch our film again

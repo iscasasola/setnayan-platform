@@ -13,7 +13,7 @@ import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
 import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
-import { LAB_BAR_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows } from './lab-draft';
+import { LAB_BAR_COOKIE, LAB_OWN_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows } from './lab-draft';
 import { labNavigatorInput } from './lab-navigator';
 
 /**
@@ -63,7 +63,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   /* 🧾 The sample's rows WITH THE LAB'S DRAFT LAID OVER THEM — a scene's place on a stage, its eye, its Auto · Hidden
      (`./lab-draft.ts`, the real `overlayHubDraftWidgets`). They were a constant: Earlier · Later · Remove saved a
      real patch and the Maker and its canvas were drawn from rows that never moved (the walk of 2026-10-11, P02). */
-  const rows = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value);
+  const rows = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value, (await cookies()).get(LAB_OWN_COOKIE)?.value === '1');
   /* 🎞 The lab's Post Event story — the day's facts compiled by the real compiler, the lab's drafted story keys
      (`lab_editorial`) laid over (`./lab-post-event.ts`). It was `null`: the Post Event panel could not be opened. */
   const labPostEvent = labPostEventRead(labEditorialDraft((await cookies()).get(LAB_EDITORIAL_COOKIE)?.value));

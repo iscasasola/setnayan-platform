@@ -87,10 +87,25 @@ const MJ_ROWS: ReadonlyArray<[WidgetType, boolean]> = [
   ['our_love_story', false],
 ];
 
-/** The sample's LIVE rows — what guests of the sample would see with no draft at all. */
-export function labRows(): InvitationWidgetRow[] {
+/**
+ * ✍ `lab_own=1` (a cookie the WALK sets — nothing in the lab writes it): the sample ALSO holds one scene of the
+ * couple's own (`custom_1`, a heading and their words), last on the page. The sample had none, so the one path that
+ * must never be silent — a scene of their own dropped on the bin opens "Delete this scene?" and deletes nothing
+ * (`add-part-sheet.tsx` `takeOff`) — could not be walked (2026-10-11 → 12). Read by the lab's two server pages only;
+ * without the cookie the sample is maria-and-jose's rows exactly, as before.
+ */
+export const LAB_OWN_COOKIE = 'lab_own';
+/** The lab's one scene of the couple's own — what they wrote. */
+export const LAB_OWN_SCENE = { type: 'custom_1', config: { title: 'A note from us', body: 'We wrote this part ourselves — it is not one of the scenes Setnayan gives a page.' } } as const;
+
+/** The sample's LIVE rows — what guests of the sample would see with no draft at all (`own`: see `LAB_OWN_COOKIE`). */
+export function labRows(own = false): InvitationWidgetRow[] {
   const now = '2026-10-05T00:00:00Z';
-  return MJ_ROWS.map(([type, alwaysOn], i) => ({
+  const types: ReadonlyArray<[WidgetType, boolean, InvitationWidgetRow['config_json']]> = [
+    ...MJ_ROWS.map(([type, alwaysOn]) => [type, alwaysOn, {}] as [WidgetType, boolean, InvitationWidgetRow['config_json']]),
+    ...(own ? [[LAB_OWN_SCENE.type as WidgetType, false, LAB_OWN_SCENE.config as InvitationWidgetRow['config_json']] as [WidgetType, boolean, InvitationWidgetRow['config_json']]] : []),
+  ];
+  return types.map(([type, alwaysOn, config], i) => ({
     widget_id: `w-${type}`,
     event_id: EVENT,
     widget_type: type,
@@ -98,7 +113,7 @@ export function labRows(): InvitationWidgetRow[] {
     is_visible: true,
     is_always_on: alwaysOn,
     tier: 'basic',
-    config_json: {},
+    config_json: config,
     created_at: now,
     updated_at: now,
     mode: 'auto',
@@ -353,6 +368,6 @@ export function labRowsDraft(value: string | undefined): HubDraftState | null {
 }
 
 /** The sample's rows as the Maker and its canvas read them: the draft's place · eye · mode laid over (the real overlay). */
-export function labDraftedRows(value: string | undefined): InvitationWidgetRow[] {
-  return overlayHubDraftWidgets(labRows(), labRowsDraft(value));
+export function labDraftedRows(value: string | undefined, own = false): InvitationWidgetRow[] {
+  return overlayHubDraftWidgets(labRows(own), labRowsDraft(value));
 }

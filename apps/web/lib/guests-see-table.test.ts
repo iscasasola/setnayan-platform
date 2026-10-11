@@ -401,3 +401,51 @@ test('11 · the opening line: our picks say so; boxes set by hand are counted �
   assert.match(sheet, /guestsSeeHasEmptyRow\(table\) \? \(\[\[\{ kind: 'box', on: true[^\]]*\}, true, W\.legendEmpty, true\]\]/);
   assert.match(sheet, /<Mark cell=\{cell\} on=\{on\} dim=\{dim === true\} \/>/);
 });
+
+/**
+ * 12 · A PALE TICK ONLY WHERE THE MAKER HAS A PLACE TO WRITE IT (the re-walk of 2026-10-11, M08). Three pale-ticked
+ * boxes had nothing on their stage's canvas — each a place a scene is met OFF the stage's list, which draws nothing
+ * while nothing is written. (Open browsing on, the default for a new event.)
+ */
+test('12 · nothing written: a pale tick where the stage LISTS the scene (its prompt is drawn); off the list, an empty box where a tick can add it — else a dash', () => {
+  const rows = stageWidgets({});
+  const empty = { our_photos: false, our_love_story: false, what_to_bring: false, dress_code: false } as const;
+  const t = table(rows, { content: empty, openBrowse: true });
+  const at = (key: string, col: number) => rowOf(t, key).cells[col]!;
+  const line = GUESTS_SEE_WORDS.emptyNote;
+  // The gallery on a Save the Date its film leads: the film carries it — no scene can stand there (`stdShows`).
+  assert.deepEqual(at('our_photos', COL.save_the_date), { kind: 'dash', why: line });
+  // The reminders and the dress code on The Day: the Day's Welcome draws them, never the Maker's canvas (`DAY_WELCOME_SCENES`).
+  assert.deepEqual(at('what_to_bring', COL.event), { kind: 'dash', why: line });
+  assert.deepEqual(at('dress_code', COL.event), { kind: 'dash', why: line });
+  // The love story on The Day: its prose stand-in has nothing to tell — an EMPTY box; a tick adds the SCENE there.
+  const story = at('our_love_story', COL.event) as Extract<GuestsSeeCell, { kind: 'box' }>;
+  assert.deepEqual([story.kind, story.on, story.base, story.ourPick, story.choice], ['box', false, false, false, null]);
+  const tick = guestsSeeToggle(t, NONE, 'our_love_story', COL.event);
+  assert.deepEqual(tick.writes, { 'our_love_story:event': true });
+  assert.equal(tick.line, `Added to The Day.${GUESTS_SEE_WORDS.emptyTail}`);
+  const ticked = table(overlayHubDraftWidgets(rows, sanitizeHubDraft({ v: 1, events: {}, history: [], ...JSON.parse(JSON.stringify(guestsSeePatch(tick.writes))) })), { content: empty, openBrowse: true });
+  assert.equal((rowOf(ticked, 'our_love_story').cells[COL.event] as Extract<GuestsSeeCell, { kind: 'box' }>).on, true, 'the tick is forgotten');
+  // Where the stage LISTS it, the pale tick stays (the Maker draws "Add …" there).
+  for (const [key, col] of [['our_love_story', COL.rsvp], ['our_love_story', COL.save_the_date], ['what_to_bring', COL.rsvp], ['our_photos', COL.editorial]] as const) {
+    const c = at(key, col) as Extract<GuestsSeeCell, { kind: 'box' }>;
+    assert.deepEqual([c.kind, c.on, c.ourPick], ['box', true, true], `${key}: the pale tick on a stage that lists it is gone`);
+  }
+  // EVERY pale tick is a scene the MAKER lists on that stage — so its prompt is on the canvas. (The whole table.)
+  let pale = 0;
+  for (const row of t.groups.flatMap((g) => g.rows).filter((r) => r.empty)) {
+    row.cells.forEach((c, i) => {
+      const stage = GUESTS_SEE_COLUMNS[i]!.stage;
+      if (c.kind !== 'box' || !c.on || !stage) return;
+      pale += 1;
+      assert.equal(sceneOnStage({ widgets: rows, stage, reader: 'guest', openBrowse: true, content: {} }, row.scene!)!.inList, true, `${row.key} × ${stage}: a pale tick with no place on the canvas`);
+    });
+  }
+  assert.ok(pale >= 6, `anti-vacuity: only ${pale} pale ticks`);
+  // WRITTEN, each of the three is a ticked box again — a box that works (test 9 flips it on the real page).
+  const written = table(rows, { openBrowse: true });
+  for (const [key, col] of [['our_photos', COL.save_the_date], ['what_to_bring', COL.event], ['our_love_story', COL.event]] as const) {
+    const c = rowOf(written, key).cells[col] as Extract<GuestsSeeCell, { kind: 'box' }>;
+    assert.deepEqual([c.kind, c.on], ['box', true], `${key}: written, it is no longer a ticked box`);
+  }
+});

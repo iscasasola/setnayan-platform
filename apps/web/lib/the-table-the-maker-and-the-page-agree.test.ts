@@ -135,7 +135,9 @@ function assertAgree(r: Rendered, facts: Facts, where: string): number {
     assert.equal(listed, planList(r.rows, b.stage, facts).includes(b.type), `the Maker lists what the page's plan does not (or the reverse): ${at}`);
     // the box ⇔ the Maker's list, or the one place off the list the table names
     const s = sceneOnStage({ widgets: r.rows, stage: b.stage, reader: 'guest', openBrowse: facts.openBrowse, weddingOnlyParts: WEDDING, content: {} }, b.type)!;
-    const off = s.offList;
+    /* A place off the list (the film, the prose, the Day's Welcome) draws nothing for a scene with nothing written —
+       there the table reads the LIST alone (`guests-see-build.ts` `sceneRow`; such a cell is an empty box or a dash). */
+    const off = facts.content[b.type] === false ? null : s.offList;
     if (off === 'film') assert.ok(fixedKeys(r, b.stage).includes('film'), `the table says the film carries it and the Maker lists no film: ${at}`);
     if (off === 'welcome') assert.ok(r.nav.stageLists[b.stage].folded.some((f) => f.type === b.type && /Welcome/.test(f.reason)), `the Day's Welcome is not named in the fold: ${at}`);
     assert.equal(b.cell.on, listed || off !== null, `THE TABLE AND THE MAKER DISAGREE: the box is ${b.cell.on ? 'ticked' : 'empty'}, the Maker ${listed ? 'lists it' : 'does not list it'}${off ? ` (off the list: ${off})` : ''}: ${at}`);

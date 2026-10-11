@@ -52,8 +52,20 @@ Maker's lists, the table, the eye and the guest page's plan, then ✓ Apply onto
   44 px tall.
 - M29 · "Sign in again to save suppliers." → "…to ask for a quote."
 
-SPEC IMPACT: None — no schema, no SKU, no price, no new copy beyond the lines above. Three approved behaviours are
-RE-STATED rather than changed: the toast is still a pill-shaped notice from the top (now up to two lines, as the
-2026-10-09 RSVP prototype draws it — `INTERACTION_RULES.md` § 9 kind 12 says "one line"; that sentence should be
-amended by the controller), Save is retired on a marketplace card (2026-10-07), and an empty row keeps its ticks
-(`maker_what_guests_see_2026-10-10.html`).
+- Found by `pnpm preflight` on the merged copy, both older than this branch: a pin in
+  `lib/the-rsvp-stage-groups-lines.test.ts` that read one builder's line where the merge kept two, and one hand-typed
+  radius in `supplier-sheet.tsx`. Both fixed.
+
+**Not fixed, listed for the owner:** M10 (a move that "did nothing" was the dev server restarting itself — 48 taps
+measured, 3 late, the one watched to the end arrived after 34.6 s; nothing is lost) · M19's count of THINGS rather than
+edits · the site's default tab title ("…relive every celebration" — his own brand line of 2026-09-30) · a part ADDED
+to a stage from the table and then Removed is offered back by ＋ only until the next render (after it, the table adds it
+again) · the rough ones not in this round (M20–M23, M26–M28, M30, M31).
+
+SPEC IMPACT: None — no schema, no SKU, no price. One approved DRAWING is re-read rather than changed and the
+controller should say so in the corpus: the toast. `INTERACTION_RULES.md` § 9 kind 12 words it "peeks down from the
+top centre … its words centred" (unchanged); the approved gallery (`control_templates_2026-10-08.html`, `.toast`)
+draws a 48 px one-line pill, and the later approved RSVP prototype (`maker_rsvp_add_drag_group_2026-10-09.html`,
+`#say`) wraps its sentence. The toast is now 48 px for one line and grows for a second, never a third, and sits under
+the Maker's top bar. Save retired on a marketplace card (2026-10-07) and an empty row keeping its ticks
+(`maker_what_guests_see_2026-10-10.html`) are the approved designs, now met.

@@ -58,3 +58,12 @@ Not proved here: the production build, the Maker's first-load JS budget
 
 SPEC IMPACT: None of its own. The merged branches carry theirs
 (`changelog.d/rd-c-guest-faults.md` is "Yes" — the owner's 2026-10-11 rulings).
+
+## 2026-10-11 · fix(ci): typecheck's heap ceiling 7168 → 10240 MB
+
+The joined branch typechecked locally at 8192 MB and ran out of heap in CI at 7168 MB (exit 134,
+"JavaScript heap out of memory") with no type error. `apps/web/package.json` `typecheck` now asks
+for 10240 MB (the runner has 16 GB); the reason is recorded in
+`apps/web/lib/the-build-has-headroom-ci-cannot-prove.test.ts`.
+
+SPEC IMPACT: None.

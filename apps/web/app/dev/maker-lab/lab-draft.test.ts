@@ -200,14 +200,36 @@ test('M08 — before any tap, every box agrees with the canvas — or its row sa
       if (cell.kind !== 'box' || !row.scene || !stage) return;
       boxes += 1;
       const seen = sceneOnStage({ ...labSeen(at.rows), stage, reader: 'guest', content: {} }, row.scene)!;
-      const drawn = at.canvas(stage).includes(row.scene) || seen.offList !== null;
+      /* A scene with nothing written is drawn only where the stage LISTS it (its prompt) — never off the list. */
+      const drawn = at.canvas(stage).includes(row.scene) || (!row.empty && seen.offList !== null);
       assert.equal(cell.on, drawn, `${row.scene} × ${stage}: the box is ${cell.on ? 'ticked' : 'empty'} and the canvas ${drawn ? 'draws it' : 'does not'}`);
     });
   }
-  assert.ok(boxes >= 28, `anti-vacuity: only ${boxes} boxes were compared`);
+  assert.ok(boxes >= 25, `anti-vacuity: only ${boxes} boxes were compared`);
   /* The three the sample has nothing in say so — the tester's "ticked, not drawn" rows. */
   const empty = at.nav.guestsSee.groups.flatMap((g) => g.rows).filter((r) => r.empty).map((r) => r.scene);
   assert.deepEqual(empty.sort(), ['our_love_story', 'our_photos', 'what_to_bring']);
+  /* THE RE-WALK'S THREE (2026-10-11, M08) — pale-ticked, and nothing on their canvas. Each is now what it can be:
+       · Our photos × Save the Date — a dash: the film leads that stage and carries the gallery (`stdShows`);
+       · What to bring × The Day    — a dash: the Day's Welcome draws it for a guest, never the Maker's canvas;
+       · Love Story × The Day       — an EMPTY box: a tick adds the scene to The Day, and its prompt is drawn there. */
+  const kind = (type: string, stage: LifecyclePhase) => at.box(type, stage).cell as unknown as { kind: string; why?: string; on?: boolean };
+  assert.deepEqual([kind('our_photos', 'save_the_date').kind, kind('our_photos', 'save_the_date').why], ['dash', 'Nothing written yet — guests will not see it.']);
+  assert.deepEqual([kind('what_to_bring', 'event').kind, kind('what_to_bring', 'event').why], ['dash', 'Nothing written yet — guests will not see it.']);
+  assert.deepEqual([kind('our_love_story', 'event').kind, kind('our_love_story', 'event').on], ['box', false]);
+  const story = tick(emptyHubDraft(), ['our_love_story', 'event']);
+  assert.deepEqual(story.widgets.our_love_story?.stage_show, { event: true });
+  assert.ok(labPages(story).canvas('event').includes('our_love_story'), 'a ticked Love Story is not on The Day’s canvas');
+  assert.equal(labPages(story).box('our_love_story', 'event').cell.on, true);
+  /* Every pale tick left is on a stage whose canvas draws the part (its prompt). */
+  for (const row of at.nav.guestsSee.groups.flatMap((g) => g.rows).filter((r) => r.empty)) {
+    row.cells.forEach((cell, i) => {
+      const stage = GUESTS_SEE_COLUMNS[i]!.stage;
+      if (cell.kind === 'box' && cell.on && stage) assert.ok(at.canvas(stage).includes(row.scene!), `${row.scene} × ${stage}: a pale tick with no prompt on its canvas`);
+    });
+  }
+  /* The lab's Day draws every scene The Day lists — one ticked onto it included (`lab-day.tsx`). */
+  assert.match(read('guest', 'lab-day.tsx'), /const added = tiles\.filter\(/);
   /* …and The Day's gallery is drawn only where The Day draws it (`guest/page.tsx` `dayDraws`). */
   assert.equal(at.box('our_photos', 'event').cell.on, false);
   assert.equal(at.canvas('event').includes('our_photos'), false);

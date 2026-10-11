@@ -31,6 +31,7 @@ export function LabDayPages({
   paged = true,
   draws,
   maker,
+  tiles,
   mark,
   given,
   styleOf,
@@ -45,6 +46,8 @@ export function LabDayPages({
   draws: (type: WidgetType) => boolean;
   /** The Maker's canvas (`?editor=1`) — the only reader an empty scene's place is drawn for. */
   maker: boolean;
+  /** The Day's own list, in the page's order (`labStageTiles`) — a scene the couple ticked onto The Day is in it. */
+  tiles: readonly string[];
   mark: (key: string) => ReactNode;
   /** The lab's own nodes, by canvas key (`f:hero`, `w:schedule`, `w:venue_map`, `w:dress_code`, `f:entourage`). */
   given: Readonly<Record<string, ReactNode>>;
@@ -104,9 +107,13 @@ export function LabDayPages({
        canvas hands them (`site-body.tsx` `guestSceneMark`). */
     ['f:pass', <div key="pass" className="border-t border-ink/10 px-4 py-8"><MakerGuestScenes show={{ greeting: false, pass: true, rsvp: false }} eventDate="2026-12-12" solemn={false} mark={(key) => <>{blockOfCanvas(key) ? <span hidden {...{ [BLOCK_MARK_ATTR]: blockOfCanvas(key) }} /> : null}{mark(key)}</>} /></div>],
   ];
+  /* 👁 A SCENE THE COUPLE TICKED ONTO THE DAY ("What guests see" — the Message, the Love Story, the gallery…): The Day
+     lists it, so it is drawn — after the day's own parts, on the page the one filing gives it. The lab drew a fixed
+     set, so a ticked box showed nothing here. */
+  const added = tiles.filter((k) => k.startsWith('w:') && !drawn.some(([d]) => d === k) && given[k]).map((k) => [k, given[k]] as const);
   const filled = new Set<string>();
   const byPage = new Map<string, ReactNode[]>();
-  for (const [key, node] of drawn) {
+  for (const [key, node] of [...drawn, ...added]) {
     if (!node) continue;
     /* 👁 A SCENE IS DRAWN ONLY WHERE THE DAY DRAWS IT — taken off The Day in the Maker or the table, it is gone here. */
     if (key.startsWith('w:') && !draws(key.slice(2) as WidgetType)) continue;

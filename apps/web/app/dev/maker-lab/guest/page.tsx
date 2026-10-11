@@ -475,20 +475,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           paged={!only}
           draws={dayDraws}
           maker={makerCanvas}
+          tiles={stageTiles}
           mark={mark}
           styleOf={(part) => fixedSceneStyleOf(labEvent.style_preferences, part, stage, 'wedding')}
           galleryStyle={sceneStyleOfRow(rowOf('our_photos'), stage, 'wedding')}
-          given={{
-            'f:hero': (
-              <section className="px-4 pb-10 pt-6">
-                {masthead}
-              </section>
-            ),
-            'w:schedule': scene.schedule,
-            'w:venue_map': scene.venue_map,
-            'w:dress_code': scene.dress_code,
-            'f:entourage': marchBlock,
-          }}
+          /* Every node the lab has (`stageGiven`): the day's own five, and any scene ticked onto The Day. */
+          given={stageGiven}
         />
         {sp.editor === '1' && !preview ? <EditorBridge /> : null}
         {only ? <style>{canvasOnlyCss(only)}</style> : null}

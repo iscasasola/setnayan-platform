@@ -13,7 +13,7 @@ import type { InvitationWidgetRow, LifecyclePhase, WidgetType } from './invitati
 import { isCustomSectionType, sanitizeCustomSection } from './custom-sections';
 import { resolveSiteBodyPlan } from './site-body-plan';
 import { configWithStageShow, stageShowsEntourage } from './stage-scenes';
-import { sceneMeetsGuestsOn, sceneOnStage, type GuestsSeeInput } from './what-guests-see';
+import { filmLeadsStage, sceneMeetsGuestsOn, sceneOnStage, whyNotInStageList, type GuestsSeeInput } from './what-guests-see';
 import { GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, type GuestsSeeCell, type GuestsSeeGroup, type GuestsSeeRow, type GuestsSeeTable } from './guests-see-table';
 
 /** A dash's one line, where the prototype words it; otherwise the rule's own line (`sceneOnStage().notPossible.why`). */
@@ -146,17 +146,44 @@ function asIfWritten<T extends Pick<GuestsSeeTableInput, 'content'>>(input: T, t
   return input.content?.[type] === false ? { ...input, content: { ...input.content, [type]: true } } : input;
 }
 
+/**
+ * 🧩 …AND A PALE TICK IS ONLY EVER WHERE THE MAKER HAS A PLACE TO WRITE IT (the re-walk of 2026-10-11, M08). Asked
+ * "as if written", an empty scene was ticked on every stage a guest would meet it — including the three places a
+ * scene is met OFF the stage's list: inside the Save-the-Date film, as the love story's prose, on the Day's Welcome.
+ * Nothing is written, so those places draw nothing; and the Maker's canvas has no prompt there either (a prompt is
+ * an empty scene IN the list — `makerStageList` `emptyOf`). So the table ticked three boxes whose stage showed the
+ * couple nothing at all, beside others that showed "Add …". For a row with nothing written, each stage is one of:
+ *
+ *   · IN THE STAGE'S LIST            → a box, pale-ticked: the Maker's canvas draws the prompt to write it;
+ *   · off the list, and a tick CAN put it in the list (the love story on The Day — its prose stand-in has nothing
+ *     to tell)                       → an EMPTY box: ticking it adds the scene, and its prompt, to that stage;
+ *   · off the list, and the list REFUSES it (`whyNotInStageList`): the gallery on a Save the Date its film leads
+ *     (`stdShows` — the film carries it), the reminders and the dress code on The Day (`DAY_WELCOME_SCENES` —
+ *     the Day's Welcome draws them for a guest, "never the Maker's canvas": `welcomePartsOnTheDay`)
+ *                                    → a dash, with the row's own line. It is a box again once it is written.
+ */
+const OFF_LIST_ONLY: readonly string[] = ['stdShows', 'DAY_WELCOME_SCENES'];
+
 function sceneRow(type: WidgetType, label: string, given: GuestsSeeTableInput): GuestsSeeRow | null {
-  if (!given.widgets.some((w) => w.widget_type === type && !w.is_always_on)) return null;
+  const row = given.widgets.find((w) => w.widget_type === type && !w.is_always_on);
+  if (!row) return null;
+  const empty = given.content?.[type] === false;
   const input = asIfWritten(given, type);
   const cells = GUESTS_SEE_COLUMNS.map((col): GuestsSeeCell => {
     if (col.stage === null) return { kind: 'locked', on: false, why: GUESTS_SEE_WORDS.replyScreens };
     const v = sceneOnStage({ ...input, stage: col.stage, reader: 'guest' }, type)!;
     if (v.notPossible) return { kind: 'dash', why: SCENE_DASH[`${type}:${col.stage}`] ?? v.notPossible.why };
-    const base = sceneOnStage({ ...input, widgets: withoutChoice(input.widgets, type, col.stage), stage: col.stage, reader: 'guest' }, type)!.drawn;
-    return { kind: 'box', on: v.drawn, ourPick: v.ourPick, base, choice: v.choice };
+    const bare = sceneOnStage({ ...input, widgets: withoutChoice(input.widgets, type, col.stage), stage: col.stage, reader: 'guest' }, type)!;
+    if (empty) {
+      const film = filmLeadsStage(given.widgets, col.stage, given.phasesEnabled ?? true, given.weddingOnlyParts);
+      const refused = whyNotInStageList(row, { stage: col.stage, reader: 'guest', film });
+      if (refused !== null && OFF_LIST_ONLY.includes(refused)) return { kind: 'dash', why: GUESTS_SEE_WORDS.emptyNote };
+      /* Only the LIST counts while nothing is written: a place off it has nothing to draw. */
+      return { kind: 'box', on: v.inList && v.drawn, ourPick: v.ourPick && bare.inList, base: bare.inList && bare.drawn, choice: v.choice };
+    }
+    return { kind: 'box', on: v.drawn, ourPick: v.ourPick, base: bare.drawn, choice: v.choice };
   });
-  return { key: type, scene: type, label, note: null, empty: given.content?.[type] === false, cells };
+  return { key: type, scene: type, label, note: null, empty, cells };
 }
 
 /** THE TABLE for one event — every cell read from `sceneOnStage`, or from the page's own gates for a fixed row. */

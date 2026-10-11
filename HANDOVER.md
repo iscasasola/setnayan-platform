@@ -1,5 +1,33 @@
 # HANDOVER — guest-page speed · `rd/speed-guest-page`
 
+## ▶ ROUND 5 (2026-10-12, third builder) — READ THIS FIRST; round 4 below is history
+
+| Step | State |
+|---|---|
+| `preflight --only tree,db` | ⏳ queued under the heavy lock (label `speed-guest`) — result below when it lands |
+| `InviteEnterBody` side by side | ✅ `4fd871ece` — ten reads started at the top of the body, each awaited where it was. Guard: section 2b of `lib/the-guest-page-starts-its-reads-together.test.ts`, sabotaged red 4 ways (read asked again in place · a write started ahead · a start never awaited · the canvas asked) |
+| The guest's second render (`GuestPreload` → sw `PRELOAD_ASSETS`) | ✅ the `guest-preload.tsx` half, `ac36157d5`: `/<slug>` is not re-fetched when `performance`'s navigation entry says THIS document came through the worker (`workerStart > 0`) as exactly `/<slug>` (no query) — the worker's network-first guest branch already cached it. Any other arrival still warms it. Test `app/[slug]/_components/guest-preload.test.ts` (3), sabotaged red 3 ways. `public/sw.js` NOT touched (owned by `rd/maker-asks-once` this round) — no sw hunk is needed for this cut |
+| whole `pnpm preflight` · draft PR | pending |
+
+**Decision taken (not ruled):** the landing's ceremony time (`fetchPublicScheduleBlocks`) is NOT started ahead — it is
+read only on the pre-reply screen, and only after the ticket pair says the ticket is not full; starting it for every
+view would ADD a request for a plus-one whose bringer already gave them a full ticket.
+
+**Measured (harness, `cd apps/web && ../../node_modules/.bin/tsx lib/guest-page-reads.harness.ts`):**
+before = the harness at its first commit `72a55ba82` (main's loaders, re-run this round in a throw-away worktree);
+after = this head.
+
+| Viewer | Requests before → after | Depth before → after |
+|---|---|---|
+| Stranger, before the day | 23 → 15 | 10 → 5 |
+| Stranger, on the day | 23 → 16 | 10 → 6 |
+| Invited guest, before the day | 34 → 19 | 17 → 6 |
+| Invited guest, on the day | 37 → 23 | 20 → 6 |
+
+(Round 4's table below says "8 → 7" for an invited guest on the day: the pin and this run say 6.)
+`invite/enter` has no harness: its body went from ~12 awaits one after another to the ten started together plus the
+tile write and (pre-reply only) the ceremony time — not counted.
+
 ## ▶ ROUND 4 (2026-10-12, second builder) — READ THIS BLOCK FIRST; the round-3 notes below it are history
 
 **Built, not live. Nothing pushed. No PR.** Worktree

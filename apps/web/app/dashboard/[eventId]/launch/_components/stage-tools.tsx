@@ -1250,6 +1250,12 @@ export function StageTools({
     name: rsvpCard ? RSVP_CARD_NAME : undefined,
     /* 🫥 A part taken off this page is let go of — its tools fold with it (`add-part-sheet.tsx` `onGone`). */
     onGone: deselect,
+    /* 📄 ＋ a part another page draws: that page is opened by the tab row's own door, and the part is picked there. */
+    onPage: (key) => {
+      const page = pagesRef.current.find((p) => p.key === key);
+      if (page) goToPageRef.current(page.key, page.option);
+    },
+    onPick: (part) => pickPartRef.current(part),
   });
   /* ── ✍ THE PICKED PART'S WORDS, FOR EDIT'S ROWS — read off the page (`part-words.ts`): what the page draws is what
      can be typed, so a part whose words the page does not draw keeps its one door. Read again whenever the canvas

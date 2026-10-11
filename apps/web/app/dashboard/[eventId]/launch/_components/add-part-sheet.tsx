@@ -31,6 +31,7 @@ import {
   makerPostEventSceneOf,
   makerRemoveWords,
   type MakerPartAddPath,
+  type MakerPartOffer,
 } from '@/lib/maker-part-groups';
 import { postEventRun, postEventShow, type PostEventDraft } from '@/lib/post-event-draft';
 import { stageTakesOwnScenes, swapsForDrop, type MakerTile } from '@/lib/maker-scene-list';
@@ -293,6 +294,12 @@ type PartEditsProps = {
    * that Remove would have put it BACK (the eye is a toggle) — the walk of 2026-10-11, M09.
    */
   onGone?: () => void;
+  /**
+   * 📄 ＋ A PART ANOTHER PAGE DRAWS: open that page (`onPage`, the tab row's own door), and — once it shows the part
+   * — pick it there (`onPick`). Whoever holds the pages and the selection hands them; absent, the page stays.
+   */
+  onPage?: (page: string) => void;
+  onPick?: (part: MakerPartKey) => void;
 };
 
 /**
@@ -326,7 +333,7 @@ export function PartEdits(props: PartEditsProps) {
   return usePartEdits(props).node;
 }
 
-export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null, lineWhy = null, away = false, onGone }: PartEditsProps): PartEditsNow {
+export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null, lineWhy = null, away = false, onGone, onPage, onPick }: PartEditsProps): PartEditsNow {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (line?.key ?? MAKER_PARTS[picked].el ?? null) : null;
@@ -490,6 +497,19 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
     if (c.startsWith('w:')) {
       const folded = o.list.folded.find((f) => f.key === c);
       if (!folded?.widgetId) return;
+      /* 📄 A PART ANOTHER PAGE DRAWS (owner 2026-10-11): it is shown in its OWN place there — never placed against a
+         part of the page it was added from — in one save; its page is opened at once, and once that page shows it,
+         it is brought onto the screen, picked, and only then said: "Venue added on Details". */
+      const away = otherPageOf(stage, c);
+      if (away) {
+        o.add(folded.widgetId, 0);
+        onPage?.(away.key);
+        settle('add', `${makerPartLabelOn(stage, key)} added on ${away.label}`, () => {
+          bringOntoScreen(c);
+          onPick?.(key);
+        });
+        return;
+      }
       /* Where: above / below the picked scene in the stage's order. ITS PLACE AND ITS SHOWING ARE ONE SAVE (`o.add`
          — they were the move and then the eye: two Undo steps for one press, owner 2026-10-11). */
       let delta = 0;
@@ -717,16 +737,27 @@ function bringOntoScreen(canvasKey: string): void {
   }
 }
 
-/** The page a tabbed canvas has ON SHOW, with the stage's page list — null on a canvas drawn as one page (or unreadable). */
-function readShownPage(stage: MakerStageKey): { stage: LifecyclePhase; pages: string[]; shown: string } | null {
+/** The page a tabbed canvas has ON SHOW, with the stage's pages as its tabs name them — null on a canvas drawn as one page (or unreadable). */
+function readShownPage(stage: MakerStageKey): { stage: LifecyclePhase; pages: Array<{ key: string; label: string }>; shown: string } | null {
   try {
     const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
     const shown = doc ? shownHubTab(doc) : null;
     if (!shown || !(LIFECYCLE_STAGES as readonly string[]).includes(stage)) return null;
-    return { stage: stage as LifecyclePhase, pages: makerStagesPages(stage as LifecyclePhase).map((p) => p.key), shown };
+    return { stage: stage as LifecyclePhase, pages: makerStagesPages(stage as LifecyclePhase).map((p) => ({ key: p.key, label: p.label })), shown };
   } catch {
     return null;
   }
+}
+
+/**
+ * 📄 THE OTHER PAGE A PART IS DRAWN ON — null when it is the page on show (or the stage is one page). The canvas's own
+ * filing (`makerStagesPageOf`), so what ＋ says and where the canvas draws it are one reading.
+ */
+function otherPageOf(stage: MakerStageKey, canvasKey: string): { key: string; label: string } | null {
+  const here = readShownPage(stage);
+  if (!here) return null;
+  const key = makerStagesPageOf(here.stage, canvasKey, here.pages.map((p) => p.key));
+  return key === here.shown ? null : (here.pages.find((p) => p.key === key) ?? null);
 }
 const LIFECYCLE_STAGES = ['save_the_date', 'rsvp', 'event', 'editorial'] as const;
 
@@ -751,15 +782,15 @@ function AddPartSheet({
   const drawn = new Set(readDrawnOrder());
   /* A scene the couple hid may still be drawn ghosted: it is NOT on the page. */
   for (const f of ops?.list.folded ?? []) if (f.hiddenByCouple) drawn.delete(f.key);
-  /* 📄 ＋ OFFERS WHAT THIS PAGE CAN SHOW (owner 2026-10-11: ＋ below Message → Venue said "Venue added" and nothing
-     appeared — he was on Welcome, and the canvas files the Venue on Details). On a stage drawn as tabs a part is
-     offered only on its own page (`makerStagesPageOf`, the canvas's own filing) — so what ＋ adds is on the screen
-     it was added from, in the place it was added. A stage that is one page offers everything, as before. */
-  const here = readShownPage(stage);
+  /* 📄 ＋ OFFERS EVERYTHING THE STAGE CAN TAKE, AND SAYS WHERE EACH GOES (owner 2026-10-11, twice. First: ＋ below
+     Message → Venue said "Venue added" and nothing appeared — he was on Welcome, and the canvas files the Venue on
+     Details. Then, with parts of another page left out: "does not show the scenes to add"). A part another page
+     draws is listed with that page's name on its row; pressing it adds it, opens that page and brings it onto the
+     screen (`add`). */
   const groups = makerPartOffers({
     stage,
     present: drawn,
-    onThisPage: here ? (canvasKey) => makerStagesPageOf(here.stage, canvasKey, here.pages) === here.shown : undefined,
+    pageOf: (canvasKey) => otherPageOf(stage, canvasKey),
     pathOf: (key, canvas): MakerPartAddPath => {
       if (!ops) return null;
       if (canvas.startsWith('w:')) {
@@ -777,9 +808,15 @@ function AddPartSheet({
   const used = own && 'action' in own && own.presets ? own.presets.used : (ops?.scenes.filter((s) => isCustomSectionType(s.type)).length ?? 0);
   const left = makerOwnScenesLeft(used);
   const proMark = own && 'action' in own && own.tried ? makerProMark({ owns: false, storeShell: false }) : null;
+  /* 🏷 THE HEADER NEVER PROMISES A PLACE A PART WILL NOT GO. While every part offered is this page's it says the
+     place, as always ("Add above Greeting"). Once the list holds a part of another page it says only "Add a part",
+     and each row says its own place: the other page's name, or "above Greeting" for a part of this page. */
+  const mixed = groups.some((g) => g.parts.some((p) => p.onPage));
+  const placeOf = (p: MakerPartOffer) => (p.onPage ? `on ${p.onPage.label}` : mixed ? `${where} ${anchorLabel}` : null);
   return (
-    <MakerSheet label={`Add ${where} ${anchorLabel}`} onClose={onClose}>
+    <MakerSheet label={mixed ? 'Add a part' : `Add ${where} ${anchorLabel}`} onClose={onClose}>
       <div className="flex flex-col pb-1" data-add-part-sheet={where}>
+        {/* Nothing can be added to this STAGE at all — never said while another page's part could be. */}
         {groups.length === 0 ? <p className="px-3 py-2 text-[13.5px] text-ink/60">Every part is already on this page.</p> : null}
         {groups.map((g) => (
           <section key={g.label} data-add-part-group={g.label}>
@@ -790,6 +827,11 @@ function AddPartSheet({
                   {p.path.kind === 'add' ? (
                     <button type="button" data-add-part={p.key} onClick={() => onAdd(p.key)} className={STAGE_SHEET_ROW}>
                       <span className="min-w-0 flex-1 truncate">{p.label}</span>
+                      {placeOf(p) ? (
+                        <span data-add-part-place={p.onPage ? p.onPage.key : 'here'} className="shrink-0 text-[12.5px] font-medium text-ink/55">
+                          {placeOf(p)}
+                        </span>
+                      ) : null}
                       <Plus aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2.4} />
                     </button>
                   ) : (

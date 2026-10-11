@@ -10,7 +10,7 @@ import { stageRowOrder, stageShown } from './stage-scenes';
 import { widgetInPhase, type InvitationWidgetRow, type LifecyclePhase, type WidgetType } from './invitation-widgets';
 import { sceneOnStage } from './what-guests-see';
 import { guestsSeePatch } from './guests-see-table';
-import { makerPartOffers } from './maker-part-groups';
+import { makerPartCanvasOn, makerPartOffers } from './maker-part-groups';
 import { makerStagesPageOf, makerStagesPages } from './maker-stage-filing';
 import { stripComments } from './strip-comments';
 
@@ -104,7 +104,9 @@ test('F1 · the Maker’s ＋ really sends that one patch — no move followed b
   assert.ok(add.length > 200);
   const scenePath = add.slice(0, add.indexOf('makerPostEventSceneOf('));
   assert.doesNotMatch(scenePath, /o\.move\(|o\.eye\(/, '＋ writes its place and its showing as two saves again');
-  assert.equal((scenePath.match(/o\.add\(/g) ?? []).length, 1);
+  /* Two ways in — a part of this page (placed above / below), a part of another page (its own place) — each ONE `o.add`. */
+  assert.equal((scenePath.match(/o\.add\(folded\.widgetId, (?:delta|0)\);/g) ?? []).length, 2);
+  assert.equal((scenePath.match(/o\.add\(/g) ?? []).length, 2);
   const shell = read('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'editor-shell.tsx');
   const addHere = shell.slice(shell.indexOf('const addHere = '), shell.indexOf('const runChain = '));
   /* One door call on the draft's path; the two shipped writes only where there is no draft door at all. */
@@ -140,24 +142,97 @@ test('F2 · a draft’s `null` over a PUBLISHED hide is read as shown — by the
   assert.equal(sceneOnStage({ widgets: overlayHubDraftWidgets(fresh, save(emptyHubDraft(), addVenueBelowMessage(fresh))), stage: 'rsvp' }, 'venue_map')!.drawn, true);
 });
 
-test('F2 · ＋ offers a part only on the page that will draw it — "added" is never said over a page that shows nothing new', () => {
-  const pages = makerStagesPages('rsvp').map((p) => p.key);
-  assert.equal(makerStagesPageOf('rsvp', 'w:venue_map', pages), 'details', 'the canvas files the Venue elsewhere now — re-read this test');
-  assert.equal(makerStagesPageOf('rsvp', 'w:special_message', pages), 'home');
-  /* The Venue and the Message are both hidden; nothing of either is drawn. */
-  const offers = (shown: string | null) =>
-    makerPartOffers({
-      stage: 'rsvp',
-      present: new Set<string>(),
-      pathOf: (_key, canvas) => (canvas === 'w:venue_map' || canvas === 'w:special_message' ? { kind: 'add' } : null),
-      onThisPage: shown ? (canvas) => makerStagesPageOf('rsvp', canvas, pages) === shown : undefined,
-    }).flatMap((g) => g.parts.map((p) => p.key));
-  assert.deepEqual(offers('home'), ['message'], 'Welcome offers a part it cannot draw');
-  assert.deepEqual(offers('details'), ['venue']);
-  assert.deepEqual(offers('me'), []);
-  /* A stage drawn as one page offers everything it could before. */
-  assert.deepEqual([...offers(null)].sort(), ['message', 'venue']);
-  /* The sheet asks the canvas which page is on show, and files by the canvas's own rule. */
+/* ── ＋ from any page: the STAGE's list, and where each part goes ─────────────────────────────────────────────────
+   Owner, 2026-10-11, on the preview of the first fix (which left another page's parts out): on Welcome, with the Map
+   and the Dress code hidden, ＋ above Greeting read "Every part is already on this page" — "does not show the scenes
+   to add". */
+
+const RSVP_PAGES = makerStagesPages('rsvp');
+const RSVP_PAGE_KEYS = RSVP_PAGES.map((p) => p.key);
+/** Hidden on the Invitation: two parts Details draws, one Welcome draws. */
+const HIDDEN_ON_STAGE = ['w:venue_map', 'w:dress_code', 'w:special_message'];
+/** The sheet's list as it is built for a press on `shown` (null: a stage drawn as one page) — `add-part-sheet.tsx` `otherPageOf`. */
+const offersOn = (shown: string | null) =>
+  makerPartOffers({
+    stage: 'rsvp',
+    present: new Set<string>(),
+    pathOf: (_key, canvas) => (HIDDEN_ON_STAGE.includes(canvas) ? { kind: 'add' } : null),
+    pageOf: shown
+      ? (canvas) => {
+          const key = makerStagesPageOf('rsvp', canvas, RSVP_PAGE_KEYS);
+          return key === shown ? null : (RSVP_PAGES.find((x) => x.key === key) ?? null);
+        }
+      : undefined,
+  }).flatMap((g) => g.parts);
+
+test('＋ lists every part the STAGE can take, whichever page it is pressed on', () => {
+  assert.ok(RSVP_PAGE_KEYS.length > 2, 'anti-vacuity: the Invitation is no longer drawn as pages');
+  const onOnePage = offersOn(null).map((p) => p.key).sort();
+  assert.equal(onOnePage.length, HIDDEN_ON_STAGE.length, 'a hidden part is not offered at all');
+  for (const page of RSVP_PAGE_KEYS) {
+    assert.deepEqual(offersOn(page).map((p) => p.key).sort(), onOnePage, `＋ pressed on "${page}" offers a different list`);
+    /* …in the same groups, in the same order: only the row's place differs. */
+    assert.deepEqual(offersOn(page).map((p) => [p.key, p.label, p.path]), offersOn(null).map((p) => [p.key, p.label, p.path]), page);
+  }
+});
+
+test('＋ says the page that will draw each part — the canvas’s own filing, by the name its tab shows', () => {
+  let elsewhere = 0;
+  for (const page of RSVP_PAGE_KEYS) {
+    for (const p of offersOn(page)) {
+      const own = makerStagesPageOf('rsvp', makerPartCanvasOn('rsvp', p.key)!, RSVP_PAGE_KEYS);
+      assert.deepEqual(p.onPage, own === page ? null : RSVP_PAGES.find((x) => x.key === own), `${p.label}, pressed on "${page}"`);
+      if (p.onPage) elsewhere += 1;
+    }
+  }
+  assert.ok(elsewhere > 0, 'anti-vacuity: no part was ever on another page');
+  /* HIS PRESS: on Welcome, the Venue and the Dress code both say Details; the Message, Welcome's own, says nothing. */
+  const welcome = offersOn('home');
+  const place = (canvas: string) => welcome.find((p) => makerPartCanvasOn('rsvp', p.key) === canvas)?.onPage?.label ?? null;
+  assert.equal(place('w:venue_map'), 'Details');
+  assert.equal(place('w:dress_code'), 'Details');
+  assert.equal(place('w:special_message'), null);
+  /* A stage drawn as one page names no other page. */
+  assert.ok(offersOn(null).every((p) => p.onPage === null));
+});
+
+test('＋ a part of another page is ONE undo step, shown in its own place — and one ↺ takes it back', () => {
+  /* `o.add(id, 0)`: no place is written against a part of the page it was pressed on — only that it is shown. */
+  const patch = stageAddPatch(null, typeOf, 'rsvp', 'venue_map', stageEyeValue({ base: true }, true))!;
+  assert.deepEqual(patch, { widgets: { venue_map: { stage_show: { rsvp: null } } } });
+  const before = emptyHubDraft();
+  const after = save(before, patch);
+  assert.equal((after.history ?? []).length, (before.history ?? []).length + 1, 'one press is not one Undo step');
+  const drawn = overlayHubDraftWidgets(PUBLISHED_HIDE, after);
+  assert.equal(sceneOnStage({ widgets: PUBLISHED_HIDE, stage: 'rsvp' }, 'venue_map')!.drawn, false, 'anti-vacuity: the hide was not published');
+  assert.equal(sceneOnStage({ widgets: drawn, stage: 'rsvp' }, 'venue_map')!.drawn, true, 'the Venue is still off the Invitation');
+  /* Its place among the stage's scenes is the one it had. */
+  assert.deepEqual(fullOrder(drawn, 'rsvp'), fullOrder(PUBLISHED_HIDE, 'rsvp'));
+  assert.deepEqual(undoHubDraft(after).widgets ?? {}, before.widgets ?? {});
+});
+
+test('＋ the sheet: every row says its own place once a part of another page is listed; the page is opened, then said', () => {
   const sheet = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'add-part-sheet.tsx'), 'utf8'));
-  assert.match(sheet, /onThisPage: here \? \(canvasKey\) => makerStagesPageOf\(here\.stage, canvasKey, here\.pages\) === here\.shown : undefined,/);
+  /* The list is not filtered by page any more — the page only names where a part goes. */
+  assert.doesNotMatch(sheet, /onThisPage/);
+  assert.match(sheet, /pageOf: \(canvasKey\) => otherPageOf\(stage, canvasKey\),/);
+  const other = sheet.slice(sheet.indexOf('function otherPageOf('), sheet.indexOf('function AddPartSheet('));
+  assert.match(other, /makerStagesPageOf\(here\.stage, canvasKey, here\.pages\.map\(\(p\) => p\.key\)\)/);
+  /* The header names a place only while every part offered goes there. */
+  assert.match(sheet, /const mixed = groups\.some\(\(g\) => g\.parts\.some\(\(p\) => p\.onPage\)\);/);
+  assert.match(sheet, /label=\{mixed \? 'Add a part' : `Add \$\{where\} \$\{anchorLabel\}`\}/);
+  assert.match(sheet, /p\.onPage \? `on \$\{p\.onPage\.label\}` : mixed \? `\$\{where\} \$\{anchorLabel\}` : null/);
+  /* "Every part is already…" only for an empty list — and the list is the stage's. */
+  assert.equal((sheet.match(/Every part is already on this page\./g) ?? []).length, 1);
+  assert.match(sheet, /\{groups\.length === 0 \? <p[^>]*>Every part is already on this page\.<\/p> : null\}/);
+  /* The press: one save in its own place, its page opened at once, and — only when that page shows it — brought
+     onto the screen, picked, and said. */
+  const add = sheet.slice(sheet.indexOf('const add = '), sheet.indexOf('const removeYes = '));
+  assert.match(
+    add,
+    /const away = otherPageOf\(stage, c\);\s*if \(away\) \{\s*o\.add\(folded\.widgetId, 0\);\s*onPage\?\.\(away\.key\);\s*settle\('add', `\$\{makerPartLabelOn\(stage, key\)\} added on \$\{away\.label\}`, \(\) => \{\s*bringOntoScreen\(c\);\s*onPick\?\.\(key\);\s*\}\);\s*return;\s*\}/,
+  );
+  /* The toolbar hands the tab row's own door and its own pick. */
+  const tools = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-tools.tsx'), 'utf8'));
+  assert.match(tools, /onPage: \(key\) => \{\s*const page = pagesRef\.current\.find\(\(p\) => p\.key === key\);\s*if \(page\) goToPageRef\.current\(page\.key, page\.option\);\s*\},\s*onPick: \(part\) => pickPartRef\.current\(part\),/);
 });

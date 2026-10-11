@@ -62,6 +62,21 @@ edits · the site's default tab title ("…relive every celebration" — his own
 to a stage from the table and then Removed is offered back by ＋ only until the next render (after it, the table adds it
 again) · the rough ones not in this round (M20–M23, M26–M28, M30, M31).
 
+**Round two — the tester re-walked the merged copy (17 of 19 pass; `hub-walk/merged/REWALK.md`) and found five more:**
+
+- R01 (LAB) · the Apply sheet listed nothing after a Style pick, any ↺ or a reopen: the lab's render knew the count
+  alone. The real Maker's render has always named them (`loadHubDraftBarData`). The lab's shell reads the bar from
+  the draft (`labRenderedSummary`); the property test holds badge = listed lines at every step, for every kind of
+  change (words · style · background · animate · order · per-stage · an RSVP line · a block look).
+- R02 (REAL) · one name per part in the Apply sheet — the Maker's own word (`MAKER_PARTS`): "Title" (it was "Names &
+  date" for its words and motion, "The title" for its Style), "Message", "Love Story", "Venue", "Gallery".
+- R03 (REAL) · the table's key explains the pale tick ("Nothing written yet"); a table reopened with a hand-set box
+  reads "N boxes changed from our picks.", never "Nothing changed yet".
+- M08 (REAL) · a pale tick only where the Maker has a place to write the part: Our photos × Save the Date and What
+  to bring × The Day are a dash while empty (`stdShows` · `DAY_WELCOME_SCENES`); Love Story × The Day is an empty
+  box, and ticking it draws its prompt there. Written, each is a ticked box again.
+- R04 (REAL) · a picked part brings its ＋ into view (`partPickScroll`): a tall part showed neither.
+
 SPEC IMPACT: None — no schema, no SKU, no price. One approved DRAWING is re-read rather than changed and the
 controller should say so in the corpus: the toast. `INTERACTION_RULES.md` § 9 kind 12 words it "peeks down from the
 top centre … its words centred" (unchanged); the approved gallery (`control_templates_2026-10-08.html`, `.toast`)

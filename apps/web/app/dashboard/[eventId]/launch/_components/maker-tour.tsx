@@ -48,7 +48,14 @@ export function MakerTour({
   const finish = (start: boolean) => {
     if (record) {
       startTransition(async () => {
-        await completeAction(MAKER_TOUR_KEY);
+        /* 📵 The tour is already closing: a record that could not be written (no signal, a 5xx) must not take the
+           Maker with it — thrown here it replaced the whole screen with the app's error page. Nothing to say: the
+           tour is simply offered once more on the next open. */
+        try {
+          await completeAction(MAKER_TOUR_KEY);
+        } catch {
+          /* not recorded — shown again next time */
+        }
       });
     }
     if (start) onStart();

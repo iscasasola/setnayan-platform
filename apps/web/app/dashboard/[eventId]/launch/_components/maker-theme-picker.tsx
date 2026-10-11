@@ -176,7 +176,9 @@ export function ThemePickProvider({
       }
     });
     start(async () => {
-      await queue.current;
+      /* Busy until the queue is through. Each link catches its own save (above); this wait never throws into the
+         transition either — a throw here would replace the whole Maker with the app's error screen. */
+      await queue.current.catch(() => undefined);
     });
   };
 

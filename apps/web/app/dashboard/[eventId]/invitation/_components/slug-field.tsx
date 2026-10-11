@@ -35,6 +35,8 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [pending, startTransition] = useTransition();
+  /* 📵 The save never answered (no signal, a 5xx). Said under the box; the address stays typed and Save stays lit. */
+  const [notSaved, setNotSaved] = useState(false);
   const debounceRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -75,7 +77,20 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
 
   return (
     <form
-      action={(formData) => startTransition(() => saveAction(formData))}
+      action={(formData) => {
+        setNotSaved(false);
+        startTransition(async () => {
+          try {
+            await saveAction(formData);
+          } catch (e) {
+            /* A redirect is how this action ANSWERS — saved or refused, it lands back here with the reason. Only a
+               request that never answered is caught: thrown into this transition it replaced the whole page (in the
+               Maker, the whole Maker) with the app's error screen. */
+            if (e instanceof Error && /NEXT_REDIRECT/.test(e.message)) throw e;
+            setNotSaved(true);
+          }
+        });
+      }}
       className="space-y-2"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -108,6 +123,11 @@ export function SlugField({ eventId, initialSlug, saveAction }: Props) {
             }}
           />
           <StatusLine check={check} />
+          {notSaved ? (
+            <p role="alert" className="mt-1 text-xs text-warn-700">
+              That did not save. Please try again.
+            </p>
+          ) : null}
         </div>
         <button
           type="submit"

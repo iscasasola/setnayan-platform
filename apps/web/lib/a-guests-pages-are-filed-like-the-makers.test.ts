@@ -741,7 +741,9 @@ test('5 · 🔗 `#site-details` keeps landing — on the Welcome’s scenes when
      a countdown and a message had a Details tab holding both; both are Welcome's now, so the mark goes with them. */
   assert.match(readFileSync(join(WEB, 'app/[slug]/_lib/invitation-card.ts'), 'utf8'), /hubHref: `#\$\{SITE_MENU_ANCHORS\.details\}`,/);
   // The guest: the page's sections carry it, unless they are empty and the Welcome's scenes are not.
-  assert.match(GUEST, /const detailsMarkOnLead =\s*leadScenes\.length > 0 &&\s*hereScenes\.length === 0 &&\s*!\(stageShowsEntourage\(pageStage\) && entourage\.length > 0 && !marchOnWelcome && marchTab === hereTab\);/);
+  /* 🔁 RE-AIMED 2026-10-12 ("What guests see", pass 2): each mount now asks `entourageShownOn(pageStage)` — the same
+     stage rule (`stageShowsEntourage`), or the couple's own choice for that stage when they made one. */
+  assert.match(GUEST, /const detailsMarkOnLead =\s*leadScenes\.length > 0 &&\s*hereScenes\.length === 0 &&\s*!\(entourageShownOn\(pageStage\) && entourage\.length > 0 && !marchOnWelcome && marchTab === hereTab\);/);
   assert.match(GUEST, /\{scenesOnTabs\(leadBefore, detailsMarkOnLead \? SITE_MENU_ANCHORS\.details : undefined\)\}/);
   assert.match(GUEST, /\{scenesOnTabs\(leadAfter, detailsMarkOnLead && leadBefore\.length === 0 \? SITE_MENU_ANCHORS\.details : undefined\)\}/);
   assert.match(GUEST, /id: pageStage === 'event' \|\| detailsMarkOnLead \? undefined : SITE_MENU_ANCHORS\.details \}\)\}/, 'one mark on the page — never two elements with one id');

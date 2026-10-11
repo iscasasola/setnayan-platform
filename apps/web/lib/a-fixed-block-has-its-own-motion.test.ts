@@ -281,7 +281,9 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   /* Each of the four is marked right BEFORE it — and before the Maker's own marker, which must stay next to the block
      (`sectionAfter` frames the element right after it). */
   assert.match(BODY, /\{blockMark\('details'\)\}\s*\{makerMark\('f:details'\)\}\s*<PublicEventDetails/);
-  assert.match(BODY, /<>\{stageShowsEntourage\(pageStage\) \? blockMark\('entourage'\) : null\}\{stageShowsEntourage\(pageStage\) \? <EntourageSection groups=\{entourage\} id="site-entourage"/);
+  /* 🔁 RE-AIMED 2026-10-12 ("What guests see", pass 2): each mount now asks `entourageShownOn(pageStage)` — the same
+     stage rule (`stageShowsEntourage`), or the couple's own choice for that stage when they made one. */
+  assert.match(BODY, /<>\{entourageShownOn\(pageStage\) \? blockMark\('entourage'\) : null\}\{entourageShownOn\(pageStage\) \? <EntourageSection groups=\{entourage\} id="site-entourage"/);
   /* 🪑 YOUR SEAT — the mark rides WITH the real block (one const), so it is right before the block's root in both of
      its slots (Welcome's group, or inside Me — never both), and absent when there is no table to draw. */
   assert.match(BODY, /const seatBlock = seatMap \? \(\s*<>\s*\{blockMark\('find_your_seat'\)\}\s*<YourSeatBlock\s/);

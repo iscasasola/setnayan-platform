@@ -177,7 +177,7 @@ import { HubSceneRuns } from './hub-scene-runs';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
 import { fixedTileHidden, makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet, type MakerDayPartPlace } from '@/lib/maker-scene-list';
-import { splitAroundEntourage, stageShowsEntourage as ourPickShowsEntourage } from '@/lib/stage-scenes';
+import { splitAroundEntourage, stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
 import { GuestWelcome } from './guest-welcome';
@@ -1064,9 +1064,11 @@ export async function SiteBody({
   const pageStage = pageStageFor({ phasesEnabled, lifecyclePhase, dayOfPhase });
   /* 👁 DOES THIS STAGE SHOW THE ENTOURAGE? — our pick (`STAGE_FIXED`: the Invitation, The Day, Post Event), unless the
      couple chose for this stage ("What guests see": added to the Save the Date, or hidden — a hidden one has no
-     names left to draw, above). Every mount below asks this one question, by its old name. */
-  const stageShowsEntourage = (stage: LifecyclePhase): boolean =>
-    partOnStage(widgets, 'entourage', lifecyclePhase, phasesEnabled, ourPickShowsEntourage(stage));
+     names left to draw, above). Every mount below asks this one question. Its name says how it differs from the
+     rule it is built on (`stageShowsEntourage`, lib/stage-scenes.ts — our pick alone): two definitions under one name
+     do not stay equal (`scripts/lint-dup-rule.ts`, guard 1). */
+  const entourageShownOn = (stage: LifecyclePhase): boolean =>
+    partOnStage(widgets, 'entourage', lifecyclePhase, phasesEnabled, stageShowsEntourage(stage));
   /* 🎨 THE FIVE FIXED PARTS' STYLES (owner 2026-09-29) — the couple's pick from
      `events.style_preferences.scene_styles` (the host's canvas: with the draft
      laid on), resolved for this stage by the one registry. No pick = style A,
@@ -1826,7 +1828,7 @@ export async function SiteBody({
           dayWelcome.length > 0 ||
           (readerFiled
             ? detailsSceneList.some((w) => sceneOwnPage(w) === 'home') ||
-              (stageShowsEntourage(pageStage) && entourage.length > 0 && ownPage('f:entourage', scenesTab) === 'home') ||
+              (entourageShownOn(pageStage) && entourage.length > 0 && ownPage('f:entourage', scenesTab) === 'home') ||
               (findSeatShown && (ownPage('f:find_your_seat', 'home') === 'home' || !(ownerCapability || isEditorCanvas)))
             : findSeatShown),
         // 📱 Each tab its own page, on the Invitation and The Day.
@@ -2335,7 +2337,7 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            {group(at('f:entourage', scenesTab), <>{stageShowsEntourage(pageStage) ? blockMark('entourage') : null}{stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null}</>)}
+            {group(at('f:entourage', scenesTab), <>{entourageShownOn(pageStage) ? blockMark('entourage') : null}{entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null}</>)}
             {stagesPages ? scenesByPage(stagesAround.after, 'mt-8') : detailsAround.after.length > 0 ? group(scenesTab, <div className="sn-hub-cards mt-8 space-y-4">{sceneNodes(detailsAround.after)}</div>) : null}
 
             {makerDayStandIns('last')}
@@ -2718,12 +2720,12 @@ export async function SiteBody({
       identified: !isMakerCanvas || sampleViewer !== null,
       // 🚶🗺 Scrolled, the day's Welcome carries the walking order and the ONE
       // venue (owner 2026-10-01, prototype the_day_guest_phone frame 2b).
-      march: pageStage === 'event' && stageShowsEntourage(pageStage) && entourage.length > 0,
+      march: pageStage === 'event' && entourageShownOn(pageStage) && entourage.length > 0,
       venue: pageStage === 'event' && dayVenues.length > 0,
     });
     /** The walking order is Welcome's on the day — so it leaves the Live tab (one place). */
     const marchOnWelcome = dayWelcome.includes('march');
-    const guestEntourage = stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={guest.guest_id} /> : null;
+    const guestEntourage = entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={guest.guest_id} /> : null;
     /* Same resolver, guest viewer. The camera destination keeps the shipped
        precedence — a guest's OWN roll first, then the couple's shared camera,
        the same order GuestHubBar already uses; neither open ⇒ the resolver
@@ -2873,7 +2875,7 @@ export async function SiteBody({
     const detailsMarkOnLead =
       leadScenes.length > 0 &&
       hereScenes.length === 0 &&
-      !(stageShowsEntourage(pageStage) && entourage.length > 0 && !marchOnWelcome && marchTab === hereTab);
+      !(entourageShownOn(pageStage) && entourage.length > 0 && !marchOnWelcome && marchTab === hereTab);
     /** One of the couple's scenes, as this guest reads it — for Details, and on
      *  a tabbed page for the love story scene on its own tab. */
     const renderScene = (widget: (typeof detailsScenes)[number]) => (

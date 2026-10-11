@@ -1252,10 +1252,17 @@ function skuActiveInRender(
   serviceKey: string,
 ): Promise<boolean> {
   return askedOnce(supabase, 'sku-active', [eventId, serviceKey], async () => {
+    // ⏩ The bundle composition leaves WITH the orders read (2026-10-12). It is
+    // one list for the whole render, asked by nearly every product the guest
+    // page gates, and it needs nothing from the orders — it only ever waited
+    // behind them. Same answer, one round trip sooner. (The one render it costs
+    // an extra request: every product asked is owned by a direct order, so the
+    // list would never have been read.)
+    const compositionAhead = askedTogether(() => fetchBundleComponents(supabase));
     const orders = await eventOrdersForGate(supabase, eventId, serviceKey, 'active entitlement');
     if (hasOrder(orders, serviceKey, confersAccess)) return true;
 
-    const composition = await fetchBundleComponents(supabase);
+    const composition = await compositionAhead;
     for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
       if (hasOrder(orders, bundleKey, confersAccess)) return true;
     }

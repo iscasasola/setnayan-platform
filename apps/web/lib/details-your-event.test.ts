@@ -167,7 +167,9 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
   assert.match(read('lib/march-sections.ts'), /export function marchSections\(groups: readonly EntourageGroup\[\]\): MarchSection\[\]/);
   const loaders = read('app/[slug]/_lib/loaders.ts');
   // (The rows carry the "Not walking" mark since 2026-10-06 — a mark only the walking order reads; the ORDER argument is unchanged.)
-  assert.match(loaders, /return buildEntourage\(\s*\(\(data \?\? \[\]\) as EntourageGuestRow\[\]\)\.map\([^\n]*not_walking: true[^\n]*\),\s*await loadEntourageSectionOrder\(admin, eventId\),/);
+  assert.match(loaders, /return buildEntourage\(\s*\(\(data \?\? \[\]\) as EntourageGuestRow\[\]\)\.map\([^\n]*not_walking: true[^\n]*\),\s*await sectionOrderAhead,/);
+  // …and that order is still the ONE saved order: started beside the guest read (2026-10-12), awaited here.
+  assert.match(loaders, /const sectionOrderAhead = startAhead\(loadEntourageSectionOrder\(admin, eventId\)\);/);
   // (+ the couple's role words since 2026-09-30 — words only, the ORDER argument is unchanged.)
   assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)(, names(, style)?)?\)/);
   // The maker's sections follow the couple's own section order — the printed one, the couple's sides in their place.

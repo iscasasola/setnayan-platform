@@ -95,8 +95,21 @@ const aheadCalls = (src: string) => [...src.matchAll(/startAhead\(\s*([A-Za-z]+)
 const count = (src: string, needle: string) => src.split(needle).length - 1;
 
 test('only these reads are started ahead — each one every path below awaits, none of them a write', () => {
-  assert.deepEqual(aheadCalls(PAGE).sort(), ['getCurrentUser', 'loadDoorwayFacts', 'loadEntourage', 'loadWidgets', 'readGuestSession', 'resolveVendorCapability'].sort());
-  assert.deepEqual(aheadCalls(LOADERS).sort(), ['eventPapicGuestActive', 'eventStdOpeningsActive', 'loadVenueBookings', 'websiteProActiveFor'].sort());
+  // ⏩ 2026-10-12 — the second pass. The page also starts the one platform switch the
+  // schedule waits on; the live layer's five reads and the entourage's three event
+  // facts leave together instead of one behind another. Reads, every one.
+  assert.deepEqual(
+    aheadCalls(PAGE).sort(),
+    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadWidgets', 'readGuestSession', 'resolveVendorCapability'].sort(),
+  );
+  assert.deepEqual(
+    aheadCalls(LOADERS).sort(),
+    [
+      'eventPapicGuestActive', 'eventStdOpeningsActive', 'loadVenueBookings', 'websiteProActiveFor',
+      'readPublicSchedule', 'readStoredBackdrop', 'readWatchLive', 'readGuestWallMirror', 'resolveAlbumDoor',
+      'loadEntourageSectionOrder', 'loadEventRoleNames', 'loadEventNameStyle',
+    ].sort(),
+  );
   // The guest's own facts (their row, their seat, their ticks) are read only past the session checks — never ahead.
   assert.doesNotMatch(PAGE, /startAhead\(\s*(loadGuestContext|findGuestSeatForUser|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
 });

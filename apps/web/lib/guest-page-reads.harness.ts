@@ -116,6 +116,7 @@ async function main() {
   const { createAdminClient } = await import('@/lib/supabase/admin');
   const { resolveProfile } = await import('@/lib/event-type-profile');
   const { startAhead } = await import('@/lib/start-ahead');
+  const { isCoordinatorPrepReleaseEnabled } = await import('@/lib/coordinator-prep-release');
 
   async function view(kind: 'stranger' | 'invited', dayOfPhase: 'pre' | 'live'): Promise<ViewReport> {
     viewMemo = new Map();
@@ -138,8 +139,10 @@ async function main() {
     const layoutLook = startAhead(L.loadGuestLook(SLUG));
     await phase('profile', () => resolveProfile('wedding'));
 
-    // `InvitationBody`: the scene list is started ahead, the media awaited first.
+    // `InvitationBody`: the scene list and the prep-release switch are started
+    // ahead, the media awaited first.
     startAhead(L.loadWidgets(admin, EVENT_ID));
+    startAhead(isCoordinatorPrepReleaseEnabled());
     await phase('media', () => L.loadMedia(admin, event, null));
     await phase('widgets', () => L.loadWidgets(admin, EVENT_ID));
 

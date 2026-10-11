@@ -48,11 +48,19 @@ const REPORT = measure();
 const summary = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.join('\n  ')}`;
 
 /** The pinned shape: requests, and steps one after another. */
+/*
+  THE SAME VIEWS, BEFORE ANYTHING WAS MOVED (commit 72a55ba82, same stand-in):
+    a stranger          23 requests, 10 deep
+    an invited guest    34 requests, 17 deep   (37 / 20 on the day)
+  Side by side (2026-10-12): the live layer's five reads, the entourage's three
+  event facts, the bundle list beside the orders read, and the one platform
+  switch the schedule waited on.
+*/
 const PINNED: Record<keyof Report, { calls: number; depth: number }> = {
-  strangerBeforeTheDay: { calls: 23, depth: 10 },
-  strangerOnTheDay: { calls: 23, depth: 10 },
-  invitedBeforeTheDay: { calls: 34, depth: 17 },
-  invitedOnTheDay: { calls: 37, depth: 20 },
+  strangerBeforeTheDay: { calls: 23, depth: 5 },
+  strangerOnTheDay: { calls: 23, depth: 6 },
+  invitedBeforeTheDay: { calls: 34, depth: 12 },
+  invitedOnTheDay: { calls: 37, depth: 16 },
 };
 
 test('the harness is looking at the page’s loaders — the shell is read first, alone, once', () => {

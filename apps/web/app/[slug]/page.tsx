@@ -153,6 +153,7 @@ import { PrivateLanding } from './_components/private-landing';
 import { SiteBody } from './_components/site-body';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { startAhead } from '@/lib/start-ahead';
+import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 
 // Task #13 (Phase 1 day-of PWA fix, 2026-05-22) — swap `dynamic = 'force-dynamic'`
 // for ISR so this surface can be CDN-cached AND served from SHELL_CACHE when a
@@ -807,6 +808,12 @@ async function InvitationBody({
   startAhead(loadWidgets(admin, event.event_id));
   startAhead(readGuestSession());
   startAhead(getCurrentUser());
+  /* ⏩ …and one platform switch (2026-10-12). The live layer cannot ask for the
+     schedule until it knows whether coordinator prep is released — one row, the
+     same for every event, `cache()`d — so the schedule stood a whole round trip
+     behind everything else for the sake of a flag. Asked here it has answered
+     long before the schedule is wanted. */
+  startAhead(isCoordinatorPrepReleaseEnabled());
 
   // Hero / photos / monogram / Save-the-Date media resolution — moved verbatim
   // to `loadMedia` (_lib/loaders.ts · OPEN-BROWSE PR2). Runs BEFORE the private

@@ -7,6 +7,7 @@ import { Handed } from './handed';
 import { buildGuestInviteMessage, type InviteEventFacts } from '@/lib/guest-invite-message';
 import { saveImageToDevice } from '@/lib/save-to-device';
 import { useGuestActions } from './guest-actions-context';
+import { hearAction } from './hear-action';
 import { Popover } from './overlay-primitives';
 import {
   shareInvite,
@@ -209,7 +210,8 @@ export function GuestInviteCell({
 
   function mark(sent: boolean) {
     startTransition(async () => {
-      const res = await setGuestInvitationSent(eventId, guest.guestId, sent);
+      // 🔌 `hearAction`: a failed request answers like a refusal — the sheet stays and the line below is said.
+      const res = await hearAction(() => setGuestInvitationSent(eventId, guest.guestId, sent));
       if (res.ok) {
         setSentAt(res.sentAt);
         setSaid(null);

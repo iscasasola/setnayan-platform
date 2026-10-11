@@ -19,6 +19,9 @@ import {
 } from '@/lib/guest-pass-hop';
 import { exchangeReentryCode, mintReentryCode, reentryCodeGuest } from '@/lib/guest-reentry.server';
 import { recordFault } from '@/lib/telemetry/fault-log';
+import { withSchemaRetry } from '@/lib/read-retry';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { didNotLoadAnswer } from '@/lib/guest-did-not-load';
 
 /** One Problems-log row for a personal-link visit that will not land on the
  *  invitation (lib/guest-pass-hop.ts `passHopMissFault` — no token, no code,
@@ -64,12 +67,57 @@ function linkPreviewAnswer(): NextResponse {
   );
 }
 
+/* 🔌 A READ THAT FAILED IS NOT A LINK THAT IS WRONG (2026-10-11, owner: "make
+   sure requests does not cause a crash").
+
+   The three reads below threw their `error` away. supabase-js RESOLVES a failed
+   read with `data: null` — the same value as "no row has this code" — so a
+   database that took a moment (the small plan: up to 3 s after a quiet gap, a
+   ~40 s stall once a day, a schema-cache blip on every deploy with a migration)
+   sent the guest to `?invite_error=invalid_token`: "That invite link doesn't
+   look right — it may have been replaced". A guest at the door, holding a good
+   link, was told to ask the couple for another.
+
+   THE RULE NOW: each read is retried through a blip (`withSchemaRetry`, bounded
+   to a few seconds), and one that STILL carries an `error` is answered HERE, in
+   place, with the guest boundary's own words (app/[slug]/error.tsx) — never
+   `invalid_token`. In place because:
+     · the address keeps the link, so "Try again" (and a plain reload) re-runs
+       THIS redeem — a redirect to the bare event would drop the token and the
+       guest would arrive as a stranger;
+     · it reads nothing — the database is the thing that is not answering.
+   "No such row" (`error` null, `data` null) keeps its answer below, and is now
+   the only thing that answer can mean.
+
+   `tryAgainHref` is built from the VALIDATED slug and percent-encoded values —
+   never from the raw query (the open-redirect rule above). The answer itself
+   is `didNotLoadAnswer` (lib/guest-did-not-load.ts), shared with the seat QR's
+   hop: it sets no cookie and is never cached.
+   🛡 app/[slug]/redeem/a-failed-read-is-not-a-dead-link.test.ts */
+
 /** A real slug: lowercase alphanumerics and hyphens. No slashes, no dots, no
  *  backslashes, no colons, no wildcards — none of the characters that let a
  *  path turn into another origin or a LIKE pattern. */
 const SAFE_SLUG = /^[a-z0-9][a-z0-9-]{0,99}$/;
 
 export async function GET(request: NextRequest) {
+  // The address this very request can be asked again at — rebuilt from the
+  // validated slug and encoded values, so the "didn't load" answer never
+  // echoes caller text. `null` while the slug is unsafe (nothing is read then).
+  const retry: { href: string | null } = { href: null };
+  try {
+    return await redeem(request, retry);
+  } catch (err) {
+    // A THROW IS A FAILED REQUEST TOO — a fetch that never answered, a cookie
+    // that could not be written. A route handler has no error boundary: an
+    // uncaught throw here is the browser's own blank "this page isn't working".
+    if (!retry.href) throw err;
+    logQueryError('redeem (threw)', err, {}, 'graceful_degrade');
+    return didNotLoadAnswer(retry.href);
+  }
+}
+
+async function redeem(request: NextRequest, retry: { href: string | null }): Promise<NextResponse> {
   const url = new URL(request.url);
   const rawSlug = url.searchParams.get('slug') ?? '';
   const token = url.searchParams.get('token') ?? '';
@@ -103,13 +151,25 @@ export async function GET(request: NextRequest) {
     return linkPreviewAnswer();
   }
 
+  {
+    const again = new URL(`/${slug}/redeem`, url.origin);
+    again.searchParams.set('slug', slug);
+    if (token) again.searchParams.set('token', token);
+    else again.searchParams.set(REENTRY_PARAM, reentryCode);
+    if (url.searchParams.has('to')) again.searchParams.set('to', reentryDestinationOf(url.searchParams.get('to')));
+    retry.href = `${again.pathname}${again.search}`;
+  }
+  const tryAgainHref = retry.href;
+
   const admin = createAdminClient();
 
-  const { data: event } = await admin
-    .from('events')
-    .select('event_id, slug')
-    .ilike('slug', slug)
-    .maybeSingle();
+  const { data: event, error: eventError } = await withSchemaRetry(() =>
+    admin.from('events').select('event_id, slug').ilike('slug', slug).maybeSingle(),
+  );
+  if (eventError) {
+    logQueryError('redeem (events)', eventError, { slug }, 'graceful_degrade');
+    return didNotLoadAnswer(tryAgainHref);
+  }
 
   if (!event) {
     // 🎟 THE ONE URL THAT IS ACTUALLY PRINTED ON AN INVITATION ENDS UP HERE.
@@ -182,13 +242,20 @@ export async function GET(request: NextRequest) {
 
   // Read WITH removed rows: a Declined or Linked request's key still answers
   // (lib/request-key.ts). Every other removed row stays `invalid_token` below.
-  const { data: keyRow } = await admin
-    .from('guests')
-    .select(
-      'guest_id, event_id, qr_token, first_name, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, deleted_at, custom_tags',
-    )
-    .eq('qr_token', token)
-    .maybeSingle();
+  const { data: keyRow, error: keyRowError } = await withSchemaRetry(() =>
+    admin
+      .from('guests')
+      .select(
+        'guest_id, event_id, qr_token, first_name, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, deleted_at, custom_tags',
+      )
+      .eq('qr_token', token)
+      .maybeSingle(),
+  );
+  // Could not READ the code ≠ no such code. Answered before `invalid_token`.
+  if (keyRowError) {
+    logQueryError('redeem (guests by code)', keyRowError, { event_id: event.event_id }, 'graceful_degrade');
+    return didNotLoadAnswer(tryAgainHref);
+  }
 
   if (!keyRow || keyRow.event_id !== event.event_id) {
     await recordMiss(request, { rule: 'redeem:unknown-token', steps: ['link', 'redeem'], held: 'none', carriedCode: false });
@@ -214,15 +281,21 @@ export async function GET(request: NextRequest) {
   }
   let guest = keyRow;
   if (keyState.kind === 'linked') {
-    const { data: joined } = await admin
-      .from('guests')
-      .select(
-        'guest_id, event_id, qr_token, first_name, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, deleted_at, custom_tags',
-      )
-      .eq('guest_id', keyState.into)
-      .eq('event_id', event.event_id)
-      .is('deleted_at', null)
-      .maybeSingle();
+    const { data: joined, error: joinedError } = await withSchemaRetry(() =>
+      admin
+        .from('guests')
+        .select(
+          'guest_id, event_id, qr_token, first_name, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, deleted_at, custom_tags',
+        )
+        .eq('guest_id', keyState.into)
+        .eq('event_id', event.event_id)
+        .is('deleted_at', null)
+        .maybeSingle(),
+    );
+    if (joinedError) {
+      logQueryError('redeem (linked guest)', joinedError, { event_id: event.event_id }, 'graceful_degrade');
+      return didNotLoadAnswer(tryAgainHref);
+    }
     if (!joined) {
       target.searchParams.set('invite_error', 'invalid_token');
       return NextResponse.redirect(target);

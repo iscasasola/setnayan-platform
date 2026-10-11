@@ -92,14 +92,21 @@ test('the switch is NOT hidden behind ANY condition — it renders for every gue
 
   // The sheet's own gate, and the fallback's gate, are the same expression negated.
   const sheetGate = src.slice(0, sheetOpen).trimEnd();
-  assert.match(sheetGate.slice(-40), /\{plan\.rsvpShouldRender \? \($/, 'the reply sheet is no longer gated on plan.rsvpShouldRender');
+  // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): the sheet is drawn only in the Maker's canvas
+  // (`replySheetDrawn`), so for EVERY guest the switch is the body's — still exact complements of one expression.
+  assert.match(src, /const replySheetDrawn = plan\.rsvpShouldRender && isEditorCanvas;/);
+  assert.match(sheetGate.slice(-40), /\{replySheetDrawn \? \($/, 'the reply sheet is no longer gated on replySheetDrawn');
   // 📱 On a tabbed page (owner 2026-09-30) the fallback is placed on the
   // Welcome tab by `group('home', …)` — placement, not a gate: `group` returns
   // its content untouched off a tabbed page and never drops it on one.
-  const bodyGate = src.slice(0, inBody[0]).trimEnd().replace(/\s*group\('home', \($/, '');
+  // 🔁 2026-10-11: the fallback is one element (`scanTrail`), drawn directly above the sign-out — on Me on a tabbed
+  // page, at the foot of a page that is one scroll. Still nothing between its gate and the mount.
+  const bodyGate = src.slice(0, inBody[0]).trimEnd();
+  assert.match(src, /\{scanTrail\}\s*\{signOut\}/, 'the opt-out left Me');
+  assert.match(src, /\{tabs\.on \? null : scanTrail\}\s*\{tabs\.on \? null : signOut\}/, 'a page that is one scroll lost the opt-out');
   assert.match(
     bodyGate.slice(-60),
-    /\{plan\.rsvpShouldRender \? null : \($/,
+    /const scanTrail = replySheetDrawn \? null : \($/,
     `the body fallback is not the exact complement of the sheet's gate. It is preceded by: …${bodyGate.slice(-60)}`,
   );
   // Inside the sheet, nothing between the wrapper and the mount decides anything.

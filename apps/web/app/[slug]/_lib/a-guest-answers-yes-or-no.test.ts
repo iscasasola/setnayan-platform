@@ -174,7 +174,7 @@ test("4 · submitRsvp refuses a NEW 'maybe' before it writes anything, and keeps
   const src = read('[slug]/actions.ts');
   const body = src.slice(src.indexOf('export async function submitRsvp'));
   const refusal = body.search(
-    /if \(!replyLocked && status === 'maybe' && before\?\.rsvp_status !== 'maybe'\) \{\s*if \(toInvite && evRsvp\?\.slug\) redirect\(`\$\{inviteReplyPath\(evRsvp\.slug\)\}\?rsvp=choose`\);\s*redirect\(evRsvp\?\.slug \? `\/\$\{evRsvp\.slug\}\?rsvp=choose` : '\/'\);/,
+    /if \(!replyLocked && status === 'maybe' && before\?\.rsvp_status !== 'maybe'\) \{\s*if \(toInvite && evRsvp\?\.slug\) redirect\(`\$\{inviteReplyPath\(evRsvp\.slug\)\}\?rsvp=choose`\);\s*redirect\(evRsvp\?\.slug \? `\/\$\{evRsvp\.slug\}\?rsvp=choose` : eventAddressUnread\('submitRsvp · choose'\)\);/,
   );
   assert.ok(refusal > 0, "submitRsvp no longer refuses a guest's new 'maybe' with ?rsvp=choose");
   const firstWrite = body.search(/\.from\('guests'\)\s*\.update\(/);

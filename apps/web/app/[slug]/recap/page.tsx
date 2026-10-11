@@ -7,8 +7,10 @@ import { notFound, redirect } from 'next/navigation';
 import { Camera, Film, Quote, Radio, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestRead } from '@/lib/guest-read';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor } from '../_lib/event-words';
+import { hasntAfter } from '../_lib/names-verb';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { isRecapPublished, assembleRecapModel, type RecapModel } from '@/lib/auto-recap';
@@ -45,14 +47,17 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from('events')
-    .select(
-      `event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, scheduled_launch_at, ${HERO_MONOGRAM_COLUMNS}`,
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
-  return data;
+  // 🔌 A failed read throws (the guest boundary) — never "This link can't be
+  // found." for an event that is there (lib/guest-read.ts).
+  return guestRead('recap (event)', () =>
+    admin
+      .from('events')
+      .select(
+        `event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, scheduled_launch_at, ${HERO_MONOGRAM_COLUMNS}`,
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
 });
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -214,7 +219,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
           <Sparkles aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.5} />
           <h1 className="mt-4 font-display text-3xl italic">The recap isn&rsquo;t ready yet</h1>
           <p className="mt-3 max-w-prose text-ink/65">
-            {event.display_name} hasn&rsquo;t published their {words.eventWord} recap. Check back
+            {event.display_name} {hasntAfter(event.display_name, words.twoPeople)} published their {words.eventWord} recap. Check back
             soon — or visit their page in the meantime.
           </p>
           <Link

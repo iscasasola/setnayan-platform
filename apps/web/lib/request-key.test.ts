@@ -81,7 +81,7 @@ test('the words are the approved prototype’s, verbatim', () => {
 test('🔒 redeem: a pending or declined key is remembered as a REQUEST and never becomes a guest session', () => {
   const r = read('app/[slug]/redeem/route.ts');
   const ask = r.indexOf('const keyState = requestKeyState(keyRow)');
-  const keyRead = r.indexOf('const { data: keyRow }');
+  const keyRead = r.indexOf('const { data: keyRow');
   // The TOKEN path: from reading the key to asking its state, nothing mints a pass.
   assert.ok(keyRead > -1 && ask > keyRead, 'the redeem lost its key read / state check');
   assert.doesNotMatch(r.slice(keyRead, ask), /setGuestSession\(/, 'the redeem hop mints a session before asking the key’s state');

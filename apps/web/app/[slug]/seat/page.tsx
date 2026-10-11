@@ -6,6 +6,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin, Users } from 'lucide-react';
 import { guestAvatarsEnabled } from '@/lib/venue-avatars';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { withSchemaRetry } from '@/lib/read-retry';
 import { readGuestSession } from '@/lib/guest-session';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor } from '../_lib/event-words';
@@ -25,6 +26,7 @@ import { publicDisplayName } from '@/lib/find-your-seat';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { ArrivalBloom } from './_components/arrival-bloom';
 import { GuestPushPrompt } from './_components/guest-push-prompt';
+import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 
 export const metadata = { title: 'Your seat pass' };
 
@@ -98,13 +100,16 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
   const admin = createAdminClient();
 
-  const { data: event, error: eventErr } = await admin
-    .from('events')
-    .select(
-      'event_id, display_name, slug, event_date, venue_name, event_type, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key',
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  // (Retried through a schema-cache blip since 2026-10-11 — lib/read-retry.ts.)
+  const { data: event, error: eventErr } = await withSchemaRetry(() =>
+    admin
+      .from('events')
+      .select(
+        'event_id, display_name, slug, event_date, venue_name, event_type, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key',
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
 
   // 🔴 A FAILED READ IS NOT A CELEBRATION THAT DOES NOT EXIST. `notFound()` here
   // told a guest holding a printed QR that their wedding is not a real page.
@@ -224,10 +229,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     if (!published) {
       return (
         <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
-          <PromptCard
-            title="Seating shows on the day"
-            body={`The seating for this ${noun} shows here on the day. This table’s guests will appear here then.`}
-          />
+          <SeatsShowOnTheDay eventDate={event.event_date} />
         </SeatPassShell>
       );
     }
@@ -559,22 +561,33 @@ async function PublicTableView({
   // Occupants of this table — first name + last initial only. No emails, no QR
   // tokens, no plus-one internal flags. Mirrors what the physical table sign
   // already shows in the room.
-  const { data: assignments } = await admin
+  // 🔌 "No one has been seated here yet." is said of a table that was READ
+  // (2026-10-11). Both reads below threw their error away, so a failed read
+  // told a guest standing at their table that nobody sits there.
+  const { data: assignments, error: assignmentsErr } = await admin
     .from('event_seat_assignments')
     .select('guest_id, seat_number')
     .eq('event_id', event.event_id)
     .eq('table_id', table.table_id)
     .order('seat_number', { ascending: true });
+  if (assignmentsErr) {
+    console.error('[supabase-error] app/[slug]/seat/page.tsx · from:event_seat_assignments.select (table view)', assignmentsErr);
+    return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
+  }
 
   const guestIds = (assignments ?? []).map((a) => a.guest_id as string);
   let occupants: string[] = [];
   if (guestIds.length > 0) {
-    const { data: guests } = await admin
+    const { data: guests, error: occupantsErr } = await admin
       .from('guests')
       .select('guest_id, first_name, last_name')
       .eq('event_id', event.event_id)
       .in('guest_id', guestIds)
       .is('deleted_at', null);
+    if (occupantsErr) {
+      console.error('[supabase-error] app/[slug]/seat/page.tsx · from:guests.select (table view)', occupantsErr);
+      return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
+    }
     const byId = new Map(
       (guests ?? []).map((g) => [g.guest_id as string, g as { first_name: string | null; last_name: string | null }]),
     );
@@ -747,7 +760,7 @@ function PromptCard({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-2xl border border-ink/10 bg-cream p-6 text-center sm:p-8">
       <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-      <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">{body}</p>
+      <p className="mx-auto mt-3 max-w-prose text-sm text-ink/70">{body}</p>
     </div>
   );
 }
@@ -759,7 +772,7 @@ function BackLink({ slug }: { slug: string }) {
     <div className="text-center">
       <Link
         href={`/${slug}`}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Back to your invitation

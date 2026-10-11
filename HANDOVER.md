@@ -34,7 +34,15 @@ Checks: full `tsc` rc 0 on the final code (run it with `apps/web/.next` deleted 
 6. **WHOLE LAB WALK: 125 passed · 0 failed** (`tools/walk-out.txt`, 2026-10-12, at code 742dd1210 — d2a2e1969 after it changed a comment and a test only). Side-by-sides re-composed and looked at (2 lifted, 3 over bin, 4 removed; 1, 5, 6 looked at from the run before — same states).
 7. **`pnpm preflight` at be1bd3726: 1 FAILED · 48 passed** (33 min). The one failure is mine and is NOT fixed: `lib/maker-list-gates.test.ts` M09 pins the old line `if (gone) onGoneRef.current?.();` — re-aim it at `if (gone && partTakenOff(askPartOps(), canvas)) onGoneRef.current?.();` (`add-part-sheet.tsx`, `usePartEdits`), with a dated note. Preflight has not been run since 742dd1210 / d2a2e1969.
 
-## STOPPED HERE (account limit, 2026-10-12) — nothing running, lock released, tree committed
+## Session of 2026-10-12 (third builder)
+
+1. **M09 re-aimed** (928d73f93): `lib/maker-list-gates.test.ts` now pins `if (gone && partTakenOff(askPartOps(), canvas)) onGoneRef.current?.();` with a dated note. Ran with `a-scene-is-dragged-on-the-page`: 24/24 pass. Sabotage (put the old `if (gone)` back): M09 red; restored, green.
+2. **Full tsc rc 0** (under the heavy lock, `.next` deleted, at 928d73f93).
+3. **Changelog fragment** dated 2026-10-12, this session's fixes added, "Desktop" paragraph corrected (75184b60f).
+4. **Side-by-sides 1, 5, 6 looked at.** 1: same as the prototype but for the shipped differences listed below. 5: the built picture is taken mid-glide (holding the cover picks Logo and the page glides to it) — a picture at rest was added to walk D (`built-phone-5-locked-nudge-at-rest.png`). 6: the extra top-bar line is fault 3 (below) — kept, with the reason.
+5. Fault 3 decision (owner may overrule): the top-bar error line is the house rule "an error is never silent: it is shown until the next save succeeds" (`lib/maker-save-status.ts`); the prototype's own line fades after 3.2 s, so hiding the top-bar line would leave a refused save silent. Both stay. The lab's words ("Your background could not be changed") are the lab's fixed `?fail=1` answer for every save, not what a real move says.
+
+## STOPPED HERE (second builder, account limit, 2026-10-12) — superseded by the third builder's section above
 
 NOT DONE: full `tsc` (step 6) was never run this session · the M09 re-aim above · preflight re-run to green · `changelog.d/rd-c-drag-scenes.md` does not yet mention this session's fixes · nothing pushed, no PR.
 

@@ -671,3 +671,50 @@ test('(7) the drag rides no first load and no guest’s page: it is reached only
   /* No guest-page file was touched to make this: the canvas is driven from the Maker (same origin). */
   for (const f of files.filter((p) => relative(WEB, p).startsWith('app/[slug]/'))) assert.doesNotMatch(readFileSync(f, 'utf8'), /scene-drag|data-scene-drag|attachSceneDrag/, `${relative(WEB, f)} knows the drag`);
 });
+
+test('(8) the desktop Maker that ships today is untouched: the drag is the phone panel’s, and a desktop couple keeps every control they had', () => {
+  /* The prototype's three-column desktop Maker does not exist, and this change builds none. What it must not do is
+     take anything from the desktop Maker that DOES ship. The row that left — Earlier · Later · Remove — was the
+     Stages panel's Edit row, and the Stages panel is a phone's alone: a desktop couple never had that row. They move
+     and take off a scene in the navigator (drag a tile · right-click → Move up · Move down · Hide · the tile's eye),
+     and this change touches none of it. Held as a property, so it stays true of whatever is changed next. */
+  const shell = src(`${L}/maker-shell.tsx`);
+  /* (a) The panel that holds the drag is drawn under `ss` only — and `ss` is never true at desktop width. */
+  assert.match(shell, /const wide = useIsDesktop\('lg'\);/);
+  assert.match(shell, /const phone = !wide;/);
+  assert.match(shell, /const ss = stagesStudio && phone;/);
+  assert.equal((shell.match(/<StageTools\b/g) ?? []).length, 1, 'the Stages panel is drawn in more than one place');
+  assert.match(shell, /grab=\{ss \? side === 'stages' \? <StageTools /);
+  /* (b) Every Maker file this change wrote or rewrote is reached only through that panel. (The drag's own files and
+     the part edits: test (7) "rides no first load". The Edit row that lost Earlier · Later · Remove: here.) */
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      if (name === 'node_modules' || name.startsWith('.')) continue;
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) files.push(p);
+    }
+  };
+  for (const root of ['app', 'lib', 'components']) if (existsSync(join(WEB, root))) walk(join(WEB, root));
+  assert.ok(files.length > 2000, `anti-vacuity: only ${files.length} files walked`);
+  const drawsEditRow = files.filter((f) => /import \{[^}]*\bStageEdit\b[^}]*\} from '[^']*stage-edit'/.test(stripComments(readFileSync(f, 'utf8')))).map((f) => relative(WEB, f));
+  assert.deepEqual(drawsEditRow, [`${L}/stage-tools.tsx`], 'the Stages panel’s Edit row is drawn outside the Stages panel');
+  /* …and the bin, which stands on the Maker's shell, is never drawn at desktop width. */
+  assert.match(src(`${L}/scene-drag.tsx`), /data-scene-bin=""[\s\S]{0,900}?lg:hidden/);
+  /* (c) The desktop's own controls are all there — and neither side knows the other. */
+  const NAV = 'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx';
+  const nav = src(NAV);
+  assert.doesNotMatch(nav, /scene-drag|scene-canvas-drag|maker-scene-drag|useSceneDrag|attachSceneDrag|data-scene-bin|usePartEdits/, 'the desktop navigator knows the drag');
+  for (const f of ['scene-drag.tsx', 'scene-canvas-drag.ts']) assert.doesNotMatch(src(`${L}/${f}`), /editor-shell/, `${f} reaches into the desktop navigator`);
+  /* its menu: Move up · Move down · Hide from guests / Show to guests, opened by a right-click or a long press */
+  const menu = nav.slice(nav.indexOf('function SceneMenu('));
+  assert.ok(menu.length > 400, 'anti-vacuity: the navigator’s scene menu was not found');
+  assert.match(menu, />\s*Move up\s*<\/button>[\s\S]{0,400}?>\s*Move down\s*<\/button>[\s\S]{0,400}?\{showing \? 'Hide from guests' : 'Show to guests'\}/);
+  assert.match(nav, /onContextMenu=\{\(e\) => \{/);
+  assert.match(nav, /<SceneMenu\b/);
+  /* its eye, on every scene's tile */
+  assert.match(nav, /onClick=\{\(\) => eyeWrite\(scene\)\}\s*aria-label=\{showing \? `Hide \$\{tile\.label\} from guests` : `Show \$\{tile\.label\} to guests`\}/);
+  /* and the one form each of those writes through — a move up, a move down, the eye */
+  for (const op of ['toggle', 'up', 'down']) assert.match(nav, new RegExp(`<button type="submit" data-op="${op}" formAction=\\{${op === 'toggle' ? 'toggleAction' : op === 'up' ? 'moveUpAction' : 'moveDownAction'}\\}`), `the navigator's "${op}" write is gone`);
+});

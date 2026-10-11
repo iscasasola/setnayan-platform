@@ -11,6 +11,7 @@ import { updateSiteChrome } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WebsiteProLock } from '../_components/website-pro-lock';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 export const metadata = { title: 'Music & video hero' };
 
@@ -110,7 +111,7 @@ export default async function SiteChromeEditorPage({
         ) : null}
       </div>
 
-      <form action={updateAction} className="space-y-8">
+      <SafeForm action={updateAction} className="space-y-8">
         {/* Background music — Event Hub PRO (video hero below stays free). When
             gated, an inline lock replaces the field; no bg_music_* inputs render,
             so the action leaves any existing (none, when gated) music untouched. */}
@@ -196,7 +197,7 @@ export default async function SiteChromeEditorPage({
         )}
 
         <SubmitButton pendingLabel="Saving…" className="button-primary">Save music &amp; video</SubmitButton>
-      </form>
+      </SafeForm>
     </section>
   );
 }

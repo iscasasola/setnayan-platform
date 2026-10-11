@@ -35,6 +35,7 @@ import { themeColours } from '@/lib/theme-colours';
 import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
 import { detailsDoorHref } from '@/lib/maker-details-items';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 export const metadata = { title: 'Our Love Story' };
 
@@ -354,13 +355,13 @@ export default async function OurStoryEditorPage({
           <summary className="cursor-pointer text-sm font-medium text-ink/70">
             The words your invitation weaves into its story paragraph
           </summary>
-          <form action={updateAction} className="mt-6 space-y-8">
+          <SafeForm action={updateAction} className="mt-6 space-y-8">
             <HubDraftField />
             <StoryFields story={story} />
             <SubmitButton pendingLabel="Saving…" className="button-primary">
               Save our story
             </SubmitButton>
-          </form>
+          </SafeForm>
         </details>
       ) : null}
     </section>

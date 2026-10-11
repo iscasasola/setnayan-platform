@@ -827,9 +827,10 @@ interface RawForm {
 
 function formsIn(rel: string, src: string): RawForm[] {
   const out: RawForm[] = [];
-  for (const m of src.matchAll(/<form\b/g)) {
+  // `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings.
+  for (const m of src.matchAll(/<(form|SafeForm)\b/g)) {
     // the opening tag ends at the first depth-0 `>` that is not `=>`
-    let k = m.index! + 5;
+    let k = m.index! + m[0].length;
     let depth = 0;
     let openEnd = -1;
     while (k < src.length) {
@@ -852,7 +853,7 @@ function formsIn(rel: string, src: string): RawForm[] {
     }
     if (openEnd < 0) continue;
     const open = src.slice(m.index!, openEnd + 1);
-    const closeAt = src.indexOf('</form>', openEnd);
+    const closeAt = src.indexOf(`</${m[1]}>`, openEnd);
     const inner = closeAt > 0 ? src.slice(openEnd, closeAt) : '';
     const exprs: string[] = [];
     for (const a of (open + inner).matchAll(/\b(?:action|formAction)=\{/g)) {
@@ -962,7 +963,7 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
       return c ? literalAt(c) : null;
     };
     const reads = src.includes('.select(') ? readsIn(src, constLiteral) : [];
-    const forms = rel.endsWith('.tsx') && src.includes('<form') ? formsIn(rel, src) : [];
+    const forms = rel.endsWith('.tsx') && /<(?:form|SafeForm)\b/.test(src) ? formsIn(rel, src) : [];
     const stores: string[] = [];
     for (const m of src.matchAll(/\b(?:window\.)?(local|session)Storage\.setItem\(\s*/g)) {
       const lit = literalAt(src.slice(m.index! + m[0].length));

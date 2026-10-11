@@ -29,6 +29,7 @@ import { ColourWell } from './colour-well';
 import { PickMenu } from './pick-menu';
 import { DraftsAsYouGo } from './drafts-as-you-go';
 import { useMaker } from '../../../launch/_components/maker-context';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * Website Pro panels for the unified editor (PR-4).
@@ -223,7 +224,7 @@ export function ColorsPanel({
     return <FontsLookRows eventId={eventId} themeId={isInviteThemeId(themeId) ? themeId : 'house'} fontKey={sanitizeHubFontKey(fontKey)} roles={siteRoles} />;
   }
   return (
-    <form action={action} data-look-form={part ?? undefined} className={flush ? 'flex flex-col' : 'border-t border-dashed border-ink/10 bg-cream/40 p-3'}>
+    <SafeForm action={action} data-look-form={part ?? undefined} className={flush ? 'flex flex-col' : 'border-t border-dashed border-ink/10 bg-cream/40 p-3'}>
       {/* Into the draft (`updateSiteColors`' door) — a free couple may TRY the
           Pro half here and pays at Apply. */}
       <HubDraftField />
@@ -289,7 +290,7 @@ export function ColorsPanel({
       )}
       </>
       )}
-    </form>
+    </SafeForm>
   );
 }
 

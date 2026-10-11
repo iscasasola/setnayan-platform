@@ -84,3 +84,44 @@ Tests: `lib/one-press-is-one-undo-step.test.ts` · `lib/maker-settle.test.ts` ·
 exact text of lines this changed; each was re-aimed at the property it holds.
 
 SPEC IMPACT: None.
+
+## 2026-10-11 · fix(maker): a step is offered only where the page shows it; the canvas draws the names as the page does; ＋ lists the stage
+
+The owner's re-run on the preview of the round above (real event, new Maker, phone width) — three findings.
+
+- **Earlier · Later "do not work … it is not showing" (blocked the batch).** He pressed Earlier on What to bring, on
+  Invitation › Details. The move was saved and the canvas fetched again — and drew the same page, because on the
+  Invitation the page draws What to bring AFTER the Wedding March whatever its place says (`splitAroundEntourage`,
+  ruled 2026-10-07) and every other scene before it. The Maker took a step's neighbour from every scene the page
+  draws, across the March. It now asks `stepChangesThePage` (`lib/stage-scenes.ts`): a scene is never moved past
+  one on the other side, so the step is grey and says why by name — "What to bring stays after the Wedding March."
+  / "Dress code stays before the Wedding March." Not a stale read: the draft's order IS applied on the canvas's path
+  (`overlayHubDraftWidgets` → the stage's order), and nothing on it is remembered between requests.
+- **"it did not make the secondary font".** Two names typed into a cover that had been drawn for one were a single
+  plain line: the page had no joiner and no second line to write into. The canvas now lays a typed line out with the
+  page's own elements (`layNames` in `type-in-place-canvas.ts`) — the masthead draws the joiner and the second line
+  once more for the canvas, in a holder that is never shown and that no reader of the page's parts finds
+  (`data-el-names-two`; Maker only, never a guest's page) — and writes the joiner's word by the page's rule ("and",
+  or "&" as that cover writes it; the couple's own word when they chose one). One name takes the pair OFF the page
+  and the same two elements come back for two. A `<template>` was tried first and broke hydration; it is real
+  elements under away names.
+- **"does not show the scenes to add".** ＋ now lists every part the STAGE can take, whichever page it is pressed
+  on. A part another page draws says so on its row ("on Details"); pressing it adds it in one Undo step, opens that
+  page, brings the part onto the screen, picks it, and only then says "Venue added on Details". The header says
+  "Add above Schedule" only while that is true of every row (the picked part is a scene and every part offered is
+  this page's); otherwise it says "Add a part" and each row says its own place. Off a fixed part (the Greeting) a
+  part of this page takes its own place there, and is said so: "Message added on Welcome" (it read "added above").
+  This replaces the per-page filter of the round above.
+
+Words added: "Add a part" · "on <Page>" (a row) · "<Part> added on <Page>" · "<Part> stays after / before the
+Wedding March."
+
+The dev lab's cover now draws the drafted names (`lab_names`), so a cover drawn for one name can be typed into.
+
+Tests: `lib/a-step-always-changes-the-page.test.ts` (his two draft states exactly, and every neighbouring pair) ·
+`lib/a-joiner-never-stands-over-nothing.test.ts` (the canvas after each typed line equals the server's render of
+it: 4 designs × 2 covers × 14 transitions, with and without a joiner of their own) ·
+`lib/one-press-is-one-undo-step.test.ts` · `app/dev/maker-lab/lab-draft.test.ts`.
+
+SPEC IMPACT: None — the 2026-10-07 ruling (What to bring after the Wedding March) is what the page already drew; the
+Maker's steps now agree with it.

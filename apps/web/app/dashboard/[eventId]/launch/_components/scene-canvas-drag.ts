@@ -291,8 +291,12 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     }
     put(h.subject.el, dy, over ? BIN_SCALE : h.scale);
     const r = h.subject.el.getBoundingClientRect();
-    h.tag.style.transform = `translate(${Math.max(2, r.left - 2)}px,${r.top - 11}px)`;
-    h.tag.style.opacity = over ? '0' : '1';
+    /* Its name rides its corner AT THE SCENE'S OWN SIZE — measured, so it eases as the scene does — and over the bin
+       it shrinks and dims WITH the scene (the prototype's tag is the scene's own child:
+       `.scene.lifted.tobin{transform:scale(.62);opacity:.55}` takes it along). */
+    const k = h.subject.el.offsetWidth > 0 ? r.width / h.subject.el.offsetWidth : 1;
+    h.tag.style.transform = `translate(${Math.max(2, r.left - 2 * k)}px,${r.top - 11 * k}px) scale(${k})`;
+    h.tag.style.opacity = over ? String(BIN_DIM) : '1';
     if (over) return;
     const slot = sceneDropSlot(h.rows, h.at, h.slot, h.y + win.scrollY);
     if (slot === h.slot) return;
@@ -372,7 +376,7 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     tag.textContent = subject.label;
     /* The page is this app's own, with this app's stylesheet: the tag wears the very classes the Maker's does. */
     tag.className = SCENE_TAG_FACE;
-    Object.assign(tag.style, { position: 'fixed', left: '0', top: '0', zIndex: '9991', whiteSpace: 'nowrap', pointerEvents: 'none' });
+    Object.assign(tag.style, { position: 'fixed', left: '0', top: '0', zIndex: '9991', whiteSpace: 'nowrap', pointerEvents: 'none', transformOrigin: '0 0', transition: `opacity ${LOOK_MS}ms ease` });
     doc.body.appendChild(tag);
     const el = subject.el;
     const was: Held['was'] = {};

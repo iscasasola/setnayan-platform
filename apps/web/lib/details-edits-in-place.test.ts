@@ -36,7 +36,7 @@ test('the Details page links out to edit nothing it can edit in place', () => {
      so the special message is still the same node under its print switch (the anchor was the tag's old name). */
   assert.match(src, /name="inc_special_message"[^>]*>[^<]*?\{facts\['special-message'\]\}\s*<\/(?:Toggle|IncludeSwitch)>/, 'the special message is typed where it prints');
   assert.match(src, /'special-message': \(\s*<SpecialMessageField\b/, 'the special message editor is the shared one');
-  assert.match(read('special-message-field.tsx'), /<form action=\{action\} data-details-special=""/, 'the special message posts its one writer');
+  assert.match(read('special-message-field.tsx'), /<SafeForm action=\{action\} data-details-special=""/, 'the special message posts its one writer');
   assert.match(src, /<ParentCards eventId=\{eventId\} parents=\{parents\} \/>/);
 });
 

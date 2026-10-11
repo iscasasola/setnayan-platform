@@ -67,7 +67,8 @@ test('(1) the record is real pages: each stage draws what it is known to draw to
   assert.ok(invite.includes(FIXTURE_WORDS.message) && invite.includes(FIXTURE_WORDS.dressTitle) && invite.includes(STAGE_WORDS.reminder));
   assert.ok(invite.includes(STAGE_WORDS.howWeMet), 'the love story scene');
   assert.ok(!invite.includes(STAGE_WORDS.proseOpening), 'with the scene on the page the prose does not stand in');
-  assert.ok(invite.includes('id="rsvp-sheet-heading"'));
+  // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): the guest's own door to the reply PAGE — no sheet on the page.
+  assert.ok(invite.includes('/invite/reply"') && !invite.includes('id="rsvp-sheet-heading"'));
   assert.ok(invite.includes(STAGE_WORDS.ownSceneTitle), 'the couple’s own scene');
 
   /* The Save the Date holds the date: no dress code, no reminders, no run of show. Led by the photos, it draws the
@@ -105,7 +106,7 @@ test('(1) the record is real pages: each stage draws what it is known to draw to
 
   /* A reader with no key gets the stranger’s page, never the guest’s. */
   const stranger = await of('rsvp', 'anonymous');
-  assert.ok(!stranger.includes('id="rsvp-sheet-heading"') && !stranger.includes(FIXTURE_WORDS.guestFirst));
+  assert.ok(!stranger.includes('/invite/reply"') && !stranger.includes(FIXTURE_WORDS.guestFirst));
 });
 
 test('(2) byte for byte: every stage, for both readers, in every arrangement, is the recorded page', async () => {

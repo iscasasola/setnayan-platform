@@ -212,7 +212,7 @@ test('1 · WIRING: the pages mark exactly those sections, and every word sits in
   const inside = REPLY.slice(open, close);
   assert.match(inside, /rsvpWordBridgeKey\('reply-by'\)/, 'the reply-by line is outside the RSVP part');
   assert.match(inside, /<RsvpWidget\b/, 'the form is outside the RSVP part');
-  assert.match(src('app/[slug]/_components/rsvp-widget.tsx'), /<form[^>]*>[\s\S]*data-rsvp-word=\{rsvpWordBridgeKey\(option\.key\)\}/, 'the answers are drawn inside the form');
+  assert.match(src('app/[slug]/_components/rsvp-widget.tsx'), /<ReplyForm[^>]*>[\s\S]*data-rsvp-word=\{rsvpWordBridgeKey\(option\.key\)\}/, 'the answers are drawn inside the form');
   /* The greeting is the guest's own name line. */
   assert.match(REPLY, /data-maker-section="f:greeting" \/> : null\}\s*(?:\{\s*\}\s*)?<FirstScreenOnly on=\{oneQuestionFrame\}>\s*<div[^>]*>\s*<p[^>]*data-reply-for=""/);
   /* The notes: every word of the after-screens sits in the block the note's marker stands before. */

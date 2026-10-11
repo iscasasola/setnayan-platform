@@ -35,6 +35,7 @@ import { SeatBackLink } from './_components/seat-back-link';
 import { findSeatBackHref } from './_lib/back-to-the-invitation';
 import { YourSeat, type Tablemate } from './_components/your-seat';
 import type { DoorPassData } from './_components/door-pass';
+import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 
 export const metadata = { title: 'Find your seat' };
 
@@ -163,7 +164,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
             entrance={entrance}
           />
         ) : (
-          <NotPostedYet names={names} plural={words.twoPeople} slug={slug} backHref={backHref} occasion={words.occasion} />
+          <NotPostedYet slug={slug} backHref={backHref} eventDate={event.event_date as string | null} />
         )}
       </SeatFrame>
     );
@@ -299,59 +300,59 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
           "No need to check back — this updates by itself" (A4) is a promise. */}
       <LiveRefresher eventDate={event.event_date as string | null} />
       <RefreshOnReturn />
-      <YourSeat
-        firstName={firstName}
-        names={names}
-        occasionLine={occasionLine}
-        dayOf={dayOf}
-        doorsOpenLabel={doorsOpenLabel}
-        published={published}
-        tables={tables}
-        entrance={entrance}
-        table={table ? { table_id: table.table_id, table_label: table.table_label, capacity: table.capacity ?? null } : null}
-        mates={mates}
-        seatsOpen={table ? seatsStillOpen(table.capacity, mates.length) : 0}
-        venueHref={venueHref}
-        inviteHref={backHref}
-        slug={slug}
-        plural={words.twoPeople}
-        pass={pass}
-      />
+      {/* 🪑 ONE WAITING STATE, FOR EVERY VIEWER (owner 2026-10-11; the tester's walk as a named guest): before seats
+          are shown, a guest on the list read "You're on the list… No need to check back — this updates by itself"
+          here while the other two seat pages said to come back on the day. Now this page draws the same state a
+          stranger gets (`NotPostedYet` → `SeatsShowOnTheDay`). `YourSeat` is for once seats are shown — where "not
+          seated yet · this updates by itself" is true. */}
+      {published ? (
+        <YourSeat
+          firstName={firstName}
+          names={names}
+          occasionLine={occasionLine}
+          dayOf={dayOf}
+          doorsOpenLabel={doorsOpenLabel}
+          published={published}
+          tables={tables}
+          entrance={entrance}
+          table={table ? { table_id: table.table_id, table_label: table.table_label, capacity: table.capacity ?? null } : null}
+          mates={mates}
+          seatsOpen={table ? seatsStillOpen(table.capacity, mates.length) : 0}
+          venueHref={venueHref}
+          inviteHref={backHref}
+          slug={slug}
+          plural={words.twoPeople}
+          pass={pass}
+        />
+      ) : (
+        <NotPostedYet slug={slug} backHref={backHref} eventDate={event.event_date as string | null} />
+      )}
     </SeatFrame>
   );
 }
 
-/** B5 · nothing published yet — in the theme, no field at all. Nothing to count, nothing to leak. */
+/** B5 · nothing published yet — in the theme, no field at all. Nothing to count, nothing to leak.
+ *  The title and the one sentence are the three seat pages' own (`SeatsShowOnTheDay`, owner 2026-10-11). */
 function NotPostedYet({
-  names,
-  plural,
   slug,
   backHref,
-  occasion,
+  eventDate,
 }: {
-  names: string;
-  /** Two people at the centre (a wedding) — "Indalecio & Claire haven't"; otherwise the plan is the subject. */
-  plural: boolean;
+  /** The event's day, or null while it has none — the shared line then says so. */
+  eventDate: string | null;
   slug: string;
   backHref: string;
-  occasion: string;
 }) {
   return (
     <div className="lg:mx-auto lg:max-w-md">
       <section className="px-6 pt-3 text-center">
         <p className="m-0 text-[0.72rem] uppercase tracking-[0.22em] text-terracotta-700">Find your seat</p>
         <p className="m-0 mt-1 font-serif text-[2.4rem] italic leading-none text-terracotta-700">soon</p>
-        <h1 className="m-0 mt-0.5 font-serif text-[2rem] font-medium leading-[1.12] text-ink">Your seat shows on the day</h1>
-        <p className="mt-2.5 text-[0.84rem] leading-relaxed text-ink/75">
-          {plural
-            ? `${names}’s seating plan opens here on the day.`
-            : `The seating plan for this ${occasion} opens here on the day.`}{' '}
-          Come back to this link then and you&rsquo;ll find your table.
-        </p>
+        <SeatsShowOnTheDay eventDate={eventDate} className="mt-0.5" />
       </section>
       <Lace className="my-4" />
       <RoomPlaceholder veil="The room is still being arranged" />
-      <SeatBackLink href={backHref} slug={slug} className="mx-6 mt-3.5 block text-center text-sm text-terracotta-700 underline underline-offset-[3px]">
+      <SeatBackLink href={backHref} slug={slug} className="mx-6 mt-3.5 flex min-h-[44px] items-center justify-center text-sm text-terracotta-700 underline underline-offset-[3px]">
         Back to the invitation
       </SeatBackLink>
     </div>

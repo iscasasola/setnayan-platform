@@ -201,6 +201,16 @@ test('typecheck keeps its own ceiling — it is a separate process', () => {
   // Not the same floor: tsc's high-water mark is unrelated to webpack's, and
   // this repo cannot typecheck at all without a raised ceiling. Assert only
   // that the flag is still there, so a cleanup cannot silently drop it.
+  //
+  // RAISED 7168 → 10240 MB on 2026-10-11. The joined release branch
+  // (rd/morning-batch, PR #6475 @ 7a5a1c52b) passed `tsc` locally at 8192 and
+  // died in CI at 7168 with V8's "Ineffective mark-compacts near heap limit …
+  // JavaScript heap out of memory" (exit 134, run 38151308204) — the tree had
+  // crept past the ceiling, not gained a type error. The CI runner is
+  // ubuntu-latest on a public repo (16 GB), so 10240 leaves the machine room.
+  // This is a ceiling, not a cure: the next step is to stop typechecking the
+  // whole app in one process. Re-measure with `/usr/bin/time -l` before
+  // raising it again.
   assert.match(
     pkg.scripts?.typecheck ?? '',
     /--max-old-space-size=\d+/,

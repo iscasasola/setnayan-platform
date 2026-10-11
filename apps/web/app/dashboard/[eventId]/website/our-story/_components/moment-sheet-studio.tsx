@@ -27,6 +27,7 @@ import { useMaker } from '../../../launch/_components/maker-context';
 import { InMakerReturnTo } from './in-maker-return-to';
 import { Sheet } from '@/app/_components/sheet';
 import { PickMenu } from '../../editor/_components/pick-menu';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * 🧭 STUDIO › LOVE STORY'S ADD / EDIT SHEET (owner 2026-10-08, studio round 3) — the shipped
@@ -278,7 +279,7 @@ export function MomentSheetStudio({
               )}
             </div>
 
-            <form action={keep} className={studio ? 'mt-4 space-y-5' : 'mt-5 space-y-6'}>
+            <SafeForm action={keep} className={studio ? 'mt-4 space-y-5' : 'mt-5 space-y-6'}>
               <HubDraftField />
               <InMakerReturnTo />
               <input type="hidden" name="intent" value={moment ? 'edit' : 'add'} />
@@ -594,7 +595,7 @@ export function MomentSheetStudio({
                 </SubmitButton>
               </div>
               )}
-            </form>
+            </SafeForm>
     </>
   );
 

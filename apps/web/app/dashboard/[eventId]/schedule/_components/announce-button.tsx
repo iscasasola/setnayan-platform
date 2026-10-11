@@ -58,6 +58,9 @@ function when(iso: string): string {
   });
 }
 
+/** 📵 The send never answered. It may have gone out — so: look at the list (re-read) before sending again. */
+const ANNOUNCE_NOT_CONFIRMED = 'We couldn’t confirm that went out. Check your recent announcements below before sending it again.';
+
 export function AnnounceButton({
   eventId,
   isEventDay,
@@ -83,7 +86,18 @@ export function AnnounceButton({
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('body', text);
-      const result = await sendCoordinatorBroadcast(fd);
+      /* 📵 A send that never answered (no signal, a 5xx) is NOT known to have failed — the announcement may have gone
+         out, and pressing again would send it twice. So it is never thrown into this transition (it replaced the
+         whole page with the app's error screen), never called sent, and never called failed: the words stay in the
+         box, the list below is re-read so it shows whether it went, and the line says to look first. */
+      let result: Awaited<ReturnType<typeof sendCoordinatorBroadcast>>;
+      try {
+        result = await sendCoordinatorBroadcast(fd);
+      } catch {
+        setError(ANNOUNCE_NOT_CONFIRMED);
+        router.refresh();
+        return;
+      }
       if (result.ok) {
         setText('');
         setSent(true);

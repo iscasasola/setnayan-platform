@@ -126,10 +126,18 @@ export function PhotoMomentsEditor({
     }
 
     startTransition(async () => {
-      const result = await save.run(() => updatePhotoMoments(formData), {
-        steps: ['Saving your photo moments'],
-        hint: 'Saving',
-      });
+      /* 📵 A save that never answered (no signal, a 5xx) is SAID above the button, with every moment still in the
+         form — `save.run` rethrows, and thrown into this transition it replaced the whole page with the app's error
+         screen. The words are the ones this save already uses when it is refused. */
+      let result: Awaited<ReturnType<typeof updatePhotoMoments>>;
+      try {
+        result = await save.run(() => updatePhotoMoments(formData), {
+          steps: ['Saving your photo moments'],
+          hint: 'Saving',
+        });
+      } catch {
+        result = { ok: false, error: 'Couldn’t save your photo moments. If this keeps happening, please reach out from /help.' };
+      }
       if (result.ok) {
         setSavedAt(new Date());
         // After a successful save, re-trim moments locally so the host

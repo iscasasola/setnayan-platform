@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
@@ -25,7 +26,8 @@ import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/editor-canvas';
-import { loadHostMembership, loadHostPreviewDraft, loadWidgets } from '../../_lib/loaders';
+import { loadGuestLook, loadHostMembership, loadHostPreviewDraft, loadWidgets } from '../../_lib/loaders';
+import { ArrivalLoading } from '../_components/arrival-loading';
 import { wearTheHub } from '../_lib/wear-the-hub';
 import { RsvpLookStyle } from '../../_components/rsvp-look-style';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
@@ -150,6 +152,24 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
 
+  /* ⏳ THE ARRIVAL SHOWS SOMETHING WHILE IT LOADS (2026-10-11). Everything above
+     this line is a ROUTING decision — `notFound()`, the redirects, who this
+     guest is. Everything below is body work: a dozen-plus awaits. With no
+     boundary under this route nothing was drawn until the last one answered.
+     The body is now ONE async part inside a `<Suspense>`, so the door — the
+     couple's names, their mark, the date — is on screen as soon as the routing
+     is decided.
+     ⛔ NOT a `loading.tsx`: that commits HTTP 200 before `notFound()` can run
+     (app/[slug]/page.tsx, "THE BLANK WHITE SCREEN"). This boundary sits AFTER
+     the last `notFound()`/`redirect()`, so the status is settled first — and
+     nothing below it may call either (🛡 the-arrival-shows-something-while-it-
+     loads.test.ts).
+     (The body keeps its indentation on purpose: it is the page's own code,
+     unmoved, so its history and the guards that read it stay true.) */
+  // The look the guest layout already asked for on this request (`cache()`d) —
+  // best-effort, like the layout's own: unread, the fallback is the house door.
+  const loadingLook = await loadGuestLook(slug).catch(() => null);
+  const InviteReplyBody = async () => {
   const [words, faceTagging, supabase, hub, seats, animationOwned, replyStyle] = await Promise.all([
     eventWordsFor(event.event_type as string),
     resolveFaceTagging(admin, event.event_id as string),
@@ -411,6 +431,34 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
         canvas={canvas}
       />
     </GuestLookScope>
+  );
+  };
+
+  return (
+    <Suspense
+      fallback={
+        <ArrivalLoading
+          look={loadingLook}
+          door={{
+            eyebrow: 'You’re invited',
+            title: (event.display_name as string | null) ?? '',
+            titleIsNames: Boolean(event.display_name),
+            // The same words the page writes. (On the Maker's canvas the page
+            // splits them into two named parts; a loading door has no parts.)
+            meta: joinDoorMeta({
+              event_date: event.event_date as string | null,
+              event_date_precision: event.event_date_precision as string | null,
+              venue_name: event.venue_name as string | null,
+            }),
+            width: 'lg',
+            // The couple's mark, still: whether it plays is one of the slow reads.
+            skin: hubDoorSkin({ ...doorMarkFor(event), animate: false }),
+          }}
+        />
+      }
+    >
+      <InviteReplyBody />
+    </Suspense>
   );
 }
 

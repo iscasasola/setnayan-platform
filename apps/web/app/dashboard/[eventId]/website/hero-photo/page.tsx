@@ -13,6 +13,7 @@ import { eventNoun } from '@/lib/event-noun';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { WebsiteProLock } from '../_components/website-pro-lock';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * Editor for the wedding landing page hero photo.
@@ -111,13 +112,13 @@ export default async function HeroPhotoEditorPage({
             >
               Current photo
             </h2>
-            <form action={removeHeroPhoto}>
+            <SafeForm action={removeHeroPhoto}>
               <input type="hidden" name="event_id" value={eventId} />
               <SubmitButton pendingLabel="Removing…" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/75 transition-colors hover:border-burgundy/40 hover:bg-burgundy/5 hover:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 <span>Remove</span>
               </SubmitButton>
-            </form>
+            </SafeForm>
           </div>
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-ink/5">
             {/* unoptimized because the URL is presigned and short-lived (24h);
@@ -164,7 +165,7 @@ export default async function HeroPhotoEditorPage({
           {currentPhotoUrl ? 'Replace photo' : 'Add a photo'}
         </h2>
 
-        <form action={uploadHeroPhoto} className="space-y-4">
+        <SafeForm action={uploadHeroPhoto} className="space-y-4">
           <input type="hidden" name="event_id" value={eventId} />
 
           <FileUpload
@@ -196,7 +197,7 @@ export default async function HeroPhotoEditorPage({
               <span>Save photo</span>
             </SubmitButton>
           </div>
-        </form>
+        </SafeForm>
       </section>
       )}
 

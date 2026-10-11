@@ -16,7 +16,7 @@ import {
   type DetailsFact,
 } from '@/lib/details-bound';
 import type { ElementDraftAction } from './element-sheet';
-import type { HubDraftPatch } from '@/lib/hub-draft';
+import { hubDraftAnswer, type HubDraftPatch } from '@/lib/hub-draft';
 import { useSceneWordsBox } from './canvas-words';
 
 /**
@@ -137,7 +137,10 @@ export function DetailsBoundField({
       /* `held`: the shell decides in `onSaving` (above) — it holds the canvas
          for words the bridge drew, and releases it (one render for the burst,
          `makerNeedsRender`) for what it could not. */
-      const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true });
+      /* 📵 …and a save that never answered (no signal, a 5xx) is a refusal, SAID under the box with the words still
+         in it and the question still open — thrown into this transition it replaced the whole Maker with the app's
+         error screen, and the paragraph just typed went with it (`hubDraftAnswer`). */
+      const res = await hubDraftAnswer('save', () => makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true }));
       if (!res.ok) {
         setError(res.error);
         return;

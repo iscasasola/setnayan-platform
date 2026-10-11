@@ -36,6 +36,7 @@ import {
   type LifecyclePhase,
   type WidgetType,
   type WidgetTerminalState,
+  replyAskedInStage,
 } from './invitation-widgets';
 
 /**
@@ -260,6 +261,10 @@ export function rsvpReplyOpen(input: {
   phasesEnabled: boolean;
   lifecyclePhase: LifecyclePhase;
 }): boolean {
+  // 📅 Not while the guest's stage is the Save the Date (owner 2026-10-11 — `replyAskedInStage`,
+  // lib/invitation-widgets.ts). Without open browsing the phase gate below already said so; this
+  // makes it true with open browsing too, where the card used to be on the page from day one.
+  if (!replyAskedInStage(input)) return false;
   const shown = widgetShouldRender(widgetByType(input.widgets, 'rsvp'));
   return input.openBrowse
     ? shown && resolveWidgetTerminalState('rsvp', input.lifecyclePhase) === 'active'

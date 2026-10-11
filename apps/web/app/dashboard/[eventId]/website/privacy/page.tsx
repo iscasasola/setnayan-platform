@@ -15,6 +15,7 @@ import { eventNoun } from '@/lib/event-noun';
 import { resolveSiteReachability } from '@/lib/launch-save-the-date';
 import type { EventVisibility } from '@/lib/event-visibility';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 export const metadata = { title: 'Who can view your event page' };
 
@@ -228,7 +229,7 @@ export default async function PrivacyEditorPage({
       </div>
 
       {/* The picker — three radio cards in a single form */}
-      <form action={updateLandingPageVisibility} className="space-y-4">
+      <SafeForm action={updateLandingPageVisibility} className="space-y-4">
         <input type="hidden" name="event_id" value={eventId} />
 
         <fieldset className="space-y-3">
@@ -286,7 +287,7 @@ export default async function PrivacyEditorPage({
             Back
           </Link>
         </div>
-      </form>
+      </SafeForm>
 
       {/* Footnote — light context so the host knows what changes immediately */}
       <footer className="sn-tile p-5 text-sm text-ink/65">
@@ -330,13 +331,13 @@ export default async function PrivacyEditorPage({
               ? 'Open — anyone with your link can watch'
               : 'Closed — only your invited guests can watch'}
           </span>
-          <form action={setLiveMediaAudience}>
+          <SafeForm action={setLiveMediaAudience}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="open" value={liveMediaOpen ? '0' : '1'} />
             <SubmitButton className="button-primary" pendingLabel="Saving…">
               {liveMediaOpen ? 'Close it to guests only' : 'Let anyone with the link watch'}
             </SubmitButton>
-          </form>
+          </SafeForm>
         </div>
 
         <p className="text-xs text-ink/50">
@@ -394,13 +395,13 @@ export default async function PrivacyEditorPage({
                 : 'On — eligible to be featured'
               : `Off — your ${eventNoun(event.event_type)} stays private`}
           </span>
-          <form action={setShowcaseConsent}>
+          <SafeForm action={setShowcaseConsent}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="opt_in" value={showcaseOptedIn ? '0' : '1'} />
             <SubmitButton className="button-primary" pendingLabel="Saving…">
               {showcaseOptedIn ? 'Turn off featuring' : `Feature our ${eventNoun(event.event_type)}`}
             </SubmitButton>
-          </form>
+          </SafeForm>
         </div>
 
         <p className="text-xs text-ink/50">

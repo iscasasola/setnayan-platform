@@ -20,6 +20,7 @@ import {
 import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { LiveRefresher } from '@/app/_components/live-refresher';
+import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 
 export const metadata = { title: 'Find your table' };
 
@@ -121,10 +122,7 @@ export default async function FindMyTablePage({ params }: Props) {
   if (!(await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true }))) {
     return (
       <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
-        <PromptCard
-          title="Your table shows on the day"
-          body="Come back to this page on the day and your table and a map to it will be right here."
-        />
+        <SeatsShowOnTheDay eventDate={event.event_date as string | null} />
       </Shell>
     );
   }
@@ -231,7 +229,7 @@ export default async function FindMyTablePage({ params }: Props) {
         <div className="text-center">
           <Link
             href={`/${slug}`}
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
           >
             <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Back to your invitation
@@ -308,7 +306,7 @@ function PromptCard({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-2xl border border-ink/10 bg-cream p-6 text-center sm:p-8">
       <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-      <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">{body}</p>
+      <p className="mx-auto mt-3 max-w-prose text-sm text-ink/70">{body}</p>
     </div>
   );
 }

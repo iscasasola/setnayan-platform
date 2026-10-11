@@ -31,6 +31,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel, paidMarkState, type PaidMarkState } from '@/lib/paid-mark';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * Widgets that auto-populate their content from another part of the couple's
@@ -506,7 +507,7 @@ function WidgetRow({
       <div className="flex flex-col gap-2 sm:items-end">
       <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
         {/* Visibility toggle */}
-        <form action={toggleWidgetVisibility} className="flex items-center">
+        <SafeForm action={toggleWidgetVisibility} className="flex items-center">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="widget_id" value={row.widget_id} />
           <input type="hidden" name="widget_type" value={row.widget_type} />
@@ -548,11 +549,11 @@ function WidgetRow({
               </>
             )}
           </SubmitButton>
-        </form>
+        </SafeForm>
 
         {/* Up button — hidden for always-on rows; disabled at top boundary */}
         {!row.is_always_on ? (
-          <form action={moveWidgetUp} className="flex items-center">
+          <SafeForm action={moveWidgetUp} className="flex items-center">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="widget_id" value={row.widget_id} />
             <SubmitButton
@@ -568,12 +569,12 @@ function WidgetRow({
             >
               <ArrowUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </SubmitButton>
-          </form>
+          </SafeForm>
         ) : null}
 
         {/* Down button — hidden for always-on rows; disabled at bottom boundary */}
         {!row.is_always_on ? (
-          <form action={moveWidgetDown} className="flex items-center">
+          <SafeForm action={moveWidgetDown} className="flex items-center">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="widget_id" value={row.widget_id} />
             <SubmitButton
@@ -589,7 +590,7 @@ function WidgetRow({
             >
               <ArrowDown aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </SubmitButton>
-          </form>
+          </SafeForm>
         ) : null}
       </div>
 
@@ -617,7 +618,7 @@ function WidgetRow({
                     : 'Always show this section to guests.'
                   : 'Always hide this section from guests.';
             return (
-              <form key={m} action={setSectionMode} className="flex">
+              <SafeForm key={m} action={setSectionMode} className="flex">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="widget_id" value={row.widget_id} />
                 <input type="hidden" name="next_mode" value={m} />
@@ -638,7 +639,7 @@ function WidgetRow({
                 >
                   {label}
                 </SubmitButton>
-              </form>
+              </SafeForm>
             );
           })}
         </div>

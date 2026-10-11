@@ -648,7 +648,9 @@ test('5 · every group in both trees is filed by one of these — a new group ca
     ["'live'", 6, 'directions · the stream · the day’s programme · the wall · the song request · the camera card'],
     ["pageStage === 'event' ? 'live' : 'details'", 1, 'the tea ceremony card (no part names it)'],
     ["'gallery'", 1, 'Photos of you · your shots (f:photos_of_you — the prototype’s Gallery)'],
-    ["'home'", 8, 'the checklist · the supplier pitch · the reply lines · the Welcome (its own parts) · the day’s Welcome · the face-data notice (a page that is one scroll) · the scan-trail switch · the +1 note — none a part names, but the two Welcomes, asserted below'],
+    // 🔁 2026-10-11: 8 → 7 — the scan-trail switch left the page body; it is one element drawn directly above the
+    // sign-out now (on Me on a tabbed page), since the reply sheet that carried it is no longer drawn for a guest.
+    ["'home'", 7, 'the checklist · the supplier pitch · the reply lines · the Welcome (its own parts) · the day’s Welcome · the face-data notice (a page that is one scroll) · the +1 note — none a part names, but the two Welcomes, asserted below'],
     ['scenesTab', 1, 'the scenes that stay with the page’s sections (`hereScenes`), the walking order with them'],
     ['marchTab', 1, 'the walking order when its tab is another (`readerAt(f:entourage)`)'],
     ["'story'", 1, 'Our Love Story (w:our_love_story — the prototype’s own page)'],

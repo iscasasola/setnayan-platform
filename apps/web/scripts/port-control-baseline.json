@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "44192c5af",
+  "generatedFromRef": "81277f560",
   "routeCount": 430,
   "destinations": 956,
-  "actions": 673,
-  "blocks": 5977,
+  "actions": 674,
+  "blocks": 6011,
   "routes": {
     "/": {
       "files": [
@@ -887,6 +887,7 @@
         "[slug]/_components/provider-stall.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
+        "[slug]/_components/reply-form.tsx",
         "[slug]/_components/reveal/four-flap.tsx",
         "[slug]/_components/reveal/reveal-mount.tsx",
         "[slug]/_components/reveal/reveal-overlay-server.tsx",
@@ -927,9 +928,11 @@
         "[slug]/_components/schedule-styles.tsx",
         "[slug]/_components/schedule-widget.tsx",
         "[slug]/_components/seat-door-line.tsx",
+        "[slug]/_components/seats-show-on-the-day.tsx",
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/selfie-no-thanks-confirm.tsx",
         "[slug]/_components/send-their-invite.tsx",
+        "[slug]/_components/sign-out-of-invitation.tsx",
         "[slug]/_components/site-body.tsx",
         "[slug]/_components/site-menu-bar.tsx",
         "[slug]/_components/skins/site-skin.tsx",
@@ -984,6 +987,7 @@
         "[slug]/_lib/back-cover.server.ts",
         "[slug]/_lib/belongs-to-this-event.ts",
         "[slug]/_lib/day-hub.ts",
+        "[slug]/_lib/day-words.ts",
         "[slug]/_lib/editor-canvas.ts",
         "[slug]/_lib/event-noun.ts",
         "[slug]/_lib/event-words.ts",
@@ -997,8 +1001,10 @@
         "[slug]/_lib/icon-source.ts",
         "[slug]/_lib/invitation-card.ts",
         "[slug]/_lib/loaders.ts",
+        "[slug]/_lib/loading-stage.ts",
         "[slug]/_lib/main-ground-layer.tsx",
         "[slug]/_lib/measures.ts",
+        "[slug]/_lib/names-verb.ts",
         "[slug]/_lib/plus-one-seats.server.ts",
         "[slug]/_lib/preview-person.server.ts",
         "[slug]/_lib/previous-edition.server.ts",
@@ -1200,6 +1206,7 @@
         "HTMLImageElement",
         "HTMLInputElement",
         "HTMLOListElement",
+        "HTMLParagraphElement",
         "HTMLSpanElement",
         "HTMLStyleElement",
         "HTMLVideoElement",
@@ -1332,6 +1339,9 @@
         "Remaining",
         "ReplayNode",
         "ReplyCardRow",
+        "ReplyForm",
+        "ReplySending.Provider",
+        "ReplySubmit",
         "RevealFeatures",
         "RevealMount",
         "RevealOverlay",
@@ -1406,6 +1416,7 @@
         "ShareButtons",
         "SheetClip",
         "SheetEntry",
+        "SignOutOfInvitation",
         "SiteBody",
         "SiteMenuBar",
         "SongRequestCard",
@@ -1420,6 +1431,7 @@
         "Status",
         "StdBackgroundLayer",
         "StdFilmHandoff",
+        "StdLead",
         "StdTouchGlow",
         "StdViewBeacon",
         "StoryClock",
@@ -1532,6 +1544,7 @@
       ],
       "actions": [],
       "blocks": [
+        "EntourageGuestRow",
         "EntourageSection",
         "Link"
       ]
@@ -1551,6 +1564,7 @@
         "Logo",
         "PromptCard",
         "RoomFooter",
+        "SeatsShowOnTheDay",
         "Shell",
         "WayfindingMap"
       ]
@@ -1599,6 +1613,7 @@
         "SearchGlyph",
         "SeatBackLink",
         "SeatFrame",
+        "SeatsShowOnTheDay",
         "StepUp",
         "WalkIn3D",
         "WayfindingMap",
@@ -1628,6 +1643,7 @@
     },
     "/[slug]/invite": {
       "files": [
+        "[slug]/invite/_components/arrival-loading.tsx",
         "[slug]/invite/_components/hub-door-skin.tsx",
         "[slug]/invite/_components/invite-qr-panel.tsx",
         "[slug]/invite/_components/landing-pre-reply.tsx",
@@ -1646,9 +1662,12 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "Bar",
         "BespokeMonogramMark",
         "CoupleLogo",
+        "DoorShell",
         "GuestCodeKeepers",
+        "GuestLookScope",
         "InvalidTokenScreen",
         "JoinFlow",
         "LayeredLogoPlayer",
@@ -1668,12 +1687,15 @@
       ],
       "actions": [],
       "blocks": [
+        "ArrivalLoading",
         "DoorNotice",
         "DoorShell",
         "GuestLookScope",
         "InAppBar",
+        "InviteEnterBody",
         "InviteQrPanel",
         "LandingPreReply",
+        "LandingSaveTheDate",
         "Link",
         "LinkPreviewAnswer",
         "PassHopHeld",
@@ -1683,6 +1705,7 @@
         "SavePassCardButton",
         "SaveToAccount",
         "ShortcutLine",
+        "Suspense",
         "TicketPicture",
         "TicketPopup",
         "WhenYesCelebration"
@@ -1695,16 +1718,19 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ArrivalLoading",
         "CanvasSection",
         "DoorNotice",
         "DoorShell",
         "FirstScreenOnly",
         "GuestLookScope",
+        "InviteReplyBody",
         "Link",
         "NotYouSwitch",
         "RsvpCanvasBridge",
         "RsvpLookStyle",
-        "RsvpWidget"
+        "RsvpWidget",
+        "Suspense"
       ]
     },
     "/[slug]/pabuya": {
@@ -1828,6 +1854,7 @@
         "RoomFooter",
         "SeatCouldNotLoad",
         "SeatPassShell",
+        "SeatsShowOnTheDay",
         "WayfindingMap"
       ]
     },
@@ -5314,6 +5341,7 @@
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
         "dashboard/[eventId]/_components/reveal-preview.tsx",
+        "dashboard/[eventId]/_components/safe-form.tsx",
         "dashboard/[eventId]/_components/services-covered-picker.tsx",
         "dashboard/[eventId]/_components/set-date-nudge.tsx",
         "dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx",
@@ -5379,6 +5407,7 @@
         "deleteLineItem",
         "deletePayment",
         "grantShareConsent",
+        "guarded",
         "logPayment",
         "markNotificationRead",
         "planNextYearEvent",
@@ -6088,6 +6117,7 @@
         "dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx",
         "dashboard/[eventId]/guests/_components/guests-screen.tsx",
         "dashboard/[eventId]/guests/_components/handed.tsx",
+        "dashboard/[eventId]/guests/_components/hear-action.ts",
         "dashboard/[eventId]/guests/_components/invite-message-setup.ts",
         "dashboard/[eventId]/guests/_components/invited-to-chips.tsx",
         "dashboard/[eventId]/guests/_components/live-search.tsx",
@@ -6258,6 +6288,7 @@
         "SoftDeleteForUndoResult",
         "SubmitButton",
         "SwitchRow",
+        "T",
         "TicketPlaceholder",
         "TicketThumb",
         "TypedRow",
@@ -6923,6 +6954,7 @@
         "PaidMark",
         "PanelSwitch",
         "ParentCards",
+        "PartWorking",
         "PassCardDesign",
         "PassCardDesignPicker",
         "PassCardsPanel",
@@ -6989,6 +7021,7 @@
         "S",
         "SVGGElement",
         "SVGSVGElement",
+        "SafeForm",
         "SaveAnswer",
         "SaveState",
         "SaveWords",
@@ -8856,7 +8889,8 @@
         "StdMediaPicker",
         "StdThemeId",
         "StudioBuyHero",
-        "SwitchTrack"
+        "SwitchTrack",
+        "T"
       ]
     },
     "/dashboard/[eventId]/studio/save-the-date/stamp": {
@@ -9354,6 +9388,7 @@
         "HTMLDivElement",
         "HubDraftActionResult",
         "HubDraftBarLive",
+        "HubDraftIntent",
         "HubDraftToolbar",
         "IconPill",
         "InfoTip",
@@ -9608,6 +9643,7 @@
         "ReturnTo",
         "RowBlock",
         "RsvpBackdropPanel",
+        "SafeForm",
         "SaveAnswer",
         "SaveButton",
         "SceneAlignRow",
@@ -9690,6 +9726,7 @@
         "Image",
         "Link",
         "PageMasthead",
+        "SafeForm",
         "SubmitButton",
         "WebsiteProLock"
       ]
@@ -9731,6 +9768,7 @@
         "FileUpload",
         "PageMasthead",
         "PaidMark",
+        "SafeForm",
         "SubmitButton"
       ]
     },
@@ -9807,6 +9845,7 @@
         "PickMenu",
         "Precision",
         "RefusalLine",
+        "SafeForm",
         "SampleStory",
         "Sheet",
         "StoryChapterFields",
@@ -9858,6 +9897,7 @@
       "blocks": [
         "Link",
         "PageMasthead",
+        "SafeForm",
         "SubmitButton",
         "VisibilityCard"
       ]
@@ -9874,6 +9914,7 @@
       "blocks": [
         "FileUpload",
         "PageMasthead",
+        "SafeForm",
         "SubmitButton",
         "WebsiteProLock"
       ]
@@ -9903,6 +9944,7 @@
         "FormFlash",
         "Link",
         "PageMasthead",
+        "SafeForm",
         "SubmitButton"
       ]
     },
@@ -9934,6 +9976,7 @@
         "Link",
         "PageMasthead",
         "PaidMark",
+        "SafeForm",
         "SubmitButton",
         "WidgetRow"
       ]
@@ -10102,6 +10145,7 @@
         "HubDraftActionResult",
         "HubDraftSummary",
         "HubDraftToolbar",
+        "LabDraftEngine",
         "LabLogoActions",
         "LabStudioActions",
         "LogoActions",

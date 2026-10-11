@@ -109,7 +109,18 @@ export function InvitationSkeleton({
   showHeader = true,
   mark = null,
   design = HERO_DESIGN_DEFAULT,
+  quiet = false,
 }: {
+  /**
+   * 🤫 THE QUIET SCREEN — the couple's mark on the page's own ground, and
+   * nothing else: no band, no cover, no "invite you to…", no link down, no
+   * scene cards. Drawn when the page about to appear is NOT this cover — the
+   * Save the Date's full-screen film (a guest's walk 2026-10-11: the
+   * invitation's cover stood here for a second and a half and the film then
+   * replaced all of it). `_lib/loading-stage.ts` decides; it never draws a
+   * stage's page it is not sure of.
+   */
+  quiet?: boolean;
   /** The couple's names, straight off the already-loaded event row. */
   displayName: string | null;
   /** Their monogram letters, if they set any. */
@@ -184,6 +195,22 @@ export function InvitationSkeleton({
       ) : null}
     </span>
   );
+
+  if (quiet) {
+    return (
+      <main
+        // The same ground rule as the page's own screen below.
+        className="flex min-h-dvh items-center justify-center bg-cream text-ink [[data-hub-theme]_&]:bg-transparent [[data-guest-look]:has(>[data-guest-ombre])_&]:bg-transparent"
+        aria-busy="true"
+        data-loading-screen="quiet"
+      >
+        <p role="status" className="sr-only">
+          Loading…
+        </p>
+        {markSlot}
+      </main>
+    );
+  }
 
   return (
     <main

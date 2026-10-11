@@ -293,8 +293,9 @@ test('Love Story: Our Love Story is the body, and a moment is added and edited I
   let forms = 0;
   for (const f of ['_components/love-story-book.tsx', '_components/moment-sheet.tsx', '_components/pick-from-our-events.tsx']) {
     const src = read(`${S}/${f}`);
-    for (const body of src.split(/<form\b/).slice(1)) {
-      assert.match(body.slice(0, body.indexOf('</form>')), /<InMakerReturnTo \/>/, `${f}: a form does not return to the Maker`);
+    /* `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings. */
+    for (const body of src.split(/<(?:form|SafeForm)\b/).slice(1)) {
+      assert.match(body.slice(0, body.search(/<\/(?:form|SafeForm)>/)), /<InMakerReturnTo \/>/, `${f}: a form does not return to the Maker`);
       forms += 1;
     }
   }

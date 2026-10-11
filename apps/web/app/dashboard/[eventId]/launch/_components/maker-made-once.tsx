@@ -37,6 +37,7 @@ import { MakerHeroDesignPicker } from './maker-hero-design';
 import { MiniTour } from '@/app/_components/mini-tour';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * THE MADE-ONCE GROUP — Logo · Hero · Reveal (Event Hub Maker Phase 6).
@@ -209,7 +210,7 @@ export async function MakerHeroPanel({
       </div>
 
       {canUpload ? (
-        <form action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-white/70 px-3 py-3">
+        <SafeForm action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-white/70 px-3 py-3">
           {photoMark ? (
             <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" />
           ) : null}
@@ -235,11 +236,11 @@ export async function MakerHeroPanel({
           />
           {/* ✍ The uploaded photo drafts itself (owner 2026-10-05: no Save in a step) — ◆ above says it is Pro. */}
           <DraftsAsYouGo />
-        </form>
+        </SafeForm>
       ) : null}
 
       {hero.kind === 'photo' ? (
-        <form action={removeHeroPhoto}>
+        <SafeForm action={removeHeroPhoto}>
           <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="return_to" value={returnTo} />
@@ -249,7 +250,7 @@ export async function MakerHeroPanel({
           >
             Use the invitation card instead
           </button>
-        </form>
+        </SafeForm>
       ) : null}
     </section>
   );

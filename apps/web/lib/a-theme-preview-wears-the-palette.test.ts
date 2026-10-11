@@ -474,7 +474,11 @@ test('the measurers are handed the dressed theme at every picture call site', ()
   const panel = read('app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx');
   assert.match(panel, /const theme = useMemo\(\(\) => \(\{ \.\.\.INVITE_THEMES\[themeId\], palette: colours \}\), \[themeId, colours\]\);/);
   assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /colours=\{themeColours\(mainThemeId, \(drafted as \{ role_palette\?: unknown \}\)\.role_palette\)\.colours\}/);
-  assert.match(read('lib/event-poster.server.ts'), /colours: themeColours\(theme, event\.role_palette\)\.colours,/);
+  // ⚡ 2026-10-11 — the poster's composing moved to `eventPosterGiven`
+  // (`lib/event-poster-given.ts`), which `resolveEventPoster` calls; the dressed
+  // theme is handed to the measurer there, for both of its callers.
+  assert.match(read('lib/event-poster-given.ts'), /colours: themeColours\(theme, event\.role_palette\)\.colours,/);
+  assert.match(read('lib/event-poster.server.ts'), /return eventPosterGiven\(event, heroSrc, \{/);
   assert.match(read('lib/event-poster.ts'), /const theme = input\.colours \? \{ \.\.\.own, palette: input\.colours \} : own;/);
   assert.match(read('app/[slug]/_lib/theme-ground.ts'), /hubLegibility\(input\.colours \? \{ \.\.\.t, palette: input\.colours \} : t, \{ kind: 'theme' \}\)/);
   assert.match(read('app/[slug]/_components/host-draft-look.tsx'), /resolveThemeGround\(look\.theme, \{ ownColours: Boolean\(look\.vars\), colours: look\.colours \}\)/);

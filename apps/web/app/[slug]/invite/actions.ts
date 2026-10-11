@@ -12,6 +12,7 @@ import {
   TERMS_VERSION,
 } from '@/lib/terms-agreement';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventAddressUnread } from '@/lib/guest-read';
 import { submitRsvp } from '../actions';
 import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 
@@ -49,7 +50,7 @@ export async function submitInviteReply(eventId: string, guestId: string, formDa
       .select('slug')
       .eq('event_id', eventId)
       .maybeSingle();
-    redirect(ev?.slug ? `${inviteReplyPath(ev.slug as string)}?editor=1` : '/');
+    redirect(ev?.slug ? `${inviteReplyPath(ev.slug as string)}?editor=1` : eventAddressUnread('submitInviteReply · sample'));
   }
   formData.set('return_to', INVITE_RETURN);
   const declining = formData.get('rsvp_status') === 'declined';
@@ -60,7 +61,9 @@ export async function submitInviteReply(eventId: string, guestId: string, formDa
       .select('slug')
       .eq('event_id', eventId)
       .maybeSingle();
-    redirect(ev?.slug ? `${inviteReplyPath(ev.slug as string)}?rsvp=terms` : '/');
+    // 🔌 Never the site's home: nothing is written yet, so an address that could
+    // not be read is a reply that was not sent (lib/guest-read.ts).
+    redirect(ev?.slug ? `${inviteReplyPath(ev.slug as string)}?rsvp=terms` : eventAddressUnread('submitInviteReply · terms'));
   }
   if (agreed) {
     const jar = await cookies();

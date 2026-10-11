@@ -32,6 +32,7 @@ import type { GuestSide } from '@/lib/guests';
 import { OpenQuickAddButton } from './quick-add-sheet';
 import { OpenAddFromPeopleButton } from './add-from-people-sheet';
 import { useGuestActions } from './guest-actions-context';
+import { hearAction } from './hear-action';
 
 // One size for all four doors. 36px is the smallest this row can give a tap
 // target without pushing the name box off a 380px phone.
@@ -67,7 +68,8 @@ export function CaptureBar({
     if (!raw.trim() || pending) return;
     const draft = parseGuestInput(raw, { defaultSide });
     startTransition(async () => {
-      const res = await addSingleGuest(eventId, draft);
+      // 🔌 `hearAction`: a failed request answers like a refusal — the text stays in the box and the toast says so.
+      const res = await hearAction(() => addSingleGuest(eventId, draft));
       if (!res.ok) {
         // Keep the text so the host can fix it (e.g. add a last name).
         toast.error(plainRefusal(res.error, 'Couldn’t add that guest. Try again.'));

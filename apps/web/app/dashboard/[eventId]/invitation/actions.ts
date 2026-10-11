@@ -9,6 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendEmail } from '@/lib/email';
 import { findSlugConflict } from '@/lib/slug-availability';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 function randomHex(bytes = 16): string {
   const buf = new Uint8Array(bytes);
@@ -186,6 +187,8 @@ export async function updateEventSlug(
     .update({ slug: requested, updated_at: new Date().toISOString() })
     .eq('event_id', eventId)
     .select('event_id');
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('events');
 
   if (updateErr) {
     redirect(

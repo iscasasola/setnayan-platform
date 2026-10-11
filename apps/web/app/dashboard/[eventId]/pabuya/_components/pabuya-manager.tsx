@@ -146,7 +146,14 @@ export function PabuyaManager({
   ) {
     setError(null);
     startTransition(async () => {
-      const res = await action(fd);
+      /* 📵 A request that never answered (no signal, a 5xx) is SAID here like any refusal, the form still open —
+         thrown into this transition it replaced the whole page (in the Maker, the whole Maker) with the error screen. */
+      let res: EgiftActionResult;
+      try {
+        res = await action(fd);
+      } catch {
+        res = { ok: false, error: 'That did not save. Please try again.' };
+      }
       if (res.ok) {
         onOk?.();
         router.refresh();

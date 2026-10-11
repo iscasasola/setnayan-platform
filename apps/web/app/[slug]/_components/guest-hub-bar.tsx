@@ -17,7 +17,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { rotateMyGuestQr } from '../rotate-qr-actions';
 import { GuestCodeKeepers } from './guest-code-keepers';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
-import { PLATE } from '../_lib/measures';
+import { PAGE_COLUMN } from '../_lib/measures';
 import { PASS_ANCHOR } from '@/lib/arrival-action';
 import { formatCount } from '@/lib/format-number';
 
@@ -413,7 +413,7 @@ export function GuestHubBar({
 }
 
 /** The page's own column, for a Me section the page's column does not wrap (see `GuestMeSection`). */
-export const ME_OWN_COLUMN = `mx-auto w-full ${PLATE} px-4 sm:px-6`;
+export const ME_OWN_COLUMN = PAGE_COLUMN;
 
 /** "My QR" asked for from a page-drawn Me section (`GuestMeSection` without `onOpenQr`). */
 export const OPEN_MY_QR_EVENT = 'setnayan:open-my-qr';

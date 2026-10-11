@@ -13,6 +13,7 @@ import {
   SCENE_COLLAPSE_MS,
   SCENE_DRAG_WORDS,
   SCENE_STATUS_MS,
+  SCENE_UNDO_BUTTON,
   sceneHeldSaveDone,
   sceneLiftAllowed,
   scenePadDone,
@@ -98,8 +99,8 @@ export type SceneDragNow = {
 type LineBody = { kind: 'saving' } | { kind: 'words'; words: string; err: boolean } | { kind: 'removed'; label: string };
 type Line = LineBody & { n: number };
 
-/** The Maker's own Undo, in its top bar (`hub-draft-button.tsx` names it: `data-bar-item`, `aria-label`). */
-const UNDO_BUTTON = '[data-maker-shell] button[data-bar-item="Undo"], [data-maker-shell] button[aria-label="Undo"]';
+/** The Maker's own Undo, in its top bar — and never the line's own button (`SCENE_UNDO_BUTTON`). */
+const UNDO_BUTTON = SCENE_UNDO_BUTTON;
 
 /**
  * A HELD save (the bridge already drew it — no reload follows, so there is no new page to wait for): done when the
@@ -195,19 +196,23 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
     document.addEventListener('click', onUndo, true);
     return () => document.removeEventListener('click', onUndo, true);
   }, [put, say]);
-  /** The line's Undo PRESSES the Maker's own (one door to the draft; its busy rule and its reload are that button's). */
+  /** The line's Undo PRESSES the Maker's own (one door to the draft; its busy rule and its reload are that button's) —
+   *  so it does exactly what ↺ does for this removal: the listener above hears that one press, the scene comes back
+   *  where it was, and the line says "<Scene> is back". */
   const pressUndo = () => {
     let tries = 0;
     const press = () => {
       const button = document.querySelector<HTMLButtonElement>(UNDO_BUTTON);
       if (!button) return;
-      /* The count that enables it comes back with the save — a moment after the line could be pressed. */
-      if (button.disabled && tries++ < 10) return void window.setTimeout(press, 120);
+      /* The count that enables it comes back with the save — a moment after the line could be pressed. The line
+         stays until the press is taken: a press ↺ cannot take is never heard above, so nothing is said of it. */
+      if (button.disabled) {
+        if (tries++ < 10) window.setTimeout(press, 120);
+        return;
+      }
       button.click();
     };
-    /* Pressed in a task of its own — never inside this button's own click (a click made while React is still
-       handing one out is not handed out: measured in the lab, 2026-10-11 — the line cleared and nothing was undone). */
-    window.setTimeout(press, 0);
+    press();
   };
 
   /* ── the canvas: the hold, the lift, the drop ── */

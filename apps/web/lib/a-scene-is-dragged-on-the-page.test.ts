@@ -18,6 +18,7 @@ import {
   SCENE_MOUSE_LIFT_PX,
   SCENE_SCROLL_PX,
   SCENE_STATUS_MS,
+  SCENE_UNDO_BUTTON,
   sceneDropSlot,
   sceneDropTarget,
   sceneEdgeScroll,
@@ -514,13 +515,11 @@ test('(7) a scene of the couple’s own is never taken silently; ↺ is the Make
   const side = src(`${L}/scene-drag.tsx`);
   /* …and on the page it is put back where it was while they decide. */
   assert.match(side, /if \(!done \|\| done === 'asking'\) return drop\.restore\(\);/);
-  /* ↺: the line's Undo PRESSES the Maker's own button — never a second door to the draft. */
-  assert.match(side, /const UNDO_BUTTON = '\[data-maker-shell\] button\[data-bar-item="Undo"\], \[data-maker-shell\] button\[aria-label="Undo"\]';/);
-  assert.match(side, /const button = document\.querySelector<HTMLButtonElement>\(UNDO_BUTTON\);[\s\S]{0,260}?button\.click\(\);/);
-  /* …in a task of its own: a click made inside another click's handling is not handed out (measured in the lab,
-     2026-10-11 — the line cleared and nothing was undone). */
-  assert.match(side, /window\.setTimeout\(press, 0\);\s*\};/);
-  assert.doesNotMatch(side, /\n\s*press\(\);\s*\};/, 'the Maker’s Undo is pressed from inside the line’s own press');
+  /* ↺: the line's Undo PRESSES the Maker's own button — never a second door to the draft — from inside its own press. */
+  assert.match(side, /const UNDO_BUTTON = SCENE_UNDO_BUTTON;/);
+  assert.match(side, /const button = document\.querySelector<HTMLButtonElement>\(UNDO_BUTTON\);[\s\S]{0,600}?button\.click\(\);\s*\};\s*press\(\);\s*\};/);
+  assert.match(side, /const button = \(e\.target as Element \| null\)\?\.closest\?\.\(UNDO_BUTTON\)/);
+  assert.equal((side.match(/aria-label/g) ?? []).length, 0, 'the drag names a button by its aria-label');
   assert.match(raw('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx'), /label="Undo"[\s\S]{0,400}?onClick=\{\(\) => act\(\{ intent: 'undo' \}\)\}/, 'anti-vacuity: the Maker’s Undo is no longer that button');
   assert.match(raw('app/dashboard/[eventId]/website/_components/hub-draft-button.tsx'), /aria-label=\{said\}[\s\S]{0,200}?data-bar-item=\{phone \? label : undefined\}/, 'anti-vacuity: the button no longer names itself');
   /* What it says of an undo is only said of the step made HERE (no other save since), once the page shows it. */
@@ -548,6 +547,43 @@ test('(7) a scene of the couple’s own is never taken silently; ↺ is the Make
   const face = /export const SCENE_TAG_FACE = '([^']+)';/.exec(raw(`${L}/scene-canvas-drag.ts`))?.[1];
   assert.ok(tag && face, 'anti-vacuity: the two tags were not found');
   assert.equal(face, tag, 'the lifted scene’s name tag is not the picked part’s');
+});
+
+test('(7) the line’s Undo is never mistaken for the Maker’s own ↺ — one press, one step back, “<Scene> is back”', async () => {
+  /* THE FAULT (walked 2026-10-11, "the line clears, nothing comes back"): ↺ was found by `aria-label="Undo"` too —
+     and the line's own Undo is an ActionButton, whose aria-label is its word. Its own press was heard as ↺: the step
+     was forgotten and the line cleared before the draft was asked for anything, so nothing was ever said to be back.
+     The selector now names what ONLY the top bar's button carries; held here on the buttons as they are drawn. */
+  assert.equal(SCENE_UNDO_BUTTON, '[data-maker-shell] [data-maker-draft-actions] button[data-bar-item="Undo"]');
+  assert.ok(!SCENE_UNDO_BUTTON.includes(','), 'the Maker’s Undo has a second spelling');
+  const need = [...SCENE_UNDO_BUTTON.matchAll(/\[([a-z-]+)(?:="([^"]*)")?\]/g)].map((m) => ({ attr: m[1]!, value: m[2] ?? null }));
+  const onButton = need.filter((n) => SCENE_UNDO_BUTTON.includes(`button[${n.attr}`));
+  assert.deepEqual(onButton, [{ attr: 'data-bar-item', value: 'Undo' }], 'the button is named by something other than its bar item');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const React = (await import('react')).default;
+  /* (a component file's JSX asks for `React` by name under a bare `tsx --test` run) */
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { ActionButton } = await import('../components/action-button');
+  const { Undo2 } = await import('lucide-react');
+  /* The line's button, as `scene-drag.tsx` draws it. */
+  const side = src(`${L}/scene-drag.tsx`);
+  assert.match(side, /<span className="contents" data-scene-undo="">\s*<ActionButton tone="neutral" icon=\{Undo2\} label=\{SCENE_DRAG_WORDS\.undo\} onClick=\{pressUndo\}/);
+  const lineButton = renderToStaticMarkup(React.createElement(ActionButton, { tone: 'neutral', icon: Undo2, label: SCENE_DRAG_WORDS.undo, onClick: () => {} }));
+  const tagOf = (html: string) => /^<button\b[^>]*>/.exec(html)?.[0] ?? '';
+  assert.match(tagOf(lineButton), /aria-label="Undo"/, 'anti-vacuity: the line’s Undo no longer shares the word — by its label it WOULD be taken for ↺');
+  for (const n of onButton) assert.ok(!tagOf(lineButton).includes(`${n.attr}=`), `the line’s own Undo carries ${n.attr} — it is the Maker’s ↺ to this selector`);
+  /* …and the Maker's own is the one that does: named so by `DraftButton`, inside the draft bar's own actions. */
+  const { DraftButton } = await import('../app/dashboard/[eventId]/website/_components/hub-draft-button');
+  const top = renderToStaticMarkup(
+    React.createElement(DraftButton, { label: 'Undo', icon: null, bar: 'icon', phone: { width: 'w-11' }, disabled: false, disabledReason: '', onClick: () => {} }),
+  );
+  assert.match(/<button\b[^>]*>/.exec(top)?.[0] ?? '', /data-bar-item="Undo"/, 'the Maker’s own Undo no longer names itself');
+  const bar = raw('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
+  const actions = bar.slice(bar.indexOf('data-maker-draft-actions=""'));
+  assert.ok(bar.includes('data-maker-draft-actions=""') && /<DraftButton\s+label="Undo"/.test(actions), 'the Maker’s Undo is not drawn inside the draft bar’s own actions');
+  /* Pressed, the Maker's ↺ is heard ONCE by the listener that says what came back — for the step made here only. */
+  assert.match(side, /if \(!button \|\| button\.disabled \|\| !step\) return;\s*last\.current = null;/);
+  assert.match(side, /say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);
 });
 
 test('(7) the lower third slides away while a scene is held and back on release — both motions seen; a fade under Reduce Motion', () => {

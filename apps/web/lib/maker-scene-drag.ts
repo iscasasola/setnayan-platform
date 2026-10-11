@@ -80,6 +80,18 @@ export const SCENE_DRAG_WORDS = {
 } as const;
 
 /**
+ * ↺ THE MAKER'S OWN UNDO — the ONE button in its top bar, and nothing else on the page.
+ *
+ * Named by what only that button carries: `data-bar-item="Undo"` (`hub-draft-button.tsx`), inside the draft bar's own
+ * actions (`hub-draft-bar.tsx` `data-maker-draft-actions`). 🔒 NEVER BY ITS `aria-label`: the line's own Undo is an
+ * `ActionButton`, and an ActionButton's `aria-label` is its word — "Undo" too. Named by the label, the line's button
+ * WAS "the Maker's Undo": its own press was heard as ↺ (the step was forgotten and the line cleared before anything
+ * was asked of the draft), and the press it then made found nothing to say (measured in the lab, 2026-10-11 → 12 —
+ * "the line clears, nothing comes back"). One selector, no second spelling.
+ */
+export const SCENE_UNDO_BUTTON = '[data-maker-shell] [data-maker-draft-actions] button[data-bar-item="Undo"]';
+
+/**
  * ▾ THE THREE STEPS FOR WHOEVER CANNOT DRAG, in the prototype's order and words (`#menu`: Move up · Move down ·
  * Remove) — "Delete" where the part is a scene of the couple's own (it asks first, and is gone for good at Apply).
  * `on: false` is a step the part cannot take: it is drawn grey and STILL answers — a tap says why, never nothing.

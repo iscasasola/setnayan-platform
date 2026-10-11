@@ -733,6 +733,25 @@ if (!ONLY || ONLY === '16') {
     const c2 = await open('fixture-cover.html', W, H, { reducedMotion: 'reduce' }); const calm = await c2.at(0); const calmLow = await c2.at(200); await c2.ctx.close();
     say(!calm.on && !calm.sticky && calm.off === 'reduce motion' && calm.cover.o === 1 && calm.row.o === 1 && Math.abs(calmLow.cover.t - (calm.cover.t - 200)) < 0.6 && calmLow.pout === 0, `${size}: with reduce motion the page is the plain page — nothing held, the cover scrolls away, and it says why ("${calm.off}")`);
   }
+  /* 👆 A PHONE, BY TOUCH (375 × 812, a touch screen, a phone's viewport): a real finger drag moves the real page —
+     nothing prevented, the script never setting the scroll position — and that travel IS the cover's Build out:
+     the cover stays where it stood while it fades under the finger. */
+  {
+    const [W, H] = [375, 812]; const ctx = await b.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await ctx.addInitScript(WATCH);
+    const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140)));
+    await p.goto(`file://${scratch}/fixture-cover.html`); await p.waitForTimeout(900);
+    const before = await p.evaluate(SNAP16);
+    const cdp = await ctx.newCDPSession(p);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 180, y: H - 160 }] });
+    for (let k = 1; k <= 10; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 180, y: H - 160 - k * 30 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await p.waitForTimeout(700);
+    const after = await p.evaluate(SNAP16); const took = await p.evaluate(() => window.__took);
+    say(errs.length === 0 && before.on && before.pout === 0 && after.s > 150 && after.pout > 0.2 && after.pout < 1 && Math.abs(after.cover.t - before.cover.t) < 0.6 && took.scrollSet === 0 && took.prevented === 0 && took.listeners.length === 0, `${W}x${H} the real guest page, by touch: a real finger drag moved the page ${after.s}px with nothing prevented and no touch listener (${took.listeners.join(',') || 'none'}), and that travel built the cover out to ${Math.round(after.pout * 100)} % where it stood (${Math.round(before.cover.t)} → ${Math.round(after.cover.t)})${errs.length ? ` — ${errs[0]}` : ''}`);
+    if (pics) await p.screenshot({ path: `${pics}/c16-real-${W}x${H}-touch-drag-together.png` });
+    await ctx.close();
+  }
   /* 🚪 A GUEST WHOSE REPLY ROW DRAWS NOTHING (no reply status: the page has no action for them). The cover's group ends
      with the cover — and the cover must never fade to nothing: the block after the cover's group arrives, alone. */
   for (const [W, H] of [[375, 812], [1280, 770]]) {

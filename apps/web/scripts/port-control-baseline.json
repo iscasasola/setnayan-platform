@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "69746f9d6",
+  "generatedFromRef": "160c7047e",
   "routeCount": 431,
   "destinations": 955,
   "actions": 673,
-  "blocks": 6017,
+  "blocks": 6018,
   "routes": {
     "/": {
       "files": [
@@ -10128,6 +10128,7 @@
         "ColorsPanel",
         "FontsLookRows",
         "HubDraftActionResult",
+        "HubDraftSummary",
         "HubDraftToolbar",
         "LabLogoActions",
         "LabStudioActions",

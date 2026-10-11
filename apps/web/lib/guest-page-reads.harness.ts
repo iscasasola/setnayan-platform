@@ -36,7 +36,6 @@ moduleInternals._resolveFilename = function (this: unknown, request: string, ...
 
 // ── One memo per view, standing in for React's per-request cache() ─────────
 let viewMemo = new Map<unknown, Array<{ args: unknown[]; value: unknown }>>();
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const react = require('react') as { cache: unknown };
 react.cache = <A extends unknown[], T>(fn: (...args: A) => T) =>
   (...args: A): T => {

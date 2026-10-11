@@ -143,7 +143,6 @@ import {
   sampleTicketState,
   SIMULATED_GUEST_INVITATION_TEXT,
 } from '@/lib/simulated-guest-preview';
-import { seeAsOf } from '@/lib/see-as';
 import { SampleViewerInert } from './_components/sample-viewer-inert';
 import { OwnerRibbon } from './_components/owner-ribbon';
 import { buildOwnerRibbon } from '@/lib/owner-ribbon';
@@ -1242,12 +1241,13 @@ async function invitationBody({
      to wait for the whole layer; it now leaves beside it and is awaited where
      it always was, with the same arguments (`cache()` answers that call with
      this one). Only when every path below reads it: a cookie that names another
-     event is anonymous here, and a host looking at a sample guest (`?as=`) is
-     shown the sample, not their own row. Its two early returns — a guest who is
+     event is anonymous here, and a host looking at a sample guest (`?as=…` —
+     any `as` at all keeps this from starting early) is shown the sample, not
+     their own row. Its two early returns — a guest who is
      gone, a plus-one not yet named — still cost the one read they did. */
   const liveLayerAhead = startAhead(loadLiveLayer(admin, event, dayOfPhase));
   const scheduleBlocksAhead = startAhead(liveLayerAhead.then((layer) => layer.scheduleBlocks));
-  if (session && session.event_id === event.event_id && seeAsOf(search.as) === null) {
+  if (session && session.event_id === event.event_id && search.as === undefined) {
     startAhead(loadGuestContext(admin, event, session, dayOfPhase, slug, scheduleBlocksAhead));
   }
   const {

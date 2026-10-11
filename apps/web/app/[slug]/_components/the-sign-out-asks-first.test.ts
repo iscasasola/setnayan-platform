@@ -105,7 +105,11 @@ test('(4) the cost is said before the second press; the erased selfie before the
   const drawn = renderToStaticMarkup(
     React.createElement(
       SignOutOfInvitation,
-      { action: '/ana/sign-out', erases: React.createElement('p', { 'data-sign-out-erases-selfie': '' }, 'Signing out also erases your face-tagging selfie.') },
+      // (The words are the element's children, handed in as the third argument — so the props are cast.)
+      {
+        action: '/ana/sign-out',
+        erases: React.createElement('p', { 'data-sign-out-erases-selfie': '' }, 'Signing out also erases your face-tagging selfie.'),
+      } as unknown as Parameters<typeof SignOutOfInvitation>[0],
       'Sign out of this invitation',
     ),
   );

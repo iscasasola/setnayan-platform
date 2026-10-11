@@ -149,7 +149,7 @@ test('(3) every place a guest page formats the event’s date is a shape that ca
       sites.push(`${rel}:${line.trim().slice(0, 90)}`);
       if (SAFE.some((re) => re.test(line))) return;
       // …or the JSX around it is the arm of `{event.event_date ? (` a line or two up.
-      if (/event_date \? \(\s*$/.test(lines.slice(Math.max(0, i - 3), i).join('\n').split('\n').find((l) => /event_date \? \(\s*$/.test(l)) ?? '')) return;
+      if (lines.slice(Math.max(0, i - 3), i).some((l) => /event_date \? \(\s*$/.test(l))) return;
       const named = NAMED[rel];
       const keeps = new RegExp(`\\b${named?.name ?? '\\u0000'}\\b\\s*[:=]\\s*(?:formatHubDate\\([^)]*\\)\\s*\\?\\?\\s*)?formatEventDate\\(`);
       if (named && keeps.test(line) && named.guard.test(src)) return;

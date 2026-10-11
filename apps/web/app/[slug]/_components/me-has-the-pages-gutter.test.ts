@@ -23,8 +23,11 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+/* FIRST of the app's modules: this import installs the seam the real page is drawn through. */
+import { renderSiteBodyFixture } from '@/lib/site-body-fixture-render';
+import { FIXTURE_EVENT, siteBodyFixtureProps } from '@/lib/site-body-fixture';
 import { stripComments } from '@/lib/strip-comments';
-import { PLATE } from '../_lib/measures';
+import { PAGE_COLUMN, PLATE } from '../_lib/measures';
 
 (globalThis as unknown as { React: unknown }).React = React;
 // `server-only` stubbed — the same trap `each-guest-page-has-one-main-action.test.ts` names.
@@ -87,3 +90,94 @@ test('(3) as the tab, the section adds no gutter — its stage has it, once', as
   assert.match(stage!, /(?:^|\s)px-4(?:\s|$)/, 'the tabbed Me lost its gutter');
   assert.match(stage!, /\$\{PLATE\}/, 'the tabbed Me is no longer the plate');
 });
+
+/*
+  ── THE GUEST'S FOOT — THE RECORD NOTE AND THE SIGN-OUT (2026-10-11, the tester's walk of the joined batch) ──
+  The scan-trail note ("We keep a record of when you open your invitation…" + "Stop keeping a record") ran from the
+  glass's left edge to its right at 320, 375, 390 and 768 on the Save the Date: a full-bleed stage has no shell
+  column, and the foot sits outside the film's page column. The sign-out beside it only looked right because it is
+  centred.
+
+  Held on the REAL page, drawn for a guest with a real row id (the fixture's own sample guest is never shown the
+  note): on the full-bleed Save the Date the foot is set in the page's own column — `px-4` is the gutter at 320, 375
+  and 390, `sm:px-6` at 768 — and on a tabbed page it is inside Me's own gutter, once. And the note itself can be
+  read (≥ 4.5:1, from the house tokens) and its button pressed (44px).
+
+  SABOTAGE RUN 2026-10-11 (committed first, put back by `git checkout`): the foot's column taken off → (4) red;
+  the note put back to `text-ink/60` → (5) red.
+*/
+function asARealGuest() {
+  const p = siteBodyFixtureProps();
+  return { ...p.identity, guest: { ...(p.identity as { guest: Record<string, unknown> }).guest, guest_id: '11111111-1111-4111-8111-111111111111' } } as typeof p.identity;
+}
+const NOTE = /<form[^>]*data-scan-trail=""[^>]*>/;
+
+test('(4) the record note and the sign-out have the page’s gutter at 320 · 375 · 390 · 768 — full-bleed and tabbed', async () => {
+  // The Save the Date with its film: no shell column, so the foot takes the page's own.
+  const std = await renderSiteBodyFixture({
+    identity: asARealGuest(),
+    event: { ...FIXTURE_EVENT, event_date: null },
+    lifecyclePhase: 'save_the_date',
+    stdFilm: true,
+    scheduleBlocks: [],
+  });
+  assert.match(std, NOTE, 'anti-vacuity: the record note is not on the Save the Date page');
+  const foot = std.match(/<div data-guest-foot="" class="([^"]*)">/)?.[1]?.split(/\s+/) ?? [];
+  assert.ok(foot.length > 0, 'the guest’s foot is not on the page');
+  for (const c of PAGE_COLUMN.split(/\s+/)) assert.ok(foot.includes(c), `the foot lacks "${c}" of the page’s column on a full-bleed stage (${foot.join(' ')})`);
+  assert.ok(foot.includes('px-4'), 'no gutter at 320 · 375 · 390');
+  assert.ok(foot.includes('sm:px-6'), 'no gutter at 768');
+  // Both of its things are inside it.
+  const inFoot = std.slice(std.indexOf('<div data-guest-foot=""'));
+  assert.ok(inFoot.search(NOTE) > 0 && inFoot.includes('/sign-out"'), 'the note or the sign-out is outside the foot');
+  assert.ok(inFoot.search(NOTE) < inFoot.indexOf('/sign-out"'), 'the note is not above the sign-out');
+  // The page's own column and the foot's are the same classes — not a new number.
+  const filmColumn = read('std-film-handoff.tsx').match(/<div className="(mx-auto w-full max-w-3xl px-4[^"]*)">\{children\}<\/div>/)?.[1]?.split(/\s+/) ?? [];
+  for (const c of PAGE_COLUMN.split(/\s+/)) assert.ok(filmColumn.includes(c), `"${c}" is not on the Save the Date page’s own column`);
+
+  // The Invitation (tabbed): the shell's column holds the page, and the note is inside Me's gutter — no foot of its own.
+  const invite = await renderSiteBodyFixture({ identity: asARealGuest() });
+  assert.match(invite, NOTE, 'anti-vacuity: the record note is not on the Invitation');
+  assert.doesNotMatch(invite, /data-guest-foot/, 'a tabbed page draws a second foot');
+  const stage = invite.indexOf('data-me-stage=""');
+  assert.ok(stage > 0 && invite.search(NOTE) > stage, 'on a tabbed page the note is not inside Me');
+  assert.match(invite.slice(stage, stage + 200), /class="[^"]*\bpx-4\b/, 'Me’s stage lost its gutter');
+
+  // A page that is one scroll INSIDE the shell's column (the film switched off): no second gutter.
+  const still = await renderSiteBodyFixture({ identity: asARealGuest(), lifecyclePhase: 'save_the_date', stdFilm: false });
+  const stillFoot = still.match(/<div data-guest-foot="" class="([^"]*)">/)?.[1]?.split(/\s+/) ?? [];
+  assert.ok(stillFoot.length > 0 && !stillFoot.some((c) => /px-/.test(c)), `the foot doubles the shell’s gutter (${stillFoot.join(' ')})`);
+});
+
+test('(5) the record note can be read and its button pressed', () => {
+  const css = readFileSync(join(__dirname, '..', '..', 'globals.css'), 'utf8');
+  const token = (name: string) => {
+    const m = css.match(new RegExp(`--color-${name}:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)`));
+    assert.ok(m, `--color-${name} was not found`);
+    return [Number(m![1]), Number(m![2]), Number(m![3])];
+  };
+  const ink = token('ink');
+  const page = token('cream');
+  const lin = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const lum = (c: number[]) => 0.2126 * lin(c[0]!) + 0.7152 * lin(c[1]!) + 0.0722 * lin(c[2]!);
+  const contrast = (alphaPct: number) => {
+    const a = alphaPct / 100;
+    const mixed = ink.map((v, i) => v * a + page[i]! * (1 - a));
+    const [hi, lo] = [lum(page), lum(mixed)].sort((x, y) => y - x) as [number, number];
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  assert.ok(contrast(60) < 4.5 && contrast(60) > 3.8, `the measure moved: ink/60 is ${contrast(60).toFixed(2)}`);
+  const notice = read('scan-trail-notice.tsx');
+  const form = notice.match(/<form\s+action=\{toggle\}[\s\S]*?className="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
+  const tint = form.map((c) => c.match(/^text-ink\/(\d+)$/)).find(Boolean);
+  assert.ok(tint, `the note sets no ink of its own (${form.join(' ')})`);
+  assert.ok(contrast(Number(tint![1])) >= 4.5, `the note is ${contrast(Number(tint![1])).toFixed(2)}:1 (text-ink/${tint![1]})`);
+  assert.match(notice, /<SubmitButton\s+className="[^"]*\bmin-h-\[44px\][^"]*"/, 'the button is under 44px tall');
+  // The event's OWN word, never a fixed "wedding".
+  assert.equal((notice.match(/at this \$\{w\.eventWord\}/g) ?? []).length, 3, 'a sentence names a fixed kind of event');
+  assert.doesNotMatch(notice, /at this (?:wedding|celebration)/);
+  // Reversible at once, by the same button — which is why it does not ask.
+  assert.match(notice, /\{optedOut \? 'Keep a record again' : 'Stop keeping a record'\}/);
+  assert.match(notice, /setGuestScanTracking\.bind\(null, eventId, guestId, scanOptOutTarget\(optedOut\)\)/);
+});
+

@@ -243,6 +243,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'app/[slug]/_components/the-sign-out-asks-first.test.ts',
     /* …and the same page for "one reply form": no sheet on a guest's page, the sheet on the Maker's canvas. A test. */
     'app/[slug]/_components/one-reply-form.test.ts',
+    /* …and the guest's foot (the record note, the sign-out) read off it for the page's gutter. A test. */
+    'app/[slug]/_components/me-has-the-pages-gutter.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

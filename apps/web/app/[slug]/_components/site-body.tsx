@@ -20,7 +20,7 @@ import { formatEventDate, formatEventDateWithPrecision } from '@/lib/events';
 import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // The event hub's sanctioned column widths — a page-level column outside the
 // four is a defect, and `measures.test.ts` counts them.
-import { PLATE } from '../_lib/measures';
+import { PAGE_COLUMN, PLATE } from '../_lib/measures';
 import { greetingWhen } from '../_lib/day-words';
 import { guestRoleLabel, plusOneSeats } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -3724,9 +3724,18 @@ export async function SiteBody({
               PR11: GuestHubBar renders the real `#site-me` section under the
               same `menuOn` condition, so this marker would now be a second
               element with the same id — and the first one wins. Removed. */}
-          {/* Footer with the scan-trail line and the sign-out — on a tabbed page they are Me's (below). */}
-          {tabs.on ? null : scanTrail}
-          {tabs.on ? null : signOut}
+          {/* Footer with the scan-trail line and the sign-out — on a tabbed page they are Me's (below).
+              📐 ON A FULL-BLEED STAGE (the Save the Date's film) THE SHELL DRAWS NO COLUMN, and this foot sits
+              outside the film's page column — so the record note ran from the glass's left edge to its right
+              (a guest's walk 2026-10-11, at 320 · 375 · 390 · 768; the sign-out beside it only looked right
+              because it is centred). There it takes the page's own column (`PAGE_COLUMN`); everywhere else the
+              shell's column already holds it, and a second gutter would be a double one. */}
+          {tabs.on ? null : (
+            <div data-guest-foot="" className={plan.fullBleed ? `${PAGE_COLUMN} space-y-6` : 'space-y-6'}>
+              {scanTrail}
+              {signOut}
+            </div>
+          )}
         </article>
         </HubPageHold>
         {/* 👤 ME, ON A TABBED PAGE (owner 2026-09-30: *"Me = the Digital

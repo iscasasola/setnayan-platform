@@ -7,6 +7,7 @@ import { BLOCK_MARK_ATTR, blockOfCanvas } from '@/lib/block-looks';
 import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
 import type { WidgetType } from '@/lib/invitation-widgets';
 import { makerStagesPageOf, makerStagesPages } from '@/lib/maker-stage-filing';
+import { MAKER_FIXED_PART, type MakerFixedKey } from '@/lib/maker-scene-list';
 import { sceneStylesOn } from '@/lib/scene-styles';
 
 /**
@@ -117,6 +118,10 @@ export function LabDayPages({
     if (!node) continue;
     /* 👁 A SCENE IS DRAWN ONLY WHERE THE DAY DRAWS IT — taken off The Day in the Maker or the table, it is gone here. */
     if (key.startsWith('w:') && !draws(key.slice(2) as WidgetType)) continue;
+    /* 👁 A DAY PART THE COUPLE HID IS NOT DRAWN — the table's six fixed rows (`MAKER_FIXED_PART`: E-Gifts, the Entourage, the
+       seat, Live, Photos of you). Its tile left the Day's list (`partsHiddenOn`), so its stand-in leaves the canvas, as on
+       the real one (`site-body.tsx` `dayPartHere`). The lab drew these three whatever the table said (walk 2026-10-12). */
+    if (key.startsWith('f:') && MAKER_FIXED_PART[key.slice(2) as MakerFixedKey] !== undefined && !tiles.includes(key)) continue;
     const page = makerStagesPageOf('event', key, keys);
     filled.add(page);
     byPage.set(page, [

@@ -23,7 +23,19 @@ push (it must never reach main). Scripts and pictures: `~/Documents/Claude/Proje
   scene-style-row, element-sheet, type-in-place, use-scene-canvas, love-story-live, studio-dos) is exposed when the
   ONLY step of a visit on that scene is undone: the next pick there is built on the undone copy and writes it back.
 
-## 2 · the three known faults — see below as they progress
+## 2 · the three known faults — FIXED in code (commit "fix(maker): the RSVP card opens whole…"), after-pictures PENDING
+- Before-pictures (`shots/2-before-*.png`, sheet `shots/sheet-2-before.png`, numbers `shots/2-before.json`): the stage
+  opens with the card picked; at +1.5 s the frame sits at scrollY 122 (both heights) — the card's masthead is cut and
+  the frame's "CARD" tag lies on "Teresita Aquino". Question › box open: only ✕, no bar ("bars": []).
+- CAUSE (one for the first two): `stage-tools.tsx` `centrePart` brings up `findMakerSection('f:rsvp')` (the form's own
+  section, under the guest's name) while the frame is drawn round the WHOLE card. FIX inside RSVP's files: a picked
+  card (no line) is sent `RSVP_TOP_MESSAGE` a beat after the pick and on a frame's `rsvpReady` — the bridge's
+  existing hold (top, a non-couple scroll put back for 1.5 s). Done: `RsvpPanelTypingBar` (rsvp-line-list.tsx), the
+  stage's own typing bar for the panel's open box, shown by rule.
+- Guard `lib/the-rsvp-stage-shows-the-card-and-done.test.ts` 3/3; sabotaged 4 ways red; RSVP neighbours 182/182.
+- AFTER-PICTURES NOT YET TAKEN: the heavy lock was held by "speed-guest" with 7 waiting; my queued run was cancelled
+  so the tree would not change under it. To take: `LOOK_TAG=after bash shoot.sh look2.mjs done.mjs` (look2 now
+  records the tag's place at open; done.mjs types in Question, presses the bar's Done, checks the draft kept it).
 ## 3 · the picture line — not started
 ## 4 · checks — not started
 ## 5 · push / draft PR — not started

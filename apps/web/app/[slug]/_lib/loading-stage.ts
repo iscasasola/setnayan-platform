@@ -11,7 +11,8 @@
  * that cover, the cover is exactly "another website under".
  *
  * So the page asks, before its slow reads, whether this visitor is about to
- * be shown the full-screen film, and if they may be, draws the quiet screen:
+ * be shown the full-screen film — or the story after the day (`stageIsTheStory`)
+ * — and if they may be, draws the quiet screen:
  * the couple's mark on the page's own ground, nothing else. It never draws a
  * stage's page it is not sure of.
  *
@@ -61,6 +62,19 @@ export function stageOpensOnTheFilm(phase: LifecyclePhase, facts: StageFilmFacts
   );
 }
 
+/**
+ * Is this stage's page the story after the day (Post Event)?
+ *
+ * The same fault, one stage along (found while fixing N07, built 2026-10-11 on
+ * the owner's word): after the day the body is the editorial story — no cover,
+ * no "invite you to celebrate", no link down to the day — and the invitation's
+ * cover standing in front of it while it loads is another stage's page too.
+ * The plan's own fact (`resolveSiteBodyPlan`: `showEditorial`).
+ */
+export function stageIsTheStory(phase: LifecyclePhase, facts: Pick<StageFilmFacts, 'phasesEnabled'>): boolean {
+  return facts.phasesEnabled && phase === 'editorial';
+}
+
 export function loadingScreenFor(
   input: StageFilmFacts & {
     /** The request asks for the Maker's canvas (`asksForHostCanvas`) — left as it is. */
@@ -77,5 +91,9 @@ export function loadingScreenFor(
 ): LoadingScreen {
   if (input.hostCanvas) return 'page';
   const possible = [input.pinnedPhase ?? input.clockPhase, ...(input.askedPhase ? [input.askedPhase] : [])];
-  return possible.some((p) => stageOpensOnTheFilm(solemnAdjustedPhase(p, input.solemn), input)) ? 'quiet' : 'page';
+  return possible
+    .map((p) => solemnAdjustedPhase(p, input.solemn))
+    .some((p) => stageOpensOnTheFilm(p, input) || stageIsTheStory(p, input))
+    ? 'quiet'
+    : 'page';
 }

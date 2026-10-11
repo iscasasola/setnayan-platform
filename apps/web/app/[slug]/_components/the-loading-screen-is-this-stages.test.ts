@@ -21,6 +21,7 @@
  * SABOTAGE RUN 2026-10-11 (committed first, put back by `git checkout`, re-checked):
  *   · `loadingScreenFor` made to answer "page" always → (1) (2) red;
  *   · the skeleton made to ignore `quiet` → (4) red;
+ *   · (2026-10-11, Post Event) `stageIsTheStory` made to answer false → (1) (2) red;
  *   · `quiet={…}` taken off the fallback in `page.tsx` → (5) red.
  */
 import { test } from 'node:test';
@@ -57,9 +58,10 @@ function widgetsWithLead(lead: StdLead | null): InvitationWidgetRow[] {
   ];
 }
 
-/** The page the guest is about to get, by the plan itself. */
+/** The page the guest is about to get, by the plan itself: is it NOT the cover's page — the full-screen film, or
+ *  (2026-10-11, the same rule one stage along) the story after the day? */
 function planIsTheFilm(phase: LifecyclePhase, f: { phasesEnabled: boolean; may: boolean; lead: StdLead | null; stdFilm: boolean }): boolean {
-  return resolveSiteBodyPlan({
+  const plan = resolveSiteBodyPlan({
     identity: 'guest',
     phasesEnabled: f.phasesEnabled,
     lifecyclePhase: phase,
@@ -70,7 +72,8 @@ function planIsTheFilm(phase: LifecyclePhase, f: { phasesEnabled: boolean; may: 
     liveMediaPublic: false,
     weddingOnlyParts: { save_the_date_film: f.may },
     widgets: widgetsWithLead(f.lead),
-  }).fullBleed;
+  });
+  return plan.fullBleed || plan.body === 'editorial';
 }
 
 test('(1) "quiet" exactly when the page about to appear is the full-screen film — the rule and the plan, on every combination', () => {
@@ -95,8 +98,9 @@ test('(1) "quiet" exactly when the page about to appear is the full-screen film 
     }
   assert.ok(cases === 4 * 5 * 3 * 2 * 2 * 2 * 2, `ran ${cases} combinations`);
   // The film: a Save the Date by the pin or the clock (5 of 20) × never chosen or film (2 of 3), and each of the
-  // other four facts on its one arm.
-  assert.equal(films, 10, `anti-vacuity: ${films} of ${cases} combinations are the film`);
+  // other four facts on its one arm = 10. The story: Post Event by the pin or the clock (5 of 20) × every lead (3)
+  // × may (2) × film (2) × solemn (2), with the engine on = 120.
+  assert.equal(films, 130, `anti-vacuity: ${films} of ${cases} combinations are the film or the story`);
 });
 
 test('(2) a ?phase= that may or may not be honoured: quiet if EITHER stage is the film', () => {
@@ -105,8 +109,13 @@ test('(2) a ?phase= that may or may not be honoured: quiet if EITHER stage is th
   assert.equal(loadingScreenFor({ ...base, clockPhase: 'rsvp', askedPhase: 'save_the_date' }), 'quiet');
   // A Save the Date by the clock, a host asking to see the invitation — a guest who types it still gets the film.
   assert.equal(loadingScreenFor({ ...base, clockPhase: 'save_the_date', askedPhase: 'rsvp' }), 'quiet');
-  // Neither is the film.
+  // Neither is the film or the story.
   assert.equal(loadingScreenFor({ ...base, clockPhase: 'rsvp', askedPhase: 'event' }), 'page');
+  // Post Event — by the clock, by the pin, or asked for — is never the invitation's cover either.
+  assert.equal(loadingScreenFor({ ...base, clockPhase: 'editorial', askedPhase: null }), 'quiet');
+  assert.equal(loadingScreenFor({ ...base, clockPhase: 'rsvp', pinnedPhase: 'editorial', askedPhase: null }), 'quiet');
+  assert.equal(loadingScreenFor({ ...base, clockPhase: 'event', askedPhase: 'editorial' }), 'quiet');
+  assert.equal(loadingScreenFor({ ...base, phasesEnabled: false, clockPhase: 'editorial', askedPhase: null }), 'page');
   // The one fact, said directly: a wake never opens on the film.
   assert.equal(stageOpensOnTheFilm(solemnAdjustedPhase('save_the_date', true), { phasesEnabled: true, mayShowStdFilm: true, storedLead: null, stdFilm: true }), false);
 });

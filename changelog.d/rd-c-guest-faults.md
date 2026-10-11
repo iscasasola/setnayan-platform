@@ -109,3 +109,19 @@ stopped and reported, not changed. N02 · N04 · N05 · N08 · N09 · N10 · N16
 N18 · N20 are the owner's calls (options in the builder's report).
 
 SPEC IMPACT: None.
+
+## 2026-10-11 · feat(guest): the owner's ten answers to the guest walk, and two faults found on the way (Batch C)
+
+The owner answered the options list with "ok all" (relayed by the controller,
+2026-10-11). Built, not live. One commit each.
+
+**Post Event's loading screen** (found while fixing N07). After the day the
+page is the story, not the invitation's cover; `loadingScreenFor` now answers
+"quiet" for it too (`stageIsTheStory`, the plan's own `showEditorial` fact).
+Guard: `the-loading-screen-is-this-stages.test.ts` (the plan on 960 combinations).
+
+SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
+2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
+face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG
+rows for the owner's 2026-10-11 answers are the controller's to write (the
+builder heard them second-hand); none was written from this branch.

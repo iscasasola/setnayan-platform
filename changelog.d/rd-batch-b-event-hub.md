@@ -28,3 +28,21 @@ half of `8bc34985f` · the `vendors/find-walk-fixes.test.ts` line of `299e97e5b`
 SPEC IMPACT: None — an assembly. The two migrations are the merged branches' own
 (`20271267016300` four notification types · `20271267092468` room for added RSVP lines) and reach production only
 through the pipeline.
+
+## 2026-10-11 · fix(maker): the dev lab's draft engine no longer ships in the Maker's first load
+
+CI's "bundle size check" on #6475 read 519.4 KB gzipped for the Maker's first load (ceiling 507; `main` 501.7).
+Under 1 KB of the 17.7 was the Maker's own. The rest was one import this set added in a dev page:
+`app/dev/maker-lab/maker-lab-shell.tsx` (a browser file) imported `./lab-draft`, which runs the real draft's
+reducers. Webpack counts an export as "used" once for the whole browser build, so `lib/hub-draft.ts` — a field name
+and two helpers in the browser until then — became the whole engine in every chunk that carries it, the Maker's
+first load among them. A page that 404s in production is still compiled.
+
+- The lab now reaches its engine by an `import()` in a branch a production build removes
+  (`process.env.NODE_ENV === 'production' ? … : import('./lab-draft')`). In dev it is fetched on arrival and the draft
+  door waits for it; the lab's reducers, cookies and bar are unchanged. Nothing in the Maker was made lazy.
+- `MAX_MAKER_FIRST_LOAD_GZIP` is untouched.
+- New guard `lib/the-draft-engine-stays-out-of-the-browser.test.ts`: no file a browser can be sent imports anything
+  from `lib/hub-draft.ts` but five small names, and none of the engine's files is reachable from a `'use client'` file.
+
+SPEC IMPACT: None.

@@ -4,7 +4,7 @@ import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
 import { LAB_SCRUB_GUEST } from './lab-scrub';
-import { labDraftCookies, labDraftFrom, labDraftStep, labRenderedSummary } from './lab-draft';
+import type * as LabDraft from './lab-draft';
 import { LAB_SAMPLE } from './guest/lab-sample';
 import { HUB_DRAFT_BAR_FIELD, requestMakerRefresh } from '@/lib/maker-refresh';
 import { offerScrubOutInTheLab } from '@/lib/scrub-out-offered';
@@ -43,10 +43,42 @@ import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 /** maria-and-jose's five main colours — the Look rows' and the sample screen's. */
 const LAB_FIVE = ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'];
 
+/**
+ * 📦 THE LAB'S DRAFT ENGINE IS FETCHED BY THE LAB, IN DEV — A PRODUCTION BUILD NEVER COMPILES IT INTO THE BROWSER.
+ *
+ * MEASURED 2026-10-11 (PR #6475, CI "bundle size check"): the Maker's first load went 501.7 KB → 519.4 KB gzipped,
+ * 12.4 KB over its ceiling (`scripts/check-maker-js-budget.mjs`) — and under 1 KB of that was the Maker's own new
+ * code. The rest was THIS file's `import … from './lab-draft'`. `lab-draft.ts` runs the real draft's reducers
+ * (`mergeHubDraft` · `sanitizeHubDraft` · `summarizeHubDraft`, and `planHubDraftApply` through the change lines and
+ * the Pro effects), which until that import only the SERVER ran. Webpack decides which exports of a module are
+ * "used" ONCE, for the whole browser build — so the day one browser file anywhere imported them, `lib/hub-draft.ts`
+ * stopped being a field name and two small helpers (708 B in the shipped chunk) and became the whole engine, with
+ * every sanitiser it calls, in EVERY chunk that carries it. The Maker's first load carries it (`HUB_DRAFT_FIELD`),
+ * so every couple's phone downloaded a dev page's engine.
+ *
+ * 🔑 A LAB THAT 404s IN PRODUCTION IS STILL COMPILED — `page.tsx`, and everything this file imports.
+ * So the engine is reached by an `import()` that a production build removes: `process.env.NODE_ENV` is a build-time
+ * constant, the branch below is dead there, and webpack does not follow an import in a dead branch. No browser file
+ * imports the engine, and `lib/hub-draft.ts` is its few small names again. In dev (the only place this page draws)
+ * the engine is fetched on arrival, before anything can be pressed; the draft door waits for it.
+ * 🛡 `lib/the-draft-engine-stays-out-of-the-browser.test.ts` fails if a file the browser can load imports the engine
+ * again — from here or from anywhere else.
+ */
+type LabDraftEngine = typeof LabDraft;
+let labEngineLoaded: LabDraftEngine | null = null;
+const labEngine = (): Promise<LabDraftEngine> =>
+  process.env.NODE_ENV === 'production' ? Promise.reject(new Error('The Maker lab is dev-only.')) : import('./lab-draft').then((m) => (labEngineLoaded = m));
+/** The engine in hand. Every reader below runs only after `labEngine()` has answered. */
+function labEngineNow(): LabDraftEngine {
+  if (!labEngineLoaded) throw new Error('The lab’s draft engine has not arrived yet.');
+  return labEngineLoaded;
+}
+
 /** Where the browser keeps the lab's draft — the Scrub chain's is its own (`./lab-scrub.ts`). */
 const labDraftKey = (scrub: boolean) => (scrub ? 'lab_draft_scrub_v1' : 'lab_draft_v1');
 const labScrubOn = () => new URLSearchParams(window.location.search).get('scrub') === '1';
 function readLabDraft(scrub: boolean) {
+  const { labDraftFrom } = labEngineNow();
   try {
     return labDraftFrom(window.localStorage.getItem(labDraftKey(scrub)));
   } catch {
@@ -57,7 +89,8 @@ function readLabDraft(scrub: boolean) {
  * The draft's state, handed to the lab's server-drawn pages: every cookie written from the STATE (`labDraftCookies`),
  * a cleared one cleared. True when a cookie CHANGED — the pages then need drawing again.
  */
-function writeLabCookies(draft: ReturnType<typeof labDraftFrom>, scrub: boolean): boolean {
+function writeLabCookies(draft: ReturnType<LabDraftEngine['labDraftFrom']>, scrub: boolean): boolean {
+  const { labDraftCookies } = labEngineNow();
   const held = new Map(document.cookie.split('; ').map((c) => [c.slice(0, c.indexOf('=')), c.slice(c.indexOf('=') + 1)] as const));
   let changed = false;
   for (const [name, value] of Object.entries(labDraftCookies(draft, scrub))) {
@@ -90,6 +123,7 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   }
   const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
+  const { labDraftStep } = await labEngine();
   const scrub = labScrubOn();
   const { draft, result } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD) }, scrub);
   if (result.ok) {
@@ -166,7 +200,16 @@ export function MakerLabShell({
      the cookies written from it. On arrival they are written afresh — a tab opened elsewhere, an older lab's cookies,
      a cleared jar: whatever the pages were drawn with, they are drawn again from the draft if it differs. */
   useEffect(() => {
-    if (writeLabCookies(readLabDraft(scrub), scrub)) requestMakerRefresh();
+    let here = true;
+    void labEngine().then(
+      () => {
+        if (here && writeLabCookies(readLabDraft(scrub), scrub)) requestMakerRefresh();
+      },
+      () => {},
+    );
+    return () => {
+      here = false;
+    };
   }, [scrub]);
   /* 🧪 "Scrub out" ships dark in the app (`lib/scrub-out-offered.ts`); on the lab's chain (`?scrub=1`) the Maker's
      controls keep offering it, so the owner can go on arranging the real thing. Put back when the lab is left. */
@@ -180,7 +223,16 @@ export function MakerLabShell({
   const [bar, setBar] = useState<HubDraftSummary>(summary);
   useEffect(() => {
     const standIn = new URLSearchParams(window.location.search).has('changes');
-    setBar(standIn ? summary : labRenderedSummary(readLabDraft(scrub), scrub));
+    let here = true;
+    void labEngine().then(
+      ({ labRenderedSummary }) => {
+        if (here) setBar(standIn ? summary : labRenderedSummary(readLabDraft(scrub), scrub));
+      },
+      () => {},
+    );
+    return () => {
+      here = false;
+    };
   }, [summary, scrub, renderStamp]);
   const stand = (name: string) => <div data-lab-stand={name} className="rounded-md bg-white/70 p-3 text-[13px] text-ink/60">{name}</div>;
   const rsvpProps = useMemo<ComponentProps<typeof MakerRsvpStage>>(

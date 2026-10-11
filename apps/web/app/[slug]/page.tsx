@@ -106,6 +106,7 @@ import { eventNounOf } from './_lib/event-noun';
 import {
   loadEventShell,
   loadGuestContext,
+  loadGuestOwnRow,
   loadHostMembership,
   loadCoupleMembership,
   loadLiveLayer,
@@ -143,6 +144,7 @@ import {
   sampleTicketState,
   SIMULATED_GUEST_INVITATION_TEXT,
 } from '@/lib/simulated-guest-preview';
+import { seeAsOf } from '@/lib/see-as';
 import { SampleViewerInert } from './_components/sample-viewer-inert';
 import { OwnerRibbon } from './_components/owner-ribbon';
 import { buildOwnerRibbon } from '@/lib/owner-ribbon';
@@ -1235,6 +1237,15 @@ async function invitationBody({
   const draftedMarch = hostDraft?.march?.flat();
   startAhead(loadDoorwayFacts(admin, event.event_id, event.event_type ?? null));
   startAhead(loadEntourage(admin, event.event_id, draftedNameStyle, draftedMarch));
+  /* ⏩ …and an invited guest's OWN ROW (2026-10-12). It needs only the guest id a
+     verified cookie for THIS event already carries, and it used to wait for the
+     whole day-of layer below. `loadGuestContext` awaits this same `cache()`d
+     read, so it is one request — a step earlier. Only when every path below
+     reads it: a cookie that names another event is anonymous here, and a host
+     looking at a sample guest (`?as=`) is shown the sample, not their own row. */
+  if (session && session.event_id === event.event_id && seeAsOf(search.as) === null) {
+    startAhead(loadGuestOwnRow(admin, session.guest_id));
+  }
   const {
     scheduleBlocks,
     backdropConfig,

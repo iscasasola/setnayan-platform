@@ -58,7 +58,7 @@ import { siteFontLook } from '@/lib/site-role-look';
 import { pageWordBase, pinPlateInk, pinWordInks, proSiteVarsFor } from './pro-site-vars';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
-import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { isDataPrivacyControlActive, readDataPrivacyControlsTogether } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
@@ -192,6 +192,8 @@ function theOneEventRead(admin: AdminClient, slug: string) {
 }
 
 export const loadEventShell = cache(async (slug: string) => {
+  // Every guest-tree render begins here: the data-privacy controls it asks about are read in one request.
+  readDataPrivacyControlsTogether();
   const admin = createAdminClient();
   const { data, error } = await theOneEventRead(admin, slug).select(
       'event_id, public_id, display_name, event_date, event_end_date, cleared_at, event_date_precision, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_roles, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, gifts_on, date_candidates',
@@ -630,7 +632,16 @@ export const loadMedia = cache(
        None of these needs another's answer; in single file each waited for the
        one above it. Same reads, same count, the same lines receive them. */
     const proWatermarkHiddenAhead = startAhead(websiteProActiveFor(event.event_id));
-    const venueBookingsAhead = startAhead(loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined));
+    /* 1️⃣ The Venue scene's stored choices come from the scene rows this view reads
+       anyway (`loadWidgets` — `cache()`d, the page awaits this same read) instead
+       of a second, one-row read of the same table. The rows as STORED: the host's
+       drafted choices still arrive on their own, as `draftedVenueChoices`. */
+    const venueSceneConfig = loadWidgets(admin, event.event_id).then(
+      (scenes) => scenes.find((scene) => scene.widget_type === 'venue_map')?.config_json ?? null,
+    );
+    const venueBookingsAhead = startAhead(
+      loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined, venueSceneConfig),
+    );
     const ownsStdRevealAhead = startAhead(eventStdOpeningsActive(admin, event.event_id));
 
     // Paid ANIMATED_MONOGRAM upgrade (₱999 · "Your initials, drawn live").
@@ -1379,6 +1390,58 @@ async function readFirstScan(admin: AdminClient, guestId: string) {
 }
 
 /**
+ * The two answers of a guest's own row that used to be read BESIDE it — one
+ * request each — and now ride in the same read (`loadGuestOwnRow`).
+ */
+const GUEST_OWN_ANSWER_COLUMNS = ['face_tagging_wanted', 'ugc_terms_accepted_at'] as const;
+
+/**
+ * 1️⃣ THE GUEST'S OWN ROW — its own loader (2026-10-12), so the page can ASK for
+ * it as soon as a verified session names this event, beside the live layer,
+ * instead of only after the live layer has answered. `loadGuestContext` below
+ * awaits this same `cache()`d read: one request, wherever it was started.
+ *
+ * 🔒 Still reachable only with a verified session's guest id (the page passes
+ * `session.guest_id` of a cookie already checked against THIS event; the
+ * context loader passes the session it was handed). Nothing ABOUT the guest
+ * leaves before `loadGuestContext` has seen the row and taken its two early
+ * returns.
+ *
+ * ── TWO ANSWERS RIDE ALONG ────────────────────────────────────────────────
+ * `face_tagging_wanted` and `ugc_terms_accepted_at` are columns of this same
+ * row; each was a second request for it. They are asked for here and handed
+ * to the context loader SEPARATELY (`answers`) — the guest row the page gets
+ * is the row it always was. If the database does not know one of them (42703,
+ * a deploy ahead of its migration — the case their separate, tolerant reads
+ * were written for) the row is read alone, exactly as before, `answers` is
+ * null, and the context loader sends those two reads itself, with their own
+ * fallbacks. Any OTHER failure is the row's own failure, returned as it is.
+ */
+export const loadGuestOwnRow = cache(async (admin: AdminClient, guestId: string) => {
+  const read = <S extends string>(columns: S) =>
+    admin.from('guests').select(columns).eq('guest_id', guestId).is('deleted_at', null).maybeSingle();
+  const select = async <S extends string>(columns: S) => {
+    const whole = await read(`${columns}, ${GUEST_OWN_ANSWER_COLUMNS.join(', ')}` as S);
+    if (whole.error) {
+      return whole.error.code === '42703' ? { ...(await read(columns)), answers: null } : { ...whole, answers: null };
+    }
+    if (!whole.data) return { ...whole, answers: null };
+    const { face_tagging_wanted, ugc_terms_accepted_at, ...own } = whole.data as unknown as Record<string, unknown>;
+    return {
+      ...whole,
+      data: own as unknown as NonNullable<typeof whole.data>,
+      answers: {
+        face_tagging_wanted: (face_tagging_wanted as boolean | null | undefined) ?? null,
+        ugc_terms_accepted_at: (ugc_terms_accepted_at as string | null | undefined) ?? null,
+      },
+    };
+  };
+  return select(
+    'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
+  );
+});
+
+/**
  * Guest-scoped context — THE ONLY loader that may select guest columns.
  *
  * Structurally unreachable without a verified guest session: the session is a
@@ -1409,14 +1472,11 @@ export const loadGuestContext = cache(
       throw new Error('loadGuestContext called with a session for another event');
     }
 
-    const { data: guest, error: guestError } = await admin
-      .from('guests')
-      .select(
-        'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
-      )
-      .eq('guest_id', session.guest_id)
-      .is('deleted_at', null)
-      .maybeSingle();
+    // The guest's own row — the page may have asked for it already, beside the
+    // live layer (`loadGuestOwnRow` is `cache()`d: this is that same read).
+    const ownRead = loadGuestOwnRow(admin, session.guest_id);
+    const { data: guest, error: guestError } = await ownRead;
+    const ownAnswers = (await ownRead).answers;
 
     // Same distinction as loadEventShell: `not_found` renders "we couldn't find
     // that invitation", which is a real accusation to make at someone holding a
@@ -1465,7 +1525,10 @@ export const loadGuestContext = cache(
     const liveGalleryAhead = galleryWindowAhead ? startAhead(getGuestLiveGallery(event.event_id, guest.guest_id)) : null;
     const ownShotsAhead = galleryWindowAhead ? startAhead(getGuestOwnShots(event.event_id, guest.guest_id)) : null;
     const faceTaggingAhead = startAhead(resolveFaceTagging(admin, event.event_id));
-    const faceWishAhead = startAhead(readFaceTaggingWish(admin, guest.guest_id));
+    // Their answer about tagging rode in with their row; read on its own only when it could not.
+    const faceWishAhead = ownAnswers
+      ? Promise.resolve({ data: { face_tagging_wanted: ownAnswers.face_tagging_wanted }, error: null })
+      : startAhead(readFaceTaggingWish(admin, guest.guest_id));
     const faceEnrollmentOnAhead = startAhead(isDataPrivacyControlActive('face_enrollment'));
     const checkinAhead = galleryWindowAhead ? startAhead(readGuestCheckin(admin, event.event_id, guest.guest_id)) : null;
     const firstScanAhead = startAhead(readFirstScan(admin, guest.guest_id));
@@ -1696,11 +1759,14 @@ export const loadGuestContext = cache(
       const [quota, { data: ugcRow }, { data: blockRow }, { data: styleRow }] =
         await Promise.all([
           fetchGuestQuota(admin, event.event_id, guest.guest_id),
-          admin
-            .from('guests')
-            .select('ugc_terms_accepted_at')
-            .eq('guest_id', guest.guest_id)
-            .maybeSingle(),
+          // The terms flag rode in with their row; read on its own only when it could not.
+          ownAnswers
+            ? { data: { ugc_terms_accepted_at: ownAnswers.ugc_terms_accepted_at } }
+            : admin
+                .from('guests')
+                .select('ugc_terms_accepted_at')
+                .eq('guest_id', guest.guest_id)
+                .maybeSingle(),
           admin
             .from('event_blocked_users')
             .select('id')

@@ -100,7 +100,8 @@ test('only these reads are started ahead — each one every path below awaits, n
   // facts leave together instead of one behind another. Reads, every one.
   assert.deepEqual(
     aheadCalls(PAGE).sort(),
-    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadWidgets', 'readGuestSession', 'resolveVendorCapability'].sort(),
+    // + `loadGuestOwnRow` (2026-10-12): an invited guest's own row leaves beside the day-of layer — see below.
+    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestOwnRow', 'loadWidgets', 'readGuestSession', 'resolveVendorCapability'].sort(),
   );
   assert.deepEqual(
     aheadCalls(LOADERS).sort(),
@@ -121,8 +122,22 @@ test('only these reads are started ahead — each one every path below awaits, n
     CONTEXT.indexOf("kind: 'not_found'") > -1 && CONTEXT.indexOf("kind: 'not_found'") < CONTEXT.indexOf('startAhead('),
     'a read about a guest is started before their row is known to exist',
   );
-  // The guest's own facts (their row, their seat, their ticks) are read only past the session checks — never ahead.
+  // The guest's own facts (their seat, their ticks, everything ABOUT them) are read only past the session checks — never ahead.
   assert.doesNotMatch(PAGE, /startAhead\(\s*(loadGuestContext|findGuestSeatForUser|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
+  // Their ROW is the one exception (2026-10-12), and only under the three conditions that make every path below read it:
+  // a session was read and verified, it names THIS event, and the host is not looking at a sample guest.
+  assert.match(
+    PAGE,
+    /if \(session && session\.event_id === event\.event_id && seeAsOf\(search\.as\) === null\) \{\s*startAhead\(loadGuestOwnRow\(admin, session\.guest_id\)\);\s*\}/,
+    'the guest row is started ahead without its three conditions',
+  );
+  assert.equal(count(PAGE, 'loadGuestOwnRow('), 1, 'the guest row is asked from the page a second time');
+  assert.ok(
+    PAGE.indexOf('const session = await readGuestSession();') < PAGE.indexOf('startAhead(loadGuestOwnRow('),
+    'the guest row is asked before the session cookie has been read and verified',
+  );
+  // …and the context loader awaits that SAME read, by the same guest id, before anything else about them.
+  assert.match(CONTEXT, /const ownRead = loadGuestOwnRow\(admin, session\.guest_id\);\s*const \{ data: guest, error: guestError \} = await ownRead;/);
 });
 
 test('a `cache()`d read started ahead is awaited by the SAME call with the SAME arguments — so it is still one read', () => {
@@ -151,11 +166,12 @@ test('a read that is NOT `cache()`d keeps its promise: started once, awaited onc
   assert.ok(MEDIA.length > 2000 && LIVE.length > 2000, 'the loaders moved — re-anchor this test');
   for (const [src, name, call] of [
     [MEDIA, 'proWatermarkHiddenAhead', 'websiteProActiveFor(event.event_id)'],
-    [MEDIA, 'venueBookingsAhead', 'loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined)'],
+    // (the bookings also take the Venue scene's stored config from the scene rows — one read fewer, 2026-10-12)
+    [MEDIA, 'venueBookingsAhead', 'loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined, venueSceneConfig)'],
     [MEDIA, 'ownsStdRevealAhead', 'eventStdOpeningsActive(admin, event.event_id)'],
     [LIVE, 'hostCameraOpenAhead', 'eventPapicGuestActive(admin, event.event_id)'],
   ] as const) {
-    assert.equal(count(src, `const ${name} = startAhead(${call});`), 1, `${name} is not started ahead`);
+    assert.equal(count(src.replace(/\s+/g, ' '), `const ${name} = startAhead( ${call}, );`) + count(src, `const ${name} = startAhead(${call});`), 1, `${name} is not started ahead`);
     assert.equal(count(src, `await ${name};`), 1, `${name} is never awaited — its failure would be swallowed`);
     assert.equal(count(src, call), 1, `${call} is also asked a second time in the same loader`);
   }

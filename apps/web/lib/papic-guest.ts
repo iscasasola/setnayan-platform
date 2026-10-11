@@ -5,6 +5,7 @@ import { readEventPoolStatus, EVENT_POOL_ABSENT } from '@/lib/papic-event-pool';
 import { papicIsOn } from '@/lib/event-answers';
 import { papicGuestCapLifts, papicGuestCapAppliesWithCeiling } from '@/lib/papic-guest-cap';
 import { eventRowOnce } from '@/lib/event-row-once';
+import { askedOnce } from '@/lib/request-once';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -122,6 +123,19 @@ export async function eventPapicGuestActive(
 export type PapicGuestAccess = 'on' | 'off' | 'unknown';
 
 export async function eventPapicGuestAccess(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PapicGuestAccess> {
+  /* ONE ANSWER PER RENDER (2026-10-12, `lib/request-once.ts`). One guest view
+     asks this three times — the page's camera slot, the guest's own camera,
+     the face-tagging gate — and each asking sent the pool RPC and the switch
+     read again. Same asker, same event, same question: asked once. Outside a
+     render (an action, the capture route) nothing is remembered — every gate
+     still reads every time, exactly as before. */
+  return askedOnce(supabase, 'papic-guest-access', [eventId], () => readPapicGuestAccess(supabase, eventId));
+}
+
+async function readPapicGuestAccess(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<PapicGuestAccess> {

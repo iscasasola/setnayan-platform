@@ -169,6 +169,8 @@ async function main() {
     // The doorway facts and the entourage are started ahead of the live layer.
     startAhead(L.loadDoorwayFacts(admin, EVENT_ID, 'wedding'));
     startAhead(L.loadEntourage(admin, EVENT_ID, undefined, undefined));
+    // …and, for a cookie that names this event, the guest's own row.
+    if (kind === 'invited') startAhead(L.loadGuestOwnRow(admin, GUEST_ID));
     const live = await phase('live-layer', () => L.loadLiveLayer(admin, event, dayOfPhase as never));
     await phase('doorway-facts', () => L.loadDoorwayFacts(admin, EVENT_ID, 'wedding'));
     await phase('entourage', () => L.loadEntourage(admin, EVENT_ID, undefined, undefined));

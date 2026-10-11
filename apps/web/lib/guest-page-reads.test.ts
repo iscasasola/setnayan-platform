@@ -62,12 +62,22 @@ const summary = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.
   shell, then once per fact somebody wanted from it. One read now carries them
   all: 23 → 16 requests for a stranger (17 on the day), 34 → 24 for an invited
   guest (37 → 28 on the day).
+
+  FEWER REQUESTS, SAME ANSWERS (2026-10-12):
+    · the Venue scene's stored choices come from the scene rows the view reads
+      anyway, not from a second read of `invitation_widgets`        −1, every view
+    · "is the guest camera on?" is asked once per render, not three times
+      (the pool RPC twice more)                                      −2, invited
+    · the data-privacy controls a view asks about are one read       −1, invited
+    · the guest's tagging answer rides in with their own row         −1, invited
+  …and an invited guest's own row leaves beside the day-of layer instead of
+  after it: one step shallower.
 */
 const PINNED: Record<keyof Report, { calls: number; depth: number }> = {
-  strangerBeforeTheDay: { calls: 16, depth: 5 },
-  strangerOnTheDay: { calls: 17, depth: 6 },
-  invitedBeforeTheDay: { calls: 24, depth: 7 },
-  invitedOnTheDay: { calls: 28, depth: 8 },
+  strangerBeforeTheDay: { calls: 15, depth: 5 },
+  strangerOnTheDay: { calls: 16, depth: 6 },
+  invitedBeforeTheDay: { calls: 19, depth: 6 },
+  invitedOnTheDay: { calls: 23, depth: 7 },
 };
 
 test('the event’s row is read ONCE per view — and the page’s own row carries none of the extras', () => {

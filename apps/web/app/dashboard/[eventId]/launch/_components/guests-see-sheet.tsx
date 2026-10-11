@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { Check, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerSave, requestCanvasRedraw, requestMakerRefresh } from '@/lib/maker-refresh';
 import { stageEyeValue } from '@/lib/stage-eye';
 import {
   GUESTS_SEE_COLUMNS,
@@ -155,9 +155,19 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify(patch));
-        /* The Maker's ONE refresh (the eye's own, `editor-shell.tsx`): the canvas reloads for the render it brings. */
+        /* ⚡ THE COUNT COMES BACK WITH THE WRITE (`HUB_DRAFT_BAR_FIELD`): the Apply bar's ✓ read 0 until the whole-Maker
+           render landed (owner's run 2026-10-11: ~6 s) — it now answers in this one request. */
+        fd.set(HUB_DRAFT_BAR_FIELD, '1');
+        /* The Maker's ONE refresh (the eye's own, `editor-shell.tsx`) still follows: the navigator's lists and this
+           table's own rows come from that render. */
         const r = await makerSave(() => area.door(area.eventId, fd), requestMakerRefresh);
         if (!r.ok) return setLine(r.error || W.notKept);
+        /* ⚡ …AND THE PAGE DOES NOT WAIT FOR IT. This save is unheld, so the canvas used to change only after the
+           whole-Maker render (3–6 s on production — `lib/maker-refresh.ts`'s own measurement) and then its own. The
+           draft is written now: every page the Maker shows re-renders itself in place, at once
+           (`MAKER_CANVAS_REDRAW_EVENT` — the same document, the same scroll). The later Maker render asks the same
+           page the same thing and changes nothing more. */
+        requestCanvasRedraw();
         setTable(guestsSeeKept(table, sent));
         setWrites({});
         setUndo([]);

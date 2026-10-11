@@ -1754,7 +1754,7 @@ async function InvitationBody({
     invitationUrl,
     papicGuestActive,
     guestRollCameraReady,
-    seatPassActive,
+    seatPassActive: seatPassHeld,
     guestLiveGallery,
     guestOwnShots,
     poolGalleryOpen,
@@ -1969,6 +1969,8 @@ async function InvitationBody({
      The body withholds them itself (`site-body.tsx` `partsOff`); the Me slot and the bar below are drawn HERE, from
      this function's own facts, so they ask the same one reading. Empty when nothing is stored for the stage. */
   const partsOffHere = partsHiddenOn(widgets, lifecyclePhase, phasesEnabled);
+  /* The seat fact, withheld at its source: Me's seat line below and the body's own seat places read this one name. */
+  const seatPassActive = seatPassHeld && !partsOffHere.has('seat');
   const meSlotFor = (replyHref: string | null) => isEditorCanvas ? null : (
     <>
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
@@ -1988,7 +1990,7 @@ async function InvitationBody({
     ) : null}
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
         (4)) — the same line the Details scene carries; never a bar slot. */}
-    {seatPassActive && !partsOffHere.has('seat') ? (
+    {seatPassActive ? (
       <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
     ) : null}
     <GuestMe

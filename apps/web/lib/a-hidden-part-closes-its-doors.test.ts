@@ -50,7 +50,11 @@ test('1 · the rail: a seat plan that is withheld, and a gift count of none, dra
 test("2 · the page's frame: the seat line, the bar's camera and the photos door ask the one reading", () => {
   const PAGE = src('app/[slug]/page.tsx');
   assert.match(PAGE, /const partsOffHere = partsHiddenOn\(widgets, lifecyclePhase, phasesEnabled\);/);
-  assert.match(PAGE, /\{seatPassActive && !partsOffHere\.has\('seat'\) \? \(\s*<SeatDoorLine/);
+  // The seat fact is withheld where the page receives it, so Me's seat line and the body read one gated name.
+  assert.match(PAGE, /seatPassActive: seatPassHeld,/);
+  assert.match(PAGE, /const seatPassActive = seatPassHeld && !partsOffHere\.has\('seat'\);/);
+  assert.equal((PAGE.match(/seatPassHeld/g) ?? []).length, 2, 'the ungated seat fact is read somewhere else');
+  assert.match(PAGE, /\{seatPassActive \? \(\s*<SeatDoorLine/);
   assert.match(PAGE, /cameraReady=\{guestRollCameraReady && !partsOffHere\.has\('camera'\)\}/);
   assert.match(PAGE, /papicGuestActive=\{papicGuestActive && !partsOffHere\.has\('camera'\)\}/);
   assert.match(PAGE, /const galleryCountHere = partsOffHere\.has\('photosofyou'\) \? 0 : \(guestLiveGallery\?\.total \?\? 0\);/);

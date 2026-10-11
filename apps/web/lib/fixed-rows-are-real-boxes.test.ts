@@ -36,7 +36,7 @@ import { FIXED_PARTS, PART_SHOW_KEY, configWithPartShow, partShown, sanitizePart
 import type { InvitationWidgetRow, LifecyclePhase } from './invitation-widgets';
 import { partChoice, partOnStage, partsHiddenOn } from './what-guests-see';
 import { buildGuestsSeeTable } from './guests-see-build';
-import { GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, guestsSeePatch, guestsSeeToggle, type GuestsSeeTable, type GuestsSeeWrites } from './guests-see-table';
+import { GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, guestsSeePatch, guestsSeeRowStatus, guestsSeeToggle, type GuestsSeeTable, type GuestsSeeWrites } from './guests-see-table';
 import { emptyHubDraft, mergeHubDraft, overlayHubDraftWidgets, planHubDraftApply, sanitizeHubDraft } from './hub-draft';
 import { hubDraftChangeLines, partShowWhat } from './hub-draft-change-lines';
 import { stripComments } from './strip-comments';
@@ -261,4 +261,18 @@ test('8 · the Maker shows the same: a hidden part’s tile leaves the stage’s
   // The canvas draws its stand-ins from the same list, minus the same parts.
   const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
   assert.match(BODY, /makerDayPartsOn\(pageStage, place\)\.filter\(\(part\) => !fixedTileHidden\(part, partsOff\)\)\.map\(/);
+});
+
+test('9 · the Studio row says whose picks the table holds; Apply answers with the count and redraws the page at once', () => {
+  assert.equal(guestsSeeRowStatus(table()), 'Our picks');
+  assert.equal(guestsSeeRowStatus(null), 'Our picks');
+  assert.equal(guestsSeeRowStatus(table(withParts({ gifts: { event: false } }))), '1 changed');
+  assert.equal(guestsSeeRowStatus(table(withParts({ gifts: { event: false }, entourage: { save_the_date: true }, live: { editorial: false } }))), '3 changed');
+  // A stored choice that IS our pick is not a change.
+  assert.equal(guestsSeeRowStatus(table(withParts({ gifts: { event: true } }))), 'Our picks');
+  const SHEET = stripComments(readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/launch/_components/guests-see-sheet.tsx'), 'utf8'));
+  const apply = SHEET.slice(SHEET.indexOf('const apply = '), SHEET.indexOf('return (', SHEET.indexOf('const apply = ')));
+  // The count is asked for WITH the write, and the page is redrawn as soon as the write lands — before the Maker's render.
+  assert.match(apply, /fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);\s*const r = await makerSave\(\(\) => area\.door\(area\.eventId, fd\), requestMakerRefresh\);\s*if \(!r\.ok\) return setLine\(r\.error \|\| W\.notKept\);\s*requestCanvasRedraw\(\);/);
+  assert.equal((apply.match(/makerSave\(/g) ?? []).length, 1, 'one Apply is one save');
 });

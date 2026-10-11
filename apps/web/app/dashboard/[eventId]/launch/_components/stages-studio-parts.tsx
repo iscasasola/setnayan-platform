@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Eye } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useOneOpen } from '@/lib/one-open';
 import { pickOptionClass, pickTickClass, pickTrailClass } from '../../website/editor/_components/pick-menu-place';
@@ -16,7 +16,7 @@ import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
 import { MAKER_SIDE_LABEL, makerStageLabel, type MakerSide } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 import { StudioHome, TILE_ICON } from './studio-home';
-import { GUESTS_SEE_WORDS } from '@/lib/guests-see-table';
+import { GUESTS_SEE_WORDS, guestsSeeRowStatus } from '@/lib/guests-see-table';
 import { GuestsSeeSheet, guestsSeeWorkArea } from './guests-see-sheet';
 
 /**
@@ -101,6 +101,8 @@ export function StudioSideSwitch({
   const [list, setList] = useState<'stages' | 'pages' | null>(null);
   /* 🗂 "What guests see" (owner 2026-10-10) — a sheet opened from its row in Studio ▾; never a Studio page. */
   const [guestsSee, setGuestsSee] = useState(false);
+  /* Asked only while the list is open (it is the list's row), once per render: the table it holds says the row's status. */
+  const guestsSeeArea = list === 'pages' ? guestsSeeWorkArea() : null;
   const shut = (which: 'stages' | 'pages') => setList((l) => (l === which ? null : l));
   useOneOpen(list === 'pages', () => shut('pages'));
   const onStages = side === 'stages';
@@ -178,7 +180,7 @@ export function StudioSideSwitch({
                   );
                 })}
                 {/* 🗂 WHAT GUESTS SEE — one more row, only where the work area can answer it (a stage's editor is mounted). */}
-                {guestsSeeWorkArea() ? (
+                {guestsSeeArea ? (
                   <li role="none">
                     <button
                       type="button"
@@ -191,9 +193,16 @@ export function StudioSideSwitch({
                       }}
                       className={pickOptionClass(true, false)}
                     >
+                      {/* The row's shape is its neighbours' (`tileOption`): an icon, the name and its line, a status on the right. */}
+                      <span aria-hidden className="inline-flex shrink-0">
+                        <Eye aria-hidden className="h-[18px] w-[18px] text-sn-accent" strokeWidth={1.9} />
+                      </span>
                       <span className="min-w-0">
                         <span className="block font-semibold">{GUESTS_SEE_WORDS.title}</span>
                         <span className="block text-[12px] font-medium leading-snug opacity-75">{GUESTS_SEE_WORDS.menuLine}</span>
+                      </span>
+                      <span data-pick-trail="muted" data-guests-see-status="" className={pickTrailClass('muted', false)}>
+                        {guestsSeeRowStatus(guestsSeeArea.table)}
                       </span>
                     </button>
                   </li>

@@ -50,9 +50,14 @@ export type MakerPartGroup = { label: string; parts: readonly MakerPartKey[] };
  * once, by its shipped name.
  */
 export const MAKER_PART_GROUPS: readonly MakerPartGroup[] = [
-  { label: 'Words', parts: ['ename', 'names', 'opening', 'greeting', 'message', 'bring'] },
-  { label: 'When & where', parts: ['date', 'place', 'countdown', 'schedule', 'venue'] },
-  { label: 'Your story', parts: ['story', 'march', 'dress'] },
+  { label: 'Words', parts: ['ename', 'names', 'opening', 'greeting', 'message'] },
+  { label: 'When & where', parts: ['date', 'place', 'countdown'] },
+  /* 🗂 ONE GROUPING WITH "WHAT GUESTS SEE" (owner's run 2026-10-11: ＋ filed Dress code under "Your story" while the
+     table files it under "The details"). The table's group, its name and its order (`GROUPS`, lib/guests-see-build.ts:
+     Schedule · Map · Dress code · What to bring) — a couple looking for a part finds it under the same head in both.
+     The prototype's `PART_GROUPS` had these four spread over Words / When & where / Your story. */
+  { label: 'The details', parts: ['schedule', 'venue', 'dress', 'bring'] },
+  { label: 'Your story', parts: ['story', 'march'] },
   { label: 'For each guest', parts: ['myrole', 'mywear', 'myarrive', 'myguests'] },
   { label: 'Replies', parts: ['rsvpcard', 'rsvp', 'yesnote', 'nonote', 'pass', 'seats'] },
   { label: 'Notes & news', parts: ['reminders', 'announce'] },

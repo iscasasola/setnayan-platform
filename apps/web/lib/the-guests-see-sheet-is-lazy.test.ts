@@ -60,7 +60,12 @@ test('2 · the sheet reaches no server module: the work area lends the table and
 test('3 · one row in Studio ▾, only where the work area answers — and a sheet, never a twelfth Studio page', () => {
   const src = stripComments(read(PARTS));
   assert.equal((src.match(/data-pick-option="guests-see"/g) ?? []).length, 1);
-  assert.match(src, /\{guestsSeeWorkArea\(\) \? \(\s*<li role="none">\s*<button[\s\S]{0,260}?data-pick-option="guests-see"/);
+  /* 🔁 RE-AIMED 2026-10-11 (the row gained its neighbours' icon and status): the work area is asked once, while the
+     list is open, and the row is offered only when it answers. */
+  assert.match(src, /const guestsSeeArea = list === 'pages' \? guestsSeeWorkArea\(\) : null;/);
+  assert.match(src, /\{guestsSeeArea \? \(\s*<li role="none">\s*<button[\s\S]{0,260}?data-pick-option="guests-see"/);
+  // The row's shape is its neighbours': an icon, then the name and line, then a status in plain words.
+  assert.match(src, /data-pick-option="guests-see"[\s\S]{0,700}?<Eye aria-hidden className="h-\[18px\] w-\[18px\] text-sn-accent" strokeWidth=\{1\.9\} \/>[\s\S]{0,700}?data-guests-see-status="" className=\{pickTrailClass\('muted', false\)\}>\s*\{guestsSeeRowStatus\(guestsSeeArea\.table\)\}/);
   assert.match(src, /\{guestsSee && typeof document !== 'undefined' \? createPortal\(<GuestsSeeSheet onClose=\{\(\) => setGuestsSee\(false\)\} \/>, document\.body\) : null\}/);
   assert.match(stripComments(read(SHEET)), /<MakerSheet label=\{W\.title\} onClose=\{close\} everyWidth tall>/);
   assert.equal(STUDIO_TILE_KEYS.length, 11, 'a Studio page was added for it');

@@ -79,6 +79,7 @@ export type GuestsSeeTable = { groups: GuestsSeeGroup[] };
 export const GUESTS_SEE_WORDS = {
   title: 'What guests see',
   menuLine: 'What shows at each stage',
+  rowOurs: 'Our picks',
   shownAt: 'Shown at',
   quiet: 'Nothing changed yet — our picks do the work.',
   locked: 'This one cannot be changed here yet.',
@@ -223,6 +224,16 @@ export function guestsSeeHandSet(table: GuestsSeeTable, writes: GuestsSeeWrites 
 export function guestsSeeOpeningLine(table: GuestsSeeTable | null | undefined): string {
   const n = table ? guestsSeeHandSet(table) : 0;
   return n === 0 ? GUESTS_SEE_WORDS.quiet : `${plural(n, 'box', 'boxes')} changed from our picks.`;
+}
+
+/**
+ * THE STUDIO LIST'S STATUS FOR THIS ROW (owner's run 2026-10-11: the row had no icon and nothing on the right, unlike
+ * every row above it). Its neighbours say "✓ Ready" or "Missing"; this one has neither state — it says whose picks the
+ * table holds: ours, or how many boxes the couple set by hand (the same count the sheet opens on).
+ */
+export function guestsSeeRowStatus(table: GuestsSeeTable | null | undefined): string {
+  const n = table ? guestsSeeHandSet(table) : 0;
+  return n === 0 ? GUESTS_SEE_WORDS.rowOurs : `${n} changed`;
 }
 
 /** Does any row have nothing written yet? (Then the key explains the pale tick.) */

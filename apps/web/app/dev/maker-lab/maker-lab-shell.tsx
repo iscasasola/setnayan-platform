@@ -2,9 +2,9 @@
 
 import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
-import { useEffect, useMemo, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
 import { LAB_SCRUB_GUEST } from './lab-scrub';
-import { labDraftCookies, labDraftFrom, labDraftStep } from './lab-draft';
+import { labDraftCookies, labDraftFrom, labDraftStep, labRenderedSummary } from './lab-draft';
 import { LAB_SAMPLE } from './guest/lab-sample';
 import { HUB_DRAFT_BAR_FIELD, requestMakerRefresh } from '@/lib/maker-refresh';
 import { offerScrubOutInTheLab } from '@/lib/scrub-out-offered';
@@ -174,6 +174,14 @@ export function MakerLabShell({
     offerScrubOutInTheLab(scrub);
     return () => offerScrubOutInTheLab(false);
   }, [scrub]);
+  /* ✓ THE BAR A RENDER BRINGS NAMES ITS CHANGES (`labRenderedSummary`). The server's prop is the count from a cookie;
+     the draft is this browser's, so once the render is on the page the bar is read from the draft itself — the same
+     count, with the lines the Apply sheet lists. (`?changes=N` is a stand-in with no draft behind it: left as given.) */
+  const [bar, setBar] = useState<HubDraftSummary>(summary);
+  useEffect(() => {
+    const standIn = new URLSearchParams(window.location.search).has('changes');
+    setBar(standIn ? summary : labRenderedSummary(readLabDraft(scrub), scrub));
+  }, [summary, scrub, renderStamp]);
   const stand = (name: string) => <div data-lab-stand={name} className="rounded-md bg-white/70 p-3 text-[13px] text-ink/60">{name}</div>;
   const rsvpProps = useMemo<ComponentProps<typeof MakerRsvpStage>>(
     () => ({
@@ -286,7 +294,7 @@ export function MakerLabShell({
       completeTourAction={noop}
       renderStamp={renderStamp}
       more={null}
-      applySlot={<HubDraftToolbar eventId={eventId} summary={summary} storeShell={false} priceLabel={null} proHref={null} draftAction={labDraft} />}
+      applySlot={<HubDraftToolbar eventId={eventId} summary={bar} storeShell={false} priceLabel={null} proHref={null} draftAction={labDraft} />}
       details={{ page: details, controls: null }}
       rsvpStage={<MakerRsvpStage {...rsvpProps} />}
       hasWork

@@ -78,12 +78,16 @@ function rng(seed: number) {
 
 test('1 · PROPERTY: the ✓ badge is the sheet’s lines; ↺ gives back exactly the step before; nothing left is nothing shown', () => {
   const tally = { steps: 0, undos: 0, lowered: 0, kept: 0, raised: 0, zeroByRoad: 0, toZero: 0, moves: 0, hides: 0, edits: 0 };
+  const kindsSeen = new Set<string>();
+  /** Kinds whose change was seen to ADD a line to the sheet (so none is a patch the draft quietly drops). */
+  const kindsListed = new Set<string>();
   for (let seed = 1; seed <= 200; seed += 1) {
     const r = rng(seed);
     let d = emptyHubDraft();
     /** What the bar read BEFORE each save still on the Undo stack — what ↺ must give back. */
     const before: Array<ReturnType<typeof read>> = [];
     let trimmed = false;
+    let lastKind: string | null = null;
     /* Odd seeds stay within ↺'s reach (ten saves), so "every step taken back" is really every step. */
     const steps = seed % 2 === 1 ? 9 : 30;
     for (let step = 0; step < steps; step += 1) {
@@ -106,14 +110,25 @@ test('1 · PROPERTY: the ✓ badge is the sheet’s lines; ↺ gives back exactl
         tally.undos += 1;
       } else {
         let patch: unknown;
+        let editKind: string | null = null;
         if (op <= 2) {
           // an edit: a scene's motion on or off, the Title's words, the Title's style, a scene's background
-          patch = r.pick([
-            { widgets: { countdown: { canvas: r.int(2) ? { inFx: { fade: true } } : {} } } },
-            { widgets: { hero: { canvas: r.int(2) ? { elements: { eyebrow: { word: 'With joy in our hearts' } } } : {} } } },
-            { fixedStyles: { hero_eyebrow: r.int(2) ? 'serif' : null } },
-            { widgets: { special_message: { canvas: r.int(2) ? { kind: 'color', color: '#A9834B' } : {} } } },
-          ]);
+          /* EVERY KIND OF CHANGE THE MAKER MAKES (the re-walk's R01: "the sheet lists exactly as many lines as the badge
+             counts, for every kind"): words · style · background · animate here; order and per-stage hide/add below;
+             and the two kept on the event's own row — an RSVP line added (`rsvp_ask_config.look`) and a fixed
+             block's look (`style_preferences.block_looks`). Each either way: made, and put back. */
+          const kinds = [
+            ['animate', { widgets: { countdown: { canvas: r.int(2) ? { inFx: { fade: true } } : {} } } }],
+            ['words', { widgets: { hero: { canvas: r.int(2) ? { elements: { eyebrow: { word: 'With joy in our hearts' } } } : {} } } }],
+            ['style', { fixedStyles: { hero_eyebrow: r.int(2) ? 'serif' : null } }],
+            ['background', { widgets: { special_message: { canvas: r.int(2) ? { kind: 'color', color: '#A9834B' } : {} } } }],
+            ['rsvp', { events: { rsvp_ask_config: r.int(2) ? { look: { added: { rsvp: [{ id: 'n1', k: 'm', t: 'Kindly reply by November 12.' }] } } } : {} } }],
+            ['block', { events: { style_preferences: { block_looks: r.int(2) ? { photos_of_you: { motion: { in: { fade: true } } } } : {} } } }],
+          ] as const;
+          const kind = r.pick(kinds);
+          patch = kind[1];
+          kindsSeen.add(kind[0]);
+          editKind = kind[0];
           tally.edits += 1;
         } else if (op <= 4) {
           // a move: Earlier or Later, the stage's whole order
@@ -128,6 +143,7 @@ test('1 · PROPERTY: the ✓ badge is the sheet’s lines; ↺ gives back exactl
           tally.hides += 1;
         }
         if (!patch) continue;
+        lastKind = op <= 2 ? editKind : op <= 4 ? 'order' : 'per-stage';
         before.push(was);
         /* ↺ goes back ten saves and no further (`HUB_DRAFT_HISTORY_LIMIT`): the oldest step falls off the stack. */
         if (before.length > HUB_DRAFT_HISTORY_LIMIT) {
@@ -138,7 +154,10 @@ test('1 · PROPERTY: the ✓ badge is the sheet’s lines; ↺ gives back exactl
         assert.equal(d.history.length, before.length, `the Undo stack is not the saves made — ${where}`);
       }
       const now = read(d);
+      /* 🔑 AT EVERY STEP — after a save of any kind and after every ↺ — the sheet lists as many lines as the badge counts. */
       assert.equal(now.count, now.lines.length, `the badge reads ${now.count} and the sheet lists ${now.lines.length} — ${where}`);
+      if (lastKind && now.count > was.count) kindsListed.add(lastKind);
+      lastKind = null;
       assert.equal(now.has, now.count > 0, `"has changes" and the count disagree — ${where}`);
       assert.equal(now.canUndo, d.history.length > 0);
       tally.steps += 1;
@@ -168,6 +187,7 @@ test('1 · PROPERTY: the ✓ badge is the sheet’s lines; ↺ gives back exactl
     tally.zeroByRoad += 1;
   }
   console.log(`  ${tally.steps} steps (${tally.edits} edits · ${tally.moves} moves · ${tally.hides} per-stage hides/shows) · ${tally.undos} ↺: ${tally.lowered} lowered the badge, ${tally.kept} kept it, ${tally.raised} raised it (each the undo of a return to what guests have) · ${tally.toZero} sessions walked all the way back to nothing`);
+  assert.deepEqual([...kindsListed].sort(), ['animate', 'background', 'block', 'order', 'per-stage', 'rsvp', 'style', 'words'], 'a kind of change never added a line to the sheet — its patch is not reaching the draft');
   assert.ok(tally.undos > 200 && tally.lowered > 60 && tally.kept > 30 && tally.raised > 5 && tally.moves > 300 && tally.hides > 600 && tally.toZero >= 90, 'anti-vacuity: a kind of step went missing');
 });
 

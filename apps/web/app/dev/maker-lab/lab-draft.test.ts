@@ -19,6 +19,7 @@ import {
   labDraftFrom,
   labDraftStep,
   labDraftedRows,
+  labRenderedSummary,
   labRows,
 } from './lab-draft';
 import { labNavigatorInput, labSeen, labStageTiles } from './lab-navigator';
@@ -240,6 +241,41 @@ test('the lab’s pages are handed EVERY key of a scene’s draft — the list o
      and the Save the Date's Film · Photos pick on the gallery's row. */
   const real: HubDraft = { ...emptyHubDraft(), widgets: { countdown: { mode: 'hidden', is_visible: false, display_order: 9, stage_order: { rsvp: 3 }, stage_show: { rsvp: false, event: true } }, our_photos: { std_lead: 'photos' } } };
   assert.deepEqual(labDraftedRows(labDraftCookies(real, false)[LAB_ROWS_COOKIE] ?? undefined), overlayHubDraftWidgets(labRows(), real));
+});
+
+/* ── R01 of the re-walk (2026-10-11): the Apply sheet named no changes after a Style pick, after any ↺ and after
+   reopening the Maker — every time the bar came from a RENDER, because the lab's render knew the count alone. ── */
+test('R01 — the bar a render brings lists exactly as many changes as it counts: after a Style pick, after each ↺, after reopening', () => {
+  const rendered = (d: HubDraft) => labRenderedSummary(labDraftFrom(JSON.stringify(d)), false); // the draft as the browser kept it
+  const check = (d: HubDraft, when: string) => {
+    const bar = rendered(d);
+    assert.ok(Array.isArray(bar.changes), `${when}: the Apply sheet is handed no list at all`);
+    assert.equal(bar.changes!.length, bar.changeCount, `${when}: the badge counts ${bar.changeCount} and the sheet lists ${bar.changes!.length}`);
+    assert.equal(bar.changeCount, count(d).changeCount, `${when}: the render's count is not the cookie's`);
+    return bar;
+  };
+  let d = save(emptyHubDraft(), TITLE).draft;
+  check(d, 'after the Title’s words');
+  d = save(d, SERIF, false).draft; // a Style pick: its save brings a render, never the bar
+  const two = check(d, 'after a Style pick');
+  assert.equal(two.changeCount, 2);
+  d = save(d, { widgets: { special_message: { canvas: { kind: 'color', color: '#A9834B' } } } }).draft;
+  d = save(d, FADE).draft;
+  assert.equal(check(d, 'after four edits').changeCount, 4);
+  const seen: number[] = [];
+  while (d.history.length > 0) {
+    d = labDraftStep(d, { intent: 'undo' }, false).draft;
+    seen.push(check(d, `after ↺ ${seen.length + 1}`).changeCount);
+  }
+  assert.deepEqual(seen, [3, 2, 1, 0]);
+  assert.deepEqual(rendered(d).changes, [], 'nothing waiting, and something is still listed');
+  /* …and the shell hands the bar THIS, not the cookie's count alone. */
+  const shell = read('maker-lab-shell.tsx');
+  assert.match(shell, /setBar\(standIn \? summary : labRenderedSummary\(readLabDraft\(scrub\), scrub\)\);/);
+  assert.match(shell, /<HubDraftToolbar eventId=\{eventId\} summary=\{bar\}/);
+  /* The REAL Maker's render has always named them (this is the lab's fault alone): one reader, right after the count. */
+  const store = readFileSync(join(process.cwd(), 'lib', 'hub-draft-store.ts'), 'utf8');
+  assert.match(store, /summary = summarizeHubDraft\(draft, live, ownsPro && !storeShell\);[\s\S]{0,260}summary\.changes = hubDraftChangeLines\(draft, live, ownsPro && !storeShell\);/);
 });
 
 test('leaving and coming back keeps the draft — its count, its history and what the page draws', () => {

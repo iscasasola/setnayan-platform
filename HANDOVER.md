@@ -23,19 +23,29 @@ push (it must never reach main). Scripts and pictures: `~/Documents/Claude/Proje
   scene-style-row, element-sheet, type-in-place, use-scene-canvas, love-story-live, studio-dos) is exposed when the
   ONLY step of a visit on that scene is undone: the next pick there is built on the undone copy and writes it back.
 
-## 2 · the three known faults — FIXED in code (commit "fix(maker): the RSVP card opens whole…"), after-pictures PENDING
-- Before-pictures (`shots/2-before-*.png`, sheet `shots/sheet-2-before.png`, numbers `shots/2-before.json`): the stage
-  opens with the card picked; at +1.5 s the frame sits at scrollY 122 (both heights) — the card's masthead is cut and
-  the frame's "CARD" tag lies on "Teresita Aquino". Question › box open: only ✕, no bar ("bars": []).
-- CAUSE (one for the first two): `stage-tools.tsx` `centrePart` brings up `findMakerSection('f:rsvp')` (the form's own
-  section, under the guest's name) while the frame is drawn round the WHOLE card. FIX inside RSVP's files: a picked
-  card (no line) is sent `RSVP_TOP_MESSAGE` a beat after the pick and on a frame's `rsvpReady` — the bridge's
-  existing hold (top, a non-couple scroll put back for 1.5 s). Done: `RsvpPanelTypingBar` (rsvp-line-list.tsx), the
-  stage's own typing bar for the panel's open box, shown by rule.
-- Guard `lib/the-rsvp-stage-shows-the-card-and-done.test.ts` 3/3; sabotaged 4 ways red; RSVP neighbours 182/182.
-- AFTER-PICTURES NOT YET TAKEN: the heavy lock was held by "speed-guest" with 7 waiting; my queued run was cancelled
-  so the tree would not change under it. To take: `LOOK_TAG=after bash shoot.sh look2.mjs done.mjs` (look2 now
-  records the tag's place at open; done.mjs types in Question, presses the bar's Done, checks the draft kept it).
-## 3 · the picture line — not started
-## 4 · checks — not started
+## 2 · the three known faults — DONE and WALKED (commit "fix(maker): the RSVP card opens whole…")
+- Before (`shots/2-before-*`, `sheet-2-before.png`): opens at scrollY 122, masthead cut, "CARD" tag on the guest's name;
+  Question box open has only ✕. After (`shots/2-after-*`, `sheet-2-after.png`, `2-after.json`, `done.mjs` output in
+  `look2-after.out`): scrollY 0 at +0.3/+1.5/+4 s at both heights, tag at 75–92 px (card top), guest name untouched at
+  130; "Typing · Question" + Done at the foot (812: 768–812, 667: 623–667); Done closes the box and the draft keeps
+  the words. CAUSE: `stage-tools.tsx` `centrePart` centres the form's section (`f:rsvp`) while the frame is round the
+  whole card; FIX inside RSVP's files (`RSVP_TOP_MESSAGE` on a card pick and on `rsvpReady`; `RsvpPanelTypingBar`).
+- Guard `lib/the-rsvp-stage-shows-the-card-and-done.test.ts`; sabotaged 4 ways red.
+
+## 3 · the picture line — reader · look · drawing · chooser COMMITTED; browser walk RUNNING (`pic.mjs`, walk lane)
+- Reader: `{ id, k: 'p', p }` kept only with a ref into an event's own scene-background folder (`lib/rsvp-picture-ref.ts`,
+  import-free so the draft door does not pull the reader into the Maker's first load). Cap 200 → 240: the upload
+  route can mint a 238-char ref (120-char file names) — 200 would have dropped them. Look `l: 'tall'` + Build in only.
+- Look: Style › Look ▾ Wide · Tall (`RsvpPictureLookRows`, `Dd`); Tall = one rule `height:176px` in the one <style>.
+- Drawing: pages sign once (`lib/rsvp-pictures.server.ts`: HEAD first, `absent` → not drawn; no picture → no request);
+  `RsvpLines` draws `<img alt="">` 112 px; canvas without a file → quiet "Picture" box; Maker canvas uses the local
+  object URL (`rsvp-picture-urls.ts`). Apply holds a ref outside THIS event's folder ('not_your_photo'). Allowance:
+  already reads whole rows (events '*', draft_json) — now said and measured (couple-media test § 2c).
+- Chooser: ＋ sheet = Heading · Message · Picture; Picture → `RsvpPictureSheet` (FileUpload media/scene-background,
+  compressImage) → ONE add with the ref; Edit on a picture = Replace (one `picture` edit) + last row.
+- NOT drawn in the lab after a frame reload: the lab has no R2, so the server cannot sign → the canvas shows the
+  quiet "Picture" box (by design for an unsignable file). The live canvas after the add uses the local file.
+- DB room test (`tests/db/rsvp-ask-config-has-room.db.test.ts`) NOT YET RE-RUN with the new fixture (heavy lane).
+
+## 4 · checks — not started (full tsc, room db test, preflight: heavy lane)
 ## 5 · push / draft PR — not started

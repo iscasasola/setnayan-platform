@@ -26,7 +26,7 @@ import { publicDisplayName } from '@/lib/find-your-seat';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { ArrivalBloom } from './_components/arrival-bloom';
 import { GuestPushPrompt } from './_components/guest-push-prompt';
-import { withDayNote } from '../_lib/day-words';
+import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 
 export const metadata = { title: 'Your seat pass' };
 
@@ -229,13 +229,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     if (!published) {
       return (
         <SeatPassShell roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
-          <PromptCard
-            title="Seating shows on the day"
-            body={withDayNote(
-              `The seating for this ${noun} shows here on the day. This table’s guests will appear here then.`,
-              event.event_date,
-            )}
-          />
+          <SeatsShowOnTheDay eventDate={event.event_date} />
         </SeatPassShell>
       );
     }

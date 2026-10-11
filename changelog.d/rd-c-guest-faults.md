@@ -151,6 +151,17 @@ answer (a press in the second it takes to start was told "camera blocked").
 No word on the screen changed.
 Guard: `app/[slug]/_components/the-camera-waits-for-the-tick.test.ts`.
 
+**8 · N20 — the three seat pages share ONE waiting state, with ONE sentence.**
+`/find-seat`, `/seat` and `/find-my-table` each had a title and a promise of
+their own before seats are shown. They now draw `SeatsShowOnTheDay`
+(`app/[slug]/_components/seats-show-on-the-day.tsx`): "Your seat shows on the
+day" · "Come back to this page on the day and you'll find your table." — plus
+"The date is still to be confirmed." when the event has no date. No frame,
+nothing to press; each page keeps its own shell and way back. The rule under
+it (2026-09-30, `guestsMaySeeSeatsFor`) is unchanged. `/find-seat` keeps its
+"Find your seat · soon" header and the room placeholder around it.
+Guard: `app/[slug]/_components/seats-show-on-the-day.test.ts`.
+
 SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
 2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
 face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG

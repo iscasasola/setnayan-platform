@@ -15,8 +15,8 @@
  *       followed by one plain sentence when there is none.
  *   (3) EVERY PLACE a guest page formats the event's date is one of the shapes that cannot print an empty date
  *       into a sentence — a new call site that interpolates `formatEventDate(…)` bare goes red here, by name.
- *   (4) The five waiting states that say "on the day" (find-seat · find-my-table · seat · venue · hub) each pass
- *       their sentence through `withDayNote` with the event's date.
+ *   (4) The waiting states that say "on the day" each complete it for an event with no date: the 3D room and the
+ *       hub's seat line through `withDayNote`; the three seat pages through their ONE shared state (N20).
  *
  * SABOTAGE RUN 2026-10-11 (committed first, put back by `git checkout`, re-checked):
  *   · the greeting in `site-body.tsx` put back to the unconditional "…with you on" + the date → (1) red (the page
@@ -187,15 +187,9 @@ test('(3) every place a guest page formats the event’s date is a shape that ca
   );
 });
 
-test('(4) the five waiting states that say "on the day" each say so through withDayNote, with the event’s date', () => {
-  const SITES = [
-    'app/[slug]/find-seat/page.tsx',
-    'app/[slug]/find-my-table/page.tsx',
-    'app/[slug]/seat/page.tsx',
-    'app/[slug]/venue/page.tsx',
-    'app/[slug]/hub/page.tsx',
-  ];
-  for (const rel of SITES) {
+test('(4) the waiting states that say "on the day" each complete it for an event with no date', () => {
+  /* The 3D room and the hub's seat line pass their own sentence through `withDayNote`. */
+  for (const rel of ['app/[slug]/venue/page.tsx', 'app/[slug]/hub/page.tsx']) {
     const src = stripComments(readFileSync(join(WEB, rel), 'utf8'));
     const calls = [...src.matchAll(/withDayNote\(([\s\S]{0,420}?)\)\s*[,})]/g)].map((m) => m[1]!);
     assert.ok(calls.length >= 1, `${rel} no longer completes its "on the day" line for an event with no date`);
@@ -204,4 +198,12 @@ test('(4) the five waiting states that say "on the day" each say so through with
       assert.match(args, /event_date|eventDate/, `${rel}: withDayNote is not handed the event’s date`);
     }
   }
+  /* The three seat pages share ONE waiting state (2026-10-11, N20) — it is handed the event's date, and its one
+     sentence goes through the same `withDayNote` (`seats-show-on-the-day.test.ts` holds the rest). */
+  for (const rel of ['app/[slug]/find-seat/page.tsx', 'app/[slug]/find-my-table/page.tsx', 'app/[slug]/seat/page.tsx']) {
+    const src = stripComments(readFileSync(join(WEB, rel), 'utf8'));
+    assert.match(src, /<SeatsShowOnTheDay eventDate=\{[^}]*(?:event_date|eventDate)[^}]*\}/, `${rel} does not hand the waiting state the event’s date`);
+  }
+  const shared = stripComments(readFileSync(join(WEB, 'app/[slug]/_components/seats-show-on-the-day.tsx'), 'utf8'));
+  assert.match(shared, /return withDayNote\(SEATS_WAITING_LINE, eventDate\);/);
 });

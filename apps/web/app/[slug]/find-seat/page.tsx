@@ -34,7 +34,7 @@ import { SeatBackLink } from './_components/seat-back-link';
 import { findSeatBackHref } from './_lib/back-to-the-invitation';
 import { YourSeat, type Tablemate } from './_components/your-seat';
 import type { DoorPassData } from './_components/door-pass';
-import { withDayNote } from '../_lib/day-words';
+import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 
 export const metadata = { title: 'Find your seat' };
 
@@ -160,7 +160,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
             entrance={entrance}
           />
         ) : (
-          <NotPostedYet names={names} plural={words.twoPeople} slug={slug} backHref={backHref} occasion={words.occasion} eventDate={event.event_date as string | null} />
+          <NotPostedYet slug={slug} backHref={backHref} eventDate={event.event_date as string | null} />
         )}
       </SeatFrame>
     );
@@ -318,39 +318,24 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   );
 }
 
-/** B5 · nothing published yet — in the theme, no field at all. Nothing to count, nothing to leak. */
+/** B5 · nothing published yet — in the theme, no field at all. Nothing to count, nothing to leak.
+ *  The title and the one sentence are the three seat pages' own (`SeatsShowOnTheDay`, owner 2026-10-11). */
 function NotPostedYet({
-  names,
-  plural,
   slug,
   backHref,
-  occasion,
   eventDate,
 }: {
-  /** The event's day, or null while it has none — the line below then says so (`withDayNote`). */
+  /** The event's day, or null while it has none — the shared line then says so. */
   eventDate: string | null;
-  names: string;
-  /** Two people at the centre (a wedding) — "Indalecio & Claire haven't"; otherwise the plan is the subject. */
-  plural: boolean;
   slug: string;
   backHref: string;
-  occasion: string;
 }) {
   return (
     <div className="lg:mx-auto lg:max-w-md">
       <section className="px-6 pt-3 text-center">
         <p className="m-0 text-[0.72rem] uppercase tracking-[0.22em] text-terracotta-700">Find your seat</p>
         <p className="m-0 mt-1 font-serif text-[2.4rem] italic leading-none text-terracotta-700">soon</p>
-        <h1 className="m-0 mt-0.5 font-serif text-[2rem] font-medium leading-[1.12] text-ink">Your seat shows on the day</h1>
-        <p className="mt-2.5 text-[0.84rem] leading-relaxed text-ink/75">
-          {withDayNote(
-            plural
-              ? `${names}’s seating plan opens here on the day.`
-              : `The seating plan for this ${occasion} opens here on the day.`,
-            eventDate,
-          )}{' '}
-          Come back to this link then and you&rsquo;ll find your table.
-        </p>
+        <SeatsShowOnTheDay eventDate={eventDate} className="mt-0.5" />
       </section>
       <Lace className="my-4" />
       <RoomPlaceholder veil="The room is still being arranged" />

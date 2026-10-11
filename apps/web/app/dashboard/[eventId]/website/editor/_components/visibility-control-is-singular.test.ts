@@ -23,6 +23,11 @@
  * this file's own React tree with the classic runtime. Precedent:
  * `app/_components/byline-renders-as-a-door.test.ts`,
  * `app/dashboard/[eventId]/launch/_components/hub-stage-renders.test.ts`.
+ *
+ * 🔁 NOTE 2026-10-11 ("WHAT GUESTS SEE", step 2): this file is about the Sections panel's EVENT-WIDE control — still one
+ * control, still `mode` or the eye's `is_visible`, never both. The Maker's own eye is a different control now: it
+ * writes the stage on screen (`config_json.stage_show[stage]`, `lib/the-eye-is-per-stage.test.ts`). Nothing below
+ * changed; it no longer describes the Maker's eye.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

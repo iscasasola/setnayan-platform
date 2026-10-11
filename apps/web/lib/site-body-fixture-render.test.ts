@@ -218,7 +218,21 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
      It is a test, shipped to nobody; the claim is the same — no file of the APP imports the fixture. */
   /* 🔁 AND 2026-10-11: `the-link-down-names-what-it-opens.test.ts` draws the real page for six viewers (a stranger
      among them) to read the cover's link off it. A test again; the claim is unchanged. */
-  const OURS = new Set(['lib/site-body-fixture.ts', 'lib/site-body-fixture-render.ts', 'lib/site-body-fixture-render.test.ts', 'lib/a-sample-block-look-reaches-the-real-page.test.ts', 'lib/the-link-down-names-what-it-opens.test.ts', 'lib/a-dark-look-keeps-its-words.test.ts']);
+  /* 🔁 RE-AIMED 2026-10-10 (again): "WHAT GUESTS SEE" draws the real page on every stage with the same helper —
+     `stage-pages-fixture.ts` (tooling: the same couple with every scene filled) and the tests that read it. Tests and
+     tooling, shipped to nobody; the claim is unchanged. */
+  const OURS = new Set([
+    'lib/site-body-fixture.ts',
+    'lib/site-body-fixture-render.ts',
+    'lib/site-body-fixture-render.test.ts',
+    'lib/a-sample-block-look-reaches-the-real-page.test.ts',
+    'lib/the-link-down-names-what-it-opens.test.ts',
+    'lib/a-dark-look-keeps-its-words.test.ts',
+    'lib/stage-pages-fixture.ts',
+    'lib/every-stage-is-todays-page.test.ts',
+    'lib/a-stage-choice-decides-the-stage-list.test.ts',
+    'lib/what-guests-see.test.ts',
+  ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {
       const rel = `${dir}/${name}`;

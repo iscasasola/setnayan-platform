@@ -18,6 +18,7 @@ import { hubDraftProEffects, hubProEffectView, type HubProEffectView } from '@/l
 import {
   HUB_DRAFT_EVENT_READ_COLUMNS,
   HUB_DRAFT_FIELD,
+  configWithDraftedStage,
   emptyHubDraft,
   hubDraftBounceHref,
   hubDraftForWrite,
@@ -283,19 +284,18 @@ export async function draftedDisplayOrders(eventId: string): Promise<Record<stri
 }
 
 /**
- * ↕ The drafted stage places, per section — what a stage move builds on in
- * draft mode, so the couple's preview order is the order a drag swaps in.
+ * ↕👁 The drafted stage places AND the drafted per-stage shown / hidden choices
+ * (`stage_order` · `stage_show`), as one function that lays both over a live
+ * row's `config_json` — what a stage move builds on in draft mode, so the
+ * couple's preview is the list a drag swaps in: its order, and the scenes they
+ * added to the stage (a scene shown on a stage only in the draft must still be
+ * draggable there). One read of the draft.
  */
-export async function draftedStageOrders(
-  eventId: string,
-): Promise<Record<string, NonNullable<HubDraft['widgets'][keyof HubDraft['widgets']]>['stage_order']>> {
+export async function draftedStageConfigs(eventId: string): Promise<(widgetType: string, config: unknown) => unknown> {
   const supabase = await createClient();
   const draft = await readHubDraft(supabase, eventId);
-  const out: Record<string, NonNullable<HubDraft['widgets'][keyof HubDraft['widgets']]>['stage_order']> = {};
-  for (const [type, w] of Object.entries(draft?.widgets ?? {})) {
-    if (w?.stage_order !== undefined) out[type] = w.stage_order;
-  }
-  return out;
+  const widgets = (draft?.widgets ?? {}) as Record<string, HubDraft['widgets'][keyof HubDraft['widgets']]>;
+  return (widgetType, config) => configWithDraftedStage(config, widgets[widgetType]);
 }
 
 const WIDGET_LIVE_SELECT ='widget_id, widget_type, is_always_on, is_visible, display_order, config_json, mode';

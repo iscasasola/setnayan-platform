@@ -183,12 +183,19 @@ type SceneGate = { mode: 'auto' | 'shown' | 'hidden'; isVisible: boolean };
  *   'none'    — nothing the canvas draws changes: held as it is;
  *   'show'    — a scene the page never drew must be drawn: reload;
  *   'unknown' — open browsing unread: reload (never guess).
+ *
+ * This is the EVENT-WIDE write (Auto · Shown · Hidden, and the eye outside the Maker). In the Maker the eye writes
+ * the stage's own value and draws it itself (`editor-shell.tsx` `eyeWrite`): hide = held, show = reload.
  */
 export function sceneDrawEffect(
   before: SceneGate,
   after: SceneGate,
   openBrowse: boolean | null | undefined,
+  /** 👁 The couple's own choice for the stage on screen (`config_json.stage_show[stage]`) — it decides that stage, so
+   *  with one stored an event-wide write changes nothing the canvas draws there. Absent / null = none. */
+  stageChoice?: boolean | null,
 ): 'hide' | 'none' | 'show' | 'unknown' {
+  if (typeof stageChoice === 'boolean') return 'none';
   if (typeof openBrowse !== 'boolean') return 'unknown';
   const drawn = (s: SceneGate) =>
     openBrowse ? (s.mode === 'hidden' ? false : s.mode === 'shown' ? true : s.isVisible) : s.isVisible;

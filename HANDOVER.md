@@ -5,10 +5,13 @@ Report of the round before the join: head `efa2926b3` (see `changelog.d/rd-c-gue
 
 ## The coordinator's five steps (2026-10-12) — state
 
-1. **Join `origin/main` (d2e38b7c1)** — `git merge --no-ff origin/main`: NO textual conflict (7 guest files auto-merged).
-   Semantic check of each auto-merged file + tests: IN PROGRESS (see "Next").
-2. **Two cells follow the prototype** (Live × Save the Date = dash; Your seat unticked on Save the Date and Post Event),
-   unless that hides something a guest sees today on an untouched event — NOT STARTED.
+1. **Join `origin/main` (d2e38b7c1)** — DONE (merge `c83f85c23`, no textual conflict). After the join the part door
+   reads through `guestRead` (the released failure handling) — `9f20362e7`. My tests green on the merged tree.
+2. **Two cells** — DONE. Live × Save the Date = the prototype's dash ("Live opens on the day."); the mount is unchanged
+   (the player follows the broadcast — owner 2026-09-02 — so a stream on air on a Save the Date is still drawn and
+   cannot be unticked there: TELL THE CONTROLLER). Your seat × Save the Date and × Post Event STAY ticked: the one seat
+   rule shows the table after the day, and before it when seats were opened early — unticking by default would hide
+   what a guest sees today (`fixed-rows-are-real-boxes` test 4c).
 3. **`/seat` (venue QR)** follows the other seat pages' rule — NOT STARTED.
 4. **Checks**: `rm -rf apps/web/.next`, full tsc (8192 MB) rc 0, my tests + `app/[slug]` suite + Maker neighbours, then the
    WHOLE `pnpm preflight` under the heavy lock — NOT STARTED.

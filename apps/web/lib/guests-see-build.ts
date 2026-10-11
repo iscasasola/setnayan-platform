@@ -56,13 +56,22 @@ const FIXED: Record<FixedKey, { label: string; cols: string; note?: string; alwa
   gifts: { label: FIXED_PART_LABEL.gifts, cols: 'BLBBB' },
   entourage: { label: FIXED_PART_LABEL.entourage, cols: 'BLBBB' },
   reply: { label: FIXED_PART_LABEL.reply, cols: 'LAALX', always: GUESTS_SEE_WORDS.alwaysReply, why: { 4: 'The reply closes after the day.' } },
+  /* 🪑 TICKED ON ALL FOUR, AGAINST THE PROTOTYPE'S TWO EMPTY BOXES (Save the Date · Post Event) — measured, then
+     ruled (controller 2026-10-12: follow the prototype's cells UNLESS that hides what a guest sees today on an event
+     that never touched the table). It would: the one seat rule (`guestsMaySeeSeats`, lib/guests-may-see-seats.ts)
+     shows a guest their table on and AFTER the day — every Post Event page — and BEFORE it wherever the couple
+     switched on "Show guests their seats early", which reaches a Save the Date. Our pick is what the page draws with
+     no choice stored, so both stay ticked; the couple may untick either. Held by `fixed-rows-are-real-boxes` (4c). */
   seat: { label: FIXED_PART_LABEL.seat, cols: 'BLBBB' },
   /* 🎫 NOT A BOX YET, and why: the ticket is drawn by the page's Me slot (`app/[slug]/page.tsx`, `meSlotFor`) on every
      stage for a guest who has one, while the plan's `qrCardShouldRender` (the Maker's tile, the bar's `hasPass`) says
      the Invitation and The Day — two gates that already disagree. A box must move both; neither is this file's. */
   pass: { label: FIXED_PART_LABEL.pass, cols: 'LLLLL' },
   announce: { label: FIXED_PART_LABEL.announce, cols: 'LLLLX', why: { 4: 'Announcements end with the day.' } },
-  live: { label: FIXED_PART_LABEL.live, cols: 'BLBBB' },
+  /* 📡 SAVE THE DATE IS THE PROTOTYPE'S DASH (controller 2026-10-12: follow its cells). The dash changes no page: the
+     player's mount still follows the broadcast, not the calendar (owner 2026-09-02, `_lib/loaders.ts`), so a stream
+     on air while the page is on its Save the Date is still drawn — and cannot be unticked there. */
+  live: { label: FIXED_PART_LABEL.live, cols: 'XLBBB', why: { 0: 'Live opens on the day.' } },
   camera: { label: FIXED_PART_LABEL.camera, cols: 'LLLBX', why: { 4: 'The camera closes after the day.' } },
   photosofyou: {
     label: FIXED_PART_LABEL.photosofyou,

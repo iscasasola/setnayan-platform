@@ -97,14 +97,14 @@ test('1 · the prototype’s table: six groups, its rows, five columns — and o
   // 21 rows × 5 columns = 105 cells, for this invitation (every scene filled, one scene of the couple's own).
   // (Pass 2: 18 of the fixed rows' cells are boxes now — the film-led Save the Date keeps E-Gifts a dash — so
   // 33 + 18 boxes; "Live" on the Save the Date and the Camera after the day changed kind with them.)
-  assert.deepEqual(count, { box: 51, dash: 11, lockedOn: 19, lockedOff: 15, replyScreens: 9 });
+  assert.deepEqual(count, { box: 50, dash: 12, lockedOn: 19, lockedOff: 15, replyScreens: 9 });
   // The two scene dashes, in the prototype's words; a fixed row's, in its own.
   assert.deepEqual(rowOf(t, 'countdown').cells[COL.editorial], { kind: 'dash', why: 'The countdown ends on the day.' });
   // …and ON the day too: the Countdown has retired by then (`SCENES_RETIRED_ON_THE_DAY`) — a box there would be a tick that draws nothing.
   assert.deepEqual(rowOf(t, 'countdown').cells[COL.event], { kind: 'dash', why: 'The countdown ends on the day.' });
   assert.deepEqual(rowOf(t, 'what_to_bring').cells[COL.editorial], { kind: 'dash', why: 'The day has passed.' });
-  // (Pass 2: Live follows the broadcast, not the calendar — on the Save the Date it is a box, no longer "Live opens on the day.")
-  assert.equal(rowOf(t, 'live').cells[COL.save_the_date]!.kind, 'box');
+  // 🔁 RE-AIMED 2026-10-12 (controller's call: the prototype's cells): Live × Save the Date is the prototype's dash again.
+  assert.deepEqual(rowOf(t, 'live').cells[COL.save_the_date], { kind: 'dash', why: 'Live opens on the day.' });
   assert.deepEqual(rowOf(t, 'photosofyou').cells[COL.save_the_date], { kind: 'dash', why: 'Photos of you come from the day.' });
   // The fixed rows the page's own gates answer for.
   assert.deepEqual(rowOf(t, 'pass').cells.map((c) => c.kind === 'locked' && c.on), [false, false, true, true, false], 'the ticket is drawn on the Invitation and The Day');

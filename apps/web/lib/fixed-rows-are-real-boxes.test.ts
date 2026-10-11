@@ -40,6 +40,7 @@ import { GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, guestsSeePatch, guestsSeeRowStatu
 import { emptyHubDraft, mergeHubDraft, overlayHubDraftWidgets, planHubDraftApply, sanitizeHubDraft } from './hub-draft';
 import { hubDraftChangeLines, partShowWhat } from './hub-draft-change-lines';
 import { stripComments } from './strip-comments';
+import { guestsMaySeeSeats } from './guests-may-see-seats';
 import { MAKER_FIXED_PART, makerStageList, type MakerFixedKey } from './maker-scene-list';
 
 const STAGES: readonly LifecyclePhase[] = ['save_the_date', 'rsvp', 'event', 'editorial'];
@@ -111,7 +112,7 @@ test('3 · the table: each fixed row’s cells, and a tick writes exactly hero.p
     seat:        'BOX✓• quiet BOX✓• BOX✓• BOX✓•',
     pass:        'quiet quiet tick tick quiet',
     announce:    'tick quiet tick tick —',
-    live:        'BOX✓• quiet BOX✓• BOX✓• BOX✓•',
+    live:        '— quiet BOX✓• BOX✓• BOX✓•',
     camera:      'quiet quiet quiet BOX✓• —',
     photosofyou: '— — — BOX✓• BOX✓•',
     reveal:      'tick quiet tick tick —',
@@ -193,7 +194,7 @@ test('4 · ONLY BOXES THAT WORK: every box of every fixed row is flipped on the 
   }
   console.log(`  ${boxes} boxes of the fixed rows flipped on the real page (${adds} of them an add) · ${dead.length} changed nothing${dead.length ? `: ${dead.join(' · ')}` : ''}`);
   assert.deepEqual(dead, [], 'a box that changes nothing a guest sees must not be a box');
-  assert.ok(boxes >= 19 && adds >= 1, `anti-vacuity: ${boxes} boxes, ${adds} adds`);
+  assert.ok(boxes >= 18 && adds >= 1, `anti-vacuity: ${boxes} boxes, ${adds} adds`);
 });
 
 test('4b · the seat has two doors on The Day — the table in Me and the room walk in the menu — and both close', async () => {
@@ -204,6 +205,28 @@ test('4b · the seat has two doors on The Day — the table in Me and the room w
   const after = (await renderStagePage(c, withParts({ seat: { event: false } }), more)).html;
   assert.ok(!after.includes(PART_WORDS.table), 'the table is still named');
   assert.ok(!after.includes('/venue'), 'the room walk is still offered');
+});
+
+test('4c · why Your seat is OUR PICK on Save the Date and Post Event, against the prototype’s two empty boxes', async () => {
+  /* The controller's call (2026-10-12): follow the prototype's cells unless that hides what a guest sees TODAY on an
+     event that never touched the table. For these two cells it would — measured here on the one seat rule and on the
+     real page. If either half stops being true, the cell can follow the prototype and this test says so. */
+  // The rule: on and after the day a guest is shown their table; before it, where the couple opened seats early.
+  const at = new Date('2026-10-12T04:00:00Z');
+  assert.equal(guestsMaySeeSeats({ shownEarlyAt: null, eventDate: '2026-10-01', eventDatePrecision: 'day' }, at), true, 'after the day (Post Event)');
+  assert.equal(guestsMaySeeSeats({ shownEarlyAt: '2026-09-01T00:00:00Z', eventDate: '2027-06-12', eventDatePrecision: 'day' }, at), true, 'opened early (reaches a Save the Date)');
+  assert.equal(guestsMaySeeSeats({ shownEarlyAt: null, eventDate: '2027-06-12', eventDatePrecision: 'day' }, at), false);
+  // The page: with NOTHING stored, each of the two stages draws the guest's table.
+  for (const [stage, arrangement] of [['save_the_date', 'photos'], ['editorial', 'plain']] as const) {
+    const c: StageCase = { stage, reader: 'guest', arrangement };
+    const props = withEveryPart(c);
+    const page = await renderStagePage(c, stage === 'save_the_date' ? PHOTOS_LED() : stageWidgets(), { ...props, event: { ...props.event!, event_date: STAGE_DATE[stage] } });
+    assert.ok(page.html.includes(PART_WORDS.table), `${stage}: the untouched page no longer draws the table — the cell may follow the prototype`);
+  }
+  // So the table says what that page draws: ticked, our pick — and the couple may untick it.
+  for (const col of [COL.save_the_date, COL.editorial]) {
+    assert.deepEqual(rowOf(table(), 'seat').cells[col], { kind: 'box', on: true, ourPick: true, base: true, choice: null });
+  }
 });
 
 test('5 · nothing stored: the withholding touches nothing', async () => {

@@ -637,6 +637,7 @@ export async function lockPackage(
           title: `${who} wants to book your ${pkg.package_name}`,
           body: `${who} has asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
           relatedUrl: '/vendor-dashboard',
+          eventId,
         });
       }
     } catch (e) {

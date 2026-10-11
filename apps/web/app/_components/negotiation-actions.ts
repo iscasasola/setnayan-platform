@@ -879,6 +879,7 @@ export async function lockDeal(formData: FormData): Promise<void> {
             title: `${who} wants to book you`,
             body: `${who} has asked you to take their booking at the price you agreed. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
             relatedUrl: '/vendor-dashboard',
+            eventId: ctx.thread.event_id,
           });
         }
       } catch (e) {

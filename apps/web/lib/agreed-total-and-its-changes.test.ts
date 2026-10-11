@@ -755,10 +755,19 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   // count them twice on save. Same call the workspace Costing editor makes. A
   // self-added supplier has no account to raise a change order, so the two are
   // equal today; the distinction is what keeps it right if that changes.
+  // 📦 2026-10-10: the payment-plan half moved, whole, into
+  // lib/booking-payment-plan.server.ts (next entry) so the supplier's yes can
+  // run the same code. One of each needle went with it; this file keeps the
+  // downpayment read.
   'app/dashboard/[eventId]/vendors/actions.ts': {
-    what: 'lock — the downpayment and the payment plan amounts',
-    needles: [[AGREED_NOW, 2], [EMBED, 2], [/const totalCostPhp = agreedTotalNow\(/, 2]],
-    column: 19,
+    what: 'lock — the downpayment amount',
+    needles: [[AGREED_NOW, 1], [EMBED, 1], [/const totalCostPhp = agreedTotalNow\(/, 1]],
+    column: 16,
+  },
+  'lib/booking-payment-plan.server.ts': {
+    what: 'the payment plan amounts — frozen at the direct lock and at the supplier’s yes',
+    needles: [[AGREED_NOW, 1], [EMBED, 1], [/const totalCostPhp = agreedTotalNow\(planRow\?\.total_cost_php \?\? null, planRow\?\.change_lines\)/, 1]],
+    column: 3,
   },
   'app/dashboard/[eventId]/vendors/build-3state-actions.ts': {
     what: 'build-from-quotes — the price each quote is ranked at',

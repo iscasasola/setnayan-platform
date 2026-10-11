@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { emitNotification } from '@/lib/notification-emit';
+import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
 
 /**
  * THE 24-HOUR REMINDER AND THE 48-HOUR FUSE — one pass, cron-free.
@@ -101,6 +102,7 @@ export async function runLockRequestExpirySweep(): Promise<{ nudged: number; exp
             title: `${who} is still waiting`,
             body: `${who} asked you to take their booking and has not heard back. You have about a day left to agree or decline before the request closes.`,
             relatedUrl: '/vendor-dashboard',
+            eventId: r.event_id,
           });
         } catch (e) {
           console.error('[lock-request-expiry] nudge notify failed:', e);
@@ -121,28 +123,13 @@ export async function runLockRequestExpirySweep(): Promise<{ nudged: number; exp
       expired = rows.length;
       for (const r of rows) {
         try {
-          const { data: ev } = await admin
-            .from('event_vendors')
-            .select('vendor_name')
-            .eq('vendor_id', r.event_vendor_id)
-            .maybeSingle();
-          const vendorName =
-            (ev as { vendor_name?: string } | null)?.vendor_name ?? 'The supplier';
-          const { data: members } = await admin
-            .from('event_members')
-            .select('user_id')
-            .eq('event_id', r.event_id)
-            .eq('member_type', 'couple');
-          for (const m of members ?? []) {
-            if (!m.user_id) continue;
-            await emitNotification({
-              userId: m.user_id,
-              type: 'lock_request_expired',
-              title: `${vendorName} did not answer`,
-              body: `${vendorName} did not reply within 48 hours, so your request is closed. You can ask them again or pick someone else.`,
-              relatedUrl: `/dashboard/${r.event_id}/vendors`,
-            });
-          }
+          // The words live in ONE place, because the supplier's late press
+          // closes a request too and has to say the same sentence
+          // (lib/lock-request-notices.server.ts).
+          await tellCoupleLockRequestExpired(admin, {
+            eventId: r.event_id,
+            eventVendorId: r.event_vendor_id,
+          });
         } catch (e) {
           console.error('[lock-request-expiry] expiry notify failed:', e);
         }

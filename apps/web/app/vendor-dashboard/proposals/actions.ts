@@ -3,6 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
+import { isQuoteAnswer, quoteAnswerNotice, type QuoteAnswer } from '@/lib/quote-answer-notice';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveTokens, type ProposalLineItem } from '@/lib/vendor-proposals';
 import {
@@ -286,6 +289,82 @@ export async function respondToProposal(formData: FormData) {
   });
   if (error) console.error('[supabase-error] app/vendor-dashboard/proposals/actions.ts · rpc:respond_vendor_proposal', error);
 
+  // 🤝 TELL THE SUPPLIER. Until 2026-10-10 neither this action nor the function
+  // wrote a notification: a supplier learned their quote was accepted or
+  // declined only by opening the customer card. `!error` IS the "exactly once":
+  // the function raises `already_resolved` unless THIS call moved the quote out
+  // of sent/viewed, so a second press cannot send a second notice. Best-effort —
+  // the answer is recorded and a notice must not undo it.
+  if (!error && isQuoteAnswer(response)) {
+    try {
+      await tellSupplierQuoteAnswered(proposalId, response);
+    } catch (e) {
+      console.error(`[respondToProposal] supplier notify failed for proposal_id=${proposalId}:`, e);
+    }
+  }
+
   revalidatePath(`/proposals/${publicId}`);
   redirect(`/proposals/${publicId}${error ? '?notice=respond_failed' : ''}`);
+}
+
+/**
+ * The supplier's "your quote was answered" notice. Not exported: a `'use server'`
+ * file exports actions only, and this is called from exactly one.
+ *
+ * Read with the service client — the couple who pressed the button cannot read
+ * `vendor_profiles`, and the recipient is on the other side of RLS. Every
+ * refused read is logged and tells nobody, rather than addressing a guess.
+ */
+async function tellSupplierQuoteAnswered(proposalId: string, response: QuoteAnswer): Promise<void> {
+  const admin = createAdminClient();
+  const { data: proposal, error: proposalError } = await admin
+    .from('vendor_proposals')
+    .select('event_id, vendor_profile_id, title')
+    .eq('proposal_id', proposalId)
+    .maybeSingle();
+  if (proposalError || !proposal) {
+    console.error(
+      `[respondToProposal] could not read the answered quote, proposal_id=${proposalId}:`,
+      proposalError?.message ?? 'not found',
+    );
+    return;
+  }
+  const row = proposal as { event_id: string; vendor_profile_id: string; title: string | null };
+  const [shopRes, eventRes, threadRes] = await Promise.all([
+    admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', row.vendor_profile_id).maybeSingle(),
+    admin.from('events').select('display_name').eq('event_id', row.event_id).maybeSingle(),
+    admin
+      .from('chat_threads')
+      .select('thread_id')
+      .eq('event_id', row.event_id)
+      .eq('vendor_profile_id', row.vendor_profile_id)
+      .maybeSingle(),
+  ]);
+  if (shopRes.error) {
+    console.error(
+      `[respondToProposal] could not read who to tell, vendor_profile_id=${row.vendor_profile_id}:`,
+      shopRes.error.message,
+    );
+    return;
+  }
+  const supplierUserId = (shopRes.data as { user_id: string | null } | null)?.user_id ?? null;
+  if (!supplierUserId) return; // a shop with no account has nobody to tell
+  // A refused name or thread read still tells them — with the neutral name and
+  // the quotes list — because the answer is the news, not the label on it.
+  if (eventRes.error) console.error('[respondToProposal] event name read failed:', eventRes.error.message);
+  if (threadRes.error) console.error('[respondToProposal] thread read failed:', threadRes.error.message);
+  const who = (eventRes.data as { display_name: string | null } | null)?.display_name?.trim() || 'A couple';
+  const threadId = (threadRes.data as { thread_id: string } | null)?.thread_id ?? null;
+  const notice = quoteAnswerNotice({ response, who, quoteTitle: row.title ?? '' });
+  await emitNotification({
+    userId: supplierUserId,
+    type: response === 'accepted' ? 'quote_accepted' : 'quote_declined',
+    title: notice.title,
+    body: notice.body,
+    // The conversation holds the quote card and its answer; the quotes list is
+    // the fallback for a quote that somehow has no thread.
+    relatedUrl: threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/proposals',
+    // Which event this notice belongs to — a supplier-side link carries none.
+    eventId: row.event_id,
+  });
 }

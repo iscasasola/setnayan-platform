@@ -71,8 +71,6 @@ import {
 } from '@/lib/schedule-pools';
 import {
   centavosToPhp,
-  computePlanInstances,
-  defaultPaymentScheduleRows,
   downpaymentPolicyFromRows,
   isProtectedPolicy,
   pctOfTotalPhp,
@@ -84,6 +82,16 @@ import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.ser
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { tellSupplierLockRequestWithdrawn } from '@/lib/lock-request-notices.server';
+import { lockRequestStateOf } from '@/lib/lock-request-state';
+import { closingCopy } from '@/lib/thread-closing-copy';
+import { freezePaymentPlanAtBooking } from '@/lib/booking-payment-plan.server';
+import {
+  changeOrderAnsweredNotice,
+  changeOrderProposedNotice,
+  type ChangeOrderForNotice,
+} from '@/lib/change-order-notice';
+import { readChangeOrderJustRaised } from '@/lib/change-order-notice.server';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { isBudgetBuildEnabled } from '@/lib/budget-build';
 import { computeLockImpact, type LockImpact } from '@/lib/lock-impact';
@@ -108,13 +116,10 @@ import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
-  lockMayOverwritePlan,
   planInstancesToRows,
-  redateOnLockInstalments,
   type EditablePlanRow,
 } from '@/lib/self-added-payment-plan';
 import { geocodeAddressWithCity } from '@/lib/geo';
-import { manilaTodayIso } from '@/lib/vendor-cashflow';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -440,9 +445,12 @@ async function updateVendorStatus(formData: FormData) {
 
   // Phase-2 review-request emit: the moment a vendor's service is marked
   // delivered (and wasn't already delivered/complete), drop a notification
-  // on the couple's tray + send a Resend email asking them to leave a
-  // review. Failure to emit must never roll back the status change itself,
-  // so emitNotification swallows errors internally.
+  // on the couple's tray asking them to leave a review.
+  // ⚠ "+ send a Resend email" was written here for months. There is no such
+  // email: `review_request` is not on the email allowlist and is declared
+  // app-only (lib/couple-supplier-notices.ts; owner 2026-10-11, "we manage
+  // without emails"). Failure to emit must never roll back the status change
+  // itself, so emitNotification swallows errors internally.
   if (
     status === 'delivered'
     && prev?.status !== 'delivered'
@@ -487,7 +495,7 @@ export async function deleteVendor(formData: FormData) {
   // and the status for the booked-row guard below.
   const { data: removing } = await supabase
     .from('event_vendors')
-    .select('category, status')
+    .select('category, status, marketplace_vendor_id, lock_request_state')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -523,6 +531,53 @@ export async function deleteVendor(formData: FormData) {
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
+
+  // 🔴 THE ROW JUST DELETED MAY HAVE CARRIED A BOOKING REQUEST THE SUPPLIER WAS
+  // ASKED TO ANSWER. Deleting it takes the request away exactly as Withdraw
+  // does — the answer card disappears from their Today — and until 2026-10-10
+  // this door told them nothing. Read off the row BEFORE the delete (it is
+  // gone now); a row already booked is not a pending ask whatever marker it
+  // carries. Best-effort: the removal is done and a notice must not undo it.
+  const removed = (removing ?? null) as {
+    status?: VendorStatus;
+    marketplace_vendor_id?: string | null;
+    lock_request_state?: string | null;
+  } | null;
+  // The ONE derivation of "is a request still waiting" (lib/lock-request-state.ts)
+  // — never the raw column. `true`, not the flag: this asks what the ROW says,
+  // exactly as the expiry sweep does, because a request written while the
+  // handshake was on is still on the supplier's Today if the flag goes off.
+  const tookAnAskAway =
+    lockRequestStateOf(
+      { status: removed?.status ?? null, lock_request_state: removed?.lock_request_state ?? null },
+      true,
+    ) === 'requested';
+  if (tookAnAskAway && removed?.marketplace_vendor_id) {
+    try {
+      await tellSupplierLockRequestWithdrawn(createAdminClient(), {
+        eventId,
+        marketplaceVendorId: removed.marketplace_vendor_id,
+      });
+    } catch (e) {
+      console.error(
+        `[deleteVendor] withdrawn-request notify failed for vendor_id=${vendorId} event_id=${eventId}:`,
+        e,
+      );
+    }
+  }
+  /*
+    ⛔ NOT TOLD, AND IT SHOULD BE: a supplier removed while a CONVERSATION is
+    still open (no booking request, just a thread). No notification type says
+    "the couple set you aside" — `inquiry_displaced` means the thread was
+    released because they booked someone else, and this thread is NOT released:
+    it stays open and the supplier can still answer and quote. Saying it needs
+    a new enum value, i.e. a migration, which was not written on 2026-10-10:
+
+        ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'supplier_removed';
+
+    Until then the supplier's Today keeps showing "Reply to a new inquiry" for
+    a couple who removed them.
+  */
 
   // Re-anchor "ground 0" if a RECEPTION venue pick was just removed — the
   // distance chips for every other vendor fall back to the next reception
@@ -1975,7 +2030,30 @@ export async function finalizeVendor(
   // a supplier answering on day 6 inherits a downpayment dated six days
   // before they said yes, frozen.
   //
-  // They belong to the agreement, and they run from vendorAgreeToLock.
+  // They belong to the agreement.
+  //
+  // ⚠ THIS BLOCK ENDED "…and they run from vendorAgreeToLock." UNTIL 2026-10-10
+  // NONE OF THEM DID. `vendorAgreeToLock` called the `vendor_agree_to_lock` RPC,
+  // stamped the gift, narrowed the date and told the couple "they said yes" —
+  // and that was all, so a booking made through the handshake had no frozen
+  // payment plan and no "your payment info is ready".
+  //
+  // ✅ THE PAYMENT PLAN AND ITS NOTICE NOW DO: both callers go through
+  // `freezePaymentPlanAtBooking` (lib/booking-payment-plan.server.ts).
+  //
+  // ⛔ STILL NOT RUN AT THE YES, each for a stated reason:
+  //   · the reservation-terms evidence (`snapshotPolicyAcknowledgement`, below):
+  //     its input is the policy text the couple acknowledged AT THE ASK, and
+  //     nothing stores that between the ask and the yes;
+  //   · the rival sweep, the displacement, the category auto-complete and the
+  //     lock-proposal auto-resolve: not traced past this file's TypeScript.
+  // Bookings made before this change can be counted with
+  //   select count(*) from event_vendors ev
+  //    where ev.lock_request_state = 'agreed'
+  //      and ev.marketplace_vendor_id is not null
+  //      and ev.event_vendor_package_id is null
+  //      and not exists (select 1 from event_vendor_payment_plan p
+  //                       where p.event_vendor_id = ev.vendor_id);
   // ══════════════════════════════════════════════════════════════════════
   if (handshakeAsk) {
     const requestedAt = new Date();
@@ -2012,6 +2090,7 @@ export async function finalizeVendor(
           title: `${who} wants to book you`,
           body: `${who} has asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
           relatedUrl: '/vendor-dashboard',
+          eventId,
         });
       }
     } catch (e) {
@@ -2132,6 +2211,7 @@ export async function finalizeVendor(
           relatedUrl: threadId
             ? `/vendor-dashboard/messages/${threadId}`
             : '/vendor-dashboard/bookings',
+          eventId,
         });
       }
     } catch (e) {
@@ -2172,183 +2252,22 @@ export async function finalizeVendor(
   try {
     const planAdmin = createAdminClient();
 
-    // Pull the booking total + event date for the resolution inputs.
-    const [{ data: evRow, error: evRowErr }, { data: eventRow }] = await Promise.all([
-      planAdmin
-        .from('event_vendors')
-        // Plan amounts are shares of the agreed total NOW (changes included).
-        .select(`total_cost_php, ${CHANGE_LINES_EMBED}`)
-        .eq('event_id', eventId)
-        .eq('vendor_id', vendorId)
-        .maybeSingle(),
-      planAdmin
-        .from('events')
-        .select('event_date')
-        .eq('event_id', eventId)
-        .maybeSingle(),
-    ]);
-    if (evRowErr) {
-      console.error('[lockVendor] payment-plan booking total read failed:', evRowErr.message);
-    }
-    const planRow = evRow as
-      | { total_cost_php: number | null; change_lines?: ChangeLineRow[] | null }
-      | null;
-    const totalCostPhp = agreedTotalNow(planRow?.total_cost_php ?? null, planRow?.change_lines);
-    const eventDateIso =
-      (eventRow as { event_date: string | null } | null)?.event_date ?? null;
-    // A self-added supplier's lock day is the day the couple clicked, in
-    // Manila — a 7am lock is not "yesterday". The marketplace path keeps its
-    // existing UTC day; changing it is a separate decision.
-    const lockDateIso = targetVendor.marketplace_vendor_id
-      ? new Date().toISOString().slice(0, 10)
-      : manilaTodayIso();
-
-    // Read the booked service's schedule template (seq-ordered). Off-platform /
-    // serviceless bookings → no rows → empty plan (direct-pay fallback).
-    let scheduleRows: PaymentScheduleItemRow[] = [];
-    if (targetVendor.service_id) {
-      const { data: rows } = await planAdmin
-        .from('vendor_service_payment_schedules')
-        .select('*')
-        .eq('vendor_service_id', targetVendor.service_id)
-        .order('seq', { ascending: true });
-      scheduleRows = (rows ?? []) as PaymentScheduleItemRow[];
-    }
-
-    // Default-seed: a marketplace vendor with a known total but NO configured
-    // schedule would otherwise hand the couple an empty plan / silent "pay
-    // directly". Seed a 50/50 ESTIMATED plan instead (flagged below) so the
-    // couple always sees a downpayment + balance they can confirm. Skipped when
-    // there's no total to estimate against — an empty plan is the honest state.
-    const seededDefault = scheduleRows.length === 0 && totalCostPhp != null;
-    if (seededDefault) {
-      scheduleRows = defaultPaymentScheduleRows();
-    }
-
-    const instances = computePlanInstances({
-      scheduleRows,
-      totalCostPhp,
-      lockDateIso,
-      eventDateIso,
+    // 🔑 ONE FUNCTION, TWO CALLERS (lib/booking-payment-plan.server.ts). This is
+    // the DIRECT path: the couple's press made the booking, so the plan is
+    // frozen now and the person who pressed is told. With the handshake on,
+    // this line is never reached — the function returned at the ask above — and
+    // `vendorAgreeToLock` calls the same function when the supplier says yes.
+    await freezePaymentPlanAtBooking(planAdmin, {
+      eventId,
+      vendorId,
+      booking: {
+        vendor_name: (targetVendor.vendor_name as string | null) ?? null,
+        marketplace_vendor_id: (targetVendor.marketplace_vendor_id as string | null) ?? null,
+        service_id: (targetVendor.service_id as string | null) ?? null,
+      },
+      tellUserId: user.id,
+      tag: 'finalizeVendor',
     });
-
-    // ── 🔒 THE COUPLE'S OWN PLAN SURVIVES THE LOCK (2026-09-21) ────────────
-    // This snapshot was written when only a marketplace supplier could have a
-    // plan, and its upsert below REPLACED whatever was there. Since 2026-09-20
-    // a couple can author a plan for a supplier they added — and locking that
-    // supplier found no service schedule, seeded a generic 50/50 ESTIMATE, and
-    // overwrote the plan the couple had typed. `lockMayOverwritePlan`
-    // (lib/self-added-payment-plan.ts, executed by its test) holds the rule.
-    //
-    // ⚠ AN UNREADABLE PLAN IS NOT AN ABSENT ONE. If this read fails, a
-    // self-added supplier's plan is LEFT ALONE rather than overwritten blind —
-    // the couple's typed plan is the only copy, and a generic estimate is
-    // recoverable while their plan is not. A marketplace booking keeps the
-    // existing refresh behaviour, since its truth is the supplier's schedule.
-    const onPlatformBooking = Boolean(targetVendor.marketplace_vendor_id);
-    const { data: existingPlan, error: existingPlanErr } = await planAdmin
-      .from('event_vendor_payment_plan')
-      .select('instances_json, is_default_seeded')
-      .eq('event_id', eventId)
-      .eq('event_vendor_id', vendorId)
-      .maybeSingle();
-    if (existingPlanErr) {
-      // Recorded, not just branched on: `ugat-both-ends.db.test.ts` refuses a
-      // money read whose error selects a branch that leaves no trace. The plan
-      // is still protected below — this line is so someone can see it happened.
-      console.error(
-        `[finalizeVendor] could not read the existing payment plan for vendor_id=${vendorId} event_id=${eventId} — ${
-          onPlatformBooking ? 'refreshing it from the supplier schedule' : 'leaving the couple’s plan untouched'
-        }:`,
-        existingPlanErr.message,
-      );
-    }
-    const keepCouplePlan = existingPlanErr
-      ? !onPlatformBooking
-      : !lockMayOverwritePlan({
-          onPlatform: onPlatformBooking,
-          existingInstances: Array.isArray(
-            (existingPlan as { instances_json?: unknown } | null)?.instances_json,
-          )
-            ? ((existingPlan as { instances_json: unknown[] }).instances_json)
-            : null,
-          existingIsDefaultSeeded:
-            (existingPlan as { is_default_seeded?: boolean } | null)?.is_default_seeded === true,
-        });
-
-    // Upsert one plan row per (event, event_vendor) — re-locking refreshes it.
-    // Skipped entirely when the couple's own plan must survive (see above); the
-    // "your payment info is ready" notice below still fires, because it is.
-    //
-    // 📅 THE LOCK DAY (owner 2026-09-21: "on the date you clicked on lock").
-    // For a supplier the couple added themselves, TODAY is the day their
-    // "N days after lock" instalments count from. It is stamped on the plan
-    // (`on_lock_anchor_date`) so later edits read it back instead of sliding,
-    // and the couple's kept plan is re-dated to it — until now those rows were
-    // anchored on the day the supplier was added. Only "after lock" dates move
-    // (`redateOnLockInstalments`, executed by its test).
-    const stampLockDay = !onPlatformBooking;
-    const { error: planErr } = keepCouplePlan
-      ? await planAdmin
-          .from('event_vendor_payment_plan')
-          .update(
-            existingPlanErr
-              ? // Unreadable plan: record the day, touch nothing else.
-                { on_lock_anchor_date: lockDateIso }
-              : {
-                  on_lock_anchor_date: lockDateIso,
-                  instances_json: redateOnLockInstalments(
-                    (existingPlan as { instances_json?: unknown } | null)?.instances_json,
-                    lockDateIso,
-                  ),
-                  updated_at: new Date().toISOString(),
-                },
-          )
-          .eq('event_id', eventId)
-          .eq('event_vendor_id', vendorId)
-      : await planAdmin
-      .from('event_vendor_payment_plan')
-      .upsert(
-        {
-          event_id: eventId,
-          event_vendor_id: vendorId,
-          instances_json: instances,
-          // Flag an estimated 50/50 fallback so the couple's workspace can label
-          // it "estimated — confirm with your vendor". Always written, so a
-          // re-lock after the vendor sets a real schedule flips this back false.
-          is_default_seeded: seededDefault,
-          // #15 (money bug-hunt): a re-lock re-snapshots the instances, so the
-          // plan must start UNCLEARED — otherwise a previously-cleared plan keeps
-          // cleared_at and a freshly-recomputed (possibly larger) balance shows
-          // as fully settled. planAdmin is service_role, so this bypasses the
-          // cleared_at write-guard. The couple re-confirms via the gated path.
-          cleared_at: null,
-          cleared_by: null,
-          ...(stampLockDay ? { on_lock_anchor_date: lockDateIso } : {}),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'event_id,event_vendor_id' },
-      );
-    if (planErr) {
-      console.error(
-        `[finalizeVendor] payment-plan snapshot upsert failed for vendor_id=${vendorId} event_id=${eventId}:`,
-        planErr.message,
-      );
-    } else {
-      // Tell the COUPLE (the acting host) their payment info is ready. Deep-link
-      // to the per-vendor workspace Payments section.
-      await emitNotification({
-        userId: user.id,
-        type: 'payment_info_sent',
-        title: 'Your payment info is ready',
-        body: seededDefault
-          ? `Your booking with ${targetVendor.vendor_name as string} is confirmed. We've prepared an estimated payment plan — open the workspace to review it and confirm the terms with your supplier.`
-          : instances.length > 0
-            ? `Your booking is confirmed. We've prepared the payment plan for ${targetVendor.vendor_name as string} — open the workspace to see each payment and how to pay.`
-            : `Your booking with ${targetVendor.vendor_name as string} is confirmed. Open the workspace to see how to pay them directly.`,
-        relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/workspace#payments`,
-      });
-    }
 
     // No-Show Downpayment Protection — freeze the acknowledged reservation
     // policy into immutable evidence. reservationSnapshot is non-null only when
@@ -2453,6 +2372,25 @@ export async function finalizeVendor(
   // two entertainers) excludes no one. Best-effort + fail-soft: the lock already
   // succeeded, so a displacement/notify hiccup never rolls it back. Gated behind
   // the payment-gated-lock flag so it ships dormant until the owner flips it.
+  //
+  // ⚠ THE MOMENT THIS RUNS IS NOT THE MOMENT THE RULINGS NAME (read 2026-10-11;
+  // NOT changed — it is the owner's to settle).
+  //   · THE CODE releases the rivals HERE: the couple's press on the DIRECT
+  //     path, status → contracted, before the supplier has accepted any money.
+  //     Under the lock handshake `finalizeVendor` returns above this block and
+  //     nothing releases anybody — not `vendorAgreeToLock`, not
+  //     `vendor_agree_to_lock`, and no database trigger writes 'displaced'.
+  //   · THE RULINGS release them at PAYMENT-VERIFIED, i.e. when the supplier
+  //     accepts the payment (`vendorAcknowledgeDeposit` / `confirmVendorPayment`
+  //     → `runDepositAcknowledgedEffects`, status → deposit_paid):
+  //     "removals execute only on Payment-Verified", "the cascade fires on
+  //     deposit_paid (the real lock), never on the mere request"
+  //     (Customer_Vendor_Marketplace_Architecture_2026-06-04 §3, §5a, §10);
+  //     "locking applies only once the vendor accepts the payment"
+  //     (DECISION_LOG 2026-07-27).
+  // Moving it is more than a move: the thread write below is the COUPLE's RLS
+  // write and `refund_displaced_inquiry_unlock` is couple-scoped
+  // (current_couple_event_ids), while Payment-Verified is the SUPPLIER's action.
   // ----------------------------------------------------------------------
   if (isPaymentGatedLockEnabled() && isHardSingle) {
     try {
@@ -2561,6 +2499,18 @@ export async function finalizeVendor(
                 .filter((v) => !!v.user_id)
                 .map((v) => [v.vendor_profile_id, v.user_id as string]),
             );
+            // 🗣 THE OWNER'S APPROVED SENTENCE, READ FROM ITS ONE HOME — never
+            // retyped (2026-09-22, "the sentences are fine, keep them"). The
+            // thread this notice opens closes with the same words, so the tray
+            // and the conversation cannot disagree.
+            // The old body ended "We’ll let you know if it reopens." Nothing
+            // does: `revertVendorToConsidering` puts a displaced thread back
+            // without a word to anybody, and the "date reopened — still
+            // interested?" prompt ruled on 2026-06-12 is not built. A promise
+            // the app does not keep is removed, not reworded.
+            const released = closingCopy({ inquiry_status: 'displaced' }, 'vendor', {
+              counterpartyLabel: '',
+            }).sentence;
             for (const t of openThreads) {
               const uid = userByVpid.get(t.vendor_profile_id);
               if (!uid) continue;
@@ -2568,8 +2518,9 @@ export async function finalizeVendor(
                 userId: uid,
                 type: 'inquiry_displaced',
                 title: 'An inquiry was released',
-                body: 'The couple booked another supplier for this service, so your inquiry has been released. We’ll let you know if it reopens.',
+                body: released,
                 relatedUrl: `/vendor-dashboard/messages/${t.thread_id}`,
+                eventId,
               });
             }
           }
@@ -2819,6 +2770,7 @@ export async function finalizeVendor(
               title: 'First payment submitted — please confirm',
               body: `A couple submitted their first payment via ${methodLabel} and the date is held. Open the client to confirm you received it.`,
               relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+              eventId,
             });
           }
         }
@@ -3012,25 +2964,12 @@ export async function withdrawVendorLockRequest(
     } | null;
     vendorName = row?.vendor_name ?? vendorName;
     if (row?.marketplace_vendor_id && eventId) {
-      const [{ data: vProfile }, { data: evtRow }] = await Promise.all([
-        admin
-          .from('vendor_profiles')
-          .select('user_id')
-          .eq('vendor_profile_id', row.marketplace_vendor_id)
-          .maybeSingle(),
-        admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
-      ]);
-      const vendorUserId = (vProfile as { user_id: string | null } | null)?.user_id ?? null;
-      const who = (evtRow as { display_name: string } | null)?.display_name ?? 'A couple';
-      if (vendorUserId) {
-        await emitNotification({
-          userId: vendorUserId,
-          type: 'lock_request_withdrawn',
-          title: `${who} took their booking request back`,
-          body: `${who} has withdrawn the booking request you were asked to answer. Nothing is owed either way, and the date is free on your calendar again.`,
-          relatedUrl: '/vendor-dashboard',
-        });
-      }
+      // The words live in ONE place: ✕ Remove on a card with a pending request
+      // takes the request away too, and has to say the same sentence.
+      await tellSupplierLockRequestWithdrawn(admin, {
+        eventId,
+        marketplaceVendorId: row.marketplace_vendor_id,
+      });
     }
   } catch (e) {
     console.error(
@@ -4411,6 +4350,14 @@ export async function cancelBookingAsHost(
   // the cancellation also lands in the vendor's notification tray, not just
   // their inbox. emitNotification resolves the recipient email + prefixes
   // the app URL internally, so the manual users-table lookup is gone.
+  //
+  // ⚠ THAT PARAGRAPH IS FALSE ABOUT THE EMAIL. `booking_cancelled` was never
+  // added to the email allowlist, so the "consolidation" REMOVED the supplier's
+  // direct email and kept only the tray row. That is how it stays: owner
+  // 2026-10-11, "we manage without emails" — the type is declared app-only in
+  // lib/couple-supplier-notices.ts and the guard fails if it is emailed.
+  // `eventId` records which event the notice belongs to (the link is a
+  // supplier-side path the emitter cannot read one out of).
   if (vendorPrimaryUserId) {
     const formattedDate = (() => {
       if (!eventDateIso) return null;
@@ -4436,6 +4383,7 @@ export async function cancelBookingAsHost(
         title: `${hostDisplay} cancelled their booking with you`,
         body: `${hostDisplay} cancelled their booking with you for ${eventDisplay}${dateClause}. This happened before any payment was made — your soft hold has been released and the date is open on your calendar again.`,
         relatedUrl: deepLinkPath,
+        eventId: eventIdRaw,
       });
     } catch (e) {
       // Silent — the cancel itself succeeded. Log for ops visibility.
@@ -4833,6 +4781,7 @@ export async function recordDeposit(
         title: 'Payment recorded — please confirm',
         body: 'A couple recorded a payment for your booking and the date is held. Open the client to confirm you received it.',
         relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+        eventId,
       });
     }
   }
@@ -5062,12 +5011,25 @@ export async function raiseChangeOrder(
       .maybeSingle();
     const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
     if (vendorUserId) {
+      // Its OWN type since 2026-10-10 — it moves what the couple owes, so it
+      // has its own label and names its figure; `schedule_suggestion` carried
+      // it before. In-app only (owner 2026-10-11). The figure is read back off
+      // the row, never taken from the form.
+      const notice = changeOrderProposedNotice({
+        from: 'couple',
+        row: await readChangeOrderJustRaised(createAdminClient(), {
+          eventVendorId: vendorId,
+          raisedByUserId: user.id,
+        }),
+        typedTitle: title,
+      });
       await emitNotification({
         userId: vendorUserId,
-        type: 'schedule_suggestion',
-        title: 'A couple proposed a change order',
-        body: `${title.slice(0, 80)} — open the client to accept or decline.`,
+        type: 'change_order_proposed',
+        title: notice.title,
+        body: notice.body,
         relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+        eventId,
       });
     }
   }
@@ -5121,11 +5083,10 @@ export async function respondChangeOrder(
   if (env.status === 'ok') {
     const { data: co } = await supabase
       .from('vendor_change_orders')
-      .select('vendor_profile_id, title')
+      .select('vendor_profile_id, title, delta_amount_php')
       .eq('change_order_id', changeOrderId)
       .maybeSingle();
     const vendorProfileId = (co as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
-    const coTitle = (co as { title?: string } | null)?.title ?? 'Change order';
     if (vendorProfileId) {
       const { data: vp } = await createAdminClient()
         .from('vendor_profiles')
@@ -5134,12 +5095,18 @@ export async function respondChangeOrder(
         .maybeSingle();
       const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
       if (vendorUserId) {
+        const notice = changeOrderAnsweredNotice({
+          by: 'couple',
+          decision,
+          row: (co as ChangeOrderForNotice | null) ?? null,
+        });
         await emitNotification({
           userId: vendorUserId,
-          type: 'schedule_suggestion',
-          title: decision === 'accept' ? 'Change order accepted' : 'Change order declined',
-          body: `The couple ${decision === 'accept' ? 'accepted' : 'declined'} "${coTitle.slice(0, 80)}".`,
+          type: 'change_order_answered',
+          title: notice.title,
+          body: notice.body,
           relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+          eventId,
         });
       }
     }

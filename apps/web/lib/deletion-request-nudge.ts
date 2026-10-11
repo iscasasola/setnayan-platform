@@ -84,6 +84,7 @@ export async function runDeletionRequestNudgeSweep(): Promise<{ nudged: number }
           title: `${who} is still waiting on your answer`,
           body: `${who} asked whether you agree to removing their celebration and has not heard back from you. Nothing is removed until you answer.`,
           relatedUrl: '/vendor-dashboard',
+          eventId: r.event_id,
         });
       } catch (e) {
         console.error('[deletion-request-nudge] notify failed:', e);

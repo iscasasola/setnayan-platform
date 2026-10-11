@@ -452,7 +452,27 @@ export type NotificationType =
      schedule register (answers back to suppliers, appointments, challenges,
      change orders) and is in-app only. This one is on EMAIL_ENABLED_TYPES —
      a request nobody sees waits forever. Enum value: 20271262858364. */
-  | 'schedule_change_requested';
+  | 'schedule_change_requested'
+  /* 🤝 A COUPLE ANSWERED A QUOTE (2026-10-10). → the SUPPLIER, in the app (NOT
+     by email — owner 2026-10-11, "we manage without emails").
+     `respond_vendor_proposal` recorded the answer and told nobody: the
+     supplier learned it only by opening the customer card. Emitted from
+     `respondToProposal`, only when the function did not refuse (it raises
+     `already_resolved` on a second press, so it cannot repeat).
+     ⚠ ENUM values in 20271267016300 — a TS-only member typechecks and then the
+     INSERT is refused in silence. ⚠ `quote_accepted` is NOT a booking: the
+     booking is made by the couple's ask and the supplier's yes. */
+  | 'quote_accepted'
+  | 'quote_declined'
+  /* 💸 A CHANGE ORDER — a signed amount on what the couple owes
+     (`vendor_change_orders.delta_amount_php`). `proposed` → whichever side did
+     NOT raise it, who must accept or decline; `answered` → the side that raised
+     it. Both told in the app (NOT emailed — owner 2026-10-11). Until 2026-10-10
+     all four emit sites rode `schedule_suggestion`, which carries six unrelated
+     things; a money change now has its own label, tone and words, and names
+     its figure. ⚠ ENUM values in 20271267016300. */
+  | 'change_order_proposed'
+  | 'change_order_answered';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -565,6 +585,10 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   cohost_added: 'You’re now a co-host',
   event_invitation: 'You’re invited',
   schedule_change_requested: 'Schedule request',
+  quote_accepted: 'Quote accepted',
+  quote_declined: 'Quote declined',
+  change_order_proposed: 'Change order',
+  change_order_answered: 'Change order answered',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -768,6 +792,15 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   event_invitation: 'bg-sky-100 text-sky-800',
   // A supplier is waiting on a yes or no → amber, the "action needed" tone.
   schedule_change_requested: 'bg-warn-100 text-warn-900',
+  // Good news for the supplier, but not a booking — success, like an agreement.
+  quote_accepted: 'bg-success-100 text-success-900',
+  // A no the supplier can answer with another quote → amber, like every other no.
+  quote_declined: 'bg-warn-100 text-warn-900',
+  // Money waiting on a yes → the same action-needed amber as a payment ask. The
+  // answer can be yes or no, so it takes amber too rather than claim a verdict
+  // the type alone does not carry (same reasoning as part_reopen_answered).
+  change_order_proposed: 'bg-warn-100 text-warn-900',
+  change_order_answered: 'bg-warn-100 text-warn-900',
 };
 
 export type NotificationRow = {

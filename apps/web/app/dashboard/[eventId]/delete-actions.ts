@@ -833,6 +833,8 @@ export async function askSuppliersToAgree(
             title: 'A celebration you were paid for is being removed',
             body: 'The couple has asked whether you agree. Nothing is removed until you answer.',
             relatedUrl: '/vendor-dashboard',
+            // Which event: a supplier-side link carries none, so the email is told here.
+            eventId,
           });
         }
       }

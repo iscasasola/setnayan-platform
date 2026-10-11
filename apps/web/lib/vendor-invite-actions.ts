@@ -737,9 +737,11 @@ export async function registerClaimedServiceToCouple(args: {
     // Notify the couple that their vendor joined + linked a service. Uses the
     // existing `vendor_joined` type ("couple: an invited vendor claimed their
     // profile" — notifications.ts §NotificationType) via emitNotification, which
-    // fails soft and is NOT on the email allowlist, so this is an in-app/push
-    // nudge only. Fan out to every couple member of the event (both partners),
-    // mirroring the auto-follow fan-out in applyClaimAutoLink.
+    // fails soft and is NOT on the email allowlist, so this is an in-app
+    // notice only (never a push either — this comment used to say
+    // "in-app/push"). Owner 2026-10-11: we manage without new emails. Fan out
+    // to every couple member of the event (both partners), mirroring the
+    // auto-follow fan-out in applyClaimAutoLink.
     try {
       const { data: members } = await admin
         .from('event_members')

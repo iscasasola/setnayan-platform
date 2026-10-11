@@ -62,7 +62,11 @@ test('the ask returns BEFORE every side effect that announces a booking', () => 
   // exists. Every one must live BELOW the ask's return.
   const announcements: ReadonlyArray<[string, string]> = [
     ["'booking_confirmed'", 'tells the supplier they are booked'],
-    ['event_vendor_payment_plan', 'freezes a payment plan dated from the REQUEST'],
+    // Re-pointed 2026-10-10: the plan block moved out of this file into
+    // `freezePaymentPlanAtBooking` (lib/booking-payment-plan.server.ts) so the
+    // supplier's yes can call the same code. The CALL is what must stay below
+    // the ask's return.
+    ['freezePaymentPlanAtBooking(', 'freezes a payment plan dated from the REQUEST'],
     ['archived_by_lock_of', 'archives every rival the couple was considering'],
     ['triggerVendorActivityRecompute', 'counts a finalized booking that has not happened'],
   ];

@@ -34,6 +34,7 @@ Built from the approved prototype (`prototypes/maker_drag_scenes_2026-10-11.html
 - **The line's Undo pressed itself as ↺.** The Maker's Undo was found by `aria-label="Undo"`, and the line's own Undo button carries that label too — its own press was heard as the bar's ↺, the step forgotten and the line cleared. The Maker's ↺ is now found only by its bar item (`SCENE_UNDO_BUTTON`), pressed from inside the line's own press.
 - **A scene ↺ put back was picked and let go of in the same breath** — the let-go read "taken off" from the list the render still held. It now asks the work area again at that moment (`usePartEdits`; `maker-list-gates` M09 re-aimed with a dated note).
 - **The lifted scene keeps the prototype's room from the screen's edge**: 1.03 where it fits, else as large as keeps 4.675 px clear (a 359 px page at 375 → 0.974, ring whole). Over the bin its name tag shrinks and dims with it.
+- **A held part that keeps its place stays the picked part.** Its refusal comes while the finger is still down; the finger's tap is now swallowed from the lift, not for 450 ms from the refusal — a longer hold had let the release pick whatever the page glided under the finger, so the line named one part while another was picked.
 - **Walked end to end in the Maker lab: 125 passed · 0 failed** — a scene of the couple's own on the bin ("Delete this scene?", nothing written), Post Event (hold · move · one ↺ · bin · Undo) and the desktop navigator at 1280 included.
 
 **Not built, said plainly:**

@@ -234,6 +234,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'lib/what-guests-see.test.ts',
     /* 🔁 AND 2026-10-11: the same page drawn for an event with NO date, to read its lines for a hole. A test. */
     'lib/a-dateless-event-prints-no-hole.test.ts',
+    /* …and the page's ONE sign-out, read off the real page for its size, its contrast and its one control. A test. */
+    'app/[slug]/_components/the-sign-out-asks-first.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

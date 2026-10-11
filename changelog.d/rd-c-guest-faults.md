@@ -77,4 +77,17 @@ cover and the sentence cannot disagree about the same name.
 Guard: `app/[slug]/_lib/names-verb.test.ts` (also names any guest page that
 puts a fixed singular verb straight after the event's name).
 
+**N13 · "Sign out of this invitation" can be read, and the first press asks.**
+It was 12px at 3.0:1 mid-page and one press signed the guest out (the pass in
+this browser gone, the face-tagging selfie erased). Now 14px at 5.4:1 with a
+44px press, and `SignOutOfInvitation`
+(`app/[slug]/_components/sign-out-of-invitation.tsx`) asks in place on the
+first press — "You'll need your invitation link or your QR to get back in." ·
+Stay · Sign out — and signs out on the second. Same POST, still the page's one
+sign-out; with script off it is the plain one-press submit it was. Its place
+on the page is unchanged. `lib/site-body-fixture.golden.html` and
+`lib/every-stage-is-todays-page.golden.json` regenerated: the 14 guest pages
+each moved by exactly this markup (+84 bytes), the 14 stranger pages not at all.
+Guard: `app/[slug]/_components/the-sign-out-asks-first.test.ts`.
+
 SPEC IMPACT: None.

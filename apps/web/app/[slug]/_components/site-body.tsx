@@ -134,6 +134,7 @@ import { LiveWallBlock } from './live-wall-block';
 import { SongRequestCard } from './song-request-card';
 import { songRequestCardShows, type SongRequestDoor } from '@/lib/guest-song-request-rule';
 import { SELFIE_LIFETIME_LINE, SIGN_OUT_ERASES_SELFIE } from '@/lib/face-selfie-lifetime';
+import { SignOutOfInvitation } from './sign-out-of-invitation';
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
 import { YourShotsGallery } from './your-shots-gallery';
 import { YourSeatBlock } from './your-seat-block';
@@ -2682,17 +2683,22 @@ export async function SiteBody({
     const { group } = tabs;
     // 👁 A See as sample guest has no session to sign out of — no form at all.
     const signOut = sampleViewer !== null ? null : (
-      <section className="border-t border-ink/10 pt-6 text-center text-xs text-ink/50">
-        <form action={`/${event.slug}/sign-out`} method="post">
-          {/* 🧽 Said BEFORE the tap (owner 2026-09-30): the sign-out route
-              erases the face-tagging selfie; tags stay. */}
-          {guest.photo_source === 'selfie' ? (
-            <p data-sign-out-erases-selfie="" className="mb-2">{SIGN_OUT_ERASES_SELFIE}</p>
-          ) : null}
-          <button type="submit" className="underline-offset-4 hover:underline">
-            Sign out of this invitation
-          </button>
-        </form>
+      /* 🔎 LEGIBLE, AND NEVER BY ACCIDENT (a guest's walk 2026-10-11): this was 12px
+         at 3.0:1, and one press signed the guest out. Now 14px at 5.4:1 with a
+         44px press, and the first press asks (`SignOutOfInvitation`). */
+      <section className="border-t border-ink/10 pt-6 text-center text-sm text-ink/70">
+        <SignOutOfInvitation
+          action={`/${event.slug}/sign-out`}
+          /* 🧽 Said BEFORE the tap (owner 2026-09-30): the sign-out route
+             erases the face-tagging selfie; tags stay. */
+          erases={
+            guest.photo_source === 'selfie' ? (
+              <p data-sign-out-erases-selfie="" className="mb-2">{SIGN_OUT_ERASES_SELFIE}</p>
+            ) : null
+          }
+        >
+          Sign out of this invitation
+        </SignOutOfInvitation>
       </section>
     );
     /* 📱 THIS GUEST'S PAGES, FILED LIKE THE MAKER'S (owner 2026-10-08 — `readerAt`, the one filing; a See as

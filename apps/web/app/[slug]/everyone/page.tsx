@@ -203,7 +203,7 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
       {groups.length > 0 ? (
         <EntourageSection groups={groups} />
       ) : (
-        <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/60">
+        <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/70">
           The entourage hasn&rsquo;t been shared yet. Check back closer to the day.
         </p>
       )}
@@ -232,7 +232,7 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
           /* ⚠ SAY WHY, AND SAY IT AS A FACT ABOUT THE READER — not "you are not
              allowed". A relative opening a forwarded link is not doing anything
              wrong; they simply are not holding an invitation. */
-          <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-8 text-center text-sm text-ink/60">
+          <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-8 text-center text-sm text-ink/70">
             The rest of the guest list is for invited guests. Open your own
             invitation link, or scan your QR, and it will appear here.
           </p>
@@ -240,11 +240,12 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
       </section>
 
       <footer className="mt-12 border-t border-ink/10 pt-8 text-center">
-        {/* min-h-[40px] + matching negative margin (mobile audit item 3:
-            measured 18px) — grows the hit area without shifting the text. */}
+        {/* min-h-[44px] + matching negative margin (mobile audit item 3:
+            measured 18px; a guest's walk 2026-10-11: still under 44) — grows
+            the hit area without shifting the text. */}
         <Link
           href={`/${slug}`}
-          className="inline-flex min-h-[40px] items-center py-2.5 -my-2.5 text-sm text-ink/60 underline underline-offset-4"
+          className="inline-flex min-h-[44px] items-center py-3 -my-3 text-sm text-ink/70 underline underline-offset-4"
         >
           Back to the invitation
         </Link>

@@ -290,7 +290,7 @@ export default async function VenuePage({
           <p className="mt-2 text-sm text-white/60">
             {withDayNote('Come back on the day to walk the room and find your seat.', eventRow.event_date)}
           </p>
-          <Link href={`/${slug}`} className="mt-5 inline-block rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
+          <Link href={`/${slug}`} className="mt-5 inline-flex min-h-[44px] items-center rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
             ← Back to the {noun}
           </Link>
         </div>

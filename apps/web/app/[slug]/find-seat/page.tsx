@@ -354,7 +354,7 @@ function NotPostedYet({
       </section>
       <Lace className="my-4" />
       <RoomPlaceholder veil="The room is still being arranged" />
-      <SeatBackLink href={backHref} slug={slug} className="mx-6 mt-3.5 block text-center text-sm text-terracotta-700 underline underline-offset-[3px]">
+      <SeatBackLink href={backHref} slug={slug} className="mx-6 mt-3.5 flex min-h-[44px] items-center justify-center text-sm text-terracotta-700 underline underline-offset-[3px]">
         Back to the invitation
       </SeatBackLink>
     </div>

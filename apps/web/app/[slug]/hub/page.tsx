@@ -722,7 +722,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
               See the venue map →
             </Link>
           ) : (
-            <p className="text-sm text-ink/55">
+            <p className="text-sm text-ink/70">
               {seatingPublished
                 ? `${words.TheHost} will assign seats closer to the day.`
                 : withDayNote('Your table shows here on the day.', event.event_date)}

@@ -90,4 +90,13 @@ on the page is unchanged. `lib/site-body-fixture.golden.html` and
 each moved by exactly this markup (+84 bytes), the 14 stranger pages not at all.
 Guard: `app/[slug]/_components/the-sign-out-asks-first.test.ts`.
 
+**N22 · N23 — only on the pages above.** `/[slug]/everyone`: its three grey
+sentences 3.98 → 5.40:1 and its back link 40 → 44px; the seat pages' waiting
+sentence (`PromptCard` in `seat` and `find-my-table`) and the hub's "Your table
+shows here on the day." to 5.40:1; the back links of `seat`, `find-my-table`,
+`find-seat` (waiting state) and `venue` (waiting state) to 44px tall. The rest
+of the walk's 78 faint texts and small presses are NOT built — the film's
+"See our page", the reply card and the face screen are ruled designs.
+Guard: `app/[slug]/_lib/the-walked-pages-read-and-press.test.ts`.
+
 SPEC IMPACT: None.

@@ -457,7 +457,11 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   const onGoneRef = useRef(onGone);
   onGoneRef.current = onGone;
   useEffect(() => {
-    if (gone) onGoneRef.current?.();
+    /* ↺ …asked of the work area NOW, never only of the list this render holds. `ops` is read after a render, so the
+       render in which a part is first picked still holds the list from before: a scene ↺ had just put back was
+       picked, read as "taken off" from that older list, and let go of in the same breath — the toolbar was left on
+       nothing (walked in the lab, 2026-10-12; the prototype's `undo` picks the scene it brings back). */
+    if (gone && partTakenOff(askPartOps(), canvas)) onGoneRef.current?.();
   }, [gone, canvas]);
 
   const mv = isReveal ? ({ kind: 'fixed' } as Movable) : movableOf(ops, canvas);

@@ -581,6 +581,13 @@ test('(7) the line’s Undo is never mistaken for the Maker’s own ↺ — one 
   const bar = raw('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   const actions = bar.slice(bar.indexOf('data-maker-draft-actions=""'));
   assert.ok(bar.includes('data-maker-draft-actions=""') && /<DraftButton\s+label="Undo"/.test(actions), 'the Maker’s Undo is not drawn inside the draft bar’s own actions');
+  /* …and the scene ↺ put back is the picked part again (the prototype's `undo`: `pick(step.k)`) — and STAYS picked:
+     a part only just picked is let go of only when the work area's list, asked now, still says it was taken off
+     (the list a render holds is from before the pick — walked 2026-10-12: the toolbar was left on nothing). */
+  const sheet = src(`${L}/add-part-sheet.tsx`);
+  assert.match(sheet, /undone: \(step\) => \{\s*const part = step\.type === 'remove' && step\.key \? makerPartOfCanvas\(stage, step\.key\) : null;\s*if \(part\) onPick\?\.\(part\);/);
+  assert.match(sheet, /if \(gone && partTakenOff\(askPartOps\(\), canvas\)\) onGoneRef\.current\?\.\(\);/);
+  assert.doesNotMatch(sheet, /if \(gone\) onGoneRef\.current\?\.\(\);/, 'a part is let go of on the word of a list from before it was picked');
   /* Pressed, the Maker's ↺ is heard ONCE by the listener that says what came back — for the step made here only. */
   assert.match(side, /if \(!button \|\| button\.disabled \|\| !step\) return;\s*last\.current = null;/);
   assert.match(side, /say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);

@@ -29,6 +29,7 @@ import {
   SCENE_MOUSE_LIFT_PX,
   SCENE_SCROLL_PX,
   SCENE_SWALLOW_MS,
+  SCENE_SWALLOW_HELD_MAX_MS,
   sceneDropSlot,
   sceneDropTarget,
   sceneEdgeScroll,
@@ -339,7 +340,8 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     /* The host picks the part by the page's own tap — so it is told first, and only then is the tap the finger's
        release leaves behind swallowed. */
     host.onRefuse(subject, why);
-    swallowTap();
+    /* …and the finger is still DOWN here: its tap comes when it lifts, however long the hold rests after the nudge. */
+    swallowTap(true);
   };
 
   const lift = (x: number, y: number) => {
@@ -554,8 +556,12 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     else win.setTimeout(landed, ms + 10);
   };
 
-  /** The tap a drop (or a held part) leaves behind picks nothing — heard on the window, before the page. */
-  function swallowTap() {
+  /** The tap a drop (or a held part) leaves behind picks nothing — heard on the window, before the page.
+   *  `fingerDown`: the finger has not lifted yet (a part that keeps its place is refused WHILE it is held), so the
+   *  window opens at the lift. Timed from the refusal, a hold that rested past it let the release's tap pick the part
+   *  the page had glided under the finger — the line said "Logo keeps its place" with Names picked (walk D, at rest,
+   *  2026-10-12; the prototype keeps the held part picked). */
+  function swallowTap(fingerDown = false) {
     const eat = (e: Event) => {
       /* Only the FINGER'S own tap: a tap the Maker makes on the page to pick a part (`add-part-sheet.tsx`) goes through. */
       if (!e.isTrusted) return;
@@ -563,7 +569,20 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
       e.stopImmediatePropagation();
     };
     win.addEventListener('click', eat, true);
-    win.setTimeout(() => win.removeEventListener('click', eat, true), SCENE_SWALLOW_MS);
+    const close = () => win.setTimeout(() => win.removeEventListener('click', eat, true), SCENE_SWALLOW_MS);
+    if (!fingerDown) return void close();
+    let open = true;
+    const lifted = () => {
+      if (!open) return;
+      open = false;
+      doc.removeEventListener('pointerup', lifted, true);
+      doc.removeEventListener('pointercancel', lifted, true);
+      close();
+    };
+    doc.addEventListener('pointerup', lifted, true);
+    doc.addEventListener('pointercancel', lifted, true);
+    /* A lift this document never hears (the finger left the frame) still closes it. */
+    win.setTimeout(lifted, SCENE_SWALLOW_HELD_MAX_MS);
   }
 
   const onDown = (e: PointerEvent) => {

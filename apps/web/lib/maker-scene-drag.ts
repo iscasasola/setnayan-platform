@@ -52,6 +52,8 @@ export const SCENE_BIN_MS = 200;
 export const SCENE_STATUS_MS = 3200;
 /** The tap a drop leaves behind is not a pick. */
 export const SCENE_SWALLOW_MS = 450;
+/** A refused part's tap is swallowed from the finger's LIFT — at most this long after the refusal. */
+export const SCENE_SWALLOW_HELD_MAX_MS = 10_000;
 
 /* ── the prototype's words — exactly, no synonyms ────────────────────────────────────────────────────────────── */
 

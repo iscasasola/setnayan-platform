@@ -540,7 +540,20 @@ test('(7) a scene of the couple’s own is never taken silently; ↺ is the Make
   assert.match(sheet, /makerPartOfTap\(stage, shownPageOf\(stage\)\?\.key \?\? null, key, piece\) \?\? makerPartOfCanvas\(stage, key\)/);
   assert.match(src(`${L}/stage-tools.tsx`), /if \(!open \|\| !pickedKey\) return;\s*if \(stageStill\.key === pickedKey\) return;\s*stageStill\.key = null;/);
   /* The hands tell the host BEFORE the tap a held part leaves behind is swallowed (the pick is a tap of its own). */
-  assert.match(src(`${L}/scene-canvas-drag.ts`), /host\.onRefuse\(subject, why\);\s*swallowTap\(\);/);
+  /* Re-aimed 2026-10-12 (third builder): the finger is still DOWN at a refusal, so its tap is swallowed from the LIFT —
+     timed from the refusal, a hold resting past 450 ms let the release's tap pick what the page had glided under the
+     finger ("Logo keeps its place" said, Names picked — walk D at rest). A drop's swallow (the finger already up) is
+     timed at once, as before. */
+  const handsNow = src(`${L}/scene-canvas-drag.ts`);
+  assert.match(handsNow, /host\.onRefuse\(subject, why\);\s*swallowTap\(true\);/);
+  assert.match(handsNow, /swallowTap\(\);\s*host\.onRelease\(\);/);
+  const swallow = handsNow.slice(handsNow.indexOf('function swallowTap('), handsNow.indexOf('const onDown ='));
+  assert.ok(swallow.length > 200, 'anti-vacuity: swallowTap was not found');
+  assert.match(swallow, /if \(!fingerDown\) return void close\(\);/, 'a drop’s swallow must still close on its own timer');
+  assert.match(swallow, /doc\.addEventListener\('pointerup', lifted, true\);\s*doc\.addEventListener\('pointercancel', lifted, true\);/, 'a refused part’s swallow must open its window at the finger’s lift');
+  assert.match(swallow, /const lifted = \(\) => \{\s*if \(!open\) return;\s*open = false;[\s\S]{0,200}?close\(\);/, 'the lift must start the window, once');
+  const held = swallow.slice(swallow.indexOf('if (!fingerDown)') + 'if (!fingerDown) return void close();'.length);
+  assert.equal((held.match(/\bclose\(\)/g) ?? []).length, 1, 'a refused part’s swallow closes only from the lift — never on the refusal’s own timer');
   /* While a scene is held the Maker's frame steps aside (the lifted scene wears its own ring and the SAME name tag). */
   assert.match(sheet, /const framed = edges && !drag\.held;/);
   const tag = /const PART_TAG = `([^`]+)`;/.exec(raw(`${L}/add-part-sheet.tsx`))?.[1]?.replace('${PART_ACCENT}', 'bg-sn-accent text-sn-on-accent');

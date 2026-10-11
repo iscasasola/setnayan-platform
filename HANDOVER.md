@@ -161,6 +161,9 @@ as `dest=iframe`, i.e. not forwarded).
   `.ts` file — so the program was the same as with it absent.
 - preflight quick half (`--only guards,lint,types,pins`) at 41ba8056b: 43 cheap CI guards PASS · eslint PASS · targeted
   tsc PASS · the 5 worker tests PASS (65).
+- whole `pnpm preflight` at 04b63fc95: **all PASS** — 43 cheap CI guards · eslint · targeted tsc · 5 worker tests (65) ·
+  444 whole-tree guard tests (3,291) · 22 source-scanning DB tests (140). Left to CI as always: the full unit suite,
+  the build, the Maker's first-load JS budget (no Maker code changed), Lighthouse, e2e.
 - NOT RUN: the lab (`/dev/maker-lab?studio=1`) with a request log — the heavy lock was held by another builder's
   `next dev` with four in line. Causes 2 and 4 are from the code, matched to the log (5 · 3 · 3 = the style-set sizes;
   the causes add up to its 22); cause 1 was run in headless Chromium against the real worker.

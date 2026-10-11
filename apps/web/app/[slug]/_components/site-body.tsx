@@ -173,7 +173,7 @@ import { placeCardName } from '@/lib/formal-name';
 import { HubSceneRuns } from './hub-scene-runs';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
-import { makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet, type MakerDayPartPlace } from '@/lib/maker-scene-list';
+import { fixedTileHidden, makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet, type MakerDayPartPlace } from '@/lib/maker-scene-list';
 import { splitAroundEntourage, stageShowsEntourage as ourPickShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
@@ -1673,7 +1673,7 @@ export async function SiteBody({
        them, or after the entourage. */
     const makerDayStandIns = (place: MakerDayPartPlace) =>
       isMakerCanvas
-        ? makerDayPartsOn(pageStage, place).map((part) => (
+        ? makerDayPartsOn(pageStage, place).filter((part) => !fixedTileHidden(part, partsOff)).map((part) => (
             <Fragment key={part}>
               {group(at(`f:${part}`, scenesTab), <>
               {sampleBlockMark(`f:${part}`)}

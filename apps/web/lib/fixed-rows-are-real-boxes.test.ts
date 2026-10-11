@@ -40,6 +40,7 @@ import { GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, guestsSeePatch, guestsSeeToggle, 
 import { emptyHubDraft, mergeHubDraft, overlayHubDraftWidgets, planHubDraftApply, sanitizeHubDraft } from './hub-draft';
 import { hubDraftChangeLines, partShowWhat } from './hub-draft-change-lines';
 import { stripComments } from './strip-comments';
+import { MAKER_FIXED_PART, makerStageList, type MakerFixedKey } from './maker-scene-list';
 
 const STAGES: readonly LifecyclePhase[] = ['save_the_date', 'rsvp', 'event', 'editorial'];
 const NONE: GuestsSeeWrites = {};
@@ -235,4 +236,29 @@ test('7 · with stages switched off there is no stage to choose for', async () =
   const off = { ...withEveryPart(c), phasesEnabled: false };
   assert.equal((await renderStagePage(c, hidden, off)).html, (await renderStagePage(c, stageWidgets(), off)).html);
   assert.ok((await renderStagePage(c, hidden, off)).html.includes('/pabuya'), 'anti-vacuity');
+});
+
+test('8 · the Maker shows the same: a hidden part’s tile leaves the stage’s list and its stand-in leaves the canvas', () => {
+  const list = (rows: readonly InvitationWidgetRow[], stage: LifecyclePhase) =>
+    makerStageList({ stage, widgets: rows, openBrowse: false, content: {}, solemn: false, hasHeroMedia: true, hasEntourage: true, storyRenders: true, dayParts: true })
+      .shown.map((t) => t.key);
+  let dropped = 0;
+  for (const [tile, part] of Object.entries(MAKER_FIXED_PART) as [MakerFixedKey, FixedPart][]) {
+    for (const stage of STAGES) {
+      const before = list(stageWidgets(), stage);
+      if (!before.includes(`f:${tile}`)) continue;
+      dropped += 1;
+      const after = list(withParts({ [part]: { [stage]: false } }), stage);
+      assert.deepEqual(after, before.filter((k) => k !== `f:${tile}`), `${tile} hidden on ${stage}: the list keeps it, or loses something else`);
+      for (const other of STAGES) if (other !== stage) assert.deepEqual(list(withParts({ [part]: { [stage]: false } }), other), list(stageWidgets(), other), `${tile} hidden on ${stage} changed ${other}`);
+    }
+  }
+  console.log(`  ${dropped} fixed tiles dropped from their stage's list`);
+  assert.ok(dropped >= 7, `anti-vacuity: only ${dropped} tiles were listed to begin with`);
+  // An ADD — the entourage on the Save the Date, where it is not our pick — lists it there, and only there.
+  assert.ok(!list(stageWidgets(), 'save_the_date').includes('f:entourage'), 'anti-vacuity: the Save the Date lists the entourage already');
+  assert.ok(list(withParts({ entourage: { save_the_date: true } }), 'save_the_date').includes('f:entourage'));
+  // The canvas draws its stand-ins from the same list, minus the same parts.
+  const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
+  assert.match(BODY, /makerDayPartsOn\(pageStage, place\)\.filter\(\(part\) => !fixedTileHidden\(part, partsOff\)\)\.map\(/);
 });

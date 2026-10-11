@@ -53,9 +53,9 @@ import {
 } from './post-event-scenes';
 import { postEventRunKey } from './post-event-draft';
 import type { SceneTemplateId } from './scene-templates';
-import { splitAroundEntourage, stageShowsEntourage } from './stage-scenes';
+import { splitAroundEntourage, stageShowsEntourage, type FixedPart } from './stage-scenes';
 import { welcomeParts } from './invitation-welcome';
-import { DAY_WELCOME_SCENES, hiddenOnStage, sceneMeetsGuestsOn, stageChoice, whyNotInStageList } from './what-guests-see';
+import { DAY_WELCOME_SCENES, hiddenOnStage, partOnStage, partsHiddenOn, sceneMeetsGuestsOn, stageChoice, whyNotInStageList } from './what-guests-see';
 
 /** The sections that are always in their place on a stage — never dragged. */
 export type MakerFixedKey =
@@ -254,6 +254,25 @@ const DAY_PART_PLACES: readonly MakerDayPartPlace[] = ['before', 'after', 'last'
 export function makerDayPartsOn(stage: LifecyclePhase, place?: MakerDayPartPlace): MakerFixedKey[] {
   const places = place ? [place] : DAY_PART_PLACES;
   return places.flatMap((pl) => MAKER_DAY_PARTS.filter((p) => p.place === pl && p.stages.includes(stage)).map((p) => p.key));
+}
+
+/**
+ * 👁 THE FIXED TILES THAT ARE A ROW OF "WHAT GUESTS SEE" (pass 2). On a stage where the couple hid the part
+ * (`config_json.part_show`, read by `partsHiddenOn`), its tile leaves this list and its stand-in leaves the canvas —
+ * the Maker shows what the guest page shows, from the one reading. A tile with no entry here is not the table's to hide.
+ */
+export const MAKER_FIXED_PART: Partial<Record<MakerFixedKey, FixedPart>> = {
+  gifts: 'gifts',
+  entourage: 'entourage',
+  find_your_seat: 'seat',
+  photos_of_you: 'photosofyou',
+  live_hub: 'live',
+};
+
+/** True when this fixed tile's part is one the couple hid on the stage (`off` = `partsHiddenOn(…)`). */
+export function fixedTileHidden(key: MakerFixedKey, off: ReadonlySet<FixedPart>): boolean {
+  const part = MAKER_FIXED_PART[key];
+  return part !== undefined && off.has(part);
 }
 
 /**
@@ -553,6 +572,8 @@ export function widgetsGuestsMeet<T extends { widget_type: string; config_json?:
 export function makerStageList(input: MakerStageInput): MakerStageList {
   const { stage, openBrowse } = input;
   const widgets = widgetsGuestsMeet(input.widgets, stage);
+  /* 👁 The parts the couple hid on this stage ("What guests see") — read from the rows as given: the hero row carries them. */
+  const partsOff = partsHiddenOn(input.widgets, stage, true);
   const plan = resolveSiteBodyPlan({
     identity: 'anonymous',
     phasesEnabled: true,
@@ -610,7 +631,8 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     reminders: null,
     giftHref: null,
     maker: true,
-    giftsOff: input.giftsOff,
+    // 👁 …and no gift place on a stage the couple hid E-Gifts on — as the page (`site-body.tsx` `partsOff`).
+    giftsOff: input.giftsOff || partsOff.has('gifts'),
   });
   const drawn = new Set<string>();
   const sceneTile = (w: InvitationWidgetRow): MakerTile => {
@@ -638,7 +660,7 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   // place among the sections, exactly where the Maker's canvas draws its
   // stand-in (`MAKER_DAY_PARTS`).
   const dayParts = (place: MakerDayPartPlace) => {
-    if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage, place)) shown.push(fixed(k));
+    if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage, place)) if (!fixedTileHidden(k, partsOff)) shown.push(fixed(k));
   };
   dayParts('before');
   // 🎒 What to bring follows the entourage on the Invitation (`splitAroundEntourage`,
@@ -647,7 +669,8 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   for (const w of around.before) shown.push(sceneTile(w));
   dayParts('after');
   // The entourage is not the Save the Date's job (`STAGE_FIXED`).
-  if (input.hasEntourage && stageShowsEntourage(stage)) shown.push(fixed('entourage'));
+  // 👁 The couple's choice for this stage when there is one — hidden here, or added where it is not our pick.
+  if (input.hasEntourage && partOnStage(input.widgets, 'entourage', stage, true, stageShowsEntourage(stage))) shown.push(fixed('entourage'));
   for (const w of around.after) shown.push(sceneTile(w));
   dayParts('last');
   // 📖 The page draws the love story ONCE (site-body `storySceneShown`): with the

@@ -12,10 +12,13 @@
  *   6 · `eventAddressUnread` throws (it is the reply's "never the site's home").
  *
  * ⚠ Caveat: "transient" is `isTransientReadError`'s judgement (PostgREST's
- * PGRST000–003 and any 5xx but a statement timeout). A network-level failure
- * (`status: 0`, "fetch failed") is NOT transient to it, so it is thrown as a
- * `GuestReadError` after one read — postgrest-js has already retried a GET for
- * ~7 s by itself before this helper ever sees that error.
+ * PGRST000–003, any 5xx but a statement timeout, and — since lib/read-retry.ts
+ * rule 4 — a read that never reached the database: `status: 0`, "fetch failed").
+ * That last one is NOT read again here (postgrest-js has already retried a GET
+ * for ~7 s by itself before this helper ever sees it), and it is thrown as a
+ * `SchemaBlipError` after ONE read — § 5b. (Written when the two rules met in
+ * one tree, 2026-10-11: this note used to say `GuestReadError`. Under
+ * `app/[slug]` both are the guest boundary's same words.)
  *
  * Sabotage (2026-10-11): `guestRead` returning `result.data` on an error turned
  * § 4 · 5 red; dropping the retry turned § 3 red.
@@ -86,6 +89,15 @@ test('5 · a refusal a retry cannot fix THROWS, after ONE read', async () => {
     (err) => err instanceof GuestReadError && (err as GuestReadError).callSite === 'everyone (event)',
   );
   assert.equal(s.calls(), 1, 'a refusal was retried — that only makes it slower');
+});
+
+test('5b · a read that NEVER REACHED the database THROWS after ONE read — a blip, never "no such row"', async () => {
+  const s = scripted([{ data: null, error: { message: 'TypeError: fetch failed' }, status: 0 }]);
+  await assert.rejects(
+    () => quiet(() => guestRead('hub (event)', s.read, noSleep)),
+    (err) => err instanceof SchemaBlipError && /hub \(event\)/.test((err as Error).message),
+  );
+  assert.equal(s.calls(), 1, 'a read the client library already retried for seconds was run again');
 });
 
 test('6 · the reply\'s "never the site\'s home" is a throw', () => {

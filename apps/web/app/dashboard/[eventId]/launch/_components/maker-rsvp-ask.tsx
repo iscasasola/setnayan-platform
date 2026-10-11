@@ -119,6 +119,7 @@ export type CelebrationInputs = {
 export function MakerRsvpSettings({
   eventId,
   current,
+  truth = 0,
   drafted,
   replyBy,
   replyByOwn,
@@ -176,6 +177,12 @@ export function MakerRsvpSettings({
   eventId: string;
   /** The drafted-over-live config (sparse — an absent question key is ON). */
   current: RsvpAskConfig;
+  /**
+   * ↺ The RSVP stage's count of renders that were the TRUTH again (Undo · Restore · Reset —
+   * `lib/rsvp-stage-truth.ts`): each one re-seeds the panel from the server's config, even when that config reads
+   * the same as the one it was first built on (the only step of a visit, undone).
+   */
+  truth?: number;
   /** The draft holds a different config from what guests see. */
   drafted: boolean;
   /** `resolveReplyBy` — the couple's deadline, or the 30-day default; null with no date. */
@@ -239,7 +246,7 @@ export function MakerRsvpSettings({
     latest.current = saved.current;
     setLocal(saved.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentKey]);
+  }, [currentKey, truth]);
 
   /**
    * `said`: the control that asked says a refusal ITSELF (a Form row's own red line and Try again) — the panel's one

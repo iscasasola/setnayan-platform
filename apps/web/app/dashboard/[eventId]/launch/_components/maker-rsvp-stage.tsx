@@ -9,7 +9,9 @@ import { MakerRsvpSettings, type CelebrationInputs } from './maker-rsvp-ask';
 import { useMaker } from './maker-context';
 import type { RsvpAskConfig, RsvpWordKey } from '@/lib/rsvp-ask';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
-import { draftedCanvasOr } from '@/lib/maker-draft-store';
+import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight, makerWritesPending } from '@/lib/maker-refresh';
+import { rsvpStageTruth } from '@/lib/rsvp-stage-truth';
 import {
   RSVP_PREVIEW_EVENT,
   RSVP_REPLY_BY_EVENT,
@@ -104,6 +106,9 @@ const RSVP_STAGE_TILE: Record<RsvpStageScene, { label: string; caption: string }
  * Loaded lazily, inside the `maker-details` chunk (`details-lazy.tsx`): the
  * Maker's first load does not carry it.
  */
+/** The session's one listener for writes the canvas did not draw (`rsvpStageTruth`) is on. */
+let hearsUnheld = false;
+
 export function MakerRsvpStage({
   eventId,
   publicLandingUrl,
@@ -286,6 +291,30 @@ export function MakerRsvpStage({
       window.removeEventListener('message', onMessage);
     };
   }, [post, postAll, openWordField, celebrate]);
+
+  /* ↺ UNDO · RESTORE · RESET REACH THE CANVAS (`lib/rsvp-stage-truth.ts` — a tester, 2026-10-11: two steps taken
+     back, and the reply card still showed the added line). The render such a write brings is the truth: the Maker's
+     own copy is dropped (so the panel and the next save build on what the draft really holds), every frame is told,
+     and the panel is re-seeded (`truth`). Heard for the whole session — the stage is unmounted while another stage
+     is on show, and an undo pressed there is answered when it comes back. */
+  const [truth, setTruth] = useState(0);
+  useEffect(() => {
+    if (hearsUnheld) return;
+    hearsUnheld = true;
+    window.addEventListener(MAKER_UNHELD_WRITE_EVENT, () => rsvpStageTruth.unheld());
+  }, []);
+  useEffect(() => {
+    const pending = makerWritesPending(canvasWriteKey(RSVP_DRAFT_TYPE)) > 0 || makerSavesInFlight() > 0;
+    if (!rsvpStageTruth.lands(current, pending)) return;
+    const shown = draftedCanvasOr(RSVP_DRAFT_TYPE, current as HubSectionCanvas);
+    const moved = canvasFingerprint(latest.current ?? shown) !== canvasFingerprint(current) || canvasFingerprint(shown) !== canvasFingerprint(current);
+    if (!moved) return;
+    /* Ours is the server's again: every reader of the Maker's copy gets the server's from here on. */
+    noteDraftedCanvas(RSVP_DRAFT_TYPE, current as HubSectionCanvas, current as HubSectionCanvas);
+    latest.current = current;
+    postAll();
+    setTruth((n) => n + 1);
+  }, [current, postAll]);
 
   /* Opening the When yes scene plays its pick (a frame already loaded; a new
      one plays on its `rsvpReady`, above). */
@@ -483,6 +512,7 @@ export function MakerRsvpStage({
                     <MakerRsvpSettings
                       eventId={eventId}
                       current={current}
+                      truth={truth}
                       drafted={drafted}
                       replyBy={replyBy}
                       replyByOwn={replyByOwn}
@@ -511,6 +541,7 @@ export function MakerRsvpStage({
             <MakerRsvpSettings
               eventId={eventId}
               current={current}
+              truth={truth}
               drafted={drafted}
               replyBy={replyBy}
               replyByOwn={replyByOwn}

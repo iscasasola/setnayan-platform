@@ -260,12 +260,33 @@ export function MakerLabShell({
     };
   }, [summary, scrub, renderStamp]);
   const stand = (name: string) => <div data-lab-stand={name} className="rounded-md bg-white/70 p-3 text-[13px] text-ink/60">{name}</div>;
+  /* 🗳 THE RSVP STAGE IS HANDED THE DRAFT'S OWN CONFIG, A NEW OBJECT EVERY RENDER — as the launch page hands a
+     signed-in couple's. It was a constant (`sanitizeRsvpAskConfig({})`), so no render here could ever show an Undo: a
+     tester (2026-10-11) took two steps back and could not tell whether the line still on the canvas was the lab's
+     fault or the product's. (It was both: this constant, and the stage never being told — `lib/rsvp-stage-truth.ts`.)
+     `?rsvp_const=1` puts the constant back, to see the lab as it was. */
+  const [rsvpNow, setRsvpNow] = useState<ReturnType<typeof sanitizeRsvpAskConfig>>(() => sanitizeRsvpAskConfig({}));
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('rsvp_const') === '1') return;
+    let here = true;
+    void labEngine().then(
+      () => {
+        const drafted = readLabDraft(scrub).events.rsvp_ask_config;
+        const live = readLabPublished(scrub)?.events?.rsvp_ask_config;
+        if (here) setRsvpNow(sanitizeRsvpAskConfig(drafted ?? live ?? {}));
+      },
+      () => {},
+    );
+    return () => {
+      here = false;
+    };
+  }, [scrub, renderStamp]);
   const rsvpProps = useMemo<ComponentProps<typeof MakerRsvpStage>>(
     () => ({
       eventId,
       publicLandingUrl: '/dev/maker-lab/guest',
       solemn: false,
-      current: sanitizeRsvpAskConfig({}),
+      current: rsvpNow,
       drafted: false,
       replyBy: { date: '2026-11-12', isDefault: true },
       replyByOwn: { deadline: null, pricingMode: 'realtime' },
@@ -276,7 +297,7 @@ export function MakerLabShell({
       replyByAction: (async () => ({ ok: true })) as never,
       celebration: { ownsPro: false, colours: celebrationColours(['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2']) },
     }),
-    [eventId],
+    [eventId, rsvpNow],
   );
   /* 🎨 Look's rows — the REAL controls (Background · Page colour · Colours · Font · Buttons), on
      maria-and-jose's shape: Classic, no hero photo, nothing chosen yet. A

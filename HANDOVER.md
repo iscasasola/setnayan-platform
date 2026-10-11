@@ -149,12 +149,18 @@ as `dest=iframe`, i.e. not forwarded).
   at the SAME scope as `/sw.js`. One scope holds one worker: switching it on would replace this worker, not add to it.
 
 ## NEXT THREE STEPS
-1. If `tsc` below has not been recorded as rc 0: run it under the heavy lock from `apps/web` with `.next` absent —
-   `L=~/Documents/Claude/Projects/heavy-lock.sh; "$L" acquire "tsc maker-asks-once" && { NODE_OPTIONS=--max-old-space-size=8192 ../../node_modules/.bin/tsc --noEmit -p tsconfig.json; rc=$?; "$L" release "tsc maker-asks-once"; echo rc=$rc; }`
-   (the branch adds one TS file, the test; `public/sw.js` is outside the program — `allowJs: false`).
-2. `pnpm preflight` (whole), then hand the three proposals to the owner / the stage-panel builder.
+1. Hand the three proposals to the owner (cause 3 needs his word) and to the stage-panel / moves builder (causes 2, 4).
+2. Lab run with a request log once the heavy lock is free (a logging proxy in front of `next dev`; count document
+   requests per action by `sec-fetch-dest` and address) — to SEE the style cards load under Edit, and the press chain.
 3. After merge + deploy: a throwaway logging preview, the same walk on a real phone, and the lines listed above.
 
 ## CHECKS (kept true)
 - worker tests: `npx tsx --test app/sw-the-maker-asks-once.test.ts app/sw-is-a-pass-through-on-a-dev-host.test.ts app/sw-keeps-code.test.ts app/sw-reserved-routes.test.ts lib/guest-pass-hop.test.ts` (from `apps/web`) → 65 pass, 0 fail.
-- preflight quick half / full tsc: see the last commit message that touches this section.
+- full `tsc` under the heavy lock (waited 22 min in line), from `apps/web`: **rc 0, 0 errors** at 04b63fc95 (docs-only commits
+  since). `.next` was not absent: it held `cache/` only (one eslint cache file preflight wrote), no `.next/types` and no
+  `.ts` file — so the program was the same as with it absent.
+- preflight quick half (`--only guards,lint,types,pins`) at 41ba8056b: 43 cheap CI guards PASS · eslint PASS · targeted
+  tsc PASS · the 5 worker tests PASS (65).
+- NOT RUN: the lab (`/dev/maker-lab?studio=1`) with a request log — the heavy lock was held by another builder's
+  `next dev` with four in line. Causes 2 and 4 are from the code, matched to the log (5 · 3 · 3 = the style-set sizes;
+  the causes add up to its 22); cause 1 was run in headless Chromium against the real worker.

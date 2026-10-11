@@ -229,7 +229,7 @@ test('5 · every call site names the columns it would have read, of the same eve
   for (const { file, call } of sites) {
     const m = /^eventRowOnce\(\s*([\w.]+),\s*([\w.]+),\s*('[^']*'|[A-Z_]+),\s*\(\) =>\s*([\s\S]*)\)$/.exec(call);
     assert.ok(m, `${file}: this call is not in the one shape the guard can read:\n${call}`);
-    const [, client, id, columns, read] = m;
+    const [, client = '', id = '', columns = '', read = ''] = m;
     const rest = read.replace(/\s+/g, '');
     assert.ok(rest.startsWith(`${client}.from('events').select(`), `${file}: the read is not this client's read of events:\n${call}`);
     const named = columns.replace(/\s+/g, '');
@@ -295,7 +295,7 @@ test('6c · each invite door awaits the one read first, and asks only for column
     const src = readFileSync(join(WEB, 'app', '[slug]', 'invite', door, 'page.tsx'), 'utf8');
     const m = /await loadEventShell\(slug\)\.catch\(\(\) => null\);\s*const \{ data: liveEvent, error: eventError \} = await eventRowOnceBySlug\(admin, slug, \(\) =>\s*admin\s*\.from\('events'\)\s*\.select\(\s*(?:\/\/[^\n]*\n\s*)*`([^`]*)`,?\s*\)\s*(?:\/\/[^\n]*\n\s*)*\.ilike\('slug', slug\)\s*\.maybeSingle\(\),\s*\);/.exec(src);
     assert.ok(m, `invite/${door}: the door no longer awaits the one read and then asks the held row — update this guard, do not delete it`);
-    const columns = m[1].replace(/\$\{(\w+)\}/g, (_, name: string) => {
+    const columns = (m[1] ?? '').replace(/\$\{(\w+)\}/g, (_, name: string) => {
       assert.ok(constants[name], `invite/${door}: unknown column constant ${name} — add it to this guard`);
       return constants[name];
     });

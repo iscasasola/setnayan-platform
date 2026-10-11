@@ -40,8 +40,10 @@ mine to make) and Playwright WebKit is not installed (a download).
 - `app/[slug]/redeem/route.ts`: the code exchange opens `reentryDestinationPath(event.slug, to)`.
 - `app/[slug]/invite/enter/page.tsx`: all three Reply links (landing Reply, plus-one's Reply, "Change my reply")
   → `replyHrefCarrying(home, search.k)`.
-No sign-in, no account. A code is spent only when the pass is missing. Prefetch is harmless: the reply
-page never spends; only the redeem does, and a prefetch never follows a redirect to a route handler.
+No sign-in, no account. A code is spent only when the pass is missing. Prefetch is harmless either way: the reply
+page itself never spends; if a prefetch's redirect were followed to the redeem, it would spend the code only
+when this browser has no pass — and write this guest's own pass, the re-key the click wanted anyway (the redeem
+refuses link-preview robots).
 
 ## Guard + sabotage
 `app/[slug]/invite/reply/a-guest-without-the-pass-still-replies.test.ts` (5 tests).

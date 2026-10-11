@@ -39,7 +39,7 @@ import {
   RSVP_WORD_TYPED_EVENT,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
-import { readRsvpLook } from '@/lib/rsvp-look';
+import { readRsvpLook, rsvpLookCard } from '@/lib/rsvp-look';
 import { RSVP_SCENE_PART, arrangeRsvpScreen } from './rsvp-canvas-arrange';
 import { Check } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -251,6 +251,8 @@ export function MakerRsvpStage({
       if (!from) return;
       if (d.t === 'rsvpReady') {
         post(from);
+        /* 🃏 A frame that comes up while the card is picked shows it from its top (below). */
+        if (cardPicked.current) from.contentWindow?.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_TOP_MESSAGE }, window.location.origin);
         /* The When yes frame plays its pick the FIRST time it is ready — a later
            reload of the same frame (a Maker refresh) does not replay it. */
         if (from === frames.current.thanks && sceneNow.current === 'thanks' && !readyPlayed.current.has(from)) {
@@ -347,6 +349,24 @@ export function MakerRsvpStage({
     window.dispatchEvent(new CustomEvent(RSVP_STAGE_SCENE_EVENT, { detail: scene }));
     frames.current[scene]?.contentWindow?.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_TOP_MESSAGE }, window.location.origin);
   }, [scene]);
+
+  /* 🃏 A PICKED CARD IS SHOWN FROM ITS TOP (a tester, 2026-10-11: "RSVP opens with the card cut" · "the CARD label
+     covers the guest's name"). The card's frame is drawn round the WHOLE card — masthead, guest, form — but the
+     stage's centring brings up the form's own section (`f:rsvp`, under the guest's name): measured 2026-10-12, the
+     page went 0 → 122 px a second after opening, the card's top (the couple's names, the date) scrolled off and its
+     name tag, clamped to the visible top, sat on "Teresita Aquino". The card starts at the page's top, so a card
+     picked is the same hold a screen opened by its tab gets (`RSVP_TOP_MESSAGE`: to the top, a scroll that is not
+     the couple's put back for a moment). Sent a beat AFTER the pick's own message (which ends that hold), and again
+     to a frame that comes up while the card is picked. A LINE picked is brought into view as before. */
+  const cardPicked = useRef(false);
+  cardPicked.current = pickedLine === null && rsvpLookCard(pickedPart) !== null;
+  useEffect(() => {
+    if (!cardPicked.current) return;
+    const t = window.setTimeout(() => {
+      frames.current[sceneNow.current]?.contentWindow?.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_TOP_MESSAGE }, window.location.origin);
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [pickedPart, pickedLine]);
 
   /* ⌨ Done: the words are left (the page says so back — `rsvpTyping` end). */
   const doneTyping = useCallback(() => {

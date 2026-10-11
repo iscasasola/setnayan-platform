@@ -16,14 +16,14 @@ import {
   type RsvpStageScene,
   RSVP_WORD_LINES,
 } from '@/lib/rsvp-stage';
-import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
+import { RSVP_LINE_NAME, RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
 import { RSVP_CONFIG_FULL, RSVP_GROUPS_MAX, readRsvpLook, rsvpAddedId, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith, rsvpSheetKeepsLine } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
 import { RSVP_GROUP_PICK_EVENT, RSVP_LIST_DONE_EVENT, RSVP_LIST_EDIT_EVENT, RSVP_LIST_PICK_EVENT, RSVP_LIST_SAY_EVENT, RSVP_LIST_WORDS, rsvpGroupId, rsvpLayoutEdit, rsvpPlaceOf, rsvpScreenCounts, type RsvpLayoutEdit, type RsvpListDone, type RsvpListPick } from '@/lib/rsvp-layout-edit';
-import { RsvpAddedEditRows, RsvpLinePlaceRow, askRsvpListEdit, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
+import { RsvpAddedEditRows, RsvpLinePlaceRow, RsvpPanelTypingBar, askRsvpListEdit, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { DetailsPieceOnly } from './details-piece';
@@ -591,6 +591,8 @@ export function MakerRsvpSettings({
           </FormRows>
           {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
           {placeRow}
+          {/* ⌨ While its words box is open: "Typing · Question" and Done (`RsvpPanelTypingBar`). */}
+          <RsvpPanelTypingBar name={(picked.line && RSVP_LINE_NAME[picked.line]) || 'Words'} />
         </div>
       );
     }
@@ -621,6 +623,7 @@ export function MakerRsvpSettings({
           </FormRows>
           {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
           {placeRow}
+          <RsvpPanelTypingBar name={addedLine.k === 'h' ? 'Heading' : 'Message'} />
         </div>
       );
     }

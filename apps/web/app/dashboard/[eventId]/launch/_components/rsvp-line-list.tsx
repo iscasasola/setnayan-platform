@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, Check, Group, Plus, Trash2, Ungroup, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { TypedRow } from '@/app/_components/form-row';
-import { SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { SP_KEY_BAR, SP_KEY_DONE, SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import {
   RSVP_ADD_KINDS,
   RSVP_LIST_EDIT_EVENT,
@@ -254,6 +255,49 @@ export function RsvpAddedEditRows({
         {RSVP_LIST_WORDS.noAutomatic}
       </p>
     </>
+  );
+}
+
+/* ── ⌨ the panel's own open field: the typing bar ──────────────────────────── */
+
+/** Shown only while one of the panel's typed rows is OPEN — by rule, so no state can fall out of step with the field. */
+const PANEL_KEYS_RULE =
+  '[data-rsvp-panel-keys]{display:none!important}' +
+  'body:has([data-rsvp-stage-rows] [data-form-row-editing]) [data-rsvp-panel-keys]{display:flex!important}';
+
+/**
+ * ⌨ "TYPING · QUESTION" AND DONE, FOR A LINE'S WORDS TYPED IN THE PANEL (a tester, 2026-10-11: "Question has no
+ * Done"). A line's words field is the RSVP panel's, which lies OVER the toolbar — outside `[data-stage-tools]` — so
+ * the toolbar's own typing bar (shown by `:has([data-form-row-editing])` inside it) never came for it, and the open
+ * row had only its ✕. This is the stage's OWN typing bar (the one words typed on the page get —
+ * `maker-rsvp-stage.tsx`: the same classes, the same brand Done, on the keyboard's top edge), for the panel's field.
+ * Done is a press outside the field, which KEEPS (the typed row's own rule): it saves nothing of its own.
+ */
+export function RsvpPanelTypingBar({ name }: { name: string }) {
+  const [here, setHere] = useState(false);
+  const [bottom, setBottom] = useState(0);
+  useEffect(() => {
+    setHere(true);
+    const vv = window.visualViewport;
+    const read = () => setBottom(Math.max(0, window.innerHeight - ((vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight))));
+    read();
+    vv?.addEventListener('resize', read);
+    vv?.addEventListener('scroll', read);
+    return () => {
+      vv?.removeEventListener('resize', read);
+      vv?.removeEventListener('scroll', read);
+    };
+  }, []);
+  if (!here) return null;
+  return createPortal(
+    <div role="toolbar" aria-label={`${name} — words`} data-type-bar="rsvp-panel" data-rsvp-panel-keys="" style={{ bottom }} className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}>
+      <style>{PANEL_KEYS_RULE}</style>
+      <span className="min-w-0 truncate">Typing · {name}</span>
+      <span data-type-done="" className={SP_KEY_DONE}>
+        <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => (document.activeElement as HTMLElement | null)?.blur?.()} />
+      </span>
+    </div>,
+    document.body,
   );
 }
 

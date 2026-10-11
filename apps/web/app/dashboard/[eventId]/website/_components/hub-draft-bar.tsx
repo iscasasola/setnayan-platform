@@ -1,6 +1,6 @@
 'use client';
 
-import { MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
 import { MAKER_PRESS_APPLY_EVENT, type MakerApplyOutcome, type MakerPressApplyDetail } from './maker-press-apply';
 import Link from 'next/link';
@@ -152,6 +152,8 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
     start(async () => {
       const fd = new FormData();
       for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+      /* ↺ The count comes back with the answer (`HUB_DRAFT_BAR_FIELD`), so ✓ shows this step before the render lands. */
+      if (watch) fd.set(HUB_DRAFT_BAR_FIELD, '1');
       /* Undo · Restore · Reset · Apply are never drawn by the bridge: the
          canvas reloads (double-buffered) for the render they bring — ONE render,
          after the write, since the action no longer re-renders the Maker in its

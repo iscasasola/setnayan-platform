@@ -15,6 +15,7 @@ import {
   LAB_OWN_COOKIE_KEYS,
   LAB_ROWS_COOKIE,
   labBarFromCookie,
+  labDraftBar,
   labDraftCookies,
   labDraftFrom,
   labDraftStep,
@@ -385,6 +386,28 @@ test('the Scrub chain is its own draft: its start is what guests "see", so openi
   const c = labDraftCookies(d, true);
   assert.ok(c.lab_widgets_scrub, 'the chain saved to the ordinary jar');
   assert.equal(c.lab_widgets, undefined);
+});
+
+test('↺ answers with its own count: asked, Undo and Reset return the bar of the draft they just wrote', () => {
+  const save = (d: ReturnType<typeof emptyHubDraft>, patch: unknown) => labDraftStep(d, { intent: 'save', patch: JSON.stringify(patch) }, false).draft;
+  let d = save(emptyHubDraft(), { widgets: { countdown: { stage_show: { rsvp: false } } } });
+  d = save(d, { widgets: { special_message: { stage_show: { rsvp: false } } } });
+  assert.equal(labRenderedSummary(d, false).changeCount, 2);
+  const undo = labDraftStep(d, { intent: 'undo', bar: '1' }, false);
+  assert.ok(undo.result.ok && undo.result.bar, 'the answer carries no bar');
+  assert.deepEqual(undo.result.bar.free, labDraftBar(undo.draft, false).free, 'the bar is not the written draft’s');
+  assert.equal(undo.result.bar.free.changeCount, 1);
+  assert.equal(undo.result.bar.free.canUndo, true);
+  const last = labDraftStep(undo.draft, { intent: 'undo', bar: '1' }, false);
+  assert.ok(last.result.ok && last.result.bar);
+  assert.equal(last.result.bar.free.changeCount, 0);
+  assert.equal(last.result.bar.free.canUndo, false, '↺ is still offered with nothing left to take back');
+  const reset = labDraftStep(d, { intent: 'reset', stage: 'rsvp', bar: '1' }, false);
+  assert.ok(reset.result.ok && reset.result.bar);
+  assert.deepEqual(reset.result.bar.free, labDraftBar(reset.draft, false).free);
+  /* Not asked: no bar, as before. */
+  const quiet = labDraftStep(d, { intent: 'undo' }, false);
+  assert.ok(quiet.result.ok && quiet.result.bar === undefined);
 });
 
 /* ── wiring: the lab's shell and pages really go through this file ─────────────────────────────────────────────── */

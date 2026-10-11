@@ -53,6 +53,29 @@ test('↺ · Restore · Reset: the bar stays busy until the page shows it — a 
   assert.match(bar, /label="Undo"[\s\S]{0,500}?working=\{working === 'undo'\}/);
 });
 
+test('↺ shows its count from the action’s OWN answer — never only from the whole-Maker render that follows', () => {
+  /* The real action: Undo and Reset write the next draft and, asked, read the bar of THAT SAME draft beside the write. */
+  const action = read('app', 'dashboard', '[eventId]', 'website', 'hub-draft-actions.ts');
+  const helper = action.slice(action.indexOf('const answerWithBar = '), action.indexOf("if (intent === 'save')"));
+  assert.match(helper, /writeHubDraft\(supabase, eventId, next\)/);
+  assert.match(helper, /formData\.get\(HUB_DRAFT_BAR_FIELD\) === '1' \? hubDraftBarAfterSave\(supabase, eventId, next\)/);
+  assert.match(helper, /return bar \? \{ \.\.\.done\(\), bar \} : done\(\);/);
+  for (const intent of ['undo', 'reset']) {
+    const at = action.indexOf(`if (intent === '${intent}') {`);
+    assert.ok(at > 0, intent);
+    const branch = action.slice(at, action.indexOf('\n    }', at));
+    assert.match(branch, /return answerWithBar\(/, `${intent} answers without its bar`);
+    assert.doesNotMatch(branch, /writeHubDraft\(/, `${intent} writes outside the one answer`);
+  }
+  /* The toolbar asks for it on exactly the presses it waits on, and `makerSave` hands the answer's bar to it. */
+  const bar = read('app', 'dashboard', '[eventId]', 'website', '_components', 'hub-draft-bar.tsx');
+  const hook = bar.slice(bar.indexOf('function useDraftIntent('), bar.indexOf('function ResultLine('));
+  assert.match(hook, /if \(watch\) fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);/);
+  assert.match(hook, /makerSave\(\(\) => action\(eventId, fd\)/);
+  const refresh = read('lib', 'maker-refresh.ts');
+  assert.match(refresh.slice(refresh.indexOf('export function makerSave<T>(')), /announceDraftBar\(result\);/);
+});
+
 test('Earlier · Later · ＋: one press at a time, and the toast waits for the page', () => {
   const sheet = read(...L, 'add-part-sheet.tsx');
   /* The move: the words are said by `settle`, after the page shows it — never at the press. */
@@ -60,9 +83,13 @@ test('Earlier · Later · ＋: one press at a time, and the toast waits for the 
   assert.doesNotMatch(drop, /setToast\(/, 'a move is announced at the press again');
   assert.match(drop, /o\.move\(mv\.id, delta\);\s*settle\(where === 'above' \? 'earlier' : 'later', `\$\{label\} moved`\);/);
   const add = sheet.slice(sheet.indexOf('const add = '), sheet.indexOf('const removeYes = '));
-  assert.match(add, /o\.add\(folded\.widgetId, delta\);\s*settle\('add', `\$\{makerPartLabelOn\(stage, key\)\} added \$\{where\}`\);/);
-  /* `settle`: busy from the press, and words only for 'shown'. */
-  assert.match(sheet, /const settle = \(what: PartWorking, words: string\) => \{\s*setWorking\(what\);\s*void whenCanvasShowsIt\(\)\.then\(\(how\) => \{\s*setWorking\(null\);\s*if \(how === 'shown'\) setToast\(words\);/);
+  /* ＋: said after the page shows it — and the part is brought onto the screen first, so "added" is never said over a
+     screen that looks the same (it is added above or below the picked part, which can be just past the edge). */
+  assert.match(add, /o\.add\(folded\.widgetId, delta\);\s*settle\('add', `\$\{makerPartLabelOn\(stage, key\)\} added \$\{where\}`, \(\) => bringOntoScreen\(c\)\);/);
+  const bring = sheet.slice(sheet.indexOf('function bringOntoScreen('));
+  assert.match(bring.slice(0, bring.indexOf('\n}\n')), /querySelector\(`\[data-maker-section="\$\{canvasKey\}"\]`\)[\s\S]*?\.scrollIntoView\(/);
+  /* `settle`: busy from the press; words (and the bringing) only for 'shown'. */
+  assert.match(sheet, /const settle = \(what: PartWorking, words: string, shown\?: \(\) => void\) => \{\s*setWorking\(what\);\s*void whenCanvasShowsIt\(\)\.then\(\(how\) => \{\s*setWorking\(null\);\s*if \(how !== 'shown'\) return;\s*shown\?\.\(\);\s*setToast\(words\);/);
   /* While it works: no step, no remove, no ＋ — each says why instead of acting. */
   assert.match(sheet, /earlier: working \? null : /);
   assert.match(sheet, /later: working \? null : /);

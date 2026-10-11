@@ -349,11 +349,13 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
      new one (`lib/maker-settle.ts`). A write that was refused is said by the toolbar's own line; a page that never
      comes says nothing it cannot show. */
   const [working, setWorking] = useState<PartWorking | null>(null);
-  const settle = (what: PartWorking, words: string) => {
+  const settle = (what: PartWorking, words: string, shown?: () => void) => {
     setWorking(what);
     void whenCanvasShowsIt().then((how) => {
       setWorking(null);
-      if (how === 'shown') setToast(words);
+      if (how !== 'shown') return;
+      shown?.();
+      setToast(words);
     });
   };
 
@@ -497,7 +499,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
         delta = swapsForDrop(o.fullOrder, folded.widgetId, before === folded.widgetId ? null : before);
       }
       o.add(folded.widgetId, delta);
-      settle('add', `${makerPartLabelOn(stage, key)} added ${where}`);
+      settle('add', `${makerPartLabelOn(stage, key)} added ${where}`, () => bringOntoScreen(c));
       return;
     }
     const scene = makerPostEventSceneOf(stage, key);
@@ -698,6 +700,21 @@ function OwnScenePicker({ onClose, children }: { onClose: () => void; children: 
       {children}
     </div>
   );
+}
+
+/**
+ * ＋ THE ADDED PART IS BROUGHT ONTO THE SCREEN (owner 2026-10-11: "it did say venue added but i do not see it").
+ * Added above or below the picked part it is on the page, and can still sit just past the edge of what a phone
+ * shows — "added" said over a screen that looks the same. Once the page on show is the new one, it is scrolled to.
+ */
+function bringOntoScreen(canvasKey: string): void {
+  try {
+    const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
+    const marker = doc?.querySelector(`[data-maker-section="${canvasKey}"]`);
+    (marker?.nextElementSibling ?? marker)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  } catch {
+    /* a canvas that cannot be read keeps its place */
+  }
 }
 
 /** The page a tabbed canvas has ON SHOW, with the stage's page list — null on a canvas drawn as one page (or unreadable). */

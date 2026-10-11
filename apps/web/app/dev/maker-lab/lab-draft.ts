@@ -207,10 +207,11 @@ export function labDraftStep(
     return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published) } : {}) } };
   };
   if (intent === 'restore') return done(emptyHubDraft());
-  if (intent === 'undo') return done(undoHubDraft(current));
+  /* ↺ Undo and Reset answer with the bar when asked — as the real action (`answerWithBar`). */
+  if (intent === 'undo') return done(undoHubDraft(current), fields.bar === '1');
   if (intent === 'reset') {
     if (!isHubResetScope(fields.stage)) return { draft: current, published, result: { ok: false, intent, error: 'Choose which stage to reset.' } };
-    return done(mergeHubDraft(current, hubResetPatch(fields.stage)));
+    return done(mergeHubDraft(current, hubResetPatch(fields.stage)), fields.bar === '1');
   }
   if (intent === 'save') {
     let patch: HubDraftPatch;

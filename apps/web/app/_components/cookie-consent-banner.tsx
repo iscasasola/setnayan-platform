@@ -10,6 +10,7 @@ import {
 } from '@/lib/cookie-consent';
 import { isConsentSuppressedRoute } from './capture-safe-routes';
 import { isNativeApp } from '@/lib/capacitor';
+import { bottomChromeLift, type ChromeBox } from '@/lib/bottom-chrome';
 
 /**
  * How much of the viewport's bottom edge is already claimed by THIS route's
@@ -34,8 +35,7 @@ import { isNativeApp } from '@/lib/capacitor';
  */
 function measureRouteBottomChrome(exclude: HTMLElement): number {
   if (typeof document === 'undefined') return 0;
-  const vh = window.innerHeight;
-  let max = 0;
+  const boxes: ChromeBox[] = [];
   // Tailwind's `fixed`/`sticky` utilities are literal class tokens, so this
   // reaches every candidate cheaply without walking the whole DOM; anything
   // it over-matches (a class merely containing the substring) is filtered
@@ -48,15 +48,14 @@ function measureRouteBottomChrome(exclude: HTMLElement): number {
     const cs = getComputedStyle(el);
     if (cs.position !== 'fixed' && cs.position !== 'sticky') continue;
     if (cs.visibility === 'hidden' || cs.display === 'none') continue;
-    const r = el.getBoundingClientRect();
-    if (r.width < 40 || r.height < 8) continue; // not a real bar
-    if (r.height > vh * 0.45) continue; // a decorative full-height layer
-    if (r.bottom < vh - 4) continue; // not touching the bottom edge
-    if (r.top < vh * 0.5) continue; // a modal/sheet starting mid-screen, not a bar
-    max = Math.max(max, vh - r.top);
+    boxes.push(el.getBoundingClientRect());
   }
-  return Math.round(max);
+  // Which of those are bars, and how tall the stack is: `lib/bottom-chrome.ts`.
+  return bottomChromeLift(boxes, window.innerHeight);
 }
+
+/** How far the banner's TOP edge is from the bottom of the window, while it is the full-width sheet — read by `.sn-door-dock`. */
+const BANNER_TOP_VAR = '--cookie-banner-top';
 
 // Site-wide cookie-consent banner under RA 10173. Mounted once in the root
 // layout so it appears on every route, including the homepage. Reads/writes
@@ -88,7 +87,13 @@ export function CookieConsentBanner() {
   const [mounted, setMounted] = useState(false);
   const [decided, setDecided] = useState(true);
   const [manage, setManage] = useState(false);
-  const [analytics, setAnalytics] = useState(true);
+  // ☐ THE OPTIONAL BOX STARTS UNTICKED — consent is something a person does, never
+  // something done for them (the app's standing rule: `app/signup/consent-is-
+  // affirmative.test.ts`, `lib/terms-agreement.ts`). Until 2026-10-11 it started
+  // TICKED: a visitor who opened "Manage" and pressed Save without touching the
+  // box was recorded as having said yes to analytics. It shows a yes only when a
+  // yes is already stored. `optional-analytics-waits-for-a-yes.test.ts` holds it.
+  const [analytics, setAnalytics] = useState(false);
   const [storeShell, setStoreShell] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
   // How far to lift off the true bottom edge so this banner sits ABOVE the
@@ -103,19 +108,69 @@ export function CookieConsentBanner() {
   // that last one is how a scroll-triggered bar like `/features`' sticky CTA
   // (which only *transforms* into view, it doesn't mount/unmount) is caught
   // without polling or a scroll listener on every route.
+  //
+  // 🏁 …AND WHENEVER THE PAGE ITSELF CHANGES UNDER IT (2026-10-11). Measured on
+  // the guest page, 12 fresh visits at 375 × 812: in 5 the banner sat ON the
+  // Welcome / Details bar (`--cb-lift: 0px`), so a tap on Details pressed
+  // "Manage". The bar is streamed into the page AFTER the banner has taken its
+  // one measurement, and a bar that ARRIVES fires none of the three events
+  // above — it is not a resize, and it has no transition to end. So the page is
+  // watched for the arrival itself: any element added or removed re-measures,
+  // once per frame at most, for as long as the banner is up (it is up only
+  // until a visitor answers it, once).
   useEffect(() => {
     if (!showing) return;
     const el = barRef.current;
     if (!el) return;
     const recompute = () => setLiftPx(measureRouteBottomChrome(el));
     recompute();
+    let frame = 0;
+    const soon = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        recompute();
+      });
+    };
+    const arrivals = typeof MutationObserver === 'undefined' ? null : new MutationObserver(soon);
+    arrivals?.observe(document.body, { childList: true, subtree: true });
     window.addEventListener('resize', recompute);
     window.addEventListener('transitionend', recompute, true);
     return () => {
+      arrivals?.disconnect();
+      if (frame) cancelAnimationFrame(frame);
       window.removeEventListener('resize', recompute);
       window.removeEventListener('transitionend', recompute, true);
     };
   }, [showing, pathname, manage]);
+
+  // 📣 SAY WHERE THE BANNER'S TOP IS, so a page's own docked action can stand
+  // ABOVE it rather than under it (`.sn-door-dock`, globals.css — the guest
+  // page's "Get inside"). The same 12 visits: in the other 7 the banner, lifted
+  // clear of the bar, sat on "Get inside" instead. One custom property on the
+  // root — the banner still knows nothing about any page — published only while
+  // it is the edge-to-edge sheet (from `sm` it is a corner card beside the
+  // page's column, not over it), and removed the moment it goes.
+  useEffect(() => {
+    if (!showing) return;
+    const el = barRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const say = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width >= window.innerWidth - 1) root.style.setProperty(BANNER_TOP_VAR, `${Math.round(window.innerHeight - r.top)}px`);
+      else root.style.removeProperty(BANNER_TOP_VAR);
+    };
+    say();
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(say);
+    ro?.observe(el);
+    window.addEventListener('resize', say);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', say);
+      root.style.removeProperty(BANNER_TOP_VAR);
+    };
+  }, [showing, manage, liftPx]);
 
   // Reserve the space instead of covering it: while shown, the banner grows
   // the page's own bottom padding by its measured height (same idiom as
@@ -149,8 +204,12 @@ export function CookieConsentBanner() {
     setStoreShell(isNativeApp());
     const c = readConsent();
     setDecided(c !== null);
-    setAnalytics(c?.analytics ?? true);
+    setAnalytics(c?.analytics ?? false);
     const onOpen = () => {
+      // Re-opened from "Cookie settings": the box shows the choice as it is
+      // STORED NOW (it may have been made a moment ago, in this same visit) —
+      // and nothing at all when none was made.
+      setAnalytics(readConsent()?.analytics ?? false);
       setDecided(false);
       setManage(true);
     };
@@ -196,12 +255,13 @@ export function CookieConsentBanner() {
           <p>
             We use essential cookies to run Setnayan, and optional analytics to
             improve it.{' '}
-            {/* ≥40px tap height via padding + a matching negative margin, so
+            {/* A full 44px tap height via padding + a matching negative margin, so
                 the hit area grows without the inline text visually shifting
-                (mobile audit item 1). Same trick as the footer links below. */}
+                (mobile audit item 1; 40px until 2026-10-11, when the guest walk
+                measured it under the 44px rule). Same trick as the links below. */}
             <Link
               href="/cookies"
-              className="inline-flex min-h-[40px] items-center py-2.5 -my-2.5 text-terracotta hover:underline"
+              className="inline-flex min-h-[44px] items-center py-3 -my-3 text-terracotta hover:underline"
             >
               Cookie policy
             </Link>
@@ -225,7 +285,7 @@ export function CookieConsentBanner() {
             <button
               type="button"
               onClick={() => setManage(true)}
-              className="min-h-[40px] px-2 py-1.5 text-xs text-ink/55 hover:text-ink"
+              className="min-h-[44px] px-2 py-1.5 text-xs text-ink/55 hover:text-ink"
             >
               Manage
             </button>
@@ -254,7 +314,7 @@ export function CookieConsentBanner() {
           <div className="mt-3 flex items-center justify-end gap-2">
             <Link
               href="/cookies"
-              className="inline-flex min-h-[40px] items-center px-2 py-1.5 text-xs text-ink/55 hover:text-ink"
+              className="inline-flex min-h-[44px] items-center px-2 py-1.5 text-xs text-ink/55 hover:text-ink"
             >
               Learn more
             </Link>

@@ -44,12 +44,15 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
-import { eventWordsFromProfile, giftIsMoneyDance } from '../_lib/event-words';
+import { eventWordsFromProfile, giftIsMoneyDance, solemnAdjustedPhase } from '../_lib/event-words';
+import { dayHubDoor, dayHubOpens } from '../_lib/day-hub';
+import { STAGE_BAR } from '../_lib/stage-bar';
 import { resolveAlbumDoor } from '../_lib/album-door.server';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
+import { getLifecyclePhase, manualLaunchPhase, type LifecyclePhase } from '@/lib/invitation-widgets';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { fetchPublicScheduleBlocks } from '@/lib/schedule';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
@@ -124,7 +127,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     .select(
       // The CANONICAL monogram list + the QR look's two columns, never a
       // hand-typed near-copy: the guest's code below wears the event's look.
-      `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at`,
+      `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at, event_end_date, launch_mode, manual_phase`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -190,17 +193,58 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const isHost =
     isValidPhaseParam && !isDemoEvent ? await isSignedInEventHost(event.event_id) : false;
   const phasePreviewAllowed = isDemoEvent || isHost;
-  const phaseOverride: DayOfPhase | null =
-    isValidPhaseParam && phasePreviewAllowed
-      ? phaseParam === 'event'
-        ? 'live'
-        : phaseParam === 'editorial'
-          ? 'post'
-          : 'pre'
-      : null;
+  /*
+    🧭 THE STAGE IS THE PAGE'S — ONE ANSWER, NOT TWO (2026-10-11).
 
-  const dayOfPhase: DayOfPhase =
-    phaseOverride ?? (event.event_date ? getDayOfPhase(event.event_date, eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)) : 'inactive');
+    Measured on the live sample event 61 days before its day: this screen said
+    "THE DAY" over a lit "Live" tab while the event's own page, one address up,
+    said "INVITATION". This page asked only the calendar window (`getDayOfPhase`)
+    and never the stage — and never the couple's pin either, so a couple who
+    pinned "The Day" got a live page and a not-live hub.
+
+    So it now composes exactly what `app/[slug]/page.tsx` composes: a host's
+    `?phase=` preview, else the couple's pin, else the venue's clock — and the
+    day-of phase follows a forced stage the same way. Left literal, as at every
+    site that picks the Event Hub's face (`manualLaunchPhase`'s own docblock), so
+    the venue-clock guard keeps seeing the real `getLifecyclePhase(` call.
+  */
+  const phaseOverride: LifecyclePhase | null =
+    isValidPhaseParam && phasePreviewAllowed ? (phaseParam as LifecyclePhase) : null;
+  const pinnedPhase: LifecyclePhase | null = manualLaunchPhase(event.launch_mode, event.manual_phase);
+  const venueTz = eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude);
+  /** The stage the event's own page is at, for this viewer — the page's composition, to the letter. */
+  const pageStage: LifecyclePhase = solemnAdjustedPhase(
+    phaseOverride ??
+      pinnedPhase ??
+      getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null),
+    eventTypeProfile.terminology.register === 'solemn',
+  );
+
+  // Before the day there is no day to show a guest: the page that speaks for
+  // this stage is the event's own. A signed-in HOST rehearses the day instead —
+  // the couple checks the hub before their guests do (`dayHubDoor`,
+  // _lib/day-hub.ts). The host is looked up only here, where it can matter; a
+  // preview that asked for an earlier stage keeps that stage, on its page.
+  const door = dayHubDoor(
+    pageStage,
+    !dayHubOpens(pageStage) && !phaseOverride ? await isSignedInEventHost(event.event_id) : false,
+  );
+  if (door === 'leave') {
+    redirect(phaseOverride ? `/${slug}?phase=${phaseOverride}` : `/${slug}`);
+  }
+  // A rehearsal IS the host's preview of The Day — `?phase=event`, without the address.
+  const forcedPhase: LifecyclePhase | null = door === 'rehearsal' ? 'event' : (phaseOverride ?? pinnedPhase);
+  const lifecyclePhase: LifecyclePhase = door === 'rehearsal' ? 'event' : pageStage;
+
+  const dayOfPhase: DayOfPhase = forcedPhase
+    ? forcedPhase === 'event'
+      ? 'live'
+      : forcedPhase === 'editorial'
+        ? 'post'
+        : 'pre'
+    : event.event_date
+      ? getDayOfPhase(event.event_date, venueTz)
+      : 'inactive';
   const isLive = dayOfPhase === 'live';
   const isPost = dayOfPhase === 'post';
 
@@ -583,7 +627,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           ? words.solemn
             ? 'Soon'
             : 'Almost here'
-          : 'The day';
+          : // Outside the day's own window the header names the STAGE, in the
+            // stage's own word — the table the event's page reads (`STAGE_BAR`).
+            STAGE_BAR[lifecyclePhase].label;
 
   // ───────────────────────────── Panels ─────────────────────────────────────
 

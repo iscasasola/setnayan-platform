@@ -93,6 +93,7 @@ export function PahinaMasthead({
   mediaCaption,
   twoPeople = true,
   card,
+  linkWords = null,
   elements = null,
   stampElements = false,
   design = HERO_DESIGN_DEFAULT,
@@ -161,6 +162,13 @@ export function PahinaMasthead({
     hubHref: string;
     hubLabel: string;
   };
+  /**
+   * 🔗 THE LINK'S AUTOMATIC WORDS FOR THIS VIEWER (`hubLinkWords`,
+   * `_lib/invitation-card.ts`): the card's own words, less whatever the page it
+   * opens does not hold for them — a stranger is never promised "the place".
+   * Absent → `card.hubLabel`, as before. The couple's own words still win.
+   */
+  linkWords?: string | null;
 }) {
   const names = splitCoupleNames(displayName, twoPeople);
   /* 🗓 FORMAT ▾ (tap-to-type): the date and the time written the couple's way
@@ -242,7 +250,8 @@ export function PahinaMasthead({
      canvas only, the words the instant preview rewrites. */
   const hubLink = (align: 'start' | 'center') => {
     if (!card) return null;
-    const words = elements?.link?.word ?? card.hubLabel;
+    const autoWords = linkWords ?? card.hubLabel;
+    const words = elements?.link?.word ?? autoWords;
     const whole = `${words}↓`;
     return (
       <div {...el('link')} className="mt-4 font-pahina text-base italic text-mulberry hover:text-mulberry-600">
@@ -252,7 +261,7 @@ export function PahinaMasthead({
         >
           {/* In the Maker only: which words the preview rewrites, and the card's
               own words to put back when the couple clears theirs. */}
-          <span {...(stampElements ? { 'data-el-words': '', 'data-el-word': card.hubLabel } : {})}>
+          <span {...(stampElements ? { 'data-el-words': '', 'data-el-word': autoWords } : {})}>
             {txt('link', words, whole, 0)}
           </span>
           <span aria-hidden>{txt('link', '↓', whole, words.length)}</span>

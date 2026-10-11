@@ -17,6 +17,15 @@ import { fileReport } from '@/lib/reports';
  * Deliberately DISCREET — a small ghost link that opens a compact reason picker
  * on tap. It's chrome, never part of the couple's sacred aesthetic. Works for a
  * signed-out visitor (the write path runs server-side; see lib/reports.ts).
+ *
+ * 🎨 THE SHEET IS DRAWN WITH THE PAGE'S TWO TOKENS AND NOTHING ELSE — the paper
+ * (`cream`) and its ink. It opens INSIDE the page it reports, so on an event it
+ * wears that event's Look. Until 2026-10-11 the six reasons and the text box
+ * were filled `bg-white/60`: on a dark Look the page's ink is the LIGHT colour,
+ * and a white fill under it measured 1.09 : 1 on the live sample event — a list
+ * nobody could read. A fill is now a tint of the INK over the paper, so it turns
+ * with the Look, and every word is the ink at a strength that reads on it.
+ * `the-report-sheet-is-readable.test.ts` measures every word on every Look.
  */
 
 const REASONS: { value: string; label: string }[] = [
@@ -76,7 +85,7 @@ export function ReportPageButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink/45 underline-offset-2 hover:text-ink/70 hover:underline"
+        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink/75 underline-offset-2 hover:text-ink hover:underline"
       >
         <Flag aria-hidden className="h-3 w-3" strokeWidth={1.75} />
         {label}
@@ -104,7 +113,7 @@ export function ReportPageButton({
                 type="button"
                 onClick={() => setOpen(false)}
                 disabled={pending}
-                className="rounded-full p-1 text-ink/50 hover:bg-ink/[0.06] hover:text-ink/80 disabled:opacity-50"
+                className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/75 hover:bg-ink/[0.06] hover:text-ink disabled:opacity-50"
                 aria-label="Close"
               >
                 <X aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -113,23 +122,23 @@ export function ReportPageButton({
 
             {done ? (
               <div className="space-y-2 py-2 text-sm text-ink/75">
-                <p className="inline-flex items-center gap-1.5 font-medium text-success-700">
+                <p className="inline-flex items-center gap-1.5 font-medium text-ink">
                   <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> Thank you — reported.
                 </p>
-                <p className="text-ink/60">
+                <p className="text-ink/75">
                   Our team reviews every report. You can close this now.
                 </p>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="mt-2 w-full rounded-md bg-ink px-3 py-2 text-xs font-medium text-cream hover:bg-ink/90"
+                  className="mt-2 min-h-11 w-full rounded-md bg-ink px-3 py-2 text-xs font-medium text-cream hover:bg-ink/90"
                 >
                   Done
                 </button>
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-xs text-ink/60">
+                <p className="text-xs text-ink/75">
                   Tell us what&rsquo;s wrong with this page. Reports are private
                   and go straight to the Setnayan team.
                 </p>
@@ -138,7 +147,7 @@ export function ReportPageButton({
                   {REASONS.map((r) => (
                     <label
                       key={r.value}
-                      className="flex cursor-pointer items-center gap-2 rounded-md border border-ink/15 bg-white/60 px-3 py-2 text-sm text-ink/80 hover:bg-white/80 has-[:checked]:border-terracotta/40 has-[:checked]:bg-terracotta/5"
+                      className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-ink/15 bg-ink/[0.04] px-3 py-2 text-sm text-ink hover:bg-ink/[0.08] has-[:checked]:border-terracotta/40 has-[:checked]:bg-terracotta/5"
                     >
                       <input
                         type="radio"
@@ -158,14 +167,14 @@ export function ReportPageButton({
                   placeholder="Add any detail (optional)"
                   rows={2}
                   maxLength={2000}
-                  className="w-full rounded-md border border-ink/15 bg-white/70 px-3 py-2 text-sm text-ink/80 placeholder:text-ink/40 focus:border-terracotta/40 focus:outline-none"
+                  className="w-full rounded-md border border-ink/15 bg-ink/[0.04] px-3 py-2 text-sm text-ink placeholder:text-ink/75 focus:border-terracotta/40 focus:outline-none"
                 />
                 {error && <p className="text-xs font-medium text-terracotta-700">{error}</p>}
                 <button
                   type="button"
                   onClick={submit}
                   disabled={pending}
-                  className="w-full rounded-md bg-terracotta-700 px-3 py-2 text-xs font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-60"
+                  className="min-h-11 w-full rounded-md bg-terracotta-700 px-3 py-2 text-xs font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-60"
                 >
                   {pending ? 'Sending…' : 'Submit report'}
                 </button>

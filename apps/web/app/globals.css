@@ -3346,6 +3346,77 @@ html.dark {
   }
 } /* @layer components — Pahina foundation */
 
+/* ── 🚪 THE FIRST SCREEN MAKES ROOM FOR ITS ONE ACTION (2026-10-11) ──────────
+   Measured on the live sample event: a stranger's one button, "Get inside",
+   has its place under the date at y 715 — entirely below a 375 × 667 screen,
+   and under the bottom bar at 375 × 812 (32 of its 56 px showing). A first cut
+   docked the button OVER the cover; re-measured, it sat on the couple's names
+   or the date in 5 of 8 first screens.
+
+   So nothing floats. The button is in the cover's flow and the cover makes
+   room for it — `app/[slug]/_lib/first-screen-fit.ts` is the rule (air first,
+   then the mark smaller, then whole parts below the button; the names never),
+   `first-screen-door.tsx` measures the page and writes the plan as:
+
+     · `--fs-air`   1 → 0 on the first-screen block: how much of the cover's own
+                    air is kept (its padding, the mark's margin, the gap above
+                    the button, and 1.5rem of the column's top padding);
+     · `--fs-mark`  1 → 0.55: the mark's box and its drawing, together;
+     · `--fs-shift` on each block that moves: it is drawn that far from its own
+                    place. The page's flow is untouched, so nothing after the
+                    cover moves, and no block is ever drawn on another.
+
+   With no plan written every value below is exactly the utility it stands in
+   for (pt-8 · pb-7 · mt-5 · h-[9.5rem] · scale-[1.85] · the row's 1.5rem), so a
+   screen the cover already fits — and every page without the script — is
+   untouched.
+
+   `.sn-door-row` is the row the button sits in (`site-body.tsx`): no box of its
+   own, its two margins the `space-y-6` / `space-y-4` it replaced, at the same
+   weight. `--sn-door-rest` is the guest page's "clear of the bottom bar" offset
+   (4.75rem + the safe area; from `xl` the bar is a side rail) — the fit's limit,
+   and where an opened door is scrolled to (`scroll-margin-bottom`).
+   `app/_components/the-first-screen-keeps-its-action.test.ts` holds all of it. */
+@layer components {
+  .sn-door-row {
+    display: contents;
+  }
+  :not([hidden]) ~ .sn-door-row > :first-child {
+    margin-top: calc(0.75rem + 0.75rem * var(--fs-air, 1));
+  }
+  .sn-door-row > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1rem;
+  }
+  .sn-door-dock {
+    --sn-door-rest: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    scroll-margin-bottom: var(--sn-door-rest);
+  }
+  @media (min-width: 1280px) {
+    .sn-door-dock {
+      --sn-door-rest: 1rem;
+    }
+  }
+  [data-first-screen-fit] {
+    margin-top: calc(-1.5rem * (1 - var(--fs-air, 1)));
+  }
+  [data-first-screen-fit] [data-cover-frameless] > div {
+    padding-top: calc(0.5rem + 1.5rem * var(--fs-air, 1));
+    padding-bottom: calc(0.5rem + 1.25rem * var(--fs-air, 1));
+  }
+  [data-first-screen-fit] [data-cover-frameless] [data-motion='arrive-mark'] {
+    height: calc(9.5rem * var(--fs-mark, 1));
+    margin-top: calc(0.5rem + 0.75rem * var(--fs-air, 1));
+  }
+  [data-first-screen-fit] [data-cover-frameless] [data-motion='arrive-mark'] > div {
+    --tw-scale-x: calc(1.85 * var(--fs-mark, 1));
+    --tw-scale-y: calc(1.85 * var(--fs-mark, 1));
+  }
+  [data-first-screen-fit] [data-fs-shift] {
+    position: relative;
+    top: var(--fs-shift, 0px);
+  }
+}
+
 /* ── Candlelight art direction (wave A PR-5b, design spec §4) ────────────────
    The deliberate variation axis: ONE switch, two genuinely different-feeling
    sites. Daylight is the default and is byte-identical to today — this block
@@ -3741,6 +3812,29 @@ html.dark {
      set — the theme's `[data-hub-theme]` mapping and the look's inline variables sit on it
      (`guest-look-scope.tsx`) — so the name resolves here, once, to the ink the page really wears. */
   --color-ink-page: var(--color-ink);
+  /* 🖋 …AND THE PAGE'S GILD WORDS, the same way and for the same reason (2026-10-11). `text-gild` reads
+     `var(--color-gild-text, var(--color-gild))`; this is that answer under a second name, for the surfaces
+     below to fall back to. */
+  --color-gild-text-page: var(--color-gild-text, var(--color-gild));
+}
+
+/* 🟨 A SURFACE WITH A GROUND OF ITS OWN KEEPS A GILD WORD THAT READS ON *THAT* GROUND (2026-10-11).
+   A plate and a veil row are not the page: a couple's dark background leaves them as they were. The dark sample
+   event's "WHEN" label sits on its GOLD date card; once the words' gild followed the dark page it read 1.01 : 1
+   there. So each such surface shadows `--color-gild-text` for its subtree — the plate's own idiom for its ink,
+   above — with the look's value for THAT ground (`pinSurfaceWordInks`, `app/[slug]/_lib/pro-site-vars.ts`),
+   and the page's own value wherever no look pins one: exactly what it drew before.
+   The selectors are the ground-painting classes the guest components use; `lib/a-dark-look-keeps-its-words
+   .test.ts` (9) re-reads the components and fails when one paints a plate or a veil ROW this list does not
+   name. (The opaque `bg-veil` is a picture well — a map, a portrait — and holds no words.) */
+.sn-editorial :is(.pahina-plate, .pahina-deckle, .bg-paper-deep, .bg-paper-deep\/95) {
+  --color-gild-text: var(--color-gild-text-on-plate, var(--color-gild-text-page));
+}
+.sn-editorial .bg-veil\/60 {
+  --color-gild-text: var(--color-gild-text-on-veil-60, var(--color-gild-text-page));
+}
+.sn-editorial .bg-veil\/50 {
+  --color-gild-text: var(--color-gild-text-on-veil-50, var(--color-gild-text-page));
 }
 
 /* ── Event Hub theme MATERIALS (owner 2026-09-22) ────────────────────────────

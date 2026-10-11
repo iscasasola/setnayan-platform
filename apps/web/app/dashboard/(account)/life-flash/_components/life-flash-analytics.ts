@@ -14,11 +14,15 @@
  *   life_flash_perspective_viewed — the signature "through someone else's eyes" beat surfaced { scope }
  *   life_flash_reel_reordered     — reel order toggled { order }
  */
+import { analyticsAllowed } from '@/lib/cookie-consent';
+
 export async function captureLifeFlash(
   event: string,
   properties: Record<string, unknown>,
 ): Promise<void> {
   try {
+    // No yes, no analytics — and no SDK download either (`lib/cookie-consent.ts`).
+    if (!analyticsAllowed()) return;
     const ph = (await import('posthog-js')).default;
     ph.capture?.(event, properties);
   } catch {

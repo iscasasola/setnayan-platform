@@ -4,6 +4,7 @@ import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventRowOnceBySlug } from '@/lib/event-row-once';
 import { createClient } from '@/lib/supabase/server';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 import { arrivalDestinationFor, arrivalDestinationWords, replyIsAsked } from '@/lib/invite-destination';
@@ -262,17 +263,26 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   const search = await searchParams;
 
   const admin = createAdminClient();
-  const { data: liveEvent, error: eventError } = await admin
-    .from('events')
-    .select(
-      // + the QR look's remaining columns (the invite look and the invite mark
-      // already carry display_name · monogram_text · monogram_color · the two
-      // SVGs · role_palette): the pass drawn below wears the event's look —
-      // lib/qr-look.server.ts.
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, monogram_studio_config`,
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  /* 1️⃣ ONE READ OF THE EVENT (2026-10-12, `lib/event-row-once.ts`). The layout, the
+     metadata and the look already read this event's row for this request
+     (`loadEventShell`, one `cache()`d read) — with every column this door asks
+     for. So that read is awaited first, and the door's own read below, unchanged,
+     is SENT only when the row is not in hand (the shell could not be read, or a
+     column here is one it does not carry). Its failure is still this door's own. */
+  await loadEventShell(slug).catch(() => null);
+  const { data: liveEvent, error: eventError } = await eventRowOnceBySlug(admin, slug, () =>
+    admin
+      .from('events')
+      .select(
+        // + the QR look's remaining columns (the invite look and the invite mark
+        // already carry display_name · monogram_text · monogram_color · the two
+        // SVGs · role_palette): the pass drawn below wears the event's look —
+        // lib/qr-look.server.ts.
+        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, monogram_studio_config`,
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   if (eventError) {
     throw new Error(`invite/enter: could not read the event for "${slug}": ${eventError.message}`);
   }

@@ -25,9 +25,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { createClient } from '@supabase/supabase-js';
 import {
   EVENT_ROW_ONCE_EXTRA_COLUMNS,
   eventRowOnce,
+  eventRowOnceBySlug,
   holdEventRow,
   withEventRowScopeForTest,
   withoutOnceExtras,
@@ -124,6 +126,68 @@ test('4 · outside a render nothing is held — an action’s gate reads every t
   assert.deepEqual(calls, ['first', 'second', 'the next render']);
 });
 
+// ── 4b · by slug — the guest's two invite doors ─────────────────────────────
+
+/** A REAL client of the installed library, on a database that counts and answers nothing useful. */
+function countingClient() {
+  const sent: string[] = [];
+  const client = createClient('http://db.test', 'test-key', {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: {
+      fetch: (async (input: RequestInfo | URL) => {
+        sent.push(String(input));
+        return new Response(JSON.stringify({ from: 'database' }), { status: 200, headers: { 'content-type': 'application/json' } });
+      }) as typeof fetch,
+    },
+  });
+  return { client, sent };
+}
+
+test('4b · by slug: the door’s own read is built but NOT sent when it asks what the one read already answered', async () => {
+  await withEventRowScopeForTest(async () => {
+    const { client, sent } = countingClient();
+    markServiceRoleClient(client);
+    holdEventRow(EVENT, { ...ROW, slug: 'maria-and-jose', display_name: 'Maria & Jose' }, 'Maria-and-Jose');
+    const got = await eventRowOnceBySlug(client, 'Maria-and-Jose', () =>
+      client.from('events').select(`event_id, slug,   display_name, papic_on`).ilike('slug', 'Maria-and-Jose').maybeSingle(),
+    );
+    assert.deepEqual(got.data, { event_id: EVENT, slug: 'maria-and-jose', display_name: 'Maria & Jose', papic_on: false });
+    assert.equal(got.error, null);
+    assert.deepEqual(sent, [], 'the query was sent although the row was in hand — the installed client no longer shows what it would ask');
+  });
+});
+
+test('4c · by slug: any OTHER question is sent as it is — another slug, another filter, a column not held, many rows, a session client', async () => {
+  await withEventRowScopeForTest(async () => {
+    const { client, sent } = countingClient();
+    markServiceRoleClient(client);
+    holdEventRow(EVENT, { ...ROW, slug: 'maria-and-jose' }, 'maria-and-jose');
+    const ask = async (label: string, slug: string, read: () => PromiseLike<unknown>) => {
+      const before = sent.length;
+      await eventRowOnceBySlug(client, slug, read);
+      assert.equal(sent.length, before + 1, `${label}: answered from the held row`);
+    };
+    await ask('another slug', 'ana-and-ben', () => client.from('events').select('event_id').ilike('slug', 'ana-and-ben').maybeSingle());
+    await ask('a different case — not the question that was asked', 'Maria-And-Jose', () => client.from('events').select('event_id').ilike('slug', 'Maria-And-Jose').maybeSingle());
+    await ask('an exact match, not ilike', 'maria-and-jose', () => client.from('events').select('event_id').eq('slug', 'maria-and-jose').maybeSingle());
+    await ask('a second filter', 'maria-and-jose', () => client.from('events').select('event_id').ilike('slug', 'maria-and-jose').eq('archived', false).maybeSingle());
+    await ask('a column not held', 'maria-and-jose', () => client.from('events').select('event_id, not_held').ilike('slug', 'maria-and-jose').maybeSingle());
+    await ask('many rows', 'maria-and-jose', () => client.from('events').select('event_id').ilike('slug', 'maria-and-jose'));
+    await ask('another table', 'maria-and-jose', () => client.from('guests').select('event_id').ilike('slug', 'maria-and-jose').maybeSingle());
+    await ask('something that is not a query at all', 'maria-and-jose', () => client.from('events').select('event_id').ilike('slug', 'maria-and-jose').maybeSingle().then((r) => r));
+    // A viewer's own client never gets the service role's row.
+    const viewer = countingClient();
+    await eventRowOnceBySlug(viewer.client, 'maria-and-jose', () => viewer.client.from('events').select('event_id').ilike('slug', 'maria-and-jose').maybeSingle());
+    assert.equal(viewer.sent.length, 1, 'a session client was answered from a row read past RLS');
+  });
+  // …and outside a render nothing is held.
+  const { client, sent } = countingClient();
+  markServiceRoleClient(client);
+  holdEventRow(EVENT, { ...ROW, slug: 'maria-and-jose' }, 'maria-and-jose');
+  await eventRowOnceBySlug(client, 'maria-and-jose', () => client.from('events').select('event_id').ilike('slug', 'maria-and-jose').maybeSingle());
+  assert.equal(sent.length, 1);
+});
+
 // ── 5 · every call site ─────────────────────────────────────────────────────
 
 function sources(dir: string, out: string[] = []): string[] {
@@ -204,8 +268,44 @@ test('6b · the one read falls back to the shell alone ONLY for an unknown colum
   const one = LOADERS.slice(start, LOADERS.indexOf('export const loadEventShell = cache('));
   assert.ok(start > -1 && one.length > 200, 'theOneEventRead is gone or renamed — update this guard');
   assert.match(one, /if \(whole\.error\) return whole\.error\.code === '42703' \? await read\(columns\) : whole;/, 'the fallback is gone, or now retries on any failure');
-  assert.match(one, /holdEventRow\(row\.event_id, row\)/, 'the row that was read is no longer left in hand');
+  assert.match(one, /holdEventRow\(row\.event_id, row, slug\)/, 'the row that was read is no longer left in hand');
   assert.match(one, /data: withoutOnceExtras\(row\)/, 'the page is handed the extras — its row is no longer the row it always was');
+});
+
+// ── 6c · the two invite doors ───────────────────────────────────────────────
+
+/** A column-list constant, read from its own source (`'…'`, or another constant's name). */
+function constantIn(rel: string, name: string): string {
+  const src = readFileSync(join(WEB, rel), 'utf8');
+  const literal = new RegExp(`export const ${name} =\\s*'([^']+)'`).exec(src)?.[1];
+  if (literal) return literal;
+  const alias = new RegExp(`export const ${name} = ([A-Z_]+);`).exec(src)?.[1];
+  assert.ok(alias, `${name} was not found in ${rel} — update this guard`);
+  return constantIn('app/[slug]/_lib/hub-look.ts', alias);
+}
+
+test('6c · each invite door awaits the one read first, and asks only for columns it carries — so its own read is not sent', () => {
+  const constants: Record<string, string> = {
+    INVITE_LOOK_COLUMNS: constantIn('app/[slug]/invite/_lib/load-invite-look.ts', 'INVITE_LOOK_COLUMNS'),
+    INVITE_MARK_COLUMNS: constantIn('app/[slug]/invite/_lib/load-invite-look.ts', 'INVITE_MARK_COLUMNS'),
+    QR_LOOK_COLUMNS_AFTER_INVITE_MARK: constantIn('lib/qr-look.server.ts', 'QR_LOOK_COLUMNS_AFTER_INVITE_MARK'),
+  };
+  const inHand = new Set<string>([...SHELL_COLUMNS, ...EVENT_ROW_ONCE_EXTRA_COLUMNS]);
+  for (const door of ['enter', 'reply']) {
+    const src = readFileSync(join(WEB, 'app', '[slug]', 'invite', door, 'page.tsx'), 'utf8');
+    const m = /await loadEventShell\(slug\)\.catch\(\(\) => null\);\s*const \{ data: liveEvent, error: eventError \} = await eventRowOnceBySlug\(admin, slug, \(\) =>\s*admin\s*\.from\('events'\)\s*\.select\(\s*(?:\/\/[^\n]*\n\s*)*`([^`]*)`,?\s*\)\s*(?:\/\/[^\n]*\n\s*)*\.ilike\('slug', slug\)\s*\.maybeSingle\(\),\s*\);/.exec(src);
+    assert.ok(m, `invite/${door}: the door no longer awaits the one read and then asks the held row — update this guard, do not delete it`);
+    const columns = m[1].replace(/\$\{(\w+)\}/g, (_, name: string) => {
+      assert.ok(constants[name], `invite/${door}: unknown column constant ${name} — add it to this guard`);
+      return constants[name];
+    });
+    for (const column of columns.split(',').map((c) => c.trim())) {
+      assert.ok(
+        inHand.has(column),
+        `invite/${door} asks for events.${column}, which the one read does not carry — its own read is sent on every view (a second read of the row). Add the column to EVENT_ROW_ONCE_EXTRA_COLUMNS, or drop it here.`,
+      );
+    }
+  }
 });
 
 test('7 · the page’s own row carries none of the extras, and keeps its own columns in their order', () => {

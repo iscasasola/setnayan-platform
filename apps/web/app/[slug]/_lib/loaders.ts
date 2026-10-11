@@ -185,7 +185,7 @@ function theOneEventRead(admin: AdminClient, slug: string) {
       if (whole.error) return whole.error.code === '42703' ? await read(columns) : whole;
       if (!whole.data) return whole;
       const row = whole.data as unknown as Record<string, unknown>;
-      if (typeof row.event_id === 'string') holdEventRow(row.event_id, row);
+      if (typeof row.event_id === 'string') holdEventRow(row.event_id, row, slug);
       return { ...whole, data: withoutOnceExtras(row) as unknown as NonNullable<typeof whole.data> };
     },
   };

@@ -109,13 +109,19 @@ function rows(): Map<string, Row> {
   return testRows ?? renderRows();
 }
 
+/** The held row's key for "the event whose slug matches <slug>" — the question the one reader asked. */
+const bySlug = (slug: string) => `slug ilike ${slug}`;
+
 /**
  * Called by the ONE reader (`loadEventShell`) with the row exactly as the
- * database returned it — its own columns and the extras. Nobody else may call
- * this: a row built anywhere else is not what a read would have returned.
+ * database returned it — its own columns and the extras — and the slug it
+ * asked by. Nobody else may call this: a row built anywhere else is not what a
+ * read would have returned.
  */
-export function holdEventRow(eventId: string, row: Row): void {
-  if (eventId) rows().set(eventId, row);
+export function holdEventRow(eventId: string, row: Row, askedBySlug?: string): void {
+  if (!eventId) return;
+  rows().set(eventId, row);
+  if (askedBySlug) rows().set(bySlug(askedBySlug), row);
 }
 
 /** The page's own copy of a row the one read returned: the shell's columns, without the extras. */
@@ -129,6 +135,14 @@ export function withoutOnceExtras<T extends Row>(row: T): T {
 function plainColumns(select: string): string[] | null {
   const columns = select.split(',').map((c) => c.trim());
   return columns.length > 0 && columns.every((c) => /^[a-z_][a-z0-9_]*$/.test(c)) ? columns : null;
+}
+
+/** The answer a read of its own would have given: exactly these columns, each a copy. */
+function answerFrom<R>(held: Row, wanted: string[]): R {
+  const data: Row = {};
+  // A copy per reader, as a read of its own would have been — no reader can change another's.
+  for (const c of wanted) data[c] = structuredClone(held[c]);
+  return { data, error: null, count: null, status: 200, statusText: 'OK' } as R;
 }
 
 /**
@@ -151,15 +165,62 @@ export function eventRowOnce<R>(
 ): Promise<R> {
   const held = isServiceRoleClient(client) ? rows().get(eventId) : undefined;
   const wanted = held ? plainColumns(columns) : null;
-  if (held && wanted && wanted.every((c) => c in held)) {
-    const data: Row = {};
-    // A copy per reader, as a read of its own would have been — no reader can change another's.
-    for (const c of wanted) data[c] = structuredClone(held[c]);
-    return Promise.resolve({ data, error: null, count: null, status: 200, statusText: 'OK' } as R);
-  }
+  if (held && wanted && wanted.every((c) => c in held)) return Promise.resolve(answerFrom<R>(held, wanted));
   return new Promise<R>((resolve, reject) => {
     read().then(resolve, reject);
   });
+}
+
+/**
+ * The same, for a page that finds its event BY SLUG — the guest's two invite
+ * doors (`app/[slug]/invite/enter`, `…/reply`), which each read the event with
+ * a column list of their own while the layout, the metadata and the look read
+ * it too (`loadEventShell`). The door's read stays where it was, untouched, as
+ * `read`:
+ *
+ *     await loadEventShell(slug).catch(() => null);   // the tree's one read — after it the row is in hand
+ *     const { data, error } = await eventRowOnceBySlug(admin, slug, () =>
+ *       admin.from('events').select(`…`).ilike('slug', slug).maybeSingle(),
+ *     );
+ *
+ * `read` is BUILT but not sent (a PostgREST query leaves only when it is
+ * awaited), and what it would have asked is read off it: a GET of `events`,
+ * one row at most, filtered by `slug ilike <this slug>` and nothing else,
+ * naming plain columns. When that is exactly the question the one reader asked
+ * and every column is in hand, the answer comes from the held row and the
+ * query is never sent. ANYTHING else — a different filter, a column not held,
+ * a query this cannot read (a library that changed its shape) — and the query
+ * is sent as it is: the door's own read, its own failure, as before.
+ * (`lib/event-row-once.test.ts` holds it against the installed client.)
+ */
+export function eventRowOnceBySlug<R>(client: object, slug: string, read: () => PromiseLike<R>): Promise<R> {
+  let query: PromiseLike<R>;
+  try {
+    query = read();
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  const held = isServiceRoleClient(client) ? rows().get(bySlug(slug)) : undefined;
+  const wanted = held ? plainColumns(askedOfEventsBySlug(query, slug) ?? '') : null;
+  if (held && wanted && wanted.every((c) => c in held)) return Promise.resolve(answerFrom<R>(held, wanted));
+  return new Promise<R>((resolve, reject) => {
+    query.then(resolve, reject);
+  });
+}
+
+/** The `select` of an un-sent query, when it is exactly "one row of events whose slug matches" — else null. */
+function askedOfEventsBySlug(query: unknown, slug: string): string | null {
+  try {
+    const q = query as { url?: unknown; method?: unknown; isMaybeSingle?: unknown };
+    if (!(q.url instanceof URL) || q.method !== 'GET' || q.isMaybeSingle !== true) return null;
+    if (!q.url.pathname.endsWith('/rest/v1/events')) return null;
+    const keys = [...q.url.searchParams.keys()].sort();
+    if (keys.length !== 2 || keys[0] !== 'select' || keys[1] !== 'slug') return null;
+    if (q.url.searchParams.get('slug') !== `ilike.${slug}`) return null;
+    return q.url.searchParams.get('select');
+  } catch {
+    return null;
+  }
 }
 
 /**

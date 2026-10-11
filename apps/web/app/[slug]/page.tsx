@@ -106,7 +106,6 @@ import { eventNounOf } from './_lib/event-noun';
 import {
   loadEventShell,
   loadGuestContext,
-  loadGuestOwnRow,
   loadHostMembership,
   loadCoupleMembership,
   loadLiveLayer,
@@ -1237,14 +1236,19 @@ async function invitationBody({
   const draftedMarch = hostDraft?.march?.flat();
   startAhead(loadDoorwayFacts(admin, event.event_id, event.event_type ?? null));
   startAhead(loadEntourage(admin, event.event_id, draftedNameStyle, draftedMarch));
-  /* ⏩ …and an invited guest's OWN ROW (2026-10-12). It needs only the guest id a
-     verified cookie for THIS event already carries, and it used to wait for the
-     whole day-of layer below. `loadGuestContext` awaits this same `cache()`d
-     read, so it is one request — a step earlier. Only when every path below
-     reads it: a cookie that names another event is anonymous here, and a host
-     looking at a sample guest (`?as=`) is shown the sample, not their own row. */
+  /* ⏩ …and an INVITED GUEST'S OWN READS (2026-10-12). `loadGuestContext` needs
+     the guest id a verified cookie for THIS event already carries, and — from
+     the day-of layer — only the schedule, for one line at its very end. It used
+     to wait for the whole layer; it now leaves beside it and is awaited where
+     it always was, with the same arguments (`cache()` answers that call with
+     this one). Only when every path below reads it: a cookie that names another
+     event is anonymous here, and a host looking at a sample guest (`?as=`) is
+     shown the sample, not their own row. Its two early returns — a guest who is
+     gone, a plus-one not yet named — still cost the one read they did. */
+  const liveLayerAhead = startAhead(loadLiveLayer(admin, event, dayOfPhase));
+  const scheduleBlocksAhead = startAhead(liveLayerAhead.then((layer) => layer.scheduleBlocks));
   if (session && session.event_id === event.event_id && seeAsOf(search.as) === null) {
-    startAhead(loadGuestOwnRow(admin, session.guest_id));
+    startAhead(loadGuestContext(admin, event, session, dayOfPhase, slug, scheduleBlocksAhead));
   }
   const {
     scheduleBlocks,
@@ -1764,7 +1768,7 @@ async function invitationBody({
   // here, keyed off the loader's discriminated result.
   timer.mark('chapters+entourage+identity');
   const guestContext = await timer.track('guest-context', () =>
-    loadGuestContext(admin, event, guestSession, dayOfPhase, slug, scheduleBlocks),
+    loadGuestContext(admin, event, guestSession, dayOfPhase, slug, scheduleBlocksAhead),
   );
 
   // A cookie-holder whose guest row no longer exists (replaced invite) gets

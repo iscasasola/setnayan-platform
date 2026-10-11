@@ -1396,16 +1396,13 @@ async function readFirstScan(admin: AdminClient, guestId: string) {
 const GUEST_OWN_ANSWER_COLUMNS = ['face_tagging_wanted', 'ugc_terms_accepted_at'] as const;
 
 /**
- * 1️⃣ THE GUEST'S OWN ROW — its own loader (2026-10-12), so the page can ASK for
- * it as soon as a verified session names this event, beside the live layer,
- * instead of only after the live layer has answered. `loadGuestContext` below
- * awaits this same `cache()`d read: one request, wherever it was started.
+ * 1️⃣ THE GUEST'S OWN ROW — its own `cache()`d loader (2026-10-12), read by
+ * `loadGuestContext` below and by nobody else.
  *
- * 🔒 Still reachable only with a verified session's guest id (the page passes
- * `session.guest_id` of a cookie already checked against THIS event; the
- * context loader passes the session it was handed). Nothing ABOUT the guest
- * leaves before `loadGuestContext` has seen the row and taken its two early
- * returns.
+ * 🔒 Still reachable only with a verified session's guest id (the context
+ * loader passes the session it was handed, already checked against THIS
+ * event). Nothing ABOUT the guest leaves before `loadGuestContext` has seen
+ * the row and taken its two early returns.
  *
  * ── TWO ANSWERS RIDE ALONG ────────────────────────────────────────────────
  * `face_tagging_wanted` and `ugc_terms_accepted_at` are columns of this same
@@ -1464,7 +1461,11 @@ export const loadGuestContext = cache(
     session: GuestSessionPayload,
     dayOfPhase: DayOfPhase,
     slug: string,
-    scheduleBlocks: Awaited<ReturnType<typeof fetchPublicScheduleBlocks>>,
+    /* The public schedule, as a PROMISE (2026-10-12): the one thing this loader
+       takes from the day-of layer, and only for the hub card's "Coming up" at the
+       very end. Handed in unanswered, this loader no longer has to wait for the
+       whole layer before asking anything — the page starts it beside the layer. */
+    scheduleBlocksAhead: PromiseLike<Awaited<ReturnType<typeof fetchPublicScheduleBlocks>>>,
   ): Promise<GuestContext> => {
     if (session.event_id !== event.event_id) {
       // Defensive invariant — the orchestrator's wrong-event branch returns
@@ -1472,8 +1473,7 @@ export const loadGuestContext = cache(
       throw new Error('loadGuestContext called with a session for another event');
     }
 
-    // The guest's own row — the page may have asked for it already, beside the
-    // live layer (`loadGuestOwnRow` is `cache()`d: this is that same read).
+    // The guest's own row (and the two answers that ride in with it).
     const ownRead = loadGuestOwnRow(admin, session.guest_id);
     const { data: guest, error: guestError } = await ownRead;
     const ownAnswers = (await ownRead).answers;
@@ -1944,7 +1944,7 @@ export const loadGuestContext = cache(
       dietaryRestrictions: guest.dietary_restrictions,
       // "Coming up" follows the host-set run-of-show pointer when the trigger
       // flag is on (owner directive 2026-07-23); wall-clock inference otherwise.
-      nextScheduleBlock: pickNextScheduleBlock(scheduleBlocks, {
+      nextScheduleBlock: pickNextScheduleBlock(await scheduleBlocksAhead, {
         preferRunState: isGuestNowTriggerEnabled(),
       }),
       slug,

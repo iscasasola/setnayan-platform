@@ -100,8 +100,9 @@ test('only these reads are started ahead — each one every path below awaits, n
   // facts leave together instead of one behind another. Reads, every one.
   assert.deepEqual(
     aheadCalls(PAGE).sort(),
-    // + `loadGuestOwnRow` (2026-10-12): an invited guest's own row leaves beside the day-of layer — see below.
-    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestOwnRow', 'loadWidgets', 'readGuestSession', 'resolveVendorCapability'].sort(),
+    // + `loadLiveLayer` and `loadGuestContext` (2026-10-12): the day-of layer is started so its schedule can be handed
+    //   on as a promise, and an invited guest's own reads leave beside it — under three conditions, held below.
+    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestSession', 'resolveVendorCapability'].sort(),
   );
   assert.deepEqual(
     aheadCalls(LOADERS).sort(),
@@ -122,21 +123,27 @@ test('only these reads are started ahead — each one every path below awaits, n
     CONTEXT.indexOf("kind: 'not_found'") > -1 && CONTEXT.indexOf("kind: 'not_found'") < CONTEXT.indexOf('startAhead('),
     'a read about a guest is started before their row is known to exist',
   );
-  // The guest's own facts (their seat, their ticks, everything ABOUT them) are read only past the session checks — never ahead.
-  assert.doesNotMatch(PAGE, /startAhead\(\s*(loadGuestContext|findGuestSeatForUser|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
-  // Their ROW is the one exception (2026-10-12), and only under the three conditions that make every path below read it:
-  // a session was read and verified, it names THIS event, and the host is not looking at a sample guest.
+  // A guest's seat, their ticks, the supplier's desk are read only past the session checks — never ahead.
+  assert.doesNotMatch(PAGE, /startAhead\(\s*(findGuestSeatForUser|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
+  // Their own CONTEXT is the one exception (2026-10-12), and only under the three conditions that make every path
+  // below await it: a session was read and verified, it names THIS event, and the host is not looking at a sample guest.
   assert.match(
     PAGE,
-    /if \(session && session\.event_id === event\.event_id && seeAsOf\(search\.as\) === null\) \{\s*startAhead\(loadGuestOwnRow\(admin, session\.guest_id\)\);\s*\}/,
-    'the guest row is started ahead without its three conditions',
+    /if \(session && session\.event_id === event\.event_id && seeAsOf\(search\.as\) === null\) \{\s*startAhead\(loadGuestContext\(admin, event, session, dayOfPhase, slug, scheduleBlocksAhead\)\);\s*\}/,
+    'the guest context is started ahead without its three conditions',
   );
-  assert.equal(count(PAGE, 'loadGuestOwnRow('), 1, 'the guest row is asked from the page a second time');
+  assert.equal(count(PAGE, 'startAhead(loadGuestContext('), 1);
   assert.ok(
-    PAGE.indexOf('const session = await readGuestSession();') < PAGE.indexOf('startAhead(loadGuestOwnRow('),
-    'the guest row is asked before the session cookie has been read and verified',
+    PAGE.indexOf('const session = await readGuestSession();') < PAGE.indexOf('startAhead(loadGuestContext('),
+    'the guest context is asked before the session cookie has been read and verified',
   );
-  // …and the context loader awaits that SAME read, by the same guest id, before anything else about them.
+  // …and it is awaited where it always was, with the SAME arguments (a cookie viewer's `guestSession` IS `session` —
+  // `resolveGuestViewer`), so `cache()` answers it with the read already under way: still one.
+  assert.match(PAGE, /loadGuestContext\(admin, event, guestSession, dayOfPhase, slug, scheduleBlocksAhead\),/);
+  assert.match(read('lib/guest-one-path.ts'), /if \(cookie && cookie\.event_id === eventId\) return \{ kind: 'cookie', session: cookie \};/);
+  // The day-of layer: started once (for the schedule), awaited once with the same arguments.
+  assert.equal(count(PAGE, 'loadLiveLayer(admin, event, dayOfPhase)'), 2);
+  // …and the context loader reads the row before anything else about the guest.
   assert.match(CONTEXT, /const ownRead = loadGuestOwnRow\(admin, session\.guest_id\);\s*const \{ data: guest, error: guestError \} = await ownRead;/);
 });
 

@@ -70,14 +70,15 @@ const summary = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.
       (the pool RPC twice more)                                      −2, invited
     · the data-privacy controls a view asks about are one read       −1, invited
     · the guest's tagging answer rides in with their own row         −1, invited
-  …and an invited guest's own row leaves beside the day-of layer instead of
-  after it: one step shallower.
+  …and an invited guest's own reads leave beside the day-of layer instead of
+  after it (the loader is handed the schedule as a promise): 7 → 6 steps
+  before the day, 8 → 6 on it.
 */
 const PINNED: Record<keyof Report, { calls: number; depth: number }> = {
   strangerBeforeTheDay: { calls: 15, depth: 5 },
   strangerOnTheDay: { calls: 16, depth: 6 },
   invitedBeforeTheDay: { calls: 19, depth: 6 },
-  invitedOnTheDay: { calls: 23, depth: 7 },
+  invitedOnTheDay: { calls: 23, depth: 6 },
 };
 
 test('the event’s row is read ONCE per view — and the page’s own row carries none of the extras', () => {

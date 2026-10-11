@@ -26,4 +26,22 @@
   (`RsvpPanelTypingBar`), shown by rule only while a box is open; Done leaves the box, which keeps.
 - Guard `lib/the-rsvp-stage-shows-the-card-and-done.test.ts`, sabotaged four ways (red), restored (green).
 
-SPEC IMPACT: None.
+### feat(rsvp): the picture line — ＋ "Heading · Message · Picture"
+
+- The owner's ruling of 2026-10-09 (`Maker_RSVP_Per_Element_Add_Drag_Group_LOCKED_2026-10-09.md` § 3, the approved
+  prototype `maker_rsvp_add_drag_group_2026-10-09.html`), built to the four decisions of 2026-10-12 (DECISION_LOG):
+  (a) the shipped scene upload — the file lands in the event's `scene-background` folder and counts in its 100 MB;
+  (b) free; (c) decorative, `alt=""`; (d) a file that is gone draws nothing.
+- Reader: an added line `{ id, k: 'p', p }` is kept only with a ref into an event's own scene-background folder
+  (`lib/rsvp-picture-ref.ts`); its look is Look (`l: 'tall'`) and Build in only. The ref cap is 240 (the upload route
+  can mint 238).
+- Look: Style › Look ▾ Wide (112 px, nothing stored) · Tall (176 px, one rule in the page's one <style>).
+- Drawing: the reply page, the Event Hub's reply sheet and the page after a reply sign the files once
+  (`lib/rsvp-pictures.server.ts` — asked of storage first; a gone file is left out and nothing is drawn); the Maker's
+  canvas shows a new picture at once from the picked file. Apply holds a picture outside this event's folder.
+- Chooser: ＋ › Picture opens the shipped uploader in the app's sheet; only the landed ref makes the ONE add (one undo
+  step; never an empty picture line). Edit on a picture: Replace, and the same last row.
+- Guards: `lib/the-rsvp-picture-line.test.ts` (8 sections), `couple-media-cap-is-enforced.test.ts` § 2c; the room
+  fixture carries a real picture ref and look.
+
+SPEC IMPACT: None — built to the locked record and the 2026-10-12 DECISION_LOG row; no corpus edit needed.

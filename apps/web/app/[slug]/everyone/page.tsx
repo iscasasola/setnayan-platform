@@ -21,6 +21,7 @@ import {
   type EntourageGuestRow,
 } from '@/lib/entourage';
 import { EntourageSection } from '../_components/entourage-section';
+import { withDayNote } from '../_lib/day-words';
 
 export const metadata = {
   title: 'Everyone who will be there',
@@ -59,7 +60,7 @@ const fetchEvent = cache(async (slug: string) => {
   const data = await guestRead('everyone (event)', () =>
     admin
       .from('events')
-      .select('event_id, slug, display_name, landing_page_visibility')
+      .select('event_id, slug, display_name, landing_page_visibility, event_date')
       .ilike('slug', slug)
       .maybeSingle(),
   );
@@ -68,6 +69,7 @@ const fetchEvent = cache(async (slug: string) => {
     slug: string | null;
     display_name: string | null;
     landing_page_visibility: string | null;
+    event_date: string | null;
   } | null;
 });
 
@@ -204,7 +206,8 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
         <EntourageSection groups={groups} />
       ) : (
         <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/70">
-          The entourage hasn&rsquo;t been shared yet. Check back closer to the day.
+          The entourage hasn&rsquo;t been shared yet.{' '}
+          {withDayNote('Check back closer to the day.', event.event_date)}
         </p>
       )}
 

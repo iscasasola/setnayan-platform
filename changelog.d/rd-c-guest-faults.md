@@ -256,6 +256,31 @@ scan-trail switch moved beside the sign-out). ⚠ The first is a visible change
 in the Maker: on an open-browsing event the Save the Date stage loses its RSVP
 tile. No Maker file was edited; it follows the shared plan.
 
+**Release fix A — the record note has the page's gutter and can be read.** On
+the Save the Date (a full-bleed stage: no shell column) the guest's foot — the
+scan-trail note and the sign-out — sat outside the film's page column, so the
+note ran edge to edge at 320 / 375 / 390 / 768. The foot is now set in the
+page's own column there (`PAGE_COLUMN`, `app/[slug]/_lib/measures.ts` — the
+same classes Me uses); the note is `text-ink/70` (5.4:1, was 3.98) and its
+button says its 44px. It does not ask first: the press only flips the guest's
+one setting, nothing is deleted, and the same button puts it back. Its words
+already follow the event's own word (`w.eventWord`) — "wedding" only on a
+wedding. `every-stage-is-todays-page.golden.json`: 8 one-scroll guest pages
+gained the foot's wrapper (+48 bytes; +86 on the film page).
+Guard: `me-has-the-pages-gutter.test.ts` (4) (5).
+
+**Release fix B — a named guest gets the one seat waiting state too.** The
+first build replaced each page's stranger branch only: as a named guest
+`/find-seat` still read "not set yet · You're on the list… No need to check
+back — this updates by itself" and `/seat` "Your seat is being arranged. On
+the day…". Before seats are shown, both now draw `SeatsShowOnTheDay` for a
+named guest as well (`/find-my-table` already did — its gate is asked before
+it looks up whose table it is). "No need to check back" stays where it is
+true: once seats are shown and this guest has no table yet. Also `/everyone`:
+"Check back closer to the day." gains "The date is still to be confirmed."
+on an event with no date (`withDayNote`). No golden moved.
+Guard: `seats-show-on-the-day.test.ts` (4) (5).
+
 SPEC IMPACT: Yes — these change rulings on record (the landing before a reply
 2026-10-01, the reply sheet 2026-09-20, the film 2026-06-19 / 2026-08-05, the
 face screen 2026-09-30, replies in the Save the Date stage). The DECISION_LOG

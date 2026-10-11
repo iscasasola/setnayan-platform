@@ -103,7 +103,7 @@ test('the switch is NOT hidden behind ANY condition — it renders for every gue
   // page, at the foot of a page that is one scroll. Still nothing between its gate and the mount.
   const bodyGate = src.slice(0, inBody[0]).trimEnd();
   assert.match(src, /\{scanTrail\}\s*\{signOut\}/, 'the opt-out left Me');
-  assert.match(src, /\{tabs\.on \? null : scanTrail\}\s*\{tabs\.on \? null : signOut\}/, 'a page that is one scroll lost the opt-out');
+  assert.match(src, /\{tabs\.on \? null : \(\s*<div data-guest-foot=""[^>]*>\s*\{scanTrail\}\s*\{signOut\}\s*<\/div>\s*\)\}/, 'a page that is one scroll lost the opt-out');
   assert.match(
     bodyGate.slice(-60),
     /const scanTrail = replySheetDrawn \? null : \($/,

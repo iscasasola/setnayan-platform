@@ -69,7 +69,7 @@ independent walk reproduced all of them on base `97b72be68` too — none was int
   up." instead of acting, and "moved" / "added" is said only then.
 - **the stray "and"** — typing one name into a two-name cover left the joiner standing over an empty second name,
   on the canvas only (a guest's page draws a joiner only with a second name; reopening the Maker cleared it). The
-  canvas now splits the typed names by the page's own rule (`lib/couple-names.ts`, moved out of the masthead) and
+  canvas now splits the typed names by the page's own rule (`lib/split-names.ts`, moved out of the masthead) and
   puts the joiner away when there is no second name.
 
 Words added, all in the Maker: "Undoing — one moment" (why ↺ is off while it works) · "One moment — the page is
@@ -80,7 +80,7 @@ lab-only published state through the real planner (`planHubDraftApply`), so "hid
 walked; `?unpublish=1` clears it.
 
 Tests: `lib/one-press-is-one-undo-step.test.ts` · `lib/maker-settle.test.ts` ·
-`lib/a-joiner-never-stands-over-nothing.test.ts` · `app/dev/maker-lab/lab-draft.test.ts`. Ten older tests pinned the
+`lib/a-joiner-never-stands-over-nothing.test.ts` · `app/dev/maker-lab/lab-draft.test.ts`. Eight older tests pinned the
 exact text of lines this changed; each was re-aimed at the property it holds.
 
 SPEC IMPACT: None.

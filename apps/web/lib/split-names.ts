@@ -1,5 +1,5 @@
 /**
- * lib/couple-names.ts — ONE NAME LINE, SPLIT INTO THE PEOPLE IT NAMES.
+ * lib/split-names.ts — ONE NAME LINE, SPLIT INTO THE PEOPLE IT NAMES.
  *
  * The page's own rule for `events.display_name` ("Maria & Juan", "Ana and Leo", "TEsting Event"), in a file of its
  * own so BOTH readers use the same one: the masthead that draws the cover (`pahina-masthead.tsx`, which re-exports

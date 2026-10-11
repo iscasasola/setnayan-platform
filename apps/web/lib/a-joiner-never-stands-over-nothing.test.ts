@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
 import { partWords, setPartWords, tidyNames } from '@/app/[slug]/_components/type-in-place-canvas';
 import { HERO_DESIGNS } from './hero-design';
-import { splitCoupleNames } from './couple-names';
+import { splitCoupleNames } from './split-names';
 
 /**
  * 🔗 A JOINER NEVER STANDS OVER NOTHING — for a guest, and in the Maker while a name is typed.

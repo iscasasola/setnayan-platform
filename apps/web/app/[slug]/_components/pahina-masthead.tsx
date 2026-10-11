@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { splitCoupleNames } from '@/lib/couple-names';
+import { splitCoupleNames } from '@/lib/split-names';
 import { formatEventDate } from '@/lib/events';
 import { formatHubDate, formatHubTime } from '@/lib/hub-date-formats';
 import {
@@ -40,7 +40,7 @@ import { HERO_DESIGN_ATTR, HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/
  */
 
 /* The one rule for splitting a name line into its people — its own file, so the Maker's canvas reads the same one
-   (`lib/couple-names.ts`). Re-exported: every caller that named it here still finds it here. */
+   (`lib/split-names.ts`). Re-exported: every caller that named it here still finds it here. */
 export { splitCoupleNames };
 
 export function PahinaMasthead({

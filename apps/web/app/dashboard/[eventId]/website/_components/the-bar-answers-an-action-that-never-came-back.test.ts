@@ -37,7 +37,9 @@ test('an action that DID answer is handed back untouched — a refusal of its ow
 test('the bar sends every intent through it — no bare await of the action is left in the transition', () => {
   const hook = BAR.slice(BAR.indexOf('function useDraftIntent('), BAR.indexOf('function ResultLine('));
   assert.ok(hook.length > 200, 'useDraftIntent was not found');
-  assert.match(hook, /const r = await hubDraftAnswer\(isHubDraftIntent\(fields\.intent\) \? fields\.intent : null, \(\) =>\s*makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\)\),\s*\);/);
+  /* The intent is read once, at the press (the wait for the page is started from it too — `lib/maker-settle.ts`). */
+  assert.match(hook, /const intent = isHubDraftIntent\(fields\.intent\) \? fields\.intent : null;/);
+  assert.match(hook, /const r = await hubDraftAnswer\(intent, \(\) =>\s*makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\)\),?\s*\);/);
   assert.doesNotMatch(hook, /await makerSave\(/, 'the action is awaited bare again — a throw takes the Maker down');
   /* One caller of the action in the whole bar: the hook (Undo, Apply, Restore, Reset and the sheet's × all use `run`). */
   assert.equal((BAR.match(/\baction\(eventId, fd\)/g) ?? []).length, 1);

@@ -38,7 +38,7 @@
  * Only in the Maker's canvas: it is reached from `EditorBridge`, which a guest
  * page never mounts.
  */
-import { splitCoupleNames } from '@/lib/couple-names';
+import { splitCoupleNames } from '@/lib/split-names';
 import type { CanvasBringUp } from './canvas-bring-up';
 import {
   HUB_TYPE_PARTS,
@@ -179,7 +179,7 @@ export function partWords(part: HTMLElement): string {
 export function setPartWords(part: HTMLElement, text: string): void {
   const people = peopleOf(part);
   if (people.length > 1) {
-    /* The page's OWN split (`lib/couple-names.ts`) — "&" and " and " alike, as the cover will be drawn. */
+    /* The page's OWN split (`lib/split-names.ts`) — "&" and " and " alike, as the cover will be drawn. */
     const names = splitCoupleNames(text, true);
     people[0]!.textContent = names.first;
     people[1]!.textContent = names.second ?? '';

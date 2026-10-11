@@ -115,13 +115,17 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const single = new Headers(init?.headers).get('accept')?.includes('vnd.pgrst.object') ?? false;
   if (method === 'HEAD') return new Response(null, { status: 200, headers: { 'content-range': '*/0' } });
   let body: unknown = single ? null : [];
-  if (table === 'events') body = single ? EVENT_ROW : [EVENT_ROW];
+  if (table === 'events') {
+    // Like PostgREST: exactly the columns that were asked for, null where the stand-in holds none.
+    const row = Object.fromEntries(select.split(',').map((c) => c.trim()).filter(Boolean).map((c) => [c, EVENT_ROW[c] ?? null]));
+    body = single ? row : [row];
+  }
   else if (table === 'guests') body = single ? GUEST_ROW : [GUEST_ROW];
   else if (table.startsWith('rpc/')) body = /skus|granting/.test(table) ? [] : false;
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 }) as typeof fetch;
 
-type ViewReport = { calls: number; depth: number; byPhase: Record<string, { calls: number; depthAfter: number }>; steps: string[] };
+type ViewReport = { calls: number; eventsReads: number; shellExtraKeys: string[]; depth: number; byPhase: Record<string, { calls: number; depthAfter: number }>; steps: string[] };
 
 async function main() {
   // Imported only now — after the three stand-ins above are in place.
@@ -130,6 +134,7 @@ async function main() {
   const { resolveProfile } = await import('@/lib/event-type-profile');
   const { startAhead } = await import('@/lib/start-ahead');
   const { isCoordinatorPrepReleaseEnabled } = await import('@/lib/coordinator-prep-release');
+  const { EVENT_ROW_ONCE_EXTRA_COLUMNS } = await import('@/lib/event-row-once');
 
   async function view(kind: 'stranger' | 'invited', dayOfPhase: 'pre' | 'live'): Promise<ViewReport> {
     viewMemo = new Map();
@@ -148,6 +153,8 @@ async function main() {
     // The page and the layout both begin here; `cache()` makes it one read.
     const event = (await phase('shell', () => L.loadEventShell(SLUG))) as never;
     if (!event) throw new Error('the stand-in did not answer the shell read');
+    // The page's own row must be the row it always was — none of the one read's extras on it.
+    const shellExtraKeys = (EVENT_ROW_ONCE_EXTRA_COLUMNS as readonly string[]).filter((c) => c in (event as object));
     // The layout dresses the tree beside the page (`app/[slug]/layout.tsx`).
     const layoutLook = startAhead(L.loadGuestLook(SLUG));
     await phase('profile', () => resolveProfile('wedding'));
@@ -172,6 +179,8 @@ async function main() {
     await phase('layout-look', () => layoutLook);
     return {
       calls: sent.length,
+      eventsReads: sent.filter((r) => r.what.startsWith('events(')).length,
+      shellExtraKeys,
       depth: Math.max(0, ...sent.map((s) => s.step)),
       byPhase,
       steps: sent.map((s) => `${s.step} ${s.what}`),

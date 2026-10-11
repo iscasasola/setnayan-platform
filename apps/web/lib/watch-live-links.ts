@@ -25,6 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { normalizeFacebookWatchUrl } from '@/lib/facebook-watch';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 export type WatchLiveLinks = {
   /** youtube-nocookie embed src. NULL when the couple published Facebook only. */
@@ -78,11 +79,14 @@ export async function readEventWatchUrls(
   client: SupabaseClient,
   eventId: string,
 ): Promise<{ youtubeWatchUrl: string | null; facebookWatchUrl: string | null }> {
-  const both = await client
-    .from('events')
-    .select('panood_watch_url, panood_watch_url_facebook')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+  const both = await eventRowOnce(client, eventId, 'panood_watch_url, panood_watch_url_facebook', () =>
+    client
+      .from('events')
+      .select('panood_watch_url, panood_watch_url_facebook')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
 
   if (!both.error) {
     const row = (both.data ?? null) as {

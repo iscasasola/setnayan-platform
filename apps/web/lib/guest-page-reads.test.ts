@@ -26,7 +26,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
-type View = { calls: number; depth: number; byPhase: Record<string, { calls: number; depthAfter: number }>; steps: string[] };
+type View = { calls: number; eventsReads: number; shellExtraKeys: string[]; depth: number; byPhase: Record<string, { calls: number; depthAfter: number }>; steps: string[] };
 type Report = Record<'strangerBeforeTheDay' | 'strangerOnTheDay' | 'invitedBeforeTheDay' | 'invitedOnTheDay', View>;
 
 const WEB = join(__dirname, '..');
@@ -56,13 +56,30 @@ const summary = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.
   event facts, the bundle list beside the orders read, the one platform switch
   the schedule waited on, and — for an invited guest — the dozen reads about
   them that leave as soon as their row is known to be theirs.
+
+  THE EVENT'S ROW ONCE (2026-10-12, `lib/event-row-once.ts`): the view read the
+  same \`events\` row 8 times (a stranger) to 11 times (an invited guest) — the
+  shell, then once per fact somebody wanted from it. One read now carries them
+  all: 23 → 16 requests for a stranger (17 on the day), 34 → 24 for an invited
+  guest (37 → 28 on the day).
 */
 const PINNED: Record<keyof Report, { calls: number; depth: number }> = {
-  strangerBeforeTheDay: { calls: 23, depth: 5 },
-  strangerOnTheDay: { calls: 23, depth: 6 },
-  invitedBeforeTheDay: { calls: 34, depth: 7 },
-  invitedOnTheDay: { calls: 37, depth: 8 },
+  strangerBeforeTheDay: { calls: 16, depth: 5 },
+  strangerOnTheDay: { calls: 17, depth: 6 },
+  invitedBeforeTheDay: { calls: 24, depth: 7 },
+  invitedOnTheDay: { calls: 28, depth: 8 },
 };
+
+test('the event’s row is read ONCE per view — and the page’s own row carries none of the extras', () => {
+  for (const [name, view] of Object.entries(REPORT)) {
+    assert.equal(
+      view.eventsReads,
+      1,
+      `${name} read the \`events\` row ${view.eventsReads} times: a reader is asking the database for columns of a row the render already holds (\`eventRowOnce\`, lib/event-row-once.ts).\n${summary(view)}`,
+    );
+    assert.deepEqual(view.shellExtraKeys, [], `${name}: the page's own event row now carries ${view.shellExtraKeys.join(', ')} — it must stay the row it always was`);
+  }
+});
 
 test('the harness is looking at the page’s loaders — the shell is read first, alone, once', () => {
   for (const view of Object.values(REPORT)) {

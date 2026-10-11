@@ -8,6 +8,7 @@ import {
 } from '@/lib/promo-free-windows';
 import { PANOOD_PAID_SKUS } from '@/lib/panood-watermark';
 import { askedOnce, insideRender, isServiceRoleClient } from '@/lib/request-once';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 /**
  * The event's own event_date, fetched ONLY to resolve a date-filtered couple
@@ -29,11 +30,14 @@ function fetchEventDateForPromo(
   eventId: string,
 ): Promise<string | null> {
   return askedOnce(supabase, 'event-date-for-promo', [eventId], async () => {
-    const { data, error } = await supabase
-      .from('events')
-      .select('event_date')
-      .eq('event_id', eventId)
-      .maybeSingle();
+    // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+    const { data, error } = await eventRowOnce(supabase, eventId, 'event_date', () =>
+      supabase
+        .from('events')
+        .select('event_date')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    );
     if (error) console.error('[supabase-error] lib/entitlements.ts · from:events.select', error);
     if (error || !data) return null;
     return (data as { event_date: string | null }).event_date ?? null;

@@ -4,6 +4,7 @@ import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitle
 import { readEventPoolStatus, EVENT_POOL_ABSENT } from '@/lib/papic-event-pool';
 import { papicIsOn } from '@/lib/event-answers';
 import { papicGuestCapLifts, papicGuestCapAppliesWithCeiling } from '@/lib/papic-guest-cap';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -127,7 +128,10 @@ export async function eventPapicGuestAccess(
   const [owned, pool, papicSwitch] = await Promise.all([
     Promise.all(PAPIC_PASS_SERVICE_KEYS.map((key) => eventSkuActive(supabase, eventId, key))),
     readEventPoolStatus(supabase, eventId).catch(() => ({ ok: false, status: null })),
-    supabase.from('events').select('papic_on').eq('event_id', eventId).maybeSingle(),
+    // The row the render already holds answers this (`lib/event-row-once.ts`); else the read as it always was.
+    eventRowOnce(supabase, eventId, 'papic_on', () =>
+      supabase.from('events').select('papic_on').eq('event_id', eventId).maybeSingle(),
+    ),
   ]);
   // 🗂 THE HOST SAID NO (owner 2026-10-02, "EVERY ANSWER … LIVES IN EVENT
   // DETAILS"): "Photos from your guests? — No" (`papic_on = false`, changed in

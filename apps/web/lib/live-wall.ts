@@ -29,6 +29,7 @@ import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
+import { eventRowOnce } from '@/lib/event-row-once';
 import {
   displayCodeFrom,
   resolveWallMode,
@@ -376,11 +377,14 @@ export async function guestWallMirrorActive(
   // Supabase resolves with { error }, it does not throw — a phantom column or a
   // pre-migration schema comes back as `error`, not an exception. Treating that
   // as "no objection" is exactly how a guard ends up unable to fire.
-  const { data, error } = await client
-    .from('events')
-    .select('live_photo_wall_visibility, archived')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+  const { data, error } = await eventRowOnce(client, eventId, 'live_photo_wall_visibility, archived', () =>
+    client
+      .from('events')
+      .select('live_photo_wall_visibility, archived')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
   if (error) console.error('[supabase-error] lib/live-wall.ts · from:events.select', error);
   if (error || !data) return false;
 
@@ -563,11 +567,14 @@ export async function getWallSnapshot(
       p_event_id: eventId,
       p_since: sinceIso ?? '-infinity',
     }),
-    admin
-      .from('events')
-      .select('display_name, event_date, live_mode_override')
-      .eq('event_id', eventId)
-      .maybeSingle(),
+    // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+    eventRowOnce(admin, eventId, 'display_name, event_date, live_mode_override', () =>
+      admin
+        .from('events')
+        .select('display_name, event_date, live_mode_override')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ),
     fetchWallArmedChallenge(admin, eventId),
   ]);
 

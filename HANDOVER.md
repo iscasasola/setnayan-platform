@@ -1,4 +1,53 @@
-# HANDOVER — guest-page speed (round 3) · `rd/speed-guest-page`
+# HANDOVER — guest-page speed · `rd/speed-guest-page`
+
+## ▶ ROUND 4 (2026-10-12, second builder) — READ THIS BLOCK FIRST; the round-3 notes below it are history
+
+**Built, not live. Nothing pushed. No PR.** Worktree
+`/Users/icecasasola/Documents/Claude/Projects/wt-speed-guest`. `origin/main` (`d2e38b7c1`) is merged in.
+
+| Step | State |
+|---|---|
+| 0 · merge main, FULL `tsc`, slug suite | ✅ `tsc --noEmit` rc 0 on the merged tree; 319 test files / 1,583 tests green (one pin of main's home test lowered 8 → 7: this branch's `skuActiveInRender` made the home page's cold view shallower) |
+| 1 · the `events` row ONCE | ✅ built + pinned (`events` reads per view = 1). ⚠ full `tsc` AFTER this step: see "Checks" below |
+| 2 · fewer requests overall | ⏳ in progress — see the table below |
+| 3 · invited guest depth ≤ 6 | not started |
+| 4 · the two invite pages | not started |
+| 5 · remembered reads | not started |
+
+### Step 1 — how the row is read once
+- `lib/event-row-once.ts` (new): `holdEventRow` / `eventRowOnce` / `withoutOnceExtras`. Per-render Map (React `cache()`),
+  service-role askers only, values cloned per reader.
+- `app/[slug]/_lib/loaders.ts` `theOneEventRead` → `loadEventShell` selects its own columns + `EVENT_ROW_ONCE_EXTRA_COLUMNS`
+  in ONE request, holds the raw row, returns the shell's columns only (the page's row is unchanged — no extra key).
+  Unknown extra column (42703) → the shell alone, as before, nothing held, every reader reads for itself.
+- Readers converted (each keeps its original read as the fallback thunk, so its failure behaviour is its own):
+  `eventPapicGuestAccess` (papic_on) · `loadEntourageSectionOrder` · `loadRoleNames` · `loadNameStyle` ·
+  `readStoredBackdrop` · `readEventWatchUrls` · `guestsMaySeeSeatsFor` · `resolveFaceTagging` · the capture gate,
+  the Papic style row and `pool_gallery_open` in `loadGuestContext` · `guestWallMirrorActive` + `getWallSnapshot` ·
+  `fetchEventPapicWindow` · `fetchEventDateForPromo` · `fetchEgiftMethods` (gifts_on) · `readEventClock`
+  (face-data-notice) · `loadPreviousEdition` (previous_event_id).
+- NOT converted, on purpose: `fetchRoamViewerState` (its module is imported by the browser; flag-dark in prod) ·
+  the Post Event editorial's own reads (`_components/editorial/data.ts`, `spine-data.ts`, `editorial-content.tsx`) ·
+  `lib/event-type-profile.ts` (another guard reads 400 chars back from each of its reads).
+- Guards: `lib/event-row-once.test.ts` (9) · `lib/guest-page-reads.test.ts` (`events` reads = 1 per view; the page's
+  row carries no extra).
+
+### Numbers (harness — a FLOOR for the shape, not production's count)
+
+| Viewer | Requests: round 3 → now | `events` reads | Depth |
+|---|---|---|---|
+| Stranger, before the day | 23 → 16 | 8 → 1 | 5 |
+| Stranger, on the day | 23 → 17 | 7 → 1 | 6 |
+| Invited guest, before the day | 34 → 24 | 11 → 1 | 7 |
+| Invited guest, on the day | 37 → 28 | 10 → 1 | 8 |
+
+⚠ The harness stops at `loadGuestContext`. The real page asks MORE for an invited guest after it, one after another
+(`readSeatHolder`, the checklist ticks, `yourGuestsFor`, the pass card ×2, `guestStagesOn` — `page.tsx` after
+`guest-context`). Those are not counted and not touched yet.
+
+---
+
+# (history) ROUND 3 — the first builder's handover
 
 Stopped 2026-10-12 at the account's weekly limit. **Built, not live. Not in any release.**
 Worktree `/Users/icecasasola/Documents/Claude/Projects/wt-speed-guest`, base

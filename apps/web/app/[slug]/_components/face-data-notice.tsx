@@ -1,6 +1,7 @@
 import { eventWordsForEvent } from '../_lib/event-words';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventRowOnce } from '@/lib/event-row-once';
 import { withdrawFaceConsent, setGuestFaceBlock } from '../actions';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { FaceReceiptCard } from './face-receipt-card';
@@ -53,11 +54,15 @@ async function readEventClock(
   eventId: string,
 ): Promise<{ eventDate: string | null; eventEndDate: string | null }> {
   try {
-    const { data, error } = await createAdminClient()
-      .from('events')
-      .select('event_date, event_end_date')
-      .eq('event_id', eventId)
-      .maybeSingle();
+    const admin = createAdminClient();
+    // From the row the render already holds (`lib/event-row-once.ts`); else this read, as before.
+    const { data, error } = await eventRowOnce(admin, eventId, 'event_date, event_end_date', () =>
+      admin
+        .from('events')
+        .select('event_date, event_end_date')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    );
     if (error) console.error('[supabase-error] app/[slug]/_components/face-data-notice.tsx · from:events.select', error);
     if (error) return { eventDate: null, eventEndDate: null };
     const row = data as { event_date?: string | null; event_end_date?: string | null } | null;

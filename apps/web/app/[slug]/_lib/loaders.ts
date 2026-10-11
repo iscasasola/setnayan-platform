@@ -27,6 +27,7 @@ import { HOST_MEMBER_TYPES } from './host-scope';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { startAhead } from '@/lib/start-ahead';
+import { EVENT_ROW_ONCE_EXTRA_COLUMNS, eventRowOnce, holdEventRow, withoutOnceExtras } from '@/lib/event-row-once';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
@@ -154,15 +155,47 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 // loader. It creates its OWN admin client so the cache key stays the slug alone
 // — generateMetadata and the page body must keep sharing one DB roundtrip; an
 // admin-client parameter would fork the key per call site.)
+/**
+ * 1️⃣ THE ONE READ OF THE EVENT (2026-10-12 — `lib/event-row-once.ts`).
+ *
+ * A guest view read this same row eleven times: once here, and once more for
+ * every fact somebody wanted from it. This asks for the shell's own columns
+ * AND the extras those readers want in ONE request, leaves the whole row in
+ * hand for the rest of the render (`holdEventRow`), and gives the page back
+ * the shell's columns only — the row the page hands around is exactly the row
+ * it always was (no extra key: `loadLiveLayer` tells a host's drafted backdrop
+ * from a guest's by `'rsvp_backdrop' in event`, and nothing new reaches a
+ * component).
+ *
+ * 🔑 ONE UNKNOWN COLUMN CANNOT TAKE THE PAGE DOWN. If the database does not
+ * know one of the extras (42703 — a deploy ahead of its migration, the case
+ * every one of those separate reads was written for), the shell is read alone,
+ * exactly as before, nothing is held, and every reader asks for itself as it
+ * always did. Any OTHER failure is returned as it is — the caller throws, as
+ * it always has; it is never retried into a database that is refusing.
+ *
+ * `columns` is typed as itself for both requests, so the row keeps the type its
+ * literal select always gave it.
+ */
+function theOneEventRead(admin: AdminClient, slug: string) {
+  const read = <S extends string>(columns: S) => admin.from('events').select(columns).ilike('slug', slug).maybeSingle();
+  return {
+    async select<S extends string>(columns: S) {
+      const whole = await read(`${columns}, ${EVENT_ROW_ONCE_EXTRA_COLUMNS.join(', ')}` as S);
+      if (whole.error) return whole.error.code === '42703' ? await read(columns) : whole;
+      if (!whole.data) return whole;
+      const row = whole.data as unknown as Record<string, unknown>;
+      if (typeof row.event_id === 'string') holdEventRow(row.event_id, row);
+      return { ...whole, data: withoutOnceExtras(row) as unknown as NonNullable<typeof whole.data> };
+    },
+  };
+}
+
 export const loadEventShell = cache(async (slug: string) => {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('events')
-    .select(
+  const { data, error } = await theOneEventRead(admin, slug).select(
       'event_id, public_id, display_name, event_date, event_end_date, cleared_at, event_date_precision, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_roles, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, gifts_on, date_candidates',
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  );
   // A FAILED READ IS NOT A MISSING EVENT (2026-08-05).
   //
   // The error used to be discarded, so a database hiccup returned `data = null`
@@ -908,7 +941,10 @@ async function readPublicSchedule(admin: AdminClient, eventId: string) {
 
 /** The reply card's backdrop as stored — read only when the row in hand does not already carry it. */
 async function readStoredBackdrop(admin: AdminClient, eventId: string) {
-  return admin.from('events').select('rsvp_backdrop').eq('event_id', eventId).maybeSingle();
+  // From the row the render already holds (`lib/event-row-once.ts`); else this read, as before.
+  return eventRowOnce(admin, eventId, 'rsvp_backdrop', () =>
+    admin.from('events').select('rsvp_backdrop').eq('event_id', eventId).maybeSingle(),
+  );
 }
 
 /**
@@ -1518,11 +1554,13 @@ export const loadGuestContext = cache(
           ownShotsAhead ?? getGuestOwnShots(event.event_id, guest.guest_id),
           (async () => {
             if (!(await papicPoolGalleryActive())) return false;
-            const { data: poolRow, error: poolErr } = await admin
-              .from('events')
-              .select('pool_gallery_open')
-              .eq('event_id', event.event_id)
-              .maybeSingle();
+            const { data: poolRow, error: poolErr } = await eventRowOnce(admin, event.event_id, 'pool_gallery_open', () =>
+              admin
+                .from('events')
+                .select('pool_gallery_open')
+                .eq('event_id', event.event_id)
+                .maybeSingle(),
+            );
             if (poolErr) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:events.select(pool_gallery_open)', poolErr);
             return !poolErr && poolRow?.pool_gallery_open === true;
           })(),
@@ -1589,11 +1627,13 @@ export const loadGuestContext = cache(
     // tagging" row offers the selfie only then. A failed read keeps it shut.
     let faceStepOpen = false;
     if (faceTagging.askable) {
-      const { data: gateRow, error: gateErr } = await admin
-        .from('events')
-        .select(GUEST_CAPTURE_GATE_COLUMNS)
-        .eq('event_id', event.event_id)
-        .maybeSingle();
+      const { data: gateRow, error: gateErr } = await eventRowOnce(admin, event.event_id, GUEST_CAPTURE_GATE_COLUMNS, () =>
+        admin
+          .from('events')
+          .select(GUEST_CAPTURE_GATE_COLUMNS)
+          .eq('event_id', event.event_id)
+          .maybeSingle(),
+      );
       if (gateErr) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:events.select(capture gate)', gateErr);
       const g = gateRow as { event_date?: string | null; papic_guest_capture_early?: boolean | null; papic_window_start?: string | null; papic_window_end?: string | null } | null;
       faceStepOpen =
@@ -1670,11 +1710,13 @@ export const loadGuestContext = cache(
           // Locked event-wide Papic look + face-tag mode — defensive read so a
           // pre-migration DB (no papic_style / papic_face_mode column) falls back
           // to ORIG / mode_b instead of breaking.
-          admin
-            .from('events')
-            .select('papic_style, papic_face_mode, face_tagging_declined_by_couple')
-            .eq('event_id', event.event_id)
-            .maybeSingle(),
+          eventRowOnce(admin, event.event_id, 'papic_style, papic_face_mode, face_tagging_declined_by_couple', () =>
+            admin
+              .from('events')
+              .select('papic_style, papic_face_mode, face_tagging_declined_by_couple')
+              .eq('event_id', event.event_id)
+              .maybeSingle(),
+          ),
         ]);
       if (!blockRow) {
         papicGuest = {
@@ -2002,11 +2044,14 @@ export const loadGuestContext = cache(
  */
 export const loadEntourageSectionOrder = cache(
   async (admin: AdminClient, eventId: string): Promise<string[] | null> => {
-    const { data, error } = await admin
-      .from('events')
-      .select('entourage_section_order')
-      .eq('event_id', eventId)
-      .maybeSingle();
+    // From the row the render already holds (`lib/event-row-once.ts`); else this read, as before.
+    const { data, error } = await eventRowOnce(admin, eventId, 'entourage_section_order', () =>
+      admin
+        .from('events')
+        .select('entourage_section_order')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    );
     if (error) {
       logQueryError('loadEntourageSectionOrder', error, { event_id: eventId }, 'graceful_degrade');
       return null;

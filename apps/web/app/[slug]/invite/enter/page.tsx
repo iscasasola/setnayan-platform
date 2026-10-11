@@ -35,9 +35,10 @@ import { guestReplyBy, readRsvpCelebration, readRsvpWords, todayYmd } from '@/li
 import { JUST_REPLIED_VALUE, celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { RsvpLookStyle } from '../../_components/rsvp-look-style';
+import { RsvpNoteLines } from '../../_components/rsvp-note-lines';
+import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
 import { WhenYesCelebration } from '../../_components/when-yes-celebration';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
-import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/editor-canvas';
 import { loadEventShell, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
@@ -657,61 +658,21 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
               <p>{message}</p>
               <p className="mt-2.5 font-serif text-base italic text-mulberry">— {hosts}</p>
             </div>
-          ) : reply === 'no' ? (
-            <div className="sn-glass-bare rounded-2xl bg-cream/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">
-              <p
-                className="font-serif text-[34px] font-medium leading-tight text-ink"
-                data-landing-heading=""
-                data-rsvp-line="heading"
-                data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.heading) : undefined}
-                data-rsvp-default={canvas ? ownHeadline : undefined}
-                data-rsvp-name={canvas ? firstName : undefined}
-              >
-                {headline}
-              </p>
-              <p
-                className="mt-2 text-sm text-ink/60"
-                data-thank-you-message=""
-                data-rsvp-line="message"
-                data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
-                data-rsvp-name={canvas ? firstName : undefined}
-              >
-                {ownMessage ?? LANDING_WORDS.missedSub}
-              </p>
-            </div>
           ) : (
-            <>
-              <p className="text-center">
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#E7F1EA] px-3.5 py-1.5 text-xs font-medium text-[#2F6B4F]"
-                  data-landing-done=""
-                  data-rsvp-line="heading"
-                >
-                  ✓{' '}
-                  <span
-                    data-landing-heading=""
-                    data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.heading) : undefined}
-                    data-rsvp-default={canvas ? ownHeadline : undefined}
-                    data-rsvp-name={canvas ? firstName : undefined}
-                  >
-                    {headline}
-                  </span>
-                </span>
-              </p>
-              {ownMessage || (canvas && wordKeys) ? (
-                <p
-                  className="text-center text-base leading-relaxed text-ink/80"
-                  data-thank-you-message=""
-                  data-rsvp-line="message"
-                  data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
-                  data-rsvp-word-optional={canvas ? '' : undefined}
-                  data-rsvp-name={canvas ? firstName : undefined}
-                  hidden={!ownMessage || undefined}
-                >
-                  {ownMessage}
-                </p>
-              ) : null}
-            </>
+            /* 💌 The note after a reply — the "✓ You replied" pill and the couple's message after a Yes, the note's own
+               card after a No — drawn from the LIST of its lines (`rsvp-note-lines.tsx`): the couple's order, the
+               lines they added, their groups. From the config this page already holds; a couple who arranged
+               nothing gets the note exactly as it was (`the-note-after-a-reply-is-todays-page.test.ts`). */
+            <RsvpNoteLines
+              reply={reply === 'no' ? 'no' : 'yes'}
+              canvas={canvas}
+              wordKeys={wordKeys}
+              headline={headline}
+              ownHeadline={ownHeadline}
+              ownMessage={ownMessage}
+              firstName={firstName}
+              lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), reply === 'no' ? 'nonote' : 'yesnote')}
+            />
           )}
         </div>
 

@@ -70,6 +70,7 @@ import {
 import { rsvpLineWord } from '@/lib/rsvp-form-words';
 import { rsvpLookCard, rsvpLookLine, rsvpStyleHasRows } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
+import { useRsvpListStage } from './rsvp-list-stage';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
@@ -317,12 +318,29 @@ export function StageTools({
   const rsvpCard = rsvpOpen ? rsvpLookCard(picked) : null;
   /** What is picked on the RSVP stage, in a word: the line's name, or "Card" for a screen's group (controller
    *  2026-10-10: the group read "RSVP › Form › RSVP" — the prototype's own word for it is the card). */
-  const rsvpLineName = rsvpLine ? (RSVP_LINE_NAME[rsvpLine] ?? rsvpLine) : rsvpCard ? RSVP_CARD_NAME : null;
+  /* ＋ THE LIST OF A REPLY SCREEN (owner's ruling 2026-10-09 — a line can be ADDED: `rsvp-list-stage.tsx`): what a
+     line the couple added is called, whether its Edit rows are the panel's, where ＋ stands on its frame, the sheet. */
+  const rsvpList = useRsvpListStage({
+    on: rsvpOpen,
+    frameSel: rsvpStageFrameSelector(screen),
+    part: picked,
+    line: rsvpLine,
+    onPick: useCallback((line: string | null, opens?: 'edit' | 'bg', on?: MakerPartKey) => {
+      const part = on ?? pickedRef.current;
+      if (!line || !part) return deselectRef.current();
+      setLineAtPart({ part, line });
+      /* ✋ A line held and dropped on a card that is not the picked part: that card's part is picked with it. */
+      if (part !== pickedRef.current) pickPartRef.current(part);
+      if (opens) setTool(opens);
+    }, [setTool]),
+    onSay: useCallback((words: string) => setWhyRef.current(words), []),
+  });
+  const rsvpLineName = rsvpLine ? (rsvpList.name ?? RSVP_LINE_NAME[rsvpLine] ?? rsvpLine) : rsvpCard ? RSVP_CARD_NAME : null;
   /** 🎨 A card, a line of one, or a line of the pass: each has Animate; Background is the card's (a line says whose). */
   const rsvpLooks = rsvpCard !== null || (rsvpOpen && rsvpLookLine(picked, rsvpLine) !== null);
   /** ✍ A picked line WITH words: its Edit is the stage's own panel (that line's words + its Start from ▾ —
    *  `maker-rsvp-ask.tsx`), so Edit's rows here stand aside and that panel stays in sight. */
-  const rsvpLineTypes = rsvpLineWord(picked, rsvpLine) !== null;
+  const rsvpLineTypes = rsvpLineWord(picked, rsvpLine) !== null || rsvpList.own;
   /** ⚙ The FORM'S CARD picked (no line): its Edit is the reply's settings, the stage's own panel in rows 1–3
    *  (`RsvpCardEditRows`) over this toolbar's row 4 — Earlier · Later · Remove, as on every part. */
   const rsvpCardEdits = rsvpOpen && picked === 'rsvp' && rsvpLine === null;
@@ -1166,7 +1184,9 @@ export function StageTools({
   const groundBlock = block && blockTakesGround(block) ? block : null;
   /** 🎨 A tool the PICKED thing has a save for beyond the part rule: a reply card or line (Background · Animate), a
    *  fixed block with one real root (Animate — and Background, where the block takes one). */
-  const ownTool = (t: MakerPartTool) => (rsvpLooks && (t === 'bg' || t === 'animate')) || (block !== null && t === 'animate') || (groundBlock !== null && t === 'bg');
+  /* 🫧 …but a GROUP of a reply screen's lines has Background only: it arrives with the page, and its lines each
+     have their own Animate (controller 2026-10-10 — "do not offer"; the prototype's own line says so on a tap). */
+  const ownTool = (t: MakerPartTool) => (rsvpLooks && (t === 'bg' || (t === 'animate' && !rsvpList.groupWhy))) || (block !== null && t === 'animate') || (groundBlock !== null && t === 'bg');
   /** 🚫 …and a tool whose rows would be EMPTY here: on the reply pages Style has a row only for a line with a look and
    *  for the When-yes card (`rsvpStyleHasRows`) — the form's card (its settings are Edit's), the names, the date and
    *  the rest have none. Grey, and a tap says the tool's own line. */
@@ -1191,6 +1211,7 @@ export function StageTools({
   const whyNot = (t: MakerPartTool): string => {
     /* A tool with no row on the reply pages names itself ("Style has nothing to change on this part.") — the rule's
        own plain line, never "edit it in Studio": what there is to change is in the tools beside it. */
+    if (rsvpList.groupWhy && (t === 'style' || t === 'animate')) return rsvpList.groupWhy[t];
     if (emptyHere(t)) return makerPartToolWhy(null, t);
     const sample = picked && (t === 'bg' || t === 'animate') ? BLOCK_SAMPLE_WHY[makerPartCanvasOn(stageKey, picked) ?? ''] : undefined;
     const empty = blockAt && !blockIsReal && (t === 'bg' || t === 'animate') ? BLOCK_EMPTY_WHY : undefined;
@@ -1222,6 +1243,9 @@ export function StageTools({
     picked: open && !cameraOpen ? picked : null,
     frame: rsvpOpen ? frameSel : undefined,
     line: rsvpLine && rsvpLineName ? { key: rsvpLine, name: rsvpLineName } : null,
+    lineAdd: rsvpList.add,
+    lineWhy: rsvpList.stays,
+    away: rsvpList.away,
     name: rsvpCard ? RSVP_CARD_NAME : undefined,
   });
   /* ── ✍ THE PICKED PART'S WORDS, FOR EDIT'S ROWS — read off the page (`part-words.ts`): what the page draws is what
@@ -1301,6 +1325,8 @@ export function StageTools({
     if (linePieces[linePieces.length - 1] === makerPartLabelOn(stageKey, picked)) linePieces.pop();
     linePieces.push(rsvpLineName);
   }
+  /* 🫧 A line inside a group says so, just before its own name: "RSVP › Form › Group › Question" (the prototype's path). */
+  if (rsvpList.inGroup && rsvpLineName && picked) linePieces.splice(linePieces.length - 1, 0, 'Group');
   const hasAbout = Boolean(useStagePanelNow().about);
   const lineKey = `${linePieces.join('›')}|${hasAbout ? 1 : 0}`;
   const [lineAt, setLineAt] = useState<{ key: string; level: number; n: number }>({ key: lineKey, level: 0, n: 0 });
@@ -1539,6 +1565,8 @@ export function StageTools({
       )}
       {/* ══ The picked part's frame over the page, its sheets and its toast ══ */}
       {edits.node}
+      {/* ＋ "Add above / below <line>" on the RSVP stage: Heading · Message, never a scene. */}
+      {rsvpList.node}
 
       {/* ══ 👁 EXIT PREVIEW — the ONE button of the whole-page preview (▶ held down). Drawn on the Maker's shell, over
           the page: clear of the phone's home bar (the safe area) and of the guests' own bar under it (44 px, when

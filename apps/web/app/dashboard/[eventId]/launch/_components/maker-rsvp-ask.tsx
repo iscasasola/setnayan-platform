@@ -18,10 +18,12 @@ import {
 } from '@/lib/rsvp-stage';
 import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
-import { RSVP_CONFIG_FULL, readRsvpLook, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith } from '@/lib/rsvp-look';
+import { RSVP_CONFIG_FULL, RSVP_GROUPS_MAX, readRsvpLook, rsvpAddedId, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith, rsvpSheetKeepsLine } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
+import { RSVP_GROUP_PICK_EVENT, RSVP_LIST_DONE_EVENT, RSVP_LIST_EDIT_EVENT, RSVP_LIST_PICK_EVENT, RSVP_LIST_SAY_EVENT, RSVP_LIST_WORDS, rsvpGroupId, rsvpLayoutEdit, rsvpPlaceOf, rsvpScreenCounts, type RsvpLayoutEdit, type RsvpListDone, type RsvpListPick } from '@/lib/rsvp-layout-edit';
+import { RsvpAddedEditRows, RsvpLinePlaceRow, askRsvpListEdit, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { DetailsPieceOnly } from './details-piece';
@@ -246,7 +248,7 @@ export function MakerRsvpSettings({
    */
   const save = (patch: RsvpAskConfig, what?: string, said = false): Promise<SaveAnswer> => {
     const next: RsvpAskConfig = { ...latest.current, ...patch };
-    /* 📏 THE ONE OBJECT HAS A CEILING (the database's 2,048 bytes — `lib/rsvp-look.ts`): a save that would pass it
+    /* 📏 THE ONE OBJECT HAS A CEILING (the database's `RSVP_CONFIG_CHECK` — `lib/rsvp-look.ts`): a save that would pass it
        is refused HERE, in a sentence, before anything is shown or kept — a long message of emoji used to be met
        only at Apply, as the database's own refusal. Said by the row that asked (`said`), else under the list. */
     if (!rsvpConfigFits(next, latest.current)) {
@@ -399,6 +401,33 @@ export function MakerRsvpSettings({
     return () => window.removeEventListener(RSVP_WORD_TYPED_EVENT, onTyped);
   }, [stage]);
 
+  /* ＋ ↕ 🫧 ONE EDIT OF A SCREEN'S LIST (a line added or taken off, a move, a group — `lib/rsvp-layout-edit.ts`) IS
+     THIS PANEL'S OWN SAVE, like every other change here: the toolbar, the page's ＋ and a drop all ASK (a window
+     event), and the answer says what to pick now and what to say. So the size check, the draft door and "the page
+     is told first" are the same one path — nothing else writes the config. */
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  /** The line that was added a moment ago: its words box opens. */
+  const [justAdded, setJustAdded] = useState<string | null>(null);
+  useEffect(() => {
+    if (!stage) return;
+    const answer = (done: RsvpListDone) => window.dispatchEvent(new CustomEvent(RSVP_LIST_DONE_EVENT, { detail: done }));
+    const onEdit = (e: Event) => {
+      const edit = (e as CustomEvent<RsvpLayoutEdit>).detail;
+      if (!edit || typeof edit !== 'object') return;
+      const made = rsvpListEdited(latest.current, edit);
+      if (!made.done.ok) return answer(made.done);
+      const next = { ...latest.current, look: made.look };
+      if (!rsvpConfigFits(next, latest.current)) return answer({ edit, ok: false, said: RSVP_CONFIG_FULL });
+      void saveRef.current({ look: made.look }, '“RSVP”', true);
+      setJustAdded(edit.do === 'add' ? made.done.pick : null);
+      answer(made.done);
+    };
+    window.addEventListener(RSVP_LIST_EDIT_EVENT, onEdit);
+    return () => window.removeEventListener(RSVP_LIST_EDIT_EVENT, onEdit);
+  }, [stage]);
+  const sayOnToolbar = (words: string) => window.dispatchEvent(new CustomEvent(RSVP_LIST_SAY_EVENT, { detail: words }));
+
   const oneAtATime = readOneAtATime(local);
   const words = local.words ?? {};
   const status = error ? (
@@ -532,6 +561,16 @@ export function MakerRsvpSettings({
   if (scene !== undefined && picked) {
     /* 🧩 THE NEW MAKER'S RSVP STAGE: the picked thing's controls. */
     const lineWord = rsvpLineWord(picked.part, picked.line);
+    /* ↕ EDIT'S LAST ROW for a line of a screen's card: ↑ Earlier · ↓ Later · Group · Remove (`RsvpLinePlaceRow`) — where
+       the line stands in the couple's list (`rsvpPlaceOf`; the Hint has no place: it stays at the card's foot). */
+    const listPart = picked.line ? rsvpLookCard(picked.part) : null;
+    const placeRow =
+      listPart && picked.line ? (
+        <RsvpLinePlaceRow
+          steps={rsvpPlaceSteps(listPart, picked.line, rsvpPlaceOf(local, listPart, picked.line), () => window.dispatchEvent(new CustomEvent(RSVP_GROUP_PICK_EVENT, { detail: { part: listPart, line: picked.line } })), rsvpScreenCounts(local, listPart).groups >= RSVP_GROUPS_MAX)}
+          onWhy={sayOnToolbar}
+        />
+      ) : null;
     if (picked.tool === 'edit' && lineWord) {
       return (
         <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-edit={picked.line ?? ''}>
@@ -543,6 +582,62 @@ export function MakerRsvpSettings({
               </div>
             ))}
           </FormRows>
+          {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
+          {placeRow}
+        </div>
+      );
+    }
+    /* ＋ EDIT, a line the couple ADDED: its words (it has no automatic ones — it shows only what they write), then
+       the same last row. Typed in its row the page shows it at once; kept, it is one edit of the list. */
+    const addedLine = listPart && picked.line && rsvpAddedId(picked.line) ? (rsvpPlaceOf(local, listPart, picked.line)?.added ?? null) : null;
+    if (picked.tool === 'edit' && listPart && picked.line && addedLine) {
+      const line = picked.line;
+      const wordsEdit = (text: string): RsvpLayoutEdit => ({ do: 'words', part: listPart, line, text });
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-edit={line}>
+          <FormRows data="rsvp-line" className="!contents">
+            <RsvpAddedEditRows
+              key={line}
+              line={line}
+              added={addedLine}
+              openNow={justAdded === line}
+              onType={(text) => {
+                const typed = rsvpLayoutEdit(latest.current, wordsEdit(text));
+                if (typed.ok) announceRsvpPreview({ ...latest.current, look: typed.look });
+              }}
+              onKeep={(text) => {
+                const kept = rsvpLayoutEdit(latest.current, wordsEdit(text));
+                if (!kept.ok) return Promise.resolve({ ok: false as const, error: 'Please try again.' });
+                return save({ look: kept.look }, `“${addedLine.k === 'h' ? 'Heading' : 'Message'}”`, true);
+              }}
+            />
+          </FormRows>
+          {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
+          {placeRow}
+        </div>
+      );
+    }
+    /* 🫧 A GROUP picked (`g:<id>`, a tap on its own paper) — the prototype's two tools for it:
+         Edit        one sentence (how many lines it holds, that they move as one), and the last row — ↑ Earlier ·
+                     ↓ Later · Ungroup;
+         Background  None · Plain · Frosted, the card's own three tiles, and whose background lies behind it.
+       Each change is ONE edit of the list through the door above (`do: 'ground'`, `'ungroup'`, `'step'`). */
+    const groupPlace = listPart && rsvpGroupId(picked.line) ? rsvpPlaceOf(local, listPart, picked.line) : null;
+    if (listPart && picked.line && groupPlace && (picked.tool === 'edit' || picked.tool === 'bg')) {
+      const group = picked.line;
+      const holds = groupPlace.holds ?? 0;
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-group={group}>
+          {picked.tool === 'edit' ? (
+            <>
+              <p data-rsvp-row="1" data-rsvp-group-holds={holds} className={`${RSVP_ROW[1]} row-span-2 !items-start px-1 pt-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`}>
+                {RSVP_LIST_WORDS.groupHolds(holds)}
+              </p>
+              {placeRow}
+            </>
+          ) : (
+            <RsvpCardGroundRows now={groupPlace.ground} label="The group’s background" line={RSVP_LIST_WORDS.groupGround(holds)} onPick={(g) => askRsvpListEdit({ do: 'ground', part: listPart, group, ground: g })} />
+          )}
           {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
         </div>
       );
@@ -593,7 +688,26 @@ export function MakerRsvpSettings({
       return (
         <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-card-ground={lookCard}>
           <RsvpCardGroundRows now={readRsvpLook(local).card?.[lookCard]?.g ?? null} onPick={(g) => void save({ look: rsvpLookWith(latest.current, { card: lookCard }, { g }) }, '“Background”')} />
-          {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
+          {status ? (
+            <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div>
+          ) : lookCard === 'rsvp' ? (
+            /* 🧾 The form's card is drawn in two places; on the Event Hub's own sheet its ground means the sheet's
+               paper — said for the ground picked NOW (`rsvpSheetKeepsLine`: Frosted makes that paper glass, so the
+               line then speaks of the opening only). The two notes are only ever on the page after a reply. */
+            <p data-rsvp-row="3" data-rsvp-sheet-note="" className={`${RSVP_ROW[3]} px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`}>
+              {rsvpSheetKeepsLine(readRsvpLook(local).card?.rsvp?.g)}
+            </p>
+          ) : null}
+        </div>
+      );
+    }
+    /* 🫧 …and a line INSIDE A GROUP sits on its group's: the same row, the group's words, and the button opens the group. */
+    const lineGroup = listPart && picked.line ? (rsvpPlaceOf(local, listPart, picked.line)?.group ?? null) : null;
+    if (picked.tool === 'bg' && lookLine && listPart && lineGroup) {
+      const open: RsvpListPick = { part: listPart, name: lineGroup, tool: 'bg' };
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-ground={lookLine}>
+          <RsvpLineGroundRow words={RSVP_LIST_WORDS.onGroup} label={RSVP_LIST_WORDS.openGroup} onOpenCard={() => window.dispatchEvent(new CustomEvent(RSVP_LIST_PICK_EVENT, { detail: open }))} />
         </div>
       );
     }
@@ -612,7 +726,7 @@ export function MakerRsvpSettings({
         /* `StageAnimate` IS the four rows, and wears the toolbar's side inset itself — so this box gives its own back
            (it stood 20 px in, where every other stage's Animate stands 10). */
         <div className="-mx-[10px] flex h-full min-h-0 flex-col" data-rsvp-stage-controls={scene} data-rsvp-stage-animate={typeof moves === 'string' ? moves : `card.${moves.card}`}>
-          <RsvpBuildInRows now={(typeof moves === 'string' ? look.lines?.[moves] : look.card?.[moves.card]) ?? {}} error={error} onPick={(patch) => void save({ look: rsvpLookWith(latest.current, moves, patch) }, '“Animate”')} />
+          <RsvpBuildInRows now={(typeof moves === 'string' ? look.lines?.[moves] : look.card?.[moves.card]) ?? {}} error={error} note={typeof moves !== 'string' && moves.card === 'rsvp' ? rsvpSheetKeepsLine(look.card?.rsvp?.g) : null} onPick={(patch) => void save({ look: rsvpLookWith(latest.current, moves, patch) }, '“Animate”')} />
         </div>
       );
     }

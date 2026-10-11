@@ -26,8 +26,13 @@ import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
 import { RsvpCanvasBridge } from '@/app/[slug]/_components/rsvp-canvas-bridge';
 import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, readBlockLooks } from '@/lib/block-looks';
 import { RsvpLookStyle } from '@/app/[slug]/_components/rsvp-look-style';
-import { rsvpAnswerWord } from '@/lib/rsvp-ask';
-import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
+import { RsvpWidget } from '@/app/[slug]/_components/rsvp-widget';
+import { submitInviteReply } from '@/app/[slug]/invite/actions';
+import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
+import { RsvpNoteLines } from '@/app/[slug]/_components/rsvp-note-lines';
+import type { GuestRow } from '@/app/[slug]/_lib/types';
+import { landingHeadline } from '@/lib/guest-landing';
+import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
 import { postEventSceneDrawn } from '@/lib/post-event-scenes';
 import { postEventLookOf } from '@/lib/post-event-draft';
 import { resolvePostEventStyle } from '@/lib/post-event-style-resolve';
@@ -72,6 +77,50 @@ const LAB_VENUE_EVENT = {
 
 /** The public ready-made scene photo the lab's scene backgrounds use, as its own URL (a legacy ref is served verbatim). */
 const LAB_MEDIA = { '/std/backgrounds/golden-hour.webp': '/std/backgrounds/golden-hour.webp' };
+
+/**
+ * 🧑 THE LAB'S SAMPLE GUEST — nobody's row: the reply pages are drawn by their REAL components here (the reply card,
+ * the note after a reply), and those are drawn for a guest.
+ */
+const LAB_GUEST = {
+  guest_id: 'lab-guest',
+  first_name: 'Teresita',
+  last_name: 'Aquino',
+  display_name: null,
+  rsvp_status: 'pending',
+  meal_preference: null,
+  dietary_restrictions: null,
+  guest_note: null,
+  email: null,
+  mobile: null,
+  plus_one_allowed: false,
+  plus_one_count: 0,
+  qr_token: 'lab',
+  photo_source: null,
+  photo_url: null,
+} as unknown as GuestRow;
+
+/**
+ * The Reply door's own save, as `invite/reply` hands it to the card — for nobody's event and nobody's guest. On the
+ * Maker's canvas the bridge stops every send before it is one; this is here so the card is drawn as the DOOR draws it
+ * (a card inside a door: no letterpress head of its own). A save of the lab's own that read nothing was a real
+ * finding of the Root map ("sends rsvp_status, but labReply never reads it") — so it is the real one, not a stand-in.
+ */
+const labReply = submitInviteReply.bind(null, 'lab', 'lab-guest');
+
+/**
+ * `?look=<json>` — a stored `rsvp_ask_config.look` to draw the lab's reply screens with, as the SERVER draws a guest's
+ * (the Maker lays its own changes on the page live; this is how the lab is asked for a page that was saved). Read by
+ * the same one strict reader as everything else, so a bad value is simply the page's own.
+ */
+function labRsvpConfig(raw: string | string[] | undefined): { look: unknown } | null {
+  if (typeof raw !== 'string') return null;
+  try {
+    return { look: JSON.parse(raw) };
+  } catch {
+    return null;
+  }
+}
 
 /** maria-and-jose's board stand-in — Oxblood & olive, the prototype's first palette. */
 const LAB_BOARD = ['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2'];
@@ -352,6 +401,45 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   if (rsvp) {
+    const labConfig = labRsvpConfig(sp.look);
+    const labLook = readRsvpLook(labConfig);
+    if (rsvp === 'form' && sp.sheet === '1') {
+      /* 🧾 `?rsvp=form&sheet=1#your-details` — THE EVENT HUB'S OWN REPLY SHEET (`rsvp-sheet.tsx`), the second place a
+         guest replies: the real sheet, the real card inside it and the look's one `<style>` exactly as `site-body.tsx`
+         mounts them (`surface="sheet"`), over a page to judge its paper against. A guest's view: no canvas bridge. */
+      return (
+        <main className="min-h-dvh px-5 py-6 text-ink" style={{ background: `linear-gradient(160deg, ${LAB_BOARD[4]} 0%, ${LAB_BOARD[2]} 52%, ${LAB_BOARD[1]} 100%)` }} data-lab-reply-sheet="">
+          <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+          <div className="space-y-3 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em]">You&rsquo;re invited</p>
+            <h1 className="font-serif text-4xl">Maria &amp; Jose</h1>
+            <p className="font-mono text-[11px] uppercase tracking-[0.14em]">Saturday, December 12, 2026 · Seda Vertis North</p>
+            {Array.from({ length: 8 }, (_, i) => (
+              <p key={i} className="text-base leading-relaxed">
+                Together with their families, Maria and Jose invite you to celebrate their wedding.
+              </p>
+            ))}
+            <a href="#your-details" className="button-primary inline-flex">
+              Reply
+            </a>
+          </div>
+          <RsvpSheet heading="Your reply" privacyLine="Only the couple sees your reply." flash={null}>
+            <div data-rsvp-form>
+              <RsvpWidget
+                words={await eventWordsFor('wedding')}
+                guest={LAB_GUEST}
+                eventId="lab"
+                eventPublicId="lab"
+                faceMode="mode_b"
+                oneAtATime={sp.one === '1'}
+                lines={rsvpScreenLayout(labLook, 'rsvp')}
+              />
+              <RsvpLookStyle config={labConfig} board={celebrationColours(LAB_BOARD)} parts={['rsvp']} surface="sheet" />
+            </div>
+          </RsvpSheet>
+        </main>
+      );
+    }
     return (
       /* 🖼 A GROUND TO JUDGE THE CARD AGAINST (controller 2026-10-10): on plain cream, Frosted and None looked the
          same as Plain. A stand-in for the Look's background, made of the lab's own colours — the lab only. */
@@ -367,7 +455,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
             guest pages below: it sat over "Sadly, no", the hint and the Save button. The lab only. */}
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
         {/* 🎨 Each line's look, as the real pages carry it — drawn at the tap in the Maker (`rsvp-look-style.tsx`). */}
-        <RsvpLookStyle config={null} board={celebrationColours(LAB_BOARD)} parts={rsvp === 'form' ? ['rsvp'] : rsvp === 'thanks' ? ['yesnote', 'pass'] : ['nonote']} canvas />
+        <RsvpLookStyle config={labConfig} board={celebrationColours(LAB_BOARD)} parts={rsvp === 'form' ? ['rsvp'] : rsvp === 'thanks' ? ['yesnote', 'pass'] : ['nonote']} canvas />
         {/* 🃏 The door's CARD, as `DoorShell` draws it: the masthead and every section inside ONE card — on the Maker's
             canvas the card is the screen's group of lines, picked from its edge (`RSVP_CARD_GROUPS`). */}
         <div className="rounded-3xl bg-white px-5 py-6 shadow-sm">
@@ -382,41 +470,41 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         {rsvp === 'form' ? <p className="mt-4 text-sm">Teresita Aquino</p> : null}
         {rsvp === 'form' ? mark('f:rsvp') : null}
         {rsvp === 'form' ? (
-          /* The reply card's own answer markup (`rsvp-widget.tsx`): the tapped
-             answer fills with the page's button colour, the other goes plain. */
-          <form className="rsvp-form mt-4">
-            <fieldset className="space-y-2">
-              {/* 🧩 The lines as the real card names them (`data-rsvp-line`, `rsvp-widget.tsx`): each its own part. */}
-              <legend className="mb-3">
-                <span data-rsvp-line="eyebrow" data-rsvp-word={rsvpWordBridgeKey('eyebrow')} data-rsvp-default="Your reply" className="block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry">Your reply</span>
-                <span data-rsvp-line="question" data-rsvp-word={rsvpWordBridgeKey('question')} data-rsvp-default="Will you celebrate with us?" className="mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink">Will you celebrate with us?</span>
-              </legend>
-              {/* The two answers say what the REAL card prints when the couple wrote nothing (`rsvpAnswerWord`) — the
-                  words the Maker's row calls "Automatic". (They read "Yes, with joy" / "Sadly, no" here: a stand-in
-                  of the lab's own, which no guest page prints.) */}
-              {(['attending', 'declined'] as const).map((answer, i) => ({ label: rsvpAnswerWord(null, answer, false), i })).map(({ label, i }) => (
-                <label
-                  key={label}
-                  data-rsvp-line={i === 0 ? 'yes' : 'no'}
-                  data-rsvp-answer=""
-                  className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
-                >
-                  <input type="radio" name="rsvp_status" value={i === 0 ? 'attending' : 'declined'} className="sr-only" />
-                  <span data-rsvp-word={rsvpWordBridgeKey(i === 0 ? 'attending' : 'declined')}>{label}</span>
-                </label>
-              ))}
-            </fieldset>
-            {/* The hint, where the one-at-a-time flow puts it: inside the form, under the answers. */}
-            <p data-rsvp-line="hint" data-rsvp-word={rsvpWordBridgeKey('hint')} data-rsvp-default="Tap one to continue" className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">Tap one to continue</p>
-          </form>
+          /* 🃏 THE REAL REPLY CARD (`RsvpWidget`), as `invite/reply` draws it on the Maker's canvas: the invitation's
+             Reply door, the SAMPLE guest, every question drawn. It was a hand-made copy of the card's answers — which
+             could not show a line the couple added, an order or a group, and had drifted from the card before
+             (2026-10-10; the hand-over's own trap: "the lab's stand-ins hide things from the owner"). One element
+             after the marker, as the page's `CanvasSection` is. `?one=1`: one question at a time, on the server. */
+          <div className="mt-4 space-y-4">
+            <RsvpWidget
+              words={await eventWordsFor('wedding')}
+              guest={LAB_GUEST}
+              eventId="lab"
+              eventPublicId="lab"
+              faceMode="mode_b"
+              doorAction={labReply}
+              termsOnSend
+              previewEveryQuestion
+              oneAtATime={sp.one === '1'}
+              lines={rsvpScreenLayout(labLook, 'rsvp')}
+            />
+          </div>
         ) : rsvp === 'thanks' ? (
           <>
             {mark('f:yesnote')}
-            <div className="mt-6">
-              <p className="font-serif text-2xl" data-landing-heading="" data-rsvp-line="heading" data-rsvp-word={rsvpWordBridgeKey('thanksHeading')} data-rsvp-default="See you there, Teresita" data-rsvp-name="Teresita">
-                See you there, Teresita
-              </p>
-              <p className="mt-2 text-sm text-ink/60" data-rsvp-line="message" data-rsvp-word={rsvpWordBridgeKey('thanksMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
+            {/* 💌 THE REAL NOTE AFTER A YES (`RsvpNoteLines`, as `invite/enter` draws it): the "✓ You replied" pill
+                and the couple's message, in the block the marker stands before. */}
+            <div data-landing="message" className="mt-6 space-y-3">
+              <RsvpNoteLines
+                reply="yes"
+                canvas
+                wordKeys={{ heading: 'thanksHeading', message: 'thanksMessage' }}
+                headline={landingHeadline('attending')}
+                ownHeadline={landingHeadline('attending')}
+                ownMessage={null}
+                firstName="Teresita"
+                lines={rsvpScreenLayout(labLook, 'yesnote')}
+              />
             </div>
             <WhenYesCelebration
               kind={play ?? 'none'}
@@ -443,13 +531,20 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         ) : (
           <>
             {mark('f:nonote')}
-            {/* The note's OWN card inside the door's card, as `invite/enter` draws it (`data-landing-missed`): with a
-                ground chosen for the door's card it gives up its paper, so ONE card shows (`RSVP_INNER_CARD_SELECTOR`). */}
-            <div className="sn-glass-bare mt-6 rounded-2xl bg-cream/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">
-              <p className="font-serif text-2xl italic text-ink/70" data-rsvp-line="heading" data-rsvp-word={rsvpWordBridgeKey('declineHeading')} data-rsvp-default="We will miss you." data-rsvp-name="Teresita">
-                We will miss you.
-              </p>
-              <p className="mt-2 text-sm text-ink/60" data-rsvp-line="message" data-rsvp-word={rsvpWordBridgeKey('declineMessage')} data-rsvp-word-optional="" data-rsvp-name="Teresita" hidden />
+            {/* 💌 THE REAL NOTE AFTER A NO (`RsvpNoteLines`): the note's OWN card inside the door's card
+                (`data-landing-missed`) — with a ground chosen for the door's card it gives up its paper, so ONE card
+                shows (`RSVP_INNER_CARD_SELECTOR`). */}
+            <div data-landing="message" className="mt-6 space-y-3">
+              <RsvpNoteLines
+                reply="no"
+                canvas
+                wordKeys={{ heading: 'declineHeading', message: 'declineMessage' }}
+                headline={landingHeadline('declined')}
+                ownHeadline={landingHeadline('declined')}
+                ownMessage={null}
+                firstName="Teresita"
+                lines={rsvpScreenLayout(labLook, 'nonote')}
+              />
             </div>
           </>
         )}

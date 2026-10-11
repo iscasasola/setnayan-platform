@@ -53,6 +53,8 @@ const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'))
 const L = 'app/dashboard/[eventId]/launch/_components';
 const REPLY = src('app/[slug]/invite/reply/page.tsx');
 const ENTER = src('app/[slug]/invite/enter/page.tsx');
+/** The note after a reply — its lines moved here from the page when the note became a list (2026-10-10). */
+const NOTE = src('app/[slug]/_components/rsvp-note-lines.tsx');
 const BRIDGE = src('app/[slug]/_components/rsvp-canvas-bridge.tsx');
 const TOOLS = src(`${L}/stage-tools.tsx`);
 const STAGE = src(`${L}/maker-rsvp-stage.tsx`);
@@ -219,9 +221,13 @@ test('1 · WIRING: the pages mark exactly those sections, and every word sits in
   const blockEnd = ENTER.indexOf('data-landing="reply"');
   assert.ok(noteAt > 0 && block > noteAt && blockEnd > block);
   assert.equal(ENTER.slice(noteAt, block).replace(/[^<]*\/> : null\}\s*/, ''), '', 'something stands between the note’s marker and its block');
-  const all = [...ENTER.matchAll(/rsvpWordBridgeKey\(wordKeys\.\w+\)/g)];
-  assert.ok(all.length >= 4, 'the notes’ words are gone');
-  for (const m of all) assert.ok(m.index! > block && m.index! < blockEnd, 'a word of the after-screens is outside its note');
+  /* The notes' words are drawn by the note's own component (2026-10-10: the note is a list of lines —
+     `rsvp-note-lines.tsx`), and the page draws THAT inside the block, nowhere else. */
+  const note = [...ENTER.matchAll(/<RsvpNoteLines\b/g)];
+  assert.equal(note.length, 1, 'the note is drawn more than once, or not at all');
+  assert.ok(note[0]!.index! > block && note[0]!.index! < blockEnd, 'the note is drawn outside its block');
+  assert.doesNotMatch(ENTER, /rsvpWordBridgeKey\(wordKeys\./, 'a word of the after-screens is drawn by the page, outside its note');
+  assert.ok([...NOTE.matchAll(/rsvpWordBridgeKey\(wordKeys\.\w+\)/g)].length >= 4, 'the notes’ words are gone');
   /* The ticket's marker stands straight before the ticket — and a "no" has none. */
   assert.match(ENTER, /\{canvas && !noTicketSample && ticket !== 'none' \? <span hidden data-maker-section="f:pass" \/> : null\}\s*\{ticket === 'full' \? \(/);
   /* …the sample has no row to read "cannot come" from, so the canvas says it — false for every guest. */
@@ -593,15 +599,25 @@ test('6 · a reply page is a FIXED page: its parts have the frame — never ＋,
      answers (`canMove` / `canRemove`), so a reply page's three are grey. The gate's end is the frame's own end. */
   assert.deepEqual(MAKER_STAGE_KEYS.filter(makerStageIsFixedPages), [RSVP_STAGE_KEY]);
   assert.match(EDGES, /const fixedPages = makerStageIsFixedPages\(stage\);/);
-  /* Both ＋ sit inside the one gate. */
-  const gate = EDGES.indexOf('{fixedPages ? null : (');
+  /* 🔁 RE-AIMED 2026-10-10 (5c, owner's ruling 2026-10-09: "we already had the +" → "you removed it"): ＋ is back
+     on a LINE of a reply page, where it adds a line — Heading · Message — through the stage's own sheet (`lineAdd`).
+     What this test has always held is unchanged: the SCENES' ＋ (the one that opens the scenes' sheet, which would
+     offer the Invitation's hidden scenes) is never drawn on a fixed page. The gate now has two arms. */
+  const gate = EDGES.indexOf('{fixedPages ? (');
+  const scenesArm = EDGES.indexOf('{edgesOf.addAbove ? (', gate);
   const gateEnd = EDGES.indexOf('{toast && !error ? (');
-  assert.ok(gate > 0 && gateEnd > gate, '＋ is offered on a reply page');
-  for (const add of ['data-part-add="above"', 'data-part-add="below"']) {
-    const at = EDGES.indexOf(add);
-    assert.ok(at > gate && at < gateEnd, `${add} is outside the fixed-page gate`);
-  }
-  assert.equal((EDGES.match(/data-part-add=/g) ?? []).length, 2, 'a third ＋ is drawn, outside the gate');
+  assert.ok(gate > 0 && scenesArm > gate && gateEnd > scenesArm, 'the fixed-page gate is gone');
+  const scenesAdd = [...EDGES.matchAll(/onClick=\{\(\) => setAdding\('(?:above|below)'\)\}/g)];
+  assert.equal(scenesAdd.length, 2, 'anti-vacuity: the scenes’ two ＋ were not found');
+  for (const m of scenesAdd) assert.ok(m.index! > scenesArm && m.index! < gateEnd, 'the scenes’ ＋ is offered on a reply page');
+  /* …and on a fixed page the only ＋ is a line's, which never opens the scenes' sheet. */
+  const fixedArm = EDGES.slice(gate, scenesArm);
+  assert.match(fixedArm, /^\{fixedPages \? \(\s*lineAdd \? \(/);
+  assert.doesNotMatch(fixedArm, /setAdding|AddPartSheet/, 'a line’s ＋ opens the scenes’ sheet');
+  /* Four ＋ in the file — the line's two in the fixed arm, the scenes' two in the other — and none outside the gate. */
+  assert.equal((EDGES.match(/data-part-add=/g) ?? []).length, 4, 'a ＋ is drawn outside the gate');
+  assert.equal((fixedArm.match(/data-part-add=/g) ?? []).length, 2);
+  assert.equal((EDGES.slice(scenesArm, gateEnd).match(/data-part-add=/g) ?? []).length, 2);
   assert.match(EDGES, /const canRemove = edgesOf\.remove && [^;]* && !fixedPages;/);
   assert.match(EDGES, /const canMove = edgesOf\.grip && [^;]* && !fixedPages;/);
   /* …and those two answers are all Edit's last row is offered. */
@@ -695,13 +711,13 @@ test('8 · the lines: each section names its own, each has a name, and the PAGES
   assert.match(WIDGET, /<span data-rsvp-line="question"/);
   assert.match(WIDGET, /data-rsvp-line=\{option\.key === 'attending' \? 'yes' : option\.key === 'declined' \? 'no' : undefined\}/);
   assert.match(src('app/[slug]/_components/rsvp-one-at-a-time.tsx'), /<p data-rsvp-line="hint"/);
-  assert.equal((ENTER.match(/data-rsvp-line="heading"/g) ?? []).length, 2, 'When yes and When no each name their heading');
-  assert.equal((ENTER.match(/data-rsvp-line="message"/g) ?? []).length, 2, 'When yes and When no each name their message');
+  assert.equal((NOTE.match(/data-rsvp-line="heading"/g) ?? []).length, 2, 'When yes and When no each name their heading');
+  assert.equal((NOTE.match(/data-rsvp-line="message"/g) ?? []).length, 2, 'When yes and When no each name their message');
   /* The Save button's name is on a box AROUND it: a button is inert on the canvas, so the tap lands on what holds it. */
   assert.match(ENTER, /<div data-rsvp-line="save">/);
   assert.ok(RSVP_CANVAS_CONTROLS.split(',').map((c) => c.trim()).includes('button'));
   /* Never `data-el`: that name is the Event Hub's own (the cover's parts and their looks). */
-  for (const name of ['question', 'hint', 'yes', 'no', 'save']) assert.doesNotMatch(WIDGET + ENTER, new RegExp(`data-el="${name}"`));
+  for (const name of ['question', 'hint', 'yes', 'no', 'save']) assert.doesNotMatch(WIDGET + ENTER + NOTE, new RegExp(`data-el="${name}"`));
 });
 
 test('8 · WIRING: the frame, its name, the caption and the panel follow the LINE; the group keeps the part’s own', () => {
@@ -710,7 +726,8 @@ test('8 · WIRING: the frame, its name, the caption and the panel follow the LIN
   /* A line is picked only WITH its part: another part, a tab, the ground let it go with nothing to reset. */
   assert.match(TOOLS, /const rsvpLine = rsvpOpen && picked && lineAtPart\?\.part === picked \? lineAtPart\.line : null;/);
   /* The frame is drawn ON the line and wears its name… */
-  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : rsvpCard \? RSVP_CARD_NAME : null;/);
+  /* 🔁 RE-AIMED 2026-10-10 (5c): an added line and a group take their name from the page (`rsvpList.name`). */
+  assert.match(TOOLS, /const rsvpLineName = rsvpLine \? \(rsvpList\.name \?\? RSVP_LINE_NAME\[rsvpLine\] \?\? rsvpLine\) : rsvpCard \? RSVP_CARD_NAME : null;/);
   assert.match(TOOLS, /line: rsvpLine && rsvpLineName \? \{ key: rsvpLine, name: rsvpLineName \} : null,/);
   assert.match(EDGES, /const el = picked \? \(line\?\.key \?\? MAKER_PARTS\[picked\]\.el \?\? null\) : null;/);
   assert.match(EDGES, /\[data-el="\$\{CSS\.escape\(el\)\}"\], \[data-rsvp-line="\$\{CSS\.escape\(el\)\}"\]/);

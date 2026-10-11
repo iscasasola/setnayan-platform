@@ -1,4 +1,4 @@
-import { readRsvpLook, rsvpLookCss } from '@/lib/rsvp-look';
+import { readRsvpLook, rsvpLookCss, type RsvpReplySurface } from '@/lib/rsvp-look';
 import { RSVP_LOOK_STYLE_ATTR } from '@/lib/rsvp-stage-shared';
 
 /**
@@ -13,8 +13,21 @@ import { RSVP_LOOK_STYLE_ATTR } from '@/lib/rsvp-stage-shared';
  * `config`: the RAW `events.rsvp_ask_config` the page already read (no new read). `board`: the event's five colours.
  * `parts`: the Maker parts this page draws.
  */
-export function RsvpLookStyle({ config, board, parts, canvas = false }: { config: unknown; board: readonly string[]; parts: readonly string[]; canvas?: boolean }) {
-  const css = rsvpLookCss(readRsvpLook(config), parts, board);
+export function RsvpLookStyle({
+  config,
+  board,
+  parts,
+  canvas = false,
+  surface = 'door',
+}: {
+  config: unknown;
+  board: readonly string[];
+  parts: readonly string[];
+  canvas?: boolean;
+  /** Where this reply is drawn: a door's card (the reply pages), or the Event Hub's own sheet (`rsvpCardGroundOn`). */
+  surface?: RsvpReplySurface;
+}) {
+  const css = rsvpLookCss(readRsvpLook(config), parts, board, surface);
   if (!css && !canvas) return null;
   return (
     <style {...{ [RSVP_LOOK_STYLE_ATTR]: parts.join(' ') }} data-rsvp-board={canvas ? board.join(' ') : undefined}>

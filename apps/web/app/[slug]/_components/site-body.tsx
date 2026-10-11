@@ -191,6 +191,10 @@ import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { HubPageHold, HubScenes, hubScrubHoldsAtMost } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
+import { RsvpLookStyle } from './rsvp-look-style';
+import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
+import { celebrationColours } from '@/lib/rsvp-celebration';
+import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
 import type { FixedStyleScene, StyledScene } from '@/lib/fixed-scene-styles';
 import { HERO_PART_LOOK, partLookAttr } from '@/lib/scene-styles-parts';
@@ -253,6 +257,9 @@ import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
 
 
 
+
+/** The reply sheet draws the FORM's lines only (the notes after a reply are the page after a reply's). */
+const RSVP_SHEET_PARTS = ['rsvp'] as const;
 
 /** Save-the-Date film accent (button + accent marks): the couple's manual
  *  override (events.std_film_accent_hex) when set, else their Mood-Board accent
@@ -3802,7 +3809,18 @@ export async function SiteBody({
                   pageStage,
                   event.event_type,
                 )}
+                /* 🧱 The card's lines in the couple's order, the lines they added and their groups — the SAME list
+                   the invitation's reply page draws (`rsvpScreenLayout`, the one strict reader), from the config
+                   this page already holds. Null for a couple who arranged nothing: the card as it always was. */
+                lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), 'rsvp')}
               />
+              {/* 🎨 EACH LINE'S LOOK REACHES THIS SHEET TOO (2026-10-10 — a dead setting until now: a Font, a Colour,
+                  a Size, a Build in set on the Maker's RSVP stage showed on the invitation's reply page and never
+                  here, where a guest changes a reply). The same one `<style>` the reply page carries, from the same
+                  reader; NOTHING AT ALL for an event that set none — not an empty tag. After the card, inside the
+                  card's own box, so nothing on this page is spaced by it. `surface="sheet"`: the card's Background
+                  means this sheet's paper here, and its Build in is not drawn (`rsvpCardGroundOn`, lib/rsvp-look.ts). */}
+              <RsvpLookStyle config={event.rsvp_ask_config} board={celebrationColours(boardSwatches(event.role_palette))} parts={RSVP_SHEET_PARTS} surface="sheet" />
             </div>
             {/* ⚖ THE SCAN-TRAIL OPT-OUT, unchanged, as one small line at the
                 foot of "Your details" (owner 2026-09-30) — where a guest goes

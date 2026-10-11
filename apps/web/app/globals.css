@@ -3799,6 +3799,29 @@ html.dark {
      set — the theme's `[data-hub-theme]` mapping and the look's inline variables sit on it
      (`guest-look-scope.tsx`) — so the name resolves here, once, to the ink the page really wears. */
   --color-ink-page: var(--color-ink);
+  /* 🖋 …AND THE PAGE'S GILD WORDS, the same way and for the same reason (2026-10-11). `text-gild` reads
+     `var(--color-gild-text, var(--color-gild))`; this is that answer under a second name, for the surfaces
+     below to fall back to. */
+  --color-gild-text-page: var(--color-gild-text, var(--color-gild));
+}
+
+/* 🟨 A SURFACE WITH A GROUND OF ITS OWN KEEPS A GILD WORD THAT READS ON *THAT* GROUND (2026-10-11).
+   A plate and a veil row are not the page: a couple's dark background leaves them as they were. The dark sample
+   event's "WHEN" label sits on its GOLD date card; once the words' gild followed the dark page it read 1.01 : 1
+   there. So each such surface shadows `--color-gild-text` for its subtree — the plate's own idiom for its ink,
+   above — with the look's value for THAT ground (`pinSurfaceWordInks`, `app/[slug]/_lib/pro-site-vars.ts`),
+   and the page's own value wherever no look pins one: exactly what it drew before.
+   The selectors are the ground-painting classes the guest components use; `lib/a-dark-look-keeps-its-words
+   .test.ts` (9) re-reads the components and fails when one paints a plate or a veil ROW this list does not
+   name. (The opaque `bg-veil` is a picture well — a map, a portrait — and holds no words.) */
+.sn-editorial :is(.pahina-plate, .pahina-deckle, .bg-paper-deep, .bg-paper-deep\/95) {
+  --color-gild-text: var(--color-gild-text-on-plate, var(--color-gild-text-page));
+}
+.sn-editorial .bg-veil\/60 {
+  --color-gild-text: var(--color-gild-text-on-veil-60, var(--color-gild-text-page));
+}
+.sn-editorial .bg-veil\/50 {
+  --color-gild-text: var(--color-gild-text-on-veil-50, var(--color-gild-text-page));
 }
 
 /* ── Event Hub theme MATERIALS (owner 2026-09-22) ────────────────────────────

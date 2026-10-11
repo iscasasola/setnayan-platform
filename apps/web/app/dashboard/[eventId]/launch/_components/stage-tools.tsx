@@ -49,6 +49,7 @@ import {
   STAGE_TOOL_PILL,
   stageBarPx,
   stageEditingLine,
+  partPickScroll,
 } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
@@ -86,7 +87,7 @@ import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_TOOL_EVENT, 
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
-import { RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
+import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { BlockAnimateRows, CameraPartTools, StagePlayStatus } from './details-lazy';
 import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas, blockTakesGround } from '@/lib/block-looks';
@@ -1663,8 +1664,8 @@ function rsvpTabIcon(rsvpOpen: boolean, key: string) {
 
 /**
  * 🎯 Bring a part to the MIDDLE of the page band left above the guest bar (prototype
- * `centrePicked`): `top + h/2 − band/2`; a part taller than the band lines up with its
- * top. The canvas is the stage's shown, same-origin frame; it gets the room below to
+ * `centrePicked`): `top + h/2 − band/2`; a part whose frame does not fit the band lines up
+ * with its top, its ＋ in view (`lib/maker-stage-room.ts` `partPickScroll`). The canvas is the stage's shown, same-origin frame; it gets the room below to
  * centre its last part too (its own `padding-bottom`, set once).
  */
 function centrePart(key: string, el: string | null, frameSel: string = SHOWN_FRAME) {
@@ -1685,7 +1686,8 @@ function centrePart(key: string, el: string | null, frameSel: string = SHOWN_FRA
     if (band <= 40) return;
     doc.body.style.paddingBottom = `${Math.round(band / 2)}px`;
     const r = node.getBoundingClientRect();
-    const dy = r.height >= band - 24 ? r.top - 12 : r.top + r.height / 2 - band / 2;
+    /* Centred when its whole frame fits; otherwise by its top, with room for the frame's edge and its ＋ (`partPickScroll`). */
+    const dy = partPickScroll({ top: r.top, height: r.height }, band, PART_PAD);
     /* An absolute target — a scroll still gliding from the last pick cannot add to it. */
     if (Math.abs(dy) > 2) win.scrollTo({ top: Math.max(0, win.scrollY + dy), behavior: 'smooth' });
   } catch {

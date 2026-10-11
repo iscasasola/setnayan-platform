@@ -400,3 +400,24 @@ export function partFrameEdges(
   const tap = (g: number | null) => (g === null ? 44 : Math.max(26, Math.min(44, g)));
   return { top: box.top - half(gapAbove), bottom: box.top + box.height + half(gapBelow), tapAbove: tap(gapAbove), tapBelow: tap(gapBelow) };
 }
+
+/**
+ * 🎯 WHERE A PICKED PART IS BROUGHT TO — and its ＋ with it (the re-walk of 2026-10-11, R04: a tall part, the Dress
+ * code, showed NEITHER ＋ when tapped; "the one above sits at the canvas's top edge until the canvas is scrolled").
+ *
+ * A ＋ is drawn ON the frame's edge or not at all (owner: clamped into view it sat on the pass's QR), and only where
+ * that edge is `PART_EDGE_ROOM` inside the page's visible band (`add-part-sheet.tsx` `onEdge`). The frame's edge
+ * sits up to `pad` outside the part. So:
+ *   · a part whose WHOLE frame fits the band is centred — both ＋ are in view;
+ *   · any taller part is lined up by its TOP with room for the frame's top edge and its ＋ — the ＋ that adds above
+ *     is in view at once, the part's name tab with it; the ＋ that adds below is at the part's end, where the part
+ *     itself ends. (It was lined up 12 px under the band's top: the frame's edge, 22 px out, was off the band, so the
+ *     upper ＋ was hidden too — and a part a little shorter than the band was centred with both edges off it.)
+ * Returns how far the canvas scrolls (page px; positive = down). `top` is the part's top measured from the band's top.
+ */
+export const PART_EDGE_ROOM = 26;
+export function partPickScroll(part: { top: number; height: number }, band: number, pad = 22): number {
+  const room = pad + PART_EDGE_ROOM + 4;
+  if (part.height + 2 * room <= band) return part.top + part.height / 2 - band / 2;
+  return part.top - room;
+}

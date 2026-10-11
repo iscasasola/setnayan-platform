@@ -159,6 +159,73 @@ function isGuestPassHop(url) {
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// THE MAKER ASKS ONCE (2026-10-12; owner: "the key was to lessen the requests").
+// Measured on a real event, 77 seconds in the Event Hub Maker: the guest page —
+// a full server render, 31–34 database calls — was rendered about 22 times, and
+// after EVERY canvas load one more request arrived for the BARE page
+// (`/<slug>`, no `phase`, no `editor`; `referer: /sw.js`, `sec-fetch-mode:
+// no-cors`). That request is made HERE, by the `PRELOAD_ASSETS` branch of the
+// `message` listener: the guest page mounts `GuestPreload` in every render —
+// the Maker's canvas included — which asks this worker to keep `/<slug>` for
+// offline, and the worker fetches it. For a guest that is the point. For the
+// Maker's canvas it is one wasted render per warm-up and per press.
+//
+// A page the HOST's app asks for is therefore the browser's alone: this worker
+// makes no request of its own for it, answers nothing, and keeps no copy —
+//   (a) a page address that is a host canvas or preview: `editor=1`, or any
+//       `phase` query (`?phase=` is the host's preview of a stage; a guest's
+//       address never carries it);
+//   (b) a page asked for FROM the host's app — the referrer is a document
+//       under /dashboard/ or /site-editor/, or is itself (a);
+//   (c) a page loaded into a frame. The guest page may only be framed by this
+//       origin (`frame-ancestors 'self'`), so a framed page is always one of
+//       our own surfaces — the Maker's canvas, a style or theme miniature —
+//       never a guest's visit.
+// A guest's own visit (a top-level navigation to `/<slug>`, and the preload its
+// page then asks for) is exactly as before. Code, images and fonts are cached
+// as before for everyone — those cost the server nothing and save requests.
+// `app/sw-the-maker-asks-once.test.ts` counts the requests for each case.
+// ---------------------------------------------------------------------------
+function isHostCanvasUrl(url) {
+  return url.searchParams.get('editor') === '1' || url.searchParams.has('phase');
+}
+
+function sameOriginUrl(href) {
+  if (!href || typeof href !== 'string') return null;
+  try {
+    const url = new URL(href, self.location.origin);
+    return url.host === self.location.host ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+function isHostAppDocument(url) {
+  return url.pathname.startsWith('/dashboard/') || url.pathname.startsWith('/site-editor/');
+}
+
+// A NAVIGATION the host's app makes — (a), (b) or (c) above.
+function isHostAppNavigation(request, url) {
+  if (isHostCanvasUrl(url)) return true;
+  const destination = request.destination;
+  if (destination === 'iframe' || destination === 'frame' || destination === 'embed' || destination === 'object') {
+    return true;
+  }
+  const from = sameOriginUrl(request.referrer);
+  return !!from && (isHostAppDocument(from) || isHostCanvasUrl(from));
+}
+
+// The page that SENT a message is a host canvas, a host preview, or framed:
+// what it asks to be kept for offline is never fetched. `client` is the
+// message's `source` (absent → not one of these, as before).
+function isHostCanvasClient(client) {
+  if (!client) return false;
+  if (client.frameType === 'nested') return true;
+  const at = sameOriginUrl(client.url);
+  return !!at && isHostCanvasUrl(at);
+}
+
 // A navigation to one of these path shapes is the day-of guest experience —
 // cache it stale-while-revalidate in DAYOF_CACHE. `/[slug]` is the guest's
 // personal landing page; `/[slug]/find-my-table` is the table/floorplan view.
@@ -713,8 +780,16 @@ self.addEventListener('message', (event) => {
   // nice with the route-scoped LRU + max-age expiration in IMAGE_CACHE.
   if (data.type === 'PRELOAD_ASSETS') {
     if (DEV_HOST) return; // a development host writes no cache
+    // 🔑 THE MAKER ASKS ONCE — a host canvas, a host preview or a framed page
+    // asked: nothing is fetched (this was the bare `/<slug>` after every canvas
+    // load). And no sender can have a host canvas address kept.
+    if (isHostCanvasClient(event.source)) return;
     const urls = Array.isArray(data.urls)
-      ? data.urls.filter((u) => typeof u === 'string')
+      ? data.urls.filter((u) => {
+          if (typeof u !== 'string') return false;
+          const at = sameOriginUrl(u);
+          return !(at && isHostCanvasUrl(at));
+        })
       : [];
     if (urls.length === 0) return;
 
@@ -794,6 +869,9 @@ self.addEventListener('fetch', (event) => {
     request.mode === 'navigate' || request.destination === 'document';
   // 🔑 A pass hop is the browser's alone — no respondWith, no cache, no fallback.
   if (isNavigation && isGuestPassHop(url)) return;
+  // 🔑 So is a page the host's app asks for (the Maker's canvas, a stage
+  // preview, a miniature): one request, the browser's, and no copy kept.
+  if (isNavigation && isHostAppNavigation(request, url)) return;
   if (isNavigation && isDayOfGuestNavigation(url)) {
     event.respondWith(
       fetch(request)

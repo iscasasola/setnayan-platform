@@ -229,6 +229,9 @@ function isSeatingLockLost(err: unknown): boolean {
   return typeof e.message === 'string' && e.message.includes('locked by someone else on this event');
 }
 
+/** 📵 What the plan's notice strip says when a press's request never answered or was refused. */
+const SEAT_PLAN_NOT_SAVED = 'Couldn’t save that — please try again.';
+
 // The phone's Type ▾ groups the catalog by kind, in plain words.
 const TABLE_KIND_WORD: Record<TableShapeHint, string> = {
   round: 'Round',
@@ -1143,12 +1146,18 @@ export function SeatingEditor({
     setNotice('Editing was taken over by another co-host — you’re viewing only now. Your last change wasn’t saved.');
     return true;
   };
-  const runGated = async <T,>(fn: () => Promise<T>): Promise<T | null> => {
+  /* 📵 …and NEVER throws (owner 2026-10-11: "make sure requests does not cause a crash"). Every caller awaits this
+     inside a transition; the rethrow that used to end it handed React the rejection, and a press whose request never
+     answered (no signal, a 5xx) — or that the server refused — replaced the whole seat plan with the app's error
+     screen. Any failure is now the same answer a lost lock is: `null`, with the reason SAID in the plan's own notice
+     strip. The optimistic move the press drew ends with its transition, so the plan shows what is saved. `failed`
+     is a caller's own words for it. */
+  const runGated = async <T,>(fn: () => Promise<T>, failed: string = SEAT_PLAN_NOT_SAVED): Promise<T | null> => {
     try {
       return await fn();
     } catch (err) {
-      if (handleLockLost(err)) return null;
-      throw err;
+      if (!handleLockLost(err)) setNotice(failed);
+      return null;
     }
   };
 
@@ -1460,13 +1469,14 @@ export function SeatingEditor({
     () => floorPlan.priority_order ?? defaultPriorityOrder(roleSet),
   );
   const [dragTierIndex, setDragTierIndex] = useState<number | null>(null);
-  const persistPriority = (next: PriorityOrder) => {
+  const persistPriority = (next: PriorityOrder, before: PriorityOrder) => {
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('priority_order', JSON.stringify(next));
     startTransition(async () => {
-      await runGated(() => savePriorityOrder(fd));
+      /* ↩ Not saved (said by runGated): the list goes back — a failure never reads as an order that was kept. */
+      if ((await runGated(() => savePriorityOrder(fd))) === null) setPriorityOrder(before);
     });
   };
   const reorderPriorityTo = (from: number, to: number) => {
@@ -1485,7 +1495,7 @@ export function SeatingEditor({
     if (!moved) return;
     next.splice(to, 0, moved);
     setPriorityOrder(next); // optimistic — the list reflows instantly
-    persistPriority(next);
+    persistPriority(next, priorityOrder);
   };
   const movePriorityTier = (index: number, dir: -1 | 1) => reorderPriorityTo(index, index + dir);
 
@@ -1515,7 +1525,8 @@ export function SeatingEditor({
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('role_seating', JSON.stringify(next));
     startTransition(async () => {
-      await runGated(() => savePriorityOrder(fd));
+      /* ↩ Not saved (said by runGated): the switch goes back. */
+      if ((await runGated(() => savePriorityOrder(fd))) === null) setRoleSeating(roleSeating);
     });
   };
 
@@ -1570,7 +1581,10 @@ export function SeatingEditor({
     fd.set('guest_a_id', aId);
     fd.set('guest_b_id', bId);
     startTransition(async () => {
-      await runGated(() => addSeatingConstraint(fd));
+      /* ↩ Not saved (said by runGated): the rule is taken off again — it was never kept. */
+      if ((await runGated(() => addSeatingConstraint(fd))) === null) {
+        setKeepApart((prev) => prev.filter((r) => !sameRule(r, aId, bId)));
+      }
     });
   };
   const removeKeepApart = (rule: KeepApartRule) => {
@@ -1582,7 +1596,10 @@ export function SeatingEditor({
     fd.set('guest_a_id', rule.guest_a_id);
     fd.set('guest_b_id', rule.guest_b_id);
     startTransition(async () => {
-      await runGated(() => removeSeatingConstraint(fd));
+      /* ↩ Not saved (said by runGated): the rule is put back — it still stands. */
+      if ((await runGated(() => removeSeatingConstraint(fd))) === null) {
+        setKeepApart((prev) => (prev.some((r) => sameRule(r, rule.guest_a_id, rule.guest_b_id)) ? prev : [...prev, rule]));
+      }
     });
   };
 
@@ -1675,13 +1692,8 @@ export function SeatingEditor({
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('venue_photo_visibility', next);
     startTransition(async () => {
-      try {
-        const res = await runGated(() => saveVenuePhotoVisibility(fd));
-        if (res === null) setPhotoVis(prev); // lock lost — revert to server truth.
-      } catch {
-        setPhotoVis(prev);
-        setNotice('Couldn’t save the photo setting — please try again.');
-      }
+      const res = await runGated(() => saveVenuePhotoVisibility(fd), 'Couldn’t save the photo setting — please try again.');
+      if (res === null) setPhotoVis(prev); // lock lost, or not saved (said by runGated) — revert to server truth.
     });
   };
 
@@ -1700,7 +1712,12 @@ export function SeatingEditor({
     // the event"; `stampTableSigns`). "Show guests their seats early" is its own
     // switch.
     startTransition(async () => {
-      await stampTableSigns(fd);
+      /* 📵 The sheet is already opening (it reads live data); a stamp that never answered is said, never thrown. */
+      const stamped = await runGated(async () => {
+        await stampTableSigns(fd);
+        return true;
+      });
+      if (stamped === null) return;
       if (details) router.refresh();
     });
     window.open(`/dashboard/${eventId}/seating/print`, '_blank');
@@ -1990,7 +2007,14 @@ export function SeatingEditor({
     fd.set('table_id', tableId);
     fd.set('rotation_deg', String(next));
     startTransition(async () => {
-      await runGated(() => updateTableRotation(fd));
+      /* ↩ Not saved (said by runGated): the table turns back to its saved angle. */
+      if ((await runGated(() => updateTableRotation(fd))) === null) {
+        setRotById((m) => {
+          const n = { ...m };
+          delete n[tableId];
+          return n;
+        });
+      }
     });
   };
 
@@ -2125,7 +2149,14 @@ export function SeatingEditor({
     fd.set('table_id', t.table_id);
     fd.set('rotation_deg', String(next));
     startTransition(async () => {
-      await runGated(() => updateTableRotation(fd));
+      /* ↩ Not saved (said by runGated): the table turns back to its saved angle. */
+      if ((await runGated(() => updateTableRotation(fd))) === null) {
+        setRotById((m) => {
+          const n = { ...m };
+          delete n[t.table_id];
+          return n;
+        });
+      }
     });
   };
 
@@ -4101,7 +4132,10 @@ export function SeatingEditor({
           setNotice('Editing was taken over by another co-host — you’re viewing only now. Your unsaved layout changes weren’t saved.');
           return;
         }
-        throw err;
+        /* 📵 A step that never answered (no signal, a 5xx) is SAID — thrown into this transition it replaced the whole
+           plan with the app's error screen, and every unsaved move with it. The steps that landed are no longer
+           marked unsaved; the rest still are, so Save sends exactly what is left. */
+        setNotice(SEAT_PLAN_NOT_SAVED);
       }
     });
   };
@@ -4562,6 +4596,7 @@ export function SeatingEditor({
         onTableFourWarning={() => setNotice(TABLE_FOUR_ADVISORY)}
         onDone={() => setShowAddTable(false)}
         onLockLost={handleLockLost}
+        onNotSaved={() => setNotice(SEAT_PLAN_NOT_SAVED)}
       />
     ) : null;
 
@@ -8748,6 +8783,7 @@ function AddTablePanel({
   onTableFourWarning,
   onDone,
   onLockLost,
+  onNotSaved,
 }: {
   eventId: string;
   lockId: string | null;
@@ -8767,6 +8803,8 @@ function AddTablePanel({
   // Called when createTable reports the editor lock was lost (peer takeover) so
   // the parent drops to view-only + notices, instead of an unhandled throw.
   onLockLost: (err: unknown) => boolean;
+  /** The create never answered, or was refused: the parent says so in the plan's notice strip; the form stays open. */
+  onNotSaved: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   // A table can't have more seats than its TYPE allows (a Sweetheart seats 2).
@@ -8800,7 +8838,10 @@ function AddTablePanel({
             await createTable(fd);
           } catch (err) {
             if (onLockLost(err)) return; // handled — dropped to view-only
-            throw err;
+            /* 📵 Never thrown into this transition (it replaced the whole plan with the app's error screen): said in
+               the notice strip, and the form stays open with what was typed. */
+            onNotSaved();
+            return;
           }
           onDone();
         });

@@ -88,8 +88,13 @@ test('every counting reader applies the rule', () => {
 
 test('the seat reconcile reads the accepted list — so no request is handed a provisional seat', () => {
   const src = read('lib/seating-reconcile.ts');
-  assert.match(src, /fetchGuestsByEvent\(supabase, eventId\)/, 'the reconcile reads guests some other way now — re-check it');
+  /* Through the stop-reader since 2026-10-11 (`lib/seating-inputs.ts` — a refused read stops the re-seat): the SAME
+     accepted list, `fetchGuestsByEventMeasured` with no options. */
+  assert.match(src, /guestsOrStop\(supabase, eventId\)/, 'the reconcile reads guests some other way now — re-check it');
   assert.doesNotMatch(src, /includeRequests/, 'the reconcile opted in to requests');
+  const stop = read('lib/seating-inputs.ts');
+  assert.match(stop, /fetchGuestsByEventMeasured\(supabase, eventId\);/, 'the stop-reader passes options to the guest read — re-check it');
+  assert.doesNotMatch(stop, /includeRequests|includePassedAway/, 'the stop-reader opted in to requests');
 });
 
 test('the SQL readers are rewritten with the rule — and only with the rule', () => {

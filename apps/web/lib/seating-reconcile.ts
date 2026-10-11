@@ -1,11 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
+import { floorPlanOrStop, guestsOrStop, keepApartOrStop, membershipsOrStop } from '@/lib/seating-inputs';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import {
   fetchTables,
   fetchAssignments,
-  fetchFloorPlan,
-  fetchSeatingConstraints,
   reconcileProvisionalSeats,
   type AutoSeatGuest,
 } from '@/lib/seating';
@@ -48,10 +46,12 @@ export async function applyReconcileForEvent(
       await Promise.all([
         fetchTables(supabase, eventId),
         fetchAssignments(supabase, eventId),
-        fetchGuestsByEvent(supabase, eventId),
-        fetchFloorPlan(supabase, eventId),
-        fetchGroupMembershipsByEvent(supabase, eventId),
-        fetchSeatingConstraints(supabase, eventId),
+        // 🛑 Each of these STOPS the re-seat when its read did not happen (`lib/seating-inputs.ts`) — caught below,
+        // logged, the plan untouched. A refused read must never re-seat people as if they had no group or no rule.
+        guestsOrStop(supabase, eventId),
+        floorPlanOrStop(supabase, eventId),
+        membershipsOrStop(supabase, eventId),
+        keepApartOrStop(supabase, eventId),
       ]);
     // No tables yet → nothing to place onto (a couple builds the floor first).
     if (tables.length === 0) return;

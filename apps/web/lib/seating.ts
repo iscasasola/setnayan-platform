@@ -233,17 +233,30 @@ export async function fetchSeatingConstraints(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<KeepApartRule[]> {
+  return (await fetchSeatingConstraintsMeasured(supabase, eventId)).rules;
+}
+
+/**
+ * The same rules, and WHETHER THE READ HAPPENED. `measured: false` = refused or never answered: `rules` is `[]`
+ * because nobody knows, not because the couple set none. A page may draw the plain form (no rules shown); anything
+ * that SEATS people from them asks this — two guests kept apart must not be seated together because a read blipped.
+ */
+export async function fetchSeatingConstraintsMeasured(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ rules: KeepApartRule[]; measured: boolean }> {
   const { data, error } = await supabase
     .from('event_seating_constraints')
     .select('guest_a_id,guest_b_id')
     .eq('event_id', eventId)
     .eq('kind', 'keep_apart');
   if (error) console.error('[supabase-error] lib/seating.ts · from:event_seating_constraints.select', error);
-  if (error) return [];
-  return (data ?? []).map((r) => {
+  if (error) return { rules: [], measured: false };
+  const rules = (data ?? []).map((r) => {
     const row = r as { guest_a_id: string; guest_b_id: string };
     return { guest_a_id: row.guest_a_id, guest_b_id: row.guest_b_id };
   });
+  return { rules, measured: true };
 }
 
 // Per-event floor-plan markers (stage + single entrance door). All coords are

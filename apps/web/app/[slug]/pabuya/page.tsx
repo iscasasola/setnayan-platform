@@ -227,7 +227,7 @@ export default async function PabuyaPublicPage({
           <Link href={`/${slug}`} className="flex min-h-[44px] min-w-[44px] items-center gap-2 text-ink">
             <Logo height={26} />
           </Link>
-          <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
             Pabuya
           </span>
         </div>

@@ -36,7 +36,7 @@ export function NotYouSwitch({
         Switch
       </button>
       {erasesSelfie ? (
-        <span data-sign-out-erases-selfie="" className="block text-xs text-ink/60">
+        <span data-sign-out-erases-selfie="" className="block text-xs text-ink/70">
           {SIGN_OUT_ERASES_SELFIE}
         </span>
       ) : null}

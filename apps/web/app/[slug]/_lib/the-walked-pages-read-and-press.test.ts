@@ -22,21 +22,36 @@ import { stripComments } from '@/lib/strip-comments';
 const ROOT = join(__dirname, '..');
 const WEB = join(ROOT, '..', '..');
 
+/**
+ * The WORST ratio of `text-ink/<pct>` on the page, across the house look AND every Event Hub theme that sets its own
+ * ink and paper in globals.css (`[data-hub-theme='…']` — velvet, gatsby and cyber are dark). Light and dark, one number.
+ */
 function inkContrast(alphaPct: number): number {
-  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
-  const token = (name: string) => {
-    const m = css.match(new RegExp(`--color-${name}:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)`));
-    assert.ok(m, `--color-${name} was not found in globals.css`);
-    return [Number(m![1]), Number(m![2]), Number(m![3])] as const;
+  const css = stripComments(readFileSync(join(WEB, 'app/globals.css'), 'utf8'));
+  const tokenIn = (body: string, name: string) => {
+    const m = body.match(new RegExp(`--color-${name}:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)`));
+    return m ? ([Number(m[1]), Number(m[2]), Number(m[3])] as const) : null;
   };
-  const ink = token('ink');
-  const page = token('cream');
+  const houseInk = tokenIn(css, 'ink');
+  const housePage = tokenIn(css, 'cream');
+  assert.ok(houseInk && housePage, '--color-ink / --color-cream were not found in globals.css');
+  const looks: Array<readonly [readonly number[], readonly number[]]> = [[houseInk!, housePage!]];
+  for (const m of css.matchAll(/\[data-hub-theme='[a-z0-9-]+'\]\s*\{([^{}]*)\}/g)) {
+    const ink = tokenIn(m[1]!, 'ink');
+    const page = tokenIn(m[1]!, 'cream');
+    if (ink && page) looks.push([ink, page]);
+  }
+  assert.ok(looks.length > 3, `only ${looks.length - 1} Event Hub theme(s) were read — the dark themes are not being measured`);
   const lin = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
   const lum = (c: readonly number[]) => 0.2126 * lin(c[0]!) + 0.7152 * lin(c[1]!) + 0.0722 * lin(c[2]!);
   const a = alphaPct / 100;
-  const mixed = ink.map((v, i) => v * a + page[i]! * (1 - a));
-  const [hi, lo] = [lum(page), lum(mixed)].sort((x, y) => y - x) as [number, number];
-  return (hi + 0.05) / (lo + 0.05);
+  let worst = Infinity;
+  for (const [ink, page] of looks) {
+    const mixed = ink.map((v, i) => v * a + page[i]! * (1 - a));
+    const [hi, lo] = [lum(page), lum(mixed)].sort((x, y) => y - x) as [number, number];
+    worst = Math.min(worst, (hi + 0.05) / (lo + 0.05));
+  }
+  return worst;
 }
 
 /** The classes of the element that holds `words` — the nearest `className="…"` before them. */
@@ -72,6 +87,17 @@ const READ: Array<[string, string]> = [
   ['seat/page.tsx', '{body}</p>'],
   ['find-my-table/page.tsx', '{body}</p>'],
   ['hub/page.tsx', "withDayNote('Your table shows here on the day.'"],
+  // 2026-10-12 · the rest of N22 as the live re-walk of d2e38b7 listed it (and what the 375×812 sweep found beside it).
+  ['_components/save-the-date.tsx', 'Full invitation to follow.'],
+  ['_components/save-the-date.tsx', 'Save the date\n          </p>\n          <h1'],
+  ['_components/guest-ticket.tsx', "{pending ? REQUEST_WORDS.sentUnlocks : 'Show this at the door.'}"],
+  ['_components/face-tagging-row.tsx', '>Face tagging</span>'],
+  ['_components/selfie-capture.tsx', '>Face tagging</p>'],
+  ['_components/not-you-switch.tsx', '{SIGN_OUT_ERASES_SELFIE}'],
+  ['_components/rsvp-widget.tsx', 'Required\n        </span>'],
+  ['pabuya/page.tsx', 'Pabuya\n          </span>'],
+  ['seat/page.tsx', 'Setnayan\n            </span>'],
+  ['seat/page.tsx', 'Scanning your'],
 ];
 
 const PRESS: Array<[string, string]> = [

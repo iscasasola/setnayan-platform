@@ -649,7 +649,7 @@ async function PublicTableView({
           </p>
         )}
 
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/60">
+        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/70">
           Scanning your <span className="font-medium text-ink/80">personal</span> QR shows your
           exact seat.{' '}
           <Link href={`/${slug}`} className="font-medium text-terracotta hover:underline">
@@ -729,7 +729,7 @@ function SeatPassShell({
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex min-h-[44px] items-center gap-2 text-ink">
             <Logo height={28} />
-            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
               Setnayan
             </span>
           </Link>

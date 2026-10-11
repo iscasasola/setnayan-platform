@@ -834,7 +834,7 @@ function TermsTick() {
         <Link href="/privacy" className="-my-3 inline-flex min-h-[44px] items-center font-medium text-link underline underline-offset-2">
           Privacy Notice
         </Link>
-        <span className="mt-0.5 block text-xs font-medium uppercase tracking-[0.14em] text-ink/60">
+        <span className="mt-0.5 block text-xs font-medium uppercase tracking-[0.14em] text-ink/70">
           Required
         </span>
       </span>

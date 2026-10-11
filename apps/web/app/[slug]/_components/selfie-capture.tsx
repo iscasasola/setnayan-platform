@@ -337,7 +337,7 @@ export function SelfieCapture({
         >
           <div className="max-h-[85%] overflow-y-auto rounded-t-3xl bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 text-ink">
             <div aria-hidden className="mx-auto mb-3 h-1 w-9 rounded-full bg-ink/15" />
-            <p className="text-center text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-ink/60">Face tagging</p>
+            <p className="text-center text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-ink/70">Face tagging</p>
             <p className="mt-1 text-center font-serif text-lg leading-snug">
               One selfie, so Papic can spot you in {w.theOrganizerPossessive} photos.
             </p>

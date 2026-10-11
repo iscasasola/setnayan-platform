@@ -572,9 +572,10 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
     if (!ops || !canMove || mv.kind !== 'scene') return {};
     const others = ops.list.shown.flatMap((t) => (t.kind === 'scene' && t.widgetId !== mv.id ? [t.type as string] : []));
     const held = heldByEntourage(stage, mv.type, others);
-    const march = ops.list.shown.find((t) => t.kind === 'fixed' && t.fixed === 'entourage')?.label;
-    if (!held || !march) return {};
-    const words = makerPartStepHeldWhy(label || 'This part', held, march);
+    /* Named as the Maker names that part on this stage ("Wedding March") — and only where the page draws one. */
+    const drawsIt = ops.list.shown.some((t) => t.kind === 'fixed' && t.fixed === 'entourage');
+    if (!held || !drawsIt) return {};
+    const words = makerPartStepHeldWhy(label || 'This part', held, makerPartLabelOn(stage, 'march'));
     return held === 'after' ? (canStep(-1) ? {} : { earlier: words }) : canStep(1) ? {} : { later: words };
   };
   const now: Omit<PartEditsNow, 'node'> = {

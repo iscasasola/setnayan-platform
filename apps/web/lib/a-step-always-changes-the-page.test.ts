@@ -143,6 +143,6 @@ test('the toolbar’s steps take their neighbours through the rule', () => {
   assert.match(sheet, /const neighbour = [\s\S]{0,400}?const targets = moveTargets\(o\);/);
   /* The grey step says the entourage's own name — only where the page draws one. */
   assert.match(sheet, /const held = heldByEntourage\(stage, mv\.type, others\);/);
-  assert.match(sheet, /t\.kind === 'fixed' && t\.fixed === 'entourage'\)\?\.label;/);
+  assert.match(sheet, /const drawsIt = ops\.list\.shown\.some\(\(t\) => t\.kind === 'fixed' && t\.fixed === 'entourage'\);\s*if \(!held \|\| !drawsIt\) return \{\};\s*const words = makerPartStepHeldWhy\(label \|\| 'This part', held, makerPartLabelOn\(stage, 'march'\)\);/);
   assert.match(sheet, /\.\.\.makerPartStepWhy\(label \|\| 'This part', canMove, canRemove\), \.\.\.heldWhy\(\)/);
 });

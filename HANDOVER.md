@@ -7,19 +7,34 @@
 
 | Step | State |
 |---|---|
-| 0 · merge main, FULL `tsc`, slug suite | ✅ `tsc --noEmit` rc 0 on the merged tree (commit `db86a0aa4`'s tree, before step 1); 319 test files / 1,583 tests green (one pin of main's home test lowered 8 → 7: this branch's `skuActiveInRender` made the home page's cold view shallower) |
-| 1 · the `events` row ONCE | ✅ built + pinned (`events` reads per view = 1) — commit `65a43d20a` |
-| 2 · fewer requests overall | ✅ a stranger 15 (16 on the day) · an invited guest 19 (23 on the day) — commit `38c512430`. Target was ≤ 15 / ≤ 20: met before the day, **missed on the day by 1 (stranger) and 3 (invited)** |
-| 3 · invited guest depth ≤ 6 | ✅ before the day (6). ⚠ 7 on the day — the day-of layer itself is 2 deep there (the album door waits for the wall), and `loadGuestContext` waits for the layer |
-| 4 · the two invite pages | not started |
-| 5 · remembered reads | not started |
+| 0 · merge main, FULL `tsc`, slug suite | ✅ `tsc --noEmit` rc 0 on the merged tree; suite green (one pin of main's home test lowered 8 → 7: this branch's `skuActiveInRender` made the home page's cold view shallower) |
+| 1 · the `events` row ONCE | ✅ `events` reads per view = 1, pinned — `65a43d20a` |
+| 2 · fewer requests overall | ✅ a stranger 15 (16 on the day) · an invited guest 19 (23 on the day) — `38c512430`. Target was ≤ 15 / ≤ 20: met before the day, **missed on the day by 1 (stranger) and 3 (invited)** |
+| 3 · invited guest depth ≤ 6 | ✅ 6 before the day AND on it — `38c512430` (the row's own loader) + `ba581c0bf` (`loadGuestContext` leaves beside the day-of layer) |
+| 4 · the two invite pages | ◐ ONE event read on both (`a48db1512`). NOT done: `invite/enter`'s body still awaits a dozen reads in a row; no graph drawn, nothing measured (no harness for these pages) |
+| 5 · remembered reads | ✗ not started (it was conditional on 1–4 being done and green; 4 is half done) |
 
-⚠ **CHECKS OWED:** full `tsc` has NOT yet run on steps 1–3 (the heavy lock had four jobs queued). The nearest guards
-and the harness are green. If you inherit this before a line below says "tsc rc 0 at <commit>", run it first:
-`cd apps/web && rm -rf .next && L=~/Documents/Claude/Projects/heavy-lock.sh && "$L" acquire "tsc speed" && { NODE_OPTIONS=--max-old-space-size=8192 ../../node_modules/.bin/tsc --noEmit -p tsconfig.json; rc=$?; "$L" release "tsc speed"; echo rc=$rc; }`
-Likely places for a type error: the generic `select<S extends string>` wrappers (`theOneEventRead`, `loadGuestOwnRow` in
-`app/[slug]/_lib/loaders.ts`), `eventRowOnce`'s `R` at each call site, the `faceWishAhead` / UGC-terms unions in
-`loadGuestContext`.
+### Checks — what ran, on what
+- **Full `tsc --noEmit`** (heavy lock) on the tree at `a48db1512`: exactly 3 errors, all in
+  `lib/event-row-once.test.ts` (possibly-undefined regex captures); **no production file**. Fixed in `3b4ed7631`.
+  A final full `tsc` on the head is queued behind the lock — its result goes on the line below. If that line is
+  missing, it did not finish: run it (`cd apps/web && rm -rf .next && L=~/Documents/Claude/Projects/heavy-lock.sh &&
+  "$L" acquire "tsc speed" && { NODE_OPTIONS=--max-old-space-size=8192 ../../node_modules/.bin/tsc --noEmit -p
+  tsconfig.json; rc=$?; "$L" release "tsc speed"; echo rc=$rc; }`).
+- FINAL TSC: (not yet recorded)
+- **The slug suite** (every test under `app/[slug]` + the lib tests that name a touched file): 320 files, 1,596 tests,
+  0 failed, on the tree at `a48db1512`. Plus the 42 tests that name the two invite pages and
+  `lib/security/select-column-scan.test.ts`: green.
+- **Goldens**: `lib/site-body-fixture.golden.html` and `lib/every-stage-is-todays-page.golden.json` are byte-identical
+  to main's (`git diff origin/main -- <both>` is empty) and their render tests pass.
+- **Sabotaged red once each** (after committing): the row not held · the page's row keeping the extras · the camera
+  question asked each time · a session client answered from the held row · the guest context started for any cookie ·
+  a reader naming other columns than it reads · the guest's reads waiting for the day-of layer again. All seven reacted.
+- **`pnpm preflight`**: the whole run was started once and STOPPED — on this loaded machine it ran one test file at a
+  time (16 of 630 in ~8 minutes). Its quick half (`--only guards,lint,types,pins`) was run instead: see PREFLIGHT below.
+- PREFLIGHT (quick half): (not yet recorded)
+- ⚠ The scratchpad directory is SHARED by every builder of the controller session: another builder's run overwrote a
+  log named `preflight-1.log`. Use a sub-directory of your own for logs.
 
 ### Step 1 — how the row is read once
 - `lib/event-row-once.ts` (new): `holdEventRow` / `eventRowOnce` / `withoutOnceExtras`. Per-render Map (React `cache()`),
@@ -79,15 +94,40 @@ quota block) — not measured.
 announcement gate and the shared-gallery gate are the same one read).
 
 ### Next, in order
-1. Full `tsc` + the suite on the current head (see CHECKS OWED).
-2. Invited guest ≤ 6 deep ON THE DAY: either hand `loadGuestContext` the schedule as a promise and start it beside the
-   day-of layer under the same three conditions as the row (`session` verified, names this event, no `?as=`) — no
-   extra request; or start the album door with the wall on the day (one wasted request when the wall is showing).
-3. On-the-day requests (16 / 23 vs ≤ 15 / ≤ 20): the suppliers' credits before the day is behind (−1 invited);
-   embedding one-row lookups in the one event read (`event_floor_plan(published_at)`) needs PostgREST relationship
-   checks against production first — an ambiguous embed would fail the one read on EVERY view.
-4. The two invite pages (step 4) — untouched; they already get the one event read wherever they call `loadEventShell`.
-5. Remembered reads (step 5) — untouched.
+1. If "FINAL TSC" above is not recorded: run the full `tsc`, then the suite.
+2. `invite/enter` body (step 4's other half): inside `InviteEnterBody` nothing redirects or 404s, so the reads that
+   need only the event (`resolveProfile`, `resolveEventOwnerSlug`, `eventWordsFor`, the schedule) and those that need
+   only the guest id (`plusOneSeatsFor`, the pass card pair, `readSeatHolder`, `readTicketSeats`) can each be
+   `startAhead`-ed at the top of the body and awaited where they are. ⚠ 42 tests read these two pages' source —
+   run `grep -rlE "invite/(enter|reply)/page" lib app --include='*.test.ts'` and all of them after any edit.
+3. On-the-day requests (16 / 23 vs ≤ 15 / ≤ 20): the suppliers' credits are DRAWN only once the day is behind
+   (`eventIsBehind`, site-body) but read for every invited view (−1 before/on the day — needs `lifecyclePhase` handed
+   to the loader, or the rule shared); embedding one-row lookups in the one event read
+   (`event_floor_plan(published_at)`) needs PostgREST relationship checks against production first — an ambiguous
+   embed would fail the one read on EVERY view.
+4. The invited guest's tail AFTER `guest-context` in `page.tsx` (`readSeatHolder`, the checklist ticks,
+   `yourGuestsFor` + its QR look, the pass card pair, `guestStagesOn`) is one await after another, and the harness
+   does not count it. Extend the harness's `view()` first, then start them together.
+5. Remembered reads (step 5). The first builder's finding stands: split the published reads from the host's draft
+   as a pure refactor first; only then ask whether a `home-reads-remember-nobody`-style fence is provable.
+
+### Preview commands (unchanged from round 3)
+First byte ×10, as a stranger:
+```bash
+P=https://<preview-host>; UA="Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
+for i in $(seq 10); do curl -s -o /dev/null -A "$UA" -w '%{time_starttransfer}\n' "$P/maria-and-jose"; sleep 2; done
+```
+(⚠ only `main` and `preview/*` branches build a Vercel preview — `rd/…` is skipped and the check still says pass.)
+The page's own timing line, one per render (`lib/server-timing.ts`):
+```bash
+vercel logs <deployment-url> | grep '\[server-timing\]' | grep 'slug/invitation-body'
+```
+Each line is `{"route":"slug/invitation-body:<stage>","total_ms":…,"phases":[{label, ms}…]}`. Before this branch a warm
+render read `live-layer 356, media 127, capabilities 52` and a cold one `live-layer 1,982`. `live-layer` and — for an
+invited guest — `guest-context` are the phases that should fall (`guest-context` should read near 0: its reads now
+leave during `live-layer`). `unnamed` is time no phase claimed. The NUMBER of requests is not in that line: count them
+in the database's API log for the request's time window (Supabase → Logs → API, filter the path `/rest/v1/events`:
+one line per view, where there were 8–11).
 
 ---
 

@@ -20,4 +20,20 @@ already had a no-date form.
 Guard: `lib/a-dateless-event-prints-no-hole.test.ts` (draws the real guest
 page with no date; names any new bare `formatEventDate(` under `app/[slug]`).
 
+**N07 · The loading screen is never another stage's page.** On an event in its
+Save the Date stage the Event Hub's loading screen drew the INVITATION's cover
+(the names stacked, "invite you to celebrate their wedding", "the day, the
+place, the story ↓", two grey cards) for ~1.5 s, then the full-screen film
+replaced it whole. `app/[slug]/_lib/loading-stage.ts` (`loadingScreenFor`)
+asks, from facts the page already holds before its slow reads (the venue's
+clock, the couple's pin, the event type, film-or-photos, `?film=0`), whether
+the page about to appear is the full-screen film; if it is — or a `?phase=`
+in the address means it may be — `InvitationSkeleton` draws its quiet form:
+the couple's mark on the page's own ground and nothing else. The Invitation
+and The Day keep the skeleton the owner chose on 2026-09-27; the Maker's
+canvas is untouched.
+Guard: `app/[slug]/_components/the-loading-screen-is-this-stages.test.ts`
+(the rule and `resolveSiteBodyPlan` on all 960 combinations; the quiet screen
+rendered).
+
 SPEC IMPACT: None.

@@ -88,6 +88,9 @@ import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { GuestHubBar, GuestMeSection } from './_components/guest-hub-bar';
 import { CAMERA_ADDED_PARAM, addedShots, hubTabsOn } from './_lib/hub-tabs';
 import { pageStageFor } from './_lib/stage-bar';
+import { loadingScreenFor } from './_lib/loading-stage';
+import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
+import { storedStdLead, type StdLead } from '@/lib/stage-scenes';
 import { GuestTicket } from './_components/guest-ticket';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import {
@@ -559,6 +562,29 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // docblock.
   const skeletonHero = resolveHero(event);
   const skeletonHeroDesignId = await skeletonDesign;
+  // 🤫 …AND IT IS NEVER ANOTHER STAGE'S PAGE (a guest's walk 2026-10-11: the
+  // invitation's cover stood here, then the Save the Date film replaced it
+  // whole). Every fact below is already in hand — the event row, the profile,
+  // the address — except the couple's pick of film or photos, which is on the
+  // widget rows the design above just read (`cache()`d: asked twice, paid
+  // once). `_lib/loading-stage.ts` holds the rule and why.
+  const askedPhase = typeof search.phase === 'string' ? search.phase.toLowerCase() : '';
+  const venueTz = eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude);
+  const loadingScreen = loadingScreenFor({
+    hostCanvas: asksForHostCanvas(search),
+    phasesEnabled: isWebsitePhasesEnabled() || surfaceEnabled(eventTypeProfile, 'website'),
+    // The venue's own clock, as the body's own call below is handed (`venueTz`).
+    clockPhase: getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null),
+    pinnedPhase: manualLaunchPhase(event.launch_mode, event.manual_phase),
+    askedPhase:
+      askedPhase === 'save_the_date' || askedPhase === 'rsvp' || askedPhase === 'event' || askedPhase === 'editorial'
+        ? askedPhase
+        : null,
+    solemn: eventTypeProfile.terminology.register === 'solemn',
+    mayShowStdFilm: resolveWeddingOnlyParts(eventTypeProfile).save_the_date_film ?? true,
+    storedLead: await skeletonStdLead(admin, event.event_id),
+    stdFilm: search.film !== '0',
+  });
   return (
     <Suspense
       fallback={
@@ -571,6 +597,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           heroMedia={skeletonHero.photoRef !== null || skeletonHero.guestVideoRef !== null}
           venueName={venueNamesLine(event)}
           design={skeletonHeroDesignId}
+          quiet={loadingScreen === 'quiet'}
           showHeader={!(asksForEditorBridge(search) && search.bars !== '1')}
           mark={
             event.monogram_custom_svg || event.monogram_uploaded_svg
@@ -638,6 +665,24 @@ async function skeletonHeroDesign(
     return heroDesignForSkeleton(widgets, draft);
   } catch {
     return HERO_DESIGN_DEFAULT;
+  }
+}
+
+/**
+ * 🎞 What the couple picked to lead their Save the Date — film or photos — read
+ * off the same widget rows as the design above, for the loading screen
+ * (`_lib/loading-stage.ts`). Never throws: a read that failed answers "never
+ * chosen", the rule's own default, and the body — which awaits the same cached
+ * read — is what reports the failure.
+ */
+async function skeletonStdLead(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+): Promise<StdLead | null> {
+  try {
+    return storedStdLead(await loadWidgets(admin, eventId));
+  } catch {
+    return null;
   }
 }
 

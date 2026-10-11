@@ -56,4 +56,15 @@ by a refused save, with no fragment, is left alone. The card inside is not
 touched.
 Guard: `app/[slug]/_components/back-closes-the-reply-sheet.test.ts`.
 
+**N19 · "Also coming" lists only guests who said yes.** `/[slug]/everyone`
+listed every plain guest on the list under "Also coming" — people who had not
+replied, people who had declined, and the reader before they answered. The
+read now asks for each guest's own answer and the list is
+`guestsWhoSaidYes(...)` (`lib/entourage.ts`: `rsvp_status = 'attending'`);
+with nobody yet it says "No one else has said yes yet." WHO may read the
+names is unchanged — the owner's 2026-09-15 ruling (guests and hosts only, a
+read that never happens for anyone else), in the event's Name style.
+Guard: `app/[slug]/everyone/only-guests-see-the-guests.test.ts` (two new
+tests; `a-failed-read-is-not-an-absence.test.ts` re-aimed at the new sentence).
+
 SPEC IMPACT: None.

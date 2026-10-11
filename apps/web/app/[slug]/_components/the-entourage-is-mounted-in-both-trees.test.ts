@@ -110,7 +110,10 @@ test('🔑 every column the entourage renders from is named in ONE place, and bo
     // A read that also asks for who is a real couple (owner 2026-09-30,
     // `ENTOURAGE_COUPLE_FIELDS`) still reads the ONE list — and both routes'
     // entourage reads must ask for it, or one page shortens a pair the other does not.
-    const uses = (src.match(/\.select\((?:ENTOURAGE_COLUMNS|`\$\{ENTOURAGE_COLUMNS\}, \$\{ENTOURAGE_COUPLE_FIELDS\}`)\)/g) ?? []).length;
+    // 🔁 AND 2026-10-11 (N19): the gated guest-list read on /everyone also asks for each guest's own answer
+    // (`rsvp_status` — "Also coming" is the guests who said yes). It still reads the ONE list, plus one column
+    // only it uses, asked for by that read itself — the pattern `ENTOURAGE_COLUMNS`' own note prescribes.
+    const uses = (src.match(/\.select\((?:ENTOURAGE_COLUMNS|`\$\{ENTOURAGE_COLUMNS\}, \$\{ENTOURAGE_COUPLE_FIELDS\}`|`\$\{ENTOURAGE_COLUMNS\}, rsvp_status`)\)/g) ?? []).length;
     assert.equal(
       (src.match(/\.select\(`\$\{ENTOURAGE_COLUMNS\}, \$\{ENTOURAGE_COUPLE_FIELDS\}`\)/g) ?? []).length,
       1,

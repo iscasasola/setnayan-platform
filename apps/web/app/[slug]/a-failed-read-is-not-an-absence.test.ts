@@ -10,7 +10,7 @@
  *
  *   the event read ........ `notFound()` → "This link can't be found."
  *   the cast read ......... "The entourage hasn't been shared yet."
- *   the guest-list read ... "No one else is on the list yet."
+ *   the guest-list read ... "No one else has said yes yet."
  *   the plus-one's row .... a silent bounce back to the page that sent them
  *   the seat QR's hop ..... the event's page, with the guest's code dropped
  *   the table sign's view . "No one has been seated here yet."
@@ -230,8 +230,10 @@ test('2 · the reads this work changed decide something on failure — a throw, 
   assert.match(everyone, /if \(guestRowsError\) throw new GuestReadError\('everyone \(guest list\)', guestRowsError\);/, 'a failed guest-list read is not thrown');
   // …and each throw stands BEFORE the sentence it protects.
   assert.ok(everyone.indexOf('if (castError) throw') < everyone.indexOf('The entourage hasn&rsquo;t been shared yet.'));
-  assert.ok(everyone.indexOf('if (guestRowsError) throw') < everyone.indexOf('No one else is on the list yet.'));
-  assert.ok(everyone.includes('The entourage hasn&rsquo;t been shared yet.') && everyone.includes('No one else is on the list yet.'), 'anti-vacuity: the two sentences moved');
+  /* 🔁 RE-AIMED 2026-10-11 (N19): the list is now the guests who said YES, so its empty sentence reads "No one
+     else has said yes yet." The claim is the same — it is said only of a list that was read. */
+  assert.ok(everyone.indexOf('if (guestRowsError) throw') < everyone.indexOf('No one else has said yes yet.'));
+  assert.ok(everyone.includes('The entourage hasn&rsquo;t been shared yet.') && everyone.includes('No one else has said yes yet.'), 'anti-vacuity: the two sentences moved');
 
   const claim = src('seat/claim/route.ts');
   for (const name of ['eventError', 'guestError']) {

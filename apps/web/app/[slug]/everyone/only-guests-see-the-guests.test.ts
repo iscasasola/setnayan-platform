@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
+import { guestsWhoSaidYes, plainGuestNames, type EntourageGuestRow } from '@/lib/entourage';
 
 /**
  * The page's BODY — imports excluded.
@@ -96,3 +97,50 @@ test('the page is noindex — it is a list of real people either way', () => {
   );
   assert.match(whole, /robots:\s*\{\s*index:\s*false/);
 });
+
+/*
+  ── "ALSO COMING" MEANS THEY SAID YES (a guest's walk 2026-10-11, fault N19) ──
+  The list under "Also coming" was every plain guest on the list: people who had
+  not replied, people who had declined, and the reader themself before they had
+  answered. Only a guest's own yes puts their name under "coming".
+
+  The rule is a pure function and is RUN here; the page is then held to using it,
+  inside the recognition branch, on rows that carry each guest's answer.
+
+  SABOTAGE RUN 2026-10-11 (committed first, put back by `git checkout`):
+  `guestsWhoSaidYes` made to return every row → the first test red; the call
+  taken off the page → the second red.
+*/
+test('✅ only a guest who said yes is "also coming" — not replied, maybe and declined are not', () => {
+  const rows: Array<EntourageGuestRow & { rsvp_status?: string | null }> = [
+    { guest_id: 'g1', first_name: 'Ana', last_name: 'Cruz', role: 'guest', rsvp_status: 'attending' },
+    { guest_id: 'g2', first_name: 'Bean', last_name: 'Banlag', role: 'guest', rsvp_status: 'pending' },
+    { guest_id: 'g3', first_name: 'Carlo', last_name: 'Diaz', role: 'guest', rsvp_status: 'declined' },
+    { guest_id: 'g4', first_name: 'Dina', last_name: 'Esteban', role: 'guest', rsvp_status: 'maybe' },
+    { guest_id: 'g5', first_name: 'Eli', last_name: 'Flores', role: 'guest', rsvp_status: null },
+    { guest_id: 'g6', first_name: 'Fe', last_name: 'Gomez', role: 'guest' },
+    { guest_id: 'g7', first_name: 'Gio', last_name: 'Hizon', role: 'guest', rsvp_status: 'attending' },
+  ];
+  // Anti-vacuity: without the rule, all seven are named.
+  assert.equal(plainGuestNames(rows).length, 7);
+  const coming = plainGuestNames(guestsWhoSaidYes(rows));
+  assert.equal(coming.length, 2, `"Also coming" names ${coming.length} people: ${coming.join(' · ')}`);
+  for (const yes of ['Ana', 'Gio']) assert.ok(coming.some((n) => n.includes(yes)), `${yes} said yes and is not listed`);
+  for (const no of ['Bean', 'Carlo', 'Dina', 'Eli', 'Fe']) {
+    assert.ok(!coming.some((n) => n.includes(no)), `${no} has not said yes and is listed as coming`);
+  }
+  assert.deepEqual(guestsWhoSaidYes([]), []);
+});
+
+test('✅ the page lists "Also coming" from the guests who said yes — read with their answer, inside the gate', () => {
+  const src = pageSource();
+  const gate = src.indexOf('if (recognised)');
+  const built = src.indexOf('plainGuestNames(');
+  assert.ok(gate > 0 && built > gate);
+  const read = src.slice(gate, built + 200);
+  assert.match(read, /\.select\(`\$\{ENTOURAGE_COLUMNS\}, rsvp_status`\)/, 'the guest read does not ask for each guest’s answer');
+  assert.match(read, /plainGuestNames\(\s*guestsWhoSaidYes\(/, 'the names under "Also coming" are not the guests who said yes');
+  // One list, one rule: the page builds the names once.
+  assert.equal(src.split('plainGuestNames(').length - 1, 1, 'the page builds a second guest list');
+});
+

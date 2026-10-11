@@ -13,6 +13,7 @@ import { isHostMemberType } from '../_lib/host-scope';
 import { loadEntourageSectionOrder, loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import {
   buildEntourage,
+  guestsWhoSaidYes,
   plainGuestNames,
   ENTOURAGE_COLUMNS,
   ENTOURAGE_COUPLE_FIELDS,
@@ -163,19 +164,27 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
   */
   let guests: string[] = [];
   if (recognised) {
-    // 🔌 The same for "No one else is on the list yet." — said of a list that
+    // 🔌 The same for "No one else has said yes yet." — said of a list that
     // was read, never of one that could not be. (Kept a plain statement under
     // `if (recognised)`: the gate above must stay visible to a source guard.)
     const { data: guestRows, error: guestRowsError } = await admin
       .from('guests')
-      .select(ENTOURAGE_COLUMNS)
+      // + each guest's own answer: "Also coming" is the people who said yes.
+      .select(`${ENTOURAGE_COLUMNS}, rsvp_status`)
       .eq('event_id', event.event_id)
       .is('deleted_at', null);
     if (guestRowsError) throw new GuestReadError('everyone (guest list)', guestRowsError);
-    guests = plainGuestNames((guestRows ?? []) as EntourageGuestRow[], nameStyle);
+    /* ✅ ONLY A GUEST'S OWN YES PUTS THEM UNDER "ALSO COMING" (a guest's walk
+       2026-10-11: the list held people who had not replied, the reader among
+       them). The names themselves are for guests and hosts by the 2026-09-15
+       ruling — that is the gate above, unchanged. */
+    guests = plainGuestNames(
+      guestsWhoSaidYes((guestRows ?? []) as Array<EntourageGuestRow & { rsvp_status?: string | null }>),
+      nameStyle,
+    );
   }
 
-  const name = event.display_name ?? 'this celebration';
+  const name = event.display_name ?? 'this event';
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
@@ -215,8 +224,8 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
               ))}
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-ink/60">
-              No one else is on the list yet.
+            <p className="mt-4 text-sm text-ink/70">
+              No one else has said yes yet.
             </p>
           )
         ) : (

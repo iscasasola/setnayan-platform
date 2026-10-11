@@ -7,7 +7,14 @@
 | `preflight --only tree,db` | ✅ ran on `9ada4abb0`: 403 of 404 whole-tree guard files PASS, 27 DB source-scan files (175 tests) PASS, ONE red — `app/[slug]/_lib/the-first-arrival-is-not-a-return.test.ts` read only the awaiting block after round 4 moved the `scan_events` read into `readFirstScan` (started ahead). Re-pointed in `e4c1ffa29` (holds the block AND the read; sabotage “newest scan” → red) |
 | `InviteEnterBody` side by side | ✅ `4fd871ece` — ten reads started at the top of the body, each awaited where it was. Guard: section 2b of `lib/the-guest-page-starts-its-reads-together.test.ts`, sabotaged red 4 ways (read asked again in place · a write started ahead · a start never awaited · the canvas asked) |
 | The guest's second render (`GuestPreload` → sw `PRELOAD_ASSETS`) | ✅ the `guest-preload.tsx` half, `ac36157d5`: `/<slug>` is not re-fetched when `performance`'s navigation entry says THIS document came through the worker (`workerStart > 0`) as exactly `/<slug>` (no query) — the worker's network-first guest branch already cached it. Any other arrival still warms it. Test `app/[slug]/_components/guest-preload.test.ts` (3), sabotaged red 3 ways. `public/sw.js` NOT touched (owned by `rd/maker-asks-once` this round) — no sw hunk is needed for this cut |
-| whole `pnpm preflight` · draft PR | pending |
+| whole `pnpm preflight` (1st, on `5bc1fa321`) | 48 PASS · 3 FAIL — all three guards that read source the earlier rounds had moved: `the-arrival-shows-something-while-it-loads` (looked for the page body in the exported `InviteEnterPage`/`InviteReplyPage`, which since round 3 only wrap `inviteEnterPage`/`inviteReplyPage` in the read limit), `the-personal-link-opens-the-landing` E (the seat read's spelling, after this round's start-ahead), `every-plus-one-is-named` (the own-row read goes through `loadGuestOwnRow`'s local `select(`). Re-pointed in `3785c0d8b`, each sabotaged red once |
+| whole `pnpm preflight` (2nd) · draft PR | queued — see the PR body for its table |
+
+**Open question found this round (not acted on):** `withGuestReadLimit` scopes reads with an `AsyncLocalStorage`
+around the page function, but each door's body (`InviteEnterBody`/`InviteReplyBody`) is an async part React renders
+LATER inside `<Suspense>`. Whether React's later call still runs inside that store is not proven by any test — if it
+does not, the body's reads are not bounded by the 6 s / 10 s limit. A test that renders the page through React's
+server renderer with a stalled stand-in read would answer it.
 
 **Decision taken (not ruled):** the landing's ceremony time (`fetchPublicScheduleBlocks`) is NOT started ahead — it is
 read only on the pre-reply screen, and only after the ticket pair says the ticket is not full; starting it for every

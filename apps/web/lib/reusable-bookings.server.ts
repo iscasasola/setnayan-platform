@@ -173,6 +173,7 @@ export async function createReuseRequest(
       title: 'A past client wants to book you again',
       body: 'They asked to re-book your service for a new event. Open it to re-quote or decline.',
       relatedUrl: '/vendor-dashboard/proposals',
+      eventId: args.targetEventId,
     });
   }
   return { status: 'ok', requestId };

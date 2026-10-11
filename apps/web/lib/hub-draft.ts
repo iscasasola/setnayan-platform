@@ -61,6 +61,11 @@
  *           (owner 2026-09-27, every scene drags within its stage) — and the
  *           GALLERY row alone `std_lead`, the Save the Date's Film · Photos pick;
  *           both live in `config_json` and both are free (`lib/stage-scenes.ts`).
+ *           And (2026-10-10, "WHAT GUESTS SEE") `stage_show` — shown or hidden on
+ *           EACH stage, beside `stage_order` and shaped like it: merged stage by
+ *           stage, `null` = back to our pick. Refused on an always-on section,
+ *           as the eye is. Free — except that putting a scene of their own in
+ *           front of guests is Pro at Apply, on one stage as on all of them.
  * march   — (2026-10-06, "Wait for apply") the Wedding March's moves, each the
  *           list of shipped march steps one drop makes (`lib/march-draft.ts`).
  *           Not a column: Apply REPLAYS them through the shipped march actions,
@@ -78,6 +83,7 @@ import {
   WIDGET_PHASES,
   WIDGET_TYPES,
   isWidgetType,
+  widgetInPhase,
   type InvitationWidgetRow,
   type LifecyclePhase,
   type WidgetType,
@@ -91,10 +97,15 @@ import {
 } from '@/lib/custom-sections';
 import {
   STAGE_ORDER_KEY,
+  STAGE_SHOW_KEY,
+  STAGE_SCENES,
   configWithStageOrder,
+  configWithStageShow,
   configWithStdLead,
   sanitizeStageOrder,
+  sanitizeStageShow,
   sanitizeStdLead,
+  stageRowOrder,
   storedStdLead,
   type StdLead,
 } from '@/lib/stage-scenes';
@@ -669,6 +680,14 @@ export type HubDraftWidget = {
    */
   stage_order?: Partial<Record<LifecyclePhase, number | null>>;
   /**
+   * 👁 Shown or hidden on EACH stage (owner 2026-10-10, "WHAT GUESTS SEE"), kept
+   * at `config_json.stage_show` (`lib/stage-scenes.ts`): `false` hides the
+   * section on that stage, `true` shows it there — over the event-wide eye, and
+   * on a stage that would not draw it by default. Merged stage by stage; `null`
+   * for a stage = back to our pick. What it decides: `lib/what-guests-see.ts`.
+   */
+  stage_show?: Partial<Record<LifecyclePhase, boolean | null>>;
+  /**
    * 🎞 `our_photos` ROW ONLY — what leads the Save the Date, Film or Photos
    * (same ruling), kept at `config_json.std_lead`; `null` = back to the
    * default. Dropped on any other section: one home for one choice. Never Pro.
@@ -1030,6 +1049,8 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
   }
   const places = sanitizeStageOrder(src.stage_order);
   if (places) out.stage_order = places;
+  const shows = sanitizeStageShow(src.stage_show);
+  if (shows) out.stage_show = shows;
   if (isCustomSectionType(type) && 'custom' in src) {
     if (src.custom === null) out.custom = null;
     else if (isPlainObject(src.custom)) {
@@ -1167,6 +1188,8 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
       ...w,
       // ↕ Places merge STAGE BY STAGE — a drag on one stage never forgets another's.
       ...(w.stage_order ? { stage_order: { ...(prev.stage_order ?? {}), ...w.stage_order } } : {}),
+      // 👁 …and so do the per-stage shown / hidden choices.
+      ...(w.stage_show ? { stage_show: { ...(prev.stage_show ?? {}), ...w.stage_show } } : {}),
       // 🏛 …and venue cards card by card.
       ...(w.venue ? { venue: { ...(prev.venue ?? {}), ...w.venue } } : {}),
     };
@@ -1294,6 +1317,20 @@ export function configWithVenue(config: unknown, venue: HubDraftVenueChoices): R
   return base;
 }
 
+/**
+ * ↕👁 A drafted section's stage places and per-stage choices laid over a live
+ * row's `config_json` — and nothing else of the draft. What a stage move builds
+ * on in draft mode (`draftedStageConfigs`, `lib/hub-draft-store.ts`): the list
+ * the couple is looking at, in its order, with the scenes they added to the
+ * stage. Returns `config` itself when the draft holds neither.
+ */
+export function configWithDraftedStage(config: unknown, w: Pick<HubDraftWidget, 'stage_order' | 'stage_show'> | undefined): unknown {
+  let next = config;
+  if (w?.stage_order !== undefined) next = configWithStageOrder(next, w.stage_order);
+  if (w?.stage_show !== undefined) next = configWithStageShow(next, w.stage_show);
+  return next;
+}
+
 /** The live widget rows with the draft's mode / order / canvas on top (new objects). */
 /** 🗑 Is this scene of their own deleted in the draft (`HubDraftWidget.removed`)? */
 export function draftRemoves(draft: HubDraftState | null, type: string): boolean {
@@ -1312,6 +1349,8 @@ export function overlayHubDraftWidgets(
     if (w.canvas !== undefined) config = configWithCanvas(config, w.canvas);
     if (w.main !== undefined && row.widget_type === 'hero') config = configWithMainGround(config, w.main);
     if (w.stage_order !== undefined) config = configWithStageOrder(config, w.stage_order);
+    // 👁 Refused on an always-on section, exactly as the eye is below.
+    if (w.stage_show !== undefined && !row.is_always_on) config = configWithStageShow(config, w.stage_show);
     if (w.std_lead !== undefined && row.widget_type === 'our_photos') config = configWithStdLead(config, w.std_lead);
     if (w.music !== undefined && row.widget_type === 'hero') config = configWithMusic(config, w.music);
     if (w.custom !== undefined && isCustomSectionType(row.widget_type)) config = configWithCustom(config, w.custom);
@@ -1368,10 +1407,16 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'music' | 'stage_order' | 'std_lead' | 'custom' | 'venue' | 'removed';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'music' | 'stage_order' | 'stage_show' | 'std_lead' | 'custom' | 'venue' | 'removed';
       value: unknown;
       change: LookChange;
       pro: boolean;
+      /**
+       * ↕ `stage_order` only: the stages whose ORDER this scene's new place takes part in moving
+       * (`hubDraftMovedStages`). A stage's order is ONE change however many scenes shifted — the count and the Apply
+       * sheet read this (`hubDraftCountedChanges`); Apply still writes every scene's own place.
+       */
+      stages?: LifecyclePhase[];
       /**
        * Set only on the FREE PART of a held scene (`canvasFreePart`) — the same
        * scene is also in `refused`, holding the whole drafted canvas. Apply
@@ -1954,14 +1999,20 @@ export function mainGroundChange(live: HubMainGround | null, next: HubMainGround
  * (`widgetShouldRender` reads the eye; `openBrowseSectionVisible` lets a
  * `shown` mode win over it), so "on" is on under EITHER — fail-closed: a state
  * one reader would draw counts as shown.
+ *
+ * 👁 …and a per-stage `true` (`config_json.stage_show`) shows it on that stage
+ * over both, so ONE stage set to shown counts as on too. Without this a scene
+ * of their own could be put in front of guests stage by stage, around the gate.
  */
 function ownSceneOn(
   row: HubLiveState['widgets'][number],
-  w: Pick<HubDraftWidget, 'mode' | 'is_visible'>,
+  w: Pick<HubDraftWidget, 'mode' | 'is_visible' | 'stage_show'>,
 ): boolean {
   const visible = (w.is_visible ?? row.is_visible ?? true) !== false;
   const mode = w.mode ?? row.mode ?? 'auto';
-  return visible || mode === 'shown';
+  const stages = configWithStageShow(row.config_json, w.stage_show ?? {})[STAGE_SHOW_KEY];
+  const onAStage = isPlainObject(stages) && Object.values(stages).some((v) => v === true);
+  return visible || mode === 'shown' || onAStage;
 }
 
 /**
@@ -1973,6 +2024,43 @@ function ownSceneOn(
  * A drafted section with no live row (a custom section that was deleted) is
  * returned in `orphans`, never silently dropped.
  */
+/**
+ * ↕ THE STAGES WHOSE ORDER THE DRAFT REALLY MOVES — each named once.
+ *
+ * Measured 2026-10-11 at 375 px, on the Maker's own toolbar: ONE tap on Earlier and ✓ read **8**; a tap on Later, back
+ * to the order guests have, and it still read 8 — and the Apply sheet would have listed eight "Order" lines. A move
+ * saves the stage's WHOLE order, every scene its place (`lib/maker-reorder.ts` `stageOrderPatch`), and each scene's
+ * place was classified on its own, against a live page that had stored no places at all.
+ *
+ * A couple reads that number as "what I changed". The order of a stage is ONE fact: what matters is the SEQUENCE its
+ * scenes come out in (`stageRowOrder` — the very order the page and the Maker draw), with the draft's places laid on,
+ * against the live sequence. Places that restate the live sequence are no difference; a different sequence is one
+ * change for that stage, however many scenes shifted.
+ */
+export function hubDraftMovedStages(draft: HubDraftState, live: HubLiveState): LifecyclePhase[] {
+  const placed = new Set<string>();
+  for (const w of Object.values(draft.widgets)) for (const stage of Object.keys(w?.stage_order ?? {})) placed.add(stage);
+  if (placed.size === 0) return [];
+  /* 👁 WHO IS ON THE STAGE is the draft's too (`stage_show` — a scene the couple ADDED to a stage has a place there,
+     `stageRowOrder`). Both sequences are read over the SAME members — the drafted ones — and differ only by the
+     places: with the live members, two scenes added to a stage and then put in another order were "no move", so
+     their order was neither counted nor written, and Apply drew them in the default order (found 2026-10-11 by
+     `the-table-the-maker-and-the-page-agree.test.ts`, seed 26). Adding a scene alone is still no move. */
+  const members = live.widgets.map((row) => {
+    const shows = draft.widgets[row.widget_type as WidgetType]?.stage_show;
+    return shows === undefined || row.is_always_on ? row : { ...row, config_json: configWithStageShow(row.config_json, shows) as typeof row.config_json };
+  });
+  const drafted = members.map((row) => {
+    const places = draft.widgets[row.widget_type as WidgetType]?.stage_order;
+    return places === undefined ? row : { ...row, config_json: configWithStageOrder(row.config_json, places) as typeof row.config_json };
+  });
+  const sequence = (rows: HubLiveState['widgets'], stage: LifecyclePhase) =>
+    stageRowOrder(rows, stage, (type, s) => widgetInPhase(type as WidgetType, s))
+      .map((r) => r.widget_id)
+      .join(' ');
+  return (Object.keys(STAGE_SCENES) as LifecyclePhase[]).filter((stage) => placed.has(stage) && sequence(members, stage) !== sequence(drafted, stage));
+}
+
 export function classifyHubDraft(
   draft: HubDraftState,
   live: HubLiveState,
@@ -1994,6 +2082,7 @@ export function classifyHubDraft(
     });
   }
   const orphans: WidgetType[] = [];
+  const movedStages = hubDraftMovedStages(draft, live);
   for (const type of WIDGET_TYPES) {
     const w = draft.widgets[type];
     if (!w) continue;
@@ -2047,9 +2136,40 @@ export function classifyHubDraft(
        is the WHOLE merged key, so Apply sets it exactly as the preview showed. */
     if (w.stage_order !== undefined) {
       const liveKey = configWithStageOrder(row.config_json, {})[STAGE_ORDER_KEY] ?? null;
-      const nextKey = configWithStageOrder(row.config_json, w.stage_order)[STAGE_ORDER_KEY] ?? null;
-      if (JSON.stringify(liveKey) !== JSON.stringify(nextKey)) {
-        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'stage_order', value: nextKey, change: 'change', pro: false });
+      /* ↕ …AND ONLY WHERE A STAGE'S ORDER REALLY COMES OUT DIFFERENT (`hubDraftMovedStages`). A move saves every
+         scene's place on the stage (0, 1, 2 …), so the keys differ from a live page that never stored places even
+         when the scenes are back in the order guests have — that is not a change, and nothing is written for it. */
+      const stages = movedStages.filter((stage) => stage in w.stage_order!);
+      /* ⚠ …AND ONLY THE MOVED STAGES' PLACES ARE WRITTEN. The value was the row's whole drafted key — so a row moved
+         on the Invitation carried its place on Save the Date too, though that stage's order had been put back and
+         was "no change". Its NEIGHBOURS there, with no moved stage of their own, were written nothing: Save the Date
+         went live with SOME of its scenes placed, and a placed scene comes before an unplaced one (`inStageOrder`) —
+         the gallery fell from first to last on a stage nobody had changed, and ✓ read "1 change" straight after
+         Apply. (Found 2026-10-11 by `the-table-the-maker-and-the-page-agree.test.ts`, seed 12.) A stage whose order
+         is not in `stages` keeps exactly the places guests have. */
+      const moved = Object.fromEntries(Object.entries(w.stage_order).filter(([stage]) => (stages as string[]).includes(stage)));
+      const nextKey = configWithStageOrder(row.config_json, moved)[STAGE_ORDER_KEY] ?? null;
+      if (JSON.stringify(liveKey) !== JSON.stringify(nextKey) && stages.length > 0) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'stage_order', value: nextKey, change: 'change', pro: false, stages });
+      }
+    }
+    /* 👁 Shown or hidden per stage — refused on an always-on section, as the eye
+       is; compared as the page reads it (the merged key), and the value written
+       is the WHOLE merged key. Free, except for a scene of their own that no
+       guest sees today: showing it on a stage is the same 'add' the eye makes. */
+    if (w.stage_show !== undefined && !row.is_always_on) {
+      const liveKey = configWithStageShow(row.config_json, {})[STAGE_SHOW_KEY] ?? null;
+      const nextKey = configWithStageShow(row.config_json, w.stage_show)[STAGE_SHOW_KEY] ?? null;
+      if (canonicalJson(liveKey) !== canonicalJson(nextKey)) {
+        items.push({
+          kind: 'widget',
+          widgetType: type,
+          widgetId: row.widget_id,
+          field: 'stage_show',
+          value: nextKey,
+          change: showsOwnScene ? 'add' : 'change',
+          pro: showsOwnScene,
+        });
       }
     }
     /* 🎵 The music button's design — free; compared as the page reads it (absent ≡ the default). */
@@ -2298,10 +2418,24 @@ export function planHubDraftApply(
       // A held scene of their own stays SHOWN in the draft, so the couple still sees it.
       else if (item.field === 'mode') w.mode = item.value as HubSectionMode;
       else if (item.field === 'is_visible') w.is_visible = item.value as boolean;
+      // 👁 …and so does a held per-stage choice (the whole merged key the classifier compared).
+      else if (item.field === 'stage_show') w.stage_show = heldStageShow(item.value);
       else if (item.field === 'custom') w.custom = item.value as CustomSectionContent | null;
     }
   }
   return { apply, refused, remaining, orphans };
+}
+
+/**
+ * A held `stage_show` item's value (the whole merged key, or `null` = no stage
+ * keeps a choice) back as a draft patch: every stage named, the ones the key
+ * does not hold as `null`, so the kept draft says exactly what was held.
+ */
+export function heldStageShow(value: unknown): Partial<Record<LifecyclePhase, boolean | null>> {
+  const key = sanitizeStageShow(value) ?? {};
+  const out: Partial<Record<LifecyclePhase, boolean | null>> = {};
+  for (const st of ['save_the_date', 'rsvp', 'event', 'editorial'] as const) out[st] = key[st] ?? null;
+  return out;
 }
 
 /**
@@ -2440,17 +2574,26 @@ export type HubDraftChangeLine = {
  *
  * Each is a plan item; `held` = refused (it needs Event Hub Pro, or the web).
  */
-export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: HubDraftItem; held: boolean }> {
+export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: HubDraftItem; held: boolean; stage?: LifecyclePhase }> {
   // A held scene's free part is the same scene as its refused twin — one change.
   // ✍ …and the names (three columns) or the date (two) are ONE change each.
+  // ↕ …and a stage's ORDER is ONE change, named for the stage (`stage`), however many scenes took a new place.
   const facts = new Set<string>();
-  const out: Array<{ item: HubDraftItem; held: boolean }> = [];
+  const out: Array<{ item: HubDraftItem; held: boolean; stage?: LifecyclePhase }> = [];
   const walk = [
     ...plan.apply.filter((i) => !i.freePart).map((item) => ({ item, held: false })),
     ...plan.refused.map((item) => ({ item, held: true })),
   ];
   for (const c of walk) {
     const i = c.item;
+    if (i.kind === 'widget' && i.field === 'stage_order' && i.stages) {
+      for (const stage of i.stages) {
+        if (facts.has(`order:${stage}`)) continue;
+        facts.add(`order:${stage}`);
+        out.push({ ...c, stage });
+      }
+      continue;
+    }
     const fact = i.kind === 'event' ? hubDraftFactOf(i.column) : i.kind === 'widget' && i.field === 'venue' ? 'venues' : null;
     if (fact && facts.has(fact)) continue;
     if (fact) facts.add(fact);
@@ -2580,6 +2723,27 @@ export function hubDraftOutcome(result: HubDraftActionResult | null): HubDraftOu
   return result.held.length > 0 ? { kind: 'held', held: result.held } : { kind: 'live' };
 }
 
+/**
+ * 📵 AN ACTION THAT NEVER ANSWERED IS A REFUSAL, SAID — never a crash.
+ *
+ * Measured 2026-10-11 at 375 px, on the Maker's own bar: with the phone offline, one tap on ↺ Undo replaced the WHOLE
+ * Maker with the app's error screen ("Something on our end didn't work."). The bar awaited the server action inside a
+ * transition with nothing to catch it, so a request that could not leave (no signal, a tunnel, a lapsed connection)
+ * threw into React and took the page — the canvas, the tools and every unsaved field on screen — with it. ✓ Apply
+ * and Restore went the same way.
+ *
+ * `send` is the action call. An answer is returned as it came; a throw becomes the refusal every other failure of
+ * this action already is (`HUB_DRAFT_SAVE_FAILED_MESSAGE` — "your draft is kept": the draft is on the server, and a
+ * request that never left changed nothing there), which the bar says beside ✓ (`hubDraftOutcome`) and stays usable.
+ */
+export async function hubDraftAnswer(intent: HubDraftIntent | null, send: () => Promise<HubDraftActionResult>): Promise<HubDraftActionResult> {
+  try {
+    return await send();
+  } catch {
+    return { ok: false, intent, error: HUB_DRAFT_SAVE_FAILED_MESSAGE };
+  }
+}
+
 /** Which typed fact (the names, the date, the name style, the venues, the ceremony time) an `events` key carries — null for every other column. */
 export function hubDraftFactOf(column: HubDraftEventColumn): HubDraftFact | null {
   return (HUB_DRAFT_FACT_GROUP as Partial<Record<string, HubDraftFact>>)[column] ?? null;
@@ -2694,7 +2858,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   if (item.field === 'venue') return 'Your venues';
   if (item.field === 'removed') return `${sectionLabel(item.widgetType)} · deleted for good`;
   const what =
-    item.field === 'mode' || item.field === 'is_visible'
+    item.field === 'mode' || item.field === 'is_visible' || item.field === 'stage_show'
       ? 'shown or hidden'
       : item.field === 'display_order' || item.field === 'stage_order'
         ? 'its place'

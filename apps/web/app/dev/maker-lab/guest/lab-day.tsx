@@ -5,6 +5,7 @@ import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 import { MakerGuestScenes } from '@/app/[slug]/_components/maker-guest-scenes';
 import { BLOCK_MARK_ATTR, blockOfCanvas } from '@/lib/block-looks';
 import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
+import type { WidgetType } from '@/lib/invitation-widgets';
 import { makerStagesPageOf, makerStagesPages } from '@/lib/maker-stage-filing';
 import { sceneStylesOn } from '@/lib/scene-styles';
 
@@ -28,6 +29,9 @@ import { sceneStylesOn } from '@/lib/scene-styles';
 export function LabDayPages({
   tab,
   paged = true,
+  draws,
+  maker,
+  tiles,
   mark,
   given,
   styleOf,
@@ -38,6 +42,12 @@ export function LabDayPages({
   /** False for a miniature (`?only=`): one part alone is asked for, so no page is hidden — as the real canvas, whose
    *  tabs are off whenever one scene is asked for (`site-body.tsx` `stagesCanvas`). */
   paged?: boolean;
+  /** Does The Day draw this scene — in its list, or in one of the places off it? (`../guest/page.tsx` `dayDraws`: the page's own answer on the lab's drafted rows.) */
+  draws: (type: WidgetType) => boolean;
+  /** The Maker's canvas (`?editor=1`) — the only reader an empty scene's place is drawn for. */
+  maker: boolean;
+  /** The Day's own list, in the page's order (`labStageTiles`) — a scene the couple ticked onto The Day is in it. */
+  tiles: readonly string[];
   mark: (key: string) => ReactNode;
   /** The lab's own nodes, by canvas key (`f:hero`, `w:schedule`, `w:venue_map`, `w:dress_code`, `f:entourage`). */
   given: Readonly<Record<string, ReactNode>>;
@@ -83,9 +93,12 @@ export function LabDayPages({
     ['f:entourage', given['f:entourage']],
     [
       'w:our_photos',
-      <div key="gallery" className="border-t border-ink/10 px-4 py-8" data-lab-scene="our_photos">
-        <MakerEmptyScene type="our_photos" styleId={galleryStyle} />
-      </div>,
+      /* An empty scene's place: the Maker's canvas alone, as on the real page (`maker-empty-scene.tsx`). */
+      maker ? (
+        <div key="gallery" className="border-t border-ink/10 px-4 py-8" data-lab-scene="our_photos">
+          <MakerEmptyScene type="our_photos" styleId={galleryStyle} />
+        </div>
+      ) : null,
     ],
     ['f:photos_of_you', dayPart('photos_of_you')],
     ['f:find_your_seat', dayPart('find_your_seat')],
@@ -94,10 +107,16 @@ export function LabDayPages({
        canvas hands them (`site-body.tsx` `guestSceneMark`). */
     ['f:pass', <div key="pass" className="border-t border-ink/10 px-4 py-8"><MakerGuestScenes show={{ greeting: false, pass: true, rsvp: false }} eventDate="2026-12-12" solemn={false} mark={(key) => <>{blockOfCanvas(key) ? <span hidden {...{ [BLOCK_MARK_ATTR]: blockOfCanvas(key) }} /> : null}{mark(key)}</>} /></div>],
   ];
+  /* 👁 A SCENE THE COUPLE TICKED ONTO THE DAY ("What guests see" — the Message, the Love Story, the gallery…): The Day
+     lists it, so it is drawn — after the day's own parts, on the page the one filing gives it. The lab drew a fixed
+     set, so a ticked box showed nothing here. */
+  const added = tiles.filter((k) => k.startsWith('w:') && !drawn.some(([d]) => d === k) && given[k]).map((k) => [k, given[k]] as const);
   const filled = new Set<string>();
   const byPage = new Map<string, ReactNode[]>();
-  for (const [key, node] of drawn) {
+  for (const [key, node] of [...drawn, ...added]) {
     if (!node) continue;
+    /* 👁 A SCENE IS DRAWN ONLY WHERE THE DAY DRAWS IT — taken off The Day in the Maker or the table, it is gone here. */
+    if (key.startsWith('w:') && !draws(key.slice(2) as WidgetType)) continue;
     const page = makerStagesPageOf('event', key, keys);
     filled.add(page);
     byPage.set(page, [
@@ -110,7 +129,10 @@ export function LabDayPages({
     ]);
   }
   return (
-    <div className="sn-editorial" data-lab-day-pages="">
+    /* `pahina-in`: the mark the real page's one observer puts on a chapter once a guest has reached it
+       (`pahina-motion.tsx`) — what a fixed block's timed Build in waits for (`lib/block-looks.ts`). The lab has no
+       observer, so its pages are marked as reached: without it a block's Animate could never be seen here (M12). */
+    <div className="sn-editorial pahina-in" data-lab-day-pages="">
       {keys.map((p) =>
         filled.has(p) ? (
           <div key={p} {...(paged ? { [HUB_TAB_ATTR]: p } : {})} hidden={paged && p !== active ? true : undefined}>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { splitCoupleNames } from '@/lib/split-names';
 import { formatEventDate } from '@/lib/events';
 import { formatHubDate, formatHubTime } from '@/lib/hub-date-formats';
 import {
@@ -38,49 +39,9 @@ import { HERO_DESIGN_ATTR, HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/
  * its animated-SKU logic) is passed in via `monogramSlot`, untouched.
  */
 
-/**
- * Split "Maria & Jose" / "Maria and Jose" into stacked lines. Falls back to a
- * single line when no separator is found (solo-named events, debuts).
- *
- * `twoPeople` is the event's own fact — `terminology.person_b` is non-null, i.e.
- * this event HAS two people at its centre (`EventWords.twoPeople`). When it is
- * FALSE the name is one line whatever punctuation it contains, because the
- * stacked-with-a-gild-joiner treatment is the WEDDING masthead and an ampersand
- * in a company name is not two people:
- *
- *     "Ayala & Partners Year-End"  →  ONE line   (was: "Ayala" & "Partners…")
- *     "Bench & Co Summer Outing"   →  ONE line   (was: "Bench" & "Co Summer…")
- *     "Maria & Juan" (a wedding)   →  still split, unchanged
- *
- * 🔒 IT DEFAULTS TO `true`, WHICH IS TODAY'S BEHAVIOUR, and that direction is
- * deliberate — the same reasoning as `event-words-provider.tsx`'s wedding
- * fallback. Production is weddings; a caller that has not been wired yet must
- * keep splitting rather than silently flattening a real couple's masthead onto
- * one line. The invisibility that creates is closed by a guard, not by a scary
- * default: `event-words.test.ts` asserts every call site passes the flag.
- */
-export function splitCoupleNames(
-  displayName: string,
-  twoPeople = true,
-): {
-  first: string;
-  second: string | null;
-  joiner: string | null;
-} {
-  if (!twoPeople) return { first: displayName, second: null, joiner: null };
-  const amp = /\s*&\s*/.exec(displayName);
-  if (amp) {
-    const [first = '', ...rest] = displayName.split(/\s*&\s*/);
-    return { first, second: rest.join(' & ') || null, joiner: '&' };
-  }
-  const and = /\s+and\s+/i.exec(displayName);
-  if (and) {
-    const first = displayName.slice(0, and.index);
-    const second = displayName.slice(and.index + and[0].length);
-    return { first, second: second || null, joiner: 'and' };
-  }
-  return { first: displayName, second: null, joiner: null };
-}
+/* The one rule for splitting a name line into its people — its own file, so the Maker's canvas reads the same one
+   (`lib/split-names.ts`). Re-exported: every caller that named it here still finds it here. */
+export { splitCoupleNames };
 
 export function PahinaMasthead({
   displayName,
@@ -240,6 +201,47 @@ export function PahinaMasthead({
   const plainJoiner = ownJoiner ?? names.joiner ?? '';
   const cardNames = `${names.first}${names.second ? `${cardJoiner}${names.second}` : ''}`;
   const plainNames = `${names.first}${names.second ? `${plainJoiner}${names.second}` : ''}`;
+  /**
+   * ✍ THE SECOND NAME'S TWO ELEMENTS, FOR THE MAKER'S CANVAS TO DRAW WITH (owner 2026-10-11: he typed one name, then
+   * "Bolognese & Pasta" — "it did not make the secondary font": the cover had been drawn for ONE name, so there was
+   * no joiner and no second line on the page to type into, and the whole line landed in the first).
+   *
+   * In the Maker's canvas only, for an event with two people at its centre, the names part ends with a holder that
+   * is never shown (`data-el-names-two`, `display: none`) carrying the joiner and the second person's line EXACTLY as
+   * this file draws them — the same `pair` call the live names use — so the canvas never keeps a copy of a design's
+   * classes. Its two elements wear their stamps under AWAY names (`data-el-away`, `data-el-person-away`): no reader
+   * of the page's parts finds them, and the canvas gives them their real names as it puts a copy on the page
+   * (`type-in-place-canvas.ts` `layNames`). `data-amp` is what "&" is drawn as on this cover (the card writes
+   * "and"). A guest's page never has it.
+   *
+   * ⚠ Real elements, not a `<template>`: the page is hydrated, and a template's children live in its `content` —
+   * React finds none where it drew two and throws the page away to draw it again (measured in the lab, 2026-10-11).
+   */
+  const away = (stamps: Record<string, unknown>) => {
+    /* (`data-el-word` — the joiner's automatic word — is left off: the canvas writes the typed line's.) */
+    const { 'data-el': el0, 'data-el-person': person0, 'data-el-word': _word, ...rest } = stamps;
+    void _word;
+    return { ...rest, ...(el0 !== undefined ? { 'data-el-away': el0 } : {}), ...(person0 !== undefined ? { 'data-el-person-away': person0 } : {}) };
+  };
+  const joinerStamp = (forCanvas?: boolean) => (forCanvas ? away(el('joiner')) : el('joiner'));
+  const secondStamp = (forCanvas?: boolean) => (forCanvas ? away(person(1)) : person(1));
+  const namesTwo = (pair: (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => ReactNode) =>
+    stampElements && twoPeople ? (
+      <span data-el-names-two="" data-amp={card ? 'and' : '&'} hidden aria-hidden style={{ display: 'none' }}>
+        {pair(ownJoiner ?? '', '', true)}
+      </span>
+    ) : null;
+  /** The Card's joiner and second line (design 1, with `card`) — and the plain cover's (design 1, a hero photo). */
+  const stackedPair = (size: string, joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => (
+    <>
+      <span {...joinerStamp(forCanvas)} className={`block font-pahina ${size} italic text-gild`} aria-hidden>
+        {joiner}
+      </span>
+      <span {...secondStamp(forCanvas)} className="block">{second}</span>
+    </>
+  );
+  const cardPair = (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => stackedPair('text-[0.5em]', joiner, second, forCanvas);
+  const plainPair = (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => stackedPair('text-[0.42em]', joiner, second, forCanvas);
 
   /* 🔗 THE LINK DOWN INTO THE HUB — a part like the others (owner 2026-09-28,
      tapping it in the Maker: "why can't i update the text"). Its words are the
@@ -363,6 +365,27 @@ export function PahinaMasthead({
     ) : null;
     /* The names, stacked on a phone; from `sm` The Marquee and The Crest set
        them on one wrapping row with the joiner inline, as the prototype does. */
+    /* The joiner and the second person's line — once for the names as drawn, once for the canvas's template. */
+    const PAIR = (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => (
+      <>
+        <span
+          {...joinerStamp(forCanvas)}
+          className={
+            design === 'marquee'
+              ? 'block font-pahina text-[0.5em] italic leading-[1.1] text-gild sm:inline sm:text-[0.55em]'
+              : design === 'crest'
+                ? 'font-pahina text-[0.9em] italic text-gild'
+                : 'ml-[0.06em] block font-pahina text-[0.4em] italic leading-[1.1] text-gild'
+          }
+          aria-hidden
+        >
+          {joiner}
+        </span>
+        <span {...secondStamp(forCanvas)} className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
+          {second}
+        </span>
+      </>
+    );
     const NAMES = (
       <h1
         {...el('names')}
@@ -376,26 +399,8 @@ export function PahinaMasthead({
         }
       >
         <span {...person(0)} className={design === 'crest' ? undefined : 'block sm:inline'}>{txt('names', names.first, whole, 0)}</span>
-        {names.second ? (
-          <>
-            <span
-              {...el('joiner')}
-              className={
-                design === 'marquee'
-                  ? 'block font-pahina text-[0.5em] italic leading-[1.1] text-gild sm:inline sm:text-[0.55em]'
-                  : design === 'crest'
-                    ? 'font-pahina text-[0.9em] italic text-gild'
-                    : 'ml-[0.06em] block font-pahina text-[0.4em] italic leading-[1.1] text-gild'
-              }
-              aria-hidden
-            >
-              {txt('names', joinerWord, whole, names.first.length)}
-            </span>
-            <span {...person(1)} className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
-              {txt('names', names.second, whole, names.first.length + joinerWord.length)}
-            </span>
-          </>
-        ) : null}
+        {names.second ? PAIR(txt('names', joinerWord, whole, names.first.length), txt('names', names.second, whole, names.first.length + joinerWord.length)) : null}
+        {namesTwo(PAIR)}
       </h1>
     );
     const DATE = dateLabel ? (
@@ -552,14 +557,8 @@ export function PahinaMasthead({
               className="mt-5 font-pahina text-[2.9rem] font-light leading-[1.06] tracking-tight text-ink"
             >
               <span {...person(0)} className="block">{txt('names', names.first, cardNames, 0)}</span>
-              {names.second ? (
-                <>
-                  <span {...el('joiner')} className="block font-pahina text-[0.5em] italic text-gild" aria-hidden>
-                    {txt('names', cardJoiner, cardNames, names.first.length)}
-                  </span>
-                  <span {...person(1)} className="block">{txt('names', names.second, cardNames, names.first.length + cardJoiner.length)}</span>
-                </>
-              ) : null}
+              {names.second ? cardPair(txt('names', cardJoiner, cardNames, names.first.length), txt('names', names.second, cardNames, names.first.length + cardJoiner.length)) : null}
+              {namesTwo(cardPair)}
             </h1>
             {lineText ? <p {...el('line')} className="mt-4 text-sm leading-relaxed text-ink/80">{txt('line', lineText)}</p> : null}
             {dateLabel ? (
@@ -599,14 +598,8 @@ export function PahinaMasthead({
       {/* Stacked names — Fraunces display, italic gild joiner between lines. */}
       <h1 {...el('names')} data-motion="arrive-names" data-hub-names="" className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
         <span {...person(0)} className="block">{txt('names', names.first, plainNames, 0)}</span>
-        {names.second ? (
-          <>
-            <span {...el('joiner')} className="block font-pahina text-[0.42em] italic text-gild" aria-hidden>
-              {txt('names', plainJoiner, plainNames, names.first.length)}
-            </span>
-            <span {...person(1)} className="block">{txt('names', names.second, plainNames, names.first.length + plainJoiner.length)}</span>
-          </>
-        ) : null}
+        {names.second ? plainPair(txt('names', plainJoiner, plainNames, names.first.length), txt('names', names.second, plainNames, names.first.length + plainJoiner.length)) : null}
+        {namesTwo(plainPair)}
       </h1>
 
       <hr className="pahina-rule mx-auto mt-7 w-24" />

@@ -23,12 +23,15 @@ import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 export function SpotlightCard({
   spotlight,
   occasion = 'celebration',
+  replyHref,
 }: {
+  /** The reply PAGE (`inviteReplyPath`) — where the "RSVP" lead card goes. The one reply form (owner 2026-10-11). */
+  replyHref: string;
   spotlight: HomeSpotlight;
   /** EventWords.occasion — 'celebration' (default) or the funeral's 'gathering'. */
   occasion?: string;
 }) {
-  const content = spotlightContent(spotlight, occasion);
+  const content = spotlightContent(spotlight, occasion, replyHref);
   if (!content) return null;
   return (
     <Link
@@ -52,6 +55,7 @@ export function SpotlightCard({
 function spotlightContent(
   spotlight: HomeSpotlight,
   occasion: string,
+  replyHref: string,
 ): { eyebrow: string; title: string; href: string } | null {
   switch (spotlight.kind) {
     case 'rsvp':
@@ -61,8 +65,8 @@ function spotlightContent(
         // 2026-10-04, DECISION_LOG "ONE WORD: EVENT"); the one mapping the
         // watch-live card uses, so a funeral keeps its own word.
         title: `RSVP for the ${watchLiveOccasion(occasion)}`,
-        // The reply sheet's anchor — Me is the guest's ticket and no longer raises it.
-        href: '#your-details',
+        // The reply page — the one reply form (it was the reply sheet's anchor until 2026-10-11).
+        href: replyHref,
       };
     case 'find_invite':
       return {

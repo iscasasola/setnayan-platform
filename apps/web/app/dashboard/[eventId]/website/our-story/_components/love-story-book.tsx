@@ -20,6 +20,7 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 import { InMakerReturnTo } from './in-maker-return-to';
 import { formatCount } from '@/lib/format-number';
 import { MomentOrderCards } from './moment-order-cards-lazy';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * OUR LOVE STORY — THE SCRAPBOOK (Event Hub Maker Phase 7).
@@ -313,7 +314,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                               }
                               triggerClassName="inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 hover:bg-black/5"
                             />
-                            <form action={p.action}>
+                            <SafeForm action={p.action}>
                               <HubDraftField />
                               <InMakerReturnTo />
                               <input type="hidden" name="intent" value="arrange" />
@@ -327,8 +328,8 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                                 )}
                                 {m.hidden ? 'Show on the Event Hub' : 'Keep off the Event Hub'}
                               </button>
-                            </form>
-                            <form action={p.action}>
+                            </SafeForm>
+                            <SafeForm action={p.action}>
                               <HubDraftField />
                               <InMakerReturnTo />
                               <input type="hidden" name="intent" value="delete" />
@@ -336,7 +337,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                               <button type="submit" className="inline-flex min-h-10 items-center gap-1 rounded-full px-2.5 hover:bg-black/5">
                                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Remove
                               </button>
-                            </form>
+                            </SafeForm>
                           </div>
                         </article>
                       </li>

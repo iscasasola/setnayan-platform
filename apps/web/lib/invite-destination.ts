@@ -65,6 +65,18 @@ export function arrivalDestination(input: {
 }
 
 /**
+ * IS A REPLY ASKED FOR YET? — not while this door opens the Save the Date
+ * (owner 2026-10-11). The landing's reading of the one rule
+ * (`replyAskedInStage`, lib/invitation-widgets.ts, which has the account):
+ * `'save_the_date'` here IS "the lifecycle engine is on and the stage is the
+ * Save the Date" (`arrivalDestination` above), so the two cannot differ —
+ * `lib/the-reply-waits-for-the-invitation.test.ts` runs both on every input.
+ */
+export function replyIsAsked(destination: ArrivalDestination): boolean {
+  return destination !== 'save_the_date';
+}
+
+/**
  * The same composition `app/[slug]/page.tsx` runs to pick its own face — asked
  * here so the door and the page can never disagree about which one it is.
  */

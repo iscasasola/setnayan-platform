@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * archive-actions.ts — putting a celebration away, and taking it back out.
@@ -147,6 +148,8 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
     .update({ archived, updated_at: new Date().toISOString() })
     .eq('event_id', eventId)
     .select('event_id, archived');
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('events');
 
   if (error) {
     console.error('[archive] update failed', error);

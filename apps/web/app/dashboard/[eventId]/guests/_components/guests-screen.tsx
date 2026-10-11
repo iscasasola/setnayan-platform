@@ -119,6 +119,11 @@ export type GuestsScreenProps = {
   guests: GuestRow[];
   /** The read was measured — a refused read never prints counts. */
   measured: boolean;
+  /**
+   * The groups or the tables could not be read this time — the sentence that says so (`lib/guest-list-unread.ts`),
+   * or null when both were. Without it a refused read drew every guest with no group and nobody at a table.
+   */
+  notLoaded?: string | null;
   hasSides: boolean;
   /** guest_id → their custom groups' labels, alphabetical. */
   groupsByGuest: Record<string, string[]>;
@@ -207,6 +212,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     gview,
     guests,
     measured,
+    notLoaded = null,
     hasSides,
     groupsByGuest,
     groups,
@@ -782,6 +788,17 @@ export function GuestsScreen(props: GuestsScreenProps) {
               <div className={styles.replied}>
                 <Count value={replied} format="pct" id="gs-replied-pct" /> replied
               </div>
+              {/* 📏 A read beside the list that did not happen is SAID, here, in the strip's own words — never drawn
+                  as "no groups" / "nobody seated". Only under a list that WAS read: a refused list has its own
+                  words below and says them once. The link is the list's own Try again — a real round trip. */}
+              {notLoaded ? (
+                <p role="status" className={`${styles.counts} ${styles.mute}`} data-roster-not-loaded="">
+                  <span>{notLoaded}</span>
+                  <a href={`/dashboard/${eventId}/guests`} className={styles.countsDoor}>
+                    Try again
+                  </a>
+                </p>
+              ) : null}
             </>
           ) : null}
         </div>

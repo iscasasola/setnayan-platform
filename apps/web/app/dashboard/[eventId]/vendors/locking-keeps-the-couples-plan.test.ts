@@ -17,6 +17,13 @@
  * ⚠ Scoped to the snapshot block — from the "THE COUPLE'S OWN PLAN SURVIVES"
  * marker to the upsert's `onConflict` — and asserts the anchor is present
  * first, so a rename fails loud instead of passing over nothing.
+ *
+ * 📦 RE-POINTED 2026-10-10. The block moved, whole, out of `finalizeVendor`
+ * into `freezePaymentPlanAtBooking` (lib/booking-payment-plan.server.ts) so the
+ * supplier's yes (`vendorAgreeToLock`) runs the same code — under the lock
+ * handshake the couple's press only asks, and no plan was being written at all.
+ * This file now reads the block where it lives AND holds that the lock step
+ * still calls it; either half going missing brings the overwrite back.
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,14 +33,26 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ACTIONS = path.join(HERE, 'actions.ts');
+const PLAN = path.join(HERE, '..', '..', '..', '..', 'lib', 'booking-payment-plan.server.ts');
 const START = "THE COUPLE'S OWN PLAN SURVIVES THE LOCK";
 const END = "{ onConflict: 'event_id,event_vendor_id' }";
 
 describe('locking keeps the couple’s plan', () => {
-  const src = readFileSync(ACTIONS, 'utf8');
+  const src = readFileSync(PLAN, 'utf8');
   const a = src.indexOf(START);
   const b = src.indexOf(END, a);
   const block = a >= 0 && b > a ? src.slice(a, b) : '';
+
+  it('the lock step still runs the snapshot — from finalizeVendor, below the handshake return', () => {
+    const actions = readFileSync(ACTIONS, 'utf8');
+    const fn = actions.slice(actions.indexOf('export async function finalizeVendor'));
+    const call = fn.indexOf('await freezePaymentPlanAtBooking(planAdmin, {');
+    assert.ok(call > -1, 'finalizeVendor no longer freezes the payment plan — the direct path writes no plan at all');
+    assert.ok(call > fn.indexOf("status: 'lock_requested',"), 'the plan is frozen before the ask returns — it would be dated from a request');
+    // The acting host is who the direct path tells; a booking with nobody to
+    // tell is the handshake's case, never this one.
+    assert.match(fn.slice(call, call + 700), /tellUserId: user\.id,/, 'the direct path no longer tells the person who pressed Book');
+  });
 
   it('found the lock-time snapshot block', () => {
     assert.ok(
@@ -71,7 +90,7 @@ describe('locking keeps the couple’s plan', () => {
     const stamps = (block.match(/on_lock_anchor_date:\s*lockDateIso/g) ?? []).length;
     // keep+readable, keep+unreadable, and the upsert for a plan-less supplier.
     assert.equal(stamps, 3, `expected the lock day stamped on all three paths, found ${stamps}`);
-    assert.match(src, /const lockDateIso = targetVendor\.marketplace_vendor_id\s*\?[^:]+:\s*manilaTodayIso\(\)/,
+    assert.match(src, /const lockDateIso = booking\.marketplace_vendor_id\s*\?[^:]+:\s*manilaTodayIso\(\)/,
       'a self-added supplier’s lock day is no longer the Manila day the couple clicked');
   });
 

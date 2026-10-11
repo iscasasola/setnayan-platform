@@ -20,6 +20,15 @@
  * bytes; with one, the ticket gains exactly that span, right before its own root — and the reply button (a guest who
  * has not replied) and the one line (a guest who cannot come) take none. Sabotages seen red: a stray element drawn
  * beside the mark · the mark drawn before the reply button.
+ *
+ * 🖼 PHOTOS OF YOU — ANIMATE ONLY (owner 2026-10-10, verbatim: "animate only"). Proved on the real page for BOTH
+ * moments it is drawn at — THE DAY (`dayOfPhase: 'live'`, the Stages page) and AFTER IT (`'post'`, under the Post
+ * Event story) — for a guest with photos, with none yet, and whose photos could not be read: nothing kept (or a
+ * background alone, which this block refuses) is the same bytes; a motion kept adds exactly the block's hidden mark
+ * right before the gallery's own root and the one style, and not one other byte; and that root is a chapter's own
+ * child at both moments, so a timed Build in is started by the page's one observer for a guest. Sabotages seen red:
+ * the mark served with nothing kept · the mark parted from the gallery's root (drawn after it) · a stored
+ * background kept for this block · the gallery wrapped in an element of its own.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -90,3 +99,78 @@ test('The Digital pass: the ticket with no mark is the same bytes; with one, it 
     assert.equal(draw({ ...props, mark }), plain, `${JSON.stringify(props)}: a mark is drawn where there is no ticket`);
   }
 });
+
+/** Two photographs of the fixture guest, as the loader hands them over (`lib/guest-live-gallery.ts`). */
+const TWO_PHOTOS = {
+  total: 2,
+  photos: [
+    { id: 'p1', url: 'https://example.test/1.jpg', sourceTable: 'papic_photos', capturedAt: '2026-12-12T08:30:00Z', capturedBy: null, wall: 'off' },
+    { id: 'p2', url: 'https://example.test/2.jpg', sourceTable: 'papic_guest_captures', capturedAt: null, capturedBy: 'Tita Remy', wall: 'posted' },
+  ],
+};
+/** The two moments a guest's page draws "Photos of you": The Day's own page, and after it under the Post Event story. */
+const MOMENTS = {
+  /* `kicker`: the gallery's own first line as React writes it — "so far" (and the live dot before it) only on the day. */
+  'The Day': { lifecyclePhase: 'event', dayOfPhase: 'live', kicker: '</span>Photos of you<!-- --> — so far</p>' },
+  'Post Event': { lifecyclePhase: 'editorial', dayOfPhase: 'post', kicker: 'tracking-[0.2em]">Photos of you</p>' },
+} as const;
+
+/** The fixture guest's page at one of those moments, with their gallery as the loader answered (null = the read failed). */
+async function pictured(moment: keyof typeof MOMENTS, gallery: unknown, looks: unknown): Promise<string> {
+  const base = siteBodyFixtureProps();
+  const { lifecyclePhase, dayOfPhase } = MOMENTS[moment];
+  return renderSiteBodyFixture({
+    lifecyclePhase,
+    dayOfPhase,
+    identity: { ...(base.identity as unknown as Record<string, unknown>), guestLiveGallery: gallery } as unknown as SiteBodyFixtureProps['identity'],
+    event: (looks === undefined ? FIXTURE_EVENT : { ...FIXTURE_EVENT, style_preferences: { [BLOCK_LOOKS_PREF_KEY]: looks } }) as SiteBodyFixtureProps['event'],
+  });
+}
+
+for (const moment of Object.keys(MOMENTS) as Array<keyof typeof MOMENTS>) {
+  test(`Photos of you, ${moment}: nothing kept is the same page; a motion kept adds the mark before the gallery’s own root and the one style — nothing else; a background is never kept`, async () => {
+    const ROOT = '<section aria-label="Photos of you" class="sn-gal p-5 sm:p-6">';
+    const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="photos_of_you"></span>`;
+    for (const [state, gallery] of [['two photos', TWO_PHOTOS], ['none yet', { photos: [], total: 0 }], ['the read failed', null]] as const) {
+      const plain = await pictured(moment, gallery, undefined);
+      /* Anti-vacuity: the guest's OWN gallery is on this page, once, at THIS moment (its kicker says which), with what
+         the state draws — and no mark and no style. */
+      assert.equal(plain.split(ROOT).length, 2, `${state}: the fixture guest’s gallery is not drawn once: this proves nothing`);
+      assert.ok(plain.includes(MOMENTS[moment].kicker), `${state}: this is not the page of ${moment}`);
+      assert.equal(plain.split('class="sn-gal-tile group aspect-square"').length - 1, gallery ? gallery.photos.length : 0, `${state}: the photos are not drawn`);
+      assert.equal(plain.includes('We couldn’t load your photos just now.'), gallery === null);
+      assert.doesNotMatch(plain, new RegExp(`${BLOCK_MARK_ATTR}|${BLOCK_LOOKS_STYLE_ATTR}`));
+      /* 🧱 Its root is A CHAPTER'S OWN CHILD at this moment — what the page's one observer marks (`.pahina-in`), which
+         is what starts a timed Build in for a guest. The Day files it in its page's group; after the day it stands
+         in the page's one article. (Outside a chapter the Build in would be seen in the Maker and never by a guest.) */
+      const before = plain.slice(0, plain.indexOf(ROOT));
+      const chapters = before.lastIndexOf('data-pahina-chapters=');
+      assert.ok(chapters > 0, `${state}: no chapters before the gallery`);
+      const between = before.slice(before.indexOf('>', chapters) + 1);
+      let depth = 0;
+      for (const tag of between.match(/<\/?(?:div|section|article|main|ol|ul|li|p|span|a|header|footer|nav|figure|form|svg|h[1-6])\b[^>]*>/g) ?? []) depth += tag.startsWith('</') ? -1 : 1;
+      assert.equal(depth, 0, `${state}: the gallery’s root is not a direct child of the chapters before it`);
+
+      /* NOTHING KEPT, in every spelling of nothing — and A BACKGROUND IS NOTHING HERE (owner: "animate only"): the
+         very same bytes, so no guest is served a mark for it. */
+      for (const nothing of [{}, { photos_of_you: {} }, { photos_of_you: { motion: {} } }, { photos_of_you: { g: 'frost' } }, { photos_of_you: { g: 'none' } }, { photos_of_you: { g: 'plain' } }]) {
+        assert.equal(await pictured(moment, gallery, nothing), plain, `${state}: a page with ${JSON.stringify(nothing)} kept differs from one with nothing kept`);
+      }
+
+      for (const look of [{ motion: { in: { fade: true } } }, { motion: { in: { fade: true, move: 'below' }, during: 'drift' } }, { motion: { timeline: 'scroll', in: { fade: true }, out: { fade: true } } }, { g: 'frost', motion: { in: { fade: true } } }] as const) {
+        const dressed = await pictured(moment, gallery, { photos_of_you: look });
+        /* The style is the MOTION's alone — a background stored beside it writes nothing. */
+        const css = blockLooksCss(readBlockLooks({ [BLOCK_LOOKS_PREF_KEY]: { photos_of_you: { motion: look.motion } } }));
+        assert.ok(css.length > 0);
+        assert.doesNotMatch(css, /background|backdrop-filter|border/, 'a ground is written for Photos of you');
+        const style = `<style ${BLOCK_LOOKS_STYLE_ATTR}="">${css}</style>`;
+        /* THE MARK, ONCE, IMMEDIATELY BEFORE THE GALLERY'S OWN ROOT — where the rules look from. */
+        assert.equal(dressed.split(mark).length, 2, `${state} · ${JSON.stringify(look)}: the mark is not on the page exactly once`);
+        assert.ok(dressed.includes(`${mark}${ROOT}`), `${state} · ${JSON.stringify(look)}: the mark is not right before the gallery’s own root`);
+        assert.equal(dressed.split(style).length, 2, `${state} · ${JSON.stringify(look)}: the one style is not on the page exactly once`);
+        /* …AND NOT ONE OTHER BYTE: take the two away and it is the page with nothing kept. */
+        assert.equal(dressed.replace(mark, '').replace(style, ''), plain, `${state} · ${JSON.stringify(look)}: the page changed somewhere else`);
+      }
+    }
+  });
+}

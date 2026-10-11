@@ -146,7 +146,8 @@ test('🔴 buying Setnayan AI can be undone — the off-ramp exists, ACTS, and l
   const SWITCH = read(
     'app', 'dashboard', '[eventId]', 'launch', '_components', 'plan-myself.tsx',
   );
-  const forms = [...SWITCH.matchAll(/<form\b[\s\S]*?<\/form>/g)].map((m) => m[0]);
+  /* `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings. */
+  const forms = [...SWITCH.matchAll(/<(form|SafeForm)\b[\s\S]*?<\/\1>/g)].map((m) => m[0]);
   const posting = forms.filter((f) => /action=\{setPlanningMode\}/.test(f));
   assert.equal(posting.length, 1, 'Event Details must carry exactly one planning-mode switch');
   const f = posting[0]!;

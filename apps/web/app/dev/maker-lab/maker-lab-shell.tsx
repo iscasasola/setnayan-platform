@@ -2,9 +2,11 @@
 
 import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
-import { useEffect, useMemo, type ComponentProps, type ReactNode } from 'react';
-import { LAB_EDITORIAL_COOKIE } from './lab-post-event';
-import { LAB_SCRUB_GUEST, labWidgetsCookie } from './lab-scrub';
+import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
+import { LAB_SCRUB_GUEST } from './lab-scrub';
+import type * as LabDraft from './lab-draft';
+import { LAB_SAMPLE } from './guest/lab-sample';
+import { HUB_DRAFT_BAR_FIELD, requestMakerRefresh } from '@/lib/maker-refresh';
 import { offerScrubOutInTheLab } from '@/lib/scrub-out-offered';
 import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
@@ -24,7 +26,7 @@ import { LookSample } from '@/app/dashboard/[eventId]/launch/_components/look-sa
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
 import type { HubMainGround, HubSectionCanvas } from '@/lib/hub-canvas';
-import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
+import { celebrationColours } from '@/lib/rsvp-celebration';
 import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/maker-reveal';
 import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import { LabStudioActions } from '../details-lab/lab-studio-actions';
@@ -34,120 +36,126 @@ import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 
 /**
  * The Maker lab's client half (`page.tsx` says what is real): the real shell,
- * work area, RSVP stage and draft bar, with lab saves — a draft write here is
- * COUNTED by the lab (`window.__labDrafts`) and answers with the Apply bar, so
- * the count beside ✓ moves exactly as a real save moves it; nothing leaves the
- * browser.
+ * work area, RSVP stage and draft bar, on the lab's draft — the REAL draft's own
+ * reducers (`./lab-draft.ts`: save · undo · restore · reset, the ✓ count, a
+ * scene's place and eye), kept in this browser; nothing leaves it.
  */
 /** maria-and-jose's five main colours — the Look rows' and the sample screen's. */
 const LAB_FIVE = ['#5B1A22', '#F7F2EC', '#C9A86A', '#FBFAF7', '#7A8B6F'];
-let labChanges = 0;
-/** 🎉 A Pro celebration drafted in the lab — the bar's ◆ follows it, as the real summary would. */
-let labPro = 0;
-function labSummary(n: number, pro = 0): HubDraftSummary {
-  return { hasChanges: n > 0, changeCount: n, proCount: pro, canUndo: n > 0, changes: [] };
+
+/**
+ * 📦 THE LAB'S DRAFT ENGINE IS FETCHED BY THE LAB, IN DEV — A PRODUCTION BUILD NEVER COMPILES IT INTO THE BROWSER.
+ *
+ * MEASURED 2026-10-11 (PR #6475, CI "bundle size check"): the Maker's first load went 501.7 KB → 519.4 KB gzipped,
+ * 12.4 KB over its ceiling (`scripts/check-maker-js-budget.mjs`) — and under 1 KB of that was the Maker's own new
+ * code. The rest was THIS file's `import … from './lab-draft'`. `lab-draft.ts` runs the real draft's reducers
+ * (`mergeHubDraft` · `sanitizeHubDraft` · `summarizeHubDraft`, and `planHubDraftApply` through the change lines and
+ * the Pro effects), which until that import only the SERVER ran. Webpack decides which exports of a module are
+ * "used" ONCE, for the whole browser build — so the day one browser file anywhere imported them, `lib/hub-draft.ts`
+ * stopped being a field name and two small helpers (708 B in the shipped chunk) and became the whole engine, with
+ * every sanitiser it calls, in EVERY chunk that carries it. The Maker's first load carries it (`HUB_DRAFT_FIELD`),
+ * so every couple's phone downloaded a dev page's engine.
+ *
+ * 🔑 A LAB THAT 404s IN PRODUCTION IS STILL COMPILED — `page.tsx`, and everything this file imports.
+ * So the engine is reached by an `import()` that a production build removes: `process.env.NODE_ENV` is a build-time
+ * constant, the branch below is dead there, and webpack does not follow an import in a dead branch. No browser file
+ * imports the engine, and `lib/hub-draft.ts` is its few small names again. In dev (the only place this page draws)
+ * the engine is fetched on arrival, before anything can be pressed; the draft door waits for it.
+ * 🛡 `lib/the-draft-engine-stays-out-of-the-browser.test.ts` fails if a file the browser can load imports the engine
+ * again — from here or from anywhere else.
+ */
+type LabDraftEngine = typeof LabDraft;
+let labEngineLoaded: LabDraftEngine | null = null;
+const labEngine = (): Promise<LabDraftEngine> =>
+  process.env.NODE_ENV === 'production' ? Promise.reject(new Error('The Maker lab is dev-only.')) : import('./lab-draft').then((m) => (labEngineLoaded = m));
+/** The engine in hand. Every reader below runs only after `labEngine()` has answered. */
+function labEngineNow(): LabDraftEngine {
+  if (!labEngineLoaded) throw new Error('The lab’s draft engine has not arrived yet.');
+  return labEngineLoaded;
 }
+
+/** Where the browser keeps the lab's draft — the Scrub chain's is its own (`./lab-scrub.ts`). */
+const labDraftKey = (scrub: boolean) => (scrub ? 'lab_draft_scrub_v1' : 'lab_draft_v1');
+const labScrubOn = () => new URLSearchParams(window.location.search).get('scrub') === '1';
+function readLabDraft(scrub: boolean) {
+  const { labDraftFrom } = labEngineNow();
+  try {
+    return labDraftFrom(window.localStorage.getItem(labDraftKey(scrub)));
+  } catch {
+    return labDraftFrom(null);
+  }
+}
+/** 📣 Where the browser keeps what the lab has PUBLISHED (✓ Apply) — the state the draft is read against. */
+const labLiveKey = (scrub: boolean) => (scrub ? 'lab_live_scrub_v1' : 'lab_live_v1');
+function readLabPublished(scrub: boolean) {
+  const { labPublishedFrom } = labEngineNow();
+  try {
+    return labPublishedFrom(window.localStorage.getItem(labLiveKey(scrub)));
+  } catch {
+    return null;
+  }
+}
+/**
+ * The draft's state, handed to the lab's server-drawn pages: every cookie written from the STATE (`labDraftCookies`
+ * — what is published with the draft over it), a cleared one cleared. True when a cookie CHANGED — the pages then
+ * need drawing again.
+ */
+function writeLabCookies(draft: ReturnType<LabDraftEngine['labDraftFrom']>, scrub: boolean): boolean {
+  const { labDraftCookies } = labEngineNow();
+  const published = readLabPublished(scrub);
+  const held = new Map(document.cookie.split('; ').map((c) => [c.slice(0, c.indexOf('=')), c.slice(c.indexOf('=') + 1)] as const));
+  let changed = false;
+  for (const [name, value] of Object.entries(labDraftCookies(draft, scrub, published))) {
+    if ((held.get(name) ?? null) === value) continue;
+    changed = true;
+    document.cookie = value === null ? `${name}=; path=/; max-age=0; SameSite=Lax` : `${name}=${value}; path=/; SameSite=Lax`;
+  }
+  return changed;
+}
+/**
+ * 🚪 THE LAB'S DRAFT DOOR — `hubDraftAction`'s shape, answered by the same reducers (`labDraftStep`). Every writer in
+ * the lab comes through here: a pick, a typed word, a move, the eye, Studio's rows — and the bar's ↺ · ✓ · Restore ·
+ * Reset (`HubDraftToolbar` `draftAction`), which used to go to the REAL action with the lab's made-up event and
+ * land on the sign-in page (the walk of 2026-10-11, P01).
+ */
 async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionResult> {
   /* ⏱ The lab's stopwatch (`performance.getEntriesByName`): when a draft write left and when it answered. */
   performance.mark('lab-draft-sent');
+  const fail = new URLSearchParams(window.location.search).get('fail');
+  /* 📵 `?fail=throw`: the request never leaves (no signal) — the door THROWS, as a server action does offline. */
+  if (fail === 'throw') {
+    await new Promise((r) => setTimeout(r, 300));
+    throw new TypeError('Failed to fetch');
+  }
   /* 💥 `?fail=1`: every save is refused — the lab's way to see a failure said in place. */
-  if (new URLSearchParams(window.location.search).get('fail') === '1') {
+  if (fail === '1') {
     await new Promise((r) => setTimeout(r, 600));
     performance.mark('lab-draft-answered');
     return { ok: false, error: 'Your background could not be changed. Please try again.' } as HubDraftActionResult;
   }
   const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
-  /* 🎞 The lab's "draft": a Look › Background pick rides a cookie the lab's
-     canvas (`./guest`) reads on its next load — the browser only, no database. */
-  try {
-    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { widgets?: { hero?: { main?: unknown } }; events?: { rsvp_ask_config?: unknown } };
-    if (patch.events && 'rsvp_ask_config' in patch.events) labPro = celebrationDraftIsPro(null, patch.events.rsvp_ask_config) ? 1 : 0;
-    if (patch.widgets?.hero && 'main' in patch.widgets.hero) {
-      document.cookie = `lab_main=${encodeURIComponent(JSON.stringify(patch.widgets.hero.main ?? null))}; path=/; SameSite=Lax`;
-    }
-  } catch {
-    /* not a Background patch */
-  }
-  /* 🎨 …and a scene's canvas (its Style, its palette look) rides `lab_widgets`,
-     which the lab's page reads back as the "server" canvases and its canvas
-     (`./guest`) draws — so a pick reaches the canvas through the SAME refresh
-     and hold a real save goes through. */
-  try {
-    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { widgets?: Record<string, { canvas?: unknown }> };
-    /* 🎚 On the Scrub chain (`?scrub=1`) a scene's canvas is saved to the chain's own cookie (`./lab-scrub.ts`). */
-    const jar = labWidgetsCookie(new URLSearchParams(window.location.search).get('scrub') === '1');
-    const held = labWidgetsFromCookie(jar);
-    let changed = false;
-    for (const [type, w] of Object.entries(patch.widgets ?? {})) {
-      if (w && typeof w === 'object' && 'canvas' in w) {
-        held[type] = w.canvas ?? {};
-        changed = true;
+  const { labDraftStep } = await labEngine();
+  const scrub = labScrubOn();
+  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD) }, scrub, readLabPublished(scrub));
+  if (result.ok) {
+    try {
+      /* 📣 ✓ Apply moved the draft into the lab's published state — kept first, so the pages are drawn from both. */
+      if (result.intent === 'apply') {
+        if (published) window.localStorage.setItem(labLiveKey(scrub), JSON.stringify(published));
+        else window.localStorage.removeItem(labLiveKey(scrub));
       }
+      window.localStorage.setItem(labDraftKey(scrub), JSON.stringify(draft));
+    } catch {
+      performance.mark('lab-draft-answered');
+      return { ok: false, intent: result.intent, error: 'The sample’s draft could not be kept in this browser. Restore it and try again.' };
     }
-    if (changed) document.cookie = `${jar}=${encodeURIComponent(JSON.stringify(held))}; path=/; SameSite=Lax`;
-  } catch {
-    /* not a scene patch */
+    writeLabCookies(draft, scrub);
   }
-  /* 🎞 The Post Event story's drafted keys (`editorial` — a scene shown or hidden, the run's order, a scene's style
-     and words) ride `lab_editorial`: each key replaced whole, as the real draft keeps them. The lab's page and its
-     canvas read it back (`./lab-post-event.ts`), so the Post Event panel's presses survive the render that follows. */
-  try {
-    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { editorial?: Record<string, unknown> };
-    if (patch.editorial && typeof patch.editorial === 'object') {
-      const raw = document.cookie.split('; ').find((c) => c.startsWith(`${LAB_EDITORIAL_COOKIE}=`))?.slice(LAB_EDITORIAL_COOKIE.length + 1);
-      let held: Record<string, unknown> = {};
-      try {
-        held = raw ? (JSON.parse(decodeURIComponent(raw)) as Record<string, unknown>) : {};
-      } catch {
-        held = {};
-      }
-      document.cookie = `${LAB_EDITORIAL_COOKIE}=${encodeURIComponent(JSON.stringify({ ...held, ...patch.editorial }))}; path=/; SameSite=Lax`;
-    }
-  } catch {
-    /* not a story patch */
-  }
-  /* 🎨 A part's style (`fixedStyles`) rides `lab_styles`; 🎛 the camera's look rides `lab_camera` — the lab's
-     stand-ins for `style_preferences.scene_styles` and `.camera_look`. */
-  try {
-    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { fixedStyles?: Record<string, unknown>; events?: { style_preferences?: { camera_look?: unknown; block_looks?: unknown } } };
-    if (patch.fixedStyles) {
-      const raw = document.cookie.split('; ').find((c) => c.startsWith('lab_styles='))?.slice('lab_styles='.length);
-      let held: Record<string, unknown> = {};
-      try {
-        held = raw ? (JSON.parse(decodeURIComponent(raw)) as Record<string, unknown>) : {};
-      } catch {
-        held = {};
-      }
-      for (const [k, v] of Object.entries(patch.fixedStyles)) {
-        if (v === null) delete held[k];
-        else held[k] = v;
-      }
-      document.cookie = `lab_styles=${encodeURIComponent(JSON.stringify(held))}; path=/; SameSite=Lax`;
-    }
-    const cam = patch.events?.style_preferences?.camera_look;
-    if (typeof cam === 'string') document.cookie = `lab_camera=${cam}; path=/; SameSite=Lax`;
-    /* 🧱 A fixed block's look rides `lab_blocks` — the lab's stand-in for `style_preferences.block_looks`. */
-    const blocks = patch.events?.style_preferences?.block_looks;
-    if (blocks && typeof blocks === 'object') document.cookie = `lab_blocks=${encodeURIComponent(JSON.stringify(blocks))}; path=/; SameSite=Lax`;
-  } catch {
-    /* not a style patch */
-  }
-  labChanges += 1;
   /* ⏱ `?slow=1`: a save takes as long as production's (~1.5 s), so a race can show. */
   if (new URLSearchParams(window.location.search).get('slow') === '1') await new Promise((r) => setTimeout(r, 1500));
-  const s = labSummary(labChanges, labPro);
   performance.mark('lab-draft-answered');
-  return { ok: true, intent: 'save', applied: 0, held: [], bar: { free: s, owned: s, proEffects: [], priceLabel: null } } as HubDraftActionResult;
-}
-function labWidgetsFromCookie(jar: string): Record<string, unknown> {
-  const raw = document.cookie.split('; ').find((c) => c.startsWith(`${jar}=`))?.slice(jar.length + 1);
-  try {
-    const v = raw ? (JSON.parse(decodeURIComponent(raw)) as unknown) : null;
-    return v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
+  return result;
 }
 const noop = async () => {};
 const formNoop = async () => {};
@@ -168,13 +176,13 @@ export function MakerLabShell({
   fixedStyles = {},
   cameraLook = 'classic',
   blockLooks = {},
-  changes = 0,
+  summary,
   scrub = false,
 }: {
   /** 🎚 `?scrub=1` — the canvas is the lab's Scrub chain (`./lab-scrub.ts`, `./guest/scrub`). */
   scrub?: boolean;
-  /** ✓ `?changes=N` — the draft's unapplied count, as the draft bar would report it (the ✕ sheet's "kept" line). */
-  changes?: number;
+  /** ✓ The lab draft's summary as its "server" read it for this render (`lab_bar`; `?changes=N` stands in for it). */
+  summary: HubDraftSummary;
   /** 🎨 The lab's drafted part styles (`lab_styles`) and 🎛 camera look (`lab_camera`). */
   fixedStyles?: FixedSceneStyles;
   cameraLook?: CameraLook;
@@ -205,12 +213,52 @@ export function MakerLabShell({
     setStudioDraftDoor(labDraft as never);
     return () => setStudioDraftDoor(null);
   }, []);
+  /* 🔁 LEAVING AND COMING BACK KEEPS THE DRAFT. The draft is this browser's (`localStorage`); the pages are drawn from
+     the cookies written from it. On arrival they are written afresh — a tab opened elsewhere, an older lab's cookies,
+     a cleared jar: whatever the pages were drawn with, they are drawn again from the draft if it differs. */
+  useEffect(() => {
+    let here = true;
+    void labEngine().then(
+      () => {
+        /* 🧹 `?unpublish=1`: the lab starts with nothing published again (✓ Apply publishes here — `lab-draft.ts`). */
+        if (new URLSearchParams(window.location.search).get('unpublish') === '1') {
+          try {
+            window.localStorage.removeItem(labLiveKey(scrub));
+          } catch {
+            /* a browser that keeps nothing has nothing published */
+          }
+        }
+        if (here && writeLabCookies(readLabDraft(scrub), scrub)) requestMakerRefresh();
+      },
+      () => {},
+    );
+    return () => {
+      here = false;
+    };
+  }, [scrub]);
   /* 🧪 "Scrub out" ships dark in the app (`lib/scrub-out-offered.ts`); on the lab's chain (`?scrub=1`) the Maker's
      controls keep offering it, so the owner can go on arranging the real thing. Put back when the lab is left. */
   useEffect(() => {
     offerScrubOutInTheLab(scrub);
     return () => offerScrubOutInTheLab(false);
   }, [scrub]);
+  /* ✓ THE BAR A RENDER BRINGS NAMES ITS CHANGES (`labRenderedSummary`). The server's prop is the count from a cookie;
+     the draft is this browser's, so once the render is on the page the bar is read from the draft itself — the same
+     count, with the lines the Apply sheet lists. (`?changes=N` is a stand-in with no draft behind it: left as given.) */
+  const [bar, setBar] = useState<HubDraftSummary>(summary);
+  useEffect(() => {
+    const standIn = new URLSearchParams(window.location.search).has('changes');
+    let here = true;
+    void labEngine().then(
+      ({ labRenderedSummary }) => {
+        if (here) setBar(standIn ? summary : labRenderedSummary(readLabDraft(scrub), scrub, readLabPublished(scrub)));
+      },
+      () => {},
+    );
+    return () => {
+      here = false;
+    };
+  }, [summary, scrub, renderStamp]);
   const stand = (name: string) => <div data-lab-stand={name} className="rounded-md bg-white/70 p-3 text-[13px] text-ink/60">{name}</div>;
   const rsvpProps = useMemo<ComponentProps<typeof MakerRsvpStage>>(
     () => ({
@@ -323,7 +371,7 @@ export function MakerLabShell({
       completeTourAction={noop}
       renderStamp={renderStamp}
       more={null}
-      applySlot={<HubDraftToolbar eventId={eventId} summary={labSummary(changes)} storeShell={false} priceLabel={null} proHref={null} />}
+      applySlot={<HubDraftToolbar eventId={eventId} summary={bar} storeShell={false} priceLabel={null} proHref={null} draftAction={labDraft} />}
       details={{ page: details, controls: null }}
       rsvpStage={<MakerRsvpStage {...rsvpProps} />}
       hasWork
@@ -369,7 +417,7 @@ export function MakerLabShell({
                 main: mainBackground ?? null,
                 coverRef: null,
                 sources: { loops, photoChoices: [], videoChoice: null, sceneUploads: [], cover: null, themeId: 'house' },
-                words: { names: 'Maria & Jose', date: 'December 12, 2026', line: 'Seda Vertis North' },
+                words: { names: LAB_SAMPLE.names, date: LAB_SAMPLE.dateLabel, line: LAB_SAMPLE.venue },
                 /* On, so the sample shows the music button while Music is the tab open. */
                 musicOn: true,
                 musicButton: 'bars',

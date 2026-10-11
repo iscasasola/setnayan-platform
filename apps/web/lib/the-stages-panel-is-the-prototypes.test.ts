@@ -502,7 +502,8 @@ test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the 
   /* The SAME value the Mood Board's switch holds, the whole config, through the one draft door — never a second key. */
   assert.match(fn, /const next: DressCodeConfig = \{ \.\.\.before, show_figure: show \};/);
   assert.match(fn, /const saveEvents = useHeldEventsSave\(eventId, draftAction\);/);
-  assert.match(fn, /const res = await saveEvents\(\{ dress_code_config: next \}\);/);
+  /* 📵 …sent through `hubDraftAnswer`, so a save that never answered is said in the row, not thrown into its transition. */
+  assert.match(fn, /const res = await hubDraftAnswer\('save', \(\) => saveEvents\(\{ dress_code_config: next \}\)\);/);
   const held = read(`${EDITOR}/use-scene-canvas.ts`);
   const hook = held.slice(held.indexOf('export function useHeldEventsSave'));
   assert.match(hook, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);/, 'the one draft door, an events patch');

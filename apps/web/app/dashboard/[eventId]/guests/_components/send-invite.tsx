@@ -14,6 +14,7 @@ import {
 } from '@/lib/guest-invite-message';
 import { setGuestInvitationSent } from '../../invitation/actions';
 import { saveInviteMessage } from '../send/actions';
+import { hearAction } from './hear-action';
 
 /**
  * SEND INVITE · COPY MESSAGE — one guest, their own link, from the couple's
@@ -230,7 +231,8 @@ export function SendInviteActions({
 
   function mark(sent: boolean) {
     startTransition(async () => {
-      const res = await setGuestInvitationSent(eventId, guest.guestId, sent);
+      // 🔌 `hearAction`: a failed request answers like a refusal — the page stays and the line below is said.
+      const res = await hearAction(() => setGuestInvitationSent(eventId, guest.guestId, sent));
       if (res.ok) {
         setSentAt(res.sentAt);
         setSaid(null);
@@ -420,7 +422,8 @@ export function InviteMessageEditor({
 
   function save(next: string) {
     startTransition(async () => {
-      const res = await saveInviteMessage(eventId, next);
+      // 🔌 `hearAction`: a failed request answers like a refusal — the message being written stays in the box.
+      const res = await hearAction(() => saveInviteMessage(eventId, next));
       if (res.ok) {
         setState('saved');
         setText(res.template ?? ours);

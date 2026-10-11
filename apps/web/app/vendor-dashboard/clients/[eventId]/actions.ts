@@ -8,7 +8,16 @@ import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effect
 import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
+import { formatPhp } from '@/lib/php';
 import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
+import {
+  changeOrderAnsweredNotice,
+  changeOrderProposedNotice,
+  type ChangeOrderForNotice,
+} from '@/lib/change-order-notice';
+import { readChangeOrderJustRaised } from '@/lib/change-order-notice.server';
+import { freezePaymentPlanAfterSupplierAgreed } from '@/lib/booking-payment-plan.server';
 import { depositAnswerReturnTo, vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { uploadPublicAsset } from '@/lib/storage';
@@ -86,15 +95,25 @@ export async function vendorMarkServiceComplete(formData: FormData) {
       .eq('marketplace_vendor_id', profile.vendor_profile_id)
       .is('service_marked_complete_at', null);
 
-    const { data: couple } = await admin
+    // EVERY couple member, not `.maybeSingle()`. That call ERRORS on two rows —
+    // and an event with both partners on it has two — so `data` came back null
+    // and the request to confirm delivery was sent to nobody, in silence, for
+    // exactly the events with two hosts. Same fan-out as the notices below.
+    const { data: members, error: membersError } = await admin
       .from('event_members')
       .select('user_id')
       .eq('event_id', eventId)
-      .eq('member_type', 'couple')
-      .maybeSingle();
-    if (couple?.user_id) {
+      .eq('member_type', 'couple');
+    if (membersError) {
+      console.error(
+        `[vendorMarkServiceComplete] could not read who to tell for event_id=${eventId}:`,
+        membersError.message,
+      );
+    }
+    for (const m of members ?? []) {
+      if (!m.user_id) continue;
       await emitNotification({
-        userId: couple.user_id,
+        userId: m.user_id,
         type: 'review_request',
         title: `${ev.vendor_name ?? 'Your supplier'} marked their service complete`,
         body: 'Confirm you received everything to unlock your review and galleries.',
@@ -839,13 +858,26 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
         .select('user_id')
         .eq('event_id', eventId)
         .eq('member_type', 'couple');
+      // Its OWN type since 2026-10-10 — it moves what the couple owes, so it
+      // has its own label and names its figure; `schedule_suggestion` carried
+      // it before. In-app only (owner 2026-10-11). The figure is read back off
+      // the row, never taken from the form.
+      const notice = changeOrderProposedNotice({
+        from: 'supplier',
+        supplierName: vendorName,
+        row: await readChangeOrderJustRaised(admin, {
+          eventVendorId,
+          raisedByUserId: user.id,
+        }),
+        typedTitle: title as string,
+      });
       for (const m of members ?? []) {
         if (!m.user_id) continue;
         await emitNotification({
           userId: m.user_id,
-          type: 'schedule_suggestion',
-          title: `${vendorName} proposed a change order`,
-          body: `${(title as string).trim().slice(0, 120)} — open the supplier to accept or decline.`,
+          type: 'change_order_proposed',
+          title: notice.title,
+          body: notice.body,
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }
@@ -905,11 +937,15 @@ export async function vendorRespondChangeOrder(formData: FormData) {
       const admin = createAdminClient();
       const { data: co } = await admin
         .from('vendor_change_orders')
-        .select('event_vendor_id, title')
+        .select('event_vendor_id, title, delta_amount_php')
         .eq('change_order_id', changeOrderId)
         .maybeSingle();
       const eventVendorId = (co as { event_vendor_id?: string } | null)?.event_vendor_id ?? null;
-      const coTitle = (co as { title?: string } | null)?.title ?? 'Change order';
+      const notice = changeOrderAnsweredNotice({
+        by: 'supplier',
+        decision,
+        row: (co as ChangeOrderForNotice | null) ?? null,
+      });
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -919,9 +955,9 @@ export async function vendorRespondChangeOrder(formData: FormData) {
         if (!m.user_id) continue;
         await emitNotification({
           userId: m.user_id,
-          type: 'schedule_suggestion',
-          title: decision === 'accept' ? 'Change order accepted' : 'Change order declined',
-          body: `Your supplier ${decision === 'accept' ? 'accepted' : 'declined'} "${coTitle.slice(0, 80)}".`,
+          type: 'change_order_answered',
+          title: notice.title,
+          body: notice.body,
           relatedUrl: eventVendorId
             ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`
             : `/dashboard/${eventId}/vendors`,
@@ -1102,6 +1138,43 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // 💸 THE YES MADE A BOOKING — FREEZE ITS PAYMENT PLAN. Until 2026-10-10 this
+  // happened only on the couple's direct press, below the line where the
+  // handshake returns; a booking made the normal way (ask → yes) had no plan
+  // row and `payment_info_sent` never fired. The SAME function the direct path
+  // calls, on `ok` ONLY: `ok` is answered by the one call that flips the row to
+  // booked (a second press answers `already`), so the plan and its notice are
+  // written once. Its own try: a plan failure must not undo the booking, and
+  // must not be undone by the notice above failing.
+  if (!error && env.status === 'ok' && eventId) {
+    try {
+      await freezePaymentPlanAfterSupplierAgreed(createAdminClient(), { eventId, eventVendorId });
+    } catch (e) {
+      console.error(
+        `[vendorAgreeToLock] payment-plan snapshot failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
+  // 🔴 THE YES CAME TOO LATE. `vendor_agree_to_lock` closes a request that is
+  // past its 48 hours ITSELF and answers `expired` — and until 2026-10-10 that
+  // answer was read by the supplier's screen only. The couple's "Waiting for
+  // their yes" row vanished with no word, and the sweep (which selects
+  // `pending`) could never tell them afterwards, because the row no longer was.
+  // `expired` is answered ONLY by the call that flips the row; every later
+  // press answers `not_pending` — so this can fire once per request, never twice.
+  if (!error && env.status === 'expired' && eventId) {
+    try {
+      await tellCoupleLockRequestExpired(createAdminClient(), { eventId, eventVendorId });
+    } catch (e) {
+      console.error(
+        `[vendorAgreeToLock] late-yes expiry notify failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
   // Where the answer lands: the Overview, as always — or the supplier's own
   // thread when the answer came from the accepted quote card there. Validated
   // to that one shape (`lockAnswerReturnTo`); the thread page reads the status.
@@ -1177,6 +1250,20 @@ export async function vendorDeclineLock(formData: FormData) {
     } catch (e) {
       console.error(
         `[vendorDeclineLock] couple notify failed for vendor_id=${eventVendorId}:`,
+        e,
+      );
+    }
+  }
+
+  // A no that came after the 48 hours is not a decline — the function closes
+  // the request as `expired` and records no reason. Same notice, same single
+  // call that flips the row, as the late yes above.
+  if (!error && env.status === 'expired' && eventId) {
+    try {
+      await tellCoupleLockRequestExpired(createAdminClient(), { eventId, eventVendorId });
+    } catch (e) {
+      console.error(
+        `[vendorDeclineLock] late-no expiry notify failed for vendor_id=${eventVendorId}:`,
         e,
       );
     }
@@ -1281,6 +1368,8 @@ async function answerDeletionRequest(formData: FormData, agree: boolean) {
             ? 'You can remove this celebration now.'
             : reason ?? 'They did not give a reason.',
           relatedUrl: '/dashboard',
+          // Which event: the link is account-level, so the email is told here.
+          eventId,
         });
       }
     } catch (err) {
@@ -1475,9 +1564,7 @@ export async function vendorAskForPayment(formData: FormData) {
           // "they asked for something" makes the reader open the page to find
           // out what, which is the shape this repo already fixed once on the
           // Papic studio banner that named no figure.
-          body: note
-            ? `₱${amount.toLocaleString('en-PH')} — ${note}`
-            : `₱${amount.toLocaleString('en-PH')}`,
+          body: note ? `${formatPhp(amount)} — ${note}` : formatPhp(amount),
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }

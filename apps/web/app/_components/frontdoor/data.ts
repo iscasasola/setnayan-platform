@@ -45,7 +45,13 @@ import {
   blogCategoryLabel,
   readingMinutes,
 } from '@/lib/blog';
-import { loadFeaturedChaptersResult } from '@/lib/storytellers';
+import {
+  rememberedFeaturedChapters,
+  rememberedLiveShopRows,
+  shopColumns,
+  type LiveShopRefusal,
+} from '@/lib/home-public-reads';
+import { ReadRefused } from '@/lib/remembered-read-core';
 import { loadYourPeople } from '@/lib/your-people';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
 import { editorialsToStories } from '@/lib/front-door-editorials';
@@ -282,9 +288,9 @@ export type FrontDoorData = {
  * share, so the rule is still written once.
  */
 
-/** The columns both readers need, named once. */
-const SHOP_COLUMNS =
-  'business_name, business_slug, location_city, services, verification_state, next_renewal_due_at, logo_url';
+/* The columns both readers need are named once, in `lib/home-public-reads.ts`
+   (`shopColumns()`) — the shelf's rows are read there, and the search below
+   selects the same ones. */
 
 /**
  * One row → one card. Shared for the same reason the gate is: the logo here is
@@ -357,7 +363,7 @@ export async function searchLiveShops(
     return [];
   }
 
-  let q = admin.from('vendor_profiles').select(SHOP_COLUMNS).match(LIVE_SHOP_GATE);
+  let q = admin.from('vendor_profiles').select(shopColumns()).match(LIVE_SHOP_GATE);
   for (const token of tokens) {
     // The same `%token%` shape the marketplace uses, on the two columns this
     // reader can honestly claim. `escaped` keeps a typed comma or parenthesis
@@ -394,44 +400,43 @@ export async function searchLiveShops(
 async function loadLiveShops(
   limit: number,
 ): Promise<{ shops: FrontDoorShop[]; count: number | null }> {
-  let admin: ReturnType<typeof createAdminClient>;
+  /*
+    ⚡ THE ROWS AND THE COUNT ARE THE SAME FOR EVERY VISITOR, so they are
+    remembered (`rememberedLiveShopRows`, 60 s; cleared when a shop's listing
+    changes). What is NOT remembered: the logo's signed address and the Verified
+    badge's deadline — `toFrontDoorShop` below works both out on every view.
+
+    A refused read is never remembered: it arrives here as `ReadRefused` with
+    whichever half DID answer, and is logged and shown exactly as before — a
+    failed count is `null` ("couldn't load"), never zero.
+  */
+  let rows: Record<string, unknown>[];
+  let count: number | null;
   try {
-    admin = createAdminClient();
-  } catch {
-    return { shops: [], count: null };
-  }
-
-  // The COUNT is its own exact read — the shelf is capped at `limit`, so
-  // counting the returned rows would silently under-report the moment a
-  // thirteenth shop opens, which is precisely when the threshold matters.
-  const counted = await admin
-    .from('vendor_profiles')
-    .select('vendor_profile_id', { count: 'exact', head: true })
-    .match(LIVE_SHOP_GATE);
-
-  const { data, error } = await admin
-    .from('vendor_profiles')
-    .select(SHOP_COLUMNS)
-    .match(LIVE_SHOP_GATE)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (counted.error) {
-    logQueryError('app/_components/frontdoor/data.ts: loadLiveShops count', counted.error);
-  }
-  if (error) {
-    logQueryError('app/_components/frontdoor/data.ts: loadLiveShops vendor_profiles', error);
-    return { shops: [], count: counted.error ? null : (counted.count ?? null) };
+    ({ rows, count } = await rememberedLiveShopRows(limit));
+  } catch (caught) {
+    const refusal = caught instanceof ReadRefused ? (caught.partial as LiveShopRefusal | undefined) : undefined;
+    // No client, or the store itself failed ⇒ we did not look.
+    if (!refusal) return { shops: [], count: null };
+    if (refusal.countError) {
+      logQueryError('app/_components/frontdoor/data.ts: loadLiveShops count', refusal.countError);
+    }
+    if (refusal.rowsError) {
+      logQueryError('app/_components/frontdoor/data.ts: loadLiveShops vendor_profiles', refusal.rowsError);
+      return { shops: [], count: refusal.count };
+    }
+    rows = refusal.rows;
+    count = refusal.count;
   }
 
   const shops: FrontDoorShop[] = [];
-  for (const row of (data ?? []) as Record<string, unknown>[]) {
+  for (const row of rows) {
     // The shop's own folder is resolved inside the shared mapper, through the
     // taxonomy, so the card says the same word the rail and the search say.
     const shop = await toFrontDoorShop(row);
     if (shop) shops.push(shop);
   }
-  return { shops, count: counted.error ? null : (counted.count ?? null) };
+  return { shops, count };
 }
 
 async function folderOfService(key: string) {
@@ -449,8 +454,24 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
   const [articlesRaw, storiesRaw, shopsRaw, showcasesRaw, yourPeople] =
     await Promise.all([
       Promise.resolve(publishedBlogArticles()).catch(() => null),
-      loadFeaturedChaptersResult(24).catch(() => ({ items: [], ok: false })),
+      /*
+        ⚡ REMEMBERED — the featured shelf is the same for every visitor. A
+        failed read throws inside and is never remembered; here it is the same
+        `ok: false` it always was, so the heading still says "couldn't load".
+      */
+      rememberedFeaturedChapters(24).then(
+        (items) => ({ items, ok: true }),
+        () => ({ items: [], ok: false }),
+      ),
       loadLiveShops(8).catch(() => ({ shops: [], count: null })),
+      /*
+        ⛔ NOT REMEMBERED, deliberately. This read is consent-gated (RA 10173:
+        `public_summary_consent_at`, withdrawn the moment a couple says so), it
+        answers `[]` for a refused read as well as an empty one — so a failure
+        could not be told apart and would be remembered as "no editorials" —
+        and it signs its pictures inside. It is asked on every view until it
+        can report its own success, as the chapters read above does.
+      */
       loadPublishedShowcases(24).catch(() => null),
       /*
         💸 NAMED COST, AND ONLY FOR SOMEBODY SIGNED IN. `loadYourPeople`

@@ -239,7 +239,14 @@ function ShippedEditor({ eventId, initialMessage, templates = PABUYA_TEMPLATES }
     /* ⏳ In the Maker the words wait for ✓ Apply (owner 2026-10-08, "draft 1-3") — into the draft. */
     if (maker) fd.set(HUB_DRAFT_FIELD, '1');
     start(async () => {
-      const res = maker ? await makerSave(() => savePabuyaMessage(fd), requestMakerRefresh) : await savePabuyaMessage(fd);
+      /* 📵 A save that never answered (no signal, a 5xx) is SAID under the box, with the words still in it and Save
+         still there — thrown into this transition it replaced the whole page with the app's error screen. */
+      let res: EgiftActionResult;
+      try {
+        res = maker ? await makerSave(() => savePabuyaMessage(fd), requestMakerRefresh) : await savePabuyaMessage(fd);
+      } catch {
+        res = { ok: false, error: 'Could not save your message.' };
+      }
       if (res.ok) setSaved(text.trim() || null);
       else setError(res.error ?? 'Could not save your message.');
     });

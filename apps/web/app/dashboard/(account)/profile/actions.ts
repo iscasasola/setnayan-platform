@@ -11,6 +11,7 @@ import { planPersonalInfoPatch } from '@/lib/profile-personal-info-patch';
 import { isSettingsGroup } from '@/lib/profile-settings-groups';
 import { seatNameOfferFor } from '@/lib/seat-name-offer.server';
 import type { FormalNameField } from '@/lib/formal-name';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 // 2026-05-22 brand pivot (CLAUDE.md decision-log). 5-theme list retired —
 // replaced with 3-mode (Light · Dark · Auto). Owner directive: "make our
@@ -431,6 +432,8 @@ export async function updateUserSlug(formData: FormData) {
     .from('users')
     .update({ slug: requested, updated_at: new Date().toISOString() })
     .eq('user_id', user.id);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('people');
   if (updateErr) {
     // A concurrent claimant can still lose the unique-index race (23505) —
     // surface it as "taken" rather than a raw constraint error.
@@ -498,6 +501,8 @@ export async function updatePublicProfileEnabled(formData: FormData) {
     .from('users')
     .update({ public_profile_enabled: enabled, updated_at: new Date().toISOString() })
     .eq('user_id', user.id);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('people');
 
   if (error) throw new Error(error.message);
 

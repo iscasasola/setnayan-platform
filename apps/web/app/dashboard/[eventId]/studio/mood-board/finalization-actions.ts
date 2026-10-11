@@ -289,6 +289,8 @@ async function notifyShopOwner(
       title: args.title,
       body: args.body,
       relatedUrl: args.relatedUrl,
+      // Which event: the link is a supplier-side path, so the email is told here.
+      eventId: args.eventId,
     });
   } catch (e) {
     console.error(

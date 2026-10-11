@@ -24,6 +24,7 @@ import { Thumb } from './scene-thumb';
    reaches it without this picker. */
 import { PresetTiles } from './scene-styles-lazy';
 import type { PostEventPresetsProp } from './post-event-preset-tiles';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /** Desktop · Phone · Both — one dropdown (owner: a set of choices is one PickMenu, never a pill row). */
 const SCENE_VIEW_OPTIONS = [
@@ -239,7 +240,7 @@ export function SceneTemplatePicker({
                 }`}
               >
                 {sceneTemplatesIn(family).map((t) => (
-                  <form
+                  <SafeForm
                     key={t.id}
                     action={action}
                     onSubmit={() => {
@@ -273,7 +274,7 @@ export function SceneTemplatePicker({
                         {label(t)}
                       </span>
                     </button>
-                  </form>
+                  </SafeForm>
                 ))}
               </div>
             </div>

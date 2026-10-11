@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { formatPhp } from '@/lib/php';
 import { decideLogPayment } from '@/lib/accepted-quote-terms';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import {
@@ -562,10 +563,11 @@ export async function logPayment(formData: FormData) {
           userId: vp.user_id,
           type: 'payment_logged',
           title: 'A couple logged a payment',
-          body: `The couple recorded a ₱${amount.toLocaleString('en-PH')} payment.${proofLine} Confirm it was received.`,
+          body: `The couple recorded a ${formatPhp(amount)} payment.${proofLine} Confirm it was received.`,
           relatedUrl: thread?.thread_id
             ? `/vendor-dashboard/messages/${thread.thread_id}`
             : '/vendor-dashboard/messages',
+          eventId,
         });
       }
     }

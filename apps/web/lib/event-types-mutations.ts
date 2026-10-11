@@ -30,6 +30,7 @@
  * unchanged; only the admin home moves.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /** Vocab keys: lowercase snake, 3–31 chars, must start with a letter. */
 export const EVENT_TYPE_KEY_RE = /^[a-z][a-z0-9_]{2,30}$/;
@@ -160,6 +161,8 @@ export async function updateEventTypeCore(
     .eq('event_type', key)
     .select('event_type')
     .maybeSingle();
+  // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
+  clearHomeShelf('eventTypes');
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: 'not_found' };
 
@@ -237,6 +240,8 @@ export async function retireEventTypeCore(
     .eq('event_type', k)
     .select('label_en')
     .maybeSingle();
+  // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
+  clearHomeShelf('eventTypes');
   if (error) return { ok: false, error: error.message };
   if (!row) return { ok: false, error: 'not_found' };
 
@@ -268,6 +273,8 @@ export async function unretireEventTypeCore(
     .eq('event_type', k)
     .select('label_en')
     .maybeSingle();
+  // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
+  clearHomeShelf('eventTypes');
   if (error) return { ok: false, error: error.message };
   if (!row) return { ok: false, error: 'not_found' };
 

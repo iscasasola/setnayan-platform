@@ -10,6 +10,7 @@ import { tellTheSupplierItCameDown } from '@/lib/tell-the-supplier-it-came-down'
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 // /admin/user-reports actions — moderator resolution path for the UGC report
 // queue (Apple guideline 1.2 / Google Play UGC). A report can be:
 //   · hidden     — hide the reported photo (papic_photos OR papic_guest_captures
@@ -103,6 +104,8 @@ export async function resolveReport(formData: FormData) {
         updated_at: new Date().toISOString(),
       })
       .eq('public_id', report.target_id as string);
+    // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+    clearHomeShelf('stories');
     revalidatePath('/realstories');
   }
 

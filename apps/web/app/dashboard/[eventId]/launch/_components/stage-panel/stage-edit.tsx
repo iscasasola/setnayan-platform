@@ -49,8 +49,11 @@ export function StageEdit({
   removeWord,
   why,
   onWhy,
+  working = null,
   second = null,
 }: {
+  /** ⏳ The step whose press is still on its way to the page (`add-part-sheet.tsx` `settle`) — it shows it is working. */
+  working?: 'earlier' | 'later' | 'add' | null;
   /**
    * 🎞 A part's ONE simple setting, in row 2 (owner: *"same goes to simple edits"*) — a Post Event scene's "Shown to
    * guests" switch (`post-event-shown.tsx`; it places itself). Such a part shows ONE text in row 1 — the one last
@@ -101,16 +104,16 @@ export function StageEdit({
         </div>
       )}
       {second}
-      <div className={`${SP_ROWS_ROW} row-start-4`} data-stage-edit-row="place">
+      <div className={`${SP_ROWS_ROW} row-start-4`} data-stage-edit-row="place" aria-busy={working ? true : undefined} data-working={working ?? undefined}>
         {/* A step with nowhere to go is still a button — grey, its pill kept (`waiting`, the approved gallery § 9: "a
             button that cannot be used yet is grey") — and a tap on it says why (its own press does nothing; the tap
             is heard on the wrapper, which draws nothing). A live step is the neutral button: ink on the toolbar's
             ground; Remove is the danger tone, red word and line. */}
-        <span className="contents" data-stage-edit-step="earlier" onClick={earlier ? undefined : () => onWhy(why.earlier)}>
-          <ActionButton tone="neutral" icon={ArrowUp} label="Earlier" waiting={!earlier} onClick={earlier ?? undefined} className={EDIT_STEP} />
+        <span className="contents" data-stage-edit-step="earlier" aria-busy={working === 'earlier' || undefined} onClick={earlier ? undefined : () => onWhy(why.earlier)}>
+          <ActionButton tone="neutral" icon={ArrowUp} label="Earlier" waiting={!earlier} onClick={earlier ?? undefined} className={working === 'earlier' ? `${EDIT_STEP} animate-pulse` : EDIT_STEP} />
         </span>
-        <span className="contents" data-stage-edit-step="later" onClick={later ? undefined : () => onWhy(why.later)}>
-          <ActionButton tone="neutral" icon={ArrowDown} label="Later" waiting={!later} onClick={later ?? undefined} className={EDIT_STEP} />
+        <span className="contents" data-stage-edit-step="later" aria-busy={working === 'later' || undefined} onClick={later ? undefined : () => onWhy(why.later)}>
+          <ActionButton tone="neutral" icon={ArrowDown} label="Later" waiting={!later} onClick={later ?? undefined} className={working === 'later' ? `${EDIT_STEP} animate-pulse` : EDIT_STEP} />
         </span>
         <span className="contents" data-stage-edit-step="remove" onClick={remove ? undefined : () => onWhy(why.remove)}>
           <ActionButton tone="danger" icon={Trash2} label={removeWord} waiting={!remove} onClick={remove ?? undefined} className={EDIT_STEP} />

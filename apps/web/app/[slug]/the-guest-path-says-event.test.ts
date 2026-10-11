@@ -42,13 +42,13 @@ test('1 · the Welcome’s reply button says "RSVP for the event" — even with 
   const { SpotlightCard } = await import('./_components/spotlight-card');
   // maria-and-jose is a wedding: its occasion word is the default, 'celebration'.
   const html = renderToStaticMarkup(
-    React.createElement(SpotlightCard, { spotlight: { kind: 'rsvp' } as never, occasion: 'celebration' }),
+    React.createElement(SpotlightCard, { spotlight: { kind: 'rsvp' } as never, occasion: 'celebration', replyHref: '/maria-and-jose/invite/reply' }),
   );
   assert.match(html, /RSVP for the event/);
   assert.doesNotMatch(html, NOUN);
   // A funeral keeps its own word — the one mapping the watch-live card uses (`watchLiveOccasion`).
   const wake = renderToStaticMarkup(
-    React.createElement(SpotlightCard, { spotlight: { kind: 'rsvp' } as never, occasion: 'gathering' }),
+    React.createElement(SpotlightCard, { spotlight: { kind: 'rsvp' } as never, occasion: 'gathering', replyHref: '/a-wake/invite/reply' }),
   );
   assert.match(wake, /RSVP for the gathering/);
 });

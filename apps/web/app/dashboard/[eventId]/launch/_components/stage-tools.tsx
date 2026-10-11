@@ -49,6 +49,7 @@ import {
   STAGE_TOOL_PILL,
   stageBarPx,
   stageEditingLine,
+  partPickScroll,
 } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
@@ -70,6 +71,7 @@ import {
 import { rsvpLineWord } from '@/lib/rsvp-form-words';
 import { rsvpLookCard, rsvpLookLine, rsvpStyleHasRows } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
+import { useRsvpListStage } from './rsvp-list-stage';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
@@ -85,10 +87,10 @@ import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_TOOL_EVENT, 
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
-import { RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
+import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { BlockAnimateRows, CameraPartTools, StagePlayStatus } from './details-lazy';
-import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas } from '@/lib/block-looks';
+import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas, blockTakesGround } from '@/lib/block-looks';
 import { BlockGroundRows } from './stage-panel/block-background';
 import { CameraPage } from './stage-panel/camera-page';
 import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-panel/post-event-edit';
@@ -317,12 +319,29 @@ export function StageTools({
   const rsvpCard = rsvpOpen ? rsvpLookCard(picked) : null;
   /** What is picked on the RSVP stage, in a word: the line's name, or "Card" for a screen's group (controller
    *  2026-10-10: the group read "RSVP › Form › RSVP" — the prototype's own word for it is the card). */
-  const rsvpLineName = rsvpLine ? (RSVP_LINE_NAME[rsvpLine] ?? rsvpLine) : rsvpCard ? RSVP_CARD_NAME : null;
+  /* ＋ THE LIST OF A REPLY SCREEN (owner's ruling 2026-10-09 — a line can be ADDED: `rsvp-list-stage.tsx`): what a
+     line the couple added is called, whether its Edit rows are the panel's, where ＋ stands on its frame, the sheet. */
+  const rsvpList = useRsvpListStage({
+    on: rsvpOpen,
+    frameSel: rsvpStageFrameSelector(screen),
+    part: picked,
+    line: rsvpLine,
+    onPick: useCallback((line: string | null, opens?: 'edit' | 'bg', on?: MakerPartKey) => {
+      const part = on ?? pickedRef.current;
+      if (!line || !part) return deselectRef.current();
+      setLineAtPart({ part, line });
+      /* ✋ A line held and dropped on a card that is not the picked part: that card's part is picked with it. */
+      if (part !== pickedRef.current) pickPartRef.current(part);
+      if (opens) setTool(opens);
+    }, [setTool]),
+    onSay: useCallback((words: string) => setWhyRef.current(words), []),
+  });
+  const rsvpLineName = rsvpLine ? (rsvpList.name ?? RSVP_LINE_NAME[rsvpLine] ?? rsvpLine) : rsvpCard ? RSVP_CARD_NAME : null;
   /** 🎨 A card, a line of one, or a line of the pass: each has Animate; Background is the card's (a line says whose). */
   const rsvpLooks = rsvpCard !== null || (rsvpOpen && rsvpLookLine(picked, rsvpLine) !== null);
   /** ✍ A picked line WITH words: its Edit is the stage's own panel (that line's words + its Start from ▾ —
    *  `maker-rsvp-ask.tsx`), so Edit's rows here stand aside and that panel stays in sight. */
-  const rsvpLineTypes = rsvpLineWord(picked, rsvpLine) !== null;
+  const rsvpLineTypes = rsvpLineWord(picked, rsvpLine) !== null || rsvpList.own;
   /** ⚙ The FORM'S CARD picked (no line): its Edit is the reply's settings, the stage's own panel in rows 1–3
    *  (`RsvpCardEditRows`) over this toolbar's row 4 — Earlier · Later · Remove, as on every part. */
   const rsvpCardEdits = rsvpOpen && picked === 'rsvp' && rsvpLine === null;
@@ -1150,8 +1169,8 @@ export function StageTools({
      Background or Animate — and the Camera, a full-screen design, has Style alone; nor has any part with no save for
      it (E-Gifts, What to wear …). With nothing picked every tool is live — the rows under it are empty until a part is. */
   /* 🧱 A FIXED BLOCK WITH ONE REAL ROOT (`lib/block-looks.ts`: the March, The details, E-Gifts, Happening now — and
-     Your seat and the Digital pass, samples here whose real block each guest's page draws from one root) has
-     its own Animate and its own Background (None · Plain · Frosted). E-Gifts only while the canvas draws the REAL
+     Your seat, the Digital pass and Photos of you, samples here whose real block each guest's page draws from one
+     root) has its own Animate and — all but Photos of you — its own Background (None · Plain · Frosted). E-Gifts only while the canvas draws the REAL
      block — with no gift link it draws a Maker-only empty card, and a guest sees nothing there to move or to dress. */
   const blockAt = !rsvpOpen && picked ? blockOfCanvas(makerPartCanvasOn(stageKey, picked)) : null;
   const [blockIsReal, setBlockIsReal] = useState(true);
@@ -1161,9 +1180,14 @@ export function StageTools({
     setBlockIsReal(Boolean(doc && findMakerSection(doc, 'f:gifts')?.hasAttribute('data-welcome-gifts')));
   }, [blockAt, shownPage]);
   const block = blockAt && blockIsReal ? blockAt : null;
+  /** 🖼 …and the block when it takes a Background too. One that only moves (Photos of you — owner 2026-10-10:
+   *  "animate only") has Animate alone: its Background stays grey, by the part rule, with the part's own line. */
+  const groundBlock = block && blockTakesGround(block) ? block : null;
   /** 🎨 A tool the PICKED thing has a save for beyond the part rule: a reply card or line (Background · Animate), a
-   *  fixed block with one real root (Background · Animate). */
-  const ownTool = (t: MakerPartTool) => (rsvpLooks && (t === 'bg' || t === 'animate')) || (block !== null && (t === 'bg' || t === 'animate'));
+   *  fixed block with one real root (Animate — and Background, where the block takes one). */
+  /* 🫧 …but a GROUP of a reply screen's lines has Background only: it arrives with the page, and its lines each
+     have their own Animate (controller 2026-10-10 — "do not offer"; the prototype's own line says so on a tap). */
+  const ownTool = (t: MakerPartTool) => (rsvpLooks && (t === 'bg' || (t === 'animate' && !rsvpList.groupWhy))) || (block !== null && t === 'animate') || (groundBlock !== null && t === 'bg');
   /** 🚫 …and a tool whose rows would be EMPTY here: on the reply pages Style has a row only for a line with a look and
    *  for the When-yes card (`rsvpStyleHasRows`) — the form's card (its settings are Edit's), the names, the date and
    *  the rest have none. Grey, and a tap says the tool's own line. */
@@ -1177,7 +1201,7 @@ export function StageTools({
   /** 🧱 The toolbar's own rows are a fixed block's Animate (the work area's tool stands aside). */
   const blockRows = open && block !== null && shownTool === 'animate';
   /** 🃏 …or its Background: the three tiles, in the same four rows. */
-  const blockGround = open && block !== null && shownTool === 'bg';
+  const blockGround = open && groundBlock !== null && shownTool === 'bg';
   /* …said to the work area's body under the selector (`StageStyle` shows that tool's part of the scene's Format). */
   useEffect(() => setStageTool(shownTool), [shownTool]);
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
@@ -1188,6 +1212,7 @@ export function StageTools({
   const whyNot = (t: MakerPartTool): string => {
     /* A tool with no row on the reply pages names itself ("Style has nothing to change on this part.") — the rule's
        own plain line, never "edit it in Studio": what there is to change is in the tools beside it. */
+    if (rsvpList.groupWhy && (t === 'style' || t === 'animate')) return rsvpList.groupWhy[t];
     if (emptyHere(t)) return makerPartToolWhy(null, t);
     const sample = picked && (t === 'bg' || t === 'animate') ? BLOCK_SAMPLE_WHY[makerPartCanvasOn(stageKey, picked) ?? ''] : undefined;
     const empty = blockAt && !blockIsReal && (t === 'bg' || t === 'animate') ? BLOCK_EMPTY_WHY : undefined;
@@ -1219,7 +1244,18 @@ export function StageTools({
     picked: open && !cameraOpen ? picked : null,
     frame: rsvpOpen ? frameSel : undefined,
     line: rsvpLine && rsvpLineName ? { key: rsvpLine, name: rsvpLineName } : null,
+    lineAdd: rsvpList.add,
+    lineWhy: rsvpList.stays,
+    away: rsvpList.away,
     name: rsvpCard ? RSVP_CARD_NAME : undefined,
+    /* 🫥 A part taken off this page is let go of — its tools fold with it (`add-part-sheet.tsx` `onGone`). */
+    onGone: deselect,
+    /* 📄 ＋ a part another page draws: that page is opened by the tab row's own door, and the part is picked there. */
+    onPage: (key) => {
+      const page = pagesRef.current.find((p) => p.key === key);
+      if (page) goToPageRef.current(page.key, page.option);
+    },
+    onPick: (part) => pickPartRef.current(part),
   });
   /* ── ✍ THE PICKED PART'S WORDS, FOR EDIT'S ROWS — read off the page (`part-words.ts`): what the page draws is what
      can be typed, so a part whose words the page does not draw keeps its one door. Read again whenever the canvas
@@ -1298,6 +1334,8 @@ export function StageTools({
     if (linePieces[linePieces.length - 1] === makerPartLabelOn(stageKey, picked)) linePieces.pop();
     linePieces.push(rsvpLineName);
   }
+  /* 🫧 A line inside a group says so, just before its own name: "RSVP › Form › Group › Question" (the prototype's path). */
+  if (rsvpList.inGroup && rsvpLineName && picked) linePieces.splice(linePieces.length - 1, 0, 'Group');
   const hasAbout = Boolean(useStagePanelNow().about);
   const lineKey = `${linePieces.join('›')}|${hasAbout ? 1 : 0}`;
   const [lineAt, setLineAt] = useState<{ key: string; level: number; n: number }>({ key: lineKey, level: 0, n: 0 });
@@ -1512,7 +1550,7 @@ export function StageTools({
           </div>
         ) : null}
         {editOn && !rsvpLineTypes ? (
-          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} why={edits.why} onWhy={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : null} />
+          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} why={edits.why} onWhy={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} working={edits.working} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : null} />
         ) : null}
         {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾ — under Style. Mounted unseen while another part (or Edit)
             is on, so the page's Reveal draws the opening chosen. ══ */}
@@ -1526,7 +1564,7 @@ export function StageTools({
         {/* 🧱 A fixed block's own Animate — the toolbar's four rows, on the block's own save. */}
         {blockRows && block ? <BlockAnimateRows key={block} block={block} /> : null}
         {/* 🃏 …and its own Background — None · Plain · Frosted, on the same save. */}
-        {blockGround && block ? <BlockGroundRows key={block} block={block} /> : null}
+        {blockGround && groundBlock ? <BlockGroundRows key={groundBlock} block={groundBlock} /> : null}
       </div>
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
       {/* ══ 🎛 THE CAMERA'S PAGE IS THE CAMERA (owner 2026-10-09: "Camera is a full screen design") — drawn on the canvas's
@@ -1536,6 +1574,8 @@ export function StageTools({
       )}
       {/* ══ The picked part's frame over the page, its sheets and its toast ══ */}
       {edits.node}
+      {/* ＋ "Add above / below <line>" on the RSVP stage: Heading · Message, never a scene. */}
+      {rsvpList.node}
 
       {/* ══ 👁 EXIT PREVIEW — the ONE button of the whole-page preview (▶ held down). Drawn on the Maker's shell, over
           the page: clear of the phone's home bar (the safe area) and of the guests' own bar under it (44 px, when
@@ -1630,8 +1670,8 @@ function rsvpTabIcon(rsvpOpen: boolean, key: string) {
 
 /**
  * 🎯 Bring a part to the MIDDLE of the page band left above the guest bar (prototype
- * `centrePicked`): `top + h/2 − band/2`; a part taller than the band lines up with its
- * top. The canvas is the stage's shown, same-origin frame; it gets the room below to
+ * `centrePicked`): `top + h/2 − band/2`; a part whose frame does not fit the band lines up
+ * with its top, its ＋ in view (`lib/maker-stage-room.ts` `partPickScroll`). The canvas is the stage's shown, same-origin frame; it gets the room below to
  * centre its last part too (its own `padding-bottom`, set once).
  */
 function centrePart(key: string, el: string | null, frameSel: string = SHOWN_FRAME) {
@@ -1652,7 +1692,8 @@ function centrePart(key: string, el: string | null, frameSel: string = SHOWN_FRA
     if (band <= 40) return;
     doc.body.style.paddingBottom = `${Math.round(band / 2)}px`;
     const r = node.getBoundingClientRect();
-    const dy = r.height >= band - 24 ? r.top - 12 : r.top + r.height / 2 - band / 2;
+    /* Centred when its whole frame fits; otherwise by its top, with room for the frame's edge and its ＋ (`partPickScroll`). */
+    const dy = partPickScroll({ top: r.top, height: r.height }, band, PART_PAD);
     /* An absolute target — a scroll still gliding from the last pick cannot add to it. */
     if (Math.abs(dy) > 2) win.scrollTo({ top: Math.max(0, win.scrollY + dy), behavior: 'smooth' });
   } catch {

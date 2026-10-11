@@ -17,6 +17,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { rotateMyGuestQr } from '../rotate-qr-actions';
 import { GuestCodeKeepers } from './guest-code-keepers';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
+import { PAGE_COLUMN } from '../_lib/measures';
 import { PASS_ANCHOR } from '@/lib/arrival-action';
 import { formatCount } from '@/lib/format-number';
 
@@ -411,6 +412,9 @@ export function GuestHubBar({
   );
 }
 
+/** The page's own column, for a Me section the page's column does not wrap (see `GuestMeSection`). */
+export const ME_OWN_COLUMN = PAGE_COLUMN;
+
 /** "My QR" asked for from a page-drawn Me section (`GuestMeSection` without `onOpenQr`). */
 export const OPEN_MY_QR_EVENT = 'setnayan:open-my-qr';
 
@@ -462,7 +466,7 @@ export function GuestMeSection({
   // Nothing to offer (the ticket is on the page, and the photos are too or there
   // are none yet) → no empty row under the guest's own things.
   const anything = !passOnPage || Boolean(photosHref);
-  return (
+  const section = (
     <section id="site-me" className={asTab ? 'scroll-mt-6' : 'mt-12 scroll-mt-6'}>
       {meSlot ? <div className="mb-8">{meSlot}</div> : null}
       {anything ? (
@@ -495,4 +499,13 @@ export function GuestMeSection({
       ) : null}
     </section>
   );
+  /* 📐 ME HAS THE PAGE'S OWN GUTTER, WHOEVER DRAWS IT (a guest's walk 2026-10-11:
+     on the Save the Date every line of Me — the reply button, the name, Face
+     tagging, the Terms, Save — ran edge to edge at 320, 375, 390 and 768).
+     On a tabbed page the body's own Me stage gives it (`data-me-stage`,
+     site-body.tsx). Drawn by the bar, the section is a SIBLING of the page —
+     outside its column altogether, and on the Save the Date outside the
+     film's page column too — so it is set in that same column here: the
+     plate, `px-4`, `sm:px-6` (`std-film-handoff.tsx`, the shell's column). */
+  return asTab ? section : <div data-me-column="" className={ME_OWN_COLUMN}>{section}</div>;
 }

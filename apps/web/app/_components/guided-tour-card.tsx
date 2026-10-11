@@ -37,7 +37,14 @@ export function GuidedTourCard({ tourKey, slides, label, blurb, completeAction }
   const dismiss = (): void => {
     setOpen(false);
     startTransition(async () => {
-      await completeAction(tourKey);
+      /* 📵 The card is already closed: a record that could not be written (no signal, a 5xx) must not take the page
+         with it — thrown here it replaced the whole screen with the app's error page. Nothing to say: the tour is
+         simply offered once more on the next visit. */
+      try {
+        await completeAction(tourKey);
+      } catch {
+        /* not recorded — shown again next time */
+      }
     });
   };
 

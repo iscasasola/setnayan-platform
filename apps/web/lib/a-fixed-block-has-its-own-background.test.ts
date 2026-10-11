@@ -58,6 +58,7 @@ import {
   blockLooksWith,
   blockLooksWithGround,
   blockSelector,
+  blockTakesGround,
   readBlockLooks,
   type BlockGround,
   type BlockLookBlock,
@@ -91,8 +92,15 @@ test('1 · the reader is strict: a ground from the fixed three, never the one th
     }),
     { entourage: { motion: { in: { fade: true } }, g: 'frost' }, details: { g: 'none' } },
   );
-  /* Today's own ground would change nothing — kept, it would serve every guest a mark for no reason. */
-  for (const block of BLOCK_LOOK_BLOCKS) {
+  /* Today's own ground would change nothing — kept, it would serve every guest a mark for no reason.
+     🔁 RE-AIMED 2026-10-10 (owner of Photos of you: "animate only"): asked of the blocks that TAKE a ground
+     (`blockTakesGround`) — every block but the one that only moves, which has no "today" to compare with and keeps no
+     ground at all (the lines after the loop; `a-fixed-block-has-its-own-motion.test.ts` §1 holds every spelling). The
+     claim is the same for each block that has a Background. */
+  assert.deepEqual(BLOCK_LOOK_BLOCKS.filter((b) => !blockTakesGround(b)), ['photos_of_you']);
+  assert.deepEqual(Object.keys(BLOCK_GROUND_TODAY).sort(), BLOCK_LOOK_BLOCKS.filter(blockTakesGround).sort(), 'a block that takes a ground has no "today" (or one that takes none has)');
+  for (const g of BLOCK_GROUNDS) assert.deepEqual(readBlockLooks({ block_looks: { photos_of_you: { g } } }), {}, `Photos of you kept the ground ${g}`);
+  for (const block of BLOCK_LOOK_BLOCKS.filter(blockTakesGround)) {
     const today: BlockGround | null = BLOCK_GROUND_TODAY[block];
     if (today) assert.deepEqual(readBlockLooks({ block_looks: { [block]: { g: today } } }), {}, `${block}: today’s ground is kept as a look`);
     for (const g of BLOCK_GROUNDS) if (g !== today) assert.deepEqual(readBlockLooks({ block_looks: { [block]: { g } } }), { [block]: { g } });
@@ -297,7 +305,11 @@ test('5 · a guest’s page: no mark and no style unless something is kept; the 
      the real block (`seatBlock`, one const for both of its slots) and the one before the canvas's sample of a day's
      part whose real block takes a look (`sampleBlockMark`). The claim is the same: every place a block is marked
      was walked, and its ground lands on one card there. */
-  assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 7, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
+  /* 🔁 RE-AIMED 2026-10-10 (owner: "animate only"): 7 → 8. The new one is Photos of you's, before the gallery's one
+     root — a block that takes NO ground (the reader keeps none for it and no rule is written: §1), so there is no
+     card there for a ground to land on, and nothing to re-walk. Same claim. */
+  assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 8, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
+  assert.equal((BODY.match(/blockMark\('photos_of_you'\)/g) ?? []).length, 1);
   /* Nothing about a ground is said in the page's own files: it is all behind the reader and the rules. */
   for (const file of [`${G}/site-body.tsx`, `${G}/editor-bridge.tsx`, `${G}/empty-states.tsx`, `${G}/guest-doorway-strip.tsx`, `${G}/spotlight-card.tsx`, `${G}/entourage-section.tsx`, `${G}/your-seat-block.tsx`, `${G}/your-seat-styles.tsx`, `${G}/maker-fixed-parts.tsx`, `${G}/guest-ticket.tsx`, `${G}/maker-guest-scenes.tsx`, 'app/[slug]/page.tsx']) {
     assert.doesNotMatch(src(file), /blockGround|BLOCK_GROUND|data-block-ground/, `${file} grew code for a block’s background`);
@@ -347,15 +359,25 @@ test('6 · the draft carries it and counts it: one change toward Apply, free; pu
 
 test('7 · the toolbar: Background is live on the four (E-Gifts only when real), with the RSVP card’s tiles', () => {
   const TOOLS = src(`${L}/stage-tools.tsx`);
-  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| t === 'animate'\)\) \|\| \(block !== null && \(t === 'bg' \|\| t === 'animate'\)\);/);
+  /* 🔁 RE-AIMED 2026-10-10 (owner of Photos of you: "animate only"): Background is the block's own only where the
+     block TAKES one — `groundBlock`, which is `block` for every block but one that only moves (null there, so the
+     tool stays grey by the part rule and no tiles are drawn). The claim is the same for the blocks this guard is
+     about: Background is live on a block with one real root that is really drawn. */
+  assert.match(TOOLS, /const groundBlock = block && blockTakesGround\(block\) \? block : null;/);
+  /* (Re-aimed 2026-10-11, the RSVP stage's step 7: a GROUP of a reply screen's lines has Background but no Animate —
+     the block's half of the rule, which is this test's claim, is word for word what it was.) */
+  /* (Merged in the review copy 2026-10-11: both re-aims hold at once — the line below is the two joined.) */
+  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| \(t === 'animate' && !rsvpList\.groupWhy\)\)\) \|\| \(block !== null && t === 'animate'\) \|\| \(groundBlock !== null && t === 'bg'\);/);
   /* `block` is null for a sample, for a scene with its own canvas, and for E-Gifts with nothing drawn for a guest. */
   assert.match(TOOLS, /const block = blockAt && blockIsReal \? blockAt : null;/);
   assert.match(TOOLS, /const empty = blockAt && !blockIsReal && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_EMPTY_WHY : undefined;/);
   assert.match(TOOLS, /const sample = picked && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_SAMPLE_WHY\[makerPartCanvasOn\(stageKey, picked\) \?\? ''\] : undefined;/);
   /* Its rows are the toolbar's own four, and the work area's tool stands aside for them as it does for Animate. */
-  assert.match(TOOLS, /const blockGround = open && block !== null && shownTool === 'bg';/);
+  assert.match(TOOLS, /const blockGround = open && groundBlock !== null && shownTool === 'bg';/);
   assert.match(TOOLS, /data-stage-own-rows=\{blockRows \|\| blockGround \? '' : undefined\}/);
-  assert.match(TOOLS, /\{blockGround && block \? <BlockGroundRows key=\{block\} block=\{block\} \/> : null\}/);
+  assert.match(TOOLS, /\{blockGround && groundBlock \? <BlockGroundRows key=\{groundBlock\} block=\{groundBlock\} \/> : null\}/);
+  /* …and the rows themselves cannot be handed a block that only moves (the type is the ground blocks' alone). */
+  assert.match(src(`${L}/stage-panel/block-background.tsx`), /export function BlockGroundRows\(\{ block \}: \{ block: BlockGroundBlock \}\) \{/);
   assert.match(TOOLS, /\[data-maker-shell\]:has\(\[data-stage-tools\]\[data-stage-own-rows\]\) \[data-phone-chrome="panel"\]\{visibility:hidden;pointer-events:none\}/);
 
   /* THE TILES ARE THE RSVP CARD'S — the same three, in its order and its words, the same face and ring. */

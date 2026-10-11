@@ -19,6 +19,8 @@ import { isWidgetType, widgetInPhase, type InvitationWidgetRow, type LifecyclePh
 import { stageRowOrder, stdShows, storedStdLead, type StdLead } from '@/lib/stage-scenes';
 import { PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import { makerStageLists, type MakerStageList, type MakerStageInput } from '@/lib/maker-scene-list';
+import { buildGuestsSeeTable, buildStageEyes, type StageEye } from '@/lib/guests-see-build';
+import type { GuestsSeeTable } from '@/lib/guests-see-table';
 import { sanitizeHubCanvas, resolveHubBackground, hubBackgroundIsMedia, hubBackgroundTint } from '@/lib/hub-canvas';
 import { sanitizeCustomSection, isCustomSectionType } from '@/lib/custom-sections';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
@@ -47,6 +49,10 @@ export type MakerNavigatorData = {
   minis: Record<string, SceneMini>;
   /** The theme's page ground / ink / accent, for tiles with no ground of their own. */
   tint: { canvas: string; ink: string; accent: string };
+  /** 🗂 The "What guests see" table (`lib/guests-see-build.ts`) — every scene on every stage, as the page decides it. */
+  guestsSee: GuestsSeeTable;
+  /** 👁 For the eye: each scene's place in each stage's list with no choice stored, and the choice stored (`buildStageEyes`). */
+  stageEye: Record<LifecyclePhase, Partial<Record<WidgetType, StageEye>>>;
   /**
    * 📖 Does this event type have an "Our Love Story" page at all? False for a
    * type with no two named people (`resolveWeddingOnlyParts` love_story) — a
@@ -209,6 +215,17 @@ export function buildMakerNavigatorData(input: {
     };
   }
 
+  /* 🗂 What the table and the eye are read from: the SAME rows and facts as the lists (the draft laid over them). */
+  const seen = {
+    widgets: input.plan.widgets,
+    openBrowse: input.plan.openBrowse,
+    weddingOnlyParts: input.plan.weddingOnlyParts,
+    content: input.plan.content,
+    solemn: input.plan.solemn,
+    countdownPast: input.plan.countdownPast,
+    hasEntourage: input.plan.hasEntourage,
+    giftsOff: input.plan.giftsOff === true,
+  };
   return {
     hasStory: input.plan.weddingOnlyParts?.love_story !== false,
     postEvent: pe
@@ -244,5 +261,9 @@ export function buildMakerNavigatorData(input: {
         : null,
     minis,
     tint: input.tint,
+    /* 🗂 "What guests see" (owner 2026-10-10): the table the sheet draws, read from the SAME rows and facts as the
+       lists above (the draft laid over them), so the sheet, the navigator and the canvas are one answer. */
+    guestsSee: buildGuestsSeeTable(seen),
+    stageEye: buildStageEyes(seen),
   };
 }

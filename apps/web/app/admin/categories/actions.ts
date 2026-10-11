@@ -40,6 +40,7 @@ import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
 import { formatCount } from '@/lib/format-number';
 import { recordCollectedTradePhrase } from '@/lib/service-trade-aliases-db';
 import { CATEGORIES_PATH, backHref, type BackState } from './_components/back';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 const BASE = CATEGORIES_PATH;
 /** The onboarding read path (getOnboardingRefinements is DB-first) renders here —
@@ -1910,6 +1911,8 @@ export async function relabelEventTypeVocab(formData: FormData): Promise<never> 
     .from('event_type_vocab')
     .update({ label_en: label, updated_at: new Date().toISOString() })
     .eq('event_type', key);
+  // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
+  clearHomeShelf('eventTypes');
   if (error) redirectBack(formData, 'error', error.message);
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.vocab_event_relabel',

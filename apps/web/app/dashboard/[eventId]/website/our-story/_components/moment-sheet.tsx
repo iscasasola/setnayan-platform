@@ -23,6 +23,7 @@ import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { InMakerReturnTo } from './in-maker-return-to';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * A moment the Maker's instant scrapbook could not keep (`love-story-live.tsx`
@@ -227,7 +228,7 @@ export function MomentSheet({
               </button>
             </div>
 
-            <form action={keep} className="mt-5 space-y-6">
+            <SafeForm action={keep} className="mt-5 space-y-6">
               <HubDraftField />
               <InMakerReturnTo />
               <input type="hidden" name="intent" value={moment ? 'edit' : 'add'} />
@@ -466,7 +467,7 @@ export function MomentSheet({
                   Keep this moment
                 </SubmitButton>
               </div>
-            </form>
+            </SafeForm>
     </>
   );
 

@@ -106,7 +106,8 @@ test('a reply that DID save says so too', () => {
 
 test('the message reaches the form, at the top of it', () => {
   assert.match(WIDGET, /flash\?: \{ tone: 'ok' \| 'error'; text: string \} \| null;/, 'the widget stopped accepting it');
-  const formStart = WIDGET.indexOf('<form action={action}');
+  // (the card's form is `ReplyForm` since 2026-10-11 — the same element, with the press caught)
+  const formStart = WIDGET.indexOf('<ReplyForm action={action}');
   const flashAt = WIDGET.indexOf('{flash ? (');
   assert.ok(flashAt !== -1, 'the widget renders no message');
   assert.ok(

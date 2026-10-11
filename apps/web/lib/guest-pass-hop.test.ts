@@ -130,8 +130,8 @@ test('4 · the redeem writes the link\'s pass unconditionally, then opens that g
   const whole = read('app/[slug]/redeem/route.ts');
   // The TOKEN path — everything after the re-entry code's own branch (which is
   // spent, so it does ask the phone first: lib/guest-reentry.test.ts § 6).
-  const route = whole.slice(whole.indexOf('const { data: keyRow }'));
-  assert.ok(whole.includes('const { data: keyRow }'), 'the redeem lost its token read');
+  const route = whole.slice(whole.indexOf('const { data: keyRow'));
+  assert.ok(whole.includes('const { data: keyRow'), 'the redeem lost its token read');
   assert.doesNotMatch(route, /readGuestSession\(|readGuestSessionForEvent\(/, 'the redeem consults the pass the phone already held');
   const set = route.indexOf('await setGuestSession({');
   const land = route.lastIndexOf('return NextResponse.redirect(landing);');

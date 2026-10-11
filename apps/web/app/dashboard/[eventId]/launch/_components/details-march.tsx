@@ -91,8 +91,9 @@ const NO_NAMES: readonly string[] = [];
 const NO_OUT: readonly MarchOut[] = [];
 const LAB_NO_RENDER = () => {};
 const LONG_PRESS_MS = 250;
-const SETTLE_MS = 240;
-const EDGE_PX = 56;
+/* Exported, unchanged: the RSVP stage's hold-to-move wears the same feel (`rsvp-canvas-drag.ts`) — one number, two drags. */
+export const SETTLE_MS = 240;
+export const EDGE_PX = 56;
 
 /** What one drop puts in the draft: its steps, after the drafted ones — or the last drafted move back off. */
 type MarchDraftPatch = Pick<HubDraftPatch, 'march' | 'marchUndo'>;

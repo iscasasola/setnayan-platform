@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
-import { fetchGuestsByEvent, fetchGroupMembershipsByEvent } from '@/lib/guests';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { BOOKED_VENDOR_STATUSES } from '@/lib/vendors';
@@ -13,6 +12,7 @@ import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
 import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
 import { SeatingLockError } from './seating-lock-error';
+import { floorPlanOrStop, guestsOrStop, keepApartOrStop, membershipsOrStop } from '@/lib/seating-inputs';
 import { parseRoleSeating, type RoleSeating } from '@/lib/role-seating';
 import {
   BOOTH_CATALOG,
@@ -25,7 +25,6 @@ import {
   effectiveCapacity,
   fetchAssignments,
   fetchFloorPlan,
-  fetchSeatingConstraints,
   fetchGroupAdjacency,
   fetchTables,
   metricPoseM,
@@ -480,9 +479,9 @@ export async function autoSeatGuests(formData: FormData) {
   const [tables, assignments, guests, floorPlan, memberships] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
-    fetchFloorPlan(supabase, eventId),
-    fetchGroupMembershipsByEvent(supabase, eventId),
+    guestsOrStop(supabase, eventId),
+    floorPlanOrStop(supabase, eventId),
+    membershipsOrStop(supabase, eventId),
   ]);
 
   const autoSeatGuestList: AutoSeatGuest[] = guests.map((g) => ({
@@ -1042,10 +1041,10 @@ export async function lockAndFill(
   const [tables, assignments, guests, floorPlan, memberships, constraints] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
-    fetchFloorPlan(supabase, eventId),
-    fetchGroupMembershipsByEvent(supabase, eventId),
-    fetchSeatingConstraints(supabase, eventId),
+    guestsOrStop(supabase, eventId),
+    floorPlanOrStop(supabase, eventId),
+    membershipsOrStop(supabase, eventId),
+    keepApartOrStop(supabase, eventId),
   ]);
 
   // Keep locked seats; clear everyone else so the solver re-seats around them.
@@ -1720,7 +1719,7 @@ export async function seatRoleAtTable(
   const [tables, assignments, guests] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
+    guestsOrStop(supabase, eventId),
   ]);
   const table = tables.find((t) => t.table_id === tableId);
   if (!table) throw new Error('Table not found');
@@ -2181,10 +2180,10 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
-      fetchGuestsByEvent(supabase, eventId),
-      fetchFloorPlan(supabase, eventId),
-      fetchGroupMembershipsByEvent(supabase, eventId),
-      fetchSeatingConstraints(supabase, eventId),
+      guestsOrStop(supabase, eventId),
+      floorPlanOrStop(supabase, eventId),
+      membershipsOrStop(supabase, eventId),
+      keepApartOrStop(supabase, eventId),
       // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
       resolveRoleSetForEvent(eventId),
       supabase
@@ -2355,9 +2354,9 @@ export async function buildSeatingDraft(
 
   const [existing, guests, floorPlan, memberships, eventRow] = await Promise.all([
     fetchTables(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
-    fetchFloorPlan(supabase, eventId),
-    fetchGroupMembershipsByEvent(supabase, eventId),
+    guestsOrStop(supabase, eventId),
+    floorPlanOrStop(supabase, eventId),
+    membershipsOrStop(supabase, eventId),
     supabase
       .from('events')
       .select('ceremony_type, secondary_ceremony_type')

@@ -120,6 +120,17 @@ import { guestLinkLeaves } from './guest-in-canvas';
  * no guest's markup carries a key. ⛔ Never inside the RSVP form.
  */
 
+/**
+ * 🧱 The element that carries a fixed block's own motion, at or inside a section: the one right after the block's mark
+ * (`data-block-mark`) — or after the Maker's marker standing between. The two attribute names are said outright: the
+ * block-looks module is fetched only when a look is picked, so a guest's bundle never carries it (held equal to
+ * `blockSelector` by `lib/play-plays-a-fixed-block.test.ts`).
+ */
+export const BLOCK_PART_SELECTOR = ':is([data-block-mark] + :not([data-maker-section]), [data-block-mark] + [data-maker-section] + *)';
+export function blockPartOf(section: Pick<HTMLElement, 'matches' | 'querySelector'>): HTMLElement | null {
+  return section.matches(BLOCK_PART_SELECTOR) ? (section as HTMLElement) : section.querySelector<HTMLElement>(BLOCK_PART_SELECTOR);
+}
+
 /* 📦 `findMakerSection` and `sectionAfter` live in `./maker-section-find` — the
    Maker imports that small module, never this bridge, so the bridge stays in the
    guest page's code (see that file). Re-exported here for the bridge's callers. */
@@ -948,11 +959,18 @@ export function EditorBridge() {
            phase, and what it has none of, told to the Maker so it can say so. */
         seqStop?.();
         const part = typeof data.el === 'string' ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`) : null;
-        const target = part ?? (sceneFrameOf(el as never) as unknown as HTMLElement | null) ?? el;
+        const frame = part ? null : (sceneFrameOf(el as never) as unknown as HTMLElement | null);
+        /* 🧱 A FIXED BLOCK (the March, E-Gifts, Photos of you…) HAS NO SCENE FRAME: its Animate is its OWN part-motion,
+           written on the element after its mark (`lib/block-looks.ts` `blockSelector` — `el-in-*` · `el-during-*` ·
+           `el-out-*`, as a scene's part). ▶ read a block as a SCENE (`--hub-in-kf`, which a block never carries),
+           found "Build in: none" and stopped in a frame: Fade picked, ▶ pressed, nothing moved (the walk of
+           2026-10-11, M12). A block is played as the part it is. */
+        const block = part || frame ? null : blockPartOf(el);
+        const target = part ?? frame ?? block ?? el;
         const only = (data as { only?: unknown }).only;
         seqStop = playSequence(
           target,
-          !part,
+          !part && !block,
           (r) => {
             if (r.phase === 'rest') seqStop = null;
             window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin);

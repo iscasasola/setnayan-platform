@@ -115,10 +115,15 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
   assert.ok(html.includes(FIXTURE_WORDS.dressTitle), 'the dress code');
   assert.ok(count(html, FIXTURE_WORDS.venue) >= 3 && count(html, FIXTURE_WORDS.ceremony) >= 3, 'both venues, in the details, the run of show and the map');
   for (const b of FIXTURE_BLOCKS) assert.ok(html.includes(b.label.replace('&', '&amp;')), `the run of show: ${b.label}`);
-  /* A GUEST's page, not a stranger's: their own line, their reply sheet, their name on the place card. */
+  /* A GUEST's page, not a stranger's: their own line, their door to the reply, their name on the place card.
+     🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): a guest's page no longer draws the reply SHEET; every reply
+     door on it opens the reply PAGE. */
   assert.ok(html.includes('You’re joining us as'), 'the guest’s own line');
-  assert.ok(html.includes('id="rsvp-sheet-heading"'), 'the reply sheet');
-  assert.ok(html.includes(FIXTURE_WORDS.guestFirst), 'the guest’s name');
+  assert.ok(!html.includes('id="rsvp-sheet-heading"'), 'the reply sheet is drawn for a guest again — two reply forms');
+  assert.ok(html.includes('href="/maria-and-jose/invite/reply"'), 'the guest has no door to the reply page');
+  assert.ok(!html.includes('#your-details'), 'a door on the guest page still points at the sheet');
+  /* (The guest's NAME was on this page only inside the reply card. It is on the reply page and on Me now, which
+     this component does not draw — so it is no longer looked for here.) */
   assert.doesNotMatch(html, /Scan your personal QR/, 'this is the stranger’s page');
 
   /* What the page asked the (empty) database — as a set: this renderer may run an async component more than once. */
@@ -218,7 +223,29 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
      It is a test, shipped to nobody; the claim is the same — no file of the APP imports the fixture. */
   /* 🔁 AND 2026-10-11: `the-link-down-names-what-it-opens.test.ts` draws the real page for six viewers (a stranger
      among them) to read the cover's link off it. A test again; the claim is unchanged. */
-  const OURS = new Set(['lib/site-body-fixture.ts', 'lib/site-body-fixture-render.ts', 'lib/site-body-fixture-render.test.ts', 'lib/a-sample-block-look-reaches-the-real-page.test.ts', 'lib/the-link-down-names-what-it-opens.test.ts', 'lib/a-dark-look-keeps-its-words.test.ts']);
+  /* 🔁 RE-AIMED 2026-10-10 (again): "WHAT GUESTS SEE" draws the real page on every stage with the same helper —
+     `stage-pages-fixture.ts` (tooling: the same couple with every scene filled) and the tests that read it. Tests and
+     tooling, shipped to nobody; the claim is unchanged. */
+  const OURS = new Set([
+    'lib/site-body-fixture.ts',
+    'lib/site-body-fixture-render.ts',
+    'lib/site-body-fixture-render.test.ts',
+    'lib/a-sample-block-look-reaches-the-real-page.test.ts',
+    'lib/the-link-down-names-what-it-opens.test.ts',
+    'lib/a-dark-look-keeps-its-words.test.ts',
+    'lib/stage-pages-fixture.ts',
+    'lib/every-stage-is-todays-page.test.ts',
+    'lib/a-stage-choice-decides-the-stage-list.test.ts',
+    'lib/what-guests-see.test.ts',
+    /* 🔁 AND 2026-10-11: the same page drawn for an event with NO date, to read its lines for a hole. A test. */
+    'lib/a-dateless-event-prints-no-hole.test.ts',
+    /* …and the page's ONE sign-out, read off the real page for its size, its contrast and its one control. A test. */
+    'app/[slug]/_components/the-sign-out-asks-first.test.ts',
+    /* …and the same page for "one reply form": no sheet on a guest's page, the sheet on the Maker's canvas. A test. */
+    'app/[slug]/_components/one-reply-form.test.ts',
+    /* …and the guest's foot (the record note, the sign-out) read off it for the page's gutter. A test. */
+    'app/[slug]/_components/me-has-the-pages-gutter.test.ts',
+  ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {
       const rel = `${dir}/${name}`;

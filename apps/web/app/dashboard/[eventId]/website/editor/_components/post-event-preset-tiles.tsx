@@ -9,6 +9,7 @@ import { POST_EVENT_PRESETS } from '@/lib/post-event-presets';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { MAX_OWN_SCENES, Thumb } from './scene-thumb';
 import type { SceneView } from './scene-template-picker';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * What the sheet is handed for Post Event: the six slots used, and Pro. The
@@ -64,7 +65,7 @@ export function PresetTiles({
         {POST_EVENT_PRESETS.map((p) => {
           const t = SCENE_TEMPLATES[p.template];
           return (
-            <form key={p.id} action={action} onSubmit={() => onPick?.(p.template)} className="relative">
+            <SafeForm key={p.id} action={action} onSubmit={() => onPick?.(p.template)} className="relative">
               {draft ? <HubDraftField /> : null}
               {Object.entries(hidden).map(([k, v]) => (
                 <input key={k} type="hidden" name={k} value={v} />
@@ -92,7 +93,7 @@ export function PresetTiles({
                   {p.purpose}
                 </InfoTip>
               </span>
-            </form>
+            </SafeForm>
           );
         })}
       </div>

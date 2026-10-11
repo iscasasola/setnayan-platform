@@ -15,6 +15,7 @@ import {
   type RsvpCardGround,
   type RsvpLineLook,
   type RsvpLookFeel,
+  type RsvpAddedName,
   type RsvpLookLine,
   type RsvpLookSize,
   type RsvpMotion,
@@ -69,14 +70,15 @@ export function RsvpLineLookRows({
   onPick,
 }: {
   eventId: string;
-  line: RsvpLookLine;
+  /** One of the page's own lines — or a line the couple added (the same rows: it is a text line). */
+  line: RsvpLookLine | RsvpAddedName;
   now: RsvpLineLook;
   /** The event's five colours, in slot order. */
   board: readonly string[];
   onPick: (patch: { c?: string | null; f?: HubFontKey | null; s?: RsvpLookSize | null }) => void;
 }) {
   const [picking, setPicking] = useState(false);
-  const button = RSVP_LOOK_BUTTON_LINES.includes(line);
+  const button = (RSVP_LOOK_BUTTON_LINES as readonly string[]).includes(line);
   const size = now.s ?? 100;
   const at = Math.max(0, RSVP_LOOK_SIZES.indexOf(size));
   /* The colour worn: its own, or an older slot's — the event's colour in that place. */
@@ -236,11 +238,22 @@ export const RSVP_LINE_GROUND_LINE = 'This sits on the RSVP card’s background.
  * BACKGROUND FOR THE CARD — None · Plain · Frosted, as the toolbar's own picture tiles (`stage-background.tsx`'s
  * tile: the same face, the same ring when picked, its name written on it). Plain is today's card and stores nothing.
  */
-export function RsvpCardGroundRows({ now, onPick }: { now: RsvpCardGround | null; onPick: (ground: RsvpCardGround | null) => void }) {
+export function RsvpCardGroundRows({
+  now,
+  onPick,
+  label = 'The card’s background',
+  line = RSVP_CARD_GROUND_LINE,
+}: {
+  now: RsvpCardGround | null;
+  onPick: (ground: RsvpCardGround | null) => void;
+  /** 🫧 A GROUP of lines wears the same three tiles: what the tiles are called, and the sentence under them. */
+  label?: string;
+  line?: string;
+}) {
   const picked = now ?? 'plain';
   return (
     <div className="contents" data-rsvp-card-ground={picked}>
-      <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" role="group" aria-label="The card’s background">
+      <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" role="group" aria-label={label}>
         {RSVP_CARD_TILES.map((t) => (
           <button key={t.key} type="button" aria-pressed={t.key === picked} aria-label={t.name} data-rsvp-card-tile={t.key} onClick={() => onPick(t.key === 'plain' ? null : t.key)} className={SP_BG_TILE}>
             <span className={SP_BG_TILE_FACE} style={t.key === 'frost' ? { background: 'linear-gradient(135deg, rgba(255,255,255,.9), rgba(217,185,154,.55))' } : undefined} data-tile-face={t.key === 'none' ? 'none' : 'flat'}>
@@ -252,18 +265,27 @@ export function RsvpCardGroundRows({ now, onPick }: { now: RsvpCardGround | null
           </button>
         ))}
       </div>
-      <p className={`${SP_ROWS_ROW} row-start-2 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-rsvp-row="2">{RSVP_CARD_GROUND_LINE}</p>
+      <p className={`${SP_ROWS_ROW} row-start-2 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-rsvp-row="2">{line}</p>
     </div>
   );
 }
 
 /** BACKGROUND FOR A LINE — it has none of its own: one line says whose it sits on, and the one button opens that. */
-export function RsvpLineGroundRow({ onOpenCard }: { onOpenCard: () => void }) {
+export function RsvpLineGroundRow({
+  onOpenCard,
+  words = RSVP_LINE_GROUND_LINE,
+  label = 'Open the card',
+}: {
+  onOpenCard: () => void;
+  /** 🫧 A line inside a GROUP sits on its group's background: the same row, the group's words. */
+  words?: string;
+  label?: string;
+}) {
   return (
     <div className={`${SP_ROWS_ROW} row-start-1 justify-between`} data-rsvp-row="1" data-rsvp-line-ground="">
-      <p className="min-w-0 text-[13px] text-[var(--sp-ink)]">{RSVP_LINE_GROUND_LINE}</p>
+      <p className="min-w-0 text-[13px] text-[var(--sp-ink)]">{words}</p>
       <span className="shrink-0" data-rsvp-open-card="">
-        <ActionButton tone="neutral" icon={Square} label="Open the card" onClick={onOpenCard} />
+        <ActionButton tone="neutral" icon={Square} label={label} onClick={onOpenCard} />
       </span>
     </div>
   );
@@ -279,13 +301,25 @@ export function RsvpLineGroundRow({ onOpenCard }: { onOpenCard: () => void }) {
  * (`RSVP_ONE_SCREEN_WHY`), in the toolbar's own toast. Never a dead tap, never a row left out.
  */
 export const RSVP_ONE_SCREEN_WHY = 'A reply page is one screen — nothing to follow and no way out to build.';
-export function RsvpBuildInRows({ now, onPick, error = null }: { now: RsvpMotion; onPick: (patch: { i?: MotionFx | null; v?: RsvpLookFeel | null }) => void; error?: string | null }) {
+export function RsvpBuildInRows({
+  now,
+  onPick,
+  error = null,
+  note = null,
+}: {
+  now: RsvpMotion;
+  onPick: (patch: { i?: MotionFx | null; v?: RsvpLookFeel | null }) => void;
+  error?: string | null;
+  /** The form's card: the Event Hub's sheet opens its own way (`rsvpSheetKeepsLine`, `lib/rsvp-look.ts`). */
+  note?: string | null;
+}) {
   const feel: AnimateFeel = now.v ?? 'calm';
   return (
     <StageAnimate
       only="in"
       onlyWhy={RSVP_ONE_SCREEN_WHY}
       error={error}
+      note={note}
       inFx={now.i ?? null}
       outFx={null}
       onIn={(fx) => onPick({ i: fx })}

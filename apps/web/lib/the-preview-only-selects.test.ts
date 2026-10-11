@@ -95,12 +95,15 @@ test('(2) no buttons on the frame: its outline and its name — and ＋, the one
   assert.match(frame, /data-part-name=""/);
   /* Every control drawn on the frame, by what it is marked as. */
   const controls = [...frame.matchAll(/<(?:button|a|input)\b[\s\S]*?>/g)].map((m) => /data-part-[a-z]+(?:="[a-z]*")?/.exec(m[0])?.[0] ?? m[0].slice(0, 60));
-  assert.deepEqual(controls, ['data-part-add="above"', 'data-part-add="below"'], 'the frame draws a control other than ＋');
+  /* (Re-aimed 2026-10-11, the RSVP stage's step 5c — the owner's ruling of 2026-10-09 put ＋ back on a LINE of a
+     reply page: the frame has two arms now, a line of a fixed page and a part of a stage, and each draws the same
+     two ＋. The claim stands: ＋ is the one control on the frame.) */
+  assert.deepEqual(controls, ['data-part-add="above"', 'data-part-add="below"', 'data-part-add="above"', 'data-part-add="below"'], 'the frame draws a control other than ＋');
   assert.doesNotMatch(frame, /onPointerDown|onPointerMove|touch-none|GripVertical|Trash2|ChevronUp|ChevronDown/, 'a grip, a 🗑 or a chip is back on the frame');
   /* The whole frame lets taps through to the page under it; only ＋ takes one. */
   assert.match(frame, /className="pointer-events-none fixed inset-0 z-\[86\] lg:hidden"/);
   /* Moving and removing did not go away: they are the toolbar's Edit › Earlier · Later · Remove, from the same hook. */
-  assert.match(edges, /earlier: canStep\(-1\) \? \(\) => stepMove\(-1\) : null,\s*later: canStep\(1\) \? \(\) => stepMove\(1\) : null,\s*remove: canRemove \? \(\) => setRemoving\(true\) : null,/);
+  assert.match(edges, /earlier: (?:working \? null : )?canStep\(-1\) \? \(\) => stepMove\(-1\) : null,\s*later: (?:working \? null : )?canStep\(1\) \? \(\) => stepMove\(1\) : null,\s*remove: (?:working \? null : )?canRemove \? \(\) => setRemoving\(true\) : null,/);
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /<StageEdit [^>]*earlier=\{edits\.earlier\} later=\{edits\.later\} remove=\{edits\.remove\} removeWord=\{edits\.removeWord\} /);
   /* The page's own outline is put away too — one highlight (the frame), nothing of the canvas's to press. */
@@ -188,7 +191,11 @@ test('(4) the last-used tool is remembered; a part opens on it where it works, e
   assert.match(tools, /\nlet lastTool: MakerPartTool = 'edit';/);
   assert.match(tools, /const \[tool, setToolNow\] = useState<MakerPartTool>\(lastTool\);\s*const setTool = useCallback\(\(t: MakerPartTool\) => \{\s*lastTool = t;\s*setToolNow\(t\);\s*\}, \[\]\);/);
   assert.equal((tools.match(/\blastTool = /g) ?? []).length, 1, 'the remembered tool is written somewhere else');
-  assert.equal((tools.match(/\bsetTool\(/g) ?? []).length, 1, 'the tool is set by something other than a tap on the selector');
+  /* (Re-aimed 2026-10-11, the RSVP stage's steps 5c and 7 — the approved prototype opens a line just ADDED on Edit
+     and a group just MADE on Background (`S.tool = 'edit'` / `'bg'`): the stage's list is the one other thing that
+     sets the tool, through the same remembering setter, and only when an edit of the list was made.) */
+  assert.equal((tools.match(/\bsetTool\(/g) ?? []).length, 2, 'the tool is set by something other than a tap on the selector or an edit of the RSVP stage’s list');
+  assert.match(tools, /if \(part !== pickedRef\.current\) pickPartRef\.current\(part\);\s*if \(opens\) setTool\(opens\);/);
   const pick = tools.slice(tools.indexOf('const pickTool = (t: MakerPartTool) => {'), tools.indexOf('const away = typing || playing;'));
   assert.match(pick, /if \(!toolWorks\(t\)\) return setWhy\([^;]*;\s*setTool\(t\);/, 'a grey tool is remembered');
 });

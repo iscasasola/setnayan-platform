@@ -165,5 +165,7 @@ test('7 · the Apply sheet names each stage that moved, and which way', () => {
   assert.equal(stageShowWhat({ [STAGE_SHOW_KEY]: { rsvp: false, event: true } }, { save_the_date: true, event: true }), 'Added to Save the Date, Back to our pick on Invitation');
   const live = rows();
   const lines = hubDraftChangeLines(draftOf({ widgets: { our_love_story: { stage_show: { save_the_date: false, editorial: false } } } }), { events: {}, widgets: live }, false);
-  assert.deepEqual(lines, [{ place: 'Our love story', what: 'Hidden on Save the Date, Hidden on Post Event', pro: false, held: false }]);
+  /* 🏷 Named as the Maker names the part ("You're editing · … › Love Story", `MAKER_PARTS.story`) — and as the table's
+     own row does. It was the catalogue's "Our love story" (the re-walk of 2026-10-11, R02: one name per thing). */
+  assert.deepEqual(lines, [{ place: 'Love Story', what: 'Hidden on Save the Date, Hidden on Post Event', pro: false, held: false }]);
 });

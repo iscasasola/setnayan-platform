@@ -31,7 +31,7 @@ import {
 import { postEventRun, postEventShow, type PostEventDraft } from '@/lib/post-event-draft';
 import { stageTakesOwnScenes, swapsForDrop, type MakerTile } from '@/lib/maker-scene-list';
 import type { RevealStage } from '@/lib/reveal-stages';
-import { STAGE_SHEET_ROW, partFrameEdges } from '@/lib/maker-stage-room';
+import { PART_EDGE_ROOM, STAGE_SHEET_ROW, partFrameEdges } from '@/lib/maker-stage-room';
 import { SceneTemplatePicker } from '../../website/editor/_components/scene-template-picker';
 import { MakerSheet } from './stages-studio-parts';
 import { PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, ownScenePlaceOrder } from '@/lib/own-scene-place';
@@ -495,10 +495,10 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   };
 
   const band = typeof window === 'undefined' ? null : visibleBand(frame);
-  const clampY = (y: number) => (band ? Math.max(band.top + 26, Math.min(band.bottom - 26, y)) : y);
+  const clampY = (y: number) => (band ? Math.max(band.top + PART_EDGE_ROOM, Math.min(band.bottom - PART_EDGE_ROOM, y)) : y);
   /* A ＋ sits ON the frame's edge or not at all: clamped into view it would land on the part's own content
      (owner: the lower ＋ sat on the pass's QR). Scroll the part, and its edge — and its ＋ — come back. */
-  const onEdge = (y: number) => !band || (y >= band.top + 26 && y <= band.bottom - 26);
+  const onEdge = (y: number) => !band || (y >= band.top + PART_EDGE_ROOM && y <= band.bottom - PART_EDGE_ROOM);
 
   /* The toolbar's Edit row reads these (`PartEditsNow`); `box` re-renders this as the page settles, so they stay true. */
   const canStep = (dir: -1 | 1) => Boolean(typeof document !== 'undefined' && canMove && ops && box && neighbour(ops, dir));

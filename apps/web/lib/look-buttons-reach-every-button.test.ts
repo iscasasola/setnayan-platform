@@ -143,7 +143,9 @@ test('(2) a Buttons choice reaches the rendered Reply button’s CSS', async () 
   // e · the real Reply button and the RSVP's own buttons carry those hooks.
   assert.match(raw('app/[slug]/_components/arrival-action.tsx'), /data-arrival-action=\{action\.kind\}[\s\S]*?<Link[\s\S]*?className="[^"]*\bbg-mulberry\b/);
   const rsvp = raw('app/[slug]/_components/rsvp-widget.tsx');
-  assert.match(rsvp, /<SubmitButton className="button-primary[^"]*" pendingLabel="Sending…">\s*Send my reply/, 'the RSVP’s send button is not a shared button');
+  // (`ReplySubmit` IS the shared `SubmitButton`, told when the reply card's own form is sending — reply-form.tsx.)
+  assert.match(rsvp, /<ReplySubmit className="button-primary[^"]*" pendingLabel="Sending…">\s*Send my reply/, 'the RSVP’s send button is not a shared button');
+  assert.match(raw('app/[slug]/_components/reply-form.tsx'), /return <SubmitButton \{\.\.\.props\} pending=\{sending \?\? undefined\} \/>;/, 'the reply card’s button is no longer the shared button');
   assert.match(rsvp, /data-rsvp-answer=""\s*className="flex min-h-12/, 'the RSVP answers carry no hook');
   assert.match(raw('app/[slug]/_components/rsvp-styles.tsx'), /data-rsvp-answer=\{stamp \? undefined : ''\}/);
 });

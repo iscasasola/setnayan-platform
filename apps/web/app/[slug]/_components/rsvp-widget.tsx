@@ -1,6 +1,5 @@
 import type { EventWords } from '../_lib/event-words';
 import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
-import { SubmitButton } from '@/app/_components/submit-button';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
@@ -23,6 +22,7 @@ import { stubNo } from './pahina-keepsake';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
 import type { RsvpAnswer } from '@/lib/guest-one-path';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
+import { ReplyForm, ReplySubmit } from './reply-form';
 import { RsvpOneAtATimeLive } from './rsvp-canvas-bridge';
 import { RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader } from './rsvp-styles';
 import { RSVP_FORM_LINE_ID as FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RsvpLines } from './rsvp-lines';
@@ -391,8 +391,12 @@ export function RsvpWidget({
   const [first, second] = formItems;
   const led = Boolean(first && second && !rsvpLayoutIsGroup(first) && !rsvpLayoutIsGroup(second) && first.line === 'eyebrow' && second.line === 'question');
 
+  /* 🔌 `ReplyForm` IS THE CARD'S `<form>` — the same element and attributes, with the press caught: a send that
+     fails (offline, 5xx, a throw) or does not answer in time leaves this form mounted with everything typed and
+     says so under the button, instead of the error screen that unmounted it. Without script it is the plain form
+     post it always was. `reply-form.tsx` · `lib/reply-send.ts`. */
   return (
-    <form action={action} className="rsvp-form space-y-6">
+    <ReplyForm action={action} className="rsvp-form space-y-6">
       {/* FIRST in the form: the one-question progress sits above everything
           the guest reads (rsvp-one-at-a-time.tsx, "THE SCREEN'S ORDER"). */}
       {previewEveryQuestion ? <RsvpOneAtATimeLive initial={oneAtATime} hint={answerWords?.hint} /> : oneAtATime ? <RsvpOneAtATime hint={answerWords?.hint} /> : null}
@@ -785,12 +789,12 @@ export function RsvpWidget({
            the-rsvp-page-follows-the-maker.test.ts § 9. */
         <div className="space-y-5">
           <TermsTick />
-          <SubmitButton className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
+          <ReplySubmit className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
             Send my reply
-          </SubmitButton>
+          </ReplySubmit>
         </div>
       ) : (
-      <SubmitButton
+      <ReplySubmit
         className="button-primary min-h-[44px] w-full sm:w-auto"
         pendingLabel={replyLocked ? 'Saving details…' : 'Saving RSVP…'}
       >
@@ -799,10 +803,10 @@ export function RsvpWidget({
         ) : (
           'Save RSVP'
         )}
-      </SubmitButton>
+      </ReplySubmit>
       )}
       </div>
-    </form>
+    </ReplyForm>
   );
 }
 
@@ -898,7 +902,7 @@ function RsvpFocusForm({
   );
   return (
     <>
-      <form action={action} className="rsvp-form space-y-6" data-rsvp-focus>
+      <ReplyForm action={action} className="rsvp-form space-y-6" data-rsvp-focus>
         {oneAtATime ? <RsvpOneAtATime /> : null}
         {flash ? (
           <p
@@ -968,22 +972,22 @@ function RsvpFocusForm({
         ) : null}
         <div data-rsvp-step className="space-y-5">
           <TermsTick />
-          <SubmitButton className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
+          <ReplySubmit className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
             Send
-          </SubmitButton>
+          </ReplySubmit>
         </div>
-      </form>
+      </ReplyForm>
       {guest.rsvp_status === 'attending' ? (
-        <form action={action} className="mt-3 text-center" data-rsvp-decline>
+        <ReplyForm action={action} className="mt-3 text-center" data-rsvp-decline>
           {carried(true)}
-          <SubmitButton
+          <ReplySubmit
             overlay={false}
             className="min-h-[44px] text-sm text-ink/70 underline-offset-4 hover:underline"
             pendingLabel="Saving…"
           >
             Not coming after all?
-          </SubmitButton>
-        </form>
+          </ReplySubmit>
+        </ReplyForm>
       ) : null}
     </>
   );

@@ -10,6 +10,8 @@ import { revalidatePath } from 'next/cache';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { eventAddressUnread } from '@/lib/guest-read';
+import { withSchemaRetry } from '@/lib/read-retry';
 import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import { planFaceSelfieDelete } from '@/lib/face-data-retention-core';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -255,7 +257,9 @@ export async function submitRsvp(
       .select('slug')
       .eq('event_id', eventId)
       .maybeSingle();
-    redirect(ev?.slug ? (toInvite ? `/${ev.slug}/invite` : `/${ev.slug}`) : '/');
+    // 🔌 Never the site's home (lib/guest-read.ts `eventAddressUnread`): nothing
+    // has been written yet, so "not sent" is the truth.
+    redirect(ev?.slug ? (toInvite ? `/${ev.slug}/invite` : `/${ev.slug}`) : eventAddressUnread('submitRsvp · session'));
   }
 
   // 📵 No reply carries a face (owner 2026-09-30): every selfie field a crafted
@@ -370,11 +374,24 @@ export async function submitRsvp(
   // action writes with the ADMIN client. Its own header names "the guest
   // self-RSVP portal" as a path it covers; that is the one path it cannot fire
   // on. Until that is reconciled at the database, this IS the enforcement.
-  const { data: evRsvp } = await admin
-    .from('events')
-    .select('slug, event_date, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // 🔌 THIS READ IS THE ONE THE WHOLE SAVE STANDS ON, SO IT IS AN HONEST ONE
+  // (2026-10-11). Its `error` used to be thrown away, and a failed read then
+  // meant three wrong things at once: a FINAL guest list was treated as open
+  // (`replyLocked` false — the answer written into a closed list), a question
+  // the couple switched off was treated as asked, and every redirect below fell
+  // back to the site's home. It is retried through a blip, and a read that
+  // still failed — or an event with no address — stops the save HERE, before
+  // anything is written: the guest is told it was not sent, and it was not.
+  const { data: evRsvp, error: evRsvpError } = await withSchemaRetry(() =>
+    admin
+      .from('events')
+      .select('slug, event_date, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
+  if (evRsvpError) logQueryError('submitRsvp (event)', evRsvpError, { event_id: eventId }, 'will_throw');
+  /** The event's address, read BEFORE the write — every redirect after it can use this one. */
+  const replySlug: string = evRsvpError || !evRsvp?.slug ? eventAddressUnread('submitRsvp · event') : evRsvp.slug;
   const replyLocked = guestListIsClosed({
     lockedAt: evRsvp?.guest_count_locked_at,
   });
@@ -428,7 +445,7 @@ export async function submitRsvp(
   // CHECK are untouched — the couple's Guest list can still set 'maybe'.
   if (!replyLocked && status === 'maybe' && before?.rsvp_status !== 'maybe') {
     if (toInvite && evRsvp?.slug) redirect(`${inviteReplyPath(evRsvp.slug)}?rsvp=choose`);
-    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=choose` : '/');
+    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=choose` : eventAddressUnread('submitRsvp · choose'));
   }
 
   // 📱 A NUMBER THE COUPLE ASKS FOR IS ASKED OF SOMEBODY WHO IS COMING — AND
@@ -443,7 +460,7 @@ export async function submitRsvp(
   // gate never closes — takes no new requirement.
   if (!replyLocked && status === 'attending' && ask.mobile && !contactMobile) {
     if (toInvite && evRsvp?.slug) redirect(`${inviteReplyPath(evRsvp.slug)}?rsvp=mobile`);
-    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=mobile` : '/');
+    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=mobile` : eventAddressUnread('submitRsvp · mobile'));
   }
 
   let answerRefused = false;
@@ -550,7 +567,11 @@ export async function submitRsvp(
       .maybeSingle();
     // From the invite arrival, back to the Reply door to try again.
     if (toInvite && evFail?.slug) redirect(`${inviteReplyPath(evFail.slug)}?rsvp=error`);
-    redirect(evFail?.slug ? `/${evFail.slug}?rsvp=error` : '/');
+    // 🔌 This second read can fail too (the write just did). The address read
+    // before the write is still good — the guest goes back to the SAME card,
+    // told the reply was not saved, never to the site's home.
+    if (toInvite && !evFail?.slug) redirect(`${inviteReplyPath(replySlug)}?rsvp=error`);
+    redirect(evFail?.slug ? `/${evFail.slug}?rsvp=error` : `/${replySlug}?rsvp=error`);
   }
 
   // Smart seat-plan Phase 5 (gap G2): a guest confirming from their own invite
@@ -807,7 +828,12 @@ export async function submitRsvp(
   // guard (only-the-answer-freezes.test.ts, "replying lands the guest on the
   // event hub") pins it, and adding a branch ahead of it re-points no guard.
   if (toInvite && ev?.slug) redirect(`${inviteEnterPath(ev.slug)}?rsvp=${outcome}`);
-  redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : '/');
+  // 🔌 THE REPLY IS SAVED BY NOW. If the read just above failed, the guest still
+  // goes where a saved reply goes — by the address read BEFORE the write. Never
+  // the site's home, and never a throw: a throw here would tell a guest whose
+  // reply landed that it was not sent.
+  if (toInvite && !ev?.slug) redirect(`${inviteEnterPath(replySlug)}?rsvp=${outcome}`);
+  redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : `/${replySlug}?rsvp=${outcome}`);
 }
 
 /**

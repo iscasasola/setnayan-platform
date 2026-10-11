@@ -38,7 +38,7 @@ test('THE PAGE: for every cover and every design, one name is drawn with no join
   const draw = (displayName: string, extra: Record<string, unknown>) =>
     renderToStaticMarkup(React.createElement(PahinaMasthead, { displayName, eventDate: '2026-12-18', twoPeople: true, ...extra }));
   for (const line of ONE_NAME) {
-    for (const design of HERO_DESIGNS.map((d) => d.id)) {
+    for (const design of HERO_DESIGNS) {
       for (const cover of [{ card: CARD }, {}] as const) {
         for (const maker of [false, true]) {
           const html = draw(line, { design, stampElements: maker, ...cover });
@@ -53,6 +53,11 @@ test('THE PAGE: for every cover and every design, one name is drawn with no join
   }
   /* The control: two names DO draw one. */
   assert.match(draw('Maria & Jose', { card: CARD, stampElements: true }), /data-el="joiner"[^>]*>and</);
+  for (const design of HERO_DESIGNS) {
+    const two = draw('Maria & Jose', { design, card: CARD, stampElements: true });
+    assert.match(two, /data-el="joiner"/, `anti-vacuity: ${design} draws no joiner part for two names`);
+    assert.match(two, /data-el-person="1"/, `anti-vacuity: ${design} draws no second name`);
+  }
 });
 
 /* ── the Maker's canvas, on a cover drawn for TWO people ───────────────────────────────────────────────────────── */

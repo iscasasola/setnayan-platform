@@ -46,3 +46,41 @@ first load among them. A page that 404s in production is still compiled.
   from `lib/hub-draft.ts` but five small names, and none of the engine's files is reachable from a `'use client'` file.
 
 SPEC IMPACT: None.
+
+## 2026-10-11 · fix(maker): one press is one Undo step, ＋ adds where it is seen, a control is busy until the page shows it, no "and" over nothing
+
+The owner ran the new Maker (Stages | Studio, phone width) against his real test event and hit four faults. The
+independent walk reproduced all of them on base `97b72be68` too — none was introduced by Batch B, none reaches a guest.
+
+- **"pressed undo twice before it reversed that edit"** — two causes.
+  ＋ ran the move and then the eye: two saves, so two entries in the draft's `history` for one press. It is one
+  patch now (`stageAddPatch` in `lib/maker-reorder.ts`, sent by the work area's `addHere`).
+  And ↺ answered in a moment while the page showed it seconds later (the Maker's render, then the canvas reload);
+  in that gap ↺ was live again with nothing changed on screen, so the second press was a second undo. The bar now
+  stays busy from the press until the page on show is the new one (`lib/maker-settle.ts` — watched outside the
+  transition, which must end for the Maker's render to commit), and Undo · Reset answer with the bar of the draft
+  they just wrote (`answerWithBar` in `hub-draft-actions.ts`), so ✓ shows the step when the action answers.
+- **"it did say venue added but i do not see it"** — the draft's `null` over a published hide IS read as shown; the
+  Venue was drawn, on Details, where the canvas files it. He was on Welcome, where ＋ had offered it. ＋ now offers
+  a part only on the page that draws it (`makerPartOffers` `onThisPage`), and once the page shows the added part it
+  is scrolled onto the screen.
+- **"a pop up says it moved but didn't"** — the toast was said at the press and every step stayed live. Earlier ·
+  Later · ＋ now hold the row busy until the page shows it, a second press says "One moment — the page is catching
+  up." instead of acting, and "moved" / "added" is said only then.
+- **the stray "and"** — typing one name into a two-name cover left the joiner standing over an empty second name,
+  on the canvas only (a guest's page draws a joiner only with a second name; reopening the Maker cleared it). The
+  canvas now splits the typed names by the page's own rule (`lib/couple-names.ts`, moved out of the masthead) and
+  puts the joiner away when there is no second name.
+
+Words added, all in the Maker: "Undoing — one moment" (why ↺ is off while it works) · "One moment — the page is
+catching up." (a step pressed while one is on its way). On Welcome, ＋ no longer lists parts that live on Details.
+
+The dev lab could not have caught these: nothing was ever published under its draft. Its ✓ now publishes into a
+lab-only published state through the real planner (`planHubDraftApply`), so "hide is published, then ＋" can be
+walked; `?unpublish=1` clears it.
+
+Tests: `lib/one-press-is-one-undo-step.test.ts` · `lib/maker-settle.test.ts` ·
+`lib/a-joiner-never-stands-over-nothing.test.ts` · `app/dev/maker-lab/lab-draft.test.ts`. Ten older tests pinned the
+exact text of lines this changed; each was re-aimed at the property it holds.
+
+SPEC IMPACT: None.

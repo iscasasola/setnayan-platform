@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { chapterHasReadableContent } from '@/lib/creator-chapters';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * Setnayan HQ · Storytellers actions — curate which PUBLISHED creator chapters
@@ -179,6 +180,8 @@ export async function setChapterFeatured(formData: FormData) {
         updated_at: new Date().toISOString(),
       })
       .eq('public_id', publicId);
+    // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+    clearHomeShelf('stories');
     if (error) redirectBack('error', error.message, publicId);
 
     await admin.from('admin_audit_log').insert({
@@ -214,6 +217,8 @@ export async function setChapterFeatured(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('public_id', publicId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('stories');
   if (error) redirectBack('error', error.message, publicId);
 
   await admin.from('admin_audit_log').insert({

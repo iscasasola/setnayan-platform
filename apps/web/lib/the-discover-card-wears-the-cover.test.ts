@@ -269,7 +269,12 @@ test("a theme's still is worn under the hub's own scrim", () => {
 // ─── 2 · ONE RESOLVER ──────────────────────────────────────────────────────
 
 const WEB = join(__dirname, '..');
-const LOADER = stripComments(readFileSync(join(WEB, 'lib/discover-events.ts'), 'utf8'));
+// ⚡ 2026-10-11 — the loader is TWO files: the cover's ROW read (and the
+// `COVER_COLUMNS` it selects) moved to `lib/home-public-reads-core.ts`, where it
+// is remembered; the cover itself is still dressed in `lib/discover-events.ts`.
+const LOADER =
+  stripComments(readFileSync(join(WEB, 'lib/discover-events.ts'), 'utf8')) +
+  stripComments(readFileSync(join(WEB, 'lib/home-public-reads-core.ts'), 'utf8'));
 const CORE = stripComments(readFileSync(join(WEB, 'lib/discover-events-core.ts'), 'utf8'));
 const SHELVES = stripComments(readFileSync(join(WEB, 'app/_components/frontdoor/front-door-discover.tsx'), 'utf8'));
 
@@ -343,6 +348,6 @@ test('the core never fills a cover — and an unlisted event is never a card to 
   assert.deepEqual(out.world.map((c) => [c.key, c.scene, c.paper]), [['pub', null, null]]);
   // The loader dresses exactly the shelved cards, after the allow-list ran.
   const select = LOADER.indexOf('selectDiscoverShelves({');
-  const dress = LOADER.indexOf('await dressCards(admin, [...shelves.people, ...shelves.world])');
+  const dress = LOADER.indexOf('await dressCards([...shelves.people, ...shelves.world])');
   assert.ok(select > -1 && dress > select, 'covers must be read only for cards that passed selectDiscoverShelves');
 });

@@ -514,9 +514,25 @@ test('the rail and explore both read the shared folder count', () => {
 test('the storyteller count comes from the read result, not the array length', () => {
   const data = code(readFileSync(join(HERE, 'data.ts'), 'utf8'));
 
+  /*
+    ⚡ 2026-10-11 — the read is REMEMBERED now, so it reaches this file through
+    `rememberedFeaturedChapters`. The property is unchanged and held one step
+    further back: the remembered read is built on the result-returning loader
+    and THROWS when that loader reports failure, so a failed read is neither
+    remembered nor counted as zero — it arrives here as `ok: false`.
+  */
+  const LIB = join(HERE, '..', '..', '..', 'lib');
+  const wired = code(readFileSync(join(LIB, 'home-public-reads.ts'), 'utf8'));
+  const reads = code(readFileSync(join(LIB, 'home-public-reads-core.ts'), 'utf8'));
   assert.ok(
-    /loadFeaturedChaptersResult/.test(data),
+    /rememberedFeaturedChapters\(/.test(data) &&
+      /featuredChapters:\s*loadFeaturedChaptersResult/.test(wired) &&
+      /if \(!result\.ok\) throw new ReadRefused\(/.test(reads),
     'the front door must use the result-returning loader, which reports failure',
+  );
+  assert.ok(
+    /rememberedFeaturedChapters\(24\)\.then\(\s*\(items\) => \(\{ items, ok: true \}\),\s*\(\) => \(\{ items: \[\], ok: false \}\),?\s*\)/.test(data),
+    'a refused chapters read must reach the front door as ok: false, never as an empty shelf',
   );
 
   /*

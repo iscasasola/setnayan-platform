@@ -3,6 +3,18 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import {
+  candidateEvents,
+  coverColumns,
+  rememberedCoverRows,
+  rememberedHostRows,
+  rememberedPublicPeople,
+  rememberedWorldCandidates,
+  type CoverRow,
+  type CoverRows,
+  type HostRows,
+} from '@/lib/home-public-reads';
+import { ReadRefused, asRead, stableIds } from '@/lib/remembered-read-core';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { confirmedConnectionUserIds } from '@/lib/your-people';
 import { filterPubliclyVisibleEvents } from '@/lib/public-profile';
@@ -69,6 +81,17 @@ import {
  * vocabulary (React-cached). Signed in: up to 5 more, each small and scoped to
  * the viewer's own ids. The covers add one presign per card with a hero photo,
  * and — only for a Pro theme — the hub's ownership read (`resolveHubLook`).
+ *
+ * ─── ⚡ WHAT IS REMEMBERED, AND WHAT NEVER IS (2026-10-11) ─────────────────
+ * The reads that are the same for every visitor live in
+ * `lib/home-public-reads.ts` and are remembered for 60 s: the world's candidate
+ * rows, the listed events' hosts, the rows a cover is drawn from, the public
+ * profiles. They are ROWS — every decision still runs here, per view, over
+ * them: the public gate, the layers, whether a host's name may be shown, the
+ * cover (and the ownership read behind a paid look), every signed address.
+ * ⛔ Never remembered: anything read with the viewer's id or session — their
+ * follows, unfollows, memberships, connections, region, their people's events —
+ * and nothing asked through the session client (the event-type gate and labels).
  */
 
 export type ShelfState<T> = { status: 'ok'; items: T[] } | { status: 'unavailable' };
@@ -95,12 +118,7 @@ export type DiscoverData = {
 
 const UNAVAILABLE = { status: 'unavailable' } as const;
 
-/** Every `events` column the core reads. `rsvp_ask_config` is reduced to one boolean there. */
-const DISCOVER_EVENT_COLUMNS =
-  'event_id, slug, display_name, event_date, event_end_date, event_date_precision, event_type, region, archived, landing_page_visibility, scheduled_launch_at, monogram_text, rsvp_ask_config';
-
-/** How many rows each candidate read pulls before the core caps the shelf. */
-const WORLD_CANDIDATES = 60;
+/** How many rows each viewer-shaped candidate read pulls before the core caps the shelf. */
 const REGION_CANDIDATES = 24;
 const PEOPLE_CANDIDATES = 60;
 /** Same bound the People page lists at (`FOLLOW_LIST_LIMIT`). */
@@ -110,26 +128,9 @@ const MAX_MEMBERSHIPS = 500;
 type Session = Awaited<ReturnType<typeof createClient>>;
 type Admin = ReturnType<typeof createAdminClient>;
 
-/**
- * The candidate read, written once. ⚠ Only the SHAPE of the allow-list is
- * pushed into SQL (public · not archived · has a slug · last day not before
- * today) so the limit spends itself on real candidates; the core re-checks
- * every condition, so this cannot widen anything on its own.
- *
- * A private event whose scheduled launch is due but whose page nobody has
- * opened yet is not fetched: `/{slug}` flips the stored value on its first
- * read (`publishSaveTheDate`), and the event lists from then on.
- */
-function candidateEvents(admin: Admin, todayISO: string) {
-  return admin
-    .from('events')
-    .select(DISCOVER_EVENT_COLUMNS)
-    .eq('landing_page_visibility', 'public')
-    .not('slug', 'is', null)
-    .not('archived', 'is', true)
-    .or(`event_date.gte.${todayISO},event_end_date.gte.${todayISO}`)
-    .order('event_date', { ascending: true });
-}
+/* `candidateEvents` — the one candidate read — moved to `lib/home-public-reads.ts`
+   with the world shelf's remembered read; the viewer-shaped reads below (their
+   region, their people's events) still build on it, unremembered. */
 
 type ViewerGraph =
   | { ok: false }
@@ -237,51 +238,36 @@ async function readViewerRegion(
   );
 }
 
-/** Hosts (`member_type = 'couple'`) of the listed events, with PUBLIC names only. */
-async function readHosts(
-  admin: Admin,
-  eventIds: string[],
-): Promise<Map<string, DiscoverHost[]> | null> {
+/**
+ * Hosts (`member_type = 'couple'`) of the listed events, with PUBLIC names only.
+ * The two row reads are remembered (`rememberedHostRows`); the rule that a name
+ * travels only with a public profile is applied HERE, on every view.
+ */
+async function readHosts(eventIds: string[]): Promise<Map<string, DiscoverHost[]> | null> {
   const out = new Map<string, DiscoverHost[]>();
   if (eventIds.length === 0) return out;
-  const { data: rows, error } = await admin
-    .from('event_members')
-    .select('event_id, user_id, joined_at')
-    .in('event_id', eventIds)
-    .eq('member_type', 'couple')
-    .order('joined_at', { ascending: true });
-  if (error) {
-    logQueryError('discover-events.hosts', error, {}, 'graceful_degrade');
+  let rows: HostRows;
+  try {
+    rows = await rememberedHostRows(stableIds(eventIds));
+  } catch (caught) {
+    // Refused ⇒ nothing was remembered. Logged under the name each read always had.
+    const refused = caught instanceof ReadRefused ? caught : null;
+    const reason = refused?.reason ?? caught;
+    if (refused?.site === 'hostNames') logQueryError('discover-events.hostNames', reason, {}, 'graceful_degrade');
+    else logQueryError('discover-events.hosts', reason, {}, 'graceful_degrade');
     return null;
   }
-  const members = ((rows ?? []) as Array<{ event_id: string; user_id: string | null }>).filter(
+  const members = rows.members.filter(
     (r): r is { event_id: string; user_id: string } => !!r.user_id,
   );
-  const ids = [...new Set(members.map((m) => m.user_id))];
   const profile = new Map<string, { name: string | null; slug: string | null }>();
-  if (ids.length > 0) {
-    const { data: users, error: usersError } = await admin
-      .from('users')
-      .select('user_id, display_name, slug, public_profile_enabled, deleted_at')
-      .in('user_id', ids);
-    if (usersError) {
-      logQueryError('discover-events.hostNames', usersError, {}, 'graceful_degrade');
-      return null;
-    }
-    for (const u of (users ?? []) as Array<{
-      user_id: string;
-      display_name: string | null;
-      slug: string | null;
-      public_profile_enabled: boolean | null;
-      deleted_at: string | null;
-    }>) {
-      // ⛔ A name travels ONLY with a public profile — see `pickHost` in the core.
-      const isPublic = u.public_profile_enabled === true && !u.deleted_at && !!u.slug;
-      profile.set(u.user_id, {
-        name: isPublic ? u.display_name : null,
-        slug: isPublic ? u.slug : null,
-      });
-    }
+  for (const u of rows.users) {
+    // ⛔ A name travels ONLY with a public profile — see `pickHost` in the core.
+    const isPublic = u.public_profile_enabled === true && !u.deleted_at && !!u.slug;
+    profile.set(u.user_id, {
+      name: isPublic ? u.display_name : null,
+      slug: isPublic ? u.slug : null,
+    });
   }
   for (const m of members) {
     const p = profile.get(m.user_id);
@@ -292,34 +278,9 @@ async function readHosts(
   return out;
 }
 
-/**
- * Every column `resolveEventPoster` reads, plus the hero photo it is handed and
- * the two logo columns the paper card's mark is resolved from
- * (`resolveEventMonogramSvg` — custom, then uploaded; both read, always).
- */
-const COVER_COLUMNS =
-  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, site_bg_color, site_button_color, site_font_key, site_art_direction';
-
-type CoverRow = {
-  event_id: string;
-  display_name: string | null;
-  event_date: string | null;
-  venue_name: string | null;
-  event_type: string | null;
-  monogram_text: string | null;
-  monogram_color: string | null;
-  invite_theme: string | null;
-  std_background: unknown;
-  landing_page_hero_image_url: string | null;
-  monogram_custom_svg: string | null;
-  monogram_uploaded_svg: string | null;
-  landing_page_hero_video_r2_key: string | null;
-  role_palette: unknown;
-  site_bg_color: string | null;
-  site_button_color: string | null;
-  site_font_key: string | null;
-  site_art_direction: string | null;
-};
+/* `COVER_COLUMNS` and `CoverRow` — every column `resolveEventPoster` reads, the
+   hero photo it is handed and the two logo columns — moved to
+   `lib/home-public-reads.ts` with the shelved cards' remembered row read. */
 
 /**
  * 🖼 THE CARD WEARS THE EVENT'S COVER — the dashboard card's, not a second one.
@@ -355,33 +316,36 @@ type CoverRow = {
  * listed ever has its hero read or presigned here. A refused read costs only
  * the picture — the card keeps its mark, logged — never the card.
  */
-async function dressCards(admin: Admin, cards: DiscoverEventCard[]): Promise<void> {
-  const ids = [...new Set(cards.map((c) => c.key))];
+async function dressCards(cards: DiscoverEventCard[]): Promise<void> {
+  const ids = stableIds(cards.map((c) => c.key));
   if (ids.length === 0) return;
-  const { data, error } = await admin.from('events').select(COVER_COLUMNS).in('event_id', ids);
-  if (error) {
-    logQueryError('discover-events.covers', error, {}, 'graceful_degrade');
-    return;
-  }
-  // The PUBLISHED hero row carries the Main background (`config_json.main`).
-  // A refused read costs only that background — the rest of the card stands.
-  const heroConfigById = new Map<string, unknown>();
-  const { data: heroRows, error: heroError } = await admin
-    .from('invitation_widgets')
-    .select('event_id, config_json')
-    .eq('widget_type', 'hero')
-    .in('event_id', ids);
-  if (heroError) {
-    logQueryError('discover-events.mainGrounds', heroError, {}, 'graceful_degrade');
-  } else {
-    for (const w of (heroRows ?? []) as Array<{ event_id: string; config_json: unknown }>) {
-      heroConfigById.set(w.event_id, w.config_json);
+  /*
+    ⚡ THE ROWS ARE REMEMBERED; THE COVER IS NOT. Both row reads — the published
+    event columns and the LIVE hero rows (`config_json.main`) — are the same for
+    every visitor (`rememberedCoverRows`). `dressEventCover` below still runs on
+    every view, so the theme gate, the ownership read behind a paid look and
+    each signed address are asked now, for this request.
+  */
+  let rows: CoverRows;
+  try {
+    rows = await rememberedCoverRows(ids);
+  } catch (caught) {
+    const partial = caught instanceof ReadRefused ? (caught.partial as CoverRows | undefined) : undefined;
+    const reason = caught instanceof ReadRefused && caught.reason ? caught.reason : caught;
+    if (!partial) {
+      logQueryError('discover-events.covers', reason, {}, 'graceful_degrade');
+      return;
     }
+    // A refused hero read costs only the Main background — the rest of the card stands.
+    logQueryError('discover-events.mainGrounds', reason, {}, 'graceful_degrade');
+    rows = partial;
   }
+  const heroConfigById = new Map<string, unknown>();
+  for (const w of rows.heroes) heroConfigById.set(w.event_id, w.config_json);
   const scenes = new Map<string, DiscoverScene>();
   const papers = new Map<string, DiscoverPaper>();
   await Promise.all(
-    ((data ?? []) as unknown as CoverRow[]).map(async (r) => {
+    rows.covers.map(async (r) => {
       const dressed = await dressEventCover(r, heroConfigById.get(r.event_id) ?? null);
       if (dressed.scene) scenes.set(r.event_id, dressed.scene);
       else if (dressed.paper) papers.set(r.event_id, dressed.paper);
@@ -501,7 +465,7 @@ export async function dressEventCover(r: CoverRow, heroConfig: unknown): Promise
  */
 export async function readEventCover(admin: Admin, eventId: string): Promise<DressedEventCover | null> {
   const [ev, hero] = await Promise.all([
-    admin.from('events').select(COVER_COLUMNS).eq('event_id', eventId).maybeSingle(),
+    admin.from('events').select(coverColumns()).eq('event_id', eventId).maybeSingle(),
     admin.from('invitation_widgets').select('config_json').eq('event_id', eventId).eq('widget_type', 'hero').maybeSingle(),
   ]);
   if (ev.error || !ev.data) {
@@ -537,7 +501,9 @@ async function readEventShelves(
   const peopleIds = graph ? [...graph.people.keys()].slice(0, MAX_PEOPLE_IDS) : [];
 
   const [world, inRegion, hostedByPeople] = await Promise.all([
-    candidateEvents(admin, todayISO).limit(WORLD_CANDIDATES),
+    // ⚡ The world's candidates are the same for every visitor — remembered.
+    // The two reads beside it are shaped by the viewer and are asked every time.
+    asRead(rememberedWorldCandidates(todayISO)),
     region
       ? candidateEvents(admin, todayISO)
           .in('region', [region.slug, ...region.aliases])
@@ -588,7 +554,7 @@ async function readEventShelves(
   const all: DiscoverEventRow[] = [
     ...peopleRows,
     ...((inRegion?.data ?? []) as unknown as DiscoverEventRow[]),
-    ...((world.data ?? []) as unknown as DiscoverEventRow[]),
+    ...(world.data ?? []),
   ];
 
   // THE public gate — the same function the public profile asks. Adds the
@@ -601,7 +567,7 @@ async function readEventShelves(
   );
 
   const [hosts, typeLabels] = await Promise.all([
-    readHosts(admin, [...new Set(gated.map((e) => e.event_id))]),
+    readHosts([...new Set(gated.map((e) => e.event_id))]),
     readTypeLabels(),
   ]);
   // Without the hosts no event can be placed in its layer honestly.
@@ -617,14 +583,13 @@ async function readEventShelves(
     now: Date.now(),
     typeLabels,
   });
-  await dressCards(admin, [...shelves.people, ...shelves.world]).catch((caught) =>
+  await dressCards([...shelves.people, ...shelves.world]).catch((caught) =>
     logQueryError('discover-events.covers', caught, {}, 'graceful_degrade'),
   );
   return { ok: true, ...shelves };
 }
 
 async function readPeopleToFollow(
-  admin: Admin,
   me: string | null,
   graph: Extract<ViewerGraph, { ok: true }> | null,
 ): Promise<ShelfState<PersonToFollowCard>> {
@@ -632,29 +597,19 @@ async function readPeopleToFollow(
     ...(graph?.followed ?? []),
     ...(graph?.unfollowed ?? []),
   ]);
-  const { data, error } = await admin
-    .from('users')
-    .select('user_id, slug, display_name, followers_count, public_id, public_profile_enabled, deleted_at, profile_photo_url')
-    .eq('public_profile_enabled', true)
-    .is('deleted_at', null)
-    .not('slug', 'is', null)
-    .order('followers_count', { ascending: false })
-    // Enough rows that excluding everybody already followed still fills the shelf.
-    .limit(DISCOVER_CAPS.peopleToFollow + exclude.size + 1);
-  if (error) {
+  // ⚡ The most-followed public profiles are the same rows for every visitor —
+  // remembered, keyed by how many are asked for. Who is left out (the viewer,
+  // anybody they follow or once unfollowed) is decided below, per view; each
+  // photo's address is signed per view.
+  // Enough rows that excluding everybody already followed still fills the shelf.
+  const { data, error } = await asRead(
+    rememberedPublicPeople(DISCOVER_CAPS.peopleToFollow + exclude.size + 1),
+  );
+  if (error || !data) {
     logQueryError('discover-events.peopleToFollow', error, {}, 'graceful_degrade');
     return UNAVAILABLE;
   }
-  const rows = (data ?? []) as Array<{
-    user_id: string;
-    slug: string | null;
-    display_name: string | null;
-    followers_count: number | null;
-    public_id: string | null;
-    public_profile_enabled: boolean | null;
-    deleted_at: string | null;
-    profile_photo_url: string | null;
-  }>;
+  const rows = data;
   const photoRef = new Map(rows.map((r) => [r.user_id, r.profile_photo_url]));
   const candidates: PersonCandidate[] = rows.map((r) => ({
     userId: r.user_id,
@@ -722,7 +677,7 @@ export async function loadDiscover(): Promise<DiscoverData> {
   if (!me) {
     const [shelves, peopleToFollow] = await Promise.all([
       readEventShelves(admin, null, null, todayISO).catch(() => ({ ok: false }) as const),
-      readPeopleToFollow(admin, null, null).catch(() => UNAVAILABLE),
+      readPeopleToFollow(null, null).catch(() => UNAVAILABLE),
     ]);
     return {
       signedIn: false,
@@ -750,7 +705,7 @@ export async function loadDiscover(): Promise<DiscoverData> {
   const viewerRegion = await readViewerRegion(admin, graph.memberships).catch(() => null);
   const [shelves, peopleToFollow] = await Promise.all([
     readEventShelves(admin, graph, viewerRegion, todayISO).catch(() => ({ ok: false }) as const),
-    readPeopleToFollow(admin, me, graph).catch(() => UNAVAILABLE),
+    readPeopleToFollow(me, graph).catch(() => UNAVAILABLE),
   ]);
 
   return {

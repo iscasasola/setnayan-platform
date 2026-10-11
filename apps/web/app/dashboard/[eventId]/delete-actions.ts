@@ -25,6 +25,7 @@ import {
 } from '@/lib/event-deletion-reasons';
 import { emitNotification } from '@/lib/notification-emit';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * delete-actions.ts — removing a celebration for good.
@@ -715,6 +716,8 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
     .delete()
     .eq('event_id', eventId)
     .select('event_id');
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('events');
 
   if (error) {
     console.error('[delete-event] delete failed', error);

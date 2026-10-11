@@ -1,0 +1,75 @@
+# home-shelf-writes.baseline.txt — GENERATED. Regenerate, never hand-merge:
+#   UPDATE_HOME_SHELF_BASELINE=1 ../../node_modules/.bin/tsx --test lib/home-shelf-writes-clear.test.ts
+#
+# Each line is a file that writes a column the home page remembers WITHOUT clearing it
+# (lib/home-shelf-tags.ts HOME_SHELF_DEPENDS): kind, table, file, number of such writes.
+#   waits       the write names a column that changes how a card LOOKS (a name, a date, a cover).
+#   unreadable  the write's columns are a variable or a spread, so this scan cannot tell.
+# Either way the home page may show the old value for at most the hard age (300 s).
+# A write that takes something DOWN (visibility, archive, delete, a profile going private)
+# is never listed here — it must call clearHomeShelf, and the test fails if it does not.
+unreadable	creator_chapters	app/dashboard/(account)/creator/actions.ts	3
+unreadable	events	app/admin/events/actions.ts	1
+unreadable	events	app/admin/pakanta/actions.ts	1
+unreadable	events	app/api/oauth/drive/disconnect/route.ts	2
+unreadable	events	app/dashboard/(account)/create-event/actions.ts	2
+unreadable	events	app/dashboard/(account)/profile/concierge/actions.ts	2
+unreadable	events	app/dashboard/[eventId]/actions.ts	2
+unreadable	events	app/dashboard/[eventId]/monogram/commit-actions.ts	1
+unreadable	events	app/dashboard/[eventId]/pabuya/actions.ts	1
+unreadable	events	app/dashboard/[eventId]/studio/mood-board/actions.ts	2
+unreadable	events	app/dashboard/[eventId]/studio/papic/actions.ts	1
+unreadable	events	app/dashboard/[eventId]/studio/save-the-date/actions.ts	1
+unreadable	events	app/dashboard/[eventId]/website/colors/actions.ts	1
+unreadable	events	app/dashboard/[eventId]/website/editor/actions.ts	1
+unreadable	events	app/dashboard/[eventId]/website/hub-draft-actions.ts	1
+unreadable	events	app/dashboard/[eventId]/website/site-chrome/actions.ts	1
+unreadable	events	app/onboarding/_shared/commit-event.ts	1
+unreadable	events	app/onboarding/simple/actions.ts	1
+unreadable	events	app/onboarding/wedding/actions.ts	1
+unreadable	events	lib/erasure/purge.ts	1
+unreadable	events	lib/photo-delivery-release.ts	1
+unreadable	invitation_widgets	app/dashboard/[eventId]/website/hub-draft-actions.ts	1
+unreadable	invitation_widgets	app/dashboard/[eventId]/website/widgets/actions.ts	2
+unreadable	users	app/dashboard/(account)/profile/actions.ts	2
+unreadable	users	app/signup/actions.ts	2
+unreadable	users	app/signup/you/actions.ts	1
+unreadable	users	lib/link-guest-account.ts	1
+unreadable	users	lib/open-shop-account.server.ts	1
+unreadable	users	lib/tour-actions.ts	2
+unreadable	vendor_profiles	app/admin/corrections/actions.ts	1
+unreadable	vendor_profiles	app/admin/verify/actions.ts	2
+unreadable	vendor_profiles	app/api/admin/cron/dispute-counter/route.ts	2
+unreadable	vendor_profiles	app/open-shop/actions.ts	1
+unreadable	vendor_profiles	app/vendor-dashboard/actions.ts	2
+unreadable	vendor_profiles	app/vendor-dashboard/shop/inline-docs-actions.ts	1
+unreadable	vendor_profiles	app/vendor-dashboard/shop/public-line-actions.ts	1
+unreadable	vendor_profiles	lib/erasure/purge.ts	1
+unreadable	vendor_profiles	lib/sku-activation.ts	3
+waits	creator_chapters	app/admin/storytellers/actions.ts	1
+waits	events	app/dashboard/[eventId]/actions.ts	2
+waits	events	app/dashboard/[eventId]/date-selection/actions.ts	1
+waits	events	app/dashboard/[eventId]/invitation/actions.ts	1
+waits	events	app/dashboard/[eventId]/monogram/studio-actions.ts	2
+waits	events	app/dashboard/[eventId]/monogram/upload-actions.ts	2
+waits	events	app/dashboard/[eventId]/story/whats-next-actions.ts	1
+waits	events	app/dashboard/[eventId]/studio/mood-board/actions.ts	1
+waits	events	app/dashboard/[eventId]/studio/save-the-date/actions.ts	3
+waits	events	app/dashboard/[eventId]/vendors/actions.ts	1
+waits	events	app/dashboard/[eventId]/website/hero-photo/actions.ts	2
+waits	events	app/dashboard/[eventId]/website/hub-draft-actions.ts	3
+waits	events	app/dashboard/[eventId]/website/living-hero/actions.ts	1
+waits	events	app/dashboard/[eventId]/wizard-actions.ts	3
+waits	events	lib/date-narrowing.server.ts	1
+waits	events	lib/palette-fill-write.ts	1
+waits	events	lib/release-forced-date.ts	1
+waits	invitation_widgets	app/dashboard/[eventId]/studio/save-the-date/actions.ts	1
+waits	invitation_widgets	app/dashboard/[eventId]/website/widgets/actions.ts	7
+waits	invitation_widgets	lib/own-scene-delete.ts	1
+waits	users	app/open-shop/actions.ts	1
+waits	users	app/vendor-dashboard/actions.ts	1
+waits	users	lib/link-guest-account.ts	1
+waits	vendor_profiles	app/admin/vendors/actions.ts	2
+waits	vendor_profiles	app/vendor-dashboard/services/coverage-actions.ts	1
+waits	vendor_profiles	app/vendor-dashboard/shop/suggested-coverage-actions.ts	1
+waits	vendor_profiles	app/vendor/claim/[token]/finalize/page.tsx	1

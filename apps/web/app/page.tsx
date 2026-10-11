@@ -167,6 +167,15 @@ export const metadata = {
 // per-request. If that proves too expensive once there is real traffic, cache
 // the four feed reads behind `unstable_cache` so only the session lookup stays
 // per-request. Named now so it is a decision later, not a surprise.
+//
+// ⚡ THAT FOLLOW-UP, 2026-10-11 — PARTLY TAKEN. Measured: 27 database calls a
+// view, and one caller asking every 60 s. The page is still rendered per request
+// (it reads `searchParams` and the session, and the after() jobs below need a
+// request), but its same-for-everyone ROW reads are now remembered for 60 s —
+// `lib/home-public-reads-core.ts` lists them and what may never join them.
+// ⚠ NOT taken, and still asked on every view: the consented editorials, the
+// event-type gate and labels (read through the session client), and the
+// ownership chain behind each Discover card's cover.
 export const revalidate = 300;
 
 const SITE_URL = (

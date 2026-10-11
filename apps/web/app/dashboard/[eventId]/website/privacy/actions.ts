@@ -10,6 +10,7 @@ import { editorialAllowsEventType } from '@/lib/editorial-event-types';
 import { rsvpAskConfigOnGoingPublic } from '@/lib/going-public';
 import { parseTicketUrl, TICKET_URL_ERROR_TEXT } from '@/lib/ticket-url';
 import { carryAskToJoinIntoDraft } from '@/lib/going-public.server';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * Landing-page visibility toggle — server actions.
@@ -147,6 +148,8 @@ export async function updateLandingPageVisibility(formData: FormData) {
     })
     .eq('event_id', eventId)
     .select('event_id');
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('events');
 
   if (updateErr) {
     throw new Error(`Failed to update visibility: ${updateErr.message}`);

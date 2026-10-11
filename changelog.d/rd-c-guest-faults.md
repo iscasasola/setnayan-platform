@@ -99,4 +99,13 @@ of the walk's 78 faint texts and small presses are NOT built — the film's
 "See our page", the reply card and the face screen are ruled designs.
 Guard: `app/[slug]/_lib/the-walked-pages-read-and-press.test.ts`.
 
+**Not built, on purpose.** N12 ("with Apple" once, then "with Google"): not a
+fault of the product — measured: the walker's browser gives a service worker's
+page request the machine's real user agent instead of the emulated iPhone's,
+and the app's worker answers every page load after the first; a real phone has
+one user agent for both. N17 (the camera opens before the 18+ tick): that is
+the face screen the owner approved on 2026-09-30 ("Camera first", frame A) —
+stopped and reported, not changed. N02 · N04 · N05 · N08 · N09 · N10 · N16 ·
+N18 · N20 are the owner's calls (options in the builder's report).
+
 SPEC IMPACT: None.

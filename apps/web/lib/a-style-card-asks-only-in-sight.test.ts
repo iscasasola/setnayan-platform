@@ -72,3 +72,13 @@ test('every attribute stage-tools hides the look body by is one the card watches
     for (const a of attrs) assert.ok(watched.has(a), `stage-tools hides the look body by [${a}], which the card does not watch: ${rule}`);
   }
 });
+
+test('the card reads the page on show two frames AFTER it mounts — never the stage being left', () => {
+  // Lab, 2026-10-12: Style open, a stage switch — every card asked for the OLD stage's page, then the new one's.
+  const prev = stripComments(read(`${PANEL}/stage-panel/style-preview.tsx`));
+  const hook = prev.slice(prev.indexOf('function useCanvasSrc('), prev.indexOf('const FOCUS_CSS'));
+  assert.ok(hook.length > 200, 'useCanvasSrc moved — re-anchor this test');
+  assert.match(hook, /let raf = window\.requestAnimationFrame\(\(\) => \{\s+raf = window\.requestAnimationFrame\(read\);\s+\}\);/);
+  assert.doesNotMatch(hook, /\n\s+read\(\);/, 'the page on show is read AT mount — on a stage switch that is the stage being left');
+  assert.match(hook, /setGot\(\(was\) => \(was && was\.src === src \? was :/, 'the same address read twice must not ask again');
+});

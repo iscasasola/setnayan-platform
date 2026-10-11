@@ -59,18 +59,28 @@ export function stylePreviewSrc(canvasSrc: string, canvasKey: string, sceneType:
   }
 }
 
-/** The canvas frame on screen — its address and width (the miniature lays out at the same width). */
+/**
+ * The canvas frame on screen — its address and width (the miniature lays out at the same width). Read two frames
+ * AFTER mount, never at it: on a stage switch the cards mount in the same commit that switches, while the frame on
+ * show is still the stage left — measured in the lab 2026-10-12, every card was asked for the OLD stage's page and
+ * then again for the new one (3 wasted renders of the guest page). Read again at 600 ms (a frame not there yet).
+ */
 function useCanvasSrc(): { src: string; width: number } | null {
   const [got, setGot] = useState<{ src: string; width: number } | null>(null);
   useEffect(() => {
     const read = () => {
       const f = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
       const src = f?.getAttribute('src');
-      if (f && src) setGot({ src, width: Math.max(320, Math.round(f.getBoundingClientRect().width) || 375) });
+      if (f && src) setGot((was) => (was && was.src === src ? was : { src, width: Math.max(320, Math.round(f.getBoundingClientRect().width) || 375) }));
     };
-    read();
+    let raf = window.requestAnimationFrame(() => {
+      raf = window.requestAnimationFrame(read);
+    });
     const t = window.setTimeout(read, 600);
-    return () => window.clearTimeout(t);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
   }, []);
   return got;
 }

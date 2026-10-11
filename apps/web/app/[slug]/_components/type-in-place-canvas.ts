@@ -153,7 +153,8 @@ export function typeTargetOf(part: HTMLElement, hit?: Element | null): HTMLEleme
 
 /** Each person's name in the names part (`[data-el-person]`, stamped by the masthead in the Maker only). */
 function peopleOf(part: HTMLElement): HTMLElement[] {
-  return Array.from(part.querySelectorAll<HTMLElement>('[data-el-person]'));
+  /* The part's own lines — never the pair kept inside the canvas's template (`layNames`). */
+  return Array.from(part.querySelectorAll<HTMLElement>('[data-el-person]')).filter((p) => !p.closest('template'));
 }
 
 const words = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ').trim();
@@ -177,42 +178,101 @@ export function partWords(part: HTMLElement): string {
 
 /** Put the part's words back, or new ones in (a Wording ▾ or Format ▾ pick, a refused save). */
 export function setPartWords(part: HTMLElement, text: string): void {
-  const people = peopleOf(part);
-  if (people.length > 1) {
-    /* The page's OWN split (`lib/split-names.ts`) — "&" and " and " alike, as the cover will be drawn. */
-    const names = splitCoupleNames(text, true);
-    people[0]!.textContent = names.first;
-    people[1]!.textContent = names.second ?? '';
-    tidyNames(part);
-    return;
-  }
-  (people[0] ?? typeTargetOf(part)).textContent = text;
+  if (layNames(part, text)) return;
+  (peopleOf(part)[0] ?? typeTargetOf(part)).textContent = text;
+}
+
+/* ── the names, drawn as the page draws them ─────────────────────────────────────────────────────────────────── */
+
+const kids = (part: HTMLElement) => Array.from(part.children) as HTMLElement[];
+const personAt = (part: HTMLElement, i: 0 | 1) => kids(part).find((c) => c.getAttribute('data-el-person') === String(i)) ?? null;
+const joinerIn = (part: HTMLElement) => kids(part).find((c) => c.getAttribute('data-el') === 'joiner') ?? null;
+const twoNamesOf = (part: HTMLElement) =>
+  (kids(part).find((c) => c.tagName === 'TEMPLATE' && c.hasAttribute('data-el-names-two')) as HTMLTemplateElement | undefined) ?? null;
+
+/** The joiner and the second line a cover put away for one name — the SAME elements come back (their look with them). */
+const PUT_AWAY = new WeakMap<HTMLElement, { joiner: HTMLElement | null; second: HTMLElement }>();
+
+/** A new joiner and second line, as the masthead draws them for this design (`<template data-el-names-two>`). */
+function freshPair(tpl: HTMLTemplateElement | null): { joiner: HTMLElement | null; second: HTMLElement } | null {
+  if (!tpl) return null;
+  /* A template the server sent keeps its elements in `content`; one React drew in the browser keeps them as children. */
+  const inside = tpl.content && tpl.content.children.length > 0 ? tpl.content.children : tpl.children;
+  const made = Array.from(inside).map((c) => c.cloneNode(true) as HTMLElement);
+  const second = made.find((c) => c.getAttribute('data-el-person') === '1');
+  return second ? { joiner: made.find((c) => c.getAttribute('data-el') === 'joiner') ?? null, second } : null;
 }
 
 /**
- * 🔗 A JOINER NEVER STANDS OVER NOTHING. The cover was drawn for two people — "Maria / and / Jose" — and the names
- * typed now are ONE ("TEsting Event"): the second person's line is empty, and the joiner and that line step aside,
- * exactly as the page will draw it at its next render (the masthead draws a joiner only when there is a second
- * name). Owner, 2026-10-11, on his own event: the cover read "TEsting Event / and / (nothing)" while he typed and
- * after Done. Put back the moment a second name is there. The Maker's canvas only — a guest's page is drawn by the
- * server and never had it.
+ * ✍ THE NAMES ON THE CANVAS ARE THE NAMES THE PAGE WOULD DRAW — for the line typed, at once (owner 2026-10-11).
+ *
+ * Twice the canvas drew a name line its own way. One name typed into a two-name cover left the joiner standing over
+ * nothing ("TEsting Event / and / (blank)"). Then two names typed into a cover drawn for ONE were a single plain line
+ * ("Bolognese &" / "Pasta" — "it did not make the secondary font"): the page had no joiner and no second line to
+ * write into. And "Ana and Ben" kept the old joiner's word.
+ *
+ * So the line is split by the page's own rule (`splitCoupleNames`) and laid out with the page's own elements:
+ *   · one name  → the first person's line alone; the joiner and the second line are taken OFF the page (kept, to come
+ *                 back as they were), exactly as the masthead draws no joiner without a second name;
+ *   · two names → first · joiner · second; when the cover was drawn for one name they are made from the masthead's
+ *                 own template, so the joiner is the masthead's element, in its own face;
+ *   · the joiner's WORD is the page's: the couple's own when they chose one, else what the line gives — "and", or
+ *     "&" as this cover writes it (`data-amp`: the card says "and").
+ * Returns false for a part that is not the names of two people (one person at the centre: one line, as typed).
+ *
+ * Held for every design × cover by `lib/a-joiner-never-stands-over-nothing.test.ts`: the canvas after each line
+ * equals the server's render of that line. ⚠ A joiner word the couple chose that IS the automatic one cannot be told
+ * from it here, and is treated as automatic. Letters styled one by one (`data-el-run`) are plain until the next
+ * render, as before.
+ */
+export function layNames(part: HTMLElement, text: string): boolean {
+  const first = personAt(part, 0);
+  const tpl = twoNamesOf(part);
+  let second = personAt(part, 1);
+  if (!first || (!second && !tpl && !PUT_AWAY.has(part))) return false;
+  const names = splitCoupleNames(text, true);
+  let joiner = joinerIn(part);
+  if (!names.second) {
+    first.textContent = names.first;
+    if (second) {
+      PUT_AWAY.set(part, { joiner, second });
+      joiner?.remove();
+      second.remove();
+    }
+    return true;
+  }
+  if (!second) {
+    const pair = PUT_AWAY.get(part) ?? freshPair(tpl);
+    if (!pair) return false;
+    PUT_AWAY.delete(part);
+    ({ joiner, second } = pair);
+    if (joiner) first.after(joiner, second);
+    else first.after(second);
+  }
+  first.textContent = names.first;
+  second.textContent = names.second;
+  if (joiner) {
+    const auto = names.joiner === '&' ? (tpl?.getAttribute('data-amp') ?? '&') : (names.joiner ?? '');
+    /* The couple's own word is one that is not the automatic word this joiner was last drawn with. */
+    const said = words(joiner);
+    const own = said !== '' && said !== (joiner.getAttribute('data-el-word') ?? '') ? said : null;
+    joiner.textContent = own ?? auto;
+    joiner.setAttribute('data-el-word', auto);
+  }
+  return true;
+}
+
+/**
+ * 🔗 TYPED ON THE PAGE ITSELF (a caret in one person's line): when the typing ends, the names are laid out as the
+ * page would draw what they now say — a second name erased leaves no joiner behind; two names typed into one line
+ * become two. Names that already read one per line are not touched (their joiner keeps the word it was drawn with).
  */
 export function tidyNames(part: HTMLElement): void {
-  const people = peopleOf(part);
-  if (people.length < 2) return;
-  const alone = words(people[1]!).length === 0;
-  for (const el of [part.matches('[data-el="joiner"]') ? null : part.querySelector<HTMLElement>('[data-el="joiner"]'), people[1]!]) {
-    if (!el) continue;
-    /* `display` is set on the element itself: each line is a `block` by class, and a class beats the `hidden`
-       attribute's own rule — the attribute alone left the joiner on screen. */
-    if (alone) {
-      el.setAttribute('hidden', '');
-      el.style.setProperty('display', 'none');
-    } else {
-      el.removeAttribute('hidden');
-      el.style.removeProperty('display');
-    }
-  }
+  const said = kids(part).filter((c) => c.hasAttribute('data-el-person')).map(words);
+  if (said.length === 0) return;
+  const named = said.filter(Boolean);
+  const asDrawn = named.length === said.length && said.every((w) => splitCoupleNames(w, true).second === null);
+  if (!asDrawn) layNames(part, named.join(' & '));
 }
 
 function rectOf(el: HTMLElement): TypeRect {

@@ -201,6 +201,36 @@ export function PahinaMasthead({
   const plainJoiner = ownJoiner ?? names.joiner ?? '';
   const cardNames = `${names.first}${names.second ? `${cardJoiner}${names.second}` : ''}`;
   const plainNames = `${names.first}${names.second ? `${plainJoiner}${names.second}` : ''}`;
+  /**
+   * ✍ THE SECOND NAME'S TWO ELEMENTS, FOR THE MAKER'S CANVAS TO DRAW WITH (owner 2026-10-11: he typed one name, then
+   * "Bolognese & Pasta" — "it did not make the secondary font": the cover had been drawn for ONE name, so there was
+   * no joiner and no second line on the page to type into, and the whole line landed in the first).
+   *
+   * In the Maker's canvas only, for an event with two people at its centre, the names part carries a `<template>`
+   * holding the joiner and the second person's line EXACTLY as this file draws them (`pair`, the same call the live
+   * names use) — so the canvas never keeps a copy of a design's classes. A template's content is inert: it is not
+   * laid out, no `[data-el]` reader finds it, and a guest's page never has it. `data-amp` is what "&" is drawn as on
+   * this cover (the card writes "and"). `type-in-place-canvas.ts` `layNames` reads it.
+   */
+  const namesTwo = (pair: (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => ReactNode) =>
+    stampElements && twoPeople ? (
+      <template data-el-names-two="" data-amp={card ? 'and' : '&'}>
+        {pair(ownJoiner ?? '', '', true)}
+      </template>
+    ) : null;
+  /** The Card's joiner and second line (design 1, with `card`) — and the plain cover's (design 1, a hero photo). */
+  const stackedPair = (size: string) => (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => (
+    <>
+      <span {...el('joiner')} {...forCanvasJoiner(forCanvas)} className={`block font-pahina ${size} italic text-gild`} aria-hidden>
+        {joiner}
+      </span>
+      <span {...person(1)} className="block">{second}</span>
+    </>
+  );
+  const cardPair = stackedPair('text-[0.5em]');
+  const plainPair = stackedPair('text-[0.42em]');
+  /** The template's joiner names no automatic word of its own — the canvas writes the one the typed line gives. */
+  const forCanvasJoiner = (forCanvas?: boolean) => (forCanvas && stampElements ? { 'data-el-word': '' } : {});
 
   /* 🔗 THE LINK DOWN INTO THE HUB — a part like the others (owner 2026-09-28,
      tapping it in the Maker: "why can't i update the text"). Its words are the
@@ -324,6 +354,28 @@ export function PahinaMasthead({
     ) : null;
     /* The names, stacked on a phone; from `sm` The Marquee and The Crest set
        them on one wrapping row with the joiner inline, as the prototype does. */
+    /* The joiner and the second person's line — once for the names as drawn, once for the canvas's template. */
+    const PAIR = (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => (
+      <>
+        <span
+          {...el('joiner')}
+          {...forCanvasJoiner(forCanvas)}
+          className={
+            design === 'marquee'
+              ? 'block font-pahina text-[0.5em] italic leading-[1.1] text-gild sm:inline sm:text-[0.55em]'
+              : design === 'crest'
+                ? 'font-pahina text-[0.9em] italic text-gild'
+                : 'ml-[0.06em] block font-pahina text-[0.4em] italic leading-[1.1] text-gild'
+          }
+          aria-hidden
+        >
+          {joiner}
+        </span>
+        <span {...person(1)} className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
+          {second}
+        </span>
+      </>
+    );
     const NAMES = (
       <h1
         {...el('names')}
@@ -337,26 +389,8 @@ export function PahinaMasthead({
         }
       >
         <span {...person(0)} className={design === 'crest' ? undefined : 'block sm:inline'}>{txt('names', names.first, whole, 0)}</span>
-        {names.second ? (
-          <>
-            <span
-              {...el('joiner')}
-              className={
-                design === 'marquee'
-                  ? 'block font-pahina text-[0.5em] italic leading-[1.1] text-gild sm:inline sm:text-[0.55em]'
-                  : design === 'crest'
-                    ? 'font-pahina text-[0.9em] italic text-gild'
-                    : 'ml-[0.06em] block font-pahina text-[0.4em] italic leading-[1.1] text-gild'
-              }
-              aria-hidden
-            >
-              {txt('names', joinerWord, whole, names.first.length)}
-            </span>
-            <span {...person(1)} className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
-              {txt('names', names.second, whole, names.first.length + joinerWord.length)}
-            </span>
-          </>
-        ) : null}
+        {names.second ? PAIR(txt('names', joinerWord, whole, names.first.length), txt('names', names.second, whole, names.first.length + joinerWord.length)) : null}
+        {namesTwo(PAIR)}
       </h1>
     );
     const DATE = dateLabel ? (
@@ -513,14 +547,8 @@ export function PahinaMasthead({
               className="mt-5 font-pahina text-[2.9rem] font-light leading-[1.06] tracking-tight text-ink"
             >
               <span {...person(0)} className="block">{txt('names', names.first, cardNames, 0)}</span>
-              {names.second ? (
-                <>
-                  <span {...el('joiner')} className="block font-pahina text-[0.5em] italic text-gild" aria-hidden>
-                    {txt('names', cardJoiner, cardNames, names.first.length)}
-                  </span>
-                  <span {...person(1)} className="block">{txt('names', names.second, cardNames, names.first.length + cardJoiner.length)}</span>
-                </>
-              ) : null}
+              {names.second ? cardPair(txt('names', cardJoiner, cardNames, names.first.length), txt('names', names.second, cardNames, names.first.length + cardJoiner.length)) : null}
+              {namesTwo(cardPair)}
             </h1>
             {lineText ? <p {...el('line')} className="mt-4 text-sm leading-relaxed text-ink/80">{txt('line', lineText)}</p> : null}
             {dateLabel ? (
@@ -560,14 +588,8 @@ export function PahinaMasthead({
       {/* Stacked names — Fraunces display, italic gild joiner between lines. */}
       <h1 {...el('names')} data-motion="arrive-names" data-hub-names="" className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
         <span {...person(0)} className="block">{txt('names', names.first, plainNames, 0)}</span>
-        {names.second ? (
-          <>
-            <span {...el('joiner')} className="block font-pahina text-[0.42em] italic text-gild" aria-hidden>
-              {txt('names', plainJoiner, plainNames, names.first.length)}
-            </span>
-            <span {...person(1)} className="block">{txt('names', names.second, plainNames, names.first.length + plainJoiner.length)}</span>
-          </>
-        ) : null}
+        {names.second ? plainPair(txt('names', plainJoiner, plainNames, names.first.length), txt('names', names.second, plainNames, names.first.length + plainJoiner.length)) : null}
+        {namesTwo(plainPair)}
       </h1>
 
       <hr className="pahina-rule mx-auto mt-7 w-24" />

@@ -24,7 +24,9 @@ import { PAPIC_CAPTURE_GRACE_HOURS } from '@/lib/papic-window';
  * we want 1 step at a time"* → *"too many texts again"* → *"keep everything
  * very simple and fluid and easy to use. too much confirmation is a hassle"*.
  *
- *   A · the whole screen is the front camera with a soft oval to stand in;
+ *   A · the whole screen is the camera's place with a soft oval to stand in —
+ *       🔒 the camera itself starts only once the box is ticked (owner
+ *       2026-10-11; until then the still ground and the oval);
  *       "Find you in photos?" on top, × (not now) top-left; a bottom sheet
  *       with ONE tick — "I'm 18+ and agree to face tagging", never pre-ticked —
  *       and "Take selfie", grey with "Tick to continue" under it until ticked,
@@ -39,6 +41,14 @@ import { PAPIC_CAPTURE_GRACE_HOURS } from '@/lib/papic-window';
  * 🔒 THE EMBEDDER RUNS ONLY ON A mode_a EVENT (One-Pool spec §3.4); the server
  * nulls any vector off mode_a regardless — this is the first line.
  */
+
+/**
+ * MAY THE CAMERA BE ASKED FOR? Only once the guest has ticked "I'm 18+ and
+ * agree to face tagging" — the one fact, as a rule a test can run.
+ */
+export function cameraMayStart(agreed: boolean): boolean {
+  return agreed === true;
+}
 
 /** What a successful shot hands the parent — the parent saves it. */
 export type SelfieShot = {
@@ -108,9 +118,15 @@ export function SelfieCapture({
     setLive(false);
   }, []);
 
-  // CAMERA FIRST (frame A): the guest opened this screen themselves, so the
-  // front camera starts with it. Released on leaving.
+  // 🔒 THE CAMERA STARTS ONLY WHEN THE BOX IS TICKED (owner 2026-10-11, on a
+  // guest's walk: the phone asked for the camera BEFORE "I'm 18+ and agree to
+  // face tagging" — a permission asked for ahead of the consent it is for).
+  // This CHANGES the screen approved on 2026-09-30 ("Camera first", frame A),
+  // by the owner's word: it is the same one screen, but until the tick the
+  // camera area is the still ground and the oval — no stream, no prompt.
+  // Unticking stops the stream and releases the camera; so does leaving.
   useEffect(() => {
+    if (!cameraMayStart(agreed)) return;
     let cancelled = false;
     (async () => {
       try {
@@ -139,7 +155,7 @@ export function SelfieCapture({
       cancelled = true;
       stopStream();
     };
-  }, [onFail, stopStream]);
+  }, [agreed, onFail, stopStream]);
 
   // The frame → the quality gate → the descriptor (mode_a only) → the upload
   // to this guest's own folder → the parent saves. Taken AND saved in one go.
@@ -206,7 +222,10 @@ export function SelfieCapture({
   }, [agreed, busy, saving, live, onFail, onShot, faceMode]);
 
   const working = busy || saving;
-  const ready = agreed && !working;
+  // Ticked, and the camera has answered — live, or refused (the press then says
+  // "camera blocked", as before). While it is still starting the button waits:
+  // a press in that second used to be told the camera was blocked.
+  const ready = agreed && !working && (live || blocked);
 
   return (
     <div
@@ -225,7 +244,8 @@ export function SelfieCapture({
         autoPlay
         className="absolute inset-0 h-full w-full -scale-x-100 object-cover"
       />
-      {!live && !blocked ? (
+      {/* Starting — only once ticked; before the tick there is nothing to wait for. */}
+      {agreed && !live && !blocked ? (
         <div className="absolute inset-0 flex items-center justify-center">
           <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/50" strokeWidth={2} />
         </div>
@@ -262,7 +282,11 @@ export function SelfieCapture({
                 type="checkbox"
                 name="face_step_agree"
                 checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
+                onChange={(e) => {
+                  // A fresh tick is a fresh ask of the camera: a refusal from before is not carried over.
+                  if (e.target.checked) setBlocked(false);
+                  setAgreed(e.target.checked);
+                }}
                 className="h-5 w-5 shrink-0 rounded border-ink/40 text-ink focus:ring-ink"
               />
               <span>{FACE_STEP_TICK}</span>

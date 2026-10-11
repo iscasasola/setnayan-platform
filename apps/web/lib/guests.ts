@@ -1106,10 +1106,19 @@ export type GuestGroupWithCount = GuestGroupRow & {
 const GUEST_GROUP_FIELDS =
   'group_id,public_id,event_id,label,team_side,created_at,updated_at';
 
-export async function fetchGuestGroupsByEvent(
+/**
+ * The event's custom groups, and WHETHER THE READ HAPPENED.
+ *
+ * `measured: false` = the groups read was refused or never answered: `groups` is `[]` because nobody knows, not
+ * because the couple made none. The guest list drew that as a list with no groups on anyone — the "Cousins" a couple
+ * built last week, silently gone until the next load (owner 2026-10-11: requests must not fail quietly either).
+ * `countsMeasured: false` = the groups are real but each `member_count` is an unread 0.
+ * Never throws — the "empty page > error page" rule above stands; the measurement now reaches the render.
+ */
+export async function fetchGuestGroupsByEventMeasured(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<GuestGroupWithCount[]> {
+): Promise<{ groups: GuestGroupWithCount[]; measured: boolean; countsMeasured: boolean }> {
   const [groupsRes, membershipsRes] = await Promise.all([
     supabase
       .from('guest_groups')
@@ -1145,7 +1154,7 @@ export async function fetchGuestGroupsByEvent(
       },
       'graceful_degrade',
     );
-    return [];
+    return { groups: [], measured: false, countsMeasured: false };
   }
   const groups = (groupsRes.data ?? []) as unknown as GuestGroupRow[];
 
@@ -1165,7 +1174,22 @@ export async function fetchGuestGroupsByEvent(
   for (const m of (membershipsRes.data ?? []) as Array<{ group_id: string }>) {
     counts.set(m.group_id, (counts.get(m.group_id) ?? 0) + 1);
   }
-  return groups.map((g) => ({ ...g, member_count: counts.get(g.group_id) ?? 0 }));
+  return {
+    groups: groups.map((g) => ({ ...g, member_count: counts.get(g.group_id) ?? 0 })),
+    measured: true,
+    countsMeasured: !membershipsRes.error,
+  };
+}
+
+/**
+ * Array-only view, for the callers that list the groups and state no absence (the seating pages).
+ * 🛑 If you render "no groups", a count, or a chip per guest, use `fetchGuestGroupsByEventMeasured`.
+ */
+export async function fetchGuestGroupsByEvent(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<GuestGroupWithCount[]> {
+  return (await fetchGuestGroupsByEventMeasured(supabase, eventId)).groups;
 }
 
 /**
@@ -1177,6 +1201,18 @@ export async function fetchGroupMembershipsByEvent(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<Map<string, string[]>> {
+  return (await fetchGroupMembershipsByEventMeasured(supabase, eventId)).memberships;
+}
+
+/**
+ * The same map, and WHETHER THE READ HAPPENED. `measured: false` = refused or never answered: the empty map is
+ * "nobody knows who is in which group", never "nobody is in a group". Never throws.
+ * 🛑 If you draw a guest's groups, or a group's absence, use this — the array-only form above cannot tell you.
+ */
+export async function fetchGroupMembershipsByEventMeasured(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ memberships: Map<string, string[]>; measured: boolean }> {
   const { data, error } = await supabase
     .from('guest_group_memberships')
     .select('guest_id, group_id, guest_groups!inner(event_id)')
@@ -1206,7 +1242,7 @@ export async function fetchGroupMembershipsByEvent(
       },
       'graceful_degrade',
     );
-    return new Map();
+    return { memberships: new Map(), measured: false };
   }
   const map = new Map<string, string[]>();
   for (const row of (data ?? []) as Array<{ guest_id: string; group_id: string }>) {
@@ -1214,7 +1250,7 @@ export async function fetchGroupMembershipsByEvent(
     existing.push(row.group_id);
     map.set(row.guest_id, existing);
   }
-  return map;
+  return { memberships: map, measured: true };
 }
 
 /**

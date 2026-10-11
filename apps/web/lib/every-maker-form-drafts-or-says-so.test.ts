@@ -256,10 +256,11 @@ type Form = { file: string; component: string; action: string; body: string; lin
 /** Every `<form …>…</form>` in a file, with its action expression and enclosing component. */
 function formsIn(file: string, src: string): Form[] {
   const out: Form[] = [];
-  const re = /<form\b/g;
+  /* `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings. */
+  const re = /<(form|SafeForm)\b/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(src))) {
-    let i = m.index + 5;
+    let i = m.index + m[0].length;
     let depth = 0;
     for (; i < src.length; i += 1) {
       const c = src[i];
@@ -268,8 +269,8 @@ function formsIn(file: string, src: string): Form[] {
       else if (c === '>' && depth === 0) break;
     }
     const tag = src.slice(m.index, i + 1);
-    const close = src.indexOf('</form>', i);
-    assert.ok(close > 0, `${file}: a <form> with no </form>`);
+    const close = src.indexOf(`</${m[1]}>`, i);
+    assert.ok(close > 0, `${file}: a <${m[1]}> with no </${m[1]}>`);
     const body = src.slice(m.index, close);
     const own = /\baction=\{([^}]*)\}/.exec(tag)?.[1]?.trim();
     const viaButtons = [...body.matchAll(/\bformAction=\{([^}]*)\}/g)].map((x) => x[1]!.trim());

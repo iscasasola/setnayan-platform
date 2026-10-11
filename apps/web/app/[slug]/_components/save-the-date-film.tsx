@@ -192,6 +192,23 @@ const ANIM = {
 export const STD_FILM_EXIT_EVENT = 'std:film-exit';
 
 /**
+ * 👆 A PRESS IS AT LEAST 44px ON THE GLASS — WHATEVER THE STAGE'S SCALE.
+ *
+ * The film is drawn on a fixed BASE_W×BASE_H stage and the whole stage is
+ * scaled to fit the screen (`fitScale`). On a phone that scale is BELOW one —
+ * 0.85 at 375 wide, 0.73 at 320 — so a control that is 44px tall on the stage
+ * was 37px on a 375 phone and 32px on a 320 one (a guest's walk 2026-10-11:
+ * "See our page" measured 117×37 and 93×32). This is the height to give a
+ * control ON THE STAGE so that it is 44px once scaled; on a screen that scales
+ * the stage up it is simply 44.
+ */
+export const FILM_PRESS_PX = 44;
+export function stagePressPx(fitScale: number): number {
+  const scale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 1;
+  return Math.max(FILM_PRESS_PX, Math.ceil(FILM_PRESS_PX / scale));
+}
+
+/**
  * 🎬 The film has reached its CLOSE (the last beat, which holds for good). The
  * stage's Auto runner (`stage-autoplay.tsx`) listens for it to carry the stage
  * on to its next scenes — before this, nothing heard the end, so the Save the
@@ -489,6 +506,9 @@ export function SaveTheDateFilm({
   const [started, setStarted] = useState(false); // flips true when the film first starts (reveal-done) so the opening monogram replays when it's actually shown
   const monoReplayKey = String(idx) + '-' + String(started);
 
+  // The stage's scale on this screen (measured below, where the stage is laid out). Declared HERE because the
+  // closing beat's "See our page" — built into the slides just under this line — sizes its press by it.
+  const [fitScale, setFitScale] = useState(1);
   const slides: Slide[] = [];
 
   // 1 — monogram / logo
@@ -790,7 +810,7 @@ export function SaveTheDateFilm({
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent(STD_FILM_EXIT_EVENT))}
               className={`inline-flex items-center gap-1.5 rounded-full border px-5 py-2.5 text-sm font-medium opacity-80 transition-opacity hover:opacity-100 ${theme.outerFg}`}
-              style={{ borderColor: 'currentColor' }}
+              style={{ borderColor: 'currentColor', minHeight: stagePressPx(fitScale) }}
             >
               See our page
               <span aria-hidden>↓</span>
@@ -849,7 +869,6 @@ export function SaveTheDateFilm({
   // the BASE_W×BASE_H stage is transform-scaled by `fitScale` to the largest
   // size that fits within both dimensions, keeping every element proportional.
   const containerRef = useRef<HTMLDivElement>(null);
-  const [fitScale, setFitScale] = useState(1);
   useEffect(() => {
     const el = containerRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -1581,6 +1600,7 @@ export function SaveTheDateFilm({
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent(STD_FILM_EXIT_EVENT))}
             className="flex items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
+            style={{ minHeight: stagePressPx(fitScale) }}
           >
             See our page
             <span aria-hidden>↓</span>

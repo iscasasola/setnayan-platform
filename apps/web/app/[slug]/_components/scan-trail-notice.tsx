@@ -92,13 +92,18 @@ export async function ScanTrailNotice({
     : `We keep a record of when you open your invitation or scan your code at this ${w.eventWord} — it is how this page knows to welcome you when you first arrive.`;
 
   return (
+    /* 🔎 READABLE AND PRESSABLE (a guest's walk 2026-10-11): the note was 3.98:1 (`text-ink/60`); it is 5.4:1 now,
+       and the button says its own 44px. NO "are you sure?": the press only flips this guest's one setting
+       (`setGuestScanTracking` — nothing is deleted), and the same button, now reading "Keep a record again",
+       puts it back at once. The gutter is the page's, given by whoever draws this (`site-body.tsx`). */
     <form
       action={toggle}
-      className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/60"
+      data-scan-trail=""
+      className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/70"
     >
       <span className="min-w-0">{sentence}</span>
       <SubmitButton
-        className="shrink-0 font-medium text-mulberry underline-offset-2 hover:underline"
+        className="inline-flex min-h-[44px] shrink-0 items-center font-medium text-mulberry underline-offset-2 hover:underline"
         pendingLabel={optedOut ? 'Turning on…' : 'Turning off…'}
       >
         {optedOut ? 'Keep a record again' : 'Stop keeping a record'}

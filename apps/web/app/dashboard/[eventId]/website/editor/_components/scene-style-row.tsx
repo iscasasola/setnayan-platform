@@ -28,6 +28,7 @@ import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 import type { HubSectionCanvas, HubStage } from '@/lib/hub-canvas';
 import { IRow, ISeg, ISegmented } from './inspector-kit';
 import { PickMenu } from './pick-menu';
+import { hubDraftAnswer } from '@/lib/hub-draft';
 import { useHeldEventsSave, useSceneCanvas } from './use-scene-canvas';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { ElementDraftAction } from './element-sheet';
@@ -338,7 +339,9 @@ export function DressFiguresRow({ eventId, dressCode, draftAction }: { eventId: 
     setDrawn(show);
     setError(null);
     start(async () => {
-      const res = await saveEvents({ dress_code_config: next });
+      /* 📵 A save that never answered (no signal, a 5xx) is the same refusal, said in the same line — thrown into
+         this transition it replaced the whole Maker with the app's error screen (`hubDraftAnswer`). */
+      const res = await hubDraftAnswer('save', () => saveEvents({ dress_code_config: next }));
       if (!res.ok) {
         /* A failure never reads as a pick that landed: the row goes back, and says why. */
         latest.current = before;

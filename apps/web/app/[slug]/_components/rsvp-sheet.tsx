@@ -64,7 +64,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { hashOpensSheet, sheetOpensOnLoad, type RsvpSheetFlash } from './rsvp-sheet-state';
+import { hashOpensSheet, sheetAfterAddressChange, sheetOpensOnLoad, type RsvpSheetFlash } from './rsvp-sheet-state';
 
 /**
  * Structure lives here rather than in Tailwind utilities for two reasons: the
@@ -115,6 +115,9 @@ export function RsvpSheet({
   /** Where the guest was reading, given back when the sheet closes. */
   const returnTo = useRef<number | null>(null);
   const hadOpened = useRef(false);
+  /** The sheet is up because the ADDRESS asked for it — so Back, which takes
+   *  that address away, closes it (`sheetAfterAddressChange`). */
+  const openedByAddress = useRef(false);
 
   const openSheet = useCallback(() => {
     if (openRef.current) return;
@@ -128,6 +131,7 @@ export function RsvpSheet({
 
   const closeSheet = useCallback(() => {
     openRef.current = false;
+    openedByAddress.current = false;
     setOpen(false);
     // 🪤 TAPPING THE SAME ANCHOR TWICE FIRES NO `hashchange`. A sheet dismissed
     // while `#your-details` was still in the URL could never be reopened from
@@ -183,8 +187,16 @@ export function RsvpSheet({
   // the fragment is the signal.
   const reopenForFlash = sheetOpensOnLoad(flash);
   useEffect(() => {
+    // 🔙 …AND BACK CLOSES IT. The same listener answers both halves: an address
+    // that asks for the sheet opens it, and the address that opened it going
+    // away (Back, on a phone) closes it — the guest is handed back where they
+    // were reading by the effect below, exactly as with "Close".
     const check = () => {
-      if (hashOpensSheet(window.location.hash)) openSheet();
+      const hash = window.location.hash;
+      const verdict = sheetAfterAddressChange({ hash, open: openRef.current, openedByAddress: openedByAddress.current });
+      if (hashOpensSheet(hash)) openedByAddress.current = true;
+      if (verdict === 'open') openSheet();
+      else if (verdict === 'close') closeSheet();
     };
     check();
     if (reopenForFlash) openSheet();
@@ -194,7 +206,7 @@ export function RsvpSheet({
       window.removeEventListener('hashchange', check);
       window.removeEventListener('popstate', check);
     };
-  }, [openSheet, reopenForFlash]);
+  }, [openSheet, closeSheet, reopenForFlash]);
 
   /**
    * 🔑 THE SHARED HOOK, NOT A HAND-ROLLED ONE — RULE 0, CAUGHT BY ITS OWN GUARD.

@@ -1268,15 +1268,47 @@ function skuActiveInRender(
       return true;
     }
 
-    if (isPromoFreeWindowsEnabled()) {
-      const eventDate = await fetchEventDateForPromo(supabase, eventId);
-      if (await isSkuFreeForCouplesNow(serviceKey, eventDate)) return true;
-    }
+    // ⚡ THE NEXT THREE QUESTIONS ARE ASKED TOGETHER AND ANSWERED IN THE SAME
+    // ORDER (2026-10-11). Nothing bought grants this product, so what is left is
+    // the promo window, the comp grant and the internal host — three questions
+    // that do not depend on each other, and that an event which owns nothing (or
+    // is hosted by an internal account, the last of the three) was already asked
+    // one after another, a round trip each. They now leave together; the answers
+    // are still read promo → comp → internal, so the first "yes" decides exactly
+    // as before and a refused read is thrown at the same step it was.
+    //   · same requests as before for an event that owns nothing or is hosted
+    //     internally — the two cases that walk this far on nearly every render;
+    //   · a comped event now also asks the internal-host question (+1), and an
+    //     event inside a promo window asks comp and internal-host (+2) — each
+    //     once per event per render (`askedOnce`), whatever the product count.
+    // The founder seat is still asked only when all three said no.
+    // `lib/entitlements-in-render-asks-together.test.ts` holds answer, order
+    // and count.
+    const promo = isPromoFreeWindowsEnabled()
+      ? askedTogether(async () =>
+          isSkuFreeForCouplesNow(serviceKey, await fetchEventDateForPromo(supabase, eventId)),
+        )
+      : null;
+    const comp = askedTogether(() => compGrantInRender(supabase, eventId, serviceKey));
+    const internal = askedTogether(() => eventHostIsInternal(supabase, eventId));
 
-    if (await compGrantInRender(supabase, eventId, serviceKey)) return true;
-    if (await eventHostIsInternal(supabase, eventId)) return true;
+    if (promo && (await promo)) return true;
+    if (await comp) return true;
+    if (await internal) return true;
     if (await eventHostHoldsFounderSeat(supabase, eventId)) return true;
 
     return false;
   });
+}
+
+/**
+ * Start a question now, to be awaited later IN ITS PLACE. If an earlier answer
+ * decides first, this one is never awaited — so its refusal must not surface as
+ * an unhandled rejection. The promise handed back still rejects for whoever
+ * does await it.
+ */
+function askedTogether<T>(ask: () => Promise<T>): Promise<T> {
+  const asked = ask();
+  asked.catch(() => undefined);
+  return asked;
 }

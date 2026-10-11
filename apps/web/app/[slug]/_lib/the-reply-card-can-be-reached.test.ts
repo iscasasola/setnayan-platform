@@ -76,13 +76,15 @@ test('a door points at it — the top control itself, or the line in the reply s
   for (const rsvpStatus of ['pending', 'attending', 'declined'] as const) {
     const a = resolveArrivalAction({ slug: 'ana-ben', rsvpStatus, eventDate: '2099-01-01', today: '2026-09-30' });
     assert.ok(a && actionOpensReply(a), `${rsvpStatus}: the top control no longer opens the reply`);
-    assert.ok(hashOpensSheet(a!.href), `${rsvpStatus}: the top control (${a!.href}) does not open the reply sheet`);
+    // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
+    assert.equal(a!.href, '/ana-ben/invite/reply', `${rsvpStatus}: the top control (${a!.href}) does not open the reply page`);
+    assert.ok(!hashOpensSheet(a!.href), `${rsvpStatus}: the top control raises the sheet again`);
   }
   // On the day it points at the ticket — so the page's own line is the door.
   const day = resolveArrivalAction({ slug: 'ana-ben', rsvpStatus: 'attending', eventDate: '2026-09-30', today: '2026-09-30', hasPass: true });
   assert.equal(actionOpensReply(day), false);
-  assert.ok(BODY.includes('href="#your-details"'), 'the reply section lost its own door');
-  const at = BODY.indexOf('href="#your-details"');
+  assert.ok(BODY.includes('href={replyDoor}'), 'the reply section lost its own door');
+  const at = BODY.indexOf('href={replyDoor}');
   assert.match(
     BODY.slice(Math.max(0, at - 300), at),
     /\{actionOpensReply\(arrivalAction\) \|\|\s*\(tabs\.on && \(guest\.rsvp_status === 'attending' \|\| guest\.rsvp_status === 'declined'\)\) \? null : \(\s*<a\s*$/,
@@ -96,7 +98,7 @@ test('🔑 the door sits inside the same gate as the sheet it opens', () => {
   const gate = BODY.indexOf("{plan.rsvpShouldRender ? (\n                <section className=\"space-y-4\">");
   assert.ok(gate > -1, 'the reply section is no longer gated on plan.rsvpShouldRender — re-point this guard');
   const close = BODY.indexOf('</section>', gate);
-  const door = BODY.indexOf('href="#your-details"', gate);
+  const door = BODY.indexOf('href={replyDoor}', gate);
   assert.ok(door > gate && door < close, 'the reply-section door escaped the reply section');
 });
 
@@ -104,8 +106,11 @@ test('the anchor lives INSIDE the phase gate, not outside it', () => {
   // The id now rides on the <RsvpSheet> panel, so the question is whether THAT
   // is phase-gated. An ungated sheet survives into phases where the reply card
   // does not render, and the chip points at a real id attached to nothing.
-  const m = /\{plan\.rsvpShouldRender \? \(\s*<RsvpSheet/.exec(BODY);
-  assert.ok(m, 'the reply sheet is no longer mounted under plan.rsvpShouldRender');
+  // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
+  // Its gate is still the reply's own (`plan.rsvpShouldRender`), narrowed to the canvas.
+  assert.match(BODY, /const replySheetDrawn = plan\.rsvpShouldRender && isEditorCanvas;/, 'the sheet is drawn where the reply is not open, or for a guest');
+  const m = /\{replySheetDrawn \? \(\s*<RsvpSheet/.exec(BODY);
+  assert.ok(m, 'the reply sheet is no longer mounted under its gate');
   const gate = m!.index;
   const close = BODY.indexOf(') : null}', gate);
   const mount = BODY.indexOf('<RsvpSheet', gate);

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { hubDraftAnswer } from '@/lib/hub-draft';
 import type { ElementDraftAction } from './element-sheet';
 
 /*
@@ -60,10 +61,15 @@ export function useSceneCanvas(
       fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas: next } } }));
       /* A held save owes no Maker render — the Apply · Undo · Restore count comes back with it. */
       if (opts.redraw) fd.set(HUB_DRAFT_BAR_FIELD, '1');
-      const res = opts.redraw
-        ? await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh())
-        : // One refresh after the last save in flight (`lib/maker-refresh.ts`).
-          await makerSave(() => draftAction(eventId, fd), () => router.refresh());
+      /* 📵 A save that never answered (no signal, a 5xx) is a refusal, SAID in the row — thrown into this transition it
+         replaced the whole Maker with the app's error screen (`hubDraftAnswer`). The pick stays chosen: the next save
+         on this scene carries the whole canvas, so it is sent again with it. */
+      const res = await hubDraftAnswer('save', async () =>
+        opts.redraw
+          ? await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh())
+          : // One refresh after the last save in flight (`lib/maker-refresh.ts`).
+            await makerSave(() => draftAction(eventId, fd), () => router.refresh()),
+      );
       if (!res.ok) setError(res.error);
     });
   };
@@ -84,6 +90,8 @@ export function useHeldEventsSave(eventId: string, draftAction: ElementDraftActi
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ events }));
     fd.set(HUB_DRAFT_BAR_FIELD, '1');
+    /* ⚠ This promise REJECTS when the save never answered (no signal, a 5xx) — as every `makerSave` does. Its caller
+       answers that (`hubDraftAnswer`, in `DressFiguresRow`); awaited bare in a transition it takes the Maker down. */
     return makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh());
   };
 }

@@ -19,6 +19,7 @@ import {
   type SpatialIntensity,
   type SpatialThemeKey,
 } from '@/lib/spatial-backdrop';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * Media + choice panels for the unified editor (PR-6) — the WYSIWYG push.
@@ -78,7 +79,7 @@ export function HeroPhotoPanel({
   displayUrls?: Record<string, string>;
 }) {
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       {/* Into the draft — `uploadHeroPhoto`'s own door (Maker Phase 6). */}
       <HubDraftField />
       <input type="hidden" name="event_id" value={eventId} />
@@ -97,7 +98,7 @@ export function HeroPhotoPanel({
         help="Shown at the top of your page. JPG, PNG or WebP up to 10 MB."
       />
       <SaveButton />
-    </form>
+    </SafeForm>
   );
 }
 
@@ -116,7 +117,7 @@ export function GalleryPanel({
   maxFiles: number;
 }) {
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       {/* Into the draft (`updateOurPhotos`' door, owner 2026-09-29) — tried by
           every couple; Apply puts the photos live, with Event Hub Pro. */}
       <HubDraftField />
@@ -136,7 +137,7 @@ export function GalleryPanel({
         help={`Photos you upload yourself — up to ${maxFiles}.`}
       />
       <SaveButton />
-    </form>
+    </SafeForm>
   );
 }
 
@@ -202,7 +203,7 @@ export function SiteChromePanel({
   const draftNow = () => void window.requestAnimationFrame(() => formRef.current?.requestSubmit());
   const hint = 'it is added to your draft as soon as it uploads';
   return (
-    <form ref={formRef} action={action} className={PANEL} data-site-chrome={part}>
+    <SafeForm ref={formRef} action={action} className={PANEL} data-site-chrome={part}>
       {/* Into the draft (`updateSiteChrome`'s door, owner 2026-09-29) — the song
           and the video are tried by every couple; Apply puts them live, with Pro. */}
       <HubDraftField />
@@ -301,7 +302,7 @@ export function SiteChromePanel({
           help="Plays in place of the hero photo when set."
         />
       )}
-    </form>
+    </SafeForm>
   );
 }
 
@@ -323,7 +324,7 @@ export function VisibilityPanel({
   const [picked, setPicked] = useState<'public' | 'unlisted' | 'private'>(visibility);
   const [ticketError, setTicketError] = useState<string | null>(null);
   return (
-    <form
+    <SafeForm
       action={action}
       className={PANEL}
       onSubmit={(e) => {
@@ -416,7 +417,7 @@ export function VisibilityPanel({
         </div>
       ) : null}
       <SaveButton />
-    </form>
+    </SafeForm>
   );
 }
 
@@ -431,7 +432,7 @@ export function OpenBrowsePanel({
   on: boolean;
 }) {
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       <HubSavesImmediately />
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="open_browse" value={on ? '0' : '1'} />
@@ -442,7 +443,7 @@ export function OpenBrowsePanel({
           : 'Guests currently see only the page for the current moment (invitation, day-of, after).'}
       </p>
       <SaveButton label={on ? 'Turn off open browsing' : 'Turn on open browsing'} />
-    </form>
+    </SafeForm>
   );
 }
 
@@ -483,7 +484,7 @@ export function LaunchPhasePanel({
       checked ? 'border-ink/40 bg-ink/[0.03]' : 'border-ink/10 hover:border-ink/25'
     }`;
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       <HubSavesImmediately />
       <input type="hidden" name="event_id" value={eventId} />
       <ReturnTo eventId={eventId} rowKey="launch-phase" />
@@ -533,7 +534,7 @@ export function LaunchPhasePanel({
         </div>
       </fieldset>
       <SaveButton />
-    </form>
+    </SafeForm>
   );
 }
 
@@ -581,7 +582,7 @@ export function RsvpBackdropPanel({
           : 'Your invitation currently has a plain background. Pick a scene to add depth behind it.'}
       </p>
 
-      <form action={saveAction} className="mt-1">
+      <SafeForm action={saveAction} className="mt-1">
         <HubDraftField />
         <input type="hidden" name="event_id" value={eventId} />
         <ReturnTo eventId={eventId} rowKey="backdrop" />
@@ -642,10 +643,10 @@ export function RsvpBackdropPanel({
         </label>
 
         <SaveButton label={current ? 'Save scene' : 'Turn on backdrop'} />
-      </form>
+      </SafeForm>
 
       {current ? (
-        <form action={clearAction} className="mt-3 border-t border-ink/10 pt-3">
+        <SafeForm action={clearAction} className="mt-3 border-t border-ink/10 pt-3">
           <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />
           <ReturnTo eventId={eventId} rowKey="backdrop" />
@@ -655,7 +656,7 @@ export function RsvpBackdropPanel({
           >
             Turn the backdrop off
           </button>
-        </form>
+        </SafeForm>
       ) : null}
     </div>
   );

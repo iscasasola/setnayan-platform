@@ -12,6 +12,7 @@ import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * Authoring panels for the unified editor (PR-8) — the last multi-field
@@ -46,7 +47,7 @@ export function DressCodePanel({
   eventRoles?: React.ComponentProps<typeof DressCodeFields>['eventRoles'];
 }) {
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       <HubDraftField />
       <input
         type="hidden"
@@ -65,7 +66,7 @@ export function DressCodePanel({
       >
         Save
       </SubmitButton>
-    </form>
+    </SafeForm>
   );
 }
 
@@ -110,7 +111,7 @@ export function StoryPanel({
      Maker Phase 7); a tap here opens one there. The words below still feed the
      invitation's story paragraph. */
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       <HubDraftField />
       <WordsReturnTo eventId={eventId} />
       <LoveStoryChaptersPanel story={story} ownsPro={ownsPro} />
@@ -120,7 +121,7 @@ export function StoryPanel({
       >
         Save your answers
       </SubmitButton>
-    </form>
+    </SafeForm>
   );
 }
 

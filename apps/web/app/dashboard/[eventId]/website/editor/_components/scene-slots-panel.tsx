@@ -5,6 +5,7 @@ import { SceneTemplatePicker, type SceneView } from './scene-template-picker';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * ONE TEMPLATE SCENE'S OWN CONTROLS — which template, what fills its slots, how
@@ -106,7 +107,7 @@ export function SceneSlotsPanel({
                   {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
                 </span>
                 {slot.media ? (
-                  <form action={saveAction}>
+                  <SafeForm action={saveAction}>
                     {hiddenInputs({ ...base, intent: 'slot', slot: String(i), media: '' })}
                     <HubDraftField />
                     <button
@@ -115,7 +116,7 @@ export function SceneSlotsPanel({
                     >
                       Take it off
                     </button>
-                  </form>
+                  </SafeForm>
                 ) : null}
                 {current && slot.kind !== 'snippet' ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -128,7 +129,7 @@ export function SceneSlotsPanel({
                 {usable ? (
                   <>
                     {videoChoice && (t.clip || t.family === 'media' || t.family === 'media_text') ? (
-                      <form action={saveAction}>
+                      <SafeForm action={saveAction}>
                         {hiddenInputs({ ...base, intent: 'slot', slot: String(i), media: videoChoice.ref, kind: 'snippet' })}
                         <HubDraftField />
                         <button
@@ -138,7 +139,7 @@ export function SceneSlotsPanel({
                         >
                           Your video
                         </button>
-                      </form>
+                      </SafeForm>
                     ) : null}
                     {t.clip && !videoChoice ? (
                       <span className="text-[0.6rem] text-ink/50">
@@ -148,7 +149,7 @@ export function SceneSlotsPanel({
                     {photoChoices.map((photo) => {
                       const on = slot.media === photo.ref;
                       return (
-                        <form key={photo.ref} action={saveAction}>
+                        <SafeForm key={photo.ref} action={saveAction}>
                           {hiddenInputs({ ...base, intent: 'slot', slot: String(i), media: photo.ref })}
                           <HubDraftField />
                           <button
@@ -162,7 +163,7 @@ export function SceneSlotsPanel({
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
                           </button>
-                        </form>
+                        </SafeForm>
                       );
                     })}
                     {photoChoices.length === 0 && !t.clip ? (
@@ -195,7 +196,7 @@ export function SceneSlotsPanel({
                 ? !canvas.video
                 : canvas.video?.play === 'tap' && (canvas.video.open ?? 'fullscreen') === open;
             return (
-              <form key={text} action={saveAction}>
+              <SafeForm key={text} action={saveAction}>
                 {hiddenInputs({ ...base, intent: 'video', play, ...(open ? { open } : {}) })}
                 <HubDraftField />
                 <button
@@ -207,7 +208,7 @@ export function SceneSlotsPanel({
                 >
                   {text}
                 </button>
-              </form>
+              </SafeForm>
             );
           })}
         </div>
@@ -219,7 +220,7 @@ export function SceneSlotsPanel({
           {Array.from({ length: blockCount }, (_, i) => {
             const slot = slots[i] ?? {};
             return (
-              <form key={i} action={saveAction} className="space-y-1 rounded-md border border-ink/10 bg-white/60 p-2">
+              <SafeForm key={i} action={saveAction} className="space-y-1 rounded-md border border-ink/10 bg-white/60 p-2">
                 {hiddenInputs({ ...base, intent: 'slot', slot: String(i) })}
                 <HubDraftField />
                 <label className="sr-only" htmlFor={`slot-head-${row.widget_id}-${i}`}>
@@ -249,7 +250,7 @@ export function SceneSlotsPanel({
                 <button type="submit" className="inline-flex h-7 items-center rounded-full bg-ink px-3 text-[0.62rem] font-semibold text-cream">
                   Save
                 </button>
-              </form>
+              </SafeForm>
             );
           })}
         </div>

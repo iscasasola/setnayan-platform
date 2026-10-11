@@ -7,7 +7,7 @@
  * production order, read-only — the same shape `/dev/maker-lab` mounts):
  *
  *   · RSVP stage — RSVP form · When yes · When no;
- *   · Save the Date — unchanged;
+ *   · Save the Date — unchanged (but for the reply, 2026-10-11: nothing is asked until the invitation launches);
  *   · Invitation — the RSVP right under the names (owner's answer, 2026-10-05);
  *     the Details run ends dress code → entourage;
  *   · The Day — Live + Announcements first, then find your seat · schedule ·
@@ -83,9 +83,14 @@ test('RSVP stage — the three screens read RSVP form · When yes · When no', (
   }
 });
 
-test('Save the Date — unchanged', () => {
+test('Save the Date — unchanged, but for the reply: nothing is asked until the invitation launches', () => {
   assert.deepEqual(STAGE_SCENES.save_the_date, ['our_photos', 'countdown', 'our_love_story']);
-  assert.deepEqual(lists()('save_the_date'), ['f:film', ...OPENING, 'w:countdown', 'w:our_love_story']);
+  // 🔁 RE-AIMED 2026-10-11 (owner, on a guest's walk: "Save the date" and "please reply" at once): the reply is not
+  // on the Save the Date — open browsing or not (`replyAskedInStage`, lib/invitation-widgets.ts) — so the stage's
+  // list, which IS what guests are shown, no longer holds it. Every other row is the order approved on 2026-10-05.
+  assert.deepEqual(lists()('save_the_date'), ['f:film', ...OPENING.filter((k) => k !== 'f:rsvp'), 'w:countdown', 'w:our_love_story']);
+  // …and the Invitation still does (anti-vacuity: the reply was not dropped everywhere).
+  assert.ok(lists()('rsvp').includes('f:rsvp'));
 });
 
 test('Invitation — the RSVP right under the names; the Details run ends dress code → entourage → what to bring', () => {

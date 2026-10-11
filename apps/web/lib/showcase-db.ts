@@ -149,42 +149,6 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       .slice(0, 10); // YYYY-MM-DD
 
     // 1 · customers who opted in to public showcase inclusion (RA 10173 gate).
-    const { data: consenters } = await admin
-      .from('users')
-      .select('user_id')
-      .not('public_summary_consent_at', 'is', null)
-      .is('deleted_at', null);
-    const userIds = (consenters ?? []).map((u) => u.user_id as string);
-
-    // 2 · the events those couples belong to. (Empty until the first real
-    // consented couple exists — but we no longer short-circuit here: the
-    // SAMPLE branch below surfaces the curated Maria & Jose card even when
-    // zero real couples have consented yet.)
-    let eventIds: string[] = [];
-    if (userIds.length > 0) {
-      const { data: members } = await admin
-        .from('event_members')
-        .select('event_id')
-        .eq('member_type', 'couple')
-        .in('user_id', userIds);
-      eventIds = Array.from(
-        new Set((members ?? []).map((m) => m.event_id as string)),
-      );
-    }
-
-    // 3 · their weddings, past the grace window, with a public slug.
-    //
-    // Order: admin-FEATURED first (PR D · Real Stories featuring) — by manual
-    // rank (lower = higher; NULLs last), then most-recently featured, then
-    // newest wedding. Non-featured rows fall through to newest-first. The
-    // leading entry of this ordered list becomes the hero on /realstories.
-    //
-    // Graceful-degrade (mirrors fix-graceful-fallback-0043): the featuring
-    // columns ship in migration 20261221000000. If the migration hasn't been
-    // applied yet, the featured-aware select 400s on the unknown columns — we
-    // detect that and fall back to the original newest-first read (every row
-    // featured:false), so /realstories keeps surfacing real showcases even
-    // before the owner runs `supabase db push`.
     type EventRow = {
       event_id: string;
       slug: string | null;
@@ -215,105 +179,160 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
 
     // 3a · CONSENTED real weddings — gated on G4 (grace window) + G5 (consent),
     // featured-first. Skipped entirely when no real couple has consented yet.
-    let consentedEvents: EventRow[] = [];
-    if (eventIds.length > 0) {
-      const featuredAware = await withEditorialEventTypes(
-        admin
-          .from('events')
-          .select(FEATURED_COLS),
-      )
-        // 🔴 ONLY 'public' IS PUBLIC. This read `.neq(…, 'private')` until
-        // 2026-08-15, which admitted **'unlisted'** — the setting the couple's
-        // own privacy screen sells as "link only". A link-only celebration
-        // could therefore be listed on /realstories AND emitted into
-        // sitemap-weddings.xml, i.e. handed to Google, while its owner had
-        // chosen that only people with the link should find it.
-        //
-        // Owner, 2026-08-15: "it is the owner's choice if they want this in
-        // public or link only or tagged accounts only" — the event owner's
-        // choice governs. Their showcase consent answers a DIFFERENT question
-        // ("may Setnayan write about us?"); it is not permission to re-list a
-        // page they deliberately unlisted. Both gates must pass.
-        //
-        // 🔑 The old spelling failed OPEN on a value it never named. An
-        // exclusion test over an enum that can grow admits every future member
-        // by default — say what IS allowed, not what is not.
-        .eq('landing_page_visibility', 'public')
-        .in('event_id', eventIds)
-        .lte('event_date', cutoff)
-        .not('slug', 'is', null)
-        .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
-        .order('showcase_featured_at', { ascending: false, nullsFirst: false })
-        .order('event_date', { ascending: false })
-        .limit(limit);
+    /*
+      ⚡ TWO READS THAT NEVER DEPENDED ON EACH OTHER, ASKED SIDE BY SIDE
+      (2026-10-11). The consented celebrations (consent → their couples → their
+      events) and the curated samples were read one after the other only
+      because they were written one after the other; the samples waited three
+      round trips for an answer they do not use. Each block is exactly what it
+      was — the same queries, the same fallbacks, the same order of results —
+      and a throw from either still lands in the catch below, as before.
+    */
+    const readConsented = async (): Promise<EventRow[]> => {
+      const { data: consenters } = await admin
+        .from('users')
+        .select('user_id')
+        .not('public_summary_consent_at', 'is', null)
+        .is('deleted_at', null);
+      const userIds = (consenters ?? []).map((u) => u.user_id as string);
 
-      if (featuredAware.error) {
-        // Pre-migration fallback — drop the featuring columns + ordering.
-        //
-        // 🚨 THIS PATH HAD NO VISIBILITY GATE AT ALL until 2026-08-15, while
-        // the primary query above it did. It is reached whenever the primary
-        // query returns ANY error — not only the unknown-column case it was
-        // written for — so a transient failure downgraded the shelf to a read
-        // that would list a celebration whose owner had set their page
-        // PRIVATE. Found by `showcase-visibility.test.ts` counting reads
-        // against gates, not by reading the file.
-        // 🔑 A FAIL-SOFT PATH MUST BE AT LEAST AS STRICT AS THE ONE IT
-        // REPLACES. Degrading ordering is graceful; degrading a privacy gate
-        // is a leak that only appears on a bad day, when nobody is looking.
-        const legacy = await withEditorialEventTypes(
-          admin.from('events').select(LEGACY_COLS),
+      // 2 · the events those couples belong to. (Empty until the first real
+      // consented couple exists — but we no longer short-circuit here: the
+      // SAMPLE branch below surfaces the curated Maria & Jose card even when
+      // zero real couples have consented yet.)
+      let eventIds: string[] = [];
+      if (userIds.length > 0) {
+        const { data: members } = await admin
+          .from('event_members')
+          .select('event_id')
+          .eq('member_type', 'couple')
+          .in('user_id', userIds);
+        eventIds = Array.from(
+          new Set((members ?? []).map((m) => m.event_id as string)),
+        );
+      }
+
+      // 3 · their weddings, past the grace window, with a public slug.
+      //
+      // Order: admin-FEATURED first (PR D · Real Stories featuring) — by manual
+      // rank (lower = higher; NULLs last), then most-recently featured, then
+      // newest wedding. Non-featured rows fall through to newest-first. The
+      // leading entry of this ordered list becomes the hero on /realstories.
+      //
+      // Graceful-degrade (mirrors fix-graceful-fallback-0043): the featuring
+      // columns ship in migration 20261221000000. If the migration hasn't been
+      // applied yet, the featured-aware select 400s on the unknown columns — we
+      // detect that and fall back to the original newest-first read (every row
+      // featured:false), so /realstories keeps surfacing real showcases even
+      // before the owner runs `supabase db push`.
+      let consentedEvents: EventRow[] = [];
+      if (eventIds.length > 0) {
+        const featuredAware = await withEditorialEventTypes(
+          admin
+            .from('events')
+            .select(FEATURED_COLS),
         )
+          // 🔴 ONLY 'public' IS PUBLIC. This read `.neq(…, 'private')` until
+          // 2026-08-15, which admitted **'unlisted'** — the setting the couple's
+          // own privacy screen sells as "link only". A link-only celebration
+          // could therefore be listed on /realstories AND emitted into
+          // sitemap-weddings.xml, i.e. handed to Google, while its owner had
+          // chosen that only people with the link should find it.
+          //
+          // Owner, 2026-08-15: "it is the owner's choice if they want this in
+          // public or link only or tagged accounts only" — the event owner's
+          // choice governs. Their showcase consent answers a DIFFERENT question
+          // ("may Setnayan write about us?"); it is not permission to re-list a
+          // page they deliberately unlisted. Both gates must pass.
+          //
+          // 🔑 The old spelling failed OPEN on a value it never named. An
+          // exclusion test over an enum that can grow admits every future member
+          // by default — say what IS allowed, not what is not.
           .eq('landing_page_visibility', 'public')
           .in('event_id', eventIds)
           .lte('event_date', cutoff)
           .not('slug', 'is', null)
+          .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
+          .order('showcase_featured_at', { ascending: false, nullsFirst: false })
           .order('event_date', { ascending: false })
           .limit(limit);
-        consentedEvents = (legacy.data as EventRow[] | null) ?? [];
-      } else {
-        consentedEvents = (featuredAware.data as EventRow[] | null) ?? [];
+
+        if (featuredAware.error) {
+          // Pre-migration fallback — drop the featuring columns + ordering.
+          //
+          // 🚨 THIS PATH HAD NO VISIBILITY GATE AT ALL until 2026-08-15, while
+          // the primary query above it did. It is reached whenever the primary
+          // query returns ANY error — not only the unknown-column case it was
+          // written for — so a transient failure downgraded the shelf to a read
+          // that would list a celebration whose owner had set their page
+          // PRIVATE. Found by `showcase-visibility.test.ts` counting reads
+          // against gates, not by reading the file.
+          // 🔑 A FAIL-SOFT PATH MUST BE AT LEAST AS STRICT AS THE ONE IT
+          // REPLACES. Degrading ordering is graceful; degrading a privacy gate
+          // is a leak that only appears on a bad day, when nobody is looking.
+          const legacy = await withEditorialEventTypes(
+            admin.from('events').select(LEGACY_COLS),
+          )
+            .eq('landing_page_visibility', 'public')
+            .in('event_id', eventIds)
+            .lte('event_date', cutoff)
+            .not('slug', 'is', null)
+            .order('event_date', { ascending: false })
+            .limit(limit);
+          consentedEvents = (legacy.data as EventRow[] | null) ?? [];
+        } else {
+          consentedEvents = (featuredAware.data as EventRow[] | null) ?? [];
+        }
       }
-    }
 
-    // 3b · SAMPLE weddings (events.is_sample) — admitted to /realstories WITHOUT
-    // the G4/G5 consent + grace gates, because a sample represents no real
-    // person (the RA 10173 honesty lock only protects real couples). The card
-    // keeps its "Sample" badge (page.tsx wires isSample through), so nothing
-    // claims a real couple consented, and the sample stays future-dated — its
-    // planning/day-of demo is untouched. Same visibility + slug + featured
-    // ordering as the real path. Graceful-degrade identical to 3a.
-    let sampleEvents: EventRow[] = [];
-    {
-      const sampleFeatured = await withEditorialEventTypes(
-        admin.from('events').select(FEATURED_COLS),
-      )
-        .eq('is_sample', true)
-        .eq('landing_page_visibility', 'public')
-        .not('slug', 'is', null)
-        .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
-        .order('showcase_featured_at', { ascending: false, nullsFirst: false })
-        .order('event_date', { ascending: false })
-        .limit(limit);
+      // 3b · SAMPLE weddings (events.is_sample) — admitted to /realstories WITHOUT
+      // the G4/G5 consent + grace gates, because a sample represents no real
+      // person (the RA 10173 honesty lock only protects real couples). The card
+      // keeps its "Sample" badge (page.tsx wires isSample through), so nothing
+      // claims a real couple consented, and the sample stays future-dated — its
+      // planning/day-of demo is untouched. Same visibility + slug + featured
+      // ordering as the real path. Graceful-degrade identical to 3a.
+      return consentedEvents;
+    };
 
-      if (sampleFeatured.error) {
-        const sampleLegacy = await withEditorialEventTypes(
-          admin.from('events').select(LEGACY_COLS),
+    const readSamples = async (): Promise<EventRow[]> => {
+      let sampleEvents: EventRow[] = [];
+      {
+        const sampleFeatured = await withEditorialEventTypes(
+          admin.from('events').select(FEATURED_COLS),
         )
           .eq('is_sample', true)
           .eq('landing_page_visibility', 'public')
           .not('slug', 'is', null)
+          .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
+          .order('showcase_featured_at', { ascending: false, nullsFirst: false })
           .order('event_date', { ascending: false })
           .limit(limit);
-        sampleEvents = (sampleLegacy.data as EventRow[] | null) ?? [];
-      } else {
-        sampleEvents = (sampleFeatured.data as EventRow[] | null) ?? [];
-      }
-    }
 
-    // Merge consented + sample, de-dupe by event_id (consented wins — a real
-    // consented event is never re-shown as a "Sample"), real stories first then
-    // samples, capped at `limit`. Within each group the per-query ordering
-    // (featured-first, then newest) is preserved.
+        if (sampleFeatured.error) {
+          const sampleLegacy = await withEditorialEventTypes(
+            admin.from('events').select(LEGACY_COLS),
+          )
+            .eq('is_sample', true)
+            .eq('landing_page_visibility', 'public')
+            .not('slug', 'is', null)
+            .order('event_date', { ascending: false })
+            .limit(limit);
+          sampleEvents = (sampleLegacy.data as EventRow[] | null) ?? [];
+        } else {
+          sampleEvents = (sampleFeatured.data as EventRow[] | null) ?? [];
+        }
+      }
+
+      // Merge consented + sample, de-dupe by event_id (consented wins — a real
+      // consented event is never re-shown as a "Sample"), real stories first then
+      // samples, capped at `limit`. Within each group the per-query ordering
+      // (featured-first, then newest) is preserved.
+      return sampleEvents;
+    };
+
+    const [consentedEvents, sampleEvents] = await Promise.all([readConsented(), readSamples()]);
+
     const seen = new Set<string>();
     const events: EventRow[] = [];
     for (const e of [...consentedEvents, ...sampleEvents]) {

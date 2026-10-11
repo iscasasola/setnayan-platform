@@ -36,6 +36,7 @@ import {
 } from './rsvp-sheet-state';
 import { SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { resolveArrivalAction } from '@/lib/arrival-action';
+import { inviteReplyPath } from '@/lib/invite-arrival';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -84,16 +85,15 @@ test('the hub card’s chip opens the sheet', () => {
   assert.equal(hashOpensSheet('#your-details'), true);
 });
 
-test('the arrival action’s RSVP href opens the SAME sheet', () => {
-  // `resolveArrivalAction` sends 'ask' / 'going' / 'declined' to the sheet's own
-  // anchor (walk-through 2026-10-01: it used to be `#site-me`, which raised the
-  // sheet over the guest's ticket every time they tapped Me). Read from the
-  // action itself, never retyped, so a rename cannot leave this passing while the
-  // link goes dead.
+test('the arrival action’s RSVP href opens the reply PAGE — never the sheet', () => {
+  // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
+  // (It was the sheet's own anchor from 2026-10-01, and `#site-me` before that.) Read from the action itself,
+  // never retyped, so a rename cannot leave this passing while the link goes dead.
   for (const rsvpStatus of ['pending', 'attending', 'declined'] as const) {
     const action = resolveArrivalAction({ slug: 'some-wedding', rsvpStatus, today: '2020-01-01' });
     assert.ok(action, rsvpStatus);
-    assert.equal(hashOpensSheet(action.href), true, `${rsvpStatus}: ${action.href} does not open the sheet`);
+    assert.equal(action.href, inviteReplyPath('some-wedding'), `${rsvpStatus}: ${action.href} is not the reply page`);
+    assert.equal(hashOpensSheet(action.href), false, `${rsvpStatus}: ${action.href} still raises a sheet`);
   }
 });
 
@@ -386,9 +386,15 @@ test('with the bundle dead the reply card is still a reachable section', () => {
     !/^\s*\.sn-rsvp-sheet\{display:none\}/m.test(SHEET_CODE),
     'the panel is hidden unconditionally — a guest without JavaScript cannot RSVP',
   );
-  // The trigger is a plain fragment link for the same reason: with no JS it
-  // scrolls, with JS it is the signal the sheet listens for.
-  assert.ok(BODY_CODE.includes('href="#your-details"'), 'the trigger is no longer a fragment link');
+  // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
+  // No door on a guest's page is a fragment link to the sheet any more; each is a plain link to the reply page,
+  // which needs no script either.
+  assert.ok(!BODY_CODE.includes('href="#your-details"'), 'a door on the guest page opens the sheet again — two reply forms');
+  assert.ok((BODY_CODE.match(/href=\{replyDoor\}/g) ?? []).length >= 2, 'the reply doors no longer point at the reply page');
+  assert.match(BODY_CODE, /const replyDoor = inviteReplyPath\(event\.slug \?\? ''\);/);
+  // …and the sheet is drawn for the Maker's canvas only.
+  assert.match(BODY_CODE, /const replySheetDrawn = plan\.rsvpShouldRender && isEditorCanvas;/);
+  assert.match(BODY_CODE, /\{replySheetDrawn \? \(\s*<RsvpSheet/, 'the reply sheet is drawn for a guest again');
 });
 
 test('the top control says "Close" — it closes the sheet and saves nothing', async () => {

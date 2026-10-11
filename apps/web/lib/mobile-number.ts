@@ -19,7 +19,8 @@
  *     or a phone with no script cannot skip;
  *   · the browser — `ReplyForm` (app/[slug]/_components/reply-form.tsx), before
  *     it sends, so the guest keeps the form and reads the reason under the
- *     button. The card's own HTML is not touched (its bytes are on record).
+ *     button (`mobileNeededForPress` below decides whether THIS press needs
+ *     one). The card's own HTML is not touched (its bytes are on record).
  *
  * THE WORDS are the ones the pages already say for a yes with no number
  * (`?rsvp=mobile`, app/[slug]/page.tsx and invite/reply/page.tsx) — one
@@ -44,4 +45,29 @@ export function mobileDigits(raw: string | null | undefined): number {
 /** Is this enough of a number to reach someone on? */
 export function mobileIsEnough(raw: string | null | undefined): boolean {
   return mobileDigits(raw) >= MOBILE_MIN_DIGITS;
+}
+
+/**
+ * IS A NUMBER NEEDED FOR THIS PRESS? — what the form's own handler asks, from
+ * what the card already shows:
+ *   · the box is `required` (the card that asks only for what is missing), or
+ *   · the answer being sent is a yes AND the card marks Mobile "(required)" for
+ *     a yes (the `.attend-mark` beside its label — drawn only when the couple
+ *     asks for a mobile, on an open list).
+ *
+ * ⚠ NOT "the box is `required`" ALONE. On the full card that property is set by
+ * a line of script inside the card, and a script arriving by a client-side
+ * navigation never runs (rsvp-widget.tsx says so) — seen in a real browser on
+ * 2026-10-11: with only that reading, a yes with "abc" was sent. The mark is in
+ * the HTML itself, so this holds however the page arrived.
+ */
+export function mobileNeededForPress(input: {
+  /** `rsvp_status` as this press would send it. */
+  answer: string | null | undefined;
+  /** The box's own `required`. */
+  boxRequired: boolean;
+  /** The card marks Mobile as required for a yes. */
+  markedRequiredForYes: boolean;
+}): boolean {
+  return input.boxRequired || (input.answer === 'attending' && input.markedRequiredForYes);
 }

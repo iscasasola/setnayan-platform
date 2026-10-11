@@ -15,14 +15,15 @@
  *
  * SABOTAGE RUN 2026-10-11 (committed first, put back by `git checkout`): `mobileIsEnough` made to accept any
  * non-empty text → (1) red; the server's check put back to `!contactMobile` → (2) red; the handler's check removed
- * from `reply-form.tsx` → (3) red.
+ * from `reply-form.tsx` → (3) red. (2026-10-11, after a real browser sent a yes with "abc": the handler no longer
+ * relies on the box's `required` property alone — `mobileNeededForPress`.)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { MOBILE_MIN_DIGITS, MOBILE_NEEDED, mobileDigits, mobileIsEnough } from './mobile-number';
+import { MOBILE_MIN_DIGITS, MOBILE_NEEDED, mobileDigits, mobileIsEnough, mobileNeededForPress } from './mobile-number';
 
 const WEB = join(__dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -62,8 +63,18 @@ test('(2) the server refuses a yes without it — only a yes, only on an open li
 test('(3) the browser does not send it either: the form stops the press on the same rule and says why', () => {
   const form = code('app/[slug]/_components/reply-form.tsx');
   const handler = form.slice(form.indexOf('function onSubmit('), form.indexOf('return (', form.indexOf('function onSubmit(')));
-  const check = handler.indexOf('if (mobile && mobile.required && !mobileIsEnough(mobile.value)) {');
+  const check = handler.indexOf('if (mobile && needed && !mobileIsEnough(mobile.value)) {');
   assert.ok(check > 0, 'the form sends a yes without asking the rule');
+  // Whether THIS press needs a number: a required box, or a yes on a card that marks Mobile required for a yes —
+  // read off the card's own HTML, never off a property only a script sets (a client-side arrival never runs it).
+  assert.equal(mobileNeededForPress({ answer: 'attending', boxRequired: false, markedRequiredForYes: true }), true, 'a yes on the full card is sent without the check when the card’s script did not run');
+  assert.equal(mobileNeededForPress({ answer: 'declined', boxRequired: false, markedRequiredForYes: true }), false, 'a no is asked for a number');
+  assert.equal(mobileNeededForPress({ answer: 'attending', boxRequired: false, markedRequiredForYes: false }), false, 'a number is demanded where the couple does not ask for one (or the list is closed)');
+  assert.equal(mobileNeededForPress({ answer: null, boxRequired: true, markedRequiredForYes: false }), true);
+  assert.match(handler, /mobileNeededForPress\(\{\s*answer: answerOf\(e\.currentTarget, \(e\.nativeEvent as SubmitEvent\)\.submitter\),\s*boxRequired: mobile\.required,\s*markedRequiredForYes: e\.currentTarget\.querySelector\('label\[for="contact_mobile"\] \.attend-mark'\) !== null,/);
+  // …and that mark is what the card draws for exactly that case.
+  assert.match(code('app/[slug]/_components/rsvp-widget.tsx'), /mark=\{mobileRequiredOnYes \? ' \(required\)' : null\}/);
+  assert.match(code('app/[slug]/_components/rsvp-widget.tsx'), /\{mark \? <span className="attend-mark">\{mark\}<\/span> : null\}/);
   assert.match(handler, /e\.currentTarget\.querySelector<HTMLInputElement>\('input\[name="contact_mobile"\]:not\(\[type="hidden"\]\)'\)/, 'the box read is not the one the guest types in');
   // It stops BEFORE the send is started, and before the form is marked as pressed (so the next press works).
   assert.ok(check < handler.indexOf('pressed.current = true;'), 'a refused press leaves the form unable to send again');

@@ -13,7 +13,7 @@ import {
 import { unstable_rethrow } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { REPLY_NOT_SENT, makeReplySender } from '@/lib/reply-send';
-import { MOBILE_NEEDED, mobileIsEnough } from '@/lib/mobile-number';
+import { MOBILE_NEEDED, mobileIsEnough, mobileNeededForPress } from '@/lib/mobile-number';
 
 /**
  * THE REPLY CARD'S `<form>` — the same element, with the press caught.
@@ -66,6 +66,18 @@ function isRedirectSignal(thrown: unknown): boolean {
   return typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT');
 }
 
+/** `rsvp_status` as this press would send it (the pressed button's own value included). */
+function answerOf(form: HTMLFormElement, submitter: HTMLElement | null): string | null {
+  let data: FormData;
+  try {
+    data = new FormData(form, submitter);
+  } catch {
+    data = new FormData(form);
+  }
+  const answer = data.get('rsvp_status');
+  return typeof answer === 'string' ? answer : null;
+}
+
 /** `true`/`false` inside a `ReplyForm`; `null` outside one (the button then reads React's form status). */
 const ReplySending = createContext<boolean | null>(null);
 
@@ -110,14 +122,22 @@ export function ReplyForm({
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    /* 📱 A YES NEEDS A NUMBER OF AT LEAST SEVEN DIGITS (owner 2026-10-11). The
-       card marks the box `required` exactly when a number is needed — a yes, on
-       an open list, when the couple asks for one (rsvp-widget.tsx) — so that is
-       the one fact read here; the browser itself already stops an EMPTY box.
-       Nothing is sent, the form is untouched, and the reason is said under the
-       button in the words the server uses for the same refusal. */
+    /* 📱 A YES NEEDS A NUMBER OF AT LEAST SEVEN DIGITS (owner 2026-10-11). Whether
+       THIS press needs one is read off what the card already shows — the box is
+       `required`, or the answer is a yes and the card marks Mobile "(required)"
+       for a yes (`mobileNeededForPress`, lib/mobile-number.ts, which says why it
+       is not the `required` property alone). Nothing is sent, the form is
+       untouched, and the reason is said under the button in the words the server
+       uses for the same refusal. */
     const mobile = e.currentTarget.querySelector<HTMLInputElement>('input[name="contact_mobile"]:not([type="hidden"])');
-    if (mobile && mobile.required && !mobileIsEnough(mobile.value)) {
+    const needed =
+      mobile !== null &&
+      mobileNeededForPress({
+        answer: answerOf(e.currentTarget, (e.nativeEvent as SubmitEvent).submitter),
+        boxRequired: mobile.required,
+        markedRequiredForYes: e.currentTarget.querySelector('label[for="contact_mobile"] .attend-mark') !== null,
+      });
+    if (mobile && needed && !mobileIsEnough(mobile.value)) {
       setNotSent(false);
       setMobileNeeded(true);
       mobile.focus();

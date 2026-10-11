@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e73a6f2a2",
+  "generatedFromRef": "69746f9d6",
   "routeCount": 431,
   "destinations": 955,
   "actions": 673,
-  "blocks": 6016,
+  "blocks": 6017,
   "routes": {
     "/": {
       "files": [
@@ -10175,6 +10175,7 @@
         "MakerPageStandIn",
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
+        "Metadata",
         "PahinaMasthead",
         "RsvpCanvasBridge",
         "RsvpLookStyle",

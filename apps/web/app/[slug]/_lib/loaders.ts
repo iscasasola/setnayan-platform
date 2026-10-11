@@ -1316,6 +1316,32 @@ export const loadDoorwayFacts = cache(
   },
 );
 
+/** Has this guest been checked in? The row as stored — the caller reads it exactly as it always did. */
+async function readGuestCheckin(admin: AdminClient, eventId: string, guestId: string) {
+  return admin
+    .from('guest_checkins')
+    .select('checked_in_at')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .maybeSingle();
+}
+
+/** What this guest said about being tagged in photos — the stored answer. */
+async function readFaceTaggingWish(admin: AdminClient, guestId: string) {
+  return admin.from('guests').select('face_tagging_wanted').eq('guest_id', guestId).maybeSingle();
+}
+
+/** This guest's first scan, ever. */
+async function readFirstScan(admin: AdminClient, guestId: string) {
+  return admin
+    .from('scan_events')
+    .select('scanned_at')
+    .eq('guest_id', guestId)
+    .order('scanned_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+}
+
 /**
  * Guest-scoped context — THE ONLY loader that may select guest columns.
  *
@@ -1384,6 +1410,31 @@ export const loadGuestContext = cache(
       process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
     // Encode the guest's QR + shareable link at the canonical form — nested /u/
     // under the cutover flag, bare root otherwise (owner resolve self-noops OFF).
+    /* ⏩ SIDE BY SIDE (2026-10-12). From here this loader asked more than a
+       dozen things about THIS guest one after another — their QR's look, the
+       camera, their gallery, their face step, whether they have arrived, their
+       first scan, the suppliers' credits — and almost none of them needs
+       another's answer. Each of the reads below now LEAVES here, as soon as
+       the guest's row is known to be theirs, and is still AWAITED exactly where
+       it always was, under the same condition, inside the same `try` — so every
+       answer and every fallback is unchanged. Nothing here leaves before the
+       two early returns above: a cookie whose guest is gone, and a plus-one who
+       has not confirmed their name, still cost the one read they did.
+       (`lib/start-ahead.ts`; counted per viewer in `lib/guest-page-reads.test.ts`.) */
+    const galleryWindowAhead = dayOfPhase === 'live' || dayOfPhase === 'post';
+    const qrLookAhead = startAhead(resolveEventQrLook(admin, event.event_id, event));
+    const papicGuestActiveAhead = startAhead(eventPapicGuestActive(admin, event.event_id));
+    const guestCameraAhead =
+      guest.rsvp_status !== 'declined' ? startAhead(resolveGuestCamera(admin, event.event_id, guest.guest_id)) : null;
+    const liveGalleryAhead = galleryWindowAhead ? startAhead(getGuestLiveGallery(event.event_id, guest.guest_id)) : null;
+    const ownShotsAhead = galleryWindowAhead ? startAhead(getGuestOwnShots(event.event_id, guest.guest_id)) : null;
+    const faceTaggingAhead = startAhead(resolveFaceTagging(admin, event.event_id));
+    const faceWishAhead = startAhead(readFaceTaggingWish(admin, guest.guest_id));
+    const faceEnrollmentOnAhead = startAhead(isDataPrivacyControlActive('face_enrollment'));
+    const checkinAhead = galleryWindowAhead ? startAhead(readGuestCheckin(admin, event.event_id, guest.guest_id)) : null;
+    const firstScanAhead = startAhead(readFirstScan(admin, guest.guest_id));
+    const vendorCreditsAhead = startAhead(fetchEventVendorCredits(event.event_id));
+
     const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
     // Encode the DB-canonical slug (event.slug), not the raw URL param (matched
     // case-insensitively), so the QR + link match the canonical everywhere else.
@@ -1394,7 +1445,7 @@ export const loadGuestContext = cache(
       qrToken: guest.qr_token,
       // The event's look (lib/qr-look.ts): the Setnayan mark for a free event,
       // the couple's own logo · shape · pattern · ink on Event Hub Pro.
-      look: await resolveEventQrLook(admin, event.event_id, event),
+      look: await qrLookAhead,
       ownerSlug,
     });
     const invitationUrl = buildInvitationUrl({ appUrl, slug: canonicalSlug, qrToken: guest.qr_token, ownerSlug });
@@ -1402,7 +1453,7 @@ export const loadGuestContext = cache(
     // Papic guest camera (PAPIC_GUEST) — when the couple owns the pack, give the
     // cookie-bearing guest a floating "be a candid camera" CTA into /papic/guest.
     // Gated, admin read, graceful-degrade so the anonymous public path is untouched.
-    const papicGuestActive = await eventPapicGuestActive(admin, event.event_id);
+    const papicGuestActive = await papicGuestActiveAhead;
 
     // Papic LIMITED roll camera (owner 2026-06-26: "the custom QR of the guests
     // will automatically have their papic camera and gallery"). When this guest
@@ -1414,7 +1465,7 @@ export const loadGuestContext = cache(
     let guestRollCameraReady = false;
     if (guest.rsvp_status !== 'declined') {
       try {
-        const cam = await resolveGuestCamera(admin, event.event_id, guest.guest_id);
+        const cam = await (guestCameraAhead ?? resolveGuestCamera(admin, event.event_id, guest.guest_id));
         guestRollCameraReady = cam.status === 'ready';
       } catch {
         guestRollCameraReady = false;
@@ -1452,7 +1503,7 @@ export const loadGuestContext = cache(
     // hub). Guest-session-scoped; clean-screened captures only.
     const guestLiveGallery =
       dayOfPhase === 'live' || dayOfPhase === 'post'
-        ? await getGuestLiveGallery(event.event_id, guest.guest_id)
+        ? await (liveGalleryAhead ?? getGuestLiveGallery(event.event_id, guest.guest_id))
         : null;
 
     // 📸 The Gallery's other two halves (owner 2026-10-01, "THE EVENT HUB IS
@@ -1464,7 +1515,7 @@ export const loadGuestContext = cache(
     const galleryWindow = dayOfPhase === 'live' || dayOfPhase === 'post';
     const [guestOwnShots, poolGalleryOpen] = galleryWindow
       ? await Promise.all([
-          getGuestOwnShots(event.event_id, guest.guest_id),
+          ownShotsAhead ?? getGuestOwnShots(event.event_id, guest.guest_id),
           (async () => {
             if (!(await papicPoolGalleryActive())) return false;
             const { data: poolRow, error: poolErr } = await admin
@@ -1524,12 +1575,8 @@ export const loadGuestContext = cache(
     // select THROWS on failure, and a failed wish read must degrade to silence,
     // not to an error page.
     const [faceTagging, { data: wishRow, error: wishError }] = await Promise.all([
-      resolveFaceTagging(admin, event.event_id),
-      admin
-        .from('guests')
-        .select('face_tagging_wanted')
-        .eq('guest_id', guest.guest_id)
-        .maybeSingle(),
+      faceTaggingAhead,
+      faceWishAhead,
     ]);
     if (wishError) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:guests.select(face_tagging_wanted)', wishError);
     const faceTaggingWish: FaceTaggingWish = wishError
@@ -1559,7 +1606,7 @@ export const loadGuestContext = cache(
           windowEnd: g?.papic_window_end,
         }).state === 'open';
     }
-    if (await isDataPrivacyControlActive('face_enrollment')) {
+    if (await faceEnrollmentOnAhead) {
       if (guest.rsvp_status !== 'declined') {
         const { data: liveEnrollment, error: enrollError } = await admin
           .from('guest_face_enrollments')
@@ -1716,12 +1763,8 @@ export const loadGuestContext = cache(
     let guestArrived = false;
     if (dayOfPhase === 'live' || dayOfPhase === 'post') {
       try {
-        const { data: checkinRow, error: checkinErr } = await admin
-          .from('guest_checkins')
-          .select('checked_in_at')
-          .eq('event_id', event.event_id)
-          .eq('guest_id', guest.guest_id)
-          .maybeSingle();
+        const { data: checkinRow, error: checkinErr } = await (checkinAhead ??
+          readGuestCheckin(admin, event.event_id, guest.guest_id));
         if (checkinErr) {
           if (checkinErr.code !== '42P01' && checkinErr.code !== '42703') {
             // Unexpected error — degrade quietly (no bloom) but don't crash.
@@ -1769,13 +1812,7 @@ export const loadGuestContext = cache(
     const ARRIVAL_WINDOW_MS = 5 * 60 * 1000;
     let guestFirstVisit = false;
     try {
-      const { data: firstScan, error: firstScanErr } = await admin
-        .from('scan_events')
-        .select('scanned_at')
-        .eq('guest_id', guest.guest_id)
-        .order('scanned_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      const { data: firstScan, error: firstScanErr } = await firstScanAhead;
       if (firstScanErr) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:scan_events.select', firstScanErr);
       // 🔑 A REJECTED QUERY IS NOT A THROWN ERROR — check the error, or a lost
       // grant reads as "no scan ever" and greets every returning guest as new.
@@ -1852,7 +1889,7 @@ export const loadGuestContext = cache(
     // Invite/Join v2 — "vendors who made this day": the couple's booked marketplace
     // vendors, savable to a guest's own account for their future planning. Read
     // server-side (a guest can't read event_vendors under RLS).
-    const eventVendorCredits = await fetchEventVendorCredits(event.event_id);
+    const eventVendorCredits = await vendorCreditsAhead;
 
     // Effective face-tag mode for the RSVP selfie + day-of enroll surfaces on this
     // page (One-Pool spec §3.4). Resolved server-side via the same helper the

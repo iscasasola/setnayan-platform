@@ -53,14 +53,15 @@ const summary = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.
     a stranger          23 requests, 10 deep
     an invited guest    34 requests, 17 deep   (37 / 20 on the day)
   Side by side (2026-10-12): the live layer's five reads, the entourage's three
-  event facts, the bundle list beside the orders read, and the one platform
-  switch the schedule waited on.
+  event facts, the bundle list beside the orders read, the one platform switch
+  the schedule waited on, and — for an invited guest — the dozen reads about
+  them that leave as soon as their row is known to be theirs.
 */
 const PINNED: Record<keyof Report, { calls: number; depth: number }> = {
   strangerBeforeTheDay: { calls: 23, depth: 5 },
   strangerOnTheDay: { calls: 23, depth: 6 },
-  invitedBeforeTheDay: { calls: 34, depth: 12 },
-  invitedOnTheDay: { calls: 37, depth: 16 },
+  invitedBeforeTheDay: { calls: 34, depth: 7 },
+  invitedOnTheDay: { calls: 37, depth: 8 },
 };
 
 test('the harness is looking at the page’s loaders — the shell is read first, alone, once', () => {

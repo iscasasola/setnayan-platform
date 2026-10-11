@@ -108,7 +108,18 @@ test('only these reads are started ahead — each one every path below awaits, n
       'eventPapicGuestActive', 'eventStdOpeningsActive', 'loadVenueBookings', 'websiteProActiveFor',
       'readPublicSchedule', 'readStoredBackdrop', 'readWatchLive', 'readGuestWallMirror', 'resolveAlbumDoor',
       'loadEntourageSectionOrder', 'loadEventRoleNames', 'loadEventNameStyle',
+      // The invited guest's own facts — started only INSIDE `loadGuestContext`, after their row is
+      // known to be theirs (the two early returns above them still cost one read).
+      'resolveEventQrLook', 'eventPapicGuestActive', 'resolveGuestCamera', 'getGuestLiveGallery', 'getGuestOwnShots',
+      'resolveFaceTagging', 'readFaceTaggingWish', 'isDataPrivacyControlActive', 'readGuestCheckin', 'readFirstScan',
+      'fetchEventVendorCredits',
     ].sort(),
+  );
+  // …and none of them leaves before the guest's row has been checked.
+  const CONTEXT = LOADERS.slice(LOADERS.indexOf('export const loadGuestContext = cache('));
+  assert.ok(
+    CONTEXT.indexOf("kind: 'not_found'") > -1 && CONTEXT.indexOf("kind: 'not_found'") < CONTEXT.indexOf('startAhead('),
+    'a read about a guest is started before their row is known to exist',
   );
   // The guest's own facts (their row, their seat, their ticks) are read only past the session checks — never ahead.
   assert.doesNotMatch(PAGE, /startAhead\(\s*(loadGuestContext|findGuestSeatForUser|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);

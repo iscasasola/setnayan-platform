@@ -161,7 +161,11 @@ test('4 · a group’s tools: Edit and Background — Style and Animate are grey
   const STAGE = src(`${L}/rsvp-list-stage.tsx`);
   const PANEL = src(`${L}/maker-rsvp-ask.tsx`);
   /* Animate is not offered on a group (controller 2026-10-10); Background is. */
-  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| \(t === 'animate' && !rsvpList\.groupWhy\)\)\) \|\| \(block !== null && \(t === 'bg' \|\| t === 'animate'\)\);/);
+  /* 🔀 The line as the MERGED copy holds it (two builders met here, 2026-10-11): the RSVP half is this file's — a group
+     has no Animate — and a fixed block's half is split by the Photos-of-you ruling ("animate only": Animate for a
+     block that has motion, Background only for one that has a ground). The pin read the RSVP branch's line and was
+     red on the merged copy from the moment of the merge. */
+  assert.match(TOOLS, /const ownTool = \(t: MakerPartTool\) => \(rsvpLooks && \(t === 'bg' \|\| \(t === 'animate' && !rsvpList\.groupWhy\)\)\) \|\| \(block !== null && t === 'animate'\) \|\| \(groundBlock !== null && t === 'bg'\);/);
   /* Style has no row for a group (the rule that greys a tool with nothing to set). */
   assert.equal(rsvpStyleHasRows('rsvp', 'g:1'), false);
   assert.equal(rsvpStyleHasRows('yesnote', 'g:1'), false);

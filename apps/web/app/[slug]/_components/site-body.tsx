@@ -3159,7 +3159,12 @@ export async function SiteBody({
                   One block, two slots — never both. */}
               {group(readerAt('f:greeting', leadTab), <>{dayOfLead.greetingStepsBack ? greetingBlock : null}</>, { chapters: true, className: 'space-y-12' })}
 
+              {/* 🧱 Its own Animate (`lib/block-looks.ts`; owner 2026-10-10: "animate only"): the block's hidden mark
+                  rides WITH the gallery, right before its one root — on The Day and after it, this same mount —
+                  and is served only when a motion is kept. */}
               {group('gallery', <>{isLive || isPost ? (
+                <>
+                {blockMark('photos_of_you')}
                 <PhotosOfYouGallery
                   gallery={guestLiveGallery}
                   eventId={event.event_id}
@@ -3172,6 +3177,7 @@ export async function SiteBody({
                   sceneStyle={fixedStyle('photos_of_you')}
                   selfieLine={guest.photo_source === 'selfie' ? SELFIE_LIFETIME_LINE : null}
                 />
+                </>
               ) : null}
               {/* 📸 YOUR SHOTS + EVERYONE'S (ONLY IF SHARED) — owner 2026-10-01,
                   DECISION_LOG "THE EVENT HUB IS FULL SCREEN WITH ONE EXIT…":

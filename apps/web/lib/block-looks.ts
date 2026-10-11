@@ -28,7 +28,7 @@
  * Absent = today's look, exactly. The tile that equals today's look stores nothing.
  *
  * WHICH BLOCKS. Only the ones a guest's page draws from ONE real root (controller 2026-10-10). The others the
- * canvas frames — Photos of you · Announcements · Live hub · What to wear — are SAMPLES
+ * canvas frames — Announcements · Live hub · What to wear — are SAMPLES
  * there; each guest sees their own, drawn elsewhere. A look kept for a sample would show in the Maker and never
  * reach a guest, so those stay grey and say why (`BLOCK_SAMPLE_WHY`).
  *
@@ -48,6 +48,13 @@
  * ⚓ THE DOOR'S OWN LIFT STAYS. When the day's "Show your ticket" lands on the pass (`#site-pass`),
  * `[data-motion='pass']:target` (globals.css) lifts it so it reads as the thing to show at the door. A block's motion
  * would out-rank that rule, so the pass's is written for every moment BUT that one (`:not(:target)`).
+ *
+ * 🖼 …AND PHOTOS OF YOU — ANIMATE ONLY (owner 2026-10-10, verbatim: *"animate only"*). Each guest's own is
+ * `PhotosOfYouGallery` (`photos-of-you-gallery.tsx`): ONE root (`<section aria-label="Photos of you" class="sn-gal">`),
+ * mounted once by `site-body.tsx` — on The Day and after it, the same mount. That root is the gallery's dark card,
+ * whose words are light by its own tokens (`--sn-ob-*`), so it takes NO Background: no tile is offered, a stored `g`
+ * is refused by the reader, and no ground rule is ever written for it (`BLOCK_MOTION_ONLY`). It moves, and that is
+ * all. An opened photo is drawn INSIDE that root, over the whole screen — see `HOLDS_STILL_WHILE`.
  */
 import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElementMotion } from './element-style';
 
@@ -55,8 +62,16 @@ import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElement
 export const BLOCK_LOOKS_PREF_KEY = 'block_looks';
 
 /** The blocks that take a look — each is its canvas key without the `f:` (`lib/maker-parts.ts`). */
-export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass'] as const;
+export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you'] as const;
 export type BlockLookBlock = (typeof BLOCK_LOOK_BLOCKS)[number];
+/**
+ * 🖼 THE BLOCKS THAT ONLY MOVE — Animate, and no Background (owner 2026-10-10 of Photos of you: *"animate only"*; its
+ * root is the gallery's own dark card). Everything about a ground below is asked of the OTHER blocks alone
+ * (`BlockGroundBlock`), so one of these can be given none by the reader, by the save or by a rule.
+ */
+export const BLOCK_MOTION_ONLY = ['photos_of_you'] as const satisfies readonly BlockLookBlock[];
+export type BlockGroundBlock = Exclude<BlockLookBlock, (typeof BLOCK_MOTION_ONLY)[number]>;
+export const blockTakesGround = (block: BlockLookBlock): block is BlockGroundBlock => !(BLOCK_MOTION_ONLY as readonly string[]).includes(block);
 /** A block's background — the RSVP card's three (`RSVP_CARD_TILES`), in its order and words. */
 export const BLOCK_GROUNDS = ['none', 'plain', 'frost'] as const;
 export type BlockGround = (typeof BLOCK_GROUNDS)[number];
@@ -77,7 +92,6 @@ export function blockOfCanvas(canvas: string | null | undefined): BlockLookBlock
  * (the couple's words; each names the thing).
  */
 export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
-  'f:photos_of_you': 'This is a sample. Each guest sees their own photos here.',
   'f:announcements': 'This is a sample. Guests see your announcements here as you send them.',
   'f:live_hub': 'This is a sample. Guests see the live hub here on the day.',
   'f:look': 'This is a sample. Each guest sees what they wear here.',
@@ -89,16 +103,16 @@ export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
  * drawings are bare — asked of the block itself (`blockGroundToday`). Nor has Your seat: the Map is a plate, the
  * Place card holds a card, the Table number is bare.
  */
-export const BLOCK_GROUND_TODAY: Readonly<Record<BlockLookBlock, BlockGround | null>> = { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null, pass: 'none' };
+export const BLOCK_GROUND_TODAY: Readonly<Record<BlockGroundBlock, BlockGround | null>> = { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null, pass: 'none' };
 /**
  * The block's own card, from its root ('' = the root is the card; null = it has none in any drawing). A list where
  * its drawings keep it in different places — Your seat: the root when it is a plate (Map), the place card inside
  * (Place card), and that card as the canvas's sample holds it (one level down, in the sample's own box).
  */
 const SEAT_CARDS = ['.pahina-plate', ' > .bg-paper-deep', ' > [data-maker-sample] > .bg-paper-deep'] as const;
-const GROUND_CARD: Readonly<Record<BlockLookBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '', find_your_seat: SEAT_CARDS, pass: null };
+const GROUND_CARD: Readonly<Record<BlockGroundBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '', find_your_seat: SEAT_CARDS, pass: null };
 /** The root where it stands bare ('' = always; null = never) — there the root itself takes the paper or the glass. */
-const GROUND_BARE: Readonly<Record<BlockLookBlock, string | null>> = {
+const GROUND_BARE: Readonly<Record<BlockGroundBlock, string | null>> = {
   entourage: '',
   details: ':not(:has(> .pahina-plate))',
   gifts: null,
@@ -106,13 +120,13 @@ const GROUND_BARE: Readonly<Record<BlockLookBlock, string | null>> = {
   find_your_seat: ':not(.pahina-plate):not(:has(> .bg-paper-deep, > [data-maker-sample] > .bg-paper-deep))',
   pass: '',
 };
-const cardsOf = (block: BlockLookBlock): readonly string[] => {
+const cardsOf = (block: BlockGroundBlock): readonly string[] => {
   const card = GROUND_CARD[block];
   return card === null ? [] : typeof card === 'string' ? [card] : card;
 };
 
 /** Today's background of a block as it is DRAWN (`root`: the element after its mark, or null when it cannot be asked). */
-export function blockGroundToday(block: BlockLookBlock, root: Element | null): BlockGround {
+export function blockGroundToday(block: BlockGroundBlock, root: Element | null): BlockGround {
   /* Asked with the block's own card selectors: on the root itself, or from it (`:scope`). */
   const hasCard = (el: Element) => cardsOf(block).some((card) => (card.startsWith(' ') ? el.querySelector(`:scope${card}`) !== null : el.matches(card || '*')));
   return BLOCK_GROUND_TODAY[block] ?? (root && !hasCard(root) ? 'none' : 'plain');
@@ -131,8 +145,9 @@ export function readBlockLooks(stylePreferences: unknown): BlockLooks {
   for (const block of BLOCK_LOOK_BLOCKS) {
     const v = raw[block];
     const motion = isObject(v) ? sanitizeHubElementMotion(v.motion) : null;
-    /* A background from the fixed three — and never the one the block wears anyway (nothing would change). */
-    const g = isObject(v) && (BLOCK_GROUNDS as readonly unknown[]).includes(v.g) && v.g !== BLOCK_GROUND_TODAY[block] ? (v.g as BlockGround) : null;
+    /* A background from the fixed three — and never the one the block wears anyway (nothing would change). A block
+       that only moves (`BLOCK_MOTION_ONLY`) is given none, whatever is stored. */
+    const g = blockTakesGround(block) && isObject(v) && (BLOCK_GROUNDS as readonly unknown[]).includes(v.g) && v.g !== BLOCK_GROUND_TODAY[block] ? (v.g as BlockGround) : null;
     if (motion || g) out[block] = { ...(motion ? { motion } : {}), ...(g ? { g } : {}) };
   }
   return out;
@@ -150,6 +165,8 @@ export function blockLooksWith(stylePreferences: unknown, block: BlockLookBlock,
   const clean = motion ? sanitizeHubElementMotion(motion) : null;
   if (clean) one.motion = clean;
   else delete one.motion;
+  /* A block that only moves keeps no background — one found in the raw value is not carried on. */
+  if (!blockTakesGround(block)) delete one.g;
   if (Object.keys(one).length > 0) raw[block] = one;
   else delete raw[block];
   return raw;
@@ -160,7 +177,7 @@ export function blockLooksWith(stylePreferences: unknown, block: BlockLookBlock,
  * (`BLOCK_GROUND_TODAY`; for The details the caller asks the block, `blockGroundToday`), takes the key away. The
  * block's motion and every other block are carried as they are.
  */
-export function blockLooksWithGround(stylePreferences: unknown, block: BlockLookBlock, ground: BlockGround | null): Record<string, unknown> {
+export function blockLooksWithGround(stylePreferences: unknown, block: BlockGroundBlock, ground: BlockGround | null): Record<string, unknown> {
   const raw = isObject(stylePreferences) && isObject(stylePreferences[BLOCK_LOOKS_PREF_KEY]) ? { ...stylePreferences[BLOCK_LOOKS_PREF_KEY] } : {};
   const one: Record<string, unknown> = isObject(raw[block]) ? { ...raw[block] } : {};
   if (ground && (BLOCK_GROUNDS as readonly unknown[]).includes(ground) && ground !== BLOCK_GROUND_TODAY[block]) one.g = ground;
@@ -206,6 +223,26 @@ const OFF_CHAPTERS: readonly BlockLookBlock[] = ['find_your_seat', 'pass'];
 const NO_CHAPTER = ':not([data-pahina-chapters] *)';
 /** ⚓ The pass, while the address points at it: the door's own lift plays (`[data-motion='pass']:target`), not this. */
 const NOT_THE_DOOR: Readonly<Partial<Record<BlockLookBlock, string>>> = { pass: ':not(:target)' };
+/**
+ * 🖼 A BLOCK THAT OPENS SOMETHING OVER THE WHOLE SCREEN FROM INSIDE ITSELF — Photos of you: a tapped photo opens in
+ * the gallery's own lightbox, drawn INSIDE the block's root (`gallery-lightbox.tsx`: `fixed inset-0`, its card
+ * `aria-modal="true"`). An element whose `transform` / `translate` / `filter` is being animated becomes the box its
+ * `fixed` children are measured from — so while the block Drifts, or follows the scroll (both run for as long as the
+ * block is on the page), an opened photo would be drawn inside the card, and move with it, instead of over the page.
+ * So WHILE something modal is open in the block, what keeps moving is taken out (`settled`): the Action, and whatever
+ * is bound to the scroll. A timed Build in is left in the list — it has ended by then (its fill is `none`: it holds
+ * nothing), and taking it out would play it again each time a photo is closed. Nothing is written when nothing keeps
+ * moving. (`:has()` is in every engine that passes the motion's own gate; one that lacked it would drop the rule.)
+ */
+const HOLDS_STILL_WHILE: Readonly<Partial<Record<BlockLookBlock, string>>> = { photos_of_you: ':has([aria-modal="true"])' };
+/** A motion with what KEEPS moving taken out — null when nothing does (a timed Build in alone ends by itself). */
+function settled(motion: HubElementMotion): HubElementMotion | null {
+  if (motion.timeline === 'scroll') return {};
+  if (!motion.during) return null;
+  const rest = { ...motion };
+  delete rest.during;
+  return rest;
+}
 const decl = (d: Array<[string, string]>) => d.map(([p, v]) => `${p}:${v}`).join(';');
 const sideways = (m: HubElementMotion) => [m.in?.move, m.out?.move].some((d) => Boolean(d) && d !== 'above' && d !== 'below');
 
@@ -242,6 +279,8 @@ const ROOT_FROST = `border:1px solid var(--sn-glass-line)!important;padding:1.25
 function blockGroundRules(looks: BlockLooks): string[] {
   const rules: string[] = [];
   for (const block of BLOCK_LOOK_BLOCKS) {
+    /* A block that only moves has no card to dress and takes no ground of its own (`BLOCK_MOTION_ONLY`). */
+    if (!blockTakesGround(block)) continue;
     const g = looks[block]?.g;
     if (!g) continue;
     const root = blockSelector(block);
@@ -272,6 +311,14 @@ export function blockLooksCss(looks: BlockLooks): string {
     if (sideways(motion)) rules.push(`:has(> [${BLOCK_MARK_ATTR}="${block}"]){overflow-x:clip}`);
     rules.push(`${sel}{${decl(hubElementMotionDeclarations(motion, 'page', false))}}`);
     rules.push(`.pahina-in ${sel},.pahina-in${sel}${OFF_CHAPTERS.includes(block) ? `,${sel}${NO_CHAPTER}` : ''}{${decl(hubElementMotionDeclarations(motion, 'page', true))}}`);
+    /* 🖼 …and while the block has something open over the whole screen, only what has an end is left (`HOLDS_STILL_WHILE`).
+       Written AFTER the two above, on the same selector and one step more exact: it wins for that moment alone. */
+    const open = HOLDS_STILL_WHILE[block];
+    const still = open ? settled(motion) : null;
+    if (open && still) {
+      rules.push(`${sel}${open}{${decl(hubElementMotionDeclarations(still, 'page', false))}}`);
+      rules.push(`.pahina-in ${sel}${open},.pahina-in${sel}${open}{${decl(hubElementMotionDeclarations(still, 'page', true))}}`);
+    }
   }
   return [...blockGroundRules(looks), ...(rules.length > 0 ? [`${BLOCK_GATE_OPEN}\n${rules.join('\n')}\n}}`] : [])].join('\n');
 }

@@ -47,7 +47,12 @@ test('1 · it LEFT the Maker for the event’s Settings (owner 2026-10-06) — t
 test('2 · the switch posts setPlanningMode, flipping to the OTHER mode', () => {
   const src = read('plan-myself.tsx');
   assert.match(src, /import \{ setPlanningMode \} from '@\/app\/dashboard\/\[eventId\]\/actions'/, 'a second writer');
-  assert.match(src, /<form action=\{setPlanningMode\}/);
+  /* The form is the Maker's `SafeForm` since 2026-10-11 (rd/c-maker-never-crashes: a post that never answers keeps
+     the screen). It is the same `<form>` handed the same action — what SafeForm is, is held by
+     lib/a-bare-form-post-never-replaces-the-maker.test.ts. The property here is unchanged: the switch's form posts
+     `setPlanningMode`, and nothing else. */
+  assert.match(src, /<SafeForm action=\{setPlanningMode\}/);
+  assert.equal((src.match(/action=\{/g) ?? []).length, 1, 'the switch has a second action');
   assert.match(src, /name="event_id" value=\{eventId\}/);
   assert.match(
     src,

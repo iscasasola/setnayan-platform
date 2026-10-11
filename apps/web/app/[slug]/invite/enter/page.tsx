@@ -1,4 +1,4 @@
-import { cache } from 'react';
+import { Suspense, cache } from 'react';
 import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -27,6 +27,7 @@ import { REQUEST_WORDS } from '@/lib/request-key';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
 import { heroLineWord, wearTheHub } from '../_lib/wear-the-hub';
 import { hubDoorSkin } from '../_components/hub-door-skin';
+import { ArrivalLoading } from '../_components/arrival-loading';
 import { GuestLookScope } from '../../_components/guest-look-scope';
 import { lookScopeProps } from '../../_components/host-draft-look';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
@@ -41,7 +42,7 @@ import { WhenYesCelebration } from '../../_components/when-yes-celebration';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/editor-canvas';
-import { loadEventShell, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import { loadEventShell, loadGuestLook, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { ShortcutLine } from '../_components/shortcut-line';
 import {
@@ -336,6 +337,24 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     }
   }
 
+  /* ⏳ THE ARRIVAL SHOWS SOMETHING WHILE IT LOADS (2026-10-11). Everything above
+     this line is a ROUTING decision — `notFound()`, the redirects, who this
+     guest is. Everything below is body work: a dozen-plus awaits. With no
+     boundary under this route nothing was drawn until the last one answered
+     (measured: a 2.9 s blank). The body is now ONE async part inside a
+     `<Suspense>`, so the door — the couple's names, their mark — is on screen
+     as soon as the routing is decided.
+     ⛔ NOT a `loading.tsx`: that commits HTTP 200 before `notFound()` can run
+     (app/[slug]/page.tsx, "THE BLANK WHITE SCREEN"). This boundary sits AFTER
+     the last `notFound()`/`redirect()`, so the status is settled first — and
+     nothing below it may call either (🛡 the-arrival-shows-something-while-it-
+     loads.test.ts).
+     (The body keeps its indentation on purpose: it is the page's own code,
+     unmoved, so its history and the guards that read it stay true.) */
+  // The look the guest layout already asked for on this request (`cache()`d) —
+  // best-effort, like the layout's own: unread, the fallback is the house door.
+  const loadingLook = await loadGuestLook(slug).catch(() => null);
+  const InviteEnterBody = async () => {
   const cookieStore = await cookies();
 
   // What happened to the reply they just saved — the same sentences the
@@ -831,5 +850,23 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         ) : null}
       </DoorShell>
     </GuestLookScope>
+  );
+  };
+
+  return (
+    <Suspense
+      fallback={
+        <ArrivalLoading
+          look={loadingLook}
+          door={{
+            title: ((event.display_name as string | null) ?? '').trim(),
+            // The couple's mark, still: whether it plays is one of the slow reads.
+            skin: hubDoorSkin({ ...doorMarkFor(event), animate: false }),
+          }}
+        />
+      }
+    >
+      <InviteEnterBody />
+    </Suspense>
   );
 }

@@ -67,6 +67,27 @@ guest's page until that constant is turned on, which is the owner's go. LOCAL br
   hand-over could).
 - Save the Date is NOT wired: its cover is the film, with a walker of its own — it needs its own design.
 
+## 2026-10-12 · fix(scrub): the first-screen fit stands aside while the cover hands over (ships dark)
+
+- **A loop, found and closed.** On a short screen main's first-screen fit (`first-screen-door.tsx`: the stranger's
+  cover makes room for "Get inside") and the wrapped cover answered each other: the fit shrank the cover, the
+  hand-over re-measured and moved the door (which is the ARRIVAL under the wrap, not in the cover's flow), the fit
+  took its plan back, and again — the page changed length every ~120 ms at 375×560, 375×600 and 320×568 (Chromium).
+  While the page's hold is armed (`data-hub-page-on`) the fit now writes nothing and takes any plan back; it watches
+  the arming, and fits exactly as before whenever the hold is off (reduce motion, the Reveal up, Scrub not offered —
+  every page today: the mark never exists while "Scrub out" is dark). Source pin in
+  `app/_components/the-first-screen-keeps-its-action.test.ts`.
+- **Browser check (block 16)**: the touch drag now tests its claim (a slow drag that rests before it lifts, inside the
+  hold; the travel IS the Build out, by the page's number and by the drawn fade; React's own root delegation read
+  apart, and only a non-passive touchstart/touchmove/wheel counts as able to hold a finger back). New rows: the fit
+  mounted on the check's pages (`scripts/scrub-check-door.tsx`) — today's fitted page, the wrapped page (the fit stands
+  aside and the page stays still), and the wrapped page under reduce motion (today's fitted page, box for box); and
+  "the cover's names are never under the pinned top bar while it is held" — RED at 375×667 (guest and stranger) and
+  for the stranger's photo cover: a cover taller than the room is held by the ordinary rule, its bottom on the centre
+  line. Left for the owner (likely his "heading clipped at the top on iPhone").
+- Switch off proven: the real `SiteBody`, 24 viewer × stored-page cases, byte-identical to origin/main, no island.
+- Save the Date is still not wired.
+
 ⚠ Chromium only. Nothing here has run on iOS Safari (WebKit).
 
 SPEC IMPACT: None (the owner's rulings in `Maker_Animate_Preview_Scrub_LOCKED_2026-10-09.md` are unchanged; no

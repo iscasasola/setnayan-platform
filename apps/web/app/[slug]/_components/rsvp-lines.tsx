@@ -32,13 +32,13 @@ export const RSVP_ADDED_CLASS: Readonly<Record<RsvpAddedText['k'], string>> = {
   m: 'text-sm leading-relaxed text-ink/80',
 };
 /**
- * 🖼 A PICTURE LINE — the approved prototype's (`.k-picture`): full width, 14 px corners, Wide's 112 px (Tall is the
+ * 🖼 A PICTURE LINE — the approved prototype's (`.k-picture`): full width, the card's own rounding (`rounded-2xl` — the prototype's 14 px, on the app's radius scale), Wide's 112 px (Tall is the
  * look's one rule, 176 px — `rsvpLookRules`). Decorative (`alt=""`, DECISION_LOG 2026-10-12 (c)). On the Maker's
  * sample, a picture whose file could not be drawn shows its own name in a quiet box (so it can be picked and
  * replaced or taken off); for a guest it is not drawn at all (d).
  */
-export const RSVP_PICTURE_CLASS = 'my-2.5 block h-[112px] w-full rounded-[14px] object-cover';
-export const RSVP_PICTURE_EMPTY_CLASS = 'my-2.5 flex h-[112px] w-full items-center justify-center rounded-[14px] bg-ink/[0.06] text-sm italic text-ink/45';
+export const RSVP_PICTURE_CLASS = 'my-2.5 block h-[112px] w-full rounded-2xl object-cover';
+export const RSVP_PICTURE_EMPTY_CLASS = 'my-2.5 flex h-[112px] w-full items-center justify-center rounded-2xl bg-ink/[0.06] text-sm italic text-ink/45';
 /** An added line with no words yet, on the Maker's sample only. */
 export const RSVP_ADDED_EMPTY_CLASS = 'italic !text-ink/45';
 /** In a note (centred), an added line is centred with it. */

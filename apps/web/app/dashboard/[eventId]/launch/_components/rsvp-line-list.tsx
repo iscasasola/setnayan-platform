@@ -277,6 +277,10 @@ const PICTURE_UPLOAD_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/web
  */
 export function RsvpPictureSheet({ eventId, replacing, onPicture, onClose }: { eventId: string; replacing: boolean; onPicture: (ref: string) => void; onClose: () => void }) {
   const local = useRef<string | null>(null);
+  /* ONE ref, ONE edit: the uploader may say a finished upload twice (it tells its change from inside a state update,
+     which React runs twice in development — measured in the lab, 2026-10-12: one upload, two picture lines). The
+     shipped scene upload guards the same way (`scene-background-row.tsx` consumes its picked file). */
+  const handed = useRef<string | null>(null);
   return (
     <MakerSheet label={replacing ? 'Replace the picture' : 'Add a picture'} onClose={onClose}>
       <div data-rsvp-picture-sheet={replacing ? 'replace' : 'add'} className="pb-2">
@@ -292,7 +296,8 @@ export function RsvpPictureSheet({ eventId, replacing, onPicture, onClose }: { e
           }}
           onChange={(value) => {
             const ref = typeof value === 'string' ? value : null;
-            if (!ref) return;
+            if (!ref || handed.current === ref) return;
+            handed.current = ref;
             if (local.current) keepRsvpPictureUrl(ref, local.current);
             onPicture(ref);
           }}

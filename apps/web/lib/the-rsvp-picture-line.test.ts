@@ -135,7 +135,7 @@ test('5 · a guest sees the picture, decorative — and NOTHING for a file that 
   const items = rsvpScreenLayout(look, 'rsvp')!.filter((i) => 'line' in i && (i.line === 'question' || i.line === 'a:1'));
   /* A guest, the file signed: the picture, alt="" (decorative), the prototype's 112 px, nothing of the Maker's. */
   const guest = await draw(items, { pictures: { [REF]: URL_ } });
-  assert.equal(guest, '<p data-rsvp-line="question">Q</p><img data-rsvp-line="a:1" src="https://signed.example/garden.jpg?sig=1" alt="" loading="lazy" decoding="async" class="my-2.5 block h-[112px] w-full rounded-[14px] object-cover"/>');
+  assert.equal(guest, '<p data-rsvp-line="question">Q</p><img data-rsvp-line="a:1" src="https://signed.example/garden.jpg?sig=1" alt="" loading="lazy" decoding="async" class="my-2.5 block h-[112px] w-full rounded-2xl object-cover"/>');
   /* A guest, the file gone (the page was handed no URL for it): nothing at all — no box, no broken image. */
   assert.equal(await draw(items), '<p data-rsvp-line="question">Q</p>');
   /* …and a group whose only line is a gone picture is not drawn either. */
@@ -194,6 +194,8 @@ test('8 · ＋ › Picture: the shipped scene upload FIRST, then ONE add that ca
   assert.match(LIST, /const PICTURE_UPLOAD_TYPES = \['image\/jpeg', 'image\/jpg', 'image\/png', 'image\/webp'\];/);
   /* It saves nothing itself: the landed ref is handed on, and the file the couple picked is shown at once. */
   assert.match(LIST, /if \(local\.current\) keepRsvpPictureUrl\(ref, local\.current\);\s*onPicture\(ref\);/);
+  /* One upload is one add, even when the uploader says it twice (React runs its state update twice in development). */
+  assert.match(LIST, /if \(!ref \|\| handed\.current === ref\) return;\s*handed\.current = ref;/, 'one upload can make two picture lines');
   assert.doesNotMatch(LIST.slice(LIST.indexOf('export function RsvpPictureSheet'), LIST.indexOf('export function RsvpPictureEditRows')), /askRsvpListEdit|hubDraftAction|makerSave/);
   /* ＋ › Picture opens the chooser instead of adding; the chooser's ref makes the ONE add. */
   const STAGE = src(`${L}/rsvp-list-stage.tsx`);

@@ -40,7 +40,7 @@ import { sceneOnStage } from './what-guests-see';
 import { buildGuestsSeeTable } from './guests-see-build';
 import {
   GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, guestsSeeApplyLabel, guestsSeeBackToPicks, guestsSeeChanges, guestsSeeOn, guestsSeePatch,
-  guestsSeeToggle, guestsSeeWithRemoved, type GuestsSeeCell, type GuestsSeeTable, type GuestsSeeWrites,
+  guestsSeeHandSet, guestsSeeHasEmptyRow, guestsSeeOpeningLine, guestsSeeToggle, guestsSeeWithRemoved, type GuestsSeeCell, type GuestsSeeTable, type GuestsSeeWrites,
 } from './guests-see-table';
 import { emptyHubDraft, mergeHubDraft, overlayHubDraftWidgets, sanitizeHubDraft } from './hub-draft';
 
@@ -365,4 +365,39 @@ test('10 · a part the canvas just took off: exactly its box is empty, holds wha
   assert.match(sheet, /return \{ eventId: raw\.eventId, table: guestsSeeWithRemovedFrom\(table, raw\), door \};/);
   assert.match(sheet, /stored: stageEyeValue\(/);
   assert.match(sheet, /return guestsSeeWithRemoved\(table, removed\);/);
+});
+
+
+/**
+ * 11 · THE KEY AND THE OPENING LINE SAY WHAT IS TRUE (the re-walk of 2026-10-11, R03). The pale tick of a row with
+ * nothing written had no entry in the key; and a table opened again with a box set by hand read "Nothing changed
+ * yet — our picks do the work." under a visibly unticked Message.
+ */
+test('11 · the opening line: our picks say so; boxes set by hand are counted — and the key explains the pale tick, in the row’s own words', async () => {
+  const ours = table(stageWidgets({}));
+  assert.equal(guestsSeeHandSet(ours), 0);
+  assert.equal(guestsSeeOpeningLine(ours), GUESTS_SEE_WORDS.quiet);
+  assert.equal(guestsSeeOpeningLine(null), GUESTS_SEE_WORDS.quiet);
+  // One box unticked and applied (M04's table): it is NOT "our picks do the work".
+  const one = table(stageWidgets({ special_message: show({ rsvp: false }) }));
+  assert.equal(guestsSeeOpeningLine(one), '1 box changed from our picks.');
+  const three = table(stageWidgets({ special_message: show({ rsvp: false, save_the_date: true }), schedule: show({ editorial: true }) }));
+  assert.equal(guestsSeeOpeningLine(three), '3 boxes changed from our picks.');
+  // The count is the one "Back to our picks" announces — one measure, two lines.
+  assert.equal(guestsSeeBackToPicks(three, NONE).line, 'Back to our picks. 3 boxes changed — Apply to keep it.');
+  assert.equal(guestsSeeHandSet(three), 3);
+  // Every word of the new line is the sheet's own.
+  for (const word of ['box', 'boxes', 'changed', 'our picks']) assert.ok(Object.values(GUESTS_SEE_WORDS).some((w) => w.includes(word)) || guestsSeeBackToPicks(three, NONE).line.includes(word), `"${word}" is a new word in this sheet`);
+
+  // The pale tick's entry is the first words of the row's own line.
+  assert.equal(GUESTS_SEE_WORDS.legendEmpty, 'Nothing written yet');
+  assert.ok(GUESTS_SEE_WORDS.emptyNote.startsWith(`${GUESTS_SEE_WORDS.legendEmpty} — `), 'the key and the row say two things');
+  assert.equal(guestsSeeHasEmptyRow(ours), false);
+  assert.equal(guestsSeeHasEmptyRow(table(stageWidgets({}), { content: { what_to_bring: false } })), true);
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const sheet = readFileSync(join(__dirname, '..', 'app/dashboard/[eventId]/launch/_components/guests-see-sheet.tsx'), 'utf8');
+  assert.match(sheet, /useState<string>\(\(\) => guestsSeeOpeningLine\(area\?\.table\)\)/);
+  assert.match(sheet, /guestsSeeHasEmptyRow\(table\) \? \(\[\[\{ kind: 'box', on: true[^\]]*\}, true, W\.legendEmpty, true\]\]/);
+  assert.match(sheet, /<Mark cell=\{cell\} on=\{on\} dim=\{dim === true\} \/>/);
 });

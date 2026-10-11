@@ -25,6 +25,8 @@ export const HOME_SHELF_TAGS = {
   stories: 'home-shelf:stories',
   /** Public profiles: people to follow, a host's public name, a chapter's byline. */
   people: 'home-shelf:people',
+  /** The event-type tables: a type's words, whether it has a public page, its label. */
+  eventTypes: 'home-shelf:event-types',
 } as const;
 
 export type HomeShelfSubject = keyof typeof HOME_SHELF_TAGS;
@@ -56,9 +58,22 @@ export const HOME_SHELF_DEPENDS: Record<
       'scheduled_launch_at', 'monogram_text', 'rsvp_ask_config', 'venue_name', 'monogram_color',
       'invite_theme', 'std_background', 'landing_page_hero_image_url', 'landing_page_hero_video_r2_key',
       'monogram_custom_svg', 'monogram_uploaded_svg', 'role_palette', 'site_bg_color',
-      'site_button_color', 'site_font_key', 'site_art_direction',
+      'site_button_color', 'site_font_key', 'site_art_direction', 'monogram_studio_config',
     ],
   },
+  /*
+    ⚡ THE COVER FACTS (2026-10-11): whether an event owns Event Hub Pro and
+    whether its logo animation is on are read once for everybody, with the cover
+    rows. They follow `orders.status` — and comp grants, bundles, promo windows
+    and the internal/founder flags, which are decided inside database functions
+    this scan cannot see. None of it is cleared: after a payment is approved or
+    refunded, a Discover card on the home page may wear its old cover for at most
+    the hard age. The guest's own page, the Maker and every gate on a write ask
+    live, as before.
+  */
+  orders: { subject: 'events', clears: [], waits: ['status'] },
+  event_type_profiles: { subject: 'eventTypes', clears: ['enabled_surfaces'], waits: ['terminology'] },
+  event_type_vocab: { subject: 'eventTypes', clears: [], waits: ['label_en', 'status', 'sort_order'] },
   invitation_widgets: { subject: 'events', clears: [], waits: ['config_json', 'widget_type'] },
   vendor_profiles: {
     subject: 'shops',

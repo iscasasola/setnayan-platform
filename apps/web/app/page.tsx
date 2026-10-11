@@ -173,9 +173,12 @@ export const metadata = {
 // (it reads `searchParams` and the session, and the after() jobs below need a
 // request), but its same-for-everyone ROW reads are now remembered for 60 s —
 // `lib/home-public-reads-core.ts` lists them and what may never join them.
-// ⚠ NOT taken, and still asked on every view: the consented editorials, the
-// event-type gate and labels (read through the session client), and the
-// ownership chain behind each Discover card's cover.
+// Round 2, the same day: the event types' public rows and the two facts a
+// Discover card's cover can turn on (does the event own Event Hub Pro, is its
+// logo animation on) joined them, so a signed-out view no longer walks the
+// ownership chain card by card — it was most of the page's waiting.
+// ⚠ NOT taken, and still asked on every view: the consented editorials
+// (`loadPublishedShowcases` — consent-gated; its own docblock says why).
 export const revalidate = 300;
 
 const SITE_URL = (

@@ -180,7 +180,10 @@ test('the scan is real — it finds the writes it was written for', () => {
   assert.ok(SITES.length > 60, `only ${SITES.length} write sites found across ${Object.keys(HOME_SHELF_DEPENDS).length} tables — the scan went blind`);
   for (const table of Object.keys(HOME_SHELF_DEPENDS)) {
     if (HOME_SHELF_DEPENDS[table]?.clears.length === 0) continue;
-    assert.ok(SITES.some((s) => s.table === table && s.kind === 'clears'), `no take-down write found for ${table}`);
+    // `event_type_profiles` has ONE writer and it upserts a variable — the scan
+    // cannot read its columns, so it is counted as unreadable (and it clears).
+    const kinds: Site['kind'][] = table === 'event_type_profiles' ? ['clears', 'unreadable'] : ['clears'];
+    assert.ok(SITES.some((s) => s.table === table && kinds.includes(s.kind)), `no take-down write found for ${table}`);
   }
   // The scanner reads columns, not words: the same file holds a clears write and others.
   const privacy = SITES.filter((s) => s.file === 'app/dashboard/[eventId]/website/privacy/actions.ts');
@@ -199,7 +202,9 @@ test('the scanner classifies a write by the columns it names', () => {
   assert.deepEqual(classify(`await a.from('users').update({ public_profile_enabled: false }).eq('user_id', id);`), ['users:clears']);
   assert.deepEqual(classify(`await a.from('vendor_profiles').update({ public_visibility: 'hidden' });`), ['vendor_profiles:clears']);
   assert.deepEqual(classify(`await a.from('creator_chapters').update({ showcase_featured_at: null });`), ['creator_chapters:clears']);
-  assert.deepEqual(classify(`await a.from('orders').update({ status: 'paid' });`), []);
+  // An order's status decides ownership, which decides a card's cover: it waits (never cleared).
+  assert.deepEqual(classify(`await a.from('orders').update({ status: 'paid' });`), ['orders:waits']);
+  assert.deepEqual(classify(`await a.from('payments').update({ status: 'paid' });`), []);
   // An insert can only make something appear; a widget row only ever changes a look.
   assert.deepEqual(classify(`await a.from('events').insert({ slug, landing_page_visibility: 'public' });`), ['events:waits']);
   assert.deepEqual(classify(`await a.from('invitation_widgets').delete().eq('widget_id', id);`), ['invitation_widgets:waits']);

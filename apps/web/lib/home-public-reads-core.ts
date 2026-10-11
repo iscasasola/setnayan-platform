@@ -1,4 +1,10 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import { coupleLogoPlays } from '@/lib/couple-logo-plays';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { ownershipCanChangeTheCover } from '@/lib/hub-look-given';
+import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { ReadRefused } from '@/lib/remembered-read-core';
 import { HOME_SHELF_TAGS } from '@/lib/home-shelf-tags';
@@ -16,11 +22,15 @@ import type { DiscoverEventRow } from '@/lib/discover-events-core';
  * ─── WHAT THIS FILE MAY HOLD, AND WHAT IT MAY NEVER REACH ────────────────────
  * • Every read here is made with the SERVICE client and takes no viewer: its
  *   arguments are a date, a list of PUBLIC event ids, or a limit.
- * • ROWS, NOT ANSWERS. Nothing here decides who may see what, what a card says,
- *   or whether an event owns a paid look — those run per request, in the files
- *   that always ran them (`lib/discover-events.ts`, `frontdoor/data.ts`), over
- *   these rows. A host's name still travels only with a public profile because
- *   that rule is applied AFTER this read, on every view.
+ * • ROWS, NOT DECISIONS. Nothing here decides who may see what or what a card
+ *   says or wears — those run per request, in the files that always ran them
+ *   (`lib/discover-events.ts`, `frontdoor/data.ts`), over these rows. A host's
+ *   name still travels only with a public profile because that rule is applied
+ *   AFTER this read, on every view.
+ * • …AND TWO FACTS ABOUT AN EVENT, which are not rows but are just as public
+ *   and just as viewer-free: does it own Event Hub Pro, is its logo animation
+ *   on (`CoverFacts`). They are the REAL answers — the gate every write uses —
+ *   read once for everybody instead of once per card per view.
  * • ROWS, NOT ADDRESSES. A picture's stored ref is remembered; its signed
  *   address (24 h) is made per request by the code that already made it.
  * • ⛔ NO SESSION, NO COOKIE, NO VIEWER-SCOPED CLIENT — not in this file, not
@@ -193,19 +203,42 @@ export type CoverRow = {
 };
 
 export type HeroConfigRow = { event_id: string; config_json: unknown };
-export type CoverRows = { covers: CoverRow[]; heroes: HeroConfigRow[] };
 
 /**
- * The PUBLISHED event columns and the LIVE hero rows of the shelved cards.
- * ⚠ The cover itself is NOT drawn here: which theme the event may wear and
- * whether it owns a paid look are asked per request (`dressEventCover`), so a
- * purchase, a refund or an internal viewer's "view as free" is never remembered.
+ * The two facts about an event that a cover's look can turn on, read ONCE for
+ * everybody. `null` = it cannot change this event's cover, so it was not asked
+ * (and if a reader asks anyway, it asks the live way).
  *
- * A refused hero read costs only the Main background, as before — so it is
- * thrown WITH the cover rows it did get, and nothing is remembered.
+ * ⚠ `websitePro` IS THE REAL ANSWER — `eventCoupleWebsiteProActive`, the gate
+ * every write uses — never the one a viewer is shown. The owner's "view as a
+ * free couple" switch is honoured by the caller, which does not use these facts
+ * at all for a viewer who has it on.
+ */
+export type CoverFacts = { websitePro: boolean | null; logoAnimation: boolean | null };
+export type CoverRows = { covers: CoverRow[]; heroes: HeroConfigRow[]; facts: Record<string, CoverFacts> };
+
+/**
+ * The PUBLISHED event columns, the LIVE hero rows and the cover FACTS of the
+ * shelved cards.
+ *
+ * ⚠ The cover itself is NOT drawn here — `dressEventCoverGiven` draws it per
+ * view from these rows, and signs every picture then. What IS read here, once
+ * for everybody, is what that drawing used to ask the database on every view,
+ * card by card and one question after another: does the event own Event Hub
+ * Pro, and is its logo animation on.
+ *
+ *   · asked only for an event whose cover the answer can change
+ *     (`ownershipCanChangeTheCover`, a logo that moves) — a House card with a
+ *     still mark costs nothing, as before;
+ *   · every event's questions leave together, and the animation switch
+ *     (`monogram_studio_config`) is ONE read for all of them, not one per card.
+ *
+ * A refused hero read costs only the Main background, and a refused ownership
+ * read is "not owned" — both as before — but neither is REMEMBERED: the read is
+ * thrown with what it did get, and the next view asks again.
  */
 async function readCoverRows(eventIds: string[]): Promise<CoverRows> {
-  if (eventIds.length === 0) return { covers: [], heroes: [] };
+  if (eventIds.length === 0) return { covers: [], heroes: [], facts: {} };
   const admin = createAdminClient();
   const [cover, hero] = await Promise.all([
     admin.from('events').select(COVER_COLUMNS).in('event_id', eventIds),
@@ -217,8 +250,84 @@ async function readCoverRows(eventIds: string[]): Promise<CoverRows> {
   ]);
   if (cover.error) throw new ReadRefused('covers', cover.error);
   const covers = (cover.data ?? []) as unknown as CoverRow[];
-  if (hero.error) throw new ReadRefused<CoverRows>('mainGrounds', hero.error, { covers, heroes: [] });
-  return { covers, heroes: (hero.data ?? []) as HeroConfigRow[] };
+
+  const proIds = covers.filter((r) => ownershipCanChangeTheCover(r.invite_theme)).map((r) => r.event_id);
+  const movingIds = covers
+    .filter((r) => coupleLogoPlays(resolveEventMonogramSvg(r), true))
+    .map((r) => r.event_id);
+
+  let refused: unknown = null;
+  const yesOrRefused = (ask: Promise<boolean>): Promise<boolean> =>
+    ask.catch((caught: unknown) => {
+      refused ??= caught ?? new Error('ownership read refused');
+      return false;
+    });
+  const [pro, animation, studio] = await Promise.all([
+    Promise.all(proIds.map((id) => yesOrRefused(eventCoupleWebsiteProActive(admin, id)))),
+    Promise.all(movingIds.map((id) => yesOrRefused(eventAnimatedMonogramActive(admin, id)))),
+    movingIds.length > 0
+      ? admin.from('events').select('event_id, monogram_studio_config').in('event_id', movingIds)
+      : null,
+  ]);
+  if (studio?.error) refused ??= studio.error;
+  const studioConfig = new Map(
+    ((studio?.data ?? []) as Array<{ event_id: string; monogram_studio_config: unknown }>).map((row) => [
+      row.event_id,
+      row.monogram_studio_config,
+    ]),
+  );
+
+  const facts: Record<string, CoverFacts> = {};
+  for (const r of covers) facts[r.event_id] = { websitePro: null, logoAnimation: null };
+  proIds.forEach((id, i) => {
+    (facts[id] as CoverFacts).websitePro = pro[i] === true;
+  });
+  movingIds.forEach((id, i) => {
+    // The hero's own gate, word for word (`lib/logo-plays.server.ts`): owned,
+    // and not switched to "Use Static Image". A failed switch read is "still".
+    (facts[id] as CoverFacts).logoAnimation =
+      !studio?.error && animation[i] === true && !markAnimationSwitchedOff(studioConfig.get(id));
+  });
+
+  const heroes = hero.error ? [] : ((hero.data ?? []) as HeroConfigRow[]);
+  if (hero.error) throw new ReadRefused<CoverRows>('mainGrounds', hero.error, { covers, heroes, facts });
+  if (refused) throw new ReadRefused<CoverRows>('coverFacts', refused, { covers, heroes, facts });
+  return { covers, heroes, facts };
+}
+
+// ─── Event types: the words, the public gate, the labels ────────────────────
+
+export type EventTypeRows = {
+  /** Every `event_type_profiles` row, whole. */
+  profiles: Array<Record<string, unknown> & { event_type: string }>;
+  /** The ACTIVE `event_type_vocab` rows, in the roster's order. */
+  vocab: Array<Record<string, unknown> & { event_type: string }>;
+};
+
+/**
+ * Both event-type tables, raw. Each is PUBLIC-READ — its only SELECT policy is
+ * `USING (TRUE)` (migrations `20270220834284`, `20261104000000`) — so the
+ * service client reads exactly the rows every visitor's own session reads.
+ * ROWS: what a profile MEANS (its words, its surfaces, its fallbacks) is still
+ * worked out per view by the functions that always did
+ * (`profileFromPublicRow`, `eventTypesFromPublicRows`).
+ */
+async function readEventTypeRows(): Promise<EventTypeRows> {
+  const admin = createAdminClient();
+  const [profiles, vocab] = await Promise.all([
+    admin.from('event_type_profiles').select('*'),
+    admin
+      .from('event_type_vocab')
+      .select('event_type, label_en, emoji, enabled, status, sort_order, onboarding_href, hero_photo_url, description')
+      .eq('status', 'active')
+      .order('sort_order', { ascending: true }),
+  ]);
+  if (profiles.error) throw new ReadRefused('eventTypeProfiles', profiles.error);
+  if (vocab.error) throw new ReadRefused('eventTypeVocab', vocab.error);
+  return {
+    profiles: (profiles.data ?? []) as EventTypeRows['profiles'],
+    vocab: (vocab.data ?? []) as EventTypeRows['vocab'],
+  };
 }
 
 // ─── Discover: people to follow ─────────────────────────────────────────────
@@ -314,7 +423,7 @@ async function readFeaturedChapters<C extends FeaturedChapter>(deps: HomePublicR
 // ─── The remembered reads ───────────────────────────────────────────────────
 
 /**
- * Builds the six remembered reads. Ids are passed through `stableIds` by the
+ * Builds the seven remembered reads. Ids are passed through `stableIds` by the
  * caller — one spelling of a set is one entry.
  */
 export function makeHomePublicReads<C extends FeaturedChapter>(deps: HomePublicReadDeps<C>) {
@@ -329,10 +438,15 @@ export function makeHomePublicReads<C extends FeaturedChapter>(deps: HomePublicR
       key: 'home:discover-hosts-v1',
       tags: [HOME_SHELF_TAGS.events, HOME_SHELF_TAGS.people],
     }),
-    /** The rows a shelved card's cover is drawn from. */
+    /** The rows a shelved card's cover is drawn from, and the two facts its look can turn on. */
     rememberedCoverRows: deps.remember((eventIds: string[]) => readCoverRows(eventIds), {
-      key: 'home:discover-covers-v1',
+      key: 'home:discover-covers-v2',
       tags: [HOME_SHELF_TAGS.events],
+    }),
+    /** Both event-type tables — the words, the public gate and the labels are worked out from these. */
+    rememberedEventTypeRows: deps.remember(() => readEventTypeRows(), {
+      key: 'home:event-types-v1',
+      tags: [HOME_SHELF_TAGS.eventTypes],
     }),
     /** The most-followed public profiles. */
     rememberedPublicPeople: deps.remember((limit: number) => readPublicPeople(limit), {

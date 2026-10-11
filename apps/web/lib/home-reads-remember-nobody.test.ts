@@ -29,7 +29,18 @@ import { stripComments } from './strip-comments';
 const WEB = join(__dirname, '..');
 
 /** The modules that hold remembered reads. A new one joins this list — and this guard. */
-const REMEMBERED_MODULES = ['lib/home-public-reads.ts', 'lib/home-public-reads-core.ts'];
+const REMEMBERED_MODULES = [
+  'lib/home-public-reads.ts',
+  'lib/home-public-reads-core.ts',
+  // ⚡ The VIEWER-FREE half of the Discover card's cover (2026-10-11): the body
+  // that draws it from remembered public facts, and the two rules it composes
+  // with their one read lifted out. They are not remembered themselves — they
+  // are what stands between a remembered fact and a card every visitor sees, so
+  // they are held to the same graph.
+  'lib/event-cover-given.ts',
+  'lib/hub-look-given.ts',
+  'lib/event-poster-given.ts',
+];
 
 /** A module that can see who is looking. */
 const SESSION_PACKAGES = ['next/headers'];
@@ -142,7 +153,7 @@ function sources(dir: string, out: string[] = []): string[] {
 test('every remembered read lives in a module this guard walks', () => {
   const files = [...sources(join(WEB, 'app')), ...sources(join(WEB, 'lib'))];
   assert.ok(files.length > 500, `expected the app+lib sources, found ${files.length}`);
-  const allowed = new Set([...REMEMBERED_MODULES, 'lib/remembered-read.ts']);
+  const allowed = new Set(['lib/home-public-reads.ts', 'lib/home-public-reads-core.ts', 'lib/remembered-read.ts']);
   const callers = files
     .filter((f) => /\b(?:rememberPublicRead|rememberWith|makeHomePublicReads)\(/.test(stripComments(readFileSync(f, 'utf8'))))
     .map((f) => relative(WEB, f))
@@ -155,13 +166,13 @@ test('every remembered read lives in a module this guard walks', () => {
   );
 });
 
-test('a remembered read takes a date, public event ids or a limit — never a person', () => {
+test('a remembered read takes a date, public event ids, a limit or nothing — never a person', () => {
   const core = stripComments(readFileSync(join(WEB, 'lib/home-public-reads-core.ts'), 'utf8'));
   const params = [...core.matchAll(/deps\.remember\(\(([^)]*)\)\s*=>/g)].map((m) => (m[1] as string).trim());
-  assert.equal(params.length, 6, `expected the six remembered reads, found ${params.length}`);
+  assert.equal(params.length, 7, `expected the seven remembered reads, found ${params.length}`);
   for (const p of params) {
     assert.ok(
-      ['todayISO: string', 'eventIds: string[]', 'limit: number'].includes(p),
+      ['todayISO: string', 'eventIds: string[]', 'limit: number', ''].includes(p),
       `a remembered read takes (${p}). Its arguments are its cache key AND its only inputs — ` +
         'a viewer, a user id or a session there would key one entry per person, or leak one to the next.',
     );
@@ -171,4 +182,37 @@ test('a remembered read takes a date, public event ids or a limit — never a pe
     /\.auth\.|getUser\(|getCurrentUser\(|cookies\(|headers\(|follower_user_id|createClient\(/,
     'the remembered reads now touch the session or the viewer’s own rows',
   );
+  // The ownership it remembers is the REAL one — never the one a viewer is shown.
+  assert.match(core, /eventCoupleWebsiteProActive\(admin, id\)/, 'the remembered ownership is no longer the gate every write uses');
+  assert.doesNotMatch(core, /websiteProActiveFor|asViewed|viewingAsFreeCouple/, 'a remembered fact is being read as a viewer is shown it');
+});
+
+test('👁 the view-as-free switch still decides: remembered facts dress a card only for a viewer who has it OFF', () => {
+  /*
+    The remembered ownership is the REAL one. "View as a free couple" is how the
+    owner previews the free tier, and it must keep working on the home page's
+    cards — so the loader may hand a cover the remembered facts in exactly one
+    place, and only after asking the switch for THIS request. Read from the
+    source: the loader is server-only and cannot be run here; the body it calls
+    is run in `lib/event-cover-given.test.ts`.
+  */
+  const loader = stripComments(readFileSync(join(WEB, 'lib/discover-events.ts'), 'utf8'));
+  const uses = [...loader.matchAll(/publicCoverIo\(r, /g)];
+  assert.equal(uses.length, 1, `the remembered facts are handed to a cover in ${uses.length} places — there must be exactly one`);
+  assert.match(
+    loader,
+    /const \[types, viewingAsFree\] = await Promise\.all\(\[publicEventTypes\(\), viewingAsFreeCouple\(\)\.catch\(\(\) => false\)\]\);/,
+    'the loader no longer asks whether this viewer is viewing as a free couple',
+  );
+  assert.match(
+    loader,
+    /types && !viewingAsFree\s*\? await dressEventCoverGiven\(r, heroConfig, publicCoverIo\(r, rows\.facts\[r\.event_id\], types\)\)\s*: await dressEventCover\(r, heroConfig\)/,
+    'a card may be dressed from remembered facts for a viewer who is viewing as a free couple',
+  );
+  // …and everything else — the event Home's header, and that viewer — is answered as the viewer is shown it.
+  assert.match(
+    loader,
+    /export async function dressEventCover\(r: CoverRow, heroConfig: unknown\): Promise<DressedEventCover> \{\s*return dressEventCoverGiven\(r, heroConfig, viewedCoverIo\(r\)\);\s*\}/,
+  );
+  assert.match(loader, /ownsPro: \(\) => websiteProActiveFor\(r\.event_id\),/, 'the as-viewed reader no longer goes through the view switch');
 });

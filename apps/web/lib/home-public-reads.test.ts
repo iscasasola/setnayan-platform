@@ -5,8 +5,8 @@
  * real service client against a stand-in database that COUNTS the requests it
  * is sent, behind a stand-in store that ages the way Next's does. What is held:
  *
- *   1 · THE COUNT. A first view sends 10 queries for these rows; a second view
- *       inside 60 s sends NONE.
+ *   1 · THE COUNT AND THE DEPTH. A first view sends 20 requests for these
+ *       rows, 8 deep; a second view inside 60 s sends NONE.
  *   2 · A REFUSED READ IS NEVER REMEMBERED — and the half that did answer still
  *       reaches the caller (a failed shop count is "couldn't load", not zero).
  *   3 · THE ROWS ARE RAW. A host with no public profile is still in the
@@ -24,6 +24,8 @@ import { makeHomePublicReads, type FeaturedChapter, type HostRows, type LiveShop
 import { ReadRefused, rememberWith, stableIds } from './remembered-read-core';
 import { fakeSwrStore } from './remembered-read-fake-store';
 import { createAdminClient } from './supabase/admin';
+import { INVITE_THEMES } from './invite-themes';
+import { withRenderScopeForTest } from './request-once';
 
 type Answer = { data?: unknown; error?: unknown; count?: number | null };
 
@@ -33,32 +35,69 @@ type Answer = { data?: unknown; error?: unknown; count?: number | null };
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://db.test';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
-/** A database that answers per table and counts every request it is sent. */
-function countingDatabase(answers: Record<string, Answer | ((head: boolean) => Answer)>) {
+/**
+ * A database that answers per table and counts every request it is sent — and
+ * how DEEP the requests ran: a request that left only after another had come
+ * back is one step further down. Requests that leave together are one step.
+ * That number is what a visitor waits for; the count is only what it costs.
+ */
+function countingDatabase(answers: Record<string, Answer | ((head: boolean, body: Record<string, unknown>) => Answer)>) {
   const sent: string[] = [];
+  const depth = { deepestReturned: 0, deepest: 0 };
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(typeof input === 'string' || input instanceof URL ? String(input) : input.url);
     assert.ok(url.pathname.startsWith('/rest/v1/'), `an unexpected request left the reads: ${url.pathname}`);
     const table = url.pathname.replace('/rest/v1/', '');
     const head = (init?.method ?? 'GET') === 'HEAD';
     sent.push(head ? `${table}(HEAD)` : table);
+    const mine = depth.deepestReturned + 1;
+    depth.deepest = Math.max(depth.deepest, mine);
+    await new Promise((r) => setTimeout(r, 3));
+    depth.deepestReturned = Math.max(depth.deepestReturned, mine);
     const a = answers[table];
-    const answer = typeof a === 'function' ? a(head) : (a ?? { data: [] });
+    const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {};
+    const answer = typeof a === 'function' ? a(head, body) : (a ?? { data: [] });
     if (answer.error) {
       return new Response(head ? null : JSON.stringify(answer.error), { status: 500, headers: { 'content-type': 'application/json' } });
     }
     if (head) return new Response(null, { status: 200, headers: { 'content-range': `0-0/${answer.count ?? 0}` } });
     return new Response(JSON.stringify(answer.data ?? []), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
-  return { sent };
+  return {
+    sent,
+    /** Forget what was sent and how deep — the next view is measured on its own. */
+    reset: () => {
+      sent.length = 0;
+      depth.deepestReturned = 0;
+      depth.deepest = 0;
+    },
+    serialDepth: () => depth.deepest,
+  };
 }
 
 const EVENT_A = '00000000-0000-4000-8000-00000000000a';
 const EVENT_B = '00000000-0000-4000-8000-00000000000b';
 
-function world(over: Record<string, Answer | ((head: boolean) => Answer)> = {}) {
+/** A theme only an owner may wear — event A saved one; event B saved nothing. */
+const PRO_THEME = Object.entries(INVITE_THEMES).find(([, t]) => t.tier === 'pro')?.[0] as string;
+
+function world(over: Record<string, Answer | ((head: boolean, body: Record<string, unknown>) => Answer)> = {}) {
   return countingDatabase({
-    events: { data: [{ event_id: EVENT_A, landing_page_hero_image_url: 'r2://setnayan-media/events/a/hero.jpg' }, { event_id: EVENT_B }] },
+    events: {
+      data: [
+        { event_id: EVENT_A, invite_theme: PRO_THEME, landing_page_hero_image_url: 'r2://setnayan-media/events/a/hero.jpg' },
+        { event_id: EVENT_B, invite_theme: null },
+      ],
+    },
+    // Nothing bought by either event. A is hosted by an internal account (it owns
+    // every product); B is hosted by nobody special (it owns nothing).
+    orders: { data: [] },
+    bundle_components: { data: [] },
+    'rpc/event_comp_active_skus': { data: [] },
+    'rpc/event_host_is_internal': (_head, body) => ({ data: body.p_event_id === EVENT_A }),
+    'rpc/event_host_holds_founder_seat': { data: false },
+    event_type_profiles: { data: [{ event_type: 'wedding', terminology: {}, enabled_surfaces: ['website'] }] },
+    event_type_vocab: { data: [{ event_type: 'wedding', label_en: 'Wedding', status: 'active', sort_order: 1 }] },
     event_members: {
       data: [
         { event_id: EVENT_A, user_id: 'u-public', joined_at: '2026-01-01' },
@@ -90,40 +129,87 @@ function build(db: ReturnType<typeof countingDatabase>, clock: { now: number }, 
       return { items: [], ok: true };
     },
   });
-  /** One view of `/`, asking for these rows the way the page does. */
-  const view = async () => {
-    const ids = stableIds([EVENT_B, EVENT_A]);
-    return Promise.all([
-      reads.rememberedWorldCandidates('2026-10-11'),
-      reads.rememberedHostRows(ids),
-      reads.rememberedCoverRows(ids),
-      reads.rememberedPublicPeople(13),
-      reads.rememberedLiveShopRows(8),
-      reads.rememberedFeaturedChapters(24),
-    ]);
-  };
+  /**
+   * One view of `/` by a signed-out visitor, asking for these rows in the ORDER
+   * AND SHAPE THE PAGE DOES (`FrontDoor` → `loadFrontDoorData` ∥ `loadDiscover`):
+   * what leaves together here leaves together there. Run as one render, so the
+   * ownership reads are asked once per event, as they are in production.
+   */
+  const view = () =>
+    withRenderScopeForTest(async () => {
+      const frontDoor = Promise.all([reads.rememberedLiveShopRows(8), reads.rememberedFeaturedChapters(24)]);
+      const discover = (async () => {
+        const [candidates, types, people] = await Promise.all([
+          reads.rememberedWorldCandidates('2026-10-11'),
+          reads.rememberedEventTypeRows(),
+          reads.rememberedPublicPeople(13),
+        ]);
+        const ids = stableIds([EVENT_B, EVENT_A]);
+        const hosts = await reads.rememberedHostRows(ids);
+        const covers = await reads.rememberedCoverRows(ids);
+        return { candidates, types, people, hosts, covers };
+      })();
+      const [shelves, found] = await Promise.all([frontDoor, discover]);
+      return { shelves, ...found };
+    });
   return { reads, view, fake };
 }
 
-test('1 · a first view sends 10 queries for these rows; a second view inside 60 s sends none', async () => {
+test('1 · a first view sends 20 requests, 8 deep; a second view inside 60 s sends NONE', async () => {
   const clock = { now: 1_700_000_000_000 };
   const db = world();
   const { view } = build(db, clock);
 
-  await view();
+  const first = await view();
   assert.deepEqual(
     [...db.sent].sort(),
     [
-      'creator_chapters', 'event_members', 'events', 'events', 'invitation_widgets',
-      'users', 'users', 'users', 'vendor_profiles', 'vendor_profiles(HEAD)',
+      'bundle_components',
+      'creator_chapters',
+      'event_members',
+      'event_type_profiles',
+      'event_type_vocab',
+      'events', // the world's candidates
+      'events', // the shelved cards' cover rows
+      'invitation_widgets',
+      'orders', // event A
+      'orders', // event B
+      'rpc/event_comp_active_skus',
+      'rpc/event_comp_active_skus',
+      'rpc/event_host_holds_founder_seat', // B only — A's internal host already answered
+      'rpc/event_host_is_internal',
+      'rpc/event_host_is_internal',
+      'users', // people to follow
+      'users', // the chapters' owners
+      'users', // the hosts' public names
+      'vendor_profiles',
+      'vendor_profiles(HEAD)',
     ],
-    'the cold view no longer sends the ten queries these rows cost',
+    'the cold view no longer sends the requests these rows cost',
   );
+  /*
+    THE COLD DEPTH, step by step — what a visitor waits for when nothing is
+    remembered (once a minute at most):
+      1 the world · both event-type tables · people · shops ×2 · chapters
+      2 the chapters' owners · the hosts' memberships
+      3 the hosts' names
+      4 the cover rows · the hero rows
+      5 each event's orders          ┐ the ownership chain, both events side by
+      6 the bundle composition       │ side — it was walked per card, on every
+      7 comp grant ∥ internal host   │ view, before any of this was remembered
+      8 the founder seat (B only)    ┘
+  */
+  assert.equal(db.serialDepth(), 8, 'the cold view got deeper — a read is waiting on one it does not need');
+  // The facts are the REAL ownership: A (internal host, saved a Pro theme) owns it; B does not.
+  assert.deepEqual(first.covers.facts[EVENT_A], { websitePro: true, logoAnimation: null });
+  assert.deepEqual(first.covers.facts[EVENT_B], { websitePro: false, logoAnimation: null });
 
-  db.sent.length = 0;
+  db.reset();
   clock.now += 45_000;
-  await view();
-  assert.deepEqual(db.sent, [], `a warm view sent ${db.sent.length} queries for rows it had just read`);
+  const second = await view();
+  assert.deepEqual(db.sent, [], `a warm view sent ${db.sent.length} requests for rows it had just read`);
+  assert.equal(db.serialDepth(), 0);
+  assert.deepEqual(second.covers.facts, first.covers.facts, 'a warm view was handed different facts');
 });
 
 test('1b · a view after the hard age asks again rather than show old rows', async () => {
@@ -131,10 +217,10 @@ test('1b · a view after the hard age asks again rather than show old rows', asy
   const db = world();
   const { view } = build(db, clock);
   await view();
-  db.sent.length = 0;
+  db.reset();
   clock.now += 301_000;
   await view();
-  assert.ok(db.sent.length >= 10, `only ${db.sent.length} queries were sent for rows older than the hard age`);
+  assert.ok(db.sent.length >= 20, `only ${db.sent.length} requests were sent for rows older than the hard age`);
 });
 
 test('1c · a different day, a different set of events and a different limit are different entries', async () => {
@@ -147,7 +233,8 @@ test('1c · a different day, a different set of events and a different limit are
   await reads.rememberedCoverRows([EVENT_A, EVENT_B]);
   await reads.rememberedPublicPeople(13);
   await reads.rememberedPublicPeople(14);
-  assert.equal(db.sent.length, 2 + 4 + 2);
+  // 2 world reads · the cover rows + hero rows + ownership chain for [A], then for [A, B] · 2 people reads
+  assert.ok(db.sent.filter((t) => t === 'invitation_widgets').length === 2 && db.sent.filter((t) => t === 'users').length === 2);
 });
 
 test('2 · a refused world read is not remembered — the next view asks again', async () => {
@@ -184,6 +271,24 @@ test('2c · a refused hero read costs only the Main background and is not rememb
   assert.ok(caught instanceof ReadRefused && caught.site === 'mainGrounds');
   assert.equal((caught.partial as { covers: unknown[] }).covers.length, 2, 'the cover rows that answered were dropped');
   assert.equal(fake.entries.size, 0);
+});
+
+test('2e · a refused ownership read is "not owned" for that view and is NOT remembered', async () => {
+  const clock = { now: 1_700_000_000_000 };
+  let refuse = true;
+  const db = world({ orders: () => (refuse ? { error: { message: 'connection refused', code: 'PGRST003' } } : { data: [] }) });
+  const { reads, fake } = build(db, clock);
+  const ask = () => withRenderScopeForTest(() => reads.rememberedCoverRows([EVENT_A]).then((rows) => rows, (e: unknown) => e));
+  const caught = await ask();
+  assert.ok(caught instanceof ReadRefused && caught.site === 'coverFacts', 'a refused orders read was not reported as a refusal');
+  const partial = caught.partial as { covers: unknown[]; facts: Record<string, { websitePro: boolean | null }> };
+  assert.equal(partial.facts[EVENT_A]?.websitePro, false, 'a refused ownership read drew something other than "not owned"');
+  assert.equal(partial.covers.length, 2, 'the cover rows that answered were dropped');
+  assert.equal(fake.entries.size, 0, '"not owned" was remembered for everybody after a read that never answered');
+  refuse = false;
+  const rows = await ask();
+  assert.ok(!(rows instanceof ReadRefused) && !(rows instanceof Error));
+  assert.equal((rows as { facts: Record<string, { websitePro: boolean | null }> }).facts[EVENT_A]?.websitePro, true);
 });
 
 test('2d · a failed chapters read is thrown, never remembered as "no stories"', async () => {

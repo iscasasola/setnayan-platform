@@ -20,6 +20,7 @@ export const {
   rememberedPublicPeople,
   rememberedLiveShopRows,
   rememberedFeaturedChapters,
+  rememberedEventTypeRows,
 } = makeHomePublicReads({
   remember: rememberPublicRead,
   featuredChapters: loadFeaturedChaptersResult,
@@ -29,8 +30,10 @@ export {
   candidateEvents,
   coverColumns,
   shopColumns,
+  type CoverFacts,
   type CoverRow,
   type CoverRows,
+  type EventTypeRows,
   type HostRows,
   type LiveShopRefusal,
 } from '@/lib/home-public-reads-core';

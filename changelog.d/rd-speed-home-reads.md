@@ -72,6 +72,57 @@ now live in two files.
   queries); order, togetherness and counts by
   `lib/entitlements-in-render-asks-together.test.ts`.
 
+### Round 2 · the same day — the waiting, not the count
+
+Round 1 was measured on a preview against a control: fewer database calls, no
+meaningful gain in first byte (0.86 s vs 0.93 s). The time was in what still
+ran one after another — and nearly all of it was the ownership chain walked
+card by card behind each Discover cover.
+
+- **The cover's facts are read once for everybody.** `rememberedCoverRows` now
+  carries, per shelved event, whether it owns Event Hub Pro and whether its logo
+  animation is on — the REAL answers (`eventCoupleWebsiteProActive`, the gate
+  every write uses), asked only for an event whose cover they can change, every
+  event's questions leaving together, the animation switch read once for all of
+  them instead of once per card.
+- **One cover body, two sets of readers.** `dressEventCover`'s body moved to
+  `lib/event-cover-given.ts` with everything it asks handed in. The event Home's
+  header — and Discover for a viewer who is viewing as a free couple — hand it
+  the readers it always called, so both answer as the viewer is shown it,
+  exactly as before. Every other Discover card hands it the remembered facts and
+  asks nothing on the way. Viewer-free, separately named, public inputs only:
+  `hubThemeGiven` (`lib/hub-look-given.ts`), `eventPosterGiven`
+  (`lib/event-poster-given.ts`, which `resolveEventPoster` now calls),
+  `profileFromPublicRow`, `eventTypesFromPublicRows`,
+  `filterPubliclyVisibleEventsGiven`. No shared function changed behaviour.
+- **The event types are remembered** (`rememberedEventTypeRows`): both tables
+  are public-read (`USING (TRUE)`), so the gate, the labels and every card's
+  words are worked out per view from rows read once — and through the viewer's
+  own session, as before, whenever those rows could not be read.
+- **Side by side:** the editorials' consented chain and its samples read
+  (`loadPublishedShowcases`) no longer wait on each other; the public gate
+  resolves its event types together.
+- Signed-out `/`, serial depth: 15 measured → 3 warm (the consented editorials,
+  still asked every view) · about 9 cold. Calls: 27 → 4 warm. **Unmeasured until
+  a preview.**
+- ⚠ What can now be seen late on a home-page card, for at most 300 s: a cover
+  after a payment is approved or refunded (ownership is not cleared — its
+  writers are many and partly inside database functions). The guest's own page,
+  the Maker and every gate on a write still ask live.
+- ⚠ `resolveHubTheme` / `resolveHubLook` live under `app/[slug]`, which this
+  change was told not to edit, so `lib/hub-look-given.ts` is their rule with the
+  read lifted out rather than something they call; `lib/hub-look-given.test.ts`
+  pins their text and fails if either changes. Making them delegate is a
+  six-line follow-up.
+
+Guards added or widened: `home-reads-remember-nobody` (now also walks the three
+viewer-free cover modules, and holds the view-as-free fence in the loader) ·
+`event-cover-given` (the body run for every theme × owned × row: same cover from
+facts as from live readers, nothing asked, the Pro gate) · `hub-look-given` ·
+`home-public-reads` (cold 20 requests 8 deep, warm 0; a refused ownership read
+is never remembered). `lib/entitlements-ask-once.test.ts` is untouched and no
+entitlement code changed in this round.
+
 SPEC IMPACT: None. No schema, no env switch, no copy, no price. The home page's
 freshness bound (hard age 300 s) is the number it already carried as
 `revalidate = 300`; no `DECISION_LOG.md` row rules on it either way.

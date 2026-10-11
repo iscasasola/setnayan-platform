@@ -208,8 +208,13 @@ test('ONE hero, ONE resolver: posterFor has exactly one caller, resolveEventPost
   })
     .split('\n')
     .filter((f) => f && !/\.test\.tsx?$/.test(f));
-  assert.deepEqual(hits.sort(), ['lib/event-poster.server.ts', 'lib/event-poster.ts']);
+  // ⚡ 2026-10-11 — the composing moved one file over, to `eventPosterGiven`
+  // (`lib/event-poster-given.ts`), so the Discover card — which already holds the
+  // words and the look — asks the SAME rule without a read. Still exactly one
+  // place calls `posterFor`; `resolveEventPoster` reads, then calls that place.
+  assert.deepEqual(hits.sort(), ['lib/event-poster-given.ts', 'lib/event-poster.ts']);
   const server = readFileSync(join(web, 'lib/event-poster.server.ts'), 'utf8');
+  assert.match(server, /return eventPosterGiven\(event, heroSrc, \{/, 'resolveEventPoster no longer composes through the one rule');
   assert.match(server, /resolveHubLook\(/, 'the poster stopped reading the theme through the hub resolver');
   assert.match(server, /eventWordsFor\(/, 'the poster stopped reading the hub card\'s words');
   const launcher = readFileSync(join(web, 'app/dashboard/(launcher)/page.tsx'), 'utf8');
@@ -224,8 +229,11 @@ test('the Save-the-Date background reaches the poster: read by both callers, han
   const web = join(dirname(fileURLToPath(import.meta.url)), '..');
   const server = readFileSync(join(web, 'lib/event-poster.server.ts'), 'utf8');
   assert.match(server, /std_background:\s*event\.std_background/, 'the resolver stopped handing the background to resolveHubLook');
-  assert.match(server, /backgroundSrc:\s*look\?\.photo/, 'the resolver stopped handing the gated background to posterFor');
+  const given = readFileSync(join(web, 'lib/event-poster-given.ts'), 'utf8');
+  assert.match(server, /return eventPosterGiven\(event, heroSrc, \{\s*words,\s*look,/, 'the resolver stopped handing the hub look to the poster rule');
+  assert.match(given, /backgroundSrc:\s*given\.look\?\.photo/, 'the resolver stopped handing the gated background to posterFor');
   assert.match(server, /resolveThemeGround\(/, 'the resolver stopped reading the theme still from the hub ground');
+  assert.match(given, /themeStillSrc:\s*given\.themeStill\(theme\)/, 'the theme still no longer reaches posterFor');
   const launcher = readFileSync(join(web, 'app/dashboard/(launcher)/page.tsx'), 'utf8');
   assert.match(launcher, /\.select\('event_id, invite_theme, std_background(?:, role_palette)?'\)/, 'the board stopped reading the background');
   // 🎨 …and the Mood Board, which the poster's veil and ink follow (2026-10-05).

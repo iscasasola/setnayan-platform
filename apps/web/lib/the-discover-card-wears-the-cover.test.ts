@@ -202,7 +202,8 @@ test('2b·4 · an UNAPPLIED draft background never reaches the card — only pub
   assert.equal(guestMainGround('velvet', true, {}, {}), null);
   assert.match(LOADER, /from\('invitation_widgets'\)\s*\.select\('event_id, config_json'\)\s*\.eq\('widget_type', 'hero'\)/);
   assert.match(LOADER, /guestMainGround\(hub\.theme, ownsPro, heroConfig, r\)/, 'the card does not ask the hub\'s one main-background answer');
-  assert.match(LOADER, /guestLookFrom\(r as unknown as EventShellRow, hub, false\)/, 'the card does not ask the hub\'s one look');
+  assert.match(LOADER, /guestLookFrom\(row as unknown as EventShellRow, hub, false\)/, 'the card does not ask the hub\'s one look');
+  assert.match(LOADER, /const look = hub \? io\.guestLook\(r, hub\) : null;/, 'the cover no longer draws the hub\'s one look');
   assert.match(LOADER, /paperGroundOf\(look\)/);
   assert.doesNotMatch(
     LOADER,
@@ -274,7 +275,10 @@ const WEB = join(__dirname, '..');
 // is remembered; the cover itself is still dressed in `lib/discover-events.ts`.
 const LOADER =
   stripComments(readFileSync(join(WEB, 'lib/discover-events.ts'), 'utf8')) +
-  stripComments(readFileSync(join(WEB, 'lib/home-public-reads-core.ts'), 'utf8'));
+  stripComments(readFileSync(join(WEB, 'lib/home-public-reads-core.ts'), 'utf8')) +
+  // …and the body that draws the cover moved to `lib/event-cover-given.ts`, where it is
+  // handed its readers (as a viewer is shown it, or from remembered public facts).
+  stripComments(readFileSync(join(WEB, 'lib/event-cover-given.ts'), 'utf8'));
 const CORE = stripComments(readFileSync(join(WEB, 'lib/discover-events-core.ts'), 'utf8'));
 const SHELVES = stripComments(readFileSync(join(WEB, 'app/_components/frontdoor/front-door-discover.tsx'), 'utf8'));
 
@@ -285,14 +289,19 @@ test('the shelves render THIS card — the one the render tests above draw', () 
 });
 
 test("the cover is the dashboard card's: resolveEventPoster → sceneCoverFor, never a second order", () => {
-  assert.match(LOADER, /await resolveEventPoster\(/, 'the loader no longer asks the one poster resolver');
+  // ⚡ 2026-10-11 — the poster's composing is `eventPosterGiven`, which
+  // `resolveEventPoster` itself calls (held in lib/event-poster.test.ts); the
+  // cover asks that same rule with the words and the look it was handed.
+  assert.match(LOADER, /poster = eventPosterGiven\(/, 'the loader no longer asks the one poster rule');
   assert.match(LOADER, /sceneCoverFor\(poster\)/, 'the loader no longer narrows with sceneCoverFor');
   assert.doesNotMatch(LOADER, /posterFor\(|resolveHubLook\(|resolveThemeGround\(/, 'a second cover resolver appeared');
   const cols = /const COVER_COLUMNS =\s*'([^']*)'/.exec(LOADER)?.[1] ?? '';
   for (const c of ['std_background', 'landing_page_hero_image_url', 'invite_theme']) {
     assert.match(cols, new RegExp(`\\b${c}\\b`), `the cover read dropped ${c}`);
   }
-  assert.match(LOADER, /renderableImageSrc\(\s*await displayUrlForStoredAsset\(resolveHero\(r\)\.photoRef\)/);
+  // The hero is still narrowed through the gate, and still signed by the one signer — handed in as `io.sign`.
+  assert.match(LOADER, /renderableImageSrc\(\s*await io\.sign\(resolveHero\(r\)\.photoRef\)/);
+  assert.match(LOADER, /sign: \(ref\) => displayUrlForStoredAsset\(ref\)/, 'the cover is no longer signed by the public-bucket signer');
   assert.match(LOADER, /logQueryError\('discover-events\.covers'/, 'a refused cover read must be logged');
 });
 
@@ -302,7 +311,8 @@ test('the paper card is drawn by <EventPoster> from the same poster, only for an
   assert.match(LOADER, /mainGroundIsNone\(hubMainGround\(heroConfig\)\)/);
   assert.match(LOADER, /pageGround\(\{ theme: hub\.theme, ombre: Boolean\(look\?\.ombre\), heroGround: false \}\)\.themeLoop/);
   assert.match(LOADER, /resolveEventMonogramSvg\(r\)/, 'the mark must be read through the gate');
-  assert.match(LOADER, /logoPlaysFor\(r\.event_id, markSvg\)/);
+  assert.match(LOADER, /logoPlaysFor\(r\.event_id, resolveEventMonogramSvg\(r\)\)/);
+  assert.match(LOADER, /markPlays: coupleLogoPlays\(markSvg, true\) \? await io\.logoAnimationOn\(\)/, 'a still logo must cost no read');
   const cols = /const COVER_COLUMNS =\s*'([^']*)'/.exec(LOADER)?.[1] ?? '';
   for (const c of ['monogram_custom_svg', 'monogram_uploaded_svg']) {
     assert.match(cols, new RegExp(`\\b${c}\\b`), `the cover read dropped ${c}`);

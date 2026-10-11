@@ -47,14 +47,15 @@ Maker's lists, the table, the eye and the guest page's plan, then ✓ Apply onto
   ("colors" → "colours" in that stand-in is the real component.)
 - M16 (LAB) · the lab's guest page had no title; it wears a guest page's ("Wedding invitation"). The site's default
   title is the owner's brand line — not changed.
-- M17 (REAL) · a "More to compare" card had two buttons; Save is retired there too (owner 2026-10-07).
-- M18 · M24 · M25 (REAL) · the supplier sheet's and the Suppliers rows' buttons, and the Leave sheet's two doors, are
-  44 px tall.
-- M29 · "Sign in again to save suppliers." → "…to ask for a quote."
+- M24 (REAL) · the Leave sheet's two doors are 44 px tall.
 
-- Found by `pnpm preflight` on the merged copy, both older than this branch: a pin in
-  `lib/the-rsvp-stage-groups-lines.test.ts` that read one builder's line where the merge kept two, and one hand-typed
-  radius in `supplier-sheet.tsx`. Both fixed.
+- Found by `pnpm preflight` on the merged copy, older than this branch: a pin in
+  `lib/the-rsvp-stage-groups-lines.test.ts` that read one builder's line where the merge kept two. Fixed.
+
+**Not in this batch (Batch B — the Event Hub set — ships without the Suppliers page; these four ride with it):**
+M17 (a "More to compare" card has one button) · M18 · M25 (the supplier sheet's and the Suppliers rows' buttons are
+44 px) · M29 (the sign-in line names the ask) · the one hand-typed radius in `supplier-sheet.tsx`. Their commits are
+`f32bd4529`, `425bc76f4` and the Suppliers half of `8bc34985f` and `299e97e5b` on `rd/merged-copy-fixes`.
 
 **Not fixed, listed for the owner:** M10 (a move that "did nothing" was the dev server restarting itself — 48 taps
 measured, 3 late, the one watched to the end arrived after 34.6 s; nothing is lost) · M19's count of THINGS rather than
@@ -82,5 +83,4 @@ controller should say so in the corpus: the toast. `INTERACTION_RULES.md` § 9 k
 top centre … its words centred" (unchanged); the approved gallery (`control_templates_2026-10-08.html`, `.toast`)
 draws a 48 px one-line pill, and the later approved RSVP prototype (`maker_rsvp_add_drag_group_2026-10-09.html`,
 `#say`) wraps its sentence. The toast is now 48 px for one line and grows for a second, never a third, and sits under
-the Maker's top bar. Save retired on a marketplace card (2026-10-07) and an empty row keeping its ticks
-(`maker_what_guests_see_2026-10-10.html`) are the approved designs, now met.
+the Maker's top bar. An empty row keeping its ticks (`maker_what_guests_see_2026-10-10.html`) is the approved design, now met.

@@ -184,3 +184,25 @@ test('7 · the Maker’s canvas draws a picture the moment it is added — from 
   assert.match(ARRANGE, /box\.querySelectorAll<HTMLElement>\('\[data-rsvp-added\]'\)\.forEach\(\(p\) => \{\s*if \(!kept\.has\(p\)\) p\.remove\(\);/);
   assert.match(src(`${L}/rsvp-list-stage.tsx`), /box\.querySelectorAll\('\[data-rsvp-added\]'\)\.length >= RSVP_ADDED_MAX/);
 });
+
+/* ── 8 · the chooser ───────────────────────────────────────────────────────── */
+
+test('8 · ＋ › Picture: the shipped scene upload FIRST, then ONE add that carries the file; Edit › Replace is one edit', () => {
+  const LIST = src(`${L}/rsvp-line-list.tsx`);
+  /* (a) the shipped scene upload: the app's uploader, the media bucket, this event's scene-background folder, compressed. */
+  assert.match(LIST, /<FileUpload\s+bucket="media"\s+pathPrefix=\{sceneBackgroundPathPrefix\(eventId\)\}\s+multiple=\{false\}\s+maxSizeMB=\{100\}\s+acceptedTypes=\{PICTURE_UPLOAD_TYPES\}\s+compressImage/);
+  assert.match(LIST, /const PICTURE_UPLOAD_TYPES = \['image\/jpeg', 'image\/jpg', 'image\/png', 'image\/webp'\];/);
+  /* It saves nothing itself: the landed ref is handed on, and the file the couple picked is shown at once. */
+  assert.match(LIST, /if \(local\.current\) keepRsvpPictureUrl\(ref, local\.current\);\s*onPicture\(ref\);/);
+  assert.doesNotMatch(LIST.slice(LIST.indexOf('export function RsvpPictureSheet'), LIST.indexOf('export function RsvpPictureEditRows')), /askRsvpListEdit|hubDraftAction|makerSave/);
+  /* ＋ › Picture opens the chooser instead of adding; the chooser's ref makes the ONE add. */
+  const STAGE = src(`${L}/rsvp-list-stage.tsx`);
+  assert.match(STAGE, /if \(kind === 'p'\) return setPicturing\(adding\);\s*askRsvpListEdit\(\{ do: 'add', part: listPart, kind, anchor: line, where: adding \}\);/);
+  assert.match(STAGE, /onPicture=\{\(ref\) => \{\s*setPicturing\(null\);\s*askRsvpListEdit\(\{ do: 'add', part: listPart, kind: 'p', anchor: line, where: picturing, p: ref \}\);/);
+  /* Edit on a picture: Replace — one `picture` edit — and the same last row; no words box (decorative). */
+  const PANEL = src(`${L}/maker-rsvp-ask.tsx`);
+  assert.match(PANEL, /if \(picked\.tool === 'edit' && listPart && picked\.line && addedLine && rsvpAddedIsPicture\(addedLine\)\) \{[\s\S]{0,300}<RsvpPictureEditRows key=\{line\} eventId=\{eventId\} onReplace=\{\(ref\) => askRsvpListEdit\(\{ do: 'picture', part: listPart, line, p: ref \}\)\} \/>[\s\S]{0,200}\{placeRow\}/);
+  assert.match(PANEL, /if \(picked\.tool === 'edit' && listPart && picked\.line && addedLine && !rsvpAddedIsPicture\(addedLine\)\) \{/);
+  /* (b) FREE: nothing about a picture is gated — no Pro mark, no Pro check, in the chooser or the edit. */
+  assert.doesNotMatch(LIST, /PaidMark|makerPro|ownsPro/);
+});

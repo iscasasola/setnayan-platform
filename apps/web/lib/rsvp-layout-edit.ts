@@ -319,8 +319,9 @@ export function rsvpDropBefore(names: readonly string[], slot: number | null): s
 
 /* ── what the stage says ──────────────────────────────────────────────────── */
 
-/** What ＋ offers on a reply page, in the sheet's order. (A Picture is its own later step.) */
-export const RSVP_ADD_KINDS = ['h', 'm'] as const;
+/** What ＋ offers on a reply page, in the sheet's order — the owner's ruling, word for word: "Heading · Message ·
+ *  Picture". A Picture uploads FIRST (`RsvpPictureSheet`) and is then added with its file in one edit. */
+export const RSVP_ADD_KINDS = ['h', 'm', 'p'] as const;
 
 const lines = (n: number) => (n === 1 ? `${formatCount(1)} line` : `${formatCount(n)} lines`);
 

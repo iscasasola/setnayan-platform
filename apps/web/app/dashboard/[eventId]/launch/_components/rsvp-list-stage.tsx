@@ -9,7 +9,8 @@ import { RSVP_ADDED_NAME } from '@/app/[slug]/_components/rsvp-lines';
 import { RSVP_LINE_NAME } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { RSVP_SCENE_PART, rsvpGroupRows, rsvpLineRow, rsvpLinesBox, rsvpTopRows } from './rsvp-canvas-arrange';
 import { attachRsvpDrag, type RsvpDragSubject } from './rsvp-canvas-drag';
-import { RsvpAddLineSheet, RsvpGroupPickBar, askRsvpListEdit } from './rsvp-line-list';
+import { RsvpAddLineSheet, RsvpGroupPickBar, RsvpPictureSheet, askRsvpListEdit } from './rsvp-line-list';
+import { useMaker } from './maker-context';
 
 /**
  * ＋ THE TOOLBAR'S HALF OF THE RSVP STAGE'S LIST (owner's ruling 2026-10-09; approved prototype
@@ -150,6 +151,9 @@ export function useRsvpListStage({
   const [stamp, setStamp] = useState(0);
   const [meta, setMeta] = useState<Meta>(NONE);
   const [adding, setAdding] = useState<'above' | 'below' | null>(null);
+  /** 🖼 ＋ › Picture: its file is being chosen (above or below the picked line) — the add waits for the upload. */
+  const [picturing, setPicturing] = useState<'above' | 'below' | null>(null);
+  const eventId = useMaker()?.eventId ?? null;
   /** 🫧 Lines being picked for a group: the screen's card, and the names ticked so far. Null: not picking. */
   const [multi, setMulti] = useState<{ part: RsvpLookCard; names: string[] } | null>(null);
   const multiNow = useRef(multi);
@@ -333,12 +337,27 @@ export function useRsvpListStage({
             onClose={() => setAdding(null)}
             onAdd={(kind) => {
               setAdding(null);
+              /* 🖼 A picture is never added empty: its file is chosen first, and the add carries it. */
+              if (kind === 'p') return setPicturing(adding);
               askRsvpListEdit({ do: 'add', part: listPart, kind, anchor: line, where: adding });
             }}
           />,
           document.body,
         )
-      : null;
+      : picturing && listPart && line && eventId
+        ? createPortal(
+            <RsvpPictureSheet
+              eventId={eventId}
+              replacing={false}
+              onClose={() => setPicturing(null)}
+              onPicture={(ref) => {
+                setPicturing(null);
+                askRsvpListEdit({ do: 'add', part: listPart, kind: 'p', anchor: line, where: picturing, p: ref });
+              }}
+            />,
+            document.body,
+          )
+        : null;
   const bar = multi ? (
     <RsvpGroupPickBar
       count={multi.names.length}

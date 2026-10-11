@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowDown, ArrowUp, Check, Group, Plus, Trash2, Ungroup, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Group, ImageUp, Plus, Trash2, Ungroup, X } from 'lucide-react';
+import { FileUpload } from '@/app/_components/file-upload';
+import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
+import { keepRsvpPictureUrl } from './rsvp-picture-urls';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { TypedRow } from '@/app/_components/form-row';
 import { SP_KEY_BAR, SP_KEY_DONE, SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
@@ -254,6 +257,78 @@ export function RsvpAddedEditRows({
       <p data-rsvp-row="2" data-rsvp-added-note="" className={`${SP_ROWS_ROW} row-start-2 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`}>
         {RSVP_LIST_WORDS.noAutomatic}
       </p>
+    </>
+  );
+}
+
+/* ── 🖼 a picture line: its file ─────────────────────────────────────────────── */
+
+/** What a picture may be — the shipped scene upload's photos (`scene-background-row.tsx`), never a clip. */
+const PICTURE_UPLOAD_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+/**
+ * 🖼 CHOOSING A PICTURE LINE'S FILE — ＋ › Picture, and Edit › Replace (owner's ruling 2026-10-09, ＋ "Heading · Message
+ * · Picture"; DECISION_LOG 2026-10-12 (a): THE SHIPPED SCENE UPLOAD). The app's own uploader (`FileUpload`, the media
+ * bucket, compressed in the browser) into this event's `scene-background` folder — so the file counts in the
+ * event's 100 MB and `/api/upload` needs no new rule — inside the app's own sheet. It saves nothing itself: the ref
+ * it lands is handed on (`onPicture`) and becomes ONE edit of the list, so a picture line is never stored empty and
+ * one add (or one replace) is one undo step. The file the couple picked is kept by its local address, so the canvas
+ * shows it at once (`rsvp-picture-urls.ts`).
+ */
+export function RsvpPictureSheet({ eventId, replacing, onPicture, onClose }: { eventId: string; replacing: boolean; onPicture: (ref: string) => void; onClose: () => void }) {
+  const local = useRef<string | null>(null);
+  return (
+    <MakerSheet label={replacing ? 'Replace the picture' : 'Add a picture'} onClose={onClose}>
+      <div data-rsvp-picture-sheet={replacing ? 'replace' : 'add'} className="pb-2">
+        <FileUpload
+          bucket="media"
+          pathPrefix={sceneBackgroundPathPrefix(eventId)}
+          multiple={false}
+          maxSizeMB={100}
+          acceptedTypes={PICTURE_UPLOAD_TYPES}
+          compressImage
+          onFilePicked={(file) => {
+            local.current = URL.createObjectURL(file);
+          }}
+          onChange={(value) => {
+            const ref = typeof value === 'string' ? value : null;
+            if (!ref) return;
+            if (local.current) keepRsvpPictureUrl(ref, local.current);
+            onPicture(ref);
+          }}
+          label="Choose a picture"
+        />
+      </div>
+    </MakerSheet>
+  );
+}
+
+/** Edit, a PICTURE line: Replace (the same sheet) — a picture has no words of its own (decorative, (c)). */
+export function RsvpPictureEditRows({ eventId, onReplace }: { eventId: string; onReplace: (ref: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div data-rsvp-row="1" className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-picture-edit="">
+        <span className="min-w-0 flex-1 px-1 text-[15px] font-semibold text-[var(--sp-ink)]">Picture</span>
+        <span className="contents" data-rsvp-picture-replace="">
+          <ActionButton tone="neutral" icon={ImageUp} label="Replace" onClick={() => setOpen(true)} />
+        </span>
+      </div>
+      {/* On the page's body, never inside the panel (which lies over the toolbar) — the ＋ sheet's own reason. */}
+      {open
+        ? createPortal(
+            <RsvpPictureSheet
+              eventId={eventId}
+              replacing
+              onClose={() => setOpen(false)}
+              onPicture={(ref) => {
+                setOpen(false);
+                onReplace(ref);
+              }}
+            />,
+            document.body,
+          )
+        : null}
     </>
   );
 }

@@ -23,7 +23,7 @@ import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows, RsvpPictureLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
 import { RSVP_GROUP_PICK_EVENT, RSVP_LIST_DONE_EVENT, RSVP_LIST_EDIT_EVENT, RSVP_LIST_PICK_EVENT, RSVP_LIST_SAY_EVENT, RSVP_LIST_WORDS, rsvpGroupId, rsvpLayoutEdit, rsvpPlaceOf, rsvpScreenCounts, type RsvpLayoutEdit, type RsvpListDone, type RsvpListPick } from '@/lib/rsvp-layout-edit';
-import { RsvpAddedEditRows, RsvpLinePlaceRow, RsvpPanelTypingBar, askRsvpListEdit, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
+import { RsvpAddedEditRows, RsvpLinePlaceRow, RsvpPanelTypingBar, RsvpPictureEditRows, askRsvpListEdit, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { DetailsPieceOnly } from './details-piece';
@@ -624,6 +624,17 @@ export function MakerRsvpSettings({
           {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
           {placeRow}
           <RsvpPanelTypingBar name={addedLine.k === 'h' ? 'Heading' : 'Message'} />
+        </div>
+      );
+    }
+    /* 🖼 EDIT, a PICTURE the couple added: Replace (its file, one edit), then the same last row. */
+    if (picked.tool === 'edit' && listPart && picked.line && addedLine && rsvpAddedIsPicture(addedLine)) {
+      const line = picked.line;
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-edit={line}>
+          <RsvpPictureEditRows key={line} eventId={eventId} onReplace={(ref) => askRsvpListEdit({ do: 'picture', part: listPart, line, p: ref })} />
+          {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
+          {placeRow}
         </div>
       );
     }

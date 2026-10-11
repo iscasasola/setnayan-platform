@@ -211,3 +211,71 @@ test('2 · the tester’s four edits (M19): three THINGS, named — and each ↺
   assert.deepEqual(seen, [3, 2, 1, 0], '↺ took the motion back first — the cover still differs by its words, so its line stays');
   assert.equal(read(d).canUndo, false);
 });
+
+/**
+ * 3 · ONE NAME PER THING (the re-walk of 2026-10-11, R02). The sheet called one part three names: the Title's words
+ * and motion "Names & date", its Style "The title"; the Maker's "Message" was "Special message". The name is the one
+ * the Maker's own "You're editing" line uses — the part's label in `MAKER_PARTS` — everywhere the changed thing is a
+ * part. Nothing is invented: where the Maker has no part for it, the name it had stands.
+ */
+test('3 · the sheet names a part by the Maker’s own word for it — one name whatever was changed on it', async () => {
+  const { MAKER_PARTS } = await import('./maker-parts');
+  const { makerPartWordAt, makerPartWordOfStyle } = await import('./hub-draft-change-lines');
+  const linesOf = (...patches: unknown[]) => read(patches.reduce<HubDraft>((d, p) => save(d, p), emptyHubDraft())).lines;
+  const place = (line: string) => line.slice(0, line.lastIndexOf(' · '));
+
+  // The Title: its words, its motion and its Style are all "Title".
+  const title = linesOf(
+    { widgets: { hero: { canvas: { elements: { eyebrow: { word: 'With joy in our hearts', inFx: { fade: true } } } } } } },
+    { fixedStyles: { hero_eyebrow: 'serif' } },
+  );
+  assert.deepEqual(title.map(place), [MAKER_PARTS.ename.label, MAKER_PARTS.ename.label], `the Title is named ${title.join(' | ')}`);
+  assert.equal(MAKER_PARTS.ename.label, 'Title');
+  assert.ok(!title.some((l) => /Names & date|The title/.test(l)), `an old name is back: ${title.join(' | ')}`);
+  // The Message: "Message", never the catalogue's "Special message".
+  assert.deepEqual(linesOf({ widgets: { special_message: { canvas: { kind: 'color', color: '#A9834B' } } } }).map(place), [MAKER_PARTS.message.label]);
+  assert.deepEqual(linesOf({ widgets: { special_message: { stage_show: { rsvp: false } } } }).map(place), [MAKER_PARTS.message.label]);
+
+  // EVERY part the Maker draws at a scene's own row is named by its label — for a look, and for a per-stage hide.
+  let scenes = 0;
+  for (const part of Object.values(MAKER_PARTS)) {
+    if (!part.canvas?.startsWith('w:') || part.el) continue;
+    const type = part.canvas.slice(2);
+    if (!ORDER.includes(type as WidgetType)) continue;
+    for (const patch of [{ widgets: { [type]: { canvas: { inFx: { fade: true } } } } }, { widgets: { [type]: { stage_show: { editorial: false, rsvp: false, event: false, save_the_date: false } } } }]) {
+      const lines = linesOf(patch);
+      if (lines.length === 0) continue; // nothing to change there (a hide on a stage it is not on)
+      assert.ok(lines.every((l) => place(l) === part.label || place(l).endsWith(` · ${part.label}`)), `${type}: the sheet says "${lines.join(' | ')}", the Maker says "${part.label}"`);
+      scenes += 1;
+    }
+    assert.equal(makerPartWordAt(part.canvas), part.label);
+  }
+  assert.ok(scenes >= 12, `anti-vacuity: only ${scenes} scene lines were read`);
+
+  let coverParts = 0;
+  // EVERY part of the cover, by its own word; two parts are both named; the cover as a whole keeps its row's name.
+  for (const part of Object.values(MAKER_PARTS)) {
+    if (part.canvas !== 'f:hero' || !part.el) continue;
+    const lines = linesOf({ widgets: { hero: { canvas: { elements: { [part.el]: { color: '#a9834b' } } } } } });
+    if (lines.length === 0) continue; // an element the cover's canvas does not keep a look for
+    assert.deepEqual(lines.map(place), [part.label], `the cover's ${part.el}: "${lines.join(' | ')}"`);
+    coverParts += 1;
+  }
+  assert.ok(coverParts >= 4, `anti-vacuity: only ${coverParts} parts of the cover were read`);
+  assert.deepEqual(linesOf({ widgets: { hero: { canvas: { elements: { eyebrow: { color: '#a9834b' }, names: { color: '#a9834b' } } } } } }).map(place), ['Title, Names']);
+  assert.deepEqual(linesOf({ widgets: { hero: { canvas: { kind: 'color', color: '#A9834B' } } } }).map(place), ['Names & date'], 'a change to the cover as a whole was given one part’s name');
+
+  // EVERY part's Style: the part's word (the names the sheet used are listed below for the owner where they differ).
+  const twoNames: string[] = [];
+  for (const part of Object.values(MAKER_PARTS)) {
+    if (part.layouts.kind !== 'scene') continue;
+    assert.ok(makerPartWordOfStyle(part.layouts.type), `no word for the Style of ${part.layouts.type}`);
+  }
+  for (const scene of ['hero_eyebrow', 'hero_names', 'hero_date', 'hero_venue', 'hero_mark', 'entourage', 'gifts', 'find_your_seat', 'photos_of_you', 'announcements', 'live_hub'] as const) {
+    const lines = linesOf({ fixedStyles: { [scene]: 'serif' } });
+    if (lines.length === 0) continue;
+    assert.equal(place(lines[0]!), makerPartWordOfStyle(scene), `${scene}: "${lines[0]}"`);
+    twoNames.push(`${scene} → ${place(lines[0]!)}`);
+  }
+  console.log(`  a part's Style is named: ${twoNames.join(' · ')}`);
+});

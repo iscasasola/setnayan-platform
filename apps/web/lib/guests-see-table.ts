@@ -60,6 +60,11 @@ export type GuestsSeeRow = {
   key: string;
   /** The scene this row is, or null for a row that is not an `invitation_widgets` scene. */
   scene: WidgetType | null;
+  /**
+   * WHERE THIS ROW'S BOXES ARE STORED: a scene's own type (`stage_show` on its row), or `part:<key>` for a part that
+   * is not a scene (`part_show.<key>` on the hero row — pass 2). Null: the row has no box to store.
+   */
+  write: string | null;
   label: string;
   /** A second, quiet line under the name. */
   note: string | null;
@@ -77,6 +82,14 @@ export const GUESTS_SEE_WORDS = {
   shownAt: 'Shown at',
   quiet: 'Nothing changed yet — our picks do the work.',
   locked: 'This one cannot be changed here yet.',
+  /* The prototype's lines for the rows that are always shown (`ALWAYS`). */
+  alwaysNames: 'Names and date are always shown.',
+  alwaysPlace: 'The place is always shown.',
+  alwaysReply: 'The reply card is always on the Invitation and RSVP — it is how guests answer.',
+  /* A part with nobody / nothing behind it yet (the Entourage with no roles given). */
+  nobodyYet: 'Nobody has a role yet — guests will not see it.',
+  /* The gift door is the page's foot strip, and a Save the Date led by its film has no foot: the film is the page. */
+  filmIsThePage: 'The Save-the-Date film is the whole page here.',
   replyScreens: 'Not on the reply screens yet.',
   emptyNote: 'Nothing written yet — guests will not see it.',
   emptyTail: ' Nothing written yet — guests will not see it until you write it.',
@@ -121,7 +134,21 @@ export const guestsSeeLeaveLine = (n: number) => `${plural(n, 'change', 'changes
 export type GuestsSeeWrites = Readonly<Record<string, boolean | null>>;
 
 const rowsOf = (table: GuestsSeeTable) => table.groups.flatMap((g) => g.rows);
-const cellId = (row: GuestsSeeRow, col: number) => `${row.scene}:${GUESTS_SEE_COLUMNS[col]!.stage}`;
+const cellId = (row: GuestsSeeRow, col: number) => `${row.write ?? row.scene}:${GUESTS_SEE_COLUMNS[col]!.stage}`;
+
+/** The table's name for each part that is not a scene — the row's label, and the Apply sheet's word for it. */
+export const FIXED_PART_LABEL = {
+  gifts: 'E-Gifts',
+  entourage: 'Entourage',
+  reply: 'Reply card',
+  seat: 'Your seat',
+  pass: 'Digital pass',
+  announce: 'Announcements',
+  live: 'Live',
+  camera: 'Camera',
+  photosofyou: 'Photos of you',
+} as const;
+/* (Keyed by `FixedPart`, `lib/stage-scenes.ts` — held to it where the table is built, so this file imports no rule.) */
 
 /** Is this cell ticked, with the sheet's pending ticks laid over the table? */
 export function guestsSeeOn(row: GuestsSeeRow, col: number, writes: GuestsSeeWrites): boolean {
@@ -209,12 +236,18 @@ export const guestsSeeChanges = (writes: GuestsSeeWrites): number => Object.keys
  * changed cell, merged stage by stage by the draft (`mergeHubDraft`). Null when
  * there is nothing to write.
  */
-export function guestsSeePatch(writes: GuestsSeeWrites): { widgets: Record<string, { stage_show: Record<string, boolean | null> }> } | null {
-  const widgets: Record<string, { stage_show: Record<string, boolean | null> }> = {};
+export type GuestsSeePatchWidget = { stage_show?: Record<string, boolean | null>; part_show?: Record<string, Record<string, boolean | null>> };
+export function guestsSeePatch(writes: GuestsSeeWrites): { widgets: Record<string, GuestsSeePatchWidget> } | null {
+  const widgets: Record<string, GuestsSeePatchWidget> = {};
   for (const [id, value] of Object.entries(writes)) {
     const at = id.lastIndexOf(':');
-    const type = id.slice(0, at);
-    (widgets[type] ??= { stage_show: {} }).stage_show[id.slice(at + 1)] = value;
+    const key = id.slice(0, at);
+    const stage = id.slice(at + 1);
+    if (key.startsWith('part:')) {
+      // A part that is not a scene: its choices live on the hero row (`part_show.<part>`), beside one another.
+      const parts = ((widgets.hero ??= {}).part_show ??= {});
+      (parts[key.slice(5)] ??= {})[stage] = value;
+    } else ((widgets[key] ??= {}).stage_show ??= {})[stage] = value;
   }
   return Object.keys(widgets).length > 0 ? { widgets } : null;
 }

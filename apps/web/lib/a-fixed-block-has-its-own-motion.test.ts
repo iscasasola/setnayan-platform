@@ -294,7 +294,9 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   assert.match(BODY, /\{sampleBlockMark\(`f:\$\{part\}`\)\}\s*\{makerMark\(`f:\$\{part\}`\)\}\s*<MakerDayPartStandIn/);
   /* 🖼 PHOTOS OF YOU — the mark rides WITH the gallery, right before its one root, in the gallery's ONE mount: the
      same mount on The Day and after it (`isLive || isPost`), filed as a chapter's own child. */
-  assert.match(BODY, /\{group\('gallery', <>\{isLive \|\| isPost \? \(\s*<>\s*\{blockMark\('photos_of_you'\)\}\s*<PhotosOfYouGallery\s[\s\S]*?\/>\s*<\/>\s*\) : null\}[\s\S]*?<\/>, \{ chapters: true, className: 'space-y-12', id: tabs\.on \? SITE_MENU_ANCHORS\.gallery : undefined \}\)\}/);
+  /* 🔁 RE-AIMED 2026-10-11 ("WHAT GUESTS SEE", pass 2): the section also stands down on a stage the couple hid Photos of
+     you on (`partsOff`). The claim here is unchanged — the mark rides WITH the gallery, in this one mount. */
+  assert.match(BODY, /\{group\('gallery', <>\{\(isLive \|\| isPost\) && !partsOff\.has\('photosofyou'\) \? \(\s*<>\s*\{blockMark\('photos_of_you'\)\}\s*<PhotosOfYouGallery\s[\s\S]*?\/>\s*<\/>\s*\) : null\}[\s\S]*?<\/>, \{ chapters: true, className: 'space-y-12', id: tabs\.on \? SITE_MENU_ANCHORS\.gallery : undefined \}\)\}/);
   assert.equal((BODY.match(/<PhotosOfYouGallery\s/g) ?? []).length, 1, 'the gallery is drawn from a second place: its motion would not reach it');
   assert.match(src('app/[slug]/_components/photos-of-you-gallery.tsx'), /return \(\s*<section aria-label="Photos of you" className="sn-gal p-5 sm:p-6">/, 'the gallery’s root moved: the mark may no longer stand right before it');
   /* 🎫 THE DIGITAL PASS — mounted by the page (`page.tsx`), not by SiteBody: the mark is made THERE by the same rule

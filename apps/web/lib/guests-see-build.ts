@@ -12,9 +12,9 @@
 import type { InvitationWidgetRow, LifecyclePhase, WidgetType } from './invitation-widgets';
 import { isCustomSectionType, sanitizeCustomSection } from './custom-sections';
 import { resolveSiteBodyPlan } from './site-body-plan';
-import { configWithStageShow, stageShowsEntourage } from './stage-scenes';
-import { filmLeadsStage, sceneMeetsGuestsOn, sceneOnStage, whyNotInStageList, type GuestsSeeInput } from './what-guests-see';
-import { GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, type GuestsSeeCell, type GuestsSeeGroup, type GuestsSeeRow, type GuestsSeeTable } from './guests-see-table';
+import { FIXED_PARTS, configWithStageShow, stageShowsEntourage, type FixedPart } from './stage-scenes';
+import { filmLeadsStage, partChoice, sceneMeetsGuestsOn, sceneOnStage, whyNotInStageList, type GuestsSeeInput } from './what-guests-see';
+import { FIXED_PART_LABEL, GUESTS_SEE_COLUMNS, GUESTS_SEE_WORDS, type GuestsSeeCell, type GuestsSeeGroup, type GuestsSeeRow, type GuestsSeeTable } from './guests-see-table';
 
 /** A dash's one line, where the prototype words it; otherwise the rule's own line (`sceneOnStage().notPossible.why`). */
 const SCENE_DASH: Partial<Record<string, string>> = {
@@ -32,24 +32,49 @@ const SCENE_DASH: Partial<Record<string, string>> = {
  * `stageShowsEntourage` and whether anybody holds a role; E-Gifts follows
  * "Accept gifts?".
  */
-type FixedKey = 'names' | 'place' | 'gifts' | 'entourage' | 'reply' | 'seat' | 'pass' | 'announce' | 'live' | 'camera' | 'photosofyou' | 'reveal';
-const FIXED: Record<FixedKey, { label: string; cols: string; note?: string; why?: Partial<Record<number, string>> }> = {
-  names: { label: 'Names and date', cols: 'TTTTT' },
-  place: { label: 'Place', cols: 'TTTTO', note: GUESTS_SEE_WORDS.placeNote },
-  gifts: { label: 'E-Gifts', cols: 'TOTTT' },
-  entourage: { label: 'Entourage', cols: 'OOTTT' },
-  reply: { label: 'Reply card', cols: 'OTTOX', why: { 4: 'The reply closes after the day.' } },
-  seat: { label: 'Your seat', cols: 'OOTTO' },
-  pass: { label: 'Digital pass', cols: 'TOTTT' },
-  announce: { label: 'Announcements', cols: 'TOTTX', why: { 4: 'Announcements end with the day.' } },
-  live: { label: 'Live', cols: 'XOTTT', why: { 0: 'Live opens on the day.' } },
-  camera: { label: 'Camera', cols: 'OOOTX', why: { 4: 'The camera closes after the day.' } },
+type FixedKey = 'names' | 'place' | FixedPart | 'reveal';
+/* Every fixed part has its name in the table's words — a part added to `FIXED_PARTS` without one fails to compile here. */
+FIXED_PART_LABEL satisfies Record<FixedPart, string>;
+/**
+ * THE ROWS THAT ARE NOT SCENES, column by column (Save the Date · RSVP · Invitation · The Day · Post Event):
+ *
+ *   `B` a BOX — the part can be on that stage, and the couple's choice is read where it is drawn (`partOnStage` /
+ *       `partsHiddenOn`, pass 2). Ticked when the page shows it there with no choice stored (`fixedBase`);
+ *   `A` always shown (a bare tick; its tap says so in the prototype's words);
+ *   `L` shown today as the page has it, not changed here yet (a bare tick or a quiet dash);
+ *   `X` cannot be there at that time (a dash, with its line).
+ *
+ * 🔑 A BOX IS ONLY WHERE THE CODE CAN DRAW THE PART. The prototype's letters were one event's page; these are the
+ * mounts' own gates, read 2026-10-11: the seat is drawn wherever the guest has a table guests may see
+ * (`guestsMaySeeSeats`); Live follows the broadcast, not the calendar; the Camera is drawn on The Day (the
+ * page draws none after it); Photos of you is the day's and the recap's; an announcement is read until the day is over
+ * (`announcementStage`). `fixed-rows-are-real-boxes` flips every one of these boxes on the real page.
+ */
+const FIXED: Record<FixedKey, { label: string; cols: string; note?: string; always?: string; why?: Partial<Record<number, string>> }> = {
+  names: { label: 'Names and date', cols: 'AAAAA', always: GUESTS_SEE_WORDS.alwaysNames },
+  place: { label: 'Place', cols: 'AAAAL', note: GUESTS_SEE_WORDS.placeNote, always: GUESTS_SEE_WORDS.alwaysPlace },
+  gifts: { label: FIXED_PART_LABEL.gifts, cols: 'BLBBB' },
+  entourage: { label: FIXED_PART_LABEL.entourage, cols: 'BLBBB' },
+  reply: { label: FIXED_PART_LABEL.reply, cols: 'LAALX', always: GUESTS_SEE_WORDS.alwaysReply, why: { 4: 'The reply closes after the day.' } },
+  seat: { label: FIXED_PART_LABEL.seat, cols: 'BLBBB' },
+  /* 🎫 NOT A BOX YET, and why: the ticket is drawn by the page's Me slot (`app/[slug]/page.tsx`, `meSlotFor`) on every
+     stage for a guest who has one, while the plan's `qrCardShouldRender` (the Maker's tile, the bar's `hasPass`) says
+     the Invitation and The Day — two gates that already disagree. A box must move both; neither is this file's. */
+  pass: { label: FIXED_PART_LABEL.pass, cols: 'LLLLL' },
+  announce: { label: FIXED_PART_LABEL.announce, cols: 'LLLLX', why: { 4: 'Announcements end with the day.' } },
+  live: { label: FIXED_PART_LABEL.live, cols: 'BLBBB' },
+  camera: { label: FIXED_PART_LABEL.camera, cols: 'LLLBX', why: { 4: 'The camera closes after the day.' } },
   photosofyou: {
-    label: 'Photos of you',
-    cols: 'XXXTT',
+    label: FIXED_PART_LABEL.photosofyou,
+    cols: 'XXXBB',
     why: { 0: 'Photos of you come from the day.', 1: 'Photos of you come from the day.', 2: 'Photos of you come from the day.' },
   },
-  reveal: { label: 'Reveal', cols: 'TOTTX', why: { 4: 'The opening plays before the day.' } },
+  reveal: { label: 'Reveal', cols: 'LLLLX', why: { 4: 'The opening plays before the day.' } },
+};
+/** The prototype's recorded letter where a cell is only shown as it is (`L`) — its tick or its quiet dash. */
+const SHOWN_TODAY: Partial<Record<FixedKey, string>> = {
+  place: 'TTTTO', gifts: 'TOTTT', entourage: 'OOTTT', reply: 'OTTOX', seat: 'OOTTO', pass: 'TOTTT',
+  announce: 'TOTTX', live: 'XOTTT', camera: 'OOOTX', reveal: 'TOTTX',
 };
 
 type RowSpec = { scene: WidgetType; label: string } | { fixed: FixedKey };
@@ -80,13 +105,9 @@ export type GuestsSeeTableInput = Omit<GuestsSeeInput, 'stage' | 'reader'> & {
   giftsOff: boolean;
 };
 
-/** A row's state per column where the page's own rules answer; null = the recorded letter stands. */
-function fixedRowOn(key: FixedKey, stage: LifecyclePhase | null, input: GuestsSeeTableInput): boolean | null {
-  if (stage === null) return null;
-  if (key === 'entourage') return stageShowsEntourage(stage) && input.hasEntourage;
-  if (key === 'gifts') return input.giftsOff ? false : null;
-  if (key !== 'names' && key !== 'pass' && key !== 'reply') return null;
-  const plan = resolveSiteBodyPlan({
+/** The page's plan for a stage with the couple's rows as they are — the always-on gates (the ticket, the reply, the names). */
+function planFor(stage: LifecyclePhase, input: GuestsSeeTableInput) {
+  return resolveSiteBodyPlan({
     identity: 'guest',
     phasesEnabled: input.phasesEnabled ?? true,
     lifecyclePhase: stage,
@@ -100,22 +121,58 @@ function fixedRowOn(key: FixedKey, stage: LifecyclePhase | null, input: GuestsSe
     openBrowse: input.openBrowse ?? false,
     content: input.content ?? {},
   });
-  return key === 'names' ? plan.heroShouldRender : key === 'pass' ? plan.qrCardShouldRender : plan.rsvpShouldRender;
+}
+
+/** A row's state per column where the page's own rules answer; null = the recorded letter stands. */
+function fixedRowOn(key: FixedKey, stage: LifecyclePhase | null, input: GuestsSeeTableInput): boolean | null {
+  if (stage === null) return null;
+  if (key === 'names') return planFor(stage, input).heroShouldRender;
+  if (key === 'reply') return planFor(stage, input).rsvpShouldRender;
+  if (key === 'pass') return planFor(stage, input).qrCardShouldRender;
+  return null;
+}
+
+/**
+ * WHAT A STAGE SHOWS OF A FIXED PART WITH NO CHOICE STORED — our pick. The part's own gate, restated once: the
+ * Entourage has its stages (`stageShowsEntourage`); E-Gifts is on
+ * unless the couple answered "Accept gifts? — No"; the rest are shown wherever they have something to show.
+ */
+function fixedBase(part: FixedPart, stage: LifecyclePhase, input: GuestsSeeTableInput): boolean {
+  if (part === 'entourage') return stageShowsEntourage(stage);
+  if (part === 'gifts') return !input.giftsOff;
+  return true;
 }
 
 function fixedRow(key: FixedKey, input: GuestsSeeTableInput): GuestsSeeRow {
   const def = FIXED[key];
+  const part = (FIXED_PARTS as readonly string[]).includes(key) ? (key as FixedPart) : null;
+  const shown = SHOWN_TODAY[key];
+  const cells = GUESTS_SEE_COLUMNS.map((col, i): GuestsSeeCell => {
+    const letter = def.cols[i];
+    if (letter === 'X') return { kind: 'dash', why: def.why?.[i] ?? 'Not possible at this time.' };
+    if (letter === 'A') return { kind: 'locked', on: true, why: def.always ?? GUESTS_SEE_WORDS.locked };
+    if (letter === 'B' && part && col.stage) {
+      /* 🎞 Under a Save the Date its film leads, the page is the film (`plan.fullBleed`): no foot strip, so no gift
+         door to hide or show there — a dash, with why. Led by the photos, it is a box like the rest. */
+      if (part === 'gifts' && col.stage === 'save_the_date' && filmLeadsStage(input.widgets, col.stage, input.phasesEnabled ?? true, input.weddingOnlyParts)) {
+        return { kind: 'dash', why: GUESTS_SEE_WORDS.filmIsThePage };
+      }
+      const base = fixedBase(part, col.stage, input);
+      const choice = partChoice(input.widgets, part, col.stage, input.phasesEnabled ?? true);
+      return { kind: 'box', on: choice ?? base, ourPick: base, base, choice };
+    }
+    // Shown as it is. A column with no stage (the reply screens) draws none of these parts yet.
+    const today = fixedRowOn(key, col.stage, input) ?? (shown ? shown[i] === 'T' : false);
+    return { kind: 'locked', on: col.stage === null && key !== 'names' && key !== 'place' && key !== 'reply' ? false : today, why: col.stage === null && part ? GUESTS_SEE_WORDS.replyScreens : GUESTS_SEE_WORDS.locked };
+  });
   return {
     key,
     scene: null,
+    write: part && def.cols.includes('B') ? `part:${part}` : null,
     label: def.label,
-    note: def.note ?? null,
+    note: key === 'entourage' && !input.hasEntourage ? GUESTS_SEE_WORDS.nobodyYet : (def.note ?? null),
     empty: false,
-    cells: GUESTS_SEE_COLUMNS.map((col, i): GuestsSeeCell => {
-      const letter = def.cols[i];
-      if (letter === 'X') return { kind: 'dash', why: def.why?.[i] ?? 'Not possible at this time.' };
-      return { kind: 'locked', on: fixedRowOn(key, col.stage, input) ?? letter === 'T', why: GUESTS_SEE_WORDS.locked };
-    }),
+    cells,
   };
 }
 
@@ -183,7 +240,7 @@ function sceneRow(type: WidgetType, label: string, given: GuestsSeeTableInput): 
     }
     return { kind: 'box', on: v.drawn, ourPick: v.ourPick, base: bare.drawn, choice: v.choice };
   });
-  return { key: type, scene: type, label, note: null, empty, cells };
+  return { key: type, scene: type, write: type, label, note: null, empty, cells };
 }
 
 /** THE TABLE for one event — every cell read from `sceneOnStage`, or from the page's own gates for a fixed row. */

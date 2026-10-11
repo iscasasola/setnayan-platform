@@ -179,3 +179,34 @@ export async function renderStagePage(c: StageCase, rows?: InvitationWidgetRow[]
   const page = await renderSiteBodyFixtureFull(stageProps(c, rows, more));
   return { html: page.html, complaints: page.complaints };
 }
+
+/**
+ * 🧩 EVERY PART THAT IS NOT A SCENE, FILLED (pass 2 of "What guests see") — so a hidden one is a visible difference,
+ * never an empty shell: a gift method switched on (the E-Gifts door), two people with a role (the Entourage), a table
+ * guests may see (Your seat), a stream that resolves (Live), the host's camera open (Camera). The Digital pass and
+ * Photos of you need nothing added: the plan draws the ticket, and the day draws the gallery section.
+ */
+export const PART_WORDS = { table: 'Table 12', sponsor: 'Aurelio Dimaculangan', stream: 'https://www.youtube.com/embed/fxtr-stream', plan: 'data-fixture-seat-plan' } as const;
+export function withEveryPart(c: StageCase, more: Partial<SiteBodyFixtureProps> = {}): Partial<SiteBodyFixtureProps> {
+  const f = base();
+  const look = c.reader === 'guest' ? withALook(c) : {};
+  const identity = (look.identity ?? f.siteBodyFixtureProps().identity) as SiteBodyFixtureProps['identity'];
+  const person = (name: string, role: string) => ({ guestId: `fx-${role}`, name, role, photoUrl: null }) as never;
+  return {
+    ...look,
+    ...(c.reader === 'guest' && identity.kind === 'guest'
+      ? {
+          identity: {
+            ...identity,
+            seatMap: { targetTableId: 'fx-table', plan: `<svg ${PART_WORDS.plan}=""></svg>` },
+            guestHubData: { ...identity.guestHubData, tableLabel: PART_WORDS.table, seatsOpen: true },
+          },
+        }
+      : {}),
+    doorwayFacts: { seatingSurfaceEnabled: false, seatingPublished: false, pabuyaRouteEnabled: true, enabledEgiftCount: 2, pabuyaViewerAllowed: true },
+    entourage: [{ key: 'principal', label: 'Principal Sponsors', rows: [[person(PART_WORDS.sponsor, 'ninong'), person('Corazon Villareal', 'ninang')]], names: {} }] as never,
+    watchLive: { embedUrl: PART_WORDS.stream, watchUrl: 'https://youtu.be/fxtr-stream' },
+    hostCameraOpen: true,
+    ...more,
+  };
+}

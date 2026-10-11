@@ -22,7 +22,8 @@ import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type LifecyclePhase, type Widget
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { MAKER_PARTS } from '@/lib/maker-parts';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
-import { STAGE_SHOW_KEY, sanitizeStageShow } from '@/lib/stage-scenes';
+import { FIXED_PARTS, PART_SHOW_KEY, STAGE_SHOW_KEY, sanitizePartShow, sanitizeStageShow } from '@/lib/stage-scenes';
+import { FIXED_PART_LABEL } from '@/lib/guests-see-table';
 import { LOOK_PART_LABEL, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
@@ -217,6 +218,21 @@ export function stageShowWhat(liveConfig: unknown, next: unknown): string {
   return words.length > 0 ? words.join(', ') : 'Shown or hidden';
 }
 
+/**
+ * 👁 The same, for the parts that are not scenes (`config_json.part_show` on the hero row): each part that moved, by
+ * its name in the table — "E-Gifts · Hidden on The Day". `next` is the whole merged key Apply writes.
+ */
+export function partShowWhat(liveConfig: unknown, next: unknown): string {
+  const was = sanitizePartShow(isPlainObjectValue(liveConfig) ? liveConfig[PART_SHOW_KEY] : null) ?? {};
+  const now = sanitizePartShow(next) ?? {};
+  const words: string[] = [];
+  for (const part of FIXED_PARTS) {
+    const moved = stageShowWhat({ [STAGE_SHOW_KEY]: was[part] ?? null }, now[part] ?? null);
+    if (moved !== 'Shown or hidden') words.push(`${FIXED_PART_LABEL[part]} · ${moved}`);
+  }
+  return words.length > 0 ? words.join(' · ') : 'Shown or hidden';
+}
+
 /** One draft item → where · what. Exhaustive over the item kinds and widget fields. */
 export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stage?: LifecyclePhase): { place: string; what: string } {
   switch (item.kind) {
@@ -288,6 +304,10 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
              stage that moved and which way — "Hidden on The Day". */
           const row = live.widgets.find((r) => r.widget_id === item.widgetId);
           return { place, what: stageShowWhat(row?.config_json, item.value) };
+        }
+        case 'part_show': {
+          const row = live.widgets.find((r) => r.widget_id === item.widgetId);
+          return { place: 'What guests see', what: partShowWhat(row?.config_json, item.value) };
         }
         case 'display_order':
           return { place, what: 'Order' };

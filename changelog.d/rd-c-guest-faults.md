@@ -45,4 +45,15 @@ that section in the page's own column (`ME_OWN_COLUMN`: the plate, `px-4`,
 The tabbed Me (Invitation · The Day) already had its gutter and is unchanged.
 Guard: `app/[slug]/_components/me-has-the-pages-gutter.test.ts`.
 
+**N14 · Back closes the reply sheet.** A door to the sheet is a plain link to
+`#your-details`, so it adds a history entry; pressing Back took the address
+away and the sheet stayed up over the page and the bar. The sheet's address
+listener (`rsvp-sheet.tsx`, on `hashchange` and `popstate`) now asks one rule,
+`sheetAfterAddressChange` (`rsvp-sheet-state.ts`): the address asks for the
+sheet → open; the address that opened it has gone → close (the same close as
+the "Close" button, which hands the reading position back); a sheet reopened
+by a refused save, with no fragment, is left alone. The card inside is not
+touched.
+Guard: `app/[slug]/_components/back-closes-the-reply-sheet.test.ts`.
+
 SPEC IMPACT: None.

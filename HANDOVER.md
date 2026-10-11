@@ -42,22 +42,33 @@ Nothing of mine is running; I do not hold the heavy lock and am not in its line;
   `lib/guests-see-build.ts` (`FIXED.live.cols = 'XLBBB'`). tsc is green for all of them; only the wide sweep and the
   whole preflight have not seen them.
 
-## The next three steps
+## Round 2 (2026-10-12) — what was done
 
-1. Under the heavy lock, from `apps/web`: run the sweep — every `app/[slug]/**/*.test.ts` plus the tests that name
-   `site-body`, `maker-scene-list`, `guests-see`, `hub-draft`, `what-guests-see`, `stage-scenes`, `part-door`,
-   `seat/page` (`../../node_modules/.bin/tsx --test --test-concurrency=3 <files>`; bracketed paths as `[[]slug[]]`;
-   NEVER an empty list). Then from the root: `pnpm preflight`. Fix what fails; never weaken a guard. Commit.
-2. Lab walk at 375×812 (`/dev/maker-lab?studio=1`, own dev server on a free port, stop it by its own PID): the table
-   (six box rows; Live × Save the Date a dash; Your seat ticked ×4), untick E-Gifts × Invitation → Apply → the
-   Invitation canvas loses `f:gifts`; publish with ✓; the Studio row's status; the RSVP fold; Remove Countdown on the
-   canvas → its box unticks → ＋ offers it back. Pictures `joined-…` into
-   `controller-2026-10-08/batch-c/guests-see/`. LOOK at each picture.
-3. Reply to the coordinator (head sha; conflicts → none, how the join was reconciled; the two cells; `/seat`; checks;
-   walk; not verified). Tell them plainly: (a) Live × Save the Date is a dash but a stream on air is still drawn
-   there (owner 2026-09-02, the player follows the broadcast) and cannot be unticked; (b) Your seat stays ticked on
-   Save the Date and Post Event because unticking by default would hide what a guest sees today; (c) sub-pages and
-   the hub were never opened in a browser; (d) at 1280 the table has no door (`lg:hidden` bar).
+- Sweep: 386 files, 3261 tests, all pass (before the lab-day fix; the lab test file re-run after: 7 of 7).
+- Whole `pnpm preflight` at 28d91056d: PASS on all six rows (43 guards, eslint 32, tsc 72, 363 files/3161 tests, 382
+  files/2749 tests, 25 DB files/168 tests), wall 32 m. Re-run on the final head before the push (see PR body).
+- Lab walk at 375x812 on my own dev server (port 3581, stopped; `.next` removed), pictures `joined-*` in
+  `~/Documents/Claude/Projects/controller-2026-10-08/batch-c/guests-see/`:
+  - table (`joined-2`, `-3-row-*`): six box rows; Live x Save the Date a dash; Your seat ticked on four; Studio row
+    reads "Our picks" (then "6 changed" after publishing the six).
+  - six unticks (`-6-unticked-*`, `-7-applied`): each line is right; Apply writes ONE hero `part_show` patch; Apply is
+    "Kept in your draft"; the tick's panel lists all six by name (`-30`); publishing with the tick reads "Live now"; the
+    tick settles to "Apply 0 changes", the table opens on "6 boxes changed from our picks" (`-33`).
+  - guest vs Maker, before | after (`joined-16-*`): E-Gifts and the Entourage leave the Invitation, Live and Photos of
+    you leave The Day. Maker canvas section marks agree (`joined-notes-12.json`).
+  - FAULT FOUND AND FIXED: the lab's Day kept drawing live hub / Photos of you / seat whatever the table said
+    (`lab-day.tsx`; test G1; sabotaged).
+  - Remove Countdown on the Invitation canvas (confirm sheet "Remove") -> the table's Countdown x Invitation unticks
+    (`-23`); ＋ Add above Message offers Countdown (`-25`); the tick's panel names it "Countdown · Hidden on Invitation".
+  - RSVP fold (`-27`, `-28`): four columns, no horizontal overflow.
+- NOT SEEN ON A CANVAS (not faults): Your seat x Invitation (the lab's sample has no table, so it draws no seat on the
+  Invitation before or after); the Camera (no canvas tile; on the real page its hiding withholds the bar's camera slot,
+  and the Camera stays a page stand-in in the Maker). Both are held on the real page by `fixed-rows-are-real-boxes`.
+- NOT VERIFIED: the sub-pages and the hub in a browser (no database in the lab); a real event; dark mode; 1280 (the table
+  has no door there: the Stages | Studio bar is `lg:hidden`).
+- Quirk, left alone: the RSVP caption wraps beside its "Hide the RSVP column" button at 375 (`joined-27`).
+- Dev-server note: on this loaded Mac a lab render takes 15-30 s, so the tick label and the Studio row lag a publish
+  by up to ~12 s in the lab; read them after the render lands.
 
 ## Rules that bit before
 

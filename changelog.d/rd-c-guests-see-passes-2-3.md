@@ -1,8 +1,8 @@
-## 2026-10-11 · feat(hub): "What guests see" — the rows that are not scenes become real boxes (pass 2); the RSVP column folds (pass 3, in part)
+## 2026-10-12 · feat(hub): "What guests see" — the rows that are not scenes become real boxes (pass 2); the RSVP column folds (pass 3, in part)
 
 Owner, on the parked list: *"this was already always supposed to be built but move everytime"*. Pass 1 (the
 table, the sheet, `stage_show`) is in Batch B. This is the parked rest. Built on `preview/batch-b-event-hub`
-(d2becf325). **Built, not live.**
+(d2becf325), then joined onto main d2e38b7c1 (no textual conflict). **Built, not live.**
 
 ### Pass 2 — the fixed rows
 
@@ -47,6 +47,22 @@ table, the sheet, `stage_show`) is in Batch B. This is the parked rest. Built on
   after the whole-Maker render it owes, and the Apply bar's count came with that render. Now the count comes back
   with the write (`HUB_DRAFT_BAR_FIELD`) and every page the Maker shows redraws in place as soon as the write lands
   (`requestCanvasRedraw`); the Maker's render still follows for the navigator.
+
+### After the join onto main (2026-10-12)
+
+- **Door reads through `guestRead`.** `app/[slug]/_lib/part-door.server.ts` reads the published hero row through the
+  released failure handling, so a part door fails the way the other doors do.
+- **Two cells moved to the prototype's.** Live × Save the Date is a dash ("Live opens on the day."). The mount is
+  unchanged: the player still follows the broadcast (owner 2026-09-02), so a stream on air on a Save the Date is still
+  drawn there and cannot be unticked. Your seat stays ticked on Save the Date and Post Event: the one seat rule shows a
+  table after the day, and before it when seats were opened early, so unticking by default would hide what a guest
+  sees today.
+- **`/seat` (the venue QR).** Both ways in (a table sign's code; the clean address after the claim hop) go back to the
+  event's page when "Your seat" is hidden. The claim hop itself is not gated: it signs the guest in and records the scan.
+- **The lab's Day.** `/dev/maker-lab` drew the Day's live hub, Photos of you and Your seat whatever the table said
+  (found by the lab walk of 2026-10-12: the Maker's own list dropped them, its canvas did not). A part the couple hid
+  now leaves the lab's Day as its tile leaves the list (`app/dev/maker-lab/guest/lab-day.tsx`; pinned in
+  `the-lab-canvas-is-the-stage-the-maker-lists.test.ts` G1, sabotaged red then green).
 
 ### Tests re-aimed (each carries its reason in place)
 

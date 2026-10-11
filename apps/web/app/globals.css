@@ -3346,61 +3346,74 @@ html.dark {
   }
 } /* @layer components — Pahina foundation */
 
-/* ── 🚪 THE FIRST SCREEN KEEPS ITS ONE ACTION IN VIEW (2026-10-11) ───────────
+/* ── 🚪 THE FIRST SCREEN MAKES ROOM FOR ITS ONE ACTION (2026-10-11) ──────────
    Measured on the live sample event: a stranger's one button, "Get inside",
    has its place under the date at y 715 — entirely below a 375 × 667 screen,
-   and under the bottom bar at 375 × 812 (32 of its 56 px showing). The cover
-   above it is the couple's own design and is as tall as it is.
+   and under the bottom bar at 375 × 812 (32 of its 56 px showing). A first cut
+   docked the button OVER the cover; re-measured, it sat on the couple's names
+   or the date in 5 of 8 first screens.
 
-   So the button does not wait for the cover: while its own place is still below
-   the screen it DOCKS just above the bottom bar. `position: sticky`, never a
-   second copy: scroll to its place and it rests there, in flow.
+   So nothing floats. The button is in the cover's flow and the cover makes
+   room for it — `app/[slug]/_lib/first-screen-fit.ts` is the rule (air first,
+   then the mark smaller, then whole parts below the button; the names never),
+   `first-screen-door.tsx` measures the page and writes the plan as:
 
-     · `--sn-door-rest` is the guest page's "float above the bar" offset
-       (`app/[slug]/_lib/bottom-edge.test.ts`: 4.75rem + the safe area — the
-       bar is 3.5rem + the safe area). From `xl` the bar is a side rail, so the
-       dock rests 1rem off the bottom edge.
-     · `--cookie-banner-top` is published by the cookie banner while it is the
-       full-width sheet (`app/_components/cookie-consent-banner.tsx`): the door
-       stands ABOVE the banner, so a first visit never has the banner on it.
-     · Opened, the door goes back to its place — its two choices need the room
-       and are not drawn over the cover's words — and `DoorOpensInView` scrolls
-       it into view, clear of the bar (`scroll-margin-bottom`).
+     · `--fs-air`   1 → 0 on the first-screen block: how much of the cover's own
+                    air is kept (its padding, the mark's margin, the gap above
+                    the button, and 1.5rem of the column's top padding);
+     · `--fs-mark`  1 → 0.55: the mark's box and its drawing, together;
+     · `--fs-shift` on each block that moves: it is drawn that far from its own
+                    place. The page's flow is untouched, so nothing after the
+                    cover moves, and no block is ever drawn on another.
 
-   `.sn-door-row` is the row the door sits in (`site-body.tsx`). It draws no box
-   of its own, so the door is a child of the first screen itself — a sticky box
-   moves only inside its parent, and the row alone is no taller than the door.
-   Its two margins are the `space-y-6` / `space-y-4` the row had, written at the
-   same weight (a `space-y` rule outranks a child's own `mt-*`, and so do these):
-   1.5rem above the row only where something stands before it, 1rem inside it.
-   ⚠ The dock needs the cover in the SAME box as the door. A cover with a hero
-   photo or film is drawn in a box of its own, so there the door has no room to
-   move and stays where it is — not measured, not fixed here.
+   With no plan written every value below is exactly the utility it stands in
+   for (pt-8 · pb-7 · mt-5 · h-[9.5rem] · scale-[1.85] · the row's 1.5rem), so a
+   screen the cover already fits — and every page without the script — is
+   untouched.
+
+   `.sn-door-row` is the row the button sits in (`site-body.tsx`): no box of its
+   own, its two margins the `space-y-6` / `space-y-4` it replaced, at the same
+   weight. `--sn-door-rest` is the guest page's "clear of the bottom bar" offset
+   (4.75rem + the safe area; from `xl` the bar is a side rail) — the fit's limit,
+   and where an opened door is scrolled to (`scroll-margin-bottom`).
    `app/_components/the-first-screen-keeps-its-action.test.ts` holds all of it. */
 @layer components {
   .sn-door-row {
     display: contents;
   }
   :not([hidden]) ~ .sn-door-row > :first-child {
-    margin-top: 1.5rem;
+    margin-top: calc(0.75rem + 0.75rem * var(--fs-air, 1));
   }
   .sn-door-row > :not([hidden]) ~ :not([hidden]) {
     margin-top: 1rem;
   }
   .sn-door-dock {
     --sn-door-rest: calc(4.75rem + env(safe-area-inset-bottom, 0px));
-    position: sticky;
-    z-index: 20;
-    bottom: max(var(--sn-door-rest), calc(var(--cookie-banner-top, 0px) + 0.5rem));
     scroll-margin-bottom: var(--sn-door-rest);
-  }
-  .sn-door-dock[open] {
-    position: static;
   }
   @media (min-width: 1280px) {
     .sn-door-dock {
       --sn-door-rest: 1rem;
     }
+  }
+  [data-first-screen-fit] {
+    margin-top: calc(-1.5rem * (1 - var(--fs-air, 1)));
+  }
+  [data-first-screen-fit] [data-cover-frameless] > div {
+    padding-top: calc(0.5rem + 1.5rem * var(--fs-air, 1));
+    padding-bottom: calc(0.5rem + 1.25rem * var(--fs-air, 1));
+  }
+  [data-first-screen-fit] [data-cover-frameless] [data-motion='arrive-mark'] {
+    height: calc(9.5rem * var(--fs-mark, 1));
+    margin-top: calc(0.5rem + 0.75rem * var(--fs-air, 1));
+  }
+  [data-first-screen-fit] [data-cover-frameless] [data-motion='arrive-mark'] > div {
+    --tw-scale-x: calc(1.85 * var(--fs-mark, 1));
+    --tw-scale-y: calc(1.85 * var(--fs-mark, 1));
+  }
+  [data-first-screen-fit] [data-fs-shift] {
+    position: relative;
+    top: var(--fs-shift, 0px);
   }
 }
 

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { UploadYourQr } from './upload-your-qr';
-import { DoorOpensInView } from './door-opens-in-view';
+import { FirstScreenDoor } from './first-screen-door';
 import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
 
 /**
@@ -28,17 +28,15 @@ import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
  *     the host picks 'I approve each one'"). A press, not the render: a page
  *     render may not write the guest cookie (lib/guest-membership-session.ts).
  *
- * 🚪 THE DOOR IS IN VIEW ON THE FIRST SCREEN (2026-10-11). Measured on the live
- * sample event: the button's own place is under the date, at y 715 — on a
- * 375 × 667 phone that is entirely below the screen (a cover with no action at
- * all), and at 375 × 812 it ran under the bottom bar with 32 of its 56 px
- * showing. The cover is the couple's own design and is as tall as it is, so the
- * button does not wait for it: while its place is still below the screen it
- * DOCKS just above the bar (`.sn-door-dock`, globals.css — `position: sticky`,
- * so it settles into its own place the moment the page is scrolled to it and
- * is never drawn twice). Opened, it returns to its place and is scrolled into
- * view (`DoorOpensInView`). `dock={false}` on the Maker's canvas, which has no
- * bar and is not a first screen.
+ * 🚪 THE FIRST SCREEN MAKES ROOM FOR THE DOOR (2026-10-11). Measured on the live
+ * sample event: the button's own place is under the date, at y 715 — entirely
+ * below a 375 × 667 screen, and under the bottom bar at 375 × 812. A first cut
+ * docked it over the cover and it then sat on the couple's names or the date.
+ * So the button stays IN THE COVER'S FLOW and the cover makes room: its air
+ * closes up, its mark is drawn smaller, and — only if it must — whole parts of
+ * the cover move below the button, the link first and the names never
+ * (`_lib/first-screen-fit.ts` is the rule; `FirstScreenDoor` measures and
+ * writes it). `dock={false}` on the Maker's canvas, which is not a first screen.
  *
  * 🔒 THIS IS THE DOOR, NOT THE GATE. What stays inside (camera, gallery,
  * announcements, seat, exact venue) is withheld by the SERVER before this page
@@ -53,7 +51,7 @@ export function GetInside({
   joinAction,
   dock = true,
 }: {
-  /** Dock the signed-out door above the bottom bar while its place is below the screen (see above). */
+  /** Fit the first screen around the signed-out door (see above). */
   dock?: boolean;
   /**
    * One QR for everyone, no approval (`oneQrLetsYouIn`, lib/rsvp-ask.ts): the
@@ -123,7 +121,7 @@ export function GetInside({
       {/* The poster's door (owner 2026-09-27: "sign in to enter or upload your
           qr to login") — exactly two things: the guest's own QR, read on the
           phone, or their account. */}
-      {dock ? <DoorOpensInView /> : null}
+      {dock ? <FirstScreenDoor /> : null}
       <div className="mt-4 space-y-4">
         {slug ? <UploadYourQr slug={slug} /> : null}
         <Link

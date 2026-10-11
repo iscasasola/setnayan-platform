@@ -34,6 +34,7 @@ import { SeatBackLink } from './_components/seat-back-link';
 import { findSeatBackHref } from './_lib/back-to-the-invitation';
 import { YourSeat, type Tablemate } from './_components/your-seat';
 import type { DoorPassData } from './_components/door-pass';
+import { withDayNote } from '../_lib/day-words';
 
 export const metadata = { title: 'Find your seat' };
 
@@ -159,7 +160,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
             entrance={entrance}
           />
         ) : (
-          <NotPostedYet names={names} plural={words.twoPeople} slug={slug} backHref={backHref} occasion={words.occasion} />
+          <NotPostedYet names={names} plural={words.twoPeople} slug={slug} backHref={backHref} occasion={words.occasion} eventDate={event.event_date as string | null} />
         )}
       </SeatFrame>
     );
@@ -324,7 +325,10 @@ function NotPostedYet({
   slug,
   backHref,
   occasion,
+  eventDate,
 }: {
+  /** The event's day, or null while it has none — the line below then says so (`withDayNote`). */
+  eventDate: string | null;
   names: string;
   /** Two people at the centre (a wedding) — "Indalecio & Claire haven't"; otherwise the plan is the subject. */
   plural: boolean;
@@ -339,9 +343,12 @@ function NotPostedYet({
         <p className="m-0 mt-1 font-serif text-[2.4rem] italic leading-none text-terracotta-700">soon</p>
         <h1 className="m-0 mt-0.5 font-serif text-[2rem] font-medium leading-[1.12] text-ink">Your seat shows on the day</h1>
         <p className="mt-2.5 text-[0.84rem] leading-relaxed text-ink/75">
-          {plural
-            ? `${names}’s seating plan opens here on the day.`
-            : `The seating plan for this ${occasion} opens here on the day.`}{' '}
+          {withDayNote(
+            plural
+              ? `${names}’s seating plan opens here on the day.`
+              : `The seating plan for this ${occasion} opens here on the day.`,
+            eventDate,
+          )}{' '}
           Come back to this link then and you&rsquo;ll find your table.
         </p>
       </section>

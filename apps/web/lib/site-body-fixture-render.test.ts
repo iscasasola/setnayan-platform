@@ -232,6 +232,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'lib/every-stage-is-todays-page.test.ts',
     'lib/a-stage-choice-decides-the-stage-list.test.ts',
     'lib/what-guests-see.test.ts',
+    /* 🔁 AND 2026-10-11: the same page drawn for an event with NO date, to read its lines for a hole. A test. */
+    'lib/a-dateless-event-prints-no-hole.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

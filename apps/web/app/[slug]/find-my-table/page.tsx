@@ -19,6 +19,7 @@ import {
 import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { LiveRefresher } from '@/app/_components/live-refresher';
+import { withDayNote } from '../_lib/day-words';
 
 export const metadata = { title: 'Find your table' };
 
@@ -119,7 +120,10 @@ export default async function FindMyTablePage({ params }: Props) {
       <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
         <PromptCard
           title="Your table shows on the day"
-          body="Come back to this page on the day and your table and a map to it will be right here."
+          body={withDayNote(
+            'Come back to this page on the day and your table and a map to it will be right here.',
+            event.event_date as string | null,
+          )}
         />
       </Shell>
     );

@@ -203,7 +203,8 @@ export default async function WelcomePage({ params, searchParams }: Props) {
       eyebrow="You’re invited"
       title={formalName ?? `You are the +1 of ${primaryName}`}
       sub={<>{primaryName} is bringing you as their guest.</>}
-      meta={`${event.display_name} · ${formatEventDate(event.event_date as string | null)}`}
+      /* 📅 No date yet → the name alone, never "Marco & Marga · " with nothing after the dot. */
+      meta={[event.display_name, formatEventDate(event.event_date as string | null)].filter(Boolean).join(' · ')}
     >
       {errorMessage ? <DoorNotice kind="alert">{errorMessage}</DoorNotice> : null}
       <PlusOneDoor

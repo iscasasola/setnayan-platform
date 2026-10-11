@@ -85,6 +85,7 @@ import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { egiftKindMeta } from '@/lib/egift-kinds';
 import { resolveGuestDoorways } from '../_lib/site-nav';
+import { withDayNote } from '../_lib/day-words';
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -724,7 +725,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             <p className="text-sm text-ink/55">
               {seatingPublished
                 ? `${words.TheHost} will assign seats closer to the day.`
-                : 'Your table shows here on the day.'}
+                : withDayNote('Your table shows here on the day.', event.event_date)}
             </p>
           )}
         </article>

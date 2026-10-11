@@ -13,6 +13,7 @@ import { sanitizeRolePalette } from '@/lib/mood-board';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveBoothStudioContent } from '@/lib/booth-studio';
 import type { VenueScene } from './_components/guest-venue-3d';
+import { withDayNote } from '../_lib/day-words';
 
 // Guest-facing 3D venue explorer (owner 2026-06-26, Sims-style). Public, no
 // session: a guest opens this from their invite (the `?t=` personal token
@@ -287,7 +288,7 @@ export default async function VenuePage({
         <div className="max-w-sm">
           <p className="text-lg font-medium text-white">The 3D room opens on the day</p>
           <p className="mt-2 text-sm text-white/60">
-            Come back on the day to walk the room and find your seat.
+            {withDayNote('Come back on the day to walk the room and find your seat.', eventRow.event_date)}
           </p>
           <Link href={`/${slug}`} className="mt-5 inline-block rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
             ← Back to the {noun}

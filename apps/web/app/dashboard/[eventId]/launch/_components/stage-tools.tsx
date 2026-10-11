@@ -1441,12 +1441,13 @@ export function StageTools({
       data-stage-edit-card={rsvpCardEdits && shownTool === 'edit' ? '' : undefined}
       data-stage-own-rows={blockRows || blockGround ? '' : undefined}
       data-stage-tool-now={shownTool}
-      /* …and while the line under the tools speaks under another tool, that tool gives row 4 back the same way. */
-      data-stage-row4={lookOn || (statusOn && !editOn && picked !== null) ? '' : undefined}
+      data-stage-row4={lookOn ? '' : undefined}
+      aria-hidden={away || undefined}
+      className={`relative flex min-h-0 flex-1 flex-col rounded-t-2xl bg-[var(--sp-page)] px-[10px] shadow-[inset_0_1px_0_var(--sp-line2)] transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : ''}`}
       /* ✋ A scene is held on the page ('away'), or was just let go ('back') — the rule set below slides with it. */
       data-scene-slide={slide ?? undefined}
-      aria-hidden={away || held || undefined}
-      className={`relative flex min-h-0 flex-1 flex-col rounded-t-2xl bg-[var(--sp-page)] px-[10px] shadow-[inset_0_1px_0_var(--sp-line2)] transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : held ? 'pointer-events-none' : ''}`}
+      /* The line under the tools is speaking under another tool: that tool gives row 4 back, as it does for Style's own row. */
+      data-stage-line={statusOn && !editOn && picked !== null ? '' : undefined}
       style={{ transitionDuration: `${STAGE_PANEL_MS}ms` }}
     >
       {/* One rule set, drawn only while this toolbar is (phone only): the prototype's colours and the frame's two
@@ -1508,11 +1509,15 @@ export function StageTools({
           `[data-maker-shell]:has([data-stage-tools][data-scene-slide]) [data-stage-guest-bar]{transition:bottom ${SCENE_COLLAPSE_MS}ms ${SCENE_COLLAPSE_EASE}!important}` +
           `[data-maker-shell]:has([data-stage-tools][data-scene-slide]) [data-phone-chrome="panel"]{transition:transform ${SCENE_COLLAPSE_MS}ms ${SCENE_COLLAPSE_EASE}!important}` +
           '[data-maker-shell]:has([data-stage-tools][data-scene-slide="away"]) [data-phone-chrome="panel"]{transform:translateY(var(--scene-bar-px,100%))!important;pointer-events:none}' +
+          '[data-stage-tools][data-scene-slide="away"]{pointer-events:none}' +
           /* A scene stays on its page: the other tabs dim while one is lifted (the prototype's `.frame.dragging .tabs`). */
-          '[data-stage-guest-tab]{transition:opacity 200ms}' +
-          '[data-maker-shell][data-scene-held] [data-stage-guest-tab]:not([aria-current="page"]){opacity:.35}' +
+          '[data-maker-shell]:has([data-stage-tools]) [data-stage-guest-tab]{transition:opacity 200ms}' +
+          '[data-maker-shell]:has([data-stage-tools][data-scene-slide="away"]) [data-stage-guest-tab]:not([aria-current="page"]){opacity:.35}' +
           /* The bin stands 30 px over the foot of the page — over the guests' bar where the stage has one. */
-          '[data-maker-shell]:has([data-stage-guest-bar]:not([hidden])){--scene-bin-over:74px}' +
+          '[data-maker-shell]:has([data-stage-tools]):has([data-stage-guest-bar]:not([hidden])){--scene-bin-over:74px}' +
+          /* The line under the tools, speaking under a tool whose rows are the work area's: that tool stands three
+             rows tall on it for as long as it speaks (the measure Style's own row 4 leaves it). */
+          `[data-maker-shell]:has([data-stage-tools][data-stage-line]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
           '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transition:none}' +
           /* 🕊 Reduce Motion: a short FADE in place of the slide (the prototype's `.ltin{transition:opacity}`) — the
              toolbar fades out and only then gives its room up; on release the room is back at once and it fades in. */

@@ -49,7 +49,7 @@ const LIFT_SHADOW = `0 0 0 2px ${ACCENT}, var(--m-shadow-lg)`;
 const ROUND = 'var(--m-r-md)';
 const GAP_LINE = '1.5px dashed rgb(var(--color-ink) / 0.28)';
 /** The lifted scene's name tag — the picked part's own (`add-part-sheet.tsx` draws the same face over the page). */
-export const SCENE_TAG_FACE = 'rounded-sm bg-sn-accent px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em] text-sn-on-accent';
+export const SCENE_TAG_FACE = 'rounded-sm bg-sn-accent text-sn-on-accent px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]';
 /** The prototype's `.scene.lifted{transform:scale(1.03)}` and `.tobin{transform:scale(.62);opacity:.55}`. */
 const LIFT_SCALE = 1.03;
 const BIN_SCALE = 0.62;

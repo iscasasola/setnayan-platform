@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { listWithGates, partTakenOff } from '@/lib/maker-list-gates';
 import { canvasSettleWatch, whenCanvasShowsIt, type CanvasSettle } from '@/lib/maker-settle';
-import { SCENE_DRAG_WORDS, sceneMovesAmong, type SceneHeld } from '@/lib/maker-scene-drag';
+import { SCENE_DRAG_WORDS, sceneMenuRows, sceneMovesAmong, type SceneHeld } from '@/lib/maker-scene-drag';
 import { makerStagesPageOf, makerStagesPages } from '@/lib/maker-stage-filing';
 import { shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -45,7 +45,7 @@ import { MakerSheet } from './stages-studio-parts';
 import { PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, ownScenePlaceOrder } from '@/lib/own-scene-place';
 import { MakerRevealStageContext } from './maker-reveal';
 import { MAKER_PART_OPS_EVENT, type MakerPartOps, type MakerPartRaw } from './maker-part-ops';
-import { SCENE_TAG_FACE, type SceneDragSubject } from './scene-canvas-drag';
+import type { SceneDragSubject } from './scene-canvas-drag';
 import { heldSaveWatch, useSceneDrag } from './scene-drag';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MAKER_STAGE_PICK_EVENT, useMaker } from './maker-context';
@@ -241,6 +241,15 @@ function heldOf(mv: Movable): SceneHeld {
   return mv.kind === 'scene' ? { kind: 'scene', type: mv.type } : mv.kind === 'post-event' ? { kind: 'post-event', runKey: mv.runKey } : { kind: 'fixed' };
 }
 
+/** May a part of this kind be taken off · moved? One rule for the picked part and for a scene held on the page (the
+ *  Reveal and every fixed part are `fixed`: never). */
+function mayRemove(mv: Movable): boolean {
+  return mv.kind === 'scene' || (mv.kind === 'post-event' && mv.switchKey !== null);
+}
+function mayMove(mv: Movable): boolean {
+  return mv.kind === 'scene' || (mv.kind === 'post-event' && mv.runKey !== null);
+}
+
 function movableOf(ops: MakerPartOps | null, canvas: string | null): Movable {
   if (!ops || !canvas) return { kind: 'fixed' };
   const t = ops.list.shown.find((x) => x.key === canvas || (x.kind === 'post-event' && x.anchor === canvas));
@@ -270,6 +279,9 @@ const EDGE_BTN = 'sn-press pointer-events-auto absolute inline-flex h-11 w-11 it
 export const PART_ACCENT = 'bg-sn-accent text-sn-on-accent';
 /** The outline: 2 px of the accent and its soft halo. */
 export const PART_OUTLINE = 'absolute rounded-lg shadow-[0_0_0_2px_rgb(var(--sn-accent)),0_0_0_7px_rgb(var(--sn-accent)/.14)]';
+/** The picked part's name tag. The lifted scene wears the same face on the page (`scene-canvas-drag.ts` `SCENE_TAG_FACE`,
+ *  spelled out there for the page's own stylesheet — held equal by `lib/a-scene-is-dragged-on-the-page.test.ts`). */
+const PART_TAG = `rounded-sm ${PART_ACCENT} px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]`;
 const ADD_FACE = `inline-flex h-[26px] w-[26px] items-center justify-center rounded-full ${PART_ACCENT} font-sans text-[18px] font-semibold leading-none shadow-[0_0_0_3px_#fff,0_4px_10px_-4px_rgba(0,0,0,.4)]`;
 
 /**
@@ -461,11 +473,8 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
      its name and ↑ ↓ ✕ — never ＋, a grip or 🗑 (nothing can be added to a reply page, and the ＋ sheet would offer
      the stage mounted underneath's hidden scenes). */
   const fixedPages = makerStageIsFixedPages(stage);
-  /** May this part be taken off · moved? One rule for the picked part and for a scene held on the page. */
-  const mayRemove = (at: At) => makerRevealEdges(at.canvas === REVEAL_STUB).remove && (at.mv.kind === 'scene' || (at.mv.kind === 'post-event' && at.mv.switchKey !== null)) && !fixedPages;
-  const mayMove = (at: At) => makerRevealEdges(at.canvas === REVEAL_STUB).grip && (at.mv.kind === 'scene' || (at.mv.kind === 'post-event' && at.mv.runKey !== null)) && !fixedPages;
-  const canRemove = edgesOf.remove && mayRemove(here);
-  const canMove = edgesOf.grip && mayMove(here);
+  const canRemove = edgesOf.remove && mayRemove(mv) && !fixedPages;
+  const canMove = edgesOf.grip && mayMove(mv) && !fixedPages;
 
   /* ── 💾 the Post Event saves (its switch, its run) — the one draft door ── */
   /* `said`: the toast for a ＋ — null for a move or a remove, whose line under the tools says how it ended (the promise).
@@ -621,7 +630,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
    */
   const takeOff = (at: At = here): 'asking' | Promise<CanvasSettle> | null => {
     const o = askPartOps();
-    if (!o || !mayRemove(at)) return null;
+    if (!o || fixedPages || !mayRemove(at.mv)) return null;
     const { mv: m } = at;
     if (m.kind === 'scene' && m.own) {
       setRemoving(at);
@@ -684,7 +693,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
       }
       if (!hit) return null;
       const at = atKey(o, hit.key);
-      if (!mayMove(at)) return { key: hit.key, el: hit.el, label: at.label, movable: false, beside: [] };
+      if (!mayMove(at.mv)) return { key: hit.key, el: hit.el, label: at.label, movable: false, beside: [] };
       const mine = partBox(hit.key);
       const rows = [...moveTargets(o, at).map((t) => ({ key: t.key, top: t.top })), { key: hit.key, top: mine?.top ?? 0 }].sort((a, b) => a.top - b.top);
       const beside = rows.flatMap((r) => {
@@ -753,8 +762,10 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   };
   if (typeof document === 'undefined') return { node: null, ...now };
   /* What just happened is said even once the part is let go (a move re-renders the page). */
-  /* ✋ While a scene is held the frame steps aside: the lifted scene wears its own ring and name (`scene-canvas-drag.ts`). */
-  const edges = Boolean(picked && box) && !away && !drag.held;
+  const edges = Boolean(picked && box) && !away;
+  /* ✋ …and while a scene is held on the page the frame steps aside too: the lifted scene wears its own ring and its
+     name there (`scene-canvas-drag.ts`). */
+  const framed = edges && !drag.held;
   /* ▾ The name tag is the menu's door on a stage's page — never on a fixed page (the RSVP stage's lines move by their own hold). */
   const tagMenu = !fixedPages && !line;
   /* The prototype pads a picked part (`.el.on{padding-block:18px}`) so ＋ sits ON the frame, never over its words:
@@ -769,7 +780,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   const tapAt = (x: number, y: number, h: number) => ({ ...at(x, y), top: y - h / 2, height: h, minHeight: 0 });
   const node = createPortal(
     <>
-      {edges && box ? (
+      {framed && box ? (
         <div
           data-part-edges={picked}
           className="pointer-events-none fixed inset-0 z-[86] lg:hidden"
@@ -792,13 +803,13 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
               className="sn-press pointer-events-auto absolute z-[1] inline-flex min-w-11 items-start justify-start"
               style={{ top: clampY(fr!.top) - fe!.tapAbove / 2, left: Math.max(2, box.left - 2), height: fe!.tapAbove, paddingTop: Math.max(0, fe!.tapAbove / 2 - 11) }}
             >
-              <span className={`inline-flex items-center gap-1.5 ${SCENE_TAG_FACE}`}>
+              <span className={`inline-flex items-center gap-1.5 ${PART_TAG}`}>
                 {name ?? label}
                 <span aria-hidden className="h-0 w-0 border-x-4 border-t-[5px] border-x-transparent border-t-current opacity-85" />
               </span>
             </button>
           ) : (
-            <span data-part-name="" className={`absolute z-[1] ${SCENE_TAG_FACE}`} style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) }}>
+            <span data-part-name="" className={`absolute z-[1] ${PART_TAG}`} style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) }}>
               {line?.name ?? name ?? label}
             </span>
           )}
@@ -1115,6 +1126,7 @@ function AddPartSheet({
  * pop-up of the new Maker opens from the bottom, dark behind) with the prototype's three rows and their words. A
  * step the part cannot take is grey and still answers: the sheet closes and the line under the tools says why.
  */
+const MENU_ICON = { up: ArrowUp, down: ArrowDown, remove: Trash2 } as const;
 function PartMenuSheet({
   label,
   removeWord,
@@ -1128,29 +1140,27 @@ function PartMenuSheet({
   onStep: (step: 'up' | 'down' | 'remove') => void;
   onClose: () => void;
 }) {
-  const rows = [
-    { step: 'up', icon: ArrowUp, words: SCENE_DRAG_WORDS.up, on: can.up },
-    { step: 'down', icon: ArrowDown, words: SCENE_DRAG_WORDS.down, on: can.down },
-    /* "Delete" for a scene of their own (it asks first, and is gone for good at Apply) — "Remove" for any other. */
-    { step: 'remove', icon: Trash2, words: removeWord === 'Delete' ? removeWord : SCENE_DRAG_WORDS.remove, on: can.remove },
-  ] as const;
+  const rows = sceneMenuRows(can, removeWord);
   return (
     <MakerSheet label={label} onClose={onClose}>
       <ul className="flex flex-col gap-0.5 pb-1" data-part-menu="">
-        {rows.map((r) => (
-          <li key={r.step}>
-            <button
-              type="button"
-              data-part-menu-step={r.step}
-              aria-disabled={r.on ? undefined : true}
-              onClick={() => onStep(r.step)}
-              className={`${STAGE_SHEET_ROW} ${r.on ? (r.step === 'remove' ? '!text-[rgb(var(--color-danger))]' : '') : '!text-ink/40'}`}
-            >
-              <r.icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-              <span className="min-w-0 flex-1 truncate">{r.words}</span>
-            </button>
-          </li>
-        ))}
+        {rows.map((r) => {
+          const Icon = MENU_ICON[r.step];
+          return (
+            <li key={r.step}>
+              <button
+                type="button"
+                data-part-menu-step={r.step}
+                aria-disabled={r.on ? undefined : true}
+                onClick={() => onStep(r.step)}
+                className={`${STAGE_SHEET_ROW} ${r.on ? (r.danger ? '!text-[rgb(var(--color-danger))]' : '') : '!text-ink/40'}`}
+              >
+                <Icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+                <span className="min-w-0 flex-1 truncate">{r.words}</span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </MakerSheet>
   );

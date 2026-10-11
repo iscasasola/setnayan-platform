@@ -339,13 +339,6 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
      render in the browser is the server's: `the-maker-first-render-is-the-servers.test.ts`). */
   const [shell, setShell] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => setShell(document.querySelector<HTMLElement>('[data-maker-shell]')), []);
-  /* …and the shell says a scene is held, for the rules that ride the collapse (the guests' bar, the work area's tool). */
-  useEffect(() => {
-    if (!shell || !held) return;
-    shell.setAttribute('data-scene-held', '');
-    return () => shell.removeAttribute('data-scene-held');
-  }, [shell, held]);
-
   const node =
     shell && on
       ? createPortal(

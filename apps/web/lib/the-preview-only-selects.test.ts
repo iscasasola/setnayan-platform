@@ -87,7 +87,7 @@ test('(1) a tap never types: nothing picked, another part picked, the part itsel
   assert.match(tools, /if \(makerStageMayType\(attr, [^)]*\)\) setTyping\(true\);/);
 });
 
-test('(2) no buttons on the frame: its outline and its name — and ＋, the one control left on the preview', () => {
+test('(2) the frame draws its outline, its name tag — the menu’s door — and ＋; nothing else is on the preview', () => {
   const edges = read(`${L}/add-part-sheet.tsx`);
   const frame = edges.slice(edges.indexOf('data-part-edges={picked}'), edges.indexOf('{toast && !error ? ('));
   assert.ok(frame.length > 800, 'anti-vacuity: the frame was not found');
@@ -98,14 +98,22 @@ test('(2) no buttons on the frame: its outline and its name — and ＋, the one
   /* (Re-aimed 2026-10-11, the RSVP stage's step 5c — the owner's ruling of 2026-10-09 put ＋ back on a LINE of a
      reply page: the frame has two arms now, a line of a fixed page and a part of a stage, and each draws the same
      two ＋. The claim stands: ＋ is the one control on the frame.) */
-  assert.deepEqual(controls, ['data-part-add="above"', 'data-part-add="below"', 'data-part-add="above"', 'data-part-add="below"'], 'the frame draws a control other than ＋');
+  /* (🔁 Re-aimed 2026-10-11 (DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN") — owner: *"what if we drag the scene on the
+     preview"*; the approved prototype's `.lbl`: the picked part's NAME TAG is pressable and opens Move up · Move down ·
+     Remove, for whoever cannot drag. It is the tag that was always drawn, now a button — never a new mark on the
+     frame; a fixed page's tag (the RSVP stage) stays plain words.) */
+  assert.deepEqual(controls, ['data-part-tag=""', 'data-part-add="above"', 'data-part-add="below"', 'data-part-add="above"', 'data-part-add="below"'], 'the frame draws a control other than its tag and ＋');
+  assert.match(frame, /\{tagMenu \? \(/);
+  assert.match(edges, /const tagMenu = !fixedPages && !line;/, 'the tag opens a menu on a fixed page');
   assert.doesNotMatch(frame, /onPointerDown|onPointerMove|touch-none|GripVertical|Trash2|ChevronUp|ChevronDown/, 'a grip, a 🗑 or a chip is back on the frame');
   /* The whole frame lets taps through to the page under it; only ＋ takes one. */
   assert.match(frame, /className="pointer-events-none fixed inset-0 z-\[86\] lg:hidden"/);
-  /* Moving and removing did not go away: they are the toolbar's Edit › Earlier · Later · Remove, from the same hook. */
-  assert.match(edges, /earlier: (?:working \? null : )?canStep\(-1\) \? \(\) => stepMove\(-1\) : null,\s*later: (?:working \? null : )?canStep\(1\) \? \(\) => stepMove\(1\) : null,\s*remove: (?:working \? null : )?canRemove \? \(\) => setRemoving\(true\) : null,/);
+  /* Moving and removing did not go away: a scene is held on the page and dragged, or dropped on the bin — and the
+     same three steps, from the same hook, are the tag's menu (they were the toolbar's Edit › Earlier · Later · Remove). */
+  assert.match(edges, /earlier: (?:working \? null : )?canStep\(-1\) \? \(\) => stepMove\(-1\) : null,\s*later: (?:working \? null : )?canStep\(1\) \? \(\) => stepMove\(1\) : null,\s*remove: (?:working \? null : )?canRemove \? \(\) => removeNow\(\) : null,/);
+  assert.match(edges, /can=\{\{ up: now\.earlier !== null, down: now\.later !== null, remove: now\.remove !== null \}\}/);
   const tools = read(`${L}/stage-tools.tsx`);
-  assert.match(tools, /<StageEdit [^>]*earlier=\{edits\.earlier\} later=\{edits\.later\} remove=\{edits\.remove\} removeWord=\{edits\.removeWord\} /);
+  assert.doesNotMatch(tools, /<StageEdit [^>]*(?:earlier|later|remove)=/, 'the buttons row is back under Edit');
   /* The page's own outline is put away too — one highlight (the frame), nothing of the canvas's to press. */
   assert.match(tools, /\[data-setnayan-editor-bound\],\[data-setnayan-editor-bound\] \*\{outline:none!important\}/);
 });

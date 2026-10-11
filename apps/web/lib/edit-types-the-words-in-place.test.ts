@@ -9,8 +9,9 @@
  *       the same patch, the same write key the typing bar uses). Refused words are refused, never cut and never
  *       sent. Sabotage: a write key of Edit's own → red.
  *   (2) THE ROWS — RENDERED: a part with texts draws one typed Form row per text in rows 1–3 and NO door; the text
- *       last tapped comes first; a part with none draws its ONE door in row 1; row 4 is always Earlier · Later ·
- *       Remove. Sabotage: the door drawn beside the fields → red.
+ *       last tapped comes first; a part with none draws its ONE door in row 1; row 4 is NOT Edit's — it is the
+ *       toolbar's line under the tools since a scene is held on the page and dragged (2026-10-11).
+ *       Sabotage: the door drawn beside the fields → red.
  *   (3) WHICH PARTS JUMP — the door's words are the prototype's ("Open in Studio › <page>", "Change it in
  *       Suppliers"), over EVERY part; the owner's four examples and the parts of the same kind have a Studio door,
  *       and no part of text has one that says anything else. Sabotage: the old "Edit the …" → red.
@@ -119,37 +120,40 @@ test('(2) the rows, rendered: one typed row per text in rows 1–3 and no door; 
   const keep = async () => ({ ok: true as const });
   const draw = (fields: Field[], tapped: string | null = null) =>
     renderToStaticMarkup(
-      React.createElement(StageEdit, { fields, tapped, onType: () => {}, onKeep: keep, earlier: null, later: null, remove: null, removeWord: 'Remove', why: { earlier: 'x', later: 'x', remove: 'x' }, onWhy: () => {} }),
+      React.createElement(StageEdit, { fields, tapped, onType: () => {}, onKeep: keep }),
     );
   const rowsOf = (html: string) => [...html.matchAll(/class="([^"]*)" data-stage-edit-row="([a-z]+)"(?: data-stage-edit-words="([a-z_]+)")?/g)].map((m) => ({ row: /row-start-(\d)/.exec(m[1]!)?.[1], kind: m[2], id: m[3] ?? null }));
   const door = { kind: 'studio' as const, words: 'Open in Studio › Info', open: () => {} };
 
-  /* A part of ONE text (the names): the field in row 1, the place in row 4, and NO door though it has one. */
+  /* A part of ONE text (the names): the field in row 1, and NO door though it has one.
+     (🔁 Re-aimed 2026-10-11 (DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN"): row 4 held ↑ Earlier · ↓ Later · Remove; a scene is now held on the
+     page and dragged, and the row is the toolbar's own line — `the-toolbar-is-four-rows.test.ts` (3).) */
   setStagePanelNow({ picked: 'names', quiet: door, about: null });
   const one = draw([field({ el: 'names', label: 'Names', text: 'Maria & Jose' })]);
-  assert.deepEqual(rowsOf(one), [{ row: '1', kind: 'words', id: 'names' }, { row: '4', kind: 'place', id: null }]);
+  assert.deepEqual(rowsOf(one), [{ row: '1', kind: 'words', id: 'names' }]);
   assert.match(one, /<button[^>]*data-form-row-pill="typed"[^>]*aria-label="Names: Maria &amp; Jose\. Tap to change"/, 'the field is not the app’s typed Form row holding the part’s words');
   assert.doesNotMatch(one, /Open in Studio|data-stage-quiet-row/, 'a part that is typed here still shows a door — "if the edit is just text, then don\'t need to jump"');
 
   /* A part of TWO texts (a scene of their own): two rows, in the page's order… */
   const own = [field({ key: 'w:custom_1', el: 'heading', field: 'title', label: 'Heading', text: 'Our pets' }), field({ key: 'w:custom_1', el: 'body', field: 'body', label: 'Words', text: 'Two dogs.', long: true })];
-  assert.deepEqual(rowsOf(draw(own)).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:title', '2:body', '4:place']);
+  assert.deepEqual(rowsOf(draw(own)).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:title', '2:body']);
   /* …and "adapt to whichever is edited": the words tapped on the page come first. */
-  assert.deepEqual(rowsOf(draw(own, 'body')).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:body', '2:title', '4:place']);
-  assert.deepEqual(rowsOf(draw(own, 'heading')).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:title', '2:body', '4:place']);
-  /* Never more than three: row 4 is the place's. */
+  assert.deepEqual(rowsOf(draw(own, 'body')).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:body', '2:title']);
+  assert.deepEqual(rowsOf(draw(own, 'heading')).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:title', '2:body']);
+  /* Never more than three: row 4 is the toolbar's line under the tools. */
   const four = ['title', 'body', 'message', 'reminders'].map((f) => field({ key: 'w:x', el: 'body', field: f as Field['field'], label: f }));
-  assert.deepEqual(rowsOf(draw(four)).map((r) => r.row), ['1', '2', '3', '4']);
+  assert.deepEqual(rowsOf(draw(four)).map((r) => r.row), ['1', '2', '3']);
 
   /* A part with NO text the page draws (the Schedule): its ONE door in row 1. */
   setStagePanelNow({ picked: 'schedule', quiet: { kind: 'studio', words: 'Open in Studio › Schedule', open: () => {} }, about: null });
   const jump = draw([]);
-  assert.deepEqual(rowsOf(jump), [{ row: '1', kind: 'door', id: null }, { row: '4', kind: 'place', id: null }]);
+  assert.deepEqual(rowsOf(jump), [{ row: '1', kind: 'door', id: null }]);
   assert.equal((jump.match(/aria-label="Open in Studio › Schedule"/g) ?? []).length, 1, 'the door is not ONE button');
   assert.doesNotMatch(jump, /data-form-row-pill/);
   /* No Add, on any of them (the ＋ on the page stays the way to add a part). */
   for (const html of [one, draw(own), jump]) {
-    assert.deepEqual([...html.slice(html.indexOf('data-stage-edit-row="place"')).matchAll(/<button[^>]*aria-label="([^"]+)"/g)].map((m) => m[1]), ['Earlier', 'Later', 'Remove']);
+    /* Edit draws no step of its own any more: no Earlier, no Later, no Remove — and still no Add. */
+    assert.doesNotMatch(html, /data-stage-edit-row="place"|aria-label="(?:Earlier|Later|Remove|Delete)"/, 'the buttons row is back under Edit');
     assert.doesNotMatch(html, /aria-label="Add\b/);
   }
   setStagePanelNow({ picked: null, quiet: null, about: null });

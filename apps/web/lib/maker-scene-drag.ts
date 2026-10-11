@@ -79,6 +79,20 @@ export const SCENE_DRAG_WORDS = {
   revealWhy: 'The Reveal is always first on this page.',
 } as const;
 
+/**
+ * ▾ THE THREE STEPS FOR WHOEVER CANNOT DRAG, in the prototype's order and words (`#menu`: Move up · Move down ·
+ * Remove) — "Delete" where the part is a scene of the couple's own (it asks first, and is gone for good at Apply).
+ * `on: false` is a step the part cannot take: it is drawn grey and STILL answers — a tap says why, never nothing.
+ */
+export type SceneMenuStep = 'up' | 'down' | 'remove';
+export function sceneMenuRows(can: { up: boolean; down: boolean; remove: boolean }, removeWord: 'Remove' | 'Delete'): Array<{ step: SceneMenuStep; words: string; on: boolean; danger: boolean }> {
+  return [
+    { step: 'up', words: SCENE_DRAG_WORDS.up, on: can.up, danger: false },
+    { step: 'down', words: SCENE_DRAG_WORDS.down, on: can.down, danger: false },
+    { step: 'remove', words: removeWord === 'Delete' ? removeWord : SCENE_DRAG_WORDS.remove, on: can.remove, danger: true },
+  ];
+}
+
 /* ── what moves, and among what ──────────────────────────────────────────────────────────────────────────────── */
 
 /** What is held, in the stage list's terms. */

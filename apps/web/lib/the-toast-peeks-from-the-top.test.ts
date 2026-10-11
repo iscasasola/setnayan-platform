@@ -165,9 +165,16 @@ test('(7) the Stages panel says what happened with THIS toast — no strip of it
   assert.match(sheet, /const settle = \(what: PartWorking, words: string[^{]*\{[\s\S]{0,260}?setToast\(words\);/);
   const direct = (sheet.match(/setToast\(/g) ?? []).length - 1;
   const settled = (sheet.match(/(?<![.\w])settle\(/g) ?? []).length;
-  /* Three wait for the page: the move, ＋ a part of this page, ＋ a part another page draws ("… added on Details"). */
-  assert.equal(settled, 3, 'the move or the scenes’ ＋ no longer waits for the page before it speaks');
-  assert.equal(direct + settled, 5, 'a message the panel used to say is gone (moved · added · added on another page · added · removed)');
+  /* Two wait for the page: ＋ a part of this page, ＋ a part another page draws ("… added on Details").
+     (🔁 Re-aimed 2026-10-11 (DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN"): "<Scene> moved" and "<Scene> removed from this page" were this toast's.
+     The approved prototype says them on THE LINE UNDER THE TOOLS — "Saving…", then nothing for a move; "<Scene>
+     removed" beside Undo — because a scene dropped on the page is already where it was put, and Undo has to be a
+     button that stays. That line is the toolbar's row 4 (`scene-drag.tsx`), never a strip in this panel.) */
+  assert.equal(settled, 2, 'the scenes’ ＋ no longer waits for the page before it speaks');
+  /* (`direct`: a Post Event scene added — said at the press, as before; the other `setToast` is `settle`'s own.) */
+  assert.equal(direct + settled, 3, 'a message the panel used to say is gone (added · added on another page · a Post Event scene added)');
+  const line = read('app/dashboard/[eventId]/launch/_components/scene-drag.tsx');
+  assert.match(line, /put\(step\.type === 'remove' \? \{ kind: 'removed', label: step\.label \} : null\);/, 'a removed scene is not said on the line under the tools');
 });
 
 test('(8) an action: a small pill at the right, 6 s, the only tap — and without one the toast is today\'s, byte for byte', async () => {

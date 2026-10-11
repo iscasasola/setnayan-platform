@@ -15,6 +15,7 @@ import {
   passHeldKind,
   passHopMissFault,
   reentryDestinationOf,
+  reentryDestinationPath,
   type PassHopMiss,
 } from '@/lib/guest-pass-hop';
 import { exchangeReentryCode, mintReentryCode, reentryCodeGuest } from '@/lib/guest-reentry.server';
@@ -211,8 +212,8 @@ async function redeem(request: NextRequest, retry: { href: string | null }): Pro
      would have gone without it — the Event Hub — and is logged. */
   if (!token && reentryCode) {
     const to = reentryDestinationOf(url.searchParams.get('to'));
-    const destination = new URL(to === 'landing' ? inviteEnterPath(event.slug) : `/${event.slug}`, url.origin);
-    const steps = ['reentry', to === 'landing' ? 'enter' : 'hub'];
+    const destination = new URL(reentryDestinationPath(event.slug, to), url.origin);
+    const steps = ['reentry', to === 'landing' ? 'enter' : to];
     const held = await readGuestSession();
     if (held && held.event_id === event.event_id) {
       // …but only if it is THIS code's guest (or a code long gone): a phone

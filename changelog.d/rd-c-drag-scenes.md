@@ -1,4 +1,4 @@
-## 2026-10-11 · feat(maker): a scene is moved by holding it on the page and dragging it, and removed by dropping it on a bin — the Earlier · Later · Remove row is gone
+## 2026-10-12 · feat(maker): a scene is moved by holding it on the page and dragging it, and removed by dropping it on a bin — the Earlier · Later · Remove row is gone
 
 Owner, 2026-10-11, on the new Maker (Stages | Studio, a phone): *"what if we drag the scene on the preview instead of having this. then there is a delete button where they can drag the scene to the delete button to delete it"* · *"just like instagram"* · on the prototype: *"i see it. yes this looks good. but when we drag something the bottom toolbar collapses and shows the whole page. make sure animation to collapse and expand shows"* · *"our build is the drag by scene"* · *"so whatever their location is what will be seen on the event hub itself too"*.
 
@@ -29,9 +29,16 @@ Built from the approved prototype (`prototypes/maker_drag_scenes_2026-10-11.html
 
 **Standing guards re-aimed** (each with a dated note, none weakened): the row-4 claims of `the-toolbar-is-four-rows`, `edit-types-the-words-in-place` and `the-post-event-toolbar-is-the-prototypes`; "no buttons on the frame" (`the-preview-only-selects`: the name tag is the menu's door, by this ruling); the move's toast (`maker-settle`, `the-toast-peeks-from-the-top`: a move and a remove are said on the line under the tools); `one-drag-is-one-order-write`, `a-step-always-changes-the-page`, `the-rsvp-stage-is-parts`, `the-stages-panel-wears-the-accent`, `the-play-button-previews`.
 
+**Fixed while walking it (2026-10-12):**
+
+- **The line's Undo pressed itself as ↺.** The Maker's Undo was found by `aria-label="Undo"`, and the line's own Undo button carries that label too — its own press was heard as the bar's ↺, the step forgotten and the line cleared. The Maker's ↺ is now found only by its bar item (`SCENE_UNDO_BUTTON`), pressed from inside the line's own press.
+- **A scene ↺ put back was picked and let go of in the same breath** — the let-go read "taken off" from the list the render still held. It now asks the work area again at that moment (`usePartEdits`; `maker-list-gates` M09 re-aimed with a dated note).
+- **The lifted scene keeps the prototype's room from the screen's edge**: 1.03 where it fits, else as large as keeps 4.675 px clear (a 359 px page at 375 → 0.974, ring whole). Over the bin its name tag shrinks and dims with it.
+- **Walked end to end in the Maker lab: 125 passed · 0 failed** — a scene of the couple's own on the bin ("Delete this scene?", nothing written), Post Event (hold · move · one ↺ · bin · Undo) and the desktop navigator at 1280 included.
+
 **Not built, said plainly:**
 
-- **Desktop (≥ 1024).** The prototype's desktop is the three-column new Maker (parts · page · tools). That Maker is a phone's only today (`maker-shell.tsx`: `ss = stagesStudio && phone`); the shipped desktop Maker keeps its navigator's own drag and eye. Mounting a press-drag on its canvas would take over the mouse selection its letter-by-letter styling uses, and it has no home for the line or the tag's menu. The drag's hands do take a mouse (press and move, no hold) wherever the Stages panel is drawn.
+- **Desktop (≥ 1024).** The prototype's desktop is the three-column new Maker (parts · page · tools). That Maker is a phone's only today (`maker-shell.tsx`: `ss = stagesStudio && phone`) — and so was the Earlier · Later · Remove row this removes: a desktop couple never had it. They keep moving and taking off a scene in the navigator (drag a tile · right-click → Move up · Move down · Hide · the tile's eye), which this change does not touch (held by a test; walked at 1280). Mounting a press-drag on the desktop canvas would take over the mouse selection its letter-by-letter styling uses. The drag's hands do take a mouse (press and move, no hold) wherever the Stages panel is drawn.
 - **A real iPhone.** The hold, the callout and the rubber-band are proven in Chromium's touch emulation only.
 
 SPEC IMPACT: None new — this builds DECISION_LOG 2026-10-11, "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN ("JUST LIKE INSTAGRAM"); THE LOWER THIRD COLLAPSES WHILE A SCENE IS HELD; BATCH C." (status there: NOT BUILT → built, not live). The row's "desktop = mouse drag" is not built (see above) — for the owner to rule where it lives once the desktop Stages Maker exists.

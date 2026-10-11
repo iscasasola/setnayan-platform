@@ -24,6 +24,10 @@
  * leaves a setup card (`[data-setup-card]`) and everything in it alone; every other element
  * under `.onbw` is reset exactly as before (`:where()` adds no weight, so the rule is still
  * one class strong and every `.onbw .x{…}` rule below still beats it).
+ * The services step (`#screen-services_step` — `ServicesStep`, app/onboarding/_shared/
+ * services-step.tsx) is the same case and is left alone too: it is the one other screen of
+ * this flow built only from Tailwind classes, and it is the screen that shows prices — every
+ * card on it had 0 px inside its border.
  * Held by app/onboarding/_shared/the-setup-cards-keep-their-spacing.test.ts.
  */
 
@@ -35,7 +39,7 @@
     --sans:var(--font-sans),'Manrope',-apple-system,system-ui,sans-serif;
     --serif:var(--font-display),'Cormorant Garamond',Georgia,serif;
     --mono:var(--font-mono),'DM Mono',ui-monospace,monospace;
-  }.onbw *{box-sizing:border-box}.onbw *:not(:where([data-setup-card],[data-setup-card] *)){margin:0;padding:0}.onbw{background:#E9E6DF;font-family:var(--sans);color:var(--ink);
+  }.onbw *{box-sizing:border-box}.onbw *:not(:where([data-setup-card],[data-setup-card] *,#screen-services_step,#screen-services_step *)){margin:0;padding:0}.onbw{background:#E9E6DF;font-family:var(--sans);color:var(--ink);
     -webkit-font-smoothing:antialiased;display:flex;justify-content:center;
     min-height:100vh;padding:0;}.onbw .phone{width:100%;max-width:430px;height:100vh;height:100dvh;background:var(--paper);overflow:hidden;
     display:flex;flex-direction:column;position:relative;box-shadow:0 0 60px rgba(0,0,0,.12);}

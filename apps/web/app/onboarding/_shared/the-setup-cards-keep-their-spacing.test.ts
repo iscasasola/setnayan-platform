@@ -1,6 +1,6 @@
 /**
  * the-setup-cards-keep-their-spacing.test.ts — NO RULE OF THE OLD ONBOARDING SHEETS SETS A MARGIN OR A PADDING ON A
- * SETUP CARD.
+ * SETUP CARD, OR ON THE SERVICES STEP.
  *
  * MEASURED 2026-10-11 (owner's walk of the live wedding flow, then `/dev/onboarding-lab` at 375 and 1280): on all nine
  * approved cards every field had padding 0 (the placeholder sat on the left edge, a field was 30 px tall), the quick
@@ -9,6 +9,8 @@
  * and they are drawn inside `<div class="onbw">`, whose sheet opened with `.onbw *{margin:0;padding:0}`. That rule is
  * exactly as strong as one Tailwind class and its sheet loads later, so it won — on every card, every element.
  * `gap-*` survived, which is why the names still had space between the fields.
+ * The services step (`ServicesStep`, the screen that shows prices) is built the same way and stands in the same
+ * `.onbw`: every card on it had 0 px inside its border. It is walked here exactly as the cards are.
  *
  * ── WHAT IT CLAIMS ──────────────────────────────────────────────────────────────────────────────────────────────────
  *   1. Every stylesheet that scopes itself under `.onbw` is read. For every rule in them that declares ANY margin or
@@ -24,7 +26,8 @@
  *
  * NOT CLAIMED (so a green is not over-read): this matches selectors, it does not lay anything out — the pixels were
  * measured in a browser (`controller-2026-10-08/batch-c/onboarding/REPORT.md`). It reads the cards' FIRST render (and
- * the area card with "We already have our venue" open); the old "Where" screen that opens under "More places"
+ * the area card with "We already have our venue" open, the services step with its steppers and both paid cards); the
+ * old "Where" screen that opens under "More places"
  * (`LocationStep`) is old markup that carries its own `.onbw` classes on purpose and is not walked. It knows nothing
  * of sheets that do not mention `.onbw`. State pseudo-classes (`:hover`, `:focus`, `:nth-child`…) are assumed able to
  * match, and `:has()` too — so it can over-report, never under-report.
@@ -48,6 +51,8 @@ import { WEDDING_PROFILE, profileSetup } from '@/lib/event-type-profile';
 import { pickableInviteThemes } from '@/lib/invite-themes';
 import { CREATION_ASKS, resolveSetupSteps, setupViewFor } from '@/lib/onboarding/flow-config';
 import { setupDefaults } from '@/lib/onboarding/setup-answers';
+import { buildServicesStepView } from '@/lib/onboarding/services-step-data';
+import { EMPTY_SERVICES_SELECTION } from '@/lib/onboarding-services-selection';
 import { EMPTY_VENUES } from '@/lib/onboarding/venue-picks';
 import { WEDDING_CARD_IDS, WEDDING_ENGINE_CARDS } from '@/lib/onboarding/wedding-cards';
 import { stripComments } from '@/lib/strip-comments';
@@ -309,7 +314,10 @@ const RULES = ONBW_SHEETS.flatMap((s) => spacingRules(s.file, s.css));
 
 const SHELL = stripComments(readFileSync(join(WEB, 'app/onboarding/wedding/_components/onboarding-shell.tsx'), 'utf8'));
 
-async function cardMarkups(): Promise<{ name: string; html: string }[]> {
+/** One thing to walk: what rendered, the screen it stands in, and how to find its root in there. */
+type Render = { name: string; html: string; screen?: string; before?: string; root?: (root: El) => El | undefined };
+
+async function cardMarkups(): Promise<Render[]> {
   const { WeddingCard } = await import('../wedding/_components/wedding-cards');
   const { SetupCard } = await import('./setup-card');
   const view = setupViewFor({ ...WEDDING_PROFILE, onboardingEngine: true }, profileSetup(WEDDING_PROFILE), pickableInviteThemes());
@@ -328,7 +336,45 @@ async function cardMarkups(): Promise<{ name: string; html: string }[]> {
         searchVenues: async () => [],
       }),
     );
+  const stepMod = (await import('./services-step')) as Record<string, unknown>;
+  // A 'use client' module can land under `.default` when imported by tsx.
+  const ServicesStep = (stepMod.ServicesStep ?? (stepMod.default as Record<string, unknown> | undefined)?.ServicesStep) as React.ComponentType<Record<string, unknown>>;
+  assert.equal(typeof ServicesStep, 'function', 'ServicesStep could not be loaded');
+  // Fixture figures (never shown to anyone): enough to draw the ladder, the steppers and both paid cards.
+  const servicesView = buildServicesStepView({
+    eventWord: 'wedding',
+    poolTiers: [
+      { serviceCode: 'LAB_POOL_A', points: 100, isTopup: false, sortOrder: 1 },
+      { serviceCode: 'LAB_POOL_B', points: 200, isTopup: false, sortOrder: 2 },
+    ],
+    oneTiers: [],
+    pricePhpByCode: new Map([
+      ['LAB_POOL_A', 90],
+      ['LAB_POOL_B', 180],
+    ]),
+    listPricePhpByCode: new Map([
+      ['LAB_POOL_A', 100],
+      ['LAB_POOL_B', 200],
+    ]),
+    freePoolPoints: 50,
+    freeOnePoints: 0,
+    aiPricePhp: 450,
+    aiListPricePhp: 500,
+    hubPro: { websiteEnabled: true, pricePhp: 700, listPricePhp: 1_000, copy: { label: 'Event Hub Pro', blurb: 'One upgrade — everything opens.' } },
+  });
+  const services = (selection: boolean) =>
+    renderToStaticMarkup(createElement(ServicesStep, { className: 'mt-5', view: servicesView, guests: 150, ...(selection ? { selection: EMPTY_SERVICES_SELECTION, onSelectionChange: () => {} } : {}) }));
+  /** The step where the shell puts it: under the screen's own (old) eyebrow and headline. */
+  const servicesStandIn = (name: string, html: string): Render => ({
+    name,
+    html: `<div data-test-services-root="">${html}</div>`,
+    screen: 'services_step',
+    before: '<div class="eyebrow">Your services</div><h1 class="q">Your memories are already being kept.</h1>',
+    root: (root) => all(root).find((e) => e.attrs.has('data-test-services-root'))?.children[0],
+  });
   return [
+    servicesStandIn('services_step (reading)', services(false)),
+    servicesStandIn('services_step (picking — steppers, both paid cards)', services(true)),
     ...WEDDING_CARD_IDS.map((card) => ({ name: card, html: wedding(card) })),
     { name: 'w_kind (church picked — the second menu)', html: wedding('w_kind', { kind: 'religious', faith: ['catholic'] }) },
     { name: 'w_area (we already have our venue)', html: wedding('w_area', { venues: { ...EMPTY_VENUES, open: true } }) },
@@ -339,22 +385,23 @@ async function cardMarkups(): Promise<{ name: string; html: string }[]> {
   ];
 }
 
-/** The card inside the wrappers the shell really gives it. */
-function standIn(cardId: string, html: string): { root: El; card: El } {
-  const root = parseHtml(`<div class="onbw" data-flow-screen="${cardId}"><div class="phone"><div class="body"><section class="screen active" id="screen-${cardId}">${html}</section></div></div></div>`);
-  const card = all(root).find((e) => e.attrs.has('data-setup-card'));
-  assert.ok(card, `${cardId}: no [data-setup-card] in what rendered — the frame lost the mark the reset stops at`);
+/** The render inside the wrappers the shell really gives it. */
+function standIn(r: Render): { root: El; card: El } {
+  const screen = r.screen ?? r.name.split(' ')[0]!;
+  const root = parseHtml(`<div class="onbw" data-flow-screen="${screen}"><div class="phone"><div class="body"><section class="screen active" id="screen-${screen}">${r.before ?? ''}${r.html}</section></div></div></div>`);
+  const card = r.root ? r.root(root) : all(root).find((e) => e.attrs.has('data-setup-card'));
+  assert.ok(card, `${r.name}: its root was not found in what rendered — a card lost [data-setup-card], or the services step rendered nothing`);
   return { root, card };
 }
 
 const show = (el: El) => `<${el.tag}${el.id ? `#${el.id}` : ''}${[...el.classes].slice(0, 4).map((c) => `.${c}`).join('')}>`;
 
 type Hit = { card: string; el: string; selector: string; props: string; file: string };
-function hits(rules: SpacingRule[], cards: { name: string; html: string }[]): { hits: Hit[]; elements: number } {
+function hits(rules: SpacingRule[], cards: Render[]): { hits: Hit[]; elements: number } {
   const out: Hit[] = [];
   let elements = 0;
   for (const c of cards) {
-    const { card } = standIn(c.name.split(' ')[0]!, c.html);
+    const { card } = standIn(c);
     for (const el of all(card)) {
       elements++;
       for (const r of rules) for (const sel of r.selectors) if (matchesSelector(el, sel)) out.push({ card: c.name, el: show(el), selector: sel, props: r.props.join(';'), file: r.file });
@@ -371,23 +418,30 @@ test('the stand-in wrappers are the shell’s own', () => {
   assert.match(SHELL, /<div className="body">/, 'the shell lost its .body scroller');
   const sections = SHELL.match(/<section key=\{card\} className=\{`screen\$\{activeId === card \? ' active' : ''\}`\} id=\{`screen-\$\{card\}`\}>/g) ?? [];
   assert.equal(sections.length, 2, 'the two card mounts (the engine’s and the wedding’s) no longer sit in <section class="screen active" id="screen-…">');
+  assert.match(
+    SHELL,
+    /<section className=\{`screen\$\{activeId === 'services_step' \? ' active' : ''\}`\} id="screen-services_step">\s*<div className="eyebrow">[^<]*<\/div>\s*<h1 className="q"[^>]*>[^<]*<\/h1>\s*<ServicesStep\b/,
+    'the services step no longer stands in <section id="screen-services_step"> under the screen’s eyebrow and headline — the reset’s fence names that id',
+  );
   assert.match(SHELL, /import '\.\.\/_styles\/onboarding\.css';/);
   assert.match(SHELL, /import '\.\.\/_styles\/onboarding-desktop\.css';/);
 });
 
-test('no .onbw rule sets a margin or a padding on any element of any setup card', async () => {
+test('no .onbw rule sets a margin or a padding on any element of any setup card or of the services step', async () => {
   const cards = await cardMarkups();
   const found = hits(RULES, cards);
   assert.ok(ONBW_SHEETS.length >= 2, `only ${ONBW_SHEETS.length} sheet(s) mention .onbw — the walk lost the onboarding sheets`);
   assert.ok(RULES.length >= 300, `only ${RULES.length} margin/padding rules were read from the .onbw sheets — expected the hundreds they hold`);
-  assert.ok(cards.length >= 10 && found.elements >= 120, `only ${found.elements} card elements over ${cards.length} renders were walked`);
+  assert.ok(cards.length >= 12 && found.elements >= 250, `only ${found.elements} elements over ${cards.length} renders were walked`);
+  const servicesWalked = hits([], cards.filter((c) => c.screen === 'services_step')).elements;
+  assert.ok(servicesWalked >= 120, `only ${servicesWalked} elements of the services step were walked — its steppers and paid cards did not render`);
   const first = found.hits.slice(0, 12).map((h) => `  ${h.card} ${h.el}  ←  ${h.selector} {${h.props}}  (${h.file})`);
-  assert.equal(found.hits.length, 0, `${found.hits.length} time(s) an .onbw rule sets a margin or padding on a setup card’s element — the card’s own spacing loses to it:\n${first.join('\n')}`);
+  assert.equal(found.hits.length, 0, `${found.hits.length} time(s) an .onbw rule sets a margin or padding on an element of a setup card or of the services step — its own spacing loses to it:\n${first.join('\n')}`);
 });
 
 test('the reset still holds everywhere else under .onbw', async () => {
-  const [first] = await cardMarkups();
-  const { root, card } = standIn(first!.name, first!.html);
+  const first = (await cardMarkups()).find((c) => c.name === 'w_names');
+  const { root, card } = standIn(first!);
   const resets = RULES.filter((r) => r.props.includes('margin:0') && r.props.includes('padding:0') && r.selectors.some((s) => /^\.onbw \*/.test(s)));
   assert.equal(resets.length, 1, 'the old sheet’s reset (.onbw * … {margin:0;padding:0}) is gone or doubled — the old screens were written against it');
   const outside = all(root).filter((e) => e.tag !== '#root' && !e.classes.has('onbw') && !all(card).includes(e));
@@ -405,6 +459,8 @@ test('the detector can fire: the sheet as it was, a tag rule, a colliding class'
   assert.ok(tagRule.hits.some((h) => h.el.startsWith('<button')), 'a child-combinator + :hover rule on the buttons is not seen');
   const collide = hits(spacingRules('collide.css', '.onbw .flex{padding:0 10px}'), cards);
   assert.ok(collide.hits.length > 0, 'an old class with a Tailwind name is not seen');
-  const fenced = hits(spacingRules('fenced.css', '.onbw *:not(:where([data-setup-card],[data-setup-card] *)){margin:0;padding:0}.onbw .songbank .song-seg > button{padding:0 10px}.onbw .field::placeholder{padding:0}'), cards);
+  const fenced = hits(spacingRules('fenced.css', '.onbw *:not(:where([data-setup-card],[data-setup-card] *,#screen-services_step,#screen-services_step *)){margin:0;padding:0}.onbw .songbank .song-seg > button{padding:0 10px}.onbw .field::placeholder{padding:0}'), cards);
   assert.equal(fenced.hits.length, 0, 'the fenced reset, a rule scoped to another screen, or a pseudo-element rule is wrongly reported');
+  const cardsOnly = hits(spacingRules('cards-only.css', '.onbw *:not(:where([data-setup-card],[data-setup-card] *)){margin:0;padding:0}'), cards);
+  assert.ok(cardsOnly.hits.length > 0 && cardsOnly.hits.every((h) => h.card.startsWith('services_step')), 'a fence that stops at the cards but not at the services step is not seen on the services step alone');
 });

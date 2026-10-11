@@ -165,8 +165,9 @@ test('(7) the Stages panel says what happened with THIS toast — no strip of it
   assert.match(sheet, /const settle = \(what: PartWorking, words: string[^{]*\{[\s\S]{0,260}?setToast\(words\);/);
   const direct = (sheet.match(/setToast\(/g) ?? []).length - 1;
   const settled = (sheet.match(/(?<![.\w])settle\(/g) ?? []).length;
-  assert.equal(settled, 2, 'the move or the scenes’ ＋ no longer waits for the page before it speaks');
-  assert.equal(direct + settled, 4, 'a message the panel used to say is gone (moved · added · added · removed)');
+  /* Three wait for the page: the move, ＋ a part of this page, ＋ a part another page draws ("… added on Details"). */
+  assert.equal(settled, 3, 'the move or the scenes’ ＋ no longer waits for the page before it speaks');
+  assert.equal(direct + settled, 5, 'a message the panel used to say is gone (moved · added · added on another page · added · removed)');
 });
 
 test('(8) an action: a small pill at the right, 6 s, the only tap — and without one the toast is today\'s, byte for byte', async () => {

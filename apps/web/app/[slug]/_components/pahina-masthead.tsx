@@ -232,7 +232,7 @@ export function PahinaMasthead({
       </span>
     ) : null;
   /** The Card's joiner and second line (design 1, with `card`) — and the plain cover's (design 1, a hero photo). */
-  const stackedPair = (size: string) => (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => (
+  const stackedPair = (size: string, joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => (
     <>
       <span {...joinerStamp(forCanvas)} className={`block font-pahina ${size} italic text-gild`} aria-hidden>
         {joiner}
@@ -240,8 +240,8 @@ export function PahinaMasthead({
       <span {...secondStamp(forCanvas)} className="block">{second}</span>
     </>
   );
-  const cardPair = stackedPair('text-[0.5em]');
-  const plainPair = stackedPair('text-[0.42em]');
+  const cardPair = (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => stackedPair('text-[0.5em]', joiner, second, forCanvas);
+  const plainPair = (joiner: ReactNode, second: ReactNode, forCanvas?: boolean) => stackedPair('text-[0.42em]', joiner, second, forCanvas);
 
   /* 🔗 THE LINK DOWN INTO THE HUB — a part like the others (owner 2026-09-28,
      tapping it in the Maker: "why can't i update the text"). Its words are the

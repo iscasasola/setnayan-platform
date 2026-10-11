@@ -32,11 +32,30 @@ the pass is ONE cookie per browser, any other event's pass replaces it) the pass
 is NOT determined: Safari WebDriver needs "Allow remote automation" (a settings change — not
 mine to make) and Playwright WebKit is not installed (a download).
 
-## FIX (in progress)
-Reply carries the landing's code; the reply page re-keys from it when the pass is missing
-(or is another event's): `/{slug}/redeem?k=…&to=reply` → back to the questions. No sign-in,
-no account (owner: "you can still reply without an account"). A stranger with no code still
-gets the door; the Save the Date landing still has no Reply.
+## FIX (committed 5dd7c6bcc)
+- `lib/guest-pass-hop.ts`: `ReentryDestination` gains `'reply'`; `reentryDestinationPath(slug, to)`;
+  `replyHrefCarrying(slug, code)` (the Reply's address, carrying the landing's `?k=` when it has one);
+  `replyEntry({ slug, hasPass, code })` → ask · rekey (`/{slug}/redeem?k=…&to=reply`) · door (`/{slug}`).
+- `app/[slug]/invite/reply/page.tsx`: the bare `if (!canvas && !session) redirect(/{slug})` → `replyEntry`.
+- `app/[slug]/redeem/route.ts`: the code exchange opens `reentryDestinationPath(event.slug, to)`.
+- `app/[slug]/invite/enter/page.tsx`: all three Reply links (landing Reply, plus-one's Reply, "Change my reply")
+  → `replyHrefCarrying(home, search.k)`.
+No sign-in, no account. A code is spent only when the pass is missing. Prefetch is harmless: the reply
+page never spends; only the redeem does, and a prefetch never follows a redirect to a route handler.
+
+## Guard + sabotage
+`app/[slug]/invite/reply/a-guest-without-the-pass-still-replies.test.ts` (5 tests).
+- On main's code: 1 pass / 4 fail (only (5), the unchanged Save the Date, passes — expected).
+- S1 reply page back to the bare redirect → (3) red. S2 landing Reply bare → (4) red.
+  S3 `replyEntry` sends a lost guest to the door → (1) red. S4 redeem ignores `to=reply` → (2) red. Restored → 5/5.
+- 181 neighbouring tests (pass-hop, one-path, invite/*, redeem, reply-card, guest-pathway, reply-waits) green.
+
+## Not done / open
+- Local walk: impossible here — the local `.env.local` has no service-role key and no guest-session
+  secret, so no guest pass can be minted locally (and it points at prod). The live Chromium walks above stand in.
+- Why desktop Safari lost the pass in 13 s is not determined (see CAUSE). Worth a real-Safari walk by the
+  controller/owner after deploy: link → landing → Reply.
+- Preflight + PR: see below.
 
 ## Live walks done (read-only, nothing sent)
 - Chromium, maria-and-jose guest 2a1d5a99 (token read from prod into a 0600 scratch file, never printed): Reply → questions.

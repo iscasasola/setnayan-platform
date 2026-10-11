@@ -672,6 +672,32 @@ test('(7) the drag rides no first load and no guest’s page: it is reached only
   for (const f of files.filter((p) => relative(WEB, p).startsWith('app/[slug]/'))) assert.doesNotMatch(readFileSync(f, 'utf8'), /scene-drag|data-scene-drag|attachSceneDrag/, `${relative(WEB, f)} knows the drag`);
 });
 
+test('(1) the lift is the prototype’s 1.03 where it fits — and otherwise the prototype’s own lifted width, its ring in sight', () => {
+  /* `.scene.lifted{transform:scale(1.03)}` · `.scene.lifted.tobin{transform:scale(.62);opacity:.55}`. The prototype's
+     scenes stand inside its page's margin (375 px phone, `.page{padding:8px 10px 24px}` → 355 px): lifted, 365.65 px.
+     A guest's scene runs edge to edge; by 1.03 its ring would leave the screen. So: 1.03 where that fits, else the
+     width the prototype's lifted scene has on the same screen. */
+  const hands = raw(`${L}/scene-canvas-drag.ts`);
+  assert.match(hands, /const LIFT_SCALE = 1\.03;/);
+  assert.match(hands, /const BIN_SCALE = 0\.62;\s*const BIN_DIM = 0\.55;/);
+  assert.match(hands, /const LIFT_INSET_PX = \(375 - 355 \* LIFT_SCALE\) \/ 2;/);
+  assert.match(hands, /const scale = r\.width > 0 \? Math\.min\(LIFT_SCALE, \(win\.innerWidth - 2 \* LIFT_INSET_PX\) \/ r\.width\) : LIFT_SCALE;/);
+  assert.match(hands, /const LIFT_SHADOW = `0 0 0 2px \$\{ACCENT\}, var\(--m-shadow-lg\)`;/, 'anti-vacuity: the ring is no longer 2 px outside the scene');
+  const inset = (375 - 355 * 1.03) / 2;
+  const scaleOf = (sceneW: number, screenW: number) => Math.min(1.03, (screenW - 2 * inset) / sceneW);
+  /* the prototype's own scene, on its own phone: lifted by 1.03 exactly */
+  assert.ok(Math.abs(scaleOf(355, 375) - 1.03) < 1e-12);
+  /* a guest's edge-to-edge scene on that phone: as wide as the prototype's lifted scene, never wider than the screen */
+  assert.ok(Math.abs(scaleOf(375, 375) * 375 - 365.65) < 1e-9, `lifted to ${scaleOf(375, 375) * 375} px`);
+  for (const screen of [320, 360, 375, 390, 414, 430, 768, 1000]) {
+    for (const scene of [screen, screen - 20, screen - 48, screen / 2]) {
+      const w = scaleOf(scene, screen) * scene;
+      assert.ok((screen - w) / 2 >= 2 + 2.6, `a ${scene} px scene on a ${screen} px screen: its 2 px ring is ${((screen - w) / 2 - 2).toFixed(2)} px from the edge`);
+      assert.ok(scaleOf(scene, screen) <= 1.03);
+    }
+  }
+});
+
 test('(8) the desktop Maker that ships today is untouched: the drag is the phone panel’s, and a desktop couple keeps every control they had', () => {
   /* The prototype's three-column desktop Maker does not exist, and this change builds none. What it must not do is
      take anything from the desktop Maker that DOES ship. The row that left — Earlier · Later · Remove — was the

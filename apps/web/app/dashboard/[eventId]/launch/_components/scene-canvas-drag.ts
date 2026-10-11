@@ -52,9 +52,17 @@ const GAP_LINE = '1.5px dashed rgb(var(--color-ink) / 0.28)';
 export const SCENE_TAG_FACE = 'rounded-sm bg-sn-accent text-sn-on-accent px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]';
 /** The prototype's `.scene.lifted{transform:scale(1.03)}` and `.tobin{transform:scale(.62);opacity:.55}`. */
 const LIFT_SCALE = 1.03;
-/** …and the room its ring keeps from the screen's edge: the prototype's scenes stand inside the page's own margin; a
- *  guest's scene runs edge to edge, and a ring pushed past the screen is no ring. */
-const LIFT_INSET_PX = 8;
+/**
+ * …and the room a lifted scene keeps from the screen's edge — THE PROTOTYPE'S OWN. Its scenes stand inside the page's
+ * margin (a 375 px phone, scenes 355 px wide): lifted by 1.03 they are 365.65 px wide and keep 4.675 px on each side.
+ * A guest's scene runs edge to edge, and lifted by 1.03 its ring would be pushed off the screen — and a ring past the
+ * screen is no ring. So a scene is lifted by 1.03 WHERE THAT FITS, and otherwise to exactly the width the prototype's
+ * lifted scene has on the same screen: as wide as it can be with its whole ring in sight (the ring is 2 px outside).
+ */
+const LIFT_INSET_PX = (375 - 355 * LIFT_SCALE) / 2;
+/** The dashed gap stands where the prototype's does: inside its page's margin (`.page{padding:8px 10px 24px}`), so its
+ *  line is whole on a page whose scenes run edge to edge. */
+const GAP_INSET_PX = 10;
 const BIN_SCALE = 0.62;
 const BIN_DIM = 0.55;
 /** The lifted scene's own look eases in (the prototype's `.16s`). */
@@ -345,9 +353,9 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     gap.setAttribute('data-scene-drag-gap', '');
     Object.assign(gap.style, {
       position: 'absolute',
-      left: `${Math.max(r.left, LIFT_INSET_PX) + win.scrollX}px`,
+      left: `${Math.max(r.left, GAP_INSET_PX) + win.scrollX}px`,
       top: `${rows[at]!.top}px`,
-      width: `${Math.min(r.right, win.innerWidth - LIFT_INSET_PX) - Math.max(r.left, LIFT_INSET_PX)}px`,
+      width: `${Math.min(r.right, win.innerWidth - GAP_INSET_PX) - Math.max(r.left, GAP_INSET_PX)}px`,
       height: `${r.height}px`,
       boxSizing: 'border-box',
       border: GAP_LINE,

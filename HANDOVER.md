@@ -21,7 +21,23 @@ Everything proven is proven in **Chromium only**; nothing has run on iOS Safari.
   · stranger photo · guest on Details · stranger on Details × plain · cover-Scrub · scene-Scrub · both) on this branch
   and on origin/main d2e38b7c1: byte-identical, and no island mounted; flipping the switch by hand makes all 18 Scrub
   cases differ (the comparison can see a change). Every stylesheet rule the branch adds needs `[data-hub-page-on]`.
-- Queued under the lock: the WHOLE browser check (walk lane), then `next lint` and the sweep (heavy lane).
+- WHOLE browser check on 8bded5d45 (walk lane, every block): **536 ok · 4 FAIL — all four the names-under-the-bar
+  finding above** (375x667 guest, 375x667 stranger text, stranger photo 375x812 + 1280x770). Every other stranger
+  row green at all sizes (boxes unmoved without script, chapters, one pair, still page, TOGETHER, whole arrival,
+  nothing over, back == down). Touch rows green. Fit rows green at 375x667 and 375x560.
+- Sabotage (block 16 in a throw-away worktree): a non-passive touchmove listener in the engine → the touch-listener
+  row RED; the cover's out scaled ×1.3 → "the travel IS the Build out" RED (65 % out, drawn 0.35, for 50 % travel);
+  the fit's stand-aside removed → the 375x560 fit rows RED (the page length flips 1578 ↔ 1295). The source pin in
+  `the-first-screen-keeps-its-action.test.ts`: RED when sabotaged, green restored.
+- `next lint` (whole app, under the lock): rc 0, 0 errors, 15 warnings — none in a file this branch touches.
+  Controls baseline: the generator changes only its ref line → left as is (not regenerated).
+- Quick preflight (guards, lint, types, pins) on 6e72d252b: 46 checks, nothing failed.
+- Short-phone comparison 375x667 (pictures `c16-stranger-fit-375x667-{today,wrapped-0-opens,wrapped-1-held}.png`,
+  `c16-stranger-375x667-3-arrived-together.png`): TODAY the fit closes the cover up and "Get inside" is on the first
+  screen (534–590). WRAPPED the cover opens at full air (its link cut at the screen's foot), the door is NOT on the
+  first screen — it arrives with the Countdown after the cover builds out (98–412) — and while held "Maria" is under
+  the pinned bar. Owner point: "the first screen keeps its action" (main's fit) and "the cover as hand-over zero"
+  (the action arrives after the cover) meet here; under Scrub the second wins by construction.
 
 ## Done
 - `origin/main` d2e38b7c1 MERGED IN (a87125049). Two conflicts (the fixture test's "tooling" list — both kept; the

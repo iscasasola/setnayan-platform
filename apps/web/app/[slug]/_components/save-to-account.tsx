@@ -192,7 +192,7 @@ export function SaveToAccount({
       overlay={false}
     >
       <span className="text-base">Save to my account</span>
-      <span className="text-xs font-normal opacity-80">
+      <span className="text-xs font-normal">
         {saveMethodLine(method)}
         {carries ? ` — ${carries}` : null}
       </span>
@@ -212,7 +212,7 @@ export function SaveToAccount({
   // shows each guest the photos they are in, and the account — not the pass in
   // this browser — is what opens the event again later (`findGuestSeatForUser`).
   const why = (
-    <p className="text-center text-xs text-ink/60">
+    <p className="text-center text-xs text-ink/70">
       Keeps the photos of you, and opens this invitation on any phone.
     </p>
   );

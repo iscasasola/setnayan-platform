@@ -391,7 +391,7 @@ export function AvatarMaker({
           {note}
         </p>
       ) : null}
-      <p className="px-1 text-xs text-white/40">
+      <p className="px-1 text-xs text-white/60">
         Only guests with a personal link to this seating plan can see your
         avatar, and only where guest photos are already shown. It is used for
         this event only, and you can remove it at any time.

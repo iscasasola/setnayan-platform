@@ -315,7 +315,7 @@ export default async function PabuyaPublicPage({
             ) : null}
           </>
         ) : registryHref ? null : (
-          <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/60">
+          <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/70">
             {hostName} {hasntAfter(event.display_name, words.twoPeople)} set up e-gifts yet. Check back soon — or
             visit their page in the meantime.
           </p>
@@ -329,8 +329,8 @@ export default async function PabuyaPublicPage({
           <p className="font-display text-xl italic text-mulberry">
             Ang laki ng pasasalamat namin.
           </p>
-          <p className="mt-1 text-sm text-ink/60">— {hostName}</p>
-          <p className="mt-6 font-mono text-xs uppercase tracking-[0.14em] text-ink/45">
+          <p className="mt-1 text-sm text-ink/70">— {hostName}</p>
+          <p className="mt-6 font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
             Kept safe on Setnayan
           </p>
         </footer>

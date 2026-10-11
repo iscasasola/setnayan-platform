@@ -98,6 +98,11 @@ const READ: Array<[string, string]> = [
   ['pabuya/page.tsx', 'Pabuya\n          </span>'],
   ['seat/page.tsx', 'Setnayan\n            </span>'],
   ['seat/page.tsx', 'Scanning your'],
+  ['seat/page.tsx', 'See you soon.</p>'],
+  ['find-my-table/page.tsx', 'Powered by Setnayan · setnayan.com</p>'],
+  ['recap/page.tsx', 'A living memory.</p>'],
+  ['pabuya/page.tsx', 'Kept safe on Setnayan'],
+  ['_components/save-to-account.tsx', 'Keeps the photos of you'],
 ];
 
 const PRESS: Array<[string, string]> = [

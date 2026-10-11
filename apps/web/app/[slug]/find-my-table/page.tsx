@@ -183,7 +183,7 @@ export default async function FindMyTablePage({ params }: Props) {
       <LiveRefresher eventDate={event.event_date as string | null} />
       <div className="space-y-5">
         <header className="space-y-2 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
             Find your table
           </p>
           {targetTable ? (
@@ -197,7 +197,7 @@ export default async function FindMyTablePage({ params }: Props) {
             </h1>
           )}
           {event.venue_name ? (
-            <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">
+            <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/70">
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               {event.venue_name}
             </p>
@@ -216,7 +216,7 @@ export default async function FindMyTablePage({ params }: Props) {
             Walk in from the entrance and follow the dotted path to your table.
           </p>
         ) : (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/70">
             You haven&rsquo;t been seated at a table yet.{' '}
             {`Once ${words.theHost} seats you, your spot lights up on this map.`}
           </p>
@@ -279,19 +279,19 @@ function Shell({
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">
             <Logo height={28} />
-            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
               Setnayan
             </span>
           </Link>
-          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
             {displayName}
           </span>
         </div>
       </header>
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
       <footer className="border-t border-ink/10 px-4 py-8 text-center">
-        <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
-        <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
+        <p className="font-serif text-lg italic text-terracotta-700">See you soon.</p>
+        <p className="mt-3 text-xs text-ink/70">Powered by Setnayan · setnayan.com</p>
       </footer>
       <RoomFooter links={roomLinks} />
     </main>

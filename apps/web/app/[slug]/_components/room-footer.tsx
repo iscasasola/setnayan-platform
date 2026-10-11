@@ -61,7 +61,7 @@ export function RoomFooter({
     >
       <p
         className={`text-center font-mono text-[0.62rem] uppercase tracking-[0.18em] ${
-          dark ? 'text-white/45' : 'text-ink/45'
+          dark ? 'text-white/70' : 'text-ink/70'
         }`}
       >
         In this event

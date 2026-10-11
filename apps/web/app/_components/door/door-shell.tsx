@@ -329,7 +329,7 @@ export function DoorShell({
                   'inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em]',
                   // 4.61:1 on cream. NEVER text-terracotta here — see the
                   // header note; that slot is the 3.37:1 gold.
-                  threshold ? 'text-mulberry' : 'text-ink/55',
+                  threshold ? 'text-mulberry' : 'text-ink/70',
                 ].join(' ')}
               >
                 {eyebrow}
@@ -343,7 +343,7 @@ export function DoorShell({
             {sub ? <p className="text-sm leading-relaxed text-ink/70">{sub}</p> : null}
 
             {meta ? (
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
+              <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
                 {meta}
               </p>
             ) : null}

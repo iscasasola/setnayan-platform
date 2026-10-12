@@ -219,6 +219,9 @@
     --surface: #ffffff;                /* card = page (see the block comment above) */
     --surface-soft: #f4f2ec;           /* Warm card surface */
     --ink-soft: 79 83 91;               /* Deep slate #4F535B */
+    /* A CARD above the page (dark mode PR 1, 2026-10-13) — Tailwind `raised`. Light = white, exactly what
+     * `bg-white` paints today, so swapping one for the other moves no light pixel. Dark = the approved card. */
+    --color-raised: 255 255 255;
   }
 
   html.dark {
@@ -262,10 +265,53 @@
     --color-info: var(--color-link);
     --accent: #e0cca0;
     --accent-deep: #c5a059;
-    --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */
-    --surface: #1e2229;
-    --surface-soft: #2a2e36;           /* Slightly lighter obsidian */
+    /* 🌗 WARM, NOT COOL (owner "approve all" 2026-10-13, call 6): the dark set is the approved template
+     * gallery's (control_templates_round2_2026-10-12.html) — page #17160F, card #232019, paper #1E1C15 —
+     * replacing the cool obsidian #1E2229 / #2A2E36 / #22262C this block carried while it was unreachable. */
+    --accent-soft: #413827;            /* the gallery's gold-soft (gold at 18%) over the card */
+    --surface: #232019;                /* the approved card */
+    --surface-soft: #2b2821;           /* one step above the card — a wash, lighter in dark as the gallery's pill is */
     --ink-soft: 182 185 190;            /* Slate-3 #B6B9BE */
+    --color-raised: 35 32 25;           /* the approved card #232019 */
+  }
+
+  /*
+   * 🌗 THE COLOUR LADDERS AS TOKENS (dark mode PR 1, 2026-10-13). `tailwind.config.ts`'s
+   * success / warn / danger / info ramps and the static ends of terracotta / mulberry were hard-coded
+   * hex, so ~3,700 class uses (`bg-success-100`, `text-danger-700` …) could never follow a theme.
+   * They now read these. LIGHT = THE HEX THEY HELD, BYTE FOR BYTE (same three numbers), so nothing
+   * in Light moves. DARK = the same ladder read from its other end (50 ↔ 950, 100 ↔ 900 … 500 stays;
+   * the partial ladders mirror across their full 50–900 ladder), so a pale chip with deep words
+   * stays a quiet chip with readable words on the dark page. Gold / champagne / sage are below.
+   * Guarded by `lib/every-colour-token-has-a-dark-pair.test.ts`.
+   */
+  :root {
+    --ramp-success-50: 243 247 241; --ramp-success-100: 227 236 224; --ramp-success-200: 197 210 189; --ramp-success-300: 163 184 154; --ramp-success-400: 125 152 115; --ramp-success-500: 95 125 85; --ramp-success-600: 79 107 74; --ramp-success-700: 65 87 61; --ramp-success-800: 54 70 50; --ramp-success-900: 44 57 42; --ramp-success-950: 23 32 19;
+    --ramp-warn-50: 249 245 236; --ramp-warn-100: 243 236 223; --ramp-warn-200: 228 212 180; --ramp-warn-300: 203 167 102; --ramp-warn-400: 185 148 86; --ramp-warn-500: 169 131 75; --ramp-warn-600: 138 107 57; --ramp-warn-700: 122 94 50; --ramp-warn-800: 92 71 38; --ramp-warn-900: 63 48 25; --ramp-warn-950: 42 32 15;
+    --ramp-danger-50: 253 244 240; --ramp-danger-100: 244 215 201; --ramp-danger-200: 234 184 162; --ramp-danger-300: 221 148 119; --ramp-danger-400: 205 114 82; --ramp-danger-500: 191 93 63; --ramp-danger-600: 182 90 58; --ramp-danger-700: 151 73 48; --ramp-danger-800: 120 59 40; --ramp-danger-900: 95 48 33; --ramp-danger-950: 52 23 15;
+    --ramp-info-50: 242 245 247; --ramp-info-100: 226 234 239; --ramp-info-200: 197 211 221; --ramp-info-300: 159 180 195; --ramp-info-400: 114 146 168; --ramp-info-500: 84 118 144; --ramp-info-600: 78 108 130; --ramp-info-700: 64 87 103; --ramp-info-800: 55 74 87; --ramp-info-900: 47 62 73; --ramp-info-950: 30 40 49;
+    --ramp-terracotta-50: 249 245 236; --ramp-terracotta-100: 243 236 223; --ramp-terracotta-200: 228 212 180; --ramp-terracotta-300: 203 167 102; --ramp-terracotta-400: 185 148 86; --ramp-terracotta-800: 92 71 38; --ramp-terracotta-900: 63 48 25;
+    --ramp-mulberry-50: 249 241 234; --ramp-mulberry-100: 245 229 220; --ramp-mulberry-200: 235 199 184; --ramp-mulberry-300: 222 161 138; --ramp-mulberry-400: 208 120 87; --ramp-mulberry-800: 140 57 27; --ramp-mulberry-900: 97 40 19;
+    --ramp-gold: 169 131 75; --ramp-gold-deep: 138 107 57; --ramp-gold-dark: 92 71 38;
+    --ramp-gold-100: 243 236 223; --ramp-gold-300: 203 167 102; --ramp-gold-500: 169 131 75; --ramp-gold-600: 149 113 61; --ramp-gold-700: 138 107 57; --ramp-gold-800: 92 71 38;
+    --ramp-champagne: 197 160 89; --ramp-champagne-deep: 168 131 64;
+    --ramp-sage: 197 210 189; --ramp-sage-deep: 79 107 74;
+  }
+  html.dark {
+    --ramp-success-50: 23 32 19; --ramp-success-100: 44 57 42; --ramp-success-200: 54 70 50; --ramp-success-300: 65 87 61; --ramp-success-400: 79 107 74; --ramp-success-500: 95 125 85; --ramp-success-600: 125 152 115; --ramp-success-700: 163 184 154; --ramp-success-800: 197 210 189; --ramp-success-900: 227 236 224; --ramp-success-950: 243 247 241;
+    --ramp-warn-50: 42 32 15; --ramp-warn-100: 63 48 25; --ramp-warn-200: 92 71 38; --ramp-warn-300: 122 94 50; --ramp-warn-400: 138 107 57; --ramp-warn-500: 169 131 75; --ramp-warn-600: 185 148 86; --ramp-warn-700: 203 167 102; --ramp-warn-800: 228 212 180; --ramp-warn-900: 243 236 223; --ramp-warn-950: 249 245 236;
+    --ramp-danger-50: 52 23 15; --ramp-danger-100: 95 48 33; --ramp-danger-200: 120 59 40; --ramp-danger-300: 151 73 48; --ramp-danger-400: 182 90 58; --ramp-danger-500: 191 93 63; --ramp-danger-600: 205 114 82; --ramp-danger-700: 221 148 119; --ramp-danger-800: 234 184 162; --ramp-danger-900: 244 215 201; --ramp-danger-950: 253 244 240;
+    --ramp-info-50: 30 40 49; --ramp-info-100: 47 62 73; --ramp-info-200: 55 74 87; --ramp-info-300: 64 87 103; --ramp-info-400: 78 108 130; --ramp-info-500: 84 118 144; --ramp-info-600: 114 146 168; --ramp-info-700: 159 180 195; --ramp-info-800: 197 211 221; --ramp-info-900: 226 234 239; --ramp-info-950: 242 245 247;
+    --ramp-terracotta-50: 63 48 25; --ramp-terracotta-100: 92 71 38; --ramp-terracotta-200: 140 105 50; --ramp-terracotta-300: 168 131 64; --ramp-terracotta-400: 169 131 75; --ramp-terracotta-800: 243 236 223; --ramp-terracotta-900: 249 245 236;
+    --ramp-mulberry-50: 97 40 19; --ramp-mulberry-100: 140 57 27; --ramp-mulberry-200: 157 63 30; --ramp-mulberry-300: 176 71 34; --ramp-mulberry-400: 194 78 37; --ramp-mulberry-800: 245 229 220; --ramp-mulberry-900: 249 241 234;
+    /* gold: the fill brightens to the dark-mode gold (#CBA766, 7.17:1 on the card), the TEXT golds go
+     * light (deep #E2C98B 10.0:1, dark #ECD9AE), the wash goes dark (gold 18% over the card). */
+    --ramp-gold: 203 167 102; --ramp-gold-deep: 226 201 139; --ramp-gold-dark: 236 217 174;
+    --ramp-gold-100: 65 56 39; --ramp-gold-300: 138 107 57; --ramp-gold-500: 203 167 102; --ramp-gold-600: 212 180 122; --ramp-gold-700: 226 201 139; --ramp-gold-800: 236 217 174;
+    /* champagne = the dark --accent / --accent-deep pair above (#E0CCA0 / #C5A059) */
+    --ramp-champagne: 224 204 160; --ramp-champagne-deep: 197 160 89;
+    /* sage: the pale fill becomes a dark sage wash, the readable tone goes light (#9CC093, 8.0:1 on the card) */
+    --ramp-sage: 54 58 45; --ramp-sage-deep: 156 192 147;
   }
 
   html {
@@ -1372,6 +1418,82 @@ html.guests-subnav-docked [data-shell-main] {
 }
 
 /*
+ * 🌗 THE --m-* FAMILY IN DARK (dark mode PR 1, owner "approve all" 2026-10-13).
+ *
+ * WHY THIS BLOCK. The "marketing" family is everywhere now — behind `.sn-tile` (200 files), `.sn-row`,
+ * `.m-surface`, the boot splash and the charts; ≈2,500 `var(--m-…)` reads — and not one of them had a
+ * dark value, so the first screen to open to dark would have kept white cards and espresso words.
+ *
+ * INERT UNTIL A SCREEN IS ON THE READY-LIST. Nothing here is reachable until the theme switch
+ * (PR 3) sets `html.dark` — and that only happens on routes an area PR has swept. Light is
+ * untouched: every value above is exactly as it was.
+ *
+ * THE VALUES are the approved gallery's warm set (control_templates_round2_2026-10-12.html):
+ * page #17160F · paper #1E1C15 · card #232019 · ink #FBFAF7 · ink2 #D6D1C7 · mute #B3AEA3 ·
+ * lines = paper at 16 % · gold #CBA766 · gold-ink #E2C98B · CTA #E5794E. Each token keeps its JOB:
+ * a ground stays a ground, a wash stays a wash (washes go LIGHTER than the card in dark, as the
+ * gallery's pill does), a text tone keeps about the contrast it had on white (measured on the card
+ * #232019: ink 15.6 · slate 10.7 · slate-2 7.4 · slate-3 5.5 · gold 7.2 · gold-2 10.0 · CTA 5.6).
+ * `lint:contrast` judges the pairs in dark too (PR 2).
+ *
+ * ⚠ `--m-paper` is BOTH the page and the card in light (white == white). In dark it is the CARD:
+ * almost every read is a panel, tile or row fill. The page is `--color-cream` / `.sn-ambient`.
+ */
+html.dark {
+  --m-paper:      #232019;   /* the card */
+  --m-paper-2:    #2B2821;   /* a wash one step above the card */
+  --m-ivory:      #332F27;   /* a deeper wash */
+  --m-line:       rgba(251,250,247,.16);
+  --m-line-soft:  rgba(251,250,247,.10);
+
+  --m-ink:        #FBFAF7;
+  --m-slate:      #D6D1C7;
+  --m-slate-2:    #B3AEA3;
+  --m-slate-3:    #9A958C;
+  --m-slate-4:    #6A665E;   /* decorative only, as in light */
+
+  --m-orange:     #CBA766;
+  --m-orange-2:   #E2C98B;
+  --m-orange-3:   #A9834B;
+  --m-orange-4:   #413827;   /* gold at 18 % over the card */
+  --m-orange-deep: #ECD9AE;  /* text on the gold wash — 8.3:1 on #413827 */
+
+  --m-nav-active:      #CBA766;
+  --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 14%, #232019);
+
+  --m-mulberry:    #E5794E;  /* = dark --color-mulberry */
+  --m-mulberry-2:  #EC8A5F;
+  --m-mulberry-deep: #F2A585; /* text on a mulberry wash */
+  /* -3 / -4 are the NEUTRAL "muted words on the --m-ink band + disabled fill" pair (see above). The band
+   * itself turns light in dark, so the muted words on it turn dark. */
+  --m-mulberry-3:  #4A463F;
+  --m-mulberry-4:  #34312B;
+
+  --m-blush:      #443429;
+  --m-blush-deep: #F09A7C;
+  --m-blush-deepest: #F8C9B5;
+  --m-sage:       #363A2D;
+  --m-sage-deep:  #9CC093;
+  --m-sage-deeper: #BCD7B3;
+
+  /* A warm-brown shadow is invisible on a dark page — black, deeper, as the gallery's. */
+  --m-shadow-sm: 0 1px 2px rgba(0,0,0,.35), 0 1px 1px rgba(0,0,0,.25);
+  --m-shadow-md: 0 8px 24px -10px rgba(0,0,0,.6), 0 2px 6px -2px rgba(0,0,0,.35);
+  --m-shadow-lg: 0 40px 80px -30px rgba(0,0,0,.75), 0 10px 30px -8px rgba(0,0,0,.4);
+
+  --m-sidebar-bg:        rgba(35,32,25,.55);
+  --m-sidebar-bg-2:      rgba(251,250,247,.08);
+  --m-sidebar-fg:        #FBFAF7;
+  --m-sidebar-fg-soft:   #D6D1C7;
+  --m-sidebar-fg-muted:  #B3AEA3;
+  --m-sidebar-line:      rgba(251,250,247,.14);
+  --m-sidebar-hover:     rgba(251,250,247,.08);
+  --m-sidebar-accent:      #CBA766;
+  --m-sidebar-accent-fg:   #CBA766;
+  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 18%, transparent);
+}
+
+/*
  * ⚠ `.sn-sidebar` IS GONE (2026-08-15). It was applied to exactly one element
  * in the app — the desktop `<aside>` inside `sidebar-shell.tsx` — and that
  * file was deleted once all five signed-in trees wore the shared rail. It
@@ -2253,6 +2375,10 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
   opacity: 0;
   pointer-events: none;
 }
+/* 🌗 Dark: the splash is the PAGE, not a card — `--m-paper` is the card in dark. */
+html.dark[data-sn-boot] #sn-init-splash {
+  background: rgb(var(--color-cream));
+}
 #sn-init-splash .sd-loader {
   background: transparent;
   min-height: 0;
@@ -3114,9 +3240,58 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 }
 html.dark {
   /* Dark pairs ship with the tokens so they are not a trap for whoever turns
-     dark mode on. Nothing sets `html.dark` today (light lock 2026-06-04). */
+     dark mode on. Nothing sets `html.dark` today (light lock 2026-06-04; the
+     switch, PR 3, only sets it on routes an area PR has swept).
+
+     🌗 2026-10-13 (dark mode PR 1): EVERY colour token of the block above now has
+     its pair here, in the approved gallery's warm set (page #17160F, paper
+     #1E1C15, card #232019). Left OUT on purpose, and allowlisted with reasons in
+     `lib/every-colour-token-has-a-dark-pair.test.ts`: the `--sn-ob-*` obsidian
+     surface (dark in both themes) and the `--sn-glass-dark-*` glass over photos. */
+  --sn-paper:      #1E1C15;
+  --sn-surface:    #232019;
+  --sn-hairline:   rgba(251,250,247,.10);
+  --sn-line:       rgba(251,250,247,.16);
+  --sn-ink-300:    #7E796F;
+  --sn-ink-400:    #9A958C;
+  --sn-ink-500:    #B3AEA3;
+  --sn-ink-700:    #D6D1C7;
+  --sn-ink-900:    #FBFAF7;
+  /* The ink ON a light-gold fill (`.sn-btn-on-ink`): the gold stays light in dark, so this stays dark. */
+  --sn-ink-black:  #17160F;
+
+  /* gold: the wash goes dark, the text golds go light, the fills brighten. 300 is already the
+     gold for a dark surface (= --sn-ob-gold), so it stays. */
+  --sn-gold-100:   #413827;
+  --sn-gold-300:   #CBA766;
+  --sn-gold-500:   #CBA766;
+  --sn-gold-600:   #D4B47A;
+  --sn-gold-700:   #E2C98B;
+  --sn-gold-800:   #ECD9AE;
+  --sn-terra:      #D9A566;
+
+  /* semantic — the gallery's ok / warn / bad / info, each soft = its colour at 14–16 % over the card */
+  --sn-success:    #6FCF97;  --sn-success-soft: #2E392B;
+  --sn-success-deep: #9BE0B8;
+  --sn-warning:    #F0B45A;  --sn-warning-soft: #403522;
+  --sn-warning-deep: #F6CB8A;
+  --sn-danger:     #F2817A;  --sn-danger-soft:  #443029;
+  --sn-info:       #9DB2CE;  --sn-info-soft:    #373736;
+
+  --sn-glass-bg:   rgba(35,32,25,.5);
+
+  /* shadows: black, deeper — a warm-brown shadow is invisible on the dark page */
+  --sn-sh-sm: 0 1px 2px rgba(0,0,0,.35);
+  --sn-sh-md: 0 20px 34px -22px rgba(0,0,0,.7);
+  --sn-sh-lg: 0 40px 80px -50px rgba(0,0,0,.8);
+  --sn-sh-tile: 0 1px 2px rgba(0,0,0,.3), 0 18px 40px -26px rgba(0,0,0,.7);
+  --sn-sh-hi:   0 1px 2px rgba(0,0,0,.35), 0 28px 54px -30px rgba(0,0,0,.8);
+  --sn-sh-float: 0 1px 2px rgba(0,0,0,.35), 0 10px 24px -12px rgba(0,0,0,.6),
+                 0 30px 60px -30px rgba(0,0,0,.55);
+  --sn-sh-panel: -2px 0 8px -4px rgba(0,0,0,.4), -30px 0 70px -30px rgba(0,0,0,.7);
+
   --sn-canvas: #17160F;
-  --sn-glass-bg-raised: rgba(30,34,41,.86);
+  --sn-glass-bg-raised: rgba(35,32,25,.86);
   /* The row's paper is `--color-cream` and its edge `--sn-glass-line`; both
      flip under html.dark themselves, so dark keeps the same alpha and blur. */
   --sn-glass-row-alpha: 62%;
@@ -4808,6 +4983,21 @@ html.dark {
   -webkit-backdrop-filter: blur(22px) saturate(1.4);
   color: var(--sn-gold-100);
 }
+/* 🌗 DARK ISLANDS STAY DARK (dark mode PR 1, 2026-10-13). These recipes are dark in Light already, and
+ * read `--sn-gold-100` as PARCHMENT words on them. In dark that token is a dark gold WASH, which would
+ * put dark words on dark glass — so inside an island the gold tokens keep their light values. The
+ * fill of `.sn-tile-dark` is `--m-ink`, which turns light in dark; it gets the warm raised dark. */
+html.dark :is(.sn-glass-dark, .sn-tile-obsidian, .sn-tile-dark) {
+  --sn-gold-100: #F3ECDF;
+  --sn-gold-300: #CBA766;
+  --sn-gold-500: #A9834B;
+  --sn-gold-700: #8A6B39;
+  color: #F3ECDF;
+}
+html.dark .sn-tile-dark {
+  background: #2B2821;
+  border-color: rgba(251, 250, 247, 0.12);
+}
 
 /* ---------- DESIGN FOUNDATION (owner 2026-09-24) ----------------------------
  * The shared pieces' recipes. Read build-sessions/DESIGN-FOUNDATION.md first.
@@ -5365,8 +5555,8 @@ div:has(> [data-apply-pro-sheet]),
   /* The opaque fill above is a light-mode value, so it needs its dark pair or
      dark mode gets white rows on a black page. */
   html.dark .sn-row {
-    background: #2A2E36;
-    border-color: rgba(255, 255, 255, 0.12);
+    background: #2B2821;   /* warm, one step above the card (was the cool #2A2E36 — 2026-10-13, call 6) */
+    border-color: rgba(251, 250, 247, 0.12);
   }
 
   /* Tile eyebrow — replaces every font-mono/ALL-CAPS hand-roll. Gold-700 on
@@ -6644,6 +6834,10 @@ html:has([data-sticky-top]) {
   transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .home-tile:active { transform: scale(0.98); }
+/* 🌗 Dark: 2 % ink over the page is a card in light (white page) but almost nothing on the dark page — the
+ * home cards take the approved card instead. The "bad" wash keeps its danger tint over that card. */
+html.dark :is(.home-card, .home-tile) { background: rgb(var(--color-raised)); }
+html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger)) 9%, rgb(var(--color-raised))); }
 .home-tile-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent); }
 .home-v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
 .home-v-word { font-size: 19px; }

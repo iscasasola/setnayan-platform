@@ -51,10 +51,16 @@
  * 🪤 That guard PRINTS A WARNING AND EXITS 0 locally, but CI treats it as
  * blocking — so checking `$?` locally says nothing. Read its OUTPUT.
  *
- * ─── LIGHT MODE ONLY, ON PURPOSE ─────────────────────────────────────────
- * There is no `prefers-color-scheme: dark` block and there must not be one.
- * The palette is a measured-contrast decision; a dark variant would be a new
- * design, not a port.
+ * ─── LIGHT, AND A DARK PAIR (owner "approve all", 2026-10-13) ─────────────
+ * There is still no `prefers-color-scheme: dark` block and there must not be
+ * one: dark follows the PERSON's choice (Appearance = Light · Dark, account
+ * settings), never the phone. What changed is that the shell — the top bar,
+ * rail and bottom bar of every signed-in tree — now carries a dark value for
+ * every colour token, under `html.dark .fd` right after each token block. It
+ * is the approved gallery's warm set (control_templates_round2_2026-10-12:
+ * page #17160F, card #232019, ink #FBFAF7, gold #CBA766). The light values
+ * are exactly as locked above. Inert until the theme switch puts `.dark` on
+ * <html> for a route on its ready-list.
  */
 
 .fd {
@@ -94,6 +100,21 @@
   color: var(--fd-ink);
   font-family: var(--fd-sys);
   min-height: 100vh;
+}
+/* 🌗 The shell in dark — each token keeps its job (see the header). Measured on the page #17160F:
+ * ink 17.4 · gold 8.0 (and the page-coloured label on the gold button 8.0) · link 8.4 · m1 8.2 · m2 6.1. */
+html.dark .fd {
+  --fd-cream: #17160f;  /* the page */
+  --fd-ink: #fbfaf7;
+  --fd-gold: #cba766;   /* action fill; its label is --fd-cream, the page colour */
+  --fd-hi: #cba766;
+  --fd-link: #9db2ce;
+  --fd-m1: #b3aea3;
+  --fd-m2: #9a958c;
+  --fd-m3: #7e796f;
+  --fd-line: rgba(251, 250, 247, 0.16);
+  --fd-wash: #37301f;   /* gold at 18 % over the page */
+  --fd-hover: #292822;  /* paper at 8 % over the page — the gallery's pill */
 }
 
 .fd *,
@@ -2604,6 +2625,10 @@ button.fd-ask.quiet {
 .fd {
   --fd-panel: #f4f4f5;
   --fd-panel-line: #e6e6e8;
+}
+html.dark .fd {
+  --fd-panel: #232019;  /* the approved card */
+  --fd-panel-line: rgba(251, 250, 247, 0.12);
 }
 .fd-story {
   padding: 34px 0 8px;

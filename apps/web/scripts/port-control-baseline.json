@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1cdb9f768",
+  "generatedFromRef": "032eb1dae",
   "routeCount": 431,
   "destinations": 958,
   "actions": 673,
-  "blocks": 6041,
+  "blocks": 6045,
   "routes": {
     "/": {
       "files": [
@@ -10267,6 +10267,7 @@
       "actions": [],
       "blocks": [
         "ActionButton",
+        "BookingFeeBills",
         "NothingToAnswerFeed",
         "SupplierSubmit",
         "SupplierThumbRow",
@@ -11816,6 +11817,7 @@
         "AgentHome",
         "AppPreload",
         "AppRailShell",
+        "Badge",
         "BookingFeeBills",
         "BookingFeeNotice",
         "BottomNav",
@@ -11837,6 +11839,7 @@
         "FeedCard",
         "FieldSaveResult",
         "Figure",
+        "Fold",
         "GuidedTour",
         "HTMLDivElement",
         "I",
@@ -11864,6 +11867,7 @@
         "PaidMark",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
+        "PeekToast",
         "PillButton",
         "PillTrack",
         "Pips",
@@ -11885,9 +11889,9 @@
         "SupplierToast",
         "SupplierTodayFirstScreen",
         "SyncResult",
+        "TapMark",
         "ThumbFit",
         "TodayEyebrow",
-        "TodayPill",
         "TodayRow",
         "TrackRecordRow",
         "Unread",

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { manilaLocalToIso } from '@/lib/launch-offer';
@@ -40,12 +41,14 @@ export async function saveLaunchOffer(
   }
 
   const audit = async (action: string, after: Record<string, unknown>) => {
-    await admin.from('admin_audit_log').insert({
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
       action,
       target_id: 'launch_offer',
       actor_user_id: adminUserId,
       metadata: { table: 'platform_settings', before, after },
     });
+    // The change is saved; a missing audit row is logged, never a silent gap.
+    if (auditErr) logQueryError(`admin/launch-offer.${action}.audit`, auditErr);
   };
   const done = (message: string): LaunchOfferActionState => {
     revalidatePath('/admin/launch-offer');

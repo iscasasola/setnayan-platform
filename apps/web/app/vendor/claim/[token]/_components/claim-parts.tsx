@@ -5,9 +5,9 @@
  * unchanged, so the page and `CoupleLinkDoor` draw the SAME field and the same
  * perk. `CoupleLinkDoor` is the door a supplier meets on a COUPLE'S OWN LINK.
  */
-import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Phone, Sparkles } from 'lucide-react';
+import { Phone, Sparkles, UserPlus } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 
 /**
@@ -75,12 +75,16 @@ export function CoupleLinkDoor({
         </>
       }
     >
+      {/* THE CONTROLS (INTERACTION_RULES § 9 · the 2026-10-11 modern-app look):
+          what is only READ sits on the page as rows with dividers between
+          topics — no boxed "record" panel, no framed perks; the two presses are
+          the one ActionButton (a link and the page's own decline form). */}
       <article className="space-y-6" data-couple-link-door="">
-        <section className="rounded-xl bg-cream p-5 ring-1 ring-inset ring-ink/10">
+        <section>
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
             What they&rsquo;ve recorded
           </p>
-          <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <dl className="mt-2 divide-y divide-ink/10 border-y border-ink/10">
             <SnapshotField label="Business" value={businessName} bold />
             <SnapshotField label="Service" value={categoryLabel} />
             {contactPerson ? <SnapshotField label="Who they talk to" value={contactPerson} /> : null}
@@ -97,31 +101,26 @@ export function CoupleLinkDoor({
               value="Price · what’s included · your payment plan — after you join"
             />
           </dl>
-          <p className="mt-4 border-t border-dashed border-ink/10 pt-3 text-xs italic text-ink/55">
+          <p className="mt-2 text-xs text-ink/55">
             Package &amp; payment details stay private until you finish signup.
           </p>
         </section>
 
-        <section className="space-y-2">
+        <section>
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
             What you get
           </p>
-          <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
+          <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
             <Perk>Free supplier profile + marketplace listing</Perk>
             <Perk>Chat with {inviterName} in-app</Perk>
             <Perk>Calendar + payments + contracts tracking</Perk>
             <Perk>Marketplace exposure to other PH couples</Perk>
-            <Perk className="sm:col-span-2">No upfront cost · no credit card required</Perk>
+            <Perk>No upfront cost · no credit card required</Perk>
           </ul>
         </section>
 
         <div className="flex flex-wrap gap-3">
-          <Link
-            href={signupUrl}
-            className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
-          >
-            Claim &amp; sign up
-          </Link>
+          <ActionButton tone="brand" main icon={UserPlus} label="Claim & sign up" href={signupUrl} />
           {decline}
         </div>
         <p className="text-xs text-ink/50">
@@ -144,12 +143,10 @@ export function SnapshotField({
   bold?: boolean;
 }) {
   return (
-    <div>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-        {label}
-      </dt>
+    <div className="flex items-baseline justify-between gap-4 py-2.5">
+      <dt className="shrink-0 text-[13px] text-ink/60">{label}</dt>
       <dd
-        className={`mt-1 inline-flex items-center gap-1.5 text-sm text-ink ${
+        className={`inline-flex min-w-0 items-center gap-1.5 text-right text-sm text-ink ${
           bold ? 'font-semibold' : ''
         }`}
       >
@@ -168,10 +165,8 @@ export function Perk({
   className?: string;
 }) {
   return (
-    <li
-      className={`inline-flex items-start gap-2 rounded-md bg-cream px-3 py-2 ring-1 ring-inset ring-ink/10 ${className}`}
-    >
-      <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-terracotta" strokeWidth={1.75} />
+    <li className={`flex items-start gap-2 py-2.5 ${className}`}>
+      <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-sn-accent" strokeWidth={1.75} />
       <span>{children}</span>
     </li>
   );

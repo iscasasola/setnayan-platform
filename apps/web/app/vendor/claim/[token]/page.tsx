@@ -6,6 +6,7 @@ import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { actionButtonClass } from '@/components/action-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { supplierCommissionShort } from '@/lib/commission-promise';
@@ -171,7 +172,7 @@ export default async function VendorClaimPage({ params }: Props) {
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
               What you get
             </p>
-            <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
+            <ul className="divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
               <Perk>Free supplier profile + marketplace listing</Perk>
               <Perk>Chat with couples in-app</Perk>
               <Perk>Calendar + bookings dashboard</Perk>
@@ -179,7 +180,7 @@ export default async function VendorClaimPage({ params }: Props) {
                   on bookings" read as the whole truth to a supplier who was
                   about to be billed. Short form, still BOTH halves. */}
               <Perk>{supplierCommissionShort()}</Perk>
-              <Perk className="sm:col-span-2">No upfront cost · no credit card required</Perk>
+              <Perk>No upfront cost · no credit card required</Perk>
             </ul>
           </section>
 
@@ -329,12 +330,12 @@ export default async function VendorClaimPage({ params }: Props) {
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
             What you get
           </p>
-          <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
+          <ul className="divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
             <Perk>Free supplier profile + marketplace listing</Perk>
             <Perk>Chat with {inviterName} in-app</Perk>
             <Perk>Payment + contract tracking pre-filled</Perk>
             <Perk>Marketplace exposure to other PH couples</Perk>
-            <Perk className="sm:col-span-2">No upfront cost · no credit card required</Perk>
+            <Perk>No upfront cost · no credit card required</Perk>
           </ul>
         </section>
 
@@ -391,10 +392,8 @@ function DeclineForm({ token }: { token: string }) {
   return (
     <form action={declineVendorInviteByToken}>
       <input type="hidden" name="claim_token" value={token} />
-      <SubmitButton
-        className="inline-flex items-center justify-center rounded-md bg-cream px-6 py-3 text-sm font-medium text-ink/70 ring-1 ring-inset ring-ink/15 hover:bg-ink/5"
-        pendingLabel="…"
-      >
+      {/* The one ActionButton's look on the page's own submit (it shows the press as pending). */}
+      <SubmitButton className={actionButtonClass('neutral', { extra: 'min-h-11' })} pendingLabel="…">
         I&rsquo;m not this supplier
       </SubmitButton>
     </form>

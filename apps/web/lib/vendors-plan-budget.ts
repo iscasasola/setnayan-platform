@@ -156,6 +156,18 @@ export function lockLeadDaysFor(groupId: PlanGroupId): number {
   return LEAD_DAYS[groupId] ?? DEFAULT_LEAD_DAYS;
 }
 
+/**
+ * The kind line a category shows once its lock-by floor has passed (owner
+ * 2026-10-12, approval 12: the "168 days overdue" line becomes "usually booked
+ * N months ahead" — NOW). The STATUS stays `overdue` (it still orders the
+ * category first); only the words stop scolding. N is the same lock-by floor
+ * the clock uses, in whole months, never below one.
+ */
+export function usuallyBookedAheadLine(groupId: PlanGroupId): string {
+  const months = Math.max(1, Math.round(lockLeadDaysFor(groupId) / 30));
+  return `Usually booked ${months} ${months === 1 ? 'month' : 'months'} ahead`;
+}
+
 // Locked statuses = a pick the couple has committed to (drives "Chosen").
 const LOCKED_STATUSES = new Set([
   'contracted',
@@ -185,7 +197,8 @@ export type ChildState = 'empty' | 'considering' | 'awaiting' | 'finalized';
  *   upcoming  — too early; the app stays quiet (no chip).
  *   start_now — the START window is open: "Start now / Time to start".
  *   due_soon  — within 20 days of the lock-by floor: "Nd left".
- *   overdue   — past the floor with nothing locked: WARN "Nd overdue".
+ *   overdue   — past the floor with nothing locked: the kind line
+ *               "Usually booked N months ahead" (`usuallyBookedAheadLine`).
  *   locked    — the couple has finalized a pick here.
  */
 export type TimelineStatus =

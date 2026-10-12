@@ -28,7 +28,8 @@
  */
 import Link from 'next/link';
 import { Lock as LockIcon, CheckCircle2 } from 'lucide-react';
-import type { PlanBudgetModel } from '@/lib/vendors-plan-budget';
+import { usuallyBookedAheadLine, type PlanBudgetModel } from '@/lib/vendors-plan-budget';
+import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { lockedGroupIdsOf, type PlansRowPick } from '@/lib/plans-panel';
 import {
@@ -497,7 +498,7 @@ export function BuildLocked({
               label={d.label}
               tile={d.tile}
               folderSlug={d.folderSlug}
-              meta={decisionMeta(d.daysLeft, d.optionCount)}
+              meta={decisionMeta(d.groupId as PlanGroupId, d.daysLeft, d.optionCount)}
             />
           </li>
         ))}
@@ -579,12 +580,17 @@ export function BuildLocked({
 }
 
 /**
- * The right-aligned line on a decision row. Overdue and due-soon speak in days
- * (that IS the pressure); otherwise it reports how many options are already on
- * the bench. Null when there is nothing true to say.
+ * The right-aligned line on a decision row. Past the lock-by floor it says,
+ * kindly, how far ahead the category is usually booked (owner 2026-10-12 — not
+ * "Nd overdue"); due-soon speaks in days; otherwise it reports how many options
+ * are already on the bench. Null when there is nothing true to say.
  */
-function decisionMeta(daysLeft: number | null, optionCount: number): string | null {
-  if (daysLeft != null && daysLeft < 0) return `${Math.abs(daysLeft)}d overdue`;
+function decisionMeta(
+  groupId: PlanGroupId,
+  daysLeft: number | null,
+  optionCount: number,
+): string | null {
+  if (daysLeft != null && daysLeft < 0) return usuallyBookedAheadLine(groupId);
   if (daysLeft != null && daysLeft <= 30) return `${daysLeft}d left`;
   if (optionCount > 0) return `${formatCount(optionCount)} shortlisted`;
   return null;

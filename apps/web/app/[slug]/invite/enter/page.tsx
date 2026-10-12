@@ -6,7 +6,6 @@ import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventRowOnceBySlug } from '@/lib/event-row-once';
 import { createClient } from '@/lib/supabase/server';
-import { inviteReplyPath } from '@/lib/invite-arrival';
 import { arrivalDestinationFor, arrivalDestinationWords, replyIsAsked } from '@/lib/invite-destination';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 import { fetchPublicScheduleBlocks } from '@/lib/schedule';
@@ -58,6 +57,7 @@ import {
   isUrlSecretShaped,
   passHopMissFault,
   reentryRedeemPath,
+  replyHrefCarrying,
   type PassHopHeld,
   type PassHopMissRule,
 } from '@/lib/guest-pass-hop';
@@ -687,7 +687,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
           <LandingPreReply
             message={message}
             hosts={hosts}
-            replyHref={inviteReplyPath(home)}
+            replyHref={replyHrefCarrying(home, search.k)}
             replyByLabel={replyByLabel}
             whenWhere={whenWhere}
             fadedTicket={ticket === 'faded'}
@@ -788,7 +788,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
         {unreplied ? (
           !replyAsked ? null : (
           <div data-landing="reply">
-            <Link className="button-primary w-full" href={inviteReplyPath(home)} data-landing-reply="">
+            <Link className="button-primary w-full" href={replyHrefCarrying(home, search.k)} data-landing-reply="">
               {LANDING_WORDS.reply}
             </Link>
             {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/55">Please reply by {replyByLabel}</p> : null}
@@ -895,7 +895,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
           <p className="text-center">
             <Link
               className="inline-flex min-h-[44px] items-center text-sm font-medium text-mulberry underline underline-offset-4"
-              href={inviteReplyPath(home)}
+              href={replyHrefCarrying(home, search.k)}
               data-landing-change=""
             >
               {changeWords}

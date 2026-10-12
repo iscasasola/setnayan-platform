@@ -25,7 +25,11 @@
  * The note is not the address: an address can be pasted, linked and bookmarked; only this tab can have written this.
  *
  * And where the browser can say so beforehand (the Navigation API), the reload is announced in words first
- * (`makerLeavingWords`, drawn by `maker-updating.tsx`).
+ * (`makerLeavingWords` in `lib/maker-leaving.ts`, drawn by `maker-updating.tsx`).
+ *
+ * ⚡ This file rides the Maker's FIRST LOAD (the shell reads the note before it decides where to land), so it holds
+ * only what that needs. The words said while leaving are read by the lazy announcer alone: they live in
+ * `maker-leaving.ts` (batch 3, 2026-10-12 — the Maker's 507 KB budget).
  *
  * Pure but for `makerLoadNow`. No React.
  */
@@ -146,32 +150,4 @@ export function makerLoadNow(): MakerLoad {
     /* not reported: the page is treated as a cold door */
   }
   return { type, loaded, referrer: document.referrer, href: window.location.href };
-}
-
-/** What the page says while Next reloads it onto a newer version (its build-mismatch navigation). */
-export const MAKER_UPDATING_WORDS = 'Updating Setnayan…';
-/** …and while it reloads itself for any other reason (a chunk that moved, a request the phone cut off, the
- *  updated-site bar's Reload) — it says what it does, never an update it cannot know happened. */
-export const MAKER_RELOADING_WORDS = 'Reloading Setnayan…';
-
-/**
- * The words to show as the page starts to leave — or null: say nothing. Only for the page reloading ITSELF by
- * script (Next's build-mismatch navigation, a stale-bundle reload, the "Reload" of the updated-site bar): never
- * for a link or the browser's own buttons (`userInitiated`), a move inside the page, Back / Forward, or a
- * navigation to any other page — each of those is the person going somewhere, not the site updating under them.
- */
-export function makerLeavingWords(nav: {
-  userInitiated: boolean;
-  /** `NavigateEvent.navigationType`. */
-  type: string;
-  /** `NavigateEvent.destination.url`. */
-  to: string;
-  sameDocument: boolean;
-  here: string;
-}): string | null {
-  if (nav.userInitiated || nav.sameDocument) return null;
-  if (nav.type !== 'push' && nav.type !== 'replace' && nav.type !== 'reload') return null;
-  const here = pathOf(nav.here);
-  if (here === null || pathOf(nav.to) !== here) return null;
-  return nav.type === 'reload' ? MAKER_RELOADING_WORDS : MAKER_UPDATING_WORDS;
 }

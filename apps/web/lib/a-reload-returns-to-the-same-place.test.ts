@@ -20,16 +20,14 @@ import { join } from 'node:path';
 import * as React from 'react';
 
 import {
-  MAKER_RELOADING_WORDS,
-  MAKER_UPDATING_WORDS,
   makerCameBackToItself,
   makerDoorLanding,
-  makerLeavingWords,
   makerResumeKey,
   noteMakerResume,
   takeMakerResume,
   type MakerLoad,
 } from './maker-resume';
+import { MAKER_RELOADING_WORDS, MAKER_UPDATING_WORDS, makerLeavingWords } from './maker-leaving';
 import { STUDIO_TILE_KEYS } from './studio-tile-defs';
 import { stripComments } from './strip-comments';
 
@@ -188,10 +186,15 @@ test('4 · "Updating Setnayan…" is said only when the page reloads ITSELF by s
   assert.match(lazy, /export const MakerUpdating = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/maker-updating'\)/);
   assert.match(SHELL, /<MakerUpdating \/>/);
   assert.doesNotMatch(SHELL, /from '\.\/maker-updating'/, 'the announcer rides the Maker’s first load');
+  /* ⚡ (batch 3, 2026-10-12 — the Maker's 507 KB budget) the shell imports `maker-resume.ts` on its FIRST LOAD; the
+     words said while leaving are read by the lazy announcer alone, so they live in `maker-leaving.ts`, never there. */
+  const resume = src('lib/maker-resume.ts');
+  assert.doesNotMatch(resume, /makerLeavingWords|Updating Setnayan|Reloading Setnayan/, 'the leaving words ride the Maker’s first load again');
   const upd = src(`${LAUNCH}/maker-updating.tsx`);
   assert.match(upd, /nav\.addEventListener\('navigate', onNavigate\);/);
   assert.match(upd, /el\.textContent = words;/);
   assert.match(upd, /window\.setTimeout\(\(\) => el\.remove\(\), 8000\);/, 'a navigation that never happens leaves the line up for good');
+  assert.match(upd, /import \{ makerLeavingWords \} from '@\/lib\/maker-leaving';/);
 });
 
 /* ══ 5 · THE PRESS ITSELF RELOADS NOTHING ════════════════════════════════════ */

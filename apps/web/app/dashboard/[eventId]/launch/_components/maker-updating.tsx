@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect } from 'react';
-import { makerLeavingWords } from '@/lib/maker-resume';
+import { makerLeavingWords } from '@/lib/maker-leaving';
 
 /**
  * 🔁 "UPDATING SETNAYAN…" — said BEFORE the Maker reloads itself (owner 08 Oct, live: *"clicking on music reset the
  * maker and reloaded"*; `lib/maker-resume.ts` has what reloaded and why). The reload is Next's own, or the stale
  * bundle's — code that gives no warning — so the page listens for the navigation itself (the Navigation API's
  * `navigate` event, which fires before the page leaves) and, when it is the page reloading ITSELF by script
- * (`makerLeavingWords`), lays one line over the screen. The old page stays painted until the new one arrives, so
+ * (`makerLeavingWords`, `lib/maker-leaving.ts`), lays one line over the screen. The old page stays painted until the new one arrives, so
  * the words are what the couple reads in between — never a blank flash that looks like a crash.
  *
  * Drawn straight into the document (no state): the page is on its way out, and a render might never paint. A

@@ -962,19 +962,16 @@ if (!ONLY || ONLY === '16') {
        while the cover is held: the same plan at every position. The stillness row below is the loop's own check.) */
     const c = await open('fixture-stranger-cover-fit.html', W, H);
     const cf = await c.p.evaluate(FIT);
-    /* (RE-AIMED 2026-10-12: against the door's own fit on THIS page — the same wrapped page with reduce motion, where the
-       hold never arms — because a fit is made while the page is still settling and two pages' fits differ by a hair
-       (today's own: 0.67 · 0.68 between runs). The claim: the plan under the hold IS the door's own fit's, kept.) */
-    const own = await open('fixture-stranger-cover-fit.html', W, H, { reducedMotion: 'reduce' }); const of = await own.p.evaluate(FIT); await own.ctx.close();
     const top = await c.at(0); let differ = null; let n = 0; let held = null;
     for (let y = 0; y <= top.max; y += 32) { const f = await c.at(y); if (held === null && f.pout > 0.05) held = y; const g = await c.p.evaluate(FIT); n++; if (g.plan !== cf.plan) { differ = `${y}px: "${g.plan}"`; break; } }
     /* (NEAR, not equal: a fit is made while the page is still settling — the cover's parts arrive by their own 8 px
        motion (`.sn-arrive`), and a fit reads boxes as drawn — so two loads' plans differ by a hair: measured 0.67 · 0.68
-       on today's page between runs and 0.70 on the wrapped one, 2026-10-12. Near = the air within 0.04, each block
-       within 5 px. "Once" is exact: the same plan at every position.) */
+       on today's page between runs, 2026-10-12; with reduce motion — no arrival at all — 0.70, and the blocks up to 6 px
+       elsewhere: main's own fit reads the cover mid-arrival. Near = the air within 0.04, each block within 5 px.
+       "Once" is exact: the same plan at every position.) */
     const nums = (x) => (x.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
     const near = (a, b) => { const [x, y] = [nums(a), nums(b)]; return x.length === y.length && x.every((v, i) => Math.abs(v - y[i]) <= (i === 0 ? 0.04 : i === 1 ? 0.001 : 5)); };
-    say(c.errs.length === 0 && cf.armed && top.on && cf.written > 0 && near(cf.plan, of.plan) && near(cf.plan, tf.plan) && differ === null && n > 10, `${size}: WRAPPED the cover is fitted ONCE before it is held — the door's own plan on this page, to the value ("${cf.plan}"; the door's own "${of.plan}"; today's page "${tf.plan}"), and the same at all ${n} positions${differ ? ` — re-fitted at ${differ}` : ''}${c.errs.length ? ` — ${c.errs[0]}` : ''}`);
+    say(c.errs.length === 0 && cf.armed && top.on && cf.written > 0 && near(cf.plan, tf.plan) && differ === null && n > 10, `${size}: WRAPPED the cover is fitted ONCE before it is held — today's plan ("${cf.plan}"; today "${tf.plan}"), and the same at all ${n} positions${differ ? ` — re-fitted at ${differ}` : ''}${c.errs.length ? ` — ${c.errs[0]}` : ''}`);
     await c.at(0); const lengths = new Set(); for (let i = 0; i < 20; i++) { lengths.add(await c.p.evaluate(() => `${Math.round(document.querySelector('main').getBoundingClientRect().height)} ${document.querySelectorAll('[data-fs-shift]').length}`)); await c.p.waitForTimeout(50); }
     say(lengths.size === 1, `${size}: …and it stays still — one page length over a second at rest (${[...lengths].join(' · ')})`);
     const tz = await open('fixture-stranger-today-fit.html', W, H, { reducedMotion: 'reduce' }); const todayCalm = await tz.p.evaluate(BOXES); await tz.ctx.close();
@@ -1079,7 +1076,15 @@ if (!ONLY || ONLY === '16' || ONLY === '16b') {
     const after = await p.evaluate(SNAPF);
     const opened = await p.evaluate(() => ({ open: document.querySelector('main details[data-get-inside]').open, signIn: document.querySelector('main details[data-get-inside] a[href^="/login"]').getBoundingClientRect().bottom, sticky: [...document.querySelectorAll('.hub-page-stage')].some((e) => getComputedStyle(e).position === 'sticky') }));
     const shift = after.s;
-    say(errs.length === 0 && before.on && opened.open && !after.on && !opened.sticky && after.off === 'the door was opened' && Math.abs(after.names.t + shift - before.names.t) < 0.6 && Math.abs(after.cover.t + shift - before.cover.t) < 0.6 && after.cover.o === 1, `${size}: the door opens and the hold stands down — the plain page (${after.off}), the cover and the names where they were (the names ${r(before.names.t)} → ${r(after.names.t + shift)} on the page), drawn whole (a tap at the button lands on ${hit}; open ${opened.open}; armed ${after.on}; staying before ${before.stays}; ${replayed} motion(s) played as it stood down)`);
+    /* …AGAINST TODAY'S PAGE WITH ITS DOOR OPENED: opening the door re-lays the door's own fit, and on today's page too
+       that moves the cover by a few pixels on a short phone (its fit was first made while the cover's parts were still
+       arriving by their 8 px motion — main's own behaviour, measured 2026-10-12: 172 → 179 at 375 × 560). Standing
+       down must land exactly where today's page lands. */
+    const t = await openF('fixture-stranger-today-fit.html', W, H);
+    await t.p.click('main details[data-get-inside] > summary', { timeout: 3000 }).catch(() => {}); await t.p.waitForTimeout(100);
+    await t.p.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})))); await t.p.waitForTimeout(800);
+    const todayOpen = await t.p.evaluate(SNAPF); await t.ctx.close();
+    say(errs.length === 0 && before.on && opened.open && !after.on && !opened.sticky && after.off === 'the door was opened' && Math.abs(after.names.t + shift - (todayOpen.names.t + todayOpen.s)) < 0.6 && Math.abs(after.cover.t + shift - (todayOpen.cover.t + todayOpen.s)) < 0.6 && after.cover.o === 1, `${size}: the door opens and the hold stands down — the plain page (${after.off}), the cover and the names where today's page puts them with its door opened (the names ${r(before.names.t)} held → ${r(after.names.t + shift)} on the page; today's ${r(todayOpen.names.t + todayOpen.s)}), drawn whole (a tap at the button lands on ${hit}; open ${opened.open}; armed ${after.on}; staying before ${before.stays}; ${replayed} motion(s) played as it stood down)`);
     say(opened.signIn <= H - after.dockLine + 0.5, `${size}: …and what it opened is brought into view, clear of the bottom bar ("Sign in" ends ${r(opened.signIn)}; the line ${r(H - after.dockLine)}; the page scrolled ${shift}px)`);
     if (pics) await p.screenshot({ path: `${pics}/c16b-stranger-${W}x${H}-door-opened.png` });
     await ctx.close();

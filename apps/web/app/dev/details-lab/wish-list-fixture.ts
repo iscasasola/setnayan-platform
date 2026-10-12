@@ -101,7 +101,8 @@ export function labGuestWishState(raw: string | undefined): LabGuestWishState {
 }
 
 /** The same seed, through the REAL guest view builder — one sum per wish, no giver's name. */
-export function labGuestWishList(state: LabGuestWishState): GuestWishList {
+/** `mine` — the reader has themselves sent ₱1,000 toward the luggage set (wish list 4/5: "You sent ₱1,000 ✓"). */
+export function labGuestWishList(state: LabGuestWishState, mine = false): GuestWishList {
   if (state === 'fail') return { read: false };
   let wishes = WISHES;
   let gifts = GIFTS;
@@ -118,5 +119,11 @@ export function labGuestWishList(state: LabGuestWishState): GuestWishList {
   if (state === 'noprice') {
     wishes = WISHES.map((w) => ({ ...w, price_php: null, note: null, got_at: null, got_by: null }));
   }
-  return guestWishListFrom(wishes, gifts, () => null);
+  const luggage = wishes.find((w) => w.name === 'Luggage set');
+  return guestWishListFrom(
+    wishes,
+    gifts,
+    () => null,
+    mine && luggage ? [{ wish_item_id: luggage.wish_item_id, amount_php: 1000, removed_at: null }] : [],
+  );
 }

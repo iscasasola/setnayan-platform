@@ -52,7 +52,7 @@ const sum = (wish: number | null, amount: number, removed = false): GiftSumRow =
   amount_php: amount,
   removed_at: removed ? '2026-10-07T00:00:00Z' : null,
 });
-const wish = (over: Partial<GuestWish>): GuestWish => ({ id: 'S89H-1', name: 'Air fryer', pricePhp: 4500, photoUrl: null, note: null, got: false, sentPhp: 0, ...over });
+const wish = (over: Partial<GuestWish>): GuestWish => ({ id: 'S89H-1', name: 'Air fryer', pricePhp: 4500, photoUrl: null, note: null, got: false, sentPhp: 0, minePhp: 0, ...over });
 
 const ROWS = [row(1, 'Bed linen', 2500, true), row(2, 'Air fryer', 4500, false, 'the 6 L one, black'), row(3, 'Rice cooker', 3200)];
 const SUMS = [sum(2, 2000), sum(2, 2000), sum(1, 2500), sum(null, 5000), sum(3, 9000, true)];
@@ -83,7 +83,7 @@ test('one sum per wish: removed records and gifts toward no wish are not in it',
 test('🔒 the guest’s view has no field for another guest’s name, amount, words or screenshot', () => {
   const view = guestWishListFrom(ROWS, SUMS, () => null);
   assert.ok(view.read);
-  assert.deepEqual(Object.keys(view.wishes[0]!).sort(), ['got', 'id', 'name', 'note', 'photoUrl', 'pricePhp', 'sentPhp']);
+  assert.deepEqual(Object.keys(view.wishes[0]!).sort(), ['got', 'id', 'minePhp', 'name', 'note', 'photoUrl', 'pricePhp', 'sentPhp']);
 });
 
 test('the photo is the caller’s resolver’s — a ref it refuses draws none', () => {
@@ -93,6 +93,21 @@ test('the photo is the caller’s resolver’s — a ref it refuses draws none',
   assert.equal(shown.read && shown.wishes[0]!.photoUrl, 'https://media.example/a.jpg');
   assert.equal(refused.read && refused.wishes[0]!.photoUrl, null);
   assert.ok(!JSON.stringify(refused).includes('r2://'), 'a stored ref reached the guest’s view');
+});
+
+test('the reader\u2019s own gifts are marked on their wish — theirs alone, and never over "Got it"', () => {
+  const view = guestWishListFrom(ROWS, SUMS, () => null, [sum(2, 500), sum(2, 700, true), sum(1, 2500)]);
+  assert.ok(view.read);
+  const air = view.wishes.find((w) => w.name === 'Air fryer')!;
+  assert.equal(air.minePhp, 500, 'a record the couple removed is not "sent" by the reader either');
+  assert.equal(guestWishLine(air), 'You sent ₱500 ✓ · ₱4,000 of ₱4,500');
+  assert.equal(guestWishLine({ ...air, pricePhp: null }), 'You sent ₱500 ✓');
+  const linen = view.wishes.find((w) => w.name === 'Bed linen')!;
+  assert.equal(linen.minePhp, 2500);
+  assert.equal(guestWishLine(linen), GUEST_WISH_GOT, 'a got wish says so first');
+  // With no reader, nobody's gift is "yours".
+  const anon = guestWishListFrom(ROWS, SUMS, () => null);
+  assert.ok(anon.read && anon.wishes.every((w) => w.minePhp === 0));
 });
 
 test('the count beside the eyebrow, and the open count behind the door', () => {

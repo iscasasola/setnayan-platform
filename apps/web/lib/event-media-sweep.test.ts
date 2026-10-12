@@ -384,3 +384,49 @@ test("🔒 a wish row naming another celebration's file, or a private bucket, is
   assert.equal(plan.deletes.length, 0, 'the wish list became a way to delete somebody else’s file');
   assert.equal(plan.refused, 2);
 });
+
+// ── Gift-record screenshots are deleted with the celebration (wish list 4/5) ──
+
+test('a gift record’s screenshot is planned for deletion with the event — a removed record’s too', () => {
+  const eventId = '044f7e64-95aa-4dcb-84c1-7263bf494eaa';
+  const guest = '9a1b2c3d-0000-4000-8000-000000000001';
+  const plan = planEventMediaDeletes({
+    eventId,
+    photos: [],
+    guestCaptures: [],
+    captures: [],
+    event: null,
+    egiftMethods: [],
+    giftRecords: [
+      { screenshot_r2_key: `r2://setnayan-thread-files/gift-shots/${eventId}/${guest}/a.jpg` },
+      { screenshot_r2_key: `r2://setnayan-thread-files/gift-shots/${eventId}/${guest}/removed.png` },
+      { screenshot_r2_key: null },
+    ],
+  });
+  assert.deepEqual(
+    plan.deletes.map((d) => `${d.bucket}/${d.key}`).sort(),
+    [`setnayan-thread-files/gift-shots/${eventId}/${guest}/a.jpg`, `setnayan-thread-files/gift-shots/${eventId}/${guest}/removed.png`],
+    'a guest’s screenshot survived "Remove for good"',
+  );
+  assert.equal(plan.refused, 0);
+});
+
+test("🔒 a gift record naming another celebration's screenshot, or the public bucket, is refused", () => {
+  const eventId = '044f7e64-95aa-4dcb-84c1-7263bf494eaa';
+  const other = '11111111-2222-3333-4444-555555555555';
+  const plan = planEventMediaDeletes({
+    eventId,
+    photos: [],
+    guestCaptures: [],
+    captures: [],
+    event: null,
+    egiftMethods: [],
+    giftRecords: [
+      { screenshot_r2_key: `r2://setnayan-thread-files/gift-shots/${other}/g/x.jpg` },
+      { screenshot_r2_key: `r2://setnayan-media/gift-shots/${eventId}/g/x.jpg` },
+      { screenshot_r2_key: `r2://setnayan-thread-files/pabuya-qr/${eventId}/qr.jpg` },
+    ],
+  });
+  assert.equal(plan.deletes.length, 0, 'the gift records became a way to delete somebody else’s file');
+  assert.equal(plan.refused, 3);
+});

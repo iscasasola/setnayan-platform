@@ -175,6 +175,11 @@ const OUTSIDER_BUSINESS_ALAGA = '2f000000-0000-4000-8000-000000000002';
 const SUBJECT_EMAIL = 'leaving.person@example.com';
 const CENOMAR_REF = 'PSA-CENOMAR-2026-0099887';
 const SELFIE_REF = `r2://setnayan-media/events/${EVENT}/guest-selfies/${SUBJECT_GUEST}/subject-selfie.jpg`;
+// The E-Gifts wish list (2026-10-08): the screenshot a guest attaches to "I sent
+// it" lives in the PRIVATE bucket, in that guest's own folder.
+const STAYING_GUEST = '2e000000-0000-4000-8000-000000000002';
+const GIFT_SHOT_REF = `r2://setnayan-thread-files/gift-shots/${EVENT}/${SUBJECT_GUEST}/gcash.jpg`;
+const STAYING_GIFT_SHOT_REF = `r2://setnayan-thread-files/gift-shots/${EVENT}/${STAYING_GUEST}/bank.jpg`;
 const PAPERWORK_REF = `r2://setnayan-vendor-contracts/paperwork/${EVENT}/cenomar_partner_1/cenomar-scan.pdf`;
 const PROFILE_PHOTO_REF = `r2://setnayan-media/profile-photo/${SUBJECT}/subject.jpg`;
 // The private-bucket ref every attachment written since 2026-09-09 carries.
@@ -442,6 +447,13 @@ before(async () => {
 
     INSERT INTO public.scan_events (event_id, guest_id, source, scanner_user_id, user_agent, ip_anon)
     VALUES ('${EVENT}', '${SUBJECT_GUEST}', 'browser', '${SUBJECT}', 'Mozilla/5.0 iPhone', '138.84.140.0');
+
+    -- ── what the subject SAID they sent, and what another guest said ────────
+    INSERT INTO public.guests (guest_id, event_id, first_name, last_name, side, group_category)
+    VALUES ('${STAYING_GUEST}', '${EVENT}', 'Staying', 'Guest', 'groom', 'friends');
+    INSERT INTO public.event_gift_records (event_id, amount_php, screenshot_r2_key, message, giver_name, giver_guest_id)
+    VALUES ('${EVENT}', 500, '${GIFT_SHOT_REF}', 'Congratulations!', 'Leaving Person', '${SUBJECT_GUEST}'),
+           ('${EVENT}', 900, '${STAYING_GIFT_SHOT_REF}', 'Mabuhay!', 'Staying Guest', '${STAYING_GUEST}');
 
     INSERT INTO public.event_moderators (event_id, user_id, role_subtype, permissions_json,
                                          display_label, invitation_email, invitation_phone)
@@ -942,6 +954,25 @@ test('2i · biometrics — enrolment, R2 selfie and the selfie display photo are
   assert.equal(photo, null);
 });
 
+test('2i′ · the gift screenshot the subject showed a host is gone — the host’s list of gifts is not', async () => {
+  assert.ok(deletedStoredAssets.includes(GIFT_SHOT_REF), 'the subject’s own bank screenshot was not handed to storage');
+  const mine = await db.query<{ screenshot_r2_key: string | null; amount_php: number; giver_name: string; message: string | null }>(
+    `SELECT screenshot_r2_key, amount_php, giver_name, message FROM public.event_gift_records WHERE giver_guest_id = $1`,
+    [SUBJECT_GUEST],
+  );
+  assert.equal(mine.rows.length, 1, 'the record itself is the host’s list of who gave what — it must survive');
+  assert.equal(mine.rows[0]!.screenshot_r2_key, null, 'the pointer to the deleted screenshot was left on the row');
+  assert.equal(mine.rows[0]!.amount_php, 500);
+  assert.equal(mine.rows[0]!.giver_name, 'Leaving Person');
+  // Another guest's screenshot is theirs — never reached by somebody else's erasure.
+  assert.equal(deletedStoredAssets.includes(STAYING_GIFT_SHOT_REF), false, 'ANOTHER guest’s screenshot was handed to storage');
+  assert.equal(
+    await one(`SELECT screenshot_r2_key FROM public.event_gift_records WHERE giver_guest_id = $1`, [STAYING_GUEST]),
+    STAYING_GIFT_SHOT_REF,
+    'another guest’s record lost its screenshot',
+  );
+});
+
 test('2j · the disarmed-CASCADE tables are finally cleaned up', async () => {
   const empty: Array<[string, string, string]> = [
     ['notifications', 'user_id', SUBJECT],
@@ -1168,6 +1199,7 @@ test('3d′ · every file erasure hands to storage is held to THE ROW IT CAME FR
     'r2://setnayan-vendor-contracts/paperwork/2b000000-0000-4000-8000-000000000099/psa/scan.pdf',
     'r2://setnayan-thread-files/chat/2d000000-0000-4000-8000-000000000099/a.pdf',
     'r2://setnayan-media/profile-photo/2a000000-0000-4000-8000-000000000099/p.png',
+    STAYING_GIFT_SHOT_REF,
   ];
   for (const { scope } of handedOver) {
     for (const stranger of strangers) {

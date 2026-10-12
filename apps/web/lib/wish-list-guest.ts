@@ -22,6 +22,7 @@
  */
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
+import { youSentLine } from '@/lib/gift-record';
 import { leftToReach, meterPercent, sentByWish, type GiftSumRow, type WishItemRow } from '@/lib/wish-list';
 
 /** One wish, as a guest's page draws it. */
@@ -37,6 +38,8 @@ export type GuestWish = {
   got: boolean;
   /** Pesos guests say they sent toward it — a sum, never a list. */
   sentPhp: number;
+  /** What THIS reader says they sent toward it (their own records only) — 0 for none, or for a reader with no invitation. */
+  minePhp: number;
 };
 
 /**
@@ -60,8 +63,11 @@ export function guestWishListFrom(
   wishes: readonly GuestWishRow[],
   sums: readonly GiftSumRow[],
   photoUrlFor: (ref: string | null) => string | null,
+  /** The READER's own records (the same three columns) — theirs alone; omitted for a reader with no invitation. */
+  mine: readonly GiftSumRow[] = [],
 ): GuestWishList {
   const sent = sentByWish(sums);
+  const own = sentByWish(mine);
   const view = wishes.map((w): GuestWish => ({
     id: w.public_id,
     name: w.name,
@@ -70,8 +76,31 @@ export function guestWishListFrom(
     note: w.note,
     got: w.got_at != null,
     sentPhp: sent.get(w.wish_item_id)?.sentPhp ?? 0,
+    minePhp: own.get(w.wish_item_id)?.sentPhp ?? 0,
   }));
   return { read: true, wishes: [...view.filter((w) => !w.got), ...view.filter((w) => w.got)] };
+}
+
+/**
+ * THE LIST AFTER THIS READER'S OWN GIFT WAS KEPT — drawn from the write's own
+ * answer, so the page is not rendered again for it (owner rule 2026-10-08: a
+ * press costs one request and never re-renders the page).
+ *
+ * Exactly what the next read would hand back for this reader: the wish's sum
+ * and their own line both grow by what they said they sent, the wish is got if
+ * the write says it now is ("when amount is reached."), and a got wish sinks to
+ * the end — the same order `guestWishListFrom` builds. Every other wish is
+ * untouched. A wish that is not on the list changes nothing.
+ */
+export function withOwnGift(
+  wishes: readonly GuestWish[],
+  gift: { wishId: string; amountPhp: number; nowGot: boolean },
+): GuestWish[] {
+  const amount = Number.isFinite(gift.amountPhp) && gift.amountPhp > 0 ? gift.amountPhp : 0;
+  const view = wishes.map((w) =>
+    w.id === gift.wishId ? { ...w, sentPhp: w.sentPhp + amount, minePhp: w.minePhp + amount, got: w.got || gift.nowGot } : w,
+  );
+  return [...view.filter((w) => !w.got), ...view.filter((w) => w.got)];
 }
 
 const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
@@ -99,8 +128,10 @@ export const GUEST_WISH_HOW = 'Tap a wish to send toward it — or give any amou
  *   gifts so far   → "₱4,000 of ₱4,500 sent"
  *   nothing yet    → "₱3,200" (+ " · the grey one")
  */
-export function guestWishLine(w: Pick<GuestWish, 'got' | 'pricePhp' | 'sentPhp' | 'note'>): string {
+export function guestWishLine(w: Pick<GuestWish, 'got' | 'pricePhp' | 'sentPhp' | 'note'> & { minePhp?: number }): string {
   if (w.got) return GUEST_WISH_GOT;
+  /* The reader's own gift toward it: "You sent ₱500 ✓ · ₱4,500 of ₱4,500". */
+  if ((w.minePhp ?? 0) > 0) return youSentLine(w.minePhp!, w);
   if (w.pricePhp == null) return `Any amount${w.sentPhp > 0 ? ` · ${formatPhp(w.sentPhp)} sent so far` : ''}`;
   if (w.sentPhp > 0) return `${formatPhp(w.sentPhp)} of ${formatPhp(w.pricePhp)} sent`;
   return `${formatPhp(w.pricePhp)}${w.note ? ` · ${w.note}` : ''}`;

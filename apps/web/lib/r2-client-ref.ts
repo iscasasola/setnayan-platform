@@ -371,6 +371,29 @@ export function wishPhotoPolicy(eventId: string): ClientRefPolicy {
   return { prefixes: [`events/${eventId}/wish-list/`] };
 }
 
+/**
+ * A guest's SCREENSHOT of what they sent (E-Gifts › a gift record, owner
+ * 2026-10-08: "they also give screenshot of their payment"). PRIVATE, under its
+ * own ROOT prefix — the same class as a payment receipt: a picture of the
+ * guest's own GCash, Maya or bank confirmation, with their name and account on
+ * it. Only the couple may ever be shown it; there is no public URL.
+ *
+ * Two policies, one folder shape (`gift-shots/<event>/<guest>/…`):
+ *   · `giftShotPolicy`      — what ONE guest may name when they record a gift:
+ *                             their own folder, and nothing of another guest's;
+ *   · `giftShotEventPolicy` — the whole event's folder, for the host's read and
+ *                             for the sweep that deletes them with the event.
+ * The key is minted by the server from the guest's session (`/api/guest-selfie`,
+ * purpose `gift-shot`) — the browser never chooses the path.
+ */
+export function giftShotPolicy(eventId: string, guestId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`gift-shots/${eventId}/${guestId}/`] };
+}
+
+export function giftShotEventPolicy(eventId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`gift-shots/${eventId}/`] };
+}
+
 /** Pabuya / e-gift QR images the couple uploads for their guests. */
 /**
  * Where a NEW Pabuya gift QR may be written: the private bucket, under its own

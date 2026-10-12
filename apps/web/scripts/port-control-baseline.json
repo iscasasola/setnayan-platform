@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "594f817c4",
+  "generatedFromRef": "47db7bd33b",
   "routeCount": 431,
   "destinations": 956,
   "actions": 675,
-  "blocks": 6113,
+  "blocks": 6115,
   "routes": {
     "/": {
       "files": [
@@ -10270,6 +10270,7 @@
     "/dev/maker-lab/guest": {
       "files": [
         "dev/maker-lab/guest/lab-day.tsx",
+        "dev/maker-lab/guest/lab-reply-door.tsx",
         "dev/maker-lab/guest/lab-sample.ts",
         "dev/maker-lab/guest/lab-stage.tsx",
         "dev/maker-lab/guest/page.tsx",
@@ -10281,6 +10282,7 @@
       "blocks": [
         "CountdownWidget",
         "CustomSectionWidget",
+        "DoorShell",
         "DressCodeWidget",
         "EditorBridge",
         "EntourageSection",
@@ -10292,6 +10294,7 @@
         "HubPageHold",
         "HubScenes",
         "LabDayPages",
+        "LabReplyDoor",
         "LabScrubBadge",
         "LabScrubScene",
         "LabStagePages",

@@ -351,10 +351,17 @@ export function armHubScrub(root: HTMLElement): () => void {
       /* Where a box of the first screen is drawn on the page — from where the cover is LAID OUT, so a stage standing
          still is never read as layout (and a part the fit draws away from its own place is read where it is drawn). */
       const coverAt = cover.getBoundingClientRect().top;
-      const onPage = (el: Element, edge: 'top' | 'bottom') => docTop(cover) + el.getBoundingClientRect()[edge] - coverAt;
+      /* 📐 …TO THE FRACTION. A fitted cover is laid out on fractions of a pixel (its air is a share of a rem), and
+         `docTop` sums whole ones: the cover's line came out a fraction BELOW where it stands, so at scroll 0 the page
+         was already that fraction into its hold — the cover 0.1 % built out before a touch (seen in the browser,
+         375 × 560). The page's own first cell never moves (only its stage stands still), so it is read exactly, and the
+         cover from it. */
+      const cellTop = pages[0].cell.getBoundingClientRect().top + window.scrollY;
+      const coverTop = cellTop + coverAt - pages[0].stage.getBoundingClientRect().top;
+      const onPage = (el: Element, edge: 'top' | 'bottom') => coverTop + el.getBoundingClientRect()[edge] - coverAt;
       /* 📐 What must be seen of the cover from where it stands: its names and its date (what the fit keeps). */
       const must = [cover.querySelector('[data-hub-names]'), cover.querySelector('[data-motion="arrive-date"]')].filter((el): el is HTMLElement => el instanceof HTMLElement && el.offsetHeight > 0);
-      const seen = must.length ? Math.max(...must.map((el) => onPage(el, 'bottom'))) - docTop(cover) : cover.offsetHeight;
+      const seen = must.length ? Math.max(...must.map((el) => onPage(el, 'bottom'))) - coverTop : cover.offsetHeight;
       /* 🚪 THE DOOR STAYS when it is on the first screen as the page opens: above the bottom bar it docks clear of. */
       const door = row.find((el) => el.matches(DOOR) || el.querySelector(DOOR) !== null) ?? null;
       const dockedBy = door ? parseFloat(getComputedStyle(door.matches(DOOR) ? door : door.querySelector<HTMLElement>(DOOR)!).scrollMarginBottom) || 0 : 0;
@@ -378,8 +385,8 @@ export function armHubScrub(root: HTMLElement): () => void {
       }
       const unitEnd = mate ?? row[row.length - 1] ?? null;
       const unit: ScrubElement = arrives && unitEnd ? { h: docTop(unitEnd) + unitEnd.offsetHeight - docTop(arrives), oneByOne: oneByOne(unitEnd) } : { h: 0, oneByOne: false };
-      const pair = scrubPair({ h: cover.offsetHeight, oneByOne: false }, unit, view, docTop(cover), keep);
-      const stick = pair.top - (docTop(cover) - docTop(pages[0].stage));
+      const pair = scrubPair({ h: cover.offsetHeight, oneByOne: false }, unit, view, coverTop, keep);
+      const stick = pair.top - (coverTop - cellTop);
       put(pages[0].stage, '--hub-top', px(stick));
       put(pages[0].cell, '--hub-len', px(pair.len));
       const up = arrives ? pair.up - (docTop(arrives) - docTop(pulled)) : 0;
@@ -392,7 +399,7 @@ export function armHubScrub(root: HTMLElement): () => void {
          through its box and is added to this one, and the arrival would stand that much lower than its line. So the
          distance is measured as it was actually laid out, and what is over is taken off — once; it is a sum. (The
          same for a box outside the cover's rest: whatever lies between it and the cover is read, not reasoned.) */
-      const over = arrives ? docTop(arrives) - (docTop(cover) + cover.offsetHeight) - pair.up : 0;
+      const over = arrives ? onPage(arrives, 'top') - (coverTop + cover.offsetHeight) - pair.up : 0;
       if (Math.abs(over) > 0.5) put(pulled, '--hub-up', px(up - over));
       const last = unitEnd;
       const next = last?.nextElementSibling ?? null;

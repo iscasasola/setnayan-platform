@@ -492,7 +492,11 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
      them included — or one box as before; the cover's side of the pair, and where it stands, are unchanged.) */
   /* (RE-AIMED 2026-10-12, owner "option 2": the cover's pair is also told what must be SEEN of it from where it stands
      and the line a door that stays puts under its arrival — `keep`, (11) below. The unit and where it stands are as before.) */
-  assert.match(engine, /const unit: ScrubElement = arrives && unitEnd \? \{ h: docTop\(unitEnd\) \+ unitEnd\.offsetHeight - docTop\(arrives\), oneByOne: oneByOne\(unitEnd\) \} : \{ h: 0, oneByOne: false \};\s*const pair = scrubPair\(\{ h: cover\.offsetHeight, oneByOne: false \}, unit, view, docTop\(cover\), keep\);/);
+  assert.match(engine, /const unit: ScrubElement = arrives && unitEnd \? \{ h: docTop\(unitEnd\) \+ unitEnd\.offsetHeight - docTop\(arrives\), oneByOne: oneByOne\(unitEnd\) \} : \{ h: 0, oneByOne: false \};\s*const pair = scrubPair\(\{ h: cover\.offsetHeight, oneByOne: false \}, unit, view, coverTop, keep\);/);
+  /* (RE-AIMED 2026-10-12: where the cover stands is read to the fraction — from the page's own first cell, which
+     never moves — not summed from whole pixels: a fitted cover is laid out on fractions, and its line came out a
+     fraction below where it stood, so the page was already into its hold at scroll 0.) */
+  assert.match(engine, /const cellTop = pages\[0\]\.cell\.getBoundingClientRect\(\)\.top \+ window\.scrollY;\s*const coverTop = cellTop \+ coverAt - pages\[0\]\.stage\.getBoundingClientRect\(\)\.top;/);
   /* 🤝 TOGETHER: decided by what the block IS — the page's own marks for its one action — never by its height; the
      block after it is looked for up to the page's stage, through the page's groups; both are marked, and both are
      given the same moment of the hand-over. */
@@ -511,7 +515,7 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
   assert.match(engine, /arrives = nextBox\(coverRest\);\s*if \(!arrives\) \{\s*outside = followers\(coverCell, page\)\[0\] \?\? null;\s*arrives = outside \? through\(outside\) : null;\s*\}\s*let pulled = outside \?\? coverRest;/);
   assert.match(engine, /if \(outside\) put\(outside, 'data-hub-zrest', ''\);/);
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \[data-hub-zrest\] \{ margin-top: var\(--hub-up, 0px\) !important; \}/);
-  assert.match(engine, /const stick = pair\.top - \(docTop\(cover\) - docTop\(pages\[0\]\.stage\)\);\s*put\(pages\[0\]\.stage, '--hub-top', px\(stick\)\);\s*put\(pages\[0\]\.cell, '--hub-len', px\(pair\.len\)\);/);
+  assert.match(engine, /const stick = pair\.top - \(coverTop - cellTop\);\s*put\(pages\[0\]\.stage, '--hub-top', px\(stick\)\);\s*put\(pages\[0\]\.cell, '--hub-len', px\(pair\.len\)\);/);
   assert.match(engine, /if \(!el\.offsetHeight \|\| el\.offsetParent === null\) continue;\s*return el\.matches\(THROUGH\) \? \(nextBox\(el\) \?\? el\) : el;/);
   /* …what follows the arrival stays under the cover until the cover has completely gone; a box the page pins is never moved. */
   assert.match(engine, /const lower = h\.lift \? 1 - m\.rows : m\.below;/);
@@ -519,7 +523,7 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
      box and is added to the one the engine sets (seen in the browser: the arrival 40 px below its line). */
   /* (RE-AIMED 2026-10-10: the box that is pulled up is the cover's own rest OR, when that holds nothing, the next box
      on the page — `pulled`; the read-back is the same sum.) */
-  assert.match(engine, /const over = arrives \? docTop\(arrives\) - \(docTop\(cover\) \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(pulled, '--hub-up', px\(up - over\)\);/);
+  assert.match(engine, /const over = arrives \? onPage\(arrives, 'top'\) - \(coverTop \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(pulled, '--hub-up', px\(up - over\)\);/);
   /* (RE-AIMED 2026-10-12: a row that draws no box of its own — `display: contents`, the stranger's door row after the
      merge — stands for its children; the box asked is each of those, or the sibling itself. The claim is unchanged.) */
   assert.match(engine, /getComputedStyle\(box\)\.position === 'static'/);

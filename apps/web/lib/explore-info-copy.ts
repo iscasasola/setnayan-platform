@@ -427,9 +427,17 @@ export function inlineMoreSaveLabel(label: string): string {
 /** The secondary action. Shortlists first, because a thread needs a pick. */
 export const INLINE_MORE_INQUIRE = 'Inquire';
 
-/** Confirmation on the card that was just saved, naming where it went. */
+/**
+ * Confirmation on the card that was just saved, naming where it went.
+ *
+ * It no longer says "it's in the row above" (2026-10-12): the save now answers
+ * in place, without re-rendering the page (owner: Save on a card must not
+ * refresh the whole page), so the supplier joins the cards above only on the
+ * bench's one owed refresh — when the couple leaves Find. Until then that
+ * clause would point at a row that does not hold them yet.
+ */
 export function inlineMoreSavedNote(label: string): string {
-  return `Saved to ${label} — it's in the row above.`;
+  return `Saved to ${label}.`;
 }
 
 /** The undo beside it. See `canUndoInlineSave` for when it may be offered. */

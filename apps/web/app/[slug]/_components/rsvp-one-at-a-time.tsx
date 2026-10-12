@@ -12,7 +12,8 @@ import { RSVP_FORM_WORD_DEFAULT } from '@/lib/rsvp-form-words';
  *
  * 🔑 IT ARRANGES THE FORM THE SERVER ALREADY DREW; IT OWNS NO FIELD. Every
  * question on the card carries `data-rsvp-step`, and this component shows one
- * of them at a time, with "2 of 5", Back, and Next. Without script — or before
+ * of them at a time, with progress dots, Back, and Next (no "2 of 5" —
+ * the total is not known until the first answer: see `RsvpStepProgress`). Without script — or before
  * hydration — nothing is hidden and the page is the one scrolling form it
  * always was, so the switch can never make a reply impossible.
  *
@@ -34,11 +35,11 @@ import { RSVP_FORM_WORD_DEFAULT } from '@/lib/rsvp-form-words';
  * field label already IS the title"*. So, top to bottom:
  *
  *   1 · the couple's mark (the door's crest) — the header;
- *   2 · PROGRESS, as ONE unit: Back on its left, the filling bar and "2 of 8"
- *       together in the middle — directly under the mark, ABOVE everything the
- *       guest reads. It was mid-card under the invitation's facts, with "1 of 8"
- *       at one edge and the dots at the other: two halves of one fact a whole
- *       row apart;
+ *   2 · PROGRESS, as ONE unit: Back on its left, the dots in the middle —
+ *       directly under the mark, ABOVE everything the guest reads. It was
+ *       mid-card under the invitation's facts, with "1 of 8" at one edge and the
+ *       dots at the other: two halves of one fact a whole row apart (and since
+ *       2026-10-12 there is no "N of M" at all — `RsvpStepProgress`);
  *   3 · the invitation's facts (names · date · who is replying · reply-by) —
  *       on the FIRST screen only; later screens fold them to one line
  *       (`data-rsvp-context` / `data-rsvp-context-line`);
@@ -214,11 +215,29 @@ export const ONE_AT_A_TIME_CSS = [
 
 /**
  * PROGRESS, AS ONE UNIT. Back on the left (kept, invisible, on the first
- * screen so nothing shifts), the filling bar and its "2 of 8" together in the
- * middle, an equal spacer on the right so the unit stays centred under the
- * couple's mark. The bar is the open-shop wizard's own shape (segments that
- * fill, `role="progressbar"`); the count stays in words because this switch is
- * for elders.
+ * screen so nothing shifts), the dots in the middle, an equal spacer on the
+ * right so the unit stays centred under the couple's mark. `role="progressbar"`.
+ *
+ * 🔵 DOTS ONLY — NO "N OF M" (owner's live walk of 2026-10-12 on his own
+ * invitation: screen 1 read "1 of 3", and after "Joyfully accepts" screen 2 read
+ * "2 of 4"). The number of questions is not known until the guest answers the
+ * first one: a yes opens the questions only somebody who is coming is asked
+ * (the tagging question, their plus-ones, a meal…), so any total said on screen
+ * 1 is a guess, and a total that changes mid-way reads as the form moving the
+ * goalposts. So the count is never said in words, and:
+ *
+ *   · ONE DOT PER STEP KNOWN SO FAR — the steps the answers given so far ask
+ *     for, so a yes adds its dots quietly at the end of the row;
+ *   · EVERY DOT KEEPS ITS SIZE — a fixed dot, never a share of a fixed bar, so a
+ *     dot added at the end can never shrink the ones already filled (with
+ *     `flex-1` segments, 1 of 2 → 2 of 6 drew LESS bar filled after going
+ *     forward: progress that reads as going backwards);
+ *   · the filled dots are the screens behind the guest and the one they are on,
+ *     so going forward always fills one more.
+ *
+ * The screen reader is told which question it is ("Question 2"), never a total
+ * that may still change. (Controller's call, 2026-10-12, under the 2026-10-11
+ * "OK ALL" delegation.)
  */
 export function RsvpStepProgress({
   index,
@@ -229,7 +248,7 @@ export function RsvpStepProgress({
   total: number;
   onBack: () => void;
 }) {
-  const label = `Question ${formatCount(index + 1)} of ${formatCount(total)}`;
+  const label = `Question ${formatCount(index + 1)}`;
   return (
     <div className="mb-5 grid grid-cols-[4rem_1fr_4rem] items-center" data-rsvp-progress="">
       <button
@@ -242,31 +261,32 @@ export function RsvpStepProgress({
       >
         ‹ Back
       </button>
-      <div className="flex flex-col items-center gap-1.5" data-rsvp-progress-unit="">
+      <div className="flex flex-col items-center" data-rsvp-progress-unit="">
         <div
           role="progressbar"
           aria-valuemin={1}
-          aria-valuemax={total}
           aria-valuenow={index + 1}
+          aria-valuetext={label}
           aria-label={label}
-          className="flex w-full max-w-[12rem] gap-1"
+          className="flex flex-wrap items-center justify-center gap-1.5"
         >
           {Array.from({ length: total }, (_, i) => (
             <span
               key={i}
               aria-hidden
-              className={`h-1 flex-1 rounded-full ${i <= index ? 'bg-ink' : 'bg-ink/15'}`}
+              data-rsvp-dot={i <= index ? 'done' : ''}
+              className={`${RSVP_PROGRESS_DOT} ${i <= index ? 'bg-ink' : 'bg-ink/15'}`}
             />
           ))}
         </div>
-        <p className="text-xs tabular-nums text-ink/70" aria-live="polite">
-          {formatCount(index + 1)} of {formatCount(total)}
-        </p>
       </div>
       <span aria-hidden />
     </div>
   );
 }
+
+/** One progress dot — a FIXED size, so a dot added for a later question never shrinks the ones before it. */
+export const RSVP_PROGRESS_DOT = 'h-2 w-2 shrink-0 rounded-full';
 
 /**
  * The one action at the foot of a screen. On the answer screen there is none —

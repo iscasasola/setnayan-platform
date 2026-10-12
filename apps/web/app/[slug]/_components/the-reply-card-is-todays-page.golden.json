@@ -1,6 +1,6 @@
 {
- "_about": "RECORDED AGAIN 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
- "widgetSha256": "4b6ba68ac49815dce9852ec921bdb97f9c515af47a690ceeea8f2262b3f5e95e",
+ "_about": "RECORDED AGAIN 2026-10-13 (release batch 3 joining main: #6488 guest-leftovers-2 — the Terms line one shared piece and faint ink /45–/60 → /70, meant for every guest — together with main’s rd/reply-steps-one-look below; both sides had re-recorded, the join is recorded once). Before that 2026-10-13 (rd/reply-steps-one-look: the tagging question’s answers wear the card’s own answer — the style’s one class, the Look › Buttons hook and, on the reply card, the couple’s Yes / No look — meant for every guest asked it; only the three “the tagging question asked” cases move). Before that 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
+ "widgetSha256": "e63f9252dc22e09d860a67330cc7b0be9ea769e4b40da1072e8cd71f0f795720",
  "cases": {
   "reply-card · celebratory · the Event Hub sheet · one page · a guest": {
    "sha256": "f324933aabe884d699a0032aa31a8f5fe983daf6866b253f19271e23fd4d8fa3",
@@ -231,8 +231,8 @@
    "bytes": 4622
   },
   "reply-card · the tagging question asked": {
-   "sha256": "de21e13d3420511e145c9022748071a701b1851e6922ab44d40ac45ab78fa381",
-   "bytes": 11422
+   "sha256": "b1ca481660c211bf49091e93899dfc7fff7dccddee0f7515ddd8c1d9eed7e83e",
+   "bytes": 11580
   },
   "reply-card · a flash, a host pitch, no terms": {
    "sha256": "3b495f7d8d74ed6c3241e702ddc072fff36bcca87e8e7bac44e62285c3833689",
@@ -275,8 +275,8 @@
    "bytes": 4151
   },
   "question · the tagging question asked": {
-   "sha256": "7da7579214a70635e9c305daf5edda76efd47526f9ba95f4287f1f1899c4214f",
-   "bytes": 10951
+   "sha256": "1496d7cdd77c58a5424dd6b484fbe6343d2b55b401b64a9ad81c0b0d8db32a37",
+   "bytes": 11046
   },
   "question · a flash, a host pitch, no terms": {
    "sha256": "da707e08e180cb1cc532d90422ba4cb0f3b73f2cec4a9aa62292c9fe63852d0a",
@@ -319,8 +319,8 @@
    "bytes": 4475
   },
   "ticket · the tagging question asked": {
-   "sha256": "daae8528ea14d5ba24ebe7b90219792ff0dec48db7b8a450a5c727bfbf2d285d",
-   "bytes": 11275
+   "sha256": "fb40feab3dd85637befcf97422ca1232cadcebc3714c0c19f172df2b9f5934f9",
+   "bytes": 11667
   },
   "ticket · a flash, a host pitch, no terms": {
    "sha256": "1aa41b0f1ce02aff24357a7833925edea84ad6cfcc13a3a9bf4ec86c233e1ed8",

@@ -32,6 +32,7 @@ import { RsvpLookStyle } from '@/app/[slug]/_components/rsvp-look-style';
 import { RsvpWidget } from '@/app/[slug]/_components/rsvp-widget';
 import { submitInviteReply } from '@/app/[slug]/invite/actions';
 import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
+import { LabReplyDoor } from './lab-reply-door';
 import { RsvpNoteLines } from '@/app/[slug]/_components/rsvp-note-lines';
 import type { GuestRow } from '@/app/[slug]/_lib/types';
 import { landingHeadline } from '@/lib/guest-landing';
@@ -511,6 +512,10 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   if (rsvp) {
     const labConfig = labRsvpConfig(sp.look);
     const labLook = readRsvpLook(labConfig);
+    if (rsvp === 'form' && sp.door === '1') {
+      /* 🚪 The reply page as a guest walks it — `./lab-reply-door.tsx`. */
+      return <LabReplyDoor sp={sp} words={await eventWordsFor('wedding')} look={labLook} config={labConfig} board={celebrationColours(LAB_BOARD)} guest={LAB_GUEST} reply={labReply} />;
+    }
     if (rsvp === 'form' && sp.sheet === '1') {
       /* 🧾 `?rsvp=form&sheet=1#your-details` — THE EVENT HUB'S OWN REPLY SHEET (`rsvp-sheet.tsx`), the second place a
          guest replies: the real sheet, the real card inside it and the look's one `<style>` exactly as `site-body.tsx`

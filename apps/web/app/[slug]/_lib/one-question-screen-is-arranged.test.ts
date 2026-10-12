@@ -98,17 +98,16 @@ function element(markup: string, marker: string): string {
 
 // ═══ 1 · progress is one unit ════════════════════════════════════════════
 
-test('1 · the bar and its "2 of 8" are ONE unit, Back beside it — never split across the row', async () => {
+test('1 · the dots are ONE unit, Back beside it — never split across the row (and never a "2 of 8": every-reply-step-wears-step-one.test.ts)', async () => {
   const { RsvpStepProgress } = await import('../_components/rsvp-one-at-a-time');
   const row = await html(React.createElement(RsvpStepProgress, { index: 1, total: 8, onBack: () => {} }));
   const unit = element(row, 'data-rsvp-progress-unit');
-  assert.match(unit, /role="progressbar"/, 'the bar left the unit');
-  assert.match(unit, />2(?:<!-- -->)? of (?:<!-- -->)?8<\/p>/, 'the "2 of 8" left the unit — the owner saw it at one edge and the dots at the other');
-  assert.equal((unit.match(/h-1 flex-1 rounded-full/g) ?? []).length, 8, 'one segment per question');
-  assert.equal((unit.match(/rounded-full bg-ink"/g) ?? []).length, 2, 'the bar fills to the screen the guest is on');
+  assert.match(unit, /role="progressbar"/, 'the dots left the unit');
+  assert.equal((unit.match(/data-rsvp-dot=/g) ?? []).length, 8, 'one dot per question');
+  assert.equal((unit.match(/data-rsvp-dot="done"/g) ?? []).length, 2, 'the dots fill to the screen the guest is on');
   assert.doesNotMatch(unit, /Back/, 'Back is a control beside the progress, not part of it');
-  assert.doesNotMatch(row, /justify-between/, 'a justify-between row pushes the count and the bar to opposite edges again');
-  assert.match(row, /aria-label="Question 2 of 8"/);
+  assert.doesNotMatch(row, /justify-between/, 'a justify-between row pushes the parts of the progress to opposite edges again');
+  assert.match(row, /aria-label="Question 2"/);
 });
 
 test('1 · on the first screen Back keeps its place, invisible — nothing shifts when it appears', async () => {

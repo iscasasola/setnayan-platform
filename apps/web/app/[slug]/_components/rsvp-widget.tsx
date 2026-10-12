@@ -24,9 +24,9 @@ import type { RsvpAnswer } from '@/lib/guest-one-path';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
 import { ReplyForm, ReplySubmit } from './reply-form';
 import { RsvpOneAtATimeLive } from './rsvp-canvas-bridge';
-import { RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader } from './rsvp-styles';
+import { RSVP_ANSWER_CLASS, RSVP_ANSWERS_ROW_CLASS, RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader, rsvpAnswerHook, type RsvpAnswerStyle } from './rsvp-styles';
 import { RSVP_FORM_LINE_ID as FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RsvpLines } from './rsvp-lines';
-import { RSVP_SCREEN_LINES, rsvpLayoutIsGroup, type RsvpLayoutItem } from '@/lib/rsvp-look';
+import { RSVP_SCREEN_LINES, RSVP_WEARS_ATTR, rsvpLayoutIsGroup, type RsvpLayoutItem } from '@/lib/rsvp-look';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -331,31 +331,37 @@ export function RsvpWidget({
   // "Want to be tagged in the photos?" — defaulted from the guest's stored
   // answer, never pre-set otherwise (a default would be an answer nobody gave).
   const taggingWish = guest.face_tagging_wanted ?? null;
+  /* 🎨 The scene's style — only the header and the answers' look change. */
+  const answerStyle: RsvpAnswerStyle = sceneStyle === 'question' || sceneStyle === 'ticket' ? sceneStyle : 'reply-card';
+  /* 🔘 SCREEN 2 WEARS SCREEN 1 (owner's live walk, 2026-10-12: the tagging question's answers were grey filled italic
+     pills under the card's white outlined ones). Its two answers are the card's own answer — the style's ONE class
+     (`RSVP_ANSWER_CLASS`), the Look › Buttons hook, and the couple's own look for their Yes and No lines
+     (`data-rsvp-wears`, `lib/rsvp-look.ts`; the reply card's only — the other two styles name no lines) — never a pill of
+     its own. */
   const tagQuestion = (
     <>
       <fieldset data-rsvp-step data-face-tagging-choice className="space-y-2">
         <legend className="mb-1 font-serif text-xl text-ink">{FACE_TAGGING_QUESTION}</legend>
         <p className="pb-1 text-xs text-ink/70">{faceTaggingHint(faceMode, words.theOrganizer, { onTheDay: true })}</p>
-        {(
-          [
-            { key: 'yes', label: FACE_TAGGING_YES, on: taggingWish === true },
-            { key: 'no', label: FACE_TAGGING_NO, on: taggingWish === false },
-          ] as const
-        ).map((option) => (
-          <label
-            key={option.key}
-            className="flex min-h-12 cursor-pointer items-center rounded-full bg-ink/[0.05] px-5 font-pahina text-base italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
-          >
-            <input
-              type="radio"
-              name={FACE_TAGGING_FIELD}
-              value={option.key}
-              defaultChecked={option.on}
-              className="sr-only"
-            />
-            {option.label}
-          </label>
-        ))}
+        <div className={RSVP_ANSWERS_ROW_CLASS[answerStyle]}>
+          {(
+            [
+              { key: 'yes', label: FACE_TAGGING_YES, on: taggingWish === true, wears: 'yes' },
+              { key: 'no', label: FACE_TAGGING_NO, on: taggingWish === false, wears: 'no' },
+            ] as const
+          ).map((option) => (
+            <label key={option.key} {...rsvpAnswerHook(answerStyle)} {...(answerStyle === 'reply-card' ? { [RSVP_WEARS_ATTR]: option.wears } : null)} className={RSVP_ANSWER_CLASS[answerStyle]}>
+              <input
+                type="radio"
+                name={FACE_TAGGING_FIELD}
+                value={option.key}
+                defaultChecked={option.on}
+                className="sr-only"
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
         {/* 🗑 One confirm before a "No" deletes a selfie already given (owner
             2026-09-29, OWNER ANSWERS (3)) — only for a guest who has one. */}
         {guest.photo_source === 'selfie' ? <SelfieNoThanksConfirm /> : null}
@@ -363,8 +369,7 @@ export function RsvpWidget({
       {/* 📵 No camera on a reply card: the selfie waits for the day. */}
     </>
   );
-  /* 🎨 The scene's style — only the header and the answers' look change. */
-  const answerStyle = sceneStyle === 'question' || sceneStyle === 'ticket' ? sceneStyle : 'reply-card';
+
   const admitCount = 1 + (guest.plus_one_allowed ? plusOneSeats(guest) : 0);
   // The celebratory labels are the spec's reply-card wording and stay
   // byte-identical. A wake cannot ask anyone to "joyfully accept" — its labels
@@ -538,7 +543,7 @@ export function RsvpWidget({
                 /* 🔘 Look › Buttons reaches the answers through this hook (globals.css). */
                 data-rsvp-line={option.key === 'attending' ? 'yes' : option.key === 'declined' ? 'no' : undefined}
                 data-rsvp-answer=""
-                className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
+                className={RSVP_ANSWER_CLASS['reply-card']}
               >
                 <input
                   type="radio"

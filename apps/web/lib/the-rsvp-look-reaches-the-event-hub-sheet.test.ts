@@ -84,7 +84,7 @@ test('3 · what a guest’s page gains when a look IS stored: one style — the 
   assert.match(html, /^<style data-rsvp-look="rsvp">[^<]*<\/style>$/);
   const sheet = rsvpLookRules(readRsvpLook(STORED), ['rsvp'], BOARD, 'sheet');
   const door = rsvpLookRules(readRsvpLook(STORED), ['rsvp'], BOARD);
-  assert.deepEqual(sheet.map((r) => r.selector), ['[data-rsvp-line="question"][data-rsvp-line]', '[data-rsvp-line="yes"][data-rsvp-line]', '[data-rsvp-line="hint"][data-rsvp-line]', '[data-rsvp-line="a:n1"][data-rsvp-line]', '[data-rsvp-group="g1"]']);
+  assert.deepEqual(sheet.map((r) => r.selector), ['[data-rsvp-line="question"][data-rsvp-line]', '[data-rsvp-line="yes"][data-rsvp-line],[data-rsvp-wears="yes"]', '[data-rsvp-line="hint"][data-rsvp-line]', '[data-rsvp-line="a:n1"][data-rsvp-line]', '[data-rsvp-group="g1"]']);
   /* Every one of them is the reply page's own rule, word for word: a line and a group look the same in both places. */
   for (const rule of sheet) assert.deepEqual(rule, door.find((r) => r.selector === rule.selector), rule.selector);
   /* The reply page draws one thing more — its door's card; the sheet draws none of that card. */

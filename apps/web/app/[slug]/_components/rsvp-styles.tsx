@@ -17,6 +17,36 @@ import { formatCount } from '@/lib/format-number';
  * `:has(…attending:checked)` rule still reveals the rest after "yes".
  */
 
+/**
+ * 🔘 ONE ANSWER, ONE LOOK — EVERY TWO-CHOICE QUESTION ON THE CARD WEARS IT (owner's live walk of 2026-10-12 on his
+ * own invitation: screen 1's "Joyfully accepts / Sadly can't make it" were white pills with a dark outline; screen 2's
+ * "Yes, tag me / No thanks" were GREY FILLED pills in ITALIC serif). The tagging question had drawn its own pills —
+ * B · The question's pill, hard-coded, whatever the card's style — and without the `data-rsvp-answer` hook, so the
+ * couple's Look › Buttons, their buttons' font and the picked answer's fill never reached it either. Now the style's
+ * answer is ONE class, here, drawn by the "Will you celebrate with us?" answers AND by every later two-choice question
+ * (`rsvp-widget.tsx` `tagQuestion`), so screen 2 can never again wear another card's answers. A · The reply card's
+ * pill is today's exactly; B and C are the styles' own, moved here unchanged.
+ */
+export type RsvpAnswerStyle = 'reply-card' | 'question' | 'ticket';
+export const RSVP_ANSWER_CLASS: Record<RsvpAnswerStyle, string> = {
+  'reply-card':
+    'flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream',
+  question:
+    'flex min-h-14 cursor-pointer items-center justify-center rounded-full bg-ink/[0.05] px-5 font-pahina text-xl italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream',
+  ticket:
+    'flex min-h-16 min-w-0 cursor-pointer items-center justify-center break-words rounded-md border-2 border-dashed border-ink/25 px-1 text-center font-sans text-xs font-semibold uppercase leading-tight tracking-[0.04em] text-ink/70 transition-colors has-[:checked]:-rotate-2 has-[:checked]:border-solid has-[:checked]:border-terracotta has-[:checked]:text-terracotta-700',
+};
+/** How a style lays its answers out: C's two stamps side by side, a pill under a pill otherwise. */
+export const RSVP_ANSWERS_ROW_CLASS: Record<RsvpAnswerStyle, string> = {
+  'reply-card': 'space-y-2',
+  question: 'space-y-2',
+  ticket: 'grid grid-cols-2 gap-2',
+};
+/** 🔘 Look › Buttons reaches a pill answer through this hook (globals.css). A STAMP is not a button — it keeps its stamp. */
+export function rsvpAnswerHook(style: RsvpAnswerStyle): { 'data-rsvp-answer'?: '' } {
+  return style === 'ticket' ? {} : { 'data-rsvp-answer': '' };
+}
+
 /** Yes or no — a guest is never offered "maybe" (main, owner 2026-09-30). */
 export type RsvpAnswerOption = { key: 'attending' | 'declined'; label: string };
 
@@ -121,18 +151,12 @@ export function RsvpStyledAnswers({
       >
         {stamp ? 'Stamp your answer' : legend}
       </legend>
-      <div className={stamp ? 'grid grid-cols-2 gap-2' : 'space-y-2'}>
+      <div className={RSVP_ANSWERS_ROW_CLASS[sceneStyle]}>
         {options.map((option) => (
           <label
             key={option.key}
-            /* 🔘 Look › Buttons reaches a pill answer through this hook (globals.css).
-               A STAMP is not a button — it keeps its stamp. */
-            data-rsvp-answer={stamp ? undefined : ''}
-            className={
-              stamp
-                ? 'flex min-h-16 min-w-0 cursor-pointer items-center justify-center break-words rounded-md border-2 border-dashed border-ink/25 px-1 text-center font-sans text-xs font-semibold uppercase leading-tight tracking-[0.04em] text-ink/70 transition-colors has-[:checked]:-rotate-2 has-[:checked]:border-solid has-[:checked]:border-terracotta has-[:checked]:text-terracotta-700'
-                : 'flex min-h-14 cursor-pointer items-center justify-center rounded-full bg-ink/[0.05] px-5 font-pahina text-xl italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream'
-            }
+            {...rsvpAnswerHook(sceneStyle)}
+            className={RSVP_ANSWER_CLASS[sceneStyle]}
           >
             <input
               type="radio"

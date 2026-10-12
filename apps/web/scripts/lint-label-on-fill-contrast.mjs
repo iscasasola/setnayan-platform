@@ -282,9 +282,10 @@ function classPairing(className, palette) {
       fill = { name: bg[1], rgb: palette.get(bg[1]) };
     }
     const fg = t.match(/^text-([a-z0-9-]+)$/);
-    if (fg && palette.has(fg[1])) {
+    const fgRgb = fg ? (TEXT_PALETTE.get(fg[1]) ?? palette.get(fg[1])) : null;
+    if (fg && fgRgb) {
       if (label && label.name !== fg[1]) return null;
-      label = { name: fg[1], rgb: palette.get(fg[1]) };
+      label = { name: fg[1], rgb: fgRgb };
     }
   }
   return fill && label ? { fill, label } : null;
@@ -556,6 +557,87 @@ try {
 }
 const baselineSeen = new Set();
 
+/* ── BRAND COLOURS USED AS WORDS (2026-10-13 · quality sweep item 9) ─────────
+ *
+ * The live sweep measured, on almost every public page, three brand colours
+ * carrying WORDS under 4.5:1 — straight on the page, no fill, so nothing above
+ * could see them:
+ *     gold #A9834B 3.48:1 (`text-terracotta`), grey #8B8A89 3.45:1 (`text-ink/55`),
+ *     grey #969594 3.01:1 (`text-ink/50`).
+ * The fix is TEXT-ONLY, in `tailwind.config.ts`: `theme.extend.textColor` points
+ * `text-terracotta` at the accent's deepest step and renders ink tints from
+ * INK_TEXT_FLOOR_FROM up to INK_TEXT_FLOOR at the floor. This reads those same
+ * numbers back out of the config (never re-typed here) and fails if:
+ *   - `text-terracotta` stops resolving through textColor, or resolves under 4.5:1;
+ *   - the ink floor is gone, or a tint it lifts would still read under 4.5:1;
+ *   - a page spells the raw gold as a word (`text-[var(--m-orange)]`,
+ *     `text-[#A9834B]`) on an element — a capitalised JSX tag is a component
+ *     (an icon), which only needs 3:1, and is left alone; `app/dev/` is not shipped.
+ */
+function readTextColours(cssVars) {
+  const src = readFileSync(join(WEB_ROOT, 'tailwind.config.ts'), 'utf8');
+  const num = (name) => {
+    const m = src.match(new RegExp(`const ${name}\\s*=\\s*([0-9.]+);`));
+    return m ? Number(m[1]) : null;
+  };
+  const start = src.indexOf('textColor: {');
+  const block = start === -1 ? '' : src.slice(start, src.indexOf('\n      },', start));
+  const terra = block.match(/terracotta:\s*\{\s*(?:\/\/[^\n]*\n\s*)*DEFAULT:\s*'rgb\(var\(--([a-z0-9-]+)\)/);
+  return {
+    floor: num('INK_TEXT_FLOOR'),
+    floorFrom: num('INK_TEXT_FLOOR_FROM'),
+    inkIsFloored: /\bink:\s*\{\s*DEFAULT:\s*inkText\b/.test(block),
+    terracottaVar: terra ? terra[1] : null,
+    terracottaRgb: terra ? cssVars.get(terra[1]) ?? null : null,
+  };
+}
+const TEXT = readTextColours(cssVars);
+/** Labels the text palette overrides — what `text-<name>` really paints. */
+const TEXT_PALETTE = new Map();
+if (TEXT.terracottaRgb) {
+  TEXT_PALETTE.set('terracotta', TEXT.terracottaRgb);
+  TEXT_PALETTE.set('terracotta-500', TEXT.terracottaRgb);
+}
+/** The alpha a `text-ink/<pct>` class actually renders at. */
+function inkTextAlpha(pct) {
+  const a = pct / 100;
+  if (TEXT.inkIsFloored && TEXT.floor != null && TEXT.floorFrom != null && a >= TEXT.floorFrom && a < TEXT.floor) return TEXT.floor;
+  return a;
+}
+const brandWordFailures = [];
+{
+  const ink = cssVars.get('color-ink');
+  const mixInk = (a) => ink.map((c, i) => Math.round(a * c + (1 - a) * PAGE[i]));
+  if (!TEXT.terracottaRgb) {
+    brandWordFailures.push(
+      'tailwind.config.ts: `text-terracotta` no longer resolves through theme.extend.textColor — it paints the brand gold #A9834B (3.48:1) as words again',
+    );
+  } else if (contrast(TEXT.terracottaRgb, PAGE) < AA_NORMAL_TEXT) {
+    brandWordFailures.push(`tailwind.config.ts: text-terracotta → --${TEXT.terracottaVar} reads ${contrast(TEXT.terracottaRgb, PAGE).toFixed(2)}:1 on the page`);
+  }
+  if (!TEXT.inkIsFloored || TEXT.floor == null || TEXT.floorFrom == null) {
+    brandWordFailures.push(
+      'tailwind.config.ts: the ink text floor is gone — text-ink/55 paints #8B8A89 (3.45:1) and text-ink/50 #969594 (3.01:1) as words again',
+    );
+  } else {
+    for (const pct of [50, 55]) {
+      const r = contrast(mixInk(inkTextAlpha(pct)), PAGE);
+      if (r < AA_NORMAL_TEXT) brandWordFailures.push(`tailwind.config.ts: text-ink/${pct} renders at ${r.toFixed(2)}:1 — the floor (${TEXT.floor}) is too faint`);
+    }
+  }
+  const RAW_GOLD_WORD = /<([a-z][a-z0-9]*)\b[^<>]*?className=(?:"|\{`)[^"`]*\btext-\[(?:color:)?(?:var\(--m-orange\)|#[aA]9834[bB])\](?![/\w])/g;
+  for (const dir of SCAN_DIRS) {
+    for (const file of walk(join(WEB_ROOT, dir))) {
+      const rel = relative(WEB_ROOT, file);
+      if (rel.startsWith('app/dev/') || /\.test\.tsx?$/.test(rel)) continue;
+      const src = stripComments(readFileSync(file, 'utf8'));
+      for (const m of src.matchAll(RAW_GOLD_WORD)) {
+        brandWordFailures.push(`${rel}:${lineOf(src, m.index)} <${m[1]}> sets words in the raw brand gold #A9834B (3.48:1) — use --m-orange-2 / text-terracotta`);
+      }
+    }
+  }
+}
+
 const palette = readTailwindPalette(cssVars);
 const failures = [];
 let checked = 0;
@@ -668,7 +750,8 @@ function guestLooks() {
 
 /** The worst ratio of `text-ink/<pct>` on the page across every look. */
 function worstInkTint(pct, looks) {
-  const a = pct / 100;
+  // What the class RENDERS at — the text floor in tailwind.config.ts lifts /50–/65.
+  const a = inkTextAlpha(pct);
   let worst = Infinity;
   for (const [, ink, paper] of looks) {
     const mixed = ink.map((c, i) => Math.round(a * c + (1 - a) * paper[i]));
@@ -793,7 +876,14 @@ if (faintShrank.length) {
   faintFailed = true;
 }
 
+if (brandWordFailures.length) {
+  console.error(`\n✖ ${brandWordFailures.length} brand colour(s) used as words under ${AA_NORMAL_TEXT}:1 on the page:\n`);
+  for (const l of brandWordFailures) console.error(`  ${l}`);
+  console.error('');
+  faintFailed = true;
+}
 if (faintFailed) process.exit(1);
 
 console.log(`✓ label-on-fill contrast: ${checked} pairing(s) checked, all ≥ ${AA_NORMAL_TEXT}:1`);
+console.log(`✓ brand words: text-terracotta → --${TEXT.terracottaVar} ${contrast(TEXT.terracottaRgb, PAGE).toFixed(2)}:1 · text-ink/50–/${Math.round(TEXT.floor * 100) - 5} render at ink/${Math.round(TEXT.floor * 100)} ${contrast(cssVars.get('color-ink').map((c, i) => Math.round(TEXT.floor * c + (1 - TEXT.floor) * PAGE[i])), PAGE).toFixed(2)}:1`);
 console.log(`✓ guest text on the page: ${faintChecked} ink tint(s) in ${looks.length} look(s); ${Object.values(faintNow).reduce((x, y) => x + y, 0)} faint, none new`);

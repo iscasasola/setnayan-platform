@@ -289,7 +289,8 @@ test('(3) it lands with a bounce and pulses once on a pick — transform, size, 
   assert.ok(spring.length === 4 && spring[1]! > 1, `the thumb's landing does not overshoot (${spring.join(', ')})`);
   // ⚠ Never an arbitrary `duration-[…]`: with tailwindcss-animate loaded Tailwind emits NOTHING for it (seen in the
   //   review copy: the thumb ran at the 150 ms default while its class said 220).
-  assert.match(tw, /plugins: \[tailwindcssAnimate\]/, 'anti-vacuity: the animate plugin left — arbitrary durations may be safe again');
+  // (Any plugin may follow it — tailwind.config.ts adds the gold-icon rule after it, 2026-10-13.)
+  assert.match(tw, /plugins: \[\s*tailwindcssAnimate\b/, 'anti-vacuity: the animate plugin left — arbitrary durations may be safe again');
   for (const f of ['app/_components/pill-selector.tsx', 'app/_components/pill-thumb.tsx', `${E}/inspector-kit.tsx`]) assert.doesNotMatch(read(f), /duration-\[/, `${f}: an arbitrary duration is never emitted`);
   /* (Re-aimed 2026-10-09: the tool group is words now — the button itself carries the colour's fade; its icon face and
      its hairlines are gone, `TOOLBAR-SPEC-2026-10-09.md`.) */

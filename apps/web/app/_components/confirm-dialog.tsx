@@ -56,6 +56,8 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     const el = dialogRef.current;
@@ -65,7 +67,7 @@ export function ConfirmDialog({
     } else if (!open && el.open) {
       el.close();
     }
-  }, [open]);
+  }, [open, mounted]);
 
   // Native `<dialog>` fires a `close` event on ESC. Route it through onCancel
   // so callers always observe dismissal regardless of how the user closed it.
@@ -120,9 +122,11 @@ export function ConfirmDialog({
     </dialog>
   );
 
-  // Only render the portal client-side · the SSR pass returns null so the
-  // server output stays clean.
-  if (typeof document === 'undefined') return null;
+  // Only render the portal once MOUNTED. The SSR pass draws nothing, and so must the hydration pass: a
+  // `typeof document` check is true in the browser's FIRST render, so the client drew a <dialog> where the server
+  // drew nothing — a hydration error on every screen that calls useConfirm (measured in /dev/suppliers-lab,
+  // 2026-10-12: React then regenerated the whole tree on the client).
+  if (!mounted) return null;
   return createPortal(node, document.body);
 }
 

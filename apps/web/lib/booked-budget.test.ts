@@ -105,6 +105,6 @@ test('the block and the rows are ONE read: the slot hands the block the SAME mon
   // The block draws; it computes nothing of its own.
   const block = read('app/dashboard/[eventId]/vendors/_components/booked-budget.tsx');
   assert.doesNotMatch(block, /\.reduce\(|knownMoneyTotals|pickNextPayment|budgetMeter|resolveEventMoney/, 'the block sums money itself');
-  assert.match(block, /<NextPayButton/, 'the Next line’s Pay must open the same Pay sheet as the row');
+  assert.match(block, /<NextPayButton\b/, 'the Next line’s Pay must open the same Pay sheet as the row');
   assert.doesNotMatch(block, /Buffer|If you book these|Setnayan orders/, 'the superseded six-figure block is back');
 });

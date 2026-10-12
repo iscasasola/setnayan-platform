@@ -71,7 +71,9 @@ test('an amount the plan has not resolved is WORDS, and the total is then not st
 });
 
 test('the order is the plan’s order, and a cleared plan says so', () => {
-  const steps = computeStepper([PLAN[2]!, PLAN[0]!, PLAN[1]!], []);
+  // Handed out of order on purpose (a read that returns rows unsorted).
+  const sorted = computeStepper(PLAN, []);
+  const steps = [sorted[2]!, sorted[0]!, sorted[1]!];
   const s = priceSummaryOf(steps, 'couple', { clearedAt: '2026-12-05T00:00:00Z', today: TODAY });
   assert.deepEqual(s.rows.map((r) => r.seq), [1, 2, 3]);
   assert.equal(s.cleared, true);

@@ -303,6 +303,9 @@ export function armHubScrub(root: HTMLElement): () => void {
     if (pages[0] && coverCell && cover && coverRest && cover.offsetHeight > 0) {
       const page = pages[0].stage;
       const through = (el: HTMLElement) => (el.matches(THROUGH) ? (nextBox(el) ?? el) : el);
+      /* (Measured with the rest's own margin on it — where a door in it stands on the page as it opens. A rest that is
+         pulled up is given its own number below, read back from what it is pulled to: this costs it nothing.) */
+      if (restMargin !== null) put(coverRest, '--hub-up', px(restMargin));
       /* 🚪 THE COVER NEVER FADES TO NOTHING. What arrives is looked for in the cover's own rest first — and when that
          box holds nothing a guest can see (a reply row that drew nothing; a cover that is the last thing in its
          group, as the stranger's photo cover is), in the next box on the page after the cover's cell. That box,

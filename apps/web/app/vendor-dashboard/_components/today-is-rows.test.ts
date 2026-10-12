@@ -389,6 +389,14 @@ test('5 · every main verb is terracotta, the icon says what kind of press it is
   assert.deepEqual(L.nextLook('unread', null), { tone: 'brand', icon: 'retry' });
   for (const kind of L.SUPPLIER_NEXT_ORDER) assert.equal(L.nextLook(kind, null).tone, 'brand', `${kind}'s main button is not terracotta`);
   for (const card of [REPLY, BOOKING, QUOTE, REMOVE, MOVE]) assert.equal(L.nextLook('answer', card).tone, 'brand', `${card.kind}'s main button is not terracotta`);
+  // Every desk kind, not five samples: each entry of the two look tables, read from the source.
+  const looks = code('lib/supplier-today.ts');
+  for (const table of ['ANSWER_LOOK', 'RULE_LOOK']) {
+    const block = looks.slice(looks.indexOf(`const ${table}:`), looks.indexOf('};', looks.indexOf(`const ${table}:`)));
+    const tones = [...block.matchAll(/tone: '(\w+)'/g)].map((m) => m[1]);
+    assert.ok(tones.length >= (table === 'ANSWER_LOOK' ? 13 : 8), `anti-vacuity: ${table} has ${tones.length} entries`);
+    assert.deepEqual([...new Set(tones)], ['brand'], `${table}: a main button wears a meaning colour (${tones.join(' ')})`);
+  }
   const reply = await render({ needsAnswer: [REPLY, BOOKING] });
   assert.match(reply, /class="ab ab-brand ab-main[^"]*"[^>]*href="\/vendor-dashboard\/messages\/t1"|href="\/vendor-dashboard\/messages\/t1"[^>]*class="ab ab-brand ab-main[^"]*"/, 'Reply is not the terracotta main button to the thread');
   // The grey second: a reply's "Their brief" opens the CARD, named section and all.

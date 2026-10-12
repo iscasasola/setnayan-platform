@@ -67,7 +67,11 @@ export function GuestWelcome({
   mark = () => null,
   maker = false,
   partLooks = null,
+  lookMark = null,
 }: {
+  /** 🧱 What to wear's own look (`lib/block-looks.ts`): its hidden mark, handed on to the reader's panel, which draws
+   *  it right before its root only when it draws (`DressCodeWidget` `mark`). */
+  lookMark?: ReactNode;
   /** 🎨 E-Gifts' and the guest's look's own styles (`lib/scene-styles-parts.ts`) — null: the shipped look. */
   partLooks?: { gifts?: string | null; wear?: string | null } | null;
   parts: readonly WelcomePart[];
@@ -105,6 +109,7 @@ export function GuestWelcome({
                 paletteLook={look.paletteLook ?? null}
                 dosLook={look.dosLook ?? null}
                 hideWhenEmpty
+                mark={lookMark}
               />
               </PartLook>
             );

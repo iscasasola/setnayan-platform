@@ -30,8 +30,11 @@ const EYEBROW: Record<DayPart, string> = {
 /** Each look's arrangement, keyed `<part>:<style id>` (`lib/scene-styles-stages.ts`). */
 export const DAY_SAMPLE: Record<string, () => ReactNode> = {
   /* ── Announcements ── */
+  /* 🧱 The Banner's and the Notice's shape is the CARD each guest's own holds (`announcement-styles.tsx`: one `<div>` in
+     the `<aside>`) — `data-sample-card` is where a Background lands here, as it lands on that card for a guest
+     (`lib/block-looks.ts` `ANNOUNCE_CARDS`). The Line has none: the block itself takes it. */
   'announcements:banner': () => (
-    <span className="flex items-center gap-3 rounded-lg bg-ink/10 px-4 py-3">
+    <span data-sample-card="" className="flex items-center gap-3 rounded-lg bg-ink/10 px-4 py-3">
       <Box className="h-6 w-6 shrink-0 rounded-full" />
       <span className="flex-1 space-y-1.5">
         <Line w="w-1/2" />
@@ -40,7 +43,7 @@ export const DAY_SAMPLE: Record<string, () => ReactNode> = {
     </span>
   ),
   'announcements:notice': () => (
-    <span className="block space-y-2 bg-ink/5 px-4 py-4">
+    <span data-sample-card="" className="block space-y-2 bg-ink/5 px-4 py-4">
       <Line w="w-1/3" className="mx-auto" />
       <Line w="w-11/12" className="mx-auto" />
       <Line w="w-3/4" className="mx-auto" />

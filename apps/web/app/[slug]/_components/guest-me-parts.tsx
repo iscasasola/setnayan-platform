@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import type { EventRow } from '../_lib/types';
 import type { EventWords } from '../_lib/event-words';
 import type { GuestRole } from '@/lib/guests';
@@ -31,7 +32,11 @@ export function GuestMeParts({
   look,
   comingWith,
   partLooks = null,
+  wearMark = null,
 }: {
+  /** 🧱 What to wear's own look (`lib/block-looks.ts`, block `look`): its hidden mark, handed to the `wear` part
+   *  alone, which draws it right before its root only when it draws. */
+  wearMark?: ReactNode;
   /** 🎨 Each part's own style (`lib/scene-styles-parts.ts`) — absent: the shipped look. */
   partLooks?: Partial<Record<GuestMePart, string | null>> | null;
   parts: readonly GuestMePart[];
@@ -67,10 +72,10 @@ export function GuestMeParts({
           </section>
         ) : partLooks?.[p] ? (
           <div key={p} data-part-look={partLooks[p]!} className="empty:hidden">
-            <MePart p={p} words={words} look={look} />
+            <MePart p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} />
           </div>
         ) : (
-          <MePart key={p} p={p} words={words} look={look} />
+          <MePart key={p} p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} />
         ),
       )}
     </div>
@@ -78,7 +83,7 @@ export function GuestMeParts({
 }
 
 /** One of Your role · What to wear · Arrive by — the dress code's own "you" panel, one fact. */
-function MePart({ p, words, look }: { p: Exclude<GuestMePart, 'guests'>; words: EventWords; look: Parameters<typeof GuestMeParts>[0]['look'] }) {
+function MePart({ p, words, look, mark = null }: { p: Exclude<GuestMePart, 'guests'>; words: EventWords; look: Parameters<typeof GuestMeParts>[0]['look']; mark?: ReactNode }) {
   return (
     <DressCodeWidget
       part={p}
@@ -92,6 +97,7 @@ function MePart({ p, words, look }: { p: Exclude<GuestMePart, 'guests'>; words: 
       roleNames={look.roleNames ?? null}
       paletteLook={look.paletteLook ?? null}
       hideWhenEmpty
+      mark={mark}
     />
   );
 }

@@ -40,6 +40,7 @@
 import { useState, useTransition } from 'react';
 import { Check, Copy, Download, Share2 } from 'lucide-react';
 import { useSaveLoader } from '@/components/sd-loader';
+import { ActionButton } from '@/components/action-button';
 import { shareBlobToDevice } from '@/lib/save-to-device';
 import { claimLinkWords } from '@/lib/add-your-own';
 import { createManualVendorInvite, type SupplierInviteView } from '../vendors/actions';
@@ -107,86 +108,74 @@ export function SupplierConnectPanel({
       });
   }
 
+  // ── THE CONTROLS (INTERACTION_RULES § 9, 2026-10-12) ──────────────────────
+  // Every press is the one `ActionButton`; nothing read-only sits in a box
+  // (owner 2026-10-11: "only have frames if something needs to be clicked") —
+  // the heading, the words, the QR and the link sit on the sheet. The QR keeps
+  // its white square in Dark: that is the code's own quiet zone (a scanner
+  // needs light around dark modules), not a frame.
   return (
-    <div className="rounded-xl border border-ink/10 bg-paper p-3">
+    <div data-supplier-connect="">
       <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink/65">{words.heading}</p>
       <p className="mt-1 text-[13px] leading-snug text-ink/65">{words.how}</p>
 
       {invite ? (
         <div className="sn-canvas-rise">
-          <div className="mt-2 flex flex-col items-center gap-1.5 rounded-lg border border-ink/10 bg-cream p-3">
+          <div className="mt-3 flex justify-center">
             <span
               role="img"
               aria-label={`QR code — ${vendorName} scans this to create their account`}
-              className="h-40 w-40 [&>svg]:h-full [&>svg]:w-full"
+              className="block h-44 w-44 rounded-md bg-white p-2 [&>svg]:h-full [&>svg]:w-full" // no-card-ok: the QR's quiet zone, not a frame
               dangerouslySetInnerHTML={{ __html: invite.qrSvg }}
             />
           </div>
-          <div className="mt-2 flex items-center gap-2">
-            <input
-              readOnly
-              value={invite.url}
-              aria-label="Connect link"
-              onFocus={(e) => e.currentTarget.select()}
-              className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-3 py-2 font-mono text-[11px] text-ink/80 focus:border-terracotta focus:outline-none"
-            />
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
+          <p
+            className="mt-2 select-all break-all text-center font-mono text-[11.5px] text-ink/70"
+            aria-label="Their claim link"
+            data-claim-link-url=""
+          >
+            {invite.url.replace(/^https?:\/\//, '')}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <ActionButton
+              tone="neutral"
+              icon={Download}
+              label={saved === 'saving' ? 'Saving…' : 'Download'}
+              name="Download the QR as a picture"
               onClick={download}
-              aria-busy={saved === 'saving' || undefined}
-              className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1 rounded-full border border-ink/15 bg-cream px-3.5 text-xs font-medium text-ink/75 transition-colors hover:text-ink"
-            >
-              <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
-              {saved === 'saving' ? 'Saving…' : 'Download'}
-            </button>
-            <button
-              type="button"
+              disabled={saved === 'saving'}
+            />
+            <ActionButton
+              tone="neutral"
+              icon={copied ? Check : Copy}
+              label={copied ? 'Copied' : 'Copy link'}
               onClick={copy}
-              className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1 rounded-full border border-ink/15 bg-cream px-3.5 text-xs font-medium text-ink/75 transition-colors hover:text-ink"
-            >
-              {copied ? (
-                <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
-              ) : (
-                <Copy aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
-              )}
-              {copied ? 'Copied' : 'Copy link'}
-            </button>
+            />
             {canShare ? (
-              <button
-                type="button"
-                onClick={share}
-                aria-label="Share connect link"
-                className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1 rounded-full border border-ink/15 bg-cream px-3.5 text-xs font-medium text-ink/75 transition-colors hover:text-ink"
-              >
-                <Share2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
-                Share
-              </button>
+              <ActionButton tone="neutral" icon={Share2} label="Share" name="Share their link" onClick={share} />
             ) : null}
           </div>
           {saved === 'failed' ? (
-            <p role="alert" className="mt-1.5 text-[11px] text-danger-900">
+            <p role="alert" className="mt-1.5 text-center text-[12px] text-danger-800">
               The picture could not be saved. Copy the link instead.
             </p>
           ) : null}
         </div>
       ) : (
-        <>
-          <button
-            type="button"
+        <div className="mt-3">
+          <ActionButton
+            tone="brand"
+            main
+            icon={Share2}
+            label={pending ? 'Creating…' : 'Create their link'}
             onClick={create}
             disabled={pending}
-            className="mt-2 inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-md border border-mulberry/40 bg-mulberry/5 px-3.5 text-sm font-medium text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-60"
-          >
-            <Share2 aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-            {pending ? 'Creating…' : 'Create their link'}
-          </button>
-        </>
+          />
+        </div>
       )}
 
       {err ? (
-        <p role="alert" className="mt-1.5 text-[11px] text-danger-900">
+        <p role="alert" className="mt-1.5 text-[12px] text-danger-800">
           {err}
         </p>
       ) : null}

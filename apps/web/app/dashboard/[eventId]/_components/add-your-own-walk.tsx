@@ -312,8 +312,11 @@ export function AddYourOwnWalk({
     // A place owes its address — the pin field posts into its own form.
     const place = rowsRef.current?.querySelector('form[data-add-own-place]') as HTMLFormElement | null;
     if (place) {
-      if (!place.reportValidity()) return;
       for (const [k, v] of new FormData(place).entries()) fd.set(k, v);
+      if (String(fd.get('address') ?? '').trim().length === 0) {
+        if (rowsRef.current) nudgeFormRows(rowsRef.current);
+        return;
+      }
     }
     setErr(null);
     start(async () => {

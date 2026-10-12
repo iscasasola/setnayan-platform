@@ -33,6 +33,8 @@
 
 import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, CalendarClock, Plus, Trash2 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 // 🔑 THE SHARED EXACT FORMATTER, not a local one. This file had its own
 // `Math.round(n).toLocaleString('en-PH')`, which printed a 33⅓% instalment of
 // ₱79,993.50 as ₱26,665 instead of ₱26,664.50 — the very bug PR #5744 traced
@@ -148,7 +150,7 @@ export function PaymentPlanRows({
              is WHEN; every control now gets real width at 375px. */
           <div
             key={r.key}
-            className="sn-canvas-rise space-y-1.5 rounded-lg border border-ink/10 bg-paper p-2"
+            className="sn-canvas-rise space-y-1.5 border-t border-ink/10 py-2 first:border-t-0"
             style={{ animationDelay: `${Math.min(i, 8) * 26}ms` }}
           >
             {/* HEADER — the payment's number, and its reorder/delete controls.
@@ -164,34 +166,34 @@ export function PaymentPlanRows({
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
                 Payment {i + 1}
               </span>
-              <span className="flex shrink-0 items-center">
-                <button
-                  type="button"
+              {/* The row's three presses — the one ActionButton, icon-only: ↑ ↓ and
+                  the bin are marks everyone reads the same way (§ 9: an icon with
+                  no word only for those). */}
+              <span className="flex shrink-0 items-center gap-1">
+                <ActionButton
+                  tone="neutral"
+                  iconOnly
+                  icon={ArrowUp}
+                  label={`Move payment ${i + 1} earlier`}
                   disabled={disabled || i === 0}
                   onClick={() => move(r.key, -1)}
-                  aria-label={`Move payment ${i + 1} earlier`}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-ink disabled:opacity-30"
-                >
-                  <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
+                />
+                <ActionButton
+                  tone="neutral"
+                  iconOnly
+                  icon={ArrowDown}
+                  label={`Move payment ${i + 1} later`}
                   disabled={disabled || i === rows.length - 1}
                   onClick={() => move(r.key, 1)}
-                  aria-label={`Move payment ${i + 1} later`}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-ink disabled:opacity-30"
-                >
-                  <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
+                />
+                <ActionButton
+                  tone="danger"
+                  iconOnly
+                  icon={Trash2}
+                  label={`Remove payment ${i + 1}`}
                   disabled={disabled || rows.length <= 1}
                   onClick={() => remove(r.key)}
-                  aria-label={`Remove payment ${i + 1}`}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-ink/40 transition-colors hover:text-danger-700 disabled:opacity-30"
-                >
-                  <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
+                />
               </span>
             </div>
 
@@ -218,19 +220,23 @@ export function PaymentPlanRows({
                 onChange={(e) => patch(r.key, { value: e.target.value })}
                 className={`${CELL} w-20 shrink-0`}
               />
-              <select
-                name="plan_kind"
+              {/* % or ₱ — the house dropdown; the hidden input is what the form posts. */}
+              <input type="hidden" name="plan_kind" value={r.kind} />
+              <PickMenu
+                label={`Payment ${i + 1} amount type`}
                 value={r.kind}
-                disabled={disabled}
-                aria-label={`Payment ${i + 1} amount type`}
-                onChange={(e) =>
-                  patch(r.key, { kind: e.target.value === 'fixed' ? 'fixed' : 'percent' })
-                }
-                className={`${CELL} w-14 shrink-0`}
-              >
-                <option value="percent">%</option>
-                <option value="fixed">₱</option>
-              </select>
+                buttonText={r.kind === 'fixed' ? '₱' : '%'}
+                compact
+                dataAttr="data-plan-kind"
+                options={[
+                  { key: 'percent', label: '% of the price' },
+                  { key: 'fixed', label: '₱ amount' },
+                ]}
+                onPick={(k) => {
+                  if (!disabled) patch(r.key, { kind: k === 'fixed' ? 'fixed' : 'percent' });
+                }}
+                className="shrink-0 border border-ink/15"
+              />
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -246,32 +252,29 @@ export function PaymentPlanRows({
                 className={`${CELL} w-12 shrink-0 text-center`}
               />
               <span className="shrink-0 text-[11px] text-ink/50">days</span>
-              <select
-                name="plan_anchor"
+              <input type="hidden" name="plan_anchor" value={r.anchor} />
+              <PickMenu
+                label={`Payment ${i + 1} due date`}
                 value={r.anchor}
-                disabled={disabled}
-                aria-label={`Payment ${i + 1} due date`}
-                onChange={(e) => patch(r.key, { anchor: e.target.value as Row['anchor'] })}
-                className={`${CELL} min-w-0 flex-1`}
-              >
-                <option value="on_lock">{ANCHOR_LABEL.on_lock}</option>
-                <option value="before_event">{ANCHOR_LABEL.before_event}</option>
-              </select>
+                buttonText={ANCHOR_LABEL[r.anchor]}
+                compact
+                dataAttr="data-plan-anchor"
+                options={[
+                  { key: 'on_lock', label: ANCHOR_LABEL.on_lock },
+                  { key: 'before_event', label: ANCHOR_LABEL.before_event },
+                ]}
+                onPick={(k) => {
+                  if (!disabled) patch(r.key, { anchor: k as Row['anchor'] });
+                }}
+                className="min-w-0 flex-1 border border-ink/15"
+              />
             </div>
           </div>
         ))}
       </div>
 
       {rows.length < MAX_ROWS ? (
-        <button
-          type="button"
-          onClick={add}
-          disabled={disabled}
-          className="inline-flex items-center gap-1 rounded-md px-1 py-1 text-xs font-medium text-mulberry transition-colors hover:text-mulberry-700 disabled:opacity-60"
-        >
-          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
-          Add payment
-        </button>
+        <ActionButton tone="brand" icon={Plus} label="Add payment" onClick={add} disabled={disabled} />
       ) : null}
 
       <div className="flex items-center justify-between gap-2 border-t border-ink/10 pt-2 text-[11px]">

@@ -32,6 +32,9 @@ production); the per-component button sweep guard.
   the three numbers (still tappable); the waiting number wears the accent token instead of a hand-written mulberry.
 - **The booking-fee bills on Today are hairline rows** (`BookingFeeBills rows`), Pay now the row's main button;
   every other surface keeps the boxed row.
+- **Thumb row: every control 44 px** (its doors and its field were 40 — found on the walk).
+- **Two orphans deleted** — `first-steps.tsx` (its meaning is the `setup` rule) and `spotlight-award-banner.tsx`
+  (its home is S-PR7): S-PR1 unmounted both, and `ugat-both-ends` refuses a component nothing mounts.
 - Not changed, listed: the thumb row's own search field (a SearchBox kind is being designed — DECISION_LOG
   2026-10-12 look call 12).
 

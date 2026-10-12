@@ -120,7 +120,10 @@ test('5 · the lab can show it: its RSVP stage is handed the draft’s own confi
   assert.doesNotMatch(LAB, /current: sanitizeRsvpAskConfig\(\{\}\),/, 'the lab hands the RSVP stage a constant again');
 });
 
-test('6 · a picked line the truth no longer holds (one the couple added, or a group) is let go', () => {
+test('6 · a picked line the truth no longer holds (one the couple added, or a group) is let go — to its card', () => {
   const LIST = src(`${L}/rsvp-list-stage.tsx`);
-  assert.match(LIST, /if \(!on \|\| !listPart \|\| !line \|\| !\(rsvpAddedId\(line\) \|\| rsvpGroupId\(line\)\)\) return;\s*const onTruth = \(\) => \{\s*const doc = frameDoc\(frameSel\);\s*if \(doc && !nodeOf\(doc, listPart, line\)\) letGo\.current\(null\);\s*\};\s*window\.addEventListener\(RSVP_STAGE_TRUTH_EVENT, onTruth\);/, 'a gone line stays picked after an undo');
+  /* Re-aimed 2026-10-12 (Maker walk F5): letting go of EVERYTHING (`onPick(null)` → the toolbar's deselect) left Edit
+     lit with nothing under it; the gone line now hands the pick to its screen's card — the toolbar's own "Open the
+     card" event, which keeps the card as the picked part. `the-rsvp-stage-keeps-the-card-after-undo.test.ts`. */
+  assert.match(LIST, /if \(!on \|\| !listPart \|\| !line \|\| !\(rsvpAddedId\(line\) \|\| rsvpGroupId\(line\)\)\) return;\s*const onTruth = \(\) => \{\s*const doc = frameDoc\(frameSel\);\s*if \(doc && !nodeOf\(doc, listPart, line\)\) window\.dispatchEvent\(new CustomEvent\(RSVP_OPEN_CARD_EVENT\)\);\s*\};\s*window\.addEventListener\(RSVP_STAGE_TRUTH_EVENT, onTruth\);/, 'a gone line stays picked after an undo');
 });

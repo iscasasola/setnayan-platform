@@ -131,12 +131,32 @@ export function rsvpPlaceSteps(part: RsvpLookCard, name: string, place: RsvpPlac
     group: place && !inGroup && !isGroup && !groupsFull ? onGroup : null,
     remove: place?.added ? () => askRsvpListEdit({ do: 'remove', part, line: name }) : null,
     ungroup: isGroup ? () => askRsvpListEdit({ do: 'ungroup', part, group: name }) : null,
+    /* (Typed as sentences, not as the union of today's words — the Save button's row says its own: `rsvpSaveSteps`.) */
     why: {
       earlier: foot ? RSVP_LIST_WORDS.hint : RSVP_LIST_WORDS.first(inGroup),
       later: foot ? RSVP_LIST_WORDS.hint : RSVP_LIST_WORDS.last(inGroup),
       group: foot ? RSVP_LIST_WORDS.hint : inGroup ? RSVP_LIST_WORDS.inGroup : RSVP_LIST_WORDS.groupsFull,
       remove: RSVP_LIST_WORDS.ownLine,
-    },
+    } as RsvpPlaceWhy,
+  };
+}
+
+/** What each grey step of the last row says. */
+type RsvpPlaceWhy = { earlier: string; later: string; group: string; remove: string };
+
+/**
+ * 🎟 THE PASS'S SAVE BUTTON'S LAST ROW — it has no place in a list (the pass is each guest's own ticket and its button
+ * stays under it) and it is the RSVP's own, so every step is grey and a tap says why (controller 2026-10-10, the words
+ * `RSVP_SAVE_STAYS` names). Drawn by the RSVP panel as Edit's only row (the Maker walk, 2026-10-12: Edit was empty).
+ */
+export function rsvpSaveSteps(): ReturnType<typeof rsvpPlaceSteps> {
+  return {
+    earlier: null,
+    later: null,
+    group: null,
+    remove: null,
+    ungroup: null,
+    why: { earlier: RSVP_LIST_WORDS.save, later: RSVP_LIST_WORDS.save, group: RSVP_LIST_WORDS.save, remove: RSVP_LIST_WORDS.ownLine },
   };
 }
 
@@ -277,9 +297,10 @@ const PICTURE_UPLOAD_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/web
  */
 export function RsvpPictureSheet({ eventId, replacing, onPicture, onClose }: { eventId: string; replacing: boolean; onPicture: (ref: string) => void; onClose: () => void }) {
   const local = useRef<string | null>(null);
-  /* ONE ref, ONE edit: the uploader may say a finished upload twice (it tells its change from inside a state update,
-     which React runs twice in development — measured in the lab, 2026-10-12: one upload, two picture lines). The
-     shipped scene upload guards the same way (`scene-background-row.tsx` consumes its picked file). */
+  /* ONE ref, ONE edit: the uploader once said a finished upload twice (it told its change from inside a state update,
+     which React runs twice in development — measured in the lab, 2026-10-12: one upload, two picture lines). It now
+     tells after the commit, once (`the-uploader-tells-after-the-set.test.ts`); this stays as the belt — the shipped
+     scene upload guards the same way (`scene-background-row.tsx` consumes its picked file). */
   const handed = useRef<string | null>(null);
   return (
     <MakerSheet label={replacing ? 'Replace the picture' : 'Add a picture'} onClose={onClose}>

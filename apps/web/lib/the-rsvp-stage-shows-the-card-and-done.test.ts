@@ -69,7 +69,8 @@ test('3 · Done for a line’s words typed in the panel: the stage’s own typin
   const PANEL = src(`${L}/maker-rsvp-ask.tsx`);
   assert.match(PANEL, /<RsvpPanelTypingBar name=\{\(picked\.line && RSVP_LINE_NAME\[picked\.line\]\) \|\| 'Words'\} \/>/);
   assert.match(PANEL, /<RsvpPanelTypingBar name=\{addedLine\.k === 'h' \? 'Heading' : 'Message'\} \/>/);
-  /* (Three Edit views of a line; the third is a PICTURE's, which has no words box and so no bar.) */
-  assert.equal((PANEL.match(/data-rsvp-stage-rows="" data-rsvp-stage-line-edit=/g) ?? []).length, 3);
+  /* (Three Edit views of a line; the third is a PICTURE's, which has no words box and so no bar. Re-counted
+     2026-10-12, the Maker walk: a fourth — the pass's Save button, the last row only, no words box and so no bar.) */
+  assert.equal((PANEL.match(/data-rsvp-stage-rows="" data-rsvp-stage-line-edit=/g) ?? []).length, 4);
   assert.equal((PANEL.match(/<RsvpPanelTypingBar /g) ?? []).length, 2);
 });

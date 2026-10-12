@@ -23,7 +23,7 @@ import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows, RsvpPictureLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
 import { RSVP_GROUP_PICK_EVENT, RSVP_LIST_DONE_EVENT, RSVP_LIST_EDIT_EVENT, RSVP_LIST_PICK_EVENT, RSVP_LIST_SAY_EVENT, RSVP_LIST_WORDS, rsvpGroupId, rsvpLayoutEdit, rsvpPlaceOf, rsvpScreenCounts, type RsvpLayoutEdit, type RsvpListDone, type RsvpListPick } from '@/lib/rsvp-layout-edit';
-import { RsvpAddedEditRows, RsvpLinePlaceRow, RsvpPanelTypingBar, RsvpPictureEditRows, askRsvpListEdit, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
+import { RsvpAddedEditRows, RsvpLinePlaceRow, RsvpPanelTypingBar, RsvpPictureEditRows, askRsvpListEdit, rsvpListEdited, rsvpPlaceSteps, rsvpSaveSteps } from './rsvp-line-list';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { DetailsPieceOnly } from './details-piece';
@@ -578,6 +578,15 @@ export function MakerRsvpSettings({
           onWhy={sayOnToolbar}
         />
       ) : null;
+    /* 🎟 EDIT, THE PASS'S SAVE BUTTON — no words of its own and no place in a list: the same last row, every step grey,
+       each saying why (`rsvpSaveSteps`) — never an empty Edit (the Maker walk, 2026-10-12). */
+    if (picked.tool === 'edit' && picked.part === 'pass' && picked.line === 'save') {
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-edit="save">
+          <RsvpLinePlaceRow steps={rsvpSaveSteps()} onWhy={sayOnToolbar} />
+        </div>
+      );
+    }
     if (picked.tool === 'edit' && lineWord) {
       return (
         <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-edit={picked.line ?? ''}>

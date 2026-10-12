@@ -236,7 +236,7 @@ export async function maybeCatchUpAcknowledgedDeposits(userId: string): Promise<
       // statuses above do: the booking HAS a charge, it is simply worth ₱0.
       // Leaving it out makes this set mean "already charged" while answering
       // "already charged and not by a promotion".
-      .in('status', ['pending', 'paid', 'waived_import', 'waived_free5', 'waived_promo']);
+      .in('status', ['pending', 'paid', 'waived_import', 'waived_free5', 'waived_promo', 'waived_launch']);
     const charged = new Set(
       ((charges ?? []) as Array<{ event_vendor_id: string | null }>)
         .map((c) => c.event_vendor_id)

@@ -20,6 +20,8 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeFreeWindowActive } from '@/lib/booking-fee-free-window';
+import { readLaunchOffer } from '@/lib/launch-offer.server';
+import { launchOfferIsOpen } from '@/lib/launch-offer';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
@@ -87,10 +89,12 @@ export async function resolveBookingFeeStanding(
   // flagged as a projection, which the copy words differently.
   let ordinal: number | null = null;
   let ordinalIsFrozen = false;
+  let launchNumber: number | null = null;
+  let isLaunchBooking = false;
   if (args.eventId) {
     const { data: row, error } = await admin
       .from('booking_fee_ledger')
-      .select('booking_ordinal')
+      .select('booking_ordinal, launch_offer, launch_offer_number')
       .eq('vendor_profile_id', args.vendorProfileId)
       .eq('event_id', args.eventId)
       .maybeSingle();
@@ -98,10 +102,39 @@ export async function resolveBookingFeeStanding(
       logQueryError('booking-fee-disclosure: ledger row', error);
       return { kind: 'unreadable' };
     }
-    const n = (row as { booking_ordinal?: number | null } | null)?.booking_ordinal;
+    const led = row as {
+      booking_ordinal?: number | null;
+      launch_offer?: boolean | null;
+      launch_offer_number?: number | null;
+    } | null;
+    const n = led?.booking_ordinal;
     if (typeof n === 'number' && Number.isFinite(n)) {
       ordinal = n;
       ordinalIsFrozen = true;
+    }
+    if (led?.launch_offer === true) {
+      isLaunchBooking = true;
+      launchNumber = typeof led.launch_offer_number === 'number' ? led.launch_offer_number : null;
+    }
+  }
+
+  // ── THE LAUNCH OFFER sits ABOVE free-5 (owner 2026-10-12 #4), exactly as
+  // `booking_fee_open_lock_charge` takes it: a booking that already took a
+  // launch place says so; a booking with no frozen place says the offer is
+  // open, when it is. A refused read is `unreadable` — never "free", never
+  // "billable" — because either guess could be wrong about money.
+  if (isLaunchBooking || ordinal === null) {
+    const offer = await readLaunchOffer(admin);
+    if (!offer) return { kind: 'unreadable' };
+    if (isLaunchBooking || launchOfferIsOpen(offer, Date.now())) {
+      return {
+        kind: 'launch_offer',
+        schedule: await getBookingFeeSchedule(admin),
+        cap: offer.cap ?? 0,
+        papicCredits: offer.papicCredits,
+        isFrozen: isLaunchBooking,
+        number: launchNumber,
+      };
     }
   }
 
@@ -114,7 +147,9 @@ export async function resolveBookingFeeStanding(
       .select('ledger_id', { count: 'exact', head: true })
       .eq('vendor_profile_id', args.vendorProfileId)
       .eq('source', 'lock')
-      .eq('attribution', 'sourced');
+      .eq('attribution', 'sourced')
+      // A launch booking spends none of the five (#4) — the RPC skips it too.
+      .eq('launch_offer', false);
     if (error || typeof count !== 'number' || !Number.isFinite(count)) {
       if (error) logQueryError('booking-fee-disclosure: ledger count', error);
       return { kind: 'unreadable' };
@@ -279,7 +314,7 @@ export async function forecastsForBookings(
  * count computed on this side (owner, 2026-09-20).
  */
 const WAIVED_CHARGE_SELECT =
-  'charge_id,status,event_id,computed_fee_centavos,created_at,ledger:booking_fee_ledger!inner(booking_ordinal)';
+  'charge_id,status,event_id,computed_fee_centavos,created_at,ledger:booking_fee_ledger!inner(booking_ordinal,launch_offer_number)';
 
 /** Every waiver a supplier is shown and sent a receipt for — one list. */
 const WAIVED_STATUSES = [...WAIVED_FEE_RECEIPT_STATUSES];
@@ -290,7 +325,10 @@ type WaivedChargeRow = {
   event_id: string | null;
   computed_fee_centavos: number | string | null;
   created_at: string | null;
-  ledger: { booking_ordinal: number | null } | Array<{ booking_ordinal: number | null }> | null;
+  ledger:
+    | { booking_ordinal: number | null; launch_offer_number?: number | null }
+    | Array<{ booking_ordinal: number | null; launch_offer_number?: number | null }>
+    | null;
 };
 
 /**
@@ -298,7 +336,11 @@ type WaivedChargeRow = {
  * read (the receipt), so the notification a supplier is emailed carries the
  * SAME amount and the SAME ordinal the hub will show them.
  */
-function toWaivedFeeCharge(r: WaivedChargeRow, coupleName: string | null): WaivedFeeCharge {
+function toWaivedFeeCharge(
+  r: WaivedChargeRow,
+  coupleName: string | null,
+  launchCredits: number | null = null,
+): WaivedFeeCharge {
   // PostgREST returns an embedded to-one as an object, but as an ARRAY when it
   // cannot prove the relationship is to-one. Both shapes are handled so the
   // ordinal does not silently vanish into `undefined`.
@@ -314,7 +356,39 @@ function toWaivedFeeCharge(r: WaivedChargeRow, coupleName: string | null): Waive
     computedPhp: Number.isFinite(centavos) ? centavos / 100 : null,
     ordinal: typeof ord === 'number' && Number.isFinite(ord) ? ord : null,
     waivedOn: r.created_at ? r.created_at.slice(0, 10) : null,
+    launchNumber:
+      typeof led?.launch_offer_number === 'number' && Number.isFinite(led.launch_offer_number)
+        ? led.launch_offer_number
+        : null,
+    launchCredits,
   };
+}
+
+/**
+ * The launch-offer Papic credits each charge's grant row carries, by charge.
+ * Read from the GRANT, never from the setting — the receipt says what was
+ * actually granted. A refused read leaves the map empty: the receipt then
+ * names no credits rather than a figure nobody measured.
+ */
+async function readLaunchCredits(
+  admin: SupabaseClient,
+  chargeIds: readonly string[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (chargeIds.length === 0) return out;
+  const { data, error } = await admin
+    .from('vendor_papic_portfolio_credit_grants')
+    .select('booking_fee_charge_id, credits')
+    .eq('source', 'launch_offer')
+    .in('booking_fee_charge_id', [...chargeIds]);
+  if (error) {
+    logQueryError('booking-fee-disclosure: launch credits', error);
+    return out;
+  }
+  for (const g of (data ?? []) as Array<{ booking_fee_charge_id: string | null; credits: number | null }>) {
+    if (g.booking_fee_charge_id && typeof g.credits === 'number') out.set(g.booking_fee_charge_id, g.credits);
+  }
+  return out;
 }
 
 export async function fetchWaivedFeeCharges(
@@ -351,8 +425,14 @@ export async function fetchWaivedFeeCharges(
     }
   }
 
+  const launchIds = rows.filter((r) => r.status === 'waived_launch').map((r) => r.charge_id);
+  const credits = await readLaunchCredits(admin, launchIds);
   return rows.map((r) =>
-    toWaivedFeeCharge(r, r.event_id ? (nameByEvent.get(r.event_id) ?? null) : null),
+    toWaivedFeeCharge(
+      r,
+      r.event_id ? (nameByEvent.get(r.event_id) ?? null) : null,
+      credits.get(r.charge_id) ?? null,
+    ),
   );
 }
 
@@ -401,7 +481,9 @@ export async function fetchWaivedFeeCharge(
     if (eErr) logQueryError('booking-fee-disclosure: waived charge event name', eErr);
     coupleName = (ev as { display_name?: string | null } | null)?.display_name ?? null;
   }
-  return toWaivedFeeCharge(row, coupleName);
+  const credits =
+    row.status === 'waived_launch' ? await readLaunchCredits(admin, [row.charge_id]) : new Map();
+  return toWaivedFeeCharge(row, coupleName, credits.get(row.charge_id) ?? null);
 }
 
 /**

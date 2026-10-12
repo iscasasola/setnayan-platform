@@ -32,6 +32,9 @@ Everything proven is proven in **Chromium only**; nothing has run on iOS Safari.
 - `next lint` (whole app, under the lock): rc 0, 0 errors, 15 warnings — none in a file this branch touches.
   Controls baseline: the generator changes only its ref line → left as is (not regenerated).
 - Quick preflight (guards, lint, types, pins) on 6e72d252b: 46 checks, nothing failed.
+- The sweep on 893a0c1f2 (under the lock): 428 test files (every `app/[slug]` test + every test naming site-body,
+  maker-scene-list, guests-see, hub-draft, what-guests-see, stage-scenes, part-door, part_show, first-screen, scrub,
+  get-inside) → 3,673 tests, 3,673 pass, 0 fail, rc 0, 124 s.
 - Short-phone comparison 375x667 (pictures `c16-stranger-fit-375x667-{today,wrapped-0-opens,wrapped-1-held}.png`,
   `c16-stranger-375x667-3-arrived-together.png`): TODAY the fit closes the cover up and "Get inside" is on the first
   screen (534–590). WRAPPED the cover opens at full air (its link cut at the screen's foot), the door is NOT on the

@@ -2324,7 +2324,9 @@ export async function SiteBody({
                     ) : null
                   }
                   giftHref={doorways.pabuya}
-                  mark={(key) => <>{giftsBlockMark(key)}{makerMark(key)}</>}
+                  /* 🧱 The canvas's samples of E-Gifts and What to wear stand behind their blocks' marks, then the
+                     Maker's own marker (`guestSceneMark`): a look picked there is drawn by the rules a guest gets. */
+                  mark={guestSceneMark}
                   maker={isMakerCanvas}
                 />
               </div>
@@ -3647,6 +3649,8 @@ export async function SiteBody({
                 /* 🏠 One home per fact: once Me draws this guest's role and
                    outfit (`meParts`), the Welcome's look stands down. */
                 look={meParts.length > 0 ? null : guestLook}
+                /* 🧱 What to wear's own look rides with the guest's own panel (`lib/block-looks.ts`). */
+                lookMark={blockMark('look')}
                 reminders={
                   remindersScene ? (
                     <HideableWidgetRender
@@ -3681,6 +3685,7 @@ export async function SiteBody({
                   partLooks={welcomeLooks}
                   parts={dayWelcome}
                   words={clientWords}
+                  lookMark={blockMark('look')}
                   look={{
                     config: event.dress_code_config ?? null,
                     ceremonyType: dressRiteOf(event),
@@ -3907,6 +3912,7 @@ export async function SiteBody({
                 words={clientWords}
                 look={{ ...guestLook, roleNames }}
                 comingWith={comingWith}
+                wearMark={blockMark('look')}
               />
             ) : null}
             {/* 📱 ME'S OWN, FILED LIKE THE MAKER'S (owner 2026-10-08; prototype: Me · What to wear · seats): this
@@ -3931,7 +3937,7 @@ export async function SiteBody({
               return (
                 <div data-me-filed="" className="flex flex-col gap-12">
                   {lookOnMe ? (
-                    <GuestWelcome partLooks={welcomeLooks} parts={welcomeOnMe} words={clientWords} look={guestLook} reminders={null} giftHref={null} />
+                    <GuestWelcome partLooks={welcomeLooks} parts={welcomeOnMe} words={clientWords} look={guestLook} reminders={null} giftHref={null} lookMark={blockMark('look')} />
                   ) : null}
                   {tableOnMe ? seatBlock : null}
                   {mine}

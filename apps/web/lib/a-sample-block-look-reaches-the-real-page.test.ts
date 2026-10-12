@@ -38,6 +38,8 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { renderSiteBodyFixture } from './site-body-fixture-render';
 import { siteBodyFixtureProps, FIXTURE_EVENT, type SiteBodyFixtureProps } from './site-body-fixture';
+import { WEDDING_PROFILE } from './event-type-profile';
+import { eventWordsFromProfile } from '../app/[slug]/_lib/event-words';
 
 /** The fixture guest, given a table (the page draws their own seat only then). */
 async function seated(looks: unknown): Promise<string> {
@@ -234,4 +236,70 @@ test('Announcements: nothing kept is the same bytes; a look kept adds its style 
       }
     }
   }
+});
+
+/* ══ 👗 2026-10-12 — WHAT TO WEAR, MADE REAL ═════════════════════════════════════════════════════════════════════
+ * On the real page at both moments (the Invitation files it in Me, The Day in its Welcome) and on Me's own part.
+ * Sabotages seen red (each restored): the mark drawn when the panel draws nothing · the mark parted from the wear root.
+ */
+
+/** The fixture guest as a ninang the couple dressed (`dress_code_config.roles`), at one of two moments. */
+async function dressed(moment: 'Invitation' | 'The Day', looks: unknown, role: string | null = 'principal_sponsor_ninang'): Promise<string> {
+  const base = siteBodyFixtureProps();
+  const identity = base.identity as unknown as Record<string, unknown> & { guest: Record<string, unknown> };
+  return renderSiteBodyFixture({
+    ...(moment === 'The Day' ? { dayOfPhase: 'live', lifecyclePhase: 'event' } : {}),
+    identity: { ...identity, guest: { ...identity.guest, role } } as unknown as SiteBodyFixtureProps['identity'],
+    event: {
+      ...FIXTURE_EVENT,
+      dress_code_config: { ...(FIXTURE_EVENT.dress_code_config as object), roles: { principal_sponsor_ninang: { style: 'filipiniana' } } },
+      ...(looks === undefined ? {} : { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: looks } }),
+    } as SiteBodyFixtureProps['event'],
+  } as Partial<SiteBodyFixtureProps>);
+}
+
+for (const moment of ['Invitation', 'The Day'] as const) {
+  test(`What to wear, ${moment}: nothing kept is the same page; a look kept adds the mark right before the guest’s own panel and the one style — and no mark when there is no panel`, async () => {
+    const ROOT = '<section class="space-y-5"><p class="pahina-eyebrow"><span>What to wear</span></p>';
+    const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="look"></span>`;
+    const plain = await dressed(moment, undefined);
+    /* Anti-vacuity: this guest's OWN panel is drawn, once (on the Invitation filed in Me; on The Day in its Welcome). */
+    assert.equal(plain.split(ROOT).length, 2, 'the guest’s own What to wear is not drawn once: this proves nothing');
+    assert.doesNotMatch(plain, new RegExp(`${BLOCK_MARK_ATTR}|${BLOCK_LOOKS_STYLE_ATTR}`));
+    for (const nothing of [{}, { look: {} }, { look: { g: 'none' } }, { look: { motion: {} } }]) {
+      assert.equal(await dressed(moment, nothing), plain, `a page with ${JSON.stringify(nothing)} kept differs from one with nothing kept`);
+    }
+    for (const look of [{ g: 'frost' }, { g: 'plain' }, { motion: { in: { fade: true } } }] as const) {
+      const html = await dressed(moment, { look });
+      const style = `<style ${BLOCK_LOOKS_STYLE_ATTR}="">${blockLooksCss(readBlockLooks({ [BLOCK_LOOKS_PREF_KEY]: { look } }))}</style>`;
+      assert.equal(html.split(mark).length, 2, `${JSON.stringify(look)}: the mark is not on the page exactly once`);
+      assert.ok(html.includes(`${mark}${ROOT}`), `${JSON.stringify(look)}: the mark is not right before the panel’s own root`);
+      assert.equal(html.split(style).length, 2);
+      assert.equal(html.replace(mark, '').replace(style, ''), plain, `${JSON.stringify(look)}: the page changed somewhere else`);
+    }
+    /* A guest with nothing personal to wear gets no panel — and no mark pointing at whatever comes next. */
+    const bare = await dressed(moment, undefined, null);
+    assert.doesNotMatch(bare, /<span>What to wear<\/span>/, 'anti-vacuity: this guest has no panel');
+    const kept = await dressed(moment, { look: { g: 'frost' } }, null);
+    assert.doesNotMatch(kept, new RegExp(`<span hidden="" ${BLOCK_MARK_ATTR}="look">`), 'a mark is served where no panel is drawn');
+  });
+}
+
+test('What to wear in Me: the mark rides with the `wear` part alone, right before its root, only when it draws', async () => {
+  const { GuestMeParts } = await import('../app/[slug]/_components/guest-me-parts');
+  const span = `<span hidden="" ${BLOCK_MARK_ATTR}="look"></span>`;
+  const markEl = React.createElement('span', { hidden: true, [BLOCK_MARK_ATTR]: 'look' });
+  const look = (roles: unknown) => ({ config: { roles } as never, ceremonyType: null, genderSeparation: null, guestRole: 'principal_sponsor_ninang' as never, march: null, rolePalette: null });
+  const draw = (roles: unknown, wearMark: unknown, partLooks: unknown = null) =>
+    renderToStaticMarkup(React.createElement(GuestMeParts as unknown as React.FC<Record<string, unknown>>, { parts: ['role', 'wear'], words: eventWordsFromProfile(WEDDING_PROFILE), look: look(roles), comingWith: [], wearMark, partLooks }));
+  for (const partLooks of [null, { wear: 'card' }]) {
+    const plain = draw({ principal_sponsor_ninang: { style: 'filipiniana' } }, null, partLooks);
+    assert.ok(plain.includes('data-me-part="role"') && plain.includes('data-me-part="wear"'), 'anti-vacuity: both parts drawn');
+    const withMark = draw({ principal_sponsor_ninang: { style: 'filipiniana' } }, markEl, partLooks);
+    assert.equal(withMark, plain.replace('<section class="space-y-3" data-me-part="wear">', `${span}<section class="space-y-3" data-me-part="wear">`), `${JSON.stringify(partLooks)}: not exactly the mark before the wear part`);
+  }
+  /* Nothing to wear (the role is named, no outfit): the role part draws, the wear part does not — and no mark. */
+  const roleOnly = draw({}, markEl);
+  assert.ok(roleOnly.includes('data-me-part="role"') && !roleOnly.includes('data-me-part="wear"'), 'anti-vacuity: the role alone');
+  assert.equal(roleOnly, draw({}, null), 'a mark is drawn where the wear part is not');
 });

@@ -68,6 +68,10 @@
  *     STUCK to the top of the screen (`sticky top-0`): a motion that follows the scroll would hold it half-gone the
  *     whole time it rides there, so while it is stuck only what has an end plays (`STILL_WHERE`). It is never in a
  *     chapter (`OFF_CHAPTERS`).
+ *   · WHAT TO WEAR — the dress code's own "you" panel, `DressCodeWidget` (`part="you"` on Welcome, `part="wear"` in
+ *     Me — a guest gets one or the other, never both: `meParts` decides). The mark is HANDED to the widget, which puts
+ *     it before its root only when it draws one (a guest with nothing personal gets nothing — and no mark pointing at
+ *     the NEXT part). Words on the page, no card: bare, like the March.
  */
 import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElementMotion } from './element-style';
 
@@ -75,7 +79,7 @@ import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElement
 export const BLOCK_LOOKS_PREF_KEY = 'block_looks';
 
 /** The blocks that take a look — each is its canvas key without the `f:` (`lib/maker-parts.ts`). */
-export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you', 'announcements'] as const;
+export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you', 'announcements', 'look'] as const;
 export type BlockLookBlock = (typeof BLOCK_LOOK_BLOCKS)[number];
 /**
  * 🖼 THE BLOCKS THAT ONLY MOVE — Animate, and no Background (owner 2026-10-10 of Photos of you: *"animate only"*; its
@@ -103,11 +107,10 @@ export function blockOfCanvas(canvas: string | null | undefined): BlockLookBlock
 /**
  * The canvas's SAMPLES — what each guest sees there is their own. Said when Background or Animate is tapped on one
  * (the couple's words; each names the thing).
- * 📣 2026-10-12: Announcements left it — it took its real block's look.
+ * 📣 2026-10-12: Announcements and What to wear left it — each took its real block's look.
  */
 export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
   'f:live_hub': 'This is a sample. Guests see the live hub here on the day.',
-  'f:look': 'This is a sample. Each guest sees what they wear here.',
 };
 
 /**
@@ -116,7 +119,7 @@ export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
  * drawings are bare — asked of the block itself (`blockGroundToday`). Nor has Your seat: the Map is a plate, the
  * Place card holds a card, the Table number is bare.
  */
-export const BLOCK_GROUND_TODAY: Readonly<Record<BlockGroundBlock, BlockGround | null>> = { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null, pass: 'none', announcements: null };
+export const BLOCK_GROUND_TODAY: Readonly<Record<BlockGroundBlock, BlockGround | null>> = { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null, pass: 'none', announcements: null, look: 'none' };
 /**
  * The block's own card, from its root ('' = the root is the card; null = it has none in any drawing). A list where
  * its drawings keep it in different places — Your seat: the root when it is a plate (Map), the place card inside
@@ -127,7 +130,7 @@ const SEAT_CARDS = ['.pahina-plate', ' > .bg-paper-deep', ' > [data-maker-sample
  *  whose words are light on its own dark (`announcement-styles.tsx`: `bg-ink text-cream`) — and, on the canvas, the
  *  sample's card shape (`maker-fixed-parts.tsx`: `data-sample-card`). */
 const ANNOUNCE_CARDS = [' > div:not(.bg-ink):not([data-maker-sample])', ' > [data-maker-sample] > [data-sample-card]'] as const;
-const GROUND_CARD: Readonly<Record<BlockGroundBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '', find_your_seat: SEAT_CARDS, pass: null, announcements: ANNOUNCE_CARDS };
+const GROUND_CARD: Readonly<Record<BlockGroundBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '', find_your_seat: SEAT_CARDS, pass: null, announcements: ANNOUNCE_CARDS, look: null };
 /** The root where it stands bare ('' = always; null = never) — there the root itself takes the paper or the glass. */
 const GROUND_BARE: Readonly<Record<BlockGroundBlock, string | null>> = {
   entourage: '',
@@ -139,6 +142,7 @@ const GROUND_BARE: Readonly<Record<BlockGroundBlock, string | null>> = {
   /* The Line (a guest's, or the sample's) has no card: the root takes it. The day's INK Notice has its card, so it
      is not bare either — it is reached by no rule at all. */
   announcements: ':not(:has(> div:not([data-maker-sample]), > [data-maker-sample] > [data-sample-card]))',
+  look: '',
 };
 const cardsOf = (block: BlockGroundBlock): readonly string[] => {
   const card = GROUND_CARD[block];
@@ -239,7 +243,7 @@ const OWN = ':not(#el-own)';
  * no chapter round it: it plays as the block is first drawn (Me is hidden until its tab is opened, and an animation
  * starts when its element is first rendered). Inside a chapter it waits for the observer, like every other block.
  */
-const OFF_CHAPTERS: readonly BlockLookBlock[] = ['find_your_seat', 'pass', 'announcements'];
+const OFF_CHAPTERS: readonly BlockLookBlock[] = ['find_your_seat', 'pass', 'announcements', 'look'];
 const NO_CHAPTER = ':not([data-pahina-chapters] *)';
 /** ⚓ The pass, while the address points at it: the door's own lift plays (`[data-motion='pass']:target`), not this. */
 const NOT_THE_DOOR: Readonly<Partial<Record<BlockLookBlock, string>>> = { pass: ':not(:target)' };

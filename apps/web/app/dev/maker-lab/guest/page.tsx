@@ -383,6 +383,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      from your Mood Board" to a guest (the walk of 2026-10-11, M15). */
   const lookBlock = makerCanvas ? (
     <div data-lab-scene="look" className="border-t border-ink/10 px-4 py-8 text-left">
+      {/* 🧱 What to wear's own mark, right BEFORE the sample (`lib/block-looks.ts`) — inside the lab's wrapper. */}
+      <span hidden {...{ [BLOCK_MARK_ATTR]: 'look' }} />
       <MakerWelcomeLook look={look('my_wear')} />
     </div>
   ) : null;

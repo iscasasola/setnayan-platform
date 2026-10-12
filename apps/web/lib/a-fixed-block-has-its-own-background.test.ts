@@ -42,6 +42,8 @@
  * canvas's sample marks its card shape `data-sample-card`. Held in §1 · §3 · §4 · §5. Sabotages seen red: the card
  * rule reaching the ink Notice · the Line's sample grown a card.
  *
+ * 👗 2026-10-12 — …AND WHAT TO WEAR. Words on the page, bare, like the March. Held in §1 · §3 · §4 · §5.
+ *
  * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
  */
 import test from 'node:test';
@@ -84,8 +86,9 @@ const FROST = 'background:var(--sn-glass-bg)!important;border-color:var(--sn-gla
 
 test('1 · the reader is strict: a ground from the fixed three, never the one the block wears anyway', () => {
   assert.deepEqual([...BLOCK_GROUNDS], ['none', 'plain', 'frost']);
-  /* 🔁 RE-AIMED 2026-10-12: Announcements joined (asked of the block: a card in Banner and Notice, none in the Line). */
-  assert.deepEqual(BLOCK_GROUND_TODAY, { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null, pass: 'none', announcements: null });
+  /* 🔁 RE-AIMED 2026-10-12: Announcements (asked of the block: a card in Banner and Notice, none in the Line) and What
+     to wear (bare) joined. */
+  assert.deepEqual(BLOCK_GROUND_TODAY, { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null, pass: 'none', announcements: null, look: 'none' });
   assert.deepEqual(
     readBlockLooks({
       block_looks: {
@@ -136,6 +139,7 @@ test('1 · the reader is strict: a ground from the fixed three, never the one th
   assert.equal(blockGroundToday('announcements', ann([':scope > [data-maker-sample] > [data-sample-card]'])), 'plain');
   assert.equal(blockGroundToday('announcements', ann([])), 'none');
   assert.equal(blockGroundToday('announcements', null), 'plain', 'a block that cannot be asked is taken as its default drawing (the Banner)');
+  assert.equal(blockGroundToday('look', ann([':scope > div:not(.bg-ink):not([data-maker-sample])'])), 'none');
 });
 
 test('2 · the save: today’s tile (or none) takes the key away; the motion and every other block are carried', () => {
@@ -203,6 +207,10 @@ test('3 · the rules: fixed strings on fixed selectors, the RSVP card’s own gr
   assert.equal(css({ announcements: { g: 'none' } }), `${annCards}{${NONE}--color-ink:inherit!important;color:inherit!important;--pahina-frame-opacity:0!important;}`);
   assert.equal(css({ announcements: { g: 'plain' } }), `${annBare}{${PAPER}}\n${annBare} > *{${INSIDE}}`);
   assert.equal(css({ announcements: { g: 'frost' } }), `${annCards}{${FROST}${EDGE}--pahina-frame-opacity:0!important;}\n${annBare}{${GLASS}}`);
+  /* 👗 What to wear stands bare, like the March: the block itself takes the paper or the glass. */
+  assert.equal(css({ look: { g: 'none' } }), '');
+  assert.equal(css({ look: { g: 'plain' } }), `${at('look')}{${PAPER}}\n${at('look')} > *{${INSIDE}}`);
+  assert.equal(css({ look: { g: 'frost' } }), `${at('look')}{${GLASS}}`);
 
   /* NOT A MOVEMENT: a ground is written outside both gates (it shows on every engine, and for a guest who asked for
      less motion); the motion stays inside them, after it. */
@@ -332,6 +340,11 @@ test('4 · one card, never two: the markup each ground leans on is there', () =>
   assert.match(annSamples, /'announcements:notice': \(\) => \(\s*<span data-sample-card="" /);
   assert.equal((annSamples.match(/data-sample-card/g) ?? []).length, 2, 'the Line’s sample grew a card');
   assert.equal((SAMPLE.match(/data-sample-card/g) ?? []).length, 2, 'another sample grew a card shape the announcement’s rules would reach');
+  /* 👗 WHAT TO WEAR: the reader's own panel — words on the page, no card (house rule) — and the canvas's sample alike. */
+  const DRESS = src(`${G}/dress-code-widget.tsx`);
+  assert.match(DRESS, /<section className="space-y-3" data-me-part="wear">\s*<p className="pahina-eyebrow">\s*<span>What to wear<\/span>/);
+  assert.match(DRESS, /<section className="space-y-5">\s*\{part === 'you' \? \(\s*<p className="pahina-eyebrow">\s*<span>What to wear<\/span>/);
+  assert.match(passSample, /<section className="space-y-2" data-maker-guest-scene="look"/);
 
   /* A plate given a ground gives up its printed inner frame (a second frame inside the first). */
   for (const g of ['none', 'frost'] as const) assert.match(css({ details: { g } }), / > \.pahina-plate\{[^}]*--pahina-frame-opacity:0!important;\}/);
@@ -355,11 +368,14 @@ test('5 · a guest’s page: no mark and no style unless something is kept; the 
   /* 🔁 RE-AIMED 2026-10-10 (owner: "animate only"): 7 → 8. The new one is Photos of you's, before the gallery's one
      root — a block that takes NO ground (the reader keeps none for it and no rule is written: §1), so there is no
      card there for a ground to land on, and nothing to re-walk. Same claim. */
-  /* (2026-10-12: Announcements is marked by the layout — `announcement-look.tsx` — not here: the count is unchanged.) */
-  assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 8, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
+  /* 🔁 RE-AIMED 2026-10-12 (What to wear made real): 8 → 12. The new four are What to wear's (the three Welcomes
+     that can draw a guest's own look, and Me's What to wear — its panel is bare: the root takes the ground, §3/§4).
+     Announcements is marked by the layout (`announcement-look.tsx`), not here. Same claim. */
+  assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 12, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
+  assert.equal((BODY.match(/blockMark\('look'\)/g) ?? []).length, 4);
   assert.equal((BODY.match(/blockMark\('photos_of_you'\)/g) ?? []).length, 1);
   /* Nothing about a ground is said in the page's own files: it is all behind the reader and the rules. */
-  for (const file of [`${G}/site-body.tsx`, `${G}/editor-bridge.tsx`, `${G}/empty-states.tsx`, `${G}/guest-doorway-strip.tsx`, `${G}/spotlight-card.tsx`, `${G}/entourage-section.tsx`, `${G}/your-seat-block.tsx`, `${G}/your-seat-styles.tsx`, `${G}/maker-fixed-parts.tsx`, `${G}/guest-ticket.tsx`, `${G}/maker-guest-scenes.tsx`, 'app/[slug]/page.tsx', 'app/[slug]/layout.tsx', `${G}/announcement-look.tsx`, `${G}/day-of-announcement.tsx`, `${G}/announcement-styles.tsx`]) {
+  for (const file of [`${G}/site-body.tsx`, `${G}/editor-bridge.tsx`, `${G}/empty-states.tsx`, `${G}/guest-doorway-strip.tsx`, `${G}/spotlight-card.tsx`, `${G}/entourage-section.tsx`, `${G}/your-seat-block.tsx`, `${G}/your-seat-styles.tsx`, `${G}/maker-fixed-parts.tsx`, `${G}/guest-ticket.tsx`, `${G}/maker-guest-scenes.tsx`, 'app/[slug]/page.tsx', 'app/[slug]/layout.tsx', `${G}/announcement-look.tsx`, `${G}/day-of-announcement.tsx`, `${G}/announcement-styles.tsx`, `${G}/dress-code-widget.tsx`, `${G}/guest-welcome.tsx`, `${G}/guest-me-parts.tsx`]) {
     assert.doesNotMatch(src(file), /blockGround|BLOCK_GROUND|data-block-ground/, `${file} grew code for a block’s background`);
   }
   /* Happening now is drawn in two places — both stand behind the one mark, so the ground reaches both. */

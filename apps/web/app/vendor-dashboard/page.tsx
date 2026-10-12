@@ -539,13 +539,37 @@ export default async function VendorOverviewPage({
   const awardWord = [...new Set(spotlightAwards)].map((a) => AWARD_LABELS[a]).join(' · ') || null;
   const shopLine = [categoryWord, shopState, awardWord, milestoneWord].filter((p): p is string => Boolean(p)).join(' · ');
 
-  // The outcome of an answer given ON this page — one sentence, as a toast.
-  const outcome = lockAnswer
-    ? { text: lockAnswer.text, refused: lockAnswer.tone === 'refused' }
+  // The outcome of an answer given ON this page — the shared top toast (its
+  // first sentence) and the whole sentence as the page's status line.
+  //   ok   = it happened · note = nothing changed · bad = refused or failed.
+  // "Try again" only where pressing again can work: the one generic failure
+  // ("That did not go through. Nothing changed — please try again."), which all
+  // three answers share. A closed request or a full date is not retried.
+  const genericFailure = new Set(
+    [lockAgreeNotice('error')?.text, DATE_ANSWER_NOTICE.failed, DEPOSIT_ANSWER_NOTICE.error].filter(Boolean),
+  );
+  const outcome: { text: string; tone: 'ok' | 'note' | 'bad' } | null = lockAnswer
+    ? { text: lockAnswer.text, tone: lockAnswer.tone === 'ok' ? 'ok' : lockAnswer.tone === 'noop' ? 'note' : 'bad' }
     : dateAnswer
-      ? { text: dateAnswer, refused: search.date_answer !== 'moved' && search.date_answer !== 'unlocked' }
+      ? {
+          text: dateAnswer,
+          tone:
+            search.date_answer === 'moved' || search.date_answer === 'unlocked'
+              ? 'ok'
+              : search.date_answer === 'already' || search.date_answer === 'not_yours'
+                ? 'note'
+                : 'bad',
+        }
       : depositAnswer
-        ? { text: depositAnswer, refused: search.deposit_answer !== 'ok' }
+        ? {
+            text: depositAnswer,
+            tone:
+              search.deposit_answer === 'ok'
+                ? 'ok'
+                : depositAnswer === DEPOSIT_ANSWER_NOTICE.error
+                  ? 'bad'
+                  : 'note',
+          }
         : null;
 
   return (
@@ -553,9 +577,10 @@ export default async function VendorOverviewPage({
       {/* The outcome of an answer given ON this page (a booking ask · a date
           change · a payment that never arrived). A refusal is the whole point:
           without it the supplier presses Agree, is refused, and sees the same
-          page with no explanation. Text only — nothing to press — so the Next
-          card below is still the first thing you can tap. */}
-      {outcome ? <SupplierToast text={outcome.text} refused={outcome.refused} /> : null}
+          page with no explanation. The server draws words only — nothing to
+          press — so the Next card below is still the first thing you can tap;
+          the toast (and its Try again) arrives once the page is running. */}
+      {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} /> : null}
 
       <SupplierTodayFirstScreen
         next={next}
@@ -626,6 +651,7 @@ export default async function VendorOverviewPage({
                 there is no unpaid fee, and nothing when the read failed — an
                 unread bill list is not "you owe nothing". */}
             <BookingFeeBills
+              rows
               bills={next.kind === 'fee' ? todayFeeBills.slice(1) : todayFeeBills}
               copyFor={(b) => feeDueCopy(b, manilaToday())}
             />

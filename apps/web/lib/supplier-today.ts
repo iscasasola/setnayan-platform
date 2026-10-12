@@ -405,33 +405,38 @@ export function owedToYouPhp(
 export type SupplierTone = 'brand' | 'ok' | 'info' | 'warn' | 'danger' | 'neutral';
 export type SupplierIcon = 'reply' | 'check' | 'play' | 'send' | 'calendar' | 'wallet' | 'retry' | 'forward' | 'people' | 'eye';
 
-/** A desk card's main verb: Reply is a message, Agree and money are a commit, the rest go forward. */
+/*
+  🟧 THE MAIN BUTTON IS TERRACOTTA, WHATEVER IT DOES (owner 2026-10-12, "APPROVE ALL" look call 1: "every MAIN action
+  button is terracotta — the meaning colours of the 2026-10-07 button rule (blue Ask, green Book/Pay) end for main
+  buttons; the word says what it does"). So every main verb below is `brand` — Reply, Agree, Pay and Try again alike
+  — and only the ICON still says what kind of press it is. The grey second button is drawn by the page (`neutral`).
+*/
 const ANSWER_LOOK: Record<WhatsNewCard['kind'], { tone: SupplierTone; icon: SupplierIcon }> = {
-  inquiry: { tone: 'info', icon: 'reply' },
-  message: { tone: 'info', icon: 'reply' },
-  review: { tone: 'info', icon: 'reply' },
-  lock_request: { tone: 'ok', icon: 'check' },
-  lock: { tone: 'ok', icon: 'check' },
-  mark_complete: { tone: 'ok', icon: 'check' },
-  date_change: { tone: 'ok', icon: 'check' },
-  // Removing an event is not a commit to celebrate — the button only OPENS the answer.
-  delete_request: { tone: 'neutral', icon: 'forward' },
+  inquiry: { tone: 'brand', icon: 'reply' },
+  message: { tone: 'brand', icon: 'reply' },
+  review: { tone: 'brand', icon: 'reply' },
+  lock_request: { tone: 'brand', icon: 'check' },
+  lock: { tone: 'brand', icon: 'check' },
+  mark_complete: { tone: 'brand', icon: 'check' },
+  date_change: { tone: 'brand', icon: 'check' },
+  // Removing an event: the Next button only OPENS the answer (its row, where "Agree to remove it" is the delete look).
+  delete_request: { tone: 'brand', icon: 'forward' },
   meeting: { tone: 'brand', icon: 'calendar' },
   quote_draft: { tone: 'brand', icon: 'send' },
   contract_draft: { tone: 'brand', icon: 'send' },
-  lock_request_lapsed: { tone: 'neutral', icon: 'forward' },
-  dispute: { tone: 'neutral', icon: 'forward' },
+  lock_request_lapsed: { tone: 'brand', icon: 'forward' },
+  dispute: { tone: 'brand', icon: 'forward' },
 };
 
 const RULE_LOOK: Record<Exclude<SupplierNextKind, 'answer'>, { tone: SupplierTone; icon: SupplierIcon }> = {
   run_day: { tone: 'brand', icon: 'play' },
-  unread: { tone: 'neutral', icon: 'retry' },
+  unread: { tone: 'brand', icon: 'retry' },
   setup: { tone: 'brand', icon: 'forward' },
   findable: { tone: 'brand', icon: 'forward' },
   tomorrow: { tone: 'brand', icon: 'calendar' },
-  fee: { tone: 'ok', icon: 'wallet' },
+  fee: { tone: 'brand', icon: 'wallet' },
   payday: { tone: 'brand', icon: 'wallet' },
-  clear: { tone: 'neutral', icon: 'people' },
+  clear: { tone: 'brand', icon: 'people' },
 };
 
 /** The Next card's main button — its colour and its icon. */

@@ -1,64 +1,98 @@
 'use client';
 
 /**
- * SupplierToast — THE OUTCOME OF AN ANSWER, SAID AS A TOAST (supplier redesign
- * S-PR1, corpus `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "Outcome
- * notices (lock/date/deposit answers via query params) — Keep as a toast, not a
- * tile").
+ * SupplierToast — THE OUTCOME OF AN ANSWER (supplier redesign S-PR1, corpus
+ * `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "Outcome notices — Keep
+ * as a toast, not a tile"), DRAWN BY THE SHARED TOAST (2026-10-12 look audit).
  *
  * A supplier answers on the page (Agree · Move · Unlock · "it never arrived")
  * and the action redirects back with its status in the query string. The
- * sentence for that status used to sit in a tile above the first screen; it is
- * a dark pill above the bottom bar now, and the words are exactly the same.
+ * outcome is said twice, in the two places the templates give a message
+ * (`INTERACTION_RULES.md` § 9 kind 12 — toast · status line):
  *
- * 🔴 A REFUSAL IN SILENCE IS INDISTINGUISHABLE FROM ONE THAT NEVER HAPPENED, so
- * this is built to be seen, not to be clever:
- *   · the server renders the pill IN THE PAGE, at the top of the column, so it
- *     is there with JavaScript off and before hydration;
- *   · once mounted it floats above the bottom dock (portalled to `<body>`, so
- *     nothing that wraps the page can pin it somewhere off screen);
- *   · a plain outcome leaves after 8 s; a REFUSAL stays until the supplier
- *     leaves the page — it is the reason the thing they pressed did not work;
- *   · it holds nothing to press, so the Next card is still the first tap.
+ *   · THE TOAST — `PeekToast`, the one drawing (`app/_components/toast/
+ *     peek-toast.tsx`): it peeks down from the TOP, terracotta with ✓ for a
+ *     good result, dark red with a warning mark for a failure, white for a
+ *     nothing-changed note, and leaves by itself. It says the outcome's FIRST
+ *     sentence — the pill holds two lines, and these sentences run longer. A
+ *     failure the supplier can simply press again ("That did not go through")
+ *     carries **Try again**, which brings the page back with the answer on it.
+ *     It was a dark pill at the BOTTOM for 8 s, drawn here (look audit
+ *     2026-10-12: "use the shared top toast").
+ *   · THE STATUS LINE — the WHOLE sentence, at the top of the column, in the
+ *     page itself: "the lasting copy of a failure is the status line on the
+ *     page" (§ 9). It is drawn by the server, so it is there with JavaScript
+ *     off and before hydration, and it stays until the supplier leaves. Words
+ *     only — nothing to press — so the Next card is still the first tap.
  *
- * Loaded only by the supplier's Today.
+ * 🔴 A REFUSAL IN SILENCE IS INDISTINGUISHABLE FROM ONE THAT NEVER HAPPENED —
+ * which is why the status line never leaves by itself, whatever the toast does.
+ *
+ * Loaded only by the supplier's Today (and its dev lab).
  */
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
+import { TriangleAlert } from 'lucide-react';
+import { PeekToast, type PeekToastTone } from '@/app/_components/toast/peek-toast';
 
-/** How long a plain outcome stays up. A refusal never leaves by itself. */
-export const TOAST_MS = 8000;
+export type SupplierOutcomeTone = PeekToastTone;
 
-const PILL =
-  'pointer-events-auto max-w-[min(34rem,calc(100vw-2rem))] rounded-2xl bg-ink px-4 py-2.5 text-center text-[13px] leading-snug text-cream';
+/** The toast's words: the outcome's first sentence (the whole of it when it has one). */
+export function toastWords(text: string): string {
+  const first = text.match(/^.*?[.!?](?=\s|$)/)?.[0];
+  return (first ?? text).trim();
+}
 
-export function SupplierToast({ text, refused = false }: { text: string; refused?: boolean }) {
-  const [where, setWhere] = useState<'page' | 'floating' | 'gone'>('page');
+export function SupplierToast({
+  text,
+  tone,
+  retry = false,
+}: {
+  /** The outcome, in the shipped sentence (`lockAgreeNotice`, `DATE_ANSWER_NOTICE`, the deposit answers). */
+  text: string;
+  /** ok = it happened · note = nothing changed · bad = it was refused or failed. */
+  tone: SupplierOutcomeTone;
+  /** The press can simply be made again — the toast carries "Try again". */
+  retry?: boolean;
+}) {
+  const router = useRouter();
+  // The toast is a client thing: drawn once mounted (portalled to <body> — a transform on an ancestor would pin a
+  // `fixed` child to it), so the server's markup holds only the status line.
+  const [showing, setShowing] = useState(false);
+  useEffect(() => setShowing(true), [text, tone]);
 
-  useEffect(() => {
-    setWhere('floating');
-    if (refused) return;
-    const t = setTimeout(() => setWhere('gone'), TOAST_MS);
-    return () => clearTimeout(t);
-  }, [refused, text]);
-
-  if (where === 'gone') return null;
-
-  const pill = (
-    <div role="status" data-supplier-toast={refused ? 'refused' : 'said'} className={PILL}>
-      {text}
-    </div>
-  );
-
-  if (where === 'page') return <div className="mb-3 flex justify-center">{pill}</div>;
-
-  return createPortal(
-    <div
-      className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4"
-      style={{ bottom: 'calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 12px)' }}
-    >
-      {pill}
-    </div>,
-    document.body,
+  return (
+    <>
+      <p
+        role="status"
+        data-supplier-outcome={tone}
+        className={`mb-3 flex items-start gap-2 text-[13px] leading-snug ${tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/70'}`}
+      >
+        {tone === 'bad' ? <TriangleAlert aria-hidden className="mt-px h-4 w-4 flex-none" strokeWidth={2.2} /> : null}
+        <span>{text}</span>
+      </p>
+      {showing
+        ? createPortal(
+            <PeekToast
+              tone={tone}
+              data="supplier-outcome"
+              onGone={() => setShowing(false)}
+              onRetry={
+                tone === 'bad' && retry
+                  ? () => {
+                      setShowing(false);
+                      // The same page without the outcome: the answer is back on it, ready to press again.
+                      router.replace('/vendor-dashboard');
+                    }
+                  : undefined
+              }
+            >
+              {toastWords(text)}
+            </PeekToast>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }

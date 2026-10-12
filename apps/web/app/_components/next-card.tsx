@@ -27,6 +27,16 @@ import type { ReactNode } from 'react';
  * quiet "Later" under the button. It posts an EXISTING server action (no new
  * one), so the offer is answered without a line of client code.
  */
+/**
+ * 🌑 THE EVENT-DAY CARD (frame 02) — dark in BOTH themes. Its ground is the
+ * page's dark ink in light mode; in dark mode `ink` turns to paper, so the card
+ * would flip to a white slab — there it takes a raised dark of its own (the
+ * page's ground lifted toward paper), and its words stay paper. One class list,
+ * read by the guard that holds it readable.
+ */
+export const NEXT_DAY_CARD =
+  'home-card !border-ink !bg-ink !text-cream dark:!border-ink/25 dark:![background:color-mix(in_srgb,rgb(var(--color-ink))_12%,rgb(var(--color-cream)))] dark:!text-ink [&_.home-card-body]:!text-cream/70 [&_.home-eyebrow]:!text-cream/70 dark:[&_.home-card-body]:!text-ink/70 dark:[&_.home-eyebrow]:!text-ink/70';
+
 export function NextCard({
   marker,
   kind,
@@ -70,9 +80,17 @@ export function NextCard({
    *   `counter` where this is in the queue ("1 of 3"), top right
    *   `day`     an event is TODAY — the card goes ink, its words paper
    *   `note`    one line under the buttons, said BEFORE the press
-   *   `soft`    the supplier prototype's card: a soft gold ground with no edge
-   *             and a 24 px title (`.next` in the prototype). Never on a `bad`
-   *             or a `day` card — a failure and an event day keep their own.
+   *   `soft`    the supplier prototype's title: 24 px, medium (`.next h2`).
+   *             Only the words — the card has no ground of its own any more.
+   *
+   * 🧾 NO FRAME, NO FILL (owner 2026-10-12, "APPROVE ALL" look call 9: the
+   * Next card keeps the approved layout "with the look board's styling (no
+   * frame on the main card)"). The card sits on the page's own ground, like
+   * the rows under it — no border, no tint, no gold wash. Fixed ONCE, here, so
+   * the couple's Home and the supplier's Today stay one card. Two states keep
+   * a ground of their own because they ARE their state: a failed read (`bad`,
+   * the danger wash — it must never look like success) and an event day
+   * (`day`, the dark card of frame 02).
    */
   meta?: ReactNode;
   counter?: string | null;
@@ -86,21 +104,13 @@ export function NextCard({
         {...{ [marker]: kind }}
         data-next-bad={bad ? '' : undefined}
         data-next-day={day ? '' : undefined}
-        data-next-soft={soft && !bad && !day ? '' : undefined}
-        className={`home-card${bad ? ' home-card-bad' : ''}${
-          day ? ' relative !border-ink !bg-ink !text-cream [&_.home-card-body]:!text-cream/70 [&_.home-eyebrow]:!text-cream/70' : counter ? ' relative' : ''
-        }${soft ? ' !p-4 [&_.home-card-title]:!text-[24px] [&_.home-card-title]:!font-medium [&_.home-card-title]:!leading-[1.1]' : ''}`}
-        /* Mixed from the two tokens that flip with the theme, so the soft gold
-           is soft on a dark page too (a fixed #F3ECDF would put light ink on a
-           light fill). */
-        style={
-          soft && !bad && !day
-            ? { background: 'color-mix(in srgb, rgb(var(--color-terracotta)) 16%, rgb(var(--color-cream)))', borderColor: 'transparent' }
-            : undefined
-        }
+        data-next-bare={bad || day ? undefined : ''}
+        className={`relative min-w-0 text-left text-ink${
+          bad ? ' home-card home-card-bad' : day ? ` ${NEXT_DAY_CARD}` : ' py-1'
+        }${soft ? ' [&_.home-card-title]:!text-[24px] [&_.home-card-title]:!font-medium [&_.home-card-title]:!leading-[1.1]' : ''}`}
       >
         {counter ? (
-          <span data-next-counter="" className={`absolute right-3.5 top-3 text-[12px] ${day ? 'text-cream/70' : 'text-ink/60'}`}>
+          <span data-next-counter="" className={`absolute right-3.5 top-3 text-[12px] ${day ? 'text-cream/70 dark:text-ink/70' : 'text-ink/60'}${bad || day ? '' : ' !right-0 !top-1'}`}>
             {counter}
           </span>
         ) : null}
@@ -111,7 +121,7 @@ export function NextCard({
         <h2 className="home-card-title">{title}</h2>
         <p className="home-card-body">{body}</p>
         <div className="home-acts">{actions}</div>
-        {note ? <p data-next-note="" className={`mt-2 text-[12.5px] leading-snug ${day ? 'text-cream/70' : 'text-ink/60'}`}>{note}</p> : null}
+        {note ? <p data-next-note="" className={`mt-2 text-[12.5px] leading-snug ${day ? 'text-cream/70 dark:text-ink/70' : 'text-ink/60'}`}>{note}</p> : null}
       </div>
     );
   }

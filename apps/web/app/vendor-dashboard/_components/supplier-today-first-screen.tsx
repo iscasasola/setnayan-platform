@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
+import { Badge } from '@/app/_components/chips';
 import { ActionButton } from '@/components/action-button';
 import { Count } from '@/components/count';
 import type {
@@ -120,22 +121,14 @@ function icon(name: SupplierIcon): ReactElement {
   return <I aria-hidden="true" strokeWidth={1.9} />;
 }
 
-/** A small word on a tinted pill — "2 of 3" (waiting), "Live" (good). */
-export function TodayPill({ tone, children }: { tone: 'warn' | 'ok' | 'quiet'; children: ReactNode }) {
-  const token = tone === 'warn' ? '--color-warn' : tone === 'ok' ? '--color-ok' : '--color-ink';
-  return (
-    <span
-      data-today-pill={tone}
-      className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[12px]"
-      style={{
-        color: tone === 'quiet' ? 'color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent)' : `rgb(var(${token}))`,
-        background: `color-mix(in srgb, rgb(var(${token})) ${tone === 'quiet' ? 7 : 12}%, transparent)`,
-      }}
-    >
-      {children}
-    </span>
-  );
-}
+/*
+  🏷 A STATE ON A ROW ("Live" · "2 of 3") is the shared `Badge` (`chips.tsx`, kind 11): soft fill, no border, its
+  word always (owner 2026-10-12, look call 7). This file draws no pill of its own.
+
+  ➜ The small mark that says "you can tap this" — a row's arrow, a list's door, the mark under a number — is the
+  app's accent (`text-sn-accent`), never grey (INTERACTION_RULES § 9, owner 2026-10-08 on a grey arrow:
+  *"teracota?"*; 2026-10-12 look call 8: lists are hairline rows with a terracotta arrow).
+*/
 
 /** The small capitals over a list, with one optional door on the right. */
 export function TodayEyebrow({ children, door }: { children: ReactNode; door?: { label: string; href: string } }) {
@@ -143,7 +136,7 @@ export function TodayEyebrow({ children, door }: { children: ReactNode; door?: {
     <p className="home-k2 flex items-center gap-2">
       {children}
       {door ? (
-        <Link href={door.href} className="ml-auto inline-flex items-center gap-0.5 text-[12.5px] font-medium normal-case tracking-normal text-mulberry-700">
+        <Link href={door.href} className="ml-auto inline-flex min-h-11 items-center gap-0.5 text-[12.5px] font-medium normal-case tracking-normal text-sn-accent">
           {door.label}
           <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         </Link>
@@ -162,7 +155,7 @@ export function TodayRow({ href, label, line, pill, lineTone, marker }: {
   marker?: string;
 }) {
   return (
-    <Link href={href} className="home-row" {...(marker ? { 'data-today-row': marker } : {})}>
+    <Link href={href} className="home-row min-h-11" {...(marker ? { 'data-today-row': marker } : {})}>
       <span className="min-w-0">
         <span className="home-t block truncate text-[15px] leading-tight text-ink">{label}</span>
         {line ? (
@@ -174,9 +167,9 @@ export function TodayRow({ href, label, line, pill, lineTone, marker }: {
           </span>
         ) : null}
       </span>
-      <span className="flex items-center gap-2 text-ink/45">
+      <span className="flex items-center gap-2">
         {pill}
-        <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
       </span>
     </Link>
   );
@@ -241,9 +234,9 @@ export type SupplierTodayFirstScreenProps = {
  *
  * A server component: every figure arrives already read and already worded.
  *
- * 🔘 Every control is an `ActionButton` with a tone — Reply is a message
- * (info), Agree and money are a commit (ok), Run the day is the forward step
- * (brand) — or, where it posts a form, a `SupplierSubmit`.
+ * 🔘 Every control is an `ActionButton` — the main verb terracotta (`brand`,
+ * owner 2026-10-12: the meaning colours ended for main buttons), the second
+ * grey — or, where it posts a form, a `SupplierSubmit`. 44 px tall each.
  *
  * 🌑 On an event day the card goes ink (`day`), its title is the event, and
  * its button is **Run the day**.
@@ -282,7 +275,7 @@ export function SupplierTodayFirstScreen({
       <form action={dateChange.answer} className="contents" data-date-change-next={dateChange.card.eventVendorId}>
         <input type="hidden" name="vendor_id" value={dateChange.card.eventVendorId} />
         <input type="hidden" name="answer" value="moved" />
-        <SupplierSubmit tone="ok" main icon={<Check aria-hidden="true" strokeWidth={1.9} />} label="Move" pendingLabel="Saving…" />
+        <SupplierSubmit tone="brand" main icon={<Check aria-hidden="true" strokeWidth={1.9} />} label="Move" pendingLabel="Saving…" />
       </form>
       <form action={dateChange.answer} className="contents">
         <input type="hidden" name="vendor_id" value={dateChange.card.eventVendorId} />
@@ -292,14 +285,14 @@ export function SupplierTodayFirstScreen({
     </>
   ) : (
     <>
-      <ActionButton tone={look.tone} main icon={icon(look.icon)} label={next.action} href={unread ? '/vendor-dashboard' : nextHref(next.target)} />
+      <ActionButton tone={look.tone} main icon={icon(look.icon)} label={next.action} href={unread ? '/vendor-dashboard' : nextHref(next.target)} className="min-h-11" />
       {second ? (
         <ActionButton
           tone="neutral"
           icon={icon(second.label === 'Chat' ? 'reply' : 'eye')}
           label={second.label}
           href={second.to === 'card' ? customerCardHref(second.eventId, 'details') : second.href}
-          className={greyClass}
+          className={`min-h-11${greyClass ? ` ${greyClass}` : ''}`}
         />
       ) : null}
     </>
@@ -336,21 +329,21 @@ export function SupplierTodayFirstScreen({
             <Unread />
           ) : (
             <>
-              <span
-                className="block text-[26px] font-semibold leading-none tabular-nums text-ink"
-                style={numbers.waitingNow ? { color: 'rgb(var(--color-mulberry-700))' } : undefined}
-              >
+              {/* Something waits → the number wears the app's accent (the token, never a colour written here). */}
+              <span className={`block text-[26px] font-semibold leading-none tabular-nums ${numbers.waitingNow ? 'text-sn-accent' : 'text-ink'}`}>
                 <Figure word={numbers.waiting} id="today-waiting" />
               </span>
               <span className="block text-[11.5px] text-ink/60">waiting on you</span>
             </>
           )}
+          <TapMark />
         </Link>
         <Link href="/vendor-dashboard/calendar" className="grid gap-0.5 text-center" data-today-number="week">
           <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">
             <Figure word={numbers.thisWeek} id="today-week" />
           </span>
           <span className="block text-[11.5px] text-ink/60">events this week</span>
+          <TapMark />
         </Link>
         <Link href={customerLandingHref('payday')} className="grid gap-0.5 text-center" data-today-number="money" data-money="">
           {numbers.toComeIn === null ? (
@@ -361,6 +354,7 @@ export function SupplierTodayFirstScreen({
               <span className="block text-[11.5px] text-ink/60">to come in</span>
             </>
           )}
+          <TapMark />
         </Link>
       </div>
 
@@ -398,13 +392,22 @@ export function SupplierTodayFirstScreen({
             href="/vendor-dashboard/shop"
             label={shop.name}
             line={shop.line}
-            pill={shop.live ? <TodayPill tone="ok">Live</TodayPill> : undefined}
+            pill={shop.live ? <Badge tone="ok" data="shop">Live</Badge> : undefined}
             marker="shop"
           />
         </div>
       </div>
     </section>
   );
+}
+
+/**
+ * ➜ THE SMALL MARK UNDER A NUMBER — each of the three numbers is a door to the list it counts, and says so the way
+ * every other door on the page does: a small terracotta arrow (owner 2026-10-12: the numbers stay tappable "with a
+ * small terracotta mark under each"). Decorative — the link's words already name it.
+ */
+function TapMark() {
+  return <ChevronRight aria-hidden data-today-tapmark="" className="mx-auto mt-0.5 h-3.5 w-3.5 text-sn-accent" strokeWidth={2.2} />;
 }
 
 /** A number counts to its value (`Count`); a word ("5+", "2+") is shown as it is. */

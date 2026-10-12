@@ -1,6 +1,21 @@
-import Link from 'next/link';
-import { ChevronDown, FileText } from 'lucide-react';
-import { SubmitButton } from '@/app/_components/submit-button';
+import {
+  ArrowRight,
+  CalendarClock,
+  CalendarDays,
+  Check,
+  FileText,
+  LogOut,
+  MessageSquare,
+  Reply,
+  Send,
+  Trash2,
+  Wallet,
+  X,
+} from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/chips';
+import { Fold } from '@/app/_components/fold';
+import { SupplierSubmit } from './supplier-submit';
 import { waitingAge } from '@/lib/waiting-age';
 import { formatLongDate, monthDay } from '@/lib/format-date';
 import { dateChangeWhen } from '@/lib/date-change';
@@ -16,7 +31,18 @@ import { formatPhp } from '@/lib/orders';
 import { formatCentavosPhp } from '@/lib/php';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
-import { TodayPill } from './supplier-today-first-screen';
+
+/*
+  🔘 THE ANSWERS WEAR THE BUTTON RULE (2026-10-12, owner "APPROVE ALL" look calls 1–3): every press here is an
+  `ActionButton` (a door) or a `SupplierSubmit` (a form's submit — the shipped `SubmitButton`, its pending word and
+  its no-touch veil, in ActionButton's class list). The row's MAIN verb is terracotta (`brand`), whatever it does —
+  the meaning colours (green Agree, blue Reply) ended for main buttons; the word says what it does. Taking something
+  back (remove a celebration · "it never arrived") is `danger`; the rest is `neutral`. 44 px tall, every one: a door
+  is an `<a>`, which the house button floor does not reach, so it carries `TAP`.
+  A server component hands each an ELEMENT for its icon, never a component.
+*/
+const TAP = 'min-h-11';
+const ico = { 'aria-hidden': true, strokeWidth: 1.9 } as const;
 
 /**
  * overview-sections.tsx — the presentational sections of the vendor Overview.
@@ -290,31 +316,26 @@ export function WhatsNewFeed({
           missing some. Refresh the page to try again.
         </p>
       ) : null}
-      <div className="[&>details:first-child]:border-t-0">
+      <div className="[&>div:first-child]:border-t-0">
         {rows.map(({ card, label, line, position, open }) => (
-          <details
-            key={card.id}
-            name="today-ask"
-            id={`ask-${card.id}`}
-            open={open}
-            data-today-ask={card.kind}
-            className="group border-t border-ink/10"
-          >
-            <summary className="home-row cursor-pointer list-none !border-t-0 [&::-webkit-details-marker]:hidden">
-              <span className="min-w-0">
-                <span className="home-t block truncate text-[15px] leading-tight text-ink">{label}</span>
-                {line ? <span className="block truncate text-[13px] text-ink/60">{line}</span> : null}
-              </span>
-              <span className="flex items-center gap-2 text-ink/45">
-                {/* "1 of 1" is noise — a lone ask has no place in a queue to name. */}
-                {total > 1 ? (
-                  <TodayPill tone="warn">
+          /* 🗂 THE SHARED FOLD (kind 19) — its terracotta arrow, its 0.7 s open, ONE open at a time on the screen
+             (`useOneOpen`), and what is inside stays mounted while shut. The row's hairline and its anchor are this
+             wrapper's; `#ask-<id>` is the address older links name. */
+          <div key={card.id} id={`ask-${card.id}`} data-today-ask={card.kind} className="scroll-mt-24 border-t border-ink/10">
+            <Fold
+              data="today-ask"
+              title={label}
+              line={line}
+              defaultOpen={open}
+              aside={
+                /* "1 of 1" is noise — a lone ask has no place in a queue to name. */
+                total > 1 ? (
+                  <Badge tone="wait" data="today-ask">
                     {formatCount(position)} of {formatCount(total)}
-                  </TodayPill>
-                ) : null}
-                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />
-              </span>
-            </summary>
+                  </Badge>
+                ) : null
+              }
+            >
             <div className="pb-3 pl-3">
               <FeedCard
                 card={card}
@@ -334,7 +355,8 @@ export function WhatsNewFeed({
                 feeForecasts={feeForecasts}
               />
             </div>
-          </details>
+            </Fold>
+          </div>
         ))}
       </div>
     </section>
@@ -389,26 +411,20 @@ export function NothingToAnswerFeed({
        here is waiting on the shop. Each opens the note it carries. */
     <section id="nothing-to-answer" data-nothing-to-answer="" className="scroll-mt-24" aria-label="Nothing to answer">
       <p className="home-k2">Nothing to answer</p>
-      <div className="[&>details:first-child]:border-t-0">
+      <div className="[&>div:first-child]:border-t-0">
         {cards.map((card) => (
-          <details key={card.id} name="today-ask" data-today-news={card.kind} className="group border-t border-ink/10">
-            <summary className="home-row cursor-pointer list-none !border-t-0 [&::-webkit-details-marker]:hidden">
-              <span className="min-w-0">
-                <span className="home-t block truncate text-[15px] leading-tight text-ink">{cardTone(card).eyebrow}</span>
-              </span>
-              <span className="flex items-center gap-2 text-ink/45">
-                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={1.75} />
-              </span>
-            </summary>
-            <div className="pb-3 pl-3">
-              <FeedCard
-                card={card}
-                {...actions}
-                payoutReadiness="unreadable"
-                feeForecasts={{}}
-              />
-            </div>
-          </details>
+          <div key={card.id} data-today-news={card.kind} className="border-t border-ink/10">
+            <Fold data="today-news" title={cardTone(card).eyebrow} line="">
+              <div className="pb-3 pl-3">
+                <FeedCard
+                  card={card}
+                  {...actions}
+                  payoutReadiness="unreadable"
+                  feeForecasts={{}}
+                />
+              </div>
+            </Fold>
+          </div>
         ))}
       </div>
     </section>
@@ -555,9 +571,7 @@ function MarkCompleteBody({
           — passing one would look like it scoped the write when it did not. */}
       <form action={markServiceComplete}>
         <input type="hidden" name="event_id" value={card.eventId} />
-        <button type="submit" className="sn-btn sn-btn-primary text-sm">
-          I delivered this service
-        </button>
+        <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="I delivered this service" pendingLabel="Saving…" />
       </form>
     </div>
   );
@@ -607,27 +621,15 @@ function InquiryBody({
         </p>
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <form action={acceptInquiry}>
+        <form action={acceptInquiry} className="contents">
           <input type="hidden" name="thread_id" value={card.threadId} />
           <input type="hidden" name="return_to" value="/vendor-dashboard" />
-          <SubmitButton
-            pendingLabel="Accepting…"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-ink-900)' }}
-          >
-            Accept
-          </SubmitButton>
+          <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Accept" pendingLabel="Accepting…" />
         </form>
-        <form action={declineInquiry}>
+        <form action={declineInquiry} className="contents">
           <input type="hidden" name="thread_id" value={card.threadId} />
           <input type="hidden" name="return_to" value="/vendor-dashboard" />
-          <SubmitButton
-            pendingLabel="Declining…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Decline
-          </SubmitButton>
+          <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Decline" pendingLabel="Declining…" />
         </form>
       </div>
     </>
@@ -641,7 +643,7 @@ function InquiryBody({
  * form carries ONLY `vendor_id`: every side effect keys on the event id the
  * DEFINER RPC read off the row it authorized, never on anything posted here.
  *
- * The decline sits inside a <details> rather than beside Agree — a no is a real
+ * The decline sits inside a fold (the shared `Fold`) rather than beside Agree — a no is a real
  * answer the couple needs, but it should not be one mis-tap away from a yes.
  */
 function LockRequestBody({
@@ -681,38 +683,23 @@ function LockRequestBody({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={agreeLock}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <SubmitButton
-            pendingLabel="Agreeing…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-success)' }}
-          >
-            Agree to this booking
-          </SubmitButton>
+          <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Agree to this booking" pendingLabel="Agreeing…" />
         </form>
       </div>
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          Can&rsquo;t take this booking?
-        </summary>
-        <form action={declineLock} className="mt-2 flex flex-wrap items-center gap-2">
+      <Fold data="answer-no" title="Can’t take this booking?" className="mt-1">
+        <form action={declineLock} className="mb-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input
             type="text"
             name="reason"
             maxLength={240}
             placeholder="Why? (optional — the couple sees this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm"
             style={{ borderColor: 'var(--sn-line)' }}
           />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Turn it down
-          </SubmitButton>
+          <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Turn it down" pendingLabel="Sending…" />
         </form>
-      </details>
+      </Fold>
     </>
   );
 }
@@ -758,24 +745,12 @@ function DateChangeBody({
         <form action={answerDateChange}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input type="hidden" name="answer" value="moved" />
-          <SubmitButton
-            pendingLabel="Saving…"
-            className="inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-ink-900)' }}
-          >
-            Move to {to}
-          </SubmitButton>
+          <SupplierSubmit tone="brand" main icon={<CalendarClock {...ico} />} label={`Move to ${to}`} pendingLabel="Saving…" />
         </form>
         <form action={answerDateChange}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input type="hidden" name="answer" value="unlocked" />
-          <SubmitButton
-            pendingLabel="Releasing…"
-            className="inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Unlock my service
-          </SubmitButton>
+          <SupplierSubmit tone="neutral" icon={<LogOut {...ico} />} label="Unlock my service" pendingLabel="Releasing…" />
         </form>
       </div>
       <p className="mt-2 max-w-prose text-xs text-ink/60">
@@ -837,38 +812,24 @@ function DeleteRequestBody({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={agreeDeletion}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <SubmitButton
-            pendingLabel="Agreeing…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-danger)' }}
-          >
-            Agree to remove it
-          </SubmitButton>
+          {/* Taking something away for good is the delete look — never the accent. */}
+          <SupplierSubmit tone="danger" main icon={<Trash2 {...ico} />} label="Agree to remove it" pendingLabel="Agreeing…" />
         </form>
       </div>
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          Not yet &mdash; say why
-        </summary>
-        <form action={declineDeletion} className="mt-2 flex flex-wrap items-center gap-2">
+      <Fold data="answer-no" title="Not yet — say why" className="mt-1">
+        <form action={declineDeletion} className="mb-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input
             type="text"
             name="reason"
             maxLength={240}
             placeholder="Why? (optional — the couple sees this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm"
             style={{ borderColor: 'var(--sn-line)' }}
           />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Keep it for now
-          </SubmitButton>
+          <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Keep it for now" pendingLabel="Sending…" />
         </form>
-      </details>
+      </Fold>
     </>
   );
 }
@@ -930,8 +891,7 @@ function LockBody({
           href={receiptUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold underline-offset-2 hover:underline"
-          style={{ color: 'var(--sn-gold-700)' }}
+          className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent underline-offset-2 hover:underline"
         >
           <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           See what they sent
@@ -940,32 +900,23 @@ function LockBody({
         <p className="mt-2 text-sm text-ink/55">They attached no receipt.</p>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <form action={confirmLock}>
+        <form action={confirmLock} className="contents">
           <input type="hidden" name="event_id" value={card.eventId} />
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <SubmitButton
-            pendingLabel="Confirming…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-success)' }}
-          >
-            Yes, it arrived
-          </SubmitButton>
+          <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Yes, it arrived" pendingLabel="Confirming…" />
         </form>
         {/* Money → the Quote & Payments section, the one money tab BOTH
             shells render. A bare client route lands on the chat (#5614). */}
-        <Link
+        <ActionButton
+          tone="neutral"
+          icon={<Wallet {...ico} />}
+          label="View the payment"
           href={`/vendor-dashboard/clients/${card.eventId}?tab=quote`}
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          View the payment
-        </Link>
+          className={TAP}
+        />
       </div>
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          It hasn&rsquo;t reached you?
-        </summary>
-        <form action={rejectLock} className="mt-2 flex flex-wrap items-center gap-2">
+      <Fold data="answer-no" title="It hasn’t reached you?" className="mt-1">
+        <form action={rejectLock} className="mb-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="event_id" value={card.eventId} />
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           {/* Comes back HERE with the outcome, instead of moving the supplier to
@@ -977,23 +928,17 @@ function LockBody({
             name="reason"
             maxLength={200}
             placeholder="Why? (optional — they see this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm"
             style={{ borderColor: 'var(--sn-line)' }}
           />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold"
-            style={{ borderColor: 'var(--sn-danger)', color: 'var(--sn-danger)' }}
-          >
-            It never arrived
-          </SubmitButton>
+          <SupplierSubmit tone="danger" icon={<X {...ico} />} label="It never arrived" pendingLabel="Sending…" />
         </form>
-        <p className="mt-2 max-w-prose text-[12px] text-ink/55">
+        <p className="mb-2 mt-2 max-w-prose text-[12px] text-ink/55">
           Their record of paying is cleared so they can send it again with the
           right receipt. It does not cancel the booking, and nothing about your
           date changes.
         </p>
-      </details>
+      </Fold>
     </>
   );
 }
@@ -1058,20 +1003,14 @@ function ReviewBody({
             One public reply, and it&rsquo;s final once posted.
           </p>
           <div className="flex items-center gap-2">
-            <Link
+            <ActionButton
+              tone="neutral"
+              icon={<ArrowRight {...ico} />}
+              label="Open the review"
               href={`/vendor-dashboard/reviews#reply_${card.reviewId}`}
-              className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-              style={{ borderColor: 'var(--sn-line)' }}
-            >
-              Open the review
-            </Link>
-            <SubmitButton
-              pendingLabel="Posting…"
-              className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-              style={{ background: 'var(--sn-ink-900)' }}
-            >
-              Post reply
-            </SubmitButton>
+              className={TAP}
+            />
+            <SupplierSubmit tone="brand" main icon={<Reply {...ico} />} label="Post reply" pendingLabel="Posting…" />
           </div>
         </div>
       </form>
@@ -1115,13 +1054,14 @@ function DisputeBody({ card }: { card: Extract<WhatsNewCard, { kind: 'dispute' }
           (the #5614 redirect) and landed on Overview whenever there was no
           thread or the shell flag was off. Named, not inferred.
         */}
-        <Link
+        <ActionButton
+          tone="brand"
+          main
+          icon={card.threadHref ? <MessageSquare {...ico} /> : <ArrowRight {...ico} />}
+          label={card.threadHref ? 'Answer them' : 'Open the handover'}
           href={card.threadHref ?? `/vendor-dashboard/clients/${card.eventId}?tab=schedule`}
-          className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-          style={{ background: 'var(--sn-danger)' }}
-        >
-          {card.threadHref ? 'Answer them' : 'Open the handover'}
-        </Link>
+          className={TAP}
+        />
       </div>
     </>
   );
@@ -1198,13 +1138,14 @@ function MessageBody({ card }: { card: Extract<WhatsNewCard, { kind: 'message' }
         </p>
       ) : null}
       <div className="mt-3">
-        <Link
+        <ActionButton
+          tone="brand"
+          main
+          icon={<MessageSquare {...ico} />}
+          label="Open the conversation"
           href={`/vendor-dashboard/messages/${card.threadId}`}
-          className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-          style={{ background: 'var(--sn-ink-900)' }}
-        >
-          Open the conversation
-        </Link>
+          className={TAP}
+        />
       </div>
     </>
   );
@@ -1279,46 +1220,31 @@ function MeetingBody({
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {!card.passed && card.scheduledAt ? (
-          <form action={respondMeeting}>
+          <form action={respondMeeting} className="contents">
             {hidden}
             <input type="hidden" name="decision" value="confirm" />
-            <SubmitButton
-              pendingLabel="Confirming…"
-              className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-              style={{ background: 'var(--sn-success)' }}
-            >
-              Confirm this time
-            </SubmitButton>
+            <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Confirm this time" pendingLabel="Confirming…" />
           </form>
         ) : null}
         {/* "Offering a different time needs a calendar" — that calendar is
             AppointmentsSection, and it is mounted on `?tab=schedule`. A bare
             client route lands on the chat, which has no calendar in it. */}
-        <Link
+        <ActionButton
+          tone="neutral"
+          icon={<CalendarDays {...ico} />}
+          label={card.passed || !card.scheduledAt ? 'Open the customer' : 'Offer another time'}
           href={`/vendor-dashboard/clients/${card.eventId}?tab=schedule`}
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          {card.passed || !card.scheduledAt ? 'Open the customer' : 'Offer another time'}
-        </Link>
+          className={TAP}
+        />
       </div>
       {!card.passed ? (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-sm text-ink/60">
-            Can&rsquo;t make it at all?
-          </summary>
-          <form action={respondMeeting} className="mt-2">
+        <Fold data="answer-no" title="Can’t make it at all?" className="mt-1">
+          <form action={respondMeeting} className="mb-1">
             {hidden}
             <input type="hidden" name="decision" value="decline" />
-            <SubmitButton
-              pendingLabel="Sending…"
-              className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-              style={{ borderColor: 'var(--sn-line)' }}
-            >
-              Turn down this meeting
-            </SubmitButton>
+            <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Turn down this meeting" pendingLabel="Sending…" />
           </form>
-        </details>
+        </Fold>
       ) : null}
     </>
   );
@@ -1360,13 +1286,7 @@ function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_d
         <AgeLine since={card.createdAt} />
       </p>
       <div className="mt-3">
-        <Link
-          href="/vendor-dashboard/proposals"
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          Open the quote
-        </Link>
+        <ActionButton tone="brand" main icon={<Send {...ico} />} label="Open the quote" href="/vendor-dashboard/proposals" className={TAP} />
       </div>
     </>
   );
@@ -1387,13 +1307,7 @@ function ContractDraftBody({
         <AgeLine since={card.createdAt} />
       </p>
       <div className="mt-3">
-        <Link
-          href="/vendor-dashboard/contracts"
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          Open the contract
-        </Link>
+        <ActionButton tone="brand" main icon={<FileText {...ico} />} label="Open the contract" href="/vendor-dashboard/contracts" className={TAP} />
       </div>
     </>
   );

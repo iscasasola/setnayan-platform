@@ -9,9 +9,9 @@
  *   ?s=day            Today on an event day — the dark card, Run the day        (frame 02)
  *   ?s=fail           the desk and payday could not be read — said, never 0     (frame 15)
  *   ?s=datechange     the Next card is a date change — Move · Unlock            (frame 31)
- *   ?s=doors          the rules that are not a customer's ask, as rows
+ *   ?s=doors          the rules that are not a customer's ask, as rows — and two unpaid booking fees
  *   ?s=clear          nothing waiting
- *   &toast=1          the outcome toast (&toast=refused for a refusal)
+ *   &toast=1          the outcome: the shared top toast + the status line (&toast=refused · &toast=failed · &toast=note)
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
  *   ?thumb=customer   Chat (main) · Quote · Payment · Call                     (frame 06)
  *   ?thumb=money      Log a payment — a form's submit through the button rule  (frame 05)
@@ -55,6 +55,8 @@ import {
 import { splitDesk } from '@/lib/vendor-desk-disposition';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import { todayCreditNotice } from '@/lib/vendor-credit-warning';
+import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
+import { feeDueCopy, type DueFeeBill } from '@/lib/booking-fee-disclosure';
 
 export const dynamic = 'force-dynamic';
 
@@ -158,15 +160,27 @@ const TODAY: Record<string, TodayState> = {
   clear: { whatsNew: [], upcoming: [], deskIncomplete: false, owedPhp: 0 },
 };
 
+/* Two unpaid booking fees (`?s=doors`): the Next card shows the first, the hairline rows the second. */
+const LAB_TODAY = '2026-10-02';
+const FEE_BILLS: DueFeeBill[] = [
+  { orderId: 'S89O-LAB0000001', amountPhp: 750, eventId: 'ana', coupleName: 'Ana & Miguel', dueOn: '2026-10-09' },
+  { orderId: 'S89O-LAB0000002', amountPhp: 1200, eventId: 'rolando', coupleName: 'Rolando & Carmen', dueOn: '2026-10-01' },
+];
+
+const TOASTS: Record<string, { text: string; tone: 'ok' | 'note' | 'bad'; retry?: boolean }> = {
+  '1': { text: 'Done — you told them you can move. Your held day moves with the date when they apply it.', tone: 'ok' },
+  note: { text: 'You had already agreed to this one — nothing changed.', tone: 'note' },
+  refused: {
+    text: 'This request ran out of time before it was answered, so it has closed. If the couple still wants you, ask them to send it again.',
+    tone: 'bad',
+  },
+  failed: { text: 'That did not go through. Nothing changed — please try again.', tone: 'bad', retry: true },
+};
+
 function TodayLab({ state, toast }: { state: TodayState; toast: string | undefined }) {
   const { answer: needsAnswer, news: nothingToAnswer } = splitDesk(state.whatsNew);
   const nextAnswer = nextAnswerOf(needsAnswer);
-  const fee = state.extras
-    ? {
-        bill: { orderId: 'S89O-LAB0000001' } as never,
-        copy: { headline: 'A booking fee is due', detail: 'Pay it to open this event’s Event Hub.', tone: 'due' } as never,
-      }
-    : null;
+  const fee = state.extras ? { bill: FEE_BILLS[0]!, copy: feeDueCopy(FEE_BILLS[0]!, LAB_TODAY) } : null;
   const findability = state.extras
     ? { title: 'Couples can’t find you yet.', body: 'Your shop is approved, but it is not showing in the marketplace.', cta: { label: 'Ask us to list your shop', href: '/help#contact' } }
     : null;
@@ -214,12 +228,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
   };
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today">
-      {toast ? (
-        <SupplierToast
-          text={toast === 'refused' ? 'That did not go through. Nothing changed — please try again.' : 'They are told. Your booking moves when they apply the new date.'}
-          refused={toast === 'refused'}
-        />
-      ) : null}
+      {toast && TOASTS[toast] ? <SupplierToast {...TOASTS[toast]!} /> : null}
       <SupplierTodayFirstScreen
         next={next}
         look={nextLook(next.kind, nextIsAnswer)}
@@ -241,6 +250,9 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
           <>
             <WhatsNewFeed cards={needsAnswer} asks={waiting.asks} incomplete={state.deskIncomplete} {...actions} />
             <NothingToAnswerFeed cards={nothingToAnswer} {...actions} />
+            {state.extras ? (
+              <BookingFeeBills rows bills={next.kind === 'fee' ? FEE_BILLS.slice(1) : FEE_BILLS} copyFor={(b) => feeDueCopy(b, LAB_TODAY)} />
+            ) : null}
           </>
         }
       />
@@ -272,7 +284,7 @@ export default async function SupplierLabPage({
 
       {thumb === 'customer' ? (
         <SupplierThumbRow name="customer" label="Customer actions">
-          <ActionButton tone="info" main icon={<MessageSquare {...ICON} />} label="Chat" href="/dev/supplier-lab?thumb=customer" />
+          <ActionButton tone="brand" main icon={<MessageSquare {...ICON} />} label="Chat" href="/dev/supplier-lab?thumb=customer" />
           <ActionButton tone="neutral" icon={<Send {...ICON} />} label="Quote" href="/dev/supplier-lab?thumb=customer" />
           <ActionButton tone="neutral" icon={<Wallet {...ICON} />} label="Payment" href="/dev/supplier-lab?thumb=customer" />
           <ActionButton tone="neutral" icon={<Phone {...ICON} />} label="Call" href="/dev/supplier-lab?thumb=customer" />
@@ -282,7 +294,7 @@ export default async function SupplierLabPage({
           {/* A GET form back to the lab: the submit is real, nothing is written. */}
           <form action="/dev/supplier-lab" className="contents">
             <input type="hidden" name="thumb" value="money" />
-            <SupplierSubmit tone="ok" main icon={<Check {...ICON} />} label="Log a payment" pendingLabel="Saving…" overlay={false} />
+            <SupplierSubmit tone="brand" main icon={<Check {...ICON} />} label="Log a payment" pendingLabel="Saving…" overlay={false} />
           </form>
         </SupplierThumbRow>
       ) : (

@@ -41,6 +41,11 @@
   canvas shows a new picture at once from the picked file. Apply holds a picture outside this event's folder.
 - Chooser: ＋ › Picture opens the shipped uploader in the app's sheet; only the landed ref makes the ONE add (one undo
   step; never an empty picture line). Edit on a picture: Replace, and the same last row.
+- Walked in the lab (375 × 812 and 375 × 667, upload stood in): ＋ › Picture › upload → the picture at once, 112 px,
+  `alt=""`; Look ▾ Tall → 176 px; ↺ ↺ → gone and the draft empty. The walk found two faults, both fixed: one upload
+  made TWO picture lines (the uploader reports from inside a state update, run twice in development — each ref is
+  now handed on once), and after ↺ ↺ the toolbar kept the gone line picked (a picked added line or group the truth
+  no longer holds is now let go).
 - Guards: `lib/the-rsvp-picture-line.test.ts` (8 sections), `couple-media-cap-is-enforced.test.ts` § 2c; the room
   fixture carries a real picture ref and look.
 

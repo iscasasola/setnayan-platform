@@ -3,6 +3,17 @@ import { guestSessionSurvivesTokenCheck } from '@/lib/guest-session-token-rule';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  GUEST_PASS_BOOK_COOKIE_NAME,
+  bookEntryForPath,
+  bookExp,
+  bookFromWire,
+  bookToWire,
+  bookWithExp,
+  bookWithout,
+  mergeIntoBook,
+  type GuestPassBookEntry,
+} from '@/lib/guest-pass-book';
 
 const COOKIE_NAME = 'setnayan_guest_session';
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 60; // 60 days — covers up-to-30-day post-event window
@@ -263,10 +274,39 @@ export async function signGuestSession(payload: GuestSessionPayload): Promise<st
     .sign(getSecret());
 }
 
-export async function readGuestSession(): Promise<GuestSessionPayload | null> {
+/** The same pass, expiring at an ABSOLUTE time — a pass from the book keeps its own expiry. */
+export async function signGuestSessionUntil(
+  payload: GuestSessionPayload,
+  expSeconds: number,
+): Promise<string> {
+  return await new SignJWT({
+    guest_id: payload.guest_id,
+    event_id: payload.event_id,
+    qr_token: payload.qr_token,
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(Math.floor(expSeconds))
+    .sign(getSecret());
+}
+
+/**
+ * The guest pass this request carries — the ACTIVE pass (`setnayan_guest_session`).
+ *
+ * 🔑 `{ eventId }` (2026-10-12, one pass per event — lib/guest-pass-book.ts): when
+ * the active pass is not this event's, this event's pass is looked up in the
+ * PASS BOOK by its event id, and answered with the same DB check. With no pass
+ * for this event anywhere, the answer is exactly what it was without the option
+ * (the active pass, whichever event it names) — callers still compare.
+ */
+export async function readGuestSession(
+  opts?: { eventId?: string | null },
+): Promise<GuestSessionPayload | null> {
   const cookieStore = await cookies();
   const cookie = cookieStore.get(COOKIE_NAME);
-  if (!cookie?.value) return null;
+  const wanted = opts?.eventId ?? null;
+  const bookToken = wanted ? cookieStore.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value : undefined;
+  if (!cookie?.value && !bookToken) return null;
 
   // Resolve the seal OUTSIDE the catch-all below. A misconfigured seal and a
   // forged cookie both end in "signed out", but they are not the same event and
@@ -277,11 +317,25 @@ export async function readGuestSession(): Promise<GuestSessionPayload | null> {
   warnOnce(resolution);
   if (!resolution.ok) return null; // fail closed, but now it is on the record
 
+  const active = cookie?.value ? await sessionFromToken(cookie.value, resolution.material) : null;
+  if (!wanted || active?.event_id === wanted || !bookToken) return active;
+
+  // This event's pass, from the book — verified by the same seal, DB-checked the same way.
+  const entry = (await verifyGuestPassBook(bookToken)).find(
+    (e) => e.event_id === wanted && e.exp > Date.now() / 1000,
+  );
+  if (!entry) return active;
+  const fromBook = await checkedSession({
+    guest_id: entry.guest_id,
+    event_id: entry.event_id,
+    qr_token: entry.qr_token,
+  });
+  return fromBook ?? active;
+}
+
+async function sessionFromToken(token: string, material: string): Promise<GuestSessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(
-      cookie.value,
-      new TextEncoder().encode(resolution.material),
-    );
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(material));
     if (
       typeof payload.guest_id !== 'string' ||
       typeof payload.event_id !== 'string' ||
@@ -289,34 +343,38 @@ export async function readGuestSession(): Promise<GuestSessionPayload | null> {
     ) {
       return null;
     }
-    const session: GuestSessionPayload = {
+    return await checkedSession({
       guest_id: payload.guest_id,
       event_id: payload.event_id,
       qr_token: payload.qr_token,
-    };
-    /*
-      DB re-validation at the chokepoint — UNCONDITIONAL since 2026-09-17.
-      Every consumer passes through here (24 files import this reader), so
-      validating once means none can be missed.
-
-      🔴 IT USED TO BE GATED ON `GUEST_SESSION_TOKEN_CHECK`, WHICH IS NOT SET IN
-      PRODUCTION. `envFlagEnabled` returns false for a non-string, so the check
-      never ran — and the consequence inverted the feature it belonged to: a
-      couple rotating a LEAKED guest QR left the leaked browser signed in, and
-      that still-valid session was then shown the REPLACEMENT code. Revoking
-      the leak handed the leak the new key.
-
-      ⚠ THE FLAG WAS DELETED RATHER THAN SET. A flag whose production value
-      nobody can read is how this shipped dark for months; setting it would
-      leave the same mechanism for the next person. Turning this off is now a
-      code change a reviewer can see.
-    */
-    const ok = await sessionTokenMatchesDb(session.guest_id, session.qr_token);
-    if (!ok) return null;
-    return session;
+    });
   } catch {
     return null;
   }
+}
+
+async function checkedSession(session: GuestSessionPayload): Promise<GuestSessionPayload | null> {
+  /*
+    DB re-validation at the chokepoint — UNCONDITIONAL since 2026-09-17.
+    Every consumer passes through here (24 files import this reader), so
+    validating once means none can be missed. A pass taken from the pass book
+    (lib/guest-pass-book.ts) passes through here too.
+
+    🔴 IT USED TO BE GATED ON `GUEST_SESSION_TOKEN_CHECK`, WHICH IS NOT SET IN
+    PRODUCTION. `envFlagEnabled` returns false for a non-string, so the check
+    never ran — and the consequence inverted the feature it belonged to: a
+    couple rotating a LEAKED guest QR left the leaked browser signed in, and
+    that still-valid session was then shown the REPLACEMENT code. Revoking
+    the leak handed the leak the new key.
+
+    ⚠ THE FLAG WAS DELETED RATHER THAN SET. A flag whose production value
+    nobody can read is how this shipped dark for months; setting it would
+    leave the same mechanism for the next person. Turning this off is now a
+    code change a reviewer can see.
+  */
+  const ok = await sessionTokenMatchesDb(session.guest_id, session.qr_token);
+  if (!ok) return null;
+  return session;
 }
 
 export type VerifiedGuestSessionToken = {
@@ -373,21 +431,269 @@ export function shouldRefreshGuestSession(
   return remainingSeconds < REFRESH_WINDOW_SECONDS;
 }
 
-export async function setGuestSession(payload: GuestSessionPayload): Promise<void> {
-  const cookieStore = await cookies();
-  const token = await signGuestSession(payload);
-  cookieStore.set({
-    name: COOKIE_NAME,
-    value: token,
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: COOKIE_MAX_AGE_SECONDS,
-  });
+
+/* ══ ONE PASS PER EVENT — THE PASS BOOK (2026-10-12, lib/guest-pass-book.ts) ══
+   The active pass above is unchanged. Beside it, `setnayan_guest_passes` holds
+   one pass per event (the same seal), so opening event B's link never evicts
+   event A's pass. Every writer below keeps the two in step. */
+
+export { GUEST_PASS_BOOK_COOKIE_NAME };
+
+const PASS_COOKIE = { httpOnly: true, secure: true, sameSite: 'lax' as const, path: '/' };
+
+/** A cookie value to write, or `null` to delete that cookie. */
+export type PassCookieWrite = { value: string; maxAge: number } | null;
+
+/** The pass book's own token: a distinct claim (`pb`), so it can never pass for a pass. */
+export async function signGuestPassBook(entries: readonly GuestPassBookEntry[]): Promise<string> {
+  return await new SignJWT({ pb: bookToWire(entries) })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(Math.floor(bookExp(entries)))
+    .sign(getSecret());
 }
 
-export async function clearGuestSession(): Promise<void> {
+/** The book's passes (signature only — every pass taken from it is DB-checked on use). */
+export async function verifyGuestPassBook(
+  token: string | null | undefined,
+): Promise<GuestPassBookEntry[]> {
+  if (!token) return [];
+  const resolution = resolveGuestSessionSecret();
+  warnOnce(resolution);
+  if (!resolution.ok) return [];
+  try {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(resolution.material));
+    return bookFromWire(payload.pb);
+  } catch {
+    return [];
+  }
+}
+
+async function bookWrite(entries: readonly GuestPassBookEntry[], nowSeconds: number): Promise<PassCookieWrite> {
+  if (entries.length === 0) return null;
+  return {
+    value: await signGuestPassBook(entries),
+    maxAge: Math.max(1, Math.floor(bookExp(entries) - nowSeconds)),
+  };
+}
+
+/** A browser's two pass cookies, as the request carries them. */
+export type PassJar = { active?: string | null; book?: string | null };
+
+/** Event id → slug, for the book's routing hints. A failed lookup answers what it could. */
+export type SlugLookup = (eventIds: readonly string[]) => Promise<Record<string, string>>;
+
+/**
+ * THE PASS WRITE — pure over the jar, so the guard can run it with no request:
+ * the new pass becomes the active one AND this event's entry in the book; the
+ * pass it replaces (a legacy single cookie too) moves into the book.
+ */
+export async function nextPassCookies(
+  jar: PassJar,
+  payload: GuestSessionPayload,
+  lookupSlugs: SlugLookup,
+  nowMs: number = Date.now(),
+): Promise<{ active: { value: string; maxAge: number }; book: PassCookieWrite }> {
+  const nowSeconds = Math.floor(nowMs / 1000);
+  const exp = nowSeconds + COOKIE_MAX_AGE_SECONDS;
+  const active = { value: await signGuestSessionUntil(payload, exp), maxAge: COOKIE_MAX_AGE_SECONDS };
+
+  const book = await verifyGuestPassBook(jar.book);
+  const prior = jar.active ? await verifyGuestSessionToken(jar.active) : null;
+  const incoming: Omit<GuestPassBookEntry, 'slug'>[] = [{ ...payload, exp }];
+  if (prior && prior.payload.event_id !== payload.event_id) {
+    incoming.push({ ...prior.payload, exp: prior.expiresAtSeconds });
+  }
+  // The new event's slug is always asked (a renamed slug heals); the prior's only when the book lacks it.
+  const known = new Map(book.filter((e) => e.slug).map((e) => [e.event_id, e.slug!]));
+  const ask = incoming.filter((e, i) => i === 0 || !known.has(e.event_id)).map((e) => e.event_id);
+  let slugs: Record<string, string> = {};
+  try {
+    slugs = await lookupSlugs(ask);
+  } catch {
+    slugs = {};
+  }
+  const entries: GuestPassBookEntry[] = incoming.map((e) => ({
+    ...e,
+    slug: (slugs[e.event_id] ?? known.get(e.event_id) ?? null)?.toLowerCase() ?? null,
+  }));
+  return { active, book: await bookWrite(mergeIntoBook(book, entries, nowSeconds), nowSeconds) };
+}
+
+/**
+ * THE PASS CLEAR — one event's pass leaves the book; the active pass goes only
+ * when it IS that event's (or cannot be read, or the event could not be told —
+ * then the old answer, signed out). Another event's active pass stays. When the
+ * active pass goes and the book still holds another event's pass, the newest of
+ * those becomes the active one — so a sign-out on A never leaves B's open tab
+ * (or its Papic pages, which have no slug) without its pass.
+ *
+ * ⚠ On the sign-out hop the middleware has swapped the REQUEST's active pass to
+ * this event's (never the response's — one writer per hop), so the browser's own
+ * active cookie may be B's while this sees A's. Deleting it is then repaired by
+ * the same rule: B, still in the book, is written back as the active pass.
+ */
+export async function clearedPassCookies(
+  jar: PassJar,
+  scope: { eventId: string | null; slug?: string | null },
+  nowMs: number = Date.now(),
+): Promise<{ active: 'keep' | 'delete' | { value: string; maxAge: number }; book: PassCookieWrite | 'keep' }> {
+  const nowSeconds = Math.floor(nowMs / 1000);
+  const prior = jar.active ? await verifyGuestSessionToken(jar.active) : null;
+  // A slug whose event could not be told clears by slug alone (and signs the active pass out).
+  const eventId = scope.eventId ?? (scope.slug ? null : (prior?.payload.event_id ?? null));
+  const keepActive = Boolean(jar.active && prior && eventId && prior.payload.event_id !== eventId);
+  const book = await verifyGuestPassBook(jar.book);
+  const remaining = mergeIntoBook([], bookWithout(book, { eventId, slug: scope.slug }), nowSeconds);
+  const bookNext: PassCookieWrite | 'keep' = jar.book ? await bookWrite(remaining, nowSeconds) : 'keep';
+  if (keepActive) return { active: 'keep', book: bookNext };
+  const heir = remaining[0];
+  if (!heir) return { active: 'delete', book: bookNext };
+  return {
+    active: {
+      value: await signGuestSessionUntil(
+        { guest_id: heir.guest_id, event_id: heir.event_id, qr_token: heir.qr_token },
+        heir.exp,
+      ),
+      maxAge: Math.max(1, Math.floor(heir.exp - nowSeconds)),
+    },
+    book: bookNext,
+  };
+}
+
+/**
+ * THE MIDDLEWARE'S SWAP — on a request for one event's pages, that event's pass
+ * from the book, signed as the active pass with ITS OWN expiry; `null` when the
+ * book has none for this address, or the active pass already is this event's.
+ */
+export async function passSwapForPath(input: {
+  jar: PassJar;
+  pathname: string;
+  nowMs?: number;
+}): Promise<{ value: string; maxAge: number } | null> {
+  if (!input.jar.book) return null;
+  const nowSeconds = Math.floor((input.nowMs ?? Date.now()) / 1000);
+  const entry = bookEntryForPath(await verifyGuestPassBook(input.jar.book), input.pathname, nowSeconds);
+  if (!entry) return null;
+  if (input.jar.active) {
+    const active = await verifyGuestSessionToken(input.jar.active);
+    if (active && active.payload.event_id === entry.event_id) return null;
+  }
+  return {
+    value: await signGuestSessionUntil(
+      { guest_id: entry.guest_id, event_id: entry.event_id, qr_token: entry.qr_token },
+      entry.exp,
+    ),
+    maxAge: Math.max(1, Math.floor(entry.exp - nowSeconds)),
+  };
+}
+
+/** The book with one refreshed pass's new expiry (the middleware's sliding refresh); null = unchanged. */
+export async function refreshedPassBook(
+  bookToken: string | null | undefined,
+  pass: GuestSessionPayload,
+  exp: number,
+): Promise<PassCookieWrite | 'keep'> {
+  if (!bookToken) return 'keep';
+  const next = bookWithExp(await verifyGuestPassBook(bookToken), pass, exp);
+  if (!next) return 'keep';
+  return await bookWrite(next, Math.floor(Date.now() / 1000));
+}
+
+/** Event id → slug from the database (the book's routing hints). */
+async function eventSlugs(eventIds: readonly string[]): Promise<Record<string, string>> {
+  if (eventIds.length === 0) return {};
+  const { data, error } = await createAdminClient()
+    .from('events')
+    .select('event_id, slug')
+    .in('event_id', [...eventIds]);
+  if (error) {
+    // The pass itself is written regardless; an entry with no slug is still found by event id.
+    console.error('[supabase-error] lib/guest-session.ts · from:events.select (pass book slugs)', error);
+    return {};
+  }
+  const out: Record<string, string> = {};
+  for (const row of data ?? []) {
+    if (typeof row.event_id === 'string' && typeof row.slug === 'string') out[row.event_id] = row.slug;
+  }
+  return out;
+}
+
+const SAFE_SLUG = /^[a-z0-9][a-z0-9-]{0,99}$/;
+
+/** A slug → its event id; `null` when it cannot be told (unsafe, unknown, or the read failed). */
+export async function eventIdForSlug(slug: string): Promise<string | null> {
+  const s = slug.trim().toLowerCase();
+  if (!SAFE_SLUG.test(s)) return null;
+  const { data, error } = await createAdminClient()
+    .from('events')
+    .select('event_id')
+    .ilike('slug', s)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] lib/guest-session.ts · from:events.select (sign-out event)', error);
+    return null;
+  }
+  return typeof data?.event_id === 'string' ? data.event_id : null;
+}
+
+export async function setGuestSession(payload: GuestSessionPayload): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
+  const jar: PassJar = {
+    active: cookieStore.get(COOKIE_NAME)?.value,
+    book: cookieStore.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value,
+  };
+  const next = await nextPassCookies(jar, payload, eventSlugs);
+  cookieStore.set({ name: COOKIE_NAME, value: next.active.value, ...PASS_COOKIE, maxAge: next.active.maxAge });
+  if (next.book) {
+    cookieStore.set({ name: GUEST_PASS_BOOK_COOKIE_NAME, value: next.book.value, ...PASS_COOKIE, maxAge: next.book.maxAge });
+  }
+}
+
+/**
+ * A guest's sign-out on ONE event (`/{slug}/sign-out`, the plus-one's "not me"):
+ * THAT event's pass goes — from the book, and as the active pass when it is the
+ * active one. Every other event's pass stays. ("Sign out everywhere" —
+ * `/auth/sign-out` — deletes both cookies itself.) With no slug, the active
+ * pass's own event is the one cleared.
+ */
+export async function clearGuestSession(
+  scope?: { slug?: string | null; eventId?: string | null },
+): Promise<{ eventId: string | null }> {
+  const cookieStore = await cookies();
+  const jar: PassJar = {
+    active: cookieStore.get(COOKIE_NAME)?.value,
+    book: cookieStore.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value,
+  };
+  const eventId = scope?.eventId ?? (scope?.slug ? await eventIdForSlug(scope.slug) : null);
+  const next = await clearedPassCookies(jar, { eventId, slug: scope?.slug ?? null });
+  if (next.active === 'delete') cookieStore.delete(COOKIE_NAME);
+  else if (next.active !== 'keep') {
+    cookieStore.set({ name: COOKIE_NAME, value: next.active.value, ...PASS_COOKIE, maxAge: next.active.maxAge });
+  }
+  if (next.book === null) cookieStore.delete(GUEST_PASS_BOOK_COOKIE_NAME);
+  else if (next.book !== 'keep') {
+    cookieStore.set({ name: GUEST_PASS_BOOK_COOKIE_NAME, value: next.book.value, ...PASS_COOKIE, maxAge: next.book.maxAge });
+  }
+  return { eventId };
+}
+
+/** Every pass this browser holds that still checks out — the active one first (for "sign out everywhere"). */
+export async function readEveryGuestPass(): Promise<GuestSessionPayload[]> {
+  const cookieStore = await cookies();
+  const active = await readGuestSession();
+  const out: GuestSessionPayload[] = active ? [active] : [];
+  for (const e of await verifyGuestPassBook(cookieStore.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value)) {
+    if (out.some((p) => p.event_id === e.event_id && p.guest_id === e.guest_id)) continue;
+    if (e.exp <= Date.now() / 1000) continue;
+    const checked = await checkedSession({ guest_id: e.guest_id, event_id: e.event_id, qr_token: e.qr_token });
+    if (checked) out.push(checked);
+  }
+  return out;
+}
+
+/** How many passes the book holds (a COUNT — the Problems log's evidence, never a value). */
+export async function guestPassBookSize(): Promise<number> {
+  const cookieStore = await cookies();
+  return (await verifyGuestPassBook(cookieStore.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value)).length;
 }

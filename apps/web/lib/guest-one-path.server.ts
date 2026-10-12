@@ -2,7 +2,14 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { readGuestSession, type GuestSessionPayload } from '@/lib/guest-session';
+import { cookies } from 'next/headers';
+import {
+  GUEST_SESSION_COOKIE_NAME,
+  guestPassBookSize,
+  readGuestSession,
+  type GuestSessionPayload,
+} from '@/lib/guest-session';
+import { passHeldKind, type PassHopHeld } from '@/lib/guest-pass-hop';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { resolveGuestViewer, type GuestViewer } from '@/lib/guest-one-path';
 
@@ -40,7 +47,9 @@ export async function readGuestSessionForEvent(
  * rather than "For Ana"; everything else wants only the session.
  */
 export async function readGuestViewerForEvent(eventId: string): Promise<GuestViewer> {
-  const cookie = await readGuestSession();
+  // `{ eventId }`: this event's pass from the pass book too, when the active one is another
+  // event's (one pass per event, 2026-10-12 — lib/guest-pass-book.ts).
+  const cookie = await readGuestSession({ eventId });
   if (cookie && cookie.event_id === eventId) return resolveGuestViewer({ eventId, cookie, seat: null });
   const supabase = await createClient();
   const {
@@ -49,6 +58,18 @@ export async function readGuestViewerForEvent(eventId: string): Promise<GuestVie
   if (!user) return resolveGuestViewer({ eventId, cookie, seat: null });
   const seat = await findGuestSeatForUser(eventId, user.id);
   return resolveGuestViewer({ eventId, cookie, seat });
+}
+
+/**
+ * What this browser held for an event, as KINDS and a COUNT — never a value: the
+ * active pass (`passHeldKind`: none · revoked · this-event · other-event) and how
+ * many passes its pass book holds. The Problems log's evidence for a Reply that
+ * found no pass (lib/guest-pass-hop.ts `reply:rekey` / `reply:door`).
+ */
+export async function guestPassEvidence(eventId: string): Promise<{ held: PassHopHeld; bookPasses: number }> {
+  const cookiePresent = Boolean((await cookies()).get(GUEST_SESSION_COOKIE_NAME)?.value);
+  const held = passHeldKind({ cookiePresent, pass: cookiePresent ? await readGuestSession() : null, eventId });
+  return { held, bookPasses: await guestPassBookSize() };
 }
 
 /**

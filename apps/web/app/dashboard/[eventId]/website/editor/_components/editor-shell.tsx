@@ -64,7 +64,7 @@ import { movedOrder, optimisticStageList, sameOrder, stageAddPatch, stageOrderPa
 const REORDER_FAILED = 'That move could not be saved. Your scenes are back where they were — please try again.';
 const GATE_FAILED = 'That could not be saved. The scene is back as it was — please try again.';
 import { preloadMakerFonts, preloadMakerImages, whenIdle } from '@/lib/maker-preload';
-import { BufferedCanvasFrame, warmCanvasBudget, type CanvasFrame } from './buffered-canvas-frame';
+import { BufferedCanvasFrame, warmCanvasBudget, warmStageOrder, type CanvasFrame } from './buffered-canvas-frame';
 import { MAKER_CANVAS_POST_EVENT, MAKER_CANVAS_STALE_EVENT } from '@/lib/maker-live-preview';
 import { bothLayout, scaledFrame, usePaneSize } from './both-view';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
@@ -1037,7 +1037,7 @@ export function MakerWork({
   }, [warmBudget, photoUrlsKey]);
   const warmStages: CanvasFrame[] =
     publicLandingUrl && !seeAs
-      ? warmStageOrder(stage).map((s) => ({
+      ? warmStageOrder<LifecyclePhase>(stage, PUBLIC_STAGE_ORDER).map((s) => ({
           key: `${s}:${canvasStamp}:`,
           group: `${s}:`,
           src: `${publicLandingUrl}?phase=${s}&editor=1${guestBars ? '&bars=1' : ''}${stagesTabs}`,
@@ -3387,15 +3387,6 @@ export function MakerWork({
  * (the scrapbook, or the story as guests see it). Details is the shell's.
  */
 /** Details and RSVP are drawn by the SHELL (`maker-shell.tsx`) over this area. */
-/** The other stages, nearest first (`PUBLIC_STAGE_ORDER`) — the order they are warmed in, and kept in when the budget is short. */
-function warmStageOrder(stage: LifecyclePhase): LifecyclePhase[] {
-  const order: readonly LifecyclePhase[] = PUBLIC_STAGE_ORDER;
-  const at = order.indexOf(stage);
-  return order
-    .filter((s) => s !== stage)
-    .sort((a, b) => Math.abs(order.indexOf(a) - at) - Math.abs(order.indexOf(b) - at) || order.indexOf(a) - order.indexOf(b));
-}
-
 /** Event Details and the RSVP stage are drawn by the shell over this area (`MAKER_SHELL_PAGES`). */
 function isShellPage(key: string): key is MakerShellPage {
   return isMakerShellPage(key);

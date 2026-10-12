@@ -1652,7 +1652,9 @@ html.hr-snap {
 .home-reskin .hr-foot-col {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  /* 5, not the old 9: each link's own box grew 40 → 44 (below), so the row
+     PITCH stays 49px and the footer looks exactly as it did. */
+  gap: 5px;
 }
 .home-reskin .hr-foot-col h3 {
   margin: 0 0 4px;
@@ -1675,7 +1677,10 @@ html.hr-snap {
      a fair trade for a link that is actually easy to hit. */
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  /* 44, the locked tap floor (quality sweep 2026-10-13, item 6: 165 pages
+     measured every footer link and "Cookie settings" at 40). The 4px came out
+     of the column gap above, so nothing moves. */
+  min-height: 44px;
 }
 .home-reskin .hr-foot-linkbtn {
   background: none;

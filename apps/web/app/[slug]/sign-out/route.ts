@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { clearGuestSession, readGuestSession } from '@/lib/guest-session';
+import { clearGuestSession, eventIdForSlug, readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eraseFaceTaggingSelfie } from '@/lib/face-selfie-erase';
 
@@ -11,15 +11,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // is. Tags already made stay (lib/face-selfie-erase.ts). Best-effort: an
   // erase that fails never keeps anyone signed in; the Papic-close sweep
   // finishes what it could not.
-  const session = await readGuestSession().catch(() => null);
   // 🎟 THIS event's pass only (one pass per event, 2026-10-12): a pass this
   // browser holds for another event stays (lib/guest-session.ts clearGuestSession)
-  // — and so does that other event's selfie.
-  const cleared = await clearGuestSession({ slug });
-  const thisEvents = session && (!cleared.eventId || session.event_id === cleared.eventId);
-  if (thisEvents && session.event_id && session.guest_id) {
+  // — and so does that other event's selfie. An event that cannot be told (a
+  // failed read) signs out whatever pass is active, as before.
+  const eventId = await eventIdForSlug(slug).catch(() => null);
+  const session = await readGuestSession({ eventId }).catch(() => null);
+  if (session?.event_id && session.guest_id && (!eventId || session.event_id === eventId)) {
     await eraseFaceTaggingSelfie(createAdminClient(), session.event_id, session.guest_id).catch(() => null);
   }
+  await clearGuestSession({ slug, eventId });
   const url = new URL(request.url);
   // Drop /sign-out segment to land back on the slug root.
   url.pathname = url.pathname.replace(/\/sign-out$/, '');

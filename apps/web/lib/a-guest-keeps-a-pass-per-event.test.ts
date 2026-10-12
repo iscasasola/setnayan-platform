@@ -153,7 +153,7 @@ test('(4) a guest sign-out on A removes A\'s pass ONLY; B\'s stays (and is activ
   assert.ok(loop && /GUEST_SESSION_COOKIE_NAME/.test(loop[1]!) && /GUEST_PASS_BOOK_COOKIE_NAME/.test(loop[1]!), 'sign out everywhere leaves a pass behind');
   assert.match(out, /readEveryGuestPass\(\)/, 'sign out everywhere no longer erases the selfie of every pass');
   // The guest's own sign-out names its event.
-  assert.match(code('app/[slug]/sign-out/route.ts'), /clearGuestSession\(\{ slug \}\)/, 'the event sign-out clears whatever pass is active');
+  assert.match(code('app/[slug]/sign-out/route.ts'), /clearGuestSession\(\{ slug, eventId \}\)/, 'the event sign-out clears whatever pass is active');
   assert.match(code('app/[slug]/welcome/actions.ts'), /clearGuestSession\(\{ slug \}\)/, '"not me" clears another event\'s pass');
 });
 

@@ -622,7 +622,7 @@ async function eventSlugs(eventIds: readonly string[]): Promise<Record<string, s
 const SAFE_SLUG = /^[a-z0-9][a-z0-9-]{0,99}$/;
 
 /** A slug → its event id; `null` when it cannot be told (unsafe, unknown, or the read failed). */
-async function eventIdForSlug(slug: string): Promise<string | null> {
+export async function eventIdForSlug(slug: string): Promise<string | null> {
   const s = slug.trim().toLowerCase();
   if (!SAFE_SLUG.test(s)) return null;
   const { data, error } = await createAdminClient()
@@ -658,14 +658,14 @@ export async function setGuestSession(payload: GuestSessionPayload): Promise<voi
  * pass's own event is the one cleared.
  */
 export async function clearGuestSession(
-  scope?: { slug?: string | null },
+  scope?: { slug?: string | null; eventId?: string | null },
 ): Promise<{ eventId: string | null }> {
   const cookieStore = await cookies();
   const jar: PassJar = {
     active: cookieStore.get(COOKIE_NAME)?.value,
     book: cookieStore.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value,
   };
-  const eventId = scope?.slug ? await eventIdForSlug(scope.slug) : null;
+  const eventId = scope?.eventId ?? (scope?.slug ? await eventIdForSlug(scope.slug) : null);
   const next = await clearedPassCookies(jar, { eventId, slug: scope?.slug ?? null });
   if (next.active === 'delete') cookieStore.delete(COOKIE_NAME);
   else if (next.active !== 'keep') {

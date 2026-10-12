@@ -8561,6 +8561,25 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
   display: none;
 }
 
+/* 🍪 THE COOKIE NOTICE NEVER COVERS "I SENT IT" (2026-10-12, owner: "fix the problems"; flagged in #6493).
+   On a guest's FIRST visit the notice (`z-[70]`, full width on a phone) sat over the foot of the wish list's send
+   sheet (`data-wish-send`, z 60) — "I sent it" was under it until the notice was answered — and the record sheet
+   that replaces it (`data-gift-record`) ties the notice at 70. Fixed the way #6482 fixed /login's sign-in card
+   (`home-reskin.css`): while either sheet is open the notice is lifted over it (it stays answerable), and the
+   sheet's panel ends above the notice by the height the notice already publishes (`--cookie-banner-top`, set only
+   while it is the full-width bar — 0 otherwise), so its foot and its last line stay in view. Held by
+   app/[slug]/pabuya/_components/the-cookie-notice-never-covers-i-sent-it.test.ts. */
+html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
+  z-index: 80;
+}
+@media (max-width: 1023.98px) {
+  /* below `lg`, where the panel is the bottom sheet (`max-h-[90dvh]`); at `lg` it is the full-height side panel */
+  :is([data-wish-send], [data-gift-record]) [data-sheet-panel] {
+    margin-bottom: var(--cookie-banner-top, 0px);
+    max-height: calc(90dvh - var(--cookie-banner-top, 0px));
+  }
+}
+
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
    run completely normal. we only control the effect"*).

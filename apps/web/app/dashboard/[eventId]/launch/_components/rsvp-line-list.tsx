@@ -277,9 +277,10 @@ const PICTURE_UPLOAD_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/web
  */
 export function RsvpPictureSheet({ eventId, replacing, onPicture, onClose }: { eventId: string; replacing: boolean; onPicture: (ref: string) => void; onClose: () => void }) {
   const local = useRef<string | null>(null);
-  /* ONE ref, ONE edit: the uploader may say a finished upload twice (it tells its change from inside a state update,
-     which React runs twice in development — measured in the lab, 2026-10-12: one upload, two picture lines). The
-     shipped scene upload guards the same way (`scene-background-row.tsx` consumes its picked file). */
+  /* ONE ref, ONE edit: the uploader once said a finished upload twice (it told its change from inside a state update,
+     which React runs twice in development — measured in the lab, 2026-10-12: one upload, two picture lines). It now
+     tells after the commit, once (`the-uploader-tells-after-the-set.test.ts`); this stays as the belt — the shipped
+     scene upload guards the same way (`scene-background-row.tsx` consumes its picked file). */
   const handed = useRef<string | null>(null);
   return (
     <MakerSheet label={replacing ? 'Replace the picture' : 'Add a picture'} onClose={onClose}>

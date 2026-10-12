@@ -404,9 +404,11 @@ test('(10) the wiring: the flag is set on mount; ONE place handles every ending;
   // Whatever the ending, the tile in flight leaves `inFlight` FIRST — that is what lets go of Done (`onItsWay`).
   assert.match(ended, /^const ended = \(out: UploadOutcome\) => \{\s*if \(!isMountedRef\.current\) return;\s*setInFlight\(\(prev\) => prev\.filter\(\(i\) => i\.id !== id\)\);\s*const ending = lib \? lib\.uploadEnding\(out, keepsFailed\) : keepsFailed \? 'tile' : 'line';/);
   assert.match(up, /const onItsWay = preparing \|\| inFlight\.length > 0;/, 'a failed tile holds Done shut');
-  // Only a landing joins the value.
-  assert.equal((ended.match(/emitChange\(|setItems\(/g) ?? []).length, 2);
-  assert.match(ended, /if \(out\.ok && ending === 'landed'\) \{[\s\S]*?setItems\([\s\S]*?emitChange\(next\);[\s\S]*?return;\s*\}\s*if \(ending === 'stopped'\) return;/);
+  // Only a landing joins the value. (Re-aimed 2026-10-12, Maker walk F2: the landing no longer CALLS the parent from
+  // inside its `setItems` updater — React runs that during render — it records what to say (`toSay`) and the
+  // uploader's one effect says it after the commit: `the-uploader-tells-after-the-set.test.ts`.)
+  assert.equal((ended.match(/emitChange\(|setItems\(|toSay\.current = /g) ?? []).length, 2);
+  assert.match(ended, /if \(out\.ok && ending === 'landed'\) \{[\s\S]*?setItems\([\s\S]*?toSay\.current = next;[\s\S]*?return;\s*\}\s*if \(ending === 'stopped'\) return;/);
   // A failure: the tile (the picked file itself, to try again) — or the line. Never neither.
   assert.match(ended, /if \(ending === 'tile'\) \{\s*setFailed\(\(prev\) => \[\.\.\.prev, \{ id, file: rawFile \}\]\);\s*const reason = lib\?\.uploadRefusalReason\(out\) \?\? null;\s*if \(reason\) setError\(reason\);\s*return;\s*\}\s*setError\(lib\?\.uploadProblemLine\(out, file\.name\) \?\? 'Network error\.'\);\s*\};\s*$/);
   assert.match(up, /const keepsFailed = Boolean\(failedSays\) && variant === 'gallery';/);

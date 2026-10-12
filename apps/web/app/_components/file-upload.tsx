@@ -634,6 +634,19 @@ export function FileUpload({
     },
     [multiple, onChange],
   );
+  /* 📣 THE PARENT IS TOLD AFTER THE SET, NEVER INSIDE IT (Maker walk F2, 2026-10-12). `onChange` was called from
+     inside a `setItems` updater — which React runs WHILE RENDERING this component — so a parent that sets its own
+     state in `onChange` was updated during this render ("Cannot update a component (StageTools) while rendering
+     FileUpload"), and React's development double-run of the updater told it twice (one upload, two RSVP picture
+     lines — #6483 had to guard by hand). An updater now only records what to say; this effect says it ONCE, after
+     the commit — so two uploads landing together are one change, told whole. */
+  const toSay = useRef<UploadedItem[] | null>(null);
+  useEffect(() => {
+    const next = toSay.current;
+    if (!next) return;
+    toSay.current = null;
+    emitChange(next);
+  }, [items, emitChange]);
 
   const handleFiles = useCallback(
     async (selected: FileList | File[]) => {
@@ -919,7 +932,7 @@ export function FileUpload({
         };
         setItems((prev) => {
           const next = multiple ? [...prev, completed] : [completed];
-          emitChange(next);
+          toSay.current = next;
           return next;
         });
         return;
@@ -985,7 +998,7 @@ export function FileUpload({
   function removeItem(id: string) {
     setItems((prev) => {
       const next = prev.filter((i) => i.id !== id);
-      emitChange(next);
+      toSay.current = next;
       return next;
     });
   }

@@ -474,6 +474,16 @@ test('8 · the Next card has no frame and no fill; every tap mark is terracotta;
   assert.match(bad.match(/<div[^>]*data-today-next="unread"[^>]*>/)?.[0] ?? '', /home-card home-card-bad/, 'a failed read lost its danger wash');
   const day = await render({ upcoming: [today] });
   assert.match(day.match(/<div[^>]*data-today-next="run_day"[^>]*>/)?.[0] ?? '', /!bg-ink/, 'the event day lost its dark card');
+  // 🌑 …and it stays a DARK card with light words in dark mode too. `ink` turns to paper there, so `bg-ink` alone
+  // would draw a white slab with dark words (readable, but the opposite card). In dark mode the card takes the page's
+  // ground lifted a little toward paper, and its words are the page's light ink.
+  const { NEXT_DAY_CARD } = await import('@/app/_components/next-card');
+  const lift = NEXT_DAY_CARD.match(/dark:!\[background:color-mix\(in_srgb,rgb\(var\(--color-ink\)\)_(\d+)%,rgb\(var\(--color-cream\)\)\)\]/);
+  assert.ok(lift, 'the event-day card has no dark-mode ground of its own — it turns into a white slab');
+  assert.ok(Number(lift![1]) <= 25, `the dark-mode day card is lifted ${lift![1]}% toward paper — no longer a dark card`);
+  for (const words of [/dark:!text-ink(?![\w/-])/, /dark:\[&_\.home-card-body\]:!text-ink\/70/, /dark:\[&_\.home-eyebrow\]:!text-ink\/70/]) {
+    assert.match(NEXT_DAY_CARD, words, `the dark-mode day card's words are not light: ${words.source}`);
+  }
   // (b) THE MARK THAT SAYS "TAP THIS": every row arrow, the list doors and the mark under each number are the accent.
   const arrows = html.match(/<svg[^>]*lucide-chevron-(?:right|down)[^>]*>/g) ?? [];
   assert.ok(arrows.length >= 8, `anti-vacuity: only ${arrows.length} arrows`);

@@ -30,7 +30,7 @@ export function TermsTick({ id, children }: { id?: string; children?: ReactNode 
         />
         <span
           aria-hidden="true"
-          className="pointer-events-none h-5 w-5 rounded-[4px] border-[1.5px] border-ink/50 bg-white peer-checked:border-terracotta peer-checked:bg-terracotta peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-mulberry"
+          className="pointer-events-none h-5 w-5 rounded-sm border-[1.5px] border-ink/50 bg-white peer-checked:border-terracotta peer-checked:bg-terracotta peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-mulberry"
         />
         <svg
           aria-hidden="true"

@@ -10,35 +10,43 @@ import assert from 'node:assert/strict';
 
 import {
   FEE_LEAK_PRICE_TOLERANCE_DEFAULT,
-  manualAddFeeAttribution,
+  bookingFeeAttributionFromFacts,
   priceWithinTolerance,
-  type BookingFeeAttribution,
-  type ManualAddFeeFacts,
+  type BookingAttributionFacts,
 } from './booking-fee-gate';
 import { FEE_RULE_B_CASES } from './fee-rule-b-cases';
 
 test('every rule-B case gives the answer the owner ruled', () => {
-  assert.ok(FEE_RULE_B_CASES.length >= 8, 'the case table shrank');
+  assert.ok(FEE_RULE_B_CASES.length >= 14, 'the case table shrank');
   for (const c of FEE_RULE_B_CASES) {
-    assert.equal(manualAddFeeAttribution(c.facts), c.expect, c.name);
+    assert.equal(bookingFeeAttributionFromFacts(c.facts), c.expect, c.name);
   }
 });
 
-test('a sourced view only counts for a record tied to that shop', () => {
-  const facts: ManualAddFeeFacts = { threadSources: [], recordTiedToShop: false, viewSourcesBeforeRecord: ['explore'] };
-  assert.equal(manualAddFeeAttribution(facts), 'import');
-  assert.equal(manualAddFeeAttribution({ ...facts, recordTiedToShop: true }), 'sourced');
-});
-
-test("the shop's own link (profile_direct) and the supplier's own website never make it sourced", () => {
-  for (const s of ['profile_direct', 'website', 'host_manual', 'invite_claim', null]) {
-    const got: BookingFeeAttribution = manualAddFeeAttribution({
+test('a row the supplier brought is never sourced, whatever was viewed or saved first', () => {
+  for (const rowSource of ['vendor_invite', 'vendor_locked_qr', 'reuse_accept']) {
+    const facts: BookingAttributionFacts = {
       threadSources: [],
+      rowSource,
+      rowIsManualRecord: false,
       recordTiedToShop: true,
-      viewSourcesBeforeRecord: [s],
-    });
-    assert.equal(got, 'import', String(s));
+      savesBefore: ['host_marketplace_search'],
+      viewsBefore: 3,
+    };
+    assert.equal(bookingFeeAttributionFromFacts(facts), 'import', rowSource);
   }
+});
+
+test('a chat started from Setnayan is sourced on any row — the rule every booking always had', () => {
+  const facts: BookingAttributionFacts = {
+    threadSources: ['explore'],
+    rowSource: 'vendor_invite',
+    rowIsManualRecord: false,
+    recordTiedToShop: true,
+    savesBefore: [],
+    viewsBefore: 0,
+  };
+  assert.equal(bookingFeeAttributionFromFacts(facts), 'sourced');
 });
 
 test("the owner's example: ₱100,000 → ₱90,000–₱110,000 is the same price, inclusive", () => {
@@ -59,4 +67,12 @@ test('no price, a zero price or a broken tolerance is never a match', () => {
   assert.equal(priceWithinTolerance(0, 0, 0.1), false);
   assert.equal(priceWithinTolerance(100_000, 100_000, Number.NaN), false);
   assert.equal(priceWithinTolerance(100_000, 100_000, -0.1), false);
+});
+
+test("the supplier's bill says WHY a booking the couple typed in carries a fee — and only when it does", async () => {
+  const { feeIntroducedLine } = await import('./booking-fee-disclosure');
+  assert.equal(feeIntroducedLine({ introducedOn: '2026-09-20' }), 'Setnayan introduced this couple to you on Sep 20, 2026.');
+  assert.equal(feeIntroducedLine({ introducedOn: null }), null);
+  assert.equal(feeIntroducedLine({}), null);
+  assert.equal(feeIntroducedLine({ introducedOn: 'soon' }), null);
 });

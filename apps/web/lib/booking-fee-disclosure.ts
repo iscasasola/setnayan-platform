@@ -452,7 +452,21 @@ export type DueFeeBill = {
   coupleName: string | null;
   /** `booking_fee_charges.expires_at` as `YYYY-MM-DD`, or null when unknown. */
   dueOn: string | null;
+  /**
+   * When the booking is the couple's hand-typed record of this shop, the day
+   * Setnayan first showed the couple the shop (`booking_fee_introduced_on`,
+   * `YYYY-MM-DD`) — WHY the manual add is billable (owner 2026-10-12, answer 11:
+   * the supplier is told, on their bill only). Null/absent otherwise.
+   */
+  introducedOn?: string | null;
 };
+
+/** The one line that tells a supplier why a booking the couple typed in carries a fee. Null = nothing to say. */
+export function feeIntroducedLine(bill: Pick<DueFeeBill, 'introducedOn'>): string | null {
+  const d = bill.introducedOn;
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  return `Setnayan introduced this couple to you on ${formatDueDate(d)}.`;
+}
 
 /**
  * THE DECISION: which of a supplier's due bills does `surface` show?

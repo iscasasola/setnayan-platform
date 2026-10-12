@@ -4,7 +4,7 @@
  * NOT hold. Migration 20271267252894 (+ 20271268117342).
  *
  *   1 · `booking_fee_attribution_for` answers EVERY case of `FEE_RULE_B_CASES`
- *       exactly as `manualAddFeeAttribution` does (the drift guard: SQL decides
+ *       exactly as `bookingFeeAttributionFromFacts` does (the drift guard: SQL decides
  *       what is charged, TS what the app believes — they may never disagree);
  *   2 · `platform_settings.fee_leak_price_tolerance` is the owner's 0.10;
  *   3 · a couple's own session cannot write or clear the match stamp, the
@@ -20,7 +20,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 
-import { manualAddFeeAttribution } from '../../lib/booking-fee-gate';
+import { bookingFeeAttributionFromFacts } from '../../lib/booking-fee-gate';
 import { FEE_RULE_B_CASES, type FeeRuleBCase } from '../../lib/fee-rule-b-cases';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
@@ -78,24 +78,41 @@ const AFTER = '2026-10-05T12:00:00Z';
 async function sqlAnswer(c: FeeRuleBCase): Promise<string> {
   const shop = await newShop();
   const eventId = await newEvent();
-  const { manualId, rowId } = await newManualRecord(eventId, RECORD_AT);
-  if (c.db.tie === 'claimed') {
-    await db.query(`UPDATE public.event_vendors SET marketplace_vendor_id = $1 WHERE vendor_id = $2`, [shop, rowId]);
-  } else if (c.db.tie === 'matched') {
-    // A direct connection is privileged, as the service role is.
-    await db.query(`UPDATE public.event_manual_vendors SET leak_match_vendor_profile_id = $1 WHERE manual_vendor_id = $2`, [shop, manualId]);
+  const d = c.db;
+  if (d.kind === 'record') {
+    const { manualId, rowId } = await newManualRecord(eventId, RECORD_AT);
+    await db.query(`UPDATE public.event_vendors SET source = $1, created_at = $2 WHERE vendor_id = $3`, [d.rowSource, RECORD_AT, rowId]);
+    if (d.tie === 'claimed') {
+      await db.query(`UPDATE public.event_vendors SET marketplace_vendor_id = $1 WHERE vendor_id = $2`, [shop, rowId]);
+    } else if (d.tie === 'matched') {
+      // A direct connection is privileged, as the service role is.
+      await db.query(`UPDATE public.event_manual_vendors SET leak_match_vendor_profile_id = $1 WHERE manual_vendor_id = $2`, [shop, manualId]);
+    }
+  } else {
+    await db.query(
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, source, created_at)
+       VALUES ($1, 'catering', 'Kusina', 'considering', $2, $3, $4)`,
+      [eventId, shop, d.rowSource, RECORD_AT],
+    );
   }
-  for (const v of c.db.views) {
+  for (const sv of d.saves) {
+    await db.query(
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, source, created_at)
+       VALUES ($1, 'photographer', 'Kusina (saved)', 'considering', $2, $3, $4)`,
+      [eventId, shop, sv.source, sv.when === 'before' ? BEFORE : AFTER],
+    );
+  }
+  for (const v of d.views) {
     await db.query(
       `INSERT INTO public.vendor_profile_views (vendor_profile_id, event_id, source, viewed_at) VALUES ($1, $2, $3, $4)`,
       [shop, eventId, v.source, v.when === 'before' ? BEFORE : AFTER],
     );
   }
-  if (c.db.threadSource !== 'no-thread') {
+  if (d.thread !== 'no-thread') {
     await db.query(`INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source) VALUES ($1, $2, $3)`, [
       eventId,
       shop,
-      c.db.threadSource,
+      d.thread,
     ]);
   }
   const r = await db.query<{ a: string }>(`SELECT public.booking_fee_attribution_for($1, $2) AS a`, [shop, eventId]);
@@ -119,11 +136,11 @@ after(async () => {
 });
 
 test('1 · the SQL and the app give every rule-B case the same answer — the owner ruled', async () => {
-  assert.ok(FEE_RULE_B_CASES.length >= 8, 'the case table shrank');
+  assert.ok(FEE_RULE_B_CASES.length >= 14, 'the case table shrank');
   for (const c of FEE_RULE_B_CASES) {
     const sql = await sqlAnswer(c);
     assert.equal(sql, c.expect, `SQL: ${c.name}`);
-    assert.equal(manualAddFeeAttribution(c.facts), sql, `SQL and TS disagree: ${c.name}`);
+    assert.equal(bookingFeeAttributionFromFacts(c.facts), sql, `SQL and TS disagree: ${c.name}`);
   }
 });
 
@@ -222,4 +239,26 @@ test("6 · the couple's decline notice is a type the database admits", async () 
     `SELECT 'vendor_invite_declined' = ANY (enum_range(NULL::public.notification_type)::text[]) AS ok`,
   );
   assert.equal(r.rows[0]!.ok, true);
+});
+
+test("7 · the supplier's bill learns the day Setnayan first showed the couple a shop they later typed in", async () => {
+  // Viewed on Sep 20, the couple's record made Oct 1, the shop claimed it.
+  const shop = await newShop();
+  const eventId = await newEvent();
+  const { rowId } = await newManualRecord(eventId, RECORD_AT);
+  await db.query(`UPDATE public.event_vendors SET marketplace_vendor_id = $1 WHERE vendor_id = $2`, [shop, rowId]);
+  await db.query(`INSERT INTO public.vendor_profile_views (vendor_profile_id, event_id, source, viewed_at) VALUES ($1, $2, 'explore', $3)`, [shop, eventId, BEFORE]);
+  await db.query(`INSERT INTO public.vendor_profile_views (vendor_profile_id, event_id, source, viewed_at) VALUES ($1, $2, 'explore', $3)`, [shop, eventId, AFTER]);
+  const on = await db.query<{ d: string | null }>(`SELECT public.booking_fee_introduced_on($1, $2)::text AS d`, [shop, eventId]);
+  assert.equal(on.rows[0]!.d, '2026-09-20');
+
+  // A marketplace booking (not typed in) never gets the line.
+  const shop2 = await newShop();
+  const event2 = await newEvent();
+  await db.query(
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, source) VALUES ($1, 'catering', 'X', 'considering', $2, 'host_marketplace_search')`,
+    [event2, shop2],
+  );
+  const none = await db.query<{ d: string | null }>(`SELECT public.booking_fee_introduced_on($1, $2)::text AS d`, [shop2, event2]);
+  assert.equal(none.rows[0]!.d, null);
 });

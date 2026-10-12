@@ -294,9 +294,12 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     };
   }
 
-  // 4. Insert. Stamp source='host_manual' so any auto-cascade "added for
-  // you" badge doesn't fire on rows the host added themselves from the
-  // /vendors marketplace.
+  // 4. Insert. Stamped 'host_marketplace_search' — the couple found this shop
+  // ON SETNAYAN (owner 2026-10-12, booking-fee audit B7: "a save from Find" is
+  // one of the facts that make a later booking sourced). It was 'host_manual',
+  // which is the word for a supplier the couple typed in themselves; the
+  // auto-cascade "added for you" badge keys on 'auto_cascade_from_finalize'
+  // only, so this changes no badge.
   const category = tileCategory ?? coerceCategory((vendor.services ?? []) as string[]);
   const { data: inserted, error: iError } = await admin
     .from('event_vendors')
@@ -307,7 +310,7 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
       service_id: tileCard?.vendor_service_id ?? null,
       vendor_name: vendor.business_name,
       status: 'considering',
-      source: 'host_manual',
+      source: 'host_marketplace_search',
     })
     .select('vendor_id')
     .single();

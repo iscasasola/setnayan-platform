@@ -21,7 +21,7 @@
 import Link from 'next/link';
 import { AlertTriangle, BadgeCheck, Info, Receipt } from 'lucide-react';
 import type { FeeDisclosure, DueFeeBill, WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
-import { waivedFeeCopy } from '@/lib/booking-fee-disclosure';
+import { feeIntroducedLine, waivedFeeCopy } from '@/lib/booking-fee-disclosure';
 import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 
 /** Border / accent per tone. `good` is the free-booking and no-fee case. */
@@ -144,6 +144,13 @@ export function BookingFeeBillRow({
       <div className="min-w-0 space-y-1.5">
         <p className="text-sm font-semibold text-ink">{copy.headline}</p>
         <p className="text-sm text-ink/70">{copy.detail}</p>
+        {/* Why a booking the couple typed in carries a fee — the supplier's bill
+            only (owner 2026-10-12, answer 11; the couple is never told). */}
+        {feeIntroducedLine(bill) ? (
+          <p className="text-sm text-ink/70" data-fee-introduced="">
+            {feeIntroducedLine(bill)}
+          </p>
+        ) : null}
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href={vendorBookingFeePayPath(bill.orderId)}

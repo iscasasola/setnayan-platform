@@ -130,39 +130,57 @@ export function decideFeeGate(charge: OpenChargeResult | null): FeeGateResult {
 }
 
 /**
- * FEE RULE B — A SUPPLIER THE COUPLE BROUGHT (owner 2026-10-10, answer 1: "B").
+ * WHO SHOWED THE COUPLE THIS SHOP — THE THREE RECORDED FACTS (owner "APPROVE
+ * ALL", DECISION_LOG 2026-10-12, answer 8; booking-fee audit build list items 9
+ * and 10; "Add your own" = rule B, 2026-10-10).
  *
- * A hand-typed record ("Add your own") of a shop that IS on Setnayan pays the
- * booking fee ONLY IF Setnayan showed the couple that shop FIRST: this event
- * opened the shop's page from a sourced surface before the record was made
- * (`vendor_profile_views(event_id, source)`), or asked it through one (a thread
- * whose `inquiry_source` is sourced — the rule every booking already has).
- *
- * The record is tied to the shop either by the shop claiming the couple's link
- * (`event_vendors.marketplace_vendor_id`) or by a server-stamped match
- * (`event_manual_vendors.leak_match_vendor_profile_id`). A match the couple
- * dismissed with "Not them?" is never stamped (owner 2026-10-12, answer 3), so it
- * cannot count. A view AFTER the record was made does not count either.
+ * "Setnayan showed them first" = only facts recorded BEFORE the booking (for a
+ * couple's hand-typed record: before the record was made):
+ *   · a chat started from Setnayan — a thread whose `inquiry_source` is a
+ *     sourced surface (the rule every booking always had);
+ *   · a save from Find — an `event_vendors` row for this shop on this event
+ *     stamped `host_marketplace_search` / `auto_cascade_from_finalize` (the row
+ *     itself, or an earlier one when the booking is a hand-typed record);
+ *   · a profile view for this event — a `vendor_profile_views(event_id, shop)`
+ *     row before that moment.
+ * Never sourced, whatever else is true: a row the SUPPLIER brought (their
+ * invite, their Locked QR, a reused booking) — they brought the couple.
+ * A hand-typed record counts only when it is tied to THIS shop: the shop
+ * claimed the couple's link, or the server stamped a match
+ * (`event_manual_vendors.leak_match_vendor_profile_id`). "Not them?" cancels
+ * only the NAME match (answer 8) — it is never stamped; the facts above stand.
  *
  * ⚠ THE APP'S BELIEF, NOT THE BILL. SQL decides what is charged:
- * `public.booking_fee_attribution_for` carries the same two arms, and
- * `tests/db/add-your-own-fee-rule.db.test.ts` runs every case below through both
- * and requires the same answer. Fails SAFE to import.
+ * `public.booking_fee_attribution_for` carries the same arms, and
+ * `tests/db/add-your-own-fee-rule.db.test.ts` runs every case of
+ * `lib/fee-rule-b-cases.ts` through both and requires the same answer.
+ * Fails SAFE to import.
  */
-export type ManualAddFeeFacts = {
+export const SETNAYAN_SAVE_SOURCES: ReadonlySet<string> = new Set(['host_marketplace_search', 'auto_cascade_from_finalize']);
+export const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept']);
+
+export type BookingAttributionFacts = {
   /** `inquiry_source` of every thread this event has with the shop. */
   threadSources: ReadonlyArray<string | null>;
-  /** Is the booking a hand-typed record tied to THIS shop (claimed by it, or matched to it)? */
+  /** `event_vendors.source` of the booking row. */
+  rowSource: string | null;
+  /** The booking row is a couple's hand-typed record (`manual_vendor_id` set). */
+  rowIsManualRecord: boolean;
+  /** A hand-typed record: claimed by this shop, or matched to it. A marketplace row: always true. */
   recordTiedToShop: boolean;
-  /** `source` of every view of the shop by this event made BEFORE the record was created. */
-  viewSourcesBeforeRecord: ReadonlyArray<string | null>;
+  /** `source` of every OTHER marketplace row for this shop on this event made before the booking moment. */
+  savesBefore: ReadonlyArray<string | null>;
+  /** How many profile views of this shop for this event came before the booking moment. */
+  viewsBefore: number;
 };
 
-export function manualAddFeeAttribution(f: ManualAddFeeFacts): BookingFeeAttribution {
+export function bookingFeeAttributionFromFacts(f: BookingAttributionFacts): BookingFeeAttribution {
   if (f.threadSources.some((s) => bookingFeeAttribution(s) === 'sourced')) return 'sourced';
-  if (f.recordTiedToShop && f.viewSourcesBeforeRecord.some((s) => bookingFeeAttribution(s) === 'sourced')) {
-    return 'sourced';
-  }
+  if (f.rowSource && SUPPLIER_BROUGHT_SOURCES.has(f.rowSource)) return 'import';
+  if (!f.recordTiedToShop) return 'import';
+  if (!f.rowIsManualRecord && f.rowSource && SETNAYAN_SAVE_SOURCES.has(f.rowSource)) return 'sourced';
+  if (f.savesBefore.some((s) => s != null && SETNAYAN_SAVE_SOURCES.has(s))) return 'sourced';
+  if (f.viewsBefore > 0) return 'sourced';
   return 'import';
 }
 

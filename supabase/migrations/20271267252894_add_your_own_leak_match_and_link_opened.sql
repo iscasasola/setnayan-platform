@@ -13,7 +13,7 @@
 -- Owner, 2026-10-10: the couple IS told when the supplier declines or never
 -- opens the link — which needs the link to remember that it was opened.
 --
--- Four changes, nothing else:
+-- Five changes, nothing else:
 --   1 · event_manual_vendors.leak_match_vendor_profile_id — the Setnayan shop a
 --       hand-typed record matches (its name, or a price within the tolerance of
 --       a quote THIS event already received from that shop). Stamped by the
@@ -23,9 +23,12 @@
 --   3 · vendor_invites.first_opened_at — stamped once, the first time the claim
 --       page is drawn for a pending link (the page already writes on open: it
 --       flips a pending link past its date to `expired`).
---   4 · booking_fee_attribution_for gains ONE arm (rule B). Mirrored in
---       apps/web/lib/booking-fee-gate.ts `manualAddFeeAttribution`; the db test
+--   4 · booking_fee_attribution_for reads the three recorded facts (owner
+--       2026-10-12, answer 8) — mirrored in apps/web/lib/booking-fee-gate.ts
+--       `bookingFeeAttributionFromFacts`; the db test
 --       `add-your-own-fee-rule.db.test.ts` holds the two to the same answers.
+--   5 · booking_fee_introduced_on — the day Setnayan first showed the couple
+--       the shop, for the SUPPLIER'S bill only (answer 11).
 --
 -- FAIL-SAFE DIRECTION is unchanged (20271009140000): anything unrecognised is an
 -- IMPORT (free). Nothing here can make a charge exist where none could before —
@@ -110,17 +113,31 @@ COMMENT ON COLUMN public.vendor_invites.first_opened_at IS
   'role, stamped once). NULL = never opened. Lets the couple''s row say "not opened yet" (owner 2026-10-10: the '
   'couple IS told when the supplier never opens the link).';
 
--- ── 4 · Fee rule B ─────────────────────────────────────────────────────────
+-- ── 4 · Who showed the couple this shop — the three recorded facts ────────
+-- Owner "APPROVE ALL", DECISION_LOG 2026-10-12, answer 8: "Setnayan showed them
+-- first" = only facts recorded BEFORE the manual add — a profile view for this
+-- event, a save from Find, a chat started from Setnayan; "Not them?" cancels
+-- only the name match. Booking-fee audit (controller-2026-10-12/
+-- BOOKING_FEE_RULES_AUDIT_2026-10-12.md) build list items 9 and 10: the same
+-- three facts for every booking, measured against the booking row's own moment.
+--
 -- The thread arm is carried over byte-for-byte from 20271009140000 (the only
--- prior definition). The new arm: the booking is a hand-typed record of THIS
--- shop — the shop claimed the couple's link (marketplace_vendor_id) or the
--- record was matched to it (leak_match_vendor_profile_id) — AND this event
--- opened that shop's page from a Setnayan surface BEFORE the record was made.
--- "Opened from a Setnayan surface" = a vendor_profile_views row for (event,
--- shop) whose `source` is one of the sourced surfaces (the shop page records
--- `?src=` verbatim; the shop's own link records `profile_direct`, which is not
--- sourced). A view AFTER the record was made does not count: Setnayan did not
--- show the couple that shop FIRST.
+-- prior definition). The new arm, per booking row R of this (event, shop):
+--   · R is tied to the shop — a marketplace row of it, or a couple's hand-typed
+--     record the shop CLAIMED (marketplace_vendor_id) or the server MATCHED
+--     (leak_match_vendor_profile_id);
+--   · R was not brought by the SUPPLIER (their invite, their Locked QR, a reused
+--     booking) — never sourced, whatever was seen first;
+--   · and one of: R itself is a save from Setnayan (a marketplace row stamped
+--     host_marketplace_search / auto_cascade_from_finalize) · an EARLIER such
+--     save of the same shop on this event · a profile view of the shop for this
+--     event — each strictly before R's moment (a record's own created_at, else
+--     the row's).
+-- FAIL-SAFE as before: anything else is import.
+CREATE INDEX IF NOT EXISTS vendor_profile_views_event_vendor_idx
+  ON public.vendor_profile_views (event_id, vendor_profile_id, viewed_at)
+  WHERE event_id IS NOT NULL;
+
 CREATE OR REPLACE FUNCTION public.booking_fee_attribution_for(
   p_vendor_profile_id UUID,
   p_event_id UUID
@@ -141,18 +158,32 @@ AS $$
     WHEN EXISTS (
       SELECT 1
         FROM public.event_vendors ev
-        JOIN public.event_manual_vendors emv
+        LEFT JOIN public.event_manual_vendors emv
           ON emv.manual_vendor_id = ev.manual_vendor_id
        WHERE ev.event_id = p_event_id
          AND (ev.marketplace_vendor_id = p_vendor_profile_id
               OR emv.leak_match_vendor_profile_id = p_vendor_profile_id)
-         AND EXISTS (
-           SELECT 1
-             FROM public.vendor_profile_views v
-            WHERE v.event_id = p_event_id
-              AND v.vendor_profile_id = p_vendor_profile_id
-              AND v.viewed_at < emv.created_at
-              AND public.booking_fee_is_sourced_surface(v.source)
+         AND COALESCE(ev.source, '') NOT IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept')
+         AND (
+           (ev.manual_vendor_id IS NULL
+            AND ev.source IN ('host_marketplace_search', 'auto_cascade_from_finalize'))
+           OR EXISTS (
+             SELECT 1
+               FROM public.event_vendors p
+              WHERE p.event_id = p_event_id
+                AND p.marketplace_vendor_id = p_vendor_profile_id
+                AND p.vendor_id <> ev.vendor_id
+                AND p.manual_vendor_id IS NULL
+                AND p.source IN ('host_marketplace_search', 'auto_cascade_from_finalize')
+                AND p.created_at < COALESCE(emv.created_at, ev.created_at)
+           )
+           OR EXISTS (
+             SELECT 1
+               FROM public.vendor_profile_views v
+              WHERE v.event_id = p_event_id
+                AND v.vendor_profile_id = p_vendor_profile_id
+                AND v.viewed_at < COALESCE(emv.created_at, ev.created_at)
+           )
          )
     ) THEN 'sourced'
     ELSE 'import'
@@ -161,9 +192,75 @@ $$;
 
 COMMENT ON FUNCTION public.booking_fee_attribution_for(UUID, UUID) IS
   'sourced | import for a (vendor, event). SOURCED when a chat thread for the pair carries a marketplace-discovery '
-  'inquiry_source, OR (rule B, owner 2026-10-10) the booking is a hand-typed record of this shop (claimed by it, or '
-  'matched to it) and this event opened the shop from a sourced surface before the record was made. Fails SAFE to '
-  'import. Mirrors manualAddFeeAttribution + SOURCED_INQUIRY_SOURCES in apps/web/lib/booking-fee-gate.ts.';
+  'inquiry_source, OR (owner 2026-10-12 answer 8; rule B 2026-10-10) a booking row tied to the shop - a marketplace '
+  'row, or the couple''s hand-typed record claimed by or matched to it - that the supplier did not bring, and that is '
+  'itself a save from Setnayan or comes after an earlier save of the shop or a profile view for this event. Fails SAFE '
+  'to import. Mirrors bookingFeeAttributionFromFacts + SOURCED_INQUIRY_SOURCES in apps/web/lib/booking-fee-gate.ts.';
+
+-- ── 5 · Why a hand-typed record became billable — for the SUPPLIER'S bill ──
+-- Owner "APPROVE ALL" 2026-10-12, answer 11: the supplier is told why a manual
+-- add became billable — on their bill only ("Setnayan introduced this couple to
+-- you on <date>"); the couple is never told. The date of the EARLIEST recorded
+-- fact (a chat started from Setnayan · a save from Find · a profile view for
+-- this event) before the couple's own record of this shop. NULL when the pair's
+-- booking is not a hand-typed record of the shop, or no such fact came first —
+-- the bill then says nothing extra.
+CREATE OR REPLACE FUNCTION public.booking_fee_introduced_on(
+  p_vendor_profile_id UUID,
+  p_event_id UUID
+)
+RETURNS DATE
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  WITH rec AS (
+    SELECT emv.created_at AS rec_at
+      FROM public.event_vendors ev
+      JOIN public.event_manual_vendors emv
+        ON emv.manual_vendor_id = ev.manual_vendor_id
+     WHERE ev.event_id = p_event_id
+       AND (ev.marketplace_vendor_id = p_vendor_profile_id
+            OR emv.leak_match_vendor_profile_id = p_vendor_profile_id)
+       AND COALESCE(ev.source, '') NOT IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept')
+  ),
+  facts AS (
+    SELECT t.created_at AS at
+      FROM public.chat_threads t
+     WHERE t.event_id = p_event_id
+       AND t.vendor_profile_id = p_vendor_profile_id
+       AND public.booking_fee_is_sourced_surface(t.inquiry_source)
+    UNION ALL
+    SELECT p.created_at
+      FROM public.event_vendors p
+     WHERE p.event_id = p_event_id
+       AND p.marketplace_vendor_id = p_vendor_profile_id
+       AND p.manual_vendor_id IS NULL
+       AND p.source IN ('host_marketplace_search', 'auto_cascade_from_finalize')
+    UNION ALL
+    SELECT v.viewed_at
+      FROM public.vendor_profile_views v
+     WHERE v.event_id = p_event_id
+       AND v.vendor_profile_id = p_vendor_profile_id
+  )
+  SELECT (min(f.at) AT TIME ZONE 'Asia/Manila')::date
+    FROM facts f
+   WHERE f.at < (SELECT max(r.rec_at) FROM rec r);
+$$;
+
+COMMENT ON FUNCTION public.booking_fee_introduced_on(UUID, UUID) IS
+  'The day Setnayan first showed this couple this shop, when their booking is the couple''s hand-typed record of it '
+  '(owner 2026-10-12 answer 11: the supplier is told why on their bill only). NULL otherwise. Service role only.';
+
+-- ⚠ REVOKE from anon/authenticated EXPLICITLY (the platform's default privileges
+-- grant every new function to both; 20271009140000 explains the trap).
+REVOKE ALL ON FUNCTION public.booking_fee_introduced_on(UUID, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.booking_fee_introduced_on(UUID, UUID) FROM anon;
+REVOKE ALL ON FUNCTION public.booking_fee_introduced_on(UUID, UUID) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.booking_fee_introduced_on(UUID, UUID) TO service_role;
+REVOKE ALL ON FUNCTION public.guard_manual_vendor_leak_match() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.guard_manual_vendor_leak_match() FROM anon;
+REVOKE ALL ON FUNCTION public.guard_manual_vendor_leak_match() FROM authenticated;
 
 -- ── Post-conditions: the four changes are really there ─────────────────────
 DO $$

@@ -448,15 +448,40 @@ export async function fetchDueFeeBills(
     .map((o) => chargeIdFromBookingFeeLockServiceKey(o.service_key))
     .filter((id): id is string => !!id);
   const dueByCharge = new Map<string, string | null>();
+  const introducedByCharge = new Map<string, string | null>();
   if (chargeIds.length > 0) {
     const { data, error } = await admin
       .from('booking_fee_charges')
-      .select('charge_id,expires_at')
+      .select('charge_id,expires_at,vendor_profile_id,event_id')
       .in('charge_id', chargeIds);
     if (error) logQueryError('booking-fee-disclosure: charge expiry', error);
-    for (const c of (data ?? []) as Array<{ charge_id: string; expires_at: string | null }>) {
+    const charges = (data ?? []) as Array<{
+      charge_id: string;
+      expires_at: string | null;
+      vendor_profile_id: string | null;
+      event_id: string | null;
+    }>;
+    for (const c of charges) {
       dueByCharge.set(c.charge_id, c.expires_at ? c.expires_at.slice(0, 10) : null);
     }
+    // WHY A BOOKING THE COUPLE TYPED IN IS BILLABLE (owner 2026-10-12, answer
+    // 11): the day Setnayan first showed them this shop. One small read per due
+    // bill (a supplier holds a handful); a failure leaves the line off — the
+    // bill itself still stands.
+    await Promise.all(
+      charges.map(async (c) => {
+        if (!c.vendor_profile_id || !c.event_id) return;
+        const { data: on, error: onErr } = await admin.rpc('booking_fee_introduced_on', {
+          p_vendor_profile_id: c.vendor_profile_id,
+          p_event_id: c.event_id,
+        });
+        if (onErr) {
+          logQueryError('booking-fee-disclosure: introduced on', onErr);
+          return;
+        }
+        if (typeof on === 'string') introducedByCharge.set(c.charge_id, on.slice(0, 10));
+      }),
+    );
   }
 
   const eventIds = Array.from(
@@ -482,6 +507,7 @@ export async function fetchDueFeeBills(
       eventId: o.event_id ?? null,
       coupleName: o.event_id ? (nameByEvent.get(o.event_id) ?? null) : null,
       dueOn: chargeId ? (dueByCharge.get(chargeId) ?? null) : null,
+      introducedOn: chargeId ? (introducedByCharge.get(chargeId) ?? null) : null,
     };
   });
 }

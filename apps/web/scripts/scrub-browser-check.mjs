@@ -700,6 +700,9 @@ if (!ONLY || ONLY === '16') {
     /* ARMED BY THE PAGE'S OWN ISLAND. `today` with the page's own scripts running, for where the cover stands. */
     const t1 = await open('fixture-today.html', W, H); const today = await t1.at(0); await t1.ctx.close();
     const { ctx, p, errs, at } = await open('fixture-cover.html', W, H);
+    /* (The page's own arrival — `.sn-arrive`, an 8 px settle under each part — is let finish first: a sample taken while
+       it plays read the waiting reply row 1 px off going down, and back == down went red on the arrival's timing.) */
+    await p.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
     const top = await at(0);
     /* (d) ONE PAIR — the cover's — and no pair too many: the hero row is counted once, by the page's own count. */
     say(errs.length === 0 && top.on && top.off === null && top.sticky && top.cells === 1 && top.scenesBlocks === 0 && top.holds.length === 1 && top.holds[0] > 0, `${size}: armed by the page's own island, no page error; the page wraps ONE pair — the cover's — and it holds (${top.holds.map(r).join(' · ')}px; ${top.scenesBlocks} scenes blocks: the cover is this page's only Scrub${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''})`);
@@ -1067,11 +1070,15 @@ if (!ONLY || ONLY === '16' || ONLY === '16b') {
     const before = await at(0);
     const hit = await p.evaluate(() => { const s = document.querySelector('main details[data-get-inside] > summary'); const q = s.getBoundingClientRect(); const e = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return e ? `${e.tagName.toLowerCase()}${e.className ? `.${String(e.className).split(' ')[0]}` : ''}${s.contains(e) ? ' (the door)' : ''}` : 'nothing'; });
     /* (A door that is not there to press is a red row, not a stopped check.) */
-    await p.click('main details[data-get-inside] > summary', { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(900);
+    await p.click('main details[data-get-inside] > summary', { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(100);
+    /* (Standing down, the page's own arrival plays again — its 8 px settle — and is let finish: what is compared is where
+       things come to rest. How many motions ran is said.) */
+    const replayed = await p.evaluate(() => document.getAnimations().length);
+    await p.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})))); await p.waitForTimeout(800);
     const after = await p.evaluate(SNAPF);
     const opened = await p.evaluate(() => ({ open: document.querySelector('main details[data-get-inside]').open, signIn: document.querySelector('main details[data-get-inside] a[href^="/login"]').getBoundingClientRect().bottom, sticky: [...document.querySelectorAll('.hub-page-stage')].some((e) => getComputedStyle(e).position === 'sticky') }));
     const shift = after.s;
-    say(errs.length === 0 && before.on && opened.open && !after.on && !opened.sticky && after.off === 'the door was opened' && Math.abs(after.names.t + shift - before.names.t) < 0.6 && Math.abs(after.cover.t + shift - before.cover.t) < 0.6 && after.cover.o === 1, `${size}: the door opens and the hold stands down — the plain page (${after.off}), the cover and the names where they were (the names ${r(before.names.t)} → ${r(after.names.t + shift)} on the page), drawn whole (a tap at the button lands on ${hit}; open ${opened.open}; armed ${after.on}; staying before ${before.stays})`);
+    say(errs.length === 0 && before.on && opened.open && !after.on && !opened.sticky && after.off === 'the door was opened' && Math.abs(after.names.t + shift - before.names.t) < 0.6 && Math.abs(after.cover.t + shift - before.cover.t) < 0.6 && after.cover.o === 1, `${size}: the door opens and the hold stands down — the plain page (${after.off}), the cover and the names where they were (the names ${r(before.names.t)} → ${r(after.names.t + shift)} on the page), drawn whole (a tap at the button lands on ${hit}; open ${opened.open}; armed ${after.on}; staying before ${before.stays}; ${replayed} motion(s) played as it stood down)`);
     say(opened.signIn <= H - after.dockLine + 0.5, `${size}: …and what it opened is brought into view, clear of the bottom bar ("Sign in" ends ${r(opened.signIn)}; the line ${r(H - after.dockLine)}; the page scrolled ${shift}px)`);
     if (pics) await p.screenshot({ path: `${pics}/c16b-stranger-${W}x${H}-door-opened.png` });
     await ctx.close();

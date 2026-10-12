@@ -42,6 +42,7 @@ import {
   foodMoments,
   menuHasDishes,
   parsePrintDetails,
+  printProgram,
   type MenuMoment,
   printedDate,
   printLookFor,
@@ -184,12 +185,13 @@ export async function printMarkFor(event: PrintEventRow): Promise<{ monogram: Pr
   return { monogram: flat ? { kind: 'outline', ...flat } : null, image: null };
 }
 
-type BlockRow = { label: string | null; block_type: string | null; start_at: string | null; location: string | null; parent_block_id: string | null; is_public?: boolean | null };
+type BlockRow = { label: string | null; block_type: string | null; start_at: string | null; location: string | null; parent_block_id: string | null; is_public?: boolean | null; audience?: string | null; visibility?: string | null };
 
 async function readBlocks(admin: SupabaseClient, eventId: string): Promise<BlockRow[]> {
   const { data, error } = await admin
     .from('event_schedule_blocks')
-    .select('label, block_type, start_at, location, parent_block_id, is_public')
+    // + `audience`, `visibility`: the programme prints only what guests may see (`printProgram`).
+    .select('label, block_type, start_at, location, parent_block_id, is_public, audience, visibility')
     .eq('event_id', eventId)
     .order('start_at', { ascending: true });
   if (error) logQueryError('print-set.readBlocks', error, { event_id: eventId }, 'graceful_degrade');
@@ -717,12 +719,8 @@ export async function loadPrintSet(
       giftLines: inc.giftDetails ? giftLines : [],
       thankYou: inc.thankYou ? event.pabuya_message?.trim() || null : null,
       specialMessage: inc.specialMessage ? event.special_message?.trim() || null : null,
-      program: inc.schedule
-        ? blocks
-            .filter((b) => b.is_public && !b.parent_block_id && b.start_at && b.label)
-            .slice(0, 8)
-            .map((b) => `${blockTime(b) ?? ''} · ${b.label}`)
-        : [],
+      // 🔒 Guests are handed this card: only the guests' schedule (`printProgram`).
+      program: inc.schedule ? printProgram(blocks) : [],
       nfc: inc.nfc,
       storyExcerpt: inc.loveStory === 'excerpt' ? excerpt(storyText(event.love_story)) : null,
       guestNames: inc.guestNames,

@@ -26,6 +26,7 @@
  * client component that needs a piece's name.
  */
 import { formatWallClock } from '@/lib/schedule-datetime-local';
+import { isOnTheGuestsSchedule } from '@/lib/schedule-audience';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import type { ThemeColours } from '@/lib/theme-colours';
 import { sanitizeInviteTemplate } from '@/lib/guest-invite-message';
@@ -533,6 +534,21 @@ export function firstBlockOf<T extends ScheduleBlockRow>(blocks: readonly T[], t
 export function blockTime(block: ScheduleBlockRow | null): string | null {
   const t = formatWallClock(block?.start_at ?? null);
   return t || null;
+}
+
+/**
+ * 🗓 THE PROGRAMME THE DETAILS CARD PRINTS — guests are handed this card, so it
+ * lists only what the guests' schedule shows (`isOnTheGuestsSchedule`: public,
+ * for Everyone, released), top-level moments with a time and a name, at most
+ * eight, "2:00 PM · Ceremony".
+ */
+export function printProgram(
+  blocks: readonly (ScheduleBlockRow & { is_public?: boolean | null; audience?: string | null; visibility?: string | null })[],
+): string[] {
+  return blocks
+    .filter((b) => isOnTheGuestsSchedule(b) && !b.parent_block_id && b.start_at && b.label)
+    .slice(0, 8)
+    .map((b) => `${blockTime(b) ?? ''} · ${b.label}`);
 }
 
 // ─── The words on the cards ─────────────────────────────────────────────────

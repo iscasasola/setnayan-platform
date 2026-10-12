@@ -197,8 +197,8 @@ export async function abandonPlusOneInvite(
   slug: string,
   _formData: FormData,
 ): Promise<void> {
-  // "This isn't me — I scanned the wrong code". Clear the cookie so no row is
-  // mutated, then drop them on the public landing.
-  await clearGuestSession();
+  // "This isn't me — I scanned the wrong code". Clear THIS event's pass so no row
+  // is mutated (a pass for another event stays), then drop them on the public landing.
+  await clearGuestSession({ slug });
   redirect(`/${slug}`);
 }

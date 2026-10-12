@@ -148,7 +148,7 @@ export function WishList({
       <p className={`flex items-baseline font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700 ${shape === 'tiles' || shape === 'ruled' ? 'justify-center' : ''}`}>
         <span>Wish list</span>
         {summary ? (
-          <small data-wish-count="" className={`${shape === 'tiles' || shape === 'ruled' ? 'ml-2' : 'ml-auto'} font-sans text-xs font-normal normal-case tracking-normal text-ink/55`}>
+          <small data-wish-count="" className={`${shape === 'tiles' || shape === 'ruled' ? 'ml-2' : 'ml-auto'} font-sans text-xs font-normal normal-case tracking-normal text-ink/65`}>
             {summary}
           </small>
         ) : null}
@@ -181,7 +181,7 @@ export function WishList({
               <span className={WORDS[shape]}>
                 <b
                   className={`block font-display text-[19px] font-medium leading-tight ${
-                    w.got ? 'text-ink/50 line-through decoration-1' : 'text-ink'
+                    w.got ? 'text-ink/65 line-through decoration-1' : 'text-ink'
                   }`}
                 >
                   {w.name}
@@ -199,12 +199,12 @@ export function WishList({
                   </span>
                 ) : null}
               </span>
-              {arrow ? <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} /> : null}
+              {arrow ? <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-ink/65" strokeWidth={1.75} /> : null}
             </button>
           );
         })}
       </div>
-      <p data-wish-how="" className="mt-3 text-center text-[13px] text-ink/55">
+      <p data-wish-how="" className="mt-3 text-center text-[13px] text-ink/65">
         {GUEST_WISH_HOW}
       </p>
 

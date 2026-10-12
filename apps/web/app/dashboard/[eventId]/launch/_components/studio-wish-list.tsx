@@ -7,7 +7,8 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
 import { SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh, type Superseded } from '@/lib/maker-refresh';
-import { STUDIO_GROUP_HEAD, STUDIO_GROUP_HEAD_LINE, STUDIO_SWITCH_TRACK } from '@/lib/studio-skin';
+import { STUDIO_GROUP_HEAD, STUDIO_GROUP_HEAD_LINE } from '@/lib/studio-skin';
+import { SWITCH_TRACK } from '@/app/_components/switch-track';
 import { WISH_LINK_MAX, WISH_NAME_MAX, WISH_NOTE_MAX } from '@/lib/wish-list';
 import {
   WISH_GIFTS_ONLY_YOU,
@@ -17,6 +18,7 @@ import {
   WISH_LIST_UNREAD_LINE,
   WISH_LIST_UNREAD_TITLE,
   WISH_PRICE_TIP,
+  WISH_NOT_ANSWERED,
   WISH_SHEET_KEEPS,
   aWayToGiveIsOn,
   cleanWishPrice,
@@ -111,6 +113,11 @@ export type WishAction = (form: FormData) => Promise<WishResult>;
 const kept = (r: WishResult | Superseded): boolean => r === SUPERSEDED || r.ok;
 /** What a refused write said — nothing, when it was kept or carried by a later one. */
 const refusal = (r: WishResult | Superseded): string | null => (r === SUPERSEDED || r.ok ? null : r.error);
+/**
+ * 📵 A save whose request never answered REJECTS (`makerSave`). Taken here, at every call, as a refusal in the
+ * row's own words — never thrown on into the Maker (`lib/a-failed-press-never-replaces-the-maker.test.ts`).
+ */
+const unanswered = (): WishResult => ({ ok: false, error: WISH_NOT_ANSWERED });
 
 /** How long an opened screenshot's address is reused before it is asked for again (the server's lives 10 minutes). */
 const SHOT_REUSE_MS = 8 * 60 * 1000;
@@ -208,7 +215,7 @@ export function StudioWishList({
       () => action(form({ wish_op: 'save', name: draft.name, price: draft.price, link: draft.link, note: draft.note, photo_r2_key: draft.photo })),
       requestMakerRefresh,
       { held: true },
-    );
+    ).catch(unanswered);
     adding.current.set(
       temp.id,
       saved.then(
@@ -242,7 +249,7 @@ export function StudioWishList({
         ),
       requestMakerRefresh,
       { held: true, ok: kept },
-    );
+    ).catch(unanswered);
     if (res !== SUPERSEDED && res.ok && res.wish) lay(id, res.wish);
     if (kept(res)) return null;
     if (was) putBack(was);
@@ -257,7 +264,7 @@ export function StudioWishList({
       () => makerLatestWrite(`wish-got:${id}`, () => action(form({ wish_op: 'got', wish_item_id: id, got: got ? '1' : '0' }))),
       requestMakerRefresh,
       { held: true, ok: kept },
-    );
+    ).catch(unanswered);
     if (kept(res)) return null;
     if (was) setWishes((cur) => cur.map((w) => (w.id === id ? { ...w, gotBy: was.gotBy } : w)));
     return refusal(res);
@@ -274,7 +281,7 @@ export function StudioWishList({
     setGifts((cur) => cur.map((g) => (g.wishId === id ? { ...g, wishId: null } : g)));
     setSheet(null);
     setError(null);
-    const res = await makerSave(() => action(form({ wish_op: 'delete', wish_item_id: id })), requestMakerRefresh, { held: true });
+    const res = await makerSave(() => action(form({ wish_op: 'delete', wish_item_id: id })), requestMakerRefresh, { held: true }).catch(unanswered);
     if (res.ok) return;
     if (was) setWishes((cur) => (cur.some((w) => w.id === id) ? cur : [...cur.slice(0, at), was, ...cur.slice(at)]));
     setGifts((cur) => cur.map((g) => (freed.includes(g.id) && g.wishId === null ? { ...g, wishId: id } : g)));
@@ -303,7 +310,7 @@ export function StudioWishList({
     const next = gifts.map((g) => (g.id === id ? { ...g, ...change } : g));
     setGifts(next);
     setWishes((cur) => settleDrawn(cur, next, touched));
-    const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh, { held: true });
+    const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh, { held: true }).catch(unanswered);
     if (res.ok) return null;
     /* Refused: put back ONLY this record — never a snapshot of the whole list. A LATE refusal
        (`kept`) means the record WAS changed and its wish's mark was not: the record stays as
@@ -388,7 +395,7 @@ export function StudioWishList({
         }),
       requestMakerRefresh,
       { held: true, ok: kept },
-    );
+    ).catch(unanswered);
     /* A later move carried this one: that later write answers for the whole run. */
     if (res === SUPERSEDED) return;
     orderHeld.current = null;
@@ -861,7 +868,7 @@ function OpenWish({
           }}
           className="peer sr-only"
         />
-        <span aria-hidden className={STUDIO_SWITCH_TRACK} />
+        <span aria-hidden className={SWITCH_TRACK} />
       </label>
 
       {wish.gifts.length > 0 ? (

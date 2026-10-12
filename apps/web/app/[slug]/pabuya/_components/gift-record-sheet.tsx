@@ -54,7 +54,7 @@ type Kept = GiftKept;
 
 const FIELD =
   'mt-1.5 min-h-11 w-full scroll-mb-24 rounded-md border border-ink/15 bg-cream px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none';
-const LABEL = 'flex items-center justify-between gap-2 text-[13px] text-ink/60';
+const LABEL = 'flex items-center justify-between gap-2 text-[13px] text-ink/65';
 const FOOT_BUTTON = 'sn-press inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-[14px] font-semibold';
 
 export default function GiftRecordSheet({
@@ -207,7 +207,7 @@ export default function GiftRecordSheet({
 
               <div className="mt-3 border-t border-ink/10 pt-3">
                 <span className={LABEL}>
-                  {GIFT_SHOT_LABEL} <small className="text-[12px] text-ink/50">{GIFT_SHOT_HINT}</small>
+                  {GIFT_SHOT_LABEL} <small className="text-[12px] text-ink/65">{GIFT_SHOT_HINT}</small>
                 </span>
                 <input
                   ref={file}
@@ -245,7 +245,7 @@ export default function GiftRecordSheet({
               <label className="mt-3 block border-t border-ink/10 pt-3">
                 <span className={LABEL}>Amount</span>
                 <span className="relative block">
-                  <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 mt-[3px] -translate-y-1/2 text-[15px] text-ink/60">
+                  <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 mt-[3px] -translate-y-1/2 text-[15px] text-ink/65">
                     ₱
                   </span>
                   <input
@@ -261,7 +261,7 @@ export default function GiftRecordSheet({
 
               <label className="mt-3 block border-t border-ink/10 pt-3">
                 <span className={LABEL}>
-                  A word for {hostName} <small className="text-[12px] text-ink/50">optional</small>
+                  A word for {hostName} <small className="text-[12px] text-ink/65">optional</small>
                 </span>
                 <textarea
                   data-gift-message=""
@@ -278,7 +278,7 @@ export default function GiftRecordSheet({
                 <div data-gift-from="invitation" className="mt-3 border-t border-ink/10 pt-3">
                   <span className={LABEL}>From</span>
                   <b className="mt-1 block text-[15px] font-semibold text-ink">{ownName}</b>
-                  <span className="block text-[13px] text-ink/60">{GIFT_FROM_INVITATION}</span>
+                  <span className="block text-[13px] text-ink/65">{GIFT_FROM_INVITATION}</span>
                 </div>
               ) : (
                 <label data-gift-from="typed" className="mt-3 block border-t border-ink/10 pt-3">

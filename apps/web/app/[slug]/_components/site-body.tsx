@@ -2324,8 +2324,8 @@ export async function SiteBody({
                     ) : null
                   }
                   giftHref={doorways.pabuya}
-                  giftWishes={doorways.wishes}
                   mark={(key) => <>{giftsBlockMark(key)}{makerMark(key)}</>}
+                  giftWishes={doorways.wishes}
                   maker={isMakerCanvas}
                 />
               </div>

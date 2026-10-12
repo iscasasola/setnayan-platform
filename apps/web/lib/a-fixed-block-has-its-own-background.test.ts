@@ -213,7 +213,8 @@ test('4 · one card, never two: the markup each ground leans on is there', () =>
   assert.doesNotMatch(src(`${G}/event-details-styles.tsx`), /pahina-plate/, 'Big date or Card grew a plate: the block would wear two grounds');
   /* E-GIFTS: an eyebrow, then its one door — a link, the root's direct child. */
   const GIFTS = src(`${G}/guest-doorway-strip.tsx`);
-  assert.match(GIFTS, /<section className="space-y-3" data-welcome-gifts=""[^>]*>\s*<p className="pahina-eyebrow">\s*<span>E-Gifts<\/span>\s*<\/p>\s*<GiftDoorCard href=\{href\} words=\{words\} \/>\s*<\/section>/);
+  /* (2026-10-12, release hub-batch-2) the one card may carry the wish list's count (`wishes`, #6440) — still ONE card. */
+  assert.match(GIFTS, /<section className="space-y-3" data-welcome-gifts=""[^>]*>\s*<p className="pahina-eyebrow">\s*<span>E-Gifts<\/span>\s*<\/p>\s*<GiftDoorCard href=\{href\} words=\{words\}(?: wishes=\{wishes\})? \/>\s*<\/section>/);
   assert.match(GIFTS, /function GiftDoorCard\([^)]*\) \{\s*return \(\s*<DoorCard/);
   assert.match(GIFTS, /return \(\s*<Link\s+href=\{href\}\s+className="group flex items-center gap-3 rounded-2xl border border-ink\/10 bg-cream /);
   /* HAPPENING NOW: the block's root is the card itself. */

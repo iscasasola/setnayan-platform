@@ -8520,6 +8520,19 @@ html :is([data-part-look="role.side-rule"], [data-part-look="wear.side-rule"], [
    Maker canvas's only: a page with no `[data-maker-section]` marker (every guest's) never shows them. */
 body:not(:has([data-maker-section])) [data-maker-sample] { display: none !important; }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   🎁 STUDIO › E-GIFTS — "GIFTS SENT TO YOU" IS A SCREEN OF ITS OWN
+   (wish list 5/5, owner 2026-10-08; prototype frame 08: the title, every
+   record, ✓ Done back). While the wish list shows it
+   (`data-studio-wish-list="gifts"`), every OTHER child of the E-Gifts wrapper
+   stands down. CSS alone — nothing is unmounted, so nothing a couple was
+   typing in the rows above is lost, and no script is added to the Maker.
+   Held by lib/the-couples-gift-list-follows-the-drawing.test.ts (11).
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-details-egifts]:has([data-studio-wish-list='gifts']) > :not([data-studio-wish-list='gifts']):not(:has([data-studio-wish-list='gifts'])) {
+  display: none;
+}
+
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
    run completely normal. we only control the effect"*).
@@ -8650,17 +8663,4 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
     animation-timeline: auto;
     animation-range: normal;
   }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   🎁 STUDIO › E-GIFTS — "GIFTS SENT TO YOU" IS A SCREEN OF ITS OWN
-   (wish list 5/5, owner 2026-10-08; prototype frame 08: the title, every
-   record, ✓ Done back). While the wish list shows it
-   (`data-studio-wish-list="gifts"`), every OTHER child of the E-Gifts wrapper
-   stands down. CSS alone — nothing is unmounted, so nothing a couple was
-   typing in the rows above is lost, and no script is added to the Maker.
-   Held by lib/the-couples-gift-list-follows-the-drawing.test.ts (11).
-   ═══════════════════════════════════════════════════════════════════════════ */
-[data-details-egifts]:has([data-studio-wish-list='gifts']) > :not([data-studio-wish-list='gifts']):not(:has([data-studio-wish-list='gifts'])) {
-  display: none;
 }

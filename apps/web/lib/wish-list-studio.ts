@@ -125,6 +125,8 @@ export const WISH_LIST_NO_WAY =
 export const WISH_LIST_UNREAD_TITLE = 'Couldn’t load your wish list.';
 export const WISH_LIST_UNREAD_LINE = 'Your wishes and gifts are still there — this phone couldn’t fetch them.';
 export const WISH_SHEET_KEEPS = 'Changes keep as you type';
+/** A press whose request never answered (no signal, a stalled database) — said in place; the Maker is never replaced. */
+export const WISH_NOT_ANSWERED = 'Your phone couldn’t reach Setnayan. Please try again.';
 export const WISH_GIFTS_ONLY_YOU = 'Only you see these. Tap one to correct or remove it.';
 
 /* Gifts sent to you (wish list 5/5 — prototype frames 07 · 08) */

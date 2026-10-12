@@ -125,18 +125,18 @@ export default async function PabuyaPublicPage({
     (`lib/gift-record.server.ts`); nothing here is trusted by it.
   */
   const guestSession = await readGuestSessionForEvent(event.event_id);
-  const readerRes = guestSession
-    ? await admin
-        .from('guests')
-        .select(GIFT_GIVER_FIELDS)
-        .eq('guest_id', guestSession.guest_id)
-        .eq('event_id', event.event_id)
-        .maybeSingle()
+  /* 🔌 A failed read throws (the guest boundary, `lib/guest-read.ts`) — never "open your own invitation link" to a
+     guest whose invitation IS this browser's: a reader the read could not see is not a reader who is not there. */
+  const readerRow = guestSession
+    ? ((await guestRead('pabuya (gift reader)', () =>
+        admin
+          .from('guests')
+          .select(GIFT_GIVER_FIELDS)
+          .eq('guest_id', guestSession.guest_id)
+          .eq('event_id', event.event_id)
+          .maybeSingle(),
+      )) as { guest_id: string; display_name: string | null; first_name: string | null; last_name: string | null; deleted_at: string | null } | null)
     : null;
-  const readerRow =
-    readerRes && !readerRes.error
-      ? (readerRes.data as { guest_id: string; display_name: string | null; first_name: string | null; last_name: string | null; deleted_at: string | null } | null)
-      : null;
   const reader = readerRow && readerRow.deleted_at == null ? readerRow : null;
   const giftReader: GiftRecordReader = {
     eventId: event.event_id,

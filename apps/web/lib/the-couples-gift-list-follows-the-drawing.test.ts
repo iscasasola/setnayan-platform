@@ -227,7 +227,8 @@ test('6 · every change is drawn first, saved through the one door as a held sav
       'const next = gifts.map((g) => (g.id === id ? { ...g, ...change } : g));',
       'setGifts(next);',
       'setWishes((cur) => settleDrawn(cur, next, touched));',
-      'const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh, { held: true });',
+      /* (2026-10-12) its rejection taken in place — `a-failed-press-never-replaces-the-maker` */
+      'const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh, { held: true }).catch(unanswered);',
       'if (res.ok) return null;',
       /* Refused: only THIS record goes back — and not even that when the record itself was kept. */
       'if (!res.kept) setGifts((cur) => cur.map((g) => (g.id === id ? had : g)));',

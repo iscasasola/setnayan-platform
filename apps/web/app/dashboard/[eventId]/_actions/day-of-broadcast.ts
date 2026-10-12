@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { readCoupleBookingStandings } from '@/lib/couple-booked-and-settled.server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchBlockRosMeta } from '@/lib/schedule-ros';
@@ -150,12 +152,25 @@ export async function emailVendorCallTimes(
       fetchBlockRosMeta(supabase, eventId),
       supabase
         .from('event_vendors')
-        .select('vendor_id, vendor_name, contact_email')
+        .select('vendor_id, vendor_name, contact_email, marketplace_vendor_id')
         .eq('event_id', eventId)
         .is('archived_at', null),
       supabase.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
     ]);
-    const vendors = (vendorsRes.data ?? []) as CallTimeVendor[];
+    // ⚖ NO HANDSHAKE, NO ACCESS (owner 2026-10-07; audit F3, item 13). A
+    // Setnayan supplier is sent the day's call times only once booked and
+    // settled as the couple sees it. A supplier the couple added by hand is
+    // their own contact and is sent them as before.
+    const rawVendors = (vendorsRes.data ?? []) as Array<
+      CallTimeVendor & { marketplace_vendor_id?: string | null }
+    >;
+    const standings = await readCoupleBookingStandings(
+      createAdminClient(),
+      rawVendors.filter((v) => v.marketplace_vendor_id).map((v) => v.vendor_id),
+    );
+    const vendors: CallTimeVendor[] = rawVendors.filter(
+      (v) => !v.marketplace_vendor_id || standings.get(v.vendor_id)?.standing === 'booked',
+    );
     const callTimes = deriveVendorCallTimes(blocks, meta, vendors);
     if (callTimes.length === 0) return { ok: false, reason: 'nothing_to_send' };
 

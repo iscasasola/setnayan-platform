@@ -5,6 +5,8 @@ import { parseClientRef, budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { emitNotification } from '@/lib/notification-emit';
 import { formatPhp } from '@/lib/php';
 import { decideLogPayment } from '@/lib/accepted-quote-terms';
@@ -517,6 +519,12 @@ export async function logPayment(formData: FormData) {
     vendorName: door?.vendor_name ?? null,
   });
   if (!logDecision.ok) throw new Error(logDecision.message);
+
+  // ⚖ NO HANDSHAKE, NO RECORD (owner 2026-10-07; audit F2, build item 13). A
+  // payment against an on-platform supplier is recorded only once the booking
+  // is booked and settled as the couple sees it. Never a word about a fee (R12).
+  const notYet = await coupleMoneyNotYet(createAdminClient(), vendorId, isLockHandshakeEnabled());
+  if (notYet) throw new Error(notYet);
 
   const { error } = await supabase.from('event_vendor_payments').insert({
     event_id: eventId,

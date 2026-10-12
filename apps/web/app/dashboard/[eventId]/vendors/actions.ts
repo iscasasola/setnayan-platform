@@ -22,6 +22,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
@@ -4516,6 +4517,12 @@ export async function recordDeposit(
     contact_email: string | null;
   };
 
+  // ⚖ NO HANDSHAKE, NO RECORD (owner 2026-10-07; 2026-10-12 #1; audit C6).
+  // This used to record a payment — and hold the supplier's date — before the
+  // supplier had said any yes. Server-side, so no screen can skip it.
+  const notYet = await coupleMoneyNotYet(createAdminClient(), vendorId, isLockHandshakeEnabled());
+  if (notYet) return { status: 'error', message: notYet };
+
   // THE REQUESTED FIRST PAYMENT IS THE MINIMUM (owner, 2026-09-19: "it should
   // follow the amount requested and that means that is the minimum"). The
   // accepted quote's frozen schedule names it; `decideDepositAmount`
@@ -4987,6 +4994,12 @@ export async function raiseChangeOrder(
     vendor_name: string | null;
     marketplace_vendor_id: string | null;
   };
+
+  // ⚖ NO HANDSHAKE, NO RECORD (owner 2026-10-07; audit F2). A change order is
+  // money against a BOOKED supplier — its own docblock says so — and nothing
+  // checked that it was one.
+  const notYet = await coupleMoneyNotYet(createAdminClient(), vendorId, isLockHandshakeEnabled());
+  if (notYet) return { status: 'error', message: notYet };
 
   const { error: insertErr } = await supabase.from('vendor_change_orders').insert({
     event_vendor_id: vendorId,

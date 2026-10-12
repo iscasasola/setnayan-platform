@@ -1,338 +1,338 @@
 {
  "_about": "RECORDED AGAIN 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
- "widgetSha256": "94948634e74e9838b83973d1d34fae525b2f5a1d49caefaae81ecee728636a3a",
+ "widgetSha256": "4b6ba68ac49815dce9852ec921bdb97f9c515af47a690ceeea8f2262b3f5e95e",
  "cases": {
   "reply-card · celebratory · the Event Hub sheet · one page · a guest": {
-   "sha256": "6f3df199ebaa039ea0680e3c3fcf4aea140c1dee56e3145f4803645df122317a",
-   "bytes": 10400
+   "sha256": "210c8f42038f757a1e4b7673f37fe0f009b5d5ecfb8d007b63d290f19ff99347",
+   "bytes": 11052
   },
   "reply-card · celebratory · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "c37f735b248d424a66a5e70f6ff7b9b1cbadde1cc5907804523964e5a0737834",
-   "bytes": 10161
+   "sha256": "0ffaae9a2ad4fadf2edc7dae418129e9dddc763d9a9a0ee91cbb08adcae1db26",
+   "bytes": 10813
   },
   "reply-card · celebratory · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "e410922b339f1e95b43cb1780f381dbe8c13d4d23d64cf922ae13c0ff07d10ef",
-   "bytes": 11026
+   "sha256": "dc04a0eba72bd1bbe37af13f81c9551f366c51b608b49838674e28352c6b5eb3",
+   "bytes": 11678
   },
   "reply-card · celebratory · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "e3163f727bae952e8d2b714bbce08b355369bb349cd28b60f7a8c5a0bbfe8b88",
-   "bytes": 10787
+   "sha256": "b0c7985203d5184ab4080a7bf13d4036a256f49cf739358e67de3cceae84be5a",
+   "bytes": 11439
   },
   "reply-card · celebratory · the Reply door · one page · a guest": {
-   "sha256": "cceba78d2d21eef3dd01f929a15b8f0db0523b27b576cd952e606943aae1cece",
-   "bytes": 9834
+   "sha256": "db246ed04f9fe27e0be93a546a611752fbae918b590afaa4ae24dd78203e1bcb",
+   "bytes": 10486
   },
   "reply-card · celebratory · the Reply door · one page · the Maker’s sample": {
-   "sha256": "1c4acfabb66c9c044e10b7f03ab29c470bd54c3031398b74b0213b4cf39628f9",
-   "bytes": 9595
+   "sha256": "2e60a7812596105f4030074b4b7082a5b1e1ce3eab57f2c984dab69aba20de6f",
+   "bytes": 10247
   },
   "reply-card · celebratory · the Reply door · one at a time · a guest": {
-   "sha256": "e89e3b9255fe137c234c858b14e0fb166ff35c524dbd5a882a4d2fa0fd387323",
-   "bytes": 10439
+   "sha256": "88b5027b710298833c6c651f437ca2c8797e5ea718906c5638b9d80fb02da1b8",
+   "bytes": 11091
   },
   "reply-card · celebratory · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "f2dfb57ac69c5d6df2b62f38981d643934711afc880756c82192f440d0e1f9ee",
-   "bytes": 10200
+   "sha256": "b15af68bab7f02b880f12dd735550b08e7dd831cf6d9b9a93100227a734e53ca",
+   "bytes": 10852
   },
   "reply-card · solemn · the Event Hub sheet · one page · a guest": {
-   "sha256": "6c81fe9004e9c65b096472b0a7e25c442ff5bce05f4a242b2bee6813ebfa5423",
-   "bytes": 10377
+   "sha256": "c82a1607bb8085ff91494df167c609e16c79111ca5eeaef2b7de8704bdccef75",
+   "bytes": 11029
   },
   "reply-card · solemn · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "0f7b5102dd857154f7e211aa0c011fb04871c03dd9f2b79c28356dbff7a3a5b2",
-   "bytes": 10138
+   "sha256": "1db29d17f6568cc73237e89067b52f3be5b20644fd24621bae032d4ee0c6d329",
+   "bytes": 10790
   },
   "reply-card · solemn · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "3bee516e22ae17dca5c368cd7d942b606f051d621343340178fb68dbe73e3bfa",
-   "bytes": 11003
+   "sha256": "398761a3822c272d4fc5d15129c3d5768e2a781ece070bc73f1c3c9d6ad1eca6",
+   "bytes": 11655
   },
   "reply-card · solemn · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "250e0555641dbc1ad0d85e8a2f769d8d1bd5518f900fe80558c58b028a8a8bdb",
-   "bytes": 10764
+   "sha256": "d547f2630f48bd86591eb4be7829e559116ef8d3f6a794f89e75527686263667",
+   "bytes": 11416
   },
   "reply-card · solemn · the Reply door · one page · a guest": {
-   "sha256": "4d4a24206164d7fe2e0dea06fa7e188c23828dfaf90c2e42b228d0628d750ebb",
-   "bytes": 9811
+   "sha256": "e41c7cb2af87ff46cad56fae51b4d6eaf5e0e49d412a953688859510d6e320b1",
+   "bytes": 10463
   },
   "reply-card · solemn · the Reply door · one page · the Maker’s sample": {
-   "sha256": "4af876da6c09bab3b5da06584319b26a1677c899ab5500c12619a25b6a089c12",
-   "bytes": 9572
+   "sha256": "ab1415b5e6e0b7f7eef98dd5728fd46ad5aba6534c2ccda9094950b76c1b3467",
+   "bytes": 10224
   },
   "reply-card · solemn · the Reply door · one at a time · a guest": {
-   "sha256": "cd73d339705c5ee4f7e375e60e859fd4f06d00a77cc3474761fc17a8c86e9ac8",
-   "bytes": 10416
+   "sha256": "76a40785686895a40ebdc0a834c34e50a15bb06e9c75108de503e743fd4d6c4e",
+   "bytes": 11068
   },
   "reply-card · solemn · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "68b4d8e9544d2fb73dcf6e6d8549120e0b3b22477db3a7eaa0f1cd6bade63bd3",
-   "bytes": 10177
+   "sha256": "8085e86836cb75b30a8904bd913a36095276b83bafc4a8d8ca00b5840a38eba4",
+   "bytes": 10829
   },
   "question · celebratory · the Event Hub sheet · one page · a guest": {
-   "sha256": "51e5fdfe8bb45dffa2a1b6e529e822d8543139c8ad6944ea869f0e4d52a39da9",
-   "bytes": 9847
+   "sha256": "246db6582bd52be2ce1783e74eab1ce31864f231cc73aa8be0cb206d1a329c0e",
+   "bytes": 10499
   },
   "question · celebratory · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "fedf14b8a47ce443dcc5d4e74ffe410efa3fde4b2c279249f5af2d8f085ff8dc",
-   "bytes": 9608
+   "sha256": "220029ed253245f0c8209c7019f935e9f4885ee6229fb96063f4d00bad8739b2",
+   "bytes": 10260
   },
   "question · celebratory · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "d676c3946049fea7557aea81d573a961809b38246cb0b49bd63771e3225c1915",
-   "bytes": 10452
+   "sha256": "413f8b993f5f52d9a06fc876b9a780feb56d919bb2c657b67d532581c18f0487",
+   "bytes": 11104
   },
   "question · celebratory · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "d77f1e9a1336610aa03f949851f8908adc2148f201ee3c51adae353023b79f97",
-   "bytes": 10213
+   "sha256": "f27af9ffeb7252e53ada0e8c4778040aec17bbbca2d3de6a5163de80b7c7f9e4",
+   "bytes": 10865
   },
   "question · celebratory · the Reply door · one page · a guest": {
-   "sha256": "f35969dfc38ceb9f658fde879c39c6286ea3d60f47e9e6f1f6eadacd88c7a0f2",
-   "bytes": 9363
+   "sha256": "401cf83c94605b6cfd8687d09a7d26d337eeaeaf7a2c8c8c2edbe2e39974cae7",
+   "bytes": 10015
   },
   "question · celebratory · the Reply door · one page · the Maker’s sample": {
-   "sha256": "869e85f95554b18a9597dcdadce5b0ecd7a99984bd90aeb0de62b72dd96a68a0",
-   "bytes": 9124
+   "sha256": "5fcd8fa7367be4e24aea10c0b471058b4823a27887eda5049f4ba66f495e3626",
+   "bytes": 9776
   },
   "question · celebratory · the Reply door · one at a time · a guest": {
-   "sha256": "212f1ee82ff1ede770147a6075e4643bbc1dcb7117b159e06b7ab2aa6b48fc6a",
-   "bytes": 9968
+   "sha256": "20d217d1411f86df590468f566527d94f4c5f821595da1091b746f5bd59eeb70",
+   "bytes": 10620
   },
   "question · celebratory · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "22ec42f1b68a08ff8b9c34bd2ed93ce559c6137460ee3ffe8032f06f7b784834",
-   "bytes": 9729
+   "sha256": "2f6cced77a4f69938d873e70b931d789f4c20d9b5e3954f08defb033e3bafaff",
+   "bytes": 10381
   },
   "question · solemn · the Event Hub sheet · one page · a guest": {
-   "sha256": "35e41d342ad7f80ab4c43e033cfd1b637f0c7b81dc27c3edc329bd6807d44ebe",
-   "bytes": 9842
+   "sha256": "dc1e95661fabaa7928ddb1228be35573cebc3e21ef207eea9677157c215a9297",
+   "bytes": 10494
   },
   "question · solemn · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "fc42ba4a0f9dc825686b3cb0a7571f6a06714c424e479a5547a1cb72b71c4dfb",
-   "bytes": 9603
+   "sha256": "85544894e6f95e2a5ec63028ac7f827195c907a7dfcf2a392021f45fd1075e2f",
+   "bytes": 10255
   },
   "question · solemn · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "05e0f621a3e7d765d5c78f1d22d7b5125327c97d4aa21c777d35dee08d0be3d3",
-   "bytes": 10447
+   "sha256": "49f917b0afc1442e80e3493ad10e293af27eadf2fa1d8c62c1468d0d9501027d",
+   "bytes": 11099
   },
   "question · solemn · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "f340bd1f32821d28146bad4c7e66f4f09331c9eafaeed4f594f48d82b7df25a9",
-   "bytes": 10208
+   "sha256": "2de507d44e8ce7c57785a458e0e2f941c005c1c56bbcd7f53b48be2f5883a6b6",
+   "bytes": 10860
   },
   "question · solemn · the Reply door · one page · a guest": {
-   "sha256": "ede5b2cc78291feb96b4e207c0033e8d325a47b04819f5372937adeb22549e16",
-   "bytes": 9356
+   "sha256": "5649dab5a62d1eadbdc62661d96dd1cfc386fdc9a2a06c724fcd6a62d497d37e",
+   "bytes": 10008
   },
   "question · solemn · the Reply door · one page · the Maker’s sample": {
-   "sha256": "45b0be402eab2bb5f3a8265d3e44139eede7c95dd57264afd6adacaacfcb259f",
-   "bytes": 9117
+   "sha256": "a137a20923fb6cbe5f495f0af776d5c5738e38a8661b7a5e4b59b10090bf77f7",
+   "bytes": 9769
   },
   "question · solemn · the Reply door · one at a time · a guest": {
-   "sha256": "c7999af764de406e72c0f8cf7ea85aedcd31868c84ae879ffef4e54d466aa1b7",
-   "bytes": 9961
+   "sha256": "96f66ac49a904429465feef5bc0bdbfd313f05a134ad8b0ae6a0c2e522fd064a",
+   "bytes": 10613
   },
   "question · solemn · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "0b848bc63cbc98151d06e4c396a9dc58aab9dbec22981d892f1c83f26de84a9c",
-   "bytes": 9722
+   "sha256": "2b13a3b8e444f449e78cb8b11c7c1725f877775b3ccc2f2d1f66b08ffd981038",
+   "bytes": 10374
   },
   "ticket · celebratory · the Event Hub sheet · one page · a guest": {
-   "sha256": "91d0f237fadbaff7d4e52d3ccb3537518f9dbc8c699506bdfab334509d1d742d",
-   "bytes": 10553
+   "sha256": "44033246ce058ca67194a4b7c14afbfd4edc442f336aa520d90bc775cd3b78b7",
+   "bytes": 11205
   },
   "ticket · celebratory · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "7f3ba7e2ef3fc9c756c313b1a34b8442f37e09584ec8e8201f3789d557abb93f",
-   "bytes": 10314
+   "sha256": "7da574edec365e11a30a157caca2d22a25e96d82ce848ea1bd4ed80ea5aeded9",
+   "bytes": 10966
   },
   "ticket · celebratory · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "8799cfe381d55b88257ec3e249c983d925b89a2d18ad12a7ba49bdb096732637",
-   "bytes": 11158
+   "sha256": "6584ff32d59f974318496e243c379f1c3bb70da8e3f14c538c774258f9376885",
+   "bytes": 11810
   },
   "ticket · celebratory · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "9ce5abaa17d05f278ead14e4404d63e92431338d5d2c0e0ab04ec0b9f92bc122",
-   "bytes": 10919
+   "sha256": "e3c465cb239eecf98b9df5a0874c112c352c4e0de1845d3a8ae29ed8005fd5e1",
+   "bytes": 11571
   },
   "ticket · celebratory · the Reply door · one page · a guest": {
-   "sha256": "cc9824c1f801a99673815d21c29d1e1484c018827c67d50ece6597c46788b2b9",
-   "bytes": 9687
+   "sha256": "d91bb9b5b3e7362d865ef19635a4ed2b008111f51abe7052747c0edda136b7d9",
+   "bytes": 10339
   },
   "ticket · celebratory · the Reply door · one page · the Maker’s sample": {
-   "sha256": "e7fb4f35517f173e67ec24b1eb311458b60b79a33af35d0e970d21ece3dbb302",
-   "bytes": 9448
+   "sha256": "970aa691e59a787cf81db8997160edd04f2425f17887d5d171191623850759ab",
+   "bytes": 10100
   },
   "ticket · celebratory · the Reply door · one at a time · a guest": {
-   "sha256": "ec9a5e8bac8e1e2a510792e781ad325bd09116fd2a0b75cd176839eb0b9f15c5",
-   "bytes": 10292
+   "sha256": "684eac8eb40da1c584a2e063ed57d70a3186e9f19c2efccc619bd6b7647c5670",
+   "bytes": 10944
   },
   "ticket · celebratory · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "6d91fec989a87f0b42db1d138f1f3444cd53fa3086c1fa4540a5f31b48f1f9f9",
-   "bytes": 10053
+   "sha256": "af8c317ee9f076bf4092213534ca7a390e8cfc9ecef23a94e523e50445a5beba",
+   "bytes": 10705
   },
   "ticket · solemn · the Event Hub sheet · one page · a guest": {
-   "sha256": "e9ad61471ae7ef3f77b0328d7538ad01e5c2bdbfbb6cc51a53a500602502a657",
-   "bytes": 10544
+   "sha256": "33c42ea5016b0320098d41489e83d6b60e25c94b1990a55213572cf6fe0ab37f",
+   "bytes": 11196
   },
   "ticket · solemn · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "e52dade64b3d3dadbe8ae8e900e27f4a5b02602b4889b760b26a2486b2ba8f72",
-   "bytes": 10305
+   "sha256": "26853db046f0460f64335d772f2deb5fc7a88f433a3469ec3244c83c9b9547b3",
+   "bytes": 10957
   },
   "ticket · solemn · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "d1f1d55a8ae9460e36a0781b6a2bfa51bef85861a32735f723879898882228e7",
-   "bytes": 11149
+   "sha256": "9d26336b977cdcdc7e62df7db4fda93f526fe9d56d7a03d3494794bba7dbbdd4",
+   "bytes": 11801
   },
   "ticket · solemn · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "c8c89585c5c57a279acc671a2df0bac67c509b824842e7401767370db8984ffc",
-   "bytes": 10910
+   "sha256": "3a1e473596a0281bc3fb57b388e10e15beb123e59096e2389126b2cfc5ba0cf3",
+   "bytes": 11562
   },
   "ticket · solemn · the Reply door · one page · a guest": {
-   "sha256": "288777f73633d0ef58a8b9c47a418f672a4bcc476497bd88b18ee27b6799cf54",
-   "bytes": 9678
+   "sha256": "e8c5680a9c9350862e115b3a6974bb46c3dc204f794910f9e21c6fc4ff9fd64f",
+   "bytes": 10330
   },
   "ticket · solemn · the Reply door · one page · the Maker’s sample": {
-   "sha256": "a79864b18b06741d5886a3890a3afb6a54c635f66c3d304e390ce4a714941b17",
-   "bytes": 9439
+   "sha256": "0e24920a29cab31115cb2e3d7c58d76f24e9cf83fb21ad1cb23fdbe642c51ec0",
+   "bytes": 10091
   },
   "ticket · solemn · the Reply door · one at a time · a guest": {
-   "sha256": "ca177f192075ee72dd500ee924487b1522d4790307792a2609f31fe10a63b2be",
-   "bytes": 10283
+   "sha256": "2bdbc197b5d3dcc0504d5cfa7360c84fda8951e9de77c505b3430d893b58c7d9",
+   "bytes": 10935
   },
   "ticket · solemn · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "f3c15e77d8b9d60101eb9c0eae63d72c38db0bc366e918d7d7da2f2faf0dbaec",
-   "bytes": 10044
+   "sha256": "0e84d83bba740f481437ab77716f12e0924046cebf2b51e0ab0e760389534b0a",
+   "bytes": 10696
   },
   "reply-card · already attending": {
-   "sha256": "21407eb3648ea3aa07d468b0c2fa0414b132ed67275780925f3e413e0db503ef",
-   "bytes": 10053
+   "sha256": "67eb054b16282ffc894e2257b5a276b592b2770863ef934cfdec2fee99c059c9",
+   "bytes": 10705
   },
   "reply-card · already declined": {
-   "sha256": "10e239173f4bde663f7789b59d643da79f255e57d51245e1009da4ef05707e14",
-   "bytes": 9845
+   "sha256": "c7f6abe19e85a40b38e4c426e4b7524da70b090f2a7abc10b82679f63ea603f5",
+   "bytes": 10497
   },
   "reply-card · already maybe": {
-   "sha256": "cceba78d2d21eef3dd01f929a15b8f0db0523b27b576cd952e606943aae1cece",
-   "bytes": 9834
+   "sha256": "db246ed04f9fe27e0be93a546a611752fbae918b590afaa4ae24dd78203e1bcb",
+   "bytes": 10486
   },
   "reply-card · the guest list is closed, attending": {
-   "sha256": "49739023536483029b59839da3721ae5733115514f9e7d181686217be1f8e931",
-   "bytes": 3885
+   "sha256": "d0cbcb7d7b16fc1a2eed7966a9bcd326ad434f008aff5f35a6eace25e78f59e7",
+   "bytes": 4537
   },
   "reply-card · the guest list is closed, declined": {
-   "sha256": "f04ad33a69f453a77c0d7a5a8f52ba8086a5ac75b7f7b7c02b2fb5244818cab1",
-   "bytes": 3338
+   "sha256": "9a732f446008248fb0b98bab66d5e12ce5fdc525030460fc8bfef6bac14ddd85",
+   "bytes": 3990
   },
   "reply-card · the couple’s own words": {
-   "sha256": "6b36b8d086b8b1fcbe2ef1aa46ca6f14736058b36617936db5657bbee4f9fcb1",
-   "bytes": 9830
+   "sha256": "beb022c7720157735015df22ba9ec605c0293aebee2c843f724b32d98aaa5e50",
+   "bytes": 10482
   },
   "reply-card · the couple’s own words, one at a time": {
-   "sha256": "7531c10fa3bcacb6d89d4c0a817a2cdf496df9237ed8c3a92abaa66c7e6454c7",
-   "bytes": 10435
+   "sha256": "c37ff21067bf52cb0d957e0bbe3b421e98e0052270abf493294015e62b7ee37b",
+   "bytes": 11087
   },
   "reply-card · the couple’s own words, the Maker’s sample": {
-   "sha256": "b9c1ee5a50ac25976f3953c50df5f41eb8c3766057e84962d5100d16f93e0552",
-   "bytes": 10196
+   "sha256": "9a14eff1292ead6b069b4c7362b9d69b3da52453630fac1a6c183aa09ddbd356",
+   "bytes": 10848
   },
   "reply-card · every question switched off": {
-   "sha256": "714de6d83393024ca296e04a2bc165b746ec0f8cf4a470a63abdd2c06e9e4060",
-   "bytes": 3976
+   "sha256": "7bd7eeee065a1d0f9f4418688166db2af99f4436602000ec5a4f148a1266ccc0",
+   "bytes": 4628
   },
   "reply-card · the tagging question asked": {
-   "sha256": "273ba9add80e3697d5c6471143cec3f48e23894f77fb4ab0a1889d7aed369180",
-   "bytes": 10776
+   "sha256": "ad1e5cb22a50f723a72cbed26a17c99cef62bf918053f3d649425384faa22419",
+   "bytes": 11428
   },
   "reply-card · a flash, a host pitch, no terms": {
    "sha256": "3b495f7d8d74ed6c3241e702ddc072fff36bcca87e8e7bac44e62285c3833689",
    "bytes": 10324
   },
   "question · already attending": {
-   "sha256": "b6ebd18fccdefbddf2251db1b1ee23452148f2831abcdbea58fef01f0afa8de2",
-   "bytes": 9582
+   "sha256": "a8501d0e9e82f839a10a4379b1f66d71619033dd1956d81204ec73eefbe440a8",
+   "bytes": 10234
   },
   "question · already declined": {
-   "sha256": "73dd30dd3149ba46fca58f65d1276234cb74bdacb562b05a0082b3ce7fa4ab9c",
-   "bytes": 9374
+   "sha256": "ea647ecdc94fdfdb6de24086c99b144e515535065d89fa36df440426149f0482",
+   "bytes": 10026
   },
   "question · already maybe": {
-   "sha256": "f35969dfc38ceb9f658fde879c39c6286ea3d60f47e9e6f1f6eadacd88c7a0f2",
-   "bytes": 9363
+   "sha256": "401cf83c94605b6cfd8687d09a7d26d337eeaeaf7a2c8c8c2edbe2e39974cae7",
+   "bytes": 10015
   },
   "question · the guest list is closed, attending": {
-   "sha256": "49739023536483029b59839da3721ae5733115514f9e7d181686217be1f8e931",
-   "bytes": 3885
+   "sha256": "d0cbcb7d7b16fc1a2eed7966a9bcd326ad434f008aff5f35a6eace25e78f59e7",
+   "bytes": 4537
   },
   "question · the guest list is closed, declined": {
-   "sha256": "9c69f49fa123d4bb67dd297cae0a9120a898c5114a6096d1f354f60c61018aaa",
-   "bytes": 3281
+   "sha256": "259ee6287981321769fbbc5a8c3afb0a65dbea404142c9be4362e870e8989d92",
+   "bytes": 3933
   },
   "question · the couple’s own words": {
-   "sha256": "795f325b7bafe1a318f9781f191cc4b02d6e080b085d2b4b7b2cce45b5d158d0",
-   "bytes": 9354
+   "sha256": "57124d450f0fbb4adf245d0282b6a350a792c1bfd1722e01086f0d4d70e5d24a",
+   "bytes": 10006
   },
   "question · the couple’s own words, one at a time": {
-   "sha256": "d9dce4c25dccf8bb22f849db79d338030b9cb6f4ae9413ded391fe66c1b57092",
-   "bytes": 9959
+   "sha256": "370a19539788e3efd2f36b786d7d3d9274624bd53868afe77e4cff6bdda7b329",
+   "bytes": 10611
   },
   "question · the couple’s own words, the Maker’s sample": {
-   "sha256": "f42b1a16b7e7d176b072eae7e2f963aaf7a7681fa07a835b47536c8a5e3a15a1",
-   "bytes": 9720
+   "sha256": "82160d1e4136681888631198c77f1837613458292fd548b72d533be18107ba28",
+   "bytes": 10372
   },
   "question · every question switched off": {
-   "sha256": "5f0618e4bf7403ddc2045aff07b44769b951a071b6908fdfa45676d4e6432b64",
-   "bytes": 3505
+   "sha256": "3d9e3129ef3bc7a6fa874c6aa4fd0ea86f3d8c7fa3b22d32e94d61c147a025b7",
+   "bytes": 4157
   },
   "question · the tagging question asked": {
-   "sha256": "e0910c643052fefad71c640700200604d49416270acdf9cf3e2661a862f5db0f",
-   "bytes": 10305
+   "sha256": "24fd81400c92ccbd361eaaa7c3b8efbfecd9f5e10c62ae8af8b87e88aeab2b04",
+   "bytes": 10957
   },
   "question · a flash, a host pitch, no terms": {
    "sha256": "da707e08e180cb1cc532d90422ba4cb0f3b73f2cec4a9aa62292c9fe63852d0a",
    "bytes": 9771
   },
   "ticket · already attending": {
-   "sha256": "6b67b9c0a9ed30396d93cc789156c8f60fd8111032dca95d01519caeba6b24db",
-   "bytes": 9906
+   "sha256": "89fcabeb93dd4459deefde76beb51aba210a92c5fc4ba8e46f77f325bdf35056",
+   "bytes": 10558
   },
   "ticket · already declined": {
-   "sha256": "dc562bc60a4bd0cebbdc6698b15a662b9dcdbc08930c54caeccee376d8991250",
-   "bytes": 9698
+   "sha256": "9108f5d5b278428d2a2e94061d4261b503ecb171ce0aea94a19c61adc2f28b88",
+   "bytes": 10350
   },
   "ticket · already maybe": {
-   "sha256": "cc9824c1f801a99673815d21c29d1e1484c018827c67d50ece6597c46788b2b9",
-   "bytes": 9687
+   "sha256": "d91bb9b5b3e7362d865ef19635a4ed2b008111f51abe7052747c0edda136b7d9",
+   "bytes": 10339
   },
   "ticket · the guest list is closed, attending": {
-   "sha256": "49739023536483029b59839da3721ae5733115514f9e7d181686217be1f8e931",
-   "bytes": 3885
+   "sha256": "d0cbcb7d7b16fc1a2eed7966a9bcd326ad434f008aff5f35a6eace25e78f59e7",
+   "bytes": 4537
   },
   "ticket · the guest list is closed, declined": {
-   "sha256": "e04b31db348e2e4ea68c3e1029df42e9ba72d292471b37f771369f96d151dac3",
-   "bytes": 3638
+   "sha256": "e92f25c817a7768e2211a00008132c2921585ad07cf4ed7c2f3b9e8519301897",
+   "bytes": 4290
   },
   "ticket · the couple’s own words": {
-   "sha256": "b068afe44c7f39d62a58395084d75be57243b6d65b885b644e561408328ff7ae",
-   "bytes": 9678
+   "sha256": "ab16c97f776fcee71cb6f100e7eb93579442e898438c2f3d292e854150d704ff",
+   "bytes": 10330
   },
   "ticket · the couple’s own words, one at a time": {
-   "sha256": "f53e0a4047ef61de7f95cad1bf8df68aa245047688d65b5b8701d7ef9c5bf4fb",
-   "bytes": 10283
+   "sha256": "1ed448918d32eb10102b68591da45cb0dbad3875297196c4fd6a2ff7afaf08d4",
+   "bytes": 10935
   },
   "ticket · the couple’s own words, the Maker’s sample": {
-   "sha256": "74af9831c4d7b9220f0fa0ba19659f75557e6206d43d7967053c758192ae64d8",
-   "bytes": 10044
+   "sha256": "107eb1eb961243432e1ea6e64c87a36f8d2dca0189a818f1ac5acfa3c45ff516",
+   "bytes": 10696
   },
   "ticket · every question switched off": {
-   "sha256": "17646335a56f6b7abc890233888ca5d95f7f7daca65fddc8b74e14b6d54f2a80",
-   "bytes": 3829
+   "sha256": "64876e426950e6e78820d8c2103bbe3fc500adb753985466ee2a18b04dda24d4",
+   "bytes": 4481
   },
   "ticket · the tagging question asked": {
-   "sha256": "580030bc7dd5fed71d4177b92ad630fd1bd5a612c80be4cf40d72e03f0a7c8d7",
-   "bytes": 10629
+   "sha256": "33d0593b64a915587eeee769df0e124e4d07e8e4f0d62ab9f155ec31eda3a7f3",
+   "bytes": 11281
   },
   "ticket · a flash, a host pitch, no terms": {
-   "sha256": "3b24fd6fd627d55e65f69479f5e0e19902bc1812d86e3ac2333556902f7f69e8",
+   "sha256": "1aa41b0f1ce02aff24357a7833925edea84ad6cfcc13a3a9bf4ec86c233e1ed8",
    "bytes": 10477
   },
   "the key gate · only the meal is missing": {
-   "sha256": "149850dab805393cd5ae58ac149fef5ccfeb3c00168ff0377ea623d687d0f57a",
-   "bytes": 3359
+   "sha256": "8e59e847516dc00d5b33c2e58855a999e8fe6f959b829b26bcd093cbd56c8af6",
+   "bytes": 4011
   },
   "the key gate · the answer is missing": {
-   "sha256": "cceba78d2d21eef3dd01f929a15b8f0db0523b27b576cd952e606943aae1cece",
-   "bytes": 9834
+   "sha256": "db246ed04f9fe27e0be93a546a611752fbae918b590afaa4ae24dd78203e1bcb",
+   "bytes": 10486
   }
  },
  "inFull": {

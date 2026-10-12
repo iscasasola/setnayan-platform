@@ -52,6 +52,11 @@ export const COUPLE_MEDIA_METER_SUBPATHS: ReadonlySet<string> = new Set([
   'main-background',
   // A scene's own background photo or clip and its still ("Upload media" in the
   // Maker's scene Format tab, owner 2026-09-28) — the same kind of surface.
+  // 🖼 …and an RSVP picture line's file (DECISION_LOG 2026-10-12 (a)): the same
+  // upload, the same folder. Its ref is held in `events.rsvp_ask_config` (live)
+  // and the draft's `events.rsvp_ask_config` — both read WHOLE by the settle
+  // (`couple-media-allowance.server.ts` `readReferenceText`), so it counts while
+  // kept and frees its bytes once the line is taken off.
   'scene-background',
 ]);
 

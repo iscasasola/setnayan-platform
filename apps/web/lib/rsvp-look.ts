@@ -37,6 +37,9 @@ import { hubElementColor } from './element-style';
 import { HUB_FONT_BY_KEY, sanitizeHubFontKey, type HubFontKey } from './hub-fonts';
 import { motionFxFrame, sanitizeMotionFx, type MotionFx } from './motion-effects';
 import { RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR } from './rsvp-stage-shared';
+import { RSVP_ADDED_PICTURE_MAX, rsvpPictureRef } from './rsvp-picture-ref';
+
+export { rsvpPictureRef };
 
 export { RSVP_LOOK_MESSAGE, RSVP_LOOK_STYLE_ATTR };
 
@@ -78,8 +81,9 @@ export const RSVP_LOOK_FEELS = ['quick', 'cinematic'] as const;
 export type RsvpLookFeel = (typeof RSVP_LOOK_FEELS)[number];
 export type RsvpMotion = { i?: MotionFx; v?: RsvpLookFeel };
 
-/** One line's look. `c` a colour · `f` a font · `s` a size · its Build in. Short keys: the object lives under a 2 KB cap. */
-export type RsvpLineLook = { c?: RsvpLookColour; f?: HubFontKey; s?: RsvpLookSize } & RsvpMotion;
+/** One line's look. `c` a colour · `f` a font · `s` a size · its Build in — and, for a PICTURE line only, `l` its Look
+ *  (Tall; Wide is the absence of the key). Short keys: the object lives under the config's cap. */
+export type RsvpLineLook = { c?: RsvpLookColour; f?: HubFontKey; s?: RsvpLookSize; l?: 'tall' } & RsvpMotion;
 
 /**
  * 🃏 THE CARD — each screen's group of lines is one block (`RSVP_CARD_GROUPS`, `rsvp-canvas-parts.ts`), keyed by the
@@ -97,11 +101,43 @@ export type RsvpCardLook = { g?: RsvpCardGround; w?: RsvpCardWas } & RsvpMotion;
 
 /**
  * ＋ A LINE THE COUPLE ADDED to a screen: a Heading (`h`) or a Message (`m`), its words (`t` — typed, so cleaned and
- * capped here on every read, and drawn as TEXT, never as markup). `id`: the app's own short one (`RSVP_LAYOUT_ID`),
- * unique in the whole config. On the page, in the order and in `lines` it goes by `a:<id>` (`rsvpAddedName`).
- * (A Picture, `p`, is measured for and not read yet — its own step.)
+ * capped here on every read, and drawn as TEXT, never as markup) — or a PICTURE (`p`, its file's ref in `p`,
+ * `rsvpPictureRef`). `id`: the app's own short one (`RSVP_LAYOUT_ID`), unique in the whole config. On the page, in
+ * the order and in `lines` it goes by `a:<id>` (`rsvpAddedName`).
+ *
+ * 🖼 THE PICTURE LINE (owner's ruling 2026-10-09, ＋ "Heading · Message · Picture"; its four open points decided
+ * 2026-10-12 — DECISION_LOG, `Maker_RSVP_Per_Element_Add_Drag_Group_LOCKED_2026-10-09.md` § 3): uploaded through the
+ * shipped scene upload, so its file is in this event's `scene-background` folder and counts in the event's 100 MB;
+ * FREE, as Heading and Message are; decorative (`alt=""`, no words of its own); a file that is gone draws nothing.
+ * A picture line is never stored without its file: ＋ › Picture uploads FIRST and the add carries the ref.
  */
-export type RsvpAddedLine = { id: string; k: 'h' | 'm'; t?: string };
+export type RsvpAddedText = { id: string; k: 'h' | 'm'; t?: string };
+export type RsvpAddedPicture = { id: string; k: 'p'; p: string };
+export type RsvpAddedLine = RsvpAddedText | RsvpAddedPicture;
+export const rsvpAddedIsPicture = (line: RsvpAddedLine | null | undefined): line is RsvpAddedPicture => line?.k === 'p';
+
+/* 🖼 A picture line's file is read by `rsvpPictureRef` (`rsvp-picture-ref.ts` — the rule on its own, import-free, so the
+   draft door can ask it without this reader). */
+/** Every picture ref a config's three screens hold, by the one strict reader, deduped — what a page signs
+ *  (`signRsvpPictures`) and what Apply holds to the event's own folder (`hub-draft-actions.ts`). */
+export function rsvpPictureRefs(config: unknown): string[] {
+  const look = readRsvpLook(config);
+  const out = new Set<string>();
+  for (const part of RSVP_LOOK_CARDS) {
+    for (const line of look.added?.[part] ?? []) {
+      const ref = line.k === 'p' ? rsvpPictureRef(line.p) : null;
+      if (ref) out.add(ref);
+    }
+  }
+  return [...out];
+}
+/** A picture line's Look: Wide (nothing stored — the prototype's 112 px) or Tall (176 px). */
+export const RSVP_PICTURE_LOOKS = ['wide', 'tall'] as const;
+export type RsvpPictureLook = (typeof RSVP_PICTURE_LOOKS)[number];
+/** How tall each Look draws a picture, in px — the approved prototype's (`.k-picture` 112 · `[data-look="tall"]` 176). */
+export const RSVP_PICTURE_HEIGHT: Readonly<Record<RsvpPictureLook, number>> = { wide: 112, tall: 176 };
+/** The Look's name in Style › Look ▾ (the prototype's words). */
+export const RSVP_PICTURE_LOOK_NAME: Readonly<Record<RsvpPictureLook, string>> = { wide: 'Wide', tall: 'Tall' };
 export const RSVP_ADDED_PREFIX = 'a:';
 export type RsvpAddedName = `a:${string}`;
 export const rsvpAddedName = (id: string): RsvpAddedName => `${RSVP_ADDED_PREFIX}${id}`;
@@ -193,6 +229,13 @@ function readLineLook(v: Record<string, unknown>, button: boolean): RsvpLineLook
   return look;
 }
 
+/** A PICTURE line's look, read strictly: its Look (Tall, or nothing) and its Build in — no colour, font or size. */
+function readPictureLook(v: Record<string, unknown>): RsvpLineLook {
+  const look: RsvpLineLook = readMotion(v);
+  if (v.l === 'tall') look.l = 'tall';
+  return look;
+}
+
 /** Words a person typed for an added line: one line of plain text, control characters out, spaces folded, capped. */
 export function cleanRsvpAddedText(kind: 'h' | 'm', raw: unknown): string {
   if (typeof raw !== 'string') return '';
@@ -241,12 +284,18 @@ export function readRsvpLook(config: unknown): RsvpLook {
     for (const v of Array.isArray(addedBy[part]) ? (addedBy[part] as unknown[]) : []) {
       if (added.length >= RSVP_ADDED_MAX) break;
       if (!isObject(v) || typeof v.id !== 'string' || !RSVP_LAYOUT_ID.test(v.id) || usedLine.has(v.id)) continue;
-      if (v.k !== 'h' && v.k !== 'm') continue;
+      if (v.k !== 'h' && v.k !== 'm' && v.k !== 'p') continue;
+      /* 🖼 A picture is kept only with its file — a picture line with no picture is not a line. */
+      const picture = v.k === 'p' ? rsvpPictureRef(v.p) : null;
+      if (v.k === 'p' && !picture) continue;
       usedLine.add(v.id);
-      const text = cleanRsvpAddedText(v.k, v.t);
-      added.push(text ? { id: v.id, k: v.k, t: text } : { id: v.id, k: v.k });
+      if (v.k === 'p') added.push({ id: v.id, k: 'p', p: picture! });
+      else {
+        const text = cleanRsvpAddedText(v.k, v.t);
+        added.push(text ? { id: v.id, k: v.k, t: text } : { id: v.id, k: v.k });
+      }
       const own = lines[rsvpAddedName(v.id)];
-      const look = isObject(own) ? readLineLook(own, false) : {};
+      const look = isObject(own) ? (v.k === 'p' ? readPictureLook(own) : readLineLook(own, false)) : {};
       if (Object.keys(look).length > 0) (out.lines ??= {})[rsvpAddedName(v.id)] = look;
     }
     if (added.length > 0) (out.added ??= {})[part] = added;
@@ -350,7 +399,7 @@ export function rsvpScreenLayout(look: RsvpLook, part: RsvpLookCard): RsvpLayout
 export function rsvpLookWith(
   config: unknown,
   target: RsvpLookTarget,
-  patch: { c?: RsvpLookColour | null; f?: HubFontKey | null; s?: RsvpLookSize | null; g?: RsvpCardGround | null; i?: MotionFx | null; v?: RsvpLookFeel | null },
+  patch: { c?: RsvpLookColour | null; f?: HubFontKey | null; s?: RsvpLookSize | null; l?: 'tall' | null; g?: RsvpCardGround | null; i?: MotionFx | null; v?: RsvpLookFeel | null },
 ): Record<string, unknown> | undefined {
   const rest: Record<string, unknown> = isObject(config) && isObject(config.look) ? { ...config.look } : {};
   const read = readRsvpLook(config);
@@ -516,7 +565,9 @@ export function rsvpLookRules(look: RsvpLook, parts: readonly string[], board: r
       const colour = hubElementColor(typeof v.c === 'number' ? board[v.c - 1] : v.c);
       const font = sanitizeHubFontKey(v.f);
       const face = font ? `font-family:var(${HUB_FONT_BY_KEY[font].cssVar}), ${HUB_FONT_BY_KEY[font].fallback};` : '';
-      const rules = `${colour ? `color:${colour};` : ''}${face}${v.s ? `zoom:${v.s / 100};` : ''}${motionRules(v)}`;
+      /* 🖼 A picture's Look: Tall is a fixed height (Wide, nothing stored, is the picture's own class). */
+      const tall = a.k === 'p' && v.l === 'tall' ? `height:${RSVP_PICTURE_HEIGHT.tall}px;` : '';
+      const rules = `${colour ? `color:${colour};` : ''}${face}${v.s ? `zoom:${v.s / 100};` : ''}${tall}${motionRules(v)}`;
       if (rules) out.push({ selector: `[data-rsvp-line="${name}"][data-rsvp-line]`, rules, moves: Boolean(v.i) });
     }
     /* 🫧 A group's background, when it is not Plain (its own paper, the wrapper's classes — `rsvp-lines.tsx`). */
@@ -582,8 +633,7 @@ export const RSVP_GROUPS_MAX = 4;
 export const RSVP_ADDED_KINDS = ['h', 'm', 'p'] as const;
 export type RsvpAddedKind = (typeof RSVP_ADDED_KINDS)[number];
 export const RSVP_ADDED_TEXT_MAX: Record<'h' | 'm', number> = { h: 80, m: 240 };
-/** A picture's reference (`r2://setnayan-media/…`) is never longer than this. */
-export const RSVP_ADDED_PICTURE_MAX = 200;
+export { RSVP_ADDED_PICTURE_MAX };
 export const RSVP_LAYOUT_ID = /^[a-z0-9]{1,4}$/;
 export function rsvpConfigBytes(config: unknown): number {
   return new TextEncoder().encode(JSON.stringify(config ?? {})).length;

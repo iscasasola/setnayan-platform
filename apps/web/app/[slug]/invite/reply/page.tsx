@@ -32,6 +32,7 @@ import { ArrivalLoading } from '../_components/arrival-loading';
 import { wearTheHub } from '../_lib/wear-the-hub';
 import { RsvpLookStyle } from '../../_components/rsvp-look-style';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
+import { signRsvpPictures } from '@/lib/rsvp-pictures.server';
 import { celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { GuestLookScope } from '../../_components/guest-look-scope';
@@ -127,6 +128,8 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     const entry = replyEntry({ slug: home, hasPass: Boolean(session), code: search.k });
     if (entry.kind !== 'ask') redirect(entry.href);
   }
+  /* 🖼 The reply card's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`). */
+  const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
 
   const { data: guest, error: guestError } = canvas
     ? {
@@ -423,6 +426,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           /* 🧱 The card's lines in the couple's order, with the lines they added and their groups (the Maker's RSVP
              stage). From the config this page already holds — no new read; null for a couple who arranged nothing. */
           lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), 'rsvp')}
+          pictures={rsvpPictures}
         />
         </CanvasSection>
       </DoorShell>

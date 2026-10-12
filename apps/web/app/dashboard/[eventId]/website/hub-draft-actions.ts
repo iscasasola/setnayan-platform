@@ -55,6 +55,7 @@
  * RLS still apply underneath the host gate; only the Pro read uses the admin
  * client (inside `lookProAllows`, because orders RLS is purchaser-scoped).
  */
+import { rsvpPictureRefsIn } from '@/lib/rsvp-picture-ref';
 import { deleteOwnScene } from '@/lib/own-scene-delete';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -483,6 +484,13 @@ export async function hubDraftAction(
           held.push({ item, reason: 'not_your_photo' });
           continue;
         }
+      }
+      /* 🖼 THE RSVP PICTURE LINES — each file must be an upload into THIS event's own scene-background folder (the
+         shipped scene upload's — DECISION_LOG 2026-10-12 (a)); the reader only knows "an event's". A draft is a
+         public POST, so it is asked here, as a scene's own upload is. */
+      if (item.kind === 'event' && item.column === 'rsvp_ask_config' && rsvpPictureRefsIn(item.value).some((r) => !r.startsWith(ownScenePrefix))) {
+        if (!item.freePart) held.push({ item, reason: 'not_your_photo' });
+        continue;
       }
       if (item.kind === 'widget' && item.field === 'canvas') {
         const drafted = item.value as HubSectionCanvas | null;

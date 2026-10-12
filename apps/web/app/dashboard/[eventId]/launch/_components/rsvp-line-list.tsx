@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Check, Group, Plus, Trash2, Ungroup, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ArrowDown, ArrowUp, Check, Group, ImageUp, Plus, Trash2, Ungroup, X } from 'lucide-react';
+import { FileUpload } from '@/app/_components/file-upload';
+import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
+import { keepRsvpPictureUrl } from './rsvp-picture-urls';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { TypedRow } from '@/app/_components/form-row';
-import { SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { SP_KEY_BAR, SP_KEY_DONE, SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import {
   RSVP_ADD_KINDS,
   RSVP_LIST_EDIT_EVENT,
@@ -18,7 +22,7 @@ import {
   type RsvpListDone,
   type RsvpPlaceOf,
 } from '@/lib/rsvp-layout-edit';
-import { RSVP_ADDED_MAX, RSVP_ADDED_TEXT_MAX, rsvpAddedId, type RsvpAddedLine, type RsvpLookCard } from '@/lib/rsvp-look';
+import { RSVP_ADDED_MAX, RSVP_ADDED_TEXT_MAX, rsvpAddedId, type RsvpAddedLine, type RsvpAddedText, type RsvpLookCard } from '@/lib/rsvp-look';
 import { RSVP_ADDED_NAME } from '@/app/[slug]/_components/rsvp-lines';
 import { RSVP_LINE_NAME } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { MakerSheet } from './stages-studio-parts';
@@ -221,7 +225,7 @@ export function RsvpAddedEditRows({
   onKeep,
 }: {
   line: string;
-  added: RsvpAddedLine;
+  added: RsvpAddedText;
   /** It was added a moment ago: its box opens, so the couple types straight away. */
   openNow: boolean;
   onType: (text: string) => void;
@@ -254,6 +258,126 @@ export function RsvpAddedEditRows({
         {RSVP_LIST_WORDS.noAutomatic}
       </p>
     </>
+  );
+}
+
+/* ── 🖼 a picture line: its file ─────────────────────────────────────────────── */
+
+/** What a picture may be — the shipped scene upload's photos (`scene-background-row.tsx`), never a clip. */
+const PICTURE_UPLOAD_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+/**
+ * 🖼 CHOOSING A PICTURE LINE'S FILE — ＋ › Picture, and Edit › Replace (owner's ruling 2026-10-09, ＋ "Heading · Message
+ * · Picture"; DECISION_LOG 2026-10-12 (a): THE SHIPPED SCENE UPLOAD). The app's own uploader (`FileUpload`, the media
+ * bucket, compressed in the browser) into this event's `scene-background` folder — so the file counts in the
+ * event's 100 MB and `/api/upload` needs no new rule — inside the app's own sheet. It saves nothing itself: the ref
+ * it lands is handed on (`onPicture`) and becomes ONE edit of the list, so a picture line is never stored empty and
+ * one add (or one replace) is one undo step. The file the couple picked is kept by its local address, so the canvas
+ * shows it at once (`rsvp-picture-urls.ts`).
+ */
+export function RsvpPictureSheet({ eventId, replacing, onPicture, onClose }: { eventId: string; replacing: boolean; onPicture: (ref: string) => void; onClose: () => void }) {
+  const local = useRef<string | null>(null);
+  /* ONE ref, ONE edit: the uploader may say a finished upload twice (it tells its change from inside a state update,
+     which React runs twice in development — measured in the lab, 2026-10-12: one upload, two picture lines). The
+     shipped scene upload guards the same way (`scene-background-row.tsx` consumes its picked file). */
+  const handed = useRef<string | null>(null);
+  return (
+    <MakerSheet label={replacing ? 'Replace the picture' : 'Add a picture'} onClose={onClose}>
+      <div data-rsvp-picture-sheet={replacing ? 'replace' : 'add'} className="pb-2">
+        <FileUpload
+          bucket="media"
+          pathPrefix={sceneBackgroundPathPrefix(eventId)}
+          multiple={false}
+          maxSizeMB={100}
+          acceptedTypes={PICTURE_UPLOAD_TYPES}
+          compressImage
+          onFilePicked={(file) => {
+            local.current = URL.createObjectURL(file);
+          }}
+          onChange={(value) => {
+            const ref = typeof value === 'string' ? value : null;
+            if (!ref || handed.current === ref) return;
+            handed.current = ref;
+            if (local.current) keepRsvpPictureUrl(ref, local.current);
+            onPicture(ref);
+          }}
+          label="Choose a picture"
+        />
+      </div>
+    </MakerSheet>
+  );
+}
+
+/** Edit, a PICTURE line: Replace (the same sheet) — a picture has no words of its own (decorative, (c)). */
+export function RsvpPictureEditRows({ eventId, onReplace }: { eventId: string; onReplace: (ref: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div data-rsvp-row="1" className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-picture-edit="">
+        <span className="min-w-0 flex-1 px-1 text-[15px] font-semibold text-[var(--sp-ink)]">Picture</span>
+        <span className="contents" data-rsvp-picture-replace="">
+          <ActionButton tone="neutral" icon={ImageUp} label="Replace" onClick={() => setOpen(true)} />
+        </span>
+      </div>
+      {/* On the page's body, never inside the panel (which lies over the toolbar) — the ＋ sheet's own reason. */}
+      {open
+        ? createPortal(
+            <RsvpPictureSheet
+              eventId={eventId}
+              replacing
+              onClose={() => setOpen(false)}
+              onPicture={(ref) => {
+                setOpen(false);
+                onReplace(ref);
+              }}
+            />,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+/* ── ⌨ the panel's own open field: the typing bar ──────────────────────────── */
+
+/** Shown only while one of the panel's typed rows is OPEN — by rule, so no state can fall out of step with the field. */
+const PANEL_KEYS_RULE =
+  '[data-rsvp-panel-keys]{display:none!important}' +
+  'body:has([data-rsvp-stage-rows] [data-form-row-editing]) [data-rsvp-panel-keys]{display:flex!important}';
+
+/**
+ * ⌨ "TYPING · QUESTION" AND DONE, FOR A LINE'S WORDS TYPED IN THE PANEL (a tester, 2026-10-11: "Question has no
+ * Done"). A line's words field is the RSVP panel's, which lies OVER the toolbar — outside `[data-stage-tools]` — so
+ * the toolbar's own typing bar (shown by `:has([data-form-row-editing])` inside it) never came for it, and the open
+ * row had only its ✕. This is the stage's OWN typing bar (the one words typed on the page get —
+ * `maker-rsvp-stage.tsx`: the same classes, the same brand Done, on the keyboard's top edge), for the panel's field.
+ * Done is a press outside the field, which KEEPS (the typed row's own rule): it saves nothing of its own.
+ */
+export function RsvpPanelTypingBar({ name }: { name: string }) {
+  const [here, setHere] = useState(false);
+  const [bottom, setBottom] = useState(0);
+  useEffect(() => {
+    setHere(true);
+    const vv = window.visualViewport;
+    const read = () => setBottom(Math.max(0, window.innerHeight - ((vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight))));
+    read();
+    vv?.addEventListener('resize', read);
+    vv?.addEventListener('scroll', read);
+    return () => {
+      vv?.removeEventListener('resize', read);
+      vv?.removeEventListener('scroll', read);
+    };
+  }, []);
+  if (!here) return null;
+  return createPortal(
+    <div role="toolbar" aria-label={`${name} — words`} data-type-bar="rsvp-panel" data-rsvp-panel-keys="" style={{ bottom }} className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}>
+      <style>{PANEL_KEYS_RULE}</style>
+      <span className="min-w-0 truncate">Typing · {name}</span>
+      <span data-type-done="" className={SP_KEY_DONE}>
+        <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => (document.activeElement as HTMLElement | null)?.blur?.()} />
+      </span>
+    </div>,
+    document.body,
   );
 }
 

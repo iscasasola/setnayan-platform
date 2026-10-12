@@ -60,17 +60,17 @@ test('1 · ＋ is back on a LINE’s frame — the same ＋, and on a fixed page
   assert.match(STAGE, /add: node && inList \? \{ above: true, below: true \} : foot \? \{ above: true, below: false \} : null,/, 'the Hint takes ＋ above only; a thing with no place takes none');
 });
 
-test('2 · the sheet offers only Heading · Message — the shipped sheet, the shipped row, never a scene', async () => {
-  assert.deepEqual([...RSVP_ADD_KINDS], ['h', 'm']);
+test('2 · the sheet offers only Heading · Message · Picture — the shipped sheet, the shipped row, never a scene', async () => {
+  assert.deepEqual([...RSVP_ADD_KINDS], ['h', 'm', 'p']);
   const SHEET = src(`${L}/rsvp-line-list.tsx`);
   assert.match(SHEET, /<MakerSheet label=\{`Add \$\{where\} \$\{anchorName\}`\} onClose=\{onClose\}>/);
   assert.match(SHEET, /\{RSVP_ADD_KINDS\.map\(\(kind\) => \(\s*<li key=\{kind\}>\s*<button type="button" data-rsvp-add=\{kind\} onClick=\{\(\) => onAdd\(kind\)\} className=\{STAGE_SHEET_ROW\}>/);
   assert.doesNotMatch(SHEET, /makerPartOffers|SceneTemplatePicker|AddPartSheet|MAKER_PARTS/);
   const { RSVP_ADDED_NAME } = await import('../app/[slug]/_components/rsvp-lines');
-  assert.deepEqual(RSVP_ADD_KINDS.map((k) => RSVP_ADDED_NAME[k]), ['Heading', 'Message']);
+  assert.deepEqual(RSVP_ADD_KINDS.map((k) => RSVP_ADDED_NAME[k]), ['Heading', 'Message', 'Picture']);
   /* 🚪 It is drawn on the page's BODY (the door every sheet of a part uses): drawn inside the toolbar it opened UNDER
      the stage's own panel — the dark was there and "Heading · Message" were not (the first picture of this step). */
-  assert.match(src(`${L}/rsvp-list-stage.tsx`), /\? createPortal\(\s*<RsvpAddLineSheet[\s\S]{0,420}\/>,\s*document\.body,\s*\)/, 'the ＋ sheet is drawn inside the toolbar again — under the panel');
+  assert.match(src(`${L}/rsvp-list-stage.tsx`), /\? createPortal\(\s*<RsvpAddLineSheet[\s\S]{0,620}\/>,\s*document\.body,\s*\)/, 'the ＋ sheet is drawn inside the toolbar again — under the panel');
 });
 
 test('3 · every change is the panel’s one save: asked on an event, sized, saved through the one door, answered', () => {
@@ -167,8 +167,9 @@ test('5 · Edit’s last row: ↑ Earlier · ↓ Later · Group · Remove — wh
   /* The panel draws it as row 4 for a line of a screen's card — and the Save button keeps the toolbar's own three,
      its grey steps saying the controller's sentence. */
   const PANEL = src(`${L}/maker-rsvp-ask.tsx`);
-  /* (Three since step 7: a GROUP's Edit draws it too — Earlier · Later · Ungroup.) */
-  assert.equal((PANEL.match(/\{placeRow\}/g) ?? []).length, 3, 'the last row is not drawn for a line of the page’s own, a line the couple added and a group');
+  /* (Three since step 7: a GROUP's Edit draws it too — Earlier · Later · Ungroup. Four since the picture line: a
+     PICTURE the couple added has it under its Replace.) */
+  assert.equal((PANEL.match(/\{placeRow\}/g) ?? []).length, 4, 'the last row is not drawn for a line of the page’s own, a line the couple added (words or a picture) and a group');
   const { RSVP_SAVE_STAYS } = await import('../app/dashboard/[eventId]/launch/_components/rsvp-list-stage');
   assert.deepEqual(RSVP_SAVE_STAYS, { earlier: 'The Save button stays under the ticket.', later: 'The Save button stays under the ticket.', remove: 'This line is part of the RSVP — it stays. Lines you add can be removed.' });
   /* Said through the part's own steps (the toolbar's `why={edits.why}` stays word for word): the stage hands the

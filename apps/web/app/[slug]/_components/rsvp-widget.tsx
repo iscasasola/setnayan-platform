@@ -64,6 +64,7 @@ export function RsvpWidget({
   answerWords = null,
   sceneStyle = null,
   lines = null,
+  pictures,
 }: {
   /**
    * 🧱 THE CARD'S LINES IN THE COUPLE'S ORDER, with the lines they added and their groups (the Maker's RSVP stage —
@@ -73,6 +74,8 @@ export function RsvpWidget({
    * only: The question and The ticket do not name their lines.
    */
   lines?: readonly RsvpLayoutItem[] | null;
+  /** 🖼 The picture lines' files, signed by the page (`signRsvpPictures`) — absent: no picture is drawn for a guest. */
+  pictures?: Readonly<Record<string, string>>;
   /**
    * 📝 The couple's own YES / NO wording (the RSVP stage, owner 2026-09-30 —
    * `rsvp_ask_config.words`, `readRsvpWords`). DISPLAY ONLY: the radios still
@@ -564,6 +567,7 @@ export function RsvpWidget({
                   items={led ? formItems.slice(2) : formItems}
                   own={{ eyebrow, question, yes: answer(answerOptions[0]), no: answer(answerOptions[1]) }}
                   canvas={previewEveryQuestion}
+                  pictures={pictures}
                 />
               </>
             );

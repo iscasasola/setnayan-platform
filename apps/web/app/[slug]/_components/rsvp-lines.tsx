@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { RSVP_GROUP_ATTR, rsvpLayoutIsGroup, type RsvpAddedLine, type RsvpLayoutItem, type RsvpLayoutLine } from '@/lib/rsvp-look';
+import { RSVP_GROUP_ATTR, rsvpLayoutIsGroup, type RsvpAddedLine, type RsvpAddedText, type RsvpLayoutItem, type RsvpLayoutLine } from '@/lib/rsvp-look';
 
 /**
  * 🧱 THE LINES OF A REPLY SCREEN, DRAWN FROM A LIST — the form's card, the When-yes note and the When-no note
@@ -25,12 +25,20 @@ import { RSVP_GROUP_ATTR, rsvpLayoutIsGroup, type RsvpAddedLine, type RsvpLayout
  *
  * A server component with no state and no script: a guest downloads nothing for it.
  */
-export const RSVP_ADDED_NAME: Readonly<Record<RsvpAddedLine['k'], string>> = { h: 'Heading', m: 'Message' };
+export const RSVP_ADDED_NAME: Readonly<Record<RsvpAddedLine['k'], string>> = { h: 'Heading', m: 'Message', p: 'Picture' };
 /** How an added line is set — one face each, the card's own: a serif heading, a quiet message. */
-export const RSVP_ADDED_CLASS: Readonly<Record<RsvpAddedLine['k'], string>> = {
+export const RSVP_ADDED_CLASS: Readonly<Record<RsvpAddedText['k'], string>> = {
   h: 'font-serif text-xl font-medium leading-tight text-ink',
   m: 'text-sm leading-relaxed text-ink/80',
 };
+/**
+ * 🖼 A PICTURE LINE — the approved prototype's (`.k-picture`): full width, the card's own rounding (`rounded-2xl` — the prototype's 14 px, on the app's radius scale), Wide's 112 px (Tall is the
+ * look's one rule, 176 px — `rsvpLookRules`). Decorative (`alt=""`, DECISION_LOG 2026-10-12 (c)). On the Maker's
+ * sample, a picture whose file could not be drawn shows its own name in a quiet box (so it can be picked and
+ * replaced or taken off); for a guest it is not drawn at all (d).
+ */
+export const RSVP_PICTURE_CLASS = 'my-2.5 block h-[112px] w-full rounded-2xl object-cover';
+export const RSVP_PICTURE_EMPTY_CLASS = 'my-2.5 flex h-[112px] w-full items-center justify-center rounded-2xl bg-ink/[0.06] text-sm italic text-ink/45';
 /** An added line with no words yet, on the Maker's sample only. */
 export const RSVP_ADDED_EMPTY_CLASS = 'italic !text-ink/45';
 /** In a note (centred), an added line is centred with it. */
@@ -48,9 +56,11 @@ export const RSVP_FORM_QUESTION_CLASS = {
 /** A group's wrapper: the note's own paper (`data-landing-missed`'s recipe), its lines spaced as the card spaces them. */
 export const RSVP_GROUP_CLASS = 'sn-glass-bare space-y-2 rounded-2xl bg-cream/95 p-3.5 shadow-sm';
 
-/** Is there anything of this line to draw? One of the page's own always; an added one when it has words — or on the sample. */
-function drawn(line: RsvpLayoutLine, canvas: boolean): boolean {
-  return !line.added || canvas || Boolean(line.added.t);
+/** Is there anything of this line to draw? One of the page's own always; an added one when it has words (a picture:
+ *  when its file was signed) — or on the sample. */
+function drawn(line: RsvpLayoutLine, canvas: boolean, pictures: Readonly<Record<string, string>>): boolean {
+  if (!line.added || canvas) return true;
+  return line.added.k === 'p' ? Boolean(pictures[line.added.p]) : Boolean(line.added.t);
 }
 
 export function RsvpLines({
@@ -58,6 +68,7 @@ export function RsvpLines({
   own,
   canvas = false,
   addedClass = '',
+  pictures = NO_PICTURES,
 }: {
   /** The screen's list, top to bottom (`rsvpScreenLayout`) — or the part of it this place draws. */
   items: readonly RsvpLayoutItem[];
@@ -67,10 +78,33 @@ export function RsvpLines({
   canvas?: boolean;
   /** How the screen sets its lines apart from the card's default (the notes are centred). */
   addedClass?: string;
+  /** 🖼 Each picture line's file, signed by the page (`signRsvpPictures`) — a picture with none is not drawn for a guest. */
+  pictures?: Readonly<Record<string, string>>;
 }) {
   const one = (line: RsvpLayoutLine): ReactNode => {
     if (!line.added) return <Keyed key={line.line}>{own[line.line] ?? null}</Keyed>;
-    if (!drawn(line, canvas)) return null;
+    if (!drawn(line, canvas, pictures)) return null;
+    if (line.added.k === 'p') {
+      const url = pictures[line.added.p];
+      return url ? (
+        // eslint-disable-next-line @next/next/no-img-element -- the couple's own upload, signed by the page; decorative
+        <img
+          key={line.line}
+          data-rsvp-line={line.line}
+          data-rsvp-added={canvas ? 'p' : undefined}
+          data-rsvp-picture={canvas ? line.added.p : undefined}
+          src={url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className={RSVP_PICTURE_CLASS}
+        />
+      ) : (
+        <p key={line.line} data-rsvp-line={line.line} data-rsvp-added="p" data-rsvp-empty="" data-rsvp-picture={line.added.p} className={RSVP_PICTURE_EMPTY_CLASS}>
+          {RSVP_ADDED_NAME.p}
+        </p>
+      );
+    }
     const { k, t } = line.added;
     return (
       <p
@@ -88,7 +122,7 @@ export function RsvpLines({
     <>
       {items.map((item) => {
         if (!rsvpLayoutIsGroup(item)) return one(item);
-        if (!item.lines.some((line) => drawn(line, canvas) && (line.added || own[line.line] != null))) return null;
+        if (!item.lines.some((line) => drawn(line, canvas, pictures) && (line.added || own[line.line] != null))) return null;
         return (
           <div key={`g:${item.group.id}`} {...{ [RSVP_GROUP_ATTR]: item.group.id }} className={RSVP_GROUP_CLASS}>
             {item.lines.map(one)}
@@ -98,6 +132,8 @@ export function RsvpLines({
     </>
   );
 }
+
+const NO_PICTURES: Readonly<Record<string, string>> = {};
 
 /** A keyed pass-through: the page's own element, exactly as the page made it. */
 function Keyed({ children }: { children: ReactNode }) {

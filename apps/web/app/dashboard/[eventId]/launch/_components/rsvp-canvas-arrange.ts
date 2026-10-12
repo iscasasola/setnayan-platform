@@ -19,7 +19,8 @@
 import { RSVP_GROUP_ATTR, RSVP_SCREEN_LINES, rsvpLayoutIsGroup, rsvpScreenLayout, type RsvpLayoutItem, type RsvpLayoutLine, type RsvpLook, type RsvpLookCard } from '@/lib/rsvp-look';
 import { rsvpGroupName } from '@/lib/rsvp-layout-edit';
 import type { RsvpStageScene } from '@/lib/rsvp-stage';
-import { RSVP_ADDED_CLASS, RSVP_ADDED_EMPTY_CLASS, RSVP_ADDED_NAME, RSVP_FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RSVP_GROUP_CLASS, RSVP_NOTE_ADDED_CLASS } from '@/app/[slug]/_components/rsvp-lines';
+import { RSVP_ADDED_CLASS, RSVP_ADDED_EMPTY_CLASS, RSVP_ADDED_NAME, RSVP_FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RSVP_GROUP_CLASS, RSVP_NOTE_ADDED_CLASS, RSVP_PICTURE_CLASS, RSVP_PICTURE_EMPTY_CLASS } from '@/app/[slug]/_components/rsvp-lines';
+import { rsvpPictureUrl } from './rsvp-picture-urls';
 
 /** The element that holds a screen's lines: the reply's fieldset · the note after a Yes · the note's card after a No. */
 export function rsvpLinesBox(doc: Document, part: RsvpLookCard): HTMLElement | null {
@@ -96,8 +97,9 @@ export function arrangeRsvpScreen(doc: Document, part: RsvpLookCard, look: RsvpL
   const kept = new Set<Element>();
   const lineNode = (line: RsvpLayoutLine): HTMLElement | null => {
     if (!line.added) return own.get(line.line) ?? null;
+    if (line.added.k === 'p') return pictureNode(line.line, line.added.p);
     const { k, t } = line.added;
-    const p = box.querySelector<HTMLElement>(`p[data-rsvp-line="${CSS.escape(line.line)}"]`) ?? doc.createElement('p');
+    const p = box.querySelector<HTMLElement>(`p[data-rsvp-line="${CSS.escape(line.line)}"]:not([data-rsvp-picture])`) ?? doc.createElement('p');
     setAttr(p, 'data-rsvp-line', line.line);
     setAttr(p, 'data-rsvp-added', k);
     setAttr(p, 'data-rsvp-empty', t ? null : '');
@@ -106,6 +108,36 @@ export function arrangeRsvpScreen(doc: Document, part: RsvpLookCard, look: RsvpL
     if (p.textContent !== words) p.textContent = words;
     kept.add(p);
     return p;
+  };
+
+  /* 🖼 A PICTURE LINE: the page's own `<img>` while it shows this file (the server signed it) — or the file just chosen,
+     from its local address (`rsvp-picture-urls.ts`) — or, with neither, its name in the quiet box the server draws for
+     a picture it could not sign (`rsvp-lines.tsx`). A node is rebuilt only when what it shows changes. */
+  const pictureNode = (name: string, ref: string): HTMLElement => {
+    const was = box.querySelector<HTMLElement>(`[data-rsvp-line="${CSS.escape(name)}"]`);
+    const local = rsvpPictureUrl(ref);
+    const same = was && was.getAttribute('data-rsvp-picture') === ref && (was.tagName === 'IMG' || !local);
+    let node: HTMLElement;
+    if (same) node = was;
+    else if (local) {
+      const img = doc.createElement('img');
+      img.alt = '';
+      img.decoding = 'async';
+      img.src = local;
+      setClass(img, RSVP_PICTURE_CLASS);
+      node = img;
+    } else {
+      const p = doc.createElement('p');
+      p.setAttribute('data-rsvp-empty', '');
+      p.textContent = RSVP_ADDED_NAME.p;
+      setClass(p, RSVP_PICTURE_EMPTY_CLASS);
+      node = p;
+    }
+    setAttr(node, 'data-rsvp-line', name);
+    setAttr(node, 'data-rsvp-added', 'p');
+    setAttr(node, 'data-rsvp-picture', ref);
+    kept.add(node);
+    return node;
   };
 
   /* ♿ THE FORM: Eyebrow then Question lead the card → they are its legend; otherwise the same two name the fieldset. */
@@ -160,7 +192,7 @@ export function arrangeRsvpScreen(doc: Document, part: RsvpLookCard, look: RsvpL
   inOrder(box, want, (el) => el !== legend || !kept.has(el));
   /* Gone from the list: a line the couple took off, a group they ungrouped (its lines were moved out above), and a
      legend that no longer leads. */
-  box.querySelectorAll<HTMLElement>('p[data-rsvp-added]').forEach((p) => {
+  box.querySelectorAll<HTMLElement>('[data-rsvp-added]').forEach((p) => {
     if (!kept.has(p)) p.remove();
   });
   box.querySelectorAll<HTMLElement>(`[${RSVP_GROUP_ATTR}]`).forEach((g) => {

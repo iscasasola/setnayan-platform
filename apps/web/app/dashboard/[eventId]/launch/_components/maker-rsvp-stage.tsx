@@ -9,7 +9,9 @@ import { MakerRsvpSettings, type CelebrationInputs } from './maker-rsvp-ask';
 import { useMaker } from './maker-context';
 import type { RsvpAskConfig, RsvpWordKey } from '@/lib/rsvp-ask';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
-import { draftedCanvasOr } from '@/lib/maker-draft-store';
+import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight, makerWritesPending } from '@/lib/maker-refresh';
+import { RSVP_STAGE_TRUTH_EVENT, rsvpStageTruth } from '@/lib/rsvp-stage-truth';
 import {
   RSVP_PREVIEW_EVENT,
   RSVP_REPLY_BY_EVENT,
@@ -37,7 +39,7 @@ import {
   RSVP_WORD_TYPED_EVENT,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
-import { readRsvpLook } from '@/lib/rsvp-look';
+import { readRsvpLook, rsvpLookCard } from '@/lib/rsvp-look';
 import { RSVP_SCENE_PART, arrangeRsvpScreen } from './rsvp-canvas-arrange';
 import { Check } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -104,6 +106,9 @@ const RSVP_STAGE_TILE: Record<RsvpStageScene, { label: string; caption: string }
  * Loaded lazily, inside the `maker-details` chunk (`details-lazy.tsx`): the
  * Maker's first load does not carry it.
  */
+/** The session's one listener for writes the canvas did not draw (`rsvpStageTruth`) is on. */
+let hearsUnheld = false;
+
 export function MakerRsvpStage({
   eventId,
   publicLandingUrl,
@@ -246,6 +251,8 @@ export function MakerRsvpStage({
       if (!from) return;
       if (d.t === 'rsvpReady') {
         post(from);
+        /* 🃏 A frame that comes up while the card is picked shows it from its top (below). */
+        if (cardPicked.current) from.contentWindow?.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_TOP_MESSAGE }, window.location.origin);
         /* The When yes frame plays its pick the FIRST time it is ready — a later
            reload of the same frame (a Maker refresh) does not replay it. */
         if (from === frames.current.thanks && sceneNow.current === 'thanks' && !readyPlayed.current.has(from)) {
@@ -287,6 +294,31 @@ export function MakerRsvpStage({
     };
   }, [post, postAll, openWordField, celebrate]);
 
+  /* ↺ UNDO · RESTORE · RESET REACH THE CANVAS (`lib/rsvp-stage-truth.ts` — a tester, 2026-10-11: two steps taken
+     back, and the reply card still showed the added line). The render such a write brings is the truth: the Maker's
+     own copy is dropped (so the panel and the next save build on what the draft really holds), every frame is told,
+     and the panel is re-seeded (`truth`). Heard for the whole session — the stage is unmounted while another stage
+     is on show, and an undo pressed there is answered when it comes back. */
+  const [truth, setTruth] = useState(0);
+  useEffect(() => {
+    if (hearsUnheld) return;
+    hearsUnheld = true;
+    window.addEventListener(MAKER_UNHELD_WRITE_EVENT, () => rsvpStageTruth.unheld());
+  }, []);
+  useEffect(() => {
+    const pending = makerWritesPending(canvasWriteKey(RSVP_DRAFT_TYPE)) > 0 || makerSavesInFlight() > 0;
+    if (!rsvpStageTruth.lands(current, pending)) return;
+    const shown = draftedCanvasOr(RSVP_DRAFT_TYPE, current as HubSectionCanvas);
+    const moved = canvasFingerprint(latest.current ?? shown) !== canvasFingerprint(current) || canvasFingerprint(shown) !== canvasFingerprint(current);
+    if (!moved) return;
+    /* Ours is the server's again: every reader of the Maker's copy gets the server's from here on. */
+    noteDraftedCanvas(RSVP_DRAFT_TYPE, current as HubSectionCanvas, current as HubSectionCanvas);
+    latest.current = current;
+    postAll();
+    setTruth((n) => n + 1);
+    window.dispatchEvent(new Event(RSVP_STAGE_TRUTH_EVENT));
+  }, [current, postAll]);
+
   /* Opening the When yes scene plays its pick (a frame already loaded; a new
      one plays on its `rsvpReady`, above). */
   useEffect(() => {
@@ -318,6 +350,24 @@ export function MakerRsvpStage({
     window.dispatchEvent(new CustomEvent(RSVP_STAGE_SCENE_EVENT, { detail: scene }));
     frames.current[scene]?.contentWindow?.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_TOP_MESSAGE }, window.location.origin);
   }, [scene]);
+
+  /* 🃏 A PICKED CARD IS SHOWN FROM ITS TOP (a tester, 2026-10-11: "RSVP opens with the card cut" · "the CARD label
+     covers the guest's name"). The card's frame is drawn round the WHOLE card — masthead, guest, form — but the
+     stage's centring brings up the form's own section (`f:rsvp`, under the guest's name): measured 2026-10-12, the
+     page went 0 → 122 px a second after opening, the card's top (the couple's names, the date) scrolled off and its
+     name tag, clamped to the visible top, sat on "Teresita Aquino". The card starts at the page's top, so a card
+     picked is the same hold a screen opened by its tab gets (`RSVP_TOP_MESSAGE`: to the top, a scroll that is not
+     the couple's put back for a moment). Sent a beat AFTER the pick's own message (which ends that hold), and again
+     to a frame that comes up while the card is picked. A LINE picked is brought into view as before. */
+  const cardPicked = useRef(false);
+  cardPicked.current = pickedLine === null && rsvpLookCard(pickedPart) !== null;
+  useEffect(() => {
+    if (!cardPicked.current) return;
+    const t = window.setTimeout(() => {
+      frames.current[sceneNow.current]?.contentWindow?.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_TOP_MESSAGE }, window.location.origin);
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [pickedPart, pickedLine]);
 
   /* ⌨ Done: the words are left (the page says so back — `rsvpTyping` end). */
   const doneTyping = useCallback(() => {
@@ -483,6 +533,7 @@ export function MakerRsvpStage({
                     <MakerRsvpSettings
                       eventId={eventId}
                       current={current}
+                      truth={truth}
                       drafted={drafted}
                       replyBy={replyBy}
                       replyByOwn={replyByOwn}
@@ -511,6 +562,7 @@ export function MakerRsvpStage({
             <MakerRsvpSettings
               eventId={eventId}
               current={current}
+              truth={truth}
               drafted={drafted}
               replyBy={replyBy}
               replyByOwn={replyByOwn}

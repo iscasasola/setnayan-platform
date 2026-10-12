@@ -28,6 +28,7 @@ import {
   rsvpAddedName,
   rsvpLayoutIsGroup,
   rsvpLookStored,
+  rsvpPictureRef,
   rsvpScreenLayout,
   rsvpScreenOrder,
   type RsvpAddedLine,
@@ -47,8 +48,11 @@ export function rsvpGroupId(name: string | null | undefined): string | null {
 }
 
 export type RsvpLayoutEdit =
-  /** ＋ on `anchor`'s frame: a new, EMPTY line above or below it — inside its group when the anchor is in one. */
-  | { do: 'add'; part: RsvpLookCard; kind: RsvpAddedLine['k']; anchor: string; where: 'above' | 'below' }
+  /** ＋ on `anchor`'s frame: a new, EMPTY line above or below it — inside its group when the anchor is in one. A
+   *  PICTURE is never empty: it is added with its uploaded file's ref (`p`), or not at all. */
+  | { do: 'add'; part: RsvpLookCard; kind: RsvpAddedLine['k']; anchor: string; where: 'above' | 'below'; p?: string }
+  /** 🖼 A picture line's file, replaced (Edit › Replace) — one edit, one undo step. */
+  | { do: 'picture'; part: RsvpLookCard; line: string; p: string }
   | { do: 'remove'; part: RsvpLookCard; line: string }
   | { do: 'words'; part: RsvpLookCard; line: string; text: string }
   /** ↑ Earlier · ↓ Later: one place among what stands beside it (a line in a group moves inside its group). */
@@ -63,7 +67,7 @@ export type RsvpLayoutEdited =
   | { ok: true; look: Record<string, unknown> | undefined; /** What to pick now (a line's or a group's name) — null: let go. */ pick: string | null }
   | { ok: false; why: RsvpLayoutRefusal };
 /** Why an edit was not made — the toolbar says each in its own sentence (`rsvp-line-place.tsx`). */
-export type RsvpLayoutRefusal = 'full' | 'own-line' | 'in-group' | 'is-group' | 'too-few' | 'groups-full' | 'edge' | 'not-there';
+export type RsvpLayoutRefusal = 'full' | 'own-line' | 'in-group' | 'is-group' | 'too-few' | 'groups-full' | 'edge' | 'not-there' | 'no-picture';
 
 /** A screen as it is edited: its top row, each place a line's name or a group with the names it holds. */
 type Place = string | { group: RsvpGroup; lines: string[] };
@@ -150,7 +154,11 @@ export function rsvpLayoutEdit(config: unknown, edit: RsvpLayoutEdit): RsvpLayou
     for (const p of ['rsvp', 'yesnote', 'nonote'] as const) for (const a of look.added?.[p] ?? []) used.add(a.id);
     const id = freshId(used);
     const name = rsvpAddedName(id);
-    added.push({ id, k: edit.kind });
+    if (edit.kind === 'p') {
+      const picture = rsvpPictureRef(edit.p);
+      if (!picture) return refuse('no-picture');
+      added.push({ id, k: 'p', p: picture });
+    } else added.push({ id, k: edit.kind });
     const at = find(places, edit.anchor);
     /* An anchor with no place in the list (the Hint, at the card's foot): the new line is the list's last. */
     if (!at) places.push(name);
@@ -168,8 +176,18 @@ export function rsvpLayoutEdit(config: unknown, edit: RsvpLayoutEdit): RsvpLayou
     const id = rsvpAddedId(edit.line);
     const line = added.find((a) => a.id === id);
     if (!line) return refuse('not-there');
+    /* A picture has no words of its own (decorative — DECISION_LOG 2026-10-12). */
+    if (line.k === 'p') return refuse('not-there');
     const text = cleanRsvpAddedText(line.k, edit.text);
-    added = added.map((a) => (a.id === id ? (text ? { id: a.id, k: a.k, t: text } : { id: a.id, k: a.k }) : a));
+    added = added.map((a) => (a.id === id ? (text ? { id: a.id, k: line.k, t: text } : { id: a.id, k: line.k }) : a));
+    pick = edit.line;
+  } else if (edit.do === 'picture') {
+    const id = rsvpAddedId(edit.line);
+    const line = added.find((a) => a.id === id);
+    if (!line || line.k !== 'p') return refuse('not-there');
+    const picture = rsvpPictureRef(edit.p);
+    if (!picture) return refuse('no-picture');
+    added = added.map((a) => (a.id === id ? { id: a.id, k: 'p', p: picture } : a));
     pick = edit.line;
   } else if (edit.do === 'step') {
     const at = find(places, edit.name);
@@ -301,8 +319,9 @@ export function rsvpDropBefore(names: readonly string[], slot: number | null): s
 
 /* ── what the stage says ──────────────────────────────────────────────────── */
 
-/** What ＋ offers on a reply page, in the sheet's order. (A Picture is its own later step.) */
-export const RSVP_ADD_KINDS = ['h', 'm'] as const;
+/** What ＋ offers on a reply page, in the sheet's order — the owner's ruling, word for word: "Heading · Message ·
+ *  Picture". A Picture uploads FIRST (`RsvpPictureSheet`) and is then added with its file in one edit. */
+export const RSVP_ADD_KINDS = ['h', 'm', 'p'] as const;
 
 const lines = (n: number) => (n === 1 ? `${formatCount(1)} line` : `${formatCount(n)} lines`);
 
@@ -327,6 +346,7 @@ export const RSVP_LIST_WORDS = {
   hint: 'The hint stays at the foot of the card.',
   save: 'The Save button stays under the ticket.',
   noAutomatic: 'This one has no automatic words — it shows only what you write.',
+  noPicture: 'That picture did not upload. Please try again.',
   grouped: (n: number) => `Grouped — one background for all ${formatCount(n)}. Choose it below.`,
   ungrouped: 'Ungrouped — each line sits on the RSVP card again.',
   groupHolds: (n: number) => `This group holds ${lines(n)}. They share one background and move as one. Tap a line inside to change its words.`,
@@ -348,6 +368,7 @@ export function rsvpRefusalWords(why: RsvpLayoutRefusal, inGroup = false, dir: -
   if (why === 'in-group') return RSVP_LIST_WORDS.inGroup;
   if (why === 'is-group') return RSVP_LIST_WORDS.isGroup;
   if (why === 'too-few') return RSVP_LIST_WORDS.tooFew;
+  if (why === 'no-picture') return RSVP_LIST_WORDS.noPicture;
   if (why === 'edge') return dir < 0 ? RSVP_LIST_WORDS.first(inGroup) : RSVP_LIST_WORDS.last(inGroup);
   return RSVP_LIST_WORDS.ownLine;
 }

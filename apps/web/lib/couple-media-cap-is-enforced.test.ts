@@ -114,6 +114,33 @@ test('2b · a ref counts wherever it is filed — r2:// ref, public URL, the dra
   assert.equal(referencedEventKeys(text, 'not-a-uuid').size, 0, 'an odd id can never become a regex');
 });
 
+test('2c · 🖼 an RSVP picture line counts — its ref held in `rsvp_ask_config`, live or drafted (DECISION_LOG 2026-10-12 (a))', () => {
+  const live = key('scene-background', 'live-picture.jpg');
+  const drafted = key('scene-background', 'drafted-picture.jpg');
+  const removed = key('scene-background', 'removed-picture.jpg');
+  const picture = (k: string) => ({ look: { added: { rsvp: [{ id: '1', k: 'p', p: ref(k) }] } } });
+  /* The rows a settle reads, as it reads them: the WHOLE events row, every canvas, the draft and its undo snapshot. */
+  const text = JSON.stringify([{ rsvp_ask_config: picture(live) }, [], { draft_json: { events: { rsvp_ask_config: picture(drafted) } }, applied_snapshot: null }]);
+  assert.equal(
+    measureCoupleMediaBytes({
+      eventId: E,
+      objects: [
+        { key: live, size: 2 * MB, lastModified: OLD },
+        { key: drafted, size: 3 * MB, lastModified: OLD },
+        { key: removed, size: 7 * MB, lastModified: OLD },
+      ],
+      referenceText: text,
+      now: NOW,
+    }),
+    5 * MB,
+    'a picture line\u2019s file is not counted (or a removed one still is)',
+  );
+  /* …because the settle reads WHOLE rows: the events row (every column, `rsvp_ask_config` with it) and the draft. */
+  const server = stripComments(readFileSync(join(ROOT, 'lib/couple-media-allowance.server.ts'), 'utf8'));
+  assert.match(server, /admin\.from\('events'\)\.select\('\*'\)\.eq\('event_id', eventId\)\.maybeSingle\(\)/);
+  assert.match(server, /admin\.from\('event_site_drafts'\)\.select\('draft_json, applied_snapshot'\)/);
+});
+
 /* ── 3 · THE ROUTE REFUSES BEFORE IT SIGNS ───────────────────────────────── */
 
 test('3 · the refusal is the plain reason, and names the room left', () => {

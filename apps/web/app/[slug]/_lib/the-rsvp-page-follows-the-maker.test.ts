@@ -262,7 +262,8 @@ test('7 · the one-at-a-time control: the picked pill, its pressed state and its
   const SRC = read('dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
   // (#6176: re-seeded through `saved.current`, which `seen()` normalises.)
   assert.match(SRC, /saved\.current = seen\(JSON\.parse\(currentKey\) as RsvpAskConfig\);/);
-  assert.match(SRC, /setLocal\(saved\.current\);\s*\}, \[currentKey\]\);/, 'the switch keeps a value the draft no longer holds');
+  // (…and again on the RSVP stage's `truth` — a render after ↺ that reads the same as its base: `lib/rsvp-stage-truth.ts`.)
+  assert.match(SRC, /setLocal\(saved\.current\);\s*\}, \[currentKey, truth\]\);/, 'the switch keeps a value the draft no longer holds');
 });
 
 // ═══ 8 · the preview wears this event's own guest (owner 2026-09-27) ══════

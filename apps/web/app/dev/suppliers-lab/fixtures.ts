@@ -165,10 +165,13 @@ export function labInviteStatuses(nowMs: number): Record<string, SupplierInviteS
   const put = (id: string, s: SupplierInviteStatus | null) => {
     if (s) out[id] = s;
   };
-  put('v-tita', supplierInviteStatus({ status: 'pending', sentAt: at(0), expiresAt: at(90) }, nowMs));
-  put('v-tinapay', supplierInviteStatus({ status: 'pending', sentAt: at(-3), expiresAt: at(87) }, nowMs));
+  put('v-tita', supplierInviteStatus({ status: 'pending', sentAt: at(0), expiresAt: at(90), openedAt: null }, nowMs));
+  // Sent three days ago and never opened — the couple is told (owner 2026-10-10).
+  put('v-tinapay', supplierInviteStatus({ status: 'pending', sentAt: at(-3), expiresAt: at(87), openedAt: null }, nowMs));
   put('v-asukal', supplierInviteStatus({ status: 'declined', sentAt: at(-5), expiresAt: at(85) }, nowMs));
   put('v-bibingka', supplierInviteStatus({ status: 'pending', sentAt: at(-95), expiresAt: at(-5) }, nowMs));
+  // Opened, not joined yet.
+  put('v-seda', supplierInviteStatus({ status: 'pending', sentAt: at(-6), expiresAt: at(84), openedAt: at(-2) }, nowMs));
   put('v-santuario', supplierInviteStatus({ status: 'claimed', sentAt: at(-20), expiresAt: at(70) }, nowMs));
   return out;
 }

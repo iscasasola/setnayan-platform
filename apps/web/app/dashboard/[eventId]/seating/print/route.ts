@@ -12,6 +12,7 @@ import {
   chartFileStem,
   chartSizeSpec,
   chartUnits,
+  entranceChartPreviewPng,
   entranceChartTooBigWords,
   layoutEntranceChart,
   parseChartLayout,
@@ -101,9 +102,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       entries: azEntries(cUnits, cGuests),
     });
     if (params.get('format') === 'preview') {
-      return new NextResponse(renderPrintSvg(result.doc, {}), {
+      // A picture, not the vector: a full chart's SVG is ~5 MB of letter outlines.
+      return new NextResponse(Buffer.from(await entranceChartPreviewPng(result.doc)), {
         status: 200,
-        headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, no-store' },
+        headers: { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store' },
       });
     }
     // Never a chart that loses someone: too many names for this sheet is said, not printed.

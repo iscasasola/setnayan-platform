@@ -22,6 +22,7 @@ import {
   chartSizeSpec,
   chartUnits,
   entranceChartFits,
+  entranceChartPreviewPng,
   joinLines,
   layoutEntranceChart,
   seatingUnits,
@@ -258,4 +259,17 @@ test('real PDF bytes: one page at the chosen size, both layouts', async () => {
       assert.ok(Math.abs(width - spec.wMm * PT_PER_MM) < 1 && Math.abs(height - spec.hMm * PT_PER_MM) < 1, `${size} is ${spec.mm}`);
     }
   }
+});
+
+test('the preview is a light picture, not 5 MB of outlines', async () => {
+  const r = chartFor(fixture(300), 'az', 'a2');
+  const png = await entranceChartPreviewPng(r.doc);
+  const sharp = (await import('sharp')).default;
+  const meta = await sharp(Buffer.from(png)).metadata();
+  assert.equal(meta.format, 'png');
+  assert.equal(Math.max(meta.width!, meta.height!), 1200);
+  assert.ok(png.length < 400 * 1024, `${Math.round(png.length / 1024)} KB`);
+  // White paper: the top-left corner is white whatever the screen.
+  const { data } = await sharp(Buffer.from(png)).extract({ left: 0, top: 0, width: 4, height: 4 }).raw().toBuffer({ resolveWithObject: true });
+  assert.ok(data[0]! > 250 && data[1]! > 250 && data[2]! > 250, 'white paper');
 });

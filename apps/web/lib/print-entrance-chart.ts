@@ -670,3 +670,25 @@ export function entranceChartFits(input: Omit<EntranceChartInput, 'size'>): Reco
   }
   return out;
 }
+
+/** The preview's long edge in pixels — sharp on a phone, light to send. */
+export const CHART_PREVIEW_LONG_EDGE_PX = 1200;
+
+/**
+ * The chart as a small PNG for the page's preview. The vector SVG of a full
+ * chart is every letter as an outline — about 5 MB at 300 guests — so the
+ * screen is sent a picture of it (~150 KB) instead; the PDF stays vector.
+ * Always on white (printouts are always light).
+ */
+export async function entranceChartPreviewPng(doc: PrintDoc): Promise<Uint8Array> {
+  const { renderPrintSvg } = await import('@/lib/print-render-svg');
+  const sharp = (await import('sharp')).default;
+  const long = Math.max(doc.w, doc.h);
+  const px = CHART_PREVIEW_LONG_EDGE_PX;
+  const png = await sharp(Buffer.from(renderPrintSvg(doc, {})), { density: Math.max(24, (72 * px) / long) })
+    .resize({ width: px, height: px, fit: 'inside', withoutEnlargement: true })
+    .flatten({ background: '#ffffff' })
+    .png({ palette: true, colours: 64 })
+    .toBuffer();
+  return new Uint8Array(png);
+}

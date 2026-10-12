@@ -102,8 +102,9 @@ test('Your Team MOUNTS the shipped Budget page as its part, and offers it from t
   const slot = read('vendors', '_components', 'booked-slot.tsx');
   assert.match(slot, /<BookedBudgetSection eventId=\{eventId\} budget=\{budget\} \/>/, 'the Booked body lost its Budget section');
   const section = read('vendors', '_components', 'booked-budget.tsx');
+  assert.match(section, /const budgetHref = yourTeamBudgetHref\(eventId\);/, 'the Budget block builds the Budget part\'s address by hand');
   assert.ok(
-    (section.match(/href=\{yourTeamBudgetHref\(eventId\)\}/g) ?? []).length >= 1,
+    (section.match(/href=\{budgetHref\}/g) ?? []).length >= 1,
     'the Budget section no longer links the Budget part by its own address',
   );
 });

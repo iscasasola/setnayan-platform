@@ -63,7 +63,9 @@ test('the one request READS: one export, the three shipped readers, and not one 
 
 test('the sheet mounts the ONE shipped payment card and plan ladder — no second form, no second writer', () => {
   assert.equal((SHEET.match(/<DepositReservation\b/g) ?? []).length, 1);
-  assert.equal((SHEET.match(/<PaymentPlanStepper\b/g) ?? []).length, 1);
+  // The plan ladder is kind 26 (`PriceSummary`) since 2026-10-13 — ONE drawing,
+  // the same fold the supplier's customer card reads (lib/price-summary.test.ts).
+  assert.equal((SHEET.match(/<PriceSummary\b/g) ?? []).length, 1);
   assert.match(SHEET, /import \{ DepositReservation \} from '\.\.\/\[vendorId\]\/workspace\/_components\/deposit-reservation'/);
   assert.doesNotMatch(SHEET, /<form\b|<input\b|recordDeposit|logScheduledPayment|logPayment|FileUpload/, 'the sheet re-implements paying');
   // Every figure it prints itself goes through the app's money text.

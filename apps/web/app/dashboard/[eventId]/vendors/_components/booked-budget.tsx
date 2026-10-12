@@ -128,7 +128,7 @@ export function BookedBudgetSection({ eventId, budget }: { eventId: string; budg
                 eventId={eventId}
                 vendorId={b.next.vendorId}
                 vendorName={b.next.name}
-                className={styles.go}
+                className={styles.go ?? ''}
                 version={`${b.next.amountPhp}:${b.next.dueDate}`}
               />
             ) : (

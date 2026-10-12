@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b669ff03d8",
-  "routeCount": 434,
+  "generatedFromRef": "447e320069",
+  "routeCount": 435,
   "destinations": 959,
   "actions": 674,
-  "blocks": 6147,
+  "blocks": 6155,
   "routes": {
     "/": {
       "files": [
@@ -9107,7 +9107,6 @@
         "BookedSlot",
         "BookedStandIns",
         "BudgetBuildTab",
-        "BudgetLineButton",
         "BudgetPage",
         "BuildActionResult",
         "BuildAdded",
@@ -9209,17 +9208,19 @@
         "MoreToCompare",
         "NamedBuildRow",
         "NewManualVendorModal",
+        "NextPayButton",
         "NotSharedWithYou",
         "PageMasthead",
         "PayDueCtx.Provider",
         "PaySheet",
-        "PaymentPlanStepper",
         "PeekToast",
         "PendingLockProposals",
+        "Peso",
         "PickMenu",
         "PillarPartPicker",
         "PlanBudgetAccordion",
         "PlansRowPick",
+        "PriceSummary",
         "QuoteFillRow",
         "RenamePlanRequest",
         "RequirementsModal",
@@ -10161,6 +10162,16 @@
         "BudgetScreen"
       ]
     },
+    "/dev/customer-money-lab": {
+      "files": [
+        "dev/customer-money-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CustomerMoneyFold"
+      ]
+    },
     "/dev/details-lab": {
       "files": [
         "dev/details-lab/details-lab-node.tsx",
@@ -10396,6 +10407,7 @@
         "dev/suppliers-lab/lab-booked.tsx",
         "dev/suppliers-lab/lab-build.tsx",
         "dev/suppliers-lab/lab-stage.tsx",
+        "dev/suppliers-lab/money-pair.ts",
         "dev/suppliers-lab/page.tsx",
         "dev/suppliers-lab/pay-fixtures.ts"
       ],
@@ -12261,6 +12273,7 @@
         "vendor-dashboard/clients/[eventId]/_components/customer-card-activity.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/customer-money-fold.tsx",
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
@@ -12330,10 +12343,13 @@
         "Card",
         "CardTabs",
         "ClientNotes",
+        "Count",
         "CoupleLogo",
+        "CustomerMoneyFold",
         "EventLockedByFee",
         "FileUpload",
         "FilesTab",
+        "Fill",
         "Icon",
         "Image",
         "LedgerUnreadableNote",
@@ -12345,7 +12361,10 @@
         "PaymentHistoryList",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
+        "PendingPaymentAnswer",
+        "Peso",
         "PipelineStrip",
+        "PriceSummary",
         "ProofImage",
         "QuoteTab",
         "RelationshipTabShell",

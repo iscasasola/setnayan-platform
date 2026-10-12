@@ -197,8 +197,9 @@ test('(b) the Booked body draws the rows the one module decided, and a verb call
   assert.match(PAGE, /bookedSlot=\{teamSlot\}/);
   assert.doesNotMatch(PAGE, /MerkadoBudgetLens|budgetSlot=|\bteamSlot=\{/, 'the old lens or a second Booked mount is back on the page');
   assert.equal(takeoverBody().split('{bookedSlot}').length - 1, 1, 'the Booked body is mounted more than once');
-  // The six figures come from the Build body's own money call — never a second sum.
-  assert.match(PAGE, /team=\{teamMoneyOfModel\(\s*model,/);
+  // The small Budget block (B4) is handed only the Target; its figures are the
+  // slot's ONE resolver read (lib/booked-budget.test.ts holds that).
+  assert.match(PAGE, /targetPhp=\{ev\?\.estimated_budget_centavos != null \? Math\.round\(ev\.estimated_budget_centavos \/ 100\) : null\}/);
   assert.match(SLOT, /bookedView\(\{ rows, facts, money: list\.suppliers, plans, rooms, dateChange: dateChange\.ok \? dateChange\.view : null \}\)/);
   assert.match(SLOT, /buildBudgetList\(money\)/, 'the body totals money itself instead of reading the one list');
   // A SERVER body around client rows; which verbs a row has is the module's answer.

@@ -762,7 +762,7 @@ if (!ONLY || ONLY === '16') {
     const done = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && hold.length && f.s >= hold.at(-1).s + Math.round(H * 0.11) + 32);
     say(Boolean(done) && Math.abs(done.after.t - done.mate.b - todayGaps.mateToAfter) < 0.1 && Math.abs(done.mate.t - done.zero.b - todayGaps.rowToMate) < 0.1, `${size}: once the cover has gone the next group stands under the Countdown at the page's own distance (${done ? r(done.after.t - done.mate.b) : '—'}px; today ${r(todayGaps.mateToAfter)}px)`);
     const sig = (f) => JSON.stringify([f.all, f.pout.toFixed(3)]);
-    say(fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); }), `${size}: back == down at every one of ${fwd.length} positions`);
+    { const bad = fwd.find((f) => { const k = back.find((x) => x.s === f.s); return !(k && sig(k) === sig(f)); }); const kb = bad ? back.find((x) => x.s === bad.s) : null; say(!bad, `${size}: back == down at every one of ${fwd.length} positions${bad ? ` — NOT at ${bad.s}px: down ${sig(bad)} · up ${kb ? sig(kb) : 'none'}` : ''}`); }
     if (pics) { for (const [name, pick] of [['0-opens', () => 0], ['1-half-out', () => fwd.find((f) => f.pout >= 0.5)?.s], ['2-reply-arrives', () => fwd.find((f) => f.pout >= 0.9)?.s], ['3-arrived', () => whole?.s]]) { const y = pick(); if (y !== undefined) { await at(y); await p.screenshot({ path: `${pics}/c16-real-${W}x${H}-${name}-together.png` }); } } }
     await ctx.close();
     /* Reduce motion: the plain page — nothing armed, nothing held, and it says why. */

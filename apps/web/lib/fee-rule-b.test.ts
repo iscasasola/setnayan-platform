@@ -31,7 +31,7 @@ test('a row the supplier brought is never sourced, whatever was viewed or saved 
       rowIsManualRecord: false,
       recordTiedToShop: true,
       savesBefore: ['host_marketplace_search'],
-      viewsBefore: 3,
+      viewSourcesBefore: ['explore', 'search', 'favorites'],
     };
     assert.equal(bookingFeeAttributionFromFacts(facts), 'import', rowSource);
   }
@@ -44,7 +44,7 @@ test('a chat started from Setnayan is sourced on any row — the rule every book
     rowIsManualRecord: false,
     recordTiedToShop: true,
     savesBefore: [],
-    viewsBefore: 0,
+    viewSourcesBefore: [],
   };
   assert.equal(bookingFeeAttributionFromFacts(facts), 'sourced');
 });
@@ -75,4 +75,21 @@ test("the supplier's bill says WHY a booking the couple typed in carries a fee �
   assert.equal(feeIntroducedLine({ introducedOn: null }), null);
   assert.equal(feeIntroducedLine({}), null);
   assert.equal(feeIntroducedLine({ introducedOn: 'soon' }), null);
+});
+
+test("only a view from a Setnayan surface counts — never one through the supplier's own link (owner 2026-10-12)", () => {
+  const facts = (viewSourcesBefore: ReadonlyArray<string | null>): BookingAttributionFacts => ({
+    threadSources: [],
+    rowSource: 'host_manual',
+    rowIsManualRecord: true,
+    recordTiedToShop: true,
+    savesBefore: [],
+    viewSourcesBefore,
+  });
+  for (const own of ['profile_direct', 'website', 'invite_claim', null]) {
+    assert.equal(bookingFeeAttributionFromFacts(facts([own])), 'import', String(own));
+  }
+  for (const setnayan of ['explore', 'search', 'shortlist', 'favorites', 'editorial', 'auto_build']) {
+    assert.equal(bookingFeeAttributionFromFacts(facts([setnayan])), 'sourced', setnayan);
+  }
 });

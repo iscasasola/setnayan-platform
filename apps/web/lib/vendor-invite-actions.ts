@@ -413,12 +413,20 @@ export async function applyClaimAutoLink(args: {
   //    different profile matches 0 rows and is refused. The legitimate FIRST
   //    claim has marketplace_vendor_id = null → the .or() admits it. A same-
   //    profile retry matches via the second predicate → still succeeds.
-  const { error: linkErr } = await admin
-    .from('event_vendors')
-    .update({ marketplace_vendor_id: args.claimedVendorProfileId })
-    .eq('vendor_id', invite.vendor_id)
-    .or(`marketplace_vendor_id.is.null,marketplace_vendor_id.eq.${args.claimedVendorProfileId}`);
+  //
+  //    ⚠ ONE SQL CALL, `claim_link_record_to_shop` (migration 20271268139017,
+  //    2026-10-12). It keeps that guard AND handles the case that used to fail the
+  //    claim outright: the shop is ALREADY a live row on this event (a save from
+  //    Find), and the one-row-per-shop-per-event index refused a second. The
+  //    couple's record then MERGES onto that row (the earliest sourced fact
+  //    stays), and the call returns the row that now carries the booking.
+  const { data: linkedId, error: linkErr } = await admin.rpc('claim_link_record_to_shop', {
+    p_record_vendor_id: invite.vendor_id,
+    p_vendor_profile_id: args.claimedVendorProfileId,
+  });
   if (linkErr) return { ok: false, code: 'LINK_FAILED', message: linkErr.message };
+  const bookingVendorId = typeof linkedId === 'string' && linkedId ? linkedId : (invite.vendor_id as string);
+  const merged = bookingVendorId !== invite.vendor_id;
 
   // 2b. Reconcile SIBLING category rows for the same manually-added vendor.
   //     A couple who added this vendor under multiple categories has N distinct
@@ -433,7 +441,8 @@ export async function applyClaimAutoLink(args: {
     .select('manual_vendor_id,event_id')
     .eq('vendor_id', invite.vendor_id)
     .maybeSingle();
-  if (parentRow?.manual_vendor_id && parentRow.event_id) {
+  // (Not after a merge: the shop's one live row on this event is the survivor.)
+  if (!merged && parentRow?.manual_vendor_id && parentRow.event_id) {
     await admin
       .from('event_vendors')
       .update({ marketplace_vendor_id: args.claimedVendorProfileId })
@@ -543,7 +552,7 @@ export async function applyClaimAutoLink(args: {
     }
   }
 
-  return { ok: true, vendorId: invite.vendor_id as string, coupleUserIds };
+  return { ok: true, vendorId: bookingVendorId, coupleUserIds };
 }
 
 // ---------------------------------------------------------------------------

@@ -41,7 +41,7 @@ const factsOf = (d: FeeRuleBCase['db']): BookingAttributionFacts => ({
   rowIsManualRecord: d.kind === 'record',
   recordTiedToShop: d.kind === 'saved' || d.tie !== 'none',
   savesBefore: d.saves.filter((x) => x.when === 'before').map((x) => x.source),
-  viewsBefore: d.views.filter((x) => x.when === 'before').length,
+  viewSourcesBefore: d.views.filter((x) => x.when === 'before').map((x) => x.source),
 });
 
 const c = (name: string, d: Partial<FeeRuleBCase['db']>, expect: BookingFeeAttribution): FeeRuleBCase => {
@@ -61,7 +61,9 @@ export const FEE_RULE_B_CASES: ReadonlyArray<FeeRuleBCase> = [
   // ── a couple's hand-typed record ("Add your own") ────────────────────────
   c('brought by the couple, never seen on Setnayan → free', {}, 'import'),
   c('claimed by a shop this event viewed first → sourced', { views: [{ source: 'explore', when: 'before' }] }, 'sourced'),
-  c('a profile view of any kind for this event, before → sourced (answer 8: "a profile view for this event")', { views: [{ source: 'profile_direct', when: 'before' }] }, 'sourced'),
+  c("a view through the supplier's OWN link (profile_direct) → free — the supplier showed them, not Setnayan", { views: [{ source: 'profile_direct', when: 'before' }] }, 'import'),
+  c("a view through the supplier's own website link → free", { views: [{ source: 'website', when: 'before' }] }, 'import'),
+  c("a view from Find's supplier sheet (recorded as search) → sourced", { views: [{ source: 'search', when: 'before' }] }, 'sourced'),
   c('matched to a shop this event viewed first → sourced', { tie: 'matched', views: [{ source: 'search', when: 'before' }] }, 'sourced'),
   c('viewed only AFTER the record was made → free (not "first")', { views: [{ source: 'explore', when: 'after' }] }, 'import'),
   // A Find save and the couple's own record of the same shop live side by side only while the record is MATCHED
@@ -73,10 +75,12 @@ export const FEE_RULE_B_CASES: ReadonlyArray<FeeRuleBCase> = [
   c('not tied to this shop ("Not them?", never claimed) → free, even with a view', { tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'import'),
   c("the claim's own thread (no source) and nothing else → free", { thread: null }, 'import'),
   c('a chat started from Setnayan (shortlist) → sourced', { tie: 'none', thread: 'shortlist' }, 'sourced'),
+  c('a Find save that a claimed record merged onto (it carries the manual id too) → still sourced', { rowSource: 'host_marketplace_search' }, 'sourced'),
   // ── a marketplace row ────────────────────────────────────────────────────
   c('saved from Find and booked without a chat → sourced (audit B5)', { kind: 'saved', rowSource: 'host_marketplace_search', tie: 'none' }, 'sourced'),
   c('auto-cascaded by Setnayan → sourced', { kind: 'saved', rowSource: 'auto_cascade_from_finalize', tie: 'none' }, 'sourced'),
   c('the supplier invited the couple → free, even after a view', { kind: 'saved', rowSource: 'vendor_invite', tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'import'),
-  c('a legacy host_manual marketplace row with a view before it → sourced', { kind: 'saved', rowSource: 'host_manual', tie: 'none', views: [{ source: null, when: 'before' }] }, 'sourced'),
+  c('a legacy host_manual marketplace row with an Explore view before it → sourced', { kind: 'saved', rowSource: 'host_manual', tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'sourced'),
+  c('a legacy host_manual marketplace row whose only view was the supplier’s own link → free', { kind: 'saved', rowSource: 'host_manual', tie: 'none', views: [{ source: 'profile_direct', when: 'before' }] }, 'import'),
   c('a legacy host_manual marketplace row, nothing recorded → free', { kind: 'saved', rowSource: 'host_manual', tie: 'none' }, 'import'),
 ];

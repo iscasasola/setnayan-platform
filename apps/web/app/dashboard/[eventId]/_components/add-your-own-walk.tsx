@@ -159,6 +159,10 @@ export function AddYourOwnWalk({
   const [category, setCategory] = useState(openedCategory);
   const [who, setWho] = useState('');
   const [mobile, setMobile] = useState('');
+  /** What each row has KEPT (its pill). The live words above follow the typing; a ✕ puts them back to these. */
+  const [nameKept, setNameKept] = useState(initialName);
+  const [whoKept, setWhoKept] = useState('');
+  const [mobileKept, setMobileKept] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   // null = not searched (too short) · [] = searched, nobody · rows = matches.
@@ -387,7 +391,7 @@ export function AddYourOwnWalk({
             <FormRows width="wide" data="add-own-name">
               <TypedRow
                 name="Name"
-                value={name}
+                value={nameKept}
                 empty="Their name"
                 placeholder="e.g. Tita Baby's Catering"
                 required
@@ -402,6 +406,7 @@ export function AddYourOwnWalk({
                 }}
                 onKeep={(t) => {
                   setName(t);
+                  setNameKept(t);
                 }}
               />
             </FormRows>
@@ -489,7 +494,7 @@ export function AddYourOwnWalk({
             <FormRows width="wide" data="add-own-contact">
               <TypedRow
                 name="Who you talk to"
-                value={who}
+                value={whoKept}
                 empty="Add"
                 placeholder="e.g. Maria Santos"
                 maxLength={128}
@@ -502,11 +507,12 @@ export function AddYourOwnWalk({
                 }}
                 onKeep={(t) => {
                   setWho(t);
+                  setWhoKept(t);
                 }}
               />
               <TypedRow
                 name="Mobile"
-                value={mobile}
+                value={mobileKept}
                 empty="Add"
                 placeholder="+63 9XX XXX XXXX"
                 maxLength={32}
@@ -518,6 +524,7 @@ export function AddYourOwnWalk({
                 }}
                 onKeep={(t) => {
                   setMobile(t);
+                  setMobileKept(t);
                 }}
               />
             </FormRows>

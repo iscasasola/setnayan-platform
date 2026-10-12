@@ -135,10 +135,9 @@ export function LockAnswerLine({ notice }: { notice: LockAnswerNotice }) {
     <p
       role={notice.tone === 'refused' ? 'alert' : 'status'}
       data-lock-answer={notice.tone}
-      className={`mt-3 rounded-xl border px-4 py-2.5 text-sm ${
-        notice.tone === 'refused'
-          ? 'border-danger-300/50 bg-danger-50/60 text-danger-900 dark:text-danger-100'
-          : 'border-mulberry/25 bg-mulberry/[0.06] text-ink'
+      // A status line, not a card (2026-10-11 look: frames only on what you press).
+      className={`mt-3 border-l-2 py-1 pl-3 text-sm ${
+        notice.tone === 'refused' ? 'border-danger-500 text-danger-900 dark:text-danger-100' : 'border-mulberry text-ink'
       }`}
     >
       {notice.text}

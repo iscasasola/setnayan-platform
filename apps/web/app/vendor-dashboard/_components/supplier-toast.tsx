@@ -32,7 +32,6 @@
  */
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
 import { TriangleAlert } from 'lucide-react';
 import { PeekToast, type PeekToastTone } from '@/app/_components/toast/peek-toast';
 
@@ -56,7 +55,6 @@ export function SupplierToast({
   /** The press can simply be made again — the toast carries "Try again". */
   retry?: boolean;
 }) {
-  const router = useRouter();
   // The toast is a client thing: drawn once mounted (portalled to <body> — a transform on an ancestor would pin a
   // `fixed` child to it), so the server's markup holds only the status line.
   const [showing, setShowing] = useState(false);
@@ -83,7 +81,7 @@ export function SupplierToast({
                   ? () => {
                       setShowing(false);
                       // The same page without the outcome: the answer is back on it, ready to press again.
-                      router.replace('/vendor-dashboard');
+                      window.location.replace('/vendor-dashboard');
                     }
                   : undefined
               }

@@ -145,8 +145,8 @@ test('on an event day the one Next card is "Run the day" (owner answer 2) — an
   assert.match(card, /data-next-day=""/, 'the event-day card is not marked as the day card');
   assert.match(card, /!bg-ink/, 'the event-day card is not dark');
   // Run the day is the forward step (brand), filled; Chat is the grey second.
-  assert.match(html, /class="ab ab-brand ab-main"[^>]*>(?:(?!<\/a>).)*Run the day/s, 'Run the day is not the brand main button');
-  assert.match(html, /class="ab ab-neutral home-cover-ab"[^>]*>(?:(?!<\/a>).)*Chat/s, 'the grey Chat button is missing or unreadable on the dark card');
+  assert.match(html, /class="ab ab-brand ab-main[^"]*"[^>]*>(?:(?!<\/a>).)*Run the day/s, 'Run the day is not the brand main button');
+  assert.match(html, /class="ab ab-neutral [^"]*\bhome-cover-ab\b[^"]*"[^>]*>(?:(?!<\/a>).)*Chat/s, 'the grey Chat button is missing or unreadable on the dark card');
   // …and any other day the card is not dark.
   assert.doesNotMatch(await render(), /data-next-day/);
 });

@@ -45,14 +45,17 @@ const WEB = join(HERE, '..', '..');
 export const SWEPT: ReadonlyArray<readonly [file: string, components: readonly string[]]> = [
   ['app/vendor-dashboard/_components/supplier-thumb-row.tsx', ['SupplierThumbRow', 'ThumbFit']],
   ['app/vendor-dashboard/_components/supplier-submit.tsx', ['SupplierSubmit']],
-  // S-PR1 · Today. `overview-sections.tsx` is NOT here yet, on purpose: the
-  // answers inside the Also-waiting folds keep their shipped buttons (one bare
-  // `<button>` in `MarkCompleteBody`, the rest hand-classed `SubmitButton`s),
-  // and nine guard files pin those forms by their exact text. They are swept
-  // in their own PR, with their own side-by-side.
+  // S-PR1 · Today.
   ['app/vendor-dashboard/page.tsx', ['AgentHome', 'VendorOverviewPage']],
-  ['app/vendor-dashboard/_components/supplier-today-first-screen.tsx', ['TodayPill', 'TodayEyebrow', 'TodayRow', 'SupplierTodayFirstScreen', 'Figure', 'Unread']],
+  ['app/vendor-dashboard/_components/supplier-today-first-screen.tsx', ['TodayEyebrow', 'TodayRow', 'SupplierTodayFirstScreen', 'TapMark', 'Figure', 'Unread']],
   ['app/vendor-dashboard/_components/supplier-toast.tsx', ['SupplierToast']],
+  // 2026-10-12 (look audit of #6443/#6450): the answers inside the Also-waiting folds wear the rule too — every
+  // door an `ActionButton`, every form's submit a `SupplierSubmit`; the one bare `<button>` (MarkCompleteBody) is gone.
+  ['app/vendor-dashboard/_components/overview-sections.tsx', [
+    'WhatsNewFeed', 'NothingToAnswerFeed', 'FeedCard', 'AgeLine', 'MarkCompleteBody', 'InquiryBody', 'LockRequestBody',
+    'DateChangeBody', 'DeleteRequestBody', 'LockBody', 'ReviewBody', 'DisputeBody', 'LockRequestLapsedBody', 'MessageBody',
+    'MeetingBody', 'QuoteDraftBody', 'ContractDraftBody',
+  ]],
 ];
 
 export type ComponentCount = { component: string; bare: number; ruled: number };

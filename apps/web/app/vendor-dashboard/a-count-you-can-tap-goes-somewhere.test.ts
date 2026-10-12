@@ -86,5 +86,5 @@ test('each Coming-up row opens its customer — the list under the numbers links
   // The row is the shared hairline row now (`TodayRow`, one <Link>).
   assert.match(coming, /<TodayRow key=\{row\.id\} href=\{row\.href\}/, 'a Coming-up row is drawn but goes nowhere');
   const rowFn = s.slice(s.indexOf('export function TodayRow('));
-  assert.match(rowFn, /<Link href=\{href\} className="home-row"/, 'the shared row is not a link');
+  assert.match(rowFn, /<Link href=\{href\} className="home-row[^"]*"/, 'the shared row is not a link');
 });

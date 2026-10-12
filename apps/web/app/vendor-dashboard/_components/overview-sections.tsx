@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { Badge } from '@/app/_components/chips';
+import { Badge } from '@/app/_components/badge';
 import { Fold } from '@/app/_components/fold';
 import { SupplierSubmit } from './supplier-submit';
 import { waitingAge } from '@/lib/waiting-age';

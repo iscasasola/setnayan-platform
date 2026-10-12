@@ -21,6 +21,16 @@
  *   6 · `waitingOnYou` returning "0" for an unread desk   → a failure drawn as zero
  *   7 · a refusal toast given the 8-second timer          → the refusal leaves by itself
  *   8 · another page made to mount the date-change answer → the "only on Today" fact is stale (by design)
+ *
+ * RE-AIMED 2026-10-12 (the look audit of #6443/#6450, owner "APPROVE ALL" look calls 1–9): the same claims, on the
+ * templates the page now wears — a row is the shared `Fold` (not a hand-made `<details>`), a state is the shared
+ * `Badge`, every main button is terracotta (`brand`), the outcome is the shared TOP toast plus a status line that
+ * never leaves by itself (§ 9 kind 12). Test 8 holds the look itself. Sabotage for the re-aimed and new claims, each
+ * seen red (rd/supplier-dashboard-1 PR body):
+ *   9 · the Fold swapped back for a hand-made `<details>`  → 2b
+ *  10 · the status line made to vanish on a timer          → 6
+ *  11 · the Next card given back its frame / gold fill      → 8
+ *  12 · a row's arrow grey again                            → 8
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -225,17 +235,32 @@ test('2 · the two answers given only on Today are still given only on Today —
   }
 });
 
+/** Today's ask rows, each cut from its `data-today-ask` wrapper to the next (or to the end of the list). */
+function askRows(html: string): string[] {
+  const list = html.slice(html.indexOf('data-also-waiting'));
+  return list.split(/(?=<div[^>]*data-today-ask=")/).slice(1);
+}
+
 test('2b · a row OPENS ITS ANSWER IN PLACE — the form is inside the row, one open at a time', async () => {
   const html = await render({ needsAnswer: [REPLY, BOOKING, QUOTE] });
-  const rows = html.match(/<details[^>]*data-today-ask="[^"]+"[^>]*>[\s\S]*?<\/details>\s*(?=<details|<\/div>)/g) ?? [];
+  const rows = askRows(html);
   assert.equal(rows.length, 2, `expected two rows, cut ${rows.length}`);
-  for (const r of rows) assert.match(r, /^<details[^>]*name="today-ask"/, 'the rows do not share a name, so two can be open at once');
+  // The SHARED fold (kind 19): its head is a button that says whether it is open, its body stays mounted — and it
+  // joins the one-open-at-a-time mechanism (`fold.tsx` → `useOneOpen`), which a hand-made <details> never did.
+  for (const r of rows) {
+    assert.match(r, /<div data-fold="today-ask"/, 'the row is not the shared Fold');
+    assert.match(r, /<button type="button" data-fold-head="" aria-expanded="(?:true|false)"/, 'the row has no fold head');
+    assert.doesNotMatch(r, /<details|<summary/, 'the row is a hand-made <details> again');
+  }
+  assert.match(code('app/_components/fold.tsx'), /const scope = useOneOpen\(open, setOpen\);/, 'the shared fold stopped closing its peers');
   const ask = rows.find((r) => r.includes('data-today-ask="lock_request"'))!;
-  assert.match(ask, /<summary[\s\S]*Agree to this booking[\s\S]*2 of 3[\s\S]*<\/summary>/, 'the row does not say what it is and where it is in the queue');
+  const head = ask.slice(ask.indexOf('data-fold-head'), ask.indexOf('data-fold-body'));
+  assert.match(text(head), /Agree to this booking.*2 of 3/, 'the row does not say what it is and where it is in the queue');
+  assert.match(head, /data-badge="wait"[^>]*>2 of 3</, '"2 of 3" is not the shared Badge');
   assert.match(ask, /<form[\s\S]*name="vendor_id" value="ev-rc"[\s\S]*Agree to this booking/, 'the booking ask cannot be agreed to from its row');
   assert.match(ask, /Turn it down/, 'the "no" left the row');
   assert.doesNotMatch(ask, /sn-card|sn-tile/, 'the answer is back in a box');
-  assert.doesNotMatch(ask.slice(0, ask.indexOf('</summary>')), /<a\b/, 'the row became a door to another page — two answers have no other page');
+  assert.doesNotMatch(head, /<a\b/, 'the row became a door to another page — two answers have no other page');
 });
 
 test('2c · a delete request that IS the Next card keeps its row, open — the card’s button has somewhere to land', async () => {
@@ -248,8 +273,8 @@ test('2c · a delete request that IS the Next card keeps its row, open — the c
     ['message', 2, false],
   ]);
   const html = await render({ needsAnswer: [REMOVE, REPLY] });
-  const row = html.slice(html.indexOf('data-today-ask="delete_request"') - 120);
-  assert.match(row.slice(0, 400), /<details[^>]* open=""/, 'the row is shut');
+  const row = html.slice(html.indexOf('data-today-ask="delete_request"'));
+  assert.match(row.slice(0, 400), /data-fold-open=""[\s\S]*aria-expanded="true"/, 'the row is shut');
   assert.match(row, /name="vendor_id" value="ev-x"[\s\S]*Agree to remove it/);
   assert.match(row, /Keep it for now/);
   assert.match(html, /<a[^>]*href="\/vendor-dashboard#whats-new"/, 'the Next card’s Answer button does not go to the row');
@@ -263,7 +288,7 @@ test('2d · a date change IS answered on the Next card — Move · Unlock, the s
   assert.match(text(card), /Date change request/);
   const forms = card.match(/<form[\s\S]*?<\/form>/g) ?? [];
   assert.equal(forms.length, 2, 'not exactly two answers on the card');
-  assert.match(forms[0]!, /name="vendor_id" value="ev-cruz"[\s\S]*name="answer" value="moved"[\s\S]*class="ab ab-ok ab-main[^"]*"[\s\S]*Move/);
+  assert.match(forms[0]!, /name="vendor_id" value="ev-cruz"[\s\S]*name="answer" value="moved"[\s\S]*class="ab ab-brand ab-main[^"]*"[\s\S]*Move/);
   assert.match(forms[1]!, /name="vendor_id" value="ev-cruz"[\s\S]*name="answer" value="unlocked"[\s\S]*class="ab ab-neutral[^"]*"[\s\S]*Unlock/);
   assert.match(text(card), /settled by the cancellation terms on the booking — Setnayan never decides a refund/, 'the refund sentence is not said before the press');
   assert.doesNotMatch(card, /<a\b[^>]*class="ab /, 'the card still has a link button — the answer is one tap, not a door');
@@ -298,7 +323,7 @@ test('3 · each banner taken off Today either has a rule in pickSupplierNext or 
   assert.match(page, /payout: payoutCopy \? \{ title: payoutCopy\.cta, body: payoutCopy\.body, href: PAYMENT_OPTIONS_HREF \} : null,/, 'the payout nudge lost its row');
   assert.match(page, /const payoutCopy = hasBooking && !hasLockAsk \? payoutNudgeCopy\(payoutReadiness, 'today'\) : null;/, 'the payout row no longer follows the nudge’s own rule');
   assert.match(page, /const shopLine = \[categoryWord, shopState, awardWord, milestoneWord\]/, 'the award and the milestone left the Shop row');
-  assert.match(page, /<BookingFeeBills\s+bills=\{next\.kind === 'fee' \? todayFeeBills\.slice\(1\) : todayFeeBills\}/, 'the fee bills are no longer all on Today');
+  assert.match(page, /<BookingFeeBills\s+rows\s+bills=\{next\.kind === 'fee' \? todayFeeBills\.slice\(1\) : todayFeeBills\}/, 'the fee bills are no longer all on Today, as rows');
 
   // A busy shop: an ask wins the Next card; every other thing still shows.
   const find = { title: 'Couples can’t find you yet.', body: 'b', cta: { label: 'Ask us', href: '/help#contact' } };
@@ -349,53 +374,76 @@ test('4 · an unread desk says so on the card and on its number; an unread payda
   assert.match(html, /role="status"/);
   assert.match(text(html), /Also waiting Some booking asks and payments couldn.t load/);
   // "Try again" reloads Today; it is not a link to a missing fragment.
-  assert.match(html, /<a[^>]*class="ab ab-neutral ab-main"[^>]*href="\/vendor-dashboard"|<a[^>]*href="\/vendor-dashboard"[^>]*class="ab ab-neutral ab-main"/);
+  assert.match(html, /<a[^>]*class="ab ab-brand ab-main[^"]*"[^>]*href="\/vendor-dashboard"|<a[^>]*href="\/vendor-dashboard"[^>]*class="ab ab-brand ab-main[^"]*"/);
 });
 
 /* ═══ 5 · THE BUTTONS WEAR THEIR MEANING ══════════════════════════════════ */
 
-test('5 · Reply is a message, Agree is a commit, Run the day is the forward step — and every rule has a look', async () => {
+test('5 · every main verb is terracotta, the icon says what kind of press it is — and every rule has a look', async () => {
+  // Owner 2026-10-12, look call 1: "every MAIN action button is terracotta — the meaning colours … end for main
+  // buttons; the word says what it does."
   const L = await lib();
-  assert.deepEqual(L.nextLook('answer', REPLY), { tone: 'info', icon: 'reply' });
-  assert.deepEqual(L.nextLook('answer', BOOKING), { tone: 'ok', icon: 'check' });
+  assert.deepEqual(L.nextLook('answer', REPLY), { tone: 'brand', icon: 'reply' });
+  assert.deepEqual(L.nextLook('answer', BOOKING), { tone: 'brand', icon: 'check' });
   assert.deepEqual(L.nextLook('run_day', null), { tone: 'brand', icon: 'play' });
-  assert.deepEqual(L.nextLook('unread', null), { tone: 'neutral', icon: 'retry' });
-  for (const kind of L.SUPPLIER_NEXT_ORDER) assert.ok(L.nextLook(kind, null).tone, `${kind} has no look`);
+  assert.deepEqual(L.nextLook('unread', null), { tone: 'brand', icon: 'retry' });
+  for (const kind of L.SUPPLIER_NEXT_ORDER) assert.equal(L.nextLook(kind, null).tone, 'brand', `${kind}'s main button is not terracotta`);
+  for (const card of [REPLY, BOOKING, QUOTE, REMOVE, MOVE]) assert.equal(L.nextLook('answer', card).tone, 'brand', `${card.kind}'s main button is not terracotta`);
   const reply = await render({ needsAnswer: [REPLY, BOOKING] });
-  assert.match(reply, /class="ab ab-info ab-main"[^>]*href="\/vendor-dashboard\/messages\/t1"|href="\/vendor-dashboard\/messages\/t1"[^>]*class="ab ab-info ab-main"/, 'Reply is not the info main button to the thread');
+  assert.match(reply, /class="ab ab-brand ab-main[^"]*"[^>]*href="\/vendor-dashboard\/messages\/t1"|href="\/vendor-dashboard\/messages\/t1"[^>]*class="ab ab-brand ab-main[^"]*"/, 'Reply is not the terracotta main button to the thread');
   // The grey second: a reply's "Their brief" opens the CARD, named section and all.
-  assert.match(reply, /class="ab ab-neutral"[^>]*href="\/vendor-dashboard\/clients\/e-ana\?tab=details"|href="\/vendor-dashboard\/clients\/e-ana\?tab=details"[^>]*class="ab ab-neutral"/, 'no "Their brief", or it opens a bare client route');
+  assert.match(reply, /class="ab ab-neutral[^"]*"[^>]*href="\/vendor-dashboard\/clients\/e-ana\?tab=details"|href="\/vendor-dashboard\/clients\/e-ana\?tab=details"[^>]*class="ab ab-neutral[^"]*"/, 'no "Their brief", or it opens a bare client route');
   assert.match(text(reply), /Their brief/);
   // No grey button that lands by accident: a booking ask carries no thread id.
   const agree = await render({ needsAnswer: [BOOKING] });
   const card = agree.slice(agree.indexOf('data-today-next'), agree.indexOf('data-today-numbers'));
   assert.equal((card.match(/<a\b/g) ?? []).length, 1, 'a second button with nowhere named to go');
-  assert.match(card, /class="ab ab-ok ab-main"/);
+  assert.match(card, /class="ab ab-brand ab-main[^"]*"/);
+  // Every answer in the rows is the button rule — a door is an ActionButton, a form's submit a SupplierSubmit —
+  // and the main verb of each is terracotta, unless it takes something away for good (the delete look).
+  const sections = code('app/vendor-dashboard/_components/overview-sections.tsx');
+  assert.doesNotMatch(sections, /<SubmitButton\b|<button\b|<Link\b/, 'an answer in the rows is a hand-made button or link again');
+  const mains = [...sections.matchAll(/<(?:SupplierSubmit|ActionButton)\b[^>]*?\btone="(\w+)"[^>]*?\bmain\b/g)].map((m) => m[1]);
+  assert.ok(mains.length >= 10, `anti-vacuity: only ${mains.length} main buttons found`);
+  assert.deepEqual([...new Set(mains)].sort(), ['brand', 'danger'], `a main answer wears a meaning colour: ${mains.join(' ')}`);
 });
 
 /* ═══ 6 · THE OUTCOME IS SAID, AS A TOAST ═════════════════════════════════ */
 
-test('6 · the three outcome notices are one toast — drawn by the server, and a refusal never leaves by itself', async () => {
+test('6 · the three outcome notices are the shared TOP toast + a status line — drawn by the server, and the line never leaves by itself', async () => {
   const page = code('app/vendor-dashboard/page.tsx');
-  assert.match(page, /\{outcome \? <SupplierToast text=\{outcome\.text\} refused=\{outcome\.refused\} \/> : null\}/, 'Today does not say the outcome');
-  const outcome = page.slice(page.indexOf('const outcome = lockAnswer'), page.indexOf('return (', page.indexOf('const outcome = lockAnswer')));
+  assert.match(page, /\{outcome \? <SupplierToast text=\{outcome\.text\} tone=\{outcome\.tone\} retry=\{genericFailure\.has\(outcome\.text\)\} \/> : null\}/, 'Today does not say the outcome');
+  const outcome = page.slice(page.indexOf('const outcome:'), page.indexOf('return (', page.indexOf('const outcome:')));
   for (const src of ['lockAnswer.text', 'dateAnswer', 'depositAnswer']) assert.ok(outcome.includes(src), `the ${src} notice is no longer said`);
-  assert.match(outcome, /refused: lockAnswer\.tone === 'refused'/, 'a refused booking answer is not marked as a refusal');
+  assert.match(outcome, /lockAnswer\.tone === 'ok' \? 'ok' : lockAnswer\.tone === 'noop' \? 'note' : 'bad'/, 'a refused booking answer is not drawn as a failure');
   assert.doesNotMatch(page, /role="status"\s+className="sn-tile/, 'the outcome is a tile again');
 
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { SupplierToast, TOAST_MS } = await import('./supplier-toast');
-  const html = renderToStaticMarkup(React.createElement(SupplierToast, { text: 'That did not go through. Nothing changed — please try again.', refused: true }));
-  assert.match(html, /role="status"/, 'the server does not draw the outcome — with JavaScript off it is said to nobody');
-  assert.match(html, /data-supplier-toast="refused"/);
-  assert.match(html, /That did not go through\. Nothing changed/);
-  assert.doesNotMatch(html, /<(a|button)\b/, 'the toast holds something to press — it would be the first tap on the page');
-  assert.ok(TOAST_MS >= 6000, 'a sentence this long needs time to be read');
+  const { SupplierToast, toastWords } = await import('./supplier-toast');
+  const refusal = 'This request ran out of time before it was answered, so it has closed. If the couple still wants you, ask them to send it again.';
+  const html = renderToStaticMarkup(React.createElement(SupplierToast, { text: refusal, tone: 'bad' }));
+  // The server draws the WHOLE sentence in the page: with JavaScript off it is still said, and it is the lasting copy.
+  assert.match(html, /<p role="status" data-supplier-outcome="bad"/, 'the server does not draw the outcome — with JavaScript off it is said to nobody');
+  assert.ok(text(html).includes(refusal), 'the status line does not carry the whole sentence');
+  assert.doesNotMatch(html, /<(a|button)\b/, 'the server markup holds something to press — it would be the first tap on the page');
+  assert.doesNotMatch(html, /data-peek-toast/, 'the toast is drawn by the server — its Try again would come before the Next card');
+  // The toast says the first sentence (the pill holds two lines).
+  assert.equal(toastWords(refusal), 'This request ran out of time before it was answered, so it has closed.');
+  assert.equal(toastWords('Done — you told them you can move. Your held day moves with the date.'), 'Done — you told them you can move.');
+  assert.equal(toastWords('No full stop here'), 'No full stop here');
 
   const toast = code('app/vendor-dashboard/_components/supplier-toast.tsx');
-  const effect = toast.slice(toast.indexOf('useEffect(() => {'), toast.indexOf('}, [refused, text]);'));
-  assert.ok(effect.indexOf('if (refused) return;') > 0 && effect.indexOf('if (refused) return;') < effect.indexOf('setTimeout('), 'a refusal is put on the timer');
+  // The ONE drawing — the shared PeekToast, from the top — and no pill of its own at the bottom.
+  assert.match(toast, /import \{ PeekToast, type PeekToastTone \} from '@\/app\/_components\/toast\/peek-toast';/);
+  assert.match(toast, /<PeekToast\s+tone=\{tone\}/, 'the outcome is not the shared toast');
+  assert.doesNotMatch(toast, /bottom|bg-ink|setTimeout/, 'the toast draws its own bottom pill or runs its own timer again');
   assert.match(toast, /document\.body,\s*\)/, 'the floating toast is not portalled — a wrapper could pin it off screen');
+  // The status line has no timer, no state, no condition but the outcome itself: it stays until the page is left.
+  const line = toast.slice(toast.indexOf('<p\n        role="status"'), toast.indexOf('</p>'));
+  assert.ok(line.length > 50, 'anti-vacuity: the status line was not found');
+  assert.doesNotMatch(toast.slice(0, toast.indexOf('<p\n        role="status"')), /showing \?\s*\(?\s*<p|\{showing && <p/, 'the status line is drawn only while the toast shows');
+  // Try again: only on a failure that can simply be pressed again.
+  assert.match(toast, /onRetry=\{\s*tone === 'bad' && retry/, 'Try again is offered on something that cannot be retried');
 });
 
 /* ═══ 7 · THE SHOP ROW ════════════════════════════════════════════════════ */
@@ -407,4 +455,38 @@ test('7 · the shop line moved to one row at the bottom — its name, its state,
   assert.match(text(shop), /Shop Open Lumina Studio Photo & video · Live Live/);
   assert.equal((shop.match(/href="\/vendor-dashboard\/shop"/g) ?? []).length, 2, 'the eyebrow door and the row both open Shop');
   assert.doesNotMatch(html, /bg-mulberry/, 'the mulberry shop block is back above the Next card');
+  assert.match(shop, /data-badge="ok"[^>]*>Live</, '"Live" is not the shared Badge');
+});
+
+/* ═══ 8 · THE LOOK (owner 2026-10-12, "APPROVE ALL" look calls 1 · 7 · 8 · 9) ═══════════════════ */
+
+test('8 · the Next card has no frame and no fill; every tap mark is terracotta; states are Badges; no colour written by hand', async () => {
+  const html = await render({ needsAnswer: [REPLY, BOOKING, QUOTE], upcoming: [{ ...today, date: '2026-10-05', inDays: 3 }] });
+  // (a) THE NEXT CARD: on the page's own ground — no `.home-card` frame, no tint, no gold wash.
+  const open = html.match(/<div[^>]*data-today-next="answer"[^>]*>/)?.[0] ?? '';
+  assert.ok(open, 'anti-vacuity: the Next card was not found');
+  assert.match(open, /data-next-bare=""/);
+  assert.doesNotMatch(open, /home-card(?![-\w])|style="|background|border(?!-)/, `the Next card has a frame or a fill again: ${open}`);
+  const card = code('app/_components/next-card.tsx');
+  assert.doesNotMatch(card, /--color-terracotta|terracotta\)\) 16%/, 'the soft gold fill is back');
+  // …while a failure and an event day keep the ground that IS their state.
+  const bad = await render({ deskIncomplete: true });
+  assert.match(bad.match(/<div[^>]*data-today-next="unread"[^>]*>/)?.[0] ?? '', /home-card home-card-bad/, 'a failed read lost its danger wash');
+  const day = await render({ upcoming: [today] });
+  assert.match(day.match(/<div[^>]*data-today-next="run_day"[^>]*>/)?.[0] ?? '', /!bg-ink/, 'the event day lost its dark card');
+  // (b) THE MARK THAT SAYS "TAP THIS": every row arrow, the list doors and the mark under each number are the accent.
+  const arrows = html.match(/<svg[^>]*lucide-chevron-(?:right|down)[^>]*>/g) ?? [];
+  assert.ok(arrows.length >= 8, `anti-vacuity: only ${arrows.length} arrows`);
+  for (const a of arrows) assert.match(a, /text-sn-accent/, `a tap mark is not terracotta: ${a}`);
+  const nums = html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-coming-up'));
+  assert.equal((nums.match(/data-today-tapmark=""/g) ?? []).length, 3, 'each of the three numbers carries its small terracotta mark');
+  assert.equal((nums.match(/<a\b/g) ?? []).length, 3, 'a number stopped being tappable');
+  // The waiting number wears the accent token, never a colour written on the page.
+  assert.match(nums, /class="[^"]*text-sn-accent[^"]*"[^>]*><span[^>]*data-count/, 'the waiting number is not the accent');
+  const first = code('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
+  assert.doesNotMatch(first, /mulberry|text-ink\/45|#[0-9a-fA-F]{3,8}\b/, 'the first screen writes a colour by hand again');
+  // (c) A STATE is the shared Badge (soft fill, no border) — this page draws no pill of its own.
+  assert.doesNotMatch(first + code('app/vendor-dashboard/_components/overview-sections.tsx'), /function TodayPill|data-today-pill/);
+  const { BADGE_CLASS } = await import('@/app/_components/badge');
+  assert.doesNotMatch(BADGE_CLASS, /\bborder\b|\bring\b|shadow/, 'a status chip has a border');
 });

@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
-import { Badge } from '@/app/_components/chips';
+import { Badge } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import { Count } from '@/components/count';
 import type {
@@ -138,7 +138,7 @@ export function TodayEyebrow({ children, door }: { children: ReactNode; door?: {
       {door ? (
         <Link href={door.href} className="ml-auto inline-flex min-h-11 items-center gap-0.5 text-[12.5px] font-medium normal-case tracking-normal text-sn-accent">
           {door.label}
-          <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          <ChevronRight aria-hidden className="h-3.5 w-3.5 text-sn-accent" strokeWidth={2} />
         </Link>
       ) : null}
     </p>

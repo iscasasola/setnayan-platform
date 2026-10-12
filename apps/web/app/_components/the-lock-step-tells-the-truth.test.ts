@@ -150,11 +150,12 @@ test('the supplier is told the outcome of a booking ask', () => {
   const page = read(join(APP, 'vendor-dashboard', 'page.tsx'));
   assert.match(page, /lockAgreeNotice\(/, '/vendor-dashboard does not read lock_agree');
   assert.match(page, /lockDeclineNotice\(/, '/vendor-dashboard does not read lock_decline');
-  // The sentence is said as a toast since the supplier redesign (S-PR1): the
-  // page hands the notice's own words to `outcome`, draws `outcome` first on the
-  // page, and the toast prints exactly the text it is given.
-  assert.match(page, /const outcome = lockAnswer\s*\? \{ text: lockAnswer\.text, refused: lockAnswer\.tone === 'refused' \}/, 'the notice is computed but never handed to what the page draws');
-  assert.match(page, /\{outcome \? <SupplierToast text=\{outcome\.text\} refused=\{outcome\.refused\} \/> : null\}/, 'the notice is computed but never rendered');
+  // The sentence is said as a toast since the supplier redesign (S-PR1) — the
+  // shared TOP toast since 2026-10-12 — and in full as the page's status line:
+  // the page hands the notice's own words to `outcome`, draws `outcome` first on
+  // the page, and the status line prints exactly the text it is given.
+  assert.match(page, /\? \{ text: lockAnswer\.text, tone: lockAnswer\.tone === 'ok' \? 'ok' : lockAnswer\.tone === 'noop' \? 'note' : 'bad' \}/, 'the notice is computed but never handed to what the page draws');
+  assert.match(page, /\{outcome \? <SupplierToast text=\{outcome\.text\} tone=\{outcome\.tone\} /, 'the notice is computed but never rendered');
   const toast = read(join(APP, 'vendor-dashboard', '_components', 'supplier-toast.tsx'));
-  assert.match(toast, /<div role="status" data-supplier-toast=\{refused \? 'refused' : 'said'\} className=\{PILL\}>\s*\{text\}\s*<\/div>/, 'the toast does not print the words it is given');
+  assert.match(toast, /<p\s+role="status"\s+data-supplier-outcome=\{tone\}[\s\S]*?<span>\{text\}<\/span>\s*<\/p>/, 'the status line does not print the words it is given');
 });

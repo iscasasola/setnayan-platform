@@ -12,6 +12,7 @@ import { attachRsvpDrag, type RsvpDragSubject } from './rsvp-canvas-drag';
 import { RsvpAddLineSheet, RsvpGroupPickBar, RsvpPictureSheet, askRsvpListEdit } from './rsvp-line-list';
 import { useMaker } from './maker-context';
 import { RSVP_STAGE_TRUTH_EVENT } from '@/lib/rsvp-stage-truth';
+import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 
 /**
  * ＋ THE TOOLBAR'S HALF OF THE RSVP STAGE'S LIST (owner's ruling 2026-10-09; approved prototype
@@ -235,14 +236,15 @@ export function useRsvpListStage({
   }, [on, onPick, onSay]);
 
   /* ↺ A LINE THE COUPLE ADDED (or a group), picked, that an Undo · Restore · Reset took away is let go — the stage
-     says when its frames hold the truth again (`RSVP_STAGE_TRUTH_EVENT`). A line of the page's own is never gone. */
-  const letGo = useRef(onPick);
-  letGo.current = onPick;
+     says when its frames hold the truth again (`RSVP_STAGE_TRUTH_EVENT`). A line of the page's own is never gone.
+     🃏 Its SCREEN'S CARD is picked in its place (the Maker walk, 2026-10-12, F5: letting go of everything left Edit lit
+     with nothing under it) — the toolbar's own "Open the card" path (`RSVP_OPEN_CARD_EVENT`: the line goes, the card
+     it sat on stays the picked part), so the card's rows show, as when the stage opens. */
   useEffect(() => {
     if (!on || !listPart || !line || !(rsvpAddedId(line) || rsvpGroupId(line))) return;
     const onTruth = () => {
       const doc = frameDoc(frameSel);
-      if (doc && !nodeOf(doc, listPart, line)) letGo.current(null);
+      if (doc && !nodeOf(doc, listPart, line)) window.dispatchEvent(new CustomEvent(RSVP_OPEN_CARD_EVENT));
     };
     window.addEventListener(RSVP_STAGE_TRUTH_EVENT, onTruth);
     return () => window.removeEventListener(RSVP_STAGE_TRUTH_EVENT, onTruth);

@@ -40,7 +40,9 @@ test('↺ · Restore · Reset: the bar stays busy until the page shows it — a 
   const bar = read('app', 'dashboard', '[eventId]', 'website', '_components', 'hub-draft-bar.tsx');
   const hook = bar.slice(bar.indexOf('function useDraftIntent('), bar.indexOf('function ResultLine('));
   /* Watched FROM THE PRESS (the frame on show is read before anything is sent), and busy at once. */
-  assert.match(hook, /const watch = intent && DRAFT_INTENT_RELOADS\.includes\(intent\) \? canvasSettleWatch\(\) : null;\s*if \(watch\) \{\s*setSettling\(intent\);\s*void watch\.done\.then\(\(\) => setSettling\(null\)\);\s*\}\s*start\(async/);
+  /* (2026-10-12, `rd/maker-moves-instant`: a ↺ the drag DREW at the press — `takeDrawnUndo` — waits on the page it keeps
+     instead of a new frame; `lib/a-scene-move-is-drawn-at-once.test.ts`. Every other ↺ · Restore · Reset as before.) */
+  assert.match(hook, /const drawn = intent === 'undo' \? takeDrawnUndo\(\) : null;\s*const watch = drawn \? \{ done: drawn\.settle, cancel: \(\) => \{\} \} : intent && DRAFT_INTENT_RELOADS\.includes\(intent\) \? canvasSettleWatch\(\) : null;\s*if \(watch\) \{\s*setSettling\(intent\);\s*void watch\.done\.then\(\(\) => setSettling\(null\)\);\s*\}\s*start\(async/);
   /* Busy is the action OR the wait for the page: every control of the bar reads the one `pending`. */
   assert.match(hook, /return \{ pending: pending \|\| settling !== null, working: settling, result, run \};/);
   /* A refusal brings no render: the bar is given back at once. */
@@ -85,13 +87,20 @@ test('a move · a remove · ＋: one press at a time, and nothing is said before
   const drop = sheet.slice(sheet.indexOf('const dropOn = '), sheet.indexOf('const neighbour = '));
   assert.doesNotMatch(drop, /setToast\(/, 'a move is announced at the press again');
   assert.match(drop, /o\.move\(m\.id, delta\);\s*return landed\('move'\);/);
+  /* (2026-10-12: …and a move the page already shows waits for its save and the page's own redraw — `heldRedrawWatch`.) */
+  assert.match(drop, /const done = heldRedrawWatch\(\);\s*o\.move\(m\.id, delta, true\);\s*return landed\('move', done\);/);
   assert.match(sheet, /const landed = \(what: PartWorking, done: Promise<CanvasSettle> = whenCanvasShowsIt\(\)\): Promise<CanvasSettle> => \{\s*setWorking\(what\);\s*return done\.then\(\(how\) => \{\s*setWorking\(null\);\s*return how;/);
   /* No second lift while it works (`sceneLiftAllowed` — executed in `lib/a-scene-is-dragged-on-the-page.test.ts`). */
   assert.match(sheet, /working: working !== null,/);
   const add = sheet.slice(sheet.indexOf('const add = '), sheet.indexOf('const takeOff = '));
   /* ＋: said after the page shows it — and the part is brought onto the screen first, so "added" is never said over a
      screen that looks the same (it is added above or below the picked part, which can be just past the edge). */
-  assert.match(add, /o\.add\(folded\.widgetId, delta\);\s*const onHere = shownPageOf\(stage\);\s*settle\('add', `\$\{makerPartLabelOn\(stage, key\)\} added \$\{mv\.kind === 'scene' \? where : onHere \? `on \$\{onHere\.label\}` : 'to this page'\}`, \(\) => bringOntoScreen\(c\)\);/);
+  /* (2026-10-12, `rd/maker-moves-instant`: beside a picked scene, ＋ holds the part's place on the page at once and is
+     saved held; its words still wait for the page to show the part — the save AND the page's own redraw. Elsewhere
+     (off a fixed part) it is the reload, as before.) */
+  assert.match(add, /const words = `\$\{makerPartLabelOn\(stage, key\)\} added \$\{mv\.kind === 'scene' \? where : onHere \? `on \$\{onHere\.label\}` : 'to this page'\}`;/);
+  assert.match(add, /const done = heldRedrawWatch\(\);[\s\S]*?o\.add\(folded\.widgetId, delta, true\);[\s\S]*?void landed\('add', done\)\.then\(\(how\) => \{\s*if \(how !== 'shown'\) return;\s*bringOntoScreen\(c\);\s*setToast\(words\);/);
+  assert.match(add, /o\.add\(folded\.widgetId, delta\);\s*settle\('add', words, \(\) => bringOntoScreen\(c\)\);/);
   const bring = sheet.slice(sheet.indexOf('function bringOntoScreen('));
   assert.match(bring.slice(0, bring.indexOf('\n}\n')), /querySelector\(`\[data-maker-section="\$\{canvasKey\}"\]`\)[\s\S]*?\.scrollIntoView\(/);
   /* `settle`: busy from the press; words (and the bringing) only for 'shown'. */

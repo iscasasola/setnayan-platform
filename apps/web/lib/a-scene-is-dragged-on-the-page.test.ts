@@ -139,7 +139,8 @@ test('(1) the numbers and the words are the approved prototype’s — exactly',
     [350, 8, 56, 6, 280, 'cubic-bezier(.4,0,.2,1)', 200, 26, 14, 3200],
   );
   assert.deepEqual(
-    { ...SCENE_DRAG_WORDS, removed: SCENE_DRAG_WORDS.removed('Message'), back: SCENE_DRAG_WORDS.back('Message'), tag: SCENE_DRAG_WORDS.tag('Message') },
+    /* (2026-10-12, `rd/maker-moves-instant`: ↺ of a part ＋ added says "<Part> taken off" — `addUndone`.) */
+    { ...SCENE_DRAG_WORDS, removed: SCENE_DRAG_WORDS.removed('Message'), back: SCENE_DRAG_WORDS.back('Message'), tag: SCENE_DRAG_WORDS.tag('Message'), addUndone: SCENE_DRAG_WORDS.addUndone('Message') },
     {
       bin: 'Drop here to remove',
       saving: 'Saving…',
@@ -148,6 +149,7 @@ test('(1) the numbers and the words are the approved prototype’s — exactly',
       undo: 'Undo',
       back: 'Message is back',
       moveUndone: 'Move undone',
+      addUndone: 'Message taken off',
       up: 'Move up',
       down: 'Move down',
       remove: 'Remove',
@@ -162,7 +164,7 @@ test('(1) the numbers and the words are the approved prototype’s — exactly',
   assert.ok(jsx.length > 1500, 'anti-vacuity: the Maker’s side of the drag was not found');
   assert.deepEqual([...jsx.matchAll(/>\s*([A-Z][^<>{}\n]{3,})\s*</g)].map((m) => m[1]), [], 'a line of its own is drawn beside the prototype’s words');
   assert.deepEqual([...jsx.matchAll(/SCENE_DRAG_WORDS\.(\w+)/g)].map((m) => m[1]).sort(), ['bin', 'removed', 'saving', 'undo']);
-  assert.deepEqual([...side.slice(0, side.indexOf('const node =')).matchAll(/SCENE_DRAG_WORDS\.(\w+)/g)].map((m) => m[1]).sort(), ['back', 'failed', 'moveUndone']);
+  assert.deepEqual([...side.slice(0, side.indexOf('const node =')).matchAll(/SCENE_DRAG_WORDS\.(\w+)/g)].map((m) => m[1]).sort(), ['addUndone', 'back', 'failed', 'moveUndone']);
   /* The hold is not a number typed twice: the canvas's hands import theirs. */
   const hands = src(`${L}/scene-canvas-drag.ts`);
   assert.match(hands, /win\.setTimeout\(\(\) => lift\([^)]*\), SCENE_HOLD_MS\)/);
@@ -384,10 +386,12 @@ test('(4) the hook writes a drop through the shipped reducers only — and the d
   const sheet = src(`${L}/add-part-sheet.tsx`);
   const drop = sheet.slice(sheet.indexOf('const dropOn = '), sheet.indexOf('const neighbour = '));
   assert.ok(drop.length > 400, 'anti-vacuity: the landing was not found');
-  assert.match(drop, /const delta = makerDropDelta\(\{ fullOrder: o\.fullOrder, shown, afterLastShown: o\.afterLastShown, id: m\.id, target: t\.id, where \}\);\s*if \(delta === 0\) return null;\s*o\.move\(m\.id, delta\);\s*return landed\('move'\);/);
+  assert.match(drop, /const delta = makerDropDelta\(\{ fullOrder: o\.fullOrder, shown, afterLastShown: o\.afterLastShown, id: m\.id, target: t\.id, where \}\);\s*if \(delta === 0\) return null;\s*if \(!drawn\) \{\s*o\.move\(m\.id, delta\);\s*return landed\('move'\);\s*\}\s*const done = heldRedrawWatch\(\);\s*o\.move\(m\.id, delta, true\);\s*return landed\('move', done\);/);
+  /* (2026-10-12, `rd/maker-moves-instant`: a move the page already shows is `drawn` — held, and the page redraws itself
+     in place; `lib/a-scene-move-is-drawn-at-once.test.ts`. Still ONE save through the work area's own move.) */
   /* The work area's `move` is `movedOrder` → `stageOrderPatch` → ONE `makerSave` (what the test above executes). */
   const shell = src('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
-  const move = shell.slice(shell.indexOf('const move = (id: string, delta: number)'), shell.indexOf('const addHere = '));
+  const move = shell.slice(shell.indexOf('const move = (id: string, delta: number'), shell.indexOf('const addHere = '));
   assert.match(move, /const order = movedOrder\(fullOrder, id, delta\);\s*const patch = order && elementEditing \? stageOrderPatch\(order, \(x\) => sceneById\.get\(x\)\?\.type, stage\) : null;/);
   assert.equal((move.match(/makerSave\(/g) ?? []).length, 1, 'a move is more than one save');
   /* The drag's two files reach the draft through nothing but what they are handed. */
@@ -500,7 +504,8 @@ test('(7) a refused save slides the scene back BEFORE the line speaks; nothing i
   /* The hands: the dropped order is held by slides until the page is redrawn; `revert` takes them off. */
   const hands = src(`${L}/scene-canvas-drag.ts`);
   assert.match(hands, /unlook\(h, true\);\s*slid = true;/);
-  assert.match(hands, /const revert = \(\) => \{\s*if \(!slid\) return;\s*slid = false;\s*back\(h, true\);/);
+  /* (2026-10-12: …and `unslide` — the redraw's commit takes them off at once; the slide-back has nothing left after it.) */
+  assert.match(hands, /const revert = \(\) => \{\s*if \(!slid\) return;\s*slid = false;\s*unslide = null;\s*back\(h, true\);/);
   /* Nothing is moved in the page's own tree — the scene is slid, never re-parented (the page is React's). */
   assert.doesNotMatch(hands.replace(/doc\.body\.appendChild\((?:gap|tag)\)|doc\.head\.appendChild\(style\)/g, ''), /appendChild|insertBefore|\.before\(|\.after\(|replaceWith|\.append\(/, 'the drag re-parents part of the page');
 });
@@ -524,7 +529,9 @@ test('(7) a scene of the couple’s own is never taken silently; ↺ is the Make
   assert.match(raw('app/dashboard/[eventId]/website/_components/hub-draft-button.tsx'), /aria-label=\{said\}[\s\S]{0,200}?data-bar-item=\{phone \? label : undefined\}/, 'anti-vacuity: the button no longer names itself');
   /* What it says of an undo is only said of the step made HERE (no other save since), once the page shows it. */
   assert.match(side, /if \(step\.saves !== makerSavesStarted\(\)\) return;/);
-  assert.match(side, /void whenCanvasShowsIt\(\)\.then\(\(how\) => \{\s*if \(how !== 'shown'\) return;\s*say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);
+  /* (2026-10-12, `rd/maker-moves-instant`: a step this page drew is taken back drawn — `drawn.settle`; any other ↺ still
+     waits for the page it reloads.) */
+  assert.match(side, /void \(drawn \? drawn\.settle : whenCanvasShowsIt\(\)\)\.then\(\(how\) => \{\s*if \(how !== 'shown'\) return;\s*say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : step\.type === 'add' \? SCENE_DRAG_WORDS\.addUndone\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);
   /* A HELD SCENE IS PICKED AS A TAP PICKS — the page's own tap, so the Maker hears exactly what a finger's tap tells
      it and moves the page for no pick the page itself made; and it is picked WHERE IT IS (`stageStill`): the page is
      never brought to the picked part's middle under the finger that holds it, nor after the drop. */
@@ -603,7 +610,7 @@ test('(7) the line’s Undo is never mistaken for the Maker’s own ↺ — one 
   assert.doesNotMatch(sheet, /if \(gone\) onGoneRef\.current\?\.\(\);/, 'a part is let go of on the word of a list from before it was picked');
   /* Pressed, the Maker's ↺ is heard ONCE by the listener that says what came back — for the step made here only. */
   assert.match(side, /if \(!button \|\| button\.disabled \|\| !step\) return;\s*last\.current = null;/);
-  assert.match(side, /say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);
+  assert.match(side, /say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : step\.type === 'add' \? SCENE_DRAG_WORDS\.addUndone\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);
 });
 
 test('(7) the Reveal, held, says its own line — it is read before any marked part, and never lifts', () => {

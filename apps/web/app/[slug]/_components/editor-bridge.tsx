@@ -491,7 +491,7 @@ const undoLaidPreviews = () => {
   undoSceneBgPreviews(document);
   /* ✋ …and whatever the Maker laid ON the page ahead of a save (a scene slid to where it was dropped, a place held for
      a part on its way): told NOW, synchronously, so it is taken off in the very commit that draws the server's order —
-     never one frame of the order twice, never React finding a node it did not put there (`scene-canvas-drag.ts`). */
+     never one frame of the order twice, never React finding a node it did not put there (the Maker's drag engine). */
   document.querySelector('[data-maker-scene-placeholder]')?.remove();
   /* A scene ＋ brought back that this page had taken off (`sceneShow`): the render about to commit draws it. */
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(`[${SHOW_ON_REDRAW_ATTR}]`))) {
@@ -522,7 +522,7 @@ export function EditorBridge() {
   useEffect(() => {
     if (wasRedrawing.current && !redrawing) {
       groundPreview.current?.redrawDone();
-      /* 🔁 The page now draws what the server holds — a held move / ＋ waits on this (`scene-drag.tsx` `heldRedrawWatch`). */
+      /* 🔁 The page now draws what the server holds — a held move / ＋ waits on this (the Maker's held-redraw watch). */
       window.parent?.postMessage({ source: 'setnayan-site', t: 'redrawn' }, window.location.origin);
     }
     wasRedrawing.current = redrawing;

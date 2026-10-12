@@ -66,5 +66,5 @@ export function makerSectionInView(doc: Document, line = 0): string | null {
 
 /** ✋ Fired on the canvas's own document the moment an in-place redraw is about to commit (the bridge's
  *  `BeforeRedrawCommits`) — what the Maker laid on the page ahead of a save is taken off right then
- *  (`scene-canvas-drag.ts`). Here, not in the bridge, because the Maker never imports the bridge. */
+ *  (the Maker's drag engine). Here, not in the bridge, because the Maker never imports the bridge. */
 export const CANVAS_REDRAW_COMMITS_EVENT = 'setnayan:canvas-redraw-commits';

@@ -191,7 +191,7 @@ test('2 · the page: whatever is stored, a guest’s card has its Yes and its No
     }
     /* 🎨 The look's CSS: every selector is one the page can be asked for, every value from a fixed list or a checked colour. */
     for (const rule of rsvpLookRules(look, ['rsvp'], board)) {
-      assert.match(rule.selector, /^(?:\[data-rsvp-line="(?:[a-z]+|a:[a-z0-9]{1,4})"\]\[data-rsvp-line\]|\[data-rsvp-group="[a-z0-9]{1,4}"\]|div:has\(>\[data-door-header\]\))$/, `seed ${seed}: ${rule.selector}`);
+      assert.match(rule.selector, /^(?:\[data-rsvp-line="(yes|no)"\]\[data-rsvp-line\],\[data-rsvp-wears="\1"\]|\[data-rsvp-line="(?:[a-z]+|a:[a-z0-9]{1,4})"\]\[data-rsvp-line\]|\[data-rsvp-group="[a-z0-9]{1,4}"\]|div:has\(>\[data-door-header\]\))$/, `seed ${seed}: ${rule.selector}`);
       assert.doesNotMatch(rule.rules, /javascript|url\(|display:none|[{}<>]/, `seed ${seed}: ${rule.rules}`);
     }
     assert.doesNotMatch(rsvpLookCss(look, ['rsvp'], board), /javascript|url\(|display:none|</);

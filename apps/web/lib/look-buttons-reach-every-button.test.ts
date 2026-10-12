@@ -146,8 +146,13 @@ test('(2) a Buttons choice reaches the rendered Reply button’s CSS', async () 
   // (`ReplySubmit` IS the shared `SubmitButton`, told when the reply card's own form is sending — reply-form.tsx.)
   assert.match(rsvp, /<ReplySubmit className="button-primary[^"]*" pendingLabel="Sending…">\s*Send my reply/, 'the RSVP’s send button is not a shared button');
   assert.match(raw('app/[slug]/_components/reply-form.tsx'), /return <SubmitButton \{\.\.\.props\} pending=\{sending \?\? undefined\} \/>;/, 'the reply card’s button is no longer the shared button');
-  assert.match(rsvp, /data-rsvp-answer=""\s*className="flex min-h-12/, 'the RSVP answers carry no hook');
-  assert.match(raw('app/[slug]/_components/rsvp-styles.tsx'), /data-rsvp-answer=\{stamp \? undefined : ''\}/);
+  assert.match(rsvp, /data-rsvp-answer=""\s*className=\{RSVP_ANSWER_CLASS\['reply-card'\]\}/, 'the RSVP answers carry no hook');
+  // …and so does every later two-choice question on the card (owner's live walk 2026-10-12: the tagging question's
+  // answers carried none, so Look › Buttons never reached screen 2).
+  assert.match(rsvp, /data-face-tagging-choice[\s\S]*?\{\.\.\.rsvpAnswerHook\(answerStyle\)\}[\s\S]*?className=\{RSVP_ANSWER_CLASS\[answerStyle\]\}/, 'the tagging question’s answers carry no hook');
+  const styles = raw('app/[slug]/_components/rsvp-styles.tsx');
+  assert.match(styles, /return style === 'ticket' \? \{\} : \{ 'data-rsvp-answer': '' \};/, 'a pill answer lost its hook (a stamp keeps none)');
+  assert.match(styles, /\{\.\.\.rsvpAnswerHook\(sceneStyle\)\}/, 'the styles’ answers no longer ask for the hook');
 });
 
 /* ── (3) legibility, swept ────────────────────────────────────────────────── */

@@ -1,6 +1,6 @@
 {
- "_about": "RECORDED AGAIN 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
- "widgetSha256": "94948634e74e9838b83973d1d34fae525b2f5a1d49caefaae81ecee728636a3a",
+ "_about": "RECORDED AGAIN 2026-10-13 (rd/reply-steps-one-look: the tagging question’s answers wear the card’s own answer — the style’s one class, the Look › Buttons hook and, on the reply card, the couple’s Yes / No look — meant for every guest asked it; only the three “the tagging question asked” cases move). Before that 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
+ "widgetSha256": "d850b7123056f6eed3b233d6b583853ebcf2227910bec2378c36fb6ab135ddb3",
  "cases": {
   "reply-card · celebratory · the Event Hub sheet · one page · a guest": {
    "sha256": "6f3df199ebaa039ea0680e3c3fcf4aea140c1dee56e3145f4803645df122317a",
@@ -231,8 +231,8 @@
    "bytes": 3976
   },
   "reply-card · the tagging question asked": {
-   "sha256": "273ba9add80e3697d5c6471143cec3f48e23894f77fb4ab0a1889d7aed369180",
-   "bytes": 10776
+   "sha256": "8f3ab48a6db692abd31ea8c9356499babdcd4d5e9fdff2c1481dd6b8219224bf",
+   "bytes": 10934
   },
   "reply-card · a flash, a host pitch, no terms": {
    "sha256": "3b495f7d8d74ed6c3241e702ddc072fff36bcca87e8e7bac44e62285c3833689",
@@ -275,8 +275,8 @@
    "bytes": 3505
   },
   "question · the tagging question asked": {
-   "sha256": "e0910c643052fefad71c640700200604d49416270acdf9cf3e2661a862f5db0f",
-   "bytes": 10305
+   "sha256": "a62e485d217eaeadd11010dd4c1c1bc2a7df4d7b9bda29e2e429bf4844c85f74",
+   "bytes": 10400
   },
   "question · a flash, a host pitch, no terms": {
    "sha256": "da707e08e180cb1cc532d90422ba4cb0f3b73f2cec4a9aa62292c9fe63852d0a",
@@ -319,8 +319,8 @@
    "bytes": 3829
   },
   "ticket · the tagging question asked": {
-   "sha256": "580030bc7dd5fed71d4177b92ad630fd1bd5a612c80be4cf40d72e03f0a7c8d7",
-   "bytes": 10629
+   "sha256": "b838b70d0afa7a127aa7301d9da630b7f759faa6e25ddd1baf1019028f729c94",
+   "bytes": 11021
   },
   "ticket · a flash, a host pitch, no terms": {
    "sha256": "3b24fd6fd627d55e65f69479f5e0e19902bc1812d86e3ac2333556902f7f69e8",

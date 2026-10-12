@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
 
 import { TaxonomySearch, type TaxonomyOption } from './taxonomy-search';
 
@@ -32,6 +33,20 @@ import { TaxonomySearch, type TaxonomyOption } from './taxonomy-search';
  * consistent with the homepage + /features + /vendors surfaces. The
  * `m-surface` wrapper swaps the font family to the marketing sans stack.
  */
+
+/**
+ * The two filter selects on the /explore landing. Native on purpose (a GET form
+ * that works without JavaScript — see the note at the form), but Safari draws a
+ * native `<select>` at its own size and ignores padding: the quality sweep
+ * (2026-10-13, item 5) measured both at 26px tall in WebKit on 60 pages, under
+ * the 44px floor. `appearance-none` hands the box back to CSS, so it is 44px in
+ * every engine; the platform's arrow goes with it, so a chevron is drawn beside
+ * it. Tapping still opens the platform picker.
+ */
+const HERO_SELECT =
+  'min-h-[44px] w-full appearance-none rounded-full border border-[color:var(--m-line)] bg-[color:var(--m-paper)] py-2 pl-4 pr-10 text-[13px] font-medium text-[color:var(--m-slate)]';
+const HERO_SELECT_CHEVRON =
+  'pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--m-slate)]';
 
 export type ExploreChip = {
   /** Visible chip label. */
@@ -175,12 +190,12 @@ export function ExploreSearchHero({
               <input type="hidden" name="folder" value={scopedFolder} />
             ) : null}
             {chips.length > 0 ? (
-              <label className="flex-1">
+              <label className="relative flex-1">
                 <span className="sr-only">Filter by category</span>
                 <select
                   name="category"
                   defaultValue=""
-                  className="w-full rounded-full border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-4 py-2 text-[13px] font-medium text-[color:var(--m-slate)]"
+                  className={HERO_SELECT}
                 >
                   <option value="">Any category</option>
                   {chips.map((chip) => (
@@ -189,15 +204,16 @@ export function ExploreSearchHero({
                     </option>
                   ))}
                 </select>
+                <ChevronDown aria-hidden className={HERO_SELECT_CHEVRON} />
               </label>
             ) : null}
             {occasionChips.length > 0 ? (
-              <label className="flex-1">
+              <label className="relative flex-1">
                 <span className="sr-only">Filter by occasion</span>
                 <select
                   name="event_type"
                   defaultValue=""
-                  className="w-full rounded-full border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-4 py-2 text-[13px] font-medium text-[color:var(--m-slate)]"
+                  className={HERO_SELECT}
                 >
                   <option value="">Any occasion</option>
                   {occasionChips.map((chip) => (
@@ -206,6 +222,7 @@ export function ExploreSearchHero({
                     </option>
                   ))}
                 </select>
+                <ChevronDown aria-hidden className={HERO_SELECT_CHEVRON} />
               </label>
             ) : null}
             <button

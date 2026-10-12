@@ -173,14 +173,15 @@ function enclosingFunctions(src: string, needle: RegExp): string[] {
 test('the mint is called from EXACTLY the known handshake doors, each inside its own action', () => {
   // SABOTAGE: delete the mint call in vendorAgreeToLock → RED (the yes makes no
   // fee); add one to any other action → RED (a surprise trigger).
-  const MINT_CALL = /mintBookingFeeForBooking\s*\(/;
+  // A CALL, not the declaration (`export async function mintBookingFeeForBooking(`).
+  const MINT_CALL = /(?<!function\s)mintBookingFeeForBooking\s*\(/;
   const found: Record<string, string[]> = {};
   for (const f of ALL) {
     const rel = relative(WEB, f);
     if (/\.test\.tsx?$/.test(rel)) continue;
     const src = code(readFileSync(f, 'utf8'));
     if (!MINT_CALL.test(src)) continue;
-    const fns = enclosingFunctions(src, MINT_CALL).filter((fn) => fn !== CANONICAL_FUNCTION);
+    const fns = enclosingFunctions(src, MINT_CALL);
     if (fns.length > 0) found[rel] = fns;
   }
   assert.deepEqual(

@@ -81,7 +81,28 @@ type FeeCase = {
 };
 
 const FEE_CASES: readonly FeeCase[] = [
-  { status: null, booked: true, expect: 'unlocked', why: 'no charge is nothing owed' },
+  {
+    status: null,
+    booked: true,
+    expect: 'booked_fee_due',
+    // ⚖ 2026-10-12 (owner #1; audit C3, item 12): the fee is made at the yes, so
+    // a BOOKED shop with no charge has had no handshake — "no handshake, no
+    // access". This row read 'unlocked' ("no charge is nothing owed") until then.
+    why: 'booked with no charge = no handshake made the fee',
+  },
+  { status: 'waived_promo', booked: true, expect: 'unlocked', why: 'a free-fee window settled it' },
+  {
+    status: 'cancelled_unbilled',
+    booked: true,
+    expect: 'booked_fee_due',
+    why: 'a former booking’s voided fee is no charge for this one (owner #9)',
+  },
+  {
+    status: 'cancelled_unbilled',
+    booked: false,
+    expect: 'quoting',
+    why: 'a voided fee and no booking — still only quoting',
+  },
   { status: 'paid', booked: true, expect: 'unlocked', why: 'settled' },
   {
     status: 'waived_free5',
@@ -330,6 +351,9 @@ test('the SQL gate and the TypeScript rule return the SAME stage for every case'
       booked: c.booked,
       charge: tsCharge(c.status),
       enforced: true,
+      // SQL cannot read the minting flag; it assumes minting is on whenever the
+      // switch is. The TS twin is asked the same question.
+      feeMinting: true,
     }).stage;
     assert.equal(ts, c.expect, `TypeScript rule disagrees with the table: ${label}`);
 

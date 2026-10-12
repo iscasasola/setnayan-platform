@@ -246,8 +246,19 @@ test('verdict: an UNREADABLE money row is never explained as "archived or orphan
 });
 
 test('the acknowledge effects actually hand the resolver a reason sink', () => {
+  // 2026-10-12: the resolver moved into the ONE mint (`booking-fee-mint.server.ts`,
+  // owner #1 — the fee is made at the yes), which every door calls. The sink
+  // must be passed THERE, and the acknowledge effects must carry it back out,
+  // or a refused anchor read reverts to the confident "archived booking" cause.
   const HERE = dirname(fileURLToPath(import.meta.url));
-  const src = stripComments(readFileSync(join(HERE, 'deposit-acknowledged-effects.server.ts'), 'utf8'));
-  const calls = src.match(/resolveFeeAnchorRowId\(admin,\s*eventVendorId,\s*\(why\)\s*=>\s*\{\s*outcome\.anchorUnreadable\s*=\s*why;/g) ?? [];
+  const mint = stripComments(readFileSync(join(HERE, 'booking-fee-mint.server.ts'), 'utf8'));
+  const calls =
+    mint.match(/resolveFeeAnchorRowId\(admin,\s*args\.eventVendorId,\s*\(why\)\s*=>\s*\{\s*outcome\.anchorUnreadable\s*=\s*why;/g) ?? [];
   assert.equal(calls.length, 1, `expected the one resolver call to pass the sink; found ${calls.length}`);
+  const effects = stripComments(readFileSync(join(HERE, 'deposit-acknowledged-effects.server.ts'), 'utf8'));
+  assert.match(
+    effects,
+    /outcome\.anchorUnreadable\s*=\s*mint\.anchorUnreadable;/,
+    'the acknowledge effects drop the mint\'s unreadable reason on the floor',
+  );
 });

@@ -363,7 +363,10 @@ export function AddYourOwnWalk({
   if (!portalHost) return null;
   return createPortal(
     <Sheet open onClose={finish} labelledById="add-own-walk-title" rise>
-      <div ref={rowsRef} className="px-5 pb-2 pt-5" data-add-own-walk="" data-step={step}>
+      {/* A column as tall as the sheet, so the foot sits at the BOTTOM of a
+          desktop drawer too (it floated under short steps — walked 2026-10-12). */}
+      <div className="flex min-h-full flex-col">
+      <div ref={rowsRef} className="flex-1 px-5 pb-2 pt-5" data-add-own-walk="" data-step={step}>
         <h2 id="add-own-walk-title" className="pr-10 text-[20px] font-semibold tracking-[-0.01em] text-ink">
           {ADD_OWN_TITLE}
         </h2>
@@ -582,6 +585,7 @@ export function AddYourOwnWalk({
         {step === 4 ? (
           <ActionButton tone="brand" main icon={Check} label="Done" onClick={finish} className="flex-1" />
         ) : null}
+      </div>
       </div>
     </Sheet>,
     portalHost,

@@ -107,8 +107,10 @@ export function AddressPinField({
           row") that posts under `address`; Find is the one ActionButton. The map
           itself has no template yet (§ 9: "the map pin field" has no drawing) —
           it stays the shipped BranchPinMap. */}
-      <div className="flex items-center gap-1.5" data-address-row={id}>
-        <div className="min-w-0 flex-1">
+      {/* The row keeps its whole width (its name was cut to "Addres" at 375 px
+          with Find beside it — walked 2026-10-12); Find sits under it, right. */}
+      <div className="flex flex-col items-end gap-1.5" data-address-row={id}>
+        <div className="w-full min-w-0">
           <FormRows width="wide" data={`address-${id}`}>
             <TypedRow
               name={required ? 'Exact address' : 'Address'}

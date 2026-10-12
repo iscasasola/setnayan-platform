@@ -3305,7 +3305,12 @@ html:has(.home-reskin-ov) [data-cookie-consent] {
 }
 .home-reskin-ov .sn-signin-terra .hr-si-label,
 .home-reskin-ov .sn-signin-terra .hr-si-or span {
-  font-size: 10.5px;
+  /* 12px and #6B6763 (5.0:1 on the card's #F2F2F0), not 10.5px --hr-grey-2
+     #A8A4A0 (2.2:1) — the quality sweep (2026-10-13, item 7) measured the
+     field labels of /login and /signup ("Email", "Password") as the faintest
+     words on the two pages everyone must read. */
+  font-size: 12px;
+  color: #6b6763;
 }
 .home-reskin-ov .sn-signin-terra .hr-si-row,
 .home-reskin-ov .sn-signin-terra .hr-si-remember,
@@ -3315,7 +3320,8 @@ html:has(.home-reskin-ov) [data-cookie-consent] {
   line-height: 1.45;
 }
 .home-reskin-ov .sn-signin-terra .hr-si-hint {
-  color: var(--hr-grey);
+  /* Same step as the labels above: --hr-grey #8C8884 was 3.1:1 on the card. */
+  color: #6b6763;
 }
 .home-reskin-ov .sn-signin-terra .hr-si-banner {
   font-size: 14px;

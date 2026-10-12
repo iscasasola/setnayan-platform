@@ -95,6 +95,9 @@ test('a booked supplier with a dated payment owed: the next step names it, and P
   assert.equal(keys(r.verbs), 'pay record chat workspace cancel');
   assert.equal(r.verbs[0]?.main, true);
   assert.equal(r.verbs.filter((v) => v.main).length, 1, 'more than one main verb');
+  // Every MAIN button is terracotta (owner 2026-10-12, look call 1); the others keep their table colour.
+  assert.equal(r.verbs[0]?.tone, 'brand', 'the main verb is not terracotta');
+  assert.equal(r.verbs.find((v) => v.key === 'chat')?.tone, 'info');
   assert.deepEqual(r.feeds, ['Event Hub · venue & city', 'Seat plan · room size', 'Schedule']);
   assert.equal(view.unpriced, 0);
 });
@@ -148,6 +151,10 @@ test('everything agreed is paid: "Paid in full" with the ledger’s own figure, 
   assert.deepEqual(r.next, { kind: 'paid_in_full', paidPhp: 26_499 });
   assert.equal(keys(r.verbs), 'payments workspace dispute');
   assert.equal(r.verbs[0]?.quiet, true);
+  // Setnayan pays no money back (owner 2026-10-08): the way out never promises a refund.
+  const out = r.verbs.find((v) => v.key === 'dispute');
+  assert.equal(out?.label, 'Dispute');
+  assert.doesNotMatch(out?.label ?? '', /refund/i);
 });
 
 test('a payment on the ledger closes the hard delete even when the booking row has no deposit stamped', () => {

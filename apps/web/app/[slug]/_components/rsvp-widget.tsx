@@ -19,7 +19,7 @@ import {
 // Shared with the keepsake ticket so the reply card and the keepsake always
 // print the SAME Nº for a given guest.
 import { stubNo } from './pahina-keepsake';
-import { TERMS_FIELD } from '@/lib/terms-agreement';
+import { TermsTick } from './terms-tick';
 import type { RsvpAnswer } from '@/lib/guest-one-path';
 import { RsvpOneAtATime } from './rsvp-one-at-a-time';
 import { ReplyForm, ReplySubmit } from './reply-form';
@@ -27,7 +27,6 @@ import { RsvpOneAtATimeLive } from './rsvp-canvas-bridge';
 import { RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader } from './rsvp-styles';
 import { RSVP_FORM_LINE_ID as FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RsvpLines } from './rsvp-lines';
 import { RSVP_SCREEN_LINES, rsvpLayoutIsGroup, type RsvpLayoutItem } from '@/lib/rsvp-look';
-import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -792,7 +791,7 @@ export function RsvpWidget({
            guest meets a BLANK "8 of 9" (owner, 2026-09-28). Pinned by
            the-rsvp-page-follows-the-maker.test.ts § 9. */
         <div className="space-y-5">
-          <TermsTick />
+          <RsvpTermsTick />
           <ReplySubmit className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
             Send my reply
           </ReplySubmit>
@@ -817,32 +816,16 @@ export function RsvpWidget({
 /**
  * THE TERMS TICK on the RSVP page (owner 2026-09-27) — the `/signup` clickwrap
  * (lib/terms-agreement.ts): one name (`TERMS_FIELD`), never pre-ticked, and
- * required. A guest who later taps "Not now" on Save has still agreed.
+ * required. A guest who later taps "Not now" on Save has still agreed. The line
+ * itself is `terms-tick.tsx` — the Me tab's "Save to my account" shows the same one.
  */
-function TermsTick() {
+function RsvpTermsTick() {
   return (
-    <label htmlFor="rsvp_terms" className="flex min-h-[44px] items-start gap-3 text-sm text-ink/80">
-      <input
-        id="rsvp_terms"
-        name={TERMS_FIELD}
-        type="checkbox"
-        required
-        className="mt-0.5 h-5 w-5 shrink-0 accent-terracotta"
-      />
-      <span>
-        I agree to the{' '}
-        <Link href="/terms" className="-my-3 inline-flex min-h-[44px] min-w-[44px] items-center justify-center font-medium text-link underline underline-offset-2">
-          Terms
-        </Link>{' '}
-        and the{' '}
-        <Link href="/privacy" className="-my-3 inline-flex min-h-[44px] items-center font-medium text-link underline underline-offset-2">
-          Privacy Notice
-        </Link>
-        <span className="mt-0.5 block text-xs font-medium uppercase tracking-[0.14em] text-ink/70">
-          Required
-        </span>
+    <TermsTick id="rsvp_terms">
+      <span className="mt-0.5 block text-xs font-medium uppercase tracking-[0.14em] text-ink/70">
+        Required
       </span>
-    </label>
+    </TermsTick>
   );
 }
 
@@ -975,7 +958,7 @@ function RsvpFocusForm({
           </div>
         ) : null}
         <div data-rsvp-step className="space-y-5">
-          <TermsTick />
+          <RsvpTermsTick />
           <ReplySubmit className="button-primary min-h-[48px] w-full" pendingLabel="Sending…">
             Send
           </ReplySubmit>

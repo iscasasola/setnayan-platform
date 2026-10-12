@@ -18,6 +18,14 @@ import { MARK_MIN, fitFirstScreen, layoutFirstScreen, type FitPlan, type FitSnap
  * page is never held, so it is the scroll; a held page reads it from where the cover is LAID OUT, because a stage that
  * stands still reports where it stands.
  *
+ * 📷 A PHOTO COVER (owner 2026-10-13: the photo moves so the names, the date and "Get inside" are on the stranger's
+ * first screen) has no card: its parts are the children of the box that holds its names, and its photo plate (a
+ * `figure`) is a part too — the first to give way. It has no air or mark the stylesheet can close (`knobs: false`:
+ * nothing is written for them, only the blocks that move), and the box that carries the fit's mark is the one that
+ * holds both the cover and the door (they stand in two different groups of the page) — so it carries a mark of its
+ * own (`data-first-screen-photo`): the card's mark also closes up a first screen's margin, which a photo page has none
+ * of to close.
+ *
  * Writes only what the stylesheet reads (`globals.css`, "THE FIRST SCREEN MAKES ROOM FOR ITS ONE ACTION"): two custom
  * properties and the fit's mark on the first-screen block, and `--fs-shift` + its mark on each block that moves.
  */
@@ -38,7 +46,15 @@ export type FirstScreenFitter = {
   mark: (on: boolean) => void;
 };
 
-export function firstScreenFitter(screen: HTMLElement, cover: HTMLElement, inner: HTMLElement, door: HTMLElement | null, offset: () => number): FirstScreenFitter {
+export function firstScreenFitter(
+  screen: HTMLElement,
+  cover: HTMLElement,
+  inner: HTMLElement,
+  door: HTMLElement | null,
+  offset: () => number,
+  /** 📷 A photo cover: no air or mark to write, and the photo page's own mark. */
+  photo = false,
+): FirstScreenFitter {
   const blocks = (): FitBlock[] => {
     const out: FitBlock[] = [];
     let afterNames = false;
@@ -46,7 +62,8 @@ export function firstScreenFitter(screen: HTMLElement, cover: HTMLElement, inner
     const add = (key: string, el: HTMLElement) => out.push({ key: out.some((b) => b.key === key) ? `${key}-${out.length}` : key, el });
     for (const el of Array.from(inner.children)) {
       if (!(el instanceof HTMLElement) || el.getBoundingClientRect().height === 0) continue;
-      if (el.matches('[data-motion="arrive-mark"]')) add('mark', el);
+      if (el.matches('figure')) add('plate', el);
+      else if (el.matches('[data-motion="arrive-mark"]')) add('mark', el);
       else if (el.matches('h1')) {
         add('names', el);
         afterNames = true;
@@ -55,8 +72,13 @@ export function firstScreenFitter(screen: HTMLElement, cover: HTMLElement, inner
         afterDate = true;
       } else add(!afterNames ? 'eyebrow' : !afterDate ? 'line' : 'time', el);
     }
-    const link = cover.nextElementSibling;
-    if (link instanceof HTMLElement && link.querySelector('a[href]') && link.getBoundingClientRect().height > 0) add('link', link);
+    /* What stands after the box of parts: the link down — and, on a photo cover's other designs, the photo. */
+    /* (Only inside the cover's own header: a cover that IS its header has nothing after it that is its own.) */
+    for (let next = cover === cover.closest('header') ? null : cover.nextElementSibling; next; next = next.nextElementSibling) {
+      if (!(next instanceof HTMLElement) || next.getBoundingClientRect().height === 0) continue;
+      if (next.matches('figure')) add('plate', next);
+      else if (next.querySelector('a[href]')) add('link', next);
+    }
     return out;
   };
   const snapshot = (list: FitBlock[]): FitSnapshot => {
@@ -71,6 +93,7 @@ export function firstScreenFitter(screen: HTMLElement, cover: HTMLElement, inner
     return { parts, door: door ? box('door', door) : { key: 'door', top: foot, bottom: foot } };
   };
   const set = (air: number, markScale: number) => {
+    if (photo) return; // a photo cover has neither to close
     screen.style.setProperty('--fs-air', String(air));
     screen.style.setProperty('--fs-mark', String(markScale));
   };
@@ -117,6 +140,7 @@ export function firstScreenFitter(screen: HTMLElement, cover: HTMLElement, inner
     }
     return plan;
   };
-  const mark = (on: boolean) => (on ? screen.setAttribute('data-first-screen-fit', '') : screen.removeAttribute('data-first-screen-fit'));
+  const name = photo ? 'data-first-screen-photo' : 'data-first-screen-fit';
+  const mark = (on: boolean) => (on ? screen.setAttribute(name, '') : screen.removeAttribute(name));
   return { blocks, clear, set, lay, make, mark };
 }

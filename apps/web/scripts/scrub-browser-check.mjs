@@ -55,6 +55,8 @@
  *      out; the reply row arriving by the hand-over's one fade; the next group never over the cover; back == down;
  *      reduce motion = the plain page. Under a closed Reveal nothing is held. And a page a tab: the cover's
  *      hand-over on the first tab only, measured again when that tab is shown.
+ * 16c. 📷 THE STRANGER'S PHOTO COVER, SCRUB OFF (owner 2026-10-13: fitted too): today's page at six sizes — the names,
+ *      the date and "Get inside" on the first screen, the photo whole under the door; pictures before/after.
  * 16b. 📐 FITTED BEFORE IT FADES (owner 2026-10-12, "option 2"; and "Get inside" stays on the stranger's first screen):
  *      at 375×560 · 375×600 · 375×667 · 320×568 · 375×812 · 1280×770, for the guest's and the stranger's text and
  *      photo covers — the names and the date on the first screen at scroll 0, "Get inside" too on the stranger's; the
@@ -894,13 +896,13 @@ if (!ONLY || ONLY === '16') {
       const { ctx, p, errs, at } = await open(file('cover-fit'), W, H);
       const top = await at(0);
       /* 🚪 "GET INSIDE" STAYS ON THE FIRST SCREEN (owner 2026-10-12: "Keep it on first screen"). A door the fitted first
-         screen holds is not handed over: it stays, and the block after it — the Countdown — arrives alone. A door that
-         is NOT on the first screen (the photo cover: the photo is taller than the screen and nothing fits it) still
-         arrives with the Countdown, as before (owner 2026-10-10, "Together."). */
+         screen holds is not handed over: it stays, and the block after it — the Countdown — arrives alone. (RE-AIMED
+         2026-10-13: the PHOTO cover is fitted too — owner "do it" — its photo moves below the door, so its door stays
+         as well. A door that is not on the first screen would still arrive with the Countdown — the other branch.) */
       const stays = top.stays > 0;
       /* (Which part of the row did not hold, by name.) */
       const why = Object.entries({ errs: errs.length === 0, on: top.on, off: top.off === null, sticky: top.sticky, cells: top.cells === 1, holds: top.holds.length === 1 && top.holds[0] > 0, cover: Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01, coverWhole: top.cover.o === 1, notBegun: top.pout === 0, arrivalHidden: top.zero.o === 0 }).filter(([, v]) => !v).map(([k]) => k);
-      say(errs.length === 0 && top.on && top.off === null && top.sticky && top.cells === 1 && top.holds.length === 1 && top.holds[0] > 0 && (stays ? top.zeros === 1 && top.zeroIs === 'SECTION' && /Until we say/.test(top.zeroSays ?? '') && top.stays === 2 && top.doorRow.o === 1 && top.zrest.length === 1 && top.zrest[0] === 'home' : top.zeroIs === 'the door' && top.zeros === (kind === 'photo' ? 2 : 3) && /Until we say/.test(top.mateSays ?? '') && top.mate.o === 0 && (kind === 'photo' ? top.zrest.length === 1 && top.zrest[0] === 'home' : top.zrest.length === 0)) && top.zero.o === 0 && (kind === 'text') === stays && Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && top.cover.o === 1 && top.pout === 0, `${size}: armed, one page pair; the cover where today's page has it (${r(top.cover.t)}–${r(top.cover.b)}; today ${r(today.cover.t)}–${r(today.cover.b)}), whole${why.length ? ` [NOT: ${why.join(', ')}; out ${top.pout}]` : ''}; ${stays ? `"Get inside" STAYS (${r(top.doorRow.t)}–${r(top.doorRow.b)}, shown) and what arrives is the block after it, alone ("${top.zeroSays}…"), not there yet, in the box after the door pulled up to the cover (${top.zrest.join(',') || 'NONE'}; ${top.zeros} arriving, ${top.stays} staying, drawn ${top.doorRow?.o.toFixed(2)}, the arrival drawn ${top.zero?.o})` : `what arrives is ${top.zeroIs} TOGETHER with the block after it ("${top.mateSays}…"), neither there yet${kind === 'photo' ? ` — the door's group is the box pulled up to the cover (${top.zrest.join(',') || 'NONE'})` : ''}`}${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''}`);
+      say(errs.length === 0 && top.on && top.off === null && top.sticky && top.cells === 1 && top.holds.length === 1 && top.holds[0] > 0 && (stays ? top.zeros === 1 && top.zeroIs === 'SECTION' && /Until we say/.test(top.zeroSays ?? '') && top.stays === 2 && top.doorRow.o === 1 && top.zrest.length === 1 && top.zrest[0] === 'home' : top.zeroIs === 'the door' && top.zeros === (kind === 'photo' ? 2 : 3) && /Until we say/.test(top.mateSays ?? '') && top.mate.o === 0 && (kind === 'photo' ? top.zrest.length === 1 && top.zrest[0] === 'home' : top.zrest.length === 0)) && top.zero.o === 0 && stays && Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && top.cover.o === 1 && top.pout === 0, `${size}: armed, one page pair; the cover where today's page has it (${r(top.cover.t)}–${r(top.cover.b)}; today ${r(today.cover.t)}–${r(today.cover.b)}), whole${why.length ? ` [NOT: ${why.join(', ')}; out ${top.pout}]` : ''}; ${stays ? `"Get inside" STAYS (${r(top.doorRow.t)}–${r(top.doorRow.b)}, shown) and what arrives is the block after it, alone ("${top.zeroSays}…"), not there yet, in the box after the door pulled up to the cover (${top.zrest.join(',') || 'NONE'}; ${top.zeros} arriving, ${top.stays} staying, drawn ${top.doorRow?.o.toFixed(2)}, the arrival drawn ${top.zero?.o})` : `what arrives is ${top.zeroIs} TOGETHER with the block after it ("${top.mateSays}…"), neither there yet${kind === 'photo' ? ` — the door's group is the box pulled up to the cover (${top.zrest.join(',') || 'NONE'})` : ''}`}${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''}`);
       if (stays) say(Math.abs(top.doorRow.t - today.doorRow.t) < 0.6 && Math.abs(top.doorRow.b - today.doorRow.b) < 0.6, `${size}: the door stays exactly where today's fitted first screen has it (${r(top.doorRow.t)}–${r(top.doorRow.b)} against ${r(today.doorRow.t)}–${r(today.doorRow.b)})`);
       const fwd = []; for (let y = 0; y < top.max; y += 16) fwd.push(await at(y)); fwd.push(await at(top.max));
       const back = [await at(top.max)]; for (let y = top.max - (top.max % 16); y >= 0; y -= 16) back.push(await at(y));
@@ -1026,12 +1028,12 @@ if (!ONLY || ONLY === '16' || ONLY === '16b') {
       const { ctx, p, errs, at } = await openF(file, W, H);
       const top = await at(0);
       say(errs.length === 0 && top.on && top.off === null && Boolean(top.names && top.date) && top.names.t >= top.bar - 0.5 && top.names.o === 1 && top.date.o === 1 && top.date.b <= line + 0.5, `${size}: the first screen holds the names and the date — the names ${r(top.names?.t)}–${r(top.names?.b)} under the bar (it ends ${r(top.bar)}), the date ending ${r(top.date?.b)} above the bottom bar's line ${line} (drawn ${top.names?.o.toFixed(2)} · ${top.date?.o.toFixed(2)}; armed ${top.on})${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''}`);
-      if (stranger) say(Boolean(top.door) && top.door.t >= top.bar - 0.5 && top.door.b <= H - top.dockLine + 0.5 && top.door.o === 1, `${size}: "Get inside" is on the first screen, whole and shown${top.door ? ` (${r(top.door.t)}–${r(top.door.b)}, drawn ${top.door.o.toFixed(2)}; its line ${r(H - top.dockLine)})` : ' (no door)'}${kind.includes('photo') ? ' — the photo cover: the door is under the photo on today’s page too; nothing fits a photo (owner’s call)' : ''}`);
+      if (stranger) say(Boolean(top.door) && top.door.t >= top.bar - 0.5 && top.door.b <= H - top.dockLine + 0.5 && top.door.o === 1, `${size}: "Get inside" is on the first screen, whole and shown${top.door ? ` (${r(top.door.t)}–${r(top.door.b)}, drawn ${top.door.o.toFixed(2)}; its line ${r(H - top.dockLine)})` : ' (no door)'}`);
       const fwd = []; for (let y = 0; y <= Math.min(top.max, Math.round(H * 1.3)); y += 16) fwd.push(await at(y));
       const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);
       const bad = hold.filter((f) => f.cover.o > 0.02 && (!f.names || f.names.t < f.bar - 0.5 || f.names.b > H));
       say(hold.length > 3 && bad.length === 0, `${size}: while the cover is held (${hold.length} positions) its names are on the screen, under the pinned bar, at every one${bad.length ? ` — NOT at ${bad[0].s}px: ${r(bad[0].names?.t)}–${r(bad[0].names?.b)}` : ` (at ${r(hold[0]?.names.t)}px)`}`);
-      if (stranger && !kind.includes('photo')) {
+      if (stranger) {
         const moved = hold.filter((f) => !f.door || f.door.o < 0.999 || Math.abs(f.door.t - top.door.t) > 0.6);
         say(top.stays && hold.length > 3 && moved.length === 0, `${size}: "Get inside" STAYS while the cover is held — shown and unmoved at every one of ${hold.length} positions${moved.length ? ` — NOT at ${moved[0].s}px (${moved[0].door ? `${r(moved[0].door.t)}, drawn ${moved[0].door.o.toFixed(2)}` : 'gone'})` : ''} (marked staying: ${top.stays})`);
       }
@@ -1088,6 +1090,34 @@ if (!ONLY || ONLY === '16' || ONLY === '16b') {
     say(opened.signIn <= H - after.dockLine + 0.5, `${size}: …and what it opened is brought into view, clear of the bottom bar ("Sign in" ends ${r(opened.signIn)}; the line ${r(H - after.dockLine)}; the page scrolled ${shift}px)`);
     if (pics) await p.screenshot({ path: `${pics}/c16b-stranger-${W}x${H}-door-opened.png` });
     await ctx.close();
+  }
+}
+/* 16c. 📷 THE STRANGER'S PHOTO COVER, SCRUB OFF — what live strangers see (owner 2026-10-13, DECISION_LOG: "do it" — the
+   photo moves so the names, the date and "Get inside" are on the stranger's first screen, Scrub on or off). TODAY's
+   page (`fixture-stranger-photo-today*`, "Scrub out" not offered) at the six sizes: with the door's own fit running,
+   the names and the date under the pinned bar, "Get inside" whole above the bottom bar, and the photo WHOLE right
+   under the door — drawn, never cut, on nothing; and as main draws it (no fit for a photo): the door under the photo.
+   Pictures, before and after, at 375 × 667 and 375 × 812. */
+if (!ONLY || ONLY === '16' || ONLY === '16c') {
+  const SNAPP = () => {
+    const box = (e) => (e && e.getClientRects().length ? { t: e.getBoundingClientRect().top, b: e.getBoundingClientRect().bottom, h: e.getBoundingClientRect().height } : null);
+    const head = document.querySelector('main header[data-pahina-first-screen]');
+    return { bar: document.querySelector('[data-sticky-top]').getBoundingClientRect().bottom, names: box(head?.querySelector('h1')), date: box(head?.querySelector('[data-motion="arrive-date"]')), plate: box(head?.querySelector('figure')), door: box(document.querySelector('main details[data-get-inside] > summary')), dockLine: parseFloat(getComputedStyle(document.querySelector('main details[data-get-inside]')).scrollMarginBottom) || 0, armed: Boolean(document.querySelector('[data-hub-page-on]')), mark: Boolean(document.querySelector('[data-first-screen-photo]')) };
+  };
+  const openP = async (file, W, H) => { const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140))); await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(900); await p.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})))); return { ctx, p, errs }; };
+  const r = (n) => (n === null || n === undefined ? '—' : Math.round(n * 10) / 10);
+  for (const [W, H] of [[375, 560], [375, 600], [375, 667], [320, 568], [375, 812], [1280, 770]]) {
+    const size = `${W}x${H} the stranger’s photo cover, Scrub OFF (today's page)`;
+    const before = await openP('fixture-stranger-photo-today.html', W, H); const was = await before.p.evaluate(SNAPP);
+    if (pics && ((W === 375 && H === 667) || (W === 375 && H === 812))) await before.p.screenshot({ path: `${pics}/c16c-stranger-photo-scrub-off-${W}x${H}-before.png` });
+    await before.ctx.close();
+    const after = await openP('fixture-stranger-photo-today-fit.html', W, H); const now = await after.p.evaluate(SNAPP);
+    if (pics && ((W === 375 && H === 667) || (W === 375 && H === 812))) await after.p.screenshot({ path: `${pics}/c16c-stranger-photo-scrub-off-${W}x${H}-after.png` });
+    await after.ctx.close();
+    const line = H - now.dockLine;
+    say(was.door.t >= H, `${size}: AS MAIN DRAWS IT the door is under the photo, off the first screen (${r(was.door.t)}–${r(was.door.b)} on a ${H}px screen)`);
+    say(after.errs.length === 0 && !now.armed && now.mark && now.names.t >= now.bar - 0.5 && now.date.b <= now.door.t + 0.5 && now.door.t >= now.bar - 0.5 && now.door.b <= line + 0.5, `${size}: with the door's fit the first screen holds the names (${r(now.names.t)}–${r(now.names.b)}), the date (to ${r(now.date.b)}) and "Get inside" (${r(now.door.t)}–${r(now.door.b)}; its line ${r(line)})${after.errs.length ? ` — ${after.errs[0]}` : ''}`);
+    say(Math.abs(now.plate.h - was.plate.h) < 0.5 && now.plate.t >= now.door.b - 0.5 && Math.abs(now.names.t - was.names.t) < 0.6 && Math.abs(now.date.t - was.date.t) < 0.6, `${size}: the photo is WHOLE right under the door (${r(now.plate.t)}–${r(now.plate.b)}, ${r(now.plate.h)}px as before), and the names and the date did not move`);
   }
 }
 /* 17. 🤝 TOGETHER (owner 2026-10-10, asked what should stand where the names built out — the RSVP button alone, or the

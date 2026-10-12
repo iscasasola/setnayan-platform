@@ -3415,6 +3415,13 @@ html.dark {
     position: relative;
     top: var(--fs-shift, 0px);
   }
+  /* 📷 A PHOTO cover's first screen (owner 2026-10-13): the box that holds both the cover and the door carries its own
+     mark — the card's mark also closes up a first screen's margin, which a photo page has none of — and only the
+     blocks that move are drawn from their place (the photo below "Get inside", the door up under the date). */
+  [data-first-screen-photo] [data-fs-shift] {
+    position: relative;
+    top: var(--fs-shift, 0px);
+  }
 }
 
 /* ── Candlelight art direction (wave A PR-5b, design spec §4) ────────────────

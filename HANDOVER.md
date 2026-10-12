@@ -52,7 +52,10 @@ push (it must never reach main). Scripts and pictures: `~/Documents/Claude/Proje
   Look ▾ Tall → 176 px ✓ · ↺ → 112 · ↺ → gone, draft empty ✓. FAULT FOUND: one upload made TWO picture lines
   (FileUpload emits onChange inside a state updater; React runs it twice in dev) → fixed (`handed` ref, commit
   "fix(rsvp): one upload is one picture line…"). 667 run broke on the DRIVER (＋ below is not drawn at 667) → fixed.
-- RE-WALK queued/running (`pic2.out`).
+- WALK 2 (`pic2.out`, sheet `shots/sheet-3-picture.png`): one upload → ONE line ✓ (812 below, 667 above) · Tall
+  176 ✓ · ↺↺ empties the draft ✓ — but the toolbar kept "Picture" and a text line's Style for the gone line → fixed
+  (a4cdb6ff1, `RSVP_STAGE_TRUTH_EVENT` → the list stage lets go of a gone added line/group).
+- WALK 3 (`pic3.out`, `shots/3-812-6-undone.png`): after ↺↺ the caption reads "RSVP › Form", nothing picked ✓.
 
 ## 4 · checks
 - Room db test re-run with the picture look + real ref: 6/6 (`room.log`): pictures 11,219 JSON → 12,737 stored; worst

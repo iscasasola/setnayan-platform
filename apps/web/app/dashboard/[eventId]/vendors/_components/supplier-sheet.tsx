@@ -326,9 +326,9 @@ export default function SupplierSheet({
             <span className="sr-only">{SHEET_LOADING}</span>
             <span aria-hidden className="skeleton block h-3 w-2/5 rounded-full" />
             <span aria-hidden className="grid grid-cols-3 gap-1.5">
-              <span className="skeleton block aspect-square rounded-[10px]" />
-              <span className="skeleton block aspect-square rounded-[10px]" />
-              <span className="skeleton block aspect-square rounded-[10px]" />
+              <span className="skeleton block aspect-square rounded-lg" />
+              <span className="skeleton block aspect-square rounded-lg" />
+              <span className="skeleton block aspect-square rounded-lg" />
             </span>
             <span aria-hidden className="skeleton block h-3 w-4/5 rounded-full" />
           </div>
@@ -389,7 +389,7 @@ export default function SupplierSheet({
             <p className={k2}>{sheetPhotosHeading(data!.photos!.length)}</p>
             <div className="grid grid-cols-3 gap-1">
               {photos.shown.map((src, i) => (
-                <div key={src} className="relative aspect-square overflow-hidden rounded-[10px] bg-ink/5">
+                <div key={src} className="relative aspect-square overflow-hidden rounded-lg bg-ink/5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" />
                   {photos.more > 0 && i === photos.shown.length - 1 ? (

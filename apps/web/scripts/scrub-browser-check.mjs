@@ -55,6 +55,11 @@
  *      out; the reply row arriving by the hand-over's one fade; the next group never over the cover; back == down;
  *      reduce motion = the plain page. Under a closed Reveal nothing is held. And a page a tab: the cover's
  *      hand-over on the first tab only, measured again when that tab is shown.
+ * 16b. 📐 FITTED BEFORE IT FADES (owner 2026-10-12, "option 2"; and "Get inside" stays on the stranger's first screen):
+ *      at 375×560 · 375×600 · 375×667 · 320×568 · 375×812 · 1280×770, for the guest's and the stranger's text and
+ *      photo covers — the names and the date on the first screen at scroll 0, "Get inside" too on the stranger's; the
+ *      names on the screen at every held position; the stranger's door staying, shown and unmoved; fitted once; no
+ *      jitter at rest; and opening the door stands the hold down. (`SCRUB_ONLY=16b` plays it alone.)
  *  17. 🤝 TOGETHER (owner 2026-10-10: "Together."). When the block after the cover is the page's ACTION ROW (the
  *      reply row; the row that stands in its place; the stranger's door — by the page's own marks, never by height),
  *      the block after it arrives WITH it: one fade, one unit, centred as one, the page's own distance between the

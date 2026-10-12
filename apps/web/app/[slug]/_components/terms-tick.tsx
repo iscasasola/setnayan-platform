@@ -10,7 +10,7 @@ import { TERMS_FIELD } from '@/lib/terms-agreement';
  * 🔑 EVERY PRESS ON THE LINE IS 44px WITHOUT LOOKING ANY BIGGER (walk of release a5c36f4: Terms 39×18, Privacy Notice
  * 90×18, the box 20×20):
  *  - The two links are plain INLINE links. Their vertical padding does not touch the line (an inline box's padding
- *    paints and presses, it does not take room), and `px-1 -mx-1` widens "Terms" to 47px with no gap in the sentence.
+ *    paints and presses, it does not take room), and `px-1.5 -mx-1.5` widens "Terms" to 44px or more (35px in a fallback font, 39px in ours) with no gap in the sentence.
  *    The first fix made them `inline-flex` — which put a 44px-wide box round "Terms" ("the  Terms  and the") and made
  *    "Privacy Notice" wrap as one lump at 375px.
  *  - The box is a 20px drawing inside a 44×44 press (`-m-3` takes the extra room back, so the words sit where they
@@ -26,7 +26,7 @@ export function TermsTick({ id, children }: { id?: string; children?: ReactNode 
           name={TERMS_FIELD}
           type="checkbox"
           required
-          className="peer absolute inset-0 m-0 h-full w-full cursor-pointer appearance-none rounded-lg"
+          className="peer absolute inset-0 m-0 h-full w-full cursor-pointer appearance-none"
         />
         <span
           aria-hidden="true"
@@ -47,11 +47,11 @@ export function TermsTick({ id, children }: { id?: string; children?: ReactNode 
       </span>
       <span>
         I agree to the{' '}
-        <Link href="/terms" className="-mx-1 px-1 py-3.5 font-medium text-link underline underline-offset-2">
+        <Link href="/terms" className="-mx-1.5 px-1.5 py-3.5 font-medium text-link underline underline-offset-2">
           Terms
         </Link>{' '}
         and the{' '}
-        <Link href="/privacy" className="-mx-1 px-1 py-3.5 font-medium text-link underline underline-offset-2">
+        <Link href="/privacy" className="-mx-1.5 px-1.5 py-3.5 font-medium text-link underline underline-offset-2">
           Privacy Notice
         </Link>
         {children}

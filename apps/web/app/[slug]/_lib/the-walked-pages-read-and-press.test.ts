@@ -173,7 +173,7 @@ test('WIDE — each narrow press on the walked pages is at least 44px wide as we
   const narrow: string[] = [];
   for (const [rel, words] of WIDE) {
     const cls = linkClassesAround(rel, words);
-    const wide = cls.some((c) => /^min-w-\[(\d+)px\]$/.test(c) && Number(c.match(/\d+/)![0]) >= 44) || cls.some((c) => /^(?:w|min-w)-(?:11|12|14|16)$/.test(c)) || (paddedInline(cls) && cls.includes('px-1') && cls.includes('-mx-1'));
+    const wide = cls.some((c) => /^min-w-\[(\d+)px\]$/.test(c) && Number(c.match(/\d+/)![0]) >= 44) || cls.some((c) => /^(?:w|min-w)-(?:11|12|14|16)$/.test(c)) || (paddedInline(cls) && cls.includes('px-1.5') && cls.includes('-mx-1.5'));
     if (!wide) narrow.push(`app/[slug]/${rel}: the press around ${JSON.stringify(words.slice(0, 40))} is under 44px wide (${cls.join(' ')})`);
   }
   assert.deepEqual(narrow, []);

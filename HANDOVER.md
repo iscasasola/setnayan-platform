@@ -1,10 +1,10 @@
-# Scrub — the cover's hand-over on the REAL invitation page (HANDOVER — true as of the stop, 2026-10-12)
+# Scrub — the cover's hand-over on the REAL invitation page (HANDOVER — round 3, 2026-10-12)
 
-Branch `rd/scrub-cover-on-the-real-invitation` · worktree `~/Documents/Claude/Projects/wt-scrub-real` · LOCAL ONLY
-(never pushed, no PR). **Built, not live.** `lib/scrub-out-offered.ts` `SCRUB_OUT_OFFERED = false` — do not turn it on.
+Branch `rd/scrub-cover-on-the-real-invitation` · worktree `~/Documents/Claude/Projects/wt-scrub-real` · draft PR
+(see the round-3 section). **Built, not live.** `lib/scrub-out-offered.ts` `SCRUB_OUT_OFFERED = false` — do not turn it on.
 Everything proven is proven in **Chromium only**; nothing has run on iOS Safari. Stopped at the account's limit.
 
-## Round 3 (2026-10-12) — IN PROGRESS (commit 0ac615287 and after)
+## Round 3 (2026-10-12) — commit 0ac615287 and after
 - Touch check fixed to test its claim (slow drag, rests before lifting, inside the hold; travel == Build out by
   `--hub-pout` AND the drawn fade; React's own root delegation read apart — only a non-passive
   touchstart/touchmove/wheel counts as able to hold a finger back). Block 16 alone: touch rows green.
@@ -55,18 +55,32 @@ Everything proven is proven in **Chromium only**; nothing has run on iOS Safari.
 - Browser, merged tree, block 16 alone with the row fix (041fa14ca): 131 ok, 1 red (the touch check — see below).
   Whole check on 7843eec03 (before the row fix): 503 ok, 16 red, all on the stranger's page — what the row fix is for.
 
-## Half-done (file + symbol)
-- `scripts/scrub-browser-check.mjs`, block 16, "👆 A PHONE, BY TOUCH": the CHECK is wrong, not the page. The drag
-  moved the page 666 px (past the 537 px hold, so the cover was 100 % out and had scrolled on), and `WATCH` counted
-  the listeners of the island bundle's React root as if they were the engine's. Fix: drag ≤ 250 px (`k * 30` → fewer
-  steps), and compare `window.__took.listeners` against the same page WITHOUT the island (or check the engine's
-  bundle alone, as the size loop does). `took.prevented` was not the failing part.
-- Not re-run after 041fa14ca: the WHOLE browser check (blocks 1–15, 17 were green on 7843eec03), `next lint` on the
-  merged tree (it was started and stopped at the stop point), the sweep on 041fa14ca (engine + harness changed since).
-- `first-screen-door.tsx` (main's cover fit, a client island) is not hydrated on the check's static pages: the fit
-  and a wrapped cover have never been seen together. `STRANGER_TEXT_COVER_BOXES_DOOR_FIRST` (`site-body.tsx`) says
-  the fit's own margin on the rest box, by reading the CSS — unproven in a browser.
-- Save the Date is not wired (its cover is the film; needs its own design).
+## Left (not done)
+- 🔝 THE NAMES UNDER THE PINNED BAR (block 16's four red rows) — owner decision, not engineering: a cover taller than
+  the room is held by the ordinary rule (bottom on the centre line). Candidate answers for him: (a) a cover is held
+  with its TOP on the page's line instead (its foot may then run off the screen); (b) let the first-screen fit close
+  the cover's air under Scrub too, so a 375x667 cover fits the room and is centred (the fit's air alone takes the text
+  cover from 582 px to ~480; the room is 544) — does not help the photo cover; (c) a cover that cannot be held whole
+  is not held at all (plain scroll). Until he picks, the rows stay red on purpose.
+- Save the Date is NOT wired this round (its cover is the film, with a walker of its own: needs its own design).
+- iOS Safari: nothing has run on WebKit. The list for the owner's iPhone is in the PR body and below.
+- `STRANGER_TEXT_COVER_BOXES_DOOR_FIRST`'s fit margin on the rest box is now seen in a browser with the fit running
+  (reduce motion: today's fitted page box for box) — no longer unproven.
+
+## For the owner's iPhone (Safari), once a page is switched on for him (lab or preview — never `cale-ice`)
+1. A slow finger drag from the cover: the page moves with the finger, the cover stands still and fades — no stick,
+   no jump, no "stuck" stretch.
+2. A hard flick through the cover: the hand-over finishes; "RSVP"/"Get inside" and the Countdown arrive whole.
+3. Safari's bars collapsing/expanding in the middle of the hold (scroll a little up and down): the cover must not
+   jump. The engine re-measures on `resize`; WebKit fires it as the bars move.
+4. The heading at the top: is "Maria" under the top bar while the cover fades (the red rows above)? On an iPhone with
+   the bars shown the screen is "short" (~660 px) — this is likely what he saw.
+5. Scroll back up: everything comes back the way it went.
+6. Rubber-band at the very top (pull down): the cover doesn't shift or flicker.
+7. Settings › Accessibility › Motion › Reduce Motion ON: the plain page — today's — and the stranger's "Get inside"
+   on the first screen (the fit makes room).
+8. Turn the phone sideways mid-hold and back.
+9. The stranger's page: tap "Get inside" after it arrives — it opens and scrolls clear of the bottom bar.
 
 ## The owner's three open points (2026-10-09)
 1. "A still stretch read as stuck" — MEASURED on the real guest page for the cover's hold (block 16, "no still
@@ -81,15 +95,13 @@ Everything proven is proven in **Chromium only**; nothing has run on iOS Safari.
    markup in Chromium, 375×812 first; pictures `c16-real-…-together.png`, `c16-stranger-…-together.png`.
 
 ## Next three steps
-1. Fix the touch check (above), then run the WHOLE browser check under the lock on the tip; read every stranger row.
-2. `next lint` + the sweep on the tip, each alone under the lock; regenerate the controls baseline if more than its
-   ref line changes.
-3. Hydrate the first-screen fit on a check page (or walk the lab's published state) and compare the wrapped
-   stranger page with today's on a SHORT phone (375×667), where the fit closes the door's margin.
+1. The owner's answer on the names under the bar (a/b/c above) → build it; the four red rows go green.
+2. Save the Date's own design for its film cover, then wire it.
+3. The iPhone walk (list above) with the owner.
 
 ## How to run the walk
 - Guards: from `apps/web`: `../../node_modules/.bin/tsx --test lib/site-body-fixture-render.test.ts lib/scrub-is-a-held-hand-over.test.ts`
-- Browser check (HEAVY — `~/Documents/Claude/Projects/heavy-lock.sh acquire scrub-real` → ONE run → `release scrub-real`):
+- Browser check (the WALK lane — `~/Documents/Claude/Projects/heavy-lock.sh acquire walk:scrub-real` → ONE run → `release walk:scrub-real`):
   `node scripts/scrub-browser-check.mjs <playwright-dir>/ <scratch-dir> [pictures-dir]`; one block: `SCRUB_ONLY=16`
   (15, 17 too). It writes the real guest/stranger pages itself (`scripts/scrub-fixture-page.tsx`), with Scrub
   offered for that process only.

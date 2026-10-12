@@ -20,6 +20,25 @@ Proved by `apps/web/tests/db/a-guest-reads-only-the-everyone-moments.db.test.ts`
 the public, released Everyone moment; no role-only moment by any column; the host
 and a booked supplier still read every moment but unreleased prep.
 
+The same fence now reaches the two other places that said they showed the
+guests' schedule (both flagged by #6467), so DB, pages and prints say one thing:
+
+- **The printed Details card's programme** (`lib/print-set.server.ts` →
+  `printProgram` in `lib/print-pieces.ts`) listed every `is_public` top-level
+  moment whoever it was for; guests are handed that card. It now prints only
+  moments that pass `isOnTheGuestsSchedule` (`lib/schedule-audience.ts`: public,
+  `audience` NULL, not `coordinator_only`); the print's schedule read adds
+  `audience, visibility`. Ceremony / reception times on the cards are unchanged.
+- **The older website editor's schedule panel**
+  (`app/dashboard/[eventId]/website/editor/page.tsx`) says it is "the same set
+  guests see" but asked `is_public` only, so a host saw role-only moments listed
+  as guests' schedule. Its read now also asks `audience IS NULL` and
+  `visibility <> 'coordinator_only'`.
+
+Guarded by `apps/web/lib/the-print-and-the-editor-keep-the-guests-fence.test.ts`
+(behaviour of the predicate and the programme; the print's read and the editor's
+read pinned; the migration's policy pinned to the same three conditions).
+
 SPEC IMPACT: None — enforces the existing rule (DECISION_LOG 2026-10-06
 "STUDIO › SCHEDULE AND LOVE STORY": a moment for a role is shown only to that
 role; the guests' schedule shows only the Everyone moments) in the database; no

@@ -140,7 +140,9 @@ test('(4) shape and behaviour are untouched — only colours moved; the file sta
   const src = read(`${E}/pick-menu.tsx`);
   assert.match(src, /onClick=\{\(\) => setOpen\(\(o\) => !o\)\}/);
   assert.match(src, /if \(!picked\) setOpen\(false\);\s*onPick\(o\.key\);/);
-  assert.match(src, /if \(e\.key === 'Escape'\) \{\s*setOpen\(false\);/);
+  // An open list takes Escape FIRST (2026-10-12): stopped, heard in the capture phase.
+  assert.match(src, /if \(e\.key === 'Escape'\) \{\s*e\.stopPropagation\(\);\s*setOpen\(false\);/);
+  assert.match(src, /window\.addEventListener\('keydown', onKey, true\);/);
   assert.match(src, /useOneOpen\(open, setOpen\);/);
   assert.doesNotMatch(src, /mulberry|text-white|#[0-9a-fA-F]{3,8}\b/, 'the dropdown writes a colour of its own');
   // `pick-menu-stays-inline` holds the ceiling; said here too so a colour change is never the reason it is crossed.

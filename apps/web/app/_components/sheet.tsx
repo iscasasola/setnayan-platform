@@ -57,7 +57,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 //   - body scroll locked while open (no background scrolling under
 //     the sheet)
 //   - backdrop click closes
-//   - close-button is always rendered with a 40×40px hit target
+//   - close-button is always rendered with a 44×44px hit target (the template's floor, 2026-10-12)
 //
 // NOT handled here (consumer's responsibility):
 //   - the heading element itself — consumer renders it so it can
@@ -148,7 +148,7 @@ export function Sheet({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
             >
               <X aria-hidden className="h-4 w-4" strokeWidth={2} />
             </button>
@@ -158,7 +158,7 @@ export function Sheet({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-cream/80 text-ink/55 backdrop-blur hover:bg-ink/5 hover:text-ink"
+            className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-cream/80 text-ink/55 backdrop-blur hover:bg-ink/5 hover:text-ink"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>

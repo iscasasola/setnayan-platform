@@ -95,6 +95,7 @@ export async function VendorQrSection({
         selectedEt={selectedEt}
         selectedCat={selectedCat}
         month={month}
+        seg={seg}
       />
     );
     lockedBody = (
@@ -137,6 +138,7 @@ function ShortlistBody({
   selectedEt,
   selectedCat,
   month,
+  seg,
 }: {
   inviteUrl: string;
   qrSvg: string;
@@ -145,6 +147,7 @@ function ShortlistBody({
   selectedEt: string | null;
   selectedCat: VendorCategory | null;
   month?: string;
+  seg?: string;
 }) {
   const qrDataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`;
   return (

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c8691f5f0",
+  "generatedFromRef": "5aa05e4cf3",
   "routeCount": 431,
-  "destinations": 957,
-  "actions": 673,
-  "blocks": 6043,
+  "destinations": 951,
+  "actions": 674,
+  "blocks": 6061,
   "routes": {
     "/": {
       "files": [
@@ -12075,27 +12075,12 @@
     "/vendor-dashboard/clients": {
       "files": [
         "vendor-dashboard/clients/loading.tsx",
-        "vendor-dashboard/clients/page.tsx",
-        "vendor-dashboard/clients/surface.tsx"
+        "vendor-dashboard/clients/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/bookings",
-        "/vendor-dashboard/calendar",
-        "/vendor-dashboard/clients/[seg]?tab=details",
-        "/vendor-dashboard/customers?open=availability",
-        "/vendor-dashboard/messages/[seg]"
-      ],
-      "actions": [
-        "importExternalClient",
-        "removeBlock"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "ConfirmForm",
-        "Link",
-        "ListPageSkeleton",
-        "ListPager",
-        "StageChip",
-        "SubmitButton"
+        "ListPageSkeleton"
       ]
     },
     "/vendor-dashboard/clients/[eventId]": {
@@ -12398,43 +12383,72 @@
         "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
         "vendor-dashboard/customers/_components/customers-pick.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
+        "vendor-dashboard/customers/_components/outside-client-add.tsx",
+        "vendor-dashboard/customers/_components/people-more.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
         "vendor-dashboard/customers/page.tsx",
-        "vendor-dashboard/customers/roster-view.ts"
+        "vendor-dashboard/customers/roster-view.ts",
+        "vendor-dashboard/customers/segments.ts"
       ],
       "destinations": [
         "/vendor-dashboard/clients/[seg]?tab=details",
-        "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/services"
+        "/vendor-dashboard/messages/[seg]"
       ],
-      "actions": [],
+      "actions": [
+        "action",
+        "importExternalClient",
+        "removeBlock"
+      ],
       "blocks": [
         "AccordionSkeleton",
+        "ActionButton",
+        "Badge",
         "BookingsSurface",
+        "CalendarDay",
         "CalendarSurface",
-        "ClientsSurface",
+        "ChosenRow",
+        "ConfirmForm",
         "ContractsSurface",
         "CustomerCalendarMonth",
         "CustomerSectionBody",
         "CustomersCalendar",
+        "CustomersDates",
         "CustomersFilterBar",
         "CustomersPick",
         "CustomersPipeline",
         "CustomersRoster",
+        "CustomersSegments",
+        "DateRow",
         "FeatureAccordion",
         "FilterSelect",
+        "Fold",
+        "FormRows",
+        "HTMLFormElement",
+        "KeptNotesFold",
         "Link",
         "ListPager",
+        "Marked",
         "MessagesSurface",
         "MiniTour",
+        "OutsideClient",
+        "OutsideClientAdd",
+        "OutsideClientRows",
         "PaydaySurface",
         "PickMenu",
+        "PillLink",
+        "PillTrack",
         "ProposalsSurface",
         "R",
         "RosterRow",
-        "ShopEmpty",
+        "RosterRowView",
+        "SearchBox",
+        "Sheet",
+        "SupplierSubmit",
+        "SupplierThumbRow",
+        "SupplierToast",
         "Suspense",
+        "TypedRow",
         "VendorQrSection"
       ]
     },

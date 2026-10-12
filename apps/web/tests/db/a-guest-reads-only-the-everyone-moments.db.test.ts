@@ -12,8 +12,9 @@
  * Proved through REAL `anon` / `authenticated` sessions on the replayed schema:
  *   1. anon reads the public, released Everyone moment — and nothing else;
  *   2. anon reads no role-only moment, of any of the four roles;
- *   3. the host still reads every moment of their event that is not a
- *      coordinator's unreleased prep (unchanged: event_schedule_blocks_couple_read);
+ *   3. the host still reads EVERY moment of their event — role-only, hidden and
+ *      (through event_schedule_blocks_couple_write, which is FOR ALL) even a
+ *      coordinator's unreleased prep: exactly what they read before;
  *   4. a booked supplier still reads the same set (unchanged: _booked_vendor_read);
  *   5. the policy text asks all three conditions, and the other read policies
  *      were not touched by this file.
@@ -46,7 +47,7 @@ const MOMENTS = [
 
 const EVERYONE = ['Ceremony for everybody'];
 const ROLE_ONLY = ['Entourage photos', 'Sponsors signing', 'Family portrait', 'Suppliers call time'];
-/** What a host and a booked supplier read before this migration, and must still read. */
+/** What a booked supplier read before this migration, and must still read. */
 const ALL_BUT_PREP = MOMENTS.filter((m) => m.visibility !== 'coordinator_only').map((m) => m.label).sort();
 
 async function setAuthRole(role: string | null): Promise<void> {
@@ -179,9 +180,10 @@ test('anon reads no role-only moment — of any of the four roles, by any column
   assert.equal(byAudience.rows.length, 0, 'anon can still find a moment for a role by asking for it');
 });
 
-test('the host still reads every moment of their event that is not unreleased prep', async () => {
+test('the host still reads every moment of their event', async () => {
   await asUser(coupleUid);
-  assert.deepEqual(await labels(), ALL_BUT_PREP, 'the host lost a moment of their own day');
+  // Measured on the policy before this migration too: _couple_write is FOR ALL, so it admits the prep row as well.
+  assert.deepEqual(await labels(), MOMENTS.map((m) => m.label).sort(), 'the host lost a moment of their own day');
   assert.deepEqual(await labels(otherEventId), [], 'the host reads another event');
 });
 

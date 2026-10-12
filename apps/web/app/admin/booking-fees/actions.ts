@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type ReviewMinState = { ok: boolean; message: string | null };
 
@@ -32,12 +33,14 @@ export async function saveFeeReviewMin(_prev: ReviewMinState, formData: FormData
     .update({ fee_review_unsettled_events_min: value, updated_at: new Date().toISOString() })
     .eq('id', 1);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
-  await admin.from('admin_audit_log').insert({
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'fee_review_min_edit',
     target_id: 'fee_review_unsettled_events_min',
     actor_user_id: adminUserId,
     metadata: { table: 'platform_settings', before: prior ?? null, after: { fee_review_unsettled_events_min: value } },
   });
+  // The count is saved; a missing audit row is logged, never a silent gap.
+  if (auditErr) logQueryError('admin/booking-fees.saveFeeReviewMin.audit', auditErr);
   revalidatePath('/admin/booking-fees');
   return { ok: true, message: 'Saved.' };
 }

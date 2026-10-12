@@ -54,8 +54,8 @@ const PEOPLE: Fix[] = [
 
 /** Two couples holding one Saturday — the clash row. */
 const CLASH: Fix[] = [
-  person({ eventId: 'dela', lane: 'talking', title: 'Dela Cruz', kind: 'Wedding', eventDate: '2026-10-24', place: 'Antipolo' }),
-  person({ eventId: 'santos', lane: 'talking', title: 'Santos', kind: 'Wedding', eventDate: '2026-10-24', place: 'Tagaytay' }),
+  person({ eventId: 'dela', lane: 'holding', quietDays: 12, title: 'Dela Cruz', kind: 'Wedding', eventDate: '2026-10-24', place: 'Antipolo' }),
+  person({ eventId: 'santos', lane: 'holding', quietDays: 8, title: 'Santos', kind: 'Wedding', eventDate: '2026-10-24', place: 'Tagaytay' }),
 ];
 
 const OUTSIDE: OutsideClient[] = [
@@ -135,7 +135,8 @@ export function PeopleLab({
 
   return (
     <div className="min-h-screen bg-cream" data-supplier-lab="people">
-      <div className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:max-w-4xl lg:px-8">
+      {/* <main>: the thumb row measures it on a computer, as it measures the dashboard's own column. */}
+      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:max-w-4xl lg:px-8">
         <CustomersSegments seg="people" waiting={view.laneCounts.waiting} hrefOf={(s) => (s === 'people' ? base : `${base}&seg=${s}`)} />
         <div className="pb-24">
           {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={'retry' in notice} retryHref={`${base}&add=1`} /> : null}
@@ -155,12 +156,13 @@ export function PeopleLab({
             holdingPerDate={holdingByDate(fixtures)}
             hidden={outsideOnly}
             otherMatches={outsidePage.total}
+            otherTotal={outsideAll.length}
             filter={
               <CustomersPick
                 label="Filter"
                 value={outsideOnly ? 'outside' : (view.activeLane ?? 'all')}
                 dataAttr="data-customers-filter"
-                compact
+                className="!min-h-11"
                 options={[
                   { key: 'all', label: `Everyone · ${formatCount(everyone)}`, href: pick(null) },
                   ...CUSTOMER_LANES.map((l) => ({ key: l, label: `${LANE_WORDS[l]} · ${formatCount(view.laneCounts[l])}`, href: pick(l) })),
@@ -176,11 +178,12 @@ export function PeopleLab({
               keepParams={keep([])}
               removeBlock={removeBlock}
               headed={!outsideOnly && view.paged.items.length > 0}
+              nowMs={NOW}
             />
           ) : null}
           {variant !== 'empty' ? <KeptNotesFold notes={KEPT} /> : null}
         </div>
-      </div>
+      </main>
       <SupplierThumbRow name="people" label="Customer tools">
         <SearchBox placeholder="Search a customer" defaultValue={q ?? ''} keep={keep(['q'])} hash="#customers" data="customers" />
         <OutsideClientAdd

@@ -86,12 +86,14 @@ export function nextStepLabel(r: RosterRow): string {
   return 'Open';
 }
 
-function fmtDate(iso: string | null): string {
+function fmtDate(iso: string | null, nowMs?: number): string {
   if (!iso) return 'Date not set';
+  // This year's dates without the year (frame 03: "Oct 10"); any other year keeps it ("Mar 13, 2027").
+  const thisYear = nowMs === undefined ? null : new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 4);
   return new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
+    ...(thisYear !== null && iso.slice(0, 4) === thisYear ? {} : { year: 'numeric' }),
   });
 }
 
@@ -190,7 +192,7 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
   const href = hrefFor(r);
   const badge = rosterBadge(r);
   const line = rowLine(r, nowMs);
-  const eventLine = [r.kind, fmtDate(r.eventDate), r.place, r.returning ? 'returning' : null]
+  const eventLine = [r.kind, fmtDate(r.eventDate, nowMs), r.place, r.returning ? 'returning' : null]
     .filter(Boolean)
     .join(' · ');
   const inner = (
@@ -212,12 +214,12 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
         </span>
         <span className="mt-0.5 block truncate text-[13px] text-ink/60">{eventLine}</span>
       </span>
-      <span className="flex min-w-0 max-w-[9.5rem] flex-col items-end gap-1 text-right">
+      <span className="flex min-w-0 max-w-[8.5rem] flex-col items-end gap-1 text-right">
         <Badge tone={badge.tone} data="customer-stage">
           {badge.word}
         </Badge>
         {line ? (
-          <span className="max-w-full truncate text-[12.5px] text-ink/60" style={{ color: LINE_TONE[line.tone] }} data-row-line="">
+          <span className="line-clamp-2 max-w-full text-[12.5px] leading-tight text-ink/60" style={{ color: LINE_TONE[line.tone] }} data-row-line="">
             {line.text}
           </span>
         ) : null}
@@ -261,6 +263,8 @@ export function CustomersRoster({
   hidden = false,
   /** Outside clients that match the search — so "No one named …" is said only when NOBODY matched. */
   otherMatches = 0,
+  /** Every outside client — the found line counts against everyone the Filter's "Everyone" counts. */
+  otherTotal = 0,
 }: {
   rows: RosterRow[];
   counts: Record<CustomerLane, number>;
@@ -282,6 +286,7 @@ export function CustomersRoster({
   filter?: ReactNode;
   hidden?: boolean;
   otherMatches?: number;
+  otherTotal?: number;
 }) {
   const total = CUSTOMER_LANES.reduce((n, l) => n + counts[l], 0);
   const q = query.trim();
@@ -298,8 +303,8 @@ export function CustomersRoster({
   return (
     <div id="customers" className="scroll-mt-24" data-customers-people="">
       {/* "WAITING FIRST · Everyone ▾" — the order is said, and the one dropdown narrows it (frame 03). */}
-      <div className="home-k2 flex min-h-11 items-center gap-3" data-customers-eyebrow="">
-        <span>Waiting first</span>
+      <div className="flex min-h-11 items-center gap-3" data-customers-eyebrow="">
+        <span className="home-k2">Waiting first</span>
         {filter}
       </div>
 
@@ -324,14 +329,14 @@ export function CustomersRoster({
               ? 'One date has more than one customer holding it.'
               : `${clashes.length} dates have more than one customer holding them.`}
           </span>{' '}
-          {clashes.map(([date, n]) => `${fmtDate(date)} · ${n}`).join(' · ')}. You can only take one.
+          {clashes.map(([date, n]) => `${fmtDate(date, nowMs)} · ${n}`).join(' · ')}. You can only take one.
         </p>
       ) : null}
 
       {/* Kind 30's one line under a search: how many it found, of how many. */}
       {q && !hidden ? (
         <p className="py-1.5 text-[12.5px] text-ink/60" data-customers-found="">
-          {formatCount(paged.total)} of {formatCount(total)} customers
+          {formatCount(paged.total + otherMatches)} of {formatCount(total + otherTotal)} customers
         </p>
       ) : null}
 

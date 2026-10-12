@@ -546,12 +546,13 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         holdingPerDate={holdingPerDate}
         hidden={outsideOnly}
         otherMatches={outsidePage.total}
+        otherTotal={outsideAll.length}
         filter={
           <CustomersPick
             label="Filter"
             value={outsideOnly ? 'outside' : (activeLane ?? 'all')}
             dataAttr="data-customers-filter"
-            compact
+            className="!min-h-11"
             options={[
               { key: 'all', label: `Everyone · ${formatCount(everyone)}`, href: pickHref(null) },
               ...CUSTOMER_LANES.map((l) => ({
@@ -572,6 +573,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
           keepParams={keepParamsFrom(sp, ['copage', 'notice', 'add'])}
           removeBlock={removeBlock}
           headed={!outsideOnly && rosterPage.items.length > 0}
+          nowMs={rosterNowMs}
         />
       ) : null}
 

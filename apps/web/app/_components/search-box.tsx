@@ -83,7 +83,7 @@ export function SearchBox({
         go(value);
         field.current?.blur();
       }}
-      className="flex h-11 min-w-0 items-center gap-2 rounded-full border border-ink/15 bg-cream pl-3.5 transition-[border-color,box-shadow] duration-sn-pill ease-sn focus-within:border-sn-accent focus-within:shadow-[0_0_0_3px_rgb(var(--sn-accent)/0.14)] motion-reduce:transition-none"
+      className="flex h-11 min-w-0 items-center gap-2 rounded-full bg-cream pl-3.5 shadow-[inset_0_0_0_1px_rgb(var(--color-ink)/0.15)] transition-shadow duration-sn-pill ease-sn focus-within:shadow-[inset_0_0_0_1.5px_rgb(var(--sn-accent)),0_0_0_3px_rgb(var(--sn-accent)/0.14)] motion-reduce:transition-none"
     >
       {[...new URLSearchParams(keep).entries()]
         .filter(([k]) => k !== name)

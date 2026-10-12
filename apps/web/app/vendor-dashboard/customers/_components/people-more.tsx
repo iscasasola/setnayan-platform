@@ -37,16 +37,19 @@ export type OutsideClient = {
   note: string | null;
 };
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string, thisYear: string | null = null): string {
   return new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString('en-PH', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
+    // This year's dates without the year, as the roster rows above say them.
+    ...(thisYear !== null && iso.slice(0, 4) === thisYear ? {} : { year: 'numeric' }),
   });
 }
 
-export function outsideDates(c: Pick<OutsideClient, 'startDate' | 'endDate'>): string {
-  return c.startDate === c.endDate ? fmtDate(c.startDate) : `${fmtDate(c.startDate)} – ${fmtDate(c.endDate)}`;
+/** "Oct 17" · "Dec 11 – Dec 12" · "Jan 9, 2027" — the year only when it is not this one (`nowMs`, Manila). */
+export function outsideDates(c: Pick<OutsideClient, 'startDate' | 'endDate'>, nowMs?: number): string {
+  const y = nowMs === undefined ? null : new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 4);
+  return c.startDate === c.endDate ? fmtDate(c.startDate, y) : `${fmtDate(c.startDate, y)} – ${fmtDate(c.endDate, y)}`;
 }
 
 function initialsOf(name: string): string {
@@ -62,6 +65,7 @@ export function OutsideClientRows({
   keepParams,
   removeBlock,
   headed,
+  nowMs,
 }: {
   /** One page of the shop's outside clients (already searched). */
   paged: Paged<OutsideClient>;
@@ -73,6 +77,8 @@ export function OutsideClientRows({
   removeBlock: (formData: FormData) => void | Promise<void>;
   /** Draw the small "Outside Setnayan" eyebrow (under the Setnayan rows, not when it is the whole list). */
   headed: boolean;
+  /** The page's one "now" — this year's dates are said without the year. */
+  nowMs?: number;
 }) {
   if (paged.total === 0 && !incomplete) return null;
   return (
@@ -82,7 +88,7 @@ export function OutsideClientRows({
         <div key={c.blockId} className="border-t border-ink/10 first-of-type:border-t-0" data-outside-row="">
           <Fold
             title={c.name}
-            line={`${outsideDates(c)} · ${c.schedule}`}
+            line={`${outsideDates(c, nowMs)} · ${c.schedule}`}
             data="outside-client"
             lead={
               <span
@@ -95,7 +101,7 @@ export function OutsideClientRows({
             aside={<Badge tone="quiet" data="customer-stage">Outside</Badge>}
           >
             <div className="pb-3 pl-[3.75rem] text-[13.5px] text-ink/70">
-              <p>Holds {outsideDates(c)} on {c.schedule}. Not a Setnayan booking — no chat, no reviews.</p>
+              <p>Holds {outsideDates(c, nowMs)} on {c.schedule}. Not a Setnayan booking — no chat, no reviews.</p>
               {c.contact ? <p className="mt-1">{c.contact}</p> : null}
               {c.note ? <p className="mt-1 whitespace-pre-wrap text-ink/60">{c.note}</p> : null}
               <ConfirmForm

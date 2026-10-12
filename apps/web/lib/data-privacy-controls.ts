@@ -405,9 +405,53 @@ export async function isDataPrivacyControlActiveWith(
 export const isDataPrivacyControlActive = cache(
   async (key: PrivacyControlKey): Promise<boolean> => {
     try {
+      if (togetherThisRender().on) {
+        const active = await activeControlsThisRender();
+        // Unread → every control is OFF for this render: the same fail-closed answer, for each key.
+        return active ? active.has(key) : false;
+      }
       return await isDataPrivacyControlActiveWith(createAdminClient(), key);
     } catch {
       return false;
     }
   },
 );
+
+/**
+ * 1️⃣ EVERY CONTROL IN ONE READ — for a render that asks about several
+ * (2026-10-12). One guest view asked this table once per control: the
+ * schedule's prep switch, the day-of announcement, the face step, the shared
+ * gallery — one request each, for a table of a few dozen rows that is the same
+ * for everybody. A render that calls `readDataPrivacyControlsTogether()` (the
+ * guest tree does, where it reads the event) sends ONE request for all of
+ * them, and every `isDataPrivacyControlActive(key)` in that render is answered
+ * from it.
+ *
+ * The answer is the same one: TRUE only for a control whose row says `active`.
+ * Fail-closed the same way: an unread table is every control OFF.
+ *
+ * 🔒 Per render only (`cache()`): outside a render — an action, a route
+ * handler, a job — the switch below is a new object on every call, so nothing
+ * is batched and nothing is remembered; a gate reads its own row every time,
+ * exactly as before. A render that never calls it is unchanged too.
+ */
+const togetherThisRender = cache((): { on: boolean } => ({ on: false }));
+
+export function readDataPrivacyControlsTogether(): void {
+  togetherThisRender().on = true;
+}
+
+const activeControlsThisRender = cache(async (): Promise<ReadonlySet<string> | null> => {
+  try {
+    const { data, error } = await createAdminClient().from('data_privacy_controls').select('control_key, status');
+    if (error) {
+      console.error('[supabase-error] lib/data-privacy-controls.ts · from:data_privacy_controls.select(all)', error);
+      return null;
+    }
+    return new Set(
+      ((data ?? []) as Array<{ control_key: string; status: string }>).filter((r) => r.status === 'active').map((r) => r.control_key),
+    );
+  } catch {
+    return null;
+  }
+});

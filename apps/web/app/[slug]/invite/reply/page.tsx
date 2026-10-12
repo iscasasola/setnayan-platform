@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventRowOnceBySlug } from '@/lib/event-row-once';
 import { createClient } from '@/lib/supabase/server';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
@@ -27,11 +28,12 @@ import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/editor-canvas';
-import { loadGuestLook, loadHostMembership, loadHostPreviewDraft, loadWidgets } from '../../_lib/loaders';
+import { loadEventShell, loadGuestLook, loadHostMembership, loadHostPreviewDraft, loadWidgets } from '../../_lib/loaders';
 import { ArrivalLoading } from '../_components/arrival-loading';
 import { wearTheHub } from '../_lib/wear-the-hub';
 import { RsvpLookStyle } from '../../_components/rsvp-look-style';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
+import { signRsvpPictures } from '@/lib/rsvp-pictures.server';
 import { celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
 import { GuestLookScope } from '../../_components/guest-look-scope';
@@ -41,6 +43,7 @@ import { overlayHubDraftEvent, overlayHubDraftWidgets } from '@/lib/hub-draft';
 import { sceneStyleOfRow } from '@/lib/scene-style-of-row';
 import { rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
 import { loadPreviewPerson } from '../../_lib/preview-person.server';
+import { withGuestReadLimit } from '@/lib/read-limit';
 
 /** The Maker part this page draws lines of (`RSVP_LOOK_LINES`, `lib/rsvp-look.ts`). */
 const RSVP_FORM_PARTS = ['rsvp'] as const;
@@ -76,19 +79,33 @@ type Props = {
  * The write is `RsvpWidget` → `submitInviteReply` → `submitRsvp`, the same save
  * the Event Hub's own card makes, with every guard it carries.
  */
-export default async function InviteReplyPage({ params, searchParams }: Props) {
+export default async function InviteReplyPage(props: Props) {
+  // ⏱ Bounded waits; an essential read that never answers is "didn't load" (`lib/read-limit.ts`).
+  return withGuestReadLimit('slug/invite/reply', () => inviteReplyPage(props));
+}
+
+async function inviteReplyPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
 
   const admin = createAdminClient();
-  const { data: liveEvent, error: eventError } = await admin
-    .from('events')
-    .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, role_palette, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
-    )
-    // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
-    .ilike('slug', slug)
-    .maybeSingle();
+  /* 1️⃣ ONE READ OF THE EVENT (2026-10-12, `lib/event-row-once.ts`). The layout, the
+     metadata and the look already read this event's row for this request
+     (`loadEventShell`, one `cache()`d read) — with every column this door asks
+     for. So that read is awaited first, and the door's own read below, unchanged,
+     is SENT only when the row is not in hand (the shell could not be read, or a
+     column here is one it does not carry). Its failure is still this door's own. */
+  await loadEventShell(slug).catch(() => null);
+  const { data: liveEvent, error: eventError } = await eventRowOnceBySlug(admin, slug, () =>
+    admin
+      .from('events')
+      .select(
+        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, role_palette, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
+      )
+      // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   if (eventError) {
     throw new Error(`invite/reply: could not read the event for "${slug}": ${eventError.message}`);
   }
@@ -127,6 +144,8 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     const entry = replyEntry({ slug: home, hasPass: Boolean(session), code: search.k });
     if (entry.kind !== 'ask') redirect(entry.href);
   }
+  /* 🖼 The reply card's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`). */
+  const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
 
   const { data: guest, error: guestError } = canvas
     ? {
@@ -423,6 +442,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           /* 🧱 The card's lines in the couple's order, with the lines they added and their groups (the Maker's RSVP
              stage). From the config this page already holds — no new read; null for a couple who arranged nothing. */
           lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), 'rsvp')}
+          pictures={rsvpPictures}
         />
         </CanvasSection>
       </DoorShell>

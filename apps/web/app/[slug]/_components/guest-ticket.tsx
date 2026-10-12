@@ -122,7 +122,7 @@ export function GuestTicket({
           </div>
         }
       />
-      <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">
+      <p className="mx-auto mt-3 max-w-prose text-sm text-ink/70">
         {pending ? REQUEST_WORDS.sentUnlocks : 'Show this at the door.'}
       </p>
       <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} />

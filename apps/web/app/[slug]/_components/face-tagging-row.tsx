@@ -67,7 +67,7 @@ export function FaceTaggingRow({
           <ScanFace aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink/55">Face tagging</span>
+          <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink/70">Face tagging</span>
           <span className="block text-sm text-ink">{status}</span>
         </span>
         {tappable ? <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} /> : null}

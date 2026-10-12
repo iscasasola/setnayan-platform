@@ -6,7 +6,7 @@
  * is sent, behind a stand-in store that ages the way Next's does. What is held:
  *
  *   1 · THE COUNT AND THE DEPTH. A first view sends 20 requests for these
- *       rows, 8 deep; a second view inside 60 s sends NONE.
+ *       rows, 7 deep; a second view inside 60 s sends NONE.
  *   2 · A REFUSED READ IS NEVER REMEMBERED — and the half that did answer still
  *       reaches the caller (a failed shop count is "couldn't load", not zero).
  *   3 · THE ROWS ARE RAW. A host with no public profile is still in the
@@ -155,7 +155,7 @@ function build(db: ReturnType<typeof countingDatabase>, clock: { now: number }, 
   return { reads, view, fake };
 }
 
-test('1 · a first view sends 20 requests, 8 deep; a second view inside 60 s sends NONE', async () => {
+test('1 · a first view sends 20 requests, 7 deep; a second view inside 60 s sends NONE', async () => {
   const clock = { now: 1_700_000_000_000 };
   const db = world();
   const { view } = build(db, clock);
@@ -194,12 +194,13 @@ test('1 · a first view sends 20 requests, 8 deep; a second view inside 60 s sen
       2 the chapters' owners · the hosts' memberships
       3 the hosts' names
       4 the cover rows · the hero rows
-      5 each event's orders          ┐ the ownership chain, both events side by
-      6 the bundle composition       │ side — it was walked per card, on every
-      7 comp grant ∥ internal host   │ view, before any of this was remembered
-      8 the founder seat (B only)    ┘
+      5 each event's orders ∥ the bundle composition ┐ the ownership chain, both
+      6 comp grant ∥ internal host                   │ events side by side — it was
+      7 the founder seat (B only)                    ┘ walked per card, on every view
+    (7, not 8, since 2026-10-12: the bundle composition leaves WITH the orders
+    read — `skuActiveInRender`, `lib/entitlements.ts` — instead of after it.)
   */
-  assert.equal(db.serialDepth(), 8, 'the cold view got deeper — a read is waiting on one it does not need');
+  assert.equal(db.serialDepth(), 7, 'the cold view got deeper — a read is waiting on one it does not need');
   // The facts are the REAL ownership: A (internal host, saved a Pro theme) owns it; B does not.
   assert.deepEqual(first.covers.facts[EVENT_A], { websitePro: true, logoAnimation: null });
   assert.deepEqual(first.covers.facts[EVENT_B], { websitePro: false, logoAnimation: null });

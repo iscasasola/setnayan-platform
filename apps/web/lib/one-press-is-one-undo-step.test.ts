@@ -100,7 +100,7 @@ test('F1 · EVERY intent is one patch, so one Undo step — and each undoes to e
 test('F1 · the Maker’s ＋ really sends that one patch — no move followed by an eye', () => {
   const read = (...p: string[]) => stripComments(readFileSync(join(process.cwd(), ...p), 'utf8'));
   const sheet = read('app', 'dashboard', '[eventId]', 'launch', '_components', 'add-part-sheet.tsx');
-  const add = sheet.slice(sheet.indexOf('const add = '), sheet.indexOf('const removeYes = '));
+  const add = sheet.slice(sheet.indexOf('const add = '), sheet.indexOf('const takeOff = '));
   assert.ok(add.length > 200);
   const scenePath = add.slice(0, add.indexOf('makerPostEventSceneOf('));
   assert.doesNotMatch(scenePath, /o\.move\(|o\.eye\(/, '＋ writes its place and its showing as two saves again');
@@ -229,7 +229,7 @@ test('＋ the sheet: every row says its own place once a part of another page is
   assert.match(sheet, /\{groups\.length === 0 \? <p[^>]*>Every part is already on this page\.<\/p> : null\}/);
   /* The press: one save in its own place, its page opened at once, and — only when that page shows it — brought
      onto the screen, picked, and said. */
-  const add = sheet.slice(sheet.indexOf('const add = '), sheet.indexOf('const removeYes = '));
+  const add = sheet.slice(sheet.indexOf('const add = '), sheet.indexOf('const takeOff = '));
   assert.match(
     add,
     /const away = otherPageOf\(stage, c\);\s*if \(away\) \{\s*o\.add\(folded\.widgetId, 0\);\s*onPage\?\.\(away\.key\);\s*settle\('add', `\$\{makerPartLabelOn\(stage, key\)\} added on \$\{away\.label\}`, \(\) => \{\s*bringOntoScreen\(c\);\s*onPick\?\.\(key\);\s*\}\);\s*return;\s*\}/,

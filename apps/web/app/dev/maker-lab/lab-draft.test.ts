@@ -183,7 +183,13 @@ test('M06 · M07 · M03 — Remove on the canvas unticks exactly its box, stays 
   assert.equal(after.canvas('rsvp').includes('countdown'), false, 'M07: the removed part is drawn again when the Maker is reopened');
   assert.ok(after.canvas('save_the_date').includes('countdown'), 'Remove on the Invitation took it off Save the Date');
   const flipped = start.nav.guestsSee.groups.flatMap((g) => g.rows).flatMap((r) =>
-    r.cells.flatMap((c, i) => (c.kind === 'box' && c.on !== (after.box(r.scene!, GUESTS_SEE_COLUMNS[i]!.stage as LifecyclePhase).cell.on) ? [`${r.scene}:${GUESTS_SEE_COLUMNS[i]!.stage}`] : [])),
+    /* 🔁 RE-AIMED 2026-10-11 ("What guests see", pass 2): a box is no longer always a SCENE's — E-Gifts, the Entourage,
+       Your seat… are boxes too, with no scene to look up. Each box is compared with the SAME row and column of the
+       reopened table (by the row's own key), so a Remove that unticked a fixed row's box would be caught as well. */
+    r.cells.flatMap((c, i) => {
+      const then = after.nav.guestsSee.groups.flatMap((g) => g.rows).find((x) => x.key === r.key)!.cells[i]!;
+      return c.kind === 'box' && (then.kind !== 'box' || c.on !== then.on) ? [`${r.scene ?? r.key}:${GUESTS_SEE_COLUMNS[i]!.stage}`] : [];
+    }),
   );
   assert.deepEqual(flipped, ['countdown:rsvp'], 'M06: the canvas Remove did not untick exactly its own box');
   /* M03 after a reload: the stage's fold says the couple took it off — that is what ＋ offers (`add-part-sheet.tsx`). */
@@ -251,6 +257,8 @@ test('the lab’s pages are handed EVERY key of a scene’s draft — the list o
     music: { button: 'disc' },
     stage_order: { rsvp: 3 },
     stage_show: { rsvp: false, event: true },
+    /* "What guests see", pass 2 — the fixed parts' choices (kept on the hero row by the real sanitiser). */
+    part_show: { gifts: { event: false } },
     std_lead: 'photos',
     custom: { title: 'Ours', body: 'Words.' },
     venue: { ceremony: { source: 'own' } },

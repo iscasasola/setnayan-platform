@@ -101,7 +101,7 @@ export default async function AvatarMakerPage({
       <div className="mx-auto max-w-3xl">
         <div className="mb-3 flex items-center justify-between px-1">
           <h1 className="text-lg font-medium text-white">Make your avatar</h1>
-          <Link href={`/${slug}`} className="text-sm text-white/60 hover:text-white">
+          <Link href={`/${slug}`} className="inline-flex min-h-[44px] items-center text-sm text-white/60 hover:text-white">
             ← Back
           </Link>
         </div>

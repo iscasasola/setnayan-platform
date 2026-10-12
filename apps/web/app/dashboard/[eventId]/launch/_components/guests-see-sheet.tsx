@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { Check, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerSave, requestCanvasRedraw, requestMakerRefresh } from '@/lib/maker-refresh';
 import { stageEyeValue } from '@/lib/stage-eye';
 import {
   GUESTS_SEE_COLUMNS,
@@ -109,6 +109,11 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
   /* What is true of the table as it opens: our picks — or how many boxes the couple has set by hand (`guestsSeeOpeningLine`). */
   const [line, setLine] = useState<string>(() => guestsSeeOpeningLine(area?.table));
   const [asking, setAsking] = useState(false);
+  /* 🗂 THE RSVP COLUMN FOLDS AWAY (the prototype's case A ↔ A4: "Hide the RSVP column" · "Show RSVP"). It is the reply
+     screens and nothing in it can be changed, so a couple may give its width to the four stages. For this opening of
+     the sheet only — nothing is stored, and no tick is lost: a folded column has no boxes. */
+  const [rsvpShown, setRsvpShown] = useState(true);
+  const shownCol = (col: number) => rsvpShown || GUESTS_SEE_COLUMNS[col]!.stage !== null;
   const [pending, start] = useTransition();
   const n = guestsSeeChanges(writes);
 
@@ -155,9 +160,19 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify(patch));
-        /* The Maker's ONE refresh (the eye's own, `editor-shell.tsx`): the canvas reloads for the render it brings. */
+        /* ⚡ THE COUNT COMES BACK WITH THE WRITE (`HUB_DRAFT_BAR_FIELD`): the Apply bar's ✓ read 0 until the whole-Maker
+           render landed (owner's run 2026-10-11: ~6 s) — it now answers in this one request. */
+        fd.set(HUB_DRAFT_BAR_FIELD, '1');
+        /* The Maker's ONE refresh (the eye's own, `editor-shell.tsx`) still follows: the navigator's lists and this
+           table's own rows come from that render. */
         const r = await makerSave(() => area.door(area.eventId, fd), requestMakerRefresh);
         if (!r.ok) return setLine(r.error || W.notKept);
+        /* ⚡ …AND THE PAGE DOES NOT WAIT FOR IT. This save is unheld, so the canvas used to change only after the
+           whole-Maker render (3–6 s on production — `lib/maker-refresh.ts`'s own measurement) and then its own. The
+           draft is written now: every page the Maker shows re-renders itself in place, at once
+           (`MAKER_CANVAS_REDRAW_EVENT` — the same document, the same scroll). The later Maker render asks the same
+           page the same thing and changes nothing more. */
+        requestCanvasRedraw();
         setTable(guestsSeeKept(table, sent));
         setWrites({});
         setUndo([]);
@@ -178,15 +193,21 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
           are parted by one thin divider. */}
       <div data-guests-see="" className="flex min-h-full flex-col bg-inherit">
         <div role="table" aria-label={W.title} className="flex-1 bg-inherit px-2">
-          <div role="row" className="sticky top-0 z-10 flex items-end bg-inherit pb-1.5 pt-1">
+          {/* 📌 THE PINNED HEAD HAS AN EDGE (owner's run 2026-10-11: "SHOWN AT" read as overlapping "THE BASICS" when
+              scrolled). The head is opaque, so a group's label slides under it — but with no line under the head the
+              label was cut by nothing, two small grey labels touching. The prototype's head carries this line
+              (`.thead{border-bottom:1px solid var(--line)}`); a divider, not a frame. */}
+          <div role="row" data-gs-head="" className="sticky top-0 z-10 flex items-end border-b border-ink/10 bg-inherit pb-1.5 pt-1">
             <span role="columnheader" className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink/45">
               {W.shownAt}
             </span>
-            {GUESTS_SEE_COLUMNS.map((c) => (
-              <span key={c.key} role="columnheader" data-gs-col={c.key} className={HEAD}>
-                {c.label}
-              </span>
-            ))}
+            {GUESTS_SEE_COLUMNS.map((c, col) =>
+              shownCol(col) ? (
+                <span key={c.key} role="columnheader" data-gs-col={c.key} className={HEAD}>
+                  {c.label}
+                </span>
+              ) : null,
+            )}
           </div>
           {table.groups.map((g, gi) => (
             <div key={g.title} role="rowgroup" data-gs-group={g.title} className={gi > 0 ? 'mt-2 border-t border-ink/10' : undefined}>
@@ -199,6 +220,7 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
                     {row.empty ? <span className="block text-[11px] font-normal leading-snug text-ink/55">{W.emptyNote}</span> : null}
                   </span>
                   {row.cells.map((cell, col) => {
+                    if (!shownCol(col)) return null;
                     const on = guestsSeeOn(row, col, writes);
                     const name = `${row.label} · ${GUESTS_SEE_COLUMNS[col]!.label}`;
                     return cell.kind === 'box' ? (
@@ -233,7 +255,18 @@ export function GuestsSeeSheet({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           ))}
-          <p className="px-0.5 pb-3 pt-3 text-[11.5px] leading-snug text-ink/55">{W.rsvpCaption}</p>
+          <p data-gs-rsvp-caption="" className="px-0.5 pb-3 pt-3 text-[11.5px] leading-snug text-ink/55">
+            {rsvpShown ? W.rsvpCaption : W.rsvpFolded}{' '}
+            <button
+              type="button"
+              data-gs-rsvp-fold={rsvpShown ? 'hide' : 'show'}
+              aria-expanded={rsvpShown}
+              onClick={() => setRsvpShown((v) => !v)}
+              className="ml-1 inline-flex min-h-11 items-center rounded-full px-3 text-[12px] font-semibold text-ink ring-1 ring-ink/15 active:scale-95"
+            >
+              {rsvpShown ? W.rsvpHide : W.rsvpShow}
+            </button>
+          </p>
         </div>
 
         {/* THE LOWER THIRD — what the last tap did · the key · the three buttons. */}

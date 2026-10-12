@@ -124,8 +124,14 @@ test('(2b) the remove confirm answers with the second button and the DELETE butt
   const sheet = read(`${L}/add-part-sheet.tsx`);
   const confirm = sheet.slice(sheet.indexOf('function RemovePartSheet('), sheet.indexOf('export function revealStageOf('));
   assert.ok(confirm.length > 600, 'anti-vacuity: the confirm was not found');
-  assert.equal((confirm.match(/<ActionButton tone="neutral" icon=\{Check\} label="Keep it" onClick=\{onClose\}/g) ?? []).length, 2, 'Keep it is not the second button (both shapes of the confirm)');
-  assert.match(confirm, /<ActionButton tone="danger" icon=\{Trash2\} label=\{w\.yes\} onClick=\{onYes\}/, 'the yes answer is not the delete button');
+  /* 🔁 Re-aimed 2026-10-11 (DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN"): the confirm had two shapes — "Remove from this page?" (Keep it · Remove) and a
+     scene of their own's "Delete this scene?". A part dropped on the bin now leaves at once and the line under the
+     tools offers Undo, so ONE shape is left: the scene of their own's, whose yes is the shipped Remove for good. */
+  assert.equal((confirm.match(/<ActionButton tone="neutral" icon=\{Check\} label="Keep it" onClick=\{onClose\}/g) ?? []).length, 1, 'Keep it is not the second button');
+  assert.match(confirm, /const w = makerRemoveWords\(label, true\);/, 'the one confirm left is not the scene of their own’s');
+  assert.match(confirm, /\{remover \?\? <p /, 'the yes answer is not the shipped Remove for good');
+  /* …and the line's Undo is the app's one action button too (the second button, never a hand-made pill). */
+  assert.match(read(`${L}/scene-drag.tsx`), /<ActionButton tone="neutral" icon=\{Undo2\} label=\{SCENE_DRAG_WORDS\.undo\} onClick=\{pressUndo\}/);
   assert.doesNotMatch(confirm, /<button\b|bg-danger-|bg-ink/, 'a hand-made answer is back');
   /* …and what those tones paint: delete is the house danger token, outlined — never filled like the main verb. */
   const del = renderToStaticMarkup(React.createElement(AB.ActionButton, { tone: 'danger', icon: Dot, label: 'Remove' }));
@@ -252,7 +258,10 @@ test('(5) the ▾ is the dropdown’s own accent; the frame and its chips are th
      four times. Remove is Edit's button now and takes its red from the ONE action button's `danger` tone.) */
   assert.equal((edges.match(/\$\{PART_ACCENT\}/g) ?? []).length, 2, 'a mark on the frame has a fill of its own');
   assert.match(edges, /data-part-outline="" className=\{PART_OUTLINE\}/);
-  assert.match(read(`${L}/stage-panel/stage-edit.tsx`), /<ActionButton tone="danger" icon=\{Trash2\} label=\{removeWord\}/, 'Remove is not the danger button');
+  /* (🔁 Re-aimed 2026-10-11 (DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN"): Remove was Edit's danger button. It is the bin now — red under the finger, by the
+     danger TOKEN — and the menu's Remove row, the same token.) */
+  assert.match(read(`${L}/scene-drag.tsx`), /held && over \? 'bg-\[var\(--sp-bad\)\] text-\[rgb\(var\(--sn-on-accent\)\)\]' : /, 'the bin under the finger is not the danger token');
+  assert.match(edges, /r\.danger \? '!text-\[rgb\(var\(--color-danger\)\)\]' : ''/, 'the menu’s Remove is not the danger token');
   assert.equal((edges.match(/shrink-0 text-sn-accent" strokeWidth=\{2\.4\}/g) ?? []).length, 2, 'the ＋ sheet’s marks are not the accent');
 });
 

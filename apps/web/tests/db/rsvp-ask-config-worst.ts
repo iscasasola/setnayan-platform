@@ -30,6 +30,13 @@ const FEEL = longest(RSVP_LOOK_FEELS);
 /** One line, everything chosen. */
 const LINE = { c: '#aabbcc', f: longest(HUB_FONT_KEYS), s: Math.max(...RSVP_LOOK_SIZES), i: FX, v: FEEL };
 const BUTTON = { f: LINE.f, s: LINE.s, i: FX, v: FEEL };
+/** A picture line, everything chosen: Tall and a Build in. */
+const PICTURE = { l: 'tall', i: FX, v: FEEL };
+/** The longest picture ref the reader keeps — a real shape (an event's scene-background folder), padded to the cap. */
+function worstPictureRef(): string {
+  const head = 'r2://setnayan-media/events/00000000-0000-4000-8000-000000000000/scene-background/';
+  return head + 'x'.repeat(RSVP_ADDED_PICTURE_MAX - head.length);
+}
 
 export type WorstOptions = {
   /** The character every typed text is made of — 'a' is 1 byte a UTF-16 unit, 'ñ' 2, '漢' 3 (the most a unit can be). */
@@ -67,10 +74,9 @@ export function worstRsvpAskConfig({ ch = '漢', text = true, added = RSVP_ADDED
     for (let i = 0; i < added; i++) {
       const id = (36 ** 4 - 1 - n++).toString(36); // four characters, the longest an id is
       ids.push(`a:${id}`);
-      lines[`a:${id}`] = LINE;
-      addedBy[part]!.push(
-        kind === 'p' ? { id, k: 'p', p: `r2://setnayan-media/${'x'.repeat(RSVP_ADDED_PICTURE_MAX - 20)}` } : { id, k: kind, t: text ? ch.repeat(RSVP_ADDED_TEXT_MAX[kind]) : 'x' },
-      );
+      /* A picture's look is its Look (Tall) and its Build in — it has no colour, font or size (`readPictureLook`). */
+      lines[`a:${id}`] = kind === 'p' ? PICTURE : LINE;
+      addedBy[part]!.push(kind === 'p' ? { id, k: 'p', p: worstPictureRef() } : { id, k: kind, t: text ? ch.repeat(RSVP_ADDED_TEXT_MAX[kind]) : 'x' });
     }
     const all = [...screenLines(part), ...ids];
     order[part] = all;

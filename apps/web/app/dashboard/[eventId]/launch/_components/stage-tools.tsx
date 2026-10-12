@@ -73,6 +73,7 @@ import { rsvpLookCard, rsvpLookLine, rsvpStyleHasRows } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
 import { useRsvpListStage } from './rsvp-list-stage';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
+import { stageStill } from './scene-drag';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
 import { StageLookRow } from './stage-panel/stage-look-row';
@@ -89,6 +90,7 @@ import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
 import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
+import { SCENE_COLLAPSE_CALM_MS, SCENE_COLLAPSE_EASE, SCENE_COLLAPSE_MS, SCENE_STATUS_MS } from '@/lib/maker-scene-drag';
 import { BlockAnimateRows, CameraPartTools, StagePlayStatus } from './details-lazy';
 import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas, blockTakesGround } from '@/lib/block-looks';
 import { BlockGroundRows } from './stage-panel/block-background';
@@ -551,22 +553,10 @@ export function StageTools({
   const [revealPlaying, setRevealPlaying] = useState(false);
   const open = (openTool !== null || revealOpen || cameraOpen) && !typing && !playing && !previewing;
   /* 📐 THE TOOLBAR IS ONE HEIGHT (owner 2026-10-09: *"330 px it is"* — `stageBarPx`): the same with a part picked
-     or none, never dragged, never folded. ▶ playing or ⌨ typing: away, no gap. The lower third adds the phone's
-     safe area to what it is told, so it is told the rest. */
-  useEffect(() => {
-    if (playing || typing || previewing) {
-      onPx(0);
-      return;
-    }
-    const say = () => {
-      const safe = safeBottomPx();
-      onPx(stageBarPx(window.innerHeight, safe) - safe);
-    };
-    say();
-    window.addEventListener('resize', say);
-    return () => window.removeEventListener('resize', say);
-  }, [playing, previewing, typing, onPx]);
-  useEffect(() => () => onPx(null), [onPx]);
+     or none, never dragged, never folded. ▶ playing or ⌨ typing: away, no gap. ✋ A scene held on the page: away for
+     as long as it is held (owner 2026-10-11). The lower third adds the phone's safe area to what it is told, so it
+     is told the rest. */
+  /* (The effect that says it stands under the part's edits, below: a scene held on the page slides it away too.) */
   /* 🎯 THE PICKED PART IN THE MIDDLE of the page left above the panel (prototype `centrePicked`: "making
      sure they see what element they are editing") — once the panel has risen; a part taller than that
      band lines up with its top. The canvas is a same-origin frame, scrolled here directly. */
@@ -574,6 +564,10 @@ export function StageTools({
   const pickedEl = picked ? (MAKER_PARTS[picked].el ?? null) : null;
   useEffect(() => {
     if (!open || !pickedKey) return;
+    /* ✋ A part a hold on the page picked is picked where it is (`stageStill`): the page is never brought to its
+       middle under the finger that holds a scene, nor after the drop. Any other pick clears it. */
+    if (stageStill.key === pickedKey) return;
+    stageStill.key = null;
     /* Once its tools are up — and again after the page under it settles (a page jump scrolls the canvas). */
     const t = window.setTimeout(() => centrePart(pickedKey, pickedEl, frameSel), STAGE_PANEL_MS + 40);
     const t2 = window.setTimeout(() => centrePart(pickedKey, pickedEl, frameSel), STAGE_PANEL_MS + 900);
@@ -897,6 +891,8 @@ export function StageTools({
     }, STAGE_PAGE_ASK_MS);
   }, []);
   /* ⌨ ↑ / ↓ step, Esc lets go — never while typing into a field or on the page. */
+  /** The picked scene's own steps, for the keys (set under the part's edits, below). */
+  const sceneKey = useRef<(step: 'up' | 'down' | 'remove') => void>(() => {});
   useEffect(() => {
     if (!picked || typing) return;
     const onKey = (e: KeyboardEvent) => {
@@ -904,7 +900,12 @@ export function StageTools({
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
-        step(e.key === 'ArrowDown' ? 1 : -1);
+        /* ⌨ Alt + ↑ ↓ MOVES the picked scene (the prototype's keyboard); plain ↑ ↓ steps to the part above / below. */
+        if (e.altKey) sceneKey.current(e.key === 'ArrowUp' ? 'up' : 'down');
+        else step(e.key === 'ArrowDown' ? 1 : -1);
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        sceneKey.current('remove');
       } else if (e.key === 'Escape') deselect();
     };
     window.addEventListener('keydown', onKey);
@@ -1256,7 +1257,66 @@ export function StageTools({
       if (page) goToPageRef.current(page.key, page.option);
     },
     onPick: (part) => pickPartRef.current(part),
+    /* ✋ The page takes a hold while it is the couple's to edit — never while it plays, is typed on or is a guest's. */
+    dragOn: !rsvpOpen && !away,
+    /* 🗑 The last scene of the page left: what an arrival would pick is picked (never the toolbar on nothing). */
+    onRemoved: () => {
+      const first = makerArrivalPart(orderedRef.current(), hasEditRowRef.current);
+      if (first) pickPartRef.current(first);
+    },
   });
+  sceneKey.current = (step) => {
+    const go = step === 'up' ? edits.earlier : step === 'down' ? edits.later : edits.remove;
+    if (go) go();
+    else edits.say(step === 'up' ? edits.why.earlier : step === 'down' ? edits.why.later : edits.why.remove);
+  };
+  /* ✋ A SCENE IS HELD ON THE PAGE: the toolbar slides away so the whole page shows, and back on release — both
+     motions seen (owner 2026-10-11: *"when we drag something the bottom toolbar collapses and shows the whole page.
+     make sure animation to collapse and expand shows"*). `slide` names the motion for the rule set below: 'away'
+     while it is held, 'back' for the length of the return. */
+  const held = edits.held;
+  const [slide, setSlide] = useState<'away' | 'back' | null>(null);
+  const wasHeld = useRef(false);
+  useEffect(() => {
+    if (held) {
+      wasHeld.current = true;
+      /* How far the work area's tool (laid over the four rows) has to travel to leave with the toolbar. */
+      const lt = document.querySelector<HTMLElement>('[data-maker-lower-third]')?.getBoundingClientRect().height ?? 0;
+      document.querySelector<HTMLElement>('[data-maker-shell]')?.style.setProperty('--scene-bar-px', `${Math.round(lt)}px`);
+      setSlide('away');
+      return;
+    }
+    if (!wasHeld.current) return;
+    wasHeld.current = false;
+    setSlide('back');
+    const id = window.setTimeout(() => setSlide(null), SCENE_COLLAPSE_MS + 40);
+    return () => window.clearTimeout(id);
+  }, [held]);
+  useEffect(() => {
+    if (playing || typing || previewing || held) {
+      onPx(0);
+      return;
+    }
+    const say = () => {
+      const safe = safeBottomPx();
+      onPx(stageBarPx(window.innerHeight, safe) - safe);
+    };
+    say();
+    window.addEventListener('resize', say);
+    return () => window.removeEventListener('resize', say);
+  }, [playing, previewing, typing, held, onPx]);
+  useEffect(() => () => onPx(null), [onPx]);
+  /* THE LINE UNDER THE TOOLS (row 4, where Earlier · Later · Remove stood — `scene-drag.tsx`). On Edit, and with
+     nothing picked, the row is its own and the line stays as long as it has something to say. Under another tool the
+     row belongs to that tool: the line is laid over it for a moment, then gives it back. */
+  const statusKey = edits.statusKey;
+  const [statusFresh, setStatusFresh] = useState(false);
+  useEffect(() => {
+    if (statusKey === null) return setStatusFresh(false);
+    setStatusFresh(true);
+    const id = window.setTimeout(() => setStatusFresh(false), SCENE_STATUS_MS);
+    return () => window.clearTimeout(id);
+  }, [statusKey]);
   /* ── ✍ THE PICKED PART'S WORDS, FOR EDIT'S ROWS — read off the page (`part-words.ts`): what the page draws is what
      can be typed, so a part whose words the page does not draw keeps its one door. Read again whenever the canvas
      says it is ready (it marks a scene's words a moment after) and after every keep. ── */
@@ -1321,6 +1381,8 @@ export function StageTools({
   );
   /** Edit's rows are this toolbar's own; every other tool's are the work area's (or the Reveal's / the Camera's). */
   const editOn = picked !== null && shownTool === 'edit';
+  /** The line under the tools is on screen: always on its own row (Edit, or nothing picked); for a moment under another tool. */
+  const statusOn = edits.status !== null && (editOn || picked === null || statusFresh);
   /* "You're editing · Stage › Page › Part" — the page only where the stage has several, the part once one is picked.
      ✂ SHORTENED FROM THE FRONT while it does not fit, so the part's name is always whole (`stageEditingLine`): the
      line is drawn, measured before the browser paints, and stepped a level down while it overflows. The whole path
@@ -1377,6 +1439,10 @@ export function StageTools({
       data-stage-row4={lookOn ? '' : undefined}
       aria-hidden={away || undefined}
       className={`relative flex min-h-0 flex-1 flex-col rounded-t-2xl bg-[var(--sp-page)] px-[10px] shadow-[inset_0_1px_0_var(--sp-line2)] transition-transform ease-out motion-reduce:transition-none ${away ? 'pointer-events-none translate-y-[110%]' : ''}`}
+      /* ✋ A scene is held on the page ('away'), or was just let go ('back') — the rule set below slides with it. */
+      data-scene-slide={slide ?? undefined}
+      /* The line under the tools is speaking under another tool: that tool gives row 4 back, as it does for Style's own row. */
+      data-stage-line={statusOn && !editOn && picked !== null ? '' : undefined}
       style={{ transitionDuration: `${STAGE_PANEL_MS}ms` }}
     >
       {/* One rule set, drawn only while this toolbar is (phone only): the prototype's colours and the frame's two
@@ -1429,7 +1495,37 @@ export function StageTools({
           /* The Maker's own top bar (✕ · the stage · undo · Apply) slides away for ▶ — and for the whole-page preview: it
              is a guest's page, and nothing of the Maker's but "Exit preview" is on it. */
           '[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transform:translateY(-110%);transition:transform 240ms ease-out}' +
-          '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transition:none}}'}
+          /* ✋ A SCENE IS HELD ON THE PAGE (owner 2026-10-11; the approved prototype's `.frame.dragging .lt{height:0}`,
+             `--dur:.28s`, `--ease:cubic-bezier(.4,0,.2,1)`): the lower third's height goes to nothing and comes back
+             over that one duration and ease — so the toolbar is SEEN sliding away and back, never a jump — and
+             everything that stands on it travels with it: the guests' bar, and the work area's tool laid over the
+             four rows (it slides the toolbar's own height, measured at the lift: `--scene-bar-px`). */
+          `[data-maker-lower-third]:has(>[data-stage-tools][data-scene-slide]){transition:height ${SCENE_COLLAPSE_MS}ms ${SCENE_COLLAPSE_EASE}!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-scene-slide]) [data-stage-guest-bar]{transition:bottom ${SCENE_COLLAPSE_MS}ms ${SCENE_COLLAPSE_EASE}!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-scene-slide]) [data-phone-chrome="panel"]{transition:transform ${SCENE_COLLAPSE_MS}ms ${SCENE_COLLAPSE_EASE}!important}` +
+          '[data-maker-shell]:has([data-stage-tools][data-scene-slide="away"]) [data-phone-chrome="panel"]{transform:translateY(var(--scene-bar-px,100%))!important;pointer-events:none}' +
+          '[data-stage-tools][data-scene-slide="away"]{pointer-events:none}' +
+          /* A scene stays on its page: the other tabs dim while one is lifted (the prototype's `.frame.dragging .tabs`). */
+          '[data-maker-shell]:has([data-stage-tools]) [data-stage-guest-tab]{transition:opacity 200ms}' +
+          '[data-maker-shell]:has([data-stage-tools][data-scene-slide="away"]) [data-stage-guest-tab]:not([aria-current="page"]){opacity:.35}' +
+          /* The bin stands 30 px over the foot of the page — over the guests' bar where the stage has one. */
+          '[data-maker-shell]:has([data-stage-tools]):has([data-stage-guest-bar]:not([hidden])){--scene-bin-over:74px}' +
+          /* The line under the tools, speaking under a tool whose rows are the work area's: that tool stands three
+             rows tall on it for as long as it speaks (the measure Style's own row 4 leaves it). */
+          `[data-maker-shell]:has([data-stage-tools][data-stage-line]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
+          '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transition:none}' +
+          /* 🕊 Reduce Motion: a short FADE in place of the slide (the prototype's `.ltin{transition:opacity}`) — the
+             toolbar fades out and only then gives its room up; on release the room is back at once and it fades in.
+             (`!important`: the app's Reduce Motion reset cuts every transition to nothing — measured 1e-06 s on this
+             toolbar, 2026-10-11 — and this one fade is the approved motion for exactly that setting: opacity only.) */
+          `[data-stage-tools]{transition:opacity ${SCENE_COLLAPSE_CALM_MS}ms linear!important}[data-stage-tools][data-scene-slide="away"]{opacity:0}` +
+          `[data-maker-lower-third]:has(>[data-stage-tools][data-scene-slide="away"]){transition:height 0s linear ${SCENE_COLLAPSE_CALM_MS}ms!important}` +
+          '[data-maker-lower-third]:has(>[data-stage-tools][data-scene-slide="back"]){transition:none!important}' +
+          `[data-maker-shell]:has([data-stage-tools][data-scene-slide="away"]) [data-stage-guest-bar]{transition:bottom 0s linear ${SCENE_COLLAPSE_CALM_MS}ms!important}` +
+          '[data-maker-shell]:has([data-stage-tools][data-scene-slide="back"]) [data-stage-guest-bar]{transition:none!important}' +
+          `[data-maker-shell]:has([data-stage-tools][data-scene-slide]) [data-phone-chrome="panel"]{transition:opacity ${SCENE_COLLAPSE_CALM_MS}ms linear!important;transform:none!important}` +
+          '[data-maker-shell]:has([data-stage-tools][data-scene-slide="away"]) [data-phone-chrome="panel"]{opacity:0}' +
+          '}'}
       </style>
 
       {/* ══ ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the part has none of
@@ -1534,7 +1630,7 @@ export function StageTools({
 
       {/* ══ THE FOUR ROWS — Edit's are drawn here; the work area's tool lies over this same box for the other three.
           Nothing picked: empty (the prototype's `drawStrip` with no part). ══ */}
-      <div data-stage-rows="" className="flex min-h-0 flex-1 flex-col [&>*]:!mt-0">
+      <div data-stage-rows="" className="relative flex min-h-0 flex-1 flex-col [&>*]:!mt-0">
         {lookOn && lookTarget ? (
           <div className={SP_ROWS} data-stage-look="">
             <div className="row-start-4 min-w-0">
@@ -1550,7 +1646,15 @@ export function StageTools({
           </div>
         ) : null}
         {editOn && !rsvpLineTypes ? (
-          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} earlier={edits.earlier} later={edits.later} remove={edits.remove} removeWord={edits.removeWord} why={edits.why} onWhy={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} working={edits.working} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : null} />
+          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : null} />
+        ) : null}
+        {/* ══ THE LINE UNDER THE TOOLS — row 4, where ↑ Earlier · ↓ Later · Remove stood until a scene could be held
+            on the page (owner 2026-10-11): "Saving…", "<Scene> removed" beside Undo, why a part keeps its place, a
+            save that failed (`scene-drag.tsx`). Laid over the four rows' own box, so it is row 4 under every tool. ══ */}
+        {statusOn ? (
+          <div className={`pointer-events-none absolute inset-x-0 top-0 z-[2] ${SP_ROWS}`} data-stage-status="">
+            <div className="pointer-events-auto row-start-4 flex min-w-0 items-center justify-center bg-[var(--sp-page)]">{edits.status}</div>
+          </div>
         ) : null}
         {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾ — under Style. Mounted unseen while another part (or Edit)
             is on, so the page's Reveal draws the opening chosen. ══ */}

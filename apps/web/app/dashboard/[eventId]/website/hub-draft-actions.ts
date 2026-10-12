@@ -55,6 +55,7 @@
  * RLS still apply underneath the host gate; only the Pro read uses the admin
  * client (inside `lookProAllows`, because orders RLS is purchaser-scoped).
  */
+import { rsvpPictureRefsIn } from '@/lib/rsvp-picture-ref';
 import { deleteOwnScene } from '@/lib/own-scene-delete';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -109,7 +110,7 @@ import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-wri
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
-import { STAGE_ORDER_KEY, STAGE_SHOW_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
+import { PART_SHOW_KEY, STAGE_ORDER_KEY, STAGE_SHOW_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { HUB_MUSIC_KEY } from '@/lib/hub-music-button';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -483,6 +484,13 @@ export async function hubDraftAction(
           held.push({ item, reason: 'not_your_photo' });
           continue;
         }
+      }
+      /* 🖼 THE RSVP PICTURE LINES — each file must be an upload into THIS event's own scene-background folder (the
+         shipped scene upload's — DECISION_LOG 2026-10-12 (a)); the reader only knows "an event's". A draft is a
+         public POST, so it is asked here, as a scene's own upload is. */
+      if (item.kind === 'event' && item.column === 'rsvp_ask_config' && rsvpPictureRefsIn(item.value).some((r) => !r.startsWith(ownScenePrefix))) {
+        if (!item.freePart) held.push({ item, reason: 'not_your_photo' });
+        continue;
       }
       if (item.kind === 'widget' && item.field === 'canvas') {
         const drafted = item.value as HubSectionCanvas | null;
@@ -872,6 +880,8 @@ export async function hubDraftAction(
                 ? STAGE_ORDER_KEY
                 : item.field === 'stage_show'
                   ? STAGE_SHOW_KEY
+                : item.field === 'part_show'
+                  ? PART_SHOW_KEY
                 : item.field === 'std_lead'
                   ? STD_LEAD_KEY
                   : item.field === 'custom'

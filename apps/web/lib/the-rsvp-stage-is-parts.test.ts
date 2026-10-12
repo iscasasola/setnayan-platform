@@ -620,9 +620,14 @@ test('6 · a reply page is a FIXED page: its parts have the frame — never ＋,
   assert.equal((EDGES.slice(scenesArm, gateEnd).match(/data-part-add=/g) ?? []).length, 2);
   assert.match(EDGES, /const canRemove = edgesOf\.remove && [^;]* && !fixedPages;/);
   assert.match(EDGES, /const canMove = edgesOf\.grip && [^;]* && !fixedPages;/);
-  /* …and those two answers are all Edit's last row is offered. */
+  /* …and those two answers are all a step is offered. */
   assert.match(EDGES, /const canStep = \(dir: -1 \| 1\) => Boolean\(typeof document !== 'undefined' && canMove && /);
-  assert.match(EDGES, /remove: (?:working \? null : )?canRemove \? \(\) => setRemoving\(true\) : null,/);
+  assert.match(EDGES, /remove: (?:working \? null : )?canRemove \? \(\) => removeNow\(\) : null,/);
+  /* ✋ (2026-10-11) …nor is a part of a reply page ever HELD: the scenes' drag is off on a fixed page (its lines have
+     their own — `rsvp-canvas-drag.ts`), the tag opens no menu there, and nothing is taken off there by any door. */
+  assert.match(EDGES, /on: dragOn && !fixedPages && !frame,/);
+  assert.match(EDGES, /const tagMenu = !fixedPages && !line;/);
+  assert.match(EDGES, /if \(!o \|\| fixedPages \|\| !mayRemove\(at\.mv\)\) return null;/);
 });
 
 /* ══ 7 · A GUEST'S PAGES ARE UNTOUCHED ═══════════════════════════════════════ */

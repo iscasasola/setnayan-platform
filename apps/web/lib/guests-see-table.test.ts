@@ -73,32 +73,46 @@ test('1 · the prototype’s table: six groups, its rows, five columns — and o
     row.cells.forEach((cell, col) => {
       const lifecycle = GUESTS_SEE_COLUMNS[col]!.stage !== null;
       if (cell.kind === 'box') {
-        assert.ok(row.scene !== null && lifecycle, `${row.label} × ${GUESTS_SEE_COLUMNS[col]!.label} is a box that could write nothing`);
+        /* 🔁 RE-AIMED 2026-10-11 (pass 2): a box is no longer "a scene" — it is a row that has somewhere to WRITE
+           (`row.write`: a scene's own row, or `part:<key>` on the hero row), on a lifecycle stage. The claim is the
+           same: no box that could write nothing. `fixed-rows-are-real-boxes` flips each fixed row's on the real page. */
+        assert.ok(row.write !== null && lifecycle, `${row.label} × ${GUESTS_SEE_COLUMNS[col]!.label} is a box that could write nothing`);
         count.box += 1;
       } else if (cell.kind === 'dash') count.dash += 1;
       else if (row.scene !== null) {
         assert.deepEqual([lifecycle, cell.on, cell.why], [false, false, GUESTS_SEE_WORDS.replyScreens], 'a scene is locked only on the reply screens');
         count.replyScreens += 1;
       } else {
-        assert.equal(cell.why, GUESTS_SEE_WORDS.locked);
+        // A row that is not a scene: "not changed here yet", the prototype's "always shown" line, or — in the RSVP
+        // column of a part that IS a box elsewhere — the reply screens' line.
+        assert.ok(
+          [GUESTS_SEE_WORDS.locked, GUESTS_SEE_WORDS.alwaysNames, GUESTS_SEE_WORDS.alwaysPlace, GUESTS_SEE_WORDS.alwaysReply, GUESTS_SEE_WORDS.replyScreens].includes(cell.why as never),
+          `${row.label}: ${cell.why}`,
+        );
         count[cell.on ? 'lockedOn' : 'lockedOff'] += 1;
       }
     });
   }
   console.log(`  cells: ${JSON.stringify(count)}`);
   // 21 rows × 5 columns = 105 cells, for this invitation (every scene filled, one scene of the couple's own).
-  assert.deepEqual(count, { box: 33, dash: 11, lockedOn: 34, lockedOff: 18, replyScreens: 9 });
+  // (Pass 2: 18 of the fixed rows' cells are boxes now — the film-led Save the Date keeps E-Gifts a dash — so
+  // 33 + 18 boxes; "Live" on the Save the Date and the Camera after the day changed kind with them.)
+  assert.deepEqual(count, { box: 50, dash: 12, lockedOn: 19, lockedOff: 15, replyScreens: 9 });
   // The two scene dashes, in the prototype's words; a fixed row's, in its own.
   assert.deepEqual(rowOf(t, 'countdown').cells[COL.editorial], { kind: 'dash', why: 'The countdown ends on the day.' });
   // …and ON the day too: the Countdown has retired by then (`SCENES_RETIRED_ON_THE_DAY`) — a box there would be a tick that draws nothing.
   assert.deepEqual(rowOf(t, 'countdown').cells[COL.event], { kind: 'dash', why: 'The countdown ends on the day.' });
   assert.deepEqual(rowOf(t, 'what_to_bring').cells[COL.editorial], { kind: 'dash', why: 'The day has passed.' });
+  // 🔁 RE-AIMED 2026-10-12 (controller's call: the prototype's cells): Live × Save the Date is the prototype's dash again.
   assert.deepEqual(rowOf(t, 'live').cells[COL.save_the_date], { kind: 'dash', why: 'Live opens on the day.' });
+  assert.deepEqual(rowOf(t, 'photosofyou').cells[COL.save_the_date], { kind: 'dash', why: 'Photos of you come from the day.' });
   // The fixed rows the page's own gates answer for.
   assert.deepEqual(rowOf(t, 'pass').cells.map((c) => c.kind === 'locked' && c.on), [false, false, true, true, false], 'the ticket is drawn on the Invitation and The Day');
   assert.deepEqual(rowOf(t, 'reply').cells.map((c) => c.kind === 'locked' && c.on), [false, true, true, false, false]);
-  assert.deepEqual(rowOf(table(stageWidgets(), { hasEntourage: false }), 'entourage').cells.map((c) => c.kind === 'locked' && c.on), [false, false, false, false, false]);
-  assert.deepEqual(rowOf(table(stageWidgets(), { giftsOff: true }), 'gifts').cells.map((c) => c.kind === 'locked' && c.on), [false, false, false, false, false]);
+  /* 🔁 RE-AIMED (pass 2): the Entourage and E-Gifts are boxes now. With nobody in a role the row says so under its
+     name (its boxes still say where it stands); "Accept gifts? — No" leaves every gift box empty. */
+  assert.equal(rowOf(table(stageWidgets(), { hasEntourage: false }), 'entourage').note, GUESTS_SEE_WORDS.nobodyYet);
+  assert.deepEqual(rowOf(table(stageWidgets({ our_photos: { config: { std_lead: 'photos' } } }), { giftsOff: true }), 'gifts').cells.map((c) => (c.kind === 'box' ? c.on : null)), [false, null, false, false, false]);
 });
 
 test('2 · every box IS sceneOnStage — drawn, our pick and the stored choice — for 300 random events', () => {
@@ -170,9 +184,11 @@ test('4 · a locked cell and a dash write nothing, and answer with their one lin
   const t = table(stageWidgets());
   const pending = guestsSeeToggle(t, NONE, 'special_message', COL.event).writes;
   const cases: Array<[string, number, string]> = [
-    ['gifts', COL.rsvp, 'This one cannot be changed here yet.'], // a fixed row, shown
-    ['seat', COL.save_the_date, 'This one cannot be changed here yet.'], // a fixed row, not shown
-    ['names', COL.rsvp_screens, 'This one cannot be changed here yet.'],
+    /* 🔁 RE-AIMED (pass 2): E-Gifts and Your seat are boxes now, so the rows that are still shown-as-is stand here. */
+    ['pass', COL.rsvp, 'This one cannot be changed here yet.'], // a fixed row, shown
+    ['announce', COL.save_the_date, 'This one cannot be changed here yet.'], // a fixed row
+    ['names', COL.rsvp_screens, 'Names and date are always shown.'],
+    ['gifts', COL.rsvp_screens, 'Not on the reply screens yet.'], // a part's RSVP column
     ['schedule', COL.rsvp_screens, 'Not on the reply screens yet.'], // a scene's RSVP column
     ['countdown', COL.editorial, 'The countdown ends on the day.'], // cannot be there then
     ['camera', COL.editorial, 'The camera closes after the day.'],

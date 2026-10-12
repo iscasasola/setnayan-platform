@@ -66,7 +66,7 @@ import {
   type WidgetType,
 } from './invitation-widgets';
 import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
-import { stageShown, stagesOfScene, stdShows, storedStdLead } from './stage-scenes';
+import { FIXED_PARTS, partShown, stageShown, stagesOfScene, stdShows, storedStdLead, type FixedPart } from './stage-scenes';
 import type { WeddingOnlyParts } from './wedding-only-parts';
 
 export type StageReader = 'guest' | 'anonymous';
@@ -409,3 +409,45 @@ export function whatGuestsSee(input: Omit<GuestsSeeInput, 'stage'>): Record<Life
     editorial: scenesOnStage({ ...input, stage: 'editorial' }),
   };
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE PARTS THAT ARE NOT SCENES (pass 2) — E-Gifts · Entourage · seat · pass · …
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The couple's choice for a FIXED part on `stage` — read off the hero row
+ * (`config_json.part_show`, `lib/stage-scenes.ts`). `null` = none: with stages
+ * switched off, with no hero row, or with nothing stored. Then the part does
+ * exactly what it did before this file knew of it.
+ */
+export function partChoice(
+  widgets: ReadonlyArray<{ widget_type: string; config_json?: unknown }>,
+  part: FixedPart,
+  stage: LifecyclePhase,
+  phasesEnabled: boolean,
+): boolean | null {
+  if (!phasesEnabled) return null;
+  const hero = widgets.find((w) => w.widget_type === 'hero');
+  return hero ? partShown(hero.config_json, part, stage) : null;
+}
+
+/** FOR A PART'S MOUNT: the couple's choice for the stage when there is one, otherwise `today` — what the mount decided before. */
+export function partOnStage(
+  widgets: ReadonlyArray<{ widget_type: string; config_json?: unknown }>,
+  part: FixedPart,
+  stage: LifecyclePhase,
+  phasesEnabled: boolean,
+  today: boolean,
+): boolean {
+  return partChoice(widgets, part, stage, phasesEnabled) ?? today;
+}
+
+/** Every fixed part the couple hid on this stage (a stored `false`) — what the guest page withholds at the source. */
+export function partsHiddenOn(
+  widgets: ReadonlyArray<{ widget_type: string; config_json?: unknown }>,
+  stage: LifecyclePhase,
+  phasesEnabled: boolean,
+): ReadonlySet<FixedPart> {
+  return new Set(FIXED_PARTS.filter((part) => partChoice(widgets, part, stage, phasesEnabled) === false));
+}
+

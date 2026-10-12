@@ -207,20 +207,20 @@ export function SaveTheDateView({
     <section className="space-y-8 text-center">
       {showTextHero ? (
         <div className="space-y-3">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
             Save the date
           </p>
           <h1 className="font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
             {displayName}
           </h1>
           {dateIso ? (
-            <p className="text-base text-ink/60">
+            <p className="text-base text-ink/70">
               {[formatEventDate(dateIso), venueName].filter(Boolean).join(' · ')}
             </p>
           ) : null}
         </div>
       ) : (
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
           Save the date
         </p>
       )}
@@ -253,7 +253,7 @@ export function SaveTheDateView({
 
       <OurStory loveStory={loveStory} variant="teaser" />
 
-      <p className="mx-auto max-w-prose text-sm text-ink/60">
+      <p className="mx-auto max-w-prose text-sm text-ink/70">
         Full invitation to follow. We can&rsquo;t wait to celebrate with you.
       </p>
     </section>

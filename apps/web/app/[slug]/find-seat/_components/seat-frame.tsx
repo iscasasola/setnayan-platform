@@ -51,7 +51,7 @@ export function SeatFrame({
           href={backHref}
           slug={slug}
           aria-label="Back to the invitation"
-          className="grid h-10 w-10 place-items-center rounded-full bg-ink text-cream"
+          className="grid h-11 w-11 place-items-center rounded-full bg-ink text-cream"
         >
           <svg aria-hidden viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
             <path d="m15 6-6 6 6 6" />

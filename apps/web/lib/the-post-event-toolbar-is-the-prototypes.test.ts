@@ -83,19 +83,21 @@ const raw = (over: { arrangement?: PostEventArrangement; tiles?: Tile[]; styles?
 
 /* ── (1) Edit's rows ──────────────────────────────────────────────────── */
 
-test('(1) Edit on a Post Event scene: ONE words row in row 1, “Shown to guests” in row 2, the move row in row 4', async () => {
+test('(1) Edit on a Post Event scene: ONE words row in row 1, “Shown to guests” in row 2 — and no buttons row (a scene is held and dragged)', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { StageEdit } = await import(`../${L}/stage-panel/stage-edit`);
   const field = (el: string, text: string) => ({ key: 'p:wishes', el, field: null, label: { label: 'Label', heading: 'Heading', body: 'Words' }[el]!, text, auto: null, long: el === 'body', maxLength: 120, twoPeople: false });
   const fields = [field('heading', 'What you told us'), field('label', 'Wishes'), field('body', 'So many kind words.')];
   const draw = (tapped: string | null, second: React.ReactNode) =>
     renderToStaticMarkup(
-      h(StageEdit as Any, { fields, tapped, onType: () => {}, onKeep: async () => ({ ok: true as const }), earlier: () => {}, later: () => {}, remove: () => {}, removeWord: 'Remove', why: { earlier: 'x', later: 'x', remove: 'x' }, onWhy: () => {}, second }),
+      h(StageEdit as Any, { fields, tapped, onType: () => {}, onKeep: async () => ({ ok: true as const }), second }),
     );
   const row2 = h('div', { className: 'row-start-2', 'data-stage-edit-row': 'shown' }, 'Shown to guests');
   const html = draw(null, row2);
   const rows = [...html.matchAll(/class="([^"]*)" data-stage-edit-row="([a-z]+)"/g)].map((m) => `${m[2]}@${/row-start-(\d)/.exec(m[1]!)?.[1]}`);
-  assert.deepEqual(rows, ['words@1', 'shown@2', 'place@4'], 'a Post Event scene’s Edit is not: its words · Shown to guests · its place');
+  /* (🔁 Re-aimed 2026-10-11 (DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN"): the prototype of 2026-10-10 drew [4] Earlier · Later · Remove here; a scene
+     — a Post Event one too — is now held on the page and dragged, and row 4 is the toolbar's line under the tools.) */
+  assert.deepEqual(rows, ['words@1', 'shown@2'], 'a Post Event scene’s Edit is not: its words · Shown to guests');
   /* ONE box — the Heading (the prototype's) — though the scene's style draws three texts: row 2 is the switch's. */
   assert.deepEqual([...html.matchAll(/data-stage-edit-words="([a-z]+)"/g)].map((m) => m[1]), ['heading']);
   assert.match(html, /aria-label="Heading: What you told us\. Tap to change"/);
@@ -104,8 +106,8 @@ test('(1) Edit on a Post Event scene: ONE words row in row 1, “Shown to guests
   assert.deepEqual([...draw('body', row2).matchAll(/data-stage-edit-words="([a-z]+)"/g)].map((m) => m[1]), ['body']);
   /* Any other part keeps up to three rows of words (a scene of their own: Heading and Words). */
   assert.deepEqual([...draw(null, null).matchAll(/data-stage-edit-words="([a-z]+)"/g)].map((m) => m[1]), ['heading', 'label', 'body']);
-  /* The move row is Earlier · Later · Remove, as on every part. */
-  assert.deepEqual([...html.slice(html.indexOf('data-stage-edit-row="place"')).matchAll(/<button[^>]*aria-label="([^"]+)"/g)].map((m) => m[1]), ['Earlier', 'Later', 'Remove']);
+  /* No step of Edit's own: a Post Event scene moves and leaves as every scene does — held on the page, or by its tag's menu. */
+  assert.doesNotMatch(html, /data-stage-edit-row="place"|aria-label="(?:Earlier|Later|Remove)"/);
   const edit = read(`${L}/stage-panel/stage-edit.tsx`);
   assert.match(edit, /const shown = orderPartWords\(fields, tapped\)\.slice\(0, second \? 1 : WORDS_ROW\.length\);/);
 

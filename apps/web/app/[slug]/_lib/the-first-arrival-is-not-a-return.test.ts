@@ -73,11 +73,20 @@ const LOADERS = readFileSync(join(__dirname, 'loaders.ts'), 'utf8');
 const stripped = LOADERS.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 test('the signal is the EARLIEST scan, not a count and not the newest', async () => {
+  // 2026-10-12: the read leaves beside the guest's other reads (`startAhead(readFirstScan(…))`) and is awaited in
+  // the block — so the block must await THAT read, and the read itself is held to the rule.
   const block = stripped.slice(stripped.indexOf('guestFirstVisit'), stripped.indexOf('const guestHubData'));
-  assert.match(block, /from\('scan_events'\)/, 'the arrival trail is no longer read');
-  assert.match(block, /ascending: true/, 'reading the NEWEST scan makes every visit look like the first');
-  assert.match(block, /\.limit\(1\)/);
-  assert.doesNotMatch(block, /count/i, 'a count lies — the redeem route writes two rows for one arrival');
+  assert.match(block, /await firstScanAhead;/, 'the arrival trail is no longer read');
+  assert.match(stripped, /const firstScanAhead = startAhead\(readFirstScan\(admin, guest\.guest_id\)\);/, 'the first-visit block awaits something other than the first scan');
+  const at = stripped.indexOf('async function readFirstScan(');
+  assert.ok(at > -1, 'the first-scan read was renamed — re-point this guard');
+  const read = stripped.slice(at, stripped.indexOf('\n}', at));
+  assert.match(read, /from\('scan_events'\)/, 'the arrival trail is no longer read');
+  assert.match(read, /ascending: true/, 'reading the NEWEST scan makes every visit look like the first');
+  assert.match(read, /\.limit\(1\)/);
+  for (const src of [block, read]) {
+    assert.doesNotMatch(src, /count/i, 'a count lies — the redeem route writes two rows for one arrival');
+  }
 });
 
 test('⛔ the greeting never leans on a host-written field', async () => {

@@ -101,8 +101,12 @@ test('1 · the entourage is on the Invitation, the Day and Post Event — never 
   assert.equal(stageShowsEntourage('save_the_date'), false);
   const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
   const mounts = BODY.match(/<EntourageSection[\s/>]/g) ?? [];
-  const gated = BODY.match(/stageShowsEntourage\(pageStage\) \? <EntourageSection/g) ?? [];
+  /* 🔁 RE-AIMED 2026-10-12 ("What guests see", pass 2): each mount now asks `entourageShownOn(pageStage)` — the same
+     stage rule (`stageShowsEntourage`), or the couple's own choice for that stage when they made one. */
+  const gated = BODY.match(/entourageShownOn\(pageStage\) \? <EntourageSection/g) ?? [];
   assert.equal(gated.length, mounts.length, 'every entourage mount asks the stage');
+  assert.ok(mounts.length >= 2, 'anti-vacuity: the page mounts the entourage');
+  assert.match(BODY, /const entourageShownOn = \(stage: LifecyclePhase\): boolean =>\s*partOnStage\(widgets, 'entourage', lifecyclePhase, phasesEnabled, stageShowsEntourage\(stage\)\);/);
 });
 
 test('2 · "Two ways to celebrate" is on NO stage — Post Event included, open browsing too', () => {

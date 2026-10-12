@@ -1,6 +1,7 @@
 import type { RoomLink } from '../_lib/room-links';
 import { RoomFooter } from '../_components/room-footer';
 import { loadRoomLinks } from '../_lib/room-links.server';
+import { partDoorHidden } from '../_lib/part-door.server';
 import { loadEventShell, loadGuestLook } from '../_lib/loaders';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -111,6 +112,9 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   // the event's day, or earlier only if the couple turned on "Show guests their
   // seats early". A failed read goes to the error boundary, never "not yet".
   const published = await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true });
+  // 👁 The couple hid "Find your seat" on the stage the event is at ("What guests see"): a guest who kept this address
+  // goes back to the event's page — the exit this page already takes above. One reading: `_lib/part-door.server.ts`.
+  if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
 
   const [viewer, look] = await Promise.all([
     readGuestViewerForEvent(event.event_id),

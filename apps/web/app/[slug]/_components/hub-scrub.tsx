@@ -60,7 +60,11 @@ export function HubScrub() {
     let keepPlace: ((change: () => void) => void) | null = null;
     /** Say on every scenes block with a hand-over why it is off (the engine says its own reasons, and clears this when it arms). */
     const say = (why: string) => {
-      for (const root of document.querySelectorAll('.hub-scenes')) if (root.querySelector('[data-hub-fx]')) root.setAttribute(OFF, why);
+      const blocks = document.querySelectorAll('.hub-scenes');
+      for (const root of blocks) if (root.querySelector('[data-hub-fx]')) root.setAttribute(OFF, why);
+      /* A page whose cover is its only Scrub has no scenes block (the real invitation, with nothing but its cover
+         set to leave): it says it on its own hold — the box the engine says its own reasons on, and clears as it arms. */
+      if (blocks.length === 0) document.querySelector('.hub-page-cell')?.setAttribute(OFF, why);
     };
     const disarm = () => {
       for (const stop of stops.splice(0)) stop();

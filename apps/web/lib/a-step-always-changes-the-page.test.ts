@@ -138,9 +138,17 @@ test('THE PROPERTY: every step the rule allows changes the drawn page; every ste
 test('the toolbar’s steps take their neighbours through the rule', () => {
   const sheet = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'add-part-sheet.tsx'), 'utf8'));
   const targets = sheet.slice(sheet.indexOf('const moveTargets = '), sheet.indexOf('const dropOn = '));
-  assert.match(targets, /if \(mv\.kind === 'scene' && t\.kind === 'scene' && !stepChangesThePage\(stage, mv\.type, t\.type\)\) continue;/);
-  /* Earlier · Later (and a drag, which lands on the same targets) all read `moveTargets`. */
+  /* 🔁 Re-aimed 2026-10-11 (the drag — DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE"): the
+     rule moved out of this hook into the one list the DRAG reads too (`lib/maker-scene-drag.ts` `sceneMovesAmong`),
+     so a step and a drop cannot disagree about where a scene may go. Read here; EXECUTED, over every stage and every
+     pair, by `lib/a-scene-is-dragged-on-the-page.test.ts`. */
+  assert.match(targets, /for \(const n of sceneMovesAmong\(stage, o\.list\.shown, heldOf\(at\.mv\), at\.canvas\)\) \{/);
+  assert.doesNotMatch(targets, /o\.list\.shown\.(?:filter|map|forEach)|for \(const t of o\.list\.shown\)/, 'the targets are read off the list again, past the rule');
+  const rule = stripComments(readFileSync(join(process.cwd(), 'lib', 'maker-scene-drag.ts'), 'utf8'));
+  assert.match(rule, /if \(t\.kind !== 'scene' \|\| !stepChangesThePage\(stage, held\.type, t\.type\)\) continue;/);
+  /* Move up · Move down (and a drag, which lands on the same targets) all read `moveTargets`. */
   assert.match(sheet, /const neighbour = [\s\S]{0,400}?const targets = moveTargets\(o\);/);
+  assert.match(sheet, /const t = o \? moveTargets\(o, at\)\.find\(\(x\) => x\.key === target\) : null;/, 'a drop lands on something other than a step’s targets');
   /* The grey step says the entourage's own name — only where the page draws one. */
   assert.match(sheet, /const held = heldByEntourage\(stage, mv\.type, others\);/);
   assert.match(sheet, /const drawsIt = ops\.list\.shown\.some\(\(t\) => t\.kind === 'fixed' && t\.fixed === 'entourage'\);\s*if \(!held \|\| !drawsIt\) return \{\};\s*const words = makerPartStepHeldWhy\(label \|\| 'This part', held, makerPartLabelOn\(stage, 'march'\)\);/);

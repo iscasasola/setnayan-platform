@@ -27,6 +27,7 @@ export function RsvpNoteLines({
   ownMessage,
   firstName,
   lines = null,
+  pictures,
 }: {
   reply: 'yes' | 'no';
   /** The Maker's sample (a verified host): the words carry their names, and an added line with no words is shown. */
@@ -37,6 +38,8 @@ export function RsvpNoteLines({
   ownMessage: string | null;
   firstName: string;
   lines?: readonly RsvpLayoutItem[] | null;
+  /** 🖼 The picture lines' files, signed by the page (`signRsvpPictures`). */
+  pictures?: Readonly<Record<string, string>>;
 }) {
   const items = lines ?? NOTE_OWN_LINES;
   if (reply === 'no') {
@@ -47,6 +50,7 @@ export function RsvpNoteLines({
         <RsvpLines
           items={items}
           canvas={canvas}
+          pictures={pictures}
           own={{
             heading: (
               <p
@@ -80,6 +84,7 @@ export function RsvpNoteLines({
     <RsvpLines
       items={items}
       canvas={canvas}
+      pictures={pictures}
       addedClass={RSVP_NOTE_ADDED_CLASS}
       own={{
         heading: (

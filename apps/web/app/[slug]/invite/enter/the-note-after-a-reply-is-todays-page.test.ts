@@ -68,7 +68,7 @@ test('1 · the page draws the note through the one component — and hands it th
   const page = readFileSync(join(HERE, 'page.tsx'), 'utf8');
   assert.match(
     page,
-    /<RsvpNoteLines\s+reply=\{reply === 'no' \? 'no' : 'yes'\}\s+canvas=\{canvas\}\s+wordKeys=\{wordKeys\}\s+headline=\{headline\}\s+ownHeadline=\{ownHeadline\}\s+ownMessage=\{ownMessage\}\s+firstName=\{firstName\}\s+lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), reply === 'no' \? 'nonote' : 'yesnote'\)\}\s+\/>/,
+    /<RsvpNoteLines\s+reply=\{reply === 'no' \? 'no' : 'yes'\}\s+canvas=\{canvas\}\s+wordKeys=\{wordKeys\}\s+headline=\{headline\}\s+ownHeadline=\{ownHeadline\}\s+ownMessage=\{ownMessage\}\s+firstName=\{firstName\}\s+lines=\{rsvpScreenLayout\(readRsvpLook\(event\.rsvp_ask_config\), reply === 'no' \? 'nonote' : 'yesnote'\)\}\s+pictures=\{rsvpPictures\}\s+\/>/,
   );
   /* The note's lines are drawn nowhere else on the page. */
   assert.doesNotMatch(page, /data-landing-missed|data-landing-done|data-thank-you-message/);

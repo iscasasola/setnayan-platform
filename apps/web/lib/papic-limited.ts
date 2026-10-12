@@ -8,6 +8,7 @@ import {
 import { generateSeatClaimToken } from '@/lib/papic-seats';
 import { resolveStoredWindow, type StoredWindow } from '@/lib/papic-window';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 /**
  * The event's Papic capture WINDOW (owner 2026-06-26), graceful pre-migration.
@@ -19,11 +20,14 @@ export async function fetchEventPapicWindow(
   admin: SupabaseClient,
   eventId: string,
 ): Promise<StoredWindow> {
-  const sel = await admin
-    .from('events')
-    .select('papic_window_start, papic_window_end, event_date')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+  const sel = await eventRowOnce(admin, eventId, 'papic_window_start, papic_window_end, event_date', () =>
+    admin
+      .from('events')
+      .select('papic_window_start, papic_window_end, event_date')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
   if (sel.error?.code === '42703') {
     // Pre-migration: window columns absent — read just the anchor date.
     const fb = await admin

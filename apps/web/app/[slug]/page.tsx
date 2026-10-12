@@ -54,6 +54,7 @@ import { manilaToday } from '@/lib/std-views';
 import { meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { BLOCK_MARK_ATTR, readBlockLooks } from '@/lib/block-looks';
 import { rsvpReplyOpen } from '@/lib/site-body-plan';
+import { partsHiddenOn } from '@/lib/what-guests-see';
 import { cookies } from 'next/headers';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
@@ -153,6 +154,8 @@ import { PrivateLanding } from './_components/private-landing';
 import { SiteBody } from './_components/site-body';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { startAhead } from '@/lib/start-ahead';
+import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
+import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
 
 // Task #13 (Phase 1 day-of PWA fix, 2026-05-22) — swap `dynamic = 'force-dynamic'`
 // for ISR so this surface can be CDN-cached AND served from SHELL_CACHE when a
@@ -246,7 +249,13 @@ type Props = {
 // on the slug alone, so generateMetadata and the page body keep sharing one DB
 // roundtrip exactly as before.
 
-export async function generateMetadata({ params, searchParams }: Props) {
+export async function generateMetadata(props: Props) {
+  // ⏱ The same bounded wait — but the metadata is never the part that fails: a
+  // lapse is recorded for the request, and the page says the honest words.
+  return withGuestReadLimitQuiet('slug/metadata', () => invitationMetadata(props));
+}
+
+async function invitationMetadata({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
   if (!slug || RESERVED_SLUGS.has(slug)) notFound();
@@ -392,7 +401,17 @@ export async function generateMetadata({ params, searchParams }: Props) {
 // revealSealConfig · coerceRevealTemplate · displayNameOf — moved verbatim to
 // _components/site-body.tsx with the body trees that consume them.)
 
-export default async function PublicInvitationPage({ params, searchParams }: Props) {
+/* ⏱ NO GUEST WAITS FOREVER FOR A READ (`lib/read-limit.ts`, 2026-10-12). Every
+   read this page sends has a bounded wait, and if an ESSENTIAL one — the event,
+   the scenes, the guest's own row — does not answer, the guest is shown the
+   boundary's honest words instead of a "not found" or an empty page decided
+   from a read that never came back. The page itself is the function below,
+   unchanged. */
+export default async function PublicInvitationPage(props: Props) {
+  return withGuestReadLimit('slug', () => publicInvitationPage(props));
+}
+
+async function publicInvitationPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
   const invite = (search.invite ?? '').trim();
@@ -693,21 +712,30 @@ async function skeletonStdLead(
  * the body work (which is slow). Nothing here moved a line — it is the same
  * code, one function deeper.
  */
-async function InvitationBody({
-  event: liveEvent,
-  slug,
-  search,
-  admin,
-  inviteError,
-  eventTypeProfile,
-}: {
+type InvitationBodyProps = {
   event: EventShellRow;
   slug: string;
   search: Awaited<Props['searchParams']>;
   admin: ReturnType<typeof createAdminClient>;
   inviteError: string | null;
   eventTypeProfile: Awaited<ReturnType<typeof resolveProfile>>;
-}) {
+};
+
+/* ⏱ The body's reads carry the same bounded wait as the page's (`lib/read-limit.ts`);
+   React calls this later than the page function, so it opens its own scope —
+   one deadline per request all the same. The body is the function below, unchanged. */
+async function InvitationBody(props: InvitationBodyProps) {
+  return withGuestReadLimit('slug/invitation-body', () => invitationBody(props));
+}
+
+async function invitationBody({
+  event: liveEvent,
+  slug,
+  search,
+  admin,
+  inviteError,
+  eventTypeProfile,
+}: InvitationBodyProps) {
   // Server-render timing (Maker phone-polish, 2026-09-26) — one structured
   // stdout line per render → log drain, the same instrument already proven
   // on `vendor-dashboard/layout.tsx`. This route's own docblock has said
@@ -807,6 +835,12 @@ async function InvitationBody({
   startAhead(loadWidgets(admin, event.event_id));
   startAhead(readGuestSession());
   startAhead(getCurrentUser());
+  /* ⏩ …and one platform switch (2026-10-12). The live layer cannot ask for the
+     schedule until it knows whether coordinator prep is released — one row, the
+     same for every event, `cache()`d — so the schedule stood a whole round trip
+     behind everything else for the sake of a flag. Asked here it has answered
+     long before the schedule is wanted. */
+  startAhead(isCoordinatorPrepReleaseEnabled());
 
   // Hero / photos / monogram / Save-the-Date media resolution — moved verbatim
   // to `loadMedia` (_lib/loaders.ts · OPEN-BROWSE PR2). Runs BEFORE the private
@@ -1202,6 +1236,21 @@ async function InvitationBody({
   const draftedMarch = hostDraft?.march?.flat();
   startAhead(loadDoorwayFacts(admin, event.event_id, event.event_type ?? null));
   startAhead(loadEntourage(admin, event.event_id, draftedNameStyle, draftedMarch));
+  /* ⏩ …and an INVITED GUEST'S OWN READS (2026-10-12). `loadGuestContext` needs
+     the guest id a verified cookie for THIS event already carries, and — from
+     the day-of layer — only the schedule, for one line at its very end. It used
+     to wait for the whole layer; it now leaves beside it and is awaited where
+     it always was, with the same arguments (`cache()` answers that call with
+     this one). Only when every path below reads it: a cookie that names another
+     event is anonymous here, and a host looking at a sample guest (`?as=…` —
+     any `as` at all keeps this from starting early) is shown the sample, not
+     their own row. Its two early returns — a guest who is
+     gone, a plus-one not yet named — still cost the one read they did. */
+  const liveLayerAhead = startAhead(loadLiveLayer(admin, event, dayOfPhase));
+  const scheduleBlocksAhead = startAhead(liveLayerAhead.then((layer) => layer.scheduleBlocks));
+  if (session && session.event_id === event.event_id && search.as === undefined) {
+    startAhead(loadGuestContext(admin, event, session, dayOfPhase, slug, scheduleBlocksAhead));
+  }
   const {
     scheduleBlocks,
     backdropConfig,
@@ -1720,7 +1769,7 @@ async function InvitationBody({
   // here, keyed off the loader's discriminated result.
   timer.mark('chapters+entourage+identity');
   const guestContext = await timer.track('guest-context', () =>
-    loadGuestContext(admin, event, guestSession, dayOfPhase, slug, scheduleBlocks),
+    loadGuestContext(admin, event, guestSession, dayOfPhase, slug, scheduleBlocksAhead),
   );
 
   // A cookie-holder whose guest row no longer exists (replaced invite) gets
@@ -1802,7 +1851,7 @@ async function InvitationBody({
     invitationUrl,
     papicGuestActive,
     guestRollCameraReady,
-    seatPassActive,
+    seatPassActive: seatPassHeld,
     guestLiveGallery,
     guestOwnShots,
     poolGalleryOpen,
@@ -2013,6 +2062,14 @@ async function InvitationBody({
   const meTermsCarried = rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value);
   // ✉ `replyHref` — set when Me leads with the reply (`meLeadsWithReply`,
   // decided in SiteBody from the plan it resolves): the ticket waits for a Yes.
+  /* 👁 THE PARTS THE COUPLE HID ON THIS STAGE ("What guests see", pass 2 — `config_json.part_show` on the hero row).
+     The body withholds them itself (`site-body.tsx` `partsOff`); the Me slot and the bar below are drawn HERE, from
+     this function's own facts, so they ask the same one reading. Empty when nothing is stored for the stage. */
+  const partsOffHere = partsHiddenOn(widgets, lifecyclePhase, phasesEnabled);
+  /* The seat fact, withheld at its source: Me's seat line below and the body's own seat places read this one name. */
+  const seatPassActive = seatPassHeld && !partsOffHere.has('seat');
+  /* The door to the guest's own photos (the bar's and Me's) — none on a stage the couple hid Photos of you on. */
+  const myPhotosHref = partsOffHere.has('photosofyou') ? null : `/papic/me/${guest.qr_token}`;
   const meSlotFor = (replyHref: string | null) => isEditorCanvas ? null : (
     <>
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
@@ -2120,7 +2177,7 @@ async function InvitationBody({
     barDrawn: menuOnHere,
     makerCanvas: isEditorCanvas,
   });
-  const galleryCountHere = guestLiveGallery?.total ?? 0;
+  const galleryCountHere = partsOffHere.has('photosofyou') ? 0 : (guestLiveGallery?.total ?? 0);
 
   const venueOpen = venueIsOpen({
     rsvpStatus: guest.rsvp_status,
@@ -2173,7 +2230,7 @@ async function InvitationBody({
         meSection={
           guestPageTabbed ? (
             ({ replyHref }: { replyHref: string | null }) => (
-              <GuestMeSection meSlot={meSlotFor(replyHref)} photosHref={photosLeftThePage ? `/papic/me/${guest.qr_token}` : null} galleryCount={galleryCountHere} asTab />
+              <GuestMeSection meSlot={meSlotFor(replyHref)} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab />
             )
           ) : null
         }
@@ -2189,8 +2246,8 @@ async function InvitationBody({
         qrToken={guest.qr_token}
         invitationUrl={invitationUrl}
         qrSvg={qrSvg}
-        cameraReady={guestRollCameraReady}
-        papicGuestActive={papicGuestActive}
+        cameraReady={guestRollCameraReady && !partsOffHere.has('camera')}
+        papicGuestActive={papicGuestActive && !partsOffHere.has('camera')}
         hasAccount={Boolean(viewerAccount)}
         galleryCount={galleryCountHere}
         hubHref={
@@ -2207,7 +2264,7 @@ async function InvitationBody({
         // never disagree — and neither can the two owners of `#site-me`.
         menuOn={menuOnHere}
         meSlot={guestPageTabbed ? null : meSlot}
-        mePhotosHref={photosLeftThePage ? `/papic/me/${guest.qr_token}` : null}
+        mePhotosHref={photosLeftThePage ? myPhotosHref : null}
         meInPage={guestPageTabbed}
       />
       )}

@@ -238,8 +238,22 @@ export function hubCoverLeaves(widgets: readonly Pick<InvitationWidgetRow, 'widg
  * GIVEN: not a box, not a class, no island. With it, and without the engine (no script, "reduce motion"), the three
  * boxes are plain blocks with no rule of their own: the page is the plain page.
  * 🏝 The island is mounted HERE too: a page whose cover is its only Scrub has no scenes block to mount it.
+ *
+ * 🧱 THE PAGE'S OWN WORDS ON THE THREE BOXES (`boxes`, 2026-10-10 — the real invitation). Three plain boxes between a
+ * page's wrapper and its cover are three boxes the wrapper's own rules no longer reach: a rhythm written as "between
+ * my children" (`space-y-12`) stops at the cell, and so does a mark read as "my child" (the scroll reveal's
+ * chapters). A box has no rule of its own and must not get one here — so the PAGE says, on each box, what it needs
+ * said there to stay the page it was: a class, a mark. Only ever drawn with the boxes: a cover that does not leave
+ * draws none of it. With no `boxes` the three are exactly the three above.
  */
-export function HubCoverHold({ leaves, cover, children }: { leaves: boolean; cover: React.ReactNode; children?: React.ReactNode }) {
+type HoldBox = { className?: string } & { [mark: `data-${string}`]: string };
+export type HubCoverHoldBoxes = { cell?: HoldBox; cover?: HoldBox; rest?: HoldBox };
+const boxed = (own: string, said: HoldBox | undefined) => {
+  const { className, ...marks } = said ?? {};
+  return { ...marks, className: className ? `${own} ${className}` : own };
+};
+
+export function HubCoverHold({ leaves, cover, boxes, children }: { leaves: boolean; cover: React.ReactNode; boxes?: HubCoverHoldBoxes; children?: React.ReactNode }) {
   if (!leaves) {
     return (
       <>
@@ -249,12 +263,12 @@ export function HubCoverHold({ leaves, cover, children }: { leaves: boolean; cov
     );
   }
   return (
-    <div className="hub-cover-cell">
+    <div {...boxed('hub-cover-cell', boxes?.cell)}>
       <HubScrub />
-      <div className="hub-cover" data-hub-fx="">
+      <div {...boxed('hub-cover', boxes?.cover)} data-hub-fx="">
         {cover}
       </div>
-      <div className="hub-cover-after">{children}</div>
+      <div {...boxed('hub-cover-after', boxes?.rest)}>{children}</div>
     </div>
   );
 }

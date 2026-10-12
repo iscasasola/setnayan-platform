@@ -28,6 +28,7 @@
  * `published_at` off `event_floor_plan` by itself.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 export type SeatVisibilityFacts = {
   /** `event_floor_plan.published_at` — the couple's "Show guests their seats early" switch. */
@@ -95,7 +96,10 @@ export async function guestsMaySeeSeatsFor(
 ): Promise<boolean> {
   const [plan, event] = await Promise.all([
     supabase.from('event_floor_plan').select('published_at').eq('event_id', eventId).maybeSingle(),
-    supabase.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle(),
+    // The stored date — from the row the render already holds when there is one (`lib/event-row-once.ts`).
+    eventRowOnce(supabase, eventId, 'event_date, event_date_precision', () =>
+      supabase.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle(),
+    ),
   ]);
   if (opts.throwOnReadError) {
     for (const r of [plan, event]) {

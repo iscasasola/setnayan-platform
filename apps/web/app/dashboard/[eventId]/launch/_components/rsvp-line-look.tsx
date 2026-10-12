@@ -12,6 +12,8 @@ import type { MotionFx } from '@/lib/motion-effects';
 import {
   RSVP_LOOK_BUTTON_LINES,
   RSVP_LOOK_SIZES,
+  RSVP_PICTURE_LOOKS,
+  RSVP_PICTURE_LOOK_NAME,
   type RsvpCardGround,
   type RsvpLineLook,
   type RsvpLookFeel,
@@ -128,6 +130,29 @@ export function RsvpLineLookRows({
           A button’s colours are your Look’s.
         </p>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * 🖼 STYLE, A PICTURE LINE — its Look ▾: Wide · Tall (the approved prototype's one dropdown; a picture has no Colour
+ * and no Size). Row 1, as Font is a text line's. Wide is nothing stored; Tall is `l: 'tall'` on the line's look.
+ */
+export function RsvpPictureLookRows({ line, now, onPick }: { line: RsvpAddedName; now: RsvpLineLook; onPick: (patch: { l: 'tall' | null }) => void }) {
+  const value = now.l === 'tall' ? 'tall' : 'wide';
+  return (
+    <div className="contents" data-rsvp-line-look={line} data-rsvp-picture-look={value}>
+      <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" data-rsvp-line-look-row="look">
+        <Dd
+          stacked
+          small="Look"
+          label="Look"
+          data="rsvp-picture-look"
+          value={value}
+          options={RSVP_PICTURE_LOOKS.map((key) => ({ key, label: RSVP_PICTURE_LOOK_NAME[key] }))}
+          onPick={(key) => onPick({ l: key === 'tall' ? 'tall' : null })}
+        />
+      </div>
     </div>
   );
 }

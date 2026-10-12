@@ -9,6 +9,7 @@ import { GuestLookScope } from './_components/guest-look-scope';
 import { lookScopeProps } from './_components/host-draft-look';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { loadDayOfBroadcast, loadEventShell, loadGuestLook, type GuestLook } from './_lib/loaders';
+import { withGuestReadLimitQuiet } from '@/lib/read-limit';
 
 /**
  * /[slug] guest-tree layout — the editorial-typography scope, the ONE place the
@@ -105,13 +106,19 @@ import { loadDayOfBroadcast, loadEventShell, loadGuestLook, type GuestLook } fro
  * not an event, and every read below is best-effort. A wedding page must not
  * go down on the day because an announcement could not be read.
  */
-export default async function GuestTreeLayout({
-  children,
-  params,
-}: {
+export default async function GuestTreeLayout(props: GuestTreeLayoutProps) {
+  // ⏱ The layout's reads carry the bounded wait too (`lib/read-limit.ts`) — the
+  // QUIET form: this layout never throws (see above), so a read that did not
+  // answer is recorded for the request and the PAGE says the honest words.
+  return withGuestReadLimitQuiet('slug/layout', () => guestTreeLayout(props));
+}
+
+type GuestTreeLayoutProps = {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
-}) {
+};
+
+async function guestTreeLayout({ children, params }: GuestTreeLayoutProps) {
   const { slug } = await params;
 
   let broadcast: { body: string; createdAt: string } | null = null;

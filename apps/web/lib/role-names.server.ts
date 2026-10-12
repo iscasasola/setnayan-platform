@@ -19,6 +19,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { ROLE_LABELS } from '@/lib/guests';
 import { sanitizeRoleNames, type RoleNames } from '@/lib/role-names';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 /** Is this string a role the vocabulary knows? (The sanitiser's `isKnownRole`.) */
 export function isKnownGuestRole(v: string): boolean {
@@ -40,11 +41,14 @@ export async function loadRoleNames(
   eventId: string,
   callSite = 'loadRoleNames',
 ): Promise<RoleNames> {
-  const { data, error } = await client
-    .from('events')
-    .select('role_names')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+  const { data, error } = await eventRowOnce(client, eventId, 'role_names', () =>
+    client
+      .from('events')
+      .select('role_names')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
   if (error) {
     logQueryError(callSite, error, { event_id: eventId }, 'graceful_degrade');
     return {};

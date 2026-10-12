@@ -1,5 +1,6 @@
 import { RoomFooter } from '../_components/room-footer';
 import { loadRoomLinks } from '../_lib/room-links.server';
+import { partDoorHidden } from '../_lib/part-door.server';
 import type { RoomLink } from '../_lib/room-links';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -220,6 +221,12 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
       redirect(`/${slug}/seat/claim?t=${encodeURIComponent(t)}`);
     }
 
+    // 👁 The couple hid "Your seat" on the stage the event is at ("What guests see"): no table is read or shown — the
+    // scan goes back to the event's page, the exit the free finders take (`find-seat`, `find-my-table`). A guest's
+    // PERSONAL code went through the claim hop just above first, so it still signs them in and records the scan.
+    // One reading: `_lib/part-door.server.ts`.
+    if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
+
     // Table hit → stateless public table view (publication-gated below).
     const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
     const entrance = await fetchEntrance(admin, event.event_id);
@@ -247,6 +254,9 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   }
 
   // ── Shape B: clean URL (no token) → personal pass from the session cookie ──
+  // 👁 …and none on a stage the couple hid "Your seat" on — the same exit as above. This is where the claim hop lands,
+  // so a guest who scanned their own code arrives on the event's page, signed in, with no seat shown.
+  if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
   const session = await readGuestSession();
   if (!session || session.event_id !== event.event_id) {
     return (
@@ -480,7 +490,7 @@ async function PersonalPass({
         <GuestPushPrompt />
 
         <header className="space-y-2 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
             Your seat pass
           </p>
           {targetTable ? (
@@ -488,7 +498,7 @@ async function PersonalPass({
               You&rsquo;re at{' '}
               <span className="text-gild">{targetTable.table_label}</span>
               {seatNumber !== null ? (
-                <span className="ml-2 align-middle text-base font-medium text-ink/55">
+                <span className="ml-2 align-middle text-base font-medium text-ink/70">
                   · Seat {seatNumber}
                 </span>
               ) : null}
@@ -499,7 +509,7 @@ async function PersonalPass({
             </h1>
           )}
           {event.venue_name ? (
-            <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">
+            <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/70">
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               {event.venue_name}
             </p>
@@ -514,7 +524,7 @@ async function PersonalPass({
             Walk in from the entrance and follow the dotted path to your table.
           </p>
         ) : (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/70">
             You haven&rsquo;t been seated at a table yet.{' '}
             {`Once ${words.theHost} seats you, your spot lights up on this map.`}
           </p>
@@ -609,18 +619,18 @@ async function PublicTableView({
             fontFamily={mono.fontFamily}
             fontStyle={mono.fontStyle}
           />
-          <p className="font-serif text-xl italic text-terracotta sm:text-2xl">Welcome</p>
+          <p className="font-serif text-xl italic text-terracotta-700 sm:text-2xl">Welcome</p>
         </div>
 
         <header className="space-y-2 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
             Table view
           </p>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             <span className="text-gild">{table.table_label}</span>
           </h1>
           {event.venue_name ? (
-            <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">
+            <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/70">
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               {event.venue_name}
             </p>
@@ -631,7 +641,7 @@ async function PublicTableView({
 
         {occupants.length > 0 ? (
           <section className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-            <p className="flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-ink/60">
+            <p className="flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
               <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Seated here
             </p>
@@ -644,15 +654,15 @@ async function PublicTableView({
             </ul>
           </section>
         ) : (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/70">
             No one has been seated here yet.
           </p>
         )}
 
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/60">
+        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-center text-sm text-ink/70">
           Scanning your <span className="font-medium text-ink/80">personal</span> QR shows your
           exact seat.{' '}
-          <Link href={`/${slug}`} className="font-medium text-terracotta hover:underline">
+          <Link href={`/${slug}`} className="font-medium text-terracotta-700 hover:underline">
             Open your invitation
           </Link>
           .
@@ -727,25 +737,25 @@ function SeatPassShell({
       <LiveRefresher eventDate={eventDate} />
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">
+          <Link href={`/${slug}`} className="flex min-h-[44px] items-center gap-2 text-ink">
             <Logo height={28} />
-            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
               Setnayan
             </span>
           </Link>
-          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
             {displayName}
           </span>
         </div>
       </header>
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
       <footer className="border-t border-ink/10 px-4 py-8 text-center">
-        <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
-        <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
+        <p className="font-serif text-lg italic text-terracotta-700">See you soon.</p>
+        <p className="mt-3 text-xs text-ink/70">Powered by Setnayan · setnayan.com</p>
       </footer>
       {avatarHref ? (
         <p className="px-4 pb-4 text-center text-sm">
-          <Link href={avatarHref} className="text-ink/60 underline-offset-2 hover:text-ink hover:underline">
+          <Link href={avatarHref} className="text-ink/70 underline-offset-2 hover:text-ink hover:underline">
             Make your avatar for the 3D room →
           </Link>
         </p>

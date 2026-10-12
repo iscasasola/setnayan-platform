@@ -76,6 +76,7 @@ import { makerAddShowsOn } from '@/lib/maker-selection';
 import { previewCarriesPlace } from '@/lib/maker-preview-way-back';
 import { MAKER_STAY_FIELD, makerStayReturn } from '@/lib/maker-stay';
 import { announceUnheldWrite } from '@/lib/maker-refresh';
+import { makerRendered } from '@/lib/maker-draft-store';
 import { VIEW_AS_FREE_LABEL } from '@/lib/view-as-free';
 import { ViewAsFreeKeeper, ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
@@ -245,6 +246,10 @@ export function MakerShell({
   postEventTour?: ReactNode;
   children: ReactNode;
 }) {
+  /* ↺ A MAKER RENDER LANDED: after ↺ · Restore · Reset · ✓ Apply it is the truth for every panel's copy of a scene
+     (`lib/maker-draft-store.ts` — the only pick of a visit undone was written back by the next one). Told while the
+     shell renders, before any panel under it reads; the same stamp again is nothing. */
+  makerRendered(renderStamp);
   const [stage, setStage] = useState<LifecyclePhase>(initialStage);
   const [device, setDevice] = useState<MakerDevice>('desktop');
   /* 🖥📱 Both needs 1024 px (`makerViewOptions`); narrower, it is drawn as

@@ -31,12 +31,12 @@ export function NotYouSwitch({
       Not you?{' '}
       <button
         type="submit"
-        className="min-h-[44px] font-medium text-ink underline underline-offset-4 hover:text-link"
+        className="min-h-[44px] min-w-[44px] font-medium text-ink underline underline-offset-4 hover:text-link"
       >
         Switch
       </button>
       {erasesSelfie ? (
-        <span data-sign-out-erases-selfie="" className="block text-xs text-ink/60">
+        <span data-sign-out-erases-selfie="" className="block text-xs text-ink/70">
           {SIGN_OUT_ERASES_SELFIE}
         </span>
       ) : null}

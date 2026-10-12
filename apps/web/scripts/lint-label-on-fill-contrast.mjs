@@ -616,6 +616,100 @@ for (const dir of ['app', 'components', 'styles']) {
 
 const hex = (rgb) => '#' + rgb.map((c) => c.toString(16).padStart(2, '0')).join('').toUpperCase();
 
+/* ── GUEST TEXT ON THE PAGE — a faint ink, in EVERY theme (2026-10-12) ──────────
+ *
+ * WHY THIS EXISTS. Everything above judges text on a FILL it sits on in the same
+ * class list. The guest walk of 2026-10-11 (N22) measured 78 pieces of text under
+ * 4.5:1 on the Event Hub — and none of them were on a fill. They were a tint of the
+ * ink straight on the page: `text-ink/60` is 3.98:1 on the house paper, `/55` 3.45,
+ * `/50` 3.01 — "Full invitation to follow…", "Show this at the door.", the "FACE
+ * TAGGING" eyebrow. This guard reported all clear the whole time, because a tint
+ * of ink on the page is not a pairing it could see.
+ *
+ * WHAT IT JUDGES. In the guest-facing trees only (`app/[slug]`, `app/join` — what a
+ * guest reads cold, on a phone, often outdoors), every bare `text-ink/NN` class.
+ * Its colour is composited on the page paper of the house look AND of every Event
+ * Hub theme that sets its own ink and paper (`[data-hub-theme='…']` in globals.css —
+ * velvet, gatsby and cyber are the dark ones), and the WORST of those is the
+ * number. So "light and dark" is one measurement, read from the real tokens: when
+ * a theme is added or a token moves, this moves with it. A prefixed class
+ * (`hover:`, `placeholder:`, `disabled:` …) is a state, not the resting text, and
+ * is left to the checks above.
+ *
+ * A RATCHET, PER FILE, BECAUSE THE TAIL IS REAL. On the day this was added the
+ * guest trees held ~300 such classes — some on icons (3:1 is their floor), most on
+ * words. Fixing all of them in one pass would be a hundred unreviewed visual
+ * changes, so the count per file is recorded (`guest-faint-ink.baseline.json`) and
+ * may only go DOWN: a file that gains one fails, and a file that loses one fails
+ * until the record is regenerated (`--write-baseline`), so the record never keeps
+ * a number that is no longer true. The walked pages themselves are pinned row by
+ * row in `app/[slug]/_lib/the-walked-pages-read-and-press.test.ts`.
+ */
+const GUEST_DIRS = ['app/[slug]', 'app/join'];
+const FAINT_BASELINE_FILE = join(__dirname, 'guest-faint-ink.baseline.json');
+
+/** [name, ink, paper] for the house look and every hub theme that sets both, read from globals.css. */
+function guestLooks() {
+  const css = stripComments(readFileSync(join(WEB_ROOT, 'app/globals.css'), 'utf8'));
+  const tok = (body, name) => {
+    const m = body.match(new RegExp('--color-' + name + ':\\s*(\\d{1,3})\\s+(\\d{1,3})\\s+(\\d{1,3})\\s*;'));
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+  };
+  const looks = [['house', cssVars.get('color-ink'), PAGE]];
+  for (const m of css.matchAll(/\[data-hub-theme='([a-z0-9-]+)'\]\s*\{([^{}]*)\}/g)) {
+    const ink = tok(m[2], 'ink');
+    const paper = tok(m[2], 'cream');
+    if (ink && paper) looks.push([m[1], ink, paper]);
+  }
+  if (!looks[0][1]) throw new Error('lint-contrast: --color-ink was not found — the guest-text check cannot measure anything');
+  if (looks.length < 2) throw new Error('lint-contrast: no [data-hub-theme] sets --color-ink and --color-cream — the dark themes are no longer read');
+  return looks;
+}
+
+/** The worst ratio of `text-ink/<pct>` on the page across every look. */
+function worstInkTint(pct, looks) {
+  const a = pct / 100;
+  let worst = Infinity;
+  for (const [, ink, paper] of looks) {
+    const mixed = ink.map((c, i) => Math.round(a * c + (1 - a) * paper[i]));
+    worst = Math.min(worst, contrast(mixed, paper));
+  }
+  return worst;
+}
+
+const looks = guestLooks();
+const faintNow = {};
+let faintChecked = 0;
+for (const dir of GUEST_DIRS) {
+  for (const file of walk(join(WEB_ROOT, dir))) {
+    const rel = relative(WEB_ROOT, file);
+    if (/\.test\.tsx$/.test(rel)) continue;
+    const src = stripComments(readFileSync(file, 'utf8'));
+    let n = 0;
+    // A bare token only: start of the attribute or after whitespace / a quote / a backtick — never after `hover:`.
+    for (const m of src.matchAll(/(?<=^|[\s"'`])text-ink\/(\d{1,3})(?=$|[\s"'`])/gm)) {
+      faintChecked++;
+      if (worstInkTint(Number(m[1]), looks) < AA_NORMAL_TEXT) n++;
+    }
+    if (n) faintNow[rel] = n;
+  }
+}
+let faintBaseline = {};
+try {
+  faintBaseline = JSON.parse(readFileSync(FAINT_BASELINE_FILE, 'utf8')).files ?? {};
+} catch {
+  /* absent record = every faint tint blocks, the safe direction */
+}
+const faintGrew = [];
+const faintShrank = [];
+for (const rel of new Set([...Object.keys(faintNow), ...Object.keys(faintBaseline)])) {
+  const now = faintNow[rel] ?? 0;
+  const was = faintBaseline[rel] ?? 0;
+  if (now > was) faintGrew.push(`  ${rel}: ${now} faint ink tint(s), the record allows ${was}`);
+  else if (now < was) faintShrank.push(`  ${rel}: ${was} → ${now}`);
+}
+
+
 // `node lint-label-on-fill-contrast.mjs --write-baseline` after fixing some, so
 // the list shrinks deliberately rather than by hand-editing.
 if (process.argv.includes('--write-baseline')) {
@@ -628,6 +722,21 @@ if (process.argv.includes('--write-baseline')) {
       keys.join('\n') + '\n',
   );
   console.log(`baseline written: ${keys.length} known CSS-rule failure(s)`);
+  const files = Object.fromEntries(Object.entries(faintNow).sort(([a], [b]) => a.localeCompare(b)));
+  writeFileSync(
+    FAINT_BASELINE_FILE,
+    JSON.stringify(
+      {
+        _about:
+          'Guest-facing text-ink/NN classes under 4.5:1 on the page in the house look or any Event Hub theme, counted per file (lint-label-on-fill-contrast.mjs, "GUEST TEXT ON THE PAGE"). May only go DOWN. Regenerate with --write-baseline after a fix; never by hand.',
+        total: Object.values(files).reduce((x, y) => x + y, 0),
+        files,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  console.log(`guest faint-ink record written: ${Object.keys(files).length} file(s)`);
   process.exit(0);
 }
 
@@ -665,4 +774,26 @@ if (failures.length) {
   process.exit(1);
 }
 
+let faintFailed = false;
+if (faintGrew.length) {
+  console.error(
+    `\n✖ ${faintGrew.length} guest-facing file(s) gained a faint ink (text-ink/NN under ${AA_NORMAL_TEXT}:1 on the page, ` +
+      `worst of the house look and ${looks.length - 1} Event Hub theme(s)):\n`,
+  );
+  for (const l of faintGrew) console.error(l);
+  console.error(
+    `\n  text-ink/65 is the faintest tint that reads in every look (${worstInkTint(65, looks).toFixed(2)}:1); /60 is ${worstInkTint(60, looks).toFixed(2)}:1.\n`,
+  );
+  faintFailed = true;
+}
+if (faintShrank.length) {
+  console.error(`\n✖ ${faintShrank.length} guest-facing file(s) lost faint ink tints — a fix nobody recorded. Regenerate the record:\n`);
+  for (const l of faintShrank) console.error(l);
+  console.error('\n  node apps/web/scripts/lint-label-on-fill-contrast.mjs --write-baseline\n');
+  faintFailed = true;
+}
+
+if (faintFailed) process.exit(1);
+
 console.log(`✓ label-on-fill contrast: ${checked} pairing(s) checked, all ≥ ${AA_NORMAL_TEXT}:1`);
+console.log(`✓ guest text on the page: ${faintChecked} ink tint(s) in ${looks.length} look(s); ${Object.values(faintNow).reduce((x, y) => x + y, 0)} faint, none new`);

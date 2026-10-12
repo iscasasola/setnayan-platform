@@ -8,6 +8,7 @@ import {
 } from '@/lib/promo-free-windows';
 import { PANOOD_PAID_SKUS } from '@/lib/panood-watermark';
 import { askedOnce, insideRender, isServiceRoleClient } from '@/lib/request-once';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 /**
  * The event's own event_date, fetched ONLY to resolve a date-filtered couple
@@ -29,11 +30,14 @@ function fetchEventDateForPromo(
   eventId: string,
 ): Promise<string | null> {
   return askedOnce(supabase, 'event-date-for-promo', [eventId], async () => {
-    const { data, error } = await supabase
-      .from('events')
-      .select('event_date')
-      .eq('event_id', eventId)
-      .maybeSingle();
+    // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+    const { data, error } = await eventRowOnce(supabase, eventId, 'event_date', () =>
+      supabase
+        .from('events')
+        .select('event_date')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    );
     if (error) console.error('[supabase-error] lib/entitlements.ts · from:events.select', error);
     if (error || !data) return null;
     return (data as { event_date: string | null }).event_date ?? null;
@@ -1252,10 +1256,17 @@ function skuActiveInRender(
   serviceKey: string,
 ): Promise<boolean> {
   return askedOnce(supabase, 'sku-active', [eventId, serviceKey], async () => {
+    // ⏩ The bundle composition leaves WITH the orders read (2026-10-12). It is
+    // one list for the whole render, asked by nearly every product the guest
+    // page gates, and it needs nothing from the orders — it only ever waited
+    // behind them. Same answer, one round trip sooner. (The one render it costs
+    // an extra request: every product asked is owned by a direct order, so the
+    // list would never have been read.)
+    const compositionAhead = askedTogether(() => fetchBundleComponents(supabase));
     const orders = await eventOrdersForGate(supabase, eventId, serviceKey, 'active entitlement');
     if (hasOrder(orders, serviceKey, confersAccess)) return true;
 
-    const composition = await fetchBundleComponents(supabase);
+    const composition = await compositionAhead;
     for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
       if (hasOrder(orders, bundleKey, confersAccess)) return true;
     }

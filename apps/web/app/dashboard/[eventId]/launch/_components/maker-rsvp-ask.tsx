@@ -16,14 +16,14 @@ import {
   type RsvpStageScene,
   RSVP_WORD_LINES,
 } from '@/lib/rsvp-stage';
-import { RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
+import { RSVP_LINE_NAME, RSVP_WORD_TYPED_EVENT } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { rsvpFormWord, rsvpLineWord } from '@/lib/rsvp-form-words';
-import { RSVP_CONFIG_FULL, RSVP_GROUPS_MAX, readRsvpLook, rsvpAddedId, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith, rsvpSheetKeepsLine } from '@/lib/rsvp-look';
+import { RSVP_CONFIG_FULL, RSVP_GROUPS_MAX, readRsvpLook, rsvpAddedId, rsvpAddedIsPicture, type RsvpAddedName, rsvpConfigFits, rsvpLookCard, rsvpLookLine, rsvpLookWith, rsvpSheetKeepsLine } from '@/lib/rsvp-look';
 import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
-import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows } from './rsvp-line-look';
+import { RsvpBuildInRows, RsvpCardEditRows, RsvpCardGroundRows, RsvpLineGroundRow, RsvpLineLookRows, RsvpPictureLookRows } from './rsvp-line-look';
 import type { MakerPartTool } from '@/lib/maker-parts';
 import { RSVP_GROUP_PICK_EVENT, RSVP_LIST_DONE_EVENT, RSVP_LIST_EDIT_EVENT, RSVP_LIST_PICK_EVENT, RSVP_LIST_SAY_EVENT, RSVP_LIST_WORDS, rsvpGroupId, rsvpLayoutEdit, rsvpPlaceOf, rsvpScreenCounts, type RsvpLayoutEdit, type RsvpListDone, type RsvpListPick } from '@/lib/rsvp-layout-edit';
-import { RsvpAddedEditRows, RsvpLinePlaceRow, askRsvpListEdit, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
+import { RsvpAddedEditRows, RsvpLinePlaceRow, RsvpPanelTypingBar, RsvpPictureEditRows, askRsvpListEdit, rsvpListEdited, rsvpPlaceSteps } from './rsvp-line-list';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { DetailsPieceOnly } from './details-piece';
@@ -119,6 +119,7 @@ export type CelebrationInputs = {
 export function MakerRsvpSettings({
   eventId,
   current,
+  truth = 0,
   drafted,
   replyBy,
   replyByOwn,
@@ -176,6 +177,12 @@ export function MakerRsvpSettings({
   eventId: string;
   /** The drafted-over-live config (sparse — an absent question key is ON). */
   current: RsvpAskConfig;
+  /**
+   * ↺ The RSVP stage's count of renders that were the TRUTH again (Undo · Restore · Reset —
+   * `lib/rsvp-stage-truth.ts`): each one re-seeds the panel from the server's config, even when that config reads
+   * the same as the one it was first built on (the only step of a visit, undone).
+   */
+  truth?: number;
   /** The draft holds a different config from what guests see. */
   drafted: boolean;
   /** `resolveReplyBy` — the couple's deadline, or the 30-day default; null with no date. */
@@ -239,7 +246,7 @@ export function MakerRsvpSettings({
     latest.current = saved.current;
     setLocal(saved.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentKey]);
+  }, [currentKey, truth]);
 
   /**
    * `said`: the control that asked says a refusal ITSELF (a Form row's own red line and Try again) — the panel's one
@@ -584,13 +591,15 @@ export function MakerRsvpSettings({
           </FormRows>
           {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
           {placeRow}
+          {/* ⌨ While its words box is open: "Typing · Question" and Done (`RsvpPanelTypingBar`). */}
+          <RsvpPanelTypingBar name={(picked.line && RSVP_LINE_NAME[picked.line]) || 'Words'} />
         </div>
       );
     }
     /* ＋ EDIT, a line the couple ADDED: its words (it has no automatic ones — it shows only what they write), then
        the same last row. Typed in its row the page shows it at once; kept, it is one edit of the list. */
     const addedLine = listPart && picked.line && rsvpAddedId(picked.line) ? (rsvpPlaceOf(local, listPart, picked.line)?.added ?? null) : null;
-    if (picked.tool === 'edit' && listPart && picked.line && addedLine) {
+    if (picked.tool === 'edit' && listPart && picked.line && addedLine && !rsvpAddedIsPicture(addedLine)) {
       const line = picked.line;
       const wordsEdit = (text: string): RsvpLayoutEdit => ({ do: 'words', part: listPart, line, text });
       return (
@@ -612,6 +621,18 @@ export function MakerRsvpSettings({
               }}
             />
           </FormRows>
+          {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
+          {placeRow}
+          <RsvpPanelTypingBar name={addedLine.k === 'h' ? 'Heading' : 'Message'} />
+        </div>
+      );
+    }
+    /* 🖼 EDIT, a PICTURE the couple added: Replace (its file, one edit), then the same last row. */
+    if (picked.tool === 'edit' && listPart && picked.line && addedLine && rsvpAddedIsPicture(addedLine)) {
+      const line = picked.line;
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-edit={line}>
+          <RsvpPictureEditRows key={line} eventId={eventId} onReplace={(ref) => askRsvpListEdit({ do: 'picture', part: listPart, line, p: ref })} />
           {status ? <div data-rsvp-row="3" className={`${RSVP_ROW[3]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
           {placeRow}
         </div>
@@ -664,6 +685,17 @@ export function MakerRsvpSettings({
     /* 🎨 STYLE, a line picked — its Font, its Colour and its Size (`rsvp-line-look.tsx`), kept in the same one object as the
        words (`look`, `lib/rsvp-look.ts`): on the canvas at the tap, in the draft behind it, live on Apply. */
     const lookLine = rsvpLookLine(picked.part, picked.line);
+    /* 🖼 STYLE, a PICTURE the couple added — its Look ▾ (Wide · Tall), nothing else (`RsvpPictureLookRows`). */
+    const stylePicture = picked.tool === 'style' && listPart && picked.line && rsvpAddedIsPicture(rsvpPlaceOf(local, listPart, picked.line)?.added);
+    if (stylePicture && lookLine && lookLine.startsWith('a:')) {
+      const pictureLine = lookLine as RsvpAddedName;
+      return (
+        <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-style={pictureLine}>
+          <RsvpPictureLookRows line={pictureLine} now={readRsvpLook(local).lines?.[pictureLine] ?? {}} onPick={(patch) => void save({ look: rsvpLookWith(latest.current, pictureLine, patch) }, '“Look”')} />
+          {status ? <div data-rsvp-row="2" className={`${RSVP_ROW[2]} ${RSVP_ROW_ERROR}`}>{status}</div> : null}
+        </div>
+      );
+    }
     if (picked.tool === 'style' && lookLine) {
       return (
         <div className={RSVP_ROWS} data-rsvp-stage-controls={scene} data-rsvp-stage-rows="" data-rsvp-stage-line-style={lookLine}>

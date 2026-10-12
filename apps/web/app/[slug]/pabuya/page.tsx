@@ -1,6 +1,7 @@
 import { RoomFooter } from '../_components/room-footer';
 import { giftRegistryHref } from '@/lib/gift-registry';
 import { loadRoomLinks } from '../_lib/room-links.server';
+import { partDoorHidden } from '../_lib/part-door.server';
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -96,6 +97,9 @@ export default async function PabuyaPublicPage({
   if (!(await canViewSlugEvent(event.event_id, event.landing_page_visibility))) {
     redirect(`/${slug}`);
   }
+  // 👁 The couple hid E-Gifts on the stage the event is at ("What guests see"): the same exit as "Accept gifts? — No"
+  // above — there is no gift page — for a guest who kept the address. One reading: `_lib/part-door.server.ts`.
+  if (await partDoorHidden(createAdminClient(), event.event_id, 'gifts')) notFound();
 
   const admin = createAdminClient();
   const methods = await fetchEgiftMethods(admin, event.event_id, {
@@ -224,10 +228,10 @@ export default async function PabuyaPublicPage({
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           {/* min-h-[40px] (mobile audit item 3: this icon-only back link
               measured 26px). */}
-          <Link href={`/${slug}`} className="flex min-h-[40px] items-center gap-2 text-ink">
+          <Link href={`/${slug}`} className="flex min-h-[44px] min-w-[44px] items-center gap-2 text-ink">
             <Logo height={26} />
           </Link>
-          <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
             Pabuya
           </span>
         </div>
@@ -315,7 +319,7 @@ export default async function PabuyaPublicPage({
             ) : null}
           </>
         ) : registryHref ? null : (
-          <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/60">
+          <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/70">
             {hostName} {hasntAfter(event.display_name, words.twoPeople)} set up e-gifts yet. Check back soon — or
             visit their page in the meantime.
           </p>
@@ -329,8 +333,8 @@ export default async function PabuyaPublicPage({
           <p className="font-display text-xl italic text-mulberry">
             Ang laki ng pasasalamat namin.
           </p>
-          <p className="mt-1 text-sm text-ink/60">— {hostName}</p>
-          <p className="mt-6 font-mono text-xs uppercase tracking-[0.14em] text-ink/45">
+          <p className="mt-1 text-sm text-ink/70">— {hostName}</p>
+          <p className="mt-6 font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
             Kept safe on Setnayan
           </p>
         </footer>

@@ -117,11 +117,17 @@ test('Were you there? is Post Event’s OWN part — never The Day’s "Photos o
   assert.equal(makerPartLabelOn('event', 'myphotos'), 'Photos of you');
 });
 
-test('the groups are the prototype’s, in its order', () => {
+test('the groups are the prototype’s, in its order — plus the table’s "The details"', () => {
+  /* 🔁 RE-AIMED 2026-10-11 (owner's run: ＋ filed Dress code under "Your story", "What guests see" files it under "The
+     details"). One grouping, the table's: Schedule · Map · Dress code · What to bring sit under "The details" in both. */
   assert.deepEqual(
     MAKER_PART_GROUPS.map((g) => g.label),
-    ['Words', 'When & where', 'Your story', 'For each guest', 'Replies', 'Notes & news', 'Gifts & photos', 'After the event', 'Brand'],
+    ['Words', 'When & where', 'The details', 'Your story', 'For each guest', 'Replies', 'Notes & news', 'Gifts & photos', 'After the event', 'Brand'],
   );
+  assert.deepEqual(MAKER_PART_GROUPS.find((g) => g.label === 'The details')?.parts, ['schedule', 'venue', 'dress', 'bring']);
+  // Every part is still filed exactly once.
+  const all = MAKER_PART_GROUPS.flatMap((g) => g.parts);
+  assert.equal(new Set(all).size, all.length);
 });
 
 test('＋ offers only what is NOT on the page, and only what has a door', () => {

@@ -59,8 +59,8 @@ Everything proven is proven in **Chromium only**; nothing has run on iOS Safari.
 - 🔝 THE NAMES UNDER THE PINNED BAR (block 16's four red rows) — owner decision, not engineering: a cover taller than
   the room is held by the ordinary rule (bottom on the centre line). Candidate answers for him: (a) a cover is held
   with its TOP on the page's line instead (its foot may then run off the screen); (b) let the first-screen fit close
-  the cover's air under Scrub too, so a 375x667 cover fits the room and is centred (the fit's air alone takes the text
-  cover from 582 px to ~480; the room is 544) — does not help the photo cover; (c) a cover that cannot be held whole
+  the cover's air under Scrub too, so a 375x667 cover fits the room and is centred (the fit's air alone would take the text
+  cover from 582 px to roughly 500 — ESTIMATED from today's fitted page, not measured wrapped; the room is 544) — does not help the photo cover; (c) a cover that cannot be held whole
   is not held at all (plain scroll). Until he picks, the rows stay red on purpose.
 - Save the Date is NOT wired this round (its cover is the film, with a walker of its own: needs its own design).
 - iOS Safari: nothing has run on WebKit. The list for the owner's iPhone is in the PR body and below.

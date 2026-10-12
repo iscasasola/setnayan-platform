@@ -44,3 +44,11 @@ Driver: scratchpad `walk.mjs` + `measure.js` (Playwright Chromium 375×812, isMo
   changes `rsvp-widget.tsx` must re-record after merging.
 - `scripts/guest-faint-ink.baseline.json` is regenerated ONLY by `node apps/web/scripts/lint-label-on-fill-contrast.mjs --write-baseline`
   (it rewrites the CSS baseline too — it came out byte-identical).
+
+## PR
+
+Draft **#6482** (`do-not-auto-merge`, autoMergeRequest null). Whole preflight green on a21559921 (48 checks, 25m).
+CI round 1: 25 pass / 2 fail — `unit tests (3/3)` (+ the typecheck+lint roll-up): `lib/every-stage-is-todays-page.test.ts`,
+the six save_the_date stage pages moved +4 bytes (the eyebrow's `-700`). Re-recorded with UPDATE_GOLDEN=1 in 088622f7d
+(only those six moved; all 38 golden render tests green locally). Preflight missed it: that test is more than two
+imports from the changed file. CI round 2 running.

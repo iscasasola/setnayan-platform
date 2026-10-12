@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "eb52a5ff83",
+  "generatedFromRef": "820508f64",
   "routeCount": 430,
   "destinations": 956,
   "actions": 674,
-  "blocks": 6027,
+  "blocks": 6025,
   "routes": {
     "/": {
       "files": [
@@ -427,7 +427,6 @@
     },
     "/(shell)/panood": {
       "files": [
-        "(shell)/panood/_panood-film.tsx",
         "(shell)/panood/loading.tsx",
         "(shell)/panood/page.tsx"
       ],
@@ -439,9 +438,7 @@
       "actions": [],
       "blocks": [
         "DoorwayPage",
-        "HTMLVideoElement",
         "Link",
-        "PanoodFilm",
         "SpotlightSection"
       ]
     },

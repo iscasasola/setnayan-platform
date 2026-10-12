@@ -199,6 +199,19 @@ import type { SupplierSheetLoad, SupplierSheetTarget } from './supplier-sheet';
 import type { CategoryVendorResult } from '../_actions/category-search';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { deleteVendor } from '../actions';
+import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
+import {
+  BenchLocalCtx,
+  benchLocalStore,
+  useBenchLocal,
+  markBenchDirty,
+  payBenchDebt,
+  savedKey,
+  withoutRemoved,
+  type BenchLocal,
+  type SavedFromMore,
+} from './bench-local';
+import { useSuppliersMode } from './suppliers-mode';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import { categoryForTile } from '@/lib/shortlist-taxonomy';
@@ -2019,10 +2032,28 @@ function MoreToCompare({
   // null until read, and null again if the cards could not be read.
   const [moreCards, setMoreCards] = useState<Readonly<Record<string, BenchServiceCard>> | null>(null);
   // Saves made from THIS list: profile id → the created event_vendors row and
-  // whether it may be undone (`canUndoInlineSave` — never on a re-save).
-  const [moreSaved, setMoreSaved] = useState<
-    Record<string, { eventVendorId: string; undoable: boolean }>
-  >({});
+  // whether it may be undone (`canUndoInlineSave` — never on a re-save). Kept
+  // for the visit in the bench's store (`bench-local.ts`): the save answers in
+  // place, so the page's props do not know about it, and folding the row must
+  // not offer Save again. A save the page has since drawn above is dropped.
+  const localStore = benchLocalStore(eventId);
+  const benchLocal = useBenchLocal();
+  const [moreSaved, setMoreSavedState] = useState<Record<string, SavedFromMore>>(() => {
+    const onPage = new Set(benchProfileIds.filter((id): id is string => Boolean(id)));
+    const out: Record<string, SavedFromMore> = {};
+    for (const [key, saved] of localStore.saved) {
+      const [savedTile, profileId] = key.split('|');
+      if (savedTile === tile && profileId && !onPage.has(profileId)) out[profileId] = saved;
+    }
+    return out;
+  });
+  const setMoreSaved = (next: (cur: Record<string, SavedFromMore>) => Record<string, SavedFromMore>) =>
+    setMoreSavedState((cur) => {
+      const value = next(cur);
+      for (const id of Object.keys(cur)) if (!(id in value)) localStore.saved.delete(savedKey(tile, id));
+      for (const [id, saved] of Object.entries(value)) localStore.saved.set(savedKey(tile, id), saved);
+      return value;
+    });
   // The one card mid-flight, so only ITS buttons go quiet.
   const [moreBusy, setMoreBusy] = useState<string | null>(null);
   const [moreError, setMoreError] = useState<string | null>(null);
@@ -2100,6 +2131,9 @@ function MoreToCompare({
       // shop in general (owner's test round 1 — a two-service shop saved from
       // its second row was filed under its first, with no card recorded).
       if (moreTile) fd.set('tile', moreTile);
+      // The card answers itself ("Saved to your …"), so the action must not
+      // ship a whole render of this page back (`lib/answer-in-place.ts`).
+      fd.set(ANSWER_IN_PLACE_FIELD, '1');
       const res = await saveVendorToPicks(fd);
       if (res.status !== 'ok' && res.status !== 'already_saved') {
         // Say WHICH refusal happened where we can. The catch-all sentence
@@ -2122,10 +2156,10 @@ function MoreToCompare({
           undoable: canUndoInlineSave(res.status),
         },
       }));
-      // `saveVendorToPicks` revalidates /dashboard/[eventId], not this nested
-      // route, so nothing repaints the cards above on its own. One soft
-      // refresh, and the supplier the couple just saved is among them.
-      router.refresh();
+      // A PRESS ANSWERS AT ONCE (owner 2026-10-12): no page refresh. The card
+      // says where the supplier went; the cards above, and the Build and
+      // Booked bodies, catch up on the bench's ONE owed refresh.
+      if (res.status === 'ok') markBenchDirty(eventId);
       return res.eventVendorId;
     } catch {
       setMoreError(INLINE_MORE_SAVE_FAILED);
@@ -2146,13 +2180,17 @@ function MoreToCompare({
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('vendor_id', saved.eventVendorId);
+      fd.set(ANSWER_IN_PLACE_FIELD, '1');
       await deleteVendor(fd);
       setMoreSaved((cur) => {
         const next = { ...cur };
         delete next[v.vendorProfileId];
         return next;
       });
-      router.refresh();
+      // If the page has since drawn them above (a refresh landed between the
+      // save and the undo), that card leaves too. Marks the debt either way.
+      if (benchLocal) benchLocal.removeInPlace(saved.eventVendorId);
+      else markBenchDirty(eventId);
     } catch (e) {
       if (isRedirect(e)) throw e;
       setMoreError(INLINE_MORE_UNDO_FAILED);
@@ -2323,6 +2361,7 @@ function MoreToCompare({
 
 const NO_PAY_DUE: Readonly<Record<string, string>> = {};
 
+
 /**
  * THE SUPPLIER SHEET, LAZY. It is not part of the page's first JavaScript: the
  * chunk is fetched the first time a card is pressed (and the sheet itself then
@@ -2352,7 +2391,7 @@ export const MoreRowStandInCtx = createContext<
 >(null);
 
 export function ShortlistCategories({
-  folders,
+  folders: foldersFromServer,
   eventId,
   unread,
   initialOpenTile = null,
@@ -2489,6 +2528,47 @@ export function ShortlistCategories({
   benchArrangement?: Record<string, BenchPin[]>;
 }) {
   const router = useRouter();
+
+  // ── A PRESS ANSWERS IN PLACE (owner 2026-10-12, `bench-local.ts`) ─────────
+  // A removed supplier leaves THIS list at once and for the visit, whatever
+  // the page's props still say (they were drawn before the press, and Back
+  // serves the router's cached copy). Everything below reads `folders`, so the
+  // counts, the ring and "· N yours" move with the card.
+  const local = benchLocalStore(eventId);
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set(local.gone));
+  const folders = useMemo(() => withoutRemoved(foldersFromServer, gone), [foldersFromServer, gone]);
+  const benchLocal = useMemo<BenchLocal>(
+    () => ({
+      removeInPlace: (vendorId) => {
+        local.gone.add(vendorId);
+        setGone(new Set(local.gone));
+        markBenchDirty(eventId);
+        return (refusal) => {
+          local.gone.delete(vendorId);
+          local.said.set(vendorId, refusal);
+          setGone(new Set(local.gone));
+        };
+      },
+      takeSaid: (vendorId) => {
+        const was = local.said.get(vendorId) ?? null;
+        local.said.delete(vendorId);
+        return was;
+      },
+    }),
+    [eventId, local],
+  );
+  // THE DEBT, PAID ONCE: the Build and Booked bodies were drawn on the server
+  // and did not see the presses. One refresh when the couple leaves Find — or,
+  // if they left the page instead, when the bench is next mounted.
+  const { mode: suppliersMode } = useSuppliersMode();
+  useEffect(() => {
+    if (suppliersMode !== 'find' && payBenchDebt(eventId)) router.refresh();
+  }, [suppliersMode, eventId, router]);
+  useEffect(() => {
+    if (payBenchDebt(eventId)) router.refresh();
+    // On mount only: a return visit pays what the last one owed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // The folder that holds the deep-linked tile (if any) — used to pre-open it.
   // Known minor: the takeover unmounts inactive tab slots, so tabbing away from
   // Shortlist and back re-seeds this from the (server-fixed) prop and re-opens the
@@ -3347,6 +3427,7 @@ export function ShortlistCategories({
   );
 
   return (
+    <BenchLocalCtx.Provider value={benchLocal}>
     <SheetDoorCtx.Provider value={replan ? sheetDoor : null}>
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
@@ -4333,5 +4414,6 @@ export function ShortlistCategories({
     </PayDueCtx.Provider>
     </UnreadCtx.Provider>
     </SheetDoorCtx.Provider>
+    </BenchLocalCtx.Provider>
   );
 }

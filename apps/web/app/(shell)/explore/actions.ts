@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { answersInPlace } from '@/lib/answer-in-place';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -328,10 +329,14 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
 
   // Repaint both the marketplace (button → "Saved" · distance chips
   // update if venue just got anchored) and the couple home (12-group
-  // planner now shows the new pick).
-  revalidatePath('/explore');
-  revalidatePath(`/v/`);
-  revalidatePath(`/dashboard/${primaryEvent.event_id}`);
+  // planner now shows the new pick) — unless the caller drew the answer
+  // itself ("More to compare" → "Saved to your …"): then a revalidate would
+  // ship a whole render of the page it is on (`lib/answer-in-place.ts`).
+  if (!answersInPlace(formData)) {
+    revalidatePath('/explore');
+    revalidatePath(`/v/`);
+    revalidatePath(`/dashboard/${primaryEvent.event_id}`);
+  }
 
   return {
     status: 'ok',

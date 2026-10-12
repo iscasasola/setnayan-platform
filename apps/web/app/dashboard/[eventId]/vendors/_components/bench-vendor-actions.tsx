@@ -61,6 +61,8 @@ import { useConfirm } from '@/app/_components/confirm-dialog';
 import { cardVerbs, type CardVerb } from '@/lib/supplier-card-verbs';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import { deleteVendor } from '../actions';
+import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
+import { useBenchLocal } from './bench-local';
 import { haptic } from '@/lib/haptics';
 import { announceBuildAdded } from '@/lib/budget-build';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -187,7 +189,12 @@ export function BenchVendorActions({
   useFitRow(rowRef);
   const router = useRouter();
   const { confirm, dialog: confirmDialog } = useConfirm();
-  const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const local = useBenchLocal();
+  // A refused Remove comes back as a fresh card; the bench hands it the words.
+  const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string } | null>(() => {
+    const was = local?.takeSaid(vendorId) ?? null;
+    return was ? { tone: 'error', text: was } : null;
+  });
 
   const remove = () => {
     start(async () => {
@@ -200,16 +207,23 @@ export function BenchVendorActions({
         destructive: true,
       });
       if (!ok) return;
+      const refused = `${vendorName} could not be removed. Nothing changed.`;
+      // THE PRESS ANSWERS AT ONCE (owner 2026-10-12): on the bench the card
+      // leaves the page now and the write answers in place — no whole-page
+      // render (`lib/answer-in-place.ts`). A refusal puts it back, saying so.
+      const putBack = local?.removeInPlace(vendorId) ?? null;
       try {
         const fd = new FormData();
         fd.set('event_id', eventId);
         fd.set('vendor_id', vendorId);
+        if (putBack) fd.set(ANSWER_IN_PLACE_FIELD, '1');
         await deleteVendor(fd);
-        router.refresh();
+        if (!putBack) router.refresh();
       } catch (e) {
         if (isRedirect(e)) throw e;
         // The server refuses a booked supplier, or one with a payment on record.
-        setSaid({ tone: 'error', text: `${vendorName} could not be removed. Nothing changed.` });
+        if (putBack) putBack(refused);
+        else setSaid({ tone: 'error', text: refused });
       }
     });
   };

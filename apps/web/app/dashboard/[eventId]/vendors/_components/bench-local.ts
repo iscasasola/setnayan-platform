@@ -1,0 +1,102 @@
+'use client';
+
+/**
+ * WHAT A CARD PRESS CHANGED ON THIS PAGE, KEPT FOR THE VISIT (owner
+ * 2026-10-12: Save and Remove on a supplier card answer at once, without
+ * refreshing the whole page — "a press answers at once", 2026-10-08).
+ *
+ * Remove takes the card off the bench the moment the couple confirms; Save in
+ * "More to compare" turns the card into "Saved to your …" the moment the write
+ * answers. Neither asks for the page again: the write is sent with
+ * `answer_in_place=1` (`lib/answer-in-place.ts`), so the action does not ship a
+ * whole-page render back either.
+ *
+ * Kept per EVENT in a module map, not in component state, because the bench
+ * remounts (Back from a supplier's workspace serves the router's cached page,
+ * drawn before the press) and a removed supplier must not come back, nor a
+ * saved one ask to be saved again.
+ *
+ * THE DEBT. The Build and Booked bodies are drawn on the server and did not see
+ * the press. `dirty` records that one `router.refresh()` is owed; the bench pays
+ * it ONCE — when the couple leaves Find, or on its next mount — however many
+ * presses there were.
+ */
+import { createContext, useContext } from 'react';
+import type { ShortlistFolder } from '@/lib/shortlist-taxonomy';
+
+/** A supplier saved from "More to compare": its new pick, and whether Undo may remove it. */
+export type SavedFromMore = { eventVendorId: string; undoable: boolean };
+
+type BenchLocalStore = {
+  /** `event_vendors` ids removed in place. They never come back (the row is gone). */
+  gone: Set<string>;
+  /** `${tile}|${vendorProfileId}` → the save made from that category's list. */
+  saved: Map<string, SavedFromMore>;
+  /** What a refused Remove said, handed to the card when it comes back. */
+  said: Map<string, string>;
+  /** One `router.refresh()` is owed (see THE DEBT above). */
+  dirty: boolean;
+};
+
+const STORES = new Map<string, BenchLocalStore>();
+
+export function benchLocalStore(eventId: string): BenchLocalStore {
+  let s = STORES.get(eventId);
+  if (!s) {
+    s = { gone: new Set(), saved: new Map(), said: new Map(), dirty: false };
+    STORES.set(eventId, s);
+  }
+  return s;
+}
+
+export function savedKey(tile: string, vendorProfileId: string): string {
+  return `${tile}|${vendorProfileId}`;
+}
+
+/** A write answered in place: the server-drawn bodies now owe one refresh. */
+export function markBenchDirty(eventId: string): void {
+  benchLocalStore(eventId).dirty = true;
+}
+
+/** Pays the debt once. Returns true when a refresh is due now. */
+export function payBenchDebt(eventId: string): boolean {
+  const s = benchLocalStore(eventId);
+  if (!s.dirty) return false;
+  s.dirty = false;
+  return true;
+}
+
+/**
+ * What the bench gives a card's verb row. Null outside the bench — the card
+ * then behaves exactly as it shipped (write, then refresh the page).
+ */
+export type BenchLocal = {
+  /** Takes the card off the page now. Returns the put-back for a refusal, which
+   *  the card says when it reappears. */
+  removeInPlace: (vendorId: string) => (refusal: string) => void;
+  /** What a refused Remove said, once — read by the card that comes back. */
+  takeSaid: (vendorId: string) => string | null;
+};
+
+export const BenchLocalCtx = createContext<BenchLocal | null>(null);
+
+export function useBenchLocal(): BenchLocal | null {
+  return useContext(BenchLocalCtx);
+}
+
+/**
+ * The page's folders without the suppliers removed in place this visit. The
+ * SAME objects when nothing was removed, so nothing downstream re-derives.
+ */
+export function withoutRemoved(folders: ShortlistFolder[], gone: ReadonlySet<string>): ShortlistFolder[] {
+  if (gone.size === 0) return folders;
+  return folders.map((f) => {
+    let dropped = 0;
+    const tiles = f.tiles.map((t) => {
+      const vendors = t.vendors.filter((v) => !gone.has(v.vendorId));
+      dropped += t.vendors.length - vendors.length;
+      return vendors.length === t.vendors.length ? t : { ...t, vendors };
+    });
+    return dropped === 0 ? f : { ...f, tiles, pickCount: Math.max(0, f.pickCount - dropped) };
+  });
+}

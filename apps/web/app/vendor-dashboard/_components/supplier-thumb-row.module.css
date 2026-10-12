@@ -47,12 +47,18 @@
 .thumb :is(input, textarea, [data-fit-field]) {
   flex: 1 0 60%;
   min-width: 60%;
-  height: 40px;
+  height: 44px;
   border: 1px solid rgb(var(--color-ink) / 0.14);
   border-radius: var(--m-r-full);
   padding: 0 14px;
   font-size: 14px;
   color: rgb(var(--color-ink));
+}
+
+/* 44 px, every control (owner 2026-10-12, "APPROVE ALL" look call 3: "44 px minimum, no 40 px rows"). A button
+   reaches it through the house floor on <button>; a door (`<a class="ab">`) does not, so the row lifts it. */
+.thumb :global(.ab) {
+  min-height: 44px;
 }
 
 /* The neutral controls and the field are frosted like the row; a toned button

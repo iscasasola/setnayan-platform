@@ -150,3 +150,17 @@ test('5 · the two new tour keys are registered — and each mounts only with it
     for (const m of mounts) assert.ok(m.startsWith(home), `${key} is mounted on ${m}, not on the page it describes (${home})`);
   }
 });
+
+test('6 · every control in the thumb row is 44 px — a door (`<a class="ab">`) too, and the field (look call 3, 2026-10-12)', () => {
+  // Measured on the 375 walk (2026-10-12): Chat · Quote · Payment · Call and Add were 40 px — the house floor
+  // (`min-height: 44px` on <button>) does not reach a link, and the field was written 40 px tall.
+  const css = readFileSync(join(HERE, 'supplier-thumb-row.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel: string) => {
+    const at = css.indexOf(sel);
+    assert.ok(at >= 0, `anti-vacuity: \`${sel}\` is not in the row's stylesheet`);
+    return css.slice(at, css.indexOf('}', at));
+  };
+  assert.match(rule('.thumb :global(.ab) {'), /min-height: 44px;/, 'a door in the thumb row is under 44 px');
+  assert.match(rule('.thumb :is(input, textarea, [data-fit-field]) {'), /height: 44px;/, 'the thumb row’s field is under 44 px');
+  assert.doesNotMatch(css, /height: (?:[0-3]\d|4[0-3])px/, 'something in the thumb row is drawn under 44 px');
+});

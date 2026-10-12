@@ -207,10 +207,12 @@ test('R4 · a selfie ref outside the guest’s own folder is refused, never dele
 test('R4 · both sign-outs erase the selfie BEFORE the session that names it is gone', () => {
   const inv = code('app/[slug]/sign-out/route.ts');
   const e = inv.indexOf('eraseFaceTaggingSelfie(');
-  assert.ok(e > -1 && e < inv.indexOf('await clearGuestSession();'), 'signing out of the invitation no longer erases the selfie first');
+  // The event's own pass is cleared since 2026-10-12 (one pass per event) — the selfie still goes first.
+  const clear = inv.indexOf('await clearGuestSession({ slug, eventId });');
+  assert.ok(e > -1 && clear > -1 && e < clear, 'signing out of the invitation no longer erases the selfie first');
   const acct = code('app/auth/sign-out/route.ts');
   const u = acct.indexOf('eraseFaceTaggingSelfiesForUser(');
-  const p = acct.indexOf('eraseFaceTaggingSelfie(admin, pass.event_id, pass.guest_id)');
+  const p = acct.indexOf('eraseFaceTaggingSelfie(admin, pass.event_id, pass.guest_id)'); // once per pass held
   const out = acct.indexOf('await supabase.auth.signOut();');
   assert.ok(u > -1 && p > -1 && u < out && p < out, 'the account sign-out no longer erases the selfie before the session ends');
 });

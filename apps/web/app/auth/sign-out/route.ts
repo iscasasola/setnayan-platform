@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { GUEST_SESSION_COOKIE_NAME, readGuestSession } from '@/lib/guest-session';
+import { GUEST_PASS_BOOK_COOKIE_NAME, GUEST_SESSION_COOKIE_NAME, readEveryGuestPass } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eraseFaceTaggingSelfie, eraseFaceTaggingSelfiesForUser } from '@/lib/face-selfie-erase';
 import { RSVP_TERMS_COOKIE } from '@/lib/terms-agreement';
@@ -17,11 +17,14 @@ export async function POST(request: NextRequest) {
   const {
     data: { user: leaving },
   } = await supabase.auth.getUser();
-  const pass = await readGuestSession().catch(() => null);
+  // EVERY pass this browser holds — one per event since 2026-10-12 (lib/guest-pass-book.ts).
+  const passes = await readEveryGuestPass().catch(() => []);
   const admin = createAdminClient();
   if (leaving) await eraseFaceTaggingSelfiesForUser(admin, leaving.id).catch(() => 0);
-  if (pass?.event_id && pass.guest_id) {
-    await eraseFaceTaggingSelfie(admin, pass.event_id, pass.guest_id).catch(() => null);
+  for (const pass of passes) {
+    if (pass.event_id && pass.guest_id) {
+      await eraseFaceTaggingSelfie(admin, pass.event_id, pass.guest_id).catch(() => null);
+    }
   }
 
   await supabase.auth.signOut();
@@ -55,7 +58,8 @@ export async function POST(request: NextRequest) {
   // holding nothing of the last person's. Held by
   // seat-links-only-on-purpose.test.ts. The Terms tick a guest carried from the
   // RSVP page goes too — it was that person's agreement, not the next one's.
-  for (const name of [GUEST_SESSION_COOKIE_NAME, RSVP_TERMS_COOKIE]) {
+  // "Sign out everywhere": the active pass AND the pass book (every event's pass).
+  for (const name of [GUEST_SESSION_COOKIE_NAME, GUEST_PASS_BOOK_COOKIE_NAME, RSVP_TERMS_COOKIE]) {
     response.cookies.set(name, '', {
       maxAge: 0,
       path: '/',

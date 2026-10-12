@@ -393,7 +393,8 @@ test('5 · "Not you? Switch" clears the guest pass with a POST, never a prefetch
   assert.match(form, /action="\/ana\/sign-out"/);
   assert.match(form, /method="post"/);
   assert.match(html, /Switch/);
-  assert.match(read('[slug]/sign-out/route.ts'), /await clearGuestSession\(\);/);
+  // One pass per event (2026-10-12): the switch clears THIS event's pass — never another event's.
+  assert.match(read('[slug]/sign-out/route.ts'), /await clearGuestSession\(\{ slug, eventId \}\);/);
   assert.match(REPLY, /<NotYouSwitch slug=\{home\} erasesSelfie=\{guest\.photo_source === 'selfie'\} \/>/);
 });
 

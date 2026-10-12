@@ -9,8 +9,9 @@
  *
  * `?wish=` picks the state: `five` (default) · `empty` · `fail` (the read was
  * refused) · `noway` (no way to give is on) · `off` (Accept gifts? No).
- * Writes go to the real action, which refuses without a session — the lab shows
- * states, it does not keep anything.
+ * Writes go to the lab's stand-in (`lab-studio-actions.tsx` via `useStudioActions`,
+ * 2026-10-12): they succeed LOCALLY and never reach the database (`?refuse=1` refuses
+ * with the database's own words) — the lab shows states, it does not keep anything.
  */
 import type { GiftRecordRow, WishItemRow } from '@/lib/wish-list';
 import { studioWishListFrom, type StudioWishList } from '@/lib/wish-list-studio';

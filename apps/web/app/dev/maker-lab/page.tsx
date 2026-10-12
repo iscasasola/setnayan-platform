@@ -15,6 +15,9 @@ import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
 import { LAB_BAR_COOKIE, LAB_OWN_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows } from './lab-draft';
 import { labNavigatorInput } from './lab-navigator';
+import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-pure';
 
 /**
  * /dev/maker-lab — THE WHOLE MAKER on maria-and-jose's REAL SHAPE, with no
@@ -127,9 +130,35 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
     hasContent: true,
     transitionLabel: 'Scroll',
   }));
+  /* 🎭 `?reveal=owner` — the owner's Reveal screen of 2026-10-08 (theme Cyber Neon, nothing chosen, the Reveal Studio's
+     map switched every opening off but Sheer veil, house default Sheer veil); `?reveal=all` — the same theme, every
+     opening on. The default opening is asked of the guest page's OWN rule, in the shape `MakerRevealPanel` asks it
+     (`maker-made-once.tsx`). `&before=1` hands the panel the theme's opening instead — main's rule before #6464. */
+  const revealLab = (() => {
+    if (sp.reveal !== 'owner' && sp.reveal !== 'all') return null;
+    const theme = INVITE_THEMES.cyber;
+    const on: readonly RevealTemplateId[] = sp.reveal === 'owner' ? ['veil-sheer'] : REVEAL_TEMPLATE_IDS;
+    const allowed = Object.fromEntries(REVEAL_TEMPLATE_IDS.map((id) => [id, on.includes(id)])) as Record<RevealTemplateId, boolean>;
+    const themeOpening = theme.opening;
+    const plays = revealAllowedFor({
+      ownsPro: true,
+      chosenTemplate: themeOpening === REVEAL_NONE ? null : themeOpening,
+      adminDefault: 'veil-sheer',
+      isStaffPreview: false,
+      allowed,
+    });
+    const before = sp.before === '1';
+    return {
+      themeName: theme.name,
+      defaultOpening: before ? themeOpening : plays,
+      defaultIsTheme: before ? themeOpening !== REVEAL_NONE : themeOpening !== REVEAL_NONE && plays === themeOpening,
+      openings: on,
+    };
+  })();
   return (
     <MakerLabShell
       eventId={EVENT}
+      revealLab={revealLab}
       scenes={scenes}
       navigator={navigator}
       details={detailsLabNode({ ...sp, shape: 'mj', ...(sp.studio === '1' || sp.ss === '1' ? { look: '1' } : {}) })}

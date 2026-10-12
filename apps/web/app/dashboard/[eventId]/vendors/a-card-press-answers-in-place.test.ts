@@ -55,7 +55,13 @@ test('the field is one name, read one way', () => {
 });
 
 test('Remove on a card: the card leaves first, the write answers in place, no page refresh', () => {
-  const remove = slice(CARD, 'const remove = () => {', 'const pin = (planGroupId: string) => {');
+  const remove = slice(CARD, 'const remove = async () => {', 'const pin = (planGroupId: string) => {');
+  // The confirm is asked OUTSIDE the transition, and the card is taken off outside it too — inside an async
+  // transition React 19 holds both updates until the action settles (the box never opened; measured 2026-10-12).
+  const ask = remove.indexOf('await confirm(');
+  const begin = remove.indexOf('start(async');
+  assert.ok(ask > -1 && begin > -1 && ask < begin, 'the confirm is asked inside the transition again');
+  assert.ok(remove.indexOf('local?.removeInPlace(vendorId)') < begin, 'the card is taken off inside the transition again');
   const off = remove.indexOf('local?.removeInPlace(vendorId)');
   const write = remove.indexOf('await removeWrite(fd)');
   assert.ok(off > -1 && write > -1 && off < write, 'the card must leave BEFORE the write is awaited');

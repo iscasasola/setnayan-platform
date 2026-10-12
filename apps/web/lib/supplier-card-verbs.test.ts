@@ -166,7 +166,7 @@ test('T4 · the facts are the card’s own; Pay is the Booked row’s Pay', () =
 });
 
 test('T4 · Remove asks first, and a refusal is said — never a silent no-op', () => {
-  const remove = CARD.slice(CARD.indexOf('const remove = () => {'), CARD.indexOf('const nudge = () => {'));
+  const remove = CARD.slice(CARD.indexOf('const remove = async () => {'), CARD.indexOf('const pin = (planGroupId: string) => {'));
   assert.match(remove, /const ok = await confirm\(\{/);
   assert.match(remove, /if \(!ok\) return;/);
   // On the bench the card leaves at once and the write answers in place (owner

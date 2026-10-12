@@ -1009,6 +1009,8 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .bmr-row{border-top:1px solid var(--line);padding-left:0;padding-right:0}
 .slcat .bmr-arr,.slcat .bench-mkt-arr{color:rgb(var(--sn-accent))}
 html.dark .slcat .bench-mkt-results{background:none}
+/* A note is read, not pressed: no dashed box, it sits on the page (owner 2026-10-11). */
+.slcat .vact.note{border:0;padding-left:0;padding-right:0;background:none;min-height:0}
 `;
 
 /** Two-letter monogram fallback — delegates to the shared shop/vendor helper

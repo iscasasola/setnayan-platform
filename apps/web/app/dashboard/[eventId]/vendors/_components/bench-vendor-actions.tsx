@@ -188,22 +188,27 @@ export function BenchVendorActions({
     return was ? { tone: 'error', text: was } : null;
   });
 
-  const remove = () => {
+  const remove = async () => {
+    setSaid(null);
+    // 🔑 ASK FIRST, OUTSIDE THE TRANSITION. In React 19 every state update made inside an async `startTransition`
+    // is held until the whole action settles — and this action was waiting on the confirm box, whose `open` was one
+    // of those held updates. The box never opened and Remove never worked (measured in the lab, 2026-10-12).
+    const ok = await confirm({
+      title: `Remove ${vendorName}?`,
+      body: `They leave your ${groupLabel} list. Your conversation with them is kept.`,
+      confirmLabel: 'Remove',
+      cancelLabel: 'Keep',
+      destructive: true,
+    });
+    if (!ok) return;
+    const refused = `${vendorName} could not be removed. Nothing changed.`;
+    // THE PRESS ANSWERS AT ONCE (owner 2026-10-12): on the bench the card
+    // leaves the page now and the write answers in place — no whole-page
+    // render (`lib/answer-in-place.ts`). A refusal puts it back, saying so.
+    // Taken off OUTSIDE the transition: inside it, React 19 would hold the
+    // hide until the write settled (measured in the lab).
+    const putBack = local?.removeInPlace(vendorId) ?? null;
     start(async () => {
-      setSaid(null);
-      const ok = await confirm({
-        title: `Remove ${vendorName}?`,
-        body: `They leave your ${groupLabel} list. Your conversation with them is kept.`,
-        confirmLabel: 'Remove',
-        cancelLabel: 'Keep',
-        destructive: true,
-      });
-      if (!ok) return;
-      const refused = `${vendorName} could not be removed. Nothing changed.`;
-      // THE PRESS ANSWERS AT ONCE (owner 2026-10-12): on the bench the card
-      // leaves the page now and the write answers in place — no whole-page
-      // render (`lib/answer-in-place.ts`). A refusal puts it back, saying so.
-      const putBack = local?.removeInPlace(vendorId) ?? null;
       try {
         const fd = new FormData();
         fd.set('event_id', eventId);
@@ -382,7 +387,7 @@ export function BenchVendorActions({
       case 'record':
         return <ActionButton key={v.key} tone={v.tone} main={v.main} icon={Pencil} label={v.label} onClick={onRecord} disabled={!onRecord} />;
       case 'remove':
-        return <ActionButton key={v.key} tone={v.tone} icon={X} label={v.label} disabled={pending} onClick={remove} />;
+        return <ActionButton key={v.key} tone={v.tone} icon={X} label={v.label} disabled={pending} onClick={() => void remove()} />;
       default:
         return null;
     }

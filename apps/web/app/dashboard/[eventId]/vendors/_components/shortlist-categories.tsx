@@ -202,6 +202,7 @@ import { deleteVendor } from '../actions';
 import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
 import {
   BenchLocalCtx,
+  BenchWritesStandInCtx,
   benchLocalStore,
   useBenchLocal,
   markBenchDirty,
@@ -2038,6 +2039,9 @@ function MoreToCompare({
   // not offer Save again. A save the page has since drawn above is dropped.
   const localStore = benchLocalStore(eventId);
   const benchLocal = useBenchLocal();
+  const writes = useContext(BenchWritesStandInCtx);
+  const saveWrite = writes?.save ?? saveVendorToPicks;
+  const removeWrite = writes?.remove ?? deleteVendor;
   const [moreSaved, setMoreSavedState] = useState<Record<string, SavedFromMore>>(() => {
     const onPage = new Set(benchProfileIds.filter((id): id is string => Boolean(id)));
     const out: Record<string, SavedFromMore> = {};
@@ -2134,7 +2138,7 @@ function MoreToCompare({
       // The card answers itself ("Saved to your …"), so the action must not
       // ship a whole render of this page back (`lib/answer-in-place.ts`).
       fd.set(ANSWER_IN_PLACE_FIELD, '1');
-      const res = await saveVendorToPicks(fd);
+      const res = await saveWrite(fd);
       if (res.status !== 'ok' && res.status !== 'already_saved') {
         // Say WHICH refusal happened where we can. The catch-all sentence
         // collapsed four distinct causes — signed out, no event, not your
@@ -2181,7 +2185,7 @@ function MoreToCompare({
       fd.set('event_id', eventId);
       fd.set('vendor_id', saved.eventVendorId);
       fd.set(ANSWER_IN_PLACE_FIELD, '1');
-      await deleteVendor(fd);
+      await removeWrite(fd);
       setMoreSaved((cur) => {
         const next = { ...cur };
         delete next[v.vendorProfileId];

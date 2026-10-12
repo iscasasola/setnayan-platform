@@ -16,6 +16,7 @@
  *   &sheetfail=1        the supplier sheet's one request fails (press a card)
  *   &slow=1             …or takes 2.5 s, to read the line it shows meanwhile
  *   &empty=1            a new event: no suppliers yet
+ *   &writefail=1        Save / Remove on a card are refused (they answer in place)
  *
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
  * behind that flag, and a client bundle reads it at build time.
@@ -57,6 +58,7 @@ export default async function SuppliersLabPage({
       fail={one('fail') === '1'}
       sheetFail={one('sheetfail') === '1'}
       slow={one('slow') === '1'}
+      writeFail={one('writefail') === '1'}
       folders={folders}
       eventId={LAB_EVENT}
       standings={LAB_STANDINGS}

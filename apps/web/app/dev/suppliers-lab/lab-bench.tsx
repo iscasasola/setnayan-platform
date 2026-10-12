@@ -5,18 +5,35 @@
  * read ("More to compare") answered from fixtures — the lab has no session and
  * no database. `&fail=1` makes that read fail; the supplier sheet's one request
  * is answered here too (`&sheetfail=1` fails it, `&slow=1` holds it 2.5 s).
+ * Save and Remove on a card are answered here as well (0.6 s; `&writefail=1`
+ * refuses them), so the lab shows a press answering in place.
  */
 import type { ComponentProps } from 'react';
 import { MoreRowStandInCtx, ShortlistCategories } from '@/app/dashboard/[eventId]/vendors/_components/shortlist-categories';
+import { BenchWritesStandInCtx, type BenchWrites } from '@/app/dashboard/[eventId]/vendors/_components/bench-local';
 import { LAB_MARKET, labSheet } from './fixtures';
 
 export function LabBench({
   fail,
   sheetFail,
   slow,
+  writeFail,
   ...props
-}: ComponentProps<typeof ShortlistCategories> & { fail: boolean; sheetFail: boolean; slow: boolean }) {
+}: ComponentProps<typeof ShortlistCategories> & { fail: boolean; sheetFail: boolean; slow: boolean; writeFail: boolean }) {
+  const pause = () => new Promise((r) => setTimeout(r, 600));
+  const writes: BenchWrites = {
+    remove: async () => {
+      await pause();
+      if (writeFail) throw new Error('lab: refused');
+    },
+    save: async (fd) => {
+      await pause();
+      if (writeFail) return { status: 'error', message: 'lab: refused' };
+      return { status: 'ok', eventVendorId: `lab-${String(fd.get('vendor_profile_id'))}`, eventName: null };
+    },
+  };
   return (
+    <BenchWritesStandInCtx.Provider value={writes}>
     <MoreRowStandInCtx.Provider
       value={async ({ tile, query, sheetFor }) => {
         if (sheetFor) {
@@ -33,5 +50,6 @@ export function LabBench({
     >
       <ShortlistCategories {...props} />
     </MoreRowStandInCtx.Provider>
+    </BenchWritesStandInCtx.Provider>
   );
 }

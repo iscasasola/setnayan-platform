@@ -23,6 +23,7 @@
  */
 import { createContext, useContext } from 'react';
 import type { ShortlistFolder } from '@/lib/shortlist-taxonomy';
+import type { SaveVendorResult } from '@/app/(shell)/explore/actions';
 
 /** A supplier saved from "More to compare": its new pick, and whether Undo may remove it. */
 export type SavedFromMore = { eventVendorId: string; undoable: boolean };
@@ -83,6 +84,17 @@ export const BenchLocalCtx = createContext<BenchLocal | null>(null);
 export function useBenchLocal(): BenchLocal | null {
   return useContext(BenchLocalCtx);
 }
+
+/**
+ * A STAND-IN FOR THE TWO WRITES — `/dev/suppliers-lab` only (the lab has no
+ * session, so the real actions would send it to sign in). `null` everywhere
+ * else: the bench always calls `deleteVendor` and `saveVendorToPicks`.
+ */
+export type BenchWrites = {
+  remove: (fd: FormData) => Promise<void>;
+  save: (fd: FormData) => Promise<SaveVendorResult>;
+};
+export const BenchWritesStandInCtx = createContext<BenchWrites | null>(null);
 
 /**
  * The page's folders without the suppliers removed in place this visit. The

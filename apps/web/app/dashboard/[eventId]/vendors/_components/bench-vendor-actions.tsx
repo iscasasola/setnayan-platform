@@ -37,7 +37,7 @@
  * couple removes the clashing candidate and every leg comes straight back.
  */
 
-import { useRef, useState, useTransition } from 'react';
+import { useContext, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Ban,
@@ -62,7 +62,7 @@ import { cardVerbs, type CardVerb } from '@/lib/supplier-card-verbs';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import { deleteVendor } from '../actions';
 import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
-import { useBenchLocal } from './bench-local';
+import { BenchWritesStandInCtx, useBenchLocal } from './bench-local';
 import { haptic } from '@/lib/haptics';
 import { announceBuildAdded } from '@/lib/budget-build';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -190,6 +190,7 @@ export function BenchVendorActions({
   const router = useRouter();
   const { confirm, dialog: confirmDialog } = useConfirm();
   const local = useBenchLocal();
+  const removeWrite = useContext(BenchWritesStandInCtx)?.remove ?? deleteVendor;
   // A refused Remove comes back as a fresh card; the bench hands it the words.
   const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string } | null>(() => {
     const was = local?.takeSaid(vendorId) ?? null;
@@ -217,7 +218,7 @@ export function BenchVendorActions({
         fd.set('event_id', eventId);
         fd.set('vendor_id', vendorId);
         if (putBack) fd.set(ANSWER_IN_PLACE_FIELD, '1');
-        await deleteVendor(fd);
+        await removeWrite(fd);
         if (!putBack) router.refresh();
       } catch (e) {
         if (isRedirect(e)) throw e;

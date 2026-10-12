@@ -55,12 +55,14 @@ test('the field is one name, read one way', () => {
 test('Remove on a card: the card leaves first, the write answers in place, no page refresh', () => {
   const remove = slice(CARD, 'const remove = () => {', 'const nudge = () => {');
   const off = remove.indexOf('local?.removeInPlace(vendorId)');
-  const write = remove.indexOf('await deleteVendor(fd)');
+  const write = remove.indexOf('await removeWrite(fd)');
   assert.ok(off > -1 && write > -1 && off < write, 'the card must leave BEFORE the write is awaited');
   assert.match(remove, /if \(putBack\) fd\.set\(ANSWER_IN_PLACE_FIELD, '1'\);/);
   // The only refresh left is the fallback outside the bench.
   assert.equal((remove.match(/router\.refresh\(\)/g) ?? []).length, 1);
   assert.match(remove, /if \(!putBack\) router\.refresh\(\);/);
+  // The write is the real action everywhere but the lab.
+  assert.match(CARD, /const removeWrite = useContext\(BenchWritesStandInCtx\)\?\.remove \?\? deleteVendor;/);
 });
 
 test('Save and Undo in "More to compare": answered by the card, no page refresh', () => {

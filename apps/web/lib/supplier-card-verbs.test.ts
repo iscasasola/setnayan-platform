@@ -170,7 +170,7 @@ test('T4 · Remove asks first, and a refusal is said — never a silent no-op', 
   // On the bench the card leaves at once and the write answers in place (owner
   // 2026-10-12); only a card outside the bench still refreshes the page.
   assert.match(remove, /const putBack = local\?\.removeInPlace\(vendorId\) \?\? null;/);
-  assert.match(remove, /await deleteVendor\(fd\);\s*if \(!putBack\) router\.refresh\(\);/);
+  assert.match(remove, /await removeWrite\(fd\);\s*if \(!putBack\) router\.refresh\(\);/);
   assert.match(remove, /if \(isRedirect\(e\)\) throw e;/, 'a signed-out redirect is swallowed as a failure');
   assert.match(remove, /const refused = `\$\{vendorName\} could not be removed\. Nothing changed\.`;/);
   assert.match(remove, /if \(putBack\) putBack\(refused\);\s*else setSaid\(\{ tone: 'error', text: refused \}\);/);

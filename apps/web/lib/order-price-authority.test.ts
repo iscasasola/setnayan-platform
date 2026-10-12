@@ -899,7 +899,9 @@ test('every money write uses the MONEY writer, not the degrading admin client', 
   // card), and only the first was collecting. The collector's one caller is
   // now the shared effects module both doors call; this list went red the
   // moment the call left the action, which is again the guard working.
-  for (const caller of ['lib/deposit-acknowledged-effects.server.ts']) {
+  // 2026-10-12: and moved again, one level down, to the ONE mint every handshake
+  // calls (`lib/booking-fee-mint.server.ts` — owner: the fee is made at the yes).
+  for (const caller of ['lib/booking-fee-mint.server.ts']) {
     const src = readFileSync(join(WEB, caller), 'utf8');
     if (!/collectBookingFeeAtLock\(\s*createMoneyWriterClient\(\)/.test(src)) {
       offenders.push(`${caller} → passes a non-money client into collectBookingFeeAtLock`);

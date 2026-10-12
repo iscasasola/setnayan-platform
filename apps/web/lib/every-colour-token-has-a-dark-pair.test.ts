@@ -96,9 +96,9 @@ function tokens(file: string, rootSel: RegExp, darkSel: RegExp) {
   const dark = new Set<string>();
   for (const b of blocks(read(file))) {
     const inMediaOrSupports = b.ctx.some((c) => /^@(media|supports|container)/.test(c));
-    for (const m of b.body.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
-      if (isDarkBlock(b) && darkSel.test(b.sel)) dark.add(m[1]);
-      else if (rootSel.test(b.sel) && !inMediaOrSupports && !light.has(m[1])) light.set(m[1], m[2].trim());
+    for (const [, name = '', value = ''] of b.body.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
+      if (isDarkBlock(b) && darkSel.test(b.sel)) dark.add(name);
+      else if (rootSel.test(b.sel) && !inMediaOrSupports && !light.has(name)) light.set(name, value.trim());
     }
   }
   return { light, dark };
@@ -164,9 +164,9 @@ function tailwindColours(): string {
 /** Every `--x` the colours block reads (the first var() of each value — the one that is not a fallback). */
 function tailwindVars(): Set<string> {
   const out = new Set<string>();
-  for (const m of tailwindColours().matchAll(/'([^']+)'/g)) {
-    const v = m[1].match(/var\(\s*--([a-z0-9-]+)/i);
-    if (v) out.add(v[1]);
+  for (const [, value = ''] of tailwindColours().matchAll(/'([^']+)'/g)) {
+    const v = value.match(/var\(\s*--([a-z0-9-]+)/i);
+    if (v?.[1]) out.add(v[1]);
   }
   return out;
 }
@@ -176,9 +176,10 @@ test('tailwind.config.ts colours hold no literal colour — each reads a token',
   for (const line of tailwindColours().split('\n')) {
     const m = line.match(/^\s*'?([A-Za-z0-9-]+)'?\s*:\s*'([^']+)'/);
     if (!m) continue;
+    const [, key = '', value = ''] = m;
     // A literal INSIDE a var() fallback (`var(--color-candle, 217 164 65)`) is a fallback, not the value.
-    const withoutVars = m[2].replace(/var\([^()]*\)/g, '');
-    if (/#[0-9a-f]{3,8}\b|\brgba?\(\s*\d/i.test(withoutVars)) literals.push(`  ${m[1]}: '${m[2]}'`);
+    const withoutVars = value.replace(/var\([^()]*\)/g, '');
+    if (/#[0-9a-f]{3,8}\b|\brgba?\(\s*\d/i.test(withoutVars)) literals.push(`  ${key}: '${value}'`);
   }
   assert.deepEqual(
     literals,
@@ -196,7 +197,7 @@ test('every token the Tailwind palette reads has a dark pair', () => {
     if (seen.has(name)) return false;
     seen.add(name);
     const alias = G.light.get(name)?.match(/^var\(\s*--([a-z0-9-]+)\s*\)$/);
-    return alias ? paired(alias[1], seen) : false;
+    return alias?.[1] ? paired(alias[1], seen) : false;
   };
   const vars = tailwindVars();
   assert.ok(vars.size > 80, `only ${vars.size} tokens read from the Tailwind colours — the reader broke`);

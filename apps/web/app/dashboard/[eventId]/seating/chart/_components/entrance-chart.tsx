@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Download, Loader2, RotateCcw } from 'lucide-react';
 import { PillSelector } from '@/app/_components/pill-selector';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -45,11 +45,17 @@ export function EntranceChart({
   const [save, setSave] = useState<SaveState>({ k: 'idle' });
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const busy = useRef(false);
+  const img = useRef<HTMLImageElement>(null);
 
   const base = `/dashboard/${encodeURIComponent(eventId)}/seating/print?chart=${layout}&size=${size}`;
   const preview = `${base}&format=preview`;
   const verdict = verdicts[layout][size];
   const canSave = seated > 0 && !verdict;
+  // A picture that finished before the page woke up never fires onLoad — ask it.
+  useEffect(() => {
+    const el = img.current;
+    if (el?.complete && el.naturalWidth > 0) setLoadedSrc(preview);
+  }, [preview]);
 
   const pick = (fn: () => void) => {
     fn();
@@ -105,6 +111,7 @@ export function EntranceChart({
           {/* eslint-disable-next-line @next/next/no-img-element -- a same-origin SVG of the sheet, redrawn per choice */}
           <img
             key={preview}
+            ref={img}
             src={preview}
             alt={`Entrance seating chart, ${layouts.find((l) => l.key === layout)?.label ?? ''}, ${sizes.find((s) => s.key === size)?.label ?? ''}`}
             className="h-full w-full object-contain"

@@ -174,3 +174,64 @@ for (const moment of Object.keys(MOMENTS) as Array<keyof typeof MOMENTS>) {
     }
   });
 }
+
+/* ══ 📣 2026-10-12 — ANNOUNCEMENTS, MADE REAL ════════════════════════════════════════════════════════════════════
+ * Proved where a guest's own is drawn (the layout's wrapper): nothing kept is the same bytes; a look kept adds exactly
+ * the block's style and mark right before its root, and not one other byte. Sabotages seen red (each restored): the
+ * mark served with nothing kept · the mark not the last thing before the block.
+ */
+
+/** Imports a module that reaches a server action, with Next's two marker packages stubbed (they exist only inside its
+ *  bundler — the same door `scene-words-follow-the-ground.test.ts` uses). */
+async function withMarkersStubbed<T>(load: () => Promise<T>): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Module = require('node:module') as { _load: (request: string, ...rest: unknown[]) => unknown };
+  const real = Module._load;
+  Module._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return real.call(this, request, ...rest);
+  };
+  try {
+    return await load();
+  } finally {
+    Module._load = real;
+  }
+}
+
+test('Announcements: nothing kept is the same bytes; a look kept adds its style and mark right before the block’s root — in every shape, before the day and on it', async () => {
+  const [{ AnnouncementLook }, { DayOfAnnouncement }] = await withMarkersStubbed(() =>
+    Promise.all([import('../app/[slug]/_components/announcement-look'), import('../app/[slug]/_components/day-of-announcement')]),
+  );
+  /* The layout's wrapper, as `app/[slug]/layout.tsx` draws it (held word for word by the motion guard §2 and §4). */
+  const draw = (stage: 'before' | 'live', sceneStyle: string | null, looks: unknown) =>
+    renderToStaticMarkup(
+      React.createElement(
+        'div',
+        { className: stage === 'live' ? 'sticky top-0 z-50' : undefined },
+        React.createElement(AnnouncementLook, { stylePreferences: looks === undefined ? null : { [BLOCK_LOOKS_PREF_KEY]: looks } }),
+        React.createElement(DayOfAnnouncement, { body: 'Phones down — the ceremony is starting.', eventId: FIXTURE_EVENT.event_id, stage, sceneStyle }),
+      ),
+    );
+  const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="announcements"></span>`;
+  for (const stage of ['before', 'live'] as const) {
+    for (const shape of [null, 'notice', 'line'] as const) {
+      const plain = draw(stage, shape, undefined);
+      const root = plain.indexOf('<aside role="status"');
+      assert.ok(root > 0 && plain.includes('Phones down'), `${stage} · ${shape}: the announcement is not drawn: this proves nothing`);
+      assert.doesNotMatch(plain, new RegExp(`${BLOCK_MARK_ATTR}|${BLOCK_LOOKS_STYLE_ATTR}`));
+      for (const nothing of [{}, { announcements: {} }, { announcements: { motion: {} } }, { announcements: { g: 'paper' } }, { look: { g: 'frost' } }]) {
+        assert.equal(draw(stage, shape, nothing), plain, `${stage} · ${shape}: a page with ${JSON.stringify(nothing)} kept differs`);
+      }
+      for (const look of [{ g: 'frost' }, { g: 'none' }, { motion: { in: { fade: true } } }, { g: 'plain', motion: { timeline: 'scroll', in: { fade: true }, out: { fade: true } } }] as const) {
+        const dressed = draw(stage, shape, { announcements: look });
+        const css = blockLooksCss({ announcements: readBlockLooks({ [BLOCK_LOOKS_PREF_KEY]: { announcements: look } }).announcements! });
+        assert.ok(css.length > 0);
+        const style = `<style ${BLOCK_LOOKS_STYLE_ATTR}="">${css}</style>`;
+        /* THE STYLE, THEN THE MARK, IMMEDIATELY BEFORE THE BLOCK'S OWN ROOT — and not one other byte. */
+        assert.equal(dressed, `${plain.slice(0, root)}${style}${mark}${plain.slice(root)}`, `${stage} · ${shape} · ${JSON.stringify(look)}: not exactly the style and the mark before the root`);
+        /* The rules are this block's alone (the page's other blocks carry theirs in SiteBody's own style). */
+        assert.doesNotMatch(css, /data-block-mark="(?!announcements")/);
+      }
+    }
+  }
+});

@@ -5,6 +5,7 @@ import { isFinishedEvent } from '@/lib/event-board';
 import { announcementStage, type AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { readGuestSession } from '@/lib/guest-session';
 import { DayOfAnnouncement } from './_components/day-of-announcement';
+import { AnnouncementLook } from './_components/announcement-look';
 import { GuestLookScope } from './_components/guest-look-scope';
 import { lookScopeProps } from './_components/host-draft-look';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
@@ -126,6 +127,8 @@ async function guestTreeLayout({ children, params }: GuestTreeLayoutProps) {
   let stage: AnnouncementStage = 'before';
   /** 🎨 The couple's pick for the announcement's shape (`style_preferences.scene_styles`). */
   let announcementStyle: string | null = null;
+  /** 🧱 …and the column itself, for the block's own look (`announcement-look.tsx`; nothing kept = nothing drawn). */
+  let stylePreferences: unknown = null;
 
   try {
     const event = await loadEventShell(slug);
@@ -154,6 +157,7 @@ async function guestTreeLayout({ children, params }: GuestTreeLayoutProps) {
       );
       stage = announcementStage(phase, ended);
       // Before the day it sits over the Invitation; on it, over The Day.
+      stylePreferences = (event as { style_preferences?: unknown }).style_preferences;
       announcementStyle = fixedSceneStyleOf(
         (event as { style_preferences?: unknown }).style_preferences,
         'announcements',
@@ -192,6 +196,9 @@ async function guestTreeLayout({ children, params }: GuestTreeLayoutProps) {
           is urgent enough to ride over the couple's invitation. */}
       {broadcast && eventId ? (
         <div className={stage === 'live' ? 'sticky top-0 z-50' : undefined}>
+          {/* 🧱 Its own Animate and Background (`lib/block-looks.ts`): the block's style and mark, right before its
+              root — only when the couple kept a look for it. */}
+          <AnnouncementLook stylePreferences={stylePreferences} />
           <DayOfAnnouncement
             body={broadcast.body}
             eventId={eventId}

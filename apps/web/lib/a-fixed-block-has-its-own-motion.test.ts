@@ -43,6 +43,11 @@
  * out · the while-open rule dropping the timed Build in (it would replay on closing a photo) · Background made live
  * on it · Photos of you put back among the samples.
  *
+ * 📣 2026-10-12 — …AND ANNOUNCEMENTS (owner's go, "sample blocks"). Drawn by the guest tree's LAYOUT (its own mark
+ * and its own style, `announcement-look.tsx`), never in a chapter, and stuck to the screen on the day — so there
+ * nothing that follows the scroll plays. Held in §1 · §2 · §3 · §4 · §5. Sabotages seen red: the layout mounting the
+ * look after the block · the mark not the last thing before the block · the stuck rule taken out.
+ *
  * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
  */
 import test from 'node:test';
@@ -84,7 +89,10 @@ test('1 · the reader is strict: the real blocks, and only what the Event Hub’
      with one real root is listed. */
   /* 🔁 RE-AIMED 2026-10-10 (owner: "animate only"): Photos of you joined — each guest's own is ONE root in one mount
      (§4). The claim is the same: only a block with one real root is listed. */
-  assert.deepEqual([...BLOCK_LOOK_BLOCKS], ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you']);
+  /* 🔁 RE-AIMED 2026-10-12 (a sample made real): Announcements joined — each guest's own is ONE root, drawn by the
+     guest tree's layout (§4). The claim is the same. */
+  assert.deepEqual([...BLOCK_LOOK_BLOCKS], ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you', 'announcements']);
+  assert.equal(blockOfCanvas('f:announcements'), 'announcements');
   assert.equal(blockOfCanvas('f:find_your_seat'), 'find_your_seat');
   assert.equal(blockOfCanvas('f:pass'), 'pass');
   assert.equal(blockOfCanvas('f:photos_of_you'), 'photos_of_you');
@@ -118,7 +126,7 @@ test('1 · the reader is strict: the real blocks, and only what the Event Hub’
       details: { motion: { in: { fade: 'yes', move: 'sideways' }, during: 'spin', out: { fade: true } } } /* nothing listed; an Out without the scroll is dropped */,
       gifts: { motion: { timeline: 'scroll', in: { blur: true }, out: { fade: true, size: 'grow' }, during: 'drift', animation: 'x 1s; } body{display:none' } },
       spotlight: { motion: 'fast' },
-      announcements: { motion: { in: { fade: true } } } /* a sample: not kept */,
+      hero: { motion: { in: { fade: true } } } /* not a block: not kept (🔁 2026-10-12: was `announcements`, a sample then) */,
       __proto__: { motion: { in: { fade: true } } },
     },
   });
@@ -219,6 +227,36 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
     assert.doesNotMatch(blockLooksCss(readBlockLooks({ block_looks: { [b]: { motion: { timeline: 'scroll', in: { fade: true }, during: 'drift' } } } })), /aria-modal/, b);
   }
 
+  /* 📣 2026-10-12 — A BLOCK DRAWN OUTSIDE A CHAPTER: Announcements (the layout's — never in one). It is bound the
+     no-chapter way too. */
+  for (const b of ['announcements'] as const) {
+    const at = `${blockSelector(b)}:not(#el-own)`;
+    const lines = blockLooksCss(readBlockLooks({ block_looks: { [b]: { motion: { in: { fade: true, move: 'below' }, speed: 'gentle' } } } })).split('\n').slice(1, -1);
+    assert.equal(lines.length, 2, b);
+    assert.ok(lines[1]!.startsWith(`.pahina-in ${at},.pahina-in${at},${at}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), `${b}: ${lines[1]}`);
+  }
+  /* 📌 ANNOUNCEMENTS RIDE STUCK TO THE SCREEN ON THE DAY (the layout's `sticky top-0`): there a motion that follows the
+     scroll would hold the coordinator's words wherever their trip stopped — half gone. So while the block is the
+     sticky wrapper's child, nothing follows the scroll; a timed Build in and Drift are left alone. */
+  const STUCK = ':is(.sticky > *)';
+  const annAt = `${blockSelector('announcements')}:not(#el-own)`;
+  const annScroll = blockLooksCss(readBlockLooks({ block_looks: { announcements: { motion: { timeline: 'scroll', in: { fade: true }, out: { fade: true } } } } })).split('\n').slice(1, -1);
+  assert.equal(annScroll.length, 4);
+  for (const line of annScroll.slice(0, 2)) assert.match(line, /view\(\)/);
+  assert.ok(annScroll[2]!.startsWith(`${annAt}${STUCK}{`), annScroll[2]);
+  assert.ok(annScroll[3]!.startsWith(`.pahina-in ${annAt}${STUCK},.pahina-in${annAt}${STUCK},${annAt}${STUCK}:not([data-pahina-chapters] *){`), annScroll[3]);
+  for (const line of annScroll.slice(2)) assert.doesNotMatch(line, /view\(\)|el-in-|el-out-/, 'something bound to the scroll still plays on the stuck announcement');
+  /* …a timed one has nothing that follows the scroll: nothing more is written. */
+  assert.equal(blockLooksCss(readBlockLooks({ block_looks: { announcements: { motion: { in: { fade: true }, during: 'drift' } } } })).split('\n').slice(1, -1).length, 2);
+  /* The fact it leans on: on the day the block's root is the sticky wrapper's own child (mark and style beside it). */
+  const LAYOUT = src('app/[slug]/layout.tsx');
+  assert.match(LAYOUT, /<div className=\{stage === 'live' \? 'sticky top-0 z-50' : undefined\}>\s*(?:\{\s*\}\s*)?<AnnouncementLook stylePreferences=\{stylePreferences\} \/>\s*<DayOfAnnouncement/, 'the announcement left the sticky wrapper (or its look left it): re-walk the stuck rule');
+  /* No other block is held still by being stuck. */
+  for (const b of BLOCK_LOOK_BLOCKS) {
+    if (b === 'announcements') continue;
+    assert.doesNotMatch(blockLooksCss(readBlockLooks({ block_looks: { [b]: { motion: { timeline: 'scroll', in: { fade: true } } } } })), /\.sticky/, b);
+  }
+
   /* Following the scroll: the block's own trip across the screen, in and out, and Drift between. */
   const scroll = blockLooksCss(readBlockLooks({ block_looks: { details: { motion: { timeline: 'scroll', in: { fade: true, move: 'left' }, out: { fade: true }, during: 'drift' } } } }));
   assert.match(scroll, /animation-timeline:view\(\), auto, view\(\);animation-range:entry 0% cover 30%, normal, exit 0% exit 100%/);
@@ -256,6 +294,12 @@ test('3 · the draft carries it, counts it and names it; an empty look is no loo
   const pictured = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { photos_of_you: { motion: { in: { fade: true } } } } } } }));
   assert.equal(pictured.length, 1, 'Photos of you’s motion does not move the Apply count');
   assert.equal(pictured[0]!.held, false);
+  /* 📣 …and the ones made real 2026-10-12: one change each, free. */
+  for (const b of ['announcements']) {
+    const c = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { [b]: { motion: { in: { fade: true } } } } } } }));
+    assert.equal(c.length, 1, `${b}’s motion does not move the Apply count`);
+    assert.equal(c[0]!.held, false);
+  }
   /* …and a look put back to nothing (an empty object over none) is not. */
   const still = sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: {} } } });
   assert.equal(still ? counted(still).length : 0, 0, 'an empty look counts as a change');
@@ -331,6 +375,17 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   assert.ok(gifted >= 2, 'anti-vacuity: the welcome block’s mounts were found');
   assert.equal((BODY.match(/giftHref=\{doorways\.pabuya\}\s*mark=\{(?:giftsBlockMark|\(key\) => <>\{giftsBlockMark\(key\)\}\{makerMark\(key\)\}<\/>)\}/g) ?? []).length, gifted, 'a tree shows E-Gifts with no mark: its look would not reach those guests');
   assert.match(src('app/[slug]/_components/guest-welcome.tsx'), /\{mark\('f:gifts'\)\}\s*<WelcomeGifts /);
+
+  /* 📣 2026-10-12 — ANNOUNCEMENTS: drawn by the LAYOUT (every page of the guest tree), which hands its own mark and
+     style right before the block's root — the column it already reads, the rules for this block alone. */
+  const LAYOUT = src('app/[slug]/layout.tsx');
+  assert.match(LAYOUT, /stylePreferences = \(event as \{ style_preferences\?: unknown \}\)\.style_preferences;/);
+  assert.equal((LAYOUT.match(/<DayOfAnnouncement\s/g) ?? []).length, 1, 'the announcement is drawn from a second place: its look would not reach it');
+  assert.match(LAYOUT, /<AnnouncementLook stylePreferences=\{stylePreferences\} \/>\s*<DayOfAnnouncement\s/);
+  const ANN = src('app/[slug]/_components/announcement-look.tsx');
+  assert.match(ANN, /const look = readBlockLooks\(stylePreferences\)\.announcements;\s*if \(!look\) return null;/);
+  assert.match(ANN, /<style \{\.\.\.\{ \[BLOCK_LOOKS_STYLE_ATTR\]: '' \}\}>\{blockLooksCss\(\{ announcements: look \}\)\}<\/style>\s*<span hidden \{\.\.\.\{ \[BLOCK_MARK_ATTR\]: 'announcements' \}\} \/>\s*<\/>/, 'the mark is no longer the last thing before the block');
+  for (const file of parts) if (file !== 'announcement-look.tsx') assert.doesNotMatch(src(`app/[slug]/_components/${file}`), /<DayOfAnnouncement\s/, `${file} mounts the announcement itself: it would have no mark`);
   assert.equal(BLOCK_MARK_ATTR, 'data-block-mark');
   /* THE CANVAS redraws the one style from the strict reader, fetched on that message only — the two names are said
      outright there so a guest's bundle never carries the module. */
@@ -391,10 +446,12 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
      has no real root a look could reach, stays grey, and says so. */
   /* 🔁 RE-AIMED 2026-10-10 (owner: "animate only"): Photos of you left this list too — its real block took its
      Animate. Same claim, three samples. */
-  assert.deepEqual(Object.keys(BLOCK_SAMPLE_WHY).sort(), ['f:announcements', 'f:live_hub', 'f:look']);
+  /* 🔁 RE-AIMED 2026-10-12 (a sample made real): Announcements left this list — it took its real block's look.
+     Same claim, two samples. */
+  assert.deepEqual(Object.keys(BLOCK_SAMPLE_WHY).sort(), ['f:live_hub', 'f:look']);
   /* The part rule itself is as it was (a first-load file, not edited): the two tools of Your seat and of the pass are
      the BLOCK's. (The pass is also a line of the reply's thank-you page — there the toolbar asks no block: `!rsvpOpen`.) */
-  for (const canvas of ['f:find_your_seat', 'f:pass', 'f:photos_of_you']) {
+  for (const canvas of ['f:find_your_seat', 'f:pass', 'f:photos_of_you', 'f:announcements']) {
     for (const tool of ['bg', 'animate'] as const) assert.equal(makerPartToolWorks((Object.keys(MAKER_PARTS) as MakerPartKey[]).find((k) => MAKER_PARTS[k].canvas === canvas)!, tool), false);
   }
   /* 🖼 PHOTOS OF YOU: Animate is the block's (`block`); Background is NOBODY's — not the block's (`groundBlock` is
@@ -413,7 +470,9 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
     const part = (Object.keys(MAKER_PARTS) as MakerPartKey[]).find((k) => MAKER_PARTS[k].canvas === canvas)!;
     for (const tool of ['bg', 'animate'] as const) assert.equal(makerPartToolWorks(part, tool), false, `${part} › ${tool} is live on a sample`);
   }
-  assert.equal(new Set(Object.values(BLOCK_SAMPLE_WHY)).size, 3, 'two samples say the same thing');
+  assert.equal(new Set(Object.values(BLOCK_SAMPLE_WHY)).size, Object.keys(BLOCK_SAMPLE_WHY).length, 'two samples say the same thing');
+  /* 📣 …and Announcements takes both. */
+  for (const part of ['announce'] as const) assert.equal(blockTakesGround(blockOfCanvas(MAKER_PARTS[part].canvas)!), true, part);
   assert.match(TOOLS, /const sample = picked && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_SAMPLE_WHY\[makerPartCanvasOn\(stageKey, picked\) \?\? ''\] : undefined;/);
   /* 🔁 RE-AIMED 2026-10-10 (same change): E-Gifts with nothing for a guest to see says so for Background too — it
      would otherwise answer "edit it in Studio", which is no longer where a block's background is. */

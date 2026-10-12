@@ -28,9 +28,10 @@
  * Absent = today's look, exactly. The tile that equals today's look stores nothing.
  *
  * WHICH BLOCKS. Only the ones a guest's page draws from ONE real root (controller 2026-10-10). The others the
- * canvas frames — Announcements · Live hub · What to wear — are SAMPLES
+ * canvas frames — Announcements · Live hub · What to wear — were SAMPLES
  * there; each guest sees their own, drawn elsewhere. A look kept for a sample would show in the Maker and never
- * reach a guest, so those stay grey and say why (`BLOCK_SAMPLE_WHY`).
+ * reach a guest, so those stayed grey and said why (`BLOCK_SAMPLE_WHY`) — until each was kept against its real block
+ * (2026-10-12, below).
  *
  * 🪑 A SAMPLE MADE REAL (2026-10-10) — Your seat. The canvas still draws a SAMPLE of it (no guest, no table), but
  * each guest's own is ONE root in one place in the page (`site-body.tsx` `seatBlock` → `YourSeatBlock`, on Welcome
@@ -55,6 +56,18 @@
  * whose words are light by its own tokens (`--sn-ob-*`), so it takes NO Background: no tile is offered, a stored `g`
  * is refused by the reader, and no ground rule is ever written for it (`BLOCK_MOTION_ONLY`). It moves, and that is
  * all. An opened photo is drawn INSIDE that root, over the whole screen — see `HOLDS_STILL_WHILE`.
+ *
+ * 📣 …AND THE SAMPLES MADE REAL (2026-10-12, owner's go: "sample blocks"). Each guest's own is ONE root, and the mark
+ * stands right before it only where it draws:
+ *   · ANNOUNCEMENTS — `DayOfAnnouncement` (`day-of-announcement.tsx`), drawn by the guest tree's LAYOUT
+ *     (`app/[slug]/layout.tsx`), not by `SiteBody`: the layout carries the block's own mark and its own `<style>`
+ *     (`announcement-look.tsx`), from the column it already reads. Its root is the `<aside>`; the card is the one
+ *     `<div>` inside it (Banner · Notice), and the Line has none (the root stands bare). ⚫ On the day the Notice is
+ *     the INK card — light words on dark, by its own classes — so, as with Photos of you, it is never given a ground:
+ *     that one card is left out of every rule (`:not(.bg-ink)`), and it keeps its own. 📌 On the day the block rides
+ *     STUCK to the top of the screen (`sticky top-0`): a motion that follows the scroll would hold it half-gone the
+ *     whole time it rides there, so while it is stuck only what has an end plays (`STILL_WHERE`). It is never in a
+ *     chapter (`OFF_CHAPTERS`).
  */
 import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElementMotion } from './element-style';
 
@@ -62,7 +75,7 @@ import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElement
 export const BLOCK_LOOKS_PREF_KEY = 'block_looks';
 
 /** The blocks that take a look — each is its canvas key without the `f:` (`lib/maker-parts.ts`). */
-export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you'] as const;
+export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you', 'announcements'] as const;
 export type BlockLookBlock = (typeof BLOCK_LOOK_BLOCKS)[number];
 /**
  * 🖼 THE BLOCKS THAT ONLY MOVE — Animate, and no Background (owner 2026-10-10 of Photos of you: *"animate only"*; its
@@ -90,9 +103,9 @@ export function blockOfCanvas(canvas: string | null | undefined): BlockLookBlock
 /**
  * The canvas's SAMPLES — what each guest sees there is their own. Said when Background or Animate is tapped on one
  * (the couple's words; each names the thing).
+ * 📣 2026-10-12: Announcements left it — it took its real block's look.
  */
 export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
-  'f:announcements': 'This is a sample. Guests see your announcements here as you send them.',
   'f:live_hub': 'This is a sample. Guests see the live hub here on the day.',
   'f:look': 'This is a sample. Each guest sees what they wear here.',
 };
@@ -103,14 +116,18 @@ export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
  * drawings are bare — asked of the block itself (`blockGroundToday`). Nor has Your seat: the Map is a plate, the
  * Place card holds a card, the Table number is bare.
  */
-export const BLOCK_GROUND_TODAY: Readonly<Record<BlockGroundBlock, BlockGround | null>> = { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null, pass: 'none' };
+export const BLOCK_GROUND_TODAY: Readonly<Record<BlockGroundBlock, BlockGround | null>> = { entourage: 'none', details: null, gifts: 'plain', spotlight: 'plain', find_your_seat: null, pass: 'none', announcements: null };
 /**
  * The block's own card, from its root ('' = the root is the card; null = it has none in any drawing). A list where
  * its drawings keep it in different places — Your seat: the root when it is a plate (Map), the place card inside
  * (Place card), and that card as the canvas's sample holds it (one level down, in the sample's own box).
  */
 const SEAT_CARDS = ['.pahina-plate', ' > .bg-paper-deep', ' > [data-maker-sample] > .bg-paper-deep'] as const;
-const GROUND_CARD: Readonly<Record<BlockGroundBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '', find_your_seat: SEAT_CARDS, pass: null };
+/** 📣 Announcements: the one `<div>` card inside a guest's `<aside>` (Banner · Notice) — never the day's INK Notice,
+ *  whose words are light on its own dark (`announcement-styles.tsx`: `bg-ink text-cream`) — and, on the canvas, the
+ *  sample's card shape (`maker-fixed-parts.tsx`: `data-sample-card`). */
+const ANNOUNCE_CARDS = [' > div:not(.bg-ink):not([data-maker-sample])', ' > [data-maker-sample] > [data-sample-card]'] as const;
+const GROUND_CARD: Readonly<Record<BlockGroundBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '', find_your_seat: SEAT_CARDS, pass: null, announcements: ANNOUNCE_CARDS };
 /** The root where it stands bare ('' = always; null = never) — there the root itself takes the paper or the glass. */
 const GROUND_BARE: Readonly<Record<BlockGroundBlock, string | null>> = {
   entourage: '',
@@ -119,6 +136,9 @@ const GROUND_BARE: Readonly<Record<BlockGroundBlock, string | null>> = {
   spotlight: null,
   find_your_seat: ':not(.pahina-plate):not(:has(> .bg-paper-deep, > [data-maker-sample] > .bg-paper-deep))',
   pass: '',
+  /* The Line (a guest's, or the sample's) has no card: the root takes it. The day's INK Notice has its card, so it
+     is not bare either — it is reached by no rule at all. */
+  announcements: ':not(:has(> div:not([data-maker-sample]), > [data-maker-sample] > [data-sample-card]))',
 };
 const cardsOf = (block: BlockGroundBlock): readonly string[] => {
   const card = GROUND_CARD[block];
@@ -219,7 +239,7 @@ const OWN = ':not(#el-own)';
  * no chapter round it: it plays as the block is first drawn (Me is hidden until its tab is opened, and an animation
  * starts when its element is first rendered). Inside a chapter it waits for the observer, like every other block.
  */
-const OFF_CHAPTERS: readonly BlockLookBlock[] = ['find_your_seat', 'pass'];
+const OFF_CHAPTERS: readonly BlockLookBlock[] = ['find_your_seat', 'pass', 'announcements'];
 const NO_CHAPTER = ':not([data-pahina-chapters] *)';
 /** ⚓ The pass, while the address points at it: the door's own lift plays (`[data-motion='pass']:target`), not this. */
 const NOT_THE_DOOR: Readonly<Partial<Record<BlockLookBlock, string>>> = { pass: ':not(:target)' };
@@ -235,6 +255,17 @@ const NOT_THE_DOOR: Readonly<Partial<Record<BlockLookBlock, string>>> = { pass: 
  * moving. (`:has()` is in every engine that passes the motion's own gate; one that lacked it would drop the rule.)
  */
 const HOLDS_STILL_WHILE: Readonly<Partial<Record<BlockLookBlock, string>>> = { photos_of_you: ':has([aria-modal="true"])' };
+/**
+ * 📌 A BLOCK THAT RIDES STUCK TO THE SCREEN — Announcements on the day (`app/[slug]/layout.tsx`: the block's root is
+ * the direct child of `sticky top-0`). Its trip across the screen stops while it rides there, so a motion that
+ * follows the scroll would hold it wherever that trip stopped — a Build out half-done, the coordinator's words half
+ * gone, for as long as the guest reads the page. While it is stuck, what follows the scroll is taken out (a timed
+ * Build in and Drift stay: they do not depend on the scroll). Before the day the block is in the page's flow and this
+ * matches nothing.
+ */
+const STILL_WHERE: Readonly<Partial<Record<BlockLookBlock, string>>> = { announcements: ':is(.sticky > *)' };
+/** A motion with what FOLLOWS THE SCROLL taken out — null when nothing does. */
+const unscrolled = (motion: HubElementMotion): HubElementMotion | null => (motion.timeline === 'scroll' ? {} : null);
 /** A motion with what KEEPS moving taken out — null when nothing does (a timed Build in alone ends by itself). */
 function settled(motion: HubElementMotion): HubElementMotion | null {
   if (motion.timeline === 'scroll') return {};
@@ -318,6 +349,14 @@ export function blockLooksCss(looks: BlockLooks): string {
     if (open && still) {
       rules.push(`${sel}${open}{${decl(hubElementMotionDeclarations(still, 'page', false))}}`);
       rules.push(`.pahina-in ${sel}${open},.pahina-in${sel}${open}{${decl(hubElementMotionDeclarations(still, 'page', true))}}`);
+    }
+    /* 📌 …and while it rides stuck to the screen, nothing follows the scroll (`STILL_WHERE`) — the same place as above. */
+    const where = STILL_WHERE[block];
+    const fixed = where ? unscrolled(motion) : null;
+    if (where && fixed) {
+      const at = `${sel}${where}`;
+      rules.push(`${at}{${decl(hubElementMotionDeclarations(fixed, 'page', false))}}`);
+      rules.push(`.pahina-in ${at},.pahina-in${at}${OFF_CHAPTERS.includes(block) ? `,${at}${NO_CHAPTER}` : ''}{${decl(hubElementMotionDeclarations(fixed, 'page', true))}}`);
     }
   }
   return [...blockGroundRules(looks), ...(rules.length > 0 ? [`${BLOCK_GATE_OPEN}\n${rules.join('\n')}\n}}`] : [])].join('\n');

@@ -162,6 +162,52 @@ export function configWithStageShow(
   return base;
 }
 
+/**
+ * 👁 THE PARTS THAT ARE NOT SCENES — shown or hidden PER STAGE too (owner 2026-10-10/11, "WHAT GUESTS SEE", pass 2:
+ * *"this was already always supposed to be built"*). E-Gifts, the Entourage, the reply card, the guest's seat, their
+ * Digital pass, Announcements, Live, the Camera and Photos of you have no `invitation_widgets` row of their own, so
+ * their per-stage choices live together in ONE place: `config_json.part_show` on the HERO row — the row that already
+ * carries what is true of the whole page (the Main background, the music button). Per part it is the very shape of
+ * `stage_show`: `false` hidden on that stage · `true` shown there · no entry = our pick decides.
+ * WHAT it decides: `partOnStage` in `lib/what-guests-see.ts`.
+ */
+export const PART_SHOW_KEY = 'part_show';
+export const FIXED_PARTS = ['gifts', 'entourage', 'reply', 'seat', 'pass', 'announce', 'live', 'camera', 'photosofyou'] as const;
+export type FixedPart = (typeof FIXED_PARTS)[number];
+export type PartShow = Partial<Record<FixedPart, Partial<Record<LifecyclePhase, boolean | null>>>>;
+
+/** The parts' per-stage choices — only real parts, real stages and real choices (`null` kept: "back to our pick"). */
+export function sanitizePartShow(raw: unknown): PartShow | null {
+  if (!isPlain(raw)) return null;
+  const out: PartShow = {};
+  for (const part of FIXED_PARTS) {
+    const shows = sanitizeStageShow(raw[part]);
+    if (shows) out[part] = shows;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/** The couple's choice for a part on `stage`, read off the hero row's `config_json`: `true` · `false` · `null` (none). */
+export function partShown(config: unknown, part: FixedPart, stage: LifecyclePhase): boolean | null {
+  if (!isPlain(config)) return null;
+  const v = sanitizePartShow(config[PART_SHOW_KEY])?.[part]?.[stage];
+  return typeof v === 'boolean' ? v : null;
+}
+
+/** `config_json` with these parts' choices merged in, part by part and stage by stage (null removes one); every sibling key kept. */
+export function configWithPartShow(config: unknown, shows: PartShow): Record<string, unknown> {
+  const base = isPlain(config) ? { ...config } : {};
+  const now = isPlain(base[PART_SHOW_KEY]) ? base[PART_SHOW_KEY] : {};
+  const merged: Record<string, Record<string, boolean>> = {};
+  for (const part of FIXED_PARTS) {
+    const one = configWithStageShow({ [STAGE_SHOW_KEY]: now[part] }, shows[part] ?? {})[STAGE_SHOW_KEY];
+    if (isPlain(one)) merged[part] = one as Record<string, boolean>;
+  }
+  if (Object.keys(merged).length > 0) base[PART_SHOW_KEY] = merged;
+  else delete base[PART_SHOW_KEY];
+  return base;
+}
+
 export function sanitizeStdLead(raw: unknown): StdLead | null {
   return raw === 'film' || raw === 'photos' ? raw : null;
 }

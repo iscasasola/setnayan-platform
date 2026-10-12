@@ -1,6 +1,7 @@
 import { RoomFooter } from '../_components/room-footer';
 import type { RoomLink } from '../_lib/room-links';
 import { loadRoomLinks } from '../_lib/room-links.server';
+import { partDoorHidden } from '../_lib/part-door.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin } from 'lucide-react';
@@ -115,6 +116,9 @@ export default async function FindMyTablePage({ params }: Props) {
   // 🪑 The seat gate — ONE rule (`guestsMaySeeSeatsFor`, owner 2026-09-30:
   // "seatplan will show on the date of the event"). Before the day, and unless
   // the couple turned on "Show guests their seats early", no table is read.
+  // 👁 The couple hid "Find your seat" on the stage the event is at ("What guests see"): a guest who kept this address
+  // goes back to the event's page — the exit this page already takes above. One reading: `_lib/part-door.server.ts`.
+  if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
   if (!(await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true }))) {
     return (
       <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>

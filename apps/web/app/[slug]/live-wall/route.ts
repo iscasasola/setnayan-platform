@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { partDoorHidden } from '../_lib/part-door.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getWallSnapshot, guestWallMirrorActive } from '@/lib/live-wall';
 
@@ -46,6 +47,11 @@ export async function GET(
   // with the couple's guest-mirror choice so the permissive half of the
   // question is not reachable on its own from a guest surface.
   if (!(await guestWallMirrorActive(admin, event.event_id))) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+  // 👁 The couple hid Live on the stage the event is at ("What guests see"): the block is not drawn, and its data
+  // closes with it — the same answer as a closed mirror. A read that failed closes too; the block simply stops asking.
+  if (await partDoorHidden(admin, event.event_id, 'live').catch(() => true)) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 

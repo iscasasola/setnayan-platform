@@ -97,7 +97,11 @@ import {
 } from '@/lib/custom-sections';
 import {
   STAGE_ORDER_KEY,
+  PART_SHOW_KEY,
   STAGE_SHOW_KEY,
+  configWithPartShow,
+  sanitizePartShow,
+  type PartShow,
   STAGE_SCENES,
   configWithStageOrder,
   configWithStageShow,
@@ -688,6 +692,13 @@ export type HubDraftWidget = {
    */
   stage_show?: Partial<Record<LifecyclePhase, boolean | null>>;
   /**
+   * 👁 HERO ROW ONLY — the per-stage choices of the parts that are not scenes (E-Gifts, the Entourage, the reply card,
+   * the seat, the Digital pass, Announcements, Live, the Camera, Photos of you), kept at `config_json.part_show`
+   * (`lib/stage-scenes.ts`). Merged part by part and stage by stage; `null` = back to our pick. Free — these are
+   * parts of the page we write. Dropped on any other section.
+   */
+  part_show?: PartShow;
+  /**
    * 🎞 `our_photos` ROW ONLY — what leads the Save the Date, Film or Photos
    * (same ruling), kept at `config_json.std_lead`; `null` = back to the
    * default. Dropped on any other section: one home for one choice. Never Pro.
@@ -1051,6 +1062,10 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
   if (places) out.stage_order = places;
   const shows = sanitizeStageShow(src.stage_show);
   if (shows) out.stage_show = shows;
+  if (type === 'hero') {
+    const parts = sanitizePartShow(src.part_show);
+    if (parts) out.part_show = parts;
+  }
   if (isCustomSectionType(type) && 'custom' in src) {
     if (src.custom === null) out.custom = null;
     else if (isPlainObject(src.custom)) {
@@ -1190,6 +1205,8 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
       ...(w.stage_order ? { stage_order: { ...(prev.stage_order ?? {}), ...w.stage_order } } : {}),
       // 👁 …and so do the per-stage shown / hidden choices.
       ...(w.stage_show ? { stage_show: { ...(prev.stage_show ?? {}), ...w.stage_show } } : {}),
+      // 👁 …and the fixed parts' choices part by part, stage by stage.
+      ...(w.part_show ? { part_show: mergePartShow(prev.part_show, w.part_show) } : {}),
       // 🏛 …and venue cards card by card.
       ...(w.venue ? { venue: { ...(prev.venue ?? {}), ...w.venue } } : {}),
     };
@@ -1317,6 +1334,13 @@ export function configWithVenue(config: unknown, venue: HubDraftVenueChoices): R
   return base;
 }
 
+/** One save's parts merged over the drafted ones — part by part, stage by stage (a tick on one stage never forgets another). */
+function mergePartShow(prev: PartShow | undefined, next: PartShow): PartShow {
+  const out: PartShow = { ...(prev ?? {}) };
+  for (const [part, shows] of Object.entries(next) as Array<[keyof PartShow, PartShow[keyof PartShow]]>) out[part] = { ...(out[part] ?? {}), ...(shows ?? {}) };
+  return out;
+}
+
 /**
  * ↕👁 A drafted section's stage places and per-stage choices laid over a live
  * row's `config_json` — and nothing else of the draft. What a stage move builds
@@ -1351,6 +1375,7 @@ export function overlayHubDraftWidgets(
     if (w.stage_order !== undefined) config = configWithStageOrder(config, w.stage_order);
     // 👁 Refused on an always-on section, exactly as the eye is below.
     if (w.stage_show !== undefined && !row.is_always_on) config = configWithStageShow(config, w.stage_show);
+    if (w.part_show !== undefined && row.widget_type === 'hero') config = configWithPartShow(config, w.part_show);
     if (w.std_lead !== undefined && row.widget_type === 'our_photos') config = configWithStdLead(config, w.std_lead);
     if (w.music !== undefined && row.widget_type === 'hero') config = configWithMusic(config, w.music);
     if (w.custom !== undefined && isCustomSectionType(row.widget_type)) config = configWithCustom(config, w.custom);
@@ -1407,7 +1432,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'music' | 'stage_order' | 'stage_show' | 'std_lead' | 'custom' | 'venue' | 'removed';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'music' | 'stage_order' | 'stage_show' | 'part_show' | 'std_lead' | 'custom' | 'venue' | 'removed';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -2157,6 +2182,15 @@ export function classifyHubDraft(
        is; compared as the page reads it (the merged key), and the value written
        is the WHOLE merged key. Free, except for a scene of their own that no
        guest sees today: showing it on a stage is the same 'add' the eye makes. */
+    /* 👁 The fixed parts' per-stage choices (hero row only) — compared as the page reads them, the WHOLE merged key
+       written. Free: showing or hiding a part of the page we write is never Pro. */
+    if (w.part_show !== undefined && type === 'hero') {
+      const liveParts = configWithPartShow(row.config_json, {})[PART_SHOW_KEY] ?? null;
+      const nextParts = configWithPartShow(row.config_json, w.part_show)[PART_SHOW_KEY] ?? null;
+      if (canonicalJson(liveParts) !== canonicalJson(nextParts)) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'part_show', value: nextParts, change: 'change', pro: false });
+      }
+    }
     if (w.stage_show !== undefined && !row.is_always_on) {
       const liveKey = configWithStageShow(row.config_json, {})[STAGE_SHOW_KEY] ?? null;
       const nextKey = configWithStageShow(row.config_json, w.stage_show)[STAGE_SHOW_KEY] ?? null;
@@ -2858,7 +2892,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   if (item.field === 'venue') return 'Your venues';
   if (item.field === 'removed') return `${sectionLabel(item.widgetType)} · deleted for good`;
   const what =
-    item.field === 'mode' || item.field === 'is_visible' || item.field === 'stage_show'
+    item.field === 'mode' || item.field === 'is_visible' || item.field === 'stage_show' || item.field === 'part_show'
       ? 'shown or hidden'
       : item.field === 'display_order' || item.field === 'stage_order'
         ? 'its place'

@@ -130,3 +130,34 @@ test('P07 — one sample event: Studio’s pages say the canvas’s date, venue,
   assert.equal(new Date(`${LAB_SAMPLE.date}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }), LAB_SAMPLE.dateLabel);
   assert.ok(LAB_SAMPLE.venueLine.startsWith(LAB_SAMPLE.venue));
 });
+
+test('G1 — a Day part the couple hid in "What guests see" is not drawn on the lab\'s Day (live, the seat, Photos of you, the Entourage)', async () => {
+  const { LabDayPages } = await import('./guest/lab-day');
+  const { labDraftStep: step, labDraftCookies: cookiesOf, labDraftedRows: draftedRows, LAB_ROWS_COOKIE: ROWS } = await import('./lab-draft');
+  const draw = (rows: ReturnType<typeof labRows>) => {
+    const tiles = labStageTiles(rows, 'event');
+    const given = Object.fromEntries(tiles.map((k) => [k, createElement('i', { 'data-node': k })]));
+    const html = renderToStaticMarkup(
+      createElement(LabDayPages, { tab: undefined, paged: false, draws: () => true, maker: false, tiles, mark: () => null, given, styleOf: () => null, galleryStyle: null }),
+    );
+    return { tiles, html };
+  };
+  const before = draw(labRows());
+  for (const part of ['live_hub', 'photos_of_you', 'find_your_seat', 'entourage']) assert.ok(before.tiles.includes(`f:${part}`), `the Day lists ${part} with nothing stored`);
+  const hidden = step(
+    emptyHubDraft(),
+    { intent: 'save', patch: JSON.stringify({ widgets: { hero: { part_show: { live: { event: false }, photosofyou: { event: false }, seat: { event: false }, entourage: { event: false } } } } }) },
+    false,
+  ).draft;
+  const after = draw(draftedRows(cookiesOf(hidden, false)[ROWS] ?? undefined));
+  for (const part of ['live_hub', 'photos_of_you', 'find_your_seat', 'entourage']) assert.equal(after.tiles.includes(`f:${part}`), false, `the Maker's list still has ${part}`);
+  /* The stand-ins themselves (their eyebrows) are drawn before and gone after; the parts nobody hid stay. */
+  for (const eyebrow of ['✦ Your seat', 'Watch live · Live photo wall', '✦ Photos of you']) {
+    assert.ok(before.html.includes(eyebrow), `the Day draws "${eyebrow}" with nothing stored`);
+    assert.equal(after.html.includes(eyebrow), false, `the Day still draws "${eyebrow}" after the couple hid it`);
+  }
+  assert.doesNotMatch(after.html, /data-node="f:entourage"/);
+  assert.match(before.html, /data-node="f:entourage"/);
+  assert.match(after.html, /Announcements/);
+  assert.match(after.html, /data-node="f:hero"/);
+});

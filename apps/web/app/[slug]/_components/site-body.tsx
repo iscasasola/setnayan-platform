@@ -117,7 +117,7 @@ import { venueNowMs } from '@/lib/schedule';
 import { dayVenuesNow } from '@/lib/day-venue-now';
 import { widgetByType, widgetShouldRender } from '@/lib/invitation-widgets';
 import { welcomePartsOnTheDay } from '@/lib/invitation-welcome';
-import { hiddenOnStage, stageChoiceOr } from '@/lib/what-guests-see';
+import { hiddenOnStage, partOnStage, partsHiddenOn, stageChoiceOr } from '@/lib/what-guests-see';
 import { PUBLIC_WIDGET_ALLOWLIST } from '@/lib/public-widget-allowlist';
 
 /* The dayOfPhase → NavPhase mapping moved into `_lib/site-nav.ts` as
@@ -176,7 +176,7 @@ import { placeCardName } from '@/lib/formal-name';
 import { HubSceneRuns } from './hub-scene-runs';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
-import { makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet, type MakerDayPartPlace } from '@/lib/maker-scene-list';
+import { fixedTileHidden, makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet, type MakerDayPartPlace } from '@/lib/maker-scene-list';
 import { splitAroundEntourage, stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
@@ -587,6 +587,39 @@ export async function SiteBody({
   const { event, widgets } = withStylePreview(eventIn, widgetsIn, isEditorCanvas ? stylePreview : null);
   /* 🖼 A miniature is drawn like a theme tile: its parent is the Maker, so it never mounts the editor bridge. */
   const themeTile = themeTileIn || Boolean(stylePreview);
+  // 👁 THE PARTS THE COUPLE HID ON THIS STAGE ARE WITHHELD AT THE SOURCE (owner 2026-10-10/11, "WHAT GUESTS SEE",
+  // pass 2 — `config_json.part_show` on the hero row, `lib/what-guests-see.ts` `partsHiddenOn`). E-Gifts, the
+  // Entourage, the seat, Live, the Camera: each is handed to this page as a FACT (a list, a link, a flag), and the
+  // body, the Event Bar and the menu all read that one fact — so the fact itself is put in the state the page
+  // already knows as "there is none here" (no gift method on · nobody with a role · no table yet · no stream · no
+  // camera), and every place that draws from it stands down together. Nothing stored for the stage → `partsOff` is
+  // empty and not one value below is touched.
+  const partsOff = partsHiddenOn(widgets, lifecyclePhase, phasesEnabled);
+  if (partsOff.size > 0) {
+    if (partsOff.has('live')) {
+      watchLive = null;
+      liveWall = null;
+      broadcastPlanned = false;
+    }
+    if (partsOff.has('camera')) hostCameraOpen = false;
+    if (partsOff.has('entourage')) entourage = [];
+    if (partsOff.has('gifts') && doorwayFacts) doorwayFacts = { ...doorwayFacts, enabledEgiftCount: 0 };
+    // …and the seat finder's own door (the link in the body, the room walk in the menu) reads `seatingPublished`.
+    if (partsOff.has('seat') && doorwayFacts) doorwayFacts = { ...doorwayFacts, seatingPublished: false };
+    if (identity.kind === 'guest') {
+      identity = {
+        ...identity,
+        ...(partsOff.has('seat') ? { seatMap: null, seatPassActive: false, guestHubData: { ...identity.guestHubData, tableLabel: null, seatsOpen: false } } : {}),
+        ...(partsOff.has('camera') ? { papicGuest: null } : {}),
+      };
+    } else if (partsOff.has('camera') || partsOff.has('live')) {
+      identity = {
+        ...identity,
+        ...(partsOff.has('camera') ? { publicCandidCameraActive: false } : {}),
+        ...(partsOff.has('live') ? { publicAlbumHref: null } : {}),
+      };
+    }
+  }
   // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
   // Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
   // to the public bucket by `siteMediaServeRef` on the way in. They are
@@ -1032,6 +1065,13 @@ export async function SiteBody({
   // 🧭 The stage this page is showing (a host's `?phase=` preview included) —
   // its Event Bar (`STAGE_BAR`) names the header and filters the tab bar.
   const pageStage = pageStageFor({ phasesEnabled, lifecyclePhase, dayOfPhase });
+  /* 👁 DOES THIS STAGE SHOW THE ENTOURAGE? — our pick (`STAGE_FIXED`: the Invitation, The Day, Post Event), unless the
+     couple chose for this stage ("What guests see": added to the Save the Date, or hidden — a hidden one has no
+     names left to draw, above). Every mount below asks this one question. Its name says how it differs from the
+     rule it is built on (`stageShowsEntourage`, lib/stage-scenes.ts — our pick alone): two definitions under one name
+     do not stay equal (`scripts/lint-dup-rule.ts`, guard 1). */
+  const entourageShownOn = (stage: LifecyclePhase): boolean =>
+    partOnStage(widgets, 'entourage', lifecyclePhase, phasesEnabled, stageShowsEntourage(stage));
   /* 🎨 THE FIVE FIXED PARTS' STYLES (owner 2026-09-29) — the couple's pick from
      `events.style_preferences.scene_styles` (the host's canvas: with the draft
      laid on), resolved for this stage by the one registry. No pick = style A,
@@ -1545,7 +1585,8 @@ export async function SiteBody({
       maker: isMakerCanvas && sampleViewer === null,
       // 🗂 "Accept gifts? — No" (Your info): the canvas draws no gift place either.
       giftsOff: event.gifts_on === false,
-    });
+      // 👁 …and no gift place on a stage the couple hid E-Gifts on (`partsOff`, above) — the canvas's too.
+    }).filter((part) => part !== 'gifts' || !partsOff.has('gifts'));
     /* 🧭 Stages canvas: each Welcome place is on its own page (`at` — the guest's look is Me's, E-Gifts Welcome's),
        so each is its own run; for every reader the Welcome is one run, as before. */
     const welcomeRuns: ReadonlyArray<readonly (typeof welcome)[number][]> = stagesPages
@@ -1677,9 +1718,11 @@ export async function SiteBody({
        tap it and pick its style. Same list, same order, same places as the
        navigator (`makerDayPartsOn`): before the stage's sections, right after
        them, or after the entourage. */
+    /* 👁 …minus a part the couple hid on this stage ("What guests see" — `partsOff`), as the navigator's list drops it. */
+    const dayPartHere = (part: Parameters<typeof fixedTileHidden>[0]) => !fixedTileHidden(part, partsOff);
     const makerDayStandIns = (place: MakerDayPartPlace) =>
       isMakerCanvas
-        ? makerDayPartsOn(pageStage, place).map((part) => (
+        ? makerDayPartsOn(pageStage, place).filter(dayPartHere).map((part) => (
             <Fragment key={part}>
               {group(at(`f:${part}`, scenesTab), <>
               {sampleBlockMark(`f:${part}`)}
@@ -1788,7 +1831,7 @@ export async function SiteBody({
           dayWelcome.length > 0 ||
           (readerFiled
             ? detailsSceneList.some((w) => sceneOwnPage(w) === 'home') ||
-              (stageShowsEntourage(pageStage) && entourage.length > 0 && ownPage('f:entourage', scenesTab) === 'home') ||
+              (entourageShownOn(pageStage) && entourage.length > 0 && ownPage('f:entourage', scenesTab) === 'home') ||
               (findSeatShown && (ownPage('f:find_your_seat', 'home') === 'home' || !(ownerCapability || isEditorCanvas)))
             : findSeatShown),
         // 📱 Each tab its own page, on the Invitation and The Day.
@@ -2297,7 +2340,7 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            {group(at('f:entourage', scenesTab), <>{stageShowsEntourage(pageStage) ? blockMark('entourage') : null}{stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null}</>)}
+            {group(at('f:entourage', scenesTab), <>{entourageShownOn(pageStage) ? blockMark('entourage') : null}{entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null}</>)}
             {stagesPages ? scenesByPage(stagesAround.after, 'mt-8') : detailsAround.after.length > 0 ? group(scenesTab, <div className="sn-hub-cards mt-8 space-y-4">{sceneNodes(detailsAround.after)}</div>) : null}
 
             {makerDayStandIns('last')}
@@ -2680,12 +2723,12 @@ export async function SiteBody({
       identified: !isMakerCanvas || sampleViewer !== null,
       // 🚶🗺 Scrolled, the day's Welcome carries the walking order and the ONE
       // venue (owner 2026-10-01, prototype the_day_guest_phone frame 2b).
-      march: pageStage === 'event' && stageShowsEntourage(pageStage) && entourage.length > 0,
+      march: pageStage === 'event' && entourageShownOn(pageStage) && entourage.length > 0,
       venue: pageStage === 'event' && dayVenues.length > 0,
     });
     /** The walking order is Welcome's on the day — so it leaves the Live tab (one place). */
     const marchOnWelcome = dayWelcome.includes('march');
-    const guestEntourage = stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={guest.guest_id} /> : null;
+    const guestEntourage = entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={guest.guest_id} /> : null;
     /* Same resolver, guest viewer. The camera destination keeps the shipped
        precedence — a guest's OWN roll first, then the couple's shared camera,
        the same order GuestHubBar already uses; neither open ⇒ the resolver
@@ -2835,7 +2878,7 @@ export async function SiteBody({
     const detailsMarkOnLead =
       leadScenes.length > 0 &&
       hereScenes.length === 0 &&
-      !(stageShowsEntourage(pageStage) && entourage.length > 0 && !marchOnWelcome && marchTab === hereTab);
+      !(entourageShownOn(pageStage) && entourage.length > 0 && !marchOnWelcome && marchTab === hereTab);
     /** One of the couple's scenes, as this guest reads it — for Details, and on
      *  a tabbed page for the love story scene on its own tab. */
     const renderScene = (widget: (typeof detailsScenes)[number]) => (
@@ -3270,7 +3313,9 @@ export async function SiteBody({
               {/* 🧱 Its own Animate (`lib/block-looks.ts`; owner 2026-10-10: "animate only"): the block's hidden mark
                   rides WITH the gallery, right before its one root — on The Day and after it, this same mount —
                   and is served only when a motion is kept. */}
-              {group('gallery', <>{isLive || isPost ? (
+              {/* 👁 …and not on a stage the couple hid Photos of you on (`partsOff`): withholding the gallery would read as
+                  "the read failed", so the section itself stands down. */}
+              {group('gallery', <>{(isLive || isPost) && !partsOff.has('photosofyou') ? (
                 <>
                 {blockMark('photos_of_you')}
                 <PhotosOfYouGallery

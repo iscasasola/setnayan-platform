@@ -6,6 +6,8 @@ import { getDayOfPhase } from '@/lib/day-of-mode';
 import { albumDoorPublished } from './album-door.server';
 
 import { loadDoorwayFacts } from './loaders';
+import { hiddenPartDoors } from './part-door.server';
+import type { FixedPart } from '@/lib/stage-scenes';
 import { resolveRoomLinks, type RoomKey, type RoomLink } from './room-links';
 
 /**
@@ -41,8 +43,12 @@ export async function loadRoomLinks(input: {
   const admin = createAdminClient();
   const { event } = input;
 
-  const [facts, recapPublished] = await Promise.all([
+  const [facts, partsOff, recapPublished] = await Promise.all([
     loadDoorwayFacts(admin, event.event_id, event.event_type ?? null),
+    // 👁 The parts the couple hid on this stage ("What guests see") — their doors leave this rail too. A read that
+    // FAILED withholds both doors rather than drawing one to a page the couple may have closed: a missing link costs
+    // a tap, a wrong one shows what they hid. The rail must not take its page down, so it does not throw here.
+    hiddenPartDoors(admin, event.event_id).catch((): ReadonlySet<FixedPart> => new Set<FixedPart>(['seat', 'gifts'])),
     // The album door's fact, shared with the live hub and the public event-day
     // bar. Its fail-closed read (a link to a dead end is worse than no link,
     // and a guest turned away once stops tapping) now lives in ONE place so
@@ -67,9 +73,9 @@ export async function loadRoomLinks(input: {
     current: input.current,
     guestToken: input.guestToken ?? null,
     seatingSurfaceEnabled: facts.seatingSurfaceEnabled,
-    seatingPublished: facts.seatingPublished,
+    seatingPublished: facts.seatingPublished && !partsOff.has('seat'),
     pabuyaRouteEnabled: facts.pabuyaRouteEnabled,
-    enabledEgiftCount: facts.enabledEgiftCount,
+    enabledEgiftCount: partsOff.has('gifts') ? 0 : facts.enabledEgiftCount,
     pabuyaViewerAllowed: input.pabuyaViewerAllowed,
     recapPublished,
     liveHubOpen,

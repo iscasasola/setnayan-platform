@@ -68,6 +68,7 @@ import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
+import { isUniqueRefusal, orderInsertRefusal, PAYMENT_NOT_LOGGED } from '@/lib/checkout-submit-refusal';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -828,9 +829,12 @@ export async function submitOrderAction(
       error_message: String(orderErr?.message ?? 'orders insert returned no row'),
       payload_snapshot: { eventId: eventIdClean, serviceKey, referenceCode, voucherApplied: Boolean(voucherCodeNormalized) },
     });
+    // 💸 A retry of a LANDED submit is refused by the UNIQUE reference (the
+    // double-order guard, unchanged); say so in plain words, never the raw text.
+    const landedForThisBuyer = isUniqueRefusal(orderErr) && (await orderLandedForBuyer(moneyWriter, referenceCode, user.id));
     return {
       ok: false,
-      reason: orderErr?.message ?? 'Could not create your order. Please try again.',
+      reason: orderInsertRefusal(orderErr, landedForThisBuyer, referenceCode),
     };
   }
 
@@ -879,7 +883,7 @@ export async function submitOrderAction(
     await moneyWriter.from('orders').delete().eq('order_id', orderId);
     return {
       ok: false,
-      reason: paymentErr?.message ?? 'Could not log payment. Please try again.',
+      reason: PAYMENT_NOT_LOGGED,
     };
   }
   const paymentId = paymentRow.payment_id as string;
@@ -1072,4 +1076,26 @@ export async function submitOrderAction(
   }
 
   return { ok: true, order_id: orderId, reference_code: referenceCode };
+}
+
+/**
+ * 💸 Does the order holding `referenceCode` belong to `userId`? Asked ONLY after
+ * the orders INSERT was refused by the UNIQUE reference — i.e. a retry of a
+ * submit that landed but lost its answer (`lib/checkout-submit-refusal.ts`).
+ * "Already reached us" is said only when this is true, so a stranger's order
+ * with a colliding code is never described to this buyer as theirs. A failed
+ * read claims nothing (`false`): the plain try-again line stands.
+ */
+async function orderLandedForBuyer(
+  moneyWriter: ReturnType<typeof createMoneyWriterClient>,
+  referenceCode: string,
+  userId: string,
+): Promise<boolean> {
+  const { data: landed, error: landedErr } = await moneyWriter
+    .from('orders')
+    .select('order_id')
+    .eq('reference_code', referenceCode)
+    .eq('user_id', userId)
+    .maybeSingle();
+  return !landedErr && Boolean(landed);
 }

@@ -55,7 +55,7 @@ test('the reply card serves the bytes it served before the lines became a list',
     const widget = readFileSync(join(__dirname, 'rsvp-widget.tsx'), 'utf8');
     const record: Golden = {
       _about:
-        'RECORDED 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:"apps/web/app/[slug]/_components/rsvp-widget.tsx" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.',
+        'RECORDED AGAIN 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:"apps/web/app/[slug]/_components/rsvp-widget.tsx" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.',
       widgetSha256: sha(widget),
       cases: now,
       inFull: Object.fromEntries(IN_FULL.map((n) => [n, fieldsetOf(html[n]!)])),

@@ -22,21 +22,36 @@ import { stripComments } from '@/lib/strip-comments';
 const ROOT = join(__dirname, '..');
 const WEB = join(ROOT, '..', '..');
 
+/**
+ * The WORST ratio of `text-ink/<pct>` on the page, across the house look AND every Event Hub theme that sets its own
+ * ink and paper in globals.css (`[data-hub-theme='…']` — velvet, gatsby and cyber are dark). Light and dark, one number.
+ */
 function inkContrast(alphaPct: number): number {
-  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
-  const token = (name: string) => {
-    const m = css.match(new RegExp(`--color-${name}:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)`));
-    assert.ok(m, `--color-${name} was not found in globals.css`);
-    return [Number(m![1]), Number(m![2]), Number(m![3])] as const;
+  const css = stripComments(readFileSync(join(WEB, 'app/globals.css'), 'utf8'));
+  const tokenIn = (body: string, name: string) => {
+    const m = body.match(new RegExp(`--color-${name}:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)`));
+    return m ? ([Number(m[1]), Number(m[2]), Number(m[3])] as const) : null;
   };
-  const ink = token('ink');
-  const page = token('cream');
+  const houseInk = tokenIn(css, 'ink');
+  const housePage = tokenIn(css, 'cream');
+  assert.ok(houseInk && housePage, '--color-ink / --color-cream were not found in globals.css');
+  const looks: Array<readonly [readonly number[], readonly number[]]> = [[houseInk!, housePage!]];
+  for (const m of css.matchAll(/\[data-hub-theme='[a-z0-9-]+'\]\s*\{([^{}]*)\}/g)) {
+    const ink = tokenIn(m[1]!, 'ink');
+    const page = tokenIn(m[1]!, 'cream');
+    if (ink && page) looks.push([ink, page]);
+  }
+  assert.ok(looks.length > 3, `only ${looks.length - 1} Event Hub theme(s) were read — the dark themes are not being measured`);
   const lin = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
   const lum = (c: readonly number[]) => 0.2126 * lin(c[0]!) + 0.7152 * lin(c[1]!) + 0.0722 * lin(c[2]!);
   const a = alphaPct / 100;
-  const mixed = ink.map((v, i) => v * a + page[i]! * (1 - a));
-  const [hi, lo] = [lum(page), lum(mixed)].sort((x, y) => y - x) as [number, number];
-  return (hi + 0.05) / (lo + 0.05);
+  let worst = Infinity;
+  for (const [ink, page] of looks) {
+    const mixed = ink.map((v, i) => v * a + page[i]! * (1 - a));
+    const [hi, lo] = [lum(page), lum(mixed)].sort((x, y) => y - x) as [number, number];
+    worst = Math.min(worst, (hi + 0.05) / (lo + 0.05));
+  }
+  return worst;
 }
 
 /** The classes of the element that holds `words` — the nearest `className="…"` before them. */
@@ -56,7 +71,7 @@ function linkClassesAround(rel: string, words: string): string[] {
   const at = src.indexOf(words);
   assert.ok(at > 0, `${rel}: ${JSON.stringify(words)} is no longer on the page — this row is pointing at nothing`);
   const before = src.slice(Math.max(0, at - 700), at);
-  const all = [...before.matchAll(/<(?:Link|a|SeatBackLink)\b[^>]*?className="([^"]*)"/g)];
+  const all = [...before.matchAll(/<(?:Link|a|SeatBackLink|button)\b[^>]*?className="([^"]*)"/g)];
   assert.ok(all.length > 0, `${rel}: no link was found around ${JSON.stringify(words)}`);
   return all[all.length - 1]![1]!.split(/\s+/);
 }
@@ -72,6 +87,22 @@ const READ: Array<[string, string]> = [
   ['seat/page.tsx', '{body}</p>'],
   ['find-my-table/page.tsx', '{body}</p>'],
   ['hub/page.tsx', "withDayNote('Your table shows here on the day.'"],
+  // 2026-10-12 · the rest of N22 as the live re-walk of d2e38b7 listed it (and what the 375×812 sweep found beside it).
+  ['_components/save-the-date.tsx', 'Full invitation to follow.'],
+  ['_components/save-the-date.tsx', 'Save the date\n          </p>\n          <h1'],
+  ['_components/guest-ticket.tsx', "{pending ? REQUEST_WORDS.sentUnlocks : 'Show this at the door.'}"],
+  ['_components/face-tagging-row.tsx', '>Face tagging</span>'],
+  ['_components/selfie-capture.tsx', '>Face tagging</p>'],
+  ['_components/not-you-switch.tsx', '{SIGN_OUT_ERASES_SELFIE}'],
+  ['_components/rsvp-widget.tsx', 'Required\n        </span>'],
+  ['pabuya/page.tsx', 'Pabuya\n          </span>'],
+  ['seat/page.tsx', 'Setnayan\n            </span>'],
+  ['seat/page.tsx', 'Scanning your'],
+  ['seat/page.tsx', 'See you soon.</p>'],
+  ['find-my-table/page.tsx', 'Powered by Setnayan · setnayan.com</p>'],
+  ['recap/page.tsx', 'A living memory.</p>'],
+  ['pabuya/page.tsx', 'Kept safe on Setnayan'],
+  ['_components/save-to-account.tsx', 'Keeps the photos of you'],
 ];
 
 const PRESS: Array<[string, string]> = [
@@ -79,7 +110,27 @@ const PRESS: Array<[string, string]> = [
   ['seat/page.tsx', 'Back to your invitation'],
   ['find-my-table/page.tsx', 'Back to your invitation'],
   ['find-seat/page.tsx', 'Back to the invitation\n      </SeatBackLink>'],
-  ['venue/page.tsx', '← Back to the {noun}'],
+  ['venue/page.tsx', '← Back to the invitation'],
+  // 2026-10-12 · the rest of N23 as the live re-walk of d2e38b7 listed it.
+  ['_components/not-you-switch.tsx', 'Switch\n      </button>'],
+  ['_components/rsvp-widget.tsx', 'Terms\n        </Link>'],
+  ['_components/rsvp-widget.tsx', 'Privacy Notice\n        </Link>'],
+  ['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'],
+  ['pabuya/page.tsx', '<Logo height={26} />'],
+  ['seat/page.tsx', '<Logo height={28} />'],
+  ['avatar/page.tsx', '← Back\n          </Link>'],
+  ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}'],
+  ['recap/page.tsx', 'Open their page'],
+  ['avatar/_components/avatar-maker.tsx', 'See me in the room →'],
+];
+
+/** Presses a thumb finds by WIDTH too — a word or an icon narrower than 44px on its own. */
+const WIDE: Array<[string, string]> = [
+  ['_components/not-you-switch.tsx', 'Switch\n      </button>'],
+  ['_components/rsvp-widget.tsx', 'Terms\n        </Link>'],
+  ['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'],
+  ['pabuya/page.tsx', '<Logo height={26} />'],
+  ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}'],
 ];
 
 test('READ — each sentence on the walked pages is at least 4.5:1 on the page', () => {
@@ -104,4 +155,25 @@ test('PRESS — each way back on the walked pages is at least 44px tall', () => 
     if (!tall) small.push(`app/[slug]/${rel}: the link ${JSON.stringify(words.slice(0, 40))} is under 44px (${cls.join(' ')})`);
   }
   assert.deepEqual(small, []);
+});
+
+test('WIDE — each narrow press on the walked pages is at least 44px wide as well', () => {
+  const narrow: string[] = [];
+  for (const [rel, words] of WIDE) {
+    const cls = linkClassesAround(rel, words);
+    const wide = cls.some((c) => /^min-w-\[(\d+)px\]$/.test(c) && Number(c.match(/\d+/)![0]) >= 44) || cls.some((c) => /^(?:w|min-w)-(?:11|12|14|16)$/.test(c));
+    if (!wide) narrow.push(`app/[slug]/${rel}: the press around ${JSON.stringify(words.slice(0, 40))} is under 44px wide (${cls.join(' ')})`);
+  }
+  assert.deepEqual(narrow, []);
+});
+
+test('a ROUND press stays round — its height and width are the same floor', () => {
+  // globals.css gives every <button> a 44px min-height: a circle sized only by h-7 w-7 became a 28×44 oval.
+  for (const [rel, words] of [['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'], ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}']] as const) {
+    const cls = linkClassesAround(rel, words);
+    assert.ok(cls.includes('rounded-full'), `${rel}: no longer round (${cls.join(' ')})`);
+    const h = cls.find((c) => /^h-\d+$/.test(c));
+    const w = cls.find((c) => /^w-\d+$/.test(c));
+    assert.ok(h && w && h.slice(2) === w.slice(2), `${rel}: a round press must be square — ${h} × ${w}`);
+  }
 });

@@ -1978,6 +1978,21 @@ html.hr-snap {
   color: var(--hr-ink);
   letter-spacing: -0.01em;
 }
+/* 🍪 THE COOKIE NOTICE STANDS ABOVE THIS BACKDROP, NEVER UNDER IT (2026-10-12).
+   The notice is `z-[70]`; this layer is 200. On /login, /signup and every
+   top-nav overlay a first-time visitor saw the notice dimmed and blurred under
+   the backdrop, and a press on Accept / Essential only / Manage landed on the
+   backdrop instead (live re-walk of d2e38b7). It is the one question a visitor
+   must be able to answer on any page, so while one of these overlays is open it
+   is lifted over it — and the overlay keeps its own bottom clear of it, using
+   the height the notice already publishes (`--cookie-banner-top`, the same
+   seam `.sn-door-dock` reads), so the card's last line still scrolls into view. */
+html:has(.home-reskin-ov) [data-cookie-consent] {
+  z-index: 210;
+}
+.home-reskin-ov {
+  padding-bottom: calc(max(5vh, 28px) + var(--cookie-banner-top, 0px));
+}
 @keyframes hr-ov-fade {
   from {
     opacity: 0;

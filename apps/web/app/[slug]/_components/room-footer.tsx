@@ -61,7 +61,7 @@ export function RoomFooter({
     >
       <p
         className={`text-center font-mono text-[0.62rem] uppercase tracking-[0.18em] ${
-          dark ? 'text-white/45' : 'text-ink/45'
+          dark ? 'text-white/70' : 'text-ink/70'
         }`}
       >
         In this event
@@ -73,7 +73,7 @@ export function RoomFooter({
               href={l.href}
               /* min-h-[40px] (mobile audit item 3: these pills measured
                  32-34px on /cale-ice/pabuya, /find-seat, /venue). */
-              className={`inline-flex min-h-[40px] items-center rounded-full px-3.5 py-1.5 text-sm transition-colors ${
+              className={`inline-flex min-h-[44px] items-center rounded-full px-3.5 py-1.5 text-sm transition-colors ${
                 dark
                   ? 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
                   : 'border border-ink/12 bg-cream text-ink/70 hover:border-ink/25 hover:text-ink'

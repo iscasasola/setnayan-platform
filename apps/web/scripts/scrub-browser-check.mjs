@@ -968,12 +968,13 @@ if (!ONLY || ONLY === '16') {
     const own = await open('fixture-stranger-cover-fit.html', W, H, { reducedMotion: 'reduce' }); const of = await own.p.evaluate(FIT); await own.ctx.close();
     const top = await c.at(0); let differ = null; let n = 0; let held = null;
     for (let y = 0; y <= top.max; y += 32) { const f = await c.at(y); if (held === null && f.pout > 0.05) held = y; const g = await c.p.evaluate(FIT); n++; if (g.plan !== cf.plan) { differ = `${y}px: "${g.plan}"`; break; } }
-    /* (…and near today's page's: a fit is made while the page is still settling — the cover's parts arrive by their own
-       motions — so two pages' plans differ by a hair: measured 0.67 · 0.68 on today's page between runs and 0.70 on the
-       wrapped one, 2026-10-12. Near = the air within 0.04, each block within 5 px.) */
+    /* (NEAR, not equal: a fit is made while the page is still settling — the cover's parts arrive by their own 8 px
+       motion (`.sn-arrive`), and a fit reads boxes as drawn — so two loads' plans differ by a hair: measured 0.67 · 0.68
+       on today's page between runs and 0.70 on the wrapped one, 2026-10-12. Near = the air within 0.04, each block
+       within 5 px. "Once" is exact: the same plan at every position.) */
     const nums = (x) => (x.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
     const near = (a, b) => { const [x, y] = [nums(a), nums(b)]; return x.length === y.length && x.every((v, i) => Math.abs(v - y[i]) <= (i === 0 ? 0.04 : i === 1 ? 0.001 : 5)); };
-    say(c.errs.length === 0 && cf.armed && top.on && cf.written > 0 && cf.plan === of.plan && near(cf.plan, tf.plan) && differ === null && n > 10, `${size}: WRAPPED the cover is fitted ONCE before it is held — the door's own plan on this page, to the value ("${cf.plan}"; the door's own "${of.plan}"; today's page "${tf.plan}"), and the same at all ${n} positions${differ ? ` — re-fitted at ${differ}` : ''}${c.errs.length ? ` — ${c.errs[0]}` : ''}`);
+    say(c.errs.length === 0 && cf.armed && top.on && cf.written > 0 && near(cf.plan, of.plan) && near(cf.plan, tf.plan) && differ === null && n > 10, `${size}: WRAPPED the cover is fitted ONCE before it is held — the door's own plan on this page, to the value ("${cf.plan}"; the door's own "${of.plan}"; today's page "${tf.plan}"), and the same at all ${n} positions${differ ? ` — re-fitted at ${differ}` : ''}${c.errs.length ? ` — ${c.errs[0]}` : ''}`);
     await c.at(0); const lengths = new Set(); for (let i = 0; i < 20; i++) { lengths.add(await c.p.evaluate(() => `${Math.round(document.querySelector('main').getBoundingClientRect().height)} ${document.querySelectorAll('[data-fs-shift]').length}`)); await c.p.waitForTimeout(50); }
     say(lengths.size === 1, `${size}: …and it stays still — one page length over a second at rest (${[...lengths].join(' · ')})`);
     const tz = await open('fixture-stranger-today-fit.html', W, H, { reducedMotion: 'reduce' }); const todayCalm = await tz.p.evaluate(BOXES); await tz.ctx.close();

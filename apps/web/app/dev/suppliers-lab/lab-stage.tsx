@@ -35,7 +35,7 @@ export function SuppliersLabStage({ children }: { children: ReactNode }) {
         </div>
       </main>
       <BottomDock>
-        <nav className="flex h-16 items-center justify-around bg-white/90 text-xs text-ink/70" data-lab-dock="">
+        <nav className="flex h-16 items-center justify-around bg-cream/90 text-xs text-ink/70" data-lab-dock="">
           <span>Home</span>
           <span>Guests</span>
           <span>Suppliers</span>

@@ -441,7 +441,9 @@ export function useRsvpListStage({
   return {
     name: meta.name,
     inGroup: meta.inGroup,
-    own: meta.own,
+    /* 🎟 The pass's Save button: its Edit is the panel's too — the last row, every step grey and saying why (the
+       Maker walk, 2026-10-12: its Edit was EMPTY since the toolbar's own Earlier · Later · Remove row went, 2026-10-11). */
+    own: meta.own || (on && part === 'pass' && line === 'save'),
     groupWhy: meta.group ? GROUP_WHY : null,
     add: meta.add ? { ...meta.add, onAdd } : null,
     stays: on && part === 'pass' && line === 'save' ? RSVP_SAVE_STAYS : null,

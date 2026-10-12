@@ -16,7 +16,11 @@ From the 2026-10-12 Maker walk (controller-2026-10-12/walk-maker) and HANDOFF_20
   After an add the frame is scrolled so the new line sits in the band above the toolbar, once drawn and a picture's
   file has loaded (`partPickScroll`, the band measured as the toolbar's own centring does). Guard
   `lib/an-added-rsvp-line-is-brought-into-view.test.ts`.
-- Checked, not built: a line's Edit already has Earlier · Later · Group · Remove on main (since 2026-10-11).
+- **Every RSVP line's Edit has its last row — the pass's Save button too.** Walked in the lab at 375 × 812 and 667:
+  every line of the three screens already had ↑ Earlier · ↓ Later · Group · Remove (since 2026-10-11) except the
+  pass's Save button, whose Edit was EMPTY (its row was the toolbar's own three, gone since 2026-10-11). It now has
+  the same row, every step grey and saying why ("The Save button stays under the ticket."). Guard
+  `lib/the-rsvp-save-button-edit-has-its-row.test.ts`; `the-rsvp-stage-shows-the-card-and-done` re-counted (dated).
   Entrance videos "play once" skipped — no entrance video exists in any catalogue yet (the owner's five files) and
   how one is stored as a Main background is not recorded. Prints' six and the seat counter skipped — no clear record.
 

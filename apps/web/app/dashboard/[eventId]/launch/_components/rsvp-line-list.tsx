@@ -140,6 +140,22 @@ export function rsvpPlaceSteps(part: RsvpLookCard, name: string, place: RsvpPlac
   };
 }
 
+/**
+ * 🎟 THE PASS'S SAVE BUTTON'S LAST ROW — it has no place in a list (the pass is each guest's own ticket and its button
+ * stays under it) and it is the RSVP's own, so every step is grey and a tap says why (controller 2026-10-10, the words
+ * `RSVP_SAVE_STAYS` names). Drawn by the RSVP panel as Edit's only row (the Maker walk, 2026-10-12: Edit was empty).
+ */
+export function rsvpSaveSteps(): ReturnType<typeof rsvpPlaceSteps> {
+  return {
+    earlier: null,
+    later: null,
+    group: null,
+    remove: null,
+    ungroup: null,
+    why: { earlier: RSVP_LIST_WORDS.save, later: RSVP_LIST_WORDS.save, group: RSVP_LIST_WORDS.save, remove: RSVP_LIST_WORDS.ownLine },
+  };
+}
+
 export function RsvpLinePlaceRow({ steps, onWhy, className = '' }: { steps: ReturnType<typeof rsvpPlaceSteps>; onWhy: (words: string) => void; className?: string }) {
   const row = useRef<HTMLDivElement>(null);
   useFitRow(row);

@@ -186,7 +186,6 @@ for (const moment of Object.keys(MOMENTS) as Array<keyof typeof MOMENTS>) {
 /** Imports a module that reaches a server action, with Next's two marker packages stubbed (they exist only inside its
  *  bundler — the same door `scene-words-follow-the-ground.test.ts` uses). */
 async function withMarkersStubbed<T>(load: () => Promise<T>): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Module = require('node:module') as { _load: (request: string, ...rest: unknown[]) => unknown };
   const real = Module._load;
   Module._load = function (request: string, ...rest: unknown[]) {

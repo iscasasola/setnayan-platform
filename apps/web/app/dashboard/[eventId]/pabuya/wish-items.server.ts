@@ -16,6 +16,7 @@ import {
 import { publicBucketServeRef } from '@/lib/site-media-ref';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { cleanWishPrice, studioWishKeptFrom, type StudioWishKept } from '@/lib/wish-list-studio';
+import { giftOpOf, giftRecordWrite, type GiftWriteResult } from './gift-records.server';
 
 /**
  * THE WISH LIST'S FOUR WRITES — `saveWishItem` · `deleteWishItem` ·
@@ -86,15 +87,19 @@ function str(formData: FormData, key: string): string {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The one door `actions.ts` opens: which of the four, then that write. */
-export async function wishListWrite(eventId: string, formData: FormData): Promise<WishWriteResult> {
+export async function wishListWrite(eventId: string, formData: FormData): Promise<WishWriteResult | GiftWriteResult> {
   const op = wishOpOf(formData.get('wish_op'));
-  if (!op) return { ok: false, error: NOT_KEPT };
+  /* 🎁 wish list 5/5 — the couple's three writes on a gift RECORD (and the one read of an
+     opened gift's screenshot) ride the same door. */
+  const giftOp = giftOpOf(formData.get('wish_op'));
+  if (!op && !giftOp) return { ok: false, error: NOT_KEPT };
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in again.' };
-  switch (op) {
+  if (giftOp) return giftRecordWrite(supabase, eventId, giftOp, formData);
+  switch (op!) {
     case 'save':
       return saveWishItem(supabase, eventId, user.id, formData);
     case 'delete':

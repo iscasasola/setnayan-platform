@@ -253,6 +253,10 @@ const GIFT_SURFACES = [
   'lib/gift-door.server.ts',
   'app/[slug]/pabuya/_components/gift-record-sheet.tsx',
   'app/[slug]/pabuya/_components/gift-tell.tsx',
+  // wish list 5/5 — the couple's "Gifts sent to you"
+  'app/dashboard/[eventId]/launch/_components/studio-wish-gifts.tsx',
+  'app/dashboard/[eventId]/launch/_components/studio-wish-sheet.tsx',
+  'app/dashboard/[eventId]/pabuya/gift-records.server.ts',
 ];
 // `refund…` joined 2026-10-08 (wish list 4/5): Setnayan never holds the money, so it has none to give back.
 const CLAIMS_MORE_THAN_SENT = /\b(receiv\w*|verif\w*|funded|funding|paid|payment\w*|confirm(?:ed|s|ation)?|refund\w*)\b/gi;

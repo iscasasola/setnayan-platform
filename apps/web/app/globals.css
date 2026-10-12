@@ -8651,3 +8651,16 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
     animation-range: normal;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🎁 STUDIO › E-GIFTS — "GIFTS SENT TO YOU" IS A SCREEN OF ITS OWN
+   (wish list 5/5, owner 2026-10-08; prototype frame 08: the title, every
+   record, ✓ Done back). While the wish list shows it
+   (`data-studio-wish-list="gifts"`), every OTHER child of the E-Gifts wrapper
+   stands down. CSS alone — nothing is unmounted, so nothing a couple was
+   typing in the rows above is lost, and no script is added to the Maker.
+   Held by lib/the-couples-gift-list-follows-the-drawing.test.ts (11).
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-details-egifts]:has([data-studio-wish-list='gifts']) > :not([data-studio-wish-list='gifts']):not(:has([data-studio-wish-list='gifts'])) {
+  display: none;
+}

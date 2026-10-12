@@ -13,6 +13,7 @@ import { storeRedrawnPabuyaQr } from '@/lib/pabuya-qr-store.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
 import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 import { wishListWrite, type WishWriteResult } from './wish-items.server';
+import { GIFT_READ_OP } from './gift-records.server';
 
 /**
  * Server actions for the Pabuya e-gift surface (/dashboard/[eventId]/pabuya).
@@ -33,13 +34,17 @@ const MAX_HANDLE = 200;
 const MAX_NOTE = 240;
 
 /**
- * `wish` is the wish list's (`wish-items.server.ts`): the row a save kept, so the
- * Studio lays it over what it drew instead of re-reading the Maker. Every other
- * caller reads `ok` / `error` exactly as before.
+ * `wish`, `shotUrl` and `kept` are the wish list's:
+ *   · `wish` (`wish-items.server.ts`) — the row a save kept, so the Studio lays
+ *     it over what it drew instead of re-reading the Maker;
+ *   · `shotUrl` (`gift-records.server.ts`) — the opened gift's screenshot, on the
+ *     one READ that rides this door;
+ *   · `kept` — "the record was changed, its wish's mark was not", on a late refusal.
+ * Every other caller reads `ok` / `error` exactly as before.
  */
 export type EgiftActionResult =
-  | { ok: true; wish?: Extract<WishWriteResult, { ok: true }>['wish'] }
-  | { ok: false; error: string };
+  | { ok: true; wish?: Extract<WishWriteResult, { ok: true }>['wish']; shotUrl?: string | null }
+  | { ok: false; error: string; kept?: true };
 
 const GENERIC_WRITE_ERROR =
   'Couldn’t save that. If it keeps happening, reach out from /help.';
@@ -119,10 +124,14 @@ export async function saveEgiftMethod(
        re-renders the page). `revalidatePath` called INSIDE an action marks the
        action's own route as revalidated, and Next then renders that whole route
        into the action's response (`skipFlight: !pathWasRevalidated`) — here the
-       whole Maker, every read of it, for one wish. Run after the response, the
-       same guest paths are invalidated and nothing is rendered: the screen
-       already shows the change, and lays the answer (`wish`) over it. */
-    if (wish.ok) after(() => revalidateSurfaces(eventId));
+       whole Maker, every read of it, for one wish or one corrected amount. Run
+       after the response, the same guest paths are invalidated and nothing is
+       rendered: the screen already shows the change, and lays the answer over it.
+       A gift change that was KEPT but late-refused (`kept`) refreshes them too.
+       The one READ that rides this door (`gift-shot`) changed nothing: it
+       refreshes nothing. */
+    const changed = wish.ok || ('kept' in wish && wish.kept === true);
+    if (changed && formData.get('wish_op') !== GIFT_READ_OP) after(() => revalidateSurfaces(eventId));
     return wish;
   }
 

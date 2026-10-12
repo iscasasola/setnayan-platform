@@ -1,15 +1,12 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Check, Gift, GripVertical, Plus, RotateCw, Trash2, TriangleAlert, X } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
-import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
 import { SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh, type Superseded } from '@/lib/maker-refresh';
-import { formatPhp } from '@/lib/php';
 import { STUDIO_GROUP_HEAD, STUDIO_GROUP_HEAD_LINE, STUDIO_SWITCH_TRACK } from '@/lib/studio-skin';
 import { WISH_LINK_MAX, WISH_NAME_MAX, WISH_NOTE_MAX } from '@/lib/wish-list';
 import {
@@ -23,8 +20,10 @@ import {
   WISH_SHEET_KEEPS,
   aWayToGiveIsOn,
   cleanWishPrice,
+  giftTotals,
   giftWhenLine,
   giftsSentLine,
+  settleDrawn,
   studioWishIsGot,
   studioWishesInOrder,
   wishGotLine,
@@ -32,10 +31,14 @@ import {
   wishRowLineParts,
   wishRowMeter,
   wishSheetPill,
+  wishesWithGifts,
   type StudioWish,
+  type StudioWishGift,
   type StudioWishKept,
   type StudioWishList,
 } from '@/lib/wish-list-studio';
+import { GiftRow, GiftsSent, GiftsSentDoor, OpenGift } from './studio-wish-gifts';
+import { FIELD, FOOT, LABEL, WishSheet } from './studio-wish-sheet';
 
 /**
  * 🎁 STUDIO › E-GIFTS › WISH LIST (owner 2026-10-08, "ok wish list"; design
@@ -53,7 +56,9 @@ import {
  *   · a wish opens to the same fields, KEPT AS YOU TYPE — no Save, no "Saved" —
  *     with the Got it switch on top and the gifts sent toward it under it;
  *     Remove is two taps;
- *   · hold the grip (or the arrow keys) to reorder — one drag, one write.
+ *   · hold the grip (or the arrow keys) to reorder — one drag, one write;
+ *   · "Gifts sent to you ›" opens every record in place of the list, and a gift
+ *     opens to be corrected, moved or removed (`studio-wish-gifts.tsx`, 5/5).
  *
  * 🔴 LIVE, NOT DRAFTED (owner: "live"). Every write here is `send` — the E-Gifts
  * page's own door (`saveEgiftMethod` carrying `wish_op`; +0 server actions),
@@ -74,10 +79,6 @@ import {
  * chunk) — never the Maker's first load.
  */
 
-const FIELD =
-  'mt-1.5 min-h-11 w-full scroll-mb-24 rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none';
-const LABEL = 'flex items-center justify-between gap-2 text-[13px] text-ink/60';
-const FOOT = 'sn-glass-row sticky bottom-0 -mx-5 mt-5 grid grid-cols-2 gap-2 px-5 py-3';
 const PHOTO = 'flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gild/15';
 
 type Draft = { name: string; price: string; link: string; note: string; photo: string };
@@ -98,16 +99,21 @@ const sameDraft = (a: Draft, b: Draft) =>
   a.photo === b.photo;
 
 /**
- * The E-Gifts page's one write door, as the lazy Studio tools hand it in (`saveEgiftMethod`).
- * A save answers with the row it kept (`wish`), which the list lays over what it drew.
+ * The E-Gifts page's one door, as the lazy Studio tools hand it in (`saveEgiftMethod`).
+ *   · `wish`    — a save answers with the row it kept, which the list lays over what it drew;
+ *   · `shotUrl` — answers the one READ that rides it (an opened gift's screenshot);
+ *   · `kept`    — marks a refusal that came after a gift record itself was changed.
  */
-type WishResult = { ok: true; wish?: StudioWishKept } | { ok: false; error: string };
+type WishResult = { ok: true; wish?: StudioWishKept; shotUrl?: string | null } | { ok: false; error: string; kept?: true };
 export type WishAction = (form: FormData) => Promise<WishResult>;
 
 /** A write a LATER one for the same wish carried is as good as kept — that later write answers for both. */
 const kept = (r: WishResult | Superseded): boolean => r === SUPERSEDED || r.ok;
 /** What a refused write said — nothing, when it was kept or carried by a later one. */
 const refusal = (r: WishResult | Superseded): string | null => (r === SUPERSEDED || r.ok ? null : r.error);
+
+/** How long an opened screenshot's address is reused before it is asked for again (the server's lives 10 minutes). */
+const SHOT_REUSE_MS = 8 * 60 * 1000;
 
 /** What a draft becomes on a row, before the server's own row replaces it. */
 const drawn = (w: StudioWish, d: Draft): StudioWish => ({
@@ -142,6 +148,18 @@ export function StudioWishList({
   useEffect(() => {
     if (served) setWishes(served);
   }, [served]);
+
+  /* 🎁 EVERY RECORD OF THE EVENT (wish list 5/5). The rows, the meters and the totals are all
+     drawn FROM these, so a correction, a move or a remove shows everywhere at once. */
+  const servedGifts = list.read ? list.gifts : null;
+  const [gifts, setGifts] = useState<StudioWishGift[]>(servedGifts ?? []);
+  useEffect(() => {
+    if (servedGifts) setGifts(servedGifts);
+  }, [servedGifts]);
+  /** "Gifts sent to you" is open, in place of the list. */
+  const [allGifts, setAllGifts] = useState(false);
+  /** One gift is open — and the wish whose sheet it returns to (null = the list of gifts). */
+  const [openGift, setOpenGift] = useState<{ id: string; backTo: string | null } | null>(null);
 
   const [sheet, setSheet] = useState<{ kind: 'add' } | { kind: 'edit'; id: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -249,13 +267,72 @@ export function StudioWishList({
   const removeWish = async (id: string) => {
     const at = wishes.findIndex((w) => w.id === id);
     const was = wishes[at];
+    /* The gifts that counted toward it — they are freed with it, and come back with it. */
+    const freed = gifts.filter((g) => g.wishId === id).map((g) => g.id);
     setWishes((cur) => cur.filter((w) => w.id !== id));
+    /* Its gifts stay on the couple's list, as "Any gift". */
+    setGifts((cur) => cur.map((g) => (g.wishId === id ? { ...g, wishId: null } : g)));
     setSheet(null);
     setError(null);
     const res = await makerSave(() => action(form({ wish_op: 'delete', wish_item_id: id })), requestMakerRefresh, { held: true });
     if (res.ok) return;
     if (was) setWishes((cur) => (cur.some((w) => w.id === id) ? cur : [...cur.slice(0, at), was, ...cur.slice(at)]));
+    setGifts((cur) => cur.map((g) => (freed.includes(g.id) && g.wishId === null ? { ...g, wishId: id } : g)));
     setError(res.error);
+  };
+
+  /**
+   * 🎁 A gift record — correct the amount · move it · remove it / put it back.
+   *
+   * ⚡ ONE PRESS, ONE REQUEST, AND THE PAGE IS NOT RENDERED AGAIN (owner rule
+   * 2026-10-08). Drawn first: the record changes, and Got it follows the sum on
+   * every wish it counted (or now counts) toward, by the same rule the server
+   * writes (`settleDrawn` ⇄ `gotAfterGifts`). The save goes behind it as a HELD
+   * Maker save — what is on the screen already IS the answer, so no Maker
+   * re-read is owed for it, and none is asked for on a refusal either: the
+   * record is put back and the refusal is said in the sheet.
+   *
+   * Returns what the server said, if it refused.
+   */
+  const changeGift = async (id: string, change: Partial<StudioWishGift>, fields: Record<string, string>): Promise<string | null> => {
+    const had = gifts.find((g) => g.id === id);
+    if (!had) return 'That gift isn’t on your list any more.';
+    /* The wishes this change can re-mark — the one it counted toward, and the one it now does. */
+    const touched = [had.wishId, change.wishId ?? null];
+    const marks = new Map(wishes.map((w) => [w.id, w.gotBy]));
+    const next = gifts.map((g) => (g.id === id ? { ...g, ...change } : g));
+    setGifts(next);
+    setWishes((cur) => settleDrawn(cur, next, touched));
+    const res = await makerSave(() => action(form({ gift_record_id: id, ...fields })), requestMakerRefresh, { held: true });
+    if (res.ok) return null;
+    /* Refused: put back ONLY this record — never a snapshot of the whole list. A LATE refusal
+       (`kept`) means the record WAS changed and its wish's mark was not: the record stays as
+       drawn. Either way the touched wishes' marks go back to what they were. */
+    if (!res.kept) setGifts((cur) => cur.map((g) => (g.id === id ? had : g)));
+    setWishes((cur) => cur.map((w) => (touched.includes(w.id) && marks.has(w.id) ? { ...w, gotBy: marks.get(w.id) ?? null } : w)));
+    return res.error;
+  };
+
+  /**
+   * 🖼 THE SCREENSHOT OF THE GIFT THAT WAS OPENED — asked for once, when its sheet
+   * opens (never per row of a list): ONE request through the same door, which
+   * answers with a short-lived address only a host is given. Reused while it
+   * lives, so opening the same gift again asks nothing. A refusal is forgotten,
+   * so "Try again" really asks again — and nothing retries by itself.
+   */
+  const shots = useRef(new Map<string, { at: number; url: Promise<string | null> }>());
+  const seeShot = (id: string): Promise<string | null> => {
+    const held = shots.current.get(id);
+    if (held && Date.now() - held.at < SHOT_REUSE_MS) return held.url;
+    const url = action(form({ wish_op: 'gift-shot', gift_record_id: id })).then((res) => {
+      if (!res.ok) throw new Error(res.error);
+      return res.shotUrl ?? null;
+    });
+    shots.current.set(id, { at: Date.now(), url });
+    url.catch(() => {
+      if (shots.current.get(id)?.url === url) shots.current.delete(id);
+    });
+    return url;
   };
 
   /* ── reorder: hold the grip, or the arrow keys — one drag, one write ── */
@@ -264,7 +341,8 @@ export function StudioWishList({
   const before = useRef<StudioWish[]>([]);
   /** While moves are on their way: the ids in the order the server still holds (null = nothing is on its way). */
   const orderHeld = useRef<string[] | null>(null);
-  const shown = studioWishesInOrder(wishes);
+  const view = wishesWithGifts(wishes, gifts);
+  const shown = studioWishesInOrder(view);
   const moveTo = (id: string, to: number) => {
     setWishes((cur) => {
       const order = studioWishesInOrder(cur);
@@ -337,14 +415,51 @@ export function StudioWishList({
   }
 
   const noWay = !aWayToGiveIsOn(methods);
-  const open = sheet?.kind === 'edit' ? (wishes.find((w) => w.id === sheet.id) ?? null) : null;
+  const open = sheet?.kind === 'edit' ? (view.find((w) => w.id === sheet.id) ?? null) : null;
   const addButton = (
     <ActionButton tone="brand" icon={Plus} label="Add an item" className="w-full" data-testid="wish-add" onClick={() => setSheet({ kind: 'add' })} />
   );
 
+  const totals = giftTotals(gifts);
+  const giftsDoor = <GiftsSentDoor summary={giftsSentLine(totals.sentPhp, totals.counted)} onOpen={() => setAllGifts(true)} />;
+  const giftOpen = openGift ? (gifts.find((g) => g.id === openGift.id) ?? null) : null;
+  const giftSheet = giftOpen ? (
+    <OpenGift
+      key={giftOpen.id}
+      gift={giftOpen}
+      wishes={view}
+      onClose={() => {
+        const backTo = openGift?.backTo ?? null;
+        setOpenGift(null);
+        if (backTo) setSheet({ kind: 'edit', id: backTo });
+      }}
+      onAmount={(amountPhp) => changeGift(giftOpen.id, { amountPhp }, { wish_op: 'gift-amount', amount: String(amountPhp) })}
+      onMove={(wishId) => changeGift(giftOpen.id, { wishId }, { wish_op: 'gift-move', wish_item_id: wishId ?? '' })}
+      onRemove={(removed) => changeGift(giftOpen.id, { removed }, { wish_op: 'gift-remove', removed: removed ? '1' : '0' })}
+      onShot={() => seeShot(giftOpen.id)}
+    />
+  ) : null;
+
+  /* 🎁 Gifts sent to you — every record, in place of the list, and ✓ Done back to it. */
+  if (allGifts) {
+    return (
+      <section data-studio-wish-list="gifts" className="flex flex-col">
+        <GiftsSent
+          gifts={gifts}
+          wishes={view}
+          sentPhp={totals.sentPhp}
+          counted={totals.counted}
+          onOpen={(id) => setOpenGift({ id, backTo: null })}
+          onDone={() => setAllGifts(false)}
+        />
+        {giftSheet}
+      </section>
+    );
+  }
+
   return (
     <section data-studio-wish-list={wishes.length ? 'list' : 'empty'} className="flex flex-col">
-      <WishHead summary={wishListCount(wishes)} />
+      <WishHead summary={wishListCount(view)} />
       {wishes.length === 0 ? (
         <>
           {/* Sample shapes — the editor's own, never a guest's: three grey rows that say "a list goes here". */}
@@ -361,6 +476,8 @@ export function StudioWishList({
           </div>
           <p className="px-1.5 pb-2.5 pt-1 text-center text-[12px] text-ink/50">{WISH_LIST_EMPTY}</p>
           {addButton}
+          {/* A gift toward no wish can be shown to a couple with no wish list at all. */}
+          {gifts.length > 0 ? giftsDoor : null}
         </>
       ) : (
         <>
@@ -462,11 +579,7 @@ export function StudioWishList({
             </p>
           ) : null}
           <div className="pt-2.5">{addButton}</div>
-          {/* Every record's own screen is wish list 5/5 — until then this row counts, and opens nothing. */}
-          <div data-studio-gifts-sent="" className="mt-3.5 flex min-h-12 flex-col justify-center border-t border-ink/10 py-2">
-            <b className="text-[14.5px] font-semibold text-ink">Gifts sent to you</b>
-            <span className="text-[12.5px] text-ink/60">{giftsSentLine(list.totalSentPhp, list.totalGifts)}</span>
-          </div>
+          {giftsDoor}
         </>
       )}
       {error && sheet?.kind !== 'add' ? (
@@ -490,8 +603,13 @@ export function StudioWishList({
           onKeep={(draft) => keepWish(open.id, draft)}
           onGot={(got) => gotWish(open.id, got)}
           onRemove={() => void removeWish(open.id)}
+          onOpenGift={(giftId) => {
+            setSheet(null);
+            setOpenGift({ id: giftId, backTo: open.id });
+          }}
         />
       ) : null}
+      {giftSheet}
     </section>
   );
 }
@@ -505,27 +623,6 @@ function WishHead({ summary }: { summary: string | null }) {
       </InfoTip>
       {summary ? <small className={STUDIO_GROUP_HEAD_LINE}>{summary}</small> : null}
     </div>
-  );
-}
-
-/** The Schedule's sheet, portalled to <body> and lifted over the Maker's bars (as Love Story's add sheet). */
-function WishSheet({ title, titleId, pill, onClose, children }: { title: string; titleId: string; pill?: ReactNode; onClose: () => void; children: ReactNode }) {
-  if (typeof document === 'undefined') return null;
-  return createPortal(
-    <div data-wish-sheet="" className="relative z-[90]">
-      <Sheet open onClose={onClose} labelledById={titleId} wide rise>
-        <div className="px-5 pt-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 pr-10">
-            <h3 id={titleId} className="font-display text-[22px] leading-tight text-ink">
-              {title}
-            </h3>
-            {pill}
-          </div>
-          {children}
-        </div>
-      </Sheet>
-    </div>,
-    document.body,
   );
 }
 
@@ -694,6 +791,7 @@ function OpenWish({
   onKeep,
   onGot,
   onRemove,
+  onOpenGift,
 }: {
   eventId: string;
   wish: StudioWish;
@@ -701,6 +799,8 @@ function OpenWish({
   onKeep: (draft: Draft) => Promise<string | null>;
   onGot: (got: boolean) => Promise<string | null>;
   onRemove: () => void;
+  /** A gift's row was tapped: what is typed is kept first, then that gift opens. */
+  onOpenGift: (giftId: string) => void;
 }) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(wish));
   const kept = useRef<Draft>(draftOf(wish));
@@ -768,23 +868,16 @@ function OpenWish({
         <>
           <ul data-wish-gifts="" className="mt-1 flex flex-col">
             {wish.gifts.map((g) => (
-              <li key={g.id} className="flex items-start gap-3 border-t border-ink/10 py-2.5 first:border-t-0">
-                <span
-                  data-wish-gift-shot={g.hasShot ? 'yes' : 'none'}
-                  className="flex h-14 w-11 shrink-0 items-center justify-center rounded-md border border-ink/10 bg-white px-0.5 text-center text-[10px] leading-tight text-ink/50"
-                >
-                  {g.hasShot ? 'shot' : 'no shot'}
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <b className="truncate text-[14.5px] font-semibold text-ink">{g.giverName}</b>
-                  <span className="text-[12.5px] text-ink/60">{giftWhenLine(g)}</span>
-                  {g.message ? <em className="truncate text-[13px] text-ink/80">&ldquo;{g.message}&rdquo;</em> : null}
-                </span>
-                <span className="flex shrink-0 flex-col items-end">
-                  <b className="text-[14.5px] font-semibold text-ink">{formatPhp(g.amountPhp)}</b>
-                  <small className="text-[11px] text-ink/50">sent</small>
-                </span>
-              </li>
+              <GiftRow
+                key={g.id}
+                gift={g}
+                line={giftWhenLine(g)}
+                onOpen={() => {
+                  void keep().then((ok) => {
+                    if (ok) onOpenGift(g.id);
+                  });
+                }}
+              />
             ))}
           </ul>
           <p className="pb-1 pt-1 text-[12px] text-ink/55">{WISH_GIFTS_ONLY_YOU}</p>

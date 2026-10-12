@@ -73,10 +73,29 @@ export function labWishState(raw: string | undefined): LabWishState {
   return raw === 'empty' || raw === 'fail' || raw === 'noway' || raw === 'off' ? raw : 'five';
 }
 
+/**
+ * A stand-in for a guest's screenshot — the prototype's own little drawing (a
+ * blue bar, a tick, the amount). The lab has no bucket; production hands the
+ * couple a signed address of the real picture (`readStudioWishList`).
+ */
+function labShot(ref: string | null): string | null {
+  const rec = GIFTS.find((g) => g.screenshot_r2_key === ref);
+  if (!rec) return null;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 300">` +
+    `<rect width="220" height="300" fill="#fff"/><rect x="40" width="140" height="34" fill="#2b62c9"/>` +
+    `<circle cx="110" cy="92" r="20" fill="#e8f1ea" stroke="#2f7a50" stroke-width="3"/>` +
+    `<path d="M100 92l8 8 13-15" fill="none" stroke="#2f7a50" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `<text x="110" y="146" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="700" fill="#1c1a17">PHP ${rec.amount_php.toLocaleString('en-PH')}</text>` +
+    `<text x="110" y="168" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#666">Sent to Maria S.</text>` +
+    `<rect x="60" y="196" width="100" height="6" rx="3" fill="#eee"/><rect x="60" y="210" width="72" height="6" rx="3" fill="#eee"/><rect x="60" y="224" width="84" height="6" rx="3" fill="#eee"/></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 export function labWishList(state: LabWishState): StudioWishList {
   if (state === 'fail') return { read: false };
   if (state === 'empty') return studioWishListFrom([], [], () => null);
-  return studioWishListFrom(WISHES, GIFTS, () => null);
+  return studioWishListFrom(WISHES, GIFTS, () => null, labShot);
 }
 
 /* ── the guest's side (`/dev/maker-lab/guest?wish=…`) ────────────────────── */

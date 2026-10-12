@@ -106,7 +106,6 @@ import {
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import { AddYourOwnWalk } from '@/app/dashboard/[eventId]/_components/add-your-own-walk';
 import { INVITE_STATUS_UNREAD_LINE, joinedLine, ownRecordLine, type InviteStatusByVendorId } from '@/lib/supplier-invite-status';
-import { useToast } from '@/app/_components/toast/toast-provider';
 import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
 import {
   searchMarketplaceForBench,
@@ -2735,7 +2734,6 @@ export function ShortlistCategories({
   // `name` = what was typed in the thumb row's box when ＋ was pressed.
   const [manual, setManual] = useState<{ category: string; label: string; name?: string } | null>(null);
   const typedForAdd = useRef('');
-  const toast = useToast();
   // ── In-place category search (2026-07-29) ─────────────────────────────────
   // Owner: "clicking find more doesn't search specifically for that category.
   // and it jumps to a new page, it needs to stay on that page."
@@ -4492,8 +4490,9 @@ export function ShortlistCategories({
             // Land on the category the supplier went under, then say what happened.
             const row = benchRows.find((r) => r.t.category === outcome.category);
             if (row) setOpenTile(row.t.tile);
-            if (outcome.whole) toast.success(outcome.said);
-            else toast.info(outcome.said);
+            // The page's one toast, from the top (§ 9 kind 12). A part that did
+            // not happen (they were added, the ask did not send) reads red.
+            setToast({ tone: outcome.whole ? 'ok' : 'bad', text: outcome.said, key: Date.now() });
             // An add already refreshed behind the link; an ask has not.
             if (outcome.kind === 'asked') router.refresh();
           }}

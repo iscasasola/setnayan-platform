@@ -71,6 +71,8 @@ export const SCENE_DRAG_WORDS = {
   back: (label: string) => `${label} is back`,
   /** After ↺ took a move back. */
   moveUndone: 'Move undone',
+  /** After ↺ took a part ＋ added back off the page. */
+  addUndone: (label: string) => `${label} taken off`,
   /** The fallback for someone who cannot drag: the picked scene's name tag opens these three. */
   up: 'Move up',
   down: 'Move down',

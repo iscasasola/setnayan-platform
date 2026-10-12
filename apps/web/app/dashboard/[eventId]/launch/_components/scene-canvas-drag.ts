@@ -43,6 +43,7 @@ import {
   type SceneLiftVerdict,
   type SceneRow,
 } from '@/lib/maker-scene-drag';
+import { CANVAS_REDRAW_COMMITS_EVENT } from '@/app/[slug]/_components/maker-section-find';
 
 /* 🎨 COLOUR AND SHAPE TOKENS ONLY — each is the app's own, read on the page (no white, black or hex typed here):
    the lifted scene's ground (the page's paper, where the scene has none of its own), its ring and its name tag (the
@@ -203,6 +204,26 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
   let raf = 0;
   /** A dropped order the page has not been redrawn for yet — no second lift on this document until it is. */
   let slid = false;
+  /** ✋ What takes the slides off AT ONCE, no glide — run when the page's in-place redraw commits the order they held
+   *  (`CANVAS_REDRAW_COMMITS_EVENT`, synchronously, before React moves a node): the scenes then stand in that order
+   *  for real, and are never moved twice. */
+  let unslide: (() => void) | null = null;
+  /** Slid boxes back to what they wore — with no glide; their own transitions come back a frame later. */
+  const still = (wore: Map<HTMLElement, { transition: string; transform: string }>) => {
+    for (const [el, w] of wore) {
+      el.style.transition = 'none';
+      el.style.transform = w.transform;
+    }
+    win.requestAnimationFrame(() => {
+      for (const [el, w] of wore) el.style.transition = w.transition;
+    });
+  };
+  const onRedrawCommits = () => {
+    const off = unslide;
+    unslide = null;
+    slid = false;
+    off?.();
+  };
   const calm = () => win.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const glide = () => (calm() ? 'none' : `transform ${SCENE_GLIDE_MS}ms ease`);
   /* `translate` and `scale` are their own properties, so the scene follows the finger at once while its lift eases —
@@ -279,10 +300,12 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     subject.beside.forEach(({ el }, i) => go(el, now.tops[i]! - rows[i]!.top));
     between.forEach((els, j) => els.forEach((el) => go(el, now.between[j] ?? 0)));
     slid = true;
+    unslide = () => still(wore);
     bringIntoView(subject.el, (calm() ? 0 : SCENE_GLIDE_MS) + 30);
     return () => {
       if (!slid) return;
       slid = false;
+      unslide = null;
       for (const [el, w] of wore) {
         el.style.transition = glide();
         el.style.transform = w.transform;
@@ -556,9 +579,20 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
       /* The order is held by the slides until the page the save brings draws it for real. */
       unlook(h, true);
       slid = true;
+      unslide = () => {
+        still(h.wore);
+        const t = el.style.transition;
+        el.style.transition = 'none';
+        for (const k of ['translate', 'scale', 'position', 'willChange'] as const) el.style[k] = h.was[k] ?? '';
+        if (!twoProps) el.style.transform = '';
+        win.requestAnimationFrame(() => {
+          el.style.transition = h.was.transition ?? (t === 'none' ? '' : t);
+        });
+      };
       const revert = () => {
         if (!slid) return;
         slid = false;
+        unslide = null;
         back(h, true);
         el.style.transition = calm() ? 'none' : `translate ${SCENE_GLIDE_MS}ms ease, transform ${SCENE_GLIDE_MS}ms ease`;
         put(el, 0, 1);
@@ -679,6 +713,7 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     '[data-maker-section]+* :is(input,textarea,[contenteditable=""],[contenteditable="true"]){-webkit-user-select:text;user-select:text}}' +
     'html[data-scene-drag-held],html[data-scene-drag-held] *{-webkit-user-select:none!important;user-select:none!important;cursor:grabbing!important}';
   doc.head.appendChild(style);
+  doc.addEventListener(CANVAS_REDRAW_COMMITS_EVENT, onRedrawCommits);
   doc.addEventListener('pointerdown', onDown);
   doc.addEventListener('pointermove', onMove, { passive: false });
   doc.addEventListener('pointerup', onUp);
@@ -693,6 +728,7 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
       if (held) end(true);
       stopPending();
       style.remove();
+      doc.removeEventListener(CANVAS_REDRAW_COMMITS_EVENT, onRedrawCommits);
       doc.removeEventListener('pointerdown', onDown);
       doc.removeEventListener('pointermove', onMove);
       doc.removeEventListener('pointerup', onUp);

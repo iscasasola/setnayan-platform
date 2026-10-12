@@ -36,10 +36,12 @@ export type MakerPartRaw = {
   fullOrder: readonly string[];
   afterLastShown: string | null;
   scenes: readonly MakerScene[];
-  move: (id: string, delta: number) => void;
+  move: (id: string, delta: number, drawn?: boolean) => void;
   eyeWrite: (scene: MakerScene) => void;
   /** ＋ A scene brought back to this stage, `delta` places from where it stands — its place AND its showing, ONE save. */
-  addHere: (scene: MakerScene, delta: number) => void;
+  addHere: (scene: MakerScene, delta: number, drawn?: boolean) => void;
+  /** ↺ The last step the page drew itself, taken back the same way — null: the Undo reloads as ever (`lib/maker-drawn-undo.ts`). */
+  undoDrawn: (kind: 'move' | 'remove' | 'add', id: string) => { landed: (ok: boolean) => void; prior?: readonly string[] } | null;
   /** 👁 What the eye took off a stage since the last render that agreed — `"<stage>:<scene id>"` (`lib/maker-list-gates.ts`). */
   hereOff: Readonly<Record<string, true>>;
   sceneRemovers: Readonly<Record<string, ReactNode>>;
@@ -61,13 +63,16 @@ export type MakerPartOps = {
   /** The full-order row after the last shown scene (a drop "at the end"). */
   afterLastShown: string | null;
   scenes: readonly MakerScene[];
-  /** ↕ The navigator's move: `delta` places in the full order — ONE draft save of the stage's order. */
-  move: (id: string, delta: number) => void;
+  /** ↕ The navigator's move: `delta` places in the full order — ONE draft save of the stage's order. `drawn`: the page
+   *  already shows it (the drag's slides) — held, and the page redraws itself in place (no Maker render, no reload). */
+  move: (id: string, delta: number, drawn?: boolean) => void;
   /** 👁 The navigator's eye on a scene — hides a shown one, brings a hidden one back (drafted). */
   eye: (id: string) => void;
   /** ＋ Bring a hidden scene back to this stage, `delta` places from where it stands in the full order — ONE draft save
    *  (its place and its showing together), so one ↺ takes the whole press back. */
-  add: (id: string, delta: number) => void;
+  add: (id: string, delta: number, drawn?: boolean) => void;
+  /** ↺ The Maker's side of an Undo the page shows at once (`MakerPartRaw.undoDrawn`). */
+  undoDrawn: MakerPartRaw['undoDrawn'];
   /** 🗑 A scene of their own's shipped "Remove for good" form, by widget id. */
   removers: Readonly<Record<string, ReactNode>>;
   /** 🎞 Post Event's arrangement as the Maker shows it (live with the draft over it) — null off Post Event. */

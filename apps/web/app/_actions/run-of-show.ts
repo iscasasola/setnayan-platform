@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runAdvance } from '@/lib/run-of-show-advance';
 import type { RunOfShowBlock, RunState } from '@/lib/run-of-show';
+import { onlyWhatGuestsMaySee } from '@/lib/schedule';
 
 /**
  * Day-of run-of-show server actions for the shared RunOfShowHeader.
@@ -50,10 +51,21 @@ import type { RunOfShowBlock, RunState } from '@/lib/run-of-show';
 
 export async function fetchRunOfShowBlocks(
   eventId: string,
+  /**
+   * 🔒 The guests' schedule passes `true` (its header mounts with `forGuests`).
+   * The anonymous read policy asks only `is_public` and "not a coordinator's
+   * prep" — it does not know about For ▾ — so without this the header's first
+   * paint (from `fetchPublicScheduleBlocks`) left the role-only moments out and
+   * its first realtime refetch put them back: "Up next · Entourage photos" on
+   * every guest's phone. The same one rule, `onlyWhatGuestsMaySee`. It only
+   * ever NARROWS what the caller's own session may already read, so a caller
+   * passing it untruthfully gains nothing.
+   */
+  forGuests = false,
 ): Promise<RunOfShowBlock[] | null> {
   if (!eventId) return null;
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const read = supabase
     .from('event_schedule_blocks')
     // `block_type` drives the per-trade relevance lens (lib/role-run-of-day.ts).
     // One extra column on a read this console already makes, rather than a second
@@ -66,7 +78,8 @@ export async function fetchRunOfShowBlocks(
     .select(
       'block_id, label, start_at, end_at, location, run_state, actual_start_at, block_type, is_public',
     )
-    .eq('event_id', eventId)
+    .eq('event_id', eventId);
+  const { data, error } = await (forGuests ? onlyWhatGuestsMaySee(read) : read)
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });
   if (error) console.error('[supabase-error] app/_actions/run-of-show.ts · from:event_schedule_blocks.select', error);

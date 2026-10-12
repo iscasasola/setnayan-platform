@@ -170,6 +170,9 @@ export function NewManualVendorModal({
   // in flight (renders the subtle "Searching…" hint).
   const [mode, setMode] = useState<ModalMode>({ kind: 'manual' });
   const [nameQuery, setNameQuery] = useState(edit?.name ?? '');
+  /** The KEPT name and price (the rows' pills). The live words follow the typing; a ✕ puts them back to these. */
+  const [nameKept, setNameKept] = useState(edit?.name ?? '');
+  const [priceKept, setPriceKept] = useState((edit?.price ?? '').replace(/[^\d]/g, ''));
   const [suggestions, setSuggestions] = useState<
     ReadonlyArray<MarketplaceVendorSuggestion>
   >([]);
@@ -499,7 +502,7 @@ export function NewManualVendorModal({
                   <TypedRow
                     name="Supplier name"
                     fieldName="business_name"
-                    value={nameQuery}
+                    value={nameKept}
                     empty="Their name"
                     placeholder="e.g. Tito Marcel"
                     required
@@ -510,7 +513,11 @@ export function NewManualVendorModal({
                       setNameQuery(t);
                       if (t.trim().length >= 2) setAutocompleteOpen(true);
                     }}
-                    onKeep={KEEP}
+                    onKeep={(t) => {
+                      setNameKept(t);
+                      setNameQuery(t);
+                      return { ok: true as const };
+                    }}
                   />
                   <TypedRow
                     name="Contact person"
@@ -598,13 +605,17 @@ export function NewManualVendorModal({
                   <TypedRow
                     name="Price"
                     fieldName="total_cost_php"
-                    value={priceInput.replace(/[^\d]/g, '')}
+                    value={priceKept}
                     amount
                     placeholder="80000"
                     note="What you agreed, in pesos. The payment plan below has to add up to it."
                     attrs={{ 'data-manual-field': 'total_cost_php' }}
                     onType={(t) => setPriceInput(t)}
-                    onKeep={KEEP}
+                    onKeep={(t) => {
+                      setPriceKept(t);
+                      setPriceInput(t);
+                      return { ok: true as const };
+                    }}
                   />
                 </FormRows>
               </div>

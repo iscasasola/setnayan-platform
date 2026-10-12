@@ -68,6 +68,9 @@ export function AddressPinField({
   onChange?: (next: { address: string; pin: LatLng | null }) => void;
 }) {
   const [address, setAddressState] = useState(initialAddress ?? '');
+  /** What is typed in the open field right now (Find reads it); `address` is what was KEPT. A Form row's ✕ must be able to
+   *  leave the kept answer as it was — feeding the typing back into `value` made ✕ keep it (walked in the Maker 2026-10-12). */
+  const [liveAddress, setLiveAddress] = useState(initialAddress ?? '');
   const [pin, setPinState] = useState<LatLng | null>(initialPin ?? null);
   const setAddress = (next: string) => {
     setAddressState(next);
@@ -81,7 +84,7 @@ export function AddressPinField({
   const [note, setNote] = useState<string | null>(null);
 
   function locate() {
-    if (address.trim().length < 3) {
+    if (liveAddress.trim().length < 3) {
       setNote('Type the address first.');
       return;
     }
@@ -89,7 +92,7 @@ export function AddressPinField({
     startLocating(async () => {
       /* 📵 A lookup that never answered (no signal, a 5xx) is a miss like any other — the map is open below. Thrown
          into this transition it replaced the whole page (in the Maker, the whole Maker) with the app's error screen. */
-      const r = await locateAddressPin(address).catch(() => null);
+      const r = await locateAddressPin(liveAddress).catch(() => null);
       if (r) {
         setPin({ lat: r.lat, lng: r.lng });
         setNote(null);
@@ -120,8 +123,9 @@ export function AddressPinField({
               maxLength={MANUAL_VENUE_ADDRESS_MAX}
               placeholder={MANUAL_VENUE_ADDRESS_PLACEHOLDER}
               attrs={{ 'data-address-field': id }}
-              onType={(t) => setAddress(t)}
+              onType={(t) => setLiveAddress(t)}
               onKeep={(t) => {
+                setLiveAddress(t);
                 setAddress(t);
               }}
             />

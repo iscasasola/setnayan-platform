@@ -266,8 +266,19 @@ const CSP_REPORT_ONLY = [
   // the dress rehearsal for enforcement. Leaving a known-good host out of it
   // means every pin drop files a violation report, and the day anyone promotes
   // this policy the map goes blank with nothing in the diff to explain it.
-  "img-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com https://tile.openstreetmap.org",
-  "media-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com",
+  //
+  // ⚠ `https://*.mzstatic.com` + `https://images.unsplash.com` (img-src) and
+  // `https://*.itunes.apple.com` (media-src) added 2026-10-13 — the live quality
+  // sweep found the report-only policy refusing 62 song covers on every
+  // onboarding page (iTunes artwork, `is1-ssl.mzstatic.com` and its is2–is5
+  // siblings) and the Maria & Jose sample wall's photographs on /tour/gallery
+  // (seeded from `scripts/seed-sample-event-maria-jose-*.sql`). Both are images
+  // the product shows on purpose; Apple's artwork may not be re-hosted, so the
+  // host is named rather than self-hosted. The 30-second preview the same song
+  // row plays is Apple's too (`audio-ssl.itunes.apple.com`) — media-src.
+  // Guard: `lib/csp-names-the-third-party-images.test.ts`.
+  "img-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com https://*.supabase.co https://i.ytimg.com https://tile.openstreetmap.org https://*.mzstatic.com https://images.unsplash.com",
+  "media-src 'self' data: blob: https://media.setnayan.com https://pub-37d64fe618584c2981a88610a55dd439.r2.dev https://*.r2.cloudflarestorage.com https://*.itunes.apple.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "worker-src 'self' blob:",

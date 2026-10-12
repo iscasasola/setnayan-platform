@@ -439,6 +439,15 @@ export function rsvpLookStored(rest: Record<string, unknown>, read: RsvpLook): R
   return Object.keys(rest).length > 0 ? rest : undefined;
 }
 
+/**
+ * 🔘 A LATER QUESTION'S ANSWERS WEAR THE COUPLE'S YES AND NO (owner's live walk, 2026-10-12: screen 2's answers looked
+ * nothing like screen 1's). The form's Yes and No lines are the only answers the Maker names; every later two-choice
+ * question on the reply card ("Want to be tagged in the photos?") marks its answers `data-rsvp-wears="yes|no"`, and
+ * the look the couple gave Yes and No is drawn on them too — the same rule, one selector more. Not a line of its own:
+ * the Maker's canvas picks by `data-rsvp-line` only, so tapping one still picks nothing new.
+ */
+export const RSVP_WEARS_ATTR = 'data-rsvp-wears';
+export const RSVP_WORN_LINES = ['yes', 'no'] as const;
 /** A group's wrapper on the page — its value is the group's id (the app's own short one, checked by the reader). */
 export const RSVP_GROUP_ATTR = 'data-rsvp-group';
 /** The door's card, for every guest: the block that holds the masthead (`DoorShell`). No attribute is served for it. */
@@ -552,7 +561,8 @@ export function rsvpLookRules(look: RsvpLook, parts: readonly string[], board: r
     const font = sanitizeHubFontKey(v.f);
     const face = font ? `font-family:var(${HUB_FONT_BY_KEY[font].cssVar}), ${HUB_FONT_BY_KEY[font].fallback};` : '';
     const rules = `${colour ? `color:${colour};` : ''}${face}${v.s ? `zoom:${v.s / 100};` : ''}${motionRules(v)}`;
-    if (rules) out.push({ selector: `[data-rsvp-line="${line}"][data-rsvp-line]`, rules, moves: Boolean(v.i) });
+    const worn = part === 'rsvp' && (RSVP_WORN_LINES as readonly string[]).includes(line) ? `,[${RSVP_WEARS_ATTR}="${line}"]` : '';
+    if (rules) out.push({ selector: `[data-rsvp-line="${line}"][data-rsvp-line]${worn}`, rules, moves: Boolean(v.i) });
   }
   for (const part of RSVP_LOOK_CARDS) {
     if (!parts.includes(part)) continue;

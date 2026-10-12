@@ -13,6 +13,7 @@
 /dashboard/[eventId]/studio/playlist	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/thank-you	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /demo-capture/[slug]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/add-your-own-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/booth-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/details-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/guests-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

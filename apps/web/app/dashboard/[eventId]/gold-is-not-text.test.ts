@@ -128,7 +128,6 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   ['vendors/_components/services-takeover.tsx', 2],
   ['vendors/_components/vendor-quickview-inspector.tsx', 1],
   ['vendors/packages/[bookingId]/page.tsx', 1],
-  ['_components/new-manual-vendor-modal.tsx', 1],
   ['_components/vendor-itemization-card.tsx', 1],
   ['_components/vendor-marketplace-info.tsx', 4],
 ];

@@ -79,7 +79,7 @@ export function CoupleLinkDoor({
           what is only READ sits on the page as rows with dividers between
           topics — no boxed "record" panel, no framed perks; the two presses are
           the one ActionButton (a link and the page's own decline form). */}
-      <article className="space-y-6" data-couple-link-door="">
+      <article className="space-y-6" data-claim-door="own-link">
         <section>
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
             What they&rsquo;ve recorded

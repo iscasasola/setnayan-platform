@@ -82,7 +82,6 @@ test('the walk composes what ships — search, the shipped ask, the one save, th
     'attachMarketplaceVendorToCategory(',
     'contactShortlistVendor(',
     'addManualSupplier(',
-    'createManualVendorInvite(',
     '<SupplierConnectPanel',
     '<PickMenu',
     '<Sheet',
@@ -97,6 +96,11 @@ test('the walk composes what ships — search, the shipped ask, the one save, th
     'Yes — Inquire must put the shop under the category before it asks',
   );
   assert.ok(!inquire.includes('addManualSupplier('), 'Yes — Inquire made a hand-typed twin of a shop that exists');
+  // ONE write per press (2026-10-12): the link rides the same Add call, made by the shipped writer inside it.
+  assert.ok(src.includes("fd.set('with_link', '1')"), 'the walk no longer asks for their link in the Add press');
+  const actions = code(ACTIONS);
+  const add = actions.slice(actions.indexOf('export async function addManualSupplier('));
+  assert.ok(add.slice(0, add.indexOf('\n}\n')).includes('createManualVendorInvite('), 'the Add no longer makes the link with the shipped writer');
 });
 
 test('the walk draws the prototype’s buttons, and "What they do" is ONE dropdown', () => {
@@ -120,7 +124,7 @@ test('no price, no "already booked?", and nothing about fees or credit on the co
 });
 
 test('the walk saves with ONE contact; the eight-field sheet still asks for both', () => {
-  assert.ok(code(WALK).includes('name="contact_either" value="1"'));
+  assert.ok(code(WALK).includes("fd.set('contact_either', '1')"));
   const actions = code(ACTIONS);
   const fn = actions.slice(actions.indexOf('async function createManualVendor('));
   const body = fn.slice(0, fn.indexOf('\n}\n'));

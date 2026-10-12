@@ -118,12 +118,14 @@ export function Sheet({
       className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none"
     >
       {/* Backdrop — clicking dismisses. Rendered as a button so keyboard
-          users get a focusable affordance, not just a div with onClick. */}
+          users get a focusable affordance, not just a div with onClick.
+          Its dark is the popup rule's ONE dark, `sn-popup-dark` (dark AND blurred — globals.css), not a hand-made
+          `bg-ink/40 backdrop-blur-sm` (2026-10-12 look sweep). */}
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className={`absolute inset-0 bg-ink/40 backdrop-blur-sm${rise ? ' sn-fade' : ''}`}
+        className={`sn-popup-dark absolute inset-0${rise ? ' sn-fade' : ''}`}
       />
 
       {/* Sheet body — `data-sheet-panel` is the hook globals.css's FOLDABLES block sizes on a

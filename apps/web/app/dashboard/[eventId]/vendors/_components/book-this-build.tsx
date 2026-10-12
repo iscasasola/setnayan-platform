@@ -190,7 +190,7 @@ function BookSheet({
           <li key={pick.vendorId} className="py-2.5" data-book-row={outcome?.kind ?? 'waiting'}>
             <p className="text-sm font-medium text-ink">{pick.name}</p>
             <p className="text-xs uppercase tracking-[0.08em] text-ink/55">{pick.category}</p>
-            {outcome?.kind === 'done' ? <p className="mt-1 text-[13px] text-success-700">{DONE_WORDS[outcome.how]}</p> : null}
+            {outcome?.kind === 'done' ? <p className="mt-1 text-[13px] text-success-700 dark:text-success-200">{DONE_WORDS[outcome.how]}</p> : null}
             {outcome?.kind === 'confirm' ? (
               <div className="mt-1 text-[13px] text-ink/75">
                 <p className="font-medium text-ink">{outcome.headline}</p>

@@ -305,7 +305,7 @@ export function BuildBody({
               <Count value={counts.filled} id="sup-build-filled" /> of <Count value={counts.total} id="sup-build-total" /> categories
               {' · '}
               <Count value={total} format="peso" id="sup-build-sub" />
-              {twin ? <span className="text-success-700"> · same as “{twin.name}”</span> : null}
+              {twin ? <span className="text-success-700 dark:text-success-200"> · same as “{twin.name}”</span> : null}
             </>
           ) : (
             'Nothing in your build yet — add suppliers in Find.'
@@ -626,7 +626,7 @@ function FitLine({ eventId, view, allFree }: { eventId: string; view: BuildView;
   return (
     <div className="flex items-center gap-2 border-t border-ink/10 py-2.5 text-sm text-ink" data-build-fit="">
       {hasDay && fit.priced > 0 ? (
-        <span className={allFree ? 'text-success-700' : 'text-mulberry-700'} aria-hidden>
+        <span className={allFree ? 'text-success-700 dark:text-success-200' : 'text-mulberry-700'} aria-hidden>
           {allFree ? '✓' : '!'}
         </span>
       ) : null}
@@ -686,7 +686,7 @@ function BuildCardColumn({
     <div
       data-build-card={card.id}
       data-twin={isTwin ? '' : undefined}
-      className={`min-w-0 snap-start border-r border-ink/10 px-2 py-2.5 last:border-r-0 ${isTwin ? 'bg-success-50' : ''}`}
+      className={`min-w-0 snap-start border-r border-ink/10 px-2 py-2.5 last:border-r-0 ${isTwin ? 'bg-[color-mix(in_srgb,rgb(var(--color-ok))_9%,transparent)]' : ''}`}
     >
       <p className="text-[13.5px] font-semibold text-ink">
         {card.name}
@@ -725,7 +725,7 @@ function BuildCardColumn({
       </ul>
       {card.free ? (
         card.free.kind === 'dates' ? (
-          <p className="mt-2 text-success-700">
+          <p className="mt-2 text-success-700 dark:text-success-200">
             Free: {card.free.labels.join(' · ')}
             {card.free.more > 0 ? ` +${formatCount(card.free.more)}` : ''}
           </p>
@@ -736,7 +736,7 @@ function BuildCardColumn({
           </p>
         )
       ) : null}
-      <p className={card.bufferPhp == null ? 'text-ink/55' : card.bufferPhp < 0 ? 'text-mulberry-700' : 'text-success-700'}>
+      <p className={card.bufferPhp == null ? 'text-ink/55' : card.bufferPhp < 0 ? 'text-mulberry-700' : 'text-success-700 dark:text-success-200'}>
         {card.unpriced > 0 ? (
           'Buffer: not knowable'
         ) : card.bufferPhp == null ? (

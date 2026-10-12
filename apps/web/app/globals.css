@@ -8312,6 +8312,22 @@ input.sn-switch:focus-visible {
 .ab.icon-only .lbl { display: none; }
 /* 3a's middle state — a row too narrow for icon + word shows words only. */
 .ab.word-only svg { display: none; }
+/* ── THE LINK FORM PRESSES AT 44 TOO (2026-10-13, controller sweep) ──────────
+ * A `<button class="ab">` paints 44 tall (the base layer's `button { min-height:
+ * 44px }` outranks `height: 40px`); an `<a class="ab">` — ActionButton with
+ * `href` — has no such floor, so every link-button in the app was a 40px press.
+ * Its LOOK stays the drawing's 40px pill: the missing 4px is an invisible
+ * `::after` expander, 3px above and below — 3, not the 2 the arithmetic says:
+ * MEASURED with elementFromPoint, -2 pressed at 43 (the boundary pixels round
+ * away, the same lesson as `.fd-topbar .fd-btn-quiet::after`). VERTICAL ONLY: a
+ * sideways bleed would add 2px to a fitted row's `scrollWidth` and `useFitRow`
+ * would read that as overflow and strip words it does not need to. Its width is
+ * the button form's (an icon-only button is 40 wide too).
+ * `position: relative` sits in `:where()` (zero specificity) so a caller's own
+ * `absolute`/`fixed`/`sticky` utility still wins and the expander follows it.
+ * Held by lib/action-link-presses-at-44.test.ts. */
+:where(a.ab) { position: relative; }
+a.ab::after { content: ''; position: absolute; inset: -3px 0; }
 /* Tone rules are ELEMENT + BASE CLASS + TONE (specificity 0,2,1) — never a bare
  * tone class. Owner 2026-10-07: a specificity slip (a bare `.t-brand` losing to
  * the base rule) made every tone fall back to ink in the prototypes. The main

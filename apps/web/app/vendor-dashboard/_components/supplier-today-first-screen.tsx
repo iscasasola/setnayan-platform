@@ -218,6 +218,14 @@ export type SupplierTodayFirstScreenProps = {
   alsoWaitingHeaded?: boolean;
   /** The rules that are not a customer's ask, each a door (`supplierWaiting().doors`). */
   doors?: readonly SupplierWaitingDoor[];
+  /**
+   * 💸 The unpaid booking fees, as hairline rows (`<BookingFeeBills rows>`), drawn by the page — LAST under Also
+   * waiting. `hasBills` says whether it draws anything: when nothing above carries the "Also waiting" heading (no ask
+   * row, no door), the bills carry it themselves — a bill is never drawn under "Coming up" (found on the 375 walk,
+   * 2026-10-12: two fee rows sat under the last Coming-up row with no heading of their own).
+   */
+  bills?: ReactNode;
+  hasBills?: boolean;
   /** The one Shop row: the shop's name, and its state in a few words. */
   shop: { name: string; line: string; live: boolean };
 };
@@ -262,6 +270,8 @@ export function SupplierTodayFirstScreen({
   alsoWaiting,
   alsoWaitingHeaded = false,
   doors = [],
+  bills = null,
+  hasBills = false,
   shop,
 }: SupplierTodayFirstScreenProps) {
   const day = next.kind === 'run_day';
@@ -381,6 +391,13 @@ export function SupplierTodayFirstScreen({
           {doors.map((d) => (
             <TodayRow key={d.id} href={nextHref(d.target)} label={d.label} line={d.line} lineTone="warn" marker={d.id} />
           ))}
+        </div>
+      ) : null}
+
+      {hasBills ? (
+        <div data-today-bills className={alsoWaitingHeaded || doors.length > 0 ? undefined : '[&>div:first-of-type]:border-t-0'}>
+          {alsoWaitingHeaded || doors.length > 0 ? null : <TodayEyebrow>Also waiting</TodayEyebrow>}
+          {bills}
         </div>
       ) : null}
 

@@ -10,6 +10,7 @@
  *   ?s=fail           the desk and payday could not be read — said, never 0     (frame 15)
  *   ?s=datechange     the Next card is a date change — Move · Unlock            (frame 31)
  *   ?s=doors          the rules that are not a customer's ask, as rows — and two unpaid booking fees
+ *   ?s=fees           one ask (the Next card) and two unpaid booking fees — the fees carry the "Also waiting" heading
  *   ?s=clear          nothing waiting
  *   &toast=1          the outcome: the shared top toast + the status line (&toast=refused · &toast=failed · &toast=note)
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
@@ -144,6 +145,8 @@ type TodayState = {
   deskIncomplete: boolean;
   owedPhp: number | null;
   extras?: boolean;
+  /** Two unpaid booking fees, and nothing else under Also waiting. */
+  bills?: boolean;
 };
 
 const TODAY: Record<string, TodayState> = {
@@ -157,6 +160,7 @@ const TODAY: Record<string, TodayState> = {
   fail: { whatsNew: [], upcoming: COMING, deskIncomplete: true, owedPhp: null },
   datechange: { whatsNew: [REPLY, DATE_CHANGE, BOOKING, LAPSED], upcoming: COMING, deskIncomplete: false, owedPhp: 48_000 },
   doors: { whatsNew: [REPLY], upcoming: COMING, deskIncomplete: false, owedPhp: 48_000, extras: true },
+  fees: { whatsNew: [REPLY], upcoming: COMING, deskIncomplete: false, owedPhp: 48_000, bills: true },
   clear: { whatsNew: [], upcoming: [], deskIncomplete: false, owedPhp: 0 },
 };
 
@@ -245,14 +249,17 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
         comingUp={(next.kind === 'run_day' ? state.upcoming.slice(1) : state.upcoming).slice(0, 3)}
         alsoWaitingHeaded={waiting.asks.length > 0 || state.deskIncomplete}
         doors={waiting.doors}
+        hasBills={Boolean(state.extras || state.bills)}
+        bills={
+          state.extras || state.bills ? (
+            <BookingFeeBills rows bills={next.kind === 'fee' ? FEE_BILLS.slice(1) : FEE_BILLS} copyFor={(b) => feeDueCopy(b, LAB_TODAY)} />
+          ) : null
+        }
         shop={{ name: 'Lumina Studio', line: 'Photo & video · Live', live: true }}
         alsoWaiting={
           <>
             <WhatsNewFeed cards={needsAnswer} asks={waiting.asks} incomplete={state.deskIncomplete} {...actions} />
             <NothingToAnswerFeed cards={nothingToAnswer} {...actions} />
-            {state.extras ? (
-              <BookingFeeBills rows bills={next.kind === 'fee' ? FEE_BILLS.slice(1) : FEE_BILLS} copyFor={(b) => feeDueCopy(b, LAB_TODAY)} />
-            ) : null}
           </>
         }
       />

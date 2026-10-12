@@ -644,18 +644,21 @@ export default async function VendorOverviewPage({
               respondMeeting={respondAppointment}
               markServiceComplete={vendorMarkServiceComplete}
             />
-            {/* WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its
-                own Pay (owner 2026-09-20: "i never saw the payment screen to
-                pay us"). The Next card shows ONE bill, and only when nothing
-                busier wins; this shows the rest, always. Renders nothing when
-                there is no unpaid fee, and nothing when the read failed — an
-                unread bill list is not "you owe nothing". */}
-            <BookingFeeBills
-              rows
-              bills={next.kind === 'fee' ? todayFeeBills.slice(1) : todayFeeBills}
-              copyFor={(b) => feeDueCopy(b, manilaToday())}
-            />
           </>
+        }
+        // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own
+        // Pay (owner 2026-09-20: "i never saw the payment screen to pay us").
+        // The Next card shows ONE bill, and only when nothing busier wins; this
+        // shows the rest, always, last under Also waiting. Renders nothing when
+        // there is no unpaid fee, and nothing when the read failed — an unread
+        // bill list is not "you owe nothing".
+        hasBills={(next.kind === 'fee' ? todayFeeBills.length - 1 : todayFeeBills.length) > 0}
+        bills={
+          <BookingFeeBills
+            rows
+            bills={next.kind === 'fee' ? todayFeeBills.slice(1) : todayFeeBills}
+            copyFor={(b) => feeDueCopy(b, manilaToday())}
+          />
         }
       />
 

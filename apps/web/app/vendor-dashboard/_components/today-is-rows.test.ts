@@ -82,6 +82,8 @@ type Opts = {
   setupStep?: { title: string; body: string; cta: string | null; href: string | null } | null;
   credit?: { title: string; body: string; href: string } | null;
   payout?: { title: string; body: string; href: string } | null;
+  /** A stand-in for the page's `<BookingFeeBills rows>`. */
+  bills?: boolean;
 };
 
 async function queue(o: Opts) {
@@ -140,6 +142,8 @@ async function render(o: Opts): Promise<string> {
       comingUp: (next.kind === 'run_day' ? input.upcoming.slice(1) : input.upcoming).slice(0, 3),
       alsoWaitingHeaded: waiting.asks.length > 0 || input.deskIncomplete,
       doors: waiting.doors,
+      hasBills: o.bills ?? false,
+      bills: o.bills ? React.createElement('div', { 'data-testid': 'booking-fee-bill', className: 'border-t' }, 'Booking fee due') : null,
       shop: { name: 'Lumina Studio', line: 'Photo & video · Live', live: true },
       alsoWaiting: React.createElement(WhatsNewFeed, { cards: needsAnswer, asks: waiting.asks, incomplete: input.deskIncomplete, ...actions }),
     }),
@@ -200,6 +204,23 @@ test('1d · the doors are never drawn under the wrong heading', async () => {
   // With ask rows: one heading, above the asks.
   const both = await render({ needsAnswer: [REPLY, BOOKING], credit });
   assert.equal((text(both).match(/Also waiting/g) ?? []).length, 1);
+});
+
+test('1e · the booking-fee rows sit LAST under "Also waiting" — never under Coming up with no heading of their own', async () => {
+  // Found on the 375 walk (2026-10-12): with one ask (the Next card) and no door, two fee rows were drawn straight
+  // under the last Coming-up row.
+  const heading = (html: string) => (text(html).match(/Also waiting/g) ?? []).length;
+  for (const o of [{ needsAnswer: [REPLY] }, { needsAnswer: [REPLY, BOOKING] }, { needsAnswer: [REPLY], credit: { title: 'Credit ends', body: 'b', href: '/vendor-dashboard/subscription' } }] as Opts[]) {
+    const html = await render({ ...o, upcoming: [{ ...today, date: '2026-10-05', inDays: 3 }], bills: true });
+    const bill = html.indexOf('data-testid="booking-fee-bill"');
+    assert.ok(bill > 0, 'anti-vacuity: the bill was not drawn');
+    assert.equal(heading(html), 1, 'not exactly one "Also waiting" heading');
+    assert.ok(text(html.slice(0, bill)).includes('Also waiting'), 'a fee row is drawn before the "Also waiting" heading — it reads as a Coming-up row');
+    assert.ok(bill > html.lastIndexOf('data-today-row="coming-up"'), 'a fee row is above Coming up');
+    assert.ok(bill < html.indexOf('data-today-shop'), 'a fee row is below the Shop row');
+  }
+  // No bill → nothing drawn, and no stray heading.
+  assert.doesNotMatch(await render({ needsAnswer: [REPLY] }), /data-today-bills|Also waiting/);
 });
 
 /* ═══ 2 · NO ANSWER IS LEFT WITH NOWHERE TO BE GIVEN ═══════════════════════ */
@@ -324,6 +345,7 @@ test('3 · each banner taken off Today either has a rule in pickSupplierNext or 
   assert.match(page, /const payoutCopy = hasBooking && !hasLockAsk \? payoutNudgeCopy\(payoutReadiness, 'today'\) : null;/, 'the payout row no longer follows the nudge’s own rule');
   assert.match(page, /const shopLine = \[categoryWord, shopState, awardWord, milestoneWord\]/, 'the award and the milestone left the Shop row');
   assert.match(page, /<BookingFeeBills\s+rows\s+bills=\{next\.kind === 'fee' \? todayFeeBills\.slice\(1\) : todayFeeBills\}/, 'the fee bills are no longer all on Today, as rows');
+  assert.match(page, /hasBills=\{\(next\.kind === 'fee' \? todayFeeBills\.length - 1 : todayFeeBills\.length\) > 0\}/, 'the page does not say when it has bills, so they may be drawn with no heading');
 
   // A busy shop: an ask wins the Next card; every other thing still shows.
   const find = { title: 'Couples can’t find you yet.', body: 'b', cta: { label: 'Ask us', href: '/help#contact' } };

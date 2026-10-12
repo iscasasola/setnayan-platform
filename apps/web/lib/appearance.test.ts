@@ -31,7 +31,7 @@ const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
 
 const SESSION = 'sb-abcdefghij-auth-token=base64-xyz';
 const SESSION_CHUNKED = 'sb-abcdefghij-auth-token.0=base64-a; sb-abcdefghij-auth-token.1=b';
-const COOKIES: Record<string, string> = {
+const COOKIES = {
   'nothing': '',
   'chose dark, signed out': 'sn-theme=dark',
   'chose light, signed in': `sn-theme=light; ${SESSION}`,
@@ -40,7 +40,8 @@ const COOKIES: Record<string, string> = {
   'signed in, never chose': SESSION,
   'look-alike cookie name': `xsn-theme=dark; ${SESSION}`,
   'look-alike value': `sn-theme=darker; ${SESSION}`,
-};
+} as const;
+type Who = keyof typeof COOKIES;
 const PATHS = [
   '/',
   '/dashboard',
@@ -76,7 +77,7 @@ function runScript(script: string, pathname: string, cookie: string) {
 
 test('(a) the rule: dark only for a signed-in person who chose it, on a ready app screen', () => {
   const appRoutes = ROUTE_RESERVED_SLUGS;
-  const d = (path: string, who: string, ready = SAMPLE_READY) => darkApplies({ pathname: path, cookie: COOKIES[who], appRoutes }, ready);
+  const d = (path: string, who: Who, ready = SAMPLE_READY) => darkApplies({ pathname: path, cookie: COOKIES[who], appRoutes }, ready);
   assert.equal(d('/dashboard/abc/guests', 'chose dark, signed in'), true);
   assert.equal(d('/dashboard', 'chose dark, signed in (chunked)'), true);
   assert.equal(d('/dashboard', 'chose dark, signed out'), false, 'signed out is always Light (call 4)');
@@ -91,7 +92,7 @@ test('(a) the rule: dark only for a signed-in person who chose it, on a ready ap
   assert.equal(d('/marco-marga/rsvp', 'chose dark, signed in', ['/']), false);
   assert.equal(d('/', 'chose dark, signed in', ['/']), true, '"/" is the app');
   assert.equal(signedInFromCookie('sb-x-auth-token-code-verifier=1'), false, 'the PKCE verifier is not a session');
-  assert.equal(appearanceFromCookie(appearanceCookieAssignment('dark', true).split(';')[0]), 'dark');
+  assert.equal(appearanceFromCookie(appearanceCookieAssignment('dark', true).split(';')[0] ?? ''), 'dark');
 });
 
 test('(b) the real <head> script decides and paints exactly as the rule, for every person and path', () => {
@@ -124,7 +125,7 @@ test('(c) as shipped — the ready-list is EMPTY, so nobody sees dark anywhere y
 test('(d) a ready-list entry is always an app route, never a couple’s slug', () => {
   for (const p of DARK_READY) {
     assert.match(p, /^\/[a-z0-9-]+(\/|$)/, `"${p}" must be an absolute path prefix`);
-    const first = p.split('/')[1];
+    const first = p.split('/')[1] ?? '';
     assert.ok(ROUTE_RESERVED_SLUGS.has(first), `"${p}" starts with "${first}", which is not an app route — it could be a couple's page`);
   }
 });
@@ -152,7 +153,7 @@ test('(e) the lock is gone, the save re-renders nothing, the control is the pill
   const dir = join(WEB, '..', '..', 'supabase', 'migrations');
   const mig = readdirSync(dir).filter((f) => /users_theme_preference_light_by_default\.sql$/.test(f));
   assert.equal(mig.length, 1, 'the auto → light migration is missing');
-  const sql = readFileSync(join(dir, mig[0]), 'utf8');
+  const sql = readFileSync(join(dir, mig[0] ?? ''), 'utf8');
   assert.match(sql, /SET theme_preference = 'light'\s+WHERE theme_preference = 'auto'/);
   assert.match(sql, /ALTER COLUMN theme_preference SET DEFAULT 'light'/);
 });

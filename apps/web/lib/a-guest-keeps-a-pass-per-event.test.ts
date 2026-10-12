@@ -119,6 +119,9 @@ test('(3) a stranger still gets the door; a book holding A and B opens nothing o
   const other = await reply(jar, 'someone-else', 'eeeeeeee-0000-4000-8000-00000000000c');
   assert.equal(other.entry.kind, 'door', 'another event\'s pass opened a third event');
   assert.equal((await passSwapForPath({ jar, pathname: '/someone-else/invite/reply' })), null);
+  // …whichever pass is active: with A's active, C still swaps in nothing.
+  const onA: PassJar = { ...jar, active: await signGuestSession(A) };
+  assert.equal(await passSwapForPath({ jar: onA, pathname: '/someone-else/invite/reply' }), null, 'a page of another event swapped a pass in');
 });
 
 test('(4) a guest sign-out on A removes A\'s pass ONLY; B\'s stays (and is active again); everywhere removes all', async () => {

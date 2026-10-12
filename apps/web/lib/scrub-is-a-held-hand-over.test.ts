@@ -600,7 +600,11 @@ test('(11) fitted before it fades: once, unarmed; held where it stands when its 
   /* (c) the door stays when it is on the first screen as the page opens — above the bar it docks clear of; the box
      after it is the one pulled up; its rest keeps its own margin; what follows rises no higher than under it. */
   assert.match(engine, /const DOOR = '\[data-get-inside\]';/);
-  assert.match(engine, /const stays = door !== null && rowEnd !== null && mate !== null && Math\.max\(\.\.\.row\.map\(\(el\) => onPage\(el, 'bottom'\)\)\) <= V - dockedBy \+ 0\.5;/);
+  assert.match(engine, /const stays = button !== null && rowEnd !== null && mate !== null && onPage\(button, 'bottom'\) <= V - dockedBy \+ 0\.5;/);
+  /* …read where the page lays it out: last time's pull taken off first (a door drawn up over the cover read as "on the
+     first screen" — seen in the browser on the photo cover, 2026-10-12). */
+  assert.match(engine, /if \(zrest\) put\(zrest, 'data-hub-zrest', null\);/);
+  assert.ok(engine.indexOf("if (zrest) put(zrest, 'data-hub-zrest', null);") < engine.indexOf('const stays = '), 'the door is measured where the last measure pulled it');
   assert.match(engine, /if \(outside\) put\(coverRest, '--hub-up', stays \? px\(restMargin \?\? 0\) : '0px'\);/);
   assert.match(engine, /put\(h\.lift, '--hub-zrise', px\(Math\.max\(h\.floor \?\? 0, /);
   assert.match(engine, /for \(const el of staying\) put\(el, 'data-hub-stay', ''\);/);

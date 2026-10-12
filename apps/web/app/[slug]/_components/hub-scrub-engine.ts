@@ -234,7 +234,8 @@ export function armHubScrub(root: HTMLElement): () => void {
     try {
       let undo: (() => void) | null = null;
       if (fits) {
-        const fit = firstScreenFitter(screen!, card!, inner as HTMLElement, door, () => docTop(cover) - cover.getBoundingClientRect().top);
+        /* (Without the hold nothing stands still: the page's own scroll turns a box on the screen into a place on the page.) */
+        const fit = firstScreenFitter(screen!, card!, inner as HTMLElement, door, () => window.scrollY);
         fit.mark(true);
         const list = fit.blocks();
         fit.clear(list);
@@ -306,6 +307,9 @@ export function armHubScrub(root: HTMLElement): () => void {
       /* (Measured with the rest's own margin on it — where a door in it stands on the page as it opens. A rest that is
          pulled up is given its own number below, read back from what it is pulled to: this costs it nothing.) */
       if (restMargin !== null) put(coverRest, '--hub-up', px(restMargin));
+      /* (…and with last time's pull taken off: a door must be read where the page lays it out, never where the last
+         measure pulled it — a door drawn up over the cover would read as "on the first screen" and stay there.) */
+      if (zrest) put(zrest, 'data-hub-zrest', null);
       /* 🚪 THE COVER NEVER FADES TO NOTHING. What arrives is looked for in the cover's own rest first — and when that
          box holds nothing a guest can see (a reply row that drew nothing; a cover that is the last thing in its
          group, as the stranger's photo cover is), in the next box on the page after the cover's cell. That box,
@@ -340,7 +344,9 @@ export function armHubScrub(root: HTMLElement): () => void {
       /* 🚪 THE DOOR STAYS when it is on the first screen as the page opens: above the bottom bar it docks clear of. */
       const door = row.find((el) => el.matches(DOOR) || el.querySelector(DOOR) !== null) ?? null;
       const dockedBy = door ? parseFloat(getComputedStyle(door.matches(DOOR) ? door : door.querySelector<HTMLElement>(DOOR)!).scrollMarginBottom) || 0 : 0;
-      const stays = door !== null && rowEnd !== null && mate !== null && Math.max(...row.map((el) => onPage(el, 'bottom'))) <= V - dockedBy + 0.5;
+      /* (The door itself — the line under it may run on below; the fit made room for the button, as today.) */
+      const button = door ? (door.matches(DOOR) ? door : door.querySelector<HTMLElement>(DOOR)!) : null;
+      const stays = button !== null && rowEnd !== null && mate !== null && onPage(button, 'bottom') <= V - dockedBy + 0.5;
       const staying = stays ? row : [];
       let keep: { seen: number; stay?: number } = { seen };
       if (stays) {

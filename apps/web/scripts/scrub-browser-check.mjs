@@ -1027,7 +1027,8 @@ if (!ONLY || ONLY === '16' || ONLY === '16b') {
       say(fits.length === 1, `${size}: fitted once — the fit is the same at every position (${fits.join(' / ')})`);
       const mid = hold[Math.floor(hold.length / 2)]?.s ?? 0;
       for (const [where, y] of [['at the top', 0], ['in the middle of the hold', mid]]) {
-        await at(y);
+        /* (After the page's own one-off settling — the scroll reveal's 0.7 s — so a loop is what is seen, not a fade.) */
+        await at(y); await p.waitForTimeout(1200);
         const lengths = new Set();
         for (let i = 0; i < 20; i++) { lengths.add(await p.evaluate(() => `${document.documentElement.scrollHeight} ${Math.round((document.querySelector('.hub-cover')?.getBoundingClientRect().height ?? 0) * 100) / 100}`)); await p.waitForTimeout(50); }
         say(lengths.size === 1, `${size}: no jitter ${where} (${y}px) — one page length and one cover height over a second at rest (${[...lengths].join(' · ')})`);
@@ -1042,7 +1043,8 @@ if (!ONLY || ONLY === '16' || ONLY === '16b') {
     const size = `${W}x${H} the stranger’s text cover, the door opened at the top`;
     const { ctx, p, errs, at } = await openF('fixture-stranger-cover-fit.html', W, H);
     const before = await at(0);
-    await p.click('main details[data-get-inside] > summary'); await p.waitForTimeout(900);
+    /* (A door that is not there to press is a red row, not a stopped check.) */
+    await p.click('main details[data-get-inside] > summary', { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(900);
     const after = await p.evaluate(SNAPF);
     const opened = await p.evaluate(() => ({ open: document.querySelector('main details[data-get-inside]').open, signIn: document.querySelector('main details[data-get-inside] a[href^="/login"]').getBoundingClientRect().bottom, sticky: [...document.querySelectorAll('.hub-page-stage')].some((e) => getComputedStyle(e).position === 'sticky') }));
     const shift = after.s;

@@ -550,12 +550,17 @@ export default async function WebsiteEditorPage({
   );
 
   // Public schedule blocks — the same set guests see (source of truth stays
-  // the Schedule page; the panel mirrors it + links there).
+  // the Schedule page; the panel mirrors it + links there). 🔒 "The same set"
+  // is the guests' fence: public · for Everyone · released — the three
+  // conditions the database's anonymous read asks (20271267138064). The host's
+  // session alone would also hand back their role-only moments.
   const { data: scheduleBlocksRaw, error: scheduleBlocksRawError } = await supabase
     .from('event_schedule_blocks')
     .select('block_id, label, start_at, location')
     .eq('event_id', eventId)
     .eq('is_public', true)
+    .is('audience', null)
+    .neq('visibility', 'coordinator_only')
     .order('start_at', { ascending: true })
     .limit(12);
   // ⚠ the schedule the couple authored, shown on their site. Refused, the day reads

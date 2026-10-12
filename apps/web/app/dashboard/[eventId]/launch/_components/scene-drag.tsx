@@ -398,9 +398,12 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
             }}
           >
             <Trash2 aria-hidden className={`h-[26px] w-[26px] transition-transform duration-200 ${held && over ? '-rotate-12' : ''}`} strokeWidth={1.8} />
+            {/* (walk F4, 2026-10-12: over the foot of a large lifted scene the paper pill was paper on paper — it wears the
+                bin's own line around it, so it reads over any scene. Its place is the prototype's.) */}
             <span
               data-scene-bin-word=""
-              className={`absolute -top-[30px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--sp-paper)] px-2.5 py-[3px] text-[12px] tracking-[0.02em] shadow-[var(--m-shadow-sm)] ${
+              style={{ boxShadow: `0 0 0 1.5px var(${held && over ? '--sp-bad' : '--sp-line2'}), var(--m-shadow-sm)` }}
+              className={`absolute -top-[30px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--sp-paper)] px-2.5 py-[3px] text-[12px] tracking-[0.02em] ${
                 held && over ? 'font-semibold text-[var(--sp-bad)]' : 'text-[var(--sp-ink)]'
               }`}
             >

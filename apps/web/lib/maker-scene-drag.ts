@@ -231,6 +231,31 @@ export function sceneEdgeScroll(y: number, top: number, bottom: number, overBin:
   return 0;
 }
 
+/**
+ * 👁 THE GAP STAYS IN SIGHT (the independent Maker walk, 2026-10-12, F1: Details › Schedule carried to the bottom edge
+ * and rested over the Wedding March, just above Reminders — the page had scrolled on, while Schedule can never pass
+ * the March; the gap stood ~1300 px ABOVE the screen and the scene landed 1240 px out of sight: "the couple may think
+ * it was deleted"). When the gap can go no further — at the last slot going down, the first going up — the page
+ * scrolls on only while the gap stays between the finger and the edge it scrolls towards: it never carries the gap
+ * past the finger and off the screen. `v` is `sceneEdgeScroll`'s step; `gap` is the gap's box and `y` the finger, both
+ * in the page's viewport; `slot` / `last` as `sceneDropSlot` counts them (`last` = after the last of the others).
+ */
+export function sceneEdgeScrollKept(v: number, y: number, gap: { top: number; bottom: number }, slot: number, last: number): number {
+  if (v > 0 && slot >= last) return Math.max(0, Math.min(v, Math.floor(gap.bottom - y)));
+  if (v < 0 && slot <= 0) return Math.min(0, Math.max(v, Math.ceil(gap.top - y)));
+  return v;
+}
+
+/**
+ * …AND A DROP IS SEEN WHERE IT LANDED: how far to scroll (px; 0 = it is in sight) so the landed scene's top stands in
+ * the visible band — `room` below the band's top, or its end in the band when it is shorter than the band.
+ */
+export function sceneBringIntoView(box: { top: number; bottom: number }, band: { top: number; bottom: number }, room: number = SCENE_EDGE_PX): number {
+  if (box.top >= band.top && box.top <= band.bottom - room) return 0;
+  if (box.bottom > band.top + room && box.top < band.top && box.bottom <= band.bottom) return 0;
+  return Math.round(box.top - (band.top + room));
+}
+
 /** What a press on the page may do right now. */
 export type SceneLiftVerdict = 'lift' | 'busy' | 'no';
 

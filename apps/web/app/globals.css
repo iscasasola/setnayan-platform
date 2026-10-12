@@ -8600,12 +8600,6 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
      the browser check: 196 px low under a four-strong rule). */
   .hub-page-cell[data-hub-page-on] [data-hub-zrest] { margin-top: var(--hub-up, 0px) !important; }
   .hub-page-cell[data-hub-page-on] [data-hub-zlift] { position: relative; top: var(--hub-zrise, 0px); }
-  /* 🚪 A DOOR THAT STAYS IS PRESSABLE (2026-10-12 — "Get inside" stays on the stranger's first screen while the cover
-     is held). What arrives in the cover's place is pulled up THROUGH the door, and the box it is pulled in is a later
-     block of the page: drawn after the door, it lies over it — nothing to see (it is empty there), but it is what a
-     tap lands on. So the door is lifted into its own layer, above them, for as long as it stays. (`position: relative`
-     with no offset moves nothing.) */
-  .hub-page-cell[data-hub-page-on] [data-hub-stay] { position: relative; z-index: 1; }
   /* THE SAME PLACE — the rest of the page begins OVER the leaving scene (how far: the engine's measure). */
   .hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after { margin-top: var(--hub-up, 1rem); }
   /* WHAT FOLLOWS THE PAIR sits under the lower of the two until the leaving one has gone, then under the arrival

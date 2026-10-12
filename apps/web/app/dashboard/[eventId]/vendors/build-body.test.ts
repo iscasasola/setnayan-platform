@@ -61,7 +61,7 @@ const WORDS = [
   "'Already saved'",
   'already has exactly these suppliers.',
   '— the same suppliers in every category. Nothing new to save.',
-  'Your current combination, kept to compare later.',
+  "'Your current combination, kept to compare later.'",
   '(optional)',
   '`Updated "${target.name}"`',
   '`Using "${card.name}"`',
@@ -94,11 +94,23 @@ test('every write is a shipped action, and nothing else writes', () => {
 
 test('GOLDEN: a save posts the four fields it always posted', () => {
   const calls = [...BODY.matchAll(/writes\.save\(\{([^}]*)\}\)/g)].map((m) => m[1]!.split(',').map((f) => f.trim().split(':')[0]!.trim()).filter(Boolean));
-  assert.ok(calls.length >= 4, 'Save, Save as new and the two undos all go through the one save');
+  assert.ok(calls.length >= 5, 'Save, Save as new, Rename and the two undos all go through the one save');
   for (const fields of calls) assert.deepEqual(fields.sort(), ['eventId', 'overwriteBuildId', 'rawName', 'snapshot']);
   // Overwrite names its build; Save as new never does.
   assert.match(BODY, /overwriteBuildId: target\.id, snapshot: view\.snapshot/);
   assert.match(BODY, /rawName: typed \|\| null, overwriteBuildId: null, snapshot: view\.snapshot/);
+});
+
+test('KEPT REACHABLE: the shipped controls the prototype is silent about are still on the page', () => {
+  // Rename — the shipped rename-by-overwrite: the same build, its own suppliers.
+  assert.match(BODY, /label="Rename"/);
+  assert.match(BODY, /rawName: typed \|\| null, overwriteBuildId: target\.id, snapshot: own/);
+  // What a price comes with — folded on the build's card.
+  assert.match(BODY, /data-build-inclusions=""/);
+  // "Fill your build from your quotes" and "Clear candidates" — mounted by the page.
+  assert.match(BODY, /\{extrasSlot \? \(/);
+  assert.match(PAGE, /<QuoteFillRow eventId=\{eventId\} fillable=\{quoteFillable\} budgetPhp=\{buildBudgetPhp\} \/>/);
+  assert.match(PAGE, /<TeamClearCandidates eventId=\{eventId\} \/>/);
 });
 
 test('a Use never re-opens a booked category, and can be undone', () => {
@@ -148,6 +160,13 @@ test('the bar slides with the mode, and only in Build', () => {
   assert.match(BODY, /thumbUp\.current = true;/);
   assert.match(BODY, /data-build-bar=""/);
   assert.match(BODY, /createPortal\(/);
+});
+
+test('"Book this build" stays mounted, so its toast outlives the last pick it booked', () => {
+  const BOOK = read('_components/book-this-build.tsx');
+  assert.match(BODY, /bookSlot=\{bookSlot\}/);
+  assert.doesNotMatch(BODY, /bar\.book \? bookSlot/, 'the bar unmounts the booking with its button — the toast is lost');
+  assert.match(BOOK, /\{picks\.length > 0 \? \(\s*<ActionButton tone="ok" icon=\{CalendarCheck\} label="Book this build"/);
 });
 
 test('the shell draws the Build body whole, and keeps both anchors', () => {

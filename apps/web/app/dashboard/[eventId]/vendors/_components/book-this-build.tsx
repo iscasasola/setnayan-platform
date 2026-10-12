@@ -39,7 +39,7 @@ export const BookStandInCtx = createContext<null | ((fields: Array<[string, stri
 
 /** Filled green in the bar (rule 7: a toned button keeps its full colour)
  *  without being the row's main verb, so the fit pass may drop its word. */
-const BAR_OK = '!flex-1 !border-[rgb(var(--color-ok))] !bg-[rgb(var(--color-ok))] !text-white';
+const BAR_OK = 'max-lg:!flex-1 !border-[rgb(var(--color-ok))] !bg-[rgb(var(--color-ok))] !text-white';
 
 type Row = { pick: BookPick; outcome: BookOutcome | null };
 
@@ -121,13 +121,20 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
 
   const openCard = (tile: string) => {
     setRows(null);
-    router.push(`${base}?tab=shortlist&open=${encodeURIComponent(tile)}`, { scroll: false });
+    // The bus first, then the deep link — see `findIn` in `build-body.tsx`.
     goToBuildTab('shortlist');
+    router.push(`${base}?tab=shortlist&open=${encodeURIComponent(tile)}`, { scroll: false });
   };
 
   return (
     <>
-      <ActionButton tone="ok" icon={CalendarCheck} label="Book this build" onClick={start} disabled={pending} className={BAR_OK} />
+      {/* Offered only while a pick is neither booked nor already asked. The
+          component itself stays mounted, so the toast below outlives the last
+          pick it booked (seen in the lab: the bar dropped the button and the
+          toast went with it). */}
+      {picks.length > 0 ? (
+        <ActionButton tone="ok" icon={CalendarCheck} label="Book this build" onClick={start} disabled={pending} className={BAR_OK} />
+      ) : null}
       {rows && typeof document !== 'undefined'
         ? createPortal(
             <Sheet open onClose={close} labelledById="book-build-h" title="Book this build">
@@ -171,7 +178,7 @@ function BookSheet({
   useFitRow(rowRef);
   const toConfirm = rows.filter((r) => r.outcome?.kind === 'confirm');
   return (
-    <div className="space-y-4 px-1 pb-4" data-book-sheet="">
+    <div className="space-y-4 px-5 pb-5" data-book-sheet="">
       <p id="book-build-h" className="text-sm text-ink/70">
         {toConfirm.length > 0 ? 'Some of these need your yes before they are asked.' : 'Not every supplier could be asked.'}
       </p>

@@ -12,8 +12,9 @@
  *   &build=garden         …with "Garden build" already in use (bar: Saved)
  *   &build=none           …a new event's Build: no picks, no saved builds
  *   &build=unread         …the saved builds could not be read
+ *   &build=answers        …Bituin (picked) said no to the booking ask
  */
-import { useMemo, useState, type ComponentProps } from 'react';
+import { useMemo, useRef, useState, type ComponentProps } from 'react';
 import { ServicesTakeover } from '@/app/dashboard/[eventId]/vendors/_components/services-takeover';
 import { BuildBody, BuildWritesStandInCtx, type BuildWrites } from '@/app/dashboard/[eventId]/vendors/_components/build-body';
 import { BookStandInCtx, BookThisBuild } from '@/app/dashboard/[eventId]/vendors/_components/book-this-build';
@@ -27,6 +28,7 @@ import {
   LAB_BUILD_BUDGET_PHP,
   LAB_BUILD_DATE_FIT,
   LAB_BUILD_DAY,
+  LAB_BUILD_INCLUSIONS,
   LAB_BUILD_PRICES,
   LAB_BUILD_TILES,
   LAB_SAVED_BUILDS,
@@ -42,14 +44,29 @@ const row = (b: LabSavedBuild) => ({ build_id: b.id, label: null, title: b.title
 export function LabSuppliersShell({ start, bookedCount, ...shell }: ShellProps & { start: string | null }) {
   const [builds, setBuilds] = useState<LabSavedBuild[]>(start === 'none' ? [] : LAB_SAVED_BUILDS);
   // tile → the supplier pinned to the build there.
-  const [picks, setPicks] = useState<Record<string, string>>(start === 'garden' ? { catering: 'v-luntian' } : {});
+  const [picks, setPicks] = useState<Record<string, string>>(
+    start === 'garden' ? { catering: 'v-luntian' } : start === 'answers' ? { catering: 'v-bituin' } : {},
+  );
   // Suppliers the couple has asked to book — they wait for their yes.
   const [asked, setAsked] = useState<ReadonlySet<string>>(new Set());
   const tiles = useMemo(
     () =>
       LAB_BUILD_TILES.map((t) => ({
         ...t,
-        vendors: start === 'none' ? [] : t.vendors.map((x) => ({ ...x, asked: asked.has(x.vendorId) })),
+        vendors:
+          start === 'none'
+            ? []
+            : t.vendors.map((x) => ({
+                ...x,
+                // `&build=answers`: Bituin said no, Hiraya let the window run out.
+                lockState: asked.has(x.vendorId)
+                  ? ('requested' as const)
+                  : start === 'answers' && x.vendorId === 'v-bituin'
+                    ? ('declined' as const)
+                    : start === 'answers' && x.vendorId === 'v-hiraya'
+                      ? ('expired' as const)
+                      : ('none' as const),
+              })),
       })),
     [asked, start],
   );
@@ -58,6 +75,7 @@ export function LabSuppliersShell({ start, bookedCount, ...shell }: ShellProps &
     const lines = buildLinesOf({
       tiles,
       priceOf: (id) => LAB_BUILD_PRICES[id] ?? null,
+      inclusionsOf: (id) => LAB_BUILD_INCLUSIONS[id] ?? [],
       inBuild: new Set(Object.values(picks)),
       blocked: LAB_BUILD_BLOCKED,
     });
@@ -81,6 +99,9 @@ export function LabSuppliersShell({ start, bookedCount, ...shell }: ShellProps &
     });
   }, [builds, picks, tiles, start]);
 
+  // The saved builds as they are NOW — an Undo runs a write captured a render ago.
+  const buildsNow = useRef(builds);
+  buildsNow.current = builds;
   const writes = useMemo<BuildWrites>(() => {
     const tileOf = (vendorId: string) => LAB_BUILD_TILES.find((t) => t.vendors.some((x) => x.vendorId === vendorId))?.tile ?? null;
     return {
@@ -94,7 +115,7 @@ export function LabSuppliersShell({ start, bookedCount, ...shell }: ShellProps &
         return ok();
       },
       save: async ({ rawName, overwriteBuildId, snapshot }) => {
-        const plan = planSaveAs({ rawName, overwriteBuildId: overwriteBuildId ?? null, existing: builds.map(row), picks: snapshot.picks });
+        const plan = planSaveAs({ rawName, overwriteBuildId: overwriteBuildId ?? null, existing: buildsNow.current.map(row), picks: snapshot.picks });
         if (plan.mode === 'twin') return { ok: false, error: `Already saved — exactly “${plan.twinTitle}”` };
         if (plan.mode === 'unchanged') return { ok: false, error: 'Nothing changed' };
         if (plan.mode === 'overwrite') {
@@ -116,7 +137,7 @@ export function LabSuppliersShell({ start, bookedCount, ...shell }: ShellProps &
         return ok();
       },
     };
-  }, [builds]);
+  }, []);
 
   // What the booking answers in the lab: Bituin is asked at once; Hiraya's
   // booking makes the date official (one yes, then asked); Luntian books by

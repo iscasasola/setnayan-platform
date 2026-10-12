@@ -8,6 +8,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  PICK_ASKED_NOTE,
+  PICK_DECLINED_NOTE,
+  PICK_LAPSED_NOTE,
   buildBarOf,
   buildCardOf,
   buildCounts,
@@ -86,11 +89,38 @@ test('"N of M categories" counts booked and picked lines; "to book" only the pic
 });
 
 test('a pick the couple has already asked to book waits for the supplier — it is not asked again', () => {
-  const tiles = [{ tile: 'catering', label: 'Catering', vendors: [{ ...v('bituin', 'Bituin Catering', 'catering'), asked: true }] }];
-  const ls = buildLinesOf({ tiles, priceOf: (id) => PRICES[id] ?? null, inBuild: new Set(['bituin']), blocked: new Map() });
-  assert.equal(ls[0]!.pickAsked, true);
-  assert.deepEqual(buildCounts(ls), { filled: 1, total: 1, toBook: 0 });
+  const one = (lockState: BuildLineInputVendor['lockState']) =>
+    buildLinesOf({
+      tiles: [{ tile: 'catering', label: 'Catering', vendors: [{ ...v('bituin', 'Bituin Catering', 'catering'), lockState }] }],
+      priceOf: (id) => PRICES[id] ?? null,
+      inBuild: new Set(['bituin']),
+      blocked: new Map(),
+    });
+  assert.equal(one('requested')[0]!.pickAsked, true);
+  assert.deepEqual(buildCounts(one('requested')), { filled: 1, total: 1, toBook: 0 });
   assert.equal(lines(['bituin']).find((l) => l.tile === 'catering')!.pickAsked, false);
+});
+
+test('each answer to the ask has its state on the line: declined and lapsed are said, and may be asked again', () => {
+  const one = (lockState: BuildLineInputVendor['lockState']) =>
+    buildLinesOf({
+      tiles: [{ tile: 'catering', label: 'Catering', vendors: [{ ...v('bituin', 'Bituin Catering', 'catering'), lockState }] }],
+      priceOf: (id) => PRICES[id] ?? null,
+      inBuild: new Set(['bituin']),
+      blocked: new Map(),
+    })[0]!;
+  assert.equal(one('declined').pickAnswer, 'declined');
+  assert.equal(one('expired').pickAnswer, 'expired');
+  // Withdrawn by the couple: a pick again, with nothing to say.
+  assert.equal(one('cancelled').pickAnswer, null);
+  assert.equal(one('none').pickAnswer, null);
+  for (const s of ['declined', 'expired', 'cancelled'] as const) {
+    assert.equal(one(s).pickAsked, false);
+    assert.deepEqual(buildCounts([one(s)]), { filled: 1, total: 1, toBook: 1 }, `${s}: the pick can be asked again`);
+  }
+  assert.equal(PICK_DECLINED_NOTE, 'They said no to this booking — you can ask again');
+  assert.equal(PICK_LAPSED_NOTE, 'They did not answer in time — you can ask again');
+  assert.equal(PICK_ASKED_NOTE, 'Asked to book · waiting for their yes');
 });
 
 test('GOLDEN: the snapshot Save posts keeps the shipped fields, and holds only what is in the build', () => {
@@ -112,6 +142,20 @@ test('GOLDEN: the snapshot Save posts keeps the shipped fields, and holds only w
     ],
     'the booked suppliers and the picks — never a shortlisted supplier who is not in the build',
   );
+});
+
+test('what a price comes with is saved with the build and shown on its card', () => {
+  const ls = buildLinesOf({
+    tiles: TILES,
+    priceOf: (id) => PRICES[id] ?? null,
+    inclusionsOf: (id) => (id === 'luntian' ? ['Dessert bar', 'Crew meals'] : []),
+    inBuild: new Set(['luntian']),
+    blocked: BLOCKED,
+  });
+  const snap = buildSnapshotOf(ls, null);
+  assert.deepEqual(snap.picks.find((p) => p.vendorId === 'luntian')!.inclusions, ['Dessert bar', 'Crew meals']);
+  const card = buildCardOf({ id: 'g', name: 'G', picks: snap.picks, categories: [{ label: 'Catering', groupId: 'catering' }], budgetPhp: null, free: null, lockedGroupIds: new Set() });
+  assert.deepEqual(card.rows, [{ label: 'Catering', supplier: 'Luntian', inclusions: ['Dessert bar', 'Crew meals'] }]);
 });
 
 test('twins: the same supplier in every category, whatever the order, the prices or the names', () => {
@@ -231,10 +275,10 @@ test('a build card: total of the prices that exist, one row per category, the bu
   assert.equal(card.unpriced, 1);
   assert.equal(card.bufferPhp, null);
   assert.deepEqual(card.rows, [
-    { label: 'Reception', supplier: 'Seda' },
-    { label: 'Ceremony', supplier: 'Santuario' },
-    { label: 'Cake', supplier: null },
-    { label: 'Catering', supplier: 'Luntian' },
+    { label: 'Reception', supplier: 'Seda', inclusions: [] },
+    { label: 'Ceremony', supplier: 'Santuario', inclusions: [] },
+    { label: 'Cake', supplier: null, inclusions: [] },
+    { label: 'Catering', supplier: 'Luntian', inclusions: [] },
   ]);
   assert.deepEqual(card.apply, [{ planGroupId: 'catering', vendorId: 'luntian' }], 'a Use never re-opens a booked category');
   const priced = buildCardOf({ id: 'p', name: 'P', picks: picks.filter((p) => p.costPhp != null), categories, budgetPhp: 2_250_000, free: null, lockedGroupIds: new Set() });

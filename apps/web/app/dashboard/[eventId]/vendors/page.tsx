@@ -139,7 +139,8 @@ import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
 import { BuildBody } from './_components/build-body';
 import { BookThisBuild } from './_components/book-this-build';
 import { computeBuildGuard, type GuardPick } from '@/lib/merkado-guard';
-import type { FillableCategory } from './_components/quote-fill';
+import { QuoteFillRow, type FillableCategory } from './_components/quote-fill';
+import { TeamClearCandidates } from './_components/team-controls';
 import { BuildLocked } from './_components/build-locked';
 import { ReuseBookingsPanel } from './_components/reuse-bookings-panel';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
@@ -2290,8 +2291,17 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         starterTiles: [...popularTilesFor(ev?.event_type ?? null)],
       });
       const priceByVendorId = new Map<string, number | null>();
+      // What each price comes with — the two lists the old "Current" column
+      // saved into a build (the supplier's linked services, the couple's own).
+      const inclusionsByVendorId = new Map<string, string[]>();
       for (const c of model.folders.flatMap((f) => f.children)) {
-        for (const p of c.picks) priceByVendorId.set(p.vendor_id, p.rolled_cost_php);
+        for (const p of c.picks) {
+          priceByVendorId.set(p.vendor_id, p.rolled_cost_php);
+          inclusionsByVendorId.set(p.vendor_id, [
+            ...(p.linked_services?.map((l) => l.label) ?? []),
+            ...(p.host_inclusions ?? []),
+          ]);
+        }
       }
       const blocked = new Map<string, string>();
       for (const [vendorId, why] of lockBlockedByVendorId) blocked.set(vendorId, BLOCKED_LOCK_ROW[why]);
@@ -2309,10 +2319,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
               name: v.name,
               status: v.status,
               planGroupId: v.planGroupId,
-              asked: v.lockRequestState === 'requested',
+              lockState: v.lockRequestState,
             })),
           })),
         priceOf: (vendorId) => priceByVendorId.get(vendorId) ?? null,
+        inclusionsOf: (vendorId) => inclusionsByVendorId.get(vendorId) ?? [],
         inBuild,
         blocked,
       });
@@ -2767,6 +2778,19 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                   eventId={eventId}
                   view={buildView}
                   guardSlot={showGuard ? <MerkadoGuardBanner guard={buildGuard} demand={guardDemand} /> : null}
+                  // KEPT REACHABLE — the prototype is silent about both, so
+                  // neither is dropped: "fill your build from your quotes"
+                  // (nothing when there are none) and "Clear candidates".
+                  extrasSlot={
+                    <>
+                      <QuoteFillRow eventId={eventId} fillable={quoteFillable} budgetPhp={buildBudgetPhp} />
+                      {buildLines.some((l) => l.pick && !l.booked) ? (
+                        <div className="flex justify-end">
+                          <TeamClearCandidates eventId={eventId} />
+                        </div>
+                      ) : null}
+                    </>
+                  }
                   // "Book this build" — every pick not booked and not already
                   // asked, through the one booking path (`book-this-build.tsx`).
                   bookSlot={

@@ -50,6 +50,8 @@ import { formatPhp } from '@/lib/php';
 import { isMultiPickGroup } from '@/lib/wedding-plan-groups';
 import {
   PICK_ASKED_NOTE,
+  PICK_DECLINED_NOTE,
+  PICK_LAPSED_NOTE,
   buildBarOf,
   noPriceNote,
   sameBuild,
@@ -94,10 +96,13 @@ const NO_PICK = '__none__';
 /** In the thumb bar a toned button keeps its full colour (rule 7) without
  *  being the row's main verb — so the fit pass may still drop its word. */
 const FILLED_BRAND = '!border-mulberry !bg-mulberry !text-white';
-const BAR_FLEX = '!flex-1';
+/** On a phone the bar's buttons share its width; on a computer it is a pill
+ *  in the corner and each keeps its own. */
+const BAR_FLEX = 'max-lg:!flex-1';
 
 const CARDS_CSS =
-  '[data-build-cards]{scrollbar-width:none;-webkit-overflow-scrolling:touch}[data-build-cards]::-webkit-scrollbar{display:none}';
+  '[data-build-cards]{scrollbar-width:none;-webkit-overflow-scrolling:touch}[data-build-cards]::-webkit-scrollbar{display:none}' +
+  '[data-build-inclusions] summary::-webkit-details-marker{display:none}';
 
 type Toast = { text: string; tone: 'ok' | 'bad'; undo?: () => void };
 
@@ -105,6 +110,7 @@ export function BuildBody({
   eventId,
   view,
   guardSlot = null,
+  extrasSlot = null,
   bookSlot = null,
   basePath,
 }: {
@@ -112,6 +118,9 @@ export function BuildBody({
   view: BuildView;
   /** Sai's watch line over the build (`MerkadoGuardBanner`) — the page decides. */
   guardSlot?: ReactNode;
+  /** Shipped controls the prototype is silent about, kept reachable under the
+   *  lines: "fill your build from your quotes" and "Clear candidates". */
+  extrasSlot?: ReactNode;
   /** "Book this build", at the end of the bar when a pick is not booked yet. */
   bookSlot?: ReactNode;
   /** Where the Suppliers page lives. The lab passes its own address. */
@@ -124,6 +133,8 @@ export function BuildBody({
   const [pending, startTransition] = useTransition();
   const [openId, setOpenId] = useState<string | null>(null);
   const [sheet, setSheet] = useState(false);
+  // The build being renamed (its name is rewritten over its own suppliers).
+  const [renaming, setRenaming] = useState<BuildCard | null>(null);
   const [name, setName] = useState('');
   const [toast, setToast] = useState<Toast | null>(null);
   // A build that was just saved as new becomes the open one once it is read back.
@@ -192,8 +203,11 @@ export function BuildBody({
     // The shipped doorway (`TeamDecisionDoorway`): the deep link the bench
     // reads, the bus, then the row itself when it is already on the page.
     const currentOpen = new URLSearchParams(window.location.search).get('open');
-    router.push(`${base}?tab=shortlist&open=${encodeURIComponent(tile)}`, { scroll: false });
+    // The bus FIRST: it rewrites `?tab=` on the address as it stands, and a
+    // push that had not landed yet lost its `open=` to that rewrite (seen in
+    // the lab: Find opened with no row open).
     goToBuildTab('shortlist');
+    router.push(`${base}?tab=shortlist&open=${encodeURIComponent(tile)}`, { scroll: false });
     if ((currentOpen ?? '') === tile) scrollBenchAnchor(benchTileAnchorId(tile));
   };
 
@@ -242,6 +256,21 @@ export function BuildBody({
     });
   };
 
+  // Rename = the shipped rename-by-overwrite: the SAME build, its own
+  // suppliers, a new name (`planSaveAs` lets exactly that through).
+  const rename = () => {
+    const target = renaming;
+    if (!target) return;
+    const typed = name.trim();
+    const own: BuildSnapshot = { budgetPhp: target.savedBudgetPhp, totalPhp: target.totalPhp, picks: target.picks };
+    run([() => writes.save({ eventId, rawName: typed || null, overwriteBuildId: target.id, snapshot: own })], (ok) => {
+      if (!ok) return;
+      setRenaming(null);
+      setName('');
+      setToast({ text: typed ? `Renamed to "${typed}"` : 'Renamed', tone: 'ok' });
+    });
+  };
+
   const remove = (card: BuildCard) => {
     const kept: BuildSnapshot = { budgetPhp: card.savedBudgetPhp, totalPhp: card.totalPhp, picks: card.picks };
     run([() => writes.remove({ eventId, buildId: card.id })], (ok) => {
@@ -263,7 +292,6 @@ export function BuildBody({
 
   return (
     <div data-build-body="" className="space-y-9 max-lg:pb-20">
-      <style>{CARDS_CSS}</style>
 
       {/* ── THIS BUILD ─────────────────────────────────────────────────── */}
       <section id="svc-build" aria-labelledby="svc-build-h">
@@ -297,6 +325,11 @@ export function BuildBody({
             />
           ))}
         </ul>
+        {extrasSlot ? (
+          <div className="mt-2 space-y-2" data-build-extras="">
+            {extrasSlot}
+          </div>
+        ) : null}
 
         {/* ── the money ── */}
         <dl className="mt-1.5 grid grid-cols-2 gap-x-6 gap-y-3.5 border-t border-ink/10 pb-1.5 pt-3.5" data-money="" data-build-money="">
@@ -366,6 +399,10 @@ export function BuildBody({
                       isTwin={i > 0 && twin?.id === card.id}
                       busy={pending}
                       onUse={() => use(card)}
+                      onRename={() => {
+                        setName(card.title ?? '');
+                        setRenaming(card);
+                      }}
                       onDelete={() => remove(card)}
                     />
                   ))}
@@ -376,6 +413,9 @@ export function BuildBody({
         )}
       </section>
 
+      {/* Last, so the first section stays the first child (`space-y`). */}
+      <style>{CARDS_CSS}</style>
+
       <BuildBar
         kind={bar.kind}
         canSave={bar.canSave}
@@ -383,7 +423,9 @@ export function BuildBody({
         onSaved={() => setSheet(true)}
         onSave={overwrite}
         onSaveAs={() => setSheet(true)}
-        bookSlot={bar.book ? bookSlot : null}
+        // Always mounted: it hides its own button when nothing is left to book,
+        // and its toast must outlive the last pick it booked.
+        bookSlot={bookSlot}
       />
 
       {sheet && typeof document !== 'undefined'
@@ -404,6 +446,33 @@ export function BuildBody({
                 onClose={() => setSheet(false)}
                 onSave={saveAsNew}
                 onDeleteTwin={twin ? () => remove(twin) : undefined}
+              />
+            </Sheet>,
+            document.body,
+          )
+        : null}
+
+      {renaming && typeof document !== 'undefined'
+        ? createPortal(
+            <Sheet
+              open
+              onClose={() => {
+                setRenaming(null);
+                setName('');
+              }}
+              labelledById="build-save-h"
+              title="Rename this build"
+            >
+              <SaveSheetBody
+                kind="name"
+                intro={`A new name for “${renaming.name}”. Its suppliers stay as they are.`}
+                twinName=""
+                placeholder={renaming.name}
+                name={name}
+                onName={setName}
+                busy={pending}
+                onClose={() => setRenaming(null)}
+                onSave={rename}
               />
             </Sheet>,
             document.body,
@@ -488,6 +557,10 @@ function BuildLineRow({
               <p className="mt-1 text-xs text-mulberry-700">{line.pickNote}</p>
             ) : line.pickAsked ? (
               <p className="mt-1 text-xs text-mulberry-700">{PICK_ASKED_NOTE}</p>
+            ) : line.pickAnswer ? (
+              <p className="mt-1 text-xs text-mulberry-700" data-build-answer={line.pickAnswer}>
+                {line.pickAnswer === 'declined' ? PICK_DECLINED_NOTE : PICK_LAPSED_NOTE}
+              </p>
             ) : null}
           </div>
         ) : (
@@ -595,6 +668,7 @@ function BuildCardColumn({
   isTwin,
   busy,
   onUse,
+  onRename,
   onDelete,
 }: {
   card: BuildCard;
@@ -603,6 +677,7 @@ function BuildCardColumn({
   isTwin: boolean;
   busy: boolean;
   onUse: () => void;
+  onRename: () => void;
   onDelete: () => void;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
@@ -632,7 +707,19 @@ function BuildCardColumn({
       <ul className="mt-2">
         {card.rows.map((r) => (
           <li key={r.label} className={r.supplier ? 'text-ink' : 'text-ink/55'}>
-            {r.label} · {r.supplier ?? '—'}
+            {r.inclusions.length > 0 ? (
+              // What the price comes with — folded, as the old compare cell was.
+              <details data-build-inclusions="">
+                <summary className="cursor-pointer list-none">
+                  {r.label} · {r.supplier ?? '—'} <span className="text-ink/55">▾</span>
+                </summary>
+                <p className="text-xs text-ink/55">+ {r.inclusions.join(', ')}</p>
+              </details>
+            ) : (
+              <>
+                {r.label} · {r.supplier ?? '—'}
+              </>
+            )}
           </li>
         ))}
       </ul>
@@ -676,6 +763,7 @@ function BuildCardColumn({
                 : undefined
             }
           />
+          <ActionButton tone="neutral" icon={Pencil} label="Rename" name={`Rename — ${card.name}`} onClick={onRename} disabled={busy} aria-haspopup="dialog" />
           <ActionButton tone="danger" icon={X} label="Delete this build" name={`Delete this build — ${card.name}`} onClick={onDelete} disabled={busy} />
         </div>
       )}
@@ -795,6 +883,7 @@ function SaveSheetBody({
   kind,
   twinName,
   placeholder,
+  intro,
   name,
   onName,
   busy,
@@ -805,6 +894,8 @@ function SaveSheetBody({
   kind: 'nothing_changed' | 'already_saved' | 'name';
   twinName: string;
   placeholder: string;
+  /** The sheet's one line; default = saving the current combination. */
+  intro?: string;
   name: string;
   onName: (v: string) => void;
   busy: boolean;
@@ -816,7 +907,7 @@ function SaveSheetBody({
   useFitRow(rowRef);
   if (kind !== 'name') {
     return (
-      <div className="space-y-4 px-1 pb-4" data-build-sheet={kind}>
+      <div className="space-y-4 px-5 pb-5" data-build-sheet={kind}>
         <p id="build-save-h" className="text-sm text-ink/70">
           {kind === 'nothing_changed'
             ? `“${twinName}” already has exactly these suppliers.`
@@ -833,7 +924,7 @@ function SaveSheetBody({
   }
   return (
     <form
-      className="space-y-3.5 px-1 pb-4"
+      className="space-y-3.5 px-5 pb-5"
       data-build-sheet="name"
       onSubmit={(e) => {
         e.preventDefault();
@@ -841,7 +932,7 @@ function SaveSheetBody({
       }}
     >
       <p id="build-save-h" className="text-sm text-ink/70">
-        Your current combination, kept to compare later.
+        {intro ?? 'Your current combination, kept to compare later.'}
       </p>
       <label className="block text-sm text-ink">
         Name <span className="text-ink/55">(optional)</span>

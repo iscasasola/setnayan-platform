@@ -110,7 +110,7 @@ const GROUNDS = String.raw`(background:transparent!important;border-color:transp
 const TAIL = String.raw`(@keyframes rsvp-in\{from\{opacity:var\(--rl-o\);transform:var\(--rl-t\);filter:var\(--rl-f\)\}\}@media \(prefers-reduced-motion:reduce\)\{\[data-rsvp-line\],div:has\(>\[data-door-header\]\)\{animation:none!important\}\})?`;
 const INNER = String.raw`(\[data-landing-missed\]\{background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;\})?`;
 /* 2026-10-10: a colour may carry the gate's two alpha digits, and a font is a face's own variable and its fallback. */
-const SAFE_CSS = new RegExp(String.raw`^(div:has\(>\[data-door-header\]\)\{${GROUNDS}${MOVES}\})?${INNER}(\[data-rsvp-line="[a-z]+"\]\[data-rsvp-line\]\{(color:#[0-9a-f]{6}([0-9a-f]{2})?;)?(font-family:var\(--font-[a-z-]+\), (Georgia, serif|system-ui, sans-serif|cursive);)?(zoom:[0-9.]+;)?${MOVES}\})*${TAIL}$`);
+const SAFE_CSS = new RegExp(String.raw`^(div:has\(>\[data-door-header\]\)\{${GROUNDS}${MOVES}\})?${INNER}(\[data-rsvp-line="[a-z]+"\]\[data-rsvp-line\](?:,\[data-rsvp-wears="(?:yes|no)"\])?\{(color:#[0-9a-f]{6}([0-9a-f]{2})?;)?(font-family:var\(--font-[a-z-]+\), (Georgia, serif|system-ui, sans-serif|cursive);)?(zoom:[0-9.]+;)?${MOVES}\})*${TAIL}$`);
 const face = (key: keyof typeof HUB_FONT_BY_KEY) => `font-family:var(${HUB_FONT_BY_KEY[key].cssVar}), ${HUB_FONT_BY_KEY[key].fallback};`;
 
 test('1 · the reader is strict: known lines, listed values, and no colour of its own for a button', () => {
@@ -150,7 +150,7 @@ test('1 · the reader is strict: known lines, listed values, and no colour of it
 
 test('2 · the rules a page draws: its own parts only, the event’s colours only, nothing for a guest with no look', async () => {
   const look = readRsvpLook({ look: { lines: { 'rsvp.question': { c: 2, s: 120 }, 'rsvp.yes': { s: 110 }, 'yesnote.heading': { c: 1 }, 'nonote.heading': { c: 5, s: 85 }, 'pass.save': { s: 92 } } } });
-  assert.equal(rsvpLookCss(look, ['rsvp'], BOARD), '[data-rsvp-line="question"][data-rsvp-line]{color:#6b7a3a;zoom:1.2;}[data-rsvp-line="yes"][data-rsvp-line]{zoom:1.1;}');
+  assert.equal(rsvpLookCss(look, ['rsvp'], BOARD), '[data-rsvp-line="question"][data-rsvp-line]{color:#6b7a3a;zoom:1.2;}[data-rsvp-line="yes"][data-rsvp-line],[data-rsvp-wears="yes"]{zoom:1.1;}');
   /* When yes and When no both have a "heading": each page writes only ITS parts' rules. */
   assert.equal(rsvpLookCss(look, ['yesnote', 'pass'], BOARD), '[data-rsvp-line="heading"][data-rsvp-line]{color:#5b1a22;}[data-rsvp-line="save"][data-rsvp-line]{zoom:0.92;}');
   assert.equal(rsvpLookCss(look, ['nonote'], BOARD), '[data-rsvp-line="heading"][data-rsvp-line]{color:#f2c8c2;zoom:0.85;}');
@@ -163,7 +163,7 @@ test('2 · the rules a page draws: its own parts only, the event’s colours onl
      Event Hub writes a part's — the face's own variable, then its fallback. A button: its font, never a colour. */
   const picked = readRsvpLook({ look: { lines: { 'rsvp.question': { c: '#AA0011', f: 'cinzel', s: 110 }, 'rsvp.yes': { c: '#aa0011', f: 'playfair' } } } });
   const drawn = rsvpLookCss(picked, ['rsvp'], []);
-  assert.equal(drawn, `[data-rsvp-line="question"][data-rsvp-line]{color:#aa0011;${face('cinzel')}zoom:1.1;}[data-rsvp-line="yes"][data-rsvp-line]{${face('playfair')}}`);
+  assert.equal(drawn, `[data-rsvp-line="question"][data-rsvp-line]{color:#aa0011;${face('cinzel')}zoom:1.1;}[data-rsvp-line="yes"][data-rsvp-line],[data-rsvp-wears="yes"]{${face('playfair')}}`);
   assert.match(face('cinzel'), /^font-family:var\(--font-[a-z-]+\), [A-Za-z, -]+;$/);
   assert.match(drawn, SAFE_CSS);
   /* EVERY font on the list is written in that one fixed shape — none carries anything else into the page. */

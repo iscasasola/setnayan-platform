@@ -1,6 +1,7 @@
 'use client';
 
 import { HUB_DRAFT_BAR_FIELD, MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
+import { takeDrawnUndo } from '@/lib/maker-drawn-undo';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
 import { MAKER_PRESS_APPLY_EVENT, type MakerApplyOutcome, type MakerPressApplyDetail } from './maker-press-apply';
 import Link from 'next/link';
@@ -144,7 +145,10 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
   const [settling, setSettling] = useState<HubDraftIntent | null>(null);
   const run = (fields: Record<string, string>) => {
     const intent = isHubDraftIntent(fields.intent) ? fields.intent : null;
-    const watch = intent && DRAFT_INTENT_RELOADS.includes(intent) ? canvasSettleWatch() : null;
+    /* ↺ AN UNDO THE PAGE ALREADY SHOWS (`lib/maker-drawn-undo.ts`): the drag drew its step's inverse at this press —
+       the save is HELD (no Maker render, no new canvas page) and the bar waits for the page the drag keeps. */
+    const drawn = intent === 'undo' ? takeDrawnUndo() : null;
+    const watch = drawn ? { done: drawn.settle, cancel: () => {} } : intent && DRAFT_INTENT_RELOADS.includes(intent) ? canvasSettleWatch() : null;
     if (watch) {
       setSettling(intent);
       void watch.done.then(() => setSettling(null));
@@ -160,7 +164,8 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
          own response for a draft-only intent. */
       /* 📵 …and a request that never left (no signal) is ANSWERED, never thrown into this transition — a throw here
          replaced the whole Maker with the app's error screen (`hubDraftAnswer`, measured 2026-10-11). */
-      const r = await hubDraftAnswer(intent, () => makerSave(() => action(eventId, fd), () => router.refresh()));
+      const r = await hubDraftAnswer(intent, () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: drawn !== null }));
+      drawn?.landed(r.ok);
       /* Refused: no render is coming — the bar is given back now, with the reason said beside ✓. */
       if (!r.ok) watch?.cancel();
       setResult(r);

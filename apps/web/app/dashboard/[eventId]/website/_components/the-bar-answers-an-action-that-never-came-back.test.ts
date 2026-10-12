@@ -39,7 +39,8 @@ test('the bar sends every intent through it — no bare await of the action is l
   assert.ok(hook.length > 200, 'useDraftIntent was not found');
   /* The intent is read once, at the press (the wait for the page is started from it too — `lib/maker-settle.ts`). */
   assert.match(hook, /const intent = isHubDraftIntent\(fields\.intent\) \? fields\.intent : null;/);
-  assert.match(hook, /const r = await hubDraftAnswer\(intent, \(\) =>\s*makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\)\),?\s*\);/);
+  /* (2026-10-12, `rd/maker-moves-instant`, `lib/a-scene-move-is-drawn-at-once.test.ts`): a ↺ the drag drew is held — `{ held: drawn !== null }`. */
+  assert.match(hook, /const r = await hubDraftAnswer\(intent, \(\) =>\s*makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: drawn !== null \}\),?\s*\);/);
   assert.doesNotMatch(hook, /await makerSave\(/, 'the action is awaited bare again — a throw takes the Maker down');
   /* One caller of the action in the whole bar: the hook (Undo, Apply, Restore, Reset and the sheet's × all use `run`). */
   assert.equal((BAR.match(/\baction\(eventId, fd\)/g) ?? []).length, 1);

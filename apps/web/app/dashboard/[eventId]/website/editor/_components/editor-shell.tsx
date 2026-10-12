@@ -1707,6 +1707,7 @@ export function MakerWork({
     if (want) releaseCanvas();
     else hideOnCanvas(scene);
     const held = !want;
+    lastDrawn.current = held ? { kind: 'remove', id: scene.id, stage } : null;
     setHereOff((h) => {
       const next = { ...h };
       if (want) delete next[key];
@@ -1731,6 +1732,7 @@ export function MakerWork({
           return next;
         });
         if (!want) broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key: `w:${scene.type}`, shown: true });
+        if (lastDrawn.current?.id === scene.id) lastDrawn.current = null;
         releaseCanvas();
         announceMakerSave({ state: 'error', text: res.error || GATE_FAILED });
       });
@@ -1768,7 +1770,103 @@ export function MakerWork({
     post('mode', { widget_id: scene.id, next_mode: next, return_to: back(scene.id) }, drawHow(scene, { mode: next }));
   };
 
-  const move = (id: string, delta: number) => {
+  /* ✋ THE STEP THE PAGE DREW ITSELF (owner rule: "the Maker never slow, ≤100 ms per tap, saves in the background").
+     A move the drag already shows (its slides), a scene the bridge already took off, a part ＋ already holds a place
+     for: no whole-Maker render and no new canvas document — the save is HELD, and the page on show re-renders ITSELF
+     in place once it lands (`redrawShown`), the slides coming off in the very commit that draws the order for real
+     (`scene-canvas-drag.ts`). `lastDrawn` is that step, for a ↺ the page can show at once (`undoDrawn`). */
+  const lastDrawn = useRef<{ kind: 'move' | 'remove' | 'add'; id: string; stage: LifecyclePhase; prior?: readonly string[]; moved?: readonly string[]; landedAt?: string } | null>(null);
+  /** The canvas order a render would list with the stage's scenes in `order` (and what this session took off kept off). */
+  const heldOrderWith = (order: readonly string[] | null, add?: MakerScene, keep?: string) => {
+    let list = stageLists[stage];
+    if (add && !list.shown.some((t) => t.kind === 'scene' && t.widgetId === add.id)) {
+      const lastScene = list.shown.reduce((k, t, i) => (t.kind === 'scene' ? i : k), -1);
+      const tile: (typeof list.shown)[number] = { kind: 'scene', key: `w:${add.type as WidgetType}`, widgetId: add.id, type: add.type as WidgetType, label: add.label, ...(add.hasContent ? {} : { empty: '…' }) };
+      list = { ...list, shown: [...list.shown.slice(0, lastScene + 1), tile, ...list.shown.slice(lastScene + 1)], folded: list.folded.filter((f) => f.widgetId !== add.id) };
+    }
+    let o = canvasOrderOf({ ...stageLists, [stage]: optimisticStageList(list, order) });
+    for (const k of Object.keys(hereOff)) {
+      const [st, id] = k.split(':');
+      const sc = st === stage ? sceneById.get(id ?? '') : undefined;
+      if (sc && sc.id !== add?.id && sc.id !== keep) o = orderWithout(o, `w:${sc.type}`);
+    }
+    return o;
+  };
+  /** The page on show re-renders itself, in place — and the render a hold covers keeps it. */
+  const redrawShown = (order: string) => {
+    canvasHold.current = holdChange(canvasHold.current, { canvases: drawnCanvases(), order: canvasOrderRef.current }, { order: () => order }, Date.now());
+    postToShownCanvases(CANVAS_REFRESH_MESSAGE);
+  };
+
+  /**
+   * ↺ THE STEP THE PAGE DREW, TAKEN BACK THE SAME WAY (`lib/maker-drawn-undo.ts`): the Maker's side of it — the list as
+   * it was, the canvas held for it — at the press; the page's side is the drag's (`add-part-sheet.tsx`). `landed` is
+   * told how the Undo's held save ended: a move redraws the page in place, a refused one puts the step back. Null: the
+   * step is not the last one this page drew (or its render has not come yet) — the Undo reloads, as ever.
+   */
+  const undoDrawn = (kind: 'move' | 'remove' | 'add', id: string): { landed: (ok: boolean) => void; prior?: readonly string[] } | null => {
+    const d = lastDrawn.current;
+    const scene = sceneById.get(id);
+    if (!d || d.kind !== kind || d.id !== id || d.stage !== stage || !elementEditing || !scene) return null;
+    const hold = (order: string) => {
+      canvasHold.current = holdChange(canvasHold.current, { canvases: drawnCanvases(), order: canvasOrderRef.current }, { order: () => order }, Date.now());
+    };
+    const key = `${stage}:${id}`;
+    if (kind === 'move') {
+      if (!d.prior || !d.moved) return null;
+      lastDrawn.current = null;
+      const prior = [...d.prior];
+      const held = heldOrderWith(prior);
+      hold(held);
+      setOrderOverride({ stage, order: prior });
+      return {
+        prior,
+        landed: (ok) => {
+          if (ok) return redrawShown(held);
+          setOrderOverride({ stage, order: [...d.moved!] });
+          canvasHold.current = NO_CANVAS_HOLD;
+        },
+      };
+    }
+    if (kind === 'remove') {
+      if (!hereOff[key]) return null;
+      lastDrawn.current = null;
+      setHereOff((h) => {
+        const next = { ...h };
+        delete next[key];
+        return next;
+      });
+      for (const k of keysLeavingWith(`w:${scene.type}`)) broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key: k, shown: true });
+      hold(heldOrderWith(fullOrder, undefined, id));
+      return {
+        landed: (ok) => {
+          if (ok) return;
+          setHereOff((h) => ({ ...h, [key]: true }));
+          hideOnCanvas(scene);
+        },
+      };
+    }
+    /* ＋ taken back: only once the render the ＋ owed the list has come (else that render, drawn before this Undo, would
+       reload the canvas with the part still on it). */
+    if (d.landedAt === undefined || renderStampRef.current === d.landedAt) return null;
+    lastDrawn.current = null;
+    hideOnCanvas(scene);
+    setHereOff((h) => ({ ...h, [key]: true }));
+    return {
+      landed: (ok) => {
+        if (ok) return;
+        setHereOff((h) => {
+          const next = { ...h };
+          delete next[key];
+          return next;
+        });
+        for (const k of keysLeavingWith(`w:${scene.type}`)) broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key: k, shown: true });
+        canvasHold.current = NO_CANVAS_HOLD;
+      },
+    };
+  };
+
+  const move = (id: string, delta: number, drawn = false) => {
     if (delta === 0) return;
     /* ↕ ONE SAVE, AND THE LIST MOVES NOW (`lib/maker-reorder.ts`). The whole
        stage's order goes to the draft in one `makerSave`; the navigator shows it
@@ -1777,7 +1875,12 @@ export function MakerWork({
     const order = movedOrder(fullOrder, id, delta);
     const patch = order && elementEditing ? stageOrderPatch(order, (x) => sceneById.get(x)?.type, stage) : null;
     if (order && patch && elementEditing) {
-      releaseCanvas();
+      /* ✋ `drawn`: the page already shows it (the drag's slides) — held, redrawn in place (above). */
+      const held = drawn ? heldOrderWith(order) : null;
+      if (held !== null) {
+        canvasHold.current = holdChange(canvasHold.current, { canvases: drawnCanvases(), order: canvasOrderRef.current }, { order: () => held }, Date.now());
+        lastDrawn.current = { kind: 'move', id, stage, prior: [...fullOrder], moved: order };
+      } else releaseCanvas();
       setOrderOverride({ stage, order });
       reorderInFlight.current += 1;
       announceMakerSave({ state: 'saving' });
@@ -1785,19 +1888,26 @@ export function MakerWork({
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify(patch));
+      /* ⚡ No render follows a held move — the Apply · Undo count comes back with the save. */
+      if (held !== null) fd.set(HUB_DRAFT_BAR_FIELD, '1');
       /* Serialised: each save carries the WHOLE order, so the last one decides. */
       reorderQueue.current = reorderQueue.current
-        .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh))
+        .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh, { held: held !== null }))
         .catch(() => ({ ok: false as const, intent: 'save' as const, error: REORDER_FAILED }))
         .then((res) => {
           reorderInFlight.current -= 1;
           if (res.ok) {
             if (reorderInFlight.current === 0) reorderLandedAt.current = renderStampRef.current;
+            if (held !== null) redrawShown(held);
             announceMakerSave({ state: 'saved' });
             return;
           }
-          /* ↩ Refused: the list goes back to what is saved, and the toolbar says so. */
+          /* ↩ Refused: the list goes back to what is saved, and the toolbar says so (the drag slides the page back). */
           setOrderOverride(null);
+          if (held !== null) {
+            canvasHold.current = NO_CANVAS_HOLD;
+            lastDrawn.current = null;
+          }
           announceMakerSave({ state: 'error', text: res.error || REORDER_FAILED });
         });
       return;
@@ -1813,7 +1923,7 @@ export function MakerWork({
      and one ↺ left the scene placed and still hidden. One patch now (`lib/maker-reorder.ts` `stageAddPatch`), drawn as
      a show is drawn (the canvas reloads for the render it brings), serialised with the moves. Without the draft door
      (the editor outside the Maker) it is the two shipped writes, as before. */
-  const addHere = (scene: MakerScene, delta: number) => {
+  const addHere = (scene: MakerScene, delta: number, drawn = false) => {
     const order = delta !== 0 ? movedOrder(fullOrder, scene.id, delta) : null;
     const value = stageEyeValue(navigator.stageEye?.[stage]?.[scene.type as WidgetType], true);
     const patch = elementEditing ? stageAddPatch(order, (x) => sceneById.get(x)?.type, stage, scene.type, value) : null;
@@ -1822,7 +1932,14 @@ export function MakerWork({
       return eyeWrite(scene);
     }
     const key = `${stage}:${scene.id}`;
-    releaseCanvas();
+    /* ＋ `drawn`: the page already holds its place ("Adding <part>…", the bridge's placeholder) — held, the page on show
+       redraws ITSELF with it the moment the save lands, and the one render the Maker's list still needs (the part is in
+       the stage's list now) follows in the background, its canvas kept by the hold. */
+    const held = drawn ? heldOrderWith(order ?? fullOrder, scene) : null;
+    if (held !== null) {
+      canvasHold.current = holdChange(canvasHold.current, { canvases: drawnCanvases(), order: canvasOrderRef.current }, { order: () => held }, Date.now());
+      lastDrawn.current = { kind: 'add', id: scene.id, stage };
+    } else releaseCanvas();
     if (order) {
       setOrderOverride({ stage, order });
       reorderInFlight.current += 1;
@@ -1837,18 +1954,35 @@ export function MakerWork({
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify(patch));
+    if (held !== null) fd.set(HUB_DRAFT_BAR_FIELD, '1');
     reorderQueue.current = reorderQueue.current
-      .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh))
+      .then(() => {
+        const saved = makerSave(() => draftAction(eventId, fd), requestMakerRefresh, { held: held !== null });
+        /* (held, yet the Maker's list must learn the part is shown: ONE render once it lands, the canvas kept) */
+        if (held !== null) makerNeedsRender();
+        return saved;
+      })
       .catch(() => ({ ok: false as const, intent: 'save' as const, error: GATE_FAILED }))
       .then((res) => {
         if (order) reorderInFlight.current -= 1;
         if (res.ok) {
           if (order && reorderInFlight.current === 0) reorderLandedAt.current = renderStampRef.current;
+          if (held !== null) {
+            /* (a scene this page hid a moment ago is still there, hidden: the redraw shows it, in its new place) */
+            for (const k of keysLeavingWith(`w:${scene.type}`)) postToShownCanvases({ source: 'setnayan-editor', t: 'sceneShowOnRedraw', key: k });
+            redrawShown(held);
+            if (lastDrawn.current?.kind === 'add' && lastDrawn.current.id === scene.id) lastDrawn.current = { ...lastDrawn.current, landedAt: renderStampRef.current };
+          }
           announceMakerSave({ state: 'saved' });
           return;
         }
         /* ↩ Refused: nothing was placed and nothing is shown — the list goes back, and the toolbar says so. */
         if (order) setOrderOverride(null);
+        if (held !== null) {
+          canvasHold.current = NO_CANVAS_HOLD;
+          lastDrawn.current = null;
+          broadcastToCanvas({ source: 'setnayan-editor', t: 'scenePlaceholderOff' });
+        }
         announceMakerSave({ state: 'error', text: res.error || GATE_FAILED });
       });
   };
@@ -1980,7 +2114,7 @@ export function MakerWork({
   /* ＋ ↕ 🗑 THE NEW MAKER'S PART EDITS (`add-part-sheet.tsx`, lazy) ask THIS work area for its
      own writes — the eye, the one-save move, Remove for good, "+ Add a scene" (`maker-part-ops.ts`). */
   const partOps = useRef<MakerPartRaw | null>(null);
-  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, addHere, hereOff, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
+  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, addHere, undoDrawn, hereOff, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
   useEffect(() => {
     const ask = (e: Event) => (e as CustomEvent<(raw: MakerPartRaw) => void>).detail?.(partOps.current!);
     window.addEventListener(MAKER_PART_OPS_EVENT, ask);

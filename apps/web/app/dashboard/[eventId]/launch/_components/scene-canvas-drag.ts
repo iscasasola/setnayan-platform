@@ -17,22 +17,26 @@
  * 🧱 NOTHING IS MOVED IN THE PAGE'S OWN TREE. The prototype lifted the scene out of the page and stood a dashed box
  * in its place; here the page is React's and is thrown away at the next reload, so nothing is inserted, removed or
  * re-parented: the held scene and the others are SLID (a transform each), the gap and the scene's name tag are
- * drawn over the page, and a drop leaves the scenes slid into their new places until the reload the save brings
- * draws that same order for real. A refused save slides them back.
+ * drawn over the page, and a drop leaves the scenes slid into their new places until the page draws that same order
+ * for real — since 2026-10-12 by redrawing ITSELF in place once the save lands (no Maker render, no new page): the
+ * slides come off in that redraw's very commit (`CANVAS_REDRAW_COMMITS_EVENT`). A refused save slides them back.
  *
  * The rules — the hold, the scroll slop, where it lands, the bin's reach, the edge scroll — are `lib/maker-scene-drag.ts`.
  */
 import {
   SCENE_BIN_MS,
+  SCENE_COLLAPSE_MS,
   SCENE_GLIDE_MS,
   SCENE_HOLD_MS,
   SCENE_MOUSE_LIFT_PX,
   SCENE_SCROLL_PX,
   SCENE_SWALLOW_MS,
   SCENE_SWALLOW_HELD_MAX_MS,
+  sceneBringIntoView,
   sceneDropSlot,
   sceneDropTarget,
   sceneEdgeScroll,
+  sceneEdgeScrollKept,
   sceneOrderAfter,
   sceneOverBin,
   sceneReflow,
@@ -40,6 +44,7 @@ import {
   type SceneLiftVerdict,
   type SceneRow,
 } from '@/lib/maker-scene-drag';
+import { CANVAS_REDRAW_COMMITS_EVENT } from '@/app/[slug]/_components/maker-section-find';
 
 /* 🎨 COLOUR AND SHAPE TOKENS ONLY — each is the app's own, read on the page (no white, black or hex typed here):
    the lifted scene's ground (the page's paper, where the scene has none of its own), its ring and its name tag (the
@@ -200,11 +205,41 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
   let raf = 0;
   /** A dropped order the page has not been redrawn for yet — no second lift on this document until it is. */
   let slid = false;
+  /** ✋ What takes the slides off AT ONCE, no glide — run when the page's in-place redraw commits the order they held
+   *  (`CANVAS_REDRAW_COMMITS_EVENT`, synchronously, before React moves a node): the scenes then stand in that order
+   *  for real, and are never moved twice. */
+  let unslide: (() => void) | null = null;
+  /** Slid boxes back to what they wore — with no glide; their own transitions come back a frame later. */
+  const still = (wore: Map<HTMLElement, { transition: string; transform: string }>) => {
+    for (const [el, w] of wore) {
+      el.style.transition = 'none';
+      el.style.transform = w.transform;
+    }
+    win.requestAnimationFrame(() => {
+      for (const [el, w] of wore) el.style.transition = w.transition;
+    });
+  };
+  const onRedrawCommits = () => {
+    const off = unslide;
+    unslide = null;
+    slid = false;
+    off?.();
+  };
   const calm = () => win.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const glide = () => (calm() ? 'none' : `transform ${SCENE_GLIDE_MS}ms ease`);
   /* `translate` and `scale` are their own properties, so the scene follows the finger at once while its lift eases —
      and neither disturbs a `transform` the scene's own entrance may be running. */
   const twoProps = typeof win.CSS !== 'undefined' && win.CSS.supports('translate', '0px 1px') && win.CSS.supports('scale', '1');
+
+  /** 👁 A scene that landed is SEEN where it landed (walk F1): brought into the page's visible band once the lower third
+   *  is back — never left out of sight, where the couple would take it for deleted. */
+  const bringIntoView = (el: HTMLElement, after: number) => {
+    win.setTimeout(() => {
+      if (!el.isConnected || held) return;
+      const d = sceneBringIntoView(el.getBoundingClientRect(), host.band());
+      if (d) win.scrollBy({ top: d, behavior: calm() ? 'auto' : 'smooth' });
+    }, after);
+  };
 
   const stopPending = () => {
     if (pending?.timer != null) win.clearTimeout(pending.timer);
@@ -266,9 +301,12 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     subject.beside.forEach(({ el }, i) => go(el, now.tops[i]! - rows[i]!.top));
     between.forEach((els, j) => els.forEach((el) => go(el, now.between[j] ?? 0)));
     slid = true;
+    unslide = () => still(wore);
+    bringIntoView(subject.el, (calm() ? 0 : SCENE_GLIDE_MS) + 30);
     return () => {
       if (!slid) return;
       slid = false;
+      unslide = null;
       for (const [el, w] of wore) {
         el.style.transition = glide();
         el.style.transform = w.transform;
@@ -313,7 +351,13 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     const h = held;
     if (!h) return;
     const band = host.band();
-    const v = sceneEdgeScroll(h.y, band.top, band.bottom, h.overBin);
+    let v = sceneEdgeScroll(h.y, band.top, band.bottom, h.overBin);
+    if (v) {
+      /* 👁 …never carrying the gap past the finger and off the screen once it can go no further (`sceneEdgeScrollKept`). */
+      const gap = sceneReflow(h.rows, h.at, h.slot).gap;
+      const top = gap.top - win.scrollY;
+      v = sceneEdgeScrollKept(v, h.y, { top, bottom: top + gap.height }, h.slot, h.rows.length - 1);
+    }
     if (v) win.scrollBy(0, v);
     /* Every frame, not only when the finger moves: the page may have scrolled under a still finger, and the bin
        comes up (and is only then something to be over) after the lift. */
@@ -536,9 +580,20 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
       /* The order is held by the slides until the page the save brings draws it for real. */
       unlook(h, true);
       slid = true;
+      unslide = () => {
+        still(h.wore);
+        const t = el.style.transition;
+        el.style.transition = 'none';
+        for (const k of ['translate', 'scale', 'position', 'willChange'] as const) el.style[k] = h.was[k] ?? '';
+        if (!twoProps) el.style.transform = '';
+        win.requestAnimationFrame(() => {
+          el.style.transition = h.was.transition ?? (t === 'none' ? '' : t);
+        });
+      };
       const revert = () => {
         if (!slid) return;
         slid = false;
+        unslide = null;
         back(h, true);
         el.style.transition = calm() ? 'none' : `translate ${SCENE_GLIDE_MS}ms ease, transform ${SCENE_GLIDE_MS}ms ease`;
         put(el, 0, 1);
@@ -554,6 +609,8 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     };
     if (ms === 0) landed();
     else win.setTimeout(landed, ms + 10);
+    /* (once the lower third is back: the band is the page's again) */
+    bringIntoView(el, Math.max(ms + 20, calm() ? 0 : SCENE_COLLAPSE_MS + 60));
   };
 
   /** The tap a drop (or a held part) leaves behind picks nothing — heard on the window, before the page.
@@ -657,6 +714,7 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
     '[data-maker-section]+* :is(input,textarea,[contenteditable=""],[contenteditable="true"]){-webkit-user-select:text;user-select:text}}' +
     'html[data-scene-drag-held],html[data-scene-drag-held] *{-webkit-user-select:none!important;user-select:none!important;cursor:grabbing!important}';
   doc.head.appendChild(style);
+  doc.addEventListener(CANVAS_REDRAW_COMMITS_EVENT, onRedrawCommits);
   doc.addEventListener('pointerdown', onDown);
   doc.addEventListener('pointermove', onMove, { passive: false });
   doc.addEventListener('pointerup', onUp);
@@ -671,6 +729,7 @@ export function attachSceneDrag(doc: Document, host: SceneDragHost): SceneDragWi
       if (held) end(true);
       stopPending();
       style.remove();
+      doc.removeEventListener(CANVAS_REDRAW_COMMITS_EVENT, onRedrawCommits);
       doc.removeEventListener('pointerdown', onDown);
       doc.removeEventListener('pointermove', onMove);
       doc.removeEventListener('pointerup', onUp);

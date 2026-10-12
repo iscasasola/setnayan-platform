@@ -25,7 +25,7 @@ import {
   type HubElementStyles,
 } from '@/lib/element-style';
 import { postEventElementScope } from '@/lib/post-event-styles';
-import { findMakerSection, sectionAfter } from './maker-section-find';
+import { CANVAS_REDRAW_COMMITS_EVENT, findMakerSection, sectionAfter } from './maker-section-find';
 import { HUB_TAB_FREES, createPageTop, openHubTab, showHubTab, shownHubTab } from './hub-tab-dom';
 import { applySceneBgPreview, sanitizeSceneBgPreview, undoSceneBgPreviews } from './scene-bg-preview';
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
@@ -489,7 +489,19 @@ export class BeforeRedrawCommits extends Component<{ pending: boolean; run: () =
 /** What `BeforeRedrawCommits` runs: every hand-laid scene frame goes back to the page's own DOM. */
 const undoLaidPreviews = () => {
   undoSceneBgPreviews(document);
+  /* ✋ …and whatever the Maker laid ON the page ahead of a save (a scene slid to where it was dropped, a place held for
+     a part on its way): told NOW, synchronously, so it is taken off in the very commit that draws the server's order —
+     never one frame of the order twice, never React finding a node it did not put there (the Maker's drag engine). */
+  document.querySelector('[data-maker-scene-placeholder]')?.remove();
+  /* A scene ＋ brought back that this page had taken off (`sceneShow`): the render about to commit draws it. */
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(`[${SHOW_ON_REDRAW_ATTR}]`))) {
+    el.style.display = '';
+    el.removeAttribute(SHOW_ON_REDRAW_ATTR);
+  }
+  document.dispatchEvent(new Event(CANVAS_REDRAW_COMMITS_EVENT));
 };
+const SHOW_ON_REDRAW_ATTR = 'data-maker-show-on-redraw';
+
 
 export function EditorBridge() {
   /* 🖼 `refresh` — the Maker's page re-renders ITSELF, in place (below). */
@@ -508,7 +520,11 @@ export function EditorBridge() {
   startRedrawRef.current = startRedraw;
   const wasRedrawing = useRef(false);
   useEffect(() => {
-    if (wasRedrawing.current && !redrawing) groundPreview.current?.redrawDone();
+    if (wasRedrawing.current && !redrawing) {
+      groundPreview.current?.redrawDone();
+      /* 🔁 The page now draws what the server holds — a held move / ＋ waits on this (the Maker's held-redraw watch). */
+      window.parent?.postMessage({ source: 'setnayan-site', t: 'redrawn' }, window.location.origin);
+    }
     wasRedrawing.current = redrawing;
   }, [redrawing]);
   useEffect(() => {
@@ -788,6 +804,11 @@ export function EditorBridge() {
       }
       /* ⚡ LOOK › BACKGROUND'S PICK, WORN NOW — its still first, its clip when it moves; `lay: null` takes it off
          (the save was refused). Every field is checked again here: nothing from a message becomes CSS unchecked. */
+      /* ＋ refused: the place held for a part on its way goes ("nothing changed" is true of the page too). */
+      if (data && data.source === 'setnayan-editor' && data.t === 'scenePlaceholderOff') {
+        document.querySelector('[data-maker-scene-placeholder]')?.remove();
+        return;
+      }
       if (data && data.source === 'setnayan-editor' && data.t === 'mainGround') {
         const preview = sanitizeMainGroundPreview(data, origin);
         if (preview && 'landed' in preview) groundPreview.current?.land(preview.seq);
@@ -954,6 +975,12 @@ export function EditorBridge() {
         el.style.display = (data as { shown?: unknown }).shown === false ? 'none' : '';
         return;
       }
+      if (data.t === 'sceneShowOnRedraw') {
+        /* ＋ A scene this page took off a moment ago, brought back by a held save: it is shown by the in-place redraw
+           that draws it in its new place — in that very commit (`undoLaidPreviews`), never before at its old one. */
+        el.setAttribute(SHOW_ON_REDRAW_ATTR, '');
+        return;
+      }
       if (data.t === 'playSeq') {
         /* ▶ THE PICKED PART'S WHOLE LIFE — Build in · Action · Build out · rest (`play-sequence.ts`); each
            phase, and what it has none of, told to the Maker so it can say so. */
@@ -1024,11 +1051,18 @@ export function EditorBridge() {
         const box = document.createElement('div');
         box.setAttribute('data-maker-scene-placeholder', '');
         box.setAttribute('role', 'status');
-        box.textContent = 'Adding your scene…';
+        /* ＋ A part brought back names itself and stands where it will land — above or below the part ＋ was pressed
+           on (`where`), until the in-place redraw that draws it takes this away (`undoLaidPreviews`). */
+        const p = data as { label?: unknown; where?: unknown };
+        const label = typeof p.label === 'string' ? p.label.slice(0, 80) : '';
+        box.textContent = label ? `Adding ${label}…` : 'Adding your scene…';
         box.style.cssText =
           'margin:16px auto;max-width:560px;min-height:180px;display:flex;align-items:center;justify-content:center;border:1.5px dashed rgba(27,26,23,.25);border-radius:var(--m-r-md);font:500 13px/1.4 system-ui,sans-serif;color:rgba(27,26,23,.6);animation:pulse 1.4s ease-in-out infinite';
-        el.insertAdjacentElement('afterend', box);
-        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (p.where === 'above') {
+          const marker = el.previousElementSibling?.hasAttribute('data-maker-section') ? el.previousElementSibling : el;
+          marker.insertAdjacentElement('beforebegin', box);
+        } else el.insertAdjacentElement('afterend', box);
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
       }
       if (data.t === 'words') {

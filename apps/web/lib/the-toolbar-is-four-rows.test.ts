@@ -239,11 +239,13 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
   const edits = read(`${L}/add-part-sheet.tsx`);
   const hook = edits.slice(edits.indexOf('export function usePartEdits('), edits.indexOf('function OwnScenePicker('));
   assert.ok(hook.length > 4000, 'anti-vacuity: the part edits were not found');
-  assert.match(hook, /const stepMove = \(dir: -1 \| 1\) => \{\s*const o = askPartOps\(\);\s*const t = o && canMove \? neighbour\(o, dir\) : null;\s*const done = o && t \? dropOn\(o, t, dir < 0 \? 'above' : 'below'\) : null;\s*if \(!done\) return;/);
+  /* (2026-10-12, `rd/maker-moves-instant`, `lib/a-scene-move-is-drawn-at-once.test.ts`): the step SLIDES first, then lands — `drawn` when the page shows it (held, the page redraws itself). */
+  assert.match(hook, /const stepMove = \(dir: -1 \| 1\) => \{\s*const o = askPartOps\(\);\s*const t = o && canMove \? neighbour\(o, dir\) : null;\s*if \(!o \|\| !t\) return;[\s\S]*?const back = section \? drag\.slide\(section, dir\) : null;\s*const done = dropOn\(o, t, dir < 0 \? 'above' : 'below', here, back !== null\);\s*if \(!done\) return back\?\.\(\);/);
   /* …and it is SEEN at once: the scene slides to its new place (and back, should the save be refused). */
-  assert.match(hook, /drag\.run\(\{ type: 'move', label, key: canvas \}, done, \(section \? drag\.slide\(section, dir\) : null\) \?\? undefined\);/);
-  assert.equal((hook.match(/o\.move\(m\.id, delta\)/g) ?? []).length, 1, 'a second order write for a scene');
-  assert.equal((hook.match(/\bo\.move\(/g) ?? []).length, 1, 'a second order write for a scene');
+  assert.match(hook, /drag\.run\(\{ type: 'move', label, key: canvas \}, done, back \?\? undefined\);/);
+  /* Two branches of ONE landing (drawn or not), each its one write — never two writes for one scene. */
+  assert.equal((hook.match(/o\.move\(m\.id, delta(?:, true)?\);\s*return landed\('move'/g) ?? []).length, 2, 'a second order write for a scene');
+  assert.equal((hook.match(/\bo\.move\(/g) ?? []).length, 2, 'a second order write for a scene');
   /* 🔁 Re-aimed 2026-10-11: Remove asked first for EVERY part ("Remove from this page?"). The owner's bin has the
      line's Undo in place of that question — a scene of the couple's OWN is still never taken silently. */
   assert.match(hook, /remove: working \? null : canRemove \? \(\) => removeNow\(\) : null,/);

@@ -99,7 +99,11 @@ test('3 · the stage: hears unheld writes for the session; on the truth it drops
 
 test('4 · what the rule stands on: ↺ is an unheld save, which announces itself and sends waiting picks first', () => {
   const BAR = src('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  assert.match(BAR, /makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\)\)/, 'the draft bar’s intents are no longer an unheld makerSave');
+  /* (2026-10-12, `rd/maker-moves-instant`, `lib/a-scene-move-is-drawn-at-once.test.ts`): every intent stays unheld EXCEPT a ↺ the scene drag drew (`drawn`) — and the drag never runs on the RSVP
+     stage (its fixed pages: `makerStageIsFixedPages` → no grip, no bin, no step), so its ↺ is always this unheld save. */
+  assert.match(BAR, /makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: drawn !== null \}\)/, 'the draft bar’s intents are no longer an unheld makerSave');
+  assert.match(BAR, /const drawn = intent === 'undo' \? takeDrawnUndo\(\) : null;/);
+  assert.match(src('app/dashboard/[eventId]/launch/_components/add-part-sheet.tsx'), /on: dragOn && !fixedPages && !frame,/, 'the drag reaches the RSVP stage’s fixed pages');
   const REFRESH = src('lib/maker-refresh.ts');
   assert.match(REFRESH, /export function makerSave<T>\([\s\S]{0,140}\): Promise<T> \{\s*if \(!options\.held\) announceUnheldWrite\(\);/);
   assert.match(REFRESH, /export function announceUnheldWrite\(\): void \{\s*started \+= 1;\s*writer\.flush\(\);[\s\S]{0,120}window\.dispatchEvent\(new Event\(MAKER_UNHELD_WRITE_EVENT\)\);/);

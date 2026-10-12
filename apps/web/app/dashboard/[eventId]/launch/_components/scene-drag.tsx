@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from 'react-dom';
 import { Trash2, Undo2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { makerSavesInFlight, makerSavesStarted } from '@/lib/maker-refresh';
+import { CANVAS_REFRESH_MESSAGE, MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight, makerSavesStarted, requestMakerRefresh } from '@/lib/maker-refresh';
 import { onMakerSave } from '@/lib/maker-save-status';
 import { CANVAS_SETTLE_TIMEOUT_MS, whenCanvasShowsIt, type CanvasSettle } from '@/lib/maker-settle';
 import {
@@ -19,6 +19,7 @@ import {
   scenePadDone,
   type SceneBox,
 } from '@/lib/maker-scene-drag';
+import { claimDrawnUndo, withdrawDrawnUndo, DRAWN_UNDO_TTL_MS, type DrawnUndo } from '@/lib/maker-drawn-undo';
 import { attachSceneDrag, type SceneDragHost, type SceneDragSubject, type SceneDragWired, type SceneDrop } from './scene-canvas-drag';
 
 /**
@@ -53,8 +54,9 @@ import { attachSceneDrag, type SceneDragHost, type SceneDragSubject, type SceneD
  */
 export const stageStill: { key: string | null } = { key: null };
 
-/** A step of the drag's (or of its menu): what the line says of it, and what ↺ would take back. */
-export type SceneStep = { type: 'move' | 'remove'; label: string; key: string | null };
+/** A step of the drag's (or of its menu, or ＋): what the line says of it, and what ↺ would take back. `id`: the scene's
+ *  row, when the step knows it (＋ — the part is not on the Maker's list yet). */
+export type SceneStep = { type: 'move' | 'remove' | 'add'; label: string; key: string | null; id?: string };
 
 export type SceneDragInput = {
   /** The stage's own canvas is on show and takes a hold. */
@@ -78,6 +80,9 @@ export type SceneDragInput = {
   remove: (subject: SceneDragSubject) => 'asking' | Promise<CanvasSettle> | null;
   /** ↺ took one of these steps back, and the page shows it. */
   undone: (step: SceneStep) => void;
+  /** ↺ is about to take this step back: draw its inverse on the page NOW and say how the Undo's held save ended
+   *  (`lib/maker-drawn-undo.ts`). Null: it cannot be drawn here — the Undo reloads the page, as ever. */
+  undraw?: (step: SceneStep) => DrawnUndo | null;
 };
 
 export type SceneDragNow = {
@@ -94,6 +99,8 @@ export type SceneDragNow = {
   /** …and the page shows it at once: the part under `target` slides `by` places among the parts it may land among.
    *  The slide-back for a refused save — null when nothing could be slid (the page then waits for the save). */
   slide: (target: Element, by: -1 | 1) => (() => void) | null;
+  /** The same, to the slot `slotOf` names among the others (given the parts' keys in page order and where it stands). */
+  slideTo: (target: Element, slotOf: (keys: string[], at: number) => number | null) => (() => void) | null;
 };
 
 type LineBody = { kind: 'saving' } | { kind: 'words'; words: string; err: boolean } | { kind: 'removed'; label: string };
@@ -128,6 +135,78 @@ export function heldSaveWatch(timeoutMs: number = CANVAS_SETTLE_TIMEOUT_MS): Pro
       else if (Date.now() - began > timeoutMs) end('timeout');
     }, 120);
   });
+}
+
+/** The canvas on show said its in-place redraw has painted (`editor-bridge.tsx` → `{ t: 'redrawn' }`). */
+function isRedrawn(e: MessageEvent): boolean {
+  const d = e.data as { source?: unknown; t?: unknown } | null;
+  if (e.origin !== window.location.origin || !d || d.source !== 'setnayan-site' || d.t !== 'redrawn') return false;
+  return e.source === (document.querySelector<HTMLIFrameElement>(SHOWN_CANVAS)?.contentWindow ?? null);
+}
+const SHOWN_CANVAS = 'iframe[data-maker-canvas-frame="shown"]';
+/** A held redraw not painted this long after its save landed is asked for again (once). */
+export const REDRAW_ASK_AGAIN_MS = 5_000;
+
+/** The next in-place redraw of the canvas on show, from now. */
+export function redrawnWatch(timeoutMs: number = CANVAS_SETTLE_TIMEOUT_MS): Promise<CanvasSettle> {
+  if (typeof window === 'undefined') return Promise.resolve('shown');
+  return new Promise<CanvasSettle>((resolve) => {
+    const on = (e: MessageEvent) => {
+      if (!isRedrawn(e)) return;
+      window.removeEventListener('message', on);
+      window.clearTimeout(timer);
+      resolve('shown');
+    };
+    const timer = window.setTimeout(() => {
+      window.removeEventListener('message', on);
+      resolve('timeout');
+    }, timeoutMs);
+    window.addEventListener('message', on);
+  });
+}
+
+/**
+ * ✋ A HELD MOVE / ＋ (the page already shows it — slid, or its place held — and redraws ITSELF once the save lands, no
+ * new page): done when the save this press started has answered AND the canvas on show has redrawn; 'failed' the
+ * moment the Maker says the save was refused. Call it AT the press.
+ */
+export function heldRedrawWatch(timeoutMs: number = CANVAS_SETTLE_TIMEOUT_MS): Promise<CanvasSettle> {
+  if (typeof window === 'undefined') return Promise.resolve('shown');
+  let redrawn = false;
+  const on = (e: MessageEvent) => {
+    if (isRedrawn(e)) redrawn = true;
+  };
+  window.addEventListener('message', on);
+  const saved = heldSaveWatch(timeoutMs);
+  const began = Date.now();
+  return saved.then(
+    (how) =>
+      new Promise<CanvasSettle>((resolve) => {
+        if (how !== 'shown') {
+          window.removeEventListener('message', on);
+          return resolve(how);
+        }
+        const savedAt = Date.now();
+        let asked = false;
+        const tick = window.setInterval(() => {
+          /* A redraw that never answered is asked for once more… */
+          if (!redrawn && !asked && Date.now() - savedAt > REDRAW_ASK_AGAIN_MS) {
+            asked = true;
+            document.querySelector<HTMLIFrameElement>(SHOWN_CANVAS)?.contentWindow?.postMessage(CANVAS_REFRESH_MESSAGE, window.location.origin);
+          }
+          if (!redrawn && Date.now() - began <= timeoutMs) return;
+          window.clearInterval(tick);
+          window.removeEventListener('message', on);
+          /* …and past the wait the page is reloaded to the truth: what was laid on it ahead of the save must never be
+             left there for good (an unheld write releases the canvas; its render brings the page). */
+          if (!redrawn) {
+            window.dispatchEvent(new Event(MAKER_UNHELD_WRITE_EVENT));
+            requestMakerRefresh();
+          }
+          resolve(redrawn ? 'shown' : 'timeout');
+        }, 40);
+      }),
+  );
 }
 
 export function useSceneDrag(input: SceneDragInput): SceneDragNow {
@@ -187,9 +266,19 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
       /* Something else was saved since: ↺ takes THAT back, and this line has nothing true to say of it. */
       if (step.saves !== makerSavesStarted()) return;
       put(null);
-      void whenCanvasShowsIt().then((how) => {
+      /* ↺ AT ONCE: the step's inverse is drawn on the page now and this press is claimed for it — the draft bar's
+         save is then held (`lib/maker-drawn-undo.ts`). A claim the Undo never took (its click did not run) is
+         withdrawn, and the drawing taken back. */
+      const drawn = now.current.undraw?.(step) ?? null;
+      if (drawn) {
+        claimDrawnUndo(drawn);
+        window.setTimeout(() => {
+          if (withdrawDrawnUndo(drawn)) drawn.landed(false);
+        }, DRAWN_UNDO_TTL_MS);
+      }
+      void (drawn ? drawn.settle : whenCanvasShowsIt()).then((how) => {
         if (how !== 'shown') return;
-        say(step.type === 'remove' ? SCENE_DRAG_WORDS.back(step.label) : SCENE_DRAG_WORDS.moveUndone);
+        say(step.type === 'remove' ? SCENE_DRAG_WORDS.back(step.label) : step.type === 'add' ? SCENE_DRAG_WORDS.addUndone(step.label) : SCENE_DRAG_WORDS.moveUndone);
         now.current.undone(step);
       });
     };
@@ -328,6 +417,12 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
     const at = subject ? subject.beside.findIndex((b) => b.el === subject.el) : -1;
     return subject && subject.movable && at >= 0 ? (wiredNow.current?.place(subject, at + by) ?? null) : null;
   }, []);
+  const slideTo = useCallback((target: Element, slotOf: (keys: string[], at: number) => number | null) => {
+    const subject = now.current.subject(target, target.ownerDocument);
+    const at = subject ? subject.beside.findIndex((b) => b.el === subject.el) : -1;
+    const slot = subject && subject.movable && at >= 0 ? slotOf(subject.beside.map((b) => b.key), at) : null;
+    return subject && slot !== null ? (wiredNow.current?.place(subject, slot) ?? null) : null;
+  }, []);
   useEffect(() => {
     if (!on) return;
     let doc: Document | null = null;
@@ -398,9 +493,12 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
             }}
           >
             <Trash2 aria-hidden className={`h-[26px] w-[26px] transition-transform duration-200 ${held && over ? '-rotate-12' : ''}`} strokeWidth={1.8} />
+            {/* (walk F4, 2026-10-12: over the foot of a large lifted scene the paper pill was paper on paper — it wears the
+                bin's own line around it, so it reads over any scene. Its place is the prototype's.) */}
             <span
               data-scene-bin-word=""
-              className={`absolute -top-[30px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--sp-paper)] px-2.5 py-[3px] text-[12px] tracking-[0.02em] shadow-[var(--m-shadow-sm)] ${
+              style={{ boxShadow: `0 0 0 1.5px var(${held && over ? '--sp-bad' : '--sp-line2'}), var(--m-shadow-sm)` }}
+              className={`absolute -top-[30px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--sp-paper)] px-2.5 py-[3px] text-[12px] tracking-[0.02em] ${
                 held && over ? 'font-semibold text-[var(--sp-bad)]' : 'text-[var(--sp-ink)]'
               }`}
             >
@@ -436,5 +534,5 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
     </div>
   ) : null;
 
-  return { held, node, status, statusKey: line?.n ?? null, say, run, slide };
+  return { held, node, status, statusKey: line?.n ?? null, say, run, slide, slideTo };
 }

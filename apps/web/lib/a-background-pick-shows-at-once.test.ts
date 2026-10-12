@@ -758,7 +758,8 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   assert.match(refresh, /groundPreview\.current\?\.redrawStarted\(\);\s*startRedrawRef\.current\(\(\) => \{\s*routerRef\.current\.refresh\(\);\s*\}\);/, 'the page’s refresh is not the transition the preview waits on');
   const lay = bridge.slice(bridge.indexOf("data.t === 'mainGround'"), bridge.indexOf("data.t === 'sceneBg'"));
   assert.match(lay, /const preview = sanitizeMainGroundPreview\(data, origin\);\s*if \(preview && 'landed' in preview\) groundPreview\.current\?\.land\(preview\.seq\);\s*else if \(preview\) groundPreview\.current\?\.lay\(preview\);/, 'a message is laid unchecked');
-  assert.match(bridge, /if \(wasRedrawing\.current && !redrawing\) groundPreview\.current\?\.redrawDone\(\);/);
+  /* (2026-10-12, `rd/maker-moves-instant`, `lib/a-scene-move-is-drawn-at-once.test.ts`): the same moment also tells the Maker the redraw painted (`t: 'redrawn'`). */
+  assert.match(bridge, /if \(wasRedrawing\.current && !redrawing\) \{\s*groundPreview\.current\?\.redrawDone\(\);/);
   assert.equal((bridge.match(/redrawDone\(\)/g) ?? []).length, 1, 'the preview is taken away somewhere other than at the end of the page’s own render');
   assert.match(bridge, /if \(event\.origin !== origin\) return;/);
   // The preview layer is the bridge's alone: the page's own grounds never carry its mark.

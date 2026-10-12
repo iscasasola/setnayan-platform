@@ -46,7 +46,7 @@ import { PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, ownScenePlaceOrder } from '@/lib/
 import { MakerRevealStageContext } from './maker-reveal';
 import { MAKER_PART_OPS_EVENT, type MakerPartOps, type MakerPartRaw } from './maker-part-ops';
 import type { SceneDragSubject } from './scene-canvas-drag';
-import { heldSaveWatch, stageStill, useSceneDrag } from './scene-drag';
+import { heldRedrawWatch, heldSaveWatch, redrawnWatch, stageStill, useSceneDrag } from './scene-drag';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { useMaker } from './maker-context';
 
@@ -108,13 +108,14 @@ export function partOpsOf(raw: MakerPartRaw): MakerPartOps {
     afterLastShown: raw.afterLastShown,
     scenes: raw.scenes,
     move: raw.move,
+    undoDrawn: raw.undoDrawn,
     eye: (id) => {
       const sc = byId.get(id);
       if (sc) raw.eyeWrite(sc);
     },
-    add: (id, delta) => {
+    add: (id, delta, drawn) => {
       const sc = byId.get(id);
-      if (sc) raw.addHere(sc, delta);
+      if (sc) raw.addHere(sc, delta, drawn);
     },
     removers: raw.sceneRemovers,
     postEvent: nav && nav !== 'unreadable' ? nav.arrangement : null,
@@ -529,14 +530,20 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
    * Land a part above / below `t` — ONE order write (the work area's own move; Post Event: its run). The promise is
    * how it ended, once the page on screen shows it; null: it already stands there — nothing is written.
    */
-  const dropOn = (o: MakerPartOps, t: MoveTarget, where: 'above' | 'below', at: At = here): Promise<CanvasSettle> | null => {
+  const dropOn = (o: MakerPartOps, t: MoveTarget, where: 'above' | 'below', at: At = here, drawn = true): Promise<CanvasSettle> | null => {
     const { mv: m } = at;
     if (m.kind === 'scene') {
       const shown = o.list.shown.flatMap((x) => (x.kind === 'scene' ? [x.widgetId] : []));
       const delta = makerDropDelta({ fullOrder: o.fullOrder, shown, afterLastShown: o.afterLastShown, id: m.id, target: t.id, where });
       if (delta === 0) return null;
-      o.move(m.id, delta);
-      return landed('move');
+      if (!drawn) {
+        o.move(m.id, delta);
+        return landed('move');
+      }
+      /* ✋ The page already SHOWS it (the drag's slides): held — the wait is for the save, then the page's own redraw. */
+      const done = heldRedrawWatch(); // AT the press
+      o.move(m.id, delta, true);
+      return landed('move', done);
     }
     if (m.kind === 'post-event' && m.runKey && o.postEvent) {
       const run = postEventRun(o.postEvent);
@@ -561,11 +568,14 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   const stepMove = (dir: -1 | 1) => {
     const o = askPartOps();
     const t = o && canMove ? neighbour(o, dir) : null;
-    const done = o && t ? dropOn(o, t, dir < 0 ? 'above' : 'below') : null;
-    if (!done) return;
-    /* It sits in its new place at once (the prototype's `moveBy`), slid there until the page the save brings draws it. */
+    if (!o || !t) return;
+    /* It sits in its new place at once (the prototype's `moveBy`), slid there until the page redraws itself in that
+       order — slid FIRST, so the save knows the page shows it (held; a step that could not be slid reloads as before). */
     const section = canvas ? findMakerSection(document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? document, canvas) : null;
-    drag.run({ type: 'move', label, key: canvas }, done, (section ? drag.slide(section, dir) : null) ?? undefined);
+    const back = section ? drag.slide(section, dir) : null;
+    const done = dropOn(o, t, dir < 0 ? 'above' : 'below', here, back !== null);
+    if (!done) return back?.();
+    drag.run({ type: 'move', label, key: canvas }, done, back ?? undefined);
   };
 
   /* ── ＋ add a part ── */
@@ -605,10 +615,25 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
         const before = where === 'above' ? mv.id : (shown[shown.indexOf(mv.id) + 1] ?? o.afterLastShown);
         delta = swapsForDrop(o.fullOrder, folded.widgetId, before === folded.widgetId ? null : before);
       }
-      o.add(folded.widgetId, delta);
       /* Said as it landed: above / below the picked scene — or, off a fixed part, on this page (its own place). */
       const onHere = shownPageOf(stage);
-      settle('add', `${makerPartLabelOn(stage, key)} added ${mv.kind === 'scene' ? where : onHere ? `on ${onHere.label}` : 'to this page'}`, () => bringOntoScreen(c));
+      const words = `${makerPartLabelOn(stage, key)} added ${mv.kind === 'scene' ? where : onHere ? `on ${onHere.label}` : 'to this page'}`;
+      if (mv.kind === 'scene' && canvas) {
+        /* ＋ ITS PLACE IS HELD AT ONCE ("Adding <part>…", above / below the scene ＋ was pressed on), the save is held
+           and the page redraws ITSELF with the part the moment it lands — no new page (owner rule: ≤100 ms per tap). */
+        const done = heldRedrawWatch(); // AT the press
+        postToCanvas({ source: 'setnayan-editor', t: 'scenePlaceholder', key: canvas, where, label: makerPartLabelOn(stage, key) });
+        o.add(folded.widgetId, delta, true);
+        drag.run({ type: 'add', label: makerPartLabelOn(stage, key), key: c, id: folded.widgetId }, done);
+        void landed('add', done).then((how) => {
+          if (how !== 'shown') return;
+          bringOntoScreen(c);
+          setToast(words);
+        });
+        return;
+      }
+      o.add(folded.widgetId, delta);
+      settle('add', words, () => bringOntoScreen(c));
       return;
     }
     const scene = makerPostEventSceneOf(stage, key);
@@ -746,6 +771,54 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
       const done = takeOff(atKey(askPartOps(), s.key));
       if (done && done !== 'asking') pickAfter(s.key);
       return done;
+    },
+    /* ↺ AT ONCE (`lib/maker-drawn-undo.ts`): the step this page drew, taken back the same way — the Maker's list and
+       hold by the work area (`undoDrawn`), the page here: a move slides back to where it stood (its slide comes off when
+       the page redraws itself in that order); a scene taken off is shown again and a part ＋ added is taken off by the
+       bridge (`sceneShow`). A refused Undo puts the step back, and the draft bar says why. */
+    undraw: (step) => {
+      const o = askPartOps();
+      const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
+      if (!o || !doc || !step.key || step.key === REVEAL_STUB || !findMakerSection(doc, step.key)) return null;
+      /* (by its row: a scene taken off is no longer on the list the steps name parts by) */
+      const id = step.id ?? o.scenes.find((sc) => `w:${sc.type}` === step.key)?.id ?? null;
+      if (!id) return null;
+      const maker = o.undoDrawn(step.type, id);
+      if (!maker) return null;
+      const before = step.type === 'move' ? (maker.prior ?? null) : null;
+      if (step.type === 'move' && !before) {
+        maker.landed(false);
+        return null;
+      }
+      let back: (() => void) | null = null;
+      if (before) {
+        /* Where it stood: the stage's order before the move (the work area kept it) — the slot among the others whose
+           place came before its own. */
+        const prior = before;
+        const pos = new Map(prior.map((x, i) => [x, i] as const));
+        const idOf = (k: string) => o.list.shown.find((t) => t.key === k && t.kind === 'scene') as Extract<MakerTile, { kind: 'scene' }> | undefined;
+        const el = findMakerSection(doc, step.key)!;
+        back = drag.slideTo(el, (keys, i) => {
+          const mine = pos.get(id);
+          if (mine === undefined) return null;
+          return keys.filter((k, j) => j !== i && (pos.get(idOf(k)?.widgetId ?? '') ?? Infinity) < mine).length;
+        });
+        if (!back) {
+          maker.landed(false);
+          return null;
+        }
+      }
+      let told: (ok: boolean) => void = () => {};
+      const said = new Promise<boolean>((r) => (told = r));
+      const redraw = before ? redrawnWatch() : null;
+      return {
+        settle: said.then((ok) => (ok ? (redraw ?? 'shown') : 'failed')),
+        landed: (ok) => {
+          maker.landed(ok);
+          if (!ok) back?.();
+          told(ok);
+        },
+      };
     },
     /* ↺ took a step of the drag's back and the page shows it: a scene put back is the picked part again. */
     undone: (step) => {

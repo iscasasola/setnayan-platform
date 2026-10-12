@@ -105,8 +105,11 @@ test('F1 · the Maker’s ＋ really sends that one patch — no move followed b
   const scenePath = add.slice(0, add.indexOf('makerPostEventSceneOf('));
   assert.doesNotMatch(scenePath, /o\.move\(|o\.eye\(/, '＋ writes its place and its showing as two saves again');
   /* Two ways in — a part of this page (placed above / below), a part of another page (its own place) — each ONE `o.add`. */
-  assert.equal((scenePath.match(/o\.add\(folded\.widgetId, (?:delta|0)\);/g) ?? []).length, 2);
-  assert.equal((scenePath.match(/o\.add\(/g) ?? []).length, 2);
+  /* (2026-10-12, `rd/maker-moves-instant`: the part of this page beside a picked scene is drawn at once — its place held
+     on the page — and is the same ONE `o.add`, held: `o.add(folded.widgetId, delta, true)`, an exclusive branch.) */
+  assert.equal((scenePath.match(/o\.add\(folded\.widgetId, (?:delta|0)(?:, true)?\);/g) ?? []).length, 3);
+  assert.equal((scenePath.match(/o\.add\(/g) ?? []).length, 3);
+  assert.match(scenePath, /o\.add\(folded\.widgetId, delta, true\);[\s\S]*?return;\s*\}\s*o\.add\(folded\.widgetId, delta\);/, 'the drawn ＋ falls through to a second write');
   const shell = read('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'editor-shell.tsx');
   const addHere = shell.slice(shell.indexOf('const addHere = '), shell.indexOf('const runChain = '));
   /* One door call on the draft's path; the two shipped writes only where there is no draft door at all. */

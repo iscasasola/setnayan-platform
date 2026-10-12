@@ -245,7 +245,9 @@ test('(4) the bridge undoes in the commit where the redraw ends — before React
   assert.match(src, /const \[redrawing, startRedraw\] = useTransition\(\);/);
   assert.match(src, /startRedrawRef\.current\(\(\) => \{\s*routerRef\.current\.refresh\(\);\s*\}\);/);
   assert.match(src, /<BeforeRedrawCommits pending=\{redrawing\} run=\{undoLaidPreviews\} \/>/);
-  assert.match(src, /const undoLaidPreviews = \(\) => \{\s*undoSceneBgPreviews\(document\);\s*\};/);
+  /* (2026-10-12, `rd/maker-moves-instant`, `lib/a-scene-move-is-drawn-at-once.test.ts`): the same moment also takes off what the Maker laid ahead of a held move or ＋ — the place-holder,
+     a scene to show, and the drag's slides (`CANVAS_REDRAW_COMMITS_EVENT`, dispatched synchronously). */
+  assert.match(src, /const undoLaidPreviews = \(\) => \{\s*undoSceneBgPreviews\(document\);[\s\S]*?document\.dispatchEvent\(new Event\(CANVAS_REDRAW_COMMITS_EVENT\)\);\s*\};/);
   /* …the hook is the one that runs BEFORE the DOM is changed (an effect runs after React has already thrown)… */
   const cls = src.slice(src.indexOf('export class BeforeRedrawCommits'), src.indexOf('const undoLaidPreviews'));
   assert.match(cls, /getSnapshotBeforeUpdate\(prev: \{ pending: boolean \}\) \{\s*if \(prev\.pending && !this\.props\.pending\) this\.props\.run\(\);\s*return null;\s*\}/);

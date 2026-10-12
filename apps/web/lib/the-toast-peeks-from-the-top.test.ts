@@ -172,7 +172,10 @@ test('(7) the Stages panel says what happened with THIS toast — no strip of it
      button that stays. That line is the toolbar's row 4 (`scene-drag.tsx`), never a strip in this panel.) */
   assert.equal(settled, 2, 'the scenes’ ＋ no longer waits for the page before it speaks');
   /* (`direct`: a Post Event scene added — said at the press, as before; the other `setToast` is `settle`'s own.) */
-  assert.equal(direct + settled, 3, 'a message the panel used to say is gone (added · added on another page · a Post Event scene added)');
+  /* (2026-10-12, `rd/maker-moves-instant`, `lib/a-scene-move-is-drawn-at-once.test.ts`): ＋ beside a picked scene is drawn at once and speaks through `landed` — once the page shows the
+     part (its save and the page's own redraw), never at the press: a fourth `setToast(words)`, the same words. */
+  assert.match(sheet, /void landed\('add', done\)\.then\(\(how\) => \{\s*if \(how !== 'shown'\) return;\s*bringOntoScreen\(c\);\s*setToast\(words\);/);
+  assert.equal(direct + settled, 4, 'a message the panel used to say is gone (added · added drawn · added on another page · a Post Event scene added)');
   const line = read('app/dashboard/[eventId]/launch/_components/scene-drag.tsx');
   assert.match(line, /put\(step\.type === 'remove' \? \{ kind: 'removed', label: step\.label \} : null\);/, 'a removed scene is not said on the line under the tools');
 });

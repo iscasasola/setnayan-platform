@@ -510,6 +510,18 @@ const HELD_WITHOUT_DRAWING: Record<string, string> = {
      (`tellLookSample`, drawn in the browser), so a render behind the save would change no pixel — `held` is true.
      Both facts are held just below, so this entry cannot outlive them. */
   'website/editor/_components/music-button-row.tsx › commit': 'not on the canvas — the Look sample wears it at the tap',
+  /* ✋ (2026-10-12, `rd/maker-moves-instant`) The work area's move is held ONLY when its caller says the page already
+     shows it (`drawn`): the drag's drop and the tag's step slide the scene into its new place on the canvas BEFORE they
+     call it (`add-part-sheet.tsx` `stepMove` slides first and passes `back !== null`; a drop lands after the slides).
+     Held by `lib/a-scene-move-is-drawn-at-once.test.ts` (2) and (1), which drive the slides on a stand-in page. */
+  'website/editor/_components/editor-shell.tsx › move': 'held only when drawn — the drag already slid it on the canvas',
+  /* ＋ likewise: held only when `drawn` — the caller has put the part's place on the canvas first ("Adding <part>…",
+     `add-part-sheet.tsx` posts `scenePlaceholder` before `o.add(…, true)`), and the save still owes its one render
+     (`makerNeedsRender`) for the Maker's list. */
+  'website/editor/_components/editor-shell.tsx › addHere': 'held only when drawn — its place is already held on the canvas',
+  /* ↺ held only for a step the scene drag drew: its capture listener draws the inverse on the canvas and claims the
+     click (`claimDrawnUndo`) BEFORE this handler runs; any other ↺ is unheld, as ever (`lib/maker-drawn-undo.ts`). */
+  'website/_components/hub-draft-bar.tsx › run': 'held only for a ↺ the drag already drew at the press',
 };
 
 function optionsHold(call: ts.CallExpression): boolean {

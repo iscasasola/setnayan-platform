@@ -57,16 +57,18 @@ test('a step calls the work area’s move ONCE — the one-save draft write', ()
   const src = read(SHEET);
   const drop = src.slice(src.indexOf('const dropOn ='), src.indexOf('/* ── ＋ add a part ── */'));
   assert.ok(drop.length > 200, 'the part’s landing is drawn');
-  assert.equal((drop.match(/\bo\.move\(/g) ?? []).length, 1, 'one move per landing');
+  /* (2026-10-12, `rd/maker-moves-instant`, `lib/a-scene-move-is-drawn-at-once.test.ts`): two EXCLUSIVE branches — the page shows it (`drawn`, held) or not — each one move, then return. */
+  assert.equal((drop.match(/\bo\.move\(/g) ?? []).length, 2, 'one move per landing');
+  assert.equal((drop.match(/\bo\.move\(m\.id, delta(?:, true)?\);\s*return landed\('move'/g) ?? []).length, 2, 'a landing goes on after its move');
   assert.doesNotMatch(drop, /\bfor\s*\(|\bwhile\s*\(|forEach/, 'never one write per place');
   assert.doesNotMatch(drop, /moveWidget(Up|Down)/, 'never the form-post chain');
   /* A step lands ONCE, on the neighbour the page draws above / below — read when the button is pressed. */
   assert.equal((drop.match(/\bdropOn\(/g) ?? []).length, 1, 'a step lands more than once');
-  assert.match(drop, /const t = o && canMove \? neighbour\(o, dir\) : null;\s*const done = o && t \? dropOn\(o, t, dir < 0 \? 'above' : 'below'\) : null;/);
+  assert.match(drop, /const t = o && canMove \? neighbour\(o, dir\) : null;[\s\S]*?const done = dropOn\(o, t, dir < 0 \? 'above' : 'below', here, back !== null\);/);
   /* …and nothing else in the file moves a part. (🔁 Re-aimed 2026-10-11 (DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN"): the scene is named by
      what is HELD — `at`, the picked part by default — so the drop on the page and the tag's step are this one write.) */
-  assert.equal((src.match(/\bo\.move\(m\.id,/g) ?? []).length, 1);
-  assert.equal((src.match(/\bo\.move\(/g) ?? []).length, 1);
+  assert.equal((src.match(/\bo\.move\(m\.id,/g) ?? []).length, 2);
+  assert.equal((src.match(/\bo\.move\(/g) ?? []).length, 2);
   /* ✋ THE DROP ON THE PAGE lands through the same function — once. */
   const held = src.slice(src.indexOf('const drag = useSceneDrag({'), src.indexOf('const band = '));
   assert.ok(held.length > 800, 'anti-vacuity: the drag’s writes were not found');
@@ -77,7 +79,8 @@ test('a step calls the work area’s move ONCE — the one-save draft write', ()
   const shell = read(SHELL);
   const lent = shell.slice(shell.indexOf('partOps.current = {'), shell.indexOf('window.addEventListener(MAKER_PART_OPS_EVENT'));
   assert.match(lent, /[{,]\s*move\s*,/, 'the work area lends its own `move`');
-  const move = shell.slice(shell.indexOf('const move = (id: string, delta: number)'), shell.indexOf('/** One step of a chain'));
+  const move = shell.slice(shell.indexOf('const move = (id: string, delta: number'), shell.indexOf('/** One step of a chain'));
+  assert.ok(move.length > 400, 'anti-vacuity: the move was not found');
   assert.match(move, /stageOrderPatch\(order/, 'the whole stage’s order, one patch');
   assert.match(move, /fd\.set\('intent', 'save'\)/, 'to the draft');
   assert.match(move, /makerSave\(\(\) => draftAction\(eventId, fd\)/, 'one save');

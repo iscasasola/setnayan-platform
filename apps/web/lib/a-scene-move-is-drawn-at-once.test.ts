@@ -82,7 +82,7 @@ function standIn(bandBottom = 700) {
       height,
       contains: (o) => o === el,
       getBoundingClientRect: () => {
-        const m = /translateY\((-?[\d.]+)px\)/.exec(el.style.transform);
+        const m = /translateY\((-?[\d.]+)px\)/.exec(el.style.transform ?? '');
         const t = top + (m ? Number(m[1]) : 0);
         return { top: t, bottom: t + height, left: 0, right: 375, width: 375, height };
       },
@@ -159,8 +159,8 @@ test('(1) the slides come off IN the redraw’s own commit — at once, with no 
   const { els, doc, wired, subject, runFrames } = standIn();
   const back = wired.place(subject(0), 1);
   assert.ok(back, 'the first scene slides one place down');
-  assert.match(els[0]!.style.transform!, /translateY\(200px\)/, 'it stands where the step puts it');
-  assert.match(els[1]!.style.transform!, /translateY\(-300px\)/);
+  assert.match(els[0]!.style.transform ?? '', /translateY\(200px\)/, 'it stands where the step puts it');
+  assert.match(els[1]!.style.transform ?? '', /translateY\(-300px\)/);
   assert.equal(wired.optimistic(), true, 'the order is held by the slides until the page draws it');
   /* The bridge fires the event from React's before-commit moment (`BeforeRedrawCommits`): what is checked here is what
      the page wears the instant after — before any frame could be painted. */

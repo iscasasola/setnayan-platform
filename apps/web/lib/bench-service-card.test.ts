@@ -161,9 +161,11 @@ test('the gift is the one shared sentence, gated on the yes', () => {
 });
 
 test('in a stacked list "earlier" is up — the arrange arrows and their hint say so', () => {
-  assert.match(BENCH, /\{look\.face \? '↑' : '←'\}/);
-  assert.match(BENCH, /\{look\.face \? '↓' : '→'\}/);
+  // The arrows are the ONE action-button source now (2026-10-12 look sweep), drawn as icons.
+  assert.match(BENCH, /icon=\{look\.face \? ArrowUp : ArrowLeft\}/);
+  assert.match(BENCH, /icon=\{look\.face \? ArrowDown : ArrowRight\}/);
   assert.match(BENCH, /\? replan\s*\? 'Drag a card, or use ↑ ↓ to move it\. Long-press any card to start\.'\s*: 'Drag a card, or use ← → to move it\./);
   // The names a screen reader hears were always direction-free.
-  assert.match(BENCH, /aria-label=\{`Move \$\{v\.name\} earlier`\}/);
+  // (ActionButton's `name` is its aria-label.)
+  assert.match(BENCH, /name=\{`Move \$\{v\.name\} earlier`\}/);
 });

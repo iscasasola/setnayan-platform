@@ -70,6 +70,12 @@ type Common = {
   main?: boolean;
   /** A secondary that should not compete (Skip · Not now): hairline, muted word, no wash. */
   quiet?: boolean;
+  /**
+   * FILLED, BUT NOT THE ROW'S MAIN VERB — the tone's solid fill (the main verb's look) on a button the fit pass may
+   * still shrink to its icon (Find's "＋ Add your own" in the thumb row: terracotta and filled at every width, the
+   * ＋ circle on a phone). One source for what pages forced with `!bg-…` overrides. Ignored on `main`.
+   */
+  filled?: boolean;
   /** Start icon-only (a toolbar of icons that are still buttons). */
   iconOnly?: boolean;
   disabled?: boolean;
@@ -111,10 +117,18 @@ export type ActionButtonProps = AsButton | AsLink;
 /** The class list — exported so a guard can assert the shape without a DOM. */
 export function actionButtonClass(
   tone: ActionTone,
-  opts: { main?: boolean; quiet?: boolean; iconOnly?: boolean; extra?: string } = {},
+  opts: { main?: boolean; quiet?: boolean; iconOnly?: boolean; filled?: boolean; extra?: string } = {},
 ): string {
-  const { main, quiet, iconOnly, extra } = opts;
-  return ['ab', `ab-${tone}`, main ? 'ab-main' : '', quiet && !main ? 'quiet' : '', iconOnly ? 'icon-only' : '', extra ?? '']
+  const { main, quiet, iconOnly, filled, extra } = opts;
+  return [
+    'ab',
+    `ab-${tone}`,
+    main ? 'ab-main' : '',
+    filled && !main ? 'ab-fill' : '',
+    quiet && !main && !filled ? 'quiet' : '',
+    iconOnly ? 'icon-only' : '',
+    extra ?? '',
+  ]
     .filter(Boolean)
     .join(' ');
 }
@@ -127,8 +141,8 @@ function renderIcon(icon: Common['icon']) {
 
 export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, ActionButtonProps>(
   function ActionButton(props, ref) {
-    const { tone, icon, label, name, main, quiet, iconOnly, className, title, waiting } = props;
-    const cls = actionButtonClass(tone, { main, quiet, iconOnly, extra: className });
+    const { tone, icon, label, name, main, quiet, iconOnly, filled, className, title, waiting } = props;
+    const cls = actionButtonClass(tone, { main, quiet, iconOnly, filled, extra: className });
     const inner = (
       <>
         {renderIcon(icon)}

@@ -49,17 +49,15 @@ test('ⓘ every info circle wears it — InfoTip, the Your Team category ⓘ, th
   const infoTip = read('app', '_components', 'info-tip.tsx');
   assert.match(infoTip, /<button[\s\S]*?className="[^"]*\bsn-dot-btn\b[^"]*"[\s\S]*?<span aria-hidden="true">i<\/span>/);
 
+  // The Suppliers page's ⓘs are the ONE ⓘ template now (Explain, 2026-10-12 look sweep): a 44-px target
+  // around a drawn 22-px circle — the floor cannot stretch it. Asserted as the template, not as the old class.
   const cats = read('app', 'dashboard', '[eventId]', 'vendors', '_components', 'shortlist-categories.tsx');
-  const catInfo = cats.match(/className="cat-info[^"]*"/g) ?? [];
-  assert.ok(catInfo.length >= 2, `found ${catInfo.length} .cat-info buttons — the folder and the category ⓘ`);
-  for (const c of catInfo) assert.match(c, /\bsn-dot-btn\b/, `${c} is still stretched by the 44px floor`);
+  const catInfo = cats.match(/<Explain [^>]*className="cat-info"/g) ?? [];
+  assert.ok(catInfo.length >= 2, `found ${catInfo.length} Explain ⓘs — the folder and the category ⓘ`);
+  assert.doesNotMatch(cats, /className="cat-info sn-dot-btn"/, 'a hand-made ⓘ came back');
 
   const bench = read('app', 'dashboard', '[eventId]', 'vendors', '_components', 'services-takeover.tsx');
-  assert.match(
-    bench,
-    /aria-label=\{EXPLORE_INFO_BUTTON_LABEL\}[\s\S]*?className="[^"]*\bsn-dot-btn\b/,
-    'the bench ⓘ is still stretched by the 44px floor',
-  );
+  assert.match(bench, /<Explain title=\{EXPLORE_INFO_TITLE\} label=\{EXPLORE_INFO_BUTTON_LABEL\}/, 'the bench ⓘ is not the ⓘ template');
 });
 
 test('ⓘ the Your Team head rows let the head shrink, so the ⓘ stays on screen', () => {

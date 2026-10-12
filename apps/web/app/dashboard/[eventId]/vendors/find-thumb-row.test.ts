@@ -151,8 +151,9 @@ test('T4 · glass: the row has no background; the field is frosted; Add keeps it
   assert.match(ROW, /<label\s+data-glass-row="suppliers-find"\s+data-fit-field=""\s+className="sn-glass-row /);
   // Add: terracotta, filled, at every width — and NOT the fit pass's "main",
   // so on a phone it drops its word with the rest of the row (the ＋ circle).
-  assert.match(ROW, /const ADD_FILLED = '!border-mulberry !bg-mulberry !text-white';/);
-  assert.match(ROW, /<ActionButton tone="brand" icon=\{Plus\} label="Add your own" onClick=\{onAdd\} className=\{ADD_FILLED\} \/>/);
+  // Filled through the ONE source's `filled` option (2026-10-12) — never a `!bg-…` override on the page.
+  assert.match(ROW, /<ActionButton tone="brand" filled icon=\{Plus\} label="Add your own" onClick=\{onAdd\} \/>/);
+  assert.doesNotMatch(ROW, /!bg-/);
   assert.doesNotMatch(ROW, /\bmain\b(?!\s*verb)/, 'a `main` button never drops its word — the row would not fit a phone');
 });
 

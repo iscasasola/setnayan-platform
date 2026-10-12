@@ -31,10 +31,6 @@ import { THUMB_SLIDE_MS, useSuppliersMode } from './suppliers-mode';
 /** Rule 4 — the shipped Guests search waits the same 250 ms. */
 export const THUMB_SEARCH_DEBOUNCE_MS = 250;
 
-/** Add is terracotta and FILLED at every width (the prototype's thumb row), but
- *  it is not the row's "main verb" to the fit pass — on a phone it is the ＋
- *  circle, so it must be allowed to drop its word with the rest of the row. */
-const ADD_FILLED = '!border-mulberry !bg-mulberry !text-white';
 
 export function FindThumbRow({
   allOpen,
@@ -181,7 +177,10 @@ function ThumbControls({
           className="h-full min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/55"
         />
       </label>
-      <ActionButton tone="brand" icon={Plus} label="Add your own" onClick={onAdd} className={ADD_FILLED} />
+      {/* Add is terracotta and FILLED at every width (the prototype's thumb row), but
+          it is not the row's "main verb" to the fit pass — on a phone it is the ＋
+          circle, so it may drop its word with the rest of the row: `filled`. */}
+      <ActionButton tone="brand" filled icon={Plus} label="Add your own" onClick={onAdd} />
     </div>
   );
 }

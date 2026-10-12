@@ -1,12 +1,11 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Phone } from 'lucide-react';
+import { Mail, Phone, X } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { actionButtonClass } from '@/components/action-button';
+import { ActionButton } from '@/components/action-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { supplierCommissionShort } from '@/lib/commission-promise';
@@ -392,10 +391,15 @@ function DeclineForm({ token }: { token: string }) {
   return (
     <form action={declineVendorInviteByToken}>
       <input type="hidden" name="claim_token" value={token} />
-      {/* The one ActionButton's look on the page's own submit (it shows the press as pending). */}
-      <SubmitButton className={actionButtonClass('neutral', { extra: 'min-h-11' })} pendingLabel="…">
-        I&rsquo;m not this supplier
-      </SubmitButton>
+      {/* The one ActionButton, as this form's submit. The icon is a READY ELEMENT:
+          this is a server component, and a component function cannot cross into
+          the client button. */}
+      <ActionButton
+        tone="neutral"
+        type="submit"
+        icon={<X aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
+        label="I’m not this supplier"
+      />
     </form>
   );
 }

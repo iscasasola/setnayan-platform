@@ -120,7 +120,16 @@ export function CoupleLinkDoor({
         </section>
 
         <div className="flex flex-wrap gap-3">
-          <ActionButton tone="brand" main icon={UserPlus} label="Claim & sign up" href={signupUrl} />
+          {/* A server component: the icon goes as a READY ELEMENT — a component
+              function cannot cross into the client ActionButton (it crashed the
+              page; caught in the lab walk 2026-10-12). */}
+          <ActionButton
+            tone="brand"
+            main
+            icon={<UserPlus aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
+            label="Claim & sign up"
+            href={signupUrl}
+          />
           {decline}
         </div>
         <p className="text-xs text-ink/50">

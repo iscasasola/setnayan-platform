@@ -714,7 +714,7 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
    gold error message on these screens; the first (quote-fill) was fixed in
    #4780 and this one survived because it is written as a hex, which a
    class-name sweep cannot see. danger-700, like every other error here. */
-.slcat .plan-err{font-family:var(--sans);font-size:12px;line-height:1.45;color:#974930;text-align:right;flex:1 1 200px}
+.slcat .plan-err{font-family:var(--sans);font-size:12px;line-height:1.45;color:rgb(var(--color-danger));text-align:right;flex:1 1 200px}
 .slcat .addpool{margin:10px 14px 2px 34px;padding-top:10px;border-top:1px dashed var(--line)}
 .slcat .addpool .ap-t{margin:0 0 8px;font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .addpool .ap-chips{display:flex;flex-wrap:wrap;gap:7px}
@@ -723,7 +723,7 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .addchip:active{transform:scale(.97)}
 .slcat .addchip[disabled]{opacity:.55;cursor:default}
 .slcat .fold-empty{padding:10px 16px 2px 34px;font-size:12.5px;color:var(--ink-soft)}
-html.dark .slcat .plan-err{color:#e2b968}
+
 
 /* "In your plan" marker beside a category name */
 .slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
@@ -995,6 +995,14 @@ html.dark .slcat .fd-chip{background:rgba(251,251,250,.1)}
 html.dark .slcat .sortseg button.on,html.dark .slcat .vact.primary{background:rgb(var(--sn-accent));border-color:rgb(var(--sn-accent));color:rgb(var(--sn-on-accent))}
 html.dark .slcat .cat-free{color:rgb(var(--sn-accent));background:rgba(229,121,78,.14)}
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t{color:rgb(var(--sn-accent))}
+/* "More to compare" while it loads: two shimmering rows shaped like what is coming */
+.slcat .mrload{display:flex;flex-direction:column;gap:12px;padding:6px 0 4px}
+.slcat .mrsk{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;align-items:start}
+.slcat .mrsk-img{display:block;width:80px;height:112px;border-radius:var(--m-r-sm)}
+.slcat .mrsk-lines{display:flex;flex-direction:column;gap:8px;padding-top:6px}
+.slcat .mrsk-l{display:block;height:11px;border-radius:999px;width:80%}
+.slcat .mrsk-l.short{width:45%}
+.slcat .mrfirst{display:block;margin-top:8px}
 `;
 
 /** Two-letter monogram fallback — delegates to the shared shop/vendor helper
@@ -2023,6 +2031,7 @@ function MoreToCompare({
   probeDayKeys,
   sortMenu,
   onSeeAll,
+  onAdd,
 }: {
   eventId: string;
   tile: string;
@@ -2042,6 +2051,8 @@ function MoreToCompare({
   sortMenu: ReactNode;
   /** Opens the full sheet — still the only place with filters and facets. */
   onSeeAll: () => void;
+  /** An empty list's first action (§ 9 kind 16): add someone the couple knows. */
+  onAdd?: () => void;
 }) {
   const router = useRouter();
   const sheetDoor = useContext(SheetDoorCtx);
@@ -2088,6 +2099,8 @@ function MoreToCompare({
   const moreFreeDaysMap = useMemo(() => new Map(Object.entries(moreFreeDays)), [moreFreeDays]);
 
   const moreQ = query.trim();
+  // "Try again" asks once more (a failed read is never kept for the visit).
+  const [moreTry, setMoreTry] = useState(0);
   useEffect(() => {
     if (!shouldRunInlineMoreQuery(moreQ)) return;
     // ONE REQUEST PER CATEGORY PER VISIT (owner 2026-10-08). Folding a row and
@@ -2136,7 +2149,7 @@ function MoreToCompare({
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [eventId, moreTile, moreGroupId, moreQ]);
+  }, [eventId, moreTile, moreGroupId, moreQ, moreTry]);
 
   // Save from the list → the couple's *considering* list, which is what the
   // cards above show. The SAME `saveVendorToPicks` the full sheet's Add already
@@ -2339,17 +2352,35 @@ function MoreToCompare({
       ) : null}
       {moreError ? (
         <div className="mrerr" role="alert">
-          {moreError}
+          {moreError}{' '}
+          {moreError === INLINE_MORE_FAILED ? (
+            <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={() => setMoreTry((n) => n + 1)} />
+          ) : null}
         </div>
       ) : null}
       {moreLoading && shown === 0 ? (
-        <div className="mrnote">
-          <span>{INLINE_MORE_LOADING}</span>
+        // Loading is a shimmer of what is coming (§ 9 kind 16), its words kept for a screen reader.
+        <div className="mrload" role="status">
+          <span className="sr-only">{INLINE_MORE_LOADING}</span>
+          {[0, 1].map((i) => (
+            <span key={i} aria-hidden className="mrsk">
+              <span className="skeleton mrsk-img" />
+              <span className="mrsk-lines">
+                <span className="skeleton mrsk-l" />
+                <span className="skeleton mrsk-l short" />
+              </span>
+            </span>
+          ))}
         </div>
       ) : shown === 0 ? (
         moreError ? null : (
           <div className="mrnote" role="status">
             <span>{moreToCompareEmpty(label, moreQ)}</span>
+            {onAdd ? (
+              <span className="mrfirst">
+                <ActionButton tone="brand" icon={Plus} label="Add your own" onClick={onAdd} />
+              </span>
+            ) : null}
           </div>
         )
       ) : (
@@ -2775,7 +2806,7 @@ export function ShortlistCategories({
   );
   const [planEditing, startPlanEdit] = useTransition();
   const { confirm, dialog: removeConfirmDialog } = useConfirm();
-  const [planError, setPlanError] = useState<{ tile: string; message: string } | null>(null);
+  const [planError, setPlanError] = useState<{ tile: string; message: string; retry?: () => void } | null>(null);
 
   /**
    * Ask before removing. The note on the button rides `title`, which is a HOVER
@@ -2800,7 +2831,7 @@ export function ShortlistCategories({
     startPlanEdit(async () => {
       const res = await excludeTileFromPlan({ eventId, tile });
       if (!res.ok) {
-        setPlanError({ tile, message: res.error });
+        setPlanError({ tile, message: res.error, retry: () => void removeTileFromPlan(tile, label) });
         return;
       }
       setOpenTile((cur) => (cur === tile ? null : cur));
@@ -2813,7 +2844,7 @@ export function ShortlistCategories({
     startPlanEdit(async () => {
       const res = await restoreTileToPlan({ eventId, tile });
       if (!res.ok) {
-        setPlanError({ tile, message: res.error });
+        setPlanError({ tile, message: res.error, retry: () => addTileToPlan(tile, folder, slug) });
         return;
       }
       openPlan(folder, tile, slug);
@@ -3740,6 +3771,7 @@ export function ShortlistCategories({
                   const removable =
                     replan && canRemoveTileFromPlan({ lockedCount: lockedNames.length });
                   const rowError = planError?.tile === t.tile ? planError.message : null;
+                  const rowRetry = planError?.tile === t.tile ? planError.retry : undefined;
                   // Slice D — the rail-end card flips from "Find more" to
                   // "＋ Add another {tile}" once this category has a lock AND
                   // its group allows more picks. The group is resolved at TILE
@@ -4220,6 +4252,7 @@ export function ShortlistCategories({
                               probeDayKeys={probeDayKeys}
                               sortMenu={sortMenu}
                               onSeeAll={() => openSearch(t.tile, t.label)}
+                              onAdd={() => setManual({ category: t.category, label: t.label })}
                             />
                           ) : null}
                           {/* A booked category shows no list, so its own way
@@ -4243,7 +4276,17 @@ export function ShortlistCategories({
                               `plan-err` renders. */}
                           {replan && !coveredGroup && (removable || rowError) ? (
                             <div className="cat-note">
-                              {rowError ? <span className="plan-err">{rowError}</span> : null}
+                              {rowError ? (
+                                <span className="plan-err">
+                                  {rowError}
+                                  {rowRetry ? (
+                                    <>
+                                      {' '}
+                                      <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={rowRetry} />
+                                    </>
+                                  ) : null}
+                                </span>
+                              ) : null}
                               {removable ? (
                                 <ActionButton
                                   tone="neutral"
@@ -4297,6 +4340,12 @@ export function ShortlistCategories({
           {planError && poolRows.some((r) => r.t.tile === planError.tile) ? (
             <p className="plan-err" style={{ textAlign: 'left', flexBasis: '100%' }}>
               {planError.message}
+              {planError.retry ? (
+                <>
+                  {' '}
+                  <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={planError.retry} />
+                </>
+              ) : null}
             </p>
           ) : null}
         </div>

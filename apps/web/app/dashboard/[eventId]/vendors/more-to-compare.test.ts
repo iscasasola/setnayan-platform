@@ -141,7 +141,8 @@ test('🔑 the list never repeats a supplier already on the couple’s page, and
   assert.match(BENCH, /benchProfileIds=\{t\.vendors\.map\(\(v\) => v\.marketplaceVendorId\)\}/);
   assert.match(BENCH, /query=\{scopeTile === t\.tile \? scopedQ : ''\}/);
   // One row's list is its own: the request is keyed on this row's tile.
-  assert.match(LIST, /\}, \[eventId, moreTile, moreGroupId, moreQ\]\);/);
+  // + `moreTry` (2026-10-12): "Try again" asks once more after a failed read.
+  assert.match(LIST, /\}, \[eventId, moreTile, moreGroupId, moreQ, moreTry\]\);/);
 });
 
 test('🔑 the cards are the suppliers’ service cards, and say nothing about price when the cards were not read', () => {

@@ -1081,8 +1081,8 @@ if (!ONLY || ONLY === '16' || ONLY === '16b') {
     /* …AGAINST TODAY'S PAGE WITH ITS DOOR OPENED: opening the door re-lays the door's own fit, and on today's page too
        that moves the cover by a few pixels on a short phone (its fit was first made while the cover's parts were still
        arriving by their 8 px motion — main's own behaviour, measured 2026-10-12: 172 → 179 at 375 × 560). Standing
-       down must land where today's page lands — within the 3 px that the door's own fit itself moves by between two
-       loads of today's page (it reads the cover mid-arrival: 177.2 · 179 measured for the names at 375 × 560). */
+       down must land where today's page lands — within 3 px: the door's own fit reads the cover mid-arrival, so its plan
+       differs by a hair between two loads (air 0.67 · 0.68 · 0.70 measured at 375 × 560, 2026-10-12). */
     const t = await openF('fixture-stranger-today-fit.html', W, H);
     await t.p.click('main details[data-get-inside] > summary', { timeout: 3000 }).catch(() => {}); await t.p.waitForTimeout(100);
     await t.p.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})))); await t.p.waitForTimeout(800);

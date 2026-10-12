@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3d514c37b",
+  "generatedFromRef": "9cee91b1f",
   "routeCount": 432,
   "destinations": 956,
   "actions": 674,
-  "blocks": 6094,
+  "blocks": 6093,
   "routes": {
     "/": {
       "files": [
@@ -13874,7 +13874,6 @@
         "Link",
         "Perk",
         "SnapshotField",
-        "SubmitButton",
         "TerminalCard"
       ]
     },

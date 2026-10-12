@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6662
+# facts: 6665
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     571
-#   col       4872
+#   col       4875
 #   policy    949
 #   view      8
 #   func      258
@@ -1558,6 +1558,7 @@ col	public.event_manual_vendors.contact_person	anon=- authenticated=SIU
 col	public.event_manual_vendors.created_at	anon=- authenticated=SIU
 col	public.event_manual_vendors.created_by_user_id	anon=- authenticated=SIU
 col	public.event_manual_vendors.event_id	anon=- authenticated=SIU
+col	public.event_manual_vendors.leak_match_vendor_profile_id	anon=- authenticated=SIU
 col	public.event_manual_vendors.manual_vendor_id	anon=- authenticated=SIU
 col	public.event_manual_vendors.payment_method_note	anon=- authenticated=SIU
 col	public.event_manual_vendors.photo_r2_key	anon=- authenticated=SIU
@@ -3585,6 +3586,7 @@ col	public.platform_settings.business_name	anon=- authenticated=S
 col	public.platform_settings.business_tin	anon=- authenticated=S
 col	public.platform_settings.creator_offer_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.default_vat_rate_pct	anon=- authenticated=S
+col	public.platform_settings.fee_leak_price_tolerance	anon=- authenticated=S
 col	public.platform_settings.fee_unlocks_event_enforced	anon=- authenticated=S
 col	public.platform_settings.firstlook_boost_weight	anon=- authenticated=S
 col	public.platform_settings.firstlook_sla_hours	anon=- authenticated=S
@@ -4572,6 +4574,7 @@ col	public.vendor_invites.created_at	anon=SIU authenticated=SIU
 col	public.vendor_invites.declined_at	anon=SIU authenticated=SIU
 col	public.vendor_invites.email	anon=SIU authenticated=SIU
 col	public.vendor_invites.expires_at	anon=SIU authenticated=SIU
+col	public.vendor_invites.first_opened_at	anon=SIU authenticated=SIU
 col	public.vendor_invites.invite_id	anon=SIU authenticated=SIU
 col	public.vendor_invites.invited_by_user_id	anon=SIU authenticated=SIU
 col	public.vendor_invites.public_id	anon=SIU authenticated=SIU

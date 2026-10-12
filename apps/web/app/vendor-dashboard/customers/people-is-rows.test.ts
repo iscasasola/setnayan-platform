@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
-import type { PipelineCustomer } from '@/lib/vendor-customer-pipeline';
+import type { RosterRow } from './_components/customers-roster';
 import { CUSTOMER_SEGMENTS, customersSegmentOf, foldsOf } from './segments';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -41,7 +41,7 @@ function body(src: string, name: string): string {
 }
 
 const NOW = Date.UTC(2026, 9, 2, 2);
-const row = (over: Partial<PipelineCustomer> & { quoted?: boolean }) => ({
+const row = (over: Partial<RosterRow>): RosterRow => ({
   eventId: 'e1',
   lane: 'booked' as const,
   waitingKind: null,
@@ -54,14 +54,14 @@ const row = (over: Partial<PipelineCustomer> & { quoted?: boolean }) => ({
   place: 'Makati',
   threadId: 't1',
   eventVendorId: 'ev1',
-  note: { text: 'Balance ₱42,000', tone: 'quiet' as const },
+  note: { text: 'Balance due', tone: 'quiet' as const },
   kind: 'Wedding',
   quoted: false,
   returning: false,
   ...over,
 });
 
-async function render(rows: ReturnType<typeof row>[], extra: Record<string, unknown> = {}): Promise<string> {
+async function render(rows: RosterRow[], extra: Record<string, unknown> = {}): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { CustomersRoster } = await import('./_components/customers-roster');
   return renderToStaticMarkup(

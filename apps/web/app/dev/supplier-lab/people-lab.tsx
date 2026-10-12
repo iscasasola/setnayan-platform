@@ -12,6 +12,7 @@ import {
 } from '@/lib/vendor-customer-pipeline';
 import { filterBySearch, paginate, parseSearchParam } from '@/lib/paginate';
 import { formatCount } from '@/lib/format-number';
+import { formatPhp } from '@/lib/orders';
 import { CustomersRoster, type RosterRow } from '@/app/vendor-dashboard/customers/_components/customers-roster';
 import { CustomersPick } from '@/app/vendor-dashboard/customers/_components/customers-pick';
 import { CustomersSegments } from '@/app/vendor-dashboard/customers/_components/customers-segments';
@@ -47,7 +48,7 @@ const PEOPLE: Fix[] = [
   person({ eventId: 'rolando', lane: 'waiting', waitingKind: 'booking_ask', waitingSince: ago(20), expiresAt: new Date(NOW + 28 * 3_600_000).toISOString(), title: 'Rolando & Carmen', kind: 'Wedding', eventDate: '2026-11-21', place: 'Makati' }),
   person({ eventId: 'mara', lane: 'holding', quietDays: 9, title: 'Mara Villanueva', kind: 'Birthday', eventDate: '2026-12-05', place: 'Pasig' }),
   person({ eventId: 'katrina', lane: 'talking', title: 'Katrina Ocampo', kind: 'Debut', eventDate: '2026-10-03', place: 'Tagaytay', quoted: true }),
-  person({ eventId: 'cruz', lane: 'booked', title: 'Jun & Liza Cruz', kind: 'Wedding', eventDate: '2026-10-04', place: 'Makati', money: { text: 'Balance ₱42,000', tone: 'quiet' } }),
+  person({ eventId: 'cruz', lane: 'booked', title: 'Jun & Liza Cruz', kind: 'Wedding', eventDate: '2026-10-04', place: 'Makati', money: { text: `Balance ${formatPhp(42_000)}`, tone: 'quiet' } }),
   person({ eventId: 'bautista', lane: 'booked', title: 'Lourdes Bautista', kind: 'Christening', eventDate: '2026-10-10', place: 'Quezon City', returning: true, money: { text: 'paid in full', tone: 'ok' } }),
   person({ eventId: 'paolo', lane: 'finished', title: 'Paolo & Nina', kind: 'Wedding', eventDate: '2026-08-15', place: 'Cebu', money: { text: 'paid in full', tone: 'ok' } }),
 ];

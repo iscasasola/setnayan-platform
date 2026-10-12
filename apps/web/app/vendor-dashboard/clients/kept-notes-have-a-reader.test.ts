@@ -59,6 +59,12 @@ test('it renders them, and from a LIVE branch', () => {
     /keptNotesMeasured && keptNotes\.length > 0 \?[\s\S]{0,900}keptNotes\.map\(/,
     'the list must be rendered FROM the measured-and-non-empty branch, not merely present',
   );
+  // …and the branch hands them to the fold that draws them — not to anything else…
+  assert.match(
+    SURFACE,
+    /keptNotesMeasured && keptNotes\.length > 0 \?\s*\(\s*<KeptNotesFold notes=\{keptNotes\.map\(/,
+    'the measured, non-empty branch no longer hands the notes to the Kept notes fold',
+  );
   // …and what that branch hands over is DRAWN: the fold maps every note it is given.
   assert.match(SURFACE, /export function KeptNotesFold[\s\S]{0,1200}notes\.map\(/, 'the fold does not draw the notes it is handed');
   assert.match(SURFACE, /Kept notes/, 'and the section must be named for a person reading it');

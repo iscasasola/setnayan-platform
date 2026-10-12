@@ -145,7 +145,8 @@ test('2 · People’s thumb row = the shared Search box (≥ 60 %) + Add (brand)
   assert.ok(thumb.length > 50, 'People has no thumb row');
   assert.match(thumb, /<SearchBox\b[\s\S]*placeholder="Search a customer"/, 'the thumb row lost the search box');
   assert.match(thumb, /<OutsideClientAdd\b/, 'the thumb row lost Add');
-  assert.ok(thumb.indexOf('<SearchBox') < thumb.indexOf('<OutsideClientAdd'), 'the search box is not first (≥ 60 %, Add beside it)');
+  assert.match(thumb, /^<SupplierThumbRow name="people" label="Customer tools">\s*<SearchBox\b/, 'the search box is not the row’s first control (≥ 60 %, Add beside it)');
+  assert.ok(thumb.indexOf('<SearchBox') < thumb.indexOf('<OutsideClientAdd'), 'Add comes before the search box');
   assert.match(ADD, /<ActionButton tone="brand" main icon=\{Plus\} label="Add"/, 'Add is not the brand main button');
   // The box is ONE shared piece: a field in the thumb row (rule 3b keeps it ≥ 60 %), a GET form with no script.
   assert.match(BOX, /role="search"[\s\S]{0,40}method="get"/, 'the search box stopped working without script');

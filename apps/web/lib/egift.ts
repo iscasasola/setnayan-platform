@@ -5,6 +5,7 @@ import { pabuyaQrPath } from '@/lib/pabuya-qr-url';
 import type { EgiftMethodKind } from '@/lib/egift-kinds';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { giftsAreOn } from '@/lib/event-answers';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 /**
  * apps/web/lib/egift.ts (server-only)
@@ -123,7 +124,9 @@ export async function readEgiftMethods(
     // Event Hub's doors, the gift page, the prints). The host's own E-Gifts page
     // still lists every method they made.
     opts.enabledOnly
-      ? supabase.from('events').select('gifts_on').eq('event_id', eventId).maybeSingle()
+      ? eventRowOnce(supabase, eventId, 'gifts_on', () =>
+          supabase.from('events').select('gifts_on').eq('event_id', eventId).maybeSingle(),
+        )
       : Promise.resolve(null),
   ]);
 

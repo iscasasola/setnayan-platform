@@ -95,10 +95,56 @@ const aheadCalls = (src: string) => [...src.matchAll(/startAhead\(\s*([A-Za-z]+)
 const count = (src: string, needle: string) => src.split(needle).length - 1;
 
 test('only these reads are started ahead — each one every path below awaits, none of them a write', () => {
-  assert.deepEqual(aheadCalls(PAGE).sort(), ['getCurrentUser', 'loadDoorwayFacts', 'loadEntourage', 'loadWidgets', 'readGuestSession', 'resolveVendorCapability'].sort());
-  assert.deepEqual(aheadCalls(LOADERS).sort(), ['eventPapicGuestActive', 'eventStdOpeningsActive', 'loadVenueBookings', 'websiteProActiveFor'].sort());
-  // The guest's own facts (their row, their seat, their ticks) are read only past the session checks — never ahead.
-  assert.doesNotMatch(PAGE, /startAhead\(\s*(loadGuestContext|findGuestSeatForUser|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
+  // ⏩ 2026-10-12 — the second pass. The page also starts the one platform switch the
+  // schedule waits on; the live layer's five reads and the entourage's three event
+  // facts leave together instead of one behind another. Reads, every one.
+  assert.deepEqual(
+    aheadCalls(PAGE).sort(),
+    // + `loadLiveLayer` and `loadGuestContext` (2026-10-12): the day-of layer is started so its schedule can be handed
+    //   on as a promise, and an invited guest's own reads leave beside it — under three conditions, held below.
+    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestSession', 'resolveVendorCapability'].sort(),
+  );
+  assert.deepEqual(
+    aheadCalls(LOADERS).sort(),
+    [
+      'eventPapicGuestActive', 'eventStdOpeningsActive', 'loadVenueBookings', 'websiteProActiveFor',
+      'readPublicSchedule', 'readStoredBackdrop', 'readWatchLive', 'readGuestWallMirror', 'resolveAlbumDoor',
+      'loadEntourageSectionOrder', 'loadEventRoleNames', 'loadEventNameStyle',
+      // The invited guest's own facts — started only INSIDE `loadGuestContext`, after their row is
+      // known to be theirs (the two early returns above them still cost one read).
+      'resolveEventQrLook', 'eventPapicGuestActive', 'resolveGuestCamera', 'getGuestLiveGallery', 'getGuestOwnShots',
+      'resolveFaceTagging', 'readFaceTaggingWish', 'isDataPrivacyControlActive', 'readGuestCheckin', 'readFirstScan',
+      'fetchEventVendorCredits',
+    ].sort(),
+  );
+  // …and none of them leaves before the guest's row has been checked.
+  const CONTEXT = LOADERS.slice(LOADERS.indexOf('export const loadGuestContext = cache('));
+  assert.ok(
+    CONTEXT.indexOf("kind: 'not_found'") > -1 && CONTEXT.indexOf("kind: 'not_found'") < CONTEXT.indexOf('startAhead('),
+    'a read about a guest is started before their row is known to exist',
+  );
+  // A guest's seat, their ticks, the supplier's desk are read only past the session checks — never ahead.
+  assert.doesNotMatch(PAGE, /startAhead\(\s*(findGuestSeatForUser|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
+  // Their own CONTEXT is the one exception (2026-10-12), and only under the three conditions that make every path
+  // below await it: a session was read and verified, it names THIS event, and the address carries no sample-guest `?as=` at all.
+  assert.match(
+    PAGE,
+    /if \(session && session\.event_id === event\.event_id && search\.as === undefined\) \{\s*startAhead\(loadGuestContext\(admin, event, session, dayOfPhase, slug, scheduleBlocksAhead\)\);\s*\}/,
+    'the guest context is started ahead without its three conditions',
+  );
+  assert.equal(count(PAGE, 'startAhead(loadGuestContext('), 1);
+  assert.ok(
+    PAGE.indexOf('const session = await readGuestSession();') < PAGE.indexOf('startAhead(loadGuestContext('),
+    'the guest context is asked before the session cookie has been read and verified',
+  );
+  // …and it is awaited where it always was, with the SAME arguments (a cookie viewer's `guestSession` IS `session` —
+  // `resolveGuestViewer`), so `cache()` answers it with the read already under way: still one.
+  assert.match(PAGE, /loadGuestContext\(admin, event, guestSession, dayOfPhase, slug, scheduleBlocksAhead\),/);
+  assert.match(read('lib/guest-one-path.ts'), /if \(cookie && cookie\.event_id === eventId\) return \{ kind: 'cookie', session: cookie \};/);
+  // The day-of layer: started once (for the schedule), awaited once with the same arguments.
+  assert.equal(count(PAGE, 'loadLiveLayer(admin, event, dayOfPhase)'), 2);
+  // …and the context loader reads the row before anything else about the guest.
+  assert.match(CONTEXT, /const ownRead = loadGuestOwnRow\(admin, session\.guest_id\);\s*const \{ data: guest, error: guestError \} = await ownRead;/);
 });
 
 test('a `cache()`d read started ahead is awaited by the SAME call with the SAME arguments — so it is still one read', () => {
@@ -127,14 +173,54 @@ test('a read that is NOT `cache()`d keeps its promise: started once, awaited onc
   assert.ok(MEDIA.length > 2000 && LIVE.length > 2000, 'the loaders moved — re-anchor this test');
   for (const [src, name, call] of [
     [MEDIA, 'proWatermarkHiddenAhead', 'websiteProActiveFor(event.event_id)'],
-    [MEDIA, 'venueBookingsAhead', 'loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined)'],
+    // (the bookings also take the Venue scene's stored config from the scene rows — one read fewer, 2026-10-12)
+    [MEDIA, 'venueBookingsAhead', 'loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined, venueSceneConfig)'],
     [MEDIA, 'ownsStdRevealAhead', 'eventStdOpeningsActive(admin, event.event_id)'],
     [LIVE, 'hostCameraOpenAhead', 'eventPapicGuestActive(admin, event.event_id)'],
   ] as const) {
-    assert.equal(count(src, `const ${name} = startAhead(${call});`), 1, `${name} is not started ahead`);
+    assert.equal(count(src.replace(/\s+/g, ' '), `const ${name} = startAhead( ${call}, );`) + count(src, `const ${name} = startAhead(${call});`), 1, `${name} is not started ahead`);
     assert.equal(count(src, `await ${name};`), 1, `${name} is never awaited — its failure would be swallowed`);
     assert.equal(count(src, call), 1, `${call} is also asked a second time in the same loader`);
   }
+});
+
+/* ═══ 2b · THE LANDING (`invite/enter`) ══════════════════════════════════ */
+
+const ENTER = read('app/[slug]/invite/enter/page.tsx');
+
+test('the landing starts its body\'s reads together — only reads, only past the routing, each awaited once', () => {
+  const BODY = ENTER.slice(ENTER.indexOf('const InviteEnterBody = async () => {'));
+  assert.ok(BODY.length > 2000, 'the landing\'s body moved — re-anchor this test');
+  // Every start is inside the body: past `notFound()`, the redirects and the guest's own row.
+  assert.equal(ENTER.indexOf('startAhead('), ENTER.indexOf('startAhead(', ENTER.indexOf('const InviteEnterBody = async () => {')));
+  assert.deepEqual(
+    aheadCalls(ENTER).sort(),
+    [
+      'resolveProfile', 'resolveEventOwnerSlug', 'resolveEventQrLook', 'eventWordsFor', 'plusOneSeatsFor',
+      'passCardEligibilityFor', 'plusOnePassCardIds', 'createClient', 'readSeatHolder', 'readTicketSeats',
+    ].sort(),
+  );
+  // Never the tile code (a write) and never the ceremony time (one screen's read).
+  assert.doesNotMatch(ENTER, /startAhead\(\s*(tileCodeOnce|ensureTileReentryCode|mintReentryCode|fetchPublicScheduleBlocks|isCoordinatorPrepReleaseEnabled)\(/);
+  for (const name of [
+    'profileAhead', 'ownerSlugAhead', 'qrLookAhead', 'wordsAhead', 'seatsAhead', 'passCardAhead',
+    'plusOneTicketIdsAhead', 'viewerAhead', 'seatHolderAhead', 'ticketSeatsAhead',
+  ]) {
+    assert.equal(count(BODY, `const ${name} = `), 1, `${name} is not started`);
+    // (the ticket pair is awaited together — held on the line below)
+    if (name === 'passCardAhead' || name === 'plusOneTicketIdsAhead') continue;
+    assert.equal(count(BODY, `await ${name}`), 1, `${name} is not awaited exactly once — never awaited, its failure would be swallowed`);
+  }
+  assert.match(BODY, /await Promise\.all\(\[passCardAhead, plusOneTicketIdsAhead\]\)/);
+  // …and each read is asked once (the started call is the only call).
+  for (const call of ['resolveEventOwnerSlug(', 'resolveEventQrLook(', 'plusOneSeatsFor(', 'passCardEligibilityFor(', 'plusOnePassCardIds(', 'readSeatHolder(', 'readTicketSeats(', 'auth.getUser(']) {
+    assert.equal(count(BODY, call), 1, `${call} is asked twice in the landing's body`);
+  }
+  // The canvas skips what it always skipped: the sample has no seats, holder, QR look or table.
+  for (const name of ['qrLookAhead', 'seatsAhead', 'seatHolderAhead']) {
+    assert.match(BODY, new RegExp(`const ${name} = canvas \\? null : startAhead\\(`), `${name} is asked on the Maker's canvas`);
+  }
+  assert.match(BODY, /const ticketSeatsAhead = canvas \|\| !seatDay \? null : startAhead\(readTicketSeats\(/);
 });
 
 /* ═══ 3 · THE BODY'S TIME HAS NAMES ══════════════════════════════════════ */

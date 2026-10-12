@@ -31,6 +31,41 @@ import { useEffect } from 'react';
 
 type Props = { eventSlug: string };
 
+/* 🔁 ONE VISIT, ONE RENDER (2026-10-12, "the key was to lessen the requests"). The page itself is in this list
+   only so the offline fallback has a copy. But a guest whose visit to `/<slug>` already came THROUGH the worker
+   left that copy behind on the way in (sw.js caches every guest navigation it answers, network-first) — so
+   asking for `/<slug>` again was a second full render of the page they are looking at, every visit.
+   Asked again only when this document did NOT arrive through the worker as exactly `/<slug>` (a first visit, a
+   page reached in-app, an address with a query or another spelling): then nothing cached it and the warm-up
+   still does. Unknown → asked, as before. */
+type NavigationEntry = { name: string; workerStart?: number } | undefined;
+
+export function arrivedThroughWorkerAs(eventSlug: string, entry: NavigationEntry): boolean {
+  if (!entry || typeof entry.workerStart !== 'number' || !(entry.workerStart > 0)) return false;
+  try {
+    const url = new URL(entry.name);
+    return url.pathname === `/${eventSlug}` && url.search === '';
+  } catch {
+    return false;
+  }
+}
+
+export function guestPreloadUrls(eventSlug: string, entry: NavigationEntry): string[] {
+  const urls = ['/manifest.json', '/icon-192.svg', '/icon-512.svg'];
+  // The slug itself — SW's `fetch` handler caches successful navigations, so visiting once warms the offline
+  // fallback. Only when this visit did not already do it (above).
+  if (!arrivedThroughWorkerAs(eventSlug, entry)) urls.push(`/${eventSlug}`);
+  return urls;
+}
+
+function thisDocumentsNavigation(): NavigationEntry {
+  try {
+    return performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function GuestPreload({ eventSlug }: Props) {
   useEffect(() => {
     // Defensive — only post when SW is actually registered + controlling the page.
@@ -43,14 +78,7 @@ export function GuestPreload({ eventSlug }: Props) {
       if (!sw) return; // no controlling SW yet — skip silently
       sw.postMessage({
         type: 'PRELOAD_ASSETS',
-        urls: [
-          '/manifest.json',
-          '/icon-192.svg',
-          '/icon-512.svg',
-          // The slug itself — SW's `fetch` handler caches successful navigations
-          // into SHELL_CACHE, so visiting once warms the offline fallback.
-          `/${eventSlug}`,
-        ],
+        urls: guestPreloadUrls(eventSlug, thisDocumentsNavigation()),
       });
     };
 

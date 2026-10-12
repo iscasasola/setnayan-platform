@@ -515,6 +515,16 @@ export async function loadVenueBookings(
    * guest read.
    */
   drafted?: unknown,
+  /**
+   * 1️⃣ The Venue scene's STORED config, when the caller already holds this
+   * event's scenes (the guest page reads every scene row once — `loadWidgets`).
+   * Handed in, the choices are read from it and the one-row read of
+   * `invitation_widgets` below is not sent: one request fewer per guest view
+   * (2026-10-12). A scenes read that FAILED resolves here as "no choices" — the
+   * same answer the refused one-row read gave. Omitted by every other caller,
+   * which reads the row exactly as before.
+   */
+  storedVenueSceneConfig?: PromiseLike<unknown>,
 ): Promise<VenueBookings> {
   const none: VenueBookings = { ceremony: null, reception: null };
   try {
@@ -522,14 +532,20 @@ export async function loadVenueBookings(
     // Read beside the bookings; a refused read means "no choices" (the defaults:
     // the supplier's details and first photo) and is logged, never thrown.
     const choicesRead = (async (): Promise<VenueChoices> => {
-      const { data: ws, error: we } = await admin
-        .from('invitation_widgets')
-        .select('config_json')
-        .eq('event_id', eventId)
-        .eq('widget_type', 'venue_map')
-        .limit(1);
-      if (we) console.error('[supabase-error] lib/event-venues.ts · from:invitation_widgets.select', we);
-      const stored = readVenueChoices((ws as { config_json?: unknown }[] | null)?.[0]?.config_json ?? null, eventId);
+      let config: unknown = null;
+      if (storedVenueSceneConfig) {
+        config = await Promise.resolve(storedVenueSceneConfig).catch(() => null);
+      } else {
+        const { data: ws, error: we } = await admin
+          .from('invitation_widgets')
+          .select('config_json')
+          .eq('event_id', eventId)
+          .eq('widget_type', 'venue_map')
+          .limit(1);
+        if (we) console.error('[supabase-error] lib/event-venues.ts · from:invitation_widgets.select', we);
+        config = (ws as { config_json?: unknown }[] | null)?.[0]?.config_json ?? null;
+      }
+      const stored = readVenueChoices(config, eventId);
       return drafted ? { ...stored, ...readVenueChoices({ [VENUE_CHOICES_KEY]: drafted }, eventId) } : stored;
     })().catch((): VenueChoices => ({}));
     const { data, error } = await admin

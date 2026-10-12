@@ -291,7 +291,12 @@ test('the same link adapts live: the boxes follow the host’s count as read at 
   assert.match(three, /name="plus_one_seat_id_1" value="a"/, 'the named seat moved');
   // Read per request from the row — never a count the form or an email carries.
   const read = (p: string) => stripComments(readFileSync(join(__dirname, '..', p), 'utf8'));
-  assert.match(read('_lib/loaders.ts'), /\.select\(\s*'[^']*\bplus_one_count\b[^']*'/, 'the site loader does not read the count');
+  // (2026-10-12: the guest's own row is read by `loadGuestOwnRow`, whose local `select(columns)` adds the answer
+  // columns to the same request — so the column list is handed to `select(`, not `.select(`.)
+  const loaders = read('_lib/loaders.ts');
+  const ownRow = loaders.slice(loaders.indexOf('const loadGuestOwnRow = cache('), loaders.indexOf('export const loadGuestContext = cache('));
+  assert.ok(ownRow.length > 200, 'the guest\'s own-row loader moved — re-point this guard');
+  assert.match(ownRow, /return select\(\s*'[^']*\bplus_one_count\b[^']*'/, 'the site loader does not read the count');
   assert.match(read('invite/reply/page.tsx'), /'[^']*\bplus_one_count\b[^']*'/, 'the reply door does not read the count');
   assert.doesNotMatch(read('_components/rsvp-plus-ones.tsx'), /name="plus_one_count"|name=\{?['"`]plus_one_count/, 'the form posts a count');
   const actions = read('actions.ts');

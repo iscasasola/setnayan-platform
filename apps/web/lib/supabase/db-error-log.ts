@@ -36,6 +36,7 @@
  */
 
 import { classifyPostgrest, isTargetedWrite, type PostgrestVerdict } from '@/lib/telemetry/fault-normalize';
+import { fetchWithinReadLimit } from '@/lib/read-limit';
 
 /** PostgREST error envelope. `details` is deliberately NOT read — it can echo row values. */
 type PostgrestErrorBody = {
@@ -155,7 +156,9 @@ export function createLoggingFetch(label: string, sink: DbFaultSink = defaultSin
   return async function loggingFetch(input, init) {
     let res: Response;
     try {
-      res = await fetch(input as Parameters<typeof fetch>[0], init);
+      // The bounded wait for a guest page's reads (`lib/read-limit.ts`). Outside
+      // such a page this is `fetch`, untouched.
+      res = await fetchWithinReadLimit(input as Parameters<typeof fetch>[0], init);
     } catch (err) {
       // No answer at all (DNS, reset, timeout). Recorded, then re-thrown
       // unchanged — the caller's own error path is untouched.

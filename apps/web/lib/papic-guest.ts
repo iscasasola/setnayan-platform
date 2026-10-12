@@ -4,6 +4,8 @@ import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitle
 import { readEventPoolStatus, EVENT_POOL_ABSENT } from '@/lib/papic-event-pool';
 import { papicIsOn } from '@/lib/event-answers';
 import { papicGuestCapLifts, papicGuestCapAppliesWithCeiling } from '@/lib/papic-guest-cap';
+import { eventRowOnce } from '@/lib/event-row-once';
+import { askedOnce } from '@/lib/request-once';
 
 /**
  * apps/web/lib/papic-guest.ts
@@ -124,10 +126,26 @@ export async function eventPapicGuestAccess(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<PapicGuestAccess> {
+  /* ONE ANSWER PER RENDER (2026-10-12, `lib/request-once.ts`). One guest view
+     asks this three times — the page's camera slot, the guest's own camera,
+     the face-tagging gate — and each asking sent the pool RPC and the switch
+     read again. Same asker, same event, same question: asked once. Outside a
+     render (an action, the capture route) nothing is remembered — every gate
+     still reads every time, exactly as before. */
+  return askedOnce(supabase, 'papic-guest-access', [eventId], () => readPapicGuestAccess(supabase, eventId));
+}
+
+async function readPapicGuestAccess(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PapicGuestAccess> {
   const [owned, pool, papicSwitch] = await Promise.all([
     Promise.all(PAPIC_PASS_SERVICE_KEYS.map((key) => eventSkuActive(supabase, eventId, key))),
     readEventPoolStatus(supabase, eventId).catch(() => ({ ok: false, status: null })),
-    supabase.from('events').select('papic_on').eq('event_id', eventId).maybeSingle(),
+    // The row the render already holds answers this (`lib/event-row-once.ts`); else the read as it always was.
+    eventRowOnce(supabase, eventId, 'papic_on', () =>
+      supabase.from('events').select('papic_on').eq('event_id', eventId).maybeSingle(),
+    ),
   ]);
   // 🗂 THE HOST SAID NO (owner 2026-10-02, "EVERY ANSWER … LIVES IN EVENT
   // DETAILS"): "Photos from your guests? — No" (`papic_on = false`, changed in

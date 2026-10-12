@@ -211,5 +211,7 @@ test('every page that draws the guest list’s client pieces mounts the words fo
   assert.equal((body.match(/roleNames=\{roleNames\}/g) ?? []).length, 2, 'both widget dispatchers get the words');
   const loaders = readFileSync(join(APP, 'app/[slug]/_lib/loaders.ts'), 'utf8');
   // The words are buildEntourage's third argument (the Name style, owner 2026-09-30, may follow).
-  assert.match(loaders, /await loadEntourageSectionOrder\(admin, eventId\),\n\s*await loadEventRoleNames\(admin, eventId\),\n/, 'the invitation’s entourage is built with the words');
+  // 2026-10-12: the two reads are STARTED together above and awaited here, in the same places.
+  assert.match(loaders, /const roleNamesAhead = printsLiveMarch \? startAhead\(loadEventRoleNames\(admin, eventId\)\) : null;/);
+  assert.match(loaders, /await sectionOrderAhead,\n\s*await \(roleNamesAhead \?\? loadEventRoleNames\(admin, eventId\)\),\n/, 'the invitation’s entourage is built with the words');
 });

@@ -77,9 +77,12 @@ import ts from 'typescript';
 
 const HERE = __dirname;
 const SLUG = join(HERE, '..');
+// ⏱ 2026-10-12 (`lib/read-limit.ts`): each exported page only wraps the real page function in the read limit —
+// `export default … InviteEnterPage(props) { return withGuestReadLimit(…, () => inviteEnterPage(props)); }` —
+// so the property below is read from the WRAPPED function, and § 0 holds that the export is nothing but the wrap.
 const PAGES = [
-  { file: 'enter/page.tsx', page: 'InviteEnterPage', body: 'InviteEnterBody' },
-  { file: 'reply/page.tsx', page: 'InviteReplyPage', body: 'InviteReplyBody' },
+  { file: 'enter/page.tsx', exported: 'InviteEnterPage', page: 'inviteEnterPage', body: 'InviteEnterBody', route: 'slug/invite/enter' },
+  { file: 'reply/page.tsx', exported: 'InviteReplyPage', page: 'inviteReplyPage', body: 'InviteReplyBody', route: 'slug/invite/reply' },
 ] as const;
 
 const LEAVES = new Set(['notFound', 'redirect', 'permanentRedirect', 'leaveForTheHub']);
@@ -127,6 +130,24 @@ function read(p: (typeof PAGES)[number]) {
 }
 
 for (const p of PAGES) {
+  test(`0 · ${p.file}: the exported page is only the read limit around the page function`, () => {
+    const text = readFileSync(join(HERE, p.file), 'utf8');
+    const sf = ts.createSourceFile(p.file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    let exported: ts.FunctionDeclaration | undefined;
+    sf.forEachChild((n) => {
+      if (ts.isFunctionDeclaration(n) && n.name?.text === p.exported) exported = n;
+    });
+    assert.ok(exported?.body, `${p.file}: ${p.exported} is gone or renamed — update this test`);
+    assert.ok(exported!.modifiers?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword), `${p.exported} is not the default export`);
+    const statements = exported!.body!.statements;
+    assert.equal(statements.length, 1, `${p.exported} does more than wrap the page — routing or reads above the boundary moved out of it`);
+    assert.equal(
+      statements[0]!.getText(sf),
+      `return withGuestReadLimit('${p.route}', () => ${p.page}(props));`,
+      `${p.exported} no longer hands the whole page to ${p.page}`,
+    );
+  });
+
   test(`1 · ${p.file}: the page ends by returning the door's fallback around ONE async body`, () => {
     const { sf, statements, bodyFn, bodyAt } = read(p);
     assert.ok(bodyFn, `${p.file}: there is no \`const ${p.body} = async () => …\` — the body is not one part a boundary can hold`);

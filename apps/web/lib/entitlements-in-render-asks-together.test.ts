@@ -86,7 +86,7 @@ test('1 · comp and internal-host have both left before either is answered', asy
   await new Promise((r) => setTimeout(r, 20));
   assert.deepEqual(
     sent,
-    ['orders', 'bundle_components', 'event_comp_active_skus', 'event_host_is_internal'],
+    ['bundle_components', 'orders', 'event_comp_active_skus', 'event_host_is_internal'],
     'the internal-host question waited for the comp answer — they are a round trip each again',
   );
   releaseComp({ data: [], error: null });
@@ -128,10 +128,12 @@ test('2b · a refused comp read is still thrown — an internal host does not pa
   );
 });
 
-test('2c · an order still decides before anything else is asked', async () => {
+test('2c · an order still decides first — the only other request is the bundle list that left beside it', async () => {
   const { db, sent } = standIn({ orders: [{ service_key: SKU, status: 'paid' }], rpc: {} });
   assert.equal(await withRenderScopeForTest(() => eventSkuActive(db, EVENT, SKU)), true);
-  assert.deepEqual(sent, ['orders'], 'a paid order now costs more than its one read');
+  // 2026-10-12: the bundle composition (one list per render) leaves with the
+  // orders read instead of waiting behind it. Nothing else is asked.
+  assert.deepEqual([...sent].sort(), ['bundle_components', 'orders'], 'a paid order now asks more than its orders and the bundle list');
 });
 
 test('3 · an event that owns nothing sends the five requests it always sent', async () => {

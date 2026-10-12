@@ -24,7 +24,9 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark, ChevronRight, Circle, Eraser, Loader2, X } from 'lucide-react';
+import { Bookmark, ChevronRight, Circle, Eraser, Loader2, Save, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { haptic } from '@/lib/haptics';
 import {
@@ -222,7 +224,7 @@ export function TeamSavePlan({
   return (
     <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
       <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
-        <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
+        <Bookmark className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={1.75} aria-hidden />
         Save your current candidates as
         <input
           value={name}
@@ -235,28 +237,28 @@ export function TeamSavePlan({
           className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
           aria-label="Plan name (optional — we’ll name it for you)"
         />
-        <select
+        {/* New, or one of the saved plans → the one dropdown (2026-10-12 look sweep). */}
+        <PickMenu
+          label="Save as a new plan or overwrite an existing one"
           value={overwriteId}
-          onChange={(e) => setOverwriteId(e.target.value)}
-          className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
-          aria-label="Save as a new plan or overwrite an existing one"
-        >
-          <option value="">as a new plan</option>
-          {orderedBuilds.map((b, i) => (
-            <option key={b.build_id} value={b.build_id}>
-              overwrite “{displayBuildTitle(b, i)}”
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
+          dataAttr="data-team-save-target"
+          options={[
+            { key: '', label: 'as a new plan' },
+            ...orderedBuilds.map((b, i) => ({
+              key: b.build_id,
+              label: `overwrite “${displayBuildTitle(b, i)}”`,
+            })),
+          ]}
+          onPick={setOverwriteId}
+        />
+        <ActionButton
+          tone="brand"
+          main
+          icon={pending ? <Loader2 className="animate-spin" aria-hidden /> : Save}
+          label={overwriteId ? 'Save' : 'Save plan'}
           onClick={onSaveNamed}
           disabled={pending}
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-          {overwriteId ? 'Save' : 'Save plan'}
-        </button>
+        />
       </div>
       {!err ? (
         <p className="text-xs text-ink/45">

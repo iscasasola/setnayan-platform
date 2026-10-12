@@ -34,8 +34,10 @@ import {
   Loader2,
   Lock,
   Pencil,
+  Save,
   Trash2,
 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import {
   savePlanBuildNamed,
   deleteBudgetBuild,
@@ -60,6 +62,7 @@ import {
 } from '@/lib/plans-panel';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { formatCount } from '@/lib/format-number';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 const peso = (php: number | null) =>
   php == null ? '—' : `₱${Math.round(php).toLocaleString('en-PH')}`;
@@ -405,28 +408,28 @@ export function BuildCompare({
               className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
               aria-label="Build name"
             />
-            <select
+            {/* New, or one of the saved builds → the one dropdown (2026-10-12 look sweep). */}
+            <PickMenu
+              label="Save as a new build or overwrite an existing one"
               value={overwriteId}
-              onChange={(e) => setOverwriteId(e.target.value)}
-              className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
-              aria-label="Save as a new build or overwrite an existing one"
-            >
-              <option value="">as a new build</option>
-              {orderedBuilds.map((b, i) => (
-                <option key={b.build_id} value={b.build_id}>
-                  overwrite “{displayBuildTitle(b, i)}”
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
+              dataAttr="data-build-save-target"
+              options={[
+                { key: '', label: 'as a new build' },
+                ...orderedBuilds.map((b, i) => ({
+                  key: b.build_id,
+                  label: `overwrite “${displayBuildTitle(b, i)}”`,
+                })),
+              ]}
+              onPick={setOverwriteId}
+            />
+            <ActionButton
+              tone="brand"
+              main
+              icon={pending ? <Loader2 className="animate-spin" aria-hidden /> : Save}
+              label={overwriteId ? 'Save' : 'Save As'}
               onClick={onSaveNamed}
               disabled={pending}
-              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-              {overwriteId ? 'Save' : 'Save As'}
-            </button>
+            />
           </div>
           {err ? <p className="text-xs text-danger-700">{err}</p> : null}
         </div>

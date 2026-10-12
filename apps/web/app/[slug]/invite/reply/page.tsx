@@ -16,6 +16,7 @@ import { NotYouSwitch } from '../../_components/not-you-switch';
 import { submitInviteReply } from '../actions';
 import { rsvpGate } from '@/lib/guest-one-path';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
+import { replyEntry } from '@/lib/guest-pass-hop';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
 import { hubDoorSkin } from '../_components/hub-door-skin';
 import { guestReplyBy, readRsvpWords, resolveRsvpAsk, todayYmd } from '@/lib/rsvp-ask';
@@ -50,7 +51,7 @@ export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ rsvp?: string; editor?: string; preview?: string }>;
+  searchParams: Promise<{ rsvp?: string; editor?: string; preview?: string; k?: string }>;
 };
 
 /**
@@ -118,8 +119,15 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   // both, so this page must too — otherwise a signed-in guest on a new phone
   // would be bounced between the two). No key → the event page, where a
   // stranger gets the one "Get inside" button.
+  // 🔁 …unless the Reply carried the landing's own re-entry code (`?k=`): a guest
+  // whose pass went missing between the landing and this press is re-keyed at
+  // the redeem and comes straight back to these questions — no sign-in, no
+  // account (2026-10-12, `replyEntry`, lib/guest-pass-hop.ts).
   const session = canvas ? null : await readGuestSessionForEvent(event.event_id as string);
-  if (!canvas && !session) redirect(`/${home}`);
+  if (!canvas) {
+    const entry = replyEntry({ slug: home, hasPass: Boolean(session), code: search.k });
+    if (entry.kind !== 'ask') redirect(entry.href);
+  }
   /* 🖼 The reply card's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`). */
   const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
 

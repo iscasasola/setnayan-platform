@@ -135,14 +135,58 @@ export const REENTRY_TTL_SECONDS: Record<ReentryPurpose, number> = {
   landing: 30 * 60,
   tile: 24 * 60 * 60,
 };
-/** Where a successful exchange opens: the landing (from the landing) or the Event Hub (the tile). */
-export type ReentryDestination = 'landing' | 'hub';
+/** Where a successful exchange opens: the landing (from the landing), the reply's questions (from the
+ *  landing's Reply — `replyEntry` below) or the Event Hub (the tile). */
+export type ReentryDestination = 'landing' | 'reply' | 'hub';
 export function reentryDestinationOf(raw: string | null | undefined): ReentryDestination {
-  return raw === 'landing' ? 'landing' : 'hub';
+  return raw === 'landing' || raw === 'reply' ? raw : 'hub';
+}
+/** The address a destination opens — built from the slug the DATABASE returned, never from input. */
+export function reentryDestinationPath(slug: string, to: ReentryDestination): string {
+  if (to === 'landing') return `/${slug}/invite/enter`;
+  if (to === 'reply') return `/${slug}/invite/reply`;
+  return `/${slug}`;
 }
 export function reentryRedeemPath(slug: string, code: string, to: ReentryDestination): string {
   const q = new URLSearchParams({ slug, [REENTRY_PARAM]: code, to });
   return `/${slug}/redeem?${q.toString()}`;
+}
+
+/* ══ THE REPLY CARRIES THE LANDING'S CODE (2026-10-12, live fault on d2e38b7) ══
+
+   The owner opened a guest's personal link SIGNED OUT on maria-and-jose (dated,
+   Invitation stage), saw the landing, pressed "Reply to the invitation" — and met
+   the stranger door ("Get inside · Upload your QR · Sign in"). No questions.
+   Production: the landing rendered WITH the pass (its re-entry code was never
+   spent), the pass card read it a second later, and 13 s after that the Reply's
+   request reached `invite/reply` with NO pass for this event, so the page's
+   `redirect(/{slug})` sent the guest to the door. (Not reproduced in Chromium on
+   the same guest; the browser was desktop Safari. The pass is ONE cookie per
+   browser — any other pass write replaces it — so it can go missing between two
+   pages. Why it did that day is not known.)
+
+   The landing ALREADY holds the tool made for exactly this: its own single-use
+   re-entry code (`?k=`, minted by the redeem). The Reply link dropped it, and the
+   reply page had no fallback — the landing has one. THE RULE NOW: the Reply
+   carries the landing's code, and the reply page, finding no pass, spends it at
+   the redeem and comes back to the questions. Owner: "you can still reply
+   without an account" — no sign-in and no account on this path, ever.
+   A code is spent only when the pass is missing; a stranger with no code still
+   meets the door. 🛡 app/[slug]/invite/reply/a-guest-without-the-pass-still-replies.test.ts */
+
+/** The Reply's address: the questions, carrying the landing's own code when it has one. */
+export function replyHrefCarrying(slug: string, code: string | null | undefined): string {
+  const base = `/${slug}/invite/reply`;
+  return isUrlSecretShaped(code) ? `${base}?${new URLSearchParams({ [REENTRY_PARAM]: code })}` : base;
+}
+
+export type ReplyEntry = { kind: 'ask' } | { kind: 'rekey'; href: string } | { kind: 'door'; href: string };
+/** Who the reply page asks: the guest it holds a pass for; else, carrying a code, the guest that code
+ *  re-keys (back to these questions); else nobody — the event's own door. */
+export function replyEntry(input: { slug: string; hasPass: boolean; code: string | null | undefined }): ReplyEntry {
+  if (input.hasPass) return { kind: 'ask' };
+  if (isUrlSecretShaped(input.code)) return { kind: 'rekey', href: reentryRedeemPath(input.slug, input.code, 'reply') };
+  return { kind: 'door', href: `/${input.slug}` };
 }
 
 /* ══ EVIDENCE — WHEN A PERSONAL-LINK VISIT DOES NOT END ON THE LANDING ════════

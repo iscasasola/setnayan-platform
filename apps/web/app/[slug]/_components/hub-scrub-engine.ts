@@ -191,12 +191,13 @@ export function armHubScrub(root: HTMLElement): () => void {
    * `_lib/first-screen-fit.ts`) closes its air up, draws its mark smaller and lets parts go below the line — the names
    * never — so its names and date are on the first screen; then it is held. NEVER AGAIN while it is held: a fit that
    * answered the hand-over's own re-measure fed a loop (the page changed length every ~120 ms at 375 × 560, #6484).
-   * A first screen the stranger's door has already fitted (`first-screen-door.tsx`, before the hold armed: its mark is
-   * on a box around the cover) is that fit's, kept as it is. Taken back when the hold is.
+   * The stranger's door has its own fit (`first-screen-door.tsx`), which made this same plan before the hold armed and
+   * stands aside while it is on; this makes it again, by the same rule, so it is the hold's to take back. Taken back
+   * when the hold is (and the door's own fit then fits the plain page, as it always has).
    */
   let fitted = false;
   let unfit: (() => void) | null = null;
-  /** The cover's rest's own top margin, read before the hold armed — kept on it when nothing is pulled through it. */
+  /** The cover's rest's own top margin, read without the hold — kept on it when nothing is pulled through it (a door that stays). */
   let restMargin: number | null = null;
   /** The door that stayed at the last measure (`data-hub-stay`). */
   let stayed: HTMLElement[] = [];
@@ -211,24 +212,45 @@ export function armHubScrub(root: HTMLElement): () => void {
   /** Where the page was when the numbers were last set — see the pulse. */
   let drawnAt = -1;
 
-  /** 📐 Fit the cover's first screen once (see `fitted`); returns how to take it back, or null when it is not this hold's to fit. */
-  function fitCover(cover: HTMLElement, cell: HTMLElement): (() => void) | null {
-    if (cover.closest('[data-first-screen-fit]')) return null; // the stranger's door fitted it before the hold armed
+  /**
+   * 📐 Fit the cover's first screen once (see `fitted`), ON THE PAGE AS IT LAYS OUT WITHOUT THE HOLD — the hold's own
+   * marks are taken off for the measuring and put back before anything is drawn (one task: nothing is painted between).
+   * The stranger's door, when it stands under the cover, is what the fit makes room for, by the door's own line (the
+   * bottom bar's top, or the cookie banner's) — the plan its own fit (`first-screen-door.tsx`) made before the hold armed,
+   * made again by the same rule on the same page. With no door, the names and the date are kept above the bottom bar's
+   * top. Only the frameless card is fitted, as on the door's page. Returns how to take it back, or null.
+   */
+  function fitCover(cover: HTMLElement, cell: HTMLElement, rest: HTMLElement): (() => void) | null {
+    const door = rest.querySelector<HTMLElement>('details[data-get-inside]');
     const head = cover.querySelector<HTMLElement>('header[data-pahina-first-screen]');
+    const screen = door ? door.closest<HTMLElement>('[data-pahina-first-screen]') : head;
     const card = head?.querySelector<HTMLElement>('[data-cover-frameless]') ?? null;
     const inner = card?.firstElementChild;
-    if (!head || !card || !(inner instanceof HTMLElement)) return null; // only the frameless card is fitted, as on the door's page
-    const fit = firstScreenFitter(head, card, inner, null, () => docTop(cover) - cover.getBoundingClientRect().top);
-    fit.mark(true);
-    const list = fit.blocks();
-    fit.clear(list);
-    /* The line the names and the date must end above: the bottom bar's top, as the door's own fit reads it
-       (`globals.css`, `--sn-door-rest` — said on the armed cover's cell as a real length, so it can be read). */
-    fit.make(list, window.innerHeight - (parseFloat(getComputedStyle(cell).scrollPaddingBottom) || 0));
-    return () => {
-      fit.clear(fit.blocks());
-      fit.mark(false);
-    };
+    const fits = Boolean(screen && card && inner instanceof HTMLElement && screen.contains(card));
+    /* The line, read while the hold is on (the cell says it then); the banner's top, while it is up. */
+    const banner = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cookie-banner-top')) || 0;
+    const foot = Math.max(door ? 0 : parseFloat(getComputedStyle(cell).scrollPaddingBottom) || 0, banner > 0 ? banner + 8 : 0);
+    put(root, 'data-hub-page-on', null);
+    try {
+      let undo: (() => void) | null = null;
+      if (fits) {
+        const fit = firstScreenFitter(screen!, card!, inner as HTMLElement, door, () => docTop(cover) - cover.getBoundingClientRect().top);
+        fit.mark(true);
+        const list = fit.blocks();
+        fit.clear(list);
+        fit.make(list, window.innerHeight - Math.max(foot, door ? parseFloat(getComputedStyle(door).scrollMarginBottom) || 0 : 0));
+        undo = () => {
+          fit.clear(fit.blocks());
+          /* (The door's own fit keeps its mark: it was there before the hold, and takes the first screen back.) */
+          if (!door) fit.mark(false);
+        };
+      }
+      /* …and, still without the hold, the cover's rest's own top margin as the page now lays it out. */
+      restMargin = parseFloat(getComputedStyle(rest).marginTop) || 0;
+      return undo;
+    } finally {
+      put(root, 'data-hub-page-on', '');
+    }
   }
 
   function measure() {
@@ -244,11 +266,6 @@ export function armHubScrub(root: HTMLElement): () => void {
     for (const h of was) if (h.below) put(h.below, '--hub-rise', '0px');
     for (const h of was) if (h.lift) put(h.lift, '--hub-zrise', '0px');
     /* (A door that stayed is measured as it is laid out too.) */
-    /* (Before the hold is armed, once: the cover's rest's own margin, as the page lays it out.) */
-    if (restMargin === null && pages.length) {
-      const rest0 = root.querySelector<HTMLElement>(`${COVER} > .hub-cover-after`);
-      if (rest0) restMargin = parseFloat(getComputedStyle(rest0).marginTop) || 0;
-    }
     /* Armed FIRST: where a stage must stand depends on the hand-overs before it having drawn their arrivals in place
        (`--hub-up`), and nothing of the drawing applies until the mark is on. */
     for (const s of scopes) put(s, 'data-hub-scrub-on', '');
@@ -281,7 +298,7 @@ export function armHubScrub(root: HTMLElement): () => void {
     let outside: HTMLElement | null = null;
     if (pages[0] && coverCell && cover && coverRest && cover.offsetHeight > 0 && !fitted) {
       fitted = true;
-      unfit = fitCover(cover, coverCell);
+      unfit = fitCover(cover, coverCell, coverRest);
     }
     if (pages[0] && coverCell && cover && coverRest && cover.offsetHeight > 0) {
       const page = pages[0].stage;

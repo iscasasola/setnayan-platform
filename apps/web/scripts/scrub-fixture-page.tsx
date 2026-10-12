@@ -24,7 +24,13 @@
  *                                  …and the stranger's photo cover: the last thing in the page's first group.
  *   fixture-stranger-today-fit.html · fixture-stranger-cover-fit.html
  *                                  the text-only stranger's page WITH THE FIRST-SCREEN FIT RUNNING (`first-screen-door.tsx`,
- *                                  mounted by <door.js>): today's page as a short phone draws it, and the wrapped one.
+ *                                  mounted by <door.js>): today's page as a short phone draws it, and the wrapped one —
+ *                                  THE REAL STRANGER'S PAGE (every stranger's page runs the door's fit).
+ *   fixture-stranger-photo-today-fit.html · fixture-stranger-photo-cover-fit.html
+ *                                  …the same for the stranger's photo cover (the fit finds no card to fit there).
+ *   fixture-photo-today.html · fixture-photo-cover-plain.html · fixture-photo-cover.html
+ *                                  📐 THE GUEST'S PHOTO COVER (2026-10-12, "the cover is fitted before it fades"): the
+ *                                  guest tree with a hero photo — the cover plate under the names.
  *
  * 🚪 THE DOOR. "Scrub out" is a constant and it is off; `SiteBody` takes no prop for it and this script must not need
  * one. So, FOR THIS PROCESS ONLY, the module that holds the constant is handed to the page with the constant read
@@ -76,7 +82,7 @@ const [outDir, island, doorJs] = (() => {
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
-type Page = { file: string; offered: boolean; widgets: ReturnType<typeof fixtureWidgets>; activeTab?: string; noRow?: boolean; stranger?: 'text' | 'photo'; script: 'none' | 'island' | 'island-under-reveal' | 'door' | 'island-and-door' };
+type Page = { file: string; offered: boolean; widgets: ReturnType<typeof fixtureWidgets>; activeTab?: string; noRow?: boolean; stranger?: 'text' | 'photo'; photo?: boolean; script: 'none' | 'island' | 'island-under-reveal' | 'door' | 'island-and-door' };
 /** The fixture's guest with NO reply status: `resolveArrivalAction` has nothing to say to them, so no row is drawn.
  *  ⚠ A state the guest row's own type does not allow (`rsvp_status` is never null there) — forced here on purpose, as
  *  the one way to draw the guest tree with nothing after its cover: the page must not fade its cover to nothing even
@@ -106,12 +112,17 @@ const PAGES: Page[] = [
   { file: 'fixture-stranger-photo-cover.html', offered: true, widgets: cover(), stranger: 'photo', script: 'island' },
   { file: 'fixture-stranger-today-fit.html', offered: false, widgets: cover(), stranger: 'text', script: 'door' },
   { file: 'fixture-stranger-cover-fit.html', offered: true, widgets: cover(), stranger: 'text', script: 'island-and-door' },
+  { file: 'fixture-stranger-photo-today-fit.html', offered: false, widgets: cover(), stranger: 'photo', script: 'door' },
+  { file: 'fixture-stranger-photo-cover-fit.html', offered: true, widgets: cover(), stranger: 'photo', script: 'island-and-door' },
+  { file: 'fixture-photo-today.html', offered: false, widgets: cover(), photo: true, script: 'none' },
+  { file: 'fixture-photo-cover-plain.html', offered: true, widgets: cover(), photo: true, script: 'none' },
+  { file: 'fixture-photo-cover.html', offered: true, widgets: cover(), photo: true, script: 'island' },
 ];
 
 async function main() {
   for (const page of PAGES) {
     offered = page.offered;
-    const drawn = await renderSiteBodyFixtureFull({ proWatermarkHidden: true, widgets: page.widgets, ...(page.activeTab ? { activeTab: page.activeTab } : {}), ...(page.noRow ? { identity: guestWithNoRow() } : {}), ...(page.stranger ? { identity: fixtureStranger() } : {}), ...(page.stranger === 'photo' ? { heroPhotoUrl: 'https://cdn.test/fixture-hero.jpg' } : {}) });
+    const drawn = await renderSiteBodyFixtureFull({ proWatermarkHidden: true, widgets: page.widgets, ...(page.activeTab ? { activeTab: page.activeTab } : {}), ...(page.noRow ? { identity: guestWithNoRow() } : {}), ...(page.stranger ? { identity: fixtureStranger() } : {}), ...(page.stranger === 'photo' || page.photo ? { heroPhotoUrl: 'https://cdn.test/fixture-hero.jpg' } : {}) });
     if (page.stranger ? !drawn.html.includes('data-get-inside=') : Boolean(page.noRow) === drawn.html.includes('data-arrival-action=')) throw new Error(`scrub-fixture-page: ${page.file} — ${page.stranger ? 'the stranger’s door is missing' : `the reply row is ${page.noRow ? 'drawn for a guest it should not be drawn for' : 'missing'}`}`);
     offered = false;
     if (drawn.complaints.length) throw new Error(`scrub-fixture-page: ${page.file} — the page complained while rendering: ${drawn.complaints[0]}`);
@@ -123,7 +134,9 @@ async function main() {
         ? ''
         : page.script === 'door'
           ? `<script src="file://${doorJs}"></script>`
-          : `${page.script === 'island-under-reveal' ? `<script>document.documentElement.setAttribute('data-reveal-up', '');</script>` : ''}<script src="file://${island}"></script>${page.script === 'island-and-door' ? `<script src="file://${doorJs}"></script>` : ''}`;
+          : /* (The door's fit first: on the real page it runs in the commit that mounts the island, before the engine's own
+               chunk has arrived — so it has fitted the first screen before the hold arms.) */
+            `${page.script === 'island-under-reveal' ? `<script>document.documentElement.setAttribute('data-reveal-up', '');</script>` : ''}${page.script === 'island-and-door' ? `<script src="file://${doorJs}"></script>` : ''}<script src="file://${island}"></script>`;
     writeFileSync(
       join(outDir, page.file),
       `<!doctype html><html lang="en"><head><meta charset="utf8"><meta name="viewport" content="width=device-width, initial-scale=1">

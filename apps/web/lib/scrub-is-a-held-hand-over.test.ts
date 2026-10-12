@@ -523,7 +523,7 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
      box and is added to the one the engine sets (seen in the browser: the arrival 40 px below its line). */
   /* (RE-AIMED 2026-10-10: the box that is pulled up is the cover's own rest OR, when that holds nothing, the next box
      on the page — `pulled`; the read-back is the same sum.) */
-  assert.match(engine, /const over = arrives \? onPage\(arrives, 'top'\) - \(coverTop \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(pulled, '--hub-up', px\(up - over\)\);/);
+  assert.match(engine, /const over = arrives \? docTop\(arrives\) - \(docTop\(cover\) \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(pulled, '--hub-up', px\(up - over\)\);/);
   /* (RE-AIMED 2026-10-12: a row that draws no box of its own — `display: contents`, the stranger's door row after the
      merge — stands for its children; the box asked is each of those, or the sibling itself. The claim is unchanged.) */
   assert.match(engine, /getComputedStyle\(box\)\.position === 'static'/);
@@ -610,6 +610,7 @@ test('(11) fitted before it fades: once, unarmed; held where it stands when its 
   /* (c) the door stays when it is on the first screen as the page opens — above the bar it docks clear of; the box
      after it is the one pulled up; its rest keeps its own margin; what follows rises no higher than under it. */
   assert.match(engine, /const DOOR = '\[data-get-inside\]';/);
+  assert.match(engine, /const button = own\?\.matches\('details'\) \? \(own\.querySelector<HTMLElement>\(':scope > summary'\) \?\? own\) : own;/, 'an opened door is measured with what it opened');
   assert.match(engine, /const stays = button !== null && rowEnd !== null && mate !== null && onPage\(button, 'bottom'\) <= V - dockedBy \+ 0\.5;/);
   /* …read where the page lays it out: last time's pull taken off first (a door drawn up over the cover read as "on the
      first screen" — seen in the browser on the photo cover, 2026-10-12). */

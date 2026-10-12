@@ -366,7 +366,10 @@ export function armHubScrub(root: HTMLElement): () => void {
       const door = row.find((el) => el.matches(DOOR) || el.querySelector(DOOR) !== null) ?? null;
       const dockedBy = door ? parseFloat(getComputedStyle(door.matches(DOOR) ? door : door.querySelector<HTMLElement>(DOOR)!).scrollMarginBottom) || 0 : 0;
       /* (The door itself — the line under it may run on below; the fit made room for the button, as today.) */
-      const button = door ? (door.matches(DOOR) ? door : door.querySelector<HTMLElement>(DOOR)!) : null;
+      const own = door ? (door.matches(DOOR) ? door : door.querySelector<HTMLElement>(DOOR)!) : null;
+      /* (…its BUTTON: an opened door grows below it, and must go on staying — seen in the browser: opened, it was
+         measured taller than the first screen and handed over, faded, under the stranger's finger.) */
+      const button = own?.matches('details') ? (own.querySelector<HTMLElement>(':scope > summary') ?? own) : own;
       const stays = button !== null && rowEnd !== null && mate !== null && onPage(button, 'bottom') <= V - dockedBy + 0.5;
       const staying = stays ? row : [];
       let keep: { seen: number; stay?: number } = { seen };
@@ -399,7 +402,9 @@ export function armHubScrub(root: HTMLElement): () => void {
          through its box and is added to this one, and the arrival would stand that much lower than its line. So the
          distance is measured as it was actually laid out, and what is over is taken off — once; it is a sum. (The
          same for a box outside the cover's rest: whatever lies between it and the cover is read, not reasoned.) */
-      const over = arrives ? onPage(arrives, 'top') - (coverTop + cover.offsetHeight) - pair.up : 0;
+      /* (Read as LAID OUT — `docTop`, never a box on the screen: an arrival can carry a motion's own offset as it
+         waits, 8 px on the reply row, and a read-back that counted it put the arrival 8 px off its line.) */
+      const over = arrives ? docTop(arrives) - (docTop(cover) + cover.offsetHeight) - pair.up : 0;
       if (Math.abs(over) > 0.5) put(pulled, '--hub-up', px(up - over));
       const last = unitEnd;
       const next = last?.nextElementSibling ?? null;

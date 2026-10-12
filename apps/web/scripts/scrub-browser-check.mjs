@@ -1037,8 +1037,8 @@ if (!ONLY || ONLY === '16' || ONLY === '16b') {
            its own numbers on the same boxes as the thumb moves, and those are not the fit.) */
         await p.evaluate(() => { window.__fitLog = []; const o = new MutationObserver((m) => { window.__fitLog.push(...m); }); window.__fitObs = o; for (const e of document.querySelectorAll('[data-first-screen-fit], [data-first-screen-fit] *')) o.observe(e, { attributes: true, attributeOldValue: true, attributeFilter: ['style', 'data-fs-shift', 'data-first-screen-fit'] }); });
         await p.setViewportSize({ width: W, height: H - 1 }); await p.waitForTimeout(300); await p.setViewportSize({ width: W, height: H }); await p.waitForTimeout(300);
-        const writes = await p.evaluate(() => { window.__fitObs.takeRecords().forEach((m) => window.__fitLog.push(m)); const fs = (v) => (v ?? '').match(/--fs-[a-z]+:\s*[^;]+/g)?.join(';') ?? ''; return window.__fitLog.filter((m) => (m.attributeName === 'style' ? fs(m.oldValue) !== fs(m.target.getAttribute('style')) : true)).length; });
-        say(writes === 0, `${size}: the screen changing in the middle of the hold re-fits nothing (${writes} writes to the fit)`);
+        const writes = await p.evaluate(() => { window.__fitObs.takeRecords().forEach((m) => window.__fitLog.push(m)); const fs = (v) => (v ?? '').match(/--fs-[a-z]+:\s*[^;]+/g)?.join(';') ?? ''; const bad = window.__fitLog.filter((m) => (m.attributeName === 'style' ? fs(m.oldValue) !== fs(m.target.getAttribute('style')) : true)); return { n: bad.length, first: bad.slice(0, 3).map((m) => `${m.target.tagName.toLowerCase()}.${String(m.target.className).split(' ')[0]} ${m.attributeName} "${fs(m.oldValue) || m.oldValue}" → "${fs(m.target.getAttribute(m.attributeName)) || m.target.getAttribute(m.attributeName)}"`) }; });
+        say(writes.n === 0, `${size}: the screen changing in the middle of the hold re-fits nothing (${writes.n} writes to the fit${writes.n ? `: ${writes.first.join(' | ')}` : ''})`);
       }
       const fits = [...new Set(fwd.map((f) => f.fit))];
       say(fits.length === 1, `${size}: fitted once — the fit is the same at every position (${fits.join(' / ')})`);

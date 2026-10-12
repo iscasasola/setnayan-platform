@@ -426,8 +426,9 @@ export function AddYourOwnWalk({
                         <b className="block truncate text-[14.5px] font-semibold text-ink">{m.business_name}</b>
                         <span className="block truncate text-[12.5px] text-ink/60">{matchLine(m)}</span>
                       </span>
+                      {/* Every MAIN button is terracotta (owner "APPROVE ALL" look, 2026-10-12 #1). */}
                       <ActionButton
-                        tone="info"
+                        tone="brand"
                         main
                         icon={MessageCircle}
                         label="Yes — Inquire"

@@ -133,8 +133,12 @@ COMMENT ON COLUMN public.vendor_invites.first_opened_at IS
 --     SOURCE, so a Find save that a claimed record merged onto, and which now
 --     carries the record's manual_vendor_id too, still counts) · an EARLIER such
 --     save of the same shop on this event · a profile view of the shop for this
---     event — each strictly before R's moment (a record's own created_at, else
---     the row's).
+--     event FROM A SETNAYAN SURFACE (its `source` is a sourced surface — Explore,
+--     search / Find, the shortlist, favourites, editorial …; a view through the
+--     supplier's OWN link — `profile_direct`, `website`, or no source — never
+--     counts: that is the supplier showing the couple, not Setnayan; owner
+--     2026-10-12, "fix the problems") — each strictly before R's moment (a
+--     record's own created_at, else the row's).
 -- FAIL-SAFE as before: anything else is import.
 CREATE INDEX IF NOT EXISTS vendor_profile_views_event_vendor_idx
   ON public.vendor_profile_views (event_id, vendor_profile_id, viewed_at)
@@ -183,6 +187,7 @@ AS $$
               WHERE v.event_id = p_event_id
                 AND v.vendor_profile_id = p_vendor_profile_id
                 AND v.viewed_at < COALESCE(emv.created_at, ev.created_at)
+                AND public.booking_fee_is_sourced_surface(v.source)
            )
          )
     ) THEN 'sourced'
@@ -241,6 +246,7 @@ AS $$
       FROM public.vendor_profile_views v
      WHERE v.event_id = p_event_id
        AND v.vendor_profile_id = p_vendor_profile_id
+       AND public.booking_fee_is_sourced_surface(v.source)
   )
   SELECT (min(f.at) AT TIME ZONE 'Asia/Manila')::date
     FROM facts f

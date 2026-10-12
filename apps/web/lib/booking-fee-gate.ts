@@ -141,8 +141,10 @@ export function decideFeeGate(charge: OpenChargeResult | null): FeeGateResult {
  *   · a save from Find — an `event_vendors` row for this shop on this event
  *     stamped `host_marketplace_search` / `auto_cascade_from_finalize` (the row
  *     itself, or an earlier one when the booking is a hand-typed record);
- *   · a profile view for this event — a `vendor_profile_views(event_id, shop)`
- *     row before that moment.
+ *   · a profile view for this event FROM A SETNAYAN SURFACE — a
+ *     `vendor_profile_views(event_id, shop)` row before that moment whose
+ *     `source` is a sourced surface (Explore, search / Find, the shortlist …).
+ *     A view through the supplier's OWN link never counts (owner 2026-10-12).
  * Never sourced, whatever else is true: a row the SUPPLIER brought (their
  * invite, their Locked QR, a reused booking) — they brought the couple.
  * A hand-typed record counts only when it is tied to THIS shop: the shop
@@ -170,8 +172,9 @@ export type BookingAttributionFacts = {
   recordTiedToShop: boolean;
   /** `source` of every OTHER marketplace row for this shop on this event made before the booking moment. */
   savesBefore: ReadonlyArray<string | null>;
-  /** How many profile views of this shop for this event came before the booking moment. */
-  viewsBefore: number;
+  /** `source` of every profile view of this shop for this event before the booking moment. Only a view from a
+   *  Setnayan surface counts — one through the supplier's own link (`profile_direct`, `website`, none) never does. */
+  viewSourcesBefore: ReadonlyArray<string | null>;
 };
 
 export function bookingFeeAttributionFromFacts(f: BookingAttributionFacts): BookingFeeAttribution {
@@ -182,7 +185,7 @@ export function bookingFeeAttributionFromFacts(f: BookingAttributionFacts): Book
   // manual_vendor_id too) is still a save from Find.
   if (f.rowSource && SETNAYAN_SAVE_SOURCES.has(f.rowSource)) return 'sourced';
   if (f.savesBefore.some((s) => s != null && SETNAYAN_SAVE_SOURCES.has(s))) return 'sourced';
-  if (f.viewsBefore > 0) return 'sourced';
+  if (f.viewSourcesBefore.some((s) => bookingFeeAttribution(s) === 'sourced')) return 'sourced';
   return 'import';
 }
 

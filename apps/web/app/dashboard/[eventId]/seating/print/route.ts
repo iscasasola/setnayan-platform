@@ -7,6 +7,19 @@ import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { layoutSeatingPack, seatingSignLine, type SeatingPackUnit } from '@/lib/print-seating-pack';
+import {
+  azEntries,
+  chartFileStem,
+  chartSizeSpec,
+  chartUnits,
+  entranceChartTooBigWords,
+  layoutEntranceChart,
+  parseChartLayout,
+  parseChartSize,
+  seatingUnits,
+  type SeatedUnit,
+} from '@/lib/print-entrance-chart';
+import { registryDate } from '@/lib/print-guest-registry';
 import { printFileName } from '@/lib/print-report';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderPrintSvg } from '@/lib/print-render-svg';
@@ -61,6 +74,59 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) return new NextResponse('Event not found', { status: 404 });
+
+  // ── THE ENTRANCE SEATING CHART (owner 2026-10-13, "one seating chart for the
+  // entrance"): `?chart=table|az&size=a3|a2|a1`, as `format=pdf` (the file) or
+  // `format=preview` (its picture). ONE large sheet, no QR codes — so none of
+  // the pack's QR work below runs for it. Same seat plan, same grouping
+  // (`seatingUnits`), same name the place card prints. lib/print-entrance-chart.ts.
+  const params = new URL(req.url).searchParams;
+  const chart = parseChartLayout(params.get('chart'));
+  if (chart) {
+    const size = parseChartSize(params.get('size'));
+    const [cTables, cAssignments, cGuests] = await Promise.all([
+      fetchTables(supabase, eventId),
+      fetchAssignments(supabase, eventId),
+      fetchGuestsByEvent(supabase, eventId),
+    ]);
+    const cUnits = seatingUnits(cTables, cAssignments, cGuests);
+    const untitledChart = ((event as { event_type?: string | null }).event_type ?? 'wedding') === 'wedding' ? 'Our Wedding' : 'Our Event';
+    const coupleName = event.monogram_text || event.display_name || untitledChart;
+    const result = layoutEntranceChart({
+      coupleName,
+      dateLabel: registryDate(event.event_date as string | null),
+      layout: chart,
+      size,
+      units: chartUnits(cUnits),
+      entries: azEntries(cUnits, cGuests),
+    });
+    if (params.get('format') === 'preview') {
+      return new NextResponse(renderPrintSvg(result.doc, {}), {
+        status: 200,
+        headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, no-store' },
+      });
+    }
+    // Never a chart that loses someone: too many names for this sheet is said, not printed.
+    if (!result.ok) {
+      return new NextResponse(entranceChartTooBigWords(result.seated, size, result.suggest).join(' '), {
+        status: 422,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+      });
+    }
+    const bytes = await renderPrintPdf([result.doc], {}, {
+      mode: 'plain',
+      title: `${coupleName} — seating chart`,
+      subject: `${chartSizeSpec(size).label} · ${result.seated} seated`,
+    });
+    return new NextResponse(Buffer.from(bytes), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${printFileName(event.slug, chartFileStem(chart))}"`,
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
   // Pro is an event-level fact while `orders` RLS is purchaser-scoped, so the
   // look is resolved with the admin client AFTER the member read above.
   const look = await resolveEventQrLook(createAdminClient(), eventId, event);
@@ -71,20 +137,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     fetchGuestsByEvent(supabase, eventId),
   ]);
 
-  const guestById = new Map(guests.map((g) => [g.guest_id, g]));
-  // Seated guests per table, ordered by seat number (nulls last).
-  const seatedByTable = new Map<string, { name: string; qr_token: string }[]>();
-  for (const a of assignments) {
-    const g = guestById.get(a.guest_id);
-    if (!g) continue;
-    const arr = seatedByTable.get(a.table_id) ?? [];
-    arr.push({ name: guestDisplayName(g), qr_token: g.qr_token });
-    seatedByTable.set(a.table_id, arr);
-  }
-  for (const arr of seatedByTable.values()) {
-    arr.sort((x, y) => x.name.localeCompare(y.name));
-  }
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   // Nested /u/ under the cutover flag, bare root otherwise (self-noops OFF).
   const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
@@ -93,26 +145,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   // Group linked tables into ONE printed unit (identity + QR only — owner-locked
   // 2026-06-10): the unit prints a single sign under its shared label, carrying
   // the LEAD table's QR (first member in sort order); sibling tables emit no
-  // sign of their own. Unlinked tables are single-member units.
-  type Unit = { key: string; label: string; lead: (typeof tables)[number]; members: typeof tables };
-  const unitsByKey = new Map<string, Unit>();
-  for (const t of tables) {
-    const key = t.link_group_id ?? t.table_id;
-    const existing = unitsByKey.get(key);
-    if (existing) {
-      existing.members.push(t);
-    } else {
-      unitsByKey.set(key, {
-        key,
-        label: t.link_group_label ?? t.table_label,
-        lead: t,
-        members: [t],
-      });
-    }
-  }
-  const units = [...unitsByKey.values()];
-  const unitGuests = (u: Unit) =>
-    u.members.flatMap((m) => seatedByTable.get(m.table_id) ?? []).sort((x, y) => x.name.localeCompare(y.name));
+  // sign of their own. Unlinked tables are single-member units. ONE grouping for
+  // the pack and the entrance chart — `seatingUnits` (lib/print-entrance-chart.ts);
+  // seated guests per unit by name.
+  type Unit = SeatedUnit<(typeof tables)[number], (typeof guests)[number]>;
+  const units = seatingUnits(tables, assignments, guests);
+  const unitGuests = (u: Unit) => u.guests.map((g) => ({ name: guestDisplayName(g), qr_token: g.qr_token }));
 
   const eventWords = await eventWordsForEvent(eventId).catch(() => null);
   // The sign says the event's own word — "our wedding", "our birthday",
@@ -133,7 +171,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   // saves it in one tap, and the App Store app, whose web view has no print
   // dialog, can have it at all. `?format=preview` is page 1 as an SVG, the
   // thumbnail Prints & Tickets shows. The HTML below stays for the dialog.
-  const format = new URL(req.url).searchParams.get('format');
+  const format = params.get('format');
   if (format === 'pdf' || format === 'preview') {
     const packUnits: SeatingPackUnit[] = units.map((u) => ({
       label: u.label,
@@ -240,7 +278,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   :root { --ink:#1E2229; --cream:#FBFBFA; --gold:#C5A059; --muted:#9a958c; }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: #efece6; color: var(--ink); font-family: Georgia, 'Times New Roman', serif; }
-  .toolbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
+  .toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
     gap: 12px; padding: 12px 18px; background: var(--cream); border-bottom: 1px solid rgba(30,34,41,.12);
     font-family: -apple-system, system-ui, sans-serif; }
   .toolbar a, .toolbar button { font: inherit; font-size: 14px; border-radius: 9px; padding: 8px 14px; cursor: pointer;
@@ -289,6 +327,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   <div class="toolbar">
     <a href="/dashboard/${esc(eventId)}/seating">← Back to seating</a>
     <span class="hint">One table sign per page · place cards at the end</span>
+    <a href="/dashboard/${esc(eventId)}/seating/chart">Entrance seating chart</a>
     <button type="button" onclick="window.print()">Print / Save as PDF</button>
   </div>
   <div class="doc">

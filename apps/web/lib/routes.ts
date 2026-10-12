@@ -379,6 +379,8 @@ export const routes = {
     seating: {
       index: (eventId: string) => `/dashboard/${eventId}/seating`,
       caterer: (eventId: string) => `/dashboard/${eventId}/seating/caterer`,
+      /** The entrance seating chart — By table · A to Z on one sheet (owner 2026-10-13). */
+      chart: (eventId: string) => `/dashboard/${eventId}/seating/chart`,
       export: (eventId: string) => `/dashboard/${eventId}/seating/export`,
       print: (eventId: string) => `/dashboard/${eventId}/seating/print`,
       walkthrough: (eventId: string) => `/dashboard/${eventId}/seating/walkthrough`,

@@ -16,12 +16,18 @@ cover faded.
   the block after it (the Countdown) arrives alone in the cover's place, ending above the door; what follows goes on
   under the door. Opening the door stands the hold down for the visit (`hub-scrub.tsx`). A door that is not on the
   first screen (the photo cover) still arrives with the Countdown, as before.
+- 📷 A PHOTO cover is fitted too (owner 2026-10-13, DECISION_LOG: *"do it"*): the photo plate is the first part to
+  give way (`GIVE_WAY_ORDER` = plate, link, time, mark, eyebrow, line, date) — it is drawn whole below "Get inside",
+  which comes up under the date. This CHANGES TODAY'S STRANGER PAGE for photo covers, Scrub on or off (the door's own
+  fit, `first-screen-door.tsx`, now finds the photo masthead before the door; the box holding both carries
+  `data-first-screen-photo`). A card cover has no plate, so its fit is unchanged. Under Scrub the stranger's photo
+  door stays too, and the guest's photo cover is fitted (no door) so its date stays above the bottom bar.
 - Still DARK: `SCRUB_OUT_OFFERED = false`. With it off, the real `SiteBody` is byte-identical to origin/main in all
   24 measured cases, no island mounted.
 - Guards: `lib/scrub-is-a-held-hand-over.test.ts` (10) re-aimed, (11) new; `the-lab-plays-the-scrub-chain` and
   `the-first-screen-keeps-its-action` re-aimed. Browser check (`scripts/scrub-browser-check.mjs`): block 16 re-aimed,
   block 16b new (six window sizes × the four covers).
 
-SPEC IMPACT: None beyond the two DECISION_LOG rows already written by the owner's session (2026-10-12); open owner
-question recorded in the PR: the PHOTO cover's "Get inside" is under the photo on today's page too, so it is not on
-the first screen under Scrub either.
+SPEC IMPACT: None beyond the DECISION_LOG rows already written by the owner's sessions (2026-10-12 option 2 + "Get
+inside stays"; 2026-10-13 "1. do it 2. yes 3. yes"). The photo change is client-side (the fit), so the server HTML is
+byte-identical to main in all 24 measured cases; what live strangers with a photo cover see changes (browser block 16c).

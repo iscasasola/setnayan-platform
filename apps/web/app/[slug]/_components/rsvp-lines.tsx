@@ -38,7 +38,7 @@ export const RSVP_ADDED_CLASS: Readonly<Record<RsvpAddedText['k'], string>> = {
  * replaced or taken off); for a guest it is not drawn at all (d).
  */
 export const RSVP_PICTURE_CLASS = 'my-2.5 block h-[112px] w-full rounded-2xl object-cover';
-export const RSVP_PICTURE_EMPTY_CLASS = 'my-2.5 flex h-[112px] w-full items-center justify-center rounded-2xl bg-ink/[0.06] text-sm italic text-ink/45';
+export const RSVP_PICTURE_EMPTY_CLASS = 'my-2.5 flex h-[112px] w-full items-center justify-center rounded-2xl bg-ink/[0.06] text-sm italic text-ink/65';
 /** An added line with no words yet, on the Maker's sample only. */
 export const RSVP_ADDED_EMPTY_CLASS = 'italic !text-ink/45';
 /** In a note (centred), an added line is centred with it. */

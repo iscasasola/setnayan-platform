@@ -197,6 +197,13 @@ export function armHubScrub(root: HTMLElement): () => void {
    */
   let fitted = false;
   let unfit: (() => void) | null = null;
+  /**
+   * …ONCE — and again only when the SCREEN changes (the window, the fonts, a picture) while the page is still at its
+   * very top, before the hold has begun: a one-off event, never the hand-over's own re-measure, so it cannot loop, and
+   * nothing is being held to jump. (Seen 2026-10-12: fitted on the first measure, before the page had settled, the plan
+   * was 2 px off the door's own — 0.70 of the air for 0.68.)
+   */
+  let mayRefit = false;
   /** The cover's rest's own top margin, read without the hold — kept on it when nothing is pulled through it (a door that stays). */
   let restMargin: number | null = null;
   /** The door that stayed at the last measure (`data-hub-stay`). */
@@ -255,6 +262,13 @@ export function armHubScrub(root: HTMLElement): () => void {
   }
 
   function measure() {
+    const refit = mayRefit && fitted && window.scrollY < 1;
+    mayRefit = false;
+    if (refit) {
+      unfit?.();
+      unfit = null;
+      fitted = false;
+    }
     V = window.innerHeight;
     C = V / 2;
     lens = scrubLens(V);
@@ -569,6 +583,11 @@ export function armHubScrub(root: HTMLElement): () => void {
   const pulse = window.setInterval(() => {
     if (!dead && (queued || window.scrollY !== drawnAt)) draw();
   }, 250);
+  /** The screen itself changed (see `mayRefit`). */
+  const fresh = () => {
+    mayRefit = true;
+    again();
+  };
   const again = () => {
     if (dead) return;
     try {
@@ -587,9 +606,9 @@ export function armHubScrub(root: HTMLElement): () => void {
     if (dead) return;
     dead = true;
     window.removeEventListener('scroll', ask);
-    window.removeEventListener('resize', again);
-    window.removeEventListener('orientationchange', again);
-    root.removeEventListener('load', again, true);
+    window.removeEventListener('resize', fresh);
+    window.removeEventListener('orientationchange', fresh);
+    root.removeEventListener('load', fresh, true);
     sizes?.disconnect();
     window.clearInterval(pulse);
     /* Back to the plain page: every mark and property this script set, taken off. */
@@ -605,10 +624,10 @@ export function armHubScrub(root: HTMLElement): () => void {
     measure();
     frame();
     window.addEventListener('scroll', ask, { passive: true });
-    window.addEventListener('resize', again);
-    window.addEventListener('orientationchange', again);
-    root.addEventListener('load', again, true);
-    void document.fonts?.ready.then(again);
+    window.addEventListener('resize', fresh);
+    window.addEventListener('orientationchange', fresh);
+    root.addEventListener('load', fresh, true);
+    void document.fonts?.ready.then(fresh);
     if (typeof ResizeObserver !== 'undefined') {
       /* THE OBSERVER'S FIRST DELIVERY IS NOT A CHANGE — it reports each box as it was given it. (This was a flag,
          "skip the first call", which leans on the first call always coming. The specification gives a box with no

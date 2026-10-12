@@ -594,7 +594,13 @@ test('(11) fitted before it fades: once, unarmed; held where it stands when its 
   assert.equal((engine.match(/fitCover\(/g) ?? []).length, 2, 'the cover is fitted from more than one place');
   assert.match(engine, /put\(root, 'data-hub-page-on', null\);\s*try \{[\s\S]*?fit\.make\(list, window\.innerHeight - [\s\S]*?\} finally \{\s*put\(root, 'data-hub-page-on', ''\);\s*\}/);
   assert.match(engine, /unfit\?\.\(\);\s*unfit = null;/);
-  assert.ok(engine.indexOf('unfit?.()') > engine.indexOf('function stop()'), 'the fit is not taken back with the hold');
+  assert.ok(engine.lastIndexOf('unfit?.()') > engine.indexOf('function stop()'), 'the fit is not taken back with the hold');
+  /* …and fitted AGAIN only when the screen itself changed (window · fonts · a picture) while the page is still at its
+     very top: never on the hand-over's own re-measure (the observer), never once the hold has begun. */
+  assert.match(engine, /const refit = mayRefit && fitted && window\.scrollY < 1;\s*mayRefit = false;/);
+  assert.match(engine, /const fresh = \(\) => \{\s*mayRefit = true;\s*again\(\);\s*\};/);
+  for (const on of ["window.addEventListener('resize', fresh);", "window.addEventListener('orientationchange', fresh);", "root.addEventListener('load', fresh, true);", 'void document.fonts?.ready.then(fresh);']) assert.ok(engine.includes(on), on);
+  assert.match(engine, /if \(changed\) again\(\);/, 'the hand-over’s own re-measure may re-fit the cover');
   /* (b) what must be seen: the names and the date, read where they are drawn. */
   assert.match(engine, /const must = \[cover\.querySelector\('\[data-hub-names\]'\), cover\.querySelector\('\[data-motion="arrive-date"\]'\)\]/);
   /* (c) the door stays when it is on the first screen as the page opens — above the bar it docks clear of; the box

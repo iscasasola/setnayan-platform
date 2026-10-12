@@ -1081,12 +1081,13 @@ if (!ONLY || ONLY === '16' || ONLY === '16b') {
     /* …AGAINST TODAY'S PAGE WITH ITS DOOR OPENED: opening the door re-lays the door's own fit, and on today's page too
        that moves the cover by a few pixels on a short phone (its fit was first made while the cover's parts were still
        arriving by their 8 px motion — main's own behaviour, measured 2026-10-12: 172 → 179 at 375 × 560). Standing
-       down must land exactly where today's page lands. */
+       down must land where today's page lands — within the 3 px that the door's own fit itself moves by between two
+       loads of today's page (it reads the cover mid-arrival: 177.2 · 179 measured for the names at 375 × 560). */
     const t = await openF('fixture-stranger-today-fit.html', W, H);
     await t.p.click('main details[data-get-inside] > summary', { timeout: 3000 }).catch(() => {}); await t.p.waitForTimeout(100);
     await t.p.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})))); await t.p.waitForTimeout(800);
     const todayOpen = await t.p.evaluate(SNAPF); await t.ctx.close();
-    say(errs.length === 0 && before.on && opened.open && !after.on && !opened.sticky && after.off === 'the door was opened' && Math.abs(after.names.t + shift - (todayOpen.names.t + todayOpen.s)) < 0.6 && Math.abs(after.cover.t + shift - (todayOpen.cover.t + todayOpen.s)) < 0.6 && after.cover.o === 1, `${size}: the door opens and the hold stands down — the plain page (${after.off}), the cover and the names where today's page puts them with its door opened (the names ${r(before.names.t)} held → ${r(after.names.t + shift)} on the page; today's ${r(todayOpen.names.t + todayOpen.s)}), drawn whole (a tap at the button lands on ${hit}; open ${opened.open}; armed ${after.on}; staying before ${before.stays}; ${replayed} motion(s) played as it stood down)`);
+    say(errs.length === 0 && before.on && opened.open && !after.on && !opened.sticky && after.off === 'the door was opened' && Math.abs(after.names.t + shift - (todayOpen.names.t + todayOpen.s)) < 3 && Math.abs(after.cover.t + shift - (todayOpen.cover.t + todayOpen.s)) < 3 && after.cover.o === 1, `${size}: the door opens and the hold stands down — the plain page (${after.off}), the cover and the names where today's page puts them with its door opened (the names ${r(before.names.t)} held → ${r(after.names.t + shift)} on the page; today's ${r(todayOpen.names.t + todayOpen.s)}), drawn whole (a tap at the button lands on ${hit}; open ${opened.open}; armed ${after.on}; staying before ${before.stays}; ${replayed} motion(s) played as it stood down)`);
     say(opened.signIn <= H - after.dockLine + 0.5, `${size}: …and what it opened is brought into view, clear of the bottom bar ("Sign in" ends ${r(opened.signIn)}; the line ${r(H - after.dockLine)}; the page scrolled ${shift}px)`);
     if (pics) await p.screenshot({ path: `${pics}/c16b-stranger-${W}x${H}-door-opened.png` });
     await ctx.close();
@@ -1117,7 +1118,8 @@ if (!ONLY || ONLY === '16' || ONLY === '16c') {
     const line = H - now.dockLine;
     say(was.door.t >= H, `${size}: AS MAIN DRAWS IT the door is under the photo, off the first screen (${r(was.door.t)}–${r(was.door.b)} on a ${H}px screen)`);
     say(after.errs.length === 0 && !now.armed && now.mark && now.names.t >= now.bar - 0.5 && now.date.b <= now.door.t + 0.5 && now.door.t >= now.bar - 0.5 && now.door.b <= line + 0.5, `${size}: with the door's fit the first screen holds the names (${r(now.names.t)}–${r(now.names.b)}), the date (to ${r(now.date.b)}) and "Get inside" (${r(now.door.t)}–${r(now.door.b)}; its line ${r(line)})${after.errs.length ? ` — ${after.errs[0]}` : ''}`);
-    say(Math.abs(now.plate.h - was.plate.h) < 0.5 && now.plate.t >= now.door.b - 0.5 && Math.abs(now.names.t - was.names.t) < 0.6 && Math.abs(now.date.t - was.date.t) < 0.6, `${size}: the photo is WHOLE right under the door (${r(now.plate.t)}–${r(now.plate.b)}, ${r(now.plate.h)}px as before), and the names and the date did not move`);
+    /* (On the shortest phones the mark gives way too, so the names and the date come UP; they never go down.) */
+    say(Math.abs(now.plate.h - was.plate.h) < 0.5 && now.plate.t >= now.door.b - 0.5 && now.names.t <= was.names.t + 0.6 && now.date.t <= was.date.t + 0.6, `${size}: the photo is WHOLE right under the door (${r(now.plate.t)}–${r(now.plate.b)}, ${r(now.plate.h)}px as before), and the names and the date never lower than before (${r(was.names.t)} → ${r(now.names.t)})`);
   }
 }
 /* 17. 🤝 TOGETHER (owner 2026-10-10, asked what should stand where the names built out — the RSVP button alone, or the

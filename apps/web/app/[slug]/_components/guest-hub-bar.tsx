@@ -279,7 +279,7 @@ export function GuestHubBar({
               type="button"
               onClick={() => setQrOpen(false)}
               aria-label="Close"
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition hover:bg-ink/5 hover:text-ink"
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/70 transition hover:bg-ink/5 hover:text-ink"
             >
               <X aria-hidden className="h-4 w-4" strokeWidth={2} />
             </button>
@@ -289,7 +289,7 @@ export function GuestHubBar({
             <h2 id="guest-qr-title" className="mt-1 text-lg font-semibold tracking-tight text-ink">
               Let others scan you
             </h2>
-            <p className="mx-auto mt-1 max-w-prose text-xs text-ink/60">
+            <p className="mx-auto mt-1 max-w-prose text-xs text-ink/70">
               Show this so photographers and friends can tag you in their photos.
             </p>
             <div
@@ -297,7 +297,7 @@ export function GuestHubBar({
               className="qr-slot mx-auto mt-5 inline-block rounded-2xl bg-white p-3 shadow-sm [&_svg]:h-auto [&_svg]:w-44"
               dangerouslySetInnerHTML={{ __html: qrSvg }}
             />
-            <p className="mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/50">
+            <p className="mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/70">
               {invitationUrl}
             </p>
             <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />
@@ -329,7 +329,7 @@ export function GuestHubBar({
                       setRotateTyped('');
                       setRotateConfirming(true);
                     }}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/60 underline-offset-4 hover:text-terracotta hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
                   >
                     <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                     Lost your QR? Get a new one
@@ -396,7 +396,7 @@ export function GuestHubBar({
                       <button
                         type="button"
                         onClick={() => setRotateConfirming(false)}
-                        className="text-xs text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+                        className="text-xs text-ink/70 underline-offset-4 hover:text-ink hover:underline"
                       >
                         Cancel
                       </button>

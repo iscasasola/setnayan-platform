@@ -11,12 +11,12 @@ import {
   type SaveMethod,
 } from '@/lib/guest-one-path';
 import { INVITE_RETURN } from '@/lib/invite-arrival';
-import { TERMS_FIELD } from '@/lib/terms-agreement';
 import { COUPLE_SEAT_REFUSED, SEAT_HELD_ELSEWHERE, seatConfirmLine } from '@/lib/seat-binding';
 import { startAccountSaveAction, linkThisSeatAction } from '../actions';
 import { CopyMyLink, OpenInBrowser } from './copy-my-link';
 import { ProviderStall } from './provider-stall';
 import { NativeSaveForm } from './native-save-form';
+import { TermsTick } from './terms-tick';
 import {
   NATIVE_SAVE_FIELD,
   saveSignsInNatively,
@@ -160,26 +160,7 @@ export function SaveToAccount({
     !signsIn && personalLink ? (
       method === 'browser' ? <OpenInBrowser link={personalLink} /> : <CopyMyLink link={personalLink} />
     ) : null;
-  const termsTick = (
-    <label className="flex min-h-[44px] items-start gap-3 text-sm text-ink/80">
-      <input
-        name={TERMS_FIELD}
-        type="checkbox"
-        required
-        className="mt-0.5 h-5 w-5 shrink-0 accent-terracotta"
-      />
-      <span>
-        I agree to the{' '}
-        <Link href="/terms" className="font-medium text-link underline underline-offset-2">
-          Terms
-        </Link>{' '}
-        and the{' '}
-        <Link href="/privacy" className="font-medium text-link underline underline-offset-2">
-          Privacy Notice
-        </Link>
-      </span>
-    </label>
-  );
+  const termsTick = <TermsTick />;
   const button = (
     <SubmitButton
       name="then"

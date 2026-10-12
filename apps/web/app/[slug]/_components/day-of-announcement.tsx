@@ -157,7 +157,7 @@ function AnnouncementCard({ body, stage }: { body: string; stage: 'before' | 'li
             className={
               live
                 ? 'font-mono text-xs font-bold uppercase tracking-[0.14em] text-terracotta-700'
-                : 'font-mono text-xs font-bold uppercase tracking-[0.14em] text-ink/60'
+                : 'font-mono text-xs font-bold uppercase tracking-[0.14em] text-ink/70'
             }
           >
             {live ? 'From the coordinator' : 'Announcement'}

@@ -105,7 +105,7 @@ function ToolTile({ href, title, blurb }: { href: string; title: string; blurb: 
       </span>
       <ArrowUpRight
         aria-hidden
-        className="relative h-5 w-5 shrink-0 text-ink/45 transition-colors group-hover:text-gild"
+        className="relative h-5 w-5 shrink-0 text-ink/70 transition-colors group-hover:text-gild"
         strokeWidth={1.75}
       />
     </Link>
@@ -164,7 +164,7 @@ export function SupplierDesk({
                 Everywhere else it is the single most useful fact on the strip:
                 a supplier looking in March is deciding when to order stock. */}
             {!isToday && desk.eventDateLabel ? (
-              <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
+              <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
                 {desk.eventDateLabel}
                 {desk.countdown ? ` · ${desk.countdown}` : null}
               </p>
@@ -242,19 +242,19 @@ export function SupplierDesk({
                 <ol className="space-y-2">
                   {desk.blocks.map((b) => (
                     <li key={b.block_id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                      <span className="font-mono text-xs text-ink/60">
+                      <span className="font-mono text-xs text-ink/70">
                         {formatBlockTimeRange(b.start_at, b.end_at) || 'Time TBD'}
                       </span>
                       <span className="text-sm font-medium text-ink">{b.label}</span>
                       {b.location ? (
-                        <span className="text-xs text-ink/60">· {b.location}</span>
+                        <span className="text-xs text-ink/70">· {b.location}</span>
                       ) : null}
                       {/* Looking back, the only honest extra fact is which
                           lines the floor actually advanced. Nothing is claimed
                           about the rest — an unadvanced line may well have
                           happened with nobody pressing anything. */}
                       {isPast && b.run_state === 'done' ? (
-                        <span className="font-mono text-xs uppercase tracking-[0.14em] text-ink/50">
+                        <span className="font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
                           ✓ ran
                         </span>
                       ) : null}
@@ -334,7 +334,7 @@ export function SupplierDesk({
                 caterer ordering off a number that is still moving is exactly
                 the "read as final" defect this repo has already fixed once
                 for the couple's own roster. */}
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
               {desk.paxFinalized ? 'Guest list finalized' : 'Still moving — not finalized yet'}
             </p>
             {!desk.paxFinalized && desk.stage === 'call_sheet' ? (
@@ -359,7 +359,7 @@ export function SupplierDesk({
                     className="flex flex-wrap items-baseline gap-x-2 text-sm"
                   >
                     <span className="font-medium text-ink">{v.vendorName}</span>
-                    <span className="text-xs text-ink/60">
+                    <span className="text-xs text-ink/70">
                       · {displayServiceLabel(v.category)}
                     </span>
                   </li>
@@ -428,7 +428,7 @@ export function SupplierDesk({
               </span>
               <ArrowUpRight
                 aria-hidden
-                className="h-5 w-5 shrink-0 text-ink/45 transition-colors group-hover:text-gild"
+                className="h-5 w-5 shrink-0 text-ink/70 transition-colors group-hover:text-gild"
                 strokeWidth={1.75}
               />
             </Link>

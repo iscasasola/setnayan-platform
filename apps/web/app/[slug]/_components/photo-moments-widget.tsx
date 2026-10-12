@@ -103,14 +103,14 @@ export function PhotoMomentsWidget({
     return (
       <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
         <header>
-          <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/70">
             Savour the moments
           </p>
           <h3 className="mt-1 text-2xl font-semibold tracking-tight">
             Photo moments
           </h3>
         </header>
-        <p className="rounded-lg border border-dashed border-ink/20 bg-cream p-5 text-center text-sm italic text-ink/60">
+        <p className="rounded-lg border border-dashed border-ink/20 bg-cream p-5 text-center text-sm italic text-ink/70">
           Your hosts will share their photo guidance closer to the {words.eventWord}.
         </p>
         <PhotoMomentsSample style={sceneStyle} />
@@ -121,7 +121,7 @@ export function PhotoMomentsWidget({
   return (
     <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
       <header>
-        <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">
+        <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/70">
           Savour the moments
         </p>
         <h3 className="mt-1 text-2xl font-semibold tracking-tight">Photo moments</h3>
@@ -146,7 +146,7 @@ export function PhotoMomentsWidget({
             ) : null}
             <p className="font-medium text-ink">{m.title}</p>
             {m.note.trim().length > 0 ? (
-              <p className="text-xs text-ink/60">{m.note}</p>
+              <p className="text-xs text-ink/70">{m.note}</p>
             ) : null}
           </li>
         ))}
@@ -210,7 +210,7 @@ function PhotoMomentsSample({ style }: { style: string | null }) {
       <div data-maker-sample="yes-and-no" className="grid grid-cols-2 gap-4">
         {['✓', '✕'].map((m) => (
           <div key={m} className="space-y-2">
-            <span aria-hidden className="block text-center text-sm text-ink/40">
+            <span aria-hidden className="block text-center text-sm text-ink/70">
               {m}
             </span>
             {line('w-full')}

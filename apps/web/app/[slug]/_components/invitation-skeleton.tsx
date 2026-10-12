@@ -225,12 +225,12 @@ export function InvitationSkeleton({
           <div className="mx-auto flex min-h-[4rem] w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8">
             <span className="flex items-center gap-2 text-ink">
               <Logo height={28} />
-              <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">Setnayan</span>
+              <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">Setnayan</span>
             </span>
             {initials ? (
               <span className="sn-top-label font-pahina text-lg italic text-gild">{initials}</span>
             ) : phaseLabel ? (
-              <span className="sn-top-label font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+              <span className="sn-top-label font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
                 {phaseLabel}
               </span>
             ) : (

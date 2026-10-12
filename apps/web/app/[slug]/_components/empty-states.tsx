@@ -62,7 +62,7 @@ export function SectionEmptyPlate({
   const copy = pastTense ? PAST_COPY[kind](occasion) : PRESENT_COPY[kind];
   return (
     <div className="rounded-2xl border border-dashed border-ink/15 bg-cream/40 px-6 py-10 text-center">
-      <p className="font-serif text-base italic text-ink/55">{copy}</p>
+      <p className="font-serif text-base italic text-ink/70">{copy}</p>
     </div>
   );
 }
@@ -107,7 +107,7 @@ export function FindModeCard({
         <ScanLine aria-hidden className="h-5 w-5" strokeWidth={1.75} />
       </span>
       <p className="mt-4 font-serif text-lg text-ink">{heading}</p>
-      <p className="mx-auto mt-1 max-w-sm text-sm text-ink/60">{body}</p>
+      <p className="mx-auto mt-1 max-w-sm text-sm text-ink/70">{body}</p>
       <Link
         href={`/${slug}/invite`}
         className="mt-5 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-ink/90"
@@ -190,7 +190,7 @@ export function PublicEventDetails({
               {v.name ? (
                 <p className="mt-1 font-pahina text-xl font-light leading-snug text-ink">{v.name}</p>
               ) : null}
-              {v.address ? <p className="mt-1 text-sm leading-relaxed text-ink/60">{v.address}</p> : null}
+              {v.address ? <p className="mt-1 text-sm leading-relaxed text-ink/70">{v.address}</p> : null}
             </div>
           </div>
         ))}

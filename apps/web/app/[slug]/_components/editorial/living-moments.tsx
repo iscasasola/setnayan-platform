@@ -390,7 +390,7 @@ function Chapter({
           <span aria-hidden className="mt-3 block h-px w-16 bg-ink/40" />
           {writeUp ? <ChapterWriteUp text={writeUp} className="mt-4" /> : null}
           {isClip ? (
-            <p className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+            <p className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
               a living moment · tap for sound
             </p>
           ) : null}

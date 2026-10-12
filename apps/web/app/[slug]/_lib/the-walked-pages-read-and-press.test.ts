@@ -76,6 +76,18 @@ function linkClassesAround(rel: string, words: string): string[] {
   return all[all.length - 1]![1]!.split(/\s+/);
 }
 
+/**
+ * An INLINE link that takes its 44px from vertical padding (a line of 14px text is ~17px of box; 14px padding above and
+ * below makes ~45) — the padding paints and presses but takes no room, so the sentence round it keeps its look. It must
+ * stay a plain inline box: `inline-flex` / `inline-block` / `flex` / `block` put a box round the word (a gap either
+ * side of "Terms", "Privacy Notice" wrapping whole at 375px — the first fix of 2026-10-12).
+ */
+function paddedInline(cls: string[]): boolean {
+  const room = cls.some((c) => /^py-(?:3\.5|4|5|6)$/.test(c));
+  const boxed = cls.some((c) => /^(?:inline-flex|inline-block|flex|block|grid|inline-grid)$/.test(c));
+  return room && !boxed;
+}
+
 /** Colours that are solid on their ground (not a tint of ink). */
 const SOLID = /^text-(?:ink|white|cream|terracotta-700|link)$/;
 
@@ -94,7 +106,7 @@ const READ: Array<[string, string]> = [
   ['_components/face-tagging-row.tsx', '>Face tagging</span>'],
   ['_components/selfie-capture.tsx', '>Face tagging</p>'],
   ['_components/not-you-switch.tsx', '{SIGN_OUT_ERASES_SELFIE}'],
-  ['_components/rsvp-widget.tsx', 'Required\n        </span>'],
+  ['_components/rsvp-widget.tsx', 'Required\n      </span>'],
   ['pabuya/page.tsx', 'Pabuya\n          </span>'],
   ['seat/page.tsx', 'Setnayan\n            </span>'],
   ['seat/page.tsx', 'Scanning your'],
@@ -113,8 +125,8 @@ const PRESS: Array<[string, string]> = [
   ['venue/page.tsx', '← Back to the invitation'],
   // 2026-10-12 · the rest of N23 as the live re-walk of d2e38b7 listed it.
   ['_components/not-you-switch.tsx', 'Switch\n      </button>'],
-  ['_components/rsvp-widget.tsx', 'Terms\n        </Link>'],
-  ['_components/rsvp-widget.tsx', 'Privacy Notice\n        </Link>'],
+  ['_components/terms-tick.tsx', 'Terms\n        </Link>'],
+  ['_components/terms-tick.tsx', 'Privacy Notice\n        </Link>'],
   ['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'],
   ['pabuya/page.tsx', '<Logo height={26} />'],
   ['seat/page.tsx', '<Logo height={28} />'],
@@ -127,7 +139,7 @@ const PRESS: Array<[string, string]> = [
 /** Presses a thumb finds by WIDTH too — a word or an icon narrower than 44px on its own. */
 const WIDE: Array<[string, string]> = [
   ['_components/not-you-switch.tsx', 'Switch\n      </button>'],
-  ['_components/rsvp-widget.tsx', 'Terms\n        </Link>'],
+  ['_components/terms-tick.tsx', 'Terms\n        </Link>'],
   ['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'],
   ['pabuya/page.tsx', '<Logo height={26} />'],
   ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}'],
@@ -151,7 +163,7 @@ test('PRESS — each way back on the walked pages is at least 44px tall', () => 
   const small: string[] = [];
   for (const [rel, words] of PRESS) {
     const cls = linkClassesAround(rel, words);
-    const tall = cls.some((c) => /^min-h-\[(\d+)px\]$/.test(c) && Number(c.match(/\d+/)![0]) >= 44) || cls.some((c) => /^(?:h|min-h)-(?:11|12|14|16)$/.test(c));
+    const tall = cls.some((c) => /^min-h-\[(\d+)px\]$/.test(c) && Number(c.match(/\d+/)![0]) >= 44) || cls.some((c) => /^(?:h|min-h)-(?:11|12|14|16)$/.test(c)) || paddedInline(cls);
     if (!tall) small.push(`app/[slug]/${rel}: the link ${JSON.stringify(words.slice(0, 40))} is under 44px (${cls.join(' ')})`);
   }
   assert.deepEqual(small, []);
@@ -161,7 +173,7 @@ test('WIDE — each narrow press on the walked pages is at least 44px wide as we
   const narrow: string[] = [];
   for (const [rel, words] of WIDE) {
     const cls = linkClassesAround(rel, words);
-    const wide = cls.some((c) => /^min-w-\[(\d+)px\]$/.test(c) && Number(c.match(/\d+/)![0]) >= 44) || cls.some((c) => /^(?:w|min-w)-(?:11|12|14|16)$/.test(c));
+    const wide = cls.some((c) => /^min-w-\[(\d+)px\]$/.test(c) && Number(c.match(/\d+/)![0]) >= 44) || cls.some((c) => /^(?:w|min-w)-(?:11|12|14|16)$/.test(c)) || (paddedInline(cls) && cls.includes('px-1.5') && cls.includes('-mx-1.5'));
     if (!wide) narrow.push(`app/[slug]/${rel}: the press around ${JSON.stringify(words.slice(0, 40))} is under 44px wide (${cls.join(' ')})`);
   }
   assert.deepEqual(narrow, []);
@@ -175,5 +187,21 @@ test('a ROUND press stays round — its height and width are the same floor', ()
     const h = cls.find((c) => /^h-\d+$/.test(c));
     const w = cls.find((c) => /^w-\d+$/.test(c));
     assert.ok(h && w && h.slice(2) === w.slice(2), `${rel}: a round press must be square — ${h} × ${w}`);
+  }
+});
+
+test('the Terms line: the box is a 44×44 press drawing a 20px box, and the words keep their sentence', () => {
+  const src = stripComments(readFileSync(join(ROOT, '_components/terms-tick.tsx'), 'utf8'));
+  const press = src.match(/<span className="([^"]*)">\s*<input/)?.[1]?.split(/\s+/) ?? [];
+  for (const c of ['h-11', 'w-11', '-mx-3', '-mb-3', '-mt-2.5']) assert.ok(press.includes(c), `the box's press lost ${c} (${press.join(' ')})`);
+  const input = src.match(/<input[^>]*className="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
+  assert.ok(input.includes('h-full') && input.includes('w-full') && input.includes('absolute'), `the input no longer fills its 44px press (${input.join(' ')})`);
+  assert.ok(/aria-hidden="true"\s+className="[^"]*\bh-5 w-5\b/.test(src), 'the painted box is no longer 20px');
+  assert.ok(!src.includes('>') || !/className="[^"]*[^-\w]\[&>/.test(src), 'a ">" in a class list breaks the guard that finds the input');
+  // BOTH places that show the line use this one piece — a copy in either would not carry the fix.
+  for (const [rel, user] of [['_components/rsvp-widget.tsx', '<TermsTick id="rsvp_terms">'], ['_components/save-to-account.tsx', '<TermsTick />']] as const) {
+    const code = stripComments(readFileSync(join(ROOT, rel), 'utf8'));
+    assert.ok(code.includes(user), `${rel} no longer shows the shared Terms line`);
+    assert.ok(!/I agree to the/.test(code), `${rel} draws its own copy of the Terms line`);
   }
 });

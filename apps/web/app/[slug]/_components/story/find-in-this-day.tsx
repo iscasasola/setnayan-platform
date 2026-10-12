@@ -284,7 +284,7 @@ export function FindInThisDay({
               type="button"
               onClick={() => close(true)}
               aria-label="Close the search"
-              className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-lg text-ink/60 hover:bg-ink/5 hover:text-ink"
+              className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-lg text-ink/70 hover:bg-ink/5 hover:text-ink"
             >
               <X aria-hidden className="h-4 w-4" strokeWidth={2} />
             </button>
@@ -292,7 +292,7 @@ export function FindInThisDay({
 
           <div className="max-h-[55vh] overflow-y-auto overscroll-contain px-3 pb-3" role="status">
             {!showing ? (
-              <p className="py-4 font-serif text-[15px] italic leading-snug text-ink/60">
+              <p className="py-4 font-serif text-[15px] italic leading-snug text-ink/70">
                 Everything on this page, and nothing that is not. Type a time, a word from
                 something somebody said, or the name of a shop.
               </p>
@@ -300,7 +300,7 @@ export function FindInThisDay({
 
             {showing && canJump && jumpMinute != null ? (
               <>
-                <p className="pb-1 pt-3 font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/60">
+                <p className="pb-1 pt-3 font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/70">
                   Jump to
                 </p>
                 <button
@@ -325,7 +325,7 @@ export function FindInThisDay({
                   if (shown.length === 0) return null;
                   return (
                     <div key={g}>
-                      <p className="pb-1 pt-3 font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/60">
+                      <p className="pb-1 pt-3 font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/70">
                         {g} · {shown.length + more}
                       </p>
                       {shown.map((h) => (
@@ -343,7 +343,7 @@ export function FindInThisDay({
                               <Marked text={h.label} query={query} />
                             </span>
                             {h.text.trim() ? (
-                              <small className="mt-0.5 block text-xs leading-snug text-ink/60">
+                              <small className="mt-0.5 block text-xs leading-snug text-ink/70">
                                 <Marked text={findSnippet(h.text, query)} query={query} />
                               </small>
                             ) : null}
@@ -351,7 +351,7 @@ export function FindInThisDay({
                         </button>
                       ))}
                       {more > 0 ? (
-                        <p className="py-2 font-serif text-[13px] italic text-ink/60">
+                        <p className="py-2 font-serif text-[13px] italic text-ink/70">
                           +{more} more in {g.toLowerCase()} — add a word to narrow it
                         </p>
                       ) : null}
@@ -361,7 +361,7 @@ export function FindInThisDay({
               : null}
 
             {showing && hits.length === 0 && !canJump ? (
-              <p className="py-4 font-serif text-[15px] italic leading-snug text-ink/60">
+              <p className="py-4 font-serif text-[15px] italic leading-snug text-ink/70">
                 Nothing on this page says “{query.trim()}”. Try a time, a word from this{' '}
                 {occasion}, or the name of a shop.
               </p>

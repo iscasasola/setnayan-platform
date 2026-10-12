@@ -68,7 +68,7 @@ export function UploadYourQr({ slug }: { slug: string }) {
           onChange={(e) => void onPick(e.target.files?.[0])}
         />
       </label>
-      <p className="text-center text-xs text-ink/60">A photo or screenshot of the QR sent to you.</p>
+      <p className="text-center text-xs text-ink/70">A photo or screenshot of the QR sent to you.</p>
       {said ? (
         <p role="alert" className="text-center text-sm font-medium text-terracotta-700">
           {said}

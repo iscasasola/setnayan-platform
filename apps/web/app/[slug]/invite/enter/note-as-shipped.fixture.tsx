@@ -39,7 +39,7 @@ export function NoteAsShipped({ reply, canvas, wordKeys, headline, ownHeadline, 
         {headline}
       </p>
       <p
-        className="mt-2 text-sm text-ink/60"
+        className="mt-2 text-sm text-ink/70"
         data-thank-you-message=""
         data-rsvp-line="message"
         data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}

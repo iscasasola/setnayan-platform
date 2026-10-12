@@ -86,7 +86,7 @@ export function AddNameInPlace({
     <div className="w-full space-y-3" data-add-name-open>
       <div className="flex items-center justify-between gap-3">
         <span className="min-w-0 truncate font-serif text-lg text-ink">
-          {seatLabel} <small className="font-sans text-xs text-ink/60">TBA · adding their name</small>
+          {seatLabel} <small className="font-sans text-xs text-ink/70">TBA · adding their name</small>
         </span>
         <button
           type="button"
@@ -94,7 +94,7 @@ export function AddNameInPlace({
             setOpen(false);
             setFailed(null);
           }}
-          className="inline-flex min-h-[44px] items-center px-2 text-sm text-ink/60 underline underline-offset-4"
+          className="inline-flex min-h-[44px] items-center px-2 text-sm text-ink/70 underline underline-offset-4"
         >
           Cancel
         </button>
@@ -123,7 +123,7 @@ export function AddNameInPlace({
           </p>
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-ink/60">They get their own link and QR the moment you save.</p>
+          <p className="text-xs text-ink/70">They get their own link and QR the moment you save.</p>
           <button
             type="submit"
             disabled={pending || !typed.trim()}

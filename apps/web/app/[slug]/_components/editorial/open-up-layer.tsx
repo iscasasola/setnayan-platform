@@ -157,7 +157,7 @@ export function OpenUpScene({
           <header className="flex shrink-0 items-center gap-3 border-b border-ink/10 px-4 py-3 sm:px-6">
             <div className="min-w-0 flex-1">
               {eyebrow ? (
-                <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-ink/60">{eyebrow}</p>
+                <p className="font-mono text-xs font-semibold uppercase tracking-[0.2em] text-ink/70">{eyebrow}</p>
               ) : null}
               <h2 id={titleId} className="truncate font-serif text-2xl leading-tight text-ink">
                 {title}
@@ -180,7 +180,7 @@ export function OpenUpScene({
               <button
                 type="button"
                 onClick={close}
-                className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/60 underline-offset-4 hover:underline"
+                className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/70 underline-offset-4 hover:underline"
               >
                 Back to the story
               </button>

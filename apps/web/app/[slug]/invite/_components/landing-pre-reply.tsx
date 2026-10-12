@@ -80,7 +80,7 @@ export function LandingPreReply({
         <Link className="button-primary w-full" href={replyHref} data-landing-reply="">
           {LANDING_WORDS.reply}
         </Link>
-        {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/55">Please reply by {replyByLabel}</p> : null}
+        {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/70">Please reply by {replyByLabel}</p> : null}
       </div>
 
       {fadedTicket ? (

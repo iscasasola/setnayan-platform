@@ -655,7 +655,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       <Link
         href={`/${event.slug}`}
         aria-label="Back to the event page"
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/10 bg-cream text-ink/60 transition hover:border-terracotta hover:text-terracotta-700"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/10 bg-cream text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       </Link>
@@ -764,13 +764,13 @@ export default async function EventHubPage({ params, searchParams }: Props) {
               <Boxes aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
               Walk the room in 3D
             </span>
-            <span className="mt-0.5 block text-xs text-ink/55">
+            <span className="mt-0.5 block text-xs text-ink/70">
               {guest
                 ? 'Look around the reception and find your table.'
                 : 'Look around the reception before you arrive.'}
             </span>
           </span>
-          <span aria-hidden className="text-ink/40">
+          <span aria-hidden className="text-ink/70">
             →
           </span>
         </Link>
@@ -791,7 +791,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
               <Gift aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
               E-Gifts
             </span>
-            <span className="mt-0.5 block text-xs text-ink/55">
+            <span className="mt-0.5 block text-xs text-ink/70">
               {/* Owner 2026-08-17: a wake MAY accept money — abuloy is normal —
                   "with gentler wording than a wedding's digital money dance". */}
               {words.solemn
@@ -813,7 +813,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
               </span>
             ) : null}
           </span>
-          <span aria-hidden className="text-ink/40">
+          <span aria-hidden className="text-ink/70">
             →
           </span>
         </Link>
@@ -838,7 +838,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta">
             Day-of schedule
           </p>
-          <p className="mt-2 text-sm text-ink/60">
+          <p className="mt-2 text-sm text-ink/70">
             {`${words.TheHost} hasn’t published the program yet. Check back closer to the day.`}
           </p>
         </article>
@@ -929,7 +929,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             </p>
             <Link
               href={`/papic/me/${guest.qr_token}`}
-              className="font-mono text-xs uppercase tracking-[0.15em] text-ink/55 hover:text-terracotta"
+              className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70 hover:text-terracotta"
             >
               See all{galleryTotal > 0 ? ` (${galleryTotal})` : ''} →
             </Link>
@@ -948,7 +948,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-ink/55">
+            <p className="text-sm text-ink/70">
               {isLive || isPost
                 ? `No tagged photos yet — they’ll appear here as the ${words.occasion} unfolds.`
                 : `Your tagged photos will appear here during the ${words.occasion}.`}
@@ -982,7 +982,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             <Images aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             See the recap gallery
           </span>
-          <span aria-hidden className="text-ink/40">→</span>
+          <span aria-hidden className="text-ink/70">→</span>
         </Link>
       ) : null}
     </div>
@@ -998,7 +998,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         <h3 className="mt-1 font-serif text-xl italic leading-tight tracking-tight text-ink">
           Let others scan you
         </h3>
-        <p className="mx-auto mt-1 max-w-prose text-xs text-ink/60">
+        <p className="mx-auto mt-1 max-w-prose text-xs text-ink/70">
           Show this so photographers and friends can tag you — and the souvenir
           desk can mark yours received.
         </p>
@@ -1007,7 +1007,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           className="qr-slot mx-auto mt-5 inline-block rounded-2xl bg-white p-3 shadow-sm [&_svg]:h-auto [&_svg]:w-48"
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
-        <p className="mx-auto mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/45">
+        <p className="mx-auto mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/70">
           {invitationUrl}
         </p>
         <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-4" />

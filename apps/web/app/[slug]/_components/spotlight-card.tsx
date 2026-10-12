@@ -46,7 +46,7 @@ export function SpotlightCard({
       </span>
       <ArrowRight
         aria-hidden
-        className="h-5 w-5 shrink-0 text-ink/40 transition group-hover:translate-x-0.5 group-hover:text-terracotta"
+        className="h-5 w-5 shrink-0 text-ink/70 transition group-hover:translate-x-0.5 group-hover:text-terracotta"
       />
     </Link>
   );

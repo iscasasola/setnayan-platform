@@ -123,7 +123,7 @@ export function PlusOneDoor({
       {anyFilled ? (
         <section className="space-y-2" data-plus-one-filled>
           <p className="text-sm font-medium text-ink">Your details</p>
-          <p className="text-xs text-ink/60">{primaryFirst} filled these in when they replied.</p>
+          <p className="text-xs text-ink/70">{primaryFirst} filled these in when they replied.</p>
           <dl className="divide-y divide-ink/10 border-y border-ink/10">
             {filled.name ? (
               <FromRow label="Name" value={wholeName} from={primaryFirst} />
@@ -171,7 +171,7 @@ export function PlusOneDoor({
           {missing.meal ? mealBox('', true) : null}
           {missing.dietary ? dietaryBox('') : null}
           {missing.name ? (
-            <p className="text-xs italic text-ink/50">
+            <p className="text-xs italic text-ink/70">
               This name will appear on your invitation, in {theOrganizerPossessive} guest list, and on
               photos you&rsquo;re tagged in.
             </p>
@@ -207,7 +207,7 @@ export function PlusOneDoor({
             aria-label={PASS_CARD_WORDS.yours}
             dangerouslySetInnerHTML={{ __html: passSvg }}
           />
-          <p className="text-xs text-ink/60">Scans once at the door. It is also in Me, on the invitation.</p>
+          <p className="text-xs text-ink/70">Scans once at the door. It is also in Me, on the invitation.</p>
           {inside ? (
             <Link href={`/${home}`} className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink underline underline-offset-4">
               Open the invitation
@@ -248,7 +248,7 @@ export function PlusOneDoor({
 
       {missing.name ? (
         <form action={abandonAction} className="text-center">
-          <button type="submit" className="text-sm text-ink/60 underline-offset-4 hover:underline">
+          <button type="submit" className="text-sm text-ink/70 underline-offset-4 hover:underline">
             This isn&rsquo;t me — I scanned the wrong code
           </button>
         </form>
@@ -261,9 +261,9 @@ export function PlusOneDoor({
 function FromRow({ label, value, from }: { label: string; value: string; from: string }) {
   return (
     <div className="flex items-baseline gap-3 py-2" data-from-bringer>
-      <dt className="w-24 shrink-0 text-xs text-ink/60">{label}</dt>
+      <dt className="w-24 shrink-0 text-xs text-ink/70">{label}</dt>
       <dd className="min-w-0 flex-1 truncate font-medium text-ink">{value}</dd>
-      <span className="shrink-0 text-xs text-ink/55">from {from}</span>
+      <span className="shrink-0 text-xs text-ink/70">from {from}</span>
     </div>
   );
 }

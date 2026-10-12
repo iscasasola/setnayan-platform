@@ -109,5 +109,8 @@ test('3 · everything removed from the pre-reply landing is drawn ONCE — after
   assert.equal((afterBlock.match(/termsMissing\b/g) ?? []).length, 1);
   // The Terms tick is SaveToAccount's own (it is asked where the account is made).
   const save = stripComments(readFileSync(join(__dirname, '..', '_components', 'save-to-account.tsx'), 'utf8'));
-  assert.match(save, /I agree to the/, 'the Terms tick left Save to my account — nothing asks for it any more');
+  // …and since 2026-10-12 it is drawn by the one shared piece (terms-tick.tsx), which the reply page uses too.
+  const tick = stripComments(readFileSync(join(__dirname, '..', '_components', 'terms-tick.tsx'), 'utf8'));
+  assert.match(save, /<TermsTick\b/, 'the Terms tick left Save to my account — nothing asks for it any more');
+  assert.match(tick, /I agree to the/, 'the shared Terms line lost its words');
 });

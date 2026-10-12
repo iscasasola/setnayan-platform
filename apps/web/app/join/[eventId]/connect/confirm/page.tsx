@@ -116,7 +116,7 @@ export default async function ConfirmSeatLinkPage({ params, searchParams }: Prop
               <label className="flex min-h-[44px] cursor-pointer items-start justify-between gap-3 rounded-lg bg-ink/[0.04] px-4 py-3">
                 <span>
                   <span className="block text-sm font-medium text-ink">Reuse the face on my account for this event</span>
-                  <span className="block text-xs text-ink/60">No selfie needed on the day</span>
+                  <span className="block text-xs text-ink/70">No selfie needed on the day</span>
                 </span>
                 <input
                   type="checkbox"
@@ -126,7 +126,7 @@ export default async function ConfirmSeatLinkPage({ params, searchParams }: Prop
                   className="mt-1 h-5 w-5 shrink-0 accent-terracotta"
                 />
               </label>
-              <p className="reuse-on mt-2 text-xs text-ink/60">
+              <p className="reuse-on mt-2 text-xs text-ink/70">
                 The face on your account is used for this event only. Photo helpers see your tags, not your face data.
               </p>
             </div>

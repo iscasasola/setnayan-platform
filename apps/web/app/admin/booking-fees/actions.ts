@@ -19,11 +19,14 @@ export async function saveFeeReviewMin(_prev: ReviewMinState, formData: FormData
   }
   const value = Number(raw);
   const admin = createAdminClient();
-  const { data: prior } = await admin
+  const { data: prior, error: priorErr } = await admin
     .from('platform_settings')
     .select('fee_review_unsettled_events_min')
     .eq('id', 1)
     .maybeSingle();
+  // The audit row records the value before the edit; an unread "before" is not
+  // a blank one, so nothing is saved without it.
+  if (priorErr) return { ok: false, message: `Couldn't read the current count — ${priorErr.message}` };
   const { error } = await admin
     .from('platform_settings')
     .update({ fee_review_unsettled_events_min: value, updated_at: new Date().toISOString() })

@@ -93,6 +93,7 @@ export default async function SuppliersLabPage({
       <section className="sn-col max-w-none" data-lab-suppliers="">
         <LabSuppliersShell
           start={one('build')}
+          answer={one('answer')}
           eventId={LAB_EVENT}
           initialTab={one('tab') === 'build' ? 'build' : one('tab') === 'budget' ? 'budget' : 'shortlist'}
           factsSlot={

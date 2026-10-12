@@ -23,6 +23,7 @@
  * FIRST shortlisted supplier of every category whether or not it was picked;
  * a build saved from this body holds only what is really in it.
  */
+import { askEndedOf, askLine, coupleAskEndedLine, type AskEnded } from './booking-ask-words';
 import { teamMoney, type TeamMoney } from './your-team';
 import type { TallyChild } from './suppliers-shell';
 
@@ -69,10 +70,10 @@ export type BuildLine = {
   /** The couple has already asked this pick to book; the supplier has not
    *  answered. It is not asked a second time. */
   pickAsked: boolean;
-  /** How the supplier's side closed the last ask, when it did not end in a
-   *  booking: they said no, or the answer window ran out. Either way the pick
+  /** How the last ask ended, when it did not end in a booking: they said no,
+   *  the answer window ran out, or the couple took it back. Each way the pick
    *  may be asked again (the shipped rule — `lib/bench-card-actions.ts`). */
-  pickAnswer: 'declined' | 'expired' | null;
+  pickAnswer: AskEnded | null;
   /** The dropdown: shortlisted here, priced, and free on the date. */
   candidates: BuildSupplier[];
 };
@@ -91,13 +92,21 @@ export type BuildLineInputVendor = {
 };
 
 /**
- * THE WORD FOR EACH ANSWER, on a pick's line. "Agreed" needs none — the line
- * becomes the booked supplier. A withdrawn ask needs none either: the couple
- * took it back, and the pick is simply a pick again.
+ * THE WORD FOR EACH ANSWER, on a pick's line — the SAME sentences the
+ * supplier's customer card reads for the same row, pronoun turned
+ * (`lib/booking-ask-words.ts`; owner 2026-10-10, pair P2: "ask, agree, decline,
+ * lapse, withdraw all show on both pages in the same words"). "Agreed" needs
+ * none here: the line becomes the booked supplier.
  */
-export const PICK_ASKED_NOTE = 'Asked to book · waiting for their yes';
-export const PICK_DECLINED_NOTE = 'They said no to this booking — you can ask again';
-export const PICK_LAPSED_NOTE = 'They did not answer in time — you can ask again';
+export const PICK_ASKED_NOTE = askLine('requested', 'couple');
+export const PICK_DECLINED_NOTE = coupleAskEndedLine('declined');
+export const PICK_LAPSED_NOTE = coupleAskEndedLine('expired');
+export const PICK_WITHDRAWN_NOTE = coupleAskEndedLine('cancelled');
+
+/** The line under a pick whose last ask ended without a booking. */
+export function pickAnswerNote(answer: AskEnded): string {
+  return coupleAskEndedLine(answer);
+}
 
 export function buildLinesOf(args: {
   /** The category rows Find shows, in its order. */
@@ -130,7 +139,7 @@ export function buildLinesOf(args: {
       pick: pickRow ? supplier(pickRow) : null,
       pickNote: pickRow ? (args.blocked.get(pickRow.vendorId) ?? null) : null,
       pickAsked: pickRow?.lockState === 'requested',
-      pickAnswer: pickRow?.lockState === 'declined' || pickRow?.lockState === 'expired' ? pickRow.lockState : null,
+      pickAnswer: askEndedOf(pickRow?.lockState),
       // "Only picks those that are shortlisted and compatible for the date"
       // (owner 2026-10-07) — and only a priced supplier can be in a build.
       candidates: open

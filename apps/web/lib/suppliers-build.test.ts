@@ -11,6 +11,7 @@ import {
   PICK_ASKED_NOTE,
   PICK_DECLINED_NOTE,
   PICK_LAPSED_NOTE,
+  PICK_WITHDRAWN_NOTE,
   buildBarOf,
   buildCardOf,
   buildCounts,
@@ -101,7 +102,7 @@ test('a pick the couple has already asked to book waits for the supplier — it 
   assert.equal(lines(['bituin']).find((l) => l.tile === 'catering')!.pickAsked, false);
 });
 
-test('each answer to the ask has its state on the line: declined and lapsed are said, and may be asked again', () => {
+test('each answer to the ask has its state on the line: declined, lapsed and taken back are said, and may be asked again', () => {
   const one = (lockState: BuildLineInputVendor['lockState']) =>
     buildLinesOf({
       tiles: [{ tile: 'catering', label: 'Catering', vendors: [{ ...v('bituin', 'Bituin Catering', 'catering'), lockState }] }],
@@ -111,15 +112,16 @@ test('each answer to the ask has its state on the line: declined and lapsed are 
     })[0]!;
   assert.equal(one('declined').pickAnswer, 'declined');
   assert.equal(one('expired').pickAnswer, 'expired');
-  // Withdrawn by the couple: a pick again, with nothing to say.
-  assert.equal(one('cancelled').pickAnswer, null);
+  // Withdrawn by the couple: said too — the supplier's card reads "they took it back".
+  assert.equal(one('cancelled').pickAnswer, 'cancelled');
   assert.equal(one('none').pickAnswer, null);
   for (const s of ['declined', 'expired', 'cancelled'] as const) {
     assert.equal(one(s).pickAsked, false);
     assert.deepEqual(buildCounts([one(s)]), { filled: 1, total: 1, toBook: 1 }, `${s}: the pick can be asked again`);
   }
-  assert.equal(PICK_DECLINED_NOTE, 'They said no to this booking — you can ask again');
-  assert.equal(PICK_LAPSED_NOTE, 'They did not answer in time — you can ask again');
+  assert.equal(PICK_DECLINED_NOTE, 'Asked to book · they said no — you can ask again');
+  assert.equal(PICK_LAPSED_NOTE, 'Asked to book · no answer in 48 hours — you can ask again');
+  assert.equal(PICK_WITHDRAWN_NOTE, 'Asked to book · you took it back — you can ask again');
   assert.equal(PICK_ASKED_NOTE, 'Asked to book · waiting for their yes');
 });
 

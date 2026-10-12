@@ -12,6 +12,8 @@
  * month. Neither type has a field a name could arrive in, so a later edit
  * cannot leak one by "just passing the row through".
  */
+import { askEndedOf, askLine, coupleAskEndedLine } from './booking-ask-words';
+import type { LockRequestState } from './lock-request-state';
 import type { BenchServiceCard } from '@/lib/bench-service-card';
 import { PRICE_ON_REQUEST } from '@/lib/bench-service-card';
 import { formatCount } from '@/lib/format-number';
@@ -232,13 +234,22 @@ export function sheetStateLine(s: {
   booked: boolean;
   /** Asked to book; no yes yet. */
   asked: boolean;
+  /**
+   * Where the last booking ask stands (`lockRequestStateOf`). A no, a lapse or
+   * a take-back is SAID — the same words the supplier's card reads for the row
+   * (`lib/booking-ask-words.ts`; map rows 14–15, where the couple's line used
+   * to simply disappear). Absent → as before.
+   */
+  lockState?: LockRequestState | null;
   quoteIn: boolean;
   inBuild: boolean;
   hasThread: boolean;
   selfAdded: boolean;
 }): string {
-  if (s.booked) return 'Booked';
-  if (s.asked) return 'Asked to book · waiting for their yes';
+  if (s.booked) return askLine('locked', 'couple');
+  if (s.asked) return askLine('requested', 'couple');
+  const ended = askEndedOf(s.lockState);
+  if (ended) return coupleAskEndedLine(ended);
   if (s.quoteIn) return 'Quote in';
   if (s.inBuild) return 'In your build';
   if (s.hasThread) return 'Asked for a quote';

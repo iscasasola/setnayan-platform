@@ -50,9 +50,8 @@ import { formatPhp } from '@/lib/php';
 import { isMultiPickGroup } from '@/lib/wedding-plan-groups';
 import {
   PICK_ASKED_NOTE,
-  PICK_DECLINED_NOTE,
-  PICK_LAPSED_NOTE,
   buildBarOf,
+  pickAnswerNote,
   noPriceNote,
   sameBuild,
   saveSheetOf,
@@ -93,9 +92,6 @@ const SHIPPED_WRITES: BuildWrites = {
 export const BuildWritesStandInCtx = createContext<BuildWrites | null>(null);
 
 const NO_PICK = '__none__';
-/** In the thumb bar a toned button keeps its full colour (rule 7) without
- *  being the row's main verb — so the fit pass may still drop its word. */
-const FILLED_BRAND = '!border-mulberry !bg-mulberry !text-white';
 /** On a phone the bar's buttons share its width; on a computer it is a pill
  *  in the corner and each keeps its own. */
 const BAR_FLEX = 'max-lg:!flex-1';
@@ -559,7 +555,7 @@ function BuildLineRow({
               <p className="mt-1 text-xs text-mulberry-700">{PICK_ASKED_NOTE}</p>
             ) : line.pickAnswer ? (
               <p className="mt-1 text-xs text-mulberry-700" data-build-answer={line.pickAnswer}>
-                {line.pickAnswer === 'declined' ? PICK_DECLINED_NOTE : PICK_LAPSED_NOTE}
+                {pickAnswerNote(line.pickAnswer)}
               </p>
             ) : null}
           </div>
@@ -582,7 +578,7 @@ function BuildLineRow({
             <Count value={who.pricePhp} format="peso" id={`sup-build-line-${line.tile}`} />
           </span>
         ) : (
-          <ActionButton tone="neutral" main icon={Pencil} label="Set price" name={`Set price — ${who.name}`} href={priceHref(who.vendorId)} prefetch={false} />
+          <ActionButton tone="brand" main icon={Pencil} label="Set price" name={`Set price — ${who.name}`} href={priceHref(who.vendorId)} prefetch={false} />
         )}
       </div>
     </li>
@@ -750,7 +746,7 @@ function BuildCardColumn({
       {isCurrent ? null : (
         <div ref={rowRef} className="mt-2.5 flex min-w-0 flex-wrap items-center gap-2">
           <ActionButton
-            tone="ok"
+            tone="brand"
             main
             icon={Check}
             label="Use this build"
@@ -856,7 +852,7 @@ function BarButtons({
   return (
     <div ref={rowRef} data-build-bar-kind={kind} className="pointer-events-auto flex min-w-0 items-center gap-2.5">
       {kind === 'saved' ? (
-        <ActionButton tone="ok" main icon={Check} label="Saved" onClick={onSaved} aria-haspopup="dialog" className={BAR_FLEX} />
+        <ActionButton tone="brand" main icon={Check} label="Saved" onClick={onSaved} aria-haspopup="dialog" className={BAR_FLEX} />
       ) : kind === 'edited' ? (
         <>
           <ActionButton tone="brand" main icon={Save} label="Save" onClick={onSave} disabled={busy} className={BAR_FLEX} />
@@ -866,7 +862,7 @@ function BarButtons({
             label="Save as new"
             onClick={onSaveAs}
             aria-haspopup="dialog"
-            className={`${BAR_FLEX} ${FILLED_BRAND}`}
+            className={BAR_FLEX}
           />
         </>
       ) : (

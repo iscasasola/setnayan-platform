@@ -31,15 +31,17 @@ import { ActionButton, useFitRow } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { goToBuildTab } from '@/lib/budget-build';
+import { askLine } from '@/lib/booking-ask-words';
 import { bookFields, bookOutcomeOf, bookedToast, type BookOutcome, type BookPick } from '@/lib/book-this-build';
 import { finalizeVendor, type FinalizeVendorResult } from '../actions';
 
 /** A STAND-IN FOR THE BOOKING — `/dev/suppliers-lab` only. `null` everywhere else. */
 export const BookStandInCtx = createContext<null | ((fields: Array<[string, string]>) => Promise<FinalizeVendorResult>)>(null);
 
-/** Filled green in the bar (rule 7: a toned button keeps its full colour)
- *  without being the row's main verb, so the fit pass may drop its word. */
-const BAR_OK = 'max-lg:!flex-1 !border-[rgb(var(--color-ok))] !bg-[rgb(var(--color-ok))] !text-white';
+/** Not the bar's main verb (Save is), so it keeps the table colour of Book —
+ *  outlined green (owner 2026-10-12 look call 1: only a MAIN button turns
+ *  terracotta; `lib/supplier-card-verbs.ts` draws a card's Book the same). */
+const BAR_FLEX = 'max-lg:!flex-1';
 
 type Row = { pick: BookPick; outcome: BookOutcome | null };
 
@@ -133,7 +135,7 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
           pick it booked (seen in the lab: the bar dropped the button and the
           toast went with it). */}
       {picks.length > 0 ? (
-        <ActionButton tone="ok" icon={CalendarCheck} label="Book this build" onClick={start} disabled={pending} className={BAR_OK} />
+        <ActionButton tone="ok" icon={CalendarCheck} label="Book this build" onClick={start} disabled={pending} className={BAR_FLEX} />
       ) : null}
       {rows && typeof document !== 'undefined'
         ? createPortal(
@@ -156,7 +158,8 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
 }
 
 const DONE_WORDS: Record<'asked' | 'booked' | 'proposed', string> = {
-  asked: 'Asked to book · waiting for their yes',
+  // The supplier's card reads the same row as "Asked to book · waiting for your yes".
+  asked: askLine('requested', 'couple'),
   booked: 'Booked ✓',
   proposed: 'Proposed · waiting for the hosts to confirm',
 };
@@ -211,7 +214,7 @@ function BookSheet({
       <div ref={rowRef} className="flex min-w-0 flex-wrap items-center gap-2">
         {toConfirm.length > 0 ? (
           <>
-            <ActionButton tone="ok" main icon={Check} label={busy ? 'Booking…' : 'Yes, book them'} onClick={onConfirm} disabled={busy} />
+            <ActionButton tone="brand" main icon={Check} label={busy ? 'Booking…' : 'Yes, book them'} onClick={onConfirm} disabled={busy} />
             <ActionButton tone="neutral" icon={X} label="Not yet" onClick={onClose} disabled={busy} />
           </>
         ) : (

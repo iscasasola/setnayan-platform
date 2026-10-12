@@ -109,7 +109,10 @@ import {
   vendorAgreeToLock,
   vendorDeclineLock,
 } from './actions';
-import { lockRequestFuseLabel } from '@/lib/lock-request-state';
+import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
+import { lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { BookingMoneySummary } from './_components/booking-money-summary';
 import { bookingMoney, type BookingMoney } from '@/lib/vendor-cashflow';
@@ -187,11 +190,7 @@ import {
   type FeeDisclosure,
   type WaivedFeeCharge,
 } from '@/lib/booking-fee-disclosure';
-import {
-  BookingFeeBills,
-  BookingFeeNotice,
-  WaivedFeeRows,
-} from '@/app/_components/booking-fee-notice';
+import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
@@ -480,6 +479,11 @@ type Props = {
     completed?: string;
     /** The payment-ask outcome flag — see PaymentAsksPanel. */
     ask?: string;
+    /** `vendorAgreeToLock` / `vendorDeclineLock` answered from THIS card
+     *  (`return_to`) — the sentence is said where the supplier pressed. */
+    lock_agree?: string;
+    lock_decline?: string;
+    competing?: string;
   }>;
 };
 
@@ -622,7 +626,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       admin
         .from('event_vendors')
         .select(
-          'vendor_id, source, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_declined_at, deposit_decline_reason, deposit_proof_url',
+          'vendor_id, source, status, lock_request_state, lock_declined_at, lock_decline_reason, lock_request_expires_at, lock_request_cancelled_at, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_declined_at, deposit_decline_reason, deposit_proof_url',
         )
         .eq('event_id', eventId)
         .eq('marketplace_vendor_id', profile.vendor_profile_id)
@@ -675,7 +679,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ]),
   );
 
-  const completionRow = (evRow ?? null) as {
+  const completionRow = (evRow ?? null) as ({
     vendor_id: string | null;
     source: string | null;
     completion_status: string | null;
@@ -686,7 +690,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     deposit_declined_at: string | null;
     deposit_decline_reason: string | null;
     deposit_proof_url: string | null;
-  } | null;
+  } & SupplierAskRow) | null;
+  // 🔒 THE LAST ASK, WHEN IT CLOSED WITHOUT A BOOKING (pair P2, owner
+  // 2026-10-10: "ask, agree, decline, lapse, withdraw all show on both pages in
+  // the same words"). While it is open the panel below answers it; once the
+  // supplier said no, the 48 hours ran out or the couple took it back, the card
+  // says so — the sentence the couple's Build and Find read for this same row
+  // (`lib/booking-ask-words.ts`). Before this the card simply went back to
+  // "In conversation", as if nobody had ever asked.
+  const askOutcome =
+    isBooked || lockRequest ? null : supplierAskOutcomeOf(completionRow, isLockHandshakeEnabled());
+  // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
+  const lockNotice =
+    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null }) ??
+    lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored
   // value, which the couple's session can write (a `https://wa.me/…` there
@@ -1476,13 +1493,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             them a request they could read and not answer. A decision with a
             seven-day fuse may not be reachable from exactly one screen. Same two
             server actions, no second state machine. */}
+        {lockNotice ? <LockAnswerLine notice={lockNotice} /> : null}
         {lockRequest ? (
           <LockRequestAnswer
             eventVendorId={lockRequest.event_vendor_id}
             expiresAt={lockRequest.expires_at}
             payoutReadiness={payoutReadiness}
             feeForecast={feeForecast}
+            returnTo={`/vendor-dashboard/clients/${eventId}`}
+            agreeLock={vendorAgreeToLock}
+            declineLock={vendorDeclineLock}
           />
+        ) : askOutcome ? (
+          <BookingAskOutcomeLine outcome={askOutcome} />
         ) : isBooked && !depositAcked ? (
           <PayoutMethodNudge readiness={payoutReadiness} context="client" />
         ) : null}
@@ -3991,101 +4014,6 @@ function ScheduleTab(props: {
           )}
         </ShopCard>
       ) : null}
-    </div>
-  );
-}
-
-/**
- * The supplier's answer, on the client card itself (PR-H slice B).
- *
- * 🔑 A SECOND PLACE TO ANSWER, NOT A SECOND ANSWER. Both buttons post to the
- * SAME two server actions the Overview feed's card uses, which post to the same
- * two DEFINER RPCs. Nothing about the state machine lives here — this file
- * decides where the control appears and nothing else. If the decline reason ever
- * changes shape, it changes in one place.
- *
- * ⚠ THE FORM CARRIES ONLY `vendor_id`. The actions read `event_id` off the
- * envelope the RPC returns from the row it authorized, never off the form — the
- * confused-deputy rule those actions carry in their own docblock.
- */
-function LockRequestAnswer({
-  eventVendorId,
-  expiresAt,
-  payoutReadiness,
-  feeForecast,
-}: {
-  eventVendorId: string;
-  expiresAt: string | null;
-  /** S19 — asked HERE because agreeing makes the deposit the couple's next step. */
-  payoutReadiness: PayoutReadiness;
-  /**
-   * What agreeing will cost them, named BEFORE the button. `null` when the fee
-   * system is dark or this booking carries none — silence, never a "₱0".
-   */
-  feeForecast: FeeDisclosure | null;
-}) {
-  // Server-rendered, so "now" is the render instant. The deadline is the one the
-  // DATABASE stamped and the sweep enforces — never a window recomputed here.
-  const left = lockRequestFuseLabel(expiresAt, new Date());
-  const fuse =
-    left === null
-      ? 'They are waiting on your answer.'
-      : left === 'closing now'
-        ? 'Closing now — once it does, the request is gone and they will look elsewhere.'
-        : `${left} — after that the request closes and they will look elsewhere.`;
-  return (
-    <div
-      className="mt-3 rounded-2xl border p-4"
-      style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-surface, #fff)' }}
-    >
-      <p className="text-sm font-semibold text-ink">They want to book you</p>
-      <p className="mt-0.5 text-sm text-ink/60">{fuse}</p>
-      {/* Saying WHY the page is thin is part of the answer. Without this the
-          supplier reads the locked rows below as a broken page rather than as
-          the deal: the venue address and the run-of-show arrive with the yes. */}
-      <p className="mt-2 text-sm text-ink/55">
-        You are seeing the area, the date and the headcount. The exact venue and the
-        day-of run-of-show open the moment you agree.
-      </p>
-      <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
-      {/* ⚠ ABOVE THE BUTTON, NOT BELOW IT. A fee named after the press is a
-          receipt, not a disclosure. */}
-      <BookingFeeNotice disclosure={feeForecast} />
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <form action={vendorAgreeToLock}>
-          <input type="hidden" name="vendor_id" value={eventVendorId} />
-          <SubmitButton
-            pendingLabel="Agreeing…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-success)' }}
-          >
-            Agree to this booking
-          </SubmitButton>
-        </form>
-      </div>
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          Can&rsquo;t take this booking?
-        </summary>
-        <form action={vendorDeclineLock} className="mt-2 flex flex-wrap items-center gap-2">
-          <input type="hidden" name="vendor_id" value={eventVendorId} />
-          <input
-            type="text"
-            name="reason"
-            maxLength={240}
-            placeholder="Why? (optional — the couple sees this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
-            style={{ borderColor: 'var(--sn-line)' }}
-          />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Turn it down
-          </SubmitButton>
-        </form>
-      </details>
     </div>
   );
 }

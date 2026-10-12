@@ -13,6 +13,10 @@
  *   &build=none           …a new event's Build: no picks, no saved builds
  *   &build=unread         …the saved builds could not be read
  *   &build=answers        …Bituin (picked) said no to the booking ask
+ *   &answer=requested|declined|expired|cancelled
+ *                         …with &build=answers: how Bituin's ask stands — the
+ *                         line the supplier's card says in the same words
+ *                         (`/dev/booking-ask-lab`)
  */
 import { useMemo, useRef, useState, type ComponentProps } from 'react';
 import { ServicesTakeover } from '@/app/dashboard/[eventId]/vendors/_components/services-takeover';
@@ -41,7 +45,15 @@ type ShellProps = Omit<ComponentProps<typeof ServicesTakeover>, 'tally' | 'build
 const ok = async () => ({ ok: true as const });
 const row = (b: LabSavedBuild) => ({ build_id: b.id, label: null, title: b.title, created_at: String(b.created).padStart(6, '0'), picks: b.picks });
 
-export function LabSuppliersShell({ start, bookedCount, ...shell }: ShellProps & { start: string | null }) {
+const ANSWERS = ['requested', 'declined', 'expired', 'cancelled'] as const;
+
+export function LabSuppliersShell({
+  start,
+  answer = null,
+  bookedCount,
+  ...shell
+}: ShellProps & { start: string | null; answer?: string | null }) {
+  const bituin = (ANSWERS as readonly string[]).includes(answer ?? '') ? (answer as (typeof ANSWERS)[number]) : 'declined';
   const [builds, setBuilds] = useState<LabSavedBuild[]>(start === 'none' ? [] : LAB_SAVED_BUILDS);
   // tile → the supplier pinned to the build there.
   const [picks, setPicks] = useState<Record<string, string>>(
@@ -62,13 +74,13 @@ export function LabSuppliersShell({ start, bookedCount, ...shell }: ShellProps &
                 lockState: asked.has(x.vendorId)
                   ? ('requested' as const)
                   : start === 'answers' && x.vendorId === 'v-bituin'
-                    ? ('declined' as const)
+                    ? bituin
                     : start === 'answers' && x.vendorId === 'v-hiraya'
                       ? ('expired' as const)
                       : ('none' as const),
               })),
       })),
-    [asked, start],
+    [asked, start, bituin],
   );
 
   const view = useMemo(() => {

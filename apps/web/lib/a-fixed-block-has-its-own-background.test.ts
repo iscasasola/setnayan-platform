@@ -44,6 +44,9 @@
  *
  * 👗 2026-10-12 — …AND WHAT TO WEAR. Words on the page, bare, like the March. Held in §1 · §3 · §4 · §5.
  *
+ * 📺 2026-10-12 — the Live hub takes NO ground (only moves; the motion guard holds it) — held here in §1 and §5.
+ * Sabotage seen red: the Live hub given a Background.
+ *
  * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
  */
 import test from 'node:test';
@@ -106,7 +109,9 @@ test('1 · the reader is strict: a ground from the fixed three, never the one th
      (`blockTakesGround`) — every block but the one that only moves, which has no "today" to compare with and keeps no
      ground at all (the lines after the loop; `a-fixed-block-has-its-own-motion.test.ts` §1 holds every spelling). The
      claim is the same for each block that has a Background. */
-  assert.deepEqual(BLOCK_LOOK_BLOCKS.filter((b) => !blockTakesGround(b)), ['photos_of_you']);
+  /* (🔁 2026-10-12: and the Live hub — both its pieces are dark cards.) */
+  assert.deepEqual(BLOCK_LOOK_BLOCKS.filter((b) => !blockTakesGround(b)), ['photos_of_you', 'live_hub']);
+  for (const g of BLOCK_GROUNDS) assert.deepEqual(readBlockLooks({ block_looks: { live_hub: { g } } }), {}, `the Live hub kept the ground ${g}`);
   assert.deepEqual(Object.keys(BLOCK_GROUND_TODAY).sort(), BLOCK_LOOK_BLOCKS.filter(blockTakesGround).sort(), 'a block that takes a ground has no "today" (or one that takes none has)');
   for (const g of BLOCK_GROUNDS) assert.deepEqual(readBlockLooks({ block_looks: { photos_of_you: { g } } }), {}, `Photos of you kept the ground ${g}`);
   for (const block of BLOCK_LOOK_BLOCKS.filter(blockTakesGround)) {
@@ -368,11 +373,13 @@ test('5 · a guest’s page: no mark and no style unless something is kept; the 
   /* 🔁 RE-AIMED 2026-10-10 (owner: "animate only"): 7 → 8. The new one is Photos of you's, before the gallery's one
      root — a block that takes NO ground (the reader keeps none for it and no rule is written: §1), so there is no
      card there for a ground to land on, and nothing to re-walk. Same claim. */
-  /* 🔁 RE-AIMED 2026-10-12 (What to wear made real): 8 → 12. The new four are What to wear's (the three Welcomes
-     that can draw a guest's own look, and Me's What to wear — its panel is bare: the root takes the ground, §3/§4).
-     Announcements is marked by the layout (`announcement-look.tsx`), not here. Same claim. */
-  assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 12, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
+  /* 🔁 RE-AIMED 2026-10-12 (the last samples made real): 8 → 19. The new eleven are What to wear's four (the three
+     Welcomes that can draw a guest's own look, and Me's What to wear — its panel is bare: the root takes the ground,
+     §3/§4) and the Live hub's seven (a block that takes NO ground: nothing to re-walk). Announcements is marked by
+     the layout (`announcement-look.tsx`), not here. Same claim. */
+  assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 19, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
   assert.equal((BODY.match(/blockMark\('look'\)/g) ?? []).length, 4);
+  assert.equal((BODY.match(/blockMark\('live_hub'\)/g) ?? []).length, 7);
   assert.equal((BODY.match(/blockMark\('photos_of_you'\)/g) ?? []).length, 1);
   /* Nothing about a ground is said in the page's own files: it is all behind the reader and the rules. */
   for (const file of [`${G}/site-body.tsx`, `${G}/editor-bridge.tsx`, `${G}/empty-states.tsx`, `${G}/guest-doorway-strip.tsx`, `${G}/spotlight-card.tsx`, `${G}/entourage-section.tsx`, `${G}/your-seat-block.tsx`, `${G}/your-seat-styles.tsx`, `${G}/maker-fixed-parts.tsx`, `${G}/guest-ticket.tsx`, `${G}/maker-guest-scenes.tsx`, 'app/[slug]/page.tsx', 'app/[slug]/layout.tsx', `${G}/announcement-look.tsx`, `${G}/day-of-announcement.tsx`, `${G}/announcement-styles.tsx`, `${G}/dress-code-widget.tsx`, `${G}/guest-welcome.tsx`, `${G}/guest-me-parts.tsx`]) {

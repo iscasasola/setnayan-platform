@@ -303,3 +303,48 @@ test('What to wear in Me: the mark rides with the `wear` part alone, right befor
   assert.ok(roleOnly.includes('data-me-part="role"') && !roleOnly.includes('data-me-part="wear"'), 'anti-vacuity: the role alone');
   assert.equal(roleOnly, draw({}, null), 'a mark is drawn where the wear part is not');
 });
+
+/* ══ 📺 2026-10-12 — THE LIVE HUB, MADE REAL (ANIMATE ONLY) ═══════════════════════════════════════════════════════
+ * On the real page on The Day, in all three arrangements. Sabotages seen red (each restored): the mark dropped from
+ * the wall · a background kept for it.
+ */
+
+/** The fixture guest's page on The Day, with the stream and the wall on. */
+async function liveDay(looks: unknown, liveHubStyle: string | null = null): Promise<string> {
+  const prefs = { ...(looks === undefined ? {} : { [BLOCK_LOOKS_PREF_KEY]: looks }), ...(liveHubStyle ? { scene_styles: { live_hub: liveHubStyle } } : {}) };
+  return renderSiteBodyFixture({
+    dayOfPhase: 'live',
+    lifecyclePhase: 'event',
+    watchLive: { embedUrl: 'https://www.youtube-nocookie.com/embed/abcdefghijk', watchUrl: 'https://www.youtube.com/watch?v=abcdefghijk' },
+    liveWall: { tiles: [], count: 0, caption: null, challenge: null, challengeMeasured: true },
+    event: { ...FIXTURE_EVENT, ...(Object.keys(prefs).length > 0 ? { style_preferences: prefs } : {}) } as SiteBodyFixtureProps['event'],
+  } as Partial<SiteBodyFixtureProps>);
+}
+
+for (const [arrangement, roots] of [
+  ['Player and wall', ['<section aria-label="Watch the event live"', '<section aria-label="Live photo wall"']],
+  ['Theatre', ['<section data-scene-style="theatre"']],
+  ['Wall first', ['<section data-scene-style="wall-first"']],
+] as const) {
+  test(`Live hub, ${arrangement}: nothing kept (or a background, which it refuses) is the same page; a motion kept marks each root it is drawn from — nothing else`, async () => {
+    const style = arrangement === 'Theatre' ? 'theatre' : arrangement === 'Wall first' ? 'wall-first' : null;
+    const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="live_hub"></span>`;
+    const plain = await liveDay(undefined, style);
+    for (const root of roots) assert.equal(plain.split(root).length, 2, `${root}: not drawn once — this proves nothing`);
+    assert.ok(plain.includes('aria-label="Live photo wall"') && plain.includes('youtube-nocookie.com/embed/abcdefghijk'), 'anti-vacuity: the stream and the wall are both on the page');
+    assert.doesNotMatch(plain, new RegExp(`${BLOCK_MARK_ATTR}|${BLOCK_LOOKS_STYLE_ATTR}`));
+    for (const nothing of [{}, { live_hub: {} }, { live_hub: { g: 'frost' } }, { live_hub: { g: 'none' } }, { live_hub: { motion: {} } }]) {
+      assert.equal(await liveDay(nothing, style), plain, `a page with ${JSON.stringify(nothing)} kept differs from one with nothing kept`);
+    }
+    for (const look of [{ motion: { in: { fade: true } } }, { g: 'frost', motion: { during: 'drift' } }] as const) {
+      const html = await liveDay({ live_hub: look }, style);
+      const css = blockLooksCss(readBlockLooks({ [BLOCK_LOOKS_PREF_KEY]: { live_hub: { motion: look.motion } } }));
+      assert.doesNotMatch(css, /background|backdrop-filter|border/, 'a ground is written for the Live hub');
+      const tag = `<style ${BLOCK_LOOKS_STYLE_ATTR}="">${css}</style>`;
+      assert.equal(html.split(mark).length - 1, roots.length, `${JSON.stringify(look)}: not one mark per root`);
+      for (const root of roots) assert.ok(html.includes(`${mark}${root}`), `${JSON.stringify(look)}: the mark is not right before ${root}`);
+      assert.equal(html.split(tag).length, 2);
+      assert.equal(html.split(mark).join('').replace(tag, ''), plain, `${JSON.stringify(look)}: the page changed somewhere else`);
+    }
+  });
+}

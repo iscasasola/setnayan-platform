@@ -72,6 +72,13 @@
  *     Me — a guest gets one or the other, never both: `meParts` decides). The mark is HANDED to the widget, which puts
  *     it before its root only when it draws one (a guest with nothing personal gets nothing — and no mark pointing at
  *     the NEXT part). Words on the page, no card: bare, like the March.
+ *   · LIVE HUB — ANIMATE ONLY, by the same reason as Photos of you: the live wall IS the gallery's dark card
+ *     (`sn-gal`) and the player is the ink card (`bg-ink`), light words on both. Drawn ONE way per arrangement:
+ *     Theatre and Wall first are one `<section>` (`LiveHubArrangement`), Player and wall is the two pieces, each in
+ *     its own place on the page (on a guest's own page the run of show stands between them) — so each piece takes
+ *     the mark, and the one look moves both. NO WRAPPER: one would move the wall for every guest. The wall opens a
+ *     photo inside itself, like the gallery (`HOLDS_STILL_WHILE`).
+ * With the Live hub, no part of the canvas is a sample any more (`BLOCK_SAMPLE_WHY` is empty).
  */
 import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElementMotion } from './element-style';
 
@@ -79,14 +86,14 @@ import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElement
 export const BLOCK_LOOKS_PREF_KEY = 'block_looks';
 
 /** The blocks that take a look — each is its canvas key without the `f:` (`lib/maker-parts.ts`). */
-export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you', 'announcements', 'look'] as const;
+export const BLOCK_LOOK_BLOCKS = ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you', 'announcements', 'look', 'live_hub'] as const;
 export type BlockLookBlock = (typeof BLOCK_LOOK_BLOCKS)[number];
 /**
  * 🖼 THE BLOCKS THAT ONLY MOVE — Animate, and no Background (owner 2026-10-10 of Photos of you: *"animate only"*; its
  * root is the gallery's own dark card). Everything about a ground below is asked of the OTHER blocks alone
  * (`BlockGroundBlock`), so one of these can be given none by the reader, by the save or by a rule.
  */
-export const BLOCK_MOTION_ONLY = ['photos_of_you'] as const satisfies readonly BlockLookBlock[];
+export const BLOCK_MOTION_ONLY = ['photos_of_you', 'live_hub'] as const satisfies readonly BlockLookBlock[];
 export type BlockGroundBlock = Exclude<BlockLookBlock, (typeof BLOCK_MOTION_ONLY)[number]>;
 export const blockTakesGround = (block: BlockLookBlock): block is BlockGroundBlock => !(BLOCK_MOTION_ONLY as readonly string[]).includes(block);
 /** A block's background — the RSVP card's three (`RSVP_CARD_TILES`), in its order and words. */
@@ -107,11 +114,10 @@ export function blockOfCanvas(canvas: string | null | undefined): BlockLookBlock
 /**
  * The canvas's SAMPLES — what each guest sees there is their own. Said when Background or Animate is tapped on one
  * (the couple's words; each names the thing).
- * 📣 2026-10-12: Announcements and What to wear left it — each took its real block's look.
+ * 📣 2026-10-12: EMPTY — the last three (Announcements · Live hub · What to wear) took their real block's look. Kept
+ * (the toolbar still asks it) so a future sample has one place to say so.
  */
-export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {
-  'f:live_hub': 'This is a sample. Guests see the live hub here on the day.',
-};
+export const BLOCK_SAMPLE_WHY: Readonly<Record<string, string>> = {};
 
 /**
  * WHAT EACH BLOCK WEARS TODAY, with nothing stored — the tile shown picked, and the value that is never kept (it
@@ -243,7 +249,7 @@ const OWN = ':not(#el-own)';
  * no chapter round it: it plays as the block is first drawn (Me is hidden until its tab is opened, and an animation
  * starts when its element is first rendered). Inside a chapter it waits for the observer, like every other block.
  */
-const OFF_CHAPTERS: readonly BlockLookBlock[] = ['find_your_seat', 'pass', 'announcements', 'look'];
+const OFF_CHAPTERS: readonly BlockLookBlock[] = ['find_your_seat', 'pass', 'announcements', 'look', 'live_hub'];
 const NO_CHAPTER = ':not([data-pahina-chapters] *)';
 /** ⚓ The pass, while the address points at it: the door's own lift plays (`[data-motion='pass']:target`), not this. */
 const NOT_THE_DOOR: Readonly<Partial<Record<BlockLookBlock, string>>> = { pass: ':not(:target)' };
@@ -258,7 +264,7 @@ const NOT_THE_DOOR: Readonly<Partial<Record<BlockLookBlock, string>>> = { pass: 
  * nothing), and taking it out would play it again each time a photo is closed. Nothing is written when nothing keeps
  * moving. (`:has()` is in every engine that passes the motion's own gate; one that lacked it would drop the rule.)
  */
-const HOLDS_STILL_WHILE: Readonly<Partial<Record<BlockLookBlock, string>>> = { photos_of_you: ':has([aria-modal="true"])' };
+const HOLDS_STILL_WHILE: Readonly<Partial<Record<BlockLookBlock, string>>> = { photos_of_you: ':has([aria-modal="true"])', live_hub: ':has([aria-modal="true"])' };
 /**
  * 📌 A BLOCK THAT RIDES STUCK TO THE SCREEN — Announcements on the day (`app/[slug]/layout.tsx`: the block's root is
  * the direct child of `sticky top-0`). Its trip across the screen stops while it rides there, so a motion that
@@ -352,7 +358,9 @@ export function blockLooksCss(looks: BlockLooks): string {
     const still = open ? settled(motion) : null;
     if (open && still) {
       rules.push(`${sel}${open}{${decl(hubElementMotionDeclarations(still, 'page', false))}}`);
-      rules.push(`.pahina-in ${sel}${open},.pahina-in${sel}${open}{${decl(hubElementMotionDeclarations(still, 'page', true))}}`);
+      /* (A block drawn outside the chapters — the live hub's pieces can be — keeps its no-chapter arm here too, or the
+         ended Build in would be swapped out while a photo is open and play again as it closes.) */
+      rules.push(`.pahina-in ${sel}${open},.pahina-in${sel}${open}${OFF_CHAPTERS.includes(block) ? `,${sel}${open}${NO_CHAPTER}` : ''}{${decl(hubElementMotionDeclarations(still, 'page', true))}}`);
     }
     /* 📌 …and while it rides stuck to the screen, nothing follows the scroll (`STILL_WHERE`) — the same place as above. */
     const where = STILL_WHERE[block];

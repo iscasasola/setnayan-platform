@@ -52,6 +52,11 @@
  * draws the mark only when it draws. Held in §1 · §2 · §3 · §4 · §5. Sabotages seen red: the mark parted from the
  * wear part's root · Me mounted without the mark · What to wear left out of the no-chapter list.
  *
+ * 📺 2026-10-12 — …AND THE LIVE HUB, ANIMATE ONLY (both its pieces are dark cards — the Photos of you reason). One mark
+ * before the arrangement, or before each piece of Player and wall — no wrapper — and the wall opens a photo inside
+ * itself. With it the canvas has no samples left. Held in §1 · §2 · §3 · §4 · §5. Sabotages seen red: the mark
+ * dropped from the guest's wall · a Background made possible on it · the while-open rule losing its no-chapter arm.
+ *
  * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
  */
 import test from 'node:test';
@@ -93,19 +98,31 @@ test('1 · the reader is strict: the real blocks, and only what the Event Hub’
      with one real root is listed. */
   /* 🔁 RE-AIMED 2026-10-10 (owner: "animate only"): Photos of you joined — each guest's own is ONE root in one mount
      (§4). The claim is the same: only a block with one real root is listed. */
-  /* 🔁 RE-AIMED 2026-10-12 (two samples made real): Announcements and What to wear (`f:look`) joined — each guest's
-     own is ONE root wherever it is drawn (§4). The claim is the same. */
-  assert.deepEqual([...BLOCK_LOOK_BLOCKS], ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you', 'announcements', 'look']);
+  /* 🔁 RE-AIMED 2026-10-12 (the last three samples made real): Announcements, What to wear (`f:look`) and the Live
+     hub joined — each guest's own is ONE root wherever it is drawn (§4). The claim is the same. */
+  assert.deepEqual([...BLOCK_LOOK_BLOCKS], ['entourage', 'details', 'gifts', 'spotlight', 'find_your_seat', 'pass', 'photos_of_you', 'announcements', 'look', 'live_hub']);
   assert.equal(blockOfCanvas('f:announcements'), 'announcements');
   assert.equal(blockOfCanvas('f:look'), 'look');
+  assert.equal(blockOfCanvas('f:live_hub'), 'live_hub');
   assert.equal(blockOfCanvas('f:find_your_seat'), 'find_your_seat');
   assert.equal(blockOfCanvas('f:pass'), 'pass');
   assert.equal(blockOfCanvas('f:photos_of_you'), 'photos_of_you');
   /* 🖼 …and it is the ONE block that only moves: a motion is kept as any block's is; a background never, in any
      spelling, alone or beside a motion — and the save does not carry one on. */
-  assert.deepEqual([...BLOCK_MOTION_ONLY], ['photos_of_you']);
+  /* 🔁 RE-AIMED 2026-10-12: the Live hub only moves too — its wall IS the gallery's dark card (`sn-gal`) and its
+     player the ink card, light words on both (Photos of you's reason, owner 2026-10-10: "animate only"). */
+  assert.deepEqual([...BLOCK_MOTION_ONLY], ['photos_of_you', 'live_hub']);
   assert.equal(blockTakesGround('photos_of_you'), false);
-  for (const b of BLOCK_LOOK_BLOCKS) assert.equal(blockTakesGround(b), b !== 'photos_of_you', b);
+  assert.equal(blockTakesGround('live_hub'), false);
+  for (const b of BLOCK_LOOK_BLOCKS) assert.equal(blockTakesGround(b), b !== 'photos_of_you' && b !== 'live_hub', b);
+  for (const g of BLOCK_GROUNDS) {
+    assert.deepEqual(readBlockLooks({ block_looks: { live_hub: { g } } }), {}, `the Live hub kept a background (${g})`);
+    assert.equal(blockLooksCss({ live_hub: { g } } as never), '', `a ground rule is written for the Live hub (${g})`);
+  }
+  assert.deepEqual(blockLooksWith({ block_looks: { live_hub: { g: 'frost' } } }, 'live_hub', { in: { fade: true } }), { live_hub: { motion: { in: { fade: true } } } });
+  const LIVE_WALL = src('app/[slug]/_components/live-wall-block.tsx');
+  assert.equal((LIVE_WALL.match(/<section\s+aria-label="Live photo wall"\s+className="sn-gal /g) ?? []).length, 2, 'the live wall is no longer the dark gallery card: re-ask whether it takes a Background');
+  assert.match(src('app/[slug]/_components/watch-live-block.tsx'), /bg-ink px-4 py-3/, 'the player is no longer the ink card: re-ask whether the Live hub takes a Background');
   assert.deepEqual(readBlockLooks({ block_looks: { photos_of_you: { motion: { in: { fade: true, move: 'below' } } } } }), { photos_of_you: { motion: { in: { fade: true, move: 'below' } } } });
   for (const g of [...BLOCK_GROUNDS, 'paper', 'dark', true, { g: 'frost' }]) {
     assert.deepEqual(readBlockLooks({ block_looks: { photos_of_you: { g } } }), {}, `Photos of you kept a background (${JSON.stringify(g)})`);
@@ -226,20 +243,31 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   const GALLERY = src('app/[slug]/_components/photos-of-you-gallery.tsx');
   assert.match(GALLERY, /<section aria-label="Photos of you" className="sn-gal p-5 sm:p-6">[\s\S]*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}\s*<\/section>\s*\);\s*\}/, 'the opened photo is no longer drawn inside the gallery’s root');
   assert.match(src('app/_components/gallery/gallery-lightbox.tsx'), /className="sn-gal-scrim fixed inset-0 [^"]*"[\s\S]{0,200}role="dialog"\s+aria-modal="true"/, 'the lightbox is no longer a fixed, modal card');
-  /* No other block's rules are changed by this (none opens anything inside itself). */
+  /* No other block's rules are changed by this (none opens anything inside itself).
+     🔁 RE-AIMED 2026-10-12: but the Live hub's wall does — the same lightbox, inside its root (held below). */
   for (const b of BLOCK_LOOK_BLOCKS) {
-    if (b === 'photos_of_you') continue;
+    if (b === 'photos_of_you' || b === 'live_hub') continue;
     assert.doesNotMatch(blockLooksCss(readBlockLooks({ block_looks: { [b]: { motion: { timeline: 'scroll', in: { fade: true }, during: 'drift' } } } })), /aria-modal/, b);
   }
 
-  /* 📣 2026-10-12 — THE BLOCKS DRAWN OUTSIDE A CHAPTER: Announcements (the layout's — never in one), What to wear in
-     Me. Each is bound the no-chapter way too. */
-  for (const b of ['announcements', 'look'] as const) {
+  /* 📣 2026-10-12 — THE THREE BLOCKS DRAWN OUTSIDE A CHAPTER, or that can be: Announcements (the layout's — never in
+     one), What to wear in Me, the Live hub's pieces on a stranger's page. Each is bound the no-chapter way too. */
+  for (const b of ['announcements', 'look', 'live_hub'] as const) {
     const at = `${blockSelector(b)}:not(#el-own)`;
     const lines = blockLooksCss(readBlockLooks({ block_looks: { [b]: { motion: { in: { fade: true, move: 'below' }, speed: 'gentle' } } } })).split('\n').slice(1, -1);
     assert.equal(lines.length, 2, b);
     assert.ok(lines[1]!.startsWith(`.pahina-in ${at},.pahina-in${at},${at}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), `${b}: ${lines[1]}`);
   }
+  /* 🖼 THE LIVE WALL OPENS A PHOTO INSIDE ITSELF — the gallery's own lightbox, in its root — so while one is open what
+     keeps moving stands still, as for Photos of you; and since the live hub can stand outside a chapter, the timed
+     Build in keeps its no-chapter arm there too (dropped, it would play again as the photo closes). */
+  const liveAt = `${blockSelector('live_hub')}:not(#el-own)`;
+  const liveDrift = blockLooksCss(readBlockLooks({ block_looks: { live_hub: { motion: { in: { fade: true, move: 'below' }, speed: 'gentle', during: 'drift' } } } })).split('\n').slice(1, -1);
+  assert.equal(liveDrift.length, 4);
+  assert.ok(liveDrift[2]!.startsWith(`${liveAt}${OPEN}{animation:0s none none,`), liveDrift[2]);
+  assert.ok(liveDrift[3]!.startsWith(`.pahina-in ${liveAt}${OPEN},.pahina-in${liveAt}${OPEN},${liveAt}${OPEN}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), liveDrift[3]);
+  for (const line of liveDrift.slice(2)) assert.doesNotMatch(line, /el-during-drift|infinite/, 'the live hub still drifts while a photo is open');
+  assert.match(src('app/[slug]/_components/live-wall-block.tsx'), /<section\s+aria-label="Live photo wall"\s+className="sn-gal p-5 sm:p-6"\s*>(?:(?!<\/section>)[\s\S])*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}[\s\S]*?<\/section>\s*\);\s*\}/, 'the wall’s opened photo is no longer drawn inside its root');
   /* 📌 ANNOUNCEMENTS RIDE STUCK TO THE SCREEN ON THE DAY (the layout's `sticky top-0`): there a motion that follows the
      scroll would hold the coordinator's words wherever their trip stopped — half gone. So while the block is the
      sticky wrapper's child, nothing follows the scroll; a timed Build in and Drift are left alone. */
@@ -299,8 +327,8 @@ test('3 · the draft carries it, counts it and names it; an empty look is no loo
   const pictured = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { photos_of_you: { motion: { in: { fade: true } } } } } } }));
   assert.equal(pictured.length, 1, 'Photos of you’s motion does not move the Apply count');
   assert.equal(pictured[0]!.held, false);
-  /* 📣 …and the ones made real 2026-10-12: one change each, free. */
-  for (const b of ['announcements', 'look']) {
+  /* 📣 …and the three made real 2026-10-12: one change each, free. */
+  for (const b of ['announcements', 'look', 'live_hub']) {
     const c = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { [b]: { motion: { in: { fade: true } } } } } } }));
     assert.equal(c.length, 1, `${b}’s motion does not move the Apply count`);
     assert.equal(c[0]!.held, false);
@@ -408,6 +436,12 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   assert.match(src('app/[slug]/_components/guest-me-parts.tsx'), /mark=\{p === 'wear' \? wearMark : null\}[\s\S]*mark=\{p === 'wear' \? wearMark : null\}[\s\S]*hideWhenEmpty\s*mark=\{mark\}/);
   /* …and the canvas's sample of it stands behind the same mark (the welcome mount hands `guestSceneMark`). */
   assert.match(src('app/[slug]/_components/guest-welcome.tsx'), /\{mark\('f:look'\)\}\s*<MakerWelcomeLook /);
+  /* 📺 THE LIVE HUB — one mark before the arrangement, or before each piece of Player and wall, in both trees, only
+     where that piece is drawn: 7 places, and no wrapper. */
+  assert.equal((BODY.match(/blockMark\('live_hub'\)/g) ?? []).length, 7, 'a piece of the live hub is drawn with no mark (or in a new place)');
+  assert.equal((BODY.match(/\{blockMark\('live_hub'\)\}\s*<(?:LiveHubArrangement|WatchLiveBlock|LiveWallBlock|section className="mt-10">|section id="live-photo-wall")/g) ?? []).length, 7, 'a live hub mark is not right before a piece’s root');
+  assert.equal((BODY.match(/<LiveHubArrangement\s/g) ?? []).length, 2);
+  assert.equal((BODY.match(/<LiveWallBlock\s/g) ?? []).length, 3);
   assert.equal(BLOCK_MARK_ATTR, 'data-block-mark');
   /* THE CANVAS redraws the one style from the strict reader, fetched on that message only — the two names are said
      outright there so a guest's bundle never carries the module. */
@@ -468,12 +502,12 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
      has no real root a look could reach, stays grey, and says so. */
   /* 🔁 RE-AIMED 2026-10-10 (owner: "animate only"): Photos of you left this list too — its real block took its
      Animate. Same claim, three samples. */
-  /* 🔁 RE-AIMED 2026-10-12 (two made real): Announcements and What to wear left this list — each took its real
-     block's look. Same claim, one sample left. */
-  assert.deepEqual(Object.keys(BLOCK_SAMPLE_WHY).sort(), ['f:live_hub']);
+  /* 🔁 RE-AIMED 2026-10-12 (the last three made real): the list is EMPTY — Announcements, What to wear and the Live
+     hub each took their real block's look. Same claim, no samples left. */
+  assert.deepEqual(Object.keys(BLOCK_SAMPLE_WHY).sort(), []);
   /* The part rule itself is as it was (a first-load file, not edited): the two tools of Your seat and of the pass are
      the BLOCK's. (The pass is also a line of the reply's thank-you page — there the toolbar asks no block: `!rsvpOpen`.) */
-  for (const canvas of ['f:find_your_seat', 'f:pass', 'f:photos_of_you', 'f:announcements', 'f:look']) {
+  for (const canvas of ['f:find_your_seat', 'f:pass', 'f:photos_of_you', 'f:announcements', 'f:live_hub', 'f:look']) {
     for (const tool of ['bg', 'animate'] as const) assert.equal(makerPartToolWorks((Object.keys(MAKER_PARTS) as MakerPartKey[]).find((k) => MAKER_PARTS[k].canvas === canvas)!, tool), false);
   }
   /* 🖼 PHOTOS OF YOU: Animate is the block's (`block`); Background is NOBODY's — not the block's (`groundBlock` is
@@ -493,6 +527,10 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
     for (const tool of ['bg', 'animate'] as const) assert.equal(makerPartToolWorks(part, tool), false, `${part} › ${tool} is live on a sample`);
   }
   assert.equal(new Set(Object.values(BLOCK_SAMPLE_WHY)).size, Object.keys(BLOCK_SAMPLE_WHY).length, 'two samples say the same thing');
+  /* 📺 THE LIVE HUB, like Photos of you: Animate the block's, Background nobody's — grey, with the part's own line. */
+  assert.equal(MAKER_PARTS.livehub.canvas, 'f:live_hub');
+  assert.equal(blockTakesGround(blockOfCanvas(MAKER_PARTS.livehub.canvas)!), false);
+  assert.equal(makerPartToolWhy('livehub', 'bg'), 'Background has nothing to change on this part.');
   /* 📣 👗 …and Announcements and What to wear take both. */
   for (const part of ['announce', 'mywear'] as const) assert.equal(blockTakesGround(blockOfCanvas(MAKER_PARTS[part].canvas)!), true, part);
   assert.match(TOOLS, /const sample = picked && \(t === 'bg' \|\| t === 'animate'\) \? BLOCK_SAMPLE_WHY\[makerPartCanvasOn\(stageKey, picked\) \?\? ''\] : undefined;/);

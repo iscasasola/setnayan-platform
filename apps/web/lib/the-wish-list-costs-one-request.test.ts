@@ -128,7 +128,9 @@ test('2 · typed fast: edits to one wish, the switch, a run of moves are ONE wri
 test('3 · the screen: five sends, each inside a HELD makerSave; only "Try again" asks for a render; nothing polls', () => {
   const s = flat(SCREEN);
   /* Every makerSave in the file, with everything up to its closing options. */
-  const saves = [...s.matchAll(/\bmakerSave\( ?(.*?),? ?requestMakerRefresh, (\{[^}]*\}),? ?\);/g)].map((m) => [m[0], m[1]!.replace(/[\s,]+$/, ''), m[2]!] as const);
+  /* (2026-10-12, release hub-batch-2) each save also takes its rejection in place — `.catch(unanswered)`
+     (`a-failed-press-never-replaces-the-maker`); all six must. */
+  const saves = [...s.matchAll(/\bmakerSave\( ?(.*?),? ?requestMakerRefresh, (\{[^}]*\}),? ?\)\.catch\(unanswered\);/g)].map((m) => [m[0], m[1]!.replace(/[\s,]+$/, ''), m[2]!] as const);
   /* Five wish writes — and, from wish list 5/5, the ONE save a gift record's three changes share (`changeGift`). */
   assert.equal(saves.length, 6, `${saves.length} held saves found — add · edit · got · remove · reorder · a gift record is six`);
   assert.equal(s.match(/\bmakerSave\(/g)?.length, 6, 'a makerSave in this file is not held (it would re-render the whole Maker)');

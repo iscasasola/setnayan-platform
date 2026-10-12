@@ -54,6 +54,7 @@ import {
   Pencil,
   Plus,
   QrCode,
+  RotateCcw,
   X,
 } from 'lucide-react';
 import { ActionButton, actionButtonClass, useFitRow } from '@/components/action-button';
@@ -65,7 +66,6 @@ import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
 import { BenchWritesStandInCtx, useBenchLocal } from './bench-local';
 import { haptic } from '@/lib/haptics';
 import { announceBuildAdded } from '@/lib/budget-build';
-import { useSaveLoader } from '@/components/sd-loader';
 import type { BenchCardActions } from '@/lib/bench-card-actions';
 import {
   DOESNT_FIT_ACTION,
@@ -82,7 +82,7 @@ import {
   cardInquireLabel,
   waitingOnSupplier,
 } from '@/lib/explore-info-copy';
-import type { PlanGroupId } from '@/lib/wedding-plan-groups';
+import { isMultiPickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { removeBuildPick, setBuildPick } from '../build-pick-actions';
 import { AccordionLockButton } from './accordion-lock';
 import { ContactShortlistVendorButton } from './contact-shortlist-vendor-button';
@@ -147,28 +147,7 @@ export function BenchVendorActions({
   onRecord?: () => void;
 }) {
   const [pending, start] = useTransition();
-  const save = useSaveLoader();
 
-  const pin = (planGroupId: string) => {
-    haptic('confirm');
-    start(async () => {
-      const added = await save.run(() => setBuildPick({ eventId, planGroupId, vendorId }), {
-        steps: ['Pinning your pick'],
-        hint: 'Saving',
-      });
-      // The cart peeks (the page's shell listens) — only for a pick that saved.
-      if (added.ok) announceBuildAdded({ name: vendorName, category: groupLabel });
-    });
-  };
-
-  const unpin = (planGroupId: string) => {
-    haptic('tick');
-    start(async () => {
-      // vendorId is REQUIRED: a multi-pick category holds several picks and a
-      // vendorless clear would destroy the couple's others.
-      await removeBuildPick({ eventId, planGroupId, vendorId });
-    });
-  };
 
   // ONE ID PER JOB. The build slot acts on `buildGroupId`; Lock renders on
   // `lockGroupId`. They were one variable until 2026-09-11, and the resolver
@@ -181,7 +160,18 @@ export function BenchVendorActions({
   // Which buttons, in what order and colour, is ONE table. Whether an action
   // is allowed stays the resolver's (`actions`); a verb is drawn only when the
   // resolver already holds its action.
-  const verbs = cardVerbs({ actions, booked, hasPrice, quoteIn, payDue: Boolean(payHref) });
+  const local = useBenchLocal();
+  // In the build NOW — what a press made it, else what the page was drawn with.
+  const drawnIn = actions.build?.kind === 'in_build';
+  const buildIn =
+    buildGroupId && (actions.build?.kind === 'add' || actions.build?.kind === 'in_build')
+      ? (local?.builtNow(vendorId, buildGroupId, drawnIn) ?? drawnIn)
+      : drawnIn;
+  const shown: BenchCardActions =
+    actions.build && (actions.build.kind === 'add' || actions.build.kind === 'in_build')
+      ? { ...actions, build: { kind: buildIn ? 'in_build' : 'add' } }
+      : actions;
+  const verbs = cardVerbs({ actions: shown, booked, hasPrice, quoteIn, payDue: Boolean(payHref) });
   const threadHref =
     actions.inquiry?.kind === 'check' ? `/dashboard/${eventId}/messages/${actions.inquiry.threadId}` : null;
   const threadId = actions.inquiry?.kind === 'check' ? actions.inquiry.threadId : null;
@@ -189,10 +179,12 @@ export function BenchVendorActions({
   useFitRow(rowRef);
   const router = useRouter();
   const { confirm, dialog: confirmDialog } = useConfirm();
-  const local = useBenchLocal();
-  const removeWrite = useContext(BenchWritesStandInCtx)?.remove ?? deleteVendor;
+  const writes = useContext(BenchWritesStandInCtx);
+  const removeWrite = writes?.remove ?? deleteVendor;
+  const pinWrite = writes?.pin ?? setBuildPick;
+  const unpinWrite = writes?.unpin ?? removeBuildPick;
   // A refused Remove comes back as a fresh card; the bench hands it the words.
-  const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string } | null>(() => {
+  const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string; retry?: () => void } | null>(() => {
     const was = local?.takeSaid(vendorId) ?? null;
     return was ? { tone: 'error', text: was } : null;
   });
@@ -223,9 +215,68 @@ export function BenchVendorActions({
       } catch (e) {
         if (isRedirect(e)) throw e;
         // The server refuses a booked supplier, or one with a payment on record.
-        if (putBack) putBack(refused);
-        else setSaid({ tone: 'error', text: refused });
+        if (putBack) {
+          putBack(refused);
+          local?.say('bad', refused);
+        } else setSaid({ tone: 'error', text: refused });
       }
+    });
+  };
+
+
+  // ── ADD TO BUILD ANSWERS IN PLACE (controller audit 2026-10-12, item 1) ──
+  // It used to cover the screen with the save veil and then say nothing about
+  // a refusal — `setBuildPick` answers `{ ok: false }` and the card went on
+  // reading "Saved ✓". Now the card flips at once, the write answers in place
+  // (`answerInPlace`, no whole-page render), and a refusal flips it back,
+  // says why on the card and in the top toast, with Try again.
+  const pin = (planGroupId: string) => {
+    haptic('confirm');
+    setSaid(null);
+    const multi = isMultiPickGroup(planGroupId);
+    const wasIn = buildIn;
+    local?.setBuilt(vendorId, planGroupId, true, multi);
+    start(async () => {
+      let ok = false;
+      try {
+        ok = (await pinWrite({ eventId, planGroupId, vendorId, answerInPlace: Boolean(local) })).ok;
+      } catch {
+        ok = false;
+      }
+      if (ok) {
+        // The cart peeks (the page's shell listens) — only for a pick that saved.
+        announceBuildAdded({ name: vendorName, category: groupLabel });
+        if (!local) router.refresh();
+        return;
+      }
+      local?.setBuilt(vendorId, planGroupId, wasIn, true);
+      const text = `${vendorName} could not be added to your build. Nothing changed.`;
+      setSaid({ tone: 'error', text, retry: () => pin(planGroupId) });
+      local?.say('bad', text, () => pin(planGroupId));
+    });
+  };
+
+  const unpin = (planGroupId: string) => {
+    haptic('tick');
+    setSaid(null);
+    local?.setBuilt(vendorId, planGroupId, false, true);
+    start(async () => {
+      let ok = false;
+      try {
+        // vendorId is REQUIRED: a multi-pick category holds several picks and a
+        // vendorless clear would destroy the couple's others.
+        ok = (await unpinWrite({ eventId, planGroupId, vendorId, answerInPlace: Boolean(local) })).ok;
+      } catch {
+        ok = false;
+      }
+      if (ok) {
+        if (!local) router.refresh();
+        return;
+      }
+      local?.setBuilt(vendorId, planGroupId, true, true);
+      const text = `${vendorName} could not be taken out of your build. Nothing changed.`;
+      setSaid({ tone: 'error', text, retry: () => unpin(planGroupId) });
+      local?.say('bad', text, () => unpin(planGroupId));
     });
   };
 
@@ -425,6 +476,12 @@ export function BenchVendorActions({
       {said ? (
         <p className={said.tone === 'error' ? 'verb-err' : 'verb-ok'} role="status">
           {said.text}
+          {said.retry ? (
+            <>
+              {' '}
+              <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" className="verb-retry" onClick={said.retry} />
+            </>
+          ) : null}
         </p>
       ) : null}
     </div>

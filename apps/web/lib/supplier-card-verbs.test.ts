@@ -140,7 +140,7 @@ const BENCH = stripComments(readFileSync(join(V, '_components', 'shortlist-categ
 const PAGE = stripComments(readFileSync(join(V, 'page.tsx'), 'utf8'));
 
 test('T4 · the card’s verbs come from the table — one row, one fit state', () => {
-  assert.match(CARD, /const verbs = cardVerbs\(\{ actions, booked, hasPrice, quoteIn, payDue: Boolean\(payHref\) \}\);/);
+  assert.match(CARD, /const verbs = cardVerbs\(\{ actions: shown, booked, hasPrice, quoteIn, payDue: Boolean\(payHref\) \}\);/);
   assert.match(CARD, /const rowRef = useRef<HTMLDivElement>\(null\);\s*useFitRow\(rowRef\);/);
   assert.match(CARD, /<div ref=\{rowRef\} className="verbs" data-card-verbs=\{verbs\.map\(\(v\) => v\.key\)\.join\(' '\)\}>\s*\{verbs\.map\(draw\)\}/);
   // Every control is the shipped button — nothing hand-made, no › in a control.
@@ -173,7 +173,7 @@ test('T4 · Remove asks first, and a refusal is said — never a silent no-op', 
   assert.match(remove, /await removeWrite\(fd\);\s*if \(!putBack\) router\.refresh\(\);/);
   assert.match(remove, /if \(isRedirect\(e\)\) throw e;/, 'a signed-out redirect is swallowed as a failure');
   assert.match(remove, /const refused = `\$\{vendorName\} could not be removed\. Nothing changed\.`;/);
-  assert.match(remove, /if \(putBack\) putBack\(refused\);\s*else setSaid\(\{ tone: 'error', text: refused \}\);/);
+  assert.match(remove, /if \(putBack\) \{\s*putBack\(refused\);\s*local\?\.say\('bad', refused\);\s*\} else setSaid\(\{ tone: 'error', text: refused \}\);/);
   assert.match(CARD, /\{said \? \(\s*<p className=\{said\.tone === 'error' \? 'verb-err' : 'verb-ok'\} role="status">/);
 });
 

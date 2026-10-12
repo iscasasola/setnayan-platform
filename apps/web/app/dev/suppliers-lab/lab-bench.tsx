@@ -31,6 +31,14 @@ export function LabBench({
       if (writeFail) return { status: 'error', message: 'lab: refused' };
       return { status: 'ok', eventVendorId: `lab-${String(fd.get('vendor_profile_id'))}`, eventName: null };
     },
+    pin: async () => {
+      await pause();
+      return writeFail ? { ok: false, error: 'lab: refused' } : { ok: true };
+    },
+    unpin: async () => {
+      await pause();
+      return writeFail ? { ok: false, error: 'lab: refused' } : { ok: true };
+    },
   };
   return (
     <BenchWritesStandInCtx.Provider value={writes}>

@@ -209,10 +209,13 @@ import {
   payBenchDebt,
   savedKey,
   withoutRemoved,
+  builtNowIn,
+  setBuiltIn,
   type BenchLocal,
   type SavedFromMore,
 } from './bench-local';
 import { useSuppliersMode } from './suppliers-mode';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import { categoryForTile } from '@/lib/shortlist-taxonomy';
@@ -2539,6 +2542,10 @@ export function ShortlistCategories({
   // serves the router's cached copy). Everything below reads `folders`, so the
   // counts, the ring and "· N yours" move with the card.
   const local = benchLocalStore(eventId);
+  const [builtTick, setBuiltTick] = useState(0);
+  // THE PAGE'S ONE TOAST — it peeks from the top (§ 9 kind 12); a failure is
+  // red with Try again, and the card keeps its own line as the lasting copy.
+  const [toast, setToast] = useState<{ tone: 'ok' | 'bad'; text: string; retry?: () => void; key: number } | null>(null);
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set(local.gone));
   const folders = useMemo(() => withoutRemoved(foldersFromServer, gone), [foldersFromServer, gone]);
   const benchLocal = useMemo<BenchLocal>(
@@ -2558,8 +2565,17 @@ export function ShortlistCategories({
         local.said.delete(vendorId);
         return was;
       },
+      builtNow: (vendorId, groupId, drawn) => builtNowIn(local, vendorId, groupId, drawn),
+      setBuilt: (vendorId, groupId, on, multi) => {
+        setBuiltIn(local, vendorId, groupId, on, multi);
+        markBenchDirty(eventId);
+        setBuiltTick((n) => n + 1);
+      },
+      say: (tone, text, retry) => setToast({ tone, text, retry, key: Date.now() }),
     }),
-    [eventId, local],
+    // `builtTick` re-draws every card when one pin moves (a single-pick
+    // category's sibling reads "Add to build" at once).
+    [eventId, local, builtTick],
   );
   // THE DEBT, PAID ONCE: the Build and Booked bodies were drawn on the server
   // and did not see the presses. One refresh when the couple leaves Find — or,
@@ -3432,6 +3448,17 @@ export function ShortlistCategories({
 
   return (
     <BenchLocalCtx.Provider value={benchLocal}>
+    {toast ? (
+      <PeekToast
+        key={toast.key}
+        tone={toast.tone}
+        data="suppliers"
+        onGone={() => setToast((t) => (t?.key === toast.key ? null : t))}
+        onRetry={toast.retry}
+      >
+        {toast.text}
+      </PeekToast>
+    ) : null}
     <SheetDoorCtx.Provider value={replan ? sheetDoor : null}>
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>

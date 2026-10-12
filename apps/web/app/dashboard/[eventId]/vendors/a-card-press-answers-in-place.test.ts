@@ -7,6 +7,8 @@ import { stripComments } from '@/lib/strip-comments';
 import { ANSWER_IN_PLACE_FIELD, answersInPlace } from '@/lib/answer-in-place';
 import {
   benchLocalStore,
+  builtNowIn,
+  setBuiltIn,
   markBenchDirty,
   payBenchDebt,
   withoutRemoved,
@@ -53,7 +55,7 @@ test('the field is one name, read one way', () => {
 });
 
 test('Remove on a card: the card leaves first, the write answers in place, no page refresh', () => {
-  const remove = slice(CARD, 'const remove = () => {', 'const nudge = () => {');
+  const remove = slice(CARD, 'const remove = () => {', 'const pin = (planGroupId: string) => {');
   const off = remove.indexOf('local?.removeInPlace(vendorId)');
   const write = remove.indexOf('await removeWrite(fd)');
   assert.ok(off > -1 && write > -1 && off < write, 'the card must leave BEFORE the write is awaited');
@@ -62,7 +64,7 @@ test('Remove on a card: the card leaves first, the write answers in place, no pa
   assert.equal((remove.match(/router\.refresh\(\)/g) ?? []).length, 1);
   assert.match(remove, /if \(!putBack\) router\.refresh\(\);/);
   // The write is the real action everywhere but the lab.
-  assert.match(CARD, /const removeWrite = useContext\(BenchWritesStandInCtx\)\?\.remove \?\? deleteVendor;/);
+  assert.match(CARD, /const removeWrite = writes\?\.remove \?\? deleteVendor;/);
 });
 
 test('Save and Undo in "More to compare": answered by the card, no page refresh', () => {
@@ -137,4 +139,32 @@ test('a removed supplier leaves its list, and the counts move with it', () => {
   assert.match(BENCH, /folders: foldersFromServer,/);
   assert.match(BENCH, /const folders = useMemo\(\(\) => withoutRemoved\(foldersFromServer, gone\), \[foldersFromServer, gone\]\);/);
   assert.equal((BENCH.match(/foldersFromServer/g) ?? []).length, 3, 'foldersFromServer read outside the filter');
+});
+
+test('Add to build: a refusal flips the card back and SAYS so (it used to read "Saved ✓")', () => {
+  const pin = slice(CARD, 'const pin = (planGroupId: string) => {', 'const unpin = (planGroupId: string) => {');
+  const unpin = slice(CARD, 'const unpin = (planGroupId: string) => {', 'const nudge = () => {');
+  for (const [name, fn] of [['pin', pin], ['unpin', unpin]] as const) {
+    assert.match(fn, /answerInPlace: Boolean\(local\)/, `${name} must answer in place on the bench`);
+    assert.ok(!/save\.run\(/.test(fn), `${name} must not cover the screen with the save veil`);
+    assert.match(fn, /setSaid\(\{ tone: 'error', text, retry: \(\) => (un)?pin\(planGroupId\) \}\);/, `${name}: the refusal is not said, with Try again`);
+    assert.match(fn, /local\?\.say\('bad', text, \(\) => (un)?pin\(planGroupId\)\);/, `${name}: no toast`);
+    // The flip happens BEFORE the write is awaited, and is undone on a refusal.
+    assert.ok(fn.indexOf('local?.setBuilt(') < fn.indexOf('await '), `${name}: the card waits for the server`);
+  }
+  assert.match(pin, /local\?\.setBuilt\(vendorId, planGroupId, wasIn, true\);/, 'a refused pin is not taken back');
+  assert.match(unpin, /local\?\.setBuilt\(vendorId, planGroupId, true, true\);/, 'a refused unpin is not taken back');
+});
+
+test('the build state a press leaves: one place in a single-pick category, several in a multi-pick one', () => {
+  const st = { built: new Map<string, boolean>(), groupPick: new Map<string, string | null>() };
+  assert.equal(builtNowIn(st, 'a', 'catering', true), true, 'untouched → as drawn');
+  setBuiltIn(st, 'b', 'catering', true, false);
+  assert.equal(builtNowIn(st, 'b', 'catering', false), true);
+  assert.equal(builtNowIn(st, 'a', 'catering', true), false, 'the sibling drawn "In your build" moved out');
+  assert.equal(builtNowIn(st, 'x', 'cake', true), true, 'another category is untouched');
+  setBuiltIn(st, 'p', 'attire', true, true);
+  setBuiltIn(st, 'q', 'attire', true, true);
+  assert.equal(builtNowIn(st, 'p', 'attire', false), true, 'a multi-pick category keeps both');
+  assert.equal(builtNowIn(st, 'q', 'attire', false), true);
 });

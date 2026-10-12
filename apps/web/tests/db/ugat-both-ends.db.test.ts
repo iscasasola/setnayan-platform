@@ -95,7 +95,8 @@ const REGISTRY = ['lib/notifications.ts', 'lib/notification-emit.ts'];
 // 43 → 45 on 2026-10-08: the E-Gifts wish list's two tables land one PR ahead of
 // their writers (event_wish_items → wish list 2/5, event_gift_records → wish list
 // 4/5). Each of those PRs takes its row out and brings this back down by one.
-const EXPECTED_BASELINE_ROWS = 45;
+// 45 → 44: wish list 2/5 ships event_wish_items' writers. One to go (4/5).
+const EXPECTED_BASELINE_ROWS = 44;
 
 function walk(dir: string, out: string[]) {
   for (const name of fs.readdirSync(dir)) {

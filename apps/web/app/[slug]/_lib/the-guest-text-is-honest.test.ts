@@ -225,3 +225,44 @@ test('the Invitation’s guest menu is Welcome · Details · Our Love Story · M
   const nav = stripComments(read(join(SLUG, '_lib', 'site-nav.ts')));
   assert.doesNotMatch(nav, /key: 'rsvp'/, 'the resolver can emit an RSVP tab again');
 });
+
+// ── THE WISH LIST · "SENT" IS THE ONLY MONEY WORD ───────────────────────────
+//
+// Owner 2026-10-08 (DECISION_LOG "E-GIFTS WISH LIST"): the measure is what a
+// guest SAYS they sent — "a screenshot of their payment and the vallue and their
+// message". Setnayan never holds or sees the money, so no gift surface may tell
+// anybody a gift was received, paid, verified, confirmed or funded: the couple's
+// own GCash or bank is the only thing that knows.
+//
+// Held on the SOURCE of every gift surface (comments out — a rule may be stated,
+// a claim may not be made), so it reads the labels, the lines built from them,
+// the refusals and the tour. A new gift surface is added to the list in the PR
+// that builds it (wish list 3/5 · 4/5 · 5/5).
+const GIFT_SURFACES = [
+  'app/dashboard/[eventId]/launch/_components/studio-wish-list.tsx',
+  'app/dashboard/[eventId]/pabuya/wish-items.server.ts',
+  'lib/wish-list.ts',
+  'lib/wish-list-studio.ts',
+  'lib/wish-list.server.ts',
+];
+const CLAIMS_MORE_THAN_SENT = /\b(receiv\w*|verif\w*|funded|funding|paid|payment\w*|confirm(?:ed|s|ation)?)\b/gi;
+
+test('wish list · no gift surface says received, verified, paid, confirmed or funded — the word is "sent"', () => {
+  const offenders: string[] = [];
+  for (const rel of GIFT_SURFACES) {
+    const src = stripComments(read(join(APP, '..', rel)));
+    for (const m of src.matchAll(CLAIMS_MORE_THAN_SENT)) offenders.push(`${rel} · "${m[0]}"`);
+  }
+  // The first-visit tour is the couple's introduction to the list: the same rule.
+  const tours = stripComments(read(join(APP, '..', 'lib', 'tours.ts')));
+  const from = tours.indexOf('customer_wish_list_v1: {');
+  assert.ok(from > 0, 'the wish list tour is gone');
+  const tour = tours.slice(from, tours.indexOf('\n  },\n', from));
+  for (const m of tour.matchAll(CLAIMS_MORE_THAN_SENT)) offenders.push(`lib/tours.ts customer_wish_list_v1 · "${m[0]}"`);
+  assert.deepEqual(offenders, [], 'a gift surface claims more than a guest can know');
+
+  // …and the surfaces are really being read: each says "sent" where it prints a figure.
+  const studio = stripComments(read(join(APP, '..', 'lib', 'wish-list-studio.ts')));
+  assert.ok((studio.match(/\bsent\b/g)?.length ?? 0) >= 4, 'the Studio lines no longer say "sent" — is the scan reading the right file?');
+  assert.match(tour, /what they sent reaches its price; check your account first/, 'the tour no longer tells the couple to check their own account');
+});

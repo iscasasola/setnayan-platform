@@ -8,6 +8,8 @@ import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
 import { whyNotBilled, type PendingCharge, type UnbilledVerdict } from '@/lib/unbilled-fee-repair';
 import { gatherUnbilledFacts } from '@/lib/unbilled-fee-repair.server';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { readSuppliersToReview } from '@/lib/admin/suppliers-to-review.server';
+import { ReviewMinForm } from './review-min-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -183,6 +185,11 @@ export default async function AdminBookingFeesPage() {
     }
   }
 
+  // ⚖ SUPPLIERS TO REVIEW (owner 2026-10-07 "flag suppliers with several
+  // booked-but-unsettled events"; 2026-10-12 #12: an admin-set count of events,
+  // default 2, REVIEW ONLY). It lists; it charges and tells nobody.
+  const review = await readSuppliersToReview(admin);
+
   const owedTotal = charges.reduce((s, c) => s + num(c.amount_charged_centavos), 0);
   const withProof = charges.filter(
     (c) => paidRefs.get(bookingFeeLockServiceKey(c.charge_id))?.hasProof,
@@ -348,6 +355,37 @@ export default async function AdminBookingFeesPage() {
           })}
         </ul>
       ) : null}
+
+      <h2 className="mb-2 mt-8 font-serif text-lg text-ink">Suppliers to review</h2>
+      <div className="sn-tile mb-3 p-4">
+        <p className="mb-3 text-sm text-[color:var(--sn-ink-500)]">
+          Suppliers with several events their couples treat as booked — a booked status or a
+          payment recorded — and no settled booking fee. For review only.
+        </p>
+        <ReviewMinForm value={review.ok ? review.minEvents : null} />
+      </div>
+      {!review.ok ? (
+        <p className="sn-tile p-4 text-sm" style={{ color: '#B54708' }}>
+          Could not read {review.why} — this is <strong>not</strong> the same as nobody to review.
+        </p>
+      ) : review.rows.length === 0 ? (
+        <p className="sn-tile p-4 text-sm text-[color:var(--sn-ink-500)]">
+          No supplier has {review.minEvents} or more such events.
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {review.rows.map((r) => (
+            <li key={r.vendorProfileId} className="sn-tile flex flex-wrap items-center gap-x-4 gap-y-1 p-4">
+              <span className="min-w-[10rem] flex-1 text-sm font-semibold">{r.name ?? 'A supplier'}</span>
+              <span className="text-xs tabular-nums text-[color:var(--sn-ink-500)]">
+                {r.events} {r.events === 1 ? 'event' : 'events'} · couples recorded{' '}
+                {formatCentavosPhp(Math.round(r.paymentsPhp * 100))} · fee owed{' '}
+                {formatCentavosPhp(r.owedCentavos)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

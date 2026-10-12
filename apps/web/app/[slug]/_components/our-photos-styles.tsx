@@ -25,7 +25,7 @@ export function OurPhotosGrid({ urls }: { urls: readonly string[] }) {
           </div>
         ))}
       </div>
-      <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/60">
+      <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/70">
         {urls.length} {urls.length === 1 ? 'photo' : 'photos'}
       </p>
     </section>
@@ -57,7 +57,7 @@ export function OurPhotosFilmStrip({ urls }: { urls: readonly string[] }) {
           </div>
         ))}
       </div>
-      <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/60">Slides sideways</p>
+      <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/70">Slides sideways</p>
     </section>
   );
 }

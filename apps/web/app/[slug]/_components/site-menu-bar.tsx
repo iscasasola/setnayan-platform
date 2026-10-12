@@ -150,7 +150,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
             aria-disabled="true"
             aria-label={`${slot.label} — ${slot.lockedReason ?? 'not available yet'}`}
             onClick={() => setOpenReason(slot.lockedReason ?? null)}
-            className={`${SLOT} w-full text-ink/35`}
+            className={`${SLOT} w-full text-ink/70`}
           >
             <span className="relative inline-flex">
               <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -186,7 +186,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
           aria-disabled="true"
           aria-label={`${slot.label} — ${slot.lockedReason ?? 'not available yet'}`}
           onClick={() => setOpenReason(slot.lockedReason ?? null)}
-          className={`${SLOT} w-full text-ink/35`}
+          className={`${SLOT} w-full text-ink/70`}
         >
           <span className="relative inline-flex">
             <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
@@ -229,7 +229,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
             aria-disabled="true"
             aria-label={`${slot.label} — ${slot.lockedReason ?? 'not available yet'}`}
             onClick={() => setOpenReason(slot.lockedReason ?? null)}
-            className={`${RAIL_SLOT} text-ink/35`}
+            className={`${RAIL_SLOT} text-ink/70`}
           >
             <span className="relative inline-flex shrink-0">
               <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />

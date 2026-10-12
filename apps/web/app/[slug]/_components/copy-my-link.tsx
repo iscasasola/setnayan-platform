@@ -88,7 +88,7 @@ export function CopyMyLink({
           Couldn&rsquo;t copy it for you — press and hold the link above to copy it.
         </p>
       ) : null}
-      {note ? <p className="mx-auto w-full text-xs text-ink/60">{note}</p> : null}
+      {note ? <p className="mx-auto w-full text-xs text-ink/70">{note}</p> : null}
     </section>
   );
 }
@@ -128,7 +128,7 @@ export function OpenInBrowser({ link }: { link: string }) {
             className="relative w-full max-w-md space-y-3 rounded-t-2xl bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 text-left shadow-xl"
           >
             <div aria-hidden className="mx-auto h-1 w-10 rounded-full bg-ink/20" />
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/60">Save to my account</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/70">Save to my account</p>
             <h2 id="open-in-browser-title" className="font-serif text-2xl leading-tight text-ink">
               Open in your browser
             </h2>

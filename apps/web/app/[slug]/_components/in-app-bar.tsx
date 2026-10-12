@@ -28,7 +28,7 @@ export function InAppBar({ handoff }: { handoff: InAppHandoff }) {
           <a href={handoff.safariHref} className={link}>
             {LANDING_WORDS.inAppSafari}
           </a>
-          <span aria-hidden className="px-2 text-ink/40">
+          <span aria-hidden className="px-2 text-ink/70">
             ·
           </span>
           <a href={handoff.appHref} className={link}>

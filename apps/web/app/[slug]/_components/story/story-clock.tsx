@@ -432,7 +432,7 @@ export function StoryClock({
               <b className="whitespace-nowrap font-condensed text-2xl font-extrabold leading-none tabular-nums tracking-tight sm:text-3xl">
                 {now.stamp}
                 {now.suffix ? (
-                  <small className="ml-1 text-xs font-bold tracking-wider text-ink/60">
+                  <small className="ml-1 text-xs font-bold tracking-wider text-ink/70">
                     {now.suffix}
                   </small>
                 ) : null}
@@ -554,10 +554,10 @@ export function StoryClock({
                   key={i}
                   className={
                     l.kind === 'segment'
-                      ? 'absolute bottom-0 whitespace-nowrap font-mono text-xs font-bold uppercase tracking-[0.12em] text-ink/60'
+                      ? 'absolute bottom-0 whitespace-nowrap font-mono text-xs font-bold uppercase tracking-[0.12em] text-ink/70'
                       : l.kind === 'mark'
-                        ? 'absolute top-0 hidden -translate-x-1/2 whitespace-nowrap font-condensed text-xs font-bold tracking-wide text-ink/60 sm:block'
-                        : 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-xs tracking-wide text-ink/60'
+                        ? 'absolute top-0 hidden -translate-x-1/2 whitespace-nowrap font-condensed text-xs font-bold tracking-wide text-ink/70 sm:block'
+                        : 'absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-xs tracking-wide text-ink/70'
                   }
                   style={{ left: percentOf(l.x) }}
                 >
@@ -567,7 +567,7 @@ export function StoryClock({
             </div>
           </div>
 
-          <p className="mt-0.5 text-center text-xs text-ink/60">
+          <p className="mt-0.5 text-center text-xs text-ink/70">
             Tap anywhere on the line to open that moment
           </p>
         </div>
@@ -616,7 +616,7 @@ export function StoryClock({
             </p>
 
             {openBar.place ? (
-              <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
+              <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
                 {openBar.place}
               </p>
             ) : null}

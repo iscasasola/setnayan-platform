@@ -47,12 +47,12 @@ export function TicketRow({
       />
       <div className="min-w-0 flex-1 space-y-1">
         <p className="truncate font-serif text-lg leading-tight text-ink">{name}</p>
-        {sub ? <p className="text-xs text-ink/60">{sub}</p> : null}
+        {sub ? <p className="text-xs text-ink/70">{sub}</p> : null}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <SavePassCardButton hrefs={[href]} label={saveLabel} />
           {also}
         </div>
-        {saveNote ? <p className="text-xs text-ink/60">{saveNote}</p> : null}
+        {saveNote ? <p className="text-xs text-ink/70">{saveNote}</p> : null}
       </div>
     </div>
   );

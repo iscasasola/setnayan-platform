@@ -278,7 +278,7 @@ export function PlusOneSeatPanels({
             {slot.linked ? (
               <p className="text-sm text-ink" data-plus-one-linked="">
                 <span className="font-medium">{`${slot.first} ${slot.last}`.trim()}</span>
-                <span className="text-ink/60"> · {LINKED_NAME_WORDS}</span>
+                <span className="text-ink/70"> · {LINKED_NAME_WORDS}</span>
               </p>
             ) : (
             <FormalNameInputs

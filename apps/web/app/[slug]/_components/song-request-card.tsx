@@ -96,7 +96,7 @@ export function SongRequestCard({ paused }: { paused: boolean }) {
           </div>
           <div>
             <label htmlFor="songreq-artist" className="block text-xs font-medium text-ink/70">
-              Artist <span className="text-ink/40">(optional)</span>
+              Artist <span className="text-ink/70">(optional)</span>
             </label>
             <input
               id="songreq-artist"
@@ -110,7 +110,7 @@ export function SongRequestCard({ paused }: { paused: boolean }) {
           </div>
           <div>
             <label htmlFor="songreq-name" className="block text-xs font-medium text-ink/70">
-              From <span className="text-ink/40">(optional — the band sees this)</span>
+              From <span className="text-ink/70">(optional — the band sees this)</span>
             </label>
             <input
               id="songreq-name"

@@ -120,31 +120,31 @@ export function PahinaKeepsake({
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 font-mono text-[0.66rem] uppercase tracking-[0.18em]">
         {tableLabel ? (
           <div>
-            <dt className="text-ink/45">Table</dt>
+            <dt className="text-ink/70">Table</dt>
             <dd className="mt-1 text-ink/80">{tableLabel}</dd>
           </div>
         ) : null}
         {venueName ? (
           <div>
-            <dt className="text-ink/45">Where</dt>
+            <dt className="text-ink/70">Where</dt>
             <dd className="mt-1 text-ink/80">{venueName}</dd>
           </div>
         ) : null}
         {dateLabel ? (
           <div>
-            <dt className="text-ink/45">When</dt>
+            <dt className="text-ink/70">When</dt>
             <dd className="mt-1 text-ink/80">{dateLabel}</dd>
           </div>
         ) : null}
         {roman ? (
           <div>
-            <dt className="text-ink/45">Stub</dt>
+            <dt className="text-ink/70">Stub</dt>
             <dd className="mt-1 text-gild">{roman}</dd>
           </div>
         ) : null}
       </dl>
 
-      <p className="text-sm leading-relaxed text-ink/60">
+      <p className="text-sm leading-relaxed text-ink/70">
         {variant === 'accepted'
           ? 'Keep this page — it’s your invitation, your seat, and your QR on the day.'
           : 'Thank you for being there. Your photos from the day are on this page.'}

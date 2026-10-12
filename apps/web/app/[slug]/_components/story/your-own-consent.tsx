@@ -101,7 +101,7 @@ export function YourOwnConsent({
             <div className="grid gap-2">
               <label
                 htmlFor="own-consent-pick"
-                className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-ink/60"
+                className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-ink/70"
               >
                 Which one
               </label>
@@ -138,7 +138,7 @@ export function YourOwnConsent({
               >
                 Ask for this one to come down
               </button>
-              <p className="text-xs leading-snug text-ink/60">
+              <p className="text-xs leading-snug text-ink/70">
                 Your tag comes off straight away. The photograph itself goes to a person, because
                 it may hold others as well as you.
               </p>
@@ -155,7 +155,7 @@ export function YourOwnConsent({
               >
                 Take my name off what I wrote
               </button>
-              <p className="text-xs leading-snug text-ink/60">
+              <p className="text-xs leading-snug text-ink/70">
                 This one happens now. Your words stay; your name and your role come off them.
               </p>
             </div>

@@ -770,7 +770,7 @@ export async function EditorialContent({
         <p className="mx-auto max-w-5xl px-4 pt-4 text-center">
           <a
             href={previousEdition.href}
-            className="font-mono text-xs uppercase tracking-[0.32em] text-ink/60 underline-offset-4 hover:underline"
+            className="font-mono text-xs uppercase tracking-[0.32em] text-ink/70 underline-offset-4 hover:underline"
           >
             {previousEdition.label}
           </a>
@@ -1494,7 +1494,7 @@ function VendorRow({
           </span>
         )}
         {v.category ? (
-          <span className="block font-mono text-xs uppercase tracking-[0.06em] text-ink/60">
+          <span className="block font-mono text-xs uppercase tracking-[0.06em] text-ink/70">
             {prettyCategory(v.category)}
           </span>
         ) : null}
@@ -1534,7 +1534,7 @@ function TeamBehindTheDay({
 
   return (
     <div className="mt-5 border-t border-ink/15 pt-3">
-      <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
+      <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
         The Team Behind the Day
       </p>
       <ul className="m-0 list-none p-0">
@@ -1625,7 +1625,7 @@ function SectionRule({ title }: { title: string }): ReactElement {
 
 function ReviewsEmptyState(): ReactElement {
   return (
-    <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/60">
+    <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/70">
       Reviews from guests and suppliers will appear here.
     </p>
   );
@@ -1708,7 +1708,7 @@ function TheirSong({
           &ldquo;{song.label}&rdquo;
         </figcaption>
       ) : null}
-      <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
+      <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
         {names}
         {song.url ? ` · their ${w.eventWord} song` : ' · the song that follows them'}
       </p>
@@ -1776,7 +1776,7 @@ function LivePhotoWall({
 }): ReactElement {
   return (
     <div className="mt-4">
-      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
         Powered by Setnayan
         {typeof photoCount === 'number' && photoCount > 0
           ? ` · ${photoCount.toLocaleString('en-PH')} photos captured live`
@@ -1855,7 +1855,7 @@ function KwentoWall({
             {q.body}
           </blockquote>
           {q.author ? (
-            <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
+            <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/70">
               {q.author}
               {q.role ? ` · ${q.role}` : ''}
             </figcaption>
@@ -1884,7 +1884,7 @@ function KwentoWall({
 function WatchTheFilm({ embedUrl, names }: { embedUrl: string; names: string }): ReactElement {
   return (
     <div className="mt-4">
-      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
         the ceremony, as it was broadcast
       </p>
       <div className="mx-auto max-w-3xl border-double border-[3px] border-ink/80 p-1.5 shadow-[0_10px_30px_-12px_rgba(20,16,12,0.35)]">
@@ -1917,7 +1917,7 @@ function ReviewsWall({ reviews }: { reviews: EditorialData['reviews'] }): ReactE
           <blockquote className="font-serif text-base italic leading-snug text-ink/85">
             &ldquo;{r.quote}&rdquo;
           </blockquote>
-          <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
+          <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/70">
             {r.stars ? (
               <span aria-hidden className="mr-1 text-terracotta">
                 {'★'.repeat(Math.max(1, Math.min(5, r.stars)))}
@@ -2019,13 +2019,13 @@ function Colophon({
       {slug ? (
         <a
           href={`/${slug}/print`}
-          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/60 no-underline hover:text-terracotta-700 print:hidden"
+          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/70 no-underline hover:text-terracotta-700 print:hidden"
         >
           <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Print the keepsake
         </a>
       ) : null}
-      <p className="mt-3 font-serif text-sm italic text-ink/60">
+      <p className="mt-3 font-serif text-sm italic text-ink/70">
         {hideWatermark ? (
           names
         ) : (

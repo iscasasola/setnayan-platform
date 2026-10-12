@@ -335,7 +335,7 @@ export function RsvpWidget({
     <>
       <fieldset data-rsvp-step data-face-tagging-choice className="space-y-2">
         <legend className="mb-1 font-serif text-xl text-ink">{FACE_TAGGING_QUESTION}</legend>
-        <p className="pb-1 text-xs text-ink/60">{faceTaggingHint(faceMode, words.theOrganizer, { onTheDay: true })}</p>
+        <p className="pb-1 text-xs text-ink/70">{faceTaggingHint(faceMode, words.theOrganizer, { onTheDay: true })}</p>
         {(
           [
             { key: 'yes', label: FACE_TAGGING_YES, on: taggingWish === true },
@@ -996,7 +996,7 @@ function LockedAnswer({ status }: { status: GuestRow['rsvp_status'] }) {
           : 'No reply was received from you.';
   return (
     <div>
-      <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50">
+      <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
         Replies are closed
       </p>
       <p className="mt-2 text-sm leading-relaxed text-ink/70">
@@ -1013,9 +1013,9 @@ function RsvpPill({ status }: { status: GuestRow['rsvp_status'] }) {
   // gild-ruled, the rest are ink. Status labels themselves are unchanged.
   const tone: Record<GuestRow['rsvp_status'], string> = {
     attending: 'border-gild text-gild',
-    pending: 'border-ink/20 text-ink/55',
-    declined: 'border-ink/25 text-ink/60',
-    maybe: 'border-ink/20 text-ink/60',
+    pending: 'border-ink/20 text-ink/70',
+    declined: 'border-ink/25 text-ink/70',
+    maybe: 'border-ink/20 text-ink/70',
   };
   const label =
     status === 'attending'

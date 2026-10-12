@@ -92,7 +92,7 @@ export function CountdownCalendar({
             <thead>
               <tr>
                 {WEEKDAY_INITIALS.map((d, i) => (
-                  <th key={i} scope="col" className="pb-1 font-sans text-xs font-normal uppercase text-ink/60">
+                  <th key={i} scope="col" className="pb-1 font-sans text-xs font-normal uppercase text-ink/70">
                     <span aria-hidden>{d}</span>
                   </th>
                 ))}

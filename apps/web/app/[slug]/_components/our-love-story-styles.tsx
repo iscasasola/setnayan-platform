@@ -41,7 +41,7 @@ export function LoveStoryYears({
                 onClick={() => setOpen(i)}
                 aria-pressed={on}
                 className={`flex min-h-[44px] w-24 flex-col items-center gap-2 rounded-md px-1 py-2 text-center transition-colors ${
-                  on ? 'text-ink' : 'text-ink/60 hover:text-ink'
+                  on ? 'text-ink' : 'text-ink/70 hover:text-ink'
                 }`}
               >
                 <span

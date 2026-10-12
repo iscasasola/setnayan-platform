@@ -174,7 +174,7 @@ function Cell({ person, group }: { person: EntouragePerson | null; group: Entour
   return (
     <span>
       <span className="text-base text-ink">{person.name}</span>
-      {beside ? <span className="ml-2 text-sm text-ink/55">{beside}</span> : null}
+      {beside ? <span className="ml-2 text-sm text-ink/70">{beside}</span> : null}
       {/* Not drawn, still read: the heading says it to the eye, this says it to a screen reader. */}
       {spoken ? <span className="sr-only">, {spoken}</span> : null}
     </span>
@@ -205,7 +205,7 @@ function OneLinePairs({ group }: { group: EntourageGroup }) {
           return (
             <li key={`${group.key}-${i}`} className="leading-snug" data-pair-line={people.length > 1 ? '' : undefined}>
               <span className="text-base text-ink">{lineNames(row)}</span>
-              {beside.length ? <span className="ml-2 text-sm text-ink/55">{beside.join(' & ')}</span> : null}
+              {beside.length ? <span className="ml-2 text-sm text-ink/70">{beside.join(' & ')}</span> : null}
               {spoken.length ? <span className="sr-only">, {spoken.join(' & ')}</span> : null}
             </li>
           );
@@ -246,7 +246,7 @@ function ByRoleGroup({
         <ul className="space-y-2">
           {blocks.map((b) => (
             <li key={b.key} className="leading-snug">
-              <span className="text-sm text-ink/55">{b.label}:</span>{' '}
+              <span className="text-sm text-ink/70">{b.label}:</span>{' '}
               <span className="text-base text-ink">{b.rows.map(lineNames).join(' · ')}</span>
             </li>
           ))}
@@ -255,7 +255,7 @@ function ByRoleGroup({
         <div className="space-y-4">
           {blocks.map((b) => (
             <div key={b.key} className="space-y-1">
-              <p className="text-sm text-ink/55">{b.label}</p>
+              <p className="text-sm text-ink/70">{b.label}</p>
               <ul className="space-y-1">
                 {b.rows.map((row, i) => (
                   <li key={`${b.key}-${i}`} className="text-base leading-snug text-ink">

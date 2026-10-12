@@ -115,7 +115,7 @@ export function WereYouThere({
           </p>
 
           {nothingYet ? (
-            <p className="mt-4 font-serif text-lg italic text-ink/60">
+            <p className="mt-4 font-serif text-lg italic text-ink/70">
               Nothing of yours has reached this {occasion} yet. When somebody photographs you, or
               you shoot something, or you leave a few words, they will be here.
             </p>
@@ -123,7 +123,7 @@ export function WereYouThere({
 
           {rows.length > 0 ? (
             <div className="mt-5">
-              <h3 className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/60">
+              <h3 className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/70">
                 The minutes you are in
               </h3>
               <ul className="mt-2 grid gap-1.5">
@@ -160,7 +160,7 @@ export function WereYouThere({
                 <dd className="font-condensed text-3xl font-extrabold leading-none tabular-nums">
                   {own.shot.length.toLocaleString('en-PH')}
                 </dd>
-                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
+                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/70">
                   {own.shot.length === 1 ? 'thing you shot' : 'things you shot'}
                 </dt>
               </div>
@@ -170,7 +170,7 @@ export function WereYouThere({
                 <dd className="font-condensed text-3xl font-extrabold leading-none tabular-nums">
                   {own.said.length.toLocaleString('en-PH')}
                 </dd>
-                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
+                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/70">
                   {own.said.length === 1 ? 'thing you said' : 'things you said'}
                 </dt>
               </div>
@@ -180,7 +180,7 @@ export function WereYouThere({
                 <dd className="font-condensed text-3xl font-extrabold leading-none">
                   {own.tableLabel}
                 </dd>
-                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
+                <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/70">
                   your table
                 </dt>
               </div>
@@ -188,7 +188,7 @@ export function WereYouThere({
           </dl>
 
           {own.tableLabel ? (
-            <p className="mt-2 text-xs leading-snug text-ink/60">
+            <p className="mt-2 text-xs leading-snug text-ink/70">
               Only you see this line. The plan everybody else reads carries table labels and no
               names at all.
             </p>
@@ -196,7 +196,7 @@ export function WereYouThere({
 
           {own.said.length > 0 ? (
             <div className="mt-5">
-              <h3 className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/60">
+              <h3 className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-ink/70">
                 What you said
               </h3>
               <ul className="mt-2 grid gap-2">
@@ -223,7 +223,7 @@ export function WereYouThere({
                 storyCardUrl={storyCard.url}
                 filenameBase={storyCard.filenameBase}
               />
-              <span className="text-xs leading-snug text-ink/60">
+              <span className="text-xs leading-snug text-ink/70">
                 1080 × 1920, in the {host}&rsquo;s own colours.
               </span>
             </div>

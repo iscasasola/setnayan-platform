@@ -795,7 +795,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
             <Link className="button-primary w-full" href={replyHrefCarrying(home, search.k)} data-landing-reply="">
               {LANDING_WORDS.reply}
             </Link>
-            {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/55">Please reply by {replyByLabel}</p> : null}
+            {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/70">Please reply by {replyByLabel}</p> : null}
           </div>
           )
         ) : null}
@@ -837,7 +837,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
               />
             )}
             </div>
-            {justIn ? <p className="text-xs text-ink/60">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
+            {justIn ? <p className="text-xs text-ink/70">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
           </section>
         ) : ticket === 'faded' ? (
           <section aria-labelledby="your-ticket" className="relative text-center" data-landing="ticket" data-landing-ticket="faded">

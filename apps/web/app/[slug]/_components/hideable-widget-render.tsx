@@ -159,7 +159,7 @@ function HideableWidgetBody({
       }
       return (
         <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
             Event details
           </p>
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -335,7 +335,7 @@ function Detail({
 }) {
   return (
     <div className={className}>
-      <dt className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+      <dt className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
         {label}
       </dt>
       <dd className="mt-0.5 text-base text-ink">{value}</dd>

@@ -27,6 +27,7 @@ export function Fold({
   className = '',
   line,
   aside,
+  lead,
 }: {
   /** What the fold is — "More for guests". */
   title: string;
@@ -39,6 +40,9 @@ export function Fold({
   line?: string;
   /** A state shown at the right, before the arrow — a `Badge` ("2 of 3"). Never something pressable. */
   aside?: ReactNode;
+  /** A mark at the LEFT of the head — a list row's avatar, so a row that opens in place lines up with the rows that go
+   *  somewhere. Never something pressable. Absent → the head is exactly as it was. */
+  lead?: ReactNode;
   defaultOpen?: boolean;
   children: ReactNode;
   /** `data-fold="<data>"`. */
@@ -58,6 +62,7 @@ export function Fold({
         onClick={() => setOpen((o) => !o)}
         className="sn-press flex min-h-[52px] w-full items-center gap-2 text-left text-[15px] font-semibold text-ink"
       >
+        {lead}
         {line !== undefined ? (
           <span className="min-w-0 flex-1">
             <span className="block truncate">{title}</span>

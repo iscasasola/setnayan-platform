@@ -36,7 +36,9 @@ import {
 const WEB = join(import.meta.dirname, '..');
 const MIGRATIONS = join(WEB, '../../supabase/migrations');
 const THREAD_PAGE = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
-const CLIENTS = 'app/vendor-dashboard/clients/surface.tsx';
+// S-PR2 (2026-10-13): the Clients list is retired; its customers are rows on Customers › People, whose stage
+// comes from the ONE lane derivation (`customerLaneOf`) fed the ONE finished predicate (`rowReadsCompleted`).
+const CLIENTS = 'app/vendor-dashboard/customers/page.tsx';
 const STAGE = 'lib/vendor-thread-stage.ts';
 
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -116,18 +118,20 @@ test('🔑 3 · both surfaces use the shared resolver and keep no private rankin
     1,
     'the thread page stopped passing inquiry_status — a declined thread reads as a live inquiry',
   );
-  // The list ranks through the same function, once per bucket.
+  // The list ranks through the ONE lane derivation — no private ordering of its own…
   assert.equal(
-    (clients.match(/resolveThreadStage\(/g) ?? []).length,
-    2,
-    'the clients list stopped ranking through the shared resolver',
+    (clients.match(/\bcustomerLaneOf\(/g) ?? []).length,
+    1,
+    'the People list stopped ranking through the shared lane derivation',
   );
-  // …and asks "is it finished?" with the shared predicate, not its own copy.
+  assert.equal((clients.match(/resolveThreadStage\(/g) ?? []).length, 0, 'the People list keeps a second ranking beside the derivation');
+  // …and asks "is it finished?" with the shared predicate, not its own copy — handed INTO the derivation.
   assert.equal(
     (clients.match(/rowReadsCompleted\(/g) ?? []).length,
     1,
-    'the clients list grew its own definition of a finished booking',
+    'the People list grew its own definition of a finished booking',
   );
+  assert.match(clients, /completed: rowReadsCompleted\(b\)/, 'the finished predicate no longer reaches the lane derivation');
   // No surface may re-derive the finish line inline.
   for (const [rel, src] of [
     [THREAD_PAGE, page],

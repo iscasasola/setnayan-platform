@@ -44,9 +44,14 @@
 }
 
 /* Rule 3b — a text field in the row keeps at least 60 % of it. */
-.thumb :is(input, textarea, [data-fit-field]) {
+.thumb :is(input, textarea, [data-fit-field]):not([data-fit-field] *) {
   flex: 1 0 60%;
   min-width: 60%;
+}
+
+/* A bare field drawn by the page gets the row's pill. The Search box (kind 30, `search-box.tsx`) draws its own —
+   pill, magnifier, ✕, its solid surface (gallery § 30) — so the row only gives it its width (above). */
+.thumb :is(input, textarea, [data-fit-field]):not([data-fit-field] *):not([data-search-box]) {
   height: 44px;
   border: 1px solid rgb(var(--color-ink) / 0.14);
   border-radius: var(--m-r-full);
@@ -63,7 +68,7 @@
 
 /* The neutral controls and the field are frosted like the row; a toned button
    keeps its FULL colour (owner: "it still needs to have their button colors"). */
-.thumb :is(input, textarea, [data-fit-field]),
+.thumb :is(input, textarea, [data-fit-field]):not([data-fit-field] *):not([data-search-box]),
 .thumb :global(.ab-neutral:not(.ab-main)) {
   background: color-mix(in srgb, rgb(var(--color-cream)) 62%, transparent);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);

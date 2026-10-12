@@ -28,7 +28,8 @@
  * 🔴 A REFUSAL IN SILENCE IS INDISTINGUISHABLE FROM ONE THAT NEVER HAPPENED —
  * which is why the status line never leaves by itself, whatever the toast does.
  *
- * Loaded only by the supplier's Today (and its dev lab).
+ * Loaded only by the supplier's Today, Customers › People (an outside client's
+ * Add and Remove) and the dev lab.
  */
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -47,6 +48,7 @@ export function SupplierToast({
   text,
   tone,
   retry = false,
+  retryHref = '/vendor-dashboard',
 }: {
   /** The outcome, in the shipped sentence (`lockAgreeNotice`, `DATE_ANSWER_NOTICE`, the deposit answers). */
   text: string;
@@ -54,6 +56,8 @@ export function SupplierToast({
   tone: SupplierOutcomeTone;
   /** The press can simply be made again — the toast carries "Try again". */
   retry?: boolean;
+  /** Where Try again goes: the page the answer was given on, without the outcome. */
+  retryHref?: string;
 }) {
   // The toast is a client thing: drawn once mounted (portalled to <body> — a transform on an ancestor would pin a
   // `fixed` child to it), so the server's markup holds only the status line.
@@ -81,7 +85,7 @@ export function SupplierToast({
                   ? () => {
                       setShowing(false);
                       // The same page without the outcome: the answer is back on it, ready to press again.
-                      window.location.replace('/vendor-dashboard');
+                      window.location.replace(retryHref);
                     }
                   : undefined
               }

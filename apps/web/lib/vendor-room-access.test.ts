@@ -210,9 +210,11 @@ const ROOM_SITES: ReadonlyArray<readonly [string, number]> = [
   // ("which events is this shop booked on?"), and it was the one leave-behind
   // named as a real gap rather than a deliberate choice.
   ['lib/vendor-overview.ts', 1],
-  // S43 · My Customers → Clients, "Booked via Setnayan" — the same question
-  // again, and the same gap: an agreed or Locked-QR booking was not listed.
-  ['app/vendor-dashboard/clients/surface.tsx', 1],
+  // (S43 · My Customers → Clients, "Booked via Setnayan" sat here. Retired by
+  // S-PR2, 2026-10-13: those customers are People rows, whose booked lane is
+  // `customerLaneOf` over the shop's `event_vendors` rows — `lockRequestStateOf`
+  // reads `contracted` (an agreed lock) and `deposit_paid` (a claimed Locked QR)
+  // as booked, so neither arm needs the room read there.)
 ];
 
 test('every day-of screen asks the room read, and none of them still asks the pool', () => {
@@ -230,7 +232,7 @@ test('every day-of screen asks the room read, and none of them still asks the po
     );
     total += calls;
   }
-  assert.equal(total, 12, 'ten day-of call sites in six files, plus the Overview’s Upcoming and the Clients list');
+  assert.equal(total, 11, 'ten day-of call sites in six files, plus the Overview’s Upcoming');
 });
 
 test('the Upcoming row id does not depend on a pool row (SUP-8)', () => {

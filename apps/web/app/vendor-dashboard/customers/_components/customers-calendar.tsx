@@ -250,11 +250,13 @@ export function CustomersCalendar({
     return parts.join(' · ');
   }, [data.days]);
 
+  // The month lives on Customers › Dates: the address keeps `seg=dates` so a
+  // reload (or a shared link) opens the month, not People (S-PR2 segments).
   const goToMonth = useCallback(
     (delta: number) => {
       const nextMonth = shiftMonth(month, delta);
       const syncUrl = () =>
-        window.history.replaceState(null, '', `${window.location.pathname}?m=${nextMonth}`);
+        window.history.replaceState(null, '', `${window.location.pathname}?seg=dates&m=${nextMonth}#calendar`);
       if (monthInputs.has(nextMonth)) {
         setMonth(nextMonth); // instant — inputs cached, grid re-derives
         syncUrl();
@@ -265,7 +267,7 @@ export function CustomersCalendar({
         if (!res) {
           // Session gone / not a vendor — fall back to a full server navigation
           // so the user still lands on the month rather than getting stuck.
-          window.location.href = `${window.location.pathname}?m=${nextMonth}`;
+          window.location.href = `${window.location.pathname}?seg=dates&m=${nextMonth}#calendar`;
           return;
         }
         setMonthInputs((prev) => {

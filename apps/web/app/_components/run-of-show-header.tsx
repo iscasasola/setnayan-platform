@@ -45,11 +45,19 @@ export function RunOfShowHeader({
   canAdvance = false,
   compact = false,
   variant = 'card',
+  forGuests = false,
 }: {
   eventId: string;
   initial: RunOfShowBlock[];
   canAdvance?: boolean;
   compact?: boolean;
+  /**
+   * 🔒 The guests' schedule sets this. `initial` there is already only what a
+   * guest may see; the realtime refetch must ask by the same rule, or the first
+   * change on the day brings the role-only moments back into Now / Up next
+   * (`fetchRunOfShowBlocks`, `onlyWhatGuestsMaySee`).
+   */
+  forGuests?: boolean;
   /**
    * `strip` — the Schedule rebuild's ONE live strip (2026-09-27, prototype
    * `schedule_redesign_2026-09-25.html` § "the live strip"): Now and Up next
@@ -79,9 +87,9 @@ export function RunOfShowHeader({
   }, []);
 
   const refetch = useCallback(async () => {
-    const fresh = await fetchRunOfShowBlocks(eventId);
+    const fresh = await fetchRunOfShowBlocks(eventId, forGuests);
     if (fresh) setBlocks(fresh);
-  }, [eventId]);
+  }, [eventId, forGuests]);
 
   const subscribedOnce = useRef(false);
   useEffect(() => {

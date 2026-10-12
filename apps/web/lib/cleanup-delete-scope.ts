@@ -250,6 +250,23 @@ export function pabuyaQrScope(eventId: unknown): CleanupScope {
   ]);
 }
 
+/**
+ * A celebration's gift-record SCREENSHOTS (`event_gift_records.screenshot_r2_key`,
+ * E-Gifts › wish list). Private bucket, own root, the event's folder and nothing
+ * wider — a record naming another event's file, or any other bucket, is refused.
+ */
+export function giftShotScope(eventId: unknown, guestId?: unknown): CleanupScope {
+  const e = safeId(eventId);
+  if (!e) return emptyScope('event_gift_records');
+  /* One guest's own folder — what an account erasure may reach (never another guest's screenshot). */
+  if (guestId !== undefined) {
+    const g = safeId(guestId);
+    if (!g) return emptyScope('event_gift_records');
+    return mintScope(`event_gift_records:${e}:${g}`, [{ bucket: THREAD_FILES, prefixes: [`gift-shots/${e}/${g}/`] }]);
+  }
+  return mintScope(`event_gift_records:${e}`, [{ bucket: THREAD_FILES, prefixes: [`gift-shots/${e}/`] }]);
+}
+
 export function guestSelfieScope(eventId: unknown, guestId: unknown): CleanupScope {
   const e = safeId(eventId);
   const g = safeId(guestId);

@@ -1189,7 +1189,7 @@ export async function SiteBody({
       : null;
   const doorways = doorwayFacts
     ? resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })
-    : { venueWalk: null, pabuya: null };
+    : { venueWalk: null, pabuya: null, wishes: 0 };
   // Is the real player already on this page? The player follows the broadcast,
   // not the calendar (owner-ruled 2026-09-02) — both trees mount it whenever the
   // links resolve, regardless of dayOfPhase — so one expression covers both.
@@ -2325,6 +2325,7 @@ export async function SiteBody({
                   }
                   giftHref={doorways.pabuya}
                   mark={(key) => <>{giftsBlockMark(key)}{makerMark(key)}</>}
+                  giftWishes={doorways.wishes}
                   maker={isMakerCanvas}
                 />
               </div>
@@ -2359,6 +2360,7 @@ export async function SiteBody({
                   }
                   giftHref={doorways.pabuya}
                   mark={giftsBlockMark}
+                  giftWishes={doorways.wishes}
                 />
               </div>
             )) : null}
@@ -3668,6 +3670,7 @@ export async function SiteBody({
                 }
                 giftHref={doorways.pabuya}
                 mark={giftsBlockMark}
+                giftWishes={doorways.wishes}
               />
               ), { chapters: true, className: 'space-y-12' })}
 
@@ -3712,6 +3715,7 @@ export async function SiteBody({
                   venue={<DayDirections venues={dayVenues} />}
                   giftHref={doorways.pabuya}
                   mark={giftsBlockMark}
+                  giftWishes={doorways.wishes}
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
 
@@ -4268,6 +4272,7 @@ export async function SiteBody({
               ? null
               : doorways.pabuya
           }
+          wishes={doorways.wishes}
           broadcast={broadcastNotice}
           dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
         />

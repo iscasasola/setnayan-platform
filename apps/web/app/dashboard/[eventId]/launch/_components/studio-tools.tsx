@@ -2,6 +2,8 @@
 
 import { StudioColourField } from './studio-colour-field';
 import { OpenInPlace } from './open-in-place';
+import { StudioWishList } from './studio-wish-list';
+import { wishListSeenLine } from '@/lib/wish-list-studio';
 import { useContext, useEffect, useRef, useState, useTransition, type ReactElement, type ReactNode } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { tellLookSample } from '@/lib/look-sample-store';
@@ -161,6 +163,7 @@ export function StudioEgifts({
   methods,
   thanks,
   registryUrl,
+  openWishes,
 }: {
   eventId: string;
   methods: readonly ManagerMethod[];
@@ -172,6 +175,12 @@ export function StudioEgifts({
    * then not drawn, never shown empty over a link that exists.
    */
   registryUrl?: string | null;
+  /**
+   * 🎁 How many wishes are still open (owner 2026-10-08, E-Gifts › Wish list) —
+   * "What guests see" then says so, while a way to give is on. Absent = the wish
+   * list was not read, and the line says nothing about it.
+   */
+  openWishes?: number;
 }) {
   /* The page's writes — the shipped actions, or (only in the dev lab) stand-ins that reach no database. */
   const { saveEgiftMethod, savePabuyaMessage, setEgiftMethodEnabled, qrUploadSend } = useStudioActions();
@@ -310,6 +319,8 @@ export function StudioEgifts({
     }
   };
   const shownLink = cleanGiftRegistryUrl(registry);
+  /* 🎁 The wish list as guests see it — only while a way to give is on (the one-setting rule). */
+  const wishSeen = wishListSeenLine(openWishes ?? 0, methods);
   const seen = STUDIO_GIFT_KINDS.filter((k) => rows[k].on && (typing[`${k}:handle`] ?? rows[k].handle).trim()).map((k) => ({
     kind: k,
     label: methods.find((m) => m.egift_method_id === rows[k].id)?.label ?? EGIFT_KIND_META[k].defaultLabel,
@@ -326,6 +337,11 @@ export function StudioEgifts({
         {shownLink ? (
           <p data-studio-egifts-registry-preview="" className="pt-2 text-[13px] text-ink/75">
             Registry · <span className="underline underline-offset-2">{new URL(shownLink).hostname}</span>
+            {wishSeen ? ` · ${wishSeen}` : null}
+          </p>
+        ) : wishSeen ? (
+          <p data-studio-egifts-wish-preview="" className="pt-2 text-[13px] text-ink/75">
+            {wishSeen}
           </p>
         ) : null}
       </div>
@@ -1057,6 +1073,19 @@ export function StudioActionDoor({ href, label, icon }: { href: string; label: s
 /* ✍ What to bring, the Special message and the Opening line are `studio-info.tsx`'s rows (the Form row, one drafted
    write per kept answer) — they ride this one lazy door. */
 
+/**
+ * 🎁 THE WISH LIST, WIRED TO ITS ONE DOOR (owner 2026-10-08, E-Gifts › Wish list).
+ * `StudioWishList` draws, and saves behind what it drew; THIS hands it the write:
+ * the E-Gifts page's own `saveEgiftMethod`, which a form carrying `wish_op`
+ * (save · delete · move · got) turns into a wish-list write — LIVE, like every
+ * write above it, and +0 server actions.
+ */
+function StudioWishListLive(props: Omit<Parameters<typeof StudioWishList>[0], 'action'>) {
+  /* The page's writes — the shipped action, or (only in the dev lab) its stand-in (`useStudioActions`). */
+  const { saveEgiftMethod } = useStudioActions();
+  return <StudioWishList {...props} action={saveEgiftMethod} />;
+}
+
 export type StudioToolProps =
   | ({ part: 'hub' } & Parameters<typeof StudioHubSettings>[0])
   | ({ part: 'fact' } & Parameters<typeof StudioReadOnlyFact>[0])
@@ -1075,7 +1104,9 @@ export type StudioToolProps =
   | ({ part: 'action-door' } & Parameters<typeof StudioActionDoor>[0])
   | ({ part: 'include-switch' } & Parameters<typeof StudioIncludeSwitch>[0])
   | ({ part: 'seat-kind' } & Parameters<typeof StudioSeatKind>[0])
-  | ({ part: 'print-save' } & Parameters<typeof StudioPrintSave>[0]);
+  | ({ part: 'print-save' } & Parameters<typeof StudioPrintSave>[0])
+  /* 🎁 E-Gifts › Wish list (owner 2026-10-08) rides the same door — never the Maker's first load. */
+  | ({ part: 'wish-list' } & Parameters<typeof StudioWishListLive>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -1111,5 +1142,7 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioSeatKind {...props} />;
     case 'print-save':
       return <StudioPrintSave {...props} />;
+    case 'wish-list':
+      return <StudioWishListLive {...props} />;
   }
 }

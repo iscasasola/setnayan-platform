@@ -109,13 +109,14 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
   guest: {
     label: 'Guests invited to an event',
     holdsAccount: false,
-    identityAnchors: ['guests.first_name', 'guests.last_name', 'guests.display_name'],
+    identityAnchors: ['guests.first_name', 'guests.last_name', 'guests.display_name', 'event_gift_records.giver_name'],
     personalData: [
       'name and, where the couple enters it, contact details',
       'RSVP answers, seat and table assignment, dietary notes',
       'photos and video they appear in, and any tags on them',
       'a face vector, only where the guest gave biometric consent and affirmed 18+',
       'anything they write themselves — messages on a photo, a public column',
+      'what they say they sent as a gift — the amount, their words for the hosts, and a screenshot of their own bank or e-wallet screen, held in a private bucket for the hosts only',
     ],
     purpose:
       'Deliver the invitation, the seating, the day-of experience, and the photos that belong to them.',
@@ -225,7 +226,7 @@ export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> 
   event_clusters:
     'The name one person gives a GROUP of their own celebrations — "Our year", "The Cruz wedding" (item 7 phase 7a, migration 20271189765490). Exactly the settled line already drawn for `events` above and `households` below: it can contain the owner\'s own name, but the owner is a declared category, the row is readable by nobody else, and it is exported to them as `years_you_grouped`. A grouping is not a separate data subject. ⚠ It names no THIRD party — the celebrations it groups are joined by uuid, and each carries its own subjects.',
   event_wish_items:
-    'The name of a THING the couple would love as a gift — "Air fryer", "Luggage set" (the E-Gifts wish list, migration 20271266228704). Not a person. ⚠ Its sibling `event_gift_records` DOES record a person — `giver_name`, their words and a screenshot of their own bank or GCash confirmation — under a column name this scan does not match; that is the GUEST category\'s data and must be anchored there in the change that first writes a record (wish list 4/5).',
+    'The name of a THING the couple would love as a gift — "Air fryer", "Luggage set" (the E-Gifts wish list, migration 20271266228704). Not a person. Its sibling `event_gift_records` DOES record a person — `giver_name`, their words and a screenshot of their own bank or e-wallet screen — under a column name this scan does not match; that is the GUEST category\'s data and is anchored there (`event_gift_records.giver_name`, since the change that first wrote a record — wish list 4/5).',
   households: 'A household label the couple types ("The Cruz Family") — a grouping, not an individual.',
   moodboard_theme_templates:
     'The display name of a curated admin-authored starter theme ("Rustic Filipiniana Heritage"), not a person. Admin content — no couple/customer row.',

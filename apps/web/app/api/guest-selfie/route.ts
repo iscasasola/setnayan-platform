@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import { readGuestSession } from '@/lib/guest-session';
 import { R2_BUCKETS, isR2Configured } from '@/lib/r2';
 import { encodeR2Ref, presignUploadUrl } from '@/lib/uploads';
+import { giftDoor, giftPurposeOf } from '@/lib/gift-door.server';
 
 /**
  * Guest-selfie presign — the RSVP selfie's direct-to-R2 upload URL.
@@ -15,6 +16,14 @@ import { encodeR2Ref, presignUploadUrl } from '@/lib/uploads';
  * session's own event + guest, so a guest can only ever write their own
  * selfie — the client never gets to choose the path.
  *
+ * 🎁 ONE DOOR, THREE PURPOSES (owner 2026-10-08, E-Gifts › "I sent it"). A body
+ * carrying `purpose: 'gift-shot'` asks for the upload URL of a guest's gift
+ * SCREENSHOT (private bucket, their own `gift-shots/<event>/<guest>/` folder),
+ * and `purpose: 'gift-record'` hands the couple what the guest says they sent.
+ * Both are `lib/gift-door.server.ts` — this file only hands them over. They
+ * ride this route because every route file is one Vercel route against a hard
+ * ceiling; a body with NO purpose is the RSVP selfie, exactly as before.
+ *
  * Selfies are EVENT photos → never watermarked (owner directive; see
  * lib/watermark.ts). The full-res JPEG the client PUTs here is the
  * face-recognition enrollment asset Papic (0012) will consume.
@@ -24,6 +33,17 @@ const MAX_BYTES = 8 * 1024 * 1024; // 8 MB — a phone selfie JPEG is well under
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  /* The body is read ONCE, here, so a gift request can be told from a selfie. A body that
+     is not JSON stays `undefined` and is refused below exactly where it always was. */
+  let parsed: unknown;
+  try {
+    parsed = await request.json();
+  } catch {
+    parsed = undefined;
+  }
+  const gift = giftPurposeOf(parsed);
+  if (gift) return giftDoor(gift, parsed as Record<string, unknown>);
+
   if (!isR2Configured()) {
     return NextResponse.json(
       { error: 'Uploads are not configured. Please contact support.' },
@@ -39,12 +59,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  let body: { contentType?: string; sizeBytes?: number };
-  try {
-    body = (await request.json()) as { contentType?: string; sizeBytes?: number };
-  } catch {
+  if (parsed === undefined) {
     return NextResponse.json({ error: 'Body must be JSON.' }, { status: 400 });
   }
+  const body = parsed as { contentType?: string; sizeBytes?: number };
 
   const contentType = typeof body.contentType === 'string' ? body.contentType : '';
   const baseType = contentType.split(';')[0]?.trim() ?? '';

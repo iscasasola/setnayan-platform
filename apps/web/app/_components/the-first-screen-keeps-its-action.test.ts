@@ -220,8 +220,15 @@ test('(5) the page wears it: the button never floats, the component measures wha
   assert.match(body, /<div className="sn-door-row">[\s\S]{0,1600}<GetInside[\s\S]{0,200}dock=\{!isEditorCanvas\}/, 'the door’s row changed, or the canvas fits it');
 
   // The component: three measurements, the rule, and the limit — the bar's top or the banner's, whichever is higher.
+  // (RE-AIMED 2026-10-12: the measuring and writing moved, unchanged, to `_lib/first-screen-fit-dom.ts`, so the ONE fit
+  // has a second caller — Scrub's hold fits its cover before it fades, owner "option 2" — and no copy. The claim is
+  // unchanged: three measurements, the rule, the limit.)
   const fit = stripComments(read('app/[slug]/_components/first-screen-door.tsx'));
-  assert.match(fit, /const natural = snapshot\(list\);\s*set\(0, 1\);\s*const noAir = snapshot\(list\);\s*set\(0, MARK_MIN\);\s*const smallMark = snapshot\(list\);\s*plan = fitFirstScreen\(\{ natural, noAir, smallMark \}, limit\);/);
+  const hands = stripComments(read('app/[slug]/_lib/first-screen-fit-dom.ts'));
+  assert.match(fit, /firstScreenFitter\(screen, cover, inner, door, \(\) => window\.scrollY\)/, 'the door no longer fits through the one fitter');
+  assert.match(fit, /plan = make\(list, limit\);/);
+  assert.match(hands, /const natural = snapshot\(list\);\s*set\(0, 1\);\s*const noAir = snapshot\(list\);\s*set\(0, MARK_MIN\);\s*const smallMark = snapshot\(list\);\s*let plan = fitFirstScreen\(\{ natural, noAir, smallMark \}, limit\);/);
+  assert.doesNotMatch(hands, /style\.(?:position|top|transform)\b/, 'the fit positions a block itself');
   assert.match(fit, /getPropertyValue\('--cookie-banner-top'\)/);
   assert.match(fit, /const limit = window\.innerHeight - Math\.max\(rest, banner > 0 \? banner \+ 8 : 0\);/);
   assert.match(fit, /parseFloat\(getComputedStyle\(door\)\.scrollMarginBottom\)/);
@@ -230,11 +237,15 @@ test('(5) the page wears it: the button never floats, the component measures wha
   assert.match(fit, /new ResizeObserver\(soon\)/);
   assert.match(fit, /door\.addEventListener\('toggle', onToggle\)/);
   assert.match(fit, /if \(door\.open\) door\.scrollIntoView\(\{ block: 'nearest'/);
-  // 🎚 While the cover hands over by Scrub (the page's hold armed) it stands aside: the door is the arrival then, drawn
-  // by the hand-over, and a fit answering the hand-over's re-measure fed a loop (the page changed length every ~120 ms
-  // at 375 × 560 — `scripts/scrub-browser-check.mjs` 16 plays it in a browser; this only pins the source).
+  // 🎚 While the cover hands over by Scrub (the page's hold armed) it stands aside: a fit answering the hand-over's
+  // re-measure fed a loop (the page changed length every ~120 ms at 375 × 560 — `scripts/scrub-browser-check.mjs` 16
+  // plays it in a browser; this only pins the source).
+  // (RE-AIMED 2026-10-12, owner "option 2": the cover is FITTED ONCE BEFORE IT FADES and the fit must not run again
+  // while it is held. So, armed, it measures nothing and writes nothing — and no longer takes the plan back: the
+  // hold fitted the first screen before it armed, by the same rule (`hub-scrub-engine.ts` `fitCover`), and the plan
+  // stays while the cover is held. Disarmed, it fits as before.)
   assert.match(fit, /const handedOver = \(\) => door\.closest\('\[data-hub-page-on\]'\) !== null;/);
-  assert.match(fit, /const list = blocks\(\);\s*clear\(list\);\s*if \(handedOver\(\)\) \{\s*plan = null;\s*return;\s*\}/, 'the fit writes while the cover is handed over');
+  assert.match(fit, /if \(handedOver\(\)\) return;\s*const list = blocks\(\);\s*clear\(list\);/, 'the fit measures or writes while the cover is held');
   assert.match(fit, /\.observe\(hold, \{ attributes: true, attributeFilter: \['data-hub-page-on'\] \}\)/, 'the fit does not hear the hand-over arm');
   // It writes custom properties and one attribute — never a position of its own.
   assert.doesNotMatch(fit, /style\.(?:position|top|transform)\b/, 'the component positions a block itself');

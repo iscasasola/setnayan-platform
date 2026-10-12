@@ -169,7 +169,8 @@ test('(4) while editing nothing is held: the Maker’s canvas arms only when the
   assert.equal(scrubArmsNow(true, true), true, 'the Maker’s canvas, ▶ held');
   const island = read('app/[slug]/_components/hub-scrub.tsx');
   assert.match(island, /const makerCanvas = document\.querySelector\('\[data-maker-section\]'\) !== null;/);
-  assert.match(island, /const want = scrubArmsNow\(makerCanvas, html\.hasAttribute\('data-maker-guest'\), underReveal\(\)\);/ /* 🔁 2026-10-10: and never under a closed Reveal, on a page whose cover hands over (`hub-scrub.tsx` 🎭) */);
+  /* (RE-AIMED 2026-10-12: a fourth signal — the stranger opened the door that stays on the held first screen, below.) */
+  assert.match(island, /const want = scrubArmsNow\(makerCanvas, html\.hasAttribute\('data-maker-guest'\), underReveal\(\), doorOpened\);/ /* 🔁 2026-10-10: and never under a closed Reveal, on a page whose cover hands over (`hub-scrub.tsx` 🎭) */);
   assert.match(island, /new MutationObserver\(sync\)[\s\S]*?attributeFilter: \['data-maker-guest', REVEAL_UP\]/);
   /* 🎭 UNDER A CLOSED REVEAL NOTHING IS HELD (2026-10-10, the cover as hand-over zero): the cover's hold begins at the
      top of the page, under the opening, and the page scrolls beneath it — the Build out would play unseen. On a page
@@ -177,6 +178,16 @@ test('(4) while editing nothing is held: the Maker’s canvas arms only when the
      Played in a browser (`scrub-browser-check.mjs` 14). Sabotage: the Reveal not asked → red here and there. */
   assert.equal(scrubArmsNow(false, false, true), false, 'a guest’s page arms under a closed Reveal');
   assert.equal(scrubArmsNow(true, true, true), false);
+  /* 🚪 AN OPENED DOOR ENDS THE HOLD (2026-10-12 — "Get inside" stays on the stranger's held first screen, owner's
+     ruling): what it opens is below it on a page that does not move, so once it is opened the hand-overs stand down
+     for the visit. Only the door the engine marked as staying (`data-hub-stay`), heard on the way down. Played in a
+     browser (`scrub-browser-check.mjs` 16). */
+  assert.equal(scrubArmsNow(false, false, false, true), false, 'a stranger’s page stays held after the door was opened');
+  assert.equal(scrubArmsNow(false, false, false, false), true);
+  assert.match(island, /const DOOR = 'details\[data-get-inside\]\[data-hub-stay\]';/);
+  assert.match(island, /if \(doorOpened \|\| !\(e\.target instanceof HTMLDetailsElement\) \|\| !e\.target\.open \|\| !e\.target\.matches\(DOOR\)\) return;\s*doorOpened = true;\s*sync\(\);/);
+  assert.match(island, /document\.addEventListener\('toggle', onToggle, true\);/);
+  assert.match(island, /document\.removeEventListener\('toggle', onToggle, true\);/);
   assert.match(island, /const coverLeaves = document\.querySelector\('\.hub-cover\[data-hub-fx\]'\) !== null;\s*const underReveal = \(\) => coverLeaves && html\.hasAttribute\(REVEAL_UP\);/, 'a page whose cover does not hand over waits for the Reveal');
   assert.match(island, /const watch = \(makerCanvas \|\| coverLeaves\) && typeof MutationObserver !== 'undefined' \? new MutationObserver\(sync\) : null;/);
   const overlay = read('app/[slug]/_components/reveal/reveal-overlay.tsx');
@@ -289,7 +300,9 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
   const island = read('app/[slug]/_components/hub-scrub.tsx');
   assert.match(island, /const OFF = 'data-hub-scrub-off';/);
   assert.match(island, /\.catch\(\(\) => \{\s*say\(NOT_LOADED\);\s*\}\)/);
-  assert.match(island, /if \(!on\) say\(underReveal\(\) \? UNDER_REVEAL : EDITING\);\s*\};\s*if \(makerCanvas\) say\(EDITING\);\s*else if \(underReveal\(\)\) say\(UNDER_REVEAL\);/ /* 🔁 2026-10-10: a third reason of the island's own — "the opening is still up" */);
+  /* (RE-AIMED 2026-10-12: a fourth reason of the island's own — "the door was opened".) */
+  assert.match(island, /if \(!on\) say\(doorOpened \? DOOR_OPEN : underReveal\(\) \? UNDER_REVEAL : EDITING\);\s*\};\s*if \(makerCanvas\) say\(EDITING\);\s*else if \(underReveal\(\)\) say\(UNDER_REVEAL\);/ /* 🔁 2026-10-10: a third reason of the island's own — "the opening is still up" */);
+  assert.match(island, /const DOOR_OPEN = 'the door was opened';/);
 });
 
 /* ── (6) FRAMES THAT NEVER COME DO NOT BLANK THE PAGE (8f, 2026-10-09) ───────────────────────────────────────────────

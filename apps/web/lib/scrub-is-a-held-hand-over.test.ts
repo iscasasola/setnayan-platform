@@ -490,7 +490,9 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
      The owner, asked whether the RSVP button or the button and the countdown should stand where the names built out:
      "Together." So what arrives is a UNIT — the action row and the block after it, the page's own distance between
      them included — or one box as before; the cover's side of the pair, and where it stands, are unchanged.) */
-  assert.match(engine, /const unit: ScrubElement = arrives && unitEnd \? \{ h: docTop\(unitEnd\) \+ unitEnd\.offsetHeight - docTop\(arrives\), oneByOne: oneByOne\(unitEnd\) \} : \{ h: 0, oneByOne: false \};\s*const pair = scrubPair\(\{ h: cover\.offsetHeight, oneByOne: false \}, unit, view, docTop\(cover\)\);/);
+  /* (RE-AIMED 2026-10-12, owner "option 2": the cover's pair is also told what must be SEEN of it from where it stands
+     and the line a door that stays puts under its arrival — `keep`, (11) below. The unit and where it stands are as before.) */
+  assert.match(engine, /const unit: ScrubElement = arrives && unitEnd \? \{ h: docTop\(unitEnd\) \+ unitEnd\.offsetHeight - docTop\(arrives\), oneByOne: oneByOne\(unitEnd\) \} : \{ h: 0, oneByOne: false \};\s*const pair = scrubPair\(\{ h: cover\.offsetHeight, oneByOne: false \}, unit, view, docTop\(cover\), keep\);/);
   /* 🤝 TOGETHER: decided by what the block IS — the page's own marks for its one action — never by its height; the
      block after it is looked for up to the page's stage, through the page's groups; both are marked, and both are
      given the same moment of the hand-over. */
@@ -505,7 +507,8 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
   assert.doesNotMatch(engine.match(/if \(rowEnd && row\.some\([^\n]*/)?.[0] ?? 'offsetHeight', /offsetHeight|\.h\b|room|innerHeight/, 'the action row is decided by a height');
   /* 🚪 THE COVER NEVER FADES TO NOTHING: nothing a guest can see in the cover's own rest → the next box on the page
      after the cover's cell arrives, and THAT box is the one pulled up to the cover. */
-  assert.match(engine, /arrives = nextBox\(coverRest\);\s*if \(!arrives\) \{\s*outside = followers\(coverCell, page\)\[0\] \?\? null;\s*arrives = outside \? through\(outside\) : null;\s*\}\s*const pulled = outside \?\? coverRest;/);
+  /* (RE-AIMED 2026-10-12: `let` — over a door that stays, the box pulled up is the one after the door, (11).) */
+  assert.match(engine, /arrives = nextBox\(coverRest\);\s*if \(!arrives\) \{\s*outside = followers\(coverCell, page\)\[0\] \?\? null;\s*arrives = outside \? through\(outside\) : null;\s*\}\s*let pulled = outside \?\? coverRest;/);
   assert.match(engine, /if \(outside\) put\(outside, 'data-hub-zrest', ''\);/);
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \[data-hub-zrest\] \{ margin-top: var\(--hub-up, 0px\) !important; \}/);
   assert.match(engine, /const stick = pair\.top - \(docTop\(cover\) - docTop\(pages\[0\]\.stage\)\);\s*put\(pages\[0\]\.stage, '--hub-top', px\(stick\)\);\s*put\(pages\[0\]\.cell, '--hub-len', px\(pair\.len\)\);/);
@@ -528,11 +531,85 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
   /* (RE-AIMED 2026-10-10: "what follows" begins after the LAST of what arrives — the block that came with the row.) */
   assert.match(engine, /const lastIn = mate \?\? row\[row\.length - 1\] \?\? null;\s*lifted = lastIn && pages\[0\] \? followers\(lastIn, pages\[0\]\.stage\) : \[\];/);
   assert.match(engine, /put\(pages\[0\]\.stage, '--hub-zrise', '0px'\);/);
-  assert.match(engine, /arrival: arrives, mates: \[\.\.\.row\.slice\(1\), \.\.\.\(mate \? \[mate\] : \[\]\)\], pair, rest: 0, stick, lift: pages\[0\]\.stage \}\);/);
+  /* (RE-AIMED 2026-10-12: and the floor a door that stays puts under what follows, (11).) */
+  assert.match(engine, /arrival: arrives, mates: \[\.\.\.row\.slice\(1\), \.\.\.\(mate \? \[mate\] : \[\]\)\], pair, rest: 0, stick, lift: pages\[0\]\.stage, floor \}\);/);
   assert.doesNotMatch(engine, /followers\(arrives, coverRest\)|put\(coverRest, '--hub-zrise'/, 'what follows the cover is looked for, or lifted, only inside the cover’s own rest');
   assert.match(engine, /const cover = root\.querySelector<HTMLElement>\(`\$\{COVER\} > \.hub-cover`\);\s*if \(cover\) watch\(cover\);/);
   /* …and a box that had no size as it was watched is KNOWN to be 0 — its first report is then a change, not skipped. */
   assert.match(engine, /if \(!el\.offsetHeight\) was\.set\(el, 0\);/);
   assert.match(engine, /if \(was\.has\(e\.target\) && was\.get\(e\.target\) !== h\) changed = true;/);
   assert.doesNotMatch(engine, /let first = true/, 'the observer skips its first call by a flag — a page armed on another tab never measures its cover');
+});
+
+/* ── (11) 📐 THE COVER IS FITTED BEFORE IT FADES (owner 2026-10-12, DECISION_LOG "option 2": *"yes"*) ─────────────────
+   Held by the ordinary rule, a cover taller than the screen had its bottom on the centre line and the couple's names
+   under the pinned top bar while it faded (four red rows in `scrub-browser-check.mjs` 16, #6484). Now: (a) the cover
+   is fitted ONCE by the page's own first-screen fit before it is held — on the page as it lays out without the hold,
+   and never again while it is held (the loop #6484 fixed); (b) it is held where it stands when what the fit keeps —
+   its NAMES and its DATE — is seen from there; (c) the stranger's door, on the first screen as the page opens, STAYS
+   (same day: *"Keep it on first screen"*): what arrives ends above it, and what follows goes on under it. */
+test('(11) fitted before it fades: once, unarmed; held where it stands when its names and date are seen; a door on the first screen stays', () => {
+  /* (b) EXECUTED: `seen` decides, never more than the cover; without it, the rule of (10) to the number. */
+  let stood = 0;
+  let saved = 0;
+  for (const V of SIZES) {
+    const v = view(V);
+    for (const stands of [0, 37, 69, 120]) {
+      for (const h of [320, Math.round(V * 0.84), Math.round(V * 1.3), 2400]) {
+        for (const seen of [120, Math.round(V * 0.5), Math.round(V * 0.9), h + 50]) {
+          const cover = { h, oneByOne: false };
+          const next = { h: 180, oneByOne: false };
+          const ok = scrubCoverStands(cover, stands, v.centre, seen);
+          assert.equal(ok, stands + Math.min(seen, h) <= V - 24, `V${V} cover ${h} seen ${seen} at ${stands}`);
+          assert.equal(scrubCoverStands(cover, stands, v.centre, h), scrubCoverStands(cover, stands, v.centre), 'seen = all of it is not the old rule');
+          const p = scrubPair(cover, next, v, stands, { seen });
+          if (ok) {
+            stood++;
+            if (!scrubCoverStands(cover, stands, v.centre)) saved++;
+            assert.equal(p.top, stands, 'a cover whose names and date are seen is not held where it stands');
+          } else assert.deepEqual(p, scrubPair(cover, next, v), 'a cover whose names and date are not seen is not the ordinary hand-over');
+        }
+      }
+    }
+  }
+  assert.ok(stood > 100 && saved > 40, `anti-vacuity: ${stood} stood, ${saved} of them only by what is seen`);
+  /* (c) EXECUTED: over a door that stays, the arrival ends above it — centred when it can be, never above its floor. */
+  for (const V of SIZES) {
+    const v = view(V);
+    for (const hB of [60, 180, 320]) {
+      for (const stay of [V * 0.5, V * 0.75, V - 80]) {
+        const p = scrubPair({ h: Math.round(V * 0.7), oneByOne: false }, { h: hB, oneByOne: false }, v, 69, { seen: Math.round(V * 0.5), stay });
+        const floor = Math.max(69, v.topLine);
+        assert.equal(p.arrivalTop, Math.max(floor, Math.min(v.centre - hB / 2, stay - hB)));
+        if (stay - hB >= floor) assert.ok(p.arrivalTop + hB <= stay + 1e-6, `V${V}: the arrival (${hB}) ends below the door's line ${stay}`);
+        if (v.centre + hB / 2 <= stay) assert.equal(p.arrivalTop + hB / 2, v.centre, 'with room, the arrival is not centred');
+      }
+    }
+  }
+  const engine = read(`${B}/hub-scrub-engine.ts`);
+  /* (a) ONCE — the first measure the cover has a size — with the hold's own mark OFF while it measures, put back in
+     the same task; taken back when the hold is. The same fitter as the door's: no copy of the rule. */
+  assert.match(engine, /import \{ firstScreenFitter \} from '\.\.\/_lib\/first-screen-fit-dom';/);
+  assert.match(engine, /if \(pages\[0\] && coverCell && cover && coverRest && cover\.offsetHeight > 0 && !fitted\) \{\s*fitted = true;\s*unfit = fitCover\(cover, coverCell, coverRest\);\s*\}/);
+  assert.equal((engine.match(/fitCover\(/g) ?? []).length, 2, 'the cover is fitted from more than one place');
+  assert.match(engine, /put\(root, 'data-hub-page-on', null\);\s*try \{[\s\S]*?fit\.make\(list, window\.innerHeight - [\s\S]*?\} finally \{\s*put\(root, 'data-hub-page-on', ''\);\s*\}/);
+  assert.match(engine, /unfit\?\.\(\);\s*unfit = null;/);
+  assert.ok(engine.indexOf('unfit?.()') > engine.indexOf('function stop()'), 'the fit is not taken back with the hold');
+  /* (b) what must be seen: the names and the date, read where they are drawn. */
+  assert.match(engine, /const must = \[cover\.querySelector\('\[data-hub-names\]'\), cover\.querySelector\('\[data-motion="arrive-date"\]'\)\]/);
+  /* (c) the door stays when it is on the first screen as the page opens — above the bar it docks clear of; the box
+     after it is the one pulled up; its rest keeps its own margin; what follows rises no higher than under it. */
+  assert.match(engine, /const DOOR = '\[data-get-inside\]';/);
+  assert.match(engine, /const stays = door !== null && rowEnd !== null && mate !== null && Math\.max\(\.\.\.row\.map\(\(el\) => onPage\(el, 'bottom'\)\)\) <= V - dockedBy \+ 0\.5;/);
+  assert.match(engine, /if \(outside\) put\(coverRest, '--hub-up', stays \? px\(restMargin \?\? 0\) : '0px'\);/);
+  assert.match(engine, /put\(h\.lift, '--hub-zrise', px\(Math\.max\(h\.floor \?\? 0, /);
+  assert.match(engine, /for \(const el of staying\) put\(el, 'data-hub-stay', ''\);/);
+  /* The door's own fit stands aside while held — measures nothing, writes nothing, takes nothing back. */
+  const door = read(`${B}/first-screen-door.tsx`);
+  assert.match(door, /if \(handedOver\(\)\) return;\s*const list = blocks\(\);/);
+  /* THE FOOT OF THE FIRST SCREEN — the door's own line, the same two numbers, said where the engine can read it. */
+  assert.match(CSS, /\.sn-door-dock \{\s*--sn-door-rest: calc\(4\.75rem \+ env\(safe-area-inset-bottom, 0px\)\);/);
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover-cell \{ scroll-padding-bottom: calc\(4\.75rem \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
+  assert.match(CSS, /@media \(min-width: 1280px\) \{\s*\.sn-door-dock \{\s*--sn-door-rest: 1rem;/);
+  assert.match(CSS, /@media \(min-width: 1280px\) \{\s*\.hub-page-cell\[data-hub-page-on\] \.hub-cover-cell \{ scroll-padding-bottom: 1rem; \}\s*\}/);
 });

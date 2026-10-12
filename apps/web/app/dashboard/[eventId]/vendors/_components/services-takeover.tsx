@@ -42,8 +42,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
-import Link from 'next/link';
-import { Info, Sparkles, X } from 'lucide-react';
+import { Search, Sparkles } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Explain } from '@/app/_components/explain';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { Count } from '@/components/count';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
@@ -370,13 +371,15 @@ export function ServicesTakeover({
               {/* ONE Find a supplier opens the Find page — only this event
                   type's categories, grouped the way hosts think (P3,
                   2026-10-01). PR2 unfolds that marketplace in place. */}
-              <Link
+              <ActionButton
                 href={`/dashboard/${eventId}/vendors/categories`}
-                data-find-supplier=""
-                className="mb-5 inline-flex w-full items-center justify-center rounded-full border-[1.5px] border-ink bg-cream px-4 py-3.5 font-display text-base text-ink transition hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry lg:w-auto lg:px-8"
-              >
-                Find a supplier
-              </Link>
+                data-testid="find-supplier"
+                tone="brand"
+                main
+                icon={Search}
+                label="Find a supplier"
+                className="mb-5 w-full lg:w-auto"
+              />
 
               {/* ── THE HONESTY STRING (B2, 2026-08-14) ──────────────────────
                   `premium` is `aiActive`, and while the AI paywall is off that
@@ -385,7 +388,9 @@ export function ServicesTakeover({
                   ACCENT only (UI-only at 3.37:1): legal on the icon, never on
                   the sentence beside it. */}
               {premium ? (
-                <div className="sn-tile mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 px-4 py-2.5">
+                // Read, not pressed: it sits on the page and the topic ends in
+                // a divider (owner 2026-10-11 — a frame only on what is pressed).
+                <p data-sai-line="" className="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-ink/15 pb-3">
                   <Sparkles className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
                   <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/70">
                     Setnayan&nbsp;AI
@@ -393,7 +398,7 @@ export function ServicesTakeover({
                   <span className="text-xs text-ink/60">
                     Smart matching, fit scoring, and the watch guard are on — free while we are in launch.
                   </span>
-                </div>
+                </p>
               ) : null}
 
               <ServiceSection tab="shortlist" heading={SECTION_HEADING.shortlist}>
@@ -490,74 +495,31 @@ function ServiceSection({
 }
 
 /**
- * The page-level ⓘ (Explore Replan PR-B · spec §11).
- *
- * Rules encoded here: a REAL button with an aria-label + visible focus ring; a
- * DISMISSIBLE panel (close button + Escape + click the toggle again); state is
- * NEVER persisted — it is help, not a setting, so it always starts closed.
- *
- * Everything is `<span>`-based because the toggle is rendered inside the
- * section's `<h2>`, which only admits phrasing content; `block`/`grid` classes
- * do the layout. All copy is imported — none is authored in this file.
+ * The page-level ⓘ (Explore Replan PR-B · spec §11) — drawn by the ONE ⓘ
+ * template, `Explain` (INTERACTION_RULES § 9, kind 7): on a phone a centred
+ * popup with "Got it", the rest dark and blurred; on a computer a small note
+ * under the ⓘ. It always starts closed (help, not a setting). All copy is
+ * imported — none is authored in this file.
  */
 function ExploreInfoToggle() {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
-
   return (
-    <span className="relative inline-flex not-italic">
-      <button
-        type="button"
-        aria-label={EXPLORE_INFO_BUTTON_LABEL}
-        aria-expanded={open}
-        aria-controls="explore-info-panel"
-        onClick={() => setOpen((v) => !v)}
-        className="sn-dot-btn inline-flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-ink/55 transition hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-      >
-        <Info className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-      </button>
-      {open ? (
-        <span
-          id="explore-info-panel"
-          className="absolute left-0 top-8 z-30 block w-[min(22rem,calc(100vw-3rem))] rounded-2xl border border-ink/10 bg-cream p-4 font-sans text-sm not-italic leading-relaxed text-ink/75 shadow-xl"
-        >
-          <span className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-ink">{EXPLORE_INFO_TITLE}</span>
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={() => setOpen(false)}
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink/45 transition hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            </button>
+    <Explain title={EXPLORE_INFO_TITLE} label={EXPLORE_INFO_BUTTON_LABEL} data="suppliers-page" className="not-italic">
+      <span className="block text-[13px]">{EXPLORE_INFO_WHAT}</span>
+      <span className="block text-[13px]">{EXPLORE_INFO_STRIP}</span>
+      <span className="block text-[13px]">{EXPLORE_INFO_HANDSHAKE}</span>
+      <span className="mt-1 grid gap-1 border-t border-ink/15 pt-3 text-left">
+        {EXPLORE_STATE_LEGEND.map((row) => (
+          <span key={row.state} className="flex items-baseline gap-2 text-[12.5px]">
+            <span className="w-3 shrink-0 text-center font-mono text-ink" aria-hidden>
+              {row.glyph}
+            </span>
+            <span>
+              <span className="font-semibold text-ink">{row.label}</span> — {row.meaning}
+            </span>
           </span>
-          <span className="block text-[13px]">{EXPLORE_INFO_WHAT}</span>
-          <span className="mt-2.5 block text-[13px]">{EXPLORE_INFO_STRIP}</span>
-          <span className="mt-2.5 block text-[13px]">{EXPLORE_INFO_HANDSHAKE}</span>
-          <span className="mt-3 grid gap-1 border-t border-ink/10 pt-3">
-            {EXPLORE_STATE_LEGEND.map((row) => (
-              <span key={row.state} className="flex items-baseline gap-2 text-[12.5px]">
-                <span className="w-3 shrink-0 text-center font-mono text-ink" aria-hidden>
-                  {row.glyph}
-                </span>
-                <span>
-                  <span className="font-semibold text-ink">{row.label}</span> — {row.meaning}
-                </span>
-              </span>
-            ))}
-          </span>
-        </span>
-      ) : null}
-    </span>
+        ))}
+      </span>
+    </Explain>
   );
 }
 

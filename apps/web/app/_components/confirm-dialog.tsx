@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { Check, Trash2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * Modal confirmation dialog backed by the HTML5 `<dialog>` element so the
@@ -27,9 +29,9 @@ import { createPortal } from 'react-dom';
  *      asset?", "Delete entirely?", "Remove this row?"). Avoid uppercase
  *      "DELETE" / "CONFIRM" labels.
  *   • `body` carries the consequence + reversibility info in 1-2 sentences.
- *   • `destructive` adds a `terracotta-700` button tint so a delete looks
- *      visually different from a save · matches Clean Editorial palette
- *      per CLAUDE.md 2026-05-29 row.
+ *   • `destructive` draws the answer in the danger tone (red, with a bin)
+ *      so a delete looks different from a save — the approved confirm box
+ *      (INTERACTION_RULES § 9, kind 12), its buttons the one ActionButton.
  */
 
 type ConfirmDialogProps = {
@@ -83,10 +85,17 @@ export function ConfirmDialog({
   // top-layer rendering via `showModal()` is unaffected by DOM position,
   // but the element-in-tree IS a violation if mounted as a sibling of a
   // restricted parent's only-allowed child type.
+  // THE CONFIRM BOX of the approved templates (INTERACTION_RULES § 9, kind 12
+  // "Messages"; gallery § 12, owner 2026-10-08): centred, the rest of the screen
+  // DARK AND BLURRED (black, never `ink` — ink turns light in dark mode), a tap
+  // on the dark closes it as "keep" (never as the destructive answer), and its
+  // two answers are the one action-button source: the safe one grey, the answer
+  // filled — red for a delete, the app's accent otherwise.
   const node = (
     <dialog
       ref={dialogRef}
-      className="m-auto max-w-sm rounded-xl border border-ink/10 bg-cream p-0 text-ink shadow-2xl backdrop:bg-ink/50 backdrop:backdrop-blur-sm"
+      data-confirm-box=""
+      className="m-auto w-[min(340px,calc(100vw-48px))] rounded-2xl border-0 bg-cream p-0 text-ink shadow-[0_24px_60px_-20px_rgba(0,0,0,.5)] backdrop:bg-black/50 backdrop:backdrop-blur-sm"
       onClick={(e) => {
         // Backdrop click closes — the dialog element itself has the click
         // target equal to the currentTarget only when the user clicked
@@ -94,30 +103,18 @@ export function ConfirmDialog({
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="p-6">
-        <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          {title}
-        </h3>
-        <div className="mt-3 text-sm text-ink/80">{body}</div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="min-h-[44px] rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/70 transition hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            type="button"
+      <div className="px-5 pb-4 pt-[22px] text-center">
+        <h3 className="text-[17px] font-semibold leading-snug text-ink">{title}</h3>
+        <div className="mt-2 text-[14.5px] leading-normal text-ink/70">{body}</div>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <ActionButton tone="neutral" icon={X} label={cancelLabel} onClick={onCancel} />
+          <ActionButton
+            tone={destructive ? 'danger' : 'brand'}
+            main
+            icon={destructive ? Trash2 : Check}
+            label={confirmLabel}
             onClick={onConfirm}
-            className={`min-h-[44px] rounded-md px-4 py-2 text-sm font-medium text-cream transition focus-visible:outline-2 focus-visible:outline-offset-2 ${
-              destructive
-                ? 'bg-terracotta-700 hover:bg-ink focus-visible:outline-terracotta-700'
-                : 'bg-mulberry hover:bg-mulberry-600 focus-visible:outline-mulberry'
-            }`}
-          >
-            {confirmLabel}
-          </button>
+          />
         </div>
       </div>
     </dialog>

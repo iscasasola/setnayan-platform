@@ -154,7 +154,7 @@ test('5 · the two new tour keys are registered — and each mounts only with it
 test('6 · every control in the thumb row is 44 px — a door (`<a class="ab">`) too, and the field (look call 3, 2026-10-12)', () => {
   // Measured on the 375 walk (2026-10-12): Chat · Quote · Payment · Call and Add were 40 px — the house floor
   // (`min-height: 44px` on <button>) does not reach a link, and the field was written 40 px tall.
-  const css = readFileSync(join(HERE, 'supplier-thumb-row.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = stripComments(readFileSync(join(HERE, 'supplier-thumb-row.module.css'), 'utf8'));
   const rule = (sel: string) => {
     const at = css.indexOf(sel);
     assert.ok(at >= 0, `anti-vacuity: \`${sel}\` is not in the row's stylesheet`);

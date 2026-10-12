@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "032eb1dae",
+  "generatedFromRef": "494b2b68d",
   "routeCount": 431,
-  "destinations": 958,
+  "destinations": 957,
   "actions": 673,
-  "blocks": 6045,
+  "blocks": 6043,
   "routes": {
     "/": {
       "files": [
@@ -11735,7 +11735,6 @@
         "vendor-dashboard/_components/collapsible.tsx",
         "vendor-dashboard/_components/event-locked-by-fee.tsx",
         "vendor-dashboard/_components/feature-accordion.tsx",
-        "vendor-dashboard/_components/first-steps.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
         "vendor-dashboard/_components/kit.tsx",
         "vendor-dashboard/_components/list-pager.tsx",
@@ -11747,7 +11746,6 @@
         "vendor-dashboard/_components/qr-card.tsx",
         "vendor-dashboard/_components/qr-section.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
-        "vendor-dashboard/_components/spotlight-award-banner.tsx",
         "vendor-dashboard/_components/supplier-submit.tsx",
         "vendor-dashboard/_components/supplier-thumb-leave.ts",
         "vendor-dashboard/_components/supplier-thumb-row.tsx",
@@ -11770,7 +11768,6 @@
       "destinations": [
         "/api/vendor/instagram/connect",
         "/dashboard",
-        "/explore",
         "/signup?as=vendor",
         "/vendor-dashboard",
         "/vendor-dashboard/calendar",
@@ -11854,7 +11851,6 @@
         "LockedBody",
         "LockedQrGenerator",
         "MarkCompleteBody",
-        "Marker",
         "MediaTile",
         "MeetingBody",
         "MessageBody",
@@ -11883,7 +11879,6 @@
         "ShortlistBody",
         "Sk",
         "State",
-        "StepRow",
         "SubmitButton",
         "SupplierSubmit",
         "SupplierToast",

@@ -44,10 +44,11 @@ a floor for the shape, not production's number:
   pair, the account, the seat holder and (on the day) the table — each started
   at the top of the body and awaited where it was. Not the tile code (a write),
   not the ceremony time (one screen). The Maker's canvas skips what it skipped.
-- **One visit, one render**: `GuestPreload` no longer asks the service worker
-  to fetch `/<slug>` again when this very visit came through the worker as
-  exactly `/<slug>` (it already cached it on the way in). Any other arrival
-  still warms it. `public/sw.js` untouched.
+- **One visit, one render**: built here first in `GuestPreload`, then moved to ONE
+  home in the batch join (rd/batch-2026-10-12): #6477's `public/sw.js` skips the
+  preload of the sender's own address while its day-of copy is actually held, so
+  the client keeps asking as before and the worker decides. A first visit and a
+  personal link (`?k=`) still get their offline copy.
 - NOT built: remembering same-for-everybody facts between visits; the Maker's
   canvas path.
 

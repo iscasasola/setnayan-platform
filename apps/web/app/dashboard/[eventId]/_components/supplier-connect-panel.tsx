@@ -156,7 +156,7 @@ export function SupplierConnectPanel({
             ) : null}
           </div>
           {saved === 'failed' ? (
-            <p role="alert" className="mt-1.5 text-center text-[12px] text-danger-800">
+            <p role="alert" className="mt-1.5 text-center text-[12px] text-danger-800 dark:text-danger-200">
               The picture could not be saved. Copy the link instead.
             </p>
           ) : null}
@@ -175,7 +175,7 @@ export function SupplierConnectPanel({
       )}
 
       {err ? (
-        <p role="alert" className="mt-1.5 text-[12px] text-danger-800">
+        <p role="alert" className="mt-1.5 text-[12px] text-danger-800 dark:text-danger-200">
           {err}
         </p>
       ) : null}

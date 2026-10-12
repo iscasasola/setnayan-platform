@@ -547,7 +547,7 @@ export function AddYourOwnWalk({
         ) : null}
 
         {err ? (
-          <p role="alert" className="mt-2 text-[12.5px] text-danger-800" data-add-own-error="">
+          <p role="alert" className="mt-2 text-[12.5px] text-danger-800 dark:text-danger-200" data-add-own-error="">
             {err}
           </p>
         ) : null}

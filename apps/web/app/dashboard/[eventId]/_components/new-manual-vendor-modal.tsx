@@ -417,7 +417,7 @@ export function NewManualVendorModal({
           {/* What the couple typed is THEIR RECORD until the supplier joins
               (the approved prototype's words, 2026-10-10) — said, not boxed. */}
           {edit ? (
-            <p data-own-record-pill="" className="mt-1 text-[12.5px] font-medium text-warn-800">
+            <p data-own-record-pill="" className="mt-1 text-[12.5px] font-medium text-warn-800 dark:text-warn-200">
               {OWN_RECORD_PILL}
             </p>
           ) : null}
@@ -647,7 +647,7 @@ export function NewManualVendorModal({
           ) : null}
 
           {errorMsg ? (
-            <p role="alert" className="flex items-center gap-1.5 pb-2 text-[12.5px] font-medium text-danger-800">
+            <p role="alert" className="flex items-center gap-1.5 pb-2 text-[12.5px] font-medium text-danger-800 dark:text-danger-200">
               <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               {errorMsg}
             </p>
@@ -756,7 +756,7 @@ function PostSaveStep({
 
   return (
     <div className="mt-3 space-y-3 pb-5" data-add-manual-saved="">
-      <p className="flex items-center gap-2 text-[14px] text-success-800">
+      <p className="flex items-center gap-2 text-[14px] text-success-800 dark:text-success-200">
         <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.2} />
         <span>
           <span className="font-semibold">{vendorName}</span> added to {categoryLabel}.
@@ -767,7 +767,7 @@ function PostSaveStep({
           would be a second writer of `total_cost_php`. What remains is the one
           thing that only makes sense AFTER the supplier exists: their invite. */}
       {warning ? (
-        <p role="alert" className="flex items-start gap-2 text-[12.5px] leading-snug text-warn-800">
+        <p role="alert" className="flex items-start gap-2 text-[12.5px] leading-snug text-warn-800 dark:text-warn-200">
           <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
           <span>{warning}</span>
         </p>
@@ -929,7 +929,7 @@ function SuggestionRow({
           ) : null}
         </div>
         {isCrossCategory ? (
-          <p className="text-[11.5px] leading-snug text-warn-800">
+          <p className="text-[11.5px] leading-snug text-warn-800 dark:text-warn-200">
             {categoriesPretty.length > 0 ? (
               <>
                 <strong className="font-semibold">{vendor.business_name}</strong>{' '}
@@ -1013,7 +1013,7 @@ function LinkedVendorConfirmation({
         </div>
       </div>
       {isCrossCategory ? (
-        <p role="note" className="flex items-start gap-1.5 text-[12px] leading-snug text-warn-800">
+        <p role="note" className="flex items-start gap-1.5 text-[12px] leading-snug text-warn-800 dark:text-warn-200">
           <AlertCircle
             aria-hidden
             className="mt-px h-3.5 w-3.5 shrink-0"

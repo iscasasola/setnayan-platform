@@ -29,6 +29,8 @@ import {
   MANUAL_VENUE_ADDRESS_PLACEHOLDER,
   manualVendorNeedsAddress,
 } from '@/lib/manual-venue-address';
+import { createPortal } from 'react-dom';
+import { usePortalHost } from '@/lib/use-portal-host';
 import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
 import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
@@ -389,7 +391,14 @@ export function NewManualVendorModal({
   // form (`fieldName`) · PickMenu in the plan rows · ActionButton for every press
   // · no bordered box around anything that is only read (owner 2026-10-11:
   // frames only on what is pressed; topics end in a divider).
-  return (
+  // 🔑 DRAWN INTO <body>. The dashboard's page wrapper is transformed and
+  // contained, so a `fixed` sheet mounted inside it is trapped under the
+  // portalled Find thumb row and the bottom bar (walked 2026-10-12: the thumb row
+  // sat over the walk's footer). Every sheet on this page goes to <body> — once
+  // mounted, so a server render (the dev lab draws the record sheet at once)
+  // never reaches for a `document` it does not have.
+  if (!portalHost) return null;
+  return createPortal(
     <Sheet open onClose={dismiss} labelledById="new-manual-vendor-heading" rise>
       <div className="px-5 pt-5" data-add-manual-sheet="">
         <header className="pr-10">
@@ -670,7 +679,8 @@ export function NewManualVendorModal({
         </form>
         )}
       </div>
-    </Sheet>
+    </Sheet>,
+    portalHost,
   );
 }
 
@@ -688,6 +698,7 @@ function RecordLinkBlock({
   vendorId: string;
   vendorName: string;
 }) {
+  const portalHost = usePortalHost();
   const [invite, setInvite] = useState<SupplierInviteView | undefined>(undefined);
   useEffect(() => {
     let live = true;

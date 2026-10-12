@@ -59,6 +59,8 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { ArrowLeft, ArrowRight, Check, MessageCircle, MessagesSquare, Plus } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { usePortalHost } from '@/lib/use-portal-host';
 import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -150,6 +152,7 @@ export function AddYourOwnWalk({
   onRecorded?: () => void;
   onDone: (outcome: AddOwnOutcome) => void;
 }) {
+  const portalHost = usePortalHost();
   const standIn = useContext(AddOwnStandInCtx);
   const [step, setStep] = useState<AddOwnStep>(1);
   const [name, setName] = useState(initialName);
@@ -351,7 +354,14 @@ export function AddYourOwnWalk({
   const note = addOwnRecordNote(typed);
   const hasMatches = (matches?.length ?? 0) > 0;
 
-  return (
+  // 🔑 DRAWN INTO <body>. The dashboard's page wrapper is transformed and
+  // contained, so a `fixed` sheet mounted inside it is trapped under the
+  // portalled Find thumb row and the bottom bar (walked 2026-10-12: the thumb row
+  // sat over the walk's footer). Every sheet on this page goes to <body> — once
+  // mounted, so a server render (the dev lab draws the record sheet at once)
+  // never reaches for a `document` it does not have.
+  if (!portalHost) return null;
+  return createPortal(
     <Sheet open onClose={finish} labelledById="add-own-walk-title" rise>
       <div ref={rowsRef} className="px-5 pb-2 pt-5" data-add-own-walk="" data-step={step}>
         <h2 id="add-own-walk-title" className="pr-10 text-[20px] font-semibold tracking-[-0.01em] text-ink">
@@ -573,7 +583,8 @@ export function AddYourOwnWalk({
           <ActionButton tone="brand" main icon={Check} label="Done" onClick={finish} className="flex-1" />
         ) : null}
       </div>
-    </Sheet>
+    </Sheet>,
+    portalHost,
   );
 }
 

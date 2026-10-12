@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -175,6 +175,7 @@ export function AccordionLockButton({
   vendorName,
   label = 'Book this pick',
   pendingLabel = 'Booking…',
+  icon,
   className = 'lockbtn',
   wrapperClassName = 'lockbar',
   isVerified,
@@ -189,6 +190,8 @@ export function AccordionLockButton({
    *  passes "Lock to confirm". */
   label?: string;
   pendingLabel?: string;
+  /** Drawn before the word — a caller that wears the button rule's pill. */
+  icon?: ReactNode;
   /** Button class — defaults to the accordion-scoped `.lockbtn`; the Lock tab
    *  passes a Tailwind class (outside the accordion's scoped CSS). */
   className?: string;
@@ -548,7 +551,8 @@ export function AccordionLockButton({
           requestLock();
         }}
       >
-        {isPending && state.kind === 'idle' ? pendingLabel : label}
+        {icon}
+        <span className="lbl">{isPending && state.kind === 'idle' ? pendingLabel : label}</span>
       </button>
 
       {/* Booking-requires-verified indicator (owner 2026-07-24) — surfaces the

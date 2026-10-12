@@ -8,7 +8,19 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canRemoveTileFromPlan, resolveInPlanTiles } from './explore-in-plan';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  ADDED_CATEGORIES_KEY,
+  addedCategoriesOf,
+  canRemoveTileFromPlan,
+  resolveBenchRing,
+  resolveInPlanTiles,
+  ringBuildCount,
+  withAddedCategory,
+} from './explore-in-plan';
+import { popularTilesFor } from './supplier-find';
+import { stripComments } from './strip-comments';
 import { categoriesForTile, LOCKED_VENDOR_STATUSES } from './shortlist-taxonomy';
 import {
   ADD_TO_PLAN_HEADING,
@@ -30,6 +42,7 @@ function resolve(p: {
   excluded?: string[];
   pinned?: string[];
   allTiles?: string[];
+  starter?: string[];
 }) {
   return resolveInPlanTiles({
     allTiles: p.allTiles ?? ALL,
@@ -38,6 +51,7 @@ function resolve(p: {
     tilesWithLocks: new Set(p.locks ?? []),
     excludedTiles: new Set(p.excluded ?? []),
     pinnedTiles: p.pinned ? new Set(p.pinned) : undefined,
+    starterTiles: p.starter ? new Set(p.starter) : undefined,
   });
 }
 
@@ -202,4 +216,130 @@ test('the per-category ⓘ resolves real copy for a known tile and null for a fi
   const hint = categoryHintForTile('catering');
   assert.ok(typeof hint === 'string' && hint.length > 0);
   assert.equal(categoryHintForTile('not_a_real_tile'), null);
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE STARTER RING, AND A CATEGORY THAT STAYS ADDED (owner 2026-10-08)
+   "which rows a wedding shows": the event's own picks, else the "popular four"
+   for its type; "＋ Add to your event" brings in any other category and it
+   STAYS. A category that already holds one of the couple's suppliers, or a
+   booking, is never out of sight.
+
+   SABOTAGE, each seen red (2026-10-08; the PR body has the runs):
+     ring: let a starter ring hide an engaged category · let it beat a removal ·
+           count coverage over the engaged tiles only
+     kept: accept free text as a tile · write the picks list instead of the
+           added list · write before the host check
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+test('starter: an event with no plan opens on the starter ring — not on every category', () => {
+  const r = resolve({ starter: ['catering', 'photography'] });
+  assert.equal(r.seeded, false);
+  assert.deepEqual([...r.inPlan].sort(), ['catering', 'photography']);
+  assert.deepEqual(r.pool, ['florist', 'photo_booth', 'coordinator'], 'the rest wait under ＋ Add to your event');
+  assert.deepEqual([...r.coverage].sort(), ['catering', 'photography'], '"Covered N of M" counts the ring');
+});
+
+test('starter: a category holding one of their suppliers, or a booking, ALWAYS shows', () => {
+  const r = resolve({ starter: ['catering'], vendors: ['florist'], locks: ['coordinator'] });
+  assert.deepEqual([...r.inPlan].sort(), ['catering', 'coordinator', 'florist']);
+  // …even when the ring names nothing the event can show at all.
+  const none = resolve({ starter: ['not_a_tile'], vendors: ['florist'] });
+  assert.deepEqual([...none.inPlan], ['florist']);
+});
+
+test('starter: a removal still removes a starter row, and never a booked one', () => {
+  const r = resolve({ starter: ['catering', 'photography'], excluded: ['catering'] });
+  assert.deepEqual([...r.inPlan], ['photography']);
+  assert.ok(r.pool.includes('catering'), 'a removed starter returns to the dropdown');
+  const booked = resolve({ starter: ['catering'], excluded: ['catering'], locks: ['catering'] });
+  assert.ok(booked.inPlan.has('catering'));
+});
+
+test('starter: the event’s OWN plan wins — the ring is only the fallback', () => {
+  const r = resolve({ planned: ['florist'], starter: ['catering', 'photography'] });
+  assert.equal(r.seeded, true);
+  assert.deepEqual([...r.inPlan], ['florist'], 'a planned event is not padded with the popular four');
+});
+
+test('starter: every event type has four, and a type with no list of its own gets the default', () => {
+  for (const type of ['wedding', 'birthday', 'wake', 'debut', 'christening', 'corporate', null]) {
+    assert.equal(popularTilesFor(type).size, 4, `${type} has no starter ring`);
+  }
+  assert.deepEqual([...popularTilesFor('wedding')], ['photo_video', 'catering', 'reception', 'hmua']);
+  assert.deepEqual([...popularTilesFor(null)], [...popularTilesFor('wedding')]);
+});
+
+test('kept: an added category is stored once, as a tile id, under its own key', () => {
+  assert.equal(ADDED_CATEGORIES_KEY, 'added_categories');
+  assert.deepEqual(withAddedCategory(undefined, 'florist'), ['florist']);
+  assert.deepEqual(withAddedCategory(['florist'], 'photo_booth'), ['florist', 'photo_booth']);
+  assert.deepEqual(withAddedCategory(['florist'], 'florist'), ['florist'], 'adding twice keeps one');
+  // A label, free text or anything that is not a tile id is refused — nothing is written.
+  for (const bad of ['Florist', 'two words', '', '../x', 'a'.repeat(65), '<b>']) {
+    assert.equal(withAddedCategory([], bad), null, `"${bad}" was accepted as a tile`);
+  }
+});
+
+test('kept: the stored list is read defensively — junk in the blob is never a category', () => {
+  assert.deepEqual(addedCategoriesOf(null), []);
+  assert.deepEqual(addedCategoriesOf({ added_categories: 'florist' }), []);
+  assert.deepEqual(addedCategoriesOf({ added_categories: ['florist', 7, 'Bad One', 'florist', 'cake'] }), ['florist', 'cake']);
+  // The onboarding picks beside it are NOT this list.
+  assert.deepEqual(addedCategoriesOf({ interested_categories: ['florist'] }), []);
+});
+
+test('kept: "＋ Add" writes the added list — never the onboarding picks — and only for a host', () => {
+  const src = stripComments(
+    readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'vendors', 'category-decision-actions.ts'), 'utf8'),
+  );
+  const fn = src.slice(src.indexOf('export async function restoreTileToPlan'));
+  // The checklist, the supplier brief and the onboarding auto-inquiries read the
+  // picks list; an added category must change none of them.
+  assert.doesNotMatch(src, /interested_categories/, 'the action touches the onboarding picks list');
+  assert.match(fn, /writeStylePreferenceKey\(\s*createAdminClient\(\),\s*input\.eventId,\s*ADDED_CATEGORIES_KEY,\s*\(current\) => withAddedCategory\(current, input\.tile\) \?\? current,\s*\)/);
+  // The admin write comes AFTER the host check, and a non-host is refused.
+  const host = fn.indexOf('if ((await getHostUserId(input.eventId)) === null) {');
+  const write = fn.indexOf('writeStylePreferenceKey(');
+  assert.ok(host > -1 && write > host, 'the admin write runs before (or without) the host check');
+  // A write that did not happen is said — never reported as saved.
+  assert.match(fn, /if \(!kept\.ok\) \{[\s\S]*?return \{ ok: false, error: 'That category did not save\. Please try again\.' \};/);
+  // The conversations a removal archived are restored BEFORE anything can return early.
+  assert.ok(fn.indexOf('archived_at: null') > -1 && fn.indexOf('archived_at: null') < host);
+});
+
+test('kept: the page shows a wedding its own picks plus what it added, and hands the bench the ring', () => {
+  const page = stripComments(
+    readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'vendors', 'page.tsx'), 'utf8'),
+  );
+  const planned = page.slice(page.indexOf('const plannedTiles = (() => {'), page.indexOf('})();', page.indexOf('const plannedTiles = (() => {')));
+  assert.doesNotMatch(planned, /=== 'wedding'\) return undefined/, 'a wedding’s own picks are ignored again');
+  assert.match(planned, /const tiles = plannedTileIdSet\(picks\);\s*for \(const t of addedCategoriesOf\(prefs\)\) tiles\.add\(t\);/);
+  assert.match(page, /starterTiles=\{\[\.\.\.popularTilesFor\(ev\?\.event_type \?\? null\)\]\}/);
+  const bench = stripComments(
+    readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'vendors', '_components', 'shortlist-categories.tsx'), 'utf8'),
+  );
+  assert.match(bench, /starterTiles: replan \? starterTiles : undefined,/);
+  // The bench and the page build the ring through the SAME call.
+  assert.match(bench, /const inPlanResolution = resolveBenchRing\(\{/);
+  assert.match(page, /const ring = resolveBenchRing\(\{\s*tiles: ringTiles,\s*excludedTiles,\s*pinnedTile: sp\.open \?\? null,\s*starterTiles: \[\.\.\.popularTilesFor\(ev\?\.event_type \?\? null\)\],\s*\}\);/);
+  assert.match(page, /return \{ \.\.\.money, \.\.\.ringBuildCount\(ringTiles, ring\.inPlan\) \};/);
+});
+
+test('Build N/M is counted over the ring — the rows Find shows, at the rows’ own grain', () => {
+  const tiles = [
+    { tile: 'reception', planned: true, vendorCount: 1, lockedCount: 1 },
+    { tile: 'ceremony_venue', planned: true, vendorCount: 1, lockedCount: 1 },
+    { tile: 'cake', planned: true, vendorCount: 0, lockedCount: 0 },
+    { tile: 'catering', planned: true, vendorCount: 6, lockedCount: 0, buildCount: 1 },
+    { tile: 'bridal_car', planned: true, vendorCount: 0, lockedCount: 0 },
+    { tile: 'florist', planned: false, vendorCount: 0, lockedCount: 0 },
+  ];
+  const ring = resolveBenchRing({ tiles, excludedTiles: [], starterTiles: ['photo_video'] });
+  assert.deepEqual([...ring.inPlan], ['reception', 'ceremony_venue', 'cake', 'catering', 'bridal_car']);
+  // Booked, booked, in the build → 3 of the 5 rows; the unplanned florist is not a row.
+  assert.deepEqual(ringBuildCount(tiles, ring.inPlan), { filled: 3, total: 5 });
+  // A removed row is not counted; a booked one cannot be removed from the count.
+  const cut = resolveBenchRing({ tiles, excludedTiles: ['cake', 'reception'] , starterTiles: [] });
+  assert.deepEqual(ringBuildCount(tiles, cut.inPlan), { filled: 3, total: 4 });
 });

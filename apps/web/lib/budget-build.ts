@@ -159,6 +159,25 @@ export function requestPlanRename(req: RenamePlanRequest) {
 }
 
 /**
+ * "Added to build" bus — the SAME pattern as `BB_TAB_EVENT`, for the same
+ * reason (owner 2026-10-07: *"when you click add to build a small pop up
+ * showing our build (like a shopping cart pop up)"*).
+ *
+ * The buttons that add a supplier to the build live deep in the Find body
+ * (`accordion-build.tsx`, `bench-vendor-actions.tsx`); the cart peek belongs to
+ * the page's shell (`services-takeover.tsx`), a sibling subtree. The button
+ * says WHO was added, and only after the save answered `ok` — a refused pick
+ * never peeks. The shell reads the build's own count and total itself.
+ */
+export const BB_BUILD_ADDED_EVENT = 'bb:build-added';
+export type BuildAdded = { name: string; category: string };
+export function announceBuildAdded(added: BuildAdded) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(BB_BUILD_ADDED_EVENT, { detail: added }));
+  }
+}
+
+/**
  * Is the Services "Build" takeover active? LIVE by default (owner 2026-06-09).
  * Returns false ONLY when `BUDGET_BUILD_ENABLED=false` is explicitly set — the
  * kill-switch. Read server-side and passed down as a prop (NOT `NEXT_PUBLIC_*` —

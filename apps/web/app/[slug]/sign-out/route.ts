@@ -3,7 +3,8 @@ import { clearGuestSession, readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eraseFaceTaggingSelfie } from '@/lib/face-selfie-erase';
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   // 🧽 SIGNING OUT OF THE INVITATION ERASES THE FACE-TAGGING SELFIE (owner
   // 2026-09-30: *"face tagging selfie will erase upon log out"*). Read the pass
   // BEFORE it is cleared — it is the only thing that names whose selfie this
@@ -11,10 +12,14 @@ export async function POST(request: NextRequest) {
   // erase that fails never keeps anyone signed in; the Papic-close sweep
   // finishes what it could not.
   const session = await readGuestSession().catch(() => null);
-  if (session?.event_id && session.guest_id) {
+  // 🎟 THIS event's pass only (one pass per event, 2026-10-12): a pass this
+  // browser holds for another event stays (lib/guest-session.ts clearGuestSession)
+  // — and so does that other event's selfie.
+  const cleared = await clearGuestSession({ slug });
+  const thisEvents = session && (!cleared.eventId || session.event_id === cleared.eventId);
+  if (thisEvents && session.event_id && session.guest_id) {
     await eraseFaceTaggingSelfie(createAdminClient(), session.event_id, session.guest_id).catch(() => null);
   }
-  await clearGuestSession();
   const url = new URL(request.url);
   // Drop /sign-out segment to land back on the slug root.
   url.pathname = url.pathname.replace(/\/sign-out$/, '');

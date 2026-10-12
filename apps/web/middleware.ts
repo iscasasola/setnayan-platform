@@ -24,8 +24,11 @@ import {
   STORE_SHELL_WEB_ONLY_PATH,
 } from '@/lib/store-shell';
 import {
+  GUEST_PASS_BOOK_COOKIE_NAME,
   GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
   GUEST_SESSION_COOKIE_NAME,
+  passSwapForPath,
+  refreshedPassBook,
   shouldRefreshGuestSession,
   signGuestSession,
   verifyGuestSessionToken,
@@ -142,6 +145,32 @@ function detectVendorSubdomain(hostname: string): string | null {
  * Deliberately does not touch `setnayan_wall_display` (live-wall.ts) — that
  * cookie is LAU-40's other, separate finding and is S13's (#5593).
  */
+/**
+ * ONE PASS PER EVENT (2026-10-12, lib/guest-pass-book.ts). A browser that holds
+ * passes for two events keeps them in the pass book; on a request for one
+ * event's pages, THAT event's pass becomes the active one — on the REQUEST
+ * always (so this very render, its Server Actions and its pass hops read it),
+ * and on the RESPONSE only on a plain read (`mayRefreshGuestPass`), so a pass hop
+ * keeps exactly one writer. Runs BEFORE the body: `updateSession` forwards the
+ * request's cookies (`NextResponse.next({ request })`), and the `/u/` rewrite
+ * copies its headers.
+ */
+async function activatePassForEvent(
+  request: NextRequest,
+): Promise<{ value: string; maxAge: number } | null> {
+  const book = request.cookies.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value;
+  if (!book) return null;
+  const { pathname } = request.nextUrl;
+  const path = pathname.startsWith('/u/') ? (userNestingRewritePath(pathname) ?? pathname) : pathname;
+  const swap = await passSwapForPath({
+    jar: { active: request.cookies.get(GUEST_SESSION_COOKIE_NAME)?.value, book },
+    pathname: path,
+  });
+  if (!swap) return null;
+  request.cookies.set(GUEST_SESSION_COOKIE_NAME, swap.value);
+  return swap;
+}
+
 async function refreshGuestSessionCookie(
   request: NextRequest,
   response: NextResponse,
@@ -171,10 +200,40 @@ async function refreshGuestSessionCookie(
     path: '/',
     maxAge: GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
   });
+  // The same pass's entry in the pass book slides with it, or it would fall out
+  // of the book while the active pass lives on.
+  const book = await refreshedPassBook(
+    request.cookies.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value,
+    verified.payload,
+    Math.floor(Date.now() / 1000) + GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
+  );
+  if (book !== 'keep' && book !== null) {
+    response.cookies.set({
+      name: GUEST_PASS_BOOK_COOKIE_NAME,
+      value: book.value,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: book.maxAge,
+    });
+  }
 }
 
 export async function middleware(request: NextRequest) {
+  const activated = await activatePassForEvent(request);
   const response = await middlewareCore(request);
+  if (activated && mayRefreshGuestPass(request.method, request.nextUrl.pathname, request.nextUrl.search)) {
+    response.cookies.set({
+      name: GUEST_SESSION_COOKIE_NAME,
+      value: activated.value,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: activated.maxAge,
+    });
+  }
   await refreshGuestSessionCookie(request, response);
   return response;
 }

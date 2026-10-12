@@ -180,6 +180,11 @@ export function replyHrefCarrying(slug: string, code: string | null | undefined)
   return isUrlSecretShaped(code) ? `${base}?${new URLSearchParams({ [REENTRY_PARAM]: code })}` : base;
 }
 
+/* 🧾 EVIDENCE (2026-10-12): a `rekey` or a `door` here writes ONE Problems-log row —
+   `reply:rekey` / `reply:door` with what the browser held (`passHeldKind`: none = pass
+   missing · other-event = a pass for another event · revoked = a pass that is unusable)
+   and how many passes its pass book held — so the next occurrence says whether the
+   pass was GONE or REPLACED (app/[slug]/invite/reply/page.tsx). */
 export type ReplyEntry = { kind: 'ask' } | { kind: 'rekey'; href: string } | { kind: 'door'; href: string };
 /** Who the reply page asks: the guest it holds a pass for; else, carrying a code, the guest that code
  *  re-keys (back to these questions); else nobody — the event's own door. */
@@ -200,7 +205,11 @@ export type PassHopMissRule =
   | 'enter:guest-gone'
   | 'redeem:missing'
   | 'redeem:unknown-token'
-  | 'reentry:refused';
+  | 'reentry:refused'
+  /** The Reply found no pass for this event and spent the landing's code (`replyEntry` → rekey). */
+  | 'reply:rekey'
+  /** The Reply found no pass for this event and no code: the event's own door. */
+  | 'reply:door';
 
 export type PassHopHeld = 'none' | 'other-event' | 'revoked' | 'this-event';
 
@@ -259,6 +268,8 @@ export type PassHopMiss = {
   carriedCode: boolean;
   /** For `reentry:refused`: why (expired · used · unknown · wrong-event · guest-gone). */
   reason?: string;
+  /** How many passes the browser's pass book held (lib/guest-pass-book.ts) — a COUNT, never a value. */
+  bookPasses?: number;
 };
 
 const MISS_PATH: Record<PassHopMissRule, string> = {
@@ -267,6 +278,8 @@ const MISS_PATH: Record<PassHopMissRule, string> = {
   'redeem:missing': '/[slug]/redeem',
   'redeem:unknown-token': '/[slug]/redeem',
   'reentry:refused': '/[slug]/redeem',
+  'reply:rekey': '/[slug]/invite/reply',
+  'reply:door': '/[slug]/invite/reply',
 };
 
 /** The `recordFault` input for one miss — pure, so the test can read exactly what is stored. */
@@ -274,7 +287,9 @@ export function passHopMissFault(miss: PassHopMiss) {
   return {
     kind: 'DEAD_END' as const,
     action: `guest-pass-hop#${miss.rule}`,
-    message: `A personal-link visit did not land on the invitation (${miss.rule}${miss.reason ? `: ${miss.reason}` : ''})`,
+    message: miss.rule.startsWith('reply:')
+      ? `The Reply found no pass for this event (${miss.rule}, held ${miss.held})`
+      : `A personal-link visit did not land on the invitation (${miss.rule}${miss.reason ? `: ${miss.reason}` : ''})`,
     filePath: MISS_PATH[miss.rule],
     trace: {
       rule: miss.rule,
@@ -284,6 +299,7 @@ export function passHopMissFault(miss: PassHopMiss) {
       held: miss.held,
       code: miss.carriedCode ? 'carried' : 'none',
       ...(miss.reason ? { why: miss.reason } : {}),
+      ...(typeof miss.bookPasses === 'number' ? { book: miss.bookPasses } : {}),
       // The service worker is not on these steps BY RULE (isGuestPassHop above;
       // `/{slug}/invite/enter` is not a day-of navigation in public/sw.js), so
       // it cannot have answered them — the server cannot observe the worker

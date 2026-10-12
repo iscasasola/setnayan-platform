@@ -17,7 +17,10 @@ import { NotYouSwitch } from '../../_components/not-you-switch';
 import { submitInviteReply } from '../actions';
 import { rsvpGate } from '@/lib/guest-one-path';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
-import { replyEntry } from '@/lib/guest-pass-hop';
+import { headers } from 'next/headers';
+import { isLinkPreviewFetch, passHopMissFault, replyEntry } from '@/lib/guest-pass-hop';
+import { guestPassEvidence } from '@/lib/guest-one-path.server';
+import { recordFault } from '@/lib/telemetry/fault-log';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
 import { hubDoorSkin } from '../_components/hub-door-skin';
 import { guestReplyBy, readRsvpWords, resolveRsvpAsk, todayYmd } from '@/lib/rsvp-ask';
@@ -142,7 +145,10 @@ async function inviteReplyPage({ params, searchParams }: Props) {
   const session = canvas ? null : await readGuestSessionForEvent(event.event_id as string);
   if (!canvas) {
     const entry = replyEntry({ slug: home, hasPass: Boolean(session), code: search.k });
-    if (entry.kind !== 'ask') redirect(entry.href);
+    if (entry.kind !== 'ask') {
+      await recordReplyMiss(event.event_id as string, entry.kind, Boolean(search.k));
+      redirect(entry.href);
+    }
   }
   /* 🖼 The reply card's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`). */
   const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
@@ -528,4 +534,32 @@ function canvasWhenWhere(event: { event_date?: unknown; event_date_precision?: u
       {place ? <span data-el="venue">{place}</span> : null}
     </>
   );
+}
+
+/**
+ * 🧾 ONE Problems-log row when the Reply re-keys a guest or sends them to the door
+ * (2026-10-12): what the browser held — pass missing (`none`), a pass for another
+ * event (`other-event`), a pass that is unusable (`revoked`) — and how many passes
+ * its pass book held. No token, no code, no name (lib/guest-pass-hop.ts
+ * `passHopMissFault`). A link-preview robot's miss is not a guest's. Best-effort:
+ * evidence never stands between a guest and their answer.
+ */
+async function recordReplyMiss(eventId: string, kind: 'rekey' | 'door', carriedCode: boolean): Promise<void> {
+  try {
+    const userAgent = (await headers()).get('user-agent');
+    if (isLinkPreviewFetch(userAgent)) return;
+    const { held, bookPasses } = await guestPassEvidence(eventId);
+    await recordFault(
+      passHopMissFault({
+        rule: kind === 'rekey' ? 'reply:rekey' : 'reply:door',
+        steps: ['reply', kind === 'rekey' ? 'redeem' : 'door'],
+        userAgent,
+        held,
+        carriedCode,
+        bookPasses,
+      }),
+    );
+  } catch {
+    /* evidence only */
+  }
 }

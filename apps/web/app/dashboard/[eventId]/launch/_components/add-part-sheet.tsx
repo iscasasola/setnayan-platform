@@ -780,8 +780,8 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
       const o = askPartOps();
       const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
       if (!o || !doc || !step.key || step.key === REVEAL_STUB || !findMakerSection(doc, step.key)) return null;
-      const at = atKey(o, step.key);
-      const id = step.id ?? (at.mv.kind === 'scene' ? at.mv.id : null);
+      /* (by its row: a scene taken off is no longer on the list the steps name parts by) */
+      const id = step.id ?? o.scenes.find((sc) => `w:${sc.type}` === step.key)?.id ?? null;
       if (!id) return null;
       const maker = o.undoDrawn(step.type, id);
       if (!maker) return null;

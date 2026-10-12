@@ -493,8 +493,14 @@ const undoLaidPreviews = () => {
      a part on its way): told NOW, synchronously, so it is taken off in the very commit that draws the server's order —
      never one frame of the order twice, never React finding a node it did not put there (`scene-canvas-drag.ts`). */
   document.querySelector('[data-maker-scene-placeholder]')?.remove();
+  /* A scene ＋ brought back that this page had taken off (`sceneShow`): the render about to commit draws it. */
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(`[${SHOW_ON_REDRAW_ATTR}]`))) {
+    el.style.display = '';
+    el.removeAttribute(SHOW_ON_REDRAW_ATTR);
+  }
   document.dispatchEvent(new Event(CANVAS_REDRAW_COMMITS_EVENT));
 };
+const SHOW_ON_REDRAW_ATTR = 'data-maker-show-on-redraw';
 
 
 export function EditorBridge() {
@@ -967,6 +973,12 @@ export function EditorBridge() {
            reloads. Putting a scene back is never drawn here: a scene the page
            did not draw has nothing to show, so that write reloads. */
         el.style.display = (data as { shown?: unknown }).shown === false ? 'none' : '';
+        return;
+      }
+      if (data.t === 'sceneShowOnRedraw') {
+        /* ＋ A scene this page took off a moment ago, brought back by a held save: it is shown by the in-place redraw
+           that draws it in its new place — in that very commit (`undoLaidPreviews`), never before at its old one. */
+        el.setAttribute(SHOW_ON_REDRAW_ATTR, '');
         return;
       }
       if (data.t === 'playSeq') {

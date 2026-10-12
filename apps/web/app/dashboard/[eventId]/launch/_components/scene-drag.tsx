@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from 'react-dom';
 import { Trash2, Undo2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { makerSavesInFlight, makerSavesStarted } from '@/lib/maker-refresh';
+import { CANVAS_REFRESH_MESSAGE, MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight, makerSavesStarted, requestMakerRefresh } from '@/lib/maker-refresh';
 import { onMakerSave } from '@/lib/maker-save-status';
 import { CANVAS_SETTLE_TIMEOUT_MS, whenCanvasShowsIt, type CanvasSettle } from '@/lib/maker-settle';
 import {
@@ -141,8 +141,11 @@ export function heldSaveWatch(timeoutMs: number = CANVAS_SETTLE_TIMEOUT_MS): Pro
 function isRedrawn(e: MessageEvent): boolean {
   const d = e.data as { source?: unknown; t?: unknown } | null;
   if (e.origin !== window.location.origin || !d || d.source !== 'setnayan-site' || d.t !== 'redrawn') return false;
-  return e.source === (document.querySelector<HTMLIFrameElement>('iframe[data-maker-canvas-frame="shown"]')?.contentWindow ?? null);
+  return e.source === (document.querySelector<HTMLIFrameElement>(SHOWN_CANVAS)?.contentWindow ?? null);
 }
+const SHOWN_CANVAS = 'iframe[data-maker-canvas-frame="shown"]';
+/** A held redraw not painted this long after its save landed is asked for again (once). */
+export const REDRAW_ASK_AGAIN_MS = 5_000;
 
 /** The next in-place redraw of the canvas on show, from now. */
 export function redrawnWatch(timeoutMs: number = CANVAS_SETTLE_TIMEOUT_MS): Promise<CanvasSettle> {
@@ -183,10 +186,23 @@ export function heldRedrawWatch(timeoutMs: number = CANVAS_SETTLE_TIMEOUT_MS): P
           window.removeEventListener('message', on);
           return resolve(how);
         }
+        const savedAt = Date.now();
+        let asked = false;
         const tick = window.setInterval(() => {
+          /* A redraw that never answered is asked for once more… */
+          if (!redrawn && !asked && Date.now() - savedAt > REDRAW_ASK_AGAIN_MS) {
+            asked = true;
+            document.querySelector<HTMLIFrameElement>(SHOWN_CANVAS)?.contentWindow?.postMessage(CANVAS_REFRESH_MESSAGE, window.location.origin);
+          }
           if (!redrawn && Date.now() - began <= timeoutMs) return;
           window.clearInterval(tick);
           window.removeEventListener('message', on);
+          /* …and past the wait the page is reloaded to the truth: what was laid on it ahead of the save must never be
+             left there for good (an unheld write releases the canvas; its render brings the page). */
+          if (!redrawn) {
+            window.dispatchEvent(new Event(MAKER_UNHELD_WRITE_EVENT));
+            requestMakerRefresh();
+          }
           resolve(redrawn ? 'shown' : 'timeout');
         }, 40);
       }),

@@ -1968,6 +1968,8 @@ export function MakerWork({
         if (res.ok) {
           if (order && reorderInFlight.current === 0) reorderLandedAt.current = renderStampRef.current;
           if (held !== null) {
+            /* (a scene this page hid a moment ago is still there, hidden: the redraw shows it, in its new place) */
+            for (const k of keysLeavingWith(`w:${scene.type}`)) postToShownCanvases({ source: 'setnayan-editor', t: 'sceneShowOnRedraw', key: k });
             redrawShown(held);
             if (lastDrawn.current?.kind === 'add' && lastDrawn.current.id === scene.id) lastDrawn.current = { ...lastDrawn.current, landedAt: renderStampRef.current };
           }

@@ -28,6 +28,13 @@ import { useEffect } from 'react';
  * UNSEEN, and opened onto a cover already gone. So on a page whose cover hands over, the hand-overs wait for the
  * Reveal — it says it is up with a mark on the page (`data-reveal-up`, written where it measures "a guest is looking
  * at the opening") — and arm the moment it goes. A page whose cover does not hand over never waits for it.
+ *
+ * 🚪 AN OPENED DOOR ENDS THE HOLD (2026-10-12 — the owner's "Get inside stays on the stranger's first screen"). The
+ * door now stands on the first screen while the cover is held, so a stranger can open it before the cover has faded.
+ * What opens (Upload your QR · Sign in) is below the door, and a held page does not move: they would scroll and see
+ * the cover fade, not their two choices. So the moment "Get inside" opens the hand-overs stand down for the rest of
+ * the visit — the plain page, exactly as today's; at the top of the page nothing moves, since the held page there IS
+ * the plain page — and the door's own fit brings what opened into view as it always has. The page says why.
  */
 /** Kept as text, not imported: the engine must stay out of this island's bundle (`scrub-is-a-held-hand-over` (5)). */
 const OFF = 'data-hub-scrub-off';
@@ -36,12 +43,16 @@ const NOT_LOADED = 'the script did not load';
 /** Kept as text, as `OFF` is: the Reveal's mark (`reveal-overlay.tsx` `REVEAL_UP_ATTR`), and what the page says under it. */
 const REVEAL_UP = 'data-reveal-up';
 const UNDER_REVEAL = 'the opening is still up';
+/** Kept as text, as `OFF` is: the stranger's door (`get-inside.tsx`) while it STAYS on a held first screen (the
+ *  engine's mark, `data-hub-stay`) — a door anywhere else is not this — and what the page says once it was opened. */
+const DOOR = 'details[data-get-inside][data-hub-stay]';
+const DOOR_OPEN = 'the door was opened';
 const armed = new WeakSet<Element>();
 
 /** Are the hand-overs on? A guest's page: always — but not under a closed Reveal, on a page whose cover hands over.
  *  The Maker's canvas: only while it is shown as a guest sees it. */
-export function scrubArmsNow(makerCanvas: boolean, asGuest: boolean, underReveal = false): boolean {
-  return (!makerCanvas || asGuest) && !underReveal;
+export function scrubArmsNow(makerCanvas: boolean, asGuest: boolean, underReveal = false, doorOpened = false): boolean {
+  return (!makerCanvas || asGuest) && !underReveal && !doorOpened;
 }
 
 export function HubScrub() {
@@ -53,6 +64,8 @@ export function HubScrub() {
     const underReveal = () => coverLeaves && html.hasAttribute(REVEAL_UP);
     const stops: Array<() => void> = [];
     let gone = false;
+    /** The stranger opened their door (see the docblock) — for the rest of this visit. */
+    let doorOpened = false;
     let on = false;
     /* ▶ held changes the page's length under the host (the holds are length): the scene that was mid-screen is put
        back as the preview opens and as it closes — `hub-scrub-place.ts`, fetched on the Maker's canvas ONLY. A
@@ -98,21 +111,29 @@ export function HubScrub() {
         });
     };
     const sync = () => {
-      const want = scrubArmsNow(makerCanvas, html.hasAttribute('data-maker-guest'), underReveal());
+      const want = scrubArmsNow(makerCanvas, html.hasAttribute('data-maker-guest'), underReveal(), doorOpened);
       if (want === on) return;
       on = want;
       if (on) arm();
       else if (keepPlace) keepPlace(disarm);
       else disarm();
-      if (!on) say(underReveal() ? UNDER_REVEAL : EDITING);
+      if (!on) say(doorOpened ? DOOR_OPEN : underReveal() ? UNDER_REVEAL : EDITING);
     };
     if (makerCanvas) say(EDITING);
     else if (underReveal()) say(UNDER_REVEAL);
     sync();
     const watch = (makerCanvas || coverLeaves) && typeof MutationObserver !== 'undefined' ? new MutationObserver(sync) : null;
     watch?.observe(html, { attributes: true, attributeFilter: ['data-maker-guest', REVEAL_UP] });
+    /* (`toggle` does not bubble: heard on the way down, before the door's own fit hears it.) */
+    const onToggle = (e: Event) => {
+      if (doorOpened || !(e.target instanceof HTMLDetailsElement) || !e.target.open || !e.target.matches(DOOR)) return;
+      doorOpened = true;
+      sync();
+    };
+    document.addEventListener('toggle', onToggle, true);
     return () => {
       gone = true;
+      document.removeEventListener('toggle', onToggle, true);
       watch?.disconnect();
       disarm();
     };

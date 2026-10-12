@@ -1,3 +1,4 @@
+import { firstScreenFitter } from '../_lib/first-screen-fit-dom';
 import { SCRUB, scrubLens, scrubMoment, scrubNeedsRest, scrubOwnIn, scrubPair, scrubRow, scrubThrough, type ScrubElement, type ScrubPair } from './hub-scrub-math';
 
 /**
@@ -36,10 +37,19 @@ const THROUGH = '.hub-scenes, .hub-cell, .hub-stage, .hub-after, .hub-below, .sn
  * IS, never measured: a block is "the action row" when it is one of these, or is the box that holds one.
  */
 const ACTION_ROW = '[data-arrival-action], [data-get-inside]';
+/**
+ * 🚪 THE STRANGER'S DOOR — "Get inside" (`get-inside.tsx`), or what stands in its place for a signed-in stranger. Owner
+ * 2026-10-12, asked whether it should stay on the first screen or arrive after the cover fades: *"Keep it on first
+ * screen"*. So a door that is ON the first screen as the page opens (the cover fitted to make room for it) is not
+ * handed over: it STAYS where it stands, whole and pressable, for the whole hold; what arrives in the cover's place
+ * is the block after it, ending above it. A door that is not on the first screen (a photo cover is taller than the
+ * screen, and nothing fits it) still arrives with the block after it, as before.
+ */
+const DOOR = '[data-get-inside]';
 /** `stick`: where the STAGE's top stands while its scene is held — above the scene's own line by whatever the stage holds before it.
  *  `lift`: on a hand-over from the cover, the box the rise of what follows its arrival is SAID on — the page's own first
  *  stage, so every box marked under it reads the one number, whichever of the page's groups it is in. */
-type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; mates?: HTMLElement[]; pair: ScrubPair; rest: number; stick: number; lift?: HTMLElement };
+type Held = { cell: HTMLElement; stage: HTMLElement; scene: HTMLElement; after: HTMLElement; below: HTMLElement | null; arrival: HTMLElement | null; mates?: HTMLElement[]; pair: ScrubPair; rest: number; stick: number; lift?: HTMLElement; floor?: number };
 
 const px = (n: number) => `${Math.round(n * 100) / 100}px`;
 const num = (n: number) => String(Math.round(n * 1000) / 1000);
@@ -174,6 +184,22 @@ export function armHubScrub(root: HTMLElement): () => void {
     }
     return out;
   };
+  /**
+   * 📐 THE COVER IS FITTED ONCE, BEFORE IT IS HELD (owner 2026-10-12, DECISION_LOG "option 2"). A cover taller than the
+   * screen was held by its bottom, and its names stood under the pinned top bar while it faded. So the first time the
+   * cover is measured with a size, the page's own first-screen fit (`_lib/first-screen-fit-dom.ts`, the rule
+   * `_lib/first-screen-fit.ts`) closes its air up, draws its mark smaller and lets parts go below the line — the names
+   * never — so its names and date are on the first screen; then it is held. NEVER AGAIN while it is held: a fit that
+   * answered the hand-over's own re-measure fed a loop (the page changed length every ~120 ms at 375 × 560, #6484).
+   * A first screen the stranger's door has already fitted (`first-screen-door.tsx`, before the hold armed: its mark is
+   * on a box around the cover) is that fit's, kept as it is. Taken back when the hold is.
+   */
+  let fitted = false;
+  let unfit: (() => void) | null = null;
+  /** The cover's rest's own top margin, read before the hold armed — kept on it when nothing is pulled through it. */
+  let restMargin: number | null = null;
+  /** The door that stayed at the last measure (`data-hub-stay`). */
+  let stayed: HTMLElement[] = [];
   const there = new Set<HTMLElement>();
   let V = 0;
   let C = 0;
@@ -184,6 +210,26 @@ export function armHubScrub(root: HTMLElement): () => void {
   let dead = false;
   /** Where the page was when the numbers were last set — see the pulse. */
   let drawnAt = -1;
+
+  /** 📐 Fit the cover's first screen once (see `fitted`); returns how to take it back, or null when it is not this hold's to fit. */
+  function fitCover(cover: HTMLElement, cell: HTMLElement): (() => void) | null {
+    if (cover.closest('[data-first-screen-fit]')) return null; // the stranger's door fitted it before the hold armed
+    const head = cover.querySelector<HTMLElement>('header[data-pahina-first-screen]');
+    const card = head?.querySelector<HTMLElement>('[data-cover-frameless]') ?? null;
+    const inner = card?.firstElementChild;
+    if (!head || !card || !(inner instanceof HTMLElement)) return null; // only the frameless card is fitted, as on the door's page
+    const fit = firstScreenFitter(head, card, inner, null, () => docTop(cover) - cover.getBoundingClientRect().top);
+    fit.mark(true);
+    const list = fit.blocks();
+    fit.clear(list);
+    /* The line the names and the date must end above: the bottom bar's top, as the door's own fit reads it
+       (`globals.css`, `--sn-door-rest` — said on the armed cover's cell as a real length, so it can be read). */
+    fit.make(list, window.innerHeight - (parseFloat(getComputedStyle(cell).scrollPaddingBottom) || 0));
+    return () => {
+      fit.clear(fit.blocks());
+      fit.mark(false);
+    };
+  }
 
   function measure() {
     V = window.innerHeight;
@@ -197,6 +243,12 @@ export function armHubScrub(root: HTMLElement): () => void {
        as it is LAID OUT, so those are taken off first — `frame`, which always follows, puts them back. */
     for (const h of was) if (h.below) put(h.below, '--hub-rise', '0px');
     for (const h of was) if (h.lift) put(h.lift, '--hub-zrise', '0px');
+    /* (A door that stayed is measured as it is laid out too.) */
+    /* (Before the hold is armed, once: the cover's rest's own margin, as the page lays it out.) */
+    if (restMargin === null && pages.length) {
+      const rest0 = root.querySelector<HTMLElement>(`${COVER} > .hub-cover-after`);
+      if (rest0) restMargin = parseFloat(getComputedStyle(rest0).marginTop) || 0;
+    }
     /* Armed FIRST: where a stage must stand depends on the hand-overs before it having drawn their arrivals in place
        (`--hub-up`), and nothing of the drawing applies until the mark is on. */
     for (const s of scopes) put(s, 'data-hub-scrub-on', '');
@@ -227,6 +279,10 @@ export function armHubScrub(root: HTMLElement): () => void {
     /** What arrives first: one block — or every box of an action row that draws no box of its own. */
     let row: HTMLElement[] = [];
     let outside: HTMLElement | null = null;
+    if (pages[0] && coverCell && cover && coverRest && cover.offsetHeight > 0 && !fitted) {
+      fitted = true;
+      unfit = fitCover(cover, coverCell);
+    }
     if (pages[0] && coverCell && cover && coverRest && cover.offsetHeight > 0) {
       const page = pages[0].stage;
       const through = (el: HTMLElement) => (el.matches(THROUGH) ? (nextBox(el) ?? el) : el);
@@ -239,7 +295,7 @@ export function armHubScrub(root: HTMLElement): () => void {
         outside = followers(coverCell, page)[0] ?? null;
         arrives = outside ? through(outside) : null;
       }
-      const pulled = outside ?? coverRest;
+      let pulled = outside ?? coverRest;
       /* 🤝 TOGETHER (owner 2026-10-10, asked what should stand where the names built out — the RSVP button alone, or
          the button and the countdown: *"Together."*; his own sentence: *"maria jose must build out and until we say i
          do should be where maria jose build out"*). When what arrives is THE PAGE'S ACTION ROW (`ACTION_ROW` — what
@@ -254,14 +310,41 @@ export function armHubScrub(root: HTMLElement): () => void {
       row = arrives ? (held0 && boxless(held0) && held0.querySelector(ACTION_ROW) ? (Array.from(held0.children) as HTMLElement[]).filter((el) => el.offsetHeight > 0 && el.offsetParent !== null) : [arrives]) : [];
       const rowEnd = row[row.length - 1] ?? null;
       if (rowEnd && row.some((el) => el.matches(ACTION_ROW) || el.querySelector(ACTION_ROW) !== null)) mate = followers(rowEnd, page).map(through)[0] ?? null;
-      const unitEnd = mate ?? rowEnd;
+      /* Where a box of the first screen is drawn on the page — from where the cover is LAID OUT, so a stage standing
+         still is never read as layout (and a part the fit draws away from its own place is read where it is drawn). */
+      const coverAt = cover.getBoundingClientRect().top;
+      const onPage = (el: Element, edge: 'top' | 'bottom') => docTop(cover) + el.getBoundingClientRect()[edge] - coverAt;
+      /* 📐 What must be seen of the cover from where it stands: its names and its date (what the fit keeps). */
+      const must = [cover.querySelector('[data-hub-names]'), cover.querySelector('[data-motion="arrive-date"]')].filter((el): el is HTMLElement => el instanceof HTMLElement && el.offsetHeight > 0);
+      const seen = must.length ? Math.max(...must.map((el) => onPage(el, 'bottom'))) - docTop(cover) : cover.offsetHeight;
+      /* 🚪 THE DOOR STAYS when it is on the first screen as the page opens: above the bottom bar it docks clear of. */
+      const door = row.find((el) => el.matches(DOOR) || el.querySelector(DOOR) !== null) ?? null;
+      const dockedBy = door ? parseFloat(getComputedStyle(door.matches(DOOR) ? door : door.querySelector<HTMLElement>(DOOR)!).scrollMarginBottom) || 0 : 0;
+      const stays = door !== null && rowEnd !== null && mate !== null && Math.max(...row.map((el) => onPage(el, 'bottom'))) <= V - dockedBy + 0.5;
+      const staying = stays ? row : [];
+      let keep: { seen: number; stay?: number } = { seen };
+      if (stays) {
+        /* What arrives is the block after the door, alone; the box it stands in is the one pulled up to the cover —
+           through the door, which is not moved — and it ends above the door by the page's own distance to it. */
+        const doorTop = Math.min(...row.map((el) => onPage(el, 'top')));
+        const doorBottom = Math.max(...row.map((el) => onPage(el, 'bottom')));
+        const gap = Math.max(0, docTop(mate!) - doorBottom);
+        outside = followers(rowEnd!, page)[0] ?? null;
+        arrives = mate;
+        row = mate ? [mate] : [];
+        mate = null;
+        keep = { seen, stay: doorTop - gap };
+        if (outside) pulled = outside;
+      }
+      const unitEnd = mate ?? row[row.length - 1] ?? null;
       const unit: ScrubElement = arrives && unitEnd ? { h: docTop(unitEnd) + unitEnd.offsetHeight - docTop(arrives), oneByOne: oneByOne(unitEnd) } : { h: 0, oneByOne: false };
-      const pair = scrubPair({ h: cover.offsetHeight, oneByOne: false }, unit, view, docTop(cover));
+      const pair = scrubPair({ h: cover.offsetHeight, oneByOne: false }, unit, view, docTop(cover), keep);
       const stick = pair.top - (docTop(cover) - docTop(pages[0].stage));
       put(pages[0].stage, '--hub-top', px(stick));
       put(pages[0].cell, '--hub-len', px(pair.len));
       const up = arrives ? pair.up - (docTop(arrives) - docTop(pulled)) : 0;
-      if (outside) put(coverRest, '--hub-up', '0px');
+      /* (Said outright, as every length here: the door's own rest keeps its own margin; any other is pulled through.) */
+      if (outside) put(coverRest, '--hub-up', stays ? px(restMargin ?? 0) : '0px');
       put(pulled, '--hub-up', px(up));
       if (outside) put(outside, 'data-hub-zrest', '');
       put(pages[0].stage, '--hub-zrise', '0px');
@@ -273,7 +356,12 @@ export function armHubScrub(root: HTMLElement): () => void {
       if (Math.abs(over) > 0.5) put(pulled, '--hub-up', px(up - over));
       const last = unitEnd;
       const next = last?.nextElementSibling ?? null;
-      held.push({ cell: pages[0].cell, stage: pages[0].stage, scene: cover, after: coverRest, below: next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null, arrival: arrives, mates: [...row.slice(1), ...(mate ? [mate] : [])], pair, rest: 0, stick, lift: pages[0].stage });
+      /* 🚪 What follows the arrival goes on under the door that stayed — never over it, during the hold or after. */
+      const floor = stays && arrives ? Math.max(0, Math.max(...staying.map((el) => onPage(el, 'bottom'))) - (pair.arrivalTop + unit.h)) : 0;
+      for (const el of stayed) if (!staying.includes(el)) put(el, 'data-hub-stay', null);
+      for (const el of staying) put(el, 'data-hub-stay', '');
+      stayed = staying;
+      held.push({ cell: pages[0].cell, stage: pages[0].stage, scene: cover, after: coverRest, below: next?.matches('.hub-below, .hub-after') ? (next as HTMLElement) : null, arrival: arrives, mates: [...row.slice(1), ...(mate ? [mate] : [])], pair, rest: 0, stick, lift: pages[0].stage, floor });
       /* (The one of the two that can be a scene with a hand-over of its own is the second.) */
       arrivedAt = arrives ? (mate ? { scene: mate, top: pair.arrivalTop + (docTop(mate) - docTop(arrives)) } : { scene: arrives, top: pair.arrivalTop }) : null;
       /* Played with the scenes: the cover first, then what arrives (unless it is a scene the list already has). */
@@ -405,7 +493,7 @@ export function armHubScrub(root: HTMLElement): () => void {
          pixels of a rounded screen: at some heights it ends a rounding short of 1 (770 px: 0.994), and what follows
          the cover then stood that share of its rise too low for the rest of the page — measured on the real
          invitation, 1.5 px under a reply row it should have been 48 px from. */
-      if (h.lift) put(h.lift, '--hub-zrise', px(t >= h.pair.len + h.rest ? 0 : h.pair.rise * lower));
+      if (h.lift) put(h.lift, '--hub-zrise', px(Math.max(h.floor ?? 0, t >= h.pair.len + h.rest ? 0 : h.pair.rise * lower)));
     }
     for (const scene of scenes) {
       const s = of(scene);
@@ -481,6 +569,9 @@ export function armHubScrub(root: HTMLElement): () => void {
     /* Back to the plain page: every mark and property this script set, taken off. */
     for (const [el, keys] of marked) for (const key of keys.keys()) key.startsWith('--') ? el.style.removeProperty(key) : el.removeAttribute(key);
     marked.clear();
+    /* …and the cover's fit, taken back with the hold it was made for. */
+    unfit?.();
+    unfit = null;
   }
   /* A scene that changes height (a font landing, a picture, an open row) is measured again. */
   let sizes: ResizeObserver | null = null;
@@ -519,6 +610,8 @@ export function armHubScrub(root: HTMLElement): () => void {
          moment its tab is, it has a size, and its hand-over is measured. */
       const cover = root.querySelector<HTMLElement>(`${COVER} > .hub-cover`);
       if (cover) watch(cover);
+      /* …and a door that stays: opened or closed, what follows it is placed under it again. */
+      for (const el of stayed) watch(el);
     }
   } catch (e) {
     fail(e);

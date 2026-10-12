@@ -240,7 +240,14 @@ test('(5) fail-visible: the island draws nothing and loads the engine late; ever
   /* THE SAME PLACE — a margin, in the flow. */
   assert.equal(of('.hub-scenes[data-hub-scrub-on] .hub-scene + .hub-after'), 'margin-top: var(--hub-up, 1rem);');
   /* NO TRANSFORM on anything that holds scenes (it would capture a scene's `position: fixed` sheets). */
-  for (const r of rules) if (!/hub-canvas-body/.test(r.sel)) assert.doesNotMatch(r.body, /transform|translate|will-change/, `${r.sel} is transformed`);
+  /* (RE-AIMED 2026-10-10: `transform: none` is allowed — it takes a transform OFF. One rule needs it: a chapter that
+     holds what arrives must not keep the scroll reveal's own 22 px offset. The claim is unchanged: nothing here PUTS
+     a transform on a box that holds scenes.) */
+  for (const r of rules) if (!/hub-canvas-body/.test(r.sel)) assert.doesNotMatch(r.body.replace(/\btransform: none;/g, ''), /transform|translate|will-change/, `${r.sel} is transformed`);
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-page-stage \[data-pahina-chapters\] > :has\(\[data-hub-zero\]\) \{ opacity: 1; transform: none; transition: none; \}/);
+  /* The page's end, on a page with no scenes block to lengthen: said and drawn on the page's own hold. */
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \{ padding-bottom: var\(--hub-end, 0px\); \}/);
+  assert.match(read(`${B}/hub-scrub-engine.ts`), /const tail = scopes\[scopes\.length - 1\] \?\? root;/);
   /* Not there until its turn, and gone after it. */
   assert.equal(of('.hub-scenes[data-hub-scrub-on] .hub-scene[data-hub-fx][data-hub-away]'), 'visibility: hidden;');
 });
@@ -439,6 +446,12 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
      and the rest of the page. */
   assert.equal(draw(true), '<div class="hub-cover-cell"><div class="hub-cover" data-hub-fx=""><header>the cover</header></div><div class="hub-cover-after"><section>the door</section><section>a scene</section></div></div>');
   for (const c of HUB_COVER_CLASSES) assert.ok(draw(true).includes(`class="${c}"`), `${c} is not emitted`);
+  /* 🧱 THE PAGE'S OWN WORDS ON THE THREE BOXES (`boxes`, the real invitation): a class and a mark the page needs said
+     there — after the box's own class, the box's own mark kept — and NOTHING of it on a cover that does not leave. */
+  const said = { cell: { 'data-pahina-first-screen': '' }, cover: { 'data-pahina-chapters': '' }, rest: { 'data-pahina-chapters': '', className: 'mt-12 space-y-12' } } as const;
+  const drawSaid = (leaves: boolean) => renderToStaticMarkup(React.createElement(HubCoverHold, { leaves, boxes: said, cover: React.createElement('header', null, 'the cover') }, React.createElement('section', null, 'the door')));
+  assert.equal(drawSaid(true), '<div data-pahina-first-screen="" class="hub-cover-cell"><div data-pahina-chapters="" class="hub-cover" data-hub-fx=""><header>the cover</header></div><div data-pahina-chapters="" class="hub-cover-after mt-12 space-y-12"><section>the door</section></div></div>');
+  assert.equal(drawSaid(false), '<header>the cover</header><section>the door</section>', 'a cover that does not leave draws something of the page’s words for its boxes');
   /* NO SCRIPT FOR A COVER THAT DOES NOT LEAVE: the island is mounted in the leaving branch alone (it draws nothing,
      so the markup above cannot show it — the source is read). */
   const scenes = read(`${B}/hub-scenes.tsx`);
@@ -458,17 +471,68 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
   }
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover-after \{ display: flow-root; margin-top: var\(--hub-up, 0px\); \}/);
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover,\s*\.hub-page-cell\[data-hub-page-on\] \[data-hub-zero\] \{ opacity: var\(--hub-o, 1\); \}/);
-  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover-after \[data-hub-zlift\] \{ position: relative; top: var\(--hub-zrise, 0px\); \}/);
+  /* …and an arrival that is one of the page's CHAPTERS keeps the hand-over's one fade: the scroll reveal's own
+     "shown" rule (opacity 1, four classes and marks strong) must not un-fade it — said again above that weight. */
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-page-stage \[data-pahina-chapters\] > \[data-hub-zero\] \{ opacity: var\(--hub-o, 1\); transition: none; \}/);
+  /* (Five classes and marks against the reveal's four — counted here, so a stronger reveal rule is seen.) */
+  const weight = (sel: string) => (sel.match(/\.[\w-]+|\[[^\]]+\]/g) ?? []).length;
+  const revealShown = [...CSS.matchAll(/([^{}]+)\{[^{}]*\}/g)].flatMap((m) => m[1]!.split(',')).map((x) => x.trim()).filter((x) => /\[data-pahina-chapters\] > \*/.test(x));
+  assert.ok(revealShown.length >= 2 && revealShown.includes('.pahina-js .sn-editorial [data-pahina-chapters] > *.pahina-in'), `the reveal’s own rules were not found (${revealShown.join(' | ')})`);
+  for (const sel of revealShown) assert.ok(weight('.hub-page-cell[data-hub-page-on] .hub-page-stage [data-pahina-chapters] > [data-hub-zero]') > weight(sel), `the scroll reveal’s rule is as strong as the hand-over’s fade: ${sel}`);
+  /* (RE-AIMED 2026-10-10 — the claim changed: this rule read `.hub-cover-after [data-hub-zlift]`, a box inside the
+     cover's own rest. On the real invitation what follows the arrival is in the page's LATER GROUPS, outside that
+     box, so the engine marks up to the page's own stage and says the rise there — see `followers`, below.) */
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \[data-hub-zlift\] \{ position: relative; top: var\(--hub-zrise, 0px\); \}/);
 
   /* THE ENGINE: the page's FIRST pair, the cover's laid-out top as where it stands, the next box on the page. */
   const engine = read(`${B}/hub-scrub-engine.ts`);
-  assert.match(engine, /const pair = scrubPair\(\{ h: cover\.offsetHeight, oneByOne: false \}, arrives \? elementOf\(arrives\) : \{ h: 0, oneByOne: false \}, view, docTop\(cover\)\);/);
+  /* (RE-AIMED 2026-10-10 — the claim changed: what arrives is no longer always ONE box measured by its own height.
+     The owner, asked whether the RSVP button or the button and the countdown should stand where the names built out:
+     "Together." So what arrives is a UNIT — the action row and the block after it, the page's own distance between
+     them included — or one box as before; the cover's side of the pair, and where it stands, are unchanged.) */
+  assert.match(engine, /const unit: ScrubElement = arrives && unitEnd \? \{ h: docTop\(unitEnd\) \+ unitEnd\.offsetHeight - docTop\(arrives\), oneByOne: oneByOne\(unitEnd\) \} : \{ h: 0, oneByOne: false \};\s*const pair = scrubPair\(\{ h: cover\.offsetHeight, oneByOne: false \}, unit, view, docTop\(cover\)\);/);
+  /* 🤝 TOGETHER: decided by what the block IS — the page's own marks for its one action — never by its height; the
+     block after it is looked for up to the page's stage, through the page's groups; both are marked, and both are
+     given the same moment of the hand-over. */
+  assert.match(engine, /const ACTION_ROW = '\[data-arrival-action\], \[data-get-inside\]';/);
+  /* (RE-AIMED 2026-10-12: the action row can be a row with no box of its own — every box of it arrives, and the block
+     after the LAST of them arrives with them. Still decided by the page's own marks.) */
+  assert.match(engine, /if \(rowEnd && row\.some\(\(el\) => el\.matches\(ACTION_ROW\) \|\| el\.querySelector\(ACTION_ROW\) !== null\)\) mate = followers\(rowEnd, page\)\.map\(through\)\[0\] \?\? null;/);
+  assert.match(engine, /held0 && boxless\(held0\) && held0\.querySelector\(ACTION_ROW\) \?/);
+  assert.match(engine, /const THROUGH = '[^']*\[data-hub-tab\]';/, 'a group of the page (one tab’s box) is not looked through for the block that arrives');
+  assert.match(engine, /if \(h\.arrival\) Object\.assign\(of\(h\.arrival\), \{ pin: m\.in, gate: m\.rows, handed: true \}\);[\s\S]{0,160}for \(const el of h\.mates \?\? \[\]\) Object\.assign\(of\(el\), \{ pin: m\.in, gate: m\.rows, handed: true \}\);/);
+  for (const marked of ['data-arrival-action', 'data-get-inside']) assert.ok(['app/[slug]/_components/arrival-action.tsx', 'app/[slug]/_components/guest-me-parts.tsx', 'app/[slug]/_components/get-inside.tsx'].some((f) => read(f).includes(marked)), `no row of the page carries ${marked} any more — the engine would pair nothing`);
+  assert.doesNotMatch(engine.match(/if \(rowEnd && row\.some\([^\n]*/)?.[0] ?? 'offsetHeight', /offsetHeight|\.h\b|room|innerHeight/, 'the action row is decided by a height');
+  /* 🚪 THE COVER NEVER FADES TO NOTHING: nothing a guest can see in the cover's own rest → the next box on the page
+     after the cover's cell arrives, and THAT box is the one pulled up to the cover. */
+  assert.match(engine, /arrives = nextBox\(coverRest\);\s*if \(!arrives\) \{\s*outside = followers\(coverCell, page\)\[0\] \?\? null;\s*arrives = outside \? through\(outside\) : null;\s*\}\s*const pulled = outside \?\? coverRest;/);
+  assert.match(engine, /if \(outside\) put\(outside, 'data-hub-zrest', ''\);/);
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \[data-hub-zrest\] \{ margin-top: var\(--hub-up, 0px\) !important; \}/);
   assert.match(engine, /const stick = pair\.top - \(docTop\(cover\) - docTop\(pages\[0\]\.stage\)\);\s*put\(pages\[0\]\.stage, '--hub-top', px\(stick\)\);\s*put\(pages\[0\]\.cell, '--hub-len', px\(pair\.len\)\);/);
   assert.match(engine, /if \(!el\.offsetHeight \|\| el\.offsetParent === null\) continue;\s*return el\.matches\(THROUGH\) \? \(nextBox\(el\) \?\? el\) : el;/);
   /* …what follows the arrival stays under the cover until the cover has completely gone; a box the page pins is never moved. */
   assert.match(engine, /const lower = h\.lift \? 1 - m\.rows : m\.below;/);
   /* …and the distance to the arrival is READ BACK: a bottom margin on the cover's own last child runs out through its
      box and is added to the one the engine sets (seen in the browser: the arrival 40 px below its line). */
-  assert.match(engine, /const over = arrives \? docTop\(arrives\) - \(docTop\(cover\) \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(coverRest, '--hub-up', px\(up - over\)\);/);
-  assert.match(engine, /getComputedStyle\(sib\)\.position === 'static'/);
+  /* (RE-AIMED 2026-10-10: the box that is pulled up is the cover's own rest OR, when that holds nothing, the next box
+     on the page — `pulled`; the read-back is the same sum.) */
+  assert.match(engine, /const over = arrives \? docTop\(arrives\) - \(docTop\(cover\) \+ cover\.offsetHeight\) - pair\.up : 0;\s*if \(Math\.abs\(over\) > 0\.5\) put\(pulled, '--hub-up', px\(up - over\)\);/);
+  /* (RE-AIMED 2026-10-12: a row that draws no box of its own — `display: contents`, the stranger's door row after the
+     merge — stands for its children; the box asked is each of those, or the sibling itself. The claim is unchanged.) */
+  assert.match(engine, /getComputedStyle\(box\)\.position === 'static'/);
+  assert.match(engine, /const boxless = \(el: HTMLElement\) => el\.childElementCount > 0 && getComputedStyle\(el\)\.display === 'contents';/);
+  assert.match(engine, /if \(!el\.offsetHeight && boxless\(el\)\) \{\s*const inside = nextBox\(el\);\s*if \(inside\) return inside;\s*continue;\s*\}/);
+  /* …and "what follows" is looked for UP TO THE PAGE'S OWN STAGE — the later groups of a real page are not inside the
+     cover's rest — with the rise said on that stage, where every marked box can read it; and the cover is watched
+     for a size of its own, so a page armed on another tab measures the hand-over when the first tab is shown. */
+  /* (RE-AIMED 2026-10-10: "what follows" begins after the LAST of what arrives — the block that came with the row.) */
+  assert.match(engine, /const lastIn = mate \?\? row\[row\.length - 1\] \?\? null;\s*lifted = lastIn && pages\[0\] \? followers\(lastIn, pages\[0\]\.stage\) : \[\];/);
+  assert.match(engine, /put\(pages\[0\]\.stage, '--hub-zrise', '0px'\);/);
+  assert.match(engine, /arrival: arrives, mates: \[\.\.\.row\.slice\(1\), \.\.\.\(mate \? \[mate\] : \[\]\)\], pair, rest: 0, stick, lift: pages\[0\]\.stage \}\);/);
+  assert.doesNotMatch(engine, /followers\(arrives, coverRest\)|put\(coverRest, '--hub-zrise'/, 'what follows the cover is looked for, or lifted, only inside the cover’s own rest');
+  assert.match(engine, /const cover = root\.querySelector<HTMLElement>\(`\$\{COVER\} > \.hub-cover`\);\s*if \(cover\) watch\(cover\);/);
+  /* …and a box that had no size as it was watched is KNOWN to be 0 — its first report is then a change, not skipped. */
+  assert.match(engine, /if \(!el\.offsetHeight\) was\.set\(el, 0\);/);
+  assert.match(engine, /if \(was\.has\(e\.target\) && was\.get\(e\.target\) !== h\) changed = true;/);
+  assert.doesNotMatch(engine, /let first = true/, 'the observer skips its first call by a flag — a page armed on another tab never measures its cover');
 });

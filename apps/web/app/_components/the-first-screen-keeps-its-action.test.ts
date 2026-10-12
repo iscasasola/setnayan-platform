@@ -230,6 +230,12 @@ test('(5) the page wears it: the button never floats, the component measures wha
   assert.match(fit, /new ResizeObserver\(soon\)/);
   assert.match(fit, /door\.addEventListener\('toggle', onToggle\)/);
   assert.match(fit, /if \(door\.open\) door\.scrollIntoView\(\{ block: 'nearest'/);
+  // 🎚 While the cover hands over by Scrub (the page's hold armed) it stands aside: the door is the arrival then, drawn
+  // by the hand-over, and a fit answering the hand-over's re-measure fed a loop (the page changed length every ~120 ms
+  // at 375 × 560 — `scripts/scrub-browser-check.mjs` 16 plays it in a browser; this only pins the source).
+  assert.match(fit, /const handedOver = \(\) => door\.closest\('\[data-hub-page-on\]'\) !== null;/);
+  assert.match(fit, /const list = blocks\(\);\s*clear\(list\);\s*if \(handedOver\(\)\) \{\s*plan = null;\s*return;\s*\}/, 'the fit writes while the cover is handed over');
+  assert.match(fit, /\.observe\(hold, \{ attributes: true, attributeFilter: \['data-hub-page-on'\] \}\)/, 'the fit does not hear the hand-over arm');
   // It writes custom properties and one attribute — never a position of its own.
   assert.doesNotMatch(fit, /style\.(?:position|top|transform)\b/, 'the component positions a block itself');
 

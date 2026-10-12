@@ -279,20 +279,20 @@ export function BudgetAllocationPlanner({
               <Wallet aria-hidden strokeWidth={1.75} />
               Total budget
             </p>
-            <p className="font-mono text-3xl font-bold text-ink sm:text-4xl">
+            <p className="tabular-nums text-3xl font-bold text-ink sm:text-4xl">
               {formatPhpRounded(budgetPhp)}
             </p>
           </div>
           <div className="space-y-1 text-right">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            <p className="tabular-nums text-[11px] uppercase tracking-[0.2em] text-ink/55">
               {overBudget ? 'Over budget' : 'Cushion'}
             </p>
             {overBudget ? (
-              <p className="font-mono text-2xl font-bold text-terracotta-700 sm:text-3xl">
+              <p className="tabular-nums text-2xl font-bold text-terracotta-700 sm:text-3xl">
                 {formatPhpRounded(Math.abs(cushion))}
               </p>
             ) : (
-              <p className="font-mono text-2xl font-bold text-success-700 sm:text-3xl">
+              <p className="tabular-nums text-2xl font-bold text-success-700 sm:text-3xl">
                 {formatPhpRounded(cushion)}
               </p>
             )}
@@ -515,16 +515,16 @@ function LeafRow({
               </span>
             ) : null}
           </div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+          <p className="tabular-nums text-[11px] uppercase tracking-[0.15em] text-ink/45">
             Range {formatPhpRounded(leaf.rangeLowPhp)}–{formatPhpRounded(leaf.rangeHighPhp)}
           </p>
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="font-mono text-xl font-bold text-ink tabular-nums">
+          <p className="text-xl font-bold text-ink tabular-nums">
             {formatPhpRounded(leaf.amountPhp)}
           </p>
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+          <p className="tabular-nums text-[10px] uppercase tracking-[0.15em] text-ink/45">
             {sharePct}% of budget
           </p>
         </div>
@@ -666,7 +666,7 @@ function TiltEditor({
             choice of several is a dropdown, never a pill row). Each option shows
             its amount; a typed amount that matches none reads "Your own amount". */}
         <div className="mt-5 flex items-center gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Level</span>
+          <span className="tabular-nums text-[11px] uppercase tracking-[0.2em] text-ink/55">Level</span>
           <PickMenu
             label="Spending level"
             value={tiltKey}
@@ -695,7 +695,7 @@ function TiltEditor({
         <div className="mt-5 space-y-2">
           <label
             htmlFor="tilt-amount"
-            className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+            className="tabular-nums text-[11px] uppercase tracking-[0.2em] text-ink/55"
           >
             Or set your own (PHP)
           </label>
@@ -717,7 +717,7 @@ function TiltEditor({
                 }
               }}
               placeholder={formatPlain(recommendedAmountPhp)}
-              className="input-field h-12 flex-1 font-mono text-xl tabular-nums"
+              className="input-field h-12 flex-1 tabular-nums text-xl"
             />
           </div>
           {leaf.belowFloor ? (

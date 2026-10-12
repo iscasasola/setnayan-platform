@@ -1031,7 +1031,13 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   // the child was removed rather than relabelled — relabelling would have
   // printed "Event Hub" twice on one screen. /website/editor keeps its doors:
   // the controller's S5 "The page itself" row and `HubStage`'s `editHref`.
-  // Budget docked sub-nav — the 3 on-page scroll sections of /budget.
+  // Budget docked sub-nav — the on-page scroll sections of /budget.
+  // ⛔ `customer.budget-anchors.allocate` RETIRED 2026-10-08 (Budget B2). It
+  // scrolled to `#budget-allocate`, the "Suggested budget split" planner, which
+  // left the Budget page (owner on the category estimates: "not this one").
+  // A slot whose section is gone is a door to nowhere, so it was removed rather
+  // than left pointing at the top of the page. `payments` now lands on the one
+  // list (`#budget-payments`), where a supplier's payments are recorded.
   {
     key: "customer.budget-anchors.overview",
     scope: "customer",
@@ -1045,18 +1051,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 0,
   },
   {
-    key: "customer.budget-anchors.allocate",
-    scope: "customer",
-    area: "budget-anchors-subnav",
-    route: "/dashboard/[eventId]/budget#budget-allocate",
-    label: "Allocate",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "PieChart",
-    customRef: null,
-    sortOrder: 1,
-  },
-  {
     key: "customer.budget-anchors.payments",
     scope: "customer",
     area: "budget-anchors-subnav",
@@ -1066,7 +1060,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Receipt",
     customRef: null,
-    sortOrder: 2,
+    sortOrder: 1,
   },
   {
     key: "customer.build-pin.budget",

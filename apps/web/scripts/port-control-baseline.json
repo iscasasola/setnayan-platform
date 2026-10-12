@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f19a85b69",
-  "routeCount": 433,
-  "destinations": 958,
+  "generatedFromRef": "e49406096e",
+  "routeCount": 434,
+  "destinations": 959,
   "actions": 674,
-  "blocks": 6124,
+  "blocks": 6126,
   "routes": {
     "/": {
       "files": [
@@ -5712,11 +5712,9 @@
     "/dashboard/[eventId]/budget": {
       "files": [
         "dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx",
-        "dashboard/[eventId]/budget/_components/budget-ledger-table.tsx",
-        "dashboard/[eventId]/budget/_components/budget-live-summary.tsx",
-        "dashboard/[eventId]/budget/_components/budget-setter.tsx",
-        "dashboard/[eventId]/budget/_components/budget-summary-ids.ts",
-        "dashboard/[eventId]/budget/_components/costs-with-no-supplier.tsx",
+        "dashboard/[eventId]/budget/_components/budget-screen.tsx",
+        "dashboard/[eventId]/budget/_components/budget-sheets.tsx",
+        "dashboard/[eventId]/budget/_components/budget-summary.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
         "dashboard/[eventId]/budget/actions.ts",
@@ -5730,59 +5728,60 @@
         "/api/budget/[seg]/export?format=csv",
         "/api/budget/[seg]/ics",
         "/dashboard/[seg]",
-        "/dashboard/[seg]/vendors"
+        "/dashboard/[seg]/messages"
       ],
       "actions": [
         "formAction"
       ],
       "blocks": [
-        "AbsorptionDisclosure",
+        "ActionButton",
+        "AddExpenseSheet",
         "AllocationConfig",
-        "BudgetAllocationPlanner",
-        "BudgetLedgerTable",
-        "BudgetLiveSummary",
-        "BudgetLiveSummaryCard",
-        "BudgetSetter",
-        "BudgetTopSummary",
-        "Cell",
+        "BudgetScreen",
+        "BudgetSheetState",
+        "BudgetSheets",
+        "BudgetSummary",
         "ChineseTraditionInfoCard",
         "ConfidenceChip",
-        "CostsWithNoSupplier",
+        "ContactShortlistVendorButton",
+        "Count",
         "DeleteCostResult",
         "DeniedState",
-        "DueRollup",
-        "EmptyBudget",
         "EventMoney",
-        "Field",
+        "ExpenseGroup",
+        "ExpenseSheet",
+        "Figure",
+        "Fill",
+        "GroupHead",
+        "GroupUnread",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLFormElement",
+        "HTMLInputElement",
+        "InfoTip",
         "LeafRow",
-        "LedgerRow",
         "Link",
         "ListPageSkeleton",
         "MahrInfoCard",
         "MiniTour",
-        "NoFinalizedVendors",
+        "OrderGroup",
         "OverspendBanner",
+        "OwedLine",
         "PageMasthead",
+        "Peso",
         "PickMenu",
-        "PinnedStat",
         "RecordCostResult",
-        "RecordedCostRow",
+        "RecordSheet",
         "SaveSnapshotResult",
         "SaveState",
         "SetEventBudgetResult",
         "SetShareBudgetBandResult",
-        "ShareBudgetBandToggle",
+        "Sheet",
         "SuggestMilestonesResult",
-        "SummaryStat",
-        "SupplierInvite",
+        "SupplierGroup",
+        "SupplierSheet",
         "SwitchTrack",
-        "TiltEditor",
-        "TotalCell",
-        "UpcomingRow",
-        "VendorItemizationCard"
+        "TiltEditor"
       ]
     },
     "/dashboard/[eventId]/checklist": {
@@ -10125,6 +10124,19 @@
         "Environment",
         "Lab3DBooth",
         "OrbitControls"
+      ]
+    },
+    "/dev/budget-lab": {
+      "files": [
+        "dev/budget-lab/fixture.ts",
+        "dev/budget-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/messages"
+      ],
+      "actions": [],
+      "blocks": [
+        "BudgetScreen"
       ]
     },
     "/dev/details-lab": {

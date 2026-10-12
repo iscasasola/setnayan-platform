@@ -28,7 +28,8 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Check, Heart, MapPin, MessageCircle, RotateCw, Share2, Star } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
-import { ActionButton, useFitRow } from '@/components/action-button';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { ActionButton } from '@/components/action-button';
 import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { followVendor, unfollowVendor } from '@/lib/follow-actions';
@@ -96,7 +97,21 @@ function askOnce(key: string, run: () => Promise<SupplierSheetData | null>): Pro
   return p;
 }
 
-type Said = { tone: 'ok' | 'error'; text: string } | null;
+type Said = { tone: 'ok' | 'error'; text: string; retry?: () => void; key?: number } | null;
+
+/**
+ * The sheet's own CSS. One height for its buttons (a <button> is floored at
+ * 44 px by globals.css and a link is not — the button rule is a 40 px pill).
+ * DARK MODE MUST WORK (owner 2026-10-11): the service card face reads the app's
+ * --m-* paper/ink family, which has no dark value — inside the sheet it gets one.
+ */
+const SHEET_CSS = [
+  // 44 px, never 40 (owner 2026-10-12, look call 3) — a link is not floored by globals.css, so it is set here.
+  '[data-supplier-sheet] .ab{height:44px;min-height:44px}',
+  'html.dark [data-supplier-sheet]{--m-paper:#232019;--m-paper-2:#2A2620;--m-line:rgba(251,250,247,.16);--m-line-soft:rgba(251,250,247,.1);' +
+    '--m-ink:#FBFAF7;--m-slate:#E8E5DD;--m-slate-2:#B6B1A6;--m-slate-3:#9C978C;--m-orange-2:#E2B968;--m-orange-4:rgba(226,185,104,.14);' +
+    '--m-orange-deep:#E2B968;--m-sage:rgba(123,199,154,.18);--m-sage-deep:#7BC79A}',
+].join('');
 
 export default function SupplierSheet({
   eventId,
@@ -119,7 +134,6 @@ export default function SupplierSheet({
   const [busy, start] = useTransition();
   const [portal, setPortal] = useState<HTMLElement | null>(null);
   const ctaRef = useRef<HTMLDivElement>(null);
-  useFitRow(ctaRef);
   useEffect(() => setPortal(document.body), []);
 
   const ask = useCallback(() => {
@@ -164,7 +178,7 @@ export default function SupplierSheet({
           fd.set('tile', tile);
           const saved = await saveVendorToPicks(fd);
           if (saved.status !== 'ok' && saved.status !== 'already_saved') {
-            setSaid({ tone: 'error', text: 'That did not send. Nothing changed.' });
+            setSaid({ tone: 'error', text: 'That did not send. Nothing changed.', retry: () => inquire(tile, vendorId), key: Date.now() });
             return;
           }
           id = saved.eventVendorId;
@@ -174,9 +188,14 @@ export default function SupplierSheet({
           router.push(`/dashboard/${res.eventId}/messages/${res.threadId}`);
           return;
         }
-        setSaid({ tone: 'error', text: res.status === 'error' ? res.message : 'That did not send. Nothing changed.' });
+        setSaid({
+          tone: 'error',
+          text: res.status === 'error' ? res.message : 'That did not send. Nothing changed.',
+          retry: () => inquire(tile, vendorId),
+          key: Date.now(),
+        });
       } catch {
-        setSaid({ tone: 'error', text: 'That did not send. Nothing changed.' });
+        setSaid({ tone: 'error', text: 'That did not send. Nothing changed.', retry: () => inquire(tile, vendorId), key: Date.now() });
       }
     });
   };
@@ -190,7 +209,12 @@ export default function SupplierSheet({
       const res = next ? await followVendor(target.vendorProfileId!) : await unfollowVendor(target.vendorProfileId!);
       if (!res.ok) {
         setFollowing(!next); // …and takes it back, in words, if it was refused.
-        setSaid({ tone: 'error', text: next ? 'Couldn’t follow them. Nothing changed.' : 'Couldn’t unfollow them. Nothing changed.' });
+        setSaid({
+          tone: 'error',
+          text: next ? 'Couldn’t follow them. Nothing changed.' : 'Couldn’t unfollow them. Nothing changed.',
+          retry: toggleFollow,
+          key: Date.now(),
+        });
         return;
       }
       const kept = SEEN.get(seenKey(target));
@@ -211,14 +235,13 @@ export default function SupplierSheet({
     }
     try {
       await navigator.clipboard.writeText(url);
-      setSaid({ tone: 'ok', text: 'Link copied.' });
+      setSaid({ tone: 'ok', text: 'Link copied.', key: Date.now() });
     } catch {
-      setSaid({ tone: 'error', text: 'Couldn’t copy the link.' });
+      setSaid({ tone: 'error', text: 'Couldn’t copy the link.', retry: () => void share(), key: Date.now() });
     }
   };
 
   if (!portal) return null;
-  const chat = cardVerbWords('chat');
   const quote = cardVerbWords('ask');
   const photos = data?.photos ? sheetPhotoRow(data.photos) : null;
   const eyebrow = [target.categoryLabel, target.city].filter(Boolean).join(' · ');
@@ -226,10 +249,17 @@ export default function SupplierSheet({
 
   return createPortal(
     <Sheet open onClose={onClose} labelledById="supplier-sheet-name" wide rise>
+      {/* A press's result peeks from the TOP (§ 9 kind 12); the line under the
+          buttons stays as its lasting copy. */}
+      {said?.key ? (
+        <PeekToast key={said.key} tone={said.tone === 'error' ? 'bad' : 'ok'} data="supplier-sheet" onRetry={said.retry}>
+          {said.text}
+        </PeekToast>
+      ) : null}
       <div className="space-y-4 px-5 pb-4 pt-5" data-supplier-sheet={target.vendorProfileId ?? 'own'}>
         {/* One height: a <button> is floored at 44 px by globals.css and a link
             is not — the button rule is a 40 px pill, whatever the element. */}
-        <style>{'[data-supplier-sheet] .ab{min-height:40px}'}</style>
+        <style>{SHEET_CSS}</style>
         <header className="pr-10">
           <p className={k2}>{eyebrow}</p>
           <h2 id="supplier-sheet-name" className="mt-1 font-display text-[22px] leading-tight text-ink">
@@ -238,11 +268,11 @@ export default function SupplierSheet({
           {target.nameWithheld ? <p className="mt-0.5 text-[12px] text-ink/55">Real name shown after they reply</p> : null}
           <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink/70">
             {target.verified ? (
-              <span className="rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-semibold text-success-900">Verified</span>
+              <span className="rounded-full bg-[rgb(var(--color-ok)_/_0.12)] px-2.5 py-1 text-[11px] font-semibold text-[rgb(var(--color-ok))]">Verified</span>
             ) : null}
             {target.rating != null ? (
               <span className="inline-flex items-center gap-1">
-                <Star size={13} strokeWidth={1.75} className="text-terracotta-700" aria-hidden />
+                <Star size={13} strokeWidth={1.75} className="text-sn-accent" aria-hidden />
                 <b className="font-semibold text-ink">{target.rating.toFixed(1)}</b>
                 {target.reviewCount != null ? ` · ${formatCount(target.reviewCount)} ${target.reviewCount === 1 ? 'review' : 'reviews'}` : ''}
               </span>
@@ -289,22 +319,40 @@ export default function SupplierSheet({
 
         {/* ── What the ONE request brings. While it is out, one line says so;
             a refusal says so with Retry — never an empty section. */}
+        {/* Loading is a shimmer of what is coming (§ 9 kind 16), with its one line
+            for a screen reader; a problem says so with Try again. */}
         {state === 'loading' ? (
-          <p className="text-[13px] text-ink/55" role="status" data-sheet-loading="">
-            {SHEET_LOADING}
-          </p>
+          <div role="status" data-sheet-loading="" className="space-y-2">
+            <span className="sr-only">{SHEET_LOADING}</span>
+            <span aria-hidden className="skeleton block h-3 w-2/5 rounded-full" />
+            <span aria-hidden className="grid grid-cols-3 gap-1.5">
+              <span className="skeleton block aspect-square rounded-[10px]" />
+              <span className="skeleton block aspect-square rounded-[10px]" />
+              <span className="skeleton block aspect-square rounded-[10px]" />
+            </span>
+            <span aria-hidden className="skeleton block h-3 w-4/5 rounded-full" />
+          </div>
         ) : null}
         {state === 'failed' ? (
           <div className="flex flex-wrap items-center gap-3" role="status" data-sheet-failed="">
             <p className="text-[13px] text-ink/70">{SHEET_FAILED}</p>
-            <ActionButton tone="neutral" icon={RotateCw} label="Retry" onClick={() => ask()} />
+            <ActionButton tone="neutral" icon={RotateCw} label="Try again" onClick={() => ask()} />
           </div>
         ) : null}
 
         {data && data.reviews === null ? (
-          <p className="text-[13px] text-ink/55" role="status" data-sheet-section="reviews-failed">
-            Couldn’t load their reviews.
-          </p>
+          <div className="flex flex-wrap items-center gap-3" role="status" data-sheet-section="reviews-failed">
+            <p className="text-[13px] text-ink/55">Couldn’t load their reviews.</p>
+            <ActionButton
+              tone="neutral"
+              icon={RotateCw}
+              label="Try again"
+              onClick={() => {
+                SEEN.delete(seenKey(target));
+                ask();
+              }}
+            />
+          </div>
         ) : null}
         {data?.reviews && data.reviews.length > 0 ? (
           <section data-sheet-section="reviews">
@@ -385,12 +433,14 @@ export default function SupplierSheet({
 
         {onSetnayan ? (
           <div className="sticky bottom-0 -mx-5 bg-cream px-5 pb-1 pt-2.5" data-sheet-cta="">
-            <div ref={ctaRef} className="flex flex-nowrap items-center gap-2">
+            {/* Buttons keep their words (owner 2026-10-12): the row wraps, nothing drops to an icon. */}
+            <div ref={ctaRef} className="flex flex-wrap items-center gap-2">
               {target.threadId ? (
-                <ActionButton tone={chat.tone} icon={MessageCircle} label="Open chat" href={`/dashboard/${eventId}/messages/${target.threadId}`} prefetch={false} />
+                <ActionButton tone="brand" main icon={MessageCircle} label="Open chat" href={`/dashboard/${eventId}/messages/${target.threadId}`} prefetch={false} />
               ) : target.booked ? null : (
                 <ActionButton
-                  tone={quote.tone}
+                  tone="brand"
+                  main
                   icon={MessageCircle}
                   label={busy ? 'Asking…' : quote.label}
                   disabled={busy}
@@ -410,8 +460,9 @@ export default function SupplierSheet({
               {data?.sharePath ? <ActionButton tone="neutral" icon={Share2} label="Share" onClick={() => void share()} /> : null}
             </div>
             {said ? (
-              <p className={`mt-1.5 text-[12px] ${said.tone === 'error' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/70'}`} role="status">
+              <p className={`mt-1.5 flex flex-wrap items-center gap-2 text-[12px] ${said.tone === 'error' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/70'}`} role="status">
                 {said.text}
+                {said.retry ? <ActionButton tone="neutral" quiet icon={RotateCw} label="Try again" onClick={said.retry} /> : null}
               </p>
             ) : null}
           </div>

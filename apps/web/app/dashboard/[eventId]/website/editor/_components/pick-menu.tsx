@@ -73,20 +73,22 @@ export function PickMenu({
     const onDown = (e: PointerEvent) => {
       if (!btnRef.current?.contains(e.target as Node) && !listRef.current?.contains(e.target as Node)) setOpen(false);
     };
+    // Esc peels one layer: window capture runs before useModalA11y's (a list in a sheet closes, not the sheet).
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.stopPropagation();
         setOpen(false);
         btnRef.current?.focus();
       }
     };
     const onMove = () => place();
     window.addEventListener('pointerdown', onDown, true);
-    window.addEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
     window.addEventListener('resize', onMove);
     window.addEventListener('scroll', onMove, true);
     return () => {
       window.removeEventListener('pointerdown', onDown, true);
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('resize', onMove);
       window.removeEventListener('scroll', onMove, true);
     };

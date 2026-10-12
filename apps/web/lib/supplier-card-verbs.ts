@@ -84,10 +84,15 @@ export function cardVerbWords(key: CardVerbKey): { label: string; tone: VerbTone
   return WORDS[key];
 }
 
+/**
+ * EVERY MAIN BUTTON IS TERRACOTTA (owner 2026-10-12, "APPROVE ALL" look call 1): the meaning colours of the
+ * 2026-10-07 button rule (blue Ask, green Book / Pay) end for a MAIN button — the word says what it does. A verb
+ * that is not the row's main keeps its table colour.
+ */
 const verb = (key: CardVerbKey, opts: { main?: boolean; quiet?: boolean } = {}): CardVerb => ({
   key,
   ...WORDS[key],
-  ...(opts.main ? { main: true } : {}),
+  ...(opts.main ? { main: true, tone: 'brand' as VerbTone } : {}),
   ...(opts.quiet ? { quiet: true } : {}),
 });
 

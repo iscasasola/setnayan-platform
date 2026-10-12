@@ -1,25 +1,25 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
+  ArrowLeftRight,
   BookmarkCheck,
   Clock,
   CreditCard,
-  Loader2,
   RotateCcw,
+  Search,
   ShieldCheck,
   Upload,
   X,
 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { PolicySnapshot } from '@/lib/vendor-service-payment-schedules';
 import { PLAN_GROUPS, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { haptic } from '@/lib/haptics';
-import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useSaveLoader } from '@/components/sd-loader';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
@@ -33,7 +33,7 @@ import {
   slotOptionLabel,
   type VendorServiceTimeSlot,
 } from '@/lib/vendor-time-slots';
-import { LockConfirmModal, LockMilestoneToast } from './lock-milestone';
+import { LOCK_PENDING_ICON, LockConfirmModal, LockMilestoneToast, LockPopup } from './lock-milestone';
 import type { LockImpact } from '@/lib/lock-impact';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { isHardSinglePickGroup } from '@/lib/wedding-plan-groups';
@@ -65,10 +65,11 @@ import { analyticsAllowed } from '@/lib/cookie-consent';
  * button lives inside a `.card` that carries the coverflow `transform`
  * (which makes `fixed` resolve against the card, not the viewport). They're
  * `createPortal`'d to `document.body` to escape it — the same reason
- * CompareSheet is lifted to the accordion root.
+ * CompareSheet is lifted to the accordion root. Since the 2026-10-12 look sweep
+ * every pop-up here is the shared `LockPopup` frame (lock-milestone.tsx), which
+ * portals itself, and the toast is the shared `PeekToast` from the top, which
+ * leaves by itself — so this file keeps no timer of its own for it.
  */
-
-const TOAST_AUTO_DISMISS_MS = 5_000;
 
 type LockState =
   | { kind: 'idle' }
@@ -152,7 +153,6 @@ type ToastState =
   | { kind: 'hidden' }
   | {
       kind: 'locked';
-      undoUntil: number;
       milestone: LockMilestone;
       /** Explore Replan slice A: multi-pick lock → the toast asks "done with
        *  this service, or add another?" (flag-gated at the set site). */
@@ -232,20 +232,9 @@ export function AccordionLockButton({
     };
   }, []);
 
-  // Auto-dismiss the undo toast — but keep milestone toasts that carry a
-  // finalize CTA or a freshly-locked date on screen until manually dismissed.
-  useEffect(() => {
-    if (toast.kind !== 'locked') return;
-    if (toast.milestone.finalizeReady || toast.milestone.dateLocked) return;
-    if (toast.askDone) return; // the done-or-add-more question stays until answered
-    const remaining = toast.undoUntil - Date.now();
-    if (remaining <= 0) {
-      setToast({ kind: 'hidden' });
-      return;
-    }
-    const t = setTimeout(() => setToast({ kind: 'hidden' }), remaining);
-    return () => clearTimeout(t);
-  }, [toast]);
+  // No auto-dismiss timer here: the plain result is a `PeekToast`, which leaves
+  // by itself and calls `onDismiss`; a toast that asks a question (done or add
+  // another?) or offers a next step is a pop-up that waits for its answer.
 
   // First tap: if the booked service has time slots, open the picker; else
   // proceed straight to the one-tap lock. Keeps the happy path one-tap for the
@@ -338,7 +327,6 @@ export function AccordionLockButton({
           // Congrats + undo toast outlives the (now revalidated) card flip.
           setToast({
             kind: 'locked',
-            undoUntil: Date.now() + TOAST_AUTO_DISMISS_MS,
             milestone: lockedMilestone,
             // Multi-pick categories: one lock is the floor, not the ceiling —
             // ask "done with this service, or add another?" (owner 2026-07-27).
@@ -530,10 +518,7 @@ export function AccordionLockButton({
   if (state.kind === 'requested') {
     return (
       <div className={wrapperClassName}>
-        <p
-          role="status"
-          className="rounded-md border border-mulberry/30 bg-mulberry/[0.06] px-3 py-2 text-[11px] text-mulberry"
-        >
+        <p role="status" className="text-[12px] text-ink/70">
           Booking requested — waiting for {state.vendorName} to agree.
         </p>
       </div>
@@ -561,7 +546,7 @@ export function AccordionLockButton({
       {isVerified === false ? (
         <p
           role="status"
-          className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-amber-300/60 bg-amber-50/70 px-2 py-0.5 text-[10px] font-medium text-amber-800"
+          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[rgb(var(--color-warn))]"
         >
           <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
           Verifying — can&apos;t book yet
@@ -569,52 +554,44 @@ export function AccordionLockButton({
       ) : null}
 
       {state.kind === 'error' ? (
-        <p
-          role="alert"
-          className="mt-2 rounded-md border border-danger-300/50 bg-danger-50/60 px-3 py-2 text-[11px] text-danger-900"
-        >
+        <p role="alert" className="mt-2 text-[12px] text-[rgb(var(--color-danger))]">
           {state.message}
         </p>
       ) : null}
 
       {state.kind === 'proposed' ? (
-        <p
-          role="status"
-          className="mt-2 rounded-md border border-terracotta/30 bg-terracotta/[0.06] px-3 py-2 text-[11px] text-terracotta-700"
-        >
+        <p role="status" className="mt-2 text-[12px] text-ink/70">
           Proposed to the couple — {state.vendorName} will book once they confirm.
         </p>
       ) : null}
 
-      {/* Exception modals + undo toast portal to <body> so `position:fixed`
-          escapes the coverflow transform on the parent .card. */}
-      {(state.kind === 'conflict' || state.kind === 'soft_hold') &&
-        portal(
-          <ExceptionModal
-            state={state}
-            vendorName={vendorName}
-            groupId={groupId}
-            isPending={isPending}
-            onSwitch={() => performLock(true, null, false)}
-            onDismiss={() => setState({ kind: 'idle' })}
-          />,
-        )}
+      {/* Every pop-up below is the shared LockPopup, which draws on <body> so
+          `position:fixed` escapes the coverflow transform on the parent .card. */}
+      {(state.kind === 'conflict' || state.kind === 'soft_hold') ? (
+        <ExceptionModal
+          state={state}
+          vendorName={vendorName}
+          groupId={groupId}
+          isPending={isPending}
+          onSwitch={() => performLock(true, null, false)}
+          onDismiss={() => setState({ kind: 'idle' })}
+        />
+      ) : null}
 
       {/* Tier #3 — couple picks the time window before the lock proceeds. */}
-      {state.kind === 'slot_select' &&
-        portal(
-          <SlotPickerModal
-            vendorName={vendorName}
-            slots={state.slots}
-            selectedSlotId={state.selectedSlotId}
-            isPending={isPending}
-            onSelect={(slotId) =>
-              setState({ ...state, selectedSlotId: slotId })
-            }
-            onConfirm={() => performLock(false, state.selectedSlotId, false)}
-            onDismiss={() => setState({ kind: 'idle' })}
-          />,
-        )}
+      {state.kind === 'slot_select' ? (
+        <SlotPickerModal
+          vendorName={vendorName}
+          slots={state.slots}
+          selectedSlotId={state.selectedSlotId}
+          isPending={isPending}
+          onSelect={(slotId) =>
+            setState({ ...state, selectedSlotId: slotId })
+          }
+          onConfirm={() => performLock(false, state.selectedSlotId, false)}
+          onDismiss={() => setState({ kind: 'idle' })}
+        />
+      ) : null}
 
       {/* Pre-lock confirmation — this lock finalizes the date, and/or closes
           saved plans + sinks bench vendors. ONE modal for both (owner
@@ -649,42 +626,40 @@ export function AccordionLockButton({
 
       {/* Reservation terms — couple acknowledges the no-show downpayment policy
           before the lock commits. */}
-      {state.kind === 'reservation_terms' &&
-        portal(
-          <ReservationTermsModal
-            vendorName={vendorName}
-            policy={state.policy}
-            isPending={isPending}
-            onAcknowledge={() =>
-              performLock(state.override, state.slotId, state.confirmDateLock, true)
-            }
-            onDismiss={() => setState({ kind: 'idle' })}
-          />,
-        )}
+      {state.kind === 'reservation_terms' ? (
+        <ReservationTermsModal
+          vendorName={vendorName}
+          policy={state.policy}
+          isPending={isPending}
+          onAcknowledge={() =>
+            performLock(state.override, state.slotId, state.confirmDateLock, true)
+          }
+          onDismiss={() => setState({ kind: 'idle' })}
+        />
+      ) : null}
 
       {/* Payment-gated lock (HARD gate) — the lock has NOT committed. Collect the
           downpayment through the vendor's published method + a required
           screenshot; the modal re-calls finalizeVendor WITH the downpayment + the
           preserved context, which commits the lock. Cancel commits nothing. */}
-      {state.kind === 'downpayment' &&
-        portal(
-          <DownpaymentModal
-            vendorName={vendorName}
-            methods={state.methods}
-            minimumAmountPhp={state.minimumAmountPhp}
-            isPending={isPending}
-            onSubmit={(dp) =>
-              performLock(
-                state.override,
-                state.slotId,
-                state.confirmDateLock,
-                state.acknowledgeReservationTerms,
-                dp,
-              )
-            }
-            onCancel={() => setState({ kind: 'idle' })}
-          />,
-        )}
+      {state.kind === 'downpayment' ? (
+        <DownpaymentModal
+          vendorName={vendorName}
+          methods={state.methods}
+          minimumAmountPhp={state.minimumAmountPhp}
+          isPending={isPending}
+          onSubmit={(dp) =>
+            performLock(
+              state.override,
+              state.slotId,
+              state.confirmDateLock,
+              state.acknowledgeReservationTerms,
+              dp,
+            )
+          }
+          onCancel={() => setState({ kind: 'idle' })}
+        />
+      ) : null}
 
       {toast.kind === 'locked' ? (
         <LockMilestoneToast
@@ -745,11 +720,6 @@ export function ChangePickButton({
   );
 }
 
-function portal(node: React.ReactNode): React.ReactNode {
-  if (typeof document === 'undefined') return null;
-  return createPortal(node, document.body);
-}
-
 /** One-line human detail for a published method in the downpayment picker. */
 function methodDetail(m: CoupleFacingMethod): string {
   if (m.method_type === 'bank') {
@@ -788,12 +758,10 @@ function DownpaymentModal({
   onSubmit: (dp: DownpaymentSubmission) => void;
   onCancel: () => void;
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [selectedMethodId, setSelectedMethodId] = useState<string>(
     methods[0]?.payment_method_id ?? '',
   );
-  useModalA11y({ open: true, onClose: onCancel, containerRef: dialogRef });
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -810,158 +778,129 @@ function DownpaymentModal({
   }
 
   return (
-    <div
-      ref={dialogRef}
-      role="alertdialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div className="relative w-full max-w-md rounded-2xl border border-mulberry/25 bg-cream p-5 shadow-xl sm:p-6">
-        <button
-          type="button"
-          aria-label="Cancel"
-          onClick={onCancel}
-          disabled={isPending}
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
+    <LockPopup label="Pay the first payment to book" alertRole onClose={onCancel} closeDisabled={isPending}>
+      <div className="flex items-start gap-2.5 pr-8">
+        <CreditCard aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-sn-accent" strokeWidth={2} />
+        <div className="space-y-1.5">
+          <h3 className="text-sm font-semibold text-ink">Pay the first payment to book</h3>
+          <p className="text-xs leading-snug text-ink/70">
+            To book <strong>{vendorName}</strong>, pay the first payment through one of
+            their methods below, then attach a screenshot so they can confirm. Your
+            date is held the moment you submit. Setnayan never touches the money — you
+            pay {vendorName} directly.
+          </p>
+        </div>
+      </div>
 
-        <div className="flex items-start gap-2.5 pr-6">
-          <CreditCard aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={2} />
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-ink">Pay the first payment to book</h3>
-            <p className="text-xs leading-snug text-ink/70">
-              To book <strong>{vendorName}</strong>, pay the first payment through one of
-              their methods below, then attach a screenshot so they can confirm. Your
-              date is held the moment you submit. Setnayan never touches the money — you
-              pay {vendorName} directly.
+      <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+        {/* The supplier's published methods stay RICH CARDS (name · Primary · the
+            account to pay into) — a pill or a dropdown would hide the very
+            number the couple types into their bank app. Fits no control kind yet
+            (2026-10-12 look sweep); drawn in the accent, flipping in dark mode. */}
+        <fieldset className="space-y-1.5">
+          <legend className="text-[11px] font-semibold uppercase tracking-wide text-ink/55">
+            How you paid
+          </legend>
+          {methods.map((m) => (
+            <label
+              key={m.payment_method_id}
+              className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 transition-colors ${
+                selectedMethodId === m.payment_method_id
+                  ? 'border-sn-accent bg-sn-accent/10'
+                  : 'border-ink/15 bg-cream hover:border-ink/30'
+              }`}
+            >
+              <input
+                type="radio"
+                name="method_choice"
+                value={m.payment_method_id}
+                checked={selectedMethodId === m.payment_method_id}
+                onChange={() => setSelectedMethodId(m.payment_method_id)}
+                className="mt-0.5 accent-sn-accent"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-medium text-ink">
+                  {m.label || m.provider || m.method_type.toUpperCase()}
+                  {m.is_primary ? (
+                    <span className="ml-1.5 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink/70">
+                      Primary
+                    </span>
+                  ) : null}
+                </span>
+                <span className="block truncate text-[11px] text-ink/60">{methodDetail(m)}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+
+        <div className="space-y-1">
+          <label htmlFor="downpayment_php" className="block text-[11px] font-medium text-ink/70">
+            Amount you paid (₱)
+          </label>
+          <input
+            id="downpayment_php"
+            name="deposit_php"
+            type="number"
+            min={minimumAmountPhp ?? 1}
+            step="0.01"
+            required
+            inputMode="decimal"
+            defaultValue={minimumAmountPhp ?? undefined}
+            placeholder="e.g. 10000"
+            aria-describedby={minimumAmountPhp ? 'downpayment_php_min' : undefined}
+            className="w-full rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-sn-accent focus:outline-none focus:ring-1 focus:ring-sn-accent"
+          />
+          {minimumAmountPhp ? (
+            <p id="downpayment_php_min" className="text-[11px] text-ink/55">
+              {vendorName} asked for ₱{minimumAmountPhp.toLocaleString('en-PH')} on booking in the
+              quote you accepted. At least that amount — you may pay more.
             </p>
-          </div>
+          ) : null}
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-          <fieldset className="space-y-1.5">
-            <legend className="text-[11px] font-semibold uppercase tracking-wide text-ink/55">
-              How you paid
-            </legend>
-            {methods.map((m) => (
-              <label
-                key={m.payment_method_id}
-                className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 transition-colors ${
-                  selectedMethodId === m.payment_method_id
-                    ? 'border-mulberry bg-mulberry/5'
-                    : 'border-ink/12 bg-cream hover:border-ink/25'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="method_choice"
-                  value={m.payment_method_id}
-                  checked={selectedMethodId === m.payment_method_id}
-                  onChange={() => setSelectedMethodId(m.payment_method_id)}
-                  className="mt-0.5 accent-mulberry"
-                />
-                <span className="min-w-0">
-                  <span className="block text-xs font-medium text-ink">
-                    {m.label || m.provider || m.method_type.toUpperCase()}
-                    {m.is_primary ? (
-                      <span className="ml-1.5 rounded-full bg-mulberry/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-mulberry">
-                        Primary
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="block truncate text-[11px] text-ink/60">{methodDetail(m)}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+        <div className="space-y-1">
+          <label htmlFor="downpayment_proof" className="flex items-center gap-1.5 text-[11px] font-medium text-ink/70">
+            <Upload aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Payment screenshot <span className="font-semibold text-ink">(required)</span>
+          </label>
+          <input
+            id="downpayment_proof"
+            name="proof"
+            ref={fileRef}
+            type="file"
+            accept="image/*,application/pdf"
+            required
+            className="block w-full text-xs text-ink/70 file:mr-3 file:rounded-md file:border-0 file:bg-sn-accent/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink hover:file:bg-sn-accent/20"
+          />
+        </div>
 
-          <div className="space-y-1">
-            <label htmlFor="downpayment_php" className="block text-[11px] font-medium text-ink/70">
-              Amount you paid (₱)
-            </label>
-            <input
-              id="downpayment_php"
-              name="deposit_php"
-              type="number"
-              min={minimumAmountPhp ?? 1}
-              step="0.01"
-              required
-              inputMode="decimal"
-              defaultValue={minimumAmountPhp ?? undefined}
-              placeholder="e.g. 10000"
-              aria-describedby={minimumAmountPhp ? 'downpayment_php_min' : undefined}
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-mulberry focus:outline-none focus:ring-1 focus:ring-mulberry"
-            />
-            {minimumAmountPhp ? (
-              <p id="downpayment_php_min" className="text-[11px] text-ink/55">
-                {vendorName} asked for ₱{minimumAmountPhp.toLocaleString('en-PH')} on booking in the
-                quote you accepted. At least that amount — you may pay more.
-              </p>
-            ) : null}
-          </div>
+        <div className="space-y-1">
+          <label htmlFor="downpayment_ref" className="block text-[11px] font-medium text-ink/70">
+            Reference <span className="text-ink/40">(optional)</span>
+          </label>
+          <input
+            id="downpayment_ref"
+            name="reference"
+            type="text"
+            maxLength={64}
+            placeholder="Txn ref / GCash no."
+            className="w-full rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-sn-accent focus:outline-none focus:ring-1 focus:ring-sn-accent"
+          />
+        </div>
 
-          <div className="space-y-1">
-            <label htmlFor="downpayment_proof" className="flex items-center gap-1.5 text-[11px] font-medium text-ink/70">
-              <Upload aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Payment screenshot <span className="font-semibold text-mulberry">(required)</span>
-            </label>
-            <input
-              id="downpayment_proof"
-              name="proof"
-              ref={fileRef}
-              type="file"
-              accept="image/*,application/pdf"
-              required
-              className="block w-full text-xs text-ink/70 file:mr-3 file:rounded-md file:border-0 file:bg-mulberry/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-mulberry hover:file:bg-mulberry/20"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label htmlFor="downpayment_ref" className="block text-[11px] font-medium text-ink/70">
-              Reference <span className="text-ink/40">(optional)</span>
-            </label>
-            <input
-              id="downpayment_ref"
-              name="reference"
-              type="text"
-              maxLength={64}
-              placeholder="Txn ref / GCash no."
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-mulberry focus:outline-none focus:ring-1 focus:ring-mulberry"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button
-              type="submit"
-              disabled={isPending || !selectedMethodId}
-              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                  Booking…
-                </>
-              ) : (
-                'Book & submit first payment'
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isPending}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex flex-wrap justify-end gap-2 pt-1">
+          <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onCancel} disabled={isPending} />
+          <ActionButton
+            type="submit"
+            tone="brand"
+            main
+            icon={isPending ? LOCK_PENDING_ICON : CreditCard}
+            label={isPending ? 'Booking…' : 'Book & submit first payment'}
+            disabled={isPending || !selectedMethodId}
+          />
+        </div>
+      </form>
+    </LockPopup>
   );
 }
 
@@ -980,100 +919,79 @@ function ExceptionModal({
   onSwitch: () => void;
   onDismiss: () => void;
 }) {
-  // Mounted only while open (parent renders `{cond && portal(<ExceptionModal …>)}`),
+  // Mounted only while open (parent renders `{cond ? <ExceptionModal …> : null}`),
   // so open is a constant true — mount = open, unmount runs the focus restore.
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useModalA11y({ open: true, onClose: onDismiss, containerRef: dialogRef });
-
   return (
-    <div
-      ref={dialogRef}
-      role="alertdialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onDismiss();
-      }}
+    <LockPopup
+      label={
+        state.kind === 'conflict'
+          ? `${state.existingVendorName} is already booked`
+          : `${vendorName} is fully booked`
+      }
+      alertRole
+      onClose={onDismiss}
     >
-      <div className="relative w-full max-w-md rounded-2xl border border-warn-300/60 bg-cream p-5 shadow-xl sm:p-6">
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onDismiss}
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
-
-        <div className="flex items-start gap-2.5">
-          <AlertTriangle
-            aria-hidden
-            className="mt-0.5 h-5 w-5 shrink-0 text-warn-700"
-            strokeWidth={2}
-          />
-          {state.kind === 'conflict' ? (
-            <div className="space-y-1.5 pr-6">
-              <h3 className="text-sm font-semibold text-warn-900">
-                {state.existingVendorName} is already booked for{' '}
-                {state.conflictGroupLabel.toLowerCase()}.
-              </h3>
-              <p className="text-xs leading-snug text-warn-900/85">
-                Only one {state.conflictGroupLabel.toLowerCase()} can be booked
-                at a time. Switch to <strong>{vendorName}</strong> instead? Your
-                earlier pick stays on the card as a considering option.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1.5 pr-6">
-              <h3 className="text-sm font-semibold text-warn-900">
-                {vendorName} is fully booked with soft holds for your date.
-              </h3>
-              <p className="text-xs leading-snug text-warn-900/85">
-                {vendorName} already has {formatCount(state.existingHoldCount)} confirmed soft
-                holds for your date. They only accept {state.currentLimit}{' '}
-                at a time. Try a different supplier or come back later — they&rsquo;ll
-                free up if another client doesn&rsquo;t downpay.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {state.kind === 'conflict' ? (
-            <button
-              type="button"
-              onClick={onSwitch}
-              disabled={isPending}
-              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                  Switching…
-                </>
-              ) : (
-                <>Switch to {vendorName}</>
-              )}
-            </button>
-          ) : (
-            <Link
-              href={resolveBrowseSimilarHref(groupId)}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
-            >
-              Browse similar suppliers
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={onDismiss}
-            disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-warn-400/60 bg-cream px-3 py-2 text-sm font-medium text-warn-900 transition-colors hover:bg-warn-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warn-600 disabled:opacity-60"
-          >
-            {state.kind === 'conflict' ? 'Cancel' : 'Dismiss'}
-          </button>
-        </div>
+      <div className="flex items-start gap-2.5">
+        <AlertTriangle
+          aria-hidden
+          className="mt-0.5 h-5 w-5 shrink-0 text-[rgb(var(--color-warn))]"
+          strokeWidth={2}
+        />
+        {state.kind === 'conflict' ? (
+          <div className="space-y-1.5 pr-8">
+            <h3 className="text-sm font-semibold text-ink">
+              {state.existingVendorName} is already booked for{' '}
+              {state.conflictGroupLabel.toLowerCase()}.
+            </h3>
+            <p className="text-xs leading-snug text-ink/70">
+              Only one {state.conflictGroupLabel.toLowerCase()} can be booked
+              at a time. Switch to <strong>{vendorName}</strong> instead? Your
+              earlier pick stays on the card as a considering option.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-1.5 pr-8">
+            <h3 className="text-sm font-semibold text-ink">
+              {vendorName} is fully booked with soft holds for your date.
+            </h3>
+            <p className="text-xs leading-snug text-ink/70">
+              {vendorName} already has {formatCount(state.existingHoldCount)} confirmed soft
+              holds for your date. They only accept {state.currentLimit}{' '}
+              at a time. Try a different supplier or come back later — they&rsquo;ll
+              free up if another client doesn&rsquo;t downpay.
+            </p>
+          </div>
+        )}
       </div>
-    </div>
+
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <ActionButton
+          tone="neutral"
+          icon={X}
+          label={state.kind === 'conflict' ? 'Cancel' : 'Dismiss'}
+          onClick={onDismiss}
+          disabled={isPending}
+        />
+        {state.kind === 'conflict' ? (
+          <ActionButton
+            tone="brand"
+            main
+            icon={isPending ? LOCK_PENDING_ICON : ArrowLeftRight}
+            label={isPending ? 'Switching…' : `Switch to ${vendorName}`}
+            onClick={onSwitch}
+            disabled={isPending}
+          />
+        ) : (
+          <ActionButton
+            tone="brand"
+            main
+            icon={Search}
+            label="Browse similar suppliers"
+            href={resolveBrowseSimilarHref(groupId)}
+          />
+        )}
+      </div>
+    </LockPopup>
   );
 }
 
@@ -1097,90 +1015,48 @@ function SlotPickerModal({
   onConfirm: () => void;
   onDismiss: () => void;
 }) {
-  // Mounted only while open (parent renders `{cond && portal(<SlotPickerModal …>)}`),
+  // Mounted only while open (parent renders `{cond ? <SlotPickerModal …> : null}`),
   // so open is a constant true — mount = open, unmount runs the focus restore.
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useModalA11y({ open: true, onClose: onDismiss, containerRef: dialogRef });
-
   return (
-    <div
-      ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Pick a time slot for ${vendorName}`}
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onDismiss();
-      }}
-    >
-      <div className="relative w-full max-w-md rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl sm:p-6">
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onDismiss}
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
-
-        <div className="flex items-start gap-2.5 pr-6">
-          <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-ink">
-              Pick a time slot for {vendorName}
-            </h3>
-            <p className="text-xs leading-snug text-ink/65">
-              This supplier runs more than one window on your date. Choose the one
-              you&rsquo;re booking.
-            </p>
-          </div>
-        </div>
-
-        <label className="mt-4 block space-y-1">
-          <span className="block text-xs font-medium text-ink/70">Time slot</span>
-          <select
-            value={selectedSlotId}
-            onChange={(e) => onSelect(e.target.value)}
-            className="input-field cursor-pointer"
-          >
-            {slots.map((slot) => (
-              <option key={slot.slot_id} value={slot.slot_id}>
-                {slotOptionLabel(slot)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-          <button
-            type="button"
-            onClick={onDismiss}
-            disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isPending || !selectedSlotId}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
-          >
-            {isPending ? (
-              <>
-                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                Booking…
-              </>
-            ) : (
-              <>
-                <BookmarkCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
-                Book this slot
-              </>
-            )}
-          </button>
+    <LockPopup label={`Pick a time slot for ${vendorName}`} onClose={onDismiss}>
+      <div className="flex items-start gap-2.5 pr-8">
+        <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-sn-accent" strokeWidth={2} />
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-ink">
+            Pick a time slot for {vendorName}
+          </h3>
+          <p className="text-xs leading-snug text-ink/65">
+            This supplier runs more than one window on your date. Choose the one
+            you&rsquo;re booking.
+          </p>
         </div>
       </div>
-    </div>
+
+      {/* One of several windows → the one dropdown (`PickMenu`), not a native
+          <select> (2026-10-12 look sweep). Not inside a form: the pick is state. */}
+      <div className="mt-4 space-y-1">
+        <span className="block text-xs font-medium text-ink/70">Time slot</span>
+        <PickMenu
+          label="Time slot"
+          value={selectedSlotId}
+          dataAttr="data-lock-slot"
+          options={slots.map((slot) => ({ key: slot.slot_id, label: slotOptionLabel(slot) }))}
+          onPick={onSelect}
+        />
+      </div>
+
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onDismiss} disabled={isPending} />
+        <ActionButton
+          tone="brand"
+          main
+          icon={isPending ? LOCK_PENDING_ICON : BookmarkCheck}
+          label={isPending ? 'Booking…' : 'Book this slot'}
+          onClick={onConfirm}
+          disabled={isPending || !selectedSlotId}
+        />
+      </div>
+    </LockPopup>
   );
 }
 
@@ -1188,6 +1064,10 @@ function SlotPickerModal({
  * No-Show Downpayment Protection — the reservation-terms acknowledgement gate.
  * Renders the vendor's frozen downpayment policy + a tick-box the couple MUST
  * check before the lock commits. Setnayan holds no money; this records consent.
+ *
+ * The tick stays a REAL checkbox (2026-10-12 look sweep): it records a legal
+ * "I agree", which is not an on/off setting, so it is not the Switch kind — and
+ * the app has no shared checkbox drawing yet. Its tick is the accent.
  */
 function ReservationTermsModal({
   vendorName,
@@ -1203,8 +1083,6 @@ function ReservationTermsModal({
   onDismiss: () => void;
 }) {
   const [agreed, setAgreed] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useModalA11y({ open: true, onClose: onDismiss, containerRef: dialogRef });
 
   const amountLabel =
     policy.downpayment_amount_php != null
@@ -1212,119 +1090,83 @@ function ReservationTermsModal({
       : null;
 
   return (
-    <div
-      ref={dialogRef}
-      role="alertdialog"
-      aria-modal="true"
-      aria-label={`Reservation terms for ${vendorName}`}
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onDismiss();
-      }}
-    >
-      <div className="relative w-full max-w-md rounded-2xl border border-terracotta/30 bg-cream p-5 shadow-xl sm:p-6">
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onDismiss}
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
-
-        <div className="flex items-start gap-2.5 pr-6">
-          <ShieldCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-ink">
-              Reservation terms for {vendorName}
-            </h3>
-            <p className="text-xs leading-snug text-ink/65">
-              Before you book, please read {vendorName}&rsquo;s first payment policy.
-              Booking records that you understood and agreed to these terms.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-2 rounded-lg border border-ink/10 bg-cream p-3 text-xs text-ink/85">
-          <ul className="space-y-1.5">
-            {policy.downpayment_non_refundable ? (
-              <li className="flex items-start gap-1.5">
-                <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
-                <span>
-                  The first payment{amountLabel ? ` (${amountLabel})` : ''} is{' '}
-                  <strong>non-refundable</strong>.
-                </span>
-              </li>
-            ) : null}
-            {policy.no_show_forfeit ? (
-              <li className="flex items-start gap-1.5">
-                <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
-                <span>
-                  A <strong>no-show forfeits</strong> the first payment.
-                </span>
-              </li>
-            ) : null}
-            {policy.refund_window_days != null ? (
-              <li className="flex items-start gap-1.5">
-                <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-ink/40" />
-                <span>
-                  Refundable if you cancel within{' '}
-                  <strong>{policy.refund_window_days} day{policy.refund_window_days === 1 ? '' : 's'}</strong>{' '}
-                  of booking.
-                </span>
-              </li>
-            ) : null}
-          </ul>
-          {policy.cancellation_terms ? (
-            <p className="whitespace-pre-wrap border-t border-ink/10 pt-2 text-ink/70">
-              {policy.cancellation_terms}
-            </p>
-          ) : null}
-        </div>
-
-        <label className="mt-4 flex items-start gap-2 text-xs text-ink/85">
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-          />
-          <span>
-            I understand the first payment is non-refundable on no-show and agree to{' '}
-            {vendorName}&rsquo;s reservation terms.
-          </span>
-        </label>
-
-        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-          <button
-            type="button"
-            onClick={onDismiss}
-            disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onAcknowledge}
-            disabled={isPending || !agreed}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
-          >
-            {isPending ? (
-              <>
-                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                Booking…
-              </>
-            ) : (
-              <>
-                <BookmarkCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
-                Agree &amp; book
-              </>
-            )}
-          </button>
+    <LockPopup label={`Reservation terms for ${vendorName}`} alertRole onClose={onDismiss}>
+      <div className="flex items-start gap-2.5 pr-8">
+        <ShieldCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-sn-accent" strokeWidth={2} />
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-ink">
+            Reservation terms for {vendorName}
+          </h3>
+          <p className="text-xs leading-snug text-ink/65">
+            Before you book, please read {vendorName}&rsquo;s first payment policy.
+            Booking records that you understood and agreed to these terms.
+          </p>
         </div>
       </div>
-    </div>
+
+      {/* What is only READ sits on the page and ends in a divider — no box. */}
+      <div className="mt-4 space-y-2 border-b border-ink/15 pb-3 text-xs text-ink/85">
+        <ul className="space-y-1.5">
+          {policy.downpayment_non_refundable ? (
+            <li className="flex items-start gap-1.5">
+              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-sn-accent" />
+              <span>
+                The first payment{amountLabel ? ` (${amountLabel})` : ''} is{' '}
+                <strong>non-refundable</strong>.
+              </span>
+            </li>
+          ) : null}
+          {policy.no_show_forfeit ? (
+            <li className="flex items-start gap-1.5">
+              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-sn-accent" />
+              <span>
+                A <strong>no-show forfeits</strong> the first payment.
+              </span>
+            </li>
+          ) : null}
+          {policy.refund_window_days != null ? (
+            <li className="flex items-start gap-1.5">
+              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-ink/40" />
+              <span>
+                Refundable if you cancel within{' '}
+                <strong>{policy.refund_window_days} day{policy.refund_window_days === 1 ? '' : 's'}</strong>{' '}
+                of booking.
+              </span>
+            </li>
+          ) : null}
+        </ul>
+        {policy.cancellation_terms ? (
+          <p className="whitespace-pre-wrap border-t border-ink/15 pt-2 text-ink/70">
+            {policy.cancellation_terms}
+          </p>
+        ) : null}
+      </div>
+
+      <label className="mt-4 flex items-start gap-2 text-xs text-ink/85">
+        <input
+          type="checkbox"
+          checked={agreed}
+          onChange={(e) => setAgreed(e.target.checked)}
+          className="mt-0.5 h-4 w-4 accent-sn-accent"
+        />
+        <span>
+          I understand the first payment is non-refundable on no-show and agree to{' '}
+          {vendorName}&rsquo;s reservation terms.
+        </span>
+      </label>
+
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onDismiss} disabled={isPending} />
+        <ActionButton
+          tone="brand"
+          main
+          icon={isPending ? LOCK_PENDING_ICON : BookmarkCheck}
+          label={isPending ? 'Booking…' : 'Agree & book'}
+          onClick={onAcknowledge}
+          disabled={isPending || !agreed}
+        />
+      </div>
+    </LockPopup>
   );
 }
 

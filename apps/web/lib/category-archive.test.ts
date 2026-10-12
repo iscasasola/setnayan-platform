@@ -176,7 +176,8 @@ test('source · the couple is TOLD what removal does, somewhere that reaches the
   // an sr-only span inside this button reaches nobody.
   assert.match(
     bench,
-    /aria-label=\{`\$\{removeFromPlanButtonLabel\(t\.label\)\} — \$\{REMOVE_FROM_PLAN_NOTE\}`\}/,
+    // The button is the one ActionButton now (2026-10-12): its `name` IS the aria-label.
+    /name=\{`\$\{removeFromPlanButtonLabel\(t\.label\)\} — \$\{REMOVE_FROM_PLAN_NOTE\}`\}/,
     'the note no longer rides the aria-label — assistive tech would never hear it',
   );
   const copy = readFileSync(resolve(HERE, 'explore-info-copy.ts'), 'utf8');

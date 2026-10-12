@@ -141,7 +141,8 @@ test('🔑 the list never repeats a supplier already on the couple’s page, and
   assert.match(BENCH, /benchProfileIds=\{t\.vendors\.map\(\(v\) => v\.marketplaceVendorId\)\}/);
   assert.match(BENCH, /query=\{scopeTile === t\.tile \? scopedQ : ''\}/);
   // One row's list is its own: the request is keyed on this row's tile.
-  assert.match(LIST, /\}, \[eventId, moreTile, moreGroupId, moreQ\]\);/);
+  // + `moreTry` (2026-10-12): "Try again" asks once more after a failed read.
+  assert.match(LIST, /\}, \[eventId, moreTile, moreGroupId, moreQ, moreTry\]\);/);
 });
 
 test('🔑 the cards are the suppliers’ service cards, and say nothing about price when the cards were not read', () => {
@@ -158,16 +159,16 @@ test('🔑 the cards are the suppliers’ service cards, and say nothing about p
 test('the verbs follow the button rule: one row, Ask for a quote is the main verb, no hand-made button', () => {
   assert.equal(cardVerbWords('ask').label, 'Ask for a quote');
   assert.match(VERBS, /const ask = cardVerbWords\('ask'\);/);
-  assert.match(VERBS, /<ActionButton tone=\{ask\.tone\} main icon=\{MessageCircle\} label=\{ask\.label\} disabled=\{busy\} onClick=\{onInquire\} \/>/);
+  // Every MAIN button is terracotta (owner 2026-10-12, look call 1): the main Ask is brand, not the table's blue.
+  assert.match(VERBS, /<ActionButton tone="brand" main icon=\{MessageCircle\} label=\{ask\.label\} disabled=\{busy\} onClick=\{onInquire\} \/>/);
   assert.match(VERBS, /<ActionButton tone="neutral" icon=\{Bookmark\} label=\{MORE_TO_COMPARE_SAVE\} disabled=\{busy\} onClick=\{onSave\} \/>/);
   assert.equal((VERBS.match(/\bmain\b/g) ?? []).length, 1, 'two main verbs on one card');
   for (const [name, body] of [['the card', CARD], ['its verb row', VERBS], ['the list', LIST]] as const) {
     assert.ok(!/<button\b/.test(body), `a hand-made button in ${name}`);
   }
-  // 🪤 The row is fitted by the component that DRAWS it. `useFitRow` measures
-  // once, on mount — called from the card, the ref is dead after an Undo.
-  assert.match(VERBS, /const rowRef = useRef<HTMLDivElement>\(null\);\s*useFitRow\(rowRef\);/);
-  assert.match(VERBS, /<div ref=\{rowRef\} className="verbs" data-compare-verbs="">/);
+  // Buttons keep their words (owner 2026-10-12, look call 2): no fit pass on the row — it wraps.
+  assert.ok(!/useFitRow\(/.test(VERBS), 'a fit pass would drop the words again');
+  assert.match(VERBS, /<div className="verbs" data-compare-verbs="">/);
   assert.ok(!/useFitRow/.test(CARD), 'the card fits a row it only sometimes draws');
   assert.match(CARD, /<CompareVerbs busy=\{busy\} onSave=\{onSave\} onInquire=\{onInquire\} \/>/);
 });

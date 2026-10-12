@@ -44,8 +44,13 @@ test('T1 · both Add-to-build buttons announce AFTER the save answered ok', () =
     const src = code('_components', file);
     const pin = src.slice(src.indexOf('const pin = ('), src.indexOf('const unpin = ('));
     assert.ok(pin.length > 0, `${file}: the pin handler moved — re-anchor`);
-    const saved = pin.indexOf('const added = await save.run(');
-    const said = pin.indexOf('if (added.ok) announceBuildAdded({ name: vendorName, category: groupLabel });');
+    // The card answers in place (2026-10-12): its result is `ok`, announced
+    // inside `if (ok) {`; the accordion still runs the save veil.
+    const inPlace = file === 'bench-vendor-actions.tsx';
+    const saved = inPlace ? pin.indexOf('ok = (await pinWrite(') : pin.indexOf('const added = await save.run(');
+    const said = inPlace
+      ? pin.search(/if \(ok\) \{\s*announceBuildAdded\(\{ name: vendorName, category: groupLabel \}\);/)
+      : pin.indexOf('if (added.ok) announceBuildAdded({ name: vendorName, category: groupLabel });');
     assert.ok(saved > -1, `${file}: the pick's result is no longer kept`);
     assert.ok(said > saved, `${file}: the cart is announced before the pick is saved, or unconditionally`);
     assert.equal((src.match(/announceBuildAdded\(/g) ?? []).length, 1, `${file}: a second announcement (Remove must not peek)`);

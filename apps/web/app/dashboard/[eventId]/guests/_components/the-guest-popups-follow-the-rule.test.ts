@@ -8,8 +8,9 @@
  * confirm, "Add from your people", the Delete warning and the New-group sheet are drawn by it, mounted only while open;
  * none writes a wash, a blur, a `fixed inset-0` layer, a `Drawer` or the shared `Sheet` of its own.
  *
- * The shared `Sheet` (`app/_components/sheet.tsx`) does NOT follow the rule (its dark is `bg-ink/40 backdrop-blur-sm`, it is
- * drawn inside the page's transformed box and so sits under the bottom bar) — it is listed, not changed here.
+ * The shared `Sheet` (`app/_components/sheet.tsx`) wears the rule's one dark since 2026-10-12 (`sn-popup-dark`, was
+ * `bg-ink/40 backdrop-blur-sm`), but it is still drawn inside the page's transformed box and so sits under the bottom
+ * bar, and it does not set the page behind `inert` (`inertBehind`) — so the guests' pop-ups keep `GuestPopup`.
  *
  * SABOTAGE (each seen RED, then restored): the dark removed from `GuestPopup` · the Delete warning back on `<Sheet` · a
  * pop-up mounted without its open condition · a hand-made `bg-ink/40` layer back in quick add · quick add's own Escape /

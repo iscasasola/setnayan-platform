@@ -233,11 +233,13 @@ test('🔑 a shop whose name is still withheld is not named by its photos or its
   assert.match(SHEET, /\{data\?\.sharePath \? <ActionButton tone="neutral" icon=\{Share2\} label="Share"/);
 });
 
-test('🔑 while the request is out one line says so; a refusal says so with Retry — never an empty section', () => {
+test('🔑 while the request is out one line says so; a refusal says so with Try again — never an empty section', () => {
   assert.equal(SHEET_LOADING, 'Loading their reviews and photos…');
   assert.equal(SHEET_FAILED, 'Couldn’t load their reviews and photos.');
-  assert.match(SHEET, /\{state === 'loading' \? \([\s\S]{0,160}\{SHEET_LOADING\}/);
-  assert.match(SHEET, /\{state === 'failed' \? \([\s\S]{0,260}\{SHEET_FAILED\}[\s\S]{0,120}label="Retry" onClick=\{\(\) => ask\(\)\}/);
+  // 2026-10-12 look sweep: the loading line is a shimmer (§ 9 kind 16) that still carries the words for a
+  // screen reader, and the button says "Try again" (the gallery's word for every problem).
+  assert.match(SHEET, /\{state === 'loading' \? \([\s\S]{0,200}\{SHEET_LOADING\}[\s\S]{0,160}className="skeleton/);
+  assert.match(SHEET, /\{state === 'failed' \? \([\s\S]{0,260}\{SHEET_FAILED\}[\s\S]{0,120}label="Try again" onClick=\{\(\) => ask\(\)\}/);
   assert.match(SHEET, /if \(!res\) return setState\('failed'\);/, 'a refused read is drawn as an empty sheet');
   assert.match(SHEET, /data && data\.reviews === null \?/, 'reviews that could not be read read as "none"');
   assert.match(READER, /console\.error\('\[supplier-sheet\] reviews read failed', err\);\s*return null;/);

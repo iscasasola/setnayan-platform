@@ -63,7 +63,14 @@ import {
   Bookmark,
   Undo2,
   ListFilter,
+  RotateCcw,
+  Check,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  X,
 } from 'lucide-react';
+import { Explain } from '@/app/_components/explain';
 import { formatPhp } from '@/lib/orders';
 import {
   UNREAD_UNKNOWN,
@@ -117,7 +124,7 @@ import { CategorySearchOverlay } from './category-search-overlay';
 import { FindThumbRow } from './find-thumb-row';
 import { categoryRowState, isCategoryOpen, ringCoveredCount } from '@/lib/suppliers-shell';
 import { Count } from '@/components/count';
-import { ActionButton, useFitRow } from '@/components/action-button';
+import { ActionButton } from '@/components/action-button';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
 import { Sheet } from '@/app/_components/sheet';
 import { cardDates, dateOutcome, type CardDates, type DateOutcome } from '@/lib/card-dates';
@@ -212,10 +219,13 @@ import {
   payBenchDebt,
   savedKey,
   withoutRemoved,
+  builtNowIn,
+  setBuiltIn,
   type BenchLocal,
   type SavedFromMore,
 } from './bench-local';
 import { useSuppliersMode } from './suppliers-mode';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import { categoryForTile } from '@/lib/shortlist-taxonomy';
@@ -347,18 +357,18 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
    icon). The three shipped buttons keep their own wrappers ('.verb-slot',
    'display:contents', so the button itself is the row's child); what a press
    came back with is said on its own line under the row. */
-.slcat .verbs{position:relative;display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;margin-top:3px}
+.slcat .verbs{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;margin-top:3px}
 .slcat .verbs .verb-slot{display:contents}
 /* ONE HEIGHT. 'globals.css' gives every <button> a 44 px floor, and a link has
    none — so in one row "Pay" (a link) drew 40 px tall beside "Your record" (a
    button) at 44 (controller's walk at 375, 2026-10-08). The button rule is a
    40 px pill, whatever the element. */
-.slcat .ab{min-height:40px}
+.slcat .ab{height:44px;min-height:44px}
 /* A PRESS ANSWERS AT ONCE (owner 2026-10-08): the card that was pressed looks
    pressed the moment the finger lands — before the sheet's chunk has arrived. */
 .slcat .fold.flat .vcw:has(>.vc:active){transform:scale(.985);border-color:var(--gold)}
 .slcat .fold.flat .vcw{transition:transform 90ms ease-out,border-color 90ms ease-out}
-.slcat .fold.flat .vcw.mrc>.vc[role='button']{cursor:pointer}
+.slcat button.vc{appearance:none;-webkit-appearance:none;font:inherit;color:inherit;text-align:left;width:100%;margin:0;padding:0;min-height:0;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.slcat .fold.flat .vcw:has(>.vc:active){transform:none}.slcat .fold.flat .vcw{transition:none}}
 .slcat .verb-err,.slcat .verb-ok{margin:4px 0 0;font-size:11.5px;line-height:1.35;color:var(--ink-soft)}
 .slcat .verb-err{color:rgb(var(--color-danger))}
@@ -417,7 +427,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .fold.flat .vcw:has(.verbs .verb-err,.verbs .verb-slot>p,.verbs .verb-slot>span){padding-bottom:36px}
 /* The rail's two end tiles become one quiet line of two buttons. */
 .slcat .fold.flat .act{flex:0 0 auto;display:inline-flex}
-.slcat .fold.flat .act>*{min-height:40px;flex-direction:row;gap:6px;padding:0 14px;border-radius:var(--m-r-full)}
+.slcat .fold.flat .act>*{min-height:44px;flex-direction:row;gap:6px;padding:0 14px;border-radius:var(--m-r-full)}
 /* MORE TO COMPARE — the heading and its count on the left, the one sort
    dropdown on the right; the cards are the same service cards as above. */
 .slcat .fold.flat .morehead{justify-content:space-between;flex-wrap:nowrap;padding:0 0 6px}
@@ -498,9 +508,6 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
 .slcat .cat-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
 /* "saved request" icon — view/edit the couple's saved requirements for this leaf */
-.slcat .cat-req{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(30, 26, 18,.3);background:rgba(30, 26, 18,.07);color:var(--mulberry);border-radius: var(--m-r-full);cursor:pointer;transition:background .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
-.slcat .cat-req:hover{background:rgba(30, 26, 18,.13)}
-.slcat .cat-req:active{transform:scale(.94)}
 .slcat .cat-chev{color:var(--ink-soft);transition:transform .22s var(--ease);flex:0 0 auto}
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
 .slcat .cat-body{padding:2px 0 12px}
@@ -713,19 +720,12 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
    refused to shrink and pushed the ⓘ past the right edge of a phone — clipped.
    'min-width:0' lets the head give way; the name already ellipsises. */
 .slcat .cat-head-row>.cat-head,.slcat .fold-head-row>.fold-head{min-width:0}
-.slcat .cat-info{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 auto;margin-left:6px;padding:0;border:1px solid var(--line);background:transparent;color:var(--ink-soft);border-radius:var(--m-r-full);cursor:pointer;font:inherit;font-family:var(--serif);font-style:italic;font-size:12px;font-weight:600;line-height:1;transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease)}
-.slcat .cat-info:hover{background:rgba(30,26,18,.07);color:var(--mulberry)}
-.slcat .cat-info[aria-expanded='true']{background:rgba(169,131,75,.16);border-color:var(--gold);color:var(--gold-deep)}
-.slcat .hintbox{margin:0 4px 9px 4px;padding:9px 12px;background:rgba(169,131,75,.09);border-left:2px solid var(--gold);border-radius:0 var(--m-r-sm) var(--m-r-sm) 0;font-family:var(--sans);font-size:12.5px;line-height:1.5;color:var(--ink-soft)}
 .slcat .cat-note{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding:2px 16px 0 0}
-.slcat .rmv{appearance:none;-webkit-appearance:none;border:0;background:none;padding:4px 0;cursor:pointer;font:inherit;font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);transition:color .18s var(--ease)}
-.slcat .rmv:hover{color:var(--mulberry);text-decoration:underline}
-.slcat .rmv[disabled]{opacity:.5;cursor:default;text-decoration:none}
 /* An error is a refusal, not an accent. This was gold #9a6a12 — the SECOND
    gold error message on these screens; the first (quote-fill) was fixed in
    #4780 and this one survived because it is written as a hex, which a
    class-name sweep cannot see. danger-700, like every other error here. */
-.slcat .plan-err{font-family:var(--sans);font-size:12px;line-height:1.45;color:#974930;text-align:right;flex:1 1 200px}
+.slcat .plan-err{font-family:var(--sans);font-size:12px;line-height:1.45;color:rgb(var(--color-danger));text-align:right;flex:1 1 200px}
 .slcat .addpool{margin:10px 14px 2px 34px;padding-top:10px;border-top:1px dashed var(--line)}
 .slcat .addpool .ap-t{margin:0 0 8px;font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .addpool .ap-chips{display:flex;flex-wrap:wrap;gap:7px}
@@ -734,8 +734,7 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .addchip:active{transform:scale(.97)}
 .slcat .addchip[disabled]{opacity:.55;cursor:default}
 .slcat .fold-empty{padding:10px 16px 2px 34px;font-size:12.5px;color:var(--ink-soft)}
-html.dark .slcat .cat-info:hover{background:rgba(251,251,250,.08);color:#C99DB0}
-html.dark .slcat .plan-err{color:#e2b968}
+
 
 /* "In your plan" marker beside a category name */
 .slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
@@ -887,8 +886,6 @@ html.dark .slcat .vc .bdg.verified{color:#7BD3A0}
    its own tint over the dark card, which passes. A rule added here would be
    DEAD and would read to the next person as if it were doing the work. */
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
-html.dark .slcat .cat-req{border-color:rgba(201,157,176,.4);background:rgba(201,157,176,.12);color:#C99DB0}
-html.dark .slcat .cat-req:hover{background:rgba(201,157,176,.2)}
 
 /* ── ROW 2 · the inline "More in {category}" rail (owner 2026-09-06) ─────────
    Deliberately QUIETER than row 1: a tinted well with a hairline top rule, so
@@ -915,18 +912,12 @@ html.dark .slcat .cat-req:hover{background:rgba(201,157,176,.2)}
    label starts life on a wash that is known to carry its own text. */
 .slcat .arrl{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
 .slcat .arrt{font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
-.slcat .arrb{flex:0 0 auto;padding:6px 11px;min-height:32px;border:1px solid var(--line);border-radius:var(--m-r-full);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;cursor:pointer}
-.slcat .arrb:hover{background:rgba(30,26,18,.05)}
-.slcat .arrb[disabled]{opacity:.5;cursor:not-allowed}
-html.dark .slcat .arrb{color:#C99DB0}
 /* The per-card move controls, shown only while the rail is in rearrange mode.
    The handle is the shipped proposal-maker shape (a draggable grip beside a
    drop-target row); the two arrows are the SAME move, reachable without a mouse
    or a touchscreen — a drag-only reorder is unreachable for a keyboard. */
 .slcat .arrctl{display:flex;align-items:center;justify-content:center;gap:6px;padding:2px 0}
 .slcat .arrh{cursor:grab;user-select:none;font-size:15px;line-height:1;color:var(--ink-soft);padding:0 2px}
-.slcat .arrm{display:inline-flex;align-items:center;justify-content:center;min-width:34px;min-height:34px;border:1px solid var(--line);border-radius:var(--m-r-full);background:var(--card);color:var(--ink);cursor:pointer;font:inherit;font-size:13px;line-height:1}
-.slcat .arrm[disabled]{opacity:.35;cursor:not-allowed}
 .slcat .vcw.is-grabbed{opacity:.45}
 .slcat .mrnote{padding:8px 16px 2px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
 .slcat .mrerr{padding:0 16px 8px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:#8C3A3A}
@@ -934,10 +925,6 @@ html.dark .slcat .mrsaved{color:#7FBF9A}
 html.dark .slcat .mrerr{color:#E39A9A}
 
 /* ── A card's dates (2026-09-06) ─────────────────────────────────────────── */
-.slcat .fd-more{margin-left:6px;border:0;background:none;padding:0 2px;cursor:pointer;
-  font-family:var(--mono);font-size:9.5px;color:var(--gold-deep);text-decoration:underline;
-  text-underline-offset:2px}
-.slcat .fd-more:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:var(--m-r-xs)}
 /* --card, not --m-paper: the app-wide paper has no dark value, so this one
    panel stayed white in dark mode while its text inherited near-white ink —
    1.09:1, invisible. */
@@ -980,6 +967,59 @@ html.dark .slcat .mrerr{color:#E39A9A}
 .slcat .replied .dot{width:8px;height:8px;border-radius:50%;background:var(--gold-deep);flex:none}
 .slcat .replied b{font-weight:700}
 .slcat .replied .who{color:var(--ink-soft)}
+
+/* ═══ THE MODERN LOOK + DARK (owner 2026-10-11 · controller audit 2026-10-12) ═══
+   Written LAST so it wins at the same weight. Three rules:
+   · a FRAME only on what is pressed; what is only read sits on the page and a
+     topic ends in a DIVIDER (owner 2026-10-11: "only have frames if something
+     needs to be clicked like a button, separate topics with divider");
+   · a supplier is a hairline ROW, not a boxed card (approval 6, 2026-10-01);
+   · ONE accent token (--sn-accent) for what is on, picked or tappable — in
+     both themes; dark mode must work (owner 2026-10-07 / 2026-10-11). */
+.slcat{--mulberry:rgb(var(--sn-accent))}
+/* the supplier row: no box; a divider between suppliers; pressed = a soft fill */
+.slcat .fold.flat .vcw{border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;padding:12px 0}
+.slcat .fold.flat .vcw:has(>.vc:active){transform:none;border-color:var(--line);background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.slcat .fold.flat .vcw:has(>.vc[data-inspector-selected='true']){box-shadow:none;border-color:var(--line);background:color-mix(in srgb,rgb(var(--sn-accent)) 7%,transparent)}
+/* read-only notes sit on the page, a divider under them */
+.slcat .replied{border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;padding:0 0 10px}
+.slcat .convrg,.slcat .convrg.t-converged,.slcat .convrg.t-conflict{border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;padding:0 0 11px}
+.slcat .arrl{background:none;padding:0}
+.slcat .fd-pop{border:0;border-left:2px solid var(--line);border-radius:0;background:none;padding:2px 0 2px 9px}
+/* the small marks that say "you can tap this" are the accent */
+.slcat .cat-chev,.slcat .fold-chev,.slcat .cat.open .cat-chev,.slcat .fold.open .fold-chev{color:rgb(var(--sn-accent))}
+.slcat a:focus-visible,.slcat button:focus-visible{outline-color:rgb(var(--sn-accent))}
+/* the pinned category head is the page's own ground, in both themes */
+.slcat .fold.flat .cat.open>.cat-head-row{background:var(--sn-canvas)}
+/* the unread count read an undefined token (fell back to a hand-typed red) */
+.slcat .unrd{background:rgb(var(--sn-accent));color:rgb(var(--sn-on-accent))}
+/* colours that stayed light in dark mode → tokens with a dark value */
+.slcat .sc-price,.slcat .sc-gift{color:var(--gold-deep)}
+.slcat .vc .incl,.slcat .mrsaved{color:rgb(var(--color-ok))}
+.slcat .vact-inline-price-err,.slcat .mrerr,.slcat .vact-err{color:rgb(var(--color-danger))}
+html.dark .slcat .vc .rpill.ok{color:#17160F}
+html.dark .slcat .vc .bdg{background:rgba(251,251,250,.1);color:var(--ink-soft)}
+html.dark .slcat .vc .bdg.verified{color:#6FCF97;background:rgba(111,207,151,.14)}
+html.dark .slcat .vc .bdg.setnayan{color:#E5794E;background:rgba(229,121,78,.14)}
+html.dark .slcat .fd-chip{background:rgba(251,251,250,.1)}
+/* the accent in dark is the accent (the old wine #C99DB0 is retired) */
+html.dark .slcat .sortseg button.on,html.dark .slcat .vact.primary{background:rgb(var(--sn-accent));border-color:rgb(var(--sn-accent));color:rgb(var(--sn-on-accent))}
+html.dark .slcat .cat-free{color:rgb(var(--sn-accent));background:rgba(229,121,78,.14)}
+html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t{color:rgb(var(--sn-accent))}
+/* "More to compare" while it loads: two shimmering rows shaped like what is coming */
+.slcat .mrload{display:flex;flex-direction:column;gap:12px;padding:6px 0 4px}
+.slcat .mrsk{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;align-items:start}
+.slcat .mrsk-img{display:block;width:80px;height:112px;border-radius:var(--m-r-sm)}
+.slcat .mrsk-lines{display:flex;flex-direction:column;gap:8px;padding-top:6px}
+.slcat .mrsk-l{display:block;height:11px;border-radius:999px;width:80%}
+.slcat .mrsk-l.short{width:45%}
+.slcat .mrfirst{display:block;margin-top:8px}
+/* Lists are hairline rows with a terracotta arrow, not framed boxes (owner 2026-10-12, look call 8); a single
+   standalone door ("See all results…") keeps its frame. */
+.slcat .bench-mkt-results{border:0;border-radius:0;background:none}
+.slcat .bmr-row{border-top:1px solid var(--line);padding-left:0;padding-right:0}
+.slcat .bmr-arr,.slcat .bench-mkt-arr{color:rgb(var(--sn-accent))}
+html.dark .slcat .bench-mkt-results{background:none}
 `;
 
 /** Two-letter monogram fallback — delegates to the shared shop/vendor helper
@@ -1019,11 +1059,14 @@ function CardDateBlock({
         <span className="freedays">
           {cardDatesInlineLine(parts)}
           {parts.hidden > 0 ? (
-            <button
-              type="button"
+            <ActionButton
+              tone="neutral"
+              quiet
+              icon={CalendarDays}
+              label={`+${parts.hidden} more`}
+              name={cardDatesMoreLabel(parts.hidden, name)}
               className="fd-more"
               aria-expanded={open}
-              aria-label={cardDatesMoreLabel(parts.hidden, name)}
               onClick={(e) => {
                 // The card is an InspectorTrigger — without this the popup
                 // press also opens the vendor's quick-view behind it.
@@ -1031,9 +1074,7 @@ function CardDateBlock({
                 e.stopPropagation();
                 setOpen((o) => !o);
               }}
-            >
-              +{parts.hidden} more
-            </button>
+            />
           ) : null}
         </span>
       ) : line ? (
@@ -1626,25 +1667,26 @@ function VendorCard({
               without a mouse or a touchscreen. These two are also the whole
               touch route, because HTML5 drag-and-drop does not fire on touch
               at all. */}
-          <button
-            type="button"
-            className="arrm"
+          {/* Reorder (§ 9 kind 18): the arrows for anyone who cannot drag.
+              The one-screen page stacks the cards, so "earlier" is up. */}
+          <ActionButton
+            tone="neutral"
+            iconOnly
+            icon={look.face ? ArrowUp : ArrowLeft}
+            label="Earlier"
+            name={`Move ${v.name} earlier`}
             disabled={!arrange.canLeft || arrange.busy}
-            aria-label={`Move ${v.name} earlier`}
             onClick={() => arrange.onMove('left')}
-          >
-            {/* The one-screen page stacks the cards, so "earlier" is up. */}
-            {look.face ? '↑' : '←'}
-          </button>
-          <button
-            type="button"
-            className="arrm"
+          />
+          <ActionButton
+            tone="neutral"
+            iconOnly
+            icon={look.face ? ArrowDown : ArrowRight}
+            label="Later"
+            name={`Move ${v.name} later`}
             disabled={!arrange.canRight || arrange.busy}
-            aria-label={`Move ${v.name} later`}
             onClick={() => arrange.onMove('right')}
-          >
-            {look.face ? '↓' : '→'}
-          </button>
+          />
         </div>
       ) : null}
       {card}
@@ -1844,23 +1886,19 @@ function InlineMoreCard({
 }) {
   // The service card's own cover first; else the photo the search resolved.
   const cover = svc?.coverUrl ?? benchCardImage(v);
+  const Face = onOpen ? 'button' : 'span';
   return (
     <div className={`vcw mrc${sunk ? ' is-dim' : ''}${busy ? ' is-busy' : ''}`}>
-      <span
+      {/* A door is a real button (§ 9: one kind per control) — it was a span
+          wearing role="button" with its own key handling. */}
+      <Face
         className="vc"
         {...(onOpen
           ? {
-              role: 'button' as const,
-              tabIndex: 0,
+              type: 'button' as const,
               'aria-haspopup': 'dialog' as const,
               'aria-label': `View ${v.name}`,
               onClick: onOpen,
-              onKeyDown: (e: React.KeyboardEvent) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onOpen();
-                }
-              },
             }
           : {})}
       >
@@ -1949,7 +1987,7 @@ function InlineMoreCard({
           ) : null}
           {svc?.givesSetnayanGift ? <SetnayanGiftLine className="sc-gift" /> : null}
         </span>
-      </span>
+      </Face>
       {/* ONE row of verbs (the button rule): the main verb asks for a quote —
           which also keeps them — and the quiet one only keeps them. Once kept,
           the card says where it went and offers the way back. */}
@@ -1983,12 +2021,12 @@ function CompareVerbs({
   onSave: () => void;
   onInquire: () => void;
 }) {
-  const rowRef = useRef<HTMLDivElement>(null);
-  useFitRow(rowRef);
+  // Buttons keep their words (owner 2026-10-12, look call 2): no fit pass — the row wraps.
   const ask = cardVerbWords('ask');
   return (
-    <div ref={rowRef} className="verbs" data-compare-verbs="">
-      <ActionButton tone={ask.tone} main icon={MessageCircle} label={ask.label} disabled={busy} onClick={onInquire} />
+    <div className="verbs" data-compare-verbs="">
+      {/* The main verb is terracotta (owner 2026-10-12, look call 1). */}
+      <ActionButton tone="brand" main icon={MessageCircle} label={ask.label} disabled={busy} onClick={onInquire} />
       <ActionButton tone="neutral" icon={Bookmark} label={MORE_TO_COMPARE_SAVE} disabled={busy} onClick={onSave} />
     </div>
   );
@@ -2044,6 +2082,7 @@ function MoreToCompare({
   probeDayKeys,
   sortMenu,
   onSeeAll,
+  onAdd,
 }: {
   eventId: string;
   tile: string;
@@ -2063,6 +2102,8 @@ function MoreToCompare({
   sortMenu: ReactNode;
   /** Opens the full sheet — still the only place with filters and facets. */
   onSeeAll: () => void;
+  /** An empty list's first action (§ 9 kind 16): add someone the couple knows. */
+  onAdd?: () => void;
 }) {
   const router = useRouter();
   const sheetDoor = useContext(SheetDoorCtx);
@@ -2109,6 +2150,8 @@ function MoreToCompare({
   const moreFreeDaysMap = useMemo(() => new Map(Object.entries(moreFreeDays)), [moreFreeDays]);
 
   const moreQ = query.trim();
+  // "Try again" asks once more (a failed read is never kept for the visit).
+  const [moreTry, setMoreTry] = useState(0);
   useEffect(() => {
     if (!shouldRunInlineMoreQuery(moreQ)) return;
     // ONE REQUEST PER CATEGORY PER VISIT (owner 2026-10-08). Folding a row and
@@ -2157,7 +2200,7 @@ function MoreToCompare({
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [eventId, moreTile, moreGroupId, moreQ]);
+  }, [eventId, moreTile, moreGroupId, moreQ, moreTry]);
 
   // Save from the list → the couple's *considering* list, which is what the
   // cards above show. The SAME `saveVendorToPicks` the full sheet's Add already
@@ -2360,17 +2403,35 @@ function MoreToCompare({
       ) : null}
       {moreError ? (
         <div className="mrerr" role="alert">
-          {moreError}
+          {moreError}{' '}
+          {moreError === INLINE_MORE_FAILED ? (
+            <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={() => setMoreTry((n) => n + 1)} />
+          ) : null}
         </div>
       ) : null}
       {moreLoading && shown === 0 ? (
-        <div className="mrnote">
-          <span>{INLINE_MORE_LOADING}</span>
+        // Loading is a shimmer of what is coming (§ 9 kind 16), its words kept for a screen reader.
+        <div className="mrload" role="status">
+          <span className="sr-only">{INLINE_MORE_LOADING}</span>
+          {[0, 1].map((i) => (
+            <span key={i} aria-hidden className="mrsk">
+              <span className="skeleton mrsk-img" />
+              <span className="mrsk-lines">
+                <span className="skeleton mrsk-l" />
+                <span className="skeleton mrsk-l short" />
+              </span>
+            </span>
+          ))}
         </div>
       ) : shown === 0 ? (
         moreError ? null : (
           <div className="mrnote" role="status">
             <span>{moreToCompareEmpty(label, moreQ)}</span>
+            {onAdd ? (
+              <span className="mrfirst">
+                <ActionButton tone="brand" icon={Plus} label="Add your own" onClick={onAdd} />
+              </span>
+            ) : null}
           </div>
         )
       ) : (
@@ -2588,6 +2649,10 @@ export function ShortlistCategories({
   // serves the router's cached copy). Everything below reads `folders`, so the
   // counts, the ring and "· N yours" move with the card.
   const local = benchLocalStore(eventId);
+  const [builtTick, setBuiltTick] = useState(0);
+  // THE PAGE'S ONE TOAST — it peeks from the top (§ 9 kind 12); a failure is
+  // red with Try again, and the card keeps its own line as the lasting copy.
+  const [toast, setToast] = useState<{ tone: 'ok' | 'bad'; text: string; retry?: () => void; key: number } | null>(null);
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set(local.gone));
   const folders = useMemo(() => withoutRemoved(foldersFromServer, gone), [foldersFromServer, gone]);
   const benchLocal = useMemo<BenchLocal>(
@@ -2607,8 +2672,17 @@ export function ShortlistCategories({
         local.said.delete(vendorId);
         return was;
       },
+      builtNow: (vendorId, groupId, drawn) => builtNowIn(local, vendorId, groupId, drawn),
+      setBuilt: (vendorId, groupId, on, multi) => {
+        setBuiltIn(local, vendorId, groupId, on, multi);
+        markBenchDirty(eventId);
+        setBuiltTick((n) => n + 1);
+      },
+      say: (tone, text, retry) => setToast({ tone, text, retry, key: Date.now() }),
     }),
-    [eventId, local],
+    // `builtTick` re-draws every card when one pin moves (a single-pick
+    // category's sibling reads "Add to build" at once).
+    [eventId, local, builtTick],
   );
   // THE DEBT, PAID ONCE: the Build and Booked bodies were drawn on the server
   // and did not see the presses. One refresh when the couple leaves Find — or,
@@ -2764,7 +2838,6 @@ export function ShortlistCategories({
   // Which category's ⓘ hint box is open (one at a time — it is help, never a
   // setting, so it always starts closed and never persists), plus the in-flight
   // state and the last refusal message for add/remove.
-  const [hintTile, setHintTile] = useState<string | null>(null);
   /**
    * The card date view, resolved ONCE per render against the SAME
    * `buildWindow` the banner and the sink are drawn from. Recomputing the
@@ -2789,10 +2862,9 @@ export function ShortlistCategories({
     },
     [buildWindow],
   );
-  const [hintFolder, setHintFolder] = useState<string | null>(null);
   const [planEditing, startPlanEdit] = useTransition();
   const { confirm, dialog: removeConfirmDialog } = useConfirm();
-  const [planError, setPlanError] = useState<{ tile: string; message: string } | null>(null);
+  const [planError, setPlanError] = useState<{ tile: string; message: string; retry?: () => void } | null>(null);
 
   /**
    * Ask before removing. The note on the button rides `title`, which is a HOVER
@@ -2817,7 +2889,7 @@ export function ShortlistCategories({
     startPlanEdit(async () => {
       const res = await excludeTileFromPlan({ eventId, tile });
       if (!res.ok) {
-        setPlanError({ tile, message: res.error });
+        setPlanError({ tile, message: res.error, retry: () => void removeTileFromPlan(tile, label) });
         return;
       }
       setOpenTile((cur) => (cur === tile ? null : cur));
@@ -2830,7 +2902,7 @@ export function ShortlistCategories({
     startPlanEdit(async () => {
       const res = await restoreTileToPlan({ eventId, tile });
       if (!res.ok) {
-        setPlanError({ tile, message: res.error });
+        setPlanError({ tile, message: res.error, retry: () => addTileToPlan(tile, folder, slug) });
         return;
       }
       openPlan(folder, tile, slug);
@@ -3487,6 +3559,17 @@ export function ShortlistCategories({
 
   return (
     <BenchLocalCtx.Provider value={benchLocal}>
+    {toast ? (
+      <PeekToast
+        key={toast.key}
+        tone={toast.tone}
+        data="suppliers"
+        onGone={() => setToast((t) => (t?.key === toast.key ? null : t))}
+        onRetry={toast.retry}
+      >
+        {toast.text}
+      </PeekToast>
+    ) : null}
     <SheetDoorCtx.Provider value={replan ? sheetDoor : null}>
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
@@ -3727,23 +3810,12 @@ export function ShortlistCategories({
                 all, so a collapsed "Specialty" or "Dining extras" told a couple
                 nothing until they expanded it. Reuses `.cat-info` so the two
                 levels look and behave identically. */}
-            <button
-              type="button"
-              className="cat-info sn-dot-btn"
-              aria-expanded={hintFolder === folder.folder}
-              aria-label={folderHintButtonLabel(folder.label)}
-              title={folderHintButtonLabel(folder.label)}
-              onClick={(e) => {
-                e.stopPropagation();
-                setHintFolder((cur) => (cur === folder.folder ? null : folder.folder));
-              }}
-            >
-              i
-            </button>
+            {/* The ONE ⓘ template (§ 9 kind 7): a centred popup with "Got it"
+                on a phone, a note on a computer — never a box in the list. */}
+            <Explain title={folder.label} label={folderHintButtonLabel(folder.label)} data="folder-hint" className="cat-info">
+              {folderHintFor(folder.folder)}
+            </Explain>
             </div>
-            {hintFolder === folder.folder ? (
-              <div className="hintbox">{folderHintFor(folder.folder)}</div>
-            ) : null}
             </>
             )}
             <div className="fold-collapse">
@@ -3761,6 +3833,7 @@ export function ShortlistCategories({
                   const removable =
                     replan && canRemoveTileFromPlan({ lockedCount: lockedNames.length });
                   const rowError = planError?.tile === t.tile ? planError.message : null;
+                  const rowRetry = planError?.tile === t.tile ? planError.retry : undefined;
                   // Slice D — the rail-end card flips from "Find more" to
                   // "＋ Add another {tile}" once this category has a lock AND
                   // its group allows more picks. The group is resolved at TILE
@@ -3934,42 +4007,29 @@ export function ShortlistCategories({
                             the plan group's shipped `hint` through the
                             many-to-one tile→group bridge. No copy in JSX. */}
                         {hint ? (
-                          <button
-                            type="button"
-                            className="cat-info sn-dot-btn"
-                            aria-expanded={hintTile === t.tile}
-                            aria-label={categoryHintButtonLabel(t.label)}
-                            title={categoryHintButtonLabel(t.label)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setHintTile((cur) => (cur === t.tile ? null : t.tile));
-                            }}
-                          >
-                            i
-                          </button>
+                          <Explain title={t.label} label={categoryHintButtonLabel(t.label)} data="category-hint" className="cat-info">
+                            {hint}
+                          </Explain>
                         ) : null}
                         {savedCanonical ? (
-                          <button
-                            type="button"
+                          <ActionButton
+                            tone="neutral"
+                            quiet
+                            icon={SlidersHorizontal}
+                            label="Your request"
+                            name={`View or edit your saved request for ${t.label}`}
                             className="cat-req"
-                            style={{ marginLeft: 8, marginRight: 2 }}
-                            aria-label={`View or edit your saved request for ${t.label}`}
-                            title={`Your saved request for ${t.label}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               openReqModal(savedCanonical, t.label);
                             }}
-                          >
-                            <SlidersHorizontal size={15} strokeWidth={1.85} aria-hidden />
-                          </button>
+                          />
                         ) : null}
                       </div>
                       {/* The hint box stays readable with the category
                           collapsed — it answers "do I even need this?", which
                           is a question you ask BEFORE opening the rail. */}
-                      {hint && hintTile === t.tile ? (
-                        <div className="hintbox">{hint}</div>
-                      ) : null}
+
                       {/* Collapsed rows NAME what's locked here (decision #8) —
                           "who did we choose for this?" answered without opening
                           the rail. Hidden while the category is open, because
@@ -4002,9 +4062,10 @@ export function ShortlistCategories({
                               <span className="fr-t" style={{ fontWeight: 600 }}>
                                 ✓ Covered — you&apos;re done with {t.label}.
                               </span>
-                              <button
-                                type="button"
-                                className="fr manual"
+                              <ActionButton
+                                tone="neutral"
+                                icon={RotateCcw}
+                                label="Reopen"
                                 onClick={() =>
                                   startReopen(async () => {
                                     await clearCategoryDecision({
@@ -4014,9 +4075,7 @@ export function ShortlistCategories({
                                     router.refresh();
                                   })
                                 }
-                              >
-                                <span className="fr-t">Reopen</span>
-                              </button>
+                              />
                             </div>
                           ) : t.vendors.length > 0 ? (
                             <>
@@ -4042,23 +4101,16 @@ export function ShortlistCategories({
                                     : arrangementNote(effectiveSortLabel)}
                                 </span>
                                 {showsArrangement ? (
-                                  <button
-                                    type="button"
-                                    className="arrb"
+                                  <ActionButton
+                                    tone="neutral"
+                                    icon={RotateCcw}
+                                    label={RESET_ORDER_LABEL}
                                     disabled={tileBusy}
                                     onClick={() => resetArrangedTile(t.tile)}
-                                  >
-                                    {RESET_ORDER_LABEL}
-                                  </button>
+                                  />
                                 ) : null}
                                 {isArranging ? (
-                                  <button
-                                    type="button"
-                                    className="arrb"
-                                    onClick={() => setArrangeTile(null)}
-                                  >
-                                    Done
-                                  </button>
+                                  <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => setArrangeTile(null)} />
                                 ) : null}
                                 {arrangeError && (isArranging || showsArrangement) ? (
                                   <span className="plan-err">{arrangeError}</span>
@@ -4262,6 +4314,7 @@ export function ShortlistCategories({
                               probeDayKeys={probeDayKeys}
                               sortMenu={sortMenu}
                               onSeeAll={() => openSearch(t.tile, t.label)}
+                              onAdd={() => setManual({ category: t.category, label: t.label })}
                             />
                           ) : null}
                           {/* A booked category shows no list, so its own way
@@ -4285,23 +4338,32 @@ export function ShortlistCategories({
                               `plan-err` renders. */}
                           {replan && !coveredGroup && (removable || rowError) ? (
                             <div className="cat-note">
-                              {rowError ? <span className="plan-err">{rowError}</span> : null}
+                              {rowError ? (
+                                <span className="plan-err">
+                                  {rowError}
+                                  {rowRetry ? (
+                                    <>
+                                      {' '}
+                                      <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={rowRetry} />
+                                    </>
+                                  ) : null}
+                                </span>
+                              ) : null}
                               {removable ? (
-                                <button
-                                  type="button"
+                                <ActionButton
+                                  tone="neutral"
+                                  quiet
+                                  icon={X}
+                                  label={removeFromEventLabel(t.label)}
+                                  /* The note rides the accessible name and the
+                                     title, NOT an sr-only span (a hidden span
+                                     inside the button reaches nobody). */
+                                  name={`${removeFromPlanButtonLabel(t.label)} — ${REMOVE_FROM_PLAN_NOTE}`}
+                                  title={REMOVE_FROM_PLAN_NOTE}
                                   className="rmv"
                                   disabled={planEditing}
-                                  /* The note rides the aria-label and the
-                                     title, NOT an sr-only span: aria-label
-                                     OVERRIDES inner text for assistive tech,
-                                     so a hidden span inside this button would
-                                     have reached nobody at all. */
-                                  aria-label={`${removeFromPlanButtonLabel(t.label)} — ${REMOVE_FROM_PLAN_NOTE}`}
-                                  title={REMOVE_FROM_PLAN_NOTE}
                                   onClick={() => void removeTileFromPlan(t.tile, t.label)}
-                                >
-                                  {removeFromEventLabel(t.label)}
-                                </button>
+                                />
                               ) : null}
                             </div>
                           ) : null}
@@ -4340,6 +4402,12 @@ export function ShortlistCategories({
           {planError && poolRows.some((r) => r.t.tile === planError.tile) ? (
             <p className="plan-err" style={{ textAlign: 'left', flexBasis: '100%' }}>
               {planError.message}
+              {planError.retry ? (
+                <>
+                  {' '}
+                  <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={planError.retry} />
+                </>
+              ) : null}
             </p>
           ) : null}
         </div>

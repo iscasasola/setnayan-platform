@@ -24,6 +24,7 @@
 import { createContext, useContext } from 'react';
 import type { ShortlistFolder } from '@/lib/shortlist-taxonomy';
 import type { SaveVendorResult } from '@/app/(shell)/explore/actions';
+import type { removeBuildPick, setBuildPick } from '../build-pick-actions';
 
 /** A supplier saved from "More to compare": its new pick, and whether Undo may remove it. */
 export type SavedFromMore = { eventVendorId: string; undoable: boolean };
@@ -37,6 +38,10 @@ type BenchLocalStore = {
   said: Map<string, string>;
   /** One `router.refresh()` is owed (see THE DEBT above). */
   dirty: boolean;
+  /** "Add to build" answered in place: `${groupId}|${pickId}` → in the build or not. */
+  built: Map<string, boolean>;
+  /** A single-pick category whose pin was changed in place: group → the one pick in it (null = none). */
+  groupPick: Map<string, string | null>;
 };
 
 const STORES = new Map<string, BenchLocalStore>();
@@ -44,7 +49,7 @@ const STORES = new Map<string, BenchLocalStore>();
 export function benchLocalStore(eventId: string): BenchLocalStore {
   let s = STORES.get(eventId);
   if (!s) {
-    s = { gone: new Set(), saved: new Map(), said: new Map(), dirty: false };
+    s = { gone: new Set(), saved: new Map(), said: new Map(), dirty: false, built: new Map(), groupPick: new Map() };
     STORES.set(eventId, s);
   }
   return s;
@@ -77,6 +82,16 @@ export type BenchLocal = {
   removeInPlace: (vendorId: string) => (refusal: string) => void;
   /** What a refused Remove said, once — read by the card that comes back. */
   takeSaid: (vendorId: string) => string | null;
+  /**
+   * Whether a pick is in the build NOW: what the press made it, else what the
+   * page was drawn with. In a single-pick category a pin moves the one place,
+   * so a sibling drawn "In your build" reads "Add to build" at once too.
+   */
+  builtNow: (vendorId: string, groupId: string, drawn: boolean) => boolean;
+  /** A pin / unpin answered in place (`multi` = the category keeps several). */
+  setBuilt: (vendorId: string, groupId: string, on: boolean, multi: boolean) => void;
+  /** The ONE toast of the page (it peeks from the top) — a press's result. */
+  say: (tone: 'ok' | 'bad', text: string, retry?: () => void) => void;
 };
 
 export const BenchLocalCtx = createContext<BenchLocal | null>(null);
@@ -93,6 +108,8 @@ export function useBenchLocal(): BenchLocal | null {
 export type BenchWrites = {
   remove: (fd: FormData) => Promise<void>;
   save: (fd: FormData) => Promise<SaveVendorResult>;
+  pin: typeof setBuildPick;
+  unpin: typeof removeBuildPick;
 };
 export const BenchWritesStandInCtx = createContext<BenchWrites | null>(null);
 
@@ -111,4 +128,35 @@ export function withoutRemoved(folders: ShortlistFolder[], gone: ReadonlySet<str
     });
     return dropped === 0 ? f : { ...f, tiles, pickCount: Math.max(0, f.pickCount - dropped) };
   });
+}
+
+/** The decision `builtNow` makes, pure (the bench's store is its only input). */
+export function builtNowIn(
+  store: Pick<BenchLocalStore, 'built' | 'groupPick'>,
+  vendorId: string,
+  groupId: string,
+  drawn: boolean,
+): boolean {
+  const own = store.built.get(`${groupId}|${vendorId}`);
+  if (own !== undefined) return own;
+  if (store.groupPick.has(groupId)) return store.groupPick.get(groupId) === vendorId;
+  return drawn;
+}
+
+/** The write `setBuilt` makes, pure. */
+export function setBuiltIn(
+  store: Pick<BenchLocalStore, 'built' | 'groupPick'>,
+  vendorId: string,
+  groupId: string,
+  on: boolean,
+  multi: boolean,
+): void {
+  store.built.set(`${groupId}|${vendorId}`, on);
+  if (multi) return;
+  // One place in the category: whoever held it is out (their own entry is
+  // dropped so the group's answer speaks for them).
+  for (const key of [...store.built.keys()]) {
+    if (key.startsWith(`${groupId}|`) && key !== `${groupId}|${vendorId}`) store.built.delete(key);
+  }
+  store.groupPick.set(groupId, on ? vendorId : null);
 }

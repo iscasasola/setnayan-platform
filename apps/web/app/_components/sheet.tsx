@@ -57,7 +57,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 //   - body scroll locked while open (no background scrolling under
 //     the sheet)
 //   - backdrop click closes
-//   - close-button is always rendered with a 40×40px hit target
+//   - close-button is always rendered with a 44×44px hit target (the template's floor, 2026-10-12)
 //
 // NOT handled here (consumer's responsibility):
 //   - the heading element itself — consumer renders it so it can
@@ -118,12 +118,14 @@ export function Sheet({
       className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none"
     >
       {/* Backdrop — clicking dismisses. Rendered as a button so keyboard
-          users get a focusable affordance, not just a div with onClick. */}
+          users get a focusable affordance, not just a div with onClick.
+          Its dark is the popup rule's ONE dark, `sn-popup-dark` (dark AND blurred — globals.css), not a hand-made
+          `bg-ink/40 backdrop-blur-sm` (2026-10-12 look sweep). */}
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className={`absolute inset-0 bg-ink/40 backdrop-blur-sm${rise ? ' sn-fade' : ''}`}
+        className={`sn-popup-dark absolute inset-0${rise ? ' sn-fade' : ''}`}
       />
 
       {/* Sheet body — `data-sheet-panel` is the hook globals.css's FOLDABLES block sizes on a
@@ -146,7 +148,7 @@ export function Sheet({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
             >
               <X aria-hidden className="h-4 w-4" strokeWidth={2} />
             </button>
@@ -156,7 +158,7 @@ export function Sheet({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-cream/80 text-ink/55 backdrop-blur hover:bg-ink/5 hover:text-ink"
+            className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-cream/80 text-ink/55 backdrop-blur hover:bg-ink/5 hover:text-ink"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>

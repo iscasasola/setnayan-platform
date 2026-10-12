@@ -21,7 +21,8 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { MessageCircle, Loader2 } from 'lucide-react';
+import { MessageCircle, Loader2, RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { haptic } from '@/lib/haptics';
 import {
   contactShortlistVendor,
@@ -63,10 +64,13 @@ export function ContactShortlistVendorButton({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+  // A fault the couple can try again (not a refusal that stays true).
+  const [again, setAgain] = useState(false);
 
   const contact = () => {
     haptic('confirm');
     setErr(null);
+    setAgain(false);
     start(async () => {
       const res = vendorProfileId
         ? await contactVendorProfile({ eventId, vendorProfileId })
@@ -88,6 +92,7 @@ export function ContactShortlistVendorButton({
         return;
       }
       setErr(res.status === 'error' ? res.message : 'Could not open the conversation.');
+      setAgain(true);
     });
   };
 
@@ -107,7 +112,17 @@ export function ContactShortlistVendorButton({
         )}
         <span className="lbl">{pending ? pendingLabel : label}</span>
       </button>
-      {err ? <p className={errorClassName}>{err}</p> : null}
+      {err ? (
+        <p className={errorClassName}>
+          {err}
+          {again ? (
+            <>
+              {' '}
+              <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={contact} />
+            </>
+          ) : null}
+        </p>
+      ) : null}
     </div>
   );
 }

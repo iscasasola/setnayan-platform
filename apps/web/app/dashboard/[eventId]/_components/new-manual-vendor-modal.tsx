@@ -120,6 +120,7 @@ export function NewManualVendorModal({
   onClose,
   onCreated,
 }: Props) {
+  const portalHost = usePortalHost();
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   /* The two categories that ARE a place owe an exact address (owner
@@ -698,7 +699,6 @@ function RecordLinkBlock({
   vendorId: string;
   vendorName: string;
 }) {
-  const portalHost = usePortalHost();
   const [invite, setInvite] = useState<SupplierInviteView | undefined>(undefined);
   useEffect(() => {
     let live = true;

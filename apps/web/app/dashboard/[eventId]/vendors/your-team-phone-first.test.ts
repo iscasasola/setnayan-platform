@@ -190,7 +190,11 @@ test('(b) a row draws at most one action, and Lock is the shipped lock path', ()
   const action = ROWS.slice(ROWS.indexOf('function RowAction('));
   assert.match(action, /if \(!a\) return null;/);
   assert.equal((action.match(/<AccordionLockButton\b/g) ?? []).length, 1);
-  assert.equal((action.match(/<Link\b/g) ?? []).length, 1);
+  // 2026-10-12 look sweep: the row's door is the ActionButton (href → a Link),
+  // no longer a hand-drawn <Link> — still exactly ONE, and still a link.
+  assert.equal((action.match(/<ActionButton\b/g) ?? []).length, 1);
+  assert.match(action, /<ActionButton\s+href=\{a\.href\}/);
+  assert.doesNotMatch(action, /<Link\b/, 'a second, hand-drawn door');
   assert.match(ROWS, /<RowAction eventId=\{eventId\} row=\{r\} \/>/);
   assert.doesNotMatch(ROWS, /finalizeVendor|'use client'/, 'a second lock path, or a client component');
 });

@@ -15,25 +15,41 @@
  *   · rows empty   — a real, measured empty team → "No suppliers yet."
  *   · rows         — booked first, one next step each.
  */
-import Link from 'next/link';
+import { BellRing, CalendarCheck, CreditCard, RotateCcw, Star, type LucideIcon } from 'lucide-react';
+import { ActionButton, type ActionTone } from '@/components/action-button';
 import { AccordionLockButton } from './accordion-lock';
-import { teamCountsLine, type TeamRow, type TeamRowTone } from '@/lib/your-team-rows';
+import { GoToFind } from './go-to-find';
+import { teamCountsLine, type TeamRow, type TeamRowAction, type TeamRowTone } from '@/lib/your-team-rows';
 import { formatCount } from '@/lib/format-number';
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 
+/** The status pill — flipping tokens only. The old `bg-success-50` /
+ *  `text-success-700`-style washes are fixed hexes with no dark value, so they
+ *  glared on the dark page (2026-10-12 look sweep, brief rule 3). */
 const PILL_TONE: Record<TeamRowTone, string> = {
-  ok: 'bg-success-50 text-success-700',
-  warn: 'bg-warn-50 text-warn-800',
+  ok: 'bg-[rgb(var(--color-ok)_/_0.12)] text-[rgb(var(--color-ok))]',
+  warn: 'bg-[rgb(var(--color-warn)_/_0.12)] text-[rgb(var(--color-warn))]',
   soft: 'bg-ink/5 text-ink/70',
-  no: 'bg-danger-50 text-danger-700',
+  no: 'bg-[rgb(var(--color-danger)_/_0.12)] text-[rgb(var(--color-danger))]',
 };
 
-/** The row's one action — a quiet mulberry word with a chevron, as drawn. A full
- *  44px tap target (the app's own button floor), pulled into the row's padding
- *  with a negative margin so the word stays compact and every row's action —
- *  link or the lock button — sits at the same height. */
-const GO_CLASS =
-  'inline-flex min-h-[44px] shrink-0 items-center whitespace-nowrap rounded-md -my-2.5 px-1.5 text-[12.5px] font-semibold text-mulberry transition hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry';
+/**
+ * The row's one action — an ActionButton (2026-10-12 look sweep: was a
+ * hand-drawn mulberry "Label ›" word). Tone and icon per verb, from the card's
+ * own table (`lib/supplier-card-verbs.ts`: book/pay → ok, nudge → warn); it is
+ * the row's filled main verb only when the row is waiting on the couple.
+ */
+const ACTION_LOOK: Record<Exclude<TeamRowAction['kind'], 'lock'>, { tone: ActionTone; icon: LucideIcon }> = {
+  pay: { tone: 'ok', icon: CreditCard },
+  nudge: { tone: 'warn', icon: BellRing },
+  review: { tone: 'brand', icon: Star },
+  check: { tone: 'ok', icon: CreditCard },
+};
+
+/** "Book" — the lock button wears the same look. Written out, not
+ *  `actionButtonClass('ok', { main })`: this is a SERVER component and that
+ *  helper lives in a 'use client' module, so calling it here would throw. */
+const lockClass = (main: boolean) => (main ? 'ab ab-ok ab-main' : 'ab ab-ok');
 
 export type TeamRowsState =
   | { kind: 'unreadable'; retryHref: string }
@@ -47,9 +63,13 @@ export function TeamRows({ eventId, state }: { eventId: string; state: TeamRowsS
         <p className="mt-1 text-[12.5px] text-ink/60">
           This is a loading problem — not an empty list.
         </p>
-        <Link href={state.retryHref} className={`${GO_CLASS} mt-3 -ml-1.5`}>
-          Try again ›
-        </Link>
+        <ActionButton
+          href={state.retryHref}
+          tone="neutral"
+          icon={<RotateCcw aria-hidden strokeWidth={1.9} />}
+          label="Try again"
+          className="mt-3"
+        />
       </div>
     );
   }
@@ -57,9 +77,11 @@ export function TeamRows({ eventId, state }: { eventId: string; state: TeamRowsS
   const { rows } = state;
   if (rows.length === 0) {
     return (
-      <p data-team-rows="empty" className="text-[12.5px] text-ink/60">
-        No suppliers yet.
-      </p>
+      <div data-team-rows="empty">
+        <p className="text-[12.5px] text-ink/60">No suppliers yet.</p>
+        {/* The empty state gives the first action (2026-10-12 look sweep). */}
+        <GoToFind className="mt-3" />
+      </div>
     );
   }
 
@@ -71,17 +93,19 @@ export function TeamRows({ eventId, state }: { eventId: string; state: TeamRowsS
         {counts.needYou > 0 ? (
           <>
             {' · '}
-            <span className="font-semibold text-mulberry">{formatCount(counts.needYou)} need you</span>
+            <span className="font-semibold text-sn-accent">{formatCount(counts.needYou)} need you</span>
           </>
         ) : null}
       </p>
-      <ul className="mt-2 space-y-2">
+      <ul className="mt-2">
         {rows.map((r) => (
           <li
             key={r.vendorId}
             data-team-row={r.group}
             data-team-action={r.action?.kind ?? 'none'}
-            className="sn-tile px-3 pb-2 pt-3"
+            // Read, not pressed: no tile — each supplier ends in a divider; only
+            // its action is a button (2026-10-12 look sweep).
+            className="border-b border-ink/15 py-3"
           >
             <div className="flex items-start gap-2.5">
               <span
@@ -107,9 +131,9 @@ export function TeamRows({ eventId, state }: { eventId: string; state: TeamRowsS
                 {r.pill.text}
               </span>
             </div>
-            <div className="mt-2.5 flex items-center gap-2 border-t border-dashed border-ink/15 pt-1.5">
+            <div className="mt-2.5 flex items-center gap-2">
               <span className="min-w-0 flex-1 truncate text-xs text-ink/70">
-                Next: <span className={r.needsYou ? 'font-semibold text-mulberry' : ''}>{r.next}</span>
+                Next: <span className={r.needsYou ? 'font-semibold text-sn-accent' : ''}>{r.next}</span>
               </span>
               <RowAction eventId={eventId} row={r} />
             </div>
@@ -131,9 +155,10 @@ function RowAction({ eventId, row }: { eventId: string; row: TeamRow }) {
         groupLabel={row.service ?? row.name}
         vendorId={row.vendorId}
         vendorName={row.name}
-        label="Book ›"
+        label="Book"
         pendingLabel="Booking…"
-        className={GO_CLASS}
+        icon={<CalendarCheck aria-hidden strokeWidth={1.9} />}
+        className={lockClass(row.needsYou)}
         // A column flex, not a block: a block wrapper adds a line-box strut that
         // made the Lock row taller than its Pay/Nudge siblings, and the button's
         // own "Verifying" / error lines still stack beneath it.
@@ -143,9 +168,18 @@ function RowAction({ eventId, row }: { eventId: string; row: TeamRow }) {
       />
     );
   }
+  const look = ACTION_LOOK[a.kind];
+  const Icon = look.icon;
   return (
-    <Link href={a.href} className={GO_CLASS} prefetch={false}>
-      {a.label} ›
-    </Link>
+    <ActionButton
+      href={a.href}
+      prefetch={false}
+      tone={look.tone}
+      main={row.needsYou}
+      icon={<Icon aria-hidden strokeWidth={1.9} />}
+      label={a.label}
+      name={`${a.label} — ${row.name}`}
+      className="shrink-0"
+    />
   );
 }

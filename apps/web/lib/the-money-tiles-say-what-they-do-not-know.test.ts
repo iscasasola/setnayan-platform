@@ -112,3 +112,10 @@ test('🪤 the subtotal heading cannot round a missing price down to ₱0', () =
     'the duplicate null-swallowing sum must be gone, not merely unused',
   );
 });
+
+test('flag ON draws no Date or Location tile', () => {
+  // 2026-10-12: the date · place line is their only place (controller ruling).
+  const replanTiles = src.slice(src.indexOf('const tiles = replan ? ('), src.indexOf(') : (', src.indexOf('const tiles = replan ? (')));
+  assert.ok(replanTiles.includes('k="Booked"'), 'the replan tiles moved — re-anchor this test');
+  assert.doesNotMatch(replanTiles, /k="Date"|k="Location"/, 'a second date · place copy is back');
+});

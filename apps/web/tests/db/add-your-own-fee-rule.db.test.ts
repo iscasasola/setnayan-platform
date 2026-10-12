@@ -85,8 +85,7 @@ async function sqlAnswer(c: FeeRuleBCase): Promise<string> {
     if (d.tie === 'claimed') {
       await db.query(`UPDATE public.event_vendors SET marketplace_vendor_id = $1 WHERE vendor_id = $2`, [shop, rowId]);
     } else if (d.tie === 'matched') {
-      // A direct connection is privileged, as the service role is.
-      await db.query(`UPDATE public.event_manual_vendors SET leak_match_vendor_profile_id = $1 WHERE manual_vendor_id = $2`, [shop, manualId]);
+      await asServer(`UPDATE public.event_manual_vendors SET leak_match_vendor_profile_id = $1 WHERE manual_vendor_id = $2`, [shop, manualId]);
     }
   } else {
     await db.query(
@@ -117,6 +116,16 @@ async function sqlAnswer(c: FeeRuleBCase): Promise<string> {
   }
   const r = await db.query<{ a: string }>(`SELECT public.booking_fee_attribution_for($1, $2) AS a`, [shop, eventId]);
   return r.rows[0]!.a;
+}
+
+/** A write as the SERVER makes it (`stampManualLeakMatch` uses the service role) — the guard's privileged path. */
+async function asServer(sql: string, params: unknown[]): Promise<void> {
+  await db.query(`SELECT set_config('request.jwt.claim.role', 'service_role', false)`);
+  try {
+    await db.query(sql, params);
+  } finally {
+    await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
+  }
 }
 
 async function reset(): Promise<void> {
@@ -187,7 +196,7 @@ test("3 · a couple's own session can neither write nor clear the match stamp", 
   assert.equal(renamed.rows[0]!.b, 'Renamed', 'the couple could not edit their own record at all (the probe is vacuous)');
 
   // The server stamps it; the couple cannot clear it.
-  await db.query(`UPDATE public.event_manual_vendors SET leak_match_vendor_profile_id = $1 WHERE manual_vendor_id = $2`, [shop, manualId]);
+  await asServer(`UPDATE public.event_manual_vendors SET leak_match_vendor_profile_id = $1 WHERE manual_vendor_id = $2`, [shop, manualId]);
   assert.equal(await stamp(), shop);
   await asCouple(`UPDATE public.event_manual_vendors SET leak_match_vendor_profile_id = NULL WHERE manual_vendor_id = $1`, [manualId]);
   assert.equal(await stamp(), shop, 'the couple cleared the stamp');

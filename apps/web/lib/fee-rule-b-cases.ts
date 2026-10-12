@@ -64,9 +64,12 @@ export const FEE_RULE_B_CASES: ReadonlyArray<FeeRuleBCase> = [
   c('a profile view of any kind for this event, before → sourced (answer 8: "a profile view for this event")', { views: [{ source: 'profile_direct', when: 'before' }] }, 'sourced'),
   c('matched to a shop this event viewed first → sourced', { tie: 'matched', views: [{ source: 'search', when: 'before' }] }, 'sourced'),
   c('viewed only AFTER the record was made → free (not "first")', { views: [{ source: 'explore', when: 'after' }] }, 'import'),
-  c('saved from Find before the record → sourced', { saves: [{ source: 'host_marketplace_search', when: 'before' }] }, 'sourced'),
-  c('saved from Find only after the record → free', { saves: [{ source: 'host_marketplace_search', when: 'after' }] }, 'import'),
-  c('an earlier row the supplier brought (their invite) is not a save from Find → free', { saves: [{ source: 'vendor_invite', when: 'before' }] }, 'import'),
+  // A Find save and the couple's own record of the same shop live side by side only while the record is MATCHED
+  // (one marketplace pick per shop per event — `event_vendors_unique_marketplace_pick_per_event`).
+  c('saved from Find before the record → sourced', { tie: 'matched', saves: [{ source: 'host_marketplace_search', when: 'before' }] }, 'sourced'),
+  // (No "saved from Find AFTER the record" case: that save is itself a marketplace row of the shop, and the ONLY row a
+  // charge can land on — the record cannot be claimed while it exists — so the pair is sourced through it.)
+  c('an earlier row the supplier brought (their invite) is not a save from Find → free', { tie: 'matched', saves: [{ source: 'vendor_invite', when: 'before' }] }, 'import'),
   c('not tied to this shop ("Not them?", never claimed) → free, even with a view', { tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'import'),
   c("the claim's own thread (no source) and nothing else → free", { thread: null }, 'import'),
   c('a chat started from Setnayan (shortlist) → sourced', { tie: 'none', thread: 'shortlist' }, 'sourced'),

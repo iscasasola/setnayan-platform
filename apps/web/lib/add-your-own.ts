@@ -12,6 +12,7 @@
  * and the tests all read this one file, so the sentences cannot drift between
  * the sheet, the record and the guard.
  */
+import { formatCount } from './format-number';
 
 /** The four steps, in the order drawn. Their names are the progress line's. */
 export const ADD_OWN_STEPS = ['Name', 'What they do', 'Contact', 'Their link'] as const;
@@ -19,7 +20,7 @@ export type AddOwnStep = 1 | 2 | 3 | 4;
 
 /** "Step 2 of 4 · What they do" */
 export function addOwnStepLine(step: AddOwnStep): string {
-  return `Step ${step} of ${ADD_OWN_STEPS.length} · ${ADD_OWN_STEPS[step - 1]}`;
+  return `Step ${formatCount(step)} of ${formatCount(ADD_OWN_STEPS.length)} · ${ADD_OWN_STEPS[step - 1]}`;
 }
 
 export const ADD_OWN_TITLE = 'Add your own supplier';

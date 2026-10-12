@@ -7,6 +7,7 @@ import { CountdownWidget } from '@/app/[slug]/_components/countdown';
 import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
 import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
+import { CustomSectionWidget } from '@/app/[slug]/_components/custom-section-widget';
 import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-widget';
 import { MakerGuestScenes, MakerWelcomeGiftsEmpty, MakerWelcomeLook } from '@/app/[slug]/_components/maker-guest-scenes';
 import { WelcomeGifts } from '@/app/[slug]/_components/guest-doorway-strip';
@@ -43,7 +44,7 @@ import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
 import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette } from './lab-sample';
 import { LabStagePages } from './lab-stage';
-import { LAB_NAMES_COOKIE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom } from '../lab-draft';
+import { LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom } from '../lab-draft';
 import { labSeen, labStageTiles } from '../lab-navigator';
 import { sceneOnStage } from '@/lib/what-guests-see';
 import type { WidgetType } from '@/lib/invitation-widgets';
@@ -253,7 +254,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      rows with the lab's draft over them): a stage draws what the Maker lists for it and nothing else, a scene moved
      Earlier · Later is drawn where it now stands, and one taken off is not drawn (P02 · P12). */
   const stageNow: HubStage = stage ?? 'rsvp';
-  const labRowsNow = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value);
+  const labRowsNow = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value, (await cookies()).get(LAB_OWN_COOKIE)?.value === '1');
   const stageTiles = labStageTiles(labRowsNow, stageNow, labStory);
   /* 🗓 DOES THE DAY DRAW THIS SCENE? — its own list, or one of the two places off it (the Welcome's dress code and
      reminders, a guest's own schedule and directions): the page's one answer (`sceneOnStage`), on the lab's rows
@@ -423,6 +424,13 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     'w:dress_code': scene.dress_code,
     'w:what_to_bring': emptyScene('what_to_bring'),
     'w:our_photos': emptyScene('our_photos'),
+    /* ✍ The lab's one scene of the couple's own (`LAB_OWN_COOKIE`) — the guest page's own widget for it. Listed by
+       the Maker only when the walk asked for it, so it is drawn only then (a stage draws what its list names). */
+    [`w:${LAB_OWN_SCENE.type}`]: (
+      <div data-lab-scene={LAB_OWN_SCENE.type} className="border-t border-ink/10 px-4 py-8 text-left">
+        <CustomSectionWidget config={LAB_OWN_SCENE.config} />
+      </div>
+    ),
     'f:entourage': marchBlock,
   };
   /* 🎚 THE CHAIN'S CARDS (`?scrub=1`). Each scene of the chain is drawn as the prototype drew it, so a hold can be

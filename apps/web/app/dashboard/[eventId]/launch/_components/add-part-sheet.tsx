@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { listWithGates, partTakenOff } from '@/lib/maker-list-gates';
-import { whenCanvasShowsIt } from '@/lib/maker-settle';
+import { canvasSettleWatch, whenCanvasShowsIt, type CanvasSettle } from '@/lib/maker-settle';
+import { SCENE_DRAG_WORDS, sceneMenuRows, sceneMovesAmong, type SceneHeld } from '@/lib/maker-scene-drag';
 import { makerStagesPageOf, makerStagesPages } from '@/lib/maker-stage-filing';
 import { shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { usePopupBehind } from '@/lib/use-popup-behind';
 import { createPortal } from 'react-dom';
-import { Check, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Plus, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
@@ -19,14 +20,15 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { isCustomSectionType } from '@/lib/custom-sections';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
-import { MAKER_PARTS, makerPartStepHeldWhy, makerPartStepWhy, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
-import { heldByEntourage, stepChangesThePage } from '@/lib/stage-scenes';
+import { MAKER_PARTS, makerPartOfTap, makerPartStepHeldWhy, makerPartStepWhy, makerRevealEdges, makerStageIsFixedPages, type MakerPartKey, type MakerStageKey } from '@/lib/maker-parts';
+import { heldByEntourage } from '@/lib/stage-scenes';
 import {
   makerDropDelta,
   makerOwnScenesLeft,
   makerOwnScenesLine,
   makerPartCanvasOn,
   makerPartLabelOn,
+  makerPartOfCanvas,
   makerPartOffers,
   makerPostEventMoveDraft,
   makerPostEventSceneOf,
@@ -43,6 +45,8 @@ import { MakerSheet } from './stages-studio-parts';
 import { PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, ownScenePlaceOrder } from '@/lib/own-scene-place';
 import { MakerRevealStageContext } from './maker-reveal';
 import { MAKER_PART_OPS_EVENT, type MakerPartOps, type MakerPartRaw } from './maker-part-ops';
+import type { SceneDragSubject } from './scene-canvas-drag';
+import { heldSaveWatch, stageStill, useSceneDrag } from './scene-drag';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { useMaker } from './maker-context';
 
@@ -58,17 +62,21 @@ import { useMaker } from './maker-context';
  *        → the parts NOT on this page, grouped (`lib/maker-part-groups.ts`),
  *        then "A scene of your own ◆ · n of 6 left" → the SHIPPED template
  *        picker (`scene-template-picker.tsx`).
- *   ↑ ↓  one place earlier / later among the parts the page draws → ONE order
- *        write (the work area's own move, `lib/maker-reorder.ts`; Post Event:
- *        its run). It was a grip dragged on the frame; since 2026-10-09 it is
- *        the toolbar's Edit › ↑ Earlier · ↓ Later (`PartEditsNow`).
- *   🗑   "Remove from this page?" (the eye — its words stay in Studio) or, for a
- *        scene of their own, "Delete this scene?" (the shipped Remove for good)
- *        — the ONLY confirm in the Maker. Asked from Edit › Remove.
+ *   ✋   HOLD THE SCENE ON THE PAGE AND DRAG IT (owner 2026-10-11: *"what if we
+ *        drag the scene on the preview instead of having this"* · *"our build is
+ *        the drag by scene"*; `scene-drag.tsx`, `scene-canvas-drag.ts`,
+ *        `lib/maker-scene-drag.ts`) → ONE order write (the work area's own move,
+ *        `lib/maker-reorder.ts`; Post Event: its run). It was the toolbar's Edit ›
+ *        ↑ Earlier · ↓ Later (2026-10-09), and a grip on the frame before that.
+ *   🗑   DROP IT ON THE BIN: the eye (its words stay in Studio; the line under the
+ *        tools says "<Scene> removed" beside Undo) — or, for a scene of their own,
+ *        "Delete this scene?" (the shipped Remove for good), the ONLY confirm in
+ *        the Maker. It was Edit › Remove.
+ *   ▾    FOR WHOEVER CANNOT DRAG: the picked part's name tag opens Move up ·
+ *        Move down · Remove — the same writes.
  *
- * 🚫 THE FRAME HAS NO BUTTONS (owner 2026-10-09: *"on preview screen, you only
- * select"*): its outline and its name, and — until the owner says where a part is
- * added — ＋.
+ * 🚫 THE FRAME'S ONLY CONTROLS (owner 2026-10-09: *"on preview screen, you only
+ * select"*; 2026-10-11: the tag's menu): its outline, its name tag, and ＋.
  *
  * 🔑 EVERY WRITE IS THE WORK AREA'S OWN (`maker-part-ops.ts`): the eye, the move,
  * Remove for good, "+ Add a scene", Post Event's switch and run. Opening any of
@@ -225,6 +233,23 @@ type Movable =
   | { kind: 'post-event'; scene: string; runKey: string | null; switchKey: string | null }
   | { kind: 'fixed' };
 
+/** A part of the page as the steps and the drag name it: what it is, its canvas key, its name. */
+type At = { mv: Movable; canvas: string | null; label: string };
+
+/** …and what it is in the drag rules' terms (`lib/maker-scene-drag.ts`). */
+function heldOf(mv: Movable): SceneHeld {
+  return mv.kind === 'scene' ? { kind: 'scene', type: mv.type } : mv.kind === 'post-event' ? { kind: 'post-event', runKey: mv.runKey } : { kind: 'fixed' };
+}
+
+/** May a part of this kind be taken off · moved? One rule for the picked part and for a scene held on the page (the
+ *  Reveal and every fixed part are `fixed`: never). */
+function mayRemove(mv: Movable): boolean {
+  return mv.kind === 'scene' || (mv.kind === 'post-event' && mv.switchKey !== null);
+}
+function mayMove(mv: Movable): boolean {
+  return mv.kind === 'scene' || (mv.kind === 'post-event' && mv.runKey !== null);
+}
+
 function movableOf(ops: MakerPartOps | null, canvas: string | null): Movable {
   if (!ops || !canvas) return { kind: 'fixed' };
   const t = ops.list.shown.find((x) => x.key === canvas || (x.kind === 'post-event' && x.anchor === canvas));
@@ -254,6 +279,9 @@ const EDGE_BTN = 'sn-press pointer-events-auto absolute inline-flex h-11 w-11 it
 export const PART_ACCENT = 'bg-sn-accent text-sn-on-accent';
 /** The outline: 2 px of the accent and its soft halo. */
 export const PART_OUTLINE = 'absolute rounded-lg shadow-[0_0_0_2px_rgb(var(--sn-accent)),0_0_0_7px_rgb(var(--sn-accent)/.14)]';
+/** The picked part's name tag. The lifted scene wears the same face on the page (`scene-canvas-drag.ts` `SCENE_TAG_FACE`,
+ *  spelled out there for the page's own stylesheet — held equal by `lib/a-scene-is-dragged-on-the-page.test.ts`). */
+const PART_TAG = `rounded-sm ${PART_ACCENT} px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]`;
 const ADD_FACE = `inline-flex h-[26px] w-[26px] items-center justify-center rounded-full ${PART_ACCENT} font-sans text-[18px] font-semibold leading-none shadow-[0_0_0_3px_#fff,0_4px_10px_-4px_rgba(0,0,0,.4)]`;
 
 /**
@@ -301,31 +329,49 @@ type PartEditsProps = {
    */
   onPage?: (page: string) => void;
   onPick?: (part: MakerPartKey) => void;
+  /**
+   * ✋ THE PAGE TAKES A HOLD NOW (`scene-drag.tsx`): the stage's own canvas is on show and nothing else has the
+   * screen (not typing, playing or previewing). Absent / false: no scene lifts. Never on a fixed page (the RSVP
+   * stage's screens — their lines have a drag of their own).
+   */
+  dragOn?: boolean;
+  /** 🗑 The picked scene left the page with nothing of its kind to pick in its place — whoever holds the selection
+   *  picks what an arrival would. */
+  onRemoved?: () => void;
 };
 
 /**
- * ↑ ↓ 🗑 THE PICKED PART'S PLACE, FOR THE TOOLBAR'S EDIT (owner 2026-10-09: Edit's last row is *"always"* ↑ Earlier ·
- * ↓ Later · Remove — `stage-panel/stage-edit.tsx`). The SAME writes the frame's grip and 🗑 make (one order write
- * for a step, the one confirm before a remove), handed out so the row and the frame can never disagree.
+ * ↑ ↓ 🗑 THE PICKED PART'S PLACE — the drag's own writes, handed out for the tag's menu and the keyboard (one order
+ * write for a step; a scene of their own asks before it is deleted), so the drag and its fallback can never disagree.
+ * It was the toolbar's Edit › ↑ Earlier · ↓ Later · Remove (owner 2026-10-09); the row left when the drag came
+ * (owner 2026-10-11).
  */
 export type PartEditsNow = {
-  /** The frame, its sheets and its toast — drawn once, by whoever holds the hook. */
+  /** The frame, the bin, its sheets and its toast — drawn once, by whoever holds the hook. */
   node: ReactNode;
   /** One place up / down among the parts this page draws — null: nowhere to go, or a part that does not move. */
   earlier: (() => void) | null;
   later: (() => void) | null;
-  /** Ask to take it off (the one confirm) — null: a part that cannot be removed. */
+  /** Take it off (a scene of their own asks first) — null: a part that cannot be removed. */
   remove: (() => void) | null;
   /** "Delete" for a scene of their own (gone for good at Apply), "Remove" for any other. */
   removeWord: 'Remove' | 'Delete';
-  /** The one plain line a tap on a grey step answers with — never a dead tap. */
+  /** The one plain line a grey step answers with — never a dead tap. */
   why: { earlier: string; later: string; remove: string };
-  /** ⏳ The press still on its way to the page (`lib/maker-settle.ts`) — its step shows it; every step waits for it. */
+  /** ⏳ The press still on its way to the page (`lib/maker-settle.ts`) — every step waits for it. */
   working: PartWorking | null;
+  /** ✋ A scene is held on the page: the lower third slides away so the whole page shows (`scene-drag.tsx`). */
+  held: boolean;
+  /** The line under the tools — "Saving…", "<Scene> removed" · Undo, why a part keeps its place. Null: nothing to say. */
+  status: ReactNode;
+  /** …and which saying it is (a new number each time it speaks) — null with nothing to say. */
+  statusKey: number | null;
+  /** Say one line there (why a grey step did nothing). */
+  say: (words: string) => void;
 };
 
-/** The presses the canvas reloads for: a step earlier · later, a part brought back. */
-export type PartWorking = 'earlier' | 'later' | 'add';
+/** The presses still on their way to the page: a scene moved · taken off, a part brought back. */
+export type PartWorking = 'move' | 'remove' | 'add';
 
 /** What a step answers while another press is still on its way to the page. */
 export const PART_WORKING_WHY = 'One moment — the page is catching up.';
@@ -334,13 +380,16 @@ export function PartEdits(props: PartEditsProps) {
   return usePartEdits(props).node;
 }
 
-export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null, lineWhy = null, away = false, onGone, onPage, onPick }: PartEditsProps): PartEditsNow {
+export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd = null, lineWhy = null, away = false, onGone, onPage, onPick, dragOn = false, onRemoved }: PartEditsProps): PartEditsNow {
   const isReveal = picked === 'reveal';
   const canvas = isReveal ? REVEAL_STUB : picked ? makerPartCanvasOn(stage, picked) : null;
   const el = picked ? (line?.key ?? MAKER_PARTS[picked].el ?? null) : null;
   const [box, setBox] = useState<Box | null>(null);
   const [adding, setAdding] = useState<'above' | 'below' | null>(null);
-  const [removing, setRemoving] = useState(false);
+  /* 🗑 The scene of their own being asked about ("Delete this scene?") — the picked one, or one dropped on the bin. */
+  const [removing, setRemoving] = useState<At | null>(null);
+  /* ▾ The picked part's tag was pressed: Move up · Move down · Remove. */
+  const [menu, setMenu] = useState(false);
   const [ownOpen, setOwnOpen] = useState(false);
   /* ＋ Which edge "A scene of your own" was asked from — it lands there (owner 2026-10-07). */
   const [ownWhere, setOwnWhere] = useState<'above' | 'below' | null>(null);
@@ -366,6 +415,16 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
       setToast(words);
     });
   };
+  /* ✋ …and a scene moved (dropped, or stepped from its tag's menu): busy from the press until the page on screen is the
+     new one — the caller is told how it ended, and says it on the line under the tools (never a toast: the scene is
+     already where it was put). */
+  const landed = (what: PartWorking, done: Promise<CanvasSettle> = whenCanvasShowsIt()): Promise<CanvasSettle> => {
+    setWorking(what);
+    return done.then((how) => {
+      setWorking(null);
+      return how;
+    });
+  };
 
   /* The part's box, every frame while it is picked (one rect read — the canvas scrolls under it). */
   useEffect(() => {
@@ -389,18 +448,27 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   }, [canvas, el, frame]);
   /* The work area's writes, read again whenever the part changes (and its render lands). */
   const renderStamp = useMaker()?.renderStamp;
-  useEffect(() => setOps(askPartOps()), [canvas, renderStamp, adding, removing]);
+  /* (`took`: a scene just taken off by a held save — no render follows it, so the list is asked for again here.) */
+  const [took, setTook] = useState(0);
+  useEffect(() => setOps(askPartOps()), [canvas, renderStamp, adding, removing, took]);
 
   /* 🫥 The work area's list folds the picked part as taken off by the couple (`listWithGates`): let go of it. */
   const gone = partTakenOff(ops, canvas);
   const onGoneRef = useRef(onGone);
   onGoneRef.current = onGone;
   useEffect(() => {
-    if (gone) onGoneRef.current?.();
+    /* ↺ …asked of the work area NOW, never only of the list this render holds. `ops` is read after a render, so the
+       render in which a part is first picked still holds the list from before: a scene ↺ had just put back was
+       picked, read as "taken off" from that older list, and let go of in the same breath — the toolbar was left on
+       nothing (walked in the lab, 2026-10-12; the prototype's `undo` picks the scene it brings back). */
+    if (gone && partTakenOff(askPartOps(), canvas)) onGoneRef.current?.();
   }, [gone, canvas]);
 
   const mv = isReveal ? ({ kind: 'fixed' } as Movable) : movableOf(ops, canvas);
   const ownScene = mv.kind === 'scene' && mv.own;
+  const label = picked ? makerPartLabelOn(stage, picked) : '';
+  /** The picked part, as the steps and the drag name a part (`At`). */
+  const here: At = { mv, canvas, label };
   /* 🎭 THE REVEAL IS LOCKED FIRST (owner 2026-10-07: *"the move feature or add a slide above on reveal must be
      removed (for reveal only) because that should be its limitation"*): no grip, no ＋ above, no 🗑 — it hides per
      stage through Arrange › On this stage. Its ＋ below stays. `makerRevealEdges`. */
@@ -409,69 +477,79 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
      its name and ↑ ↓ ✕ — never ＋, a grip or 🗑 (nothing can be added to a reply page, and the ＋ sheet would offer
      the stage mounted underneath's hidden scenes). */
   const fixedPages = makerStageIsFixedPages(stage);
-  const canRemove = edgesOf.remove && (mv.kind === 'scene' || (mv.kind === 'post-event' && mv.switchKey !== null)) && !fixedPages;
-  const canMove = edgesOf.grip && (mv.kind === 'scene' || (mv.kind === 'post-event' && mv.runKey !== null)) && !fixedPages;
-  const label = picked ? makerPartLabelOn(stage, picked) : '';
+  const canRemove = edgesOf.remove && mayRemove(mv) && !fixedPages;
+  const canMove = edgesOf.grip && mayMove(mv) && !fixedPages;
 
   /* ── 💾 the Post Event saves (its switch, its run) — the one draft door ── */
-  const saveEditorial = useCallback((draft: PostEventDraft, said: string, hide?: string) => {
+  /* `said`: the toast for a ＋ — null for a move or a remove, whose line under the tools says how it ended (the promise).
+     Both reload the canvas, so the wait is for the page that shows it (`canvasSettleWatch`, read AT the press). */
+  const saveEditorial = useCallback((draft: PostEventDraft, said: string | null, hide?: string): Promise<CanvasSettle> => {
     const o = askPartOps();
-    if (!o?.draftAction) return;
+    if (!o?.draftAction) return Promise.resolve('failed');
+    const watch = canvasSettleWatch();
     /* Drawn first: a scene taken off is gone from the page now (the bridge's `sceneShow`),
        and what happened is said at once; the draft save runs behind it. */
     if (hide) postToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key: hide, shown: false });
-    setToast(said);
+    if (said) setToast(said);
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ editorial: draft }));
     setError(null);
-    makerSave(() => o.draftAction!(o.eventId, fd), requestMakerRefresh)
+    /* ↩ Refused: what the bridge took off is put back — "nothing changed" must be true of the page too. */
+    const refused = (why: string) => {
+      if (hide) postToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key: hide, shown: true });
+      if (said) setError(why);
+      watch.cancel();
+    };
+    void makerSave(() => o.draftAction!(o.eventId, fd), requestMakerRefresh)
       .then((r) => {
-        if (!r.ok) setError(r.error);
+        if (!r.ok) refused(r.error);
       })
-      .catch(() => setError('That change could not be saved. Please try again — nothing was lost.'));
+      .catch(() => refused('That change could not be saved. Please try again — nothing was lost.'));
+    return watch.done;
   }, [setToast]);
 
   /* ── ↑ ↓ a step earlier / later ── */
   type MoveTarget = { key: string; id: string; mid: number; top: number; bottom: number };
-  /** The parts the picked one can move among: the same kind, DRAWN on this page, top to bottom (never itself). */
-  const moveTargets = (o: MakerPartOps): MoveTarget[] => {
+  /** The parts a part can move among: the same kind, DRAWN on this page, top to bottom (never itself). */
+  const moveTargets = (o: MakerPartOps, at: At = here): MoveTarget[] => {
     const targets: MoveTarget[] = [];
-    for (const t of o.list.shown) {
-      const key = t.kind === 'post-event' ? t.anchor : t.key;
-      if (!key || key === canvas) continue;
-      if (mv.kind === 'scene' && t.kind !== 'scene') continue;
-      /* 🚶 NEVER PAST THE ENTOURAGE (owner 2026-10-11: Earlier on What to bring saved a move the page could not show
-         — "the do not work"). A scene the page draws after the entourage is not a neighbour of one before it
-         (`stepChangesThePage`): the order would change and the page would not. */
-      if (mv.kind === 'scene' && t.kind === 'scene' && !stepChangesThePage(stage, mv.type, t.type)) continue;
-      if (mv.kind === 'post-event' && (t.kind !== 'post-event' || !t.runKey || t.runKey === mv.runKey)) continue;
-      const b = partBox(key);
+    /* 🚶 NEVER PAST THE ENTOURAGE (owner 2026-10-11: Earlier on What to bring saved a move the page could not show
+       — "the do not work"). A scene the page draws after the entourage is not a neighbour of one before it
+       (`sceneMovesAmong` → `stepChangesThePage`): the order would change and the page would not. The drag opens its
+       gap among these same targets, so it can never open one across the Wedding March either. */
+    for (const n of sceneMovesAmong(stage, o.list.shown, heldOf(at.mv), at.canvas)) {
+      const b = partBox(n.key);
       if (!b) continue;
-      targets.push({ key, id: t.kind === 'scene' ? t.widgetId : t.kind === 'post-event' ? (t.runKey ?? t.scene) : key, mid: b.top + b.height / 2, top: b.top, bottom: b.top + b.height });
+      targets.push({ key: n.key, id: n.id, mid: b.top + b.height / 2, top: b.top, bottom: b.top + b.height });
     }
     return targets.sort((a, b) => a.mid - b.mid);
   };
-  /** Land the picked part above / below `t` — ONE order write (the work area's own move; Post Event: its run). */
-  const dropOn = (o: MakerPartOps, t: MoveTarget, where: 'above' | 'below') => {
-    if (mv.kind === 'scene') {
+  /**
+   * Land a part above / below `t` — ONE order write (the work area's own move; Post Event: its run). The promise is
+   * how it ended, once the page on screen shows it; null: it already stands there — nothing is written.
+   */
+  const dropOn = (o: MakerPartOps, t: MoveTarget, where: 'above' | 'below', at: At = here): Promise<CanvasSettle> | null => {
+    const { mv: m } = at;
+    if (m.kind === 'scene') {
       const shown = o.list.shown.flatMap((x) => (x.kind === 'scene' ? [x.widgetId] : []));
-      const delta = makerDropDelta({ fullOrder: o.fullOrder, shown, afterLastShown: o.afterLastShown, id: mv.id, target: t.id, where });
-      if (delta !== 0) {
-        o.move(mv.id, delta);
-        settle(where === 'above' ? 'earlier' : 'later', `${label} moved`);
-      }
-    } else if (mv.kind === 'post-event' && mv.runKey && o.postEvent) {
-      const run = postEventRun(o.postEvent);
-      const from = run.indexOf(mv.runKey);
-      let to = run.indexOf(t.id) + (where === 'below' ? 1 : 0);
-      if (from < 0 || to < 0) return;
-      if (to > from) to -= 1;
-      const draft = makerPostEventMoveDraft(o.postEvent, mv.scene, to - from);
-      if (draft) saveEditorial(draft, `${label} moved`);
+      const delta = makerDropDelta({ fullOrder: o.fullOrder, shown, afterLastShown: o.afterLastShown, id: m.id, target: t.id, where });
+      if (delta === 0) return null;
+      o.move(m.id, delta);
+      return landed('move');
     }
+    if (m.kind === 'post-event' && m.runKey && o.postEvent) {
+      const run = postEventRun(o.postEvent);
+      const from = run.indexOf(m.runKey);
+      let to = run.indexOf(t.id) + (where === 'below' ? 1 : 0);
+      if (from < 0 || to < 0) return null;
+      if (to > from) to -= 1;
+      const draft = makerPostEventMoveDraft(o.postEvent, m.scene, to - from);
+      return draft ? landed('move', saveEditorial(draft, null)) : null;
+    }
+    return null;
   };
-  /* ── ↑ ↓ one place earlier / later (the toolbar's Edit) — the neighbour the page DRAWS above / below it ── */
+  /* ── ↑ ↓ one place up / down (the tag's menu, the keyboard) — the neighbour the page DRAWS above / below it ── */
   const neighbour = (o: MakerPartOps, dir: -1 | 1): MoveTarget | null => {
     const me = canvas ? partBox(canvas, el, frame) : null;
     if (!me) return null;
@@ -483,7 +561,11 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   const stepMove = (dir: -1 | 1) => {
     const o = askPartOps();
     const t = o && canMove ? neighbour(o, dir) : null;
-    if (o && t) dropOn(o, t, dir < 0 ? 'above' : 'below');
+    const done = o && t ? dropOn(o, t, dir < 0 ? 'above' : 'below') : null;
+    if (!done) return;
+    /* It sits in its new place at once (the prototype's `moveBy`), slid there until the page the save brings draws it. */
+    const section = canvas ? findMakerSection(document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? document, canvas) : null;
+    drag.run({ type: 'move', label, key: canvas }, done, (section ? drag.slide(section, dir) : null) ?? undefined);
   };
 
   /* ── ＋ add a part ── */
@@ -543,21 +625,134 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
         if (moved?.sectionOrder !== undefined) draft = { ...draft, sectionOrder: moved.sectionOrder };
       }
     }
-    saveEditorial(draft, `${makerPartLabelOn(stage, key)} added ${where}`);
+    void saveEditorial(draft, `${makerPartLabelOn(stage, key)} added ${where}`);
   };
 
-  /* ── 🗑 take it off (after the one confirm) ── */
-  const removeYes = () => {
+  /* ── 🗑 take it off ── */
+  /**
+   * Off the page, by the bin or the tag's menu — today's Remove for that part: the same write, the same Undo step.
+   * A scene of the couple's OWN is never taken silently: its "Delete this scene?" sheet opens ('asking' — the
+   * shipped Remove for good). Any other goes at once and the line under the tools offers Undo; the promise is how
+   * the save ended. Null: a part that stays.
+   */
+  const takeOff = (at: At = here): 'asking' | Promise<CanvasSettle> | null => {
     const o = askPartOps();
-    setRemoving(false);
-    if (!o) return;
-    if (mv.kind === 'scene' && !mv.own) {
-      setToast(`${label} removed from this page`);
-      o.eye(mv.id);
-    } else if (mv.kind === 'post-event' && mv.switchKey && o.postEvent) {
-      saveEditorial(postEventShow(o.postEvent, mv.switchKey as Parameters<typeof postEventShow>[1], false), `${label} removed from this page`, canvas ?? undefined);
+    if (!o || fixedPages || !mayRemove(at.mv)) return null;
+    const { mv: m } = at;
+    if (m.kind === 'scene' && m.own) {
+      setRemoving(at);
+      return 'asking';
+    }
+    if (m.kind === 'scene') {
+      /* The eye: drawn at once by the bridge and held — no reload follows, so the wait is for the save itself. */
+      const done = heldSaveWatch();
+      o.eye(m.id);
+      return landed('remove', done).then((how) => {
+        if (how === 'shown') setTook((n) => n + 1);
+        return how;
+      });
+    }
+    if (m.kind === 'post-event' && m.switchKey && o.postEvent) {
+      return landed('remove', saveEditorial(postEventShow(o.postEvent, m.switchKey as Parameters<typeof postEventShow>[1], false), null, at.canvas ?? undefined));
+    }
+    return null;
+  };
+  /** The page's own tap on a part's box — what picks it; `still`: picked where it is (`stageStill`), the page not moved. */
+  const tapPart = (box: Element, key: string | null, still: boolean) => {
+    const view = box.ownerDocument.defaultView;
+    if (!view) return;
+    if (still) stageStill.key = key;
+    box.dispatchEvent(new view.MouseEvent('click', { bubbles: true, cancelable: true, view }));
+  };
+  /** After a scene left the page: the next scene the page still draws is picked, where it is (the prototype's
+   *  `removeScene`) — or what an arrival would pick. */
+  const pickAfter = (gone: string | null) => {
+    const o = askPartOps();
+    const next = o?.list.shown.find((t) => t.kind === 'scene' && t.key !== gone && partBox(t.key) !== null);
+    const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
+    const box = next && doc ? findMakerSection(doc, next.key) : null;
+    if (next && box) tapPart(box, next.key, true);
+    else onRemoved?.();
+  };
+  const removeNow = () => {
+    const done = takeOff();
+    if (done && done !== 'asking') {
+      drag.run({ type: 'remove', label, key: canvas }, done);
+      pickAfter(canvas);
     }
   };
+
+  /* ── ✋ a scene held on the page (`scene-drag.tsx`) ── */
+  /** A part of this stage's page, by its canvas key — as the steps name the picked one. */
+  const atKey = (o: MakerPartOps | null, key: string, piece: string | null = null): At => {
+    /* Its name is the part a tap THERE picks (the cover is several parts: the names, the date …) — `makerPartOfTap`,
+       the toolbar's own reading of a tap. */
+    const part = key === REVEAL_STUB ? ('reveal' as MakerPartKey) : (makerPartOfTap(stage, shownPageOf(stage)?.key ?? null, key, piece) ?? makerPartOfCanvas(stage, key));
+    const tile = o?.list.shown.find((t) => t.key === key || (t.kind === 'post-event' && t.anchor === key));
+    return { mv: key === REVEAL_STUB ? { kind: 'fixed' } : movableOf(o, key), canvas: key, label: part ? makerPartLabelOn(stage, part) : (tile?.label ?? 'This part') };
+  };
+  const drag = useSceneDrag({
+    on: dragOn && !fixedPages && !frame,
+    frameSel: SHOWN_FRAME,
+    working: working !== null,
+    sheetOpen: adding !== null || removing !== null || menu || ownOpen,
+    /* What a press on this element would hold: the marked part under it, whether it moves, and — when it does — the
+       parts it may land among, measured on the page (the same targets a step takes). */
+    subject: (target, doc): SceneDragSubject | null => {
+      const o = askPartOps();
+      if (!o) return null;
+      const reveal = target.closest<HTMLElement>('[data-maker-reveal-part]');
+      if (reveal) return { key: REVEAL_STUB, el: reveal, target, label: atKey(o, REVEAL_STUB).label, movable: false, beside: [] };
+      let hit: { key: string; el: HTMLElement } | null = null;
+      const keys = [...Array.from(doc.querySelectorAll('[data-maker-section]')).map((m) => m.getAttribute('data-maker-section') ?? ''), 'f:entourage', 'f:story'];
+      for (const k of keys) {
+        const sec = k ? findMakerSection(doc, k) : null;
+        if (sec && sec.contains(target) && (!hit || hit.el.contains(sec))) hit = { key: k, el: sec };
+      }
+      if (!hit) return null;
+      const piece = target.closest('[data-el]');
+      const at = atKey(o, hit.key, piece && hit.el.contains(piece) ? piece.getAttribute('data-el') : null);
+      if (!mayMove(at.mv)) return { key: hit.key, el: hit.el, target, label: at.label, movable: false, beside: [] };
+      const mine = partBox(hit.key);
+      const rows = [...moveTargets(o, at).map((t) => ({ key: t.key, top: t.top })), { key: hit.key, top: mine?.top ?? 0 }].sort((a, b) => a.top - b.top);
+      const beside = rows.flatMap((r) => {
+        const sec = r.key === hit!.key ? hit!.el : findMakerSection(doc, r.key);
+        return sec ? [{ key: r.key, el: sec }] : [];
+      });
+      return { key: hit.key, el: hit.el, target, label: at.label, movable: true, beside };
+    },
+    /* A part that keeps its place says the step's own shipped reason; the Reveal, the prototype's line for it. */
+    why: (s) => (s.key === REVEAL_STUB ? SCENE_DRAG_WORDS.revealWhy : makerPartStepWhy(s.label, false, false).earlier),
+    busyWhy: PART_WORKING_WHY,
+    /* Held or lifted, it is the picked part (the prototype's `pick` in `lift` and `nudge`) — picked AS A TAP PICKS: by
+       the page's own tap, so the bridge tells the Maker exactly what a finger's tap tells it.
+         · A SCENE that lifts is tapped on its own box, and picked WHERE IT IS: the toolbar does not bring it to the
+           middle of the page under the finger that holds it, nor after the drop (`stageStill`).
+         · A part that KEEPS ITS PLACE is tapped where the finger is — the names, the date — and is picked as any tap
+           picks it.
+       A scene already picked is left alone. */
+    pick: (s) => {
+      if (!s.movable) return tapPart(s.target.isConnected && s.el.contains(s.target) ? s.target : s.el, null, false);
+      if (s.key === canvas) return;
+      tapPart(s.el, s.key, true);
+    },
+    drop: (s, target, where) => {
+      const o = askPartOps();
+      const at = atKey(o, s.key);
+      const t = o ? moveTargets(o, at).find((x) => x.key === target) : null;
+      return o && t ? dropOn(o, t, where, at) : null;
+    },
+    remove: (s) => {
+      const done = takeOff(atKey(askPartOps(), s.key));
+      if (done && done !== 'asking') pickAfter(s.key);
+      return done;
+    },
+    /* ↺ took a step of the drag's back and the page shows it: a scene put back is the picked part again. */
+    undone: (step) => {
+      const part = step.type === 'remove' && step.key ? makerPartOfCanvas(stage, step.key) : null;
+      if (part) onPick?.(part);
+    },
+  });
 
   const band = typeof window === 'undefined' ? null : visibleBand(frame);
   const clampY = (y: number) => (band ? Math.max(band.top + PART_EDGE_ROOM, Math.min(band.bottom - PART_EDGE_ROOM, y)) : y);
@@ -581,14 +776,23 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   const now: Omit<PartEditsNow, 'node'> = {
     earlier: working ? null : canStep(-1) ? () => stepMove(-1) : null,
     later: working ? null : canStep(1) ? () => stepMove(1) : null,
-    remove: working ? null : canRemove ? () => setRemoving(true) : null,
+    remove: working ? null : canRemove ? () => removeNow() : null,
     removeWord: ownScene ? 'Delete' : 'Remove',
     why: working ? { earlier: PART_WORKING_WHY, later: PART_WORKING_WHY, remove: PART_WORKING_WHY } : (lineWhy ?? { ...makerPartStepWhy(label || 'This part', canMove, canRemove), ...heldWhy() }),
     working,
+    held: drag.held,
+    status: drag.status,
+    statusKey: drag.statusKey,
+    say: drag.say,
   };
   if (typeof document === 'undefined') return { node: null, ...now };
   /* What just happened is said even once the part is let go (a move re-renders the page). */
   const edges = Boolean(picked && box) && !away;
+  /* ✋ …and while a scene is held on the page the frame steps aside too: the lifted scene wears its own ring and its
+     name there (`scene-canvas-drag.ts`). */
+  const framed = edges && !drag.held;
+  /* ▾ The name tag is the menu's door on a stage's page — never on a fixed page (the RSVP stage's lines move by their own hold). */
+  const tagMenu = !fixedPages && !line;
   /* The prototype pads a picked part (`.el.on{padding-block:18px}`) so ＋ sits ON the frame, never over its words:
      the frame is drawn PART_PAD outside the part, and each 44 px tap lies wholly outside the part's box. */
   const fe = box ? partFrameEdges(box, box.gapAbove ?? null, box.gapBelow ?? null, PART_PAD) : null;
@@ -601,7 +805,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   const tapAt = (x: number, y: number, h: number) => ({ ...at(x, y), top: y - h / 2, height: h, minHeight: 0 });
   const node = createPortal(
     <>
-      {edges && box ? (
+      {framed && box ? (
         <div
           data-part-edges={picked}
           className="pointer-events-none fixed inset-0 z-[86] lg:hidden"
@@ -610,17 +814,34 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
           style={band ? { clipPath: `inset(${Math.max(0, band.top)}px 0 ${Math.max(0, window.innerHeight - band.bottom)}px 0)` } : undefined}
         >
           <div data-part-outline="" className={PART_OUTLINE} style={{ top: fr!.top, left: fr!.left, width: fr!.width, height: fr!.height }} />
-          <span
-            data-part-name=""
-            className={`absolute z-[1] rounded-sm ${PART_ACCENT} px-[7px] py-[3px] font-sans text-[9px] font-bold uppercase leading-[1.2] tracking-[0.14em]`}
-            style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) }}
-          >
-            {line?.name ?? name ?? label}
-          </span>
-          {/* 🚫 NO BUTTONS ON THE FRAME (owner 2026-10-09: "on preview screen, you only select" — the frame and its
-              name say what is picked, nothing more). ↑ ↓ ✕, the grip and 🗑 were here: moving and removing are Edit's
-              last row now (↑ Earlier · ↓ Later · Remove — `PartEditsNow`), ↑ ↓ between parts is a swipe across the
-              toolbar, and a tap on the page's ground lets go.
+          {tagMenu ? (
+            /* ▾ THE NAME TAG IS THE DOOR FOR WHOEVER CANNOT DRAG (owner 2026-10-11, the approved prototype's `.lbl`):
+               a tap opens Move up · Move down · Remove. Its face is where the tag always sat; the tap around it is
+               as tall as the room the frame's edge has (the same room ＋ takes), never over the part's own words. */
+            <button
+              type="button"
+              data-part-tag=""
+              data-part-name=""
+              aria-haspopup="menu"
+              aria-label={SCENE_DRAG_WORDS.tag(name ?? label)}
+              onClick={() => setMenu(true)}
+              className="sn-press pointer-events-auto absolute z-[1] inline-flex min-w-11 items-start justify-start"
+              style={{ top: clampY(fr!.top) - fe!.tapAbove / 2, left: Math.max(2, box.left - 2), height: fe!.tapAbove, paddingTop: Math.max(0, fe!.tapAbove / 2 - 11) }}
+            >
+              <span className={`inline-flex items-center gap-1.5 ${PART_TAG}`}>
+                {name ?? label}
+                <span aria-hidden className="h-0 w-0 border-x-4 border-t-[5px] border-x-transparent border-t-current opacity-85" />
+              </span>
+            </button>
+          ) : (
+            <span data-part-name="" className={`absolute z-[1] ${PART_TAG}`} style={{ top: clampY(fr!.top) - 11, left: Math.max(2, box.left - 2) }}>
+              {line?.name ?? name ?? label}
+            </span>
+          )}
+          {/* 🚫 NOTHING ELSE ON THE FRAME (owner 2026-10-09: "on preview screen, you only select" — the frame and its
+              name say what is picked). ↑ ↓ ✕, the grip and 🗑 were here: a scene is moved by holding it on the page and
+              removed by dropping it on the bin (owner 2026-10-11), its name tag is the door for whoever cannot drag,
+              ↑ ↓ between parts is a swipe across the toolbar, and a tap on the page's ground lets go.
               ＋ STAYS FOR NOW: where a part is added is an OPEN owner question (`TOOLBAR-SPEC-2026-10-09.md` "Things
               with no home yet") — and it is the only way a removed part comes back. Never on a fixed page (the RSVP
               stage's screens, `makerStageIsFixedPages`). */}
@@ -706,14 +927,24 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
           />
         </OwnScenePicker>
       ) : null}
-      {removing ? (
-        <RemovePartSheet
-          label={label}
-          own={ownScene}
-          remover={ownScene && mv.kind === 'scene' ? (ops?.removers[mv.id] ?? null) : null}
-          onYes={removeYes}
-          onClose={() => setRemoving(false)}
+      {drag.node}
+      {menu && picked ? (
+        <PartMenuSheet
+          label={name ?? label}
+          removeWord={now.removeWord}
+          can={{ up: now.earlier !== null, down: now.later !== null, remove: now.remove !== null }}
+          onStep={(step) => {
+            setMenu(false);
+            const go = step === 'up' ? now.earlier : step === 'down' ? now.later : now.remove;
+            /* A grey row is never a dead tap: the line under the tools says why. */
+            if (go) go();
+            else drag.say(step === 'up' ? now.why.earlier : step === 'down' ? now.why.later : now.why.remove);
+          }}
+          onClose={() => setMenu(false)}
         />
+      ) : null}
+      {removing && removing.mv.kind === 'scene' ? (
+        <RemovePartSheet label={removing.label} remover={ops?.removers[removing.mv.id] ?? askPartOps()?.removers[removing.mv.id] ?? null} onClose={() => setRemoving(null)} />
       ) : null}
     </>,
     document.body,
@@ -915,25 +1146,59 @@ function AddPartSheet({
 }
 
 /**
- * 🗑 THE ONE CONFIRM. A part of the page: "Remove from this page?" — the eye;
- * its words stay in Studio and ＋ brings it back. A scene of their own: "Delete
- * this scene?" — the shipped Remove for good (`sections-panel.tsx`), opened here
- * so this sheet is the only question asked.
+ * ▾ MOVE UP · MOVE DOWN · REMOVE — the picked part's steps for whoever cannot drag (owner 2026-10-11; the approved
+ * prototype's `#menu`, opened by the name tag). The Maker's one bottom sheet (`MakerSheet`, owner 2026-10-06: every
+ * pop-up of the new Maker opens from the bottom, dark behind) with the prototype's three rows and their words. A
+ * step the part cannot take is grey and still answers: the sheet closes and the line under the tools says why.
  */
-function RemovePartSheet({
+const MENU_ICON = { up: ArrowUp, down: ArrowDown, remove: Trash2 } as const;
+function PartMenuSheet({
   label,
-  own,
-  remover,
-  onYes,
+  removeWord,
+  can,
+  onStep,
   onClose,
 }: {
   label: string;
-  own: boolean;
-  remover: ReactNode;
-  onYes: () => void;
+  removeWord: 'Remove' | 'Delete';
+  can: { up: boolean; down: boolean; remove: boolean };
+  onStep: (step: 'up' | 'down' | 'remove') => void;
   onClose: () => void;
 }) {
-  const w = makerRemoveWords(label, own);
+  const rows = sceneMenuRows(can, removeWord);
+  return (
+    <MakerSheet label={label} onClose={onClose}>
+      <ul className="flex flex-col gap-0.5 pb-1" data-part-menu="">
+        {rows.map((r) => {
+          const Icon = MENU_ICON[r.step];
+          return (
+            <li key={r.step}>
+              <button
+                type="button"
+                data-part-menu-step={r.step}
+                aria-disabled={r.on ? undefined : true}
+                onClick={() => onStep(r.step)}
+                className={`${STAGE_SHEET_ROW} ${r.on ? (r.danger ? '!text-[rgb(var(--color-danger))]' : '') : '!text-ink/40'}`}
+              >
+                <Icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+                <span className="min-w-0 flex-1 truncate">{r.words}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </MakerSheet>
+  );
+}
+
+/**
+ * 🗑 THE ONE CONFIRM — "Delete this scene?", for a scene of the couple's OWN: the shipped Remove for good
+ * (`sections-panel.tsx`), opened here so this sheet is the only question asked. Reached from the bin and from the
+ * tag's Delete; it is never taken silently. (Any other part leaves at once — the eye, its words stay in Studio — and
+ * the line under the tools offers Undo: `takeOff`.)
+ */
+function RemovePartSheet({ label, remover, onClose }: { label: string; remover: ReactNode; onClose: () => void }) {
+  const w = makerRemoveWords(label, true);
   const ref = useRef<HTMLDivElement>(null);
   /* The shipped form is a disclosure; here the sheet IS the confirm, so it opens at once. */
   useEffect(() => {
@@ -941,21 +1206,12 @@ function RemovePartSheet({
   }, []);
   return (
     <MakerSheet label={w.title} onClose={onClose}>
-      <div className="flex flex-col gap-2 px-3 pb-2" data-remove-part={own ? 'delete' : 'remove'}>
+      <div className="flex flex-col gap-2 px-3 pb-2" data-remove-part="delete">
         <p className="text-[14px] leading-snug text-ink/75">{w.body}</p>
-        {own ? (
-          <div ref={ref} className="flex flex-col gap-2 [&_summary]:hidden [&_details]:m-0 [&_form>span]:hidden [&_button[type=submit]]:h-11 [&_button[type=submit]]:w-full [&_button[type=submit]]:text-[14px]">
-            {remover ?? <p className="text-[13px] text-ink/60">This scene cannot be deleted here.</p>}
-            <ActionButton tone="neutral" icon={Check} label="Keep it" onClick={onClose} className="!h-11 w-full" />
-          </div>
-        ) : (
-          /* The confirm's two answers are the app's action buttons (`ActionButton`): the second button keeps, the
-             delete button — the house danger tone, never a second terracotta — takes it off. */
-          <div className="flex gap-2" data-remove-part-answers="">
-            <ActionButton tone="neutral" icon={Check} label="Keep it" onClick={onClose} className="!h-11 !flex-1" />
-            <ActionButton tone="danger" icon={Trash2} label={w.yes} onClick={onYes} data-testid="remove-part-yes" className="!h-11 !flex-1" />
-          </div>
-        )}
+        <div ref={ref} className="flex flex-col gap-2 [&_summary]:hidden [&_details]:m-0 [&_form>span]:hidden [&_button[type=submit]]:h-11 [&_button[type=submit]]:w-full [&_button[type=submit]]:text-[14px]">
+          {remover ?? <p className="text-[13px] text-ink/60">This scene cannot be deleted here.</p>}
+          <ActionButton tone="neutral" icon={Check} label="Keep it" onClick={onClose} className="!h-11 w-full" />
+        </div>
       </div>
     </MakerSheet>
   );

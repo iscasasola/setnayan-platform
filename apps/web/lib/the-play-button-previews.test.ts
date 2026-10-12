@@ -128,7 +128,8 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   assert.doesNotMatch(enter, /setPicked|deselect|setTool/, 'the preview lets go of the part or the tool');
   /* The toolbar, the frame and the work area's tool step aside — and nothing picks or lets go while they walk. */
   assert.match(tools, /const away = typing \|\| playing \|\| previewing;/);
-  assert.match(tools, /if \(playing \|\| typing \|\| previewing\) \{\s*onPx\(0\);/);
+  /* (🔁 2026-10-11: a scene held on the page slides the toolbar away too — `held`, beside the three.) */
+  assert.match(tools, /if \(playing \|\| typing \|\| previewing \|\| held\) \{\s*onPx\(0\);/);
   assert.match(tools, /const open = \(openTool !== null \|\| revealOpen \|\| cameraOpen\) && !typing && !playing && !previewing;/);
   assert.match(tools, /picked: open && !cameraOpen \? picked : null,/, 'anti-vacuity: the frame follows `open`');
   assert.match(tools, /parts\.length === 0 \|\| typing \|\| playing \|\| previewing\) return;/, 'arriving on a page picks a part during the preview');

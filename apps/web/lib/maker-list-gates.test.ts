@@ -95,7 +95,10 @@ test('M09 — the picked part is "taken off" exactly when the fold says the coup
   assert.equal(partTakenOff(null, 'w:countdown'), false);
   /* The panel is told: the hook calls `onGone`, and the Stages toolbar lets go with it. */
   const sheet = readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'add-part-sheet.tsx'), 'utf8');
-  assert.match(sheet, /const gone = partTakenOff\(ops, canvas\);[\s\S]{0,220}if \(gone\) onGoneRef\.current\?\.\(\);/);
+  /* Re-aimed 2026-10-12 (rd/c-drag-scenes): the let-go now also asks the work area AGAIN at that moment — a scene ↺
+     had just put back was read as "taken off" from the list the render still held, and let go of in the same breath.
+     The pin holds both halves: the fold of this render's list, and the fresh ask before `onGone` is called. */
+  assert.match(sheet, /const gone = partTakenOff\(ops, canvas\);[\s\S]{0,900}if \(gone && partTakenOff\(askPartOps\(\), canvas\)\) onGoneRef\.current\?\.\(\);/);
   const tools = readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'stage-tools.tsx'), 'utf8');
   assert.match(tools, /onGone: deselect,/);
 });

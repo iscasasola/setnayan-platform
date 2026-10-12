@@ -76,13 +76,19 @@ test('↺ shows its count from the action’s OWN answer — never only from the
   assert.match(refresh.slice(refresh.indexOf('export function makerSave<T>(')), /announceDraftBar\(result\);/);
 });
 
-test('Earlier · Later · ＋: one press at a time, and the toast waits for the page', () => {
+test('a move · a remove · ＋: one press at a time, and nothing is said before the page shows it', () => {
   const sheet = read(...L, 'add-part-sheet.tsx');
-  /* The move: the words are said by `settle`, after the page shows it — never at the press. */
+  /* 🔁 Re-aimed 2026-10-11 (DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN"): a move toasted "<Scene> moved" through `settle`. A scene is now held on the page
+     and dropped — it is already where it was put, so nothing is toasted; the line under the tools says "Saving…" until
+     the page shows it, and the honest line if the save was refused (`scene-drag.tsx` `run`). The busy rule is the
+     same: `landed` holds every step from the press until the page on screen is the new one, and tells how it ended. */
   const drop = sheet.slice(sheet.indexOf('const dropOn = '), sheet.indexOf('const neighbour = '));
   assert.doesNotMatch(drop, /setToast\(/, 'a move is announced at the press again');
-  assert.match(drop, /o\.move\(mv\.id, delta\);\s*settle\(where === 'above' \? 'earlier' : 'later', `\$\{label\} moved`\);/);
-  const add = sheet.slice(sheet.indexOf('const add = '), sheet.indexOf('const removeYes = '));
+  assert.match(drop, /o\.move\(m\.id, delta\);\s*return landed\('move'\);/);
+  assert.match(sheet, /const landed = \(what: PartWorking, done: Promise<CanvasSettle> = whenCanvasShowsIt\(\)\): Promise<CanvasSettle> => \{\s*setWorking\(what\);\s*return done\.then\(\(how\) => \{\s*setWorking\(null\);\s*return how;/);
+  /* No second lift while it works (`sceneLiftAllowed` — executed in `lib/a-scene-is-dragged-on-the-page.test.ts`). */
+  assert.match(sheet, /working: working !== null,/);
+  const add = sheet.slice(sheet.indexOf('const add = '), sheet.indexOf('const takeOff = '));
   /* ＋: said after the page shows it — and the part is brought onto the screen first, so "added" is never said over a
      screen that looks the same (it is added above or below the picked part, which can be just past the edge). */
   assert.match(add, /o\.add\(folded\.widgetId, delta\);\s*const onHere = shownPageOf\(stage\);\s*settle\('add', `\$\{makerPartLabelOn\(stage, key\)\} added \$\{mv\.kind === 'scene' \? where : onHere \? `on \$\{onHere\.label\}` : 'to this page'\}`, \(\) => bringOntoScreen\(c\)\);/);
@@ -95,7 +101,6 @@ test('Earlier · Later · ＋: one press at a time, and the toast waits for the 
   assert.match(sheet, /later: working \? null : /);
   assert.match(sheet, /remove: working \? null : /);
   assert.match(sheet, /if \(working\) return;\s*setAdding\(/);
-  /* The toolbar's Edit row draws the working step. */
-  assert.match(read(...L, 'stage-panel', 'stage-edit.tsx'), /aria-busy=\{working === 'earlier' \|\| undefined\}/);
-  assert.match(read(...L, 'stage-tools.tsx'), /working=\{edits\.working\}/);
+  /* (The toolbar's Edit row drew the working step; the row left with the drag — the line under the tools says "Saving…".) */
+  assert.match(read(...L, 'scene-drag.tsx'), /saving\.current = true;\s*put\(\{ kind: 'saving' \}\);/);
 });

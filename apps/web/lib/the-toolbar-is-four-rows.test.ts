@@ -9,7 +9,8 @@
  *   (2) FOUR TOOLS — *"so it is just Edit | Style | Background | Animate"*: those four, in that order, as WORDS, each
  *       as wide as its word, 44 px to the thumb. Sabotage: a fifth tool, or a fixed width → red.
  *   (3) THE ROWS START FROM THE TOP AND NOTHING SCROLLS UP AND DOWN — the grid is exactly four rows, cut, never
- *       centred; Edit's door is row 1 and ↑ Earlier · ↓ Later · Remove is ALWAYS row 4, on every part (a step with
+ *       centred; Edit's door is row 1 and row 4 is the line under the tools (it was ↑ Earlier · ↓ Later · Remove, on
+ *       every part, until a scene could be held on the page — 2026-10-11; the three steps are the tag's menu: a step with
  *       nowhere to go is still a button, grey). RENDERED. Sabotage: `overflow-y-auto` on the grid → red.
  *   (4) ONE SELECTOR, NOT TWO — the scene's Format shows the toolbar's tool (Style: its looks · Background: its
  *       background) and draws no Look | Background | Arrange of its own. RENDERED. Sabotage: `StageStyle` ignoring
@@ -161,7 +162,7 @@ test('(2) four tools — Edit | Style | Background | Animate — words only, eac
   }
 });
 
-test('(3) the rows start from the top and nothing scrolls up and down; Edit: the door is row 1, Earlier · Later · Remove is always row 4', async () => {
+test('(3) the rows start from the top and nothing scrolls up and down; Edit: the door is row 1; row 4 is the line under the tools — and the three steps are the name tag’s menu', async () => {
   const cls = SP_ROWS.split(' ');
   assert.ok(cls.includes('grid') && cls.includes('grid-rows-[repeat(4,var(--sp-rh))]'), 'the grid is not four rows of the frame’s measure');
   assert.ok(cls.includes('gap-y-[var(--sp-rg)]'));
@@ -173,69 +174,80 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { StageEdit } = await import('../app/dashboard/[eventId]/launch/_components/stage-panel/stage-edit');
   const { makerPartStepWhy: partStepWhy } = await import('./maker-parts');
+  const { sceneMenuRows } = await import('./maker-scene-drag');
   const { setStagePanelNow } = await import('../app/dashboard/[eventId]/launch/_components/stage-panel/store');
-  const draw = (p: { earlier: (() => void) | null; later: (() => void) | null; remove: (() => void) | null }) =>
-    renderToStaticMarkup(
-      React.createElement(StageEdit, { ...p, fields: [], tapped: null, onType: () => {}, onKeep: async () => ({ ok: true as const }), removeWord: 'Remove', why: partStepWhy('Reveal', false, false), onWhy: () => {} }),
-    );
+  const draw = () => renderToStaticMarkup(React.createElement(StageEdit, { fields: [], tapped: null, onType: () => {}, onKeep: async () => ({ ok: true as const }) }));
 
-  /* A part with a door (E-Gifts → Studio) that can move both ways and be taken off. (What rows 1–3 hold — the
-     part's words typed in place, or its door — is `lib/edit-types-the-words-in-place.test.ts`.) */
+  /* 🔁 RE-AIMED 2026-10-11 — owner, on this very row: *"what if we drag the scene on the preview instead of having
+     this. then there is a delete button where they can drag the scene to the delete button to delete it"* (DECISION_LOG
+     "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN … The Earlier ·
+     Later · Remove row is removed when this is built"). It asserted row 4 was ALWAYS ↑ Earlier · ↓ Later · Remove. What
+     stands now: Edit draws its door (or its words) and nothing else; row 4 is the toolbar's own line under the tools;
+     and the three steps — the same writes, for whoever cannot drag — are the picked part's name tag's menu.
+
+     A part with a door (E-Gifts → Studio). (What rows 1–3 hold — the part's words typed in place, or its door — is
+     `lib/edit-types-the-words-in-place.test.ts`.) */
   setStagePanelNow({ picked: 'gifts', quiet: { kind: 'studio', words: 'Open in Studio › E-Gifts', open: () => {} }, about: null });
-  const go = () => {};
-  const html = draw({ earlier: go, later: go, remove: go });
+  const html = draw();
   const rows = [...html.matchAll(/data-stage-edit-row="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(rows, ['door', 'place'], 'Edit draws rows other than its door and its place');
+  assert.deepEqual(rows, ['door'], 'Edit draws rows other than its door');
   const rowClass = (name: string) => new RegExp(`class="([^"]*)" data-stage-edit-row="${name}"`).exec(html)?.[1]?.split(' ') ?? [];
   assert.ok(rowClass('door').includes('row-start-1'), 'the door is not row 1');
-  assert.ok(rowClass('place').includes('row-start-4'), 'Earlier · Later · Remove is not the LAST row');
-  const door = html.slice(html.indexOf('data-stage-edit-row="door"'), html.indexOf('data-stage-edit-row="place"'));
-  assert.match(door, /aria-label="Open in Studio › E-Gifts"/, 'row 1 is not the part’s door');
-  const place = html.slice(html.indexOf('data-stage-edit-row="place"'));
-  const steps = [...place.matchAll(/<button[^>]*aria-label="([^"]+)"[^>]*>/g)];
-  assert.deepEqual(steps.map((m) => m[1]), ['Earlier', 'Later', 'Remove'], 'the last row is not ↑ Earlier · ↓ Later · Remove, in that order');
-  for (const m of steps) assert.doesNotMatch(m[0], /aria-disabled|disabled=""|data-waiting/, `${m[1]} is grey on a part that can do it`);
-  /* A LIVE step looks live: the neutral button (ink on the toolbar's ground), and Remove in the danger tone. */
-  assert.match(steps[0]![0], /class="ab ab-neutral /);
-  assert.match(steps[2]![0], /class="ab ab-danger /);
-  assert.match(steps[2]![0], /data-tone="danger"/, 'Remove is not the danger button');
-  assert.match(steps[0]![0], /class="ab /, 'the steps are not the app’s ONE action button');
-
-  /* ALWAYS: a part that cannot move and cannot be taken off (the Reveal) keeps the three — grey, still buttons. */
-  setStagePanelNow({ picked: 'reveal', quiet: null, about: null });
-  const fixed = draw({ earlier: null, later: null, remove: null });
-  const greyed = [...fixed.slice(fixed.indexOf('data-stage-edit-row="place"')).matchAll(/<button[^>]*aria-label="([^"]+)"[^>]*>/g)];
-  assert.deepEqual(greyed.map((m) => m[1]), ['Earlier', 'Later', 'Remove'], 'a fixed part lost its last row');
-  for (const m of greyed) {
-    assert.match(m[0], /aria-disabled="true"/, `${m[1]} is not grey on a part that cannot`);
-    /* THE GREY LOOK IS THE TEMPLATE'S "cannot be used" (`waiting`: a grey fill and word, its pill kept) — a look a
-       live step never wears. */
-    assert.match(m[0], /data-waiting=""/, `${m[1]}: grey by a look of its own`);
-    assert.doesNotMatch(m[0], / disabled=""/, `${m[1]} is natively disabled — it drops out of a screen reader's path`);
-  }
-  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
-  assert.match(css, /:is\(button, a\)\.ab\[data-waiting\],[\s\S]{0,200}\{\s*opacity: 1;[\s\S]{0,160}color: color-mix\(in srgb, rgb\(var\(--color-ink\)\) 45%, transparent\);\s*background: color-mix\(in srgb, rgb\(var\(--color-ink\)\) 6%, transparent\);/, 'the waiting look changed — a grey step may read as live');
-  /* …AND A TAP ON A GREY STEP SAYS WHY — never a dead tap. Each step sits in a wrapper that draws nothing and hears
-     the tap its grey button swallows; a live step's wrapper hears nothing. */
+  assert.match(html, /aria-label="Open in Studio › E-Gifts"/, 'row 1 is not the part’s door');
+  assert.doesNotMatch(html, /aria-label="(?:Earlier|Later|Remove)"/, 'the buttons row is back under Edit');
   const edit = read(`${L}/stage-panel/stage-edit.tsx`);
-  for (const step of ['earlier', 'later', 'remove']) {
-    assert.match(edit, new RegExp(`<span className="contents" data-stage-edit-step="${step}"(?: aria-busy=\\{working === '${step}' \\|\\| undefined\\})? onClick=\\{${step} \\? undefined : \\(\\) => onWhy\\(why\\.${step}\\)\\}>`), `a grey ${step} is a dead tap`);
-  }
-  assert.match(read(`${L}/stage-tools.tsx`), /why=\{edits\.why\} onWhy=\{\(words\) => setWhy\(\(w\) => \(\{ words, n: \(w\?\.n \?\? 0\) \+ 1 \}\)\)\}/, 'the line is not said through the toolbar’s toast');
+  assert.doesNotMatch(edit, /earlier|later|removeWord|data-stage-edit-step|ActionButton/, 'Edit carries a step of its own again');
+
+  /* ROW 4 IS THE LINE UNDER THE TOOLS — the toolbar's own, laid over the four rows' box so it is row 4 under every
+     tool; on a tool whose rows are the work area's, that tool gives the row back for as long as the line speaks. */
+  const tools = read(`${L}/stage-tools.tsx`);
+  assert.match(tools, /\{statusOn \? \(\s*<div className=\{`pointer-events-none absolute inset-x-0 top-0 z-\[2\] \$\{SP_ROWS\}`\} data-stage-status="">\s*<div className="pointer-events-auto row-start-4 [^"]*">\{edits\.status\}<\/div>/, 'the line is not the toolbar’s row 4');
+  assert.match(tools, /const statusOn = edits\.status !== null && \(editOn \|\| picked === null \|\| statusFresh\);/);
+  assert.match(tools, /data-stage-line=\{statusOn && !editOn && picked !== null \? '' : undefined\}/);
+  assert.match(tools, /\[data-stage-tools\]\[data-stage-line\]\) \[data-phone-chrome="panel"\]\{height:calc\(3 \* var\(--sp-rh\) \+ 2 \* var\(--sp-rg\)\)!important;/);
+
+  /* THE THREE STEPS, EXECUTED: the prototype's order and words; a scene of their own reads Delete. */
+  const all = sceneMenuRows({ up: true, down: true, remove: true }, 'Remove');
+  assert.deepEqual(all.map((r) => r.words), ['Move up', 'Move down', 'Remove'], 'the menu is not Move up · Move down · Remove, in that order');
+  assert.deepEqual(all.map((r) => r.on), [true, true, true]);
+  assert.deepEqual(all.map((r) => r.danger), [false, false, true], 'Remove is not the danger row');
+  assert.equal(sceneMenuRows({ up: true, down: true, remove: true }, 'Delete')[2]!.words, 'Delete');
+  /* ALWAYS three: a part that cannot move and cannot be taken off (the Reveal) keeps them — grey, still rows. */
+  const none = sceneMenuRows({ up: false, down: false, remove: false }, 'Remove');
+  assert.deepEqual(none.map((r) => r.words), ['Move up', 'Move down', 'Remove'], 'a fixed part lost a step');
+  assert.deepEqual(none.map((r) => r.on), [false, false, false]);
+  /* …AND A TAP ON A GREY STEP SAYS WHY — never a dead tap: grey is `aria-disabled` (never the native `disabled`, which
+     swallows the tap and drops the row from a screen reader's path), every row hears its press, and a step that
+     cannot go says its line under the tools. */
+  const sheet = read(`${L}/add-part-sheet.tsx`);
+  const menu = sheet.slice(sheet.indexOf('function PartMenuSheet('), sheet.indexOf('function RemovePartSheet('));
+  assert.ok(menu.length > 600, 'anti-vacuity: the menu was not found');
+  assert.match(menu, /const rows = sceneMenuRows\(can, removeWord\);/);
+  assert.match(menu, /aria-disabled=\{r\.on \? undefined : true\}\s*onClick=\{\(\) => onStep\(r\.step\)\}/, 'a grey step is a dead tap');
+  assert.doesNotMatch(menu, /(?<!aria-)\bdisabled=/, 'a grey step is natively disabled');
+  assert.match(menu, /<MakerSheet label=\{label\} onClose=\{onClose\}>/, 'the menu is not the Maker’s one bottom sheet');
+  assert.match(sheet, /const go = step === 'up' \? now\.earlier : step === 'down' \? now\.later : now\.remove;\s*if \(go\) go\(\);\s*else drag\.say\(step === 'up' \? now\.why\.earlier : step === 'down' \? now\.why\.later : now\.why\.remove\);/, 'a grey step does not say why');
+  assert.match(sheet, /can=\{\{ up: now\.earlier !== null, down: now\.later !== null, remove: now\.remove !== null \}\}/);
   /* The line, by what the part can do: it does not move at all · it moves but is at an end · it cannot be taken off. */
   assert.deepEqual(partStepWhy('Names', false, false), { earlier: 'Names keeps its place on this page.', later: 'Names keeps its place on this page.', remove: 'Names stays on this page.' });
   assert.deepEqual(partStepWhy('Schedule', true, true), { earlier: 'It is already first on this page.', later: 'It is already last on this page.', remove: '' });
   for (const line of Object.values(partStepWhy('Supplier Stories', false, false))) assert.ok(line.length >= 20 && line.length <= 60 && /\.$/.test(line), `“${line}” is not one short line`);
   setStagePanelNow({ picked: null, quiet: null, about: null });
 
-  /* A STEP IS THE GRIP'S OWN WRITE — one function lands a part (`dropOn`, the retired grip's drop), the step ends in
-     it, and it holds the hook's only order write for a scene: a step can never cost more than a drag did. */
+  /* A STEP IS THE DRAG'S OWN WRITE — one function lands a part (`dropOn`: the drop's, and before it the grip's), the
+     step ends in it, and it holds the hook's only order write for a scene: a step can never cost more than a drag. */
   const edits = read(`${L}/add-part-sheet.tsx`);
   const hook = edits.slice(edits.indexOf('export function usePartEdits('), edits.indexOf('function OwnScenePicker('));
   assert.ok(hook.length > 4000, 'anti-vacuity: the part edits were not found');
-  assert.match(hook, /const stepMove = \(dir: -1 \| 1\) => \{\s*const o = askPartOps\(\);\s*const t = o && canMove \? neighbour\(o, dir\) : null;\s*if \(o && t\) dropOn\(o, t, dir < 0 \? 'above' : 'below'\);\s*\};/);
-  assert.equal((hook.match(/o\.move\(mv\.id, delta\)/g) ?? []).length, 1, 'a second order write for the picked scene');
-  assert.match(hook, /remove: (?:working \? null : )?canRemove \? \(\) => setRemoving\(true\) : null,/, 'Remove does not ask first (the one confirm)');
+  assert.match(hook, /const stepMove = \(dir: -1 \| 1\) => \{\s*const o = askPartOps\(\);\s*const t = o && canMove \? neighbour\(o, dir\) : null;\s*const done = o && t \? dropOn\(o, t, dir < 0 \? 'above' : 'below'\) : null;\s*if \(!done\) return;/);
+  /* …and it is SEEN at once: the scene slides to its new place (and back, should the save be refused). */
+  assert.match(hook, /drag\.run\(\{ type: 'move', label, key: canvas \}, done, \(section \? drag\.slide\(section, dir\) : null\) \?\? undefined\);/);
+  assert.equal((hook.match(/o\.move\(m\.id, delta\)/g) ?? []).length, 1, 'a second order write for a scene');
+  assert.equal((hook.match(/\bo\.move\(/g) ?? []).length, 1, 'a second order write for a scene');
+  /* 🔁 Re-aimed 2026-10-11: Remove asked first for EVERY part ("Remove from this page?"). The owner's bin has the
+     line's Undo in place of that question — a scene of the couple's OWN is still never taken silently. */
+  assert.match(hook, /remove: working \? null : canRemove \? \(\) => removeNow\(\) : null,/);
+  assert.match(hook, /if \(m\.kind === 'scene' && m\.own\) \{\s*setRemoving\(at\);\s*return 'asking';\s*\}/, 'a scene of their own is taken without the one confirm');
 });
 
 test('(4) one selector, not two: the scene’s Format shows the toolbar’s tool and has no Look | Background | Arrange of its own', async () => {

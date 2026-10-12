@@ -23,7 +23,8 @@
  */
 
 import { useTransition, useState } from 'react';
-import { Undo2 } from 'lucide-react';
+import { Undo2, RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { haptic } from '@/lib/haptics';
 import {
   CARD_WITHDRAW,
@@ -52,10 +53,13 @@ export function WithdrawAskButton({
 }) {
   const [pending, start] = useTransition();
   const [note, setNote] = useState<string | null>(null);
+  // A fault the couple can try again (a refresh-worthy "already answered" is not).
+  const [again, setAgain] = useState(false);
 
   const press = () => {
     haptic('tick');
     setNote(null);
+    setAgain(false);
     start(async () => {
       const fd = new FormData();
       fd.set('vendor_id', vendorId);
@@ -69,6 +73,7 @@ export function WithdrawAskButton({
         setNote('They already answered — refresh to see it.');
       } else if (res.status === 'error') {
         setNote(res.message);
+        setAgain(true);
       } else if (res.status === 'not_signed_in') {
         setNote('Sign in again to withdraw this.');
       }
@@ -92,7 +97,17 @@ export function WithdrawAskButton({
   return (
     <span className={wrapperClassName}>
       {button}
-      {note ? <span className={errorClassName}>{note}</span> : null}
+      {note ? (
+        <span className={errorClassName}>
+          {note}
+          {again ? (
+            <>
+              {' '}
+              <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={press} />
+            </>
+          ) : null}
+        </span>
+      ) : null}
     </span>
   );
 }

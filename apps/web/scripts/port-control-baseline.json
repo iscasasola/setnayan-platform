@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5aa05e4cf3",
+  "generatedFromRef": "0321c7f151",
   "routeCount": 431,
   "destinations": 951,
-  "actions": 674,
-  "blocks": 6061,
+  "actions": 675,
+  "blocks": 6070,
   "routes": {
     "/": {
       "files": [
@@ -10255,7 +10255,8 @@
     },
     "/dev/supplier-lab": {
       "files": [
-        "dev/supplier-lab/page.tsx"
+        "dev/supplier-lab/page.tsx",
+        "dev/supplier-lab/people-lab.tsx"
       ],
       "destinations": [
         "/dev/supplier-lab?thumb=customer",
@@ -10264,11 +10265,22 @@
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/shop?open=payments"
       ],
-      "actions": [],
+      "actions": [
+        "importExternalClient"
+      ],
       "blocks": [
         "ActionButton",
         "BookingFeeBills",
+        "CustomersPick",
+        "CustomersRoster",
+        "CustomersSegments",
+        "Fix",
+        "KeptNotesFold",
         "NothingToAnswerFeed",
+        "OutsideClientAdd",
+        "OutsideClientRows",
+        "PeopleLab",
+        "SearchBox",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SupplierToast",
@@ -12383,6 +12395,7 @@
         "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
         "vendor-dashboard/customers/_components/customers-pick.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
+        "vendor-dashboard/customers/_components/customers-segments.tsx",
         "vendor-dashboard/customers/_components/outside-client-add.tsx",
         "vendor-dashboard/customers/_components/people-more.tsx",
         "vendor-dashboard/customers/actions.ts",

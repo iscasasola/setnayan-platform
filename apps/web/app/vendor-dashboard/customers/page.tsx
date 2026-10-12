@@ -45,19 +45,12 @@ import { CustomersPick } from './_components/customers-pick';
 import { KeptNotesFold, OutsideClientRows, type OutsideClient } from './_components/people-more';
 import { OutsideClientAdd } from './_components/outside-client-add';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { SearchBox } from '@/app/_components/search-box';
 import { rosterView } from './roster-view';
 import { CustomersCalendar } from './_components/customers-calendar';
 import type { FilterOption } from './_components/customers-filter-bar';
-import {
-  CUSTOMER_SEGMENTS,
-  CUSTOMER_SEGMENT_LABEL,
-  customersSegmentHref,
-  customersSegmentOf,
-  foldsOf,
-  type CustomersSegment,
-} from './segments';
+import { customersSegmentOf, foldsOf } from './segments';
+import { CustomersSegments } from './_components/customers-segments';
 import { VendorQrSection } from '../_components/qr-section';
 import { keepParamsFrom } from '../_components/list-pager';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
@@ -838,33 +831,6 @@ async function CustomerSectionBody({ open, sp }: { open: string; sp: SP }) {
     default:
       return null;
   }
-}
-
-/**
- * People · Dates · Money — the one segmented control, each a link with its own
- * address. "People 3" carries the waiting count (frame 03) — drawn by People,
- * which has just counted it; the other two segments do not read the roster, so
- * they draw the words alone rather than a number they did not measure.
- */
-function CustomersSegments({ seg, waiting = null }: { seg: CustomersSegment; waiting?: number | null }) {
-  return (
-    <PillTrack as="nav" grow aria-label="Customers views" data-customers-segmented="" className="w-full">
-      {CUSTOMER_SEGMENTS.map((s) => (
-        <PillLink
-          key={s}
-          on={s === seg}
-          href={customersSegmentHref(s)}
-          scroll={false}
-          aria-current={s === seg ? 'page' : undefined}
-          data-customers-seg={s}
-          className="min-h-[38px] text-[13.5px]"
-        >
-          {CUSTOMER_SEGMENT_LABEL[s]}
-          {s === 'people' && waiting ? <b className="font-medium opacity-80">{formatCount(waiting)}</b> : null}
-        </PillLink>
-      ))}
-    </PillTrack>
-  );
 }
 
 export default async function VendorCustomersHub({ searchParams }: Props) {

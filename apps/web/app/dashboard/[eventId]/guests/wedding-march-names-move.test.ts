@@ -82,6 +82,12 @@ test('every printed entourage follows the couple’s section order', () => {
     const src = readFileSync(join(process.cwd(), file!), 'utf8');
     const at = src.indexOf('buildEntourage(');
     const call = src.slice(at, src.indexOf(');', at));
-    assert.match(call, /loadEntourageSectionOrder\(/, `${file} prints the entourage without the couple's section order`);
+    // 2026-10-12: a reader may START the order read ahead (`lib/start-ahead.ts`) and hand the call its promise —
+    // `await <name>` where `const <name> = startAhead(loadEntourageSectionOrder(…))` in the same file.
+    const ahead = [...src.matchAll(/const (\w+) = startAhead\(loadEntourageSectionOrder\(/g)].map((m) => m[1]!);
+    assert.ok(
+      /loadEntourageSectionOrder\(/.test(call) || ahead.some((name) => new RegExp(`await ${name}\\b`).test(call)),
+      `${file} prints the entourage without the couple's section order`,
+    );
   }
 });

@@ -614,6 +614,9 @@ test('(11) fitted before it fades: once, unarmed; held where it stands when its 
   assert.match(engine, /if \(outside\) put\(coverRest, '--hub-up', stays \? px\(restMargin \?\? 0\) : '0px'\);/);
   assert.match(engine, /put\(h\.lift, '--hub-zrise', px\(Math\.max\(h\.floor \?\? 0, /);
   assert.match(engine, /for \(const el of staying\) put\(el, 'data-hub-stay', ''\);/);
+  /* …and it is what a tap lands on: lifted above the later block pulled up through it (seen in the browser: a tap at
+     "Get inside" landed on that empty box, and the door never opened). */
+  assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \[data-hub-stay\] \{ position: relative; z-index: 1; \}/);
   /* The door's own fit stands aside while held — measures nothing, writes nothing, takes nothing back. */
   const door = read(`${B}/first-screen-door.tsx`);
   assert.match(door, /if \(handedOver\(\)\) return;\s*const list = blocks\(\);/);

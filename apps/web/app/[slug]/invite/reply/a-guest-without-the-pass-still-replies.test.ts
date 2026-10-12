@@ -91,7 +91,8 @@ test('(3) the reply page: on a missing pass it re-keys from `?k=` — its only d
   assert.match(page, /searchParams: Promise<\{[^}]*\bk\?: string[^}]*\}>/, 'the page does not read the code');
   assert.match(
     page,
-    /const session = canvas \? null : await readGuestSessionForEvent\(event\.event_id as string\);\s*if \(!canvas\) \{\s*const entry = replyEntry\(\{ slug: home, hasPass: Boolean\(session\), code: search\.k \}\);\s*if \(entry\.kind !== 'ask'\) redirect\(entry\.href\);\s*\}/,
+    // (2026-10-12: the re-key / door first writes ONE evidence row — lib/a-guest-keeps-a-pass-per-event.test.ts (8).)
+    /const session = canvas \? null : await readGuestSessionForEvent\(event\.event_id as string\);\s*if \(!canvas\) \{\s*const entry = replyEntry\(\{ slug: home, hasPass: Boolean\(session\), code: search\.k \}\);\s*if \(entry\.kind !== 'ask'\) \{\s*await recordReplyMiss\(event\.event_id as string, entry\.kind, Boolean\(search\.k\)\);\s*redirect\(entry\.href\);\s*\}\s*\}/,
     'a missing pass still goes straight to the stranger door',
   );
   // The old bare redirect is gone — the one line that sent the owner to the door.

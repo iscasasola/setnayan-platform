@@ -142,6 +142,7 @@ export function ServicesTakeover({
   compareSlot,
   premium = false,
   teamSlot,
+  bookedSlot,
 }: {
   eventId: string;
   /** The `?tab=` the page arrived with (the lock door, a checklist deep link,
@@ -159,6 +160,12 @@ export function ServicesTakeover({
   bookedCount: number;
   /** The team, as rows — booked first, one next step each (`team-rows.tsx`). */
   teamSlot?: ReactNode;
+  /**
+   * THE BOOKED BODY, WHOLE (`booked-slot.tsx`, Suppliers PR4): Waiting for
+   * their yes · Booked · Budget, each under its own heading. When given it IS
+   * the body — `teamSlot` and `budgetSlot` are then not drawn.
+   */
+  bookedSlot?: ReactNode;
   shortlistSlot?: ReactNode;
   buildSlot?: ReactNode;
   /**
@@ -437,12 +444,16 @@ export function ServicesTakeover({
 
         {drawn('booked') ? (
           <div data-suppliers-body="booked" hidden={mode !== 'booked'}>
+            {bookedSlot ? (
+              <div data-booked-slot="">{bookedSlot}</div>
+            ) : (
             <div className="space-y-8">
               {teamSlot ? <div data-team-slot="">{teamSlot}</div> : null}
               <ServiceSection tab="budget" heading={SECTION_HEADING.budget}>
                 {budgetSlot ?? <SectionStub tab="budget" />}
               </ServiceSection>
             </div>
+            )}
           </div>
         ) : null}
       </div>

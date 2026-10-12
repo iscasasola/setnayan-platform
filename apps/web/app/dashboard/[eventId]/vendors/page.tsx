@@ -34,6 +34,9 @@ import { emitNotification } from '@/lib/notification-emit';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
 import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
+import type { BookedFacts } from '@/lib/booked-rows';
+import { teamMoneyOfModel } from '@/lib/booked-budget';
+import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact } from '@/lib/suppliers-shell';
 import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
 import { displayBuildTitle, normalizeBuildTitle, sortSavedBuilds } from '@/lib/named-builds';
@@ -133,8 +136,8 @@ import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { DatePlaceLine } from './_components/date-place-line';
-import { TeamRows } from './_components/team-rows';
-import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
+import { BookedBody } from './_components/booked-body';
+import { BookedSlot } from './_components/booked-slot';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
 import { BuildBody } from './_components/build-body';
 import { BookThisBuild } from './_components/book-this-build';
@@ -328,7 +331,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         <p aria-hidden className="font-display text-[28px] leading-none text-ink">
           Suppliers
         </p>
-        <TeamRows
+        <BookedBody
           eventId={eventId}
           state={{ kind: 'unreadable', retryHref: `/dashboard/${eventId}/vendors` }}
         />
@@ -2029,6 +2032,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // Booked first, one next step each. NO NEW READ AND NO NEW STATE: every fact
   // below was already resolved above for the bench, Picks or Payments, and the
   // one derivation that turns them into a row is lib/your-team-rows.ts.
+  // What the Booked body needs beside a row (`lib/booked-rows.ts`) — filled in
+  // the same pass, from the same maps. No read of its own.
+  const bookedFacts: BookedFacts[] = [];
   const teamRowList = (() => {
     const replanOn = isExploreReplanEnabled();
     // The supplier's OWN bench card (not an "also covers" copy) — its name,
@@ -2077,6 +2083,26 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         : inBuild && !blocked
           ? (where?.groupId ?? null)
           : null;
+      const depositStep = depositStepByVendorId.get(row.vendor_id) ?? null;
+      bookedFacts.push({
+        vendorId: row.vendor_id,
+        groupId: where?.groupId ?? null,
+        // No shop on Setnayan: the couple added them and keeps the record.
+        own: row.marketplace_vendor_id == null,
+        shopId: row.marketplace_vendor_id ?? null,
+        pricePhp: where?.pricePhp ?? card?.v.totalCostPhp ?? null,
+        threadId: ext?.thread_id ?? card?.v.threadId ?? null,
+        // The SAME helper `cancelBookingAsHost` gates on. A recorded first
+        // payment (sent · confirmed · refused) is the couple's own claim that
+        // money moved — it stamps `deposit_recorded_at`, never `deposit_paid_php`.
+        moneyMoved: bookingMoneyMoved({
+          status: row.status,
+          deposit_paid_php: row.deposit_paid_php,
+          deposit_recorded_at:
+            depositStep === 'sent' || depositStep === 'confirmed' || depositStep === 'refused' ? 'recorded' : null,
+        }),
+        lockRequestExpiresAt: row.lock_request_expires_at ?? null,
+      });
       return {
         vendorId: row.vendor_id,
         name:
@@ -2103,7 +2129,19 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     });
     return teamRows(facts, { eventId, lockHandshakeEnabled: isLockHandshakeEnabled() });
   })();
-  const teamSlot = <TeamRows eventId={eventId} state={{ kind: 'rows', rows: teamRowList }} />;
+  const teamSlot = (
+    <BookedSlot
+      eventId={eventId}
+      rows={teamRowList}
+      facts={bookedFacts}
+      // Booked · If you book these · Budget · Buffer: the Build body's own
+      // `teamMoney` call over the same model — one figure on both tabs.
+      team={teamMoneyOfModel(
+        model,
+        ev?.estimated_budget_centavos != null ? Math.round(ev.estimated_budget_centavos / 100) : null,
+      )}
+    />
+  );
   const benchUnread = benchUnreadFrom(unreadRead);
 
   const shortlistMaster = (
@@ -2765,7 +2803,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           tally={shellTally}
           bookedCount={teamCountsLine(teamRowList).booked}
           premium={aiActive}
-          teamSlot={teamSlot}
+          bookedSlot={teamSlot}
           shortlistSlot={shortlistContent}
           buildSlot={buildSlot}
           // Suppliers PR3 — on the one-screen page the Build body is drawn
@@ -2809,7 +2847,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
               </>
             ) : undefined
           }
-          budgetSlot={<MerkadoBudgetLens eventId={eventId} />}
           compareSlot={
             <BuildCompare
               eventId={eventId}

@@ -89,16 +89,23 @@ test('Your Team MOUNTS the shipped Budget page as its part, and offers it from t
   // is still the part from `lib/pillar-parts` and still a link to its own URL
   // — offered from the Booked body, by the payments lens that sits under the
   // team's rows (2026-10-03 → 2026-10-07: only its place moved).
-  assert.match(page, /budgetSlot=\{<MerkadoBudgetLens eventId=\{eventId\} \/>\}/, 'the Suppliers screen lost the payments lens');
+  // ⚖ Owner 2026-10-07 (Suppliers PR4): the Booked body draws its own Budget
+  // section (the six figures and the meter), and the door to the Budget part
+  // is the one quiet button at its foot — again, only its place moved.
+  assert.match(page, /bookedSlot=\{teamSlot\}/, 'the Suppliers screen lost its Booked body');
   const takeover = read('vendors', '_components', 'services-takeover.tsx');
   assert.match(
     takeover,
-    /data-suppliers-body="booked"[\s\S]*?<ServiceSection tab="budget"[\s\S]*?\{budgetSlot \?\?/,
-    'the Booked body no longer holds the payments lens — the Budget part has no door on Suppliers',
+    /data-suppliers-body="booked"[\s\S]*?\{bookedSlot\}/,
+    'the Booked body is no longer mounted — the Budget part has no door on Suppliers',
   );
-  const lens = read('vendors', '_components', 'merkado-budget-lens.tsx');
-  assert.match(lens, /const budgetHref = yourTeamBudgetHref\(eventId\);/, 'the lens no longer takes the Budget part’s own address');
-  assert.ok((lens.match(/href=\{budgetHref\}/g) ?? []).length >= 1, 'the lens no longer links the Budget part');
+  const slot = read('vendors', '_components', 'booked-slot.tsx');
+  assert.match(slot, /<BookedBudgetSection eventId=\{eventId\} budget=\{budget\} \/>/, 'the Booked body lost its Budget section');
+  const section = read('vendors', '_components', 'booked-budget.tsx');
+  assert.ok(
+    (section.match(/href=\{yourTeamBudgetHref\(eventId\)\}/g) ?? []).length >= 1,
+    'the Budget section no longer links the Budget part by its own address',
+  );
 });
 
 test('/budget lands in Your Team only where Your Team exists', () => {

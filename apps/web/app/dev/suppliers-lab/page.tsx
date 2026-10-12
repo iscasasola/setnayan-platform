@@ -34,6 +34,9 @@
  *   &datechange=1       an open date change (one supplier deciding, one can move)
  *   &payfail=1          the Pay sheet's one request fails (press Pay)
  *   &payslow=1          …or takes 2.5 s
+ *   &money=…            Bituin's reservation in the money loop — due · waiting ·
+ *                       received · refused (`money-pair.ts`; the supplier's end
+ *                       of the same booking is `/dev/customer-money-lab?s=…`)
  *   &booked=0           nobody asked, nobody booked
  *   &seed=proto|asked   only the prototype's own rows (for a side-by-side)
  *
@@ -63,6 +66,7 @@ import { BookedBody } from '@/app/dashboard/[eventId]/vendors/_components/booked
 import { LabBookedStandIns } from './lab-booked';
 import { labBookedBudget, labBookedMoney, labBookedView, type LabBookedOptions } from './booked-fixtures';
 import { BookedBudgetSection } from '@/app/dashboard/[eventId]/vendors/_components/booked-budget';
+import { moneyStageOf } from './money-pair';
 
 export default async function SuppliersLabPage({
   searchParams,
@@ -95,6 +99,7 @@ export default async function SuppliersLabPage({
     dateChange: one('datechange') === '1',
     booked: one('booked') !== '0',
     seed: one('seed') === 'proto' || one('seed') === 'asked' ? (one('seed') as 'proto' | 'asked') : null,
+    money: moneyStageOf(one('money')),
   };
   const bookedMoney = labBookedMoney(bookedOpts);
   const bookedLabView = labBookedView(bookedOpts, bookedMoney);
@@ -136,7 +141,7 @@ export default async function SuppliersLabPage({
           bookedCount={booked}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           bookedSlot={
-            <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'}>
+            <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} money={bookedOpts.money}>
               <BookedBody
                 eventId={LAB_EVENT}
                 state={
@@ -145,7 +150,7 @@ export default async function SuppliersLabPage({
                     : { kind: 'view', view: bookedLabView }
                 }
               >
-                <BookedBudgetSection eventId={LAB_EVENT} budget={labBookedBudget(bookedOpts, bookedMoney, bookedLabView)} />
+                <BookedBudgetSection eventId={LAB_EVENT} budget={labBookedBudget(bookedOpts, bookedMoney)} />
               </BookedBody>
             </LabBookedStandIns>
           }

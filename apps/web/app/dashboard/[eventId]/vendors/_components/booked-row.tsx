@@ -36,6 +36,7 @@ import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   BellRing,
+  ChevronDown,
   CreditCard,
   FolderOpen,
   MessageCircle,
@@ -54,7 +55,6 @@ import {
   type WaitingRow,
 } from '@/lib/booked-rows';
 import type { TeamRowTone } from '@/lib/your-team-rows';
-import { cardVerbWords } from '@/lib/supplier-card-verbs';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
@@ -70,13 +70,17 @@ export { BookedStandInCtx, type BookedStandIns } from './booked-stand-ins';
 // is loaded on the first press of Pay, never with the page.
 const PaySheet = dynamic(() => import('./pay-sheet').then((m) => m.PaySheet), { ssr: false });
 
+/**
+ * The status pill — a soft fill, NO border (owner 2026-10-12, look call 7), in
+ * flipping tokens only: the old `bg-success-100` / `bg-warn-50` washes are fixed
+ * hexes with no dark value, so they glared on the dark page (the 2026-10-12 look
+ * sweep's own table, `team-rows.tsx` before this file replaced it).
+ */
 const PILL_TONE: Record<TeamRowTone, string> = {
-  // success-50 is the page's own cream to the eye — a pill with no tint (seen
-  // in the lab at 375). The Find sheet's "Verified" wears 100 on 900; so does this.
-  ok: 'bg-success-100 text-success-900',
-  warn: 'bg-warn-50 text-warn-800',
+  ok: 'bg-[rgb(var(--color-ok)_/_0.12)] text-[rgb(var(--color-ok))]',
+  warn: 'bg-[rgb(var(--color-warn)_/_0.12)] text-[rgb(var(--color-warn))]',
   soft: 'bg-ink/5 text-ink/70',
-  no: 'bg-danger-50 text-danger-700',
+  no: 'bg-[rgb(var(--color-danger)_/_0.12)] text-[rgb(var(--color-danger))]',
 };
 const PILL = 'shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] leading-none';
 /** The line a press came back with, under the verb row. */
@@ -265,43 +269,41 @@ function VerbRow({
 }
 
 /**
- * The one button on a supplier's line in the Budget section ("Pay ₱528,000" ·
- * "Set price"). The SAME door as the row's own verb — it is the row's wiring,
- * drawn with one verb, so the two can never open different things.
+ * "Pay ›" on the Budget block's Next line — the SAME Pay sheet the row's own
+ * Pay opens (one door, never a link away), drawn as the Budget page's quiet
+ * `.go` word.
  */
-export function BudgetLineButton({
+export function NextPayButton({
   eventId,
   vendorId,
   vendorName,
-  own,
-  verb: key,
-  label,
+  className,
   version,
 }: {
   eventId: string;
   vendorId: string;
   vendorName: string;
-  own: boolean;
-  verb: 'pay' | 'set_price';
-  /** "Pay ₱528,000" — the verb's word with the amount that is due. */
-  label?: string;
-  /** The line's own figures, as words (see `VerbRow`'s `payVersion`). */
+  className: string;
+  /** The Next line's own figures — when they change, an open sheet asks again. */
   version: string;
 }) {
-  const words = cardVerbWords(key);
+  const [paying, setPaying] = useState(false);
   return (
-    <span className="grid shrink-0 justify-items-end gap-1" data-budget-line-act={key}>
-      <VerbRow
-        eventId={eventId}
-        vendorId={vendorId}
-        vendorName={vendorName}
-        service={null}
-        own={own}
-        verbs={[{ key, label: label ?? words.label, tone: words.tone, main: true }]}
-        threadId={null}
-        payVersion={version}
-      />
-    </span>
+    <>
+      <button
+        type="button"
+        className={className}
+        aria-haspopup="dialog"
+        aria-label={`Pay ${vendorName}`}
+        data-budget-next-pay=""
+        onClick={() => setPaying(true)}
+      >
+        Pay ›
+      </button>
+      {paying ? (
+        <PaySheet eventId={eventId} vendorId={vendorId} vendorName={vendorName} version={version} onClose={() => setPaying(false)} />
+      ) : null}
+    </>
   );
 }
 
@@ -321,7 +323,7 @@ export function BookedRowItem({
     <li className="bk-row" data-booked-row={row.vendorId} data-open={open ? '' : undefined}>
       <button
         type="button"
-        className="grid w-full grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
+        className="grid w-full grid-cols-[44px_minmax(0,1fr)_auto_20px] items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sn-accent"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
@@ -333,6 +335,13 @@ export function BookedRowItem({
           </span>
         </span>
         <span className={`${PILL} ${PILL_TONE[row.pill.tone]}`}>{row.pill.text}</span>
+        {/* A list row is a hairline row with a terracotta arrow (owner 2026-10-12,
+            look call 8); this one unfolds in place, so it points down and turns. */}
+        <ChevronDown
+          aria-hidden
+          strokeWidth={2}
+          className={`h-5 w-5 text-sn-accent transition-transform duration-200 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
+        />
       </button>
       <p className="ml-14 mt-1 flex flex-wrap items-baseline gap-x-2 text-[14px]" data-booked-next={n.kind}>
         {n.kind === 'paid_in_full' ? (
@@ -344,9 +353,9 @@ export function BookedRowItem({
           <>
             <span className="text-ink/55">Next:</span>
             {n.kind === 'set_price' ? (
-              <span className="text-mulberry">{NEXT_SET_PRICE}</span>
+              <span className="text-sn-accent">{NEXT_SET_PRICE}</span>
             ) : n.kind === 'due' ? (
-              <span className="tabular-nums text-mulberry">
+              <span className="tabular-nums text-sn-accent">
                 {[
                   n.label.toLowerCase(),
                   n.amountPhp !== null ? formatPhp(n.amountPhp) : null,
@@ -356,7 +365,7 @@ export function BookedRowItem({
                   .join(' · ')}
               </span>
             ) : (
-              <span className={n.needsYou ? 'text-mulberry' : 'text-ink/80'}>{n.text}</span>
+              <span className={n.needsYou ? 'text-sn-accent' : 'text-ink/80'}>{n.text}</span>
             )}
           </>
         )}
@@ -364,7 +373,7 @@ export function BookedRowItem({
       {row.dateAsk ? (
         <p className="ml-14 mt-0.5 text-[13px] text-ink/70" data-booked-date-ask={row.dateAsk.waiting ? 'waiting' : 'answered'}>
           Date change to {row.dateAsk.when}:{' '}
-          <span className={row.dateAsk.waiting ? 'text-mulberry' : 'text-ink'}>{row.dateAsk.line}</span>
+          <span className={row.dateAsk.waiting ? 'text-sn-accent' : 'text-ink'}>{row.dateAsk.line}</span>
         </p>
       ) : null}
       <div className="bk-exp" inert={!open}>
@@ -408,11 +417,11 @@ export function WaitingRowItem({ eventId, row }: { eventId: string; row: Waiting
             {[row.service, row.pricePhp != null ? formatPhp(row.pricePhp) : null].filter(Boolean).join(' · ')}
           </span>
         </span>
-        <span className={`${PILL} bg-mulberry/10 text-mulberry`}>{WAITING_PILL}</span>
+        <span className={`${PILL} bg-sn-accent/10 text-sn-accent`}>{WAITING_PILL}</span>
       </div>
       <p className="ml-14 mt-1 flex items-baseline gap-2 text-[14px]">
         <span className="shrink-0 text-ink/55">Until they say yes:</span>
-        <span className="text-mulberry">{WAITING_UNTIL}</span>
+        <span className="text-sn-accent">{WAITING_UNTIL}</span>
       </p>
       {row.fuse ? <p className="ml-14 mt-0.5 text-[12px] text-ink/55">{row.fuse}</p> : null}
       <div className="grid min-w-0 gap-2 pb-1 pl-14 pt-2">

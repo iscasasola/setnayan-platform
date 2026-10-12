@@ -54,7 +54,6 @@ import {
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
-import { computePlanRollup } from '@/lib/vendor-service-payment-schedules';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -114,6 +113,7 @@ import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-wor
 import { lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
+import { CustomerMoneyFold } from './_components/customer-money-fold';
 import { BookingMoneySummary } from './_components/booking-money-summary';
 import { bookingMoney, type BookingMoney } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
@@ -997,7 +997,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // read them through the SAME admin-gated fetchers the chat thread uses
   // (ownership proven inside via event_vendors.marketplace_vendor_id === us).
   // NO RLS weakening, NO new SECURITY DEFINER — reuse only.
-  let planSteps: ReturnType<typeof computePlanRollup> | null = null;
   let planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null = null;
   let pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>> = [];
   // Full per-booking plan list — retained (beyond the single matched row) so the
@@ -1045,7 +1044,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     // eventVendorId matches the completion row (there is normally exactly one).
     planStepRows =
       plans.find((p) => p.eventVendorId === eventVendorId) ?? plans[0] ?? null;
-    if (planStepRows?.steps) planSteps = computePlanRollup(planStepRows.steps);
     pendingPayments = pending;
   }
   // H4 — what still waits on the SUPPLIER. A payment they said never arrived is
@@ -1723,9 +1721,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const quoteNode = (
     <QuoteTab
+      eventId={eventId}
       proposals={proposals}
       isBooked={isBooked}
-      planRollup={planSteps}
       planStepRows={planStepRows}
       // Only what still waits on the supplier — a refused payment is Setnayan's.
       pendingPayments={awaitingPayments}
@@ -2992,9 +2990,9 @@ function OverviewTab(props: {
 // QUOTE & PAYMENTS TAB
 // ===========================================================================
 function QuoteTab(props: {
+  eventId: string;
   proposals: ProposalRow[];
   isBooked: boolean;
-  planRollup: ReturnType<typeof computePlanRollup> | null;
   planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null;
   pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>>;
   /** No-plan booking: the logged payments and the balance (AREA-VENDOR). */
@@ -3010,9 +3008,9 @@ function QuoteTab(props: {
   askPanel: React.ReactNode;
 }) {
   const {
+    eventId,
     proposals,
     isBooked,
-    planRollup,
     planStepRows,
     pendingPayments,
     ledgerMoney,
@@ -3087,70 +3085,21 @@ function QuoteTab(props: {
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> A payment schedule
             appears once they book you and pay a first payment.
           </p>
-        ) : steps && steps.length > 0 && planRollup ? (
+        ) : (
           <>
-            <div className="mb-3 flex items-center justify-between text-xs text-ink/55">
-              <span>
-                <span className="font-semibold text-ink">{fmtPeso(planRollup.received)}</span>{' '}
-                received of {fmtPeso(planRollup.total)}
-              </span>
-              <span>{planRollup.percentReceived}%</span>
-            </div>
-            <div className="mb-4 h-2 overflow-hidden rounded-full bg-ink/10">
-              <div
-                className="h-full rounded-full bg-success-600"
-                style={{ width: `${Math.min(100, planRollup.percentReceived)}%` }}
-              />
-            </div>
-            <ul className="space-y-2">
-              {steps.map((s) => (
-                <li
-                  key={s.seq}
-                  className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
-                >
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                      s.state === 'paid'
-                        ? 'border-success-600 bg-success-600 text-white'
-                        : 'border-ink/20 bg-white'
-                    }`}
-                  >
-                    {s.state === 'paid' ? <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} /> : null}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">
-                      {s.label} · {fmtPeso(s.amount_php)}
-                    </p>
-                    {s.due_date ? (
-                      <p className="text-xs text-ink/55">Due {fmtShortDate(s.due_date)}</p>
-                    ) : null}
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                      s.state === 'paid'
-                        ? 'bg-success-100 text-success-900'
-                        : s.state === 'pending'
-                          ? 'bg-warn-100 text-warn-900'
-                          : 'bg-ink/5 text-ink/60'
-                    }`}
-                  >
-                    {s.state === 'paid' ? 'Paid' : s.state === 'pending' ? 'Pending' : 'Open'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {planRollup.next ? (
-              <div className="mt-3 flex items-center gap-2 rounded-xl border border-terracotta/25 bg-terracotta/[0.06] px-3 py-2.5 text-sm text-ink/70">
-                <Wallet aria-hidden className="h-4 w-4 shrink-0 text-terracotta" />
-                <span>
-                  Next expected: <span className="font-semibold text-ink">{planRollup.next.label}</span>{' '}
-                  · {fmtPeso(planRollup.next.amountPhp)}
-                  {planRollup.next.dueDate ? ` · due ${fmtShortDate(planRollup.next.dueDate)}` : ''}
-                </span>
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-success-700">All payments settled.</p>
-            )}
+            {/* Suppliers Pair 3 (2026-10-13): the Money fold — Paid · Due, the
+                instalments as kind 26 rows, and each payment the couple logged
+                answered HERE (Confirm received · Not received), not in chat. */}
+            <CustomerMoneyFold
+              eventId={eventId}
+              steps={steps}
+              clearedAt={planStepRows?.clearedAt ?? null}
+              pending={pendingPayments}
+              ledgerMoney={ledgerMoney}
+              ledgerUnreadable={ledgerUnreadable}
+              threadId={threadId}
+              unreadableNote={<LedgerUnreadableNote />}
+            />
             {planStepRows?.reservationAcknowledgedAt ? (
               <p className="mt-2 text-xs text-ink/45">
                 Protected by your reservation policy · acknowledged{' '}
@@ -3158,44 +3107,7 @@ function QuoteTab(props: {
               </p>
             ) : null}
           </>
-        ) : ledgerUnreadable ? (
-          <LedgerUnreadableNote />
-        ) : ledgerMoney.rows.length > 0 ? (
-          <BookingMoneySummary money={ledgerMoney} />
-        ) : (
-          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
-            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No formal payment schedule
-            on this booking yet.
-          </p>
         )}
-
-        {/* Pending couple-logged payments awaiting confirmation. */}
-        {pendingPayments.length > 0 ? (
-          <div className="mt-3 rounded-xl border border-warn-300/50 bg-warn-50 px-3 py-2.5">
-            <p className="text-xs font-semibold text-warn-900">
-              {pendingPayments.length} payment{pendingPayments.length === 1 ? '' : 's'} awaiting your
-              confirmation
-            </p>
-            <ul className="mt-1.5 space-y-1 text-xs text-warn-900/85">
-              {pendingPayments.map((pp) => (
-                <li key={pp.paymentId}>
-                  {fmtPeso(pp.amountPhp)}
-                  {pp.installmentLabel ? ` · ${pp.installmentLabel}` : ''} · logged{' '}
-                  {fmtShortDate(pp.paidAt)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {threadId ? (
-          <Link
-            href={`/vendor-dashboard/messages/${threadId}`}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-cream"
-          >
-            <Wallet aria-hidden className="h-3.5 w-3.5" /> Log &amp; confirm payments in chat
-          </Link>
-        ) : null}
       </div>
 
       {/* Ask for a payment — directly under the balance it is about. */}

@@ -35,7 +35,6 @@ import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
 import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
 import type { BookedFacts } from '@/lib/booked-rows';
-import { teamMoneyOfModel } from '@/lib/booked-budget';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact } from '@/lib/suppliers-shell';
 import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
@@ -2134,12 +2133,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       eventId={eventId}
       rows={teamRowList}
       facts={bookedFacts}
-      // Booked · If you book these · Budget · Buffer: the Build body's own
-      // `teamMoney` call over the same model — one figure on both tabs.
-      team={teamMoneyOfModel(
-        model,
-        ev?.estimated_budget_centavos != null ? Math.round(ev.estimated_budget_centavos / 100) : null,
-      )}
+      // The small Budget block's meter track — the couple's Target.
+      targetPhp={ev?.estimated_budget_centavos != null ? Math.round(ev.estimated_budget_centavos / 100) : null}
     />
   );
   const benchUnread = benchUnreadFrom(unreadRead);

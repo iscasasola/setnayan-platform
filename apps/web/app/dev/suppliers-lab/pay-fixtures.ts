@@ -11,12 +11,15 @@
  *   v-lumina   on Setnayan · paid, confirmed by them
  *
  *   &payfail=1   the request fails        &payslow=1   …or takes 2.5 s
+ *   &money=…     Bituin's reservation at a stage of the money loop
+ *                (`money-pair.ts`: due · waiting · received · refused)
  */
 import { moneyStep } from '@/lib/accepted-quote-terms';
 import { paymentHistory, type PaymentLedgerRow } from '@/lib/payment-history';
 import { computeStepper, type PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import type { LoadPaySheetResult } from '@/lib/pay-sheet';
+import { bituinSteps, type MoneyStage } from './money-pair';
 
 const inst = (seq: number, label: string, amount_php: number, due_date: string): PlanInstance => ({
   seq,
@@ -54,7 +57,7 @@ const BITUIN_METHODS: CoupleFacingMethod[] = [
 const TODAY = '2026-10-01';
 const NO_DEPOSIT = { recordedAt: null, acknowledgedAt: null, declinedAt: null };
 
-export function labPaySheet(vendorId: string): LoadPaySheetResult {
+export function labPaySheet(vendorId: string, stage: MoneyStage = 'due'): LoadPaySheetResult {
   const name = vendorId === 'v-seda' ? 'Seda Vertis North' : vendorId === 'v-bituin' ? 'Bituin Catering' : 'Lumina Studio';
   if (vendorId === 'v-seda' || vendorId === 'v-bituin') {
     const own = vendorId === 'v-seda';
@@ -62,7 +65,13 @@ export function labPaySheet(vendorId: string): LoadPaySheetResult {
       status: 'ok',
       data: {
         own,
-        plan: { steps: computeStepper(LAB_PLANS[vendorId]!, []), clearedAt: null, isDefaultSeeded: false },
+        plan: {
+          // Bituin's plan carries the money loop's stage — the SAME fold the
+          // supplier's lab draws (`money-pair.ts`).
+          steps: own ? computeStepper(LAB_PLANS[vendorId]!, []) : bituinSteps(stage),
+          clearedAt: null,
+          isDefaultSeeded: false,
+        },
         scheduleSource: 'plan',
         quoteSchedule: null,
         depositRecordedAt: null,

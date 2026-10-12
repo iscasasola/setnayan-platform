@@ -33,7 +33,8 @@ import { useCallback, useContext, useEffect, useId, useState } from 'react';
 import { RotateCw } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
-import { PaymentPlanStepper } from '@/app/_components/payment-plan-stepper';
+import { PriceSummary } from '@/app/_components/price-summary';
+import { priceSummaryOf, priceToday } from '@/lib/price-summary';
 import { moneyStepLine, pesoFromCentavos } from '@/lib/accepted-quote-terms';
 import { DepositReservation } from '../[vendorId]/workspace/_components/deposit-reservation';
 import { planNote, type LoadPaySheetResult, type PaySheetData } from '@/lib/pay-sheet';
@@ -120,7 +121,15 @@ export function PaySheet({
               </p>
               <p className={MUTE}>{planNote(state.data, vendorName)}</p>
               {state.data.scheduleSource === 'plan' && state.data.plan !== 'unreadable' && state.data.plan.steps ? (
-                <PaymentPlanStepper steps={state.data.plan.steps} clearedAt={state.data.plan.clearedAt} />
+                // Kind 26 — the SAME rows the supplier's customer card draws for
+                // this booking (`priceSummaryOf`), in the couple's words.
+                <PriceSummary
+                  idPrefix={`pay-${vendorId}`}
+                  summary={priceSummaryOf(state.data.plan.steps, 'couple', {
+                    clearedAt: state.data.plan.clearedAt,
+                    today: priceToday(),
+                  })}
+                />
               ) : null}
               {state.data.quoteSchedule ? (
                 <ol>

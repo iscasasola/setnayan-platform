@@ -84,14 +84,21 @@ export type BookedVerb = {
 const OWN_WORDS: Record<'review' | 'cancel' | 'dispute', { label: string; tone: VerbTone }> = {
   review: { label: 'Review', tone: 'brand' },
   cancel: { label: 'Cancel booking', tone: 'danger' },
-  // The shipped door's own words (`DisputeLinkButton`).
-  dispute: { label: 'Request refund / dispute', tone: 'warn' },
+  // The disputes door. NOT "Request refund": Setnayan pays no money back (owner
+  // 2026-10-08, "there is no refund. only virtual credits") — a couple and their
+  // supplier settle between them, and Setnayan referees the dispute.
+  dispute: { label: 'Dispute', tone: 'warn' },
 };
 
+/**
+ * Every MAIN button is terracotta (owner 2026-10-12, look call 1 — the Find
+ * card's own `verb()` in `lib/supplier-card-verbs.ts` does the same); a verb
+ * that is not the row's main keeps its table colour.
+ */
 const verb = (key: BookedVerbKey, opts: { main?: boolean; quiet?: boolean } = {}): BookedVerb => ({
   key,
   ...(key === 'review' || key === 'cancel' || key === 'dispute' ? OWN_WORDS[key] : cardVerbWords(key)),
-  ...(opts.main ? { main: true } : {}),
+  ...(opts.main ? { main: true, tone: 'brand' as VerbTone } : {}),
   ...(opts.quiet ? { quiet: true } : {}),
 });
 

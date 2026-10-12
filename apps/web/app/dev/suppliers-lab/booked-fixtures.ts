@@ -32,13 +32,12 @@ import { computeEventMoney, type EventMoney, type MoneyReadStatus, type PaymentM
 import { buildBudgetList } from '@/lib/budget-page-view';
 import { bookedView, type BookedFacts, type BookedView } from '@/lib/booked-rows';
 import { teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
-import { teamMoney } from '@/lib/your-team';
-import { bookedBudget, type BookedBudget } from '@/lib/booked-budget';
-import { computeStepper, type PlanProgress } from '@/lib/vendor-service-payment-schedules';
+import { bookedBudgetBlock, type BookedBudgetBlock } from '@/lib/booked-budget';
+import type { PlanProgress } from '@/lib/vendor-service-payment-schedules';
 import { LAB_EVENT } from './fixtures';
-import { LAB_PLANS } from './pay-fixtures';
 import { summarizeDateChange, type DateChangeView } from '@/lib/date-change';
 import type { RoomSizeAnswer } from '@/lib/booked-rows';
+import { bituinSteps, type MoneyStage } from './money-pair';
 
 /** The prototype was drawn in early October 2026; pinned so "by Oct 5" does not drift. */
 export const LAB_BOOKED_NOW = new Date('2026-10-01T04:00:00Z');
@@ -93,6 +92,8 @@ export type LabBookedOptions = {
   room: 'sent' | 'not_sent' | 'unread';
   /** The couple asked their suppliers to move the date; one is still deciding. */
   dateChange: boolean;
+  /** Bituin's reservation at a stage of the money loop (`money-pair.ts`). */
+  money?: MoneyStage;
 };
 
 const PROTO_ROWS: ReadonlySet<string> = new Set(['v-seda', 'v-santuario']);
@@ -129,7 +130,13 @@ export function labBookedMoney(o: LabBookedOptions): EventMoney {
           ],
     payments: none
       ? []
-      : ([{ payment_id: 'pay-lumina', vendor_id: 'v-lumina', line_item_id: null, amount_php: 85_000, paid_at: '2026-09-12T03:00:00Z' }] as PaymentMoneyRow[]).filter((p) => inSeed(o, p.vendor_id)),
+      : ([
+          { payment_id: 'pay-lumina', vendor_id: 'v-lumina', line_item_id: null, amount_php: 85_000, paid_at: '2026-09-12T03:00:00Z' },
+          // Bituin's reservation, once the couple recorded it (`money-pair.ts`).
+          ...(o.money === 'waiting' || o.money === 'received'
+            ? [{ payment_id: 'pay-bituin-1', vendor_id: 'v-bituin', line_item_id: null, amount_php: 38_000, paid_at: '2026-10-03T02:00:00Z' }]
+            : []),
+        ] as PaymentMoneyRow[]).filter((p) => inSeed(o, p.vendor_id)),
     orders: o.fail === 'orders' ? [] : [
       { order_id: 'o1', description: 'Event Hub Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_500, confirmed_total_php: 2_500, status: 'paid', created_at: '2026-09-14T03:00:00Z' },
     ],
@@ -143,23 +150,11 @@ export function labBookedMoney(o: LabBookedOptions): EventMoney {
 }
 
 /**
- * The six figures, through the real `teamMoney` and `bookedBudget`. The page
- * hands `teamMoney` its plan model; the lab hands it the same three inputs,
- * read off the fixture rows above.
+ * The small Budget block (B4), through the real `bookedBudgetBlock` over the
+ * SAME `EventMoney` the rows are drawn from — as the page does.
  */
-export function labBookedBudget(o: LabBookedOptions, money: EventMoney, view: BookedView): BookedBudget {
-  const booked = TEAM.filter((t) => o.booked && t.status !== 'shortlisted' && inSeed(o, t.vendorId));
-  const asked = TEAM.filter((t) => o.booked && t.status === 'shortlisted' && inSeed(o, t.vendorId));
-  const team = {
-    money: teamMoney({
-      lockedCentavos: booked.reduce((sum, t) => sum + Math.round((t.pricePhp ?? 0) * 100), 0),
-      lockedUnpricedCount: booked.filter((t) => t.pricePhp == null).length,
-      candidateCostsPhp: asked.map((t) => t.pricePhp),
-      budgetPhp: o.target ? 2_250_000 : null,
-    }),
-    inBuildCount: asked.length,
-  };
-  return bookedBudget({ team, list: buildBudgetList(money), booked: view.booked, plansKnown: true });
+export function labBookedBudget(o: LabBookedOptions, money: EventMoney): BookedBudgetBlock {
+  return bookedBudgetBlock(money, o.target ? 2_250_000 : null);
 }
 
 export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedView {
@@ -167,7 +162,7 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
   const rows = teamRows(team, { eventId: LAB_EVENT, lockHandshakeEnabled: true, now: LAB_BOOKED_NOW });
   // Bituin's plan is THEIRS (`event_vendor_payment_plan`), folded as the page folds it.
   const plans = new Map<string, PlanProgress>([
-    ['v-bituin', { steps: computeStepper(LAB_PLANS['v-bituin']!, []), clearedAt: null, isDefaultSeeded: false }],
+    ['v-bituin', { steps: bituinSteps(o.money ?? 'due'), clearedAt: null, isDefaultSeeded: false }],
   ]);
   // Santuario is the one booked venue on Setnayan; Seda was added by the couple (no shop to ask).
   const rooms: Map<string, RoomSizeAnswer> | null =

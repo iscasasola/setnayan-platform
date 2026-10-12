@@ -17,8 +17,9 @@
  *   · rows.
  */
 import type { ReactNode } from 'react';
-import Link from 'next/link';
+import { RotateCcw } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
 import {
   BOOKED_EMPTY,
@@ -27,6 +28,7 @@ import {
   type BookedView,
 } from '@/lib/booked-rows';
 import { BookedRowItem, WaitingRowItem } from './booked-row';
+import { GoToFind } from './go-to-find';
 
 /** Hairline rows, no boxes; a row's details fold open in place. */
 const BOOKED_CSS =
@@ -38,10 +40,11 @@ const BOOKED_CSS =
   '[data-booked-body] .bk-row[data-open] .bk-exp{grid-template-rows:1fr}' +
   '[data-booked-body] .bk-verbs{position:relative;display:flex;flex-wrap:nowrap;align-items:center;gap:8px;min-width:0}' +
   '[data-booked-body] .bk-slot{display:contents}' +
-  // ONE button height (40 px). A <button> picks up the app's 44 px touch floor and
+  // ONE button height: 44 px, the floor (owner 2026-10-12, look call 3 — "44 px
+  // minimum, no 40 px rows"). A <button> picks up the app's 44 px touch floor and
   // an <a> does not, so a row of both stood at two heights (measured in the lab
-  // at 375: Pay 44, Chat 40) — the fault the Find walk fixed for its own rows.
-  '[data-booked-body] :is(button,a).ab{height:40px;min-height:0}' +
+  // at 375: Pay 44, Chat 40) — every one is set to the floor here.
+  '[data-booked-body] :is(button,a).ab{height:44px;min-height:44px}' +
   // A main verb that does not shout: the tone as a wash and a word, not a fill.
   '[data-booked-body] :is(button,a).ab.ab-main.bk-soft{background:color-mix(in srgb,rgb(var(--ab-tone)) 12%,transparent);color:rgb(var(--ab-word))}' +
   '[data-booked-body] .bk-verbs .bk-said{position:absolute;left:0;right:0;top:100%;margin-top:4px}' +
@@ -73,12 +76,13 @@ export function BookedBody({
       <div data-booked-body="unreadable" role="alert" className="py-2">
         <p className="text-sm font-semibold text-ink">Couldn’t load your suppliers</p>
         <p className="mt-1 text-[12.5px] text-ink/60">This is a loading problem — not an empty list.</p>
-        <Link
+        <ActionButton
           href={state.retryHref}
-          className="-ml-1.5 mt-3 inline-flex min-h-[44px] items-center rounded-md px-1.5 text-[12.5px] font-semibold text-mulberry"
-        >
-          Try again ›
-        </Link>
+          tone="neutral"
+          icon={<RotateCcw aria-hidden strokeWidth={1.9} />}
+          label="Try again"
+          className="mt-3"
+        />
       </div>
     );
   }
@@ -107,9 +111,11 @@ export function BookedBody({
           Booked
         </h2>
         {booked.length === 0 ? (
-          <p className={SUB} data-booked-empty="">
-            {BOOKED_EMPTY}
-          </p>
+          <div data-booked-empty="">
+            <p className={SUB}>{BOOKED_EMPTY}</p>
+            {/* The empty state gives the first action (2026-10-12 look sweep). */}
+            <GoToFind className="mt-3" />
+          </div>
         ) : (
           <>
             <p className={SUB}>
@@ -117,7 +123,7 @@ export function BookedBody({
               {unpriced > 0 ? (
                 <>
                   {' · '}
-                  <span className="font-medium text-mulberry">{formatCount(unpriced)} without a price</span>
+                  <span className="font-medium text-sn-accent">{formatCount(unpriced)} without a price</span>
                 </>
               ) : null}
             </p>

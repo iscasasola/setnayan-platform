@@ -25,8 +25,7 @@ import { readBookedPlans } from '@/lib/booked-plans.server';
 import { readBookedRoomSizes } from '@/lib/booked-room.server';
 import { readOpenDateChange } from '@/lib/date-change.server';
 import { ROOM_SIZE_GROUPS, bookedView, type BookedFacts } from '@/lib/booked-rows';
-import { bookedBudget } from '@/lib/booked-budget';
-import type { TeamMoney } from '@/lib/your-team';
+import { bookedBudgetBlock } from '@/lib/booked-budget';
 import type { TeamRow } from '@/lib/your-team-rows';
 import { BookedBody } from './booked-body';
 import { BookedBudgetSection } from './booked-budget';
@@ -35,18 +34,17 @@ export async function BookedSlot({
   eventId,
   rows,
   facts,
-  team,
+  targetPhp,
 }: {
   eventId: string;
   /** `teamRows(...)` — every group; the body draws the asked and the booked. */
   rows: readonly TeamRow[];
   facts: readonly BookedFacts[];
   /**
-   * Booked · If you book these · Budget · Buffer — `teamMoneyOfModel` over the
-   * page's own plan model: the SAME `teamMoney` call the Build body makes, so
-   * the two tabs of this page can never print two figures for one fact.
+   * The couple's Target (`events.estimated_budget_centavos`, in pesos) — the
+   * meter's track. `null` = no target set.
    */
-  team: { money: TeamMoney; inBuildCount: number };
+  targetPhp: number | null;
 }) {
   const supabase = await createClient();
   const bookedIds = rows.filter((r) => r.group === 'booked').map((r) => r.vendorId);
@@ -67,7 +65,8 @@ export async function BookedSlot({
   ]);
   const list = buildBudgetList(money);
   const view = bookedView({ rows, facts, money: list.suppliers, plans, rooms, dateChange: dateChange.ok ? dateChange.view : null });
-  const budget = bookedBudget({ team, list, booked: view.booked, plansKnown: plans !== null });
+  // The small Budget block (B4) reads the SAME `money` the rows were drawn from.
+  const budget = bookedBudgetBlock(money, targetPhp);
   return (
     <BookedBody eventId={eventId} state={{ kind: 'view', view }} dateChangeUnread={!dateChange.ok}>
       <BookedBudgetSection eventId={eventId} budget={budget} />

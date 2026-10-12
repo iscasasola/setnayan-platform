@@ -22,10 +22,24 @@ import { emitNotification } from '@/lib/notification-emit';
 import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchThreadById } from '@/lib/chat';
+import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import {
   fetchPendingVendorPayments,
   fetchPlanProgressForVendor,
 } from '@/lib/vendor-service-payment-schedules.server';
+
+/**
+ * The supplier's CUSTOMER CARD answers a logged payment too (Suppliers Pair 3,
+ * 2026-10-13 — the Money fold, `clients/[eventId]/_components/customer-money-fold.tsx`).
+ * Its forms post `return_to` = the card's own path, and the answer re-draws that
+ * page. Only the bare card path is honoured — the one-shape allowlist of
+ * `lockAnswerReturnTo` (lib/lock-answer-notice.ts), never a free URL. Anything
+ * else is `null` and changes nothing.
+ */
+function payConfirmReturnTo(formData: FormData): string | null {
+  const to = lockAnswerReturnTo(formData.get('return_to'));
+  return to.startsWith('/vendor-dashboard/clients/') ? to : null;
+}
 
 /**
  * Confirm a couple-logged payment was received. The DB guard
@@ -128,6 +142,8 @@ export async function confirmVendorPayment(formData: FormData): Promise<void> {
 
   if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
   revalidatePath('/vendor-dashboard/messages');
+  const card = payConfirmReturnTo(formData);
+  if (card) revalidatePath(card);
 }
 
 /**
@@ -219,6 +235,8 @@ export async function refuseVendorPayment(formData: FormData): Promise<void> {
 
   if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
   revalidatePath('/vendor-dashboard/messages');
+  const card = payConfirmReturnTo(formData);
+  if (card) revalidatePath(card);
 }
 
 /**

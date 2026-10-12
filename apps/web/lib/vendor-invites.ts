@@ -50,6 +50,10 @@ export type VendorInviteRow = {
   claimed_at: string | null;
   declined_at: string | null;
   revoked_at: string | null;
+  /** The first time the claim page was drawn while the link was pending
+   *  (migration 20271267252894). NULL = never opened. Optional: rows built in
+   *  code before the column existed carry no value. */
+  first_opened_at?: string | null;
 };
 
 /**
@@ -120,7 +124,7 @@ export async function fetchLatestInvitesByVendorIds(
   const { data, error } = await supabase
     .from('vendor_invites')
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
     )
     .in('vendor_id', vendorIds)
     .order('sent_at', { ascending: false });
@@ -221,7 +225,7 @@ export async function fetchClaimLandingByToken(
   const { data: invite, error: invErr } = await admin
     .from('vendor_invites')
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
     )
     .eq('claim_token', token)
     .maybeSingle();
@@ -240,6 +244,22 @@ export async function fetchClaimLandingByToken(
       .update({ status: 'expired' })
       .eq('invite_id', inviteRow.invite_id);
     resolvedInvite = { ...inviteRow, status: 'expired' };
+  }
+
+  // 2b. FIRST OPENED (owner 2026-10-10: the couple IS told when the supplier
+  // never opens the link). Stamped once, while the link is still pending, on
+  // the same service-role path as the sweep above. Best-effort: a failed stamp
+  // never stops the page — the couple's row then keeps saying "not opened yet",
+  // which is the safe side of wrong.
+  if (resolvedInvite.status === 'pending' && !resolvedInvite.first_opened_at) {
+    const openedAt = new Date().toISOString();
+    const { error: openErr } = await admin
+      .from('vendor_invites')
+      .update({ first_opened_at: openedAt })
+      .eq('invite_id', resolvedInvite.invite_id)
+      .is('first_opened_at', null);
+    if (openErr) console.warn('[claim] first_opened_at not stamped:', openErr.message);
+    else resolvedInvite = { ...resolvedInvite, first_opened_at: openedAt };
   }
 
   // 2026-05-21 — admin-source invites skip the parent + event lookups
@@ -396,7 +416,7 @@ export async function ensureAutoShareInvite(
   const { data: existing, error: readErr } = await supabase
     .from('vendor_invites')
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
     )
     .eq('vendor_id', args.eventVendorId)
     .eq('source', 'auto_share_link')
@@ -431,7 +451,7 @@ export async function ensureAutoShareInvite(
       expires_at: computeAutoShareExpiresAt(),
     })
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
     )
     .single();
 
@@ -442,7 +462,7 @@ export async function ensureAutoShareInvite(
       const { data: raced } = await supabase
         .from('vendor_invites')
         .select(
-          'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+          'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
         )
         .eq('vendor_id', args.eventVendorId)
         .eq('source', 'auto_share_link')
@@ -473,7 +493,7 @@ export async function fetchActiveAutoShareInvite(
   const { data } = await supabase
     .from('vendor_invites')
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
     )
     .eq('vendor_id', eventVendorId)
     .eq('source', 'auto_share_link')

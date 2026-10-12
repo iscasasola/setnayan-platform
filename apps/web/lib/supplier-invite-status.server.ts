@@ -36,7 +36,13 @@ export async function readInviteStatusByVendorId(
     const out: Record<string, SupplierInviteStatus> = {};
     for (const [vendorId, invite] of latest) {
       const status = supplierInviteStatus(
-        { status: invite.status, sentAt: invite.sent_at, expiresAt: invite.expires_at },
+        {
+          status: invite.status,
+          sentAt: invite.sent_at,
+          expiresAt: invite.expires_at,
+          // The column is selected, so a missing value is a real "never opened".
+          openedAt: invite.first_opened_at ?? null,
+        },
         nowMs,
       );
       if (status) out[vendorId] = status;

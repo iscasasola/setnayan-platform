@@ -9,12 +9,12 @@
  *
  * ── ONLY WHAT `vendor_invites` RECORDS ─────────────────────────────────────
  * The table holds `status` (pending · claimed · declined · expired · revoked),
- * `sent_at`, `expires_at`, `declined_at` and `claimed_at`. It does NOT record
- * that a link was OPENED — there is no such column — so this module never says
- * "opened" and never says "not opened". A pending link reads "no answer yet",
- * which is exactly what is known: they have neither joined nor declined.
- * 🔌 SEAM: an `opened_at` stamp (a migration, proposed in the build plan) is
- * what would let this say "opened · not joined yet" / "not opened yet".
+ * `sent_at`, `expires_at`, `declined_at`, `claimed_at` and — since migration
+ * 20271267252894 — `first_opened_at`, stamped the first time the claim page is
+ * drawn for a pending link. So a pending link says one of two true things: "not
+ * opened yet" (never drawn) or "opened · not joined yet". A link whose open
+ * could not be read (an older row, a read without the column) says only "no
+ * answer yet", which is all that is known.
  *
  * ── EXPIRY IS LAZY IN THE DATABASE, SO IT IS DECIDED HERE TOO ──────────────
  * A `pending` row is only flipped to `expired` when somebody opens the link
@@ -35,9 +35,11 @@ export type InviteStatusInput = {
   sentAt: string | null;
   /** `vendor_invites.expires_at` (ISO). */
   expiresAt: string | null;
+  /** `vendor_invites.first_opened_at` (ISO) — null = never opened; undefined = not read. */
+  openedAt?: string | null;
 };
 
-export type SupplierInviteStatusKey = 'sent' | 'joined' | 'declined' | 'expired';
+export type SupplierInviteStatusKey = 'sent' | 'opened' | 'joined' | 'declined' | 'expired';
 
 export type SupplierInviteStatus = {
   key: SupplierInviteStatusKey;
@@ -94,9 +96,12 @@ export function supplierInviteStatus(
       if (Number.isFinite(expires) && expires <= nowMs) {
         return { key: 'expired', line: 'Your link ran out with no answer', tone: 'danger' };
       }
+      if (invite.openedAt) {
+        return { key: 'opened', line: 'They opened your link · not joined yet', tone: 'warn' };
+      }
       return {
         key: 'sent',
-        line: `Link sent${sentWhen(invite.sentAt, nowMs)} · no answer yet`,
+        line: `Link sent${sentWhen(invite.sentAt, nowMs)} · ${invite.openedAt === null ? 'not opened yet' : 'no answer yet'}`,
         tone: 'warn',
       };
     }

@@ -32,6 +32,21 @@ test('a live link reads as sent, with how long ago, and "no answer yet"', () => 
   assert.equal(older?.line, 'Link sent 12 days ago · no answer yet');
 });
 
+test('a link never opened says so — the couple is told it was not opened (owner 2026-10-10)', () => {
+  const s = supplierInviteStatus({ status: 'pending', sentAt: iso(-5), expiresAt: iso(85), openedAt: null }, NOW);
+  assert.deepEqual(s, { key: 'sent', line: 'Link sent 5 days ago · not opened yet', tone: 'warn' });
+});
+
+test('a link they opened but did not answer says they opened it', () => {
+  const s = supplierInviteStatus({ status: 'pending', sentAt: iso(-5), expiresAt: iso(85), openedAt: iso(-1) }, NOW);
+  assert.deepEqual(s, { key: 'opened', line: 'They opened your link · not joined yet', tone: 'warn' });
+});
+
+test('an opened link past its date still reads as run out, not as opened', () => {
+  const s = supplierInviteStatus({ status: 'pending', sentAt: iso(-100), expiresAt: iso(-10), openedAt: iso(-50) }, NOW);
+  assert.equal(s?.key, 'expired');
+});
+
 test('a sent date that cannot be read drops the "ago", never invents one', () => {
   const s = supplierInviteStatus({ status: 'pending', sentAt: null, expiresAt: iso(10) }, NOW);
   assert.equal(s?.line, 'Link sent · no answer yet');

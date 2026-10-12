@@ -128,3 +128,61 @@ export function decideFeeGate(charge: OpenChargeResult | null): FeeGateResult {
     amountCentavos: charge.amount_charged_centavos,
   };
 }
+
+/**
+ * FEE RULE B — A SUPPLIER THE COUPLE BROUGHT (owner 2026-10-10, answer 1: "B").
+ *
+ * A hand-typed record ("Add your own") of a shop that IS on Setnayan pays the
+ * booking fee ONLY IF Setnayan showed the couple that shop FIRST: this event
+ * opened the shop's page from a sourced surface before the record was made
+ * (`vendor_profile_views(event_id, source)`), or asked it through one (a thread
+ * whose `inquiry_source` is sourced — the rule every booking already has).
+ *
+ * The record is tied to the shop either by the shop claiming the couple's link
+ * (`event_vendors.marketplace_vendor_id`) or by a server-stamped match
+ * (`event_manual_vendors.leak_match_vendor_profile_id`). A match the couple
+ * dismissed with "Not them?" is never stamped (owner 2026-10-12, answer 3), so it
+ * cannot count. A view AFTER the record was made does not count either.
+ *
+ * ⚠ THE APP'S BELIEF, NOT THE BILL. SQL decides what is charged:
+ * `public.booking_fee_attribution_for` carries the same two arms, and
+ * `tests/db/add-your-own-fee-rule.db.test.ts` runs every case below through both
+ * and requires the same answer. Fails SAFE to import.
+ */
+export type ManualAddFeeFacts = {
+  /** `inquiry_source` of every thread this event has with the shop. */
+  threadSources: ReadonlyArray<string | null>;
+  /** Is the booking a hand-typed record tied to THIS shop (claimed by it, or matched to it)? */
+  recordTiedToShop: boolean;
+  /** `source` of every view of the shop by this event made BEFORE the record was created. */
+  viewSourcesBeforeRecord: ReadonlyArray<string | null>;
+};
+
+export function manualAddFeeAttribution(f: ManualAddFeeFacts): BookingFeeAttribution {
+  if (f.threadSources.some((s) => bookingFeeAttribution(s) === 'sourced')) return 'sourced';
+  if (f.recordTiedToShop && f.viewSourcesBeforeRecord.some((s) => bookingFeeAttribution(s) === 'sourced')) {
+    return 'sourced';
+  }
+  return 'import';
+}
+
+/**
+ * THE OWNER'S PRICE CHECK (2026-10-10, answer 2): "10% allowance +-. so if
+ * 100,000 that is between 90-110k". `tolerance` is the FRACTION stored in
+ * `platform_settings.fee_leak_price_tolerance` (0.10). Inclusive at both ends:
+ * ₱90,000 and ₱110,000 are both "the same price" as a ₱100,000 quote. A missing
+ * or non-positive figure on either side is never a match.
+ */
+export function priceWithinTolerance(typedPhp: number | null, quotePhp: number | null, tolerance: number): boolean {
+  if (typedPhp == null || quotePhp == null) return false;
+  if (!Number.isFinite(typedPhp) || !Number.isFinite(quotePhp) || typedPhp <= 0 || quotePhp <= 0) return false;
+  if (!Number.isFinite(tolerance) || tolerance < 0) return false;
+  // Compared in centavos so 0.1 × 100,000 is exactly 10,000 (no float edge at the boundary).
+  const typed = Math.round(typedPhp * 100);
+  const quote = Math.round(quotePhp * 100);
+  const allowance = Math.round(quote * tolerance);
+  return Math.abs(typed - quote) <= allowance;
+}
+
+/** The default the migration writes — used only when the setting cannot be read (fail to the owner's number). */
+export const FEE_LEAK_PRICE_TOLERANCE_DEFAULT = 0.1;

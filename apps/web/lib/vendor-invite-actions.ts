@@ -296,15 +296,66 @@ export async function declineVendorInviteByToken(formData: FormData): Promise<vo
   const token = String(formData.get('claim_token') ?? '').trim();
   if (!token) return;
   const admin = createAdminClient();
-  const { error } = await admin
+  // The row back, so a zero-row update (already declined, claimed, run out)
+  // never tells anybody anything.
+  const { data: declined, error } = await admin
     .from('vendor_invites')
     .update({ status: 'declined', declined_at: new Date().toISOString() })
     .eq('claim_token', token)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('vendor_id, business_name');
   if (error) {
     console.error('[vendor-invite-actions] decline failed:', error);
   }
+  const row = (declined ?? [])[0] as { vendor_id: string | null; business_name: string | null } | undefined;
+  if (row?.vendor_id) await tellCoupleTheirLinkWasDeclined(admin, row.vendor_id, row.business_name);
   redirect(`/vendor/claim/${token}`);
+}
+
+/**
+ * THE COUPLE IS TOLD WHEN THE SUPPLIER DECLINES THEIR LINK (owner 2026-10-10,
+ * "4-6 do as you recommend": the couple IS told when the supplier declines or
+ * never opens the link). In the app only — the type is not on the email
+ * allowlist (owner 2026-10-11: no new emails). Every couple member of the
+ * event, the way `vendor_joined` is fanned out. Fail-soft: the decline itself
+ * already stands; the couple's row also says it on every visit
+ * (`lib/supplier-invite-status.ts`).
+ */
+async function tellCoupleTheirLinkWasDeclined(
+  admin: ReturnType<typeof createAdminClient>,
+  eventVendorId: string,
+  businessName: string | null,
+): Promise<void> {
+  try {
+    const { data: ev } = await admin
+      .from('event_vendors')
+      .select('event_id, vendor_name')
+      .eq('vendor_id', eventVendorId)
+      .maybeSingle();
+    const eventId = (ev?.event_id as string | null) ?? null;
+    if (!eventId) return;
+    const name = ((ev?.vendor_name as string | null) ?? businessName ?? '').trim() || 'Your supplier';
+    const { data: members } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('member_type', 'couple');
+    const coupleUserIds = (members ?? []).map((m) => m.user_id as string).filter(Boolean);
+    await Promise.all(
+      coupleUserIds.map((uid) =>
+        emitNotification({
+          userId: uid,
+          type: 'vendor_invite_declined',
+          title: `${name} declined your link`,
+          body: 'They said they are not this supplier. Their record is still yours.',
+          relatedUrl: `/dashboard/${eventId}/vendors`,
+          eventId,
+        }),
+      ),
+    );
+  } catch (e) {
+    console.warn('[claim] vendor_invite_declined notify skipped:', e);
+  }
 }
 
 // ---------------------------------------------------------------------------

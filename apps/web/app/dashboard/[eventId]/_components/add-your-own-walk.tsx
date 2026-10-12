@@ -30,24 +30,41 @@
  *                     link — and the note that this is the couple's record, not
  *                     a booking.
  *
- * 🔌 SEAMS LEFT ON PURPOSE (the owner has not ruled; nothing is guessed):
- *   · whether a name match still counts after "Not them?" — today the record is
- *     simply made by hand and carries no memory of the match;
- *   · whether the couple is told "the supplier skips the booking fee" — this
- *     walk says nothing about fees or credit on any screen;
- *   · fee rule B (a brought supplier pays only if Setnayan showed the couple
- *     that shop first) and the price check — Step 4 of the build, not here.
+ * ── WHAT THE OWNER RULED SINCE (2026-10-12), AND WHERE IT LIVES ──────────
+ *   · a name match dismissed with "Not them?" does NOT count — the press sends
+ *     `name_dismissed=1`, and `addManualSupplier` leaves the record unstamped
+ *     (`lib/manual-add-leak.ts`);
+ *   · couples are NOT told about the booking fee — no screen here says "fee",
+ *     "credit" or "sourced" (`a-brought-supplier-hears-no-fee.test.ts`);
+ *   · the fee-leak line ("This looks like … who already sent you a quote") is
+ *     the prototype's guard WITHOUT its fee sentence, for the same reason.
+ *
+ * ── ONE WRITE PER PRESS, AND THE PAGE CATCHES UP BEHIND THE LINK ─────────
+ * "Add" is ONE call: `addManualSupplier` makes the record, runs the leak check
+ * and returns their link (`with_link=1`), and draws no page back
+ * (`answer_in_place=1`). The page is refreshed ONCE, the moment the record
+ * exists (`onRecorded`), while the couple is looking at step 4 — so the card is
+ * already under its category when they press Done.
+ *
+ * ── THE CONTROLS (INTERACTION_RULES § 9) ─────────────────────────────────
+ * Sheet (darkens + blurs) · Form rows for every typed answer (`TypedRow`, the
+ * first one already open) · PickMenu for "What they do" · ActionButton for every
+ * press · the step line in the accent token. No bordered box: the matches and
+ * the leak line are divider rows.
  *
  * The lab (`/dev/suppliers-lab`) has no session, so the four calls can be
  * answered from fixtures through `AddOwnStandInCtx`. Production never provides
  * it and always takes the real actions.
  */
 
-import { createContext, useContext, useEffect, useRef, useState, useTransition } from 'react';
-import { ArrowLeft, ArrowRight, Check, MessageCircle, Plus } from 'lucide-react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { ArrowLeft, ArrowRight, Check, MessageCircle, MessagesSquare, Plus } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
+import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
+import { nameMatchesShop } from '@/lib/manual-add-leak';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { manualVendorNeedsAddress } from '@/lib/manual-venue-address';
 import {
@@ -69,7 +86,6 @@ import {
 import {
   addManualSupplier,
   attachMarketplaceVendorToCategory,
-  createManualVendorInvite,
   searchMarketplaceVendorsByName,
   type MarketplaceVendorSuggestion,
   type SupplierInviteView,
@@ -100,9 +116,13 @@ export type AddOwnStandIn = {
 };
 export const AddOwnStandInCtx = createContext<AddOwnStandIn | null>(null);
 
-const FIELD =
-  'w-full rounded-xl border border-ink/15 bg-cream px-3.5 py-3 text-[15px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60'; // no-card-ok: a text field's own shape — this class is only ever put on an <input>
 const LABEL = 'block text-[13px] font-medium text-ink';
+
+/**
+ * A Setnayan shop already on this event that has QUOTED — what the leak line
+ * looks for. The page derives it from the cards it already holds (no read).
+ */
+export type AddOwnQuotedShop = { category: string; name: string; threadHref: string | null };
 
 export function AddYourOwnWalk({
   eventId,
@@ -110,7 +130,9 @@ export function AddYourOwnWalk({
   categoryLabel: openedLabel,
   categories,
   initialName = '',
+  quotedShops = [],
   onClose,
+  onRecorded,
   onDone,
 }: {
   eventId: string;
@@ -121,7 +143,11 @@ export function AddYourOwnWalk({
   categories: ReadonlyArray<AddOwnCategory>;
   /** What the couple had typed in the thumb row's box before pressing ＋. */
   initialName?: string;
+  /** Shops on the event that quoted (any category) — the leak line's facts. */
+  quotedShops?: ReadonlyArray<AddOwnQuotedShop>;
   onClose: () => void;
+  /** The record exists — the page may refresh now, behind the link step. */
+  onRecorded?: () => void;
   onDone: (outcome: AddOwnOutcome) => void;
 }) {
   const standIn = useContext(AddOwnStandInCtx);
@@ -136,9 +162,12 @@ export function AddYourOwnWalk({
   const [matches, setMatches] = useState<ReadonlyArray<MarketplaceVendorSuggestion> | null>(null);
   const [searching, setSearching] = useState(false);
   const [created, setCreated] = useState<{ eventVendorId: string; invite: SupplierInviteView } | null>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const rowsRef = useRef<HTMLDivElement>(null);
   const generation = useRef(0);
+  /** "Not them?" was pressed for the name as typed — the match does not count (owner 2026-10-12). */
+  const [dismissed, setDismissed] = useState(false);
+  /** Opens the step's first field once the step is drawn (a Form row never opens itself on mount). */
+  const [openAsk, setOpenAsk] = useState(0);
 
   const label =
     categories.find((c) => c.category === category)?.label ??
@@ -175,9 +204,20 @@ export function AddYourOwnWalk({
     return () => window.clearTimeout(t);
   }, [typed, category, eventId, step, standIn]);
 
+  // A first-time form has its box already open (INTERACTION_RULES § 9, Form row:
+  // "filling in something new = the same rows with the boxes already open").
   useEffect(() => {
-    if (step === 1) nameRef.current?.focus();
+    if (step === 1 || step === 3) setOpenAsk((n) => n + 1);
   }, [step]);
+
+  /** The leak line: a shop on this event, in this category, that already quoted — and whose name was typed. */
+  const leak = useMemo(
+    () =>
+      typed.length > 0
+        ? (quotedShops.find((q) => q.category === category && nameMatchesShop(typed, q.name)) ?? null)
+        : null,
+    [quotedShops, category, typed],
+  );
 
   // Once the record exists, every way out (✕, the backdrop, Esc) is "Done": the
   // row is real, so the page must refresh and say what was added.
@@ -186,12 +226,13 @@ export function AddYourOwnWalk({
     else onClose();
   };
 
-  function next() {
+  function next(notThem = false) {
     if (step === 1 && typed.length === 0) {
       setErr(ADD_OWN_NAME_ERROR);
-      nameRef.current?.focus();
+      if (rowsRef.current) nudgeFormRows(rowsRef.current);
       return;
     }
+    if (step === 1) setDismissed(notThem);
     setErr(null);
     setStep((s) => (s < 3 ? ((s + 1) as AddOwnStep) : s));
   }
@@ -249,18 +290,31 @@ export function AddYourOwnWalk({
     });
   }
 
-  /** Step 3's Add — makes the record, then their link. */
+  /** Step 3's Add — ONE call: the record, the leak check and their link. */
   function add() {
     if (pending) return;
     const refusal = addOwnContactError(who, mobile);
     if (refusal) {
       setErr(refusal);
+      if (rowsRef.current) nudgeFormRows(rowsRef.current);
       return;
     }
-    const form = formRef.current;
-    if (!form) return;
-    if (!form.reportValidity()) return;
-    const fd = new FormData(form);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('category', category);
+    fd.set('business_name', typed);
+    fd.set('contact_either', '1');
+    fd.set('contact_person', who.trim());
+    fd.set('contact_number', mobile.trim());
+    if (dismissed) fd.set('name_dismissed', '1');
+    fd.set('with_link', '1');
+    fd.set(ANSWER_IN_PLACE_FIELD, '1');
+    // A place owes its address — the pin field posts into its own form.
+    const place = rowsRef.current?.querySelector('form[data-add-own-place]') as HTMLFormElement | null;
+    if (place) {
+      if (!place.reportValidity()) return;
+      for (const [k, v] of new FormData(place).entries()) fd.set(k, v);
+    }
     setErr(null);
     start(async () => {
       if (standIn) {
@@ -271,6 +325,7 @@ export function AddYourOwnWalk({
         }
         setCreated({ eventVendorId: res.eventVendorId, invite: res.invite });
         setStep(4);
+        onRecorded?.();
         return;
       }
       const res = await addManualSupplier(fd);
@@ -284,9 +339,9 @@ export function AddYourOwnWalk({
       }
       // The record exists. A link that could not be made is not a failed add:
       // step 4 then offers "Create their link" (the panel's own button).
-      const link = await createManualVendorInvite({ eventId, vendorId: res.eventVendorId });
-      setCreated({ eventVendorId: res.eventVendorId, invite: link.ok ? { url: link.url, qrSvg: link.qrSvg } : null });
+      setCreated({ eventVendorId: res.eventVendorId, invite: res.invite ?? null });
       setStep(4);
+      onRecorded?.();
     });
   }
 
@@ -295,7 +350,7 @@ export function AddYourOwnWalk({
 
   return (
     <Sheet open onClose={finish} labelledById="add-own-walk-title" rise>
-      <div className="px-5 pb-2 pt-5" data-add-own-walk="" data-step={step}>
+      <div ref={rowsRef} className="px-5 pb-2 pt-5" data-add-own-walk="" data-step={step}>
         <h2 id="add-own-walk-title" className="pr-10 text-[20px] font-semibold tracking-[-0.01em] text-ink">
           {ADD_OWN_TITLE}
         </h2>
@@ -305,40 +360,58 @@ export function AddYourOwnWalk({
           {ADD_OWN_STEPS.map((s, i) => (
             <span
               key={s}
-              className={`h-[3px] min-w-0 flex-1 rounded-full ${i < step ? 'bg-mulberry' : 'bg-ink/15'}`}
+              className={`h-[3px] min-w-0 flex-1 rounded-full ${i < step ? 'bg-sn-accent' : 'bg-ink/15'}`}
             />
           ))}
           <span className="shrink-0 pl-1 text-[11.5px] text-ink/55">{addOwnStepLine(step)}</span>
         </div>
 
         {step === 1 ? (
-          <div className="mt-4 space-y-2">
-            <label htmlFor="add-own-name" className={LABEL}>
-              Name
-            </label>
-            <input
-              ref={nameRef}
-              id="add-own-name"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setErr(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  next();
-                }
-              }}
-              maxLength={128}
-              autoComplete="off"
-              autoCapitalize="words"
-              placeholder="e.g. Tita Baby's Catering"
-              className={FIELD}
-            />
+          <div className="mt-3">
+            <FormRows width="wide" data="add-own-name">
+              <TypedRow
+                name="Name"
+                value={name}
+                empty="Their name"
+                placeholder="e.g. Tita Baby's Catering"
+                required
+                maxLength={128}
+                autoCapitalize="words"
+                openAsk={openAsk}
+                attrs={{ 'data-add-own-name': '' }}
+                onType={(t) => {
+                  setName(t);
+                  setDismissed(false);
+                  setErr(null);
+                }}
+                onKeep={(t) => {
+                  setName(t);
+                }}
+              />
+            </FormRows>
+            {/* THE LEAK LINE (prototype case A, "This looks like X's quote") —
+                WITHOUT the fee sentence: couples are not told about the fee
+                (owner 2026-10-12). A line on the page, not a box. */}
+            {leak ? (
+              <div className="mt-2 flex items-start gap-3 border-t border-ink/10 pt-3" data-add-own-leak="">
+                <p className="min-w-0 flex-1 text-[13px] leading-snug text-ink/75">
+                  <b className="font-semibold text-ink">This looks like {leak.name}, who already sent you a quote.</b>{' '}
+                  Booked here, your chat, payments and their date stay in one place.
+                </p>
+                {leak.threadHref ? (
+                  <ActionButton
+                    tone="info"
+                    icon={MessagesSquare}
+                    label="See their quote"
+                    name={`See ${leak.name}'s quote`}
+                    href={leak.threadHref}
+                  />
+                ) : null}
+              </div>
+            ) : null}
             {hasMatches ? (
-              <div data-add-own-matches="">
-                <p className="mt-3 font-mono text-[10.5px] uppercase tracking-[0.14em] text-ink/55">
+              <div className="mt-2 border-t border-ink/10 pt-3" data-add-own-matches="">
+                <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-ink/55">
                   {ADD_OWN_MATCH_HEAD}{' '}
                   <span className="font-sans normal-case tracking-normal">· {ADD_OWN_MATCH_TAIL}</span>
                 </p>
@@ -364,17 +437,16 @@ export function AddYourOwnWalk({
                 </ul>
               </div>
             ) : searching ? (
-              <p className="text-[12.5px] text-ink/55" aria-live="polite">
+              <p className="mt-2 text-[12.5px] text-ink/55" aria-live="polite">
                 Searching Setnayan…
               </p>
-            ) : matches && typed.length >= ADD_OWN_SEARCH_MIN ? (
-              <p className="text-[12.5px] text-ink/60" data-add-own-nobody="">
+            ) : matches && typed.length >= ADD_OWN_SEARCH_MIN && !leak ? (
+              <p className="mt-2 text-[12.5px] text-ink/60" data-add-own-nobody="">
                 {addOwnNobodyLine(typed, label)}
               </p>
             ) : null}
           </div>
         ) : null}
-
         {step === 2 ? (
           <div className="mt-4 space-y-2">
             <p className={LABEL}>What they do</p>
@@ -392,66 +464,54 @@ export function AddYourOwnWalk({
           </div>
         ) : null}
 
-        {/* Step 3 is a real form, so the save reads it exactly as the
-            eight-field sheet's save reads its own. */}
+        {/* Step 3 — who they talk to, or their mobile (one is enough). Form
+            rows, the first already open; the walk holds the words and the Add
+            press sends them in ONE call. */}
         {step === 3 ? (
-          <form
-            ref={formRef}
-            className="mt-4 space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              add();
-            }}
-          >
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="category" value={category} />
-            <input type="hidden" name="business_name" value={typed} />
-            <input type="hidden" name="contact_either" value="1" />
-            <div className="space-y-1.5">
-              <label htmlFor="add-own-who" className={LABEL}>
-                Who you talk to
-              </label>
-              <input
-                id="add-own-who"
-                name="contact_person"
+          <div className="mt-3">
+            <FormRows width="wide" data="add-own-contact">
+              <TypedRow
+                name="Who you talk to"
                 value={who}
-                onChange={(e) => {
-                  setWho(e.target.value);
-                  setErr(null);
-                }}
-                maxLength={128}
-                autoComplete="off"
-                autoCapitalize="words"
-                disabled={pending}
+                empty="Add"
                 placeholder="e.g. Maria Santos"
-                className={FIELD}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="add-own-mobile" className={LABEL}>
-                Mobile
-              </label>
-              <input
-                id="add-own-mobile"
-                name="contact_number"
-                value={mobile}
-                onChange={(e) => {
-                  setMobile(e.target.value);
+                maxLength={128}
+                autoCapitalize="words"
+                openAsk={openAsk}
+                attrs={{ 'data-add-own-who': '' }}
+                onType={(t) => {
+                  setWho(t);
                   setErr(null);
                 }}
-                type="tel"
-                inputMode="tel"
-                maxLength={32}
-                autoComplete="off"
-                disabled={pending}
-                placeholder="+63 9XX XXX XXXX"
-                className={FIELD}
+                onKeep={(t) => {
+                  setWho(t);
+                }}
               />
-            </div>
+              <TypedRow
+                name="Mobile"
+                value={mobile}
+                empty="Add"
+                placeholder="+63 9XX XXX XXXX"
+                maxLength={32}
+                inputMode="tel"
+                attrs={{ 'data-add-own-mobile': '' }}
+                onType={(t) => {
+                  setMobile(t);
+                  setErr(null);
+                }}
+                onKeep={(t) => {
+                  setMobile(t);
+                }}
+              />
+            </FormRows>
             {/* A place owes its address (the shipped rule, asked again by the
                 save): a venue with no address cannot be found by a guest. */}
-            {addressRequired ? <AddressPinField id="add-own-address" required disabled={pending} /> : null}
-          </form>
+            {addressRequired ? (
+              <form data-add-own-place="" className="mt-2 border-t border-ink/10 pt-3" onSubmit={(e) => e.preventDefault()}>
+                <AddressPinField id="add-own-address" required disabled={pending} />
+              </form>
+            ) : null}
+          </div>
         ) : null}
 
         {step === 4 && created ? (
@@ -480,15 +540,15 @@ export function AddYourOwnWalk({
       <div className="sticky bottom-0 flex items-center gap-2 border-t border-ink/10 bg-cream px-5 py-3">
         {step === 1 ? (
           hasMatches ? (
-            <ActionButton tone="neutral" icon={ArrowRight} label="Not them?" onClick={next} disabled={pending} className="flex-1" />
+            <ActionButton tone="neutral" icon={ArrowRight} label="Not them?" onClick={() => next(true)} disabled={pending} className="flex-1" />
           ) : (
-            <ActionButton tone="brand" main icon={ArrowRight} label="Next" onClick={next} className="flex-1" />
+            <ActionButton tone="brand" main icon={ArrowRight} label="Next" onClick={() => next(false)} className="flex-1" />
           )
         ) : null}
         {step === 2 ? (
           <>
             <ActionButton tone="neutral" icon={ArrowLeft} label="Back" onClick={back} />
-            <ActionButton tone="brand" main icon={ArrowRight} label="Next" onClick={next} className="flex-1" />
+            <ActionButton tone="brand" main icon={ArrowRight} label="Next" onClick={() => next(false)} className="flex-1" />
           </>
         ) : null}
         {step === 3 ? (

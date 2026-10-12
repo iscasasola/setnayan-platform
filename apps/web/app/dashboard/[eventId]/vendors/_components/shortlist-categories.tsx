@@ -4402,7 +4402,23 @@ export function ShortlistCategories({
           categories={benchRows
             .filter((r, i, all) => all.findIndex((o) => o.t.category === r.t.category) === i)
             .map(({ t, group }) => ({ category: t.category, label: t.label, group }))}
+          // The leak line's facts: shops on this event that quoted, from the
+          // cards already on the page (no read).
+          quotedShops={folders.flatMap((f) =>
+            f.tiles.flatMap((t) =>
+              t.vendors
+                .filter((v) => v.marketplaceVendorId && standings[v.vendorId]?.needsYou === true)
+                .map((v) => ({
+                  category: t.category,
+                  name: v.name,
+                  threadHref: v.threadId ? `/dashboard/${eventId}/messages/${v.threadId}` : null,
+                })),
+            ),
+          )}
           onClose={() => setManual(null)}
+          // ONE refresh, the moment the record exists — behind the link step,
+          // so the card is under its category by the time they press Done.
+          onRecorded={() => router.refresh()}
           onDone={(outcome) => {
             setManual(null);
             // Land on the category the supplier went under, then say what happened.
@@ -4410,7 +4426,8 @@ export function ShortlistCategories({
             if (row) setOpenTile(row.t.tile);
             if (outcome.whole) toast.success(outcome.said);
             else toast.info(outcome.said);
-            router.refresh();
+            // An add already refreshed behind the link; an ask has not.
+            if (outcome.kind === 'asked') router.refresh();
           }}
         />
       ) : manual ? (

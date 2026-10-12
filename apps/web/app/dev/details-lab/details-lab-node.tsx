@@ -19,6 +19,8 @@
  *   ?look=1               the Look (part 3): Mood Board, Logo, Hero, Reveal — stand-ins
  *                         for the work area's pages, so the layout can be checked
  *   ?type=birthday|wake   another celebration (default: wedding) — no Love Story item
+ *   ?venue=own            Your event › Venues with a Reception typed by hand — the shared address row (`AddressPinField`, a Form row
+ *                         since 2026-10-12) on the Maker's own card. Saves go to the real draft door, which refuses here (no session).
  *   ?guide=1|walk-S|ready-S  the guided "What's left", by stage (S = save_the_date, rsvp-stage, …) — with Your event on
  *                         fixtures; `&fresh=1` a new event (nothing filled in yet)
  */
@@ -89,7 +91,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const marchLab = one('item') === 'march';
   /* 🧭 `?studio=1` — the new Maker's Studio tools on fixtures (`MakerDetails`'s `studio`). */
   const studioLab = one('studio') === '1';
-  const yourEvent: YourEventInput | null = guideAddr || marchLab || studioLab
+  /* 📍 `?venue=own` — a Reception the couple types by hand (2026-10-12: the address row is shared with "Add your own"). */
+  const venueLab = one('venue') === 'own';
+  const yourEvent: YourEventInput | null = guideAddr || marchLab || studioLab || venueLab
     ? {
         kind: {
           words: { twoPeople: hasTwoNamedPeople(profile), solemn: words.solemn, eventWord: words.eventWord },
@@ -127,7 +131,25 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         },
         venues: studioLab
           ? { resolved: [(mj ? { role: 'reception', name: LAB_SAMPLE.venue, address: LAB_SAMPLE.venueAddress } : { role: 'reception', name: 'The Garden at Tagaytay', address: 'Tagaytay City' }) as never], slots: [], city: null }
-          : { resolved: [], slots: [], city: null },
+          : venueLab
+            ? {
+                resolved: [],
+                slots: [
+                  {
+                    label: 'Reception',
+                    slot: 'reception' as const,
+                    booked: null,
+                    columns: { name: 'std_film_venue_name' as const, address: 'venue_address' as const, lat: 'venue_latitude' as const, lng: 'venue_longitude' as const },
+                    typed: 'The Garden at Tagaytay',
+                    address: '',
+                    pin: null,
+                    choice: { source: 'own' as const },
+                    photoUrls: {},
+                  },
+                ],
+                city: null,
+              }
+            : { resolved: [], slots: [], city: null },
         /* 🧭 `?studio=1` also draws the march on fixtures — Studio's side-by-side needs real-looking walks. */
         march: marchLab || studioLab ? { ...labMarchSections(one('march')), lab: true } : { sections: [] },
       }

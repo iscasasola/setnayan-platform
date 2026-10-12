@@ -54,7 +54,7 @@ test('the sign-in card labels, divider and hints are 12px and 4.5:1 on the card'
   assert.ok(px >= 12, `sign-in labels are ${px}px`);
   const fg = rule.match(/color:\s*(#[0-9a-f]{6})/i)?.[1];
   assert.ok(fg && ratio(fg, '#f2f2f0') >= 4.5, `sign-in labels ${fg} read ${fg ? ratio(fg, '#f2f2f0').toFixed(2) : '?'}:1 on the card`);
-  const hintRules = [...css.matchAll(/\.sn-signin-terra \.hr-si-hint \{([^}]*)\}/g)].map((m) => m[1]!);
+  const hintRules = [...css.matchAll(/\.sn-signin-terra \.hr-si-hint\b[^{]*\{([^}]*)\}/g)].map((m) => m[1]!);
   const hfg = hintRules.map((r) => r.match(/(?:^|;|\s)color:\s*(#[0-9a-f]{6})/i)?.[1]).filter(Boolean).pop();
   assert.ok(hfg && ratio(hfg, '#f2f2f0') >= 4.5, `sign-in hints ${hfg} under 4.5:1`);
 });

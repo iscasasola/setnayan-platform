@@ -67,6 +67,8 @@
  * `booking_fee_open_lock_charge` + `collectBookingFeeAtLock`, untouched.
  */
 
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+
 /** The flag. OFF by default: with it off, every stage resolves to `unlocked`. */
 export function isFeeUnlocksEventEnabled(): boolean {
   const v = process.env.NEXT_PUBLIC_FEE_UNLOCKS_EVENT;
@@ -154,9 +156,23 @@ export const FEE_SETTLED_STATUSES: ReadonlySet<string> = new Set([
   'waived_promo',
 ]);
 
+/**
+ * Statuses that belong to a booking that ENDED — `cancelled_unbilled` (owner
+ * 2026-10-12 #9: a booking cancelled before its event lets its unpaid fee
+ * expire unbilled). Such a row says nothing about the booking in front of us:
+ * it is read as NO charge, never as a settled one — a couple who cancels and
+ * re-books the same shop must not hand it the event on the old row.
+ */
+export const FEE_VOID_STATUSES: ReadonlySet<string> = new Set(['cancelled_unbilled']);
+
 export type EventAccessReason =
   | 'flag_off'
   | 'settled'
+  /**
+   * No charge exists. Since 2026-10-12 (owner #1, "no handshake, no access")
+   * this LOCKS a booked shop while minting is on — the fee is made at the yes,
+   * so a booked shop with no charge has had no handshake.
+   */
   | 'no_charge'
   | 'fee_unreadable'
   | 'fee_due';
@@ -179,6 +195,14 @@ export type EventAccessDecision = {
 export function eventAccessUnlocked(args: {
   charge: BookingFeeChargeFacts;
   enforced?: boolean;
+  /**
+   * Is the fee being MADE at all (`NEXT_PUBLIC_BOOKING_FEE_ENABLED`)? Passed in
+   * for the same reason `enforced` is. With minting off no charge can ever
+   * exist, so "no charge" cannot mean "no handshake" — it unlocks, exactly as
+   * before 2026-10-12, rather than locking every booked shop with nothing to
+   * pay.
+   */
+  feeMinting?: boolean;
 }): EventAccessDecision {
   const enforced = args.enforced ?? isFeeUnlocksEventEnabled();
   // Flag off ⇒ byte-identical to today. Nothing below this line runs.
@@ -189,7 +213,17 @@ export function eventAccessUnlocked(args: {
   if (charge.kind === 'unreadable') {
     return { unlocked: true, reason: 'fee_unreadable', owed: null };
   }
-  if (charge.kind === 'none') return { unlocked: true, reason: 'no_charge', owed: null };
+  // ⚖ NO HANDSHAKE, NO ACCESS (owner 2026-10-07; 2026-10-12 #1 — the fee is
+  // made at the supplier's yes). A booked shop holding no charge never said a
+  // yes that made one, so the event waits. `owed` is null: there is no bill to
+  // pay, and the locked screen says what is actually missing instead.
+  // (A void row — a former booking's — is the same as none.)
+  if (charge.kind === 'none' || FEE_VOID_STATUSES.has(charge.status)) {
+    const minting = args.feeMinting ?? isBookingFeeEnabled();
+    return minting
+      ? { unlocked: false, reason: 'no_charge', owed: null }
+      : { unlocked: true, reason: 'no_charge', owed: null };
+  }
   if (!FEE_UNSETTLED_STATUSES.has(charge.status)) {
     return { unlocked: true, reason: 'settled', owed: null };
   }
@@ -213,13 +247,23 @@ export function resolveEventAccessStage(args: {
   booked: boolean;
   charge: BookingFeeChargeFacts;
   enforced?: boolean;
+  feeMinting?: boolean;
 }): { stage: EventAccessStage; access: EventAccessDecision } {
   const enforced = args.enforced ?? isFeeUnlocksEventEnabled();
-  const access = eventAccessUnlocked({ charge: args.charge, enforced });
+  const access = eventAccessUnlocked({
+    charge: args.charge,
+    enforced,
+    feeMinting: args.feeMinting,
+  });
   // Flag off ⇒ 'unlocked' for everyone, so `redactBriefForStage` is a no-op and
   // behaviour is byte-identical to today. This is the ONLY place that decides
   // it; no caller re-reads the flag to second-guess the stage.
   if (!enforced) return { stage: 'unlocked', access };
+  // A shop that is not booked and holds no charge is only QUOTING — nothing is
+  // owed and nothing beyond a quote is theirs (the SQL twin answers the same).
+  if (!access.unlocked && access.reason === 'no_charge' && !args.booked) {
+    return { stage: 'quoting', access };
+  }
   if (!access.unlocked) return { stage: 'booked_fee_due', access };
   // Unlocked while enforced: settled, no charge, or unreadable. A shop that is
   // not booked at all is still only quoting — nothing is owed yet, and nothing
@@ -504,6 +548,8 @@ export function feeLockCopy(args: {
   stage: EventAccessStage;
   owed: EventAccessDecision['owed'];
   withheld: readonly WithheldBriefField[];
+  /** Why it is locked. `no_charge` has no bill, so it asks for no payment. */
+  reason?: EventAccessReason;
 }): { headline: string; detail: string; cta: string | null } {
   const list = args.withheld.map((f) => WITHHELD_FIELD_LABEL[f]);
   const listed =
@@ -519,6 +565,19 @@ export function feeLockCopy(args: {
       detail: `You have everything you need to price this job. ${
         listed.charAt(0).toUpperCase() + listed.slice(1)
       } opens once this booking is confirmed and the Setnayan booking fee is settled.`,
+      cta: null,
+    };
+  }
+
+  // ⚖ NO HANDSHAKE YET (2026-10-12). There is no bill to pay, so "Pay ₱X"
+  // would be a button to nowhere — and "your booking fee" a fee that does not
+  // exist yet. Say what is actually missing: the yes on Setnayan that makes it.
+  if (args.reason === 'no_charge' && !args.owed) {
+    return {
+      headline: 'This booking is not confirmed on Setnayan yet',
+      detail: `${
+        listed.charAt(0).toUpperCase() + listed.slice(1)
+      } — and this event’s day-of tools — open once you accept this booking on Setnayan and its booking fee is settled. Your conversation with the couple stays open.`,
       cta: null,
     };
   }

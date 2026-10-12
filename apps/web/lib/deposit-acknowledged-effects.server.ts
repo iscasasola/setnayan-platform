@@ -1,9 +1,9 @@
 import 'server-only';
 import * as Sentry from '@sentry/nextjs';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
-import { collectBookingFeeAtLock, resolveFeeAnchorRowId } from '@/lib/booking-fee-lock.server';
+import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { acquireSchedulePoolsForBooking } from '@/lib/schedule-pools';
 import {
   judgeDepositEffects,
@@ -42,8 +42,13 @@ import {
  * 🔑 So the effects live HERE, keyed on the booking row alone, and every door
  * calls this. `lib/deposit-acknowledge-fires-from-every-door.test.ts` fails if
  * a TypeScript caller of either acknowledging RPC does not also call this, and
- * `lib/booking-fee-single-trigger.test.ts` keeps the fee collector to this one
- * call site.
+ * `lib/booking-fee-single-trigger.test.ts` keeps the fee collector to ONE call
+ * site — `lib/booking-fee-mint.server.ts`, which this calls.
+ *
+ * ⚖ 2026-10-12 (owner #1): the fee is now MADE at the supplier's yes. This
+ * moment still runs the mint — the RPC hands back the charge the yes made —
+ * because a payment confirmation is a yes too, and is the first one on paths
+ * that never asked.
  *
  * ─── Every outcome is recorded ──────────────────────────────────────────
  * The collector fails open by design (a transient error must never trap an
@@ -96,22 +101,22 @@ export async function runDepositAcknowledgedEffects(
     outcome.acknowledged = !!r?.deposit_acknowledged_at;
 
     if (outcome.eventId && outcome.acknowledged) {
-      // Resolve the MONEY ROW first. A package's cascade rows can reach this
-      // path (nothing in the DB stops a covered row carrying deposit markers),
-      // and billing one would freeze a ledger ordinal on a row that must never
-      // carry money. NULL ⇒ bill nothing, acquire nothing.
-      outcome.anchorId = await resolveFeeAnchorRowId(admin, eventVendorId, (why) => {
-        outcome.anchorUnreadable = why;
+      // THE FEE IS MADE AT THE YES NOW (owner 2026-10-12 #1) — this door finds
+      // it already made and the RPC hands back the same charge. It still asks,
+      // because confirming a payment IS a yes, and on the paths that never
+      // asked (a direct lock while the handshake flag is off) it is the first.
+      // `mintBookingFeeForBooking` resolves the MONEY ROW first — a covered
+      // cascade row must never freeze a ledger ordinal — and returns it, so the
+      // pool below is acquired on the same row. NULL ⇒ bill nothing, acquire
+      // nothing.
+      const mint = await mintBookingFeeForBooking(admin, {
+        eventVendorId,
+        door: 'deposit_acknowledged',
       });
-
-      if (outcome.anchorId && outcome.feeEnabled) {
-        // ONE KEY, NOT TWO — see collectBookingFeeAtLock's own note. The manual
-        // QR rail is always live; `NEXT_PUBLIC_BOOKING_FEE_RAIL_LIVE` gates a
-        // different, dormant path and is not consulted here.
-        outcome.fee = await collectBookingFeeAtLock(createMoneyWriterClient(), {
-          eventVendorId: outcome.anchorId,
-        });
-      }
+      outcome.anchorId = mint.anchorId;
+      outcome.anchorUnreadable = mint.anchorUnreadable;
+      outcome.fee = mint.fee;
+      if (mint.thrown) outcome.thrown = mint.thrown;
 
       if (outcome.anchorId) {
         // Acquiring on the ANCHOR (not the row we were handed) is what stops a

@@ -47,6 +47,13 @@ const DOORS: Record<string, { rpc: string; action: string }> = {
     rpc: 'confirm_vendor_payment',
     action: 'confirmVendorPayment',
   },
+  // 2026-10-12 (audit C5): an admin settling a refused first payment as "the
+  // payment stands" stamps `deposit_acknowledged_at` inside SQL — the third
+  // acknowledging door, and until then the one that ran nothing.
+  'app/admin/disputes/actions.ts': {
+    rpc: 'settle_vendor_deposit_dispute',
+    action: 'settleDepositDispute',
+  },
 };
 
 function walk(dir: string, out: string[] = []): string[] {

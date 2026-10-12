@@ -313,8 +313,35 @@ export function bookingFeeForecast(
  * stamped — never a count derived on this side (owner's instruction, and the
  * reason the fetch joins the ledger rather than counting rows).
  */
+/**
+ * EVERY WAIVER THAT GETS A RECEIPT — owner 2026-09-20 (*"add the email receipt
+ * for waived bookings"*) and the 2026-10-12 audit item 4: a promo-waived
+ * booking used to leave the supplier no word at all. One list, read by the
+ * collector (who sends), by the fee hub and by the receipt (who show), so a
+ * waiver cannot be shown on one and missing from the other.
+ *
+ * ⛔ `waived_import` IS NOT HERE, ON PURPOSE. A supplier's own client never had
+ * a fee to waive — the RPC records `computed_fee_centavos = 0` for it, and the
+ * standing for it (`not_sourced`) already says nothing on every surface. A
+ * receipt reading "Booking fee — waived" for the shop's own client would invent
+ * a fee that was never owed.
+ */
+export const WAIVED_FEE_RECEIPT_STATUSES: ReadonlySet<string> = new Set([
+  'waived_free5',
+  'waived_promo',
+]);
+
+/** Why a waived charge was waived, from its status. */
+export type WaivedFeeReason = 'free5' | 'promo';
+
+export function waivedFeeReasonOf(status: string | null | undefined): WaivedFeeReason {
+  return status === 'waived_promo' ? 'promo' : 'free5';
+}
+
 export type WaivedFeeCharge = {
   chargeId: string;
+  /** Why it was waived. Absent on rows read before 2026-10-12 ⇒ the free-5. */
+  reason?: WaivedFeeReason;
   eventId: string | null;
   coupleName: string | null;
   /** `computed_fee_centavos` ÷ 100 — what it WOULD have cost. Null ⇒ print none. */
@@ -339,10 +366,16 @@ export function waivedFeeCopy(charge: WaivedFeeCharge): FeeDisclosure {
   // the fee hub and another in the supplier's inbox. Only claimed when the
   // ledger gave a real ordinal — `freeBookingsLeftAfter(null)` is not a number
   // anyone measured.
+  //
+  // ⚠ A PROMOTION SPENDS NONE OF THE FIVE, and the receipt must not say it did:
+  // the window sits below free-5 in the RPC, so a promo-waived booking is the
+  // shop's sixth or later and its ordinal is not a position among the five.
   const position =
-    typeof charge.ordinal === 'number' && Number.isFinite(charge.ordinal)
-      ? `This was booking ${charge.ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan, which are free${freeBookingsLeftClause(charge.ordinal)}.`
-      : `It fell inside your first ${FREE_BOOKING_LIMIT} Setnayan bookings, which are free.`;
+    charge.reason === 'promo'
+      ? 'A Setnayan free-fee promotion was running when this booking was made, so its fee is waived. It did not use up any of your free bookings.'
+      : typeof charge.ordinal === 'number' && Number.isFinite(charge.ordinal)
+        ? `This was booking ${charge.ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan, which are free${freeBookingsLeftClause(charge.ordinal)}.`
+        : `It fell inside your first ${FREE_BOOKING_LIMIT} Setnayan bookings, which are free.`;
   // ⚠ NO NUMBER ⇒ NO NUMBER. An unreadable computed amount must not degrade to
   // "₱0" — that would state the fee was nothing rather than that it was waived.
   const amount =

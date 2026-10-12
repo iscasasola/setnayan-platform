@@ -15,6 +15,8 @@ import {
   type BookingFeeStanding,
   type DueFeeBill,
   type WaivedFeeCharge,
+  WAIVED_FEE_RECEIPT_STATUSES,
+  waivedFeeReasonOf,
 } from '@/lib/booking-fee-disclosure';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeFreeWindowActive } from '@/lib/booking-fee-free-window';
@@ -274,10 +276,14 @@ export async function forecastsForBookings(
  * count computed on this side (owner, 2026-09-20).
  */
 const WAIVED_CHARGE_SELECT =
-  'charge_id,event_id,computed_fee_centavos,created_at,ledger:booking_fee_ledger!inner(booking_ordinal)';
+  'charge_id,status,event_id,computed_fee_centavos,created_at,ledger:booking_fee_ledger!inner(booking_ordinal)';
+
+/** Every waiver a supplier is shown and sent a receipt for — one list. */
+const WAIVED_STATUSES = [...WAIVED_FEE_RECEIPT_STATUSES];
 
 type WaivedChargeRow = {
   charge_id: string;
+  status?: string | null;
   event_id: string | null;
   computed_fee_centavos: number | string | null;
   created_at: string | null;
@@ -298,6 +304,7 @@ function toWaivedFeeCharge(r: WaivedChargeRow, coupleName: string | null): Waive
   const centavos = Number(r.computed_fee_centavos);
   return {
     chargeId: r.charge_id,
+    reason: waivedFeeReasonOf(r.status),
     eventId: r.event_id ?? null,
     coupleName,
     // ⚠ A NON-FINITE COLUMN IS NULL, NEVER 0. The copy then prints no number.
@@ -317,7 +324,7 @@ export async function fetchWaivedFeeCharges(
     .from('booking_fee_charges')
     .select(WAIVED_CHARGE_SELECT)
     .eq('vendor_profile_id', vendorProfileId)
-    .eq('status', 'waived_free5')
+    .in('status', WAIVED_STATUSES)
     .order('created_at', { ascending: false });
   if (error) {
     logQueryError('booking-fee-disclosure: waived charges', error);
@@ -369,7 +376,7 @@ export async function fetchWaivedFeeCharge(
     .from('booking_fee_charges')
     .select(WAIVED_CHARGE_SELECT)
     .eq('charge_id', chargeId)
-    .eq('status', 'waived_free5')
+    .in('status', WAIVED_STATUSES)
     .maybeSingle();
   if (error) {
     logQueryError('booking-fee-disclosure: waived charge', error, { chargeId });

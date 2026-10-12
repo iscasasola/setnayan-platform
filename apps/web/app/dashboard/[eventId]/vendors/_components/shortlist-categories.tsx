@@ -1010,7 +1010,7 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .mrsk{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;align-items:start}
 .slcat .mrsk-img{display:block;width:80px;height:112px;border-radius:var(--m-r-sm)}
 .slcat .mrsk-lines{display:flex;flex-direction:column;gap:8px;padding-top:6px}
-.slcat .mrsk-l{display:block;height:11px;border-radius:999px;width:80%}
+.slcat .mrsk-l{display:block;height:11px;border-radius:var(--m-r-full);width:80%}
 .slcat .mrsk-l.short{width:45%}
 .slcat .mrfirst{display:block;margin-top:8px}
 /* Lists are hairline rows with a terracotta arrow, not framed boxes (owner 2026-10-12, look call 8); a single
@@ -1019,6 +1019,8 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .bmr-row{border-top:1px solid var(--line);padding-left:0;padding-right:0}
 .slcat .bmr-arr,.slcat .bench-mkt-arr{color:rgb(var(--sn-accent))}
 html.dark .slcat .bench-mkt-results{background:none}
+/* A note is read, not pressed: no dashed box, it sits on the page (owner 2026-10-11). */
+.slcat .vact.note{border:0;padding-left:0;padding-right:0;background:none;min-height:0}
 `;
 
 /** Two-letter monogram fallback — delegates to the shared shop/vendor helper

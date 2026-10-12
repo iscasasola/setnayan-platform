@@ -63,7 +63,7 @@ const CSS = `
 .csov *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 .csov .head{flex:0 0 auto;padding:12px 18px 12px;border-bottom:1px solid var(--line);background:var(--paper)}
 /* The close: a 44-px target (the popup rule). */
-.csov .x{width:44px;height:44px;min-height:44px;margin-left:-6px;border-radius:9999px;border:0;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s}
+.csov .x{width:44px;height:44px;min-height:44px;margin-left:-6px;border-radius:var(--m-r-full);border:0;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s}
 .csov .x:active{transform:scale(.92);background:rgb(var(--color-ink) / .06)}
 .csov .title{font-family:var(--serif);font-style:italic;font-size:27px;line-height:1.04;color:var(--ink)}
 .csov .scope{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft);margin-top:6px}

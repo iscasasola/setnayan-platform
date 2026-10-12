@@ -1,4 +1,4 @@
-## 2026-10-10 · feat(suppliers): the Build body — This build, All builds, Save / Save as new, Book this build (Suppliers PR3)
+## 2026-10-12 · feat(suppliers): the Build body — This build, All builds, Save / Save as new, Book this build (Suppliers PR3) — and the supplier's yes, in the same words (pair P2)
 
 The Build segment of the couple's one-screen Suppliers page draws what the
 owner-approved prototype draws (`prototypes/suppliers_page_2026-10-07_fable.html`,
@@ -37,7 +37,24 @@ New: `lib/suppliers-build.ts`, `lib/book-this-build.ts`,
 `vendors/_components/build-body.tsx`, `vendors/_components/book-this-build.tsx`,
 their tests, and the lab's Build fixtures (`/dev/suppliers-lab?tab=build`).
 
-SPEC IMPACT: None applied. For the owner to rule on (listed in the builder's
+**The supplier's half (pair P2, map rows 12–16; owner 2026-10-10 "a piece is not
+working when only the couple's half exists").** One sentence per ask state,
+spoken from each side (`lib/booking-ask-words.ts`): "Asked to book · waiting for
+their yes / your yes", "… they said no / you said no", "… no answer in 48 hours /
+you did not answer in 48 hours", "… you took it back / they took it back". The
+couple's Build line and Find sheet now SAY a no, a lapse and a take-back (they
+used to vanish — rows 14–15); the supplier's customer card answers the ask in
+place (Agree · Turn it down post `return_to` = the card, which reads the answer
+and says it — it used to throw the supplier to the Overview) and, once the ask
+closed without a booking, says how, with when and their own words. Agree is the
+terracotta main at 44 px on the card and the thread's quote card (2026-10-12
+look calls 1 and 3). The fee: Agree posts `vendorAgreeToLock` only — the fee is
+minted inside it on `rd/booking-fee-rules`; no fee code here (guarded).
+
+Labs: `/dev/suppliers-lab?tab=build&build=answers&answer=requested|declined|expired|cancelled`
+and `/dev/booking-ask-lab?s=requested|agreed|refused|declined|expired|cancelled`.
+
+SPEC IMPACT: None applied (the words follow the 2026-10-10 pair rule). For the owner to rule on (listed in the builder's
 report, not written to the corpus): Delete and Use are immediate with an Undo
 toast, as the prototype draws, where the shipped page asked first; the combined
 booking sheet's own words; the fit line's "· N not checked".

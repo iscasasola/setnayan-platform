@@ -98,7 +98,11 @@ const BAR_FLEX = 'max-lg:!flex-1';
 
 const CARDS_CSS =
   '[data-build-cards]{scrollbar-width:none;-webkit-overflow-scrolling:touch}[data-build-cards]::-webkit-scrollbar{display:none}' +
-  '[data-build-inclusions] summary::-webkit-details-marker{display:none}';
+  '[data-build-inclusions] summary::-webkit-details-marker{display:none}' +
+  // 44 px, no 40 px rows (owner 2026-10-12 look call 3) — the Find body's own
+  // `.slcat .ab` rule, for the Build body and the bar / sheets it portals out.
+  ':is([data-build-body],[data-build-bar],[data-build-sheet],[data-book-sheet]) .ab{height:44px;min-height:44px}' +
+  '[data-build-body] [data-build-pick]{min-height:44px}';
 
 type Toast = { text: string; tone: 'ok' | 'bad'; undo?: () => void };
 
@@ -706,7 +710,7 @@ function BuildCardColumn({
             {r.inclusions.length > 0 ? (
               // What the price comes with — folded, as the old compare cell was.
               <details data-build-inclusions="">
-                <summary className="cursor-pointer list-none">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center">
                   {r.label} · {r.supplier ?? '—'} <span className="text-ink/55">▾</span>
                 </summary>
                 <p className="text-xs text-ink/55">+ {r.inclusions.join(', ')}</p>

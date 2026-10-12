@@ -29,7 +29,8 @@ export function AskSubmit({
   pendingLabel: string;
 }) {
   return (
-    <SubmitButton className={actionButtonClass(tone, { main })} pendingLabel={pendingLabel} aria-label={label} title={label}>
+    // `.ab` draws 40 px; the answer is 44 (look call 3).
+    <SubmitButton className={actionButtonClass(tone, { main, extra: '!h-11 !min-h-11' })} pendingLabel={pendingLabel} aria-label={label} title={label}>
       {icon}
       <span className="lbl">{label}</span>
     </SubmitButton>

@@ -131,14 +131,18 @@ export function rsvpPlaceSteps(part: RsvpLookCard, name: string, place: RsvpPlac
     group: place && !inGroup && !isGroup && !groupsFull ? onGroup : null,
     remove: place?.added ? () => askRsvpListEdit({ do: 'remove', part, line: name }) : null,
     ungroup: isGroup ? () => askRsvpListEdit({ do: 'ungroup', part, group: name }) : null,
+    /* (Typed as sentences, not as the union of today's words — the Save button's row says its own: `rsvpSaveSteps`.) */
     why: {
       earlier: foot ? RSVP_LIST_WORDS.hint : RSVP_LIST_WORDS.first(inGroup),
       later: foot ? RSVP_LIST_WORDS.hint : RSVP_LIST_WORDS.last(inGroup),
       group: foot ? RSVP_LIST_WORDS.hint : inGroup ? RSVP_LIST_WORDS.inGroup : RSVP_LIST_WORDS.groupsFull,
       remove: RSVP_LIST_WORDS.ownLine,
-    },
+    } as RsvpPlaceWhy,
   };
 }
+
+/** What each grey step of the last row says. */
+type RsvpPlaceWhy = { earlier: string; later: string; group: string; remove: string };
 
 /**
  * 🎟 THE PASS'S SAVE BUTTON'S LAST ROW — it has no place in a list (the pass is each guest's own ticket and its button

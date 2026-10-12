@@ -209,3 +209,12 @@ export function priceWithinTolerance(typedPhp: number | null, quotePhp: number |
 
 /** The default the migration writes — used only when the setting cannot be read (fail to the owner's number). */
 export const FEE_LEAK_PRICE_TOLERANCE_DEFAULT = 0.1;
+
+/**
+ * The `vendor_profile_views.source` a supplier opened in Find's sheet (on the
+ * couple's Suppliers page) is recorded with. Find IS Setnayan's search for this
+ * event, so it is the sourced `search` surface — the most common way a couple
+ * sees a shop (owner 2026-10-12, "fix the problems"). Written by
+ * `fetchInlineMoreRow`'s sheet branch; read by fee rule B.
+ */
+export const FIND_SHEET_VIEW_SOURCE = 'search';

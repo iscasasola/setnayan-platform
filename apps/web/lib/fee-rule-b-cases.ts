@@ -73,6 +73,7 @@ export const FEE_RULE_B_CASES: ReadonlyArray<FeeRuleBCase> = [
   c('not tied to this shop ("Not them?", never claimed) → free, even with a view', { tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'import'),
   c("the claim's own thread (no source) and nothing else → free", { thread: null }, 'import'),
   c('a chat started from Setnayan (shortlist) → sourced', { tie: 'none', thread: 'shortlist' }, 'sourced'),
+  c('a Find save that a claimed record merged onto (it carries the manual id too) → still sourced', { rowSource: 'host_marketplace_search' }, 'sourced'),
   // ── a marketplace row ────────────────────────────────────────────────────
   c('saved from Find and booked without a chat → sourced (audit B5)', { kind: 'saved', rowSource: 'host_marketplace_search', tie: 'none' }, 'sourced'),
   c('auto-cascaded by Setnayan → sourced', { kind: 'saved', rowSource: 'auto_cascade_from_finalize', tie: 'none' }, 'sourced'),

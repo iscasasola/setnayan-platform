@@ -128,8 +128,10 @@ COMMENT ON COLUMN public.vendor_invites.first_opened_at IS
 --     (leak_match_vendor_profile_id);
 --   · R was not brought by the SUPPLIER (their invite, their Locked QR, a reused
 --     booking) — never sourced, whatever was seen first;
---   · and one of: R itself is a save from Setnayan (a marketplace row stamped
---     host_marketplace_search / auto_cascade_from_finalize) · an EARLIER such
+--   · and one of: R itself is a save from Setnayan (a row stamped
+--     host_marketplace_search / auto_cascade_from_finalize — judged by its
+--     SOURCE, so a Find save that a claimed record merged onto, and which now
+--     carries the record's manual_vendor_id too, still counts) · an EARLIER such
 --     save of the same shop on this event · a profile view of the shop for this
 --     event — each strictly before R's moment (a record's own created_at, else
 --     the row's).
@@ -165,15 +167,13 @@ AS $$
               OR emv.leak_match_vendor_profile_id = p_vendor_profile_id)
          AND COALESCE(ev.source, '') NOT IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept')
          AND (
-           (ev.manual_vendor_id IS NULL
-            AND ev.source IN ('host_marketplace_search', 'auto_cascade_from_finalize'))
+           ev.source IN ('host_marketplace_search', 'auto_cascade_from_finalize')
            OR EXISTS (
              SELECT 1
                FROM public.event_vendors p
               WHERE p.event_id = p_event_id
                 AND p.marketplace_vendor_id = p_vendor_profile_id
                 AND p.vendor_id <> ev.vendor_id
-                AND p.manual_vendor_id IS NULL
                 AND p.source IN ('host_marketplace_search', 'auto_cascade_from_finalize')
                 AND p.created_at < COALESCE(emv.created_at, ev.created_at)
            )
@@ -235,7 +235,6 @@ AS $$
       FROM public.event_vendors p
      WHERE p.event_id = p_event_id
        AND p.marketplace_vendor_id = p_vendor_profile_id
-       AND p.manual_vendor_id IS NULL
        AND p.source IN ('host_marketplace_search', 'auto_cascade_from_finalize')
     UNION ALL
     SELECT v.viewed_at

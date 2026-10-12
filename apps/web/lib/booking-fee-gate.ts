@@ -178,7 +178,9 @@ export function bookingFeeAttributionFromFacts(f: BookingAttributionFacts): Book
   if (f.threadSources.some((s) => bookingFeeAttribution(s) === 'sourced')) return 'sourced';
   if (f.rowSource && SUPPLIER_BROUGHT_SOURCES.has(f.rowSource)) return 'import';
   if (!f.recordTiedToShop) return 'import';
-  if (!f.rowIsManualRecord && f.rowSource && SETNAYAN_SAVE_SOURCES.has(f.rowSource)) return 'sourced';
+  // Judged by the row's SOURCE: a Find save that a claimed record merged onto (it now carries the record's
+  // manual_vendor_id too) is still a save from Find.
+  if (f.rowSource && SETNAYAN_SAVE_SOURCES.has(f.rowSource)) return 'sourced';
   if (f.savesBefore.some((s) => s != null && SETNAYAN_SAVE_SOURCES.has(s))) return 'sourced';
   if (f.viewsBefore > 0) return 'sourced';
   return 'import';

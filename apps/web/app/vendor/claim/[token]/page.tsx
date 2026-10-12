@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Sparkles, Mail, Phone } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
@@ -25,6 +26,8 @@ export default async function VendorClaimPage({ params }: Props) {
   const { token } = await params;
   const admin = createAdminClient();
   const data = await fetchClaimLandingByToken(admin, token);
+  // The LIVE booking-fee schedule for the perk below (audit 2026-10-12, item 5).
+  const feeSchedule = await getBookingFeeSchedule(admin);
   if (!data) notFound();
 
   const { invite, parentVendor, event, existingVendor } = data;
@@ -230,7 +233,7 @@ export default async function VendorClaimPage({ params }: Props) {
               {/* A perk list is where half a promise hides best: "0% commission
                   on bookings" read as the whole truth to a supplier who was
                   about to be billed. Short form, still BOTH halves. */}
-              <Perk>{supplierCommissionShort()}</Perk>
+              <Perk>{supplierCommissionShort(feeSchedule)}</Perk>
               <Perk className="sm:col-span-2">No upfront cost · no credit card required</Perk>
             </ul>
           </section>

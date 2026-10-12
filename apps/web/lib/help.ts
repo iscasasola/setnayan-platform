@@ -87,7 +87,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on supplier bookings — couples pay their suppliers directly and Setnayan never sits between them at checkout. Suppliers pay a booking fee to Setnayan only on couples we introduce; it is charged to the supplier, never added to what a couple pays, and their own and repeat clients stay free. See setnayan.com/pricing for current rates.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block — what suppliers pay is set out on setnayan.com/for-suppliers. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
@@ -97,7 +97,11 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'does-setnayan-take-commission',
         title: 'Does Setnayan take commission on supplier bookings?',
-        body: `No. Couples pay 0% commission on every booking — they pay their suppliers directly, and Setnayan never touches that money. Suppliers pay 0% commission on every tier too. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/pricing. Setnayan's revenue is software couples choose to buy (Setnayan AI, Papic, Live Watch, Event Hub PRO and more), supplier plans, and that booking fee.`,
+        // ⚖ OWNER 2026-10-12 (#14): couple-facing pages do NOT mention the
+        // supplier's fee. This topic is shown to couples, so the fee sentence
+        // moved to the supplier-only "Fees & plans" topic below — word for
+        // word — rather than being deleted.
+        body: 'No. Couples pay 0% commission on every booking — they pay their suppliers directly, and Setnayan never touches that money. Setnayan earns from the optional software couples choose to buy (Setnayan AI, Papic, Live Watch, Event Hub PRO and more) and from its services to suppliers. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'what-is-todays-focus',
@@ -268,6 +272,21 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'event-id-vs-slug',
         title: 'Event ID vs slug',
         body: 'Every event has a Setnayan ID like S89E-AB12CD3456 (used internally) and a public slug like maria-and-juan (used in your invitation URL). The slug is editable on the Invitation tab. Old slugs auto-redirect for ' + slugForwardingLabel() + ', so links and QR codes already printed keep working.',
+      },
+    ],
+  },
+  {
+    // Supplier-only (owner 2026-10-12 #14): the supplier's booking fee is said
+    // to SUPPLIERS, and to nobody else. Moved here from 'about-setnayan', which
+    // couples read.
+    key: 'supplier-fees',
+    label: 'Fees & plans',
+    roles: ['vendor'],
+    articles: [
+      {
+        slug: 'what-do-suppliers-pay-setnayan',
+        title: 'What does Setnayan charge suppliers?',
+        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
       },
     ],
   },

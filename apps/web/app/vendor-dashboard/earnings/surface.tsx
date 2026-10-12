@@ -43,6 +43,7 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
+import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Earnings · Supplier' };
@@ -66,6 +67,9 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
 
   const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
   if (isVendorFeatureGateEnabled() && !canUseSoloBusinessTools(tier)) {
+    // The LIVE schedule for the blurb below — never the code default (audit
+    // 2026-10-12, item 5). NULL names the fee without a rate.
+    const feeSchedule = await getLiveBookingFeeSchedule();
     return (
       <VendorTierGate
         feature="Earnings"
@@ -80,7 +84,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         //    docblock says so. Promising a supplier a view of something that can
         //    never have rows is how a money page loses their trust.
         // The fee terms are DERIVED (`bookingFeeScheduleSummary`), never typed.
-        blurb={`Your year-to-date revenue and monthly subtotals in one view. Business analytics start with Solo — couples pay you directly and we never take a cut. Setnayan bills you a booking fee of ${bookingFeeScheduleSummary()}, only on the couples we introduce.`}
+        blurb={`Your year-to-date revenue and monthly subtotals in one view. Business analytics start with Solo — couples pay you directly and we never take a cut. Setnayan bills you a booking fee${feeSchedule ? ` of ${bookingFeeScheduleSummary(feeSchedule)}` : ''}, only on the couples we introduce.`}
         icon={<Wallet aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
       />
     );

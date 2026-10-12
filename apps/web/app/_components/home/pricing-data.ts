@@ -41,6 +41,7 @@
  * this file clean of Papic claims, so the next ladder has to be built that way.
  */
 import { fetchV2CustomerCatalog, getVendorPrices, formatPeso } from '@/lib/v2-catalog';
+import type { BookingFeeSchedule } from '@/lib/booking-fee';
 
 export type PricingData = {
   /** The REGULAR Setnayan AI price string — what it costs after sign-up. */
@@ -60,6 +61,13 @@ export type PricingData = {
   /** Vendor tier prices (28-day + annual), resolved from the live catalog —
    *  the "For vendors" overlay reads these so it never hardcodes a price. */
   vendor: Awaited<ReturnType<typeof getVendorPrices>>;
+  /**
+   * The LIVE vendor booking-fee schedule (`platform_settings`), so the "For
+   * suppliers" overlay quotes the rate the owner set — not the code default
+   * (audit 2026-10-12, item 5). NULL when it could not be read; the copy then
+   * names the fee without a rate.
+   */
+  bookingFee: BookingFeeSchedule | null;
 };
 
 const peso = (n: number) => `₱${formatPeso(n)}`;
@@ -125,9 +133,13 @@ function aiPeriodSuffix(): string {
 export async function getHomePricingData(): Promise<PricingData> {
   // Parallel reads; helpers degrade on error so the overlay still renders.
   // getVendorPrices reuses the vendor catalog read (cache()d) for the tier prices.
-  const [catalog, vendor] = await Promise.all([
+  const [catalog, vendor, bookingFee] = await Promise.all([
     fetchV2CustomerCatalog(),
     getVendorPrices(),
+    // Imported HERE, not at the top: this module is also imported for its pure
+    // `resolveAiPrices` (by /pricing and a unit test), and a static import of a
+    // `server-only` module would follow it there.
+    import('@/lib/booking-fee-settings.server').then((m) => m.getLiveBookingFeeSchedule()),
   ]);
 
   // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10):
@@ -163,5 +175,6 @@ export async function getHomePricingData(): Promise<PricingData> {
     aiHasSignupPrice: hasSignupPrice,
     aiPeriod: aiPeriodSuffix(),
     vendor,
+    bookingFee,
   };
 }

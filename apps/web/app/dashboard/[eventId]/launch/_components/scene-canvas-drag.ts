@@ -17,8 +17,9 @@
  * 🧱 NOTHING IS MOVED IN THE PAGE'S OWN TREE. The prototype lifted the scene out of the page and stood a dashed box
  * in its place; here the page is React's and is thrown away at the next reload, so nothing is inserted, removed or
  * re-parented: the held scene and the others are SLID (a transform each), the gap and the scene's name tag are
- * drawn over the page, and a drop leaves the scenes slid into their new places until the reload the save brings
- * draws that same order for real. A refused save slides them back.
+ * drawn over the page, and a drop leaves the scenes slid into their new places until the page draws that same order
+ * for real — since 2026-10-12 by redrawing ITSELF in place once the save lands (no Maker render, no new page): the
+ * slides come off in that redraw's very commit (`CANVAS_REDRAW_COMMITS_EVENT`). A refused save slides them back.
  *
  * The rules — the hold, the scroll slop, where it lands, the bin's reach, the edge scroll — are `lib/maker-scene-drag.ts`.
  */

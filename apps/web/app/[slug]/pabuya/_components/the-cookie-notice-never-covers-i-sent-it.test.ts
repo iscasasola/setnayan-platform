@@ -48,8 +48,9 @@ test('while the send sheet or the record sheet is open, the notice is drawn ABOV
 test('the sheet ends above the notice: its foot ("I sent it") is never under it', () => {
   const rule = /@media \(max-width: 1023\.98px\)\s*\{\s*:is\(\[data-wish-send\], \[data-gift-record\]\) \[data-sheet-panel\]\s*\{([^}]*)\}/.exec(CSS);
   assert.ok(rule, 'the sheet panel no longer leaves room for the notice');
-  assert.match(rule[1], /margin-bottom:\s*var\(--cookie-banner-top, 0px\);/, 'the panel does not end above the notice');
-  assert.match(rule[1], /max-height:\s*calc\(90dvh - var\(--cookie-banner-top, 0px\)\);/, 'the panel can grow back under the notice');
+  const body = rule[1] ?? '';
+  assert.match(body, /margin-bottom:\s*var\(--cookie-banner-top, 0px\);/, 'the panel does not end above the notice');
+  assert.match(body, /max-height:\s*calc\(90dvh - var\(--cookie-banner-top, 0px\)\);/, 'the panel can grow back under the notice');
   // …and the button it protects is in the sheet's foot, inside the panel the rule moves.
   assert.match(WISH, /data-wish-send=""[\s\S]*?<Sheet [\s\S]*?data-wish-send-foot=""[\s\S]*?data-wish-i-sent-it=""/);
   assert.match(read('_components/sheet.tsx'), /data-sheet-panel=""/, 'the shared Sheet lost the panel hook the rule selects on');

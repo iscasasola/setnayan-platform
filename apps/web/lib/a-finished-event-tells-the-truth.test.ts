@@ -198,8 +198,11 @@ test('the chip never uses the gold slot for text', () => {
   // 6.20:1 dark. NOT `bg-mulberry/10` + `text-mulberry`, which measures 4.16:1
   // and which both shipped contrast guards pass — an alpha fill is invisible to
   // one and out of scope for the other.
-  assert.match(chip, /bg-mulberry px-/, 'a solid fill, not a tint');
-  assert.match(chip, /text-cream/);
+  // 2026-10-12 look sweep: the chip is the ActionButton's FILLED main verb now
+  // (`main` → `.ab-main`, a solid tone fill with `--sn-on-accent` words) — the
+  // same protection, read from the one button source instead of hand classes.
+  assert.match(chip, /<ActionButton[\s\S]*?\bmain\b[\s\S]*?\/>/, 'a solid fill, not a tint');
+  assert.doesNotMatch(chip, /\bquiet\b/, 'a quiet (unfilled) chip is the tint that failed AA');
   assert.ok(!/bg-mulberry\//.test(chip), 'an alpha mulberry fill cannot carry mulberry text');
 });
 

@@ -18,14 +18,20 @@
  * caller's controlled state. Inquiry-specific context lives in `topSlot`, which
  * keeps the public Inquire pop-up rendering EXACTLY as before.
  *
- * Bottom-sheet on mobile (<640px), centered dialog on sm+. Clean Editorial
- * palette (Alabaster/Obsidian/Champagne Gold/Mulberry).
+ * Bottom-sheet on mobile (<640px), centered dialog on sm+.
+ *
+ * 2026-10-12 look sweep: every control is the house kind — the facets are `Chips`, the keep is the one `SwitchTrack`,
+ * the CTA an `ActionButton` (main), the ✕ a 44-px target; the dark behind is the popup rule's `sn-popup-dark`; what is
+ * only read sits on the panel and ends in a divider (no boxed backgrounds); colours are flipping tokens.
  */
 
 import type { ReactNode, RefObject } from 'react';
-import { AlertCircle, Check, MessageCircle, X } from 'lucide-react';
+import { AlertCircle, Check, Loader2, MessageCircle, X } from 'lucide-react';
 import { humanizeFacet, type RequirementField } from '@/lib/requirements-capture';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { ActionButton } from '@/components/action-button';
+import { Chips } from './chips';
+import { SwitchTrack } from './switch-track';
 
 /** CTA lifecycle so the footer button reflects submit/sent state. */
 export type RequirementsModalPhase = 'idle' | 'submitting' | 'sent' | 'error';
@@ -102,12 +108,12 @@ export function RequirementsModal({
       aria-modal="true"
       aria-labelledby="requirements-modal-title"
     >
-      {/* Translucent backdrop — click closes */}
+      {/* The popup rule's dark — dark AND blurred; a tap on it closes. */}
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+        className="sn-popup-dark absolute inset-0 cursor-default"
       />
 
       {/* Modal panel */}
@@ -129,9 +135,9 @@ export function RequirementsModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+            className="-mr-2 -mt-1.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
           >
-            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+            <X aria-hidden className="h-5 w-5" strokeWidth={2} />
           </button>
         </div>
 
@@ -141,7 +147,7 @@ export function RequirementsModal({
 
           {/* ── Per-category requirements (Phase 1b PR-3) ──────────────────── */}
           {requirementsFields.length > 0 ? (
-            <div className="space-y-4 rounded-xl border border-ink/10 bg-cream/60 p-4">
+            <div className="space-y-4 border-b border-ink/15 pb-5">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
                 What we&rsquo;re looking for
               </p>
@@ -150,30 +156,16 @@ export function RequirementsModal({
                 return (
                   <fieldset key={field.key} className="space-y-2">
                     <legend className="block text-sm font-medium text-ink/80">{field.label}</legend>
-                    <div className="flex flex-wrap gap-2">
-                      {field.options.map((opt) => {
-                        const on = selected.has(opt);
-                        return (
-                          <label
-                            key={opt}
-                            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
-                              on
-                                ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
-                                : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={on}
-                              onChange={() => toggleFacet(field.key, opt)}
-                              disabled={isSubmitting || sent}
-                              className="h-3.5 w-3.5 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-                            />
-                            <span>{humanizeFacet(opt)}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
+                    <Chips
+                      label={field.label}
+                      options={field.options.map((opt) => ({
+                        key: opt,
+                        label: humanizeFacet(opt),
+                        disabled: isSubmitting || sent,
+                      }))}
+                      value={Array.from(selected)}
+                      onToggle={(opt) => toggleFacet(field.key, opt)}
+                    />
                   </fieldset>
                 );
               })}
@@ -200,26 +192,27 @@ export function RequirementsModal({
             />
           </div>
 
-          {/* Keep + auto-send affordance */}
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-ink/10 bg-cream/70 px-3 py-2.5">
-            <input
-              type="checkbox"
-              checked={autoSend}
-              onChange={(e) => setAutoSend(e.target.checked)}
-              disabled={isSubmitting || sent}
-              className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-            />
+          {/* Keep + auto-send affordance — the one switch, at the end of a button that also holds the words. */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoSend}
+            onClick={() => setAutoSend(!autoSend)}
+            disabled={isSubmitting || sent}
+            className="flex w-full items-center justify-between gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
+          >
             <span className="text-sm text-ink/80">
               Keep this to reuse for other {categoryName} inquiries
               <span className="mt-0.5 block text-xs text-ink/55">
                 We&rsquo;ll auto-fill these for your next {categoryName} supplier.
               </span>
             </span>
-          </label>
+            <SwitchTrack on={autoSend} />
+          </button>
 
           {/* Error */}
           {phase === 'error' && errorMessage ? (
-            <p className="flex items-center gap-1.5 text-xs text-danger-700">
+            <p className="flex items-center gap-1.5 text-xs text-[rgb(var(--color-danger))]">
               <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               {errorMessage}
             </p>
@@ -228,29 +221,20 @@ export function RequirementsModal({
 
         {/* Footer CTA */}
         <div className="border-t border-ink/10 px-5 py-4 pb-[max(env(safe-area-inset-bottom),16px)]">
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={isSubmitting || sent}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-default disabled:opacity-90"
-          >
-            {sent ? (
-              <>
-                <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                {sentLabel}
-              </>
-            ) : isSubmitting ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-cream border-t-transparent" aria-hidden />
-                Saving…
-              </>
-            ) : (
-              <>
-                <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                {submitLabel}
-              </>
-            )}
-          </button>
+          {sent ? (
+            <ActionButton tone="ok" main icon={Check} label={sentLabel} className="w-full" />
+          ) : isSubmitting ? (
+            <ActionButton
+              tone="brand"
+              main
+              waiting
+              icon={<Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} />}
+              label="Saving…"
+              className="w-full"
+            />
+          ) : (
+            <ActionButton tone="brand" main icon={MessageCircle} label={submitLabel} onClick={onSubmit} className="w-full" />
+          )}
         </div>
       </div>
     </div>

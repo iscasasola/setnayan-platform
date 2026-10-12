@@ -41,6 +41,14 @@ import { ArrowDown, ArrowUp, CalendarClock, Plus, Trash2 } from 'lucide-react';
 // inspects functions NAMED like converters; the rule is the intent, not the
 // scan's reach.
 import { formatPhp } from '@/lib/php';
+import { ActionButton } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+
+/** The amount type's two choices — the one dropdown (`PickMenu`), as values are (2026-10-12 look sweep). */
+const KIND_OPTIONS = [
+  { key: 'percent', label: '%' },
+  { key: 'fixed', label: '₱' },
+] as const;
 
 type Row = {
   key: number;
@@ -55,6 +63,11 @@ const ANCHOR_LABEL: Record<'on_lock' | 'before_event', string> = {
   on_lock: 'after you book', // counts from the day Lock is clicked (owner 2026-09-21)
   before_event: 'before the event',
 };
+
+const ANCHOR_OPTIONS = [
+  { key: 'on_lock', label: ANCHOR_LABEL.on_lock },
+  { key: 'before_event', label: ANCHOR_LABEL.before_event },
+] as const;
 
 const MAX_ROWS = 12;
 
@@ -218,19 +231,20 @@ export function PaymentPlanRows({
                 onChange={(e) => patch(r.key, { value: e.target.value })}
                 className={`${CELL} w-20 shrink-0`}
               />
-              <select
-                name="plan_kind"
-                value={r.kind}
-                disabled={disabled}
-                aria-label={`Payment ${i + 1} amount type`}
-                onChange={(e) =>
-                  patch(r.key, { kind: e.target.value === 'fixed' ? 'fixed' : 'percent' })
-                }
-                className={`${CELL} w-14 shrink-0`}
-              >
-                <option value="percent">%</option>
-                <option value="fixed">₱</option>
-              </select>
+              {/* 🪤 THE FORM STILL POSTS `plan_kind` — one per row, in row order
+                  (`formData.getAll('plan_kind')[i]`): the dropdown is a button,
+                  so the value rides a hidden field fed by the row's state. */}
+              <input type="hidden" name="plan_kind" value={r.kind} />
+              <span inert={disabled || undefined} className={`shrink-0${disabled ? ' opacity-60' : ''}`}>
+                <PickMenu
+                  label={`Payment ${i + 1} amount type`}
+                  value={r.kind}
+                  options={KIND_OPTIONS}
+                  compact
+                  dataAttr="data-plan-kind"
+                  onPick={(k) => patch(r.key, { kind: k === 'fixed' ? 'fixed' : 'percent' })}
+                />
+              </span>
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -246,32 +260,25 @@ export function PaymentPlanRows({
                 className={`${CELL} w-12 shrink-0 text-center`}
               />
               <span className="shrink-0 text-[11px] text-ink/50">days</span>
-              <select
-                name="plan_anchor"
-                value={r.anchor}
-                disabled={disabled}
-                aria-label={`Payment ${i + 1} due date`}
-                onChange={(e) => patch(r.key, { anchor: e.target.value as Row['anchor'] })}
-                className={`${CELL} min-w-0 flex-1`}
-              >
-                <option value="on_lock">{ANCHOR_LABEL.on_lock}</option>
-                <option value="before_event">{ANCHOR_LABEL.before_event}</option>
-              </select>
+              {/* Posted the same way as `plan_kind` above — a hidden field per row. */}
+              <input type="hidden" name="plan_anchor" value={r.anchor} />
+              <span inert={disabled || undefined} className={`min-w-0 flex-1${disabled ? ' opacity-60' : ''}`}>
+                <PickMenu
+                  label={`Payment ${i + 1} due date`}
+                  value={r.anchor || null}
+                  options={ANCHOR_OPTIONS}
+                  compact
+                  dataAttr="data-plan-anchor"
+                  onPick={(k) => patch(r.key, { anchor: k === 'on_lock' ? 'on_lock' : 'before_event' })}
+                />
+              </span>
             </div>
           </div>
         ))}
       </div>
 
       {rows.length < MAX_ROWS ? (
-        <button
-          type="button"
-          onClick={add}
-          disabled={disabled}
-          className="inline-flex items-center gap-1 rounded-md px-1 py-1 text-xs font-medium text-mulberry transition-colors hover:text-mulberry-700 disabled:opacity-60"
-        >
-          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
-          Add payment
-        </button>
+        <ActionButton tone="neutral" icon={Plus} label="Add payment" onClick={add} disabled={disabled} />
       ) : null}
 
       <div className="flex items-center justify-between gap-2 border-t border-ink/10 pt-2 text-[11px]">
@@ -279,7 +286,7 @@ export function PaymentPlanRows({
           <CalendarClock aria-hidden className="h-3 w-3" strokeWidth={1.9} />
           Dates settle against your booking date and event date.
         </span>
-        <span className={covered ? 'font-medium text-success-800' : 'font-medium text-warn-800'}>
+        <span className={covered ? 'font-medium text-[rgb(var(--color-ok))]' : 'font-medium text-[rgb(var(--color-warn))]'}>
           {totalPhp == null
             ? 'Set a price first'
             : `${formatPhp(scheduled)} of ${formatPhp(totalPhp)}`}

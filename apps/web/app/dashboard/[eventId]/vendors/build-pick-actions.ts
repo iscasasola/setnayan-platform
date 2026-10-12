@@ -29,6 +29,9 @@ export async function setBuildPick(input: {
   eventId: string;
   planGroupId: string;
   vendorId: string;
+  /** The card drew the answer itself — skip the revalidate that would ship a
+   *  whole render of the page back (`lib/answer-in-place.ts`). */
+  answerInPlace?: boolean;
 }): Promise<BuildPickResult> {
   const supabase = await createClient();
   const {
@@ -47,7 +50,7 @@ export async function setBuildPick(input: {
     now: new Date().toISOString(),
   });
   if (errMsg) return { ok: false, error: errMsg };
-  revalidatePath(`/dashboard/${input.eventId}/vendors`);
+  if (!input.answerInPlace) revalidatePath(`/dashboard/${input.eventId}/vendors`);
   return { ok: true };
 }
 
@@ -61,6 +64,9 @@ export async function removeBuildPick(input: {
   eventId: string;
   planGroupId: string;
   vendorId: string;
+  /** The card drew the answer itself — skip the revalidate that would ship a
+   *  whole render of the page back (`lib/answer-in-place.ts`). */
+  answerInPlace?: boolean;
 }): Promise<BuildPickResult> {
   const supabase = await createClient();
   const {
@@ -74,7 +80,7 @@ export async function removeBuildPick(input: {
     vendorId: input.vendorId,
   });
   if (errMsg) return { ok: false, error: errMsg };
-  revalidatePath(`/dashboard/${input.eventId}/vendors`);
+  if (!input.answerInPlace) revalidatePath(`/dashboard/${input.eventId}/vendors`);
   return { ok: true };
 }
 

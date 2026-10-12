@@ -11,10 +11,16 @@
  *
  * ── THE TRAP THESE AVOID ─────────────────────────────────────────────────────
  * A file-level substring count cannot say WHICH component still renders a thing:
- * this file contains `lg:sticky` (the rail) and two `tab="compare"` mounts (the
- * replan one and the flag-OFF one), so a whole-file grep would answer the wrong
- * question. Every assertion below is scoped to the function or the container it
- * is actually about.
+ * the takeover holds three bodies and their helpers, so a whole-file grep can
+ * answer the wrong question. Every assertion below is scoped to the function or
+ * the container it is actually about.
+ *
+ * ── RE-POINTED 2026-10-08 — THE ONE-SCREEN SHELL ─────────────────────────────
+ * Owner 2026-10-07 (corpus `SUPPLIERS_HANDOFF_2026-10-07_fable.md` PR1): the
+ * page is Find · Build · Booked over ONE body. B1's chip list became the
+ * segmented control and B3's 380px rail is gone, so those two sections are
+ * restated for the new shape rather than deleted: same bus, no re-typed
+ * labels, no second pinned bar, Plans mounted once at full width.
  *
  * MUTATION-CHECKED — occurrence counts printed before → after in the PR body.
  */
@@ -40,17 +46,25 @@ const code = (rel: string) =>
 
 const TAKEOVER = 'app/dashboard/[eventId]/vendors/_components/services-takeover.tsx';
 const COMPONENTS = 'app/dashboard/[eventId]/vendors/_components';
-// The chips became the visible "Your planning" list (owner 2026-10-03) — same bus, own file.
-const PLANNING = `${COMPONENTS}/planning-list.tsx`;
+// The chips became the "Your planning" list (2026-10-03), and that list became
+// the ONE segmented control of the one-screen shell (owner 2026-10-07; corpus
+// `SUPPLIERS_HANDOFF_2026-10-07_fable.md` PR1) — same bus, in the takeover itself.
+const SHELL_RULES = 'lib/suppliers-shell.ts';
 
-/** The body of a top-level `function <name>(` — so an assertion about the chips
- *  cannot accidentally be satisfied by the rail 200 lines away. */
-function fnBody(src: string, name: string): string {
-  const start = src.indexOf(`function ${name}(`);
-  assert.notEqual(start, -1, `${name} must exist to be asserted about`);
-  const end = src.indexOf('\n}', start);
-  assert.notEqual(end, -1, `${name} must be a top-level function`);
-  return src.slice(start, end);
+/** The shell's own function — props, hooks and render — up to the next
+ *  top-level function, so an assertion about the control cannot accidentally
+ *  be satisfied by a helper 200 lines away. (Sliced to the NEXT function, not
+ *  to the first column-0 `}`: for a component with a typed props object that
+ *  brace is the end of its PARAMETERS.) */
+function shellBody(): string {
+  const src = code(TAKEOVER);
+  const start = src.indexOf('export function ServicesTakeover(');
+  assert.notEqual(start, -1, 'ServicesTakeover must exist to be asserted about');
+  const end = src.indexOf('\nfunction ServiceSection(', start);
+  assert.notEqual(end, -1, 'ServiceSection moved — re-anchor the end of the shell');
+  const body = src.slice(start, end);
+  assert.ok(body.includes('return ('), 'the slice lost the render — it would prove nothing');
+  return body;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -79,45 +93,51 @@ test('the masthead is the shared component, never a hand-roll', () => {
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   B1 · THE CHIPS SCROLL. THEY DO NOT SWAP.
+   B1 · ONE CONTROL SWAPS ONE BODY — OVER THE SHIPPED BUS
+   (Was "the chips scroll, they do not swap": the page was one tall scroll and a
+   chip only moved you down it. Owner 2026-10-07 made it one screen with three
+   modes, so the control now DOES swap the body — and what this section always
+   protected is unchanged: no second channel, no re-typed labels.)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-test('a chip calls the SHIPPED bus — it does not rebuild panel switching', () => {
-  // The paid-twice mistake this surface already made once. The desktop strip was
-  // removed 2026-07-15; `?tab=` and BB_TAB_EVENT still work but SCROLL. A chip
-  // must go through `goToBuildTab`, which dispatches the existing event the
-  // takeover's own listener consumes — no new key, no new anchor, no new state.
-  const chips = fnBody(code(PLANNING), 'PlanningList');
-  assert.match(chips, /goToBuildTab\(/, 'chips must dispatch the existing bus');
-  assert.doesNotMatch(chips, /useState|setCompareOpen|setBudgetOpen/, 'no local panel state');
+test('a segment calls the SHIPPED bus — it does not build a second channel', () => {
+  // The paid-twice mistake this surface already made once. A press goes through
+  // `goToBuildTab`, which dispatches the existing event the takeover's own
+  // listener consumes — no new key, no new event, no handler of its own.
+  const shell = shellBody();
+  assert.match(shell, /onClick=\{\(\) => goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\)\}/, 'a segment must dispatch the existing bus');
+  assert.doesNotMatch(shell, /onClick=\{\(\) => setMode\(/, 'a segment sets the mode behind the bus’s back');
+  assert.equal((code(TAKEOVER).match(/new CustomEvent\(/g) ?? []).length, 0, 'the takeover dispatches an event of its own');
 });
 
-test('chip labels come from tabLabel(), never authored here', () => {
-  // `tabLabel()` is flag-gated, so the chips say "Payments"/"Plans" with the
-  // flag on and the pre-rename words with it off. Hardcoding a label is how the
-  // two drift.
-  const chips = fnBody(code(PLANNING), 'PlanningList');
-  assert.match(chips, /tabLabel\(/);
-  assert.doesNotMatch(chips, /'Payments'|'Plans'|"Payments"|"Plans"/);
+test('segment labels come from the one module, never authored in the takeover', () => {
+  const shell = shellBody();
+  assert.match(shell, /\{SUPPLIERS_MODE_LABEL\[m\]\}/);
+  assert.doesNotMatch(shell, />\s*(Find|Build|Booked)\s*</, 'a segment’s word is typed in the takeover');
+  // …and that module says Find · Build · Booked.
+  assert.match(code(SHELL_RULES), /find: 'Find',\s*build: 'Build',\s*booked: 'Booked',/);
 });
 
-test('the rows iterate the one ordered key list, a permutation of BUDGET_BUILD_TABS', () => {
-  // `planning-list.test.ts` executes that the order is a permutation of the
-  // shipped tab set; here, that the rows are mapped from it, never re-typed.
-  assert.match(fnBody(code(PLANNING), 'PlanningList'), /PLANNING_JUMP_ORDER\.map/);
+test('the segments iterate the one ordered mode list, and every mode key is a shipped tab', () => {
+  // `suppliers-shell.test.ts` executes that every bus key opens a body and each
+  // body owns one key; here, that the segments are mapped from the list.
+  assert.match(shellBody(), /SUPPLIERS_MODES\.map\(/);
+  assert.match(code(SHELL_RULES), /find: 'shortlist',\s*build: 'build',\s*booked: 'budget',/);
 });
 
-test('the chip row is NOT a third pinned bar', () => {
-  // The bottom nav and the team chip already dock on mobile. A third pinned bar
-  // is the stacked-bars defect `lint-no-stacked-pinned-bars.mjs` exists for.
-  // Scoped to the function: this FILE legitimately contains `lg:sticky` (the rail).
-  const chips = fnBody(code(PLANNING), 'PlanningList');
-  assert.doesNotMatch(chips, /\bfixed\b|\bsticky\b/);
+test('ONE pinned block, and nothing in the takeover is fixed', () => {
+  // The line and the control stay as the page scrolls (owner 2026-10-07: "this
+  // will stay prominent when scrolled up?"). A SECOND pinned bar under it is
+  // the stacked-bars defect `lint-no-stacked-pinned-bars.mjs` exists for; the
+  // cart peek is `build-cart.tsx`'s, drawn into <body>.
+  const src = code(TAKEOVER);
+  assert.equal((src.match(/(?<![:\w-])sticky(?![\w-])/g) ?? []).length, 1, 'a second pinned bar');
+  assert.doesNotMatch(src, /(?<![:\w-])fixed(?![\w-])/);
 });
 
-test('the chip row is not a <SubNav>', () => {
-  // Same rule the team chip carries: SubNav increments the docked-count store
-  // and collapses the bottom nav. The chips borrow geometry only.
+test('the control is not a <SubNav>', () => {
+  // Same rule the team chip carried: SubNav increments the docked-count store
+  // and collapses the bottom nav. The control borrows nothing from it.
   assert.doesNotMatch(code(TAKEOVER), /\bSubNav\b/);
 });
 
@@ -153,38 +173,38 @@ test('the crest no longer tells every couple they are on a premium tier', () => 
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   B3 · PLANS LEAVES THE 380px RAIL
+   B3 · PLANS HAS THE BODY'S FULL WIDTH — THE 380px RAIL IS GONE
+   (B3 moved "Your plans" out of a fixed 380px rail, where a side-by-side table
+   had ~330px. The one-screen shell retires the rail altogether: Build is one
+   column and the saved builds sit under the picks, full width.)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-test('the replan Plans mount spans both columns, outside the rail', () => {
-  // A side-by-side table cannot live in a fixed 380px column (~330px usable,
-  // behind an overflow-x-auto). Scoped to the container, not the file: this file
-  // has TWO `tab="compare"` mounts — the replan one and the flag-OFF one — so a
-  // whole-file grep would prove nothing about which of them moved.
+test('Plans is mounted in the Build body, with no rail beside it', () => {
   const src = code(TAKEOVER);
-  const at = src.indexOf('lg:col-span-2');
-  assert.notEqual(at, -1, 'the full-width Plans container must exist');
-  const container = src.slice(at, at + 400);
-  assert.match(container, /tab="compare"/, 'the full-width container must hold Plans');
+  const at = src.indexOf('data-suppliers-body="build"');
+  assert.notEqual(at, -1, 'the Build body must exist');
+  const body = src.slice(at, src.indexOf('data-suppliers-body="booked"'));
+  assert.match(body, /<ServiceSection tab="compare"/, 'the Build body must hold Plans');
+  assert.doesNotMatch(src, /380px|lg:col-span-2|lg:sticky/, 'the fixed rail is back — a table cannot live in it');
 });
 
 test('Plans is MOVED, not duplicated — no display-toggled second mount', () => {
   // The mistake this catches was nearly shipped: `lg:hidden` + `hidden lg:block`
   // reads like a move but is `display`, so BOTH copies stay in the DOM —
   // duplicate `#svc-compare` ids and two mounts of the panel's client state.
-  assert.doesNotMatch(code(TAKEOVER), /lg:hidden/);
-});
-
-test('the rail keeps its sticky behaviour', () => {
-  // Only Plans left. Team + Payments still ride the sticky 380px rail.
-  assert.match(code(TAKEOVER), /lg:sticky lg:top-4/);
+  const src = code(TAKEOVER);
+  assert.doesNotMatch(src, /lg:hidden/);
+  assert.equal((src.match(/<ServiceSection tab="compare"/g) ?? []).length, 1);
 });
 
 test('the keys that resolve by id are untouched', () => {
-  // What makes the move safe at all: `#svc-*`, `?tab=` and BB_TAB_EVENT resolve
+  // What makes any move safe at all: `#svc-*`, `?tab=` and BB_TAB_EVENT resolve
   // by id, never by DOM position. All four section keys must still be reachable.
   const src = code(TAKEOVER);
   assert.match(src, /`svc-\$\{tab\}`/, 'the #svc-<tab> anchor id builder');
   assert.match(src, /BB_TAB_EVENT/);
   assert.match(src, /searchParams\.set\('tab', next\)/, "?tab= is still mirrored");
+  for (const tab of ['shortlist', 'build', 'compare', 'budget']) {
+    assert.equal((src.match(new RegExp(`<ServiceSection tab="${tab}"`, 'g')) ?? []).length, 1, `#svc-${tab} is gone or doubled`);
+  }
 });

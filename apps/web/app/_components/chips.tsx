@@ -36,8 +36,8 @@ export const CHIP_CLASS =
   "sn-press relative inline-flex h-10 min-h-10 min-w-[84px] flex-none items-center justify-center whitespace-nowrap rounded-full border px-[18px] text-[14px] font-semibold transition-colors duration-sn-control ease-sn after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40";
 /** Chosen: the accent, and the ink that reads on it. */
 export const CHIP_ON_CLASS = `border-sn-accent ${PILL_ON_CLASS}`;
-/** Not chosen: grey words on white. */
-export const CHIP_OFF_CLASS = 'border-ink/15 bg-white text-ink/55';
+/** Not chosen: grey words on white — on the page's own ground in dark mode (white stayed white there). */
+export const CHIP_OFF_CLASS = 'border-ink/15 bg-white text-ink/55 dark:bg-cream';
 
 export function chipClass(on: boolean): string {
   return `${CHIP_CLASS} ${on ? CHIP_ON_CLASS : CHIP_OFF_CLASS}`;

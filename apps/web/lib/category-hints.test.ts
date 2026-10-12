@@ -109,7 +109,8 @@ const BENCH = stripComments(
 test('source · the folder ⓘ renders, and its panel with it', () => {
   assert.match(BENCH, /folderHintButtonLabel\(folder\.label\)/, 'the folder ⓘ lost its label');
   assert.match(BENCH, /folderHintFor\(folder\.folder\)/, 'the folder hint panel is gone');
-  assert.match(BENCH, /hintFolder === folder\.folder/, 'the disclosure state is gone');
+  // The panel is the ONE ⓘ template now (Explain, 2026-10-12): it holds its own open state.
+  assert.match(BENCH, /<Explain title=\{folder\.label\} label=\{folderHintButtonLabel\(folder\.label\)\}/, 'the folder ⓘ is not the ⓘ template');
 });
 
 test('source · the folder ⓘ is a SIBLING of the head button, never nested inside it', () => {
@@ -131,8 +132,11 @@ test('source · pressing the folder ⓘ does not also toggle the folder', () => 
   // sliced from there faces 2,000 lines of the wrong component.
   const i = BENCH.indexOf('folderHintButtonLabel(folder.label)');
   assert.ok(i > -1, 'the folder ⓘ no longer renders its label');
-  const seg = BENCH.slice(i, i + 500);
-  assert.match(seg, /e\.stopPropagation\(\)/, 'the press would collapse the folder underneath it');
+  // The ⓘ is the Explain template, a SIBLING of the head button (asserted above), so its press
+  // never reaches the head's toggle (2026-10-12): it must not sit inside the head button.
+  const head = BENCH.lastIndexOf('className="fold-head"', i);
+  const close = BENCH.indexOf('</button>', head);
+  assert.ok(head > -1 && close > -1 && close < i, 'the folder ⓘ sits inside the head button');
 });
 
 /* ── THE RE-VOICE GUARD (2026-09-06) ────────────────────────────────────────

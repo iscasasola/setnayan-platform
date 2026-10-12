@@ -49,7 +49,8 @@ const ACTION_LOOK: Record<Exclude<TeamRowAction['kind'], 'lock'>, { tone: Action
 /** "Book" — the lock button wears the same look. Written out, not
  *  `actionButtonClass('ok', { main })`: this is a SERVER component and that
  *  helper lives in a 'use client' module, so calling it here would throw. */
-const lockClass = (main: boolean) => (main ? 'ab ab-ok ab-main' : 'ab ab-ok');
+// Every MAIN button is terracotta (owner 2026-10-12, look call 1); a secondary keeps the ok tone.
+const lockClass = (main: boolean) => (main ? 'ab ab-brand ab-main' : 'ab ab-ok');
 
 export type TeamRowsState =
   | { kind: 'unreadable'; retryHref: string }
@@ -174,7 +175,8 @@ function RowAction({ eventId, row }: { eventId: string; row: TeamRow }) {
     <ActionButton
       href={a.href}
       prefetch={false}
-      tone={look.tone}
+      // Every MAIN button is terracotta (owner 2026-10-12, look call 1).
+      tone={row.needsYou ? 'brand' : look.tone}
       main={row.needsYou}
       icon={<Icon aria-hidden strokeWidth={1.9} />}
       label={a.label}

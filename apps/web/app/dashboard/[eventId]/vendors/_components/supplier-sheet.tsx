@@ -29,7 +29,7 @@ import { useRouter } from 'next/navigation';
 import { Check, Heart, MapPin, MessageCircle, RotateCw, Share2, Star } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
-import { ActionButton, useFitRow } from '@/components/action-button';
+import { ActionButton } from '@/components/action-button';
 import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { followVendor, unfollowVendor } from '@/lib/follow-actions';
@@ -106,7 +106,8 @@ type Said = { tone: 'ok' | 'error'; text: string; retry?: () => void; key?: numb
  * --m-* paper/ink family, which has no dark value — inside the sheet it gets one.
  */
 const SHEET_CSS = [
-  '[data-supplier-sheet] .ab{min-height:40px}',
+  // 44 px, never 40 (owner 2026-10-12, look call 3) — a link is not floored by globals.css, so it is set here.
+  '[data-supplier-sheet] .ab{height:44px;min-height:44px}',
   'html.dark [data-supplier-sheet]{--m-paper:#232019;--m-paper-2:#2A2620;--m-line:rgba(251,250,247,.16);--m-line-soft:rgba(251,250,247,.1);' +
     '--m-ink:#FBFAF7;--m-slate:#E8E5DD;--m-slate-2:#B6B1A6;--m-slate-3:#9C978C;--m-orange-2:#E2B968;--m-orange-4:rgba(226,185,104,.14);' +
     '--m-orange-deep:#E2B968;--m-sage:rgba(123,199,154,.18);--m-sage-deep:#7BC79A}',
@@ -133,7 +134,6 @@ export default function SupplierSheet({
   const [busy, start] = useTransition();
   const [portal, setPortal] = useState<HTMLElement | null>(null);
   const ctaRef = useRef<HTMLDivElement>(null);
-  useFitRow(ctaRef);
   useEffect(() => setPortal(document.body), []);
 
   const ask = useCallback(() => {
@@ -242,7 +242,6 @@ export default function SupplierSheet({
   };
 
   if (!portal) return null;
-  const chat = cardVerbWords('chat');
   const quote = cardVerbWords('ask');
   const photos = data?.photos ? sheetPhotoRow(data.photos) : null;
   const eyebrow = [target.categoryLabel, target.city].filter(Boolean).join(' · ');
@@ -434,12 +433,14 @@ export default function SupplierSheet({
 
         {onSetnayan ? (
           <div className="sticky bottom-0 -mx-5 bg-cream px-5 pb-1 pt-2.5" data-sheet-cta="">
-            <div ref={ctaRef} className="flex flex-nowrap items-center gap-2">
+            {/* Buttons keep their words (owner 2026-10-12): the row wraps, nothing drops to an icon. */}
+            <div ref={ctaRef} className="flex flex-wrap items-center gap-2">
               {target.threadId ? (
-                <ActionButton tone={chat.tone} icon={MessageCircle} label="Open chat" href={`/dashboard/${eventId}/messages/${target.threadId}`} prefetch={false} />
+                <ActionButton tone="brand" main icon={MessageCircle} label="Open chat" href={`/dashboard/${eventId}/messages/${target.threadId}`} prefetch={false} />
               ) : target.booked ? null : (
                 <ActionButton
-                  tone={quote.tone}
+                  tone="brand"
+                  main
                   icon={MessageCircle}
                   label={busy ? 'Asking…' : quote.label}
                   disabled={busy}

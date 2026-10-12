@@ -49,7 +49,7 @@ function motionOf(transition: string, property: string): { ms: number; curve: st
   return { ms: ms(duration!), curve: curve.join(' ') };
 }
 
-test('1 · every button in the bench is ONE height — 40 px, link or button', () => {
+test('1 · every button in the bench is ONE height — 44 px, link or button (owner 2026-10-12, look call 3)', () => {
   // Why it is needed at all: a <button> is floored at 44 px, a link is not.
   assert.match(
     GLOBALS,
@@ -57,10 +57,11 @@ test('1 · every button in the bench is ONE height — 40 px, link or button', (
     'the 44 px floor on every <button> moved — re-read why the bench overrides it',
   );
   assert.match(GLOBALS, /\n\.ab \{[^}]*\bheight: 40px;/, 'ActionButton is no longer a 40 px pill');
+  // 2026-10-12: 44 px minimum, no 40 px rows — the bench lifts BOTH the link and the button to 44.
   assert.match(
     BENCH,
-    /\n\.slcat \.ab\{min-height:40px\}/,
-    'a <button> ActionButton in the bench is 44 px tall again beside a 40 px link',
+    /\n\.slcat \.ab\{height:44px;min-height:44px\}/,
+    'a link ActionButton in the bench is 40 px again beside a 44 px button',
   );
 });
 

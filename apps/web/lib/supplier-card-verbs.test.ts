@@ -139,10 +139,12 @@ const ACTION = stripComments(readFileSync(join(V, '_actions', 'contact-shortlist
 const BENCH = stripComments(readFileSync(join(V, '_components', 'shortlist-categories.tsx'), 'utf8'));
 const PAGE = stripComments(readFileSync(join(V, 'page.tsx'), 'utf8'));
 
-test('T4 · the card’s verbs come from the table — one row, one fit state', () => {
+test('T4 · the card’s verbs come from the table — one row, every word kept', () => {
   assert.match(CARD, /const verbs = cardVerbs\(\{ actions: shown, booked, hasPrice, quoteIn, payDue: Boolean\(payHref\) \}\);/);
-  assert.match(CARD, /const rowRef = useRef<HTMLDivElement>\(null\);\s*useFitRow\(rowRef\);/);
-  assert.match(CARD, /<div ref=\{rowRef\} className="verbs" data-card-verbs=\{verbs\.map\(\(v\) => v\.key\)\.join\(' '\)\}>\s*\{verbs\.map\(draw\)\}/);
+  // Buttons keep their words (owner 2026-10-12, look call 2 — supersedes the 10-07 fit pass): ONE row, no fit
+  // pass, and it wraps rather than dropping a word.
+  assert.doesNotMatch(CARD, /useFitRow\(/, 'a fit pass would drop the words again');
+  assert.match(CARD, /<div className="verbs" data-card-verbs=\{verbs\.map\(\(v\) => v\.key\)\.join\(' '\)\}>\s*\{verbs\.map\(draw\)\}/);
   // Every control is the shipped button — nothing hand-made, no › in a control.
   assert.doesNotMatch(CARD, /<button\b|<a\b|›/);
   // The one lock path, the one inquiry path, the one withdraw path — wearing the pill.
@@ -203,4 +205,21 @@ test('T5 · the card says what the nudge came back with', () => {
   assert.match(nudge, /const res = await contactShortlistVendor\(\{ eventId, vendorId, nudgeThreadId: threadId \}\);/);
   assert.match(nudge, /if \(res\.status === 'nudged'\) setSaid\(\{ tone: 'ok', text: `Nudged \$\{vendorName\}\.` \}\);/);
   assert.match(nudge, /else setSaid\(\{ tone: 'error', text: res\.status === 'error' \? res\.message : 'That did not send\. Nothing changed\.' \}\);/);
+});
+
+test('every MAIN verb is terracotta; a secondary keeps its table colour (owner 2026-10-12, look call 1)', () => {
+  const base = {
+    actions: { build: { kind: 'add' }, inquiry: null, lockGroupId: null, buildGroupId: 'catering', withdraw: null, connect: false } as never,
+    booked: true,
+    hasPrice: true,
+    quoteIn: false,
+    payDue: true,
+  };
+  const verbs = cardVerbs(base);
+  const pay = verbs.find((v) => v.key === 'pay');
+  assert.ok(pay?.main, 'anti-vacuity: Pay is the main verb of a booked card with a payment due');
+  assert.equal(pay?.tone, 'brand', 'a green main button came back');
+  for (const v of verbs) if (v.main) assert.equal(v.tone, 'brand', `${v.key} is a main verb that is not terracotta`);
+  const workspace = verbs.find((v) => v.key === 'workspace');
+  assert.equal(workspace?.tone, cardVerbWords('workspace').tone, 'a secondary lost its colour');
 });

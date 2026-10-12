@@ -71,7 +71,8 @@ const DECISION_ROW_LIMIT = 4;
  *  component, and that helper lives in a 'use client' module, so calling it here
  *  would throw at render. `AccordionLockButton` (the one lock path) draws the
  *  `<button>`; this only dresses it (2026-10-12 look sweep). */
-const LOCK_BTN_CLASS = 'ab ab-ok ab-main mt-2 w-full justify-center';
+// The main button is terracotta (owner 2026-10-12, look call 1).
+const LOCK_BTN_CLASS = 'ab ab-brand ab-main mt-2 w-full justify-center';
 
 /** The committed anchors shown as summary tiles atop the locked list (prototype
  *  `.lock-sum`). Date label + region come from the event; budget + committed come

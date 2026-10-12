@@ -121,7 +121,7 @@ import { CategorySearchOverlay } from './category-search-overlay';
 import { FindThumbRow } from './find-thumb-row';
 import { categoryRowState, isCategoryOpen, ringCoveredCount } from '@/lib/suppliers-shell';
 import { Count } from '@/components/count';
-import { ActionButton, useFitRow } from '@/components/action-button';
+import { ActionButton } from '@/components/action-button';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
 import { Sheet } from '@/app/_components/sheet';
 import { cardDates, dateOutcome, type CardDates, type DateOutcome } from '@/lib/card-dates';
@@ -354,13 +354,13 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
    icon). The three shipped buttons keep their own wrappers ('.verb-slot',
    'display:contents', so the button itself is the row's child); what a press
    came back with is said on its own line under the row. */
-.slcat .verbs{position:relative;display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0;margin-top:3px}
+.slcat .verbs{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;margin-top:3px}
 .slcat .verbs .verb-slot{display:contents}
 /* ONE HEIGHT. 'globals.css' gives every <button> a 44 px floor, and a link has
    none — so in one row "Pay" (a link) drew 40 px tall beside "Your record" (a
    button) at 44 (controller's walk at 375, 2026-10-08). The button rule is a
    40 px pill, whatever the element. */
-.slcat .ab{min-height:40px}
+.slcat .ab{height:44px;min-height:44px}
 /* A PRESS ANSWERS AT ONCE (owner 2026-10-08): the card that was pressed looks
    pressed the moment the finger lands — before the sheet's chunk has arrived. */
 .slcat .fold.flat .vcw:has(>.vc:active){transform:scale(.985);border-color:var(--gold)}
@@ -416,7 +416,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .fold.flat .vcw:has(.verbs .verb-err,.verbs .verb-slot>p,.verbs .verb-slot>span){padding-bottom:36px}
 /* The rail's two end tiles become one quiet line of two buttons. */
 .slcat .fold.flat .act{flex:0 0 auto;display:inline-flex}
-.slcat .fold.flat .act>*{min-height:40px;flex-direction:row;gap:6px;padding:0 14px;border-radius:var(--m-r-full)}
+.slcat .fold.flat .act>*{min-height:44px;flex-direction:row;gap:6px;padding:0 14px;border-radius:var(--m-r-full)}
 /* MORE TO COMPARE — the heading and its count on the left, the one sort
    dropdown on the right; the cards are the same service cards as above. */
 .slcat .fold.flat .morehead{justify-content:space-between;flex-wrap:nowrap;padding:0 0 6px}
@@ -1003,6 +1003,12 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .mrsk-l{display:block;height:11px;border-radius:999px;width:80%}
 .slcat .mrsk-l.short{width:45%}
 .slcat .mrfirst{display:block;margin-top:8px}
+/* Lists are hairline rows with a terracotta arrow, not framed boxes (owner 2026-10-12, look call 8); a single
+   standalone door ("See all results…") keeps its frame. */
+.slcat .bench-mkt-results{border:0;border-radius:0;background:none}
+.slcat .bmr-row{border-top:1px solid var(--line);padding-left:0;padding-right:0}
+.slcat .bmr-arr,.slcat .bench-mkt-arr{color:rgb(var(--sn-accent))}
+html.dark .slcat .bench-mkt-results{background:none}
 `;
 
 /** Two-letter monogram fallback — delegates to the shared shop/vendor helper
@@ -1970,12 +1976,12 @@ function CompareVerbs({
   onSave: () => void;
   onInquire: () => void;
 }) {
-  const rowRef = useRef<HTMLDivElement>(null);
-  useFitRow(rowRef);
+  // Buttons keep their words (owner 2026-10-12, look call 2): no fit pass — the row wraps.
   const ask = cardVerbWords('ask');
   return (
-    <div ref={rowRef} className="verbs" data-compare-verbs="">
-      <ActionButton tone={ask.tone} main icon={MessageCircle} label={ask.label} disabled={busy} onClick={onInquire} />
+    <div className="verbs" data-compare-verbs="">
+      {/* The main verb is terracotta (owner 2026-10-12, look call 1). */}
+      <ActionButton tone="brand" main icon={MessageCircle} label={ask.label} disabled={busy} onClick={onInquire} />
       <ActionButton tone="neutral" icon={Bookmark} label={MORE_TO_COMPARE_SAVE} disabled={busy} onClick={onSave} />
     </div>
   );

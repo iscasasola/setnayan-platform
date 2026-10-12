@@ -57,7 +57,7 @@ import {
   RotateCcw,
   X,
 } from 'lucide-react';
-import { ActionButton, actionButtonClass, useFitRow } from '@/components/action-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { cardVerbs, type CardVerb } from '@/lib/supplier-card-verbs';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
@@ -175,8 +175,7 @@ export function BenchVendorActions({
   const threadHref =
     actions.inquiry?.kind === 'check' ? `/dashboard/${eventId}/messages/${actions.inquiry.threadId}` : null;
   const threadId = actions.inquiry?.kind === 'check' ? actions.inquiry.threadId : null;
-  const rowRef = useRef<HTMLDivElement>(null);
-  useFitRow(rowRef);
+  // Buttons keep their words (owner 2026-10-12, look call 2): no fit pass — the row wraps.
   const router = useRouter();
   const { confirm, dialog: confirmDialog } = useConfirm();
   const writes = useContext(BenchWritesStandInCtx);
@@ -454,7 +453,7 @@ export function BenchVendorActions({
       ) : null}
 
       {/* ── THE VERB ROW — one line, one fit state (icon + word → word → icon) */}
-      <div ref={rowRef} className="verbs" data-card-verbs={verbs.map((v) => v.key).join(' ')}>
+      <div className="verbs" data-card-verbs={verbs.map((v) => v.key).join(' ')}>
         {verbs.map(draw)}
         {/* [Connect] — the supplier's portal into their own account, for one
             the couple added themselves. It stays reachable at every step until

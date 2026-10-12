@@ -510,6 +510,13 @@ export type DoorwayInput = {
    * be drawn by a rule laxer than the one at the other end of it.
    */
   pabuyaViewerAllowed: boolean;
+  /**
+   * 🎁 How many wishes on the couple's wish list are still OPEN, as a guest would
+   * be shown them (`loadDoorwayFacts` — zero when the list is not shown, or could
+   * not be read). The gift door says so in one line; it never opens a door by
+   * itself. Absent = zero.
+   */
+  openWishCount?: number;
 };
 
 /**
@@ -526,6 +533,7 @@ export type DoorwayFacts = Pick<
   | 'pabuyaRouteEnabled'
   | 'enabledEgiftCount'
   | 'pabuyaViewerAllowed'
+  | 'openWishCount'
 >;
 
 export type GuestDoorways = {
@@ -533,12 +541,14 @@ export type GuestDoorways = {
   venueWalk: string | null;
   /** `/[slug]/pabuya`. */
   pabuya: string | null;
+  /** 🎁 Open wishes behind the gift door — 0 whenever the door is not drawn. */
+  wishes: number;
 };
 
 /** Resolve the two non-slot doors. `null` means DO NOT DRAW IT. */
 export function resolveGuestDoorways(input: DoorwayInput): GuestDoorways {
   const slug = (input.slug ?? '').trim();
-  if (!slug) return { venueWalk: null, pabuya: null };
+  if (!slug) return { venueWalk: null, pabuya: null, wishes: 0 };
   const base = `/${encodeURIComponent(slug)}`;
 
   // The 3D walk-through. Both conditions are the RPC's, restated — if it would
@@ -559,7 +569,10 @@ export function resolveGuestDoorways(input: DoorwayInput): GuestDoorways {
       ? `${base}/pabuya`
       : null;
 
-  return { venueWalk, pabuya };
+  /* The door's extra line is about the page behind it — no door, no line. */
+  const wishes = pabuya && Number.isFinite(input.openWishCount) ? Math.max(0, Math.trunc(input.openWishCount as number)) : 0;
+
+  return { venueWalk, pabuya, wishes };
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

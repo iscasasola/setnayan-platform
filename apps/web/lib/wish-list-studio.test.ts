@@ -105,6 +105,8 @@ test('the sheet’s pill and the honest line under Got it', () => {
 
 test('"Gifts sent to you": what guests SAY they sent, or None yet', () => {
   assert.equal(giftsSentLine(14500, 5), '₱14,500 said sent · 5 gifts');
+  // A count a person reads carries its commas, like the money beside it.
+  assert.equal(giftsSentLine(1500000, 1200), '₱1,500,000 said sent · 1,200 gifts');
   assert.equal(giftsSentLine(2000, 1), '₱2,000 said sent · 1 gift');
   assert.equal(giftsSentLine(0, 0), 'None yet');
 });

@@ -240,7 +240,11 @@ export function armHubScrub(root: HTMLElement): () => void {
     put(root, 'data-hub-page-on', null);
     try {
       let undo: (() => void) | null = null;
-      if (fits) {
+      /* 🚪 The door's own fit has already planned this first screen (before the hold armed — its plan is written):
+         the plan is KEPT as it is, not made again — two fits of one screen, made a moment apart while the page is
+         still settling, differ by a hair, and the cover would jump by it when the hold goes (seen: 4 px). */
+      const planned = door !== null && screen !== null && screen.style.getPropertyValue('--fs-air') !== '';
+      if (fits && !planned) {
         /* (Without the hold nothing stands still: the page's own scroll turns a box on the screen into a place on the page.) */
         const fit = firstScreenFitter(screen!, card!, inner as HTMLElement, door, () => window.scrollY);
         fit.mark(true);

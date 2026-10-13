@@ -69,6 +69,8 @@ export function StudioParents({ eventId, parents }: { eventId: string; parents: 
   const [pendingOpen, setPendingOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  /* The parent being added — drawn in the list AT the press, before the server's new guest arrives (a refusal takes it out and says so). */
+  const [adding1, setAdding1] = useState<{ name: string; side: 'bride' | 'groom' } | null>(null);
   const headId = useId();
   /* The new parent's card opens once the refreshed list carries it. */
   useEffect(() => {
@@ -82,23 +84,33 @@ export function StudioParents({ eventId, parents }: { eventId: string; parents: 
     if (!typed || pending) return;
     setError(null);
     setPending(true);
+    setAdding1({ name: typed, side });
+    setAdding(false);
     const draft = { ...parseGuestInput(typed, { defaultSide: side }), side, groups: [], plusOnes: 0, roleHint: side === 'bride' ? ('bride_parents' as const) : ('groom_parents' as const) };
     void makerSave(() => addSingleGuest(eventId, draft), requestMakerRefresh)
       .then((r) => {
-        if (!r.ok) return setError(r.error);
+        if (!r.ok) {
+          setAdding(true);
+          return setError(r.error);
+        }
         setName('');
-        setAdding(false);
         setPendingOpen(r.guest.guest_id);
       })
-      .catch(() => setError('That did not save. Please try again.'))
-      .finally(() => setPending(false));
+      .catch(() => {
+        setAdding(true);
+        setError('That did not save. Please try again.');
+      })
+      .finally(() => {
+        setPending(false);
+        setAdding1(null);
+      });
   };
   const openParent = parents.find((p) => p.guestId && p.guestId === open) ?? null;
   const [body, setBody] = useState<HTMLElement | null>(null);
   useEffect(() => setBody(document.body), []);
   return (
     <div data-studio-parents="" className="flex flex-col">
-      {parents.length ? (
+      {parents.length || adding1 ? (
         <ul data-parent-list="" className="flex flex-col">
           {parents.map((p, i) => {
             const row = (
@@ -125,6 +137,19 @@ export function StudioParents({ eventId, parents }: { eventId: string; parents: 
               </li>
             );
           })}
+          {adding1 ? (
+            <li data-parent-adding="" className="border-t border-ink/10 first:border-t-0">
+              <div className="flex min-h-14 items-center gap-3 px-0.5 opacity-70">
+                <span aria-hidden className="grid h-9 w-9 flex-none place-items-center rounded-full bg-ink/[0.06] text-[13px] font-bold text-ink/70">
+                  {initials(adding1.name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <b className="block truncate text-[15px] font-semibold text-ink">{adding1.name}</b>
+                  <span role="status" className="block text-[12.5px] text-ink/65">Adding to your guest list…</span>
+                </span>
+              </div>
+            </li>
+          ) : null}
         </ul>
       ) : (
         <div data-parent-empty="" className="flex flex-col gap-0.5 py-2">

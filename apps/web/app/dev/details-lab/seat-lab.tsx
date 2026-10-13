@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { PhoneTableDock } from '../../dashboard/[eventId]/seating/_components/seat-plan-phone';
 import { Counter } from '@/app/_components/counter';
 import { seatCounter, seatStepWords } from '@/lib/seat-counter';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * /dev/details-lab?seat=1 — THE TABLE'S SHEET ON A PHONE, with no sign-in and no database (2026-10-13, the seat counter's walk).
@@ -49,7 +50,7 @@ export function SeatLab({ removed: removed0, seated: seated0 }: { removed: numbe
             {label}
           </text>
           <text y="13" textAnchor="middle" className="fill-ink/55 text-[10px]">
-            {c.seated}/{c.value} seated
+            {formatCount(c.seated)}/{formatCount(c.value)} seated
           </text>
           {Array.from({ length: CAP }, (_, i) => {
             const a = -Math.PI / 2 + (i * 2 * Math.PI) / CAP;

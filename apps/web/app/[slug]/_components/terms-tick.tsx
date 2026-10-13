@@ -13,6 +13,10 @@ import { TERMS_FIELD } from '@/lib/terms-agreement';
  *    paints and presses, it does not take room), and `px-1.5 -mx-1.5` widens "Terms" to 44px or more (35px in a fallback font, 39px in ours) with no gap in the sentence.
  *    The first fix made them `inline-flex` — which put a 44px-wide box round "Terms" ("the  Terms  and the") and made
  *    "Privacy Notice" wrap as one lump at 375px.
+ *  - 🔑 TWO MORE FAULTS OF THE 375px WALK (hub leftovers 2026-10-13): "Privacy Notice" broke across two lines (`whitespace-nowrap`:
+ *    the two words are one press and move to the next line together), and the right ~6px of "Terms" ticked the box — the
+ *    sentence text after the link is later in the tree, so it sat OVER the link's padding in the hit test and the press
+ *    fell through to the label. `relative` lifts each link above that plain text, so its whole padded press is its own.
  *  - The box is a 20px drawing inside a 44×44 press (`-m-3` takes the extra room back, so the words sit where they
  *    sat). The input is still the one real, focusable, required checkbox — it is only larger than what is painted.
  *    Keep `>` out of these class lists: `the-guest-pathway.test.ts` finds the input by `[^>]*`.
@@ -47,11 +51,11 @@ export function TermsTick({ id, children }: { id?: string; children?: ReactNode 
       </span>
       <span>
         I agree to the{' '}
-        <Link href="/terms" className="-mx-1.5 px-1.5 py-3.5 font-medium text-link underline underline-offset-2">
+        <Link href="/terms" className="relative -mx-1.5 px-1.5 py-3.5 font-medium text-link underline underline-offset-2">
           Terms
         </Link>{' '}
         and the{' '}
-        <Link href="/privacy" className="-mx-1.5 px-1.5 py-3.5 font-medium text-link underline underline-offset-2">
+        <Link href="/privacy" className="relative -mx-1.5 whitespace-nowrap px-1.5 py-3.5 font-medium text-link underline underline-offset-2">
           Privacy Notice
         </Link>
         {children}

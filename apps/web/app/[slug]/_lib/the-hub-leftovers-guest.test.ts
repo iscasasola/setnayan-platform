@@ -8,8 +8,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 import { BASE, GUEST, doorAction, renderReplyCard } from '@/lib/reply-card.fixture';
 import { RSVP_FORM_QUESTION_CLASS, RSVP_STEP_QUESTION_CLASS } from '../_components/rsvp-lines';
 
@@ -60,4 +61,28 @@ test('1 · on the one-at-a-time reply every step’s question wears it — no 20
 test('1 · off "one at a time" the small labels stay small — the page form is unchanged', async () => {
   const html = await renderReplyCard({ ...BASE, doorAction, oneAtATime: false, ask: ASK_ALL, guest: { ...GUEST, rsvp_status: 'attending' } });
   assert.match(html, /<label for="meal_preference" class="block text-sm font-medium text-ink">Your meal preference<\/label>/);
+});
+
+// ═══ 2 · the terms line at 375 ═══════════════════════════════════════════
+
+/** The class list of the `<Link>` whose words are `words`, from the shared piece's source (comments stripped). */
+function termsLinkClasses(words: string): string[] {
+  const src = stripComments(readFileSync(join(__dirname, '..', '_components', 'terms-tick.tsx'), 'utf8'));
+  const at = src.indexOf(`${words}\n`);
+  assert.ok(at > -1, `the terms line no longer says ${words}`);
+  const open = src.slice(0, at).lastIndexOf('<Link');
+  return /className="([^"]*)"/.exec(src.slice(open, at))?.[1]?.split(/\s+/) ?? [];
+}
+
+test('2 · "Privacy Notice" is one unbreakable press — it never splits over two lines at 375', () => {
+  assert.ok(termsLinkClasses('Privacy Notice').includes('whitespace-nowrap'), '"Privacy Notice" can break across two lines again');
+});
+
+test('2 · each link is lifted above the sentence text, so its WHOLE padded press is its own (not the box’s)', () => {
+  for (const words of ['Terms', 'Privacy Notice']) {
+    const cls = termsLinkClasses(words);
+    assert.ok(cls.includes('relative'), `${words}: not positioned — the text after it sits over its padding and a press there ticks the box (${cls.join(' ')})`);
+    for (const c of ['-mx-1.5', 'px-1.5', 'py-3.5']) assert.ok(cls.includes(c), `${words}: lost ${c} — the 44px press (${cls.join(' ')})`);
+    assert.ok(!cls.includes('inline-flex') && !cls.includes('flex') && !cls.includes('block'), `${words}: not a plain inline link (a flex box put a gap in the sentence)`);
+  }
 });

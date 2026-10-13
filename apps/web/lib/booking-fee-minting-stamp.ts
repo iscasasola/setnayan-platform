@@ -22,7 +22,7 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
  * Not `server-only`: instrumentation runs outside the react-server condition.
  * Never throws; one tiny write per cold start, and none when nothing changed.
  */
-export function shouldStampBookingFeeMinting(env: { VERCEL_ENV?: string | undefined }): boolean {
+export function shouldStampBookingFeeMinting(env: Readonly<Record<string, string | undefined>>): boolean {
   return env.VERCEL_ENV === 'production';
 }
 

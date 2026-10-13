@@ -843,7 +843,9 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     // hands on are checked through its own entry below, `readEventVendorsMeasured`.
     // `lib/date-clash.server.ts` reads only each supplier's status and calendar (is a BOOKED
     // supplier free that day) — never a price: availability only, owner 2026-10-01.
-    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx', 'lib/date-clash.server.ts', 'lib/event-preload.ts', 'lib/event-vendors-read.ts'],
+    // `vendors/_actions/fact-sheet.ts` (PR5's date sheet) reads names, statuses and categories for Help me choose and
+    // the booked-supplier names — never a price.
+    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/vendors/_actions/fact-sheet.ts', 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx', 'lib/date-clash.server.ts', 'lib/event-preload.ts', 'lib/event-vendors-read.ts'],
   },
   readEventVendorsMeasured: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   // Find a supplier (P3) calls it with `vendorRows: []` — only to learn which

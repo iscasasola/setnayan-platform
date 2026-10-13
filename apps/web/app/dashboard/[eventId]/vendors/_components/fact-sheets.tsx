@@ -24,6 +24,7 @@
  *
  * Lab: `FactSheetStandInCtx` answers the read and the writes from fixtures (`/dev/suppliers-lab?sheet=…`).
  */
+import { createPortal } from 'react-dom';
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useTransition } from 'react';
 import { CalendarDays, Check, RotateCcw, Search, Star, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -133,7 +134,9 @@ export function FactSheet({
   useEffect(() => load(), [load]);
   const say = (text: string, t: 'ok' | 'bad' = 'ok') => setToast({ key: Date.now(), text, tone: t });
 
-  return (
+  /* Drawn into <body>: the dashboard's page wrapper (`.sn-page-enter` transform) captures `position: fixed`, and
+     Find's thumb row and the dock (both on <body>) would otherwise sit OVER the sheet (walked 2026-10-13). */
+  return createPortal(
     <Sheet open onClose={onClose} labelledById={headingId} rise wide>
       <div className="flex flex-col gap-4 overflow-y-auto px-5 pb-8 pt-5" data-fact-sheet={which}>
         {toast ? (
@@ -183,7 +186,8 @@ export function FactSheet({
           />
         )}
       </div>
-    </Sheet>
+    </Sheet>,
+    document.body,
   );
 }
 
@@ -234,6 +238,7 @@ function DateBody({
   const [clash, setClash] = useState<{ reason: string; list: readonly DateClash[]; pick: { date: string; precision: string } } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [rowKey, setRowKey] = useState(0);
   const booked = data.bookedNames.length;
 
   /** A day (or a month) → the DRAFT. A day a booked supplier cannot do comes back refused, with who. */
@@ -250,6 +255,9 @@ function DateBody({
       }
       if (r.clash?.length) {
         setClash({ reason: r.error, list: r.clash, pick: { date, precision } });
+        /* The refusal is said ONCE — by the clash note, which names who and how to ask. The row goes back to the day
+           that stands (a fresh row, never a second "did not save" line under it). */
+        setRowKey((k) => k + 1);
         return { ok: false, error: r.error, clashed: true };
       }
       return { ok: false, error: r.error };
@@ -276,6 +284,7 @@ function DateBody({
       {mode === 'have' ? (
         <FormRows width="wide" data="fact-date">
           <DateRow
+            key={rowKey}
             name={shown.precision === 'day' ? 'Change the day' : 'The day'}
             value={shown.precision === 'day' ? shown.date : null}
             empty="Pick the day"
@@ -607,7 +616,7 @@ function PlaceBody({
       <Ladder rungs={placeLadder({ city: data.city === null ? null : city, slots })} />
       {data.city !== null ? (
         <section className="flex flex-col gap-1.5" data-place-city="">
-          <p className={SECTION_HEAD}>City or area</p>
+          {/* CityPick names itself ("City or area") — no second heading over it. */}
           <CityPick
             value={city}
             near={pinNear}

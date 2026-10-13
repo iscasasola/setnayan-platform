@@ -43,7 +43,7 @@
  * THE DATE AND PLACE SHEETS (PR5 — `fact-sheet-fixtures.ts`; press the date or the place on the line):
  *   ?sheet=date|help|place   open one on load (help = the date sheet on Help me choose)
  *   &help=none|unread|nomonth  no Saturday fits every priced pick · the calendars fail · no month yet
- *   &cal=notset         Lumina never set a calendar — the card says "Calendar not set", Help me choose "confirm"
+ *   &cal=notset         Hiraya and Lumina never set a calendar — the card says "Calendar not set", Help me choose "confirm"
  *   &change=1           a date change is asked of Seda (the line says "· change asked")
  *   &drafted=1          the date waits in the Event Hub draft (the line says "in your draft")
  *   &venues=none        nobody booked: the place sheet types its own venue (name + pin)
@@ -104,10 +104,10 @@ export default async function SuppliersLabPage({
   const folders = buildShortlistFolders({
     vendorRows: rows,
     enrichmentByVendorId: LAB_ENRICHMENT,
-    // P5 calendar truth on the bench card: Bituin booked that day, Hiraya free, Lumina "Calendar not set" (&cal=notset).
+    // P5 calendar truth on the bench card: Bituin booked that day, Hiraya free — or "Calendar not set" (&cal=notset).
     dateFitByVendorId: new Map<string, DateFit>([
       ['v-bituin', 'booked'],
-      ['v-hiraya', 'free'],
+      ['v-hiraya', factOptions.notSet ? 'not_set' : 'free'],
       ['v-lola', 'free'],
       ['v-lumina', factOptions.notSet ? 'not_set' : 'free'],
     ]),

@@ -95,3 +95,10 @@ c7ebfc9f7455de94e1423c20fc6c33f4b9ffb33f:docs/FEATURE-BRIEF.md:generic-api-key:8
 # id (`guest_papic_me_v1`), no credential. Pinned by that commit's fingerprint.
 83d5952968fd75be1ac6bf6ff656461e019889c8:apps/web/app/papic/me/[token]/page.tsx:generic-api-key:299
 83d5952968fd75be1ac6bf6ff656461e019889c8:apps/web/app/papic/me/[token]/page.tsx:generic-api-key:394
+#
+# Same rule flags the twin-order test's stand-in purchase: the catalog SKU code
+# PAPIC_GUEST_100 written against a field named for the order's service key. It
+# is a public product identifier from platform_retail_catalog_v2, not a
+# credential. Pinned by its introducing commit (the PR range is scanned per commit).
+8935baea76f2933ebb2661814747df173f1acbf9:apps/web/lib/one-press-one-order.test.ts:generic-api-key:40
+8935baea76f2933ebb2661814747df173f1acbf9:apps/web/lib/one-press-one-order.test.ts:generic-api-key:148

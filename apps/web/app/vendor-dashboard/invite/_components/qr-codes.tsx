@@ -95,8 +95,8 @@ export function QrCodes({
       ) : mode === 'shortlist' && shortlist ? (
         <>
           <div className="mt-4">
-            <DatesRow title="For" line="The kind of event a scan starts" end={<CustomersPick label="For" value={shortlist.eventPick.value} options={shortlist.eventPick.options} dataAttr="data-qr-event" compact />} />
-            <DatesRow title="Service" line="What they shortlist you as" end={<CustomersPick label="Service" value={shortlist.servicePick.value} options={shortlist.servicePick.options} dataAttr="data-qr-service" compact />} />
+            <DatesRow title="For" line="The kind of event a scan starts" end={<CustomersPick label="For" value={shortlist.eventPick.value} options={shortlist.eventPick.options} dataAttr="data-qr-event" className="!min-h-11" />} />
+            <DatesRow title="Service" line="What they shortlist you as" end={<CustomersPick label="Service" value={shortlist.servicePick.value} options={shortlist.servicePick.options} dataAttr="data-qr-service" className="!min-h-11" />} />
           </div>
           <div className="mt-6">
             <QrCard

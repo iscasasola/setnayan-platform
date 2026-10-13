@@ -1,83 +1,88 @@
-import type { ReactNode } from 'react';
-import { Camera } from 'lucide-react';
-import { PapicBandActions } from './papic-band-actions';
+import { Images } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { ServiceGlanceBand } from '@/app/_components/service-glance';
 import { formatCount } from '@/lib/format-number';
+import { POOL_METER_LOW_PCT } from '@/lib/papic-pool-meter';
 import { PAPIC_UNTIL_WORDS, type PapicGlance } from '@/lib/papic-glance';
+import { PapicBuySheet } from './papic-buy-sheet';
+import { PapicSeePhotos } from './papic-see-photos';
+import type { PoolRung } from '@/lib/papic-pool-rungs';
 
 /**
- * 📍 THE PAPIC PAGE'S TOP BAND (owner "Yes", 2026-10-13 — DECISION_LOG 📍 and
- * 📸 "How about making it easy to purchase credits, track credits and view
- * gallery"): the three things in ONE band, first on the page —
+ * 🎨 THE PAPIC PAGE'S ONE BAND (owner "approve all", 2026-10-14 — prototype
+ * `renderPapic()`, translated): the count of credits left · "of N bought" ·
+ * Buy more (the page's one main button) · the meter · the mood said in words ·
+ * See your N photos (opens the gallery directly) · when the cameras are on.
  *
- *   credits left (track) · Buy more (buy) · See your N photos ↓ (gallery)
- *   On from [date] · until 12 h after your day
- *
- * so a couple never scrolls three phone screens to find their photos (the
- * tester measured the gallery 3.3 screens down).
- *
- * 🔑 NOTHING HERE IS READ. The words come from `papicGlance` over the page's
- * own `readPapicStandings` (one read, already made) and its `resolveStoredWindow`.
- * "Buy more" unfolds the SHIPPED `PapicPoolCard` in place (passed in as
- * `buyPanel`) — the same stepper and "Continue to payment" → /pay, no second
- * checkout. The card is already on the page; the tap only shows it — no request.
+ * 🔑 NOTHING HERE IS READ: the words come from `papicGlance` over the page's own
+ * `readPapicStandings` and `resolveStoredWindow`. Buy more opens the shared
+ * sheet, which reads the ladder only when tapped.
  */
 export function PapicTopBand({
+  eventId,
   glance,
-  buyPanel,
+  canBuy,
   buyOpen = false,
+  error = null,
+  sizes = null,
 }: {
+  eventId: string;
   glance: PapicGlance;
-  /** The shipped credit card (`<PapicPoolCard>`), unfolded by "Buy more". */
-  buyPanel: ReactNode;
-  /** Open on arrival — a purchase error to read, or a "Buy more" from Home. */
+  /** The purchase is the couple's; a coordinator sees the band without the button. */
+  canBuy: boolean;
+  /** Open the sheet on arrival — a purchase error to read, or "?buy=1" from Home. */
   buyOpen?: boolean;
+  error?: string | null;
+  /** The ladder, only when a dev lab already holds it — the page reads it on the tap. */
+  sizes?: PoolRung[] | null;
 }) {
-  const { credits, photos, tone, phase, onFrom } = glance;
-  const big = credits === null ? glance.status : formatCount(credits);
-  const unit = credits === null ? null : credits === 1 ? 'credit left' : 'credits left';
-  const flag =
-    tone === 'stopped'
-      ? { text: 'Stopped — your guests’ cameras need credits', color: 'rgb(var(--color-danger))' }
-      : tone === 'low'
-        ? { text: 'Running low', color: 'rgb(var(--color-warn))' }
+  const { mood, count, total, photos, onFrom, phase } = glance;
+  const big = count === null ? glance.status : formatCount(count);
+  const word =
+    count === null
+      ? null
+      : `${mood === 'wait' ? 'credits ready' : 'credits left'}${total !== null ? ` · of ${formatCount(total)} bought` : ''}`;
+  const say =
+    mood === 'gone'
+      ? 'Your guests’ cameras have stopped — add credits to restart them.'
+      : mood === 'low'
+        ? `Running low — under ${POOL_METER_LOW_PCT}% of what you bought.`
         : null;
   const when =
     phase === 'closed'
       ? 'Cameras closed'
       : onFrom
-        ? `${phase === 'waits' ? 'Papic turns on' : 'On from'} ${onFrom} · ${PAPIC_UNTIL_WORDS}`
+        ? mood === 'wait' || phase === 'waits'
+          ? `Papic turns on ${onFrom} · cameras wait until then`
+          : `On from ${onFrom} · ${PAPIC_UNTIL_WORDS}`
         : null;
-  const seePhotos = typeof photos === 'number' && photos > 0 ? photos : null;
+  const see =
+    typeof photos === 'number' && photos > 0 ? (
+      <PapicSeePhotos wide label={`See your ${formatCount(photos)} ${photos === 1 ? 'photo' : 'photos'}`} />
+    ) : (
+      <ActionButton
+        tone="neutral"
+        waiting
+        className="w-full justify-center"
+        icon={<Images aria-hidden="true" strokeWidth={1.9} />}
+        label="No photos yet"
+      />
+    );
   return (
-    <section
-      data-papic-top-band=""
-      data-papic-tone={tone}
-      aria-label="Your credits and photos"
-      className={`rounded-2xl border p-4 sm:p-5 ${tone === 'stopped' ? 'border-red-500/40 bg-red-500/5' : tone === 'low' ? 'border-amber-500/40 bg-amber-500/5' : 'border-ink/10 bg-surface'}`}
-    >
-      <div className="flex items-start gap-3">
-        <span aria-hidden className="mt-1 inline-flex h-9 w-9 flex-none items-center justify-center rounded-full bg-mulberry/10 text-mulberry">
-          <Camera className="h-[18px] w-[18px]" strokeWidth={1.9} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="leading-tight">
-            <span data-papic-credits="" className="text-[26px] font-semibold tracking-tight text-ink tabular-nums">
-              {big}
-            </span>
-            {unit ? <span className="ml-1.5 text-sm text-ink/65">{unit}</span> : null}
-          </p>
-          {flag ? (
-            <p data-papic-flag="" className="mt-0.5 text-[13px] font-semibold" style={{ color: flag.color }}>
-              {flag.text}
-            </p>
-          ) : null}
-          {when ? <p data-papic-when="" className="mt-0.5 text-[12.5px] text-ink/60">{when}</p> : null}
-        </div>
-      </div>
-
-      <PapicBandActions buy={glance.buy} photos={seePhotos} defaultOpen={buyOpen}>
-        {buyPanel}
-      </PapicBandActions>
-    </section>
+    <ServiceGlanceBand
+      big={big}
+      word={word}
+      mood={mood}
+      pct={glance.pct}
+      meterLabel="Credits left"
+      say={say}
+      when={when}
+      see={see}
+      buy={
+        canBuy && glance.buy ? (
+          <PapicBuySheet eventId={eventId} left={count} main defaultOpen={buyOpen} error={error} sizes={sizes} />
+        ) : null
+      }
+    />
   );
 }

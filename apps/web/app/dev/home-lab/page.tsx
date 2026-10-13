@@ -10,21 +10,20 @@
  *   ?hidden=1                        the budget is not shared with this viewer
  *   ?proto=1                         the prototype's own figures (Cale & Ice, 72 days, 7 coming…)
  *   ?store=1                         the App Store / Play shell (no Your services row)
- *   ?view=papic                      📍 the Papic page's TOP BAND instead of Home, in the
- *                                    same ?papic= state (the real PapicTopBand; the stepper
- *                                    under "Buy more" on sample rungs — no database)
- *   ?papic=before|on|low|zero|ready  📍 the Papic row's states (owner 2026-10-13): cameras wait
- *                                    ("On from …") · N credits left + photos · running low ·
- *                                    stopped (also the Next card) · ready, nothing shot (Next card)
+ *   ?view=papic                      🎨 the Papic page's TOP BAND instead of Home, in the same
+ *                                    ?papic= state (the real PapicTopBand; the Buy more sheet
+ *                                    on the prototype's ladder seed — no database)
+ *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
+ *                                    2026-10-14): before the window · on · running low ·
+ *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { notFound } from 'next/navigation';
 import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { papicGlance, type PapicGlanceInput } from '@/lib/papic-glance';
+import { papicGlance, papicRowWhileNext } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
-import { PapicBuyForm } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-form';
 import {
   aiStatus,
   glanceCount,
@@ -72,59 +71,63 @@ export default async function HomeLab({
     ? { guide: null, hasDate: true, guests: { total: 14, unsent: 3 }, noun: 'wedding' as const, papicReady: false, aiOffer: false }
     : STATES[q.next ?? 'guide'] ?? STATES.guide!;
   const E = '00000000-0000-4000-8000-000000000000';
-  /* 📍 Papic's row, from the REAL glance over a sample tile and the REAL default window. */
+  /* 🎨 Papic's row and band — the REAL glance over the approved prototype's own sample
+     (papic_easy_home_and_band_2026-10-14_fable.html: Maria & Jose, 2,000 credits bought),
+     the REAL default window. `lowday` = running low ON the event day (owner call 1). */
   const papicState = q.papic ?? null;
   const dayMs = 86_400_000;
-  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-  const papicEventDate = papicState === 'before' ? iso(Date.now() + 260 * dayMs) : iso(Date.now() + 40 * dayMs);
-  const papicWin = resolveStoredWindow({ windowStart: null, windowEnd: null, eventDate: papicEventDate });
-  const PAPIC_TILES: Record<string, PapicGlanceInput['tile']> = {
-    before: { shotsLeft: 50, shotsTotal: 50, photosGathered: 0 },
-    on: { shotsLeft: 1240, shotsTotal: 1500, photosGathered: 260 },
-    low: { shotsLeft: 37, shotsTotal: 550, photosGathered: 513 },
-    zero: { shotsLeft: 0, shotsTotal: 550, photosGathered: 550 },
-    ready: { shotsLeft: 50, shotsTotal: 50, photosGathered: 0 },
+  const iso = (ms: number) => new Date(ms + 8 * 3_600_000).toISOString().slice(0, 10);
+  const PAPIC: Record<string, { left: number; photos: number; days: number }> = {
+    before: { left: 2000, photos: 0, days: 234 },
+    on: { left: 1240, photos: 86, days: 66 },
+    low: { left: 140, photos: 1860, days: 66 },
+    stopped: { left: 0, photos: 2000, days: 66 },
+    empty: { left: 2000, photos: 0, days: 66 },
+    lowday: { left: 140, photos: 1860, days: 0 },
   };
+  const ps = papicState ? PAPIC[papicState] ?? PAPIC.on! : null;
+  const papicEventDate = iso(Date.now() + (ps?.days ?? 40) * dayMs);
+  const papicWin = resolveStoredWindow({ windowStart: null, windowEnd: null, eventDate: papicEventDate });
   const papicNow = papicGlance({
     permitted: true,
-    tile: unread ? 'failed' : papicState ? PAPIC_TILES[papicState] ?? PAPIC_TILES.on! : proto ? { shotsLeft: 50, shotsTotal: 50, photosGathered: 0 } : { shotsLeft: 1240, shotsTotal: 1500, photosGathered: 12 },
+    tile: unread
+      ? 'failed'
+      : ps
+        ? { shotsLeft: ps.left, shotsTotal: 2000, photosGathered: ps.photos }
+        : proto
+          ? { shotsLeft: 50, shotsTotal: 50, photosGathered: 0 }
+          : { shotsLeft: 1240, shotsTotal: 1500, photosGathered: 12 },
     window: { startDate: papicWin.startDate, endIso: papicWin.endIso },
+    eventDate: papicEventDate,
     papicOn: true,
   });
+  /* The prototype's ladder seed — for the lab's sheet only; the app reads the catalog. */
+  const LAB_SIZES = [
+    { serviceCode: 'LAB_100', points: 100, pricePhp: 70, discountPercent: 30 },
+    { serviceCode: 'LAB_300', points: 300, pricePhp: 210, discountPercent: 30 },
+    { serviceCode: 'LAB_500', points: 500, pricePhp: 350, discountPercent: 30 },
+    { serviceCode: 'LAB_1000', points: 1000, pricePhp: 700, discountPercent: 30 },
+    { serviceCode: 'LAB_3000', points: 3000, pricePhp: 1680, discountPercent: 44 },
+  ];
   if (q.view === 'papic') {
-    /* Sample rungs for the lab's stepper only — the real card reads the catalog. */
-    const rungs = [
-      { serviceCode: 'LAB_A', points: 100, pricePhp: 70, discountPercent: 30 },
-      { serviceCode: 'LAB_B', points: 500, pricePhp: 300, discountPercent: 40 },
-      { serviceCode: 'LAB_C', points: 1000, pricePhp: 550, discountPercent: 45 },
-    ];
     return (
       <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
         <div className="mx-auto flex max-w-xl flex-col gap-7">
-          <p className="text-xs text-ink/50">Lab · Papic page top band · sample data</p>
-          <PapicTopBand
-            glance={papicNow}
-            buyOpen={papicNow.tone === 'stopped'}
-            buyPanel={
-              <section className="space-y-4 rounded-2xl border border-ink/10 bg-surface p-5">
-                <p className="text-lg font-semibold tracking-tight text-ink">Add credits to your event</p>
-                {papicNow.credits === 0 ? (
-                  <p className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm font-medium text-red-700">
-                    Your guests&rsquo; cameras have stopped — add credits to restart them.
-                  </p>
-                ) : null}
-                <PapicBuyForm eventId={E} rungs={rungs} />
-              </section>
-            }
-          />
-          <div className="rounded-2xl border border-dashed border-ink/20 p-4 text-sm text-ink/50">… the rest of the Papic page …</div>
+          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={LAB_SIZES} />
         </div>
       </div>
     );
   }
   /* An unread guest list reaches the picker as `null` — exactly as the page hands it. */
-  const base: HomeNextInput = papicState
-    ? { ...picked, guide: null, papicReady: papicNow.moment === 'ready', papicStopped: papicNow.moment === 'stopped' }
+  const base: HomeNextInput = ps
+    ? {
+        ...picked,
+        guide: null,
+        papicReady: false,
+        papic: papicNow.moment && papicNow.count !== null && papicNow.total !== null
+          ? { moment: papicNow.moment, left: papicNow.count, total: papicNow.total }
+          : null,
+      }
     : picked;
   const input: HomeNextInput = unread ? { ...base, guide: null, guests: null } : base;
   const next = pickHomeNext(input);
@@ -162,11 +165,16 @@ export default async function HomeLab({
             ? null
             : { paid: glanceMoney(unread ? null : F.paid), owing: glanceMoney(unread ? null : F.owing) }
         }
+        papicLeft={papicNow.count}
+        papicSizes={LAB_SIZES}
         services={homeServices({
           next: next.kind,
           storeShell: q.store === '1',
           papic: papicNow.status,
-          papicDoors: { tone: papicNow.tone, buy: papicNow.buy, photos: papicNow.photos },
+          papicDoors: (() => {
+            const t = papicRowWhileNext(papicNow, next.kind === 'papic' ? next.papicMoment ?? null : null);
+            return { glance: papicNow, line: t.line, buy: t.buy };
+          })(),
           ai: aiStatus(unread ? null : false),
         })}
       />

@@ -105,9 +105,7 @@ import {
   DriveReconnectBanner,
 } from '@/app/_components/drive-connect-card';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
-import { PapicPoolCard } from './_components/papic-pool-card';
 import { PapicTopBand } from './_components/papic-top-band';
 import { papicGlance, glanceTileFromStandings, PAPIC_UNTIL_WORDS } from '@/lib/papic-glance';
 import { VendorMediaControls } from './_components/vendor-media-controls';
@@ -208,6 +206,8 @@ type Props = {
     preserve_error?: string;
     /** 📍 "Buy more" from Home's Next card — the band opens on the stepper. */
     buy?: string;
+    /** 🎨 "See N photos" from Home — the gallery opens on arrival (owner call 2). */
+    gallery?: string;
   }>;
 };
 
@@ -860,9 +860,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
       {/* 📍 ONE BAND, FIRST (owner "Yes", 2026-10-13): track · buy · see. */}
       <PapicTopBand
+        eventId={eventId}
         glance={papicBand}
-        buyOpen={Boolean(papicPoolError) || papicBand.tone === 'stopped' || search.buy === '1'}
-        buyPanel={<PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />}
+        canBuy
+        buyOpen={Boolean(papicPoolError) || search.buy === '1'}
+        error={papicPoolError ?? null}
       />
 
       {/* ══ CREDITS ══════════════════════════════════════════════════
@@ -876,7 +878,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           Bought where the number is watched, per the drawing. The meter, the
           ladder, handing credits to one camera, and what guests chipped in are
           four faces of one thing and now sit together. */}
-      <HostPoolMeterCard eventId={eventId} />
+      {/* 🎨 THE METER AND THE CREDIT CARD MOVED INTO THE TOP BAND (owner "approve
+          all", 2026-10-14): credits left, the meter and Buy more are ONE band,
+          first on the page. `HostPoolMeterCard` and `PapicPoolCard` used to say
+          the same number twice, two screens down. */}
       {/* ⛔ THE CREDIT RECOMMENDATION WAS HERE, AND IT WAITS FOR DATA.
 
           ⚖ Owner 2026-09-23: *"we will also collect data of how much photo is
@@ -892,8 +897,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           below still say what this event HAS and what it has SPENT — those are
           facts. What is gone is the opinion about what it SHOULD hold.
           `lib/the-recommendation-waits-for-data.test.ts` keeps it gone. */}
-      {/* 📍 `PapicPoolCard` MOVED UP INTO THE TOP BAND (owner 2026-10-13): "Buy
-          more" unfolds it in place, first on the page. One mount, not two. */}
       {/* ⛔ NO CAMERA HOLDS CREDITS THE COUPLE GAVE IT — `PapicCamerasCard` WAS HERE.
 
           ⚖ Owner 2026-09-16: *"no dedicated shots individually."* Re-confirmed
@@ -1080,7 +1083,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           </a>
         }
       >
-        <GalleryPreviewCard eventId={eventId} />
+        <GalleryPreviewCard eventId={eventId} openOnArrival={search.gallery === 'open'} />
       </PapicStage>
 
       {/* ══ FOUR WAYS INTO YOUR LIBRARY ═══════════════════════════════════════
@@ -2273,8 +2276,10 @@ async function DriveConnectedPanel({
 
 async function GalleryPreviewCard({
   eventId,
+  openOnArrival = false,
 }: {
   eventId: string;
+  openOnArrival?: boolean;
 }) {
   const supabase = await createClient();
 
@@ -2402,6 +2407,7 @@ async function GalleryPreviewCard({
           kwentoDensity={kwentoDensity}
           preservationTotals={preservationTotals}
           chapters={galleryChapters}
+          openOnArrival={openOnArrival}
         />
       ) : (
         <div className="sn-row p-6 text-center">

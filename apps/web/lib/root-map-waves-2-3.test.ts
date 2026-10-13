@@ -152,7 +152,7 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
     ['app/admin/accounts/_surfaces/users-surface.tsx', /COMP_GRANT_CO_REVIEW_PESOS/],
     ['app/admin/users/actions.ts', /COMP_GRANT_CO_REVIEW_PESOS \* 100/],
     ['app/dashboard/[eventId]/launch/_components/details-date-clash.tsx', /\{DATE_CHANGE_DUE_DAYS\} days/],
-    ['app/dashboard/[eventId]/studio/papic/_components/host-pool-meter-card.tsx', /\{POOL_METER_LOW_PCT\}%/],
+    ['app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx', /\{POOL_METER_LOW_PCT\}%/],
     ['app/dashboard/[eventId]/story/_components/make-it-yours.tsx', /formatCount\(input\.poolCap\)/],
     ['app/vendor-dashboard/clients/[eventId]/editorial-media/page.tsx', /\{MAX_PER_TYPE\} photos/],
     ['app/vendor-dashboard/performance/_components/inquiry-handling-card.tsx', /\$\{REPLY_SPREAD_PCT\}% within/],
@@ -208,7 +208,7 @@ test('one rendering per fact: the shared words and the shared reads', () => {
 test('SABOTAGE — type the literal back and the shown-values scan finds it', () => {
   const cases: Array<[string, string, string]> = [
     ['app/dashboard/[eventId]/launch/_components/details-date-clash.tsx', '{DATE_CHANGE_DUE_DAYS} days to answer', '3 days to answer'],
-    ['app/dashboard/[eventId]/studio/papic/_components/host-pool-meter-card.tsx', 'under {POOL_METER_LOW_PCT}% of your pool', 'under 10% of your pool'],
+    ['app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx', 'under ${POOL_METER_LOW_PCT}% of what you bought', 'under 10% of what you bought'],
     ['app/vendor-dashboard/clients/[eventId]/editorial-media/page.tsx', '{MAX_PER_TYPE} photos</strong>', '3 photos</strong>'],
     ['app/(shell)/explore/_components/vendor-badge-row.tsx', 'top ${topPercentLabel(TOP_PICK_PERCENTILE)}% by', 'top 5% by'],
   ];

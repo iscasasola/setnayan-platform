@@ -69,7 +69,7 @@ import { MiniTour } from '@/app/_components/mini-tour';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
-import { papicGlance } from '@/lib/papic-glance';
+import { papicGlance, papicRowWhileNext } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { papicIsOn } from '@/lib/event-answers';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
@@ -623,6 +623,7 @@ export default async function EventHomePage({
     permitted: canViewPapicCounts,
     tile: papicTile,
     window: { startDate: papicWin.startDate, endIso: papicWin.endIso },
+    eventDate: (event.event_date as string | null) ?? null,
     papicOn: papicSwitch === undefined ? null : papicIsOn(papicSwitch),
   });
   const papicNudgeVisible = papicNow.moment === 'ready';
@@ -637,7 +638,12 @@ export default async function EventHomePage({
     // Papic's page is web-only in the store shell (STORE_SHELL_HIDDEN_ADDON_KEYS),
     // so the Next card does not send an App Store user there.
     papicReady: Boolean(event.event_date && papicNudgeVisible && !storeShell),
-    papicStopped: Boolean(papicNow.moment === 'stopped' && !storeShell),
+    // 🎨 Papic's moments (ready · stopped · low on the day), with the credits the
+    // card's words need — never in the store shell (its page is web-only there).
+    papic:
+      papicNow.moment && !storeShell && papicNow.count !== null && papicNow.total !== null
+        ? { moment: papicNow.moment, left: papicNow.count, total: papicNow.total }
+        : null,
     aiOffer: aiOfferShown,
   });
   // 🔑 THE NUMBERS HOME STATES ARE WORKED OUT ONCE, HERE — days to go, coming,
@@ -659,10 +665,18 @@ export default async function EventHomePage({
     next: homeNext.kind,
     storeShell,
     papic: papicNow.status,
-    // Buy more is the couple's (the purchase is couple-only); See N photos is
-    // anyone's who may see the counts.
+    // 🎨 The row's line, meter and doors (owner 2026-10-14). Buy more is the
+    // couple's (the purchase is couple-only); NEVER TWICE trims what the Next
+    // card already offers (`papicRowWhileNext`).
     papicDoors: canViewPapicCounts
-      ? { tone: papicNow.tone, buy: papicNow.buy && viewerMemberType === 'couple', photos: papicNow.photos }
+      ? (() => {
+          const trimmed = papicRowWhileNext(papicNow, homeNext.kind === 'papic' ? homeNext.papicMoment ?? null : null);
+          return {
+            glance: papicNow,
+            line: trimmed.line,
+            buy: trimmed.buy && viewerMemberType === 'couple',
+          };
+        })()
       : null,
     ai: aiStatus(
       paywallOn === null
@@ -718,6 +732,7 @@ export default async function EventHomePage({
       money={facts.money}
       figures={facts.figures}
       services={homeServiceRow}
+      papicLeft={papicNow.count}
       ground={homeCover}
       navSlots={homeNavSlots}
       whatsNext={

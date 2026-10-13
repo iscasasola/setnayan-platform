@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
 type View = { calls: number; eventsReads: number; shellExtraKeys: string[]; depth: number; byPhase: Record<string, { calls: number; depthAfter: number }>; steps: string[] };
-type Report = Record<'strangerBeforeTheDay' | 'strangerOnTheDay' | 'invitedBeforeTheDay' | 'invitedOnTheDay', View>;
+type Report = Record<'coldInvitedOnTheDay' | 'strangerBeforeTheDay' | 'strangerOnTheDay' | 'invitedBeforeTheDay' | 'invitedOnTheDay', View>;
 
 const WEB = join(__dirname, '..');
 
@@ -73,12 +73,27 @@ const summary = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.
   …and an invited guest's own reads leave beside the day-of layer instead of
   after it (the loader is handed the schedule as a promise): 7 → 6 steps
   before the day, 8 → 6 on it.
+
+  THE GUEST-LOAD FIX (2026-10-13, a signed-in guest sometimes saw "This
+  invitation didn't load" when the free database stalled mid-render):
+    · the platform's own settings — bundle list, promo windows, privacy
+      controls, reveal look, event-type profile — are remembered ACROSS
+      requests (`lib/global-settings-cache.ts`): −2 requests on every warm view
+      (the profile read was not counted here before: it went through the
+      viewer's session, which the harness has none of);
+    · every per-event ownership fact (orders, comp, internal host, founder
+      seat) leaves in ONE round trip instead of three: 5 → 3 deep for a
+      stranger before the day, 6 → 4 for every other view.
+  The views are now measured WARM (the harness fills its data-cache stand-in
+  with one unreported visit first); the first visit of a minute is pinned on
+  its own as \`coldInvitedOnTheDay\`.
 */
 const PINNED: Record<keyof Report, { calls: number; depth: number }> = {
-  strangerBeforeTheDay: { calls: 15, depth: 5 },
-  strangerOnTheDay: { calls: 16, depth: 6 },
-  invitedBeforeTheDay: { calls: 19, depth: 6 },
-  invitedOnTheDay: { calls: 23, depth: 6 },
+  coldInvitedOnTheDay: { calls: 24, depth: 5 },
+  strangerBeforeTheDay: { calls: 13, depth: 3 },
+  strangerOnTheDay: { calls: 14, depth: 4 },
+  invitedBeforeTheDay: { calls: 17, depth: 4 },
+  invitedOnTheDay: { calls: 21, depth: 4 },
 };
 
 test('the event’s row is read ONCE per view — and the page’s own row carries none of the extras', () => {

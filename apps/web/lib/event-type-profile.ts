@@ -24,12 +24,13 @@
  * So a DB hiccup (or a not-yet-migrated prod) degrades to a known-good profile
  * instead of throwing.
  *
- * Cached per request + per event_type via React `cache()`. Server-only (reads
- * cookies via the Supabase server client).
+ * Cached per request + per event_type via React `cache()`, and across requests
+ * through the data cache (`lib/global-settings-cache.ts`). Server-only (reads
+ * through the service client; the table is public-read).
  */
 import { cache } from 'react';
 
-import { createClient } from './supabase/server';
+import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from './global-settings-cache';
 import { createAdminClient } from './supabase/admin';
 import { resolveRoleSet, type RoleSet } from './role-sets';
 
@@ -726,46 +727,61 @@ const PROFILE_OPTIONAL_COLUMNS =
 export const resolveProfile = cache(
   async (eventType: string): Promise<EventTypeProfile> => {
     try {
-      const sb = await createClient();
-      // Try the full row (incl. the later-migration optional columns). If any
-      // of those columns does not exist yet — i.e. the code deployed before its
-      // migration applied — the whole select errors, which would degrade EVERY
-      // type to its hard-coded fallback and so strip the seeded non-wedding
-      // types of their per-type terminology. So on error we retry WITHOUT the
-      // optional columns: the row's terminology/surfaces/packs are preserved
-      // and each optional field falls back to its code default. Once the
-      // migrations are applied the first select succeeds and the columns read.
-      const full = await sb
-        .from('event_type_profiles')
-        .select(`${PROFILE_BASE_COLUMNS}, ${PROFILE_OPTIONAL_COLUMNS}`)
-        .eq('event_type', eventType)
-        .maybeSingle();
-      if (!full.error) {
-        return full.data ? toProfile(full.data as ProfileRow) : fallbackFor(eventType);
-      }
-      const base = await sb
-        .from('event_type_profiles')
-        .select(PROFILE_BASE_COLUMNS)
-        .eq('event_type', eventType)
-        .maybeSingle();
-      if (base.error || !base.data) return fallbackFor(eventType);
-      return toProfile({
-        ...(base.data as object),
-        marketplace_enabled: null,
-        event_class: null,
-        layer_mode: null,
-        multi_day: null,
-        guest_word: null,
-        gifts_mode: null,
-        team_first: null,
-        look_set: null,
-        camera_default: null,
-      } as ProfileRow);
+      // 🧊 Remembered across requests (`lib/global-settings-cache.ts`), cleared
+      // by every admin write to the table (app/admin/categories/event-type-actions.ts).
+      // The table is public-read (`USING (TRUE)`), the same rows for every
+      // reader, so it is read with the service client — never through the
+      // viewer's session, which a remembered read must not touch (it used to be
+      // the viewer's client, read on every page of every visit). A refused read
+      // throws inside, so it is never remembered, and lands on the code fallback
+      // below for this page only — as before.
+      const row = await rememberedGlobalRead(`event_type_profiles-${eventType}-v1`, GLOBAL_SETTINGS_TAGS.eventTypeProfiles, () =>
+        readProfileRow(eventType),
+      );
+      return row ? toProfile(row) : fallbackFor(eventType);
     } catch {
       return fallbackFor(eventType);
     }
   },
 );
+
+/** The type's row, or null when it has none. THROWS when the table did not answer. */
+async function readProfileRow(eventType: string): Promise<ProfileRow | null> {
+  const sb = createAdminClient();
+  // Try the full row (incl. the later-migration optional columns). If any
+  // of those columns does not exist yet — i.e. the code deployed before its
+  // migration applied — the whole select errors, which would degrade EVERY
+  // type to its hard-coded fallback and so strip the seeded non-wedding
+  // types of their per-type terminology. So on error we retry WITHOUT the
+  // optional columns: the row's terminology/surfaces/packs are preserved
+  // and each optional field falls back to its code default. Once the
+  // migrations are applied the first select succeeds and the columns read.
+  const full = await sb
+    .from('event_type_profiles')
+    .select(`${PROFILE_BASE_COLUMNS}, ${PROFILE_OPTIONAL_COLUMNS}`)
+    .eq('event_type', eventType)
+    .maybeSingle();
+  if (!full.error) return (full.data as ProfileRow | null) ?? null;
+  const base = await sb
+    .from('event_type_profiles')
+    .select(PROFILE_BASE_COLUMNS)
+    .eq('event_type', eventType)
+    .maybeSingle();
+  if (base.error) throw base.error;
+  if (!base.data) return null;
+  return {
+    ...(base.data as object),
+    marketplace_enabled: null,
+    event_class: null,
+    layer_mode: null,
+    multi_day: null,
+    guest_word: null,
+    gifts_mode: null,
+    team_first: null,
+    look_set: null,
+    camera_default: null,
+  } as ProfileRow;
+}
 
 /**
  * The Event-Type Profile from a row SOMEBODY ELSE ALREADY READ — the viewer-free

@@ -9,6 +9,7 @@ import {
 import { PANOOD_PAID_SKUS } from '@/lib/panood-watermark';
 import { askedOnce, insideRender, isServiceRoleClient } from '@/lib/request-once';
 import { eventRowOnce } from '@/lib/event-row-once';
+import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
 
 /**
  * The event's own event_date, fetched ONLY to resolve a date-filtered couple
@@ -611,24 +612,35 @@ export async function fetchBundleComponents(
 }
 
 async function readBundleComponents(supabase: SupabaseClient): Promise<BundleComposition> {
-  const { data, error } = await supabase
-    .from('bundle_components')
-    .select('bundle_sku_code, component_service_code');
-  if (error) console.error('[supabase-error] lib/entitlements.ts · from:bundle_components.select', error);
-
-  if (error) {
-    console.error(
-      '[supabase-error] lib/entitlements.ts · from:bundle_components.select',
-      error,
-    );
+  // 🧊 Remembered across requests (`lib/global-settings-cache.ts`): the table is
+  // public-read and the same for every reader, and a guest visit used to ask it
+  // three or four times. A refused read throws inside, so it is never remembered —
+  // and lands on the same const fallback as before, for this page only.
+  let rows: Array<{ bundle_sku_code: string | null; component_service_code: string | null }>;
+  try {
+    rows = await rememberedGlobalRead('bundle_components-v1', GLOBAL_SETTINGS_TAGS.bundleComponents, async () => {
+      const { data, error } = await supabase
+        .from('bundle_components')
+        .select('bundle_sku_code, component_service_code');
+      if (error) {
+        console.error(
+          '[supabase-error] lib/entitlements.ts · from:bundle_components.select',
+          error,
+        );
+        throw error;
+      }
+      return (data ?? []) as Array<{ bundle_sku_code: string | null; component_service_code: string | null }>;
+    });
+  } catch {
+    // Pre-migration / drift / any error → const fallback. Never throw at a gate.
+    return BUNDLE_CHILD_SKUS;
   }
-  // Pre-migration / drift / any error → const fallback. Never throw at a gate.
-  if (error || !data || data.length === 0) return BUNDLE_CHILD_SKUS;
+  if (rows.length === 0) return BUNDLE_CHILD_SKUS;
 
   const out: Record<string, string[]> = {};
-  for (const row of data) {
-    const bundle = row.bundle_sku_code as string | null;
-    const child = row.component_service_code as string | null;
+  for (const row of rows) {
+    const bundle = row.bundle_sku_code;
+    const child = row.component_service_code;
     if (!bundle || !child) continue;
     (out[bundle] ??= []).push(child);
   }
@@ -1256,13 +1268,34 @@ function skuActiveInRender(
   serviceKey: string,
 ): Promise<boolean> {
   return askedOnce(supabase, 'sku-active', [eventId, serviceKey], async () => {
-    // ⏩ The bundle composition leaves WITH the orders read (2026-10-12). It is
-    // one list for the whole render, asked by nearly every product the guest
-    // page gates, and it needs nothing from the orders — it only ever waited
-    // behind them. Same answer, one round trip sooner. (The one render it costs
-    // an extra request: every product asked is owned by a direct order, so the
-    // list would never have been read.)
+    // ⚡ EVERY FACT LEAVES IN ONE ROUND TRIP (2026-10-13, guest-load fix).
+    // The facts behind any product's answer are per EVENT, not per product —
+    // its orders, the bundle list, its comp grants, whether its host is internal
+    // or holds a founder seat (and the promo windows) — and each is asked once
+    // per render (`askedOnce`). They do not depend on each other, so they now
+    // all leave together, at the first product's question, instead of in three
+    // waves (orders → promo/comp/internal → founder seat). On the free database,
+    // which stalls for seconds at a time, every wave a render stands in line for
+    // is one more chance to be caught in a stall.
+    //   · the ANSWERS are read in exactly the old order — direct order, bundle,
+    //     basket, promo, comp, internal, founder — so the first "yes" decides as
+    //     before, and a refused read is thrown at the step it always was;
+    //   · the requests are the same for an event that owns nothing or is hosted
+    //     internally (the two cases that walk the whole chain on nearly every
+    //     render), +1 (the founder seat) for an internal host, and at most +4 —
+    //     once per event per render, whatever the number of products — for an
+    //     event whose every asked product is bought outright.
+    // `lib/entitlements-in-render-asks-together.test.ts` holds answer, order and count.
     const compositionAhead = askedTogether(() => fetchBundleComponents(supabase));
+    const promo = isPromoFreeWindowsEnabled()
+      ? askedTogether(async () =>
+          isSkuFreeForCouplesNow(serviceKey, await fetchEventDateForPromo(supabase, eventId)),
+        )
+      : null;
+    const comp = askedTogether(() => compGrantInRender(supabase, eventId, serviceKey));
+    const internal = askedTogether(() => eventHostIsInternal(supabase, eventId));
+    const founder = askedTogether(() => eventHostHoldsFounderSeat(supabase, eventId));
+
     const orders = await eventOrdersForGate(supabase, eventId, serviceKey, 'active entitlement');
     if (hasOrder(orders, serviceKey, confersAccess)) return true;
 
@@ -1279,34 +1312,10 @@ function skuActiveInRender(
       return true;
     }
 
-    // ⚡ THE NEXT THREE QUESTIONS ARE ASKED TOGETHER AND ANSWERED IN THE SAME
-    // ORDER (2026-10-11). Nothing bought grants this product, so what is left is
-    // the promo window, the comp grant and the internal host — three questions
-    // that do not depend on each other, and that an event which owns nothing (or
-    // is hosted by an internal account, the last of the three) was already asked
-    // one after another, a round trip each. They now leave together; the answers
-    // are still read promo → comp → internal, so the first "yes" decides exactly
-    // as before and a refused read is thrown at the same step it was.
-    //   · same requests as before for an event that owns nothing or is hosted
-    //     internally — the two cases that walk this far on nearly every render;
-    //   · a comped event now also asks the internal-host question (+1), and an
-    //     event inside a promo window asks comp and internal-host (+2) — each
-    //     once per event per render (`askedOnce`), whatever the product count.
-    // The founder seat is still asked only when all three said no.
-    // `lib/entitlements-in-render-asks-together.test.ts` holds answer, order
-    // and count.
-    const promo = isPromoFreeWindowsEnabled()
-      ? askedTogether(async () =>
-          isSkuFreeForCouplesNow(serviceKey, await fetchEventDateForPromo(supabase, eventId)),
-        )
-      : null;
-    const comp = askedTogether(() => compGrantInRender(supabase, eventId, serviceKey));
-    const internal = askedTogether(() => eventHostIsInternal(supabase, eventId));
-
     if (promo && (await promo)) return true;
     if (await comp) return true;
     if (await internal) return true;
-    if (await eventHostHoldsFounderSeat(supabase, eventId)) return true;
+    if (await founder) return true;
 
     return false;
   });

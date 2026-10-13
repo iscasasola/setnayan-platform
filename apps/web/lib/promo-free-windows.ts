@@ -39,6 +39,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tierRank, type VendorTier } from '@/lib/vendor-tier-caps';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
 
 /** The paid tiers a vendor free window can promote every vendor to. */
 export type PromotedVendorTier = 'solo' | 'pro' | 'enterprise';
@@ -141,31 +142,44 @@ export const getLiveCoupleFreeWindows = cache(
 async function fetchLiveWindows(
   audienceType: PromoFreeWindow['audience_type'],
 ): Promise<PromoFreeWindow[]> {
-  let admin;
+  let admin: ReturnType<typeof createAdminClient>;
   try {
     admin = createAdminClient();
   } catch {
     return [];
   }
 
-  const nowIso = new Date().toISOString();
-  const { data, error } = await admin
-    .from('promo_free_windows')
-    .select(SELECT_COLS)
-    .eq('is_active', true)
-    .eq('audience_type', audienceType)
-    .lte('starts_at', nowIso)
-    .gt('ends_at', nowIso)
-    .order('ends_at', { ascending: true });
-
-  if (error) {
-    // Fails closed on purpose — an unreadable window list must never be
-    // treated as "nothing live" being granted anyway; log it so the gap is
-    // traceable instead of silently indistinguishable from a quiet promo day.
-    console.error('[supabase-error] lib/promo-free-windows.ts · from:promo_free_windows.select (couple audience)', error);
+  // 🧊 Remembered across requests (`lib/global-settings-cache.ts`, cleared by
+  // every admin write to the table): the windows are the same for every couple,
+  // and one guest visit used to read them three times. What is remembered is
+  // every active window that has not ENDED yet — including one that has not
+  // started — and "live now" is decided below, at read time, against this
+  // moment's clock: a remembered list can never keep a window open past its
+  // end, nor open one before its start.
+  let rows: PromoFreeWindow[];
+  try {
+    rows = await rememberedGlobalRead(`promo_free_windows-${audienceType}-v1`, GLOBAL_SETTINGS_TAGS.promoFreeWindows, async () => {
+      const { data, error } = await admin
+        .from('promo_free_windows')
+        .select(SELECT_COLS)
+        .eq('is_active', true)
+        .eq('audience_type', audienceType)
+        .gt('ends_at', new Date().toISOString())
+        .order('ends_at', { ascending: true });
+      if (error) {
+        // Fails closed on purpose — an unreadable window list must never be
+        // treated as "nothing live" being granted anyway; log it so the gap is
+        // traceable instead of silently indistinguishable from a quiet promo day.
+        console.error('[supabase-error] lib/promo-free-windows.ts · from:promo_free_windows.select (couple audience)', error);
+        throw error;
+      }
+      return (data ?? []).map((row) => mapWindow(row as Record<string, unknown>));
+    });
+  } catch {
+    return [];
   }
-  if (error || !data) return [];
-  return data.map((row) => mapWindow(row as Record<string, unknown>));
+  const now = Date.now();
+  return rows.filter((w) => (ms(w.starts_at) ?? Infinity) <= now && (ms(w.ends_at) ?? -Infinity) > now);
 }
 
 /**

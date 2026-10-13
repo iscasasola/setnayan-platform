@@ -10,7 +10,8 @@
  * through mergeRevealConfig() so only known, type-checked fields are persisted.
  */
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserRoleSummary } from '@/lib/roles';
@@ -51,6 +52,8 @@ export async function saveRevealStudio(input: unknown): Promise<Result> {
       })
       .eq('id', 1);
     if (error) return { ok: false, error: error.message };
+    // Couple sites remember this row (lib/global-settings-cache.ts) — forget it now.
+    revalidateTag(GLOBAL_SETTINGS_TAGS.revealStudioConfig);
     // Couple sites read this on render — revalidate the dynamic [slug] route.
     revalidatePath('/[slug]', 'page');
     return { ok: true };

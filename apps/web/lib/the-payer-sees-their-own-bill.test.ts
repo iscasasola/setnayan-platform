@@ -75,7 +75,16 @@ test('only a basket asks — an ordinary order sends no line read at all', () =>
 
 test('an unreadable list is SAID, never drawn as an empty one', () => {
   const body = bodyOf(read('lib/payable-by-reference.ts'), 'fetchRows');
-  assert.match(body, /unreadable:\s*true/, 'a failed read no longer marks the list unreadable');
+  assert.match(
+    body,
+    /if\s*\(\s*!read\.ok\s*\)\s*return\s*\{\s*rows:\s*\[\],\s*unreadable:\s*true\s*\}/,
+    'a refused read no longer marks the list unreadable — it would draw as an empty bill',
+  );
+  assert.match(
+    body,
+    /catch\s*\{\s*return\s*\{\s*rows:\s*\[\],\s*unreadable:\s*true\s*\}/,
+    'a thrown read no longer marks the list unreadable',
+  );
   const page = read('app/pay/[reference]/page.tsx');
   assert.match(page, /payable\.rowsUnreadable\s*&&/, '/pay no longer says when the list cannot be loaded');
 });

@@ -152,19 +152,20 @@ test('(a) retired and gone: the five-row menu, the hidden find area, the second 
   }
 });
 
-test('(a) the date · place line: the page’s own facts, opening the SHIPPED editor for each', () => {
+test('(a) the date · place line: the page’s own facts, each opening its sheet on this page (PR5)', () => {
   // Server-rendered by the page, only placed by the shell.
-  assert.match(PAGE, /factsSlot=\{<DatePlaceLine eventId=\{eventId\} facts=\{shellFacts\} \/>\}/);
-  // No second editor and no write: each value is a link to the one field for that fact.
-  assert.match(LINE, /href=\{recordFieldHref\(eventId, 'date'\)\}/);
-  assert.match(LINE, /href=\{recordFieldHref\(eventId, 'venues'\)\}/);
+  assert.match(PAGE, /factsSlot=\{\s*<DatePlaceLine\s+eventId=\{eventId\}\s+facts=\{shellFacts\}/);
+  // PR5 (re-pointed 2026-10-13): no link away — each value opens its sheet here (`fact-line.tsx` → the lazy
+  // `fact-sheets.tsx`, whose writes are the one draft door — `the-date-and-place-open-here.test.ts`). The line itself
+  // still writes nothing: no input, no form, no action.
+  assert.match(LINE, /<FactLine\b/);
   assert.doesNotMatch(LINE, /'use client'|'use server'|<input\b|<form\b|onClick=/);
   // Date and place appear ONCE in the shell — the line.
   assert.equal(takeoverBody().split('{factsSlot}').length - 1, 1);
-  // The words come from the one pure module, from facts the page already read.
+  // The words come from the one pure module, from facts the page already read (the drafted date is planned on).
   const facts = PAGE.slice(PAGE.indexOf('const shellFacts'), PAGE.indexOf('const buildSlot'));
   assert.ok(facts.length > 0, 'shellFacts moved — re-anchor');
-  assert.match(facts, /suppliersDateFact\(ev\.event_date, ev\.event_date_precision\)/);
+  assert.match(facts, /suppliersDateFact\(planDate, planPrecision\)/);
   assert.match(facts, /pickVenueBookingRows\(venueRows\)/, 'the venue is no longer picked by the Event Hub’s own rule');
   assert.doesNotMatch(facts, /await |\.from\(/, 'the line grew a read of its own');
 });

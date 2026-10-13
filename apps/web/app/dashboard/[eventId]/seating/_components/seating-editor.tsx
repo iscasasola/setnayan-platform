@@ -5047,6 +5047,8 @@ export function SeatingEditor({
       <MenuDivider />
       <MenuRow icon={Video} label="Walkthrough videos" href={`/dashboard/${eventId}/seating/walkthrough`} />
       <MenuRow icon={Printer} label="Publish & print" hint="Freeze a snapshot + printable signs / place cards" onClick={publishAndPrint} disabled={isPending || tables.length === 0} emphasized />
+      {/* 🪧 The ENTRANCE SEATING CHART (owner 2026-10-13, #6503) — one sheet for the door, By table · A to Z, beside the pack it is printed with. */}
+      <MenuRow icon={ListOrdered} label="Entrance seating chart" hint="One sheet for the door · by table or A to Z" href={`/dashboard/${eventId}/seating/chart`} />
     </>
   );
 

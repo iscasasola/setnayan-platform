@@ -12,6 +12,7 @@ import { fetchVendorLedgerEarnings } from '@/lib/vendor-earnings';
 import { earningsView, readVendorEarnings } from '@/lib/vendor-earnings-view';
 import { PAYOUT_STAGE_LABEL, type PayoutStage } from '@/lib/payouts';
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
+import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { fetchDueFeeBills, fetchWaivedFeeCharges, FEE_BILLS_UNREADABLE } from '@/lib/booking-fee-disclosure.server';
 import { billsForSurface, feeDueCopy, type DueFeeBill, type WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { manilaToday } from '@/lib/std-views';
@@ -40,7 +41,7 @@ import { MoneyLog, type MoneyLogCustomer } from './money-log';
  * 🔗 THE FEE JOIN. Money reads the fee lane's seams and writes no fee logic. The booking-fee drafts (#6506–#6511)
  * widen `fetchWaivedFeeCharges` to promotion and launch-offer waivers and word them in `waivedFeeCopy` with the same
  * signatures — they show here unchanged the day those merge. #6507 changes the Solo-gate blurb to the LIVE rate on the
- * old earnings page; that sentence lives here now (`lockedLine` below) and takes the same change.
+ * old earnings page; that sentence lives here now (`lockedLine` below) and carries the live rate (joined in batch 5).
  */
 
 type SP = Record<string, string | string[] | undefined>;
@@ -82,7 +83,7 @@ export async function CustomersMoney({ search }: { search: SP }) {
   const tier = await resolveVendorTier(supabase, vendorProfileId);
   const yearLocked = isVendorFeatureGateEnabled() && !canUseSoloBusinessTools(tier);
 
-  const [paydayRead, feeBillsRead, waivedRead, earningsRead, payoutRead] = await Promise.all([
+  const [paydayRead, feeBillsRead, waivedRead, earningsRead, payoutRead, feeSchedule] = await Promise.all([
     readVendorPaydayInstallments(supabase),
     // UNREADABLE renders a "couldn't load" row; it must never read as "you owe nothing".
     fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
@@ -107,6 +108,9 @@ export async function CustomersMoney({ search }: { search: SP }) {
           },
           { pageSize: 1000 },
         ),
+    // The LIVE schedule for the locked year's line — never the code default (#6507, audit 2026-10-12 item 5).
+    // NULL names the fee without a rate. Read only when the year is locked (the line is drawn only then).
+    yearLocked ? getLiveBookingFeeSchedule() : Promise.resolve(null),
   ]);
 
   // ⚠ PAGED TO THE SERVER'S EXACT COUNT. A read that did not reach the end renders as "couldn't load", never as a
@@ -190,7 +194,7 @@ export async function CustomersMoney({ search }: { search: SP }) {
           year,
           // 🔴 NAMES THE FEE. "We never take a cut" is only the whole truth WITH the booking fee beside it (owner
           // 2026-08-06); the terms are DERIVED, never typed.
-          lockedLine: `Totals by month start with Solo. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee of ${bookingFeeScheduleSummary()}, only on the couples we introduce.`,
+          lockedLine: `Totals by month start with Solo. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee${feeSchedule ? ` of ${bookingFeeScheduleSummary(feeSchedule)}` : ''}, only on the couples we introduce.`,
           legacy,
         }}
       />

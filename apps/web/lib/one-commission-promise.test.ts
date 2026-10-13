@@ -54,7 +54,9 @@ const SUPPLIER_SURFACES = [
   // S-PR4: the Earnings page is Customers › Money — its words moved with it.
   'app/vendor-dashboard/customers/_components/money-segment.tsx',
   'app/vendor-dashboard/customers/_components/money-view.tsx',
-  'app/waitlist/page.tsx',
+  // 'app/waitlist/page.tsx' LEFT this list 2026-10-12 — owner #14: it is a
+  // couples' page and couple-facing pages do not mention the supplier fee. It
+  // is now held by the COUPLE-facing test below instead.
   'app/admin/custom-plans/_components/custom-composer.tsx',
   'app/(shell)/pricing/page.tsx',
   'lib/help.ts',
@@ -117,7 +119,12 @@ test('a supplier surface never hand-types the fee schedule', () => {
 // ruling says it does not belong.
 // SABOTAGE: add "booking fee" to the couple-facing marketplace copy → RED.
 test('a COUPLE-facing surface is left alone — the zero is unqualified for them', () => {
-  for (const f of ['app/(shell)/marketplace/page.tsx', 'app/(shell)/explore/page.tsx']) {
+  for (const f of [
+    'app/(shell)/marketplace/page.tsx',
+    'app/(shell)/explore/page.tsx',
+    // Owner 2026-10-12 #14 ("couple-facing pages do not mention the supplier fee").
+    'app/waitlist/page.tsx',
+  ]) {
     const src = readCode(f);
     assert.equal(
       count(src, /booking fee/i),
@@ -125,6 +132,32 @@ test('a COUPLE-facing surface is left alone — the zero is unqualified for them
       `${f}: a couple is not billed and never will be, so naming the supplier's fee here raises a question they do not have — the audience distinction IS the ruling`,
     );
   }
+});
+
+// ⚖ Owner 2026-10-12 #14. Help topics a COUPLE can read never name the
+// supplier's fee; a supplier-only topic does, so a supplier is still told.
+// SABOTAGE: put the fee sentence back into an 'about-setnayan' article → RED.
+test('a help topic couples read never names the supplier fee; a supplier-only one does', async () => {
+  const { HELP_TOPICS } = await import('@/lib/help');
+  let coupleArticles = 0;
+  let supplierFee = 0;
+  for (const t of HELP_TOPICS) {
+    for (const a of t.articles) {
+      const words = `${a.title} ${a.body}`;
+      if (t.roles.includes('couple')) {
+        coupleArticles += 1;
+        assert.equal(
+          count(words, /booking fee/i),
+          0,
+          `help topic "${t.key}" (read by couples) names the supplier fee in "${a.slug}"`,
+        );
+      } else if (t.roles.includes('vendor') && /booking fee/i.test(words)) {
+        supplierFee += 1;
+      }
+    }
+  }
+  assert.ok(coupleArticles >= 20, `only ${coupleArticles} couple-readable articles scanned`);
+  assert.ok(supplierFee >= 1, 'no supplier-only help article explains the booking fee any more');
 });
 
 // SABOTAGE: delete a surface from the list → RED (the list must stay honest).

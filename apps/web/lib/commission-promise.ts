@@ -32,7 +32,7 @@
  * that decides whether anyone is billed. A hand-edited sentence is exactly what
  * went stale here, twice.
  */
-import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
+import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
@@ -58,7 +58,18 @@ export const COUPLE_COMMISSION_PROMISE =
  * the defect this module exists to remove, and `one-commission-promise.test.ts`
  * fails if a supplier-facing file names commission without naming the fee.
  */
-export function supplierCommissionPromise(): string {
+/*
+ * ⚖ THE RATE IS THE LIVE ONE, OR NONE (audit 2026-10-12, item 5). Both
+ * functions take the schedule the page READ — `getLiveBookingFeeSchedule()` on
+ * a server page, the `/api/home-pricing` payload in the marketing chrome. They
+ * used to call `bookingFeeScheduleSummary()` with no argument, which prints the
+ * CODE DEFAULT: right only until the owner edits /admin/pricing, and from then
+ * on a rate on a public page that nobody is billed. `null` (not yet loaded, or
+ * no client to read with) prints the fee sentence WITHOUT a rate — never the
+ * default dressed as today's figure. There is no default argument, so a caller
+ * cannot forget.
+ */
+export function supplierCommissionPromise(schedule: BookingFeeSchedule | null): string {
   const base =
     'No commission on your bookings — couples pay you directly and we never sit between you at checkout.';
   if (!isBookingFeeEnabled()) {
@@ -66,10 +77,12 @@ export function supplierCommissionPromise(): string {
     // would be its own kind of untrue. Said plainly rather than left silent.
     return `${base} Setnayan charges no booking fee while it is switched off.`;
   }
+  const rate = schedule ? ` of ${bookingFeeScheduleSummary(schedule)}` : '';
   return (
-    `${base} Setnayan bills you a booking fee of ${bookingFeeScheduleSummary()}, ` +
+    `${base} Setnayan bills you a booking fee${rate}, ` +
     `only on the couples we introduce — your first ${FREE_BOOKING_LIMIT} are free, ` +
-    'and your own clients stay free. It is charged to you, never added to what a couple pays.'
+    'and your own clients stay free. It is charged to you, never added to what a couple pays.' +
+    (schedule ? '' : ' The rate is shown in full before you agree to any booking.')
   );
 }
 
@@ -77,9 +90,11 @@ export function supplierCommissionPromise(): string {
  * The short form, for a perk list or a matrix cell where a paragraph does not
  * fit. Still both halves — shorter, not partial.
  */
-export function supplierCommissionShort(): string {
+export function supplierCommissionShort(schedule: BookingFeeSchedule | null): string {
   if (!isBookingFeeEnabled()) return '0% commission — no booking fee while it is switched off';
-  return `0% commission · booking fee ${bookingFeeScheduleSummary()}, only on couples we introduce`;
+  return schedule
+    ? `0% commission · booking fee ${bookingFeeScheduleSummary(schedule)}, only on couples we introduce`
+    : '0% commission · a booking fee only on couples we introduce';
 }
 
 /**

@@ -12,7 +12,7 @@
  * speaks the "free" thesis, never a number. Server components (no hooks).
  */
 import Link from 'next/link';
-import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
+import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -147,7 +147,14 @@ function CardGrid({ children }: { children: React.ReactNode }) {
 
 /* ── 0 · THESIS STRIP ──────────────────────────────────────────────────── */
 
-export function VendorGrowThesis() {
+/**
+ * Every section below that quotes the booking fee takes the LIVE schedule the
+ * page read (`getLiveBookingFeeSchedule`), never the code default (audit
+ * 2026-10-12, item 5). NULL = could not read it: the fee is named, no rate.
+ */
+type FeeProp = { fee: BookingFeeSchedule | null };
+
+export function VendorGrowThesis({ fee }: FeeProp) {
   const items = [
     { b: '₱0', s: 'to join, run your whole business & bring your own clients — always free' },
     // 🔴 THIS FILE DOCUMENTS FIXING "0% commission while we launch" ON THE HERO
@@ -156,7 +163,12 @@ export function VendorGrowThesis() {
     // collected ₱837.50. A fix applied to one string in a file is not a fix
     // applied to the file.
     { b: `${COMMISSION_PCT}%`, s: 'commission — couples pay you directly and we never sit between you at checkout' },
-    { b: 'First 5 free', s: `the bookings we bring you are on us — after that ${bookingFeeScheduleSummary()}, only on couples we source` },
+    {
+      b: 'First 5 free',
+      s: fee
+        ? `the bookings we bring you are on us — after that ${bookingFeeScheduleSummary(fee)}, only on couples we source`
+        : 'the bookings we bring you are on us — after that a booking fee, only on couples we source',
+    },
   ];
   return (
     <div style={{ background: 'var(--m-ink)', color: 'var(--m-mulberry-3)' }}>
@@ -384,7 +396,7 @@ export function VendorGrowAI() {
  * billed, so the promise and the charge can never disagree again. It is one
  * function call, deliberately: a hand-edited sentence is what went stale.
  */
-export function VendorGrowFairPay() {
+export function VendorGrowFairPay({ fee }: FeeProp) {
   const feeLive = isBookingFeeEnabled();
   return (
     <section style={SECTION}>
@@ -399,8 +411,15 @@ export function VendorGrowFairPay() {
             </>
           )}
           Your first {FREE_BOOKING_LIMIT} Setnayan-sourced bookings are on us —{' '}
-          {feeLive ? 'after that the booking fee is ' : 'after that, '}
-          <b style={{ color: 'var(--m-ink)' }}>{bookingFeeScheduleSummary()}</b>, only on the couples we bring you. Your imported and repeat clients stay free, forever.
+          {fee ? (
+            <>
+              {feeLive ? 'after that the booking fee is ' : 'after that, '}
+              <b style={{ color: 'var(--m-ink)' }}>{bookingFeeScheduleSummary(fee)}</b>, only on the couples we bring you.
+            </>
+          ) : (
+            <>after that a booking fee, only on the couples we bring you — its rate is shown in full before you agree to any booking.</>
+          )}{' '}
+          Your imported and repeat clients stay free, forever.
         </Lede>
       </div>
     </section>
@@ -562,7 +581,7 @@ export function VendorGrowGetPaid() {
 
 /* ── CLOSING CTA ───────────────────────────────────────────────────────── */
 
-export function VendorGrowCTA() {
+export function VendorGrowCTA({ fee }: FeeProp) {
   return (
     <div style={{ textAlign: 'center', background: 'var(--m-paper)', borderTop: '1px solid var(--m-line)' }}>
       <section style={SECTION}>
@@ -580,7 +599,7 @@ export function VendorGrowCTA() {
           </Link>
         </div>
         <p style={{ maxWidth: 1120, margin: '26px auto 0', textAlign: 'center', fontSize: 12, color: 'var(--m-slate-3)', fontStyle: 'italic' }}>
-          {supplierCommissionShort()} · we never hold your money · merit-only ranking.
+          {supplierCommissionShort(fee)} · we never hold your money · merit-only ranking.
         </p>
       </section>
     </div>

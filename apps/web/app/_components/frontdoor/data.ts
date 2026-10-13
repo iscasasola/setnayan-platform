@@ -34,6 +34,8 @@
  *   • The writing carries the page.
  */
 import 'server-only';
+import type { BookingFeeSchedule } from '@/lib/booking-fee';
+import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 
 import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -251,6 +253,12 @@ export type FrontDoorData = {
    * page already keeps.
    */
   yourPeopleOk: boolean;
+  /**
+   * The LIVE supplier booking-fee schedule the "Open your shop" card quotes —
+   * never the code default (audit 2026-10-12, item 5). NULL = could not read
+   * it; the card then names the fee without a rate.
+   */
+  bookingFee: BookingFeeSchedule | null;
 };
 
 /*
@@ -451,7 +459,7 @@ async function folderOfService(key: string) {
  * the writing that is carrying the page.
  */
 export async function loadFrontDoorData(): Promise<FrontDoorData> {
-  const [articlesRaw, storiesRaw, shopsRaw, showcasesRaw, yourPeople] =
+  const [articlesRaw, storiesRaw, shopsRaw, showcasesRaw, yourPeople, bookingFee] =
     await Promise.all([
       Promise.resolve(publishedBlogArticles()).catch(() => null),
       /*
@@ -481,6 +489,8 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
         already owns, and it degrades on its own like every other rail here.
       */
       loadYourPeople().catch(() => ({ slugs: new Set<string>(), ok: false })),
+      // One singleton-row read; NULL on any failure (never the code default).
+      getLiveBookingFeeSchedule(),
     ]);
 
   const articles: FrontDoorArticle[] = (articlesRaw ?? [])
@@ -613,5 +623,6 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     liveShopCount: shopsRaw.count,
     realWeddingCount,
     yourPeopleOk: yourPeople.ok,
+    bookingFee,
   };
 }

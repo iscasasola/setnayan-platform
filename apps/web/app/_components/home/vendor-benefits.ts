@@ -90,7 +90,11 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           // Was '0% commission at launch' with a HAND-TYPED 5% / 1% / ₱100,000 —
           // two ways to go stale in one row, and the launch half was already
           // false the day a supplier was billed ₱837.50. Both derive now.
-          { n: supplierCommissionShort(), b: supplierCommissionPromise() },
+          // A module constant has no render to read the live schedule in, so it
+          // names the fee WITHOUT a rate (null) rather than printing the code
+          // default (audit 2026-10-12, item 5). Pages that can read the live
+          // rate print it beside this — the /for-suppliers matrix footer.
+          { n: supplierCommissionShort(null), b: supplierCommissionPromise(null) },
           { n: 'GCash or bank, your call', b: 'Couples pay you directly to your GCash/BDO. We never hold your money.' },
           { n: 'Set your price once', b: 'Publish packages and rates once; they power every quote you send.' },
           { n: 'PH-style milestone tracking', b: 'Log reservation → progress → balance with proof, the way PH couples pay.' },

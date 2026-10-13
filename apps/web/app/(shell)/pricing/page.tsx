@@ -30,7 +30,8 @@ import {
   readPapicFreeOneCameraPoints,
 } from '@/lib/papic-tier-config-read';
 import { PAPIC_FREE_ONE_CAMERA_COUNT } from '@/lib/papic-one';
-import { COMMISSION_PCT } from '@/lib/commission-promise';
+import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
+import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { resolveAiPrices } from '@/app/_components/home/pricing-data';
 
 /**
@@ -77,15 +78,24 @@ import { resolveAiPrices } from '@/app/_components/home/pricing-data';
   for it to disagree with itself — do not re-add it here.
 */
 
+/*
+  ⚖ THE AUDIENCE RULE (owner 2026-09-22, R7; audit 2026-10-12 E4). This page
+  sells couple software AND supplier plans, so its share lines are read by
+  both. "0% commission" is a couple's unqualified truth and needs nothing beside
+  it; "Suppliers keep 100%" / "Setnayan takes 0%" were SUPPLIER claims with no
+  fee sentence — a supplier keeps 100% of the couple's payment and still pays
+  a booking fee on couples we introduce. Those lines now carry the fee sentence;
+  the couple's zero is left alone.
+*/
 export const metadata = {
   title: 'Pricing',
   description:
-    'Plan for free. Add Setnayan AI and the software you actually use at your event, at transparent PHP prices. 0% commission on supplier bookings. Suppliers keep 100%.',
+    `Plan for free. Add Setnayan AI and the software you actually use at your event, at transparent PHP prices. ${COMMISSION_PCT}% commission on supplier bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee only on couples we introduce.`,
   alternates: { canonical: '/pricing' },
   openGraph: {
     title: 'Pricing · Setnayan',
     description:
-      `Plan free, add the magic as you go. Transparent PHP prices. Suppliers transact directly. Setnayan takes ${COMMISSION_PCT}%.`,
+      `Plan free, add the magic as you go. Transparent PHP prices. Couples pay suppliers directly — ${COMMISSION_PCT}% commission. Suppliers pay a booking fee only on couples we introduce.`,
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
@@ -93,7 +103,7 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Pricing · Setnayan',
-    description: 'Plan free · add software à la carte · suppliers keep 100% · 0% commission.',
+    description: `Plan free · add software à la carte · ${COMMISSION_PCT}% commission · suppliers pay a booking fee only on couples we introduce.`,
   },
 };
 
@@ -234,7 +244,7 @@ export default async function PricingPage() {
   // Reads in parallel · helpers return [] on error, so the page still renders a
   // polite empty state rather than 500'ing. The Essentials/Complete bundle tiers
   // were removed 2026-06-29 (both deactivated).
-  const [customerSkus, vendorSkus, papicTierConfig, papicOneTiers, papicFreeOnePoints] =
+  const [customerSkus, vendorSkus, papicTierConfig, papicOneTiers, papicFreeOnePoints, feeSchedule] =
     await Promise.all([
       fetchV2CustomerCatalog(),
       fetchV2VendorCatalog(),
@@ -248,6 +258,9 @@ export default async function PricingPage() {
       // papic_event_pool_config.free_one_camera_points. See the free-camera
       // block below for why the tier config's seat count was the wrong number.
       readPapicFreeOneCameraPoints(),
+      // The LIVE supplier booking-fee schedule, for the supplier-plan
+      // structured data (never the code default — audit 2026-10-12, item 5).
+      getLiveBookingFeeSchedule(),
     ]);
 
   // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): one
@@ -572,7 +585,9 @@ export default async function PricingPage() {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
           name: s.title,
-          description: `${s.title} · Setnayan supplier subscription ${cadence.shortLabel}. 0% commission on bookings.`,
+          // A supplier plan, read by suppliers: the zero owes its second
+          // sentence, at the LIVE rate (audit 2026-10-12, items 5 + 6).
+          description: `${s.title} · Setnayan supplier subscription ${cadence.shortLabel}. ${supplierCommissionShort(feeSchedule)}.`,
           provider: ORGANIZATION_REF,
           category: 'Wedding supplier subscription',
           offers: {

@@ -1,5 +1,7 @@
 import 'server-only';
+import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { BOOKING_FEE, type BookingFeeSchedule } from '@/lib/booking-fee';
 
 /**
@@ -85,3 +87,30 @@ function positiveOr(raw: unknown, fallback: number): number {
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return n;
 }
+
+/**
+ * THE LIVE SCHEDULE FOR A PAGE THAT QUOTES IT — one read per render, or NULL.
+ *
+ * ⚖ Audit 2026-10-12, item 5: the public and supplier pages (`/for-suppliers`,
+ * the front door, `llms.txt`, the claim page, the earnings blurb) printed the
+ * CODE DEFAULT `BOOKING_FEE`, not the owner's live `platform_settings`
+ * numbers. Right only while the two agree — the day the owner edits
+ * /admin/pricing, those pages advertise a rate nobody is billed.
+ *
+ * 🔑 NULL MEANS "WE COULD NOT ASK", AND THE COPY THEN PRINTS NO RATE AT ALL —
+ * never the code default dressed as today's figure. `getBookingFeeSchedule`
+ * already degrades a refused READ to the locked default; this adds the case it
+ * cannot catch — no service-role client to read with (a CI build with no key,
+ * where `createAdminClient()` throws before the read).
+ *
+ * `cache()`d, so a page and its metadata resolve it once.
+ */
+export const getLiveBookingFeeSchedule = cache(
+  async (): Promise<BookingFeeSchedule | null> => {
+    try {
+      return await getBookingFeeSchedule(createAdminClient());
+    } catch {
+      return null;
+    }
+  },
+);

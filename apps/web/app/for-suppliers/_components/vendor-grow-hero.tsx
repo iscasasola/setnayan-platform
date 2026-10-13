@@ -16,8 +16,10 @@
 import Image from 'next/image';
 import { VendorHeroGate } from './vendor-hero-gate';
 import { supplierCommissionPromise } from '@/lib/commission-promise';
+import type { BookingFeeSchedule } from '@/lib/booking-fee';
 
-export function VendorGrowHero() {
+/** `fee` — the LIVE schedule the page read, or null (named without a rate). */
+export function VendorGrowHero({ fee }: { fee: BookingFeeSchedule | null }) {
   return (
     <header
       style={{
@@ -93,7 +95,7 @@ export function VendorGrowHero() {
               The same false claim `VendorGrowFairPay` records fixing on
               2026-09-20; it was simply never removed here. One source now, and
               its numbers derive from the bill. */}
-          {supplierCommissionPromise()}
+          {supplierCommissionPromise(fee)}
         </p>
         {/* CTA row + hero scroll-lock gate — a client island (the hero itself
             stays a Server Component with the LCP <Image>). */}

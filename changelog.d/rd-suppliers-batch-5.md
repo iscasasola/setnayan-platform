@@ -27,6 +27,14 @@ exactly **"Report a problem"** — same action, same disputes flow. Guards re-po
 (the row label + a new check that the workspace door says the same words, opens the same flow and never promises a
 refund); sabotage: each old wording restored → RED. Every other question ships with its member's default.
 
+Then `main` once more (f25972b66, Event Hub batch 4 #6526): `app/_components/counter.tsx` was added on both sides —
+#6514's form Counter and #6520's approved seat-plan Counter (kind 17). Main's drawing is THE Counter
+(`lib/the-counter-is-one-drawing.test.ts`); the supplier's Dates post through a new `app/_components/form-counter.tsx`
+that keeps the form's number and draws that one Counter (Dates guard §7 re-pointed; sabotage: a copied pill → RED, the
+self-save wait broken → RED). The Suppliers b3fix (44-px reach, live Build count) joined with #6494's "Add" label
+(`find-thumb-row`, `every-press-reaches-44` guard re-pointed) and #6505's lab shell (live count on Find; the Build tab
+keeps its body's count).
+
 Generated files regenerated against the join (never hand-merged): ugat screens, root-map baselines, no-card baseline,
 port-control baseline, exposure-surface baseline (PGlite replay), admin jobs + admin routes.
 

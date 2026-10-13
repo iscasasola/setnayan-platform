@@ -53,7 +53,9 @@ export function BlockGroundRows({ block }: { block: BlockGroundBlock }) {
             aria-pressed={g === picked}
             aria-label={BLOCK_GROUND_NAME[g]}
             data-block-ground-tile={g}
-            onClick={() => (eventId ? saveWhole(blockLooksWithGround(prefs, block, g === today ? null : g)) : undefined)}
+            /* 🤫 The tile already worn: a tap does nothing — no save, no ↺ step (the batch-3 walk: an empty
+               `block_looks:{}` written, an ↺ that changed nothing). */
+            onClick={() => (eventId && g !== picked ? saveWhole(blockLooksWithGround(prefs, block, g === today ? null : g)) : undefined)}
             className={SP_BG_TILE}
           >
             <span className={SP_BG_TILE_FACE} style={g === 'frost' ? { background: 'linear-gradient(135deg, rgba(255,255,255,.9), rgba(217,185,154,.55))' } : undefined} data-tile-face={g === 'none' ? 'none' : 'flat'}>

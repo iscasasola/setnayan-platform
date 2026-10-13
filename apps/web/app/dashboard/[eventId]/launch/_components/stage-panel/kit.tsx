@@ -142,7 +142,8 @@ export function Dd({
       <span className={stacked ? SP_DD_STACKED_LABEL : SP_DD_LABEL} data-dd-label="">
         {small}
       </span>
-      <PickMenu label={label} value={value} options={options} onPick={onPick} buttonText={buttonText} picked={picked} className={stacked ? SP_DD_STACKED_BUTTON : SP_DD_BUTTON} />
+      {/* 🤫 One choice: the one already picked does nothing — no save, no ↺ step. (A ✓ list ticks and unticks.) */}
+      <PickMenu label={label} value={value} options={options} onPick={(k) => (picked || k !== value ? onPick(k) : undefined)} buttonText={buttonText} picked={picked} className={stacked ? SP_DD_STACKED_BUTTON : SP_DD_BUTTON} />
     </div>
   );
   return about ? (

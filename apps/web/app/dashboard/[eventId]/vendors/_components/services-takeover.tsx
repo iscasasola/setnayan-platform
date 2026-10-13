@@ -62,8 +62,10 @@ import {
   SUPPLIERS_MODE_LABEL,
   SUPPLIERS_MODE_TAB,
   isModeTab,
+  liveBuildTally,
   suppliersModeOfTab,
   type BuildTally,
+  type LiveTallyBase,
   type SuppliersMode,
 } from '@/lib/suppliers-shell';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
@@ -77,6 +79,7 @@ import {
   COVERAGE_STRIP_HEADING,
 } from '@/lib/explore-info-copy';
 import { BuildCart } from './build-cart';
+import { BENCH_BUILT_EVENT, benchLocalStore, builtNowIn } from './bench-local';
 import { SuppliersModeContext, THUMB_SLIDE_MS } from './suppliers-mode';
 
 // The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META live in
@@ -133,7 +136,8 @@ export function ServicesTakeover({
   eventId,
   initialTab = 'shortlist',
   factsSlot,
-  tally,
+  tally: drawnTally,
+  liveTally = null,
   bookedCount,
   shortlistSlot,
   buildSlot,
@@ -154,6 +158,9 @@ export function ServicesTakeover({
   /** "Build 2/5" and the build's money — `buildTally` over the page's own plan
    *  model (`lib/suppliers-shell.ts`). */
   tally: BuildTally;
+  /** The inputs `tally` was counted from — so a press that answers in place (Add to build) moves Build N/M and
+   *  the cart peek at once (`liveBuildTally`). Null: the page's numbers as drawn. */
+  liveTally?: LiveTallyBase | null;
   /** "Booked 2" — counted from the same rows the Booked body draws. */
   bookedCount: number;
   /** The team, as rows — booked first, one next step each (`team-rows.tsx`). */
@@ -166,6 +173,21 @@ export function ServicesTakeover({
    *  and the watch guard are on. Purely presentational. */
   premium?: boolean;
 }) {
+  // 🧮 COUNTED AGAIN AT EACH PRESS (batch-3 walk, 2026-10-13): the bench answers Add to build in place and says so
+  // (`BENCH_BUILT_EVENT`); Build N/M and the cart peek re-count from the page's own inputs with each pick as it
+  // stands now — no page render. The leave-Find refresh brings the page's own numbers, which then agree.
+  const [builtTick, setBuiltTick] = useState(0);
+  useEffect(() => {
+    const onBuilt = () => setBuiltTick((n) => n + 1);
+    window.addEventListener(BENCH_BUILT_EVENT, onBuilt);
+    return () => window.removeEventListener(BENCH_BUILT_EVENT, onBuilt);
+  }, []);
+  const tally = useMemo(
+    () => (liveTally ? liveBuildTally(liveTally, (v, g, drawn) => builtNowIn(benchLocalStore(eventId), v, g, drawn)) : drawnTally),
+    // `builtTick`: the store is a module map — the event is what says it moved.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [liveTally, drawnTally, eventId, builtTick],
+  );
   const firstMode = suppliersModeOfTab(initialTab);
   const [mode, setMode] = useState<SuppliersMode>(firstMode);
   // Drawn when first shown, then kept: a body's own state survives a switch.

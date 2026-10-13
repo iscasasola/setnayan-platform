@@ -25,7 +25,7 @@ import { withholdCardNames, type BenchServiceCard } from '@/lib/bench-service-ca
 import {
   INLINE_MORE_FAILED,
   INLINE_MORE_LOADING,
-  INLINE_MORE_SAVE_FAILED,
+  inlineMoreSaveFailed,
   INLINE_MORE_SIGNED_OUT,
   MORE_TO_COMPARE_SAVE,
   moreToCompareEmpty,
@@ -69,7 +69,7 @@ test('a search that matched nobody and an empty category are different sentences
 });
 
 test('the list says supplier, never vendor', () => {
-  for (const s of [INLINE_MORE_FAILED, INLINE_MORE_LOADING, INLINE_MORE_SAVE_FAILED, INLINE_MORE_SIGNED_OUT, MORE_TO_COMPARE_SAVE]) {
+  for (const s of [INLINE_MORE_FAILED, INLINE_MORE_LOADING, inlineMoreSaveFailed('Kusina ni Lola'), INLINE_MORE_SIGNED_OUT, MORE_TO_COMPARE_SAVE]) {
     assert.ok(!/vendor/i.test(s), `"${s}" says vendor`);
   }
 });

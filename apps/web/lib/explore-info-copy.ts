@@ -465,7 +465,10 @@ export function inlineMoreSunkNote(count: number): string {
    "we could not look" must never wear the same words on a surface whose whole
    job is to show the couple more vendors. */
 export const INLINE_MORE_FAILED = "We couldn't load more suppliers just now. Try again in a moment.";
-export const INLINE_MORE_SAVE_FAILED = "We couldn't save that supplier. Nothing was added.";
+/** A refused Save names WHO was not saved (batch-3 walk, 2026-10-13 — the same shape as a refused Add or Remove). */
+export function inlineMoreSaveFailed(name: string): string {
+  return `${name} could not be saved. Nothing was added.`;
+}
 /**
  * The refusal when the save was handed an event this account does not host.
  * Separate from the catch-all because it is the one cause a couple can act on —

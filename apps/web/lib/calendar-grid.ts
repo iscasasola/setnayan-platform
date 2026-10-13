@@ -149,3 +149,54 @@ export const CALENDAR_CLOSE_AFTER_PICK_MS = 260;
 export const CALENDAR_MOTION = { sheet: 220 / 230, panel: 160 / 230, month: 120 / 230 } as const;
 /** How far a month slides in from, in px, toward the side it came from. */
 export const CALENDAR_MONTH_SLIDE_PX = 18;
+
+/* ── KIND 31 · CALENDAR DAYS WITH SEVERAL STATES (extends kind 8) ─────────────────────────────────────────────────
+ *
+ * Owner, 2026-10-12 ("APPROVE ALL", control templates round 2, `prototypes/control_templates_round2_2026-10-12.html`
+ * § 31): *"The approved calendar, with meaning under the days: a supplier's dates (booked · holding · blocked · free),
+ * a couple's plan. The picked day stays the one terracotta circle; a dot says what is on the day; a blocked day is
+ * crossed out."* — and answer 4: **a blocked day = a hatched grey square** (not a struck-through number). Two things
+ * on a day are two dots; a full day (its limit reached) is bold. **The colour is never the only sign** — every dot has
+ * its word in the legend and in the day's own name for a screen reader.
+ *
+ * The screen says what each day holds (`CalendarDayState`); this file only says how that is drawn and named.
+ */
+
+/** What a dot under a day means — green Booked · amber Holding · the accent for the viewer's own event. */
+export type CalendarDot = 'booked' | 'holding' | 'event';
+
+/** The legend's words, and a day's name for a screen reader. */
+export const CALENDAR_DOT_WORD: Readonly<Record<CalendarDot, string>> = {
+  booked: 'Booked',
+  holding: 'Holding',
+  event: 'Your event',
+};
+
+/** One day's state (kind 31). Left out, a day is drawn exactly as kind 8 draws it. */
+export type CalendarDayState = {
+  /** A dot per thing on the day, in this order; at most three are drawn. */
+  dots?: readonly CalendarDot[];
+  /** Nothing new can be booked on it — the hatched grey square. */
+  blocked?: boolean;
+  /** Its limit is reached — the number is bold. */
+  full?: boolean;
+};
+
+/** The most dots under one day (a 44-px day has room for three 5-px dots). */
+export const CALENDAR_MAX_DOTS = 3;
+
+/** A day's dots, deduplicated in the legend's order and cut to what fits. Blocked days carry none (the hatch says it). */
+export function dayDots(state: CalendarDayState | null | undefined): CalendarDot[] {
+  if (!state || state.blocked) return [];
+  const seen = new Set(state.dots ?? []);
+  return (['booked', 'holding', 'event'] as const).filter((d) => seen.has(d)).slice(0, CALENDAR_MAX_DOTS);
+}
+
+/** What a screen reader hears after the day's date: "blocked" · "Booked and Holding, full" · '' for a quiet day. */
+export function dayStateWords(state: CalendarDayState | null | undefined): string {
+  if (!state) return '';
+  if (state.blocked) return 'blocked';
+  const words = dayDots(state).map((d) => CALENDAR_DOT_WORD[d]);
+  const said = words.length <= 1 ? (words[0] ?? '') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+  return state.full ? (said ? `${said}, full` : 'full') : said;
+}

@@ -7,8 +7,11 @@ import {
   CALENDAR_MOTION,
   CALENDAR_MONTH_SLIDE_PX,
   CALENDAR_WEEKDAYS,
+  CALENDAR_DOT_WORD,
   calendarOpensAs,
+  dayDots,
   dayLook,
+  dayStateWords,
   dayOf,
   dayWords,
   monthCells,
@@ -16,6 +19,8 @@ import {
   monthTitle,
   stepMonth,
   type CalendarDay,
+  type CalendarDayState,
+  type CalendarDot,
   type CalendarMonth,
   type CalendarRange,
 } from '@/lib/calendar-grid';
@@ -63,17 +68,30 @@ export const CALENDAR_DAY_CLASS =
 /** ‹ and › — round, 44 px, the accent arrow (the small mark that says "you can tap this"). */
 const STEP_CLASS = 'sn-press flex h-11 min-h-11 w-11 flex-none items-center justify-center rounded-full p-0 text-sn-accent disabled:opacity-40';
 
+/**
+ * KIND 31 — a blocked day's hatch: thin ink lines on nothing, so it reads as "closed" in Light and in Dark alike (the
+ * ink flips with the theme). The square's corners are the template's 10 px.
+ */
+export const CALENDAR_HATCH = 'repeating-linear-gradient(135deg, transparent 0 3px, rgb(var(--color-ink) / 0.16) 3px 4px)';
+/** A dot's colour: the house MEANING tokens (green booked, amber holding) — the viewer's own event is the accent class. */
+const DOT_FILL: Readonly<Record<Exclude<CalendarDot, 'event'>, string>> = {
+  booked: 'rgb(var(--color-ok))',
+  holding: 'rgb(var(--color-warn))',
+};
+
 /* ── THE GRID ───────────────────────────────────────────────────────────── */
 
 export function CalendarGrid({
   value = null,
   range = null,
   marks = null,
+  states = null,
   today = null,
   min = null,
   max = null,
   startAt = null,
   onPick,
+  onMonth,
   data,
 }: {
   /** The one day picked (`YYYY-MM-DD`). */
@@ -82,6 +100,11 @@ export function CalendarGrid({
   range?: CalendarRange | null;
   /** Days with something on: a dot under each. */
   marks?: ReadonlySet<CalendarDay> | null;
+  /**
+   * KIND 31 — what each day holds: a dot per thing (green Booked · amber Holding · the accent for your event), a
+   * hatched square for a blocked day, a bold number for a full one. A day left out is drawn as kind 8 draws it.
+   */
+  states?: ReadonlyMap<CalendarDay, CalendarDayState> | null;
   /** Today (the screen's clock — this file has none). */
   today?: CalendarDay | null;
   /** The earliest / latest day that may be picked. Left out, every day may. */
@@ -91,6 +114,8 @@ export function CalendarGrid({
   startAt?: CalendarDay | null;
   /** A day was tapped. */
   onPick: (day: CalendarDay) => void;
+  /** The month on show changed (‹ or ›) — a screen that reads a month at a time fetches it here. */
+  onMonth?: (month: CalendarMonth) => void;
   /** `data-calendar="<data>"`. */
   data?: string;
 }) {
@@ -114,7 +139,9 @@ export function CalendarGrid({
   }, [view]);
   const step = (n: number) => {
     came.current = n;
-    setView((v) => stepMonth(v, n));
+    const next = stepMonth(view, n);
+    setView(next);
+    onMonth?.(next);
   };
   const { lead, days } = monthCells(view);
   return (
@@ -142,6 +169,10 @@ export function CalendarGrid({
         {Array.from({ length: days }, (_, i) => {
           const day = dayOf(view.y, view.m, i + 1);
           const look = dayLook(day, { value, range, today, marks, min, max });
+          const st = states?.get(day) ?? null;
+          const dots = dayDots(st);
+          const blocked = st?.blocked === true;
+          const stWords = dayStateWords(st);
           return (
             <button
               key={day}
@@ -149,23 +180,40 @@ export function CalendarGrid({
               disabled={look.out}
               aria-pressed={look.picked}
               aria-current={look.today ? 'date' : undefined}
-              aria-label={`${dayWords(day)}${look.marked ? ' — something is on' : ''}`}
+              aria-label={`${dayWords(day)}${stWords ? ` — ${stWords}` : look.marked ? ' — something is on' : ''}`}
               data-calendar-day={day}
               data-calendar-in-range={look.inRange ? '' : undefined}
+              data-calendar-blocked={blocked ? '' : undefined}
+              data-calendar-full={st?.full ? '' : undefined}
               onClick={() => onPick(day)}
-              /* ONE shape per day: a circle — or, strictly between a range's two ends, a square of the soft fill. */
+              /* ONE shape per day: a circle — or, strictly between a range's two ends, a square of the soft fill; or
+                 (kind 31) a blocked day's hatched square. The picked day is always the one circle. */
+              style={blocked && !look.picked ? { backgroundImage: CALENDAR_HATCH } : undefined}
               className={`${CALENDAR_DAY_CLASS} ${
                 look.picked
                   ? `rounded-full ${PILL_ON_CLASS} font-bold`
                   : look.out
                     ? 'pointer-events-none rounded-full text-ink/25'
-                    : look.inRange
-                      ? 'rounded-none bg-sn-accent/[0.14] text-ink'
-                      : 'rounded-full text-ink'
-              } ${look.today && !look.picked ? 'ring-1 ring-inset ring-ink/15' : ''}`}
+                    : blocked
+                      ? 'rounded-[10px] text-ink/45'
+                      : look.inRange
+                        ? 'rounded-none bg-sn-accent/[0.14] text-ink'
+                        : 'rounded-full text-ink'
+              } ${st?.full && !look.picked ? 'font-bold' : ''} ${look.today && !look.picked ? 'ring-1 ring-inset ring-ink/15' : ''}`}
             >
               {i + 1}
-              {look.marked ? (
+              {dots.length > 0 ? (
+                <span aria-hidden data-calendar-dots="" className="absolute bottom-[5px] left-1/2 flex -translate-x-1/2 gap-[2px]">
+                  {dots.map((d) => (
+                    <i
+                      key={d}
+                      data-calendar-dot={d}
+                      className={`block h-[5px] w-[5px] rounded-full ${look.picked ? 'bg-current' : d === 'event' ? 'bg-sn-accent' : ''}`}
+                      style={look.picked || d === 'event' ? undefined : { background: DOT_FILL[d] }}
+                    />
+                  ))}
+                </span>
+              ) : look.marked ? (
                 <span aria-hidden data-calendar-dot="" className={`absolute bottom-[5px] left-1/2 h-[5px] w-[5px] -translate-x-1/2 rounded-full ${look.picked ? 'bg-current' : 'bg-sn-accent'}`} />
               ) : null}
             </button>
@@ -173,6 +221,29 @@ export function CalendarGrid({
         })}
       </div>
     </div>
+  );
+}
+
+/**
+ * KIND 31 · THE LEGEND — every dot's word under the month (the colour is never the only sign): a dot per meaning the
+ * screen uses, and the hatch when it can show a blocked day. Shown, never pressed.
+ */
+export function CalendarLegend({ dots, blocked = false }: { dots: readonly CalendarDot[]; blocked?: boolean }) {
+  return (
+    <p data-calendar-legend="" className="flex flex-wrap gap-x-3.5 gap-y-1.5 px-0.5 pt-2 text-[12px] text-ink/70">
+      {dots.map((d) => (
+        <span key={d} className="inline-flex items-center gap-1.5">
+          <i aria-hidden className={`block h-2 w-2 rounded-full ${d === 'event' ? 'bg-sn-accent' : ''}`} style={d === 'event' ? undefined : { background: DOT_FILL[d] }} />
+          {CALENDAR_DOT_WORD[d]}
+        </span>
+      ))}
+      {blocked ? (
+        <span className="inline-flex items-center gap-1.5">
+          <i aria-hidden className="block h-2.5 w-3.5 rounded-[3px]" style={{ backgroundImage: CALENDAR_HATCH }} />
+          Blocked
+        </span>
+      ) : null}
+    </p>
   );
 }
 

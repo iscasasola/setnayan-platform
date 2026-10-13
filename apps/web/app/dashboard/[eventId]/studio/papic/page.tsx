@@ -277,7 +277,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      'event_id, event_type, event_date, papic_storage_target, papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end, papic_style, papic_uploads_open, papic_on',
+      'event_id, event_type, event_date, papic_storage_target, papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end, papic_style, papic_uploads_open, papic_on, venue_latitude, venue_longitude',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -1083,7 +1083,14 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           </a>
         }
       >
-        <GalleryPreviewCard eventId={eventId} openOnArrival={search.gallery === 'open'} />
+        <GalleryPreviewCard
+          eventId={eventId}
+          openOnArrival={search.gallery === 'open'}
+          venue={{
+            lat: ((ev as { venue_latitude?: number | null }).venue_latitude ?? null),
+            lng: ((ev as { venue_longitude?: number | null }).venue_longitude ?? null),
+          }}
+        />
       </PapicStage>
 
       {/* ══ FOUR WAYS INTO YOUR LIBRARY ═══════════════════════════════════════
@@ -2277,9 +2284,12 @@ async function DriveConnectedPanel({
 async function GalleryPreviewCard({
   eventId,
   openOnArrival = false,
+  venue,
 }: {
   eventId: string;
   openOnArrival?: boolean;
+  /** The venue's coordinates, from the page's event read — for the gallery's clock. */
+  venue: { lat: number | null; lng: number | null };
 }) {
   const supabase = await createClient();
 
@@ -2295,22 +2305,8 @@ async function GalleryPreviewCard({
   //
   // 🔑 NO ZONE ⇒ NO TIME. A refusal here drops the time half of every credit and
   // keeps the name. It never prints the reader's own clock as the venue's.
-  const { data: venueForClock, error: venueForClockError } = await supabase
-    .from('events')
-    .select('venue_latitude, venue_longitude')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  // A REFUSED QUERY IS NOT A THROWN ERROR — bound, logged, and it changes
-  // nothing the screen STATES: the credits keep the name and drop the time.
-  if (venueForClockError) {
-    logQueryError('PapicStudioPage.venueForClock', venueForClockError, { eventId }, 'graceful_degrade');
-  }
-  const galleryTimeZone = venueForClock
-    ? eventTimezoneFromCoords(
-        (venueForClock.venue_latitude as number | null) ?? null,
-        (venueForClock.venue_longitude as number | null) ?? null,
-      )
-    : null;
+  // 🔌 The venue rides the page's one event read now (2026-10-14, least requests).
+  const galleryTimeZone = eventTimezoneFromCoords(venue.lat, venue.lng);
 
   const [photos, densityRows, seesAll, preservationTotals] = await Promise.all([
     fetchPapicGallery(supabase, eventId),

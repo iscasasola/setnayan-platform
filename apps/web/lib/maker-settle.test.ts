@@ -44,7 +44,7 @@ test('↺ · Restore · Reset: the bar stays busy until the page shows it — a 
      is busy only while the page it keeps still moves (`drawn.settle`); `lib/an-older-undo-is-drawn-at-once.test.ts`.
      Every other ↺ · Restore · Reset — the `slow` path — as before.) */
   assert.match(hook, /const slow = \(fields: Record<string, string>, intent: HubDraftIntent \| null\) => \{\s*const watch = intent && DRAFT_INTENT_RELOADS\.includes\(intent\) \? canvasSettleWatch\(\) : null;\s*if \(watch\) \{\s*setSettling\(intent\);\s*void watch\.done\.then\(\(\) => setSettling\(null\)\);\s*\}\s*start\(async/);
-  assert.match(hook, /const drawn = runner\.runDrawnUndo\(drawnIo\(\)\);\s*if \(!drawn\) return false;\s*setSettling\('undo'\);\s*void drawn\.settle\.then\(\(\) => setSettling\(null\)\);/, 'a drawn ↺ is busy until the page it keeps settles');
+  assert.match(hook, /const drawn = runner\.runDrawnUndo\(drawnIo\(\)\);\s*if \(!drawn\) return false;\s*if \(drawn\.now\) return true;\s*setSettling\('undo'\);\s*void drawn\.settle\.then\(\(\) => setSettling\(null\)\);/, 'a drawn ↺ is busy until the page it keeps settles (one drawn in full at once has nothing to wait for)');
   /* Busy is the action OR the wait for the page: every control of the bar reads the one `pending`. */
   assert.match(hook, /return \{ pending: pending \|\| settling !== null, working: settling, result, run \};/);
   /* A refusal brings no render: the bar is given back at once. */

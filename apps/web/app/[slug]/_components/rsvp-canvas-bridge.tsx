@@ -269,6 +269,11 @@ export function RsvpCanvasBridge() {
       /* The couple's own touch: a screen its tab just opened is theirs to move again. */
       pageTop.onTouch();
       if (inTyping(target)) return;
+      /* 📱 NEVER A FINGER'S pointerdown (batch-3 walk, 2026-10-13): in WebKit — every iPhone browser — a cancelled
+         TOUCH pointerdown cancels the tap's click as well, so the Yes / No answers (labels, inert here) were never
+         picked by a finger; a mouse still could. The field's focus is refused on the mousedown that follows the tap
+         instead (both engines send it before the click), so no keyboard rises either way. */
+      if (e.type === 'pointerdown' && (e as PointerEvent).pointerType !== 'mouse') return;
       if (target?.closest(INERT_FIELDS)) e.preventDefault();
     };
     const onKey = (e: Event) => {

@@ -40,7 +40,9 @@ export function runDrawnUndo(io: UndoIo): DrawnUndo | null {
   const drawn = top.step.undraw();
   if (!drawn) return null;
   undoJournal.pop();
-  announceMakerSave({ state: 'saving' });
+  /* "Saving…" one frame later: the press's own task stays light, so the canvas paints the undone step first. */
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => announceMakerSave({ state: 'saving' }));
+  else announceMakerSave({ state: 'saving' });
   chain = chain.then(() => finish(top, drawn, io)).catch(() => {});
   return drawn;
 }

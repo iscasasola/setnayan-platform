@@ -182,6 +182,9 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
   const drawnUndo = (runner: UndoRunner): boolean => {
     const drawn = runner.runDrawnUndo(drawnIo());
     if (!drawn) return false;
+    /* A step drawn in full at once (a bridge message) keeps the bar as it is — no render in the press itself, so the
+       page's own frame paints first; a scene's redraw in place keeps ↺ busy until it is on screen. */
+    if (drawn.now) return true;
     setSettling('undo');
     void drawn.settle.then(() => setSettling(null));
     return true;

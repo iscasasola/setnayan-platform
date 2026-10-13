@@ -20,7 +20,12 @@
  */
 
 /** How the undo's held save ended, told to the drawing: `landed(false)` puts the step back on the page. */
-export type DrawnUndo = { settle: Promise<'shown' | 'failed' | 'timeout'>; landed: (ok: boolean) => void };
+export type DrawnUndo = {
+  settle: Promise<'shown' | 'failed' | 'timeout'>;
+  landed: (ok: boolean) => void;
+  /** Already on the page in full (a bridge message): nothing to wait for, so the bar is never made busy for it. */
+  now?: true;
+};
 
 /** A step the Maker drew, and how to draw it backwards. */
 export type UndoStep = {
@@ -61,6 +66,7 @@ function fold(newer: UndoStep['undraw'], older: UndoStep['undraw']): UndoStep['u
     }
     return {
       settle: Promise.all([a.settle, b.settle]).then(([x, y]) => (x !== 'shown' ? x : y)),
+      ...(a.now && b.now ? { now: true as const } : {}),
       landed: (ok) => {
         if (ok) {
           a.landed(true);
@@ -240,6 +246,7 @@ export function undrawScene(d: SceneUndoData): DrawnUndo | null {
 export function drawnNow(putBack: () => void): DrawnUndo {
   return {
     settle: Promise.resolve('shown'),
+    now: true,
     landed: (ok) => {
       if (!ok) putBack();
     },

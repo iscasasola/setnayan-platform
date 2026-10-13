@@ -2,6 +2,7 @@ import path from 'node:path';
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 import { sentrySourcemapsCanUpload } from './lib/sentry-sourcemaps-can-upload';
+import { findLayoutAnchors, oneCopyPerLayoutGroups } from './lib/one-copy-per-layout';
 
 function getHostnameFromEnv(url: string | undefined): string | null {
   if (!url) return null;
@@ -423,12 +424,27 @@ const nextConfig: NextConfig = {
   // compile too so `next build` doesn't try to resolve the absent, unused
   // jsdom/canvas node deps (it OOM-pattern-failed at module resolution before
   // this). Safe: neither is an app dependency and paper's node path never runs.
-  webpack: (config) => {
+  webpack: (config, { isServer, dev }) => {
     config.resolve = config.resolve || {};
     config.resolve.alias = config.resolve.alias || {};
     config.resolve.alias.jsdom = false;
     config.resolve.alias.canvas = false;
     config.resolve.alias['jsdom/lib/jsdom/living/generated/utils'] = false;
+    // 📦 ONE COPY PER LAYOUT (2026-10-13) — a module a layout already ships is
+    // not shipped again by a page beneath it. The app router makes every
+    // layout / loading / page its own webpack entry, and Next's client
+    // splitChunks (20KB minSize, 25 initial requests) leaves small shared
+    // modules COPIED into each one: the Maker's cold open carried 81 modules
+    // 2–4 times. Client production build only; no page can grow (every entry
+    // that gets an anchor's chunk already loads that anchor). Why + numbers:
+    // lib/one-copy-per-layout.ts.
+    const split = config.optimization?.splitChunks;
+    if (!isServer && !dev && split && typeof split === 'object') {
+      split.cacheGroups = {
+        ...(split.cacheGroups ?? {}),
+        ...oneCopyPerLayoutGroups(findLayoutAnchors(path.join(__dirname, 'app'))),
+      };
+    }
     return config;
   },
   images: {

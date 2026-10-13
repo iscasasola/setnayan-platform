@@ -23,6 +23,7 @@ import { AlertTriangle, BadgeCheck, ChevronRight, Info, Receipt, Wallet } from '
 import { ActionButton } from '@/components/action-button';
 import type { FeeDisclosure, DueFeeBill, WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { waivedFeeCopy } from '@/lib/booking-fee-disclosure';
+import { Badge } from '@/app/_components/badge';
 import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 
 /** Border / accent per tone. `good` is the free-booking and no-fee case. */
@@ -124,6 +125,7 @@ export function BookingFeeBillRow({
   bill,
   copy,
   line = false,
+  compact = false,
 }: {
   bill: DueFeeBill;
   /** `feeDueCopy(bill, phToday())` — the escalation is decided, not styled. */
@@ -135,8 +137,32 @@ export function BookingFeeBillRow({
    * is the row's main button (terracotta, look call 1). Absent → the boxed row exactly as it was.
    */
   line?: boolean;
+  /**
+   * 📋 ONE HAIRLINE ROW (Customers › Money, S-PR4; frames 05 · 30: "Booking fee · Cruz wedding · due Oct 10 · ₱2,500
+   * · Pay"). The headline alone — the bill's own sentence, amount and date in it — and Pay at the right. Pay is NOT
+   * the screen's main (owner 2026-10-12/13: ONE terracotta main per screen; on Money that is Log a payment): a
+   * neutral button that opens the pay page, which is the confirm + pay step (look call 11). The longer sentence and
+   * every bill's history live one tap on, on the pay page and the Booking fees page.
+   */
+  compact?: boolean;
 }) {
   const { accent, Icon } = TONE[copy.tone];
+  if (compact) {
+    return (
+      <div role="note" data-testid="booking-fee-bill" data-fee-bill-compact="" className="flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0">
+        <Icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: accent }} />
+        <p className="min-w-0 flex-1 text-[15px] font-medium leading-snug text-ink">{copy.headline}</p>
+        <ActionButton
+          tone="neutral"
+          icon={<Wallet aria-hidden strokeWidth={1.9} />}
+          label="Pay"
+          name={`Pay — ${copy.headline}`}
+          href={vendorBookingFeePayPath(bill.orderId)}
+          className="min-h-11 shrink-0"
+        />
+      </div>
+    );
+  }
   if (line) {
     return (
       <div role="note" data-testid="booking-fee-bill" data-fee-bill-line="" className="flex items-start gap-2.5 border-t border-ink/10 py-3">
@@ -207,17 +233,20 @@ export function BookingFeeBills({
   bills,
   copyFor,
   rows = false,
+  compact = false,
 }: {
   bills: readonly DueFeeBill[];
   copyFor: (bill: DueFeeBill) => FeeDisclosure;
   /** Hairline rows instead of boxes — `BookingFeeBillRow`'s `line` (the supplier's Today). */
   rows?: boolean;
+  /** One hairline row per bill — `BookingFeeBillRow`'s `compact` (Customers › Money). */
+  compact?: boolean;
 }) {
   if (bills.length === 0) return null;
   return (
     <>
       {bills.map((b) => (
-        <BookingFeeBillRow key={b.orderId} bill={b} copy={copyFor(b)} line={rows} />
+        <BookingFeeBillRow key={b.orderId} bill={b} copy={copyFor(b)} line={rows} compact={compact} />
       ))}
     </>
   );
@@ -236,12 +265,34 @@ export function BookingFeeBills({
  * is no CTA. But the AMOUNT is stated, every time — `waivedFeeCopy` refuses to
  * render a bare "Free".
  */
-export function WaivedFeeRows({ charges }: { charges: readonly WaivedFeeCharge[] }) {
+export function WaivedFeeRows({
+  charges,
+  compact = false,
+}: {
+  charges: readonly WaivedFeeCharge[];
+  /**
+   * ONE HAIRLINE ROW each (Customers › Money, frame 30: "Booking fee · Cruz wedding · free · launch offer"): the
+   * headline — which names the amount it would have cost — and a "Waived" badge (kind 11, a state, never pressed).
+   * Nothing to pay, so no button. Absent → the boxed rows exactly as they were.
+   */
+  compact?: boolean;
+}) {
   if (charges.length === 0) return null;
   return (
     <>
       {charges.map((c) => {
         const copy = waivedFeeCopy(c);
+        if (compact) {
+          return (
+            <div key={c.chargeId} role="note" data-testid="booking-fee-waived" data-fee-waived-compact="" className="flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0">
+              <BadgeCheck aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: TONE.good.accent }} />
+              <p className="min-w-0 flex-1 text-[15px] font-medium leading-snug text-ink">{copy.headline}</p>
+              <Badge tone="ok" data="fee-waived">
+                Waived
+              </Badge>
+            </div>
+          );
+        }
         return (
           <div
             key={c.chargeId}

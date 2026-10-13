@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import { FileSignature, FileText, MessageSquare } from 'lucide-react';
+import { ClipboardList, FileSignature, FileText, MessageSquare } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -78,7 +78,7 @@ import {
   type AccordionSection,
 } from '../_components/feature-accordion';
 import BookingsSurface from '../bookings/surface';
-import PaydaySurface from '../payday/surface';
+import { CustomersMoney } from './_components/money-segment';
 import MessagesSurface from '../messages/surface';
 import ContractsSurface from '../contracts/surface';
 import ProposalsSurface from '../proposals/surface';
@@ -1062,6 +1062,14 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
 // Dates has no accordion: its tools are its own folds (S-PR3, `dates-folds.tsx`).
 const CUSTOMER_SECTIONS: AccordionSection[] = [
   {
+    // 📋 THE BOOKINGS QUEUE, FOLDED (S-PR4). Its money moved into Money's rows; the queue stays one tap away because
+    // it alone carries "Add to prep schedule" (`VendorPrepForBooking`) — S-PR5 moves that onto the customer card.
+    key: 'bookings',
+    label: 'Bookings',
+    sub: 'Each booking’s status and prep items',
+    icon: <ClipboardList className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
     key: 'messages',
     label: 'Messages',
     sub: 'Your conversations — reply, reveal, and log outcomes',
@@ -1084,6 +1092,8 @@ const CUSTOMER_SECTIONS: AccordionSection[] = [
 async function CustomerSectionBody({ open, sp }: { open: string; sp: SP }) {
   const pass = Promise.resolve(sp);
   switch (open) {
+    case 'bookings':
+      return <BookingsSurface searchParams={pass as never} />;
     case 'messages':
       return <MessagesSurface searchParams={pass as never} />;
     case 'proposals':
@@ -1127,24 +1137,20 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
                 <CustomersDates search={search} />
               )}
             </div>
-          ) : null}
+          ) : (
+            // 💰 Money (S-PR4): payday + earnings + the booking-fee bills, as rows. `#payday` is where every "to come
+            // in" door lands (`customers/anchors.ts`).
+            <div id="payday" className="scroll-mt-24">
+              <CustomersMoney search={sp} />
+            </div>
+          )}
         </div>
       </section>
 
-      {seg === 'money' ? (
-        <>
-          {/* Bookings = the work queue of conversations; Payday = the cash-flow
-              timeline. S-PR4 redraws both as Money's rows. */}
-          <div id="bookings" className="scroll-mt-24">
-            <BookingsSurface searchParams={Promise.resolve(sp) as never} />
-          </div>
-          <div id="payday" className="scroll-mt-24">
-            <PaydaySurface />
-          </div>
-        </>
-      ) : null}
 
-      {/* `#customer-tools` is where every fold's door lands (`customers/anchors.ts`). */}
+      {/* `#customer-tools` is where every fold's door lands (`customers/anchors.ts`); `#bookings` is the old Bookings
+          link's landing — the Bookings fold sits in this accordion under Money. */}
+      <span id="bookings" aria-hidden className="block scroll-mt-24" />
       <div id="customer-tools" className="scroll-mt-24">
         {sections.length > 0 ? (
           <FeatureAccordion sections={sections} openKey={open}>

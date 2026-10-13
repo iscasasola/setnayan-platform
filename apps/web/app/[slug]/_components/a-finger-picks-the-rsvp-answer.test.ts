@@ -32,7 +32,9 @@ const BRIDGE = join(WEB, 'app/[slug]/_components/rsvp-canvas-bridge.tsx');
 const ORIGIN = 'http://rsvp-canvas.test';
 
 async function bundle(): Promise<string> {
-  const esbuild = createRequire(createRequire(join(WEB, 'package.json')).resolve('tsx'))('esbuild') as typeof import('esbuild');
+  /* esbuild is tsx's own (not a direct dependency, so no types here): only `build` is used. */
+  type Esbuild = { build: (o: Record<string, unknown>) => Promise<{ outputFiles: Array<{ text: string }> }> };
+  const esbuild = createRequire(createRequire(join(WEB, 'package.json')).resolve('tsx'))('esbuild') as Esbuild;
   const out = await esbuild.build({
     stdin: {
       contents: `import { createElement } from 'react'; import { createRoot } from 'react-dom/client'; import { RsvpCanvasBridge } from ${JSON.stringify(BRIDGE)};

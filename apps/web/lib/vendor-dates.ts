@@ -10,8 +10,9 @@
  * 🔑 THE THREE MEANINGS, AS-BUILT (the six-state taxonomy folded into the template's three words):
  *   Booked  (green dot)   — something consumes a seat that day: a Setnayan booking or the shop's own outside client
  *                            (`consumed > 0`). Full (its limit reached) = the number bold.
- *   Holding (amber dot)   — couples are waiting on the day: a pending enquiry names it (`inquiryCount`) or someone is on
- *                            its waiting list (`waitlistCount`). It holds no seat; it is a question about the day.
+ *   Holding (amber dot)   — couples are waiting on the day: an open conversation about an unbooked event on it
+ *                            (`inquiryCount`, from `openAsksOf`) or someone on its waiting list (`waitlistCount`). It
+ *                            holds no seat; it is a question about the day.
  *   Blocked (hatched)     — nothing new can be booked: a closure block (`blocked`) or the shop's own hard hold
  *                            (`locked`), both of which `acquire_schedule_pools` refuses on.
  *   Approve-first (`whitelist`) is not a fourth mark: bookable with the shop's yes, so the day draws what is on it and
@@ -206,8 +207,8 @@ export function dayRowsOf(
     rows.push({
       key: 'asking',
       kind: 'asking',
-      title: `${plural(input.asking, 'couple', 'couples')} asking about this date`,
-      line: 'Not booked yet',
+      title: `${plural(input.asking, 'couple', 'couples')} holding this date`,
+      line: 'Asked · not booked',
       badge: { tone: 'wait', word: 'Holding' },
     });
   }
@@ -252,4 +253,43 @@ export function capacityLine(pools: readonly { capacity: number }[]): string {
   const caps = [...new Set(pools.map((p) => p.capacity))];
   const each = caps.length === 1 ? `${plural(caps[0]!, 'event', 'events')} a day` : 'Events a day differ';
   return pools.length === 1 ? each : `${each} · ${pools.length} calendars`;
+}
+
+/* ── COUPLES HOLDING A DATE (amber) ────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A couple in an OPEN conversation with the shop about a dated event that is not booked — "Holding" on the month
+ * (frame 35: "Dela Cruz · asked Sep 30 · not booked"). Open = the enquiry is pending or accepted (never declined or
+ * closed); not booked = no seat taken for that event (the same pool bookings the green dot counts).
+ *
+ * ⚠ THE DATE COMES FROM AN `events` READ the page makes with the admin client, scoped to this shop's own threads —
+ * never from the thread's `event` embed, which is ALWAYS NULL for a supplier (no `events` RLS; `lib/chat.ts`). The
+ * shipped month counted that embed, so its "N asking" mark could never appear.
+ */
+export type DatesAsk = { threadId: string; eventId: string; date: string; name: string | null; askedAt: string };
+
+export function openAsksOf(
+  threads: readonly { thread_id: string; event_id: string; inquiry_status: string | null; created_at: string }[],
+  events: ReadonlyMap<string, { date: string | null; name: string | null }>,
+  bookedEventIds: ReadonlySet<string>,
+): DatesAsk[] {
+  const seen = new Set<string>();
+  const out: DatesAsk[] = [];
+  for (const t of threads) {
+    if (t.inquiry_status !== 'pending' && t.inquiry_status !== 'accepted') continue;
+    if (bookedEventIds.has(t.event_id) || seen.has(t.event_id)) continue;
+    const ev = events.get(t.event_id);
+    const date = ev?.date ? String(ev.date).slice(0, 10) : null;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    seen.add(t.event_id);
+    out.push({ threadId: t.thread_id, eventId: t.event_id, date, name: ev?.name?.trim() || null, askedAt: t.created_at });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.askedAt.localeCompare(b.askedAt));
+}
+
+/** The month's amber marks: how many couples hold each date (a count only crosses to the browser). */
+export function asksByDate(asks: readonly Pick<DatesAsk, 'date'>[]): { requestedDate: string; count: number }[] {
+  const by = new Map<string, number>();
+  for (const a of asks) by.set(a.date, (by.get(a.date) ?? 0) + 1);
+  return [...by.entries()].map(([requestedDate, count]) => ({ requestedDate, count })).sort((a, b) => a.requestedDate.localeCompare(b.requestedDate));
 }

@@ -59,7 +59,7 @@ export function customersSegmentOf(sp: Record<string, string | string[] | undefi
 }
 
 /** The folds the hub's one accordion holds — each drawn only under its own segment. */
-const FOLD_KEYS = ['messages', 'availability', 'proposals', 'contracts'] as const;
+const FOLD_KEYS = ['messages', 'proposals', 'contracts'] as const;
 
 /** The fold keys that live in a segment (for the one accordion under it). */
 export function foldsOf(seg: CustomersSegment): string[] {

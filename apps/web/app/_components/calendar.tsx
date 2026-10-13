@@ -8,6 +8,7 @@ import {
   CALENDAR_MONTH_SLIDE_PX,
   CALENDAR_WEEKDAYS,
   CALENDAR_DOT_WORD,
+  CALENDAR_HATCH,
   calendarOpensAs,
   dayDots,
   dayLook,
@@ -68,11 +69,6 @@ export const CALENDAR_DAY_CLASS =
 /** ‹ and › — round, 44 px, the accent arrow (the small mark that says "you can tap this"). */
 const STEP_CLASS = 'sn-press flex h-11 min-h-11 w-11 flex-none items-center justify-center rounded-full p-0 text-sn-accent disabled:opacity-40';
 
-/**
- * KIND 31 — a blocked day's hatch: thin ink lines on nothing, so it reads as "closed" in Light and in Dark alike (the
- * ink flips with the theme). The square's corners are the template's 10 px.
- */
-export const CALENDAR_HATCH = 'repeating-linear-gradient(135deg, transparent 0 3px, rgb(var(--color-ink) / 0.16) 3px 4px)';
 /** A dot's colour: the house MEANING tokens (green booked, amber holding) — the viewer's own event is the accent class. */
 const DOT_FILL: Readonly<Record<Exclude<CalendarDot, 'event'>, string>> = {
   booked: 'rgb(var(--color-ok))',

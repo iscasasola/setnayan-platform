@@ -37,6 +37,8 @@ import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-row
 import type { BookedFacts } from '@/lib/booked-rows';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact } from '@/lib/suppliers-shell';
+import { dateFitOf, type DateFit } from '@/lib/calendar-truth';
+import { readCalendarTruth } from '@/lib/calendar-truth.server';
 import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
 import { displayBuildTitle, normalizeBuildTitle, sortSavedBuilds } from '@/lib/named-builds';
 import { BLOCKED_LOCK_ROW } from '@/lib/explore-info-copy';
@@ -1522,51 +1524,35 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return tiles.size > 0 ? tiles : undefined;
   })();
 
-  // ── Bench date-availability fit (2026-07-09) ────────────────────────────────
-  // The fast-follow the shipped reach + budget fit-badges left open. A third live
-  // badge — "Free on your date" / "Booked that day" — on the Shortlist bench.
-  // GATED: only runs behind BUDGET_BUILD_ENABLED (the sole path that renders the
-  // bench) AND when the event has a COMMITTED (day-precision) date. Reuses the
-  // batched per-vendor calendar primitive `getBatchVendorAvailableDays` — the
-  // same vendor-availability path that backs the Compare tab — so it costs ONE
-  // extra query for the whole bench (no N+1). ADMIN client because 'considering'
-  // bench vendors are pre-booking and the 0022 § 2.3 calendar RLS only opens
-  // after a booking (same client choice compareAvailability makes below).
-  // Fail-open: the helper returns a full window on a read error, so a calendar
-  // flake reads 'free', never a false 'booked' (mirrors reach's no-false-out-of-
-  // range rule); any thrown error → empty map → no date badges at all.
-  const dateFitByVendorId = new Map<string, 'free' | 'booked'>();
+  // ── Bench date fit — CALENDAR TRUTH (P5, owner 2026-10-10: "Not set", never "Free") ──
+  // "Free on your date" / "Booked that day" / "Calendar not set" on the bench card, the sheet and Build's fit line.
+  // ONE read (`lib/calendar-truth.server.ts`): the lock's own refusal (`service_cards_unbookable_on` — closure, the
+  // shop's hard hold, a full calendar, a full slot: what marks the supplier's own Dates day Blocked or full) and
+  // whether the shop has a calendar at all (a schedule pool). It used to read calendar BLOCKS only and call an unset
+  // calendar "free". GATED as before: behind BUDGET_BUILD_ENABLED and a COMMITTED (day-precision) date. ADMIN client
+  // (the RPC is service_role-only; only a verdict per supplier leaves the server). A failed read → no badges at all.
+  const dateFitByVendorId = new Map<string, DateFit>();
   if (isBudgetBuildEnabled() && eventDate && matchPrecision === 'day') {
-    try {
-      const committed = computeCandidateWindow(eventDate, 'day');
-      if (committed) {
-        const committedKey = formatDayKey(committed.start);
-        // vendor_id → marketplace vendor_profile_id, for connected picks only.
-        // Off-platform / manual vendors have no calendar → never a date badge.
-        const profileByVendorId = new Map<string, string>();
-        for (const v of vendors) {
-          if (v.marketplace_vendor_id) {
-            profileByVendorId.set(v.vendor_id, v.marketplace_vendor_id);
-          }
-        }
-        const profileIds = [...new Set(profileByVendorId.values())];
-        if (profileIds.length > 0) {
-          const availByProfile = await getBatchVendorAvailableDays(
-            createAdminClient(),
-            profileIds,
-            committed.start,
-            committed.end,
-          );
-          for (const [vendorId, profileId] of profileByVendorId) {
-            const days = availByProfile.get(profileId);
-            if (!days) continue; // no signal for this profile → no badge
-            dateFitByVendorId.set(vendorId, days.has(committedKey) ? 'free' : 'booked');
-          }
+    const committed = computeCandidateWindow(eventDate, 'day');
+    if (committed) {
+      const committedKey = formatDayKey(committed.start);
+      // vendor_id → marketplace vendor_profile_id, for connected picks only.
+      // Off-platform / manual vendors have no calendar → never a date badge.
+      const profileByVendorId = new Map<string, string>();
+      for (const v of vendors) {
+        if (v.marketplace_vendor_id) profileByVendorId.set(v.vendor_id, v.marketplace_vendor_id);
+      }
+      const truth = await readCalendarTruth({
+        admin: createAdminClient(),
+        supplierIds: [...profileByVendorId.values()],
+        days: [committedKey],
+      });
+      if (truth) {
+        for (const [vendorId, profileId] of profileByVendorId) {
+          const fit = dateFitOf(truth.get(profileId), committedKey);
+          if (fit) dateFitByVendorId.set(vendorId, fit);
         }
       }
-    } catch {
-      // Fail-soft — no date badges rather than a broken bench.
-      dateFitByVendorId.clear();
     }
   }
 

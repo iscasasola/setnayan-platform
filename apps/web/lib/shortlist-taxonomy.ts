@@ -48,6 +48,7 @@ import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { lockRequestStateOf, type LockRequestState } from '@/lib/lock-request-state';
+import type { DateFit } from './calendar-truth';
 
 /** The `event_vendors.status` values that mean "this booking is committed". */
 export const LOCKED_VENDOR_STATUSES: readonly string[] = [
@@ -350,7 +351,7 @@ export type ShortlistVendor = {
    *  run — bench off) → the badge is hidden. Locked picks never carry it (they're
    *  already committed for this event). Fail-open: a calendar flake reads 'free',
    *  never a false 'booked' (mirrors reach's no-false-out-of-range rule). */
-  dateFit: 'free' | 'booked' | null;
+  dateFit: DateFit | null;
   /** ── Three-action card (Explore Replan slice D · spec §12.1) ─────────────
    *  `event_vendors.marketplace_vendor_id` — the linked marketplace profile, or
    *  NULL for an off-platform pick. This is the ONLY gate on the inquiry
@@ -527,11 +528,11 @@ export function buildShortlistFolders(args: {
    *  basis ≤ remaining. Null → no budget badge anywhere (calm by default). */
   totalBudgetPhp?: number | null;
   /** Per-vendor date-availability fit for the event's COMMITTED (day-precision)
-   *  date (2026-07-09 · fast-follow to reach+budget). vendor_id → 'free' | 'booked'.
+   *  date (2026-07-09 · fast-follow to reach+budget). vendor_id → DateFit.
    *  Computed once, batched, upstream (page.tsx) via the same calendar path the
    *  Compare tab uses. Absent / no committed date → no date badges. Locked picks
    *  are skipped here (they're already committed for this event). */
-  dateFitByVendorId?: ReadonlyMap<string, 'free' | 'booked'>;
+  dateFitByVendorId?: ReadonlyMap<string, DateFit>;
   /** Per-vendor same-date INQUIRY count for the "In demand right now" lens.
    *  vendor_id → n. Resolved upstream (page.tsx) from `event_vendors` holds
    *  narrowed to events that also opened a `chat_threads` row, then floored at

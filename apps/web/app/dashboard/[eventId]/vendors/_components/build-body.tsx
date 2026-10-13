@@ -44,6 +44,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { goToBuildTab } from '@/lib/budget-build';
 import { benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
 import { recordFieldHref } from '@/lib/event-details-record';
+import { CALENDAR_NOT_SET } from '@/lib/calendar-truth';
 import { formatCount } from '@/lib/format-number';
 import { MAX_BUILD_TITLE_LEN } from '@/lib/named-builds';
 import { formatPhp } from '@/lib/php';
@@ -288,7 +289,8 @@ export function BuildBody({
 
   const { money, fit, counts } = view;
   const total = money.bookedPhp + money.toBookPhp;
-  const allFree = fit.priced > 0 && fit.taken === 0;
+  // ✓ only when every priced pick is READ free — a calendar not set or not checked is not a yes (P5, the prototype's rule).
+  const allFree = fit.priced > 0 && fit.free === fit.priced;
 
   return (
     <div data-build-body="" className="space-y-9 max-lg:pb-20">
@@ -639,6 +641,12 @@ function FitLine({ eventId, view, allFree }: { eventId: string; view: BuildView;
           <>
             <Count value={fit.free} id="sup-build-free" /> of <Count value={fit.priced} id="sup-build-priced" /> priced picks are free on{' '}
             {dateLabel}
+            {fit.notSet > 0 ? (
+              <span className="text-ink/55" data-build-fit-not-set="">
+                {' '}
+                · <Count value={fit.notSet} id="sup-build-not-set" /> {CALENDAR_NOT_SET.toLowerCase()}
+              </span>
+            ) : null}
             {fit.unread > 0 ? (
               <span className="text-ink/55">
                 {' '}

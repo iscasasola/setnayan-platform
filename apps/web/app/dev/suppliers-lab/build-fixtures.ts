@@ -8,6 +8,7 @@
  * figures are sample data, not prices of anything Setnayan sells.
  */
 import type { BuildCardFree, BuildLineInputVendor, BuildSnapshotPick } from '@/lib/suppliers-build';
+import type { DateFit } from '@/lib/calendar-truth';
 
 export const LAB_BUILD_BUDGET_PHP = 2_250_000;
 export const LAB_BUILD_DAY = 'Dec 12';
@@ -54,7 +55,7 @@ export const LAB_BUILD_INCLUSIONS: Readonly<Record<string, string[]>> = {
 /** Cannot be booked, and the words that say why (the card's own). */
 export const LAB_BUILD_BLOCKED: ReadonlyMap<string, string> = new Map([['v-mesa', 'Not available on your date']]);
 
-export const LAB_BUILD_DATE_FIT: ReadonlyMap<string, 'free' | 'booked'> = new Map([
+export const LAB_BUILD_DATE_FIT: ReadonlyMap<string, DateFit> = new Map([
   ['v-bituin', 'free'],
   ['v-hiraya', 'free'],
   ['v-lola', 'free'],

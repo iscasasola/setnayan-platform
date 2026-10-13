@@ -71,6 +71,7 @@ import {
   X,
 } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
+import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
 import { formatPhp } from '@/lib/orders';
 import {
   UNREAD_UNKNOWN,
@@ -610,6 +611,7 @@ html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
 .slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .slcat .vc .fit.warn{color:#6F5A2E;background:rgba(169,131,75,.16)}
+.slcat .vc .fit.muted{color:rgb(var(--color-ink) / .7);background:rgb(var(--color-ink) / .06)}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
@@ -1794,7 +1796,14 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
             icon: <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />,
             text: 'Booked that day',
           }
-        : null;
+        : v.dateFit === 'not_set'
+          ? {
+              // P5 calendar truth: their calendar is not set — said, never "Free" (`lib/calendar-truth.ts`).
+              cls: 'muted',
+              icon: <CalendarDays size={9} strokeWidth={2.25} aria-hidden />,
+              text: DATE_FIT_WORDS.not_set,
+            }
+          : null;
   // SOFT schedule convergence (PR-G1). Amber, never red: the vendor is fine —
   // it is the couple's own build that has narrowed past them, and un-narrowing
   // it is one tap away. The badge NAMES the clashing candidate so that tap is

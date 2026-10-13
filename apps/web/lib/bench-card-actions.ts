@@ -23,6 +23,7 @@ import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import { isHardSinglePickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import type { LockRequestState } from '@/lib/lock-request-state';
 import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
+import type { DateFit } from './calendar-truth';
 
 /** The subset of `ShortlistVendor` this resolver reads. Structural on purpose:
  *  the test fixtures stay small and a new card field can't silently join the
@@ -51,7 +52,7 @@ export type BenchCardVendor = {
    * calendar read error fails OPEN to `'free'` upstream, so it never sinks a
    * supplier falsely.
    */
-  dateFit?: 'free' | 'booked' | null;
+  dateFit?: DateFit | null;
 };
 
 /** Primary action — the build pick. */

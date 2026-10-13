@@ -258,10 +258,10 @@ test('the fit line counts a pick as free only where the calendar was read', () =
     ['luntian', 'free'],
     ['mesa', 'booked'],
   ]);
-  assert.deepEqual(buildFitOf(lines(['luntian']), fit), { priced: 2, free: 2, taken: 0, unread: 0 }, 'the booked reception holds the date');
-  assert.deepEqual(buildFitOf(lines(['mesa']), fit), { priced: 2, free: 1, taken: 1, unread: 0 });
-  assert.deepEqual(buildFitOf(lines(['bituin']), fit), { priced: 2, free: 1, taken: 0, unread: 1 }, 'no calendar read → neither free nor taken');
-  assert.deepEqual(buildFitOf(lines(), null), { priced: 1, free: 1, taken: 0, unread: 0 });
+  assert.deepEqual(buildFitOf(lines(['luntian']), fit), { priced: 2, free: 2, taken: 0, unread: 0, notSet: 0 }, 'the booked reception holds the date');
+  assert.deepEqual(buildFitOf(lines(['mesa']), fit), { priced: 2, free: 1, taken: 1, unread: 0, notSet: 0 });
+  assert.deepEqual(buildFitOf(lines(['bituin']), fit), { priced: 2, free: 1, taken: 0, unread: 1, notSet: 0 }, 'no calendar read → neither free nor taken');
+  assert.deepEqual(buildFitOf(lines(), null), { priced: 1, free: 1, taken: 0, unread: 0, notSet: 0 });
 });
 
 test('a build card: total of the prices that exist, one row per category, the buffer only when every price is known', () => {

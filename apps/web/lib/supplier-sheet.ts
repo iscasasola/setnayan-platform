@@ -25,6 +25,7 @@ import {
   type ReviewRow,
   type VendorCompletedEventRow,
 } from '@/lib/reviews';
+import { DATE_FIT_WORDS, type DateFit } from './calendar-truth';
 
 /** How many of each the sheet shows — it is a glance, the full profile has all. */
 export const SHEET_REVIEW_LIMIT = 3;
@@ -195,7 +196,7 @@ export function askAboutLabel(label: string): string {
 
 /** One "why they fit" line — the SAME reach / budget / date signals the card
  *  shows, decided once here for the sheet and the desktop inspector alike. */
-export type SheetFit = { tone: 'ok' | 'warn'; kind: 'reach' | 'budget' | 'date'; inRange?: boolean; text: string };
+export type SheetFit = { tone: 'ok' | 'warn' | 'muted'; kind: 'reach' | 'budget' | 'date'; inRange?: boolean; text: string };
 
 export function sheetFits(v: {
   distanceKm: number | null;
@@ -205,7 +206,7 @@ export function sheetFits(v: {
   serviceRadiusKm: number | null;
   budgetFit: 'fits' | 'over' | null;
   budgetEstimated: boolean;
-  dateFit: 'free' | 'booked' | null;
+  dateFit: DateFit | null;
 }): SheetFit[] {
   const fits: SheetFit[] = [];
   // The helper owns the precedence (a declared ring wins; else the tier-derived
@@ -220,8 +221,8 @@ export function sheetFits(v: {
   if (reach) fits.push({ tone: reach.tone, kind: 'reach', inRange: reach.inRange, text: reach.text });
   if (v.budgetFit === 'fits') fits.push({ tone: 'ok', kind: 'budget', text: v.budgetEstimated ? 'Fits budget · est.' : 'Fits budget' });
   else if (v.budgetFit === 'over') fits.push({ tone: 'warn', kind: 'budget', text: v.budgetEstimated ? 'Over budget · est.' : 'Over budget' });
-  if (v.dateFit === 'free') fits.push({ tone: 'ok', kind: 'date', text: 'Free on your date' });
-  else if (v.dateFit === 'booked') fits.push({ tone: 'warn', kind: 'date', text: 'Booked that day' });
+  // P5 calendar truth: a calendar the supplier never set says so — quiet, never "Free" (`lib/calendar-truth.ts`).
+  if (v.dateFit) fits.push({ tone: v.dateFit === 'free' ? 'ok' : v.dateFit === 'booked' ? 'warn' : 'muted', kind: 'date', text: DATE_FIT_WORDS[v.dateFit] });
   return fits;
 }
 

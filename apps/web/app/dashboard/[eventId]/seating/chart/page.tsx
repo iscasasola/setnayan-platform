@@ -86,7 +86,7 @@ export default async function EntranceChartPage({ params }: Props) {
       <EntranceChart
         eventId={eventId}
         layouts={ENTRANCE_CHART_LAYOUTS.map((key) => ({ key, label: ENTRANCE_CHART_LAYOUT_LABELS[key] }))}
-        sizes={ENTRANCE_CHART_SIZES.map((s) => ({ key: s.key, label: `${s.label} · ${s.mm}` }))}
+        sizes={ENTRANCE_CHART_SIZES.map((s) => ({ key: s.key, label: `${s.label} · ${s.mm}`, short: s.label }))}
         defaultSize={DEFAULT_ENTRANCE_CHART_SIZE satisfies EntranceChartSize}
         files={{
           table: printFileName(event.slug as string | null, chartFileStem('table')),

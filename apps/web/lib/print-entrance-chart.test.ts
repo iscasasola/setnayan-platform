@@ -232,7 +232,7 @@ test('too many names for the sheet: says so and names the next size up — never
   assert.equal(r.ok, false, '600 names do not fit on A3');
   if (r.ok) return;
   assert.equal(r.reason, 'too-many');
-  assert.ok(r.suggest === 'a2' || r.suggest === 'a1', `suggests a bigger sheet (${r.suggest})`);
+  assert.ok(r.suggest === 'a2' || r.suggest === 'a1' || r.suggest === '24x36', `suggests a bigger sheet (${r.suggest})`);
   assert.ok(chartFor(big, 'table', r.suggest!).ok, 'the suggested size really holds everyone');
   // And the page's per-size verdict agrees with the layout's.
   for (const s of ENTRANCE_CHART_SIZES) assert.equal(fits[s.key].ok, chartFor(f, 'table', s.key).ok, s.key);
@@ -248,7 +248,7 @@ test('nobody seated: one plain sentence, no blank chart', () => {
 test('real PDF bytes: one page at the chosen size, both layouts', async () => {
   const f = fixture(104);
   for (const layout of LAYOUTS) {
-    for (const size of ['a3', 'a2', 'a1'] as const) {
+    for (const size of ['a3', 'a2', 'a1', '24x36'] as const) {
       const r = chartFor(f, layout, size);
       assert.ok(r.ok, `${layout} ${size}`);
       const bytes = await renderPrintPdf([r.doc], {}, { mode: 'plain', title: 'Maria & Jose — seating chart' });
@@ -272,4 +272,30 @@ test('the preview is a light picture, not 5 MB of outlines', async () => {
   // White paper: the top-left corner is white whatever the screen.
   const { data } = await sharp(Buffer.from(png)).extract({ left: 0, top: 0, width: 4, height: 4 }).raw().toBuffer({ resolveWithObject: true });
   assert.ok(data[0]! > 250 && data[1]! > 250 && data[2]! > 250, 'white paper');
+});
+
+test('entrance-chart sizes are ordered by area — "the next size up" really is bigger; 24 × 36 in is the top rung', () => {
+  const areas = ENTRANCE_CHART_SIZES.map((s) => s.wMm * s.hMm);
+  for (let i = 1; i < areas.length; i++) assert.ok(areas[i]! > areas[i - 1]!, `${ENTRANCE_CHART_SIZES[i]!.key} after ${ENTRANCE_CHART_SIZES[i - 1]!.key}`);
+  assert.deepEqual(ENTRANCE_CHART_SIZES.map((s) => s.key), ['a3', 'a2', 'a1', '24x36']);
+  const foam = chartSizeSpec('24x36');
+  assert.ok(Math.abs(foam.wMm - 609.6) < 1e-9 && Math.abs(foam.hMm - 914.4) < 1e-9, `${foam.wMm} × ${foam.hMm} mm`);
+});
+
+test('300 guests on 24 × 36 in foam board: both layouts, everyone once, larger type than A1, a 24 × 36 in PDF page', async () => {
+  const f = fixture(300);
+  for (const layout of LAYOUTS) {
+    const r = chartFor(f, layout, '24x36');
+    assert.ok(r.ok, layout);
+    if (!r.ok) return;
+    const a1 = chartFor(f, layout, 'a1');
+    assert.ok(a1.ok && r.nameSize >= a1.nameSize, `${layout}: ${r.nameSize} pt on 24×36 vs ${a1.ok ? a1.nameSize : '-'} pt on A1`);
+    const ids = r.placed.filter((p) => p.kind === 'name').map((p) => p.guestId!);
+    assert.equal(ids.length, f.seatedIds.size);
+    assert.deepEqual(new Set(ids), f.seatedIds);
+    for (const p of r.placed) for (const l of p.lines) assert.ok(l.x >= p.x0 - 0.01 && l.x + l.w <= p.x0 + p.maxW + 0.01, `"${l.s}" inside its column`);
+    const pdf = await PDFDocument.load(await renderPrintPdf([r.doc], {}, { mode: 'plain', title: 't' }));
+    const { width, height } = pdf.getPage(0).getSize();
+    assert.ok(Math.abs(width - 24 * 72) < 1 && Math.abs(height - 36 * 72) < 1, `${width} × ${height} pt`);
+  }
 });

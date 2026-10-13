@@ -77,7 +77,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   if (!event) return new NextResponse('Event not found', { status: 404 });
 
   // ── THE ENTRANCE SEATING CHART (owner 2026-10-13, "one seating chart for the
-  // entrance"): `?chart=table|az&size=a3|a2|a1`, as `format=pdf` (the file) or
+  // entrance"): `?chart=table|az&size=a3|a2|a1|24x36`, as `format=pdf` (the file) or
   // `format=preview` (its picture). ONE large sheet, no QR codes — so none of
   // the pack's QR work below runs for it. Same seat plan, same grouping
   // (`seatingUnits`), same name the place card prints. lib/print-entrance-chart.ts.

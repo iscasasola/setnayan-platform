@@ -49,13 +49,20 @@ export type EntranceChartLayout = 'table' | 'az';
 export const ENTRANCE_CHART_LAYOUTS: readonly EntranceChartLayout[] = ['table', 'az'];
 export const ENTRANCE_CHART_LAYOUT_LABELS: Record<EntranceChartLayout, string> = { table: 'By table', az: 'A to Z' };
 
-export type EntranceChartSize = 'a3' | 'a2' | 'a1';
+export type EntranceChartSize = 'a3' | 'a2' | 'a1' | '24x36';
 export type EntranceChartSizeSpec = { key: EntranceChartSize; label: string; mm: string; wMm: number; hMm: number };
-/** Smallest first — `suggest` walks this order upward. */
+/**
+ * SMALLEST FIRST, BY AREA — `suggest` walks this order upward ("the next size
+ * up"). Owner 2026-10-13 added the 24 × 36 in foam board, the size print shops
+ * here mount entrance boards on: 610 × 914 mm ≈ 0.56 m², larger than A1
+ * (≈ 0.50 m²), so it is the top rung. `entrance-chart sizes are ordered by
+ * area` (print-entrance-chart.test.ts) holds the order.
+ */
 export const ENTRANCE_CHART_SIZES: readonly EntranceChartSizeSpec[] = [
   { key: 'a3', label: 'A3', mm: '297 × 420 mm', wMm: 297, hMm: 420 },
   { key: 'a2', label: 'A2', mm: '420 × 594 mm', wMm: 420, hMm: 594 },
   { key: 'a1', label: 'A1', mm: '594 × 841 mm', wMm: 594, hMm: 841 },
+  { key: '24x36', label: '24 × 36 in', mm: 'foam board', wMm: 24 * 25.4, hMm: 36 * 25.4 },
 ];
 export const DEFAULT_ENTRANCE_CHART_SIZE: EntranceChartSize = 'a2';
 
@@ -655,7 +662,9 @@ export function entranceChartTooBigWords(seated: number, size: EntranceChartSize
   const here = chartSizeSpec(size).label;
   return [
     `${formatCount(seated)} names don’t fit on ${here} at a size guests can read.`,
-    suggest ? `Choose ${chartSizeSpec(suggest).label} — every name fits there.` : 'Even A1 is too small — print By table and A to Z as two charts.',
+    suggest
+      ? `Choose ${chartSizeSpec(suggest).label} — every name fits there.`
+      : `Even ${ENTRANCE_CHART_SIZES[ENTRANCE_CHART_SIZES.length - 1]!.label} is too small — print By table and A to Z as two charts.`,
   ];
 }
 

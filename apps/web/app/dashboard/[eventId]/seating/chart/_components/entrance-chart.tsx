@@ -7,7 +7,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { ActionButton } from '@/components/action-button';
 
 type Layout = 'table' | 'az';
-type Size = 'a3' | 'a2' | 'a1';
+type Size = 'a3' | 'a2' | 'a1' | '24x36';
 
 /** Per layout, per size: null when every name fits, else the plain words and the size that holds everyone. */
 export type ChartVerdicts = Record<Layout, Record<Size, { words: string[]; suggest: Size | null } | null>>;
@@ -33,7 +33,8 @@ export function EntranceChart({
 }: {
   eventId: string;
   layouts: ReadonlyArray<{ key: Layout; label: string }>;
-  sizes: ReadonlyArray<{ key: Size; label: string }>;
+  /** `label` for the dropdown ("A2 · 420 × 594 mm"), `short` for a button ("A2", "24 × 36 in"). */
+  sizes: ReadonlyArray<{ key: Size; label: string; short: string }>;
   defaultSize: Size;
   files: Record<Layout, string>;
   verdicts: ChartVerdicts;
@@ -154,7 +155,7 @@ export function EntranceChart({
               <ActionButton
                 tone="neutral"
                 icon={RotateCcw}
-                label={`Use ${verdict.suggest.toUpperCase()}`}
+                label={`Use ${sizes.find((x) => x.key === verdict.suggest)?.short ?? verdict.suggest}`}
                 onClick={() => pick(() => setSize(verdict.suggest!))}
               />
             ) : null}

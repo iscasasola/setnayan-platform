@@ -16,9 +16,11 @@ export default async function RedirectBookings({
 }) {
   const sp = await searchParams;
   const qs = new URLSearchParams();
+  // `seg` too: the accordion drops `tab` once a fold is pressed, and Money must stay Money (S-PR4).
   qs.set('tab', 'bookings');
+  qs.set('seg', 'money');
   for (const [k, v] of Object.entries(sp)) {
-    if (typeof v === 'string' && v.length > 0 && k !== 'tab') qs.set(k, v);
+    if (typeof v === 'string' && v.length > 0 && k !== 'tab' && k !== 'seg') qs.set(k, v);
   }
   // 🔑 `#bookings` IS THE FIX (S43 · 3). `bookings` is not an accordion key on
   // the hub, so without the fragment every "Bookings" link reloaded My

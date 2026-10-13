@@ -17,9 +17,11 @@ export default async function RedirectPayday({
 }) {
   const sp = await searchParams;
   const qs = new URLSearchParams();
+  // `seg` too: the accordion drops `tab` once a fold is pressed, and Money must stay Money (S-PR4).
   qs.set('tab', 'payday');
+  qs.set('seg', 'money');
   for (const [k, v] of Object.entries(sp)) {
-    if (typeof v === 'string' && v.length > 0 && k !== 'tab') qs.set(k, v);
+    if (typeof v === 'string' && v.length > 0 && k !== 'tab' && k !== 'seg') qs.set(k, v);
   }
   // 🔑 NAMES ITS FOLD. A bare redirect reloaded My Customers at the top — the roster —
   // for a link that said payday. The anchors module says where payday lives.

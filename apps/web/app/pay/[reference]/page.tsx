@@ -266,6 +266,19 @@ export default async function PayPage({ params, searchParams }: Props) {
       </div>
     )}
 
+    {/* A sign-up bill whose lines could not be read. Drawing nothing here
+        would tell the payer their bill covers nothing — the 2026-10-13 fault,
+        where every view was refused and the list silently vanished. */}
+    {payable.rowsUnreadable && (
+      <p
+        role="status"
+        className="mt-5 border-t border-ink/10 pt-3 text-sm text-ink/70"
+      >
+        We couldn&rsquo;t load the list of what this covers just now. The total
+        above is still what you owe — refresh the page to see the list.
+      </p>
+    )}
+
     <div className="mt-5 flex items-center gap-3 rounded-lg border border-ink/12 bg-ink/[0.03] px-4 py-3">
       <div>
         {/* ⚠ `block`, NOT the default. `.sn-eye` is `display: inline-flex`

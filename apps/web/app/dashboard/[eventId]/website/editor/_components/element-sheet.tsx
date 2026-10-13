@@ -296,6 +296,8 @@ export function ElementSheet({
     else delete next.elements;
     /* 🧭 The new Maker's "Into the next scene" is the part's scene's own transition — the same canvas, one save. */
     scene?.(next);
+    /* 🤫 A pick that changes nothing (the choice already worn) is no save and no ↺ step. */
+    if (JSON.stringify(next) === JSON.stringify(before)) return;
     latest.current = next;
     setStyle(next.elements?.[target.el] ?? {});
     setError(null);

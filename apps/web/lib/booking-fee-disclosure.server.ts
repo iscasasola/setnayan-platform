@@ -107,11 +107,14 @@ export async function resolveBookingFeeStanding(
 
   // No frozen ordinal → this booking would take the NEXT one.
   if (ordinal === null) {
+    // ⚖ SOURCED ONLY (owner 2026-10-12 #2) — the same predicate the RPC counts
+    // with (migration 20271268252763): an import never uses one of the five.
     const { count, error } = await admin
       .from('booking_fee_ledger')
       .select('ledger_id', { count: 'exact', head: true })
       .eq('vendor_profile_id', args.vendorProfileId)
-      .eq('source', 'lock');
+      .eq('source', 'lock')
+      .eq('attribution', 'sourced');
     if (error || typeof count !== 'number' || !Number.isFinite(count)) {
       if (error) logQueryError('booking-fee-disclosure: ledger count', error);
       return { kind: 'unreadable' };

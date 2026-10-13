@@ -10,18 +10,27 @@
  *   ?hidden=1                        the budget is not shared with this viewer
  *   ?proto=1                         the prototype's own figures (Cale & Ice, 72 days, 7 coming…)
  *   ?store=1                         the App Store / Play shell (no Your services row)
+ *   ?view=papic                      📍 the Papic page's TOP BAND instead of Home, in the
+ *                                    same ?papic= state (the real PapicTopBand; the stepper
+ *                                    under "Buy more" on sample rungs — no database)
+ *   ?papic=before|on|low|zero|ready  📍 the Papic row's states (owner 2026-10-13): cameras wait
+ *                                    ("On from …") · N credits left + photos · running low ·
+ *                                    stopped (also the Next card) · ready, nothing shot (Next card)
  */
 import { notFound } from 'next/navigation';
 import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import { papicGlance, type PapicGlanceInput } from '@/lib/papic-glance';
+import { resolveStoredWindow } from '@/lib/papic-window';
+import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
+import { PapicBuyForm } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-form';
 import {
   aiStatus,
   glanceCount,
   glanceDays,
   glanceMoney,
   homeServices,
-  papicStatus,
   pickHomeNext,
   type HomeNextInput,
 } from '@/lib/home-first-screen';
@@ -49,7 +58,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string }>;
+  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -62,11 +71,64 @@ export default async function HomeLab({
   const picked = proto
     ? { guide: null, hasDate: true, guests: { total: 14, unsent: 3 }, noun: 'wedding' as const, papicReady: false, aiOffer: false }
     : STATES[q.next ?? 'guide'] ?? STATES.guide!;
+  const E = '00000000-0000-4000-8000-000000000000';
+  /* 📍 Papic's row, from the REAL glance over a sample tile and the REAL default window. */
+  const papicState = q.papic ?? null;
+  const dayMs = 86_400_000;
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  const papicEventDate = papicState === 'before' ? iso(Date.now() + 260 * dayMs) : iso(Date.now() + 40 * dayMs);
+  const papicWin = resolveStoredWindow({ windowStart: null, windowEnd: null, eventDate: papicEventDate });
+  const PAPIC_TILES: Record<string, PapicGlanceInput['tile']> = {
+    before: { shotsLeft: 50, shotsTotal: 50, photosGathered: 0 },
+    on: { shotsLeft: 1240, shotsTotal: 1500, photosGathered: 260 },
+    low: { shotsLeft: 37, shotsTotal: 550, photosGathered: 513 },
+    zero: { shotsLeft: 0, shotsTotal: 550, photosGathered: 550 },
+    ready: { shotsLeft: 50, shotsTotal: 50, photosGathered: 0 },
+  };
+  const papicNow = papicGlance({
+    permitted: true,
+    tile: unread ? 'failed' : papicState ? PAPIC_TILES[papicState] ?? PAPIC_TILES.on! : proto ? { shotsLeft: 50, shotsTotal: 50, photosGathered: 0 } : { shotsLeft: 1240, shotsTotal: 1500, photosGathered: 12 },
+    window: { startDate: papicWin.startDate, endIso: papicWin.endIso },
+    papicOn: true,
+  });
+  if (q.view === 'papic') {
+    /* Sample rungs for the lab's stepper only — the real card reads the catalog. */
+    const rungs = [
+      { serviceCode: 'LAB_A', points: 100, pricePhp: 70, discountPercent: 30 },
+      { serviceCode: 'LAB_B', points: 500, pricePhp: 300, discountPercent: 40 },
+      { serviceCode: 'LAB_C', points: 1000, pricePhp: 550, discountPercent: 45 },
+    ];
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
+        <div className="mx-auto flex max-w-xl flex-col gap-7">
+          <p className="text-xs text-ink/50">Lab · Papic page top band · sample data</p>
+          <PapicTopBand
+            glance={papicNow}
+            buyOpen={papicNow.tone === 'stopped'}
+            buyPanel={
+              <section className="space-y-4 rounded-2xl border border-ink/10 bg-surface p-5">
+                <p className="text-lg font-semibold tracking-tight text-ink">Add credits to your event</p>
+                {papicNow.credits === 0 ? (
+                  <p className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm font-medium text-red-700">
+                    Your guests&rsquo; cameras have stopped — add credits to restart them.
+                  </p>
+                ) : null}
+                <PapicBuyForm eventId={E} rungs={rungs} />
+              </section>
+            }
+          />
+          <div className="rounded-2xl border border-dashed border-ink/20 p-4 text-sm text-ink/50">… the rest of the Papic page …</div>
+        </div>
+      </div>
+    );
+  }
   /* An unread guest list reaches the picker as `null` — exactly as the page hands it. */
-  const input: HomeNextInput = unread ? { ...picked, guide: null, guests: null } : picked;
+  const base: HomeNextInput = papicState
+    ? { ...picked, guide: null, papicReady: papicNow.moment === 'ready', papicStopped: papicNow.moment === 'stopped' }
+    : picked;
+  const input: HomeNextInput = unread ? { ...base, guide: null, guests: null } : base;
   const next = pickHomeNext(input);
   const slots = await getNavSlotMap().catch(() => null);
-  const E = '00000000-0000-4000-8000-000000000000';
   return (
     <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
       <HomeFirstScreen
@@ -103,10 +165,8 @@ export default async function HomeLab({
         services={homeServices({
           next: next.kind,
           storeShell: q.store === '1',
-          papic: papicStatus({
-            permitted: true,
-            tile: unread ? 'failed' : proto ? { photosGathered: 0, preCapture: true } : { photosGathered: 12, preCapture: false },
-          }),
+          papic: papicNow.status,
+          papicDoors: { tone: papicNow.tone, buy: papicNow.buy, photos: papicNow.photos },
           ai: aiStatus(unread ? null : false),
         })}
       />

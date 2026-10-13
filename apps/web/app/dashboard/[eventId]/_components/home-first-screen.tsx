@@ -1,16 +1,18 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { BookOpen, Camera, CalendarDays, Check, Info, ListChecks, Mail, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
+import { BookOpen, Camera, CalendarDays, Check, Images, Info, ListChecks, Mail, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
-import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey } from '@/lib/home-first-screen';
+import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey, PapicRowDoors } from '@/lib/home-first-screen';
 import type { HomeFigures } from '@/lib/home-facts';
 import type { HomeCover } from '@/lib/home-cover';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { completeTour } from '@/lib/tour-actions';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
 import { HomeDoorways, HomeLater, HomeReload, HomeWhatsNext } from './home-parts';
+import { PapicBuyInPlace } from '../studio/papic/_components/papic-buy-in-place';
+import { seePhotosWord } from '@/lib/papic-glance';
 
 /**
  * Where each Next card goes. Written as `href:` literals ON PURPOSE: the
@@ -340,6 +342,9 @@ export function HomeFirstScreen({
             <div className="home-svc">
               {services.map((svc) => {
                 const Icon = SERVICE_ICON[svc.key];
+                if (svc.key === 'papic' && svc.papic) {
+                  return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} />;
+                }
                 return (
                   <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
                     <span className="home-t">
@@ -357,5 +362,55 @@ export function HomeFirstScreen({
         ) : null}
       </div>
     </section>
+  );
+}
+
+/**
+ * 📍 PAPIC'S ROW (owner "Yes", 2026-10-13 — DECISION_LOG 📍): the whole width,
+ * its status ("N credits left" · "On from [date]" · "Running low" · "Stopped"),
+ * then its two doors — **Buy more** (the shipped credit stepper, opened in place)
+ * and **See N photos** (the gallery). The name and status still open the Papic
+ * page, as the row always did.
+ *
+ * 🎨 The status wears its meaning: amber when running low, red when stopped.
+ */
+function PapicServiceRow({ eventId, svc, doors }: { eventId: string; svc: HomeService; doors: PapicRowDoors }) {
+  const statusColor =
+    doors.tone === 'stopped'
+      ? 'rgb(var(--color-danger))'
+      : doors.tone === 'low'
+        ? 'rgb(var(--color-warn))'
+        : undefined;
+  const photos = typeof doors.photos === 'number' && doors.photos > 0 ? doors.photos : null;
+  return (
+    <div data-home-service="papic" data-papic-tone={doors.tone} className={`home-tile col-span-2${doors.tone === 'stopped' ? ' home-tile-bad' : ''}`}>
+      <Link href={`/dashboard/${eventId}/studio/papic`} className="block min-w-0">
+        <span className="home-t">
+          <Camera aria-hidden strokeWidth={1.9} />
+          <span className="truncate">{svc.name}</span>
+        </span>
+        {svc.brand ? <span className="block truncate text-[11px] text-ink/50">{svc.brand}</span> : null}
+        <span
+          data-papic-status=""
+          className={`block truncate text-[12.5px] ${statusColor ? 'font-semibold' : 'text-ink/60'}`}
+          style={statusColor ? { color: statusColor } : undefined}
+        >
+          {svc.status}
+        </span>
+      </Link>
+      {doors.buy || photos ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {doors.buy ? <PapicBuyInPlace eventId={eventId} /> : null}
+          {photos ? (
+            <ActionButton
+              tone="neutral"
+              icon={<Images aria-hidden="true" strokeWidth={1.9} />}
+              label={seePhotosWord(photos)}
+              href={`/dashboard/${eventId}/studio/papic#papic-gallery`}
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }

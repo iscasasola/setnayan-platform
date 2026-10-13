@@ -1,11 +1,9 @@
 import { Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
-import { papicBucketPhrase, papicRungDiscountPercent } from '@/lib/papic-tier-copy';
-import { CreditStepper } from './credit-stepper';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { purchasePapicPoolTopUp } from '../actions';
+import { papicBucketPhrase } from '@/lib/papic-tier-copy';
+import { loadPoolRungs } from '@/lib/papic-pool-rungs';
+import { PapicBuyForm } from './papic-buy-form';
 
 /**
  * Papic POOL — add credits to the event's SHARED pool.
@@ -62,30 +60,14 @@ export async function PapicPoolCard({
 }) {
   const admin = createAdminClient();
 
-  const [tiers, pool] = await Promise.all([
-    fetchPapicPassTiers(admin),
+  const [rungs, pool] = await Promise.all([
+    // The ladder — rungs from papic_pass_tiers, prices from the catalog, sorted
+    // by price (lib/papic-pool-rungs.ts, shared with Home's in-place Buy more).
+    loadPoolRungs(admin),
     // Display only. Same reader the capture path meters against, so the balance
     // shown here and the fence that stops a shutter cannot disagree.
     fetchEventPoolStatus(admin, eventId).catch(() => null),
   ]);
-
-  // `is_topup` rungs are excluded. PAPIC_GUEST_TOPUP is RETIRED — every rung is
-  // additive and repeatable since migration 20271019231590, which made a
-  // separate "+10,000 top-up" a duplicate of PAPIC_GUEST_10K. Its tier row is
-  // already is_active=false so fetchPapicPassTiers drops it; this filter is the
-  // second lock, so re-activating the legacy row for an old order's sake can
-  // never put a duplicate rung back on this ladder. The three owner-priced Pool
-  // rungs are exactly the non-topup set.
-  const sellable = tiers.filter((t) => !t.isTopup);
-  if (sellable.length === 0) return null;
-
-  const prices = await fetchPoolRungPrices(
-    admin,
-    sellable.map((t) => t.serviceCode),
-  );
-  const rungs = sellable
-    .map((t) => ({ ...t, pricePhp: prices.get(t.serviceCode) ?? null }))
-    .filter((t) => t.pricePhp != null && t.pricePhp > 0);
   if (rungs.length === 0) return null;
 
   const remaining = pool?.applies === true ? pool.remainingPoints : null;
@@ -123,85 +105,29 @@ export async function PapicPoolCard({
         </p>
       )}
 
-      {remaining != null && (
+      {/* 📸 THE STOPPED LINE (owner 2026-10-13, "Add all"): at zero every
+          guest camera has stopped, and that is said ABOVE the size picker —
+          not left to a "0 credits left" a couple must interpret. */}
+      {remaining === 0 ? (
+        <p
+          data-papic-stopped=""
+          className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm font-medium text-red-700"
+        >
+          Your guests&rsquo; cameras have stopped — add credits to restart them.
+        </p>
+      ) : remaining != null && (
         <p className="text-sm text-ink/70">
           {remaining.toLocaleString('en-PH')} credits left in the pool —{' '}
           {papicBucketPhrase(remaining)}.
         </p>
       )}
 
-      <form action={purchasePapicPoolTopUp} className="space-y-3">
-        <input type="hidden" name="event_id" value={eventId} />
-
-        {/* ⚠ A DROPDOWN MADE THE PERSON READ SIXTEEN SENTENCES TO FIND ONE
-            NUMBER. Owner 2026-08-28: *"we want a +- value and they will see how
-            much will be added."* The stepper walks the SAME sixteen rungs — it
-            is a different control over the identical ladder, never a second
-            price list — and shows what is paid and what lands, together.
-            ⚠ Sorted by PRICE here, so plus always costs more. The catalog's own
-            order is not guaranteed, and a ladder whose + goes down is worse than
-            a dropdown. */}
-        <CreditStepper
-          rungs={[...rungs]
-            .sort((a, b) => (a.pricePhp as number) - (b.pricePhp as number))
-            .map((r) => ({
-              serviceCode: r.serviceCode,
-              points: r.points,
-              pricePhp: r.pricePhp as number,
-              discountPercent: papicRungDiscountPercent(r.points, r.pricePhp as number),
-            }))}
-        />
-
-        {/* ONE PRESS, ONE BILL (2026-10-13). This was a bare submit with no
-            pressed state, and every press minted a new unpaid order — the
-            tester's two presses made two. It now locks the moment it is pressed
-            and says the one step that is happening until the payment page
-            opens. The server half (a repeat press lands on the same bill) is in
-            lib/one-press-one-order.ts. */}
-        <SubmitButton
-          overlay={false}
-          pendingLabel="Opening payment…"
-          className="inline-flex items-center justify-center rounded-xl bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800 disabled:opacity-80"
-        >
-          Continue to payment
-        </SubmitButton>
-      </form>
+      <PapicBuyForm eventId={eventId} rungs={rungs} />
 
       <p className="text-xs text-ink/50">
-        Apply-then-pay — payment instructions next. Shots land in the pool once
+        Apply-then-pay — payment instructions next. Credits land in the pool once
         your payment is confirmed.
       </p>
     </section>
   );
-}
-
-/** Live rung prices, straight from the catalog — the single billing source. */
-async function fetchPoolRungPrices(
-  admin: ReturnType<typeof createAdminClient>,
-  codes: readonly string[],
-): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
-  if (codes.length === 0) return out;
-  try {
-    const { data, error } = await admin
-      .from('platform_retail_catalog_v2')
-      .select('service_code, retail_price_php, is_active')
-      .in('service_code', codes as string[]);
-    if (error) {
-      // No price shown rather than a guessed one — and the reason is kept.
-      console.error('[supabase-error] papic pack prices: platform_retail_catalog_v2', error);
-      return out;
-    }
-    if (!Array.isArray(data)) return out;
-    for (const row of data) {
-      if ((row as { is_active?: unknown }).is_active !== true) continue;
-      const n = Number((row as { retail_price_php?: unknown }).retail_price_php ?? 0);
-      if (Number.isFinite(n) && n > 0) {
-        out.set(String((row as { service_code?: unknown }).service_code ?? ''), n);
-      }
-    }
-    return out;
-  } catch {
-    return out;
-  }
 }

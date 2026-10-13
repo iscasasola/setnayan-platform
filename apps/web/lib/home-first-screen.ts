@@ -17,7 +17,9 @@
  *   guests → "Add your guests", while the (measured) list is empty
  *   invite → "Send N invitations", N = the measured guests not yet sent one
  *            (first-timer fix 9, 2026-10-02 — the approved frame 1 card)
- *   papic → "Your free camera is ready", until the first photo is shot
+ *   papic → "Your cameras are ready", in the window until the first photo is
+ *           shot — or "Your cameras have stopped" when the credits run out
+ *           (`lib/papic-glance.ts`, owner 2026-10-13 📍)
  *   ai    → the Setnayan AI offer, last because it is a purchase, not a step
  *   plan  → nothing above is waiting: the checklist (the whole plan, step by step)
  *
@@ -107,6 +109,11 @@ export type HomeNextInput = {
   guests: HomeGuestsRead;
   noun: 'wedding' | 'event';
   papicReady: boolean;
+  /**
+   * 📍 Papic's other moment (owner 2026-10-13): the shared credits ran out in the
+   * window, so every camera has stopped. Same slot, same page as `papicReady`.
+   */
+  papicStopped?: boolean;
   /** An AI offer exists AND may be shown here (never in the store shell). */
   aiOffer: boolean;
 };
@@ -120,7 +127,7 @@ export type HomeNextInput = {
  * the guided flow's `?tool=details&guide=1` first read as "lost".
  */
 export function pickHomeNext(input: HomeNextInput): HomeNext {
-  const { guide, hasDate, guests, noun, papicReady, aiOffer } = input;
+  const { guide, hasDate, guests, noun, papicReady, papicStopped = false, aiOffer } = input;
   if (guide) {
     /* "Finish your Event Hub — n of m · Pick a stage": the whole in place, then
        the first stage still to do with its own count. */
@@ -176,11 +183,21 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       action: 'Send invitations',
     };
   }
-  if (papicReady) {
+  if (papicStopped) {
     return {
       kind: 'papic',
-      title: 'Your free camera is ready',
-      body: 'Hand it to someone you trust and the candids start landing in your gallery.',
+      title: 'Your cameras have stopped',
+      body: 'Your credits have run out — add credits to restart them.',
+      action: 'Add credits',
+    };
+  }
+  if (papicReady) {
+    /* The retired free "One" camera (owner 2026-08-11) is not promised here any
+       more: what is ready is the event's cameras, shooting from its credits. */
+    return {
+      kind: 'papic',
+      title: 'Your cameras are ready',
+      body: 'Your credits are waiting. Hand out the camera QRs and the first photos land in your gallery.',
       action: `Open ${SERVICE_NAMES.papic.plain.toLowerCase()}`,
     };
   }
@@ -241,7 +258,26 @@ export type HomeServiceKey = 'papic' | 'ai' | 'nikah';
  * `name` is the plain name (first), `brand` the Setnayan name (small under) — `lib/service-names.ts`.
  * Nikah essentials is not a Setnayan service, so it carries no brand line.
  */
-export type HomeService = { key: HomeServiceKey; name: string; brand?: string; status: string };
+export type HomeService = {
+  key: HomeServiceKey;
+  name: string;
+  brand?: string;
+  status: string;
+  /**
+   * 📍 Papic's row carries its two doors (owner 2026-10-13): "Buy more" (the
+   * shipped credit stepper, opened in place) and "See N photos" (the gallery).
+   * Absent = the plain one-line row.
+   */
+  papic?: PapicRowDoors;
+};
+
+/** What the Papic row offers beside its status — from `papicGlance` (lib/papic-glance.ts). */
+export type PapicRowDoors = {
+  tone: 'ok' | 'low' | 'stopped' | 'waits' | 'plain';
+  buy: boolean;
+  /** Photos gathered — "See N photos" shows only when this is a measured number above 0. */
+  photos: number | null;
+};
 
 /** What `resolvePapicHomeTile` returned, or 'failed' when it threw. */
 export type PapicStatusInput =
@@ -296,6 +332,8 @@ export function homeServices(input: {
   next: HomeNextKind;
   storeShell: boolean;
   papic: string;
+  /** 📍 Papic's doors (Buy more · See N photos), when the glance offers them. */
+  papicDoors?: PapicRowDoors | null;
   ai: string;
   /** 🕌 Set ONLY for a Muslim wedding — the Nikah essentials' status line. Free, so it is also in the store shell. */
   nikah?: string | null;
@@ -303,7 +341,13 @@ export function homeServices(input: {
   const paid: HomeService[] = input.storeShell
     ? []
     : [
-        { key: 'papic', name: SERVICE_NAMES.papic.plain, brand: SERVICE_NAMES.papic.brand, status: input.papic },
+        {
+          key: 'papic',
+          name: SERVICE_NAMES.papic.plain,
+          brand: SERVICE_NAMES.papic.brand,
+          status: input.papic,
+          ...(input.papicDoors ? { papic: input.papicDoors } : {}),
+        },
         { key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai },
       ];
   const all: HomeService[] = [

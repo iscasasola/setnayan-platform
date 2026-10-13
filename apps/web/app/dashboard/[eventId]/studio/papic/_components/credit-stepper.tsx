@@ -85,7 +85,7 @@ export function CreditStepper({ rungs }: { rungs: readonly StepperRung[] }) {
             {peso(rung.pricePhp)}
           </span>
           <span className="text-xs text-ink/65">
-            adds {rung.points.toLocaleString('en-PH')} shots
+            adds {rung.points.toLocaleString('en-PH')} credits
             {rung.discountPercent != null ? ` · ${rung.discountPercent}% off` : ''}
           </span>
         </div>

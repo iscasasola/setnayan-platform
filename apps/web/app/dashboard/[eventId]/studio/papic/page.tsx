@@ -106,6 +106,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { PapicPoolCard } from './_components/papic-pool-card';
+import { PapicTopBand } from './_components/papic-top-band';
+import { papicGlance, glanceTileFromStandings } from '@/lib/papic-glance';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
 import { GuestCamerasChoice } from './_components/guest-cameras-choice';
@@ -202,6 +204,8 @@ type Props = {
     guestCameras?: string;
     preserve_set?: string;
     preserve_error?: string;
+    /** 📍 "Buy more" from Home's Next card — the band opens on the stepper. */
+    buy?: string;
   }>;
 };
 
@@ -500,6 +504,16 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // three numbers. Two components counting the same thing is a definition twice,
   // and this page has already paid for that shape once.
   const standings = await readPapicStandings(createAdminClient(), eventId);
+
+  /* 📍 THE TOP BAND (owner "Yes", 2026-10-13): credits left · Buy more · See N
+     photos, and when the cameras are on — worked out from the standings just
+     read and the window above, nothing more (lib/papic-glance.ts). */
+  const papicBand = papicGlance({
+    permitted: true,
+    tile: glanceTileFromStandings(standings),
+    window: { startDate: papicWindow.startDate, endIso: papicWindow.endIso },
+    papicOn: true,
+  });
 
   // Whole days until the cameras open. null when the dates are unset, or when
   // the window has already started — the stage says something different in each
@@ -854,6 +868,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         preserveError={preserveError}
       />
 
+      {/* 📍 ONE BAND, FIRST (owner "Yes", 2026-10-13): track · buy · see. */}
+      <PapicTopBand
+        glance={papicBand}
+        buyOpen={Boolean(papicPoolError) || papicBand.tone === 'stopped' || search.buy === '1'}
+        buyPanel={<PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />}
+      />
+
       {/* ══ CREDITS ══════════════════════════════════════════════════
           Money leads the setup phase, because a couple cannot size a purchase they
           cannot see. ⚠ It sits ABOVE Coverage and Allotment, which are the two
@@ -881,7 +902,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           below still say what this event HAS and what it has SPENT — those are
           facts. What is gone is the opinion about what it SHOULD hold.
           `lib/the-recommendation-waits-for-data.test.ts` keeps it gone. */}
-      <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
+      {/* 📍 `PapicPoolCard` MOVED UP INTO THE TOP BAND (owner 2026-10-13): "Buy
+          more" unfolds it in place, first on the page. One mount, not two. */}
       {/* ⛔ NO CAMERA HOLDS CREDITS THE COUPLE GAVE IT — `PapicCamerasCard` WAS HERE.
 
           ⚖ Owner 2026-09-16: *"no dedicated shots individually."* Re-confirmed
@@ -1067,7 +1089,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           GALLERY — the library itself, the four ways media reaches it, and what the
           couple may hide. Before the day it sits below the setup that fills it; on
           the day and after, it leads. */}
-      <div className={`flex flex-col gap-7 ${ord('gallery')}`}>
+      <div id="papic-gallery" style={{ scrollMarginTop: 80 }} className={`flex flex-col gap-7 ${ord('gallery')}`}>
       {/* ⚠ THE STAGE — the page opens on the library, in every state.
           Owner 2026-08-28: *"it doesn't look like a photo app control center. it
           still feels like it is a business page."* Every product in this market

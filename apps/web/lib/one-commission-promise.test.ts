@@ -51,7 +51,9 @@ const SUPPLIER_SURFACES = [
   'app/_components/home/HomeOverlays.tsx',
   'app/_components/home/vendor-benefits.ts',
   'app/_components/frontdoor/front-door-feed.tsx',
-  'app/vendor-dashboard/earnings/surface.tsx',
+  // S-PR4: the Earnings page is Customers › Money — its words moved with it.
+  'app/vendor-dashboard/customers/_components/money-segment.tsx',
+  'app/vendor-dashboard/customers/_components/money-view.tsx',
   'app/waitlist/page.tsx',
   'app/admin/custom-plans/_components/custom-composer.tsx',
   'app/(shell)/pricing/page.tsx',

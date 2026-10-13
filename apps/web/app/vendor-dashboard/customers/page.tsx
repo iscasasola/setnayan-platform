@@ -1150,7 +1150,7 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
 
       {/* `#customer-tools` is where every fold's door lands (`customers/anchors.ts`); `#bookings` is the old Bookings
           link's landing — the Bookings fold sits in this accordion under Money. */}
-      <span id="bookings" aria-hidden className="block scroll-mt-24" />
+      {seg === 'money' ? <span id="bookings" aria-hidden className="block scroll-mt-24" /> : null}
       <div id="customer-tools" className="scroll-mt-24">
         {sections.length > 0 ? (
           <FeatureAccordion sections={sections} openKey={open}>

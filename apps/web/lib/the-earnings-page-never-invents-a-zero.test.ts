@@ -277,16 +277,20 @@ test('a genuinely empty ledger is DIFFERENT from an unread one', async () => {
 /* ── 4 · THE PAGE RENDERS THOSE THREE STATES ──────────────────────────── */
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
+// S-PR4: the Earnings page is Customers › Money — the reads in the segment, the drawing in its view.
+const segment = () =>
+  stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/customers/_components/money-segment.tsx'), 'utf8'));
 const surface = () =>
-  stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/earnings/surface.tsx'), 'utf8'));
+  stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/customers/_components/money-view.tsx'), 'utf8'));
 
 test('the page prints the VIEW’s figures, so a null reaches the screen', () => {
-  const src = surface();
-  assert.match(src, /value=\{formatPhp\(view\.ytdPhp\)\}/, 'the year-to-date tile no longer reads the view');
-  assert.match(src, /value=\{formatPhp\(view\.thisMonthPhp\)\}/);
+  const src = segment();
+  // The year goes through the view, then the pure `moneyYear` (null when unmeasured — `lib/vendor-money.test.ts`).
+  assert.match(src, /year = moneyYear\(earningsView\(earningsRead\), today\)/, 'the year no longer reads the view');
+  assert.match(surface(), /formatPhp\(year\.receivedPhp\)/, 'the year line no longer prints the view’s figure');
   // The old shape put the zero straight back.
   assert.doesNotMatch(
-    src,
+    src + surface(),
     /formatPhp\((ytdTotal|months\[months\.length - 1\]\?\.total_php \?\? 0)\)/,
     'a raw total bypasses the measured gate and prints ₱0 for an unread ledger',
   );
@@ -299,17 +303,19 @@ test('the page prints the VIEW’s figures, so a null reaches the screen', () =>
 
 test('every "couldn’t load" branch on this page is mounted, and counted', () => {
   const src = surface();
-  // Payouts (was the only one), the money tiles, the 12-month table and the
-  // ledger list. A count, because one match cannot say WHICH branch survived.
-  assert.equal(
-    (src.match(/We couldn&rsquo;t load/g) ?? []).length,
-    4,
-    'each unread section must say so where it is read: payouts, the money ' +
-      'tiles, the monthly totals and the payment ledger',
-  );
-  assert.match(src, /\{view\.ledger === 'unreadable' \? \(/, 'the ledger list lost its unreadable branch');
-  assert.match(src, /\) : view\.ledger === 'empty' \? \(/, 'the empty branch must be reachable only when measured');
-  assert.match(src, /\{!view\.measured \? \(/);
+  // The payments (Received · To come in), the booking fees, the year and the older payouts. Named one by one,
+  // because one count cannot say WHICH branch survived.
+  for (const [what, re] of [
+    ['the payments', /Couldn&rsquo;t load your payments\./],
+    ['the booking fees', /Booking fees couldn’t load/],
+    ['the year', /Couldn&rsquo;t load your year/],
+    ['the older payouts', /Your older payout records couldn&rsquo;t load/],
+  ] as const) {
+    assert.match(src, re, `${what} lost its "couldn't load" branch`);
+  }
+  // The year branches on the read BEFORE it branches on the count — "nothing yet" only when measured.
+  assert.match(src, /\) : year === null \? \([\s\S]*?\) : year\.months\.length === 0 \? \(/, 'the empty branch must be reachable only when measured');
+  assert.match(src, /\{totals \? \(/, 'the figures lost their unread branch');
 });
 
 test('the empty-state no longer describes the reader that could never match', () => {

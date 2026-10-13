@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ae796aa50",
+  "generatedFromRef": "2b80cd2d1fc",
   "routeCount": 431,
-  "destinations": 942,
+  "destinations": 940,
   "actions": 668,
-  "blocks": 6065,
+  "blocks": 6066,
   "routes": {
     "/": {
       "files": [
@@ -10256,12 +10256,14 @@
     "/dev/supplier-lab": {
       "files": [
         "dev/supplier-lab/dates-lab.tsx",
+        "dev/supplier-lab/money-lab.tsx",
         "dev/supplier-lab/page.tsx",
         "dev/supplier-lab/people-lab.tsx"
       ],
       "destinations": [
         "/dev/supplier-lab?s=dates",
         "/dev/supplier-lab?s=dates-day",
+        "/dev/supplier-lab?s=people",
         "/dev/supplier-lab?s=qr",
         "/dev/supplier-lab?s=qr-booked",
         "/dev/supplier-lab?thumb=customer",
@@ -10288,6 +10290,9 @@
         "Fix",
         "KeptNotesFold",
         "LockedQrGenerator",
+        "MoneyLab",
+        "MoneyLog",
+        "MoneyView",
         "NothingToAnswerFeed",
         "OutsideClientAdd",
         "OutsideClientRows",
@@ -12370,6 +12375,10 @@
         "vendor-dashboard/customers/_components/dates-row.tsx",
         "vendor-dashboard/customers/_components/dates-sheets.tsx",
         "vendor-dashboard/customers/_components/day-sheet.tsx",
+        "vendor-dashboard/customers/_components/money-figures.tsx",
+        "vendor-dashboard/customers/_components/money-log.tsx",
+        "vendor-dashboard/customers/_components/money-segment.tsx",
+        "vendor-dashboard/customers/_components/money-view.tsx",
         "vendor-dashboard/customers/_components/outside-client-add.tsx",
         "vendor-dashboard/customers/_components/people-more.tsx",
         "vendor-dashboard/customers/actions.ts",
@@ -12399,6 +12408,7 @@
         "ActionButton",
         "Badge",
         "BlockDateAdd",
+        "BookingFeeBills",
         "BookingsSurface",
         "CalendarDay",
         "CalendarGrid",
@@ -12407,12 +12417,14 @@
         "ChosenRow",
         "ConfirmForm",
         "ContractsSurface",
+        "Count",
         "Counter",
         "CustomerCalendarMonth",
         "CustomerSectionBody",
         "CustomersCalendar",
         "CustomersDates",
         "CustomersDay",
+        "CustomersMoney",
         "CustomersPick",
         "CustomersPipeline",
         "CustomersRoster",
@@ -12422,6 +12434,7 @@
         "DatesRow",
         "DaySheet",
         "FeatureAccordion",
+        "Fill",
         "Fold",
         "FormRows",
         "HTMLFormElement",
@@ -12432,11 +12445,15 @@
         "Marked",
         "MessagesSurface",
         "MiniTour",
+        "MoneyFill",
+        "MoneyLog",
+        "MoneyRow",
+        "MoneyView",
         "MonthInputs",
         "OutsideClient",
         "OutsideClientAdd",
         "OutsideClientRows",
-        "PaydaySurface",
+        "PesoCount",
         "PickMenu",
         "PillLink",
         "PillTrack",
@@ -12452,7 +12469,8 @@
         "SupplierToast",
         "Suspense",
         "SwitchTrack",
-        "TypedRow"
+        "TypedRow",
+        "WaivedFeeRows"
       ]
     },
     "/vendor-dashboard/deep-search": {
@@ -12514,22 +12532,11 @@
     "/vendor-dashboard/earnings": {
       "files": [
         "vendor-dashboard/earnings/loading.tsx",
-        "vendor-dashboard/earnings/page.tsx",
-        "vendor-dashboard/earnings/surface.tsx"
+        "vendor-dashboard/earnings/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/earnings?page=[seg]",
-        "/vendor-dashboard/subscription"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "BookingFeeBills",
-        "Link",
-        "PayoutKpi",
-        "Stat",
-        "VendorTierGate",
-        "WaivedFeeRows"
-      ]
+      "blocks": []
     },
     "/vendor-dashboard/invite": {
       "files": [
@@ -13010,22 +13017,13 @@
     },
     "/vendor-dashboard/payday": {
       "files": [
-        "vendor-dashboard/payday/_components/payday-installment-row.tsx",
-        "vendor-dashboard/payday/_components/payday-summary.tsx",
         "vendor-dashboard/payday/loading.tsx",
-        "vendor-dashboard/payday/page.tsx",
-        "vendor-dashboard/payday/surface.tsx"
+        "vendor-dashboard/payday/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/bookings"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
-        "ListPageSkeleton",
-        "PaydayRow",
-        "PaydaySummary",
-        "ShopEmpty"
+        "ListPageSkeleton"
       ]
     },
     "/vendor-dashboard/payment-options": {
@@ -13509,7 +13507,6 @@
         "DocSlotSaveResult",
         "DocsBody",
         "DocsStep",
-        "EarningsSurface",
         "EditableLine",
         "EditableRow",
         "FeatureAccordion",

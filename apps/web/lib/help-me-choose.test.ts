@@ -75,9 +75,15 @@ test('the matrix reads the calendar truth when given it: refused → booked, no 
   const state = (k: string) => dec5.categories.flatMap((c) => c.vendors).find((v) => v.key === k)!.state;
   assert.equal(state('a'), 'booked');
   assert.equal(state('b'), 'unknown');
+  // A blocks read that WOULD answer "no blocks" (every day open) — so only the rule can make an unread truth fail.
+  const chain: unknown = new Proxy(function () {}, {
+    get: (_t, k) => (k === 'then' ? (ok: (v: unknown) => void) => ok({ data: [], error: null }) : chain),
+    apply: () => chain,
+  });
+  const openBlocks = { from: () => chain, rpc: () => chain } as unknown as SupabaseClient;
   await assert.rejects(
     buildScheduleMatrix(
-      { admin: noAdmin, eventDate: '2026-12-01', precision: 'month', picks: [{ key: 'a', category: 'c', name: 'A', marketplaceVendorId: 'pa', rank: 1, confirmed: false }] },
+      { admin: openBlocks, eventDate: '2026-12-01', precision: 'month', picks: [{ key: 'a', category: 'c', name: 'A', marketplaceVendorId: 'pa', rank: 1, confirmed: false }] },
       { truth: async () => null },
     ),
     'an unread calendar is said, never ranked as free',

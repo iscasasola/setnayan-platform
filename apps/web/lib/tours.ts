@@ -395,7 +395,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Images,
-        title: 'Shoot while there are shots left',
+        title: 'Shoot while there are credits left',
         body: 'The camera shows how many shots are left. When they run out, it rests &mdash; enjoy the rest of the day.',
       },
     ],

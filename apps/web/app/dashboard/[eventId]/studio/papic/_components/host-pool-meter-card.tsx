@@ -74,13 +74,13 @@ export async function HostPoolMeterCard({ eventId }: { eventId: string }) {
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
             <Gauge aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-            Capture pool
+            Your credits
           </h2>
           <p className="mt-1 text-sm text-ink/60">
-            Your event&rsquo;s shared pool of capture points —{' '}
+            One shared set of credits for your event —{' '}
             {PAPIC_POINTS_PER_PHOTO === 1
-              ? 'a photo is 1 point'
-              : `a photo is ${formatCount(PAPIC_POINTS_PER_PHOTO)} points`}
+              ? 'a photo is 1 credit'
+              : `a photo is ${formatCount(PAPIC_POINTS_PER_PHOTO)} credits`}
             , a 10-second clip is {formatCount(PAPIC_POINTS_PER_SNIPPET)}.
           </p>
         </div>
@@ -89,14 +89,14 @@ export async function HostPoolMeterCard({ eventId }: { eventId: string }) {
             {fmt(meter.remainingPoints)}
           </span>
           <span className="block text-xs text-ink/55">
-            of {fmt(meter.totalPoints)} points left
+            of {fmt(meter.totalPoints)} credits left
           </span>
         </p>
       </div>
 
       <div
         role="meter"
-        aria-label="Capture points remaining"
+        aria-label="Credits remaining"
         aria-valuemin={0}
         aria-valuemax={meter.totalPoints}
         aria-valuenow={meter.remainingPoints}
@@ -112,16 +112,16 @@ export async function HostPoolMeterCard({ eventId }: { eventId: string }) {
         <span className="text-ink/55">
           {fmt(meter.usedPoints)} used
           {meter.grantedPoints > 0 ? (
-            <> · includes {fmt(meter.grantedPoints)} added points</>
+            <> · includes {fmt(meter.grantedPoints)} added credits</>
           ) : null}
         </span>
         {meter.level === 'exhausted' ? (
           <span className="font-medium text-red-700">
-            Pool exhausted — cameras can&rsquo;t capture more.
+            Your guests&rsquo; cameras have stopped — add credits to restart them.
           </span>
         ) : meter.level === 'low' ? (
           <span className="font-medium text-amber-800">
-            Running low — under {POOL_METER_LOW_PCT}% of your pool remains.
+            Running low — under {POOL_METER_LOW_PCT}% of your credits remain.
           </span>
         ) : null}
       </div>

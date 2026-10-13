@@ -44,6 +44,7 @@ import {
   recordUploadSample,
 } from '@/lib/papic-adaptive-quality';
 import { formatCount } from '@/lib/format-number';
+import { formatPapicDayInWords } from '@/lib/papic-window';
 import { cameraExitHref, type HubTabKey } from '@/app/[slug]/_lib/hub-tabs';
 import { cameraLookDrawsLogo, type CameraLook } from '@/lib/camera-look';
 import { FocusCorners } from './camera-focus-corners';
@@ -109,10 +110,11 @@ function guestWindowRejectMessage(
   error: unknown,
   eventDay: unknown,
 ): string | null {
-  const day = typeof eventDay === 'string' && eventDay ? eventDay : null;
+  // 📸 In words, on the venue's clock (owner 2026-10-13) — "Saturday, 12 December".
+  const day = typeof eventDay === 'string' && eventDay ? formatPapicDayInWords(eventDay) : null;
   if (error === 'guest_capture_not_open_yet') {
     return day
-      ? `Guest cameras open on ${day}. Your host can open them earlier.`
+      ? `Guest cameras switch on ${day}. Your host can open them earlier.`
       : 'Guest cameras open on the day of the event. Your host can open them earlier.';
   }
   if (error === 'guest_capture_closed') {

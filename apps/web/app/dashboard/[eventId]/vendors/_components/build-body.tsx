@@ -43,8 +43,8 @@ import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { goToBuildTab } from '@/lib/budget-build';
 import { benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
-import { recordFieldHref } from '@/lib/event-details-record';
 import { CALENDAR_NOT_SET } from '@/lib/calendar-truth';
+import { openSuppliersFactSheet } from '@/lib/suppliers-fact-sheets';
 import { formatCount } from '@/lib/format-number';
 import { MAX_BUILD_TITLE_LEN } from '@/lib/named-builds';
 import { formatPhp } from '@/lib/php';
@@ -365,7 +365,7 @@ export function BuildBody({
         </dl>
 
         {/* ── the fit line ── */}
-        <FitLine eventId={eventId} view={view} allFree={allFree} />
+        <FitLine view={view} allFree={allFree} />
       </section>
 
       {/* ── ALL BUILDS ─────────────────────────────────────────────────── */}
@@ -622,7 +622,7 @@ function Figure({
   );
 }
 
-function FitLine({ eventId, view, allFree }: { eventId: string; view: BuildView; allFree: boolean }) {
+function FitLine({ view, allFree }: { view: BuildView; allFree: boolean }) {
   const { fit, dateLabel } = view;
   const hasDay = dateLabel != null;
   return (
@@ -656,12 +656,14 @@ function FitLine({ eventId, view, allFree }: { eventId: string; view: BuildView;
           </>
         )}
       </span>
+      {/* PR5: opens the date sheet ON this page — on Help me choose when a day is set (owner 2026-10-10 answer 8). */}
       <ActionButton
         tone="warn"
         icon={CalendarDays}
         label={hasDay ? 'Help me choose' : 'Set the date'}
-        href={recordFieldHref(eventId, 'date')}
-        prefetch={false}
+        aria-haspopup="dialog"
+        onClick={() => openSuppliersFactSheet('date', hasDay)}
+        data-testid="build-fit-date"
       />
     </div>
   );

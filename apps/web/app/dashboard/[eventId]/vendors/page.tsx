@@ -39,6 +39,9 @@ import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact } from '@/lib/suppliers-shell';
 import { dateFitOf, type DateFit } from '@/lib/calendar-truth';
 import { readCalendarTruth } from '@/lib/calendar-truth.server';
+import { readHubDraft } from '@/lib/hub-draft-store';
+import { readOpenDateChange } from '@/lib/date-change.server';
+import { draftedEventDate } from '@/lib/suppliers-fact-sheets';
 import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
 import { displayBuildTitle, normalizeBuildTitle, sortSavedBuilds } from '@/lib/named-builds';
 import { BLOCKED_LOCK_ROW } from '@/lib/explore-info-copy';
@@ -285,7 +288,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // a review_request. Idempotent — flipped rows no longer match.
   await sweepRipeReviewRequests(eventId, user.id);
 
-  const [vendorsRead, eventCtx, photoMaps, changeLines] = await Promise.all([
+  const [vendorsRead, eventCtx, photoMaps, changeLines, hubDraft, openDateChange] = await Promise.all([
     // MEASURED, so a refused read reaches the screen as "Couldn't load your
     // team" — never as an empty team (lib/event-vendors-read.ts).
     readEventVendorsMeasured(supabase, eventId),
@@ -320,6 +323,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // "Show the total now"). `fetchEventVendors` is shared with other surfaces,
     // so the lines are joined here rather than inside it.
     fetchChangeLinesByVendor(supabase, eventId),
+    // PR5 — the date AS THE COUPLE IS WORKING ON IT: a date saved on this page (or in the Maker) waits in the Event
+    // Hub draft until Apply (owner 2026-10-10 answer 7), and Find, Build and the line plan on it meanwhile. Unread →
+    // the live date, as the Maker does.
+    readHubDraft(supabase, eventId).catch(() => null),
+    // …and a date change asked of a booked supplier shows here too (answer 10). One row when there is none.
+    readOpenDateChange(supabase, eventId).catch(() => ({ ok: false as const })),
   ]);
   // ⛔ A REFUSED TEAM READ STOPS HERE. Every surface below — the rows, the
   // bench, Picks, Plans — is built from these rows, and each would draw the
@@ -365,6 +374,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   }
 
   const ev = (eventCtx.data as EventBudgetRow | null) ?? null;
+  // PR5 — the date the couple is PLANNING on: a drafted date waits for Apply (answer 7), yet the line, the bench's
+  // date fit and Build's fit line read it, so choosing a day re-runs the fit everywhere. Bookings, locks and every
+  // write keep reading the LIVE row (`ev`) — a draft never books anyone.
+  const draftedDate = draftedEventDate(ev, hubDraft);
+  const planDate = draftedDate ? draftedDate.date : (ev?.event_date ?? null);
+  const planPrecision = draftedDate ? draftedDate.precision : ((ev?.event_date_precision as string | null | undefined) ?? 'day');
   const eventDate = ev?.event_date ?? null;
   const daysUntilWedding = eventDate
     ? Math.round((new Date(eventDate).getTime() - Date.now()) / 86_400_000)
@@ -1532,8 +1547,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // calendar "free". GATED as before: behind BUDGET_BUILD_ENABLED and a COMMITTED (day-precision) date. ADMIN client
   // (the RPC is service_role-only; only a verdict per supplier leaves the server). A failed read → no badges at all.
   const dateFitByVendorId = new Map<string, DateFit>();
-  if (isBudgetBuildEnabled() && eventDate && matchPrecision === 'day') {
-    const committed = computeCandidateWindow(eventDate, 'day');
+  if (isBudgetBuildEnabled() && planDate && planPrecision === 'day') {
+    const committed = computeCandidateWindow(planDate, 'day');
     if (committed) {
       const committedKey = formatDayKey(committed.start);
       // vendor_id → marketplace vendor_profile_id, for connected picks only.
@@ -2681,7 +2696,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         ? (teamRowList.find((r) => r.vendorId === booked.vendor_id)?.name ?? booked.vendor_name)
         : null;
       return {
-        date: suppliersDateFact(ev.event_date, ev.event_date_precision),
+        date: suppliersDateFact(planDate, planPrecision),
+        drafted: draftedDate != null,
         // The area by its own name; an unlisted spelling is shown as typed
         // (what the Build body's Location tile already prints).
         place: suppliersPlaceFact(venueName, regionLabel(ev.region) ?? ev.region),
@@ -2692,8 +2708,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // Each build's "Free:" line is the row the old compare table printed, read
     // from the SAME two maps (`compareAvailability` · `compareAnchoredDate`):
     // no calendar read → no line, never "free" and never "taken".
-    const buildDayLabel =
-      matchPrecision === 'day' && ev?.event_date ? formatDayKeyLabel(ev.event_date.slice(0, 10)) : null;
+    const buildDayLabel = planPrecision === 'day' && planDate ? formatDayKeyLabel(planDate.slice(0, 10)) : null;
     const buildFreeOf = (key: string): BuildCardFree => {
       const span = compareAvailability?.byColumn[key];
       if (span) {
@@ -2727,6 +2742,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           ),
         })
       : null;
+
+    // PR5 — Help me choose offers only the days EVERY PRICED pick can take (owner 2026-10-10 answer 8): the build's
+    // priced picks, booked ones included (the server adds every booked supplier itself).
+    const pricedPickIds = (buildView?.lines ?? [])
+      .map((l) => l.booked ?? l.pick)
+      .filter((x): x is NonNullable<typeof x> => x != null && x.pricePhp != null)
+      .map((x) => x.vendorId);
 
     const buildSlot = (
       <div className="space-y-6">
@@ -2779,7 +2801,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           // the finished-event summary); anything else opens on Find.
           initialTab={initialTab}
           // The date · place line — the only place on this page they appear.
-          factsSlot={<DatePlaceLine eventId={eventId} facts={shellFacts} />}
+          factsSlot={
+            <DatePlaceLine
+              eventId={eventId}
+              facts={shellFacts}
+              drafted={shellFacts?.drafted ?? false}
+              changeAsked={openDateChange.ok && openDateChange.view != null}
+              priced={pricedPickIds}
+            />
+          }
           // Find · Build N/M · Booked N — counted from what the bodies draw.
           tally={shellTally}
           bookedCount={teamCountsLine(teamRowList).booked}

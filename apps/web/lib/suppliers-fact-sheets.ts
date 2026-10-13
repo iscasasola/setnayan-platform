@@ -136,3 +136,29 @@ export function savedDateNote(bookedCount: number): string {
 export const DRAFTED_DATE_WORD = 'in your draft';
 /** The words on the line while a date change is asked (ruling 10). */
 export const CHANGE_ASKED_WORD = 'change asked';
+
+/** Any part of the page opens a sheet by this event — Build's "Help me choose" / "Set the date" do (`FactLine` listens). */
+export const SUPPLIERS_FACT_SHEET_EVENT = 'setnayan:suppliers-fact-sheet';
+export function openSuppliersFactSheet(which: FactSheetKey, help = false): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(SUPPLIERS_FACT_SHEET_EVENT, { detail: { which, help } }));
+}
+
+/**
+ * The date the Event Hub DRAFT holds, when it differs from the live row — what the Suppliers page plans on until Apply
+ * (answer 7). Null when the draft holds no date of its own, or the same one guests already see.
+ */
+export function draftedEventDate(
+  live: { event_date?: string | null; event_date_precision?: string | null } | null,
+  draft: { events: Record<string, unknown> } | null,
+): { date: string | null; precision: 'day' | 'month' | 'year' } | null {
+  if (!live || !draft) return null;
+  const ev = draft.events;
+  if (!('event_date' in ev) && !('event_date_precision' in ev)) return null;
+  const date = 'event_date' in ev ? (typeof ev.event_date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(ev.event_date) ? ev.event_date.slice(0, 10) : null) : (live.event_date ?? null);
+  const rawP = 'event_date_precision' in ev ? ev.event_date_precision : live.event_date_precision;
+  const precision = rawP === 'month' || rawP === 'year' ? rawP : 'day';
+  const liveP = live.event_date_precision === 'month' || live.event_date_precision === 'year' ? live.event_date_precision : 'day';
+  if (date === (live.event_date?.slice(0, 10) ?? null) && precision === liveP) return null;
+  return { date, precision };
+}

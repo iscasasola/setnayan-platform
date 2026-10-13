@@ -539,7 +539,8 @@ test('the free-5 position comes off the ledger, not a local count', () => {
   // comparison was vacuous. Reordering the two blocks kept it GREEN. The real
   // ordinal is the one that SELECTS `booking_ordinal` for this event; the
   // projection is the one that asks for a COUNT.
-  const ledgerRow = standing.indexOf("select('booking_ordinal')");
+  // (Since 2026-10-12 the same select also reads the launch-offer columns.)
+  const ledgerRow = standing.indexOf("select('booking_ordinal");
   const countFallback = standing.indexOf("count: 'exact'");
   assert.ok(ledgerRow > 0, 'the real ordinal is no longer selected at all');
   assert.ok(countFallback > 0, 'the projection fallback vanished');
@@ -552,7 +553,7 @@ test('the free-5 position comes off the ledger, not a local count', () => {
   // The waived list takes its ordinal by JOIN, never by counting.
   assert.match(
     server,
-    /ledger:booking_fee_ledger!inner\(booking_ordinal\)/,
+    /ledger:booking_fee_ledger!inner\(booking_ordinal[,)]/,
     'the waived charges stopped joining the ledger for the ordinal',
   );
 });

@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6667
+# facts: 6677
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     571
-#   col       4876
+#   col       4886
 #   policy    949
 #   view      8
 #   func      259
@@ -722,6 +722,8 @@ col	public.booking_fee_ledger.event_id	anon=- authenticated=SIU
 col	public.booking_fee_ledger.fee_paid_total_centavos	anon=- authenticated=SIU
 col	public.booking_fee_ledger.highest_declared_centavos	anon=- authenticated=SIU
 col	public.booking_fee_ledger.is_free_booking	anon=- authenticated=SIU
+col	public.booking_fee_ledger.launch_offer	anon=- authenticated=SIU
+col	public.booking_fee_ledger.launch_offer_number	anon=- authenticated=SIU
 col	public.booking_fee_ledger.ledger_id	anon=- authenticated=SIU
 col	public.booking_fee_ledger.source	anon=- authenticated=SIU
 col	public.booking_fee_ledger.updated_at	anon=- authenticated=SIU
@@ -3606,6 +3608,13 @@ col	public.platform_settings.google_drive_oauth_redirect_uri	anon=- authenticate
 col	public.platform_settings.google_picker_api_key	anon=- authenticated=S
 col	public.platform_settings.id	anon=- authenticated=S
 col	public.platform_settings.ig_user_id	anon=- authenticated=S
+col	public.platform_settings.launch_offer_booking_cap	anon=- authenticated=S
+col	public.platform_settings.launch_offer_closed_at	anon=- authenticated=S
+col	public.platform_settings.launch_offer_cycle_days	anon=- authenticated=S
+col	public.platform_settings.launch_offer_enabled	anon=- authenticated=S
+col	public.platform_settings.launch_offer_papic_credits	anon=- authenticated=S
+col	public.platform_settings.launch_offer_pro_ends_at	anon=- authenticated=S
+col	public.platform_settings.launch_offer_started_at	anon=- authenticated=S
 col	public.platform_settings.lead_hold_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.loader_pop_enabled	anon=- authenticated=S
 col	public.platform_settings.loader_step_interval_ms	anon=- authenticated=S
@@ -4716,6 +4725,7 @@ col	public.vendor_papic_captures.thumb_r2_key	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.tile_bytes	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.tile_r2_key	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_papic_portfolio_credit_grants.booking_fee_charge_id	anon=- authenticated=S
 col	public.vendor_papic_portfolio_credit_grants.created_at	anon=- authenticated=S
 col	public.vendor_papic_portfolio_credit_grants.credits	anon=- authenticated=S
 col	public.vendor_papic_portfolio_credit_grants.event_id	anon=- authenticated=S

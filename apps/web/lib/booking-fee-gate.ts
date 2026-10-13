@@ -61,6 +61,8 @@ export type BookingFeeChargeStatus =
   | 'waived_import'
   | 'waived_free5'
   | 'waived_promo'
+  /** The launch offer — one of the first N Setnayan-sourced bookings. */
+  | 'waived_launch'
   /** Owner 2026-10-12 #9 — a booking cancelled before its event, fee unpaid. */
   | 'cancelled_unbilled';
 

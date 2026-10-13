@@ -154,6 +154,9 @@ export const FEE_SETTLED_STATUSES: ReadonlySet<string> = new Set([
   // the lock: "if we make booking fee for free for a specific time … they can
   // access what the booking fee locks."
   'waived_promo',
+  // The launch offer waived it (owner 2026-10-08 / 2026-10-12 #3–#6). Settled
+  // at the instant it is made — nothing is owed, so nothing may be locked.
+  'waived_launch',
 ]);
 
 /**

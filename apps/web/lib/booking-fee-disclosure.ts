@@ -91,6 +91,21 @@ export type BookingFeeStanding =
       endsAt: string | null;
     }
   | { kind: 'billable'; ordinal: number; ordinalIsFrozen: boolean; schedule: BookingFeeSchedule }
+  /**
+   * THE LAUNCH OFFER (migration 20271268832636) — the booking is, or would be,
+   * one of Setnayan's first `cap` sourced bookings, fee-free. It sits ABOVE
+   * free-5 (owner 2026-10-12 #4) and spends none of the five. Carries the
+   * schedule for the same reason `free` does: the amount it would have cost is
+   * named. `isFrozen` = the booking already took its place (`number`).
+   */
+  | {
+      kind: 'launch_offer';
+      schedule: BookingFeeSchedule;
+      cap: number;
+      papicCredits: number | null;
+      isFrozen: boolean;
+      number: number | null;
+    }
   | { kind: 'unreadable' };
 
 /**
@@ -281,6 +296,35 @@ export function bookingFeeForecast(
       };
     }
 
+    case 'launch_offer': {
+      // The launch offer. Named as a FEE that is waived — never "commission
+      // while we launch" (BANNED_LAUNCH_WINDOW_SHAPE) — with the amount it
+      // would have cost, like every other waiver here.
+      const total = Number(totalPhp);
+      const cap = new Intl.NumberFormat('en-PH').format(standing.cap);
+      const credits =
+        typeof standing.papicCredits === 'number' && standing.papicCredits > 0
+          ? ` It also adds ${new Intl.NumberFormat('en-PH').format(standing.papicCredits)} Papic credits for this event.`
+          : '';
+      const which = standing.isFrozen
+        ? `This booking is one of Setnayan's first ${cap} bookings${standing.number ? ` (number ${new Intl.NumberFormat('en-PH').format(standing.number)})` : ''}, which are free — the launch offer.`
+        : `Setnayan's first ${cap} bookings are free — the launch offer — and it is still open, so if this booking is agreed now it costs you nothing.`;
+      const tail = ` It does not use up any of your ${FREE_BOOKING_LIMIT} free bookings.${credits}`;
+      if (!Number.isFinite(total) || total <= 0) {
+        return {
+          tone: 'good',
+          headline: 'Booking fee — free with the launch offer (we could not work out the amount yet).',
+          detail: `${which}${tail}`,
+        };
+      }
+      const fee = bookingFeePhp(total, standing.schedule);
+      return {
+        tone: 'good',
+        headline: `Booking fee ${feePesos(fee)} — free with the launch offer.`,
+        detail: `${which}${tail}`,
+      };
+    }
+
     case 'unreadable':
       return {
         tone: 'info',
@@ -329,13 +373,18 @@ export function bookingFeeForecast(
 export const WAIVED_FEE_RECEIPT_STATUSES: ReadonlySet<string> = new Set([
   'waived_free5',
   'waived_promo',
+  // The launch offer (migration 20271268832636) — during it, EVERY sourced
+  // booking is one of these, so without a receipt the supplier hears nothing.
+  'waived_launch',
 ]);
 
 /** Why a waived charge was waived, from its status. */
-export type WaivedFeeReason = 'free5' | 'promo';
+export type WaivedFeeReason = 'free5' | 'promo' | 'launch';
 
 export function waivedFeeReasonOf(status: string | null | undefined): WaivedFeeReason {
-  return status === 'waived_promo' ? 'promo' : 'free5';
+  if (status === 'waived_promo') return 'promo';
+  if (status === 'waived_launch') return 'launch';
+  return 'free5';
 }
 
 export type WaivedFeeCharge = {
@@ -350,6 +399,10 @@ export type WaivedFeeCharge = {
   ordinal: number | null;
   /** `YYYY-MM-DD` the charge was opened, or null. */
   waivedOn: string | null;
+  /** Launch offer only: `booking_fee_ledger.launch_offer_number`, the place it took. */
+  launchNumber?: number | null;
+  /** Launch offer only: the Papic credits its grant row actually carries (null = none read). */
+  launchCredits?: number | null;
 };
 
 /**
@@ -370,8 +423,18 @@ export function waivedFeeCopy(charge: WaivedFeeCharge): FeeDisclosure {
   // ⚠ A PROMOTION SPENDS NONE OF THE FIVE, and the receipt must not say it did:
   // the window sits below free-5 in the RPC, so a promo-waived booking is the
   // shop's sixth or later and its ordinal is not a position among the five.
+  const credits =
+    typeof charge.launchCredits === 'number' && charge.launchCredits > 0
+      ? ` It also added ${new Intl.NumberFormat('en-PH').format(charge.launchCredits)} Papic credits for this event.`
+      : '';
   const position =
-    charge.reason === 'promo'
+    charge.reason === 'launch'
+      ? `${
+          typeof charge.launchNumber === 'number' && Number.isFinite(charge.launchNumber)
+            ? `This was booking ${new Intl.NumberFormat('en-PH').format(charge.launchNumber)} of the Setnayan launch offer`
+            : 'This booking was part of the Setnayan launch offer'
+        }, so its fee is waived. It did not use up any of your free bookings.${credits}`
+      : charge.reason === 'promo'
       ? 'A Setnayan free-fee promotion was running when this booking was made, so its fee is waived. It did not use up any of your free bookings.'
       : typeof charge.ordinal === 'number' && Number.isFinite(charge.ordinal)
         ? `This was booking ${charge.ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan, which are free${freeBookingsLeftClause(charge.ordinal)}.`

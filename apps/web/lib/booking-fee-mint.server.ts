@@ -172,6 +172,8 @@ const LIVE_CHARGE_STATUSES = [
   'waived_import',
   'waived_free5',
   'waived_promo',
+  // The launch offer (migration 20271268832636) — a made, ₱0 charge.
+  'waived_launch',
 ] as const;
 
 /**

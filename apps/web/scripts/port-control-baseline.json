@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f3503c471",
-  "routeCount": 436,
-  "destinations": 945,
-  "actions": 669,
-  "blocks": 6248,
+  "generatedFromRef": "95008ac20",
+  "routeCount": 437,
+  "destinations": 946,
+  "actions": 670,
+  "blocks": 6253,
   "routes": {
     "/": {
       "files": [
@@ -2029,6 +2029,7 @@
         "/admin/hub-music",
         "/admin/integrations",
         "/admin/integrity-watch",
+        "/admin/launch-offer",
         "/admin/live-studio-channels",
         "/admin/money",
         "/admin/moodboard-library",
@@ -3267,6 +3268,24 @@
       "destinations": [],
       "actions": [],
       "blocks": []
+    },
+    "/admin/launch-offer": {
+      "files": [
+        "admin/launch-offer/actions.ts",
+        "admin/launch-offer/launch-offer-form.tsx",
+        "admin/launch-offer/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "formAction"
+      ],
+      "blocks": [
+        "FreeFeeWindowForm",
+        "LaunchOfferActionState",
+        "LaunchOfferNumbersForm",
+        "PageMasthead",
+        "Result"
+      ]
     },
     "/admin/live-studio-channels": {
       "files": [

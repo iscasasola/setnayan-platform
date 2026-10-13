@@ -340,7 +340,7 @@ export function PrintPieceEditor({
           eventId={input.eventId}
           piece={k}
           version={input.previewVersion}
-          again={themedReady ? { href: q(k, 'print'), file: file.themed(k) } : { href: classic(k), file: file.classic(k) }}
+          again={themedReady ? ({ href: q(k, 'print'), file: file.themed(k) }) : { href: classic(k), file: file.classic(k) }}
         />
         {children}
         {/* 6 · The poster's photo — Theme's picture | My photo, the upload square, the plain-words problem (`studio-prints-six.tsx`). */}
@@ -626,7 +626,7 @@ export function PrintSetDownloads({ input, studio = false }: { input: PrintsInpu
         eventId={input.eventId}
         piece="set"
         version={input.previewVersion}
-        again={studio ? (themedReady ? { href: q('set', 'print'), file: file.themed('set') } : { href: classic('set'), file: file.classic('set') }) : undefined}
+        again={studio ? (themedReady ? ({ href: q('set', 'print'), file: file.themed('set') }) : { href: classic('set'), file: file.classic('set') }) : undefined}
       />
       <p className="text-sm text-ink/75">
         <span data-prints-free-themes="" className="font-semibold text-ink">

@@ -436,9 +436,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   // Both land on Details (Prints & Tickets folded in, 2026-09-28) — the Menu on its own item.
   back.searchParams.set('tool', 'details');
   back.searchParams.set('item', piece === 'menu' ? 'menu' : 'invitation');
+  /* A quiet save (Studio › Prints' menu) is told in its own words — never answered with a whole Maker page. */
+  if (!current && piece === 'menu' && (req.headers.get('accept') ?? '').includes('application/json')) return NextResponse.json({ ok: false }, { status: 500 });
   if (!current) {
-    /* A quiet save (Studio › Prints' menu) is told in its own words — never answered with a whole Maker page. */
-    if (piece === 'menu' && (req.headers.get('accept') ?? '').includes('application/json')) return NextResponse.json({ ok: false }, { status: 500 });
     back.searchParams.set(piece === 'menu' ? 'menu_error' : 'print_error', '1');
     return NextResponse.redirect(back, 303);
   }

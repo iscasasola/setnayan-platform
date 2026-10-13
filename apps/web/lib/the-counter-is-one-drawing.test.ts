@@ -125,7 +125,7 @@ test('4 · the editor: both docks draw the Counter; −/+ read the rules; Undo i
 
 test('5 · the status line: three tones, each with its own mark and role — never colour alone; one action in words', async () => {
   const { StatusLine } = await import('../app/_components/status-line');
-  const say = async (tone: 'info' | 'warn' | 'bad') => html(React.createElement(StatusLine, { tone, action: { label: 'Undo', onClick: () => {} } }, 'Words.'));
+  const say = async (tone: 'info' | 'warn' | 'bad') => html(React.createElement(StatusLine as never, { tone, action: { label: 'Undo', onClick: () => {} } } as never, 'Words.'));
   const info = await say('info');
   const warn = await say('warn');
   const bad = await say('bad');

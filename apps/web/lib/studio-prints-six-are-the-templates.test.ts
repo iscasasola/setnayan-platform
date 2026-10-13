@@ -156,7 +156,7 @@ test('1 · changed since you printed: the amber status line with ONE quiet "Save
   assert.match(changed, /<StatusLine tone="warn" data="changed-since-printed" action=\{<PrintSaveButton href=\{again\.href\} file=\{again\.file\} variant="action" quiet label="Save again" \/>\}>/);
   assert.doesNotMatch(changed.slice(changed.indexOf('if (again) {'), changed.indexOf('return (\n    <p')), /border-l-2/, 'the Studio’s line is the bare bordered note');
   const prints = read(`${L}/maker-prints.tsx`);
-  assert.match(prints, /again=\{themedReady \? \{ href: q\(k, 'print'\), file: file\.themed\(k\) \} : \{ href: classic\(k\), file: file\.classic\(k\) \}\}/, 'Save again is not the piece’s main file');
+  assert.match(prints, /again=\{themedReady \? \(\{ href: q\(k, 'print'\), file: file\.themed\(k\) \}\) : \{ href: classic\(k\), file: file\.classic\(k\) \}\}/, 'Save again is not the piece’s main file');
 });
 
 test('5 · the pass look is the style-card strip, a pick still waits for Apply; ◆ on Free is the centred note over the SAME link', async () => {

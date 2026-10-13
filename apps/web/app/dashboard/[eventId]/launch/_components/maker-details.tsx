@@ -96,6 +96,7 @@ import type { MainColourDraft } from '@/lib/main-colours';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
 import { studioDetailsGroups, studioFullScreenCss, STUDIO_FORM_HEADS, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
 import { PRINT_KINDLY_REPLY_TIP, PRINT_SCHEDULE_TIP } from '@/lib/studio-prints-six';
+import type { StudioParent } from './studio-prints-six';
 import { GIFTS_OFF_LINE, GIFTS_OFF_TITLE, studioWishIsGot, type StudioWishList } from '@/lib/wish-list-studio';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
@@ -275,7 +276,7 @@ export type MakerDetailsProps = {
   stored: StoredPrintDetails;
   hosts: Array<{ moderatorId: string; label: string; contact: string | null }>;
   /** The parents on the invitation, each with their own guest card. */
-  parents: Array<{ guestId: string | null; name: string; card: ReactNode; side?: 'bride' | 'groom' | null }>;
+  parents: Array<{ guestId: string | null; name: string; card: ReactNode; side?: StudioParent['side'] }>;
   pabuyaMessage: string | null;
   specialMessage: string | null;
   hasPalette: boolean;

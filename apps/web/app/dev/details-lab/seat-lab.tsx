@@ -68,7 +68,7 @@ export function SeatLab({ removed: removed0, seated: seated0 }: { removed: numbe
           })}
         </svg>
       </div>
-      <div className="rounded-t-[22px] bg-cream px-4 pb-6 pt-2 shadow-[0_-10px_40px_-20px_rgba(0,0,0,.5)]">
+      <div className="rounded-t-3xl bg-cream px-4 pb-6 pt-2 shadow-[0_-10px_40px_-20px_rgba(0,0,0,.5)]">
         <p className="pb-1 text-center text-[12.5px] text-ink/55">
           You&rsquo;re editing · <b className="font-semibold text-ink/75">Seat plan › {label}</b>
         </p>

@@ -707,7 +707,7 @@ export function StudioPosterPhoto({ eventId, saved, thumb }: { eventId: string; 
               aria-label={photo ? 'Change the photo' : 'Upload a photo'}
               disabled={pct !== null || saving}
               onClick={pick}
-              className={`sn-press relative flex h-[120px] w-[120px] flex-col items-center justify-center gap-1.5 overflow-hidden rounded-[18px] text-[13px] font-semibold text-sn-accent ${
+              className={`sn-press relative flex h-[120px] w-[120px] flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl text-[13px] font-semibold text-sn-accent ${
                 shown || pct !== null ? 'bg-ink/[0.06]' : 'border-[1.5px] border-dashed border-ink/25 bg-white dark:bg-cream'
               }`}
             >

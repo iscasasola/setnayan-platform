@@ -46,14 +46,14 @@ const inst = (
 
 /** The prototype's customers: Cruz owes the balance on the 3rd, Bautista on the 8th, Ocampo's deposit is late. */
 const PAYDAY: PaydayInstallmentRow[] = [
-  inst('cruz', 'Jun & Liza Cruz', 1, 'Deposit', 43_000, '2026-08-20', true),
-  inst('cruz', 'Jun & Liza Cruz', 2, 'Balance', 42_000, '2026-10-03', false),
-  inst('bautista', 'Lourdes Bautista', 1, 'Deposit', 9_000, '2026-09-10', true),
-  inst('bautista', 'Lourdes Bautista', 2, 'Balance', 6_000, '2026-10-08', false),
-  inst('ocampo', 'Katrina Ocampo', 1, 'Deposit', 15_000, '2026-09-28', false),
-  inst('ocampo', 'Katrina Ocampo', 2, 'Balance', 35_000, '2026-11-20', false),
+  inst('cruz', 'Jun & Liza Cruz', 1, 'First payment', 43_000, '2026-08-20', true),
+  inst('cruz', 'Jun & Liza Cruz', 2, 'Final payment', 42_000, '2026-10-03', false),
+  inst('bautista', 'Lourdes Bautista', 1, 'First payment', 9_000, '2026-09-10', true),
+  inst('bautista', 'Lourdes Bautista', 2, 'Final payment', 6_000, '2026-10-08', false),
+  inst('ocampo', 'Katrina Ocampo', 1, 'First payment', 15_000, '2026-09-28', false),
+  inst('ocampo', 'Katrina Ocampo', 2, 'Final payment', 35_000, '2026-11-20', false),
   inst('reyes', 'Reyes debut', 1, 'Full payment', 134_000, '2026-09-15', true),
-  inst('santos', 'Santos wedding', 1, 'Deposit', null, null, false),
+  inst('santos', 'Santos wedding', 1, 'First payment', null, null, false),
 ];
 
 const BILLS: DueFeeBill[] = [

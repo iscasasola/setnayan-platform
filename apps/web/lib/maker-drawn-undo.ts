@@ -177,7 +177,8 @@ export const undoJournal: UndoJournal = {
 
 /** True while the ↺ itself sends: its own write is not a step of the journal (no barrier). */
 let quiet = false;
-export function undoJournalQuiet<T>(fn: () => T): T {
+export function undoJournalQuiet<T>(fn: () => T, on = true): T {
+  if (!on) return fn();
   quiet = true;
   try {
     return fn();

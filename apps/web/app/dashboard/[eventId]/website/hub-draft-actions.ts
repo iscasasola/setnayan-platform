@@ -194,7 +194,7 @@ export async function hubDraftAction(
        Reset bring a whole render of the Maker, and until it landed the toolbar still read the count from BEFORE the
        press. Asked for (`HUB_DRAFT_BAR_FIELD`), the bar comes back with the write — read beside it, from the same
        draft, by the reader a save's answer uses — so ✓ and ↺ show the step the moment the action answers. */
-    const answerWithBar = async (next: HubDraft): Promise<HubDraftActionResult> => {
+    const answerWithBar = async (next: HubDraft, matched?: boolean): Promise<HubDraftActionResult> => {
       const [, bar] = await Promise.all([
         writeHubDraft(supabase, eventId, next),
         formData.get(HUB_DRAFT_BAR_FIELD) === '1' ? hubDraftBarAfterSave(supabase, eventId, next) : Promise.resolve(null),
@@ -202,7 +202,8 @@ export async function hubDraftAction(
       /* ↺ …and the STAMP of the state it left (`lib/hub-draft-stamp.ts`): the Maker's ↺ proves with it that the step it
          draws backwards is the server's newest. */
       const stamp = hubDraftStamp(next);
-      return bar ? { ...done(), bar, stamp } : { ...done(), stamp };
+      const said = matched === undefined ? { stamp } : { stamp, matched };
+      return bar ? { ...done(), bar, ...said } : { ...done(), ...said };
     };
     if (intent === 'save') {
       let patch: HubDraftPatch;
@@ -251,13 +252,12 @@ export async function hubDraftAction(
       if (Array.isArray(patch.march) && (current.march?.length ?? 0) + patch.march.length > MARCH_DRAFT_MAX_MOVES) {
         return { ok: false, intent, error: MARCH_DRAFT_FULL_MESSAGE };
       }
-      const merged = mergeHubDraft(current, patch);
       const [, bar] = await Promise.all([
-        writeHubDraft(supabase, eventId, merged),
-        wantsBar ? hubDraftBarAfterSave(supabase, eventId, merged) : Promise.resolve(null),
+        writeHubDraft(supabase, eventId, mergeHubDraft(current, patch)),
+        wantsBar ? hubDraftBarAfterSave(supabase, eventId, mergeHubDraft(current, patch)) : Promise.resolve(null),
       ]);
       /* ↺ The stamp of the state this save left — the Maker's journal keeps it beside the step (`lib/hub-draft-stamp.ts`). */
-      const stamp = hubDraftStamp(merged);
+      const stamp = hubDraftStamp(mergeHubDraft(current, patch));
       /* ⚡ ONE RENDER PER SAVE, AND NOT THE WHOLE MAKER (owner 2026-09-28:
          *"picking something takes a lot of time before the website reacts"*).
          A draft write changes nothing a guest can see — guests meet the draft
@@ -289,9 +289,7 @@ export async function hubDraftAction(
       // Draft only — the draft bar refreshes once (see ONE RENDER PER SAVE).
       /* ↺ A DRAWN UNDO says which state it expects to step back from (`HUB_DRAFT_EXPECT_FIELD`): the undo ALWAYS runs —
          one press is one step — and the answer says whether it was that one (`matched`; `lib/hub-draft-stamp.ts`). */
-      const matched = hubDraftUndoMatched(current, formData.get(HUB_DRAFT_EXPECT_FIELD));
-      const answer = await answerWithBar(undoHubDraft(current));
-      return matched === undefined || !answer.ok ? answer : { ...answer, matched };
+      return answerWithBar(undoHubDraft(current), hubDraftUndoMatched(current, formData.get(HUB_DRAFT_EXPECT_FIELD)));
     }
     /* 💎 DROP ONE PRO EFFECT (the Apply sheet's ×, owner 2026-09-28). The list
        is recomputed HERE from the stored draft — the same one decision the

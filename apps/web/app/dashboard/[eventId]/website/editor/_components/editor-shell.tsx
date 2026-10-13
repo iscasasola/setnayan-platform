@@ -1719,7 +1719,7 @@ export function MakerWork({
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ widgets: { [scene.type]: { stage_show: { [stage]: value } } } }));
     if (held) fd.set(HUB_DRAFT_BAR_FIELD, '1');
-    const saved = reorderQueue.current.then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh, held ? { held, undo: 'noted' } : { held }));
+    const saved = reorderQueue.current.then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh, { held, undo: 'noted' }));
     /* ↺ A scene taken off is a step the page can draw back (`lib/maker-drawn-undo.ts`) — noted at the press. */
     if (held) noteSceneStep({ kind: 'remove', id: scene.id, stage, key: `w:${scene.type}`, label: scene.label }, saved);
     reorderQueue.current = saved
@@ -1889,7 +1889,7 @@ export function MakerWork({
       /* ⚡ No render follows a held move — the Apply · Undo count comes back with the save. */
       if (held !== null) fd.set(HUB_DRAFT_BAR_FIELD, '1');
       /* Serialised: each save carries the WHOLE order, so the last one decides. */
-      const saved = reorderQueue.current.then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh, held !== null ? { held: true, undo: 'noted' } : { held: false }));
+      const saved = reorderQueue.current.then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh, { held: held !== null, undo: 'noted' }));
       /* ↺ A move the page drew is a step it can draw back — noted at the press, with the order before and after. */
       const mover = sceneById.get(id);
       if (held !== null && mover) noteSceneStep({ kind: 'move', id, stage, key: `w:${mover.type}`, label: mover.label, prior: [...fullOrder], moved: order }, saved);
@@ -1955,7 +1955,7 @@ export function MakerWork({
     fd.set('patch', JSON.stringify(patch));
     if (held !== null) fd.set(HUB_DRAFT_BAR_FIELD, '1');
     const addSaved = reorderQueue.current.then(() => {
-      const saved = makerSave(() => draftAction(eventId, fd), requestMakerRefresh, held !== null ? { held: true, undo: 'noted' } : { held: false });
+      const saved = makerSave(() => draftAction(eventId, fd), requestMakerRefresh, { held: held !== null, undo: 'noted' });
       /* (held, yet the Maker's list must learn the part is shown: ONE render once it lands, the canvas kept) */
       if (held !== null) makerNeedsRender();
       return saved;

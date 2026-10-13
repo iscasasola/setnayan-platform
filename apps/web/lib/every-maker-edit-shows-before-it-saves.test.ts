@@ -68,8 +68,10 @@ const CANVAS_POST = new Set(['onPreview', 'lay', 'broadcastToCanvas', 'postToCan
  * `file › handler` (the handler is the nearest named function around the save).
  */
 const WAITS_ON_PURPOSE: Record<string, string> = {
-  'website/_components/hub-draft-bar.tsx › run':
+  'website/_components/hub-draft-bar.tsx › slow':
     'Undo · Restore · Reset · Apply: the result is computed by the server (the history, the live page). The bar shows the pending state, and the canvas reloads double-buffered, never blank.',
+  'website/_components/hub-draft-bar.tsx › drawnIo':
+    '↺ drawn at the press: the runner drew the journal\'s step backwards on the canvas and in the Maker\'s copy BEFORE this held undo is sent (`lib/maker-undo-run.ts` `runDrawnUndo`); a refusal puts the step back and says why.',
   'launch/_components/maker-logo.tsx › flush':
     'The logo autosave: the edit is already drawn by the studio’s own state; this is the debounced save behind it.',
   'website/editor/_components/details-bound-field.tsx › answer':
@@ -519,9 +521,11 @@ const HELD_WITHOUT_DRAWING: Record<string, string> = {
      `add-part-sheet.tsx` posts `scenePlaceholder` before `o.add(…, true)`), and the save still owes its one render
      (`makerNeedsRender`) for the Maker's list. */
   'website/editor/_components/editor-shell.tsx › addHere': 'held only when drawn — its place is already held on the canvas',
-  /* ↺ held only for a step the scene drag drew: its capture listener draws the inverse on the canvas and claims the
-     click (`claimDrawnUndo`) BEFORE this handler runs; any other ↺ is unheld, as ever (`lib/maker-drawn-undo.ts`). */
-  'website/_components/hub-draft-bar.tsx › run': 'held only for a ↺ the drag already drew at the press',
+  /* ↺ (2026-10-13, `rd/maker-undo-instant`) the ↺'s held undo is sent only for a step the Maker DREW: the lazy runner
+     takes the journal's newest step and draws it backwards on the canvas (`undraw()`) BEFORE it calls this door
+     (`lib/maker-undo-run.ts` `runDrawnUndo`); every other ↺ is the unheld `slow` path, as ever. Held by
+     `lib/an-older-undo-is-drawn-at-once.test.ts` G3, which drives the runner with the real journal and draft store. */
+  'website/_components/hub-draft-bar.tsx › drawnIo': 'held only after the runner drew the step back at the press',
   /* 🎁 E-Gifts › Wish list (owner 2026-10-08: "live"; owner rule the same day: a press costs one
      request and never re-renders the page). A wish is a LIVE row, not a part of the drafted
      canvas, and the place it is drawn is the list on this very screen — each handler writes that

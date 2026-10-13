@@ -40,9 +40,11 @@ test('↺ · Restore · Reset: the bar stays busy until the page shows it — a 
   const bar = read('app', 'dashboard', '[eventId]', 'website', '_components', 'hub-draft-bar.tsx');
   const hook = bar.slice(bar.indexOf('function useDraftIntent('), bar.indexOf('function ResultLine('));
   /* Watched FROM THE PRESS (the frame on show is read before anything is sent), and busy at once. */
-  /* (2026-10-12, `rd/maker-moves-instant`: a ↺ the drag DREW at the press — `takeDrawnUndo` — waits on the page it keeps
-     instead of a new frame; `lib/a-scene-move-is-drawn-at-once.test.ts`. Every other ↺ · Restore · Reset as before.) */
-  assert.match(hook, /const drawn = intent === 'undo' \? takeDrawnUndo\(\) : null;\s*const watch = drawn \? \{ done: drawn\.settle, cancel: \(\) => \{\} \} : intent && DRAFT_INTENT_RELOADS\.includes\(intent\) \? canvasSettleWatch\(\) : null;\s*if \(watch\) \{\s*setSettling\(intent\);\s*void watch\.done\.then\(\(\) => setSettling\(null\)\);\s*\}\s*start\(async/);
+  /* (2026-10-13, `rd/maker-undo-instant`: a ↺ the Maker DREW at the press — the journal's step, `lib/maker-undo-run.ts` —
+     is busy only while the page it keeps still moves (`drawn.settle`); `lib/an-older-undo-is-drawn-at-once.test.ts`.
+     Every other ↺ · Restore · Reset — the `slow` path — as before.) */
+  assert.match(hook, /const slow = \(fields: Record<string, string>, intent: HubDraftIntent \| null\) => \{\s*const watch = intent && DRAFT_INTENT_RELOADS\.includes\(intent\) \? canvasSettleWatch\(\) : null;\s*if \(watch\) \{\s*setSettling\(intent\);\s*void watch\.done\.then\(\(\) => setSettling\(null\)\);\s*\}\s*start\(async/);
+  assert.match(hook, /const drawn = runner\.runDrawnUndo\(drawnIo\(\)\);\s*if \(!drawn\) return false;\s*setSettling\('undo'\);\s*void drawn\.settle\.then\(\(\) => setSettling\(null\)\);/, 'a drawn ↺ is busy until the page it keeps settles');
   /* Busy is the action OR the wait for the page: every control of the bar reads the one `pending`. */
   assert.match(hook, /return \{ pending: pending \|\| settling !== null, working: settling, result, run \};/);
   /* A refusal brings no render: the bar is given back at once. */
@@ -61,7 +63,7 @@ test('↺ shows its count from the action’s OWN answer — never only from the
   const helper = action.slice(action.indexOf('const answerWithBar = '), action.indexOf("if (intent === 'save')"));
   assert.match(helper, /writeHubDraft\(supabase, eventId, next\)/);
   assert.match(helper, /formData\.get\(HUB_DRAFT_BAR_FIELD\) === '1' \? hubDraftBarAfterSave\(supabase, eventId, next\)/);
-  assert.match(helper, /return bar \? \{ \.\.\.done\(\), bar \} : done\(\);/);
+  assert.match(helper, /return bar \? \{ \.\.\.done\(\), bar, \.\.\.said \} : \{ \.\.\.done\(\), \.\.\.said \};/, 'the bar (and the state’s stamp) in the one answer');
   for (const intent of ['undo', 'reset']) {
     const at = action.indexOf(`if (intent === '${intent}') {`);
     assert.ok(at > 0, intent);
@@ -73,6 +75,8 @@ test('↺ shows its count from the action’s OWN answer — never only from the
   const bar = read('app', 'dashboard', '[eventId]', 'website', '_components', 'hub-draft-bar.tsx');
   const hook = bar.slice(bar.indexOf('function useDraftIntent('), bar.indexOf('function ResultLine('));
   assert.match(hook, /if \(watch\) fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);/);
+  /* …and a ↺ the Maker drew asks for it too: no render follows it at all. */
+  assert.match(hook.slice(hook.indexOf('const drawnIo = ')), /fd\.set\('intent', 'undo'\);\s*fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);/);
   assert.match(hook, /makerSave\(\(\) => action\(eventId, fd\)/);
   const refresh = read('lib', 'maker-refresh.ts');
   assert.match(refresh.slice(refresh.indexOf('export function makerSave<T>(')), /announceDraftBar\(result\);/);

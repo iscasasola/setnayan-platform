@@ -230,9 +230,8 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
          own response for a draft-only intent. */
       /* 📵 …and a request that never left (no signal) is ANSWERED, never thrown into this transition — a throw here
          replaced the whole Maker with the app's error screen (`hubDraftAnswer`, measured 2026-10-11). */
-      const send = () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: false });
-      /* (a slow ↺'s own write is not a step the journal records — it is the step being taken back) */
-      const r = await hubDraftAnswer(intent, () => (intent === 'undo' ? undoJournalQuiet(send) : send()));
+      /* (a slow ↺'s own write is not a step the journal records — it is the step being taken back: `undoJournalQuiet`) */
+      const r = await hubDraftAnswer(intent, () => undoJournalQuiet(() => makerSave(() => action(eventId, fd), () => router.refresh(), { held: false }), intent === 'undo'));
       /* Refused: no render is coming — the bar is given back now, with the reason said beside ✓. */
       if (!r.ok) watch?.cancel();
       /* ↺ The journal follows the server: after a slow ↺, off its top until its newest step IS the server's state;

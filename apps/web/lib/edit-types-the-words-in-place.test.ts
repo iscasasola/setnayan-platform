@@ -220,7 +220,8 @@ test('(4) what can be typed is the page’s to say; the page shows the words as 
   /* KEPT: one write, held (no Maker render, no canvas reload), through the work area's own draft door. */
   const keep = words.slice(words.indexOf('export async function keepPartWords('));
   assert.equal((keep.match(/door\.draftAction\(/g) ?? []).length, 1, 'keeping is more than one write');
-  assert.match(keep, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true \}/);
+  /* (2026-10-13: …and its ↺ is drawn at the press — the same put-back, `partWordsUndo`, noted with the save.) */
+  assert.match(keep, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true, \.\.\.\(redo \? \{ undo: partWordsUndo\(f, w\.writeKey, w\.undo, redo, w\.words\) \} : \{\}\) \}/);
   assert.doesNotMatch(keep, /router\.refresh|requestMakerRefresh\(\)/);
   /* A refused or failed keep puts the page's words back and answers the row — never the look of success. */
   assert.match(keep, /if \(!w\.ok\) \{\s*showPartWords\(f, f\.text\);\s*return \{ ok: false, error: w\.reason \};\s*\}/);

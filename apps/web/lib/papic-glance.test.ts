@@ -14,6 +14,7 @@ import { creditsWord, glanceTileFromStandings, papicGlance, seePhotosWord, type 
 import { formatPapicDayInWords, resolveStoredWindow } from './papic-window';
 import { POOL_METER_LOW_PCT, poolLevel } from './papic-pool-meter';
 import { pickHomeNext, homeServices, type HomeNextInput } from './home-first-screen';
+import { papicRowWhileNext } from './papic-glance';
 
 const DAY = 86_400_000;
 /** Noon Manila on 2026-10-14 — a fixed "now". */
@@ -32,7 +33,9 @@ test('in the window: "N credits left", Buy more, and the photo count for See N p
   const g = glance({ shotsLeft: 1240, shotsTotal: 1500, photosGathered: 260 });
   assert.equal(g.phase, 'open');
   assert.equal(g.status, '1,240 credits left');
-  assert.equal(g.tone, 'ok');
+  assert.deepEqual(g.line, { strong: '1,240 credits left', tail: '' });
+  assert.equal(g.mood, 'ok');
+  assert.equal(g.pct, 83, 'the meter is what is left of what was bought');
   assert.equal(g.buy, true);
   assert.equal(g.photos, 260);
   assert.equal(g.moment, null, 'photos exist — no "ready" card');
@@ -44,8 +47,9 @@ test('in the window: "N credits left", Buy more, and the photo count for See N p
 test('under 10% is "Running low" — the meter\'s own rule, from raw ratios', () => {
   assert.equal(POOL_METER_LOW_PCT, 10);
   const g = glance({ shotsLeft: 37, shotsTotal: 550, photosGathered: 513 });
-  assert.equal(g.tone, 'low');
+  assert.equal(g.mood, 'low');
   assert.equal(g.status, 'Running low · 37 credits left');
+  assert.equal(g.moment, null, 'low is a Next card only ON the day (owner call 1)');
   // 9.6% left still reads low (rounding would have said 10%).
   assert.equal(poolLevel(96, 1000), 'low');
   assert.equal(poolLevel(100, 1000), 'ok', 'exactly 10% is not under 10%');
@@ -53,21 +57,27 @@ test('under 10% is "Running low" — the meter\'s own rule, from raw ratios', ()
 
 test('at zero: "Stopped", Buy more, and the Next card\'s "stopped" moment', () => {
   const g = glance({ shotsLeft: 0, shotsTotal: 550, photosGathered: 550 });
-  assert.equal(g.tone, 'stopped');
-  assert.equal(g.status, 'Stopped · 0 credits left');
+  assert.equal(g.mood, 'gone');
+  assert.equal(g.status, '0 credits left · Your cameras have stopped');
   assert.equal(g.buy, true);
   assert.equal(g.moment, 'stopped');
-  const next = pickHomeNext({ ...NOTHING, papicStopped: true });
-  assert.equal(next.kind, 'papic');
+  const next = pickHomeNext({ ...NOTHING, guests: { total: 32, unsent: 12 }, papic: { moment: 'stopped', left: 0, total: 2000 } });
+  assert.equal(next.kind, 'papic', 'the prototype ranks the stopped card above "Send 12 invitations"');
   assert.equal(next.title, 'Your cameras have stopped');
-  assert.equal(next.action, 'Add credits');
+  assert.match(next.body, /^All 2,000 credits are used\./);
+  assert.equal(next.action, 'Buy more');
+  // Owner call 3: the row keeps the red meter only — no second "Stopped", no second Buy more.
+  const row = papicRowWhileNext(g, 'stopped');
+  assert.deepEqual(row, { line: { strong: '0 credits left' }, buy: false });
 });
 
 test('ready before the first photo — the Next card\'s other moment (never the retired free camera)', () => {
   const g = glance({ shotsLeft: 50, shotsTotal: 50, photosGathered: 0 });
   assert.equal(g.moment, 'ready');
-  const next = pickHomeNext({ ...NOTHING, papicReady: true });
+  const next = pickHomeNext({ ...NOTHING, papic: { moment: 'ready', left: 50, total: 50 } });
   assert.equal(next.title, 'Your cameras are ready');
+  assert.equal(next.action, 'Open Papic');
+  assert.deepEqual(papicRowWhileNext(g, 'ready').buy, true, 'the ready card offers Open Papic, so the row keeps Buy more');
   assert.ok(!/free camera/i.test(`${next.title} ${next.body}`), 'the retired free "One" camera is promised again');
 });
 
@@ -78,8 +88,9 @@ test('more than 6 months away: cameras WAIT, "On from [date]", credits still buy
   assert.equal(g.buy, true, 'credits can be bought early');
   assert.equal(g.moment, null, 'a camera that cannot shoot yet is not "ready"');
   const on = formatPapicDayInWords(windowFor(eventDate).startDate, NOW);
-  assert.ok(on && g.status.startsWith(`On from ${on}`), g.status);
-  assert.match(g.status, /· 50 credits$/);
+  assert.ok(on, 'the window has a first day');
+  assert.equal(g.status, `50 credits · On from ${on}`);
+  assert.equal(g.mood, 'wait', 'gold — before the window');
 });
 
 test('after the window: nothing to buy, no moment', () => {
@@ -103,6 +114,7 @@ test('🔴 a read that did not happen is "—", never 0 — and never a moment',
 test('an unread or "No" switch conjures no Next moment', () => {
   assert.equal(glance({ shotsLeft: 0, shotsTotal: 50, photosGathered: 5 }, undefined, { papicOn: null }).moment, null);
   assert.equal(glance({ shotsLeft: 50, shotsTotal: 50, photosGathered: 0 }, undefined, { papicOn: false }).moment, null);
+  assert.equal(glance('failed').mood, 'plain', 'an unread pool draws no meter');
 });
 
 test('dates in words — "Saturday, 12 December" (Manila), the year only when it is not this year', () => {
@@ -112,11 +124,22 @@ test('dates in words — "Saturday, 12 December" (Manila), the year only when it
   assert.equal(formatPapicDayInWords(null, NOW), null);
 });
 
-test('NEVER TWICE: when Papic is the Next card its row leaves "Your services"', () => {
-  const keys = homeServices({ next: 'papic', storeShell: false, papic: 'x', ai: 'y', papicDoors: { tone: 'stopped', buy: true, photos: 3 } }).map((s) => s.key);
-  assert.deepEqual(keys, ['ai']);
-  const row = homeServices({ next: 'plan', storeShell: false, papic: '12 credits left', ai: 'y', papicDoors: { tone: 'ok', buy: true, photos: 3 } })[0]!;
-  assert.deepEqual(row.papic, { tone: 'ok', buy: true, photos: 3 }, 'the row carries its two doors');
+test('owner call 1: running low ON THE EVENT DAY takes the Next card, once', () => {
+  const today = iso(NOW);
+  const g = glance({ shotsLeft: 140, shotsTotal: 2000, photosGathered: 1860 }, today, { eventDate: today });
+  assert.equal(g.moment, 'low-today');
+  const next = pickHomeNext({ ...NOTHING, papic: { moment: 'low-today', left: 140, total: 2000 } });
+  assert.equal(next.title, 'Your credits are running low');
+  assert.equal(next.action, 'Buy more');
+  assert.equal(papicRowWhileNext(g, 'low-today').buy, false, 'the card offers Buy more, so the row does not');
+});
+
+test('NEVER TWICE: while Papic holds the Next card the ROW STAYS (owner 2026-10-14) — only its doubled button goes', () => {
+  const doors = { glance: { count: 0, total: 50, mood: 'gone' as const, pct: 0, result: 3 }, line: { strong: '0 credits left' }, buy: false };
+  const keys = homeServices({ next: 'papic', storeShell: false, papic: 'x', ai: 'y', papicDoors: doors }).map((s) => s.key);
+  assert.deepEqual(keys, ['papic', 'ai']);
+  // A service with no doors (Setnayan AI) still leaves the row while it is Next.
+  assert.deepEqual(homeServices({ next: 'ai', storeShell: false, papic: 'x', ai: 'y' }).map((s) => s.key), ['papic']);
 });
 
 const NOTHING: HomeNextInput = { guide: null, hasDate: true, guests: { total: 96, unsent: 0 }, noun: 'wedding', papicReady: false, aiOffer: false };

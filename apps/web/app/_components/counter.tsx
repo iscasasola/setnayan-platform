@@ -58,7 +58,7 @@ export function Counter({
   };
   const sign = 'sn-press flex h-11 min-h-11 w-11 flex-none items-center justify-center rounded-full p-0 text-sn-accent disabled:text-ink/25';
   return (
-    <span role="group" aria-label={label} data-counter={data ?? ''} className="inline-flex h-11 flex-none items-center rounded-full border border-ink/15 bg-white">
+    <span role="group" aria-label={label} data-counter={data ?? ''} className="inline-flex h-11 flex-none items-center rounded-full border border-ink/15 bg-white dark:bg-ink/[0.06]">
       <input ref={field} type="hidden" name={name} value={n} />
       <button type="button" aria-label="One less" disabled={n <= min} onClick={() => step(-1)} className={sign}>
         <Minus aria-hidden className="h-5 w-5" strokeWidth={2} />

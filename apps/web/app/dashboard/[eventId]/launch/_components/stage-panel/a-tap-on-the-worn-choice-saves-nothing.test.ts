@@ -164,7 +164,7 @@ test('A one-choice dropdown (Dd) — picking what it shows saves nothing; a ✓ 
   };
   const one: string[] = [];
   menuOf(await render(h(Dd, { small: 'Movement', label: 'Movement', data: 'm', value: 'calm', options, onPick: (k: string) => one.push(k) })))('calm');
-  assert.deepEqual(one, [], 'picking the shown choice saved');
+  assert.equal(one.length, 0, 'picking the shown choice saved');
   menuOf(await render(h(Dd, { small: 'Movement', label: 'Movement', data: 'm', value: 'calm', options, onPick: (k: string) => one.push(k) })))('lively');
   assert.deepEqual(one, ['lively']);
   const ticks: string[] = [];

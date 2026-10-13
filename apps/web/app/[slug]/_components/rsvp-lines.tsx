@@ -49,10 +49,7 @@ export const RSVP_NOTE_ADDED_CLASS = 'text-center';
  * (the server, for every guest) and by the Maker's live re-arranging of its sample (`rsvp-canvas-arrange.ts`).
  */
 export const RSVP_FORM_LINE_ID = { eyebrow: 'rsvp-line-eyebrow', question: 'rsvp-line-question' } as const;
-export const RSVP_FORM_QUESTION_CLASS = {
-  led: 'mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink',
-  out: 'block pb-3 font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink',
-} as const;
+export { RSVP_FORM_QUESTION_CLASS, RSVP_STEP_QUESTION_CLASS } from './rsvp-question-class';
 /** A group's wrapper: the note's own paper (`data-landing-missed`'s recipe), its lines spaced as the card spaces them. */
 export const RSVP_GROUP_CLASS = 'sn-glass-bare space-y-2 rounded-2xl bg-cream/95 p-3.5 shadow-sm';
 

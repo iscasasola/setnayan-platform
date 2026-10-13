@@ -215,7 +215,7 @@ test('4 · each screen\'s question is its heading', async () => {
     const at = out.indexOf(q);
     assert.ok(at > -1, `${q} is not drawn`);
     const tag = out.slice(out.lastIndexOf('<', at), at);
-    assert.match(tag, /font-serif text-xl/, `"${q}" is a small label, not the screen's heading`);
+    assert.match(tag, /font-serif text-\[32px\]/, `"${q}" is a small label, not the screen's heading`);
   }
 });
 

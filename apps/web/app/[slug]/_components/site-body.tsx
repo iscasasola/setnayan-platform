@@ -802,11 +802,11 @@ export async function SiteBody({
   // 2026-09-28): see `_lib/main-ground-layer.tsx` for the whole rule. The hero
   // row is draft-overlaid for the host's preview like every other canvas.
   const heroRow = widgets.find((w) => w.widget_type === 'hero');
-  /* 🧍 How many pairs the page's own hold needs — at most one a scene that Leaves by Scrub (`HubPageHold`). 0 today. */
+  /* 🧍 How many pairs the page's own hold needs — at most one a scene that Leaves by Scrub (`HubPageHold`). (0 while Scrub shipped dark, to 2026-10-13.) */
   const pageHolds = hubScrubHoldsAtMost(widgets, proWatermarkHidden);
   /* 🎬 THE COVER AS HAND-OVER ZERO (`hub-scenes.tsx` `HubCoverHold`): is the hero row STORED to leave by Scrub, with a
-     Build out to play? The same question a scene is asked, through the same door — while "Scrub out" is not offered
-     (`lib/scrub-out-offered.ts`) the answer is no, on every page. 🔢 NO PAIR IS ADDED FOR IT: the hero row is a row,
+     Build out to play? The same question a scene is asked, through the same door — were "Scrub out" not offered
+     (`lib/scrub-out-offered.ts`, on since 2026-10-13) the answer would be no, on every page. 🔢 NO PAIR IS ADDED FOR IT: the hero row is a row,
      so `pageHolds` above already counts it — one pair for the cover, never two. */
   const coverStoredToLeave = hubCoverLeaves(widgets, proWatermarkHidden);
   const mainGroundLayer = await mainGroundLayerFor({

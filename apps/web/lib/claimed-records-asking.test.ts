@@ -64,11 +64,24 @@ test('"still asking" is read from the claimed link and ends at the supplier’s 
   assert.doesNotMatch(read, /\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/);
 });
 
-test('the supplier’s calendar counts them, started with the page’s other reads, minus dates already held', () => {
+// 🔗 BATCH 5 JOIN (2026-10-14). Customers › Dates (#6514, S-PR3) redrew the supplier's month: "Holding" (amber) is
+// now every OPEN conversation — pending OR accepted — about a dated event that holds no seat (`openAsksOf` in
+// `lib/vendor-dates.ts`, dates from one admin `events` read). A claimed couple's thread is opened `accepted`
+// (`seatClaimedCoupleAsCustomer`), so the hand-typed record reads "asking" on the month until the supplier's yes
+// books a seat — the same claim, held by #6514's one rule instead of a second read beside it.
+test('the supplier’s month counts a claimed couple as asking until their date holds a seat (Dates, #6514)', async () => {
+  const seat = code('lib/claimed-couple-is-a-customer.server.ts');
+  assert.match(seat, /\.update\(\{ inquiry_status: 'accepted', accepted_at: /, 'the claimed couple’s thread is opened accepted');
+  const { openAsksOf } = await import('./vendor-dates');
+  const threads = [{ thread_id: 't-own', event_id: 'e-own', inquiry_status: 'accepted', created_at: '2026-10-01T00:00:00Z' }];
+  const events = new Map([['e-own', { date: '2026-12-18', name: 'Cruz' }]]);
+  assert.deepEqual(
+    openAsksOf(threads, events, new Set()).map((a) => [a.eventId, a.date]),
+    [['e-own', '2026-12-18']],
+    'an accepted (claimed) couple with no seat must read as asking',
+  );
+  assert.deepEqual(openAsksOf(threads, events, new Set(['e-own'])), [], 'a date already held is not asking');
   const page = code('app/vendor-dashboard/customers/page.tsx');
-  assert.match(page, /readClaimedRecordEventsStillAsking\(createAdminClient\(\), vendorProfileId\),\s*\]\);/);
-  assert.doesNotMatch(page, /await readClaimedRecordEventsStillAsking\(/, 'the read is awaited on its own line');
-  assert.match(page, /const heldEventIds = new Set\(bookings\.map\(\(b\) => b\.eventId\)\);/);
-  assert.match(page, /askingDates\(\s*threads,\s*new Set\(\[\.\.\.claimedAsking\.eventIds\]\.filter\(\(id\) => !heldEventIds\.has\(id\)\)\),\s*\)/);
-  assert.match(page, /if \(claimedAsking\.error\) \{\s*logQueryError\(/);
+  assert.match(page, /const bookedEventIds = new Set\(bookings\.map\(\(b\) => b\.eventId\)\);/);
+  assert.match(page, /await readOpenAsks\(threadsRead\.threads, bookedEventIds\)/);
 });

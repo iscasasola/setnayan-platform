@@ -107,7 +107,10 @@ test('(3) the rule: nothing overlaps, the names never give way, parts go in one 
     assert.ok(extent(boxes) <= extent([...snap.parts, snap.door]) + 48, `${where}: the cover grew past the room it had`);
   }
   assert.ok(covers === 2000 && gave > 400 && untouched > 300 && namesOnly > 20, `the sweep went thin (${gave} gave way, ${untouched} untouched, ${namesOnly} names-only)`);
-  assert.deepEqual([...GIVE_WAY_ORDER], ['link', 'time', 'mark', 'eyebrow', 'line', 'date'], 'the order parts give way in changed — the date goes last, the names are not on it');
+  /* (RE-AIMED 2026-10-13, owner on a PHOTO cover: *"do it"* — the photo moves so the names, the date and "Get inside"
+     are on the stranger's first screen. The photo plate is the FIRST to give way; a card cover has none, so for it
+     the order is the one it always was. The date still goes last, the names are still not on it.) */
+  assert.deepEqual([...GIVE_WAY_ORDER], ['plate', 'link', 'time', 'mark', 'eyebrow', 'line', 'date'], 'the order parts give way in changed — the date goes last, the names are not on it');
 
   // A cover that fits is left exactly as designed; one that needs only air, or only a smaller mark, moves no part.
   const snap = cover();
@@ -220,8 +223,15 @@ test('(5) the page wears it: the button never floats, the component measures wha
   assert.match(body, /<div className="sn-door-row">[\s\S]{0,1600}<GetInside[\s\S]{0,200}dock=\{!isEditorCanvas\}/, 'the door’s row changed, or the canvas fits it');
 
   // The component: three measurements, the rule, and the limit — the bar's top or the banner's, whichever is higher.
+  // (RE-AIMED 2026-10-12: the measuring and writing moved, unchanged, to `_lib/first-screen-fit-dom.ts`, so the ONE fit
+  // has a second caller — Scrub's hold fits its cover before it fades, owner "option 2" — and no copy. The claim is
+  // unchanged: three measurements, the rule, the limit.)
   const fit = stripComments(read('app/[slug]/_components/first-screen-door.tsx'));
-  assert.match(fit, /const natural = snapshot\(list\);\s*set\(0, 1\);\s*const noAir = snapshot\(list\);\s*set\(0, MARK_MIN\);\s*const smallMark = snapshot\(list\);\s*plan = fitFirstScreen\(\{ natural, noAir, smallMark \}, limit\);/);
+  const hands = stripComments(read('app/[slug]/_lib/first-screen-fit-dom.ts'));
+  assert.match(fit, /firstScreenFitter\(screen, cover, inner, door, \(\) => window\.scrollY, photo\)/, 'the door no longer fits through the one fitter');
+  assert.match(fit, /plan = make\(list, limit\);/);
+  assert.match(hands, /const natural = snapshot\(list\);\s*set\(0, 1\);\s*const noAir = snapshot\(list\);\s*set\(0, MARK_MIN\);\s*const smallMark = snapshot\(list\);\s*let plan = fitFirstScreen\(\{ natural, noAir, smallMark \}, limit\);/);
+  assert.doesNotMatch(hands, /style\.(?:position|top|transform)\b/, 'the fit positions a block itself');
   assert.match(fit, /getPropertyValue\('--cookie-banner-top'\)/);
   assert.match(fit, /const limit = window\.innerHeight - Math\.max\(rest, banner > 0 \? banner \+ 8 : 0\);/);
   assert.match(fit, /parseFloat\(getComputedStyle\(door\)\.scrollMarginBottom\)/);
@@ -230,11 +240,15 @@ test('(5) the page wears it: the button never floats, the component measures wha
   assert.match(fit, /new ResizeObserver\(soon\)/);
   assert.match(fit, /door\.addEventListener\('toggle', onToggle\)/);
   assert.match(fit, /if \(door\.open\) door\.scrollIntoView\(\{ block: 'nearest'/);
-  // 🎚 While the cover hands over by Scrub (the page's hold armed) it stands aside: the door is the arrival then, drawn
-  // by the hand-over, and a fit answering the hand-over's re-measure fed a loop (the page changed length every ~120 ms
-  // at 375 × 560 — `scripts/scrub-browser-check.mjs` 16 plays it in a browser; this only pins the source).
+  // 🎚 While the cover hands over by Scrub (the page's hold armed) it stands aside: a fit answering the hand-over's
+  // re-measure fed a loop (the page changed length every ~120 ms at 375 × 560 — `scripts/scrub-browser-check.mjs` 16
+  // plays it in a browser; this only pins the source).
+  // (RE-AIMED 2026-10-12, owner "option 2": the cover is FITTED ONCE BEFORE IT FADES and the fit must not run again
+  // while it is held. So, armed, it measures nothing and writes nothing — and no longer takes the plan back: the
+  // hold fitted the first screen before it armed, by the same rule (`hub-scrub-engine.ts` `fitCover`), and the plan
+  // stays while the cover is held. Disarmed, it fits as before.)
   assert.match(fit, /const handedOver = \(\) => door\.closest\('\[data-hub-page-on\]'\) !== null;/);
-  assert.match(fit, /const list = blocks\(\);\s*clear\(list\);\s*if \(handedOver\(\)\) \{\s*plan = null;\s*return;\s*\}/, 'the fit writes while the cover is handed over');
+  assert.match(fit, /if \(handedOver\(\)\) return;\s*const list = blocks\(\);\s*clear\(list\);/, 'the fit measures or writes while the cover is held');
   assert.match(fit, /\.observe\(hold, \{ attributes: true, attributeFilter: \['data-hub-page-on'\] \}\)/, 'the fit does not hear the hand-over arm');
   // It writes custom properties and one attribute — never a position of its own.
   assert.doesNotMatch(fit, /style\.(?:position|top|transform)\b/, 'the component positions a block itself');
@@ -244,4 +258,48 @@ test('(5) the page wears it: the button never floats, the component measures wha
   assert.match(banner, /const BANNER_TOP_VAR = '--cookie-banner-top';/);
   assert.match(banner, /if \(r\.width >= window\.innerWidth - 1\) root\.style\.setProperty\(BANNER_TOP_VAR, `\$\{Math\.round\(window\.innerHeight - r\.top\)\}px`\);/);
   assert.ok((banner.match(/root\.style\.removeProperty\(BANNER_TOP_VAR\)/g) ?? []).length >= 2, 'the banner’s top outlives the banner');
+});
+
+/* ── (6) 📷 A PHOTO COVER IS FITTED TOO (owner 2026-10-13, DECISION_LOG: *"do it"*) ─────────────────────────────────────
+   Measured on the fixture's stranger page with a hero photo (Chromium, 375 × 812): the names 261–378, the date
+   431–469 and "Get inside" at 1042–1098 — under the photo at every phone size, on today's page; the eyebrow, the mark,
+   the rule and the photo (4:5, 469 px at this width, `mt-8` under the date) as the masthead draws them. The rule, given that page: the photo moves below the door, the door comes up under the date, and the
+   names and date stay where they are. The page wears it: the photo page's own mark carries only the moving blocks. */
+test('(6) a photo cover: the photo is the first to give way, and the names, the date and the door are on the first screen', () => {
+  const at812: FitSnapshot = {
+    parts: [
+      { key: 'eyebrow', top: 109, bottom: 125 },
+      { key: 'mark', top: 149, bottom: 229 },
+      { key: 'names', top: 261, bottom: 378 },
+      { key: 'line', top: 406, bottom: 407 },
+      { key: 'date', top: 431, bottom: 469 },
+      { key: 'plate', top: 501, bottom: 970 },
+    ],
+    door: { key: 'door', top: 1042, bottom: 1098 },
+  };
+  for (const [vh, rest] of [[812, 76], [667, 76], [600, 76], [560, 76]] as const) {
+    const limit = vh - rest;
+    /* A photo cover has no air or mark to close: the three measurements are one. */
+    const plan = fitFirstScreen({ natural: at812, noAir: at812, smallMark: at812 }, limit);
+    assert.ok(plan.fits && plan.doorBottom <= limit + 0.5, `${vh}: the door ends ${plan.doorBottom}, past ${limit}`);
+    /* (`gives` is in the page's order; the photo is the first of GIVE_WAY_ORDER, so it always went — and at 812 alone.) */
+    assert.ok(plan.gives.includes('plate'), `${vh}: the photo did not give way (${plan.gives.join(' · ')})`);
+    if (vh === 812) assert.deepEqual(plan.gives, ['plate'], 'at 812 the photo alone makes room');
+    assert.ok(!plan.gives.includes('names') && !plan.gives.includes('date'), `${vh}: the names or the date gave way`);
+    const boxes = drawn(at812, plan.gives);
+    noOverlap(boxes, `${vh}`);
+    const door = boxes.find((b) => b.key === 'door')!;
+    const plate = boxes.find((b) => b.key === 'plate')!;
+    assert.ok(plate.top >= door.bottom - 0.5 && plate.bottom - plate.top === 469, `${vh}: the photo is not whole under the door`);
+  }
+  /* The page wears it: one rule for the photo page's mark — the moving blocks only, no margin of its own. */
+  const photo = declarations('[data-first-screen-photo] [data-fs-shift]');
+  assert.deepEqual(photo, { position: 'relative', top: 'var(--fs-shift, 0px)' });
+  assert.doesNotMatch(CSS, /\[data-first-screen-photo\]\s*\{/, 'the photo page’s mark styles a box of its own');
+  const hands = stripComments(read('app/[slug]/_lib/first-screen-fit-dom.ts'));
+  assert.match(hands, /if \(el\.matches\('figure'\)\) add\('plate', el\);/);
+  assert.match(hands, /if \(photo\) return;\s*screen\.style\.setProperty\('--fs-air'/);
+  assert.match(hands, /const name = photo \? 'data-first-screen-photo' : 'data-first-screen-fit';/);
+  const door = stripComments(read('app/[slug]/_components/first-screen-door.tsx'));
+  assert.match(door, /h\.querySelector\('figure'\) !== null && \(h\.compareDocumentPosition\(door\) & Node\.DOCUMENT_POSITION_FOLLOWING\) !== 0/);
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { RSVP_STEP_QUESTION_CLASS } from './rsvp-question-class';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { LINKED_NAME_WORDS, plusOneNameSlots } from '@/lib/extra-seats';
 import { MEAL_LABELS, type MealPreference } from '@/lib/guests';
@@ -179,7 +180,7 @@ export function RsvpPlusOnes({
 
   return (
     <div ref={rootRef} className="space-y-3" data-rsvp-plus-ones>
-      <span className={question ? 'block font-serif text-xl leading-snug text-ink' : 'block text-sm font-medium text-ink'}>
+      <span className={question ? RSVP_STEP_QUESTION_CLASS : 'block text-sm font-medium text-ink'}>
         Who are you bringing?
       </span>
       <p className="text-xs text-ink/70">

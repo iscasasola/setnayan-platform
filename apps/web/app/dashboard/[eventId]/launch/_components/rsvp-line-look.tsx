@@ -280,7 +280,7 @@ export function RsvpCardGroundRows({
     <div className="contents" data-rsvp-card-ground={picked}>
       <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" role="group" aria-label={label}>
         {RSVP_CARD_TILES.map((t) => (
-          <button key={t.key} type="button" aria-pressed={t.key === picked} aria-label={t.name} data-rsvp-card-tile={t.key} onClick={() => onPick(t.key === 'plain' ? null : t.key)} className={SP_BG_TILE}>
+          <button key={t.key} type="button" aria-pressed={t.key === picked} aria-label={t.name} data-rsvp-card-tile={t.key} onClick={() => (t.key === picked ? undefined : onPick(t.key === 'plain' ? null : t.key))} className={SP_BG_TILE}>
             <span className={SP_BG_TILE_FACE} style={t.key === 'frost' ? { background: 'linear-gradient(135deg, rgba(255,255,255,.9), rgba(217,185,154,.55))' } : undefined} data-tile-face={t.key === 'none' ? 'none' : 'flat'}>
               {t.key === 'none' ? <span aria-hidden className={SP_BG_TILE_SLASH} /> : null}
               <span data-tile-name="ink" className={`${SP_BG_TILE_NAME} ${SP_BG_TILE_TONE.ink}`}>

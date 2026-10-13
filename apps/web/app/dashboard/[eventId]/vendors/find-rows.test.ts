@@ -61,12 +61,15 @@ test('T2 · "Cover your event", then "Covered N of M" — counted, and counting 
 });
 
 test('T3 · a row: the name, "· N yours", and ONE state word from the pure rule', () => {
+  // `yours` = the suppliers drawn here + any saved here this visit and not drawn yet (`savedInPlaceCount`, batch-3
+  // walk 2026-10-13: a Save answers in place, and its row counts it at once).
+  assert.match(BENCH, /const yours = t\.vendors\.length \+ savedInPlaceCount\(local, t\.tile, new Set\(t\.vendors\.map\(\(v\) => v\.vendorId\)\)\);/);
   // The name and "· N yours" are ONE run of text inside the name's own span, so
   // they wrap together — and the name is never cut with an ellipsis (measured
   // on the preview at 375: "Coordinator…", "Lights & Sou…").
   assert.match(
     BENCH,
-    /<span className="cat-nm">\s*\{t\.label\}\s*\{replan && t\.vendors\.length > 0 \? \(\s*<span className="cat-yours">\s*\{' '\}\s*· <Count value=\{t\.vendors\.length\} id=\{`sup-yours-\$\{t\.tile\}`\} \/> yours\s*<\/span>\s*\) : null\}\s*<\/span>/,
+    /<span className="cat-nm">\s*\{t\.label\}\s*\{replan && yours > 0 \? \(\s*<span className="cat-yours">\s*\{' '\}\s*· <Count value=\{yours\} id=\{`sup-yours-\$\{t\.tile\}`\} \/> yours\s*<\/span>\s*\) : null\}\s*<\/span>/,
   );
   const flatName = /\.slcat \.fold\.flat \.cat-nm\{([^}]*)\}/.exec(BENCH)?.[1] ?? '';
   assert.match(flatName, /white-space:normal/, 'a long category name cannot wrap');
@@ -74,7 +77,7 @@ test('T3 · a row: the name, "· N yours", and ONE state word from the pure rule
   assert.match(flatName, /overflow:visible/);
   assert.match(
     BENCH,
-    /categoryRowState\(\{\s*lockedCount: rowCoverage\?\.lockedCount \?\? 0,\s*covered: rowCoverage\?\.covered \?\? false,\s*vendorCount: t\.vendors\.length,\s*quoteInCount: t\.vendors\.filter\(\(v\) => standings\[v\.vendorId\]\?\.needsYou === true\)\.length,\s*\}\)/,
+    /categoryRowState\(\{\s*lockedCount: rowCoverage\?\.lockedCount \?\? 0,\s*covered: rowCoverage\?\.covered \?\? false,\s*vendorCount: yours,\s*quoteInCount: t\.vendors\.filter\(\(v\) => standings\[v\.vendorId\]\?\.needsYou === true\)\.length,\s*\}\)/,
   );
   assert.match(BENCH, /<Count value=\{rowState\.n\} id=\{`sup-st-\$\{rowState\.kind\}-\$\{t\.tile\}`\} \/>/);
   assert.match(BENCH, /\{rowState\.words\}/);

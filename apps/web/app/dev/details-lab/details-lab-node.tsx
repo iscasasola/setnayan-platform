@@ -24,6 +24,7 @@
  *   ?guide=1|walk-S|ready-S  the guided "What's left", by stage (S = save_the_date, rsvp-stage, …) — with Your event on
  *                         fixtures; `&fresh=1` a new event (nothing filled in yet)
  */
+import { passCardDesignFrom } from '@/lib/pass-card';
 import { MakerDetails, detailsFactEditors } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
 import { pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
@@ -183,20 +184,50 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           theme: 'house',
           ownsPro: pro,
           storeShell: false,
-          previewVersion: null,
+          /* 🖨 `?studio=1`: a version, so "Changed since you printed" can be walked (a stamp of another version in this browser). */
+          previewVersion: studioLab ? 'lab-v2' : null,
+          /* 🎫 The ticket style the lab's draft holds (the Maker lab's `lab_pass` cookie) — as the real page hands the drafted look in. */
+          passDesign: passCardDesignFrom(one('labPass')),
           formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
         }}
-        menu={{ saved: [], caterer: [], suggestions: [], flash: null }}
+        /* 🧪 `?studio=1`: Prints' six on fixtures (owner "approved" 2026-10-13) — a menu of two moments and the schedule's food moments
+           to add; its quiet save and the poster photo's go to routes the walk stands in for (no database here). */
+        menu={
+          studioLab
+            ? {
+                saved: [
+                  { title: 'Cocktail hour', dishes: ['Lumpiang shanghai', 'Cheese & fruit'] },
+                  { title: 'Reception & dinner', dishes: ['Lechon with liver sauce', 'Kare-kare', 'Garlic rice'] },
+                ],
+                caterer: [],
+                suggestions: ['Dessert', 'Midnight snack'],
+                flash: null,
+              }
+            : { saved: [], caterer: [], suggestions: [], flash: null }
+        }
         stored={stored}
         hosts={
           mj
             ? [{ moderatorId: 'm1', label: 'Ana & Marco · wedding planner external', contact: 'testnayan1@test.com' }]
-            : [{ moderatorId: 'm1', label: 'Claire', contact: '0917 555 0101' }]
+            : studioLab
+              ? [
+                  { moderatorId: 'm1', label: 'Claire', contact: '0917 555 0142' },
+                  { moderatorId: 'm2', label: 'Marco', contact: null },
+                ]
+              : [{ moderatorId: 'm1', label: 'Claire', contact: '0917 555 0101' }]
         }
         parents={
-          mj
+          /* `&parents=1` gives the Maker lab (shape=mj, no parents of its own) the three stand-in parents too. */
+          mj && !(studioLab && one('parents') === '1')
             ? []
-            : [
+            : studioLab
+              ? [
+                  /* A stand-in for each parent's guest card (the real one needs the database) — the sheet it opens in is the real one. */
+                  { guestId: 'lab-p1', name: 'Maria Santos', side: 'bride' as const, card: <p data-lab-guest-card="">Maria Santos’s guest card opens here (the lab has no guest list).</p> },
+                  { guestId: 'lab-p2', name: 'Jose Santos', side: 'bride' as const, card: <p data-lab-guest-card="">Jose Santos’s guest card opens here (the lab has no guest list).</p> },
+                  { guestId: 'lab-p3', name: 'Lourdes Reyes', side: 'groom' as const, card: <p data-lab-guest-card="">Lourdes Reyes’s guest card opens here (the lab has no guest list).</p> },
+                ]
+              : [
                 { guestId: null, name: 'Atty. Eufrocina M. Sacdalan-Casasola', card: null },
                 { guestId: null, name: 'Mrs. Milagros Buanhog', card: null },
               ]

@@ -56,7 +56,13 @@ export type RegistryRow = {
 /** The couple themselves never sign in at their own desk. */
 const NOT_AT_THE_DESK = new Set(['bride', 'groom']);
 
-function surnameFirst(g: RegistryGuest): { label: string; key: string } {
+/**
+ * A guest's desk name and the key it is filed under — "Cruz, Ana" under
+ * "Cruz Ana"; a custom display name as written, under itself. ONE rule for
+ * every A-to-Z print: the registry and the entrance seating chart's A to Z
+ * (`lib/print-entrance-chart.ts`) both sort by it.
+ */
+export function surnameFirst(g: Pick<RegistryGuest, 'first_name' | 'last_name' | 'display_name' | 'name_suffix'>): { label: string; key: string } {
   const last = (g.last_name ?? '').trim();
   const first = (g.first_name ?? '').trim();
   const custom = g.display_name?.trim();
@@ -69,6 +75,11 @@ function surnameFirst(g: RegistryGuest): { label: string; key: string } {
   }
   const only = guestDisplayName(g) || 'Guest';
   return { label: only, key: only };
+}
+
+/** The order two filing keys sort in — accents and case aside, numbers as numbers. */
+export function registryKeyCompare(a: string, b: string): number {
+  return a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true });
 }
 
 /**
@@ -108,7 +119,7 @@ export function registryRows(guests: readonly RegistryGuest[], tableOf: Readonly
         key: n.key,
       };
     });
-  rows.sort((a, b) => a.key.localeCompare(b.key, 'en', { sensitivity: 'base', numeric: true }) || a.row.guestId.localeCompare(b.row.guestId));
+  rows.sort((a, b) => registryKeyCompare(a.key, b.key) || a.row.guestId.localeCompare(b.row.guestId));
   return rows.map((r) => r.row);
 }
 

@@ -39,11 +39,14 @@ test('the bar sends every intent through it — no bare await of the action is l
   assert.ok(hook.length > 200, 'useDraftIntent was not found');
   /* The intent is read once, at the press (the wait for the page is started from it too — `lib/maker-settle.ts`). */
   assert.match(hook, /const intent = isHubDraftIntent\(fields\.intent\) \? fields\.intent : null;/);
-  /* (2026-10-12, `rd/maker-moves-instant`, `lib/a-scene-move-is-drawn-at-once.test.ts`): a ↺ the drag drew is held — `{ held: drawn !== null }`. */
-  assert.match(hook, /const r = await hubDraftAnswer\(intent, \(\) =>\s*makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: drawn !== null \}\),?\s*\);/);
+  /* (2026-10-13, `rd/maker-undo-instant`, `lib/an-older-undo-is-drawn-at-once.test.ts`): a ↺ the Maker DREW goes through
+     its own held door (`drawnIo`) — answered by the same `hubDraftAnswer`; every other intent is this unheld one. */
+  assert.match(hook, /const r = await hubDraftAnswer\(intent, \(\) =>\s*makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: false \}\),?\s*\);/);
+  assert.match(hook, /return hubDraftAnswer\('undo', \(\) => makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: true, undo: 'noted' \}\)\);/, 'the drawn ↺ is answered, never thrown');
   assert.doesNotMatch(hook, /await makerSave\(/, 'the action is awaited bare again — a throw takes the Maker down');
-  /* One caller of the action in the whole bar: the hook (Undo, Apply, Restore, Reset and the sheet's × all use `run`). */
-  assert.equal((BAR.match(/\baction\(eventId, fd\)/g) ?? []).length, 1);
+  /* Two callers of the action in the whole bar, both in the hook and both answered: `slow` (Undo, Apply, Restore, Reset and
+     the sheet's × all use `run`) and the drawn ↺'s `drawnIo`. */
+  assert.equal((BAR.match(/\baction\(eventId, fd\)/g) ?? []).length, 2);
   assert.doesNotMatch(BAR.replace(/draftAction = hubDraftAction,/, ''), /hubDraftAction\(/, 'something in the bar calls the action around the hook');
   /* A real Maker hands no door: the default is the one server action. */
   assert.match(BAR, /draftAction = hubDraftAction,\s*\}: HubDraftBarProps\)/);

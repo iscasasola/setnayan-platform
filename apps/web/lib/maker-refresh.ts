@@ -56,6 +56,8 @@
  */
 
 /** How long after the last save lands the refresh waits for another tap. */
+import { undoJournal, undoJournalIsQuiet, type UndoStep } from './maker-drawn-undo';
+
 export const MAKER_REFRESH_COALESCE_MS = 180;
 
 /**
@@ -69,6 +71,12 @@ export const MAKER_UNHELD_WRITE_EVENT = 'setnayan:maker-unheld-write';
 export type MakerSaveOptions<T> = {
   /** The bridge already drew this change on the canvas (the hold covers it). */
   held?: boolean;
+  /**
+   * ↺ How to draw this held step BACKWARDS at once (`lib/maker-drawn-undo.ts`) — noted in the journal as it is sent.
+   * `'noted'`: the caller noted it itself (a scene step, at its press), or it is the ↺'s own write. Absent on a held
+   * save: a BARRIER — the ↺ that meets it takes the slow path (`lib/every-held-save-can-be-undone.test.ts`).
+   */
+  undo?: UndoStep | 'noted';
   /** How to read success from the result (default: `result.ok === true`). */
   ok?: (result: T) => boolean;
 };
@@ -304,6 +312,11 @@ export function makerSave<T>(send: () => Promise<T>, refresh: () => void, option
   if (!options.held) unheldInFlight += 1;
   started += 1;
   const saved = shared.save(send, refresh, options.ok, Boolean(options.held));
+  /* ↺ The journal (`lib/maker-drawn-undo.ts`): a held step with its inverse, or a barrier (an unheld one announced itself). */
+  if (options.held && options.undo !== 'noted' && !undoJournalIsQuiet()) {
+    if (options.undo) undoJournal.push(options.undo, saved);
+    else undoJournal.barrier();
+  }
   return saved
     .finally(() => {
       if (!options.held) unheldInFlight -= 1;
@@ -356,6 +369,19 @@ export function announceUnheldWrite(): void {
   writer.flush();
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event(MAKER_UNHELD_WRITE_EVENT));
+}
+
+/** Send every pick still waiting for its beat, now — the ↺ that takes one back must land after it. */
+export function flushMakerWrites(): void {
+  writer.flush();
+}
+
+/* ↺ A write the canvas did not draw (an unheld save, a form, the safety net's reload) is a step the Maker cannot draw
+   backwards: the journal gets a barrier — unless it is the ↺'s own slow write (`undoJournalQuiet`). */
+if (typeof window !== 'undefined') {
+  window.addEventListener(MAKER_UNHELD_WRITE_EVENT, () => {
+    if (!undoJournalIsQuiet()) undoJournal.barrier();
+  });
 }
 
 /* ── the toolbar's count, from the save's own answer ─────────────────────── */

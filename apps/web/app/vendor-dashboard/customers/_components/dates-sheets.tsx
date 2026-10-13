@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { CalendarX2, Pencil, Plus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
-import { Counter } from '@/app/_components/counter';
+import { FormCounter } from '@/app/_components/form-counter';
 import { ChosenRow, FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
 import { DateRow } from '@/app/_components/form-row-date';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -180,7 +180,7 @@ export function CalendarSheet({
           </FormRows>
           <div className="flex min-h-[60px] items-center gap-3 border-t border-ink/10">
             <span className="min-w-0 flex-1 text-[15px] font-medium text-ink">Events a day</span>
-            <Counter name="capacity" value={pool?.capacity ?? 1} min={1} max={ceiling} label="Events a day" data="calendar-sheet" />
+            <FormCounter name="capacity" value={pool?.capacity ?? 1} min={1} max={ceiling} label="Events a day" data="calendar-sheet" />
           </div>
           {services.length > 0 ? (
             <fieldset className="border-t border-ink/10 pt-2">

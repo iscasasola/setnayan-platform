@@ -157,7 +157,7 @@ export function StageBackground({
               </button>
             ) : null}
             {tiles.map((t) => (
-              <button key={t.key} type="button" aria-pressed={t.key === tile} aria-label={t.name} data-stage-bg-tile={t.key} onClick={() => onTile(t.key)} className={SP_BG_TILE}>
+              <button key={t.key} type="button" aria-pressed={t.key === tile} aria-label={t.name} data-stage-bg-tile={t.key} onClick={() => (t.key === tile ? undefined : onTile(t.key))} className={SP_BG_TILE}>
                 {/* The FACE: the picture, its name written on it — never a sticker under the name. A picture keeps
                     its name readable with a soft fade at its own foot; a flat tile needs none. */}
                 <span className={SP_BG_TILE_FACE} style={t.picture} data-tile-face={t.none ? 'none' : t.fade ? 'picture' : 'flat'}>

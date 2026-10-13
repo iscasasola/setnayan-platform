@@ -232,7 +232,7 @@ test('5 · every Dates form posts the shipped action and comes back to Dates (an
   assert.match(PAGE, /<BlockDateAdd\b[\s\S]{0,160}action=\{addManualBlock\}/, 'Block a date does not post the shipped addManualBlock');
   // The waitlist switch posts the opposite of what it shows; the count form keeps the switch as it is.
   assert.match(FOLDS, /role="switch"\s+aria-checked=\{waitlist\.on\}[\s\S]{0,120}name="waitlist_enabled"\s+value=\{waitlist\.on \? '' : 'on'\}/);
-  assert.match(FOLDS, /<input type="hidden" name="waitlist_enabled" value="on" \/>[\s\S]{0,600}<Counter name="max_waitlist_acceptances"/, 'saving the count would switch the waiting list off');
+  assert.match(FOLDS, /<input type="hidden" name="waitlist_enabled" value="on" \/>[\s\S]{0,600}<FormCounter name="max_waitlist_acceptances"/, 'saving the count would switch the waiting list off');
 });
 
 /* ── 6 · one day ──────────────────────────────────────────────────────── */
@@ -271,18 +271,22 @@ test('6 · the old day route forwards to the day sheet; its Block switch is a re
 
 /* ── 7 · the counter ──────────────────────────────────────────────────── */
 
+// Batch 5 join (2026-10-14): Dates posts through `FormCounter`, which draws the ONE kind-17 Counter (the seat plan's,
+// `app/_components/counter.tsx`, held by `lib/the-counter-is-one-drawing.test.ts`) — same claims, one pill.
 test('7 · the Counter (kind 17): 44-px signs, the minus greys at the lowest, it saves itself after a pause', async () => {
-  const { Counter } = await import('../../_components/counter');
-  const at1 = await paint(h(Counter, { name: 'capacity', value: 1, min: 1, max: 3, label: 'Events a day' }));
+  const { FormCounter } = await import('../../_components/form-counter');
+  const at1 = await paint(h(FormCounter, { name: 'capacity', value: 1, min: 1, max: 3, label: 'Events a day' }));
   assert.match(at1, /role="group" aria-label="Events a day"/);
   assert.match(at1, /<input type="hidden" name="capacity" value="1"\/>/);
   assert.match(at1, /aria-label="One less" disabled=""/, 'the minus is pressable at the lowest');
   assert.doesNotMatch(at1, /aria-label="One more" disabled=""/);
   for (const b of at1.match(/<button[^>]*>/g) ?? []) assert.match(b, /h-11 min-h-11 w-11/, 'a sign is under 44 px');
-  const src = code(join(APP, '_components', 'counter.tsx'));
+  const src = code(join(APP, '_components', 'form-counter.tsx'));
+  assert.match(src, /import \{ Counter \} from '@\/app\/_components\/counter';/, 'the form counter draws its own pill instead of the one Counter');
+  assert.match(src, /<Counter\b/);
   assert.match(src, /setTimeout\(\(\) => \{[\s\S]{0,160}\.requestSubmit\(\);\s*\}, saveAfterMs\)/, 'the counter does not save itself');
   assert.match(src, /if \(wait\.current\) clearTimeout\(wait\.current\);\s*wait\.current = setTimeout\(/, 'each tap does not restart the wait (1 → 3 would be two saves)');
-  assert.match(FOLDS, /<Counter name="capacity"[^>]*saveAfterMs=\{900\}/, 'events a day is not the counter');
+  assert.match(FOLDS, /<FormCounter name="capacity"[^>]*saveAfterMs=\{900\}/, 'events a day is not the counter');
 });
 
 /* ── 8 · one QR page ──────────────────────────────────────────────────── */

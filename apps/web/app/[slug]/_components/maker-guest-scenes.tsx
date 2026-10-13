@@ -45,7 +45,7 @@ export function MakerGuestScenes({
               {solemn ? 'We hope you can be with us' : 'We’d love to celebrate with you'}
               {date ? ` on ${date}` : ''}.
             </p>
-            <p className="text-xs uppercase tracking-[0.2em] text-ink/40">{EACH}</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{EACH}</p>
           </section>
         </>
       ) : null}
@@ -55,12 +55,12 @@ export function MakerGuestScenes({
           <section className="flex flex-col items-center gap-2 text-center" data-maker-guest-scene="pass">
             <span
               aria-hidden
-              className="flex h-28 w-28 items-center justify-center font-mono text-xs tracking-[0.2em] text-ink/40 [border:2px_dashed_rgb(var(--color-ink)/0.2)] [border-radius:var(--m-r-md)]"
+              className="flex h-28 w-28 items-center justify-center font-mono text-xs tracking-[0.2em] text-ink/70 [border:2px_dashed_rgb(var(--color-ink)/0.2)] [border-radius:var(--m-r-md)]"
             >
               QR
             </span>
             <p className="font-pahina text-xl text-ink">Your guest</p>
-            <p className="text-xs uppercase tracking-[0.2em] text-ink/40">{EACH} pass</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{EACH} pass</p>
           </section>
         </>
       ) : null}
@@ -69,7 +69,7 @@ export function MakerGuestScenes({
           {mark('f:rsvp')}
           <section className="space-y-1 text-center" data-maker-guest-scene="rsvp">
             <p className="font-pahina text-xl text-ink">{solemn ? 'Will you be with us?' : 'Will you be there?'}</p>
-            <p className="text-xs uppercase tracking-[0.2em] text-ink/40">{EACH} reply, from their own link</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{EACH} reply, from their own link</p>
           </section>
         </>
       ) : null}
@@ -91,7 +91,7 @@ export function MakerWelcomeLook({ look = null }: { look?: string | null } = {})
         <span>What to wear</span>
       </p>
       <p className="font-pahina text-xl text-ink">Your guest&rsquo;s role, colours and outfit</p>
-      <p className="text-xs uppercase tracking-[0.2em] text-ink/40">{EACH} look, from your Mood Board</p>
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/70">{EACH} look, from your Mood Board</p>
     </section>
   );
 }
@@ -105,8 +105,8 @@ export function MakerWelcomeGiftsEmpty({ look = null }: { look?: string | null }
       </p>
       {/* 🔲 The door's shape, in greys (owner 08 Oct) — the four looks lay it by `data-part-look`, as they lay the real door. */}
       <SceneSample sceneType="gifts" className="!mx-0 py-1" />
-      <p className="font-pahina text-xl font-light italic text-ink/60">Add a way to receive gifts.</p>
-      <p className="text-xs uppercase tracking-[0.2em] text-ink/40">Only you see this · guests see it once a gift method is on</p>
+      <p className="font-pahina text-xl font-light italic text-ink/70">Add a way to receive gifts.</p>
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/70">Only you see this · guests see it once a gift method is on</p>
     </section>
   );
 }

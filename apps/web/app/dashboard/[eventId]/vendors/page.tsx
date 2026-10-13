@@ -36,7 +36,7 @@ import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
 import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
 import type { BookedFacts } from '@/lib/booked-rows';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
-import { buildTally, suppliersDateFact, suppliersPlaceFact } from '@/lib/suppliers-shell';
+import { buildTally, suppliersDateFact, suppliersPlaceFact, type LiveTallyBase } from '@/lib/suppliers-shell';
 import { dateFitOf, type DateFit } from '@/lib/calendar-truth';
 import { readCalendarTruth } from '@/lib/calendar-truth.server';
 import { readHubDraft } from '@/lib/hub-draft-store';
@@ -2658,6 +2658,19 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // never count a category the list does not show (owner 2026-10-08). The
     // money stays `buildTally`'s (one sum, the Build body's own). Flag off, the
     // old shape keeps the plan model's own count.
+    // …and the SAME inputs, handed to the shell so it can count again at a press (`liveBuildTally`): "Add to build"
+    // answers in place, and Build N/M and the cart peek must move with it (batch-3 walk, 2026-10-13).
+    const liveTallyBase: LiveTallyBase = {
+      children: buildChildren.map((c) => ({
+        groupId: c.groupId,
+        picks: c.picks.map((p) => ({ vendor_id: p.vendor_id, raw_status: p.raw_status ?? null, rolled_cost_php: p.rolled_cost_php })),
+        buildPickVendorIds: [...c.buildPickVendorIds],
+        coveredBy: c.coveredBy != null ? true : null,
+      })),
+      lockedCentavos: model.chosenCentavos,
+      ring: null,
+      drawnIn: [...new Set([...buildPicksByGroup.values()].flat())],
+    };
     const shellTally = (() => {
       const money = buildTally(buildChildren, model.chosenCentavos);
       if (!isExploreReplanEnabled()) return money;
@@ -2677,6 +2690,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         pinnedTile: sp.open ?? null,
         starterTiles: [...popularTilesFor(ev?.event_type ?? null)],
       });
+      liveTallyBase.ring = {
+        tiles: shortlistFolders.flatMap((f) =>
+          f.tiles.map((t) => ({ tile: t.tile, lockedCount: t.vendors.filter((v) => v.status === 'locked').length, vendorIds: t.vendors.map((v) => v.vendorId) })),
+        ),
+        inPlan: [...ring.inPlan],
+      };
       return { ...money, ...ringBuildCount(ringTiles, ring.inPlan) };
     })();
     const shellFacts = (() => {
@@ -2812,6 +2831,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           }
           // Find · Build N/M · Booked N — counted from what the bodies draw.
           tally={shellTally}
+          liveTally={liveTallyBase}
           bookedCount={teamCountsLine(teamRowList).booked}
           premium={aiActive}
           bookedSlot={teamSlot}

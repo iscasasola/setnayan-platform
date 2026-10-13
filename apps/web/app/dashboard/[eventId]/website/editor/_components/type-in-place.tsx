@@ -1,5 +1,7 @@
 'use client';
 
+import { canvasPickUndo } from '@/lib/canvas-pick-undo';
+import type { UndoStep } from '@/lib/maker-drawn-undo';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EyeOff, Eye, Check } from 'lucide-react';
@@ -240,6 +242,8 @@ export function TypeBar(p: TypeBarProps) {
     shown: { messages: readonly unknown[]; typedIn: MessageEventSource | null },
     onSaved: () => void,
     onRefused: (reason: string) => void,
+    /** ↺ How this write is drawn back at once (`lib/maker-drawn-undo.ts`) — absent: its ↺ takes the slow path. */
+    undo?: UndoStep,
   ) => {
     postToCanvas(shown.messages, shown.typedIn);
     const { draftAction, eventId } = props.current;
@@ -251,7 +255,7 @@ export function TypeBar(p: TypeBarProps) {
           () => makerLatestWrite(key, () => saveDraft(draftAction, eventId, patch)),
           // Owed only if something else in the burst asked for a render (`makerNeedsRender`).
           requestMakerRefresh,
-          { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true },
+          { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true, ...(undo ? { undo } : {}) },
         );
       } catch {
         res = { ok: false, intent: 'save', error: '' };
@@ -293,6 +297,8 @@ export function TypeBar(p: TypeBarProps) {
         setError(text);
         announceMakerSave({ state: 'error', text });
       },
+      /* ↺ The hero's words taken back at the press: the words before on every page, the Maker's copy as it was. */
+      canvasPickUndo('hero', before, next, heroCanvas, (from, to) => layMessages(from, to)),
     );
   };
 

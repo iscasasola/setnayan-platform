@@ -1,13 +1,17 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useReducer, useRef, useState, useTransition } from 'react';
+import { draftedPassLookOr, noteDraftedPassLook } from '@/lib/maker-draft-store';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { PASS_CARD_DESIGNS, PASS_CARD_DESIGN_LABEL, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import { passDesignDraftPatch } from '@/lib/pass-design-save';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { hubDraftAction } from '../../website/hub-draft-actions';
+import { useStudioActions } from './studio-actions-context';
 import { PrintPreview } from './print-preview';
 import { SP_LOOK_CARD, SP_LOOK_NAME, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
+import { BgCard, BgCards } from '../../website/editor/_components/background-cards';
+import { FormRow, FormRows } from '@/app/_components/form-row';
+import { StatusLine } from '@/app/_components/status-line';
 
 /**
  * 🎫 THE TICKET STYLE — ONE dropdown (Classic · Ticket · Photo poster) and
@@ -37,6 +41,7 @@ export function PassCardDesignPicker({
   preview = true,
   onShown,
   cards = false,
+  studio = false,
 }: {
   eventId: string;
   /** The look the couple is editing — the drafted one when the draft holds it, else the live one. */
@@ -49,19 +54,39 @@ export function PassCardDesignPicker({
   onShown?: (design: PassCardDesign) => void;
   /** 🧭 The new Maker's Style › Look: the looks as a row of PICTURES (each card its own ticket), not a dropdown. */
   cards?: boolean;
+  /**
+   * 🧭 Studio › Prints (owner "approved" 2026-10-13, kind 5): the looks as the ONE style-card strip (`BgCards` / `BgCard` — 3:4, the
+   * picture edge to edge, the picked one ringed in the accent and centred), under a Form row that says the pick waits for Apply.
+   */
+  studio?: boolean;
 }) {
-  const [shown, setShown] = useState<PassCardDesign>(saved);
+  /* The Maker's draft door — the shipped action; only the dev lab hands in its stand-in (`studio-actions-context.tsx`), so a lab pick never reaches a real event. */
+  const { hubDraftAction } = useStudioActions();
+  /*
+   * 🎫 WHAT IS SHOWN IS WHAT THE DRAFT HOLDS (batch-4 walk F1, 2026-10-13): a pick is drawn at the tap and noted in the Maker's
+   * draft store; every render reads the look back through it — ours while our save is newer than the page, the page's draft
+   * after ↺ / Restore / another tab (the store's "first render after an Undo is the truth", #6485). It was seeded ONCE from
+   * `saved`: after ↺ the undone look stayed ringed, and a tap on it again was taken for "already worn" and saved nothing.
+   */
+  const [, setDrawnPick] = useReducer((n: number) => n + 1, 0);
+  const read = draftedPassLookOr(saved);
+  const shown: PassCardDesign = PASS_CARD_DESIGNS.find((d) => d === read) ?? saved;
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const latest = useRef<PassCardDesign>(saved);
-  const stored = useRef<PassCardDesign>(saved);
+  /* Tell the page which look is on screen whenever it changes — a pick, a refusal put back, or ↺ from the bar. */
+  const told = useRef<PassCardDesign>(shown);
+  useEffect(() => {
+    if (told.current === shown) return;
+    told.current = shown;
+    onShown?.(shown);
+  }, [shown, onShown]);
 
   const pick = (key: string) => {
     const design = PASS_CARD_DESIGNS.find((d) => d === key);
-    if (!design || design === latest.current) return;
-    latest.current = design;
-    setShown(design);
-    onShown?.(design);
+    /* "Already worn" is the look the draft holds now — never a copy that ↺ has taken back. */
+    if (!design || design === shown) return;
+    noteDraftedPassLook(design, saved);
+    setDrawnPick();
     setError(null);
     start(async () => {
       const fd = new FormData();
@@ -70,19 +95,38 @@ export function PassCardDesignPicker({
       const ok = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh)
         .then((r) => r.ok)
         .catch(() => false);
-      if (ok) {
-        stored.current = design;
-        return;
-      }
+      if (ok) return;
       // Only the LATEST pick is put back — an older failure never undoes a newer choice.
-      if (latest.current === design) {
-        latest.current = stored.current;
-        setShown(stored.current);
-        onShown?.(stored.current);
+      if (draftedPassLookOr(saved) === design) {
+        noteDraftedPassLook(saved, saved);
+        setDrawnPick();
         setError('That style did not save — please try again.');
       }
     });
   };
+
+  if (studio) {
+    return (
+      <div className="flex flex-col" data-pass-card-design={shown} data-pass-card-design-studio="" aria-busy={pending || undefined}>
+        <FormRows data="pass-style">
+          <FormRow name={PASS_CARD_WORDS.style} line="What each guest saves · waits for Apply" data="pass-style" />
+        </FormRows>
+        <BgCards label={PASS_CARD_WORDS.style} source="pass-style">
+          {PASS_CARD_DESIGNS.map((d) => (
+            <BgCard key={d} name={PASS_CARD_DESIGN_LABEL[d]} on={d === shown} onPick={() => pick(d)} data={d} swatch="white">
+              {/* eslint-disable-next-line @next/next/no-img-element -- the drawn ticket PNG, already warm */}
+              <img src={previews[d]} alt="" aria-hidden data-pass-card-design-pick={d} className="absolute inset-0 h-full w-full object-cover" loading="eager" />
+            </BgCard>
+          ))}
+        </BgCards>
+        {error ? (
+          <StatusLine tone="bad" data="pass-style">
+            {error}
+          </StatusLine>
+        ) : null}
+      </div>
+    );
+  }
 
   if (cards) {
     return (

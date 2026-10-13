@@ -119,7 +119,7 @@ export function ReplyCardRow({ card, landed = false }: { card: ReplyCard; landed
       <p className="font-pahina text-xl font-light leading-snug text-ink" data-motion={landed ? 'label-land' : undefined}>
         {card.line}
       </p>
-      {card.replyBy ? <p className="text-sm text-ink/60">{card.replyBy}</p> : null}
+      {card.replyBy ? <p className="text-sm text-ink/70">{card.replyBy}</p> : null}
       <Link
         href={card.href}
         className="mt-1 inline-flex min-h-[48px] items-center justify-center rounded-lg bg-mulberry px-7 text-sm font-semibold tracking-wide text-cream transition-colors hover:bg-mulberry-600"

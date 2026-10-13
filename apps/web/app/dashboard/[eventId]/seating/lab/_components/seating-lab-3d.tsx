@@ -5850,6 +5850,15 @@ function Hud({
                 Print pack
               </a>
             </div>
+            {/* The entrance seating chart — offered wherever the pack is (owner 2026-10-13). */}
+            <a
+              href={`/dashboard/${eventId}/seating/chart`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1.5 block text-[11px] text-white/70 underline-offset-2 hover:text-white hover:underline"
+            >
+              Entrance seating chart →
+            </a>
             {published ? (
               <p className="mt-1.5 text-[10px] leading-snug text-white/45">
                 Hiding it before the day hides the 3D walk until the day. Printed table signs keep working.

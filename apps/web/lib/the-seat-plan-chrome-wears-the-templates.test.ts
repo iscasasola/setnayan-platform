@@ -111,7 +111,15 @@ test('4 · NO LAB draws the seat plan — a lab press cannot reach it — and FI
     }
   };
   walk(join(WEB, 'app', 'dev'));
-  assert.deepEqual(found, [], `a lab draws the seat plan: ${found.join(', ')}`);
+  /* ONE reasoned exemption (2026-10-13, the seat counter's walk): `/dev/details-lab?seat=1` draws the table's SHEET alone — the presentational
+     `PhoneTableDock` over a table held in the page's own state. It reaches no seat plan: it imports neither the editor nor any action. */
+  const SHEET_LAB = 'app/dev/details-lab/seat-lab.tsx';
+  if (found.includes(SHEET_LAB)) {
+    const lab = readFileSync(join(WEB, SHEET_LAB), 'utf8');
+    assert.doesNotMatch(lab, /seating-editor|seating\/actions|from '\.\.?\/.*actions'|'use server'/, 'the sheet lab reaches the seat plan’s editor or an action');
+  }
+  const others = found.filter((f) => f !== SHEET_LAB);
+  assert.deepEqual(others, [], `a lab draws the seat plan: ${others.join(', ')}`);
   for (const f of ['maker-details.tsx', 'maker-shell.tsx', 'details-workspace.tsx', 'details-lazy.tsx']) {
     const src = read(`app/dashboard/[eventId]/launch/_components/${f}`).replace(/^import type [^;]*;$/gm, '').replace(/import\(\/\*[^*]*\*\/ '[^']*'\)/g, '');
     assert.doesNotMatch(src, /seat-plan-phone|seating-editor|drop-confirm-bubble|from '@\/app\/_components\/toast\/peek-toast'|from '@\/components\/action-button'|from '@\/app\/_components\/form-row'/, `${f} imports the seating chrome or a template statically`);

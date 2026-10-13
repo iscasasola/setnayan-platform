@@ -55,6 +55,16 @@
  *      out; the reply row arriving by the hand-over's one fade; the next group never over the cover; back == down;
  *      reduce motion = the plain page. Under a closed Reveal nothing is held. And a page a tab: the cover's
  *      hand-over on the first tab only, measured again when that tab is shown.
+ * 16c. 📷 THE STRANGER'S PHOTO COVER, SCRUB OFF (owner 2026-10-13: fitted too): today's page at six sizes — the names,
+ *      the date and "Get inside" on the first screen, the photo whole under the door; pictures before/after.
+ * 16d. 📏 SAFARI'S BARS MOVE MID-FADE (owner's iPhone step 3, 2026-10-13): the window's height changing 10 px at a time
+ *      in the middle of the hold — up 70 px, down, and back — changes nothing: the page's length, the scroll, the
+ *      cover, its fade; and a picture loading mid-hold re-measures nothing away. Four covers, 375×667 and 375×812.
+ * 16b. 📐 FITTED BEFORE IT FADES (owner 2026-10-12, "option 2"; and "Get inside" stays on the stranger's first screen):
+ *      at 375×560 · 375×600 · 375×667 · 320×568 · 375×812 · 1280×770, for the guest's and the stranger's text and
+ *      photo covers — the names and the date on the first screen at scroll 0, "Get inside" too on the stranger's; the
+ *      names on the screen at every held position; the stranger's door staying, shown and unmoved; fitted once; no
+ *      jitter at rest; and opening the door stands the hold down. (`SCRUB_ONLY=16b` plays it alone.)
  *  17. 🤝 TOGETHER (owner 2026-10-10: "Together."). When the block after the cover is the page's ACTION ROW (the
  *      reply row; the row that stands in its place; the stranger's door — by the page's own marks, never by height),
  *      the block after it arrives WITH it: one fade, one unit, centred as one, the page's own distance between the
@@ -74,7 +84,7 @@ import { fileURLToPath } from 'node:url';
 const [, , pwDir, scratch, pics] = process.argv;
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(pwDir.endsWith('/') ? pwDir : `${pwDir}/`);
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
 const esbuild = execFileSync('sh', ['-c', `ls -d ${WEB}/../../node_modules/.pnpm/esbuild@*/node_modules/esbuild/bin/esbuild | tail -1`]).toString().trim();
 execFileSync(esbuild, [`${WEB}/app/[slug]/_components/hub-scrub-engine.ts`, '--bundle', '--minify', '--format=iife', '--global-name=HubScrubEngine', `--outfile=${scratch}/scrub-engine.js`], { stdio: 'pipe' });
 const tsx = `${WEB}/../../node_modules/.bin/tsx`;
@@ -654,6 +664,11 @@ if (!ONLY || ONLY === '16') {
     return {
       s: Math.round(scrollY), max: document.documentElement.scrollHeight - innerHeight,
       cover: box(cover), names: box(document.querySelector('main header[data-pahina-first-screen] h1')), pout: Number(cover?.style.getPropertyValue('--hub-pout') || 0),
+      /* 📐 (2026-10-12) the date, the stranger's door row (the button and the line under it) and whether it STAYS, what the fit wrote. */
+      date: box(document.querySelector('main header[data-pahina-first-screen] [data-motion="arrive-date"]')),
+      doorRow: (() => { const d = document.querySelector('main [data-get-inside]'); if (!d) return null; const row = [...d.parentElement.children].filter((e) => e.getClientRects().length); return { t: row[0].getBoundingClientRect().top, b: row.at(-1).getBoundingClientRect().bottom, o: Math.min(...row.map((e) => { let o = 1; for (let x = e; x && x.tagName !== 'HTML'; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.visibility === 'hidden') return 0; o *= Number(cs.opacity); } return o; })) }; })(),
+      stays: document.querySelectorAll('[data-hub-stay]').length, zeroSays: document.querySelector('[data-hub-zero]')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 22) ?? null,
+      fitted: [...document.querySelectorAll('[data-first-screen-fit]')].some((e) => e.style.getPropertyValue('--fs-air') !== '') || document.querySelectorAll('[data-fs-shift]').length > 0,
       /* (What arrives first can be several boxes — a row that draws no box of its own: read from the first's top to
          the last-but-one's bottom; the block that arrives WITH the row is the LAST marked one.) */
       zero: (() => { const zs = [...document.querySelectorAll('[data-hub-zero]')].filter((e) => e.getClientRects().length); const z = box(zs[0] ?? null); if (z && zs.length > 2) z.b = zs[zs.length - 2].getBoundingClientRect().bottom; return z; })(), zeroVar: Number(document.querySelector('[data-hub-zero]')?.style.getPropertyValue('--hub-o') || 1), zeroIs: document.querySelector('[data-hub-zero]')?.hasAttribute('data-arrival-action') ? 'the reply row' : document.querySelector('[data-hub-zero]')?.matches('[data-get-inside]') || document.querySelector('[data-hub-zero]')?.querySelector('[data-get-inside]') ? 'the door' : (document.querySelector('[data-hub-zero]')?.tagName ?? null),
@@ -690,24 +705,33 @@ if (!ONLY || ONLY === '16') {
     /* ARMED BY THE PAGE'S OWN ISLAND. `today` with the page's own scripts running, for where the cover stands. */
     const t1 = await open('fixture-today.html', W, H); const today = await t1.at(0); await t1.ctx.close();
     const { ctx, p, errs, at } = await open('fixture-cover.html', W, H);
+    /* (The page's own arrival — `.sn-arrive`, an 8 px settle under each part — is let finish first: a sample taken while
+       it plays read the waiting reply row 1 px off going down, and back == down went red on the arrival's timing.) */
+    await p.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
     const top = await at(0);
     /* (d) ONE PAIR — the cover's — and no pair too many: the hero row is counted once, by the page's own count. */
     say(errs.length === 0 && top.on && top.off === null && top.sticky && top.cells === 1 && top.scenesBlocks === 0 && top.holds.length === 1 && top.holds[0] > 0, `${size}: armed by the page's own island, no page error; the page wraps ONE pair — the cover's — and it holds (${top.holds.map(r).join(' · ')}px; ${top.scenesBlocks} scenes blocks: the cover is this page's only Scrub${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''})`);
     /* 🤝 TOGETHER (owner 2026-10-10): what arrives is the reply row AND the block after it — the Countdown — as one. */
-    say(Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && Math.abs(top.names.t - today.names.t) < 0.01 && top.cover.o === 1 && top.pout === 0 && top.zeroIs === 'the reply row' && top.zeros === 2 && /Until we say/.test(top.mateSays ?? '') && top.zero.o === 0 && top.mate.o === 0, `${size}: at scroll 0 the cover is exactly where today's page has it, whole, 0 % built out; what arrives is ${top.zeroIs} TOGETHER with the block after it ("${top.mateSays}…"), neither there yet (${r(top.cover.t)}–${r(top.cover.b)} against ${r(today.cover.t)}–${r(today.cover.b)})`);
+    /* (RE-AIMED 2026-10-12, owner "option 2": the cover is FITTED before it is held — on a screen it does not fit, its
+       air closes up and it is smaller than today's, never larger, never lower; where it fits as designed it is today's
+       to the pixel. 16b holds the names and the date on that first screen.) */
+    const same = Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && Math.abs(top.names.t - today.names.t) < 0.01;
+    const smaller = top.cover.t <= today.cover.t + 0.01 && top.cover.b < today.cover.b && top.cover.t >= 0;
+    say((top.fitted ? smaller : same) && top.cover.o === 1 && top.pout === 0 && top.zeroIs === 'the reply row' && top.zeros === 2 && /Until we say/.test(top.mateSays ?? '') && top.zero.o === 0 && top.mate.o === 0, `${size}: at scroll 0 the cover is ${top.fitted ? 'today’s FITTED to the first screen (smaller, never lower)' : 'exactly where today’s page has it'}, whole, 0 % built out; what arrives is ${top.zeroIs} TOGETHER with the block after it ("${top.mateSays}…"), neither there yet (${r(top.cover.t)}–${r(top.cover.b)} against ${r(today.cover.t)}–${r(today.cover.b)})`);
     say(top.lifted.length >= 2 && top.lifted.every((x) => x === 'home') && top.hiddenMarked === 0 && !top.bar.marked && top.zrest.length === 0, `${size}: what follows the two is found in the page's later groups (${top.lifted.length} marked, all on this tab); a group on another tab and the pinned top bar are left alone`);
     const fwd = []; for (let y = 0; y < top.max; y += 16) fwd.push(await at(y)); fwd.push(await at(top.max));
     const back = [await at(top.max)]; for (let y = top.max - (top.max % 16); y >= 0; y -= 16) back.push(await at(y));
     const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);
     const out = Math.round(H * 0.55);
-    /* The owner's rule: held WHERE IT STANDS if all of it can be seen from there — else scrolled through first. */
-    const stands = today.cover.t >= 0 && today.cover.b <= H - 24;
+    /* The owner's rule: held WHERE IT STANDS if all of it can be seen from there — else scrolled through first.
+       (RE-AIMED 2026-10-12, "option 2": fitted first, what must be seen from there is its names and its date.) */
+    const stands = top.cover.t >= 0 && Math.max(top.names.b, top.date?.b ?? top.cover.b) - top.cover.t <= H - 24 - top.cover.t;
     const heldAt = hold[0]?.cover.t;
     /* …and one that cannot is the ordinary hand-over (`hub-scrub-math.ts`): centred if it fits the room under the
        page's top line (the line is read from the page, as the engine reads it), else its bottom on the centre line. */
     const topLine = await p.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.hub-cover-cell')).scrollPaddingTop));
     const coverH = today.cover.b - today.cover.t; const fits = coverH <= H - topLine - 24;
-    const place = stands ? Math.abs(heldAt - today.cover.t) < 0.6 && hold.every((f) => Math.abs(f.pout - f.s / out) < 0.02) : fits ? Math.abs((hold[0].cover.t + hold[0].cover.b) / 2 - H / 2) < 1.5 : Math.abs(hold[0].cover.b - H / 2) < 1.5;
+    const place = stands ? Math.abs(heldAt - top.cover.t) < 0.6 && hold.every((f) => Math.abs(f.pout - f.s / out) < 0.02) : fits ? Math.abs((hold[0].cover.t + hold[0].cover.b) / 2 - H / 2) < 1.5 : Math.abs(hold[0].cover.b - H / 2) < 1.5;
     say(hold.length > 3 && hold.every((f) => Math.abs(f.cover.t - heldAt) < 0.6) && place && fwd.some((f) => f.pout >= 1 && f.cover.o === 0), `${size}: the page stands still while the cover builds out, and it completes — ${stands ? `held where it stands (${r(heldAt)}px), over 55 % of a screen from the first thumb travel` : `it cannot be seen whole from where it stands (${r(today.cover.t)}–${r(today.cover.b)} on ${H}px), so it is scrolled to its line first: ${fits ? `centred (${r(hold[0]?.cover.t)}–${r(hold[0]?.cover.b)})` : `its bottom on the centre line (${r(hold[0]?.cover.b)})`}`} (${hold.length} positions)`);
     say(hold.every((f) => Math.abs(f.bar.t) < 0.01), `${size}: the pinned top bar never moves`);
     /* 🔝 THE NAMES ARE NEVER UNDER THE PINNED BAR (owner 2026-10-09, an open point: "the heading clipped at the top on
@@ -746,7 +770,7 @@ if (!ONLY || ONLY === '16') {
     const done = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && hold.length && f.s >= hold.at(-1).s + Math.round(H * 0.11) + 32);
     say(Boolean(done) && Math.abs(done.after.t - done.mate.b - todayGaps.mateToAfter) < 0.1 && Math.abs(done.mate.t - done.zero.b - todayGaps.rowToMate) < 0.1, `${size}: once the cover has gone the next group stands under the Countdown at the page's own distance (${done ? r(done.after.t - done.mate.b) : '—'}px; today ${r(todayGaps.mateToAfter)}px)`);
     const sig = (f) => JSON.stringify([f.all, f.pout.toFixed(3)]);
-    say(fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); }), `${size}: back == down at every one of ${fwd.length} positions`);
+    { const bad = fwd.find((f) => { const k = back.find((x) => x.s === f.s); return !(k && sig(k) === sig(f)); }); const kb = bad ? back.find((x) => x.s === bad.s) : null; say(!bad, `${size}: back == down at every one of ${fwd.length} positions${bad ? ` — NOT at ${bad.s}px: down ${sig(bad)} · up ${kb ? sig(kb) : 'none'}` : ''}`); }
     if (pics) { for (const [name, pick] of [['0-opens', () => 0], ['1-half-out', () => fwd.find((f) => f.pout >= 0.5)?.s], ['2-reply-arrives', () => fwd.find((f) => f.pout >= 0.9)?.s], ['3-arrived', () => whole?.s]]) { const y = pick(); if (y !== undefined) { await at(y); await p.screenshot({ path: `${pics}/c16-real-${W}x${H}-${name}-together.png` }); } } }
     await ctx.close();
     /* Reduce motion: the plain page — nothing armed, nothing held, and it says why. */
@@ -869,10 +893,20 @@ if (!ONLY || ONLY === '16') {
       const moved = todayBoxes.findIndex((x, i) => x !== plainBoxes[i]);
       say(todayBoxes.length > 100 && todayBoxes.length === plainBoxes.length && moved < 0 && Math.abs(pg.coverToDoor - tg.coverToDoor) < 0.01 && Math.abs(pg.doorToMate - tg.doorToMate) < 0.01, `${size}: wrapped and with no script, every one of today's ${todayBoxes.length} boxes stands exactly where it stood (the cover to the door ${r(tg.coverToDoor)}px → ${r(pg.coverToDoor)}px; the door to the Countdown ${r(tg.doorToMate)}px → ${r(pg.doorToMate)}px)${moved >= 0 ? ` — the first that moved: "${todayBoxes[moved]}" → "${plainBoxes[moved]}"` : ''}`);
       say(tg.hidden === 0 && pg.hidden === 0 && pg.chapters === tg.chapters + (kind === 'photo' ? 1 : 0), `${size}: nothing of the first screen is hidden before a reveal (${pg.hidden}), and the scroll reveal watches ${tg.chapters} → ${pg.chapters} chapters${kind === 'photo' ? ' (the one more is the cover’s cell, marked the first screen)' : ' (the cover’s cell is inside the wrapper that is the chapter)'}`);
-      const t1 = await open(file('today'), W, H); const today = await t1.at(0); await t1.ctx.close();
-      const { ctx, p, errs, at } = await open(file('cover'), W, H);
+      /* (RE-AIMED 2026-10-12: armed on THE REAL STRANGER'S PAGE — every stranger's page runs the door's own first-screen
+         fit (`first-screen-door.tsx`), so the armed rows play the page with it, against today's page with it.) */
+      const t1 = await open(file('today-fit'), W, H); const today = await t1.at(0); await t1.ctx.close();
+      const { ctx, p, errs, at } = await open(file('cover-fit'), W, H);
       const top = await at(0);
-      say(errs.length === 0 && top.on && top.off === null && top.sticky && top.cells === 1 && top.holds.length === 1 && top.holds[0] > 0 && top.zeroIs === 'the door' && top.zeros === (kind === 'photo' ? 2 : 3) && /Until we say/.test(top.mateSays ?? '') && top.zero.o === 0 && top.mate.o === 0 && (kind === 'photo' ? top.zrest.length === 1 && top.zrest[0] === 'home' : top.zrest.length === 0) && Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && top.cover.o === 1 && top.pout === 0, `${size}: armed, one page pair; the cover where today's page has it (${r(top.cover.t)}–${r(top.cover.b)}), whole; what arrives is ${top.zeroIs} TOGETHER with the block after it ("${top.mateSays}…"), neither there yet${kind === 'photo' ? ` — the door's group is the box pulled up to the cover (${top.zrest.join(',') || 'NONE'})` : ''}${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''}`);
+      /* 🚪 "GET INSIDE" STAYS ON THE FIRST SCREEN (owner 2026-10-12: "Keep it on first screen"). A door the fitted first
+         screen holds is not handed over: it stays, and the block after it — the Countdown — arrives alone. (RE-AIMED
+         2026-10-13: the PHOTO cover is fitted too — owner "do it" — its photo moves below the door, so its door stays
+         as well. A door that is not on the first screen would still arrive with the Countdown — the other branch.) */
+      const stays = top.stays > 0;
+      /* (Which part of the row did not hold, by name.) */
+      const why = Object.entries({ errs: errs.length === 0, on: top.on, off: top.off === null, sticky: top.sticky, cells: top.cells === 1, holds: top.holds.length === 1 && top.holds[0] > 0, cover: Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01, coverWhole: top.cover.o === 1, notBegun: top.pout === 0, arrivalHidden: top.zero.o === 0 }).filter(([, v]) => !v).map(([k]) => k);
+      say(errs.length === 0 && top.on && top.off === null && top.sticky && top.cells === 1 && top.holds.length === 1 && top.holds[0] > 0 && (stays ? top.zeros === 1 && top.zeroIs === 'SECTION' && /Until we say/.test(top.zeroSays ?? '') && top.stays === 2 && top.doorRow.o === 1 && top.zrest.length === 1 && top.zrest[0] === 'home' : top.zeroIs === 'the door' && top.zeros === (kind === 'photo' ? 2 : 3) && /Until we say/.test(top.mateSays ?? '') && top.mate.o === 0 && (kind === 'photo' ? top.zrest.length === 1 && top.zrest[0] === 'home' : top.zrest.length === 0)) && top.zero.o === 0 && stays && Math.abs(top.cover.t - today.cover.t) < 0.01 && Math.abs(top.cover.b - today.cover.b) < 0.01 && top.cover.o === 1 && top.pout === 0, `${size}: armed, one page pair; the cover where today's page has it (${r(top.cover.t)}–${r(top.cover.b)}; today ${r(today.cover.t)}–${r(today.cover.b)}), whole${why.length ? ` [NOT: ${why.join(', ')}; out ${top.pout}]` : ''}; ${stays ? `"Get inside" STAYS (${r(top.doorRow.t)}–${r(top.doorRow.b)}, shown) and what arrives is the block after it, alone ("${top.zeroSays}…"), not there yet, in the box after the door pulled up to the cover (${top.zrest.join(',') || 'NONE'}; ${top.zeros} arriving, ${top.stays} staying, drawn ${top.doorRow?.o.toFixed(2)}, the arrival drawn ${top.zero?.o})` : `what arrives is ${top.zeroIs} TOGETHER with the block after it ("${top.mateSays}…"), neither there yet${kind === 'photo' ? ` — the door's group is the box pulled up to the cover (${top.zrest.join(',') || 'NONE'})` : ''}`}${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''}`);
+      if (stays) say(Math.abs(top.doorRow.t - today.doorRow.t) < 0.6 && Math.abs(top.doorRow.b - today.doorRow.b) < 0.6, `${size}: the door stays exactly where today's fitted first screen has it (${r(top.doorRow.t)}–${r(top.doorRow.b)} against ${r(today.doorRow.t)}–${r(today.doorRow.b)})`);
       const fwd = []; for (let y = 0; y < top.max; y += 16) fwd.push(await at(y)); fwd.push(await at(top.max));
       const back = [await at(top.max)]; for (let y = top.max - (top.max % 16); y >= 0; y -= 16) back.push(await at(y));
       const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);
@@ -880,19 +914,30 @@ if (!ONLY || ONLY === '16') {
       /* 🔝 The names never under the pinned bar while the cover is held (as on the guest's page, above). */
       const clipped = hold.filter((f) => f.cover.o > 0.02 && f.names && f.names.t < f.bar.b - 0.5);
       say(clipped.length === 0 && hold.length > 0 && hold.every((f) => f.names), `${size}: while the cover is held its names are never under the pinned top bar${clipped.length ? ` — UNDER IT at ${clipped.length} of ${hold.length} held positions: the names' top ${r(clipped[0].names.t)}px, the bar ends ${r(clipped[0].bar.b)}px (the cover ${r(today.cover.b - today.cover.t)}px tall on a ${H}px screen)` : ` (nearest ${r(Math.min(...hold.map((f) => f.names.t - f.bar.b)))}px below it)`}`);
-      const seen = fwd.filter((f) => (f.zero.o > 0.02 || f.mate.o > 0.02) && f.pout < 1);
-      say(seen.length > 0 && fwd.every((f) => Math.abs(f.zero.o - f.mate.o) < 0.011) && fwd.every((f) => !((f.zero.o > 0.02 || f.mate.o > 0.02) && f.pout < 0.79)), `${size}: the door and the Countdown arrive TOGETHER — one fade at every one of ${fwd.length} positions, not before the last 20 % (first seen with the cover ${seen[0] ? Math.round(seen[0].pout * 100) : '—'} % out; the unit ${seen[0] ? `${r(seen[0].zero.t)}–${r(seen[0].mate.b)}` : '—'}, the centre line ${H / 2})`);
-      const whole = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && f.mate.o >= 0.99);
+      const seen = fwd.filter((f) => (f.zero.o > 0.02 || (!stays && f.mate.o > 0.02)) && f.pout < 1);
       const foot = await p.evaluate(() => Math.min(innerHeight, ...[...document.querySelectorAll('body *')].filter((e) => { const cs = getComputedStyle(e); if (cs.position !== 'fixed' || cs.display === 'none') return false; const q = e.getBoundingClientRect(); return q.width > innerWidth * 0.8 && q.height > 20 && q.height < 200 && q.bottom >= innerHeight - 1; }).map((e) => e.getBoundingClientRect().top)));
       const barEnd = await p.evaluate(() => document.querySelector('[data-sticky-top]').getBoundingClientRect().bottom);
-      say(Boolean(whole) && whole.zero.t >= barEnd - 0.5 && whole.mate.b <= foot + 0.5 && Math.abs(whole.mate.t - whole.zero.b - tg.doorToMate) < 0.1 && tg.doorToMate > 40 && seen.every((f) => f.zero.t >= barEnd - 0.5), `${size}: when the arrival completes the door and the Countdown are both whole on the screen (${whole ? `${r(whole.zero.t)}–${r(whole.mate.b)}` : '—'}; the top bar ends ${r(barEnd)}, the page's foot begins ${r(foot)}), as far apart as the page lays them out (${whole ? r(whole.mate.t - whole.zero.b) : '—'}px; today ${r(tg.doorToMate)}px)`);
       const visible = fwd.filter((f) => f.cover.o > 0.02 && f.pout < 1 && f.pout > 0);
-      /* (A short page ends where its last hand-over does — the engine lengthens it exactly that far — so there may be
-         no position past the hold: then the page's last position is the one read.) */
       const done = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && hold.length && f.s >= hold.at(-1).s + Math.round(H * 0.11) + 32) ?? (fwd.at(-1).pout >= 1 && fwd.at(-1).zero.o >= 0.99 ? fwd.at(-1) : undefined);
-      say(visible.length > 3 && visible.every((f) => f.after.t >= Math.max(f.cover.b, f.mate.b) - 1) && Boolean(done) && Math.abs(done.after.t - done.mate.b - tg.mateToAfter) < 0.1, `${size}: what follows the two never lies over the cover or over them, and stands under the Countdown at the page's own distance once the cover has gone (${done ? r(done.after.t - done.mate.b) : '—'}px; today ${r(tg.mateToAfter)}px)`);
+      if (stays) {
+        /* The door stays: shown, unmoved, at every position the cover is held; the Countdown arrives alone, at the last
+           20 %, ending above the door; what follows never lies over the cover, the Countdown or the door, and once the
+           cover has gone it stands under the DOOR at the page's own distance after the Countdown. */
+        const movedDoor = hold.filter((f) => !f.doorRow || f.doorRow.o < 0.999 || Math.abs(f.doorRow.t - top.doorRow.t) > 0.6);
+        say(hold.length > 3 && movedDoor.length === 0, `${size}: "Get inside" stays, shown and unmoved, at every one of ${hold.length} held positions${movedDoor.length ? ` — NOT at ${movedDoor[0].s}px` : ''}`);
+        say(seen.length > 0 && fwd.every((f) => !(f.zero.o > 0.02 && f.pout < 0.79)) && seen.every((f) => f.zero.b <= f.doorRow.t + 0.5 && f.zero.t >= barEnd - 0.5), `${size}: the Countdown arrives alone, not before the last 20 %, under the bar and ending above the door (first seen with the cover ${seen[0] ? Math.round(seen[0].pout * 100) : '—'} % out; ${seen[0] ? `${r(seen[0].zero.t)}–${r(seen[0].zero.b)}` : '—'}, the door from ${r(top.doorRow.t)})`);
+        const whole = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99);
+        say(Boolean(whole) && whole.zero.t >= barEnd - 0.5 && whole.zero.b <= Math.min(foot, whole.doorRow.t) + 0.5, `${size}: when it has arrived the Countdown is whole on the screen, between the top bar (${r(barEnd)}) and the door (${whole ? `${r(whole.zero.t)}–${r(whole.zero.b)}` : '—'})`);
+        say(visible.length > 3 && visible.every((f) => f.after.t >= Math.max(f.cover.b, f.zero.b, f.doorRow.b) - 1) && Boolean(done) && Math.abs(done.after.t - done.doorRow.b - tg.mateToAfter) < 0.6, `${size}: what follows never lies over the cover, the Countdown or the door, and once the cover has gone stands under the door at the page's own distance (${done ? r(done.after.t - done.doorRow.b) : '—'}px; today after the Countdown ${r(tg.mateToAfter)}px)`);
+      } else {
+        say(seen.length > 0 && fwd.every((f) => Math.abs(f.zero.o - f.mate.o) < 0.011) && fwd.every((f) => !((f.zero.o > 0.02 || f.mate.o > 0.02) && f.pout < 0.79)), `${size}: the door and the Countdown arrive TOGETHER — one fade at every one of ${fwd.length} positions, not before the last 20 % (first seen with the cover ${seen[0] ? Math.round(seen[0].pout * 100) : '—'} % out; the unit ${seen[0] ? `${r(seen[0].zero.t)}–${r(seen[0].mate.b)}` : '—'}, the centre line ${H / 2})`);
+        const whole = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99 && f.mate.o >= 0.99);
+        say(Boolean(whole) && whole.zero.t >= barEnd - 0.5 && whole.mate.b <= foot + 0.5 && Math.abs(whole.mate.t - whole.zero.b - tg.doorToMate) < 0.1 && tg.doorToMate > 40 && seen.every((f) => f.zero.t >= barEnd - 0.5), `${size}: when the arrival completes the door and the Countdown are both whole on the screen (${whole ? `${r(whole.zero.t)}–${r(whole.mate.b)}` : '—'}; the top bar ends ${r(barEnd)}, the page's foot begins ${r(foot)}), as far apart as the page lays them out (${whole ? r(whole.mate.t - whole.zero.b) : '—'}px; today ${r(tg.doorToMate)}px)`);
+        say(visible.length > 3 && visible.every((f) => f.after.t >= Math.max(f.cover.b, f.mate.b) - 1) && Boolean(done) && Math.abs(done.after.t - done.mate.b - tg.mateToAfter) < 0.1, `${size}: what follows the two never lies over the cover or over them, and stands under the Countdown at the page's own distance once the cover has gone (${done ? r(done.after.t - done.mate.b) : '—'}px; today ${r(tg.mateToAfter)}px)`);
+      }
       const sig = (f) => JSON.stringify([f.all, f.pout.toFixed(3)]);
       say(fwd.every((f) => { const k = back.find((x) => x.s === f.s); return k && sig(k) === sig(f); }), `${size}: back == down at every one of ${fwd.length} positions`);
+      const whole = fwd.find((f) => f.pout >= 1 && f.zero.o >= 0.99);
       if (pics) { for (const [name, pick] of [['0-opens', () => 0], ['2-door-arrives', () => fwd.find((f) => f.pout >= 0.9)?.s], ['3-arrived', () => whole?.s]]) { const y = pick(); if (y !== undefined) { await at(y); await p.screenshot({ path: `${pics}/c16-stranger-${kind === 'photo' ? 'photo-' : ''}${W}x${H}-${name}-together.png` }); } } }
       await ctx.close();
     }
@@ -908,7 +953,7 @@ if (!ONLY || ONLY === '16') {
      lever in use today). */
   const FIT = () => {
     const door = document.querySelector('main details[data-get-inside]'); const scr = door.closest('[data-pahina-first-screen]'); const d = door.getBoundingClientRect();
-    return { armed: scr.hasAttribute('data-first-screen-fit'), written: [scr.style.getPropertyValue('--fs-air'), scr.style.getPropertyValue('--fs-mark')].filter(Boolean).length + document.querySelectorAll('[data-fs-shift]').length, doorT: d.top, doorB: d.bottom, rest: parseFloat(getComputedStyle(door).scrollMarginBottom) || 0 };
+    return { armed: scr.hasAttribute('data-first-screen-fit'), written: [scr.style.getPropertyValue('--fs-air'), scr.style.getPropertyValue('--fs-mark')].filter(Boolean).length + document.querySelectorAll('[data-fs-shift]').length, doorT: d.top, doorB: d.bottom, rest: parseFloat(getComputedStyle(door).scrollMarginBottom) || 0, plan: `air ${scr.style.getPropertyValue('--fs-air') || '1'} · mark ${scr.style.getPropertyValue('--fs-mark') || '1'} · ${[...document.querySelectorAll('[data-fs-shift]')].map((e) => e.style.getPropertyValue('--fs-shift')).join(' ') || 'nothing moved'}` };
   };
   for (const [W, H] of [[375, 667], [375, 560]]) {
     const size = `${W}x${H} the stranger's page with the first-screen fit running`;
@@ -916,11 +961,22 @@ if (!ONLY || ONLY === '16') {
     if (pics) await t.p.screenshot({ path: `${pics}/c16-stranger-fit-${W}x${H}-today.png` });
     await t.ctx.close();
     say(t.errs.length === 0 && tf.armed && tf.written > 0 && tf.doorT >= 0 && tf.doorB <= H - tf.rest + 0.5, `${size}: TODAY the fit makes room — it writes its plan (${tf.written} values) and "Get inside" is whole on the first screen (${r(tf.doorT)}–${r(tf.doorB)}; the bottom bar's edge ${r(H - tf.rest)})${t.errs.length ? ` — ${t.errs[0]}` : ''}`);
-    const a = await open('fixture-stranger-cover.html', W, H); const c = await open('fixture-stranger-cover-fit.html', W, H);
+    /* (RE-AIMED 2026-10-12, owner "option 2": the cover is FITTED ONCE BEFORE IT FADES — the door's fit no longer
+       stands aside by taking its plan back. Wrapped and armed, the first screen carries TODAY'S fitted plan, value for
+       value (made before the hold armed and made again by the hold, by the same rule), and it is never fitted again
+       while the cover is held: the same plan at every position. The stillness row below is the loop's own check.) */
+    const c = await open('fixture-stranger-cover-fit.html', W, H);
     const cf = await c.p.evaluate(FIT);
-    const top = await a.at(0); let differ = null; let n = 0; let held = null;
-    for (let y = 0; y <= top.max; y += 32) { await a.at(y); const f = await c.at(y); if (held === null && f.pout > 0.05) held = y; const [x, z] = [await a.p.evaluate(BOXES), await c.p.evaluate(BOXES)]; n++; const k = x.findIndex((v, i) => v !== z[i]); if (k >= 0 || x.length !== z.length) { differ = `${y}px: "${x[k]}" → "${z[k]}"`; break; } }
-    say(c.errs.length === 0 && cf.armed && cf.written === 0 && differ === null && n > 10, `${size}: WRAPPED the fit stands aside — armed, it writes nothing (${cf.written} values): every box stands where the wrapped page draws it without the fit, at all ${n} positions${differ ? ` — differs at ${differ}` : ''}${c.errs.length ? ` — ${c.errs[0]}` : ''}`);
+    const top = await c.at(0); let differ = null; let n = 0; let held = null;
+    for (let y = 0; y <= top.max; y += 32) { const f = await c.at(y); if (held === null && f.pout > 0.05) held = y; const g = await c.p.evaluate(FIT); n++; if (g.plan !== cf.plan) { differ = `${y}px: "${g.plan}"`; break; } }
+    /* (NEAR, not equal: a fit is made while the page is still settling — the cover's parts arrive by their own 8 px
+       motion (`.sn-arrive`), and a fit reads boxes as drawn — so two loads' plans differ by a hair: measured 0.67 · 0.68
+       on today's page between runs, 2026-10-12; with reduce motion — no arrival at all — 0.70, and the blocks up to 6 px
+       elsewhere: main's own fit reads the cover mid-arrival. Near = the air within 0.04, each block within 5 px.
+       "Once" is exact: the same plan at every position.) */
+    const nums = (x) => (x.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+    const near = (a, b) => { const [x, y] = [nums(a), nums(b)]; return x.length === y.length && x.every((v, i) => Math.abs(v - y[i]) <= (i === 0 ? 0.04 : i === 1 ? 0.001 : 5)); };
+    say(c.errs.length === 0 && cf.armed && top.on && cf.written > 0 && near(cf.plan, tf.plan) && differ === null && n > 10, `${size}: WRAPPED the cover is fitted ONCE before it is held — today's plan ("${cf.plan}"; today "${tf.plan}"), and the same at all ${n} positions${differ ? ` — re-fitted at ${differ}` : ''}${c.errs.length ? ` — ${c.errs[0]}` : ''}`);
     await c.at(0); const lengths = new Set(); for (let i = 0; i < 20; i++) { lengths.add(await c.p.evaluate(() => `${Math.round(document.querySelector('main').getBoundingClientRect().height)} ${document.querySelectorAll('[data-fs-shift]').length}`)); await c.p.waitForTimeout(50); }
     say(lengths.size === 1, `${size}: …and it stays still — one page length over a second at rest (${[...lengths].join(' · ')})`);
     const tz = await open('fixture-stranger-today-fit.html', W, H, { reducedMotion: 'reduce' }); const todayCalm = await tz.p.evaluate(BOXES); await tz.ctx.close();
@@ -928,7 +984,202 @@ if (!ONLY || ONLY === '16') {
     const k = todayCalm.findIndex((v, i) => v !== calm[i]);
     say(calmOff === 'reduce motion' && calmFit.written > 0 && calmFit.doorB <= H - calmFit.rest + 0.5 && todayCalm.length === calm.length && k < 0, `${size}: with reduce motion the wrapped page is today's fitted page — the fit writes its plan (${calmFit.written} values), "Get inside" whole on the first screen (${r(calmFit.doorT)}–${r(calmFit.doorB)}), every one of ${calm.length} boxes where today's has it${k >= 0 ? ` — the first that differs: "${todayCalm[k]}" → "${calm[k]}"` : ''}`);
     if (pics) { await c.at(0); await c.p.screenshot({ path: `${pics}/c16-stranger-fit-${W}x${H}-wrapped-0-opens.png` }); if (held !== null) { await c.at(held); await c.p.screenshot({ path: `${pics}/c16-stranger-fit-${W}x${H}-wrapped-1-held.png` }); } }
-    await a.ctx.close(); await c.ctx.close();
+    await c.ctx.close();
+  }
+}
+/* 16b. 📐 FITTED BEFORE IT FADES (owner 2026-10-12, DECISION_LOG "option 2" — and the same day, "Get inside" stays on
+   the stranger's first screen). On the real page (the fixture invitation, drawn by the real `SiteBody`), at the six
+   window sizes a phone or a laptop gives it — the short phones first — and for the four covers (the guest's and the
+   stranger's, text and photo): at scroll 0 the couple's names and the date are on the first screen, under the pinned
+   bar and above the bottom bar's line; on the stranger's page "Get inside" is there too, whole and shown; while the
+   cover is held its names are on the screen at every position; on the stranger's page the door STAYS — shown and
+   unmoved — for the whole hold; the cover is fitted ONCE (its fit the same at every position) and nothing moves at
+   rest (one page length over a second, at the top and in the middle of the hold). And opening the door ends the hold:
+   the plain page, nothing moved at the top, the page says why. */
+if (!ONLY || ONLY === '16' || ONLY === '16b') {
+  const KINDS = [
+    ['the guest’s text cover', 'fixture-cover.html', false],
+    ['the guest’s photo cover', 'fixture-photo-cover.html', false],
+    ['the stranger’s text cover', 'fixture-stranger-cover-fit.html', true],
+    ['the stranger’s photo cover', 'fixture-stranger-photo-cover-fit.html', true],
+  ];
+  const FIRST = [[375, 560], [375, 600], [375, 667], [320, 568], [375, 812], [1280, 770]];
+  const SNAPF = () => {
+    /* Drawn: every opacity up the tree multiplied, nothing hidden. */
+    const drawn = (e) => { let o = 1; for (let x = e; x && x.tagName !== 'HTML'; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.visibility === 'hidden' || cs.display === 'none') return 0; o *= Number(cs.opacity); } return o; };
+    const box = (e) => (e && e.getClientRects().length ? { t: e.getBoundingClientRect().top, b: e.getBoundingClientRect().bottom, o: drawn(e) } : null);
+    const head = document.querySelector('main header[data-pahina-first-screen]');
+    const cover = document.querySelector('.hub-cover') ?? head;
+    const door = document.querySelector('main details[data-get-inside]');
+    return {
+      s: Math.round(scrollY), max: document.documentElement.scrollHeight - innerHeight,
+      bar: document.querySelector('[data-sticky-top]').getBoundingClientRect().bottom,
+      cover: box(cover), pout: Number(cover?.style.getPropertyValue('--hub-pout') || 0),
+      names: box(head?.querySelector('h1')), date: box(head?.querySelector('[data-motion="arrive-date"]')),
+      door: box(door?.querySelector('summary')), dockLine: door ? parseFloat(getComputedStyle(door).scrollMarginBottom) || 0 : 0, stays: Boolean(door?.hasAttribute('data-hub-stay')),
+      on: Boolean(document.querySelector('[data-hub-page-on]')), off: document.querySelector('.hub-page-cell')?.getAttribute('data-hub-scrub-off') ?? null,
+      fit: `${[...document.querySelectorAll('[data-first-screen-fit]')].map((e) => `air ${e.style.getPropertyValue('--fs-air') || '1'} mark ${e.style.getPropertyValue('--fs-mark') || '1'}`).join(' ') || 'no fit'} · ${[...document.querySelectorAll('[data-fs-shift]')].map((e) => e.style.getPropertyValue('--fs-shift')).join(' ') || 'nothing moved'}`,
+    };
+  };
+  const openF = async (file, W, H, opts = {}) => { const ctx = await b.newContext({ viewport: { width: W, height: H }, ...opts }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140))); await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(900); const at = async (y) => { await p.evaluate((yy) => scrollTo(0, yy), y); await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); return p.evaluate(SNAPF); }; return { ctx, p, errs, at }; };
+  const r = (n) => (n === null || n === undefined ? '—' : Math.round(n * 10) / 10);
+  for (const [kind, file, stranger] of KINDS) {
+    for (const [W, H] of FIRST) {
+      const size = `${W}x${H} ${kind}`;
+      /* The bottom bar's line: the stylesheet's `--sn-door-rest` (4.75rem; from `xl` the bar is a side rail: 1rem). */
+      const line = H - (W >= 1280 ? 16 : 76);
+      const { ctx, p, errs, at } = await openF(file, W, H);
+      const top = await at(0);
+      say(errs.length === 0 && top.on && top.off === null && Boolean(top.names && top.date) && top.names.t >= top.bar - 0.5 && top.names.o === 1 && top.date.o === 1 && top.date.b <= line + 0.5, `${size}: the first screen holds the names and the date — the names ${r(top.names?.t)}–${r(top.names?.b)} under the bar (it ends ${r(top.bar)}), the date ending ${r(top.date?.b)} above the bottom bar's line ${line} (drawn ${top.names?.o.toFixed(2)} · ${top.date?.o.toFixed(2)}; armed ${top.on})${errs.length ? ` — ${errs[0]}` : ''}${top.off ? ` — off: ${top.off}` : ''}`);
+      if (stranger) say(Boolean(top.door) && top.door.t >= top.bar - 0.5 && top.door.b <= H - top.dockLine + 0.5 && top.door.o === 1, `${size}: "Get inside" is on the first screen, whole and shown${top.door ? ` (${r(top.door.t)}–${r(top.door.b)}, drawn ${top.door.o.toFixed(2)}; its line ${r(H - top.dockLine)})` : ' (no door)'}`);
+      const fwd = []; for (let y = 0; y <= Math.min(top.max, Math.round(H * 1.3)); y += 16) fwd.push(await at(y));
+      const hold = fwd.filter((f) => f.pout > 0 && f.pout < 1);
+      const bad = hold.filter((f) => f.cover.o > 0.02 && (!f.names || f.names.t < f.bar - 0.5 || f.names.b > H));
+      say(hold.length > 3 && bad.length === 0, `${size}: while the cover is held (${hold.length} positions) its names are on the screen, under the pinned bar, at every one${bad.length ? ` — NOT at ${bad[0].s}px: ${r(bad[0].names?.t)}–${r(bad[0].names?.b)}` : ` (at ${r(hold[0]?.names.t)}px)`}`);
+      if (stranger) {
+        const moved = hold.filter((f) => !f.door || f.door.o < 0.999 || Math.abs(f.door.t - top.door.t) > 0.6);
+        say(top.stays && hold.length > 3 && moved.length === 0, `${size}: "Get inside" STAYS while the cover is held — shown and unmoved at every one of ${hold.length} positions${moved.length ? ` — NOT at ${moved[0].s}px (${moved[0].door ? `${r(moved[0].door.t)}, drawn ${moved[0].door.o.toFixed(2)}` : 'gone'})` : ''} (marked staying: ${top.stays})`);
+      }
+      /* …AND NOT EVEN WHEN THE SCREEN CHANGES MID-HOLD (Safari's bars, as the thumb moves): the window a pixel shorter
+         and back, half-way through the hold — the fit writes nothing (every write to its values is counted). */
+      if (hold.length) {
+        await at(hold[Math.floor(hold.length / 2)].s);
+        /* (Only the fit's own values: `--fs-air` · `--fs-mark` · `--fs-shift` and its two marks — the hand-over writes
+           its own numbers on the same boxes as the thumb moves, and those are not the fit.) */
+        await p.evaluate(() => { window.__fitLog = []; const o = new MutationObserver((m) => { window.__fitLog.push(...m); }); window.__fitObs = o; for (const e of document.querySelectorAll('[data-first-screen-fit], [data-first-screen-fit] *')) o.observe(e, { attributes: true, attributeOldValue: true, attributeFilter: ['style', 'data-fs-shift', 'data-first-screen-fit'] }); });
+        await p.setViewportSize({ width: W, height: H - 1 }); await p.waitForTimeout(300); await p.setViewportSize({ width: W, height: H }); await p.waitForTimeout(300);
+        const writes = await p.evaluate(() => { window.__fitObs.takeRecords().forEach((m) => window.__fitLog.push(m)); const fs = (v) => (v ?? '').match(/--fs-[a-z]+:\s*[^;]+/g)?.join(';') ?? ''; const bad = window.__fitLog.filter((m) => (m.attributeName === 'style' ? fs(m.oldValue) !== fs(m.target.getAttribute('style')) : true)); return { n: bad.length, first: bad.slice(0, 3).map((m) => `${m.target.tagName.toLowerCase()}.${String(m.target.className).split(' ')[0]} ${m.attributeName} "${fs(m.oldValue) || m.oldValue}" → "${fs(m.target.getAttribute(m.attributeName)) || m.target.getAttribute(m.attributeName)}"`) }; });
+        say(writes.n === 0, `${size}: the screen changing in the middle of the hold re-fits nothing (${writes.n} writes to the fit${writes.n ? `: ${writes.first.join(' | ')}` : ''})`);
+      }
+      const fits = [...new Set(fwd.map((f) => f.fit))];
+      say(fits.length === 1, `${size}: fitted once — the fit is the same at every position (${fits.join(' / ')})`);
+      const mid = hold[Math.floor(hold.length / 2)]?.s ?? 0;
+      for (const [where, y] of [['at the top', 0], ['in the middle of the hold', mid]]) {
+        /* (After the page's own one-off settling — the scroll reveal's 0.7 s — so a loop is what is seen, not a fade.) */
+        await at(y); await p.waitForTimeout(1200);
+        const lengths = new Set();
+        for (let i = 0; i < 20; i++) { lengths.add(await p.evaluate(() => `${document.documentElement.scrollHeight} ${Math.round((document.querySelector('.hub-cover')?.getBoundingClientRect().height ?? 0) * 100) / 100}`)); await p.waitForTimeout(50); }
+        say(lengths.size === 1, `${size}: no jitter ${where} (${y}px) — one page length and one cover height over a second at rest (${[...lengths].join(' · ')})`);
+      }
+      if (pics) { for (const [name, y] of [['0-opens', 0], ['1-held', mid]]) { await at(y); await p.screenshot({ path: `${pics}/c16b-${file.replace(/^fixture-|\.html$/g, '')}-${W}x${H}-${name}.png` }); } }
+      await ctx.close();
+    }
+  }
+  /* 🚪 OPENING THE DOOR ENDS THE HOLD: what opens is below the door on a page that does not move — so the hand-overs
+     stand down for the visit, and at the top of the page nothing moves (the held page there IS the plain page). */
+  for (const [W, H] of [[375, 667], [375, 560]]) {
+    const size = `${W}x${H} the stranger’s text cover, the door opened at the top`;
+    const { ctx, p, errs, at } = await openF('fixture-stranger-cover-fit.html', W, H);
+    const before = await at(0);
+    const hit = await p.evaluate(() => { const s = document.querySelector('main details[data-get-inside] > summary'); const q = s.getBoundingClientRect(); const e = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return e ? `${e.tagName.toLowerCase()}${e.className ? `.${String(e.className).split(' ')[0]}` : ''}${s.contains(e) ? ' (the door)' : ''}` : 'nothing'; });
+    /* (A door that is not there to press is a red row, not a stopped check.) */
+    await p.click('main details[data-get-inside] > summary', { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(100);
+    /* (Standing down, the page's own arrival plays again — its 8 px settle — and is let finish: what is compared is where
+       things come to rest. How many motions ran is said.) */
+    const replayed = await p.evaluate(() => document.getAnimations().length);
+    await p.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})))); await p.waitForTimeout(800);
+    const after = await p.evaluate(SNAPF);
+    const opened = await p.evaluate(() => ({ open: document.querySelector('main details[data-get-inside]').open, signIn: document.querySelector('main details[data-get-inside] a[href^="/login"]').getBoundingClientRect().bottom, sticky: [...document.querySelectorAll('.hub-page-stage')].some((e) => getComputedStyle(e).position === 'sticky') }));
+    const shift = after.s;
+    /* …AGAINST TODAY'S PAGE WITH ITS DOOR OPENED: opening the door re-lays the door's own fit, and on today's page too
+       that moves the cover by a few pixels on a short phone (its fit was first made while the cover's parts were still
+       arriving by their 8 px motion — main's own behaviour, measured 2026-10-12: 172 → 179 at 375 × 560). Standing
+       down must land where today's page lands — within 3 px: the door's own fit reads the cover mid-arrival, so its plan
+       differs by a hair between two loads (air 0.67 · 0.68 · 0.70 measured at 375 × 560, 2026-10-12). */
+    const t = await openF('fixture-stranger-today-fit.html', W, H);
+    await t.p.click('main details[data-get-inside] > summary', { timeout: 3000 }).catch(() => {}); await t.p.waitForTimeout(100);
+    await t.p.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})))); await t.p.waitForTimeout(800);
+    const todayOpen = await t.p.evaluate(SNAPF); await t.ctx.close();
+    say(errs.length === 0 && before.on && opened.open && !after.on && !opened.sticky && after.off === 'the door was opened' && Math.abs(after.names.t + shift - (todayOpen.names.t + todayOpen.s)) < 3 && Math.abs(after.cover.t + shift - (todayOpen.cover.t + todayOpen.s)) < 3 && after.cover.o === 1, `${size}: the door opens and the hold stands down — the plain page (${after.off}), the cover and the names where today's page puts them with its door opened (the names ${r(before.names.t)} held → ${r(after.names.t + shift)} on the page; today's ${r(todayOpen.names.t + todayOpen.s)}), drawn whole (a tap at the button lands on ${hit}; open ${opened.open}; armed ${after.on}; staying before ${before.stays}; ${replayed} motion(s) played as it stood down)`);
+    say(opened.signIn <= H - after.dockLine + 0.5, `${size}: …and what it opened is brought into view, clear of the bottom bar ("Sign in" ends ${r(opened.signIn)}; the line ${r(H - after.dockLine)}; the page scrolled ${shift}px)`);
+    if (pics) await p.screenshot({ path: `${pics}/c16b-stranger-${W}x${H}-door-opened.png` });
+    await ctx.close();
+  }
+}
+/* 16d. 📏 SAFARI'S BARS MOVE MID-FADE (owner's iPhone step 3, 2026-10-13 — found red the day Scrub was turned on). On the
+   real page, the four covers (the guest's and the stranger's, text and photo), at 375 × 667 and 375 × 812: held in the
+   middle of the fade, the window's HEIGHT changes 10 px at a time — up 70 px, down past where it began, and back, as
+   the bars collapse and come back. At every step the page's length, the scroll position, the cover's top and its fade
+   are what they were; and the fade goes on from there. (Was: the hold followed the height — a text cover drifted to
+   the end of its fade — and a photo cover's page grew ~500 px for good, the browser re-anchoring the scroll under the
+   engine's own re-measure.) And a re-measure in the middle of the hold that is NOT the bars — a picture loading
+   (`load`) — leaves the page as it was too (`overflow-anchor: none` on the armed page, `globals.css`). */
+if (!ONLY || ONLY === '16' || ONLY === '16d') {
+  const KINDS = [
+    ['the guest’s text cover', 'fixture-cover.html'],
+    ['the guest’s photo cover', 'fixture-photo-cover.html'],
+    ['the stranger’s text cover', 'fixture-stranger-cover-fit.html'],
+    ['the stranger’s photo cover', 'fixture-stranger-photo-cover-fit.html'],
+  ];
+  const SNAPB = () => {
+    const cover = document.querySelector('.hub-cover');
+    const cs = getComputedStyle(cover);
+    return { s: Math.round(scrollY), len: document.documentElement.scrollHeight, t: cover.getBoundingClientRect().top, o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity), pout: Number(cover.style.getPropertyValue('--hub-pout') || 0), on: Boolean(document.querySelector('[data-hub-page-on]')) };
+  };
+  const r = (n) => Math.round(n * 1000) / 1000;
+  /* (In WebKit too — the Safari engine, not an iPhone: one of the faults this block was written for showed in WebKit
+     alone, a guest's photo cover jumping to the end of its fade.) */
+  const wk = await webkit.launch();
+  for (const [engine, br] of [['Chromium', b], ['WebKit', wk]]) for (const [kind, file] of KINDS) {
+    for (const [W, H] of [[375, 667], [375, 812]]) {
+      const size = `${engine} ${W}x${H} ${kind}`;
+      const ctx = await br.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage();
+      const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140)));
+      await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(900);
+      const frames = () => p.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res))));
+      const at = async (y) => { await p.evaluate((yy) => scrollTo(0, yy), y); await frames(); return p.evaluate(SNAPB); };
+      /* The middle of the fade: the first position at which half of the Build out has played. */
+      let mid = null; for (let y = 0; y <= H * 1.3 && !mid; y += 6) { const f = await at(y); if (f.pout >= 0.5) mid = f; }
+      if (!mid) { say(false, `${size}: the fade was never half way (no hold?)`); await ctx.close(); continue; }
+      let prev = mid; const jumps = [];
+      for (const d of [10, 20, 30, 40, 50, 60, 70, 60, 50, 40, 30, 20, 10, 0, -10, 0]) {
+        await p.setViewportSize({ width: W, height: H + d }); await frames(); await p.waitForTimeout(60);
+        const f = await p.evaluate(SNAPB);
+        if (f.len !== prev.len || f.s !== prev.s || Math.abs(f.t - prev.t) > 1 || Math.abs(f.o - prev.o) > 0.02) jumps.push(`${H + d}px: page ${prev.len}→${f.len}, scroll ${prev.s}→${f.s}, cover ${Math.round(prev.t)}→${Math.round(f.t)}, fade ${r(prev.o)}→${r(f.o)}`);
+        prev = f;
+      }
+      say(errs.length === 0 && mid.on && jumps.length === 0 && prev.len === mid.len && prev.s === mid.s && Math.abs(prev.o - mid.o) < 0.01, `${size}: the bars move mid-fade (the window ${H}→${H + 70}→${H - 10}→${H} in 10 px steps, held at ${mid.s}px, the fade at ${r(mid.o)}): no jump — page ${mid.len}px, the scroll, the cover and its fade unchanged at every step${jumps.length ? ` — JUMPED at ${jumps.slice(0, 2).join(' | ')}` : ''}${errs.length ? ` — ${errs[0]}` : ''}`);
+      const on = []; for (let y = prev.s; y <= prev.s + 120; y += 6) on.push(await at(y));
+      let brighter = 0; for (let i = 1; i < on.length; i++) if (on[i].o > on[i - 1].o + 0.01) brighter++;
+      say(brighter === 0 && on.at(-1).o < prev.o - 0.05, `${size}: …and the fade goes on from where it was (${r(prev.o)} → ${r(on.at(-1).o)} over 120 px, never brighter)`);
+      /* A re-measure in the middle of the hold that is not the bars: a picture loading. */
+      const before = await at(mid.s);
+      await p.evaluate(() => document.querySelector('.hub-page-cell').dispatchEvent(new Event('load'))); await frames(); await p.waitForTimeout(100);
+      const after = await p.evaluate(SNAPB);
+      say(after.len === before.len && after.s === before.s && Math.abs(after.o - before.o) < 0.01, `${size}: a picture loading in the middle of the hold re-measures nothing away — page ${before.len}→${after.len}px, scroll ${before.s}→${after.s}, fade ${r(before.o)}→${r(after.o)}`);
+      if (pics) await p.screenshot({ path: `${pics}/c16d-${engine.toLowerCase()}-${file.replace(/^fixture-|\.html$/g, '')}-${W}x${H}-after-bars.png` });
+      await ctx.close();
+    }
+  }
+  await wk.close();
+}
+/* 16c. 📷 THE STRANGER'S PHOTO COVER, SCRUB OFF — what live strangers see (owner 2026-10-13, DECISION_LOG: "do it" — the
+   photo moves so the names, the date and "Get inside" are on the stranger's first screen, Scrub on or off). TODAY's
+   page (`fixture-stranger-photo-today*`, "Scrub out" not offered) at the six sizes: with the door's own fit running,
+   the names and the date under the pinned bar, "Get inside" whole above the bottom bar, and the photo WHOLE right
+   under the door — drawn, never cut, on nothing; and as main draws it (no fit for a photo): the door under the photo.
+   Pictures, before and after, at 375 × 667 and 375 × 812. */
+if (!ONLY || ONLY === '16' || ONLY === '16c') {
+  const SNAPP = () => {
+    const box = (e) => (e && e.getClientRects().length ? { t: e.getBoundingClientRect().top, b: e.getBoundingClientRect().bottom, h: e.getBoundingClientRect().height } : null);
+    const head = document.querySelector('main header[data-pahina-first-screen]');
+    return { bar: document.querySelector('[data-sticky-top]').getBoundingClientRect().bottom, names: box(head?.querySelector('h1')), date: box(head?.querySelector('[data-motion="arrive-date"]')), plate: box(head?.querySelector('figure')), door: box(document.querySelector('main details[data-get-inside] > summary')), dockLine: parseFloat(getComputedStyle(document.querySelector('main details[data-get-inside]')).scrollMarginBottom) || 0, armed: Boolean(document.querySelector('[data-hub-page-on]')), mark: Boolean(document.querySelector('[data-first-screen-photo]')) };
+  };
+  const openP = async (file, W, H) => { const ctx = await b.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140))); await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(900); await p.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})))); return { ctx, p, errs }; };
+  const r = (n) => (n === null || n === undefined ? '—' : Math.round(n * 10) / 10);
+  for (const [W, H] of [[375, 560], [375, 600], [375, 667], [320, 568], [375, 812], [1280, 770]]) {
+    const size = `${W}x${H} the stranger’s photo cover, Scrub OFF (today's page)`;
+    const before = await openP('fixture-stranger-photo-today.html', W, H); const was = await before.p.evaluate(SNAPP);
+    if (pics && ((W === 375 && H === 667) || (W === 375 && H === 812))) await before.p.screenshot({ path: `${pics}/c16c-stranger-photo-scrub-off-${W}x${H}-before.png` });
+    await before.ctx.close();
+    const after = await openP('fixture-stranger-photo-today-fit.html', W, H); const now = await after.p.evaluate(SNAPP);
+    if (pics && ((W === 375 && H === 667) || (W === 375 && H === 812))) await after.p.screenshot({ path: `${pics}/c16c-stranger-photo-scrub-off-${W}x${H}-after.png` });
+    await after.ctx.close();
+    const line = H - now.dockLine;
+    say(was.door.t >= H, `${size}: AS MAIN DRAWS IT the door is under the photo, off the first screen (${r(was.door.t)}–${r(was.door.b)} on a ${H}px screen)`);
+    say(after.errs.length === 0 && !now.armed && now.mark && now.names.t >= now.bar - 0.5 && now.date.b <= now.door.t + 0.5 && now.door.t >= now.bar - 0.5 && now.door.b <= line + 0.5, `${size}: with the door's fit the first screen holds the names (${r(now.names.t)}–${r(now.names.b)}), the date (to ${r(now.date.b)}) and "Get inside" (${r(now.door.t)}–${r(now.door.b)}; its line ${r(line)})${after.errs.length ? ` — ${after.errs[0]}` : ''}`);
+    /* (On the shortest phones the mark gives way too, so the names and the date come UP; they never go down.) */
+    say(Math.abs(now.plate.h - was.plate.h) < 0.5 && now.plate.t >= now.door.b - 0.5 && now.names.t <= was.names.t + 0.6 && now.date.t <= was.date.t + 0.6, `${size}: the photo is WHOLE right under the door (${r(now.plate.t)}–${r(now.plate.b)}, ${r(now.plate.h)}px as before), and the names and the date never lower than before (${r(was.names.t)} → ${r(now.names.t)})`);
   }
 }
 /* 17. 🤝 TOGETHER (owner 2026-10-10, asked what should stand where the names built out — the RSVP button alone, or the

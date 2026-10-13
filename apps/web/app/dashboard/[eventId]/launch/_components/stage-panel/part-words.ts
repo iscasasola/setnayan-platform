@@ -20,6 +20,7 @@
  * reload; the Apply count comes back with the save. A refused or failed write puts the page's words back and says
  * why — never the look of success. Nothing here is in the Maker's first load.
  */
+import { drawnNow, type UndoStep } from '@/lib/maker-drawn-undo';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { partWords, sceneTypeField } from '@/app/[slug]/_components/type-in-place-canvas';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
@@ -119,7 +120,7 @@ export type PartWordsDoor = {
 };
 
 export type PartWordsWrite =
-  | { ok: true; writeKey: string; patch: HubDraftPatch | null; words: string; undo: () => void }
+  | { ok: true; writeKey: string; patch: HubDraftPatch | null; words: string; undo: () => void; /** ↺ the Maker's copy as this write left it (a refused ↺) — null: no copy to keep (the names). */ redo: (() => void) | null }
   | { ok: false; reason: string };
 
 /**
@@ -135,12 +136,19 @@ export function partWordsWrite(f: PartWordsField, typed: string, door: Pick<Part
     if (!w.ok) return { ok: false, reason: w.reason };
     const custom = (w.patch.widgets as Record<string, { custom?: SceneOwnWords }> | undefined)?.[type]?.custom;
     if (custom) noteDraftedOwnWords(type, custom, server);
-    return { ok: true, writeKey: w.writeKey, patch: w.patch, words: w.words, undo: () => (custom ? noteDraftedOwnWords(type, own, server) : undefined) };
+    return {
+      ok: true,
+      writeKey: w.writeKey,
+      patch: w.patch,
+      words: w.words,
+      undo: () => (custom ? noteDraftedOwnWords(type, own, server) : undefined),
+      redo: () => (custom ? noteDraftedOwnWords(type, custom, server) : undefined),
+    };
   }
   if (f.el === 'names') {
     const name = typedDisplayName(typed, f.twoPeople);
     if (!name) return { ok: false, reason: f.twoPeople ? 'Type a name on each side — the names cannot be left empty.' : 'The name cannot be left empty.' };
-    return { ok: true, writeKey: NAMES_WRITE_KEY, patch: { events: { display_name: name } }, words: name, undo: () => {} };
+    return { ok: true, writeKey: NAMES_WRITE_KEY, patch: { events: { display_name: name } }, words: name, undo: () => {}, redo: null };
   }
   const el = f.el as HubElementKey;
   const before = draftedCanvasOr('hero', door.heroCanvas);
@@ -150,7 +158,7 @@ export function partWordsWrite(f: PartWordsField, typed: string, door: Pick<Part
   if (elements) next.elements = elements;
   else delete next.elements;
   const words = next.elements?.[el]?.word ?? f.auto ?? '';
-  if (canvasFingerprint(before) === canvasFingerprint(next)) return { ok: true, writeKey: canvasWriteKey('hero'), patch: null, words, undo: () => {} };
+  if (canvasFingerprint(before) === canvasFingerprint(next)) return { ok: true, writeKey: canvasWriteKey('hero'), patch: null, words, undo: () => {}, redo: null };
   noteDraftedCanvas('hero', next, door.heroCanvas);
   return {
     ok: true,
@@ -158,6 +166,7 @@ export function partWordsWrite(f: PartWordsField, typed: string, door: Pick<Part
     patch: { widgets: { hero: { canvas: next } } },
     words,
     undo: () => noteDraftedCanvas('hero', before, door.heroCanvas),
+    redo: () => noteDraftedCanvas('hero', next, door.heroCanvas),
   };
 }
 
@@ -167,6 +176,24 @@ export function showPartWords(f: Pick<PartWordsField, 'key' | 'el' | 'field'>, t
   document.querySelectorAll<HTMLIFrameElement>('iframe[data-maker-canvas-frame]').forEach((frame) => {
     frame.contentWindow?.postMessage(message, window.location.origin);
   });
+}
+
+/**
+ * ↺ A field's words taken back at the press (`lib/maker-drawn-undo.ts`): the words the page had (`f.text`) on every
+ * canvas, and the Maker's copy as it was — its refused-save branch, run first. A refused ↺ draws the typed words again.
+ */
+function partWordsUndo(f: PartWordsField, key: string, undo: () => void, redo: () => void, words: string): UndoStep {
+  return {
+    key,
+    undraw: () => {
+      undo();
+      showPartWords(f, f.text);
+      return drawnNow(() => {
+        redo();
+        showPartWords(f, words);
+      });
+    },
+  };
 }
 
 /**
@@ -182,6 +209,7 @@ export async function keepPartWords(f: PartWordsField, typed: string, door: Part
   showPartWords(f, w.words);
   if (!w.patch) return { ok: true };
   const patch = w.patch;
+  const redo = w.redo;
   let res: HubDraftActionResult | typeof SUPERSEDED;
   try {
     res = await makerSave(
@@ -195,7 +223,7 @@ export async function keepPartWords(f: PartWordsField, typed: string, door: Part
         }),
       // Owed only if something else in the burst asked for a render (`makerNeedsRender`).
       requestMakerRefresh,
-      { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true },
+      { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true, ...(redo ? { undo: partWordsUndo(f, w.writeKey, w.undo, redo, w.words) } : {}) },
     );
   } catch {
     res = { ok: false, intent: 'save', error: '' };

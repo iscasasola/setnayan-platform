@@ -1,6 +1,6 @@
 import { BellRing, Check, QrCode, X } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
-import { Counter } from '@/app/_components/counter';
+import { FormCounter } from '@/app/_components/form-counter';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { CALENDAR_HATCH } from '@/lib/calendar-grid';
@@ -208,7 +208,7 @@ export function DatesFolds({
                           {waitlist.grandfathered > 0 ? `You keep ${waitlist.grandfathered}; your plan holds ${waitlist.tierCap}` : `Up to ${waitlist.tierCap} on your plan`}
                         </span>
                       </span>
-                      <Counter name="max_waitlist_acceptances" value={waitlist.cap} min={1} max={capMax} label="How many a date" saveAfterMs={900} data="waitlist-cap" />
+                      <FormCounter name="max_waitlist_acceptances" value={waitlist.cap} min={1} max={capMax} label="How many a date" saveAfterMs={900} data="waitlist-cap" />
                     </form>
                   )
                 ) : null}
@@ -278,7 +278,7 @@ export function DatesFolds({
                   <form action={actions.updatePoolCapacity} className="flex-none">
                     {back('capacity')}
                     <input type="hidden" name="pool_id" value={c.poolId} />
-                    <Counter name="capacity" value={c.capacity} min={1} max={Math.max(ceiling, c.capacity)} label={`${c.label} — events a day`} saveAfterMs={900} data="capacity" />
+                    <FormCounter name="capacity" value={c.capacity} min={1} max={Math.max(ceiling, c.capacity)} label={`${c.label} — events a day`} saveAfterMs={900} data="capacity" />
                   </form>
                 </div>
               ))

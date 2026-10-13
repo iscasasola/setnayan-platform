@@ -1595,7 +1595,10 @@ export function SaveTheDateFilm({
           page" — two of the same button on one screen (owner 2026-10-03, "too
           many buttons"). */}
       {canExit && started && !preview && idx !== closeIdx ? (
-        <div className="absolute bottom-5 left-4 z-20" onClick={(e) => e.stopPropagation()}>
+        /* 🍪 ABOVE THE FIRST-VISIT COOKIE NOTICE (hub leftovers 2026-10-13): the notice is z-70, full width, over this
+           full-screen film, so a first-time guest's way out sat under it until they answered. The notice publishes its
+           own height (`--cookie-banner-top`, 0 once answered or off a phone) — this stands that far above the edge. */
+        <div className="absolute bottom-5 left-4 z-20" style={{ bottom: 'calc(1.25rem + var(--cookie-banner-top, 0px))' }} onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent(STD_FILM_EXIT_EVENT))}

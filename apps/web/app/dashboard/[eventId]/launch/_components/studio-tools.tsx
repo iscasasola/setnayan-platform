@@ -65,6 +65,8 @@ import { Fold } from '@/app/_components/fold';
 import { Check, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PrintChoicePicker } from './print-choice-picker';
+import { PrintSaveButton } from './print-save-button';
+import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto, StudioProDoor } from './studio-prints-six';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -1068,6 +1070,62 @@ export function StudioActionDoor({ href, label, icon }: { href: string; label: s
   return <ActionButton tone="neutral" href={href} label={label} icon={icon} />;
 }
 
+/**
+ * 🎫 THE TICKET GUESTS SAVE — its two outputs as Form rows (owner "approved" 2026-10-13): "Digital ticket (PNG)" with the zip of every
+ * ticket (a Pro couple: the file; a free couple: the ◆ door that opens the centred note — `StudioProDoor`; the store shell: nothing),
+ * its one line under it; "Printed ticket (PDF)" with every guest's ticket. The SAME words, files and door as before, in the same order
+ * (`studio-prints-money-is-unchanged.test.ts`).
+ */
+export function StudioPassRows({
+  zip,
+  printed,
+  digitalWord,
+  printWord,
+  digitalLine,
+}: {
+  zip:
+    | { kind: 'save'; href: string; file: string; label: string; icon: ReactElement }
+    | { kind: 'door'; href: string; label: string; icon: ReactElement; note: { title: string; body: string } }
+    | null;
+  printed: { href: string; file: string; label: string };
+  digitalWord: string;
+  printWord: string;
+  digitalLine: string;
+}) {
+  return (
+    <FormRows data="pass-outputs" attrs={STUDIO_PRINT_ROWS}>
+      {/* The button sits UNDER its row's name (the words are long — beside the name they squeezed it to one word a line). */}
+      <FormRow
+        name={digitalWord}
+        data="pass-digital"
+        attrs={{ 'data-pass-cards-digital': '' }}
+        below={
+          <div className="flex flex-col items-start gap-1.5 pb-3">
+            {zip === null ? null : zip.kind === 'save' ? (
+              <PrintSaveButton href={zip.href} file={zip.file} variant="action" icon={zip.icon} label={zip.label} />
+            ) : (
+              <span data-pass-cards-zip-pro="" className="inline-flex">
+                <StudioProDoor href={zip.href} label={zip.label} icon={zip.icon} note={zip.note} />
+              </span>
+            )}
+            <p className="text-[12.5px] text-ink/55">{digitalLine}</p>
+          </div>
+        }
+      />
+      <FormRow
+        name={printWord}
+        data="pass-print"
+        attrs={{ 'data-pass-cards-print': '' }}
+        below={
+          <div className="pb-3">
+            <PrintSaveButton href={printed.href} file={printed.file} variant="action" label={printed.label} />
+          </div>
+        }
+      />
+    </FormRows>
+  );
+}
+
 /* ── ONE door for the lazy stand-in (`details-lazy.tsx` `StudioTool`) ────── */
 
 /* ✍ What to bring, the Special message and the Opening line are `studio-info.tsx`'s rows (the Form row, one drafted
@@ -1106,7 +1164,13 @@ export type StudioToolProps =
   | ({ part: 'seat-kind' } & Parameters<typeof StudioSeatKind>[0])
   | ({ part: 'print-save' } & Parameters<typeof StudioPrintSave>[0])
   /* 🎁 E-Gifts › Wish list (owner 2026-10-08) rides the same door — never the Maker's first load. */
-  | ({ part: 'wish-list' } & Parameters<typeof StudioWishListLive>[0]);
+  | ({ part: 'wish-list' } & Parameters<typeof StudioWishListLive>[0])
+  /* 🖨 Prints' six (owner "approved" 2026-10-13, `studio-prints-six.tsx`) — the same one door. */
+  | ({ part: 'parents' } & Parameters<typeof StudioParents>[0])
+  | ({ part: 'kindly-reply' } & Parameters<typeof StudioKindlyReply>[0])
+  | ({ part: 'menu' } & Parameters<typeof StudioMenuEditor>[0])
+  | ({ part: 'poster-photo' } & Parameters<typeof StudioPosterPhoto>[0])
+  | ({ part: 'pass-rows' } & Parameters<typeof StudioPassRows>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -1144,5 +1208,15 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioPrintSave {...props} />;
     case 'wish-list':
       return <StudioWishListLive {...props} />;
+    case 'parents':
+      return <StudioParents {...props} />;
+    case 'kindly-reply':
+      return <StudioKindlyReply {...props} />;
+    case 'menu':
+      return <StudioMenuEditor {...props} />;
+    case 'poster-photo':
+      return <StudioPosterPhoto {...props} />;
+    case 'pass-rows':
+      return <StudioPassRows {...props} />;
   }
 }

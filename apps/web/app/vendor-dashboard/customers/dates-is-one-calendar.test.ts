@@ -74,7 +74,8 @@ test('1 · the shared grid draws kind 31: dots, a hatched blocked square, a bold
   const states = new Map([
     ['2026-10-03', { dots: ['booked' as const] }],
     ['2026-10-24', { dots: ['booked' as const, 'holding' as const], full: true }],
-    ['2026-10-14', { blocked: true }],
+    // A closed day with a booking on it (an outside client taken before the closure): the hatch says it, no dot.
+    ['2026-10-14', { blocked: true, dots: ['booked' as const] }],
     ['2026-10-15', { blocked: true }],
   ]);
   const html = await paint(h(CalendarGrid, { value: '2026-10-15', today: '2026-10-02', states, onPick: () => {} }));
@@ -209,12 +210,19 @@ test('4 · Holding is read from events (admin, this shop’s threads) — never 
 /* ── 5 · the tools come back to Dates ─────────────────────────────────── */
 
 test('5 · every Dates form posts the shipped action and comes back to Dates (and its fold, and its day)', () => {
+  // EACH form, not a count over the file: the first lines inside every <form> / <ConfirmForm> say where to come back.
+  let seen = 0;
   for (const [name, src] of [['dates-folds', FOLDS], ['dates-sheets', SHEETS], ['day-sheet', DAY]] as const) {
-    const forms = count(src, /<form\b|<ConfirmForm\b/g);
-    const back = count(src, /name="return_to" value="dates"/g) + count(src, /\{back(?:\('[a-z]+'\))?\}/g);
-    assert.ok(forms > 0, `${name}: no forms — the scan is blind`);
-    assert.ok(back >= forms, `${name}: ${forms} forms but only ${back} say where to come back`);
+    const starts = [...src.matchAll(/<(?:form|ConfirmForm)\b/g)].map((m) => m.index ?? 0);
+    starts.forEach((at, i) => {
+      seen += 1;
+      // From this form's opening to the next form's (or its close): its own fields, nobody else's.
+      const end = Math.min(starts[i + 1] ?? Infinity, src.indexOf('</form>', at) > 0 ? src.indexOf('</form>', at) : Infinity, src.indexOf('</ConfirmForm>', at) > 0 ? src.indexOf('</ConfirmForm>', at) : Infinity);
+      const own = src.slice(at, end);
+      assert.match(own, /\{back(?:\('[a-z]+'\))?\}|<input type="hidden" name="return_to" value="dates" \/>/, `${name}: a form does not say it comes back to Dates — ${own.slice(0, 80)}`);
+    });
   }
+  assert.ok(seen >= 14, `only ${seen} Dates forms were found — the scan is blind`);
   assert.match(ACTIONS, /if \(returnTo === 'dates'\) \{[\s\S]{0,700}redirect\(`\/vendor-dashboard\/customers\?\$\{params\.toString\(\)\}`\)/, 'the actions do not bring a Dates form back to Dates');
   assert.match(ACTIONS, /new URLSearchParams\(\{ seg: 'dates' \}\)/);
   assert.match(ACTIONS, /\/\^\(block\|waitlist\|capacity\)\$\/\.test\(fold\)/, 'the fold an action came from is not the one open on return');
@@ -273,7 +281,7 @@ test('7 · the Counter (kind 17): 44-px signs, the minus greys at the lowest, it
   for (const b of at1.match(/<button[^>]*>/g) ?? []) assert.match(b, /h-11 min-h-11 w-11/, 'a sign is under 44 px');
   const src = code(join(APP, '_components', 'counter.tsx'));
   assert.match(src, /setTimeout\(\(\) => \{[\s\S]{0,160}\.requestSubmit\(\);\s*\}, saveAfterMs\)/, 'the counter does not save itself');
-  assert.match(src, /if \(wait\.current\) clearTimeout\(wait\.current\)/, 'each tap does not restart the wait (1 → 3 would be two saves)');
+  assert.match(src, /if \(wait\.current\) clearTimeout\(wait\.current\);\s*wait\.current = setTimeout\(/, 'each tap does not restart the wait (1 → 3 would be two saves)');
   assert.match(FOLDS, /<Counter name="capacity"[^>]*saveAfterMs=\{900\}/, 'events a day is not the counter');
 });
 

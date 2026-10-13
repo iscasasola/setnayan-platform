@@ -131,7 +131,8 @@ export default async function EditorialPrintPage({
       (event as { timezone?: string | null }).timezone ?? undefined,
       (event as { event_end_date?: string | null }).event_end_date ?? null,
       undefined,
-      event.std_invitation_launch_date ?? null,
+      // The Invitation's opening date cannot move 'editorial' — only the Save the Date / Invitation split.
+      null,
     ) === 'editorial';
   if (!isEditorialPhase) {
     const hostPreview = await isSignedInEventHost(event.event_id);

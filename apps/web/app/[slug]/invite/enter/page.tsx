@@ -446,8 +446,9 @@ async function inviteEnterPage({ params, searchParams }: Props) {
      🔒 ASKED, NEVER RESTATED. `arrivalDestinationFor` runs the SAME composition
      app/[slug]/page.tsx runs to pick its own face, so the door cannot drift
      from the page. No threshold is named here or in that module. */
+  const profile = await profileAhead;
   const destination = arrivalDestinationFor({
-    profile: await profileAhead,
+    profile,
     eventDate: event.event_date as string | null,
     eventEndDate: (event.event_end_date as string | null) ?? null,
     launchMode: (event.launch_mode as string | null) ?? null,
@@ -562,7 +563,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
         event as unknown as ReplyWindowEvent,
         Date.now(),
         eventTimezoneFromCoords(event.venue_latitude as number | null, event.venue_longitude as number | null),
-        replyFaceOf(await profileAhead),
+        replyFaceOf(profile),
       );
   const repliesShut = replyWindowWords(replies, words.theOrganizer);
   /* 📲 The tile's code for today — the SAME call the metadata makes

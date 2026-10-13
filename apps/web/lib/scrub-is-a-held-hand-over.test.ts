@@ -430,7 +430,10 @@ test('(10) the cover is hand-over zero: held where it stands when the page opens
   /* DOES THE COVER LEAVE? The hero row Leaves by Scrub and has a Build out — through the same door as a scene. */
   const hero = (canvas: Record<string, unknown> | null) => [{ widget_type: 'countdown', config_json: { canvas: { transition: 'scrub' } } }, { widget_type: 'hero', config_json: canvas ? { canvas } : null }];
   assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, true, true), true);
-  assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, true), false, '🌑 "Scrub out" is not offered: no cover leaves, on any page');
+  /* 🔁 RE-AIMED 2026-10-13 (owner: "Turn on scrub"): was "🌑 not offered: no cover leaves, on any page" → false.
+     Now the real page (no door) asks the same as the lab's door, and the off arm (one line away) still closes it. */
+  assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, true), true, '"Scrub out" is offered: a Pro cover stored to leave by Scrub leaves');
+  assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, true, false), false, 'the door closed by hand: a cover still leaves');
   assert.equal(hubCoverLeaves(hero({ transition: 'scrub' }) as never, false, true), false, 'without Event Hub Pro a cover leaves by Scrub');
   assert.equal(hubCoverLeaves(hero({ transition: 'scrub', out: 'none' }) as never, true, true), false, 'a cover with no Build out hands over');
   assert.equal(hubCoverLeaves(hero(null) as never, true, true), false);

@@ -185,12 +185,10 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
           <Fold title="This year" line={yearLine(year)} data="money-year">
             <div className="pb-3" data-money-year-body="">
               {year === 'locked' ? (
-                <p className="py-2 text-[13.5px] text-ink/70" data-money-year-locked="">
-                  {data.lockedLine}{' '}
-                  <Link href="/vendor-dashboard/subscription" className="inline-flex min-h-11 items-center font-semibold text-sn-accent">
-                    See plans
-                  </Link>
-                </p>
+                <div data-money-year-locked="">
+                  <p className="py-2 text-[13.5px] text-ink/70">{data.lockedLine}</p>
+                  <DatesRow data="money-plans" title="See plans" line="Solo and Pro carry the year" href="/vendor-dashboard/subscription" />
+                </div>
               ) : year === null ? (
                 <p className="py-2 text-[13.5px] text-ink/70" role="status" data-money-year-unread="">
                   Couldn&rsquo;t load your year — a failed read, not a year with nothing in it. Reload to try again.

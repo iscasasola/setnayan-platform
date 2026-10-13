@@ -100,7 +100,7 @@ test('5 · Log a payment lists who still owes first, with what comes next', () =
   const c = moneyPicture(ROWS, 'month', TODAY).customers;
   assert.deepEqual(
     c.map((x) => `${x.name}: ${x.line}`),
-    ['Cruz: ₱42,000 due Oct 3', 'Ocampo: ₱15,000 overdue', 'Santos: An amount not set no date yet', 'Reyes: Paid in full'],
+    ['Cruz: ₱42,000 due Oct 3', 'Ocampo: ₱15,000 overdue', 'Santos: Amount not set · no date yet', 'Reyes: Paid in full'],
   );
   assert.deepEqual(c.map((x) => x.open), [true, true, true, false]);
 });

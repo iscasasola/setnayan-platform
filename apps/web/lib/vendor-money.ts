@@ -177,7 +177,7 @@ export function moneyPicture(
     const next = overdueFirst.find((i) => i.event_id === eventId) ?? null;
     const name = list[0]?.event_name?.trim() || 'A booking';
     const line = next
-      ? `${next.amount_php === null ? 'An amount not set' : formatPhp(next.amount_php)} ${next.overdue ? 'overdue' : next.due_date ? `due ${monthDay(next.due_date) ?? next.due_date}` : 'no date yet'}`
+      ? `${next.amount_php === null ? 'Amount not set ·' : formatPhp(next.amount_php)} ${next.overdue ? 'overdue' : next.due_date ? `due ${monthDay(next.due_date) ?? next.due_date}` : 'no date yet'}`
       : 'Paid in full';
     return { eventId, name, line, open: next !== null };
   });

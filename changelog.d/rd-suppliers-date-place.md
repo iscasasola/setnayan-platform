@@ -12,6 +12,8 @@ The couple's Suppliers page, step 5, stacked on step 4 (#6516). Map `SUPPLIER_CO
 
 **Find** shows only what can be booked on the date: the category page passes `hideUnbookable` (2026-10-10 search ruling; "farther away" unchanged).
 
+**Find's thumb row follows the OPEN category** (owner 2026-10-13, his 2026-10-07 rule: "whatever category is picked, that is where we add manually and search"): with one category open the box reads "Search Reception or add your own", searches only that category (its cards and its More to compare) and ＋ adds there without asking; nothing open or Expand all → all suppliers and ＋ asks which. ONE add on Find — the booked row's own "Add your own" and More to compare's empty-state Add are gone.
+
 Lab: `/dev/suppliers-lab?sheet=date|help|place` (+ `&help=none|unread|nomonth`, `&cal=notset`, `&change=1`, `&drafted=1`, `&venues=none`, `&factfail=read|write`).
 
 SPEC IMPACT: None to the corpus decisions (implements PR5 + answers 7–10 as ruled). Two choices recorded in the PR for the owner: the bench/Build fit now follows the DRAFTED date (bookings stay on the live date); a supplier with blocks but no pool reads "Calendar not set" on a free day.

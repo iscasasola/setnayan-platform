@@ -59,7 +59,7 @@ import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/dat
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { popularTilesFor } from '@/lib/supplier-find';
 import { resolveBenchRing } from '@/lib/explore-in-plan';
-import { liveBuildTally, type LiveTallyBase } from '@/lib/suppliers-shell';
+import { type LiveTallyBase } from '@/lib/suppliers-shell';
 import { SuppliersLabStage } from './lab-stage';
 import { LabBench } from './lab-bench';
 import { renderUrlQrSvg } from '@/lib/qr';
@@ -201,8 +201,9 @@ export default async function SuppliersLabPage({
               />
             </LabFactSheets>
           }
-          tally={liveBuildTally(liveTally, (_v, _g, drawn) => drawn)}
-          liveTally={liveTally}
+          // Batch 5 join: on Find the shell counts Build N/M live from the Find fixtures (b3fix, main); on the Build tab
+          // the lab shell's own Build-body view is the count (`lab-build.tsx`), so the live base is not handed over there.
+          liveTally={one('tab') === 'build' ? null : liveTally}
           bookedCount={booked}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           bookedSlot={

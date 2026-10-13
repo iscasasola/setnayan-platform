@@ -48,7 +48,8 @@ test('Sort and "＋ Add to your event" reach 44 tall', () => {
 });
 
 test('Expand all and ＋ Add your own reach 44 wide (Expand all through a wrapper the glass cannot clip)', () => {
-  assert.match(THUMB, /<ActionButton tone="brand" filled icon=\{Plus\} label="Add your own" onClick=\{onAdd\} className=\{SUP_REACH_X\} \/>/);
+  // Batch 5 join: the label is "Add" once a name is typed (#6494) — the reach is the claim here.
+  assert.match(THUMB, /<ActionButton tone="brand" filled icon=\{Plus\} label=\{text\.trim\(\) \? 'Add' : 'Add your own'\} onClick=\{onAdd\} className=\{SUP_REACH_X\} \/>/);
   const wrap = THUMB.slice(THUMB.indexOf('data-press-reach=""') - 120, THUMB.indexOf('sn-glass-row inline-flex shrink-0 rounded-full'));
   assert.match(wrap, /className=\{`\$\{SUP_REACH_X\} inline-flex shrink-0`\}/, 'the wrapper must carry the reach');
   assert.match(wrap, /if \(!\(e\.target as Element\)\.closest\('button'\)\) e\.currentTarget\.querySelector\('button'\)\?\.click\(\);/, 'a press on the reach must be the button’s press');

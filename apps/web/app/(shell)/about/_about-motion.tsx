@@ -24,6 +24,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useReveal, useLineReveal } from '@/app/_components/marketing/_premium';
+import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
 
 /**
  * AboutHero — renders the hero block so `useLineReveal`'s ref can sit directly on
@@ -58,7 +59,7 @@ export function AboutHero() {
         <Link
           href="/tl/about"
           hrefLang="tl-PH"
-          className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+          className={LOCALE_SWITCH_CLASS}
         >
           Taglish
         </Link>

@@ -173,12 +173,12 @@ export default async function HelpArticlePage({ params }: Props) {
 
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center text-ink">
+          <Link href="/" className="-my-1.5 flex min-h-[44px] items-center text-ink">
             <Logo height={32} withWordmark title="Setnayan · Help" />
           </Link>
           <Link
             href="/help"
-            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
+            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:-my-3 sm:inline-flex sm:min-h-[44px] sm:items-center"
           >
             All help topics
           </Link>

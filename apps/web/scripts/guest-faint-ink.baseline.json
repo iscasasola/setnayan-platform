@@ -1,15 +1,13 @@
 {
   "_about": "Guest-facing text-ink/NN classes under 4.5:1 on the page in the house look or any Event Hub theme, counted per file (lint-label-on-fill-contrast.mjs, \"GUEST TEXT ON THE PAGE\"). May only go DOWN. Regenerate with --write-baseline after a fix; never by hand.",
-  "total": 34,
+  "total": 16,
   "files": {
-    "app/[slug]/_components/dress-code-widget.tsx": 6,
-    "app/[slug]/_components/guest-doorway-strip.tsx": 2,
+    "app/[slug]/_components/guest-doorway-strip.tsx": 1,
     "app/[slug]/_components/guest-hub-bar.tsx": 1,
-    "app/[slug]/_components/guest-me-parts.tsx": 1,
-    "app/[slug]/_components/maker-empty-scene.tsx": 2,
+    "app/[slug]/_components/maker-empty-scene.tsx": 1,
     "app/[slug]/_components/maker-fixed-parts.tsx": 1,
-    "app/[slug]/_components/maker-guest-scenes.tsx": 7,
-    "app/[slug]/_components/schedule-widget.tsx": 5,
-    "app/[slug]/_components/site-body.tsx": 9
+    "app/[slug]/_components/maker-guest-scenes.tsx": 6,
+    "app/[slug]/_components/schedule-widget.tsx": 3,
+    "app/[slug]/_components/site-body.tsx": 3
   }
 }

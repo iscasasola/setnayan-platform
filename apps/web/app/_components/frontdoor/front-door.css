@@ -228,6 +228,15 @@ html.dark .fd {
      Removing this line changes the design; changing the markup to caps
      reintroduces the 2026-07-25 brand-verification rejection. */
   text-transform: uppercase;
+  /* The press area the 23px-tall wordmark never had (quality sweep 2026-10-13,
+     item 6) — the same expander the bar's other controls carry, so the paint
+     is unchanged and the press is 45px. */
+  position: relative;
+}
+.fd-wordmark::after {
+  content: '';
+  position: absolute;
+  inset: -11px 0;
 }
 
 .fd-searchwrap {

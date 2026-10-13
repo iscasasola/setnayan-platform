@@ -28,7 +28,6 @@ import Link from 'next/link';
 import { studioApp, studioDescription } from '@/lib/studio-apps';
 import { DoorwayPage, DOORWAY_TONE } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
-import { PanoodFilm } from './_panood-film';
 
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
@@ -273,27 +272,17 @@ export default function PanoodLandingPage() {
         </p>
       }
     >
-      {/* ── THE CONTROL ROOM, RUNNING ────────────────────────────────────────
-          Same rule as `/papic`'s film: not a mock-up, a recording of the same
-          control panel the live demo renders, so it can never drift from the
-          product. Scoped to exactly what that recording can show — cutting
-          between two camera feeds on the shipped controller — not the guest's
-          Event Hub view, which this film does not capture. */}
-      <section className="mx-auto mt-16 max-w-2xl" aria-label="The Live Watch control room">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
-          The control room itself
-        </p>
-        <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
-          This is what turning it on looks like.
-        </h2>
-        <div className="mt-5 flex flex-wrap items-center gap-5">
-          <PanoodFilm />
-          <p className={`max-w-xs text-sm ${DOORWAY_TONE.muted}`}>
-            Two phones become cameras the moment they scan a code. From here you cut between them —{' '}
-            <span className="font-medium text-[var(--m-ink)]">this is the same control panel your wedding uses.</span>
-          </p>
-        </div>
-      </section>
+      {/* ── THE CONTROL ROOM FILM — OMITTED UNTIL IT IS RECORDED ──────────────
+          This page used to carry a "This is what turning it on looks like."
+          section around a recording of the control room
+          (`/add-ons/demo/panood.mp4` + `.jpg`). That recording was never made,
+          so the live page showed a heading over an empty gap and two 404s
+          (quality sweep 2026-10-13, item 2). The film is the owner's to record —
+          it is not fabricated, and the generic card illustration is NOT the
+          control room, so it does not stand in. When the two files are committed,
+          bring the section back from git history (`_panood-film.tsx`); the guard
+          `app/_components/marketing/spotlights-are-real.test.ts` refuses any page that references a demo
+          file that is not in `public/`. */}
       <SpotlightSection
         productName="Live Watch"
         heading="What turning it on gives you"

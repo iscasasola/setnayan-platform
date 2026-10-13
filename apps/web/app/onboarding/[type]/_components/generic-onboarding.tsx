@@ -1286,7 +1286,7 @@ export function GenericOnboarding(props: Props) {
               </button>
             ))}
           </div>
-          <p className="mt-4 text-xs text-ink/45">
+          <p className="mt-4 text-xs text-ink/70">
             This is what makes it come back every year, and what your reminder
             counts from.
           </p>
@@ -1570,7 +1570,7 @@ export function GenericOnboarding(props: Props) {
               <p className="mx-auto mt-3 max-w-md text-ink/65">{reveal.tagline}</p>
               {finalPlan.labels.length > 0 ? (
                 <div className="mx-auto mt-7 max-w-md">
-                  <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-ink/45">
+                  <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-ink/70">
                     We’ll line up
                   </p>
                   <div className="flex flex-wrap justify-center gap-2">
@@ -1701,7 +1701,7 @@ export function GenericOnboarding(props: Props) {
         {/* "n of N" on every question once the engine runs (the approved phone
             design); the setup cards print their own. */}
         {engine && screen !== 'welcome' && screen !== 'congrats' && !screen.startsWith('setup_') ? (
-          <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
+          <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
             {screens.filter((s) => s !== 'welcome' && s !== 'congrats').indexOf(screen) + 1} of{' '}
             {screens.filter((s) => s !== 'welcome' && s !== 'congrats').length}
           </p>

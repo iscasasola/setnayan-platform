@@ -21,6 +21,12 @@ Conflicts, each resolved keeping both sides' intent:
 - `promo-free-windows.ts` (#6510 vs main's settings cache), `floating-rows-are-glass.test.ts`, `details-lab-node.tsx`:
   both sides kept.
 
+Owner ruling on the batch's questions (DECISION_LOG 2026-10-14 🧾), applied here: the shared workspace door
+(`DisputeLinkButton`, was "Request refund / dispute") and the Booked row's verb (#6516, was "Dispute") both read
+exactly **"Report a problem"** — same action, same disputes flow. Guards re-pointed in `lib/booked-rows.test.ts`
+(the row label + a new check that the workspace door says the same words, opens the same flow and never promises a
+refund); sabotage: each old wording restored → RED. Every other question ships with its member's default.
+
 Generated files regenerated against the join (never hand-merged): ugat screens, root-map baselines, no-card baseline,
 port-control baseline, exposure-surface baseline (PGlite replay), admin jobs + admin routes.
 

@@ -86,8 +86,10 @@ const OWN_WORDS: Record<'review' | 'cancel' | 'dispute', { label: string; tone: 
   cancel: { label: 'Cancel booking', tone: 'danger' },
   // The disputes door. NOT "Request refund": Setnayan pays no money back (owner
   // 2026-10-08, "there is no refund. only virtual credits") — a couple and their
-  // supplier settle between them, and Setnayan referees the dispute.
-  dispute: { label: 'Dispute', tone: 'warn' },
+  // supplier settle between them, and Setnayan referees the dispute. The words are
+  // "Report a problem" (owner 2026-10-14, DECISION_LOG 🧾), the same as the shared
+  // workspace door (`DisputeLinkButton`) — one name for one flow.
+  dispute: { label: 'Report a problem', tone: 'warn' },
 };
 
 /**

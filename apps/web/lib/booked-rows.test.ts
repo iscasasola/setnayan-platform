@@ -7,6 +7,10 @@
  * so a row here is derived exactly as the page derives it — not from a row a
  * test typed by hand.
  */
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { stripComments } from './strip-comments';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeEventMoney, MONEY_READS_FAILED, type MoneyInputs } from './budget-truth';
@@ -153,8 +157,21 @@ test('everything agreed is paid: "Paid in full" with the ledger’s own figure, 
   assert.equal(r.verbs[0]?.quiet, true);
   // Setnayan pays no money back (owner 2026-10-08): the way out never promises a refund.
   const out = r.verbs.find((v) => v.key === 'dispute');
-  assert.equal(out?.label, 'Dispute');
+  // One name for the one disputes flow (owner 2026-10-14, DECISION_LOG 🧾): "Report a problem".
+  assert.equal(out?.label, 'Report a problem');
   assert.doesNotMatch(out?.label ?? '', /refund/i);
+});
+
+test('the workspace door to the same flow says the same words — "Report a problem", never "Request refund / dispute"', () => {
+  const src = stripComments(
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app/dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx'), 'utf8'),
+  );
+  const at = src.indexOf('export function DisputeLinkButton');
+  assert.ok(at > 0, 'DisputeLinkButton moved — re-anchor this guard, do not drop it');
+  const door = src.slice(at, src.indexOf('\n}\n', at));
+  assert.match(door, /href=\{`\/dashboard\/\$\{eventId\}\/disputes`\}/, 'the door still opens the disputes flow');
+  assert.match(door, />\s*Report a problem\s*</, 'the door must read "Report a problem"');
+  assert.doesNotMatch(src, /refund/i, 'a cancel/dispute door must never promise a refund (owner 2026-10-08)');
 });
 
 test('a payment on the ledger closes the hard delete even when the booking row has no deposit stamped', () => {

@@ -380,6 +380,9 @@ function SuccessToast({
 // two-admin approval" + the per-vendor dispute schema at
 // supabase/migrations/20260516210000_vendor_payout_model.sql.
 //
+// The words are "Report a problem" (owner 2026-10-14, DECISION_LOG 🧾 — was "Request refund / dispute";
+// Setnayan pays no money back, so the door never promises one). Same flow.
+//
 // Server-rendered as a Link (no client logic needed) — kept in the same
 // file so callers import one symbol and the status-routing logic stays
 // adjacent.
@@ -399,7 +402,7 @@ export function DisputeLinkButton({
   return (
     <Link href={`/dashboard/${eventId}/disputes`} className={className}>
       <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      Request refund / dispute
+      Report a problem
     </Link>
   );
 }

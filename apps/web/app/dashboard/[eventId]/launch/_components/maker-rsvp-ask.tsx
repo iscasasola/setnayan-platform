@@ -277,6 +277,8 @@ export function MakerRsvpSettings({
    * draft took it and, if not, why.
    */
   const save = (patch: RsvpAskConfig, what?: string, said = false): Promise<SaveAnswer> => {
+    /* ↺ what this change is drawn back to at once (`lib/maker-drawn-undo.ts`) */
+    const before = latest.current;
     const next: RsvpAskConfig = { ...latest.current, ...patch };
     /* 📏 THE ONE OBJECT HAS A CEILING (the database's `RSVP_CONFIG_CHECK` — `lib/rsvp-look.ts`): a save that would pass it
        is refused HERE, in a sentence, before anything is shown or kept — a long message of emoji used to be met
@@ -285,7 +287,6 @@ export function MakerRsvpSettings({
       setError(said ? null : RSVP_CONFIG_FULL);
       return Promise.resolve({ ok: false, error: RSVP_CONFIG_FULL });
     }
-    const before = latest.current;
     latest.current = next;
     setLocal(next); // ⚡ on screen at the tap — never inside the transition below
     setError(null);

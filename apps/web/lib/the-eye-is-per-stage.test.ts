@@ -122,7 +122,8 @@ test('4 · the Maker’s eye posts exactly the stage’s entry through the draft
   assert.match(eye, /fd\.set\('patch', JSON\.stringify\(\{ widgets: \{ \[scene\.type\]: \{ stage_show: \{ \[stage\]: value \} \} \} \}\)\);/);
   assert.doesNotMatch(eye, /is_visible|isVisible|\bmode\b/, 'the eye writes the event-wide switch');
   assert.match(eye, /const draftAction = elementEditing\.draftAction;/, 'not the work area’s draft door');
-  assert.match(eye, /makerSave\(\(\) => draftAction\(eventId, fd\), requestMakerRefresh, \{ held \}\)/);
+  /* (2026-10-13: a hide the page drew is noted for its ↺ at the press — `undo: 'noted'`, `lib/maker-drawn-undo.ts`.) */
+  assert.match(eye, /makerSave\(\(\) => draftAction\(eventId, fd\), requestMakerRefresh, \{ held, undo: 'noted' \}\)/);
   // Hide: drawn at the tap and held. Show: the canvas reloads.
   assert.match(eye, /if \(want\) releaseCanvas\(\);\s*else hideOnCanvas\(scene\);\s*const held = !want;/);
   // Refused: put back, on the canvas too.

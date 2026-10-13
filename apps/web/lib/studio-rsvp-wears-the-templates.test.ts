@@ -298,7 +298,8 @@ test('(4) a press in Studio = ONE draft write and no render of the Maker; typing
   const stage = src.slice(src.indexOf('if (stage) {'), src.search(STUDIO_SAVE));
   assert.ok(stage.length > 400, 'anti-vacuity: the stage’s save was not found');
   assert.match(stage, /res = await makerSave\(\s*\(\) =>\s*makerLatestWrite\(canvasWriteKey\(RSVP_DRAFT_TYPE\)/);
-  assert.match(stage, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true \}/);
+  /* (2026-10-13: …and hands its ↺ inverse — `undo`, `lib/maker-drawn-undo.ts`) */
+  assert.match(stage, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true, undo \}/);
 });
 
 /* ── (5) everything waits for Apply ───────────────────────────────────── */

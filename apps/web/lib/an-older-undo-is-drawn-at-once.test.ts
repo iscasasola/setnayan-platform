@@ -346,7 +346,7 @@ test('the bar: a drawn ↺ is HELD and sent outside the transition; the runner i
   const run = bar.slice(bar.indexOf('const run = (fields'), bar.indexOf('const slow = '));
   assert.doesNotMatch(run, /start\(/, 'the drawn path never enters the transition (its pending would grey ↺)');
   const slow = bar.slice(bar.indexOf('const slow = '), bar.indexOf('return { pending'));
-  assert.match(slow, /undoJournalQuiet\(\(\) => makerSave\([^\n]*\{ held: false \}\), intent === 'undo'\)/, 'a slow ↺ is unheld, and quiet: it is not a step of the journal');
+  assert.match(slow, /hubDraftAnswer\(intent, \(\) => makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: false \}\)\)/, 'a slow ↺ is unheld — its barrier is trimmed off with the step it took back');
   assert.match(slow, /undoJournal\.trimTo\(r\.stamp \?\? null\)/);
   assert.match(slow, /undoJournal\.clear\(\)/);
 });

@@ -48,6 +48,28 @@ react.cache = <A extends unknown[], T>(fn: (...args: A) => T) =>
     return value;
   };
 
+// ── Next's data cache, standing in for production's (`unstable_cache`) ──────
+// The platform's own settings (`lib/global-settings-cache.ts`) are remembered
+// ACROSS requests, as they are in production. So the views below are measured
+// WARM — after a first visit (`warmUp`, not reported) has filled the cache, the
+// way every visit but the first few of each minute finds it.
+// Next's server runtime provides `AsyncLocalStorage` on globalThis; plain node does not.
+(globalThis as { AsyncLocalStorage?: unknown }).AsyncLocalStorage = (require('node:async_hooks') as { AsyncLocalStorage: unknown }).AsyncLocalStorage;
+const dataCache = new Map<string, unknown>();
+(globalThis as { __incrementalCache?: unknown }).__incrementalCache = {
+  isOnDemandRevalidate: false,
+  async generateSimpleCacheKey(key: string) {
+    return key;
+  },
+  async get(key: string) {
+    const value = dataCache.get(key);
+    return value ? { value, isStale: false } : null;
+  },
+  async set(key: string, value: unknown) {
+    dataCache.set(key, value);
+  },
+};
+
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://db.test';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
@@ -189,7 +211,10 @@ async function main() {
     };
   }
 
+  // The first visit of the minute — fills the data cache; not reported.
+  const coldInvitedOnTheDay = await view('invited', 'live');
   const out = {
+    coldInvitedOnTheDay,
     strangerBeforeTheDay: await view('stranger', 'pre'),
     strangerOnTheDay: await view('stranger', 'live'),
     invitedBeforeTheDay: await view('invited', 'pre'),

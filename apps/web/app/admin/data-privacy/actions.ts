@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { DATA_PRIVACY_CONTROLS, type PrivacyControlStatus } from '@/lib/data-privacy-controls';
@@ -52,6 +53,8 @@ export async function setDataPrivacyControl(
     { onConflict: 'control_key' },
   );
   if (error) return { status: 'error', message: error.message };
+  // Every page remembers which controls are on (lib/global-settings-cache.ts) — forget it now.
+  revalidateTag(GLOBAL_SETTINGS_TAGS.dataPrivacyControls);
 
   // Refresh the board's data in place (updates this card's status badge). No
   // redirect → the page doesn't navigate/blank; only the changed card updates.

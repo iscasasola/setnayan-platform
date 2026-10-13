@@ -16,6 +16,7 @@
  * and 'retired' all fail-closed.
  */
 
+import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -443,14 +444,20 @@ export function readDataPrivacyControlsTogether(): void {
 
 const activeControlsThisRender = cache(async (): Promise<ReadonlySet<string> | null> => {
   try {
-    const { data, error } = await createAdminClient().from('data_privacy_controls').select('control_key, status');
-    if (error) {
-      console.error('[supabase-error] lib/data-privacy-controls.ts · from:data_privacy_controls.select(all)', error);
-      return null;
-    }
-    return new Set(
-      ((data ?? []) as Array<{ control_key: string; status: string }>).filter((r) => r.status === 'active').map((r) => r.control_key),
-    );
+    // 🧊 Remembered across requests (`lib/global-settings-cache.ts`), cleared by
+    // the admin board's every write (app/admin/data-privacy/actions.ts). The rows
+    // are the platform's, the same for every viewer. A refused read throws
+    // inside, so it is never remembered — this render is every control OFF, as
+    // before, and the next one asks again.
+    const active = await rememberedGlobalRead('data_privacy_controls-active-v1', GLOBAL_SETTINGS_TAGS.dataPrivacyControls, async () => {
+      const { data, error } = await createAdminClient().from('data_privacy_controls').select('control_key, status');
+      if (error) {
+        console.error('[supabase-error] lib/data-privacy-controls.ts · from:data_privacy_controls.select(all)', error);
+        throw error;
+      }
+      return ((data ?? []) as Array<{ control_key: string; status: string }>).filter((r) => r.status === 'active').map((r) => r.control_key);
+    });
+    return new Set(active);
   } catch {
     return null;
   }

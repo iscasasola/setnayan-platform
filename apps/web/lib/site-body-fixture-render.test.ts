@@ -162,10 +162,12 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
     'admin rpc event_host_holds_founder_seat',
     'admin rpc event_host_is_internal',
     'admin table bundle_components',
+    // The event type's profile is read with the service client since 2026-10-13 (public-read rows,
+    // remembered across requests — lib/global-settings-cache.ts), no longer through the viewer's session.
+    'admin table event_type_profiles',
     'admin table events',
     'admin table orders',
     'admin table reveal_studio_config',
-    'session table event_type_profiles',
   ]);
 });
 

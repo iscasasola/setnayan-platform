@@ -1,6 +1,13 @@
 /**
  * entitlements-in-render-asks-together.test.ts — `eventSkuActive`, IN A RENDER,
- * ASKS ITS LAST THREE QUESTIONS TOGETHER AND STILL ANSWERS THEM IN ORDER.
+ * ASKS EVERY PER-EVENT FACT TOGETHER AND STILL ANSWERS THEM IN ORDER.
+ *
+ * 2026-10-13 (guest-load fix): the orders, the bundle list, the comp list, the
+ * internal-host and the founder-seat questions now ALL leave in the first round
+ * trip (they were three waves: orders → comp/internal → founder). The answers
+ * are still read in the old order. Count: unchanged for an event that owns
+ * nothing; +1 (founder seat) for an internal or comped host; +3 for an event
+ * whose asked product is bought outright — each once per event per render.
  *
  * THE ANSWERS are pinned elsewhere, and that file was not touched by this
  * change: `lib/entitlements-ask-once.test.ts` compares the in-render path with
@@ -10,14 +17,13 @@
  * hosts. It passes unchanged.
  *
  * WHAT THIS FILE HOLDS is what that matrix cannot see:
- *   1 · TOGETHER — the comp question and the internal-host question have both
- *       LEFT before either is answered (they used to be a round trip each).
+ *   1 · TOGETHER — the comp, internal-host and founder-seat questions have
+ *       all LEFT, beside the orders read, before any is answered.
  *   2 · IN ORDER — the first "yes" still decides: a comp grant unlocks even when
  *       the internal-host read is refused, and nothing is left unhandled.
  *       A refused comp read is still thrown, even when the host is internal.
- *   3 · THE COUNT — an event that owns nothing, and an internally hosted one,
- *       send exactly the requests they sent before. A comped event sends ONE
- *       more (the internal-host question it used to stop short of).
+ *   3 · THE COUNT — an event that owns nothing sends exactly the requests it
+ *       sent before; the others send the five facts, once each.
  *
  * ⚠ The promo window is the third question, and it is OFF here
  * (`PROMO_FREE_WINDOWS_ENABLED` unset), as it is in every unit test — its read
@@ -72,7 +78,7 @@ test('the promo flag is off here — this file exercises comp → internal → f
   assert.ok(!process.env.PROMO_FREE_WINDOWS_ENABLED, 'unset PROMO_FREE_WINDOWS_ENABLED to run this file');
 });
 
-test('1 · comp and internal-host have both left before either is answered', async () => {
+test('1 · every per-event fact has left before any is answered', async () => {
   let releaseComp: (v: { data: unknown; error: unknown }) => void = () => {};
   let releaseInternal: (v: { data: unknown; error: unknown }) => void = () => {};
   const { db, sent } = standIn({
@@ -85,14 +91,14 @@ test('1 · comp and internal-host have both left before either is answered', asy
   const asked = withRenderScopeForTest(() => eventSkuActive(db, EVENT, SKU));
   await new Promise((r) => setTimeout(r, 20));
   assert.deepEqual(
-    sent,
-    ['bundle_components', 'orders', 'event_comp_active_skus', 'event_host_is_internal'],
-    'the internal-host question waited for the comp answer — they are a round trip each again',
+    [...sent].sort(),
+    ['bundle_components', 'event_comp_active_skus', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders'],
+    'a per-event fact waited for another answer — the render is a round trip deeper again',
   );
   releaseComp({ data: [], error: null });
   releaseInternal({ data: false, error: null });
   assert.equal(await asked, false);
-  assert.equal(sent[sent.length - 1], 'event_host_holds_founder_seat', 'the founder seat is asked last, and only when the three said no');
+  assert.equal(sent.length, 5, 'a fact was asked twice');
 });
 
 test('2 · a comp grant still decides first — even when the internal-host read is refused, and nothing is left unhandled', async () => {
@@ -128,12 +134,22 @@ test('2b · a refused comp read is still thrown — an internal host does not pa
   );
 });
 
-test('2c · an order still decides first — the only other request is the bundle list that left beside it', async () => {
-  const { db, sent } = standIn({ orders: [{ service_key: SKU, status: 'paid' }], rpc: {} });
+test('2c · an order still decides first — the other facts left beside it, once each, and their refusals are never thrown', async () => {
+  const { db, sent } = standIn({
+    orders: [{ service_key: SKU, status: 'paid' }],
+    rpc: {
+      event_comp_active_skus: answers([]),
+      // Refused — and never seen: the order decides first.
+      event_host_is_internal: () => Promise.reject(new Error('connection refused')),
+      event_host_holds_founder_seat: answers(false),
+    },
+  });
   assert.equal(await withRenderScopeForTest(() => eventSkuActive(db, EVENT, SKU)), true);
-  // 2026-10-12: the bundle composition (one list per render) leaves with the
-  // orders read instead of waiting behind it. Nothing else is asked.
-  assert.deepEqual([...sent].sort(), ['bundle_components', 'orders'], 'a paid order now asks more than its orders and the bundle list');
+  // 2026-10-13: every per-event fact leaves with the orders read (one round trip).
+  assert.deepEqual(
+    [...sent].sort(),
+    ['bundle_components', 'event_comp_active_skus', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders'],
+  );
 });
 
 test('3 · an event that owns nothing sends the five requests it always sent', async () => {
@@ -156,20 +172,20 @@ test('3 · an event that owns nothing sends the five requests it always sent', a
   );
 });
 
-test('3b · an internally hosted event sends the four it always sent — the founder seat is not asked', async () => {
+test('3b · an internally hosted event sends the five facts once — one more than before (the founder seat, asked beside the rest)', async () => {
   const { db, sent } = standIn({
-    rpc: { event_comp_active_skus: answers([]), event_host_is_internal: answers(true) },
+    rpc: { event_comp_active_skus: answers([]), event_host_is_internal: answers(true), event_host_holds_founder_seat: answers(false) },
   });
   assert.equal(await withRenderScopeForTest(() => eventSkuActive(db, EVENT, SKU)), true);
-  assert.deepEqual([...sent].sort(), ['bundle_components', 'event_comp_active_skus', 'event_host_is_internal', 'orders']);
+  assert.deepEqual([...sent].sort(), ['bundle_components', 'event_comp_active_skus', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders']);
 });
 
-test('3c · a comped event sends ONE more than before: the internal-host question it used to stop short of', async () => {
+test('3c · a comped event sends the five facts once', async () => {
   const { db, sent } = standIn({
-    rpc: { event_comp_active_skus: answers([SKU]), event_host_is_internal: answers(false) },
+    rpc: { event_comp_active_skus: answers([SKU]), event_host_is_internal: answers(false), event_host_holds_founder_seat: answers(false) },
   });
   assert.equal(await withRenderScopeForTest(() => eventSkuActive(db, EVENT, SKU)), true);
-  assert.deepEqual([...sent].sort(), ['bundle_components', 'event_comp_active_skus', 'event_host_is_internal', 'orders']);
+  assert.deepEqual([...sent].sort(), ['bundle_components', 'event_comp_active_skus', 'event_host_holds_founder_seat', 'event_host_is_internal', 'orders']);
 });
 
 test('outside a render nothing changed: the questions are still asked one at a time, and stop at the first yes', async () => {

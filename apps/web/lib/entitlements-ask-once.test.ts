@@ -229,16 +229,18 @@ test('one render of everything the Maker and a guest page ask: at most ONE reque
   for (const shape of ENTITLEMENT_SHAPES) {
     assert.ok(count(calls, shape) <= 1, `${shape} was asked ${count(calls, shape)} times in one render`);
   }
-  // The exact bill for this event: the orders, the bundle map, the comp list, the internal host.
+  // The exact bill for this event: the orders, the bundle map, the comp list, the internal host, the founder seat.
   assert.equal(count(calls, 'orders:of-event'), 1);
   assert.equal(count(calls, 'bundle_components'), 1);
   assert.equal(count(calls, 'rpc:event_comp_active_skus'), 1);
   assert.equal(count(calls, 'rpc:event_host_is_internal'), 1);
+  // 2026-10-13: the founder seat leaves beside the other facts (one round trip, not three) — +1 for an internal host.
+  assert.equal(count(calls, 'rpc:event_host_holds_founder_seat'), 1);
   assert.equal(count(calls, 'orders:per-product'), 0, 'a per-product orders read is back in a render');
   assert.equal(count(calls, 'orders:grid'), 0, 'the Studio grid read the orders a second time');
   assert.equal(count(calls, 'rpc:event_has_comp_for_sku'), 0, 'a per-product comp RPC is back for an event with no grant');
   assert.equal(count(calls, 'rpc:event_basket_orders_granting'), 0, 'the basket was asked about for an event with no orders at all');
-  assert.ok(total(calls) <= 4, `the render made ${total(calls)} entitlement requests: ${JSON.stringify([...calls])}`);
+  assert.ok(total(calls) <= 5, `the render made ${total(calls)} entitlement requests: ${JSON.stringify([...calls])}`);
 });
 
 test('🔎 the same asks OUTSIDE a render cost dozens — so the "≤ 1" above is the fix holding, not a stub that cannot count', async () => {

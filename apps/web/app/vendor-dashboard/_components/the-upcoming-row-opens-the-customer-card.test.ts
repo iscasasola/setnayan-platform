@@ -46,7 +46,9 @@ const SECTIONS = 'app/vendor-dashboard/_components/overview-sections.tsx';
 const BUILDER = 'lib/vendor-overview.ts';
 const DOOR = 'lib/upcoming-schedule-door.ts';
 const CLIENT_PAGE = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
-const CLIENTS_ROSTER = 'app/vendor-dashboard/clients/surface.tsx';
+// S-PR2 (2026-10-13): the Clients page is retired — its customers are rows on Customers › People, whose page is
+// read here in its place (its outside clients have no card, so it may hold no client link at all).
+const CLIENTS_ROSTER = 'app/vendor-dashboard/customers/page.tsx';
 const CUSTOMERS_ROSTER = 'app/vendor-dashboard/customers/_components/customers-roster.tsx';
 
 const sections = read(SECTIONS);
@@ -208,7 +210,9 @@ test('6 · no supplier-side door onto a customer card is left bare', () => {
   // Each fixed door names the section its own words promise.
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=quote/g), 1, 'the deposit card lost its money section');
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=schedule/g), 2, 'the meeting / handover doors lost their calendar');
-  assert.equal(count(clientsRoster, /clients\/\$\{(?:eventId|t\.event_id)\}\?tab=details/g), 2);
+  // The retired Clients page had two "Customer card" links of its own; on People every row's door is the roster's
+  // `hrefFor` (held just above), and the page itself writes none.
+  assert.equal(count(clientsRoster, /clients\/\$\{(?:eventId|t\.event_id)\}/g), 0, 'People grew a second door onto the card beside the roster rows');
 });
 
 /*

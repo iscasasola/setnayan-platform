@@ -218,10 +218,11 @@ say Booked while no money exists.
 derives `inquiry | quoted | booked | delivered`.
 
 🪤 **It could not do it as written**, and both halves of that warning were right: `DeriveArgs`
-took no `inquiry_status`, and the SECOND derivation in
-`apps/web/app/vendor-dashboard/clients/surface.tsx` had to move with it. Both done in #5328 —
-the ordering is ONE pure function (`resolveThreadStage`) and "is it finished?" ONE predicate
-(`rowReadsCompleted`), shared by the pill and the list.
+took no `inquiry_status`, and the SECOND derivation in the Clients list had to move with it. Both
+done in #5328 — the ordering is ONE pure function (`resolveThreadStage`) and "is it finished?" ONE
+predicate (`rowReadsCompleted`), shared by the pill and the list. (S-PR2, 2026-10-13: the Clients
+list is retired into Customers › People — `apps/web/app/vendor-dashboard/customers/page.tsx` hands
+`rowReadsCompleted` into the roster's one lane derivation.)
 
 Phase 3 shipped:
 - `cancelled` ← `chat_threads.inquiry_status` in `declined / withdrawn / expired / displaced`

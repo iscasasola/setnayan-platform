@@ -339,9 +339,11 @@ test('screens: blocks, unread and booked each say so when their read comes up sh
   assert.match(bookings, /if \(!roomEvents\.complete\) factsIncomplete = true;/);
   assert.match(bookings, /\{factsIncomplete \? \(\s*<p\s+role="status"/);
 
-  const clients = read('app/vendor-dashboard/clients/surface.tsx');
-  assert.match(clients, /incomplete=\{!threadsRead\.complete \|\| !roomRead\.complete\}/);
-  assert.match(clients, /incomplete=\{!blocksRead\.complete\}/);
+  // S-PR2: the Clients lists are retired — their customers are People's roster (said short by `rosterIncomplete`,
+  // which counts the threads read) and their outside clients are People's (said short by the blocks read).
+  assert.match(customers, /const rosterIncomplete =\s*!threadsRead\.complete \|\| !evRead\.complete/);
+  assert.match(customers, /incomplete=\{rosterIncomplete\}/);
+  assert.match(customers, /<OutsideClientRows[\s\S]{0,120}incomplete=\{!blocksRead\.complete\}/);
 });
 
 test('screens: the Earned tile and the payouts totals never print a short or unread total', () => {

@@ -114,7 +114,7 @@ test('4 · the shell hands the shared bar the envelope, seeded from the messages
   assert.equal(cluster.match(/<UnreadMessagesBadge\b/g)!.length, 1, 'two envelopes are two Realtime channels');
   assert.match(env[0], /initialUnread=\{threadsUnread\}/, 'the envelope is seeded from something other than the unread MESSAGES count');
   assert.match(env[0], /href=\{customerLandingHref\('messages'\)\}/, 'the envelope does not land on the inbox through the anchors table');
-  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?open=messages#customer-tools');
+  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people&open=messages#customer-tools');
   assert.ok(cluster.indexOf('<UnreadMessagesBadge') < cluster.indexOf('<AccountSwitcher'), 'the envelope sits after the avatar');
   assert.match(cluster, /<AccountSwitcher data=\{switcherData\} \/>/, 'the avatar — and the only Sign out — left the bar');
   assert.match(cluster, /data-supplier-shell-shop=""[^>]*>\s*\{vendorSidebarName\}/, 'the bar names the person, not the shop');
@@ -161,6 +161,14 @@ test('6 · every control in the thumb row is 44 px — a door (`<a class="ab">`)
     return css.slice(at, css.indexOf('}', at));
   };
   assert.match(rule('.thumb :global(.ab) {'), /min-height: 44px;/, 'a door in the thumb row is under 44 px');
-  assert.match(rule('.thumb :is(input, textarea, [data-fit-field]) {'), /height: 44px;/, 'the thumb row’s field is under 44 px');
+  assert.match(
+    rule('.thumb :is(input, textarea, [data-fit-field]):not([data-fit-field] *):not([data-search-box]) {'),
+    /height: 44px;/,
+    'the thumb row’s field is under 44 px',
+  );
   assert.doesNotMatch(css, /height: (?:[0-3]\d|4[0-3])px/, 'something in the thumb row is drawn under 44 px');
+  // S-PR2: the Search box (kind 30) draws its own pill — and it is 44 px too, its ✕ a 44-px target.
+  const box = stripComments(readFileSync(join(HERE, '..', '..', '_components', 'search-box.tsx'), 'utf8'));
+  assert.match(box, /role="search"[\s\S]{0,600}className="flex h-11 /, 'the Search box is not 44 px tall');
+  assert.match(box, /data-search-clear=""[\s\S]{0,300}className="sn-press flex h-11 w-11 /, 'the Search box’s ✕ is not a 44-px target');
 });

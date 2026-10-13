@@ -37,6 +37,7 @@ export async function VendorQrSection({
   rawEt,
   rawCat,
   month,
+  seg,
 }: {
   vendorProfileId: string;
   slug: string | null;
@@ -44,6 +45,8 @@ export async function VendorQrSection({
   rawEt?: string;
   rawCat?: string;
   month?: string;
+  /** The Customers segment it is drawn in (`?seg=`), kept by the GET form so scoping the QR stays on Dates. */
+  seg?: string;
 }) {
   const supabase = await createClient();
 
@@ -92,6 +95,7 @@ export async function VendorQrSection({
         selectedEt={selectedEt}
         selectedCat={selectedCat}
         month={month}
+        seg={seg}
       />
     );
     lockedBody = (
@@ -134,6 +138,7 @@ function ShortlistBody({
   selectedEt,
   selectedCat,
   month,
+  seg,
 }: {
   inviteUrl: string;
   qrSvg: string;
@@ -142,6 +147,7 @@ function ShortlistBody({
   selectedEt: string | null;
   selectedCat: VendorCategory | null;
   month?: string;
+  seg?: string;
 }) {
   const qrDataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`;
   return (
@@ -164,6 +170,7 @@ function ShortlistBody({
         <form method="GET" className="grid gap-2 sm:grid-cols-2" aria-label="Scope the shortlist QR">
           {/* Keep the calendar's month view when scoping the QR (both share this URL). */}
           {month ? <input type="hidden" name="m" value={month} /> : null}
+          {seg ? <input type="hidden" name="seg" value={seg} /> : null}
           <label className="block space-y-1">
             <span className="block text-xs font-medium text-ink/70">Event</span>
             <select name="et" defaultValue={selectedEt ?? ''} className="input-field w-full">

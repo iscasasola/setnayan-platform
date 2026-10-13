@@ -16,6 +16,10 @@
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
  *   ?thumb=customer   Chat (main) · Quote · Payment · Call                     (frame 06)
  *   ?thumb=money      Log a payment — a form's submit through the button rule  (frame 05)
+ *   ?s=people         Customers › People (S-PR2): segments, rows, outside clients, kept notes, search + Add (frame 03)
+ *     &q=ana · &lane=outside|waiting|… · &add=1 (the Add sheet) · &toast=added|removed|failed
+ *   ?s=clash          two couples holding one Saturday — the warn row above the list
+ *   ?s=empty          nobody yet       ?s=fail   payday + roster could not be read — said     ?s=nopools  Add with no schedule
  *
  * ⚠ The Today states mount the SHIPPED answer actions, exactly as the page
  * does — the lab adds no server action of its own. With no session every one
@@ -58,6 +62,9 @@ import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import { todayCreditNotice } from '@/lib/vendor-credit-warning';
 import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import { feeDueCopy, type DueFeeBill } from '@/lib/booking-fee-disclosure';
+import { PeopleLab } from './people-lab';
+
+const PEOPLE_STATES = ['people', 'clash', 'empty', 'fail', 'nopools'] as const;
 
 export const dynamic = 'force-dynamic';
 
@@ -270,10 +277,13 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
+  if (q.s && (PEOPLE_STATES as readonly string[]).includes(q.s)) {
+    return <PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} />;
+  }
   const today = q.s ? TODAY[q.s] : undefined;
   if (today) return <TodayLab state={today} toast={q.toast} />;
   const thumb = q.thumb ?? 'people';

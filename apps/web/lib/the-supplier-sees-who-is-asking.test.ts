@@ -177,9 +177,9 @@ test('🔑 every admin-scoped customer read is gated by a vendor-scoped fetch', 
   const callers = [
     'app/vendor-dashboard/messages/surface.tsx',
     'app/vendor-dashboard/bookings/surface.tsx',
-    // Joined 2026-09-19: the Clients tab's "In conversation" list read the
-    // RLS-nulled `t.event` embed and said "A Setnayan event" for every couple.
-    'app/vendor-dashboard/clients/surface.tsx',
+    // (Joined 2026-09-19: the Clients tab's "In conversation" list. Retired by
+    // S-PR2, 2026-10-13 — those customers are People rows, named by the
+    // roster's own admin read over its own ids, guarded just below.)
   ];
   for (const p of callers) {
     const src = read(p);

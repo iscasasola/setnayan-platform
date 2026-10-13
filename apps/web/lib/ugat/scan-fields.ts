@@ -825,6 +825,9 @@ interface RawForm {
   children: string[];
 }
 
+/** The Form row family (`app/_components/form-row.tsx`, `form-row-date.tsx`): `name` is its label, `fieldName` what it posts. */
+const FORM_ROW_TAGS = /^(?:TypedRow|ChosenRow|SwitchRow|DateRow|FormRow|FactRow|OpensRow)$/;
+
 function formsIn(rel: string, src: string): RawForm[] {
   const out: RawForm[] = [];
   // `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings.
@@ -865,9 +868,17 @@ function formsIn(rel: string, src: string): RawForm[] {
     const inputs = new Set<string>();
     for (const n of inner.matchAll(/<([A-Za-z][\w.]*)\b[^<>]*?\bname=(?:"([^"]+)"|'([^']+)'|\{\s*['"]([^'"]+)['"]\s*\}|\{`([^`$]+)`\})/g)) {
       if (/^meta$/i.test(n[1]!)) continue;
+      // A Form row's `name` is the WORDS on its left ("Contact", "From") — never a posted field. What a Form row
+      // posts is its `fieldName` (`form-row.tsx`: "the name this row's kept words are POSTED under"), read below.
+      if (FORM_ROW_TAGS.test(n[1]!)) continue;
       const name = (n[2] ?? n[3] ?? n[4] ?? n[5])!;
       if (/\s/.test(name)) continue;
       inputs.add(name);
+    }
+    for (const n of inner.matchAll(/<([A-Z][\w.]*)\b[^<>]*?\bfieldName=(?:"([^"]+)"|'([^']+)'|\{\s*['"]([^'"]+)['"]\s*\})/g)) {
+      if (!FORM_ROW_TAGS.test(n[1]!)) continue;
+      const name = (n[2] ?? n[3] ?? n[4])!;
+      if (!/\s/.test(name)) inputs.add(name);
     }
     if (exprs.length === 0 && inputs.size === 0) continue;
     const children = [...new Set([...inner.matchAll(/<([A-Z][\w]*)\b/g)].map((c) => c[1]!))].sort();

@@ -17,7 +17,7 @@
  *   production sheet . "No portion rules yet" → to a caterer, on the day
  *
  * ── What this file pins, and why it is only the render layer ───────────────
- * The 16 files below RENDER. An absence in them becomes a claim on screen, so
+ * The 15 files below RENDER (16 until S-PR2 retired clients/surface.tsx). An absence in them becomes a claim on screen, so
  * the error has to be bound and, where it changes what is stated, said.
  *
  * ⚠ `actions.ts` FILES ARE DELIBERATELY OUT OF SCOPE. There an absence DENIES —
@@ -45,7 +45,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const RENDER_FILES = [
   'activities/page.tsx',
   'calendar/surface.tsx',
-  'clients/surface.tsx',
+  // (clients/surface.tsx — retired by S-PR2; its reads moved into customers/page.tsx, listed below)
   'clients/[eventId]/page.tsx',
   'clients/[eventId]/production-sheet/page.tsx',
   'contracts/surface.tsx',

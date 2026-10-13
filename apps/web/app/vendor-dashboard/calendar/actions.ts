@@ -129,6 +129,15 @@ function backToCalendar(formData: FormData, notice: string): never {
     }
   }
 
+  // S-PR2 · Customers › People holds the outside clients now (the Clients
+  // page is retired). Their Add and Remove come back to People, at the list,
+  // where the outcome is said. `clients` is kept for a form already open in a
+  // browser when this shipped — its stub forwards to the same place.
+  if (returnTo === 'people') {
+    const params = new URLSearchParams({ seg: 'people', notice });
+    redirect(`/vendor-dashboard/customers?${params.toString()}#customers`);
+  }
+
   const back = returnTo === 'clients' ? 'clients' : 'calendar';
   const params = new URLSearchParams();
   if (month) params.set('m', month);

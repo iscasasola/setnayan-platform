@@ -16,6 +16,7 @@
 import type { BudgetBuildTab } from './budget-build';
 import { LOCKED_VENDOR_STATUSES } from './shortlist-taxonomy';
 import { teamMoney } from './your-team';
+import { ringBuildCount } from './explore-in-plan';
 
 /* ── THE THREE MODES ─────────────────────────────────────────────────────── */
 
@@ -109,6 +110,46 @@ export function buildTally(children: ReadonlyArray<TallyChild>, lockedCentavos: 
     knownPhp: money.lockedPhp + money.inBuildPhp,
     unpriced: money.lockedUnpriced + money.inBuildUnpriced,
   };
+}
+
+/**
+ * 🧮 WHAT THE SHELL RE-COUNTS AT A PRESS (batch-3 walk, 2026-10-13). "Add to build" answers in place — no page
+ * render — so "Build N/M" and the cart peek's "This build · N of M · ₱…" were the page's first numbers until the
+ * couple left Find. The page hands the shell the SAME inputs it counted with (the plan model's children, the money
+ * already booked, and — the one-screen shape — the ring's tiles), and the shell counts again with each pick's state
+ * NOW (the bench's in-place answer, `builtNowIn`). Nothing changed → the page's own numbers, exactly.
+ */
+export type LiveTallyBase = {
+  children: ReadonlyArray<TallyChild & { groupId: string }>;
+  lockedCentavos: number;
+  /** The one-screen shape counts Build N/M over the ring (the rows Find shows) — null: the plan model's count. */
+  ring: { tiles: ReadonlyArray<{ tile: string; lockedCount: number; vendorIds: readonly string[] }>; inPlan: readonly string[] } | null;
+  /** Every pick drawn in the build when the page was made (each category's). */
+  drawnIn: readonly string[];
+};
+
+export function liveBuildTally(base: LiveTallyBase, builtNow: (vendorId: string, groupId: string, drawn: boolean) => boolean): BuildTally {
+  const groupOf = new Map<string, string>();
+  const children = base.children.map((c) => {
+    const drawn = new Set(c.buildPickVendorIds);
+    for (const p of c.picks) groupOf.set(p.vendor_id, c.groupId);
+    return { ...c, buildPickVendorIds: c.picks.map((p) => p.vendor_id).filter((v) => builtNow(v, c.groupId, drawn.has(v))) };
+  });
+  const money = buildTally(children, base.lockedCentavos);
+  if (!base.ring) return money;
+  const drawnIn = new Set(base.drawnIn);
+  const isIn = (v: string) => {
+    const g = groupOf.get(v);
+    return g ? builtNow(v, g, drawnIn.has(v)) : drawnIn.has(v);
+  };
+  const tiles = base.ring.tiles.map((t) => ({
+    tile: t.tile,
+    planned: false,
+    vendorCount: t.vendorIds.length,
+    lockedCount: t.lockedCount,
+    buildCount: t.vendorIds.filter(isIn).length,
+  }));
+  return { ...money, ...ringBuildCount(tiles, new Set(base.ring.inPlan)) };
 }
 
 /** Is there a peso figure to print? None recorded → no figure, never "₱0". */

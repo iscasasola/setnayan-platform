@@ -208,6 +208,7 @@ import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { deleteVendor } from '../actions';
 import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
 import {
+  BENCH_BUILT_EVENT,
   BenchLocalCtx,
   BenchWritesStandInCtx,
   benchLocalStore,
@@ -215,6 +216,7 @@ import {
   markBenchDirty,
   payBenchDebt,
   savedKey,
+  savedInPlaceCount,
   withoutRemoved,
   builtNowIn,
   setBuiltIn,
@@ -2101,6 +2103,16 @@ function MoreToCompare({
       for (const [id, saved] of Object.entries(value)) localStore.saved.set(savedKey(tile, id), saved);
       return value;
     });
+  // A save (or its Undo) that landed: the row above counts it now (`savedInPlaceCount`) — after the store moved.
+  const savedOnce = useRef(false);
+  useEffect(() => {
+    if (!savedOnce.current) {
+      savedOnce.current = true;
+      return;
+    }
+    benchLocal?.savedChanged?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moreSaved]);
   // The one card mid-flight, so only ITS buttons go quiet.
   const [moreBusy, setMoreBusy] = useState<string | null>(null);
   const [moreError, setMoreError] = useState<string | null>(null);
@@ -2642,8 +2654,11 @@ export function ShortlistCategories({
         setBuiltIn(local, vendorId, groupId, on, multi);
         markBenchDirty(eventId);
         setBuiltTick((n) => n + 1);
+        // The shell's Build N/M and the cart peek count again (`services-takeover.tsx`).
+        window.dispatchEvent(new Event(BENCH_BUILT_EVENT));
       },
       say: (tone, text, retry) => setToast({ tone, text, retry, key: Date.now() }),
+      savedChanged: () => setBuiltTick((n) => n + 1),
     }),
     // `builtTick` re-draws every card when one pin moves (a single-pick
     // category's sibling reads "Add to build" at once).
@@ -3864,11 +3879,13 @@ export function ShortlistCategories({
                   );
                   const CatIcon = tileIcon(t.tile);
                   const rowCoverage = coverageByTile.get(t.tile);
+                  // "· N yours" and "N to decide" count a supplier saved here this visit at once (answered in place).
+                  const yours = t.vendors.length + savedInPlaceCount(local, t.tile, new Set(t.vendors.map((v) => v.vendorId)));
                   const rowState = replan
                     ? categoryRowState({
                         lockedCount: rowCoverage?.lockedCount ?? 0,
                         covered: rowCoverage?.covered ?? false,
-                        vendorCount: t.vendors.length,
+                        vendorCount: yours,
                         quoteInCount: t.vendors.filter((v) => standings[v.vendorId]?.needsYou === true).length,
                       })
                     : null;
@@ -3915,10 +3932,10 @@ export function ShortlistCategories({
                                 own count (measured on the preview). */}
                             <span className="cat-nm">
                               {t.label}
-                              {replan && t.vendors.length > 0 ? (
+                              {replan && yours > 0 ? (
                                 <span className="cat-yours">
                                   {' '}
-                                  · <Count value={t.vendors.length} id={`sup-yours-${t.tile}`} /> yours
+                                  · <Count value={yours} id={`sup-yours-${t.tile}`} /> yours
                                 </span>
                               ) : null}
                             </span>

@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "f101aa3af",
+  "generatedFromRef": "d4182a502",
   "routeCount": 432,
   "destinations": 959,
   "actions": 675,
@@ -994,6 +994,7 @@
         "[slug]/_lib/editor-canvas.ts",
         "[slug]/_lib/event-noun.ts",
         "[slug]/_lib/event-words.ts",
+        "[slug]/_lib/first-screen-fit-dom.ts",
         "[slug]/_lib/first-screen-fit.ts",
         "[slug]/_lib/guest-checklist-facts.ts",
         "[slug]/_lib/guest-details-changed.ts",

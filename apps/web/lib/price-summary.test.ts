@@ -118,10 +118,10 @@ test('THE SUPPLIER ANSWERS ON THE CARD: the logged payment is confirmed or refus
   assert.match(live, /\{returnTo \? <input type="hidden" name="return_to" value=\{returnTo\} \/> : null\}/);
   const actions = read('app/vendor-dashboard/messages/[threadId]/pay-confirm-actions.ts');
   // Only the bare card path is honoured — the one-shape allowlist, never a free URL.
-  assert.match(actions, /const to = lockAnswerReturnTo\(formData\.get\('return_to'\)\);\s*return to\.startsWith\('\/vendor-dashboard\/clients\/'\) \? to : null;/);
+  assert.match(actions, /const to = lockAnswerReturnTo\(raw\);\s*return to\.startsWith\('\/vendor-dashboard\/clients\/'\) \? to : null;/);
   const confirm = actions.slice(actions.indexOf('export async function confirmVendorPayment('), actions.indexOf('export async function refuseVendorPayment('));
   const refuse = actions.slice(actions.indexOf('export async function refuseVendorPayment('), actions.indexOf('export async function clearVendorPaymentPlan('));
   for (const [name, fn] of [['confirm', confirm], ['refuse', refuse]] as const) {
-    assert.match(fn, /const card = payConfirmReturnTo\(formData\);\s*if \(card\) revalidatePath\(card\);/, `${name} does not redraw the card it was answered from`);
+    assert.match(fn, /const card = payConfirmReturnTo\(formData\.get\('return_to'\)\);\s*if \(card\) revalidatePath\(card\);/, `${name} does not redraw the card it was answered from`);
   }
 });

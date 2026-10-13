@@ -36,8 +36,8 @@ import {
  * `lockAnswerReturnTo` (lib/lock-answer-notice.ts), never a free URL. Anything
  * else is `null` and changes nothing.
  */
-function payConfirmReturnTo(formData: FormData): string | null {
-  const to = lockAnswerReturnTo(formData.get('return_to'));
+function payConfirmReturnTo(raw: FormDataEntryValue | null): string | null {
+  const to = lockAnswerReturnTo(raw);
   return to.startsWith('/vendor-dashboard/clients/') ? to : null;
 }
 
@@ -142,7 +142,7 @@ export async function confirmVendorPayment(formData: FormData): Promise<void> {
 
   if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
   revalidatePath('/vendor-dashboard/messages');
-  const card = payConfirmReturnTo(formData);
+  const card = payConfirmReturnTo(formData.get('return_to'));
   if (card) revalidatePath(card);
 }
 
@@ -235,7 +235,7 @@ export async function refuseVendorPayment(formData: FormData): Promise<void> {
 
   if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
   revalidatePath('/vendor-dashboard/messages');
-  const card = payConfirmReturnTo(formData);
+  const card = payConfirmReturnTo(formData.get('return_to'));
   if (card) revalidatePath(card);
 }
 

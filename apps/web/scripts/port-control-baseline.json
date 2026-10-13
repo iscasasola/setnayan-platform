@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "447e320069",
+  "generatedFromRef": "265087b85",
   "routeCount": 435,
   "destinations": 959,
   "actions": 674,
-  "blocks": 6155,
+  "blocks": 6147,
   "routes": {
     "/": {
       "files": [
@@ -5711,7 +5711,6 @@
     },
     "/dashboard/[eventId]/budget": {
       "files": [
-        "dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx",
         "dashboard/[eventId]/budget/_components/budget-screen.tsx",
         "dashboard/[eventId]/budget/_components/budget-sheets.tsx",
         "dashboard/[eventId]/budget/_components/budget-summary.tsx",
@@ -5736,13 +5735,11 @@
       "blocks": [
         "ActionButton",
         "AddExpenseSheet",
-        "AllocationConfig",
         "BudgetScreen",
         "BudgetSheetState",
         "BudgetSheets",
         "BudgetSummary",
         "ChineseTraditionInfoCard",
-        "ConfidenceChip",
         "ContactShortlistVendorButton",
         "Count",
         "DeleteCostResult",
@@ -5754,18 +5751,14 @@
         "Fill",
         "GroupHead",
         "GroupUnread",
-        "HTMLButtonElement",
-        "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "InfoTip",
-        "LeafRow",
         "Link",
         "ListPageSkeleton",
         "MahrInfoCard",
         "MiniTour",
         "OrderGroup",
-        "OverspendBanner",
         "OwedLine",
         "PageMasthead",
         "Peso",
@@ -5773,15 +5766,13 @@
         "RecordCostResult",
         "RecordSheet",
         "SaveSnapshotResult",
-        "SaveState",
         "SetEventBudgetResult",
         "SetShareBudgetBandResult",
         "Sheet",
         "SuggestMilestonesResult",
         "SupplierGroup",
         "SupplierSheet",
-        "SwitchTrack",
-        "TiltEditor"
+        "SwitchTrack"
       ]
     },
     "/dashboard/[eventId]/checklist": {

@@ -36,7 +36,6 @@ const E = 'app/dashboard/[eventId]';
 const ROWS: ReadonlyArray<readonly [key: string, file: string]> = [
   ['mood-board-pdfs', `${E}/studio/mood-board/_components/mood-board-editor.tsx`],
   ['control-room-tabs', `${E}/studio/panood/broadcast/control-room.tsx`],
-  ['budget-save-plan', `${E}/budget/_components/budget-allocation-planner.tsx`],
   ['half-sheet-slim', `${E}/launch/_components/maker-sheet.tsx`],
   ['pay-bar', 'app/pay/[reference]/_components/pay-panel.tsx'],
   ['onboarding-nav', 'app/onboarding/[type]/_components/generic-onboarding.tsx'],

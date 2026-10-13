@@ -65,15 +65,6 @@ const PROSE_BILL: ReadonlyArray<{
   readonly count: number;
   readonly reason: string;
 }> = [
-  {
-    file: '_components/budget-allocation-planner.tsx',
-    count: 6,
-    reason:
-      'Sentences, not columns: "Suggested ₱45,000 · typical range ₱30,000–₱60,000" and the same ' +
-      'line in the tilt editor. Tabular numerals are for the column the eye scans, never for ' +
-      'money inside prose. (Unmounted from the page in plan row B2 — owner: "not this one" — and ' +
-      'kept as a file for whichever surface draws the estimates next.)',
-  },
 ];
 
 function walk(dir: string, ext: readonly string[]): string[] {

@@ -225,7 +225,10 @@ const DISCLOSURE_MOUNTS: Array<[string, string, RegExp]> = [
   ['quote shortcut', 'app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx', /<BookingFeeNotice disclosure=\{feeCopy\}/],
   ['Agree · chat card', 'app/_components/lock-answer-forms.tsx', /<BookingFeeNotice disclosure=\{feeForecast\}/],
   ['Agree · Today feed', 'app/vendor-dashboard/_components/overview-sections.tsx', /<BookingFeeNotice disclosure=\{feeForecast\}/],
-  ['Agree · client page', 'app/vendor-dashboard/clients/[eventId]/page.tsx', /<BookingFeeNotice disclosure=\{feeForecast\}/],
+  // The client page's ask moved into its own panel (2026-10-12, pair P2) — the
+  // page hands it the forecast, the panel names it above Agree.
+  ['Agree · client page', 'app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx', /<BookingFeeNotice disclosure=\{feeForecast\}/],
+  ['Agree · client page hands the panel its forecast', 'app/vendor-dashboard/clients/[eventId]/page.tsx', /<LockRequestAnswer[^>]*feeForecast=\{feeForecast\}/],
 ];
 
 // SABOTAGE: remove <BookingFeeNotice> from lock-answer-forms.tsx → RED, named.
@@ -303,7 +306,7 @@ test('every Agree button names the fee ABOVE itself, not after', () => {
   const agreeSurfaces: Array<[string, RegExp]> = [
     ['app/_components/lock-answer-forms.tsx', /action=\{agreeLock\}/],
     ['app/vendor-dashboard/_components/overview-sections.tsx', /action=\{agreeLock\}/],
-    ['app/vendor-dashboard/clients/[eventId]/page.tsx', /action=\{vendorAgreeToLock\}/],
+    ['app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx', /action=\{agreeLock\}/],
   ];
   for (const [file, formRe] of agreeSurfaces) {
     const src = read(file);

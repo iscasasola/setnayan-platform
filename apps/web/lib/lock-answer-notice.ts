@@ -167,7 +167,15 @@ export function lockDeclineNotice(
  * always gone. This is an allowlist of one shape, never a denylist.
  */
 const THREAD_RETURN = /^\/vendor-dashboard\/messages\/[A-Za-z0-9_-]{1,80}$/;
+/**
+ * …and the supplier's CUSTOMER CARD (2026-10-12, pair P2): the ask is answered
+ * there too (`clients/[eventId]/_components/booking-ask-panel.tsx`), and until
+ * now its forms posted no `return_to`, so a supplier who pressed Agree on the
+ * card was thrown to the Overview. The card reads `?lock_agree=` itself. Same
+ * one-shape rule: the bare card path, an event id of id characters, no query.
+ */
+const CLIENT_CARD_RETURN = /^\/vendor-dashboard\/clients\/[A-Za-z0-9-]{1,64}$/;
 
 export function lockAnswerReturnTo(raw: unknown): string {
-  return typeof raw === 'string' && THREAD_RETURN.test(raw) ? raw : '/vendor-dashboard';
+  return typeof raw === 'string' && (THREAD_RETURN.test(raw) || CLIENT_CARD_RETURN.test(raw)) ? raw : '/vendor-dashboard';
 }

@@ -1433,6 +1433,7 @@ function VendorCard({
       stateLine: sheetStateLine({
         booked,
         asked: v.lockRequestState === 'requested',
+        lockState: v.lockRequestState,
         quoteIn: standing?.needsYou === true,
         inBuild: actions?.build?.kind === 'in_build',
         hasThread: v.threadId != null,
@@ -3065,6 +3066,7 @@ export function ShortlistCategories({
             out[t.tile] = sheetStateLine({
               booked: there.status === 'locked',
               asked: there.lockRequestState === 'requested',
+              lockState: there.lockRequestState,
               quoteIn: standings[there.vendorId]?.needsYou === true,
               inBuild: buildPickVendorIds.includes(there.vendorId),
               hasThread: there.threadId != null,

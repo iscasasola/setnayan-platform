@@ -111,15 +111,26 @@ export async function savePlanBuildNamed(input: {
   // (RLS already scopes the read to the couple's own event).
   const { data: existingRows } = await supabase
     .from('budget_builds')
-    .select('build_id, label, title')
+    .select('build_id, label, title, created_at, snapshot')
     .eq('event_id', input.eventId);
-  const existing = (existingRows ?? []) as NamedBuildRow[];
+  const existing = ((existingRows ?? []) as Array<NamedBuildRow & { snapshot?: PlanBuildSnapshot | null }>).map((r) => ({
+    build_id: r.build_id,
+    label: r.label,
+    title: r.title,
+    created_at: r.created_at,
+    picks: r.snapshot?.picks ?? [],
+  }));
 
   const plan = planSaveAs({
     rawName: input.rawName,
     overwriteBuildId: input.overwriteBuildId ?? null,
     existing,
+    // Twin detection (owner 2026-10-07): the same suppliers are never saved
+    // twice. The compare is `buildKeyOf` — the one the Build body draws with.
+    picks: input.snapshot.picks,
   });
+  if (plan.mode === 'twin') return { ok: false, error: `Already saved — exactly “${plan.twinTitle}”` };
+  if (plan.mode === 'unchanged') return { ok: false, error: 'Nothing changed' };
 
   if (plan.mode === 'overwrite') {
     const { error } = await supabase

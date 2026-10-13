@@ -35,6 +35,9 @@ import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
 import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
 import { buildTally, suppliersDateFact, suppliersPlaceFact } from '@/lib/suppliers-shell';
+import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
+import { displayBuildTitle, normalizeBuildTitle, sortSavedBuilds } from '@/lib/named-builds';
+import { BLOCKED_LOCK_ROW } from '@/lib/explore-info-copy';
 import { pickVenueBookingRows, type VenueBookingRow } from '@/lib/event-venues';
 import { regionLabel } from '@/lib/region-source';
 import { plannedTileIdSet } from '@/lib/leaf-suggestions';
@@ -118,6 +121,7 @@ import { lockRequestStateOf } from '@/lib/lock-request-state';
 import {
   classifyAgainstBuildWindow,
   convergenceBanner,
+  formatDayKeyLabel,
   freeDaysLine,
   resolveBuildDateWindow,
   resolveProbeWindow,
@@ -132,8 +136,11 @@ import { DatePlaceLine } from './_components/date-place-line';
 import { TeamRows } from './_components/team-rows';
 import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
+import { BuildBody } from './_components/build-body';
+import { BookThisBuild } from './_components/book-this-build';
 import { computeBuildGuard, type GuardPick } from '@/lib/merkado-guard';
-import type { FillableCategory } from './_components/quote-fill';
+import { QuoteFillRow, type FillableCategory } from './_components/quote-fill';
+import { TeamClearCandidates } from './_components/team-controls';
 import { BuildLocked } from './_components/build-locked';
 import { ReuseBookingsPanel } from './_components/reuse-bookings-panel';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
@@ -2257,14 +2264,80 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           ],
         };
       });
-    const currentPlan: PlanBuildSnapshot = {
-      budgetPhp:
-        ev?.estimated_budget_centavos != null
-          ? Math.round(ev.estimated_budget_centavos / 100)
-          : null,
-      totalPhp: planPicks.reduce((s, p) => s + (p.costPhp ?? 0), 0),
-      picks: planPicks,
-    };
+    // ── THE BUILD BODY'S LINES (Suppliers PR3, owner 2026-10-07) ─────────────
+    // NO NEW READ. One line per category row Find shows (the same
+    // `resolveBenchRing`), holding the booked supplier, the build pick, and the
+    // dropdown: the couple's own shortlist for it — priced, and free on their
+    // date. Prices are the plan model's (the figures the segment's own total
+    // sums); "cannot be booked" is the card's own verdict
+    // (`lockBlockedByVendorId`) plus a calendar that shows the day taken.
+    const onePage = isExploreReplanEnabled();
+    const buildBudgetPhp =
+      ev?.estimated_budget_centavos != null ? Math.round(ev.estimated_budget_centavos / 100) : null;
+    const buildLines = (() => {
+      if (!onePage) return [];
+      const inBuild = new Set([...buildPicksByGroup.values()].flat());
+      const tiles = shortlistFolders.flatMap((f) => f.tiles);
+      const ring = resolveBenchRing({
+        tiles: tiles.map((t) => ({
+          tile: t.tile,
+          planned: t.planned,
+          vendorCount: t.vendors.length,
+          lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+          buildCount: t.vendors.filter((v) => inBuild.has(v.vendorId)).length,
+        })),
+        excludedTiles,
+        pinnedTile: sp.open ?? null,
+        starterTiles: [...popularTilesFor(ev?.event_type ?? null)],
+      });
+      const priceByVendorId = new Map<string, number | null>();
+      // What each price comes with — the two lists the old "Current" column
+      // saved into a build (the supplier's linked services, the couple's own).
+      const inclusionsByVendorId = new Map<string, string[]>();
+      for (const c of model.folders.flatMap((f) => f.children)) {
+        for (const p of c.picks) {
+          priceByVendorId.set(p.vendor_id, p.rolled_cost_php);
+          inclusionsByVendorId.set(p.vendor_id, [
+            ...(p.linked_services?.map((l) => l.label) ?? []),
+            ...(p.host_inclusions ?? []),
+          ]);
+        }
+      }
+      const blocked = new Map<string, string>();
+      for (const [vendorId, why] of lockBlockedByVendorId) blocked.set(vendorId, BLOCKED_LOCK_ROW[why]);
+      for (const [vendorId, fit] of dateFitByVendorId) {
+        if (fit === 'booked' && !blocked.has(vendorId)) blocked.set(vendorId, BLOCKED_LOCK_ROW.not_available);
+      }
+      return buildLinesOf({
+        tiles: tiles
+          .filter((t) => ring.inPlan.has(t.tile))
+          .map((t) => ({
+            tile: t.tile,
+            label: t.label,
+            vendors: t.vendors.map((v) => ({
+              vendorId: v.vendorId,
+              name: v.name,
+              status: v.status,
+              planGroupId: v.planGroupId,
+              lockState: v.lockRequestState,
+            })),
+          })),
+        priceOf: (vendorId) => priceByVendorId.get(vendorId) ?? null,
+        inclusionsOf: (vendorId) => inclusionsByVendorId.get(vendorId) ?? [],
+        inBuild,
+        blocked,
+      });
+    })();
+    // 🔑 On the one-screen page a build is the BOOKED suppliers plus the PICKS
+    // (`buildSnapshotOf`) — what Save posts and what "This build" compares.
+    // Flag off, the old "Current" column is unchanged.
+    const currentPlan: PlanBuildSnapshot = onePage
+      ? buildSnapshotOf(buildLines, buildBudgetPhp)
+      : {
+          budgetPhp: buildBudgetPhp,
+          totalPhp: planPicks.reduce((s, p) => s + (p.costPhp ?? 0), 0),
+          picks: planPicks,
+        };
     // (The "available dates for the locked team" panel was retired 2026-06-20
     // with "Build absorbs Lock" — PR2: the standalone Lock tab is gone and its
     // vendor-availability-intersection extra went with it. The per-BUILD date
@@ -2596,6 +2669,46 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       };
     })();
 
+    // ── THE BUILD BODY, AS ONE VALUE (`lib/suppliers-build.ts`) ──────────────
+    // Each build's "Free:" line is the row the old compare table printed, read
+    // from the SAME two maps (`compareAvailability` · `compareAnchoredDate`):
+    // no calendar read → no line, never "free" and never "taken".
+    const buildDayLabel =
+      matchPrecision === 'day' && ev?.event_date ? formatDayKeyLabel(ev.event_date.slice(0, 10)) : null;
+    const buildFreeOf = (key: string): BuildCardFree => {
+      const span = compareAvailability?.byColumn[key];
+      if (span) {
+        if (span.connectedCount === 0) return null;
+        return span.conflictText
+          ? { kind: 'none', who: [] }
+          : { kind: 'dates', labels: span.dayLabels, more: span.moreCount };
+      }
+      const day = compareAnchoredDate?.byColumn[key];
+      if (!day || day.checkedCount === 0 || !buildDayLabel) return null;
+      return day.bookedNames.length > 0
+        ? { kind: 'none', who: day.bookedNames }
+        : { kind: 'dates', labels: [buildDayLabel], more: 0 };
+    };
+    const buildView = onePage
+      ? buildViewOf({
+          lines: buildLines,
+          money: buildMoneyOf(buildChildren, model.chosenCentavos, buildBudgetPhp),
+          dateFit: dateFitByVendorId.size > 0 ? dateFitByVendorId : null,
+          dateLabel: buildDayLabel,
+          saved: sortSavedBuilds(savedBuilds).map((b, i) => ({
+            id: b.build_id,
+            name: displayBuildTitle(b, i),
+            title: normalizeBuildTitle(b.title),
+            budgetPhp: b.snapshot?.budgetPhp ?? b.budget_php ?? null,
+            picks: b.snapshot?.picks ?? [],
+          })),
+          buildsMeasured: savedBuildsMeasured,
+          freeByBuildId: Object.fromEntries(
+            ['current', ...savedBuilds.map((b) => b.build_id)].map((key) => [key, buildFreeOf(key)]),
+          ),
+        })
+      : null;
+
     const buildSlot = (
       <div className="space-y-6">
         {showGuard ? <MerkadoGuardBanner guard={buildGuard} demand={guardDemand} /> : null}
@@ -2655,6 +2768,47 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           teamSlot={teamSlot}
           shortlistSlot={shortlistContent}
           buildSlot={buildSlot}
+          // Suppliers PR3 — on the one-screen page the Build body is drawn
+          // whole: "This build" and "All builds" (`build-body.tsx`). Flag off,
+          // `buildSlot` + `compareSlot` are the body, unchanged.
+          buildBody={
+            buildView ? (
+              <>
+                <BuildBody
+                  eventId={eventId}
+                  view={buildView}
+                  guardSlot={showGuard ? <MerkadoGuardBanner guard={buildGuard} demand={guardDemand} /> : null}
+                  // KEPT REACHABLE — the prototype is silent about both, so
+                  // neither is dropped: "fill your build from your quotes"
+                  // (nothing when there are none) and "Clear candidates".
+                  extrasSlot={
+                    <>
+                      <QuoteFillRow eventId={eventId} fillable={quoteFillable} budgetPhp={buildBudgetPhp} />
+                      {buildLines.some((l) => l.pick && !l.booked) ? (
+                        <div className="flex justify-end">
+                          <TeamClearCandidates eventId={eventId} />
+                        </div>
+                      ) : null}
+                    </>
+                  }
+                  // "Book this build" — every pick not booked and not already
+                  // asked, through the one booking path (`book-this-build.tsx`).
+                  bookSlot={
+                    <BookThisBuild
+                      eventId={eventId}
+                      picks={buildLines.flatMap((l) =>
+                        l.pick && !l.booked && !l.pickAsked
+                          ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]
+                          : [],
+                      )}
+                    />
+                  }
+                />
+                {/* Dark behind NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED; null when off. */}
+                <ReuseBookingsPanel />
+              </>
+            ) : undefined
+          }
           budgetSlot={<MerkadoBudgetLens eventId={eventId} />}
           compareSlot={
             <BuildCompare

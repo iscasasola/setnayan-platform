@@ -125,7 +125,33 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
    * (`eventItemIsPro`, lib/hub-draft.ts). See `lib/rsvp-celebration.ts`.
    */
   celebration?: RsvpCelebration;
+  /**
+   * 📬 WHEN REPLIES OPEN AND CLOSE (owner 2026-10-14, DECISION_LOG 📬 "RSVP GETS ITS OWN OPEN AND
+   * CLOSE"). Absent = "With the invitation" / "On the day" — today's behaviour, so every existing
+   * event is unchanged. A date rides beside its "On a date…" pick (`YYYY-MM-DD`, the venue's day).
+   * Read ONLY through `replyWindow` (lib/reply-window.ts) — every reader and writer of a reply asks it.
+   */
+  repliesOpen?: RepliesOpen;
+  repliesOpenOn?: string;
+  repliesClose?: RepliesClose;
+  repliesCloseOn?: string;
 };
+
+/** 📬 "Replies open" — the four picks, in the dropdown's order. Absent = 'with_invitation'. */
+export const REPLIES_OPEN = ['with_invitation', 'on_date', 'now', 'closed'] as const;
+export type RepliesOpen = (typeof REPLIES_OPEN)[number];
+/** 📬 "Replies close" — the three picks, in the dropdown's order. Absent = 'on_the_day'. */
+export const REPLIES_CLOSE = ['on_the_day', 'reply_by', 'on_date'] as const;
+export type RepliesClose = (typeof REPLIES_CLOSE)[number];
+
+const YMD_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+/** A stored day, kept only as a real `YYYY-MM-DD`. */
+function cleanDay(v: unknown): string | null {
+  if (typeof v !== 'string' || !YMD_ONLY.test(v)) return null;
+  const [y = NaN, m = NaN, d = NaN] = v.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d ? v : null;
+}
 
 /**
  * The words a couple may type on the RSVP stage — one per thing a guest reads:
@@ -246,6 +272,19 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
       // A known pick only; None is stored as itself so a Pro couple's "back to
       // None" is a change the draft can carry.
       if (isRsvpCelebration(value)) out.celebration = value;
+      continue;
+    }
+    if (key === 'repliesOpen') {
+      if (typeof value === 'string' && (REPLIES_OPEN as readonly string[]).includes(value)) out.repliesOpen = value as RepliesOpen;
+      continue;
+    }
+    if (key === 'repliesClose') {
+      if (typeof value === 'string' && (REPLIES_CLOSE as readonly string[]).includes(value)) out.repliesClose = value as RepliesClose;
+      continue;
+    }
+    if (key === 'repliesOpenOn' || key === 'repliesCloseOn') {
+      const day = cleanDay(value);
+      if (day) out[key] = day;
       continue;
     }
     if (key === 'look') {

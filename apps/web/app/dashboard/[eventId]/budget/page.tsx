@@ -26,6 +26,7 @@ import {
 } from '@/lib/budget-page-money';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
+import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
 import { BudgetScreen, type SupplierExtras } from './_components/budget-screen';
 import { buildBudgetList, pickNextPayment, type NextPayment } from '@/lib/budget-page-view';
 import { costCategoryOptions } from '@/lib/event-costs';
@@ -486,6 +487,18 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         {isMuslimCeremony ? <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} /> : null}
         {isChineseCeremony ? <ChineseTraditionInfoCard pax={chineseGuestCount} /> : null}
       </BudgetScreen>
+
+      {/* Share-my-budget (the couple's opt-in that shows a supplier a ROUNDED
+          range for their own category). B2 unmounted it until plan row B4's ⋯
+          menu exists, which left the switch — and `setShareBudgetBand` — with
+          no door at all (ugat-both-ends: component-no-mount). Kept reachable
+          here, at the foot, until that menu takes it. The couple's alone, as
+          the Target is (locked D1). */}
+      {budgetAccess.mayEdit ? (
+        <div className="mt-8" data-budget-share-band="">
+          <ShareBudgetBandToggle eventId={eventId} initialShare={event?.share_budget_band === true} />
+        </div>
+      ) : null}
 
       {/* First visit only — the shipped MiniTour (owner 2026-09-25). */}
       <MiniTour tourKey="customer_budget_v1" />

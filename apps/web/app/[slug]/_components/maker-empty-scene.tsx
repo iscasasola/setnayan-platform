@@ -48,7 +48,7 @@ export function MakerEmptyScene({
         <span>{makerSceneLabel(type)}</span>
       </p>
       <SceneSample sceneType={sceneStyleTypeOfWidget(type)} styleId={styleId} className="py-2" stepsAside />
-      <p className="font-pahina text-xl font-light italic text-ink/60" data-maker-empty-prompt="">
+      <p className="font-pahina text-xl font-light italic text-ink/70" data-maker-empty-prompt="">
         {makerEmptyPrompt(type, setupLocks)}
       </p>
       {/* ✍ THE SCENE'S REAL LOOK, HIDDEN (owner 2026-09-27: *"needs to show on
@@ -61,7 +61,7 @@ export function MakerEmptyScene({
           {look}
         </div>
       ) : null}
-      <p className="text-xs uppercase tracking-[0.2em] text-ink/40">Only you see this · guests see it once it has content</p>
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/70">Only you see this · guests see it once it has content</p>
     </section>
   );
 }

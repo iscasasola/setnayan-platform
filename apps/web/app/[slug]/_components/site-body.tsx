@@ -2207,7 +2207,7 @@ export async function SiteBody({
                   <>
                   {blockMark('live_hub')}
                   <section id="live-photo-wall" className="mt-10 scroll-mt-6">
-                    <p className="rounded-lg bg-ink/5 px-4 py-3 text-center text-sm text-ink/60">
+                    <p className="rounded-lg bg-ink/5 px-4 py-3 text-center text-sm text-ink/70">
                       {LIVE_WALL_UNREADABLE_LINE}
                     </p>
                   </section>
@@ -2467,7 +2467,7 @@ export async function SiteBody({
           <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
             <div className="rounded-2xl border border-ink/10 bg-white/70 px-6 py-8 text-center shadow-sm">
               <p className="font-serif text-lg text-ink">You&rsquo;re the host</p>
-              <p className="mx-auto mt-1 max-w-sm text-sm text-ink/60">
+              <p className="mx-auto mt-1 max-w-sm text-sm text-ink/70">
                 You don&rsquo;t need an invitation to your own {watchLiveOccasion(clientWords.occasion)}. Guests
                 who open their personal link see their greeting, seat and RSVP in this spot.
               </p>
@@ -3033,7 +3033,7 @@ export async function SiteBody({
             <span>
               {shotsAdded.toLocaleString('en-PH')} {shotsAdded === 1 ? 'photo' : 'photos'} added
             </span>
-            <span aria-hidden className="text-ink/30">
+            <span aria-hidden className="text-ink/70">
               ·
             </span>
             <a href={hubTabHref('gallery')} className="font-medium underline underline-offset-4">
@@ -3528,12 +3528,12 @@ export async function SiteBody({
                               )}
                             </p>
                             {v.categoryLabel ? (
-                              <p className="truncate text-sm text-ink/60">{v.categoryLabel}</p>
+                              <p className="truncate text-sm text-ink/70">{v.categoryLabel}</p>
                             ) : null}
                           </div>
                         </div>
                         {showClaimAccountCta ? (
-                          <span className="shrink-0 text-xs text-ink/45">Account needed</span>
+                          <span className="shrink-0 text-xs text-ink/70">Account needed</span>
                         ) : (
                           <form
                             action={saveAttendedVendorAction.bind(
@@ -3602,7 +3602,7 @@ export async function SiteBody({
                       <p className="font-pahina text-xl font-light italic leading-snug text-ink/80">
                         We&rsquo;ll miss you.
                       </p>
-                      <p className="mt-1.5 text-sm leading-relaxed text-ink/60">
+                      <p className="mt-1.5 text-sm leading-relaxed text-ink/70">
                         Thank you for letting us know.
                       </p>
                     </div>
@@ -3654,7 +3654,7 @@ export async function SiteBody({
                         guestListClosed: plan.guestListClosed,
                       }).label
                     }
-                    <span aria-hidden className="shrink-0 text-ink/40">
+                    <span aria-hidden className="shrink-0 text-ink/70">
                       &rarr;
                     </span>
                   </a>
@@ -4324,7 +4324,7 @@ export async function SiteBody({
       {chaptersOnThisDay.length > 0 && !isEditorCanvas ? (
         <section {...pageTabs.attrs('home')} className={`mx-auto mt-10 w-full ${PLATE} px-4`}>
           <h2 className="m-serif text-lg text-ink">Stories about this day</h2>
-          <p className="mt-1 text-[13px] text-ink/60">
+          <p className="mt-1 text-[13px] text-ink/70">
             Written by the people who were here.
           </p>
           <ul className="mt-4 space-y-3">
@@ -4342,7 +4342,7 @@ export async function SiteBody({
                     c.title
                   )}
                 </p>
-                <p className="mt-0.5 text-[12px] text-ink/60">
+                <p className="mt-0.5 text-[12px] text-ink/70">
                   by {c.authorName}
                   {c.day ? ` · ${c.day}` : ''}
                   {c.isPublic ? '' : ' · shared with the people of this day'}

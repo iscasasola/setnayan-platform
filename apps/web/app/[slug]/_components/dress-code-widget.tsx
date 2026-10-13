@@ -350,7 +350,7 @@ export function DressCodeWidget({
           <span>What to wear</span>
         </p>
         {mineFromGroup ? (
-          <p className="text-xs leading-relaxed text-ink/55">From your hosts&rsquo; note for {mineFromGroup}.</p>
+          <p className="text-xs leading-relaxed text-ink/70">From your hosts&rsquo; note for {mineFromGroup}.</p>
         ) : null}
         {mine.styleLabel ? (
           <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">{mine.styleLabel}</p>
@@ -505,7 +505,7 @@ export function DressCodeWidget({
               for her and it is being shown oddly. Silent provenance is the same
               defect as a silent override, seen from the other side. */}
           {mineFromGroup ? (
-            <p className="text-xs leading-relaxed text-ink/55">
+            <p className="text-xs leading-relaxed text-ink/70">
               From your hosts&rsquo; note for {mineFromGroup}.
             </p>
           ) : null}
@@ -521,7 +521,7 @@ export function DressCodeWidget({
               wrong time is worse than telling her nothing. */}
           {mine.callTime ? (
             <p className="text-base leading-snug text-ink">
-              <span className="font-mono text-[0.6rem] uppercase tracking-[0.18em] text-ink/55">
+              <span className="font-mono text-[0.6rem] uppercase tracking-[0.18em] text-ink/70">
                 Call time
               </span>{' '}
               <span className="font-pahina text-2xl font-light tracking-tight">{mine.callTime}</span>
@@ -575,7 +575,7 @@ export function DressCodeWidget({
                 <li key={`${p.hex}-${i}`} className="w-[3.25rem]" title={colourName(p.hex, p.name) || undefined}>
                   <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: p.hex }} />
                   {colourName(p.hex, p.name) ? (
-                    <span className="mt-2 block text-center font-mono text-[0.6rem] uppercase leading-tight tracking-[0.12em] text-ink/60">
+                    <span className="mt-2 block text-center font-mono text-[0.6rem] uppercase leading-tight tracking-[0.12em] text-ink/70">
                       {colourName(p.hex, p.name)}
                     </span>
                   ) : null}
@@ -656,7 +656,7 @@ export function DressCodeWidget({
           ) : null}
           {donts.length > 0 ? (
             <div className="space-y-2 border-l-2 border-ink/30 bg-paper-deep p-4 text-sm text-ink/75">
-              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50">
+              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
                 Don&rsquo;t
               </p>
               <ul className="space-y-1">
@@ -688,7 +688,7 @@ function YourColours({ hexes, look }: { hexes: readonly string[]; look: PaletteL
       {hexes.map((hex, i) => (
         <li key={`${hex}-${i}`} className="w-[3.25rem]">
           <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: hex }} />
-          <span className="mt-2 block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.08em] text-ink/55">
+          <span className="mt-2 block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.08em] text-ink/70">
             {colourName(hex)}
           </span>
         </li>

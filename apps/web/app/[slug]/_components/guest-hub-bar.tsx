@@ -235,7 +235,7 @@ export function GuestHubBar({
           ) : (
             <span
               aria-hidden
-              className="inline-flex h-16 w-16 -translate-y-1.5 flex-col items-center justify-center gap-0.5 rounded-full bg-ink/10 text-ink/30"
+              className="inline-flex h-16 w-16 -translate-y-1.5 flex-col items-center justify-center gap-0.5 rounded-full bg-ink/10 text-ink/70"
             >
               <Camera className="h-6 w-6" strokeWidth={2} />
               <span className="text-[0.6rem] font-semibold leading-none">Camera</span>

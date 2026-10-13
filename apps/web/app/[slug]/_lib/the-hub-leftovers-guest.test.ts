@@ -86,3 +86,17 @@ test('2 · each link is lifted above the sentence text, so its WHOLE padded pres
     assert.ok(!cls.includes('inline-flex') && !cls.includes('flex') && !cls.includes('block'), `${words}: not a plain inline link (a flex box put a gap in the sentence)`);
   }
 });
+
+// ═══ 4 · the last faint guest labels ═════════════════════════════════════
+
+test('4 · no guest-facing label is under 4.5:1 any more — the record is EMPTY, and a new faint ink is a red lint', () => {
+  const rec = JSON.parse(readFileSync(join(__dirname, '..', '..', '..', 'scripts', 'guest-faint-ink.baseline.json'), 'utf8')) as { total: number; files: Record<string, number> };
+  assert.equal(rec.total, 0, `the faint-ink record holds ${rec.total} again — a guest label under 4.5:1 was let in`);
+  assert.deepEqual(rec.files, {});
+  // The nine files that held the last 34 carry no tint under /65 (the faintest that reads in every look).
+  for (const f of ['dress-code-widget', 'guest-doorway-strip', 'guest-hub-bar', 'guest-me-parts', 'maker-empty-scene', 'maker-fixed-parts', 'maker-guest-scenes', 'schedule-widget', 'site-body']) {
+    const src = stripComments(readFileSync(join(__dirname, '..', '_components', `${f}.tsx`), 'utf8'));
+    const faint = [...src.matchAll(/(?<=^|[\s"'`])text-ink\/(\d{1,3})(?=$|[\s"'`])/gm)].filter((m) => Number(m[1]) < 65).map((m) => m[0]);
+    assert.deepEqual(faint, [], `${f}.tsx has a faint ink`);
+  }
+});

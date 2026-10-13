@@ -198,7 +198,7 @@ export function MakerPageStandIn({ page, label }: { page: string; label: string 
           <Line w="w-5/6" className="mx-auto" />
         </span>
       )}
-      <p className="text-xs uppercase tracking-[0.2em] text-ink/40">
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/70">
         {page === 'camera'
           ? 'Only you see this · guests open the camera as its own screen'
           : page === 'me'

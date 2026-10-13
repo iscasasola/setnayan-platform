@@ -26,6 +26,7 @@
 import { askEndedOf, askLine, coupleAskEndedLine, type AskEnded } from './booking-ask-words';
 import { teamMoney, type TeamMoney } from './your-team';
 import type { TallyChild } from './suppliers-shell';
+import type { DateFit } from './calendar-truth';
 
 /* ── THE SNAPSHOT A BUILD IS SAVED AS ─────────────────────────────────────
  * The shape `savePlanBuildNamed` has always posted (`PlanBuildSnapshot` in
@@ -276,26 +277,30 @@ export function noPriceNote(count: number): string {
 /* ── THE FIT LINE ─────────────────────────────────────────────────────────
  * "✓ 2 of 2 priced picks are free on Dec 18". A supplier counts as free only
  * where the calendar was READ; one whose calendar is not shared is counted
- * apart and said — never called free, never called taken. */
-export type BuildFit = { priced: number; free: number; taken: number; unread: number };
+ * apart and said — never called free, never called taken — and so is one who
+ * never set a calendar ("· 1 not set", P5). */
+export type BuildFit = { priced: number; free: number; taken: number; unread: number; notSet: number };
 
 export function buildFitOf(
   lines: readonly BuildLine[],
-  dateFit: ReadonlyMap<string, 'free' | 'booked'> | null,
+  dateFit: ReadonlyMap<string, DateFit> | null,
 ): BuildFit {
   const priced = lines.map(lineSupplier).filter((s): s is BuildSupplier => s != null && s.pricePhp != null);
   const booked = new Set(lines.filter((l) => l.booked).map((l) => l.booked!.vendorId));
   let free = 0;
   let taken = 0;
   let unread = 0;
+  let notSet = 0;
   for (const s of priced) {
     // A booked supplier holds the date — that is what the booking is.
     const fit = booked.has(s.vendorId) ? 'free' : dateFit?.get(s.vendorId);
     if (fit === 'free') free += 1;
     else if (fit === 'booked') taken += 1;
+    // P5 calendar truth: a calendar the supplier never set is said — never counted free (`lib/calendar-truth.ts`).
+    else if (fit === 'not_set') notSet += 1;
     else unread += 1;
   }
-  return { priced: priced.length, free, taken, unread };
+  return { priced: priced.length, free, taken, unread, notSet };
 }
 
 /* ── ALL BUILDS ───────────────────────────────────────────────────────────── */
@@ -407,7 +412,7 @@ export type BuildView = {
 export function buildViewOf(args: {
   lines: BuildLine[];
   money: TeamMoney;
-  dateFit: ReadonlyMap<string, 'free' | 'booked'> | null;
+  dateFit: ReadonlyMap<string, DateFit> | null;
   dateLabel: string | null;
   saved: ReadonlyArray<{ id: string; name: string; title: string | null; budgetPhp: number | null; picks: ReadonlyArray<BuildSnapshotPick> }>;
   buildsMeasured: boolean;

@@ -99,13 +99,14 @@ test('2 · the pinned block and the pinned category head travel WITH the top bar
   );
 });
 
-test('3 · a booked category shows no marketplace list, and offers "Add your own" at its foot', () => {
+test('3 · a booked category shows no marketplace list — and no Add of its own (2026-10-13: ONE add, the thumb row’s)', () => {
   assert.match(
     BENCH,
     /\{replan && tileOpen && !rowBooked && !coveredGroup \? \(\s*<MoreToCompare/,
     '"More to compare" is drawn under a booked category (the prototype: bookedIn(k) ? "" : …)',
   );
-  const foot = /\{replan && rowBooked \? \(\s*<div className="morefoot">([\s\S]*?)<\/div>/.exec(BENCH)?.[1] ?? '';
-  assert.match(foot, /label="Add your own"/, 'a booked category lost its own way to add a supplier');
+  // Owner 2026-10-13 (Reception open, Booked ✓, two Adds on screen): the thumb row's ＋ adds in the open category —
+  // the booked row's own "Add your own" at its foot was the duplicate, and is gone.
+  assert.doesNotMatch(BENCH, /\{replan && rowBooked \? \(\s*<div className="morefoot">/, 'the duplicate Add is back at the booked row’s foot');
   assert.match(BENCH, /const rowBooked = \(rowCoverage\?\.lockedCount \?\? 0\) > 0;/);
 });

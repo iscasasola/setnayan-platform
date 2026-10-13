@@ -5,6 +5,7 @@ import {
   Wallet,
   CalendarCheck,
   CalendarX2,
+  CalendarDays,
   BadgeCheck,
   Sparkles,
 } from 'lucide-react';
@@ -15,6 +16,7 @@ import { resolveReachBadge } from '@/lib/vendor-service-radius';
 import { shopInitials } from '@/lib/shop-initials';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { formatCount } from '@/lib/format-number';
+import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
 
 /**
  * VendorQuickViewInspector — the desktop inspector body for a Shortlist "bench"
@@ -58,7 +60,7 @@ export function VendorQuickViewInspector({
   // shows (FitBadges in shortlist-categories.tsx), hidden-when-absent exactly as
   // there. These are NOT AI-paywalled (they render on the card whether or not
   // Setnayan AI is active).
-  const fits: { cls: 'ok' | 'warn'; icon: React.ReactNode; text: string }[] = [];
+  const fits: { cls: 'ok' | 'warn' | 'muted'; icon: React.ReactNode; text: string }[] = [];
   // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · §17) — resolved with the
   // SAME helper the bench card uses, so the inspector and the card can never
   // give a different answer about the same vendor's travel fee. The helper owns
@@ -100,6 +102,9 @@ export function VendorQuickViewInspector({
     fits.push({ cls: 'ok', icon: <CalendarCheck size={12} strokeWidth={2.25} aria-hidden />, text: 'Free on your date' });
   } else if (v.dateFit === 'booked') {
     fits.push({ cls: 'warn', icon: <CalendarX2 size={12} strokeWidth={2.25} aria-hidden />, text: 'Booked that day' });
+  } else if (v.dateFit === 'not_set') {
+    // P5 calendar truth — never "Free" for a calendar the supplier never set.
+    fits.push({ cls: 'muted', icon: <CalendarDays size={12} strokeWidth={2.25} aria-hidden />, text: DATE_FIT_WORDS.not_set });
   }
 
   return (
@@ -186,7 +191,9 @@ export function VendorQuickViewInspector({
                 className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                   f.cls === 'ok'
                     ? 'bg-success-100 text-success-900'
-                    : 'bg-warn-50 text-warn-900'
+                    : f.cls === 'muted'
+                      ? 'bg-ink/[0.06] text-ink/70'
+                      : 'bg-warn-50 text-warn-900'
                 }`}
               >
                 {f.icon} {f.text}

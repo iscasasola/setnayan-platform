@@ -43,7 +43,8 @@ import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { goToBuildTab } from '@/lib/budget-build';
 import { benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
-import { recordFieldHref } from '@/lib/event-details-record';
+import { CALENDAR_NOT_SET } from '@/lib/calendar-truth';
+import { openSuppliersFactSheet } from '@/lib/suppliers-fact-sheets';
 import { formatCount } from '@/lib/format-number';
 import { MAX_BUILD_TITLE_LEN } from '@/lib/named-builds';
 import { formatPhp } from '@/lib/php';
@@ -288,7 +289,8 @@ export function BuildBody({
 
   const { money, fit, counts } = view;
   const total = money.bookedPhp + money.toBookPhp;
-  const allFree = fit.priced > 0 && fit.taken === 0;
+  // ✓ only when every priced pick is READ free — a calendar not set or not checked is not a yes (P5, the prototype's rule).
+  const allFree = fit.priced > 0 && fit.free === fit.priced;
 
   return (
     <div data-build-body="" className="space-y-9 max-lg:pb-20">
@@ -363,7 +365,7 @@ export function BuildBody({
         </dl>
 
         {/* ── the fit line ── */}
-        <FitLine eventId={eventId} view={view} allFree={allFree} />
+        <FitLine view={view} allFree={allFree} />
       </section>
 
       {/* ── ALL BUILDS ─────────────────────────────────────────────────── */}
@@ -620,7 +622,7 @@ function Figure({
   );
 }
 
-function FitLine({ eventId, view, allFree }: { eventId: string; view: BuildView; allFree: boolean }) {
+function FitLine({ view, allFree }: { view: BuildView; allFree: boolean }) {
   const { fit, dateLabel } = view;
   const hasDay = dateLabel != null;
   return (
@@ -639,6 +641,12 @@ function FitLine({ eventId, view, allFree }: { eventId: string; view: BuildView;
           <>
             <Count value={fit.free} id="sup-build-free" /> of <Count value={fit.priced} id="sup-build-priced" /> priced picks are free on{' '}
             {dateLabel}
+            {fit.notSet > 0 ? (
+              <span className="text-ink/55" data-build-fit-not-set="">
+                {' '}
+                · <Count value={fit.notSet} id="sup-build-not-set" /> {CALENDAR_NOT_SET.toLowerCase()}
+              </span>
+            ) : null}
             {fit.unread > 0 ? (
               <span className="text-ink/55">
                 {' '}
@@ -648,12 +656,14 @@ function FitLine({ eventId, view, allFree }: { eventId: string; view: BuildView;
           </>
         )}
       </span>
+      {/* PR5: opens the date sheet ON this page — on Help me choose when a day is set (owner 2026-10-10 answer 8). */}
       <ActionButton
         tone="warn"
         icon={CalendarDays}
         label={hasDay ? 'Help me choose' : 'Set the date'}
-        href={recordFieldHref(eventId, 'date')}
-        prefetch={false}
+        aria-haspopup="dialog"
+        onClick={() => openSuppliersFactSheet('date', hasDay)}
+        data-testid="build-fit-date"
       />
     </div>
   );

@@ -15,9 +15,10 @@
  *   T5  Expand all opens every category and a header tap folds just that one;
  *   T6  ＋ Add your own opens the form for the ONE open category, otherwise it
  *       asks which first — one dropdown of only the categories on the event;
- *   T7  an open category's header pins; the pinned category is the scope of
- *       the words, the search and Add; a pinned header's first tap goes back
- *       to its first card and a tap at its top folds it (rule 6).
+ *   T7  an open category's header pins; the ONE open category is the scope of
+ *       the words, the search and Add (2026-10-13 — the moment it opens; Expand
+ *       all = everything); a pinned header's first tap goes back to its first
+ *       card and a tap at its top folds it (rule 6). One Add on Find.
  *
  * Source assertions, comments stripped: the row is a portal over
  * `document.body` and this runner has no DOM. The open rule itself is EXECUTED
@@ -178,13 +179,16 @@ test('T5 · Expand all opens every category; a header tap then folds just that o
 test('T6 · Add opens the form for the ONE open category — otherwise it asks which, first', () => {
   const add = BENCH.slice(BENCH.indexOf("function addYourOwn(typed = '')"), BENCH.indexOf('function openPlan('));
   assert.ok(add.length > 0, 'addYourOwn moved — re-anchor');
-  // The pinned category first; else the one open category.
-  assert.match(add, /const open = scopeRow \?\? \(!openAll && !searching && openTile \? benchRows\.find\(\(r\) => r\.t\.tile === openTile\) : null\);/);
+  // The scope IS the one open category (2026-10-13) — Add goes there; with none, it asks.
   // …carrying the name typed in the box (2026-10-10).
   assert.match(
     add,
-    /if \(open\) setManual\(\{ category: open\.t\.category, label: open\.t\.label, name: typedForAdd\.current \}\);\s*else setAddAsk\(true\);/,
+    /if \(scopeRow\) setManual\(\{ category: scopeRow\.t\.category, label: scopeRow\.t\.label, name: typedForAdd\.current \}\);\s*else setAddAsk\(true\);/,
   );
+  // ONE add on Find (owner 2026-10-13): the thumb row's ＋ — no category draws its own "Add your own".
+  assert.doesNotMatch(BENCH, /\{replan && rowBooked \? \(\s*<div className="morefoot">/, 'a booked category grew its own Add again');
+  assert.doesNotMatch(BENCH, /onAdd\?: \(\) => void;/, 'More to compare grew its own Add again');
+  assert.equal((BENCH.match(/label="Add your own"/g) ?? []).length, 0, 'a second "Add your own" inside a category');
   // The shipped form — never a second one: the record (edit) and the pre-replan
   // first add. The one-screen first add is the four-step walk, mounted once.
   assert.equal((BENCH.match(/<NewManualVendorModal\b/g) ?? []).length, 2, 'a third manual-supplier form');
@@ -218,18 +222,17 @@ test('T7 · an open category’s header pins under the shell’s block, and the 
   assert.match(BENCH, /html\.dark \.slcat \.fold\.flat \.cat\.open>\.cat-head-row\{background:#17160F\}/);
 });
 
-test('T7 · the scope is the PINNED category: the words, the search and Add follow it', () => {
-  // Read off the page a beat after the scroll settles — the stuck header.
-  const read = BENCH.slice(BENCH.indexOf('const read = () => {'), BENCH.indexOf('const onScroll = () => {'));
-  assert.match(read, /querySelectorAll<HTMLElement>\('\.cat\.open\[data-tile\]'\)/);
-  assert.match(read, /if \(Math\.abs\(hd\.top - line\) < 3 && row\.getBoundingClientRect\(\)\.bottom > line \+ hd\.height\) \{/);
-  assert.match(read, /setScopeTile\(\(cur\) => \(cur === pinned \? cur : pinned\)\);/);
-  assert.match(BENCH, /timer = window\.setTimeout\(read, 80\);/);
-  assert.match(BENCH, /data-tile=\{t\.tile\}/);
-  // With a category pinned the box searches THAT category; with none, everything.
-  assert.match(BENCH, /const scopeRow = replan && scopeTile \? \(benchRows\.find\(\(r\) => r\.t\.tile === scopeTile\) \?\? null\) : null;/);
+test('T7 · the scope is the ONE OPEN category the moment it opens: the words, the search and Add follow it', () => {
+  // Owner 2026-10-13: "whatever category is picked, that is where we add manually and search" — the open row, not
+  // only once its header has pinned (his picture: Reception open, the box still "Search all suppliers").
+  assert.match(BENCH, /const scopeTile = replan \? thumbScopeTile\(\{ openTile, openAll \}\) : null;/);
+  assert.doesNotMatch(BENCH, /setScopeTile|useState<string \| null>\(null\);\s*const benchRef/, 'the scope went back to a scroll read');
+  assert.match(BENCH, /const scopeRow = scopeTile \? \(benchRows\.find\(\(r\) => r\.t\.tile === scopeTile\) \?\? null\) : null;/);
   assert.match(BENCH, /const searching = q\.length > 0 && !scopeRow;/);
   assert.match(BENCH, /scopedQ && scopeTile === t\.tile\s*\? t\.vendors\.filter\(\(v\) => v\.name\.toLowerCase\(\)\.includes\(scopedQ\)\)\s*: t\.vendors;/);
+  // More to compare searches that category too.
+  assert.match(BENCH, /query=\{scopeTile === t\.tile \? scopedQ : ''\}/);
+  assert.match(BENCH, /data-tile=\{t\.tile\}/);
   // No hit there is said, in the prototype's words — never an empty category.
   assert.match(BENCH, /Nobody called “\{query\.trim\(\)\}” in \{t\.label\} yet — add them as your own\./);
 });

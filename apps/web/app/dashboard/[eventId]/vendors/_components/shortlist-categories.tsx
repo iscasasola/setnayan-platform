@@ -71,6 +71,7 @@ import {
   X,
 } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
+import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
 import { formatPhp } from '@/lib/orders';
 import {
   UNREAD_UNKNOWN,
@@ -121,7 +122,7 @@ import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
 import { FindThumbRow } from './find-thumb-row';
-import { categoryRowState, isCategoryOpen, ringCoveredCount } from '@/lib/suppliers-shell';
+import { categoryRowState, isCategoryOpen, ringCoveredCount, thumbScopeTile } from '@/lib/suppliers-shell';
 import { Count } from '@/components/count';
 import { ActionButton } from '@/components/action-button';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
@@ -610,6 +611,7 @@ html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
 .slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .slcat .vc .fit.warn{color:#6F5A2E;background:rgba(169,131,75,.16)}
+.slcat .vc .fit.muted{color:rgb(var(--color-ink) / .7);background:rgb(var(--color-ink) / .06)}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
@@ -1794,7 +1796,14 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
             icon: <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />,
             text: 'Booked that day',
           }
-        : null;
+        : v.dateFit === 'not_set'
+          ? {
+              // P5 calendar truth: their calendar is not set — said, never "Free" (`lib/calendar-truth.ts`).
+              cls: 'muted',
+              icon: <CalendarDays size={9} strokeWidth={2.25} aria-hidden />,
+              text: DATE_FIT_WORDS.not_set,
+            }
+          : null;
   // SOFT schedule convergence (PR-G1). Amber, never red: the vendor is fine —
   // it is the couple's own build that has narrowed past them, and un-narrowing
   // it is one tap away. The badge NAMES the clashing candidate so that tap is
@@ -2084,7 +2093,6 @@ function MoreToCompare({
   probeDayKeys,
   sortMenu,
   onSeeAll,
-  onAdd,
 }: {
   eventId: string;
   tile: string;
@@ -2104,8 +2112,6 @@ function MoreToCompare({
   sortMenu: ReactNode;
   /** Opens the full sheet — still the only place with filters and facets. */
   onSeeAll: () => void;
-  /** An empty list's first action (§ 9 kind 16): add someone the couple knows. */
-  onAdd?: () => void;
 }) {
   const router = useRouter();
   const sheetDoor = useContext(SheetDoorCtx);
@@ -2428,12 +2434,9 @@ function MoreToCompare({
       ) : shown === 0 ? (
         moreError ? null : (
           <div className="mrnote" role="status">
+            {/* Its first action is the thumb row's ＋ — it adds in THIS category while it is open (owner 2026-10-13:
+                ONE add on Find). */}
             <span>{moreToCompareEmpty(label, moreQ)}</span>
-            {onAdd ? (
-              <span className="mrfirst">
-                <ActionButton tone="brand" icon={Plus} label="Add your own" onClick={onAdd} />
-              </span>
-            ) : null}
           </div>
         )
       ) : (
@@ -2729,10 +2732,6 @@ export function ShortlistCategories({
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   // "＋ Add your own" with no category open asks which one FIRST.
   const [addAsk, setAddAsk] = useState(false);
-  // THE SCOPE (owner 2026-10-07 late: *"which ever is pinned is where we
-  // search?"* — yes): the open category whose header is stuck under the pinned
-  // block. The thumb row's words, its search and its Add follow it.
-  const [scopeTile, setScopeTile] = useState<string | null>(null);
   const benchRef = useRef<HTMLDivElement>(null);
   // `name` = what was typed in the thumb row's box when ＋ was pressed.
   const [manual, setManual] = useState<{ category: string; label: string; name?: string } | null>(null);
@@ -3306,36 +3305,6 @@ export function ShortlistCategories({
     const el = benchRef.current;
     return el ? parseFloat(getComputedStyle(el).getPropertyValue('--stick-h')) || 0 : 0;
   }
-  // Which open category is pinned right now — read a beat after the scroll
-  // settles (the prototype's 80 ms), so the words do not flicker mid-fling.
-  useEffect(() => {
-    if (!replan) return;
-    let timer = 0;
-    const read = () => {
-      const line = stickLine();
-      let pinned: string | null = null;
-      for (const row of benchRef.current?.querySelectorAll<HTMLElement>('.cat.open[data-tile]') ?? []) {
-        const head = row.querySelector<HTMLElement>(':scope > .cat-head-row');
-        if (!head) continue;
-        const hd = head.getBoundingClientRect();
-        if (Math.abs(hd.top - line) < 3 && row.getBoundingClientRect().bottom > line + hd.height) {
-          pinned = row.dataset.tile ?? null;
-          break;
-        }
-      }
-      setScopeTile((cur) => (cur === pinned ? cur : pinned));
-    };
-    const onScroll = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(read, 80);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('scroll', onScroll);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replan]);
   /**
    * A tap on a row's header (BUTTON_RULE rule 6): scrolled INTO the category —
    * its header pinned, its first card above the line — the first tap goes back
@@ -3408,8 +3377,7 @@ export function ShortlistCategories({
     // The name typed in the box rides into the walk's first step (the
     // prototype: "type a name in the box first, then ＋").
     typedForAdd.current = typed.trim();
-    const open = scopeRow ?? (!openAll && !searching && openTile ? benchRows.find((r) => r.t.tile === openTile) : null);
-    if (open) setManual({ category: open.t.category, label: open.t.label, name: typedForAdd.current });
+    if (scopeRow) setManual({ category: scopeRow.t.category, label: scopeRow.t.label, name: typedForAdd.current });
     else setAddAsk(true);
   }
 
@@ -3472,7 +3440,12 @@ export function ShortlistCategories({
   const q = query.trim().toLowerCase();
   // With a category pinned the box searches THAT category (its cards below);
   // with none it searches everything and the rows with a hit unfold.
-  const scopeRow = replan && scopeTile ? (benchRows.find((r) => r.t.tile === scopeTile) ?? null) : null;
+  // THE SCOPE (owner 2026-10-07: *"apply this rule to the suppliers as well but just the search and add depending on
+  // the category they are in"*; 2026-10-13: *"whatever category is picked, that is where we add manually and
+  // search"*): the ONE open category — the moment it opens, not only once its header has pinned. Expand all is no one
+  // category, so it searches everything (`thumbScopeTile`, executed in `lib/suppliers-shell.test.ts`).
+  const scopeTile = replan ? thumbScopeTile({ openTile, openAll }) : null;
+  const scopeRow = scopeTile ? (benchRows.find((r) => r.t.tile === scopeTile) ?? null) : null;
   const searching = q.length > 0 && !scopeRow;
   const scopedQ = scopeRow ? q : '';
   const visibleFolders = searching
@@ -4316,22 +4289,10 @@ export function ShortlistCategories({
                               probeDayKeys={probeDayKeys}
                               sortMenu={sortMenu}
                               onSeeAll={() => openSearch(t.tile, t.label)}
-                              onAdd={() => setManual({ category: t.category, label: t.label })}
                             />
                           ) : null}
-                          {/* A booked category shows no list, so its own way
-                              to add someone the couple already knows sits at
-                              its foot (the prototype's booked row). */}
-                          {replan && rowBooked ? (
-                            <div className="morefoot">
-                              <ActionButton
-                                tone="brand"
-                                icon={Plus}
-                                label="Add your own"
-                                onClick={() => setManual({ category: t.category, label: t.label })}
-                              />
-                            </div>
-                          ) : null}
+                          {/* No add of its own here (owner 2026-10-13: ONE add — the thumb row's ＋, which adds in
+                              THIS category while it is the open one). */}
                           {/* "Not needed? Remove" (PR-C · decision #6). Quiet,
                               at the foot of an OPEN category, and absent
                               entirely when the category holds a locked vendor —

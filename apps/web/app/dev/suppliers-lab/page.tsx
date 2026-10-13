@@ -40,6 +40,16 @@
  *   &booked=0           nobody asked, nobody booked
  *   &seed=proto|asked   only the prototype's own rows (for a side-by-side)
  *
+ * THE DATE AND PLACE SHEETS (PR5 — `fact-sheet-fixtures.ts`; press the date or the place on the line):
+ *   ?sheet=date|help|place   open one on load (help = the date sheet on Help me choose)
+ *   &help=none|unread|nomonth  no Saturday fits every priced pick · the calendars fail · no month yet
+ *   &cal=notset         Hiraya and Lumina never set a calendar — the card says "Calendar not set", Help me choose "confirm"
+ *   &change=1           a date change is asked of Seda (the line says "· change asked")
+ *   &drafted=1          the date waits in the Event Hub draft (the line says "in your draft")
+ *   &venues=none        nobody booked: the place sheet types its own venue (name + pin)
+ *   &factfail=read|write  the sheet's one read fails · its writes are refused
+ *   (picking Sat, Dec 5 is refused by the draft door: Seda is booked that day — the shipped clash note)
+ *
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
  * behind that flag, and a client bundle reads it at build time.
  */
@@ -67,6 +77,9 @@ import { LabBookedStandIns } from './lab-booked';
 import { labBookedBudget, labBookedMoney, labBookedView, type LabBookedOptions } from './booked-fixtures';
 import { BookedBudgetSection } from '@/app/dashboard/[eventId]/vendors/_components/booked-budget';
 import { moneyStageOf } from './money-pair';
+import { LabFactSheets } from './lab-fact-sheets';
+import type { LabFactOptions } from './fact-sheet-fixtures';
+import type { DateFit } from '@/lib/calendar-truth';
 
 export default async function SuppliersLabPage({
   searchParams,
@@ -80,9 +93,24 @@ export default async function SuppliersLabPage({
   const rows = empty ? [] : one('added') === '1' ? [...LAB_ROWS, LAB_ADDED_ROW] : LAB_ROWS;
   const claimQrSvg = await renderUrlQrSvg(LAB_CLAIM_URL);
 
+  const factOptions: LabFactOptions = {
+    help: one('help') === 'none' || one('help') === 'unread' || one('help') === 'nomonth' ? (one('help') as 'none' | 'unread' | 'nomonth') : 'ok',
+    notSet: one('cal') === 'notset',
+    change: one('change') === '1',
+    drafted: one('drafted') === '1',
+    venues: one('venues') === 'none' ? 'none' : 'booked',
+  };
+  const sheetParam = one('sheet');
   const folders = buildShortlistFolders({
     vendorRows: rows,
     enrichmentByVendorId: LAB_ENRICHMENT,
+    // P5 calendar truth on the bench card: Bituin booked that day, Hiraya free — or "Calendar not set" (&cal=notset).
+    dateFitByVendorId: new Map<string, DateFit>([
+      ['v-bituin', 'booked'],
+      ['v-hiraya', factOptions.notSet ? 'not_set' : 'free'],
+      ['v-lola', 'free'],
+      ['v-lumina', factOptions.notSet ? 'not_set' : 'free'],
+    ]),
     eventType: 'wedding',
     faithSet: new Set(),
     eventId: LAB_EVENT,
@@ -133,10 +161,26 @@ export default async function SuppliersLabPage({
           eventId={LAB_EVENT}
           initialTab={one('mode') === 'booked' ? 'budget' : one('tab') === 'build' ? 'build' : one('tab') === 'budget' ? 'budget' : 'shortlist'}
           factsSlot={
-            <DatePlaceLine
-              eventId={LAB_EVENT}
-              facts={{ date: { text: 'Sat, Dec 12, 2026', open: false }, place: { text: 'Pick the place', open: true } }}
-            />
+            <LabFactSheets
+              options={factOptions}
+              open={sheetParam === 'date' || sheetParam === 'help' || sheetParam === 'place' ? sheetParam : null}
+              readFail={one('factfail') === 'read'}
+              writeFail={one('factfail') === 'write'}
+            >
+              <DatePlaceLine
+                eventId={LAB_EVENT}
+                facts={{
+                  date: { text: factOptions.drafted ? 'Sat, Dec 19, 2026' : 'Sat, Dec 12, 2026', open: false },
+                  place:
+                    factOptions.venues === 'booked'
+                      ? { text: 'Seda Vertis North, Quezon City', open: false }
+                      : { text: 'Quezon City', open: true },
+                }}
+                drafted={factOptions.drafted}
+                changeAsked={factOptions.change}
+                priced={['v-seda', 'v-bituin', 'v-lumina']}
+              />
+            </LabFactSheets>
           }
           bookedCount={booked}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}

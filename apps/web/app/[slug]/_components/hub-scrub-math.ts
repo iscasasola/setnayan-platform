@@ -25,6 +25,17 @@
  *   page arrives at the usual centred line — for a cover that fills the first screen, the cover's own middle — never
  *   above the cover's top or the top of the room. A cover that does not fit below where it stands (taller than the
  *   screen) is scrolled through like anything else: the ordinary rule above, untouched.
+ *
+ *   📐 …AND A COVER FITTED TO ITS FIRST SCREEN STANDS (owner 2026-10-12, DECISION_LOG "option 2": *"yes"*). Held by
+ *   the ordinary rule, a cover taller than the screen — most iPhones, with Safari's bars — had its bottom on the centre
+ *   line and the couple's NAMES under the pinned top bar while it faded. So before it is held the cover is fitted once
+ *   by the page's own first-screen fit (`_lib/first-screen-fit.ts`: air, then the mark, then whole parts below the
+ *   line; the names never), and what has to be seen from where it stands is what the fit keeps on the first screen —
+ *   its names and its date (`seen`, from the cover's top) — not every part of it: what the fit let go below the line
+ *   fades with the rest. A cover whose names and date do not fit from there is scrolled through, as before.
+ *   🚪 AND WHAT STAYS UNDER IT (the same day: *"Get inside"* stays on the stranger's first screen): a door already on
+ *   the first screen is not handed over — it stays where it stands, and what arrives in the cover's place ends above
+ *   it (`stay`: the line, on the screen, the arrival's bottom may reach), never on it.
  */
 
 export const SCRUB = {
@@ -75,15 +86,24 @@ export type ScrubPair = {
  * One hand-over's geometry. `centre`: the centre line, from the top of the screen. `topLine`: the top of the room an
  * element can be seen in (under the page's own bar). `room`: the most that can be held whole.
  */
-export function scrubPair(leaving: ScrubElement, arrival: ScrubElement, v: { centre: number; topLine: number; room: number; lens: ScrubLens }, stands?: number): ScrubPair {
+export function scrubPair(
+  leaving: ScrubElement,
+  arrival: ScrubElement,
+  v: { centre: number; topLine: number; room: number; lens: ScrubLens },
+  stands?: number,
+  /** 📐 The cover only: how much of it must be seen from where it stands (its names and date, from its top) · the line the arrival ends above (what stays under it). */
+  keep: { seen?: number; stay?: number } = {},
+): ScrubPair {
   const len = Math.max(v.lens.out, v.lens.enter + v.lens.in, arrival.oneByOne ? v.lens.out + v.lens.in / 2 : 0);
   /* 🎬 THE COVER — held where it stands when the page opens, if all of it can be seen from there (`stands`: its top on
      the screen at scroll 0; the screen is twice the centre line, less the same breath as the room). */
-  if (stands !== undefined && scrubCoverStands(leaving, stands, v.centre)) {
+  if (stands !== undefined && scrubCoverStands(leaving, stands, v.centre, keep.seen)) {
     const bottom = stands + leaving.h;
     /* The arrival at the usual line — centred, or (a list, anything taller than the room) with its bottom on it —
-       but never above the cover's own top, nor above the top of the room. */
-    const arrivalTop = Math.max(stands, v.topLine, v.centre - (scrubThrough(arrival, v.room) ? arrival.h : arrival.h / 2));
+       but never above the cover's own top, nor above the top of the room… */
+    const usual = v.centre - (scrubThrough(arrival, v.room) ? arrival.h : arrival.h / 2);
+    /* …and, over a door that stays, ending above it: higher than the usual line if it must, never above that floor. */
+    const arrivalTop = Math.max(stands, v.topLine, keep.stay === undefined ? usual : Math.min(usual, keep.stay - arrival.h));
     return { top: stands, len, up: arrivalTop - bottom, rise: Math.max(0, bottom - (arrivalTop + arrival.h)), arrivalTop };
   }
   const through = scrubThrough(leaving, v.room);
@@ -101,9 +121,10 @@ export function scrubPair(leaving: ScrubElement, arrival: ScrubElement, v: { cen
   return { top, len, up: arrivalTop - bottom, rise: Math.max(0, bottom - (arrivalTop + arrival.h)), arrivalTop };
 }
 
-/** Is the cover held where it stands? Yes when all of it is on the screen from there — else it is scrolled through. */
-export function scrubCoverStands(cover: ScrubElement, stands: number, centre: number): boolean {
-  return !cover.oneByOne && stands >= 0 && stands + cover.h <= centre * 2 - 24;
+/** Is the cover held where it stands? Yes when all of it — or, fitted, what must be seen of it (`seen`: its names and
+ *  date, from its top) — is on the screen from there; else it is scrolled through. */
+export function scrubCoverStands(cover: ScrubElement, stands: number, centre: number, seen: number = cover.h): boolean {
+  return !cover.oneByOne && stands >= 0 && stands + Math.min(seen, cover.h) <= centre * 2 - 24;
 }
 
 /** Is the arrival already where IT will be held when this hand-over ends? Then its own hand-over needs a rest first. */

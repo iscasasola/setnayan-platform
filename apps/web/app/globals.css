@@ -3415,6 +3415,13 @@ html.dark {
     position: relative;
     top: var(--fs-shift, 0px);
   }
+  /* 📷 A PHOTO cover's first screen (owner 2026-10-13): the box that holds both the cover and the door carries its own
+     mark — the card's mark also closes up a first screen's margin, which a photo page has none of — and only the
+     blocks that move are drawn from their place (the photo below "Get inside", the door up under the date). */
+  [data-first-screen-photo] [data-fs-shift] {
+    position: relative;
+    top: var(--fs-shift, 0px);
+  }
 }
 
 /* ── Candlelight art direction (wave A PR-5b, design spec §4) ────────────────
@@ -8623,6 +8630,14 @@ html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
      later groups (`hub-scrub-engine.ts` `followers`), so the rise is said on that stage and read from there.
      The cover's cell also carries the page's top line, for a page whose cover is its only Scrub. */
   .hub-page-cell[data-hub-page-on] .hub-cover-cell { scroll-padding-top: var(--hub-pin); }
+  /* 📐 THE FOOT OF THE FIRST SCREEN (owner 2026-10-12, "option 2": the cover is fitted before it fades) — the bottom
+     bar's top, the line the cover's fit keeps the names and the date above. The door's own line (`--sn-door-rest`,
+     "THE FIRST SCREEN MAKES ROOM FOR ITS ONE ACTION": 4.75rem and the safe area; from `xl` the bar is a side rail), the
+     same two numbers, said here as a real length so the engine can read it back in pixels. Paints nothing. */
+  .hub-page-cell[data-hub-page-on] .hub-cover-cell { scroll-padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px)); }
+  @media (min-width: 1280px) {
+    .hub-page-cell[data-hub-page-on] .hub-cover-cell { scroll-padding-bottom: 1rem; }
+  }
   .hub-page-cell[data-hub-page-on] .hub-cover-after { display: flow-root; margin-top: var(--hub-up, 0px); }
   .hub-page-cell[data-hub-page-on] .hub-cover,
   .hub-page-cell[data-hub-page-on] [data-hub-zero] { opacity: var(--hub-o, 1); }

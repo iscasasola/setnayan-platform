@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 707 files · 1963 lines
+# 697 files · 1933 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -584,15 +584,12 @@
 1 apps/web/app/vendor-dashboard/_components/payments-paused-note.tsx
 1 apps/web/app/vendor-dashboard/_components/payout-method-nudge.tsx
 2 apps/web/app/vendor-dashboard/_components/pipeline-pressure-line.tsx
-2 apps/web/app/vendor-dashboard/_components/qr-section.tsx
 2 apps/web/app/vendor-dashboard/_components/tier-gate.tsx
 1 apps/web/app/vendor-dashboard/attributes/_components/attribute-field-renderer.tsx
 2 apps/web/app/vendor-dashboard/attributes/page.tsx
 3 apps/web/app/vendor-dashboard/booking-fees/[orderId]/page.tsx
 1 apps/web/app/vendor-dashboard/booking-fees/page.tsx
 1 apps/web/app/vendor-dashboard/bookings/surface.tsx
-2 apps/web/app/vendor-dashboard/calendar/[date]/page.tsx
-10 apps/web/app/vendor-dashboard/calendar/surface.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/_components/booking-money-summary.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx
@@ -609,21 +606,14 @@
 33 apps/web/app/vendor-dashboard/clients/[eventId]/page.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx
 3 apps/web/app/vendor-dashboard/clients/[eventId]/seat-plan/page.tsx
-2 apps/web/app/vendor-dashboard/clients/surface.tsx
 1 apps/web/app/vendor-dashboard/contracts/new/page.tsx
 2 apps/web/app/vendor-dashboard/creators/page.tsx
-3 apps/web/app/vendor-dashboard/customers/_components/customers-calendar.tsx
-3 apps/web/app/vendor-dashboard/customers/_components/customers-filter-bar.tsx
-1 apps/web/app/vendor-dashboard/customers/_components/customers-roster.tsx
-1 apps/web/app/vendor-dashboard/customers/page.tsx
 2 apps/web/app/vendor-dashboard/deep-search/_components/deep-search-runner.tsx
 1 apps/web/app/vendor-dashboard/deep-search/_components/dossier-view.tsx
 2 apps/web/app/vendor-dashboard/demand/_components/demand-radar-card.tsx
 3 apps/web/app/vendor-dashboard/disputes/page.tsx
 2 apps/web/app/vendor-dashboard/earnings/surface.tsx
 10 apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx
-4 apps/web/app/vendor-dashboard/invite/page.tsx
-2 apps/web/app/vendor-dashboard/locked-qr/page.tsx
 1 apps/web/app/vendor-dashboard/messages/_components/inquiry-outcomes-rollup.tsx
 2 apps/web/app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx

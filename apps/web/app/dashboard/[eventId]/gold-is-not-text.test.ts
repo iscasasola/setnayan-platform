@@ -118,9 +118,6 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   ['vendors/[vendorId]/workspace/page.tsx', 6],
   ['vendors/_components/build-compare.tsx', 2],
   ['vendors/_components/build-locked.tsx', 1],
-  // 2026-10-12 look sweep: the door's arrow moved to the one accent (sn-accent);
-  // the Wallet section ICON is the one bare gold left.
-  ['vendors/_components/merkado-budget-lens.tsx', 1],
   ['vendors/_components/merkado-guard-banner.tsx', 1],
   ['vendors/_components/pending-lock-proposals.tsx', 1],
   ['vendors/_components/quote-fill.tsx', 1],

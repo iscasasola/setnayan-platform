@@ -188,10 +188,8 @@ test('one rendering per fact: the shared words and the shared reads', () => {
     assert.match(src, /RSVP_ROW_WORDS/, `${file} must take the roster's RSVP words from lib/guests`);
     assert.doesNotMatch(src, /['"`]No reply['"`]/, `${file} spells "No reply" itself`);
   }
-  // The Paid / Still owing read has one copy.
-  const lens = code('app/dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx');
-  assert.match(lens, /readBudgetLiveSummary\(/);
-  assert.doesNotMatch(lens, /resolveEventMoney|buildBudgetLiveSummary|fetchBudgetSnapshot/, 'the lens re-derives the money');
+  // The Paid / Still owing read has one copy. (The Suppliers lens that also read
+  // it was retired 2026-10-13 — Booked draws the B4 block over the one resolver.)
   const home = code('app/dashboard/[eventId]/page.tsx');
   assert.match(home, /readBudgetLiveSummary\(/);
   // The customers' queue no longer restates days to go (the roster does).

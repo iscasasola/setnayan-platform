@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "45358131a",
+  "generatedFromRef": "bbb49d5e5",
   "routeCount": 435,
   "destinations": 959,
   "actions": 674,
@@ -9022,7 +9022,6 @@
         "dashboard/[eventId]/vendors/_components/find-thumb-row.tsx",
         "dashboard/[eventId]/vendors/_components/go-to-find.tsx",
         "dashboard/[eventId]/vendors/_components/lock-milestone.tsx",
-        "dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx",
         "dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx",
         "dashboard/[eventId]/vendors/_components/pay-sheet.tsx",
         "dashboard/[eventId]/vendors/_components/pending-lock-proposals.tsx",

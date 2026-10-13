@@ -19,6 +19,8 @@ The couple's Suppliers page, step 4, stacked on step 3 (#6505), carrying the thr
 
 **Not here, on purpose:** fee logic (created at the yes on `rd/booking-fee-rules`); no word of the fee reaches a couple (guarded). Setnayan pays no money back (2026-10-08): the row's verb says "Dispute", not "Request refund".
 
+**Orphans left by the drafts, settled (ugat-both-ends):** `BudgetAllocationPlanner` (unmounted by B2 — owner: *"not this one"*) and `MerkadoBudgetLens` (replaced by the B4 block) are deleted with their guard rows; the share-my-budget switch (`ShareBudgetBandToggle`, unmounted by B2 to wait for B4's ⋯ menu) is mounted again at the foot of the Budget page, couple-only, so the opt-in keeps a door. The supplier's answer actions read `return_to` themselves (`a-decision-reply-posts-what-the-action-reads` marks it optional for the thread's own forms).
+
 **Shared pieces:** `lib/price-summary.ts` + `app/_components/price-summary.tsx` (kind 26, one fold, two viewers) · `lib/booked-budget.ts` (the B4 block) · labs `/dev/suppliers-lab?mode=booked&money=due|waiting|received|refused` and `/dev/customer-money-lab?s=…` over ONE fixture (`app/dev/suppliers-lab/money-pair.ts`).
 
 **Guards:** `lib/price-summary.test.ts` (8) · `lib/booked-budget.test.ts` (6, rewritten for B4) · `lib/booked-rows.test.ts` · `lib/pay-sheet.test.ts` · `app/dev/customer-money-lab/the-lab-never-ships.test.ts` · re-pointed `your-team-phone-first`, `pillar-parts`.

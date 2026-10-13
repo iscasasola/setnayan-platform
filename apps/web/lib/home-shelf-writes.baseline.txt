@@ -103,6 +103,7 @@ waits	orders	app/vendor-dashboard/subscription/photo-challenge-actions.ts	2
 waits	orders	app/vendor-dashboard/team/actions.ts	1
 waits	orders	lib/booking-fee-lock.server.ts	2
 waits	orders	lib/onboarding-services-orders.ts	1
+waits	orders	lib/one-press-one-order.ts	1
 waits	orders	lib/subscriptions.ts	1
 waits	users	app/open-shop/actions.ts	1
 waits	users	app/vendor-dashboard/actions.ts	1

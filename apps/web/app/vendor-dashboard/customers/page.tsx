@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import { FileSignature, FileText, MessageSquare, SlidersHorizontal } from 'lucide-react';
+import { FileSignature, FileText, MessageSquare } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -8,14 +8,17 @@ import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { formatPhp } from '@/lib/orders';
 import { fetchVendorThreadsDetailed } from '@/lib/chat';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
-import { askingDates } from '@/lib/vendor-inquiry-dates';
-import { readClaimedRecordEventsStillAsking } from '@/lib/claimed-records-asking.server';
 import {
   fetchVendorBlocksDetailed,
   fetchVendorDayStates,
   fetchVendorPoolBookings,
   fetchVendorPools,
+  fetchVendorServicesForPicker,
 } from '@/lib/vendor-schedule';
+import { asksByDate, daySheetHref, openAsksOf, rangeWords, type DatesAsk } from '@/lib/vendor-dates';
+import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
+import { vendorAllowance } from '@/lib/vendor-feature-gate';
+import { asVendorTier, entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
@@ -23,7 +26,6 @@ import {
   enrichTeamWithUsers,
   fetchAgentServiceAssignments,
 } from '@/lib/vendor-team';
-import { tierCaps } from '@/lib/vendor-tier-caps';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -49,21 +51,33 @@ import { MiniTour } from '@/app/_components/mini-tour';
 import { SearchBox } from '@/app/_components/search-box';
 import { rosterView } from './roster-view';
 import { CustomersCalendar } from './_components/customers-calendar';
-import type { FilterOption } from './_components/customers-filter-bar';
+import { DatesFolds } from './_components/dates-folds';
+import { BlockDateAdd } from './_components/dates-sheets';
+import { DaySheet, type DaySheetData } from './_components/day-sheet';
 import { customersSegmentOf, foldsOf } from './segments';
 import { CustomersSegments } from './_components/customers-segments';
-import { VendorQrSection } from '../_components/qr-section';
 import { keepParamsFrom } from '../_components/list-pager';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { SupplierToast, type SupplierOutcomeTone } from '../_components/supplier-toast';
-import { importExternalClient, removeBlock } from '../calendar/actions';
+import {
+  addManualBlock,
+  createCalendar,
+  editCalendar,
+  importExternalClient,
+  notifyWaitlistSlot,
+  pickWaitlistCouple,
+  reassignCategoryPool,
+  removeBlock,
+  setCalendarDayState,
+  updatePoolCapacity,
+  updateWaitlistSettings,
+} from '../calendar/actions';
 import {
   FeatureAccordion,
   AccordionSkeleton,
   type AccordionSection,
 } from '../_components/feature-accordion';
 import BookingsSurface from '../bookings/surface';
-import CalendarSurface from '../calendar/surface';
 import PaydaySurface from '../payday/surface';
 import MessagesSurface from '../messages/surface';
 import ContractsSurface from '../contracts/surface';
@@ -115,6 +129,8 @@ type Props = {
     add?: string;
     open?: string;
     tab?: string;
+    /** Dates › one day (frame 35). */
+    day?: string;
   }>;
 };
 
@@ -598,7 +614,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
           action={importExternalClient}
           startOpen={search.add === 'outside'}
           today={todayIso}
-          setupHref="/vendor-dashboard/customers?seg=dates&open=availability#customer-tools"
+          setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
         />
       </SupplierThumbRow>
     </>
@@ -632,7 +648,73 @@ function moneyNote(
   return { text: 'Settled', tone: 'ok' };
 }
 
-/* ═══ DATES (S-PR3 redraws; moved here unchanged) ══════════════════════════ */
+/* ═══ DATES (S-PR3) ═══════════════════════════════════════════════════════ */
+
+/** Every calendar action's outcome, said once by the toast and kept as the status line (`?notice=`). */
+const DATES_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }> = {
+  block_added: { tone: 'ok', text: 'Blocked. Couples see only “unavailable”.' },
+  block_removed: { tone: 'ok', text: 'Open again — bookable on Setnayan.' },
+  client_imported: { tone: 'ok', text: 'Outside client added — free. They hold that date on your calendar now.' },
+  capacity_saved: { tone: 'ok', text: 'Events a day saved.' },
+  capacity_clamped: { tone: 'note', text: 'Saved at the most events a day your plan takes.' },
+  pool_saved: { tone: 'ok', text: 'Saved — those services share that calendar now.' },
+  waitlist_notified: { tone: 'ok', text: 'Told them — the couples waiting know the date is open.' },
+  waitlist_settings_saved: { tone: 'ok', text: 'Waitlist saved.' },
+  waitlist_picked: { tone: 'ok', text: 'Picked — they hold their place for that date.' },
+  waitlist_full: { tone: 'note', text: 'That date’s waiting list is full. Raise how many a date to pick more.' },
+  waitlist_not_in_plan: { tone: 'note', text: 'A waiting list comes with the paid plans. Nothing changed.' },
+  waitlist_none: { tone: 'note', text: 'No one is waiting on that date yet.' },
+  day_state_saved: { tone: 'ok', text: 'Day updated. Couples see only “unavailable”.' },
+  day_state_cleared: { tone: 'ok', text: 'Day reopened — it’s bookable again.' },
+  calendar_created: { tone: 'ok', text: 'Calendar made.' },
+  calendar_saved: { tone: 'ok', text: 'Calendar saved.' },
+  bad_dates: { tone: 'bad', text: 'Those dates don’t work. Check the first and last day.', retry: true },
+  bad_name: { tone: 'bad', text: 'It needs a name. Nothing was saved.', retry: true },
+  bad_pool: { tone: 'bad', text: 'Pick which calendar it belongs to. Nothing was saved.', retry: true },
+  bad_capacity: { tone: 'bad', text: 'Events a day must be 1 or more. Nothing was saved.', retry: true },
+  save_failed: { tone: 'bad', text: 'That did not go through. Nothing changed — please try again.', retry: true },
+};
+
+/** The calendar actions every Dates view hands to its rows (this page names them once). */
+const DATES_ACTIONS = {
+  removeBlock,
+  updateWaitlistSettings,
+  pickWaitlistCouple,
+  notifyWaitlistSlot,
+  updatePoolCapacity,
+  createCalendar,
+  editCalendar,
+  reassignCategoryPool,
+};
+
+/**
+ * The shop's open conversations about unbooked, dated events — "Holding" (amber). The thread's own `event` embed is
+ * always null for a supplier, so the dates come from ONE admin `events` read scoped to this shop's own threads.
+ */
+async function readOpenAsks(
+  threads: { thread_id: string; event_id: string; inquiry_status: string | null; created_at: string }[],
+  bookedEventIds: ReadonlySet<string>,
+): Promise<{ asks: DatesAsk[]; measured: boolean }> {
+  const ids = [
+    ...new Set(
+      threads
+        .filter((t) => (t.inquiry_status === 'pending' || t.inquiry_status === 'accepted') && !bookedEventIds.has(t.event_id))
+        .map((t) => t.event_id),
+    ),
+  ];
+  if (ids.length === 0) return { asks: [], measured: true };
+  const { rows, error } = await readInChunks(ids, (part) =>
+    createAdminClient().from('events').select('event_id, display_name, event_date').in('event_id', part),
+  );
+  if (error) logQueryError('VendorCustomersPage.openAsks', error, {}, 'graceful_degrade');
+  const events = new Map(
+    ((rows ?? []) as { event_id: string; display_name: string | null; event_date: string | null }[]).map((e) => [
+      e.event_id,
+      { date: e.event_date, name: e.display_name },
+    ]),
+  );
+  return { asks: openAsksOf(threads, events, bookedEventIds), measured: !error };
+}
 
 async function CustomersDates({ search }: { search: Awaited<Props['searchParams']> }) {
   const supabase = await createClient();
@@ -647,114 +729,104 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
   const todayIso = manilaTodayIso();
   const thisMonth = todayIso.slice(0, 7);
   const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
+  const namedCalendars = process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
+  const notice = search.notice ? DATES_NOTICES[search.notice] : undefined;
+  const openFold = search.open === 'availability' ? 'capacity' : (search.open ?? null);
 
-  const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead, services, teamRows, tierProbe, claimedAsking] =
+  const [pools, bookings, blocksRead, dayStates, monthWaitlist, upcomingWaitlist, threadsRead, services, pickerServices, teamRows, settingsRead, pickedRead] =
     await Promise.all([
       fetchVendorPools(supabase, vendorProfileId),
-      // CAPACITY, not the room: the month counts these against each pool's seats.
-      // A booking with no pool cannot consume a pool seat.
+      // CAPACITY, not the room: the month counts these against each pool's seats (pool-grain, as
+      // `acquire_schedule_pools` enforces). A booking with no pool cannot consume a pool seat.
       fetchVendorPoolBookings(supabase, vendorProfileId),
-      // Paged to the server's count; `complete` drives a note over the calendar.
+      // Paged to the server's count; `complete` drives a note over the month and the Block days line.
       fetchVendorBlocksDetailed(supabase, vendorProfileId),
       fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
-      // Waitlist for the visible month (a past month returns nothing pending).
+      // The month's waiting list (its amber marks) and every date ahead (the Waitlist fold).
       fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
-      // The dates couples are ASKING about — a COUNT only (`askingDates`).
+      fetchVendorWaitlist(supabase, vendorProfileId, todayIso),
       fetchVendorThreadsDetailed(supabase, vendorProfileId),
       fetchVendorServices(supabase, vendorProfileId),
+      namedCalendars ? fetchVendorServicesForPicker(supabase, vendorProfileId) : Promise.resolve([]),
       fetchVendorTeam(supabase, vendorProfileId),
-      // tier_state is excluded from the profile select → isolated probe. Gates the Agent filter.
-      supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
-      // The couples whose own record names this shop and who are still waiting
-      // on its yes — the "asking" a hand-typed record shows on the calendar.
-      readClaimedRecordEventsStillAsking(createAdminClient(), vendorProfileId),
+      // ONE read for the plan and the waitlist settings (tier_state is excluded from the profile select).
+      supabase
+        .from('vendor_profiles')
+        .select('waitlist_enabled, max_waitlist_acceptances, tier_state')
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle(),
+      // The couples this shop already picked off a waiting list, per date ahead.
+      supabase
+        .from('vendor_date_waitlist')
+        .select('requested_date')
+        .eq('vendor_profile_id', vendorProfileId)
+        .gte('requested_date', todayIso)
+        .not('accepted_at', 'is', null),
     ]);
 
   const blocks = blocksRead.blocks;
   const blocksIncomplete = !blocksRead.complete;
 
-  // Agent filtering is a subscription feature — enabled only when the tier
-  // grants agent accounts (Pro+, agentAccounts > 0).
-  const tier = (tierProbe.data as { tier_state?: string } | null)?.tier_state ?? null;
+  // ⚠ THIS ROW CARRIES THEIR PLAN. Refused, nothing below may claim what the plan holds (the Waitlist fold says so).
+  if (settingsRead.error) logQueryError('VendorCustomersPage.waitlistSettings', settingsRead.error, { vendorProfileId }, 'graceful_degrade');
+  if (pickedRead.error) logQueryError('VendorCustomersPage.waitlistPicked', pickedRead.error, { vendorProfileId }, 'graceful_degrade');
+  const settings = (settingsRead.data ?? null) as { waitlist_enabled?: boolean; max_waitlist_acceptances?: number; tier_state?: string | null } | null;
+  const tier = settings?.tier_state ?? null;
+  // 💳 THE SWITCH. A 0 here is the paywall, asked through the same flag-aware allowance updateWaitlistSettings
+  // enforces — off, the entry plan's places. The EFFECTIVE cap (a Custom plan can buy the ceiling away).
+  const waitlistTierCap = vendorAllowance(
+    (await fetchEffectiveCaps(supabase, vendorProfileId, tier)).waitlistAcceptances,
+    entryTierAllowance('waitlistAcceptances'),
+  );
+  const unlimited = !Number.isFinite(waitlistTierCap);
+  const storedCap = Number(settings?.max_waitlist_acceptances) || 1;
+  const pickedByDate = new Map<string, number>();
+  for (const r of (pickedRead.data ?? []) as { requested_date: string }[]) {
+    pickedByDate.set(r.requested_date, (pickedByDate.get(r.requested_date) ?? 0) + 1);
+  }
+  // The plan's most events a day — the same clamp `updatePoolCapacity` applies (and the database's 50).
+  const slots = tierCaps(asVendorTier(tier)).slotsPerDay;
+  const ceiling = Math.min(Number.isFinite(slots) ? Math.max(1, slots) : 50, 50);
+
+  // Team (Pro+): one person's calendars in the month's dropdown — the services they are assigned narrow the pools.
   const agentsEnabled = tierCaps(tier).agentAccounts > 0;
   const agentCategories: Record<string, string[]> = {};
+  let agents: { value: string; label: string }[] = [];
   if (agentsEnabled && teamRows.length > 0) {
     try {
       const assignments = await fetchAgentServiceAssignments(supabase, vendorProfileId);
       const categoryByServiceId = new Map(services.map((s) => [s.vendor_service_id, s.category]));
       for (const [memberId, serviceIds] of Object.entries(assignments)) {
-        const cats = new Set<string>();
-        for (const sid of serviceIds) {
-          const cat = categoryByServiceId.get(sid);
-          if (cat) cats.add(cat);
-        }
-        agentCategories[memberId] = [...cats];
+        agentCategories[memberId] = [...new Set(serviceIds.map((sid) => categoryByServiceId.get(sid)).filter(Boolean) as string[])];
       }
+      const withUser = await enrichTeamWithUsers(createAdminClient(), teamRows);
+      agents = withUser.map((m) => ({ value: m.vendor_team_member_id, label: m.display_name?.trim() || m.team_label?.trim() || 'Team member' }));
     } catch {
-      // Fail-soft: no assignment map → agent options still render, but selecting
-      // one narrows to nothing rather than blocking the page.
+      // Fail-soft: the dropdown keeps the calendars; a person's work is simply not offered.
+      agents = [];
     }
   }
 
-  // The dates couples are ASKING about — derived from threads already read; a
-  // COUNT only: a pending enquiry is pre-accept, so no identity reaches the month.
-  //
-  // …PLUS a couple's HAND-TYPED RECORD (owner 2026-10-10): the supplier who
-  // joined through that couple's link has them as a customer already, and their
-  // date holds nothing until the supplier agrees — it reads "asking". Dropped
-  // once agreed, and never counted for a date this shop already holds a seat on.
-  if (claimedAsking.error) {
-    logQueryError(
-      'VendorCustomersPage.claimedRecordsAsking',
-      { message: claimedAsking.error },
-      { vendor_profile_id: vendorProfileId },
-      'graceful_degrade',
-    );
-  }
-  const heldEventIds = new Set(bookings.map((b) => b.eventId));
-  const inquiryDates = askingDates(
-    threadsRead.threads,
-    new Set([...claimedAsking.eventIds].filter((id) => !heldEventIds.has(id))),
-  );
+  // Holding (amber): open conversations about unbooked, dated events — a COUNT per date crosses to the browser.
+  const bookedEventIds = new Set(bookings.map((b) => b.eventId));
+  const { asks } = await readOpenAsks(threadsRead.threads, bookedEventIds);
 
-  // The event type of each booked event, for the calendar's Type filter (admin
-  // read: the vendor holds no `events` RLS).
-  const eventTypeByEvent = new Map<string, string | null>();
-  const bookedIds = [...new Set(bookings.map((b) => b.eventId))];
-  if (bookedIds.length > 0) {
-    const { rows: typeRows, error: typeError } = await readInChunks(bookedIds, (part) =>
-      createAdminClient().from('events').select('event_id, event_type').in('event_id', part),
-    );
-    if (typeError) logQueryError('VendorCustomersPage.calendarTypes', typeError, {}, 'graceful_degrade');
-    for (const e of (typeRows ?? []) as { event_id: string; event_type: string | null }[]) {
-      eventTypeByEvent.set(e.event_id, e.event_type);
-    }
-  }
-
-  const serviceOptions: FilterOption[] = [
-    ...new Map(services.map((s) => [s.category, { value: s.category, label: categoryLabel(s.category) } as FilterOption])).values(),
-  ];
-  const eventTypeOptions: FilterOption[] = (profile.event_types ?? []).map((t) => ({
-    value: t,
-    label: t.charAt(0).toUpperCase() + t.slice(1),
-  }));
-  // Agent labels need users.email/display_name (owner-only RLS) — the admin
-  // client. Fail-soft to the team labels so the filter never blocks the page.
-  let agentOptions: FilterOption[] = [];
-  if (teamRows.length > 0) {
-    try {
-      const teamWithUser = await enrichTeamWithUsers(createAdminClient(), teamRows);
-      agentOptions = teamWithUser.map((m) => ({
-        value: m.vendor_team_member_id,
-        label: m.display_name?.trim() || m.email || m.team_label?.trim() || 'Team member',
-      }));
-    } catch {
-      agentOptions = teamRows.map((m) => ({ value: m.vendor_team_member_id, label: m.team_label?.trim() || 'Team member' }));
-    }
-  }
+  const poolLabelOf = new Map(pools.map((p) => [p.poolId, p.label]));
+  const closures = blocks
+    .filter((b) => (b.source === 'manual' || b.source === 'synced_calendar') && b.endDate >= todayIso)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .map((b) => ({
+      blockId: b.blockId,
+      label: b.label?.trim() || 'Blocked',
+      startDate: b.startDate,
+      endDate: b.endDate,
+      scope: b.poolId === null ? 'every calendar' : (poolLabelOf.get(b.poolId) ?? 'one calendar'),
+    }));
+  const initialDay = todayIso.startsWith(month) ? todayIso : `${month}-01`;
 
   return (
     <>
+      {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers?seg=dates" /> : null}
       {/* `id="calendar"` is where every bare /vendor-dashboard/calendar link lands (`customers/anchors.ts`). */}
       <div id="calendar" className="scroll-mt-24">
         {blocksIncomplete ? (
@@ -763,67 +835,237 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
             here. Reload the page to try again.
           </p>
         ) : null}
+        {pools.length === 0 ? (
+          <p className="mb-2 text-[13.5px] text-ink/70" data-dates-no-calendar="">
+            Calendar not set — open Capacity below to make one.
+          </p>
+        ) : null}
         <CustomersCalendar
           initialDayStates={dayStates}
-          initialWaitlist={waitlist}
-          inquiries={inquiryDates}
+          initialWaitlist={monthWaitlist}
+          inquiries={asksByDate(asks)}
           initialMonth={month}
+          initialDay={initialDay}
           todayIso={todayIso}
           pools={pools}
-          // Ship only the fields the client-side rebuild reads — raw block
-          // client-contact fields never cross the wire.
-          bookings={bookings.map((b) => ({
-            poolId: b.poolId,
-            bookedDate: b.bookedDate,
-            eventName: b.eventName,
-            eventType: eventTypeByEvent.get(b.eventId) ?? null,
-          }))}
+          // Only what the month and the day's rows read — a block's contact and note never cross the wire.
+          bookings={bookings.map((b) => ({ poolId: b.poolId, bookedDate: b.bookedDate, eventName: b.eventName }))}
           blocks={blocks.map((k) => ({
             poolId: k.poolId,
             source: k.source,
             startDate: k.startDate,
             endDate: k.endDate,
+            label: k.source === 'external_client' ? null : k.label,
+            clientName: k.source === 'external_client' ? k.clientName : null,
           }))}
-          dayHrefBase="/vendor-dashboard/calendar"
-          types={eventTypeOptions}
-          services={serviceOptions}
-          agents={agentOptions}
-          agentsEnabled={agentsEnabled}
+          agents={agents}
           agentCategories={agentCategories}
         />
       </div>
 
-      {/* QR codes — Shortlist ↔ Locked (relocated from My Shop 2026-07-02). */}
-      <VendorQrSection
-        vendorProfileId={vendorProfileId}
-        slug={profile.business_slug ?? null}
-        profileServices={(profile.services ?? []) as string[]}
-        rawEt={search.et}
-        rawCat={search.cat}
+      <DatesFolds
+        today={todayIso}
         month={month}
-        seg="dates"
+        open={openFold}
+        closures={closures}
+        closuresIncomplete={blocksIncomplete}
+        waitlist={{
+          tierCap: waitlistTierCap,
+          unlimited,
+          on: Boolean(settings?.waitlist_enabled) && waitlistTierCap > 0,
+          cap: unlimited ? storedCap : Math.min(storedCap, Math.max(waitlistTierCap, storedCap)),
+          grandfathered: !unlimited && storedCap > waitlistTierCap ? storedCap : 0,
+          settingsMeasured: !settingsRead.error,
+          pickedMeasured: !pickedRead.error,
+          dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
+        }}
+        calendars={pools.map((p) => ({
+          poolId: p.poolId,
+          label: p.label,
+          name: p.calendarName ?? p.label,
+          capacity: p.capacity,
+          line: p.categories.map(categoryLabel).join(', '),
+          serviceIds: p.serviceIds,
+          categories: p.categories.map((c) => ({ key: c, label: categoryLabel(c) })),
+        }))}
+        ceiling={ceiling}
+        namedCalendars={namedCalendars}
+        services={pickerServices.map((s) => ({ serviceId: s.serviceId, label: s.label, poolId: s.poolId }))}
+        qrHref="/vendor-dashboard/invite"
+        actions={DATES_ACTIONS}
       />
+
+      {/* 📱 THE THUMB ROW (frame 04): Block a date (grey) · Add (brand — an outside client holds a date). */}
+      <SupplierThumbRow name="dates" label="Date tools">
+        <BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />
+        <OutsideClientAdd
+          pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
+          action={importExternalClient}
+          today={todayIso}
+          setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
+          returnTo="dates"
+        />
+      </SupplierThumbRow>
+    </>
+  );
+}
+
+/** "Wedding" · "Tagaytay" — an event's words for a booked row. */
+function eventWords(e: { venue_name: string | null; event_type: string | null } | undefined): string[] {
+  if (!e) return [];
+  return [e.venue_name?.trim() || null, e.event_type ? eventTypeLabel(e.event_type) : null].filter(Boolean) as string[];
+}
+
+/** One day (frame 35) — `?seg=dates&day=YYYY-MM-DD`; the old `/calendar/[date]` route forwards here. */
+async function CustomersDay({ day, search }: { day: string; search: Awaited<Props['searchParams']> }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  const vendorProfileId = profile.vendor_profile_id;
+  const todayIso = manilaTodayIso();
+  const notice = search.notice ? DATES_NOTICES[search.notice] : undefined;
+
+  const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead, tierProbe] = await Promise.all([
+    fetchVendorPools(supabase, vendorProfileId),
+    // CAPACITY, not the room: the day's seats are counted per pool (pool-grain, as `acquire_schedule_pools` enforces),
+    // and an event with a seat is booked — the holders are the open conversations without one.
+    fetchVendorPoolBookings(supabase, vendorProfileId),
+    fetchVendorBlocksDetailed(supabase, vendorProfileId),
+    fetchVendorDayStates(supabase, vendorProfileId, day, day),
+    fetchVendorWaitlist(supabase, vendorProfileId, day),
+    fetchVendorThreadsDetailed(supabase, vendorProfileId),
+    supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+  ]);
+  const poolLabel = new Map(pools.map((p) => [p.poolId, p.label]));
+  const namePools = pools.length > 1;
+  const bookedToday = bookings.filter((b) => b.bookedDate === day);
+  const covers = (b: { startDate: string; endDate: string }) => b.startDate <= day && b.endDate >= day;
+
+  // The booked events' place and kind (admin: the supplier holds no `events` RLS) — and the holders' names and dates.
+  const bookedEventIds = new Set(bookings.map((b) => b.eventId));
+  const [{ asks, measured: asksMeasured }, eventsRead] = await Promise.all([
+    readOpenAsks(threadsRead.threads, bookedEventIds),
+    bookedToday.length > 0
+      ? readInChunks([...new Set(bookedToday.map((b) => b.eventId))], (part) =>
+          createAdminClient().from('events').select('event_id, venue_name, event_type').in('event_id', part),
+        )
+      : Promise.resolve({ rows: [], error: null }),
+  ]);
+  if (eventsRead.error) logQueryError('VendorCustomersPage.dayEvents', eventsRead.error, {}, 'graceful_degrade');
+  const eventById = new Map(
+    ((eventsRead.rows ?? []) as { event_id: string; venue_name: string | null; event_type: string | null }[]).map((e) => [e.event_id, e]),
+  );
+
+  // Who works it — READ from the team's service assignments (no per-day roster exists to pick from).
+  let whoWorks: string | null = null;
+  const tier = (tierProbe.data as { tier_state?: string } | null)?.tier_state ?? null;
+  if (bookedToday.length > 0) {
+    whoWorks = 'You';
+    if (tierCaps(tier).agentAccounts > 0) {
+      try {
+        const [team, assignments, services] = await Promise.all([
+          fetchVendorTeam(supabase, vendorProfileId),
+          fetchAgentServiceAssignments(supabase, vendorProfileId),
+          fetchVendorServices(supabase, vendorProfileId),
+        ]);
+        const catById = new Map(services.map((s) => [s.vendor_service_id, s.category]));
+        const todayCats = new Set(bookedToday.flatMap((b) => pools.find((p) => p.poolId === b.poolId)?.categories ?? []));
+        const names = (await enrichTeamWithUsers(createAdminClient(), team))
+          .filter((m) => (assignments[m.vendor_team_member_id] ?? []).some((sid) => todayCats.has(catById.get(sid) ?? '')))
+          .map((m) => m.display_name?.trim() || m.team_label?.trim() || 'Team member');
+        if (names.length > 0) whoWorks = names.join(', ');
+      } catch {
+        // Fail-soft: "You" stays — the owner works every day the team is not named for.
+      }
+    }
+  }
+
+  const askedOn = (iso: string) => {
+    const d = iso.slice(0, 10);
+    return `asked ${rangeWords(d, d, todayIso)}`;
+  };
+  const data: DaySheetData = {
+    day,
+    today: todayIso,
+    calendarsLine: [...new Set(bookedToday.map((b) => poolLabel.get(b.poolId) ?? ''))].filter(Boolean).join(', '),
+    backHref: `/vendor-dashboard/customers?seg=dates&m=${day.slice(0, 7)}`,
+    bookings: bookedToday.map((b) => ({
+      key: b.poolBookingId,
+      title: b.eventName,
+      line: [...eventWords(eventById.get(b.eventId)), namePools ? poolLabel.get(b.poolId) : null].filter(Boolean).join(' · ') || 'Booked through Setnayan',
+      href: `/vendor-dashboard/clients/${b.eventId}`,
+    })),
+    outside: blocksRead.blocks
+      .filter((b) => b.source === 'external_client' && covers(b))
+      .map((b) => ({
+        key: b.blockId,
+        title: b.clientName?.trim() || 'Outside client',
+        line: [rangeWords(b.startDate, b.endDate, todayIso), b.poolId ? poolLabel.get(b.poolId) : null].filter(Boolean).join(' · '),
+      })),
+    holders: asks
+      .filter((a) => a.date === day)
+      .map((a) => ({ threadId: a.threadId, title: a.name ?? 'A couple', line: `${askedOn(a.askedAt)} · not booked` })),
+    holdersMeasured: asksMeasured && threadsRead.complete,
+    waiting: waitlist.find((w) => w.requestedDate === day)?.pendingCount ?? 0,
+    closures: blocksRead.blocks
+      .filter((b) => (b.source === 'manual' || b.source === 'synced_calendar') && covers(b))
+      .map((b) => ({
+        blockId: b.blockId,
+        label: b.label?.trim() || 'Blocked',
+        startDate: b.startDate,
+        endDate: b.endDate,
+        scope: b.poolId === null ? 'every calendar' : (poolLabel.get(b.poolId) ?? 'one calendar'),
+      })),
+    holds: dayStates
+      .filter((s) => s.stateDate === day)
+      .map((s) => ({
+        key: s.dayStateId,
+        scope: s.poolId ?? 'org',
+        title: s.dayState === 'locked' ? 'Held by you' : 'You approve each ask',
+        line: s.poolId === null ? 'Every calendar' : (poolLabel.get(s.poolId) ?? 'One calendar'),
+      })),
+    whoWorks,
+  };
+
+  return (
+    <>
+      {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref={daySheetHref(day)} /> : null}
+      {!blocksRead.complete ? (
+        <p role="status" className="mb-3 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
+          Some of your blocked dates couldn&rsquo;t load, so this day may show as open. Reload the page to try again.
+        </p>
+      ) : null}
+      <DaySheet data={data} actions={{ addManualBlock, removeBlock, setCalendarDayState, notifyWaitlistSlot }} />
+      {/* 📱 Frame 35's thumb row: Add (brand) — an outside client holds a date. */}
+      <SupplierThumbRow name="dates" label="Date tools">
+        <OutsideClientAdd
+          pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
+          action={importExternalClient}
+          today={todayIso}
+          setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
+          returnTo="dates"
+        />
+      </SupplierThumbRow>
     </>
   );
 }
 
 /* ═══ THE FOLDS — one accordion, each fold under its own segment ══════════ */
 
-// Messages folds under People (the envelope lands on it); Availability under
-// Dates (its EDIT tools — the grid itself is above); Quotes and Contracts under
-// Money (papers about a deal; S-PR5 moves them onto the customer card).
+// Messages folds under People (the envelope lands on it); Quotes and Contracts
+// under Money (papers about a deal; S-PR5 moves them onto the customer card).
+// Dates has no accordion: its tools are its own folds (S-PR3, `dates-folds.tsx`).
 const CUSTOMER_SECTIONS: AccordionSection[] = [
   {
     key: 'messages',
     label: 'Messages',
     sub: 'Your conversations — reply, reveal, and log outcomes',
     icon: <MessageSquare className="h-4 w-4" strokeWidth={1.75} />,
-  },
-  {
-    key: 'availability',
-    label: 'Availability & capacity',
-    sub: 'Set daily limits, block dates, import clients, manage the waitlist',
-    icon: <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} />,
   },
   {
     key: 'proposals',
@@ -844,9 +1086,6 @@ async function CustomerSectionBody({ open, sp }: { open: string; sp: SP }) {
   switch (open) {
     case 'messages':
       return <MessagesSurface searchParams={pass as never} />;
-    case 'availability':
-      // Management tools only — the month grid is above, on Dates.
-      return <CalendarSurface searchParams={pass as never} variant="manage" />;
     case 'proposals':
       return <ProposalsSurface searchParams={pass as never} />;
     case 'contracts':
@@ -875,13 +1114,19 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
       <section className="min-h-full">
         <div className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:max-w-4xl lg:px-8" data-customers-seg-open={seg}>
           <h1 className="sr-only">Customers</h1>
-          {seg === 'people' ? null : <CustomersSegments seg={seg} />}
+          {seg === 'people' || (seg === 'dates' && search.day) ? null : <CustomersSegments seg={seg} />}
           {seg === 'people' ? (
             <div className="pb-24">
               <CustomersPipeline search={search} />
             </div>
           ) : seg === 'dates' ? (
-            <CustomersDates search={search} />
+            <div className="pb-24">
+              {/^\d{4}-\d{2}-\d{2}$/.test(search.day ?? '') ? (
+                <CustomersDay day={search.day as string} search={search} />
+              ) : (
+                <CustomersDates search={search} />
+              )}
+            </div>
           ) : null}
         </div>
       </section>

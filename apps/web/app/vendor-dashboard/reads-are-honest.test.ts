@@ -44,14 +44,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
  */
 const RENDER_FILES = [
   'activities/page.tsx',
-  'calendar/surface.tsx',
+  // (calendar/surface.tsx — retired by S-PR3; its reads moved into customers/page.tsx's Dates, listed below)
   // (clients/surface.tsx — retired by S-PR2; its reads moved into customers/page.tsx, listed below)
   'clients/[eventId]/page.tsx',
   'clients/[eventId]/production-sheet/page.tsx',
   'contracts/surface.tsx',
   'customers/page.tsx',
   'earnings/surface.tsx',
-  'locked-qr/page.tsx',
+  // (locked-qr/page.tsx — a redirect since S-PR3; its ledger read moved into the one QR codes page)
+  'invite/page.tsx',
   'manpower/surface.tsx',
   'on-the-day/page.tsx',
   'packages/page.tsx',
@@ -107,14 +108,15 @@ test('the screens that state an absence carry a measured flag, not just a log li
   // must gate that claim on whether the read actually happened.
   const mustGate = [
     'packages/page.tsx',
-    'locked-qr/page.tsx',
+    // The QR codes page measures the ledger; its Issued fold (the component it hands the rows to) says the refusal.
+    'invite/page.tsx+invite/_components/qr-codes.tsx',
     'partnerships/page.tsx',
     'activities/page.tsx',
     'clients/[eventId]/production-sheet/page.tsx',
     'website/page.tsx',
   ];
   const missing = mustGate.filter((rel) => {
-    const src = read(rel);
+    const src = rel.split('+').map(read).join('\n');
     return !/Measured|measured/.test(src) || !/We couldn/.test(src);
   });
   assert.deepEqual(

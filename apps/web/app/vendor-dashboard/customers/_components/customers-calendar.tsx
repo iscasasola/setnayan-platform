@@ -1,587 +1,200 @@
 'use client';
 
-import { useState, useTransition, useCallback, useMemo } from 'react';
-import Link from 'next/link';
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { useCallback, useMemo, useState, useTransition } from 'react';
+import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { CALENDAR_HATCH, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
 import type { WaitlistDateGroup } from '@/lib/vendor-waitlist';
-import {
-  buildCustomerCalendarMonth,
-  type CalendarBookingInput,
-  type CalendarBlockInput,
-  type CustomerCalendarDay,
-  type CustomerCalendarMonth,
-  type CustomerDayStateKind,
-} from '@/lib/vendor-customers';
-import { CustomersFilterBar, type FilterOption } from './customers-filter-bar';
+import { buildCustomerCalendarMonth, type CustomerCalendarMonth } from '@/lib/vendor-customers';
+import { dayEyebrow, dayRowsOf, daySheetHref, dayStateOf, type DatesBlock, type DatesBooking } from '@/lib/vendor-dates';
 import { fetchCustomerCalendarMonth } from '../actions';
-import { formatCount } from '@/lib/format-number';
+import { DatesRow } from './dates-row';
 
 /**
- * The centrepiece month calendar. Each day cell shows the date + a small status
- * chip drawn from the 6-state day taxonomy (Full · Booked · Locked · Whitelist
- * · Blocked · Waitlist) plus up to two event labels for that day. Colours map to
- * the editorial palette.
+ * CUSTOMERS › DATES — the month (S-PR3; plan § 2 "one month grid (booked · holding · blocked), the day's rows under
+ * it"; prototype frame 04; control templates round 2, kind 31).
  *
- * Month nav is CLIENT-DRIVEN. The month-independent inputs (pools / bookings /
- * blocks) are shipped once on first paint; paging to another month fetches only
- * the two datasets that actually change — the vendor's day states + the couple
- * waitlist for that month (see `fetchCustomerCalendarMonth`). Those RAW inputs
- * are cached per month (filter-agnostic); the visible grid is derived from them
- * with the pure `buildCustomerCalendarMonth`. So an arrow click is one
- * lightweight query (or instant on a revisit), not a full-page reload.
+ * THE SHARED MONTH GRID (`app/_components/calendar.tsx`, kind 8 extended to kind 31) — the picked day is the one
+ * terracotta circle; a green dot says something is booked, an amber dot that couples are waiting on the day, a
+ * hatched square that nothing new can be booked; a full day is bold. The legend says every mark in words. Under the
+ * month: the picked day's eyebrow ("Sat 3 · Tomorrow") with the ONE dropdown of calendars (plan § 2: "One dropdown
+ * for 'All calendars'"), then that day's rows — each opens the day (`?seg=dates&day=`, frame 35).
  *
- * Filtering is a pure re-derive — no re-fetch:
- *   • Service — narrows the schedule pool(s) fed to the builder to those that
- *     carry the chosen service category.
- *   • Type — narrows which booked events count toward booked/full days.
- *   • (Agent is disabled in the filter bar — per-agent scheduling isn't tracked
- *     in the booking schema yet.)
- * Vendor-level marks (blocked / locked / whitelist / waitlist) aren't event- or
- * service-scoped, so they stay visible under any filter. The Heat map toggle
- * tints each day by its booking intensity (occupancy = consumed / capacity), so
- * the busiest dates glow warmest and quiet ones stay neutral.
+ * 🔑 ONE SOURCE FOR THE DAY'S TRUTH. Every mark is `buildCustomerCalendarMonth` (`lib/vendor-customers.ts`, the same
+ * derivation the shop's other date surfaces read) folded by `dayStateOf` (`lib/vendor-dates.ts`). Nothing here
+ * counts a booking.
+ *
+ * Month nav is client-driven (kept from the shipped calendar): the month-independent inputs (pools · bookings ·
+ * blocks) ship once; a new month fetches only its day states + waiting list (`fetchCustomerCalendarMonth`), cached
+ * per month. Without a fetcher (the dev lab), another month draws from the inputs it has.
  */
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const CHIP: Record<
-  CustomerDayStateKind,
-  { label: string; bg: string; fg: string; border: string }
-> = {
-  // Labels are CREAM, never pure white — the palette lock retired #fff on
-  // 2026-07-13 and these two literals outlived it.
-  full: { label: 'Full', bg: 'var(--m-ink)', fg: 'var(--m-paper)', border: 'var(--m-ink)' },
-  // The RESTING booked chip = a day the vendor booked themselves. A day Setnayan
-  // brought is overridden to gold at the call site (§ 2.7b) — one state, two
-  // origins, which is the split's whole purpose.
-  booked: {
-    label: 'Booked',
-    bg: 'rgba(30,26,18,0.06)',
-    fg: 'var(--m-slate)',
-    border: 'rgba(30,26,18,0.14)',
-  },
-  // A hard hold is the vendor's own strong mark, so it takes the CTA colour.
-  locked: {
-    label: 'Locked',
-    bg: 'rgba(194,78,37,0.10)',
-    fg: 'var(--m-mulberry-deep)',
-    border: 'rgba(194,78,37,0.28)',
-  },
-  // ⚠ VIOLET IS RETIRED APP-WIDE and this was the last live consumer — the
-  // customers STATUS_PILL moved off it long ago and this chip lagged behind.
-  whitelist: {
-    label: 'Whitelist',
-    bg: 'rgba(59,78,103,0.10)',
-    fg: '#3B4E67',
-    border: 'rgba(59,78,103,0.30)',
-  },
-  // Unmistakable is the point — the full-black cell stays exactly as it was.
-  blocked: {
-    label: 'Blocked',
-    bg: 'var(--m-ink)',
-    fg: 'var(--m-paper)',
-    border: 'var(--m-ink)',
-  },
-  // Waiting-on-people is gold in this kit's dot vocabulary.
-  waitlist: {
-    label: 'Waitlist',
-    bg: 'rgba(169,131,75,0.14)',
-    fg: 'var(--m-orange-deep)',
-    border: 'rgba(169,131,75,0.30)',
-  },
-};
-
-/** A booked day Setnayan brought — gold, against the neutral self-booked chip. */
-const CHIP_BOOKED_SETNAYAN = {
-  label: 'Booked',
-  bg: 'rgba(169,131,75,0.12)',
-  fg: 'var(--m-orange-deep)',
-  border: 'rgba(169,131,75,0.30)',
-};
 
 /** Raw, filter-agnostic month inputs cached per month for instant re-derive. */
 type MonthInputs = { dayStates: VendorCalendarDayState[]; waitlist: WaitlistDateGroup[] };
 
-/** Shift a 'YYYY-MM' key by whole months. Pure — safe on the client. */
-function shiftMonth(ym: string, delta: number): string {
-  const [y, m] = ym.split('-').map(Number);
-  const d = new Date(y ?? 2026, (m ?? 1) - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-/**
- * Booking intensity in [0,1] for the heat map — occupancy (consumed / capacity),
- * clamped. A day with reservations but no known capacity reads as fully hot;
- * an open day is 0 (no tint). This is what makes the heat map an actual
- * intensity field rather than a blanket dimmer.
- */
-function heatOf(day: CustomerCalendarDay): number {
-  if (day.consumed <= 0) return 0;
-  if (day.capacity <= 0) return 1;
-  return Math.min(1, day.consumed / day.capacity);
-}
-
-/** 'YYYY-MM' → "July 2026". */
-function monthLabelOf(ym: string): string {
-  const [y, m] = ym.split('-').map(Number);
-  return new Date(y ?? 2026, (m ?? 1) - 1, 1).toLocaleDateString('en-PH', {
-    month: 'long',
-    year: 'numeric',
-  });
-}
+const ym = (m: CalendarMonth) => `${m.y}-${String(m.m).padStart(2, '0')}`;
 
 export function CustomersCalendar({
   initialDayStates,
   initialWaitlist,
   inquiries = [],
   initialMonth,
+  initialDay,
   todayIso,
   pools,
   bookings,
   blocks,
-  dayHrefBase,
-  types,
-  services,
-  agents,
-  agentsEnabled,
-  agentCategories,
+  agents = [],
+  agentCategories = {},
+  fetchMonth = fetchCustomerCalendarMonth,
 }: {
-  /** The first-painted month's raw day states + waitlist (server-fetched). */
+  /** The first-painted month's raw day states + waiting list (server-fetched). */
   initialDayStates: VendorCalendarDayState[];
   initialWaitlist: WaitlistDateGroup[];
-  /**
-   * Dates couples are ASKING about, counted. Optional so the component still
-   * renders without it. COUNT ONLY — a pending enquiry is pre-accept and the
-   * couple's identity is withheld until the vendor accepts.
-   */
+  /** Dates couples are asking about, counted (`pendingInquiryDates`). */
   inquiries?: { requestedDate: string; count: number }[];
-  /** 'YYYY-MM' key of the first-painted month. */
+  /** 'YYYY-MM' of the first-painted month. */
   initialMonth: string;
-  /** PH civil "today" (YYYY-MM-DD) — passed to the client-side rebuild. */
+  /** The day picked on arrival. */
+  initialDay: CalendarDay;
+  /** PH civil "today" (YYYY-MM-DD). */
   todayIso: string;
-  /** Month-independent inputs the client keeps to rebuild any month locally.
-   *  Bookings/blocks are trimmed to the fields the builder reads (no raw
-   *  client-contact fields cross the wire); bookings also carry `eventType`
-   *  for the type filter. */
   pools: SchedulePool[];
-  bookings: CalendarBookingInput[];
-  blocks: CalendarBlockInput[];
-  /** Base path a day cell links to (e.g. the calendar day-manage route). */
-  dayHrefBase: string;
-  types: FilterOption[];
-  services: FilterOption[];
-  agents: FilterOption[];
-  /** Whether the vendor's subscription tier includes agents (Pro+; agentAccounts
-   *  > 0). When false the Agent filter is disabled — it's a tier feature, so a
-   *  vendor who drops below Pro loses it. */
-  agentsEnabled: boolean;
-  /** vendor_team_member_id → the service categories that agent is assigned to.
-   *  Filtering by an agent narrows the calendar to those categories' schedules. */
-  agentCategories: Record<string, string[]>;
+  /** Trimmed to what the month and the day's rows read. */
+  bookings: DatesBooking[];
+  /** Trimmed: a closure's own label and an outside client's name — never their contact or note. */
+  blocks: DatesBlock[];
+  /** Team members (Pro+): picking one narrows to the calendars of the services they are assigned. */
+  agents?: { value: string; label: string }[];
+  agentCategories?: Record<string, string[]>;
+  /** The month fetcher — the shipped server action; null draws other months from what is already here. */
+  fetchMonth?: ((month: string) => Promise<MonthInputs | null>) | null;
 }) {
-  const [heatmap, setHeatmap] = useState(false);
   const [month, setMonth] = useState(initialMonth);
-  const [serviceFilter, setServiceFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [agentFilter, setAgentFilter] = useState('');
+  const [picked, setPicked] = useState<CalendarDay>(initialDay);
+  const [scope, setScope] = useState('all');
   const [pending, startTransition] = useTransition();
-
-  // Per-mount cache of RAW month inputs (day states + waitlist), filter-agnostic
-  // so switching a filter is a pure re-derive with no re-fetch. Seeded with the
-  // server's first-paint month. Lifetime is this mount: any action that mutates
-  // bookings navigates away (to the day-manage route) and remounts with a fresh
-  // cache, so intra-session staleness is a non-issue.
   const [monthInputs, setMonthInputs] = useState<Map<string, MonthInputs>>(
     () => new Map([[initialMonth, { dayStates: initialDayStates, waitlist: initialWaitlist }]]),
   );
 
-  // Filter narrowing (pure). Service → the pools that carry the category; Agent
-  // → the pools whose category the agent is assigned to (agents "see only their
-  // own work"); Type → the bookings of that event type. Pools narrow for Service
-  // + Agent; bookings narrow for Type. All feed the day builder.
-  const filteredPools = useMemo(() => {
-    let ps = pools;
-    if (serviceFilter) ps = ps.filter((p) => p.categories.includes(serviceFilter));
-    if (agentFilter) {
-      const cats = agentCategories[agentFilter] ?? [];
-      ps = ps.filter((p) => p.categories.some((c) => cats.includes(c)));
+  /* The ONE dropdown: every calendar, one of them, or (Pro+) one person's calendars. */
+  const shownPools = useMemo(() => {
+    if (scope.startsWith('pool:')) return pools.filter((p) => p.poolId === scope.slice(5));
+    if (scope.startsWith('agent:')) {
+      const cats = agentCategories[scope.slice(6)] ?? [];
+      return pools.filter((p) => p.categories.some((c) => cats.includes(c)));
     }
-    return ps;
-  }, [pools, serviceFilter, agentFilter, agentCategories]);
-  const filteredBookings = useMemo(
-    () => (typeFilter ? bookings.filter((b) => (b.eventType ?? '') === typeFilter) : bookings),
-    [bookings, typeFilter],
+    return pools;
+  }, [pools, scope, agentCategories]);
+  const shownIds = useMemo(() => new Set(shownPools.map((p) => p.poolId)), [shownPools]);
+  const poolLabel = useCallback(
+    (id: string | null) => (id === null ? 'Every calendar' : (pools.find((p) => p.poolId === id)?.label ?? 'A calendar')),
+    [pools],
   );
 
-  // The visible grid — derived from the current month's raw inputs + active
-  // filters. Current-month inputs are always present (seeded + stored on nav).
   const data = useMemo<CustomerCalendarMonth>(() => {
     const inputs = monthInputs.get(month);
     return buildCustomerCalendarMonth(
-      filteredPools,
-      filteredBookings,
+      shownPools,
+      bookings,
       blocks,
       inputs?.dayStates ?? [],
       inputs?.waitlist ?? [],
       month,
       todayIso,
-      // Not per-month: a vendor's pending enquiries are few, so the whole
-      // list is passed once and the builder reads only the days it renders.
-      // That keeps the month-nav refetch path untouched.
       inquiries,
     );
-  }, [month, monthInputs, filteredPools, filteredBookings, blocks, todayIso, inquiries]);
+  }, [month, monthInputs, shownPools, bookings, blocks, todayIso, inquiries]);
 
-  // "6 booked · 2 held" — booked counts days the calendar shows as booked or
-  // full; held counts hard holds. Derived from `data.days`, so it always
-  // describes exactly what is on screen: a narrowed filter narrows the counts.
-  const monthCounts = useMemo(() => {
-    let booked = 0;
-    let held = 0;
+  const states = useMemo(() => {
+    const out = new Map<CalendarDay, CalendarDayState>();
     for (const d of data.days) {
-      if (d.state === 'booked' || d.state === 'full') booked += 1;
-      else if (d.state === 'locked') held += 1;
+      const st = dayStateOf(d);
+      if (st) out.set(d.date, st);
     }
-    if (booked === 0 && held === 0) return null;
-    const parts: string[] = [];
-    if (booked > 0) parts.push(`${booked} booked`);
-    if (held > 0) parts.push(`${held} held`);
-    return parts.join(' · ');
+    return out;
   }, [data.days]);
 
-  // The month lives on Customers › Dates: the address keeps `seg=dates` so a
-  // reload (or a shared link) opens the month, not People (S-PR2 segments).
   const goToMonth = useCallback(
-    (delta: number) => {
-      const nextMonth = shiftMonth(month, delta);
-      const syncUrl = () =>
-        window.history.replaceState(null, '', `${window.location.pathname}?seg=dates&m=${nextMonth}#calendar`);
-      if (monthInputs.has(nextMonth)) {
-        setMonth(nextMonth); // instant — inputs cached, grid re-derives
-        syncUrl();
-        return;
-      }
+    (m: CalendarMonth) => {
+      const next = ym(m);
+      const syncUrl = () => window.history.replaceState(null, '', `${window.location.pathname}?seg=dates&m=${next}#calendar`);
+      setMonth(next);
+      // The picked day moves with the month (today when it is on show, else the 1st) — its rows are always this month's.
+      setPicked(todayIso.startsWith(next) ? todayIso : `${next}-01`);
+      syncUrl();
+      if (monthInputs.has(next) || !fetchMonth) return;
       startTransition(async () => {
-        const res = await fetchCustomerCalendarMonth(nextMonth);
-        if (!res) {
-          // Session gone / not a vendor — fall back to a full server navigation
-          // so the user still lands on the month rather than getting stuck.
-          window.location.href = `${window.location.pathname}?seg=dates&m=${nextMonth}#calendar`;
-          return;
-        }
-        setMonthInputs((prev) => {
-          const next = new Map(prev);
-          next.set(nextMonth, { dayStates: res.dayStates, waitlist: res.waitlist });
-          return next;
-        });
-        setMonth(nextMonth);
-        syncUrl();
+        const res = await fetchMonth(next);
+        if (!res) return; // the month draws from what is here; a reload reads it whole
+        setMonthInputs((prev) => new Map(prev).set(next, { dayStates: res.dayStates, waitlist: res.waitlist }));
       });
     },
-    [month, monthInputs],
+    [monthInputs, fetchMonth, todayIso],
   );
 
-  const filtersActive = serviceFilter !== '' || typeFilter !== '' || agentFilter !== '';
-  const hasAnyChip = data.days.some((d) => d.state !== null);
-  // Whether the visible month has any booking intensity to map. Drives the
-  // heat-map empty state — an honest "nothing to map yet" beats a silent,
-  // uniformly-faded grid that reads as broken.
-  const hasHeat = data.days.some((d) => heatOf(d) > 0);
-  const serviceLabel = services.find((o) => o.value === serviceFilter)?.label;
-  const typeLabel = types.find((o) => o.value === typeFilter)?.label;
-  const agentLabel = agents.find((o) => o.value === agentFilter)?.label;
+  const pickedDay = data.days.find((d) => d.date === picked) ?? null;
+  const holds = (monthInputs.get(picked.slice(0, 7))?.dayStates ?? []).map((s) => ({
+    poolId: s.poolId,
+    stateDate: s.stateDate,
+    dayState: s.dayState,
+  }));
+  const rows = dayRowsOf(picked, {
+    today: todayIso,
+    poolIds: shownIds,
+    poolLabel,
+    namePools: pools.length > 1,
+    bookings,
+    blocks,
+    holds,
+    asking: pickedDay?.inquiryCount ?? 0,
+    waiting: pickedDay?.waitlistCount ?? 0,
+  });
+
+  const options = [
+    { key: 'all', label: 'All calendars' },
+    ...pools.map((p) => ({ key: `pool:${p.poolId}`, label: p.label })),
+    ...agents.map((a) => ({ key: `agent:${a.value}`, label: `${a.label}’s work` })),
+  ];
 
   return (
-    <div className="space-y-4">
-      <CustomersFilterBar
-        types={types}
-        services={services}
-        agents={agents}
-        typeFilter={typeFilter}
-        onTypeFilterChange={setTypeFilter}
-        serviceFilter={serviceFilter}
-        onServiceFilterChange={setServiceFilter}
-        agentFilter={agentFilter}
-        onAgentFilterChange={setAgentFilter}
-        agentDisabled={!agentsEnabled}
-        agentDisabledHint="Team agents come with Pro — filter by them once you add agents"
-        heatmap={heatmap}
-        onHeatmapChange={setHeatmap}
-      />
+    <div data-dates-month="" aria-busy={pending}>
+      <div style={{ opacity: pending ? 0.6 : 1 }} className="transition-opacity">
+        <CalendarGrid
+          value={picked}
+          today={todayIso}
+          startAt={`${initialMonth}-01`}
+          states={states}
+          onPick={(d) => setPicked(d)}
+          onMonth={goToMonth}
+          data="dates"
+        />
+      </div>
+      <CalendarLegend dots={['booked', 'holding']} blocked />
 
-      <div className="sn-tile p-4 sm:p-5" aria-busy={pending}>
-        {/* Month nav */}
-        <div className="mb-4 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => goToMonth(-1)}
-            disabled={pending}
-            aria-label="Previous month"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-opacity disabled:opacity-50"
-            style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-          >
-            <ChevronRight className="h-4 w-4 rotate-180" strokeWidth={1.75} aria-hidden />
-          </button>
-          <h2
-            className="flex items-center gap-2 text-base font-semibold"
-            style={{ color: 'var(--m-ink)' }}
-          >
-            {monthLabelOf(month)}
-            {pending ? (
-              <Loader2
-                className="h-3.5 w-3.5 animate-spin"
-                strokeWidth={2}
-                style={{ color: 'var(--m-slate-3)' }}
-                aria-hidden
-              />
-            ) : null}
-          </h2>
-          {/* § 2.7a — what this month actually holds, counted from the days on
-            *  screen, so a narrowed filter narrows the counts (correct: it
-            *  describes what you are looking at). Omitted entirely when both are
-            *  zero — "0 booked · 0 held" is noise on an empty month. */}
-          {monthCounts ? (
-            <span className="font-mono text-[12px]" style={{ color: 'var(--m-slate-2)' }}>
-              {monthCounts}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => goToMonth(1)}
-            disabled={pending}
-            aria-label="Next month"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-opacity disabled:opacity-50"
-            style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-          >
-            <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          </button>
-        </div>
-
-        {/* Active-filter context line — makes a narrowed (possibly empty) grid
-            self-explanatory. */}
-        {filtersActive ? (
-          <p className="mb-3 text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
-            Showing{typeLabel ? ` ${typeLabel}` : ''}
-            {serviceLabel ? ` · ${serviceLabel}` : ''}
-            {agentLabel ? ` · ${agentLabel}` : ''}
-            {!hasAnyChip ? ' — no matching activity this month.' : ''}
-          </p>
+      {/* "SAT 3 · TOMORROW · All calendars ▾" — the picked day, and the one dropdown that narrows the month (frame 04). */}
+      <div className="mt-4 flex min-h-11 items-center gap-3" data-dates-eyebrow="">
+        <span className="home-k2" data-dates-picked={picked}>
+          {dayEyebrow(todayIso, picked)}
+        </span>
+        {options.length > 2 ? (
+          <PickMenu label="Calendars" value={scope} options={options} onPick={setScope} dataAttr="data-dates-scope" className="!min-h-11" />
         ) : null}
-
-        {/* Heat map is on but this month has no bookings to map — say so, rather
-            than leaving a grid that looks unchanged. */}
-        {heatmap && !hasHeat ? (
-          <p className="mb-3 text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
-            No booked dates this month to map yet — the heat map warms up as
-            bookings come in.
-          </p>
-        ) : null}
-
-        {/* Weekday header */}
-        <div
-          className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium"
-          style={{ color: 'var(--m-slate-3)' }}
-        >
-          {WEEKDAYS.map((d) => (
-            <div key={d} className="py-1">
-              {d}
-            </div>
-          ))}
-        </div>
-
-        {/* Day grid — dimmed while a month swap is in flight. */}
-        <div
-          className="grid grid-cols-7 gap-1 transition-opacity"
-          style={{ opacity: pending ? 0.55 : 1 }}
-        >
-          {Array.from({ length: data.firstWeekday }).map((_, i) => (
-            <div key={`pad-${i}`} />
-          ))}
-          {data.days.map((day) => {
-            // § 2.7b — one state, two origins. A booked day Setnayan brought
-            // reads gold; a day the vendor booked themselves stays neutral. The
-            // STATE is identical either way; only its origin is being said.
-            const chip = day.state
-              ? day.state === 'booked' && day.setnayanConsumed > 0
-                ? CHIP_BOOKED_SETNAYAN
-                : CHIP[day.state]
-              : null;
-            // A blocked day is a hard closure — it can't be booked. Paint the
-            // WHOLE cell black with a white "BLOCKED" stamp so it's unmistakable,
-            // and let it win over the heat tint (a closure isn't "intensity").
-            const isBlocked = day.state === 'blocked';
-            // Heat map: tint the cell by booking intensity (warm gold, alpha
-            // scaled by occupancy) so busy stretches glow and open days stay
-            // neutral — a real intensity field, not a blanket dim.
-            const heat = heatmap && !isBlocked ? heatOf(day) : 0;
-            const heated = heat > 0;
-            const heatBg = `rgba(184,134,47,${(0.12 + heat * 0.45).toFixed(3)})`;
-            const heatBorder = `rgba(184,134,47,${(0.3 + heat * 0.4).toFixed(3)})`;
-            return (
-              <Link
-                key={day.date}
-                href={`${dayHrefBase}/${day.date}`}
-                className="flex min-h-[64px] flex-col rounded-lg border p-1.5 text-left transition-colors sm:min-h-[76px]"
-                style={{
-                  borderColor: isBlocked
-                    ? 'var(--m-ink)'
-                    : day.isToday
-                      ? 'var(--m-orange-2)'
-                      : heated
-                        ? heatBorder
-                        : 'var(--m-line)',
-                  background: isBlocked
-                    ? 'var(--m-ink)'
-                    : heated
-                      ? heatBg
-                      : day.isToday
-                        ? 'var(--m-orange-4)'
-                        : 'var(--m-paper)',
-                  opacity: day.past ? 0.45 : 1,
-                }}
-              >
-                <span
-                  className="font-mono text-[11px] font-semibold"
-                  style={{
-                    color: isBlocked
-                      ? 'var(--m-paper)'
-                      : day.isToday
-                        ? 'var(--m-orange-2)'
-                        : 'var(--m-ink)',
-                  }}
-                >
-                  {day.day}
-                </span>
-                {isBlocked ? (
-                  <span
-                    className="mt-1 inline-flex items-center self-start rounded px-1 py-px text-[10px] font-bold uppercase leading-tight tracking-wide"
-                    style={{
-                      color: 'var(--m-paper)',
-                      border: '1px solid rgba(255,255,255,0.45)',
-                    }}
-                    title="Blocked — closed, can't be booked"
-                  >
-                    Blocked
-                  </span>
-                ) : chip ? (
-                  <span
-                    className="mt-1 inline-flex items-center gap-1 self-start rounded px-1 py-px text-[10px] font-semibold leading-tight"
-                    style={{
-                      background: chip.bg,
-                      color: chip.fg,
-                      border: `1px solid ${chip.border}`,
-                    }}
-                    title={
-                      day.state === 'booked' || day.state === 'full'
-                        ? `${day.consumed}/${day.capacity} booked`
-                        : day.state === 'waitlist'
-                          ? `${formatCount(day.waitlistCount)} waiting`
-                          : chip.label
-                    }
-                  >
-                    {day.state === 'full' && day.capacity > 0
-                      ? `Full ${day.consumed}/${day.capacity}`
-                      : day.state === 'booked' && day.capacity > 0
-                        ? `${day.consumed}/${day.capacity}`
-                        : day.state === 'waitlist'
-                          ? `Waitlist ${formatCount(day.waitlistCount)}`
-                          : chip.label}
-                  </span>
-                ) : null}
-                {/* Someone is ASKING about this day. Rendered after the state
-                  *  chip and never in place of it — an enquiry is a question
-                  *  about the day, not what the day IS. Count only: a pending
-                  *  enquiry is pre-accept, so no couple identity may appear. */}
-                {day.inquiryCount > 0 ? (
-                  <span
-                    className="mt-0.5 inline-flex items-center gap-1 self-start rounded px-1 py-px text-[10px] font-semibold leading-tight"
-                    style={
-                      isBlocked
-                        ? { color: 'rgba(255,255,255,0.85)' }
-                        : { color: 'var(--m-blush-deepest)', background: 'var(--m-blush)' }
-                    }
-                    title={
-                      `${formatCount(day.inquiryCount)} ${day.inquiryCount === 1 ? 'couple is' : 'couples are'} asking about this date`
-                    }
-                  >
-                    {day.inquiryCount === 1 ? '1 asking' : `${formatCount(day.inquiryCount)} asking`}
-                  </span>
-                ) : null}
-                {day.eventLabels.slice(0, 2).map((label) => (
-                  <span
-                    key={label}
-                    className="mt-0.5 block truncate text-[10px] leading-tight"
-                    style={{ color: isBlocked ? 'rgba(255,255,255,0.75)' : 'var(--m-slate-2)' }}
-                    title={label}
-                  >
-                    {label}
-                  </span>
-                ))}
-                {day.eventLabels.length > 2 ? (
-                  <span
-                    className="mt-0.5 block text-[10px] leading-tight"
-                    style={{ color: isBlocked ? 'rgba(255,255,255,0.6)' : 'var(--m-slate-3)' }}
-                  >
-                    +{day.eventLabels.length - 2} more
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Compact legend */}
-        <div
-          className="mt-4 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px]"
-          style={{ color: 'var(--m-slate-2)' }}
-        >
-          {/* Setnayan-brought bookings get their own swatch — a legend that does
-            *  not mirror the cells 1:1 is worse than no legend. */}
-          <span className="inline-flex items-center gap-1">
-            <span
-              aria-hidden
-              className="inline-block h-2.5 w-2.5 rounded-full"
-              style={{
-                background: CHIP_BOOKED_SETNAYAN.bg,
-                border: `1px solid ${CHIP_BOOKED_SETNAYAN.border}`,
-              }}
-            />
-            Booked via Setnayan
-          </span>
-          {(
-            [
-              'full',
-              'booked',
-              'locked',
-              'whitelist',
-              'blocked',
-              'waitlist',
-            ] as CustomerDayStateKind[]
-          ).map((k) => (
-            <span key={k} className="inline-flex items-center gap-1">
-              <span
-                aria-hidden
-                className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ background: CHIP[k].bg, border: `1px solid ${CHIP[k].border}` }}
-              />
-              {CHIP[k].label}
-            </span>
-          ))}
-          {/* Not a seventh state — the six above describe what a day IS. This
-            *  says a couple is ASKING about it, which is why it sits apart and
-            *  is drawn as a label rather than a swatch. */}
-          <span className="inline-flex items-center gap-1">
-            <span
-              aria-hidden
-              className="inline-block rounded px-1 text-[9px] font-semibold leading-[1.4]"
-              style={{ color: 'var(--m-blush-deepest)', background: 'var(--m-blush)' }}
-            >
-              N
-            </span>
-            asking
-          </span>
-        </div>
+      </div>
+      <div data-dates-rows="">
+        {rows.map((r) => (
+          <DatesRow
+            key={r.key}
+            data={r.kind}
+            title={r.title}
+            line={r.line || undefined}
+            badge={r.badge}
+            href={daySheetHref(picked)}
+            lead={r.kind === 'blocked' || r.kind === 'held' ? <i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={{ backgroundImage: CALENDAR_HATCH }} /> : undefined}
+          />
+        ))}
       </div>
     </div>
   );

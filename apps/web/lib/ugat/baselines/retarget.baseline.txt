@@ -38,13 +38,13 @@ app/vendor-dashboard/_components/overview-sections.tsx → /vendor-dashboard/con
 app/vendor-dashboard/_components/overview-sections.tsx → /vendor-dashboard/proposals	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/_components/supplier-today-first-screen.tsx → /vendor-dashboard/calendar	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/activities/page.tsx → /vendor-dashboard/verify	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/calendar/[date]/page.tsx → /vendor-dashboard/calendar	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/bookings	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/branches	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/clients	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/contracts	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/demand	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/earnings	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
+app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/locked-qr	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/manpower	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/messages	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/payday	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one

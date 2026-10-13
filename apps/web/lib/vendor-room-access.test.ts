@@ -262,8 +262,6 @@ test('the interconnection probe keeps watching the pool reader it was written fo
 test('every reader left on the pool read carries a stated reason', () => {
   // A leave-behind with no reason is indistinguishable from one that was missed.
   const LEFT = [
-    'app/vendor-dashboard/calendar/surface.tsx',
-    'app/vendor-dashboard/calendar/[date]/page.tsx',
     'app/vendor-dashboard/customers/page.tsx',
     'app/vendor-dashboard/shop/page.tsx',
     'app/vendor-dashboard/recaps/page.tsx',
@@ -275,7 +273,9 @@ test('every reader left on the pool read carries a stated reason', () => {
   ];
   // 12 → 11: lib/vendor-overview.ts moved to the room read (SUP-8).
   // 11 → 10: clients/surface.tsx moved to the room read (S43).
-  assert.equal(LEFT.length, 10, 'ten readers stay on the pool read — measured, not remembered');
+  // 10 → 8: calendar/surface.tsx retired and calendar/[date] became a redirect (S-PR3) — their month and their one
+  //         day are Customers › Dates now, whose every pool read states the same CAPACITY reason.
+  assert.equal(LEFT.length, 8, 'eight readers stay on the pool read — measured, not remembered');
   for (const file of LEFT) {
     const raw = readFileSync(join(ROOT, file), 'utf8');
     const idx = raw.indexOf('fetchVendorPoolBookings(');

@@ -129,6 +129,22 @@ function backToCalendar(formData: FormData, notice: string): never {
     }
   }
 
+  // S-PR3 · Customers › Dates holds every calendar tool now (the month, the
+  // day, Block days · Waitlist · Capacity). An action fired there comes back to
+  // Dates — to the day it was fired from when it names one — where the outcome
+  // is said by the toast. `open` names the fold the form lived in, so it is the
+  // one open on return.
+  if (returnTo === 'dates') {
+    const params = new URLSearchParams({ seg: 'dates' });
+    if (/^\d{4}-\d{2}$/.test(month)) params.set('m', month);
+    const day = str(formData, 'return_date');
+    if (DATE_RE.test(day)) params.set('day', day);
+    const fold = str(formData, 'return_fold');
+    if (/^(block|waitlist|capacity)$/.test(fold)) params.set('open', fold);
+    params.set('notice', notice);
+    redirect(`/vendor-dashboard/customers?${params.toString()}`);
+  }
+
   // S-PR2 · Customers › People holds the outside clients now (the Clients
   // page is retired). Their Add and Remove come back to People, at the list,
   // where the outcome is said. `clients` is kept for a form already open in a
@@ -149,6 +165,8 @@ function backToCalendar(formData: FormData, notice: string): never {
 function revalidateScheduleSurfaces() {
   revalidatePath('/vendor-dashboard/calendar');
   revalidatePath('/vendor-dashboard/clients');
+  // Customers › Dates and People draw every schedule fact now (S-PR3).
+  revalidatePath('/vendor-dashboard/customers');
 }
 
 /** Manual closure block — pool-scoped or org-wide ('org'). */
@@ -724,6 +742,7 @@ export async function createCalendar(formData: FormData): Promise<void> {
   }
 
   revalidateScheduleSurfaces();
+  if (str(formData, 'return_to') === 'dates') backToCalendar(formData, 'calendar_created');
   backToCalendarPool(str(formData, 'return_month'), poolId, 'calendar_created');
 }
 
@@ -805,5 +824,6 @@ export async function editCalendar(formData: FormData): Promise<void> {
   }
 
   revalidateScheduleSurfaces();
+  if (str(formData, 'return_to') === 'dates') backToCalendar(formData, 'calendar_saved');
   backToCalendarPool(str(formData, 'return_month'), poolId, 'calendar_saved');
 }

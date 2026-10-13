@@ -20,6 +20,11 @@
  *     &q=ana · &lane=outside|waiting|… · &add=1 (the Add sheet) · &toast=added|removed|failed
  *   ?s=clash          two couples holding one Saturday — the warn row above the list
  *   ?s=empty          nobody yet       ?s=fail   payday + roster could not be read — said     ?s=nopools  Add with no schedule
+ *   ?s=dates          Customers › Dates (S-PR3): the month in kind 31, the picked day's rows, Block days · Waitlist ·
+ *                     Capacity, QR codes (frame 04)  &open=block|waitlist|capacity · &toast=blocked|failed
+ *   ?s=dates-free     one calendar, no waiting list on the plan (frame 29)   ?s=dates-empty  no calendar yet ("Not set")
+ *   ?s=dates-day      one day (frame 35)   ?s=dates-dayblocked  a blocked day with a hold and a waiting list
+ *   ?s=qr · qr-booked · qr-issued · qr-fail   the one QR codes page (frames 10 · 40) &open=issued
  *
  * ⚠ The Today states mount the SHIPPED answer actions, exactly as the page
  * does — the lab adds no server action of its own. With no session every one
@@ -63,6 +68,7 @@ import { todayCreditNotice } from '@/lib/vendor-credit-warning';
 import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import { feeDueCopy, type DueFeeBill } from '@/lib/booking-fee-disclosure';
 import { PeopleLab } from './people-lab';
+import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 
 const PEOPLE_STATES = ['people', 'clash', 'empty', 'fail', 'nopools'] as const;
 
@@ -277,12 +283,15 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   if (q.s && (PEOPLE_STATES as readonly string[]).includes(q.s)) {
     return <PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} />;
+  }
+  if (q.s && (DATES_STATES as readonly string[]).includes(q.s)) {
+    return <DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} />;
   }
   const today = q.s ? TODAY[q.s] : undefined;
   if (today) return <TodayLab state={today} toast={q.toast} />;

@@ -37,6 +37,7 @@ export function OutsideClientAdd({
   startOpen = false,
   today,
   setupHref,
+  returnTo = 'people',
 }: {
   /** The shop's schedules — an outside client holds a date on one of them. */
   pools: readonly OutsidePool[];
@@ -47,6 +48,8 @@ export function OutsideClientAdd({
   today: CalendarDay;
   /** Where a shop with no schedule sets one up. */
   setupHref: string;
+  /** Where the outcome is said — People (its list) or Dates (the month it holds a day on). */
+  returnTo?: 'people' | 'dates';
 }) {
   const [open, setOpen] = useState(startOpen);
   const [mounted, setMounted] = useState(false);
@@ -88,7 +91,8 @@ export function OutsideClientAdd({
               }
             }}
           >
-            <input type="hidden" name="return_to" value="people" />
+            <input type="hidden" name="return_to" value={returnTo} />
+            {returnTo === 'dates' && from ? <input type="hidden" name="return_month" value={from.slice(0, 7)} /> : null}
             <input type="hidden" name="pool_id" value={pool ?? ''} />
             <input type="hidden" name="start_date" value={from ?? ''} />
             <input type="hidden" name="end_date" value={to ?? ''} />

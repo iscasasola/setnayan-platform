@@ -26,8 +26,8 @@ const ctxOf = (...names: string[]) => ({ chunkGraph: { getModuleChunksIterable: 
 test('the Maker’s ancestors are all anchors, outermost first', () => {
   const want = ['app/layout', 'app/dashboard/layout', 'app/dashboard/[eventId]/layout', 'app/dashboard/[eventId]/loading', 'app/dashboard/[eventId]/template', 'app/dashboard/[eventId]/launch/loading'];
   for (const e of want) byEntry(e);
-  assert.equal(anchors[0].entry, 'app/layout');
-  for (let i = 1; i < anchors.length; i++) assert.ok(anchors[i - 1].depth <= anchors[i].depth, 'sorted by depth');
+  assert.equal(anchors[0]?.entry, 'app/layout');
+  for (let i = 1; i < anchors.length; i++) assert.ok((anchors[i - 1]?.depth ?? 0) <= (anchors[i]?.depth ?? 0), 'sorted by depth');
   assert.ok(!anchors.some((a) => /\/_[^/]+\//.test(a.entry)), 'a _private folder is not a route');
   assert.ok(!anchors.some((a) => a.entry.endsWith('/page')), 'a page is never an anchor');
 });
@@ -56,7 +56,7 @@ test('only the anchor’s own JS modules move — never CSS', () => {
 
 test('outer anchors win; a layout before its folder’s loading; all between Next’s lib (30) and webpack’s defaults', () => {
   const g = oneCopyPerLayoutGroups(anchors) as Record<string, { priority: number; minChunks: number; name: string }>;
-  const p = (e: string) => g[anchorChunkName(byEntry(e))].priority;
+  const p = (e: string) => g[anchorChunkName(byEntry(e))]?.priority ?? NaN;
   assert.ok(p('app/layout') > p('app/dashboard/layout'));
   assert.ok(p('app/dashboard/layout') > p('app/dashboard/[eventId]/layout'));
   assert.ok(p('app/dashboard/[eventId]/layout') > p('app/dashboard/[eventId]/loading'));

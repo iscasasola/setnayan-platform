@@ -78,12 +78,24 @@ test('2 · "Privacy Notice" is one unbreakable press — it never splits over tw
   assert.ok(termsLinkClasses('Privacy Notice').includes('whitespace-nowrap'), '"Privacy Notice" can break across two lines again');
 });
 
-test('2 · each link is lifted above the sentence text, so its WHOLE padded press is its own (not the box’s)', () => {
+test('2 · each link is lifted above the sentence text, so its whole press is its own (not the box’s)', () => {
   for (const words of ['Terms', 'Privacy Notice']) {
     const cls = termsLinkClasses(words);
-    assert.ok(cls.includes('relative'), `${words}: not positioned — the text after it sits over its padding and a press there ticks the box (${cls.join(' ')})`);
-    for (const c of ['-mx-1.5', 'px-1.5', 'py-3.5']) assert.ok(cls.includes(c), `${words}: lost ${c} — the 44px press (${cls.join(' ')})`);
-    assert.ok(!cls.includes('inline-flex') && !cls.includes('flex') && !cls.includes('block'), `${words}: not a plain inline link (a flex box put a gap in the sentence)`);
+    assert.ok(cls.includes('relative'), `${words}: not positioned — the text beside it sits over its press and a tap there ticks the box (${cls.join(' ')})`);
+    for (const c of ['-mx-1.5', 'px-1.5']) assert.ok(cls.includes(c), `${words}: lost ${c} — the 44px-wide press (${cls.join(' ')})`);
+  }
+});
+
+test('2 · NO TWO PRESS ZONES OVERLAP — a link is a flex item 44px tall by its own box, never padded up over the line above or below', () => {
+  // The first fix padded inline links (`py-3.5` on a 20px line = a 48px zone). When "Privacy Notice" wrapped under
+  // "Terms" its zone covered Terms' lower left and a real tap on "Terms" opened /privacy (batch-4 walk, WebKit).
+  const src = stripComments(readFileSync(join(__dirname, '..', '_components', 'terms-tick.tsx'), 'utf8'));
+  assert.match(src, /<span className="[^"]*\bflex\b[^"]*\bflex-wrap\b[^"]*">\s*<span>I agree to the<\/span>/, 'the sentence is no longer a wrapping flex row — links on different lines can overlap again');
+  for (const words of ['Terms', 'Privacy Notice']) {
+    const cls = termsLinkClasses(words);
+    assert.ok(cls.includes('inline-flex') && cls.includes('min-h-[44px]'), `${words}: not a 44px box of its own (${cls.join(' ')})`);
+    const padded = cls.filter((c) => /^(?:-?m[tby]|-?p[tby]|py)-/.test(c));
+    assert.deepEqual(padded, [], `${words}: a vertical padding/margin reaches over the neighbouring line (${padded.join(' ')})`);
   }
 });
 

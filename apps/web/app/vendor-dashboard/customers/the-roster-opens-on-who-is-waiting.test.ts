@@ -276,7 +276,11 @@ test('Add (the thumb row) opens the SHIPPED outside-client import (owner answer 
   assert.match(pageSrc, /<OutsideClientAdd\b[\s\S]{0,300}action=\{importExternalClient\}/, 'Add no longer posts the shipped import');
   assert.match(pageSrc, /startOpen=\{search\.add === 'outside'\}/, '?add=outside (an older link) no longer opens it');
   assert.match(add, /<form\b[^>]*action=\{action\}/, 'the sheet does not post the action it is handed');
-  assert.match(add, /name="return_to" value="people"/, 'the import no longer comes back to People');
+  // S-PR3: the same sheet is Dates' Add too — it comes back to where it was opened, People unless told Dates.
+  assert.match(add, /returnTo = 'people'/, 'the import no longer comes back to People by default');
+  assert.match(add, /name="return_to" value=\{returnTo\}/, 'the sheet does not post where it came from');
+  const peopleAdd = pageSrc.slice(pageSrc.indexOf('<OutsideClientAdd'), pageSrc.indexOf('/>', pageSrc.indexOf('<OutsideClientAdd')));
+  assert.doesNotMatch(peopleAdd, /returnTo=/, 'People’s Add is sent somewhere else');
   const actions = stripComments(readFileSync(join(HERE, '..', 'calendar', 'actions.ts'), 'utf8'));
   assert.match(actions, /returnTo === 'people'[\s\S]{0,200}seg: 'people'/, 'the action does not bring the outcome back to People');
 });

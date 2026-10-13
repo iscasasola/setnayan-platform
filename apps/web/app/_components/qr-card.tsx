@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Share2 } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button';
-import { QrActions } from './qr-actions';
+import { QrActions } from '@/app/_components/qr-actions';
 import { SaveFileLink } from './save-file-link';
 
 /**
@@ -25,7 +25,7 @@ import { SaveFileLink } from './save-file-link';
 export type QrCardState = 'ready' | 'making' | 'used' | 'problem';
 
 export function QrCard({
-  svg,
+  svg: qrSvg,
   url,
   title,
   line,
@@ -62,7 +62,7 @@ export function QrCard({
     return () => window.removeEventListener('keydown', onKey);
   }, [big]);
 
-  if (state === 'problem' || (state === 'ready' && !svg)) {
+  if (state === 'problem' || (state === 'ready' && !qrSvg)) {
     return (
       <div role="alert" data-qr-card={data ?? ''} data-qr-state="problem" className="flex flex-col items-center gap-2 py-6 text-center">
         <b className="text-[16px] text-ink">Couldn&rsquo;t make the code</b>
@@ -76,7 +76,7 @@ export function QrCard({
     );
   }
 
-  const dataUri = svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : '';
+  const dataUri = qrSvg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}` : '';
   const plate = 'relative block h-[200px] w-[200px] rounded-[18px] bg-white p-[14px] shadow-[0_1px_0_rgba(0,0,0,.04),0_10px_26px_-16px_rgba(0,0,0,.35)] [&_svg]:block [&_svg]:h-full [&_svg]:w-full';
   const mark = (
     <span aria-hidden className="absolute left-1/2 top-1/2 flex h-[38px] w-[38px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[11px] bg-white font-serif text-[18px] font-bold text-sn-accent">
@@ -103,12 +103,12 @@ export function QrCard({
         <div aria-busy="true" aria-label="Making your code" className="h-[200px] w-[200px] animate-pulse rounded-[18px] bg-ink/[0.07]" />
       ) : state === 'used' ? (
         <div className={`${plate} opacity-60`} aria-label={`This code was used${stamp ? ` — ${stamp}` : ''}`}>
-          <span aria-hidden dangerouslySetInnerHTML={{ __html: svg ?? '' }} />
+          <span aria-hidden dangerouslySetInnerHTML={{ __html: qrSvg ?? '' }} />
           <span className="absolute inset-0 flex items-center justify-center rounded-[18px] bg-white/80 text-[18px] font-bold tracking-wide text-[#2C2A29]">{stamp ?? 'Used'}</span>
         </div>
       ) : (
         <button type="button" className={`sn-press ${plate}`} aria-label={`${title} — tap to open it big`} onClick={() => setBig(true)} data-qr-plate="">
-          <span aria-hidden dangerouslySetInnerHTML={{ __html: svg ?? '' }} />
+          <span aria-hidden dangerouslySetInnerHTML={{ __html: qrSvg ?? '' }} />
           {mark}
         </button>
       )}
@@ -148,7 +148,7 @@ export function QrCard({
               className="fixed inset-0 z-[97] flex flex-col items-center justify-center gap-4 bg-white p-6"
               data-qr-big=""
             >
-              <span aria-hidden className="block aspect-square w-full max-w-[min(88vw,520px)] [&_svg]:h-full [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: svg ?? '' }} />
+              <span aria-hidden className="block aspect-square w-full max-w-[min(88vw,520px)] [&_svg]:h-full [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qrSvg ?? '' }} />
               <span className="text-[15px] font-medium text-[#2C2A29]">Hold it up to the scanner</span>
             </button>,
             document.body,

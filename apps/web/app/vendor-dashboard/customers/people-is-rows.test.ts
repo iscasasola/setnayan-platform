@@ -177,7 +177,8 @@ test('3 · three segments, one address each; every old landing opens the segment
   for (const [sp, want] of cases) assert.equal(customersSegmentOf(sp), want, `${JSON.stringify(sp)} opens ${customersSegmentOf(sp)}`);
   // Each fold sits under exactly one segment, and every fold the hub draws has one.
   const all = CUSTOMER_SEGMENTS.flatMap((s) => foldsOf(s));
-  assert.deepEqual([...all].sort(), ['availability', 'contracts', 'messages', 'proposals']);
+  // S-PR3: Dates has no accordion fold — its tools are its own folds (Block days · Waitlist · Capacity).
+  assert.deepEqual([...all].sort(), ['contracts', 'messages', 'proposals']);
   assert.match(PAGE, /const sections = CUSTOMER_SECTIONS\.filter\(\(s\) => folds\.includes\(s\.key\)\)/, 'a fold is drawn outside its segment');
   // The ids the landings name are drawn only under their segment.
   assert.match(PAGE, /seg === 'money' \? \([\s\S]{0,200}id="bookings"[\s\S]{0,200}id="payday"/, 'Bookings / Payday are not Money’s');
@@ -194,12 +195,13 @@ test('3b · each segment reads only what it draws (owner: "the fewest requests")
   }
   const hub = body(PAGE, 'VendorCustomersHub');
   assert.match(hub, /seg === 'people' \? \([\s\S]{0,120}<CustomersPipeline\b/, 'People is not drawn only on People');
-  assert.match(hub, /seg === 'dates' \? \(\s*<CustomersDates\b/, 'Dates is not drawn only on Dates');
+  assert.match(hub, /seg === 'dates' \? \([\s\S]{0,240}<CustomersDay\b[\s\S]{0,120}<CustomersDates\b/, 'Dates (the month, or one day) is not drawn only on Dates');
 });
 
 test('3c · "People 3" — the count is the waiting count People has just measured, and only People draws a number', () => {
   assert.match(PAGE, /<CustomersSegments seg="people" waiting=\{laneCounts\.waiting\} \/>/);
-  assert.match(PAGE, /\{seg === 'people' \? null : <CustomersSegments seg=\{seg\} \/>\}/, 'Dates / Money draw a count they never read');
+  // Money and the Dates month draw the bare words; one day (a sub-page, frame 35) draws its own back row instead.
+  assert.match(PAGE, /\{seg === 'people' \|\| \(seg === 'dates' && search\.day\) \? null : <CustomersSegments seg=\{seg\} \/>\}/, 'Dates / Money draw a count they never read');
 });
 
 // ── 4 · HONEST MONEY ──────────────────────────────────────────────────────

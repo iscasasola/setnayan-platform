@@ -329,10 +329,14 @@ test('screens: an unfinished payday read is said, and its rows are never summed'
 });
 
 test('screens: blocks, unread and booked each say so when their read comes up short', () => {
-  const cal = read('app/vendor-dashboard/calendar/surface.tsx');
-  assert.match(cal, /\{blocksIncomplete \? \(\s*<p role="status"/);
+  // S-PR3: calendar/surface.tsx is retired — its blocks are Dates' (the month's note, the Block days fold's line)
+  // and one day's (its own note).
   const customers = read('app/vendor-dashboard/customers/page.tsx');
   assert.match(customers, /\{blocksIncomplete \? \(\s*<p role="status"/);
+  assert.match(customers, /closuresIncomplete=\{blocksIncomplete\}/, 'the Block days fold is not told its list came up short');
+  assert.match(customers, /\{!blocksRead\.complete \? \(\s*<p role="status"/, 'one day does not say its blocks came up short');
+  const folds = read('app/vendor-dashboard/customers/_components/dates-folds.tsx');
+  assert.match(folds, /closuresIncomplete \? 'Some couldn’t load/, 'Block days says "No days blocked" over a short read');
 
   const bookings = read('app/vendor-dashboard/bookings/surface.tsx');
   assert.match(bookings, /let factsIncomplete = !unreadRead\.complete;/);

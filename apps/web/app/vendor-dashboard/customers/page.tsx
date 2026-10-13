@@ -932,6 +932,8 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
 
   const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead, tierProbe] = await Promise.all([
     fetchVendorPools(supabase, vendorProfileId),
+    // CAPACITY, not the room: the day's seats are counted per pool (pool-grain, as `acquire_schedule_pools` enforces),
+    // and an event with a seat is booked — the holders are the open conversations without one.
     fetchVendorPoolBookings(supabase, vendorProfileId),
     fetchVendorBlocksDetailed(supabase, vendorProfileId),
     fetchVendorDayStates(supabase, vendorProfileId, day, day),

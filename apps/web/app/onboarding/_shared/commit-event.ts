@@ -23,7 +23,6 @@ import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
 import { setupArmsPapic } from '@/lib/event-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import {
@@ -216,13 +215,9 @@ export async function commitOnboardingEvent(
   // Turning it on later in Your info arms both at Apply.
   if (setupArmsPapic(setup)) {
     await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
-    // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
-    // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
-    // shared pool because the two are different products — the pool grant does
-    // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
-    // idempotent (fixed seat index + a partial unique index on the grant), so the
-    // creation call and the studio self-heal collapse to one camera.
-    await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
+    // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
+    // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
+    // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
   }
 
   const { error: memberError } = await admin.from('event_members').insert({

@@ -30,6 +30,7 @@
  * (a payment was just recorded) it asks again.
  */
 import { useCallback, useContext, useEffect, useId, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RotateCw } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
@@ -84,7 +85,11 @@ export function PaySheet({
     void load();
   }, [load, version]);
 
-  return (
+  // Drawn into <body>: inside the dashboard a transformed ancestor captures
+  // `position: fixed`, and the app's top bar then sat over the sheet's title on
+  // a computer (seen in the 2026-10-13 walk at 1280). The house fix —
+  // `book-this-build.tsx` portals its Sheet the same way.
+  return createPortal(
     <Sheet open onClose={onClose} labelledById={titleId} rise>
       <div className="space-y-4 px-5 pb-6 pt-5" data-pay-sheet={vendorId} data-pay-state={state.kind}>
         <h2 id={titleId} className="pr-10 font-display text-[22px] leading-tight text-ink">
@@ -184,6 +189,7 @@ export function PaySheet({
           </>
         ) : null}
       </div>
-    </Sheet>
+    </Sheet>,
+    document.body,
   );
 }

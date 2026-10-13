@@ -85,7 +85,25 @@ export function labPaySheet(vendorId: string, stage: MoneyStage = 'due'): LoadPa
         requestedFirstPaymentSentence: null,
         requestedTermsUnreadable: false,
         step: moneyStep({ terms: null, booked: true, today: TODAY, deposit: NO_DEPOSIT, ledger: { count: 0, paidCentavos: 0, recordedFirstCentavos: null } }),
-        history: paymentHistory({ rowsOrNull: [], totalCentavos: null, viewer: 'couple', otherName: name }),
+        // Bituin's reservation, once recorded — what the card lists under "paid".
+        history: paymentHistory({
+          rowsOrNull:
+            !own && (stage === 'waiting' || stage === 'received' || stage === 'refused')
+              ? [
+                  {
+                    payment_id: 'pay-bituin-1',
+                    amount_php: 38_000,
+                    paid_at: '2026-10-03T02:00:00Z',
+                    method: 'BDO · bank transfer',
+                    vendor_confirmed_at: stage === 'received' ? '2026-10-03T08:00:00Z' : null,
+                    payment_refused_at: stage === 'refused' ? '2026-10-03T09:00:00Z' : null,
+                  },
+                ]
+              : [],
+          totalCentavos: own ? null : 19_000_000,
+          viewer: 'couple',
+          otherName: name,
+        }),
       },
     };
   }

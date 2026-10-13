@@ -38,7 +38,10 @@ const BOOKED_CSS =
   '[data-booked-body] .bk-exp{display:grid;grid-template-rows:0fr;transition:grid-template-rows .28s cubic-bezier(.2,.7,.2,1)}' +
   '[data-booked-body] .bk-exp>div{overflow:clip;min-width:0}' +
   '[data-booked-body] .bk-row[data-open] .bk-exp{grid-template-rows:1fr}' +
-  '[data-booked-body] .bk-verbs{position:relative;display:flex;flex-wrap:nowrap;align-items:center;gap:8px;min-width:0}' +
+  // The verbs WRAP and keep their words (owner 2026-10-12, look call 2: "buttons
+  // keep their words on narrow cards; only Remove may shrink"). With a wrap the
+  // row never overflows, so `useFitRow` leaves every word in place.
+  '[data-booked-body] .bk-verbs{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}' +
   '[data-booked-body] .bk-slot{display:contents}' +
   // ONE button height: 44 px, the floor (owner 2026-10-12, look call 3 — "44 px
   // minimum, no 40 px rows"). A <button> picks up the app's 44 px touch floor and

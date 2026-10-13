@@ -42,6 +42,8 @@ const ROWS: ReadonlyArray<readonly [key: string, file: string]> = [
   // Find's thumb row (Suppliers PR2): the row has no background of its own —
   // the search field is the frosted piece, and Add keeps its full colour.
   ['suppliers-find', `${E}/vendors/_components/find-thumb-row.tsx`],
+  // The supplier's thumb row (supplier redesign S-PR0, 2026-10-08).
+  ['supplier-thumb', 'app/vendor-dashboard/_components/supplier-thumb-row.tsx'],
 ];
 
 function ruleBody(selector: string): string {

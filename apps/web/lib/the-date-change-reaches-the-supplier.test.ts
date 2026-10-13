@@ -83,7 +83,8 @@ test('3 · the supplier gets a desk card with exactly two buttons — Move to <d
   assert.match(sections, /card\.kind === 'date_change' \? \(\s*<DateChangeBody card=\{card\} answerDateChange=\{answerDateChange\} \/>/);
   const body = sections.slice(sections.indexOf('function DateChangeBody('), sections.indexOf('function DeleteRequestBody('));
   assert.equal((body.match(/<form action=\{answerDateChange\}>/g) ?? []).length, 2, 'not exactly two answers');
-  assert.match(body, /name="answer" value="moved"[\s\S]*?Move to \{to\}/);
+  // The words ride on the shared submit's `label` since 2026-10-12 (the button rule): `label={`Move to ${to}`}`.
+  assert.match(body, /name="answer" value="moved"[\s\S]*?Move to \$?\{to\}/);
   assert.match(body, /name="answer" value="unlocked"[\s\S]*?Unlock my service/);
   // 💸 Said BEFORE the press: the deposit follows the booking's own terms.
   assert.match(body, /settled by the cancellation terms on the booking/);

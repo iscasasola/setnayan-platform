@@ -65,6 +65,8 @@ app/dashboard/[eventId]/studio/papic/_components/life-flash-card.tsx "Play this 
 app/dashboard/[eventId]/studio/papic/page.tsx "Show the QR codes" → /dashboard/[eventId]/studio/papic/crew	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/patiktok/booth/page.tsx "Preview template + queue render" → /dashboard/[eventId]/studio/patiktok/[templateId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/patiktok/page.tsx "Choose template" → /dashboard/[eventId]/studio/patiktok/[templateId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/vendors/_components/booked-row.tsx "Your record could not be opened. Nothing changed." → /dashboard/[eventId]/messages/[threadId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/vendors/_components/booked-row.tsx "Your record could not be opened. Nothing changed." → /dashboard/[eventId]/vendors/[vendorId]/workspace	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx "+ Unlock more categor" → /dashboard/[eventId]/vendors/categories	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/vendors/_components/self-added-price.tsx "Transport, food inclusions →" → /dashboard/[eventId]/vendors/[vendorId]/workspace	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/website/editor/_components/authoring-panels.tsx "Design the film →" → /dashboard/[eventId]/studio/save-the-date	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
@@ -93,8 +95,6 @@ app/v/[slug]/page.tsx "Philippines" → /[slug]	# first run 2026-10-02 · guest 
 app/v/[slug]/page.tsx "Plan with Setnayan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/v/[slug]/page.tsx "Setnayan supplier" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/v/[slug]/page.tsx "Setnayan supplier" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
-app/vendor-dashboard/_components/spotlight-award-banner.tsx "See how couples discover you" → /explore	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/vendor-dashboard/_components/supplier-today-first-screen.tsx "new inquiries" → /vendor-dashboard/customers	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/attributes/page.tsx "Set up profile" → /vendor-dashboard	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx "Turn on Papic Challenges" → /vendor-dashboard/subscription	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/clients/surface.tsx "Set up a schedule" → /vendor-dashboard/customers	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster

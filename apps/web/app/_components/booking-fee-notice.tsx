@@ -19,7 +19,8 @@
  * alike.
  */
 import Link from 'next/link';
-import { AlertTriangle, BadgeCheck, Info, Receipt } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, ChevronRight, Info, Receipt, Wallet } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import type { FeeDisclosure, DueFeeBill, WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { feeIntroducedLine, waivedFeeCopy } from '@/lib/booking-fee-disclosure';
 import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
@@ -122,12 +123,45 @@ export function BookingFeeNotice({
 export function BookingFeeBillRow({
   bill,
   copy,
+  line = false,
 }: {
   bill: DueFeeBill;
   /** `feeDueCopy(bill, phToday())` — the escalation is decided, not styled. */
   copy: FeeDisclosure;
+  /**
+   * 📋 A HAIRLINE ROW, NOT A BOX (owner 2026-10-12, "APPROVE ALL" look call 8: supplier lists are hairline rows,
+   * "not framed boxes"). For a surface whose bills sit in a list of rows — the supplier's Today, under Also
+   * waiting. The same words, the same icon in the same colour, the same door; only the box is gone, and Pay now
+   * is the row's main button (terracotta, look call 1). Absent → the boxed row exactly as it was.
+   */
+  line?: boolean;
 }) {
   const { accent, Icon } = TONE[copy.tone];
+  if (line) {
+    return (
+      <div role="note" data-testid="booking-fee-bill" data-fee-bill-line="" className="flex items-start gap-2.5 border-t border-ink/10 py-3">
+        <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: accent }} />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <p className="text-[15px] font-medium leading-tight text-ink">{copy.headline}</p>
+          <p className="text-[13px] text-ink/60">{copy.detail}</p>
+          <div className="flex flex-wrap items-center gap-3 pt-0.5">
+            <ActionButton
+              tone="brand"
+              main
+              icon={<Wallet aria-hidden strokeWidth={1.9} />}
+              label="Pay now"
+              href={vendorBookingFeePayPath(bill.orderId)}
+              className="min-h-11"
+            />
+            <Link href={VENDOR_BOOKING_FEES_PATH} className="inline-flex min-h-11 items-center gap-0.5 text-[13px] font-medium text-sn-accent">
+              All booking fees
+              <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       role="note"
@@ -179,15 +213,18 @@ export function BookingFeeBillRow({
 export function BookingFeeBills({
   bills,
   copyFor,
+  rows = false,
 }: {
   bills: readonly DueFeeBill[];
   copyFor: (bill: DueFeeBill) => FeeDisclosure;
+  /** Hairline rows instead of boxes — `BookingFeeBillRow`'s `line` (the supplier's Today). */
+  rows?: boolean;
 }) {
   if (bills.length === 0) return null;
   return (
     <>
       {bills.map((b) => (
-        <BookingFeeBillRow key={b.orderId} bill={b} copy={copyFor(b)} />
+        <BookingFeeBillRow key={b.orderId} bill={b} copy={copyFor(b)} line={rows} />
       ))}
     </>
   );

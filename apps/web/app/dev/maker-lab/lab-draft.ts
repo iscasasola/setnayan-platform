@@ -291,6 +291,8 @@ export const LAB_BAR_COOKIE = 'lab_bar';
  * here (2026-10-11: "it did not make the secondary font").
  */
 export const LAB_NAMES_COOKIE = 'lab_names';
+/** 🎫 The ticket style the lab's draft holds (`events.print_details.pass_design`) — Prints' strip is drawn from it, as the real page's is. */
+export const LAB_PASS_COOKIE = 'lab_pass';
 /** The names the lab's cover draws: the drafted line, else the sample's. */
 export function labNamesFrom(value: string | undefined, sample: string): string {
   if (!value) return sample;
@@ -345,7 +347,14 @@ export function labDraftCookies(draftOnly: HubDraft, scrub: boolean, published: 
     [LAB_EDITORIAL_COOKIE]: draft.editorial && some(draft.editorial) ? json(draft.editorial) : null,
     [LAB_BAR_COOKIE]: bar.hasChanges || bar.canUndo ? json({ n: bar.changeCount, pro: bar.proCount, undo: bar.canUndo }) : null,
     [LAB_NAMES_COOKIE]: typeof draft.events.display_name === 'string' && draft.events.display_name.trim() ? encodeURIComponent(draft.events.display_name) : null,
+    [LAB_PASS_COOKIE]: labPassDesignOf(draft.events.print_details),
   };
+}
+
+/** The drafted ticket style, or null — read the way the real page reads the draft's `print_details.pass_design`. */
+function labPassDesignOf(printDetails: unknown): string | null {
+  const v = printDetails && typeof printDetails === 'object' ? (printDetails as { pass_design?: unknown }).pass_design : null;
+  return typeof v === 'string' && /^[a-z]{1,20}$/.test(v) ? v : null;
 }
 
 /** The lab's "server" summary — the count the draft bar is drawn with on a render (`LAB_BAR_COOKIE`). */

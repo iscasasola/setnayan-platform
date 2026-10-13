@@ -230,6 +230,11 @@ const OPEN_BOX =
 
 /* ── 3 · KINDLY REPLY — one field, two doors ──────────────────────────────── */
 
+/** A 40 px face whose press reaches 44 px: an invisible band 3 px above and below it (the pill selector's `after:-inset-y-[3px]`). */
+export const PRESS_REACH = "relative after:absolute after:inset-x-0 after:-inset-y-[3px] after:content-['']";
+const PICK_REACH =
+  "[&_[data-kindly-reply-pick]]:relative [&_[data-kindly-reply-pick]]:after:absolute [&_[data-kindly-reply-pick]]:after:inset-x-0 [&_[data-kindly-reply-pick]]:after:-inset-y-[3px] [&_[data-kindly-reply-pick]]:after:content-['']";
+
 export type ReplyHost = { moderatorId: string; label: string; contact: string | null };
 
 /** The dropdown's choices: each host with their number (or "no number on their account"), then "Type it in…". */
@@ -274,7 +279,8 @@ export function StudioKindlyReply({ form, hosts, choice, manual }: { form: strin
   }, []);
   const options = kindlyReplyOptions(hosts);
   return (
-    <FormRows data="kindly-reply">
+    /* The dropdown's face is the Form row's 40 px pill; its press reaches 44 px (3 px above and below — the pill selector's own reach). */
+    <FormRows data="kindly-reply" className={PICK_REACH}>
       <ChosenRow
         name="Who guests reply to"
         value={now || null}
@@ -547,12 +553,12 @@ export function StudioMenuEditor({
           <p className="text-[11.5px] font-bold uppercase tracking-[0.12em] text-ink/55">Add a moment</p>
           <div className="flex flex-wrap gap-2">
             {offers.map((s) => (
-              <button key={s} type="button" onClick={() => addMoment(s)} className={`${CHIP_CLASS} ${CHIP_OFF_CLASS} gap-1.5 !text-ink/75`}>
+              <button key={s} type="button" onClick={() => addMoment(s)} className={`${CHIP_CLASS} ${CHIP_OFF_CLASS} gap-1.5 !text-ink/75 after:!-inset-y-[3px]`}>
                 <Plus aria-hidden className="h-3.5 w-3.5 text-sn-accent" strokeWidth={2.4} />
                 {s}
               </button>
             ))}
-            <button type="button" onClick={() => addMoment('')} className={`${CHIP_CLASS} ${CHIP_OFF_CLASS} gap-1.5 !text-ink/75`}>
+            <button type="button" onClick={() => addMoment('')} className={`${CHIP_CLASS} ${CHIP_OFF_CLASS} gap-1.5 !text-ink/75 after:!-inset-y-[3px]`}>
               <Plus aria-hidden className="h-3.5 w-3.5 text-sn-accent" strokeWidth={2.4} />
               A moment of your own
             </button>
@@ -635,6 +641,7 @@ export function StudioProDoor({ href, label, icon, note }: { href: string; label
     <>
       <ActionButton
         ref={link as unknown as React.Ref<HTMLButtonElement | HTMLAnchorElement>}
+        className={PRESS_REACH}
         tone="neutral"
         href={href}
         label={label}

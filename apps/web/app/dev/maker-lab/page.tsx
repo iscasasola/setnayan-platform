@@ -13,7 +13,7 @@ import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
 import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
-import { LAB_BAR_COOKIE, LAB_OWN_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows } from './lab-draft';
+import { LAB_BAR_COOKIE, LAB_OWN_COOKIE, LAB_PASS_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows } from './lab-draft';
 import { labNavigatorInput } from './lab-navigator';
 import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
 import { INVITE_THEMES } from '@/lib/invite-themes';
@@ -161,7 +161,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       revealLab={revealLab}
       scenes={scenes}
       navigator={navigator}
-      details={detailsLabNode({ ...sp, shape: 'mj', ...(sp.studio === '1' || sp.ss === '1' ? { look: '1' } : {}) })}
+      details={detailsLabNode({ ...sp, shape: 'mj', ...(sp.studio === '1' || sp.ss === '1' ? { look: '1' } : {}), labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
       /* 🎞 Look › Background's moving backgrounds, built as the editor page builds them. */
       loops={hubMovingBackgroundIds().map((id, i) => ({
         id,

@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useReducer, useRef, useState, useTransition } from 'react';
+import { draftedPassLookOr, noteDraftedPassLook } from '@/lib/maker-draft-store';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { PASS_CARD_DESIGNS, PASS_CARD_DESIGN_LABEL, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import { passDesignDraftPatch } from '@/lib/pass-design-save';
@@ -61,18 +62,31 @@ export function PassCardDesignPicker({
 }) {
   /* The Maker's draft door — the shipped action; only the dev lab hands in its stand-in (`studio-actions-context.tsx`), so a lab pick never reaches a real event. */
   const { hubDraftAction } = useStudioActions();
-  const [shown, setShown] = useState<PassCardDesign>(saved);
+  /*
+   * 🎫 WHAT IS SHOWN IS WHAT THE DRAFT HOLDS (batch-4 walk F1, 2026-10-13): a pick is drawn at the tap and noted in the Maker's
+   * draft store; every render reads the look back through it — ours while our save is newer than the page, the page's draft
+   * after ↺ / Restore / another tab (the store's "first render after an Undo is the truth", #6485). It was seeded ONCE from
+   * `saved`: after ↺ the undone look stayed ringed, and a tap on it again was taken for "already worn" and saved nothing.
+   */
+  const [, setDrawnPick] = useReducer((n: number) => n + 1, 0);
+  const read = draftedPassLookOr(saved);
+  const shown: PassCardDesign = PASS_CARD_DESIGNS.find((d) => d === read) ?? saved;
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const latest = useRef<PassCardDesign>(saved);
-  const stored = useRef<PassCardDesign>(saved);
+  /* Tell the page which look is on screen whenever it changes — a pick, a refusal put back, or ↺ from the bar. */
+  const told = useRef<PassCardDesign>(shown);
+  useEffect(() => {
+    if (told.current === shown) return;
+    told.current = shown;
+    onShown?.(shown);
+  }, [shown, onShown]);
 
   const pick = (key: string) => {
     const design = PASS_CARD_DESIGNS.find((d) => d === key);
-    if (!design || design === latest.current) return;
-    latest.current = design;
-    setShown(design);
-    onShown?.(design);
+    /* "Already worn" is the look the draft holds now — never a copy that ↺ has taken back. */
+    if (!design || design === shown) return;
+    noteDraftedPassLook(design, saved);
+    setDrawnPick();
     setError(null);
     start(async () => {
       const fd = new FormData();
@@ -81,15 +95,11 @@ export function PassCardDesignPicker({
       const ok = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh)
         .then((r) => r.ok)
         .catch(() => false);
-      if (ok) {
-        stored.current = design;
-        return;
-      }
+      if (ok) return;
       // Only the LATEST pick is put back — an older failure never undoes a newer choice.
-      if (latest.current === design) {
-        latest.current = stored.current;
-        setShown(stored.current);
-        onShown?.(stored.current);
+      if (draftedPassLookOr(saved) === design) {
+        noteDraftedPassLook(saved, saved);
+        setDrawnPick();
         setError('That style did not save — please try again.');
       }
     });

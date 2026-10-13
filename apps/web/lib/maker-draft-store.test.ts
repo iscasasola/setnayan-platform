@@ -176,9 +176,9 @@ test('every scene kept at the announcement is owed, and only those', () => {
 const STORE = stripComments(readFileSync(join(__dirname, 'maker-draft-store.ts'), 'utf8'));
 const SHELL = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/launch/_components/maker-shell.tsx'), 'utf8'));
 
-test('the shared copies (canvases AND own words) hear every unheld write and every render', () => {
-  assert.match(STORE, /window\.addEventListener\(MAKER_UNHELD_WRITE_EVENT, \(\) => \{\s*shared\.unheld\(\);\s*ownWordsShared\.unheld\(\);\s*\}\);/);
-  assert.match(STORE, /export function makerRendered\(stamp: string\): void \{\s*shared\.rendered\(stamp\);\s*ownWordsShared\.rendered\(stamp\);\s*\}/);
+test('the shared copies (canvases, own words AND the ticket style — batch-4 F1) hear every unheld write and every render', () => {
+  assert.match(STORE, /window\.addEventListener\(MAKER_UNHELD_WRITE_EVENT, \(\) => \{\s*shared\.unheld\(\);\s*ownWordsShared\.unheld\(\);\s*passLookShared\.unheld\(\);\s*\}\);/);
+  assert.match(STORE, /export function makerRendered\(stamp: string\): void \{\s*shared\.rendered\(stamp\);\s*ownWordsShared\.rendered\(stamp\);\s*passLookShared\.rendered\(stamp\);\s*\}/);
   // The truth is owed only past a write that could change THIS scene — never past another scene's held pick.
   assert.match(STORE, /const shared = createDraftedCanvases\(\s*\(type\) => makerWritesPending\(canvasWriteKey\(type\)\) > 0 \|\| makerSavesInFlight\(\) > 0,\s*\(type\) => makerWritesPending\(canvasWriteKey\(type\)\) > 0 \|\| makerUnheldSavesInFlight\(\) > 0,\s*\);/);
   assert.match(STORE, /const ownWordsShared = createDraftedCanvases<OwnWords>\(\s*\(type\) => makerWritesPending\(`custom:\$\{type\}`\) > 0 \|\| makerSavesInFlight\(\) > 0,\s*\(type\) => makerWritesPending\(`custom:\$\{type\}`\) > 0 \|\| makerUnheldSavesInFlight\(\) > 0,\s*\);/);

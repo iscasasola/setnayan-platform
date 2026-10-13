@@ -414,6 +414,7 @@ export default async function PapicGuestPage({
       canKwento={canKwento}
       capApplies={quota.capApplies}
       poolLow={quota.poolLow}
+      poolEmpty={quota.poolEmpty}
       sponsorShare={quota.sponsorShare}
       eventStyle={eventStyle}
       faceMode={faceMode}

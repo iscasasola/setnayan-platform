@@ -3397,6 +3397,7 @@ export async function SiteBody({
                   faceTaggingWish={guest.face_tagging_wanted ?? null}
                   capApplies={papicGuest.capApplies}
                   poolLow={papicGuest.poolLow}
+                  poolEmpty={papicGuest.poolEmpty}
                   sponsorShare={papicGuest.sponsorShare}
                   eventStyle={papicGuest.eventStyle}
                   faceMode={papicGuest.faceMode}

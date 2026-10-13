@@ -372,6 +372,8 @@ export type GuestPapicCamera = {
    *  the guest needs so they can wind down — and carries no figure.
    */
   poolLow: boolean;
+  /** The pot is already empty at open — the camera says so before a shot is lost (owner 2026-10-13). */
+  poolEmpty: boolean;
   /** Her number is a sponsor's bigger share — see `GuestQuota.sponsorShare`. */
   sponsorShare: boolean;
   eventStyle: PapicStyle;

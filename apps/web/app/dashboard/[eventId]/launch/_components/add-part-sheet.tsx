@@ -772,18 +772,17 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
       if (done && done !== 'asking') pickAfter(s.key);
       return done;
     },
-    /* ↺ AT ONCE (`lib/maker-drawn-undo.ts`): the step this page drew, taken back the same way — the Maker's list and
+    /* ↺ AT ONCE (`lib/maker-drawn-undo.ts`): a step this page drew — any of the journal's, not only the last — taken back the same way — the Maker's list and
        hold by the work area (`undoDrawn`), the page here: a move slides back to where it stood (its slide comes off when
        the page redraws itself in that order); a scene taken off is shown again and a part ＋ added is taken off by the
        bridge (`sceneShow`). A refused Undo puts the step back, and the draft bar says why. */
-    undraw: (step) => {
+    undraw: (step, data) => {
       const o = askPartOps();
       const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
       if (!o || !doc || !step.key || step.key === REVEAL_STUB || !findMakerSection(doc, step.key)) return null;
-      /* (by its row: a scene taken off is no longer on the list the steps name parts by) */
-      const id = step.id ?? o.scenes.find((sc) => `w:${sc.type}` === step.key)?.id ?? null;
-      if (!id) return null;
-      const maker = o.undoDrawn(step.type, id);
+      /* (the journal's step names its scene by id — a scene taken off is no longer on the list the steps name parts by) */
+      const id = data.id;
+      const maker = o.undoDrawn(data);
       if (!maker) return null;
       const before = step.type === 'move' ? (maker.prior ?? null) : null;
       if (step.type === 'move' && !before) {

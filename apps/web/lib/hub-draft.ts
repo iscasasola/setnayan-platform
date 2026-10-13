@@ -2704,6 +2704,10 @@ export type HubDraftActionResult =
        * render (`lib/maker-refresh.ts`), so the toolbar's count comes from here.
        */
       bar?: HubDraftBarLive;
+      /** ↺ The stamp of the draft state this answer left (save · undo · reset) — `lib/hub-draft-stamp.ts`. */
+      stamp?: string;
+      /** ↺ A drawn undo only: the state it stepped back FROM was the one the Maker expected (`expect`). */
+      matched?: boolean;
       /** `date_change` only: what happened, in words ("Asked. Your date stays as it is…"). */
       message?: string;
     }

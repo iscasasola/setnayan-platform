@@ -6,7 +6,7 @@ import { Trash2, Undo2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { CANVAS_REFRESH_MESSAGE, MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight, makerSavesStarted, requestMakerRefresh } from '@/lib/maker-refresh';
 import { onMakerSave } from '@/lib/maker-save-status';
-import { CANVAS_SETTLE_TIMEOUT_MS, whenCanvasShowsIt, type CanvasSettle } from '@/lib/maker-settle';
+import { CANVAS_SETTLE_TIMEOUT_MS, type CanvasSettle } from '@/lib/maker-settle';
 import {
   SCENE_COLLAPSE_CALM_MS,
   SCENE_COLLAPSE_EASE,
@@ -19,7 +19,7 @@ import {
   scenePadDone,
   type SceneBox,
 } from '@/lib/maker-scene-drag';
-import { claimDrawnUndo, withdrawDrawnUndo, DRAWN_UNDO_TTL_MS, type DrawnUndo } from '@/lib/maker-drawn-undo';
+import { setSceneUndrawer, type DrawnUndo, type SceneUndoData } from '@/lib/maker-drawn-undo';
 import { attachSceneDrag, type SceneDragHost, type SceneDragSubject, type SceneDragWired, type SceneDrop } from './scene-canvas-drag';
 
 /**
@@ -80,9 +80,9 @@ export type SceneDragInput = {
   remove: (subject: SceneDragSubject) => 'asking' | Promise<CanvasSettle> | null;
   /** ↺ took one of these steps back, and the page shows it. */
   undone: (step: SceneStep) => void;
-  /** ↺ is about to take this step back: draw its inverse on the page NOW and say how the Undo's held save ended
-   *  (`lib/maker-drawn-undo.ts`). Null: it cannot be drawn here — the Undo reloads the page, as ever. */
-  undraw?: (step: SceneStep) => DrawnUndo | null;
+  /** ↺ is about to take this step back (the journal's — `data` by value): draw its inverse on the page NOW and say how
+   *  the Undo's held save ended (`lib/maker-drawn-undo.ts`). Null: it cannot be drawn here — the Undo reloads, as ever. */
+  undraw?: (step: SceneStep, data: SceneUndoData) => DrawnUndo | null;
 };
 
 export type SceneDragNow = {
@@ -217,8 +217,6 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
   const [line, setLine] = useState<Line | null>(null);
   const lineN = useRef(0);
   const binRef = useRef<HTMLDivElement>(null);
-  /** The last step made here that ↺ would take back — with the count of the Maker's saves when it landed. */
-  const last = useRef<(SceneStep & { saves: number }) | null>(null);
   /** The save the line is waiting for. */
   const saving = useRef(false);
 
@@ -244,47 +242,35 @@ export function useSceneDrag(input: SceneDragInput): SceneDragNow {
         if (how === 'failed') {
           /* The scene slides back, THEN the honest line. */
           revert?.();
-          last.current = null;
           return say(SCENE_DRAG_WORDS.failed, true);
         }
         /* A page that never came says nothing it cannot show. */
         if (how === 'timeout') return put(null);
-        last.current = { ...step, saves: makerSavesStarted() };
         put(step.type === 'remove' ? { kind: 'removed', label: step.label } : null);
       });
     },
     [put, say],
   );
 
-  /* ── ↺ the Maker's own Undo: when it takes back the step made here, the line says so once the page shows it ── */
-  useEffect(() => {
-    const onUndo = (e: MouseEvent) => {
-      const button = (e.target as Element | null)?.closest?.(UNDO_BUTTON) as HTMLButtonElement | null;
-      const step = last.current;
-      if (!button || button.disabled || !step) return;
-      last.current = null;
-      /* Something else was saved since: ↺ takes THAT back, and this line has nothing true to say of it. */
-      if (step.saves !== makerSavesStarted()) return;
-      put(null);
-      /* ↺ AT ONCE: the step's inverse is drawn on the page now and this press is claimed for it — the draft bar's
-         save is then held (`lib/maker-drawn-undo.ts`). A claim the Undo never took (its click did not run) is
-         withdrawn, and the drawing taken back. */
-      const drawn = now.current.undraw?.(step) ?? null;
-      if (drawn) {
-        claimDrawnUndo(drawn);
-        window.setTimeout(() => {
-          if (withdrawDrawnUndo(drawn)) drawn.landed(false);
-        }, DRAWN_UNDO_TTL_MS);
-      }
-      void (drawn ? drawn.settle : whenCanvasShowsIt()).then((how) => {
-        if (how !== 'shown') return;
-        say(step.type === 'remove' ? SCENE_DRAG_WORDS.back(step.label) : step.type === 'add' ? SCENE_DRAG_WORDS.addUndone(step.label) : SCENE_DRAG_WORDS.moveUndone);
-        now.current.undone(step);
-      });
-    };
-    document.addEventListener('click', onUndo, true);
-    return () => document.removeEventListener('click', onUndo, true);
-  }, [put, say]);
+  /* ── ↺ the Maker's own Undo: ANY scene step of the journal (`lib/maker-drawn-undo.ts`) — the 2nd, 3rd… of a run too —
+     is drawn back on the page by this drag, at the press; the line says so once the page shows it. Lent while mounted
+     (`setSceneUndrawer`); with no drag mounted the step takes the slow path. ── */
+  useEffect(
+    () =>
+      setSceneUndrawer((data) => {
+        const step: SceneStep = { type: data.kind, label: data.label, key: data.key, id: data.id };
+        const drawn = now.current.undraw?.(step, data) ?? null;
+        if (!drawn) return null;
+        put(null);
+        void drawn.settle.then((how) => {
+          if (how !== 'shown') return;
+          say(step.type === 'remove' ? SCENE_DRAG_WORDS.back(step.label) : step.type === 'add' ? SCENE_DRAG_WORDS.addUndone(step.label) : SCENE_DRAG_WORDS.moveUndone);
+          now.current.undone(step);
+        });
+        return drawn;
+      }),
+    [put, say],
+  );
   /** The line's Undo PRESSES the Maker's own (one door to the draft; its busy rule and its reload are that button's) —
    *  so it does exactly what ↺ does for this removal: the listener above hears that one press, the scene comes back
    *  where it was, and the line says "<Scene> is back". */

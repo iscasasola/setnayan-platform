@@ -1,3 +1,4 @@
+import { hubDraftStamp, hubDraftUndoMatched } from '@/lib/hub-draft-stamp';
 import {
   HUB_DRAFT_TOO_LARGE_MESSAGE,
   emptyHubDraft,
@@ -204,7 +205,7 @@ export const LAB_APPLY_MESSAGE = 'This is the sample event — that needs a real
  */
 export function labDraftStep(
   current: HubDraft,
-  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown },
+  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown },
   scrub: boolean,
   /** What the lab has published so far (`labPublishedFrom`) — null: nothing. Changed only by `apply`. */
   published: HubDraftState | null = null,
@@ -219,11 +220,17 @@ export function labDraftStep(
     } catch {
       return { draft: current, published, result: { ok: false, intent, error: HUB_DRAFT_TOO_LARGE_MESSAGE } };
     }
-    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published) } : {}) } };
+    /* ↺ …with the stamp of the state it left, as the real action answers (`lib/hub-draft-stamp.ts`). */
+    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published) } : {}), ...(intent === 'restore' ? {} : { stamp: hubDraftStamp(fitted) }) } };
   };
   if (intent === 'restore') return done(emptyHubDraft());
   /* ↺ Undo and Reset answer with the bar when asked — as the real action (`answerWithBar`). */
-  if (intent === 'undo') return done(undoHubDraft(current), fields.bar === '1');
+  if (intent === 'undo') {
+    /* ↺ A drawn undo says the state it expects to step back from — answered `matched`, as the real action does. */
+    const matched = hubDraftUndoMatched(current, fields.expect);
+    const step = done(undoHubDraft(current), fields.bar === '1');
+    return matched === undefined || !step.result.ok ? step : { ...step, result: { ...step.result, matched } };
+  }
   if (intent === 'reset') {
     if (!isHubResetScope(fields.stage)) return { draft: current, published, result: { ok: false, intent, error: 'Choose which stage to reset.' } };
     return done(mergeHubDraft(current, hubResetPatch(fields.stage)), fields.bar === '1');

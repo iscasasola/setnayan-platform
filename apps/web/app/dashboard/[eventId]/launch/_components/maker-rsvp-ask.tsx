@@ -1,7 +1,8 @@
 'use client';
 
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { canvasWriteKey, draftedCanvasOr, hearDraftedCanvas, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { drawnNow } from '@/lib/maker-drawn-undo';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { HUB_DRAFT_FIELD, type HubDraftActionResult } from '@/lib/hub-draft';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
@@ -247,6 +248,28 @@ export function MakerRsvpSettings({
     setLocal(saved.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentKey, truth]);
+  /* ↺ ANOTHER WRITER OF THE CONFIG — a ↺ drawn at its press (`lib/maker-drawn-undo.ts`), the stage's truth, Studio's
+     RSVP: the panel shows what the Maker's copy now holds, and a refused save goes back to it. Its own notes are not
+     heard (`ownNote`). */
+  const ownNote = useRef(false);
+  const currentRef = useRef(current);
+  currentRef.current = current;
+  useEffect(() => {
+    if (!stage && !studio) return;
+    return hearDraftedCanvas((type) => {
+      if (type !== RSVP_DRAFT_TYPE || ownNote.current) return;
+      const now = draftedCanvasOr(RSVP_DRAFT_TYPE, currentRef.current as HubSectionCanvas) as RsvpAskConfig;
+      if (now === latest.current) return;
+      latest.current = now;
+      if (inFlight.current === 0) saved.current = now;
+      setLocal(now);
+    });
+  }, [stage, studio]);
+  const noteOwn = (config: RsvpAskConfig) => {
+    ownNote.current = true;
+    noteDraftedCanvas(RSVP_DRAFT_TYPE, config as HubSectionCanvas, current as HubSectionCanvas);
+    ownNote.current = false;
+  };
 
   /**
    * `said`: the control that asked says a refusal ITSELF (a Form row's own red line and Try again) — the panel's one
@@ -262,6 +285,7 @@ export function MakerRsvpSettings({
       setError(said ? null : RSVP_CONFIG_FULL);
       return Promise.resolve({ ok: false, error: RSVP_CONFIG_FULL });
     }
+    const before = latest.current;
     latest.current = next;
     setLocal(next); // ⚡ on screen at the tap — never inside the transition below
     setError(null);
@@ -275,7 +299,22 @@ export function MakerRsvpSettings({
          taps are one save. `held`: nothing is re-rendered for it; the Apply
          count comes back with the save (`HUB_DRAFT_BAR_FIELD`). */
       announceRsvpPreview(next);
-      noteDraftedCanvas(RSVP_DRAFT_TYPE, next as HubSectionCanvas, current as HubSectionCanvas);
+      noteOwn(next);
+      /* ↺ ITS UNDO, DRAWN AT THE PRESS (`lib/maker-drawn-undo.ts`): the config before on the stage's frames (the same
+         announcement — lines, order, words, look) and in the Maker's copy, which this panel and the stage read back. A
+         refused ↺ lays this change on again. The run of a burst folds under the one write key, as its save does. */
+      const server = current as HubSectionCanvas;
+      const undo = {
+        key: canvasWriteKey(RSVP_DRAFT_TYPE),
+        undraw: () => {
+          announceRsvpPreview(before);
+          noteDraftedCanvas(RSVP_DRAFT_TYPE, before as HubSectionCanvas, server);
+          return drawnNow(() => {
+            announceRsvpPreview(next);
+            noteDraftedCanvas(RSVP_DRAFT_TYPE, next as HubSectionCanvas, server);
+          });
+        },
+      };
       return (async (): Promise<SaveAnswer> => {
         let res: HubDraftActionResult | typeof SUPERSEDED;
         try {
@@ -289,7 +328,7 @@ export function MakerRsvpSettings({
                 return draftAction(eventId, fd);
               }),
             requestMakerRefresh,
-            { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true },
+            { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true, undo },
           );
         } catch {
           res = { ok: false, intent: 'save', error: 'Please try again.' };

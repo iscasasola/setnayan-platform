@@ -52,6 +52,7 @@ import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
+import { AppearanceChoice } from './_components/appearance-choice';
 import {
   atTag,
   composeFormalName,
@@ -102,9 +103,8 @@ type Props = {
   }>;
 };
 
-// Light-locked 2026-06-04: the theme picker (Light · Dark · Auto) was removed —
-// Setnayan always renders light. `users.theme_preference` is left dormant. See
-// _components/theme-provider.tsx and CLAUDE.md decision-log.
+// Appearance = Light · Dark is back (owner "approve all", DECISION_LOG 2026-10-13), as the first
+// row of Preferences — `_components/appearance-choice.tsx`. It supersedes the 2026-06-04 light lock.
 
 export default async function ProfilePage({ searchParams }: Props) {
   const search = await searchParams;
@@ -134,7 +134,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
+      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, theme_preference, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -1240,6 +1240,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       <GroupHeader eyebrow="How Setnayan works for you" title="Preferences" />
       <div className="space-y-6">
         <div className="sn-tile divide-y divide-ink/10">
+          <AppearanceChoice saved={profile?.theme_preference ?? null} />
           <Segmented
             label="Planner mode"
             help="Guided shows the 9-step checklist on your Overview tab. DIY hides it."

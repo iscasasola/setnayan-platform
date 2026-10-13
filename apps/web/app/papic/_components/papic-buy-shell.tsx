@@ -274,10 +274,10 @@ function OfferSubmit({ phrase }: { phrase: string }) {
   return (
     <button
       type="submit"
+      className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink/15 bg-surface px-4 py-3 text-left text-sm text-ink hover:border-terracotta hover:bg-terracotta/5 disabled:cursor-wait disabled:border-terracotta"
       disabled={pending}
       aria-busy={pending}
       data-pending={pending ? 'true' : undefined}
-      className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink/15 bg-surface px-4 py-3 text-left text-sm text-ink hover:border-terracotta hover:bg-terracotta/5 disabled:cursor-wait disabled:border-terracotta"
     >
       <span>{phrase}</span>
       {pending ? (

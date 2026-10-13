@@ -61,7 +61,8 @@ export async function GuestColumnCard({
 
   const w = await eventWordsForEvent(eventId);
 
-  const closed = getLifecyclePhase(eventDate, eventTz, eventEndDate ?? null) === 'editorial';
+  // The Invitation's opening date cannot move 'editorial' — only the Save the Date / Invitation split (`null`).
+  const closed = getLifecyclePhase(eventDate, eventTz, eventEndDate ?? null, undefined, null) === 'editorial';
   const admin = createAdminClient();
 
   // The guest's own column (any status — drives the form state). A withdrawn

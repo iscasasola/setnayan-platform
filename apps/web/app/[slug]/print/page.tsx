@@ -130,6 +130,8 @@ export default async function EditorialPrintPage({
       event.event_date,
       (event as { timezone?: string | null }).timezone ?? undefined,
       (event as { event_end_date?: string | null }).event_end_date ?? null,
+      undefined,
+      event.std_invitation_launch_date ?? null,
     ) === 'editorial';
   if (!isEditorialPhase) {
     const hostPreview = await isSignedInEventHost(event.event_id);

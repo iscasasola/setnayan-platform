@@ -594,7 +594,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     hostCanvas: asksForHostCanvas(search),
     phasesEnabled: isWebsitePhasesEnabled() || surfaceEnabled(eventTypeProfile, 'website'),
     // The venue's own clock, as the body's own call below is handed (`venueTz`).
-    clockPhase: getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null),
+    clockPhase: getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null, undefined, event.std_invitation_launch_date ?? null),
     pinnedPhase: manualLaunchPhase(event.launch_mode, event.manual_phase),
     askedPhase:
       askedPhase === 'save_the_date' || askedPhase === 'rsvp' || askedPhase === 'event' || askedPhase === 'editorial'
@@ -1207,6 +1207,9 @@ async function invitationBody({
         // resolved `undefined` on every render and the multi-day arm below it
         // has never run. The column is selected now (see `_lib/types.ts`).
         event.event_end_date ?? null,
+        undefined,
+        // 📬 The ONE date the Invitation opens — the film says the same one (owner 2026-10-14).
+        event.std_invitation_launch_date ?? null,
       ),
     eventTypeProfile.terminology.register === 'solemn',
   );

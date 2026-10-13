@@ -68,7 +68,7 @@ export function PassCardDesignPicker({
    * after ↺ / Restore / another tab (the store's "first render after an Undo is the truth", #6485). It was seeded ONCE from
    * `saved`: after ↺ the undone look stayed ringed, and a tap on it again was taken for "already worn" and saved nothing.
    */
-  const [, drawn] = useReducer((n: number) => n + 1, 0);
+  const [, setDrawnPick] = useReducer((n: number) => n + 1, 0);
   const read = draftedPassLookOr(saved);
   const shown: PassCardDesign = PASS_CARD_DESIGNS.find((d) => d === read) ?? saved;
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +86,7 @@ export function PassCardDesignPicker({
     /* "Already worn" is the look the draft holds now — never a copy that ↺ has taken back. */
     if (!design || design === shown) return;
     noteDraftedPassLook(design, saved);
-    drawn();
+    setDrawnPick();
     setError(null);
     start(async () => {
       const fd = new FormData();
@@ -99,7 +99,7 @@ export function PassCardDesignPicker({
       // Only the LATEST pick is put back — an older failure never undoes a newer choice.
       if (draftedPassLookOr(saved) === design) {
         noteDraftedPassLook(saved, saved);
-        drawn();
+        setDrawnPick();
         setError('That style did not save — please try again.');
       }
     });

@@ -69,9 +69,10 @@ test('(1) the app’s selector is a full pill in ONE colour — terracotta with 
         const cls = seg(on, tone);
         assert.ok(has(cls, 'rounded-full'), 'a choice is not a pill');
         noRect(cls, 'a choice');
-        // 38 px of pill + 3 + 3 of track = 44; the target reaches the track's edges; the words sit above the thumb.
+        // 38 px of pill + 3 + 3 of track = 44; the target (`sn-hit`, the shared 46-px press) reaches past the track's
+        // edges; the words sit above the thumb.
         assert.ok(has(cls, 'min-h-[38px]'), 'the track is no longer 44 px tall on a phone');
-        for (const c of ['relative', 'z-[1]', 'after:absolute', 'after:-inset-y-[3px]']) assert.ok(has(cls, c), `a choice lost ${c}`);
+        for (const c of ['relative', 'z-[1]', 'sn-hit']) assert.ok(has(cls, c), `a choice lost ${c}`);
         // The words cross-fade at the family's one speed — and not at all under reduce motion.
         for (const c of ['transition-colors', 'duration-sn-pill', 'ease-sn', 'motion-reduce:transition-none']) assert.ok(has(cls, c), `a choice lost ${c}`);
       }

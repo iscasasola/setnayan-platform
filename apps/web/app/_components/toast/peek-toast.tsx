@@ -148,12 +148,12 @@ export function PeekToast({
         <Mark aria-hidden className="h-[18px] w-[18px] flex-none" strokeWidth={2.4} />
         <span className={PEEK_TOAST_WORDS}>{children}</span>
         {action ? (
-          <button type="button" onClick={action.onPress} data-peek-toast-action="" className="sn-press pointer-events-auto inline-flex !h-[34px] !min-h-0 flex-none items-center rounded-full bg-white px-3.5 text-[13px] font-bold text-ink">
+          <button type="button" onClick={action.onPress} data-peek-toast-action="" className="sn-press sn-hit pointer-events-auto inline-flex !h-[34px] !min-h-0 flex-none items-center rounded-full bg-white px-3.5 text-[13px] font-bold text-ink">
             {action.label}
           </button>
         ) : null}
         {tone === 'bad' && onRetry ? (
-          <button type="button" onClick={onRetry} data-peek-toast-retry="" className="sn-press pointer-events-auto inline-flex !h-[34px] !min-h-0 flex-none items-center rounded-full bg-white px-3.5 text-[13px] font-bold text-ink">
+          <button type="button" onClick={onRetry} data-peek-toast-retry="" className="sn-press sn-hit pointer-events-auto inline-flex !h-[34px] !min-h-0 flex-none items-center rounded-full bg-white px-3.5 text-[13px] font-bold text-ink">
             Try again
           </button>
         ) : null}

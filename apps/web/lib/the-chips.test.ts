@@ -84,8 +84,9 @@ test('(2) a chip never changes size: chosen or not, the same shape — 40 px, at
   for (const cls of [...CHIP_ON_CLASS.split(' '), ...CHIP_OFF_CLASS.split(' ')]) assert.doesNotMatch(cls, SIZES, `a state changes the chip's size (${cls})`);
   assert.equal(chipClass(true), `${CHIP_CLASS} ${CHIP_ON_CLASS}`);
   assert.equal(chipClass(false), `${CHIP_CLASS} ${CHIP_OFF_CLASS}`);
-  // The finger's target is 44 px: the 40-px chip plus 2 px above and below.
-  assert.ok(shape.includes('after:-inset-y-0.5') && shape.includes('relative'));
+  // The finger's target is 44 px: the 40-px chip wears the shared press (`sn-hit`, 46 px around its centre;
+  // lib/the-shared-controls-press-at-44.test.ts). The old 2-px expander pressed at 42 (measured, 2026-10-13).
+  assert.ok(shape.includes('sn-hit') && shape.includes('relative'));
   // Nothing comes and goes inside a chip: its only child is its label.
   const { Chips } = await import(`../${CHIPS}`);
   const html = await paint(h(Chips, { label: 'Groups', options: OPTIONS, value: ['family'], onToggle: () => {} } as Record<string, unknown>));

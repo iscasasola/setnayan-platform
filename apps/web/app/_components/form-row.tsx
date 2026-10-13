@@ -78,7 +78,7 @@ export type FormPillWidth = keyof typeof FORM_PILL_WIDTH;
 /** The white pill an answer wears (the dropdown button's own shape: a full pill, 40 px, the mark pinned right). In dark mode it
  *  sits on the page's own ground (`dark:bg-cream`) — white stayed white there under light ink. */
 export const FORM_PILL_CLASS =
-  'sn-row-pill sn-press sn-press-ring inline-flex h-10 min-h-10 flex-none items-center justify-between gap-1.5 rounded-full border bg-white pl-3.5 pr-2.5 text-left dark:bg-cream text-[14px] font-medium text-ink transition-colors duration-sn-control ease-sn';
+  'sn-row-pill sn-press sn-press-ring sn-hit inline-flex h-10 min-h-10 flex-none items-center justify-between gap-1.5 rounded-full border bg-white pl-3.5 pr-2.5 text-left dark:bg-cream text-[14px] font-medium text-ink transition-colors duration-sn-control ease-sn';
 /** The same pill on the house dropdown (`PickMenu` keeps its own button; these lay the row's look over it). */
 export const FORM_PICK_CLASS = '!h-10 !min-h-10 flex-none justify-between !gap-1.5 border border-ink/15 !bg-white dark:!bg-cream !pl-3.5 !pr-2.5 !text-[14px] !font-medium';
 /** The small mark at a pill's right. */

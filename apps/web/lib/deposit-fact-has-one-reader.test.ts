@@ -106,6 +106,10 @@ const ROSTER: Record<string, { count: number; why: string }> = {
     count: 3,
     why: 'select + row type; "Paid so far" via paidToVendorPhp, Cancel-vs-Dispute via bookingMoneyMoved(ev)',
   },
+  'app/dashboard/[eventId]/vendors/page.tsx': {
+    count: 2,
+    why: 'the Booked body’s Cancel-vs-Dispute verb: the carried row’s column is one argument of bookingMoneyMoved (key + value), never read as an amount',
+  },
   'app/dashboard/[eventId]/vendors/actions.ts': {
     count: 2,
     why: 'cancelBookingAsHost selects it for bookingMoneyMoved (select + row type); the vendors-list form that WROTE the typed figure was removed 2026-10-02 with createVendor',

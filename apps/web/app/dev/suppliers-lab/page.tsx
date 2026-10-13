@@ -23,6 +23,23 @@
  *   &build=garden       …with "Garden build" in use · &build=none (nothing yet)
  *                       · &build=unread (the saved builds could not be read)
  *
+ * THE BOOKED BODY (`booked-fixtures.ts` — the real rows on fixture facts):
+ *   ?mode=booked        open on Booked
+ *   &lines=0            the booked venue has an agreed total but no dated payments
+ *   &fail=money         the ledger's supplier read is refused
+ *   &fail=team          the team read is refused
+ *   &fail=orders        the Setnayan-orders read is refused
+ *   &target=0           no budget set
+ *   &room=sent|unread   the ceremony venue's room size is stated / could not be read
+ *   &datechange=1       an open date change (one supplier deciding, one can move)
+ *   &payfail=1          the Pay sheet's one request fails (press Pay)
+ *   &payslow=1          …or takes 2.5 s
+ *   &money=…            Bituin's reservation in the money loop — due · waiting ·
+ *                       received · refused (`money-pair.ts`; the supplier's end
+ *                       of the same booking is `/dev/customer-money-lab?s=…`)
+ *   &booked=0           nobody asked, nobody booked
+ *   &seed=proto|asked   only the prototype's own rows (for a side-by-side)
+ *
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
  * behind that flag, and a client bundle reads it at build time.
  */
@@ -45,6 +62,11 @@ import {
   labInviteStatuses,
 } from './fixtures';
 import { LabSuppliersShell } from './lab-build';
+import { BookedBody } from '@/app/dashboard/[eventId]/vendors/_components/booked-body';
+import { LabBookedStandIns } from './lab-booked';
+import { labBookedBudget, labBookedMoney, labBookedView, type LabBookedOptions } from './booked-fixtures';
+import { BookedBudgetSection } from '@/app/dashboard/[eventId]/vendors/_components/booked-budget';
+import { moneyStageOf } from './money-pair';
 
 export default async function SuppliersLabPage({
   searchParams,
@@ -67,7 +89,21 @@ export default async function SuppliersLabPage({
     lockHandshakeEnabled: true,
   });
 
-  const booked = rows.filter((r) => r.status === 'contracted').length;
+  // The Booked body — its own fixtures, through the real derivations.
+  const bookedFail = one('fail');
+  const bookedOpts: LabBookedOptions = {
+    lines: one('lines') !== '0',
+    fail: bookedFail === 'money' || bookedFail === 'team' || bookedFail === 'orders' ? bookedFail : null,
+    target: one('target') !== '0',
+    room: one('room') === 'sent' ? 'sent' : one('room') === 'unread' ? 'unread' : 'not_sent',
+    dateChange: one('datechange') === '1',
+    booked: one('booked') !== '0',
+    seed: one('seed') === 'proto' || one('seed') === 'asked' ? (one('seed') as 'proto' | 'asked') : null,
+    money: moneyStageOf(one('money')),
+  };
+  const bookedMoney = labBookedMoney(bookedOpts);
+  const bookedLabView = labBookedView(bookedOpts, bookedMoney);
+  const booked = bookedLabView.booked.length;
   const bench = (
     <LabBench
       key={`sl-${one('open') ?? ''}`}
@@ -95,7 +131,7 @@ export default async function SuppliersLabPage({
           start={one('build')}
           answer={one('answer')}
           eventId={LAB_EVENT}
-          initialTab={one('tab') === 'build' ? 'build' : one('tab') === 'budget' ? 'budget' : 'shortlist'}
+          initialTab={one('mode') === 'booked' ? 'budget' : one('tab') === 'build' ? 'build' : one('tab') === 'budget' ? 'budget' : 'shortlist'}
           factsSlot={
             <DatePlaceLine
               eventId={LAB_EVENT}
@@ -104,7 +140,20 @@ export default async function SuppliersLabPage({
           }
           bookedCount={booked}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
-          teamSlot={<p className="py-10 text-sm text-ink/55">Booked — not drawn in this lab.</p>}
+          bookedSlot={
+            <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} money={bookedOpts.money}>
+              <BookedBody
+                eventId={LAB_EVENT}
+                state={
+                  bookedOpts.fail === 'team'
+                    ? { kind: 'unreadable', retryHref: '/dev/suppliers-lab?mode=booked' }
+                    : { kind: 'view', view: bookedLabView }
+                }
+              >
+                <BookedBudgetSection eventId={LAB_EVENT} budget={labBookedBudget(bookedOpts, bookedMoney)} />
+              </BookedBody>
+            </LabBookedStandIns>
+          }
         />
       </section>
     </SuppliersLabStage>

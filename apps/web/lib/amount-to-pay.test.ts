@@ -392,9 +392,26 @@ test('the itemization log is replaced, not duplicated, for a Setnayan supplier',
   const log = card.indexOf('action={logPayment}');
   const unknown = card.indexOf("paymentDoor === 'unknown' ?");
   assert.ok(door > 0 && unknown > door && log > unknown, 'the log form is not behind the door');
+  // ⤷ 2026-10-08 (Budget B2): the Budget page draws a supplier as ONE ROW that
+  // opens a payments sheet, not this card. The door rule moved with it and is
+  // stricter there: a supplier ON SETNAYAN whose door was not read is 'unknown'
+  // (no button), never a defaulted 'log'.
   const budget = src('app/dashboard/[eventId]/budget/page.tsx');
-  assert.match(budget, /acceptedQuoteLines=\{quoteByVendor\.get\(s\.vendor\.vendor_id\)\?\.lines \?\? null\}/);
-  assert.match(budget, /paymentDoor=\{doorByVendor\.get\(s\.vendor\.vendor_id\) \?\? 'log'\}/);
+  assert.match(
+    budget,
+    /door: !s \? 'unknown' : onSetnayan \? \(doorByVendor\.get\(row\.vendorId\) \?\? 'unknown'\) : 'log'/,
+    'the Budget page no longer decides each supplier’s payment door from the shared rule',
+  );
+  assert.doesNotMatch(budget, /VendorItemizationCard/, 'the itemization card is back on the Budget page');
+  const sheets = src('app/dashboard/[eventId]/budget/_components/budget-sheets.tsx');
+  const sheetDoor = sheets.indexOf("door === 'amount_to_pay' ? (");
+  assert.ok(sheetDoor > 0, 'the supplier sheet no longer sends a Setnayan supplier to Amount to pay');
+  assert.match(
+    sheets.slice(sheetDoor, sheetDoor + 260),
+    /href=\{extras\.amountToPayHref\}/,
+    'for a Setnayan supplier, "Record a payment" must be the Amount to pay door, not a second form',
+  );
+  assert.match(sheets, /door === 'unknown' \? null :/, 'an unchecked door is offered a payment form');
   const ws = src('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
   assert.match(ws, /paymentDoor=\{itemizationDoor\}/);
   assert.match(ws, /step=\{bookedMoney\.step\}/);

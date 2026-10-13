@@ -72,6 +72,10 @@ type Props = {
    *  the vendors-list per-row affordances. 'cta' renders as a destructive-
    *  toned full-width button matching the workspace page's action row. */
   variant?: 'pill' | 'cta';
+  /** Wear another control's own classes (the Booked row's `ActionButton`
+   *  pill) instead of a variant's. The word then sits in a `.lbl`, so a verb
+   *  row's fit pass can fold it to the icon. Absent → byte-identical to before. */
+  triggerClass?: string;
 };
 
 const TOAST_AUTO_DISMISS_MS = 5_000;
@@ -92,6 +96,7 @@ export function CancelBookingButton({
   vendorName,
   redirectToHomeOnSuccess = false,
   variant = 'pill',
+  triggerClass,
 }: Props) {
   const router = useRouter();
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' });
@@ -192,11 +197,21 @@ export function CancelBookingButton({
       <button
         type="button"
         onClick={() => setDialog({ kind: 'open' })}
-        className={triggerClassName}
+        className={triggerClass ?? triggerClassName}
         aria-label={`Cancel booking with ${vendorName}`}
+        title={triggerClass ? triggerLabel : undefined}
       >
-        <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        {triggerLabel}
+        {triggerClass ? (
+          <>
+            <X aria-hidden strokeWidth={1.9} />
+            <span className="lbl">{triggerLabel}</span>
+          </>
+        ) : (
+          <>
+            <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {triggerLabel}
+          </>
+        )}
       </button>
 
       {dialog.kind !== 'closed' ? (

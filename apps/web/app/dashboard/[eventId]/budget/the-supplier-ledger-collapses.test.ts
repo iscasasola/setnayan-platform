@@ -1,255 +1,178 @@
 /**
- * the-supplier-ledger-collapses.test.ts — on the budget screen a supplier is a
+ * the-supplier-ledger-collapses.test.ts — on the Budget page a supplier is a
  * LEDGER ROW: the money shows without being asked, the history opens on a tap.
  *
- * ── What this pins ────────────────────────────────────────────────────────
- * The binding Ledger archetype (prototypes/archetype_data_roster_ledger_
- * comparison_2026-08-01.html, route chip `/dashboard/[event]/budget`), note 3:
+ * ── What this pins ───────────────────────────────────────────────────────
+ * "Summary first, history on demand. Each row expands to its dated payments …
+ * collapsed, the ledger stays one screen of truth." (Ledger archetype,
+ * 2026-08-01, note 3.) The owner's Budget page of 2026-10-08 keeps exactly
+ * that, and changes what "expands" means: a booked supplier is ONE row —
+ * agreed, and what is still owed or "paid ✓" — and a tap opens a bottom SHEET
+ * with every payment, Chat, and Record a payment.
  *
- *   "Summary first, history on demand. Each row expands to its dated payments
- *    and receipts; collapsed, the ledger stays one screen of truth."
+ * ── REWRITTEN FOR THE SHEET (2026-10-08, plan row B2) ─────────────────────
+ * Until B2 this guard read `_components/vendor-itemization-card.tsx` and held
+ * its `<details>` disclosure shut. That card no longer renders on this page
+ * (it is the supplier workspace's), so the same four promises are now held
+ * where they are kept:
  *
- * ── ⚠ REV 1 OF THIS GUARD WAS LOUD ON REFACTORS AND SILENT ON REGRESSIONS ──
- * An adversarial audit defeated it four ways, and each hole is a rule below:
+ *   1 · the collapsed ROW carries the money (not just a name);
+ *   2 · the history is genuinely shut — not in the row, not on the page, and
+ *       not even in the page's first load of JavaScript;
+ *   3 · the row is a real control that opens THAT supplier's sheet;
+ *   4 · recording a payment has one writer, and a refusal is said in the
+ *       sheet instead of closing it.
  *
- *   · `<details open>` — five characters — put every supplier's full table and
- *     payment log back on screen at once, and a presence check for `<details`
- *     matched `<details open>` just as happily. GREEN.
- *   · The money rule tracked the POSITION OF AN IDENTIFIER. Empty out what
- *     `ledgerRow` renders and the collapsed row becomes a name and a status
- *     pill with no amounts, while `{ledgerRow}` still sits above `</summary>`.
- *     GREEN.
- *   · Hoisting the disclosure into a `const` above the branch split moved it
- *     outside both slices, so "the embed has no disclosure" saw nothing. GREEN.
- *   · And it went RED on `const isEmbed = variant === 'embed'` — a refactor
- *     that changes nothing a person sees. Loud where it should be quiet.
+ * The lessons the old guard paid for still apply, so each rule anchors on the
+ * component that RENDERS the thing (never on where an identifier appears), and
+ * every slice is floor-checked so a mis-cut region cannot pass in silence.
  *
- * 🔑 A guard that is loud on refactors and silent on regressions is worse than
- * none: it teaches you to edit the guard rather than the code. So the rules
- * below anchor on the `if (variant === 'embed') {` STATEMENT (not a bare
- * substring), count disclosures across the WHOLE component (not per slice), and
- * check what the row RENDERS rather than where its name appears.
+ * ⚠ EVIDENCE GRADE: source-derived, plus the `/dev/budget-lab` screenshots in
+ * the PR. The signed-in page was not driven in a browser.
  *
- * ⚠ EVIDENCE GRADE: source-derived. This card sits behind a login and a session
- * does not authenticate, so nothing here was observed in a browser.
- *
- * 🛡 Mutation-checked by printed occurrence count, before → after.
+ * 🛡 Each rule was sabotaged and seen red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const CARD = join(__dirname, '..', '_components', 'vendor-itemization-card.tsx');
+import { stripComments } from '@/lib/strip-comments';
 
-function stripComments(src: string): string {
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+const read = (rel: string) => stripComments(readFileSync(join(__dirname, rel), 'utf8'));
+const screen = () => read('_components/budget-screen.tsx');
+const sheets = () => read('_components/budget-sheets.tsx');
+const page = () => read('page.tsx');
+
+/** The body of one top-level `function Name(` in a file, up to the next one. */
+function fn(src: string, name: string): string {
+  const at = src.indexOf(`function ${name}(`);
+  assert.ok(at >= 0, `${name} is gone or renamed — teach this guard the new name rather than deleting it.`);
+  const next = src.indexOf('\nfunction ', at + 10);
+  const nextExport = src.indexOf('\nexport function ', at + 10);
+  const ends = [next, nextExport].filter((n) => n > 0);
+  const body = src.slice(at, ends.length ? Math.min(...ends) : src.length);
+  assert.ok(body.length > 200, `could not bound ${name} — the slice is too small to hold a render`);
+  return body;
 }
 
-type Regions = {
-  /** The whole exported component, start to close. */
-  component: string;
-  /** The early-return block for the workspace embed. */
-  embed: string;
-  /** Everything after it: the /budget card. */
-  card: string;
-  /** What `ledgerRow` is defined to render. */
-  ledgerRowBody: string;
-};
+// ── 1 · the collapsed row carries the money ────────────────────────────────
 
-function regions(): Regions {
-  const src = stripComments(readFileSync(CARD, 'utf8'));
-
-  const componentAt = src.indexOf('export function VendorItemizationCard');
-  assert.ok(
-    componentAt > 0,
-    'VendorItemizationCard is gone or renamed — teach this guard the new name rather than deleting it.',
+test('a supplier row shows what was agreed and what is owed — without being opened', () => {
+  const row = fn(screen(), 'SupplierGroup');
+  assert.match(row, /<Peso value=\{s\.agreedPhp\}/, 'the row no longer prints the agreed amount');
+  assert.match(
+    row,
+    /<OwedLine owedPhp=\{s\.owedPhp\}/,
+    'the row no longer prints what is owed (or "paid ✓") — collapsed, it would be a name and nothing else',
   );
-  // ⚠ NOT `indexOf('\n}')` — the component's own destructured parameter list
-  // closes with a column-0 `}` about 130 characters in, so that lands inside
-  // the signature and every rule below then reads an empty component. Bound it
-  // by the NEXT top-level declaration instead.
-  const nextDecl = src.indexOf('\nfunction ', componentAt);
-  const componentEnd = nextDecl > 0 ? src.lastIndexOf('\n}', nextDecl) : src.length;
-  assert.ok(
-    componentEnd > componentAt + 400,
-    'could not bound the component — the slice came back too small to contain a render branch, which is how a guard reports a clean file it never read.',
-  );
-  const component = src.slice(componentAt, componentEnd);
+  assert.match(row, /\{s\.name\}/, 'the row no longer names the supplier');
 
-  // Anchor on the STATEMENT, never a bare substring: `const isEmbed = variant
-  // === 'embed'` is a no-op refactor and must not move the split.
-  const embedIf = /if \(variant === 'embed'\) \{/.exec(component);
-  assert.ok(
-    embedIf,
-    "the `if (variant === 'embed') {` early return is gone. This card renders on /budget AND inside " +
-      'the vendor workspace and the rules below depend on telling them apart — teach this guard the ' +
-      'new shape rather than deleting it.',
-  );
-  const at = embedIf.index;
-  const embedEnd = component.indexOf('\n  }', at);
-  assert.ok(embedEnd > at, 'could not find the close of the embed branch');
-  const embed = component.slice(at, embedEnd);
-  const card = component.slice(embedEnd);
+  const owed = fn(screen(), 'OwedLine');
+  assert.match(owed, /if \(owedPhp > 0\)/, 'OwedLine must branch on money still owed');
+  assert.match(owed, /<Peso value=\{owedPhp\}/, 'the owed figure is not printed');
+  assert.match(owed, /paid ✓/, 'a supplier paid in full must say so');
+});
 
-  const rowAt = component.indexOf('const ledgerRow = (');
-  assert.ok(rowAt > 0, '`ledgerRow` is gone — re-anchor this guard on whatever renders the money.');
-  const rowEnd = component.indexOf('\n  );', rowAt);
-  assert.ok(rowEnd > rowAt, 'could not find the end of the ledgerRow definition');
-  const ledgerRowBody = component.slice(rowAt, rowEnd);
+// ── 2 · the history is genuinely shut ──────────────────────────────────────
 
-  // Floor: a mis-cut slice passes every rule below in silence.
-  assert.ok(
-    embed.includes('return (') && card.includes('<article'),
-    'the region split landed on the wrong text — embed must hold a return and card must hold the <article> shell.',
-  );
-  return { component, embed, card, ledgerRowBody };
-}
+test('the page draws no payment history until a row is opened', () => {
+  const src = screen();
+  // The row list knows nothing about individual payments or due rows.
+  assert.doesNotMatch(src, /\.payments\.map\(|\.dues\.map\(/, 'a payment or due list is rendered on the page itself');
+  assert.doesNotMatch(src, /<details\b/, 'a disclosure crept back onto the row — the history opens in the sheet');
 
-test("a supplier's history opens on demand — and it is genuinely shut", () => {
-  const { card } = regions();
+  // The history lives in the supplier sheet…
+  const sheet = fn(sheets(), 'SupplierSheet');
+  assert.match(sheet, /payments\.map\(/, 'the supplier sheet no longer lists the payments made');
+  assert.match(sheet, /supplier\.dues\.map\(/, 'the supplier sheet no longer lists the payments due');
 
-  const summaryEnd = card.indexOf('</summary>');
-  assert.ok(
-    card.includes('<details') && summaryEnd > 0,
-    'the /budget supplier card no longer has a disclosure: every supplier now holds its full line-item table and payment log open at once, which is the state the Ledger archetype calls out by name.',
-  );
-
-  // `<details open>` is a disclosure that discloses nothing — five characters
-  // that undo the whole change while every presence check still passes.
-  const openAttr = /<details\b[^>]*\bopen\b/.exec(card);
-  assert.equal(
-    openAttr,
-    null,
-    'the disclosure ships with `open`, so every supplier is expanded on arrival and the fold is decoration. If a default-open card is genuinely wanted, that is a design decision and belongs in the archetype, not in an attribute.',
+  // …and that sheet is rendered ONLY for an opened supplier.
+  const host = fn(sheets(), 'BudgetSheets');
+  assert.match(
+    host,
+    /\{sheet\?\.kind === 'pay' && supplier \? \(\s*<SupplierSheet/,
+    'the supplier sheet is rendered without a supplier having been opened',
   );
 });
 
-test('the money is above the fold, and it is really the money', () => {
-  const { card, ledgerRowBody } = regions();
-  const summaryEnd = card.indexOf('</summary>');
-  const moneyAt = card.indexOf('{ledgerRow}');
-  const historyAt = card.indexOf('{workingSections}');
-  assert.ok(
-    moneyAt > 0 && historyAt > 0,
-    'the row and the history are no longer rendered by name — re-anchor this guard on whatever replaced them.',
+test('the sheets are not in the first load — they arrive on the first tap', () => {
+  const src = screen();
+  assert.match(
+    src,
+    /dynamic\(\(\) => import\('\.\/budget-sheets'\)/,
+    'budget-sheets is no longer a dynamic import: four sheets, the dropdown and three server actions would join the first load',
   );
+  assert.doesNotMatch(
+    src,
+    /import\s+\{[^}]*\}\s+from '\.\/budget-sheets'/,
+    'a static value import of ./budget-sheets defeats the dynamic one',
+  );
+  assert.match(src, /\{sheetsWanted \? \(\s*<BudgetSheets/, 'the sheets mount before anything has been opened');
+  assert.match(src, /const \[sheet, setSheet\] = useState<BudgetSheetState>\(null\)/, 'the page must open with every sheet shut');
+});
 
-  assert.ok(
-    moneyAt < summaryEnd,
-    'the money moved BELOW the fold. A collapsed supplier now shows a name and a status pill and no amounts — a ledger row with no magnitude to scan.',
-  );
-  assert.ok(
-    historyAt > summaryEnd,
-    'the line items and the payment log are inside the summary, so the card is a disclosure that discloses nothing — everything is open again, one indirection later.',
-  );
+// ── 3 · the row opens THAT supplier's sheet ────────────────────────────────
 
-  // Position is not substance: `ledgerRow` can sit above the fold and render
-  // nothing. Ask what it actually contains.
-  const cells = [...ledgerRowBody.matchAll(/<Money\b/g)].length;
-  assert.ok(
-    cells >= 3,
-    `the row above the fold renders ${cells} money cells, expected at least 3 (Budget · Paid · Remaining). ` +
-      `A collapsed supplier with no amounts is a ledger row with nothing to scan, and moving the figures ` +
-      `out of \`ledgerRow\` does that without moving the identifier this guard used to track.`,
+test('a supplier row is a button that opens its own sheet', () => {
+  const row = fn(screen(), 'SupplierGroup');
+  assert.match(
+    row,
+    /<button[\s\S]{0,200}?onClick=\{\(\) => onOpen\(s\.vendorId\)\}/,
+    'the supplier row is not a button wired to its own supplier',
+  );
+  assert.match(
+    screen(),
+    /<SupplierGroup rows=\{list\.suppliers\} onOpen=\{\(vendorId\) => open\(\{ kind: 'pay', vendorId \}\)\} \/>/,
+    'opening a supplier row must open the PAYMENTS sheet for that supplier',
   );
 });
 
-test('there is exactly ONE disclosure in this component, and the embed is not it', () => {
-  const { component, embed } = regions();
+test('"Pay ›" on the Next line opens the same sheet', () => {
+  const src = screen();
+  assert.match(src, /if \(next\.vendorId\) open\(\{ kind: 'pay', vendorId: next\.vendorId \}\)/);
+});
 
-  // Counted across the WHOLE component, so hoisting the <details> into a shared
-  // const above the branch split cannot hide it from a per-slice check.
-  const disclosures = [...component.matchAll(/<details\b/g)].length;
-  assert.equal(
-    disclosures,
-    1,
-    `${disclosures} disclosures in this component, expected exactly 1. The /budget card folds; the ` +
-      `workspace embed must not. ` +
-      `⚠ The reason the embed stays open is NOT that the workspace has its own Payments disclosure — ` +
-      `it has none, and a comment here once claimed otherwise. It is that the workspace IS the page ` +
-      `for a single supplier, reached by choosing that supplier, so folding away the only thing it ` +
-      `exists to show is a door in front of the room you asked for.`,
+// ── 4 · one writer, and a refusal is said ──────────────────────────────────
+
+test('recording a payment has ONE writer — the shipped action, and only for a supplier paid here', () => {
+  const src = sheets();
+  assert.match(src, /logScheduledPayment\(fd\)/, 'the record sheet no longer posts through logScheduledPayment');
+  assert.doesNotMatch(src, /\blogPayment\(/, 'logPayment is called directly — its thrown refusal would crash the sheet');
+  assert.doesNotMatch(src, /from\('event_vendor_payments'\)/, 'the sheet writes the payments table itself: a second writer');
+
+  // A supplier ON SETNAYAN is paid under "Amount to pay"; the button goes there.
+  const sheet = fn(src, 'SupplierSheet');
+  assert.match(
+    sheet,
+    /door === 'amount_to_pay' \? \(\s*<ActionButton[^>]*href=\{extras\.amountToPayHref\}/,
+    'a supplier on Setnayan is offered a second payment form instead of the Amount to pay door',
   );
-  assert.ok(
-    !embed.includes('<details'),
-    'the disclosure moved into the embed branch — the workspace page for one supplier now hides that supplier behind a fold.',
+  assert.match(
+    sheet,
+    /\{!canEdit \|\| !extras \|\| door === 'unknown' \? null :/,
+    'an unchecked door (or a reader who may not write) is offered Record a payment — never log blind',
   );
 });
 
-test('a failed payments read is announced, and is not swallowed into a control’s name', () => {
-  const { component, card, embed } = regions();
-
+test('a refused payment is said in the sheet — the sheet does not close on it', () => {
+  const record = fn(sheets(), 'RecordSheet');
+  const refusedAt = record.indexOf('setRefused(message);');
+  const closeAt = record.indexOf('onClose();');
+  assert.ok(refusedAt > 0, 'the refusal is no longer shown');
+  assert.ok(closeAt > 0, 'the sheet no longer closes on success');
   assert.ok(
-    component.includes('const refusedReadNotice'),
-    'the refused-read notice is gone. A refused payments read makes `remaining` the FULL total, so silence there does not hide what the couple paid — it bills them for it again.',
+    refusedAt < closeAt && /setRefused\(message\);\s*return;/.test(record),
+    'on a refusal the sheet must show the reason and RETURN before it closes — a sheet that closes on failure is a failure rendering as success',
   );
-  assert.ok(
-    embed.includes('{refusedReadNotice}'),
-    'the workspace embed stopped rendering the refused-read notice.',
-  );
-
-  const noticeAt = card.indexOf('{refusedReadNotice}');
-  const summaryStart = card.indexOf('<summary');
-  assert.ok(noticeAt > 0, 'the /budget card stopped rendering the refused-read notice.');
-  assert.ok(
-    noticeAt < summaryStart,
-    'the refused-read notice moved back inside the <summary>. A <summary> is announced as one control ' +
-      'whose name is everything inside it, so a screen-reader user hears a paragraph of error prose read ' +
-      'out as part of the button label. It is an alert about the card, not part of the row.',
-  );
+  assert.match(record, /role="alert"/, 'the refusal is not announced');
 });
 
-test('the row is a description list, and the disclosure keeps its state to itself', () => {
-  const { card, ledgerRowBody } = regions();
+// ── and the old cards are gone from this page ──────────────────────────────
 
-  // <dt>/<dd> with no <dl> ancestor are orphans: the description-list
-  // semantics are dropped entirely and assistive tech reads six unrelated
-  // fragments instead of three labelled amounts. `dl > div > dt + dd` is the
-  // valid grouping form, so the cell's own wrapper needs no change.
-  assert.ok(
-    ledgerRowBody.includes('<dl'),
-    'the money strip stopped being a <dl>. Its cells render <dt>/<dd>, and outside a <dl> those are orphans — the pairing between each label and its amount is simply not conveyed.',
-  );
-
-  // `group-hover:` matches ANY `.group` ancestor, not the nearest, so a bare
-  // `group` on this disclosure lights up a chevron three components deep in
-  // vendor-direct-pay whenever the header is hovered.
-  const bareGroup = /<details className="group"/.test(card);
-  assert.equal(
-    bareGroup,
-    false,
-    'the disclosure took the unnamed `group` class back. That makes it an ancestor `.group` for the whole card, and `group-hover:` inside vendor-direct-pay then fires on hovering the header — as if that button were under the cursor. Use `group/ledger` and `group-open/ledger:`.',
-  );
-  assert.ok(
-    card.includes('group/ledger'),
-    'the disclosure lost its named group — the Open/Close pair and the chevron no longer track its own state.',
-  );
-});
-
-/**
- * Alpha-on-white ratios for this card's ground (`bg-cream`, which is #FFFFFF
- * since the owner's 2026-08-20 reversal — the token kept its name):
- *   ink/40 2.32:1 · ink/45 2.64:1 · ink/50 3.02:1 · ink/55 3.45:1
- *   ink/65 4.60:1 · ink/70 5.40:1
- * The AA floor for normal text is 4.5:1; the non-text floor for an icon is 3:1.
- */
-const TOO_FAINT_FOR_THE_DISCLOSURE = ['text-ink/40', 'text-ink/45', 'text-ink/50'] as const;
-
-test('the words that state the control’s state are legible', () => {
-  const { card } = regions();
-  const summaryEnd = card.indexOf('</summary>');
-  const summary = card.slice(0, summaryEnd > 0 ? summaryEnd : card.length);
-
-  const faint = TOO_FAINT_FOR_THE_DISCLOSURE.filter((c) => summary.includes(c));
-  assert.deepEqual(
-    faint,
-    [],
-    'The Open/Close pair and the chevron are the only things telling a couple whether a supplier row ' +
-      'is shut, and they were the FAINTEST text on the card — ink/45 measures 2.64:1 on this ground, ' +
-      'below even the 3:1 non-text floor an icon has to clear, let alone the 4.5:1 for words. ' +
-      'The app-wide micro-label register (ink/55, 3.45:1) is not good enough for a control’s own state.',
-  );
+test('the Budget page no longer mounts the per-supplier itemization cards', () => {
+  const src = page();
+  assert.doesNotMatch(src, /\bVendorItemizationCard\b/, 'the itemization card is back on the Budget page beside the list that replaced it');
+  assert.match(src, /buildBudgetList\(/, 'the list must be built from the resolver');
+  assert.doesNotMatch(src, /from\('event_costs'\)|from\('orders'\)[\s\S]{0,400}created_at/, 'the page reads a list source itself instead of the resolver');
 });

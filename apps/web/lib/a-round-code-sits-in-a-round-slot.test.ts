@@ -359,7 +359,6 @@ const NOT_A_STYLED_CODE_ON_A_PLATE: Record<string, string> = {
   'app/dashboard/[eventId]/studio/panood/cameras/page.tsx': 'camera claim links — renderUrlQrSvg',
   'app/dashboard/[eventId]/event-qr/page.tsx': 'the plain printable event QR — QRCode.toString',
   'app/dashboard/[eventId]/_components/supplier-connect-panel.tsx': 'a supplier invite — renderUrlQrSvg (vendors/actions.ts)',
-  'app/dashboard/[eventId]/budget/_components/costs-with-no-supplier.tsx': 'a supplier claim link — renderUrlQrSvg',
   'app/_components/home/panood-demo-overlay.tsx': 'the marketing demo — not an event’s code',
   'app/_components/home/plan3d-demo-overlay.tsx': 'the marketing demo — not an event’s code',
   'app/vendor-dashboard/on-the-day/_components/guest-review-qr.tsx': 'a supplier’s review link — not a guest code',

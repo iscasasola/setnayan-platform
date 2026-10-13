@@ -23,7 +23,7 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
-import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -391,4 +391,95 @@ test('a sixth booking made inside a window is waived at the yes and holds its da
   assert.equal(opened.status, 'waived_promo');
   await db.query(`SELECT public.vendor_hold_date_on_fee_settled($1)`, [opened.charge_id]);
   assert.equal(await blocks(vpid), 1);
+});
+
+/* ── G · A DELETED EVENT'S UNPAID FEE EXPIRES (owner 2026-10-13) ───────── */
+
+test('G · deleting an event voids its UNPAID fee and bill; a paid fee stays paid', async () => {
+  // SABOTAGE: drop the events_fee_expires_on_delete trigger → RED.
+  const vpid = await newVendor();
+  const unpaid = await newBooking(vpid);
+  const paid = await newBooking(vpid);
+  const owed = await newCharge(vpid, unpaid.eventId, unpaid.eventVendorId, 'pending');
+  await db.query(`SELECT public.booking_fee_upsert_vendor_order($1)`, [owed]);
+  const settled = await newCharge(vpid, paid.eventId, paid.eventVendorId, 'paid');
+
+  for (const e of [unpaid.eventId, paid.eventId]) {
+    await db.query(`DELETE FROM public.events WHERE event_id = $1`, [e]);
+    const gone = await db.query(`SELECT 1 FROM public.events WHERE event_id = $1`, [e]);
+    assert.equal(gone.rows.length, 0, 'the trigger cancelled the delete itself');
+  }
+  assert.equal(await statusOf(owed), 'cancelled_unbilled', 'a supplier still owes for a deleted event');
+  const order = await db.query<{ status: string }>(
+    `SELECT status FROM public.orders WHERE service_key = 'vendor_booking_fee__' || $1::text`,
+    [owed],
+  );
+  assert.equal(order.rows[0]?.status, 'cancelled', 'the bill for a deleted event is still open');
+  assert.equal(await statusOf(settled), 'paid', 'a paid fee was moved by the deletion');
+});
+
+/* ── H · A STALE AMENDMENT TOP-UP DOES NOT LOCK (owner 2026-10-13) ─────── */
+
+test('H · an expired (voided) amendment delta never locks the booking', async () => {
+  // SABOTAGE: drop the amendment-delta skip from vendor_event_fee_gate_stage → RED.
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data)
+     VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+    [`${uniq()}@t.local`],
+  );
+  const uid = u.rows[0]!.id;
+  const vp = await db.query<{ vendor_profile_id: string }>(
+    `INSERT INTO public.vendor_profiles
+       (user_id, business_name, location_city, services, verification_state, last_verified_at)
+     VALUES ($1,'Delta Studio','Manila',ARRAY['photography']::text[],'verified',NOW())
+     RETURNING vendor_profile_id`,
+    [uid],
+  );
+  const vpid = vp.rows[0]!.vendor_profile_id;
+  const b = await newBooking(vpid);
+  const primary = await newCharge(vpid, b.eventId, b.eventVendorId, 'paid');
+  await db.query(
+    `INSERT INTO public.booking_fee_charges
+       (ledger_id, event_id, vendor_profile_id, event_vendor_id, source, kind, parent_charge_id, status,
+        proposal_amount_centavos, computed_fee_centavos, amount_charged_centavos, schedule_version)
+     SELECT ledger_id, event_id, vendor_profile_id, event_vendor_id, 'lock', 'amendment_delta', charge_id,
+            'expired', 1675000, 90000, 6250, '2026-07-25'
+       FROM public.booking_fee_charges WHERE charge_id = $1`,
+    [primary],
+  );
+  await db.query(`UPDATE public.platform_settings SET booking_fee_minting_live = TRUE WHERE id = 1`);
+  await db.query(`UPDATE public.platform_settings SET fee_unlocks_event_enforced = TRUE WHERE id = 1`);
+  await setAuthUid(db, uid);
+  const r = await db.query<{ s: string }>(`SELECT public.vendor_event_fee_gate_stage($1, TRUE) AS s`, [b.eventId]);
+  await setAuthUid(db, null);
+  await db.query(`UPDATE public.platform_settings SET fee_unlocks_event_enforced = NULL WHERE id = 1`);
+  assert.equal(r.rows[0]!.s, 'unlocked', 'a voided top-up locked a paid booking out of its event');
+});
+
+/* ── I · THE EVENT LOCK NEEDS THE FEE TO BE MADE (owner 2026-10-13) ────── */
+
+test('I · the enforcement switch is refused unless production stamped that fees are made', async () => {
+  // SABOTAGE: drop the platform_settings_fee_lock_needs_minting trigger → RED.
+  const set = (sql: string) => db.query(`UPDATE public.platform_settings SET ${sql} WHERE id = 1`);
+  const sw = async () =>
+    (await db.query<{ e: boolean | null }>(`SELECT fee_unlocks_event_enforced AS e FROM public.platform_settings WHERE id = 1`))
+      .rows[0]!.e;
+  await set('fee_unlocks_event_enforced = NULL, booking_fee_minting_live = NULL');
+
+  await assert.rejects(set('fee_unlocks_event_enforced = TRUE'), /needs the booking fee on/, 'switched on with no stamp');
+  await set('booking_fee_minting_live = FALSE');
+  await assert.rejects(set('fee_unlocks_event_enforced = TRUE'), /needs the booking fee on/, 'switched on while minting is off');
+
+  await set('booking_fee_minting_live = TRUE');
+  await set('fee_unlocks_event_enforced = TRUE');
+  assert.equal(await sw(), true, 'the switch could not be turned on with minting on');
+
+  // An unrelated save never moves it (column-scoped trigger).
+  await set('booking_fee_rate_pct = booking_fee_rate_pct');
+  assert.equal(await sw(), true);
+
+  // Minting switched off under a live lock → the lock stands down (the safe way).
+  await set('booking_fee_minting_live = FALSE');
+  assert.equal(await sw(), false, 'the lock stayed on with no fee being made');
+  await set('fee_unlocks_event_enforced = NULL, booking_fee_minting_live = NULL');
 });

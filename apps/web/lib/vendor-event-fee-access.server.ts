@@ -113,12 +113,13 @@ async function readFeeEnforcementSwitch(): Promise<boolean | null> {
 }
 
 /** The charge columns the rule needs. Nothing about the event, by design. */
-const CHARGE_SELECT = 'charge_id, event_id, status, amount_charged_centavos, expires_at';
+const CHARGE_SELECT = 'charge_id, event_id, status, kind, amount_charged_centavos, expires_at';
 
 type ChargeRow = {
   charge_id: string;
   event_id: string;
   status: string | null;
+  kind?: string | null;
   amount_charged_centavos: number | string | null;
   expires_at: string | null;
 };
@@ -190,6 +191,11 @@ export async function readEventFeeCharges(
     // read as absent, exactly as the SQL gate skips it. Left in, it would read
     // as "no charge" and LOCK over the live charge of a re-booking.
     if (FEE_VOID_STATUSES.has(r.status ?? '')) continue;
+    // ⚖ Owner 2026-10-13: a STALE amendment top-up decides nothing either. The
+    // re-derive marks a pending delta `expired` when it VOIDS it (the total
+    // moved again) — read as owed, it locked a booking over a bill that no
+    // longer exists. The SQL gate skips the same rows.
+    if (r.kind === 'amendment_delta' && r.status === 'expired') continue;
     const current = best.get(r.event_id);
     if (!current) {
       best.set(r.event_id, r);

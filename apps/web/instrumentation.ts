@@ -18,6 +18,19 @@ export async function register() {
     } catch {
       /* the app must start even if the recorder cannot */
     }
+    // 💸 Tell the database whether this production build makes booking fees —
+    // the event lock refuses to be on without it (owner 2026-10-13; see
+    // lib/booking-fee-minting-stamp.ts). Fire-and-forget: startup never waits.
+    void (async () => {
+      try {
+        const m = await import('./lib/booking-fee-minting-stamp');
+        if (!m.shouldStampBookingFeeMinting(process.env)) return;
+        const { createAdminClient } = await import('./lib/supabase/admin');
+        await m.stampBookingFeeMinting(createAdminClient());
+      } catch {
+        /* the app must start even if the stamp cannot */
+      }
+    })();
   }
 
   if (process.env.NEXT_RUNTIME === 'edge') {

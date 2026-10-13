@@ -459,6 +459,12 @@ BEGIN
       AND c.event_id = p_event_id
       -- ⟵ CHANGED: a voided former booking's charge decides nothing.
       AND c.status <> 'cancelled_unbilled'
+      -- ⟵ CHANGED (owner 2026-10-13): neither does a STALE amendment top-up.
+      -- `booking_fee_rederive_lock_fee` is the only writer of `expired`, and it
+      -- writes it to a pending amendment delta it is VOIDING (the total moved
+      -- again). Read as "still owed" it locked a booking over a bill that no
+      -- longer exists.
+      AND NOT (c.kind = 'amendment_delta' AND c.status = 'expired')
     ORDER BY (c.status IN ('pending', 'failed', 'expired')) DESC, c.created_at DESC
     LIMIT 1;
   EXCEPTION WHEN OTHERS THEN
@@ -585,5 +591,102 @@ $$;
 
 REVOKE ALL ON FUNCTION public.setnayan_gift_quote_applies(UUID, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.setnayan_gift_quote_applies(UUID, UUID) TO service_role;
+
+-- ── G · A DELETED EVENT'S UNPAID FEE EXPIRES TOO (owner 2026-10-13) ─────────
+-- ⚖ DECISION_LOG 2026-10-13: "an UNPAID fee EXPIRES when its event is deleted
+-- (a paid fee stays)". Deleting an event keeps its booked supplier rows
+-- (`keep_supplier_bookings_on_event_delete`, status unchanged), so trigger D
+-- never sees it; this is the event's own door. Same outcome as a cancelled
+-- booking: every `pending` charge on the event → `cancelled_unbilled`, and its
+-- open bill cancelled through the unchanged SQL order writer. Paid and waived
+-- charges are untouched. No date test: the owner's rule is the deletion itself.
+-- BEFORE DELETE so the charges still carry `event_id` (it is ON DELETE SET
+-- NULL). Exception-safe: a fee hiccup must never block deleting an event.
+CREATE OR REPLACE FUNCTION public.booking_fee_expires_when_event_deleted()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  r RECORD;
+BEGIN
+  BEGIN
+    FOR r IN
+      SELECT charge_id FROM public.booking_fee_charges
+       WHERE event_id = OLD.event_id
+         AND status = 'pending'
+    LOOP
+      UPDATE public.booking_fee_charges
+         SET status = 'cancelled_unbilled', expires_at = NOW(), updated_at = NOW()
+       WHERE charge_id = r.charge_id;
+      PERFORM public.booking_fee_upsert_vendor_order(r.charge_id);
+    END LOOP;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'booking_fee_expires_when_event_deleted: event %: %', OLD.event_id, SQLERRM;
+  END;
+  RETURN OLD;  -- BEFORE DELETE: returning NULL would silently cancel the delete.
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.booking_fee_expires_when_event_deleted() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS events_fee_expires_on_delete ON public.events;
+CREATE TRIGGER events_fee_expires_on_delete
+  BEFORE DELETE ON public.events
+  FOR EACH ROW EXECUTE FUNCTION public.booking_fee_expires_when_event_deleted();
+
+-- ── I · THE EVENT LOCK CANNOT BE ON WHILE NO FEE IS BEING MADE ──────────────
+-- ⚖ OWNER 2026-10-13: refuse `fee_unlocks_event_enforced = true` while
+-- NEXT_PUBLIC_BOOKING_FEE_ENABLED is off. Since E above, a booked shop with no
+-- charge is locked; with minting off no charge can ever be made, so every booked
+-- shop would be locked with nothing to pay. SQL cannot read an env flag, so the
+-- PRODUCTION app stamps what it is running with into `booking_fee_minting_live`
+-- at server start (`stampBookingFeeMinting`, apps/web/instrumentation.ts), and
+-- this trigger refuses the switch unless that stamp says TRUE.
+--   · setting the switch TRUE with the stamp not TRUE → refused (raises);
+--   · the stamp turning FALSE while the switch is on → the switch stands down
+--     to FALSE (the safe direction: suppliers unlock, nothing is withheld).
+-- Column-scoped (UPDATE OF the two columns), so no other platform_settings save
+-- — a price edit, a seed — can move the switch.
+ALTER TABLE public.platform_settings
+  ADD COLUMN IF NOT EXISTS booking_fee_minting_live BOOLEAN;
+
+COMMENT ON COLUMN public.platform_settings.booking_fee_minting_live IS
+  'Stamped by the PRODUCTION app at server start: is NEXT_PUBLIC_BOOKING_FEE_ENABLED on? NULL = never stamped. fee_unlocks_event_enforced cannot be TRUE unless this is TRUE (owner 2026-10-13).';
+
+CREATE OR REPLACE FUNCTION public.platform_settings_fee_lock_needs_minting()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NEW.fee_unlocks_event_enforced IS TRUE AND NEW.booking_fee_minting_live IS NOT TRUE THEN
+    IF TG_OP = 'UPDATE' AND OLD.fee_unlocks_event_enforced IS TRUE
+       AND NEW.booking_fee_minting_live IS DISTINCT FROM OLD.booking_fee_minting_live THEN
+      -- Minting was switched off under a live lock: the lock stands down.
+      NEW.fee_unlocks_event_enforced := FALSE;
+      RAISE WARNING 'fee_unlocks_event_enforced turned OFF: the booking fee is not being made (NEXT_PUBLIC_BOOKING_FEE_ENABLED is off in production)';
+    ELSE
+      RAISE EXCEPTION 'fee_unlocks_event_enforced needs the booking fee on: NEXT_PUBLIC_BOOKING_FEE_ENABLED is not on in production (platform_settings.booking_fee_minting_live is %), so every booked supplier would be locked with nothing to pay', COALESCE(NEW.booking_fee_minting_live::text, 'unset')
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.platform_settings_fee_lock_needs_minting() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS platform_settings_fee_lock_needs_minting ON public.platform_settings;
+CREATE TRIGGER platform_settings_fee_lock_needs_minting
+  BEFORE INSERT OR UPDATE OF fee_unlocks_event_enforced, booking_fee_minting_live
+  ON public.platform_settings
+  FOR EACH ROW EXECUTE FUNCTION public.platform_settings_fee_lock_needs_minting();
+
+-- Re-stated after the ADD COLUMN, as every platform_settings migration since
+-- 20271014400000 does: anon holds nothing on this table.
+REVOKE ALL ON TABLE public.platform_settings FROM anon;
+GRANT SELECT ON TABLE public.platform_settings TO authenticated;
 
 COMMIT;

@@ -271,6 +271,9 @@ async function setCharge(
 }
 
 async function setSwitch(on: boolean | null): Promise<void> {
+  // Since 20271268087628 the switch is refused unless the production app has
+  // stamped that the fee is being made (owner 2026-10-13) — the fixture stamps it.
+  await db.query(`UPDATE public.platform_settings SET booking_fee_minting_live = TRUE WHERE id = 1`);
   await db.query(`UPDATE public.platform_settings SET fee_unlocks_event_enforced = $1 WHERE id = 1`, [
     on,
   ]);

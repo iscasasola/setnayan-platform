@@ -63,6 +63,29 @@ test('a render that arrives while our write is still on its way never wins — a
   assert.deepEqual(d.read('hero', other), big, 'the pick was undone the moment its save landed');
 });
 
+/* ↺ A DRAWN UNDO (`lib/maker-drawn-undo.ts`, 2026-10-13): no unheld write, no render — the ↺ notes the BEFORE canvas in
+   this same store at its press, so the next pick builds on the undone state (the 110 % case, by the drawn path). */
+const at110: HubSectionCanvas = { elements: { eyebrow: { size: 110 } } };
+const at110red: HubSectionCanvas = { elements: { eyebrow: { size: 110, color: '#b5543a' } } };
+test('a drawn ↺ of the only pick of a visit: the next pick builds on the UNDONE canvas (no render ever comes)', () => {
+  const { d, set } = store();
+  d.note('hero', at110, S0); // Size 110 — drawn, held
+  set(true); // the held undo on its way
+  d.note('hero', S0, S0); // ↺ drawn at the press: the canvas before
+  assert.deepEqual(d.read('hero', S0), S0, 'the panel reads 100 % while the undo is still on its way');
+  set(false);
+  assert.deepEqual(d.read('hero', S0), S0, 'and after it lands — the render never came, nothing brought 110 back');
+  const next = { elements: { eyebrow: { color: '#b5543a' } } };
+  assert.deepEqual({ elements: { ...d.read('hero', S0).elements, eyebrow: { color: '#b5543a' } } }, next, 'Colour builds on 100 %: the undone size is not written back');
+});
+test('a drawn ↺ after a render caught up with the pick: the undone canvas still wins over that render', () => {
+  const { d } = store();
+  d.note('hero', at110red, S0);
+  assert.deepEqual(d.read('hero', at110red), at110red, 'a render shows ours: dropped, the render is the truth');
+  d.note('hero', at110, at110red); // ↺ drawn: the canvas before the Colour pick
+  assert.deepEqual(d.read('hero', at110red), at110, 'the stale render (still showing Colour) never draws the undone pick back');
+});
+
 test('scenes are kept apart, and an absent canvas reads as empty', () => {
   const { d } = store();
   d.note('schedule', big, undefined);

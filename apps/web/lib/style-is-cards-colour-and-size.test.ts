@@ -214,7 +214,8 @@ test('(3) a pick is the part sheet’s own write: the shipped choice on the Make
   assert.match(read(`${E}/element-sheet.tsx`), /makerLatestWrite\(canvasWriteKey\(target\.widgetType\), write\)/, 'anti-vacuity: the part sheet no longer queues under that key');
   assert.equal((keep.match(/door\.draftAction\(/g) ?? []).length, 1);
   assert.match(keep, /fd\.set\('patch', JSON\.stringify\(\{ widgets: \{ \[t\.widgetType\]: \{ canvas: next \} \} \}\)\);/);
-  assert.match(keep, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true \}/);
+  /* (2026-10-13: …and hands its ↺ inverse — the same put-back, `lib/canvas-pick-undo.ts`) */
+  assert.match(keep, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true, undo: canvasPickUndo\(t\.widgetType, before, next, server, /);
   assert.doesNotMatch(keep, /router\.refresh|requestMakerRefresh\(\)/);
   /* Refused: the page and the copy go back (unless a newer pick is already on them) and the row is told why. */
   assert.match(keep, /show\(elementPreview\(t\.key, t\.el, next, before, false\)\);\s*noteDraftedCanvas\(t\.widgetType, before, server\);/);

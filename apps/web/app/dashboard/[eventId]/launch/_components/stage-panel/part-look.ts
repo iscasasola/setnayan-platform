@@ -34,6 +34,7 @@ import {
   type HubElementKey,
 } from '@/lib/element-style';
 import { elementPreview, refusedChoiceWords } from '../../../website/editor/_components/element-preview';
+import { canvasPickUndo } from '@/lib/canvas-pick-undo';
 import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
 
 export type PartLookTarget = { key: string; widgetType: string; el: HubElementKey };
@@ -103,7 +104,8 @@ export async function keepPartLook(t: PartLookTarget, field: 'color' | 'size', v
         }),
       // Owed only if something else in the burst asked for a render (`makerNeedsRender`).
       requestMakerRefresh,
-      { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true },
+      /* ↺ Its Undo is this same put-back, drawn at the press (`lib/canvas-pick-undo.ts`). */
+      { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true, undo: canvasPickUndo(t.widgetType, before, next, server, (from, to) => [elementPreview(t.key, t.el, from, to, false)]) },
     );
   } catch {
     res = { ok: false, intent: 'save', error: '' };

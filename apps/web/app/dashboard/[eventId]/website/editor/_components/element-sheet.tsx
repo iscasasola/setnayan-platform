@@ -37,6 +37,7 @@ import type { MotionFx } from '@/lib/motion-effects';
 import { IReset, ISeg, ISegmented } from './inspector-kit';
 import { PART_TABS, PartAnimateTab, PartArrangeTab, PartPicker, PartTextTab, type PartTab } from './part-inspector';
 import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type ElementPreviewMessage } from './element-preview';
+import { canvasPickUndo } from '@/lib/canvas-pick-undo';
 import { ColourSheet } from './colour-well';
 import { FontPick } from './font-pick';
 import { HUB_EL_DURING_LABEL } from '@/lib/element-style';
@@ -319,7 +320,9 @@ export function ElementSheet({
         res = await makerSave(
           () => makerLatestWrite(canvasWriteKey(target.widgetType), write),
           () => router.refresh(),
-          { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true },
+          /* ↺ Its Undo is the refused put-back below, drawn at the press (`lib/canvas-pick-undo.ts`): every open panel —
+             this sheet too (`hearDraftedCanvas` above re-seeds it, and what it last SAVED) — reads the undone canvas. */
+          { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true, undo: canvasPickUndo(target.widgetType, before, next, serverCanvas, (from, to) => [elementPreview(target.key, target.el, from, to, false)]) },
         );
       } catch {
         res = { ok: false, intent: 'save', error: '' };

@@ -137,7 +137,7 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
   const { labDraftStep } = await labEngine();
   const scrub = labScrubOn();
-  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD) }, scrub, readLabPublished(scrub));
+  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect') }, scrub, readLabPublished(scrub));
   if (result.ok) {
     try {
       /* 📣 ✓ Apply moved the draft into the lab's published state — kept first, so the pages are drawn from both. */

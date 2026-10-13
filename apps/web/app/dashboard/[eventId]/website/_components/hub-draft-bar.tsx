@@ -1,7 +1,7 @@
 'use client';
 
-import { HUB_DRAFT_BAR_FIELD, MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
-import { takeDrawnUndo } from '@/lib/maker-drawn-undo';
+import { HUB_DRAFT_BAR_FIELD, MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, announceUnheldWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { HUB_DRAFT_EXPECT_FIELD, onFirstUndoStep, undoJournal } from '@/lib/maker-drawn-undo';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
 import { MAKER_PRESS_APPLY_EVENT, type MakerApplyOutcome, type MakerPressApplyDetail } from './maker-press-apply';
 import Link from 'next/link';
@@ -133,6 +133,23 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
 /** The intents the canvas RELOADS for (never drawn by the bridge): the page shows them seconds after the press. */
 const DRAFT_INTENT_RELOADS: readonly HubDraftIntent[] = ['undo', 'restore', 'reset'];
 
+/* ↺ THE PRESS THAT DRAWS ITS OWN UNDO (`lib/maker-undo-run.ts`) is LAZY — warmed once the journal holds a step it
+   could draw (`onFirstUndoStep`), so the first ↺ never waits for it. Never in the Maker's first load. */
+type UndoRunner = typeof import('@/lib/maker-undo-run');
+let undoRunner: UndoRunner | null = null;
+let undoRunnerLoad: Promise<UndoRunner> | null = null;
+function loadUndoRunner(): Promise<UndoRunner> {
+  undoRunnerLoad ??= import('@/lib/maker-undo-run').then((m) => (undoRunner = m));
+  return undoRunnerLoad;
+}
+if (typeof window !== 'undefined') {
+  onFirstUndoStep(() => {
+    const idle = (window as { requestIdleCallback?: (fn: () => void) => void }).requestIdleCallback;
+    if (idle) idle(() => void loadUndoRunner());
+    else window.setTimeout(() => void loadUndoRunner(), 200);
+  });
+}
+
 function useDraftIntent(eventId: string, action: HubDraftDoor) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -143,12 +160,64 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
      the press until the page shows it (`lib/maker-settle.ts`) — watched OUTSIDE the transition below, which must end
      for the Maker's own render to commit. */
   const [settling, setSettling] = useState<HubDraftIntent | null>(null);
+  /* ↺ AN UNDO THE MAKER DRAWS ITSELF (`lib/maker-drawn-undo.ts` · `lib/maker-undo-run.ts`): the journal's newest step
+     is drawn backwards in this click, and its undo is a HELD save sent OUTSIDE the transition (whose `pending` would
+     grey ↺ for the whole round trip) — no whole-Maker render, no new canvas page, and the next ↺ is live at once.
+     The bar is busy only while the page itself still moves (a scene's redraw in place, ≈ 2 s). */
+  const drawnIo = () => ({
+    send: (expect: string | null) => {
+      const fd = new FormData();
+      fd.set('intent', 'undo');
+      fd.set(HUB_DRAFT_BAR_FIELD, '1');
+      if (expect) fd.set(HUB_DRAFT_EXPECT_FIELD, expect);
+      return hubDraftAnswer('undo', () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: true, undo: 'noted' }));
+    },
+    /* The server stepped back from a state the Maker did not draw: the first render after it is the truth (#6485). */
+    truth: () => {
+      announceUnheldWrite();
+      requestMakerRefresh();
+    },
+    answered: setResult,
+  });
+  const drawnUndo = (runner: UndoRunner): boolean => {
+    const drawn = runner.runDrawnUndo(drawnIo());
+    if (!drawn) return false;
+    /* A step drawn in full at once (a bridge message) keeps the bar as it is — no render in the press itself, so the
+       page's own frame paints first; a scene's redraw in place keeps ↺ busy until it is on screen. */
+    if (drawn.now) return true;
+    setSettling('undo');
+    void drawn.settle.then(() => setSettling(null));
+    return true;
+  };
   const run = (fields: Record<string, string>) => {
     const intent = isHubDraftIntent(fields.intent) ? fields.intent : null;
-    /* ↺ AN UNDO THE PAGE ALREADY SHOWS (`lib/maker-drawn-undo.ts`): the drag drew its step's inverse at this press —
-       the save is HELD (no Maker render, no new canvas page) and the bar waits for the page the drag keeps. */
-    const drawn = intent === 'undo' ? takeDrawnUndo() : null;
-    const watch = drawn ? { done: drawn.settle, cancel: () => {} } : intent && DRAFT_INTENT_RELOADS.includes(intent) ? canvasSettleWatch() : null;
+    if (intent === 'undo') {
+      const top = undoJournal.top();
+      if (top !== null && top !== 'barrier') {
+        if (undoRunner) {
+          if (drawnUndo(undoRunner)) return;
+        } else {
+          /* Pressed before the runner came (it is warmed at the first step): "Undoing…" now, drawn when it lands. */
+          setSettling('undo');
+          void loadUndoRunner().then(
+            (runner) => {
+              setSettling(null);
+              if (!drawnUndo(runner)) slow(fields, intent);
+            },
+            () => {
+              setSettling(null);
+              slow(fields, intent);
+            },
+          );
+          return;
+        }
+      }
+    }
+    slow(fields, intent);
+  };
+  /** Undo · Restore · Reset · Apply the Maker did NOT draw: the page shows them after the render they bring. */
+  const slow = (fields: Record<string, string>, intent: HubDraftIntent | null) => {
+    const watch = intent && DRAFT_INTENT_RELOADS.includes(intent) ? canvasSettleWatch() : null;
     if (watch) {
       setSettling(intent);
       void watch.done.then(() => setSettling(null));
@@ -164,10 +233,14 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
          own response for a draft-only intent. */
       /* 📵 …and a request that never left (no signal) is ANSWERED, never thrown into this transition — a throw here
          replaced the whole Maker with the app's error screen (`hubDraftAnswer`, measured 2026-10-11). */
-      const r = await hubDraftAnswer(intent, () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: drawn !== null }));
-      drawn?.landed(r.ok);
+      /* (its own write leaves a barrier in the ↺ journal, like any unheld write — the trim below takes it off again) */
+      const r = await hubDraftAnswer(intent, () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: false }));
       /* Refused: no render is coming — the bar is given back now, with the reason said beside ✓. */
       if (!r.ok) watch?.cancel();
+      /* ↺ The journal follows the server: after a slow ↺, off its top (its own barrier first) until its newest step IS the server's state;
+         Restore and Apply leave no step of it standing. */
+      if (r.ok && intent === 'undo') undoJournal.trimTo(r.stamp ?? null);
+      if (r.ok && (intent === 'restore' || intent === 'apply')) undoJournal.clear();
       setResult(r);
     });
   };

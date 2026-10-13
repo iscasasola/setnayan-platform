@@ -6733,6 +6733,8 @@ html:has([data-sticky-top]) {
 /* The Buy more sheet: the shipped stepper + "After this", on the template. */
 .sg-after { margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, rgb(var(--color-ink)) 6%, transparent); font-size: 14px; display: flex; justify-content: space-between; gap: 10px; }
 .sg-after b { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* The pressed "Continue to payment" stays the accent — pressed, darker, never faded (prototype `.btn.working`). */
+:is(button).ab.sg-pay:disabled { opacity: 1; transform: scale(0.97); filter: brightness(0.88); }
 .sg-step { font-size: 13px; text-align: center; margin: 8px 0 0; min-height: 18px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
 @media (prefers-reduced-motion: reduce) { .sg-meter > span { transition: none; } }
 /* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */

@@ -391,7 +391,7 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
     doors.buy || photos ? (
       <>
         {doors.buy ? <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} /> : null}
-        {photos ? <PapicSeePhotos label={seePhotosWord(photos)} href={`/dashboard/${eventId}/studio/papic?gallery=open`} /> : null}
+        {photos ? <PapicSeePhotos tone="neutral" label={seePhotosWord(photos)} href={`/dashboard/${eventId}/studio/papic?gallery=open`} /> : null}
       </>
     ) : null;
   return (

@@ -12,10 +12,21 @@ export const PAPIC_OPEN_GALLERY = 'papic:open-gallery';
  * opens its viewer in place (no request); from anywhere else, `href` lands on
  * the Papic page with `?gallery=open`, which opens the same viewer on arrival.
  */
-export function PapicSeePhotos({ label, href, wide = false }: { label: string; href?: string; wide?: boolean }) {
+export function PapicSeePhotos({
+  label,
+  href,
+  wide = false,
+  tone = 'brand',
+}: {
+  label: string;
+  href?: string;
+  wide?: boolean;
+  /** The band's is the tinted second button; Home's row is the plain one (prototype map card). */
+  tone?: 'brand' | 'neutral';
+}) {
   return (
     <ActionButton
-      tone="brand"
+      tone={tone}
       icon={<Images aria-hidden="true" strokeWidth={1.9} />}
       label={label}
       className={wide ? 'w-full justify-center' : undefined}

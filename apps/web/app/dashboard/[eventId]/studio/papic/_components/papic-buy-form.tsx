@@ -53,7 +53,7 @@ export function PapicBuyForm({
         <SubmitButton
           overlay={false}
           pendingLabel="Opening payment…"
-          className="ab ab-ok ab-main inline-flex min-h-11 w-full items-center justify-center"
+          className="ab ab-brand ab-main sg-pay inline-flex min-h-11 w-full items-center justify-center"
         >
           Continue to payment
         </SubmitButton>

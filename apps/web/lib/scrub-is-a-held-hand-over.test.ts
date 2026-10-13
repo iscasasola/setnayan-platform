@@ -605,8 +605,10 @@ test('(11) fitted before it fades: once, unarmed; held where it stands when its 
   /* …and fitted AGAIN only when the screen itself changed (window · fonts · a picture) while the page is still at its
      very top: never on the hand-over's own re-measure (the observer), never once the hold has begun. */
   assert.match(engine, /const refit = mayRefit && fitted && window\.scrollY < 1;\s*mayRefit = false;/);
-  assert.match(engine, /const fresh = \(\) => \{\s*mayRefit = true;\s*again\(\);\s*\};/);
-  for (const on of ["window.addEventListener('resize', fresh);", "window.addEventListener('orientationchange', fresh);", "root.addEventListener('load', fresh, true);", 'void document.fonts?.ready.then(fresh);']) assert.ok(engine.includes(on), on);
+  /* 🔁 RE-AIMED 2026-10-13 (iPhone step 3, see (12)): a change of the screen's HEIGHT alone, past the very top, is no
+     longer a new screen — the handler returns before it. Every other screen event still re-fits at the top, as here. */
+  assert.match(engine, /const fresh = \(e\?: Event\) => \{\s*if \(e && \(e\.type === 'resize' \|\| e\.type === 'orientationchange'\) && window\.innerWidth === measuredW && window\.scrollY >= 1\) return;\s*mayRefit = true;\s*again\(\);\s*\};/);
+  for (const on of ["window.addEventListener('resize', fresh);", "window.addEventListener('orientationchange', fresh);", "root.addEventListener('load', fresh, true);", 'void document.fonts?.ready.then(() => fresh());']) assert.ok(engine.includes(on), on);
   assert.match(engine, /if \(changed\) again\(\);/, 'the hand-over’s own re-measure may re-fit the cover');
   /* (b) what must be seen: the names and the date, read where they are drawn. */
   assert.match(engine, /const must = \[cover\.querySelector\('\[data-hub-names\]'\), cover\.querySelector\('\[data-motion="arrive-date"\]'\)\]/);
@@ -630,4 +632,33 @@ test('(11) fitted before it fades: once, unarmed; held where it stands when its 
   assert.match(CSS, /\.hub-page-cell\[data-hub-page-on\] \.hub-cover-cell \{ scroll-padding-bottom: calc\(4\.75rem \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
   assert.match(CSS, /@media \(min-width: 1280px\) \{\s*\.sn-door-dock \{\s*--sn-door-rest: 1rem;/);
   assert.match(CSS, /@media \(min-width: 1280px\) \{\s*\.hub-page-cell\[data-hub-page-on\] \.hub-cover-cell \{ scroll-padding-bottom: 1rem; \}\s*\}/);
+});
+
+/* 📏 (12) — 2026-10-13, the owner's iPhone step 3 ("bars move mid-fade without a jump"), found red in WebKit and
+   Chromium the day Scrub was turned on (#6517). Two causes, two rules:
+   (a) the hold's geometry followed the screen's HEIGHT — every 10 px of Safari's bars re-measured it (a text cover
+       drifted to the end of its fade over a 70 px run). Now a change of height alone, past the very top, re-measures
+       nothing: the geometry is frozen at the measure it was armed with; a change of WIDTH is measured as always;
+   (b) a measure in the middle of the hold takes the marks off for a moment, and the browser's scroll anchoring moved
+       the scroll under it (228 → 1130 px): the stranger's photo page grew ~500 px for good, and in WebKit a photo
+       cover's fade jumped to its end on a picture loading. Now the armed page is left out of scroll anchoring.
+   PLAYED in both engines by `scripts/scrub-browser-check.mjs` block 16d; this pins the two rules in the source. */
+test('(12) Safari’s bars do not move the hold: a height-only change re-measures nothing, and the held page is not scroll-anchored', () => {
+  const engine = read('app/[slug]/_components/hub-scrub-engine.ts');
+  /* (a) the resize handler returns before measuring when only the height changed, past the very top… */
+  assert.match(engine, /const fresh = \(e\?: Event\) => \{\s*if \(e && \(e\.type === 'resize' \|\| e\.type === 'orientationchange'\) && window\.innerWidth === measuredW && window\.scrollY >= 1\) return;\s*mayRefit = true;\s*again\(\);\s*\};/);
+  /* …the width it compares with is the one the geometry was measured at (set where `V` is)… */
+  assert.match(engine, /V = window\.innerHeight;\s*measuredW = window\.innerWidth;/);
+  /* …and every screen event goes through that handler (nothing re-measures on resize behind its back). */
+  assert.match(engine, /window\.addEventListener\('resize', fresh\);/);
+  assert.match(engine, /window\.addEventListener\('orientationchange', fresh\);/);
+  assert.equal((engine.match(/addEventListener\('resize'/g) ?? []).length, 1, 'a second resize listener');
+  assert.match(engine, /document\.fonts\?\.ready\.then\(\(\) => fresh\(\)\)/);
+  /* (b) the armed page — the page's own hold, and a scenes block's — is left out of scroll anchoring. */
+  const css = stripComments(readFileSync(join(WEB, 'app/globals.css'), 'utf8'));
+  assert.match(css, /\.hub-page-cell\[data-hub-page-on\],\s*\.hub-scenes\[data-hub-scrub-on\] \{ overflow-anchor: none; \}/);
+  /* …and the browser check plays it, in both engines. */
+  const check = read('scripts/scrub-browser-check.mjs');
+  assert.match(check, /ONLY === '16d'/);
+  assert.match(check, /for \(const \[engine, br\] of \[\['Chromium', b\], \['WebKit', wk\]\]\)/);
 });

@@ -279,6 +279,7 @@ export function armHubScrub(root: HTMLElement): () => void {
       fitted = false;
     }
     V = window.innerHeight;
+    measuredW = window.innerWidth;
     C = V / 2;
     lens = scrubLens(V);
     scenes = Array.from(root.querySelectorAll<HTMLElement>('.hub-scene[data-hub-fx]'));
@@ -609,8 +610,21 @@ export function armHubScrub(root: HTMLElement): () => void {
   const pulse = window.setInterval(() => {
     if (!dead && (queued || window.scrollY !== drawnAt)) draw();
   }, 250);
-  /** The screen itself changed (see `mayRefit`). */
-  const fresh = () => {
+  /**
+   * 📏 THE SCREEN'S WIDTH AT THE LAST MEASURE. The hold's geometry (the screen's height `V`, its centre line, every
+   * length) is frozen at the measure it was armed with: a change of the screen's HEIGHT alone — Safari's bars
+   * collapsing and expanding as the thumb moves, a 10 px step at a time — is not a new screen (owner's iPhone step 3,
+   * 2026-10-13: "bars move mid-fade without a jump"). Re-measured on each step, the hold's length followed the height
+   * (a text cover drifted to the end of its fade over a 70 px run), and a measure in the middle of the hold read the
+   * page as the browser re-anchored it (a photo cover's page grew ~500 px for good). Nothing on the page is sized by
+   * the screen's height but the top line's `9vh` on a tall phone, read with the rest at the measure. A change of
+   * WIDTH (a rotation, a window) re-lays the page out: that is measured again, as always. So is the page at its very
+   * top, before anything is held (see `mayRefit`).
+   */
+  let measuredW = window.innerWidth;
+  /** The screen itself changed (see `mayRefit`) — or only its height did, mid-page: then nothing (see `measuredW`). */
+  const fresh = (e?: Event) => {
+    if (e && (e.type === 'resize' || e.type === 'orientationchange') && window.innerWidth === measuredW && window.scrollY >= 1) return;
     mayRefit = true;
     again();
   };
@@ -653,7 +667,7 @@ export function armHubScrub(root: HTMLElement): () => void {
     window.addEventListener('resize', fresh);
     window.addEventListener('orientationchange', fresh);
     root.addEventListener('load', fresh, true);
-    void document.fonts?.ready.then(fresh);
+    void document.fonts?.ready.then(() => fresh());
     if (typeof ResizeObserver !== 'undefined') {
       /* THE OBSERVER'S FIRST DELIVERY IS NOT A CHANGE — it reports each box as it was given it. (This was a flag,
          "skip the first call", which leans on the first call always coming. The specification gives a box with no

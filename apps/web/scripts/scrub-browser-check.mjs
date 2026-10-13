@@ -57,6 +57,9 @@
  *      hand-over on the first tab only, measured again when that tab is shown.
  * 16c. 📷 THE STRANGER'S PHOTO COVER, SCRUB OFF (owner 2026-10-13: fitted too): today's page at six sizes — the names,
  *      the date and "Get inside" on the first screen, the photo whole under the door; pictures before/after.
+ * 16d. 📏 SAFARI'S BARS MOVE MID-FADE (owner's iPhone step 3, 2026-10-13): the window's height changing 10 px at a time
+ *      in the middle of the hold — up 70 px, down, and back — changes nothing: the page's length, the scroll, the
+ *      cover, its fade; and a picture loading mid-hold re-measures nothing away. Four covers, 375×667 and 375×812.
  * 16b. 📐 FITTED BEFORE IT FADES (owner 2026-10-12, "option 2"; and "Get inside" stays on the stranger's first screen):
  *      at 375×560 · 375×600 · 375×667 · 320×568 · 375×812 · 1280×770, for the guest's and the stranger's text and
  *      photo covers — the names and the date on the first screen at scroll 0, "Get inside" too on the stranger's; the
@@ -81,7 +84,7 @@ import { fileURLToPath } from 'node:url';
 const [, , pwDir, scratch, pics] = process.argv;
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(pwDir.endsWith('/') ? pwDir : `${pwDir}/`);
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
 const esbuild = execFileSync('sh', ['-c', `ls -d ${WEB}/../../node_modules/.pnpm/esbuild@*/node_modules/esbuild/bin/esbuild | tail -1`]).toString().trim();
 execFileSync(esbuild, [`${WEB}/app/[slug]/_components/hub-scrub-engine.ts`, '--bundle', '--minify', '--format=iife', '--global-name=HubScrubEngine', `--outfile=${scratch}/scrub-engine.js`], { stdio: 'pipe' });
 const tsx = `${WEB}/../../node_modules/.bin/tsx`;
@@ -1092,6 +1095,63 @@ if (!ONLY || ONLY === '16' || ONLY === '16b') {
     if (pics) await p.screenshot({ path: `${pics}/c16b-stranger-${W}x${H}-door-opened.png` });
     await ctx.close();
   }
+}
+/* 16d. 📏 SAFARI'S BARS MOVE MID-FADE (owner's iPhone step 3, 2026-10-13 — found red the day Scrub was turned on). On the
+   real page, the four covers (the guest's and the stranger's, text and photo), at 375 × 667 and 375 × 812: held in the
+   middle of the fade, the window's HEIGHT changes 10 px at a time — up 70 px, down past where it began, and back, as
+   the bars collapse and come back. At every step the page's length, the scroll position, the cover's top and its fade
+   are what they were; and the fade goes on from there. (Was: the hold followed the height — a text cover drifted to
+   the end of its fade — and a photo cover's page grew ~500 px for good, the browser re-anchoring the scroll under the
+   engine's own re-measure.) And a re-measure in the middle of the hold that is NOT the bars — a picture loading
+   (`load`) — leaves the page as it was too (`overflow-anchor: none` on the armed page, `globals.css`). */
+if (!ONLY || ONLY === '16' || ONLY === '16d') {
+  const KINDS = [
+    ['the guest’s text cover', 'fixture-cover.html'],
+    ['the guest’s photo cover', 'fixture-photo-cover.html'],
+    ['the stranger’s text cover', 'fixture-stranger-cover-fit.html'],
+    ['the stranger’s photo cover', 'fixture-stranger-photo-cover-fit.html'],
+  ];
+  const SNAPB = () => {
+    const cover = document.querySelector('.hub-cover');
+    const cs = getComputedStyle(cover);
+    return { s: Math.round(scrollY), len: document.documentElement.scrollHeight, t: cover.getBoundingClientRect().top, o: cs.visibility === 'hidden' ? 0 : Number(cs.opacity), pout: Number(cover.style.getPropertyValue('--hub-pout') || 0), on: Boolean(document.querySelector('[data-hub-page-on]')) };
+  };
+  const r = (n) => Math.round(n * 1000) / 1000;
+  /* (In WebKit too — the Safari engine, not an iPhone: one of the faults this block was written for showed in WebKit
+     alone, a guest's photo cover jumping to the end of its fade.) */
+  const wk = await webkit.launch();
+  for (const [engine, br] of [['Chromium', b], ['WebKit', wk]]) for (const [kind, file] of KINDS) {
+    for (const [W, H] of [[375, 667], [375, 812]]) {
+      const size = `${engine} ${W}x${H} ${kind}`;
+      const ctx = await br.newContext({ viewport: { width: W, height: H } }); const p = await ctx.newPage();
+      const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 140)));
+      await p.goto(`file://${scratch}/${file}`); await p.waitForTimeout(900);
+      const frames = () => p.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res))));
+      const at = async (y) => { await p.evaluate((yy) => scrollTo(0, yy), y); await frames(); return p.evaluate(SNAPB); };
+      /* The middle of the fade: the first position at which half of the Build out has played. */
+      let mid = null; for (let y = 0; y <= H * 1.3 && !mid; y += 6) { const f = await at(y); if (f.pout >= 0.5) mid = f; }
+      if (!mid) { say(false, `${size}: the fade was never half way (no hold?)`); await ctx.close(); continue; }
+      let prev = mid; const jumps = [];
+      for (const d of [10, 20, 30, 40, 50, 60, 70, 60, 50, 40, 30, 20, 10, 0, -10, 0]) {
+        await p.setViewportSize({ width: W, height: H + d }); await frames(); await p.waitForTimeout(60);
+        const f = await p.evaluate(SNAPB);
+        if (f.len !== prev.len || f.s !== prev.s || Math.abs(f.t - prev.t) > 1 || Math.abs(f.o - prev.o) > 0.02) jumps.push(`${H + d}px: page ${prev.len}→${f.len}, scroll ${prev.s}→${f.s}, cover ${Math.round(prev.t)}→${Math.round(f.t)}, fade ${r(prev.o)}→${r(f.o)}`);
+        prev = f;
+      }
+      say(errs.length === 0 && mid.on && jumps.length === 0 && prev.len === mid.len && prev.s === mid.s && Math.abs(prev.o - mid.o) < 0.01, `${size}: the bars move mid-fade (the window ${H}→${H + 70}→${H - 10}→${H} in 10 px steps, held at ${mid.s}px, the fade at ${r(mid.o)}): no jump — page ${mid.len}px, the scroll, the cover and its fade unchanged at every step${jumps.length ? ` — JUMPED at ${jumps.slice(0, 2).join(' | ')}` : ''}${errs.length ? ` — ${errs[0]}` : ''}`);
+      const on = []; for (let y = prev.s; y <= prev.s + 120; y += 6) on.push(await at(y));
+      let brighter = 0; for (let i = 1; i < on.length; i++) if (on[i].o > on[i - 1].o + 0.01) brighter++;
+      say(brighter === 0 && on.at(-1).o < prev.o - 0.05, `${size}: …and the fade goes on from where it was (${r(prev.o)} → ${r(on.at(-1).o)} over 120 px, never brighter)`);
+      /* A re-measure in the middle of the hold that is not the bars: a picture loading. */
+      const before = await at(mid.s);
+      await p.evaluate(() => document.querySelector('.hub-page-cell').dispatchEvent(new Event('load'))); await frames(); await p.waitForTimeout(100);
+      const after = await p.evaluate(SNAPB);
+      say(after.len === before.len && after.s === before.s && Math.abs(after.o - before.o) < 0.01, `${size}: a picture loading in the middle of the hold re-measures nothing away — page ${before.len}→${after.len}px, scroll ${before.s}→${after.s}, fade ${r(before.o)}→${r(after.o)}`);
+      if (pics) await p.screenshot({ path: `${pics}/c16d-${engine.toLowerCase()}-${file.replace(/^fixture-|\.html$/g, '')}-${W}x${H}-after-bars.png` });
+      await ctx.close();
+    }
+  }
+  await wk.close();
 }
 /* 16c. 📷 THE STRANGER'S PHOTO COVER, SCRUB OFF — what live strangers see (owner 2026-10-13, DECISION_LOG: "do it" — the
    photo moves so the names, the date and "Get inside" are on the stranger's first screen, Scrub on or off). TODAY's

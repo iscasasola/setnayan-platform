@@ -8616,6 +8616,12 @@ html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
   .hub-page-cell[data-hub-page-on]::after,
   .hub-page-cell[data-hub-page-on] .hub-page-cell::after { content: ''; display: block; height: var(--hub-len, 0px); }
   .hub-page-cell[data-hub-page-on] .hub-page-stage { position: sticky; top: var(--hub-top, 0px); }
+  /* ⚓ NO SCROLL ANCHORING INSIDE A HOLD (2026-10-13, the owner's iPhone step 3). The engine re-measures by taking
+     its marks off for a moment — the page's length changes above the reader — and the browser's scroll anchoring
+     moved the scroll position UNDER that measure (228 → 1130 px, Chromium), so the held stage was read pushed against
+     the end of its cell and the stranger's photo page grew ~500 px for good. A held page keeps its own place. */
+  .hub-page-cell[data-hub-page-on],
+  .hub-scenes[data-hub-scrub-on] { overflow-anchor: none; }
   /* 🎬 HAND-OVER ZERO — THE COVER (`hub-scenes.tsx` `HubCoverHold`: the cover in one box, the rest of the page in
      another; owner: *"maria jose must build out and until we say i do should be where maria jose build out"*). The
      cover is the page's, so its rules hang on the PAGE's mark and it is the page's first pair that stands still for

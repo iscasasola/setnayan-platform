@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 import { normalizeRowsAffected } from '@/lib/periodic-job-registry';
+import { backgroundWritesAllowed } from '@/lib/background-writes';
 
 export {
   DAILY_GAP_MS,
@@ -50,6 +51,9 @@ const lastCheckMs = new Map<string, number>();
  * fails if anything outside this file calls it.
  */
 export async function claimPeriodicJob(jobKey: string, minGapMs: number): Promise<boolean> {
+  // ⛔ Only the production deployment claims a window — never a dev server or a
+  // preview pointed at the production database (lib/background-writes.ts).
+  if (!backgroundWritesAllowed()) return false;
   const nowMs = Date.now();
   if (nowMs - (lastCheckMs.get(jobKey) ?? 0) < CHECK_THROTTLE_MS) return false;
   lastCheckMs.set(jobKey, nowMs);

@@ -124,7 +124,7 @@ export function pickOpensAsSheet(sheet: boolean, viewportWidth: number): boolean
 
 /** The ▾ button. */
 export function pickButtonClass(compact: boolean): string {
-  return `sn-press sn-press-ring sn-hit inline-flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white/70 font-semibold text-ink transition-colors duration-300 ease-in-out hover:bg-white ${
+  return `sn-press sn-press-ring sn-hit inline-flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white/70 font-semibold text-ink transition-colors duration-300 ease-in-out hover:bg-white dark:border dark:border-ink/15 dark:bg-raised dark:hover:bg-raised ${
     compact ? 'min-h-7 px-2 text-xs' : 'min-h-10 px-3 text-[13px]'
   }`;
 }

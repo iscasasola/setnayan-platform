@@ -1155,6 +1155,14 @@ html.guests-subnav-docked [data-shell-main] {
   .qr-slot:has(> svg[data-qr-shape='circle']) {
     border-radius: 9999px;
   }
+  /* 🔳 THE QR PLATE STAYS WHITE IN DARK (dark-mode PR 4, 2026-10-13; the approved template kind 24: *"the code is
+     ALWAYS dark on white, in Light and in Dark (a scanner needs it)"*). A plate drawn `bg-cream` (the join-link
+     panel) would turn the page's near-black under dark modules, and a scanner reads nothing. In dark every plate
+     is white with the template's faint light edge; Light is untouched (its plates are already white). */
+  html.dark .qr-slot {
+    background-color: #fff;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08), 0 10px 26px -16px rgb(0 0 0 / 0.8);
+  }
 }
 
 @layer utilities {
@@ -4676,6 +4684,11 @@ html.dark {
   background-color: rgb(var(--color-ink) / 0.2);
   transition: background-color var(--sn-pill-dur) var(--sn-ease);
 }
+/* Dark (PR 4, 2026-10-13): "off" is the approved template's dark line (`--line2`, the page's ink at 28 %) — at 20 % the
+   track sank into the card. `:where()` keeps it at the base rule's weight, so "on" (the accent, below) still wins. */
+:where(html.dark) .sn-switch {
+  background-color: rgb(var(--color-ink) / 0.28);
+}
 .sn-switch[data-on='true'],
 .peer:checked ~ .sn-switch {
   background-color: rgb(var(--sn-accent));
@@ -6074,6 +6087,10 @@ html.dark .sn-popup-dark {
 /* Same pairing, same fix — see the note above `.app-surface .button-primary`. */
 .sn-btn-primary { background: var(--sn-gold-700); color: #FFFDF8; }
 .sn-btn-primary:hover { background: var(--sn-gold-800); transform: translateY(-2px); box-shadow: 0 14px 26px -12px var(--sn-gold-500); }
+/* Dark (PR 4 "shared pieces", 2026-10-13): the three shared filled buttons' fills turn LIGHT in dark (mulberry
+   #E5794E, gold #E2C98B, their hovers lighter still), so their white words read ~2:1. Their words are the page's
+   ink-black there (`--color-cream` in dark, #17160F) — the same answer as the accent's own `--sn-on-accent`. */
+html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(--color-cream)); }
 .sn-btn-secondary { background: transparent; color: var(--sn-ink-900); border: 1.5px solid var(--sn-ink-900); }
 .sn-btn-secondary:hover { background: var(--sn-ink-900); color: var(--sn-paper); transform: translateY(-2px); }
 .sn-btn-ghost { background: transparent; color: var(--sn-ink-700); }

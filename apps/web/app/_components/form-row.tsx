@@ -76,11 +76,12 @@ export const FORM_PILL_WIDTH = { short: 'w-[150px]', wide: 'w-[200px]' } as cons
 export type FormPillWidth = keyof typeof FORM_PILL_WIDTH;
 
 /** The white pill an answer wears (the dropdown button's own shape: a full pill, 40 px, the mark pinned right). In dark mode it
- *  sits on the page's own ground (`dark:bg-cream`) — white stayed white there under light ink. */
+ *  is the approved card colour (`dark:bg-raised`, the template's `--surf` #232019) — white stayed white there under light ink,
+ *  and the page's own ground (`bg-cream`, #6492) read as a hole in a card. It presses at 44 (`sn-hit`). */
 export const FORM_PILL_CLASS =
-  'sn-row-pill sn-press sn-press-ring sn-hit inline-flex h-10 min-h-10 flex-none items-center justify-between gap-1.5 rounded-full border bg-white pl-3.5 pr-2.5 text-left dark:bg-cream text-[14px] font-medium text-ink transition-colors duration-sn-control ease-sn';
+  'sn-row-pill sn-press sn-press-ring sn-hit inline-flex h-10 min-h-10 flex-none items-center justify-between gap-1.5 rounded-full border bg-white pl-3.5 pr-2.5 text-left dark:bg-raised text-[14px] font-medium text-ink transition-colors duration-sn-control ease-sn';
 /** The same pill on the house dropdown (`PickMenu` keeps its own button; these lay the row's look over it). */
-export const FORM_PICK_CLASS = '!h-10 !min-h-10 flex-none justify-between !gap-1.5 border border-ink/15 !bg-white dark:!bg-cream !pl-3.5 !pr-2.5 !text-[14px] !font-medium';
+export const FORM_PICK_CLASS = '!h-10 !min-h-10 flex-none justify-between !gap-1.5 border border-ink/15 !bg-white dark:!bg-raised !pl-3.5 !pr-2.5 !text-[14px] !font-medium';
 /** The small mark at a pill's right. */
 const MARK = 'h-4 w-4 flex-none';
 
@@ -743,7 +744,7 @@ export function FormRowField({
         {/* The box IS the field: a message cannot be a pill, so it wears the large corner. */}
         <textarea
           {...shared}
-          className="min-h-[88px] w-full resize-none rounded-2xl border border-sn-accent bg-white px-[18px] py-3 text-[16px] leading-snug text-ink outline-none ring-[3px] ring-sn-accent/15 placeholder:text-ink/40"
+          className="min-h-[88px] w-full resize-none rounded-2xl border border-sn-accent bg-white px-[18px] py-3 dark:bg-raised text-[16px] leading-snug text-ink outline-none ring-[3px] ring-sn-accent/15 placeholder:text-ink/40"
           rows={3}
           enterKeyHint="enter"
           onChange={(e) => setText(e.target.value)}
@@ -758,7 +759,7 @@ export function FormRowField({
       <span id={nameId} className="sr-only">
         {name}
       </span>
-      <span className="flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-full border border-sn-accent bg-white px-[18px] ring-[3px] ring-sn-accent/15">
+      <span className="flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-full border border-sn-accent bg-white px-[18px] dark:bg-raised ring-[3px] ring-sn-accent/15">
         {mark ? (
           <span aria-hidden data-form-row-amount-mark="" className="flex-none font-semibold text-ink/45">
             {mark}

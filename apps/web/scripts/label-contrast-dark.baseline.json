@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 316,
+  "total": 305,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -9,7 +9,6 @@
     "app/_components/chat/conversation-column.tsx · mulberry on white": 1,
     "app/_components/facebook-dual-stream-card.tsx · ink on white": 1,
     "app/_components/file-upload.tsx · sn-accent on white": 1,
-    "app/_components/form-row.tsx · ink on white": 1,
     "app/_components/frontdoor/front-door.css · .fd-ask": 1,
     "app/_components/frontdoor/front-door.css · .fd-ask.quiet": 1,
     "app/_components/frontdoor/front-door.css · .fd-btn-gold:hover (label inherited from .fd-btn-gold)": 1,
@@ -27,8 +26,6 @@
     "app/_components/home/home-reskin.css · .home-reskin-ov .hr-vb-legend": 1,
     "app/_components/home/home-reskin.css · .home-reskin-ov .hr-vd-card .hr-ic": 1,
     "app/_components/proposal-maker.tsx · success-700 on white": 1,
-    "app/_components/timeline-row.tsx · ink on white": 1,
-    "app/_components/toast/peek-toast.tsx · ink on white": 2,
     "app/admin/_components/mobile-landing-grid.tsx · #fff on m-mulberry": 1,
     "app/admin/app-performance/_components/charts.tsx · #2E4A2A on m-sage": 1,
     "app/admin/app-performance/_components/expenses.tsx · #2E4A2A on m-sage": 1,
@@ -178,12 +175,6 @@
     "app/dashboard/[eventId]/website/editor/_components/type-in-place.tsx · terracotta-700 on white": 1,
     "app/dashboard/[eventId]/website/our-story/_components/moment-sheet-studio.tsx · white on success-700": 1,
     "app/for-suppliers/_components/vendor-grow-sections.tsx · m-orange-3 on m-ink": 1,
-    "app/globals.css · .m-btn-orange": 1,
-    "app/globals.css · .m-btn-orange:hover (label inherited from .m-btn-orange)": 1,
-    "app/globals.css · .m-btn-primary": 1,
-    "app/globals.css · .m-btn-primary:hover (label inherited from .m-btn-primary)": 1,
-    "app/globals.css · .sn-btn-primary": 1,
-    "app/globals.css · .sn-btn-primary:hover (label inherited from .sn-btn-primary)": 1,
     "app/onboarding/_shared/date-calendar.css · .sn-datecal .calday.heat-4": 1,
     "app/onboarding/_shared/date-calendar.css · .sn-datecal .calmode button.on": 1,
     "app/onboarding/_shared/date-calendar.css · .sn-datecal .calnav": 1,
@@ -234,7 +225,6 @@
     "app/vendor-dashboard/reviews/page.tsx · white on danger-600": 1,
     "app/vendor-dashboard/shop/_components/suggested-coverage-card.tsx · #fff on m-accent-deep": 1,
     "app/vendor-dashboard/subscription/custom/_components/custom-configurator.tsx · ink on white": 1,
-    "app/vendor-dashboard/subscription/custom/_components/custom-configurator.tsx · white on ink": 1,
-    "components/print-button.tsx · ink on white": 1
+    "app/vendor-dashboard/subscription/custom/_components/custom-configurator.tsx · white on ink": 1
   }
 }

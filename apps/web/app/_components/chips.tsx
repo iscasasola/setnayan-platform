@@ -37,7 +37,7 @@ export const CHIP_CLASS =
 /** Chosen: the accent, and the ink that reads on it. */
 export const CHIP_ON_CLASS = `border-sn-accent ${PILL_ON_CLASS}`;
 /** Not chosen: grey words on white — on the page's own ground in dark mode (white stayed white there). */
-export const CHIP_OFF_CLASS = 'border-ink/15 bg-white text-ink/55 dark:bg-cream';
+export const CHIP_OFF_CLASS = 'border-ink/15 bg-white text-ink/55 dark:bg-raised';
 
 export function chipClass(on: boolean): string {
   return `${CHIP_CLASS} ${on ? CHIP_ON_CLASS : CHIP_OFF_CLASS}`;

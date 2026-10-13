@@ -192,7 +192,7 @@ export function CustomersCalendar({
             line={r.line || undefined}
             badge={r.badge}
             href={daySheetHref(picked)}
-            lead={r.kind === 'blocked' || r.kind === 'held' ? <i aria-hidden className="block h-4 w-5 shrink-0 rounded-[4px]" style={{ backgroundImage: CALENDAR_HATCH }} /> : undefined}
+            lead={r.kind === 'blocked' || r.kind === 'held' ? <i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={{ backgroundImage: CALENDAR_HATCH }} /> : undefined}
           />
         ))}
       </div>

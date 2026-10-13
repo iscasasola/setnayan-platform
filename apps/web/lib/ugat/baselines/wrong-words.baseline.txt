@@ -96,7 +96,6 @@ app/v/[slug]/page.tsx "Setnayan supplier" → /[slug]	# first run 2026-10-02 · 
 app/vendor-dashboard/attributes/page.tsx "Set up profile" → /vendor-dashboard	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx "Turn on Papic Challenges" → /vendor-dashboard/subscription	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/error.tsx "Switch to customer view" → /dashboard	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/vendor-dashboard/invite/page.tsx "View all issued →" → /vendor-dashboard/locked-qr	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/messages/[threadId]/page.tsx "Schedule" → /vendor-dashboard/clients/[eventId]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/notifications/page.tsx "contact email" → /vendor-dashboard	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx "Open the full desk" → /vendor-dashboard/on-the-day	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster

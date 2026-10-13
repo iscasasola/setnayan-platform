@@ -243,20 +243,21 @@ export function ShareTeamPick({
   categoryLabel,
   value,
   pools,
-  action,
+  moveAction,
   month,
 }: {
   categoryKey: string;
   categoryLabel: string;
   value: string;
   pools: readonly DatesPool[];
-  action: Action;
+  /** The shipped `reassignCategoryPool`. */
+  moveAction: Action;
   month: string;
 }) {
   const form = useRef<HTMLFormElement>(null);
   const target = useRef<HTMLInputElement>(null);
   return (
-    <form ref={form} action={action} className="flex min-h-[60px] items-center gap-3 border-t border-ink/10" data-dates-share-team={categoryKey}>
+    <form ref={form} action={moveAction} className="flex min-h-[60px] items-center gap-3 border-t border-ink/10" data-dates-share-team={categoryKey}>
       <input type="hidden" name="return_to" value="dates" />
       <input type="hidden" name="return_fold" value="capacity" />
       <input type="hidden" name="return_month" value={month} />

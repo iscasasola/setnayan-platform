@@ -126,7 +126,7 @@ export function DaySheet({
           <DatesRow
             key={h.key}
             data="hold"
-            lead={<i aria-hidden className="block h-4 w-5 shrink-0 rounded-[4px]" style={{ backgroundImage: CALENDAR_HATCH }} />}
+            lead={<i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={{ backgroundImage: CALENDAR_HATCH }} />}
             title={h.title}
             line={h.line}
             end={
@@ -147,7 +147,7 @@ export function DaySheet({
               <DatesRow
                 key={c.blockId}
                 data="closure"
-                lead={<i aria-hidden className="block h-4 w-5 shrink-0 rounded-[4px]" style={{ backgroundImage: CALENDAR_HATCH }} />}
+                lead={<i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={{ backgroundImage: CALENDAR_HATCH }} />}
                 title={c.label}
                 line={`${rangeWords(c.startDate, c.endDate, today)} · ${c.scope}`}
                 end={

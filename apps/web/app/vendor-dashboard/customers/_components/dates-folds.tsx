@@ -127,7 +127,7 @@ export function DatesFolds({
                 <DatesRow
                   key={c.blockId}
                   data="closure"
-                  lead={<i aria-hidden className="block h-4 w-5 shrink-0 rounded-[4px]" style={{ backgroundImage: CALENDAR_HATCH }} />}
+                  lead={<i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={{ backgroundImage: CALENDAR_HATCH }} />}
                   title={c.label}
                   line={`${rangeWords(c.startDate, c.endDate, today)} · ${c.scope}`}
                   end={
@@ -169,8 +169,8 @@ export function DatesFolds({
             ) : waitlist.tierCap === 0 ? (
               <DatesRow
                 data="waitlist-plan"
-                title="A waiting list on full dates"
-                line="Couples who wanted a date you are full on can wait for it. It comes with the paid plans."
+                title="See the plans"
+                line="A waiting list on full dates comes with the paid plans"
                 href="/vendor-dashboard/subscription"
               />
             ) : (
@@ -298,7 +298,7 @@ export function DatesFolds({
                       categoryLabel={cat.label}
                       value={c.poolId}
                       pools={calendars.map((p) => ({ poolId: p.poolId, label: p.label }))}
-                      action={actions.reassignCategoryPool}
+                      moveAction={actions.reassignCategoryPool}
                       month={month}
                     />
                   )),

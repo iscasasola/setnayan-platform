@@ -191,7 +191,7 @@ export function CalendarGrid({
                   : look.out
                     ? 'pointer-events-none rounded-full text-ink/25'
                     : blocked
-                      ? 'rounded-[10px] text-ink/45'
+                      ? 'rounded text-ink/45'
                       : look.inRange
                         ? 'rounded-none bg-sn-accent/[0.14] text-ink'
                         : 'rounded-full text-ink'
@@ -235,7 +235,7 @@ export function CalendarLegend({ dots, blocked = false }: { dots: readonly Calen
       ))}
       {blocked ? (
         <span className="inline-flex items-center gap-1.5">
-          <i aria-hidden className="block h-2.5 w-3.5 rounded-[3px]" style={{ backgroundImage: CALENDAR_HATCH }} />
+          <i aria-hidden className="block h-2.5 w-3.5 rounded-sm" style={{ backgroundImage: CALENDAR_HATCH }} />
           Blocked
         </span>
       ) : null}

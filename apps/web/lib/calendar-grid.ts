@@ -184,7 +184,7 @@ export type CalendarDayState = {
 
 /**
  * A blocked day's hatch: thin ink lines on nothing, so it reads as "closed" in Light and in Dark alike (the ink flips
- * with the theme). The square's corners are the template's 10 px. A plain string, so a server-drawn row can wear it.
+ * with the theme). The square's corners are the house 8 px (the template drew 10). A plain string, so a server-drawn row can wear it.
  */
 export const CALENDAR_HATCH = 'repeating-linear-gradient(135deg, transparent 0 3px, rgb(var(--color-ink) / 0.16) 3px 4px)';
 

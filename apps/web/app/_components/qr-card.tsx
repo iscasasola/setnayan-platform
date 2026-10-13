@@ -77,9 +77,9 @@ export function QrCard({
   }
 
   const dataUri = qrSvg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}` : '';
-  const plate = 'relative block h-[200px] w-[200px] rounded-[18px] bg-white p-[14px] shadow-[0_1px_0_rgba(0,0,0,.04),0_10px_26px_-16px_rgba(0,0,0,.35)] [&_svg]:block [&_svg]:h-full [&_svg]:w-full';
+  const plate = 'relative block h-[200px] w-[200px] rounded-card bg-white p-[14px] shadow-[0_1px_0_rgba(0,0,0,.04),0_10px_26px_-16px_rgba(0,0,0,.35)] [&_svg]:block [&_svg]:h-full [&_svg]:w-full';
   const mark = (
-    <span aria-hidden className="absolute left-1/2 top-1/2 flex h-[38px] w-[38px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[11px] bg-white font-serif text-[18px] font-bold text-sn-accent">
+    <span aria-hidden className="absolute left-1/2 top-1/2 flex h-[38px] w-[38px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded bg-white font-serif text-[18px] font-bold text-sn-accent">
       S
     </span>
   );
@@ -100,11 +100,11 @@ export function QrCard({
   return (
     <div data-qr-card={data ?? ''} data-qr-state={state} className="flex flex-col items-center gap-2.5 py-1.5 text-center">
       {state === 'making' ? (
-        <div aria-busy="true" aria-label="Making your code" className="h-[200px] w-[200px] animate-pulse rounded-[18px] bg-ink/[0.07]" />
+        <div aria-busy="true" aria-label="Making your code" className="h-[200px] w-[200px] animate-pulse rounded-card bg-ink/[0.07]" />
       ) : state === 'used' ? (
         <div className={`${plate} opacity-60`} aria-label={`This code was used${stamp ? ` — ${stamp}` : ''}`}>
           <span aria-hidden dangerouslySetInnerHTML={{ __html: qrSvg ?? '' }} />
-          <span className="absolute inset-0 flex items-center justify-center rounded-[18px] bg-white/80 text-[18px] font-bold tracking-wide text-[#2C2A29]">{stamp ?? 'Used'}</span>
+          <span className="absolute inset-0 flex items-center justify-center rounded-card bg-white/80 text-[18px] font-bold tracking-wide text-[#2C2A29]">{stamp ?? 'Used'}</span>
         </div>
       ) : (
         <button type="button" className={`sn-press ${plate}`} aria-label={`${title} — tap to open it big`} onClick={() => setBig(true)} data-qr-plate="">

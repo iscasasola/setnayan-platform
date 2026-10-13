@@ -27,5 +27,5 @@ scan_events.ip_anon	# first run 2026-10-02 · shared code · a column the app wr
 users.concierge_enforcement_by	# first run 2026-10-02 · admin console · a column the app writes and nothing reads
 vendor_bot_replies.compat_score	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
 vendor_bot_replies.was_llm	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
-vendor_locked_qr_tokens.remembrance_r2_key	# first run 2026-10-02 · supplier app · a column the app writes and nothing reads
+vendor_locked_qr_tokens.remembrance_r2_key	# first run 2026-10-02 · internal (dev, prototypes) · a column the app writes and nothing reads
 vendor_profile_views.viewer_hash	# first run 2026-10-02 · guest app · a column the app writes and nothing reads

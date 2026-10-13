@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0321c7f151",
+  "generatedFromRef": "ae796aa50",
   "routeCount": 431,
-  "destinations": 951,
-  "actions": 675,
-  "blocks": 6070,
+  "destinations": 942,
+  "actions": 668,
+  "blocks": 6065,
   "routes": {
     "/": {
       "files": [
@@ -10255,10 +10255,15 @@
     },
     "/dev/supplier-lab": {
       "files": [
+        "dev/supplier-lab/dates-lab.tsx",
         "dev/supplier-lab/page.tsx",
         "dev/supplier-lab/people-lab.tsx"
       ],
       "destinations": [
+        "/dev/supplier-lab?s=dates",
+        "/dev/supplier-lab?s=dates-day",
+        "/dev/supplier-lab?s=qr",
+        "/dev/supplier-lab?s=qr-booked",
         "/dev/supplier-lab?thumb=customer",
         "/dev/supplier-lab?thumb=people",
         "/help",
@@ -10266,20 +10271,28 @@
         "/vendor-dashboard/shop?open=payments"
       ],
       "actions": [
+        "addManualBlock",
         "importExternalClient"
       ],
       "blocks": [
         "ActionButton",
+        "BlockDateAdd",
         "BookingFeeBills",
+        "CustomersCalendar",
         "CustomersPick",
         "CustomersRoster",
         "CustomersSegments",
+        "DatesFolds",
+        "DatesLab",
+        "DaySheet",
         "Fix",
         "KeptNotesFold",
+        "LockedQrGenerator",
         "NothingToAnswerFeed",
         "OutsideClientAdd",
         "OutsideClientRows",
         "PeopleLab",
+        "QrCodes",
         "SearchBox",
         "SupplierSubmit",
         "SupplierThumbRow",
@@ -11755,8 +11768,6 @@
         "vendor-dashboard/_components/payout-method-nudge.tsx",
         "vendor-dashboard/_components/pipeline-pressure-line.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
-        "vendor-dashboard/_components/qr-card.tsx",
-        "vendor-dashboard/_components/qr-section.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
         "vendor-dashboard/_components/supplier-submit.tsx",
         "vendor-dashboard/_components/supplier-thumb-leave.ts",
@@ -11789,7 +11800,6 @@
         "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/customers?lane=waiting",
-        "/vendor-dashboard/locked-qr",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/more",
         "/vendor-dashboard/notifications",
@@ -11860,8 +11870,6 @@
         "LockBody",
         "LockRequestBody",
         "LockRequestLapsedBody",
-        "LockedBody",
-        "LockedQrGenerator",
         "MarkCompleteBody",
         "MediaTile",
         "MeetingBody",
@@ -11876,19 +11884,13 @@
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "PeekToast",
-        "PillButton",
-        "PillTrack",
         "Pips",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
-        "QrActions",
-        "QrCard",
         "QuoteDraftBody",
         "ReviewBody",
         "RowSkeleton",
         "Screen",
-        "SegButton",
-        "ShortlistBody",
         "Sk",
         "State",
         "SubmitButton",
@@ -12037,52 +12039,21 @@
       "files": [
         "vendor-dashboard/calendar/actions.ts",
         "vendor-dashboard/calendar/loading.tsx",
-        "vendor-dashboard/calendar/page.tsx",
-        "vendor-dashboard/calendar/surface.tsx"
+        "vendor-dashboard/calendar/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/calendar/[seg]?pool=[seg]",
-        "/vendor-dashboard/calendar?pool=[seg]&m=[seg]",
-        "/vendor-dashboard/calendar?pool=all&m=[seg]",
-        "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/services",
-        "/vendor-dashboard/subscription"
-      ],
-      "actions": [
-        "addManualBlock",
-        "createCalendar",
-        "editCalendar",
-        "importExternalClient",
-        "notifyWaitlistSlot",
-        "pickWaitlistCouple",
-        "reassignCategoryPool",
-        "removeBlock",
-        "updatePoolCapacity",
-        "updateWaitlistSettings"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "BoardPageSkeleton",
-        "ConfirmForm",
-        "Link",
-        "SubmitButton"
+        "BoardPageSkeleton"
       ]
     },
     "/vendor-dashboard/calendar/[date]": {
       "files": [
         "vendor-dashboard/calendar/[date]/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/calendar?m=[seg]${\n    search.pool ?",
-        "/vendor-dashboard/messages/[seg]"
-      ],
-      "actions": [
-        "notifyWaitlistSlot",
-        "setCalendarDayState"
-      ],
-      "blocks": [
-        "Link",
-        "SubmitButton"
-      ]
+      "destinations": [],
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/clients": {
       "files": [
@@ -12392,10 +12363,13 @@
     "/vendor-dashboard/customers": {
       "files": [
         "vendor-dashboard/customers/_components/customers-calendar.tsx",
-        "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
         "vendor-dashboard/customers/_components/customers-pick.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
         "vendor-dashboard/customers/_components/customers-segments.tsx",
+        "vendor-dashboard/customers/_components/dates-folds.tsx",
+        "vendor-dashboard/customers/_components/dates-row.tsx",
+        "vendor-dashboard/customers/_components/dates-sheets.tsx",
+        "vendor-dashboard/customers/_components/day-sheet.tsx",
         "vendor-dashboard/customers/_components/outside-client-add.tsx",
         "vendor-dashboard/customers/_components/people-more.tsx",
         "vendor-dashboard/customers/actions.ts",
@@ -12405,45 +12379,60 @@
         "vendor-dashboard/customers/segments.ts"
       ],
       "destinations": [
+        "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/clients/[seg]?tab=details",
-        "/vendor-dashboard/messages/[seg]"
+        "/vendor-dashboard/customers?seg=dates&m=[seg]",
+        "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/subscription"
       ],
       "actions": [
         "action",
+        "addManualBlock",
+        "createAction",
+        "editAction",
         "importExternalClient",
+        "moveAction",
         "removeBlock"
       ],
       "blocks": [
         "AccordionSkeleton",
         "ActionButton",
         "Badge",
+        "BlockDateAdd",
         "BookingsSurface",
         "CalendarDay",
-        "CalendarSurface",
+        "CalendarGrid",
+        "CalendarLegend",
+        "CalendarSheet",
         "ChosenRow",
         "ConfirmForm",
         "ContractsSurface",
+        "Counter",
         "CustomerCalendarMonth",
         "CustomerSectionBody",
         "CustomersCalendar",
         "CustomersDates",
-        "CustomersFilterBar",
+        "CustomersDay",
         "CustomersPick",
         "CustomersPipeline",
         "CustomersRoster",
         "CustomersSegments",
         "DateRow",
+        "DatesFolds",
+        "DatesRow",
+        "DaySheet",
         "FeatureAccordion",
-        "FilterSelect",
         "Fold",
         "FormRows",
         "HTMLFormElement",
+        "HTMLInputElement",
         "KeptNotesFold",
         "Link",
         "ListPager",
         "Marked",
         "MessagesSurface",
         "MiniTour",
+        "MonthInputs",
         "OutsideClient",
         "OutsideClientAdd",
         "OutsideClientRows",
@@ -12456,13 +12445,14 @@
         "RosterRow",
         "RosterRowView",
         "SearchBox",
+        "ShareTeamPick",
         "Sheet",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SupplierToast",
         "Suspense",
-        "TypedRow",
-        "VendorQrSection"
+        "SwitchTrack",
+        "TypedRow"
       ]
     },
     "/vendor-dashboard/deep-search": {
@@ -12544,32 +12534,26 @@
     "/vendor-dashboard/invite": {
       "files": [
         "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
+        "vendor-dashboard/invite/_components/qr-codes.tsx",
         "vendor-dashboard/invite/actions.ts",
         "vendor-dashboard/invite/date-status-actions.ts",
         "vendor-dashboard/invite/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/invite?mode=locked",
-        "/vendor-dashboard/invite?mode=shortlist",
-        "/vendor-dashboard/locked-qr",
-        "/vendor-dashboard/shop"
-      ],
+      "destinations": [],
       "actions": [
         "issueLockedQr"
       ],
       "blocks": [
+        "CustomersPick",
+        "DatesRow",
+        "Fold",
         "HTMLInputElement",
         "Icon",
         "Link",
-        "LockedMode",
         "LockedQrGenerator",
-        "PillLink",
-        "PillTrack",
-        "QrActions",
+        "QrCard",
+        "QrCodes",
         "Row",
-        "ShopCard",
-        "ShopNotice",
-        "ShortlistMode",
         "SubmitButton"
       ]
     },
@@ -12594,20 +12578,9 @@
       "files": [
         "vendor-dashboard/locked-qr/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/invite?mode=locked",
-        "/vendor-dashboard/invite?mode=locked&issued=[seg]",
-        "/vendor-dashboard/shop"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "Icon",
-        "Link",
-        "QrActions",
-        "ShopEmpty",
-        "ShopPill",
-        "StatusBadge"
-      ]
+      "blocks": []
     },
     "/vendor-dashboard/manpower": {
       "files": [

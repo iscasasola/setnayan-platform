@@ -88,7 +88,7 @@ test('1 · the shared grid draws kind 31: dots, a hatched blocked square, a bold
   // Full = bold; its words say so.
   assert.match(html, /aria-label="October 24, 2026 — Booked and Holding, full" data-calendar-day="2026-10-24" data-calendar-full=""[^>]*class="[^"]*font-bold/);
   // Blocked = the hatched square with a grey number, no dots; said in words.
-  assert.match(html, /aria-label="October 14, 2026 — blocked" data-calendar-day="2026-10-14" data-calendar-blocked="" style="background-image:repeating-linear-gradient\(135deg, transparent 0 3px, rgb\(var\(--color-ink\) \/ 0\.16\) 3px 4px\)" class="[^"]*rounded-\[10px\] text-ink\/45/);
+  assert.match(html, /aria-label="October 14, 2026 — blocked" data-calendar-day="2026-10-14" data-calendar-blocked="" style="background-image:repeating-linear-gradient\(135deg, transparent 0 3px, rgb\(var\(--color-ink\) \/ 0\.16\) 3px 4px\)" class="[^"]*rounded text-ink\/45/);
   assert.doesNotMatch(/data-calendar-day="2026-10-14"[^]*?<\/button>/.exec(html)?.[0] ?? '', /data-calendar-dot/, 'a blocked day carries a dot');
   // The picked day — even a blocked one — is the ONE circle, in the "on" look, no hatch.
   assert.equal(count(html, /aria-pressed="true"/g), 1);

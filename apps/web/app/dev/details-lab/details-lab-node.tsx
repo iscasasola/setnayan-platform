@@ -22,6 +22,7 @@
  *   ?guide=1|walk-S|ready-S  the guided "What's left", by stage (S = save_the_date, rsvp-stage, …) — with Your event on
  *                         fixtures; `&fresh=1` a new event (nothing filled in yet)
  */
+import { passCardDesignFrom } from '@/lib/pass-card';
 import { MakerDetails, detailsFactEditors } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
 import { pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
@@ -163,6 +164,8 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           storeShell: false,
           /* 🖨 `?studio=1`: a version, so "Changed since you printed" can be walked (a stamp of another version in this browser). */
           previewVersion: studioLab ? 'lab-v2' : null,
+          /* 🎫 The ticket style the lab's draft holds (the Maker lab's `lab_pass` cookie) — as the real page hands the drafted look in. */
+          passDesign: passCardDesignFrom(one('labPass')),
           formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
         }}
         /* 🧪 `?studio=1`: Prints' six on fixtures (owner "approved" 2026-10-13) — a menu of two moments and the schedule's food moments

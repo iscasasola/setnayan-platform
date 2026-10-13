@@ -39,7 +39,10 @@ export function LandingPreReply({
   ticketSrc,
   awaitingLine,
   whenWhere = null,
+  shut = null,
 }: {
+  /** 📬 The couple's reply window is shut (`replyWindowWords`): its words stand where the button was — no button. */
+  shut?: { line: string; sub: string | null } | null;
   /**
    * 🗓 WHEN AND WHERE, ONE LINE, ABOVE THE BUTTON (owner 2026-10-11: a guest was
    * asked to reply without being told when or where) — `landingWhenWhere`:
@@ -77,10 +80,19 @@ export function LandingPreReply({
             {whenWhere}
           </p>
         ) : null}
-        <Link className="button-primary w-full" href={replyHref} data-landing-reply="">
-          {LANDING_WORDS.reply}
-        </Link>
-        {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/70">Please reply by {replyByLabel}</p> : null}
+        {shut ? (
+          <div className="text-center" data-reply-window="">
+            <p className="text-base text-ink">{shut.line}</p>
+            {shut.sub ? <p className="mt-1 text-sm text-ink/70">{shut.sub}</p> : null}
+          </div>
+        ) : (
+          <>
+            <Link className="button-primary w-full" href={replyHref} data-landing-reply="">
+              {LANDING_WORDS.reply}
+            </Link>
+            {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/70">Please reply by {replyByLabel}</p> : null}
+          </>
+        )}
       </div>
 
       {fadedTicket ? (

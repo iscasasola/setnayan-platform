@@ -14,6 +14,7 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
+import { OPEN_REPLY_WINDOW, replyFaceOf, replyWindow, replyWindowWords, type ReplyWindowEvent } from '@/lib/reply-window';
 import { renderInvitationQrSvg, buildInvitationUrl } from '@/lib/qr';
 import { QR_LOOK_COLUMNS_AFTER_INVITE_MARK, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -552,6 +553,18 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   /* 📅 IS A REPLY ASKED FOR YET? Not while this door opens the Save the Date (owner
      2026-10-11) — the same reading as `destination` above, never a second one. */
   const replyAsked = replyIsAsked(destination);
+  /* 📬 …AND THE COUPLE'S REPLY WINDOW (owner 2026-10-14, `lib/reply-window.ts`): shut, the landing says
+     when replies open — or that they closed — where the Reply / Change button would be, and draws no
+     button. From the row in hand, on the venue's clock. The Maker's canvas always draws the buttons. */
+  const replies = canvas
+    ? OPEN_REPLY_WINDOW
+    : replyWindow(
+        event as unknown as ReplyWindowEvent,
+        Date.now(),
+        eventTimezoneFromCoords(event.venue_latitude as number | null, event.venue_longitude as number | null),
+        replyFaceOf(await profileAhead),
+      );
+  const repliesShut = replyWindowWords(replies, words.theOrganizer);
   /* 📲 The tile's code for today — the SAME call the metadata makes
      (`tileCodeOnce`), so its row is stored before the page is done. Only after
      a Yes, where the ShortcutLine is offered; never on the Maker canvas. */
@@ -599,7 +612,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   });
   const inApp = canvas ? ({ kind: 'none' } as const) : inAppHandoff(userAgent, invitationUrl);
   const safariSave = inApp.kind === 'ios' ? inApp.safariHref : null;
-  const changeWords = canvas ? null : changeReplyWords(reply);
+  const changeWords = canvas || repliesShut ? null : changeReplyWords(reply);
   const ticketLabel = `${guestName}’s ${PASS_CARD_WORDS.digitalTicket}`;
   const ticketFallback = (
     <p role="alert" className="text-xs text-ink/70">
@@ -692,6 +705,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
             message={message}
             hosts={hosts}
             replyHref={replyHrefCarrying(home, search.k)}
+            shut={repliesShut}
             replyByLabel={replyByLabel}
             whenWhere={whenWhere}
             fadedTicket={ticket === 'faded'}
@@ -791,7 +805,12 @@ async function inviteEnterPage({ params, searchParams }: Props) {
         {/* 2 · REPLY TO THE INVITATION — the one main button, only until they
             reply (then a small "Change my reply" stays at the foot). */}
         {unreplied ? (
-          !replyAsked ? null : (
+          !replyAsked ? null : repliesShut ? (
+          <div data-landing="reply" data-reply-window={replies.state} className="text-center">
+            <p className="text-base text-ink">{repliesShut.line}</p>
+            {repliesShut.sub ? <p className="mt-1 text-sm text-ink/70">{repliesShut.sub}</p> : null}
+          </div>
+          ) : (
           <div data-landing="reply">
             <Link className="button-primary w-full" href={replyHrefCarrying(home, search.k)} data-landing-reply="">
               {LANDING_WORDS.reply}
@@ -896,6 +915,13 @@ async function inviteEnterPage({ params, searchParams }: Props) {
 
         {/* The reply is done: a small "Change my reply" stays (frame 3), or
             "Changed your plans?" after a No (frame 4). */}
+        {/* 📬 Replied, and replies have closed: the closed words where "Change my reply" was. */}
+        {!unreplied && replies.state === 'closed' && repliesShut ? (
+          <div className="text-center" data-reply-window="closed">
+            <p className="text-sm text-ink/80">{repliesShut.line}</p>
+            {repliesShut.sub ? <p className="text-sm text-ink/70">{repliesShut.sub}</p> : null}
+          </div>
+        ) : null}
         {changeWords ? (
           <p className="text-center">
             <Link

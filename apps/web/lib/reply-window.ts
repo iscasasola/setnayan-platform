@@ -75,6 +75,9 @@ export type ReplyWindow = {
   closesOn: string | null;
 };
 
+/** Open — what a page that was handed no window draws (every mount before 2026-10-14, the Maker's canvas). */
+export const OPEN_REPLY_WINDOW: ReplyWindow = { state: 'open', reason: 'open', opensOn: null, closesOn: null };
+
 /** The event facts the window reads — every one a plain column of `public.events`. */
 export type ReplyWindowEvent = {
   event_date: string | null;
@@ -89,7 +92,7 @@ export type ReplyWindowEvent = {
 
 /** The columns `ReplyWindowEvent` names, for a select that must carry them (the zone comes from the venue). */
 export const REPLY_WINDOW_EVENT_COLUMNS =
-  'event_type, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, guest_list_edit_deadline, rsvp_ask_config, venue_latitude, venue_longitude';
+  'event_type, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, guest_list_edit_deadline, rsvp_ask_config, venue_latitude, venue_longitude' as const;
 
 /** What of the event's TYPE the window needs: does it have a Save the Date face, and is it solemn. */
 export type ReplyFace = { phasesEnabled: boolean; solemn: boolean };

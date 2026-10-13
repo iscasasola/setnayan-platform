@@ -5,7 +5,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { PASS_CARD_DESIGNS, PASS_CARD_DESIGN_LABEL, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import { passDesignDraftPatch } from '@/lib/pass-design-save';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { hubDraftAction } from '../../website/hub-draft-actions';
+import { useStudioActions } from './studio-actions-context';
 import { PrintPreview } from './print-preview';
 import { SP_LOOK_CARD, SP_LOOK_NAME, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
 import { BgCard, BgCards } from '../../website/editor/_components/background-cards';
@@ -59,6 +59,8 @@ export function PassCardDesignPicker({
    */
   studio?: boolean;
 }) {
+  /* The Maker's draft door — the shipped action; only the dev lab hands in its stand-in (`studio-actions-context.tsx`), so a lab pick never reaches a real event. */
+  const { hubDraftAction } = useStudioActions();
   const [shown, setShown] = useState<PassCardDesign>(saved);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();

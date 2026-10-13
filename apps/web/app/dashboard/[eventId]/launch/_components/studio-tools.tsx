@@ -1094,18 +1094,34 @@ export function StudioPassRows({
 }) {
   return (
     <FormRows data="pass-outputs" attrs={STUDIO_PRINT_ROWS}>
-      <FormRow name={digitalWord} note={digitalLine} data="pass-digital" attrs={{ 'data-pass-cards-digital': '' }}>
-        {zip === null ? null : zip.kind === 'save' ? (
-          <PrintSaveButton href={zip.href} file={zip.file} variant="action" icon={zip.icon} label={zip.label} />
-        ) : (
-          <span data-pass-cards-zip-pro="" className="inline-flex">
-            <StudioProDoor href={zip.href} label={zip.label} icon={zip.icon} note={zip.note} />
-          </span>
-        )}
-      </FormRow>
-      <FormRow name={printWord} data="pass-print" attrs={{ 'data-pass-cards-print': '' }}>
-        <PrintSaveButton href={printed.href} file={printed.file} variant="action" label={printed.label} />
-      </FormRow>
+      {/* The button sits UNDER its row's name (the words are long — beside the name they squeezed it to one word a line). */}
+      <FormRow
+        name={digitalWord}
+        data="pass-digital"
+        attrs={{ 'data-pass-cards-digital': '' }}
+        below={
+          <div className="flex flex-col items-start gap-1.5 pb-3">
+            {zip === null ? null : zip.kind === 'save' ? (
+              <PrintSaveButton href={zip.href} file={zip.file} variant="action" icon={zip.icon} label={zip.label} />
+            ) : (
+              <span data-pass-cards-zip-pro="" className="inline-flex">
+                <StudioProDoor href={zip.href} label={zip.label} icon={zip.icon} note={zip.note} />
+              </span>
+            )}
+            <p className="text-[12.5px] text-ink/55">{digitalLine}</p>
+          </div>
+        }
+      />
+      <FormRow
+        name={printWord}
+        data="pass-print"
+        attrs={{ 'data-pass-cards-print': '' }}
+        below={
+          <div className="pb-3">
+            <PrintSaveButton href={printed.href} file={printed.file} variant="action" label={printed.label} />
+          </div>
+        }
+      />
     </FormRows>
   );
 }

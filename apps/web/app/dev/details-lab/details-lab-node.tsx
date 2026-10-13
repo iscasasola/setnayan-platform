@@ -161,7 +161,8 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           theme: 'house',
           ownsPro: pro,
           storeShell: false,
-          previewVersion: null,
+          /* 🖨 `?studio=1`: a version, so "Changed since you printed" can be walked (a stamp of another version in this browser). */
+          previewVersion: studioLab ? 'lab-v2' : null,
           formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
         }}
         /* 🧪 `?studio=1`: Prints' six on fixtures (owner "approved" 2026-10-13) — a menu of two moments and the schedule's food moments
@@ -191,7 +192,8 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
               : [{ moderatorId: 'm1', label: 'Claire', contact: '0917 555 0101' }]
         }
         parents={
-          mj
+          /* `&parents=1` gives the Maker lab (shape=mj, no parents of its own) the three stand-in parents too. */
+          mj && !(studioLab && one('parents') === '1')
             ? []
             : studioLab
               ? [

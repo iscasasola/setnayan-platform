@@ -18,7 +18,6 @@ app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — PapicFree
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — the second render of the same grouped string
 app/realstories/[slug]/page.tsx :: wedding.guestCount :: TEXT — RealWedding.guestCount is static copy ("120 guests") in lib/real-weddings.ts
 app/vendor-dashboard/services/_components/services-manager.tsx :: congrats.count :: TEXT — buildServiceCardCongrats().count is a sentence ("You now have …"), not a number
-app/vendor-dashboard/customers/_components/customers-calendar.tsx :: monthCounts :: TEXT — a joined sentence ("3 booked · 1 held") built by useMemo in the same file
 app/_components/card-record-section.tsx :: row.pax :: TEXT — the ledger's coarse pax BAND label, a string (see the file's docblock)
 app/dashboard/[eventId]/sponsors/page.tsx :: tier :: TEXT — a sponsor tier NAME ("Principal"), not a count
 app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx :: HUB_TRANSITION_HINT.auto :: TEXT — a hint sentence constant

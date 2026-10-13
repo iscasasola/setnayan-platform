@@ -87,10 +87,26 @@ test('1 · the Prints panels say and link what they said before — the shipped 
   }
 });
 
-test('2 · …and the Studio way (the ActionButton) says and links exactly the same: every word in order, the Pro door, the hooks', async () => {
+/**
+ * 2026-10-13 (owner "approved", MAKER_PRINTS_SEAT_COUNTER § 5): on Studio › Prints the ticket's LOOK is the style-card strip (kind 5) — its
+ * words before the outputs are now "Ticket style · What each guest saves · waits for Apply · Classic · Ticket · Photo poster" instead of the
+ * dropdown's "Ticket style Classic Drawing your ticket…". That part names no price, no door and no money; it is held to its new words here.
+ * EVERYTHING FROM "Digital ticket" ON — the zip's word, its ◆ mark, its door's href and hook, the printed ticket — is still the golden's,
+ * byte for byte, and the set panel is the golden's whole. A free couple's ◆ door is still the LINK; a tap opens the centred note first
+ * (kind 20), whose "See Pro" follows that same link.
+ */
+const MONEY_FROM = 'Digital ticket';
+const STUDIO_STYLE_WORDS = 'The ticket guests save Ticket style What each guest saves · waits for Apply Classic Ticket Photo poster ';
+test('2 · …and the Studio way (the ActionButton) says and links exactly the same about money: every word from the outputs on, the Pro door, the hooks', async () => {
   for (const [label, theme, ownsPro, storeShell] of STATES) {
     const now = await panels(theme, ownsPro, storeShell, true);
-    assert.deepEqual(now, golden[label], `${label}: Studio › Prints says or links something else than before`);
+    const was = golden[label]!;
+    assert.deepEqual(now.set, was.set, `${label}: Studio › Prints' set panel says or links something else than before`);
+    const { text: nowText, ...nowHooks } = now.pass;
+    const { text: wasText, ...wasHooks } = was.pass;
+    assert.deepEqual(nowHooks, wasHooks, `${label}: the pass panel's door, hooks or price changed`);
+    assert.equal(nowText.slice(nowText.indexOf(MONEY_FROM)), wasText.slice(wasText.indexOf(MONEY_FROM)), `${label}: the words about the zip and the printed ticket changed`);
+    assert.equal(nowText.slice(0, nowText.indexOf(MONEY_FROM)), STUDIO_STYLE_WORDS, `${label}: the ticket's look is not the approved style-card strip`);
   }
 });
 

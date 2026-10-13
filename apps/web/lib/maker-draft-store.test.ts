@@ -63,6 +63,29 @@ test('a render that arrives while our write is still on its way never wins — a
   assert.deepEqual(d.read('hero', other), big, 'the pick was undone the moment its save landed');
 });
 
+/* ↺ A DRAWN UNDO (`lib/maker-drawn-undo.ts`, 2026-10-13): no unheld write, no render — the ↺ notes the BEFORE canvas in
+   this same store at its press, so the next pick builds on the undone state (the 110 % case, by the drawn path). */
+const at110: HubSectionCanvas = { elements: { eyebrow: { size: 110 } } };
+const at110red: HubSectionCanvas = { elements: { eyebrow: { size: 110, color: '#b5543a' } } };
+test('a drawn ↺ of the only pick of a visit: the next pick builds on the UNDONE canvas (no render ever comes)', () => {
+  const { d, set } = store();
+  d.note('hero', at110, S0); // Size 110 — drawn, held
+  set(true); // the held undo on its way
+  d.note('hero', S0, S0); // ↺ drawn at the press: the canvas before
+  assert.deepEqual(d.read('hero', S0), S0, 'the panel reads 100 % while the undo is still on its way');
+  set(false);
+  assert.deepEqual(d.read('hero', S0), S0, 'and after it lands — the render never came, nothing brought 110 back');
+  const next = { elements: { eyebrow: { color: '#b5543a' } } };
+  assert.deepEqual({ elements: { ...d.read('hero', S0).elements, eyebrow: { color: '#b5543a' } } }, next, 'Colour builds on 100 %: the undone size is not written back');
+});
+test('a drawn ↺ after a render caught up with the pick: the undone canvas still wins over that render', () => {
+  const { d } = store();
+  d.note('hero', at110red, S0);
+  assert.deepEqual(d.read('hero', at110red), at110red, 'a render shows ours: dropped, the render is the truth');
+  d.note('hero', at110, at110red); // ↺ drawn: the canvas before the Colour pick
+  assert.deepEqual(d.read('hero', at110red), at110, 'the stale render (still showing Colour) never draws the undone pick back');
+});
+
 test('scenes are kept apart, and an absent canvas reads as empty', () => {
   const { d } = store();
   d.note('schedule', big, undefined);
@@ -153,9 +176,9 @@ test('every scene kept at the announcement is owed, and only those', () => {
 const STORE = stripComments(readFileSync(join(__dirname, 'maker-draft-store.ts'), 'utf8'));
 const SHELL = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/launch/_components/maker-shell.tsx'), 'utf8'));
 
-test('the shared copies (canvases AND own words) hear every unheld write and every render', () => {
-  assert.match(STORE, /window\.addEventListener\(MAKER_UNHELD_WRITE_EVENT, \(\) => \{\s*shared\.unheld\(\);\s*ownWordsShared\.unheld\(\);\s*\}\);/);
-  assert.match(STORE, /export function makerRendered\(stamp: string\): void \{\s*shared\.rendered\(stamp\);\s*ownWordsShared\.rendered\(stamp\);\s*\}/);
+test('the shared copies (canvases, own words AND the ticket style — batch-4 F1) hear every unheld write and every render', () => {
+  assert.match(STORE, /window\.addEventListener\(MAKER_UNHELD_WRITE_EVENT, \(\) => \{\s*shared\.unheld\(\);\s*ownWordsShared\.unheld\(\);\s*passLookShared\.unheld\(\);\s*\}\);/);
+  assert.match(STORE, /export function makerRendered\(stamp: string\): void \{\s*shared\.rendered\(stamp\);\s*ownWordsShared\.rendered\(stamp\);\s*passLookShared\.rendered\(stamp\);\s*\}/);
   // The truth is owed only past a write that could change THIS scene — never past another scene's held pick.
   assert.match(STORE, /const shared = createDraftedCanvases\(\s*\(type\) => makerWritesPending\(canvasWriteKey\(type\)\) > 0 \|\| makerSavesInFlight\(\) > 0,\s*\(type\) => makerWritesPending\(canvasWriteKey\(type\)\) > 0 \|\| makerUnheldSavesInFlight\(\) > 0,\s*\);/);
   assert.match(STORE, /const ownWordsShared = createDraftedCanvases<OwnWords>\(\s*\(type\) => makerWritesPending\(`custom:\$\{type\}`\) > 0 \|\| makerSavesInFlight\(\) > 0,\s*\(type\) => makerWritesPending\(`custom:\$\{type\}`\) > 0 \|\| makerUnheldSavesInFlight\(\) > 0,\s*\);/);

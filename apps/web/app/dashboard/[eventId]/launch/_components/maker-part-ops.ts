@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { SceneUndoData } from '@/lib/maker-drawn-undo';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { MakerStageList } from '@/lib/maker-scene-list';
 import type { PostEventArrangement } from '@/lib/post-event-draft';
@@ -40,8 +41,9 @@ export type MakerPartRaw = {
   eyeWrite: (scene: MakerScene) => void;
   /** ＋ A scene brought back to this stage, `delta` places from where it stands — its place AND its showing, ONE save. */
   addHere: (scene: MakerScene, delta: number, drawn?: boolean) => void;
-  /** ↺ The last step the page drew itself, taken back the same way — null: the Undo reloads as ever (`lib/maker-drawn-undo.ts`). */
-  undoDrawn: (kind: 'move' | 'remove' | 'add', id: string) => { landed: (ok: boolean) => void; prior?: readonly string[] } | null;
+  /** ↺ A step the page drew itself (the journal's, by value), taken back the same way — null: the Undo reloads as ever
+   *  (`lib/maker-drawn-undo.ts`). */
+  undoDrawn: (d: SceneUndoData) => { landed: (ok: boolean) => void; prior?: readonly string[] } | null;
   /** 👁 What the eye took off a stage since the last render that agreed — `"<stage>:<scene id>"` (`lib/maker-list-gates.ts`). */
   hereOff: Readonly<Record<string, true>>;
   sceneRemovers: Readonly<Record<string, ReactNode>>;

@@ -137,7 +137,7 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
   const { labDraftStep } = await labEngine();
   const scrub = labScrubOn();
-  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD) }, scrub, readLabPublished(scrub));
+  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect') }, scrub, readLabPublished(scrub));
   if (result.ok) {
     try {
       /* 📣 ✓ Apply moved the draft into the lab's published state — kept first, so the pages are drawn from both. */
@@ -239,8 +239,8 @@ export function MakerLabShell({
       here = false;
     };
   }, [scrub]);
-  /* 🧪 "Scrub out" ships dark in the app (`lib/scrub-out-offered.ts`); on the lab's chain (`?scrub=1`) the Maker's
-     controls keep offering it, so the owner can go on arranging the real thing. Put back when the lab is left. */
+  /* 🧪 "Scrub out" is offered in the app since 2026-10-13 (`lib/scrub-out-offered.ts`); this door opened it on the lab's
+     chain (`?scrub=1`) while it shipped dark, and keeps doing so should the switch go off again. Put back when the lab is left. */
   useEffect(() => {
     offerScrubOutInTheLab(scrub);
     return () => offerScrubOutInTheLab(false);

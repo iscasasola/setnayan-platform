@@ -9,10 +9,11 @@ import { TERMS_FIELD } from '@/lib/terms-agreement';
  *
  * 🔑 EVERY PRESS ON THE LINE IS 44px WITHOUT LOOKING ANY BIGGER (walk of release a5c36f4: Terms 39×18, Privacy Notice
  * 90×18, the box 20×20):
- *  - The two links are plain INLINE links. Their vertical padding does not touch the line (an inline box's padding
- *    paints and presses, it does not take room), and `px-1.5 -mx-1.5` widens "Terms" to 44px or more (35px in a fallback font, 39px in ours) with no gap in the sentence.
- *    The first fix made them `inline-flex` — which put a 44px-wide box round "Terms" ("the  Terms  and the") and made
- *    "Privacy Notice" wrap as one lump at 375px.
+ *  - The sentence is a wrapping flex row and each link is a flex item 44px tall by its own box (its own `min-h-[44px]`, never padding) — see
+ *    there. "Privacy Notice" is `whitespace-nowrap` (the two words are one press and wrap together), and `relative`
+ *    lifts a link's sideways press over the text beside it, so the right edge of "Terms" opens Terms and never ticks
+ *    the box. NO inline link padded up: on lines 20px apart those zones overlap when Privacy wraps under Terms
+ *    (a real tap on Terms opened /privacy — batch-4 walk, 2026-10-13).
  *  - The box is a 20px drawing inside a 44×44 press (`-m-3` takes the extra room back, so the words sit where they
  *    sat). The input is still the one real, focusable, required checkbox — it is only larger than what is painted.
  *    Keep `>` out of these class lists: `the-guest-pathway.test.ts` finds the input by `[^>]*`.
@@ -45,16 +46,16 @@ export function TermsTick({ id, children }: { id?: string; children?: ReactNode 
           <path d="m5.5 10.5 3 3 6-6.5" />
         </svg>
       </span>
-      <span>
-        I agree to the{' '}
-        <Link href="/terms" className="-mx-1.5 px-1.5 py-3.5 font-medium text-link underline underline-offset-2">
+      <span className="-my-3 flex flex-wrap items-center gap-x-1">
+        <span>I agree to the</span>
+        <Link href="/terms" className="relative -mx-1.5 inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-1.5 font-medium text-link underline underline-offset-2">
           Terms
-        </Link>{' '}
-        and the{' '}
-        <Link href="/privacy" className="-mx-1.5 px-1.5 py-3.5 font-medium text-link underline underline-offset-2">
+        </Link>
+        <span>and the</span>
+        <Link href="/privacy" className="relative -mx-1.5 inline-flex min-h-[44px] min-w-[44px] items-center whitespace-nowrap justify-center px-1.5 font-medium text-link underline underline-offset-2">
           Privacy Notice
         </Link>
-        {children}
+        {children ? <span className="basis-full">{children}</span> : null}
       </span>
     </label>
   );

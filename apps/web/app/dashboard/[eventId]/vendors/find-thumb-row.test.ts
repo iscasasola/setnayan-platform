@@ -50,7 +50,8 @@ const MODE = code('suppliers-mode.tsx');
 
 test('T1 · the row owns nothing and writes nothing', () => {
   const imports = [...ROW.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
-  assert.deepEqual(imports, ['react', 'react-dom', 'lucide-react', '@/components/action-button', './suppliers-mode']);
+  // `@/lib/suppliers-shell` lends only the 44-px reach class (a string) — still nothing that writes.
+  assert.deepEqual(imports, ['react', 'react-dom', 'lucide-react', '@/components/action-button', '@/lib/suppliers-shell', './suppliers-mode']);
   assert.doesNotMatch(ROW, /'use server'|-actions'|_actions\/|\.from\(|fetch\(|router\./);
   // The bench hands it its own three controls — once.
   assert.equal((BENCH.match(/<FindThumbRow\b/g) ?? []).length, 1);
@@ -152,7 +153,7 @@ test('T4 · glass: the row has no background; the field is frosted; Add keeps it
   // Add: terracotta, filled, at every width — and NOT the fit pass's "main",
   // so on a phone it drops its word with the rest of the row (the ＋ circle).
   // Filled through the ONE source's `filled` option (2026-10-12) — never a `!bg-…` override on the page.
-  assert.match(ROW, /<ActionButton tone="brand" filled icon=\{Plus\} label="Add your own" onClick=\{onAdd\} \/>/);
+  assert.match(ROW, /<ActionButton tone="brand" filled icon=\{Plus\} label="Add your own" onClick=\{onAdd\} className=\{SUP_REACH_X\} \/>/);
   assert.doesNotMatch(ROW, /!bg-/);
   assert.doesNotMatch(ROW, /\bmain\b(?!\s*verb)/, 'a `main` button never drops its word — the row would not fit a phone');
 });

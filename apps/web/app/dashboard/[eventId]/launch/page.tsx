@@ -1318,6 +1318,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           const data = p.guestId ? await loadGuestCard(supabase, eventId, p.guestId).catch(() => null) : null;
           return {
             guestId: data ? p.guestId : null,
+            side: p.side,
             name: p.name,
             card: data ? (
               <GuestCardBody

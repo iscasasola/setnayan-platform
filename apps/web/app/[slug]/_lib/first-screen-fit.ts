@@ -16,8 +16,17 @@
  *   1. AIR     — the cover's own padding and the gap above the button close up;
  *   2. THE MARK — the monogram is drawn smaller (never under `MARK_MIN` of itself);
  *   3. PARTS   — whole parts of the cover move BELOW the button, where a scroll
- *                finds them, in `GIVE_WAY_ORDER`: the link down, the time, the mark,
- *                the eyebrow, the invitation line, the date.
+ *                finds them, in `GIVE_WAY_ORDER`: the photo, the link down, the time,
+ *                the mark, the eyebrow, the invitation line, the date.
+ *
+ * 📷 THE PHOTO FIRST (owner 2026-10-13, DECISION_LOG, on a PHOTO cover: *"do it"* —
+ * the photo moves so the names, the date and "Get inside" are on the stranger's
+ * first screen). A photo cover's plate (`pahina-masthead.tsx` `coverPlate`) sits
+ * under the date and is taller than most phone screens, so on today's page the
+ * door was below it at every size. It is the first part to give way: drawn below
+ * the button, where a scroll finds it, whole. A photo cover has no air or mark the
+ * stylesheet can close (those values are the card's), so for it only step 3 runs.
+ * A card cover has no plate: for it nothing changes.
  *
  * THE NAMES NEVER GIVE WAY. The date goes last: an invitation that fits only two
  * things shows who and when. If even the names and the button do not fit (a
@@ -36,7 +45,7 @@ export type FitBox = { key: string; top: number; bottom: number };
 export type FitSnapshot = { parts: FitBox[]; door: FitBox };
 
 /** What gives way, first to last. The names are not on the list. */
-export const GIVE_WAY_ORDER: readonly string[] = ['link', 'time', 'mark', 'eyebrow', 'line', 'date'];
+export const GIVE_WAY_ORDER: readonly string[] = ['plate', 'link', 'time', 'mark', 'eyebrow', 'line', 'date'];
 /** The smallest the mark is drawn, as a share of its own size. */
 export const MARK_MIN = 0.55;
 

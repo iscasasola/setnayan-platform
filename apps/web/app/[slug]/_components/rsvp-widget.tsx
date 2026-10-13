@@ -25,7 +25,7 @@ import { RsvpOneAtATime } from './rsvp-one-at-a-time';
 import { ReplyForm, ReplySubmit } from './reply-form';
 import { RsvpOneAtATimeLive } from './rsvp-canvas-bridge';
 import { RSVP_ANSWER_CLASS, RSVP_ANSWERS_ROW_CLASS, RsvpQuestionHeader, RsvpStyledAnswers, RsvpTicketHeader, rsvpAnswerHook, type RsvpAnswerStyle } from './rsvp-styles';
-import { RSVP_FORM_LINE_ID as FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RsvpLines } from './rsvp-lines';
+import { RSVP_FORM_LINE_ID as FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RSVP_STEP_QUESTION_CLASS, RsvpLines } from './rsvp-lines';
 import { RSVP_SCREEN_LINES, RSVP_WEARS_ATTR, rsvpLayoutIsGroup, type RsvpLayoutItem } from '@/lib/rsvp-look';
 import { formatCount } from '@/lib/format-number';
 
@@ -341,7 +341,7 @@ export function RsvpWidget({
   const tagQuestion = (
     <>
       <fieldset data-rsvp-step data-face-tagging-choice className="space-y-2">
-        <legend className="mb-1 font-serif text-xl text-ink">{FACE_TAGGING_QUESTION}</legend>
+        <legend className={RSVP_STEP_QUESTION_CLASS}>{FACE_TAGGING_QUESTION}</legend>
         <p className="pb-1 text-xs text-ink/70">{faceTaggingHint(faceMode, words.theOrganizer, { onTheDay: true })}</p>
         <div className={RSVP_ANSWERS_ROW_CLASS[answerStyle]}>
           {(
@@ -1141,7 +1141,7 @@ function Select({
  * there?". Off, it is the scrolling form's small label, unchanged.
  */
 function questionClass(question: boolean): string {
-  return question ? 'block font-serif text-xl leading-snug text-ink' : 'block text-sm font-medium text-ink';
+  return question ? RSVP_STEP_QUESTION_CLASS : 'block text-sm font-medium text-ink';
 }
 
 /**

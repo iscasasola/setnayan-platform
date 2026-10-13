@@ -248,7 +248,8 @@ test('E · every save the RSVP stage makes is held, batched, and asks for the ba
   const branch = stageSaveBranch(panel);
   assert.match(branch, /announceRsvpPreview\(next\);[\s\S]*makerSave\(/, 'the canvas must be told BEFORE the save goes');
   assert.match(branch, /makerLatestWrite\(canvasWriteKey\(RSVP_DRAFT_TYPE\)/, 'the stage save is not batched');
-  assert.match(branch, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true \}/, 'the stage save is not held');
+  /* (2026-10-13: …and hands its ↺ inverse — `undo`, `lib/maker-drawn-undo.ts`) */
+  assert.match(branch, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true, undo \}/, 'the stage save is not held');
   assert.match(branch, /fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\)/, 'the Apply count must come back with the save');
   /* The reply-by field is the shared `ReplyBy` part (2026-10-07) — the Maker's stage mounts it. */
   /* …as the first of the reply's rows — the app's date row, framed (2026-10-08, the templates; it was `layout="stack"`). */

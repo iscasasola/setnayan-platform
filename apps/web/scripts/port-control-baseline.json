@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "eae20c825",
-  "routeCount": 431,
-  "destinations": 957,
+  "generatedFromRef": "41d04b1522",
+  "routeCount": 432,
+  "destinations": 960,
   "actions": 675,
-  "blocks": 6125,
+  "blocks": 6154,
   "routes": {
     "/": {
       "files": [
@@ -913,6 +913,7 @@
         "[slug]/_components/rsvp-note-lines.tsx",
         "[slug]/_components/rsvp-one-at-a-time.tsx",
         "[slug]/_components/rsvp-plus-ones.tsx",
+        "[slug]/_components/rsvp-question-class.ts",
         "[slug]/_components/rsvp-sheet-state.ts",
         "[slug]/_components/rsvp-sheet.tsx",
         "[slug]/_components/rsvp-styles.tsx",
@@ -993,6 +994,7 @@
         "[slug]/_lib/editor-canvas.ts",
         "[slug]/_lib/event-noun.ts",
         "[slug]/_lib/event-words.ts",
+        "[slug]/_lib/first-screen-fit-dom.ts",
         "[slug]/_lib/first-screen-fit.ts",
         "[slug]/_lib/guest-checklist-facts.ts",
         "[slug]/_lib/guest-details-changed.ts",
@@ -6733,6 +6735,7 @@
         "dashboard/[eventId]/launch/_components/studio-event-name.tsx",
         "dashboard/[eventId]/launch/_components/studio-home.tsx",
         "dashboard/[eventId]/launch/_components/studio-info.tsx",
+        "dashboard/[eventId]/launch/_components/studio-prints-six.tsx",
         "dashboard/[eventId]/launch/_components/studio-tools.tsx",
         "dashboard/[eventId]/launch/_components/studio-wish-gifts.tsx",
         "dashboard/[eventId]/launch/_components/studio-wish-list.tsx",
@@ -6780,10 +6783,13 @@
         "AutoDraft",
         "Bar",
         "BeforeWeStartScreen",
+        "BgCard",
+        "BgCards",
         "BlockAnimateRows",
         "BlockGround",
         "BlockGroundRows",
         "Box",
+        "BoxWithX",
         "BufferedCanvasFrame",
         "CameraLook",
         "CameraLookFace",
@@ -6803,6 +6809,7 @@
         "ColourPickerSheet",
         "ColourRow",
         "ColourSheet",
+        "ConfirmDialog",
         "CouldNotLoad",
         "CouldNotOpen",
         "Count",
@@ -7110,6 +7117,7 @@
         "StageStyle",
         "StageTools",
         "State",
+        "StatusLine",
         "StepBackground",
         "StepTouch",
         "StillOverSwatch",
@@ -7128,12 +7136,18 @@
         "StudioHome",
         "StudioHubSettings",
         "StudioIncludeSwitch",
+        "StudioKindlyReply",
         "StudioLookBar",
         "StudioMainColours",
         "StudioMainExtras",
+        "StudioMenuEditor",
         "StudioOpeningLine",
+        "StudioParents",
+        "StudioPassRows",
+        "StudioPosterPhoto",
         "StudioPrintHead",
         "StudioPrintSave",
+        "StudioProDoor",
         "StudioQrActions",
         "StudioQrShown",
         "StudioQuietRows",
@@ -7737,6 +7751,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]/seating/caterer",
+        "/dashboard/[seg]/seating/chart",
         "/dashboard/[seg]/seating/export?mode=blueprint",
         "/dashboard/[seg]/seating/export?mode=moodboard",
         "/dashboard/[seg]/seating/walkthrough",
@@ -7762,12 +7777,14 @@
         "ChosenRow",
         "CommandBar",
         "ContextDock",
+        "Counter",
         "DayOfEditingBanner",
         "DecorLayerCatalog",
         "DetailsPieceButton",
         "DrawerSnap",
         "DropConfirmBubble",
         "DropConfirmState",
+        "FormRow",
         "FormRows",
         "Fragment",
         "FrameBody",
@@ -7812,6 +7829,7 @@
         "Section",
         "ShapeGlyph",
         "ShapePicker",
+        "StatusLine",
         "Step",
         "StudioSeatPlanHead",
         "StudioSeatPlanTools",
@@ -7822,6 +7840,29 @@
         "TypedRow"
       ]
     },
+    "/dashboard/[eventId]/seating/chart": {
+      "files": [
+        "dashboard/[eventId]/seating/chart/_components/entrance-chart.tsx",
+        "dashboard/[eventId]/seating/chart/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/seating"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "EntranceChart",
+        "HTMLImageElement",
+        "Layout",
+        "Link",
+        "NotSharedWithYou",
+        "PageMasthead",
+        "PickMenu",
+        "PillSelector",
+        "SaveState",
+        "Size"
+      ]
+    },
     "/dashboard/[eventId]/seating/lab": {
       "files": [
         "dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx",
@@ -7830,7 +7871,8 @@
         "dashboard/[eventId]/seating/lab/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/plan3d"
+        "/dashboard/[seg]/plan3d",
+        "/dashboard/[seg]/seating/chart"
       ],
       "actions": [
         "dismissGhostBooth",
@@ -9515,7 +9557,8 @@
         "OutcomeLine",
         "PaidMark",
         "PanelPlace",
-        "ResultLine"
+        "ResultLine",
+        "UndoRunner"
       ]
     },
     "/dashboard/[eventId]/website/colors": {
@@ -10138,6 +10181,7 @@
         "dev/details-lab/love-story-fixture.ts",
         "dev/details-lab/march-fixture.ts",
         "dev/details-lab/page.tsx",
+        "dev/details-lab/seat-lab.tsx",
         "dev/details-lab/studio-lab-fixtures.tsx",
         "dev/details-lab/wish-list-fixture.ts"
       ],
@@ -10148,6 +10192,7 @@
       ],
       "blocks": [
         "ColorsPanel",
+        "Counter",
         "DayActions",
         "DayMoment",
         "DetailsItemKey",
@@ -10171,8 +10216,10 @@
         "MoodBoardActions",
         "MoodBoardActionsProvider",
         "MoodBoardStudio",
+        "PhoneTableDock",
         "PrintFetchProvider",
         "ScheduleDay",
+        "SeatLab",
         "SlotsUploadStandIn.Provider",
         "Stand",
         "StudioActions",

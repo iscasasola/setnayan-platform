@@ -1,17 +1,22 @@
 /**
- * scrub-out-ships-dark.test.ts — "SCRUB OUT" IS BUILT AND NOT OFFERED (owner's cut line, 2026-10-09: the held
- * hand-over is proven in Chromium, not yet on an iPhone and not yet on a real guest page — it ships dark).
+ * scrub-out-ships-dark.test.ts — THE "SCRUB OUT" SWITCH. (The file keeps its 2026-10-09 name, from when the held
+ * hand-over shipped dark; other guards and notes point at it by that name.)
  *
- *   (1) THE SWITCH IS A CONSTANT, AND IT IS OFF — no environment variable, nothing to configure.
- *       Sabotage: the constant turned on → (1), (2) and (3) red.
- *   (2) THE GUEST PAGE IGNORES A STORED SCRUB — executed against the real renderer: a page whose scenes STORE Scrub
- *       is byte-identical to the same page storing the plain transition (no nest, no island, no engine request),
- *       and the page's own hold wraps nothing.
- *   (3) NO CONTROL OFFERS IT, AND A STORED ONE READS AS "AS IT SCROLLS AWAY" — executed (the Leaves list, the
- *       reading), and every control that names a transition goes through the one module.
- *   (4) THE LAB KEEPS IT ON, BY DOORS NO REAL PAGE CAN USE — the server door (an explicit `scrubOut`) and the browser
- *       door (`offerScrubOutInTheLab`) are used under `app/dev/` and `scripts/` only, and every page under
- *       `app/dev/` answers 404 in production. Sabotage: the lab's page no longer asking → red.
+ * 🔁 RE-AIMED 2026-10-13 — owner, verbatim: "Turn on scrub" (his call, before his own iPhone check). The switch is
+ * now ON; every claim below says the new truth, and each keeps the strength it had while dark: what was proven
+ * byte-identical-to-plain is now proven DIFFERENT-from-plain and the hand-over itself, executed the same way.
+ *
+ *   (1) THE SWITCH IS A CONSTANT, AND IT IS ON — no environment variable, nothing to configure.
+ *       Sabotage: the constant turned off → (1), (2) and (3) red.
+ *   (2) THE GUEST PAGE PLAYS A STORED SCRUB — executed against the real renderer, with NO door (as `SiteBody` asks):
+ *       a page whose scenes STORE Scrub draws the held pairs (the same three the lab's door draws), it differs from
+ *       the same page storing the plain transition, the plain one draws none of it, and the page's own hold wraps it.
+ *       (Was 2026-10-09: byte-identical to the plain page.)
+ *   (3) EVERY CONTROL OFFERS IT, AND A STORED ONE READS AS SCRUB — executed (the Leaves list, the reading), and
+ *       every control that names a transition still goes through the one module (so turning it off is one line).
+ *   (4) THE LAB'S DOORS STAY THE LAB'S — the server door (an explicit `scrubOut`) and the browser door
+ *       (`offerScrubOutInTheLab`) are used under `app/dev/` and `scripts/` only, and every page under `app/dev/`
+ *       answers 404 in production. Sabotage: the lab's page no longer asking → red.
  *   (5) THE MAKER'S FIRST LOAD DOES NOT CARRY IT — the module is imported by lazy and guest-page code only.
  */
 import test from 'node:test';
@@ -38,15 +43,16 @@ const walk = (dir: string): string[] =>
     return statSync(join(WEB, rel)).isDirectory() ? walk(rel) : /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) ? [rel] : [];
   });
 
-test('(1) the switch is a constant, and it is off', () => {
-  assert.equal(SCRUB_OUT_OFFERED, false, '"Scrub out" is offered — it ships dark until an iPhone has played it');
-  assert.equal(scrubOutOffered(), false);
+test('(1) the switch is a constant, and it is on', () => {
+  /* 🔁 2026-10-13 (owner: "Turn on scrub"): was `false` — "it ships dark until an iPhone has played it". */
+  assert.equal(SCRUB_OUT_OFFERED, true, '"Scrub out" is not offered — the owner turned it on 2026-10-13');
+  assert.equal(scrubOutOffered(), true);
   const src = read('lib/scrub-out-offered.ts');
-  assert.match(src, /export const SCRUB_OUT_OFFERED = false;/);
+  assert.match(src, /export const SCRUB_OUT_OFFERED = true;/);
   assert.doesNotMatch(src, /process\.env|NEXT_PUBLIC|localStorage|cookie|searchParams|location/, 'the switch became a setting');
 });
 
-test('(2) the guest page ignores a stored Scrub: byte-identical to the same page storing the plain transition', () => {
+test('(2) the guest page plays a stored Scrub: the held pairs, through no door, unlike the same page storing the plain transition', () => {
   const Scenes = HubScenes as unknown as React.FC<{ widgets: unknown; scrubAllowed: boolean; stageMarks?: boolean; scrubOut?: boolean }>;
   const rows = (plain: boolean, extra: Array<Record<string, unknown>> = []) =>
     [...LAB_SCRUB_CHAIN.map((t) => LAB_SCRUB_SAMPLE[t] as Record<string, unknown>), ...extra].map((canvas, i) => {
@@ -57,35 +63,48 @@ test('(2) the guest page ignores a stored Scrub: byte-identical to the same page
     renderToStaticMarkup(React.createElement(Scenes, { widgets, scrubAllowed: true, ...props }, ...widgets.map((_, i) => React.createElement('section', { key: i }, `scene ${i}`))));
   /* A page of Scrub scenes (the lab's own chain: three hand-overs when it is drawn)… */
   assert.ok(rows(false).filter((r) => (r.config_json.canvas as { transition?: string }).transition === 'scrub').length >= 3, 'anti-vacuity: the page stores no Scrub');
-  for (const props of [{}, { stageMarks: true }]) assert.equal(draw(rows(false), props), draw(rows(true), props), `a stored Scrub changes the page (${JSON.stringify(props)})`);
-  /* …and it is the PLAIN page: nothing of the hand-over's markup at all. */
-  assert.doesNotMatch(draw(rows(false)), /hub-scenes|hub-cell|hub-stage|hub-after|data-hub-fx/);
-  /* Beside an Auto run too (Auto scroll keeps working): the same page, with or without the stored Scrub. */
+  /* 🔁 2026-10-13: was "a stored Scrub changes the page → red"; now a stored Scrub MUST change it — and into exactly
+     what the lab's door draws (the real page's drawing IS the proven one, not a third thing). */
+  for (const props of [{}, { stageMarks: true }]) {
+    assert.notEqual(draw(rows(false), props), draw(rows(true), props), `a stored Scrub does not change the page (${JSON.stringify(props)})`);
+    assert.equal(draw(rows(false), props), draw(rows(false), { ...props, scrubOut: true }), `the real page's Scrub is not the lab's (${JSON.stringify(props)})`);
+  }
+  /* …the HELD pairs: the lab's chain draws three hand-overs. */
+  assert.equal((draw(rows(false)).match(/class="hub-cell"/g) ?? []).length, 3, 'the stored Scrub page does not draw its three hand-overs');
+  /* …and the PLAIN page stays plain: nothing of the hand-over's markup at all (so the line above is not the
+     renderer drawing hand-overs for everything). */
+  assert.doesNotMatch(draw(rows(true)), /hub-scenes|hub-cell|hub-stage|hub-after|data-hub-fx/);
+  /* Beside an Auto run too (Auto scroll keeps working, and the Scrub pairs are drawn beside it). */
   const auto = [{ transition: 'auto' }, {}];
-  assert.equal(draw(rows(false, auto)), draw(rows(true, auto)));
   assert.match(draw(rows(false, auto)), /hub-arun/, 'anti-vacuity: the Auto run was not drawn');
-  assert.doesNotMatch(draw(rows(false, auto)), /hub-cell|data-hub-fx/);
-  /* The page's own hold asks for nothing, so nothing is wrapped. */
-  assert.equal(hubScrubHolds(rows(false) as never, true), 0);
-  assert.equal(hubScrubHoldsAtMost(rows(false) as never, true), 0);
-  assert.equal(renderToStaticMarkup(React.createElement(HubPageHold, { holds: hubScrubHoldsAtMost(rows(false) as never, true) }, React.createElement('article'))), '<article></article>');
+  assert.match(draw(rows(false, auto)), /class="hub-cell"/, 'beside an Auto run the stored Scrub is not drawn');
+  assert.doesNotMatch(draw(rows(true, auto)), /hub-cell|data-hub-fx/);
+  /* The page's own hold asks for the pairs, through no door, and wraps the page; the plain page asks for none. */
+  assert.ok(hubScrubHolds(rows(false) as never, true) > 0, 'the page’s hold asks for nothing');
+  assert.ok(hubScrubHoldsAtMost(rows(false) as never, true) > 0);
+  assert.equal(hubScrubHoldsAtMost(rows(false) as never, true), hubScrubHoldsAtMost(rows(false) as never, true, true), 'the real page’s hold is not the lab’s');
+  assert.equal(hubScrubHoldsAtMost(rows(true) as never, true), 0);
+  assert.notEqual(renderToStaticMarkup(React.createElement(HubPageHold, { holds: hubScrubHoldsAtMost(rows(false) as never, true) }, React.createElement('article'))), '<article></article>', 'the page’s hold wraps nothing');
+  /* A free event (the renderer's own Pro read, `scrubAllowed`) still draws a stored Scrub plainly — unchanged rule. */
+  assert.doesNotMatch(draw(rows(false), { scrubAllowed: false }), /hub-cell|data-hub-fx/);
   /* The real page passes neither door: it gets the constant. */
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(body, /const pageHolds = hubScrubHoldsAtMost\(widgets, proWatermarkHidden\);/);
   assert.equal((body.match(/<HubScenes /g) ?? []).length, 5, 'anti-vacuity: site-body’s scenes blocks');
   /* The ONE place the transition is resolved for drawing. */
   assert.match(read('app/[slug]/_components/hub-scenes.tsx'), /transition: offeredTransition\(renderedTransition\(resolveTransition\(canvas\), scrubAllowed\), scrubOut\),/);
-  /* Through the lab's door the same page IS the hand-overs (so (2) is not passing because the renderer forgot how). */
-  assert.equal((draw(rows(false), { scrubOut: true }).match(/class="hub-cell"/g) ?? []).length, 3);
+  /* Closing the door by hand still draws the plain page (turning the constant off again is one line, and works). */
+  assert.equal(draw(rows(false), { scrubOut: false }), draw(rows(true), { scrubOut: false }));
 });
 
-test('(3) no control offers it, and a stored Scrub reads as "As it scrolls away"', () => {
-  assert.deepEqual(leavesOptions().map((o) => o.key), ['scroll', 'auto']);
-  assert.ok(LEAVES_OPTIONS.some((o) => o.key === 'scrub'), 'the choice was deleted, not hidden — the lab could not offer it');
-  assert.equal(offeredTransition('scrub'), 'scroll');
+test('(3) every control offers it, and a stored Scrub reads as Scrub', () => {
+  /* 🔁 2026-10-13: was ['scroll', 'auto'] and a stored Scrub reading as 'scroll'. */
+  assert.deepEqual(leavesOptions().map((o) => o.key), ['scroll', 'scrub', 'auto']);
+  assert.deepEqual(leavesOptions().map((o) => o.key), LEAVES_OPTIONS.map((o) => o.key), 'a Leaves choice is still held back');
+  assert.equal(offeredTransition('scrub'), 'scrub');
   assert.equal(offeredTransition('auto'), 'auto');
   assert.equal(offeredTransition('scroll'), 'scroll');
-  assert.equal(offeredTransition('scrub', true), 'scrub');
+  assert.equal(offeredTransition('scrub', false), 'scroll', 'the off arm (one line away) no longer reads a stored Scrub as scroll');
   /* Every control that names a scene's transition reads and offers through the one module. */
   const E = 'app/dashboard/[eventId]/website/editor/_components';
   const tab = read(`${E}/scene-animate-tab.tsx`);
@@ -106,8 +125,9 @@ test('(3) no control offers it, and a stored Scrub reads as "As it scrolls away"
   }
 });
 
-test('(4) the lab keeps it on, by doors no real page can use', () => {
-  /* The browser door, executed: on → offered; off again → not. */
+test('(4) the lab’s doors stay the lab’s', () => {
+  /* The browser door, executed: on → offered. 🔁 2026-10-13: closing it again no longer hides Scrub — the constant
+     offers it (was: "off again → not"). */
   try {
     offerScrubOutInTheLab(true);
     assert.equal(scrubOutOffered(), true);
@@ -116,7 +136,7 @@ test('(4) the lab keeps it on, by doors no real page can use', () => {
   } finally {
     offerScrubOutInTheLab(false);
   }
-  assert.equal(scrubOutOffered(), false);
+  assert.equal(scrubOutOffered(), true, 'the lab’s door, closed, turned the constant off');
   /* The lab USES both doors… */
   assert.match(read('app/dev/maker-lab/guest/page.tsx'), /as never\} scrubAllowed scrubOut>/);
   assert.match(read('app/dev/maker-lab/guest/page.tsx'), /hubScrubHoldsAtMost\(LAB_SCRUB_CHAIN\.map\(\(t\) => rowOf\(t\)\) as never, true, true\)/);

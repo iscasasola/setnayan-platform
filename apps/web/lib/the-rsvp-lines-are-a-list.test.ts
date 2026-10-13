@@ -160,7 +160,7 @@ test('6 · a guest downloads nothing for it, and the Maker’s first load learns
     assert.doesNotMatch(raw, /^\s*['"]use client['"]/m, `${file} is a client component — a guest would download it`);
     assert.doesNotMatch(raw, /useState|useEffect|useRef|onClick|addEventListener/, `${file} holds state or a listener`);
     const imports = [...raw.matchAll(/from '([^']+)'/g)].map((m) => m[1]!);
-    for (const from of imports) assert.match(from, /^(react|@\/lib\/(rsvp-look|rsvp-stage-shared|guest-landing)|\.\/rsvp-lines)$/, `${file} imports ${from}`);
+    for (const from of imports) assert.match(from, /^(react|@\/lib\/(rsvp-look|rsvp-stage-shared|guest-landing)|\.\/rsvp-lines|\.\/rsvp-question-class)$/, `${file} imports ${from}`);
   }
   /* The first-load sanitiser still only CARRIES `look` — the new keys ride inside it, unread and unnamed there. */
   const carried = { look: { added: { rsvp: [{ id: 'n1', k: 'm', t: 'x' }] }, order: { rsvp: ['no'] }, groups: { rsvp: [{ id: 'g1', of: ['no'] }] } } };

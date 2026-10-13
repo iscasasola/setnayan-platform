@@ -1,3 +1,4 @@
+import { hubDraftStamp, hubDraftUndoMatched } from '@/lib/hub-draft-stamp';
 import {
   HUB_DRAFT_TOO_LARGE_MESSAGE,
   emptyHubDraft,
@@ -204,7 +205,7 @@ export const LAB_APPLY_MESSAGE = 'This is the sample event — that needs a real
  */
 export function labDraftStep(
   current: HubDraft,
-  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown },
+  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown },
   scrub: boolean,
   /** What the lab has published so far (`labPublishedFrom`) — null: nothing. Changed only by `apply`. */
   published: HubDraftState | null = null,
@@ -219,11 +220,17 @@ export function labDraftStep(
     } catch {
       return { draft: current, published, result: { ok: false, intent, error: HUB_DRAFT_TOO_LARGE_MESSAGE } };
     }
-    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published) } : {}) } };
+    /* ↺ …with the stamp of the state it left, as the real action answers (`lib/hub-draft-stamp.ts`). */
+    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published) } : {}), ...(intent === 'restore' ? {} : { stamp: hubDraftStamp(fitted) }) } };
   };
   if (intent === 'restore') return done(emptyHubDraft());
   /* ↺ Undo and Reset answer with the bar when asked — as the real action (`answerWithBar`). */
-  if (intent === 'undo') return done(undoHubDraft(current), fields.bar === '1');
+  if (intent === 'undo') {
+    /* ↺ A drawn undo says the state it expects to step back from — answered `matched`, as the real action does. */
+    const matched = hubDraftUndoMatched(current, fields.expect);
+    const step = done(undoHubDraft(current), fields.bar === '1');
+    return matched === undefined || !step.result.ok ? step : { ...step, result: { ...step.result, matched } };
+  }
   if (intent === 'reset') {
     if (!isHubResetScope(fields.stage)) return { draft: current, published, result: { ok: false, intent, error: 'Choose which stage to reset.' } };
     return done(mergeHubDraft(current, hubResetPatch(fields.stage)), fields.bar === '1');
@@ -284,6 +291,8 @@ export const LAB_BAR_COOKIE = 'lab_bar';
  * here (2026-10-11: "it did not make the secondary font").
  */
 export const LAB_NAMES_COOKIE = 'lab_names';
+/** 🎫 The ticket style the lab's draft holds (`events.print_details.pass_design`) — Prints' strip is drawn from it, as the real page's is. */
+export const LAB_PASS_COOKIE = 'lab_pass';
 /** The names the lab's cover draws: the drafted line, else the sample's. */
 export function labNamesFrom(value: string | undefined, sample: string): string {
   if (!value) return sample;
@@ -338,7 +347,14 @@ export function labDraftCookies(draftOnly: HubDraft, scrub: boolean, published: 
     [LAB_EDITORIAL_COOKIE]: draft.editorial && some(draft.editorial) ? json(draft.editorial) : null,
     [LAB_BAR_COOKIE]: bar.hasChanges || bar.canUndo ? json({ n: bar.changeCount, pro: bar.proCount, undo: bar.canUndo }) : null,
     [LAB_NAMES_COOKIE]: typeof draft.events.display_name === 'string' && draft.events.display_name.trim() ? encodeURIComponent(draft.events.display_name) : null,
+    [LAB_PASS_COOKIE]: labPassDesignOf(draft.events.print_details),
   };
+}
+
+/** The drafted ticket style, or null — read the way the real page reads the draft's `print_details.pass_design`. */
+function labPassDesignOf(printDetails: unknown): string | null {
+  const v = printDetails && typeof printDetails === 'object' ? (printDetails as { pass_design?: unknown }).pass_design : null;
+  return typeof v === 'string' && /^[a-z]{1,20}$/.test(v) ? v : null;
 }
 
 /** The lab's "server" summary — the count the draft bar is drawn with on a render (`LAB_BAR_COOKIE`). */

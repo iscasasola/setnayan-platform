@@ -37,7 +37,7 @@ test('every print PDF carries its version; the Save keeps it; the pieces show th
   assert.match(save, /if \(version && target\) writePrintedStamp\(target\.eventId, target\.piece, version\)/);
   const prints = read('app/dashboard/[eventId]/launch/_components/maker-prints.tsx');
   for (const piece of ['piece={k}', 'piece="set"', 'piece="passes"']) {
-    assert.match(prints, new RegExp(`<ChangedSincePrinted eventId=\\{[^}]+\\} ${piece.replace(/[{}]/g, '\\$&')} version=\\{input\\.previewVersion\\} />`), `no notice on ${piece}`);
+    assert.match(prints, new RegExp(`<ChangedSincePrinted\\s+eventId=\\{[^}]+\\}\\s+${piece.replace(/[{}]/g, '\\$&')}\\s+version=\\{input\\.previewVersion\\}(?:\\s+again=[\\s\\S]{0,400}?)?\\s*/>`), `no notice on ${piece}`);
   }
   // Lazy, in the existing Maker details chunk (the Maker budget is at its ceiling).
   const lazy = readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/details-lazy.tsx'), 'utf8');

@@ -13,7 +13,8 @@
  *   · guest-registry → /api/hub-print/guest-registry   (new, lib/print-guest-registry.ts)
  *   · qr-codes       → /api/hub-print/qr-codes         (#5977, the Guest list's QR PDF)
  *   · seat-plan      → /dashboard/<id>/seating/export  (lib/seating-pdf.ts — ONE A3 landscape page; moodboard | blueprint)
- *   · seating-pack   → /dashboard/<id>/seating/print   (directory, table signs, place cards)
+ *   · seating-pack   → /dashboard/<id>/seating/print   (directory, table signs, place cards — and, `?chart=table|az`, the
+ *                                                       ENTRANCE SEATING CHART, owner 2026-10-13, #6503)
  *   · caterer        → /dashboard/<id>/seating/caterer (meal counts; CSV too)
  *   · event-qr       → /api/website/qr/<slug>          (the event's own QR, PNG)
  *
@@ -93,9 +94,15 @@ export function freePrints(eventId: string, slug: string | null, stamps: FreePri
     {
       key: 'seating-pack',
       label: 'Table signs & place cards',
-      blurb: 'A table directory, one sign per table with its QR, and a place card for every seated guest.',
+      blurb: 'A table directory, one sign per table with its QR, a place card for every seated guest — and one entrance chart, by table or A to Z.',
       preview: `/dashboard/${e}/seating/print?format=preview`,
-      saves: [{ label: 'Save PDF', href: `/dashboard/${e}/seating/print?format=pdf`, file: printFileName(slug, 'seating-pack') }],
+      saves: [
+        { label: 'Save PDF', href: `/dashboard/${e}/seating/print?format=pdf`, file: printFileName(slug, 'seating-pack') },
+        /* 🪧 THE ENTRANCE SEATING CHART (owner 2026-10-13, #6503): one sheet for the door, beside the pack it is printed with — the SAME
+           route (`?chart=table|az`, its default size A2; a sheet too full for it is said, never printed), named as the route names it. */
+        { label: 'Entrance chart · by table', href: `/dashboard/${e}/seating/print?chart=table&format=pdf`, file: printFileName(slug, 'seating-chart-by-table') },
+        { label: 'Entrance chart · A to Z', href: `/dashboard/${e}/seating/print?chart=az&format=pdf`, file: printFileName(slug, 'seating-chart-a-to-z') },
+      ],
     },
     {
       key: 'caterer',

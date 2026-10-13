@@ -95,6 +95,8 @@ import type { HubMainGround } from '@/lib/hub-canvas';
 import type { MainColourDraft } from '@/lib/main-colours';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
 import { studioDetailsGroups, studioFullScreenCss, STUDIO_FORM_HEADS, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
+import { PRINT_KINDLY_REPLY_TIP, PRINT_SCHEDULE_TIP } from '@/lib/studio-prints-six';
+import type { StudioParent } from './studio-prints-six';
 import { GIFTS_OFF_LINE, GIFTS_OFF_TITLE, studioWishIsGot, type StudioWishList } from '@/lib/wish-list-studio';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
@@ -274,7 +276,7 @@ export type MakerDetailsProps = {
   stored: StoredPrintDetails;
   hosts: Array<{ moderatorId: string; label: string; contact: string | null }>;
   /** The parents on the invitation, each with their own guest card. */
-  parents: Array<{ guestId: string | null; name: string; card: ReactNode }>;
+  parents: Array<{ guestId: string | null; name: string; card: ReactNode; side?: StudioParent['side'] }>;
   pabuyaMessage: string | null;
   specialMessage: string | null;
   hasPalette: boolean;
@@ -813,7 +815,12 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* ✍ The two print-only words — each ONE field in two doors (its Words item
      and its print's switch), posting through the print words form. */
   const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} titled={false} />;
-  const kindlyReply = <KindlyReplyField hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />;
+  /* 🧭 Studio › Prints (owner "approved" 2026-10-13): the dropdown + the typed row (kinds 2 and 6), the SAME two fields — both doors. */
+  const kindlyReply = props.studio ? (
+    <StudioTool part="kindly-reply" form={WORDS_FORM} hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />
+  ) : (
+    <KindlyReplyField hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />
+  );
   /* The NFC spot rides the print words form — ONE switch, drawn under the QR (or, in the new Maker's
      Studio, among the Finer Details switches: Info's QR is the Event Hub's, Prints holds what prints). */
   const nfcToggle = (
@@ -873,7 +880,12 @@ export function MakerDetails(props: MakerDetailsProps) {
             on={inc.parents}
             tip="Guests whose role on your guest list is a parent's. Parents are optional — with none, the card leaves that part out."
           >
-            <ParentCards eventId={eventId} parents={parents} />
+            {props.studio ? (
+              /* 🧭 Studio › Prints: list rows → the shipped guest card as a sheet; ＋ Add a parent (owner "approved" 2026-10-13). */
+              <StudioTool part="parents" eventId={eventId} parents={parents.map((p) => ({ ...p, side: p.side ?? null }))} />
+            ) : (
+              <ParentCards eventId={eventId} parents={parents} />
+            )}
           </IncludeSwitch>
         ) : null}
         <IncludeSwitch form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
@@ -904,7 +916,13 @@ export function MakerDetails(props: MakerDetailsProps) {
           {facts['thank-you']}
         </IncludeSwitch>
         <IncludeSwitch form={WORDS_FORM} name="inc_love_story" label="Love Story" on={inc.loveStory !== 'none'} tip="A short excerpt of your story on the Finer Details card." />
-        <IncludeSwitch form={WORDS_FORM} name="inc_schedule" label="Schedule — the program" on={inc.schedule} tip="Only the moments your guests can see." />
+        <IncludeSwitch form={WORDS_FORM} name="inc_schedule" label="Schedule — the program" on={inc.schedule} tip={props.studio ? PRINT_SCHEDULE_TIP : 'Only the moments your guests can see.'}>
+          {props.studio ? (
+            <p data-print-schedule-everyone="" className="text-[12.5px] text-ink/65">
+              Prints the moments for <b className="font-semibold text-ink">Everyone</b> only.
+            </p>
+          ) : null}
+        </IncludeSwitch>
         <IncludeSwitch
           form={WORDS_FORM}
           name="inc_mood_board"
@@ -920,7 +938,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           {/* The Words › Special message editor — one field, two doors. */}
           {facts['special-message']}
         </IncludeSwitch>
-        <IncludeSwitch form={WORDS_FORM} name="inc_rsvp" label="Kindly reply" on={inc.rsvp} tip="A host or your coordinator, read from their account — or type it in.">
+        <IncludeSwitch form={WORDS_FORM} name="inc_rsvp" label="Kindly reply" on={inc.rsvp} tip={props.studio ? PRINT_KINDLY_REPLY_TIP : 'A host or your coordinator, read from their account — or type it in.'}>
           {kindlyReply}
         </IncludeSwitch>
         {qrAlways}

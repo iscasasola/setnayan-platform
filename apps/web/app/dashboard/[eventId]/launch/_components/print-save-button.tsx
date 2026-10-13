@@ -15,6 +15,7 @@ import { Download, Loader2 } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { usePrintFetch } from './print-fetch-context';
 import { STUDIO_SAVE_CHIP } from '@/lib/studio-skin';
+import { StatusLine } from '@/app/_components/status-line';
 
 /**
  * PrintSaveButton — every Prints & Tickets button SAVES a file and never opens
@@ -79,6 +80,7 @@ export function PrintSaveButton({
   label,
   icon,
   main = false,
+  quiet = false,
   tone,
 }: {
   href: string;
@@ -101,6 +103,8 @@ export function PrintSaveButton({
   main?: boolean;
   /** `action` only: default `brand` for the filled step, `neutral` for the rest. */
   tone?: ActionTone;
+  /** `action` only: the quiet look (the status line's "Save again" — one quiet word, not a second button competing). */
+  quiet?: boolean;
 }) {
   /* The file's fetch — the real one, or (only in the dev lab) a stand-in that reaches no route. */
   const printFetch = usePrintFetch();
@@ -173,6 +177,7 @@ export function PrintSaveButton({
         <ActionButton
           tone={tone ?? (main ? 'brand' : 'neutral')}
           main={main}
+          quiet={quiet}
           waiting={state.k === 'working'}
           icon={state.k === 'working' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : (icon ?? Download)}
           label={word}
@@ -245,7 +250,21 @@ export function PrintSaveButton({
  * changed since (`printInputsVersion`; lib/printed-stamp.ts). Says nothing when
  * it never saw a save — never a false "changed".
  */
-export function ChangedSincePrinted({ eventId, piece, version }: { eventId: string; piece: string; version: string | null | undefined }) {
+export function ChangedSincePrinted({
+  eventId,
+  piece,
+  version,
+  again,
+}: {
+  eventId: string;
+  piece: string;
+  version: string | null | undefined;
+  /**
+   * 🧭 The new Maker's Studio › Prints (owner "approved" 2026-10-13, kind 12): the line is the amber STATUS LINE under the piece's saves,
+   * with ONE quiet "Save again" — the piece's own main file, through the same save. Gone once that piece is saved (the stamp moves on).
+   */
+  again?: { href: string; file: string };
+}) {
   const [stamp, setStamp] = useState<PrintedStamp | null>(null);
   useEffect(() => {
     const read = () => setStamp(readPrintedStamp(eventId, piece));
@@ -254,6 +273,16 @@ export function ChangedSincePrinted({ eventId, piece, version }: { eventId: stri
     return () => window.removeEventListener(PRINTED_CHANGED_EVENT, read);
   }, [eventId, piece]);
   if (!changedSincePrinted(stamp, version)) return null;
+  if (again) {
+    return (
+      <span data-changed-since-printed={piece} className="block pb-2">
+        <StatusLine tone="warn" data="changed-since-printed" action={<PrintSaveButton href={again.href} file={again.file} variant="action" quiet label="Save again" />}>
+          <b className="font-bold">Changed since you printed</b>
+          {stamp ? ` on ${printedDayLabel(stamp.at)}` : ''} — save it again so the paper matches.
+        </StatusLine>
+      </span>
+    );
+  }
   return (
     <p role="status" data-changed-since-printed={piece} className="border-l-2 border-mulberry/60 pl-3 text-[13px] text-ink/80">
       <span className="font-semibold text-ink">Changed since you printed</span>

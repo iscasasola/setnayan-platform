@@ -8580,6 +8580,18 @@ html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
   }
 }
 
+/* 🍪 THE EVENT HUB LEAVES ROOM ABOVE THE FIRST-VISIT COOKIE NOTICE (2026-10-13, hub leftovers; owner's walk found
+   "See our page" and "Sign out of this invitation" under it until answered). Same seam as the two rules above: the
+   notice publishes its height (`--cookie-banner-top`, set only while it is the full-width bar — 0 once answered).
+   The page's foot (`data-guest-foot`, and Me's own `data-me-stage`, which end in the record note and the sign-out)
+   is given that much room below it, so the last press scrolls up clear of the notice; the Save the Date film's quiet
+   "See our page" does the same inside `save-the-date-film.tsx`. Held by
+   app/[slug]/_lib/the-hub-leaves-room-above-the-cookie-notice.test.ts. */
+[data-guest-foot],
+[data-me-stage] {
+  padding-bottom: var(--cookie-banner-top, 0px);
+}
+
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
    run completely normal. we only control the effect"*).

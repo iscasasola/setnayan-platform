@@ -141,13 +141,23 @@ test('a supplier with no pending fee sees none of it, on every surface', () => {
  * cannot say which component holds it, and a count of 1 that becomes 0 is the
  * whole failure this guard exists to catch.
  */
-const BILL_MOUNTS: Record<(typeof BOOKING_FEE_BILL_SURFACES)[number], { file: string; surfaceArg: RegExp }> = {
+const BILL_MOUNTS: Record<
+  (typeof BOOKING_FEE_BILL_SURFACES)[number],
+  {
+    file: string;
+    surfaceArg: RegExp;
+    /** Where the bills are READ, when it is not the file that draws them (Money: read in the segment, drawn in the view). */
+    argFile?: string;
+  }
+> = {
   today: {
     file: 'app/vendor-dashboard/page.tsx',
     surfaceArg: /billsForSurface\(feeBillsRead, 'today'\)/,
   },
+  // S-PR4: the `earnings` surface is Customers › Money — read in the segment, drawn (once) in its view.
   earnings: {
-    file: 'app/vendor-dashboard/earnings/surface.tsx',
+    file: 'app/vendor-dashboard/customers/_components/money-view.tsx',
+    argFile: 'app/vendor-dashboard/customers/_components/money-segment.tsx',
     surfaceArg: /billsForSurface\(feeBillsRead, 'earnings'\)/,
   },
   client: {
@@ -172,10 +182,11 @@ test('every surface in BOOKING_FEE_BILL_SURFACES really mounts the bill', () => 
       1,
       `${mount.file} must mount <BookingFeeBills> exactly once (it is the ${surface} surface)`,
     );
+    const argFile = mount.argFile ?? mount.file;
     assert.equal(
-      count(src, mount.surfaceArg),
+      count(read(argFile), mount.surfaceArg),
       1,
-      `${mount.file} must ask billsForSurface for '${surface}' — ${mount.surfaceArg.source}`,
+      `${argFile} must ask billsForSurface for '${surface}' — ${mount.surfaceArg.source}`,
     );
     // The door, not just the sentence. A row without a pay link reproduces the
     // original defect with better wording.
@@ -204,7 +215,7 @@ test('an unreadable fee read is not an empty one', () => {
       `${fn} no longer distinguishes a refused read from an empty one`,
     );
   }
-  for (const file of Object.values(BILL_MOUNTS).map((m) => m.file)) {
+  for (const file of Object.values(BILL_MOUNTS).map((m) => m.argFile ?? m.file)) {
     assert.ok(
       /FEE_BILLS_UNREADABLE/.test(read(file)),
       `${file} does not distinguish "you owe nothing" from "we could not check"`,
@@ -250,7 +261,8 @@ test('the fee is named before the supplier commits — all four places', () => {
  * no mention of the fee at all — measured 2026-09-22:
  *
  *   · `front-door-feed.tsx`  — "No commission on your bookings, ever."
- *   · `earnings/surface.tsx` — "you always get paid directly, 0% commission."
+ *   · `earnings/surface.tsx` — "you always get paid directly, 0% commission." (S-PR4: now Customers › Money's
+ *     year fold, `money-segment.tsx` — the locked line names the fee.)
  *
  * 🔑 THE PROPERTY IS UNCONDITIONAL, NOT KEYED ON A PHRASE. A guard that only
  * fires when it sees the word "commission" is a phrasing ban, and a phrasing ban
@@ -267,7 +279,7 @@ test('the fee is named before the supplier commits — all four places', () => {
  */
 const SELLING_SURFACES: Array<[string, string]> = [
   ['front door · Open your shop', 'app/_components/frontdoor/front-door-feed.tsx'],
-  ['earnings · Solo gate', 'app/vendor-dashboard/earnings/surface.tsx'],
+  ['Money · the year on a plan without it', 'app/vendor-dashboard/customers/_components/money-segment.tsx'],
 ];
 
 // SABOTAGE: drop `bookingFeeScheduleSummary()` from the front-door card → RED.
@@ -551,12 +563,13 @@ test('the free-5 position comes off the ledger, not a local count', () => {
  * SABOTAGE: delete <WaivedFeeRows> from the fee hub → RED, named.
  */
 test('every waived charge surface really mounts it', () => {
-  const WAIVED_MOUNTS = [
-    'app/vendor-dashboard/booking-fees/page.tsx',
-    'app/vendor-dashboard/clients/[eventId]/page.tsx',
-    'app/vendor-dashboard/earnings/surface.tsx',
+  // [drawn in, read in] — the same file, except Customers › Money (S-PR4: read in the segment, drawn in its view).
+  const WAIVED_MOUNTS: Array<[string, string]> = [
+    ['app/vendor-dashboard/booking-fees/page.tsx', 'app/vendor-dashboard/booking-fees/page.tsx'],
+    ['app/vendor-dashboard/clients/[eventId]/page.tsx', 'app/vendor-dashboard/clients/[eventId]/page.tsx'],
+    ['app/vendor-dashboard/customers/_components/money-view.tsx', 'app/vendor-dashboard/customers/_components/money-segment.tsx'],
   ];
-  for (const file of WAIVED_MOUNTS) {
+  for (const [file, readIn] of WAIVED_MOUNTS) {
     const src = read(file);
     assert.equal(
       count(src, /<WaivedFeeRows\b/),
@@ -564,7 +577,7 @@ test('every waived charge surface really mounts it', () => {
       `${file} must show the waived fee exactly once — a free booking priced at nothing is the old defect`,
     );
     assert.ok(
-      /fetchWaivedFeeCharges\(/.test(src),
+      /fetchWaivedFeeCharges\(/.test(read(readIn)),
       `${file} mounts the rows without reading any waived charge`,
     );
   }

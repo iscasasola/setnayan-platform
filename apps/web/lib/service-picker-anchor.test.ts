@@ -163,7 +163,8 @@ test('every Create-a-service link in the product opens the maker', () => {
     'app/vendor-dashboard/layout.tsx',
     'lib/vendor-first-steps.ts',
     'app/vendor-dashboard/repertoire/page.tsx',
-    'app/vendor-dashboard/earnings/surface.tsx',
+    // (earnings/surface.tsx — retired by S-PR4; its empty ledger's "Add services" link went with it: Customers ›
+    // Money's empty year says how money arrives — a couple logs a payment you confirm — and links nowhere.)
   ];
   // 🪤 THE FIRST CUT OF THIS ASSERTION WAS DECORATION, AND ONLY A MEASURED
   // MUTATION FOUND IT. It matched the constant anywhere in the file, so
@@ -211,7 +212,7 @@ test('no new hand-typed picker link creeps back in anywhere', () => {
   const suspects = [
     'app/vendor-dashboard/layout.tsx',
     'app/vendor-dashboard/repertoire/page.tsx',
-    'app/vendor-dashboard/earnings/surface.tsx',
+    'app/vendor-dashboard/customers/_components/money-view.tsx',
     'lib/vendor-first-steps.ts',
     MANAGER,
   ];

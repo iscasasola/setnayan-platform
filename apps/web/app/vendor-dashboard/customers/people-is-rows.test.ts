@@ -178,10 +178,13 @@ test('3 · three segments, one address each; every old landing opens the segment
   // Each fold sits under exactly one segment, and every fold the hub draws has one.
   const all = CUSTOMER_SEGMENTS.flatMap((s) => foldsOf(s));
   // S-PR3: Dates has no accordion fold — its tools are its own folds (Block days · Waitlist · Capacity).
-  assert.deepEqual([...all].sort(), ['contracts', 'messages', 'proposals']);
+  // S-PR4: the Bookings queue is a fold under Money (it alone carries "Add to prep schedule").
+  assert.deepEqual([...all].sort(), ['bookings', 'contracts', 'messages', 'proposals']);
   assert.match(PAGE, /const sections = CUSTOMER_SECTIONS\.filter\(\(s\) => folds\.includes\(s\.key\)\)/, 'a fold is drawn outside its segment');
   // The ids the landings name are drawn only under their segment.
-  assert.match(PAGE, /seg === 'money' \? \([\s\S]{0,200}id="bookings"[\s\S]{0,200}id="payday"/, 'Bookings / Payday are not Money’s');
+  // S-PR4: Money is the last branch of the segment switch (its rows wear `#payday`); `#bookings` is drawn only on Money.
+  assert.match(PAGE, /<CustomersDates search=\{search\} \/>[\s\S]{0,120}\) : \(\s*<div id="payday"[^>]*>\s*<CustomersMoney /, 'Payday is not Money’s');
+  assert.match(PAGE, /\{seg === 'money' \? <span id="bookings"/, 'Bookings is not Money’s');
 });
 
 test('3b · each segment reads only what it draws (owner: "the fewest requests")', () => {

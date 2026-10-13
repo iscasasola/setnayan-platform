@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 687 files · 1896 lines
+# 685 files · 1893 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -602,7 +602,6 @@
 1 apps/web/app/vendor-dashboard/deep-search/_components/dossier-view.tsx
 2 apps/web/app/vendor-dashboard/demand/_components/demand-radar-card.tsx
 3 apps/web/app/vendor-dashboard/disputes/page.tsx
-2 apps/web/app/vendor-dashboard/earnings/surface.tsx
 10 apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx
 1 apps/web/app/vendor-dashboard/messages/_components/inquiry-outcomes-rollup.tsx
 2 apps/web/app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx
@@ -631,7 +630,6 @@
 6 apps/web/app/vendor-dashboard/packages/_components/package-editor.tsx
 2 apps/web/app/vendor-dashboard/packages/page.tsx
 2 apps/web/app/vendor-dashboard/partnerships/page.tsx
-1 apps/web/app/vendor-dashboard/payday/surface.tsx
 1 apps/web/app/vendor-dashboard/payment-options/_components/add-payment-method.tsx
 3 apps/web/app/vendor-dashboard/payment-options/surface.tsx
 2 apps/web/app/vendor-dashboard/performance/_components/funnel-benchmark-card.tsx

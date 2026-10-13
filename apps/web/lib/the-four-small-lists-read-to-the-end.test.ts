@@ -300,7 +300,8 @@ const read = (rel: string) =>
 
 test('screens: every money reader of the payday RPC goes through the paged read', () => {
   for (const rel of [
-    'app/vendor-dashboard/payday/surface.tsx',
+    // S-PR4: Payday is Customers › Money — its read is the segment's.
+    'app/vendor-dashboard/customers/_components/money-segment.tsx',
     'app/vendor-dashboard/customers/page.tsx',
     'app/vendor-dashboard/clients/[eventId]/page.tsx',
     'lib/vendor-overview.ts',
@@ -316,9 +317,12 @@ test('screens: every money reader of the payday RPC goes through the paged read'
 });
 
 test('screens: an unfinished payday read is said, and its rows are never summed', () => {
-  const payday = read('app/vendor-dashboard/payday/surface.tsx');
-  assert.match(payday, /const rows = paydayIncomplete \? \[\] : paydayRead\.rows;/);
-  assert.match(payday, /\{paydayIncomplete \? \(\s*<p role="status"/);
+  // S-PR4: Money hands an unfinished read to the pure module as `null` (no totals, no rows — `lib/vendor-money.test.ts`
+  // executes that), and its view says so in the figures' own place.
+  const payday = read('app/vendor-dashboard/customers/_components/money-segment.tsx');
+  assert.match(payday, /moneyPicture\(paydayIncomplete \? null : paydayRead\.rows, /);
+  const moneyView = read('app/vendor-dashboard/customers/_components/money-view.tsx');
+  assert.match(moneyView, /\) : \(\s*<div className="[^"]*" role="status" data-money-unread="">\s*<p[^>]*>\s*<b[^>]*>Couldn&rsquo;t load your payments\./);
 
   const customers = read('app/vendor-dashboard/customers/page.tsx');
   assert.match(customers, /const paydayRows = paydayIncomplete \? \[\] : paydayRes\.rows;/);
@@ -361,9 +365,11 @@ test('screens: the Earned tile and the payouts totals never print a short or unr
   const today = read('app/vendor-dashboard/page.tsx');
   assert.doesNotMatch(today, /earnedThisYearPhp/, 'Today prints "Earned this year" again — it must ask earningsMeasured first');
 
-  const earn = read('app/vendor-dashboard/earnings/surface.tsx');
+  // S-PR4: the payouts read moved with the Earnings page into Customers › Money.
+  const earn = read('app/vendor-dashboard/customers/_components/money-segment.tsx');
   assert.doesNotMatch(earn, /\.from\('vendor_payouts'\)[\s\S]{0,900}?\.limit\(/);
-  assert.match(earn, /const payoutRows = payoutRead\.complete \? payoutRead\.rows : null;/);
+  assert.match(earn, /const payoutsMeasured = payoutRead\.complete;/);
+  assert.match(earn, /legacy = payoutsMeasured \? \(payoutRead\.rows as unknown as PayoutRow\[\]\)\.map\(legacyRow\) : null;/);
 });
 
 // ═══ WHAT THE #5724 SWEEP LEFT ════════════════════════════════════════════

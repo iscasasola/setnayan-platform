@@ -85,6 +85,13 @@ export type PapicQuoteStanding =
   | { kind: 'included'; basis: GiftQuoteBasis }
   | { kind: 'available'; basis: GiftQuoteBasis }
   | { kind: 'free_booking' }
+  /**
+   * RPC `'fee_waived'` (2026-10-12, owner #7 "no fee, no couple gift — the
+   * quote stops promising it while waived"): a free-fee window is running, or
+   * this booking's charge is already waived for a reason other than the free
+   * five. No fee is charged, so there is nothing to size a gift from.
+   */
+  | { kind: 'fee_waived' }
   | { kind: 'not_sourced' }
   | { kind: 'unreadable' };
 
@@ -142,6 +149,8 @@ export function standingForGiftArm(
       return { kind: 'not_sourced' };
     case 'free_booking':
       return { kind: 'free_booking' };
+    case 'fee_waived':
+      return { kind: 'fee_waived' };
     case 'applies':
       return basis ? { kind: 'included', basis } : { kind: 'unreadable' };
     case 'card_says_no':
@@ -346,6 +355,17 @@ export function papicTopUpForQuote(
           'Your exclusive Papic deal is a share of the booking fee you actually pay, and this ' +
           `booking's fee is waived — one of your first ${FREE_BOOKING_LIMIT} on Setnayan. Your first ` +
           'billed booking can carry one.',
+      };
+
+    case 'fee_waived':
+      // Same rule as the free five, for a waiver that is Setnayan's, not the
+      // shop's: the deal is a share of money actually charged, and none is.
+      return {
+        tone: 'good',
+        headline: 'Papic deal · none — and nothing to pay.',
+        detail:
+          'Your exclusive Papic deal is a share of the booking fee you actually pay, and the ' +
+          "Setnayan booking fee on this booking is waived. A booking you are billed for can carry one.",
       };
 
     case 'not_sourced':

@@ -9,7 +9,11 @@ import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { setnayanGiftBillClause } from '@/lib/setnayan-gift';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { emitNotification } from '@/lib/notification-emit';
-import { bookingFeeNoticeCopy, waivedFeeReceiptCopy } from '@/lib/booking-fee-disclosure';
+import {
+  bookingFeeNoticeCopy,
+  waivedFeeReceiptCopy,
+  WAIVED_FEE_RECEIPT_STATUSES,
+} from '@/lib/booking-fee-disclosure';
 import {
   fetchWaivedFeeCharge,
   FEE_BILLS_UNREADABLE,
@@ -285,6 +289,13 @@ export async function collectBookingFeeAtLock(
     return { status: 'free', chargeId, bookingOrdinal: res.booking_ordinal ?? 0 };
   }
   if (res.status !== 'pending' || !res.amount_charged_centavos || res.amount_charged_centavos <= 0) {
+    // EVERY OTHER WAIVER GETS ITS RECEIPT TOO (audit 2026-10-12, item 4). A
+    // promo-waived booking used to land here and tell the supplier nothing —
+    // during a promotion, that is every booking. The list is ONE list
+    // (`WAIVED_FEE_RECEIPT_STATUSES`); an import, or a ₱0 `paid`, is not on it.
+    if (res.status && WAIVED_FEE_RECEIPT_STATUSES.has(res.status)) {
+      await sendWaivedFeeReceipt(admin, chargeId);
+    }
     return { status: 'zero_fee', chargeId };
   }
 

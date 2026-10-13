@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
+import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
@@ -1135,6 +1136,24 @@ export async function vendorAgreeToLock(formData: FormData) {
         `[vendorAgreeToLock] couple notify failed for vendor_id=${eventVendorId}:`,
         e,
       );
+    }
+  }
+
+  // 💸 THE YES MAKES THE BOOKING FEE (owner 2026-10-12, answer 1: "the fee is
+  // CREATED at the supplier's YES — no handshake, no access"). Before, the fee
+  // was made only when this supplier later confirmed the couple's payment, so
+  // the booked shop held the whole event with no charge at all in between. At
+  // launch the charge is waived at this same moment (free five, a free window,
+  // the supplier's own client), so nobody waits; only a billed booking carries
+  // a bill from here. AFTER the gift stamp above, so the bill sizes the gift
+  // the couple was promised. On `ok` ONLY — the one call that flipped the row
+  // to booked. Its own try: a fee hiccup must never undo the booking, and the
+  // render-time catch-up re-makes a fee that failed here.
+  if (!error && env.status === 'ok' && eventId) {
+    try {
+      await mintBookingFeeForBooking(createAdminClient(), { eventVendorId, door: 'supplier_yes' });
+    } catch (e) {
+      console.error(`[vendorAgreeToLock] booking fee mint failed for vendor_id=${eventVendorId}:`, e);
     }
   }
 

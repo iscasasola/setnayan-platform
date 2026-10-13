@@ -58,7 +58,11 @@ export type BookingFeeChargeStatus =
   | 'paid'
   | 'failed'
   | 'expired'
-  | 'waived_import';
+  | 'waived_import'
+  | 'waived_free5'
+  | 'waived_promo'
+  /** Owner 2026-10-12 #9 — a booking cancelled before its event, fee unpaid. */
+  | 'cancelled_unbilled';
 
 export type OpenChargeResult = {
   charge_id: string;

@@ -11,6 +11,7 @@ import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
 import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
+import { maybeCatchUpHandshakesWithoutFee } from '@/lib/booking-fee-mint.server';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { countUnread } from '@/lib/notifications';
@@ -342,6 +343,13 @@ export default async function VendorDashboardLayout({
   // nothing. The effects are idempotent, scoped to the caller's own bookings,
   // flag-gated inside, and every run is recorded.
   after(() => maybeCatchUpAcknowledgedDeposits(user.id).catch(() => {}));
+
+  // 💸 The fee is made at the YES since 2026-10-12 (owner #1). A booking this
+  // shop agreed to (or whose Locked QR a couple claimed) before that shipped —
+  // or whose mint failed mid-way — has no charge, and "no charge" no longer
+  // unlocks the event. This makes it, for the signed-in shop's own handshaken
+  // bookings only; idempotent like the sweep above.
+  after(() => maybeCatchUpHandshakesWithoutFee(user.id).catch(() => {}));
 
   // 🔴 Unbilled booking-fee repair (CRON-FREE · FLEET-WIDE · claimed).
   // The catch-up directly above heals "a booking with no charge". This heals

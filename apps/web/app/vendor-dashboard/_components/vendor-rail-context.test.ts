@@ -430,6 +430,14 @@ test('all nine cron-free sweeps still ride on this layout', () => {
       still looking correct.
     */
     'maybeRunUnbilledFeeRepair',
+    /*
+      The handshake catch-up (2026-10-12, owner #1 — the fee is made at the
+      supplier's yes). A booking agreed (or Locked-QR-claimed) before that
+      shipped, or whose mint failed, has no charge — and "no charge" no longer
+      unlocks the event. Drop it and those suppliers stay locked out of their
+      own booked events with nothing to pay.
+    */
+    'maybeCatchUpHandshakesWithoutFee',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -447,7 +455,9 @@ test('all nine cron-free sweeps still ride on this layout', () => {
     // 10 since 2026-09-22: `maybeRefillPriceBands` (CTRL-B3 build 5). Mounted
     // here as well as on /admin because the meter it feeds belongs to
     // SUPPLIERS — an admin-only mount would make it wait for an admin page view.
-    10,
+    // 11 since 2026-10-12: `maybeCatchUpHandshakesWithoutFee` (the fee is made
+    // at the yes; named in the list above).
+    11,
     'the count of post-response jobs changed',
   );
 });

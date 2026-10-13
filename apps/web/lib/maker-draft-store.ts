@@ -183,11 +183,32 @@ export function draftedOwnWordsOr(type: string, server: OwnWords | null | undefi
   return { title: w.title ?? '', body: w.body ?? '' };
 }
 
+/**
+ * 🎫 …AND THE TICKET STYLE PICKED IN STUDIO › PRINTS (owner "approved" 2026-10-13; batch-4 walk F1). A pick is drawn at the
+ * tap and drafted; the strip must then show what the DRAFT holds — after ↺ the first render is the truth, exactly as for a
+ * canvas — and never a look the draft no longer has (it stayed ringed, and a tap on it again saved nothing). The same rule,
+ * the same core, one more copy. Keyed by the one look there is (`pass`).
+ */
+export type DraftedPassLook = { design: string };
+const passLookShared = createDraftedCanvases<DraftedPassLook>(
+  () => makerSavesInFlight() > 0,
+  () => makerUnheldSavesInFlight() > 0,
+);
+/** A pick of the ticket style was drawn (its draft save may still be on its way). */
+export function noteDraftedPassLook(design: string, server: string): void {
+  passLookShared.note('pass', { design }, { design: server });
+}
+/** The ticket style to show: the Maker's own pick while it is newer than the draft the page was drawn from, else that draft's. */
+export function draftedPassLookOr(server: string): string {
+  return passLookShared.read('pass', { design: server }).design ?? server;
+}
+
 /* ↺ THE ORDER OF THINGS (the docblock): an unheld write owes every copy kept now the truth… */
 if (typeof window !== 'undefined') {
   window.addEventListener(MAKER_UNHELD_WRITE_EVENT, () => {
     shared.unheld();
     ownWordsShared.unheld();
+    passLookShared.unheld();
   });
 }
 
@@ -198,4 +219,5 @@ if (typeof window !== 'undefined') {
 export function makerRendered(stamp: string): void {
   shared.rendered(stamp);
   ownWordsShared.rendered(stamp);
+  passLookShared.rendered(stamp);
 }

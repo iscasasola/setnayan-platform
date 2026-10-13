@@ -239,8 +239,8 @@ export function MakerLabShell({
       here = false;
     };
   }, [scrub]);
-  /* 🧪 "Scrub out" ships dark in the app (`lib/scrub-out-offered.ts`); on the lab's chain (`?scrub=1`) the Maker's
-     controls keep offering it, so the owner can go on arranging the real thing. Put back when the lab is left. */
+  /* 🧪 "Scrub out" is offered in the app since 2026-10-13 (`lib/scrub-out-offered.ts`); this door opened it on the lab's
+     chain (`?scrub=1`) while it shipped dark, and keeps doing so should the switch go off again. Put back when the lab is left. */
   useEffect(() => {
     offerScrubOutInTheLab(scrub);
     return () => offerScrubOutInTheLab(false);

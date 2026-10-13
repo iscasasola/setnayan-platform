@@ -19,7 +19,7 @@ import {
 } from '@/lib/accepted-quote-terms';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { answersInPlace } from '@/lib/answer-in-place';
+import { ANSWER_IN_PLACE_FIELD, answersInPlace } from '@/lib/answer-in-place';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -114,6 +114,8 @@ import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock'
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
+import { addOwnContactError } from '@/lib/add-your-own';
+import { stampManualLeakMatch } from '@/lib/manual-add-leak.server';
 import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
@@ -3297,6 +3299,19 @@ function readStringField(
   return { ok: true, value: trimmed };
 }
 
+/** A contact field that may be left empty: '' → null; too long → refused. */
+function readOptionalContact(
+  formData: FormData,
+  key: string,
+  maxLen: number,
+): { ok: true; value: string | null } | { ok: false; message: string } {
+  const raw = formData.get(key);
+  const trimmed = typeof raw === 'string' ? raw.trim() : '';
+  if (trimmed.length === 0) return { ok: true, value: null };
+  if (trimmed.length > maxLen) return { ok: false, message: `${key} must be ${maxLen} chars or fewer` };
+  return { ok: true, value: trimmed };
+}
+
 /**
  * Creates a manual vendor row for an event with the 4 owner-directive
  * fields (business_name, contact_person, contact_number, optional photo).
@@ -3321,9 +3336,29 @@ async function createManualVendor(
 
   const businessName = readStringField(formData, 'business_name', 128);
   if (!businessName.ok) return { status: 'error', message: businessName.message };
-  const contactPerson = readStringField(formData, 'contact_person', 128);
+  // ── WHO THEY TALK TO, OR THEIR MOBILE — ONE IS ENOUGH IN THE WALK ──────────
+  // The four-step "Add your own" walk (owner-approved 2026-10-10, step 3) asks
+  // for either, and says so (`addOwnContactError`). The table has allowed either
+  // to be empty since 20271259075750 ("NULL = not given yet"); this form had
+  // not. The walk opts in with `contact_either`; the eight-field sheet sends no
+  // such field and still requires both, exactly as before. A missing one is
+  // stored as NULL — never a typed placeholder.
+  const contactEither = formData.get('contact_either') === '1';
+  const contactPersonRaw = readOptionalContact(formData, 'contact_person', 128);
+  const contactNumberRaw = readOptionalContact(formData, 'contact_number', 32);
+  if (contactEither) {
+    if (!contactPersonRaw.ok) return { status: 'error', message: contactPersonRaw.message };
+    if (!contactNumberRaw.ok) return { status: 'error', message: contactNumberRaw.message };
+    const refusal = addOwnContactError(contactPersonRaw.value ?? '', contactNumberRaw.value ?? '');
+    if (refusal) return { status: 'error', message: refusal };
+  }
+  const contactPerson = contactEither
+    ? { ok: true as const, value: contactPersonRaw.ok ? contactPersonRaw.value : null }
+    : readStringField(formData, 'contact_person', 128);
   if (!contactPerson.ok) return { status: 'error', message: contactPerson.message };
-  const contactNumber = readStringField(formData, 'contact_number', 32);
+  const contactNumber = contactEither
+    ? { ok: true as const, value: contactNumberRaw.ok ? contactNumberRaw.value : null }
+    : readStringField(formData, 'contact_number', 32);
   if (!contactNumber.ok) return { status: 'error', message: contactNumber.message };
 
   // 🔑 THE ADDRESS GATE RUNS SERVER-SIDE TOO, not only in the modal (owner
@@ -3393,8 +3428,11 @@ async function createManualVendor(
     return { status: 'error', message: error?.message ?? 'Insert failed' };
   }
 
-  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
-  revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
+  // The walk draws its own answer (`answer_in_place`) — no whole-page render rides back.
+  if (!answersInPlace(formData)) {
+    revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+    revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
+  }
   return { status: 'ok', manualVendorId: inserted.manual_vendor_id };
 }
 
@@ -3534,8 +3572,11 @@ async function attachManualVendorToCategory(
     return { status: 'error', message: insertErr?.message ?? 'Insert failed' };
   }
 
-  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
-  revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
+  // The walk draws its own answer (`answer_in_place`) — no whole-page render rides back.
+  if (!answersInPlace(formData)) {
+    revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+    revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
+  }
   return {
     status: 'ok',
     eventVendorId: inserted.vendor_id,
@@ -5240,7 +5281,14 @@ export async function dismissVendorLockProposal(
 // ============================================================================
 
 export type AddManualSupplierResult =
-  | { status: 'ok'; eventVendorId: string; manualVendorId: string; warning?: string }
+  | {
+      status: 'ok';
+      eventVendorId: string;
+      manualVendorId: string;
+      warning?: string;
+      /** Their claim link, when the call asked for it (`with_link=1`). `null` = it could not be made. */
+      invite?: SupplierInviteView;
+    }
   | { status: 'not_signed_in' }
   | { status: 'error'; message: string };
 
@@ -5266,6 +5314,7 @@ export async function addManualSupplier(
   attachFd.set('event_id', eventId);
   attachFd.set('manual_vendor_id', created.manualVendorId);
   attachFd.set('category', category);
+  if (answersInPlace(formData)) attachFd.set(ANSWER_IN_PLACE_FIELD, '1');
   const attached = await attachManualVendorToCategory(attachFd);
   if (attached.status !== 'ok') return attached;
 
@@ -5339,12 +5388,48 @@ export async function addManualSupplier(
     }
   }
 
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  // 6 · THE FEE-LEAK CHECK, inside the same call (build status 2026-10-08 C.3 —
+  //     no second request). A name, or a price within the owner's 10 %, that
+  //     matches a quote this event already received in the category stamps the
+  //     record with that shop (`lib/manual-add-leak.server.ts`). "Not them?"
+  //     (`name_dismissed`) turns the name half off — owner 2026-10-12: a
+  //     dismissed match does not count. Never seen by the couple and never an
+  //     error to them (owner 2026-10-12: couples are not told about the fee).
+  {
+    const supabase = await createClient();
+    const typedName = formData.get('business_name');
+    await stampManualLeakMatch(supabase, createAdminClient(), {
+      eventId,
+      manualVendorId: created.manualVendorId,
+      category,
+      typedName: typeof typedName === 'string' ? typedName : '',
+      typedPricePhp: Number.isFinite(priceNum) && priceNum > 0 ? priceNum : null,
+      nameDismissed: formData.get('name_dismissed') === '1',
+    });
+  }
 
-  if (warnings.length === 0) return ok();
-  return ok(
-    `Added — but we could not save ${warnings.join(' and ')}. Open their page to finish.`,
+  // 7 · THEIR LINK, in the same press (the walk's step 4 shows it at once —
+  //     one write per press, owner 2026-10-08). `createManualVendorInvite` is
+  //     the shipped, idempotent writer; a link that could not be made is not a
+  //     failed add — the panel then offers "Create their link".
+  let invite: SupplierInviteView | undefined;
+  if (formData.get('with_link') === '1') {
+    const link = await createManualVendorInvite({ eventId, vendorId: eventVendorId });
+    invite = link.ok ? { url: link.url, qrSvg: link.qrSvg } : null;
+  }
+
+  // The walk draws its own answer (`answer_in_place`) and refreshes once,
+  // behind the link step — so no whole-page render rides back on this call.
+  if (!answersInPlace(formData)) {
+    revalidatePath(`/dashboard/${eventId}`, 'layout');
+    revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  }
+
+  const withLink = (r: AddManualSupplierResult): AddManualSupplierResult =>
+    r.status === 'ok' && invite !== undefined ? { ...r, invite } : r;
+  if (warnings.length === 0) return withLink(ok());
+  return withLink(
+    ok(`Added — but we could not save ${warnings.join(' and ')}. Open their page to finish.`),
   );
 }
 
@@ -5583,6 +5668,36 @@ export async function updateSelfAddedSupplier(
     await updateVendorCosts(costFd);
   } catch {
     warnings.push('the price');
+  }
+
+  // 3b · THE PRICE CHECK (owner 2026-10-10: "10% allowance +-"). The record
+  //      sheet is where the couple types the price they agreed; a price within
+  //      the tolerance of a quote this event already received in the category
+  //      stamps the record with that shop. Name half off: a renamed record is not
+  //      the couple saying who they meant. Silent to the couple, never an error.
+  {
+    const p = formData.get('total_cost_php');
+    const priced = typeof p === 'string' ? Number(p.replace(/,/g, '')) : NaN;
+    if (Number.isFinite(priced) && priced > 0) {
+      const { data: rec } = await supabase
+        .from('event_vendors')
+        .select('manual_vendor_id, category, vendor_name')
+        .eq('event_id', eventId)
+        .eq('vendor_id', vendorId)
+        .is('marketplace_vendor_id', null)
+        .maybeSingle();
+      const r = rec as { manual_vendor_id: string | null; category: string | null; vendor_name: string | null } | null;
+      if (r?.manual_vendor_id && r.category) {
+        await stampManualLeakMatch(supabase, createAdminClient(), {
+          eventId,
+          manualVendorId: r.manual_vendor_id,
+          category: r.category,
+          typedName: r.vendor_name ?? '',
+          typedPricePhp: priced,
+          nameDismissed: true,
+        });
+      }
+    }
   }
 
   // 4 · Services covered + inclusions.

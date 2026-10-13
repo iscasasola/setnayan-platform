@@ -164,6 +164,17 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate:
       gate: /\{isOffPlatformSupplier\(ev\) && \(ev\.contact_email \|\| ev\.contact_phone\) \?/,
     },
   ],
+  [
+    'app/vendor/claim/[token]/_components/claim-parts.tsx',
+    {
+      count: 1,
+      why:
+        "The phone the COUPLE typed for this supplier, shown back to THAT supplier on their own claim door " +
+        "(the couple's own link) so they can see it is them — the same field page.tsx always showed here, moved " +
+        'with the door into its own component (2026-10-12). It is the shop\'s own number, not a door out.',
+      gate: /\{contactPhone \? \(\s*<SnapshotField\s+label="Phone"/,
+    },
+  ],
 ]);
 
 /**

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "47db7bd33b",
-  "routeCount": 431,
+  "generatedFromRef": "6f66c6ab3",
+  "routeCount": 432,
   "destinations": 956,
   "actions": 675,
-  "blocks": 6115,
+  "blocks": 6130,
   "routes": {
     "/": {
       "files": [
@@ -5308,6 +5308,7 @@
         "dashboard/[eventId]/_actions/day-of-broadcast.ts",
         "dashboard/[eventId]/_actions/share-consent.ts",
         "dashboard/[eventId]/_components/access-requests-doorway.tsx",
+        "dashboard/[eventId]/_components/add-your-own-walk.tsx",
         "dashboard/[eventId]/_components/address-pin-field.tsx",
         "dashboard/[eventId]/_components/after/finished-event-summary.tsx",
         "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
@@ -5438,6 +5439,10 @@
         "AccessRequestsDoorway",
         "AccountSwitcher",
         "ActionButton",
+        "AddOwnCategory",
+        "AddOwnQuotedShop",
+        "AddOwnStandIn",
+        "AddOwnStep",
         "AddressPinField",
         "AfterSummary",
         "AppPreload",
@@ -5492,7 +5497,6 @@
         "EventStudioRow",
         "EventVendorRowInput",
         "ExpandCard",
-        "Field",
         "Figure",
         "FileUpload",
         "Fill",
@@ -5550,6 +5554,7 @@
         "MarketplaceContact",
         "MarketplaceReviewsData",
         "MarketplaceVendorSuggestion",
+        "MatchLogo",
         "Metadata",
         "MethodCard",
         "MethodIcon",
@@ -5584,6 +5589,7 @@
         "PromoFreeWindowBanner",
         "QrBody",
         "ReadRefusedNotice",
+        "RecordLinkBlock",
         "Remaining",
         "ReplyBy",
         "RequestResult",
@@ -5615,7 +5621,6 @@
         "SidebarItem",
         "SidebarSection",
         "Sk",
-        "Spinner",
         "StatusIcon",
         "StepKey",
         "SubmitButton",
@@ -5627,6 +5632,7 @@
         "SupplierInviteView",
         "SupplierReachLinks",
         "Suspense",
+        "TypedRow",
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "UpcomingItem",
@@ -9112,6 +9118,7 @@
         "AddCard",
         "AddManualSupplierResult",
         "AddOnEntry",
+        "AddYourOwnWalk",
         "AddressPinResult",
         "ArrangementResult",
         "AttachManualVendorResult",
@@ -9186,6 +9193,8 @@
         "InspectorColumn",
         "InspectorLayout",
         "InspectorTrigger",
+        "InviteStatusByVendorId",
+        "InviteStatusCtx.Provider",
         "KeepAnswer",
         "LastSeenCapture",
         "LastSeenFallback",
@@ -10097,6 +10106,21 @@
         "DemoCaptureReel"
       ]
     },
+    "/dev/add-your-own-lab": {
+      "files": [
+        "dev/add-your-own-lab/lab-client.tsx",
+        "dev/add-your-own-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CanvasMaker",
+        "CoupleLinkDoor",
+        "LabCard",
+        "LabRecord",
+        "NewManualVendorModal"
+      ]
+    },
     "/dev/booth-lab": {
       "files": [
         "dev/booth-lab/booth-lab-client.tsx",
@@ -10359,6 +10383,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "AddOwnStandInCtx.Provider",
         "BenchServiceCard",
         "BenchWritesStandInCtx.Provider",
         "BottomDock",
@@ -13882,6 +13907,7 @@
     },
     "/vendor/claim/[token]": {
       "files": [
+        "vendor/claim/[token]/_components/claim-parts.tsx",
         "vendor/claim/[token]/loading.tsx",
         "vendor/claim/[token]/page.tsx"
       ],
@@ -13892,13 +13918,14 @@
         "declineVendorInviteByToken"
       ],
       "blocks": [
+        "ActionButton",
+        "CoupleLinkDoor",
         "DeclineForm",
         "DoorShell",
         "FormPageSkeleton",
         "Link",
         "Perk",
         "SnapshotField",
-        "SubmitButton",
         "TerminalCard"
       ]
     },

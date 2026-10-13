@@ -12,7 +12,9 @@ import {
 import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin } from 'lucide-react';
 import {
   addManualSupplier,
+  readSupplierInvite,
   updateSelfAddedSupplier,
+  type SupplierInviteView,
   type SelfAddedSupplierPrefill,
   attachMarketplaceVendorToCategory,
   searchMarketplaceVendorsByName,
@@ -27,12 +29,20 @@ import {
   MANUAL_VENUE_ADDRESS_PLACEHOLDER,
   manualVendorNeedsAddress,
 } from '@/lib/manual-venue-address';
-import { useModalA11y } from '@/lib/use-modal-a11y';
+import { createPortal } from 'react-dom';
+import { usePortalHost } from '@/lib/use-portal-host';
+import { Sheet } from '@/app/_components/sheet';
+import { ActionButton } from '@/components/action-button';
+import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
 import { AddressPinField } from './address-pin-field';
 import { SupplierConnectPanel } from './supplier-connect-panel';
 import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
 import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
+import { OWN_RECORD_PILL } from '@/lib/add-your-own';
+
+/** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
+const KEEP = () => ({ ok: true as const });
 
 // Modal for the "+ Add new manual vendor" path inside ManualVendorDropdown.
 //
@@ -110,6 +120,7 @@ export function NewManualVendorModal({
   onClose,
   onCreated,
 }: Props) {
+  const portalHost = usePortalHost();
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   /* The two categories that ARE a place owe an exact address (owner
@@ -129,9 +140,8 @@ export function NewManualVendorModal({
   const ownGroupId = planGroupForCategory(category as VendorCategory);
   const coverOptions = PLAN_GROUPS.map((g) => ({ id: g.id as string, label: g.label }));
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
-  const firstFieldRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   // Post-save step (owner 2026-06-11: adding your own vendor must be easy to
   // manage — price + invite land HERE, zero navigation). Set after the manual
@@ -150,17 +160,8 @@ export function NewManualVendorModal({
   }, [created, onClose, onCreated]);
   const dismiss = () => dismissRef.current();
 
-  // Focus trap + scroll-lock + Esc-to-close via the shared hook. Mounts only
-  // while open, so `open` is the constant true. Esc/close route through
-  // `dismiss` so a post-save Esc still refreshes the page (dismissRef points
-  // at onCreated once the vendor exists). Initial focus lands on the Vendor
-  // Name input.
-  useModalA11y({
-    open: true,
-    onClose: dismiss,
-    containerRef: dialogRef,
-    initialFocusRef: firstFieldRef,
-  });
+  // Focus trap, scroll lock and Esc are the house Sheet's own (it routes its
+  // close through `dismiss`, so a post-save close still refreshes the page).
 
   // Autocomplete state — owner directive 2026-05-22.
   // `nameQuery` is the live value of the Vendor Name input. Debounced
@@ -169,6 +170,9 @@ export function NewManualVendorModal({
   // in flight (renders the subtle "Searching…" hint).
   const [mode, setMode] = useState<ModalMode>({ kind: 'manual' });
   const [nameQuery, setNameQuery] = useState(edit?.name ?? '');
+  /** The KEPT name and price (the rows' pills). The live words follow the typing; a ✕ puts them back to these. */
+  const [nameKept, setNameKept] = useState(edit?.name ?? '');
+  const [priceKept, setPriceKept] = useState((edit?.price ?? '').replace(/[^\d]/g, ''));
   const [suggestions, setSuggestions] = useState<
     ReadonlyArray<MarketplaceVendorSuggestion>
   >([]);
@@ -221,9 +225,6 @@ export function NewManualVendorModal({
     return () => window.clearTimeout(handle);
   }, [nameQuery, eventId, category, mode.kind, isEdit]);
 
-  function handleNameChange(e: ChangeEvent<HTMLInputElement>) {
-    setNameQuery(e.currentTarget.value);
-  }
 
   function handlePickMarketplaceVendor(vendor: MarketplaceVendorSuggestion) {
     setMode({ kind: 'linked', vendor });
@@ -236,7 +237,6 @@ export function NewManualVendorModal({
     setErrorMsg(null);
     // Keep the typed name so the host can keep refining without
     // re-typing.
-    setTimeout(() => firstFieldRef.current?.focus(), 0);
   }
 
   // Photo preview lifecycle — revoke object URLs when they change OR
@@ -328,6 +328,19 @@ export function NewManualVendorModal({
     // failure as a WARNING against a real supplier, never as a failed add:
     // a couple told "failed" adds them again and gets a duplicate.
     const fd = new FormData(e.currentTarget);
+    // The rows' hidden carriers are not `required` inputs, so the form cannot
+    // refuse an empty one by itself: a missing required answer shakes into view.
+    const missing = [
+      'business_name',
+      ...(isEdit ? [] : ['contact_person', 'contact_number']),
+      ...(addressRequired ? ['address'] : []),
+    ].some(
+      (k) => String(fd.get(k) ?? '').trim().length === 0,
+    );
+    if (missing) {
+      if (formRef.current) nudgeFormRows(formRef.current);
+      return;
+    }
     const nameEntry = fd.get('business_name');
     const savedName =
       typeof nameEntry === 'string' && nameEntry.trim().length > 0
@@ -376,61 +389,41 @@ export function NewManualVendorModal({
     });
   }
 
-  return (
-    <div
-      ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="new-manual-vendor-heading"
-      className="sn-addman-veil fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm focus:outline-none sm:items-center sm:p-4"
-      onClick={(e) => {
-        // Click backdrop to close, but ignore clicks inside the form.
-        if (e.target === e.currentTarget) dismiss();
-      }}
-    >
-      <div
-        /* 🔴 THE SHEET SCROLLS INSIDE THE VIEWPORT (2026-09-21) — measured live
-           on production the day it shipped. Eight fields and a 200px map made
-           this sheet 1,513px tall in a 768px window. It sits in a `fixed
-           inset-0` overlay, which CANNOT scroll, and `sm:items-center` centred
-           it — so it overflowed 372px off BOTH edges. The required Vendor name
-           field sat at y = -174 and "Save & add" below the fold: a couple on a
-           laptop could not reach either. The old four-field sheet fit; the
-           consolidation broke it, and no source guard could see it.
-           So the sheet caps its own height and scrolls, and the footer below is
-           sticky, so the primary action never scrolls away on a long form.
-           `dvh`, not `vh`: on a phone `vh` includes the browser chrome, which
-           would push the pinned footer under the address bar. */
-        className="sn-addman-sheet max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border-t border-ink/10 bg-cream p-5 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-              {categoryLabel}
+  // ── THE CONTROLS (INTERACTION_RULES § 9, 2026-10-12) ──────────────────────
+  // The house Sheet (darkens + blurs; Esc, focus trap, scroll lock, its own
+  // height cap and scroll) · every typed answer a Form row that posts into this
+  // form (`fieldName`) · PickMenu in the plan rows · ActionButton for every press
+  // · no bordered box around anything that is only read (owner 2026-10-11:
+  // frames only on what is pressed; topics end in a divider).
+  // 🔑 DRAWN INTO <body>. The dashboard's page wrapper is transformed and
+  // contained, so a `fixed` sheet mounted inside it is trapped under the
+  // portalled Find thumb row and the bottom bar (walked 2026-10-12: the thumb row
+  // sat over the walk's footer). Every sheet on this page goes to <body> — once
+  // mounted, so a server render (the dev lab draws the record sheet at once)
+  // never reaches for a `document` it does not have.
+  if (!portalHost) return null;
+  return createPortal(
+    <Sheet open onClose={dismiss} labelledById="new-manual-vendor-heading" rise>
+      <div className="px-5 pt-5" data-add-manual-sheet="">
+        <header className="pr-10">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{categoryLabel}</p>
+          <h2 id="new-manual-vendor-heading" className="text-[20px] font-semibold tracking-[-0.01em] text-ink">
+            {edit ? `Edit ${edit.name || 'supplier'}` : 'Add a contact'}
+          </h2>
+          <p className="mt-1 text-[13px] text-ink/65">
+            {created
+              ? 'Saved! Two quick options — both optional.'
+              : edit
+                ? 'Complete or improve what you agreed with them.'
+                : 'Save once · reuse anywhere on your plan.'}
+          </p>
+          {/* What the couple typed is THEIR RECORD until the supplier joins
+              (the approved prototype's words, 2026-10-10) — said, not boxed. */}
+          {edit ? (
+            <p data-own-record-pill="" className="mt-1 text-[12.5px] font-medium text-warn-800 dark:text-warn-200">
+              {OWN_RECORD_PILL}
             </p>
-            <h2
-              id="new-manual-vendor-heading"
-              className="font-display text-xl italic text-ink"
-            >
-              {edit ? `Edit ${edit.name || 'supplier'}` : 'Add a contact'}
-            </h2>
-            <p className="mt-1 text-xs text-ink/65">
-              {created
-                ? 'Saved! Two quick options — both optional.'
-                : edit
-                  ? 'Complete or improve what you agreed with them.'
-                  : 'Save once · reuse anywhere on your plan.'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={dismiss}
-            aria-label="Close"
-            className="-mr-1 -mt-1 inline-flex h-10 w-10 items-center justify-center rounded-md text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink"
-          >
-            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </button>
+          ) : null}
         </header>
 
         {created ? (
@@ -443,11 +436,7 @@ export function NewManualVendorModal({
             onDone={onCreated}
           />
         ) : (
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-3.5"
-          encType="multipart/form-data"
-        >
+        <form ref={formRef} onSubmit={handleSubmit} className="mt-3" encType="multipart/form-data">
           <input type="hidden" name="event_id" value={eventId} />
           {/* The category rides along so `createManualVendor` can re-ask the
               address rule server-side. The modal is always opened FROM a
@@ -458,7 +447,7 @@ export function NewManualVendorModal({
           {mode.kind === 'linked' ? (
             // LINKED MODE — host picked a marketplace vendor from the
             // autocomplete. Manual fields collapse; the picked vendor
-            // shows as a confirmation card with a Cancel affordance.
+            // shows as a confirmation with a "Pick different" press.
             // Save inserts an event_vendors row with marketplace_vendor_id.
             <LinkedVendorConfirmation
               vendor={mode.vendor}
@@ -468,88 +457,95 @@ export function NewManualVendorModal({
               disabled={pending}
             />
           ) : (
-            // MANUAL MODE — the full Add-a-contact form per the existing
-            // owner directive 2026-05-22. Vendor Name input now drives
-            // an autocomplete dropdown that searches the marketplace.
             <>
               {/* The photo picker is ADD-only: `updateSelfAddedSupplier` does not
                   carry a photo, so offering one here would take a file and
                   silently drop it. */}
               {isEdit ? null : (
-                <>
-              {/* Photo upload — round preview + Choose button */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label="Choose a photo"
-                  className="group relative inline-flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-dashed border-ink/25 bg-cream transition-colors hover:border-terracotta/60"
-                >
-                  {photoPreviewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={photoPreviewUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <Camera
-                      aria-hidden
-                      className="h-5 w-5 text-ink/40 transition-colors group-hover:text-terracotta"
-                      strokeWidth={1.75}
-                    />
-                  )}
-                </button>
-                <div className="flex flex-col gap-1 text-xs text-ink/65">
+                <div className="flex items-center gap-3 pb-3">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 self-start rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta-700"
+                    aria-label="Choose a photo"
+                    className="sn-press group relative inline-flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-dashed border-ink/25 transition-colors hover:border-sn-accent/60"
                   >
-                    <Upload aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-                    {photoPreviewUrl ? 'Replace photo' : 'Add photo'}
+                    {photoPreviewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoPreviewUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Camera aria-hidden className="h-5 w-5 text-ink/40 transition-colors group-hover:text-sn-accent" strokeWidth={1.75} />
+                    )}
                   </button>
-                  <span className="text-[10px] text-ink/45">
-                    Optional — JPEG, PNG, WebP, or HEIC up to 6 MB.
-                  </span>
+                  <div className="flex flex-col gap-1 text-xs text-ink/65">
+                    <ActionButton
+                      tone="neutral"
+                      icon={Upload}
+                      label={photoPreviewUrl ? 'Replace photo' : 'Add photo'}
+                      onClick={() => fileInputRef.current?.click()}
+                    />
+                    <span className="text-[11px] text-ink/50">Optional — JPEG, PNG, WebP, or HEIC up to 6 MB.</span>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    name="photo"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={handlePhotoChange}
+                  />
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  name="photo"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={handlePhotoChange}
-                />
-              </div>
-
-                </>
               )}
 
-              {/* Vendor name + marketplace autocomplete wrapper. The
-                  dropdown anchors to the input via absolute positioning
-                  inside this relative container so it floats above
-                  whatever sits below in the form. */}
-              <div className="relative">
-                <Field label="Supplier name" htmlFor="manual-vendor-name" required step={0}>
-                  <input
-                    ref={firstFieldRef}
-                    id="manual-vendor-name"
-                    name="business_name"
-                    type="text"
+              {/* Name · contact · number — Form rows that post into this form. */}
+              <div className="relative border-t border-ink/10">
+                <FormRows width="wide" data="add-manual-contact">
+                  <TypedRow
+                    name="Supplier name"
+                    fieldName="business_name"
+                    value={nameKept}
+                    empty="Their name"
+                    placeholder="e.g. Tito Marcel"
                     required
                     maxLength={128}
-                    disabled={pending}
-                    value={nameQuery}
-                    onChange={handleNameChange}
-                    onFocus={() => {
-                      if (nameQuery.trim().length >= 2) setAutocompleteOpen(true);
+                    autoCapitalize="words"
+                    attrs={{ 'data-manual-field': 'business_name' }}
+                    onType={(t) => {
+                      setNameQuery(t);
+                      if (t.trim().length >= 2) setAutocompleteOpen(true);
                     }}
-                    autoComplete="off"
-                    placeholder="e.g. Tito Marcel"
-                    className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
+                    onKeep={(t) => {
+                      setNameKept(t);
+                      setNameQuery(t);
+                      return { ok: true as const };
+                    }}
                   />
-                </Field>
+                  <TypedRow
+                    name="Contact person"
+                    fieldName="contact_person"
+                    value={edit?.contactPerson ?? ''}
+                    placeholder="e.g. Marcel Santos"
+                    // A record made by the four-step walk may hold only one of the
+                    // two contacts; editing it must not demand the other.
+                    required={!isEdit}
+                    maxLength={128}
+                    autoCapitalize="words"
+                    note="Who to call · usually the same as Supplier name."
+                    attrs={{ 'data-manual-field': 'contact_person' }}
+                    onKeep={KEEP}
+                  />
+                  <TypedRow
+                    name="Contact number"
+                    fieldName="contact_number"
+                    value={edit?.contactNumber ?? ''}
+                    placeholder="+63 9XX XXX XXXX"
+                    required={!isEdit}
+                    maxLength={32}
+                    inputMode="tel"
+                    note="Mobile preferred · e.g. +63 917 555 1234"
+                    attrs={{ 'data-manual-field': 'contact_number' }}
+                    onKeep={KEEP}
+                  />
+                </FormRows>
                 {autocompleteOpen && nameQuery.trim().length >= 2 ? (
                   <MarketplaceAutocomplete
                     matches={suggestions}
@@ -562,53 +558,11 @@ export function NewManualVendorModal({
                 ) : null}
               </div>
 
-              <Field
-                label="Contact person"
-                htmlFor="manual-vendor-contact-person"
-                required
-                step={1}
-                hint="Who to call · usually the same as Supplier name."
-              >
-                <input
-                  id="manual-vendor-contact-person"
-                  name="contact_person"
-                  type="text"
-                  defaultValue={edit?.contactPerson}
-                  required
-                  maxLength={128}
-                  disabled={pending}
-                  placeholder="e.g. Marcel Santos"
-                  className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
-                />
-              </Field>
-
-              <Field
-                label="Contact number"
-                htmlFor="manual-vendor-contact-number"
-                required
-                step={2}
-                hint="Mobile preferred · e.g. +63 917 555 1234"
-              >
-                <input
-                  id="manual-vendor-contact-number"
-                  name="contact_number"
-                  defaultValue={edit?.contactNumber}
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  required
-                  maxLength={32}
-                  disabled={pending}
-                  placeholder="+63 9XX XXX XXXX"
-                  className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
-                />
-              </Field>
-
               {/* Address + PIN (owner 2026-09-20 — the sheet carries an "Address
                   Pin", not an address). Required for the two categories that
                   ARE a place; the pin itself is always optional, because a
                   wrong pin routes guests somewhere real and incorrect. */}
-              <div className="sn-addman-field" style={{ animationDelay: '255ms' }}>
+              <div className="border-t border-ink/10 py-3">
                 <AddressPinField
                   required={addressRequired}
                   disabled={pending}
@@ -621,11 +575,8 @@ export function NewManualVendorModal({
                   Owner 2026-09-20: "how about we keep it simple?" — one sheet
                   carrying Vendor Name · Contact Person · Contact Number ·
                   Address Pin · Services Covered · Inclusions · Price ·
-                  Payment Plan. Services and inclusions were on the workspace
-                  Details tab, price and the plan on Payments; the couple who
-                  reported this was standing on a Quote tab that rendered
-                  nothing while all four sat one tab away. */}
-              <div className="sn-addman-field space-y-1" style={{ animationDelay: '300ms' }}>
+                  Payment Plan. */}
+              <div className="space-y-1 border-t border-ink/10 py-3">
                 <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
                   What services does this cover
                 </p>
@@ -638,43 +589,38 @@ export function NewManualVendorModal({
                 />
               </div>
 
-              <Field
-                label="Inclusions"
-                htmlFor="manual-vendor-inclusions"
-                hint="One per line — what the price covers."
-                step={5}
-              >
-                <textarea
-                  id="manual-vendor-inclusions"
-                  name="inclusions"
-                  defaultValue={edit?.inclusions}
-                  rows={3}
-                  disabled={pending}
-                  placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
-                  className="w-full resize-y rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
-                />
-              </Field>
+              <div className="border-t border-ink/10">
+                <FormRows width="wide" data="add-manual-terms">
+                  <TypedRow
+                    name="Inclusions"
+                    fieldName="inclusions"
+                    value={edit?.inclusions ?? ''}
+                    long
+                    maxLength={2000}
+                    placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
+                    note="One per line — what the price covers."
+                    attrs={{ 'data-manual-field': 'inclusions' }}
+                    onKeep={KEEP}
+                  />
+                  <TypedRow
+                    name="Price"
+                    fieldName="total_cost_php"
+                    value={priceKept}
+                    amount
+                    placeholder="80000"
+                    note="What you agreed, in pesos. The payment plan below has to add up to it."
+                    attrs={{ 'data-manual-field': 'total_cost_php' }}
+                    onType={(t) => setPriceInput(t)}
+                    onKeep={(t) => {
+                      setPriceKept(t);
+                      setPriceInput(t);
+                      return { ok: true as const };
+                    }}
+                  />
+                </FormRows>
+              </div>
 
-              <Field
-                label="Price"
-                htmlFor="manual-vendor-price"
-                hint="What you agreed, in pesos. The payment plan below has to add up to it."
-                step={6}
-              >
-                <input
-                  id="manual-vendor-price"
-                  name="total_cost_php"
-                  type="text"
-                  inputMode="decimal"
-                  disabled={pending}
-                  value={priceInput}
-                  onChange={(e) => setPriceInput(e.target.value)}
-                  placeholder="80000"
-                  className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
-                />
-              </Field>
-
-              <div className="sn-addman-field space-y-1" style={{ animationDelay: '435ms' }}>
+              <div className="space-y-1 border-t border-ink/10 py-3">
                 <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
                   Payment plan
                 </p>
@@ -689,9 +635,8 @@ export function NewManualVendorModal({
               </div>
 
               {/* Owner 2026-07-01: note to couples that a self-added vendor is
-                  NOT Setnayan-verified. Friendly framing — we add them free so
-                  the couple can manage their whole plan in one place. */}
-              <p className="flex items-start gap-1.5 rounded-md border border-ink/10 bg-paper px-2.5 py-2 text-[11px] leading-snug text-ink/65">
+                  NOT Setnayan-verified. Friendly framing — said on the page. */}
+              <p className="flex items-start gap-1.5 border-t border-ink/10 py-3 text-[12px] leading-snug text-ink/65">
                 <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0 text-ink/40" strokeWidth={2} />
                 <span>
                   Heads up — suppliers you add yourself aren&apos;t verified by
@@ -702,59 +647,93 @@ export function NewManualVendorModal({
             </>
           )}
 
+          {/* THEIR CLAIM LINK, on the record itself (the approved prototype's
+              record sheet ends with it) — the same panel the walk's last step
+              and the card's Connect show. Opening the record only READS the
+              link; making one is the panel's own button. */}
+          {edit && mode.kind === 'manual' ? (
+            <div className="border-t border-ink/10 py-3">
+              <RecordLinkBlock eventId={eventId} vendorId={edit.vendorId} vendorName={edit.name || 'them'} />
+            </div>
+          ) : null}
+
           {errorMsg ? (
-            <p
-              role="alert"
-              className="flex items-center gap-1.5 rounded-md border border-danger-300/50 bg-danger-50/60 px-2.5 py-1.5 text-[11px] text-danger-900"
-            >
+            <p role="alert" className="flex items-center gap-1.5 pb-2 text-[12.5px] font-medium text-danger-800 dark:text-danger-200">
               <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               {errorMsg}
             </p>
           ) : null}
 
-          {/* PINNED FOOTER. Negative margins run it edge to edge across the
-              sheet's p-5, and the matching padding puts the buttons back where
-              they were. Sticky works here BECAUSE the sheet's entrance uses
-              `backwards`: `both` would leave an identity transform on the
-              sheet after the run, and a transformed ancestor breaks sticky the
-              same way it breaks position:fixed. */}
-          <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-2 flex flex-col-reverse gap-2 border-t border-ink/10 bg-cream px-5 py-3 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={pending}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-ink/15 bg-cream px-3.5 text-sm font-medium text-ink/70 transition-colors hover:text-ink disabled:opacity-60 sm:px-5"
-            >
-              Cancel
-            </button>
-            <button
+          {/* PINNED FOOTER — the primary action never scrolls away on a long
+              sheet (the sheet scrolls inside itself; this sticks to its foot). */}
+          <div className="sticky bottom-0 z-10 -mx-5 flex items-center justify-end gap-2 border-t border-ink/10 bg-cream px-5 py-3">
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} disabled={pending} />
+            <ActionButton
+              tone="brand"
+              main
               type="submit"
+              icon={Check}
+              label={
+                pending
+                  ? mode.kind === 'linked'
+                    ? 'Adding…'
+                    : 'Saving…'
+                  : mode.kind === 'linked'
+                    ? 'Add to plan'
+                    : edit
+                      ? 'Save changes'
+                      : 'Save & add'
+              }
               disabled={pending}
-              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-mulberry px-3.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 disabled:cursor-default disabled:opacity-60 sm:px-5"
-            >
-              {pending ? (
-                <>
-                  <Spinner />
-                  {mode.kind === 'linked' ? 'Adding…' : 'Saving…'}
-                </>
-              ) : mode.kind === 'linked' ? (
-                <>
-                  <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  Add to plan
-                </>
-              ) : (
-                <>
-                  <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  {edit ? 'Save changes' : <>Save &amp; add</>}
-                </>
-              )}
-            </button>
+              className="flex-1 sm:flex-none"
+            />
           </div>
         </form>
         )}
       </div>
-    </div>
+    </Sheet>,
+    portalHost,
   );
+}
+
+/**
+ * The record's claim link — read first (three states, like `ConnectSupplierModal`:
+ * still reading · no link yet · the link), so a couple who only opened their
+ * record is never invited to mint a link that already exists.
+ */
+function RecordLinkBlock({
+  eventId,
+  vendorId,
+  vendorName,
+}: {
+  eventId: string;
+  vendorId: string;
+  vendorName: string;
+}) {
+  const [invite, setInvite] = useState<SupplierInviteView | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    readSupplierInvite(eventId, vendorId)
+      .then((v) => {
+        if (live) setInvite(v);
+      })
+      .catch(() => {
+        // Unreadable → offer "Create their link": that writer is idempotent and
+        // hands back the existing link rather than making a second.
+        if (live) setInvite(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [eventId, vendorId]);
+  if (invite === undefined) {
+    return (
+      <p className="py-2 text-xs text-ink/55" aria-live="polite">
+        Checking for their link…
+      </p>
+    );
+  }
+  return <SupplierConnectPanel eventId={eventId} vendorId={vendorId} vendorName={vendorName} initial={invite} />;
 }
 
 // ============================================================================
@@ -787,42 +766,30 @@ function PostSaveStep({
 }) {
 
   return (
-    <div className="space-y-3.5">
-      <p className="flex items-center gap-2 rounded-md border border-success-300/50 bg-success-50/60 px-3 py-2 text-sm text-success-900">
+    <div className="mt-3 space-y-3 pb-5" data-add-manual-saved="">
+      <p className="flex items-center gap-2 text-[14px] text-success-800 dark:text-success-200">
         <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.2} />
         <span>
           <span className="font-semibold">{vendorName}</span> added to {categoryLabel}.
         </span>
       </p>
-
       {/* ⚠ THE PRICE INPUT THAT WAS HERE IS GONE (2026-09-20). The sheet
           above now carries Price and Payment Plan, so a second input here
-          would be a second writer of `total_cost_php` — and the couple has
-          already answered the question. What remains is the one thing that
-          genuinely only makes sense AFTER the supplier exists: their invite. */}
+          would be a second writer of `total_cost_php`. What remains is the one
+          thing that only makes sense AFTER the supplier exists: their invite. */}
       {warning ? (
-        <p
-          role="alert"
-          className="flex items-start gap-2 rounded-md border border-warn-300/60 bg-warn-50/70 px-3 py-2 text-xs leading-snug text-warn-900"
-        >
+        <p role="alert" className="flex items-start gap-2 text-[12.5px] leading-snug text-warn-800 dark:text-warn-200">
           <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
           <span>{warning}</span>
         </p>
       ) : null}
 
-      {/* The supplier's portal — extracted to SupplierConnectPanel so the
-          same panel also opens from [Connect] on their card. This step used
-          to be the ONLY place it existed, and it vanished when the sheet
-          closed (owner 2026-09-20: "i dont have access for this qr"). */}
-      <SupplierConnectPanel eventId={eventId} vendorId={eventVendorId} vendorName={vendorName} />
+      {/* The supplier's portal — the same panel [Connect] on their card opens. */}
+      <div className="border-t border-ink/10 pt-3">
+        <SupplierConnectPanel eventId={eventId} vendorId={eventVendorId} vendorName={vendorName} />
+      </div>
 
-      <button
-        type="button"
-        onClick={onDone}
-        className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-mulberry px-3.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700"
-      >
-        Done
-      </button>
+      <ActionButton tone="brand" main icon={Check} label="Done" onClick={onDone} className="w-full" />
     </div>
   );
 }
@@ -973,7 +940,7 @@ function SuggestionRow({
           ) : null}
         </div>
         {isCrossCategory ? (
-          <p className="rounded-md border border-warn-300/45 bg-warn-50/55 px-2 py-1 text-[11px] leading-snug text-warn-900">
+          <p className="text-[11.5px] leading-snug text-warn-800 dark:text-warn-200">
             {categoriesPretty.length > 0 ? (
               <>
                 <strong className="font-semibold">{vendor.business_name}</strong>{' '}
@@ -1029,33 +996,20 @@ function LinkedVendorConfirmation({
     .join(', ');
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-lg border border-terracotta/40 bg-terracotta/5 p-3">
-        <header className="mb-2 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={disabled}
-            className="inline-flex items-center gap-1 text-[11px] font-medium text-ink/55 transition-colors hover:text-ink disabled:opacity-60"
-          >
-            <ArrowLeft aria-hidden className="h-3 w-3" strokeWidth={2} />
-            Pick different
-          </button>
-        </header>
+    <div className="space-y-3 border-t border-ink/10 pt-3" data-add-manual-linked="">
+      <div>
         <div className="flex items-start gap-3">
           <VendorLogo logoUrl={logoDisplayUrl} name={vendor.business_name} large />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <p className="font-display text-base text-ink">
-              {vendor.business_name}
-            </p>
+            <p className="text-base font-semibold text-ink">{vendor.business_name}</p>
             {vendor.city ? (
-              <p className="flex items-center gap-0.5 text-[11px] text-ink/55">
+              <p className="flex items-center gap-0.5 text-[11.5px] text-ink/55">
                 <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 {vendor.city}
               </p>
             ) : null}
             {vendor.categories.length > 0 ? (
-              <p className="text-[11px] text-ink/65">
+              <p className="text-[11.5px] text-ink/65">
                 Offers{' '}
                 <span className="font-medium text-ink/80">
                   {vendor.categories
@@ -1066,13 +1020,11 @@ function LinkedVendorConfirmation({
               </p>
             ) : null}
           </div>
+          <ActionButton tone="neutral" icon={ArrowLeft} label="Pick different" onClick={onCancel} disabled={disabled} />
         </div>
       </div>
       {isCrossCategory ? (
-        <p
-          role="note"
-          className="flex items-start gap-1.5 rounded-md border border-warn-300/50 bg-warn-50/55 px-2.5 py-2 text-[11px] leading-snug text-warn-900"
-        >
+        <p role="note" className="flex items-start gap-1.5 text-[12px] leading-snug text-warn-800 dark:text-warn-200">
           <AlertCircle
             aria-hidden
             className="mt-px h-3.5 w-3.5 shrink-0"
@@ -1149,67 +1101,12 @@ function VendorLogo({
   return (
     <span
       aria-hidden
-      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-terracotta/15 font-mono ${
+      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-sn-accent/15 font-mono ${
         large ? 'text-sm' : 'text-[10px]'
-      } font-semibold text-terracotta-700`}
+      } font-semibold text-sn-accent`}
       style={{ width: size, height: size }}
     >
       {initials}
     </span>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  required,
-  hint,
-  /**
-   * Stagger index. The sheet rises, then its fields follow just behind it —
-   * `.sn-addman-field` is `sn-canvas-rise` with `backwards`, so the delay
-   * holds the FROM state instead of flashing the resting one first.
-   * The global prefers-reduced-motion block disables all of it.
-   */
-  step = 0,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  required?: boolean;
-  hint?: string;
-  step?: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className="sn-addman-field space-y-1"
-      style={{ animationDelay: `${120 + Math.min(step, 8) * 45}ms` }}
-    >
-      <label
-        htmlFor={htmlFor}
-        className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65"
-      >
-        {label}
-        {required ? <span className="ml-0.5 text-terracotta-700">*</span> : null}
-      </label>
-      {children}
-      {hint ? <p className="text-[10px] text-ink/45">{hint}</p> : null}
-    </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      className="h-4 w-4 animate-spin"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.5}
-    >
-      <circle cx="12" cy="12" r="9" strokeOpacity="0.25" />
-      <path d="M21 12a9 9 0 0 1-9 9" strokeLinecap="round" />
-    </svg>
   );
 }

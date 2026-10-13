@@ -82,12 +82,10 @@ papic_seat_* | declined — per-seat LEDGERS of the ALREADY-MAPPED papic node, n
 # so the check was green and the map was SILENT about all six. They are written
 # down by name here so the debt is countable and each has a stated home; every
 # one is a candidate joint (or a claim on J7), not a decision to keep it off.
-# ⚠ PR2 of that plan adds `event_manual_vendors.leak_match_vendor_profile_id`
-# with a schema claim — a claim needs the table ON the map, so that PR promotes
-# `event_manual_vendors` to a joint and deletes its line (the stale check says so).
+# ✅ 2026-10-12: `event_manual_vendors` gained `leak_match_vendor_profile_id`
+# (migration 20271267252894) and is now joint J53 in lib/ugat/graph.ts — its
+# line is gone from here.
 event_build_picks | map-backlog — the couple's WORKING BUILD: the supplier pinned per category (several for Look / Booths / Prints), keyed on events + event_vendors (migration 20261018000000). Written by setBuildPick / removeBuildPick / applyBuildToWorking; read by the Build body and "Build N/M". Belongs on J7 as the pick a booking starts from.
 budget_builds | map-backlog — the couple's SAVED, NAMED builds (`snapshot.picks`; migration 20260926000000), written by savePlanBuildNamed and compared side by side in Build. Covered until now only by the `budget_*` line, whose reason (allocation config and bands) does not describe it.
-vendor_invites | map-backlog — the CLAIM LINK a couple hands a supplier who is not on Setnayan yet (`claim_token`; migration 20260519200000): it bonds an event_vendors row to the vendor_profiles row that claims it — the door a hand-added supplier walks through to become a real shop, and the map does not show it.
 vendor_follows | map-backlog — a person following a supplier (users ↔ vendor_profiles; iteration 0019, migration 20260514150000). startServiceInquiry inserts it — following is the gate for messaging a supplier — and Explore reads it for the "following" view.
 event_vendor_payments | map-backlog — every payment a couple records against a booking, with its proof (migration 20260513110000). "Paid so far" is the SUM of these rows, never a typed figure. Already inside the `event_vendor_*` cluster line; named so the Pay sheet's ledger has a line of its own.
-event_manual_vendors | map-backlog — the couple's OWN RECORD of a supplier who is not on Setnayan (business name, contact, address pin, photo; migration 20260604080000); `event_vendors.manual_vendor_id` points at it. "Add your own" writes it; the map has never shown it.

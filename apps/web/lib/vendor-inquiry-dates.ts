@@ -69,3 +69,46 @@ export function pendingInquiryDates(threads: readonly InquiryDateInput[]): Inqui
     .map(([requestedDate, count]) => ({ requestedDate, count }))
     .sort((a, b) => a.requestedDate.localeCompare(b.requestedDate));
 }
+
+// ── A COUPLE'S HAND-TYPED RECORD ALSO READS "ASKING" (owner 2026-10-10) ─────
+//
+// `SUPPLIERS_OWNER_RULINGS_2026-10-10.md`: a couple's hand-typed record does NOT
+// hold the date on the supplier's calendar before the supplier agrees — on the
+// supplier's side it shows as "asking".
+//
+// The supplier who joins through a couple's own link gets that couple as a
+// CUSTOMER straight away (the thread is opened as accepted —
+// `lib/claimed-couple-is-a-customer.server.ts`), so `pendingInquiryDates` alone
+// would stop counting the date the moment they joined: a day the couple has
+// written this supplier down for would look like a day nobody had mentioned.
+// It is still only a QUESTION — nothing is held, no block is written anywhere —
+// until the supplier's own yes books it. So it is counted here, as one more
+// "asking", and leaves the count the moment it is agreed.
+
+/** Statuses that end a conversation — such a thread asks about no date. */
+const ENDED_INQUIRY = new Set(['declined', 'withdrawn', 'expired', 'displaced']);
+
+export type AskingThreadInput = InquiryDateInput & { event_id?: string | null };
+
+/**
+ * Every date a couple is asking this supplier about: the pending enquiries
+ * (`pendingInquiryDates`, unchanged) PLUS the couples whose own record names
+ * this supplier and whom the supplier has not agreed to yet
+ * (`claimedAskingEventIds` — `lib/claimed-records-asking.server.ts`).
+ *
+ * One thread is counted once, whichever reason admits it. Still a COUNT and a
+ * date only — nothing here can carry a name onto the calendar.
+ */
+export function askingDates(
+  threads: readonly AskingThreadInput[],
+  claimedAskingEventIds: ReadonlySet<string>,
+): InquiryDateCount[] {
+  const asking = threads.filter((t) => {
+    if (t?.inquiry_status === 'pending') return true;
+    if (!t?.event_id || !claimedAskingEventIds.has(t.event_id)) return false;
+    return !ENDED_INQUIRY.has(String(t.inquiry_status ?? ''));
+  });
+  // Reuse the one bucketing rule (civil day, null dates dropped) by handing the
+  // admitted threads over as open questions.
+  return pendingInquiryDates(asking.map((t) => ({ inquiry_status: 'pending', event: t.event })));
+}

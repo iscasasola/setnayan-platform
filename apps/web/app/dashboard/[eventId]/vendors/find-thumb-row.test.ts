@@ -152,7 +152,9 @@ test('T4 · glass: the row has no background; the field is frosted; Add keeps it
   // Add: terracotta, filled, at every width — and NOT the fit pass's "main",
   // so on a phone it drops its word with the rest of the row (the ＋ circle).
   // Filled through the ONE source's `filled` option (2026-10-12) — never a `!bg-…` override on the page.
-  assert.match(ROW, /<ActionButton tone="brand" filled icon=\{Plus\} label="Add your own" onClick=\{onAdd\} \/>/);
+  // With a name typed in the box the word is simply "Add" (the 2026-10-10 prototype: the typed name rides
+  // into the walk); still brand, still filled.
+  assert.match(ROW, /<ActionButton tone="brand" filled icon=\{Plus\} label=\{text\.trim\(\) \? 'Add' : 'Add your own'\} onClick=\{onAdd\} \/>/);
   assert.doesNotMatch(ROW, /!bg-/);
   assert.doesNotMatch(ROW, /\bmain\b(?!\s*verb)/, 'a `main` button never drops its word — the row would not fit a phone');
 });
@@ -174,12 +176,19 @@ test('T5 · Expand all opens every category; a header tap then folds just that o
 /* ── T6 · add your own ───────────────────────────────────────────────────── */
 
 test('T6 · Add opens the form for the ONE open category — otherwise it asks which, first', () => {
-  const add = BENCH.slice(BENCH.indexOf('function addYourOwn()'), BENCH.indexOf('function openPlan('));
+  const add = BENCH.slice(BENCH.indexOf("function addYourOwn(typed = '')"), BENCH.indexOf('function openPlan('));
+  assert.ok(add.length > 0, 'addYourOwn moved — re-anchor');
   // The pinned category first; else the one open category.
   assert.match(add, /const open = scopeRow \?\? \(!openAll && !searching && openTile \? benchRows\.find\(\(r\) => r\.t\.tile === openTile\) : null\);/);
-  assert.match(add, /if \(open\) setManual\(\{ category: open\.t\.category, label: open\.t\.label \}\);\s*else setAddAsk\(true\);/);
-  // The shipped form — never a second one.
+  // …carrying the name typed in the box (2026-10-10).
+  assert.match(
+    add,
+    /if \(open\) setManual\(\{ category: open\.t\.category, label: open\.t\.label, name: typedForAdd\.current \}\);\s*else setAddAsk\(true\);/,
+  );
+  // The shipped form — never a second one: the record (edit) and the pre-replan
+  // first add. The one-screen first add is the four-step walk, mounted once.
   assert.equal((BENCH.match(/<NewManualVendorModal\b/g) ?? []).length, 2, 'a third manual-supplier form');
+  assert.equal((BENCH.match(/<AddYourOwnWalk\b/g) ?? []).length, 1, 'the walk must be mounted exactly once');
 });
 
 test('T6 · the question is ONE dropdown of only the categories on the event', () => {
@@ -188,11 +197,14 @@ test('T6 · the question is ONE dropdown of only the categories on the event', (
     BENCH,
     /const benchRows = folders\.flatMap\(\(f\) =>\s*f\.tiles\.filter\(\(t\) => !inPlanTiles \|\| inPlanTiles\.has\(t\.tile\)\)\.map\(\(t\) => \(\{ t, group: f\.label \}\)\),\s*\);/,
   );
-  const ask = BENCH.slice(BENCH.indexOf('{addAsk &&'), BENCH.indexOf('{manual ? ('));
+  const ask = BENCH.slice(BENCH.indexOf('{addAsk &&'), BENCH.indexOf('{manual && replan ? ('));
   assert.ok(ask.length > 0, 'the ask moved — re-anchor');
   assert.equal((ask.match(/<PickMenu\b/g) ?? []).length, 1, 'more than one control asks the category');
   assert.match(ask, /options=\{benchRows\.map\(\(\{ t, group \}\) => \(\{ key: t\.tile, label: t\.label, group \}\)\)\}/);
-  assert.match(ask, /setAddAsk\(false\);\s*if \(row\) setManual\(\{ category: row\.t\.category, label: row\.t\.label \}\);/);
+  assert.match(
+    ask,
+    /setAddAsk\(false\);\s*if \(row\) setManual\(\{ category: row\.t\.category, label: row\.t\.label, name: typedForAdd\.current \}\);/,
+  );
   // A sheet must escape the page's transform.
   assert.match(ask, /createPortal\(\s*<Sheet open onClose=\{\(\) => setAddAsk\(false\)\}[\s\S]*document\.body,\s*\)/);
   assert.doesNotMatch(ask, /<select\b|role="radio"/);

@@ -2,6 +2,7 @@ import 'server-only';
 import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { escapeLikeQuery } from './people-search-query';
+import { inviterFirstNames } from './claim-invite-words';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,7 +50,20 @@ export type VendorInviteRow = {
   claimed_at: string | null;
   declined_at: string | null;
   revoked_at: string | null;
+  /** The first time the claim page was drawn while the link was pending
+   *  (migration 20271267252894). NULL = never opened. Optional: rows built in
+   *  code before the column existed carry no value. */
+  first_opened_at?: string | null;
 };
+
+/**
+ * A link a COUPLE made — by email (`couple`) or to share by hand
+ * (`auto_share_link`). Both hang off an `event_vendors` row, so both can say
+ * who invited the supplier and for which date. An `admin` invite has neither.
+ */
+export function isCoupleMadeInvite(source: VendorInviteSource): boolean {
+  return source === 'couple' || source === 'auto_share_link';
+}
 
 /** The pill variant rendered on the couple-side vendor row. */
 export type VendorPillVariant =
@@ -110,7 +124,7 @@ export async function fetchLatestInvitesByVendorIds(
   const { data, error } = await supabase
     .from('vendor_invites')
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
     )
     .in('vendor_id', vendorIds)
     .order('sent_at', { ascending: false });
@@ -175,11 +189,17 @@ export type ClaimLandingData = {
     contact_email: string | null;
     contact_phone: string | null;
     category: string;
+    /** Who the couple said they talk to (`event_manual_vendors.contact_person`)
+     *  — the supplier's own name, as the couple typed it. Null when not given. */
+    contact_person: string | null;
   } | null;
   /** Couple-source invites only. NULL for admin-source rows. */
   event: {
     event_id: string;
     event_date: string | null;
+    /** `events.event_date_precision` — a vague date is shown as vague. */
+    event_date_precision: string | null;
+    /** The inviters' first names (owner 2026-10-10), or the neutral fallback. */
     couple_display_name: string;
   } | null;
   /** When the invited email already runs a Setnayan vendor account. */
@@ -205,7 +225,7 @@ export async function fetchClaimLandingByToken(
   const { data: invite, error: invErr } = await admin
     .from('vendor_invites')
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
     )
     .eq('claim_token', token)
     .maybeSingle();
@@ -226,35 +246,87 @@ export async function fetchClaimLandingByToken(
     resolvedInvite = { ...inviteRow, status: 'expired' };
   }
 
+  // 2b. FIRST OPENED (owner 2026-10-10: the couple IS told when the supplier
+  // never opens the link). Stamped once, while the link is still pending, on
+  // the same service-role path as the sweep above. Best-effort: a failed stamp
+  // never stops the page — the couple's row then keeps saying "not opened yet",
+  // which is the safe side of wrong.
+  if (resolvedInvite.status === 'pending' && !resolvedInvite.first_opened_at) {
+    const openedAt = new Date().toISOString();
+    const { error: openErr } = await admin
+      .from('vendor_invites')
+      .update({ first_opened_at: openedAt })
+      .eq('invite_id', resolvedInvite.invite_id)
+      .is('first_opened_at', null);
+    if (openErr) console.warn('[claim] first_opened_at not stamped:', openErr.message);
+    else resolvedInvite = { ...resolvedInvite, first_opened_at: openedAt };
+  }
+
   // 2026-05-21 — admin-source invites skip the parent + event lookups
   // entirely. They were never tied to an event_vendors row; the claim page
   // renders a simpler "Setnayan invited you" surface.
   let parent: NonNullable<ClaimLandingData['parentVendor']> | null = null;
   let event: NonNullable<ClaimLandingData['event']> | null = null;
-  if (resolvedInvite.source === 'couple' && resolvedInvite.vendor_id) {
+  // 🔑 A COUPLE'S OWN LINK CARRIES THE COUPLE AND THE DATE (owner 2026-10-10).
+  // This read ran for `source === 'couple'` alone, so the link a couple shares
+  // from "Add your own" (`auto_share_link` — the only kind the Suppliers page
+  // makes) opened with no inviter and no date: the page said "Setnayan" and
+  // "their upcoming event". Both couple-made sources have a parent row, so both
+  // load it; an admin invite still has neither.
+  if (isCoupleMadeInvite(resolvedInvite.source) && resolvedInvite.vendor_id) {
     // 3. Parent event_vendors row.
     const { data: parentRow, error: parentErr } = await admin
       .from('event_vendors')
-      .select('vendor_id,event_id,vendor_name,contact_email,contact_phone,category')
+      .select('vendor_id,event_id,vendor_name,contact_email,contact_phone,category,manual_vendor_id')
       .eq('vendor_id', resolvedInvite.vendor_id)
       .maybeSingle();
     if (parentErr) throw new Error(`fetchClaimLandingByToken parent: ${parentErr.message}`);
     if (!parentRow) return null;
-    parent = parentRow as NonNullable<ClaimLandingData['parentVendor']>;
+    // "Who they talk to" — the supplier's own name as the couple typed it. A
+    // missing or unreadable contact card is simply not shown.
+    let contactPerson: string | null = null;
+    const manualVendorId = (parentRow as { manual_vendor_id?: string | null }).manual_vendor_id ?? null;
+    if (manualVendorId) {
+      const { data: card } = await admin
+        .from('event_manual_vendors')
+        .select('contact_person')
+        .eq('manual_vendor_id', manualVendorId)
+        .maybeSingle();
+      contactPerson = ((card?.contact_person as string | null) ?? '').trim() || null;
+    }
+    parent = {
+      vendor_id: parentRow.vendor_id as string,
+      event_id: parentRow.event_id as string,
+      vendor_name: parentRow.vendor_name as string,
+      contact_email: (parentRow.contact_email as string | null) ?? null,
+      contact_phone: (parentRow.contact_phone as string | null) ?? null,
+      category: parentRow.category as string,
+      contact_person: contactPerson,
+    };
 
     // 4. Event + display name (couple's chosen public-facing event name).
     const { data: ev, error: evErr } = await admin
       .from('events')
-      .select('event_id,event_date,display_name')
+      .select('event_id,event_date,event_date_precision,display_name,bride_name,groom_name')
       .eq('event_id', parent.event_id)
       .maybeSingle();
     if (evErr) throw new Error(`fetchClaimLandingByToken event: ${evErr.message}`);
-    const evRow = ev ?? { event_id: parent.event_id, event_date: null, display_name: '' };
     event = {
-      event_id: evRow.event_id as string,
-      event_date: (evRow.event_date as string | null) ?? null,
+      event_id: parent.event_id,
+      event_date: (ev?.event_date as string | null) ?? null,
+      event_date_precision: (ev?.event_date_precision as string | null) ?? null,
+      // FIRST names only — the page's own names, else the first word of each
+      // stored name (`inviterFirstNames`); never a surname.
       couple_display_name:
-        ((evRow.display_name as string | null) ?? '').trim() || 'A Setnayan couple',
+        inviterFirstNames(
+          ev
+            ? {
+                display_name: (ev.display_name as string | null) ?? null,
+                bride_name: (ev.bride_name as string | null) ?? null,
+                groom_name: (ev.groom_name as string | null) ?? null,
+              }
+            : null,
+        ) ?? 'A Setnayan couple',
     };
   }
 
@@ -344,7 +416,7 @@ export async function ensureAutoShareInvite(
   const { data: existing, error: readErr } = await supabase
     .from('vendor_invites')
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
     )
     .eq('vendor_id', args.eventVendorId)
     .eq('source', 'auto_share_link')
@@ -379,7 +451,7 @@ export async function ensureAutoShareInvite(
       expires_at: computeAutoShareExpiresAt(),
     })
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
     )
     .single();
 
@@ -390,7 +462,7 @@ export async function ensureAutoShareInvite(
       const { data: raced } = await supabase
         .from('vendor_invites')
         .select(
-          'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+          'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
         )
         .eq('vendor_id', args.eventVendorId)
         .eq('source', 'auto_share_link')
@@ -421,7 +493,7 @@ export async function fetchActiveAutoShareInvite(
   const { data } = await supabase
     .from('vendor_invites')
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at,first_opened_at',
     )
     .eq('vendor_id', eventVendorId)
     .eq('source', 'auto_share_link')

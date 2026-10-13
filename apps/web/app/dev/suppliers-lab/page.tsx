@@ -17,6 +17,8 @@
  *   &slow=1             …or takes 2.5 s, to read the line it shows meanwhile
  *   &empty=1            a new event: no suppliers yet
  *   &writefail=1        Save / Remove on a card are refused (they answer in place)
+ *   &added=1            "Add your own": the row the walk leaves under Catering
+ *   &links=fail         …and the claim-link read fails (the rows must say so)
  *
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
  * behind that flag, and a client bundle reads it at build time.
@@ -29,7 +31,17 @@ import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { popularTilesFor } from '@/lib/supplier-find';
 import { SuppliersLabStage } from './lab-stage';
 import { LabBench } from './lab-bench';
-import { LAB_CARDS, LAB_ENRICHMENT, LAB_EVENT, LAB_ROWS, LAB_STANDINGS } from './fixtures';
+import { renderUrlQrSvg } from '@/lib/qr';
+import {
+  LAB_ADDED_ROW,
+  LAB_CARDS,
+  LAB_CLAIM_URL,
+  LAB_ENRICHMENT,
+  LAB_EVENT,
+  LAB_ROWS,
+  LAB_STANDINGS,
+  labInviteStatuses,
+} from './fixtures';
 
 export default async function SuppliersLabPage({
   searchParams,
@@ -40,7 +52,8 @@ export default async function SuppliersLabPage({
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : null);
   const empty = one('empty') === '1';
-  const rows = empty ? [] : LAB_ROWS;
+  const rows = empty ? [] : one('added') === '1' ? [...LAB_ROWS, LAB_ADDED_ROW] : LAB_ROWS;
+  const claimQrSvg = await renderUrlQrSvg(LAB_CLAIM_URL);
 
   const folders = buildShortlistFolders({
     vendorRows: rows,
@@ -66,6 +79,8 @@ export default async function SuppliersLabPage({
       starterTiles={[...popularTilesFor('wedding')]}
       serviceCardByVendorId={LAB_CARDS}
       payHrefByVendorId={{ 'v-seda': `/dev/suppliers-lab?open=reception` }}
+      inviteStatusByVendorId={one('links') === 'fail' ? null : labInviteStatuses(Date.now())}
+      claimQrSvg={claimQrSvg}
       unread={{ pairs: [['t-lola', 2]], measured: true }}
     />
   );

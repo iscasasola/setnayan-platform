@@ -746,7 +746,10 @@ export async function commitOnboardingWedding(
       category: v.category,
       vendor_name: v.name || (v.category === 'venue' ? 'Reception venue' : 'Ceremony venue'),
       status: 'considering' as const,
-      source: 'host_manual' as const,
+      // A venue picked from Setnayan's own list during onboarding — Setnayan
+      // showed it (booking-fee audit B7, owner 2026-10-12). Not 'host_manual':
+      // that word is for a supplier the couple typed in.
+      source: 'host_marketplace_search' as const,
     }));
   if (shortlistRows.length > 0) {
     // Best-effort: the event + membership are already committed, so a shortlist

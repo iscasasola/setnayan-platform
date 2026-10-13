@@ -45,6 +45,9 @@ import { withholdCardNames, type BenchServiceCard } from '@/lib/bench-service-ca
 import { searchCategoryVendors, type CategoryVendorResult } from './category-search';
 import { readSupplierSheet } from '@/lib/supplier-sheet-read';
 import type { SupplierSheetData } from '@/lib/supplier-sheet';
+import { after } from 'next/server';
+import { recordVendorProfileView } from '@/lib/record-vendor-view';
+import { FIND_SHEET_VIEW_SOURCE } from '@/lib/booking-fee-gate';
 
 export type InlineMoreRowResult = {
   results: CategoryVendorResult[];
@@ -116,6 +119,19 @@ export async function fetchInlineMoreRow(input: {
         userId: user.id,
         tile: String(input.tile ?? '') || null,
       });
+      // A SUPPLIER OPENED IN FIND IS A SHOP SETNAYAN SHOWED THIS COUPLE (owner
+      // 2026-10-12, "fix the problems"): one profile view for THIS event, with
+      // Find's source, recorded AFTER the answer is sent (never on the request's
+      // path, never a second request). Only for an event this signed-in person
+      // can read — the read is the membership check, under their own RLS.
+      if (sheet) {
+        const { data: ownEvent } = await supabase.from('events').select('event_id').eq('event_id', eventId).maybeSingle();
+        if (ownEvent) {
+          after(() =>
+            recordVendorProfileView({ vendorProfileId: sheetFor, eventId, source: FIND_SHEET_VIEW_SOURCE }),
+          );
+        }
+      }
       return { ...EMPTY, sheet };
     } catch (err) {
       console.error('[inline-more-row] the supplier sheet read threw', err);

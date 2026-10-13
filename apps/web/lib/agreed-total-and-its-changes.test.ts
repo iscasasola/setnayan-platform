@@ -762,7 +762,11 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   'app/dashboard/[eventId]/vendors/actions.ts': {
     what: 'lock — the downpayment amount',
     needles: [[AGREED_NOW, 1], [EMBED, 1], [/const totalCostPhp = agreedTotalNow\(/, 1]],
-    column: 16,
+    // 17 since 2026-10-12: `updateSelfAddedSupplier` reads the record sheet's typed
+    // `total_cost_php` FORM FIELD for the fee-leak price check — a price the couple
+    // just typed, never a stored agreed total, so it is not one to route through
+    // agreedTotalNow.
+    column: 17,
   },
   'lib/booking-payment-plan.server.ts': {
     what: 'the payment plan amounts — frozen at the direct lock and at the supplier’s yes',

@@ -128,3 +128,93 @@ export function decideFeeGate(charge: OpenChargeResult | null): FeeGateResult {
     amountCentavos: charge.amount_charged_centavos,
   };
 }
+
+/**
+ * WHO SHOWED THE COUPLE THIS SHOP — THE THREE RECORDED FACTS (owner "APPROVE
+ * ALL", DECISION_LOG 2026-10-12, answer 8; booking-fee audit build list items 9
+ * and 10; "Add your own" = rule B, 2026-10-10).
+ *
+ * "Setnayan showed them first" = only facts recorded BEFORE the booking (for a
+ * couple's hand-typed record: before the record was made):
+ *   · a chat started from Setnayan — a thread whose `inquiry_source` is a
+ *     sourced surface (the rule every booking always had);
+ *   · a save from Find — an `event_vendors` row for this shop on this event
+ *     stamped `host_marketplace_search` / `auto_cascade_from_finalize` (the row
+ *     itself, or an earlier one when the booking is a hand-typed record);
+ *   · a profile view for this event FROM A SETNAYAN SURFACE — a
+ *     `vendor_profile_views(event_id, shop)` row before that moment whose
+ *     `source` is a sourced surface (Explore, search / Find, the shortlist …).
+ *     A view through the supplier's OWN link never counts (owner 2026-10-12).
+ * Never sourced, whatever else is true: a row the SUPPLIER brought (their
+ * invite, their Locked QR, a reused booking) — they brought the couple.
+ * A hand-typed record counts only when it is tied to THIS shop: the shop
+ * claimed the couple's link, or the server stamped a match
+ * (`event_manual_vendors.leak_match_vendor_profile_id`). "Not them?" cancels
+ * only the NAME match (answer 8) — it is never stamped; the facts above stand.
+ *
+ * ⚠ THE APP'S BELIEF, NOT THE BILL. SQL decides what is charged:
+ * `public.booking_fee_attribution_for` carries the same arms, and
+ * `tests/db/add-your-own-fee-rule.db.test.ts` runs every case of
+ * `lib/fee-rule-b-cases.ts` through both and requires the same answer.
+ * Fails SAFE to import.
+ */
+export const SETNAYAN_SAVE_SOURCES: ReadonlySet<string> = new Set(['host_marketplace_search', 'auto_cascade_from_finalize']);
+export const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept']);
+
+export type BookingAttributionFacts = {
+  /** `inquiry_source` of every thread this event has with the shop. */
+  threadSources: ReadonlyArray<string | null>;
+  /** `event_vendors.source` of the booking row. */
+  rowSource: string | null;
+  /** The booking row is a couple's hand-typed record (`manual_vendor_id` set). */
+  rowIsManualRecord: boolean;
+  /** A hand-typed record: claimed by this shop, or matched to it. A marketplace row: always true. */
+  recordTiedToShop: boolean;
+  /** `source` of every OTHER marketplace row for this shop on this event made before the booking moment. */
+  savesBefore: ReadonlyArray<string | null>;
+  /** `source` of every profile view of this shop for this event before the booking moment. Only a view from a
+   *  Setnayan surface counts — one through the supplier's own link (`profile_direct`, `website`, none) never does. */
+  viewSourcesBefore: ReadonlyArray<string | null>;
+};
+
+export function bookingFeeAttributionFromFacts(f: BookingAttributionFacts): BookingFeeAttribution {
+  if (f.threadSources.some((s) => bookingFeeAttribution(s) === 'sourced')) return 'sourced';
+  if (f.rowSource && SUPPLIER_BROUGHT_SOURCES.has(f.rowSource)) return 'import';
+  if (!f.recordTiedToShop) return 'import';
+  // Judged by the row's SOURCE: a Find save that a claimed record merged onto (it now carries the record's
+  // manual_vendor_id too) is still a save from Find.
+  if (f.rowSource && SETNAYAN_SAVE_SOURCES.has(f.rowSource)) return 'sourced';
+  if (f.savesBefore.some((s) => s != null && SETNAYAN_SAVE_SOURCES.has(s))) return 'sourced';
+  if (f.viewSourcesBefore.some((s) => bookingFeeAttribution(s) === 'sourced')) return 'sourced';
+  return 'import';
+}
+
+/**
+ * THE OWNER'S PRICE CHECK (2026-10-10, answer 2): "10% allowance +-. so if
+ * 100,000 that is between 90-110k". `tolerance` is the FRACTION stored in
+ * `platform_settings.fee_leak_price_tolerance` (0.10). Inclusive at both ends:
+ * ₱90,000 and ₱110,000 are both "the same price" as a ₱100,000 quote. A missing
+ * or non-positive figure on either side is never a match.
+ */
+export function priceWithinTolerance(typedPhp: number | null, quotePhp: number | null, tolerance: number): boolean {
+  if (typedPhp == null || quotePhp == null) return false;
+  if (!Number.isFinite(typedPhp) || !Number.isFinite(quotePhp) || typedPhp <= 0 || quotePhp <= 0) return false;
+  if (!Number.isFinite(tolerance) || tolerance < 0) return false;
+  // Compared in centavos so 0.1 × 100,000 is exactly 10,000 (no float edge at the boundary).
+  const typed = Math.round(typedPhp * 100);
+  const quote = Math.round(quotePhp * 100);
+  const allowance = Math.round(quote * tolerance);
+  return Math.abs(typed - quote) <= allowance;
+}
+
+/** The default the migration writes — used only when the setting cannot be read (fail to the owner's number). */
+export const FEE_LEAK_PRICE_TOLERANCE_DEFAULT = 0.1;
+
+/**
+ * The `vendor_profile_views.source` a supplier opened in Find's sheet (on the
+ * couple's Suppliers page) is recorded with. Find IS Setnayan's search for this
+ * event, so it is the sourced `search` surface — the most common way a couple
+ * sees a shop (owner 2026-10-12, "fix the problems"). Written by
+ * `fetchInlineMoreRow`'s sheet branch; read by fee rule B.
+ */
+export const FIND_SHEET_VIEW_SOURCE = 'search';

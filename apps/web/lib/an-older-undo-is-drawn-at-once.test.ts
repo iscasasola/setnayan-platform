@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { createUndoJournal, stampOf, type DrawnUndo, type UndoStep } from './maker-drawn-undo';
-import { hubDraftStamp, hubDraftUndoMatched } from './hub-draft-stamp';
+import { canonicalJson, hubDraftStamp, hubDraftUndoMatched } from './hub-draft-stamp';
 import { emptyHubDraft, mergeHubDraft, sanitizeHubDraft, undoHubDraft, type HubDraft } from './hub-draft';
 import type { HubSectionCanvas } from './hub-canvas';
 
@@ -130,6 +130,7 @@ function shuffled(v: unknown): unknown {
 }
 
 test('G2 one stamp per STATE: the written draft and the one read back with its keys shuffled agree; history is not in it', () => {
+  assert.equal(canonicalJson({ b: 1, a: { d: [1, { y: 1, x: 2 }], c: undefined } }), canonicalJson({ a: { d: [1, { x: 2, y: 1 }] }, b: 1 }), 'keys sorted at every level, undefined dropped');
   assert.equal(hubDraftStamp(S1), hubDraftStamp(sanitizeHubDraft(shuffled(JSON.parse(JSON.stringify(S1))))));
   assert.notEqual(hubDraftStamp(S1), hubDraftStamp(S2));
   assert.equal(hubDraftStamp(S1), hubDraftStamp({ ...S1, history: [] }), 'its Undo history is not part of its name');
@@ -356,6 +357,10 @@ test('the work area notes EVERY drawn scene step by value — no single "last dr
   assert.match(shell, /const undoDrawn = \(d: SceneUndoData\)/);
   assert.match(shell, /const noteSceneStep = \(d: SceneUndoData, saved: Promise<unknown>\) => noteUndoStep\(/);
   assert.equal((shell.match(/noteSceneStep\(/g) ?? []).length, 3, 'its three callers: eye · move · ＋');
+  /* …each noting EVERY held step of its kind, at its press, beside the save it takes back. */
+  assert.match(shell, /if \(held\) noteSceneStep\(\{ kind: 'remove', id: scene\.id, stage, key: `w:\$\{scene\.type\}`, label: scene\.label \}, saved\);/);
+  assert.match(shell, /if \(held !== null && mover\) noteSceneStep\(\{ kind: 'move', id, stage,/);
+  assert.match(shell, /if \(held !== null\) noteSceneStep\(added, addSaved\);/);
   const drag = read('app/dashboard/[eventId]/launch/_components/scene-drag.tsx');
   assert.match(drag, /setSceneUndrawer\(\(data\) =>/, 'the drag lends the page its drawer');
   assert.doesNotMatch(drag, /claimDrawnUndo|withdrawDrawnUndo/);

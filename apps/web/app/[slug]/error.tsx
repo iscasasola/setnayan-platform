@@ -115,33 +115,21 @@ export default function InvitationError({ error, reset }: Props) {
         <p className="mb-6 font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
           Setnayan
         </p>
-        {opening ? (
-          <>
-            {/* No alarm while it is still trying: a stall is usually over in seconds. */}
-            <h1 className="mb-5 font-display text-3xl italic leading-tight text-ink sm:text-4xl">
-              Still opening your invitation&hellip;
-            </h1>
-            <p
-              role="status"
-              aria-live="polite"
-              className="mx-auto mb-9 max-w-sm font-sans text-base leading-relaxed text-ink/70"
-            >
-              This is taking a little longer than usual. One moment.
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="mb-5 font-display text-3xl italic leading-tight text-ink sm:text-4xl">
-              This invitation didn&rsquo;t load.
-            </h1>
-            {/* The one thing worth saying: it is not their link. That is precisely
-                what the page used to tell them by mistake. */}
-            <p className="mx-auto mb-9 max-w-sm font-sans text-base leading-relaxed text-ink/70">
-              Your link is fine — something on our end is having trouble. Give it a
-              moment and try again.
-            </p>
-          </>
-        )}
+        {/* No alarm while it is still trying: a stall is usually over in seconds. */}
+        <h1 className="mb-5 font-display text-3xl italic leading-tight text-ink sm:text-4xl">
+          {opening ? <>Still opening your invitation&hellip;</> : <>This invitation didn&rsquo;t load.</>}
+        </h1>
+        {/* The one thing worth saying when it failed: it is not their link. That
+            is precisely what the page used to tell them by mistake. */}
+        <p
+          role="status"
+          aria-live="polite"
+          className="mx-auto mb-9 max-w-sm font-sans text-base leading-relaxed text-ink/70"
+        >
+          {opening
+            ? 'This is taking a little longer than usual. One moment.'
+            : 'Your link is fine — something on our end is having trouble. Give it a moment and try again.'}
+        </p>
         <button
           type="button"
           onClick={openAgain}

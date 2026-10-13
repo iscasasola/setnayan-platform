@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { MAX_REMEMBERED, RECORD_WINDOW_MS, cspReportKey, shouldRecordCspReport } from './csp-report-once';
 import { stripComments } from './strip-comments';
 
-const block = { directive: 'font-src', blockedOrigin: 'https://fonts.gstatic.com', path: '/:slug' };
+const block = { directive: 'font-src', blockedOrigin: 'https://cdn.example.net', path: '/:slug' };
 
 test('1 · a burst of 50 identical reports is one write', () => {
   const seen = new Map<string, number>();

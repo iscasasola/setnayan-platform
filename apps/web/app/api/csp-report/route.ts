@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { cspViolationSummary } from '@/lib/csp-report';
+import { cspReportKey, shouldRecordCspReport } from '@/lib/csp-report-once';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
@@ -41,6 +42,14 @@ const MAX_BYTES = 8 * 1024;
 
 const noContent = () => new NextResponse(null, { status: 204 });
 
+/**
+ * The blocks this server has written lately — ONE write per block per window,
+ * not one per report (`lib/csp-report-once.ts`). A page view sends ~50 identical
+ * reports at once; they used to be ~50 database writes holding the free
+ * database's connection slots while guests' pages waited.
+ */
+const recentlyRecorded = new Map<string, number>();
+
 export async function POST(req: NextRequest) {
   try {
     const ip =
@@ -54,6 +63,8 @@ export async function POST(req: NextRequest) {
 
     const summary = cspViolationSummary(raw);
     if (!summary) return noContent();
+    // Already written by this server in the last few minutes — nothing new to say.
+    if (!shouldRecordCspReport(recentlyRecorded, cspReportKey(summary), Date.now())) return noContent();
 
     // ── WHERE THE REPORT ACTUALLY LANDS (2026-08-17) ────────────────────────
     // This used to be a lone `console.warn`, under a comment claiming "Sentry

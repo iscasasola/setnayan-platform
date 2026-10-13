@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6677
+# facts: 6678
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     571
-#   col       4886
+#   col       4887
 #   policy    949
 #   view      8
 #   func      259
@@ -3590,6 +3590,7 @@ col	public.platform_settings.business_tin	anon=- authenticated=S
 col	public.platform_settings.creator_offer_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.default_vat_rate_pct	anon=- authenticated=S
 col	public.platform_settings.fee_leak_price_tolerance	anon=- authenticated=S
+col	public.platform_settings.fee_review_unsettled_events_min	anon=- authenticated=S
 col	public.platform_settings.fee_unlocks_event_enforced	anon=- authenticated=S
 col	public.platform_settings.firstlook_boost_weight	anon=- authenticated=S
 col	public.platform_settings.firstlook_sla_hours	anon=- authenticated=S

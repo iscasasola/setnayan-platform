@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "71c7225c6",
+  "generatedFromRef": "981ed8a46",
   "routeCount": 437,
   "destinations": 946,
-  "actions": 670,
-  "blocks": 6253,
+  "actions": 671,
+  "blocks": 6255,
   "routes": {
     "/": {
       "files": [
@@ -2364,15 +2364,21 @@
     },
     "/admin/booking-fees": {
       "files": [
-        "admin/booking-fees/page.tsx"
+        "admin/booking-fees/actions.ts",
+        "admin/booking-fees/page.tsx",
+        "admin/booking-fees/review-min-form.tsx"
       ],
       "destinations": [
         "/admin/payments?filter=all&q=[seg]"
       ],
-      "actions": [],
+      "actions": [
+        "formAction"
+      ],
       "blocks": [
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "ReviewMinForm",
+        "ReviewMinState"
       ]
     },
     "/admin/brain": {

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
 import { guestRoleLabel, type GuestRole } from '@/lib/guests';
@@ -116,7 +117,15 @@ export function DressCodeWidget({
   paletteLook = null,
   dosLook = null,
   makerSample = false,
+  mark = null,
 }: {
+  /**
+   * 🧱 WHAT TO WEAR'S OWN LOOK (`lib/block-looks.ts`, block `look`): the block's hidden mark, drawn right BEFORE this
+   * widget's root — and only for the reader's own panel (`'you'` on Welcome, `'wear'` in Me), and only when that
+   * panel is drawn. A reader with nothing personal gets no panel and no mark, so the mark never points at the part
+   * after it. Null (every other caller) draws nothing.
+   */
+  mark?: ReactNode;
   /**
    * 🧾 HOW THE DO'S & DON'TS ARE DRAWN (owner 2026-10-08) — `canvas.dos`, resolved (`dosLookOfRow`). Null /
    * `notes` = the shipped two notes, markup unchanged; the others are `dress-code-dos.tsx`. Every layout and the
@@ -334,6 +343,8 @@ export function DressCodeWidget({
   if (part === 'wear') {
     if (!mine || (mine.styleLabel === null && mine.hexes.length === 0)) return null;
     return (
+      <>
+      {mark}
       <section className="space-y-3" data-me-part="wear">
         <p className="pahina-eyebrow">
           <span>What to wear</span>
@@ -355,6 +366,7 @@ export function DressCodeWidget({
         ) : null}
         {mine.hexes.length > 0 ? <YourColours hexes={mine.hexes} look={look} /> : null}
       </section>
+      </>
     );
   }
 
@@ -450,6 +462,8 @@ export function DressCodeWidget({
   }
 
   return (
+    <>
+    {part === 'you' ? mark : null}
     <section className="space-y-5">
       {part === 'you' ? (
         <p className="pahina-eyebrow">
@@ -658,6 +672,7 @@ export function DressCodeWidget({
         <p className="max-w-prose text-sm font-medium text-ink/75">{genderNote}</p>
       ) : null}
     </section>
+    </>
   );
 }
 

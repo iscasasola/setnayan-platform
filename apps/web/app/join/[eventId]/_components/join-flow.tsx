@@ -393,7 +393,7 @@ function StartOver({ action }: { action: (formData: FormData) => Promise<void> }
       <SubmitButton
         overlay={false}
         pendingLabel="One moment…"
-        className="flex min-h-11 w-full items-center justify-center text-sm text-ink/60 underline underline-offset-4"
+        className="flex min-h-11 w-full items-center justify-center text-sm text-ink/70 underline underline-offset-4"
       >
         Not you? Start over
       </SubmitButton>

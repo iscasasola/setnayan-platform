@@ -48,11 +48,11 @@ export function EventCelebrants({
     <section aria-labelledby="event-celebrants-title" data-event-celebrants>
       <h2
         id="event-celebrants-title"
-        className="mb-1 font-mono text-xs font-medium uppercase tracking-[0.12em] text-ink/55"
+        className="mb-1 font-mono text-xs font-medium uppercase tracking-[0.12em] text-ink/70"
       >
         The celebrants
       </h2>
-      <p className="mb-2 text-xs text-ink/55">
+      <p className="mb-2 text-xs text-ink/70">
         Follow them, or add them to your people — they say yes before you’re connected.
       </p>
       <ul className="flex list-none flex-col divide-y divide-ink/[0.07]">
@@ -114,7 +114,7 @@ function CelebrantItem({
       ) : (
         <span
           aria-hidden
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink/[0.06] text-xs font-semibold text-ink/60"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink/[0.06] text-xs font-semibold text-ink/70"
         >
           {initials || '·'}
         </span>
@@ -125,7 +125,7 @@ function CelebrantItem({
       </span>
       <span className="flex shrink-0 items-center gap-2">
         {following ? (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-ink/55">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-ink/70">
             <Check aria-hidden className="h-3 w-3" strokeWidth={2.2} />
             Following
           </span>

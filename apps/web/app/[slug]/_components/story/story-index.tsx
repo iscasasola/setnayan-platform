@@ -61,7 +61,7 @@ export function StoryIndex({
           <br />
           at once
         </h2>
-        <span className="pb-1 text-right font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
+        <span className="pb-1 text-right font-mono text-xs font-semibold uppercase tracking-[0.14em] text-ink/70">
           Every layer, gathered ·<br />
           each one linked back to its minute
         </span>
@@ -79,7 +79,7 @@ function Panel({ tab, beforeLabel }: { tab: IndexTab; beforeLabel: string }): Re
   return (
     <div>
       {tab.entries.length === 0 ? (
-        <p className="py-4 font-serif text-lg italic text-ink/60">{tab.empty ?? 'Nothing here.'}</p>
+        <p className="py-4 font-serif text-lg italic text-ink/70">{tab.empty ?? 'Nothing here.'}</p>
       ) : tab.key === 'captures' ? (
         <CapturesByHour
           beforeLabel={beforeLabel}
@@ -98,7 +98,7 @@ function Panel({ tab, beforeLabel }: { tab: IndexTab; beforeLabel: string }): Re
                 className="block h-14 rounded-md border border-ink/20"
                 style={{ background: e.label }}
               />
-              <small className="mt-1 block font-mono text-xs uppercase tracking-[0.1em] text-ink/60">
+              <small className="mt-1 block font-mono text-xs uppercase tracking-[0.1em] text-ink/70">
                 {e.stamp}
               </small>
             </li>
@@ -111,11 +111,11 @@ function Panel({ tab, beforeLabel }: { tab: IndexTab; beforeLabel: string }): Re
               <b className="block font-condensed text-3xl font-extrabold leading-none tabular-nums">
                 {e.stamp}
               </b>
-              <span className="mt-1.5 block font-mono text-xs font-semibold uppercase tracking-[0.12em] text-ink/60">
+              <span className="mt-1.5 block font-mono text-xs font-semibold uppercase tracking-[0.12em] text-ink/70">
                 {e.label}
               </span>
               {e.note ? (
-                <em className="mt-1 block text-xs not-italic text-ink/60">{e.note}</em>
+                <em className="mt-1 block text-xs not-italic text-ink/70">{e.note}</em>
               ) : null}
             </li>
           ))}
@@ -140,7 +140,7 @@ function Panel({ tab, beforeLabel }: { tab: IndexTab; beforeLabel: string }): Re
       )}
 
       {tab.note ? (
-        <p className="mt-3 max-w-[62ch] text-[12.5px] leading-snug text-ink/60">{tab.note}</p>
+        <p className="mt-3 max-w-[62ch] text-[12.5px] leading-snug text-ink/70">{tab.note}</p>
       ) : null}
     </div>
   );
@@ -182,7 +182,7 @@ function Row({
       <span className="min-w-0">
         <span className="block text-[15px] leading-snug">{entry.label}</span>
         {entry.note ? (
-          <small className="mt-0.5 block font-mono text-xs uppercase tracking-[0.1em] text-ink/60">
+          <small className="mt-0.5 block font-mono text-xs uppercase tracking-[0.1em] text-ink/70">
             {entry.note}
           </small>
         ) : null}

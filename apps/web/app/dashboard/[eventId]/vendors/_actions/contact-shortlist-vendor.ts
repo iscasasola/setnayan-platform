@@ -18,6 +18,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { sendChatMessageCore } from '@/lib/chat-send';
+import { NUDGE_MESSAGE } from '@/lib/supplier-card-verbs';
 import {
   startServiceInquiry,
   type StartServiceInquiryResult,
@@ -28,7 +30,9 @@ export type ContactShortlistVendorResult =
   /** The shortlisted vendor is off-platform / manually added — no marketplace
    *  profile to open a thread against. The caller only shows the affordance for
    *  marketplace-connected picks, so this is a belt-and-suspenders guard. */
-  | { status: 'not_marketplace' };
+  | { status: 'not_marketplace' }
+  /** The follow-up was posted in the existing conversation (`nudgeThreadId`). */
+  | { status: 'nudged' };
 
 /**
  * Anchor an inquiry on a concrete ACTIVE service for a marketplace vendor:
@@ -72,6 +76,16 @@ export async function contactShortlistVendor(input: {
   eventId: string;
   /** event_vendors.vendor_id — the couple's shortlist row for this vendor. */
   vendorId: string;
+  /**
+   * NUDGE (owner 2026-10-07, the Suppliers card's "Nudge"): the couple has
+   * already asked this supplier — post the one follow-up line in THAT
+   * conversation instead of starting an inquiry. It rides this action rather
+   * than a new export (the route ceiling), and it goes through
+   * `sendChatMessageCore`, so every rule a typed message obeys holds here too:
+   * before the supplier accepts, the couple gets the inquiry plus ONE
+   * follow-up, and a second nudge is refused in the core's own words.
+   */
+  nudgeThreadId?: string;
 }): Promise<ContactShortlistVendorResult> {
   const eventId = String(input.eventId ?? '').trim();
   const vendorId = String(input.vendorId ?? '').trim();
@@ -89,6 +103,22 @@ export async function contactShortlistVendor(input: {
   // call (only a row the couple can read passes) AND yields the marketplace
   // vendor + the service they were considering. A row the user can't read (not
   // their event) simply resolves to null → not_marketplace, never a leak.
+  const nudgeThreadId = String(input.nudgeThreadId ?? '').trim();
+  if (nudgeThreadId) {
+    // The conversation must be THIS event's — RLS scopes the read to threads
+    // the caller belongs to, and the core re-checks membership before it posts.
+    const { data: thread } = await supabase
+      .from('chat_threads')
+      .select('thread_id')
+      .eq('thread_id', nudgeThreadId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!thread) return { status: 'error', message: 'That conversation could not be found.' };
+    const sent = await sendChatMessageCore(supabase, { threadId: nudgeThreadId, body: NUDGE_MESSAGE });
+    // A refusal is the core's own sentence — never reported as sent.
+    return sent.ok ? { status: 'nudged' } : { status: 'error', message: sent.message };
+  }
+
   const { data: row } = await supabase
     .from('event_vendors')
     .select('marketplace_vendor_id, service_id, category')

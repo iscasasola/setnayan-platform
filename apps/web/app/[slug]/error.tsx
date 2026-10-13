@@ -42,7 +42,7 @@ export default function InvitationError({ error, reset }: Props) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-cream px-6 py-16 text-ink">
       <div className="w-full max-w-md text-center">
-        <p className="mb-6 font-mono text-xs uppercase tracking-[0.2em] text-ink/40">
+        <p className="mb-6 font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
           Setnayan
         </p>
         <h1 className="mb-5 font-display text-3xl italic leading-tight text-ink sm:text-4xl">
@@ -65,7 +65,7 @@ export default function InvitationError({ error, reset }: Props) {
           // 12px, not the root boundary's 10px: this screen is read by a guest,
           // often an older one at a venue, and the reference is the thing they
           // would be asked to read out to whoever they call for help.
-          <p className="mt-10 font-mono text-xs uppercase tracking-[0.15em] text-ink/40">
+          <p className="mt-10 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
             Reference: {error.digest}
           </p>
         )}

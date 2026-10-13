@@ -19,6 +19,7 @@ import {
 } from '@/lib/accepted-quote-terms';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
+import { answersInPlace } from '@/lib/answer-in-place';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -594,6 +595,10 @@ export async function deleteVendor(formData: FormData) {
   // confirmed, and the date has not already gone out to guests.
   await releaseForcedDate(supabase, { eventId, vendorId });
 
+  // A card that already took itself off the page (`answer_in_place`) must not
+  // be answered with a whole-page render — see `lib/answer-in-place.ts`; it
+  // pays one refresh later, for every press, when the couple leaves Find.
+  if (answersInPlace(formData)) return;
   // Revalidate both surfaces so an incompatible-pick Remove on the event
   // home (PR B 2026-05-22) clears the chip without a hard refresh, and
   // the vendor tracker stays in sync.

@@ -94,9 +94,21 @@ export const GIFT_RECORD_SELECT =
  * so nothing reads them as the table's whole list.
  *
  *   · the SUM reads three columns and nothing that names a person;
- *   · the GUEST page shows a wish, never who added it or when it changed.
+ *   · the GUEST page shows a wish, never who added it or when it changed;
+ *   · the GIVER read ("I sent it") asks who this guest is — the everyday name
+ *     `guestDisplayName` prints, and whether they are still on the list. It is
+ *     asked once to draw the page and again by the write, so it is written down
+ *     once, here; it never needs a role or the formal parts of a name;
+ *   · the ERASURE sweep asks where a giver's screenshot is kept, and reads
+ *     nothing they wrote.
  */
 export const GIFT_SUM_FIELDS = 'wish_item_id, amount_php, removed_at';
+
+/** `guests` — the giver. See "ONE PURPOSE'S PROJECTIONS" above. */
+export const GIFT_GIVER_FIELDS = 'guest_id, event_id, display_name, first_name, last_name, deleted_at';
+
+/** `event_gift_records` — where a screenshot is kept. See "ONE PURPOSE'S PROJECTIONS" above. */
+export const GIFT_SHOT_FIELDS = 'gift_record_id, event_id, giver_guest_id, screenshot_r2_key';
 
 export const WISH_GUEST_FIELDS =
   'wish_item_id, public_id, name, price_php, photo_r2_key, link_url, note, sort_order, got_at';

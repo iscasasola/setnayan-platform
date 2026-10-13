@@ -295,7 +295,7 @@ export function SelfieCapture({
               type="button"
               onClick={() => setDetails(true)}
               aria-label="Details"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/55"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/70"
             >
               <Info aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </button>
@@ -318,7 +318,7 @@ export function SelfieCapture({
             Take selfie
           </button>
           {agreed ? null : (
-            <p id="face-step-hint" className="mt-2 text-center text-xs text-ink/55">
+            <p id="face-step-hint" className="mt-2 text-center text-xs text-ink/70">
               {FACE_STEP_TICK_HINT}
             </p>
           )}

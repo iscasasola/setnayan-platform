@@ -78,12 +78,12 @@ export function ScheduleOneChapter({ moments, currentIndex, upNextIndex }: BodyP
               className="w-full shrink-0 snap-center px-1 py-8 text-center"
             >
               <p
-                className={`font-sans text-xs uppercase tracking-[0.2em] ${isNow ? 'text-terracotta' : 'text-ink/60'}`}
+                className={`font-sans text-xs uppercase tracking-[0.2em] ${isNow ? 'text-terracotta' : 'text-ink/70'}`}
               >
                 {isNow ? 'Happening now' : isNext ? 'Up next' : `${formatCount(i + 1)} of ${formatCount(moments.length)}`}
               </p>
               <p className="mt-3 font-mono text-base tabular-nums text-gild">{m.timeLabel}</p>
-              <p className="mt-2 font-sans text-xs uppercase tracking-[0.2em] text-ink/60">
+              <p className="mt-2 font-sans text-xs uppercase tracking-[0.2em] text-ink/70">
                 {[m.kindLabel, isNow || isNext ? `${formatCount(i + 1)} of ${formatCount(moments.length)}` : null]
                   .filter(Boolean)
                   .join(' · ')}
@@ -117,7 +117,7 @@ export function ScheduleOneChapter({ moments, currentIndex, upNextIndex }: BodyP
         ))}
       </div>
       {moments.length > 1 ? (
-        <p className="text-center font-sans text-xs uppercase tracking-[0.2em] text-ink/60">
+        <p className="text-center font-sans text-xs uppercase tracking-[0.2em] text-ink/70">
           Swipe for the rest of the day
         </p>
       ) : null}
@@ -191,7 +191,7 @@ export function ScheduleClockFace({
         </svg>
         <div className="absolute inset-[28%] flex flex-col items-center justify-center text-center">
           {centreLine ? <p className="font-pahina text-lg leading-tight text-ink">{centreLine}</p> : null}
-          <p className="mt-1 font-sans text-xs uppercase tracking-[0.14em] text-ink/60">
+          <p className="mt-1 font-sans text-xs uppercase tracking-[0.14em] text-ink/70">
             {moments.length} {moments.length === 1 ? 'moment' : 'moments'}
           </p>
         </div>

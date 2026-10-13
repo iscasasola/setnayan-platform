@@ -110,7 +110,7 @@ export function GuestColumnForm({
 
   if (closed && own === null) {
     return (
-      <p className="rounded-lg border border-ink/10 bg-white/50 p-3 text-center text-sm text-ink/60">
+      <p className="rounded-lg border border-ink/10 bg-white/50 p-3 text-center text-sm text-ink/70">
         Column submissions have closed for this event.
       </p>
     );
@@ -147,7 +147,7 @@ export function GuestColumnForm({
               type="button"
               disabled={pending}
               onClick={withdraw}
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs text-ink/60 hover:bg-ink/5 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/5 disabled:opacity-60"
             >
               {pending ? (
                 <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
@@ -180,7 +180,7 @@ export function GuestColumnForm({
           <div>
             <label htmlFor="gcol-title" className="block text-xs font-medium text-ink/70">
               Title
-              <span className="ml-1.5 font-mono text-xs text-ink/40">
+              <span className="ml-1.5 font-mono text-xs text-ink/70">
                 {title.length}/{formatCount(GUEST_COLUMN_TITLE_MAX)}
               </span>
             </label>
@@ -197,7 +197,7 @@ export function GuestColumnForm({
           <div>
             <label htmlFor="gcol-body" className="block text-xs font-medium text-ink/70">
               Your column
-              <span className="ml-1.5 font-mono text-xs text-ink/40">
+              <span className="ml-1.5 font-mono text-xs text-ink/70">
                 {formatCount(body.length)}/{formatCount(GUEST_COLUMN_BODY_MAX)}
               </span>
             </label>
@@ -212,7 +212,7 @@ export function GuestColumnForm({
             />
           </div>
           {/* RA 10173 consent — required on every submit (the Kwento shape). */}
-          <label className="flex items-start gap-2 text-xs text-ink/60">
+          <label className="flex items-start gap-2 text-xs text-ink/70">
             <input
               type="checkbox"
               checked={consent}
@@ -232,7 +232,7 @@ export function GuestColumnForm({
               that became FALSE the moment the default flipped, and a tickbox that
               promises something the product does not do is the same defect as the
               face-consent copy that offered matching on events where none ran. */}
-          <label className="flex items-start gap-2 text-xs text-ink/60">
+          <label className="flex items-start gap-2 text-xs text-ink/70">
             <input
               type="checkbox"
               checked={nameMe}
@@ -267,7 +267,7 @@ export function GuestColumnForm({
                   setTitle(own?.title ?? '');
                   setBody(own?.body ?? '');
                 }}
-                className="rounded-md px-2.5 py-2 text-xs text-ink/50 hover:text-ink/80"
+                className="rounded-md px-2.5 py-2 text-xs text-ink/70 hover:text-ink/80"
               >
                 Cancel
               </button>
@@ -277,7 +277,7 @@ export function GuestColumnForm({
       ) : null}
 
       {closed && own !== null ? (
-        <p className="mt-3 text-xs text-ink/50">
+        <p className="mt-3 text-xs text-ink/70">
           Column submissions have closed for this event
           {own.status === 'pending' ? ` — your column can still be approved by ${w.theOrganizer}.` : '.'}
         </p>

@@ -38,7 +38,7 @@ export function DayOfBanner({
       aria-label="Post-event mode"
       className="rounded-xl border border-ink/10 bg-cream p-4 sm:p-5"
     >
-      <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/55">
+      <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
         {words.solemn ? 'Thank you for being here' : 'Thank you for celebrating'}
       </p>
       <p className="mt-1 text-sm text-ink/70">

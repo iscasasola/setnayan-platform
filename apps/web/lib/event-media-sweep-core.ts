@@ -34,7 +34,9 @@ import {
   planCleanupDelete,
   type CleanupScope,
   type PlannedDelete,
-  pabuyaQrScope,} from '@/lib/cleanup-delete-scope';
+  pabuyaQrScope,
+  giftShotScope,
+} from '@/lib/cleanup-delete-scope';
 
 /**
  * Every R2 key a papic capture can carry. TEN per row, not one — the original
@@ -124,6 +126,24 @@ const EVENT_JSON_COLUMNS = ['our_photos', 'photo_wall_photos'] as const;
 const EGIFT_KEY_COLUMNS = ['qr_r2_key'] as const;
 
 /**
+ * A wish's photo on the E-Gifts wish list (`event_wish_items`, migration
+ * 20271266228704). The couple's own upload under `events/<event_id>/wish-list/`
+ * in the media bucket; the FK cascade takes the row with the event, so its key
+ * is read before the delete like every other — registered in the SAME change
+ * that first writes one, so "deleted with your event" is true from day one.
+ */
+const WISH_KEY_COLUMNS = ['photo_r2_key'] as const;
+
+/**
+ * A guest's screenshot on a gift record (`event_gift_records`, wish list 4/5).
+ * A picture of the guest's own GCash / bank confirmation, in the private bucket
+ * under `gift-shots/<event_id>/`. The FK cascade takes the record with the
+ * event, so the key is read first — registered in the change that first uploads
+ * one. Removed records are swept too: a soft Remove keeps the row, and its file.
+ */
+const GIFT_SHOT_KEY_COLUMNS = ['screenshot_r2_key'] as const;
+
+/**
  * The four key sets, exported ONLY as one object for the I/O half's selects and
  * the tests. Deliberately NOT exported under a `*_COLUMNS` name: those are
  * lists of keys a DELETE must reach, not a canonical read shape — a gallery
@@ -139,6 +159,8 @@ export const EVENT_MEDIA_KEY_SETS = {
   event: EVENT_KEY_COLUMNS,
   eventJson: EVENT_JSON_COLUMNS,
   egift: EGIFT_KEY_COLUMNS,
+  wish: WISH_KEY_COLUMNS,
+  giftShot: GIFT_SHOT_KEY_COLUMNS,
 } as const;
 
 export type EventMediaRows = {
@@ -150,6 +172,10 @@ export type EventMediaRows = {
   event: Record<string, unknown> | null;
   /** `event_egift_methods` rows for this celebration, each carrying qr_r2_key. */
   egiftMethods: readonly Record<string, unknown>[];
+  /** `event_wish_items` rows for this celebration, each carrying photo_r2_key. Absent = none read. */
+  wishItems?: readonly Record<string, unknown>[];
+  /** `event_gift_records` rows for this celebration (removed ones too), each carrying screenshot_r2_key. */
+  giftRecords?: readonly Record<string, unknown>[];
 };
 
 export type EventMediaPlan = {
@@ -221,6 +247,19 @@ export function planEventMediaDeletes(rows: EventMediaRows): EventMediaPlan {
   const giftScope = pabuyaQrScope(rows.eventId);
   for (const row of rows.egiftMethods) {
     for (const col of EGIFT_KEY_COLUMNS) consider(row[col], giftScope);
+  }
+
+  /* Wish photos — the event's own folder in the media bucket, and nothing wider:
+     a wish row naming another event's file, or a private bucket, is refused. */
+  const wishScope = eventSiteMediaScope(rows.eventId);
+  for (const row of rows.wishItems ?? []) {
+    for (const col of WISH_KEY_COLUMNS) consider(row[col], wishScope);
+  }
+
+  /* Gift-record screenshots — the event's own private folder, nothing wider. */
+  const shotScope = giftShotScope(rows.eventId);
+  for (const row of rows.giftRecords ?? []) {
+    for (const col of GIFT_SHOT_KEY_COLUMNS) consider(row[col], shotScope);
   }
 
   if (rows.event) {

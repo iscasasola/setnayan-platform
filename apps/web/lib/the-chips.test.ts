@@ -67,7 +67,8 @@ test('(1) one look, two states: chosen is the pill selector’s own "on"; not ch
   const { PILL_ON_CLASS } = await import(`../${PILL}`);
   for (const cls of PILL_ON_CLASS.split(' ')) assert.ok(CHIP_ON_CLASS.split(' ').includes(cls), `a chosen chip does not wear the "on" look (${cls})`);
   assert.ok(CHIP_ON_CLASS.split(' ').includes('border-sn-accent'));
-  assert.deepEqual(CHIP_OFF_CLASS.split(' ').sort(), ['bg-white', 'border-ink/15', 'text-ink/55']);
+  // + `dark:bg-cream` (2026-10-12): white stayed white in dark mode; light is unchanged.
+  assert.deepEqual(CHIP_OFF_CLASS.split(' ').sort(), ['bg-white', 'border-ink/15', 'dark:bg-cream', 'text-ink/55']);
   // No third colour anywhere in the file.
   assert.doesNotMatch(read(CHIPS), /(?:bg|text|border|ring)-(?:success|danger|warn|terracotta|gild|emerald|green|red|amber)\b/, 'a chip wears a colour that is neither "on" nor grey');
 });

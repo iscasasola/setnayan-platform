@@ -128,8 +128,11 @@ const RAIL_CONTROLS: ReadonlyArray<{ element: string; anchor: RegExp; count: num
   {
     element: 'Find more / ＋ Add another',
     anchor: /addAnother \? cardAddAnother\(t\.label\) : 'Find more'/,
-    count: 2,
-    why: 'more of this category, opened in place',
+    // 2 → 1 on 2026-10-08, said out loud: the second copy was the one-screen
+    // page's tap-to-open button. That page no longer needs a tap — the list it
+    // opened ("More to compare") is always under the cards. See the test below.
+    count: 1,
+    why: 'more of this category — the pre-replan bench’s doorway',
   },
   {
     element: 'Add manually',
@@ -173,6 +176,21 @@ test('🔑 Find and Add manually still sit beside every carousel', () => {
     (e) => `${e.element}: expected ${e.count}, found ${countOf(e.anchor, src)} — ${e.why}`,
   );
   assert.deepEqual(wrong, [], 'the rail lost a control');
+});
+
+test('🔑 on the one-screen page both rail controls have a permanent home', () => {
+  // The two end tiles are not drawn there (`replan ? null : …`). That is only
+  // honest because each job is still on the screen, without a tap:
+  //   · "Find more"    → the marketplace list, always open under the cards;
+  //   · "Add manually" → "＋ Add your own" in the thumb row, aimed at the
+  //                      category in view, and at the foot of a booked category.
+  assert.match(src, /\{replan && tileOpen && !rowBooked && !coveredGroup \? \(\s*<MoreToCompare/);
+  assert.match(src, /<FindThumbRow[\s\S]{0,300}?onAdd=\{addYourOwn\}/);
+  assert.match(
+    src,
+    /\{replan && rowBooked \? \([\s\S]{0,260}?label="Add your own"[\s\S]{0,120}?setManual\(\{ category: t\.category, label: t\.label \}\)/,
+    'a booked category has no list — it lost its way to add a supplier the couple already knows',
+  );
 });
 
 test('🔑 a BOOKED supplier can still be reached from the bench', () => {

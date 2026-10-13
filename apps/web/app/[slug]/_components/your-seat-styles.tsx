@@ -46,7 +46,7 @@ export function SeatFloorPlan({ plan, tableLabel }: { plan: string; tableLabel: 
         className="overflow-hidden rounded-xl shadow-sm"
         dangerouslySetInnerHTML={{ __html: plan }}
       />
-      <figcaption className="flex items-center justify-between gap-3 text-xs text-ink/60">
+      <figcaption className="flex items-center justify-between gap-3 text-xs text-ink/70">
         <span>{tableLabel} · you</span>
         <span>Pinch to zoom</span>
       </figcaption>
@@ -57,7 +57,7 @@ export function SeatFloorPlan({ plan, tableLabel }: { plan: string; tableLabel: 
 /** "It's on your ticket in Me" — the full ticket lives on Me (owner 2026-10-01, answer 3). */
 export function OnYourTicket() {
   return (
-    <a href={hubTabHref('me')} className="text-sm text-ink/60 underline-offset-4 hover:underline">
+    <a href={hubTabHref('me')} className="text-sm text-ink/70 underline-offset-4 hover:underline">
       It&rsquo;s on your ticket in Me
     </a>
   );
@@ -65,7 +65,7 @@ export function OnYourTicket() {
 
 function Venue({ venueName }: { venueName: string | null }) {
   return venueName ? (
-    <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">
+    <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/70">
       <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
       {venueName}
     </p>
@@ -139,7 +139,7 @@ export function SeatPlaceCard({
         ) : (
           <p aria-hidden className="mb-3 text-gild">✦</p>
         )}
-        <p className="font-sans text-xs uppercase tracking-[0.28em] text-ink/60">Your table</p>
+        <p className="font-sans text-xs uppercase tracking-[0.28em] text-ink/70">Your table</p>
         <p className="mt-1 font-pahina text-4xl font-light leading-tight text-gild">{tableLabel}</p>
         <div className="mt-2">
           <Venue venueName={venueName} />

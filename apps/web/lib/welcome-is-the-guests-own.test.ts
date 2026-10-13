@@ -209,7 +209,10 @@ test('3 · both trees mount the one Welcome section and ask the one rule', () =>
   // 📱 …and a fifth since 2026-10-08 (owner, "EIGHT OWNER ANSWERS" answer 5 — the guest's pages follow the Maker's
   // filing): the guest's own look is Me's (prototype: Me · What to wear), drawn there by the same component.
   assert.equal(BODY.match(/<GuestWelcome\b/g)?.length, 5, 'the guest tree AND the stranger’s tree (the Maker’s canvas), the Invitation and the Day — and the look on Me');
-  assert.match(BODY, /<GuestWelcome partLooks=\{welcomeLooks\} parts=\{welcomeOnMe\} words=\{clientWords\} look=\{guestLook\} reminders=\{null\} giftHref=\{null\} \/>/);
+  /* 🔁 RE-AIMED 2026-10-12 (What to wear's own look, `lib/block-looks.ts`): the mount also hands the block's mark
+     (`lookMark`), which the reader's panel draws only when it draws. The claim — Me mounts the one Welcome section
+     with the guest's own look — is the same. */
+  assert.match(BODY, /<GuestWelcome partLooks=\{welcomeLooks\} parts=\{welcomeOnMe\} words=\{clientWords\} look=\{guestLook\} reminders=\{null\} giftHref=\{null\} lookMark=\{blockMark\('look'\)\} \/>/);
   assert.equal(BODY.match(/const welcome = welcomeParts\(\{/g)?.length, 2);
   // Details draws what Welcome left it, in both trees
   assert.equal(BODY.match(/const detailsScenes = scenesLeftForDetails\(/g)?.length, 2);

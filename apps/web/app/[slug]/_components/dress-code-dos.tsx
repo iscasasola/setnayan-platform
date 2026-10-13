@@ -55,7 +55,7 @@ export function DressCodeDos({ dos, donts, look }: { dos: readonly string[]; don
       {dos.length > 0 ? <List kind="do" heading="Do" rows={dos} mark="✓" tone="text-gild" /> : null}
       {donts.length > 0 ? (
         <div className={side && both ? 'border-l border-ink/15 pl-6' : undefined}>
-          <List kind="dont" heading={<>Don&rsquo;t</>} rows={donts} mark="✕" tone="text-ink/55" />
+          <List kind="dont" heading={<>Don&rsquo;t</>} rows={donts} mark="✕" tone="text-ink/70" />
         </div>
       ) : null}
     </div>

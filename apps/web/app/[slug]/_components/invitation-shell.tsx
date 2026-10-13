@@ -173,7 +173,7 @@ export function InvitationShell({
               </a>
             ) : null}
             <Logo height={28} />
-            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
               Setnayan
             </span>
           </span>
@@ -201,7 +201,7 @@ export function InvitationShell({
           ) : monogramText ? (
             <span className="sn-top-label font-pahina text-lg italic text-gild">{monogramText}</span>
           ) : (
-            <span data-stage-label="" className="sn-top-label font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+            <span data-stage-label="" className="sn-top-label font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
               {stageLabel}
             </span>
           )}
@@ -300,7 +300,7 @@ export function InvitationShell({
           See you soon.
         </p>
         {hideWatermark ? null : (
-          <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/50'}`}>
+          <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/70'}`}>
             Powered by Setnayan · setnayan.com
           </p>
         )}

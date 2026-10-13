@@ -12,6 +12,8 @@ import { attachRsvpDrag, type RsvpDragSubject } from './rsvp-canvas-drag';
 import { RsvpAddLineSheet, RsvpGroupPickBar, RsvpPictureSheet, askRsvpListEdit } from './rsvp-line-list';
 import { useMaker } from './maker-context';
 import { RSVP_STAGE_TRUTH_EVENT } from '@/lib/rsvp-stage-truth';
+import { RSVP_OPEN_CARD_EVENT } from '@/lib/rsvp-stage-shared';
+import { partPickScroll } from '@/lib/maker-stage-room';
 
 /**
  * ＋ THE TOOLBAR'S HALF OF THE RSVP STAGE'S LIST (owner's ruling 2026-10-09; approved prototype
@@ -111,6 +113,49 @@ function nodeOf(doc: Document, part: RsvpLookCard, name: string): HTMLElement | 
   return group ? box.querySelector<HTMLElement>(`[${RSVP_GROUP_ATTR}="${CSS.escape(group)}"]`) : rsvpLineRow(box, name);
 }
 
+/** How long a line just added is waited for — drawn, and a picture's file shown — before it is brought into view. */
+const ADDED_IN_VIEW_WAIT_MS = 4000;
+
+/**
+ * 🎯 A LINE JUST ADDED IS BROUGHT INTO VIEW (the Maker walk, 2026-10-12, F3: at 375 × 667 a picture added above the
+ * Question sat mostly below the 270-px band of page left above the toolbar). ＋ keeps the same PART picked (the card),
+ * so the toolbar's own centring (`centrePart`, which brings a part's section up when the pick changes) never runs for
+ * it — and it centres the card's section, never a line. Here: once the new line is on the page (a picture once its
+ * file is showing — it has no height before), the frame is scrolled so the line sits in the middle of that band, or
+ * by its top with room for its frame's edge and ＋ when it is taller (`partPickScroll`, the rule every pick uses). The
+ * band is measured as `centrePart` measures it: the frame down to the guest bar or the lower third. A line already in
+ * the middle is left where it is. Returns its own stop.
+ */
+function bringAddedIntoView(frameSel: string, part: RsvpLookCard, name: string): () => void {
+  let raf = 0;
+  const t0 = performance.now();
+  const step = () => {
+    const frame = document.querySelector<HTMLIFrameElement>(frameSel);
+    const doc = frame?.contentDocument;
+    const win = frame?.contentWindow;
+    const node = doc ? nodeOf(doc, part, name) : null;
+    /* (The frame's own document: an `instanceof` from this window would never match its elements.) */
+    const img = node ? (node.tagName === 'IMG' ? (node as HTMLImageElement) : node.querySelector('img')) : null;
+    const ready = node !== null && (!img || img.complete) && node.getBoundingClientRect().height > 0;
+    if (!frame || !win || !node || !ready) {
+      if (performance.now() - t0 < ADDED_IN_VIEW_WAIT_MS) raf = requestAnimationFrame(step);
+      return;
+    }
+    const fr = frame.getBoundingClientRect();
+    const k = frame.clientWidth > 0 ? fr.width / frame.clientWidth : 1;
+    const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
+    const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
+    const bottom = Math.min(fr.bottom, bar && bar.height > 0 ? bar.top : Infinity, lt ? lt.top : Infinity);
+    const band = (bottom - fr.top) / k;
+    if (band <= 40) return;
+    const r = node.getBoundingClientRect();
+    const dy = partPickScroll({ top: r.top, height: r.height }, band);
+    if (Math.abs(dy) > 2) win.scrollTo({ top: Math.max(0, win.scrollY + dy), behavior: 'smooth' });
+  };
+  raf = requestAnimationFrame(step);
+  return () => cancelAnimationFrame(raf);
+}
+
 export function useRsvpListStage({
   on,
   frameSel,
@@ -195,6 +240,8 @@ export function useRsvpListStage({
     return () => node?.removeAttribute(APART_ATTR);
   }, [on, frameSel, listPart, line, meta.add, stamp]);
 
+  /** The bring-into-view of the last line added, still waiting for it to be drawn — stopped by the next. */
+  const stopInView = useRef<() => void>(() => {});
   /* The panel's answer to an edit: what to pick now, what to say. And a grey button's reason. */
   useEffect(() => {
     if (!on) return;
@@ -203,6 +250,11 @@ export function useRsvpListStage({
       if (!done) return;
       if (done.said) onSay(done.said);
       if (done.ok && done.edit.do !== 'words') onPick(done.pick, done.edit.do === 'add' ? 'edit' : done.edit.do === 'group' ? 'bg' : undefined, done.edit.part);
+      /* 🎯 The line just added is brought into view (F3). */
+      if (done.ok && done.edit.do === 'add' && done.pick) {
+        stopInView.current();
+        stopInView.current = bringAddedIntoView(frameSel, done.edit.part, done.pick);
+      }
       /* The group was made: picking is over (refused — a fifth group — it stays, and the reason is said). */
       if (done.ok && done.edit.do === 'group') setMulti(null);
       setStamp((n) => n + 1);
@@ -231,18 +283,20 @@ export function useRsvpListStage({
       window.removeEventListener(RSVP_LIST_SAY_EVENT, onSaid);
       window.removeEventListener(RSVP_LIST_PICK_EVENT, onOpen);
       window.removeEventListener(RSVP_GROUP_PICK_EVENT, onGroup);
+      stopInView.current();
     };
-  }, [on, onPick, onSay]);
+  }, [on, onPick, onSay, frameSel]);
 
   /* ↺ A LINE THE COUPLE ADDED (or a group), picked, that an Undo · Restore · Reset took away is let go — the stage
-     says when its frames hold the truth again (`RSVP_STAGE_TRUTH_EVENT`). A line of the page's own is never gone. */
-  const letGo = useRef(onPick);
-  letGo.current = onPick;
+     says when its frames hold the truth again (`RSVP_STAGE_TRUTH_EVENT`). A line of the page's own is never gone.
+     🃏 Its SCREEN'S CARD is picked in its place (the Maker walk, 2026-10-12, F5: letting go of everything left Edit lit
+     with nothing under it) — the toolbar's own "Open the card" path (`RSVP_OPEN_CARD_EVENT`: the line goes, the card
+     it sat on stays the picked part), so the card's rows show, as when the stage opens. */
   useEffect(() => {
     if (!on || !listPart || !line || !(rsvpAddedId(line) || rsvpGroupId(line))) return;
     const onTruth = () => {
       const doc = frameDoc(frameSel);
-      if (doc && !nodeOf(doc, listPart, line)) letGo.current(null);
+      if (doc && !nodeOf(doc, listPart, line)) window.dispatchEvent(new CustomEvent(RSVP_OPEN_CARD_EVENT));
     };
     window.addEventListener(RSVP_STAGE_TRUTH_EVENT, onTruth);
     return () => window.removeEventListener(RSVP_STAGE_TRUTH_EVENT, onTruth);
@@ -387,7 +441,9 @@ export function useRsvpListStage({
   return {
     name: meta.name,
     inGroup: meta.inGroup,
-    own: meta.own,
+    /* 🎟 The pass's Save button: its Edit is the panel's too — the last row, every step grey and saying why (the
+       Maker walk, 2026-10-12: its Edit was EMPTY since the toolbar's own Earlier · Later · Remove row went, 2026-10-11). */
+    own: meta.own || (on && part === 'pass' && line === 'save'),
     groupWhy: meta.group ? GROUP_WHY : null,
     add: meta.add ? { ...meta.add, onAdd } : null,
     stays: on && part === 'pass' && line === 'save' ? RSVP_SAVE_STAYS : null,

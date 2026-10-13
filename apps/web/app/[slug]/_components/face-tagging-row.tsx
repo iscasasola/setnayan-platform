@@ -64,13 +64,13 @@ export function FaceTaggingRow({
         className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left"
       >
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/[0.06]">
-          <ScanFace aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
+          <ScanFace aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink/70">Face tagging</span>
           <span className="block text-sm text-ink">{status}</span>
         </span>
-        {tappable ? <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} /> : null}
+        {tappable ? <ChevronRight aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} /> : null}
       </button>
       {on && menu ? (
         <div className="flex gap-2 border-t border-ink/10 px-4 py-3">

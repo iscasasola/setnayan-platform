@@ -76,7 +76,7 @@ export async function PrivateLanding({
             {event.display_name}
           </h1>
           {event.event_date ? (
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
               {formatEventDate(event.event_date)}
             </p>
           ) : null}
@@ -97,7 +97,7 @@ export async function PrivateLanding({
           </p>
         </div>
 
-        <p className="text-xs text-ink/45">
+        <p className="text-xs text-ink/70">
           Already invited? Open the personal link {words.theOrganizer} sent you, or scan your
           invitation QR.
         </p>

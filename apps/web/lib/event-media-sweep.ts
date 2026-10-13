@@ -10,6 +10,8 @@ const {
   event: EVENT_KEYS,
   eventJson: EVENT_JSON_KEYS,
   egift: EGIFT_KEYS,
+  wish: WISH_KEYS,
+  giftShot: GIFT_SHOT_KEYS,
 } = EVENT_MEDIA_KEY_SETS;
 
 /**
@@ -114,6 +116,28 @@ export async function collectEventMediaRefs(
     return null;
   }
 
+  /* The wish list's photos (E-Gifts › Wish list, 2026-10-08). Same cascade, same
+     reason: the rows that name them go with the event. */
+  const { data: wishItems, error: wishErr } = await admin
+    .from('event_wish_items')
+    .select(WISH_KEYS.join(','))
+    .eq('event_id', eventId);
+  if (wishErr) {
+    console.error('[supabase-error] event-media-sweep: event_wish_items', wishErr, { eventId });
+    return null;
+  }
+
+  /* Guests' screenshots on the gift records (wish list 4/5) — every record, removed
+     ones included: a soft Remove keeps the row, so its file is still ours to delete. */
+  const { data: giftRecords, error: giftErr } = await admin
+    .from('event_gift_records')
+    .select(GIFT_SHOT_KEYS.join(','))
+    .eq('event_id', eventId);
+  if (giftErr) {
+    console.error('[supabase-error] event-media-sweep: event_gift_records', giftErr, { eventId });
+    return null;
+  }
+
   const { data: ev, error: evErr } = await admin
     .from('events')
     .select([...EVENT_KEYS, ...EVENT_JSON_KEYS].join(','))
@@ -129,6 +153,8 @@ export async function collectEventMediaRefs(
     captures: (captures ?? []) as unknown as Record<string, unknown>[],
     event: (ev as unknown as Record<string, unknown> | null) ?? null,
     egiftMethods: (egiftMethods ?? []) as unknown as Record<string, unknown>[],
+    wishItems: (wishItems ?? []) as unknown as Record<string, unknown>[],
+    giftRecords: (giftRecords ?? []) as unknown as Record<string, unknown>[],
   });
 
   // A refusal nobody can see is indistinguishable from a delete that happened.

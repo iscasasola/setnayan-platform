@@ -74,7 +74,7 @@ export function TicketPopup({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(30,34,41,0.42)] px-4 pb-6 pt-16 backdrop-blur-[1.5px]" data-ticket-popup="">
       <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="ticket-popup-title" className="relative w-full max-w-sm rounded-3xl bg-cream px-[18px] pb-[18px] pt-[22px] text-center shadow-[0_30px_60px_-20px_rgba(0,0,0,0.45)]">
-        <button type="button" onClick={close} aria-label="Close" className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:text-ink">
+        <button type="button" onClick={close} aria-label="Close" className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:text-ink">
           <X aria-hidden className="h-5 w-5" />
         </button>
         <p id="ticket-popup-title" className="text-xs font-semibold uppercase tracking-[0.22em] text-ink/70">

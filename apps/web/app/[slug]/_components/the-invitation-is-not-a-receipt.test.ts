@@ -97,10 +97,11 @@ test('🔒 ONLY the face changed — size, tracking, case and tone all stayed', 
   assert.match(countdown, /font-sans text-xs uppercase tracking-\[0\.15em\] text-ink\/70/,
     'the countdown unit labels lost their size, case, tracking or tone');
   const tier = scoped('tier-comparison-widget.tsx');
-  assert.match(tier, /font-sans text-xs uppercase tracking-\[0\.2em\] text-ink\/55/,
+  // Tone moved /55 → /70 (2026-10-12, the guest faint-ink sweep: /55 is 3.45:1 on the house paper). Size, case, tracking stayed.
+  assert.match(tier, /font-sans text-xs uppercase tracking-\[0\.2em\] text-ink\/70/,
     'the access heading lost its size, case, tracking or tone');
   const moments = scoped('photo-moments-widget.tsx');
-  assert.match(moments, /font-sans text-xs uppercase tracking-\[0\.2em\] text-ink\/55/,
+  assert.match(moments, /font-sans text-xs uppercase tracking-\[0\.2em\] text-ink\/70/,
     'the moments heading lost its size, case, tracking or tone');
 });
 

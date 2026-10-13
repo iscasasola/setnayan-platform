@@ -178,7 +178,10 @@ export function MakerLabShell({
   blockLooks = {},
   summary,
   scrub = false,
+  revealLab = null,
 }: {
+  /** 🎭 `?reveal=owner|all` — the Reveal panel on the owner's map (`page.tsx` asks the guest page's own rule). */
+  revealLab?: { themeName: string; defaultOpening: string; defaultIsTheme: boolean; openings: readonly string[] } | null;
   /** 🎚 `?scrub=1` — the canvas is the lab's Scrub chain (`./lab-scrub.ts`, `./guest/scrub`). */
   scrub?: boolean;
   /** ✓ The lab draft's summary as its "server" read it for this render (`lab_bar`; `?changes=N` stands in for it). */
@@ -450,19 +453,19 @@ export function MakerLabShell({
           reveal: (
             <MakerRevealPicker
               eventId={eventId}
-              current="four-flap"
+              current={revealLab ? null : 'four-flap'}
               drafted={false}
-              stages={['save_the_date']}
+              stages={revealLab ? ['save_the_date', 'rsvp', 'event'] : ['save_the_date']}
               stagesDrafted={false}
               effects={DEFAULT_REVEAL_EFFECTS}
               effectsDrafted={false}
               tuneHouse={{} as ComponentProps<typeof MakerRevealPicker>['tuneHouse']}
-              themeName="Classic"
-              defaultOpening="four-flap"
-              defaultIsTheme={false}
+              themeName={revealLab?.themeName ?? 'Classic'}
+              defaultOpening={revealLab?.defaultOpening ?? 'four-flap'}
+              defaultIsTheme={revealLab?.defaultIsTheme ?? false}
               dressing={null}
-              openings={REVEAL_LIBRARY.map((t) => ({ id: t.id, label: t.label, blurb: t.blurb }))}
-              ownsPro={false}
+              openings={REVEAL_LIBRARY.filter((t) => !revealLab || revealLab.openings.includes(t.id)).map((t) => ({ id: t.id, label: t.label, blurb: t.blurb }))}
+              ownsPro={revealLab !== null}
               storeShell={false}
               stdWindowDays={180}
               part="settings"

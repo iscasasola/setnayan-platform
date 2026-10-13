@@ -350,7 +350,7 @@ export function PahinaMasthead({
     const eyebrowText = eyebrowAuto ? (ownEyebrow ?? eyebrowAuto) : null;
     const HUB_LINK = hubLink(design === 'letter' ? 'start' : 'center');
     const TIME = timeLabel ? (
-      <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">
+      <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/70">
         {txt('time', timeLabel)}
       </p>
     ) : null;
@@ -413,7 +413,7 @@ export function PahinaMasthead({
            of the words — the Date's "why can't I change it". Size stays on the
            span; the part's size is a `zoom`, which reaches it anyway. */
         className={`flex items-center gap-3 ${design === 'letter' ? 'mt-2 justify-start' : 'mt-3 justify-center'} ${
-          design === 'crest' ? 'uppercase tracking-[0.26em] text-ink/60' : 'font-pahina text-ink'
+          design === 'crest' ? 'uppercase tracking-[0.26em] text-ink/70' : 'font-pahina text-ink'
         }`}
       >
         {design === 'crest' ? (
@@ -430,7 +430,7 @@ export function PahinaMasthead({
           {badgeSlot}
           <div>
             {eyebrowText ? (
-              <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">
+              <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/70">
                 {txt('eyebrow', eyebrowText)}
               </p>
             ) : null}
@@ -463,7 +463,7 @@ export function PahinaMasthead({
           {badgeSlot}
           <div>
             {eyebrowText ? (
-              <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">
+              <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/70">
                 {txt('eyebrow', eyebrowText)}
               </p>
             ) : null}
@@ -515,7 +515,7 @@ export function PahinaMasthead({
         <div className="pr-[14%] sm:max-w-[60%] sm:pr-0">
           {badgeSlot ? <div className="mb-4 flex justify-start">{badgeSlot}</div> : null}
           {eyebrowText ? (
-            <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.26em] text-ink/60">
+            <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.26em] text-ink/70">
               {txt('eyebrow', eyebrowText)}
             </p>
           ) : null}
@@ -542,7 +542,7 @@ export function PahinaMasthead({
             same ground and the same legibility rule every other part reads). */}
         <div data-cover-frameless="" className="mx-auto max-w-md">
           <div className="px-5 pb-7 pt-8">
-            <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">{txt('eyebrow', ownEyebrow ?? card.eyebrow)}</p>
+            <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/70">{txt('eyebrow', ownEyebrow ?? card.eyebrow)}</p>
             {monogramSlot ? (
               <div {...el('mark')} data-motion="arrive-mark" className="mt-5 flex h-[9.5rem] items-center justify-center">
                 {/* The mark renders at its own 80px; the card shows it at
@@ -571,7 +571,7 @@ export function PahinaMasthead({
               </p>
             ) : null}
             {timeLabel ? (
-              <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">{txt('time', timeLabel)}</p>
+              <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/70">{txt('time', timeLabel)}</p>
             ) : null}
           </div>
         </div>

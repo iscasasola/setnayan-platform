@@ -74,7 +74,7 @@ export function Explain({
       >
         <span
           aria-hidden
-          className="sn-press-ring inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border border-ink/15 bg-white text-[12px] font-bold leading-none text-sn-accent transition-colors duration-sn-control ease-sn group-aria-expanded/explain:border-sn-accent group-aria-expanded/explain:bg-sn-accent group-aria-expanded/explain:text-sn-on-accent"
+          className="sn-press-ring inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border border-ink/15 bg-white dark:bg-cream text-[12px] font-bold leading-none text-sn-accent transition-colors duration-sn-control ease-sn group-aria-expanded/explain:border-sn-accent group-aria-expanded/explain:bg-sn-accent group-aria-expanded/explain:text-sn-on-accent"
         >
           i
         </span>
@@ -117,7 +117,7 @@ function ExplainPopup({ title, onClose, children }: { title: string; onClose: ()
         aria-modal="true"
         aria-labelledby={headId}
         tabIndex={-1}
-        className="sn-explain-pop absolute left-1/2 top-1/2 flex max-h-[calc(100dvh-48px)] w-[min(320px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto overscroll-contain rounded-2xl bg-white px-5 pb-3.5 pt-[22px] text-center shadow-[0_24px_60px_-20px_rgba(0,0,0,.5)] focus:outline-none"
+        className="sn-explain-pop absolute left-1/2 top-1/2 flex max-h-[calc(100dvh-48px)] w-[min(320px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto overscroll-contain rounded-2xl bg-white dark:bg-cream px-5 pb-3.5 pt-[22px] text-center shadow-[0_24px_60px_-20px_rgba(0,0,0,.5)] focus:outline-none"
       >
         <b id={headId} className="block text-[18px] font-semibold leading-snug text-ink">
           {title}

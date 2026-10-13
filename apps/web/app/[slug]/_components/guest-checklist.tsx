@@ -76,7 +76,7 @@ export function GuestChecklist({
         </span>
       </h2>
       {readFailed ? (
-        <p role="status" className="text-xs text-ink/60">
+        <p role="status" className="text-xs text-ink/70">
           We could not load your ticks just now — what you tick still saves.
         </p>
       ) : null}

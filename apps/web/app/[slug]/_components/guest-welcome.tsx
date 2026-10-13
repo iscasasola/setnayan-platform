@@ -63,10 +63,15 @@ export function GuestWelcome({
   march = null,
   venue = null,
   giftHref,
+  giftWishes = 0,
   mark = () => null,
   maker = false,
   partLooks = null,
+  lookMark = null,
 }: {
+  /** 🧱 What to wear's own look (`lib/block-looks.ts`): its hidden mark, handed on to the reader's panel, which draws
+   *  it right before its root only when it draws (`DressCodeWidget` `mark`). */
+  lookMark?: ReactNode;
   /** 🎨 E-Gifts' and the guest's look's own styles (`lib/scene-styles-parts.ts`) — null: the shipped look. */
   partLooks?: { gifts?: string | null; wear?: string | null } | null;
   parts: readonly WelcomePart[];
@@ -78,6 +83,8 @@ export function GuestWelcome({
   /** 🗺 The day's ONE venue with directions (`lib/day-venue-now.ts`), drawn by the caller. */
   venue?: ReactNode;
   giftHref: string | null;
+  /** 🎁 Open wishes behind the gift door (`resolveGuestDoorways(...).wishes`) — its one extra line. */
+  giftWishes?: number;
   mark?: (key: string) => ReactNode;
   maker?: boolean;
 }) {
@@ -102,6 +109,7 @@ export function GuestWelcome({
                 paletteLook={look.paletteLook ?? null}
                 dosLook={look.dosLook ?? null}
                 hideWhenEmpty
+                mark={lookMark}
               />
               </PartLook>
             );
@@ -128,7 +136,7 @@ export function GuestWelcome({
           return (
             <WelcomeSlot key="gifts">
               {mark('f:gifts')}
-              <WelcomeGifts href={giftHref} words={words} look={partLooks?.gifts ?? null} />
+              <WelcomeGifts href={giftHref} words={words} look={partLooks?.gifts ?? null} wishes={giftWishes} />
             </WelcomeSlot>
           );
         }

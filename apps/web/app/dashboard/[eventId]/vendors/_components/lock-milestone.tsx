@@ -19,17 +19,78 @@
  * clicked through unread.
  */
 
-import { useRef } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import Link from 'next/link';
-import { CalendarHeart, Loader2, Lock, PartyPopper, X, ArrowRight } from 'lucide-react';
-import { useModalA11y } from '@/lib/use-modal-a11y';
+import { ArrowRight, CalendarHeart, Check, Loader2, Lock, PartyPopper, Plus, RotateCcw, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind';
 import { lockImpactCopy, type LockImpact } from '@/lib/lock-impact';
 import type { LockMilestone } from '../actions';
 
 function portal(node: React.ReactNode): React.ReactNode {
   if (typeof document === 'undefined') return null;
   return createPortal(node, document.body);
+}
+
+/** The ✕ in a lock popup's corner — a 44-px target (2026-10-12 look sweep). */
+export const LOCK_POPUP_CLOSE =
+  'absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-60';
+
+/** The spinner a pressed answer wears while the booking is written. */
+export const LOCK_PENDING_ICON = <Loader2 aria-hidden className="animate-spin" strokeWidth={2} />;
+
+/**
+ * LockPopup — THE ONE FRAME OF EVERY POP-UP IN THE BOOKING FLOW (2026-10-12 look sweep; `INTERACTION_RULES.md` § 9,
+ * "Anything popped up over the page"). The exception, slot, confirm, reservation-terms and first-payment pop-ups each
+ * drew their own `bg-ink/40` wash — and `ink` turns LIGHT in dark mode. Now:
+ *   · the rest of the screen is the shared dark (`.sn-popup-dark`, `POPUP_DARK`) — dark and blurred, taking no tap;
+ *   · one button under it, the whole screen (`POPUP_SCRIM`), closes — a tap on the dark is "keep", never the answer;
+ *   · nothing behind works and the page does not scroll (`usePopupBehind`), Esc closes, Tab stays in the panel;
+ *   · the panel is `bg-cream` (it flips in dark mode); its ✕ is a 44-px target.
+ * It draws on <body>: the bench card carries the coverflow `transform`, inside which `position: fixed` is not the
+ * screen. `z-[90]` sits UNDER a dropdown's list (`PickMenu`, z-[95]) — the slot picker opens one inside it — and
+ * under the toast (z-[100]). Mount it while open (mount = open).
+ */
+export function LockPopup({
+  label,
+  alertRole = false,
+  onClose,
+  closeDisabled = false,
+  children,
+}: {
+  /** The pop-up's accessible name. */
+  label: string;
+  /** A decision with a consequence (`alertdialog`) rather than a plain dialog. */
+  alertRole?: boolean;
+  onClose: () => void;
+  /** The ✕ cannot be pressed (a payment is being written). */
+  closeDisabled?: boolean;
+  children: ReactNode;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  usePopupBehind({ root, panel, onClose });
+  return portal(
+    <div ref={root} data-lock-popup="" className="fixed inset-0 z-[90] flex items-end justify-center p-4 sm:items-center">
+      {/* A tap on the dark closes it. */}
+      <button type="button" aria-label="Close" onClick={onClose} className={POPUP_SCRIM} />
+      <span aria-hidden className={POPUP_DARK} />
+      <div
+        ref={panel}
+        role={alertRole ? 'alertdialog' : 'dialog'}
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+        className="relative max-h-[calc(100dvh-32px)] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl bg-cream p-5 text-ink shadow-[0_24px_60px_-20px_rgba(0,0,0,.5)] focus:outline-none sm:p-6"
+      >
+        <button type="button" aria-label="Close" onClick={onClose} disabled={closeDisabled} className={LOCK_POPUP_CLOSE}>
+          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </button>
+        {children}
+      </div>
+    </div>,
+  );
 }
 
 /**
@@ -74,106 +135,73 @@ export function LockConfirmModal({
   onConfirm: () => void;
   onDismiss: () => void;
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useModalA11y({ open: true, onClose: onDismiss, containerRef: dialogRef });
-
   // Single source for every casualty sentence. Returns null for an empty
   // impact, so a stale non-null-but-empty impact renders nothing rather than an
   // empty bulleted list.
   const copy = impact ? lockImpactCopy(impact, vendorName) : null;
+  const heading = dateLabel ? 'This books your date.' : (copy?.headline ?? `Book ${vendorName}`);
 
-  return portal(
-    <div
-      ref={dialogRef}
-      role="alertdialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onDismiss();
-      }}
-    >
-      <div className="relative w-full max-w-md rounded-2xl border border-terracotta/40 bg-cream p-5 shadow-xl sm:p-6">
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onDismiss}
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
-
-        <div className="flex items-start gap-2.5 pr-6">
+  return (
+    <LockPopup label={heading} alertRole onClose={onDismiss}>
+      <div className="flex items-start gap-2.5 pr-8">
+        {dateLabel ? (
+          <CalendarHeart aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-sn-accent" strokeWidth={2} />
+        ) : (
+          <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-sn-accent" strokeWidth={2} />
+        )}
+        <div className="space-y-1.5">
+          <h3 className="text-sm font-semibold text-ink">
+            {dateLabel ? 'This books your date.' : copy?.headline}
+          </h3>
           {dateLabel ? (
-            <CalendarHeart
-              aria-hidden
-              className="mt-0.5 h-5 w-5 shrink-0 text-terracotta"
-              strokeWidth={2}
-            />
-          ) : (
-            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta-700" strokeWidth={2} />
-          )}
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-ink">
-              {dateLabel ? 'This books your date.' : copy?.headline}
-            </h3>
-            {dateLabel ? (
-              <p className="text-xs leading-snug text-ink/70">
-                Booking <strong>{vendorName}</strong> leaves only one of your
-                candidate dates open. Continuing will finally set your
-                date to <strong>{dateLabel}</strong>. You can still change
-                suppliers, but the date becomes official.
-              </p>
-            ) : null}
-            {/* What else it closes. Rendered under the date sentence when this
-                lock does both, so the couple reads one consequence list. */}
-            {copy ? (
-              <ul className="space-y-1.5 pt-0.5">
-                {copy.lines.map((line) => (
-                  <li key={line} className="flex items-start gap-1.5 text-xs leading-snug text-ink/70">
-                    <span aria-hidden className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-terracotta" />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-          <button
-            type="button"
-            onClick={onDismiss}
-            disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-          >
-            Not yet
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
-          >
-            {isPending ? (
-              <>
-                <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                Booking…
-              </>
-            ) : (
-              <>{dateLabel ? `Book ${dateLabel}` : (copy?.confirmLabel ?? `Book ${vendorName}`)}</>
-            )}
-          </button>
+            <p className="text-xs leading-snug text-ink/70">
+              Booking <strong>{vendorName}</strong> leaves only one of your
+              candidate dates open. Continuing will finally set your
+              date to <strong>{dateLabel}</strong>. You can still change
+              suppliers, but the date becomes official.
+            </p>
+          ) : null}
+          {/* What else it closes. Rendered under the date sentence when this
+              lock does both, so the couple reads one consequence list. */}
+          {copy ? (
+            <ul className="space-y-1.5 pt-0.5">
+              {copy.lines.map((line) => (
+                <li key={line} className="flex items-start gap-1.5 text-xs leading-snug text-ink/70">
+                  <span aria-hidden className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-sn-accent" />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       </div>
-    </div>,
+
+      {/* The safe one grey, the answer filled (the confirm box's own pair). */}
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <ActionButton tone="neutral" icon={X} label="Not yet" onClick={onDismiss} disabled={isPending} />
+        <ActionButton
+          tone="brand"
+          main
+          icon={isPending ? LOCK_PENDING_ICON : dateLabel ? CalendarHeart : Lock}
+          label={isPending ? 'Booking…' : dateLabel ? `Book ${dateLabel}` : (copy?.confirmLabel ?? `Book ${vendorName}`)}
+          onClick={onConfirm}
+          disabled={isPending}
+        />
+      </div>
+    </LockPopup>
   );
 }
 
 /**
- * "Congratulations! You have picked a {Reception venue}!" — with an optional
- * "You can now finalize your {Save the Date}" CTA when the lock completed a
- * downstream feature's prerequisites. Auto-dismiss is the caller's job (so it
- * can coordinate with its own undo toast).
+ * "Congratulations! You have picked a {Reception venue}!" — the result of a lock.
+ *
+ * 2026-10-12 look sweep (`INTERACTION_RULES.md` § 9, kind 12 "Messages": a toast peeks from the TOP). Two shapes:
+ *   · THE RESULT ALONE (no question, no next step) is the shared `PeekToast` — the accent with a ✓, from the top,
+ *     with "Undo" as its one action; it leaves by itself and tells the caller (`onDismiss`). It was a bordered card
+ *     at the bottom of the screen.
+ *   · WITH A QUESTION ("Done with Photography, or add another?") or A NEXT STEP ("Finalize your Save the Date") it
+ *     is not a notice but a pop-up that waits for the answer — the shared `LockPopup`, its answers `ActionButton`s.
+ *     A tap on the dark is "add another" — the harmless answer (it only dismisses).
  */
 export function LockMilestoneToast({
   milestone,
@@ -196,85 +224,64 @@ export function LockMilestoneToast({
   onDone?: () => void;
   onAddAnother?: () => void;
 }) {
-  return portal(
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed bottom-4 left-1/2 z-[100] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-terracotta/40 bg-cream px-4 py-3.5 shadow-lg"
+  const asks = askDone && onDone && onAddAnother ? { onDone, onAddAnother } : null;
+  if (!asks && !milestone.finalizeReady) {
+    return portal(
+      <PeekToast
+        tone="ok"
+        data="lock-milestone"
+        action={onUndo ? { label: 'Undo', onPress: onUndo } : undefined}
+        onGone={onDismiss}
+      >
+        Congratulations! You have picked a {milestone.pickedLabel}!
+        {milestone.dateLocked ? ' Your date is now booked.' : ''}
+      </PeekToast>,
+    );
+  }
+  const finalize = milestone.finalizeReady;
+  return (
+    <LockPopup
+      label={`Congratulations! You have picked a ${milestone.pickedLabel}!`}
+      onClose={asks ? asks.onAddAnother : onDismiss}
     >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-cream">
+      <div role="status" aria-live="polite" className="flex items-start gap-3 pr-8">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sn-accent text-sn-on-accent">
           <PartyPopper aria-hidden className="h-4.5 w-4.5" strokeWidth={2} />
         </span>
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-semibold text-ink">
+          <h3 className="text-sm font-semibold text-ink">
             Congratulations! You have picked a {milestone.pickedLabel}!
-          </p>
-          {milestone.dateLocked ? (
-            <p className="text-[11px] text-ink/60">Your date is now booked. 🎉</p>
-          ) : null}
-          {milestone.finalizeReady ? (
-            <div className="pt-1">
-              <p className="text-[11px] text-ink/60">{milestone.finalizeReady.helper}</p>
-              <Link
-                href={milestone.finalizeReady.href}
-                onClick={onDismiss}
-                className="group mt-1 inline-flex items-center gap-1 text-sm font-medium text-terracotta-700 hover:underline"
-              >
-                Finalize your {milestone.finalizeReady.featureLabel}
-                <ArrowRight
-                  aria-hidden
-                  className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
-                  strokeWidth={2}
-                />
-              </Link>
-            </div>
-          ) : null}
-          {askDone && onDone && onAddAnother ? (
-            <div className="pt-1.5">
-              <p className="text-[11px] font-medium text-ink/70">
-                Done with {groupLabel ?? 'this service'}, or add another?
-              </p>
-              <div className="mt-1.5 flex gap-2">
-                <button
-                  type="button"
-                  onClick={onDone}
-                  className="flex-1 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-cream hover:bg-ink/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                >
-                  ✓ I&apos;m done
-                </button>
-                <button
-                  type="button"
-                  onClick={onAddAnother}
-                  className="flex-1 rounded-lg border border-terracotta px-3 py-1.5 text-xs font-semibold text-terracotta-700 hover:bg-terracotta/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                >
-                  ＋ Add another
-                </button>
-              </div>
-            </div>
-          ) : null}
-          {onUndo ? (
-            <p className="pt-0.5 text-[11px] text-ink/55">
-              Changed your mind?{' '}
-              <button
-                type="button"
-                onClick={onUndo}
-                className="font-medium text-terracotta-700 underline underline-offset-2 hover:text-terracotta-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-              >
-                Undo · revert to considering
-              </button>
+          </h3>
+          {milestone.dateLocked ? <p className="text-xs text-ink/60">Your date is now booked. 🎉</p> : null}
+          {finalize ? <p className="text-xs text-ink/60">{finalize.helper}</p> : null}
+          {asks ? (
+            <p className="pt-1 text-xs font-medium text-ink/70">
+              Done with {groupLabel ?? 'this service'}, or add another?
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Dismiss"
-          className="shrink-0 rounded-md p-1 text-ink/45 hover:bg-ink/5 hover:text-ink/70"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
       </div>
-    </div>,
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        {onUndo ? (
+          <ActionButton tone="neutral" quiet icon={RotateCcw} label="Undo" name="Undo · revert to considering" onClick={onUndo} />
+        ) : null}
+        {asks ? (
+          <>
+            <ActionButton tone="neutral" icon={Plus} label="Add another" onClick={asks.onAddAnother} />
+            <ActionButton tone="brand" main icon={Check} label="I'm done" onClick={asks.onDone} />
+          </>
+        ) : null}
+        {finalize ? (
+          <ActionButton
+            tone="brand"
+            main={!asks}
+            icon={ArrowRight}
+            label={`Finalize your ${finalize.featureLabel}`}
+            href={finalize.href}
+            onClick={onDismiss}
+          />
+        ) : null}
+      </div>
+    </LockPopup>
   );
 }

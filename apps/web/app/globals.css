@@ -5030,6 +5030,24 @@ div:has(> [data-apply-pro-sheet]),
     backdrop-filter: none;
   }
 }
+/* 🌙 DARK MODE (2026-10-12): `--color-ink` turns LIGHT under html.dark, so the ink-based dark above would LIGHTEN the
+ * page behind a pop-up. In dark it is a fixed black, a little deeper (the ground is already dark). Light is unchanged. */
+html.dark div:has(> [data-apply-pro-sheet]),
+html.dark .sn-popup-dark {
+  background-color: rgb(0 0 0 / 0.55);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html.dark div:has(> [data-apply-pro-sheet]),
+  html.dark .sn-popup-dark {
+    background-color: rgb(0 0 0 / 0.68);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html.dark div:has(> [data-apply-pro-sheet]),
+  html.dark .sn-popup-dark {
+    background-color: rgb(0 0 0 / 0.68);
+  }
+}
 
 /* `.sn-canvas-drift` — the brief's "barely-perceptible, slow-moving gradient".
  * OPT-IN ONLY. The owner flattened the ground on 2026-07-28 ("clean/modern
@@ -8345,6 +8363,16 @@ html.dark :is(button, a).ab.ab-main { color: #161513; }
 /* The main button in the accent: its word is the ink that reads ON the accent — one setting, both themes. */
 :is(button, a).ab.ab-brand.ab-main,
 html.dark :is(button, a).ab.ab-brand.ab-main { color: rgb(var(--sn-on-accent)); }
+/* `filled` (the component's option) — the main verb's solid fill on a button that is NOT the row's main verb, so the
+ * fit pass may still take its word (Find's ＋ Add your own). Same weight as `.ab-main`, its own class. */
+:is(button, a).ab.ab-fill {
+  background: rgb(var(--ab-tone));
+  border-color: rgb(var(--ab-tone));
+  color: #fff;
+}
+html.dark :is(button, a).ab.ab-fill { color: #161513; }
+:is(button, a).ab.ab-brand.ab-fill,
+html.dark :is(button, a).ab.ab-brand.ab-fill { color: rgb(var(--sn-on-accent)); }
 /* WAITING (`waiting` on the component) — it cannot be used yet and it is STILL A BUTTON: a grey fill and word, its
  * pill and a line kept — never the 35 % fade `disabled` wears, which read as faded text (owner 2026-10-08). Written
  * AFTER the tone, main and disabled rules and at their weight or higher, so it wins on purpose: any tone, main or
@@ -8519,6 +8547,38 @@ html :is([data-part-look="role.side-rule"], [data-part-look="wear.side-rule"], [
 /* 🔲 A LOOK'S SAMPLE SHAPES (`[data-maker-sample]`, owner 08 Oct "show what it could look like with boxes") are the
    Maker canvas's only: a page with no `[data-maker-section]` marker (every guest's) never shows them. */
 body:not(:has([data-maker-section])) [data-maker-sample] { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🎁 STUDIO › E-GIFTS — "GIFTS SENT TO YOU" IS A SCREEN OF ITS OWN
+   (wish list 5/5, owner 2026-10-08; prototype frame 08: the title, every
+   record, ✓ Done back). While the wish list shows it
+   (`data-studio-wish-list="gifts"`), every OTHER child of the E-Gifts wrapper
+   stands down. CSS alone — nothing is unmounted, so nothing a couple was
+   typing in the rows above is lost, and no script is added to the Maker.
+   Held by lib/the-couples-gift-list-follows-the-drawing.test.ts (11).
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-details-egifts]:has([data-studio-wish-list='gifts']) > :not([data-studio-wish-list='gifts']):not(:has([data-studio-wish-list='gifts'])) {
+  display: none;
+}
+
+/* 🍪 THE COOKIE NOTICE NEVER COVERS "I SENT IT" (2026-10-12, owner: "fix the problems"; flagged in #6493).
+   On a guest's FIRST visit the notice (`z-[70]`, full width on a phone) sat over the foot of the wish list's send
+   sheet (`data-wish-send`, z 60) — "I sent it" was under it until the notice was answered — and the record sheet
+   that replaces it (`data-gift-record`) ties the notice at 70. Fixed the way #6482 fixed /login's sign-in card
+   (`home-reskin.css`): while either sheet is open the notice is lifted over it (it stays answerable), and the
+   sheet's panel ends above the notice by the height the notice already publishes (`--cookie-banner-top`, set only
+   while it is the full-width bar — 0 otherwise), so its foot and its last line stay in view. Held by
+   app/[slug]/pabuya/_components/the-cookie-notice-never-covers-i-sent-it.test.ts. */
+html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
+  z-index: 80;
+}
+@media (max-width: 1023.98px) {
+  /* below `lg`, where the panel is the bottom sheet (`max-h-[90dvh]`); at `lg` it is the full-height side panel */
+  :is([data-wish-send], [data-gift-record]) [data-sheet-panel] {
+    margin-bottom: var(--cookie-banner-top, 0px);
+    max-height: calc(90dvh - var(--cookie-banner-top, 0px));
+  }
+}
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element

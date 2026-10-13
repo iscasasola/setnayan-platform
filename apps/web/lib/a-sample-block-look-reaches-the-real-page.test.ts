@@ -38,6 +38,8 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { renderSiteBodyFixture } from './site-body-fixture-render';
 import { siteBodyFixtureProps, FIXTURE_EVENT, type SiteBodyFixtureProps } from './site-body-fixture';
+import { WEDDING_PROFILE } from './event-type-profile';
+import { eventWordsFromProfile } from '../app/[slug]/_lib/event-words';
 
 /** The fixture guest, given a table (the page draws their own seat only then). */
 async function seated(looks: unknown): Promise<string> {
@@ -171,6 +173,177 @@ for (const moment of Object.keys(MOMENTS) as Array<keyof typeof MOMENTS>) {
         /* …AND NOT ONE OTHER BYTE: take the two away and it is the page with nothing kept. */
         assert.equal(dressed.replace(mark, '').replace(style, ''), plain, `${state} · ${JSON.stringify(look)}: the page changed somewhere else`);
       }
+    }
+  });
+}
+
+/* ══ 📣 2026-10-12 — ANNOUNCEMENTS, MADE REAL ════════════════════════════════════════════════════════════════════
+ * Proved where a guest's own is drawn (the layout's wrapper): nothing kept is the same bytes; a look kept adds exactly
+ * the block's style and mark right before its root, and not one other byte. Sabotages seen red (each restored): the
+ * mark served with nothing kept · the mark not the last thing before the block.
+ */
+
+/** Imports a module that reaches a server action, with Next's two marker packages stubbed (they exist only inside its
+ *  bundler — the same door `scene-words-follow-the-ground.test.ts` uses). */
+async function withMarkersStubbed<T>(load: () => Promise<T>): Promise<T> {
+  const Module = require('node:module') as { _load: (request: string, ...rest: unknown[]) => unknown };
+  const real = Module._load;
+  Module._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return real.call(this, request, ...rest);
+  };
+  try {
+    return await load();
+  } finally {
+    Module._load = real;
+  }
+}
+
+test('Announcements: nothing kept is the same bytes; a look kept adds its style and mark right before the block’s root — in every shape, before the day and on it', async () => {
+  const [{ AnnouncementLook }, { DayOfAnnouncement }] = await withMarkersStubbed(() =>
+    Promise.all([import('../app/[slug]/_components/announcement-look'), import('../app/[slug]/_components/day-of-announcement')]),
+  );
+  /* The layout's wrapper, as `app/[slug]/layout.tsx` draws it (held word for word by the motion guard §2 and §4). */
+  const draw = (stage: 'before' | 'live', sceneStyle: string | null, looks: unknown) =>
+    renderToStaticMarkup(
+      React.createElement(
+        'div',
+        { className: stage === 'live' ? 'sticky top-0 z-50' : undefined },
+        React.createElement(AnnouncementLook, { stylePreferences: looks === undefined ? null : { [BLOCK_LOOKS_PREF_KEY]: looks } }),
+        React.createElement(DayOfAnnouncement, { body: 'Phones down — the ceremony is starting.', eventId: FIXTURE_EVENT.event_id, stage, sceneStyle }),
+      ),
+    );
+  const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="announcements"></span>`;
+  for (const stage of ['before', 'live'] as const) {
+    for (const shape of [null, 'notice', 'line'] as const) {
+      const plain = draw(stage, shape, undefined);
+      const root = plain.indexOf('<aside role="status"');
+      assert.ok(root > 0 && plain.includes('Phones down'), `${stage} · ${shape}: the announcement is not drawn: this proves nothing`);
+      assert.doesNotMatch(plain, new RegExp(`${BLOCK_MARK_ATTR}|${BLOCK_LOOKS_STYLE_ATTR}`));
+      for (const nothing of [{}, { announcements: {} }, { announcements: { motion: {} } }, { announcements: { g: 'paper' } }, { look: { g: 'frost' } }]) {
+        assert.equal(draw(stage, shape, nothing), plain, `${stage} · ${shape}: a page with ${JSON.stringify(nothing)} kept differs`);
+      }
+      for (const look of [{ g: 'frost' }, { g: 'none' }, { motion: { in: { fade: true } } }, { g: 'plain', motion: { timeline: 'scroll', in: { fade: true }, out: { fade: true } } }] as const) {
+        const dressed = draw(stage, shape, { announcements: look });
+        const css = blockLooksCss({ announcements: readBlockLooks({ [BLOCK_LOOKS_PREF_KEY]: { announcements: look } }).announcements! });
+        assert.ok(css.length > 0);
+        const style = `<style ${BLOCK_LOOKS_STYLE_ATTR}="">${css}</style>`;
+        /* THE STYLE, THEN THE MARK, IMMEDIATELY BEFORE THE BLOCK'S OWN ROOT — and not one other byte. */
+        assert.equal(dressed, `${plain.slice(0, root)}${style}${mark}${plain.slice(root)}`, `${stage} · ${shape} · ${JSON.stringify(look)}: not exactly the style and the mark before the root`);
+        /* The rules are this block's alone (the page's other blocks carry theirs in SiteBody's own style). */
+        assert.doesNotMatch(css, /data-block-mark="(?!announcements")/);
+      }
+    }
+  }
+});
+
+/* ══ 👗 2026-10-12 — WHAT TO WEAR, MADE REAL ═════════════════════════════════════════════════════════════════════
+ * On the real page at both moments (the Invitation files it in Me, The Day in its Welcome) and on Me's own part.
+ * Sabotages seen red (each restored): the mark drawn when the panel draws nothing · the mark parted from the wear root.
+ */
+
+/** The fixture guest as a ninang the couple dressed (`dress_code_config.roles`), at one of two moments. */
+async function dressed(moment: 'Invitation' | 'The Day', looks: unknown, role: string | null = 'principal_sponsor_ninang'): Promise<string> {
+  const base = siteBodyFixtureProps();
+  const identity = base.identity as unknown as Record<string, unknown> & { guest: Record<string, unknown> };
+  return renderSiteBodyFixture({
+    ...(moment === 'The Day' ? { dayOfPhase: 'live', lifecyclePhase: 'event' } : {}),
+    identity: { ...identity, guest: { ...identity.guest, role } } as unknown as SiteBodyFixtureProps['identity'],
+    event: {
+      ...FIXTURE_EVENT,
+      dress_code_config: { ...(FIXTURE_EVENT.dress_code_config as object), roles: { principal_sponsor_ninang: { style: 'filipiniana' } } },
+      ...(looks === undefined ? {} : { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: looks } }),
+    } as SiteBodyFixtureProps['event'],
+  } as Partial<SiteBodyFixtureProps>);
+}
+
+for (const moment of ['Invitation', 'The Day'] as const) {
+  test(`What to wear, ${moment}: nothing kept is the same page; a look kept adds the mark right before the guest’s own panel and the one style — and no mark when there is no panel`, async () => {
+    const ROOT = '<section class="space-y-5"><p class="pahina-eyebrow"><span>What to wear</span></p>';
+    const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="look"></span>`;
+    const plain = await dressed(moment, undefined);
+    /* Anti-vacuity: this guest's OWN panel is drawn, once (on the Invitation filed in Me; on The Day in its Welcome). */
+    assert.equal(plain.split(ROOT).length, 2, 'the guest’s own What to wear is not drawn once: this proves nothing');
+    assert.doesNotMatch(plain, new RegExp(`${BLOCK_MARK_ATTR}|${BLOCK_LOOKS_STYLE_ATTR}`));
+    for (const nothing of [{}, { look: {} }, { look: { g: 'none' } }, { look: { motion: {} } }]) {
+      assert.equal(await dressed(moment, nothing), plain, `a page with ${JSON.stringify(nothing)} kept differs from one with nothing kept`);
+    }
+    for (const look of [{ g: 'frost' }, { g: 'plain' }, { motion: { in: { fade: true } } }] as const) {
+      const html = await dressed(moment, { look });
+      const style = `<style ${BLOCK_LOOKS_STYLE_ATTR}="">${blockLooksCss(readBlockLooks({ [BLOCK_LOOKS_PREF_KEY]: { look } }))}</style>`;
+      assert.equal(html.split(mark).length, 2, `${JSON.stringify(look)}: the mark is not on the page exactly once`);
+      assert.ok(html.includes(`${mark}${ROOT}`), `${JSON.stringify(look)}: the mark is not right before the panel’s own root`);
+      assert.equal(html.split(style).length, 2);
+      assert.equal(html.replace(mark, '').replace(style, ''), plain, `${JSON.stringify(look)}: the page changed somewhere else`);
+    }
+    /* A guest with nothing personal to wear gets no panel — and no mark pointing at whatever comes next. */
+    const bare = await dressed(moment, undefined, null);
+    assert.doesNotMatch(bare, /<span>What to wear<\/span>/, 'anti-vacuity: this guest has no panel');
+    const kept = await dressed(moment, { look: { g: 'frost' } }, null);
+    assert.doesNotMatch(kept, new RegExp(`<span hidden="" ${BLOCK_MARK_ATTR}="look">`), 'a mark is served where no panel is drawn');
+  });
+}
+
+test('What to wear in Me: the mark rides with the `wear` part alone, right before its root, only when it draws', async () => {
+  const { GuestMeParts } = await import('../app/[slug]/_components/guest-me-parts');
+  const span = `<span hidden="" ${BLOCK_MARK_ATTR}="look"></span>`;
+  const markEl = React.createElement('span', { hidden: true, [BLOCK_MARK_ATTR]: 'look' });
+  const look = (roles: unknown) => ({ config: { roles } as never, ceremonyType: null, genderSeparation: null, guestRole: 'principal_sponsor_ninang' as never, march: null, rolePalette: null });
+  const draw = (roles: unknown, wearMark: unknown, partLooks: unknown = null) =>
+    renderToStaticMarkup(React.createElement(GuestMeParts as unknown as React.FC<Record<string, unknown>>, { parts: ['role', 'wear'], words: eventWordsFromProfile(WEDDING_PROFILE), look: look(roles), comingWith: [], wearMark, partLooks }));
+  for (const partLooks of [null, { wear: 'card' }]) {
+    const plain = draw({ principal_sponsor_ninang: { style: 'filipiniana' } }, null, partLooks);
+    assert.ok(plain.includes('data-me-part="role"') && plain.includes('data-me-part="wear"'), 'anti-vacuity: both parts drawn');
+    const withMark = draw({ principal_sponsor_ninang: { style: 'filipiniana' } }, markEl, partLooks);
+    assert.equal(withMark, plain.replace('<section class="space-y-3" data-me-part="wear">', `${span}<section class="space-y-3" data-me-part="wear">`), `${JSON.stringify(partLooks)}: not exactly the mark before the wear part`);
+  }
+  /* Nothing to wear (the role is named, no outfit): the role part draws, the wear part does not — and no mark. */
+  const roleOnly = draw({}, markEl);
+  assert.ok(roleOnly.includes('data-me-part="role"') && !roleOnly.includes('data-me-part="wear"'), 'anti-vacuity: the role alone');
+  assert.equal(roleOnly, draw({}, null), 'a mark is drawn where the wear part is not');
+});
+
+/* ══ 📺 2026-10-12 — THE LIVE HUB, MADE REAL (ANIMATE ONLY) ═══════════════════════════════════════════════════════
+ * On the real page on The Day, in all three arrangements. Sabotages seen red (each restored): the mark dropped from
+ * the wall · a background kept for it.
+ */
+
+/** The fixture guest's page on The Day, with the stream and the wall on. */
+async function liveDay(looks: unknown, liveHubStyle: string | null = null): Promise<string> {
+  const prefs = { ...(looks === undefined ? {} : { [BLOCK_LOOKS_PREF_KEY]: looks }), ...(liveHubStyle ? { scene_styles: { live_hub: liveHubStyle } } : {}) };
+  return renderSiteBodyFixture({
+    dayOfPhase: 'live',
+    lifecyclePhase: 'event',
+    watchLive: { embedUrl: 'https://www.youtube-nocookie.com/embed/abcdefghijk', watchUrl: 'https://www.youtube.com/watch?v=abcdefghijk' },
+    liveWall: { tiles: [], count: 0, caption: null, challenge: null, challengeMeasured: true },
+    event: { ...FIXTURE_EVENT, ...(Object.keys(prefs).length > 0 ? { style_preferences: prefs } : {}) } as SiteBodyFixtureProps['event'],
+  } as Partial<SiteBodyFixtureProps>);
+}
+
+for (const [arrangement, roots] of [
+  ['Player and wall', ['<section aria-label="Watch the event live"', '<section aria-label="Live photo wall"']],
+  ['Theatre', ['<section data-scene-style="theatre"']],
+  ['Wall first', ['<section data-scene-style="wall-first"']],
+] as const) {
+  test(`Live hub, ${arrangement}: nothing kept (or a background, which it refuses) is the same page; a motion kept marks each root it is drawn from — nothing else`, async () => {
+    const style = arrangement === 'Theatre' ? 'theatre' : arrangement === 'Wall first' ? 'wall-first' : null;
+    const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="live_hub"></span>`;
+    const plain = await liveDay(undefined, style);
+    for (const root of roots) assert.equal(plain.split(root).length, 2, `${root}: not drawn once — this proves nothing`);
+    assert.ok(plain.includes('aria-label="Live photo wall"') && plain.includes('youtube-nocookie.com/embed/abcdefghijk'), 'anti-vacuity: the stream and the wall are both on the page');
+    assert.doesNotMatch(plain, new RegExp(`${BLOCK_MARK_ATTR}|${BLOCK_LOOKS_STYLE_ATTR}`));
+    for (const nothing of [{}, { live_hub: {} }, { live_hub: { g: 'frost' } }, { live_hub: { g: 'none' } }, { live_hub: { motion: {} } }]) {
+      assert.equal(await liveDay(nothing, style), plain, `a page with ${JSON.stringify(nothing)} kept differs from one with nothing kept`);
+    }
+    for (const look of [{ motion: { in: { fade: true } } }, { g: 'frost', motion: { during: 'drift' } }] as const) {
+      const html = await liveDay({ live_hub: look }, style);
+      const css = blockLooksCss(readBlockLooks({ [BLOCK_LOOKS_PREF_KEY]: { live_hub: { motion: look.motion } } }));
+      assert.doesNotMatch(css, /background|backdrop-filter|border/, 'a ground is written for the Live hub');
+      const tag = `<style ${BLOCK_LOOKS_STYLE_ATTR}="">${css}</style>`;
+      assert.equal(html.split(mark).length - 1, roots.length, `${JSON.stringify(look)}: not one mark per root`);
+      for (const root of roots) assert.ok(html.includes(`${mark}${root}`), `${JSON.stringify(look)}: the mark is not right before ${root}`);
+      assert.equal(html.split(tag).length, 2);
+      assert.equal(html.split(mark).join('').replace(tag, ''), plain, `${JSON.stringify(look)}: the page changed somewhere else`);
     }
   });
 }

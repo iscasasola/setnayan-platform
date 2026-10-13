@@ -67,11 +67,11 @@ export function PaletteLookList({
             ) : (
               <>
                 {it.name ? (
-                  <b className="mt-2 block text-center font-mono text-[0.6rem] font-normal uppercase leading-tight tracking-[0.12em] text-ink/60">
+                  <b className="mt-2 block text-center font-mono text-[0.6rem] font-normal uppercase leading-tight tracking-[0.12em] text-ink/70">
                     {it.name}
                   </b>
                 ) : null}
-                <small className={`${it.name ? 'mt-0.5' : 'mt-2'} block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.06em] text-ink/45`}>
+                <small className={`${it.name ? 'mt-0.5' : 'mt-2'} block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.06em] text-ink/70`}>
                   {it.hex}
                 </small>
               </>
@@ -83,11 +83,11 @@ export function PaletteLookList({
         /* The names, in the same order, one line under the buttons — they
            overlap, so a word under each would collide. Hidden from a screen
            reader: each button already says its own name. */
-        <p aria-hidden className="sn-pal-legend font-mono text-[0.6rem] uppercase tracking-[0.12em] text-ink/60">
+        <p aria-hidden className="sn-pal-legend font-mono text-[0.6rem] uppercase tracking-[0.12em] text-ink/70">
           {items.map((it, i) => (
             <span key={`${it.hex}-${i}`} style={swatchVars(it.hex)}>
               {it.name || it.hex}
-              {it.name ? <small className="text-[0.55rem] tracking-[0.06em] text-ink/45">{it.hex}</small> : null}
+              {it.name ? <small className="text-[0.55rem] tracking-[0.06em] text-ink/70">{it.hex}</small> : null}
             </span>
           ))}
         </p>

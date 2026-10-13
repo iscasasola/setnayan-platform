@@ -59,7 +59,7 @@ function DosAndDonts({
       ) : null}
       {donts.length > 0 ? (
         <div className="space-y-1 border-l-2 border-ink/30 pl-3 text-ink/75">
-          <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/60">Don&rsquo;t</p>
+          <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/70">Don&rsquo;t</p>
           <ul className="space-y-1">
             {donts.map((row, i) => (
               <li key={i}>· {row}</li>

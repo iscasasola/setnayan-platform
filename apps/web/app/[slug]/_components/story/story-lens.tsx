@@ -138,14 +138,14 @@ export function StoryLens({ room, blocks, heat, heatWithheld, openingAtMs }: Sto
             <b className="font-condensed text-base font-extrabold uppercase tracking-[0.04em]">
               The room
             </b>
-            <span className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-ink/60">
+            <span className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-ink/70">
               {lensStateLabel(state)}
             </span>
           </div>
 
           <RoomPlan room={room} state={state} tables={tables} />
 
-          <p className="border-t border-ink/15 px-3 py-2.5 text-xs leading-relaxed text-ink/60">
+          <p className="border-t border-ink/15 px-3 py-2.5 text-xs leading-relaxed text-ink/70">
             {lensNote({
               state,
               opensAt: receptionOpensAt(blocks),

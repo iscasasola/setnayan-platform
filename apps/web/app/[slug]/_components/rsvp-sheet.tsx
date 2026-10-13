@@ -332,7 +332,7 @@ export function RsvpSheet({
             <button
               type="button"
               onClick={closeSheet}
-              className="-mr-2 inline-flex min-h-[44px] shrink-0 items-center px-2 text-sm text-ink/60 transition-colors hover:text-ink"
+              className="-mr-2 inline-flex min-h-[44px] shrink-0 items-center px-2 text-sm text-ink/70 transition-colors hover:text-ink"
             >
               {/* "Close", not "Done": it closes the sheet and saves nothing
                   (guest text audit 2026-09-30) — the Save is at the foot. */}
@@ -343,7 +343,7 @@ export function RsvpSheet({
         {/* ⚠ UNCONDITIONAL. See 1️⃣ at the top of this file: gating these on
             `open` is what loses a half-typed note to a dismissed sheet. */}
         <div className="pt-5">{children}</div>
-        <p className="pt-5 text-center text-xs text-ink/55">{privacyLine}</p>
+        <p className="pt-5 text-center text-xs text-ink/70">{privacyLine}</p>
       </div>
     </>
   );

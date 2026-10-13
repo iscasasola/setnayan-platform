@@ -44,7 +44,7 @@ import {
   type EventRecommendation,
 } from '@/lib/vendor-recommendations';
 import { scheduleWindows, labelForCapture } from '@/lib/moments-from-the-schedule';
-import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { DEFAULT_EVENT_TZ, onlyWhatGuestsMaySee } from '@/lib/schedule';
 import { storyDayWindow, manilaDayOf, allocateChapterCounts } from '@/lib/story-day-window';
 import { guestFullName } from '@/lib/guests';
 
@@ -2065,19 +2065,20 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // The couple's own run-of-show, used to NAME the chapters below. Loaded only
   // when there are chapters to name.
   //
-  // 🔒 `is_public` IS PART OF THE QUERY, NOT A NICETY. A block the couple marked
+  // 🔒 THE GUESTS' FENCE IS PART OF THE QUERY, NOT A NICETY — `onlyWhatGuestsMaySee`
+  // (lib/schedule.ts), the one rule the guests' schedule reads by: public, for
+  // Everyone, and not a coordinator's unreleased prep. A block the couple marked
   // private is one they deliberately kept off the guest schedule — "Ninang's
-  // envelope handover", "family photos without Tita". Painting its label across
-  // a chapter of a PUBLIC story page publishes the thing they hid. The private
-  // block still exists; the photos in it simply keep no name, which is the
-  // behaviour this page had for everybody until now.
+  // envelope handover", "family photos without Tita" — and so is one they made
+  // "Only for · Entourage". Painting its label across a chapter of a PUBLIC story
+  // page publishes the thing they hid. The block still exists; the photos in it
+  // simply keep no name, which is the behaviour this page had for everybody
+  // until now.
   let dayWindows: ReturnType<typeof scheduleWindows> = [];
   if (plans.length > 0) {
-    const { data: blockRows } = await admin
-      .from('event_schedule_blocks')
-      .select('label, start_at, end_at')
-      .eq('event_id', eventId)
-      .eq('is_public', true);
+    const { data: blockRows } = await onlyWhatGuestsMaySee(
+      admin.from('event_schedule_blocks').select('label, start_at, end_at').eq('event_id', eventId),
+    );
     if (blockRows?.length) dayWindows = scheduleWindows(blockRows, DEFAULT_EVENT_TZ);
   }
 
@@ -3108,15 +3109,14 @@ export async function loadEditorialChaptersForEditor(
 
   // The same run-of-show the public page names its chapters from, so the
   // editor's placeholder and the visitor's page cannot say different things.
-  // `is_public` filtered for the same reason as there: a private block's words
-  // must not become public words.
+  // The SAME fence as there (`onlyWhatGuestsMaySee`), for the same reason: a
+  // private or role-only block's words must not become public words — and a
+  // placeholder the visitor's page will not say is a placeholder that lies.
   let editorWindows: ReturnType<typeof scheduleWindows> = [];
   if (leads.length > 0) {
-    const { data: blockRows } = await admin
-      .from('event_schedule_blocks')
-      .select('label, start_at, end_at')
-      .eq('event_id', eventId)
-      .eq('is_public', true);
+    const { data: blockRows } = await onlyWhatGuestsMaySee(
+      admin.from('event_schedule_blocks').select('label, start_at, end_at').eq('event_id', eventId),
+    );
     if (blockRows?.length) editorWindows = scheduleWindows(blockRows, DEFAULT_EVENT_TZ);
   }
 

@@ -1189,7 +1189,7 @@ export async function SiteBody({
       : null;
   const doorways = doorwayFacts
     ? resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })
-    : { venueWalk: null, pabuya: null };
+    : { venueWalk: null, pabuya: null, wishes: 0 };
   // Is the real player already on this page? The player follows the broadcast,
   // not the calendar (owner-ruled 2026-09-02) — both trees mount it whenever the
   // links resolve, regardless of dayOfPhase — so one expression covers both.
@@ -2175,12 +2175,17 @@ export async function SiteBody({
                 wall exactly as before; Theatre / Wall first arrange the SAME two
                 blocks together (`live-hub-styles.tsx`). */}
             {(() => {
+              /* 🧱 The live hub's own Animate (`lib/block-looks.ts`; animate only — both pieces are dark cards): the
+                 block's mark rides with EACH piece, right before its root, only when that piece is drawn. */
               const playerPart = (
                 <>
                 {plan.liveMediaVisible && watchLive ? (
+                  <>
+                  {blockMark('live_hub')}
                   <section className="mt-10">
                     <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} />
                   </section>
+                  </>
                 ) : null}
                 </>
               );
@@ -2199,14 +2204,19 @@ export async function SiteBody({
                     Same anchor id, so the event-day bar's "Photos" button still
                     lands somewhere that explains itself. */}
                 {insideAllowed && dayOfPhase === 'live' && plan.liveMediaVisible && !liveWall && liveWallUnreadable ? (
+                  <>
+                  {blockMark('live_hub')}
                   <section id="live-photo-wall" className="mt-10 scroll-mt-6">
                     <p className="rounded-lg bg-ink/5 px-4 py-3 text-center text-sm text-ink/60">
                       {LIVE_WALL_UNREADABLE_LINE}
                     </p>
                   </section>
+                  </>
                 ) : null}
 
                 {insideAllowed && dayOfPhase === 'live' && plan.liveMediaVisible && liveWall ? (
+                  <>
+                  {blockMark('live_hub')}
                   <section id="live-photo-wall" className="mt-10 scroll-mt-6">
                     <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
                     <LiveWallBlock
@@ -2219,6 +2229,7 @@ export async function SiteBody({
                       timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                     />
                   </section>
+                  </>
                 ) : null}
                 </>
               );
@@ -2232,6 +2243,7 @@ export async function SiteBody({
               // wall); on its own the wall is the Gallery's — everyone's photos.
               return liveHubArranged && (playerShown || wallShown) ? group('live', (
                 <div className="mt-10">
+                  {blockMark('live_hub')}
                   <LiveHubArrangement
                     sceneStyle={liveHubStyle}
                     player={playerShown ? playerPart : null}
@@ -2324,7 +2336,10 @@ export async function SiteBody({
                     ) : null
                   }
                   giftHref={doorways.pabuya}
-                  mark={(key) => <>{giftsBlockMark(key)}{makerMark(key)}</>}
+                  /* 🧱 The canvas's samples of E-Gifts and What to wear stand behind their blocks' marks, then the
+                     Maker's own marker (`guestSceneMark`): a look picked there is drawn by the rules a guest gets. */
+                  mark={guestSceneMark}
+                  giftWishes={doorways.wishes}
                   maker={isMakerCanvas}
                 />
               </div>
@@ -2359,6 +2374,7 @@ export async function SiteBody({
                   }
                   giftHref={doorways.pabuya}
                   mark={giftsBlockMark}
+                  giftWishes={doorways.wishes}
                 />
               </div>
             )) : null}
@@ -3246,7 +3262,11 @@ export async function SiteBody({
                   when the couple's links resolve, so no `isLive` gate here. */}
               {/* 🎨 Theatre / Wall first draw the player AND the wall here, together;
                   style A keeps the wall in its own place further down. */}
+              {/* 🧱 The live hub's own Animate (`lib/block-looks.ts`): its mark before the one arrangement, or before
+                  each piece of Player and wall (the stream here, the wall further down), only where it is drawn. */}
               {group('live', liveHubArranged && (watchLive || (isLive && liveWall)) ? (
+                <>
+                {blockMark('live_hub')}
                 <LiveHubArrangement
                   sceneStyle={liveHubStyle}
                   player={watchLive ? <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} /> : null}
@@ -3262,8 +3282,12 @@ export async function SiteBody({
                     ) : null
                   }
                 />
+                </>
               ) : watchLive ? (
+                <>
+                {blockMark('live_hub')}
                 <WatchLiveBlock watchLive={watchLive} slug={event.slug ?? ''} occasion={clientWords.occasion} />
+                </>
               ) : null, { chapters: true, className: 'space-y-12' })}
 
               {/* Pahina §7 · functional-color exile STARTS HERE: the day-of
@@ -3309,6 +3333,8 @@ export async function SiteBody({
                     <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
                   ) : null}
                   {liveHubArranged ? null : (
+                    <>
+                    {blockMark('live_hub')}
                     <LiveWallBlock
                       slug={event.slug}
                       initialTiles={liveWall.tiles}
@@ -3316,6 +3342,7 @@ export async function SiteBody({
                       initialCaption={liveWall.caption}
                       timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
                     />
+                    </>
                   )}
                 </>
               ) : null, { chapters: true, className: 'space-y-12', id: tabs.on ? undefined : SITE_MENU_ANCHORS.gallery })}
@@ -3647,6 +3674,8 @@ export async function SiteBody({
                 /* 🏠 One home per fact: once Me draws this guest's role and
                    outfit (`meParts`), the Welcome's look stands down. */
                 look={meParts.length > 0 ? null : guestLook}
+                /* 🧱 What to wear's own look rides with the guest's own panel (`lib/block-looks.ts`). */
+                lookMark={blockMark('look')}
                 reminders={
                   remindersScene ? (
                     <HideableWidgetRender
@@ -3668,6 +3697,7 @@ export async function SiteBody({
                 }
                 giftHref={doorways.pabuya}
                 mark={giftsBlockMark}
+                giftWishes={doorways.wishes}
               />
               ), { chapters: true, className: 'space-y-12' })}
 
@@ -3681,6 +3711,7 @@ export async function SiteBody({
                   partLooks={welcomeLooks}
                   parts={dayWelcome}
                   words={clientWords}
+                  lookMark={blockMark('look')}
                   look={{
                     config: event.dress_code_config ?? null,
                     ceremonyType: dressRiteOf(event),
@@ -3712,6 +3743,7 @@ export async function SiteBody({
                   venue={<DayDirections venues={dayVenues} />}
                   giftHref={doorways.pabuya}
                   mark={giftsBlockMark}
+                  giftWishes={doorways.wishes}
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
 
@@ -3907,6 +3939,7 @@ export async function SiteBody({
                 words={clientWords}
                 look={{ ...guestLook, roleNames }}
                 comingWith={comingWith}
+                wearMark={blockMark('look')}
               />
             ) : null}
             {/* 📱 ME'S OWN, FILED LIKE THE MAKER'S (owner 2026-10-08; prototype: Me · What to wear · seats): this
@@ -3931,7 +3964,7 @@ export async function SiteBody({
               return (
                 <div data-me-filed="" className="flex flex-col gap-12">
                   {lookOnMe ? (
-                    <GuestWelcome partLooks={welcomeLooks} parts={welcomeOnMe} words={clientWords} look={guestLook} reminders={null} giftHref={null} />
+                    <GuestWelcome partLooks={welcomeLooks} parts={welcomeOnMe} words={clientWords} look={guestLook} reminders={null} giftHref={null} lookMark={blockMark('look')} />
                   ) : null}
                   {tableOnMe ? seatBlock : null}
                   {mine}
@@ -4268,6 +4301,7 @@ export async function SiteBody({
               ? null
               : doorways.pabuya
           }
+          wishes={doorways.wishes}
           broadcast={broadcastNotice}
           dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
         />

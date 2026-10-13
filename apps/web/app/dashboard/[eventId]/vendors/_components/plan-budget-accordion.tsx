@@ -65,6 +65,7 @@ import { ADD_ONS, addOnHref, type AddOnEntry } from '@/lib/add-ons-catalog';
 import { isMultiPickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import {
   formatPesoCompact,
+  usuallyBookedAheadLine,
   type PlanBudgetModel,
   type AccordionFolder,
   type AccordionChild,
@@ -1185,6 +1186,7 @@ function ChildRail({
           ) : null}
           {child.personalizationEnabled ? (
             <DeadlineChip
+              groupId={child.groupId}
               status={child.timelineStatus}
               daysLeft={child.daysLeft}
               lockedCount={child.picks.filter(isLocked).length}
@@ -1407,11 +1409,14 @@ function DependencyNudge({
 // 'due_soon'; warns clearly once 'overdue'. Reads timelineStatus so the chip,
 // the cover's "What to lock next" row, and the model stay one source of truth.
 function DeadlineChip({
+  groupId,
   status,
   daysLeft,
   lockedCount,
   multiPick,
 }: {
+  /** The plan group the chip speaks for (the kind line names its lead). */
+  groupId: PlanGroupId;
   status: AccordionChild['timelineStatus'];
   daysLeft: number | null;
   /** How many picks in this group are locked — drives the multi-pick copy. */
@@ -1431,7 +1436,9 @@ function DeadlineChip({
     return <span className="chip locked">✓ Booked</span>;
   }
   if (status === 'overdue' && daysLeft !== null) {
-    return <span className="chip over">⚠ {Math.abs(daysLeft)}d overdue</span>;
+    // Owner 2026-10-12 (approval 12): the kind line, in the quiet gold chip —
+    // never a red "⚠ Nd overdue" that grows by one a day.
+    return <span className="chip soon">{usuallyBookedAheadLine(groupId)}</span>;
   }
   if (status === 'due_soon' && daysLeft !== null) {
     return <span className="chip soon">{daysLeft}d left</span>;

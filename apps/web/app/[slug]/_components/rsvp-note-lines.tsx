@@ -66,7 +66,7 @@ export function RsvpNoteLines({
             ),
             message: (
               <p
-                className={lines ? 'text-sm text-ink/60' : 'mt-2 text-sm text-ink/60'}
+                className={lines ? 'text-sm text-ink/70' : 'mt-2 text-sm text-ink/70'}
                 data-thank-you-message=""
                 data-rsvp-line="message"
                 data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}

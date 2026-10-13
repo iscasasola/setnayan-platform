@@ -69,6 +69,11 @@ export function bucketForPrefix(pathPrefix: string): R2BucketKey {
   // where no startsWith rule could reach them because the meaningful segment
   // sat behind an unpredictable id; the root prefix exists so this line can.
   if (normalized.startsWith('pabuya-qr/')) return 'threadFiles';
+  // A GUEST's screenshot of what they sent (E-Gifts gift records, 2026-10-08).
+  // The same class as the receipts above — their own GCash / bank confirmation —
+  // and only the couple may be shown it. The guest presign route names the
+  // bucket itself; this makes the PREFIX alone sufficient.
+  if (normalized.startsWith('gift-shots/')) return 'threadFiles';
   // A SUPPLIER's payment QR (2026-09-17). Same class again: the image encodes
   // the account it stands for. Its own root rather than `vendors/…` because
   // that root is shared with verification documents, which belong in a

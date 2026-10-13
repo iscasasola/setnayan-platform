@@ -37,11 +37,35 @@
  * couple removes the clashing candidate and every leg comes straight back.
  */
 
-import Link from 'next/link';
-import { useState, useTransition } from 'react';
-import { Ban, CalendarX2, Check, Clock, Hammer, Hourglass, MessageCircle, QrCode } from 'lucide-react';
+import { useContext, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  Ban,
+  BellRing,
+  CalendarCheck,
+  CalendarDays,
+  CalendarX2,
+  Check,
+  Clock,
+  CreditCard,
+  FolderOpen,
+  Hourglass,
+  MessageCircle,
+  Pencil,
+  Plus,
+  QrCode,
+  RotateCcw,
+  X,
+} from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { useConfirm } from '@/app/_components/confirm-dialog';
+import { cardVerbs, type CardVerb } from '@/lib/supplier-card-verbs';
+import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
+import { deleteVendor } from '../actions';
+import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
+import { BenchWritesStandInCtx, useBenchLocal } from './bench-local';
 import { haptic } from '@/lib/haptics';
-import { useSaveLoader } from '@/components/sd-loader';
+import { announceBuildAdded } from '@/lib/budget-build';
 import type { BenchCardActions } from '@/lib/bench-card-actions';
 import {
   DOESNT_FIT_ACTION,
@@ -51,27 +75,31 @@ import {
 } from '@/lib/build-date-window';
 import {
   CARD_ADDING,
-  CARD_ADD_TO_BUILD,
-  CARD_CHECK_INQUIRY,
-  CARD_IN_BUILD,
-  CARD_INQUIRE,
-  CARD_LOCK,
   CARD_LOCKING,
   CARD_NEEDS_PRICE,
-  CARD_REMOVE_FROM_BUILD,
   CARD_ASK_SENT,
   LOCK_WITHHELD_COPY,
-  cardCheckInquiryLabel,
   cardInquireLabel,
   waitingOnSupplier,
 } from '@/lib/explore-info-copy';
-import type { PlanGroupId } from '@/lib/wedding-plan-groups';
+import { isMultiPickGroup, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { removeBuildPick, setBuildPick } from '../build-pick-actions';
 import { AccordionLockButton } from './accordion-lock';
 import { ContactShortlistVendorButton } from './contact-shortlist-vendor-button';
 import { WithdrawAskButton } from './withdraw-ask-button';
 import { SelfAddedPrice } from './self-added-price';
 import { ConnectSupplierModal } from '../../_components/connect-supplier-modal';
+
+/** `deleteVendor` redirects a signed-out caller; that is not a failure to report. */
+function isRedirect(e: unknown): boolean {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    'digest' in e &&
+    typeof (e as { digest?: unknown }).digest === 'string' &&
+    (e as { digest: string }).digest.startsWith('NEXT_REDIRECT')
+  );
+}
 
 export function BenchVendorActions({
   actions,
@@ -81,6 +109,12 @@ export function BenchVendorActions({
   groupLabel,
   verifiedState,
   lockRequestExpiresAt,
+  booked = false,
+  hasPrice = false,
+  quoteIn = false,
+  payHref = null,
+  workspaceHref,
+  onRecord,
 }: {
   actions: BenchCardActions;
   eventId: string;
@@ -99,28 +133,21 @@ export function BenchVendorActions({
   /** ISO deadline of a still-outstanding ask, read back off the row the DB
    *  stamped. Only meaningful when `actions.withdraw` is non-null. */
   lockRequestExpiresAt?: string | null;
+  /** Booked here (contracted or later) — the verbs become Pay · Chat · Workspace. */
+  booked?: boolean;
+  /** A price is recorded for them. */
+  hasPrice?: boolean;
+  /** Their quote is waiting on the couple (`standing.needsYou`). */
+  quoteIn?: boolean;
+  /** Where "Pay" goes when a payment is due — the Booked row's own link, or null. */
+  payHref?: string | null;
+  /** The supplier's workspace on this event. */
+  workspaceHref: string;
+  /** Opens the couple's own record of a supplier they added. */
+  onRecord?: () => void;
 }) {
   const [pending, start] = useTransition();
-  const save = useSaveLoader();
 
-  const pin = (planGroupId: string) => {
-    haptic('confirm');
-    start(async () => {
-      await save.run(() => setBuildPick({ eventId, planGroupId, vendorId }), {
-        steps: ['Pinning your pick'],
-        hint: 'Saving',
-      });
-    });
-  };
-
-  const unpin = (planGroupId: string) => {
-    haptic('tick');
-    start(async () => {
-      // vendorId is REQUIRED: a multi-pick category holds several picks and a
-      // vendorless clear would destroy the couple's others.
-      await removeBuildPick({ eventId, planGroupId, vendorId });
-    });
-  };
 
   // ONE ID PER JOB. The build slot acts on `buildGroupId`; Lock renders on
   // `lockGroupId`. They were one variable until 2026-09-11, and the resolver
@@ -129,89 +156,263 @@ export function BenchVendorActions({
   const buildGroupId = actions.buildGroupId;
   const [connectOpen, setConnectOpen] = useState(false);
 
+  // ── THE VERBS, BY STEP (`lib/supplier-card-verbs.ts`) ────────────────────
+  // Which buttons, in what order and colour, is ONE table. Whether an action
+  // is allowed stays the resolver's (`actions`); a verb is drawn only when the
+  // resolver already holds its action.
+  const local = useBenchLocal();
+  // In the build NOW — what a press made it, else what the page was drawn with.
+  const drawnIn = actions.build?.kind === 'in_build';
+  const buildIn =
+    buildGroupId && (actions.build?.kind === 'add' || actions.build?.kind === 'in_build')
+      ? (local?.builtNow(vendorId, buildGroupId, drawnIn) ?? drawnIn)
+      : drawnIn;
+  const shown: BenchCardActions =
+    actions.build && (actions.build.kind === 'add' || actions.build.kind === 'in_build')
+      ? { ...actions, build: { kind: buildIn ? 'in_build' : 'add' } }
+      : actions;
+  const verbs = cardVerbs({ actions: shown, booked, hasPrice, quoteIn, payDue: Boolean(payHref) });
+  const threadHref =
+    actions.inquiry?.kind === 'check' ? `/dashboard/${eventId}/messages/${actions.inquiry.threadId}` : null;
+  const threadId = actions.inquiry?.kind === 'check' ? actions.inquiry.threadId : null;
+  // Buttons keep their words (owner 2026-10-12, look call 2): no fit pass — the row wraps.
+  const router = useRouter();
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  const writes = useContext(BenchWritesStandInCtx);
+  const removeWrite = writes?.remove ?? deleteVendor;
+  const pinWrite = writes?.pin ?? setBuildPick;
+  const unpinWrite = writes?.unpin ?? removeBuildPick;
+  // A refused Remove comes back as a fresh card; the bench hands it the words.
+  const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string; retry?: () => void } | null>(() => {
+    const was = local?.takeSaid(vendorId) ?? null;
+    return was ? { tone: 'error', text: was } : null;
+  });
+
+  const remove = async () => {
+    setSaid(null);
+    // 🔑 ASK FIRST, OUTSIDE THE TRANSITION. In React 19 every state update made inside an async `startTransition`
+    // is held until the whole action settles — and this action was waiting on the confirm box, whose `open` was one
+    // of those held updates. The box never opened and Remove never worked (measured in the lab, 2026-10-12).
+    const ok = await confirm({
+      title: `Remove ${vendorName}?`,
+      body: `They leave your ${groupLabel} list. Your conversation with them is kept.`,
+      confirmLabel: 'Remove',
+      cancelLabel: 'Keep',
+      destructive: true,
+    });
+    if (!ok) return;
+    const refused = `${vendorName} could not be removed. Nothing changed.`;
+    // THE PRESS ANSWERS AT ONCE (owner 2026-10-12): on the bench the card
+    // leaves the page now and the write answers in place — no whole-page
+    // render (`lib/answer-in-place.ts`). A refusal puts it back, saying so.
+    // Taken off OUTSIDE the transition: inside it, React 19 would hold the
+    // hide until the write settled (measured in the lab).
+    const putBack = local?.removeInPlace(vendorId) ?? null;
+    start(async () => {
+      try {
+        const fd = new FormData();
+        fd.set('event_id', eventId);
+        fd.set('vendor_id', vendorId);
+        if (putBack) fd.set(ANSWER_IN_PLACE_FIELD, '1');
+        await removeWrite(fd);
+        if (!putBack) router.refresh();
+      } catch (e) {
+        if (isRedirect(e)) throw e;
+        // The server refuses a booked supplier, or one with a payment on record.
+        if (putBack) {
+          putBack(refused);
+          local?.say('bad', refused);
+        } else setSaid({ tone: 'error', text: refused });
+      }
+    });
+  };
+
+
+  // ── ADD TO BUILD ANSWERS IN PLACE (controller audit 2026-10-12, item 1) ──
+  // It used to cover the screen with the save veil and then say nothing about
+  // a refusal — `setBuildPick` answers `{ ok: false }` and the card went on
+  // reading "Saved ✓". Now the card flips at once, the write answers in place
+  // (`answerInPlace`, no whole-page render), and a refusal flips it back,
+  // says why on the card and in the top toast, with Try again.
+  const pin = (planGroupId: string) => {
+    haptic('confirm');
+    setSaid(null);
+    const multi = isMultiPickGroup(planGroupId);
+    const wasIn = buildIn;
+    local?.setBuilt(vendorId, planGroupId, true, multi);
+    start(async () => {
+      let ok = false;
+      try {
+        ok = (await pinWrite({ eventId, planGroupId, vendorId, answerInPlace: Boolean(local) })).ok;
+      } catch {
+        ok = false;
+      }
+      if (ok) {
+        // The cart peeks (the page's shell listens) — only for a pick that saved.
+        announceBuildAdded({ name: vendorName, category: groupLabel });
+        if (!local) router.refresh();
+        return;
+      }
+      local?.setBuilt(vendorId, planGroupId, wasIn, true);
+      const text = `${vendorName} could not be added to your build. Nothing changed.`;
+      setSaid({ tone: 'error', text, retry: () => pin(planGroupId) });
+      local?.say('bad', text, () => pin(planGroupId));
+    });
+  };
+
+  const unpin = (planGroupId: string) => {
+    haptic('tick');
+    setSaid(null);
+    local?.setBuilt(vendorId, planGroupId, false, true);
+    start(async () => {
+      let ok = false;
+      try {
+        // vendorId is REQUIRED: a multi-pick category holds several picks and a
+        // vendorless clear would destroy the couple's others.
+        ok = (await unpinWrite({ eventId, planGroupId, vendorId, answerInPlace: Boolean(local) })).ok;
+      } catch {
+        ok = false;
+      }
+      if (ok) {
+        if (!local) router.refresh();
+        return;
+      }
+      local?.setBuilt(vendorId, planGroupId, true, true);
+      const text = `${vendorName} could not be taken out of your build. Nothing changed.`;
+      setSaid({ tone: 'error', text, retry: () => unpin(planGroupId) });
+      local?.say('bad', text, () => unpin(planGroupId));
+    });
+  };
+
+  const nudge = () => {
+    if (!threadId) return;
+    start(async () => {
+      setSaid(null);
+      const res = await contactShortlistVendor({ eventId, vendorId, nudgeThreadId: threadId });
+      if (res.status === 'nudged') setSaid({ tone: 'ok', text: `Nudged ${vendorName}.` });
+      else setSaid({ tone: 'error', text: res.status === 'error' ? res.message : 'That did not send. Nothing changed.' });
+    });
+  };
+
+  const pill = (v: CardVerb) => actionButtonClass(v.tone, { main: v.main, quiet: v.quiet });
+  const draw = (v: CardVerb) => {
+    switch (v.key) {
+      case 'add':
+        return buildGroupId ? (
+          <ActionButton key={v.key} tone={v.tone} main icon={Plus} label={pending ? CARD_ADDING : v.label} disabled={pending} onClick={() => pin(buildGroupId)} />
+        ) : null;
+      case 'in_build':
+        // In the build — a second press takes it back out (the prototype's toggle).
+        return buildGroupId ? (
+          <ActionButton key={v.key} tone={v.tone} main icon={Check} label={v.label} aria-pressed disabled={pending} onClick={() => unpin(buildGroupId)} />
+        ) : null;
+      case 'book':
+        return groupId ? (
+          <AccordionLockButton
+            key={v.key}
+            eventId={eventId}
+            groupId={groupId as PlanGroupId}
+            groupLabel={groupLabel}
+            vendorId={vendorId}
+            vendorName={vendorName}
+            label={v.label}
+            pendingLabel={CARD_LOCKING}
+            icon={<CalendarCheck aria-hidden strokeWidth={1.9} />}
+            className={pill(v)}
+            wrapperClassName="verb-slot"
+            isVerified={verifiedState ?? undefined}
+          />
+        ) : null;
+      case 'ask':
+        return (
+          <ContactShortlistVendorButton
+            key={v.key}
+            eventId={eventId}
+            vendorId={vendorId}
+            label={v.label}
+            ariaLabel={cardInquireLabel(vendorName)}
+            className={pill(v)}
+            wrapperClassName="verb-slot"
+            errorClassName="verb-err"
+          />
+        );
+      case 'withdraw':
+        return (
+          <WithdrawAskButton
+            key={v.key}
+            vendorId={vendorId}
+            vendorName={vendorName}
+            label={v.label}
+            className={pill(v)}
+            wrapperClassName="verb-slot"
+            errorClassName="verb-err"
+          />
+        );
+      case 'nudge':
+        return <ActionButton key={v.key} tone={v.tone} icon={BellRing} label={v.label} disabled={pending} onClick={nudge} />;
+      case 'chat':
+      case 'read_reply':
+      case 'another_day':
+        return threadHref ? (
+          <ActionButton
+            key={v.key}
+            tone={v.tone}
+            main={v.main}
+            quiet={v.quiet}
+            icon={v.key === 'another_day' ? CalendarDays : MessageCircle}
+            label={v.label}
+            href={threadHref}
+            prefetch={false}
+          />
+        ) : null;
+      case 'pay':
+        return payHref ? <ActionButton key={v.key} tone={v.tone} main icon={CreditCard} label={v.label} href={payHref} prefetch={false} /> : null;
+      case 'payments':
+        return (
+          <ActionButton key={v.key} tone={v.tone} main quiet icon={CreditCard} label={v.label} href={`${workspaceHref}?tab=payments`} prefetch={false} />
+        );
+      case 'set_price':
+      case 'workspace':
+        return (
+          <ActionButton
+            key={v.key}
+            tone={v.tone}
+            main={v.main}
+            icon={v.key === 'set_price' ? Pencil : FolderOpen}
+            label={v.label}
+            href={workspaceHref}
+            prefetch={false}
+          />
+        );
+      case 'record':
+        return <ActionButton key={v.key} tone={v.tone} main={v.main} icon={Pencil} label={v.label} onClick={onRecord} disabled={!onRecord} />;
+      case 'remove':
+        return <ActionButton key={v.key} tone={v.tone} icon={X} label={v.label} disabled={pending} onClick={() => void remove()} />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="vacts">
-      {/* [Connect] — FIRST, per the owner's order: "[Connect] · Add to build ·
-          [Lock]". The supplier's portal into their own account, at every
-          status (a locked self-added card showed no buttons at all before
-          this). Opening it only READS whether a link exists. */}
-      {actions.connect ? (
-        <>
-          <button
-            type="button"
-            className="vact ghost"
-            onClick={() => setConnectOpen(true)}
-            aria-haspopup="dialog"
-          >
-            <QrCode size={12} strokeWidth={2} aria-hidden />
-            Connect
-          </button>
-          {connectOpen ? (
-            <ConnectSupplierModal
-              eventId={eventId}
-              vendorId={vendorId}
-              vendorName={vendorName}
-              onClose={() => setConnectOpen(false)}
-            />
-          ) : null}
-        </>
-      ) : null}
-
+      {confirmDialog}
+      {/* ── WHY A VERB IS MISSING — said, never left as a gap ──────────────── */}
       {actions.build && buildGroupId ? (
-        actions.build.kind === 'add' ? (
-          <button
-            type="button"
-            className="vact primary"
-            disabled={pending}
-            onClick={() => pin(buildGroupId)}
-          >
-            <Hammer size={12} strokeWidth={2} aria-hidden />
-            {pending ? CARD_ADDING : CARD_ADD_TO_BUILD}
-          </button>
-        ) : actions.build.kind === 'in_build' ? (
-          <span className="vact-pair">
-            <span className="vact on">
-              <Check size={12} strokeWidth={2.4} aria-hidden />
-              {CARD_IN_BUILD}
-            </span>
-            <button
-              type="button"
-              className="vact mini"
-              disabled={pending}
-              onClick={() => unpin(buildGroupId)}
-            >
-              {pending ? '…' : CARD_REMOVE_FROM_BUILD}
-            </button>
-          </span>
-        ) : actions.build.kind === 'not_available' ? (
+        actions.build.kind === 'not_available' ? (
           // HARD tier (PR-G2 · owner 2026-09-11): their calendar shows the
-          // committed day taken. Not an error on the couple's part and not a
-          // wall — the reason is named and the conversation leg below stays
-          // live. A card already in the build keeps Remove: the card is sunk,
-          // never silently taken out of the couple's plan.
-          <span className="vact-pair">
-            <span className="vact note unavailable">
-              <CalendarX2 size={12} strokeWidth={1.9} aria-hidden />
-              <span className="vact-note-txt">
-                <b>{NOT_AVAILABLE_ACTION}</b>
-                <span>{NOT_AVAILABLE_REASON}</span>
-              </span>
+          // committed day taken. The reason is named; the card stays, but it
+          // cannot be added to the build or booked.
+          <span className="vact note unavailable">
+            <CalendarX2 size={12} strokeWidth={1.9} aria-hidden />
+            <span className="vact-note-txt">
+              <b>{NOT_AVAILABLE_ACTION}</b>
+              <span>{NOT_AVAILABLE_REASON}</span>
             </span>
-            {actions.build.inBuild ? (
-              <button
-                type="button"
-                className="vact mini"
-                disabled={pending}
-                onClick={() => unpin(buildGroupId)}
-              >
-                {pending ? '…' : CARD_REMOVE_FROM_BUILD}
-              </button>
-            ) : null}
           </span>
         ) : actions.build.kind === 'schedule_clash' ? (
           // SOFT schedule clash (PR-G1). Not an error and not a wall: the
-          // reason is named, the fix is named, and the Inquire leg below is
-          // still live. Removing the clashing candidate brings this card back.
+          // reason is named, and removing the clashing candidate brings this
+          // card back.
           <span className="vact note clash">
             <CalendarX2 size={12} strokeWidth={1.9} aria-hidden />
             <span className="vact-note-txt">
@@ -224,21 +425,16 @@ export function BenchVendorActions({
           // the couple types the price and the card unblocks (owner
           // 2026-09-20). Writes through `updateVendorCosts` — the one writer.
           <SelfAddedPrice eventId={eventId} vendorId={vendorId} />
-        ) : (
+        ) : actions.build.kind === 'needs_price' ? (
           <span className="vact note">
             <Clock size={12} strokeWidth={1.9} aria-hidden />
             {CARD_NEEDS_PRICE}
           </span>
-        )
+        ) : null
       ) : null}
 
-      {/* PR-H · THE ASK IS OUT AND NOBODY HAS ANSWERED.
-          This row is what stops the bench lying: without it the card looked
-          identical before and after the couple pressed Lock, and went on
-          offering Lock — which the one-pending-request-per-group unique index
-          would then REJECT, handing the couple an error for doing the only
-          thing the screen offered. The deadline is the DB's own stamped value,
-          never a recomputed window. */}
+      {/* PR-H · THE ASK IS OUT AND NOBODY HAS ANSWERED. The deadline is the
+          DB's own stamped value, never a recomputed window. */}
       {actions.withdraw ? (
         <span className="vact note">
           <Hourglass size={12} strokeWidth={1.9} aria-hidden />
@@ -249,8 +445,8 @@ export function BenchVendorActions({
         </span>
       ) : null}
 
-      {/* "Hide lock, say why" (owner 2026-09-11). Lock is absent below; this
-          is the reason, read off the thread — never a guessed one. */}
+      {/* "Hide lock, say why" (owner 2026-09-11) — the reason Book is absent,
+          read off the thread, never a guessed one. */}
       {actions.lockWithheld ? (
         <span className="vact note withheld">
           <Ban size={12} strokeWidth={1.9} aria-hidden />
@@ -261,51 +457,36 @@ export function BenchVendorActions({
         </span>
       ) : null}
 
-      {actions.inquiry?.kind === 'inquire' ? (
-        <ContactShortlistVendorButton
+      {/* ── THE VERB ROW — one line, one fit state (icon + word → word → icon) */}
+      <div className="verbs" data-card-verbs={verbs.map((v) => v.key).join(' ')}>
+        {verbs.map(draw)}
+        {/* [Connect] — the supplier's portal into their own account, for one
+            the couple added themselves. It stays reachable at every step until
+            the record sheet (PR2b) carries the claim link. Opening it only
+            READS whether a link exists. */}
+        {actions.connect ? (
+          <ActionButton tone="neutral" icon={QrCode} label="Connect" aria-haspopup="dialog" onClick={() => setConnectOpen(true)} />
+        ) : null}
+      </div>
+      {connectOpen ? (
+        <ConnectSupplierModal
           eventId={eventId}
           vendorId={vendorId}
-          label={CARD_INQUIRE}
-          ariaLabel={cardInquireLabel(vendorName)}
-          className="vact ghost"
-          wrapperClassName="vact-slot"
-          errorClassName="vact-err"
-        />
-      ) : actions.inquiry?.kind === 'check' ? (
-        <Link
-          href={`/dashboard/${eventId}/messages/${actions.inquiry.threadId}`}
-          prefetch={false}
-          className="vact ghost"
-          aria-label={cardCheckInquiryLabel(vendorName)}
-        >
-          <MessageCircle size={12} strokeWidth={1.9} aria-hidden />
-          {CARD_CHECK_INQUIRY}
-        </Link>
-      ) : null}
-
-      {actions.withdraw ? (
-        <WithdrawAskButton
-          vendorId={vendorId}
           vendorName={vendorName}
-          className="vact quiet"
-          wrapperClassName="vact-slot"
-          errorClassName="vact-err"
+          onClose={() => setConnectOpen(false)}
         />
       ) : null}
-
-      {groupId ? (
-        <AccordionLockButton
-          eventId={eventId}
-          groupId={groupId as PlanGroupId}
-          groupLabel={groupLabel}
-          vendorId={vendorId}
-          vendorName={vendorName}
-          label={CARD_LOCK}
-          pendingLabel={CARD_LOCKING}
-          className="vact quiet"
-          wrapperClassName="vact-slot"
-          isVerified={verifiedState ?? undefined}
-        />
+      {/* What a press came back with — a refusal is said in words, here. */}
+      {said ? (
+        <p className={said.tone === 'error' ? 'verb-err' : 'verb-ok'} role="status">
+          {said.text}
+          {said.retry ? (
+            <>
+              {' '}
+              <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" className="verb-retry" onClick={said.retry} />
+            </>
+          ) : null}
+        </p>
       ) : null}
     </div>
   );

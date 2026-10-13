@@ -24,7 +24,7 @@ import type { PeWords } from './post-event-scene-views';
 
 const say = (words: PeWords, part: keyof PeWords, fallback: string): string => words[part] ?? fallback;
 const EYEBROW = 'pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-700';
-const MICRO = 'font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/60';
+const MICRO = 'font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/70';
 const H2 = 'mt-1.5 font-serif text-[2rem] leading-[1.02] text-ink';
 const fmt = (n: number) => n.toLocaleString('en-PH');
 const COUNT_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen', 'Twenty'];
@@ -348,7 +348,7 @@ export function EntourageScene({
             <div key={`${role}-${p.id ?? p.name}`} className="text-center">
               <Portrait name={p.name} />
               <span className="mt-1.5 block font-serif text-base leading-tight text-ink">{p.name}</span>
-              <span className="font-mono text-xs uppercase tracking-[0.12em] text-ink/60">{role}</span>
+              <span className="font-mono text-xs uppercase tracking-[0.12em] text-ink/70">{role}</span>
             </div>
           ))}
         </div>
@@ -379,7 +379,7 @@ export function EntourageScene({
                   <span key={`${role}-${p.id ?? p.name}`} className="w-[88px] text-center">
                     <Portrait name={p.name} size="h-14 w-14" />
                     <span className="mt-1 block font-serif text-sm leading-tight text-ink">{p.name}</span>
-                    <span className="font-mono text-xs uppercase tracking-[0.1em] text-ink/60">{role}</span>
+                    <span className="font-mono text-xs uppercase tracking-[0.1em] text-ink/70">{role}</span>
                   </span>
                 ))}
               </span>

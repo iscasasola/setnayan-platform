@@ -65,6 +65,14 @@ import { yourTeamBudgetHref } from '@/lib/pillar-parts';
  *
  * The skin is class-level and touches no money path: BUD-8's resolver wiring
  * above is untouched by it, and the two changes met only in this docblock.
+ *
+ * ── 2026-10-12 LOOK SWEEP ───────────────────────────────────────────────────
+ * A frame only on what is pressed. The two READ-ONLY panels (Payments,
+ * Upcoming payments) lost their `.sn-tile` and now sit on the page, each topic
+ * ending in a divider; the one DOOR ("Open budget & payments") keeps its
+ * `.sn-tile` frame. The fixed-hex washes (`bg-success-500`, `bg-warn-100` /
+ * `text-warn-800`) became the flipping `--color-ok` / `--color-warn` tokens so
+ * dark mode works, and the tappable marks wear the one accent (`sn-accent`).
  */
 export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
   const supabase = await createClient();
@@ -82,8 +90,8 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
 
   if (!summary) {
     return (
-      <div className="sn-tile p-5 text-sm text-ink/65">
-        Your budget lives here. <Link href={budgetHref} className="font-medium text-terracotta-700 hover:underline">Open budget &amp; payments</Link> to set a target and track costs.
+      <div className="border-b border-ink/15 pb-4 text-sm text-ink/65">
+        Your budget lives here. <Link href={budgetHref} className="font-medium text-sn-accent hover:underline">Open budget &amp; payments</Link> to set a target and track costs.
       </div>
     );
   }
@@ -93,7 +101,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
   return (
     <div className="space-y-4">
       {/* Payment progress — reuses the budget page's live-summary math verbatim. */}
-      <div className="sn-tile p-5">
+      <div className="border-b border-ink/15 pb-4">
         <div className="flex items-baseline justify-between gap-3">
           <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
             <Wallet className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} aria-hidden />
@@ -111,7 +119,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
           <>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink/10">
               <div
-                className="h-full rounded-full bg-success-500 transition-[width]"
+                className="h-full rounded-full bg-[rgb(var(--color-ok))] transition-[width]"
                 style={{ width: `${summary.percentPaid}%` }}
               />
             </div>
@@ -131,7 +139,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
 
       {/* Upcoming milestones — soonest first (past-due sort to the top). */}
       {summary.upcoming.length > 0 ? (
-        <div className="sn-tile p-5">
+        <div className="border-b border-ink/15 pb-4">
           <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
             Upcoming payments
           </p>
@@ -144,7 +152,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
                   </p>
                   <p className="inline-flex items-center gap-1 text-xs text-ink/55">
                     {i === 0 ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-medium text-warn-800">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--color-warn)_/_0.12)] px-2 py-0.5 font-medium text-[rgb(var(--color-warn))]">
                         <Clock className="h-3 w-3" strokeWidth={2} aria-hidden /> Next
                       </span>
                     ) : null}
@@ -164,13 +172,13 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
           per-vendor itemization + off-platform manual line items, log payments. */}
       <Link
         href={budgetHref}
-        className="sn-tile flex items-center justify-between gap-2 px-5 py-4 hover:border-terracotta/50"
+        className="sn-tile flex items-center justify-between gap-2 px-5 py-4 hover:border-sn-accent/50"
       >
         <span className="text-sm text-ink/75">
           <span className="font-medium text-ink">Open budget &amp; payments</span> — set a target, plan
           allotments, itemize costs, add outside expenses, and log payments.
         </span>
-        <ArrowRight className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
+        <ArrowRight className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} aria-hidden />
       </Link>
     </div>
   );

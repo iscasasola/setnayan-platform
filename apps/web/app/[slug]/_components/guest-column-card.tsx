@@ -152,7 +152,7 @@ export async function GuestColumnCard({
       <h2 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
         The paper
       </h2>
-      <p className="max-w-prose text-sm leading-relaxed text-ink/60">
+      <p className="max-w-prose text-sm leading-relaxed text-ink/70">
         Short columns written by guests for {w.theOrganizerPossessive} paper.
         Write one — {w.theOrganizer} reads and approves every column before it
         appears.

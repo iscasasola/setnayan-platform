@@ -177,7 +177,7 @@ export function StageAnimate({
       ) : does ? (
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-does="">
           {/* A two-way choice → the pill selector, its thumb sliding. A stored word that is neither presses nothing. */}
-          <PillSelector label="While on screen" data="does" value={does.options.some((o) => o.key === does.value) ? does.value : null} options={does.options.map((o) => ({ key: o.key, label: o.label }))} onPick={does.onPick} />
+          <PillSelector label="While on screen" data="does" value={does.options.some((o) => o.key === does.value) ? does.value : null} options={does.options.map((o) => ({ key: o.key, label: o.label }))} onPick={(k) => k !== does.value && does.onPick(k)} />
         </div>
       ) : null}
       {/* ══ ROW 3 — only what the ON ones need, a half each ══ */}
@@ -204,7 +204,7 @@ export function StageAnimate({
           {fx?.size ? (
             <span className={SP_ANIMATE_HALF} data-stage-need="size">
               {/* A stored "Settle back" is neither, so nothing is picked until one is. */}
-              <PillSelector label={`Size ${verb}`} data={`${end}-size`} value={fx.size === 'grow' || fx.size === 'shrink' ? fx.size : null} options={SIZES} onPick={(s) => set('size', s)} />
+              <PillSelector label={`Size ${verb}`} data={`${end}-size`} value={fx.size === 'grow' || fx.size === 'shrink' ? fx.size : null} options={SIZES} onPick={(s) => s !== fx.size && set('size', s)} />
             </span>
           ) : null}
         </div>

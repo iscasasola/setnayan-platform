@@ -77,6 +77,8 @@ import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble'
 import { ActionButton } from '@/components/action-button';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { FormRows, SwitchRow } from '@/app/_components/form-row';
+import { Counter } from '@/app/_components/counter';
+import { seatCounter, seatStepWords } from '@/lib/seat-counter';
 import {
   BOOTH_CATALOG,
   CHAIR_PX,
@@ -451,8 +453,16 @@ export function SeatingEditor({
   });
   const [tables, applyTableOpt] = useOptimistic(
     tablesProp,
-    (state: EventTableRow[], op: { type: 'delete'; id: string }) =>
-      op.type === 'delete' ? state.filter((t) => t.table_id !== op.id) : state,
+    (state: EventTableRow[], op: { type: 'delete'; id: string } | { type: 'chair'; id: string; seat: number; removed: boolean }) =>
+      op.type === 'delete'
+        ? state.filter((t) => t.table_id !== op.id)
+        : state.map((t) => {
+            if (t.table_id !== op.id) return t;
+            const next = removedSeatSet(t.removed_seats, t.capacity);
+            if (op.removed) next.add(op.seat);
+            else next.delete(op.seat);
+            return { ...t, removed_seats: [...next].sort((a, b) => a - b) };
+          }),
   );
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -824,8 +834,9 @@ export function SeatingEditor({
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
   const [previewType, setPreviewType] = useState<TableType | null>(null);
   const [degEdit, setDegEdit] = useState<string | null>(null);
-  // Transient "Seat N removed · Undo" inline notice for the Seats stepper (§3).
-  const [seatNotice, setSeatNotice] = useState<{ tableId: string; seat: number } | null>(null);
+  // The seat counter's last step — "Chair N removed." / "Chair N is back." with Undo (kind 12 status line; owner 2026-10-13).
+  // `removed`: what the step did, so Undo does the opposite — ONE step back, either way.
+  const [seatNotice, setSeatNotice] = useState<{ tableId: string; seat: number; removed: boolean } | null>(null);
   // §5.3 — the Auto Arrange gold split-button's caret menu (Build draft / Fill).
   const [autoMenuOpen, setAutoMenuOpen] = useState(false);
   useOneOpen(autoMenuOpen, setAutoMenuOpen); // one open at a time — lib/one-open.ts
@@ -2195,36 +2206,31 @@ export function SeatingEditor({
     else commitRotation(t.table_id, target);
   };
 
-  // ── Seats stepper (verdict §3, the 90% path) — bulk chair remove/restore over
-  //    the same `toggleSeat` action. `−` removes the HIGHEST-index empty seat,
-  //    `+` restores the LOWEST-index removed seat. Presentation only. ───────────
-  const emptySeatIndices = (t: EventTableRow): number[] => {
-    const removed = removedSeatSet(t.removed_seats, t.capacity);
-    const occ = occupantsFor(t);
-    const out: number[] = [];
-    for (let i = 0; i < occ.length; i++) if (occ[i] === null && !removed.has(i)) out.push(i);
-    return out;
+  // ── THE SEAT COUNTER (kind 17, owner "approved" 2026-10-13) — bulk chair remove/restore over the same `toggleSeat`
+  //    action. Its rules are `lib/seat-counter.ts` (− the HIGHEST-numbered empty chair, refused when every chair left is
+  //    taken; + the LOWEST-numbered removed chair). It saves at once (live, never drafted) and its last step is said in
+  //    the status line with Undo — ONE step back. ─────────────────────────────────────────────────────────────────────
+  const counterFor = (t: EventTableRow) => {
+    const cap = sanitizeCapacity(t.capacity);
+    return seatCounter({ capacity: cap, removed: removedSeatSet(t.removed_seats, cap), occupied: occupantsFor(t).map((g) => g !== null) });
   };
-  const removedSeatIndices = (t: EventTableRow): number[] =>
-    [...removedSeatSet(t.removed_seats, t.capacity)].sort((a, b) => a - b);
   const decSeat = (t: EventTableRow) => {
     if (!canEdit) return;
-    const empties = emptySeatIndices(t);
-    if (empties.length === 0) return; // every remaining chair is occupied
-    const seat = empties[empties.length - 1]!; // highest-index empty
+    const seat = counterFor(t).less;
+    if (seat === null) return; // every remaining chair is occupied
     toggleSeat(t.table_id, seat, true);
-    setSeatNotice({ tableId: t.table_id, seat });
+    setSeatNotice({ tableId: t.table_id, seat, removed: true });
   };
   const incSeat = (t: EventTableRow) => {
     if (!canEdit) return;
-    const removed = removedSeatIndices(t);
-    if (removed.length === 0) return; // none removed to restore
-    toggleSeat(t.table_id, removed[0]!, false); // lowest-index removed
-    setSeatNotice(null);
+    const seat = counterFor(t).more;
+    if (seat === null) return; // none removed to restore
+    toggleSeat(t.table_id, seat, false);
+    setSeatNotice({ tableId: t.table_id, seat, removed: false });
   };
   const undoSeatRemoval = () => {
     if (!seatNotice) return;
-    toggleSeat(seatNotice.tableId, seatNotice.seat, false);
+    toggleSeat(seatNotice.tableId, seatNotice.seat, !seatNotice.removed);
     setSeatNotice(null);
   };
 
@@ -2238,6 +2244,8 @@ export function SeatingEditor({
     fd.set('seat_number', String(seatNumber));
     fd.set('removed', removed ? 'true' : 'false');
     startTransition(async () => {
+      /* The number ticks AT the press (owner: a press answers at once); a refused save puts it back and says so. */
+      applyTableOpt({ type: 'chair', id: tableId, seat: seatNumber, removed });
       await runGated(() => setTableSeat(fd));
     });
   };
@@ -5039,6 +5047,8 @@ export function SeatingEditor({
       <MenuDivider />
       <MenuRow icon={Video} label="Walkthrough videos" href={`/dashboard/${eventId}/seating/walkthrough`} />
       <MenuRow icon={Printer} label="Publish & print" hint="Freeze a snapshot + printable signs / place cards" onClick={publishAndPrint} disabled={isPending || tables.length === 0} emphasized />
+      {/* 🪧 The ENTRANCE SEATING CHART (owner 2026-10-13, #6503) — one sheet for the door, By table · A to Z, beside the pack it is printed with. */}
+      <MenuRow icon={ListOrdered} label="Entrance seating chart" hint="One sheet for the door · by table or A to Z" href={`/dashboard/${eventId}/seating/chart`} />
     </>
   );
 
@@ -5120,34 +5130,21 @@ export function SeatingEditor({
   };
 
   // ── Verb-row pieces (desktop dock density) ──────────────────────────────────
+  /* 🔢 THE SEAT COUNTER — the shared Counter (kind 17), on the phone's sheet and the desktop dock alike. */
   const dockSeatsStepper = (t: EventTableRow) => {
-    const effCap = effectiveCapacity(t.capacity, t.removed_seats);
-    const canDec = emptySeatIndices(t).length > 0;
-    const canInc = removedSeatIndices(t).length > 0;
+    const c = counterFor(t);
     return (
-      <div className="flex items-center rounded-lg border border-ink/15">
-        <button
-          type="button"
-          onClick={() => decSeat(t)}
-          disabled={!canDec || !canEdit}
-          aria-label="Remove a chair"
-          className="flex h-8 w-8 items-center justify-center rounded-l-lg text-ink/60 hover:bg-ink/5 disabled:opacity-30"
-        >
-          <Minus className="h-4 w-4" />
-        </button>
-        <span className="px-1 font-mono text-[11px] tabular-nums text-ink/70" aria-label={`${formatCount(effCap)} of ${formatCount(t.capacity)} seats`}>
-          {formatCount(effCap)}/{formatCount(t.capacity)}
-        </span>
-        <button
-          type="button"
-          onClick={() => incSeat(t)}
-          disabled={!canInc || !canEdit}
-          aria-label="Restore a chair"
-          className="flex h-8 w-8 items-center justify-center rounded-r-lg text-ink/60 hover:bg-ink/5 disabled:opacity-30"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
+      <Counter
+        label="Seats at this table"
+        data="seats"
+        value={c.value}
+        onLess={() => decSeat(t)}
+        onMore={() => incSeat(t)}
+        lessDisabled={c.less === null || !canEdit}
+        moreDisabled={c.more === null || !canEdit}
+        lessLabel={c.lessLabel}
+        moreLabel={c.moreLabel}
+      />
     );
   };
   const dockRotateCluster = (t: EventTableRow, step: number) => {
@@ -5404,7 +5401,7 @@ export function SeatingEditor({
                 <>
                   {' · '}
                   <button type="button" onClick={undoSeatRemoval} className="font-semibold text-terracotta-700 underline">
-                    Undo seat {seatNotice.seat + 1}
+                    Undo chair {seatNotice.seat + 1}
                   </button>
                 </>
               ) : null}
@@ -5425,16 +5422,18 @@ export function SeatingEditor({
         );
       }
 
-      const undoStrip =
-        seatNotice && seatNotice.tableId === st.table_id ? (
-          <button
-            type="button"
-            onClick={undoSeatRemoval}
-            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2 font-mono text-[10px] text-ink/70 hover:border-terracotta"
-          >
-            Seat {seatNotice.seat + 1} removed · Undo
-          </button>
-        ) : null;
+      /* The counter's last step, said where it was pressed (kind 12 status line) — Undo takes back that ONE step. */
+      const seatNote = seatNotice && seatNotice.tableId === st.table_id ? { words: seatStepWords(seatNotice.seat, seatNotice.removed), onUndo: undoSeatRemoval } : null;
+      const undoStrip = seatNote ? (
+        <button
+          type="button"
+          onClick={seatNote.onUndo}
+          data-seat-note=""
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-ink/[0.05] px-2 text-[12px] text-ink/75"
+        >
+          {seatNote.words} <span className="font-bold underline underline-offset-2">Undo</span>
+        </button>
+      ) : null;
 
       const body = isPhone ? (
         // 📱 THE PHONE DOCK (owner 2026-10-01, the approved frame 3) — drawn by `PhoneTableDock` (`seat-plan-phone.tsx`), which holds the markup and takes every handler from
@@ -5448,8 +5447,9 @@ export function SeatingEditor({
           typeWord={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
           onRename={(label) => renameTable(st.table_id, label)}
           onPickType={(k) => changeStyle(st, k as TableType)}
-          seatsStepper={dockSeatsStepper(st)}
-          undoStrip={undoStrip}
+          seats={dockSeatsStepper(st)}
+          seatsLine={counterFor(st).line}
+          seatNote={seatNote}
           canEdit={canEdit}
           onRotate={() => rotateTable(st, 90)}
           onEditChairs={() => { setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }}

@@ -119,7 +119,7 @@ import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
 import { FindThumbRow } from './find-thumb-row';
-import { categoryRowState, isCategoryOpen, ringCoveredCount } from '@/lib/suppliers-shell';
+import { SUP_REACH_Y, categoryRowState, isCategoryOpen, ringCoveredCount } from '@/lib/suppliers-shell';
 import { Count } from '@/components/count';
 import { ActionButton } from '@/components/action-button';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
@@ -164,7 +164,7 @@ import {
   INLINE_MORE_FAILED,
   INLINE_MORE_INQUIRE_FAILED,
   INLINE_MORE_LOADING,
-  INLINE_MORE_SAVE_FAILED,
+  inlineMoreSaveFailed,
   INLINE_MORE_NOT_YOUR_EVENT,
   INLINE_MORE_SIGNED_OUT,
   INLINE_MORE_UNDO,
@@ -173,6 +173,7 @@ import {
   inlineMoreSeeAllLabel,
   inlineMoreSunkNote,
   MORE_TO_COMPARE_SAVE,
+  MORE_TO_COMPARE_SAVING,
   moreToCompareEmpty,
   moreToCompareHeading,
 } from '@/lib/explore-info-copy';
@@ -208,6 +209,7 @@ import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { deleteVendor } from '../actions';
 import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
 import {
+  BENCH_BUILT_EVENT,
   BenchLocalCtx,
   BenchWritesStandInCtx,
   benchLocalStore,
@@ -215,6 +217,7 @@ import {
   markBenchDirty,
   payBenchDebt,
   savedKey,
+  savedInPlaceCount,
   withoutRemoved,
   builtNowIn,
   setBuiltIn,
@@ -1812,6 +1815,7 @@ function InlineMoreCard({
   clashWith,
   saved,
   busy,
+  saving = false,
   onSave,
   onUndo,
   onInquire,
@@ -1837,6 +1841,8 @@ function InlineMoreCard({
   clashWith: string | null;
   saved: { eventVendorId: string; undoable: boolean } | undefined;
   busy: boolean;
+  /** Its Save is waiting on the write. */
+  saving?: boolean;
   onSave: () => void;
   onUndo: () => void;
   onInquire: () => void;
@@ -1956,7 +1962,7 @@ function InlineMoreCard({
           ) : null}
         </div>
       ) : (
-        <CompareVerbs busy={busy} onSave={onSave} onInquire={onInquire} />
+        <CompareVerbs busy={busy} saving={saving} onSave={onSave} onInquire={onInquire} />
       )}
     </div>
   );
@@ -1971,10 +1977,13 @@ function InlineMoreCard({
  */
 function CompareVerbs({
   busy,
+  saving,
   onSave,
   onInquire,
 }: {
   busy: boolean;
+  /** The Save press is waiting on its write — the button says so ("Saving…", owner: a press shows what is loading). */
+  saving: boolean;
   onSave: () => void;
   onInquire: () => void;
 }) {
@@ -1984,7 +1993,7 @@ function CompareVerbs({
     <div className="verbs" data-compare-verbs="">
       {/* The main verb is terracotta (owner 2026-10-12, look call 1). */}
       <ActionButton tone="brand" main icon={MessageCircle} label={ask.label} disabled={busy} onClick={onInquire} />
-      <ActionButton tone="neutral" icon={Bookmark} label={MORE_TO_COMPARE_SAVE} disabled={busy} onClick={onSave} />
+      <ActionButton tone="neutral" icon={Bookmark} label={saving ? MORE_TO_COMPARE_SAVING : MORE_TO_COMPARE_SAVE} disabled={busy} onClick={onSave} />
     </div>
   );
 }
@@ -2101,9 +2110,23 @@ function MoreToCompare({
       for (const [id, saved] of Object.entries(value)) localStore.saved.set(savedKey(tile, id), saved);
       return value;
     });
+  // A save (or its Undo) that landed: the row above counts it now (`savedInPlaceCount`) — after the store moved.
+  const savedOnce = useRef(false);
+  useEffect(() => {
+    if (!savedOnce.current) {
+      savedOnce.current = true;
+      return;
+    }
+    benchLocal?.savedChanged?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moreSaved]);
   // The one card mid-flight, so only ITS buttons go quiet.
   const [moreBusy, setMoreBusy] = useState<string | null>(null);
   const [moreError, setMoreError] = useState<string | null>(null);
+  /* A refused Save — its own line, so the list's "· N" stays (that count hides only when the LIST could not be read). */
+  const [moreRefused, setMoreRefused] = useState<{ text: string; retry?: () => void } | null>(null);
+  /* The card whose Save press is waiting ("Saving…" on that one button — not an Ask that saves first). */
+  const [moreSaving, setMoreSaving] = useState<string | null>(null);
   const moreFreeDaysMap = useMemo(() => new Map(Object.entries(moreFreeDays)), [moreFreeDays]);
 
   const moreQ = query.trim();
@@ -2162,11 +2185,20 @@ function MoreToCompare({
   // Save from the list → the couple's *considering* list, which is what the
   // cards above show. The SAME `saveVendorToPicks` the full sheet's Add already
   // calls; no Book, no Add-to-build.
-  const saveFromMore = async (v: CategoryVendorResult): Promise<string | null> => {
+  const saveFromMore = async (v: CategoryVendorResult, pressed = false): Promise<string | null> => {
     const existing = moreSaved[v.vendorProfileId];
     if (existing) return existing.eventVendorId;
     setMoreBusy(v.vendorProfileId);
+    if (pressed) setMoreSaving(v.vendorProfileId);
     setMoreError(null);
+    setMoreRefused(null);
+    // A REFUSED SAVE IS SAID LIKE A REFUSED ADD OR REMOVE (batch-3 walk, 2026-10-13): it names the supplier, says it
+    // in the page's one top toast as well as on the list, and offers Try again where trying again can help.
+    const refuse = (text: string, retry: boolean) => {
+      const again = retry ? () => void saveFromMore(v, true) : undefined;
+      setMoreRefused({ text, retry: again });
+      benchLocal?.say('bad', text, again);
+    };
     try {
       const fd = new FormData();
       fd.set('vendor_profile_id', v.vendorProfileId);
@@ -2189,13 +2221,9 @@ function MoreToCompare({
         // collapsed four distinct causes — signed out, no event, not your
         // event, and a real database error — into one, and the action knew the
         // difference every time.
-        setMoreError(
-          res.status === 'not_signed_in'
-            ? INLINE_MORE_SIGNED_OUT
-            : res.status === 'not_your_event'
-              ? INLINE_MORE_NOT_YOUR_EVENT
-              : INLINE_MORE_SAVE_FAILED,
-        );
+        if (res.status === 'not_signed_in') refuse(INLINE_MORE_SIGNED_OUT, false);
+        else if (res.status === 'not_your_event') refuse(INLINE_MORE_NOT_YOUR_EVENT, false);
+        else refuse(inlineMoreSaveFailed(v.name), true);
         return null;
       }
       setMoreSaved((cur) => ({
@@ -2211,10 +2239,11 @@ function MoreToCompare({
       if (res.status === 'ok') markBenchDirty(eventId);
       return res.eventVendorId;
     } catch {
-      setMoreError(INLINE_MORE_SAVE_FAILED);
+      refuse(inlineMoreSaveFailed(v.name), true);
       return null;
     } finally {
       setMoreBusy(null);
+      if (pressed) setMoreSaving(null);
     }
   };
 
@@ -2307,7 +2336,8 @@ function MoreToCompare({
       clashWith={clashWith}
       saved={moreSaved[row.vendorProfileId]}
       busy={moreBusy === row.vendorProfileId}
-      onSave={() => void saveFromMore(row)}
+      saving={moreSaving === row.vendorProfileId}
+      onSave={() => void saveFromMore(row, true)}
       onUndo={() => void undoFromMore(row)}
       onInquire={() => void inquireFromMore(row)}
       onOpen={
@@ -2364,6 +2394,12 @@ function MoreToCompare({
           {moreError === INLINE_MORE_FAILED ? (
             <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={() => setMoreTry((n) => n + 1)} />
           ) : null}
+        </div>
+      ) : null}
+      {moreRefused ? (
+        <div className="mrerr" role="alert" data-more-refused="">
+          {moreRefused.text}{' '}
+          {moreRefused.retry ? <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={moreRefused.retry} /> : null}
         </div>
       ) : null}
       {moreLoading && shown === 0 ? (
@@ -2630,8 +2666,11 @@ export function ShortlistCategories({
         setBuiltIn(local, vendorId, groupId, on, multi);
         markBenchDirty(eventId);
         setBuiltTick((n) => n + 1);
+        // The shell's Build N/M and the cart peek count again (`services-takeover.tsx`).
+        window.dispatchEvent(new Event(BENCH_BUILT_EVENT));
       },
       say: (tone, text, retry) => setToast({ tone, text, retry, key: Date.now() }),
+      savedChanged: () => setBuiltTick((n) => n + 1),
     }),
     // `builtTick` re-draws every card when one pin moves (a single-pick
     // category's sibling reads "Add to build" at once).
@@ -3500,7 +3539,7 @@ export function ShortlistCategories({
           : BENCH_SORTS.map((s) => ({ key: s.key, label: s.label }))
       }
       onPick={(key) => setSort(key as BenchSort)}
-      className="border border-ink/15"
+      className={`border border-ink/15 ${SUP_REACH_Y}`}
     />
   );
 
@@ -3852,11 +3891,13 @@ export function ShortlistCategories({
                   );
                   const CatIcon = tileIcon(t.tile);
                   const rowCoverage = coverageByTile.get(t.tile);
+                  // "· N yours" and "N to decide" count a supplier saved here this visit at once (answered in place).
+                  const yours = t.vendors.length + savedInPlaceCount(local, t.tile, new Set(t.vendors.map((v) => v.vendorId)));
                   const rowState = replan
                     ? categoryRowState({
                         lockedCount: rowCoverage?.lockedCount ?? 0,
                         covered: rowCoverage?.covered ?? false,
-                        vendorCount: t.vendors.length,
+                        vendorCount: yours,
                         quoteInCount: t.vendors.filter((v) => standings[v.vendorId]?.needsYou === true).length,
                       })
                     : null;
@@ -3903,10 +3944,10 @@ export function ShortlistCategories({
                                 own count (measured on the preview). */}
                             <span className="cat-nm">
                               {t.label}
-                              {replan && t.vendors.length > 0 ? (
+                              {replan && yours > 0 ? (
                                 <span className="cat-yours">
                                   {' '}
-                                  · <Count value={t.vendors.length} id={`sup-yours-${t.tile}`} /> yours
+                                  · <Count value={yours} id={`sup-yours-${t.tile}`} /> yours
                                 </span>
                               ) : null}
                             </span>
@@ -4343,7 +4384,7 @@ export function ShortlistCategories({
               const row = poolRows.find((r) => r.t.tile === tile);
               if (row && !planEditing) addTileToPlan(row.t.tile, row.f.folder, row.f.slug);
             }}
-            className="border border-ink/15"
+            className={`border border-ink/15 ${SUP_REACH_Y}`}
           />
           {planError && poolRows.some((r) => r.t.tile === planError.tile) ? (
             <p className="plan-err" style={{ textAlign: 'left', flexBasis: '100%' }}>

@@ -478,7 +478,7 @@ export function SectionsPanel({
                           ✅ Auto-scroll plays on the guest page since Event Hub
                           Maker Phase 5 (`hub-auto-run.tsx`). */}
                       {(() => {
-                        /* 🌑 "Scrub" ships dark (`lib/scrub-out-offered.ts`): not offered below, and a stored one reads as Scroll. */
+                        /* 🌕 "Scrub" is offered since 2026-10-13 (`lib/scrub-out-offered.ts`); switched off, it is not offered below and a stored one reads as Scroll. */
                         const transition = offeredTransition(resolveTransition(canvas), SCRUB_OUT_OFFERED);
                         const speed = canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
                         if (i === rows.length - 1) {

@@ -250,5 +250,5 @@ test('5 · WIRING: the rows are handed the SAME writers the list’s controls ca
   assert.match(rows, /import \{ GuestsGetIn, RsvpAsks \} from '\.\.\/\.\.\/_components\/guest-setup\/guest-setup-lazy';/);
   assert.doesNotMatch(rows, /RSVP_ASK_FIELDS|RSVP_ASK_LABEL|guestsGetInOptions\(|GUESTS_GET_IN_CHOICES|<PickMenu\b|<select\b|type="checkbox"/, 'the toolbar’s rows list the choices themselves, or draw a control of their own');
   /* The toolbar's dropdown takes its ticks from the shipped PickMenu's own mode. */
-  assert.match(src(`${L}/stage-panel/kit.tsx`), /<PickMenu label=\{label\} value=\{value\} options=\{options\} onPick=\{onPick\} buttonText=\{buttonText\} picked=\{picked\} /);
+  assert.match(src(`${L}/stage-panel/kit.tsx`), /<PickMenu label=\{label\} value=\{value\} options=\{options\} onPick=\{\(k\) => \(picked \|\| k !== value \? onPick\(k\) : undefined\)\} buttonText=\{buttonText\} picked=\{picked\} /);
 });

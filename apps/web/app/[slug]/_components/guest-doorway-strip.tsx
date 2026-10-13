@@ -200,7 +200,7 @@ function DoorCard({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-ink">{title}</span>
-        <span className="mt-0.5 block text-sm text-ink/60">{detail}</span>
+        <span className="mt-0.5 block text-sm text-ink/70">{detail}</span>
         {extra ? (
           <span data-door-extra="" className="mt-0.5 block text-[13px] font-semibold text-mulberry">
             {extra}
@@ -209,7 +209,7 @@ function DoorCard({
       </span>
       <ArrowRight
         aria-hidden
-        className="h-4 w-4 shrink-0 text-ink/40 transition-transform group-hover:translate-x-0.5"
+        className="h-4 w-4 shrink-0 text-ink/70 transition-transform group-hover:translate-x-0.5"
         strokeWidth={2}
       />
     </Link>

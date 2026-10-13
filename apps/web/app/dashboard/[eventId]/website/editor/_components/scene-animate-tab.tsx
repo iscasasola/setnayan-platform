@@ -100,7 +100,8 @@ export function SceneAnimateTab({
 
   const preset = shown.preset ?? null;
   const m = resolveHubMotion(shown);
-  /* 🌑 While "Scrub out" ships dark a scene that stores it READS as "As it scrolls away" — Leaves, Movement and ▶
+  /* 🌕 "Scrub out" is offered since 2026-10-13 (owner: "Turn on scrub"). Read through the one module all the same: were
+     the switch turned off again, a scene that stores it would READ as "As it scrolls away" — Leaves, Movement and ▶
      then behave as for scroll, and nothing stored is rewritten (`lib/scrub-out-offered.ts`). */
   const transition = offeredTransition(resolveTransition(shown));
   const speed = shown.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;

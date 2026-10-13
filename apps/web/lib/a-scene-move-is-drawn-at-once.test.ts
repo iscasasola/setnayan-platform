@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SCENE_EDGE_PX, sceneBringIntoView, sceneDropSlot, sceneEdgeScroll, sceneEdgeScrollKept, sceneReflow, type SceneRow } from './maker-scene-drag';
-import { DRAWN_UNDO_TTL_MS, claimDrawnUndo, takeDrawnUndo, withdrawDrawnUndo, type DrawnUndo } from './maker-drawn-undo';
+import { createUndoJournal, type DrawnUndo } from './maker-drawn-undo';
 import { CANVAS_REDRAW_COMMITS_EVENT } from '../app/[slug]/_components/maker-section-find';
 import { attachSceneDrag, type SceneDragHost, type SceneDragSubject } from '../app/dashboard/[eventId]/launch/_components/scene-canvas-drag';
 import { stripComments } from './strip-comments';
@@ -23,7 +23,8 @@ import { stripComments } from './strip-comments';
  *   (1) THE SLIDES COME OFF IN THE REDRAW'S OWN COMMIT — synchronously, with no glide (the drag engine, executed on a
  *       stand-in page), so the order is never drawn twice; the bridge fires it from React's before-commit moment.
  *   (2) A HELD STEP OWES NO MAKER RENDER AND NO NEW PAGE — the shell's move / ＋ wiring, the draft bar's ↺.
- *   (3) ↺ OF A DRAWN STEP IS DRAWN TOO — one claim per click, never left on the page when the Undo did not run.
+ *   (3) ↺ OF A DRAWN STEP IS DRAWN TOO — each step noted in the ↺ journal at its press, by value; the bar's undo for it
+ *       held (2026-10-13 the one-claim slot became the journal — `lib/an-older-undo-is-drawn-at-once.test.ts`).
  *   (4) THE WALK'S F1 (2026-10-12): the gap is never carried off the screen, and a drop is seen where it landed.
  */
 
@@ -191,7 +192,7 @@ test('(1) the bridge fires it from React’s before-commit moment, synchronously
 test('(2) a step the page shows is HELD: no whole-Maker render, no new page — the page on show redraws itself', () => {
   const shell = read(SHELL);
   const move = bodyOf(shell, 'const move = (id: string, delta: number, drawn = false) =>');
-  assert.match(move, /makerSave\(\(\) => draftAction\(eventId, fd\), requestMakerRefresh, \{ held: held !== null \}\)/, 'a drawn move saves held');
+  assert.match(move, /makerSave\(\(\) => draftAction\(eventId, fd\), requestMakerRefresh, \{ held: held !== null, undo: 'noted' \}\)/, 'a drawn move saves held');
   assert.match(move, /if \(held !== null\) \{[^}]*canvasHold\.current = holdChange/, 'its canvas is held with the moved order');
   assert.match(move, /\} else releaseCanvas\(\);/, 'only a move the page does not show releases the canvas');
   assert.match(move, /if \(held !== null\) redrawShown\(held\)/, 'it lands: the page redraws in place');
@@ -199,7 +200,7 @@ test('(2) a step the page shows is HELD: no whole-Maker render, no new page — 
   const redraw = bodyOf(shell, 'const redrawShown = (order: string) =>');
   assert.match(redraw, /postToShownCanvases\(CANVAS_REFRESH_MESSAGE\)/, 'ONE page redraws — the one on show, never every warm stage');
   const add = bodyOf(shell, 'const addHere = (scene: MakerScene, delta: number, drawn = false) =>');
-  assert.match(add, /\{ held: held !== null \}/, '＋ saves held too');
+  assert.match(add, /\{ held: held !== null, undo: 'noted' \}/, '＋ saves held too');
   assert.match(add, /makerNeedsRender\(\)/, '…and still owes the Maker’s list its one render (the canvas kept by the hold)');
   assert.match(add, /scenePlaceholderOff/, 'a refused ＋ takes its place-holder off the page');
   /* the drag and the tag's steps hand `drawn` only when the page really shows it */
@@ -210,22 +211,21 @@ test('(2) a step the page shows is HELD: no whole-Maker render, no new page — 
   assert.match(bodyOf(sheet, 'const dropOn ='), /const done = heldRedrawWatch\(\);[\s\S]*o\.move\(m\.id, delta, true\)/, 'the wait is read AT the press');
 });
 
-test('(3) ↺ of a drawn step is drawn too: the bar’s save is held for it — one claim, one click', () => {
+test('(3) ↺ of a drawn step is drawn too: noted in the journal at its press, and the bar’s undo for it is held', async () => {
+  const j = createUndoJournal(() => false);
   const undo: DrawnUndo = { settle: Promise.resolve('shown'), landed: () => {} };
-  claimDrawnUndo(undo, 1000);
-  assert.equal(takeDrawnUndo(1000 + DRAWN_UNDO_TTL_MS), undo, 'the click that follows takes it');
-  assert.equal(takeDrawnUndo(1001), null, 'once');
-  claimDrawnUndo(undo, 1000);
-  assert.equal(takeDrawnUndo(1001 + DRAWN_UNDO_TTL_MS), null, 'a claim no click took in time is void');
-  claimDrawnUndo(undo, 1000);
-  assert.equal(withdrawDrawnUndo(undo), true, 'an Undo that never ran: withdrawn (the drag then puts the page back)');
-  assert.equal(takeDrawnUndo(1001), null);
+  const e = j.push({ undraw: () => undo }, Promise.resolve({ ok: true, stamp: 's' }));
+  assert.equal(j.top(), e, 'the step is the next ↺’s');
+  assert.equal(e.step.undraw(), undo);
+  const shell = read(SHELL);
+  const move = bodyOf(shell, 'const move = (id: string, delta: number, drawn = false) =>');
+  assert.match(move, /if \(held !== null && mover\) noteSceneStep\(\{ kind: 'move', id, stage, key: `w:\$\{mover\.type\}`, label: mover\.label, prior: \[\.\.\.fullOrder\], moved: order \}, saved\);/, 'a drawn move is noted — with the order before and after');
   const bar = read(BAR);
-  assert.match(bar, /const drawn = intent === 'undo' \? takeDrawnUndo\(\) : null;/);
-  assert.match(bar, /makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: drawn !== null \}\)/, 'a drawn ↺ owes no render');
-  assert.match(bar, /drawn\?\.landed\(r\.ok\)/, 'and is told how it ended — a refused one is put back');
+  assert.match(bar, /makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: true, undo: 'noted' \}\)/, 'a drawn ↺ owes no render');
+  const run = read('lib/maker-undo-run.ts');
+  assert.match(run, /if \(!r\.ok\) \{\s*drawn\.landed\(false\);/, 'and is told how it ended — a refused one is put back');
   const drag = read(DRAG);
-  assert.match(drag, /if \(withdrawDrawnUndo\(drawn\)\) drawn\.landed\(false\)/, 'a claim the Undo never took is taken back off the page');
+  assert.doesNotMatch(drag, /claimDrawnUndo|withdrawDrawnUndo/, 'no claim is left waiting for a click');
 });
 
 /* ── (4) the walk's F1 ── */

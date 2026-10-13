@@ -50,6 +50,12 @@
  *       rest box given no `mt-6` → red, and the photo cover's `leaves={false}` → "the cover's cell, exactly once" red.
  *       What the wrapped page LOOKS like — its boxes, its rhythm, its chapters, the hand-over itself — is not
  *       proven here: `scripts/scrub-browser-check.mjs` (16) plays this same render in a browser.
+ *   (9) SAVE THE DATE IS NOT WIRED FOR SCRUB (2026-10-13, the day the switch went on): a Save the Date whose cover and
+ *       scenes store Scrub draws no hand-over box, no engine mark, no cover cell, and mounts no island; with the
+ *       page's unarmed hold taken off it is the plain page byte for byte (Pro and free).
+ *
+ * 🔁 2026-10-13 — "SCRUB OUT" IS ON (owner: "Turn on scrub"). (4) (6) (8) now run their OFFERED arm by default; their
+ * dark arm runs again the moment the constant is turned off (both arms were run by hand before that commit).
  *
  * 📌 MEASURED WITH THE SWITCH TURNED ON BY HAND (2026-10-10), for whoever turns it on for good: on this tabbed
  * Invitation the Countdown and the note are each drawn in a scenes block of their OWN on Welcome, so a Countdown
@@ -384,6 +390,49 @@ test('(8) the STRANGER’s cover stored to leave by Scrub: while Scrub ships dar
     }
     assert.ok(stored.html === today, `a cover stored to leave by Scrub changed the stranger’s page (${which}) — ${firstDifference(stored.html, today)}`);
     assert.equal(stored.mounts.HubScrub, 0, `a stranger’s page whose cover does not leave mounts the Scrub island (${which})`);
+  }
+});
+
+/* 💌 (9) — 2026-10-13, written the day "Scrub out" was turned on (owner: "Turn on scrub"). SAVE THE DATE IS NOT WIRED
+   FOR SCRUB (its cover is the film, with a walker of its own — a separate design). So a Save the Date page whose cover
+   AND scenes store Scrub must still draw plainly: no hand-over box, no mark for the engine, no cover cell, no island —
+   and the ONLY difference from the same canvases without the stored Scrub is the page's own hold, which nothing arms
+   there (every rule of it needs `[data-hub-page-on]`, set by the island alone). With those wrappers taken off, the
+   page is the plain one byte for byte. Its look in a browser: `scripts/scrub-browser-check.mjs` is not needed — the
+   bytes are the plain page's, and an unarmed wrapper draws no box of its own (measured box for box 2026-10-13 in
+   Chromium and WebKit, `controller-2026-10-12/scrub-on/`). */
+test('(9) Save the Date is not wired for Scrub: a cover and scenes stored to leave by Scrub draw the plain page, and mount no island', async () => {
+  const noScrub = (c: unknown) => {
+    const { transition: _t, ...rest } = c as Record<string, unknown>;
+    return rest;
+  };
+  const scene = fixtureWidgetsWithAScrubScene().find((w) => w.widget_type === FIXTURE_SCRUB_SCENE)!.config_json as { canvas: unknown };
+  const stored = fixtureWidgets({ hero: LAB_SCRUB_COVER, [FIXTURE_SCRUB_SCENE]: scene.canvas, countdown: scene.canvas });
+  const plainRows = fixtureWidgets({ hero: noScrub(LAB_SCRUB_COVER), [FIXTURE_SCRUB_SCENE]: noScrub(scene.canvas), countdown: noScrub(scene.canvas) });
+  /* Anti-vacuity: on the Invitation the same rows ARE the hand-over (so (9) is not green because nothing is stored). */
+  const invitation = await renderSiteBodyFixtureFull({ proWatermarkHidden: true, widgets: stored });
+  assert.ok(hubScrubHoldsAtMost(stored, true, true) > 0 && hubCoverLeaves(stored, true, true), 'the stored rows ask for no hand-over (asked through the lab’s door, so (9) holds with the switch either way)');
+  assert.equal(count(invitation.html, 'class="hub-cover-cell'), SCRUB_OUT_OFFERED ? 1 : 0, 'anti-vacuity: on the Invitation the cover’s hand-over is not drawn');
+  for (const pro of [true, false]) {
+    const std = await renderSiteBodyFixtureFull({ proWatermarkHidden: pro, lifecyclePhase: 'save_the_date', widgets: stored });
+    const plain = await renderSiteBodyFixtureFull({ proWatermarkHidden: pro, lifecyclePhase: 'save_the_date', widgets: plainRows });
+    assert.deepEqual(std.complaints, []);
+    assert.ok(std.html.includes('Save the Date'), 'anti-vacuity: this is not the Save the Date page');
+    for (const m of scrubMarkers().filter((x) => !/^hub-page-(cell|stage)$/.test(x))) {
+      const hit = m.startsWith('data-') ? std.html.includes(m) : new RegExp(`class="(?:[^"]* )?${m}(?: [^"]*)?"`).test(std.html);
+      assert.equal(hit, false, `a Save the Date with a stored Scrub draws ${m} (${pro ? 'Pro' : 'free'})`);
+    }
+    assert.equal(std.mounts.HubScrub, 0, `a Save the Date with a stored Scrub mounts the Scrub island (${pro ? 'Pro' : 'free'})`);
+    const holds = count(std.html, '<div class="hub-page-cell"><div class="hub-page-stage">');
+    assert.ok(holds <= hubScrubHoldsAtMost(stored, pro), 'more page pairs than the page asks for');
+    let unwrapped = std.html.split('<div class="hub-page-cell"><div class="hub-page-stage">').join('');
+    if (holds > 0) {
+      const close = '</div></div>'.repeat(holds);
+      const at = unwrapped.indexOf('</article>' + close);
+      assert.ok(at >= 0, 'the page’s hold does not close right after the page’s article');
+      unwrapped = unwrapped.slice(0, at + '</article>'.length) + unwrapped.slice(at + '</article>'.length + close.length);
+    }
+    assert.ok(unwrapped === plain.html, `with its unarmed hold taken off, a Save the Date with a stored Scrub is not the plain page (${pro ? 'Pro' : 'free'}) — ${firstDifference(unwrapped, plain.html)}`);
   }
 });
 

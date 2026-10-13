@@ -271,7 +271,16 @@ test('only saves the bridge drew are marked held; the shell announces every form
     'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
     'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx',
   ]) {
-    const src = read(f);
+    let src = read(f);
+    /* ↺ (2026-10-13, `rd/maker-undo-instant`) the bar's ONE held save is the undo of a step the Maker DREW back at the
+       press (`drawnIo`, sent by `lib/maker-undo-run.ts` after `undraw()` — `lib/an-older-undo-is-drawn-at-once.test.ts`
+       G3). Every other intent of the bar is judged here as before. */
+    if (f.endsWith('hub-draft-bar.tsx')) {
+      const io = src.slice(src.indexOf('const drawnIo = () =>'), src.indexOf('const drawnUndo = '));
+      assert.equal((io.match(/held: true/g) ?? []).length, 1, 'the drawn ↺ is the bar’s one held save');
+      assert.match(src.slice(src.indexOf('const drawnUndo = ')), /runner\.runDrawnUndo\(drawnIo\(\)\)/, '…sent only through the runner, which draws first');
+      src = src.replace(io, '');
+    }
     assert.match(src, /makerSave\(/, `${f}: every Maker draft save goes through makerSave`);
     assert.doesNotMatch(src, /held: true/, `${f}: nothing here is drawn by the bridge — it must release the hold`);
   }

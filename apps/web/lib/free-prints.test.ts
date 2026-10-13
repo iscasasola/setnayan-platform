@@ -98,6 +98,8 @@ test('file names follow the owner’s rule: <event slug>-<print>', () => {
   assert.deepEqual(byKey['guest-registry'], ['cale-ice-guest-registry.pdf']);
   assert.deepEqual(byKey['seat-plan'], ['cale-ice-seat-plan.pdf', 'cale-ice-seat-plan-blueprint.pdf']);
   assert.deepEqual(byKey['qr-codes'], ['cale-ice-qr-codes.pdf']);
+  /* 🪧 The entrance chart rides beside the pack (owner 2026-10-13, #6503) — the route's own names (`chartFileStem`). */
+  assert.deepEqual(byKey['seating-pack'], ['cale-ice-seating-pack.pdf', 'cale-ice-seating-chart-by-table.pdf', 'cale-ice-seating-chart-a-to-z.pdf']);
   assert.deepEqual(byKey['event-qr'], ['cale-ice-event-qr.png']);
   // …and the routes name the file the same way when saved without the button.
   assert.match(read('app/dashboard/[eventId]/seating/export/route.ts'), /printFileName\(event\.slug, mode === 'blueprint' \? 'seat-plan-blueprint' : 'seat-plan'\)/);

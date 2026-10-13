@@ -332,7 +332,8 @@ export default async function Plan3dControlCentrePage({ params }: Props) {
       <p className="mt-8 rounded-xl border border-dashed border-ink/15 p-4 text-xs text-ink/50">
         <Store aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2} />
         Decor lives in the room’s <Link href={`${base}/seating/lab`} className="underline underline-offset-2">Design panel</Link>; table signs in the{' '}
-        <Link href={`${base}/seating/print`} className="underline underline-offset-2">print pack</Link>. Find-your-table is free without any of this. Supplier booths are placed in the seat plan, and their branding is the supplier’s own add-on — not yours to buy, and not yours to pay for.
+        <Link href={`${base}/seating/print`} className="underline underline-offset-2">print pack</Link>, the entrance list in the{' '}
+        <Link href={`${base}/seating/chart`} className="underline underline-offset-2">entrance seating chart</Link>. Find-your-table is free without any of this. Supplier booths are placed in the seat plan, and their branding is the supplier’s own add-on — not yours to buy, and not yours to pay for.
       </p>
     </div>
   );

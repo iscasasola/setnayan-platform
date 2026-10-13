@@ -5,12 +5,14 @@
  * control → kind:
  *   Table name                           → Form row (`TypedRow`; kept — `renameTable` — when it is left, as the box saved on blur; required: an empty name was ignored by the editor)
  *   Round ▾ (the table's shape)          → Dropdown row (`ChosenRow`, the house `PickMenu`)
- *   − 10/10 +  (seats)                   → NOT MOVED: the app has no counter template (`slider.tsx` is a range; no stepper) — left as it was, handlers untouched
+ *   − 7 +  (seats)                       → Counter (kind 17, `app/_components/counter.tsx`) in its own Form row "Seats at this table" · "6 seated · of 10 chairs"
+ *                                          (2026-10-13, owner "approved"; rules `lib/seat-counter.ts`, guard `the-counter-is-one-drawing.test.ts`)
  *   Rotate · Edit chairs… · Link… · Unlink → Action button, one row (Link… wears the brand tone while it is waiting for the next table)
  *   Done                                 → Action button (the row's one filled step, brand)
  *   Delete this table                    → Action button (danger — the red outlined look, NOT quiet: quiet strips the tone) → the delete's confirm is the centred confirm box (`GuestPopup kind="confirm"`, Cancel first)
  *   Unseat (a seated guest's row)        → Action button, ICON-ONLY (`iconOnly`, neutral quiet, 44 px wide; named `Unseat <guest>`) so the name keeps its room — "tap · move" and the P1 pill are the guest row's own and stay
- *   Seat people · the Seat N removed · Undo strip → NOT MOVED here (the editor's own nodes, handed in; "Seat people" shows only outside Details)
+ *   "Chair N removed." · Undo            → Status line (kind 12, `status-line.tsx`) under the rows — Undo takes back the ONE last step
+ *   Seat people                          → NOT MOVED here (the editor's own node, handed in; it shows only outside Details)
  * SAVES: `the-seat-plan-table-sheet-posts-the-same.golden.json` — which handler each press called BEFORE (recorded in Chromium); the after-run matched in every press but the two
  * differences its `_about` names.
  *
@@ -41,6 +43,7 @@ const tags = (m: string, tag: string) => [...m.matchAll(new RegExp(`<${tag}\\b[^
 
 async function dock(over: Record<string, unknown> = {}) {
   const { PhoneTableDock } = await import(`../${S}/seat-plan-phone`);
+  const { Counter } = await import('../app/_components/counter');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const noop = () => {};
   return renderToStaticMarkup(
@@ -48,8 +51,8 @@ async function dock(over: Record<string, unknown> = {}) {
       tableId: 'T10', tableLabel: 'Table 10', typeValue: 'round', typeWord: 'Round',
       typeOptions: [{ key: 'round', label: 'Round', group: 'Round' }],
       onRename: noop, onPickType: noop,
-      seatsStepper: React.createElement('span', { 'data-stub-stepper': '' }, React.createElement('button', { type: 'button', 'aria-label': 'Remove a chair' }, '−')),
-      undoStrip: null, canEdit: true, onRotate: noop, onEditChairs: noop, linked: false, onUnlink: noop, linkPressed: false, onLink: noop, seatPeople: null, onDone: noop, onDelete: noop,
+      seats: React.createElement(Counter as never, { label: 'Seats at this table', value: 8, onLess: noop, onMore: noop } as never),
+      seatsLine: '6 seated · of 10 chairs', seatNote: null, canEdit: true, onRotate: noop, onEditChairs: noop, linked: false, onUnlink: noop, linkPressed: false, onLink: noop, seatPeople: null, onDone: noop, onDelete: noop,
       ...over,
     } as never),
   );
@@ -61,7 +64,7 @@ test('1 · the sheet is the templates: the name is a Form row, the shape a dropd
     assert.match(m, /data-seat-table-name=""[\s\S]*?data-form-row-kind="typed"|data-form-row-kind="typed"[^>]*data-seat-table-name=""/, 'the table’s name is not the Form row’s typed answer');
     assert.match(m, /data-form-row-kind="chosen"[\s\S]*?Shape[\s\S]*?aria-haspopup="listbox"[^>]*data-seat-plan-type=""/, 'the shape is not the dropdown row');
     assert.doesNotMatch(m, /<input\b/, 'a bare input is drawn in the table’s sheet');
-    for (const b of tags(m, 'button')) assert.match(b, /class="ab |data-form-row-pill="typed"|aria-haspopup="listbox"|aria-label="Remove a chair"/, `a hand-made button on the table’s sheet: ${b.slice(0, 90)}`);
+    for (const b of tags(m, 'button')) assert.match(b, /class="ab |data-form-row-pill="typed"|aria-haspopup="listbox"|data-counter-(?:less|more)=""|data-status-action=""/, `a hand-made button on the table’s sheet: ${b.slice(0, 90)}`);
     assert.equal((m.match(/data-main=""/g) ?? []).length, 1, 'the sheet does not have exactly one filled step');
     assert.match(m, /class="ab ab-brand ab-main[^"]*"[^>]*>[\s\S]*?<span class="lbl">Done<\/span>/, 'Done is not the accent’s filled button with its word');
     assert.match(m, /<span class="lbl">Delete this table<\/span>/);

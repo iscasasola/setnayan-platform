@@ -120,7 +120,8 @@ export function useBlockLooksDraft() {
   useEffect(() => setPrefs({ [BLOCK_LOOKS_PREF_KEY]: JSON.parse(savedKey) }), [savedKey]);
   /** One save of a whole next value (Build out + "follow the scroll" together). */
   function saveWhole(looks: Record<string, unknown>) {
-    if (!eventId) return;
+    /* 🤫 A tap that changes nothing (the choice already worn) is no save and no ↺ step. */
+    if (!eventId || JSON.stringify(looks) === JSON.stringify(prefs[BLOCK_LOOKS_PREF_KEY] ?? {})) return;
     const was = prefs;
     setPrefs({ [BLOCK_LOOKS_PREF_KEY]: looks });
     setError(null);

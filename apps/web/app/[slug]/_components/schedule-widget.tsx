@@ -272,14 +272,14 @@ export function ScheduleWidget({
                Suppressed the moment the host actually starts the run of show
                (early start edge) — a live pointer and an "Estimated" label
                would contradict each other. */
-            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50">
+            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
               Estimated program · times may shift on the day
             </p>
           ) : null}
           {inViewerClock ? (
             /* Plain small text, not the protected 0.66rem eyebrow — it is a
                note about the times, not a section name. */
-            <p className="text-xs text-ink/55" data-your-time="">
+            <p className="text-xs text-ink/70" data-your-time="">
               Times shown in your time
             </p>
           ) : null}
@@ -294,7 +294,7 @@ export function ScheduleWidget({
           >
             <span className="font-pahina text-sm leading-none text-ink">
               {completed}
-              <span className="text-ink/40">/{formatCount(total)}</span>
+              <span className="text-ink/70">/{formatCount(total)}</span>
             </span>
           </ProgressRing>
         ) : null}
@@ -355,14 +355,14 @@ export function ScheduleWidget({
                     Happening now
                   </span>
                 ) : isNext ? (
-                  <span className="mt-1.5 inline-block font-mono text-[0.6rem] uppercase tracking-[0.18em] text-ink/45">
+                  <span className="mt-1.5 inline-block font-mono text-[0.6rem] uppercase tracking-[0.18em] text-ink/70">
                     Up next
                   </span>
                 ) : null}
               </div>
               <div className="min-w-0">
                 {kicker ? (
-                  <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/45">
+                  <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
                     {kicker}
                   </p>
                 ) : null}

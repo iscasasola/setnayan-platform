@@ -490,9 +490,10 @@ test('(7) a swipe still scrolls: the pan is blocked only once the hold has fired
 
 test('(7) a refused save slides the scene back BEFORE the line speaks; nothing is said that the page does not show', () => {
   const side = src(`${L}/scene-drag.tsx`);
-  const run = side.slice(side.indexOf('const run = useCallback('), side.indexOf('useEffect(() => {\n    const onUndo'));
+  const run = side.slice(side.indexOf('const run = useCallback('), side.indexOf('setSceneUndrawer('));
   assert.ok(run.length > 300, 'anti-vacuity: the line’s rule was not found');
-  assert.match(run, /if \(how === 'failed'\) \{\s*revert\?\.\(\);\s*last\.current = null;\s*return say\(SCENE_DRAG_WORDS\.failed, true\);\s*\}/);
+  /* (2026-10-13: the refused step leaves the ↺ journal by itself — `lib/maker-drawn-undo.ts`; nothing to forget here.) */
+  assert.match(run, /if \(how === 'failed'\) \{\s*revert\?\.\(\);\s*return say\(SCENE_DRAG_WORDS\.failed, true\);\s*\}/);
   assert.match(run, /put\(\{ kind: 'saving' \}\);/);
   /* A page that never came: nothing is claimed. */
   assert.match(run, /if \(how === 'timeout'\) return put\(null\);/);
@@ -523,15 +524,18 @@ test('(7) a scene of the couple’s own is never taken silently; ↺ is the Make
   /* ↺: the line's Undo PRESSES the Maker's own button — never a second door to the draft — from inside its own press. */
   assert.match(side, /const UNDO_BUTTON = SCENE_UNDO_BUTTON;/);
   assert.match(side, /const button = document\.querySelector<HTMLButtonElement>\(UNDO_BUTTON\);[\s\S]{0,600}?button\.click\(\);\s*\};\s*press\(\);\s*\};/);
-  assert.match(side, /const button = \(e\.target as Element \| null\)\?\.closest\?\.\(UNDO_BUTTON\)/);
+  /* (2026-10-13, `rd/maker-undo-instant`) The Maker's ↺ reaches this drag ONLY through the journal's drawer — any scene
+     step of the journal, the 2nd ↺ of a run too (`lib/an-older-undo-is-drawn-at-once.test.ts`); no listener on the
+     button any more, so no second door to it. */
+  assert.match(side, /setSceneUndrawer\(\(data\) => \{/);
+  assert.doesNotMatch(side, /addEventListener\('click', onUndo, true\)/, 'a capture listener on ↺ is back — one press must be heard by one door');
   assert.equal((side.match(/aria-label/g) ?? []).length, 0, 'the drag names a button by its aria-label');
   assert.match(raw('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx'), /label="Undo"[\s\S]{0,400}?onClick=\{\(\) => act\(\{ intent: 'undo' \}\)\}/, 'anti-vacuity: the Maker’s Undo is no longer that button');
   assert.match(raw('app/dashboard/[eventId]/website/_components/hub-draft-button.tsx'), /aria-label=\{said\}[\s\S]{0,200}?data-bar-item=\{phone \? label : undefined\}/, 'anti-vacuity: the button no longer names itself');
-  /* What it says of an undo is only said of the step made HERE (no other save since), once the page shows it. */
-  assert.match(side, /if \(step\.saves !== makerSavesStarted\(\)\) return;/);
-  /* (2026-10-12, `rd/maker-moves-instant`: a step this page drew is taken back drawn — `drawn.settle`; any other ↺ still
-     waits for the page it reloads.) */
-  assert.match(side, /void \(drawn \? drawn\.settle : whenCanvasShowsIt\(\)\)\.then\(\(how\) => \{\s*if \(how !== 'shown'\) return;\s*say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : step\.type === 'add' \? SCENE_DRAG_WORDS\.addUndone\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);
+  /* What it says of an undo is only said of the step this drawer DREW (the journal's own — a step with any other save
+     after it is not on top, so it is never drawn here), once the page shows it. */
+  assert.match(side, /const drawn = now\.current\.undraw\?\.\(step, data\) \?\? null;\s*if \(!drawn\) return null;/);
+  assert.match(side, /void drawn\.settle\.then\(\(how\) => \{\s*if \(how !== 'shown'\) return;\s*say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : step\.type === 'add' \? SCENE_DRAG_WORDS\.addUndone\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);
   /* A HELD SCENE IS PICKED AS A TAP PICKS — the page's own tap, so the Maker hears exactly what a finger's tap tells
      it and moves the page for no pick the page itself made; and it is picked WHERE IT IS (`stageStill`): the page is
      never brought to the picked part's middle under the finger that holds it, nor after the drop. */
@@ -609,7 +613,7 @@ test('(7) the line’s Undo is never mistaken for the Maker’s own ↺ — one 
   assert.match(sheet, /if \(gone && partTakenOff\(askPartOps\(\), canvas\)\) onGoneRef\.current\?\.\(\);/);
   assert.doesNotMatch(sheet, /if \(gone\) onGoneRef\.current\?\.\(\);/, 'a part is let go of on the word of a list from before it was picked');
   /* Pressed, the Maker's ↺ is heard ONCE by the listener that says what came back — for the step made here only. */
-  assert.match(side, /if \(!button \|\| button\.disabled \|\| !step\) return;\s*last\.current = null;/);
+  assert.match(side, /if \(!drawn\) return null;\s*put\(null\);/, 'heard once — the drawer the journal calls, for the step it draws');
   assert.match(side, /say\(step\.type === 'remove' \? SCENE_DRAG_WORDS\.back\(step\.label\) : step\.type === 'add' \? SCENE_DRAG_WORDS\.addUndone\(step\.label\) : SCENE_DRAG_WORDS\.moveUndone\);/);
 });
 

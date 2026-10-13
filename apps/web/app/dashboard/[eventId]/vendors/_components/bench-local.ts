@@ -59,6 +59,9 @@ export function savedKey(tile: string, vendorProfileId: string): string {
   return `${tile}|${vendorProfileId}`;
 }
 
+/** Said on the window when a pick's place in the build was changed in place — the shell counts Build N/M again. */
+export const BENCH_BUILT_EVENT = 'setnayan:bench-built';
+
 /** A write answered in place: the server-drawn bodies now owe one refresh. */
 export function markBenchDirty(eventId: string): void {
   benchLocalStore(eventId).dirty = true;
@@ -92,6 +95,8 @@ export type BenchLocal = {
   setBuilt: (vendorId: string, groupId: string, on: boolean, multi: boolean) => void;
   /** The ONE toast of the page (it peeks from the top) — a press's result. */
   say: (tone: 'ok' | 'bad', text: string, retry?: () => void) => void;
+  /** A save from "More to compare" (or its Undo) landed — the rows' "· N yours" / "N to decide" count again. */
+  savedChanged?: () => void;
 };
 
 export const BenchLocalCtx = createContext<BenchLocal | null>(null);
@@ -128,6 +133,23 @@ export function withoutRemoved(folders: ShortlistFolder[], gone: ReadonlySet<str
     });
     return dropped === 0 ? f : { ...f, tiles, pickCount: Math.max(0, f.pickCount - dropped) };
   });
+}
+
+/**
+ * 🧮 SAVED HERE, NOT DRAWN YET (batch-3 walk, 2026-10-13): a Save from "More to compare" answers in place, so the
+ * category's own row ("· N yours", "N to decide") did not count that supplier until the couple left Find. This is
+ * how many this visit saved to `tile` that the page has not drawn — none once the page draws them (or they leave).
+ */
+export function savedInPlaceCount(
+  store: Pick<BenchLocalStore, 'saved' | 'gone'>,
+  tile: string,
+  drawnVendorIds: ReadonlySet<string>,
+): number {
+  let n = 0;
+  for (const [key, saved] of store.saved) {
+    if (key.startsWith(`${tile}|`) && !drawnVendorIds.has(saved.eventVendorId) && !store.gone.has(saved.eventVendorId)) n += 1;
+  }
+  return n;
 }
 
 /** The decision `builtNow` makes, pure (the bench's store is its only input). */

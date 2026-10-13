@@ -9,7 +9,8 @@ import type { PickOption } from '../../website/editor/_components/pick-menu-type
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
-import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
+import { ChosenRow, FormRow, FormRows, TypedRow } from '@/app/_components/form-row';
+import { StatusLine } from '@/app/_components/status-line';
 
 /**
  * 📱 THE SEAT PLAN ON A PHONE — its chrome (owner 2026-10-01, DECISION_LOG
@@ -449,8 +450,8 @@ export function PeopleSheet({
 /**
  * 📱 THE TABLE'S SHEET ON A PHONE (owner 2026-10-01, the approved frame 3) — moved here from `seating-editor.tsx` whole, so it can be driven and held: the table's name, Type ▾, then the
  * shipped verbs. PRESENTATIONAL: the editor keeps every piece of state and every save; it hands this the handlers it already had, UNTOUCHED (`onRename` is `renameTable`, `onPickType`
- * `changeStyle`, `onRotate` `rotateTable(st, 90)`, `onLink` the link toggle, `onDelete` `requestRemoveTable`, …). The seats stepper, the "Seat N removed · Undo" strip and "Seat people" are
- * the editor's own nodes, handed in.
+ * `changeStyle`, `onRotate` `rotateTable(st, 90)`, `onLink` the link toggle, `onDelete` `requestRemoveTable`, …). The seat counter (the shared `Counter`, kind 17) and
+ * "Seat people" are the editor's own nodes, handed in; the counter's last step (`seatNote`) is said here in the status line (kind 12) with its Undo.
  */
 export function PhoneTableDock({
   tableId,
@@ -460,8 +461,9 @@ export function PhoneTableDock({
   typeWord,
   onRename,
   onPickType,
-  seatsStepper,
-  undoStrip,
+  seats,
+  seatsLine,
+  seatNote,
   canEdit,
   onRotate,
   onEditChairs,
@@ -480,8 +482,12 @@ export function PhoneTableDock({
   typeWord: string;
   onRename: (label: string) => void;
   onPickType: (key: string) => void;
-  seatsStepper: ReactNode;
-  undoStrip: ReactNode;
+  /** The seat counter — the editor's `Counter`, its handlers already wired (`dockSeatsStepper`). */
+  seats: ReactNode;
+  /** The counter row's small line: "6 seated · of 10 chairs". */
+  seatsLine: string;
+  /** The counter's last step ("Chair 8 removed.") and its Undo — or null. */
+  seatNote: { words: string; onUndo: () => void } | null;
   canEdit: boolean;
   onRotate: () => void;
   onEditChairs: () => void;
@@ -495,7 +501,8 @@ export function PhoneTableDock({
 }) {
   /* 🧩 THE TEMPLATES (owner 2026-10-09, the table's sheet): the name is the Form row's typed answer (kept — `renameTable` — when it is left, as the box saved on blur), the
      shape is the dropdown row; Rotate · Edit chairs… · Link… · Unlink · Done · Delete are the ONE ActionButton, one row, Done the filled step; the delete's confirm is the
-     centred box (the editor's, `GuestPopup kind="confirm"`). The seats stepper (− 10/10 +) is left as it was: the app has no counter template to move it onto. */
+     centred box (the editor's, `GuestPopup kind="confirm"`). 🔢 The seats are the third row (owner "approved" 2026-10-13): "Seats at this table" · "6 seated · of 10
+     chairs" · the Counter (kind 17); its last step is the status line under the rows, "Chair 8 removed." · Undo — it saves at once, never via Apply. */
   return (
     <div data-seat-plan-phone-dock={tableId} className="flex w-full flex-col gap-2.5">
       <FormRows data="seat-table">
@@ -513,10 +520,16 @@ export function PhoneTableDock({
           }}
         />
         <ChosenRow name="Shape" label="Table type" value={typeValue} options={typeOptions} onPick={onPickType} buttonText={typeWord} dataAttr="data-seat-plan-type" />
+        <FormRow name="Seats at this table" line={seatsLine} data="seat-table-seats">
+          {seats}
+        </FormRow>
       </FormRows>
+      {seatNote ? (
+        <StatusLine tone="info" data="seat-step" action={{ label: 'Undo', onClick: seatNote.onUndo }}>
+          {seatNote.words}
+        </StatusLine>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        {seatsStepper}
-        {undoStrip}
         <ActionButton tone="neutral" icon={RotateCw} label="Rotate" disabled={!canEdit} onClick={onRotate} />
         <ActionButton tone="neutral" icon={Armchair} label="Edit chairs…" disabled={!canEdit} onClick={onEditChairs} />
         {linked ? (

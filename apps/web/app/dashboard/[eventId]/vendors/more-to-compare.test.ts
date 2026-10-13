@@ -161,7 +161,7 @@ test('the verbs follow the button rule: one row, Ask for a quote is the main ver
   assert.match(VERBS, /const ask = cardVerbWords\('ask'\);/);
   // Every MAIN button is terracotta (owner 2026-10-12, look call 1): the main Ask is brand, not the table's blue.
   assert.match(VERBS, /<ActionButton tone="brand" main icon=\{MessageCircle\} label=\{ask\.label\} disabled=\{busy\} onClick=\{onInquire\} \/>/);
-  assert.match(VERBS, /<ActionButton tone="neutral" icon=\{Bookmark\} label=\{MORE_TO_COMPARE_SAVE\} disabled=\{busy\} onClick=\{onSave\} \/>/);
+  assert.match(VERBS, /<ActionButton tone="neutral" icon=\{Bookmark\} label=\{saving \? MORE_TO_COMPARE_SAVING : MORE_TO_COMPARE_SAVE\} disabled=\{busy\} onClick=\{onSave\} \/>/);
   assert.equal((VERBS.match(/\bmain\b/g) ?? []).length, 1, 'two main verbs on one card');
   for (const [name, body] of [['the card', CARD], ['its verb row', VERBS], ['the list', LIST]] as const) {
     assert.ok(!/<button\b/.test(body), `a hand-made button in ${name}`);
@@ -170,7 +170,7 @@ test('the verbs follow the button rule: one row, Ask for a quote is the main ver
   assert.ok(!/useFitRow\(/.test(VERBS), 'a fit pass would drop the words again');
   assert.match(VERBS, /<div className="verbs" data-compare-verbs="">/);
   assert.ok(!/useFitRow/.test(CARD), 'the card fits a row it only sometimes draws');
-  assert.match(CARD, /<CompareVerbs busy=\{busy\} onSave=\{onSave\} onInquire=\{onInquire\} \/>/);
+  assert.match(CARD, /<CompareVerbs busy=\{busy\} saving=\{saving\} onSave=\{onSave\} onInquire=\{onInquire\} \/>/);
 });
 
 test('the sort is the bench’s ONE dropdown, and the full sheet is still one tap away', () => {

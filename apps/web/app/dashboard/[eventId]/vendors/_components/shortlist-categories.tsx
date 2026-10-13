@@ -119,7 +119,7 @@ import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
 import { FindThumbRow } from './find-thumb-row';
-import { categoryRowState, isCategoryOpen, ringCoveredCount } from '@/lib/suppliers-shell';
+import { SUP_REACH_Y, categoryRowState, isCategoryOpen, ringCoveredCount } from '@/lib/suppliers-shell';
 import { Count } from '@/components/count';
 import { ActionButton } from '@/components/action-button';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
@@ -173,6 +173,7 @@ import {
   inlineMoreSeeAllLabel,
   inlineMoreSunkNote,
   MORE_TO_COMPARE_SAVE,
+  MORE_TO_COMPARE_SAVING,
   moreToCompareEmpty,
   moreToCompareHeading,
 } from '@/lib/explore-info-copy';
@@ -1814,6 +1815,7 @@ function InlineMoreCard({
   clashWith,
   saved,
   busy,
+  saving = false,
   onSave,
   onUndo,
   onInquire,
@@ -1839,6 +1841,8 @@ function InlineMoreCard({
   clashWith: string | null;
   saved: { eventVendorId: string; undoable: boolean } | undefined;
   busy: boolean;
+  /** Its Save is waiting on the write. */
+  saving?: boolean;
   onSave: () => void;
   onUndo: () => void;
   onInquire: () => void;
@@ -1958,7 +1962,7 @@ function InlineMoreCard({
           ) : null}
         </div>
       ) : (
-        <CompareVerbs busy={busy} onSave={onSave} onInquire={onInquire} />
+        <CompareVerbs busy={busy} saving={saving} onSave={onSave} onInquire={onInquire} />
       )}
     </div>
   );
@@ -1973,10 +1977,13 @@ function InlineMoreCard({
  */
 function CompareVerbs({
   busy,
+  saving,
   onSave,
   onInquire,
 }: {
   busy: boolean;
+  /** The Save press is waiting on its write — the button says so ("Saving…", owner: a press shows what is loading). */
+  saving: boolean;
   onSave: () => void;
   onInquire: () => void;
 }) {
@@ -1986,7 +1993,7 @@ function CompareVerbs({
     <div className="verbs" data-compare-verbs="">
       {/* The main verb is terracotta (owner 2026-10-12, look call 1). */}
       <ActionButton tone="brand" main icon={MessageCircle} label={ask.label} disabled={busy} onClick={onInquire} />
-      <ActionButton tone="neutral" icon={Bookmark} label={MORE_TO_COMPARE_SAVE} disabled={busy} onClick={onSave} />
+      <ActionButton tone="neutral" icon={Bookmark} label={saving ? MORE_TO_COMPARE_SAVING : MORE_TO_COMPARE_SAVE} disabled={busy} onClick={onSave} />
     </div>
   );
 }
@@ -2118,6 +2125,8 @@ function MoreToCompare({
   const [moreError, setMoreError] = useState<string | null>(null);
   /* A refused Save — its own line, so the list's "· N" stays (that count hides only when the LIST could not be read). */
   const [moreRefused, setMoreRefused] = useState<{ text: string; retry?: () => void } | null>(null);
+  /* The card whose Save press is waiting ("Saving…" on that one button — not an Ask that saves first). */
+  const [moreSaving, setMoreSaving] = useState<string | null>(null);
   const moreFreeDaysMap = useMemo(() => new Map(Object.entries(moreFreeDays)), [moreFreeDays]);
 
   const moreQ = query.trim();
@@ -2180,6 +2189,7 @@ function MoreToCompare({
     const existing = moreSaved[v.vendorProfileId];
     if (existing) return existing.eventVendorId;
     setMoreBusy(v.vendorProfileId);
+    if (pressed) setMoreSaving(v.vendorProfileId);
     setMoreError(null);
     setMoreRefused(null);
     // A REFUSED SAVE IS SAID LIKE A REFUSED ADD OR REMOVE (batch-3 walk, 2026-10-13): it names the supplier, says it
@@ -2233,6 +2243,7 @@ function MoreToCompare({
       return null;
     } finally {
       setMoreBusy(null);
+      if (pressed) setMoreSaving(null);
     }
   };
 
@@ -2325,6 +2336,7 @@ function MoreToCompare({
       clashWith={clashWith}
       saved={moreSaved[row.vendorProfileId]}
       busy={moreBusy === row.vendorProfileId}
+      saving={moreSaving === row.vendorProfileId}
       onSave={() => void saveFromMore(row, true)}
       onUndo={() => void undoFromMore(row)}
       onInquire={() => void inquireFromMore(row)}
@@ -3527,7 +3539,7 @@ export function ShortlistCategories({
           : BENCH_SORTS.map((s) => ({ key: s.key, label: s.label }))
       }
       onPick={(key) => setSort(key as BenchSort)}
-      className="border border-ink/15"
+      className={`border border-ink/15 ${SUP_REACH_Y}`}
     />
   );
 
@@ -4372,7 +4384,7 @@ export function ShortlistCategories({
               const row = poolRows.find((r) => r.t.tile === tile);
               if (row && !planEditing) addTileToPlan(row.t.tile, row.f.folder, row.f.slug);
             }}
-            className="border border-ink/15"
+            className={`border border-ink/15 ${SUP_REACH_Y}`}
           />
           {planError && poolRows.some((r) => r.t.tile === planError.tile) ? (
             <p className="plan-err" style={{ textAlign: 'left', flexBasis: '100%' }}>

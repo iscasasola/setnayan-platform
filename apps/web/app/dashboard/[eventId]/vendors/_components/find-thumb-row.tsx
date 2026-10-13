@@ -26,6 +26,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronsDownUp, ChevronsUpDown, Plus, Search } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
+import { SUP_REACH_X } from '@/lib/suppliers-shell';
 import { THUMB_SLIDE_MS, useSuppliersMode } from './suppliers-mode';
 
 /** Rule 4 — the shipped Guests search waits the same 250 ms. */
@@ -151,15 +152,25 @@ function ThumbControls({
   useFitRow(rowRef);
   return (
     <div ref={rowRef} className="pointer-events-auto flex min-w-0 items-center gap-1.5">
-      <span className="sn-glass-row inline-flex shrink-0 rounded-full">
-        <ActionButton
-          tone="neutral"
-          icon={allOpen ? ChevronsDownUp : ChevronsUpDown}
-          label={allOpen ? 'Collapse all' : 'Expand all'}
-          aria-expanded={allOpen}
-          onClick={onToggleAll}
-          className="!border-transparent"
-        />
+      {/* 👆 The glass clips what leaves it (`overflow:hidden`, for the blur), so the 44-px reach is the wrapper's:
+          a press on the reach or on the glass's own edge is the button's press. */}
+      <span
+        className={`${SUP_REACH_X} inline-flex shrink-0`}
+        data-press-reach=""
+        onClick={(e) => {
+          if (!(e.target as Element).closest('button')) e.currentTarget.querySelector('button')?.click();
+        }}
+      >
+        <span className="sn-glass-row inline-flex shrink-0 rounded-full">
+          <ActionButton
+            tone="neutral"
+            icon={allOpen ? ChevronsDownUp : ChevronsUpDown}
+            label={allOpen ? 'Collapse all' : 'Expand all'}
+            aria-expanded={allOpen}
+            onClick={onToggleAll}
+            className="!border-transparent"
+          />
+        </span>
       </span>
       <label
         data-glass-row="suppliers-find"
@@ -180,7 +191,7 @@ function ThumbControls({
       {/* Add is terracotta and FILLED at every width (the prototype's thumb row), but
           it is not the row's "main verb" to the fit pass — on a phone it is the ＋
           circle, so it may drop its word with the rest of the row: `filled`. */}
-      <ActionButton tone="brand" filled icon={Plus} label="Add your own" onClick={onAdd} />
+      <ActionButton tone="brand" filled icon={Plus} label="Add your own" onClick={onAdd} className={SUP_REACH_X} />
     </div>
   );
 }

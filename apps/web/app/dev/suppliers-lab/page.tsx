@@ -27,6 +27,8 @@ import { ServicesTakeover } from '@/app/dashboard/[eventId]/vendors/_components/
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { popularTilesFor } from '@/lib/supplier-find';
+import { resolveBenchRing } from '@/lib/explore-in-plan';
+import { liveBuildTally, type LiveTallyBase } from '@/lib/suppliers-shell';
 import { SuppliersLabStage } from './lab-stage';
 import { LabBench } from './lab-bench';
 import { LAB_CARDS, LAB_ENRICHMENT, LAB_EVENT, LAB_ROWS, LAB_STANDINGS } from './fixtures';
@@ -52,6 +54,23 @@ export default async function SuppliersLabPage({
   });
 
   const booked = rows.filter((r) => r.status === 'contracted').length;
+  /* The shell's Build N/M and cart peek, counted the page's way from the fixtures — and handed over so a press counts
+     again in place (`liveBuildTally`, batch-3 walk 2026-10-13). One plan group per category the fixtures use. */
+  const vendors = folders.flatMap((f) => f.tiles.flatMap((t) => t.vendors));
+  const groups = new Map<string, typeof vendors>();
+  for (const v of vendors) if (v.planGroupId) groups.set(v.planGroupId, [...(groups.get(v.planGroupId) ?? []), v]);
+  const ringTiles = folders.flatMap((f) => f.tiles.map((t) => ({ tile: t.tile, planned: t.planned, vendorCount: t.vendors.length, lockedCount: t.vendors.filter((v) => v.status === 'locked').length })));
+  const ring = resolveBenchRing({ tiles: ringTiles, excludedTiles: [], pinnedTile: one('open'), starterTiles: [...popularTilesFor('wedding')] });
+  const liveTally: LiveTallyBase = {
+    children: [...groups].map(([groupId, vs]) => ({
+      groupId,
+      picks: vs.map((v) => ({ vendor_id: v.vendorId, raw_status: v.status === 'locked' ? 'contracted' : 'considering', rolled_cost_php: v.totalCostPhp })),
+      buildPickVendorIds: [],
+    })),
+    lockedCentavos: vendors.filter((v) => v.status === 'locked').reduce((n, v) => n + (v.totalCostPhp ?? 0) * 100, 0),
+    ring: { tiles: folders.flatMap((f) => f.tiles.map((t) => ({ tile: t.tile, lockedCount: t.vendors.filter((v) => v.status === 'locked').length, vendorIds: t.vendors.map((v) => v.vendorId) }))), inPlan: [...ring.inPlan] },
+    drawnIn: [],
+  };
   const bench = (
     <LabBench
       key={`sl-${one('open') ?? ''}`}
@@ -82,7 +101,8 @@ export default async function SuppliersLabPage({
               facts={{ date: { text: 'Sat, Dec 12, 2026', open: false }, place: { text: 'Pick the place', open: true } }}
             />
           }
-          tally={{ filled: booked, total: 5, knownPhp: 1_056_000, unpriced: 1 }}
+          tally={liveBuildTally(liveTally, (_v, _g, drawn) => drawn)}
+          liveTally={liveTally}
           bookedCount={booked}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           buildSlot={<p className="py-10 text-sm text-ink/55">Build — not drawn in this lab.</p>}

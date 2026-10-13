@@ -544,3 +544,5 @@ export function moreToCompareEmpty(label: string, query: string): string {
 
 /** The quiet second verb on a card in the list: keep them, ask later. */
 export const MORE_TO_COMPARE_SAVE = 'Save';
+/** The Save press while it waits (owner rule: a press shows what is loading). */
+export const MORE_TO_COMPARE_SAVING = 'Saving…';

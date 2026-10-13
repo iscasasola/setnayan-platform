@@ -19,6 +19,13 @@ Stacked on the batch-3 release (#6504). The independent walk of batch 3 found sm
   in-place pin (`liveBuildTally`, over the bench's `builtNowIn`) — nothing pressed gives the page's own numbers,
   exactly. A supplier saved from "More to compare" joins its row's "· N yours" and "N to decide" at once
   (`savedInPlaceCount`). Still no page refresh. Guard: `vendors/the-build-count-moves-at-the-press.test.ts`.
+- **Suppliers › every press reaches 44 px, and Save says "Saving…".** The Sort and "＋ Add to your event" menus (40 px
+  tall) and Expand all / ＋ Add your own (40 px wide) keep their faces; an invisible `::after` reaches 3 px past each
+  on the short side (`SUP_REACH_Y` / `SUP_REACH_X` — 3, because a face's 1-px border sits inside an absolute inset;
+  Expand all's on a wrapper, its glass clips). Scanned in Chromium and WebKit: 44 · 44 · 48 · 44. Find / Build /
+  Booked were already 44 to a finger (their choice reaches over its track; the walk measured the 38-px face). Save
+  on a "More to compare" card reads "Saving…" while its write waits. The suppliers lab now counts its Build N/M the
+  page's way and hands the shell the same inputs. Guard: `vendors/every-press-reaches-44.test.ts`.
 - **Maker › RSVP: a finger picks the Yes / No answer in Safari (LIVE on main).** In WebKit a touch tap on the two
   answer lines never fired a click, so they could not be picked on an iPhone (a mouse could). Cause: the canvas
   bridge (`rsvp-canvas-bridge.tsx` `onDown`) cancelled the pointerdown on anything in `INERT_FIELDS` — the answers are

@@ -152,6 +152,16 @@ export function liveBuildTally(base: LiveTallyBase, builtNow: (vendorId: string,
   return { ...money, ...ringBuildCount(tiles, new Set(base.ring.inPlan)) };
 }
 
+/**
+ * 👆 44-PX PRESS AREAS THAT LOOK THE SAME (batch-3 walk, 2026-10-13): the Sort and "＋ Add to your event" menus are
+ * 40 px tall, Expand all and the ＋ circle 40 px wide. Each keeps its face; an invisible `::after` reaches past it on
+ * the short side, so a finger's press area is ≥ 44 px — the way every pill selector's choice already reaches over its
+ * track (`pill-selector.tsx`, `after:-inset-y-[3px]`). 3 px, not 2: these faces wear a 1-px border, and an absolute
+ * inset counts from INSIDE the border (measured in Chromium and WebKit: 2 px gave 42).
+ */
+export const SUP_REACH_Y = "relative after:absolute after:inset-x-0 after:-inset-y-[3px] after:content-['']";
+export const SUP_REACH_X = "relative after:absolute after:inset-y-0 after:-inset-x-[3px] after:content-['']";
+
 /** Is there a peso figure to print? None recorded → no figure, never "₱0". */
 export function tallyHasMoney(t: Pick<BuildTally, 'knownPhp'>): boolean {
   return t.knownPhp > 0;

@@ -25,16 +25,28 @@ export const INVITATION_OPENS_DAYS_BEFORE = 90;
 const YMD = /^\d{4}-\d{2}-\d{2}/;
 
 /**
+ * A stored day as `YYYY-MM-DD`, or null. PostgREST hands a `date` column over as a string; a driver that
+ * parses it (PGlite, node-postgres) hands over a `Date` at UTC midnight — both read as the same day here,
+ * so a reader never throws on a shape it was not written for.
+ */
+export function ymdOf(v: unknown): string | null {
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v.toISOString().slice(0, 10);
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  return YMD.test(t) ? t.slice(0, 10) : null;
+}
+
+/**
  * `YYYY-MM-DD` the Invitation opens: the couple's own `std_invitation_launch_date` when set, else
  * `INVITATION_OPENS_DAYS_BEFORE` days before the event's first day. Null with no event date and no
  * date of their own (nothing to count from).
  */
-export function invitationOpensOn(eventDate: string | null | undefined, launchDate: string | null | undefined): string | null {
-  const own = (launchDate ?? '').trim();
-  if (YMD.test(own)) return own.slice(0, 10);
-  const day = (eventDate ?? '').trim();
-  if (!YMD.test(day)) return null;
-  const [y = NaN, m = NaN, d = NaN] = day.slice(0, 10).split('-').map(Number);
+export function invitationOpensOn(eventDate: string | Date | null | undefined, launchDate: string | Date | null | undefined): string | null {
+  const own = ymdOf(launchDate);
+  if (own) return own;
+  const day = ymdOf(eventDate);
+  if (!day) return null;
+  const [y = NaN, m = NaN, d = NaN] = day.split('-').map(Number);
   const t = Date.UTC(y, m - 1, d) - INVITATION_OPENS_DAYS_BEFORE * 86_400_000;
   if (!Number.isFinite(t)) return null;
   return new Date(t).toISOString().slice(0, 10);

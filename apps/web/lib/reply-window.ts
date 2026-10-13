@@ -43,7 +43,7 @@
  * Pure: `now` and the zone are handed in, so every branch runs under a test.
  */
 import { getLifecyclePhase, isWebsitePhasesEnabled, manualLaunchPhase } from './invitation-widgets';
-import { invitationOpensOn, venueDayOf } from './invitation-opens-on';
+import { invitationOpensOn, venueDayOf, ymdOf } from './invitation-opens-on';
 import { sanitizeRsvpAskConfig, type RepliesClose, type RepliesOpen } from './rsvp-ask';
 import { surfaceEnabled, type EventTypeProfile } from './event-type-profile';
 import { solemnAdjustedPhase } from '@/app/[slug]/_lib/event-words';
@@ -105,11 +105,7 @@ export function replyFaceOf(profile: EventTypeProfile): ReplyFace {
   };
 }
 
-const DAY = /^\d{4}-\d{2}-\d{2}/;
-const dayOf = (v: string | null | undefined): string | null => {
-  const t = (v ?? '').trim();
-  return DAY.test(t) ? t.slice(0, 10) : null;
-};
+const dayOf = (v: unknown): string | null => ymdOf(v);
 
 /** The couple's two picks, as stored (defaults applied). */
 export function readRepliesWindow(raw: unknown): {
@@ -132,7 +128,7 @@ function invitationStage(event: ReplyWindowEvent, nowMs: number, tz: string | un
   const pinned = face.phasesEnabled ? manualLaunchPhase(event.launch_mode, event.manual_phase) : null;
   const phase = solemnAdjustedPhase(
     pinned ??
-      getLifecyclePhase(event.event_date ?? null, tz, event.event_end_date ?? null, nowMs, event.std_invitation_launch_date ?? null),
+      getLifecyclePhase(dayOf(event.event_date), tz, dayOf(event.event_end_date), nowMs, dayOf(event.std_invitation_launch_date)),
     face.solemn,
   );
   if (phase === 'event' || phase === 'editorial') return 'after';

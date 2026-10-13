@@ -18,6 +18,7 @@ import { submitInviteReply } from '../actions';
 import { rsvpGate } from '@/lib/guest-one-path';
 import { OPEN_REPLY_WINDOW, replyFaceOf, replyRefusedWords, replyWindow, replyWindowWords, type ReplyWindowEvent } from '@/lib/reply-window';
 import { resolveProfile } from '@/lib/event-type-profile';
+import { ReplyWindowNote } from '../../_components/reply-window-note';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { headers } from 'next/headers';
@@ -424,15 +425,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
 
         {repliesShut ? (
           /* 📬 Shut: the window's words, no form (and the refusal above them when a Send was refused). */
-          <div data-reply-window={replies.state} className="flex flex-col gap-2 py-2">
-            {flash ? (
-              <p role="alert" className="text-sm font-medium text-terracotta-700">
-                {flash.text}
-              </p>
-            ) : null}
-            <p className="font-serif text-lg text-ink">{repliesShut.line}</p>
-            {repliesShut.sub ? <p className="text-sm text-ink/70">{repliesShut.sub}</p> : null}
-          </div>
+          <ReplyWindowNote window={replies} organizer={words.theOrganizer} refused={search.rsvp === 'window'} />
         ) : (
         <RsvpWidget
           words={words}

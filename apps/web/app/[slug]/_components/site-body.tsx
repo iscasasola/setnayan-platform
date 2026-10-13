@@ -194,7 +194,8 @@ import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost, type HubCoverHoldBoxes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
-import { OPEN_REPLY_WINDOW, replyWindowWords, type ReplyWindow } from '@/lib/reply-window';
+import { OPEN_REPLY_WINDOW, type ReplyWindow } from '@/lib/reply-window';
+import { ReplyWindowNote } from './reply-window-note';
 import { RsvpLookStyle } from './rsvp-look-style';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
 import { signRsvpPictures } from '@/lib/rsvp-pictures.server';
@@ -3660,15 +3661,7 @@ export async function SiteBody({
                       keeps this line: it is their only way in. */}
                   {/* 📬 THE WINDOW IS SHUT and no Reply card says so on this page (owner 2026-10-14): the same
                       words, where the door to the reply would have been. */}
-                  {!replyOpenHere && !replyCard ? (() => {
-                    const shut = replyWindowWords(repliesWindow, clientWords.theOrganizer);
-                    return shut ? (
-                      <div data-reply-window={repliesWindow.state} className="space-y-1">
-                        <p className="text-sm font-medium text-ink/80">{shut.line}</p>
-                        {shut.sub ? <p className="text-sm text-ink/70">{shut.sub}</p> : null}
-                      </div>
-                    ) : null;
-                  })() : null}
+                  {!replyOpenHere && !replyCard ? <ReplyWindowNote window={repliesWindow} organizer={clientWords.theOrganizer} /> : null}
                   {!replyOpenHere || actionOpensReply(arrivalAction) ||
                   (tabs.on && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined')) ? null : (
                   <a

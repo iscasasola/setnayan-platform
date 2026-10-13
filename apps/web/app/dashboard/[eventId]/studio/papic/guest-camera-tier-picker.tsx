@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { activatePapicLimited } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { papicCapacityPhrase } from '@/lib/papic-tier-copy';
 import { formatCount } from '@/lib/format-number';
 
@@ -180,12 +181,16 @@ export default function GuestCameraTierPicker({
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
+      {/* Locks at the first press and names the step (2026-10-13 — a bare
+          submit let two presses race to the server; see
+          lib/one-press-one-order.ts for the server half). */}
+      <SubmitButton
+        overlay={false}
+        pendingLabel={sameAsCurrent ? 'Adding new guests…' : 'Opening payment…'}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-80"
       >
         {label}
-      </button>
+      </SubmitButton>
       <p className="text-xs text-ink/50">
         {sameAsCurrent
           ? 'New “yes” RSVPs are added automatically — no extra charge.'

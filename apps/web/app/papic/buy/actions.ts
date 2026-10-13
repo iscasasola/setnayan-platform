@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { payPath } from '@/lib/pay-path';
+import { keepFirstTwin } from '@/lib/one-press-one-order';
 import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -385,13 +386,33 @@ export async function startPapicGuestPurchase(formData: FormData) {
       platform: 'web',
     },
   );
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
+  const moneyWriter = createMoneyWriterClient();
+  const { data: order, error: orderErr } = await moneyWriter
     .from('orders')
     .insert(orderRow)
     .select('order_id')
     .maybeSingle();
   if (orderErr || !order) backTo(returnTo, 'order_failed');
   const orderId = String(order!.order_id);
+
+  // ONE PRESS, ONE BILL (2026-10-13). The one-open-order rule above catches a
+  // second press that arrives after the first; two that arrive TOGETHER both
+  // pass it. The later order cancels itself here — before any guest or camera
+  // row is written against it — and its buyer lands on the earlier bill.
+  // See lib/one-press-one-order.ts.
+  const kept = await keepFirstTwin(
+    admin,
+    moneyWriter,
+    {
+      eventId: buyer!.eventId,
+      userId: accountId!,
+      serviceKey: rung.serviceCode,
+      amountPhp: pricePhp,
+      description: guestOrderDescription(rung),
+    },
+    { orderId, referenceCode },
+  );
+  if (!kept.keptMine) redirect(payPath(kept.reference));
 
   /** The order must not survive as a charge nobody can fulfil. */
   const abandon = async (code: string): Promise<never> => {

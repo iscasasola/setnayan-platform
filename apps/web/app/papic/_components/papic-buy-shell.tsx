@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, X, Zap } from 'lucide-react';
+import { useFormStatus } from 'react-dom';
+import { Camera, Loader2, X, Zap } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { startPapicGuestPurchase, releaseGuestDedicatedShots } from '../buy/actions';
 import type { DedicatedShotsStanding, PapicGuestOffer } from '@/lib/papic-guest-buy';
@@ -259,16 +260,37 @@ function OfferForm({
       <input type="hidden" name="service_code" value={offer.serviceCode} />
       <input type="hidden" name="return_to" value={returnTo} />
       {seatToken ? <input type="hidden" name="seat_token" value={seatToken} /> : null}
-      <button
-        type="submit"
-        className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink/15 bg-surface px-4 py-3 text-left text-sm text-ink hover:border-terracotta hover:bg-terracotta/5"
-      >
-        <span>{offer.phrase}</span>
+      {/* Locks at the first press and names the step (2026-10-13 — a bare
+          submit let two presses race; see lib/one-press-one-order.ts for the
+          server half). The phrase stays readable while it waits. */}
+      <OfferSubmit phrase={offer.phrase} />
+    </form>
+  );
+}
+
+/** The offer's own button: pressed at once, locked until the payment page opens. */
+function OfferSubmit({ phrase }: { phrase: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink/15 bg-surface px-4 py-3 text-left text-sm text-ink hover:border-terracotta hover:bg-terracotta/5 disabled:cursor-wait disabled:border-terracotta"
+      disabled={pending}
+      aria-busy={pending}
+      data-pending={pending ? 'true' : undefined}
+    >
+      <span>{phrase}</span>
+      {pending ? (
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-ink/60">
+          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2.25} />
+          Opening payment…
+        </span>
+      ) : (
         <span aria-hidden className="text-ink/40">
           &rsaquo;
         </span>
-      </button>
-    </form>
+      )}
+    </button>
   );
 }
 

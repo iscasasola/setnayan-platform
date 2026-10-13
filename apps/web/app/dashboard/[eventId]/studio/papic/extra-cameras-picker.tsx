@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { papicBucketPhrase } from '@/lib/papic-tier-copy';
 import { purchasePapicExtras } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -235,9 +236,13 @@ export default function ExtraCamerasPicker({
         </p>
       ))}
 
-      <button
-        type="submit"
+      {/* Locks at the first press and names the step (2026-10-13 — a bare
+          submit minted one order per press; see lib/one-press-one-order.ts
+          for the server half). */}
+      <SubmitButton
+        overlay={false}
         disabled={totalCameras < 1}
+        pendingLabel={free ? 'Adding your cameras…' : 'Opening payment…'}
         className="w-full rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {totalCameras < 1
@@ -245,7 +250,7 @@ export default function ExtraCamerasPicker({
           : free
             ? `Add ${formatCount(totalCameras)} extra camera${totalCameras === 1 ? '' : 's'} · Free`
             : `Add ${formatCount(totalCameras)} extra camera${totalCameras === 1 ? '' : 's'} · ${php(total)}`}
-      </button>
+      </SubmitButton>
       <p className="text-center text-xs text-ink/50">
         {free
           ? 'Each gets a claim link to share. Activates right away.'

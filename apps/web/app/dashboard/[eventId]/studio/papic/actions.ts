@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { eventIsOver } from '@/lib/event-is-over.server';
 import { payPath } from '@/lib/pay-path';
+import { keepFirstTwin, openTwinReference } from '@/lib/one-press-one-order';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -1353,7 +1354,8 @@ export async function activatePapicLimited(formData: FormData) {
   const description = `Papic ${tierLabel} — ${formatCount(guestCount)} guest camera${
     guestCount === 1 ? '' : 's'
   }${windowLabel ? ` · ${windowLabel}` : ` · ${win.days} day${win.days === 1 ? '' : 's'}`}`;
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
+  const moneyWriter = createMoneyWriterClient();
+  const { data: order, error: orderErr } = await moneyWriter
     .from('orders')
     .insert({
       event_id: eventId,
@@ -1374,6 +1376,24 @@ export async function activatePapicLimited(formData: FormData) {
       )}`,
     );
   }
+
+  // ONE PRESS, ONE BILL (2026-10-13). A second press that arrives AFTER the
+  // first is already caught above — the live snapshot at this tier re-syncs
+  // instead of billing. Two that arrive TOGETHER both get here; the later one
+  // cancels its own order before it can write a second snapshot.
+  const kept = await keepFirstTwin(
+    admin,
+    moneyWriter,
+    {
+      eventId,
+      userId: user.id,
+      serviceKey: PAPIC_CAMERAS_ORDER_KEY,
+      amountPhp: quote.frozenBillPhp,
+      description,
+    },
+    { orderId: order.order_id, referenceCode },
+  );
+  if (!kept.keptMine) redirect(payPath(kept.reference));
 
   // Record the frozen snapshot at the chosen tier, then materialize / re-tier the
   // guest cameras from it (syncGuestCameras provisions missing + re-tiers any
@@ -1515,7 +1535,22 @@ export async function purchasePapicExtras(formData: FormData) {
       ? ` · ${windowLabel}`
       : ` · ${win.days} day${win.days === 1 ? '' : 's'}`
   }`;
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
+  // ONE PRESS, ONE BILL (2026-10-13) — the same selection pressed twice lands
+  // on the first bill and provisions no second set of cameras. A ₱0 provision
+  // is not a bill and is not deduped. See lib/one-press-one-order.ts.
+  const twinKey = {
+    eventId,
+    userId: user.id,
+    serviceKey: PAPIC_CAMERAS_ORDER_KEY,
+    amountPhp: quote.totalPhp,
+    description,
+  };
+  if (!isFree) {
+    const reuse = await openTwinReference(admin, twinKey);
+    if (reuse) redirect(payPath(reuse));
+  }
+  const moneyWriter = createMoneyWriterClient();
+  const { data: order, error: orderErr } = await moneyWriter
     .from('orders')
     .insert({
       event_id: eventId,
@@ -1535,6 +1570,14 @@ export async function purchasePapicExtras(formData: FormData) {
         (orderErr?.message ?? 'order_failed').slice(0, 64),
       )}`,
     );
+  }
+  if (!isFree) {
+    // Before the cameras: a twin that lost the race provisions nothing.
+    const kept = await keepFirstTwin(admin, moneyWriter, twinKey, {
+      orderId: order.order_id,
+      referenceCode,
+    });
+    if (!kept.keptMine) redirect(payPath(kept.reference));
   }
 
   // Anonymous seats at their chosen rungs (guest_id stays NULL → claim-link model).
@@ -1754,14 +1797,23 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
     fail('unavailable');
   }
 
+  // ONE PRESS, ONE BILL (2026-10-13 — the tester's two presses made two
+  // orders). The same purchase made moments ago and still unpaid is the bill
+  // this press means; see lib/one-press-one-order.ts.
+  const description = `Papic — adds ${formatCount(points)} credits to this event`;
+  const twinKey = { eventId, userId: user.id, serviceKey: rawSku, amountPhp: pricePhp, description };
+  const reuse = await openTwinReference(admin, twinKey);
+  if (reuse) redirect(payPath(reuse));
+
   const referenceCode = mintPapicReferenceCode();
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
+  const moneyWriter = createMoneyWriterClient();
+  const { data: order, error: orderErr } = await moneyWriter
     .from('orders')
     .insert({
       event_id: eventId,
       user_id: user.id,
       service_key: rawSku,
-      description: `Papic — adds ${formatCount(points)} credits to this event`,
+      description,
       requested_total_php: pricePhp,
       reference_code: referenceCode,
       status: 'submitted',
@@ -1770,6 +1822,14 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
     .select('order_id, public_id')
     .maybeSingle();
   if (orderErr || !order) fail('order_failed');
+
+  // Two presses that arrived TOGETHER both passed the check above; the later
+  // order cancels itself here and lands on the earlier one.
+  const kept = await keepFirstTwin(admin, moneyWriter, twinKey, {
+    orderId: order!.order_id,
+    referenceCode,
+  });
+  if (!kept.keptMine) redirect(payPath(kept.reference));
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
   // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.

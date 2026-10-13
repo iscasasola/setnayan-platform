@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { purchaseIdFromVendorSubscriptionServiceKey } from './vendor-subscription-service-key';
 import { statusOf, type PayableStatus } from './payable-status';
-import { readOnboardingOrderItems } from './onboarding-order-items';
+import { ONBOARDING_SERVICES_SKU, readBasketLinesForPayer } from './onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from './orders';
 import { getEffectiveVatRatePct } from './platform-settings';
 import { isBookingFeeOrder, payBackLink } from './pay-back-link';
@@ -41,6 +41,13 @@ export type Payable = {
   amountPhp: number;
   /** Small facts under the amount. Never money the payer has to add up. */
   rows: ReadonlyArray<{ label: string; value: string }>;
+  /**
+   * True when this order HAS lines (a sign-up basket) and they could not be
+   * read. The page must then say so: an unreadable list drawn as no list tells
+   * the payer their bill covers nothing (owner rule: a failure never renders
+   * like emptiness).
+   */
+  rowsUnreadable: boolean;
   status: PayableStatus;
   /** True when this order is a shop's plan, which changes the "next" line. */
   isVendorPlan: boolean;
@@ -179,9 +186,9 @@ export async function fetchPayableByReference(
   // needs to know WHICH celebration their money is for.
   // Every read here is best-effort: a payment page must still render when the
   // decoration cannot be fetched.
-  const [who, rows] = await Promise.all([
+  const [who, lines] = await Promise.all([
     fetchWho(supabase, order),
-    fetchRows(supabase, order.order_id),
+    fetchRows(supabase, order),
   ]);
 
   return {
@@ -190,7 +197,8 @@ export async function fetchPayableByReference(
     title: order.description?.trim() || 'Your Setnayan order',
     who,
     amountPhp: amount,
-    rows,
+    rows: lines.rows,
+    rowsUnreadable: lines.unreadable,
     status: statusOf(order.status),
     isVendorPlan,
     eventId: order.event_id ?? null,
@@ -251,40 +259,42 @@ async function fetchWho(
 /**
  * The line items, when this order is a basket.
  *
- * Only the onboarding bill has them (`onboarding_order_items`); everything else
- * is a single purchase whose title already says what it is, and inventing a
- * one-row "table" for it would be noise.
+ * Only the onboarding bill has them; everything else is a single purchase whose
+ * title already says what it is, and inventing a one-row "table" for it would be
+ * noise. So an ordinary order asks NOTHING here — it used to send a read for
+ * every /pay view, and every one of those reads was refused (below).
+ *
+ * 🔑 THROUGH THE RPC, NEVER THE TABLE. `onboarding_order_items` is shut to every
+ * session role, and this page runs on the payer's own session (see the header).
+ * Until 2026-10-13 this read the table directly: "permission denied" on every
+ * view, the `[]` it fell back to drew a sign-up bill with no lines under its
+ * total. `readBasketLinesForPayer` asks `public.order_basket_lines`, which
+ * checks the caller and returns each line's catalog title in the same round
+ * trip — so a basket costs the one read it always cost, and nothing more.
+ *
+ * ⚠ AN UNREADABLE LIST IS `unreadable: true`, NOT AN EMPTY ONE.
  */
 async function fetchRows(
   supabase: SupabaseClient,
-  orderId: string,
-): Promise<Array<{ label: string; value: string }>> {
+  order: OrderRow,
+): Promise<{ rows: Array<{ label: string; value: string }>; unreadable: boolean }> {
+  if (order.service_key !== ONBOARDING_SERVICES_SKU) return { rows: [], unreadable: false };
   try {
-    const items = await readOnboardingOrderItems(supabase, orderId);
-    if (items.length === 0) return [];
-
-    const codes = [...new Set(items.map((i) => i.serviceCode))];
-    const { data: catalog } = await supabase
-      .from('platform_retail_catalog_v2')
-      .select('service_code,title')
-      .in('service_code', codes);
-    const titleFor = new Map(
-      ((catalog ?? []) as Array<{ service_code?: string; title?: string }>).map((r) => [
-        r.service_code ?? '',
-        (r.title ?? '').trim(),
-      ]),
-    );
-
-    return items.map((i) => ({
-      // A raw service_code is our word, not theirs — fall back to it only when
-      // the catalog cannot tell us the customer-facing name.
-      label:
-        (titleFor.get(i.serviceCode) || i.serviceCode) +
-        (i.quantity > 1 ? ` × ${i.quantity}` : ''),
-      value: peso(i.unitPricePhp * i.quantity),
-    }));
+    const read = await readBasketLinesForPayer(supabase, order.order_id);
+    if (!read.ok) return { rows: [], unreadable: true };
+    return {
+      rows: read.lines.map((l) => ({
+        // A raw service_code is our word, not theirs — fall back to it only when
+        // the catalog cannot tell us the customer-facing name.
+        label: (l.title || l.serviceCode) + (l.quantity > 1 ? ` × ${l.quantity}` : ''),
+        value: peso(l.unitPricePhp * l.quantity),
+      })),
+      // A basket with NO lines is itself a fault (it was minted with its lines),
+      // and saying nothing would draw it as a bill for nothing.
+      unreadable: read.lines.length === 0,
+    };
   } catch {
-    return [];
+    return { rows: [], unreadable: true };
   }
 }
 

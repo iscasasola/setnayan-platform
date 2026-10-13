@@ -4,6 +4,7 @@ import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
 import { papicBucketPhrase, papicRungDiscountPercent } from '@/lib/papic-tier-copy';
 import { CreditStepper } from './credit-stepper';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { purchasePapicPoolTopUp } from '../actions';
 
 /**
@@ -151,12 +152,19 @@ export async function PapicPoolCard({
             }))}
         />
 
-        <button
-          type="submit"
-          className="inline-flex items-center justify-center rounded-xl bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
+        {/* ONE PRESS, ONE BILL (2026-10-13). This was a bare submit with no
+            pressed state, and every press minted a new unpaid order — the
+            tester's two presses made two. It now locks the moment it is pressed
+            and says the one step that is happening until the payment page
+            opens. The server half (a repeat press lands on the same bill) is in
+            lib/one-press-one-order.ts. */}
+        <SubmitButton
+          overlay={false}
+          pendingLabel="Opening payment…"
+          className="inline-flex items-center justify-center rounded-xl bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800 disabled:opacity-80"
         >
           Continue to payment
-        </button>
+        </SubmitButton>
       </form>
 
       <p className="text-xs text-ink/50">

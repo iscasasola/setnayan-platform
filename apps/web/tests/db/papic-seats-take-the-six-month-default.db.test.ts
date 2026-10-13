@@ -36,11 +36,12 @@ const DAY = '2027-03-31';
 const F = { noWindow: '', saved: '', noDate: '' };
 const SEAT: Record<string, string> = {};
 
+/** A birthday — a wedding row must carry its wedding fields (a CHECK); the window rule is the same for every type. */
 async function event(name: string, date: string | null, windowStart: string | null): Promise<string> {
   return (
     await db.query<{ e: string }>(
       `INSERT INTO public.events (display_name, event_type, event_date, papic_window_start, papic_window_end)
-       VALUES ($1, 'wedding', $2::date, $3::timestamptz, $4::timestamptz) RETURNING event_id AS e`,
+       VALUES ($1, 'birthday', $2::date, $3::timestamptz, $4::timestamptz) RETURNING event_id AS e`,
       [name, date, windowStart, windowStart ? `${date}T11:59:59+08:00` : null],
     )
   ).rows[0]!.e;

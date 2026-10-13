@@ -36,6 +36,7 @@ import {
 /* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
 import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 import { DetailsGoTo } from './details-go';
+import { PASS_ZIP_PRO_NOTE } from '@/lib/studio-prints-six';
 import { StudioTool } from './details-lazy';
 
 /**
@@ -334,16 +335,26 @@ export function PrintPieceEditor({
             {saves}
           </div>
         ) : null}
-        <ChangedSincePrinted eventId={input.eventId} piece={k} version={input.previewVersion} />
+        {/* 1 · Changed since you printed — the amber status line with one quiet "Save again" (the piece's main file). */}
+        <ChangedSincePrinted
+          eventId={input.eventId}
+          piece={k}
+          version={input.previewVersion}
+          again={themedReady ? { href: q(k, 'print'), file: file.themed(k) } : { href: classic(k), file: file.classic(k) }}
+        />
         {children}
-        {k === 'story-poster' && !storyMissing ? <PosterPhotoPicker eventId={input.eventId} saved={input.posterPhoto ?? null} /> : null}
+        {/* 6 · The poster's photo — Theme's picture | My photo, the upload square, the plain-words problem (`studio-prints-six.tsx`). */}
+        {k === 'story-poster' && !storyMissing ? (
+          <StudioTool part="poster-photo" eventId={input.eventId} saved={input.posterPhoto ?? null} thumb={input.posterPhoto ? q(k, 'screen') : null} />
+        ) : null}
+        {/* 4 · The menu — saves as you go, no Save button, no reload (`studio-prints-six.tsx`). */}
         {k === 'menu' && menu ? (
-          <PrintMenuEditor
+          <StudioTool
+            part="menu"
             eventId={input.eventId}
             initial={menuHasDishes(menu.saved) || menu.saved.length ? menu.saved : menu.caterer}
             fromCaterer={!menuHasDishes(menu.saved) && !menu.saved.length && menu.caterer.length > 0}
             suggestions={menu.suggestions}
-            flash={menu.flash}
           />
         ) : null}
       </div>
@@ -398,6 +409,53 @@ export function PassCardsPanel({ input, studio = false }: { input: PrintsInput; 
   // door to the one unlock) on the web, absent in the store shell.
   const zipMark = makerProMark({ owns: ownsPro, storeShell });
   const classicPhoneCards = `/api/hub-print/passes?event=${eventId}&mode=print&theme=${CLASSIC_PRINT_THEME}&pass_format=${PASS_CARD_FORMAT_ID}`;
+  if (studio) {
+    /* 🧭 Studio › Prints (owner "approved" 2026-10-13): the look as the style-card strip (kind 5), the two outputs as Form rows — the SAME
+       words, files and Pro door as before, in the same order; a free couple's ◆ door opens the centred note (kind 20), never a page jump. */
+    const proDoor = `/dashboard/${eventId}/studio/website-pro`;
+    return (
+      <div data-pass-cards="" className="flex flex-col gap-2 border-t border-ink/10 pt-3">
+        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">{PASS_CARD_WORDS.section}</p>
+        <ChangedSincePrinted
+          eventId={eventId}
+          piece="passes"
+          version={input.previewVersion}
+          again={{
+            href: themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID),
+            file: themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes'),
+          }}
+        />
+        <PassCardDesignPicker
+          eventId={eventId}
+          saved={passDesign}
+          studio
+          previews={
+            Object.fromEntries(
+              PASS_CARD_DESIGNS.map((d) => [d, `${q('pass', 'screen', PASS_CARD_FORMAT_ID)}&pass_design=${d}`]),
+            ) as Record<PassCardDesign, string>
+          }
+        />
+        <StudioTool
+          part="pass-rows"
+          digitalWord={PASS_CARD_WORDS.digital}
+          printWord={PASS_CARD_WORDS.print}
+          digitalLine="One PNG per guest who is coming. Each guest’s own saves free."
+          zip={
+            zipMark === null
+              ? null
+              : zipMark === 'unlocked'
+                ? { kind: 'save', href: `${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`, file: passCardsZip, label: PASS_CARD_WORDS.downloadAll, icon: <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} /> }
+                : { kind: 'door', href: proDoor, label: PASS_CARD_WORDS.downloadAll, icon: <PaidMark state={zipMark} label={paidMarkLabel(zipMark, 'Event Hub Pro')} />, note: PASS_ZIP_PRO_NOTE }
+          }
+          printed={{
+            href: themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID),
+            file: themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes'),
+            label: `Every guest’s ${PASS_CARD_WORDS.noun} · ${PRINT_FORMATS[PASS_CARD_FORMAT_ID].label}`,
+          }}
+        />
+      </div>
+    );
+  }
   return (
     <div data-pass-cards="" className="flex flex-col gap-3 border-t border-ink/10 pt-3">
       <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">{PASS_CARD_WORDS.section}</p>
@@ -564,7 +622,12 @@ export function PrintSetDownloads({ input, studio = false }: { input: PrintsInpu
       data-prints-access={!themed ? 'classic' : freeTheme ? 'free-theme' : access.printReady ? 'print-ready' : 'sample'}
       className="flex flex-col gap-3"
     >
-      <ChangedSincePrinted eventId={input.eventId} piece="set" version={input.previewVersion} />
+      <ChangedSincePrinted
+        eventId={input.eventId}
+        piece="set"
+        version={input.previewVersion}
+        again={studio ? (themedReady ? { href: q('set', 'print'), file: file.themed('set') } : { href: classic('set'), file: file.classic('set') }) : undefined}
+      />
       <p className="text-sm text-ink/75">
         <span data-prints-free-themes="" className="font-semibold text-ink">
           {themeNames(FREE_THEMES)} prints are free and print-ready

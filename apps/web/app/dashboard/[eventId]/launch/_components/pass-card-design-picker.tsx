@@ -8,6 +8,9 @@ import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PrintPreview } from './print-preview';
 import { SP_LOOK_CARD, SP_LOOK_NAME, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
+import { BgCard, BgCards } from '../../website/editor/_components/background-cards';
+import { FormRow, FormRows } from '@/app/_components/form-row';
+import { StatusLine } from '@/app/_components/status-line';
 
 /**
  * 🎫 THE TICKET STYLE — ONE dropdown (Classic · Ticket · Photo poster) and
@@ -37,6 +40,7 @@ export function PassCardDesignPicker({
   preview = true,
   onShown,
   cards = false,
+  studio = false,
 }: {
   eventId: string;
   /** The look the couple is editing — the drafted one when the draft holds it, else the live one. */
@@ -49,6 +53,11 @@ export function PassCardDesignPicker({
   onShown?: (design: PassCardDesign) => void;
   /** 🧭 The new Maker's Style › Look: the looks as a row of PICTURES (each card its own ticket), not a dropdown. */
   cards?: boolean;
+  /**
+   * 🧭 Studio › Prints (owner "approved" 2026-10-13, kind 5): the looks as the ONE style-card strip (`BgCards` / `BgCard` — 3:4, the
+   * picture edge to edge, the picked one ringed in the accent and centred), under a Form row that says the pick waits for Apply.
+   */
+  studio?: boolean;
 }) {
   const [shown, setShown] = useState<PassCardDesign>(saved);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +92,29 @@ export function PassCardDesignPicker({
       }
     });
   };
+
+  if (studio) {
+    return (
+      <div className="flex flex-col" data-pass-card-design={shown} data-pass-card-design-studio="" aria-busy={pending || undefined}>
+        <FormRows data="pass-style">
+          <FormRow name={PASS_CARD_WORDS.style} line="What each guest saves · waits for Apply" data="pass-style" />
+        </FormRows>
+        <BgCards label={PASS_CARD_WORDS.style} source="pass-style">
+          {PASS_CARD_DESIGNS.map((d) => (
+            <BgCard key={d} name={PASS_CARD_DESIGN_LABEL[d]} on={d === shown} onPick={() => pick(d)} data={d} swatch="white">
+              {/* eslint-disable-next-line @next/next/no-img-element -- the drawn ticket PNG, already warm */}
+              <img src={previews[d]} alt="" aria-hidden data-pass-card-design-pick={d} className="absolute inset-0 h-full w-full object-cover" loading="eager" />
+            </BgCard>
+          ))}
+        </BgCards>
+        {error ? (
+          <StatusLine tone="bad" data="pass-style">
+            {error}
+          </StatusLine>
+        ) : null}
+      </div>
+    );
+  }
 
   if (cards) {
     return (

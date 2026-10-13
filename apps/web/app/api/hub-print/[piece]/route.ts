@@ -437,6 +437,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   back.searchParams.set('tool', 'details');
   back.searchParams.set('item', piece === 'menu' ? 'menu' : 'invitation');
   if (!current) {
+    /* A quiet save (Studio › Prints' menu) is told in its own words — never answered with a whole Maker page. */
+    if (piece === 'menu' && (req.headers.get('accept') ?? '').includes('application/json')) return NextResponse.json({ ok: false }, { status: 500 });
     back.searchParams.set(piece === 'menu' ? 'menu_error' : 'print_error', '1');
     return NextResponse.redirect(back, 303);
   }
@@ -501,6 +503,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   if (piece === 'menu') {
     // The editor posts the whole menu as JSON; the parser drops anything unknown
     // and caps it, so what is stored is exactly what can print.
+    // 🧭 Studio › Prints saves the menu AS YOU GO (owner "approved" 2026-10-13): the SAME post, quietly — asked with
+    // `Accept: application/json`, the answer is `{ ok }` instead of the 303 (the words form's `SoftPost` rule, below).
+    const quiet = (req.headers.get('accept') ?? '').includes('application/json');
     let raw: unknown = [];
     try {
       raw = JSON.parse(String(form.get('menu_json') ?? '[]'));
@@ -508,6 +513,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
       raw = null;
     }
     if (!Array.isArray(raw)) {
+      if (quiet) return NextResponse.json({ ok: false }, { status: 400 });
       back.searchParams.set('menu_error', '1');
       return NextResponse.redirect(back, 303);
     }
@@ -515,10 +521,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
       .from('events')
       .update({ print_details: serializePrintDetails({ ...stored, menu: parseMenu(raw) }) })
       .eq('event_id', eventId);
-    if (error) {
-      logQueryError('hub-print.menu', error, { event_id: eventId }, 'graceful_degrade');
-      back.searchParams.set('menu_error', '1');
-    } else back.searchParams.set('menu_saved', '1');
+    if (error) logQueryError('hub-print.menu', error, { event_id: eventId }, 'graceful_degrade');
+    if (quiet) return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
+    if (error) back.searchParams.set('menu_error', '1');
+    else back.searchParams.set('menu_saved', '1');
     back.hash = 'print-menu';
     return NextResponse.redirect(back, 303);
   }

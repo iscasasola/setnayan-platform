@@ -164,17 +164,43 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           previewVersion: null,
           formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
         }}
-        menu={{ saved: [], caterer: [], suggestions: [], flash: null }}
+        /* 🧪 `?studio=1`: Prints' six on fixtures (owner "approved" 2026-10-13) — a menu of two moments and the schedule's food moments
+           to add; its quiet save and the poster photo's go to routes the walk stands in for (no database here). */
+        menu={
+          studioLab
+            ? {
+                saved: [
+                  { title: 'Cocktail hour', dishes: ['Lumpiang shanghai', 'Cheese & fruit'] },
+                  { title: 'Reception & dinner', dishes: ['Lechon with liver sauce', 'Kare-kare', 'Garlic rice'] },
+                ],
+                caterer: [],
+                suggestions: ['Dessert', 'Midnight snack'],
+                flash: null,
+              }
+            : { saved: [], caterer: [], suggestions: [], flash: null }
+        }
         stored={stored}
         hosts={
           mj
             ? [{ moderatorId: 'm1', label: 'Ana & Marco · wedding planner external', contact: 'testnayan1@test.com' }]
-            : [{ moderatorId: 'm1', label: 'Claire', contact: '0917 555 0101' }]
+            : studioLab
+              ? [
+                  { moderatorId: 'm1', label: 'Claire', contact: '0917 555 0142' },
+                  { moderatorId: 'm2', label: 'Marco', contact: null },
+                ]
+              : [{ moderatorId: 'm1', label: 'Claire', contact: '0917 555 0101' }]
         }
         parents={
           mj
             ? []
-            : [
+            : studioLab
+              ? [
+                  /* A stand-in for each parent's guest card (the real one needs the database) — the sheet it opens in is the real one. */
+                  { guestId: 'lab-p1', name: 'Maria Santos', side: 'bride' as const, card: <p data-lab-guest-card="">Maria Santos’s guest card opens here (the lab has no guest list).</p> },
+                  { guestId: 'lab-p2', name: 'Jose Santos', side: 'bride' as const, card: <p data-lab-guest-card="">Jose Santos’s guest card opens here (the lab has no guest list).</p> },
+                  { guestId: 'lab-p3', name: 'Lourdes Reyes', side: 'groom' as const, card: <p data-lab-guest-card="">Lourdes Reyes’s guest card opens here (the lab has no guest list).</p> },
+                ]
+              : [
                 { guestId: null, name: 'Atty. Eufrocina M. Sacdalan-Casasola', card: null },
                 { guestId: null, name: 'Mrs. Milagros Buanhog', card: null },
               ]

@@ -136,15 +136,15 @@ test('the couple’s pin wins, and a type with no Save the Date face is always t
 });
 
 test('the words — approved, and what a refusal says', () => {
-  assert.equal(replyDayLabel('2026-11-14'), 'Saturday, 14 November');
+  assert.equal(replyDayLabel('2026-11-14'), 'Saturday, 14\u00a0November', 'a no-break space keeps “14 November” on one line');
   assert.equal(replyDayLabel('nope'), null);
   const notYet = replyWindow(ev({ repliesOpen: 'on_date', repliesOpenOn: '2027-04-10' }), INV, MNL, WEDDING);
-  assert.deepEqual(replyWindowWords(notYet), { line: 'Replies open on Saturday, 10 April', sub: null });
+  assert.deepEqual(replyWindowWords(notYet), { line: 'Replies open on Saturday, 10\u00a0April', sub: null });
   const closed = replyWindow(ev({ repliesOpen: 'closed' }), INV, MNL, WEDDING);
   assert.deepEqual(replyWindowWords(closed), { line: 'Replies are closed.', sub: 'Need to change? Message the couple.' });
   assert.equal(replyWindowWords(replyWindow(ev(), INV, MNL, WEDDING)), null);
   assert.equal(replyRefusedWords(closed), 'Your reply was not sent. Replies are closed. Need to change? Message the couple.');
-  assert.equal(replyRefusedWords(notYet), 'Your reply was not sent. Replies open on Saturday, 10 April.');
+  assert.equal(replyRefusedWords(notYet), 'Your reply was not sent. Replies open on Saturday, 10\u00a0April.');
   assert.equal(replyWindowWords(closed, 'the family')?.sub, 'Need to change? Message the family.');
 });
 

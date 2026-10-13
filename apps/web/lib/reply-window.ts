@@ -175,14 +175,17 @@ export function replyWindow(event: ReplyWindowEvent, now: Date | number, tz: str
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-/** "Saturday, 14 November" — the ruling's own shape for a day. Null for anything that is not a day. */
+/**
+ * "Saturday, 14 November" — the ruling's own shape for a day. Null for anything that is not a day.
+ * The day and its month are joined by a no-break space, so a phone never wraps "14 / November".
+ */
 export function replyDayLabel(ymd: string | null | undefined): string | null {
   const day = dayOf(ymd);
   if (!day) return null;
   const [y = NaN, m = NaN, d = NaN] = day.split('-').map(Number);
   const t = new Date(Date.UTC(y, m - 1, d));
   if (Number.isNaN(t.getTime())) return null;
-  return `${WEEKDAYS[t.getUTCDay()]}, ${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]}`;
+  return `${WEEKDAYS[t.getUTCDay()]}, ${t.getUTCDate()}\u00a0${MONTHS[t.getUTCMonth()]}`;
 }
 
 /**

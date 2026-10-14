@@ -27,6 +27,7 @@ import type {
   VendorCalendarDayState,
 } from '@/lib/vendor-schedule';
 import type { PaydayInstallmentRow } from '@/lib/vendor-cashflow';
+import { blockOnDay } from '@/lib/not-available';
 
 /**
  * The exact slices of bookings / blocks the month builder actually reads. The
@@ -51,7 +52,9 @@ export type CalendarBookingInput = Pick<
 export type CalendarBlockInput = Pick<
   CalendarBlockEntry,
   'poolId' | 'source' | 'startDate' | 'endDate'
->;
+> &
+  /** "Not available" repeats + hours (2026-10-14). Absent = a one-off, all day — what every block was before. */
+  Partial<Pick<CalendarBlockEntry, 'repeat' | 'repeatUntil' | 'dayPart'>>;
 
 /**
  * The six day states, precedence order (highest first). Mirrors the taxonomy
@@ -110,6 +113,11 @@ export type CustomerCalendarDay = {
   inquiryCount: number;
   /** Short event labels for this day (e.g. booked event names). Deduped. */
   eventLabels: string[];
+  /**
+   * Some HOURS of the day are not available (a morning / afternoon / evening block, 2026-10-14) on a visible pool —
+   * the day stays open ("Still has room · morning not available"). Never a `state`: a part of a day closes nothing.
+   */
+  partBlocked: boolean;
 };
 
 export type CustomerCalendarMonth = {
@@ -127,6 +135,8 @@ type DayAcc = {
   setnayanConsumed: number;
   capacity: number;
   closed: boolean;
+  /** Some hours are not available (a part-day block). */
+  partClosed: boolean;
   locked: boolean;
   whitelist: boolean;
 };
@@ -174,6 +184,7 @@ export function buildCustomerCalendarMonth(
         setnayanConsumed: 0,
         capacity: p.capacity,
         closed: false,
+        partClosed: false,
         locked: false,
         whitelist: false,
       });
@@ -208,13 +219,17 @@ export function buildCustomerCalendarMonth(
       if (!inner) continue;
       for (let d = 1; d <= daysInMonth; d++) {
         const date = dateOf(d);
-        if (date < blk.startDate || date > blk.endDate) continue;
+        // The ONE rule (`lib/not-available.ts`): a one-off range, or a repeat (every Sunday …) from its first day.
+        if (!blockOnDay(blk, date)) continue;
         const st = inner.get(date);
         if (!st) continue;
         if (blk.source === 'external_client') {
           if (blk.poolId === poolId) st.consumed += 1;
-        } else {
+        } else if ((blk.dayPart ?? 'all_day') === 'all_day') {
           st.closed = true;
+        } else {
+          // A part of the day: the day stays open; only its hours are not available.
+          st.partClosed = true;
         }
       }
     }
@@ -245,6 +260,7 @@ export function buildCustomerCalendarMonth(
     let anyClosed = false;
     let allClosed = pools.length > 0;
     let anyLocked = false;
+    let anyPart = false;
     let anyWhitelist = false;
     let anyFull = false;
     let everyFull = pools.length > 0;
@@ -261,6 +277,7 @@ export function buildCustomerCalendarMonth(
       if (st.closed) anyClosed = true;
       else allClosed = false;
       if (st.locked) anyLocked = true;
+      if (st.partClosed) anyPart = true;
       if (st.whitelist) anyWhitelist = true;
       const poolFull = st.consumed >= (capById.get(p.poolId) ?? st.capacity);
       if (poolFull && !st.closed) anyFull = true;
@@ -295,6 +312,7 @@ export function buildCustomerCalendarMonth(
       waitlistCount,
       inquiryCount,
       eventLabels: [...(labelsByDate.get(date) ?? [])],
+      partBlocked: anyPart,
     });
   }
 

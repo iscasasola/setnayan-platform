@@ -23,7 +23,7 @@ import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrat
 import { FIXTURE_COVER, FIXTURE_INCLUSION } from './live-card-fixture';
 import { blockOnDay, dayPartMeetsTime, type DayPart, type RepeatRule } from '../../lib/not-available';
 
-const MIGRATION_FILE = '20271269411264_not_available_repeats_and_hours.sql';
+const MIGRATION_FILE = '20271269411264_schedules_repeats_hours_and_halls.sql';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -458,4 +458,191 @@ test('every SQL gate on the table asks the rule (a later replacement that drops 
   const missing = [];
   for (const [sig, needle] of gates) if (!(await defOf(sig)).includes(needle)) missing.push(`${sig} lost ${needle}`);
   assert.deepEqual(missing, []);
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// HALLS (owner 2026-10-14 🏛) — a venue lists its halls; a card uses one or more; booking a joined hall blocks every
+// hall in it; a Hall A booking refuses every card that uses A that day; uninvolved halls stay free. LIFTS the
+// 2026-06-20 one-card-one-schedule lock for halls.
+// ════════════════════════════════════════════════════════════════════════════
+
+const HALL_DAY = '2027-05-15'; // a Saturday
+const HALL_TUESDAY = '2027-05-18';
+const hall = {} as Record<'A' | 'B' | 'C', string>;
+const hallCard = {} as Record<'A' | 'AB' | 'C' | 'ABC', string>;
+let venue = '';
+
+async function hallFixtures(): Promise<void> {
+  if (venue) return;
+  venue = await createVendor('na-venue@audit.test', 'Casa Tres Salones');
+  for (const k of ['A', 'B', 'C'] as const) {
+    const r = await db.query<{ pool_id: string }>(
+      `INSERT INTO public.vendor_schedule_pools (vendor_profile_id, pool_label, calendar_name, daily_booking_capacity, is_active, is_hall, seated_capacity)
+       VALUES ($1, $2, $2, 1, TRUE, TRUE, 150) RETURNING pool_id`,
+      [venue, `Hall ${k}`],
+    );
+    hall[k] = r.rows[0]!.pool_id;
+  }
+  const uses: Record<keyof typeof hallCard, (keyof typeof hall)[]> = { A: ['A'], AB: ['A', 'B'], C: ['C'], ABC: ['A', 'B', 'C'] };
+  for (const [card, halls] of Object.entries(uses) as [keyof typeof hallCard, (keyof typeof hall)[]][]) {
+    hallCard[card] = await createService(venue, 'venue');
+    for (const h of halls) {
+      await db.query(`INSERT INTO public.vendor_service_halls (vendor_service_id, pool_id, vendor_profile_id) VALUES ($1, $2, $3)`, [
+        hallCard[card],
+        hall[h],
+        venue,
+      ]);
+    }
+  }
+}
+
+/** `resolvePoolIdsForService`, step for step: a card on halls is on exactly its halls. */
+async function poolsOfCard(serviceId: string): Promise<string[]> {
+  const halls = await db.query<{ pool_id: string }>(`SELECT pool_id FROM public.vendor_service_halls WHERE vendor_service_id = $1`, [serviceId]);
+  if (halls.rows.length > 0) return halls.rows.map((r) => r.pool_id);
+  const member = await db.query<{ pool_id: string }>(`SELECT pool_id FROM public.vendor_schedule_calendar_services WHERE vendor_service_id = $1`, [serviceId]);
+  return member.rows.map((r) => r.pool_id);
+}
+
+/** The couple books `serviceId` on `day` through the real gate. Returns the acquire status. Leaves it in place. */
+async function bookCard(serviceId: string, day: string): Promise<string> {
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting, event_date, event_date_precision)
+     VALUES ('Wedding', 'wedding', 'catholic', 'garden', $1::date, 'day') RETURNING event_id`,
+    [day],
+  );
+  const eventId = ev.rows[0]!.event_id;
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [eventId, coupleUid]);
+  const evr = await db.query<{ vendor_id: string }>(
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, service_id)
+     SELECT $1, 'misc', 'Casa', 'shortlisted', vendor_profile_id, vendor_service_id FROM public.vendor_services WHERE vendor_service_id = $2
+     RETURNING vendor_id`,
+    [eventId, serviceId],
+  );
+  const pools = await poolsOfCard(serviceId);
+  await setAuthUid(db, coupleUid);
+  try {
+    const r = await db.query<{ out: { status: string } }>(`SELECT public.acquire_schedule_pools($1, $2, $3::uuid[]) AS out`, [
+      eventId,
+      evr.rows[0]!.vendor_id,
+      pools,
+    ]);
+    return r.rows[0]!.out.status;
+  } finally {
+    await setAuthUid(db, null);
+  }
+}
+
+async function inRollback(fn: () => Promise<void>): Promise<void> {
+  await hallFixtures();
+  await db.exec('BEGIN');
+  try {
+    await fn();
+  } finally {
+    await setAuthUid(db, null);
+    await db.exec('ROLLBACK');
+  }
+}
+
+test('HALLS · a card resolves to EVERY hall it uses — and only those', async () => {
+  await hallFixtures();
+  assert.deepEqual((await poolsOfCard(hallCard.AB)).sort(), [hall.A, hall.B].sort());
+  assert.deepEqual((await poolsOfCard(hallCard.ABC)).sort(), [hall.A, hall.B, hall.C].sort());
+});
+
+test('HALLS · Hall A booked → the "A + B" card is refused that day; the Hall C card is still free', async () => {
+  await inRollback(async () => {
+    assert.equal(await bookCard(hallCard.A, HALL_DAY), 'ok');
+    assert.equal(await bookCard(hallCard.AB, HALL_DAY), 'full', 'a joined hall that includes A is free while A is booked');
+    assert.equal(await bookCard(hallCard.C, HALL_DAY), 'ok', 'an uninvolved hall was blocked');
+  });
+});
+
+test('HALLS · "A + B + C" booked → the A, the A + B and the C cards are all refused that day', async () => {
+  await inRollback(async () => {
+    assert.equal(await bookCard(hallCard.ABC, HALL_DAY), 'ok');
+    const seats = await db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM public.vendor_schedule_pool_bookings WHERE vendor_profile_id = $1 AND booked_date = $2::date AND released_at IS NULL`,
+      [venue, HALL_DAY],
+    );
+    assert.equal(seats.rows[0]!.n, 3, 'the joined hall did not take a seat on each of its halls');
+    assert.equal(await bookCard(hallCard.A, HALL_DAY), 'full');
+    assert.equal(await bookCard(hallCard.AB, HALL_DAY), 'full');
+    assert.equal(await bookCard(hallCard.C, HALL_DAY), 'full');
+    assert.equal(await bookCard(hallCard.C, HALL_TUESDAY), 'ok', 'another day was touched');
+  });
+});
+
+test('HALLS · the bench search says the same — A booked refuses A and A + B, never C', async () => {
+  await inRollback(async () => {
+    assert.equal(await bookCard(hallCard.A, HALL_DAY), 'ok');
+    const r = await db.query<{ service_id: string }>(
+      `SELECT service_id FROM public.service_cards_unbookable_on($1::uuid[], $2::date[], TRUE)`,
+      [[hallCard.A, hallCard.AB, hallCard.C, hallCard.ABC], [HALL_DAY]],
+    );
+    const refused = new Set(r.rows.map((x) => x.service_id));
+    assert.deepEqual(
+      [hallCard.A, hallCard.AB, hallCard.C, hallCard.ABC].map((id) => refused.has(id)),
+      [true, true, false, true],
+      'the bench disagrees with the booking path on halls',
+    );
+  });
+});
+
+test('HALLS · a repeating "Not available" on ONE hall affects only the cards that use it', async () => {
+  await inRollback(async () => {
+    // Every Saturday, all day, Hall B only.
+    await db.query(
+      `INSERT INTO public.vendor_calendar_blocks (vendor_profile_id, pool_id, blocked_at, blocked_until, block_label, block_source, repeat_rule, day_part)
+       VALUES ($1, $2, '2027-05-01 00:00+08', '2027-05-01 23:30+08', 'Renovation', 'manual', 'weekly', 'all_day')`,
+      [venue, hall.B],
+    );
+    assert.equal(await bookCard(hallCard.AB, HALL_DAY), 'blocked', 'the card using B is open on a B Saturday');
+    assert.equal(await bookCard(hallCard.A, HALL_DAY), 'ok', 'Hall A alone was touched by B’s block');
+    assert.equal(await bookCard(hallCard.C, HALL_DAY), 'ok');
+    assert.equal(await bookCard(hallCard.AB, HALL_TUESDAY), 'ok', 'a Tuesday is not a Saturday');
+    const r = await db.query<{ service_id: string }>(
+      `SELECT service_id FROM public.service_cards_unbookable_on($1::uuid[], $2::date[], TRUE)`,
+      [[hallCard.AB, hallCard.C], ['2027-05-22']],
+    );
+    assert.deepEqual(r.rows.map((x) => x.service_id), [hallCard.AB]);
+  });
+});
+
+test('HALLS · a card may use only its OWN shop’s halls — never another shop’s pool, never a plain schedule', async () => {
+  await hallFixtures();
+  await assert.rejects(
+    db.query(`INSERT INTO public.vendor_service_halls (vendor_service_id, pool_id, vendor_profile_id) VALUES ($1, $2, $3)`, [
+      massCard,
+      hall.A,
+      parish,
+    ]),
+    /hall_not_yours/,
+    'a parish card took a seat on the venue’s hall',
+  );
+  await assert.rejects(
+    db.query(`INSERT INTO public.vendor_service_halls (vendor_service_id, pool_id, vendor_profile_id) VALUES ($1, $2, $3)`, [
+      wholeDayCard,
+      parishPool,
+      parish,
+    ]),
+    /hall_not_yours/,
+    'a plain schedule was linked as a hall',
+  );
+});
+
+test('HALLS · a one-schedule card keeps working unchanged (the 06-20 membership is untouched)', async () => {
+  await hallFixtures();
+  const plain = await createService(venue, 'catering');
+  const pool = await createPool(venue, 1);
+  await db.query(`INSERT INTO public.vendor_schedule_calendar_services (vendor_service_id, pool_id, vendor_profile_id) VALUES ($1, $2, $3)`, [
+    plain,
+    pool,
+    venue,
+  ]);
+  assert.deepEqual(await poolsOfCard(plain), [pool]);
+  await inRollback(async () => {
+    assert.equal(await bookCard(plain, HALL_DAY), 'ok');
+    assert.equal(await bookCard(plain, HALL_DAY), 'full');
+  });
 });

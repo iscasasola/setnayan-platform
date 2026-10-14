@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20271269411264_not_available_repeats_and_hours.sql
+-- 20271269411264_schedules_repeats_hours_and_halls.sql
 --
 -- "NOT AVAILABLE" REPEATS AND TAKES HOURS · AN OUTSIDE BOOKING HAS A TIME.
 --
@@ -48,6 +48,21 @@
 --   capture_vendor_calendar_block_freed (20270911937450) — the freed log keeps the repeat
 -- The setnayan_booking helpers (vendor_block_booked_date / _unblock_) write and
 -- match one-off, all-day rows only — the CHECKs below keep it that way.
+--
+-- ── AND HALLS (owner 2026-10-14, DECISION_LOG 🏛) ────────────────────────────
+-- "A vendor is a venue reception … 3 halls that can run independently, but can
+-- also be connected to create a bigger hall." A venue's halls are schedules
+-- (pools) flagged is_hall, each with its own guest capacity; a card USES one or
+-- more halls (vendor_service_halls — a sibling link, so the one-schedule
+-- membership table and every card on it are untouched). This LIFTS the
+-- 2026-06-20 lock "one card = one schedule" (vendor_schedule_calendar_services
+-- PK vendor_service_id) FOR HALLS: a card with hall links resolves to EXACTLY
+-- its halls (never also its category pool, which would make two cards on
+-- different halls collide). acquire_schedule_pools already locks several pools
+-- all-or-nothing, so booking "Grand Hall = A + B + C" takes a seat on each,
+-- and a Hall A booking refuses every card that uses A that day; halls not
+-- involved stay free. Halls are not limited by the plan's per-day number
+-- (the app's clamp skips them; the cap stays for other schedules).
 -- ============================================================================
 
 BEGIN;
@@ -118,6 +133,124 @@ COMMENT ON COLUMN public.vendor_calendar_blocks.day_part IS
   'Which hours are not available (owner 2026-10-14): all_day · morning 06:00–12:00 · afternoon 12:00–18:00 · evening 18:00–24:00. Only all_day closes a date; a part refuses only the times it meets (calendar_block_meets_time).';
 COMMENT ON COLUMN public.vendor_calendar_blocks.client_time IS
   'An outside booking''s start time (owner 2026-10-14, "Add a booking from outside" with a time). NULL = no time given. Shown on the supplier''s day; does not change the date''s capacity count.';
+
+-- ── 1b · HALLS — a venue's schedules, and the cards that use them ─────────
+ALTER TABLE public.vendor_schedule_pools
+  ADD COLUMN IF NOT EXISTS is_hall           BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS seated_capacity   INT,
+  ADD COLUMN IF NOT EXISTS standing_capacity INT;
+
+ALTER TABLE public.vendor_schedule_pools
+  DROP CONSTRAINT IF EXISTS vendor_schedule_pools_hall_guests_check;
+ALTER TABLE public.vendor_schedule_pools
+  ADD CONSTRAINT vendor_schedule_pools_hall_guests_check
+  CHECK (
+    (seated_capacity   IS NULL OR (is_hall AND seated_capacity   BETWEEN 1 AND 100000))
+    AND
+    (standing_capacity IS NULL OR (is_hall AND standing_capacity BETWEEN 1 AND 100000))
+  );
+
+COMMENT ON COLUMN public.vendor_schedule_pools.is_hall IS
+  'A venue''s hall (owner 2026-10-14 🏛): a schedule a card may USE together with other halls (vendor_service_halls). Halls are not limited by the plan''s per-day number; the cap stays for other schedules.';
+COMMENT ON COLUMN public.vendor_schedule_pools.seated_capacity IS 'A hall''s seated guest capacity (halls only).';
+COMMENT ON COLUMN public.vendor_schedule_pools.standing_capacity IS 'A hall''s standing guest capacity (halls only).';
+
+CREATE TABLE IF NOT EXISTS public.vendor_service_halls (
+  vendor_service_id  UUID NOT NULL
+                     REFERENCES public.vendor_services(vendor_service_id)
+                     ON DELETE CASCADE,
+  pool_id            UUID NOT NULL
+                     REFERENCES public.vendor_schedule_pools(pool_id)
+                     ON DELETE CASCADE,
+  vendor_profile_id  UUID NOT NULL
+                     REFERENCES public.vendor_profiles(vendor_profile_id)
+                     ON DELETE CASCADE,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (vendor_service_id, pool_id)
+);
+
+CREATE INDEX IF NOT EXISTS vendor_service_halls_pool_idx
+  ON public.vendor_service_halls(pool_id);
+CREATE INDEX IF NOT EXISTS vendor_service_halls_profile_idx
+  ON public.vendor_service_halls(vendor_profile_id);
+
+-- RLS AT CREATE — the same two policies as vendor_schedule_calendar_services
+-- (20270209750853): the owner manages its own links; a signed-in couple may
+-- read a published shop's links (they resolve the pools at booking time).
+ALTER TABLE public.vendor_service_halls ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS vendor_service_halls_owner ON public.vendor_service_halls;
+CREATE POLICY vendor_service_halls_owner
+  ON public.vendor_service_halls FOR ALL
+  TO authenticated
+  USING (
+    vendor_profile_id IN (
+      SELECT vendor_profile_id FROM public.vendor_profiles
+      WHERE user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    vendor_profile_id IN (
+      SELECT vendor_profile_id FROM public.vendor_profiles
+      WHERE user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS vendor_service_halls_public_read ON public.vendor_service_halls;
+CREATE POLICY vendor_service_halls_public_read
+  ON public.vendor_service_halls FOR SELECT
+  TO authenticated
+  USING (
+    vendor_profile_id IN (
+      SELECT vendor_profile_id FROM public.vendor_profiles
+      WHERE is_published = TRUE
+    )
+  );
+
+-- A browser holding the anon key has no business here.
+REVOKE ALL ON TABLE public.vendor_service_halls FROM anon;
+
+-- 🔑 A LINK MAY ONLY JOIN A SHOP'S OWN CARD TO THE SAME SHOP'S OWN HALL. RLS
+-- checks the row's vendor_profile_id, not the pool's or the card's — without
+-- this, a card could name ANOTHER shop's pool, and acquire_schedule_pools
+-- (SECURITY DEFINER) would take a seat on it.
+CREATE OR REPLACE FUNCTION public.guard_vendor_service_hall()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = public
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.vendor_schedule_pools p
+     WHERE p.pool_id = NEW.pool_id
+       AND p.vendor_profile_id = NEW.vendor_profile_id
+       AND p.is_hall
+  ) THEN
+    RAISE EXCEPTION 'hall_not_yours' USING ERRCODE = '42501',
+      HINT = 'a card may use only its own shop''s halls';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.vendor_services s
+     WHERE s.vendor_service_id = NEW.vendor_service_id
+       AND s.vendor_profile_id = NEW.vendor_profile_id
+  ) THEN
+    RAISE EXCEPTION 'card_not_yours' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.guard_vendor_service_hall() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_guard_vendor_service_hall ON public.vendor_service_halls;
+CREATE TRIGGER trg_guard_vendor_service_hall
+  BEFORE INSERT OR UPDATE ON public.vendor_service_halls
+  FOR EACH ROW
+  EXECUTE FUNCTION public.guard_vendor_service_hall();
+
+COMMENT ON TABLE public.vendor_service_halls IS
+  'Card → halls (owner 2026-10-14 🏛, LIFTS the 2026-06-20 one-card-one-schedule lock for halls): a card that uses halls resolves to EXACTLY these pools (resolvePoolIdsForService, service_cards_unbookable_on, calendar_blocks_refuse_slot) — never also its named schedule or category pool. acquire_schedule_pools takes a seat on each, all-or-nothing. Same-shop only (trg_guard_vendor_service_hall).';
 
 -- ── 2 · THE RULE, ONCE ──────────────────────────────────────────────────────
 -- Does the block cover this civil (Manila) day, at any hour?
@@ -207,15 +340,27 @@ AS $$
        AND (
          b.pool_id IS NULL
          OR b.pool_id IN (
+           -- A card on halls is on exactly its halls …
+           SELECT h.pool_id FROM public.vendor_service_halls h
+            WHERE h.vendor_service_id = s.vendor_service_id
+           UNION ALL
+           -- … else on its named schedule …
            SELECT cs.pool_id FROM public.vendor_schedule_calendar_services cs
             WHERE cs.vendor_service_id = s.vendor_service_id
+              AND NOT EXISTS (
+                SELECT 1 FROM public.vendor_service_halls h2
+                 WHERE h2.vendor_service_id = s.vendor_service_id)
            UNION ALL
+           -- … else on its category's pool.
            SELECT pc.pool_id FROM public.vendor_schedule_pool_categories pc
             WHERE pc.vendor_profile_id = s.vendor_profile_id
               AND pc.category_key = s.category
               AND NOT EXISTS (
                 SELECT 1 FROM public.vendor_schedule_calendar_services cs2
                  WHERE cs2.vendor_service_id = s.vendor_service_id)
+              AND NOT EXISTS (
+                SELECT 1 FROM public.vendor_service_halls h3
+                 WHERE h3.vendor_service_id = s.vendor_service_id)
          )
        )
        AND public.calendar_block_on_day(b.blocked_at, b.blocked_until, b.repeat_rule, b.repeat_until, p_day)
@@ -540,6 +685,12 @@ BEGIN
   d AS (
     SELECT DISTINCT x.day FROM unnest(p_dates) AS x(day) WHERE x.day IS NOT NULL
   ),
+  -- A card on halls is on exactly its halls (2026-10-14 🏛) — whatever the flag.
+  hall AS (
+    SELECT h.vendor_service_id AS sid, h.pool_id
+      FROM public.vendor_service_halls h
+     WHERE h.vendor_service_id IN (SELECT sid FROM svc)
+  ),
 
   -- ── Pool resolution, read-only (see 20271221805341 header §3) ────────────
   wanted_category AS (
@@ -549,6 +700,7 @@ BEGIN
         ON cs.vendor_service_id = svc.sid
      WHERE svc.category IS NOT NULL AND length(svc.category) > 0
        AND (NOT p_named_calendars OR cs.pool_id IS NULL)
+       AND NOT EXISTS (SELECT 1 FROM hall WHERE hall.sid = svc.sid)
     UNION
     SELECT svc.sid, svc.vpid, l.linked_canonical_service
       FROM svc
@@ -557,10 +709,13 @@ BEGIN
        AND length(l.linked_canonical_service) > 0
   ),
   real_pool AS (
+    SELECT hall.sid, hall.pool_id FROM hall
+    UNION
     SELECT svc.sid, cs.pool_id
       FROM svc
       JOIN public.vendor_schedule_calendar_services cs ON cs.vendor_service_id = svc.sid
      WHERE p_named_calendars
+       AND NOT EXISTS (SELECT 1 FROM hall WHERE hall.sid = svc.sid)
     UNION
     SELECT wc.sid, pc.pool_id
       FROM wanted_category wc
@@ -851,6 +1006,14 @@ BEGIN
   IF has_function_privilege('anon', 'public.calendar_blocks_refuse_slot(uuid, date, time, time)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.calendar_blocks_refuse_slot(uuid, date, time, time)', 'EXECUTE') THEN
     RAISE EXCEPTION 'POST-CONDITION FAILED: a browser can ask whether a supplier is busy at a time';
+  END IF;
+  IF has_table_privilege('anon', 'public.vendor_service_halls', 'SELECT')
+     OR has_table_privilege('anon', 'public.vendor_service_halls', 'INSERT') THEN
+    RAISE EXCEPTION 'POST-CONDITION FAILED: anon can read or write a card''s halls';
+  END IF;
+  IF position('vendor_service_halls' IN pg_get_functiondef('public.service_cards_unbookable_on(uuid[], date[], boolean)'::regprocedure)) = 0
+     OR position('vendor_service_halls' IN pg_get_functiondef('public.calendar_blocks_refuse_slot(uuid, date, time, time)'::regprocedure)) = 0 THEN
+    RAISE EXCEPTION 'POST-CONDITION FAILED: a card''s halls are not every pool the bench asks';
   END IF;
   IF has_function_privilege('anon', 'public.acquire_service_time_slot(uuid, uuid, uuid, uuid)', 'EXECUTE')
      OR has_function_privilege('anon', 'public.import_external_client(uuid, uuid, text, text, text, date, date, time)', 'EXECUTE') THEN

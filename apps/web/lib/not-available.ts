@@ -4,7 +4,7 @@
  * `supplier_easy_dashboard_2026-10-14_fable.html` SHEETS.block: Repeats · Hours).
  *
  * A row of `vendor_calendar_blocks` used to be one range of days. Since migration
- * `20271269411264_not_available_repeats_and_hours.sql` it also carries:
+ * `20271269411264_schedules_repeats_hours_and_halls.sql` it also carries:
  *
  *   repeat_rule   'once' (the range itself) · 'weekly' (every <weekday of the first day>) · 'weekend' (every Saturday
  *                 and Sunday) · 'daily' (every day) — a repeat starts on the first day and runs to `repeat_until`
@@ -188,4 +188,20 @@ export function closedDaysIn(b: NotAvailableShape, from: string, to: string): st
     at.setUTCDate(at.getUTCDate() + 1);
   }
   return out;
+}
+
+/** The Asia/Manila civil day of a stored timestamp (Manila has no DST, so this is exact). */
+export function manilaDayOf(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+}
+
+/** A raw `vendor_calendar_blocks` row (its range + the three columns) as the shape every rule here reads. */
+export function notAvailableShapeOf(row: {
+  blocked_at: string;
+  blocked_until: string;
+  repeat_rule?: unknown;
+  repeat_until?: unknown;
+  day_part?: unknown;
+}): Required<NotAvailableShape> {
+  return { startDate: manilaDayOf(row.blocked_at), endDate: manilaDayOf(row.blocked_until), ...notAvailableFieldsOf(row) };
 }

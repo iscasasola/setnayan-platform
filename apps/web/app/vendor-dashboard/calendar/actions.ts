@@ -32,6 +32,7 @@ import {
   tierCaps,
 } from '@/lib/vendor-tier-caps';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
+import { asDayPart, asRepeatRule, blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, type DayPart } from '@/lib/not-available';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import {
   notifyWaitlistForFreedDate,
@@ -51,7 +52,10 @@ async function clampCapacityToTier(
   supabase: SupabaseClient,
   vendorProfileId: string,
   raw: number,
+  /** A venue's hall is not limited by the plan's per-day number (owner 2026-10-14 🏛 "Halls don't count"). */
+  isHall = false,
 ): Promise<number> {
+  if (isHall) return Math.min(raw, 50);
   let tier: string | null = null;
   try {
     const { data } = await supabase
@@ -169,7 +173,16 @@ function revalidateScheduleSurfaces() {
   revalidatePath('/vendor-dashboard/customers');
 }
 
-/** Manual closure block — pool-scoped or org-wide ('org'). */
+/**
+ * "Not available" — a manual closure, pool-scoped or org-wide ('org').
+ *
+ * 2026-10-14 (owner ✅ "APPROVE": repeating blocks + hour ranges): two more fields from the sheet —
+ *   repeat_rule  once · weekly (every weekday of `start_date`) · weekend · daily. For a repeat, `end_date` (when later
+ *                than `start_date`) is the series' LAST day (`repeat_until`); empty = no end. The row's own range is its
+ *                first occurrence, so a reader that knows nothing of repeats still sees day one.
+ *   day_part     all_day · morning · afternoon · evening — written into the row's times too (06:00–12:00 …), so the
+ *                stored range says which hours; `day_part` is what every gate reads (`lib/not-available.ts`).
+ */
 export async function addManualBlock(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
 
@@ -177,6 +190,8 @@ export async function addManualBlock(formData: FormData): Promise<void> {
   const scope = str(formData, 'scope'); // 'org' | pool_id
   const startDate = str(formData, 'start_date');
   const endDate = str(formData, 'end_date') || startDate;
+  const repeat = asRepeatRule(str(formData, 'repeat_rule'));
+  const dayPart = asDayPart(str(formData, 'day_part'));
   if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate) || endDate < startDate) {
     backToCalendar(formData, 'bad_dates');
   }
@@ -195,22 +210,37 @@ export async function addManualBlock(formData: FormData): Promise<void> {
     poolId = scope;
   }
 
-  // Day-grain PH civil time: 00:00 → 23:30 (30-min granularity CHECK; 23:30
-  // keeps the ::date overlap on the same civil day — see migration comment).
+  // Day-grain PH civil time. All day: 00:00 → 23:30 (30-min granularity CHECK;
+  // 23:30 keeps the ::date overlap on the same civil day). A part of the day:
+  // its hours (evening ends 23:30, the last half-hour the CHECK allows).
+  const [fromHm, toHm] = DAY_PART_STORED[dayPart];
+  const repeats = repeat !== 'once';
+  const lastDay = repeats ? startDate : endDate;
   const { error } = await supabase.from('vendor_calendar_blocks').insert({
     vendor_profile_id: profile.vendor_profile_id,
     pool_id: poolId,
-    blocked_at: `${startDate}T00:00:00+08:00`,
-    blocked_until: `${endDate}T23:30:00+08:00`,
+    blocked_at: `${startDate}T${fromHm}:00+08:00`,
+    blocked_until: `${lastDay}T${toHm}:00+08:00`,
     block_label: label.slice(0, 120),
     block_source: 'manual',
     is_private: true,
+    repeat_rule: repeat,
+    repeat_until: repeats && endDate > startDate ? endDate : null,
+    day_part: dayPart,
   });
   if (error) backToCalendar(formData, 'save_failed');
 
   revalidateScheduleSurfaces();
   backToCalendar(formData, 'block_added');
 }
+
+/** The stored hours of each part of the day (PH civil time; the table allows :00/:30 only). */
+const DAY_PART_STORED: Readonly<Record<DayPart, readonly [string, string]>> = {
+  all_day: ['00:00', '23:30'],
+  morning: ['06:00', '12:00'],
+  afternoon: ['12:00', '18:00'],
+  evening: ['18:00', '23:30'],
+};
 
 /**
  * Import an off-app client: a named external_client block via the
@@ -230,6 +260,8 @@ export async function importExternalClient(formData: FormData): Promise<void> {
     backToCalendar(formData, 'bad_dates');
   }
 
+  // A booking from outside has a TIME (2026-10-14, "Add a booking from outside" WITH a time). Optional; "HH:MM".
+  const time = str(formData, 'client_time');
   const { data, error } = await supabase.rpc('import_external_client', {
     p_vendor_profile_id: profile.vendor_profile_id,
     p_pool_id: poolId,
@@ -238,6 +270,7 @@ export async function importExternalClient(formData: FormData): Promise<void> {
     p_client_note: str(formData, 'client_note') || null,
     p_start_date: startDate,
     p_end_date: endDate,
+    p_client_time: /^\d{2}:\d{2}$/.test(time) ? time : null,
   });
   if (error) {
     // Import is free now — the RPC no longer burns tokens, so there's no
@@ -278,7 +311,7 @@ export async function removeBlock(formData: FormData): Promise<void> {
   // Snapshot the freed date range before the row disappears.
   const { data: blockRow } = await supabase
     .from('vendor_calendar_blocks')
-    .select('blocked_at, blocked_until')
+    .select(`blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
     .eq('block_id', blockId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
@@ -291,13 +324,19 @@ export async function removeBlock(formData: FormData): Promise<void> {
     .in('block_source', ['manual', 'external_client']);
   if (error) backToCalendar(formData, 'save_failed');
 
-  const range = blockRow as { blocked_at: string; blocked_until: string } | null;
+  const range = blockRow as { blocked_at: string; blocked_until: string; repeat_rule?: string; repeat_until?: string | null; day_part?: string } | null;
   if (range) {
     const vendorProfileId = profile.vendor_profile_id;
+    // The days the block really closed (`lib/not-available.ts`): a one-off's range, or a repeat's days up to its end —
+    // a year ahead at most for one with no end. A part of a day freed no date (the day was open all along).
+    const shape = notAvailableShapeOf(range);
     const startDate = phDate(range.blocked_at);
-    const endDate = phDate(range.blocked_until);
+    const today = phDate(new Date().toISOString());
+    const endDate =
+      shape.repeat === 'once' ? phDate(range.blocked_until) : (shape.repeatUntil ?? `${Number(today.slice(0, 4)) + 1}${today.slice(4)}`);
+    const freed = (d: string) => blockClosesDay(shape, d);
     after(() =>
-      notifyWaitlistForFreedRange(vendorProfileId, startDate, endDate).catch((e) => {
+      notifyWaitlistForFreedRange(vendorProfileId, startDate, endDate, freed).catch((e) => {
         console.error('[waitlist] auto-notify on block removal failed:', String(e));
       }),
     );
@@ -600,7 +639,13 @@ export async function updatePoolCapacity(formData: FormData): Promise<void> {
     backToCalendar(formData, 'bad_capacity');
   }
 
-  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw);
+  const { data: hallRow } = await supabase
+    .from('vendor_schedule_pools')
+    .select('is_hall')
+    .eq('pool_id', poolId)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw, (hallRow as { is_hall?: boolean } | null)?.is_hall === true);
 
   const { error } = await supabase
     .from('vendor_schedule_pools')
@@ -706,7 +751,13 @@ export async function createCalendar(formData: FormData): Promise<void> {
   if (!name) backToCalendar(formData, 'bad_name');
   const raw = Number(str(formData, 'capacity'));
   if (!Number.isInteger(raw) || raw < 1) backToCalendar(formData, 'bad_capacity');
-  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw);
+  // A venue's HALL (owner 2026-10-14 🏛): its guest capacity, and no plan clamp on its per-day number.
+  const isHall = str(formData, 'is_hall') === 'on';
+  const guests = (key: string) => {
+    const n = Number(str(formData, key));
+    return isHall && Number.isInteger(n) && n >= 1 && n <= 100000 ? n : null;
+  };
+  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw, isHall);
   const services = await ownedServiceIds(
     supabase,
     profile.vendor_profile_id,
@@ -721,6 +772,9 @@ export async function createCalendar(formData: FormData): Promise<void> {
       pool_label: name.slice(0, 80), // legacy-label fallback
       is_vendor_created: true,
       daily_booking_capacity: capacity,
+      is_hall: isHall,
+      seated_capacity: guests('seated_capacity'),
+      standing_capacity: guests('standing_capacity'),
     })
     .select('pool_id')
     .single();
@@ -760,16 +814,16 @@ export async function editCalendar(formData: FormData): Promise<void> {
   if (!name) backToCalendar(formData, 'bad_name');
   const raw = Number(str(formData, 'capacity'));
   if (!Number.isInteger(raw) || raw < 1) backToCalendar(formData, 'bad_capacity');
-  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw);
 
-  // Ownership check — a clean notice instead of an RLS throw.
+  // Ownership check — a clean notice instead of an RLS throw. It also says whether this schedule is a hall.
   const { data: pool } = await supabase
     .from('vendor_schedule_pools')
-    .select('pool_id')
+    .select('pool_id, is_hall')
     .eq('pool_id', poolId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   if (!pool) backToCalendar(formData, 'bad_pool');
+  const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw, (pool as { is_hall?: boolean } | null)?.is_hall === true);
 
   const { error: upErr } = await supabase
     .from('vendor_schedule_pools')
@@ -826,4 +880,43 @@ export async function editCalendar(formData: FormData): Promise<void> {
   revalidateScheduleSurfaces();
   if (str(formData, 'return_to') === 'dates') backToCalendar(formData, 'calendar_saved');
   backToCalendarPool(str(formData, 'return_month'), poolId, 'calendar_saved');
+}
+
+/**
+ * Which halls a card USES (owner 2026-10-14 🏛, DECISION_LOG: "a card uses one or more halls"; LIFTS the 2026-06-20
+ * one-card-one-schedule lock for halls). Replaces the card's hall links with the halls ticked (`pool_ids`); none =
+ * the card goes back to its one schedule. The database refuses a hall or card that is not this shop's own
+ * (`trg_guard_vendor_service_hall`); this filters forged ids first so the answer is a notice, not a throw.
+ * The halls UI arrives with the Fable "Venue with halls" moment; the write is here so the data side is whole.
+ */
+export async function setServiceHalls(formData: FormData): Promise<void> {
+  const { supabase, profile } = await requireVendor();
+  const [serviceId] = await ownedServiceIds(supabase, profile.vendor_profile_id, [str(formData, 'vendor_service_id')]);
+  if (!serviceId) backToCalendar(formData, 'save_failed');
+  const asked = [...new Set(formData.getAll('pool_ids').map((v) => String(v)).filter(Boolean))];
+  let halls: string[] = [];
+  if (asked.length > 0) {
+    const { data } = await supabase
+      .from('vendor_schedule_pools')
+      .select('pool_id')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .eq('is_hall', true)
+      .in('pool_id', asked);
+    halls = ((data ?? []) as { pool_id: string }[]).map((r) => r.pool_id);
+    if (halls.length !== asked.length) backToCalendar(formData, 'bad_pool');
+  }
+  const { error: delErr } = await supabase
+    .from('vendor_service_halls')
+    .delete()
+    .eq('vendor_service_id', serviceId)
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  if (delErr) backToCalendar(formData, 'save_failed');
+  if (halls.length > 0) {
+    const { error } = await supabase
+      .from('vendor_service_halls')
+      .insert(halls.map((pool_id) => ({ vendor_service_id: serviceId, pool_id, vendor_profile_id: profile.vendor_profile_id })));
+    if (error) backToCalendar(formData, 'save_failed');
+  }
+  revalidateScheduleSurfaces();
+  backToCalendar(formData, 'calendar_saved');
 }

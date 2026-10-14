@@ -44,6 +44,8 @@ export function PricingBasisEditor({
   defaults,
   fixedExtra,
   category,
+  basis: controlledBasis,
+  part = 'all',
 }: {
   idPrefix: string;
   defaults: PricingDefaults;
@@ -56,10 +58,69 @@ export function PricingBasisEditor({
   fixedExtra?: ReactNode;
   /** Vendor category — tailors the per-guest copy to "per meal" for crew_meals. */
   category?: string;
+  /**
+   * THE SIMPLER MAKER SPLITS THIS EDITOR IN TWO (supplier-easy step 3, 2026-10-14): the "from" number is a first
+   * question ("Price · Shown as "from"") and everything else about the price lives under More settings ("Price ·
+   * more"). Both halves read ONE basis, owned by the maker and handed in here:
+   *   · `part="main"`  — the hidden `pricing_basis` + the one number the card shows;
+   *   · `part="more"`  — the per-basis details (covers · extra guest · minimums · extra hour · `fixedExtra`).
+   * Every field keeps its shipped name and posts once. Omitted (`part="all"`, no `basis`) = byte-for-byte as before.
+   */
+  basis?: Basis;
+  part?: 'all' | 'main' | 'more';
 }) {
   const isCrewMeals = category === 'crew_meals';
   const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
-  const [basis, setBasis] = useState<Basis>(defaults.pricing_basis ?? 'fixed');
+  const [ownBasis, setBasis] = useState<Basis>(defaults.pricing_basis ?? 'fixed');
+  const basis = controlledBasis ?? ownBasis;
+  if (part === 'main') {
+    return (
+      <div className="space-y-2">
+        <input type="hidden" name="pricing_basis" value={basis} />
+        {basis === 'fixed' ? (
+          <PField label="From (PHP)" id={`${idPrefix}-price`} help="Whole pesos — couples see it as “from”.">
+            <input id={`${idPrefix}-price`} name="starting_price_php" type="number" min={0} step={1} defaultValue={defaults.starting_price_php ?? ''} placeholder="e.g. 25000" className="input-field" />
+          </PField>
+        ) : basis === 'per_pax' ? (
+          <PField label={`From, per ${perPaxUnit} (PHP)`} id={`${idPrefix}-perpax`} help={isCrewMeals ? 'Your per-meal rate.' : 'Your per-head rate.'}>
+            <input id={`${idPrefix}-perpax`} name="per_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.per_pax_price_php ?? ''} placeholder={isCrewMeals ? 'e.g. 150' : 'e.g. 650'} className="input-field" />
+          </PField>
+        ) : (
+          <PField label="From (PHP)" id={`${idPrefix}-hourbase`} help="Covers your minimum hours (set under More settings).">
+            <input id={`${idPrefix}-hourbase`} name="hour_base_php" type="number" min={0} step={1} defaultValue={defaults.hour_base_php ?? ''} placeholder="e.g. 8000" className="input-field" />
+          </PField>
+        )}
+      </div>
+    );
+  }
+  if (part === 'more') {
+    return basis === 'fixed' ? (
+      <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <PField label="Price covers (guests)" id={`${idPrefix}-basepax`} help="Blank = one price, any guest count.">
+            <input id={`${idPrefix}-basepax`} name="base_pax" type="number" min={1} step={1} defaultValue={defaults.base_pax ?? ''} placeholder="e.g. 100" className="input-field" />
+          </PField>
+          <PField label="Each extra guest (PHP)" id={`${idPrefix}-addpax`} help="Optional. Charged per guest above that.">
+            <input id={`${idPrefix}-addpax`} name="added_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.added_pax_price_php ?? ''} placeholder="e.g. 350" className="input-field" />
+          </PField>
+        </div>
+        {fixedExtra}
+      </div>
+    ) : basis === 'per_pax' ? (
+      <PField label={isCrewMeals ? 'Minimum meals' : 'Minimum guests'} id={`${idPrefix}-minpax`} help="The floor — the card shows rate × minimum.">
+        <input id={`${idPrefix}-minpax`} name="min_pax" type="number" min={1} step={1} defaultValue={defaults.min_pax ?? ''} placeholder={isCrewMeals ? 'e.g. 15' : 'e.g. 50'} className="input-field" />
+      </PField>
+    ) : (
+      <div className="grid gap-3 sm:grid-cols-2">
+        <PField label="Minimum hours" id={`${idPrefix}-minhours`} help="Hours the “from” price covers.">
+          <input id={`${idPrefix}-minhours`} name="min_hours" type="number" min={0.5} step={0.5} defaultValue={defaults.min_hours ?? ''} placeholder="e.g. 5" className="input-field" />
+        </PField>
+        <PField label="Each extra hour (PHP)" id={`${idPrefix}-extrahour`} help="Charged for each hour beyond the minimum.">
+          <input id={`${idPrefix}-extrahour`} name="extra_hour_php" type="number" min={0} step={1} defaultValue={defaults.extra_hour_php ?? ''} placeholder="e.g. 1500" className="input-field" />
+        </PField>
+      </div>
+    );
+  }
   const options = isCrewMeals
     ? OPTIONS.map((o) =>
         o.key === 'per_pax' ? { ...o, label: 'Per meal', hint: 'Priced per crew meal' } : o,

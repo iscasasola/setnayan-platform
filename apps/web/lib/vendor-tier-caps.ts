@@ -650,9 +650,11 @@ export function canAcceptInAppInquiries(tier: string | null | undefined): boolea
  * downgrade can't keep adding slots.
  */
 export function canPlotTimeSlots(tier: string | null | undefined): boolean {
-  // Enterprise-or-higher (rank-derived so Custom, which runs as Enterprise,
-  // inherits automatically) rather than a hard `=== 'enterprise'` equality.
-  return isTierAtLeast(tier, 'enterprise');
+  // 🧑‍🤝‍🧑 OWNER 2026-10-14 (DECISION_LOG "SUPPLIER EASY-DASHBOARD: THREE CALLS", call 3): "Time slots open to all
+  // plans" — they were Enterprise-only. Every tier may plot them now; the function stays the ONE place the rule is
+  // asked, so a later change of mind is one line. (`tier` is still taken so every caller keeps its shape.)
+  void tier;
+  return true;
 }
 
 /**

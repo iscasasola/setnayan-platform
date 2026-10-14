@@ -1,15 +1,35 @@
 'use client';
 
-import { useActionState, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useFormStatus } from 'react-dom';
 import { createPortal } from 'react-dom';
 import {
-  AlertCircle,
+  Award,
+  CalendarDays,
   Check,
   ChevronRight,
+  Clock,
+  Copy,
+  Eye,
+  EyeOff,
+  Gift,
   ImageIcon,
+  Images,
+  Link2,
+  List,
+  ListChecks,
+  MessageSquare,
   Pencil,
-  Sparkles,
+  PhilippinePeso,
+  Plus,
+  Search,
+  Settings,
+  SlidersHorizontal,
+  Tag,
+  Trash2,
+  Truck,
   Users,
+  Wallet,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -17,25 +37,25 @@ import Link from 'next/link';
 import { Field } from '@/app/_components/forms/field';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
+import { Fold } from '@/app/_components/fold';
+import { Badge } from '@/app/_components/badge';
+import { SWITCH_BUTTON, SWITCH_TRACK, SwitchTrack } from '@/app/_components/switch-track';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ActionButton } from '@/components/action-button';
+import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
+import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { allowedEventOptions, droppedEventTypes } from '@/lib/coverage-allowed-events';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
-import { parseCustomizationDraft } from '@/lib/service-customization-draft';
-import {
-  cardHealthLinesFromDraft,
-  scoreCardHealth,
-  type CardHealthSheet,
-  type CardHealthSnapshot,
-} from '@/lib/card-health';
 import {
   EMPTY_CANVAS_SNAPSHOT,
   canvasSnapshotKey,
   readCanvasFormSnapshot,
   type CanvasFormSnapshot,
 } from '@/lib/canvas-form-snapshot';
+import { readSnapshot, type Snapshot } from '@/lib/service-card-snapshot';
 import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-groups';
 import type { CanvasInitial } from '@/lib/canvas-initial';
-import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
 import { PROPOSE_CATEGORY_HREF } from '@/lib/service-picker-anchor';
 import { rankTradeMatches, type TradeMatch } from '@/lib/kind-search-trades';
@@ -48,10 +68,21 @@ import {
   serializeKeep,
   type CanvasKeep,
 } from '@/lib/canvas-draft-keep';
+import {
+  SUPPLIER_TYPE_WORD,
+  coverageAskLine,
+  makerDefaultsFor,
+  makerStatus,
+  supplierTypeForKind,
+  type SupplierType,
+} from '@/lib/service-card-maker';
+import type { ScheduleItemDraft } from '@/lib/vendor-service-payment-schedules';
+import type { VendorServiceTimeSlot } from '@/lib/vendor-time-slots';
+import { formatSlotTime } from '@/lib/vendor-time-slots';
 
 export type { AudienceOption };
 
-import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
+import { PricingBasisEditor, IncludedFlags, type Basis } from './pricing-basis-editor';
 import {
   InclusionsEditor,
   DiscountsEditor,
@@ -59,11 +90,15 @@ import {
 } from './service-list-editors';
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { CustomizationStep } from './customization-step';
-import { commitVendorService } from '../actions';
-import { inclusionsAreSet } from '@/lib/service-publish-gate';
+import { AddonsEditor, type AddonDraft } from './addons-editor';
+import { PaymentScheduleEditor } from './payment-schedule-editor';
+import { ServiceCardFace } from './service-card-face';
+import { commitVendorService, deleteVendorService } from '../actions';
+import { canPublishService, inclusionsAreSet } from '@/lib/service-publish-gate';
 import { priceWaitsFor, priceWaitsLine } from '@/lib/price-waits';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import {
+  addCoverageForCard,
   updateCoverageServesInPlace,
   type CoverageServesResult,
 } from '../coverage-actions';
@@ -71,99 +106,90 @@ import { formatCount } from '@/lib/format-number';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CANVAS MAKER — "THE MAKER IS ZERO STEPS. THE CARD IS THE FORM."
- * (owner-locked 2026-07-27 · DECISION_LOG · artifact 15007a4d)
+ * THE SERVICE CARD MAKER — the simpler supplier dashboard, step 3 (2026-10-14)
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * The vendor is shown THEIR OWN CARD — the thing couples will see — and edits
- * it by touching it. Each region opens a small bottom sheet and the card
- * visibly updates behind it. There is no step sequence, no Back/Continue, no
- * progress bar. The design lineage is 7 steps → 4 → 0, and every collapse
- * removed NAVIGATION, never content: everything the 6-step wizard could author,
- * this authors.
+ * Translates `prototypes/supplier_easy_dashboard_2026-10-14_fable.html`, moments "2 · Putting up a service" and
+ * "2 · The service card · every field" (owner ✅ APPROVE 2026-10-14):
  *
- * ── WHAT IS ACTUALLY NEW HERE (the delta, and only the delta) ──────────────
- * COMPOSITION, plus two small pieces of chrome. Nothing about what gets saved
- * is new:
+ *   · the shipped card face (`ServiceCardFace`) ON TOP, painting itself from the live form;
+ *   · ONE status line under it — "Hidden until: a cover photo · a price · what's included" — asked of the publish
+ *     gate, never of a list of its own (`makerStatus` → `unmetPublishRequirements`);
+ *   · the FIRST QUESTIONS only: What you offer · Name (written for you) · Photos (one cover is enough) · Price
+ *     ("from") · What's included (one line is enough) · Schedule (its own / shares one);
+ *   · EVERY other field (the 92 of the 2026-10-08 truth table) under "More settings", in folds that open with the
+ *     defaults for this supplier type (`makerDefaultsFor`) — and nothing pre-filled that governs money;
+ *   · ONE Create (owner 2026-10-08 Q3): live when the three are in, else saved "not shown yet" — and an existing
+ *     card is the SAME screen with Save (Q2: its name editable).
  *
- *   reused verbatim   ServiceWizard's one-form mechanics · FileUpload (+ its
- *                     watermark / compressImage / qrGuard) · ShowcaseMediaFields ·
- *                     PricingBasisEditor + IncludedFlags · PriceBracketsEditor ·
- *                     InclusionsEditor · DiscountsEditor · CustomizationStep
- *                     (the #3846 merged editor) · Field · SubmitButton ·
- *                     useModalA11y · the coverage chips from coverage-panel.tsx
- *   genuinely new     the CanvasSheet container, the card face itself, and the
- *                     card-health meter + one-line coach (lib/card-health.ts).
+ * ── WHAT IS KEPT FROM THE CANVAS (Rule 0) ───────────────────────────────────
+ * The one `<form action={commitVendorService}>` with the shipped field names; the shipped editors, mounted whole;
+ * the kind list with the shop's own words first, every live trade searchable and a refused kind disabled with its
+ * reason; the half-finished card kept on the device and OFFERED back; the name written for them; the couple-seeded
+ * card whose price waits; the audience as a sibling form that saves in place.
  *
- * ── THE CONSTRAINT THAT SHAPES EVERY LINE BELOW ───────────────────────────
- * THE SERVER DOES NOT CHANGE. This is one `<form action={commitVendorService}>`
- * carrying the EXACT field names the wizard carries — nothing added, nothing
- * renamed, nothing dropped. `commitVendorService` cannot tell which component
- * drew the screen. Two consequences you must preserve when editing this file:
+ * 🔴 WHY THE FIELDS LEFT THE SHEETS. Since 2026-09-07 (a1e6887ceb) every sheet portalled to `<body>` to escape a
+ * transformed ancestor — and the photo, price, gift, what's-included, discount, crew and lead-time inputs lived in
+ * those sheets. A portalled input is OUTSIDE the `<form>` in the DOM, so `new FormData(form)` never saw it: the
+ * card never painted a price, Publish never opened, and a draft saved kind + name + coverage only. Measured in the
+ * lab 2026-10-14 (controller-2026-10-12/supplier-easy-3/shots/before-portal-proof.png). Every field now lives in an
+ * in-page fold (`Fold` keeps a shut fold's fields mounted), and a sheet carries only choices that write a hidden
+ * input the form owns (the kind) or a form of its own (who it's for · delete).
  *
- *   1. SHEETS ARE NOT MODALS THAT UNMOUNT. Every sheet stays mounted and is
- *      hidden with the `hidden` attribute — exactly the wizard's `show()`
- *      mechanic. A `hidden` input still posts; an UNMOUNTED one does not, so
- *      unmounting a closed sheet would silently drop whatever the vendor typed
- *      in it. (This is also why the shipped <Sheet> primitive, which returns
- *      null when closed, is deliberately NOT used here.)
- *   2. NO NEW FIELD NAMES. lib/canvas-field-parity.test.ts fails the build if
- *      this component's input-name set ever diverges from the wizard's.
- *
- * The audience chips are the one thing that cannot ride this form — the event
- * types / faiths a card is discovered by live on `vendor_coverages`, which is
- * written by a DIFFERENT shipped action (`updateCoverageServes`). They are
- * therefore a SIBLING form, never a nested one (see
- * scripts/lint-nested-forms.mjs for what nesting one would cost), and the
- * parity scanner is told to skip exactly that block.
+ * 🏷 A CARD IN A NEW CATEGORY ASKS ONCE (owner 2026-10-14). On Create, when the kind is not in the shop's coverage,
+ * one question — "Add <kind> to what you do? Couples will find you there." Yes → `addCoverageForCard` (its own call;
+ * the card's save never writes coverage), within the plan's family cap; over the cap the plan option is shown and the
+ * card still saves. Not now → the card saves; its row says "not in what you do".
  */
 
 type OtherCategory = { value: string; label: string };
 /**
- * The kinds of service a shop can make a card for, in the SAME groups and with
- * the SAME live taxonomy labels as My Shop's picker — one list, drawn twice.
+ * The kinds of service a shop can make a card for, in the SAME groups and with the SAME live taxonomy labels as My
+ * Shop's picker — one list, drawn twice.
  */
 export type CategoryChoice = OtherCategory & {
   /**
-   * 'covered' — a family this shop already works in · 'open' — a new family its
-   * plan still has room for · 'locked' — the save would refuse it.
-   *
-   * 🔑 THE STANDING IS DECIDED BY THE SAME FUNCTIONS THE SAVE ENFORCES
-   * (`lib/vendor-category-parents.ts`), never re-derived here — a second copy of
-   * a permission rule drifts, and the copy on the screen would be the
-   * optimistic one.
+   * 'covered' — a family this shop already works in · 'open' — a new family its plan still has room for · 'locked'
+   * — the save would refuse it. Decided by the same functions the save enforces (`lib/vendor-category-parents.ts`).
    */
   standing: 'covered' | 'open' | 'locked';
   /** Why it is refused, in the vendor's own words. Only on 'locked'. */
   why?: string;
-  /**
-   * The branch a search-found TRADE sits under, e.g. "Food Cart" — shown in
-   * small type on the pill so two similarly-named trades are told apart.
-   * Only set on results from the "Matches what you typed" band (C1
-   * 2026-08-28); a legacy or coverage pill carries none.
-   */
+  /** The branch a search-found TRADE sits under — small type beside the name (C1 2026-08-28). */
   hint?: string;
 };
 export type CategoryGroup = { key: string; label: string; options: CategoryChoice[] };
 export type CoverageAudience = { eventTypes: string[]; faiths: string[] };
 
-type SheetKey = 'media' | 'price' | 'excl' | 'custom' | 'audience' | 'kind' | 'intro';
+/** One schedule the card may book on (an active `vendor_schedule_pools` row). */
+export type MakerSchedule = { id: string; name: string; perDay: number | null };
 
-/** Where a card-health finding sends the vendor. 'title' is inline on the card. */
-const SHEET_FOR_FINDING: Record<CardHealthSheet, SheetKey | 'title'> = {
-  media: 'media',
-  price: 'price',
-  excl: 'excl',
-  custom: 'custom',
-  audience: 'audience',
-  title: 'title',
+/** An existing card, opened in the maker (the edit sheet). */
+export type MakerEditing = {
+  serviceId: string;
+  isActive: boolean;
+  /** The cover the card shows now — the face draws it while the key is unchanged. */
+  coverUrl: string | null;
+  coverKey: string | null;
+  dailyCapacity: string;
+  branchId: string;
+  schedule: ScheduleItemDraft[];
+  addons: AddonDraft[];
+  slots: VendorServiceTimeSlot[];
+  /** The schedule the card books on now. */
+  poolId: string | null;
+  /** The retired free-text promise, shown read-only when the card still carries one. */
+  legacyPromise: string | null;
 };
+
+type SheetKey = 'kind' | 'audience' | 'ask' | 'delete' | 'preview';
 
 const line = 'var(--m-line)';
 const paper = 'var(--m-paper)';
+const FORM_ID = 'card-maker-form';
 
 // ════════════════════════════════════════════════════════════════════════════
-// The canvas
+// The maker
 // ════════════════════════════════════════════════════════════════════════════
 
 export function CanvasMaker({
@@ -183,6 +209,21 @@ export function CanvasMaker({
   coverageNames = [],
   shopName = '',
   tradeOptions = [],
+  supplierType = 'other',
+  folderOfKind = {},
+  coverageAsk = {},
+  schedules = [],
+  scheduleOfKind = {},
+  slotsPerDay = 0,
+  branches = [],
+  detailsSlot = null,
+  detailsKind = null,
+  recordSlot = null,
+  editing = null,
+  errorLine = null,
+  returnTo,
+  unread = [],
+  discountSeed = null,
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -197,77 +238,70 @@ export function CanvasMaker({
   faithOptions?: AudienceOption[];
   /** coverage id → its CURRENT event_types / faiths, so the chips open truthful. */
   coverageAudience?: Record<number, CoverageAudience>;
-  /**
-   * coverage id → the leaf's allowed event types (null/empty = unrestricted).
-   * Chips render only inside this set — it is the SAME set the server enforces
-   * on save, so a chip is never checkable-then-silently-dropped. Missing id
-   * (or a failed taxonomy read upstream) = null = full vocab, the fail-soft.
-   */
+  /** coverage id → the leaf's allowed event types (null = unrestricted) — the SAME set the server enforces. */
   coverageAllowed?: Record<number, string[] | null>;
   /**
-   * "Start from one of your cards" — everything the vendor already AUTHORED on
-   * an existing card, read server-side (lib/vendor-card-copy.ts). `null` is a
-   * blank maker, which is every other entry into this screen.
-   *
-   * 🔑 A SEED IS NOT A LINK. Nothing here ties the new card to the old one: the
-   * form posts the identical field set either way, so `commitVendorService`
-   * cannot tell a copy from a first draft and the source card keeps ALL of its
-   * history — bookings, record, event assignments (owner 2026-07-28, "events
-   * created for that card stay on that card").
+   * "Start from one of your cards" (and an existing card's values on the edit sheet) — what the vendor AUTHORED,
+   * read server-side (lib/vendor-card-copy.ts). `null` is a blank maker.
    */
   initial?: CanvasInitial | null;
   /**
-   * ─── THE KIND OF SERVICE IS A FIELD ON THE CARD (owner 2026-08-28) ────────
-   *
-   * Owner, on "+ Create service card": *"i just bounces to a page for a link to
-   * service card. we want it to directly go to a page to create a service
-   * card."* So `/vendor-dashboard/services/new` opens THIS with no category
-   * chosen and hands in the whole list — the vendor picks the kind here, on the
-   * card, the way they pick the price and the audience.
-   *
-   * ⚠ EMPTY IS THE NORMAL CASE, NOT A DEGRADED ONE. `/services/new/[category]`
-   * takes the category from its route and passes NO options, so that screen is
-   * byte-identical to before: no kind region, no kind sheet, nothing to choose.
-   * A guard pins both halves.
+   * The kind is a field on the card (owner 2026-08-28). `/services/new` hands in the whole list; a route that fixed
+   * the kind passes none and the row shows the kind without a sheet.
    */
   categoryOptions?: CategoryGroup[];
-  /**
-   * Has this shop never made a card? Then the pass opens by saying what a card
-   * IS — once, ever. A supplier making their fourth card knows, and explaining
-   * it again is the bombardment in a politer costume.
-   */
+  /** Has this shop never made a card? (Kept for the callers; the simpler maker asks nothing extra of a first card.) */
   firstCardEver?: boolean;
-  /**
-   * What this shop calls the things it covers, in ITS OWN words. The kinds list
-   * and the coverage tree are two vocabularies — SetnaProd's leaf is *Pabati*
-   * and no "Pabati" pill exists — so the band that leads is labelled with these
-   * rather than asking a supplier to recognise their trade under a word they
-   * never chose. The pills themselves are still bridged by FAMILY.
-   */
+  /** What this shop calls the things it covers, in ITS OWN words. */
   coverageNames?: string[];
   /** Used only to write a first card name they can change. */
   shopName?: string;
-  /**
-   * ─── EVERY LIVE TRADE, FOR THE SEARCH BAND (C1 2026-08-28) ────────────────
-   *
-   * The 262 visible coverage leaves (`getCoverageTaxonomy()`, the SAME
-   * visibility rule as the coverage picker), each already carrying the
-   * standing `lib/vendor-category-parents.ts` would give it. Distinct from
-   * `coverageNames` above — that is only the shop's OWN declared coverage;
-   * this is every trade in the live taxonomy, searched only once a supplier
-   * types (never rendered as a wall — see `rankTradeMatches`).
-   */
+  /** Every live trade, for the search band (C1 2026-08-28) — searched only once a supplier types. */
   tradeOptions?: TradeMatch[];
+  /** The shop's type — "Common for a caterer" heads the kind sheet. */
+  supplierType?: SupplierType;
+  /** A coverage leaf's tier-1 family, for the defaults by supplier type. */
+  folderOfKind?: Record<string, string>;
+  /** 🏷 kinds that would add a leaf to "what you do" → the leaf's label (server-decided). */
+  coverageAsk?: Record<string, { leaf: string; label: string }>;
+  /** The shop's schedules (active pools) the Schedule row may share. */
+  schedules?: MakerSchedule[];
+  /** category → the pool its cards book on today (the category pool), when one exists. */
+  scheduleOfKind?: Record<string, string>;
+  /** The plan's bookings-a-day ceiling per card (`tierCaps().slotsPerDay`; 0 = not open on this plan). */
+  slotsPerDay?: number;
+  /** Branches (Enterprise). A lapsed one is listed `usable: false` so a card filed under it keeps naming it. */
+  branches?: { id: string; label: string; usable?: boolean }[];
+  /** The kind's chip details, server-rendered (`RefinementsEditor bare`) — inside this form, posting with it. */
+  detailsSlot?: ReactNode;
+  /** The kind `detailsSlot` was drawn for — shown only while the card is that kind. */
+  detailsKind?: string | null;
+  /** The card's collected record, server-rendered (`CardRecordSection`), on the edit sheet. */
+  recordSlot?: ReactNode;
+  /** An existing card → the edit sheet: Save, the Live switch, delete and copy. */
+  editing?: MakerEditing | null;
+  /** A refusal carried back on the address (`?error=`), said on the card. */
+  errorLine?: string | null;
+  /** This screen's own address — the save returns here with a refusal. */
+  returnTo?: string;
+  /**
+   * Parts of an existing card that could not be read. The save REPLACES these lists, so saving over an unread one
+   * would erase it — Save waits, and the card says what could not be read (never "none").
+   */
+  unread?: string[];
+  /** Arrived from the off-season nudge: Discounts opens with one off-peak line drafted (the supplier sets the amount). */
+  discountSeed?: { expiry?: string; conditions?: string } | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
-  const titleRef = useRef<HTMLInputElement>(null);
+  const isEdit = editing !== null;
+  // The simpler maker asks a first card nothing extra (the old intro sheet retired with the guided pass).
+  void firstCardEver;
 
   const [sheet, setSheet] = useState<SheetKey | null>(null);
   const [kindQuery, setKindQuery] = useState('');
   /**
-   * 🔑 THE POSTED CATEGORY IS STATE, NOT THE PROP. It is one hidden input under
-   * its shipped name either way, so `commitVendorService` cannot tell which
-   * screen chose it — the same contract every other region on this card keeps.
+   * 🔑 THE POSTED CATEGORY IS STATE, NOT THE PROP. It is one hidden input under its shipped name either way, so
+   * `commitVendorService` cannot tell which screen chose it.
    */
   const allChoices = useMemo(
     () => categoryOptions.flatMap((g) => g.options),
@@ -277,65 +311,31 @@ export function CanvasMaker({
     () => allChoices.filter((o) => o.standing === 'covered'),
     [allChoices],
   );
-  /**
-   * The one sentence explaining every greyed kind. One line, not one per pill:
-   * a shop on a one-family plan would otherwise read the same upgrade sentence
-   * twenty-odd times, which is the bombardment this change exists to remove.
-   */
+  /** The one sentence explaining every refused kind — once, not once per row. */
   const lockedWhy = useMemo(
     () => allChoices.find((o) => o.standing === 'locked' && o.why)?.why ?? null,
     [allChoices],
   );
-  /**
-   * Every kind value already sitting on this screen — the coverage band AND
-   * every legacy pill, covered or not. A ranked trade whose key is already in
-   * here must not render a second time (C1 2026-08-28) — 16 of the 262 live
-   * trades share their exact key with a legacy card-kind, so this is not only
-   * the "already covered" case the search band exists to avoid repeating.
-   */
+  /** Every kind value already on this screen — a ranked trade with the same key must not render twice. */
   const existingKindValues = useMemo(
     () => new Set(allChoices.map((o) => o.value)),
     [allChoices],
   );
-  /**
-   * "Matches what you typed" — the 262 live trades, ranked by
-   * `lib/taxonomy-search-rank.ts` (imported, never reimplemented — see
-   * `lib/kind-search-trades.ts`), excluding anything already shown above.
-   * Search-results-only: `rankTradeMatches` returns `[]` below the shared
-   * minimum query length, so this never renders as a wall of 262 pills.
-   */
+  /** "Matches what you typed" — the live trades, ranked by the shared ranker; [] below the minimum query. */
   const rankedTrades = useMemo(
     () => rankTradeMatches(tradeOptions, kindQuery, existingKindValues),
     [tradeOptions, kindQuery, existingKindValues],
   );
-  /**
-   * ═══ C3 2026-08-28 — "IT REMEMBERS WHAT SUPPLIERS CONFIRM" ═══════════════
-   *
-   * Every live trade key the search band can possibly return — the exact set
-   * `rankedTrades` draws candidates from, never a second list that could
-   * disagree with it. Picking a key OUTSIDE this set (Miscellaneous, a
-   * legacy department pill) has nothing to teach the trade search, so it is
-   * never collectible — see `collected-trade-phrase.ts`.
-   */
+  /** C3 2026-08-28 — every live trade key the search band can return (what a resolved miss may teach). */
   const liveTradeKeySet = useMemo(() => new Set(tradeOptions.map((t) => t.key)), [tradeOptions]);
-  /**
-   * Did ANY legacy department pill's own label match the typed query? The
-   * exact filter `rest` (below) uses to decide what to show — computed once
-   * here so the on-screen "Nothing matches…" message and the miss-tracking
-   * effect below can never drift into disagreeing with each other about
-   * what counts as a miss.
-   */
+  /** Did ANY legacy kind's own label match the query? The SAME filter the list below draws with. */
   const anyLegacyLabelMatches = useMemo(() => {
     const q = kindQuery.trim().toLowerCase();
     return categoryOptions.some((g) =>
       g.options.some((o) => o.standing !== 'covered' && o.label.toLowerCase().includes(q)),
     );
   }, [categoryOptions, kindQuery]);
-  /**
-   * THE ONE PLACE THAT DECIDES A MISS — imported, never re-derived (see the
-   * docblock on `isTradeSearchMiss`). Drives both the "Nothing matches…"
-   * message below and `lastMissedQuery`.
-   */
+  /** THE ONE PLACE THAT DECIDES A MISS — imported, never re-derived. */
   const kindSearchMissed = useMemo(
     () =>
       isTradeSearchMiss({
@@ -345,15 +345,7 @@ export function CanvasMaker({
       }),
     [kindQuery, rankedTrades, anyLegacyLabelMatches],
   );
-  /**
-   * The most recent typed query that missed, held open across a CLEARED
-   * search box (a supplier who sees "Nothing matches…" and then clears the
-   * field to browse manually is still resolving that same miss) but
-   * DROPPED the moment a later non-empty query finds something — continuing
-   * to shadow a stale miss onto an unrelated later pick is exactly the
-   * wrong-pairing risk this feature exists to bound. `null` once nothing is
-   * pending, or once a pick has consumed it (see `pickCategory`).
-   */
+  /** The latest query that missed, held across a cleared box, dropped by a later query that found something. */
   const [lastMissedQuery, setLastMissedQuery] = useState<string | null>(null);
   useEffect(() => {
     const q = kindQuery.trim();
@@ -363,50 +355,24 @@ export function CanvasMaker({
       setLastMissedQuery(null);
     }
   }, [kindQuery, kindSearchMissed]);
-  /**
-   * Set only when the pending miss above resolved into a real, live trade —
-   * posted as `collected_kind_phrase` so `commitVendorService` can remember
-   * the pairing, ONLY once the card is actually saved. Never trusted at
-   * face value server-side: the action re-derives whether `category` is a
-   * live trade fresh, from the taxonomy the save itself just enforced.
-   */
+  /** Set only when the pending miss resolved into a live trade — posted as `collected_kind_phrase`. */
   const [collectPhrase, setCollectPhrase] = useState<string | null>(null);
-  /**
-   * ⚡ A ONE-TRADE SHOP IS ASKED NOTHING. If the whole shop covers exactly one
-   * kind, that IS the answer — pre-picking it keeps the maker at zero steps for
-   * the commonest case instead of opening with a question that has one button.
-   * It stays editable: the region is still there and still opens the sheet.
-   */
+  /** ⚡ A ONE-TRADE SHOP IS ASKED NOTHING — its one kind is pre-picked, and the row says where it came from. */
   const [category, setCategory] = useState(
     categoryValue || (coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? '') : ''),
   );
-  /**
-   * Did the shop's own record answer this, rather than the vendor? Then the card
-   * SAYS so — an answer that appeared by itself and does not explain where it
-   * came from reads as the product having decided for them.
-   */
   const categoryRef = useRef('');
-  /**
-   * Has the vendor touched the name? Once they have, nothing writes it again —
-   * a field that rewrites itself under somebody's cursor is worse than a blank.
-   */
+  /** Once they touch the name, nothing writes it again. */
   const titleTouched = useRef(false);
   const [kindFromShop, setKindFromShop] = useState(
     !categoryValue && coveredChoices.length === 1,
   );
-  const canChooseKind = categoryOptions.length > 0;
+  const canChooseKind = categoryOptions.length > 0 && !isEdit;
   useEffect(() => {
     categoryRef.current = category;
   }, [category]);
 
-  /**
-   * THE ONE PLACE A KIND IS PICKED (C3 2026-08-28). Every `KindPill.onPick`
-   * in the kind sheet — the covered band, a ranked-trade result, a legacy
-   * department pill — routes through here so `collectPhrase` can never fall
-   * out of sync with what was actually chosen. See `lastMissedQuery` above
-   * for why the pending miss survives a cleared search box but not a later
-   * query that found something.
-   */
+  /** THE ONE PLACE A KIND IS PICKED (C3 2026-08-28) — every row in the kind sheet routes through here. */
   const pickCategory = useCallback(
     (key: string) => {
       setCategory(key);
@@ -424,82 +390,9 @@ export function CanvasMaker({
   const [keepDecided, setKeepDecided] = useState(false);
 
   /**
-   * ═══ THE FIRST PASS — TWO ANSWERS, THEN IT IS LIVE ═══════════════════════
-   * (owner 2026-08-28, on the drawn prototype: *"i want it to be as simple as
-   * possible… so they do not feel bombarded"*, and then, on this shape,
-   * *"looks better"*.)
-   *
-   * A blank card asks the ONLY things the publish gate requires — a cover
-   * photo, a starting price and what's included (H2, 2026-09-11) — plus the
-   * optional Setnayan gift, one at a time, in the
-   * sheets the maker already owns, with the card visible above painting itself.
-   * Everything else on this screen is optional and always was; it simply looked
-   * required because it was all on at once.
-   *
-   * 🔑 THE PASS IS THE GATE, SAID OUT LOUD — so when the gate grew a price
-   * (owner-drawn 2026-08-28), the pass grew the same question. A pass that
-   * stops one short of what Publish needs hands the supplier a finished-looking
-   * card and a shut button, which is the bombardment this shape was drawn to
-   * remove, arriving one screen later.
-   *
-   * ⚖ THIS IS NOT A WIZARD BOLTED ON TOP. There is no second form, no step
-   * validation, no Back-and-Continue over pages: the pass only decides which
-   * sheet is open, so the maker is still zero steps ("the card is the form",
-   * owner-locked 2026-07-27) and every field still posts in one submit.
-   *
-   * 🔑 THE KIND IS ONLY ASKED WHEN THE SHOP'S OWN RECORD CANNOT ANSWER IT. A
-   * one-trade shop has it pre-filled above, so its pass is two questions, not
-   * three. Steps are frozen at mount — answering must not renumber the
-   * question the vendor is looking at.
-   */
-  const firstPassSteps = useMemo<SheetKey[]>(() => {
-    if (!canChooseKind || initial !== null) return [];
-    const steps: SheetKey[] = [];
-    if (firstCardEver) steps.push('intro');
-    if (!category) steps.push('kind');
-    // A supplier who joined through a couple's link is asked for the photo and
-    // what's included BEFORE the price (`lib/price-waits.ts`) — the same four
-    // questions, the price moved one place later. Everyone else: as shipped.
-    if (claimToken) steps.push('media', 'custom', 'price', 'excl');
-    else steps.push('media', 'price', 'custom', 'excl');
-    return steps;
-    // Frozen at mount ON PURPOSE — answering must not renumber the question the
-    // vendor is looking at, so `category` and `firstCardEver` are read once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const [passIndex, setPassIndex] = useState(firstPassSteps.length > 0 ? 0 : -1);
-  // ⚠ AN UNANSWERED OFFER SUSPENDS THE PASS. Opening the first question over
-  // "you left a card here" would ask them to start something while the thing
-  // they were doing is still on screen unclaimed.
-  const inPass =
-    passIndex >= 0 && passIndex < firstPassSteps.length && !(offeredKeep && !keepDecided);
-  const passStep = inPass ? firstPassSteps[passIndex] : null;
-  /**
-   * 🖥 THE CARD SITS BESIDE THE QUESTION — on a laptop, whenever a question is
-   * open (SUP-10): the guided pass, or any edit after it. Drives the pin, the
-   * hide, and the meter stepping aside; every rule behind it lives inside
-   * `@media (min-width: 1024px)` or an `lg:` utility, so a phone is untouched.
-   */
-  const cardBeside = inPass || sheet !== null;
-  // The pass drives which sheet is open; closing a sheet leaves the pass, which
-  // is the "I'll build it myself" escape and needs no separate control.
-  useEffect(() => {
-    if (inPass) setSheet(passStep ?? null);
-  }, [inPass, passStep]);
-  const leavePass = useCallback(() => {
-    setPassIndex(-1);
-    setSheet(null);
-  }, []);
-
-  /**
    * ═══ THE HALF-FINISHED CARD IS KEPT (owner 2026-08-28: *"add it"*) ════════
-   *
-   * The maker saves in ONE submit, so until now a lost signal or a closed tab
-   * took the photo, the sentence and the price with it and said nothing. What
-   * was typed is now held in this browser (never in our database — see
-   * lib/canvas-draft-keep.ts for why a server autosave would mint junk cards)
-   * and OFFERED BACK on return. It is never restored silently: work reappearing
-   * unasked is its own kind of alarming, and they may well want a fresh card.
+   * What was typed is held in this browser (never in our database) and OFFERED BACK on return — never restored
+   * silently. An existing card and a copy are exempt: they asked for THAT card.
    */
   const clearKeep = useCallback(() => {
     try {
@@ -509,29 +402,20 @@ export function CanvasMaker({
     }
   }, [keepKey]);
 
-  // Read once, before anything is typed. A copy (`initial`) is deliberately
-  // exempt: they asked for THAT card, not for an abandoned one.
   useEffect(() => {
-    if (initial !== null) return;
+    if (initial !== null || isEdit) return;
     try {
       const found = readKeep(window.localStorage.getItem(keepKey), Date.now());
       if (found) setOfferedKeep(found);
     } catch {
       /* unreadable storage simply means nothing was kept */
     }
-  }, [keepKey, initial]);
+  }, [keepKey, initial, isEdit]);
 
-  /**
-   * Hold what is on the form, a moment after typing stops.
-   *
-   * ⚠ FILE PICKERS ARE SKIPPED AND THEIR HIDDEN KEYS ARE NOT. A chosen file is
-   * not a value we could ever put back, but the picker has already uploaded the
-   * object and written its key into an ordinary hidden field — so a restored
-   * card still carries its photo.
-   */
+  /** Hold what is on the form, a moment after typing stops. File pickers are skipped; their hidden keys are not. */
   useEffect(() => {
     const form = formRef.current;
-    if (!form) return;
+    if (!form || isEdit) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const hold = () => {
       if (timer) clearTimeout(timer);
@@ -552,7 +436,7 @@ export function CanvasMaker({
           category: categoryRef.current,
           fields,
         });
-        if (!raw) return; // too big to hold — keep nothing rather than half
+        if (!raw) return;
         try {
           window.localStorage.setItem(keepKey, raw);
         } catch {
@@ -562,8 +446,6 @@ export function CanvasMaker({
     };
     form.addEventListener('input', hold);
     form.addEventListener('change', hold);
-    // The one thing that must NOT survive: a card that got saved. Submitting is
-    // the end of this draft either way — published or kept as a draft row.
     form.addEventListener('submit', clearKeep);
     return () => {
       if (timer) clearTimeout(timer);
@@ -571,20 +453,11 @@ export function CanvasMaker({
       form.removeEventListener('change', hold);
       form.removeEventListener('submit', clearKeep);
     };
-  }, [keepKey, clearKeep]);
+  }, [keepKey, clearKeep, isEdit]);
+
   /**
-   * Put a kept card back.
-   *
-   * 🔑 THE TWO KINDS OF FIELD NEED TWO DIFFERENT MOVES. The card's own inputs
-   * (name, the Exclusive, the kind, the coverage) are React state — assigning
-   * their DOM value would be overwritten on the next render. Everything inside
-   * the shipped editors is uncontrolled, so its value goes on the node and an
-   * `input` event is dispatched, which is what the card's own snapshot reader
-   * listens to — without it the card would hold the values and not show them.
-   *
-   * ⚖ A NAME WITH NOWHERE TO LAND IS DROPPED, not forced. Rows a vendor added by
-   * hand do not exist yet on a fresh mount; half-restoring them into the wrong
-   * row would be worse than the honest gap.
+   * Put a kept card back. React-owned fields (name, kind, coverage) go through state; everything inside the shipped
+   * editors is uncontrolled, so its value goes on the node and an `input` event lets the face repaint.
    */
   const restoreKeep = useCallback((keep: CanvasKeep) => {
     const form = formRef.current;
@@ -595,7 +468,7 @@ export function CanvasMaker({
     for (const [name, value] of keep.fields) {
       if (name === 'title') setTitle(value);
       else if (name === 'coverage_id') setCoverageId(value);
-      else if (name === 'category') continue; // carried above, in state
+      else if (name === 'category') continue;
       else if (form) {
         const node = form.elements.namedItem(name);
         const target = (
@@ -611,88 +484,50 @@ export function CanvasMaker({
       }
     }
     setKeepDecided(true);
-    setPassIndex(-1);
-    setSheet(null);
   }, []);
 
-  const nextInPass = useCallback(() => {
-    setPassIndex((i) => {
-      const next = i + 1;
-      if (next >= firstPassSteps.length) {
-        setSheet(null);
-        return -1;
-      }
-      return next;
-    });
-  }, [firstPassSteps.length]);
   const activeCategoryLabel =
     categoryOptions
       .flatMap((g) => g.options)
       .find((o) => o.value === category)?.label ??
     (category === categoryValue ? categoryLabel : category);
-  /**
-   * "Comes with" bundles the shop's OTHER cards, so the kind this card IS has
-   * to drop out of that list the moment it is chosen — otherwise the vendor is
-   * offered a card that comes bundled with itself.
-   */
-  /**
-   * ✍ THE NAME IS WRITTEN FOR THEM (drawn: *"Card name — written for you, change
-   * it if you like"*). Blank is legal — the save stores no title and the card
-   * falls back to the kind — but a card that arrives already called something is
-   * a card, and a blank field is a chore. Only ever on a maker they have not
-   * typed into, and never over an existing name.
-   */
+
+  /** ✍ THE NAME IS WRITTEN FOR THEM — only on a maker they have not typed into, never over an existing name. */
   useEffect(() => {
     if (titleTouched.current) return;
-    if (initial !== null) return;
+    if (initial !== null || isEdit) return;
     if (!category || !activeCategoryLabel) return;
     setTitle(shopName ? `${activeCategoryLabel} by ${shopName}`.slice(0, 80) : activeCategoryLabel);
-  }, [category, activeCategoryLabel, shopName, initial]);
+  }, [category, activeCategoryLabel, shopName, initial, isEdit]);
 
+  /** "Comes with" bundles the shop's OTHER cards — never the kind this card is. */
   const otherCategoriesShown = useMemo(
     () => otherCategories.filter((c) => c.value !== category),
     [otherCategories, category],
   );
-  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [title, setTitle] = useState(initial?.title ?? '');
   /**
-   * The supplier's WHOLE say over the Setnayan gift (owner 2026-09-09: "it is
-   * either a yes or a no"). There is no amount, no picker and no top-up: the
-   * gift is Papic credits sized at 40% of the booking fee, capped at the
-   * 50,000-credit rung, and derived from a price that does not exist yet.
+   * The supplier's WHOLE say over the Setnayan gift (owner 2026-09-09: "it is either a yes or a no"). Mirrored into
+   * a hidden input that always posts `on` / `off` — an unchecked box would be indistinguishable from "never asked".
    *
-   * ⚠ MIRRORED INTO A HIDDEN INPUT, NOT LEFT TO A CHECKBOX. An unchecked
-   * checkbox submits nothing, which would make "no" indistinguishable from
-   * "this surface never asked" — and the save RPC deliberately treats a missing
-   * key as UNCHANGED so it cannot erase the retired free text. A supplier
-   * turning the gift OFF must send a real `off`.
+   * ⚖ NOT PRE-FILLED ON. The 2026-10-14 prototype draws the gift switched on with "Costs you nothing · 40% more
+   * inquiries"; the shipped gift is added to the supplier's lock bill (≤ 40% of the booking fee) and the 40% figure
+   * is unmeasured — so a new card starts with it off, in the shipped words (flagged to the owner).
    */
   const [giftOn, setGiftOn] = useState(initial?.includesSetnayanGift ?? false);
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
-  /**
-   * How long the picked clip is, in seconds — `null` while unknown.
-   *
-   * NOT part of the form snapshot, because it is not a form field: it is a
-   * measurement of a LOCAL file, taken by the picker's own validator, and the
-   * server has no use for it (see ShowcaseMediaFields.onClipDurationSeconds).
-   * Keeping it out of the wire also keeps the canvas's input-name set identical
-   * to the wizard's, which lib/canvas-field-parity.test.ts pins.
-   */
+  const [face, setFace] = useState<Snapshot | null>(null);
   const [clipSeconds, setClipSeconds] = useState<number | null>(null);
-  // Stable identity: the picker memoises its validator on this callback, and a
-  // fresh function every render would rebuild the validator every render.
   const onClipDurationSeconds = useCallback((s: number | null) => setClipSeconds(s), []);
+  void clipSeconds;
 
-  // Which coverage this card sits in. The PICKER lives in the audience sheet
-  // (it decides who finds the card), but the FIELD stays on the main form as a
-  // hidden input under its shipped name — same value, same server contract.
+  // Which coverage this card sits in — one hidden input on the card form, picked in "Who it is for".
   const [coverageId, setCoverageId] = useState<string>(initial?.coverageId ?? '');
   const selectedCoverage = coverageId ? Number(coverageId) : null;
 
   const [events, setEvents] = useState<string[]>([]);
   const [faiths, setFaiths] = useState<string[]>([]);
-  // Re-seed the chips when the vendor moves the card to another coverage —
-  // showing coverage A's audience while pointed at coverage B would be a lie.
+  // Re-seed the audience when the card moves to another coverage — never coverage A's audience under coverage B.
   const seededFor = useRef<number | null | undefined>(undefined);
   useEffect(() => {
     if (seededFor.current === selectedCoverage) return;
@@ -705,10 +540,6 @@ export function CanvasMaker({
     setFaiths(next.faiths);
   }, [selectedCoverage, coverageAudience]);
 
-  // The chips the selected coverage may actually render (see coverageAllowed
-  // above), the saved keys the server would drop on save (admin narrowed the
-  // leaf after the row was saved — disclose, don't silently strip), and a
-  // label lookup for that disclosure.
   const selectedAllowed =
     selectedCoverage != null ? (coverageAllowed[selectedCoverage] ?? null) : null;
   const audienceOptions = useMemo(
@@ -731,69 +562,47 @@ export function CanvasMaker({
   }, [eventTypeOptions]);
 
   /**
-   * SAVING "WHO IT’S FOR" MUST NOT COST THE VENDOR THE CARD.
-   *
-   * The audience write lands on `vendor_coverages`, so it is a sibling form —
-   * and until now it used the action that ends in `redirect('/vendor-dashboard/
-   * services')`. Pressing Save mid-build therefore threw away everything not yet
-   * posted: the title, the price, the inclusions, the customization draft, the
-   * photos already uploaded. The sheet WARNED about it, which is not a fix.
-   * `useActionState` keeps the vendor on their card and reports the outcome
-   * here, beside the button that caused it.
+   * SAVING "WHO IT’S FOR" MUST NOT COST THE VENDOR THE CARD. It lands on `vendor_coverages` — a sibling form posting
+   * `updateCoverageServesInPlace`, which reports here instead of navigating away.
    */
   const [audienceState, saveAudience] = useActionState<CoverageServesResult, FormData>(
     updateCoverageServesInPlace,
     { ok: false, message: null, savedKey: null },
   );
-  // "Saved" is a claim about a SELECTION, not about a moment. The sheet stays
-  // open afterwards, so the note must go the instant the vendor touches another
-  // chip — otherwise it sits there confirming an answer nobody saved. The
-  // server returns the key of what it STORED; this is the key of what is on
-  // screen; the note shows only while they match.
   const audienceSaved =
     audienceState.savedKey !== null &&
     audienceState.savedKey === coverageServesKey(coverageId, events, faiths);
 
-  // ★ Customization ships flag-dark behind the SAME flag the wizard uses, so a
-  // canvas and a wizard save carry identical payloads on both settings.
+  // ★ Customization ships behind the SAME flag as the wizard. It is CREATE-ONLY in the save (one run mints one
+  // package), so the edit sheet never mounts it — a second mount would mint a second package.
   const customizationEnabled = packageAuthoringEnabled();
 
   /**
-   * THE LIVE READ — the card must move while the vendor types, in every region.
-   *
-   * Same idiom as the shipped ServiceCardLivePreview, with two additions the
-   * canvas needs because the card is the ONLY preview there is:
-   *
-   *   • `click`, deferred a tick. The basis picker and the unit toggles are
-   *     `<button type="button">`s that write React-CONTROLLED hidden inputs —
-   *     no `input`/`change` event ever fires, and reading during the click
-   *     handler would read the value from BEFORE React committed. A `setTimeout
-   *     0` lands after the commit, so switching Fixed → Per hour repaints the
-   *     price line immediately instead of up to a poll away.
-   *   • a NO-OP BAIL. The poll exists for the controlled hidden inputs
-   *     (FileUpload, the list editors, the customization draft), which fire no
-   *     DOM event — but calling setState with a fresh object every tick would
-   *     re-render the whole tree, including the editor the vendor is typing
-   *     into, several times a second for nothing. Comparing the snapshot key
-   *     first makes an unchanged tick cost one FormData read and no render.
-   *
-   * Focus is safe either way: every field inside a sheet is UNCONTROLLED
-   * (`defaultValue`), so a parent re-render reconciles the same DOM node and
-   * leaves the caret alone. Only the card's own title and the Exclusive are
-   * controlled, and those are edited on the card face itself.
+   * THE LIVE READ — the face must move while the vendor types. `click` is read a tick later (controlled hidden
+   * inputs commit after the handler); a poll covers the editors that write hidden inputs with no DOM event; an
+   * unchanged tick costs one FormData read and no render.
    */
   useEffect(() => {
     const form = formRef.current;
     if (!form) return;
     let lastKey = '';
+    let lastFace = '';
     let deferred: ReturnType<typeof setTimeout> | null = null;
     const read = () => {
       try {
-        const next = readCanvasFormSnapshot(new FormData(form));
+        const fd = new FormData(form);
+        const next = readCanvasFormSnapshot(fd);
         const key = canvasSnapshotKey(next);
-        if (key === lastKey) return;
-        lastKey = key;
-        setSnap(next);
+        if (key !== lastKey) {
+          lastKey = key;
+          setSnap(next);
+        }
+        const f = readSnapshot(fd);
+        const fk = JSON.stringify(f);
+        if (fk !== lastFace) {
+          lastFace = fk;
+          setFace(f);
+        }
       } catch {
         /* a mid-render read must never break the form */
       }
@@ -816,1110 +625,890 @@ export function CanvasMaker({
     };
   }, []);
 
-  const customizationLines = useMemo(() => {
-    const parsed = parseCustomizationDraft(snap.customizationRaw);
-    return parsed.ok ? cardHealthLinesFromDraft(parsed.items) : [];
-  }, [snap.customizationRaw]);
-
-  const healthSnapshot: CardHealthSnapshot = {
-    hasCover: snap.hasCover,
-    photoCount: snap.photoCount,
-    hasClip: snap.hasClip,
-    hasPrice: snap.hasPrice,
-    title,
-    // The other half of the real gate — see CardHealthSnapshot.
-    inclusionLabels: snap.inclusionLabels,
-    discountConditions: snap.discountConditions,
-    lines: customizationLines,
-    eventTypes: events,
-    faiths,
-  };
-  const health = scoreCardHealth(healthSnapshot);
-
-  /** Everything the card's "What couples get" region shows, in reading order. */
-  const comesWith = useMemo(() => {
-    const fromLines = customizationLines
-      .filter((l) => l.state === 'required' || l.state === 'included')
-      .map((l) => l.label.trim())
-      .filter((l) => l.length > 0);
-    return [...fromLines, ...snap.inclusionLabels];
-  }, [customizationLines, snap.inclusionLabels]);
-
   const audienceLabel = useMemo(() => {
     const byKey = new Map(eventTypeOptions.map((e) => [e.key, e.label]));
     const evs = events.map((k) => byKey.get(k) ?? k);
     const faithByKey = new Map(faithOptions.map((f) => [f.key, f.label]));
     const fa =
-      faiths.length === 0 ? 'all faiths' : faiths.map((k) => faithByKey.get(k) ?? k).join(', ');
-    if (evs.length === 0) return 'Who is this for?';
+      faiths.length === 0 ? 'any faith' : faiths.map((k) => faithByKey.get(k) ?? k).join(', ');
+    if (evs.length === 0) return 'Pick the events this card is found under';
     return `${evs.slice(0, 3).join(' · ')}${evs.length > 3 ? ` +${evs.length - 3}` : ''} · ${fa}`;
   }, [events, faiths, eventTypeOptions, faithOptions]);
 
   /**
-   * 🔒 ON A COUPLE-SEEDED CARD THE PRICE BOX WAITS (owner 2026-10-07 / ruled
-   * 2026-10-10): a supplier who joined through a couple's link fills in their
-   * photo and what's included BEFORE they set the price. Asking for the price
-   * sheet while it waits opens the thing it is waiting for instead; the price
-   * the couple recorded stays shown on the card. Every other card: unchanged.
+   * 🔒 ON A COUPLE-SEEDED CARD THE PRICE BOX WAITS (owner 2026-10-07 / ruled 2026-10-10): a supplier who joined
+   * through a couple's link fills in their photo and what's included BEFORE they set the price. The recorded price
+   * still posts and still shows; only the box that edits it waits.
    */
   const priceFacts = { hasCover: snap.hasCover, hasInclusions: inclusionsAreSet(snap.inclusionLabels) };
   const priceWaits = priceWaitsFor({ fromCoupleLink: Boolean(claimToken), ...priceFacts });
-  const askSheet = (key: SheetKey) =>
-    setSheet(key === 'price' && priceWaits ? (priceWaits === 'photo' ? 'media' : 'custom') : key);
 
-  /** The coach chip and the diagnostics rows both land here. */
-  const goTo = (target: CardHealthSheet | null) => {
-    if (target === null) return;
-    const key = SHEET_FOR_FINDING[target];
-    if (key === 'title') {
+  // ── The supplier type this card is for, and the defaults it opens with ────
+  const kindType: SupplierType = category
+    ? supplierTypeForKind(category, folderOfKind[category] ?? null)
+    : supplierType;
+  const defaults = makerDefaultsFor(kindType, category);
+  const [basis, setBasis] = useState<Basis>(
+    initial?.pricing.pricing_basis ?? makerDefaultsFor(
+      categoryValue ? supplierTypeForKind(categoryValue, folderOfKind[categoryValue] ?? null) : supplierType,
+      categoryValue,
+    ).pricingBasis,
+  );
+  // A new card follows its kind's default basis until they pick one themselves.
+  const basisTouched = useRef(initial !== null || isEdit);
+  useEffect(() => {
+    if (basisTouched.current || !category) return;
+    setBasis(defaults.pricingBasis);
+  }, [category, defaults.pricingBasis]);
+
+  // ── The status line and the one Create ───────────────────────────────────
+  const facts = { hasPrice: snap.hasPrice, hasCover: snap.hasCover, hasInclusions: inclusionsAreSet(snap.inclusionLabels) };
+  const [liveOn, setLiveOn] = useState(editing?.isActive ?? false);
+  const gateOpen = canPublishService(facts);
+  const status = makerStatus(
+    { ...facts, hasKind: category.length > 0 },
+    { editing: isEdit, live: isEdit ? liveOn : undefined },
+  );
+  /** Create: live when the gate is met, else saved "not shown yet" (Q3). Save: what the Live switch says. */
+  const publishValue = isEdit ? (liveOn ? 'true' : 'false') : gateOpen ? 'true' : 'false';
+  // A card that is NOT live cannot be switched on while the gate is unmet — the switch waits, the line says why.
+  const liveSwitchWaits = isEdit && !editing?.isActive && !gateOpen && !liveOn;
+
+  // ── Schedule row ─────────────────────────────────────────────────────────
+  const kindPool = category ? (scheduleOfKind[category] ?? null) : null;
+  const scheduleNow = isEdit ? (editing?.poolId ?? kindPool ?? 'own') : (kindPool ?? 'own');
+  const [scheduleChoice, setScheduleChoice] = useState<string>(scheduleNow);
+  useEffect(() => {
+    if (!isEdit) setScheduleChoice(kindPool ?? 'own');
+  }, [kindPool, isEdit]);
+  const scheduleOptions = [
+    { key: 'own', label: 'Its own schedule' },
+    ...schedules.map((s) => ({ key: s.id, label: `${s.name} schedule` })),
+  ];
+  const sharedSchedule = schedules.find((s) => s.id === scheduleChoice) ?? null;
+  const scheduleLine = sharedSchedule
+    ? `Shares ${sharedSchedule.name}${sharedSchedule.perDay ? ` · ${formatCount(sharedSchedule.perDay)} a day` : ''}`
+    : 'Its own · set how many a day in Dates';
+
+  // ── 🏷 the one question ───────────────────────────────────────────────────
+  const ask = !isEdit && category ? (coverageAsk[category] ?? null) : null;
+  const [askAnswered, setAskAnswered] = useState<string | null>(null); // the kind it was answered for
+  const [askResult, setAskResult] = useState<
+    | null
+    | { tone: 'ok'; text: string }
+    | { tone: 'plan'; text: string }
+    | { tone: 'bad'; text: string }
+  >(null);
+  const [asking, startAsking] = useTransition();
+  const [submitNext, setSubmitNext] = useState(false);
+  useEffect(() => {
+    if (!submitNext) return;
+    setSubmitNext(false);
+    formRef.current?.requestSubmit();
+  }, [submitNext]);
+  const answerAsk = (answer: 'yes' | 'no') => {
+    if (!ask) return;
+    if (answer === 'no') {
+      setAskAnswered(category);
       setSheet(null);
-      titleRef.current?.focus();
-      titleRef.current?.scrollIntoView({ block: 'center' });
+      setSubmitNext(true);
       return;
     }
-    askSheet(key);
+    startAsking(async () => {
+      const res = await addCoverageForCard(category);
+      if (res.status === 'added' || res.status === 'already') {
+        if (res.status === 'added' && res.coverageId != null) setCoverageId(String(res.coverageId));
+        setAskAnswered(category);
+        setAskResult({ tone: 'ok', text: `Added · couples will find you under ${ask.label}` });
+        setSheet(null);
+        setSubmitNext(true);
+      } else if (res.status === 'over_cap') {
+        setAskAnswered(category);
+        setAskResult({ tone: 'plan', text: `${res.why} Your card still saves — a bigger plan lists you under ${ask.label} too.` });
+      } else {
+        setAskAnswered(category);
+        setAskResult({ tone: 'bad', text: `${res.message} Your card still saves.` });
+      }
+    });
   };
 
-  /**
-   * 🔒 NOTHING SAVES WITHOUT A KIND — INCLUDING A DRAFT. `commitVendorService`
-   * parses the category on both paths and THROWS on an empty one, so an
-   * enabled "Save as draft" here would hand the vendor a raw error for a
-   * question the card never asked out loud. Both buttons wait for it.
-   */
-  const needsCategory = category.length === 0;
-  const blocked = health.blockers.length > 0 || needsCategory;
+  const [pending, setPending] = useState(false);
+  // A card that is LIVE keeps its price (the gate's own rule for a live card) — Save waits while it is blank.
+  const liveNeedsPrice = isEdit && liveOn && editing?.isActive === true && !snap.hasPrice;
+  const saveBlocked = unread.length > 0 || liveNeedsPrice;
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (saveBlocked) {
+      e.preventDefault();
+      return;
+    }
+    if (!category) {
+      e.preventDefault();
+      setSheet('kind');
+      return;
+    }
+    if (ask && askAnswered !== category) {
+      e.preventDefault();
+      setAskResult(null);
+      setSheet('ask');
+    }
+  };
 
-  /**
-   * The pass's own controls. Continue is never a gate — a supplier who has
-   * nothing to add here moves on and the card says what is still missing when
-   * they reach Publish. **Skip is on every question**, because a first pass a
-   * vendor cannot leave is a wizard wearing a card's clothes.
-   */
-  /**
-   * ⚖ CONTINUE WAITS FOR THE ANSWER; SKIP NEVER DOES (drawn 2026-08-28: *"the
-   * Continue button stays off until the required thing on that sheet exists"*).
-   * A question that IS the publish gate must hold Continue, or letting it past
-   * only moves the same refusal further from the field that fixes it. The
-   * escape is the skip line below, which leaves the pass entirely — never a
-   * disabled button with no way past it.
-   *
-   * 🔴 THE SETNAYAN GIFT NO LONGER HOLDS IT (owner 2026-09-09: "exclusive
-   * setnayan gift then should be optional"). THIS WAS THE THIRD PLACE THE OLD
-   * RULE WAS WRITTEN — after `PUBLISH_REQUIREMENTS` and the
-   * `enforce_service_publish_gate` trigger — and it is the one a NEW shop meets
-   * first. Relaxing the other two without this one would have shipped the
-   * ruling invisible: the gate would allow an empty gift while the guided pass
-   * still refused to walk past the field, so nobody making their first card
-   * could ever reach the state the ruling created.
-   *
-   * ⚖ The QUESTION deliberately stays in the pass. It is still worth offering,
-   * and offering is now what it is: `passAnswered` is unconditionally true
-   * here, so Continue is live whether or not a gift is typed.
-   */
-  const passAnswered =
-    passStep === 'media'
-      ? snap.hasCover
-      : passStep === 'price'
-        ? snap.hasPrice
-        : passStep === 'custom'
-          ? inclusionsAreSet(snap.inclusionLabels)
-          : true;
-  const passFooter = inPass ? (
-    <div className="space-y-2 pt-1">
-      <button
-        type="button"
-        onClick={nextInPass}
-        disabled={!passAnswered}
-        className="button-primary min-h-[44px] w-full disabled:opacity-50"
-      >
-        {passStep === 'intro'
-          ? 'Start my card'
-          : passIndex === firstPassSteps.length - 1
-            ? 'Done — show my card'
-            : 'Continue'}
-      </button>
-      <div className="flex items-center justify-between gap-3">
-        <span
-          className="font-mono text-[10px] uppercase tracking-[0.12em]"
-          style={{ color: 'var(--m-slate-3)' }}
-        >
-          {formatCount(passIndex + 1)} of {formatCount(firstPassSteps.length)}
-        </span>
-        <button
-          type="button"
-          onClick={leavePass}
-          className="text-xs underline"
-          style={{ color: 'var(--m-slate-2)' }}
-        >
-          Skip — I&rsquo;ll build it myself
-        </button>
-      </div>
-    </div>
-  ) : null;
+  const typeWord = SUPPLIER_TYPE_WORD[supplierType];
+  const fillWord = SUPPLIER_TYPE_WORD[kindType];
 
   return (
-    <div className="sn-canvas space-y-4">
-      {/* ── YOU LEFT A CARD HERE ─────────────────────────────────────────────
-          Offered, never restored behind their back: work reappearing unasked is
-          its own kind of alarming, and they may simply want a fresh card. Both
-          answers are final — picking up clears nothing until they save, and
-          starting fresh throws the kept one away on the spot. */}
-      {offeredKeep && !keepDecided ? (
-        <div
-          className="rounded-xl border p-3 text-sm"
-          style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
+    <div className="sn-canvas space-y-4 pb-28" data-card-maker={isEdit ? 'edit' : 'new'}>
+      {unread.length > 0 ? (
+        <p
+          role="alert"
+          data-maker-unread=""
+          className="flex items-center gap-2 rounded-2xl px-3.5 py-2 text-[14px] leading-snug"
+          style={{ background: 'color-mix(in srgb, rgb(var(--color-danger)) 10%, transparent)', color: 'rgb(var(--color-danger))' }}
         >
-          <p style={{ color: 'var(--m-ink)' }}>
-            You left a card here{' '}
-            <span className="font-semibold">{keepAgeLabel(offeredKeep.at, Date.now())}</span>. Nothing
-            was published — it is only on this device.
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => restoreKeep(offeredKeep)}
-              className="button-primary min-h-[40px] px-4"
-            >
-              Pick up where I left off
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                clearKeep();
-                setOfferedKeep(null);
-                setKeepDecided(true);
-              }}
-              className="min-h-[40px] rounded-full border px-4 text-sm font-medium"
-              style={{ borderColor: line, color: 'var(--m-slate)' }}
-            >
-              Start a fresh card
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── STARTED FROM ANOTHER CARD ────────────────────────────────────────
-          Two facts the vendor needs BEFORE they press anything, and the second
-          is the one that would otherwise bite them silently.
-
-          (1) This is a NEW card. The one they copied is untouched — it keeps
-              its bookings, its record and its address. Nothing here posts an id.
-          (2) What happened to the ★ Customization options — SAID, whichever
-              way it went (SUP-40). They come across when the source card's
-              package names it (`vendor_packages.vendor_service_id`); a card
-              with no linked package, or a read that failed, is told so in its
-              own words. A copy that quietly loses a card's choices is a card
-              published missing what it sells. */}
-      {initial ? (
-        <div
-          className="rounded-xl border p-3 text-sm"
-          style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}
-        >
-          <p style={{ color: 'var(--m-ink)' }}>
-            Started from{' '}
-            <span className="font-semibold">
-              {initial.sourceTitle ?? 'one of your cards'}
-            </span>
-            . This is a brand-new card — the one you copied keeps its bookings and
-            everything it has done.
-          </p>
-          {initial.sourceWasOtherCategory ? (
-            <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              You copied it into a different category, so it sits under this one now.
-            </p>
-          ) : null}
-          {customizationEnabled ? (
-          <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
-            {initial.customization.status === 'copied'
-                ? `Your ${initial.customization.items.length === 1 ? 'option' : `${initial.customization.items.length} options`} under “What couples get” came across too — check them before you save.`
-                : initial.customization.status === 'unreadable'
-                  ? 'We couldn’t read the options under “What couples get” on that card just now, so none came across — add them here, or go back and try again.'
-                  : 'No options under “What couples get” are linked to that card, so none came across. If it had some, add them here.'}
-          </p>
-          ) : null}
-        </div>
-      ) : null}
-      <form ref={formRef} action={commitVendorService} className="space-y-4">
-        <input type="hidden" name="category" value={category} />
-        {/* C3 2026-08-28 — set only when the current `category` resolved a
-            genuine search miss (see `collectPhrase` above). Empty on every
-            ordinary save; `commitVendorService` re-validates it against the
-            live taxonomy before remembering anything. */}
-        <input type="hidden" name="collected_kind_phrase" value={collectPhrase ?? ''} />
-        {claimToken ? <input type="hidden" name="claim_token" value={claimToken} /> : null}
-        {/* The coverage this card sits in. Chosen in the audience sheet; the
-            FIELD lives here under its shipped name so the payload is unchanged. */}
-        <input type="hidden" name="coverage_id" value={coverageId} />
-
-        {/* ── THE ONE PROGRESS SURFACE ──────────────────────────────────────
-            Owner 2026-07-27, on seeing two bars: there is EXACTLY ONE. The
-            sticky header carries the meter, the grade, the item count (which IS
-            the expand toggle), the coach chip, and the diagnostics beneath it.
-            Nothing health-shaped renders anywhere else on this page. */}
-        {/* ⚡ NO METER DURING THE PASS. The card painting itself IS the
-            progress; a "Blocked 30/100" over two unanswered questions grades a
-            vendor for not having finished a thing they have just started. */}
-        {inPass ? null : (
-          <HealthHeader
-            health={health}
-            open={diagnosticsOpen}
-            onToggle={() => setDiagnosticsOpen((v) => !v)}
-            onGo={goTo}
-            asideAtLg={cardBeside}
-          />
-        )}
-
-        {/* ═══ THE CARD — every region is a control ═══════════════════════════ */}
-        {/* ⚠ THE PULSE IS ON A WRAPPER, NOT ON THE CARD. Keying the card itself
-            would remount the title input mid-typing; this way the "your card can
-            go live now" beat costs nothing inside it. */}
-        {/* 🖥 PINNED, NOT SHRUNK — whenever a question is open, and only at
-            lg+ (see .sn-canvas-pass-pin in globals.css). SUP-10 (2026-09-18):
-            this used to be the guided pass only, on the premise that "nothing
-            is being built behind" a later edit. Edits apply to the card LIVE
-            (see CanvasSheet's confirm button: it "changes nothing"), so the
-            card a supplier is changing was the one thing a laptop hid behind a
-            veil. Below 1024px the class has no rule, so a phone is unchanged.
-            A SEPARATE wrapper, on purpose — the pulse wrapper below keeps
-            its own untouched key+className so keying the card itself still
-            cannot happen by accident. */}
-        <div className={cardBeside ? 'sn-canvas-pass-pin' : undefined}>
-        <div key={blocked ? 'card-blocked' : 'card-ready'} className={blocked ? undefined : 'sn-paint-live rounded-2xl'}>
-        <div
-          className="overflow-hidden rounded-2xl border"
-          style={{ borderColor: line, background: paper }}
-        >
-          {/* Media — a 1:1 cover (owner-locked square, 2026-07-27; the shipped
-              FileUpload variant="square" is the canonical picker for it), then
-              the 56px showcase strip and the clip pill, which is how the couple
-              side reads this card. One control: tapping anywhere opens Photos. */}
-          <button
-            type="button"
-            onClick={() => setSheet('media')}
-            aria-label="Edit photos"
-            className="block w-full"
-          >
-            <span className="flex justify-center" style={{ background: 'var(--m-orange-4)' }}>
-              <span className="relative flex aspect-square w-full max-w-[280px] flex-col items-center justify-center gap-1 text-sm">
-                {snap.hasCover ? (
-                  <span key="cover-set" className="sn-paint-cover flex flex-col items-center gap-1">
-                    <Check aria-hidden className="h-5 w-5" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
-                    <span style={{ color: 'var(--m-orange-2)' }}>Cover set — tap to change</span>
-                  </span>
-                ) : (
-                  <>
-                    <ImageIcon aria-hidden className="h-5 w-5" strokeWidth={1.5} style={{ color: 'var(--m-orange-3)' }} />
-                    <span style={{ color: 'var(--m-slate-2)' }}>Add cover photo</span>
-                    <span
-                      className="font-mono text-[9px] uppercase tracking-[0.12em]"
-                      style={{ color: 'var(--m-orange-2)' }}
-                    >
-                      required
-                    </span>
-                  </>
-                )}
-              </span>
-            </span>
-            {snap.photoCount > 0 || snap.hasClip ? (
-              <span className="flex items-center gap-1.5 overflow-x-auto px-4 py-2">
-                {Array.from({ length: snap.photoCount }).map((_, i) => (
-                  <span
-                    key={i}
-                    aria-hidden
-                    className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg font-mono text-[8px]"
-                    style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-                  >
-                    {i + 1}
-                  </span>
-                ))}
-                {snap.hasClip ? (
-                  <span
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[10px]"
-                    style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-                  >
-                    {/* The real length when the browser could read it, the word
-                        when it could not. Never a fabricated 0:00 — see
-                        lib/clip-duration-label.ts. */}
-                    ▶ {clipPillLabel(clipSeconds)}
-                  </span>
-                ) : null}
-                <span className="sr-only">
-                  {formatCount(snap.photoCount)} showcase photo{snap.photoCount === 1 ? '' : 's'}
-                  {snap.hasClip ? ` and a ${clipPillLabel(clipSeconds)} clip` : ''}
-                </span>
-              </span>
-            ) : null}
-          </button>
-
-          {/* ── WHAT KIND OF SERVICE THIS IS ─────────────────────────────────
-              Only on the no-category entrance (`/services/new`), where nothing
-              upstream has answered it. It sits ABOVE the name because it is the
-              question the vendor came here with, and because every editor below
-              it — pricing basis, what's included, the customization list — is
-              drawn for a particular kind of service. */}
-          {canChooseKind ? (
-            <CardRegion onClick={() => setSheet('kind')} label="Choose what kind of service this is">
-              {category ? (
-                <span className="flex flex-wrap items-center gap-1.5">
-                  <span style={{ color: 'var(--m-ink)' }}>{activeCategoryLabel}</span>
-                  {kindFromShop ? (
-                    <span
-                      className="font-mono text-[9px] uppercase tracking-[0.12em]"
-                      style={{ color: 'var(--m-slate-3)' }}
-                    >
-                      from your shop · change
-                    </span>
-                  ) : null}
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5" style={{ color: 'var(--m-orange-2)' }}>
-                  <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-                  What kind of service is this?
-                  <span className="font-mono text-[9px] uppercase tracking-[0.12em]">required</span>
-                </span>
-              )}
-            </CardRegion>
-          ) : null}
-
-          {/* Title — edited INLINE on the card, never in a sheet. */}
-          <input
-            ref={titleRef}
-            id="title"
-            name="title"
-            value={title}
-            onChange={(e) => {
-              titleTouched.current = true;
-              setTitle(e.target.value);
-            }}
-            maxLength={80}
-            aria-label="Service name"
-            placeholder={activeCategoryLabel || "Service name"}
-            className="w-full border-0 bg-transparent px-4 pb-1 pt-3 text-[17px] font-semibold tracking-[-0.01em] outline-none placeholder:font-normal"
-            style={{ color: 'var(--m-ink)' }}
-          />
-
-          <CardRegion
-            onClick={() => askSheet('price')}
-            label={priceWaits ? priceWaitsLine(priceFacts) : 'Edit price'}
-          >
-            {priceWaits ? (
-              // The recorded price is still SHOWN; the box that edits it waits.
-              <span data-price-waits={priceWaits}>
-                {snap.hasPrice ? (
-                  <span className="block" style={{ color: 'var(--m-ink)' }}>
-                    {snap.priceLine}
-                  </span>
-                ) : null}
-                <span className="block text-[12.5px]" style={{ color: 'var(--m-orange-2)' }}>
-                  {priceWaitsLine(priceFacts)}
-                </span>
-              </span>
-            ) : snap.hasPrice ? (
-              // 🔑 REMOUNTED, NOT CLASS-TOGGLED. A CSS animation that has already
-              // run does not replay because a class is set again; keying the node
-              // on the value itself is what makes each new answer land visibly.
-              <span key={snap.priceLine} className="sn-paint-in" style={{ color: 'var(--m-ink)' }}>
-                {snap.priceLine}
-              </span>
-            ) : (
-              <span style={{ color: 'var(--m-slate-3)' }}>
-                Add a price — couples look for it first. Required to publish.
-              </span>
-            )}
-          </CardRegion>
-
-          <CardRegion onClick={() => setSheet('excl')} label="Choose whether you include the Setnayan gift">
-            <span
-              key={giftOn ? 'gift-on' : 'gift-off'}
-              className={`flex items-center gap-1.5${giftOn ? ' sn-paint-in' : ''}`}
-              style={{ color: giftOn ? 'var(--m-orange-2)' : 'var(--m-slate-3)' }}
-            >
-              <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-              {giftOn
-                ? 'Includes a Setnayan gift — free Papic photos, sized to the booking'
-                : 'Add a Setnayan gift — optional'}
-            </span>
-          </CardRegion>
-
-          <CardRegion onClick={() => setSheet('custom')} label="Edit what couples get">
-            {comesWith.length ? (
-              <span
-                key={comesWith.join('|')}
-                className="sn-paint-in flex flex-wrap gap-x-3 gap-y-1"
-                style={{ color: 'var(--m-slate)' }}
-              >
-                {comesWith.slice(0, 3).map((c) => (
-                  <span key={c} className="inline-flex items-center gap-1">
-                    <Check aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
-                    {c}
-                  </span>
-                ))}
-                {comesWith.length > 3 ? (
-                  <span style={{ color: 'var(--m-orange-2)' }}>+{comesWith.length - 3} more</span>
-                ) : null}
-              </span>
-            ) : (
-              <span style={{ color: 'var(--m-slate-3)' }}>
-                What couples get — inclusions, choices, add-ons
-              </span>
-            )}
-          </CardRegion>
-
-          <CardRegion onClick={() => setSheet('audience')} label="Edit who this is for">
-            <span className="flex items-center gap-1.5" style={{ color: 'var(--m-slate)' }}>
-              <Users aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-              {audienceLabel}
-            </span>
-          </CardRegion>
-        </div>
-        </div>
-        </div>
-
-        {/* 🖥 HIDDEN DURING THE PASS AT lg+, ONLY. Below 1024px this wrapper is
-            inert (see .sn-canvas-pass-hide in globals.css) — a phone renders
-            every one of these exactly as before. At lg+, once the card above
-            is pinned instead of sitting in the form's flow, this content has
-            nothing left to sit under and would float up behind it; hiding it
-            here matches HealthHeader's own `{inPass ? null : …}` two dozen
-            lines up, which already treats all of this as noise during the
-            pass. Still mounted, so every field inside keeps posting. */}
-        <div className={cardBeside ? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'}>
-        {/* Comes with — bundles the vendor's OTHER cards. Only when they have
-            some; the couple reads it straight off the card. */}
-        {otherCategoriesShown.length > 0 ? (
-          <details className="rounded-xl border" style={{ borderColor: line, background: paper }}>
-            <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-              Comes with{snap.linkedCount > 0 ? ` · ${formatCount(snap.linkedCount)}` : ''}
-            </summary>
-            <div className="space-y-1.5 border-t px-3 pb-3 pt-3" style={{ borderColor: line }}>
-              <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                Other things you offer that come bundled with this one. Up to 6.
-              </p>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {otherCategoriesShown.map((c) => (
-                  <label
-                    key={c.value}
-                    className="flex min-h-[38px] items-center gap-2 rounded-lg border px-3 py-2 text-sm"
-                    style={{ borderColor: line, color: 'var(--m-slate)' }}
-                  >
-                    <input
-                      type="checkbox"
-                      name="linked"
-                      value={c.value}
-                      defaultChecked={initial?.linkedCategories.includes(c.value) ?? false}
-                      className="h-4 w-4 accent-terracotta"
-                    />
-                    {c.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </details>
-        ) : null}
-
-        {/* ── Recap + publish. NO meter, NO second guidance line — the sticky
-            header is the only progress surface (owner 2026-07-27). ────────── */}
-        <dl className="space-y-1.5 rounded-xl border p-3 text-sm" style={{ borderColor: line, background: paper }}>
-          <Recap k="Category" v={activeCategoryLabel || '— not chosen yet'} />
-          <Recap k="Cover photo" v={snap.hasCover ? 'Added' : '— none yet'} />
-          <Recap k="Price" v={snap.hasPrice ? snap.priceLine : '— not set'} />
-          <Recap k="Setnayan gift" v={giftOn ? 'Included' : '— not included'} />
-          <Recap
-            k="What couples get"
-            v={
-              comesWith.length
-                ? `${comesWith.length} line${comesWith.length === 1 ? '' : 's'}`
-                : '— none'
-            }
-          />
-          {snap.linkedCount > 0 ? (
-            <Recap k="Comes with" v={`${formatCount(snap.linkedCount)} service${snap.linkedCount === 1 ? '' : 's'}`} />
-          ) : null}
-        </dl>
-
-        <div className="flex flex-wrap gap-2">
-          <SubmitButton
-            name="publish"
-            value="true"
-            disabled={blocked}
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-full bg-terracotta-700 px-5 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-50"
-            pendingLabel="Publishing…"
-          >
-            <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Publish service
-          </SubmitButton>
-          <SubmitButton
-            name="publish"
-            value="false"
-            disabled={needsCategory}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-full border px-5 py-2.5 text-sm font-medium disabled:opacity-50"
-            style={{ borderColor: line, color: 'var(--m-slate)' }}
-            pendingLabel="Saving…"
-          >
-            Save as draft
-          </SubmitButton>
-        </div>
-
-        {needsCategory ? (
-          <p className="text-xs" style={{ color: 'var(--m-orange-2)' }}>
-            Tell us what kind of service this is and both buttons open up.
-          </p>
-        ) : blocked ? (
-          // ⚖ THE REFUSAL IS SHORT AND SAYS NOTHING IS LOST. The header above
-          // already names each missing thing and links to it; what a supplier
-          // needs here is that finishing costs them nothing they have typed.
-          <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-            Everything you have typed stays on this screen while you finish.
-          </p>
-        ) : (
-          <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-            Your card is ready. Publishing saves everything in one go and puts it in front of
-            couples. You can change anything, any time.
-          </p>
-        )}
-
-        {/* ═══ MAKE IT RICHER — OPTIONAL, FOREVER ══════════════════════════
-            Everything a card CAN carry, named and reachable, under the card
-            rather than on it. It opens the same sheets the card's own regions
-            open — one maker, listed twice, never a second editor.
-            ⚖ It stays shut by default: the whole point of the two questions is
-            that a supplier can stop here, and a list that greets them open is
-            the wall coming back one section lower. */}
-        <details className="rounded-xl border" style={{ borderColor: line, background: paper }}>
-          <summary
-            className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium"
-            style={{ color: 'var(--m-ink)' }}
-          >
-            Make it richer — all optional, any time
-          </summary>
-          <div className="divide-y border-t" style={{ borderColor: line }}>
-            {[
-              { key: 'price' as SheetKey, name: 'Price', what: 'Couples look for it first — one number' },
-              { key: 'media' as SheetKey, name: 'More photos & a short clip', what: 'Up to 5 photos and one 30-second video' },
-              { key: 'custom' as SheetKey, name: 'What couples get', what: 'What is included, and the choices they can make' },
-              { key: 'price' as SheetKey, name: 'Discounts, crew & lead time', what: 'Early-booking and off-season rates, how many you bring' },
-              { key: 'audience' as SheetKey, name: 'Who it is for', what: 'The celebrations and faiths this card is found under' },
-            ].map((row) => (
-              <button
-                key={`${row.key}-${row.name}`}
-                type="button"
-                onClick={() => askSheet(row.key)}
-                className="flex min-h-[52px] w-full items-center gap-3 px-3 py-2.5 text-left"
-                style={{ borderColor: line }}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                    {row.name}
-                  </span>
-                  <span className="block text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                    {row.what}
-                  </span>
-                </span>
-                <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
-              </button>
-            ))}
-          </div>
-        </details>
-
-        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Availability is set on your Calendar, and payment terms are agreed in each
-          couple&rsquo;s inquiry — so this card stays simple.
+          <span className="min-w-0 flex-1">Couldn’t load {unread.join(' · ')} — Save waits so nothing is lost.</span>
+          <a href={returnTo ?? ''} className="sn-press inline-flex min-h-11 flex-none items-center px-1.5 font-bold underline underline-offset-2">Retry</a>
         </p>
+      ) : null}
+      {errorLine ? (
+        <p
+          role="alert"
+          data-maker-error=""
+          className="rounded-2xl px-3.5 py-3 text-[14px] leading-snug"
+          style={{ background: 'color-mix(in srgb, rgb(var(--color-danger)) 10%, transparent)', color: 'rgb(var(--color-danger))' }}
+        >
+          {errorLine}
+        </p>
+      ) : null}
+
+      {/* ── YOU LEFT A CARD HERE — offered, never restored behind their back. ── */}
+      {offeredKeep && !keepDecided ? (
+        <MakerRow
+          icon={<Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+          title="Picked up where you left off?"
+          line={`A card you started ${keepAgeLabel(offeredKeep.at, Date.now())} · only on this device`}
+          right={
+            <span className="flex items-center gap-1.5">
+              <ActionButton tone="neutral" icon={X} label="Fresh" onClick={() => { clearKeep(); setOfferedKeep(null); setKeepDecided(true); }} />
+              <ActionButton tone="brand" icon={Check} label="Pick up" onClick={() => restoreKeep(offeredKeep)} />
+            </span>
+          }
+          data="keep"
+        />
+      ) : null}
+
+      {/* ── STARTED FROM ANOTHER CARD — said before anything is pressed. ── */}
+      {initial && !isEdit ? (
+        <p className="text-[14px] leading-snug text-ink/70" data-maker-copied="">
+          Started from <b className="text-ink">{initial.sourceTitle ?? 'one of your cards'}</b> — a new card; that one
+          keeps its bookings.
+          {customizationEnabled
+            ? initial.customization.status === 'copied'
+              ? ` Its ${initial.customization.items.length === 1 ? 'option' : `${initial.customization.items.length} options`} under What’s included came across too — check them before you save.`
+              : initial.customization.status === 'unreadable'
+                ? ' We couldn’t read the options on that card just now, so none came across.'
+                : ' No options are linked to that card, so none came across.'
+            : ''}
+        </p>
+      ) : null}
+
+      <div className="lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:items-start lg:gap-8">
+        {/* ═══ THE CARD, ON TOP — the shipped face, painted from the live form ═══ */}
+        <div className="sticky top-2 z-10 lg:top-24" data-maker-card="">
+          <div className="rounded-2xl" style={{ background: 'var(--m-paper)' }}>
+            {face ? (
+              <ServiceCardFace
+                snap={{ ...face, name: title.trim() || activeCategoryLabel || 'Your service' }}
+                leafPathLabel={activeCategoryLabel ? `${activeCategoryLabel}${shopName ? ` · ${shopName}` : ''}` : 'Pick what you offer'}
+                coverUrl={editing && snap.hasCover && editing.coverKey && currentCoverKey(formRef.current) === editing.coverKey ? editing.coverUrl : null}
+              />
+            ) : (
+              <div aria-hidden className="h-[138px] rounded-2xl border" style={{ borderColor: line }} />
+            )}
+          </div>
+          <p
+            data-maker-status={status.tone}
+            className="mt-3 flex items-start gap-2.5 text-[15px] leading-snug"
+            style={{ color: status.tone === 'ok' ? 'rgb(var(--color-ok))' : 'rgb(var(--color-warn))' }}
+          >
+            {status.tone === 'ok' ? (
+              <Check aria-hidden className="mt-0.5 h-[18px] w-[18px] flex-none" strokeWidth={2.2} />
+            ) : (
+              <EyeOff aria-hidden className="mt-0.5 h-[18px] w-[18px] flex-none" strokeWidth={2} />
+            )}
+            <span>
+              {status.lead ? <>{status.lead} </> : null}
+              <b className="font-semibold">{status.text}</b>
+            </span>
+          </p>
         </div>
 
-        {/* ═══ SHEETS — always mounted, `hidden` when closed, so every field
-            posts whether or not its sheet was ever opened. ═══════════════════ */}
+        <form
+          id={FORM_ID}
+          ref={formRef}
+          action={commitVendorService}
+          onSubmit={onSubmit}
+          className="mt-2 lg:mt-0"
+          data-card-form=""
+        >
+          <PendingWatch onChange={setPending} />
+          <input type="hidden" name="category" value={category} />
+          {/* C3 2026-08-28 — set only when the current kind resolved a genuine search miss. */}
+          <input type="hidden" name="collected_kind_phrase" value={collectPhrase ?? ''} />
+          {claimToken ? <input type="hidden" name="claim_token" value={claimToken} /> : null}
+          <input type="hidden" name="coverage_id" value={coverageId} />
+          {editing ? <input type="hidden" name="vendor_service_id" value={editing.serviceId} /> : null}
+          <input type="hidden" name="publish" value={publishValue} />
+          <input type="hidden" name="includes_setnayan_gift" value={giftOn ? 'on' : 'off'} />
+          <input type="hidden" name="schedule_choice" value={scheduleChoice === scheduleNow ? '' : scheduleChoice} />
+          {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
 
-        {/* ═══ WHAT A CARD IS — ONCE, EVER ════════════════════════════════
-            Only on a shop's very first card. It carries no field: it is the one
-            screen that answers "what am I about to make?", which a first-timer
-            cannot get from a form no matter how short it is. */}
-        {inPass && firstCardEver ? (
-          <CanvasSheet
-            id="canvas-intro"
-            title="A card is how couples meet what you make"
-            open={sheet === 'intro'}
-            onClose={leavePass}
-            confirmLabel={null}
-            guided
-            footer={passStep === 'intro' ? passFooter : null}
-          >
-            {/* A sample card, because three sentences about a card are not a
-                card. Plainly labelled a sample — never a fake one of theirs. */}
-            <div
-              className="overflow-hidden rounded-xl border"
-              style={{ borderColor: line, background: paper }}
-            >
-              <div
-                className="flex h-24 items-center justify-center"
-                style={{ background: 'var(--m-orange-4)' }}
-              >
-                <ImageIcon aria-hidden className="h-6 w-6" strokeWidth={1.5} style={{ color: 'var(--m-orange-3)' }} />
-              </div>
-              <div className="space-y-0.5 px-3 py-2.5">
-                {/* S43 · 6 — THE SAMPLE MAY ONLY SHOW WHAT A SUPPLIER CAN WRITE.
-                    It used to be a photographer's card promising a free
-                    "engagement mini-shoot", drawn as a Setnayan Exclusive — a
-                    free-text perk that was RETIRED on 2026-09-09 and that no
-                    supplier can author any more, pitched in one trade's words to
-                    every trade. Now: a trade-neutral card whose every line is a
-                    field the maker really has — title, starting price, what's
-                    included, and the ONE shared gift line (an optional yes/no). */}
-                <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  Casa Luna Events — Full-day service
-                </p>
-                <p className="text-[13px]" style={{ color: 'var(--m-ink)' }}>
-                  from ₱25,000 per event
-                </p>
-                <p className="text-[13px]" style={{ color: 'var(--m-slate)' }}>
-                  Includes: A planning call · Travel within the city
-                </p>
-                <SetnayanGiftLine
-                  className="flex items-center gap-1.5 text-[12px]"
-                  style={{ color: 'var(--m-orange-2)' }}
-                />
-              </div>
-            </div>
-            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              A sample card — this is what couples browse.
-            </p>
-            <ul className="space-y-2.5 text-sm" style={{ color: 'var(--m-slate)' }}>
-              <li className="flex gap-2">
-                <ImageIcon aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
-                <span>
-                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The photo sells it.</span>{' '}
-                  It is the first and often the only thing a couple looks at.
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
-                <span>
-                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>A starting price and what&rsquo;s included.</span>{' '}
-                  Couples see &ldquo;from ₱&rdquo; and what comes with it. The final figure is still your quote in chat.
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <Sparkles aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
-                <span>
-                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>The Setnayan gift is optional.</span>{' '}
-                  Say yes and your card tells couples it comes with free Papic photos, sized to the booking.
-                </span>
-              </li>
-            </ul>
-            <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              A photo, a starting price and what&rsquo;s included, and your card can go live.
-              Everything else is optional, always.
-            </p>
-          </CanvasSheet>
-        ) : null}
-
-        {/* ═══ WHAT KIND OF SERVICE ═══════════════════════════════════════
-            The same grouped list My Shop's picker draws, from the same live
-            taxonomy labels — but it lands ON the card instead of navigating to
-            it. Choosing closes the sheet; the card, the pricing basis and the
-            customization editor all redraw for the chosen kind. */}
-        {canChooseKind ? (
-          <CanvasSheet
-            id="canvas-kind"
-            title="What kind of service?"
-            open={sheet === 'kind'}
-            onClose={inPass ? leavePass : () => setSheet(null)}
-            confirmLabel={inPass || !category ? null : 'Update card'}
-            guided={inPass}
-            footer={passStep === 'kind' ? passFooter : null}
-          >
-            {coveredChoices.length > 0 ? (
-              <>
-                {/* ⚠ THE BAND NOW SPEAKS THE SHOP'S OWN WORDS (owner 2026-08-28,
-                    *"yes their own words"*), so the pills below ARE the coverage
-                    names. This sentence used to LIST those same names — keeping
-                    it would print *Pabati* twice, once in prose and once as the
-                    thing you press. */}
-                <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                  {coverageNames.length > 0
-                    ? 'What you already do, in your own words.'
-                    : 'What you already do.'}{' '}
-                  A kind can hold more than one card, so you can add another where you
-                  already work.
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {coveredChoices.map((opt) => (
-                    <KindPill
-                      key={opt.value}
-                      opt={opt}
-                      on={opt.value === category}
-                      onPick={() => {
-                        pickCategory(opt.value);
-                        if (inPass) nextInPass();
-                        else setSheet(null);
-                      }}
-                    />
-                  ))}
-                </div>
-              </>
+          <div className="divide-y" style={{ borderColor: line }} data-maker-first="">
+            {/* ── What you offer ── */}
+            {canChooseKind ? (
+              <MakerRow
+                icon={<MessageSquare aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+                title="What you offer"
+                line={category ? (kindFromShop ? 'From your shop · change' : '') : `Common for ${typeWord}`}
+                lineTone={category ? 'mute' : 'brand'}
+                right={
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    {category ? <span className="truncate rounded-full bg-ink/[0.06] px-3 py-1 text-[14px] text-ink">{activeCategoryLabel}</span> : null}
+                    <ChevronRight aria-hidden className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2} />
+                  </span>
+                }
+                onPress={() => setSheet('kind')}
+                label="Choose what you offer"
+                data="kind"
+              />
             ) : (
-              <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                Pick the one this card is for. A kind can hold more than one card, so
-                you can add another even where you already work.
-              </p>
+              <MakerRow
+                icon={<MessageSquare aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+                title="What you offer"
+                line={isEdit ? 'Set when the card was made' : ''}
+                right={<span className="truncate rounded-full bg-ink/[0.06] px-3 py-1 text-[14px] text-ink">{activeCategoryLabel}</span>}
+                data="kind"
+              />
             )}
 
-            {/* ── EVERYTHING ELSE — NARROWED, NEVER HIDDEN ────────────────────
-                A shop legitimately grows (a photographer adding a photo booth),
-                so nothing is removed: the rest of the list is one tap away.
-                What the plan cannot hold is shown greyed WITH THE REASON, which
-                is the whole repair — that refusal used to arrive after the card
-                was written, as a redirect that threw the work away. */}
-            <details
-              className="rounded-xl border"
-              style={{ borderColor: line }}
-              open={coveredChoices.length === 0}
+            {/* ── Name — written for them, theirs to change (Q2: editable on an existing card too). ── */}
+            {category || isEdit ? (
+              <div className="flex min-h-[58px] items-center gap-3 py-2" data-maker-row="name">
+                <RowIcon><Pencil aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>
+                <label className="min-w-0 flex-1">
+                  <span className="block text-[16px] font-medium leading-tight text-ink">Name</span>
+                  <input
+                    id="title"
+                    name="title"
+                    value={title}
+                    onChange={(e) => {
+                      titleTouched.current = true;
+                      setTitle(e.target.value);
+                    }}
+                    maxLength={80}
+                    aria-label="Service name"
+                    placeholder={activeCategoryLabel || 'Service name'}
+                    className="mt-1 w-full rounded-xl border bg-white px-3 py-2 text-[15px] text-ink outline-none focus:border-sn-accent"
+                    style={{ borderColor: line }}
+                  />
+                  <span className="mt-0.5 block text-[13px] text-ink/55">Written for you · change it if you like</span>
+                </label>
+              </div>
+            ) : null}
+
+            {/* ── Photos — one cover is enough. ── */}
+            <Fold
+              data="photos"
+              title="Photos"
+              line={snap.hasCover ? `Cover added · up to 5 more${snap.photoCount ? ` · ${formatCount(snap.photoCount)} in` : ''}` : 'One cover is enough'}
+              lead={<RowIcon><ImageIcon aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
+              aside={snap.hasCover ? <Badge tone="ok">Added</Badge> : <Badge tone="wait">Add</Badge>}
             >
-              <summary
-                className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium"
-                style={{ color: 'var(--m-ink)' }}
-              >
-                {coveredChoices.length > 0 ? 'Something else I do' : 'All kinds of service'}
-              </summary>
-              <div className="space-y-4 border-t px-3 pb-3 pt-3" style={{ borderColor: line }}>
-                {/* A brand-new shop is the ONE state that meets the whole list —
-                    six groups is a wall to read and a second to search. */}
-                <input
-                  type="search"
-                  value={kindQuery}
-                  onChange={(e) => setKindQuery(e.target.value)}
-                  placeholder="Search all kinds — “catering”, “photobooth”…"
-                  aria-label="Search kinds of service"
-                  className="input-field"
+              <div className="space-y-3 pb-4 pt-1">
+                {/* watermark: owner-locked 2026-07-03 — a cover carries the SETNAYAN mark; square, as couples see it. */}
+                <Field label="Cover photo" htmlFor="primary_photo_r2_key" help="The first thing couples see. PNG, JPEG or WebP up to 5 MB.">
+                  <FileUpload
+                    bucket="media"
+                    pathPrefix={`vendors/${vendorProfileId}/services`}
+                    name="primary_photo_r2_key"
+                    unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
+                    maxSizeMB={5}
+                    acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                    watermark
+                    compressImage
+                    variant="square"
+                    qrGuard
+                    currentValue={editing?.coverKey ?? initial?.coverPhotoR2Key ?? null}
+                    initialDisplayUrls={initial?.mediaDisplayUrls}
+                  />
+                </Field>
+                <ShowcaseMediaFields
+                  vendorProfileId={vendorProfileId}
+                  unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
+                  onClipDurationSeconds={onClipDurationSeconds}
+                  videoCurrent={initial?.showcaseVideoR2Key ?? null}
+                  photosCurrent={initial?.showcasePhotoR2Keys}
+                  displayUrls={initial?.mediaDisplayUrls}
                 />
-                {/* ── EVERY LIVE TRADE, RANKED — SEARCH RESULTS ONLY (C1 2026-08-28) ──
-                    The 262 real trades in the coverage taxonomy are not among the
-                    legacy pills below; they only ever appear here, once a supplier
-                    types, ranked by the same shared matcher the couple-side search
-                    uses. Empty query → `rankedTrades` is `[]` → this renders nothing,
-                    which is the whole point: the rest of the list stays one tap away
-                    instead of becoming a second wall under the first one. */}
-                {rankedTrades.length > 0 ? (
-                  <div className="space-y-1.5">
-                    <p
-                      className="font-mono text-[10px] uppercase tracking-[0.15em]"
-                      style={{ color: 'var(--m-slate-3)' }}
-                    >
-                      Matches what you typed
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {rankedTrades.map((t) => (
-                        <KindPill
-                          key={t.key}
-                          opt={{
-                            value: t.key,
-                            label: t.label,
-                            standing: t.standing,
-                            why: t.why,
-                            hint: t.branch,
-                          }}
-                          on={t.key === category}
-                          onPick={() => {
-                            pickCategory(t.key);
-                            if (inPass) nextInPass();
-                            else setSheet(null);
-                          }}
-                        />
-                      ))}
+              </div>
+            </Fold>
+
+            {/* ── Price — shown as "from". ── */}
+            <Fold
+              data="price"
+              title="Price"
+              line={priceWaits ? priceWaitsLine(priceFacts) : 'Shown as “from”'}
+              lead={<RowIcon><PhilippinePeso aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
+              aside={snap.hasPrice ? <span className="text-[15px] font-semibold text-ink">{snap.priceLine.split(' · ')[0]}</span> : <Badge tone="wait">Set</Badge>}
+            >
+              <div className="space-y-2 pb-4 pt-1" data-price-waits={priceWaits ?? undefined}>
+                {priceWaits ? (
+                  <p className="text-[14px] text-ink/70">{priceWaitsLine(priceFacts)}</p>
+                ) : null}
+                {/* The box waits on a couple-seeded card; it stays MOUNTED, so the couple's recorded price still posts. */}
+                <div hidden={Boolean(priceWaits)}>
+                  <PricingBasisEditor
+                    idPrefix="canvas"
+                    category={category}
+                    basis={basis}
+                    part="main"
+                    defaults={initial?.pricing ?? EMPTY_PRICING}
+                  />
+                </div>
+              </div>
+            </Fold>
+
+            {/* ── What's included — one line is enough. ── */}
+            <Fold
+              data="included"
+              title="What’s included"
+              line={snap.inclusionLabels.length ? `${formatCount(snap.inclusionLabels.length)} line${snap.inclusionLabels.length === 1 ? '' : 's'}` : 'One line is enough'}
+              lead={<RowIcon><List aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
+              aside={snap.inclusionLabels.length ? <Badge tone="ok">Added</Badge> : <Badge tone="wait">Add</Badge>}
+            >
+              <div className="pb-4 pt-1">
+                <InclusionsEditor initial={initial?.inclusions ?? []} />
+              </div>
+            </Fold>
+
+            {/* ── Schedule — its own, or shares one. ── */}
+            <MakerRow
+              icon={<CalendarDays aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+              title="Schedule"
+              line={scheduleLine}
+              right={
+                <PickMenu
+                  label="Which schedule this card books on"
+                  value={scheduleChoice}
+                  options={scheduleOptions}
+                  onPick={setScheduleChoice}
+                  dataAttr="data-maker-schedule"
+                />
+              }
+              data="schedule"
+            />
+
+            {/* ═══ MORE SETTINGS — every other field, filled for this supplier type ═══ */}
+            <Fold
+              data="more"
+              defaultOpen={discountSeed !== null}
+              title="More settings"
+              line={`Filled for ${fillWord}`}
+              lead={<RowIcon><Settings aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
+            >
+              <div className="divide-y pb-2 pl-1" style={{ borderColor: line }} data-maker-more="">
+                <Fold data="m-price" title="Price · more" line={basis === 'per_pax' ? (category === 'crew_meals' ? 'Per meal · minimum' : 'Per guest · minimum') : basis === 'per_hour' ? 'Per hour · minimum hours · extra hour' : defaults.summary.price}>
+                  <div className="space-y-3 pb-4 pt-1">
+                    <div className="flex min-h-11 items-center justify-between gap-3">
+                      <span className="text-[15px] text-ink">How the “from” price works</span>
+                      <PickMenu
+                        label="How the price works"
+                        value={basis}
+                        options={[
+                          { key: 'fixed', label: 'One price' },
+                          { key: 'per_pax', label: category === 'crew_meals' ? 'Per meal' : 'Per guest' },
+                          { key: 'per_hour', label: 'Per hour' },
+                        ]}
+                        onPick={(k) => {
+                          basisTouched.current = true;
+                          setBasis(k as Basis);
+                        }}
+                        dataAttr="data-maker-basis"
+                      />
                     </div>
+                    <PricingBasisEditor
+                      idPrefix="canvas"
+                      category={category}
+                      basis={basis}
+                      part="more"
+                      defaults={initial?.pricing ?? EMPTY_PRICING}
+                      fixedExtra={<PriceBracketsEditor initial={initial?.brackets ?? []} />}
+                    />
                   </div>
-                ) : null}
-                {categoryOptions.map((group) => {
-                  const rest = group.options
-                    .filter((o) => o.standing !== 'covered')
-                    .filter((o) =>
-                      kindQuery.trim().length === 0
-                        ? true
-                        : o.label.toLowerCase().includes(kindQuery.trim().toLowerCase()),
-                    );
-                  if (rest.length === 0) return null;
-                  return (
-                    <div key={group.key} className="space-y-1.5">
-                      <p
-                        className="font-mono text-[10px] uppercase tracking-[0.15em]"
-                        style={{ color: 'var(--m-slate-3)' }}
-                      >
-                        {group.label}
+                </Fold>
+
+                {/* Discounts — offered, NEVER pre-filled (owner 2026-10-14). */}
+                <Fold data="m-disc" defaultOpen={discountSeed !== null} title="Discounts" line={snap.discountConditions.length ? 'Set' : 'None yet · early booking · off-peak · promo'} lead={<SubIcon><Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="pb-4 pt-1">
+                    <DiscountsEditor
+                      initial={initial?.discounts ?? []}
+                      seedOffPeak={discountSeed !== null && (initial?.discounts.length ?? 0) === 0}
+                      seedExpiry={discountSeed?.expiry}
+                      seedConditions={discountSeed?.conditions}
+                    />
+                  </div>
+                </Fold>
+
+                <Fold data="m-inc" title="What’s included · details" line={customizationEnabled && !isEdit ? 'Each line: always · optional · they pick' : 'Every line is included'} lead={<SubIcon><ListChecks aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="pb-4 pt-1">
+                    {customizationEnabled && !isEdit ? (
+                      <CustomizationStep
+                        categoryValue={category}
+                        categoryLabel={activeCategoryLabel}
+                        initialItems={initial?.customization.status === 'copied' ? initial.customization.items : undefined}
+                      />
+                    ) : customizationEnabled ? (
+                      <p className="text-[14px] text-ink/65">
+                        Choices couples make on this card (always · optional · they pick) are kept as they are.{' '}
+                        <Link href="/vendor-dashboard/packages" className="font-semibold text-sn-accent underline-offset-2 hover:underline">Your packages ›</Link>
                       </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {rest.map((opt) => (
-                          <KindPill
-                            key={opt.value}
-                            opt={opt}
-                            on={opt.value === category}
-                            onPick={() => {
-                              pickCategory(opt.value);
-                              if (inPass) nextInPass();
-                              else setSheet(null);
-                            }}
-                          />
-                        ))}
-                      </div>
+                    ) : (
+                      <p className="text-[14px] text-ink/65">Every line under What’s included is part of the price.</p>
+                    )}
+                  </div>
+                </Fold>
+
+                <Fold data="m-addons" title="Add-ons" line="Priced extras · “from ₱” each · up to 12" lead={<SubIcon><Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="pb-4 pt-1">
+                    <AddonsEditor serviceId={editing?.serviceId ?? ''} initial={editing?.addons ?? []} bare />
+                  </div>
+                </Fold>
+
+                <Fold data="m-gift" title="Setnayan gift" line={giftOn ? 'On · free Papic photos for the couple' : 'Off · free Papic photos for the couple'} lead={<SubIcon><Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="space-y-2 pb-4 pt-1">
+                    <div className="flex min-h-11 items-center justify-between gap-3">
+                      <span className="text-[15px] text-ink">Give the Setnayan gift</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={giftOn}
+                        aria-label="Give the Setnayan gift"
+                        onClick={() => setGiftOn((v) => !v)}
+                        className={SWITCH_BUTTON}
+                      >
+                        <SwitchTrack on={giftOn} />
+                      </button>
                     </div>
-                  );
-                })}
-                {kindSearchMissed ? (
-                  <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                    Nothing matches “{kindQuery.trim()}”. Try a plainer word — or tell us what
-                    you do from My Shop and we will add it. Either way you are not stuck: pick{' '}
-                    <strong>Miscellaneous</strong> for now and change it once we have your kind.
-                  </p>
-                ) : null}
-                {lockedWhy ? (
-                  <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                    {lockedWhy}{' '}
-                    <Link
-                      href={PROPOSE_CATEGORY_HREF}
-                      className="underline underline-offset-2"
-                      style={{ color: 'var(--m-ink)' }}
-                    >
-                      Tell us what you do
-                    </Link>
-                    {' '}and we&rsquo;ll take it from there — this card stays exactly as you left
-                    it.
-                  </p>
-                ) : null}
+                    <SetnayanGiftLine className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--m-orange-2)' }} />
+                    <p className="text-[13px] leading-snug text-ink/60">
+                      Couples who book this card get free Papic photos, sized to the booking. It is added to your booking
+                      fee bill — never more than 40% of that fee. Your card shows either way.
+                    </p>
+                  </div>
+                </Fold>
+
+                <Fold data="m-crew" title="Crew and transport" line={defaults.crewApplies ? defaults.summary.crew : defaults.summary.crew} lead={<SubIcon><Truck aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="space-y-3 pb-4 pt-1">
+                    {!defaults.crewApplies ? <p className="text-[13px] text-ink/60">Usually nothing to feed or move — fill it only if you bring a team.</p> : null}
+                    <Field label="Crew size" htmlFor="crew_size">
+                      <input id="crew_size" name="crew_size" type="number" min={0} step={1} defaultValue={initial?.crewSize ?? ''} className="input-field" />
+                    </Field>
+                    <IncludedFlags
+                      idPrefix="canvas"
+                      category={category}
+                      defaults={initial?.included ?? { crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
+                    />
+                  </div>
+                </Fold>
+
+                <Fold data="m-terms" title="Booking terms" line={defaults.summary.terms} lead={<SubIcon><Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="space-y-3 pb-4 pt-1">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <Field label="Book ahead (months)" htmlFor="recommended_lead_time_months">
+                        <input
+                          id="recommended_lead_time_months"
+                          name="recommended_lead_time_months"
+                          type="number"
+                          min={0}
+                          step="0.5"
+                          defaultValue={initial || isEdit ? (initial?.recommendedLeadTimeMonths ?? '') : (defaults.leadMonths ?? '')}
+                          key={initial || isEdit ? 'kept' : `lead-${kindType}`}
+                          className="input-field"
+                        />
+                      </Field>
+                      <Field label="Last-minute ends (months)" htmlFor="last_minute_end_months">
+                        <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} defaultValue={initial?.lastMinuteEndMonths ?? ''} className="input-field" />
+                      </Field>
+                      <Field label="Last-minute surcharge (%)" htmlFor="last_minute_surcharge_pct">
+                        <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} className="input-field" />
+                      </Field>
+                    </div>
+                    {slotsPerDay > 0 ? (
+                      <Field label="How many a day · this card" htmlFor="daily_capacity" help={(editing?.slots.length ?? 0) > 0 ? 'Time slots below set how many at once instead.' : `Up to ${Number.isFinite(slotsPerDay) ? formatCount(slotsPerDay) : 'any number'} on your plan. Blank = the schedule decides.`}>
+                        <input
+                          id="daily_capacity"
+                          name="daily_capacity"
+                          type="number"
+                          min={1}
+                          max={Number.isFinite(slotsPerDay) ? slotsPerDay : undefined}
+                          step={1}
+                          defaultValue={editing?.dailyCapacity ?? ''}
+                          disabled={(editing?.slots.length ?? 0) > 0}
+                          className="input-field disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                      </Field>
+                    ) : (
+                      <p className="text-[14px] text-ink/65" data-maker-capacity-wait="">How many a day · opens once you are verified. Until then the schedule decides.</p>
+                    )}
+                    <SlotRows existing={editing?.slots ?? []} />
+                  </div>
+                </Fold>
+
+                <Fold data="m-pay" title="Payment schedule" line="How couples pay · first payment · no-show terms" lead={<SubIcon><Wallet aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="pb-4 pt-1">
+                    <PaymentScheduleEditor serviceId={editing?.serviceId ?? ''} initial={editing?.schedule ?? []} bare />
+                  </div>
+                </Fold>
+
+                <Fold data="m-who" title="Who it is for" line={coverageId ? audienceLabel : 'Which of your coverages · events · faiths'} lead={<SubIcon><Users aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="space-y-2 pb-4 pt-1">
+                    {coverages.length > 0 ? (
+                      <div className="flex min-h-11 items-center justify-between gap-3">
+                        <span className="text-[15px] text-ink">Coverage</span>
+                        <PickMenu
+                          label="Coverage this card sits in"
+                          value={coverageId || 'none'}
+                          options={[{ key: 'none', label: 'Not assigned' }, ...coverages.map((c) => ({ key: String(c.id), label: c.label }))]}
+                          onPick={(k) => setCoverageId(k === 'none' ? '' : k)}
+                          dataAttr="data-maker-coverage"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-[14px] text-ink/65">Not in a coverage yet — saying Yes to “Add it to what you do” on Create puts it in one.</p>
+                    )}
+                    <MakerRow
+                      title="Events and faiths"
+                      line={coverageId ? audienceLabel : 'Pick a coverage first'}
+                      right={<ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />}
+                      onPress={() => setSheet('audience')}
+                      label="Choose the events and faiths this card is found under"
+                      data="audience"
+                    />
+                    {branches.length > 0 ? (
+                      <Field label="Branch" htmlFor="branch_id">
+                        <select id="branch_id" name="branch_id" defaultValue={editing?.branchId ?? ''} className="input-field cursor-pointer">
+                          <option value="">You (main)</option>
+                          {branches.map((b) => (
+                            <option key={b.id} value={b.id} disabled={b.usable === false}>
+                              {b.label}{b.usable === false ? ' (not active)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    ) : null}
+                  </div>
+                </Fold>
+
+                <Fold data="m-details" title="Details" line="What couples filter by · shared by every card of this kind" lead={<SubIcon><SlidersHorizontal aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="pb-4 pt-1">
+                    {detailsSlot && detailsKind === category ? (
+                      detailsSlot
+                    ) : (
+                      <p className="text-[14px] text-ink/65">
+                        {category ? `Details for ${activeCategoryLabel} open on the card once it is created.` : 'Pick what you offer first.'}{' '}
+                        <Link href="/vendor-dashboard/attributes" className="font-semibold text-sn-accent">All details ›</Link>
+                      </p>
+                    )}
+                  </div>
+                </Fold>
+
+                <Fold data="m-comes" title="Comes with" line={otherCategoriesShown.length ? 'Your other cards this one goes with' : 'No other card yet'} lead={<SubIcon><Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="pb-4 pt-1">
+                    {otherCategoriesShown.length > 0 ? (
+                      otherCategoriesShown.map((c) => (
+                        <label key={c.value} className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
+                          <span className="text-[15px] text-ink">{c.label}</span>
+                          <input type="checkbox" name="linked" value={c.value} defaultChecked={initial?.linkedCategories.includes(c.value) ?? false} className="peer sr-only" />
+                          <span aria-hidden className={SWITCH_TRACK} />
+                        </label>
+                      ))
+                    ) : (
+                      <p className="text-[14px] text-ink/65">Make another card and it can come with this one. Up to 6.</p>
+                    )}
+                  </div>
+                </Fold>
+
+                <Fold data="m-record" title="Record · collected" line={isEdit ? 'Booked · delivered · reviews · read-only' : 'Nothing yet · grows with each booking'} lead={<SubIcon><Award aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="pb-4 pt-1">
+                    {recordSlot ?? (
+                      <p className="text-[14px] text-ink/65">Booked, what was delivered, reviews — the card collects it; you type nothing. The first booking starts it.</p>
+                    )}
+                  </div>
+                </Fold>
+
+                <Fold data="m-portfolio" title="Portfolio · collected" line="Albums from events this card was booked for · read-only" lead={<SubIcon><Images aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="pb-4 pt-1">
+                    <p className="text-[14px] text-ink/65">
+                      Each booked event’s album lands here and in Their work on your page. Your cover photos are never
+                      shown as proof.
+                    </p>
+                  </div>
+                </Fold>
+
+                <Fold data="m-live" title="Live · delete · copy" line={isEdit ? (liveOn ? 'Couples can see it · hide · start another from this' : 'Not shown yet · show · start another from this') : 'Shown once it has a cover, a price and what’s included'} lead={<SubIcon><Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <div className="space-y-1 pb-4 pt-1">
+                    {isEdit && editing ? (
+                      <>
+                        <div className="flex min-h-11 items-center justify-between gap-3">
+                          <span>
+                            <span className="block text-[15px] text-ink">Couples can see it</span>
+                            <span className="block text-[13px] text-ink/55">
+                              {liveSwitchWaits ? `Waits for ${status.text}` : 'Hidden cards keep their bookings'}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={liveOn}
+                            aria-label="Couples can see it"
+                            disabled={liveSwitchWaits}
+                            onClick={() => setLiveOn((v) => !v)}
+                            className={SWITCH_BUTTON}
+                            data-maker-live=""
+                          >
+                            <SwitchTrack on={liveOn} />
+                          </button>
+                        </div>
+                        {editing.legacyPromise ? (
+                          <p className="text-[13px] text-ink/60">Your old promise · {editing.legacyPromise} · it stays on the card</p>
+                        ) : null}
+                        <Link
+                          href={`/vendor-dashboard/services/new/${category}?from=${editing.serviceId}`}
+                          className="sn-press flex min-h-11 items-center justify-between gap-3 text-[15px] text-ink"
+                          data-maker-copy=""
+                        >
+                          <span className="flex items-center gap-2"><Copy aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />Start another from this</span>
+                          <ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setSheet('delete')}
+                          className="sn-press flex min-h-11 w-full items-center justify-between gap-3 text-left text-[15px]"
+                          style={{ color: 'rgb(var(--color-danger))' }}
+                          data-maker-delete=""
+                        >
+                          <span className="flex items-center gap-2"><Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />Delete</span>
+                          <span className="text-[13px] text-ink/55">Booked before = hides instead</span>
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-[14px] text-ink/65">
+                        Create shows it to couples as soon as it has a cover, a price and what’s included — or saves it,
+                        not shown yet, until it does. Hide, copy or delete it from the card later.
+                      </p>
+                    )}
+                  </div>
+                </Fold>
               </div>
-            </details>
-          </CanvasSheet>
-        ) : null}
-
-        <CanvasSheet
-          id="canvas-media"
-          title={inPass ? 'Show one photo' : 'Photos'}
-          open={sheet === 'media'}
-          onClose={inPass ? leavePass : () => setSheet(null)}
-          confirmLabel={inPass ? null : 'Update card'}
-          guided={inPass}
-          footer={passStep === 'media' ? passFooter : null}
-        >
-          <Field
-            label="Cover photo"
-            htmlFor="primary_photo_r2_key"
-            help="The first thing couples see, shown 1:1. PNG, JPEG, or WebP up to 5 MB. Required to publish."
-          >
-            {/* watermark: owner-locked 2026-07-03 — service COVERS carry the
-                SETNAYAN watermark like every other marketplace photo.
-                variant="square" is the canonical 1:1 picker (owner 2026-07-27). */}
-            <FileUpload
-              bucket="media"
-              pathPrefix={`vendors/${vendorProfileId}/services`}
-              name="primary_photo_r2_key"
-              unsavedHint="press Publish service or Save as draft below"
-              maxSizeMB={5}
-              acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-              watermark
-              compressImage
-              variant="square"
-              qrGuard
-              currentValue={initial?.coverPhotoR2Key ?? null}
-              initialDisplayUrls={initial?.mediaDisplayUrls}
-            />
-          </Field>
-          <ShowcaseMediaFields
-            vendorProfileId={vendorProfileId}
-            unsavedHint="press Publish service or Save as draft below"
-            onClipDurationSeconds={onClipDurationSeconds}
-            videoCurrent={initial?.showcaseVideoR2Key ?? null}
-            photosCurrent={initial?.showcasePhotoR2Keys}
-            displayUrls={initial?.mediaDisplayUrls}
-          />
-        </CanvasSheet>
-
-        <CanvasSheet
-          id="canvas-price"
-          title="Price"
-          open={sheet === 'price'}
-          onClose={() => setSheet(null)}
-          footer={passStep === 'price' ? passFooter : null}
-        >
-          <PricingBasisEditor
-            idPrefix="canvas"
-            category={category}
-            defaults={
-              initial?.pricing ?? {
-                pricing_basis: 'fixed',
-                starting_price_php: null,
-                base_pax: null,
-                added_pax_price_php: null,
-                per_pax_price_php: null,
-                min_pax: null,
-                hour_base_php: null,
-                min_hours: null,
-                extra_hour_php: null,
-              }
-            }
-            fixedExtra={<PriceBracketsEditor initial={initial?.brackets ?? []} />}
-          />
-          <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-            Per head sets the minimum pax you can serve · per hour covers a first block
-            then bills each extra hour · per event is flat, whatever the hours or pax.
-            Either way the real number is quoted in each couple&rsquo;s inquiry.
-          </p>
-          {/* WHY THE NUMBER IS ASKED FOR AT ALL — said where the field is, not
-              in a banner afterwards. A supplier reading "required" with no
-              reason reads a toll gate; this is the one sentence that makes it
-              their own interest. */}
-          <p className="text-xs" style={{ color: 'var(--m-orange-2)' }}>
-            A starting price is required to publish. It is how a couple planning a
-            budget finds this card — with no figure there is nothing to match them to.
-          </p>
-          <DiscountsEditor initial={initial?.discounts ?? []} />
-          <Field label="Crew size (optional)" htmlFor="crew_size">
-            <input id="crew_size" name="crew_size" type="number" min={0} step={1} defaultValue={initial?.crewSize ?? ''} className="input-field" />
-          </Field>
-          <IncludedFlags
-            idPrefix="canvas"
-            category={category}
-            defaults={
-              initial?.included ?? {
-                crew_meal_included: false,
-                transport_included: false,
-                transport_flat_fee_php: null,
-              }
-            }
-          />
-          <details className="rounded-lg border p-3" style={{ borderColor: line }}>
-            <summary className="cursor-pointer text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-              Lead-time rules (advanced) — optional
-            </summary>
-            <div className="mt-3 space-y-3">
-              <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                Starting points the platform uses. Skip these and you can still publish.
-              </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Field label="Recommended lead (months)" htmlFor="recommended_lead_time_months">
-                  <input id="recommended_lead_time_months" name="recommended_lead_time_months" type="number" min={0} step="0.5" defaultValue={initial?.recommendedLeadTimeMonths ?? ''} className="input-field" />
-                </Field>
-                <Field label="Last-minute ends (months)" htmlFor="last_minute_end_months">
-                  <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} defaultValue={initial?.lastMinuteEndMonths ?? ''} className="input-field" />
-                </Field>
-                <Field label="Last-minute surcharge (%)" htmlFor="last_minute_surcharge_pct">
-                  <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} className="input-field" />
-                </Field>
-              </div>
-            </div>
-          </details>
-        </CanvasSheet>
-
-        <CanvasSheet
-          id="canvas-excl"
-          title={inPass ? 'Give a Setnayan gift?' : 'Setnayan gift'}
-          open={sheet === 'excl'}
-          onClose={inPass ? leavePass : () => setSheet(null)}
-          confirmLabel={inPass ? null : 'Update card'}
-          guided={inPass}
-          footer={passStep === 'excl' ? passFooter : null}
-        >
-          {/*
-            THE WHOLE CONTROL. It used to be a 500-character free-text box, and
-            the two cards live in production when it was retired say "Free
-            1-hour extension for Setnayan couples" and "FREE" — which is the
-            argument against free text, not for it: Setnayan could not price,
-            honour or even parse what a supplier typed there.
-
-            ⚠ NO NUMBER IS OFFERED OR PROMISED HERE. The count is 40% of the
-            booking fee spent along the live Papic rung ladder, and the booking
-            fee does not exist until a price is agreed. The supplier learns the
-            exact figure on the quote; so does the couple.
-          */}
-          <input type="hidden" name="includes_setnayan_gift" value={giftOn ? 'on' : 'off'} />
-          <div className="flex gap-2" role="group" aria-label="Include a Setnayan gift">
-            {[
-              { on: true, label: 'Yes, include it' },
-              { on: false, label: 'No, not on this card' },
-            ].map((opt) => (
-              <button
-                key={opt.label}
-                type="button"
-                onClick={() => setGiftOn(opt.on)}
-                aria-pressed={giftOn === opt.on}
-                className="min-h-[44px] flex-1 rounded-xl border px-3 py-2 text-sm font-medium"
-                style={{
-                  borderColor: giftOn === opt.on ? 'var(--m-orange-2)' : line,
-                  background: giftOn === opt.on ? 'var(--m-orange-1)' : paper,
-                  color: giftOn === opt.on ? 'var(--m-ink)' : 'var(--m-slate-2)',
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
+            </Fold>
           </div>
-          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            Say yes and every couple who books this card gets{' '}
-            <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
-              free Papic photos
-            </span>{' '}
-            for their celebration — a real Setnayan product, given in your name. The number of
-            photos is worked out from your booking fee and appears on the quote, so there is
-            nothing here for you to set.
-          </p>
-          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            It is added to your lock bill beside the booking fee, capped at 40% of that fee — never
-            more. Leaving it off is fine: your card publishes either way.
-          </p>
-        </CanvasSheet>
+          {askResult && askResult.tone === 'ok' ? (
+            <p role="status" className="mt-3 text-[14px]" style={{ color: 'rgb(var(--color-ok))' }}>{askResult.text}</p>
+          ) : null}
+        </form>
+      </div>
 
-        <CanvasSheet
-          id="canvas-custom"
-          title={inPass ? 'What’s included?' : 'What couples get'}
-          open={sheet === 'custom'}
-          onClose={inPass ? leavePass : () => setSheet(null)}
-          confirmLabel={inPass ? null : undefined}
-          guided={inPass}
-          footer={passStep === 'custom' ? passFooter : null}
-        >
-          {/* H2 · the pass asks for at least one line here — "what's
-              included" joined the publish gate 2026-09-11 (owner: "the
-              cover-photo · title · inclusions requirements stay"). */}
-          <InclusionsEditor initial={initial?.inclusions ?? []} />
-          {/* The #3846 merged customization editor, mounted whole. Flag-dark on
-              the SAME flag as the wizard: off ⇒ unmounted ⇒ contributes no
-              field, exactly as the wizard behaves. */}
-          {customizationEnabled ? (
-            <CustomizationStep
-              categoryValue={category}
-              categoryLabel={activeCategoryLabel}
-              initialItems={
-                initial?.customization.status === 'copied'
-                  ? initial.customization.items
-                  : undefined
-              }
+      {/* ═══ THE THUMB ROW — Preview (grey) · Create / Save (the one main) ═══ */}
+      <SupplierThumbRow name="maker" label="Card actions">
+        <ActionButton tone="neutral" icon={Eye} label="Preview" onClick={() => setSheet('preview')} />
+        <ActionButton
+          tone="brand"
+          main
+          type="submit"
+          form={FORM_ID}
+          icon={Check}
+          label={pending ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save' : 'Create'}
+          waiting={pending || saveBlocked}
+        />
+      </SupplierThumbRow>
+
+      {/* ═══ SHEETS — choices and sibling forms only. A sheet portals to <body>, so NO card field may live in one. ═══ */}
+
+      {/* What you offer — rows, the shop's own words first ("Common for a caterer"), search, Something else, Ask us. */}
+      {canChooseKind ? (
+        <CanvasSheet id="canvas-kind" title="What you offer" open={sheet === 'kind'} onClose={() => setSheet(null)} confirmLabel={null}>
+          <label className="flex min-h-11 items-center gap-2 rounded-full border px-3.5" style={{ borderColor: line }}>
+            <Search aria-hidden className="h-4 w-4 flex-none text-ink/50" strokeWidth={1.9} />
+            <input
+              type="search"
+              value={kindQuery}
+              onChange={(e) => setKindQuery(e.target.value)}
+              placeholder="Search what you offer"
+              aria-label="Search kinds of service"
+              className="min-w-0 flex-1 bg-transparent py-2 text-[15px] outline-none"
             />
+          </label>
+
+          {rankedTrades.length > 0 ? (
+            <KindGroup heading="Matches what you typed">
+              {rankedTrades.map((t) => (
+                <KindRow
+                  key={t.key}
+                  opt={{ value: t.key, label: t.label, standing: t.standing, why: t.why, hint: t.branch }}
+                  on={t.key === category}
+                  onPick={() => {
+                    pickCategory(t.key);
+                    setSheet(null);
+                  }}
+                />
+              ))}
+            </KindGroup>
+          ) : null}
+
+          {coveredChoices.length > 0 ? (
+            <KindGroup heading={`Common for ${typeWord}`} note={coverageNames.length > 0 ? 'What you already do, in your own words' : undefined}>
+              {coveredChoices.map((opt) => (
+                <KindRow
+                  key={opt.value}
+                  opt={opt}
+                  on={opt.value === category}
+                  onPick={() => {
+                    pickCategory(opt.value);
+                    setSheet(null);
+                  }}
+                />
+              ))}
+            </KindGroup>
+          ) : null}
+
+          <KindGroup heading="Something else">
+            {categoryOptions.map((group) => {
+              const rest = group.options
+                .filter((o) => o.standing !== 'covered')
+                .filter((o) =>
+                  kindQuery.trim().length === 0
+                    ? true
+                    : o.label.toLowerCase().includes(kindQuery.trim().toLowerCase()),
+                );
+              if (rest.length === 0) return null;
+              return (
+                <Fold key={group.key} data={`kind-${group.key}`} title={group.label} line={`${formatCount(rest.length)} kind${rest.length === 1 ? '' : 's'}`} defaultOpen={kindQuery.trim().length > 0}>
+                  <div className="pb-2">
+                    {rest.map((opt) => (
+                      <KindRow
+                        key={opt.value}
+                        opt={opt}
+                        on={opt.value === category}
+                        onPick={() => {
+                          pickCategory(opt.value);
+                          setSheet(null);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </Fold>
+              );
+            })}
+            <Link
+              href={PROPOSE_CATEGORY_HREF}
+              className="sn-press flex min-h-[58px] items-center gap-3 py-2"
+              data-kind-ask-us=""
+            >
+              <RowIcon><MessageSquare aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-medium text-ink">Ask us</span>
+                <span className="block text-[13.5px] text-ink/55">Tell us what you do in your own words</span>
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />
+            </Link>
+          </KindGroup>
+
+          {kindSearchMissed ? (
+            <p className="text-[14px] text-ink/65">
+              Nothing matches “{kindQuery.trim()}”. Try a plainer word — or Ask us and we will add it. You are not stuck:
+              pick <strong>Miscellaneous</strong> for now and change it once we have your kind.
+            </p>
+          ) : null}
+          {lockedWhy ? (
+            <p className="text-[14px] text-ink/65">
+              {lockedWhy}{' '}
+              <Link href={PROPOSE_CATEGORY_HREF} className="font-semibold text-sn-accent underline-offset-2 hover:underline">
+                Tell us what you do
+              </Link>{' '}
+              and we&rsquo;ll take it from there — this card stays exactly as you left it.
+            </p>
           ) : null}
         </CanvasSheet>
-      </form>
+      ) : null}
+
+      {/* 🏷 Add <kind> to what you do? — asked once, on Create. */}
+      {ask ? (
+        <CanvasSheet id="canvas-ask" title={coverageAskLine(ask.label)} open={sheet === 'ask'} onClose={() => setSheet(null)} confirmLabel={null}>
+          <p className="text-[15px] leading-snug text-ink/75">
+            This card is a <b className="text-ink">{activeCategoryLabel}</b>. Couples search suppliers by what they do —
+            add it and this card is found there too.
+          </p>
+          {askResult && askResult.tone !== 'ok' ? (
+            <p role={askResult.tone === 'bad' ? 'alert' : 'status'} data-ask-result={askResult.tone} className="text-[14px] leading-snug" style={{ color: askResult.tone === 'bad' ? 'rgb(var(--color-danger))' : 'rgb(var(--color-warn))' }}>
+              {askResult.text}
+              {askResult.tone === 'plan' ? (
+                <>
+                  {' '}
+                  <Link href="/vendor-dashboard/subscription" className="font-semibold text-sn-accent underline-offset-2 hover:underline">See plans ›</Link>
+                </>
+              ) : null}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {askResult && askResult.tone !== 'ok' ? (
+              <ActionButton tone="brand" main icon={Check} label={isEdit ? 'Save the card' : 'Create the card'} onClick={() => { setSheet(null); setSubmitNext(true); }} />
+            ) : (
+              <>
+                <ActionButton tone="neutral" icon={X} label="Not now" onClick={() => answerAsk('no')} waiting={asking} />
+                <ActionButton tone="brand" main icon={Plus} label={asking ? 'Adding…' : 'Yes, add it'} onClick={() => answerAsk('yes')} waiting={asking} />
+              </>
+            )}
+          </div>
+        </CanvasSheet>
+      ) : null}
+
+      {/* Preview — the card as couples meet it. */}
+      <CanvasSheet id="canvas-preview" title="As couples see it" open={sheet === 'preview'} onClose={() => setSheet(null)} confirmLabel={null}>
+        {face ? (
+          <ServiceCardFace
+            snap={{ ...face, name: title.trim() || activeCategoryLabel || 'Your service' }}
+            leafPathLabel={activeCategoryLabel}
+          />
+        ) : null}
+        {snap.inclusionLabels.length ? (
+          <ul className="space-y-1.5 text-[14px] text-ink/80">
+            {snap.inclusionLabels.map((l) => (
+              <li key={l} className="flex gap-2"><Check aria-hidden className="mt-0.5 h-4 w-4 flex-none" style={{ color: 'rgb(var(--color-ok))' }} strokeWidth={2} />{l}</li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="text-[13px] text-ink/55">The final figure is your quote in the chat.</p>
+      </CanvasSheet>
+
+      {/* Delete — its own form; a card anyone booked hides instead (said before the tap). */}
+      {editing ? (
+        <CanvasSheet id="canvas-delete" title="Delete this card?" open={sheet === 'delete'} onClose={() => setSheet(null)} confirmLabel={null}>
+          <p className="text-[15px] leading-snug text-ink/75">
+            If a couple ever booked or asked about it, it is hidden instead, so their record stays. Otherwise it is gone.
+          </p>
+          <form action={deleteVendorService} className="flex flex-wrap gap-2">
+            <input type="hidden" name="vendor_service_id" value={editing.serviceId} />
+            <ActionButton tone="neutral" icon={X} label="Keep it" onClick={() => setSheet(null)} />
+            <SupplierSubmit tone="danger" main icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Delete" pendingLabel="Deleting…" />
+          </form>
+        </CanvasSheet>
+      ) : null}
 
       {/* ═══════════════════════════════════════════════════════════════════
           parity:ignore-start
-          THE AUDIENCE SHEET IS A SIBLING FORM, NOT A NESTED ONE.
-
-          Who finds this card is `vendor_coverages.event_types` / `.faiths` —
-          rows the couple-side filters already read, written by the SHIPPED
-          `updateCoverageServes` action (services/coverage-actions.ts). It is a
-          different write from the card's, so it is a different form, placed
-          OUTSIDE the card form: nesting it would let a no-JS submit of the card
-          dispatch THIS action instead (see scripts/lint-nested-forms.mjs).
-
-          The chips, their field names and the "empty faiths = all faiths
-          welcomed" rule are lifted from coverage-panel.tsx — the only thing new
-          is the Life-events / Events split, which is presentation over ONE array.
-
-          🔑 IT SAVES AND STAYS. The shipped `updateCoverageServes` ends in a
-          redirect to Services, which — pressed from HERE, mid-build — threw away
-          every unposted thing on the card: title, price, inclusions, the
-          customization draft, the photos already uploaded. The sheet used to
-          WARN about that, and a warning that precedes losing the vendor's work
-          is not a fix. This form posts `updateCoverageServesInPlace` instead:
-          the same write, the same validation, the same revalidation, reported
-          here beside the button. The Services page's own coverage panel still
-          uses the redirecting action — it is already on that page, so landing
-          back on it costs nothing.
+          THE AUDIENCE SHEET IS A SIBLING FORM, NOT A NESTED ONE. Who finds this card is
+          `vendor_coverages.event_types` / `.faiths` — a different write from the card's, so a different form, outside
+          the card form (scripts/lint-nested-forms.mjs). It posts `updateCoverageServesInPlace`: the same write and
+          validation, reported here beside the button, never a redirect that would throw the card away.
           ═══════════════════════════════════════════════════════════════════ */}
       <CanvasSheet
         id="canvas-audience"
@@ -1928,44 +1517,16 @@ export function CanvasMaker({
         onClose={() => setSheet(null)}
         confirmLabel={null}
       >
-        {coverages.length === 0 ? (
+        {coverages.length === 0 || !coverageId ? (
           <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            This card isn&rsquo;t in a coverage yet, so nobody is searching for it. Add a
-            coverage from your Shop first — then come back and choose who it serves.
+            Pick the coverage this card sits in first (Who it is for › Coverage) — then choose the events and faiths it
+            is found under.
           </p>
         ) : (
           <form action={saveAudience} className="space-y-4">
             <input type="hidden" name="coverage_id" value={coverageId} />
-            <label className="block space-y-1">
-              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                This card sits in
-              </span>
-              {/* NO `name` — the picker drives the hidden coverage_id on BOTH
-                  forms. Giving it one would add a duplicate to the payload. */}
-              <select
-                value={coverageId}
-                onChange={(e) => setCoverageId(e.target.value)}
-                aria-label="Coverage this card sits in"
-                className="input-field cursor-pointer"
-              >
-                <option value="">— not assigned —</option>
-                {coverages.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* EVERY vocab option THE LEAF MAY SERVE renders, across these
-                groups. The split is presentation over ONE array; the grouping
-                (and the union invariant that keeps a new admin-added type from
-                falling through) lives in lib/canvas-audience-groups.ts, tested.
-                The only pre-filter is allowedEventOptions — the SAME set the
-                server enforces on save (parseEventTypes), so a chip here is
-                never checkable-then-silently-dropped. An ad-hoc `.filter()`
-                instead is exactly how five live event types were silently
-                strippable in the first cut. */}
+            {/* EVERY vocab option THE LEAF MAY SERVE renders, across these groups (lib/canvas-audience-groups.ts);
+                the only pre-filter is allowedEventOptions — the SAME set the server enforces on save. */}
             {audienceGroups(audienceOptions).map((group) => (
               <ChipGroup
                 key={group.id}
@@ -1999,10 +1560,9 @@ export function CanvasMaker({
               onToggle={(k) => setFaiths((cur) => toggle(cur, k))}
               disabled={!coverageId}
             />
-
             <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              Who-it&rsquo;s-for is saved on your coverage, not on this card — it saves on
-              its own and your card stays exactly as you left it.
+              Who-it&rsquo;s-for is saved on your coverage, not on this card — it saves on its own and your card stays
+              exactly as you left it.
             </p>
             <SubmitButton
               className="button-primary min-h-[44px] disabled:opacity-50"
@@ -2011,16 +1571,8 @@ export function CanvasMaker({
             >
               Save who it&rsquo;s for
             </SubmitButton>
-            {/* The outcome lands HERE, beside the button that caused it. A
-                refusal must never be silent: the shipped action showed one by
-                putting `?error=` on the URL it redirected to, and this form no
-                longer goes anywhere. */}
             {audienceState.message ? (
-              <p
-                role="alert"
-                className="text-xs"
-                style={{ color: 'var(--m-blush-deep)' }}
-              >
+              <p role="alert" className="text-xs" style={{ color: 'var(--m-blush-deep)' }}>
                 {audienceState.message}
               </p>
             ) : null}
@@ -2037,20 +1589,164 @@ export function CanvasMaker({
   );
 }
 
+const EMPTY_PRICING = {
+  pricing_basis: 'fixed' as const,
+  starting_price_php: null,
+  base_pax: null,
+  added_pax_price_php: null,
+  per_pax_price_php: null,
+  min_pax: null,
+  hour_base_php: null,
+  min_hours: null,
+  extra_hour_php: null,
+};
+
+/** The cover key on the form right now — the face draws the stored picture only while it is unchanged. */
+function currentCoverKey(form: HTMLFormElement | null): string | null {
+  if (!form) return null;
+  const v = new FormData(form).get('primary_photo_r2_key');
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
+/** Lifts the card form's pending state to the thumb row, which is portalled outside the form. */
+function PendingWatch({ onChange }: { onChange: (pending: boolean) => void }) {
+  const { pending } = useFormStatus();
+  useEffect(() => {
+    onChange(pending);
+  }, [pending, onChange]);
+  return null;
+}
+
 function toggle(list: string[], key: string): string[] {
   return list.includes(key) ? list.filter((k) => k !== key) : [...list, key];
 }
 
-// ── Card regions ────────────────────────────────────────────────────────────
+// ── Rows ────────────────────────────────────────────────────────────────────
+
+/** The 40 px icon circle a first-question row leads with (the prototype's `.row .ico`). */
+function RowIcon({ children }: { children: ReactNode }) {
+  return (
+    <span
+      aria-hidden
+      className="grid h-10 w-10 flex-none place-items-center rounded-full text-ink"
+      style={{ background: 'color-mix(in srgb, rgb(var(--color-gild)) 20%, transparent)' }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** The smaller mark a More-settings fold leads with. */
+function SubIcon({ children }: { children: ReactNode }) {
+  return <span aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-full text-ink/70">{children}</span>;
+}
 
 /**
- * One kind of service, as a pill.
- *
- * 🔒 A LOCKED PILL IS NOT A BUTTON. It is disabled, not merely styled grey —
- * a pill that looks refused and still submits is the worst of both, and the
- * refusal it would meet lives on the far side of a whole authored card.
+ * One row: icon · title over a one-line summary · its control on the right. Pressable (a sheet opens) when
+ * `onPress` is given; otherwise the right-hand control is the thing pressed.
  */
-function KindPill({
+function MakerRow({
+  icon,
+  title,
+  line,
+  lineTone = 'mute',
+  right,
+  onPress,
+  label,
+  data,
+}: {
+  icon?: ReactNode;
+  title: string;
+  line?: string;
+  lineTone?: 'mute' | 'brand';
+  right?: ReactNode;
+  onPress?: () => void;
+  label?: string;
+  data: string;
+}) {
+  const body = (
+    <>
+      {icon ? <RowIcon>{icon}</RowIcon> : null}
+      <span className="min-w-0 flex-1">
+        <span className="block text-[16px] font-medium leading-tight text-ink">{title}</span>
+        {line ? (
+          <span className={`block truncate text-[13.5px] ${lineTone === 'brand' ? 'text-sn-accent' : 'text-ink/55'}`}>{line}</span>
+        ) : null}
+      </span>
+      {right ? <span className="flex min-w-0 max-w-[60%] flex-none items-center justify-end">{right}</span> : null}
+    </>
+  );
+  if (onPress) {
+    return (
+      <button type="button" onClick={onPress} aria-label={label} className="sn-press flex min-h-[58px] w-full items-center gap-3 py-2 text-left" data-maker-row={data}>
+        {body}
+      </button>
+    );
+  }
+  return (
+    <div className="flex min-h-[58px] items-center gap-3 py-2" data-maker-row={data}>
+      {body}
+    </div>
+  );
+}
+
+/** Time slots — open to every plan (owner 2026-10-14). Existing ones can be removed; new ones added; all save with the card. */
+function SlotRows({ existing }: { existing: VendorServiceTimeSlot[] }) {
+  const [adds, setAdds] = useState<number[]>([]);
+  const next = useRef(0);
+  return (
+    <div className="space-y-2" data-maker-slots="">
+      <p className="text-[15px] text-ink">Exact time slots <span className="text-[13px] text-ink/55">· fixed times couples pick · every plan</span></p>
+      {existing.map((s) => (
+        <label key={s.slot_id} className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
+          <span className="text-[14px] text-ink">
+            {s.slot_label} · {formatSlotTime(s.start_time)}–{formatSlotTime(s.end_time)} · {formatCount(s.slot_capacity)} at once
+          </span>
+          <span className="flex items-center gap-2 text-[13px] text-ink/55">
+            Remove
+            <input type="checkbox" name="remove_slot_id" value={s.slot_id} className="h-5 w-5 accent-[rgb(var(--color-danger))]" />
+          </span>
+        </label>
+      ))}
+      {adds.map((k) => (
+        <div key={k} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <input name="new_slot_label" maxLength={60} placeholder="e.g. Morning" aria-label="Slot name" className="input-field col-span-2 sm:col-span-1" />
+          <input name="new_slot_start" type="time" step={1800} aria-label="Starts" className="input-field" />
+          <input name="new_slot_end" type="time" step={1800} aria-label="Ends" className="input-field" />
+          <input name="new_slot_capacity" type="number" min={1} step={1} placeholder="1" aria-label="How many at once" className="input-field" />
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => setAdds((cur) => [...cur, next.current++])}
+        className="sn-press inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent"
+      >
+        <Plus className="h-4 w-4" strokeWidth={2} />
+        Add a time slot
+      </button>
+    </div>
+  );
+}
+
+// ── The kind sheet's rows ───────────────────────────────────────────────────
+
+function KindGroup({ heading, note, children }: { heading: string; note?: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <p className="pt-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink/55">{heading}</p>
+      {note ? <p className="text-[13px] text-ink/55">{note}</p> : null}
+      <div className="divide-y" style={{ borderColor: line }}>{children}</div>
+    </div>
+  );
+}
+
+/**
+ * One kind of service, as a row.
+ *
+ * 🔒 A LOCKED ROW IS NOT A BUTTON THAT WORKS. It is disabled, not merely styled grey — a row that looks refused and
+ * still picks is the worst of both, and its refusal would land on the far side of a whole authored card.
+ */
+function KindRow({
   opt,
   on,
   onPick,
@@ -2067,266 +1763,20 @@ function KindPill({
       disabled={locked}
       title={locked ? opt.why : undefined}
       onClick={onPick}
-      className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm disabled:cursor-not-allowed"
-      style={{
-        borderColor: on ? 'var(--m-orange-2)' : line,
-        background: on ? 'var(--m-orange-4)' : paper,
-        color: locked ? 'var(--m-slate-2)' : on ? 'var(--m-orange-2)' : 'var(--m-ink)',
-        opacity: locked ? 0.55 : 1,
-      }}
+      className="sn-press flex min-h-[52px] w-full items-center gap-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-55"
+      data-kind-row={opt.value}
     >
-      {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> : null}
-      {opt.label}
-      {/* A search-found TRADE carries its branch — "Sorbetes Cart" and "Ice
-          Cream Cart" are both real trades under "Food Cart" and need telling
-          apart. Legacy and coverage pills carry no hint and render as before. */}
-      {opt.hint ? (
-        <span className="text-[10px]" style={{ color: 'var(--m-slate-3)' }}>
-          · {opt.hint}
-        </span>
-      ) : null}
-      {locked ? (
-        <span className="font-mono text-[9px] uppercase tracking-[0.12em]">upgrade</span>
-      ) : null}
-    </button>
-  );
-}
-
-function CardRegion({
-  onClick,
-  label,
-  children,
-}: {
-  onClick: () => void;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="flex min-h-[44px] w-full items-center gap-2 border-t px-4 py-2.5 text-left text-[13.5px]"
-      style={{ borderColor: line }}
-    >
-      <span className="min-w-0 flex-1">{children}</span>
-      <Pencil aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
-    </button>
-  );
-}
-
-function Recap({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <dt style={{ color: 'var(--m-slate-2)' }}>{k}</dt>
-      <dd className="text-right font-medium" style={{ color: 'var(--m-ink)' }}>
-        {v}
-      </dd>
-    </div>
-  );
-}
-
-// ── Health chrome ───────────────────────────────────────────────────────────
-
-const GRADE_LABEL: Record<string, string> = {
-  blocked: 'Blocked',
-  poor: 'Poor',
-  average: 'Average',
-  good: 'Good',
-  excellent: 'Excellent',
-};
-
-function gradeColour(grade: string): string {
-  if (grade === 'blocked' || grade === 'poor') return 'var(--m-blush-deep, var(--m-orange-2))';
-  if (grade === 'good' || grade === 'excellent') return 'var(--m-sage-deep, var(--m-orange-2))';
-  return 'var(--m-orange-2)';
-}
-
-/**
- * THE ONE PROGRESS SURFACE (owner-locked 2026-07-27 — the owner saw two bars
- * and called it out; artifact 15007a4d, label one-meter-11-cover).
- *
- * Everything that tells the vendor where they stand lives in this one sticky
- * header and nowhere else: the meter, the grade + score, the item count that
- * doubles as the diagnostics toggle, the single next-best action, and the
- * diagnostics themselves collapsed beneath it. The count button disappears at
- * zero items, so a clean card has nothing to expand.
- *
- * A second meter (or a health panel further down the page) is a REGRESSION, not
- * an addition — the maker has no steps, and two progress readings that can
- * disagree is exactly the confusion the zero-step design removed.
- */
-function HealthHeader({
-  health,
-  open,
-  onToggle,
-  onGo,
-  asideAtLg = false,
-}: {
-  health: ReturnType<typeof scoreCardHealth>;
-  open: boolean;
-  onToggle: () => void;
-  onGo: (sheet: CardHealthSheet) => void;
-  /**
-   * On a laptop with a question open, the card is pinned where this header
-   * sits and would paint over it — so it steps aside until the question
-   * closes. `lg:` only: a phone keeps it exactly as before.
-   */
-  asideAtLg?: boolean;
-}) {
-  const colour = gradeColour(health.grade);
-  const items = [
-    ...health.blockers.map((f) => ({ f, tone: 'blocker' as const })),
-    ...health.warnings.map((f) => ({ f, tone: 'warning' as const })),
-    ...health.hints.map((f) => ({ f, tone: 'hint' as const })),
-  ];
-  return (
-    <div
-      className={`sticky top-0 z-20 -mx-4 border-b px-4 pb-2 pt-3 backdrop-blur sm:-mx-6 sm:px-6${
-        asideAtLg ? ' lg:hidden' : ''
-      }`}
-      style={{
-        borderColor: line,
-        background: 'color-mix(in srgb, var(--m-paper) 92%, transparent)',
-      }}
-    >
-      <div
-        className="h-2 overflow-hidden rounded-full"
-        style={{ background: 'color-mix(in srgb, var(--m-ink) 8%, transparent)' }}
-        role="progressbar"
-        aria-label="Card health"
-        aria-valuenow={health.score}
-        aria-valuemin={0}
-        aria-valuemax={100}
-      >
-        <div
-          className="sn-canvas-meter h-full rounded-full"
-          style={{ width: `${health.score}%`, background: colour }}
-        />
-      </div>
-
-      <div className="mt-1 flex items-baseline justify-between gap-3">
-        <p className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: colour }}>
-          {GRADE_LABEL[health.grade] ?? health.grade}{' '}
-          <span className="font-mono text-[10px] font-normal opacity-60">
-            {health.score}/100
-          </span>
-        </p>
-        {items.length > 0 ? (
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={open}
-            aria-controls="canvas-diagnostics"
-            className="min-h-[34px] shrink-0 px-1 text-xs font-medium"
-            style={{ color: 'var(--m-slate-2)' }}
-          >
-            {formatCount(items.length)} item{items.length === 1 ? '' : 's'} {open ? '▴' : '▾'}
-          </button>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[16px] text-ink">{opt.label}</span>
+        {opt.hint || locked ? (
+          <span className="block truncate text-[13px] text-ink/55">{locked ? 'Needs a bigger plan' : opt.hint}</span>
         ) : null}
-      </div>
-
-      <CoachChip
-        label={health.nextAction.label}
-        ready={health.nextAction.sheet === null}
-        onGo={() => onGo(health.nextAction.sheet ?? 'media')}
-      />
-
-      {items.length > 0 && open ? (
-        <div id="canvas-diagnostics" className="sn-canvas-rise mt-2 space-y-1.5 pb-1">
-          <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-            {health.band}
-          </p>
-          {items.map(({ f, tone }) => (
-            <FindingRow key={f.code + f.message} finding={f} tone={tone} onGo={onGo} />
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * The coach — ALWAYS exactly one line. Never a list: the maker has no steps, so
- * a stack of "you could also…" would just be the wizard's checklist wearing a
- * different hat. When there is nothing left it turns green and says so rather
- * than vanishing (a control that disappears reads as a bug, not as success).
- */
-function CoachChip({
-  label,
-  ready,
-  onGo,
-}: {
-  label: string;
-  ready: boolean;
-  onGo: () => void;
-}) {
-  if (ready) {
-    return (
-      <p
-        className="sn-canvas-rise mt-1.5 rounded-lg border px-3 py-2 text-[12.5px] font-medium"
-        style={{
-          borderColor: 'color-mix(in srgb, var(--m-sage-deep, var(--m-orange-2)) 40%, transparent)',
-          background: 'color-mix(in srgb, var(--m-sage, var(--m-orange-4)) 25%, transparent)',
-          color: 'var(--m-sage-deep, var(--m-ink))',
-        }}
-      >
-        {label}
-      </p>
-    );
-  }
-  return (
-    // `key` on the label so a NEW next-action re-mounts the chip and the rise
-    // animation replays — that flick is the whole signal that the goalposts moved.
-    <button
-      key={label}
-      type="button"
-      onClick={onGo}
-      className="sn-canvas-rise mt-1.5 block min-h-[38px] w-full rounded-lg border px-3 py-2 text-left text-[12.5px]"
-      style={{
-        borderColor: 'color-mix(in srgb, var(--m-orange-2) 45%, transparent)',
-        background: 'var(--m-orange-4)',
-        color: 'var(--m-orange-deep)',
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function FindingRow({
-  finding,
-  tone,
-  onGo,
-}: {
-  finding: { code: string; message: string; sheet: CardHealthSheet };
-  tone: 'blocker' | 'warning' | 'hint';
-  onGo: (sheet: CardHealthSheet) => void;
-}) {
-  const colour =
-    tone === 'blocker'
-      ? 'var(--m-blush-deep, var(--m-orange-2))'
-      : tone === 'warning'
-        ? 'var(--m-orange-2)'
-        : 'var(--m-slate)';
-  return (
-    <button
-      type="button"
-      onClick={() => onGo(finding.sheet)}
-      className="flex min-h-[38px] w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left text-xs"
-      style={{ borderColor: `color-mix(in srgb, ${colour} 35%, transparent)`, color: colour }}
-    >
-      {tone === 'blocker' ? (
-        <X aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-      ) : tone === 'warning' ? (
-        <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+      </span>
+      {on ? (
+        <Check aria-hidden className="h-5 w-5 flex-none" style={{ color: 'rgb(var(--color-ok))' }} strokeWidth={2.2} />
       ) : (
-        // A hint needs no glyph, but it does need the same gutter, so the three
-        // tones read as one list rather than three indents.
-        <span aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <ChevronRight aria-hidden className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2} />
       )}
-      <span className="flex-1">{finding.message}</span>
-      <ChevronRight aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-50" strokeWidth={2} />
     </button>
   );
 }
@@ -2366,7 +1816,7 @@ function ChipGroup({
           return (
             <label
               key={o.key}
-              className="inline-flex min-h-[34px] cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs"
+              className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs"
               style={{
                 borderColor: on ? 'var(--m-orange-3)' : line,
                 background: on ? 'var(--m-orange-4)' : paper,
@@ -2374,9 +1824,6 @@ function ChipGroup({
                 opacity: disabled ? 0.5 : 1,
               }}
             >
-              {/* Controlled + visually hidden, exactly like coverage-panel's
-                  SelectChip: the label is the whole hit target and the checkbox
-                  is the single source of truth for what posts. */}
               <input
                 type="checkbox"
                 name={coverageField}
@@ -2401,22 +1848,16 @@ function ChipGroup({
 // ── The sheet container ─────────────────────────────────────────────────────
 
 /**
- * A bottom sheet that NEVER unmounts.
+ * A bottom sheet. It holds CHOICES and SIBLING FORMS only — never a field of the card form: it portals to `<body>`
+ * (see below), and a portalled input is outside the card's `<form>`, so it would never post (the 2026-09-07 → 10-14
+ * fault this rebuild ended).
  *
- * The shipped <Sheet> primitive (app/_components/sheet.tsx) returns null when
- * closed, which is correct for a modal and fatal here: the sheets ARE the form,
- * and an unmounted input posts nothing. So this keeps the shipped primitive's
- * contract — role="dialog", aria-modal, aria-labelledby, Esc, focus trap +
- * restore, scroll lock, backdrop-dismiss, all via the same `useModalA11y` hook —
- * and swaps the unmount for the `hidden` attribute, exactly the mechanic the
- * wizard uses to keep its inactive steps submitting.
+ * Keeps the shipped primitive's contract — role="dialog", aria-modal, aria-labelledby, Esc, focus trap + restore,
+ * scroll lock, backdrop-dismiss, via `useModalA11y` — and is hidden with the `hidden` attribute when shut, so a
+ * sibling form's typed state survives a close.
  *
- * Two details that are load-bearing, not cosmetic:
- *   • the root carries NO Tailwind display utility, because `.flex` would
- *     out-cascade preflight's `[hidden]{display:none}` and the "hidden" sheet
- *     would stay on screen;
- *   • toggling display none→block restarts the CSS animation, which is why the
- *     rise replays on every open without any JS.
+ *   • the root carries NO Tailwind display utility (`.flex` would out-cascade `[hidden]{display:none}`);
+ *   • toggling display none→block restarts the CSS animation, so the rise replays on every open.
  */
 function CanvasSheet({
   id,
@@ -2424,7 +1865,6 @@ function CanvasSheet({
   open,
   onClose,
   confirmLabel = 'Update card',
-  guided = false,
   footer = null,
   children,
 }: {
@@ -2432,50 +1872,18 @@ function CanvasSheet({
   title: string;
   open: boolean;
   onClose: () => void;
-  /**
-   * ⚡ THE FIRST PASS DOES NOT VEIL THE CARD (owner 2026-08-28, on the drawn
-   * prototype). During the two questions the card IS the progress bar — it has
-   * to be visible painting itself, so the guided presentation drops the dark
-   * backdrop and sits lower. Every other sheet is unchanged: an edit made later
-   * is a modal, because nothing is being built behind it.
-   */
-  guided?: boolean;
-  /** The guided strip's own controls, under the fields. */
-  footer?: ReactNode;
-  /**
-   * The explicit confirm at the sheet's foot (owner 2026-07-28: "pop ups must
-   * have update button to avoid confusion"). Edits already applied live — this
-   * button AFFIRMS and closes; it changes nothing. Pass null only when the
-   * sheet carries its own real submit (the audience sheet's "Save who it's
-   * for"), where a second confirm would compete with it.
-   */
+  /** The explicit confirm at the sheet's foot (owner 2026-07-28). Pass null when the sheet carries its own control. */
   confirmLabel?: string | null;
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose, containerRef: dialogRef });
 
   /**
-   * 🔑 PORTAL TO <body> — `position: fixed` is relative to the nearest
-   * TRANSFORMED ancestor, not the viewport, and this sheet had one.
-   *
-   * Measured in production 2026-09-07 at 1187×1208: the page wrapper
-   * `.sn-page-enter` carries `transform: matrix(1, 0, 0, 1, 0, 0)` — an
-   * IDENTITY transform, left behind by the entrance animation and doing
-   * nothing visible. It is still a transform, so it became the containing
-   * block: this `fixed inset-0` backdrop measured **77px from the top and
-   * 184px tall** instead of filling the viewport. `lg:my-auto` then centred a
-   * 435px sheet inside 184px — `margin-top: -125.5px`, sheet top **-48px** —
-   * so it rendered squashed into the top-right corner, over the header,
-   * unreadable. Nothing was mis-styled; the container was the wrong size.
-   *
-   * This is the SAME fix `category-search-overlay.tsx` and
-   * `team-summary-chip.tsx` already carry, for the same reason, each with its
-   * own note. This sheet was the one that missed it.
-   *
-   * Removing the identity transform from `.sn-page-enter` would also work and
-   * is deliberately NOT done here: it is a shared page wrapper, and anything
-   * else relying on it as a containing block would move with it.
+   * 🔑 PORTAL TO <body> — `position: fixed` is relative to the nearest TRANSFORMED ancestor, and `.sn-page-enter`
+   * carries an identity transform (measured 2026-09-07: the backdrop was 184 px tall). The same fix
+   * `category-search-overlay.tsx` and `team-summary-chip.tsx` carry.
    */
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -2487,28 +1895,15 @@ function CanvasSheet({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className={
-          guided
-            ? 'absolute inset-0 cursor-default'
-            : // A phone keeps its veil. A laptop drops it: the card this sheet
-              // edits is pinned beside it (SUP-10) and must stay readable.
-              'absolute inset-0 bg-ink/40 backdrop-blur-sm lg:cursor-default lg:bg-transparent lg:backdrop-blur-none'
-        }
+        className="absolute inset-0 bg-ink/40 backdrop-blur-sm lg:cursor-default lg:bg-transparent lg:backdrop-blur-none"
       />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${id}-title`}
-        className={`sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto ${
-          guided ? 'max-h-[58dvh]' : 'max-h-[78dvh]'
-        } ${
-          // On a laptop the question stops being a drawer over the card and
-          // becomes a column beside it — the card is what they are building,
-          // and a 1400px screen has no reason to hide it behind a sheet. EVERY
-          // sheet since SUP-10 (2026-09-18), not only the guided pass: a later
-          // edit changes the card live too.
-          'lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[400px] lg:rounded-3xl lg:mr-6'
+        className={`sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto max-h-[86dvh] ${
+          'lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[420px] lg:rounded-3xl lg:mr-6'
         } w-full max-w-[560px] overflow-y-auto rounded-t-3xl border shadow-[0_-12px_40px_rgba(0,0,0,0.18)] focus:outline-none`}
         style={{ borderColor: line, background: paper }}
       >
@@ -2516,25 +1911,24 @@ function CanvasSheet({
           className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur"
           style={{ borderColor: line, background: 'color-mix(in srgb, var(--m-paper) 92%, transparent)' }}
         >
-          <h2 id={`${id}-title`} className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+          <h2 id={`${id}-title`} className="text-[17px] font-semibold leading-snug" style={{ color: 'var(--m-ink)' }}>
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full"
+            className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-full"
             style={{ color: 'var(--m-slate-2)' }}
           >
-            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+            <X aria-hidden className="h-5 w-5" strokeWidth={2} />
           </button>
         </header>
         <div className="sn-canvas-rise space-y-3 px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-3">
           {children}
           {footer}
           {confirmLabel !== null ? (
-            // type="button" is LOAD-BEARING: most sheets render INSIDE the one
-            // card <form> — a default-submit button here would submit the card.
+            // type="button" is LOAD-BEARING: a default-submit button inside a form would submit it.
             <button
               type="button"
               onClick={onClose}

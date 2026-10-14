@@ -21,6 +21,25 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CONFIRMED_VENDOR_STATUSES } from './events';
+import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from './not-available';
+
+/**
+ * The window's days a supplier's blocks CLOSE — the ONE rule (`lib/not-available.ts`, 2026-10-14): a one-off range
+ * or a REPEAT (every Sunday …) from its first day, read as Asia/Manila days; only an ALL-DAY block closes a day (a
+ * Sunday-morning Mass leaves the Sunday open). Every reader below folds its rows through this.
+ */
+function closedKeysOf(
+  rows: readonly { blocked_at: string; blocked_until: string; repeat_rule?: unknown; repeat_until?: unknown; day_part?: unknown }[],
+  windowKeys: ReadonlySet<string>,
+): Set<string> {
+  const out = new Set<string>();
+  for (const row of rows) {
+    if (!row.blocked_at || !row.blocked_until) continue;
+    const shape = notAvailableShapeOf(row);
+    for (const k of windowKeys) if (!out.has(k) && blockClosesDay(shape, k)) out.add(k);
+  }
+  return out;
+}
 
 export type AvailabilityResult = {
   /** Number of confirmed vendors counted for the intersection. */
@@ -108,10 +127,11 @@ export async function getCommonAvailableDays(
   // correctly.
   const { data: blocks, error: blocksErr } = await supabase
     .from('vendor_calendar_blocks')
-    .select('vendor_profile_id, blocked_at, blocked_until')
+    .select(`vendor_profile_id, blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
     .in('vendor_profile_id', profileIds)
     .lte('blocked_at', rangeEnd.toISOString())
-    .gte('blocked_until', rangeStart.toISOString());
+    // A repeat began before the window yet covers days in it — keep it (`lib/not-available.ts`).
+    .or(notAvailableWindowFilter(rangeStart.toISOString()));
   if (blocksErr) console.error('[supabase-error] lib/vendor-availability.ts · from:vendor_calendar_blocks.select', blocksErr);
 
   if (blocksErr) {
@@ -123,22 +143,8 @@ export async function getCommonAvailableDays(
   // Step 3 — build a Set of blocked-day keys across all confirmed vendors.
   // Any day blocked by ANY single confirmed vendor disqualifies that day
   // from the intersection (the goal is days that work for ALL of them).
-  const blockedDays = new Set<string>();
-  for (const block of blocks ?? []) {
-    const b = block as { blocked_at: string; blocked_until: string };
-    const start = new Date(b.blocked_at);
-    const end = new Date(b.blocked_until);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-    // Walk each day in [start, end]. blocked_until is the exclusive end
-    // (vendor block 09:00-12:00 still occupies one calendar day), so we
-    // iterate calendar days and key them YYYY-MM-DD.
-    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const finalDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    while (cursor <= finalDay) {
-      blockedDays.add(dayKey(cursor));
-      cursor.setDate(cursor.getDate() + 1);
-    }
-  }
+  // The ONE rule — repeats + all-day only (`closedKeysOf` above).
+  const blockedDays = closedKeysOf((blocks ?? []) as { blocked_at: string; blocked_until: string }[], dayKeySetFromWindow(rangeStart, rangeEnd));
 
   // Step 4 — walk every day in [rangeStart, rangeEnd] and collect the
   // ones that are NOT in blockedDays. Cursor uses Date.setDate which
@@ -266,10 +272,10 @@ export async function getVendorAvailableDays(
 
   const { data: blocks, error } = await supabase
     .from('vendor_calendar_blocks')
-    .select('blocked_at, blocked_until')
+    .select(`blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
     .eq('vendor_profile_id', vendorProfileId)
     .lte('blocked_at', rangeEnd.toISOString())
-    .gte('blocked_until', rangeStart.toISOString());
+    .or(notAvailableWindowFilter(rangeStart.toISOString()));
   if (error) console.error('[supabase-error] lib/vendor-availability.ts · from:vendor_calendar_blocks.select', error);
 
   // On error, return the unfiltered window. The marketplace will still
@@ -279,19 +285,8 @@ export async function getVendorAvailableDays(
   // queries flake.
   if (error) return windowKeys;
 
-  const blockedDays = new Set<string>();
-  for (const block of blocks ?? []) {
-    const b = block as { blocked_at: string; blocked_until: string };
-    const start = new Date(b.blocked_at);
-    const end = new Date(b.blocked_until);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const finalDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    while (cursor <= finalDay) {
-      blockedDays.add(dayKey(cursor));
-      cursor.setDate(cursor.getDate() + 1);
-    }
-  }
+  // The ONE rule — repeats + all-day only (`closedKeysOf` above).
+  const blockedDays = closedKeysOf((blocks ?? []) as { blocked_at: string; blocked_until: string }[], dayKeySetFromWindow(rangeStart, rangeEnd));
 
   const available = new Set<string>();
   for (const k of windowKeys) {
@@ -461,10 +456,10 @@ export async function getBatchVendorAvailableDays(
 
   const { data: blocks, error } = await supabase
     .from('vendor_calendar_blocks')
-    .select('vendor_profile_id, blocked_at, blocked_until')
+    .select(`vendor_profile_id, blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
     .in('vendor_profile_id', vendorProfileIds)
     .lte('blocked_at', rangeEnd.toISOString())
-    .gte('blocked_until', rangeStart.toISOString());
+    .or(notAvailableWindowFilter(rangeStart.toISOString()));
 
   // Failing-open: on read error every input vendor gets the full window.
   // Mirrors the single-vendor helper's contract — the marketplace stays
@@ -481,29 +476,15 @@ export async function getBatchVendorAvailableDays(
   // Group blocks by vendor_profile_id, expanding each block range into
   // its constituent day keys. Same expansion logic as the single-vendor
   // helper at getVendorAvailableDays above.
-  const blockedByVendor = new Map<string, Set<string>>();
-  for (const block of blocks ?? []) {
-    const b = block as {
-      vendor_profile_id: string;
-      blocked_at: string;
-      blocked_until: string;
-    };
-    const start = new Date(b.blocked_at);
-    const end = new Date(b.blocked_until);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-
-    let set = blockedByVendor.get(b.vendor_profile_id);
-    if (!set) {
-      set = new Set<string>();
-      blockedByVendor.set(b.vendor_profile_id, set);
-    }
-    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const finalDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    while (cursor <= finalDay) {
-      set.add(dayKey(cursor));
-      cursor.setDate(cursor.getDate() + 1);
-    }
+  const rowsByVendor = new Map<string, { blocked_at: string; blocked_until: string }[]>();
+  for (const block of (blocks ?? []) as { vendor_profile_id: string; blocked_at: string; blocked_until: string }[]) {
+    const list = rowsByVendor.get(block.vendor_profile_id) ?? [];
+    list.push(block);
+    rowsByVendor.set(block.vendor_profile_id, list);
   }
+  // The ONE rule — repeats + all-day only (`closedKeysOf` above).
+  const blockedByVendor = new Map<string, Set<string>>();
+  for (const [vendorId, rows] of rowsByVendor) blockedByVendor.set(vendorId, closedKeysOf(rows, windowKeys));
 
   // Compute windowKeys ∖ blockedDays per vendor. Vendors with no blocks
   // get the full window (V1 default — undeclared calendar = fully
@@ -566,10 +547,10 @@ export async function getAvailableDaysForVendorSet(
 
   const { data: blocks, error } = await client
     .from('vendor_calendar_blocks')
-    .select('vendor_profile_id, blocked_at, blocked_until')
+    .select(`vendor_profile_id, blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
     .in('vendor_profile_id', profileIds)
     .lte('blocked_at', rangeEnd.toISOString())
-    .gte('blocked_until', rangeStart.toISOString());
+    .or(notAvailableWindowFilter(rangeStart.toISOString()));
   if (error) console.error('[supabase-error] lib/vendor-availability.ts · from:vendor_calendar_blocks.select', error);
   if (error) {
     // Honest failure: report the vendor count, claim no available days.
@@ -578,21 +559,15 @@ export async function getAvailableDaysForVendorSet(
 
   // Per-vendor blocked-day sets (needed for the conflict-pair hint).
   const blockedByProfile = new Map<string, Set<string>>();
-  for (const id of profileIds) blockedByProfile.set(id, new Set());
-  for (const block of blocks ?? []) {
-    const b = block as { vendor_profile_id: string; blocked_at: string; blocked_until: string };
-    const set = blockedByProfile.get(b.vendor_profile_id);
-    if (!set) continue;
-    const start = new Date(b.blocked_at);
-    const end = new Date(b.blocked_until);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const finalDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    while (cursor <= finalDay) {
-      set.add(dayKey(cursor));
-      cursor.setDate(cursor.getDate() + 1);
-    }
+  const rowsByProfile = new Map<string, { blocked_at: string; blocked_until: string }[]>();
+  for (const block of (blocks ?? []) as { vendor_profile_id: string; blocked_at: string; blocked_until: string }[]) {
+    const list = rowsByProfile.get(block.vendor_profile_id) ?? [];
+    list.push(block);
+    rowsByProfile.set(block.vendor_profile_id, list);
   }
+  // The ONE rule — repeats + all-day only (`closedKeysOf` above).
+  const windowKeys = dayKeySetFromWindow(rangeStart, rangeEnd);
+  for (const id of profileIds) blockedByProfile.set(id, closedKeysOf(rowsByProfile.get(id) ?? [], windowKeys));
 
   // Walk the window once; collect the intersection.
   const allDayKeys: string[] = [];

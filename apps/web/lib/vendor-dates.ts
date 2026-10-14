@@ -352,6 +352,170 @@ export function dayAnswerOf(input: {
   return { tone: 'ok', word: 'Free', line: `nothing on this day${part}` };
 }
 
+/* ── THE DAY SCREEN, PER SCHEDULE (prototype SCREENS.day + dayRowsFor) ─────────────────────────────────────── */
+
+export type DayGroupRow = {
+  key: string;
+  kind: 'booked' | 'outside' | 'blocked' | 'nothing';
+  title: string;
+  line: string;
+  badge: { tone: 'ok' | 'wait' | 'quiet'; word: string } | null;
+  href?: string | null;
+};
+export type DayGroup = {
+  poolId: string;
+  label: string;
+  /** The group's right-hand word (prototype `.grp .r`): Full · Not available · "room for 1 more" · "Free all day". */
+  right: { tone: 'ok' | 'bad' | 'warn'; word: string };
+  rows: DayGroupRow[];
+  /** Seats taken (Setnayan + outside) and the schedule's "how many a day". */
+  taken: number;
+  capacity: number;
+  /** An all-day closure (or the shop's hold) covers it. */
+  closed: boolean;
+  /** Its words when closed. */
+  closedWhy: string | null;
+  /** The parts of the day not available ("morning"). */
+  parts: string[];
+};
+
+/**
+ * The day, schedule by schedule: what is not available, what is booked here, the bookings from outside (by time) —
+ * or the one true line when nothing is on it. Every block is asked through the ONE rule (`lib/not-available.ts`).
+ */
+export function dayGroupsOf(
+  day: string,
+  input: {
+    today: string;
+    pools: readonly { poolId: string; label: string; capacity: number }[];
+    bookings: readonly { key: string; poolId: string; title: string; line: string; href: string | null }[];
+    blocks: readonly (DatesBlock & { blockId?: string })[];
+    /** The shop's own holds on the day (`locked` closes; `whitelist` is shown on the day, not here). */
+    holds: readonly DatesHold[];
+  },
+): DayGroup[] {
+  return input.pools.map((p) => {
+    const mine = (poolId: string | null) => poolId === null || poolId === p.poolId;
+    const closures = input.blocks.filter((b) => (b.source === 'manual' || b.source === 'synced_calendar') && mine(b.poolId) && blockOnDay(b, day));
+    const outside = input.blocks
+      .filter((b) => b.source === 'external_client' && b.poolId === p.poolId && blockOnDay(b, day))
+      .sort((a, b) => (a.clientTime ?? '99').localeCompare(b.clientTime ?? '99'));
+    const booked = input.bookings.filter((b) => b.poolId === p.poolId);
+    const taken = booked.length + outside.length;
+    const allDay = closures.filter((b) => (b.dayPart ?? 'all_day') === 'all_day');
+    const held = input.holds.some((h) => h.stateDate === day && h.dayState === 'locked' && mine(h.poolId));
+    const closed = allDay.length > 0 || held;
+    const parts = [...new Set(closures.filter((b) => (b.dayPart ?? 'all_day') !== 'all_day').map((b) => DAY_PART_SHORT[b.dayPart!]))];
+    const rows: DayGroupRow[] = [];
+    closures.forEach((b, i) =>
+      rows.push({
+        key: `na-${b.blockId ?? i}`,
+        kind: 'blocked',
+        title: notAvailableTitle(b),
+        line: [
+          b.label?.trim() && b.label.trim() !== 'Unavailable' ? b.label.trim() : '',
+          (b.repeat ?? 'once') === 'once' ? rangeWords(b.startDate, b.endDate, input.today) : repeatWords(b).toLowerCase(),
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        badge: { tone: 'quiet', word: hoursOf(b.dayPart) ?? 'all day' },
+      }),
+    );
+    booked.forEach((b) => rows.push({ key: b.key, kind: 'booked', title: b.title, line: b.line, badge: { tone: 'ok', word: 'Booked' }, href: b.href }));
+    outside.forEach((b, i) =>
+      rows.push({
+        key: `out-${b.blockId ?? i}`,
+        kind: 'outside',
+        title: [b.clientTime ? clockWords(b.clientTime) : '', b.clientName?.trim() || 'Booking from outside'].filter(Boolean).join(' · '),
+        line: b.startDate !== b.endDate ? `From outside · ${rangeWords(b.startDate, b.endDate, input.today)}` : 'From outside',
+        badge: { tone: 'quiet', word: 'Outside' },
+      }),
+    );
+    if (rows.length === 0) {
+      rows.push({ key: 'nothing', kind: 'nothing', title: 'Nothing yet', line: `${plural(p.capacity, 'event fits', 'events fit')}`, badge: { tone: 'ok', word: 'Free' } });
+    }
+    const left = p.capacity - taken;
+    const right: DayGroup['right'] = closed
+      ? { tone: 'warn', word: 'Not available' }
+      : left <= 0
+        ? { tone: 'bad', word: 'Full' }
+        : taken > 0
+          ? { tone: 'ok', word: `room for ${left} more` }
+          : { tone: 'ok', word: 'Free all day' };
+    const why = allDay[0]?.label?.trim();
+    return {
+      poolId: p.poolId,
+      label: p.label,
+      right,
+      rows,
+      taken,
+      capacity: p.capacity,
+      closed,
+      closedWhy: closed ? (why && why !== 'Unavailable' ? why : held && allDay.length === 0 ? 'held by you' : '') : null,
+      parts,
+    };
+  });
+}
+
+/** The day's ONE answer over the schedules on show (`dayAnswerOf` over `dayGroupsOf`). */
+export function dayAnswerOfGroups(groups: readonly DayGroup[], asking: number): DayAnswer | null {
+  const open = groups.filter((g) => !g.closed);
+  const everyClosed = groups.length > 0 && open.length === 0;
+  return dayAnswerOf({
+    schedules: groups.length,
+    capacity: open.reduce((n, g) => n + g.capacity, 0),
+    taken: open.reduce((n, g) => n + g.taken, 0),
+    asking,
+    closedWhy: everyClosed ? (groups.find((g) => g.closedWhy)?.closedWhy ?? '') : null,
+    partWords: [...new Set(groups.flatMap((g) => g.parts))],
+  });
+}
+
+/* ── SEATS ON A DATE, FOR THE ADD SHEET (prototype SHEETS.add: "That day is free" / "1 already · 1 more fits") ─── */
+
+/** One schedule's seats taken per date from `today` on — Setnayan bookings + bookings from outside. */
+export type SeatsByPool = Record<string, { label: string; capacity: number; taken: Record<string, number> }>;
+
+export function seatsByPool(
+  pools: readonly { poolId: string; label: string; capacity: number }[],
+  bookings: readonly { poolId: string; bookedDate: string }[],
+  blocks: readonly Pick<DatesBlock, 'poolId' | 'source' | 'startDate' | 'endDate'>[],
+  today: string,
+): SeatsByPool {
+  const out: SeatsByPool = {};
+  for (const p of pools) out[p.poolId] = { label: p.label, capacity: p.capacity, taken: {} };
+  const add = (poolId: string | null, date: string) => {
+    if (!poolId || date < today) return;
+    const s = out[poolId];
+    if (s) s.taken[date] = (s.taken[date] ?? 0) + 1;
+  };
+  for (const b of bookings) add(b.poolId, b.bookedDate);
+  for (const b of blocks) {
+    if (b.source !== 'external_client' || !b.poolId) continue;
+    // One-off and all-day by CHECK: each day of its range takes one seat (at most 32 — the RPC's span).
+    const [y, m, d] = b.startDate.split('-').map(Number);
+    const at = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+    for (let i = 0; i < 32; i++) {
+      const day = at.toISOString().slice(0, 10);
+      if (day > b.endDate) break;
+      add(b.poolId, day);
+      at.setUTCDate(at.getUTCDate() + 1);
+    }
+  }
+  return out;
+}
+
+/** The add sheet's one line for a picked date on a schedule. */
+export function seatLine(seats: SeatsByPool, poolId: string | null, date: string | null): { tone: 'ok' | 'bad'; text: string } | null {
+  if (!poolId || !date) return null;
+  const s = seats[poolId];
+  if (!s) return null;
+  const taken = s.taken[date] ?? 0;
+  if (taken >= s.capacity) return { tone: 'bad', text: `That day is full on the ${s.label} schedule — add anyway, or pick another.` };
+  if (taken > 0) return { tone: 'ok', text: `${taken} already that day · ${s.capacity - taken} more ${s.capacity - taken === 1 ? 'fits' : 'fit'}` };
+  return { tone: 'ok', text: 'That day is free' };
+}
+
 /* ── COUPLES ASKING ABOUT A DATE (amber) ────────────────────────────────────────────────────────────────────────────── */
 
 /**

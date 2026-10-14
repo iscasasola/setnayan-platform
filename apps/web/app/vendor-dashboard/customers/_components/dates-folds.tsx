@@ -1,16 +1,23 @@
-import { BellRing, Check, QrCode, X } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { BellRing, CalendarClock, Check, Clock, Download, QrCode, X } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { FormCounter } from '@/app/_components/form-counter';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
-import { CALENDAR_HATCH } from '@/lib/calendar-grid';
-import { blockDaysLine, capacityLine, rangeWords, waitlistLine } from '@/lib/vendor-dates';
+import { CALENDAR_HATCH, CALENDAR_PART_STYLE } from '@/lib/calendar-grid';
+import { blockDaysLine, capacityLine, closureWords, rangeWords, waitlistLine } from '@/lib/vendor-dates';
+import type { DayPart, RepeatRule } from '@/lib/not-available';
 import { formatCount } from '@/lib/format-number';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow } from './dates-row';
 import { CalendarSheet, ShareTeamPick, type DatesService } from './dates-sheets';
 
 /**
+ * 2026-10-14 (owner ✅ "APPROVE" — prototype `datesBody`, plain words): the folds are **Not available** (every
+ * closure ahead, repeats first, ✕ asks once, and "Mark days not available" opens the sheet with Repeats + Hours) ·
+ * **Waiting list** · **How many a day** (each schedule's counter, and "Approve first" per schedule), then "QR codes ›"
+ * and **More settings**: Exact time slots (every plan) and Phone calendar (.ics).
+ *
  * CUSTOMERS › DATES — under the month, the shop's calendar tools as three folds and one row (S-PR3; plan § 2:
  * "`calendar/surface.tsx` (second renderer, pools, waitlist, capacity, blocks) — Merge into Customers › Dates: one
  * month grid …, then three folds: Block days · Waitlist · Capacity (calendars + events-a-day)"; "/invite + /locked-qr
@@ -36,8 +43,12 @@ export type DatesClosure = {
   label: string;
   startDate: string;
   endDate: string;
-  /** "Every calendar" or the one it closes. */
+  /** "Every schedule" or the one it closes. */
   scope: string;
+  /** Not available repeats + hours (2026-10-14). */
+  repeat?: RepeatRule;
+  repeatUntil?: string | null;
+  dayPart?: DayPart;
 };
 
 export type DatesWaitlist = {
@@ -61,6 +72,8 @@ export type DatesCalendar = {
   /** The vendor-entered name (Named Calendars), else the label. */
   name: string;
   capacity: number;
+  /** A venue's hall (2026-10-14 🏛) — not limited by the plan's per-day number. */
+  isHall?: boolean;
   /** What it holds, in words ("Photo & video"). */
   line: string;
   serviceIds: string[];
@@ -79,6 +92,10 @@ export function DatesFolds({
   namedCalendars,
   services,
   qrHref,
+  slotsHref,
+  icsHref,
+  approveFirst,
+  blockAdd,
   actions,
 }: {
   today: string;
@@ -94,6 +111,17 @@ export function DatesFolds({
   namedCalendars: boolean;
   services: DatesService[];
   qrHref: string;
+  /** Exact time slots live on each card in the Shop (every plan since 2026-10-14). */
+  slotsHref: string;
+  /** Every booking as a phone-calendar file. */
+  icsHref: string;
+  /**
+   * Every couple's ask already waits for the shop's yes (the lock handshake is on) — "Approve first" is ON for every
+   * schedule, shown as a state, never a switch that would change nothing (a fake door).
+   */
+  approveFirst: boolean;
+  /** The "Mark days not available" button + sheet (`BlockDateAdd`, a client island). */
+  blockAdd: ReactNode;
   actions: {
     removeBlock: Action;
     updateWaitlistSettings: Action;
@@ -116,26 +144,36 @@ export function DatesFolds({
 
   return (
     <div className="mt-6 border-t border-ink/10" data-dates-folds="">
-      {/* ── BLOCK DAYS ── */}
+      {/* ── NOT AVAILABLE ── */}
       <div className="border-b border-ink/10" data-dates-fold="block">
-        <Fold title="Block days" line={closuresIncomplete ? 'Some couldn’t load — reload to see them all' : blockDaysLine(closures, today)} defaultOpen={open === 'block'} data="dates-block">
+        <Fold title="Not available" line={closuresIncomplete ? 'Some couldn’t load — reload to see them all' : blockDaysLine(closures, today)} defaultOpen={open === 'block'} data="dates-block">
           <div className="pb-3">
             {closures.length === 0 ? (
-              <p className="py-2 text-[13.5px] text-ink/60">No days blocked ahead. &ldquo;Block a date&rdquo; below closes one.</p>
+              <p className="py-2 text-[13.5px] text-ink/60">Nothing marked yet.</p>
             ) : (
               closures.map((c) => (
                 <DatesRow
                   key={c.blockId}
                   data="closure"
-                  lead={<i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={{ backgroundImage: CALENDAR_HATCH }} />}
-                  title={c.label}
-                  line={`${rangeWords(c.startDate, c.endDate, today)} · ${c.scope}`}
+                  lead={
+                    <i
+                      aria-hidden
+                      className="block h-4 w-5 shrink-0 rounded-sm"
+                      style={(c.dayPart ?? 'all_day') === 'all_day' ? { backgroundImage: CALENDAR_HATCH } : CALENDAR_PART_STYLE}
+                    />
+                  }
+                  title={closureWords(c, today)}
+                  line={[c.label, (c.repeat ?? 'once') !== 'once' ? (c.repeatUntil ? `until ${rangeWords(c.repeatUntil, c.repeatUntil, today)}` : 'repeats on its own') : '', c.scope].filter(Boolean).join(' · ')}
                   end={
                     <ConfirmForm
                       action={actions.removeBlock}
                       title="Open these days again?"
                       confirmLabel="Open them"
-                      message={`${rangeWords(c.startDate, c.endDate, today)} becomes bookable on Setnayan again.`}
+                      message={
+                        (c.repeat ?? 'once') !== 'once'
+                          ? `This removes “${closureWords(c, today)}” — every one of those days opens again.`
+                          : `${rangeWords(c.startDate, c.endDate, today)} becomes bookable on Setnayan again.`
+                      }
                     >
                       {back('block')}
                       <input type="hidden" name="block_id" value={c.blockId} />
@@ -145,6 +183,7 @@ export function DatesFolds({
                 />
               ))
             )}
+            <div className="mt-2">{blockAdd}</div>
           </div>
         </Fold>
       </div>
@@ -152,10 +191,10 @@ export function DatesFolds({
       {/* ── WAITLIST ── */}
       <div className="border-b border-ink/10" data-dates-fold="waitlist">
         <Fold
-          title="Waitlist"
+          title="Waiting list"
           line={
             !waitlist.settingsMeasured
-              ? 'Couldn’t load your waitlist settings'
+              ? 'Couldn’t load your waiting-list settings'
               : waitlistLine({ allowed: waitlist.tierCap > 0, on: waitlist.on, dates: waitlist.dates, today })
           }
           defaultOpen={open === 'waitlist'}
@@ -164,7 +203,7 @@ export function DatesFolds({
           <div className="pb-3">
             {!waitlist.settingsMeasured ? (
               <p role="alert" className="py-2 text-[13.5px] text-ink/70">
-                We couldn&rsquo;t read your waitlist settings, so nothing here says what your plan holds. Nothing has changed — reload in a moment.
+                We couldn&rsquo;t read your waiting-list settings, so nothing here says what your plan holds. Nothing has changed — reload in a moment.
               </p>
             ) : waitlist.tierCap === 0 ? (
               <DatesRow
@@ -180,14 +219,14 @@ export function DatesFolds({
                   {back('waitlist')}
                   <input type="hidden" name="max_waitlist_acceptances" value={String(waitlist.cap)} />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-medium text-ink">Hold a waiting list</span>
-                    <span className="block text-[13px] text-ink/60">On dates you are full on</span>
+                    <span className="block text-[15px] font-medium text-ink">Keep a waiting list</span>
+                    <span className="block text-[13px] text-ink/60">For full days</span>
                   </span>
                   <button
                     type="submit"
                     role="switch"
                     aria-checked={waitlist.on}
-                    aria-label="Hold a waiting list"
+                    aria-label="Keep a waiting list"
                     name="waitlist_enabled"
                     value={waitlist.on ? '' : 'on'}
                     className={SWITCH_BUTTON}
@@ -216,7 +255,7 @@ export function DatesFolds({
             )}
 
             {waitlist.dates.length === 0 ? (
-              waitlist.settingsMeasured && waitlist.tierCap > 0 ? <p className="border-t border-ink/10 py-3 text-[13.5px] text-ink/60">No one is waiting on a date right now.</p> : null
+              waitlist.settingsMeasured && waitlist.tierCap > 0 ? <p className="border-t border-ink/10 py-3 text-[13.5px] text-ink/60">Nobody waiting.</p> : null
             ) : (
               waitlist.dates.map((w) => (
                 <div key={w.requestedDate} className="flex min-h-[60px] flex-wrap items-center gap-x-3 gap-y-2 border-t border-ink/10 py-2.5" data-dates-waitlist-date={w.requestedDate}>
@@ -246,13 +285,13 @@ export function DatesFolds({
         </Fold>
       </div>
 
-      {/* ── CAPACITY ── */}
+      {/* ── HOW MANY A DAY ── */}
       <div className="border-b border-ink/10" data-dates-fold="capacity">
-        <Fold title="Capacity" line={capacityLine(calendars)} defaultOpen={open === 'capacity'} data="dates-capacity">
+        <Fold title="How many a day" line={capacityLine(calendars)} defaultOpen={open === 'capacity'} data="dates-capacity">
           <div className="pb-3">
             {calendars.length === 0 ? (
               <p className="py-2 text-[13.5px] text-ink/60" data-dates-not-set="">
-                Not set. {namedCalendars ? 'Make a calendar for the team that does the work.' : 'Add a service — each kind you offer gets its own calendar.'}
+                Not set. {namedCalendars ? 'Make a schedule for the team that does the work.' : 'Add a service — each kind you offer gets its own schedule.'}
               </p>
             ) : (
               calendars.map((c) => (
@@ -273,23 +312,42 @@ export function DatesFolds({
                     ) : (
                       <span className="block truncate text-[15px] font-medium text-ink">{c.label}</span>
                     )}
-                    <span className="block truncate text-[13px] text-ink/60">Events a day{c.line ? ` · ${c.line}` : ''}</span>
+                    <span className="block truncate text-[13px] text-ink/60">
+                      {c.isHall ? 'A hall · not counted in your plan' : 'At the same time'}
+                      {c.line ? ` · ${c.line}` : ''}
+                    </span>
                   </span>
                   <form action={actions.updatePoolCapacity} className="flex-none">
                     {back('capacity')}
                     <input type="hidden" name="pool_id" value={c.poolId} />
-                    <FormCounter name="capacity" value={c.capacity} min={1} max={Math.max(ceiling, c.capacity)} label={`${c.label} — events a day`} saveAfterMs={900} data="capacity" />
+                    <FormCounter name="capacity" value={c.capacity} min={1} max={Math.max(ceiling, c.capacity)} label={`${c.label} — how many a day`} saveAfterMs={900} data="capacity" />
                   </form>
                 </div>
               ))
             )}
+            {calendars.length > 0 && approveFirst ? (
+              <DatesRow
+                data="approve-first"
+                lead={<Clock aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />}
+                title={calendars.length > 1 ? 'Approve first · every schedule' : 'Approve first'}
+                line="Couples wait for your yes"
+                badge={{ tone: 'ok', word: 'On' }}
+              />
+            ) : null}
+            {calendars.length > 0 ? (
+              <p className="pt-2 text-[13px] text-ink/60" data-dates-capacity-note="">
+                {calendars.length > 1
+                  ? 'Each schedule fills on its own — one can be full while the other is free.'
+                  : 'One number for the whole shop. Add a second schedule only if two can run at the same time.'}
+              </p>
+            ) : null}
             {namedCalendars ? (
               <div className="mt-3">
                 <CalendarSheet services={services} ceiling={ceiling} createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} />
               </div>
             ) : calendars.length > 1 ? (
               <div className="mt-2" data-dates-share-team="">
-                <p className="home-k2 pt-2">Which services share a team</p>
+                <p className="home-k2 pt-2">Which services share a schedule</p>
                 {calendars.flatMap((c) =>
                   c.categories.map((cat) => (
                     <ShareTeamPick
@@ -314,8 +372,28 @@ export function DatesFolds({
         data="qr"
         lead={<QrCode aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />}
         title="QR codes"
-        line="Shortlist · Booked, one use"
+        line="They scan · they are listed"
         href={qrHref}
+      />
+
+      {/* ── MORE SETTINGS (prototype datesBody) ── */}
+      <p className="home-k2 mt-6" data-dates-more-settings="">
+        More settings
+      </p>
+      <DatesRow
+        data="slots"
+        lead={<CalendarClock aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />}
+        title="Exact time slots"
+        line="Fixed times couples pick · on each card in your Shop"
+        href={slotsHref}
+      />
+      <DatesRow
+        data="ics"
+        lead={<Download aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />}
+        title="Phone calendar"
+        line="Every booking · .ics"
+        href={icsHref}
+        download
       />
     </div>
   );

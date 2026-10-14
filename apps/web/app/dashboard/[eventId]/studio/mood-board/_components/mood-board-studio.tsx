@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Palette, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { useMaker } from '../../../launch/_components/maker-context';
+import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
 import { makerSave } from '@/lib/maker-refresh';
 import { compressImageForWeb } from '@/lib/image-compress';
@@ -595,7 +596,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     const row = tiles[slot.slotKey] ?? [];
     const photos = MOODBOARD_SLOT_POSITIONS.map((p) => ({ pos: p, tile: row[p - 1] })).filter((x) => x.tile);
     const slotPalette = paletteFromPhotos(photos.flatMap((x) => x.tile!.swatches), 5);
-    const count = photos.length === 0 ? 'No photos yet' : photos.length === 1 ? '1 photo' : `${photos.length} photos`;
+    const count = photos.length === 0 ? 'No photos yet' : `${formatCount(photos.length)} ${photos.length === 1 ? 'photo' : 'photos'}`;
     return (
       <div className="flex flex-col gap-1" data-mood-board-slot={slot.slotKey}>
         <div className="flex min-h-11 items-center gap-1.5">
@@ -611,7 +612,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 onClick={() => setAskRemove({ slot: slot.slotKey, pos, label: slot.label })}
               />
             ) : (
-              <span key={pos} className="h-[34px] w-[34px] flex-none animate-pulse rounded-[7px] bg-ink/10" />
+              <span key={pos} className="h-[34px] w-[34px] flex-none animate-pulse rounded-lg bg-ink/10" />
             ),
           )}
           <span className="ml-1 min-w-0 flex-1 truncate text-[12px] text-ink/55">{named ? `${slot.label} · ${count}` : count}</span>
@@ -754,7 +755,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                   <h3 className="font-serif text-[21px] font-medium leading-tight text-ink">{row.label}</h3>
                   {row.arrives ? <small className="ml-auto whitespace-nowrap text-[12px] text-ink/55">Arrives {row.arrives}</small> : null}
                 </header>
-                {row.people ? <p className="text-[12px] text-ink/65">{row.people === 1 ? '1 person' : `${row.people} people`}</p> : null}
+                {row.people ? <p className="text-[12px] text-ink/65">{row.people === 1 ? '1 person' : `${formatCount(row.people)} people`}</p> : null}
                 <div className="flex gap-2.5" data-mood-board-picks={picks.length}>
                   {picks.map((pick, pi) => {
                     const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
@@ -1053,7 +1054,7 @@ function LaneRow({ part, five, palette, frozen, onTap }: { part: LanePart; five:
 /** A role's photo, small — the picture of the button that takes it off the board (a tap asks once, the same confirm box). */
 function Thumb({ src }: { src: string }) {
   // eslint-disable-next-line @next/next/no-img-element -- the couple's own photo, already sized by the board
-  return <img src={src} alt="" className="h-[34px] w-[34px] rounded-[7px] object-cover" />;
+  return <img src={src} alt="" className="h-[34px] w-[34px] rounded-lg object-cover" />;
 }
 
 /** 👗 A role's note — one line, up to 120 letters, read by that role on their invitation. Keep closes it unchanged. */
@@ -1068,7 +1069,7 @@ function NoteSheet({ label, start, onClose, onSave }: { label: string; start: st
           maxLength={120}
           placeholder="e.g. ivory, not white"
           aria-label={label}
-          className="h-11 w-full rounded-xl border border-ink/15 bg-white px-3 text-[14px] text-ink"
+          className="h-11 w-full rounded-xl border border-ink/15 bg-white px-3 text-[14px] text-ink" // no-card-ok: a text field, not a container
         />
         <div className="flex gap-2 [&>span]:flex-1 [&_.ab]:w-full">
           <span>

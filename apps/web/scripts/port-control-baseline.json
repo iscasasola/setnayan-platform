@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7a56eae20e",
+  "generatedFromRef": "c4e1016eba",
   "routeCount": 438,
   "destinations": 950,
   "actions": 671,
-  "blocks": 6303,
+  "blocks": 6305,
   "routes": {
     "/": {
       "files": [
@@ -1185,6 +1185,7 @@
         "GiftDoorCard",
         "GlowBlob",
         "GracefulFallback",
+        "GrainFrame",
         "GuestCameraPlayer",
         "GuestCameraWatcher",
         "GuestChecklist",
@@ -8296,7 +8297,6 @@
         "Element",
         "EventLinkedBadge",
         "Explain",
-        "Figure",
         "FinalizationActionResult",
         "FormRow",
         "FormRows",
@@ -8335,6 +8335,7 @@
         "MoodboardMoodTag",
         "MoodboardStyleFamily",
         "NeutralDrawing",
+        "NoteSheet",
         "PageMasthead",
         "PaletteBoardContext.Provider",
         "PaletteBoardProvider",
@@ -8383,6 +8384,7 @@
         "ThemeStudio",
         "ThemeTemplatePage",
         "ThemeTextReading",
+        "Thumb",
         "Tile",
         "TileChrome",
         "TypedRow",

@@ -181,6 +181,8 @@ import { splitAroundEntourage, stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
 import { GuestWelcome } from './guest-welcome';
+import { loadGiftPage } from '../pabuya/_lib/gift-page.server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { scenesLeftForDetails, welcomeCarriesGifts, welcomeParts } from '@/lib/invitation-welcome';
 import { mainGroundLayerFor } from '../_lib/main-ground-layer';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
@@ -1204,6 +1206,21 @@ export async function SiteBody({
   const doorways = doorwayFacts
     ? resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })
     : { venueWalk: null, pabuya: null, wishes: 0 };
+  /* 🎁 E-GIFTS ON WELCOME IS THE CONTENT, NOT A DOOR (owner 2026-10-14). Started HERE, beside the rest of this body's
+     reads, and ONLY when the door would have been drawn (`doorways.pabuya` — gated on what the gift page itself
+     demands) on a Welcome that carries it (`welcomeCarriesGifts`; the Maker's canvas, which can draw every stage's
+     Welcome, always), so a guest whose page has no E-Gifts there pays nothing for it. The gift page's own reader
+     (`loadGiftPage`): identifiers withheld from a reader the event does not recognise, exactly as on `/pabuya`. A
+     failed read is null — the door stands in its place (`WelcomeGiftsContent`); it is logged, never shown as nothing. */
+  const giftsOnWelcome =
+    doorways.pabuya !== null &&
+    (isMakerCanvas || welcomeCarriesGifts({ stage: pageStage, bodyNormal: plan.body === 'normal', giftHref: doorways.pabuya, maker: false }));
+  const giftPage = giftsOnWelcome
+    ? loadGiftPage(createAdminClient(), event).catch((error: unknown) => {
+        logQueryError('site-body (welcome e-gifts)', error, { event_id: event.event_id }, 'graceful_degrade');
+        return null;
+      })
+    : null;
   // Is the real player already on this page? The player follows the broadcast,
   // not the calendar (owner-ruled 2026-09-02) — both trees mount it whenever the
   // links resolve, regardless of dayOfPhase — so one expression covers both.
@@ -2354,6 +2371,7 @@ export async function SiteBody({
                      Maker's own marker (`guestSceneMark`): a look picked there is drawn by the rules a guest gets. */
                   mark={guestSceneMark}
                   giftWishes={doorways.wishes}
+                  giftContent={giftPage}
                   maker={isMakerCanvas}
                 />
               </div>
@@ -2389,6 +2407,7 @@ export async function SiteBody({
                   giftHref={doorways.pabuya}
                   mark={giftsBlockMark}
                   giftWishes={doorways.wishes}
+                  giftContent={giftPage}
                 />
               </div>
             )) : null}
@@ -3736,6 +3755,7 @@ export async function SiteBody({
                 giftHref={doorways.pabuya}
                 mark={giftsBlockMark}
                 giftWishes={doorways.wishes}
+                giftContent={giftPage}
               />
               ), { chapters: true, className: 'space-y-12' })}
 
@@ -3782,6 +3802,7 @@ export async function SiteBody({
                   giftHref={doorways.pabuya}
                   mark={giftsBlockMark}
                   giftWishes={doorways.wishes}
+                  giftContent={giftPage}
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
 

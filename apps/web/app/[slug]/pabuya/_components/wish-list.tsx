@@ -113,6 +113,7 @@ export function WishList({
   hostPossessive,
   ways,
   record,
+  limit,
 }: {
   /** Open wishes first, then the got ones (`guestWishListFrom`). Never empty — the page draws no list for none. */
   wishes: readonly GuestWish[];
@@ -125,6 +126,12 @@ export function WishList({
   ways: ReactNode;
   /** Who is reading — switches on "✓ I sent it" and the sentence that promises it. Absent = ✕ Close alone. */
   record?: GiftRecordReader;
+  /**
+   * 🏠 At most this many wishes before "See all" — the Welcome page's calm cut (2026-10-14: E-Gifts drawn there in
+   * full, the wish list kept short so the page stays light). "See all" opens the rest IN PLACE, never a new page.
+   * Absent: every wish (the gift page).
+   */
+  limit?: number;
 }) {
   /* ⚡ THE LIST AS IT IS DRAWN. It starts as the page's own read; when this reader's gift is kept
      it is redrawn from the WRITE'S ANSWER (`withOwnGift`) — the page is never rendered again
@@ -142,6 +149,10 @@ export function WishList({
   /* A SENTENCE ("4 wishes · 1 got"), not a number — its figures are formatted where it is built. */
   const summary = guestWishCount(wishes);
   const arrow = shape === 'rows' || shape === 'side';
+  /* Open wishes come first (`guestWishListFrom`), so a cut keeps what a guest can still give toward. */
+  const [all, setAll] = useState(false);
+  const cut = !all && limit !== undefined && limit > 0 && wishes.length > limit;
+  const drawn = cut ? wishes.slice(0, limit) : wishes;
 
   return (
     <section id="wishlist" data-wish-list="" data-wish-look={shape} className={`mb-8 ${SECTION[shape]}`}>
@@ -154,7 +165,7 @@ export function WishList({
         ) : null}
       </p>
       <div className={LIST[shape]}>
-        {wishes.map((w) => {
+        {drawn.map((w) => {
           const meter = guestWishMeter(w);
           const said = w.got && saidGot === w.id;
           return (
@@ -204,6 +215,19 @@ export function WishList({
           );
         })}
       </div>
+      {cut ? (
+        <p className="mt-2 text-center">
+          <button
+            type="button"
+            data-wish-see-all=""
+            onClick={() => setAll(true)}
+            className="sn-press inline-flex min-h-[44px] items-center gap-1.5 px-2 text-[14px] font-semibold text-mulberry underline-offset-4 hover:underline"
+          >
+            See all {wishes.length} wishes
+            <ArrowRight aria-hidden className="h-4 w-4 rotate-90" strokeWidth={1.75} />
+          </button>
+        </p>
+      ) : null}
       <p data-wish-how="" className="mt-3 text-center text-[13px] text-ink/65">
         {GUEST_WISH_HOW}
       </p>

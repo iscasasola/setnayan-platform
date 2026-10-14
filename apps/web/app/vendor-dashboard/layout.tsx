@@ -26,7 +26,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
-import { resolveVendorRole } from '@/lib/vendor-role';
+import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { supplierAvatarRows } from './_components/supplier-avatar-rows';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
@@ -450,7 +451,9 @@ export default async function VendorDashboardLayout({
         way to sign out and no error to notice. Matches what the account
         spokes already render at all widths.
       */}
-      <AccountSwitcher data={switcherData} />
+      {/* The supplier's own rows in the account panel (step 5) — owners and admins
+          only: a helper's bar is Today · Customers, and these are owner rooms. */}
+      <AccountSwitcher data={switcherData} shopRows={canManageVendor(vendorRole) ? supplierAvatarRows() : []} />
     </div>
   );
 

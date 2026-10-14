@@ -10,6 +10,7 @@ import {
   Home,
   UserRound,
   ChevronDown,
+  ChevronRight,
   Wand2,
   Clapperboard,
   Gift,
@@ -31,7 +32,17 @@ type Props = {
    * no link, so the programme's master toggle is still the one gate.
    */
   referHref?: string | null;
+  /**
+   * THE SUPPLIER'S OWN ROWS (simpler supplier dashboard step 5, 2026-10-14 — prototype `SHEETS.avatar`: "Your details ·
+   * Your page · Your collections · Helpers · Plan · Settings · Switch shop · Sign out"). Handed in by the vendor
+   * layout only, so every other surface's panel is exactly as it was. Each is a plain link; the panel's own "Switch to"
+   * rail and Sign out stay the switch-shop and sign-out rows. Read nothing: a count here would put the documents and
+   * payment reads on every supplier page.
+   */
+  shopRows?: readonly ShopRow[];
 };
+
+export type ShopRow = { key: string; href: string; label: string; sub: string };
 
 /**
  * AccountSwitcher — unified identity panel (account-switcher iteration).
@@ -81,11 +92,13 @@ function SwitcherPanelBody({
   close,
   homeLabel = 'Home',
   referHref = null,
+  shopRows = [],
 }: {
   data: SwitcherData;
   close: () => void;
   homeLabel?: string;
   referHref?: string | null;
+  shopRows?: readonly ShopRow[];
 }) {
   const showShop = data.context.hasVendor;
   const showHQ = data.context.isAdmin;
@@ -135,6 +148,27 @@ function SwitcherPanelBody({
           {homeLabel}
         </Link>
       </div>
+
+      {/* ── The supplier's own rows — vendor layout only (step 5) ── */}
+      {shopRows.length > 0 ? (
+        <nav aria-label="Your shop" className="border-t border-ink/10 px-2 py-1" data-switcher-shop-rows="">
+          {shopRows.map((r) => (
+            <Link
+              key={r.key}
+              href={r.href}
+              onClick={close}
+              data-switcher-shop-row={r.key}
+              className="flex min-h-[52px] items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-ink/5"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-medium text-ink">{r.label}</span>
+                <span className="block truncate text-[12.5px] text-ink/55">{r.sub}</span>
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
+            </Link>
+          ))}
+        </nav>
+      ) : null}
 
       {/* ── Console rail — vendor / Setnayan-team only ── */}
       {showContextRail ? (
@@ -271,7 +305,7 @@ function SwitcherPanelBody({
   );
 }
 
-export function AccountSwitcher({ data, currentEventName, homeLabel, referHref }: Props) {
+export function AccountSwitcher({ data, currentEventName, homeLabel, referHref, shopRows }: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -395,7 +429,7 @@ export function AccountSwitcher({ data, currentEventName, homeLabel, referHref }
         {/* Drag handle (mobile only) */}
         <div aria-hidden className="mx-auto mb-1 mt-2 h-1 w-10 shrink-0 rounded-full bg-ink/15 lg:hidden" />
 
-        <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} referHref={referHref} />
+        <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} referHref={referHref} shopRows={shopRows} />
       </div>
     );
   }

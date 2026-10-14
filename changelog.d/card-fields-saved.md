@@ -14,9 +14,12 @@ card never painted them, Publish never opened, and "Save as draft" saved kind, n
   (`ownerFormOf`) — a listener on the `<form>` element never heard a sheet.
 - `FileUpload`'s "save cannot outrun the upload" refusal finds its form with `ownerFormOf`; from
   inside a sheet `closest('form')` found nothing and the refusal had switched itself off.
+- Enter in a joined sheet input is swallowed (`enterWouldSubmit`): joined fields would otherwise
+  implicitly submit the card through its default button — Publish. Since the portal shipped, Enter
+  there did nothing, and it still does.
 - The card form is `noValidate`: with the sheet fields now joined, a native refusal over a field in
   a CLOSED sheet would focus nothing and say nothing. `commitVendorService` re-validates.
-- Guard `every-sheet-field-posts-with-the-card.test.ts` (sabotaged 4 ways, each red); re-pointed
+- Guard `every-sheet-field-posts-with-the-card.test.ts` (sabotaged 6 ways, each red); re-pointed
   `canvas-field-parity` and `save-cannot-outrun-the-upload` to the fixed shape.
 
 SPEC IMPACT: None — restores the shipped behaviour; no product decision changes.

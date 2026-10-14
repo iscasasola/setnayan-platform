@@ -806,7 +806,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     ) : null;
                     /* Wear ▾ — the house dropdown (one ChosenRow); each person's fitting styles first, from the ONE vocabulary. */
                     const wearRow = dress ? (
-                      <FormRows width="short" data="mood-board-wear">
+                      <FormRows width="short" data="mood-board-wear" className={two ? '[&_[data-form-row-name]]:sr-only' : undefined}>
                         <ChosenRow
                           name="Wear"
                           label={`${pickLabel} — what to wear`}

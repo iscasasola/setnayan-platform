@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4a3a29caf2",
+  "generatedFromRef": "235be6118",
   "routeCount": 438,
-  "destinations": 949,
+  "destinations": 952,
   "actions": 671,
-  "blocks": 6284,
+  "blocks": 6286,
   "routes": {
     "/": {
       "files": [
@@ -10543,7 +10543,8 @@
         "dev/supplier-lab/dates-lab.tsx",
         "dev/supplier-lab/money-lab.tsx",
         "dev/supplier-lab/page.tsx",
-        "dev/supplier-lab/people-lab.tsx"
+        "dev/supplier-lab/people-lab.tsx",
+        "dev/supplier-lab/today-easy-lab.tsx"
       ],
       "destinations": [
         "/dev/supplier-lab?s=dates",
@@ -10555,7 +10556,7 @@
         "/dev/supplier-lab?thumb=people",
         "/help",
         "/vendor-dashboard/clients/[seg]?tab=details",
-        "/vendor-dashboard/shop?open=payments"
+        "/vendor-dashboard/subscription"
       ],
       "actions": [
         "addManualBlock",
@@ -10564,7 +10565,6 @@
       "blocks": [
         "ActionButton",
         "BlockDateAdd",
-        "BookingFeeBills",
         "CustomersCalendar",
         "CustomersPick",
         "CustomersRoster",
@@ -10578,7 +10578,6 @@
         "MoneyLab",
         "MoneyLog",
         "MoneyView",
-        "NothingToAnswerFeed",
         "OutsideClientAdd",
         "OutsideClientRows",
         "PeopleLab",
@@ -10587,9 +10586,9 @@
         "SupplierSubmit",
         "SupplierThumbRow",
         "SupplierToast",
-        "SupplierTodayFirstScreen",
-        "TodayLab",
-        "WhatsNewFeed"
+        "SupplierTodayScreen",
+        "TodayEasyLab",
+        "TodayLab"
       ]
     },
     "/dev/suppliers-lab": {
@@ -12117,7 +12116,9 @@
         "vendor-dashboard/_components/supplier-thumb-row.tsx",
         "vendor-dashboard/_components/supplier-toast.tsx",
         "vendor-dashboard/_components/supplier-today-first-screen.tsx",
+        "vendor-dashboard/_components/supplier-today-screen.tsx",
         "vendor-dashboard/_components/tier-gate.tsx",
+        "vendor-dashboard/_components/today-figure.tsx",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
         "vendor-dashboard/_components/vendor-nav-destinations.ts",
         "vendor-dashboard/_components/vendor-rail-context.tsx",
@@ -12136,17 +12137,20 @@
         "/dashboard",
         "/signup?as=vendor",
         "/vendor-dashboard",
-        "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients/[seg]?tab=[seg]",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
+        "/vendor-dashboard/customers?add=outside",
         "/vendor-dashboard/customers?lane=waiting",
+        "/vendor-dashboard/customers?seg=dates",
+        "/vendor-dashboard/customers?seg=dates&day=[seg]",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/more",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
+        "/vendor-dashboard/performance",
         "/vendor-dashboard/proposals",
         "/vendor-dashboard/reviews",
         "/vendor-dashboard/shop",
@@ -12221,17 +12225,18 @@
         "MoreServicesSheet",
         "NextCard",
         "NotConnected",
-        "NothingToAnswerFeed",
         "PageMasthead",
         "PaidMark",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
+        "PayoutReadiness",
         "PeekToast",
         "Pips",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
         "QuoteDraftBody",
         "ReviewBody",
+        "RowIcon",
         "RowSkeleton",
         "Screen",
         "Sk",
@@ -12240,10 +12245,13 @@
         "SupplierSubmit",
         "SupplierToast",
         "SupplierTodayFirstScreen",
+        "SupplierTodayScreen",
         "SyncResult",
         "TapMark",
         "ThumbFit",
         "TodayEyebrow",
+        "TodayFigure",
+        "TodayNoteRow",
         "TodayRow",
         "TrackRecordRow",
         "Unread",

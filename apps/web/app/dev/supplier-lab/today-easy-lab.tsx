@@ -207,7 +207,7 @@ const SUPS: Record<EasySupplier, Sup> = {
     pools: [{ id: 'main', name: "Tita Nena's", cap: 2 }],
     upcoming: [up('bb', 'Bautista christening', '2026-10-18', 'Quezon City', 'main', 60), up('ow', 'Ocampo wedding', '2026-12-19', 'Tagaytay', 'main')],
     outside: [out('o1', 'Lim · 60 guests', '2026-10-31', 'main'), out('o2', 'Barangay Christmas party', '2026-12-12', 'main')],
-    desk: [done('sb', 'Santos birthday', '2026-10-11'), inquiry('ko', 'Katrina Ocampo', '2026-12-19', 'Hi po! Do you have buffet for 80 on Dec 19 in Tagaytay? Budget around ₱40k.', 20), LAPSED],
+    desk: [done('sb', 'Santos birthday', '2026-10-11'), inquiry('ko', 'Katrina Ocampo', '2026-12-19', 'Hi po! Do you have buffet for 80 on Dec 19 in Tagaytay? Budget around forty thousand.', 20), LAPSED],
     ask: { card: ask('kat', 'Katrina Ocampo', '2026-12-19', 8), price: 44_650, freeUsed: 2 },
     bills: [bill('bb', 'Bautista christening', feeOf(27_000), '2026-10-17')],
     lockedBill: null,

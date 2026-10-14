@@ -140,7 +140,7 @@ async function draw(o: Opt = {}): Promise<{ html: string; view: import('@/lib/su
   };
   const html = renderToStaticMarkup(
     React.createElement(SupplierTodayScreen, {
-      view, outcome: o.outcome ?? null, feeForecasts: forecasts, cards: o.desk ?? [], askStatus: '', deskIncomplete: false, actions,
+      view, outcome: o.outcome ?? null, feeForecasts: forecasts as Record<string, import('@/lib/booking-fee-disclosure').FeeDisclosure | null>, cards: o.desk ?? [], askStatus: '', deskIncomplete: false, actions,
     }),
   );
   return { html, view };

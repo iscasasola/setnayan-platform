@@ -18,6 +18,7 @@ import type { FirstStepsRail } from '@/lib/vendor-first-steps';
 import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
 import type { EventDayFacts, TodaySchedules } from '@/lib/supplier-today.server';
 import { daySheetHref, daysFrom } from '@/lib/vendor-dates';
+import { formatCount } from '@/lib/format-number';
 import {
   PAYOUT_DOOR_WORDS,
   businessLine,
@@ -280,7 +281,7 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
     second: todayNextSecond(next, nextIsAnswer, upcoming, feeRule),
     counter:
       next.kind === 'setup' && input.firstSteps?.current
-        ? `${input.firstSteps.current.n} of ${input.firstSteps.actionable}`
+        ? `${formatCount(input.firstSteps.current.n)} of ${formatCount(input.firstSteps.actionable)}`
         : waiting.counter,
     meta: nextMeta(nextIsAnswer, nextIsAnswer ? input.since(nextIsAnswer) : null, now),
     who: nextWho(next, nextIsAnswer),

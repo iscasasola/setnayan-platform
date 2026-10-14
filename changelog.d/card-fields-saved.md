@@ -17,9 +17,12 @@ card never painted them, Publish never opened, and "Save as draft" saved kind, n
 - Enter in a joined sheet input is swallowed (`enterWouldSubmit`): joined fields would otherwise
   implicitly submit the card through its default button — Publish. Since the portal shipped, Enter
   there did nothing, and it still does.
+- A `<button>` with no `type` inside a joined sheet is made `type="button"` before it joins — a
+  type-less button is a submit button, and joined it would submit (publish) the card from a sheet
+  where, unjoined, it did nothing. Only an explicit `type="submit"` may submit.
 - The card form is `noValidate`: with the sheet fields now joined, a native refusal over a field in
   a CLOSED sheet would focus nothing and say nothing. `commitVendorService` re-validates.
-- Guard `every-sheet-field-posts-with-the-card.test.ts` (sabotaged 6 ways, each red); re-pointed
+- Guard `every-sheet-field-posts-with-the-card.test.ts` (sabotaged 7 ways, each red); re-pointed
   `canvas-field-parity` and `save-cannot-outrun-the-upload` to the fixed shape.
 
 SPEC IMPACT: None — restores the shipped behaviour; no product decision changes.

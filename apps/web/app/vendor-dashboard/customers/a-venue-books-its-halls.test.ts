@@ -5,8 +5,8 @@
  * hall · Add from outside asks "Which halls". The rules live in the database (tests/db/not-available-repeats-and-
  * hours.db.test.ts, HALLS); this holds the screens to them.
  *
- * Sabotage (2026-10-14): `joinedCardOnDay` ignoring a taken hall → 1 red; the yes no longer reading
- * `vendor_card_halls_on` → 3 red; the Add sheet posting one `pool_id` for halls → 4 red.
+ * Sabotage (2026-10-14), each seen red: `joinedCardOnDay` ignoring a taken hall → test 1; the yes no longer reading
+ * `vendor_card_halls_on` → test 3; the Add sheet posting one `pool_id` for halls → test 4.
  *
  * 🪤 `globalThis.React` before the DYNAMIC import — tsconfig sets `"jsx": "preserve"`.
  */

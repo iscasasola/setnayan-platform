@@ -51,11 +51,15 @@
  * unrelated reasons gets read as noise.
  *
  * SCOPE / DELIBERATE LIMITS
- *  - Light mode only. The dark block in `globals.css` is dormant by design
- *    (its own comment: "a future re-enable is a one-file revert"), and it uses
- *    INK labels on the accent rather than cream, so its pairings differ. If
- *    dark is ever re-enabled, extend RESOLVERS to the dark `:root` too — the
- *    dark accent `#A88340` carrying cream would score 3.39:1.
+ *  - BOTH THEMES since 2026-10-13 (dark mode PR 2, owner "approve all"). Light
+ *    is judged exactly as before and stays blocking with no baseline. DARK is a
+ *    second pass: the palette is resolved again with the `html.dark` token
+ *    blocks layered on top, a `dark:` class OVERRIDES its base instead of being
+ *    stripped, and an `html.dark <selector>` rule overrides that selector's own
+ *    rule. Dark keeps its own ratchet (`label-contrast-dark.baseline.json`,
+ *    counts per `file · pair`) that may only go DOWN — it is the to-do list the
+ *    area PRs work through. The guest Event Hub is not judged in dark: dark
+ *    never reaches it (owner call 5) — `app/[slug]` and the Hub-scoped CSS.
  *  - Only pairings where BOTH sides resolve to an opaque colour are judged.
  *    An alpha modifier (`bg-terracotta/10`) composites against an unknown
  *    parent, so it is skipped rather than guessed at — guessing would cry wolf,
@@ -124,7 +128,7 @@ function parseHex(hex) {
  * silent about it. A guard that only understands values it can read literally
  * reports "all clear" for everything it cannot parse.
  */
-function readCssVars() {
+function readCssVars(mode = 'light') {
   const files = [];
   const collectCss = (dir) => {
     let entries;
@@ -150,6 +154,26 @@ function readCssVars() {
     const re = /--([a-z0-9-]+)\s*:\s*([^;]+);/gi;
     let m;
     while ((m = re.exec(css))) if (!raw.has(m[1])) raw.set(m[1], m[2].trim());
+  }
+
+  // Pass 1b (DARK only) — layer the theme's dark blocks on top: `html.dark { … }`
+  // and the shell's `html.dark .fd { … }` (the shell scope is read as global in
+  // light too). First dark definition wins, the same as light. A SCOPED dark
+  // block (`html.dark .sn-tile-dark { --sn-gold-100: … }`) is a local island,
+  // not the theme, so it is deliberately NOT read here.
+  if (mode === 'dark') {
+    const darkSeen = new Set();
+    for (const file of files) {
+      const css = stripComments(readFileSync(file, 'utf8'));
+      for (const b of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (!/^\s*html\.dark(\s+\.fd)?\s*$/.test(b[1])) continue;
+        for (const d of b[2].matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
+          if (darkSeen.has(d[1])) continue;
+          darkSeen.add(d[1]);
+          raw.set(d[1], d[2].trim());
+        }
+      }
+    }
   }
 
   // Pass 2 — resolve to rgb, following `var(--x)` / `var(--x, fallback)` chains.
@@ -268,10 +292,23 @@ function walk(dir, out = []) {
  * Pull `bg-X` / `text-X` out of one className. An alpha modifier (`bg-x/40`)
  * or an arbitrary value (`bg-[#fff]`) yields nothing — see SCOPE above.
  */
-function classPairing(className, palette) {
+function classPairing(className, palette, mode = 'light') {
   const tokens = className.split(/\s+/);
   let fill = null;
   let label = null;
+  // DARK: a bare `dark:bg-x` / `dark:text-x` is what dark paints, so it REPLACES
+  // the base class of its kind (read after the base, below). A stacked variant
+  // (`dark:hover:`, `md:dark:`) is a state, left out the same as `hover:`.
+  let darkFill = null;
+  let darkLabel = null;
+  if (mode === 'dark') {
+    for (const raw of tokens) {
+      const d = raw.match(/^dark:(bg|text)-([a-z0-9-]+)$/);
+      if (!d || !palette.has(d[2])) continue;
+      if (d[1] === 'bg') darkFill = { name: 'dark:bg-' + d[2], rgb: palette.get(d[2]) };
+      else darkLabel = { name: 'dark:text-' + d[2], rgb: palette.get(d[2]) };
+    }
+  }
   for (const raw of tokens) {
     const t = raw.replace(/^(hover|focus|active|group-hover|disabled|dark|sm|md|lg|xl):.*/, '');
     if (!t) continue;
@@ -287,6 +324,8 @@ function classPairing(className, palette) {
       label = { name: fg[1], rgb: palette.get(fg[1]) };
     }
   }
+  if (darkFill) fill = darkFill;
+  if (darkLabel) label = darkLabel;
   return fill && label ? { fill, label } : null;
 }
 
@@ -361,26 +400,29 @@ const cssVars = readCssVars();
 const PAGE = cssVars.get('m-paper') ?? cssVars.get('color-cream') ?? [253, 251, 247];
 
 /** hex · `var(--x)` · low-alpha `rgba(r,g,b,a)` composited on the page. */
-function resolveColor(raw) {
-  const v = raw.trim();
-  const hex = v.match(/^#[0-9a-f]{3,6}$/i);
-  if (hex) return parseHex(hex[0]);
-  const varRef = v.match(/^var\(\s*--([a-z0-9-]+)/i);
-  if (varRef) return cssVars.get(varRef[1]) ?? null;
-  // `rgb(var(--x))` — a token held as three numbers (`--color-mulberry: 194 78 37`, `--sn-accent`), the way every
-  // Tailwind-facing token in globals.css is written. Until 2026-10-08 this form was unreadable here, so a rule
-  // that paired two such tokens was skipped in silence — the very blind spot the note above `readCssVars` names.
-  // Opaque only: `rgb(var(--x) / .4)` is translucent and is skipped before it reaches this function.
-  const rgbVar = v.match(/^rgb\(\s*var\(\s*--([a-z0-9-]+)\s*\)\s*\)$/i);
-  if (rgbVar) return cssVars.get(rgbVar[1]) ?? null;
-  const rgba = v.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([\d.]+))?\s*\)$/i);
-  if (rgba) {
-    const [r, g, b] = [Number(rgba[1]), Number(rgba[2]), Number(rgba[3])];
-    const a = rgba[4] === undefined ? 1 : Number(rgba[4]);
-    if (a > 0.6) return [r, g, b]; // effectively opaque
-    return [r, g, b].map((c, i) => Math.round(a * c + (1 - a) * PAGE[i]));
-  }
-  return null;
+const resolveColor = makeResolveColor(cssVars, PAGE);
+function makeResolveColor(cssVars, PAGE) {
+  return function resolveColor(raw) {
+    const v = raw.trim();
+    const hex = v.match(/^#[0-9a-f]{3,6}$/i);
+    if (hex) return parseHex(hex[0]);
+    const varRef = v.match(/^var\(\s*--([a-z0-9-]+)/i);
+    if (varRef) return cssVars.get(varRef[1]) ?? null;
+    // `rgb(var(--x))` — a token held as three numbers (`--color-mulberry: 194 78 37`, `--sn-accent`), the way every
+    // Tailwind-facing token in globals.css is written. Until 2026-10-08 this form was unreadable here, so a rule
+    // that paired two such tokens was skipped in silence — the very blind spot the note above `readCssVars` names.
+    // Opaque only: `rgb(var(--x) / .4)` is translucent and is skipped before it reaches this function.
+    const rgbVar = v.match(/^rgb\(\s*var\(\s*--([a-z0-9-]+)\s*\)\s*\)$/i);
+    if (rgbVar) return cssVars.get(rgbVar[1]) ?? null;
+    const rgba = v.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([\d.]+))?\s*\)$/i);
+    if (rgba) {
+      const [r, g, b] = [Number(rgba[1]), Number(rgba[2]), Number(rgba[3])];
+      const a = rgba[4] === undefined ? 1 : Number(rgba[4]);
+      if (a > 0.6) return [r, g, b]; // effectively opaque
+      return [r, g, b].map((c, i) => Math.round(a * c + (1 - a) * PAGE[i]));
+    }
+    return null;
+  };
 }
 /** Every `.css` under the scanned trees — `walk` is hardcoded to `.tsx`. */
 function walkCss(dir, out = []) {
@@ -398,6 +440,26 @@ function walkCss(dir, out = []) {
   }
   return out;
 }
+
+/** Split a selector list on its TOP-LEVEL commas (not the ones inside `:is(…)`). */
+function splitSelectors(list) {
+  const out = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of list) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) {
+      out.push(cur);
+      cur = '';
+    } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur);
+  return out;
+}
+
+/** Selectors that only ever paint inside the guest Event Hub — never in dark (owner call 5, 2026-10-13). */
+const HUB_SCOPED = /\.sn-editorial|\[data-hub-theme|\.hub-|\.pahina|\[data-hero-design|\[data-part-look|\[data-maker-guest/;
 
 /**
  * PAIRINGS DECLARED IN CSS ITSELF — `.x { background: var(--gold); color: #fff }`.
@@ -420,7 +482,7 @@ function walkCss(dir, out = []) {
  * Innermost-block matching steps over `@media` and `@layer` wrappers without
  * needing to understand them.
  */
-function cssRulePairings(rawCss, resolveColor) {
+function cssRulePairings(rawCss, resolveColor, mode = 'light') {
   // Comments first, or a block comment containing braces is parsed as a rule and
   // its prose becomes a selector. The first cut reported three "failures" whose
   // selector was the inside of a comment explaining an unrelated fix.
@@ -475,17 +537,41 @@ function cssRulePairings(rawCss, resolveColor) {
   };
   const colorOf = new Map();
   let m;
+  // DARK: `html.dark <sel> { background / color }` overrides <sel>'s own rule. Read
+  // them first, keyed by the selector they override (an `:is(a, b)` list is
+  // expanded to its members), and fold them into that selector below.
+  const darkOver = new Map();
+  if (mode === 'dark') {
+    while ((m = BLOCK.exec(css))) {
+      for (const part of splitSelectors(m[1])) {
+        const d = part.trim().match(/^html\.dark\s+(.+)$/);
+        if (!d) continue;
+        const rest = d[1].trim();
+        const isList = rest.match(/^:is\((.*)\)$/);
+        for (const target of isList ? splitSelectors(isList[1]) : [rest]) {
+          const key = target.trim();
+          const prev = darkOver.get(key) ?? {};
+          const bg = decl(m[2], 'background') ?? decl(m[2], 'background-color');
+          const c = decl(m[2], 'color');
+          darkOver.set(key, { bg: bg ?? prev.bg, color: c ?? prev.color });
+        }
+      }
+    }
+    BLOCK.lastIndex = 0;
+  }
   while ((m = BLOCK.exec(css))) {
     const c = decl(m[2], 'color');
     if (!c) continue;
     for (const sel of m[1].split(',')) colorOf.set(sel.trim(), c);
   }
+  if (mode === 'dark') for (const [sel, o] of darkOver) if (o.color) colorOf.set(sel, o.color);
   const out = [];
   BLOCK.lastIndex = 0;
   while ((m = BLOCK.exec(css))) {
     const body = m[2];
+    if (mode === 'dark' && /html\.dark/.test(m[1])) continue; // folded into the selector it overrides
     const bgRaw = decl(body, 'background') ?? decl(body, 'background-color');
-    if (!bgRaw) continue;
+    if (!bgRaw && mode !== 'dark') continue;
     if (/gradient|url\(|transparent|none|inherit|currentcolor/i.test(bgRaw)) continue;
     // A TRANSLUCENT fill cannot be measured from the stylesheet alone: what shows
     // through is whatever the element happens to sit on, which this file cannot
@@ -505,12 +591,19 @@ function cssRulePairings(rawCss, resolveColor) {
     for (const selRaw of m[1].split(',')) {
       const sel = selRaw.trim();
       if (!sel || sel.startsWith('@') || sel.startsWith('%')) continue;
+      // DARK: the guest Event Hub keeps the couple's design — dark never reaches it.
+      if (mode === 'dark' && HUB_SCOPED.test(sel)) continue;
+      const over = mode === 'dark' ? darkOver.get(sel) : undefined;
+      const selBg = over?.bg ?? bgRaw;
+      if (!selBg) continue;
+      if (mode === 'dark' && (/gradient|url\(|transparent|none|inherit|currentcolor/i.test(selBg) ||
+        /rgba?\([^)]*,\s*0?\.\d+\s*\)|\/\s*0?\.\d+\s*\)/.test(selBg))) continue;
       // WCAG 1.4.3 exempts INACTIVE controls, so a greyed-out button is not a
       // failure — measuring it would bury the real ones under noise that can
       // never legitimately be fixed. (`.m-btn-primary:disabled` reads 1.63:1 and
       // is CORRECT: that is what "you cannot press this" looks like.)
       if (/:disabled\b|\[disabled\]|\[aria-disabled=/i.test(sel)) continue;
-      let labelRaw = decl(body, 'color');
+      let labelRaw = over?.color ?? decl(body, 'color');
       let via = '';
       if (!labelRaw) {
         const base = sel.replace(/:(hover|focus|focus-visible|active|disabled)\b/g, '').trim();
@@ -519,7 +612,7 @@ function cssRulePairings(rawCss, resolveColor) {
         if (!labelRaw) continue;
         via = ' (label inherited from ' + base + ')';
       }
-      const fill = resolveColor(bgRaw);
+      const fill = resolveColor(selBg);
       const label = resolveColor(labelRaw);
       if (!fill || !label) continue;
       out.push({
@@ -709,10 +802,101 @@ for (const rel of new Set([...Object.keys(faintNow), ...Object.keys(faintBaselin
   else if (now < was) faintShrank.push(`  ${rel}: ${was} → ${now}`);
 }
 
+/* ── THE SAME PAIRS IN DARK (dark mode PR 2, 2026-10-13) ───────────────────────
+ *
+ * WHY THIS EXISTS. Everything above reads the FIRST definition of each token, which
+ * is the light one, and strips `dark:` classes — so it was blind to dark by
+ * construction (its own header said to extend it "when dark is re-enabled"). The
+ * owner approved turning dark on (DECISION_LOG 2026-10-13, "approve all"); PR 1 gave
+ * every shared token a dark value. This pass judges every pairing above AGAIN, as
+ * dark resolves it:
+ *   · tokens: the `html.dark` / `html.dark .fd` blocks layered over the light ones;
+ *   · classes: a bare `dark:bg-x` / `dark:text-x` replaces its base class;
+ *   · CSS rules: an `html.dark <sel>` rule replaces <sel>'s fill / label.
+ * The guest Event Hub (`app/[slug]`, Hub-scoped CSS) is not judged: dark never
+ * reaches it.
+ *
+ * A RATCHET, NOT A WALL. On the day it was added dark had never been designed
+ * screen by screen, so there are real failures — that list IS the work of the area
+ * PRs. It is recorded per `file · pair` with a count
+ * (`label-contrast-dark.baseline.json`) and may only go DOWN: a new failing pair
+ * fails, a count that grows fails, and a count that shrank fails until the record
+ * is regenerated — so it never keeps a number that is no longer true. Regenerating
+ * REFUSES to raise any count (`--allow-dark-growth` exists for a deliberate,
+ * reviewed exception, and the diff of the record shows it).
+ */
+const DARK_BASELINE_FILE = join(__dirname, 'label-contrast-dark.baseline.json');
+const darkVars = readCssVars('dark');
+const DARK_PAGE = darkVars.get('m-paper') ?? darkVars.get('color-cream');
+if (!DARK_PAGE || hex(DARK_PAGE) === hex(PAGE)) {
+  throw new Error('lint-contrast: the dark --m-paper was not read (or equals light) — the dark pass cannot measure anything');
+}
+const darkResolve = makeResolveColor(darkVars, DARK_PAGE);
+const darkPalette = readTailwindPalette(darkVars);
+const darkNow = {};
+let darkChecked = 0;
+const darkWorst = {};
+const noteDark = (key, ratio) => {
+  darkChecked++;
+  if (ratio >= AA_NORMAL_TEXT) return;
+  darkNow[key] = (darkNow[key] ?? 0) + 1;
+  darkWorst[key] = Math.min(darkWorst[key] ?? Infinity, ratio);
+};
+for (const dir of SCAN_DIRS) {
+  for (const file of walk(join(WEB_ROOT, dir))) {
+    const rel = relative(WEB_ROOT, file);
+    if (rel.startsWith('app/[slug]/') || /\.test\.tsx$/.test(rel)) continue;
+    const src = readFileSync(file, 'utf8');
+    let m;
+    const classRe = /className="([^"]*)"/g;
+    while ((m = classRe.exec(src))) {
+      const pair = classPairing(m[1], darkPalette, 'dark');
+      if (pair) noteDark(`${rel} · ${pair.label.name} on ${pair.fill.name}`, contrast(pair.fill.rgb, pair.label.rgb));
+    }
+    for (const pair of objectPairings(src, darkResolve)) {
+      noteDark(`${rel} · ${pair.label.name} on ${pair.fill.name}`, contrast(pair.fill.rgb, pair.label.rgb));
+    }
+    for (const pair of inlinePairings(src, darkVars)) {
+      noteDark(`${rel} · ${pair.label.name} on ${pair.fill.name}`, contrast(pair.fill.rgb, pair.label.rgb));
+    }
+  }
+}
+for (const dir of ['app', 'components', 'styles']) {
+  for (const file of walkCss(join(WEB_ROOT, dir))) {
+    const rel = relative(WEB_ROOT, file);
+    if (rel.startsWith('app/[slug]/')) continue;
+    for (const pair of cssRulePairings(readFileSync(file, 'utf8'), darkResolve, 'dark')) {
+      noteDark(`${rel} · ${pair.fill.name.replace(/ background$/, '')}`, contrast(pair.fill.rgb, pair.label.rgb));
+    }
+  }
+}
+let darkBaseline = null;
+try {
+  darkBaseline = JSON.parse(readFileSync(DARK_BASELINE_FILE, 'utf8')).pairs ?? {};
+} catch {
+  /* absent record = every dark failure blocks, the safe direction */
+}
+const darkGrew = [];
+const darkShrank = [];
+for (const key of new Set([...Object.keys(darkNow), ...Object.keys(darkBaseline ?? {})])) {
+  const now = darkNow[key] ?? 0;
+  const was = darkBaseline?.[key] ?? 0;
+  if (now > was) darkGrew.push(`  ${key}: ${now} (worst ${darkWorst[key].toFixed(2)}:1), the record allows ${was}`);
+  else if (now < was) darkShrank.push(`  ${key}: ${was} → ${now}`);
+}
 
 // `node lint-label-on-fill-contrast.mjs --write-baseline` after fixing some, so
 // the list shrinks deliberately rather than by hand-editing.
 if (process.argv.includes('--write-baseline')) {
+  // Dark may only go DOWN — regenerating refuses to raise a count unless told to.
+  if (darkBaseline && darkGrew.length && !process.argv.includes('--allow-dark-growth')) {
+    console.error(
+      `\n✖ the dark record was NOT rewritten: ${darkGrew.length} dark pair(s) would GROW it:\n${darkGrew.join('\n')}\n` +
+        '\n  Fix them (the dark value of a token, or a dark: class), or — a deliberate, reviewed exception only —\n' +
+        '  re-run with --allow-dark-growth.\n',
+    );
+    process.exit(1);
+  }
   const keys = [...new Set([...baselineSeen, ...failures.filter((f) => f.key).map((f) => f.key)])].sort();
   writeFileSync(
     BASELINE_FILE,
@@ -737,6 +921,21 @@ if (process.argv.includes('--write-baseline')) {
     ) + '\n',
   );
   console.log(`guest faint-ink record written: ${Object.keys(files).length} file(s)`);
+  const pairs = Object.fromEntries(Object.entries(darkNow).sort(([a], [b]) => a.localeCompare(b)));
+  writeFileSync(
+    DARK_BASELINE_FILE,
+    JSON.stringify(
+      {
+        _about:
+          'Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, "THE SAME PAIRS IN DARK"), counted per "file · pair". The area PRs\' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.',
+        total: Object.values(pairs).reduce((x, y) => x + y, 0),
+        pairs,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  console.log(`dark record written: ${Object.keys(pairs).length} pair(s), ${Object.values(pairs).reduce((x, y) => x + y, 0)} use(s)`);
   process.exit(0);
 }
 
@@ -793,7 +992,28 @@ if (faintShrank.length) {
   faintFailed = true;
 }
 
+if (darkGrew.length) {
+  console.error(
+    `\n✖ ${darkGrew.length} text-on-fill pair(s) cannot be read in DARK (under ${AA_NORMAL_TEXT}:1, read with the html.dark tokens and dark: classes) and are not in the record:\n`,
+  );
+  for (const l of darkGrew) console.error(l);
+  console.error(
+    '\n  Fix the dark side: give the class its dark: partner (dark:bg-… / dark:text-…), or move to a token whose\n' +
+      '  dark value reads (bg-raised, text-ink, the ramps). Light is judged separately above and is unaffected.\n',
+  );
+  faintFailed = true;
+}
+if (darkShrank.length) {
+  console.error(`\n✖ ${darkShrank.length} dark pair(s) were fixed — record the fix so the list keeps meaning something:\n`);
+  for (const l of darkShrank) console.error(l);
+  console.error('\n  node apps/web/scripts/lint-label-on-fill-contrast.mjs --write-baseline\n');
+  faintFailed = true;
+}
+
 if (faintFailed) process.exit(1);
 
 console.log(`✓ label-on-fill contrast: ${checked} pairing(s) checked, all ≥ ${AA_NORMAL_TEXT}:1`);
+console.log(
+  `✓ dark: ${darkChecked} pairing(s) checked; ${Object.values(darkNow).reduce((x, y) => x + y, 0)} under ${AA_NORMAL_TEXT}:1 in ${Object.keys(darkNow).length} pair(s), all in the record, none new`,
+);
 console.log(`✓ guest text on the page: ${faintChecked} ink tint(s) in ${looks.length} look(s); ${Object.values(faintNow).reduce((x, y) => x + y, 0)} faint, none new`);

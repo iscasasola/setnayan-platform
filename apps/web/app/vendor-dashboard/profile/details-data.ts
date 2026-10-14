@@ -198,8 +198,14 @@ export async function loadDetailsData(
     // Only an Enterprise shop's manager can buy a branch, so only it pays for the fee + rails reads.
     if (isTierAtLeast(own.tier_state ?? null, 'enterprise')) {
       const [fee, settings] = await Promise.all([
-        fetchBranchFeePhp(supabase).catch(() => BRANCH_FEE_PHP),
-        fetchPlatformSettings(supabase).catch(() => null),
+        fetchBranchFeePhp(supabase).catch((err) => {
+          logQueryError('VendorDetails.branchFee', err, { vendorId });
+          return BRANCH_FEE_PHP;
+        }),
+        fetchPlatformSettings(supabase).catch((err) => {
+          logQueryError('VendorDetails.platformSettings', err, { vendorId });
+          return null;
+        }),
       ]);
       branchFeePhp = fee;
       if (settings) branchPay = openRailDetails(settings);

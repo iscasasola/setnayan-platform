@@ -29,7 +29,9 @@ export default async function YourDetailsPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/open-shop');
+  // No shop resolved (or the read failed): back to the dashboard, whose layout tells the two apart — never to
+  // /open-shop on a read that might simply have failed (`the-open-shop-redirect-is-a-proven-absence`).
+  if (!profile) redirect('/vendor-dashboard');
 
   const d = await loadDetailsData(supabase, profile);
 

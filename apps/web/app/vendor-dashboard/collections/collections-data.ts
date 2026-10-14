@@ -66,7 +66,10 @@ export async function loadCollectionsData(
       .maybeSingle();
     if (error) logQueryError('VendorCollections.ownRow', error, { vendorId }, 'graceful_degrade');
     return (data as Record<string, unknown> | null) ?? null;
-  })().catch(() => null);
+  })().catch((err) => {
+    logQueryError('VendorCollections.ownRow', err, { vendorId });
+    return null;
+  });
 
   const cardsRead = (async () => {
     const { data, error } = await supabase
@@ -87,7 +90,10 @@ export async function loadCollectionsData(
       photos: rows.reduce((a, r) => a + (r.primary_photo_r2_key ? 1 : 0) + (r.showcase_photo_r2_keys?.length ?? 0), 0),
       videos: rows.filter((r) => r.showcase_video_r2_key).length,
     };
-  })().catch(() => null);
+  })().catch((err) => {
+    logQueryError('VendorCollections.cards', err, { vendorId });
+    return null;
+  });
 
   // The private album — its own RLS lets the supplier read it; taken-down photos are not theirs to count.
   const albumsRead = (async () => {
@@ -102,7 +108,10 @@ export async function loadCollectionsData(
     }
     const rows = (data ?? []) as { event_id: string }[];
     return { photos: rows.length, events: new Set(rows.map((r) => r.event_id)).size };
-  })().catch(() => null);
+  })().catch((err) => {
+    logQueryError('VendorCollections.albums', err, { vendorId });
+    return null;
+  });
 
   // Their own shots — the rules of `lib/vendor-own-captures.ts`: screened, and not taken down by the couple.
   const ownRead2 = (async () => {
@@ -117,7 +126,10 @@ export async function loadCollectionsData(
       return null;
     }
     return { items: count };
-  })().catch(() => null);
+  })().catch((err) => {
+    logQueryError('VendorCollections.ownCaptures', err, { vendorId });
+    return null;
+  });
 
   const deliveredRead = (async () => {
     const { data, error } = await supabase
@@ -130,7 +142,10 @@ export async function loadCollectionsData(
     }
     const rows = (data ?? []) as { event_id: string }[];
     return { couples: new Set(rows.map((r) => r.event_id)).size, items: rows.length };
-  })().catch(() => null);
+  })().catch((err) => {
+    logQueryError('VendorCollections.handovers', err, { vendorId });
+    return null;
+  });
 
   const igConfigured = isInstagramConnectConfigured();
   const igRead = (async () => {
@@ -159,14 +174,18 @@ export async function loadCollectionsData(
     const rows = (data ?? []) as { approved_at: string | null; rejected_at: string | null; retired_at: string | null }[];
     const live = rows.filter((r) => !r.retired_at);
     return { allowed: true, looks: live.length, declined: live.filter((r) => r.rejected_at).length };
-  })().catch(() => null);
+  })().catch((err) => {
+    logQueryError('VendorCollections.moodboard', err, { vendorId });
+    return null;
+  });
 
   const thumbsRead = Promise.all(
     portfolioRefs.map(async (key) => {
       try {
         const url = await displayUrlForStoredAsset(key);
         return url ? ([key, url] as const) : null;
-      } catch {
+      } catch (err) {
+        logQueryError('VendorCollections.portfolioThumb', err, { vendorId, key });
         return null;
       }
     }),

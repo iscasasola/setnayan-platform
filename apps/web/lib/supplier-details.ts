@@ -22,6 +22,7 @@
  */
 
 import type { BadgeTone } from '@/app/_components/badge';
+import { formatCount } from './format-number';
 
 export type DetailsKey = 'name' | 'what' | 'where' | 'contact' | 'docs' | 'pay';
 
@@ -177,7 +178,7 @@ export function detailsProgress(input: DetailsInput): DetailsProgress {
  * true of a shop with no live service yet, and these details cannot know that; booking is the Shop row's claim.)
  */
 export function detailsLine(p: DetailsProgress): string {
-  const head = `${p.done} of ${p.of} done`;
+  const head = `${formatCount(p.done)} of ${formatCount(p.of)} done`;
   if (p.left.length > 0) return `${head} · left: ${p.left.map((r) => r.leftWord).join(' · ')}`;
   if (p.incomplete) return `${head} · some of it could not be read just now`;
   const docs = p.rows.find((r) => r.key === 'docs');

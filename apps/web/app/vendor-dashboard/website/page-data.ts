@@ -3,15 +3,14 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
-import { MICROSITE_COLUMNS, micrositeCan, micrositeFromRow } from '@/lib/vendor-microsite';
+import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
 import { isShopLive, isPubliclyVisible } from '@/lib/vendor-visibility';
 import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
-import { tierCaps, asVendorTier, TIER_CAPS } from '@/lib/vendor-tier-caps';
-import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { DomainRow } from './actions';
@@ -54,8 +53,8 @@ export type PageData = {
   stories: { id: string; label: string }[] | null;
   domains: DomainRow[];
   domainsMeasured: boolean;
-  personalizeAsks: boolean;
-  proAsks: boolean;
+  /** The plan, for the ◆ asks the page decides (`vendorPaywallApplies`, in `page.tsx`). */
+  tier: string | null;
   storeShell: boolean;
   plans: PagePlanLine[];
 };
@@ -96,24 +95,28 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     // ⚠ screen? No: logged, because the defaults ARE what couples see when these columns are empty.
     if (error) logQueryError('VendorPage.ownRow', error, { vendorId }, 'graceful_degrade');
     return (data as OwnRow | null) ?? null;
-  })().catch(() => null);
+  })().catch((err) => {
+    logQueryError('VendorPage.ownRow', err, { vendorId });
+    return null;
+  });
 
   const statsRead = fetchReviewStats(supabase, vendorId).catch((err) => {
     logQueryError('VendorPage.reviewStats', err, { vendorId });
     return undefined;
   });
-  const reviewsRead = fetchReviewsForVendorWithCouple(supabase, vendorId, { limit: 20, offset: 0 })
-    .then((rows) =>
-      rows.map((r) => {
+  const reviewsRead = (async () => {
+    try {
+      const rows = await fetchReviewsForVendorWithCouple(supabase, vendorId, { limit: 20, offset: 0 });
+      return rows.map((r) => {
         const name = r.couple_display_name ?? 'A couple';
         const snippet = r.body ? `“${r.body.slice(0, 60)}${r.body.length > 60 ? '…' : ''}”` : `${r.rating_overall}★`;
         return { id: r.review_id, label: `${name} · ${snippet}` };
-      }),
-    )
-    .catch((err) => {
+      });
+    } catch (err) {
       logQueryError('VendorPage.reviewOptions', err, { vendorId });
       return null;
-    });
+    }
+  })();
   const storiesRead = (async () => {
     try {
       const bookings = await fetchVendorPoolBookings(supabase, vendorId);
@@ -143,7 +146,10 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
         verified: Boolean(d.verified_at),
       })),
     };
-  })().catch(() => ({ measured: false, rows: [] as DomainRow[] }));
+  })().catch((err) => {
+    logQueryError('VendorPage.domains', err, { vendorId });
+    return { measured: false, rows: [] as DomainRow[] };
+  });
   const vocabRead = fetchVendorServicePickerVocab();
   const portfolioKeys = (profile.portfolio_r2_keys ?? []) as string[];
   const portfolioRead = Promise.all(
@@ -151,7 +157,9 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
       try {
         const url = await displayUrlForStoredAsset(key);
         return url ? { key, url } : null;
-      } catch {
+      } catch (err) {
+        // A short grid is visible on its own (the page knows how many photos it asked for); logged, not announced.
+        logQueryError('VendorPage.portfolioThumb', err, { vendorId, key });
         return null;
       }
     }),
@@ -210,8 +218,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     stories,
     domains: domains.rows,
     domainsMeasured: domains.measured,
-    personalizeAsks: vendorPaywallApplies(micrositeCan(tier).canPersonalize) && !storeShell,
-    proAsks: vendorPaywallApplies(tierCaps(asVendorTier(tier)).customWebsiteName) && !storeShell,
+    tier,
     storeShell,
     plans: pagePlanLines(),
   };

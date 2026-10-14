@@ -147,7 +147,7 @@ export function PageParts({
   return (
     <>
       {/* ── The page as couples see it ─────────────────────────────────── */}
-      <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white" data-page-face="">
+      <div className="sn-glass-bare overflow-hidden rounded-2xl" data-page-face="">
         <div
           className="relative flex h-[132px] items-end bg-cover bg-center px-3.5 py-2.5"
           style={{

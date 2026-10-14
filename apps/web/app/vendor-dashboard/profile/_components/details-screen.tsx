@@ -64,7 +64,7 @@ export function DetailsScreen({
   const head = line.split(' · ')[0];
   const rest = line.slice(head.length);
   const services = d.profileFields.services.map((s) => d.profileFields.serviceLabels?.[s] ?? s);
-  const docsRow = row('docs');
+  const docsState = row('docs').state;
 
   return (
     <>
@@ -108,7 +108,7 @@ export function DetailsScreen({
                 showProgress={false}
               />
               {/* The exact start date (optional) — moved from My Shop's Profile tile with its own Save. */}
-              <form action={updateBusinessStartDate} className="rounded-xl border border-ink/10 p-4">
+              <form action={updateBusinessStartDate} className="pt-1">
                 <label htmlFor="in_business_since_date" className="block text-sm font-medium text-ink">
                   Business start date <span className="font-normal text-ink/55">(optional)</span>
                 </label>
@@ -223,7 +223,7 @@ export function DetailsScreen({
             data="details-docs"
             title="Your documents"
             line={
-              docsRow.state === 'checking'
+              docsState === 'checking'
                 ? 'Setnayan is checking your documents'
                 : 'DTI or SEC · BIR 2303 · permit · a bank proof'
             }

@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { micrositeCan } from '@/lib/vendor-microsite';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { DomainManager } from './_domain-manager';
 import { loadPageData } from './page-data';
 import { PageParts } from './_components/page-parts';
@@ -29,7 +32,9 @@ export default async function YourPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/open-shop');
+  // No shop resolved (or the read failed): back to the dashboard, whose layout tells the two apart — never to
+  // /open-shop on a read that might simply have failed (`the-open-shop-redirect-is-a-proven-absence`).
+  if (!profile) redirect('/vendor-dashboard');
 
   const d = await loadPageData(supabase, profile);
   const whereLine = d.city
@@ -63,8 +68,10 @@ export default async function YourPage() {
           videoCount: d.videoCount,
           reviews: d.reviews,
           stories: d.stories,
-          personalizeAsks: d.personalizeAsks,
-          proAsks: d.proAsks,
+          // 💳 ◆ is information, asked through the ONE flag-aware question (lib/vendor-feature-gate.ts): false for
+          // every plan while VENDOR_TIER_FEATURE_GATE is off; never in the App Store shell (lib/store-shell.ts).
+          personalizeAsks: vendorPaywallApplies(micrositeCan(d.tier).canPersonalize) && !d.storeShell,
+          proAsks: vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).customWebsiteName) && !d.storeShell,
           storeShell: d.storeShell,
           plans: d.plans,
         }}

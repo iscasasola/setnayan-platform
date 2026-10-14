@@ -26,6 +26,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const src = readFileSync(join(here, 'page.tsx'), 'utf8');
@@ -78,7 +79,7 @@ test('the shop gate still runs first', () => {
  * is a trip every Shop visit pays for a panel that is not drawn here.
  */
 test('the reads that moved with door 1 stay off My Shop', () => {
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const code = stripComments(src);
   for (const reader of [
     'fetchVendorTeam',
     'enrichTeamWithUsers',

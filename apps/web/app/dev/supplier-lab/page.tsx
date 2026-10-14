@@ -29,6 +29,8 @@
  *                     This year, Log a payment (frame 05)  &next=next|all · &open=log
  *   ?s=money-waived   every fee waived (frame 30)   ?s=money-locked  the year on a plan without it
  *   ?s=money-empty    no payment plan yet           ?s=money-fail    nothing could be read — said, never ₱0 (frame 15)
+ *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
+ *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
  *
  * ⚠ The Today states mount the SHIPPED answer actions, exactly as the page
  * does — the lab adds no server action of its own. With no session every one
@@ -74,6 +76,7 @@ import { feeDueCopy, type DueFeeBill } from '@/lib/booking-fee-disclosure';
 import { PeopleLab } from './people-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
+import { PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
 
 const PEOPLE_STATES = ['people', 'clash', 'empty', 'fail', 'nopools'] as const;
 
@@ -290,7 +293,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; who?: string; draft?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -299,6 +302,9 @@ export default async function SupplierLabPage({
   }
   if (q.s && (DATES_STATES as readonly string[]).includes(q.s)) {
     return <DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} />;
+  }
+  if (q.s && (PAGE_LAB_STATES as readonly string[]).includes(q.s)) {
+    return <PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} />;
   }
   if (q.s && (MONEY_STATES as readonly string[]).includes(q.s)) {
     return <MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} />;

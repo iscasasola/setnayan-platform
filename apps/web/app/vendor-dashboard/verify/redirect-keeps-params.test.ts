@@ -53,7 +53,7 @@ test('the route no longer renders the retired 12-document form', () => {
   );
 });
 
-test('the Event Hub "Get verified" link points straight at the papers anchor', () => {
+test('the Event Hub "Get verified" link points straight at the papers (Your details › Your documents since step 5)', () => {
   const src = stripComments(
     readFileSync(
       path.join(HERE, '..', 'on-the-day', 'page.tsx'),
@@ -62,7 +62,7 @@ test('the Event Hub "Get verified" link points straight at the papers anchor', (
   );
   assert.match(
     src,
-    /href="\/vendor-dashboard\/shop#get-verified"/,
+    /href="\/vendor-dashboard\/profile#docs"/,
     'on-the-day/page.tsx "Get verified" link still points at the retired /vendor-dashboard/verify route.',
   );
 });
@@ -76,7 +76,7 @@ test('the sidebar nav entry points straight at the papers anchor', () => {
   );
   assert.match(
     src,
-    /key: "vendor\.sidebar\.verify",[\s\S]{0,200}route: "\/vendor-dashboard\/shop#get-verified"/,
+    /key: "vendor\.sidebar\.verify",[\s\S]{0,400}route: "\/vendor-dashboard\/profile#docs"/,
     'nav-registry-defaults.ts "vendor.sidebar.verify" entry still routes to the retired /vendor-dashboard/verify page.',
   );
 });

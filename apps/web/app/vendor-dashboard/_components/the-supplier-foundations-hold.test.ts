@@ -116,7 +116,8 @@ test('4 · the shell hands the shared bar the envelope, seeded from the messages
   assert.match(env[0], /href=\{customerLandingHref\('messages'\)\}/, 'the envelope does not land on the inbox through the anchors table');
   assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people&open=messages#customer-tools');
   assert.ok(cluster.indexOf('<UnreadMessagesBadge') < cluster.indexOf('<AccountSwitcher'), 'the envelope sits after the avatar');
-  assert.match(cluster, /<AccountSwitcher data=\{switcherData\} \/>/, 'the avatar — and the only Sign out — left the bar');
+  // Step 5 (2026-10-14): the panel also carries the supplier's own rows (owners and admins).
+  assert.match(cluster, /<AccountSwitcher data=\{switcherData\}(?: shopRows=\{[^}]*\}\)?[^/]*)? \/>/, 'the avatar — and the only Sign out — left the bar');
   assert.match(cluster, /data-supplier-shell-shop=""[^>]*>\s*\{vendorSidebarName\}/, 'the bar names the person, not the shop');
 });
 

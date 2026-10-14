@@ -57,8 +57,7 @@ export function GalleryMedia({
 
   return (
     <section
-      className="space-y-5 rounded-xl border p-4"
-      style={{ borderColor: 'var(--m-line)' }}
+      className="space-y-5"
     >
       <div className="flex items-center gap-1.5">
         <Images

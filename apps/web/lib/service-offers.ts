@@ -8,9 +8,9 @@
  * is never here: the sheet is handed the catalog's figure and the server action
  * re-reads it (`resolveOrderChargeCentavos`).
  *
- * 🔒 ONE UNIT PER ORDER. The prototype draws − / + on "Add a venue screen" (days)
+ * 🔒 ONE UNIT PER ORDER. The prototype draws − / + on the hosted channel (days)
  * and "Another song" (songs). Nothing in the product counts a quantity on these
- * orders — a venue screen is one hosted-channel day per order today
+ * orders — the hosted channel is one day per order today
  * (`HostedChannelUpsell`), a song is one PAKANTA order — so a counter here would
  * charge for days or songs nothing would ever deliver. Each press buys ONE; the
  * sheet says "add another any time". Flagged to the owner (handover).
@@ -103,12 +103,14 @@ export const SERVICE_OFFERS: Readonly<Record<ServiceOfferKind, ServiceOffer>> = 
   },
   'more-screen': {
     sku: 'LIVE_STUDIO_HOSTED_CHANNEL',
-    title: 'Add a venue screen',
-    sub: 'A hosted channel for the big screens at your venue',
+    // Named for what it is: Setnayan supplies and runs the YouTube channel your broadcast goes
+    // to (the prototype's "venue screen" was not this product — flagged to the owner).
+    title: 'Have Setnayan run the channel',
+    sub: 'Your broadcast goes out on a Setnayan YouTube channel — no channel of your own needed',
     unit: '1 day · add another any time',
-    inc: ['The big screens show your stream', 'Charged for each day it is used'],
-    after: '1 more day of venue screens',
-    description: 'Live Watch — a venue screen (hosted channel), one day',
+    inc: ['Setnayan supplies and runs the channel', 'Charged for each day it is used', 'Cameras, cutting and guest-pick are unchanged'],
+    after: '1 day on a Setnayan channel',
+    description: 'Live Watch — hosted channel (Setnayan runs it), one day',
     dayOfOnly: true,
     unlock: false,
   },

@@ -11,7 +11,15 @@ import {
   Lock,
   Tv,
   Unlink2,
+  MonitorPlay,
 } from 'lucide-react';
+import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { liveGlance, serviceDayOf } from '@/lib/services-glance';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { formatPapicDayInWords } from '@/lib/papic-window';
+import { figurePrice, readServiceFigures } from '@/lib/service-figures.server';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { formatRecordingDuration } from '@/lib/live-studio-recordings';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
@@ -21,13 +29,12 @@ import { ChoosePlanSheet, type ChoosePlanSheetProps } from '@/app/_components/ap
 import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchAddOnStats } from '@/lib/add-on-stats';
 import { resolveAddOnState } from '@/lib/add-on-state';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { liveStudioControlPath, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
-import { eventSkuActive } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import {
   liveStudioPoolOnly,
   mayBroadcastOnSharedChannel,
@@ -78,6 +85,8 @@ type Props = {
     youtube_connected?: string;
     youtube_disconnected?: string;
     youtube_error?: string;
+    /** A refused purchase (`buyService`) — said on the sheet. */
+    buy_error?: string;
   }>;
 };
 
@@ -104,7 +113,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id')
+    .select('event_id, event_date, cleared_at, timezone, event_end_date')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -168,11 +177,10 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   // the server gate (checkoutPoolChannel → eventHoldsHostedChannel) decides.
   const ent = await eventEntitlementClient(eventId);
 
-  const [stats, stateCtx, settings, sku, hostedChannelSku, ownsHostedChannel, hostedChannelOnSale] =
+  const [stats, stateCtx, sku, hostedChannelSku, ownsHostedChannel, hostedChannelOnSale, liveActive, liveOwned, figures, storeShell] =
     await Promise.all([
       fetchAddOnStats(supabase, FEATURE_KEY),
       resolveAddOnState(ent, eventId, FEATURE_KEY, 'couple', controllerHref),
-      fetchPlatformSettings(supabase),
       formatV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => null),
       formatV2Sku(LIVE_STUDIO_HOSTED_CHANNEL_SKU).catch(() => null),
       // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
@@ -192,6 +200,11 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       // it works and quietly does not, the exact pattern this codebase has shipped
       // and fixed before.
       getCustomerSkuPriceLabel(LIVE_STUDIO_HOSTED_CHANNEL_SKU).then((label) => label !== null),
+      eventSkuActive(ent, eventId, LIVE_STUDIO_SKU_CODE).catch(() => false),
+      eventOwnsSku(ent, eventId, LIVE_STUDIO_SKU_CODE).catch(() => false),
+      // ✅ The band's figures — cameras, live, recorded — in ONE request (event_service_figures).
+      readServiceFigures(eventId),
+      isStoreShellRequest(),
     ]);
 
   // Live catalog price (display only; the charge is re-resolved server-side from
@@ -252,21 +265,9 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   // and weight only; the price and the buy button are unchanged. When owned
   // ('launch'), the primary CTA already opens the controller, so nothing else
   // renders.
-  const cta = (
-    <div className="space-y-2">
-      {stateCtx.state !== 'launch' ? (
-        <Link
-          href={controllerHref}
-          className="inline-flex items-center gap-2 rounded-full border border-terracotta bg-cream px-5 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/10"
-        >
-          Open the controller — go live free with one camera
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </Link>
-      ) : null}
-      <AddOnStateCta
-        context={stateCtx}
-        launchLabel="Open controller"
-        choosePlan={{
+  /* The Live Watch plan sheet — its four pre-purchase facts and the YouTube box are this
+     page's (pinned); since 2026-10-14 it mints, then /pay. It is the band's Add (below). */
+  const choosePlan: ChoosePlanSheetProps = {
         eventId,
         triggerLabel: 'Add Live Watch',
         priceFromLabel: priceLabel,
@@ -282,9 +283,10 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
             unit: planRow.unit,
             badge: planRow.badge,
             priceCentavos: String(centavos),
+            // ✅ Mint, then /pay — the one way to pay (owner 2026-10-14 🧩 5).
+            mintOffer: 'live',
           },
         ],
-        settings,
         introCopy:
           'Live Watch streams your celebration live for everyone who can’t be there. One directed Main Stage plus switchable guest cameras — different angles, rooms, even different venues. Cut the Main Stage between them with a tap, or let remote guests pick their own view. Buy one Live Watch per event; set up your cameras right after.',
         // ⏳ THE LEAD-TIME NOTICE, prominent and above the price — not in the footnote
@@ -327,10 +329,45 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
             },
         footnote:
           'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
-        }}
-      />
-    </div>
-  );
+  };
+
+  // The free single-camera door — the band's second door says the same while Live Watch is not added.
+  const cta =
+    stateCtx.state !== 'launch' && !liveOwned ? (
+      <Link
+        href={controllerHref}
+        className="inline-flex items-center gap-2 rounded-full border border-terracotta bg-cream px-5 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/10"
+      >
+        Open the controller — go live free with one camera
+        <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+      </Link>
+    ) : (
+      <AddOnStateCta context={stateCtx} launchLabel="Open controller" choosePlan={choosePlan} />
+    );
+
+  /* ✅ THE LIVE STREAM'S ONE BAND (owner "approve all", 2026-10-14 — services prototype):
+     the glance Home's row reads. No clock (LS6): "Goes live <date> · you press Go live";
+     on the day "Live now"; after it "Recorded · download a copy to keep it" (call 2). */
+  const ev = event as { event_date?: string | null; cleared_at?: string | null; timezone?: string | null; event_end_date?: string | null };
+  const phase = ev.event_date
+    ? getMenuLifecyclePhase(ev.event_date, ev.cleared_at ?? null, ev.timezone ?? undefined, undefined, ev.event_end_date ?? null)
+    : 'plan';
+  const dayWords = formatPapicDayInWords(ev.event_date ?? null);
+  const glance = liveGlance({
+    ownership: liveActive ? 'on' : liveOwned ? 'waiting' : 'none',
+    price: sku?.price_php ?? figurePrice(figures, LIVE_STUDIO_SKU_CODE),
+    screenPrice: hostedChannelOnSale ? hostedChannelSku?.price_php ?? null : null,
+    day: serviceDayOf(phase),
+    cameras: figures ? figures.cameras : null,
+    live: figures ? figures.live : null,
+    liveSince: figures?.live_since ?? null,
+    recorded: figures ? figures.recorded : null,
+    recordedMinutes: figures?.recorded_minutes ?? null,
+    dayWords,
+  });
+  const on = glance.ownership === 'on';
+  const recordedLength =
+    figures?.recorded && figures.recorded_minutes ? formatRecordingDuration(figures.recorded_minutes * 60) : null;
 
   const youtubeError = sp.youtube_error;
 
@@ -387,6 +424,53 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         </p>
       ) : null}
 
+      <div>
+        <ServicePageBand
+          eventId={eventId}
+          glance={glance}
+          label="Your live stream"
+          storeShell={storeShell}
+          buyError={sp.buy_error ?? null}
+          addButton={storeShell ? null : <ChoosePlanSheet {...choosePlan} />}
+          hideSecond
+        />
+        {/* ✅ THE SECTIONS AS DRAWN (prototype `sections('live')`). */}
+        <div className="mt-2">
+          <ServiceSection
+            icon={<Video strokeWidth={1.9} />}
+            title="Your cameras"
+            sub={
+              on
+                ? figures
+                  ? figures.cameras === 0
+                    ? 'None set up yet'
+                    : `${figures.cameras} set up`
+                  : 'Set up in the controller'
+                : '1 free · more with Live Watch'
+            }
+            end={<ServiceQuietLink href={controllerHref} label="Pair a camera" />}
+          />
+          <ServiceSection
+            id="recording"
+            icon={<Tv strokeWidth={1.9} />}
+            title="Recording"
+            sub={figures?.recorded ? `${recordedLength ?? 'Recorded'} · unlisted` : 'Starts when you press Go live'}
+            end={figures?.recorded ? <ServiceQuietLink href={controllerHref} label="Download" /> : null}
+            dim={!on}
+          >
+            {figures?.recorded ? (
+              <p className="m-0 text-[13px] text-ink/60">Keep a copy — YouTube unlisted links are not forever.</p>
+            ) : null}
+          </ServiceSection>
+          <ServiceSection
+            icon={<MonitorPlay strokeWidth={1.9} />}
+            title="YouTube channel"
+            sub={youtubeGrant?.external_account_display ?? (ownsHostedChannel ? 'Setnayan runs your channel' : 'Not linked yet')}
+            end={<ServiceChip mood={youtubeGrant || ownsHostedChannel ? 'ok' : 'off'} words={youtubeGrant || ownsHostedChannel ? 'Linked' : 'Not linked'} />}
+          />
+        </div>
+      </div>
+
       <AppStoreLayout
         back={{ href: studioHubHref(eventId), label: 'Back to add-ons' }}
         hero={{
@@ -441,7 +525,6 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         onSale={hostedChannelOnSale}
         priceLabel={hostedChannelPriceLabel}
         priceCentavos={hostedChannelCentavos}
-        settings={settings}
       />
     </div>
   );
@@ -475,14 +558,12 @@ function HostedChannelUpsell({
   onSale,
   priceLabel,
   priceCentavos,
-  settings,
 }: {
   eventId: string;
   owns: boolean;
   onSale: boolean;
   priceLabel: string;
   priceCentavos: number;
-  settings: ChoosePlanSheetProps['settings'];
 }) {
   if (!owns && !onSale) return null;
   return (
@@ -538,9 +619,10 @@ function HostedChannelUpsell({
               price: priceLabel,
               unit: ' / day',
               priceCentavos: String(priceCentavos),
+              // ✅ Mint, then /pay — the one way to pay (owner 2026-10-14 🧩 5).
+              mintOffer: 'more-screen',
             },
           ]}
-          settings={settings}
           introCopy="For couples without live-stream access, or who'd rather not set one up themselves — Setnayan runs the channel so you don't have to."
           footnote="Apply-then-pay flow · we confirm price before payment. Stacks on Live Watch — buy this any time, before or after."
         />

@@ -236,6 +236,7 @@ for (const [file, what] of [
   ['app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx', 'extra cameras'],
   ['app/dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx', 'guest cameras'],
   ['app/dashboard/[eventId]/_components/service-buy-sheet.tsx', 'the services\' Add / Buy more'],
+  ['app/_components/app-store/choose-plan-sheet.tsx', 'a plan sheet that mints (Live Watch)'],
 ] as const) {
   test(`button · ${what} locks while pressed and names the step`, () => {
     const src = read(file);

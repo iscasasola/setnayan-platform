@@ -81,7 +81,8 @@ function serviceDoorHref(kind: ServiceDoor['kind'], eventId: string): string {
   const doors: ReadonlyArray<{ kind: ServiceDoor['kind']; href: string }> = [
     { kind: 'shortlist', href: `/dashboard/${eventId}/vendors` },
     { kind: 'controller', href: `/panood/control/${eventId}` },
-    { kind: 'recording', href: `/dashboard/${eventId}/studio/live-studio-control#recording` },
+    /* The recording is collected in the controller (its "Recordings" card). */
+    { kind: 'recording', href: `/panood/control/${eventId}` },
     { kind: 'hear', href: `/dashboard/${eventId}/studio/pakanta#song` },
     { kind: 'brief', href: `/dashboard/${eventId}/studio/pakanta#brief` },
     { kind: 'booth', href: `/dashboard/${eventId}/studio/patiktok/booth` },

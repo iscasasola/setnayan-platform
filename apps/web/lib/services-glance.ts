@@ -58,7 +58,7 @@ export const SERVICE_ROW_SKU: Readonly<Record<Exclude<ServiceRowKey, 'papic'>, s
   booth: 'PATIKTOK_COMPILER',
   hub: 'COUPLE_WEBSITE_PRO',
 };
-/** Live stream's "Add a venue screen" — the hosted channel, per day. */
+/** Live stream's buy-more — the hosted channel (Setnayan runs the YouTube channel), per day. */
 export const VENUE_SCREEN_SKU = 'LIVE_STUDIO_HOSTED_CHANNEL';
 
 /** on = unlocked · waiting = bought, payment not yet approved · none = not added. */
@@ -327,7 +327,11 @@ function sinceWords(iso: string | null | undefined): string | null {
 export function liveGlance(input: LiveGlanceInput): ServiceRowGlance {
   const controller: ServiceDoor = { kind: 'controller', label: 'Open controller' };
   const screenP = priceWords(input.screenPrice);
-  const moreScreen: ServiceDoor | null = screenP ? { kind: 'more-screen', label: 'Add a venue screen' } : null;
+  // The hosted channel (LIVE_STUDIO_HOSTED_CHANNEL, per day): Setnayan supplies and runs the
+  // YouTube channel the broadcast goes to. The prototype called it "a venue screen"; the
+  // product is the CHANNEL (its own buy section says so), so it is named for what it is —
+  // and it stays on the page's band, not on Home's row (flagged to the owner).
+  const moreScreen: ServiceDoor | null = screenP ? { kind: 'more-screen', label: `Have Setnayan run the channel · ${screenP} a day` } : null;
   if (input.ownership !== 'on') {
     const g = notYet({
       key: 'live',
@@ -411,7 +415,7 @@ export function liveGlance(input: LiveGlanceInput): ServiceRowGlance {
         ? { strong: 'No cameras', tail: ` set up yet · ${goesLive}` }
         : { strong: '— cameras', tail: ` · ${goesLive}` },
     say: ready ? 'Rehearse any time from the controller.' : 'Pair a phone or a DSLR from the controller.',
-    doors: moreScreen ? [moreScreen, controller] : [controller],
+    doors: [controller],
     band: {
       big: n === null ? '—' : formatCount(n),
       bigWord: false,
@@ -419,7 +423,7 @@ export function liveGlance(input: LiveGlanceInput): ServiceRowGlance {
       of: 'never expires for this event',
       line: `${goesLive} · you press Go live`,
       main: controller,
-      second: moreScreen ? { kind: 'more-screen', label: `Add a venue screen · ${screenP} a day` } : null,
+      second: moreScreen,
     },
     moment: null,
   };

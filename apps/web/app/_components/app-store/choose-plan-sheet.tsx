@@ -9,6 +9,9 @@ import {
 } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsStoreShell } from '@/lib/use-store-shell';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { buyService } from '@/app/dashboard/[eventId]/service-buy-actions';
+import type { ServiceOfferKind } from '@/lib/service-offers';
 
 // Client-side "Choose plan" sheet rendered as the App Store-style GET button.
 // On mobile it slides up from the bottom (single-thumb reach); on desktop
@@ -42,6 +45,13 @@ export type ChoosePlanSku = {
    * for paid plans so the discount math has a base.
    */
   priceCentavos?: string;
+  /**
+   * ✅ MINT, THEN /pay (owner 2026-10-14 🧩 5 — "one way to pay"): a plan that
+   * names its service offer posts `buyService` — the order is minted at the
+   * server's price and the buyer lands on /pay — instead of opening the inline
+   * drawer. Absent → the drawer, exactly as before, for every other caller.
+   */
+  mintOffer?: ServiceOfferKind;
 };
 
 export type ChoosePlanSheetProps = {
@@ -271,6 +281,19 @@ export function ChoosePlanSheet({
                     >
                       Tick the box above to continue
                     </button>
+                  ) : plan.mintOffer ? (
+                    /* ONE PRESS, ONE BILL (#6527): locks and says "Opening payment…" until /pay opens. */
+                    <form action={buyService}>
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="offer" value={plan.mintOffer} />
+                      <SubmitButton
+                        overlay={false}
+                        pendingLabel="Opening payment…"
+                        className="inline-flex w-fit items-center gap-1.5 rounded-full bg-mulberry px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-600"
+                      >
+                        Continue to payment
+                      </SubmitButton>
+                    </form>
                   ) : (
                     <InlineCheckoutDrawer
                       eventId={eventId}

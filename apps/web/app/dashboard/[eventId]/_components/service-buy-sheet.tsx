@@ -8,6 +8,21 @@ import { Sheet } from '@/app/_components/sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { buyService } from '../service-buy-actions';
 import { SERVICE_OFFERS, type ServiceOfferKind } from '@/lib/service-offers';
+import { ENCODER_BUY_NOTICE, LEAD_TIME_NOTICE, MUSIC_RIGHTS_NOTICE, YOUTUBE_READY_NOTICE } from '@/lib/live-studio-readiness';
+import { POOL_CHANNEL_SHARED_STRIKE_NOTICE } from '@/lib/live-studio-pool-only';
+import { setYoutubeLiveReadyAck } from '../studio/live-studio-control/actions';
+
+/**
+ * 🔒 WHAT MUST BE SAID BEFORE THE MONEY MOVES — the same facts the Live Watch buy
+ * page's sheet carries (lib/live-studio-readiness.ts; lib/live-studio-pool-only.ts),
+ * so Home's Add can never sell Live Watch with less warning than its own page.
+ */
+const NOTICES: Partial<Record<ServiceOfferKind, readonly string[]>> = {
+  live: [LEAD_TIME_NOTICE, YOUTUBE_READY_NOTICE, ENCODER_BUY_NOTICE, MUSIC_RIGHTS_NOTICE],
+  'more-screen': [POOL_CHANNEL_SHARED_STRIKE_NOTICE],
+};
+/** Live Watch asks the buyer to confirm their channel can go live — the page's own box. */
+const YOUTUBE_ACK = 'I understand, and I already have a YouTube account that is ready for live streaming.';
 
 const ERROR_COPY: Record<string, string> = {
   not_couple: 'Only the couple can add this.',
@@ -54,8 +69,12 @@ export function ServiceBuySheet({
 }) {
   const headingId = useId();
   const [open, setOpen] = useState(defaultOpen);
+  /* Starts unticked ALWAYS (the ChoosePlanSheet rule): a tick is the buyer's own claim. */
+  const [acked, setAcked] = useState(false);
   const offer = SERVICE_OFFERS[kind];
   const priced = typeof price === 'number' && Number.isFinite(price) && price > 0;
+  const notices = NOTICES[kind] ?? [];
+  const needsAck = kind === 'live' && !acked;
 
   const sheet = open ? (
     <Sheet open onClose={() => setOpen(false)} labelledById={headingId} rise>
@@ -88,7 +107,34 @@ export function ServiceBuySheet({
           <span>After this</span>
           <b>{offer.after}</b>
         </div>
-        {priced ? (
+        {notices.length > 0 ? (
+          <div className="mt-3 space-y-2 rounded-xl border border-ink/15 bg-cream/60 px-3.5 py-3 text-[12.5px] leading-relaxed text-ink/80" data-service-buy-notice="">
+            {notices.map((n) => (
+              <p key={n} className="m-0">
+                {n}
+              </p>
+            ))}
+          </div>
+        ) : null}
+        {kind === 'live' ? (
+          <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-relaxed text-ink/85">
+            <input
+              type="checkbox"
+              checked={acked}
+              onChange={(e) => {
+                const next = e.target.checked;
+                setAcked(next);
+                // Fire-and-forget, like the page's sheet: a failed write only asks again next time.
+                void setYoutubeLiveReadyAck(next).catch(() => {});
+              }}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-mulberry"
+            />
+            <span>{YOUTUBE_ACK}</span>
+          </label>
+        ) : null}
+        {priced && needsAck ? (
+          <p className="mt-3.5 text-center text-sm text-ink/60">Tick the box above to continue</p>
+        ) : priced ? (
           <form action={buyService} className="mt-3.5">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="offer" value={kind} />

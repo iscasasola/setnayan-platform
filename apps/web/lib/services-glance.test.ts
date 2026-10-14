@@ -119,18 +119,16 @@ test('Live · bought, nothing set up: "No cameras set up yet · Goes live <date>
   assert.equal(g.band.line, 'Goes live Saturday, 19 December · you press Go live');
 });
 
-test('Live · ready: "3 cameras ready · Goes live <date>" + Add a venue screen + Open controller', () => {
+test('Live · ready: "3 cameras ready · Goes live <date>" · Open controller; the hosted channel on the band, named for what it is', () => {
   const g = liveGlance({ ...LIVE, ownership: 'on', day: 'before' });
   assert.equal(lineText(g), '3 cameras ready · Goes live Saturday, 19 December');
-  assert.deepEqual(
-    g.doors.map((d) => d.kind),
-    ['more-screen', 'controller'],
-  );
+  assert.deepEqual(g.doors.map((d) => d.kind), ['controller']);
   assert.deepEqual(g.band.main, { kind: 'controller', label: 'Open controller' });
-  assert.deepEqual(g.band.second, { kind: 'more-screen', label: 'Add a venue screen · ₱3,000 a day' });
+  assert.deepEqual(g.band.second, { kind: 'more-screen', label: 'Have Setnayan run the channel · ₱3,000 a day' });
   assert.equal(g.moment, null);
+  assert.doesNotMatch(JSON.stringify(g), /venue screen/i, 'the hosted channel is not a venue screen');
   const noScreen = liveGlance({ ...LIVE, ownership: 'on', day: 'before', screenPrice: null });
-  assert.deepEqual(noScreen.doors.map((d) => d.kind), ['controller'], 'no venue screen on sale — no door to it');
+  assert.equal(noScreen.band.second, null, 'the hosted channel off sale — no door to it');
   assert.equal(lineText(liveGlance({ ...LIVE, ownership: 'on', day: 'before', dayWords: null })), '3 cameras ready · Goes live on your day');
 });
 
@@ -253,7 +251,7 @@ test('Hub Pro · on: "Pro on · <theme> theme · <background>" · Open the Maker
 test('a buy door is told apart from a door that opens (the store shell draws none of the first kind)', () => {
   assert.equal(doorBuys({ kind: 'add', label: 'Add' }), true);
   assert.equal(doorBuys({ kind: 'more-song', label: 'Another song' }), true);
-  assert.equal(doorBuys({ kind: 'more-screen', label: 'Add a venue screen' }), true);
+  assert.equal(doorBuys({ kind: 'more-screen', label: 'Have Setnayan run the channel' }), true);
   assert.equal(doorBuys({ kind: 'controller', label: 'Open controller' }), false);
 });
 

@@ -14,7 +14,8 @@ function doorHref(kind: ServiceDoor['kind'], eventId: string): string {
   const doors: ReadonlyArray<{ kind: ServiceDoor['kind']; href: string }> = [
     { kind: 'shortlist', href: `/dashboard/${eventId}/vendors` },
     { kind: 'controller', href: `/panood/control/${eventId}` },
-    { kind: 'recording', href: `/dashboard/${eventId}/studio/live-studio-control#recording` },
+    /* The recording is collected in the controller (its "Recordings" card). */
+    { kind: 'recording', href: `/panood/control/${eventId}` },
     { kind: 'hear', href: `/dashboard/${eventId}/studio/pakanta#song` },
     { kind: 'brief', href: `/dashboard/${eventId}/studio/pakanta#brief` },
     { kind: 'booth', href: `/dashboard/${eventId}/studio/patiktok/booth` },
@@ -88,6 +89,8 @@ export function ServicePageBand({
   label,
   storeShell = false,
   buyError = null,
+  addButton = null,
+  hideSecond = false,
 }: {
   eventId: string;
   glance: ServiceRowGlance;
@@ -95,12 +98,26 @@ export function ServicePageBand({
   storeShell?: boolean;
   /** `?buy_error=` — a refused purchase: the sheet opens on it, said in words. */
   buyError?: string | null;
+  /**
+   * The page's own Add, when it carries more than the sheet can (Live Watch's plan
+   * sheet: its four pre-purchase facts and the YouTube box, pinned on that page).
+   * It still mints then /pay. Used only while the band's main door is Add.
+   */
+  addButton?: ReactNode;
+  /** The second door lives in its own section on this page (with what it must say). */
+  hideSecond?: boolean;
 }) {
   const b = glance.band;
   const sells = (d: ServiceDoor | null) => d !== null && !(storeShell && (d.kind === 'add' || d.kind === 'more-screen' || d.kind === 'more-song'));
   const priceFor = (d: ServiceDoor) => (d.kind === 'add' ? glance.price : glance.morePrice);
   const main = b.main && sells(b.main) ? b.main : null;
-  const second = b.second && sells(b.second) ? b.second : null;
+  const second = !hideSecond && b.second && sells(b.second) ? b.second : null;
+  const mainNode =
+    main && main.kind === 'add' && addButton ? (
+      addButton
+    ) : main ? (
+      <Door eventId={eventId} row={glance.key} door={main} price={priceFor(main)} main buyOpen={Boolean(buyError) && main.kind === 'add'} buyError={buyError} />
+    ) : null;
   return (
     <ServiceBand
       big={b.big}
@@ -110,7 +127,7 @@ export function ServicePageBand({
       line={b.line}
       label={label}
       marker={{ 'data-service-band': glance.key, 'data-ownership': glance.ownership }}
-      main={main ? <Door eventId={eventId} row={glance.key} door={main} price={priceFor(main)} main buyOpen={Boolean(buyError) && main.kind === 'add'} buyError={buyError} /> : null}
+      main={mainNode}
       second={second ? <Door eventId={eventId} row={glance.key} door={second} price={priceFor(second)} main={false} buyOpen={Boolean(buyError) && second.kind !== 'add' && !main} buyError={buyError} /> : null}
     />
   );

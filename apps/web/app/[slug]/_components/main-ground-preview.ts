@@ -147,7 +147,9 @@ export function createMainGroundPreviewer(
   const wear = (l: MainGroundLay) => {
     const tint = Object.entries(l.vars).map(([k, v]) => `${k}:${v} !important;`).join('');
     if (!rule) rule = doc.createElement('style');
-    rule.textContent = SHELL + UNDER + (tint ? `[data-guest-look]{${tint}}` : '');
+    /* A picture laid here: the names keep the measured ink, as the page's own picture ground makes them (`main-ground.tsx`). */
+    const names = l.still ? '--hub-names-ink:initial !important;' : '';
+    rule.textContent = SHELL + UNDER + (tint || names ? `[data-guest-look]{${tint}${names}}` : '');
     if (!rule.parentNode) doc.head.append(rule);
     /* The tint of the ground being replaced is the server's own stylesheet — lifted while the preview is worn. */
     if (lifted.length === 0) {

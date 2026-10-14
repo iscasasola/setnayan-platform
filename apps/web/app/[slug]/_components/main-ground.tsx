@@ -87,7 +87,8 @@ export function MainGround({
     .join('');
   const css =
     '[data-guest-ground] [data-theme-loop],[data-guest-ground] [data-theme-poster]{display:none}' +
-    (declarations ? `[data-guest-look]{${declarations}}` : '');
+    /* 🎨 Over a picture the names keep the measured ink — the Dominant was measured on the paper (`globals.css`). */
+    `[data-guest-look]{${declarations}--hub-names-ink:initial !important;}`;
   return (
     <>
       <style data-main-ground-style="">{css}</style>

@@ -167,8 +167,9 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
        guest page. They are not spread a second time: that put the Names face back over a Headings face. */
     ...(scope.vars ?? {}),
     ...(scope.buttons?.vars ?? {}),
-    /* A picture's tint and a dark shade's flipped words win over the scope, as the guest page's `!important` sheet does. */
-    ...(picture ? ground.vars : {}),
+    /* A picture's tint and a dark shade's flipped words win over the scope, as the guest page's `!important` sheet does —
+       and over a picture the names keep the measured ink (`main-ground.tsx`). */
+    ...(picture ? { ...ground.vars, '--hub-names-ink': 'initial' } : {}),
   } as CSSProperties;
 
   /* 🔤 THE COLOUR EACH TYPE IS DRAWN IN, read off these words after they draw (owner 2026-10-14: "return the type name
@@ -181,10 +182,10 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
       const el = root.querySelector<HTMLElement>(sel);
       return el ? cssColourHex(getComputedStyle(el).color) : null;
     };
-    const names = ink('[data-look-sample-names]');
-    const heading = ink('[data-look-sample-style="heading"]');
-    const body = ink('[data-look-sample-line]') ?? ink('[data-look-sample-date]');
-    const highlight = ink('[data-look-sample-eyebrow]');
+    const names = ink(TYPE_INK_AT.names);
+    const heading = ink(TYPE_INK_AT.heading);
+    const body = ink(TYPE_INK_AT.body) ?? ink(TYPE_INK_AT.date);
+    const highlight = ink(TYPE_INK_AT.highlight);
     if (names && heading && body && highlight) tellLookSampleInks(seed.eventId, { names, heading, body, highlight });
   });
 
@@ -282,8 +283,10 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
           </span>
         </div>
         {/* Every other text style on the page, in one row: a section heading (the Headings face), a link, and a
-            caption whose code is the fixed mono no font choice changes (`--font-space-mono`). */}
-        <p aria-hidden data-look-sample-styles="" className="mt-2.5 flex items-baseline gap-3 font-sans text-[11.5px] text-ink">
+            caption whose code is the fixed mono no font choice changes (`--font-space-mono`) — ON A CARD, the page's
+            plate (`bg-paper-deep`), so the Mood Board's Supporting ("Cards · panels") shows here too (owner 2026-10-14:
+            "changing colors does not show on preview" — it had nowhere to show). */}
+        <p aria-hidden data-look-sample-styles="" data-look-sample-card="" className="mt-2.5 flex items-baseline gap-3 rounded-lg bg-paper-deep px-3 py-1.5 font-sans text-[11.5px] text-ink">
           <span data-look-sample-style="heading" className="font-display text-[14px]">
             Our day
           </span>
@@ -325,3 +328,12 @@ export function splitNames(names: string | null): [string, string | null] {
   const parts = whole.split(/\s+(?:&|and)\s+/i);
   return parts.length === 2 && parts[0] && parts[1] ? [parts[0], parts[1]] : [whole, null];
 }
+
+/** Where each TYPE's words are on the sample — read for their colour after they draw (`LookSampleInks`). */
+const TYPE_INK_AT = {
+  names: '[data-look-sample-names]',
+  heading: '[data-look-sample-style="heading"]',
+  body: '[data-look-sample-line]',
+  date: '[data-look-sample-date]',
+  highlight: '[data-look-sample-eyebrow]',
+} as const;

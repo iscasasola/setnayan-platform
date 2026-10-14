@@ -37,6 +37,8 @@ function activity(over: {
     vendorsTracked: over.vendorsTracked ?? 0,
     deadlinesTracked: over.deadlinesTracked ?? 0,
     paymentsDue30d: over.paymentsDue30d ?? 0,
+    shortlist: [],
+    paymentsSoon: [],
   };
 }
 

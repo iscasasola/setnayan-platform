@@ -37,18 +37,31 @@ export function PlanMyselfBody({ on }: { on: boolean | null }) {
 }
 
 /** The right: the one switch. */
-export function PlanMyselfSwitch({ eventId, on }: { eventId: string; on: boolean | null }) {
+export function PlanMyselfSwitch({
+  eventId,
+  on,
+  compact = false,
+}: {
+  eventId: string;
+  on: boolean | null;
+  /**
+   * ✅ The Planner page's settings row (owner "approve all", 2026-10-14 — services
+   * prototype: "a setting is ONE row"): the same one form and action, drawn as the
+   * switch alone — the row around it says the name and the one line.
+   */
+  compact?: boolean;
+}) {
   if (on === null) {
     return <p className="text-sm text-ink/60">Could not load this. Refresh the page to try again.</p>;
   }
   return (
-    <SafeForm action={setPlanningMode} className="flex flex-col gap-3" data-plan-myself="">
+    <SafeForm action={setPlanningMode} className={compact ? 'contents' : 'flex flex-col gap-3'} data-plan-myself="">
       <input type="hidden" name="event_id" value={eventId} />
       {/* The mode this tap SETS — the opposite of what is on now. */}
       <input type="hidden" name="mode" value={on ? 'guided' : 'manual'} />
       {/* The profile page's switch, as it is (`profile/page.tsx` — a server form, no JS). */}
-      <div className="flex items-center justify-between gap-4">
-        <span id="plan-myself-label" className="text-sm font-medium text-ink">
+      <div className={compact ? 'contents' : 'flex items-center justify-between gap-4'}>
+        <span id="plan-myself-label" className={compact ? 'sr-only' : 'text-sm font-medium text-ink'}>
           {PLAN_MYSELF_LABEL}
         </span>
         <button
@@ -68,9 +81,11 @@ export function PlanMyselfSwitch({ eventId, on }: { eventId: string; on: boolean
           />
         </button>
       </div>
-      <p className="text-[13px] text-ink/60">
-        On: Setnayan stops matching suppliers for you and stops deadline reminders. Free — turn it off any time.
-      </p>
+      {compact ? null : (
+        <p className="text-[13px] text-ink/60">
+          On: Setnayan stops matching suppliers for you and stops deadline reminders. Free — turn it off any time.
+        </p>
+      )}
     </SafeForm>
   );
 }

@@ -6776,6 +6776,30 @@ html:has([data-sticky-top]) {
 .sg-see-two > * { flex: 1 1 auto; justify-content: center; }
 .home-k2-r { margin-left: auto; letter-spacing: 0; text-transform: none; font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .sg-dot[data-mood="live"]::before { animation: none; opacity: 0.6; transform: none; } }
+/* ✅ A SERVICE PAGE'S SECTIONS (owner "approve all", 2026-10-14 — services prototype `.sect`, `.lrow`,
+   `.chip`): a round icon · title · one short line · its rows, each a door with a status chip
+   (icon + colour + 1–2 words, never colour alone). Not added: dim, so it shows what it gives. */
+.ss-sect { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); padding: 14px 0; }
+.ss-h { display: flex; align-items: center; gap: 12px; }
+.ss-ico { width: 40px; height: 40px; border-radius: 50%; background: var(--sn-gold-100); display: grid; place-items: center; flex: none; color: rgb(var(--color-ink)); }
+.ss-ico svg { width: 19px; height: 19px; }
+.ss-s { font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.ss-end { margin-left: auto; flex: none; }
+.ss-under { margin: 12px 0 0 52px; }
+.ss-sect[data-dim] .ss-h, .ss-sect[data-dim] .ss-under { opacity: 0.55; }
+.ss-row { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 0; font-size: 14px; color: rgb(var(--color-ink)); }
+.ss-who { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-chev { color: rgb(var(--color-mulberry)); width: 18px; height: 18px; flex: none; }
+.ss-chip { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px 0 7px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; flex: none; background: color-mix(in srgb, rgb(var(--color-ok)) 14%, transparent); color: rgb(var(--color-ok)); }
+.ss-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ss-chip[data-mood="wait"] { background: var(--sn-gold-100); color: rgb(var(--color-ink)); }
+.ss-chip[data-mood="low"] { background: color-mix(in srgb, rgb(var(--color-warn)) 14%, transparent); color: rgb(var(--color-warn)); }
+.ss-chip[data-mood="gone"], .ss-chip[data-mood="live"] { background: color-mix(in srgb, rgb(var(--color-danger)) 12%, transparent); color: rgb(var(--color-danger)); }
+.ss-chip[data-mood="off"], .ss-chip[data-mood="plain"] { background: color-mix(in srgb, rgb(var(--color-ink)) 6%, transparent); color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.ss-quiet { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 8px; font-size: 14px; font-weight: 500; color: rgb(var(--color-mulberry)); }
+.ss-empty { border: 1px dashed color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent); border-radius: 14px; padding: 16px; text-align: center; }
+.ss-empty b { display: block; font-weight: 600; }
+.ss-empty span { font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
 /* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */
 :is(button, a).ab.ab-neutral.home-cover-ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
 /* Rise on load, staggered — once (the prototype's `up`). */

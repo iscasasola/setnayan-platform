@@ -23,12 +23,12 @@
  */
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { CalendarClock, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, Play, RotateCw, Sparkles, UserRound, CalendarCheck } from 'lucide-react';
+import { CalendarClock, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, RotateCw, Sparkles, UserRound, CalendarCheck } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count } from '@/components/count';
 import { homeDoorwayIcon, type HomeDoorwayKey } from '@/lib/nav-line-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
-import { markSongHeard, songWasHeard } from '@/lib/song-heard';
+import { songWasHeard } from '@/lib/song-heard';
 
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -147,35 +147,6 @@ export function HomeLater({ eventId, kind }: { eventId: string; kind: string }) 
         }
         hide();
       }}
-    />
-  );
-}
-
-/**
- * ✅ "Hear your song" (owner "approve all", 2026-10-14) — opens the song on the
- * Music page and marks it heard on this device (`lib/song-heard.ts`), so the
- * next Home hands the Next card to the next step.
- */
-export function HearYourSong({
-  eventId,
-  href,
-  main = false,
-  tone = 'brand',
-}: {
-  eventId: string;
-  href: string;
-  main?: boolean;
-  tone?: ActionTone;
-}) {
-  return (
-    <ActionButton
-      tone={tone}
-      main={main}
-      icon={Play}
-      label="Hear your song"
-      href={href}
-      onClick={() => markSongHeard(eventId)}
-      data-testid="home-hear-song"
     />
   );
 }

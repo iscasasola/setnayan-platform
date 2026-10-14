@@ -165,6 +165,10 @@ test('🔴 buying Setnayan AI can be undone — the off-ramp exists, ACTS, and l
   assert.doesNotMatch(
     PAGE,
     /setPlanningMode/,
-    'the Setnayan AI page must not hold a second "Plan it myself" switch — Event Details is the one place',
+    'the Setnayan AI page must not hold a second "Plan it myself" switch — it may only MOUNT the one',
   );
+  /* ✅ Owner "approve all", 2026-10-14 (services prototype): the Planner page carries "Plan it
+     myself" as one settings row. It is the SAME switch — the one component, the one form, the
+     one action — mounted in a second place, never a second implementation of it. */
+  assert.match(PAGE, /<PlanMyselfSwitch eventId=\{eventId\} on=\{manual\} compact \/>/, 'the Planner page draws its own switch instead of the one');
 });

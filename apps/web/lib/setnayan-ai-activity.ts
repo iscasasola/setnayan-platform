@@ -58,6 +58,13 @@ export type AiActivity = {
   paymentsDue30d: number;
   /** Deadlines under watch — PH-marriage statutory pack + recommended reminders. */
   deadlinesTracked: number;
+  /**
+   * ✅ The rows behind those counts, for the Planner page's sections (owner
+   * "approve all", 2026-10-14 — services prototype: Your shortlist · Payments ·
+   * Deadlines). The SAME reads, handed on — no read of their own.
+   */
+  shortlist: ReadonlyArray<EventVendorRowInput>;
+  paymentsSoon: ReadonlyArray<{ id: string; title: string; subtitle: string; date: Date; href?: string }>;
 };
 
 /** Event fields the loader needs — passed in so we don't re-query `events`. */
@@ -216,6 +223,8 @@ export async function loadAiActivity(
     vendorsTracked: vendors.length,
     paymentsDue30d: upcoming.paymentItemsNext30d.length,
     deadlinesTracked,
+    shortlist: vendors,
+    paymentsSoon: upcoming.paymentItemsNext30d.map((p) => ({ id: p.id, title: p.title, subtitle: p.subtitle, date: p.date, href: p.href })),
   };
 }
 

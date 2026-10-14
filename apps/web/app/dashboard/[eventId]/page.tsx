@@ -32,7 +32,8 @@ import { loadAfterSummary, type AfterSummary } from '@/lib/after-summary';
 import { formatEventDate } from '@/lib/events';
 import { eventNoun } from '@/lib/event-noun';
 import { FinishedEventSummary } from './_components/after/finished-event-summary';
-import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { eventSkuActive } from '@/lib/entitlements';
+import { figurePrice, readServiceFigures, serviceOwnership } from '@/lib/service-figures.server';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchBlockRosMeta } from '@/lib/schedule-ros';
 import {
@@ -70,7 +71,6 @@ import {
   serviceDayOf,
   SERVICE_ROW_SKU,
   VENUE_SCREEN_SKU,
-  type ServiceOwnership,
   type ServiceRowGlance,
 } from '@/lib/services-glance';
 import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
@@ -97,17 +97,7 @@ import { withPickedDate } from '@/lib/event-anchor';
 
 export const dynamic = 'force-dynamic';
 
-/** What `event_service_figures` answers (migration 20271269705444). */
-type ServiceFigures = {
-  suppliers: number;
-  cameras: number;
-  live: boolean;
-  live_since: string | null;
-  recorded: boolean;
-  recorded_minutes: number | null;
-  reels: number;
-  prices: Record<string, number | string>;
-};
+
 
 /*
   ─── THE BROWSER TAB SAID "FILIPINO WEDDING PLANNING + VERIFIED VENDORS" ───
@@ -601,38 +591,17 @@ export default async function EventHomePage({
   // reels · each service's catalog price), asked only of a viewer the counts
   // are shared with — the couple or a coordinator, the Papic gate above. A
   // refused or failed read is null and every row says "—", never 0.
-  const serviceFiguresRead = papicViewerRead.then(async ({ canViewPapicCounts: may }) => {
-    if (!may) return null;
-    try {
-      const { data, error } = await supabase.rpc('event_service_figures', { p_event_id: eventId });
-      if (error) {
-        logQueryError('EventHome.serviceFigures', error, { event_id: eventId }, 'graceful_degrade');
-        return null;
-      }
-      return (data ?? null) as ServiceFigures | null;
-    } catch {
-      return null;
-    }
-  });
+  const serviceFiguresRead = papicViewerRead.then(({ canViewPapicCounts: may }) => (may ? readServiceFigures(eventId) : null));
   // Who holds what — the gates' own answers. In a render these ride the one
   // orders read the page already makes (`lib/request-once`), so the five SKUs
   // cost no request of their own.
   const serviceOwnershipRead = (async () => {
-    const ent = await eventEntitlementClient(eventId);
-    const one = async (sku: string): Promise<ServiceOwnership | null> => {
-      try {
-        const [active, owns] = await Promise.all([eventSkuActive(ent, eventId, sku), eventOwnsSku(ent, eventId, sku)]);
-        return active ? 'on' : owns ? 'waiting' : 'none';
-      } catch {
-        return null;
-      }
-    };
     const [ai, live, music, booth, hub] = await Promise.all([
-      one(SERVICE_ROW_SKU.ai),
-      one(SERVICE_ROW_SKU.live),
-      one(SERVICE_ROW_SKU.music),
-      one(SERVICE_ROW_SKU.booth),
-      one(SERVICE_ROW_SKU.hub),
+      serviceOwnership(eventId, SERVICE_ROW_SKU.ai),
+      serviceOwnership(eventId, SERVICE_ROW_SKU.live),
+      serviceOwnership(eventId, SERVICE_ROW_SKU.music),
+      serviceOwnership(eventId, SERVICE_ROW_SKU.booth),
+      serviceOwnership(eventId, SERVICE_ROW_SKU.hub),
     ]);
     return { ai, live, music, booth, hub };
   })();
@@ -667,7 +636,7 @@ export default async function EventHomePage({
     papicTile,
     homeNavSlots,
     serviceFigures,
-    serviceOwnership,
+    serviceOwners,
     { cover: homeCover, look: hubLook },
     musicOffered,
   ] = await Promise.all([
@@ -722,10 +691,7 @@ export default async function EventHomePage({
     ownership, the catalog's prices and the menu's one phase. No read of its own.
   */
   const serviceDay = serviceDayOf(lifecyclePhase);
-  const price = (code: string): number | null => {
-    const v = serviceFigures?.prices?.[code];
-    return typeof v === 'number' || typeof v === 'string' ? Number(v) : null;
-  };
+  const price = (code: string): number | null => figurePrice(serviceFigures, code);
   const eventDayWords = formatPapicDayInWords((event.event_date as string | null) ?? null);
   const aiEntitled =
     paywallOn === null
@@ -744,7 +710,7 @@ export default async function EventHomePage({
       ? []
       : [
           plannerGlance({
-            ownership: aiEntitled ? 'on' : serviceOwnership.ai === 'waiting' || serviceOwnership.ai === 'on' ? 'waiting' : 'none',
+            ownership: aiEntitled ? 'on' : serviceOwners.ai === 'waiting' || serviceOwners.ai === 'on' ? 'waiting' : 'none',
             // The price THIS event pays — per event type, the comeback included (the resolver
             // the charge path agrees with); none when there is nothing to sell.
             price: aiOffer ? (aiOffer.kind === 'comeback' ? aiOffer.comebackPhp : aiOffer.regularPhp) : null,
@@ -754,11 +720,11 @@ export default async function EventHomePage({
             manual: (event as { planning_mode?: string | null }).planning_mode === 'manual',
           }),
         ]),
-    ...(serviceOwnership.live === null
+    ...(serviceOwners.live === null
       ? []
       : [
           liveGlance({
-            ownership: serviceOwnership.live,
+            ownership: serviceOwners.live,
             price: price(SERVICE_ROW_SKU.live),
             screenPrice: price(VENUE_SCREEN_SKU),
             day: serviceDay,
@@ -770,11 +736,11 @@ export default async function EventHomePage({
             dayWords: eventDayWords,
           }),
         ]),
-    ...(serviceOwnership.music === null
+    ...(serviceOwners.music === null
       ? []
       : [
           musicGlance({
-            ownership: serviceOwnership.music,
+            ownership: serviceOwners.music,
             price: price(SERVICE_ROW_SKU.music),
             day: serviceDay,
             offered: musicOffered,
@@ -786,22 +752,22 @@ export default async function EventHomePage({
             playing: (event as { pakanta_song_adopted_as_site_music?: boolean | null }).pakanta_song_adopted_as_site_music === true,
           }),
         ]),
-    ...(serviceOwnership.booth === null
+    ...(serviceOwners.booth === null
       ? []
       : [
           boothGlance({
-            ownership: serviceOwnership.booth,
+            ownership: serviceOwners.booth,
             price: price(SERVICE_ROW_SKU.booth),
             day: serviceDay,
             reels: serviceFigures ? serviceFigures.reels : null,
             dayWords: eventDayWords,
           }),
         ]),
-    ...(serviceOwnership.hub === null
+    ...(serviceOwners.hub === null
       ? []
       : [
           hubProGlance({
-            ownership: serviceOwnership.hub,
+            ownership: serviceOwners.hub,
             price: price(SERVICE_ROW_SKU.hub),
             theme: hubLook.theme,
             background: hubLook.background,

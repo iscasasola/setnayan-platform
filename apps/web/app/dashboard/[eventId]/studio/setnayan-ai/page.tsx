@@ -2,26 +2,29 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Banknote, Flag, ListChecks, Settings2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   resolveSetnayanAiPaywallEnabled,
 } from '@/lib/integration-config';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { loadAiActivity } from '@/lib/setnayan-ai-activity';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { SetnayanAiValue } from './_components/setnayan-ai-value';
 import type { AiValueTerms } from './_components/setnayan-ai-value-copy';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
-import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { ServicePageBand, ServiceSection, ServiceListRow, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { PlanMyselfSwitch } from '@/app/dashboard/[eventId]/launch/_components/plan-myself';
+import { planMyselfOn } from '@/lib/plan-myself';
+import { plannerGlance, serviceDayOf } from '@/lib/services-glance';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import type { ServiceMood } from '@/lib/service-glance';
 
 export const metadata = { title: 'Setnayan AI' };
 
@@ -54,8 +57,9 @@ export const metadata = { title: 'Setnayan AI' };
  *   • OWNS-BUT-OFF — has access (purchased entitlement OR a pending SETNAYAN_AI
  *               order, OR the paywall is off) but Assisted mode is toggled to
  *               Manual → nudge to switch it back on, never a second charge.
- *   • BUY     — paywall ON + not owned → the InlineCheckoutDrawer at the catalog
- *               price. Dormant until SETNAYAN_AI_PAYWALL_ENABLED=true (owner's
+ *   • BUY     — paywall ON + not owned → the band's "Add for ₱…" → the one Add
+ *               sheet → the order is minted → /pay (owner 2026-10-14 🧩 5), at the
+ *               catalog price. Dormant until SETNAYAN_AI_PAYWALL_ENABLED=true (owner's
  *               Vercel flip), so shipping this page changes nothing live today.
  *
  * Price comes ONLY from the admin V2 catalog (owner rule 2026-06-14 — no
@@ -65,10 +69,21 @@ export const metadata = { title: 'Setnayan AI' };
 
 const SKU_CODE = 'SETNAYAN_AI';
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ buy_error?: string }> };
 
-export default async function SetnayanAiPage({ params }: Props) {
+/** A supplier's state on the shortlist, as a chip — the cockpit's own "booked" set. */
+const BOOKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
+function shortlistChip(v: { status: string | null; lock_request_state?: string | null }): { mood: ServiceMood | 'off'; words: string } {
+  if (v.status && BOOKED.has(v.status)) return { mood: 'ok', words: 'Booked' };
+  if (v.lock_request_state === 'pending') return { mood: 'wait', words: 'Asked to book' };
+  if (v.status === 'quoted' || v.status === 'quote_received') return { mood: 'wait', words: 'Quote in' };
+  return { mood: 'off', words: 'Saved' };
+}
+const shortDate = (d: Date) => new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', weekday: 'short', day: 'numeric', month: 'short' }).format(d);
+
+export default async function SetnayanAiPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const search = (await searchParams) ?? {};
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -77,7 +92,7 @@ export default async function SetnayanAiPage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, planning_mode, setnayan_ai_active, event_date, event_date_precision, event_type, ceremony_type',
+      'event_id, display_name, planning_mode, setnayan_ai_active, setnayan_ai_active_until, event_date, event_date_precision, event_type, ceremony_type, cleared_at, timezone, event_end_date',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -98,18 +113,18 @@ export default async function SetnayanAiPage({ params }: Props) {
     organizerNoun: profile.terminology.organizerNoun,
     hasStatutoryPaperwork: profile.statutoryPackKey != null,
   };
-  const eventWord = profile.terminology.eventWord;
 
   // DB-first paywall flag (Integration Activation Console — flips without a
   // redeploy); env-fallback when unset. Resolved once, threaded into the gate.
   const paywallOn = await resolveSetnayanAiPaywallEnabled();
-  const active = isSetnayanAiActiveForEvent(event, { paywallEnabled: paywallOn });
+  /* The ENTITLEMENT — "Plan it myself" only rests it, so the sections still show what it keeps. */
+  const entitled = isSetnayanAiActiveForEvent({ ...event, planning_mode: 'guided' }, { paywallEnabled: paywallOn });
 
   // ACTIVE-only: the live per-event activity snapshot the "keeping for you"
   // surface renders (cockpit briefing + tracked-deadline + payment-due figures).
   // Skipped for the buy/paused states, which show the static value pitch. Every
   // query inside fail-softs, so this never blocks the page.
-  const activity = active
+  const activity = entitled
     ? await loadAiActivity(supabase, eventId, {
         eventDate: (event as { event_date?: string | null }).event_date ?? null,
         eventDatePrecision:
@@ -149,12 +164,35 @@ export default async function SetnayanAiPage({ params }: Props) {
     () => 0,
   );
   const pricePhp = typePricePhp > 0 ? typePricePhp : null;
-  const priceLabel =
-    pricePhp != null ? `₱${Math.round(pricePhp).toLocaleString('en-PH')}` : null;
-
-  // Only the BUY branch needs the BDO/GCash settings · fetch lazily there.
-  const showBuy = !active && !owns && paywallOn;
-  const settings = showBuy ? await fetchPlatformSettings(supabase) : null;
+  /*
+    ✅ THE PLANNER'S ONE BAND (owner "approve all", 2026-10-14 — services
+    prototype): the same glance Home's row reads. "On" is the ENTITLEMENT — the
+    paywall off, or the event bought it; "Plan it myself" only rests it (the
+    band says so). Bought and waiting for approval: "Waiting for payment".
+  */
+  const phase = event.event_date
+    ? getMenuLifecyclePhase(
+        event.event_date as string,
+        (event as { cleared_at?: string | null }).cleared_at ?? null,
+        (event as { timezone?: string | null }).timezone ?? undefined,
+        undefined,
+        (event as { event_end_date?: string | null }).event_end_date ?? null,
+      )
+    : 'plan';
+  const manual = planMyselfOn((event as { planning_mode?: string | null }).planning_mode ?? null);
+  const glance = plannerGlance({
+    ownership: entitled ? 'on' : owns ? 'waiting' : 'none',
+    price: pricePhp,
+    day: serviceDayOf(phase),
+    suppliers: activity ? activity.vendorsTracked : null,
+    paymentsDue30d: activity ? activity.paymentsDue30d : null,
+    manual,
+  });
+  const on = glance.ownership === 'on';
+  const storeShell = await isStoreShellRequest();
+  const shortlist = activity?.shortlist ?? [];
+  const payments = activity?.paymentsSoon ?? [];
+  const deadlines = activity?.cockpit.upcoming ?? [];
 
   return (
     <section className="space-y-6">
@@ -166,101 +204,90 @@ export default async function SetnayanAiPage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      {/* OPENED-STATE = OUTCOME/ACTION FIRST for anyone who already has access;
-          the marketing pitch (sell hero + "what you get" grid) is gated to the
-          BUY state only — never re-pitch an owner (consistency plan Tier 4 rule,
-          extended to Setnayan AI 2026-06-25). The "tool" itself (the ranked
-          shortlist) lives on /vendors, so the active state leads straight there. */}
-      {active ? (
-        <>
-          <PageMasthead
-            titleNode={
-              <>
-                Everything it&rsquo;s keeping for {event.display_name ?? 'your wedding'}
-              </>
-            }
+      <PageMasthead title="Planner · Setnayan AI" />
+
+      <div>
+        <ServicePageBand eventId={eventId} glance={glance} label="Your Planner" storeShell={storeShell} buyError={search.buy_error ?? null} />
+
+        {/* ✅ THE SECTIONS AS DRAWN (prototype `sections('ai')`): each row a door with its state
+            as a chip; not added → dim, so the couple sees what it gives before paying. */}
+        <div className="mt-2">
+          <ServiceSection
+            icon={<ListChecks strokeWidth={1.9} />}
+            title="Your shortlist"
+            sub={on ? (shortlist.length === 0 ? 'Nothing yet · add a supplier' : `${shortlist.length} ${shortlist.length === 1 ? 'supplier' : 'suppliers'} ranked`) : 'Ranks every supplier you shortlist'}
+            end={on ? <ServiceQuietLink href={`/dashboard/${eventId}/vendors`} label="Open" /> : null}
+            dim={!on}
+          >
+            {on && shortlist.length > 0 ? (
+              shortlist.slice(0, 5).map((v) => {
+                const chip = shortlistChip(v);
+                return (
+                  <ServiceListRow
+                    key={v.vendor_id}
+                    who={`${VENDOR_CATEGORY_LABEL[v.category] ?? 'Supplier'} · ${v.vendor_name}`}
+                    mood={chip.mood}
+                    words={chip.words}
+                    href={`/dashboard/${eventId}/vendors`}
+                  />
+                );
+              })
+            ) : !on ? (
+              <p className="m-0 text-[13px] text-ink/60">Price, distance and reviews, side by side.</p>
+            ) : null}
+          </ServiceSection>
+
+          <ServiceSection
+            icon={<Banknote strokeWidth={1.9} />}
+            title="Payments"
+            sub={on ? (payments.length === 0 ? 'Nothing due in 30 days' : `${payments.length} due in 30 days`) : 'Watches every due date'}
+            dim={!on}
+          >
+            {on && payments.length > 0
+              ? payments.slice(0, 4).map((p) => (
+                  <ServiceListRow
+                    key={p.id}
+                    who={p.subtitle ? `${p.title} · ${p.subtitle}` : p.title}
+                    mood="wait"
+                    words={`Due ${shortDate(p.date)}`}
+                    href={p.href ?? `/dashboard/${eventId}/vendors?part=budget`}
+                  />
+                ))
+              : null}
+          </ServiceSection>
+
+          <ServiceSection
+            icon={<Flag strokeWidth={1.9} />}
+            title="Deadlines"
+            sub={on ? (deadlines.length === 0 ? 'Nothing coming up' : `${deadlines.length} watched`) : 'Reminds you before each'}
+            dim={!on}
+          >
+            {on && deadlines.length > 0
+              ? deadlines.slice(0, 4).map((d) => (
+                  <ServiceListRow
+                    key={d.id}
+                    who={d.label}
+                    mood={d.daysOut !== null && d.daysOut < 0 ? 'low' : 'wait'}
+                    words={d.when}
+                    href={d.href ?? `/dashboard/${eventId}/checklist`}
+                  />
+                ))
+              : null}
+          </ServiceSection>
+
+          {/* A setting is ONE row — the ONE "Plan it myself" switch (Event Details carries the same
+              component; one form, one action: plan-myself.tsx). Free for every host (owner d4). */}
+          <ServiceSection
+            icon={<Settings2 strokeWidth={1.9} />}
+            title="Plan it myself"
+            sub="You run the checklist · the Planner rests"
+            end={<PlanMyselfSwitch eventId={eventId} on={manual} compact />}
           />
+        </div>
+      </div>
 
-          <div className="flex flex-col gap-4 rounded-xl border border-mulberry/20 bg-mulberry/5 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <p className="inline-flex items-center gap-2 text-sm font-medium text-mulberry">
-              <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Setnayan AI')} size="md" tone="current" />
-              Active — your matches are ready
-            </p>
-            <Link
-              href={`/dashboard/${eventId}/vendors`}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
-            >
-              See your ranked suppliers
-              <ArrowLeft aria-hidden className="h-3.5 w-3.5 rotate-180" strokeWidth={2} />
-            </Link>
-          </div>
-
-          <SetnayanAiValue mode="live" activity={activity} terms={aiValueTerms} />
-
-          {/* The off-ramp is NOT here any more (2026-10-02, simplicity fix 7):
-              "Plan it myself" lives in ONE place — Event Details › Your event
-              (`launch/_components/plan-myself.tsx`), free for every host. A
-              second switch on this page was a second name for one fact. */}
-        </>
-      ) : owns || !paywallOn ? (
-        <>
-          <PageMasthead
-            title="Setnayan AI is ready for your wedding"
-          />
-
-          <SetnayanAiValue mode="preview" terms={aiValueTerms} />
-        </>
-      ) : (
-        <>
-          {/*
-            BUY — the only state that sells, and the state the owner was looking
-            at when he said it did not look appealing.
-
-            🔑 THE WORDS WERE ALREADY WRITTEN AND WERE INVISIBLE. "Stop guessing
-            who to hire" was passed to `PageMasthead`, which renders its title
-            `sr-only` — correct for a page you live in, wrong for a page asking
-            for money. It is the same sentence, on screen, above the fold, with
-            the name of the product and the price beside it.
-
-            ⚠ THE MASTHEAD IS GONE FROM THIS BRANCH RATHER THAN KEPT ALONGSIDE.
-            It renders an h1; so does the hero. Two would be two h1s on one page.
-          */}
-          <StudioBuyHero
-            productName="Setnayan AI"
-            promise="Stop guessing who to hire"
-            /* No price typed here and none defaulted: `pricePhp` is the live
-               catalog figure this page's own checkout charges, so the hero and
-               the till cannot quote different numbers. Absent ⇒ the hero simply
-               carries no figure, which is what the tile below already does. */
-            price={pricePhp != null ? priceLabel : undefined}
-            priceNote={
-              pricePhp != null
-                ? 'One-time purchase · yours for the whole wedding'
-                : undefined
-            }
-            action={
-              pricePhp != null && settings ? (
-                <InlineCheckoutDrawer
-                  eventId={eventId}
-                  serviceKey={SKU_CODE}
-                  displayName={`Setnayan AI${event.display_name ? ` · ${event.display_name}` : ''}`}
-                  originalPriceCentavos={String(Math.round(pricePhp * 100))}
-                  settings={settings}
-                  triggerLabel="Unlock Setnayan AI"
-                  triggerClassName="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
-                />
-              ) : (
-                <p className="inline-flex items-center gap-2 text-sm text-ink/65">
-                  <Sparkles aria-hidden className="h-4 w-4 text-ink/40" />
-                  Pricing loads from your catalog &mdash; please refresh in a moment.
-                </p>
-              )
-            }
-          />
-
-          <SetnayanAiValue mode="preview" terms={aiValueTerms} />
-        </>
-      )}
+      {/* What it gives, for a couple who has not added it — the shipped preview grid. */}
+      {!on ? <SetnayanAiValue mode="preview" terms={aiValueTerms} /> : null}
     </section>
   );
 }

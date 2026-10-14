@@ -688,7 +688,7 @@ export function CanvasMaker({
   const sharedSchedule = schedules.find((s) => s.id === scheduleChoice) ?? null;
   const scheduleLine = sharedSchedule
     ? `Shares ${sharedSchedule.name}${sharedSchedule.perDay ? ` · ${formatCount(sharedSchedule.perDay)} a day` : ''}`
-    : 'Its own · set how many a day in Dates';
+    : 'Its own';
 
   // ── 🏷 the one question ───────────────────────────────────────────────────
   const ask = !isEdit && category ? (coverageAsk[category] ?? null) : null;
@@ -813,7 +813,7 @@ export function CanvasMaker({
 
       <div className="lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:items-start lg:gap-8">
         {/* ═══ THE CARD, ON TOP — the shipped face, painted from the live form ═══ */}
-        <div className="sticky top-2 z-10 lg:top-24" data-maker-card="">
+        <div className="lg:sticky lg:top-24 lg:z-10" data-maker-card="">
           <div className="rounded-2xl" style={{ background: 'var(--m-paper)' }}>
             {face ? (
               <ServiceCardFace
@@ -986,7 +986,7 @@ export function CanvasMaker({
               aside={snap.inclusionLabels.length ? <Badge tone="ok">Added</Badge> : <Badge tone="wait">Add</Badge>}
             >
               <div className="pb-4 pt-1">
-                <InclusionsEditor initial={initial?.inclusions ?? []} />
+                <InclusionsEditor initial={initial?.inclusions ?? []} bare />
               </div>
             </Fold>
 
@@ -1016,7 +1016,7 @@ export function CanvasMaker({
               lead={<RowIcon><Settings aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
             >
               <div className="divide-y pb-2 pl-1" style={{ borderColor: line }} data-maker-more="">
-                <Fold data="m-price" title="Price · more" line={basis === 'per_pax' ? (category === 'crew_meals' ? 'Per meal · minimum' : 'Per guest · minimum') : basis === 'per_hour' ? 'Per hour · minimum hours · extra hour' : defaults.summary.price}>
+                <Fold data="m-price" lead={<SubIcon><PhilippinePeso aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>} title="Price · more" line={basis === 'per_pax' ? (category === 'crew_meals' ? 'Per meal · minimum' : 'Per guest · minimum') : basis === 'per_hour' ? 'Per hour · minimum hours · extra hour' : defaults.summary.price}>
                   <div className="space-y-3 pb-4 pt-1">
                     <div className="flex min-h-11 items-center justify-between gap-3">
                       <span className="text-[15px] text-ink">How the “from” price works</span>
@@ -1670,10 +1670,10 @@ function MakerRow({
       <span className="min-w-0 flex-1">
         <span className="block text-[16px] font-medium leading-tight text-ink">{title}</span>
         {line ? (
-          <span className={`block truncate text-[13.5px] ${lineTone === 'brand' ? 'text-sn-accent' : 'text-ink/55'}`}>{line}</span>
+          <span className={`line-clamp-2 block text-[13.5px] leading-snug ${lineTone === 'brand' ? 'text-sn-accent' : 'text-ink/55'}`}>{line}</span>
         ) : null}
       </span>
-      {right ? <span className="flex min-w-0 max-w-[60%] flex-none items-center justify-end">{right}</span> : null}
+      {right ? <span className="flex min-w-0 max-w-[55%] flex-none items-center justify-end">{right}</span> : null}
     </>
   );
   if (onPress) {
@@ -1766,6 +1766,7 @@ function KindRow({
       className="sn-press flex min-h-[52px] w-full items-center gap-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-55"
       data-kind-row={opt.value}
     >
+      <RowIcon><List aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>
       <span className="min-w-0 flex-1">
         <span className="block text-[16px] text-ink">{opt.label}</span>
         {opt.hint || locked ? (

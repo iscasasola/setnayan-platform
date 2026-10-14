@@ -20,6 +20,9 @@
  *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
+ *   ?ai=…&live=…&music=…&booth=…&hub=…[&pending=…][&app=1][&view=svc&page=…]
+ *                                    ✅ the five other services (owner "approve all" 2026-10-14,
+ *                                    services prototype) — see ./services-lab.tsx
  */
 import { notFound } from 'next/navigation';
 import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
@@ -32,6 +35,7 @@ import { YourShotsGallery } from '@/app/[slug]/_components/your-shots-gallery';
 import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
+import { ServicesLabPage, servicesLabActive, servicesLabDay, servicesLabRows, type ServicesLabQuery } from './services-lab';
 import {
   aiStatus,
   glanceCount,
@@ -67,7 +71,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string }>;
+  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; heard?: string } & ServicesLabQuery>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -153,6 +157,15 @@ export default async function HomeLab({
       </div>
     );
   }
+  if (q.view === 'svc') {
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
+        <div className="mx-auto flex max-w-xl flex-col gap-7">
+          <ServicesLabPage q={q} eventId={E} />
+        </div>
+      </div>
+    );
+  }
   if (q.view === 'papic') {
     return (
       <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
@@ -173,16 +186,32 @@ export default async function HomeLab({
           : null,
       }
     : picked;
-  const input: HomeNextInput = unread ? { ...base, guide: null, guests: null } : base;
+  /* ✅ The five services (services prototype): their rows, and their two Next-card moments. */
+  const svcOn = servicesLabActive(q);
+  const svcRows = svcOn ? servicesLabRows(q) : [];
+  const svcStore = q.app === '1' || q.store === '1';
+  const withMoments: HomeNextInput = svcOn
+    ? {
+        ...base,
+        guide: null,
+        guests: { total: 32, unsent: 12 },
+        live: !svcStore && servicesLabDay(q) === 'day' && svcRows.some((r) => r.moment === 'live-now'),
+        music: !svcStore && svcRows.some((r) => r.moment === 'song-ready'),
+      }
+    : base;
+  const input: HomeNextInput = unread ? { ...withMoments, guide: null, guests: null } : withMoments;
   const next = pickHomeNext(input);
+  const nextAfter = next.kind === 'music' ? pickHomeNext({ ...input, music: false }) : null;
   const slots = await getNavSlotMap().catch(() => null);
   return (
     <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
       <HomeFirstScreen
         eventId={E}
-        cover={{ eyebrow: F.eyebrow, name: F.name }}
+        cover={svcOn ? { eyebrow: 'Wedding · Saturday, 19 December 2026', name: 'Maria & Jose' } : { eyebrow: F.eyebrow, name: F.name }}
         next={next}
-        days={glanceDays(F.days)}
+        nextAfter={nextAfter}
+        storeShell={svcStore}
+        days={glanceDays(svcOn ? 66 : F.days)}
         coming={glanceCount(F.coming, !unread)}
         noReply={glanceCount(F.noReply, !unread)}
         noReplyWaiting={!unread}
@@ -213,7 +242,8 @@ export default async function HomeLab({
         papicSizes={LAB_SIZES}
         services={homeServices({
           next: next.kind,
-          storeShell: q.store === '1',
+          storeShell: svcStore,
+          rows: svcRows,
           papic: papicNow.status,
           papicDoors: {
             glance: papicNow,

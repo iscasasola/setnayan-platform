@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Clapperboard, Diamond, Images, ListChecks, ListMusic, Play, Radio, Receipt, type LucideIcon } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Clapperboard, Clock, Diamond, Images, ListChecks, ListMusic, Minus, Play, Radio, Receipt, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ServiceBand } from '@/app/_components/service-glance';
 import { ServiceBuySheet } from '@/app/dashboard/[eventId]/_components/service-buy-sheet';
@@ -185,9 +185,19 @@ export function ServiceSection({
 
 /** A status chip — icon + colour + one or two words, never colour alone. */
 export function ServiceChip({ mood, words }: { mood: ServiceMood | 'off'; words: string }) {
+  /* The prototype's chip icons: ✓ done · ◷ waiting · ! needs you · — off · a dot when live. */
+  const Icon = mood === 'ok' ? Check : mood === 'wait' ? Clock : mood === 'off' || mood === 'plain' ? Minus : null;
   return (
     <span className="ss-chip" data-mood={mood}>
-      <span className="ss-chip-dot" aria-hidden />
+      {Icon ? (
+        <Icon aria-hidden className="ss-chip-ico" strokeWidth={2.4} />
+      ) : mood === 'low' || mood === 'gone' ? (
+        <span className="ss-chip-bang" aria-hidden>
+          !
+        </span>
+      ) : (
+        <span className="ss-chip-dot" aria-hidden />
+      )}
       <span>{words}</span>
     </span>
   );

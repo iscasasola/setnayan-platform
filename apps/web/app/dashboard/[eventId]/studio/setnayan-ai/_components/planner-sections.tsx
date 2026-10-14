@@ -13,7 +13,7 @@ function shortlistChip(v: { status: string | null; lock_request_state?: string |
   if (v.status === 'quoted' || v.status === 'quote_received') return { mood: 'wait', words: 'Quote in' };
   return { mood: 'off', words: 'Saved' };
 }
-const shortDate = (d: Date) => new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', weekday: 'short', day: 'numeric', month: 'short' }).format(d);
+const shortDate = (d: Date) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', weekday: 'short', day: 'numeric', month: 'short' }).format(d).replace(',', '');
 
 /**
  * ✅ THE PLANNER PAGE'S SECTIONS (owner "approve all", 2026-10-14 — services

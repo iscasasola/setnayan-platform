@@ -6718,6 +6718,8 @@ html:has([data-sticky-top]) {
 .sg-brand { font-size: 12px; margin-top: -2px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
 .sg-arrow { margin-left: auto; color: rgb(var(--color-mulberry)); flex: none; }
 .sg-status { margin: 10px 0 0; font-size: 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* ✅ A long status wraps as a sentence beside its dot, never under it (services walk 2026-10-14: "3 cameras ready · Goes live …"). */
+.sg-status > span:last-child { min-width: 0; flex: 1 1 0%; }
 .sg-status b { font-weight: 600; font-variant-numeric: tabular-nums; }
 .sg-status[data-mood="low"] { color: rgb(var(--color-warn)); }
 .sg-status[data-mood="gone"] { color: rgb(var(--color-danger)); }
@@ -6795,6 +6797,8 @@ html:has([data-sticky-top]) {
 .ss-chev { color: rgb(var(--color-mulberry)); width: 18px; height: 18px; flex: none; }
 .ss-chip { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px 0 7px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; flex: none; background: color-mix(in srgb, rgb(var(--color-ok)) 14%, transparent); color: rgb(var(--color-ok)); }
 .ss-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ss-chip-ico { width: 13px; height: 13px; flex: none; }
+.ss-chip-bang { font-weight: 700; width: 13px; text-align: center; }
 .ss-chip[data-mood="wait"] { background: var(--sn-gold-100); color: rgb(var(--color-ink)); }
 .ss-chip[data-mood="low"] { background: color-mix(in srgb, rgb(var(--color-warn)) 14%, transparent); color: rgb(var(--color-warn)); }
 .ss-chip[data-mood="gone"], .ss-chip[data-mood="live"] { background: color-mix(in srgb, rgb(var(--color-danger)) 12%, transparent); color: rgb(var(--color-danger)); }

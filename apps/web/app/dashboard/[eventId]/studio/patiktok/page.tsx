@@ -52,7 +52,8 @@ import { disconnectPatiktokTiktok, savePatiktokBoothTemplates } from './actions'
 import { ReelRenderer } from './_components/reel-renderer';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { SERVICE_NAMES } from '@/lib/service-names';
-import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { ServicePageBand } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { BoothSections } from './_components/booth-sections';
 import { boothGlance, serviceDayOf } from '@/lib/services-glance';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { formatPapicDayInWords } from '@/lib/papic-window';
@@ -274,33 +275,13 @@ export default async function PatiktokGallery({
           one Save & share door — "◆ Save" on a reel points here (`#patiktok-save`). */}
       <div id="patiktok-save" className="scroll-mt-24">
         <ServicePageBand name={SERVICE_NAMES.patiktok.plain} brand={SERVICE_NAMES.patiktok.brand} eventId={eventId} glance={glance} label="Your video booth" storeShell={storeShell} buyError={buyError ?? null} />
-        <div className="mt-2">
-          <ServiceSection
-            icon={<Film strokeWidth={1.9} />}
-            title="Templates"
-            sub="Pick your booth's reels"
-            end={<ServiceQuietLink href="#templates" label="Change" />}
-          />
-          <ServiceSection
-            icon={<Download strokeWidth={1.9} />}
-            title="Your reels"
-            sub={
-              glance.ownership === 'on'
-                ? figures
-                  ? `${figures.reels} ${figures.reels === 1 ? 'reel' : 'reels'} · guests record free`
-                  : 'Guests record free'
-                : 'Watermarked until added'
-            }
-            end={<ServiceQuietLink href="#renders" label="See" />}
-          />
-          <ServiceSection
-            icon={<Hash strokeWidth={1.9} />}
-            title="Post to TikTok"
-            sub={tiktokGrant?.tiktok_handle ? `@${tiktokGrant.tiktok_handle}` : tiktokAvailable ? 'Not connected' : 'Not set up yet'}
-            end={<ServiceChip mood={tiktokGrant ? 'ok' : 'off'} words={tiktokGrant ? 'Connected' : 'Not set up'} />}
-            dim={glance.ownership !== 'on'}
-          />
-        </div>
+        <BoothSections
+          added={glance.ownership === 'on'}
+          reels={figures ? figures.reels : null}
+          tiktokConnected={Boolean(tiktokGrant)}
+          tiktokHandle={tiktokGrant?.tiktok_handle ?? null}
+          tiktokAvailable={tiktokAvailable}
+        />
       </div>
       {queued ? (
         <p

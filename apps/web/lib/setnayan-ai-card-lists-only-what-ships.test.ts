@@ -170,5 +170,8 @@ test('🔴 buying Setnayan AI can be undone — the off-ramp exists, ACTS, and l
   /* ✅ Owner "approve all", 2026-10-14 (services prototype): the Planner page carries "Plan it
      myself" as one settings row. It is the SAME switch — the one component, the one form, the
      one action — mounted in a second place, never a second implementation of it. */
-  assert.match(PAGE, /<PlanMyselfSwitch eventId=\{eventId\} on=\{manual\} compact \/>/, 'the Planner page draws its own switch instead of the one');
+  const SECTIONS = read('app', 'dashboard', '[eventId]', 'studio', 'setnayan-ai', '_components', 'planner-sections.tsx');
+  assert.doesNotMatch(SECTIONS, /setPlanningMode/, 'the Planner sections write their own switch');
+  assert.match(SECTIONS, /<PlanMyselfSwitch eventId=\{eventId\} on=\{manual\} compact \/>/, 'the Planner page draws its own switch instead of the one');
+  assert.match(PAGE, /<PlannerSections\b/, 'the Planner page no longer draws its sections');
 });

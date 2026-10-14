@@ -11,7 +11,8 @@ import {
 } from '@/lib/couple-website-pro';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
-import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { ServicePageBand } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { HubProSections } from './_components/hub-pro-sections';
 import { HUB_PRO_NAMES, hubProGlance } from '@/lib/services-glance';
 import { homeCoverAndHubLookFor } from '@/lib/home-cover.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -146,26 +147,7 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
         <ServicePageBand name={HUB_PRO_NAMES.plain} brand={HUB_PRO_NAMES.brand} eventId={eventId} glance={glance} label="Your Event Hub Pro" storeShell={storeShell} buyError={search.buy_error ?? null} />
         {/* ✅ THE SECTIONS AS DRAWN (prototype `sections('hub')`) — each opens the Maker, where a theme
             or a background is picked; a ◆ choice is tried freely and applied with Pro. */}
-        <div className="mt-2">
-          <ServiceSection
-            icon={<Diamond strokeWidth={1.9} />}
-            title="Your theme"
-            sub={active ? (look?.theme ? `${look.theme} · applied` : 'Applied') : 'Classic (free) · ◆ with Pro'}
-            end={<ServiceQuietLink href={`/dashboard/${eventId}/launch`} label="Change" />}
-          />
-          <ServiceSection
-            icon={<ImageIcon strokeWidth={1.9} />}
-            title="Backgrounds"
-            sub={active ? (look?.background ? `${look.background.replace(/^./, (c) => c.toUpperCase())} · applied` : 'Applied') : 'Colours and patterns · ◆ media'}
-            end={<ServiceQuietLink href={`/dashboard/${eventId}/launch`} label="Change" />}
-          />
-          <ServiceSection
-            icon={<Globe2 strokeWidth={1.9} />}
-            title="Your Event Hub"
-            sub={active ? 'Watermark-free, everywhere guests see it' : 'Carries the Setnayan mark'}
-            end={active ? <ServiceChip mood="ok" words="Pro on" /> : <ServiceChip mood="off" words="Free" />}
-          />
-        </div>
+        <HubProSections eventId={eventId} on={active} theme={look?.theme ?? null} background={look?.background ?? null} />
       </div>
 
       {/* What it covers — benefit language, no implementation names. */}

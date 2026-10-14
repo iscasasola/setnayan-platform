@@ -22,8 +22,8 @@ import { UseSongButton } from './_components/use-song-button';
 import { AiDisclosure } from '@/components/AiDisclosure';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { SERVICE_NAMES } from '@/lib/service-names';
-import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
-import { SongPlayer } from './_components/song-player';
+import { ServicePageBand } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { MusicSections } from './_components/music-sections';
 import { musicGlance, serviceDayOf } from '@/lib/services-glance';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -199,46 +199,17 @@ export default async function PakantaPage({ params, searchParams }: Props) {
       <div>
         <ServicePageBand name={SERVICE_NAMES['music-maker'].plain} brand={SERVICE_NAMES['music-maker'].brand} eventId={eventId} glance={glance} label="Your song" storeShell={storeShell} buyError={search.buy_error ?? null} />
         {/* ✅ THE SECTIONS AS DRAWN (prototype `sections('music')`) — dim until it is added. */}
-        <div className="mt-2">
-          <ServiceSection
-            id="brief"
-            icon={<ListMusic strokeWidth={1.9} />}
-            title="Your brief"
-            sub={briefWords || 'Style, mood, your story'}
-            end={<ServiceQuietLink href="#brief-form" label={responses ? 'See' : 'Tell us'} />}
-            dim={glance.ownership !== 'on'}
-          />
-          <ServiceSection
-            id="song"
-            icon={<Music strokeWidth={1.9} />}
-            title="Your song"
-            sub={owned && songReady ? `Ready${event.pakanta_song_filename ? ` · ${event.pakanta_song_filename}` : ''}` : owned ? 'In production' : 'Lands here when ready'}
-            dim={!owned}
-          >
-            {owned && songReady && songPreviewUrl ? (
-              <>
-                <SongPlayer eventId={eventId} src={songPreviewUrl} />
-                <AiDisclosure generator="song" className="mt-2" />
-              </>
-            ) : owned ? (
-              <div className="ss-empty">
-                <b>In production</b>
-                <span>No clock on this — you will see Ready here first.</span>
-              </div>
-            ) : null}
-          </ServiceSection>
-          {/* A setting is ONE row. Turning the song ON is the shipped one-tap adopt; once it plays,
-              the Event Hub's own music settings are where it is changed. */}
-          <ServiceSection
-            icon={<Settings2 strokeWidth={1.9} />}
-            title="Play on your Event Hub"
-            sub="Softly, as a guest opens it"
-            end={adopted ? <ServiceChip mood="ok" words="Playing" /> : owned && songReady ? null : <ServiceChip mood="off" words="When ready" />}
-            dim={!owned}
-          >
-            {owned && songReady && !adopted ? <UseSongButton eventId={eventId} /> : null}
-          </ServiceSection>
-        </div>
+        <MusicSections
+          eventId={eventId}
+          added={glance.ownership === 'on'}
+          owned={owned}
+          songReady={songReady}
+          songFilename={event.pakanta_song_filename}
+          songPreviewUrl={songPreviewUrl}
+          adopted={adopted}
+          briefWords={briefWords}
+          hasBrief={Boolean(responses)}
+        />
       </div>
 
       {/* 🧩 Playlist, under Music Maker (it sat under the Music Maker card on

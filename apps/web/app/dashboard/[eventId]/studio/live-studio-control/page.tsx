@@ -14,7 +14,8 @@ import {
   MonitorPlay,
 } from 'lucide-react';
 import { SERVICE_NAMES } from '@/lib/service-names';
-import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { ServicePageBand } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { LiveSections } from './_components/live-sections';
 import { liveGlance, serviceDayOf } from '@/lib/services-glance';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { formatPapicDayInWords } from '@/lib/papic-window';
@@ -438,40 +439,16 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
           hideSecond
         />
         {/* ✅ THE SECTIONS AS DRAWN (prototype `sections('live')`). */}
-        <div className="mt-2">
-          <ServiceSection
-            icon={<Video strokeWidth={1.9} />}
-            title="Your cameras"
-            sub={
-              on
-                ? figures
-                  ? figures.cameras === 0
-                    ? 'None set up yet'
-                    : `${figures.cameras} set up`
-                  : 'Set up in the controller'
-                : '1 free · more with Live Watch'
-            }
-            end={<ServiceQuietLink href={controllerHref} label="Pair a camera" />}
-          />
-          <ServiceSection
-            id="recording"
-            icon={<Tv strokeWidth={1.9} />}
-            title="Recording"
-            sub={figures?.recorded ? `${recordedLength ?? 'Recorded'} · unlisted` : 'Starts when you press Go live'}
-            end={figures?.recorded ? <ServiceQuietLink href={controllerHref} label="Download" /> : null}
-            dim={!on}
-          >
-            {figures?.recorded ? (
-              <p className="m-0 text-[13px] text-ink/60">Keep a copy — YouTube unlisted links are not forever.</p>
-            ) : null}
-          </ServiceSection>
-          <ServiceSection
-            icon={<MonitorPlay strokeWidth={1.9} />}
-            title="YouTube channel"
-            sub={youtubeGrant?.external_account_display ?? (ownsHostedChannel ? 'Setnayan runs your channel' : 'Not linked yet')}
-            end={<ServiceChip mood={youtubeGrant || ownsHostedChannel ? 'ok' : 'off'} words={youtubeGrant || ownsHostedChannel ? 'Linked' : 'Not linked'} />}
-          />
-        </div>
+        <LiveSections
+          on={on}
+          cameras={figures ? figures.cameras : null}
+          recorded={Boolean(figures?.recorded)}
+          recordedLength={recordedLength}
+          controllerHref={controllerHref}
+          channelName={youtubeGrant?.external_account_display ?? null}
+          hostedChannel={ownsHostedChannel}
+          linked={Boolean(youtubeGrant) || ownsHostedChannel}
+        />
       </div>
 
       <AppStoreLayout

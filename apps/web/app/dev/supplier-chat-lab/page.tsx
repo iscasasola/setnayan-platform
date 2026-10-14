@@ -118,7 +118,7 @@ export default async function SupplierChatLabPage({
       <ThreadToolHashReveal />
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         {notice ? (
-          <p role="status" className="mb-2 rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink">
+          <p role="status" className="mb-2 rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink"> {/* no-card-ok: a copy of the thread page's own answer line, for the lab picture */}
             {notice.text}{' '}
             {notice.door ? (
               <a href={notice.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
@@ -148,7 +148,7 @@ export default async function SupplierChatLabPage({
           composer={
             inquiry ? (
               // Stand-in for the page's own "New inquiry" bar — its words and its one button, as the page draws them.
-              <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+              <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4"> {/* no-card-ok: a copy of the thread page's own New-inquiry bar, for the lab picture */}
                 <p className="text-sm text-ink">
                   <span className="font-semibold">New inquiry.</span> Say yes to talk — nothing is booked yet.
                 </p>

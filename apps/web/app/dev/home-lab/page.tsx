@@ -194,6 +194,8 @@ export default async function HomeLab({
     ? {
         ...base,
         guide: null,
+        papicReady: false,
+        papic: null,
         guests: { total: 32, unsent: 12 },
         live: !svcStore && servicesLabDay(q) === 'day' && svcRows.some((r) => r.moment === 'live-now'),
         music: !svcStore && svcRows.some((r) => r.moment === 'song-ready'),

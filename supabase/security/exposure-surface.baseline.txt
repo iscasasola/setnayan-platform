@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6697
+# facts: 6695
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4901
 #   policy    951
 #   view      8
-#   func      261
+#   func      259
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6481,8 +6481,6 @@ func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,a
 func	public.booking_fee_free_window_active(p_at timestamp with time zone)	secdef=no exec=anon,authenticated search_path=public
 func	public.booking_fee_proposal_cleared(p_proposal_id uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.bundles_granting_sku(p_child text)	secdef=no exec=anon,authenticated search_path=public
-func	public.calendar_block_meets_time(p_day_part text, p_start time without time zone, p_end time without time zone)	secdef=no exec=anon,authenticated search_path=public
-func	public.calendar_block_on_day(p_blocked_at timestamp with time zone, p_blocked_until timestamp with time zone, p_repeat_rule text, p_repeat_until date, p_day date)	secdef=no exec=anon,authenticated search_path=public
 func	public.call_rtc_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.cancel_event_deletion_request(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_part_finalization_request(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public

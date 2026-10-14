@@ -1,13 +1,13 @@
 import Link from 'next/link';
-import { BellRing, ChevronLeft, Clock, MessageSquare, QrCode, RotateCcw } from 'lucide-react';
+import { BellRing, CalendarX2, ChevronLeft, Clock, MessageSquare, QrCode, RotateCcw, Users } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { CALENDAR_HATCH } from '@/lib/calendar-grid';
-import { dayLongWords, dayTitle, rangeWords, type DayAnswer, type DayGroup } from '@/lib/vendor-dates';
+import { dayLongWords, rangeWords, type DayAnswer, type DayGroup } from '@/lib/vendor-dates';
 import { formatCount } from '@/lib/format-number';
 import { SupplierSubmit } from '../../_components/supplier-submit';
-import { DatesRow } from './dates-row';
+import { DatesRow, RowTile } from './dates-row';
 
 /**
  * CUSTOMERS › DATES › A DAY (S-PR3, redrawn to the 2026-10-14 approved prototype `SCREENS.day`; plan § 8 gap 11).
@@ -99,17 +99,15 @@ export function DaySheet({
         Dates
       </Link>
       <h2 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-ink" aria-label={dayLongWords(day)}>
-        {dayTitle(today, day)}
+        {/* "Sunday, October 18" — the prototype's long title; the year only when it is not this one. */}
+        {day.slice(0, 4) === today.slice(0, 4) ? dayLongWords(day).replace(/, \d{4}$/, '') : dayLongWords(day)}
       </h2>
       {data.sub ? <p className="mt-1 text-[14px] text-ink/60">{data.sub}</p> : null}
 
       {/* THE ANSWER LINE (prototype `.answer`): one coloured word, then what is true. */}
       {data.answer ? (
-        <p className="mt-2 text-[17px] leading-snug text-ink" data-dates-day-answer={data.answer.word}>
-          <b className="font-semibold" style={{ color: ANSWER_TONE[data.answer.tone] }}>
-            {data.answer.word}
-          </b>{' '}
-          · {data.answer.line}
+        <p className="mt-2 text-[17px] leading-snug" style={{ color: ANSWER_TONE[data.answer.tone] }} data-dates-day-answer={data.answer.word}>
+          <b className="font-semibold">{data.answer.word}</b> · {data.answer.line}
         </p>
       ) : (
         <p className="mt-2 text-[15px] text-ink/70" data-dates-day-answer="not-set">
@@ -136,7 +134,7 @@ export function DaySheet({
                 line={r.line || undefined}
                 badge={r.badge}
                 href={r.href ?? null}
-                lead={r.kind === 'blocked' ? <i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={{ backgroundImage: CALENDAR_HATCH }} /> : undefined}
+                lead={r.kind === 'blocked' ? <RowTile><CalendarX2 strokeWidth={1.75} /></RowTile> : r.kind === 'outside' ? <RowTile><Users strokeWidth={1.75} /></RowTile> : undefined}
               />
             ))}
           </div>
@@ -156,7 +154,7 @@ export function DaySheet({
         {holding > 0 ? (
           <DatesRow
             data="holding"
-            lead={<Clock aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />}
+            lead={<RowTile><Clock strokeWidth={1.75} /></RowTile>}
             title="Holding this date"
             line={
               data.holdersMeasured
@@ -227,6 +225,7 @@ export function DaySheet({
         {data.closures.length <= 1 ? (
           <DatesRow
             data="block-switch"
+            lead={<RowTile><CalendarX2 strokeWidth={1.75} /></RowTile>}
             title="Not available"
             line={single ? `${single.label} · ${single.repeatWords || rangeWords(single.startDate, single.endDate, today)}` : 'Nothing new can take it'}
             end={
@@ -257,7 +256,7 @@ export function DaySheet({
 
         <DatesRow
           data="qr"
-          lead={<QrCode aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />}
+          lead={<RowTile><QrCode strokeWidth={1.75} /></RowTile>}
           title="Show a QR"
           line="Booked here · this date"
           href={data.qrHref}

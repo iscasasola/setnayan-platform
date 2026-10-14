@@ -137,22 +137,31 @@ export function OutsideClientAdd({
               ) : null}
               <DateRow name="Date" value={from} today={today} empty="Pick a date" onKeep={(d) => setFrom(d)} />
               <FormRow name="Time" data="outside-time">
-                <input
-                  type="time"
-                  value={time}
-                  step={300}
-                  onChange={(e) => setTime(e.target.value)}
-                  aria-label="Time"
-                  className="min-h-11 rounded-full border border-ink/15 bg-cream px-3 text-[15px] text-ink"
-                  data-outside-time=""
-                />
+                {/* The phone's own time wheel. Empty, it says so — WebKit would otherwise draw a grey "12:30 PM" that
+                    reads as already set (walked 2026-10-14). */}
+                <span className="relative inline-flex">
+                  <input
+                    type="time"
+                    value={time}
+                    step={300}
+                    onChange={(e) => setTime(e.target.value)}
+                    aria-label="Time"
+                    className={`min-h-11 min-w-[8.5rem] rounded-full border border-ink/15 bg-cream px-4 text-[15px] ${time ? 'text-ink' : 'text-transparent'}`}
+                    data-outside-time=""
+                  />
+                  {time ? null : (
+                    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[15px] text-ink/45">
+                      No time
+                    </span>
+                  )}
+                </span>
               </FormRow>
               {line ? (
                 <p className="pb-1 pt-1 text-[13px]" style={{ color: line.tone === 'bad' ? 'rgb(var(--color-danger))' : 'rgb(var(--color-ok))' }} data-outside-seat-line="">
                   {line.text}
                 </p>
               ) : null}
-              <TypedRow name="Note" value={note} empty="Optional · “paid ₱2,000 cash”" long maxLength={500} fieldName="client_note" onKeep={(t) => setNote(t)} />
+              <TypedRow name="Note" value={note} empty="Optional" long maxLength={500} fieldName="client_note" onKeep={(t) => setNote(t)} />
               <DateRow name="To" value={to} shown={from} today={today} min={from} empty="Same day" onKeep={(d) => setTo(d)} />
               <TypedRow name="Contact" value={contact} empty="Optional" maxLength={160} fieldName="client_contact" onKeep={(t) => setContact(t)} />
             </FormRows>

@@ -70,3 +70,15 @@ export function DatesRow({
     </div>
   );
 }
+
+/**
+ * The round icon tile at a row's left (the approved prototype's look pass, 2026-10-14: "icons on rows") — a soft
+ * disc with the row's mark. Shown, never pressed.
+ */
+export function RowTile({ children }: { children: ReactNode }) {
+  return (
+    <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-ink/[0.05] text-ink/70 [&>svg]:h-5 [&>svg]:w-5">
+      {children}
+    </span>
+  );
+}

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BellRing, CalendarClock, Check, Clock, Download, QrCode, X } from 'lucide-react';
+import { BellRing, CalendarClock, CalendarX2, Check, Clock, Download, QrCode, Users, X } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { FormCounter } from '@/app/_components/form-counter';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -9,7 +9,7 @@ import { blockDaysLine, capacityLine, closureWords, rangeWords, waitlistLine } f
 import type { DayPart, RepeatRule } from '@/lib/not-available';
 import { formatCount } from '@/lib/format-number';
 import { SupplierSubmit } from '../../_components/supplier-submit';
-import { DatesRow } from './dates-row';
+import { DatesRow, RowTile } from './dates-row';
 import { CalendarSheet, ShareTeamPick, type DatesService } from './dates-sheets';
 
 /**
@@ -146,7 +146,7 @@ export function DatesFolds({
     <div className="mt-6 border-t border-ink/10" data-dates-folds="">
       {/* ── NOT AVAILABLE ── */}
       <div className="border-b border-ink/10" data-dates-fold="block">
-        <Fold title="Not available" line={closuresIncomplete ? 'Some couldn’t load — reload to see them all' : blockDaysLine(closures, today)} defaultOpen={open === 'block'} data="dates-block">
+        <Fold lead={<RowTile><CalendarX2 strokeWidth={1.75} /></RowTile>} title="Not available" line={closuresIncomplete ? 'Some couldn’t load — reload to see them all' : blockDaysLine(closures, today)} defaultOpen={open === 'block'} data="dates-block">
           <div className="pb-3">
             {closures.length === 0 ? (
               <p className="py-2 text-[13.5px] text-ink/60">Nothing marked yet.</p>
@@ -191,6 +191,7 @@ export function DatesFolds({
       {/* ── WAITLIST ── */}
       <div className="border-b border-ink/10" data-dates-fold="waitlist">
         <Fold
+          lead={<RowTile><Clock strokeWidth={1.75} /></RowTile>}
           title="Waiting list"
           line={
             !waitlist.settingsMeasured
@@ -287,7 +288,7 @@ export function DatesFolds({
 
       {/* ── HOW MANY A DAY ── */}
       <div className="border-b border-ink/10" data-dates-fold="capacity">
-        <Fold title="How many a day" line={capacityLine(calendars)} defaultOpen={open === 'capacity'} data="dates-capacity">
+        <Fold lead={<RowTile><Users strokeWidth={1.75} /></RowTile>} title="How many a day" line={capacityLine(calendars)} defaultOpen={open === 'capacity'} data="dates-capacity">
           <div className="pb-3">
             {calendars.length === 0 ? (
               <p className="py-2 text-[13.5px] text-ink/60" data-dates-not-set="">
@@ -328,7 +329,7 @@ export function DatesFolds({
             {calendars.length > 0 && approveFirst ? (
               <DatesRow
                 data="approve-first"
-                lead={<Clock aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />}
+                lead={<RowTile><Clock strokeWidth={1.75} /></RowTile>}
                 title={calendars.length > 1 ? 'Approve first · every schedule' : 'Approve first'}
                 line="Couples wait for your yes"
                 badge={{ tone: 'ok', word: 'On' }}
@@ -370,7 +371,7 @@ export function DatesFolds({
       {/* ── QR CODES › (frames 10 · 40) ── */}
       <DatesRow
         data="qr"
-        lead={<QrCode aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />}
+        lead={<RowTile><QrCode strokeWidth={1.75} /></RowTile>}
         title="QR codes"
         line="They scan · they are listed"
         href={qrHref}
@@ -382,14 +383,14 @@ export function DatesFolds({
       </p>
       <DatesRow
         data="slots"
-        lead={<CalendarClock aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />}
+        lead={<RowTile><CalendarClock strokeWidth={1.75} /></RowTile>}
         title="Exact time slots"
         line="Fixed times couples pick · on each card in your Shop"
         href={slotsHref}
       />
       <DatesRow
         data="ics"
-        lead={<Download aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />}
+        lead={<RowTile><Download strokeWidth={1.75} /></RowTile>}
         title="Phone calendar"
         line="Every booking · .ics"
         href={icsHref}

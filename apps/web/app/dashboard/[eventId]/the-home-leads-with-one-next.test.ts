@@ -91,9 +91,11 @@ const EVERY_STATE: HomeNextInput[] = [
   { ...NOTHING, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
   // An unread guest list is its OWN step (H3, 2026-10-07) — never "on track".
   { ...NOTHING, guests: null, papicReady: true, aiOffer: true },
+  // 🎨 Papic's moment ranks ABOVE the guest steps since 2026-10-14 (the approved
+  // prototype's stopped/ready card stands where "Send 12 invitations" would).
   { ...NOTHING, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
-  { ...NOTHING, guests: { total: 96, unsent: 58 }, papicReady: true, aiOffer: true },
-  { ...NOTHING, papicReady: true, aiOffer: true },
+  { ...NOTHING, guests: { total: 0, unsent: 0 }, aiOffer: true },
+  { ...NOTHING, guests: { total: 96, unsent: 58 }, aiOffer: true },
   { ...NOTHING, aiOffer: true },
   NOTHING,
 ];

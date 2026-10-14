@@ -220,7 +220,7 @@ test('the Invitation’s guest menu is Welcome · Details · Our Love Story · M
       viewer: { kind: 'guest' }, phase: 'before', hostAllowsCamera: true, anyChapterPublic: true, hasStory: true,
       hasDetails: true, liveBroadcast: false, destinations: { camera: '/c' }, stageSlots: STAGE_BAR.rsvp.slots,
     } as Parameters<typeof resolveSiteNav>[0]);
-    assert.deepEqual(bar.map((s) => s.label), ['Welcome', 'Details', 'Our Love Story', 'Me'], `replied=${replied}`);
+    assert.deepEqual(bar.map((s) => s.label), ['Home', 'Details', 'Story', 'Me'], `replied=${replied}`);
   }
   const nav = stripComments(read(join(SLUG, '_lib', 'site-nav.ts')));
   assert.doesNotMatch(nav, /key: 'rsvp'/, 'the resolver can emit an RSVP tab again');

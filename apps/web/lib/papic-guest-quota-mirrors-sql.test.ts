@@ -169,7 +169,8 @@ test('the personal countdown pill is NOT unconditional', () => {
   );
   assert.match(
     src,
-    /capApplies \?[\s\S]{0,600}?\$\{remaining\} left/,
+    // The unit is "credits" since 2026-10-13: `${formatCount(remaining)} … credits left`.
+    /capApplies \?[\s\S]{0,600}?\$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left/,
     'the "N left" pill is no longer behind capApplies',
   );
 });
@@ -204,7 +205,7 @@ test('the empty pot has its own sentence, and the per-guest one survives', () =>
   const src = web(...CAMERA); // rendered copy, comments included is fine here
   assert.match(
     src,
-    /has run out of shots/,
+    /credits have run out — the hosts can add more/,
     'the celebration-is-out sentence is gone — the pool case would inherit the ' +
       'per-guest congratulation again',
   );

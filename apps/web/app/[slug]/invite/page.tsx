@@ -44,7 +44,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, event_end_date, venue_latitude, venue_longitude, rsvp_ask_config`,
+      `event_id, public_id, display_name, event_date, event_date_precision, venue_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, event_end_date, venue_latitude, venue_longitude, rsvp_ask_config, std_invitation_launch_date`,
     )
     // `.ilike`, NOT `.eq` — the main invitation page matches the slug
     // case-insensitively, and 8 of the 10 guest sub-routes follow it. This one
@@ -150,6 +150,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
       profile: await resolveProfile(event.event_type as string),
       eventDate: event.event_date as string | null,
       eventEndDate: (event.event_end_date as string | null) ?? null,
+      invitationLaunchDate: (event.std_invitation_launch_date as string | null) ?? null,
       venueTz: eventTimezoneFromCoords(
         event.venue_latitude as number | null,
         event.venue_longitude as number | null,

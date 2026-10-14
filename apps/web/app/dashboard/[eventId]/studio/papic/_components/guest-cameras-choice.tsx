@@ -12,6 +12,7 @@ import {
   formatCaptureCloseLabel,
   manilaCaptureCloseIso,
   manilaDate,
+  formatPapicDayInWords,
 } from '@/lib/papic-window';
 
 /**
@@ -141,7 +142,7 @@ export async function GuestCamerasChoice({
           branch would then need a second, different edit. open/close is this
           picker's own vocabulary already. */}
       Your guests&rsquo; cameras open
-      {day ? ` on ${day}` : ' on your event day'} and stay on
+      {eventDay ? ` on ${formatPapicDayInWords(eventDay) ?? eventDay}` : ' on your event day'} and stay on
       {dayCloseLabel
         ? ` until ${dayCloseLabel} — ${PAPIC_CAPTURE_GRACE_HOURS} hours past the end of the day`
         : ` until ${PAPIC_CAPTURE_GRACE_HOURS} hours after your event day ends`}

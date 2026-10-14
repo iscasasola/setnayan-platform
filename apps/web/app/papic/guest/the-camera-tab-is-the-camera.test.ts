@@ -121,7 +121,9 @@ test('5 · no look = the camera exactly as shipped (min-h-screen, the cream ring
 
 test('6 · the bar’s Camera opens the camera page itself — nothing in between, no bar on it', () => {
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /camera: papicGuest\s*\?\s*`\/papic\/me\/\$\{encodeURIComponent\(guest\.qr_token\)\}\/session\?next=guest&from=/);
+  // One address since 2026-10-14 (`guestCameraHref`): the bar's Camera and the early Gallery share it.
+  assert.match(body, /const guestCameraHref = papicGuest\s*\?\s*`\/papic\/me\/\$\{encodeURIComponent\(guest\.qr_token\)\}\/session\?next=guest&from=/);
+  assert.match(body, /camera: guestCameraHref,/);
   assert.match(body, /: hostCameraOpen\s*\?\s*`\/papic\/guest\?from=\$\{event\.slug\}`/);
   const page = read('app/papic/guest/page.tsx');
   assert.doesNotMatch(page, /GuestHubBar|SiteMenuBar|HubShell|SiteFooter|<footer/, 'the camera page draws a guest bar, menu or footer');

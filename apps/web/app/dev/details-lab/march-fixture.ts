@@ -54,6 +54,21 @@ const ROWS: Row[] = [
   ['p35', null, 'Isabel', 'Ocampo', 'flower_girl', 20],
 ];
 
+/**
+ * 🪪 THE LAB'S RENAMES (a tapped name's guest card, `lab-march-cards.tsx`): the names a lab card saved, by id — kept in this
+ * dev server's memory only (the lab has no database), so the march drawn after the card closes shows the new name, exactly
+ * as the Maker re-reads a real guest's.
+ */
+export const LAB_MARCH_RENAMES = new Map<string, { prefix: string | null; first: string; last: string }>();
+
+/** One lab person as the guest card reads them (maria-and-jose's march). */
+export function labMarchPerson(id: string): { id: string; prefix: string | null; first: string; last: string; role: string } | null {
+  const r = ROWS.find((x) => x[0] === id);
+  if (!r) return null;
+  const renamed = LAB_MARCH_RENAMES.get(id);
+  return { id, prefix: renamed ? renamed.prefix : r[1], first: renamed?.first ?? r[2], last: renamed?.last ?? r[3], role: r[4] };
+}
+
 /** 🚶 Not walking in the lab (the tray): a groomsman, a flower girl, a principal sponsor. */
 const LAB_OUT = new Set(['p38', 'p35', 'p20']);
 /** Their guest side, as a couple would have set it — the aisle side follows it (`walkSideOf`). */
@@ -70,9 +85,9 @@ export function labMarchSections(shape?: string | null) {
       ? ownerShapedMarch().map((r, i) => ({ ...r, side: sideOf(r.role ?? ''), ...(i % 13 === 7 ? { not_walking: true } : {}) }))
       : ROWS.map(([id, prefix, first, last, role, walk, place]) => ({
           guest_id: id,
-          name_prefix: prefix,
-          first_name: first,
-          last_name: last,
+          name_prefix: LAB_MARCH_RENAMES.has(id) ? LAB_MARCH_RENAMES.get(id)!.prefix : prefix,
+          first_name: LAB_MARCH_RENAMES.get(id)?.first ?? first,
+          last_name: LAB_MARCH_RENAMES.get(id)?.last ?? last,
           role,
           side: sideOf(role),
           extra_roles: [],

@@ -121,3 +121,20 @@ test('5 · the guest draws it — inline on a cover part, scoped on a scene — 
   // The Maker's instant preview clears exactly the look props before laying a choice — a width taken off (↺) leaves nothing.
   for (const p of ['max-width', 'margin-inline']) assert.ok((HUB_ELEMENT_LOOK_PROPS as readonly string[]).includes(p), `${p} is not cleared by the preview`);
 });
+
+test('6 · THE REAL GUEST PAGE (SiteBody, the fixture invitation) draws a stored width — on the cover’s names and a scene’s words', async () => {
+  const { renderSiteBodyFixture } = await import('./site-body-fixture-render');
+  const { fixtureWidgets } = await import('./site-body-fixture');
+  const plain = await renderSiteBodyFixture();
+  assert.doesNotMatch(plain, /min\(\d+%, \d+ch\)/, 'anti-vacuity: the plain page already draws a width');
+  const html = await renderSiteBodyFixture({
+    widgets: fixtureWidgets({ hero: { elements: { names: { width: 'wide' } } }, special_message: { elements: { body: { width: 'narrow' } } } }),
+  });
+  // The names: their own inline style on the guest's h1 (no editor stamp on a guest page).
+  const names = /<h1[^>]*data-hub-names=""[^>]*>/.exec(html)?.[0] ?? '';
+  assert.ok(names, 'the guest page draws no names');
+  assert.match(names, /style="[^"]*max-width:min\(90%, 60ch\);margin-inline:var\(--hub-el-mi, 0 auto\)/, `the names do not wear Wide: ${names}`);
+  assert.doesNotMatch(names, /data-el=/, 'this is the Maker canvas, not a guest page');
+  // A scene's words: its scoped style, right after the scene.
+  assert.match(html, /<style[^>]*data-hub-els="special_message"[^>]*>[^<]*max-width:min\(60%, 32ch\) !important/, 'the scene’s words do not wear Narrow');
+});

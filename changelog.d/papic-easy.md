@@ -19,7 +19,7 @@ prototype `Setnayan/prototypes/papic_easy_home_and_band_2026-10-14_fable.html`).
 - **Window is automatic**: the "Do this first · When can your cameras shoot? / Nothing can be captured
   until you pick the days" card is gone; "Cameras — set the dates", "Waiting for dates" and "1 day of
   capture" are gone (the picker seeds the 6-month default). The dates are a quiet "Change dates", last.
-  Migration `20271268379848` moves cameras made under the old one-day default (no saved window) to the
+  Migration `20271269077780` moves cameras made under the old one-day default (no saved window) to the
   6-month start.
 - **Guest camera at zero**: told at camera-open — "This celebration's credits have run out — the hosts
   can add more" — and the shutter rests (`GuestQuota.poolEmpty`, a boolean; PRIV-1 holds).

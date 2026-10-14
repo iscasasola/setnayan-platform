@@ -1,5 +1,5 @@
 /**
- * PAPIC SEATS TAKE THE SIX-MONTH DEFAULT — migration 20271268379848.
+ * PAPIC SEATS TAKE THE SIX-MONTH DEFAULT — migration 20271269077780.
  *
  * 📸 Owner 2026-10-13: Papic is on automatically from 6 months before the day.
  * The brief marked UNCONFIRMED whether cameras made before any window was saved
@@ -22,7 +22,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { earliestCaptureDate } from '../../lib/papic-window';
 
-const MIGRATION_FILE = '20271268379848_papic_seats_take_the_six_month_default.sql';
+const MIGRATION_FILE = '20271269077780_papic_seats_take_the_six_month_default.sql';
 const MIGRATION_SQL = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'supabase', 'migrations', MIGRATION_FILE),
   'utf8',

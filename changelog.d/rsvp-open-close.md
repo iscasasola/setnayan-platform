@@ -3,12 +3,12 @@
 Owner ruling 2026-10-14 (DECISION_LOG 📬 "RSVP GETS ITS OWN OPEN AND CLOSE").
 
 - **Details › RSVP** gets two dropdowns under Reply by: *Replies open* ▾ With the invitation · On a date… · Now ·
-  Closed, and *Replies close* ▾ On the day · On the reply-by date · On a date…, with the one calendar under each
+  Closed, and *Replies close* ▾ On the event day · On the reply-by date · On a date…, with the one calendar under each
   "On a date…" (`replies-window-rows.tsx`). Stored as four sparse keys of `events.rsvp_ask_config`
   (`repliesOpen` · `repliesOpenOn` · `repliesClose` · `repliesCloseOn`) — **no migration**; drafted, live at ✓ Apply.
 - **One resolver**, `replyWindow(event, now, tz, face)` (`lib/reply-window.ts`) → `not_yet | open | closed`, on the
   venue's clock. Rule 5 lives there: replies never open without the Invitation. "Now"/"Closed" override the dates;
-  "On the day" closes when the Invitation hands over to The Day (today's behaviour); a date closes after its last day.
+  "On the event day" closes when the Invitation hands over to The Day (today's behaviour); a date closes after its last day.
 - **Guests:** the Reply card reads "Replies open on Saturday, 14 November" (no button) or "Replies are closed. Need to
   change? Message the couple." (no Reply / Change); the reply page and the landing draw the same words and no form
   (`ReplyWindowNote`); the key gate never sends a guest to a shut form; every other reply door is hidden.
@@ -21,6 +21,6 @@ Owner ruling 2026-10-14 (DECISION_LOG 📬 "RSVP GETS ITS OWN OPEN AND CLOSE").
 - Guards: `lib/reply-window.test.ts` (every pick × stage, edge minutes, venue clock), `lib/every-reply-writer-asks-the-window.test.ts`,
   `lib/the-invitation-opens-on-one-date.test.ts` (tree walk), `tests/db/replies-have-their-own-open-and-close.db.test.ts`.
 
-SPEC IMPACT: None beyond the ruling it implements (DECISION_LOG 2026-10-14 📬). Builder readings of the ruling
-(Now also re-opens after a close date; "On the day" = the hand-over to The Day; a join request is a reply) are in
-the handover `controller-2026-10-12/handovers/rsvp-open-close.md` for the owner's confirmation.
+SPEC IMPACT: the 📬 row's default close words change — owner 2026-10-14 on review: the default close pick reads "On the event day" (never the stage's old name);
+join-door requests are refused outside the window. Builder readings (Now also re-opens after a close date; "On the
+event day" = the hand-over to The Day) are in `controller-2026-10-12/handovers/rsvp-open-close.md`.

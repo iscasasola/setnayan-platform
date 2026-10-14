@@ -11,7 +11,7 @@ import { REPLIES_CLOSE, REPLIES_OPEN, type RepliesClose, type RepliesOpen, type 
  * § 6) — and, under an "On a date…" pick, the one calendar (`DateRow`, § 8, `lib/calendar-grid.ts`):
  *
  *   Replies open  ▾  With the invitation · On a date… · Now · Closed
- *   Replies close ▾  On the day · On the reply-by date · On a date…
+ *   Replies close ▾  On the event day · On the reply-by date · On a date…
  *
  * "Now" and "Closed" override the dates until switched back (item 4), so under them "Replies close"
  * has nothing to decide and is not drawn. The values are keys of the ONE `rsvp_ask_config` object the
@@ -26,7 +26,8 @@ export const REPLIES_OPEN_LABEL: Record<RepliesOpen, string> = {
   closed: 'Closed',
 };
 export const REPLIES_CLOSE_LABEL: Record<RepliesClose, string> = {
-  on_the_day: 'On the day',
+  // Owner 2026-10-14: "it is the actual day of the event" — never the stage's old name.
+  on_the_day: 'On the event day',
   reply_by: 'On the reply-by date',
   on_date: 'On a date…',
 };

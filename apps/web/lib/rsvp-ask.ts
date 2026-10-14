@@ -127,7 +127,7 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
   celebration?: RsvpCelebration;
   /**
    * 📬 WHEN REPLIES OPEN AND CLOSE (owner 2026-10-14, DECISION_LOG 📬 "RSVP GETS ITS OWN OPEN AND
-   * CLOSE"). Absent = "With the invitation" / "On the day" — today's behaviour, so every existing
+   * CLOSE"). Absent = "With the invitation" / "On the event day" — today's behaviour, so every existing
    * event is unchanged. A date rides beside its "On a date…" pick (`YYYY-MM-DD`, the venue's day).
    * Read ONLY through `replyWindow` (lib/reply-window.ts) — every reader and writer of a reply asks it.
    */

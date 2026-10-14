@@ -12,7 +12,7 @@
  * couple finalises the count). Now the couple sets, in Details › RSVP:
  *
  *   Replies open  ▾  With the invitation (default) · On a date… · Now · Closed
- *   Replies close ▾  On the day (default) · On the reply-by date · On a date…
+ *   Replies close ▾  On the event day (default) · On the reply-by date · On a date…
  *
  * stored in `events.rsvp_ask_config` (`repliesOpen` · `repliesOpenOn` · `repliesClose` ·
  * `repliesCloseOn` — sanitised by `sanitizeRsvpAskConfig`; no new column).
@@ -26,7 +26,7 @@
  *   (4) "Now" and "Closed" are manual and override the dates until switched back: Now opens replies
  *       whatever the open date AND the close date say (it is how a couple re-opens after a close);
  *       Closed shuts them whatever the dates say.
- *   "On the day" closes when the Invitation hands over to The Day — the same moment the page's one
+ *   "On the event day" closes when the Invitation hands over to The Day — the same moment the page's one
  *       action stops asking for a reply ("Show your ticket"). So the default is today's behaviour.
  *   "On the reply-by date" / "On a date…" close AFTER that day — a guest may still reply on it.
  *   "On a date…" (open) opens at the START of that day. A pick with no date set yet, or "On the
@@ -158,7 +158,7 @@ export function replyWindow(event: ReplyWindowEvent, now: Date | number, tz: str
       : { state: 'not_yet', reason: 'invitation_not_open', opensOn: invitationDay, closesOn: null };
   }
 
-  // The close — after its last day. "On the reply-by date" with no reply-by date reads as On the day.
+  // The close — after its last day. "On the reply-by date" with no reply-by date reads as On the event day.
   const closesOn = pick.close === 'reply_by' ? dayOf(event.guest_list_edit_deadline) : pick.close === 'on_date' ? pick.closeOn : null;
   if (closesOn && today > closesOn) return { state: 'closed', reason: 'close_date_passed', opensOn: null, closesOn };
 

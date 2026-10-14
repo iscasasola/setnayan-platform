@@ -26,7 +26,6 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'app/onboarding/[type]/_components/generic-onboarding.tsx', why: 'a date choice — "On the day · Sat 5 Oct" is the celebration day itself, not the stage' },
   { prefix: 'lib/face-tagging-wish.ts', why: 'a sentence fragment (" on the day") inside the face-tagging hint' },
   { prefix: 'app/dev/', why: 'internal lab pages — a toggle named for the day, never shown to a couple or supplier' },
-  { prefix: 'app/dashboard/[eventId]/launch/_components/replies-window-rows.tsx', text: /^On the day$/, why: 'a "Replies close" pick in the owner’s own words (DECISION_LOG 2026-10-14 📬: "Replies close ▾ On the day (default)") — WHEN replies close, not the stage’s name' },
 ];
 
 test('the stage is called "The Day"', () => {

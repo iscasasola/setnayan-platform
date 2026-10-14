@@ -4,13 +4,18 @@ import { BookOpen, Camera, CalendarDays, Check, Info, ListChecks, Mail, Sparkles
 import { NextCard } from '@/app/_components/next-card';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
-import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey } from '@/lib/home-first-screen';
+import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey, PapicRowDoors } from '@/lib/home-first-screen';
 import type { HomeFigures } from '@/lib/home-facts';
 import type { HomeCover } from '@/lib/home-cover';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { completeTour } from '@/lib/tour-actions';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
 import { HomeDoorways, HomeLater, HomeReload, HomeWhatsNext } from './home-parts';
+import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
+import { PapicSeePhotos } from '../studio/papic/_components/papic-see-photos';
+import { ServiceGlanceRow } from '@/app/_components/service-glance';
+import { seePhotosWord } from '@/lib/papic-glance';
+import type { PoolRung } from '@/lib/papic-pool-rungs';
 
 /**
  * Where each Next card goes. Written as `href:` literals ON PURPOSE: the
@@ -134,6 +139,10 @@ export type HomeFirstScreenProps = {
   navSlots?: Record<string, NavSlotLite> | null;
   /** 📋 What's next — the decisions, unfolding in place (`EventDashboard only="whatsnext"`). */
   whatsNext?: ReactNode;
+  /** 🎨 Papic's credits left, for the Buy more sheet's "You have N" and "After this". */
+  papicLeft?: number | null;
+  /** The credit ladder, ONLY when a dev lab already holds it — Home reads it on the tap. */
+  papicSizes?: PoolRung[] | null;
 };
 
 /** Only the three slots the doorways read cross to the client — not the whole registry. */
@@ -166,6 +175,8 @@ export function HomeFirstScreen({
   ground = null,
   navSlots = null,
   whatsNext,
+  papicLeft = null,
+  papicSizes = null,
 }: HomeFirstScreenProps) {
   const guestsUnread = figures ? figures.coming === null : coming === '—';
   const moneyUnread = figures ? figures.money === 'unread' : money !== null && money.paid === '—';
@@ -175,6 +186,9 @@ export function HomeFirstScreen({
   const nextMain =
     next.kind === 'unread' ? (
       <HomeReload main />
+    ) : next.kind === 'papic' && (next.papicMoment === 'stopped' || next.papicMoment === 'low-today') ? (
+      /* 🎨 The card's Buy more opens the same sheet as the row (owner 2026-10-14). */
+      <PapicBuySheet eventId={eventId} left={papicLeft} tone="brand" main sizes={papicSizes} />
     ) : (
       <ActionButton tone={nb.tone} main icon={<nb.icon aria-hidden="true" strokeWidth={1.9} />} label={next.action} href={nextHref(next.kind, eventId)} />
     );
@@ -340,6 +354,9 @@ export function HomeFirstScreen({
             <div className="home-svc">
               {services.map((svc) => {
                 const Icon = SERVICE_ICON[svc.key];
+                if (svc.key === 'papic' && svc.papic) {
+                  return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} />;
+                }
                 return (
                   <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
                     <span className="home-t">
@@ -357,5 +374,38 @@ export function HomeFirstScreen({
         ) : null}
       </div>
     </section>
+  );
+}
+
+
+/**
+ * 🎨 PAPIC'S ROW — the service glance at Home size (owner "approve all",
+ * 2026-10-14; prototype `renderHome()`): name · the status line with its dot ·
+ * the meter · Buy more (the sheet) · See N photos (opens the gallery directly).
+ * The row's words and its "Buy more" are already trimmed by NEVER TWICE when
+ * Papic holds the Next card (`papicRowWhileNext`).
+ */
+function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string; svc: HomeService; doors: PapicRowDoors; left: number | null; sizes: PoolRung[] | null }) {
+  const photos = typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
+  const acts =
+    doors.buy || photos ? (
+      <>
+        {doors.buy ? <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} /> : null}
+        {photos ? <PapicSeePhotos tone="neutral" label={seePhotosWord(photos)} href={`/dashboard/${eventId}/studio/papic?gallery=open`} /> : null}
+      </>
+    ) : null;
+  return (
+    <ServiceGlanceRow
+      href={`/dashboard/${eventId}/studio/papic`}
+      name={svc.name}
+      brand={svc.brand}
+      icon={<Camera aria-hidden strokeWidth={1.9} />}
+      mood={doors.glance.mood}
+      pct={doors.glance.pct}
+      line={doors.line}
+      meterLabel="Credits left"
+      actions={acts}
+      marker={{ 'data-home-service': 'papic' }}
+    />
   );
 }

@@ -13,6 +13,7 @@ import {
   captureCloseEndDate,
   PAPIC_CAPTURE_GRACE_HOURS,
   PAPIC_CAPTURE_MONTHS_BEFORE,
+  earliestCaptureDate,
 } from '@/lib/papic-window';
 
 /**
@@ -58,9 +59,13 @@ export default function PapicWindowPicker({
   const travel = isTravelEventType(eventType);
   const anchor = manilaDate(eventDate); // pinned end for non-travel
 
-  // Seed from the saved window, else from the event date.
-  const seedStartDate = windowStart ? windowStart.slice(0, 10) : anchor ?? '';
-  const seedStartTime = windowStart ? windowStart.slice(11, 16) : '14:00';
+  // Seed from the saved window, else from the AUTOMATIC one (owner 2026-10-13):
+  // 6 months before the day, from midnight — `resolveStoredWindow`'s default,
+  // the window the cameras already keep. Seeding the event day itself made the
+  // sheet read "1 day of capture" for a couple whose cameras were open for six
+  // months (tester 2026-10-13, shots 01/05/12).
+  const seedStartDate = windowStart ? windowStart.slice(0, 10) : anchor ? earliestCaptureDate(anchor) : '';
+  const seedStartTime = windowStart ? windowStart.slice(11, 16) : '00:00';
   // ⚠ RECOVER THE CHOSEN DAY — a stored close instant sits on the MORNING
   // AFTER it, so `windowEnd.slice(0, 10)` seeded a travel picker one day late
   // and quietly extended the trip every time somebody re-opened the sheet.
@@ -69,7 +74,7 @@ export default function PapicWindowPicker({
     : anchor ?? '';
 
   const [startDate, setStartDate] = useState(seedStartDate);
-  const [startTime, setStartTime] = useState(seedStartTime || '14:00');
+  const [startTime, setStartTime] = useState(seedStartTime || '00:00');
   const [endDate, setEndDate] = useState(seedEndDate);
 
   // For non-travel the end is always the event day, regardless of the field.
@@ -115,7 +120,7 @@ export default function PapicWindowPicker({
               className="h-4 w-4 text-terracotta"
               strokeWidth={1.75}
             />
-            Capture window
+            When your cameras shoot
           </p>
           <p className="max-w-prose text-xs text-ink/60">
             {travel
@@ -200,7 +205,7 @@ export default function PapicWindowPicker({
           disabled={!preview.ok}
           className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-50"
         >
-          {windowIsSet ? 'Update window' : 'Set window'}
+          Save dates
         </SubmitButton>
       </form>
     </div>

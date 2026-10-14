@@ -49,7 +49,8 @@ async function page(c: StageCase, patch: Partial<Record<WidgetType, RowPatch>> =
 
 const TOLD = STAGE_WORDS.howWeMet; // in the scene AND in the prose
 const PROSE = STAGE_WORDS.proseOpening; // the prose only
-const TAB = 'Our Love Story</a>';
+// The label is its own truncating block since 2026-10-14 (a long label ends in an ellipsis).
+const TAB = '>Story</span></a>'; // the TAB's word is "Story" (owner 2026-10-14), the title stays "Our Love Story"
 const COUNTDOWN = 'Until we say';
 
 test('1 · the prose on The Day obeys The Day’s choice — a listed guest and a reader with no key', async () => {

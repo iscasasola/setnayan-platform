@@ -468,7 +468,7 @@ export async function CoupleChallengesManager({
         <p className="mt-3 rounded-xl border border-terracotta/25 bg-terracotta/[0.05] px-3 py-2 text-xs text-ink/75">
           A guest who does every challenge on the board spends{' '}
           <span className="font-semibold tabular-nums">{boardCostPerGuest}</span>{' '}
-          {boardCostPerGuest === 1 ? 'shot' : 'shots'} from your shared pool
+          {boardCostPerGuest === 1 ? 'credit' : 'credits'} from your shared pool
           {poolRemaining !== null ? (
             <>
               {' '}— you have{' '}

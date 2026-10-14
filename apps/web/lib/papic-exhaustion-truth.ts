@@ -138,8 +138,8 @@ export function exhaustionCauseFromOwnCamera(
  */
 export function exhaustionHeadline(cause: PapicExhaustionCause): string {
   return cause === 'own_camera'
-    ? 'This camera’s shots are all spent.'
-    : 'This celebration has run out of shots.';
+    ? 'This camera’s credits are all spent.'
+    : 'This celebration’s credits have run out — the hosts can add more.';
 }
 
 /**
@@ -170,24 +170,24 @@ export function exhaustionDetail(
 ): string {
   if (cause === 'own_camera') {
     return [
-      'The shots added to this camera are spent, and a camera’s own shots don’t come back.',
+      'The credits added to this camera are spent, and a camera’s own credits don’t come back.',
       opts.dailyBudget
-        ? 'This camera’s daily allowance does reset tomorrow — the shots you added don’t.'
+        ? 'This camera’s daily allowance does reset tomorrow — the credits you added don’t.'
         : null,
       opts.buyOffered
-        ? 'Add more shots below, or ask the couple to top up this camera.'
-        : 'Ask the couple to add more shots to this camera.',
+        ? 'Add more credits below, or ask the couple to top up this camera.'
+        : 'Ask the couple to add more credits to this camera.',
     ]
       .filter((part): part is string => part !== null)
       .join(' ');
   }
   return [
-    'Everybody here shares one set of shots and they’re all spent. The shared set doesn’t refill.',
+    'Everybody here shares one set of credits and they’re all spent. The shared set doesn’t refill.',
     opts.dailyBudget
       ? 'A camera’s own daily allowance resets tomorrow — the shared set doesn’t.'
       : null,
     opts.buyOffered
-      ? 'Only the couple can add more to it — or you can add your own shots below.'
+      ? 'Only the couple can add more to it — or you can add your own credits below.'
       : 'Only the couple can add more.',
   ]
     .filter((part): part is string => part !== null)
@@ -241,6 +241,6 @@ export function arrivalTally(
       // which is why the own_camera copy may say "added to this camera" and this
       // one may not.)
       `The other ${refused} ${refused === 1 ? 'wasn’t' : 'weren’t'} saved — ` +
-      `the shots ran out partway through.`,
+      `the credits ran out partway through.`,
   };
 }

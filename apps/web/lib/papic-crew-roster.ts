@@ -59,6 +59,6 @@ export function crewShotsLeftLabel(remaining: number | null | undefined): string
   if (typeof remaining !== 'number' || !Number.isFinite(remaining)) return null;
   if (remaining >= UNCAPPED_FLOOR) return null;
   const n = Math.max(0, Math.trunc(remaining));
-  if (n === 0) return 'Out of shots';
-  return `${n.toLocaleString('en-PH')} ${n === 1 ? 'shot' : 'shots'} left`;
+  if (n === 0) return 'Out of credits';
+  return `${n.toLocaleString('en-PH')} ${n === 1 ? 'credit' : 'credits'} left`;
 }

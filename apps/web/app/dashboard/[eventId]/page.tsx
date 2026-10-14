@@ -23,7 +23,6 @@ import {
   homeGuestsRead,
   homeServices,
   nikahStatus,
-  papicStatus,
   pickHomeNext,
 } from '@/lib/home-first-screen';
 import { nikahTrackedDone } from '@/lib/nikah-essentials';
@@ -69,7 +68,10 @@ import { EventDashboard } from './_components/event-dashboard';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
-import { papicNudgeShouldShow, resolvePapicHomeTile } from '@/lib/papic-home-tile';
+import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
+import { papicGlance, papicRowWhileNext } from '@/lib/papic-glance';
+import { resolveStoredWindow } from '@/lib/papic-window';
+import { papicIsOn } from '@/lib/event-answers';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
 import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
@@ -170,7 +172,7 @@ export default async function EventHomePage({
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
     const leanSelect =
-      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates';
+      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end';
     const leanRes = await supabase
       .from('events')
       .select(leanSelect)
@@ -495,16 +497,14 @@ export default async function EventHomePage({
     }
     const canViewPapicCounts = Boolean(papicViewerMembership);
 
-    // Papic nudge gate (PR-G option B). Asked ONLY when the nudge could actually
-    // render — a date-less event is showing the set-date nudge instead, and a
-    // non-couple viewer never sees it — so neither pays a query.
-    const papicNudgeVisible =
-      event.event_date && canViewPapicCounts
-        ? await papicNudgeShouldShow(adminClient, eventId, canViewPapicCounts)
-        : false;
+    // 🔌 THE NUDGE'S OWN READ IS GONE (2026-10-13, least requests per screen).
+    // `papicNudgeShouldShow` asked "anything shot yet?" + `papic_on` a second
+    // time — three requests the tile below already answers (its photo count)
+    // and the event row above already carries (`papic_on`). The nudge is now
+    // `papicGlance(...).moment === 'ready'`, worked out after the one wait.
     // The viewer's role also decides Home's guided card (Details part 5) — the same read, never a second.
     const viewerMemberType = (papicViewerMembership as { member_type?: string | null } | null)?.member_type ?? null;
-    return { canViewPapicCounts, papicNudgeVisible, viewerMemberType };
+    return { canViewPapicCounts, viewerMemberType };
   })();
 
   // Setnayan AI comeback offer (owner-locked 2026-08-30): one 24h window per
@@ -580,7 +580,7 @@ export default async function EventHomePage({
       dayOfBroadcast,
     },
     { nikahImamBooked },
-    { canViewPapicCounts, papicNudgeVisible, viewerMemberType },
+    { canViewPapicCounts, viewerMemberType },
     { aiOffer, aiOfferSettings, paywallOn },
     storeShell,
     homeGuide,
@@ -608,6 +608,25 @@ export default async function EventHomePage({
     The one it picks is not drawn again below; every other one stays exactly
     where it was, one scroll down ("See all").
   */
+  /*
+    📍 PAPIC AT A GLANCE (owner "Yes", 2026-10-13): the row's words and doors and
+    the Next card's two moments, from the tile already read + the event row's own
+    window and switch — no read of its own (lib/papic-glance.ts).
+  */
+  const papicSwitch = (event as { papic_on?: unknown }).papic_on;
+  const papicWin = resolveStoredWindow({
+    windowStart: (event as { papic_window_start?: string | null }).papic_window_start ?? null,
+    windowEnd: (event as { papic_window_end?: string | null }).papic_window_end ?? null,
+    eventDate: (event.event_date as string | null) ?? null,
+  });
+  const papicNow = papicGlance({
+    permitted: canViewPapicCounts,
+    tile: papicTile,
+    window: { startDate: papicWin.startDate, endIso: papicWin.endIso },
+    eventDate: (event.event_date as string | null) ?? null,
+    papicOn: papicSwitch === undefined ? null : papicIsOn(papicSwitch),
+  });
+  const papicNudgeVisible = papicNow.moment === 'ready';
   const aiOfferShown = Boolean(aiOffer && aiOfferSettings && !storeShell);
   const homeNext = pickHomeNext({
     guide: homeGuide,
@@ -619,6 +638,12 @@ export default async function EventHomePage({
     // Papic's page is web-only in the store shell (STORE_SHELL_HIDDEN_ADDON_KEYS),
     // so the Next card does not send an App Store user there.
     papicReady: Boolean(event.event_date && papicNudgeVisible && !storeShell),
+    // 🎨 Papic's moments (ready · stopped · low on the day), with the credits the
+    // card's words need — never in the store shell (its page is web-only there).
+    papic:
+      papicNow.moment && !storeShell && papicNow.count !== null && papicNow.total !== null
+        ? { moment: papicNow.moment, left: papicNow.count, total: papicNow.total }
+        : null,
     aiOffer: aiOfferShown,
   });
   // 🔑 THE NUMBERS HOME STATES ARE WORKED OUT ONCE, HERE — days to go, coming,
@@ -639,9 +664,20 @@ export default async function EventHomePage({
   const homeServiceRow = homeServices({
     next: homeNext.kind,
     storeShell,
-    papic: papicStatus(
-      canViewPapicCounts ? { permitted: true, tile: papicTile } : { permitted: false },
-    ),
+    papic: papicNow.status,
+    // 🎨 The row's line, meter and doors (owner 2026-10-14). Buy more is the
+    // couple's (the purchase is couple-only); NEVER TWICE trims what the Next
+    // card already offers (`papicRowWhileNext`).
+    papicDoors: canViewPapicCounts
+      ? (() => {
+          const trimmed = papicRowWhileNext(papicNow, homeNext.kind === 'papic' ? homeNext.papicMoment ?? null : null);
+          return {
+            glance: papicNow,
+            line: trimmed.line,
+            buy: trimmed.buy && viewerMemberType === 'couple',
+          };
+        })()
+      : null,
     ai: aiStatus(
       paywallOn === null
         ? null
@@ -696,6 +732,7 @@ export default async function EventHomePage({
       money={facts.money}
       figures={facts.figures}
       services={homeServiceRow}
+      papicLeft={papicNow.count}
       ground={homeCover}
       navSlots={homeNavSlots}
       whatsNext={

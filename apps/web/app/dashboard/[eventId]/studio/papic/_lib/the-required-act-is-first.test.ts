@@ -65,89 +65,33 @@ test('🚨 the capture-window picker renders ABOVE the ways in, not inside one',
   );
 });
 
-test('🚨 …and it is shown exactly while the dates are UNSET', () => {
+/*
+  📸 OWNER 2026-10-13 (DECISION_LOG "📸 OWNER — PAPIC: … ON 6 MONTHS BEFORE"): THE
+  REQUIRED ACT IS GONE, AND THESE THREE TESTS SAY SO INSTEAD OF DEFENDING IT.
+
+  The window was never really unset — `resolveStoredWindow` has returned the
+  automatic 6-month window since the one-day default was fixed — so "Do this
+  first · When can your cameras shoot? Nothing can be captured until you pick
+  the days" told every couple something false. The picker now has ONE mount,
+  behind a quiet "Change dates" row, and the page says when the cameras are on
+  in words. (`lib/papic-window-is-automatic.test.ts` holds the words.)
+*/
+test('🚨 no "do this first" gate is left — the window is automatic', () => {
   assert.ok(
-    /!windowIsSet\s*\?/.test(aboveTheWaysIn()),
-    'the do-this-first card is no longer gated on `!windowIsSet` — it would nag a couple who already picked their dates',
+    !/\{!windowIsSet\s*\?/.test(SRC),
+    'a `!windowIsSet ?` branch is back — the page would ask for dates the cameras already have',
   );
 });
 
-test('🚨 the picker is never on screen twice at once', () => {
-  // Two mounts is correct — one while the dates are unset, one for editing a
-  // window that already exists. What must never happen is both rendering
-  // together, which is what an ungated second mount would do.
-  //
-  // ⚠ RE-ANCHORED 2026-09-22, AND THIS IS THE SECOND TIME. The old form sliced
-  // `SRC.slice(SRC.indexOf(WAYS_IN))` and looked forward for a gate. The
-  // redesign moved the edit picker UP into the Coverage block, which put both
-  // mounts ABOVE that heading — so the window faced an empty region and the
-  // guard would have passed a page with NO GATE AT ALL. It was protecting
-  // nothing, silently, which is worse than being absent.
-  //
-  // 🔑 SO IT NO LONGER ANCHORS ON A POSITION. It pairs every mount with the
-  // nearest gate that PRECEDES it — the gate is wrapped around the mount, so
-  // only a backward look can see it — and asserts over the whole file. A
-  // reorder can move both anywhere; what it cannot do is leave a mount without
-  // its own gate, or put both under the same one.
+test('🚨 the picker is mounted exactly ONCE — behind "Change dates"', () => {
   const mounts = [...SRC.matchAll(/<PapicWindowPicker/g)].map((m) => m.index!);
-  assert.equal(
-    mounts.length,
-    2,
-    `expected exactly 2 mounts (unset + edit), found ${mounts.length}`,
-  );
-
-  const gates = [...SRC.matchAll(/\{(!?)windowIsSet\s*\?/g)].map((m) => ({
-    at: m.index!,
-    negated: m[1] === '!',
-  }));
-
-  const gateFor = (mount: number) => gates.filter((g) => g.at < mount).pop();
-  const paired = mounts.map((m) => ({ mount: m, gate: gateFor(m) }));
-
-  for (const { mount, gate } of paired) {
-    assert.ok(
-      gate,
-      `the <PapicWindowPicker at char ${mount} has no windowIsSet gate before it at all — ` +
-        'it renders unconditionally, so a couple can meet two identical date pickers on one page',
-    );
-  }
-
-  assert.notEqual(
-    paired[0]!.gate!.at,
-    paired[1]!.gate!.at,
-    'both pickers sit under the SAME windowIsSet gate — they render together, which is the ' +
-      'exact failure this guard exists to stop',
-  );
-
-  const negated = paired.filter((p) => p.gate!.negated).length;
-  assert.equal(
-    negated,
-    1,
-    `expected exactly one picker gated on \`!windowIsSet\` (the ask) and one on \`windowIsSet\` ` +
-      `(the edit); found ${negated} negated. Two of the same sense means one state shows both ` +
-      'pickers and the other shows none.',
-  );
+  assert.equal(mounts.length, 1, `expected exactly 1 mount, found ${mounts.length} — two pickers on one page is the old failure`);
+  const before = SRC.slice(Math.max(0, mounts[0]! - 600), mounts[0]!);
+  assert.match(before, /<SettingRow[\s\S]*label="Change dates"[\s\S]*sheetTitle="Change dates"/, 'the picker is no longer behind the quiet "Change dates" row');
 });
 
-test('the card says what it is for, in words a person can act on', () => {
-  const above = aboveTheWaysIn();
-  assert.ok(
-    above.includes('When can your cameras shoot?'),
-    'the card lost its question — a prompt with no question is just another box',
-  );
-  // ⚠ JUDGE ONLY WHAT RENDERS. A first cut matched the whole JSX block and
-  // flagged `papic_window_start` — a PROP NAME, never on screen. A guard that
-  // cannot tell an attribute from a sentence cries wolf, and this repo has
-  // already learned that a guard which cries wolf teaches you to skim past the
-  // one time it is right.
-  const visible = above
-    .replace(/<[^>]*>/g, ' ')        // drop every tag, attributes and all
-    .replace(/\{[\s\S]*?\}/g, ' ')  // drop JSX expressions
-    .replace(/\s+/g, ' ');
-  const jargon = /megapixel|\bMP\b|papic_[a-z_]+|r2_|_r2|windowIsSet/i.exec(visible);
-  assert.equal(
-    jargon,
-    null,
-    `internal names or storage jargon reached the card a customer reads: ${jargon?.[0]}`,
-  );
+test('the row says when the cameras are on, in words a person can act on', () => {
+  const row = SRC.slice(SRC.indexOf('label="Change dates"') - 300, SRC.indexOf('label="Change dates"') + 200);
+  assert.match(row, /value=\{papicWindowWords\}/, 'the dates row no longer shows the window in words');
+  assert.match(SRC, /'Papic turns on' : 'On from'/);
 });

@@ -150,7 +150,7 @@ test('THE OWNER’S TWO MOVES ARE THE ONES THAT SHIPPED', () => {
      unguarded; this asserts what actually makes it honest today. */
   assert.match(
     PAGE,
-    /<HostPoolMeterCard\b/,
+    /<PapicTopBand\b/,
     'the credits block no longer carries a live balance, so nothing up there recomputes and the inversion is not honest',
   );
   assert.ok(

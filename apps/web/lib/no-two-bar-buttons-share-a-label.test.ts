@@ -63,7 +63,7 @@ test('the exact bar seen live: Event Details open → "Page ▾ · Look · Event
   assert.equal(m.buttonText, MAKER_PAGE_MENU_LABEL);
   assert.equal(MAKER_PAGE_MENU_LABEL, 'Page');
   // …with a stage on screen it reads the stage's page, as before.
-  assert.equal(makerPageMenu({ stage: 'rsvp', rsvpOpen: false, liveStage: null, pagesOf, shownPage: 'welcome', hasWork: true }).pageText, 'Welcome');
+  assert.equal(makerPageMenu({ stage: 'rsvp', rsvpOpen: false, liveStage: null, pagesOf, shownPage: 'welcome', hasWork: true }).pageText, 'Home'); // the guest bar's tab word since 2026-10-14 (DECISION_LOG "Home")
 });
 
 test('the shell draws the bar from those values — Page ▾ from the menu, the doors from their labels; a phone has no bottom bar', () => {

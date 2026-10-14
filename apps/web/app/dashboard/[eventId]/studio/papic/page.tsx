@@ -52,6 +52,8 @@ import {
   resolveStoredWindow,
   formatWindowSummary,
   formatCaptureCloseLabel,
+  formatPapicDayInWords,
+  captureWindowState,
   PAPIC_CAPTURE_MONTHS_BEFORE,
 } from '@/lib/papic-window';
 import PapicWindowPicker from './papic-window-picker';
@@ -78,7 +80,7 @@ import {
 } from '@/lib/papic-cameras';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { papicIsOn } from '@/lib/event-answers';
-import { ensureFreePapicOneCameraAdmin, fetchPapicOneTiers } from '@/lib/papic-one';
+import { fetchPapicOneTiers } from '@/lib/papic-one';
 // Per-rung display titles + capture-POINT budgets. ONE reader for the whole app
 // (`lib/papic-tier-copy.ts`, #3421) — derived from the admin-editable
 // papic_tier_config, never spelled here (owner 2026-07-20). It serves BOTH the
@@ -103,9 +105,9 @@ import {
   DriveReconnectBanner,
 } from '@/app/_components/drive-connect-card';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
-import { PapicPoolCard } from './_components/papic-pool-card';
+import { PapicTopBand } from './_components/papic-top-band';
+import { papicGlance, glanceTileFromStandings, PAPIC_UNTIL_WORDS } from '@/lib/papic-glance';
 import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
 import { GuestCamerasChoice } from './_components/guest-cameras-choice';
@@ -202,6 +204,10 @@ type Props = {
     guestCameras?: string;
     preserve_set?: string;
     preserve_error?: string;
+    /** 📍 "Buy more" from Home's Next card — the band opens on the stepper. */
+    buy?: string;
+    /** 🎨 "See N photos" from Home — the gallery opens on arrival (owner call 2). */
+    gallery?: string;
   }>;
 };
 
@@ -271,7 +277,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      'event_id, event_type, event_date, papic_storage_target, papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end',
+      'event_id, event_type, event_date, papic_storage_target, papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end, papic_style, papic_uploads_open, papic_on, venue_latitude, venue_longitude',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -281,32 +287,22 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   }
   if (!event) notFound();
 
-  // Event-wide Papic look (the couple's locked capture template). Read
-  // defensively: the papic_style column lands in migration 20270307004141, so
-  // on a pre-migration DB this select returns an error (not a throw) and we keep
-  // the ORIG default — the page never breaks on the new column.
-  const { data: styleRow, error: styleRowError } = await supabase
-    .from('events')
-    .select('papic_style')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  // ⚠ the couple's chosen Papic style. Refused, it silently reverts to the default,
-  // ⚠ so a choice they made is replaced by one they did not.
-  if (styleRowError) {
-    logQueryError('PapicStudioPage.styleRow', styleRowError, { eventId }, 'graceful_degrade');
-  }
+  // Event-wide Papic look (the couple's locked capture template).
+  // 🔌 ONE READ OF THE EVENT ROW (2026-10-13, owner: least requests per screen).
+  // The look, the uploads switch and the "Photos from your guests?" answer each
+  // had their OWN round trip of `events`, so a column that had not landed yet
+  // could not take the main select down with it. All three columns have been
+  // in every database for months (20270307004141 · 20271170068924 · Your info),
+  // so they ride the one select above: four reads of one row became one.
+  const styleRow = event as { papic_style?: string | null };
   const papicStyle =
-    (styleRow as { papic_style?: string } | null)?.papic_style ?? 'ORIG';
+    styleRow.papic_style ?? 'ORIG';
   // The look's human name for the row. DERIVED from the style table — the row
   // must never carry a second copy of these five words.
   const papicStyleLabel =
     PAPIC_STYLES.find((st) => st.id === papicStyle)?.label ?? 'Orig';
 
-  // Who may add photos by hand (owner 2026-08-26). Read on its OWN round trip,
-  // exactly like papic_style above and for the same reason: the column lands in
-  // migration 20271170068924, and naming an unknown column in the main event
-  // select would make PostgREST refuse that WHOLE query — the page would call
-  // notFound() on a celebration that exists.
+  // Who may add photos by hand (owner 2026-08-26) — on the one event select.
   //
   // 🪤 THIS READ WAS MISSING ON THE FIRST CUT AND THE SWITCH GOVERNED NOTHING.
   // `ev.papic_uploads_open` was read off the main select, which never named the
@@ -314,16 +310,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // what the couple had chosen. It saved, it showed the right state on its own
   // control, and the picker ignored it. A stored value with no reader, in a
   // feature whose entire point is the reader.
-  const { data: uploadsRow, error: uploadsRowError } = await supabase
-    .from('events')
-    .select('papic_uploads_open')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  // ⚠ the couple's choice about hand-added photos. Refused, it falls OPEN —
-  // ⚠ see the note at `uploadsOpen` for why that is the right direction here.
-  if (uploadsRowError) {
-    logQueryError('PapicStudioPage.uploadsRow', uploadsRowError, { eventId }, 'graceful_degrade');
-  }
+  const uploadsRow = event as { papic_uploads_open?: boolean | null };
 
   // ⚠ A SECOND DEAD ROUND TRIP, REMOVED 2026-08-26. The per-event photo
   // fidelity tier was read here for one reason: to feed the "Photo quality"
@@ -413,6 +400,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // When the cameras actually stop — formatted from the gate's own number.
   const papicCaptureCloseLabel = formatCaptureCloseLabel(papicWindow.endIso);
   const windowIsSet = !!(ev.papic_window_start && ev.papic_window_end);
+  /* 📸 The window IN WORDS, saved or the automatic default (owner 2026-10-13):
+     "On from Saturday, 12 June · until 12 h after your day" — or "Papic turns
+     on …" while the cameras wait (more than 6 months out). Never "set the dates". */
+  const papicWindowWords = (() => {
+    const on = formatPapicDayInWords(papicWindow.startDate);
+    if (!on) return 'Switches on when your date is set';
+    const waits = captureWindowState(papicWindow.startDate, papicWindow.endIso) === 'not_started';
+    return `${waits ? 'Papic turns on' : 'On from'} ${on} · ${PAPIC_UNTIL_WORDS}`;
+  })();
 
   /*
     ══ WHICH PHASE THIS PAGE IS IN ═══════════════════════════════════════════
@@ -467,17 +463,20 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
    * the live pool config and the live head count on every render.
    */
   const BLOCK_ORDER = {
+    /* 📍 Owner "Yes", 2026-10-13: the band first (above these), then cameras ·
+       guests' cameras · photos · Settings, with a quiet "Change dates" LAST —
+       the dates are automatic now, so they no longer ask to be second. */
     before: {
       credits: 'order-1',
-      dates: 'order-2',
-      guests: 'order-3',
-      filter: 'order-4',
+      guests: 'order-2',
+      wall: 'order-3',
+      gallery: 'order-4',
       challenges: 'order-5',
-      wall: 'order-6',
-      gallery: 'order-7',
-      kwento: 'order-8',
-      made: 'order-9',
-      more: 'order-10',
+      filter: 'order-6',
+      kwento: 'order-7',
+      made: 'order-8',
+      more: 'order-9',
+      dates: 'order-10',
     },
     after: {
       gallery: 'order-1',
@@ -488,24 +487,19 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       guests: 'order-6',
       filter: 'order-7',
       challenges: 'order-8',
-      dates: 'order-9',
-      more: 'order-10',
+      more: 'order-9',
+      dates: 'order-10',
     },
   } as const;
   type PapicBlock = keyof (typeof BLOCK_ORDER)['before'];
   const ord = (key: PapicBlock) => BLOCK_ORDER[papicPhase][key];
 
-  // ⚠ READ ONCE, USED TWICE. The stage needs to know whether the library is
-  // empty (roll or photographs) and the facts strip on its edge reports the same
-  // three numbers. Two components counting the same thing is a definition twice,
-  // and this page has already paid for that shape once.
-  const standings = await readPapicStandings(createAdminClient(), eventId);
 
   // Whole days until the cameras open. null when the dates are unset, or when
   // the window has already started — the stage says something different in each
   // case, and "0 days" is not the same sentence as "open now".
   const papicOpensInDays = (() => {
-    if (!windowIsSet || !papicWindow.startIso) return null;
+    if (!papicWindow.startIso) return null;
     const startMs = Date.parse(papicWindow.startIso);
     if (!Number.isFinite(startMs)) return null;
     const diff = startMs - Date.now();
@@ -587,15 +581,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   });
 
   // 🗂 The host's "Photos from your guests?" answer (`events.papic_on`, Your info).
-  const { data: papicSwitchRow, error: papicSwitchError } = await supabase
-    .from('events')
-    .select('papic_on')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (papicSwitchError) {
-    logQueryError('PapicStudioPage.papicSwitch', papicSwitchError, { eventId }, 'graceful_degrade');
-  }
-  const papicAnsweredNo = !papicSwitchError && !papicIsOn((papicSwitchRow as { papic_on?: unknown } | null)?.papic_on);
+  const papicAnsweredNo = !papicIsOn((event as { papic_on?: unknown }).papic_on);
 
   // FREE POOL — the other half of the free tier, and the SELF-HEAL for it.
   // The 3 seats above are useless without points: with no grant at all,
@@ -614,13 +600,12 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // unread switch arms, the self-heal's own direction.
   if (!papicAnsweredNo) {
     await ensureFreePapicPoolGrantAdmin(unlockAdmin, eventId);
-    // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
-    // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
-    // shared pool because the two are different products — the pool grant does
-    // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
-    // idempotent (fixed seat index + a partial unique index on the grant), so the
-    // creation call and the studio self-heal collapse to one camera.
-    await ensureFreePapicOneCameraAdmin(unlockAdmin, eventId);
+    // 🔌 THE FREE "ONE" CAMERA IS NO LONGER ARMED ON EVERY VIEW (owner 2026-10-13,
+    // "Add all" — the tester's "drop the retired free-camera call"). Papic One
+    // was retired as a product on 2026-08-11; asking for its camera on every
+    // view of this page was a request per view for a camera nobody is sold.
+    // Event creation still arms it (its promise on /pricing stands until the
+    // owner retires it there); existing ones keep working.
   }
 
   // …and the couple's own UPLOADS camera — the shutter that is a file picker.
@@ -788,6 +773,25 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     claimLinkUnclaimed = rows.filter((r) => !r.claimer_user_id).length;
   }
 
+  // 📍 Read AFTER every self-heal above (the free pool grant, the cameras, the
+  // guest sync): the pool status is asked once per render now (`askedOnce`), so
+  // the first ask must see what this render just armed.
+  // ⚠ READ ONCE, USED TWICE. The stage needs to know whether the library is
+  // empty (roll or photographs) and the facts strip on its edge reports the same
+  // three numbers. Two components counting the same thing is a definition twice,
+  // and this page has already paid for that shape once.
+  const standings = await readPapicStandings(createAdminClient(), eventId);
+
+  /* 📍 THE TOP BAND (owner "Yes", 2026-10-13): credits left · Buy more · See N
+     photos, and when the cameras are on — worked out from the standings just
+     read and the window above, nothing more (lib/papic-glance.ts). */
+  const papicBand = papicGlance({
+    permitted: true,
+    tile: glanceTileFromStandings(standings),
+    window: { startDate: papicWindow.startDate, endIso: papicWindow.endIso },
+    papicOn: true,
+  });
+
   return (
     /*
       ⚠ FLEX COLUMN, NOT `space-y-7`. CSS `order` applies only to flex and grid
@@ -854,6 +858,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         preserveError={preserveError}
       />
 
+      {/* 📍 ONE BAND, FIRST (owner "Yes", 2026-10-13): track · buy · see. */}
+      <PapicTopBand
+        eventId={eventId}
+        glance={papicBand}
+        canBuy
+        buyOpen={Boolean(papicPoolError) || search.buy === '1'}
+        error={papicPoolError ?? null}
+      />
+
       {/* ══ CREDITS ══════════════════════════════════════════════════
           Money leads the setup phase, because a couple cannot size a purchase they
           cannot see. ⚠ It sits ABOVE Coverage and Allotment, which are the two
@@ -865,7 +878,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           Bought where the number is watched, per the drawing. The meter, the
           ladder, handing credits to one camera, and what guests chipped in are
           four faces of one thing and now sit together. */}
-      <HostPoolMeterCard eventId={eventId} />
+      {/* 🎨 THE METER AND THE CREDIT CARD MOVED INTO THE TOP BAND (owner "approve
+          all", 2026-10-14): credits left, the meter and Buy more are ONE band,
+          first on the page. `HostPoolMeterCard` and `PapicPoolCard` used to say
+          the same number twice, two screens down. */}
       {/* ⛔ THE CREDIT RECOMMENDATION WAS HERE, AND IT WAITS FOR DATA.
 
           ⚖ Owner 2026-09-23: *"we will also collect data of how much photo is
@@ -881,7 +897,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           below still say what this event HAS and what it has SPENT — those are
           facts. What is gone is the opinion about what it SHOULD hold.
           `lib/the-recommendation-waits-for-data.test.ts` keeps it gone. */}
-      <PapicPoolCard eventId={eventId} error={papicPoolError ?? null} />
       {/* ⛔ NO CAMERA HOLDS CREDITS THE COUPLE GAVE IT — `PapicCamerasCard` WAS HERE.
 
           ⚖ Owner 2026-09-16: *"no dedicated shots individually."* Re-confirmed
@@ -917,39 +932,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           thing is handing the cameras out — which used to be a small tile two
           sections inside a tab the couple had to guess. Two states, never both:
           a page with two "do this first" cards has no first. */}
-      {!windowIsSet ? (
-        <section className="overflow-hidden rounded-2xl border border-mulberry/25 bg-surface">
-          <div className="h-[3px] w-full bg-mulberry" aria-hidden />
-          <div className="space-y-3 p-5 sm:p-6">
-            {/* ⚠ mulberry-600, NOT -700. The 700 slot flips to the LIGHT theme's
-                #C24E25 on a dark panel and measures 3.05:1 there — a fail —
-                while looking fine at 5.86:1 in light. 600 measures 4.92 light /
-                5.78 dark. A light-only contrast check waves the bad one through;
-                this repo has paid for that exact swap once already. */}
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-mulberry-600">
-              Do this first · then the library fills itself
-            </p>
-            <h2 className="text-lg font-semibold tracking-tight text-ink">
-              When can your cameras shoot?
-            </h2>
-            <p className="max-w-prose text-sm text-ink/65">
-              Nothing can be captured until you pick the days. Cameras can start up
-              to {PAPIC_CAPTURE_MONTHS_BEFORE} months before your celebration, so
-              they catch the preparations too.
-            </p>
-            <PapicWindowPicker
-              eventId={eventId}
-              eventType={(ev.event_type as string | null) ?? null}
-              eventDate={(ev.event_date as string | null) ?? null}
-              windowStart={(ev.papic_window_start as string | null) ?? null}
-              windowEnd={(ev.papic_window_end as string | null) ?? null}
-              windowIsSet={windowIsSet}
-              days={papicDays}
-              summary={papicWindowSummary}
-            />
-          </div>
-        </section>
-      ) : claimLinkUnclaimed > 0 ? (
+      {/* 📸 THE "DO THIS FIRST · WHEN CAN YOUR CAMERAS SHOOT?" CARD IS GONE (owner
+          2026-10-13): Papic switches on by itself 6 months before the day
+          (`resolveStoredWindow`'s default, `PAPIC_CAPTURE_MONTHS_BEFORE`), so
+          there is nothing a couple MUST pick — "Nothing can be captured until
+          you pick the days" was false. The dates are a quiet "Change dates" in
+          Coverage below; the band at the top says when the cameras are on. */}
+      {claimLinkUnclaimed > 0 ? (
         <section className="overflow-hidden rounded-2xl border border-mulberry/25 bg-surface">
           <div className="h-[3px] w-full bg-mulberry" aria-hidden />
           <div className="space-y-3 p-5 sm:p-6">
@@ -988,15 +977,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold tracking-tight text-ink">Coverage</h2>
         <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
-          {/* The capture window, once it exists. While it is UNSET it is the
-              do-this-first card at the top instead — never both, or a couple
-              sees two identical date pickers on one page. */}
-          {windowIsSet ? (
+          {/* The capture window — ALWAYS a row now (owner 2026-10-13): saved or
+              the automatic 6-month default, it is said in words, and the picker
+              sits behind a quiet "Change dates". The one mount. */}
+          {papicWindow.startDate ? (
             <SettingRow
               icon={<Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-              label="When your cameras can shoot"
-              value={papicWindowSummary}
-              sheetTitle="When your cameras can shoot"
+              label="Change dates"
+              value={papicWindowWords}
+              sheetTitle="Change dates"
             >
               <PapicWindowPicker
                 eventId={eventId}
@@ -1067,7 +1056,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           GALLERY — the library itself, the four ways media reaches it, and what the
           couple may hide. Before the day it sits below the setup that fills it; on
           the day and after, it leads. */}
-      <div className={`flex flex-col gap-7 ${ord('gallery')}`}>
+      <div id="papic-gallery" style={{ scrollMarginTop: 80 }} className={`flex flex-col gap-7 ${ord('gallery')}`}>
       {/* ⚠ THE STAGE — the page opens on the library, in every state.
           Owner 2026-08-28: *"it doesn't look like a photo app control center. it
           still feels like it is a business page."* Every product in this market
@@ -1077,8 +1066,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           contrast ratios on the dark ground. */}
       <PapicStage
         standings={standings}
-        windowIsSet={windowIsSet}
-        windowSummary={papicWindowSummary}
+        windowWords={papicWindowWords}
         opensInDays={papicOpensInDays}
         uploadsOpen={uploadsOpen}
         firstMemorySlot={
@@ -1095,7 +1083,14 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           </a>
         }
       >
-        <GalleryPreviewCard eventId={eventId} />
+        <GalleryPreviewCard
+          eventId={eventId}
+          openOnArrival={search.gallery === 'open'}
+          venue={{
+            lat: ((ev as { venue_latitude?: number | null }).venue_latitude ?? null),
+            lng: ((ev as { venue_longitude?: number | null }).venue_longitude ?? null),
+          }}
+        />
       </PapicStage>
 
       {/* ══ FOUR WAYS INTO YOUR LIBRARY ═══════════════════════════════════════
@@ -1123,15 +1118,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             label="Crew cameras"
             blurb="Friends with a QR — free, add any number"
             state={
-              !windowIsSet
-                ? 'Waiting for dates'
+              papicBand.phase === 'waits'
+                ? papicBand.onFrom
+                  ? `Papic turns on ${papicBand.onFrom}`
+                  : 'Switches on before your day'
                 : claimLinkUnclaimed > 0
                   ? `${claimLinkUnclaimed} to hand out`
                   : claimLinkTotal > 0
                     ? `${formatCount(claimLinkTotal)} claimed`
                     : 'None yet'
             }
-            attention={!windowIsSet || claimLinkUnclaimed > 0}
+            attention={claimLinkUnclaimed > 0}
             sheetTitle="Crew cameras"
           >
             <p className="mb-4 text-sm text-ink/65">
@@ -2286,8 +2283,13 @@ async function DriveConnectedPanel({
 
 async function GalleryPreviewCard({
   eventId,
+  openOnArrival = false,
+  venue,
 }: {
   eventId: string;
+  openOnArrival?: boolean;
+  /** The venue's coordinates, from the page's event read — for the gallery's clock. */
+  venue: { lat: number | null; lng: number | null };
 }) {
   const supabase = await createClient();
 
@@ -2303,22 +2305,8 @@ async function GalleryPreviewCard({
   //
   // 🔑 NO ZONE ⇒ NO TIME. A refusal here drops the time half of every credit and
   // keeps the name. It never prints the reader's own clock as the venue's.
-  const { data: venueForClock, error: venueForClockError } = await supabase
-    .from('events')
-    .select('venue_latitude, venue_longitude')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  // A REFUSED QUERY IS NOT A THROWN ERROR — bound, logged, and it changes
-  // nothing the screen STATES: the credits keep the name and drop the time.
-  if (venueForClockError) {
-    logQueryError('PapicStudioPage.venueForClock', venueForClockError, { eventId }, 'graceful_degrade');
-  }
-  const galleryTimeZone = venueForClock
-    ? eventTimezoneFromCoords(
-        (venueForClock.venue_latitude as number | null) ?? null,
-        (venueForClock.venue_longitude as number | null) ?? null,
-      )
-    : null;
+  // 🔌 The venue rides the page's one event read now (2026-10-14, least requests).
+  const galleryTimeZone = eventTimezoneFromCoords(venue.lat, venue.lng);
 
   const [photos, densityRows, seesAll, preservationTotals] = await Promise.all([
     fetchPapicGallery(supabase, eventId),
@@ -2415,6 +2403,7 @@ async function GalleryPreviewCard({
           kwentoDensity={kwentoDensity}
           preservationTotals={preservationTotals}
           chapters={galleryChapters}
+          openOnArrival={openOnArrival}
         />
       ) : (
         <div className="sn-row p-6 text-center">

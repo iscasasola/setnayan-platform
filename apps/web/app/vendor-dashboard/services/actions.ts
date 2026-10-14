@@ -2179,7 +2179,7 @@ async function assertCanPlotSlots(
     .maybeSingle();
   const tier = (data as { tier_state?: string | null } | null)?.tier_state ?? null;
   if (!canPlotTimeSlots(tier)) {
-    throw new Error('Time slots are not open on your plan.');
+    throw new Error('Time slots are an Enterprise feature. Upgrade to plot them.');
   }
 }
 

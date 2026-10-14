@@ -84,8 +84,8 @@ const SOMETHING_ELSE: CategoryGroup[] = [
     key: 'documentary',
     label: 'Photo & video',
     options: [
-      { value: 'photographer', label: 'Photographer', standing: 'open' },
-      { value: 'videographer', label: 'Videographer', standing: 'open' },
+      { value: 'photography', label: 'Photography', standing: 'open' },
+      { value: 'videography', label: 'Videography', standing: 'open' },
     ],
   },
   {
@@ -100,7 +100,7 @@ const SOMETHING_ELSE: CategoryGroup[] = [
     key: 'design',
     label: 'Flowers & styling',
     options: [
-      { value: 'florist', label: 'Florist', standing: 'open' },
+      { value: 'florals', label: 'Florals', standing: 'open' },
       { value: 'lights_and_sound', label: 'Lights & sound', standing: 'locked', why: 'Your plan covers one kind of business. Upgrade to list under another.' },
     ],
   },
@@ -198,9 +198,10 @@ export default async function CardMakerLabPage({
     ...SOMETHING_ELSE.map((g) => ({ ...g, options: g.options.filter((o) => !shop.covered.some((c) => c.value === o.value)) })),
   ];
   const coverageAsk: Record<string, { leaf: string; label: string }> = {
-    photographer: { leaf: 'photo_video', label: 'Photo & Video' },
+    photography: { leaf: 'photography', label: 'Photography' },
+    videography: { leaf: 'videography', label: 'Videography' },
     catering: { leaf: 'catering', label: 'Catering' },
-    florist: { leaf: 'florist', label: 'Florist' },
+    florals: { leaf: 'florals', label: 'Florals' },
   };
   for (const c of shop.covered) delete coverageAsk[c.value];
 

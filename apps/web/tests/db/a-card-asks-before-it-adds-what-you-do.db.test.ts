@@ -28,8 +28,10 @@ let write: Writer;
 
 const VP = '3a3a3a3a-3a3a-43a3-83a3-3a3a3a3a3a3a';
 const CATERING = 'catering';
-const PHOTO = 'photo_video';
-const FLORIST = 'florist';
+// Live LEAVES (canonical_service_taxonomy), not tile ids — `photo_video` / `florist` are tiles with no same-named
+// leaf, which is exactly why a legacy kind anchored there asks nothing (lib/service-card-maker.ts).
+const PHOTO = 'photography';
+const FLORIST = 'florals';
 
 before(async () => {
   replay = await createReplayedDb();

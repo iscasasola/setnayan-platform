@@ -216,13 +216,13 @@ export function PrintThumb({ paper, onOpen, facts }: { paper: StudioPaper; onOpe
         if (state.status === 'error') retry();
         onOpen();
       }}
-      className="sn-press relative grid h-[72px] w-[72px] flex-none place-items-center rounded-[10px] lg:h-14 lg:w-14"
+      className="sn-press relative grid h-[72px] w-[72px] flex-none place-items-center rounded-xl lg:h-14 lg:w-14"
     >
       <span
         aria-hidden
         data-print-thumb-paper=""
         style={{ width: size.w, height: size.h, maxWidth: '100%', maxHeight: '100%' }}
-        className={`relative block overflow-hidden rounded-[2px] bg-white shadow-[0_1px_2px_rgba(0,0,0,.14),0_6px_14px_-8px_rgba(0,0,0,.35)] ${
+        className={`relative block overflow-hidden rounded-sm bg-white shadow-[0_1px_2px_rgba(0,0,0,.14),0_6px_14px_-8px_rgba(0,0,0,.35)] ${
           state.status === 'loaded' ? '' : 'animate-pulse bg-[#EFEAE1]'
         }`}
       >
@@ -513,7 +513,7 @@ export function PrintPaperSheet({
             aria-hidden
             data-print-paper-waiting=""
             style={{ aspectRatio: String(paper.aspect) }}
-            className={`block max-h-full max-w-full animate-pulse rounded-[2px] bg-[#EFEAE1] ${paper.aspect >= 1 ? 'w-full' : 'h-full'}`}
+            className={`block max-h-full max-w-full animate-pulse rounded-sm bg-[#EFEAE1] ${paper.aspect >= 1 ? 'w-full' : 'h-full'}`}
           />
         )}
         <p

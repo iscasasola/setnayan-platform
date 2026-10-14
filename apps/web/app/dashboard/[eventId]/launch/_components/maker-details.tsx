@@ -779,10 +779,8 @@ export function MakerDetails(props: MakerDetailsProps) {
   );
   for (const f of free) bodies[f.key] = f.body;
   /* 🪧 Studio: the entrance chart's picture follows the row's By table | A to Z and size (`StudioChartBody`, owner 2026-10-14). */
-  if (props.studio) {
-    const fp = freePrints(eventId, slug).find((x) => x.key === 'seating-chart');
-    if (fp) bodies['seating-chart'] = <StudioTool part="chart-body" chart={studioChartInput(eventId, slug, fp)} />;
-  }
+  const chartPrint = props.studio ? freePrints(eventId, slug).find((x) => x.key === 'seating-chart') : undefined;
+  if (chartPrint) bodies['seating-chart'] = <StudioTool part="chart-body" chart={studioChartInput(eventId, slug, chartPrint)} />;
   if (ye) Object.assign(bodies, ye.bodies);
   Object.assign(bodies, ap.bodies);
   /* 🪑 The seat plan — the shipped editor fills the middle part ('fill'). */

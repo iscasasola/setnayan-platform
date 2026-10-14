@@ -16,7 +16,12 @@
  * Pure: the screen, Your collections and the guard read the same functions.
  */
 
-import { MICROSITE_TOGGLEABLE_SECTIONS, isSectionVisible, type MicrositeSectionKey } from './vendor-microsite';
+import {
+  MICROSITE_TOGGLEABLE_SECTIONS,
+  isSectionVisible,
+  type MicrositeSectionKey,
+  type VendorMicrosite,
+} from './vendor-microsite';
 
 /** The page as it is published — the values the draft is compared against. */
 export type PageSaved = {
@@ -92,6 +97,27 @@ export function pruneDraft(draft: PageDraft, saved: PageSaved): PageDraft {
     if (!samePart(part, v, saved[part])) (out as Record<PagePart, unknown>)[part] = v;
   }
   return out;
+}
+
+/**
+ * The published page, from the stored microsite — the ONE reading both Your page and Your collections compare the
+ * draft against. A featured service the shop no longer offers, or a cover that is no longer one of its photos, is
+ * read as unset (the action would refuse to save it, and the public page skips it).
+ */
+export function pageSavedFrom(
+  microsite: VendorMicrosite,
+  ownedServices: readonly string[],
+  portfolioKeys: readonly string[],
+): PageSaved {
+  return {
+    about: microsite.about ?? '',
+    services: microsite.featuredServiceIds.filter((k) => ownedServices.includes(k)),
+    sections: sectionsOf(microsite.sections),
+    hero: microsite.heroPhotoKey && portfolioKeys.includes(microsite.heroPhotoKey) ? microsite.heroPhotoKey : '',
+    accent: microsite.accent ?? '',
+    pin: microsite.pinnedReviewId ?? '',
+    stories: microsite.featuredEditorialIds,
+  };
 }
 
 /** The parts that differ from the published page, in the order couples scroll. */

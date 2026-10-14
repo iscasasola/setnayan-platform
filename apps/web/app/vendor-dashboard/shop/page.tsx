@@ -1035,22 +1035,6 @@ function tierLabel(tier: string | null): string {
   return TIER_LABEL[tier] ?? titleCase(tier);
 }
 
-// Map the Instagram OAuth-callback error codes to friendly one-line copy for the
-// IG card. Mirrors the retired /profile page's IG_ERROR_COPY (2026-07-05).
-const IG_ERROR_COPY: Record<string, string> = {
-  denied: 'Instagram connection was cancelled.',
-  user_denied: 'Instagram connection was cancelled.',
-  missing_code_or_state: 'Instagram connection could not be completed. Try again.',
-  state_not_found: 'That connection link expired. Try connecting again.',
-  state_expired: 'That connection link expired. Try connecting again.',
-  not_configured: 'Instagram connect is not available yet.',
-  exchange_failed: 'Instagram could not confirm the connection. Try again.',
-  profile_fetch_failed:
-    'We couldn’t read your Instagram profile. Make sure it’s a Business or Creator account, then try again.',
-  encryption_unavailable:
-    'Instagram connect is temporarily unavailable. Please try again later.',
-  persist_failed: 'Could not save your Instagram connection. Try again.',
-};
 
 async function ShopHome({
   searchParams,

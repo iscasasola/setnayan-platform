@@ -53,7 +53,7 @@ export type CollectionsInput = {
   own: { items: number } | null;
   delivered: { couples: number; items: number } | null;
   /** null = the read failed. `configured: false` = Instagram is not switched on for the product → no row. */
-  instagram: { configured: boolean; connected: boolean; posts: number; shown: number } | null;
+  instagram: { configured: boolean; connected: boolean; posts: number; shown: number; postsAtLeast?: boolean } | null;
   /** null = the read failed. `allowed: false` = this shop does not supply looks → no row. */
   moodboard: { allowed: boolean; looks: number; declined: number } | null;
 };
@@ -179,7 +179,7 @@ export function collectionRows(input: CollectionsInput): CollectionRow[] {
           ? NOT_READ
           : !ig.connected
             ? 'Not connected'
-            : `Connected · ${n(ig.posts, 'post', 'posts')} · ${ig.shown.toLocaleString('en-PH')} shown`,
+            : `Connected · ${ig.postsAtLeast ? `${ig.posts.toLocaleString('en-PH')}+ posts` : n(ig.posts, 'post', 'posts')} · ${ig.shown.toLocaleString('en-PH')} shown`,
         who: ig && ig.connected && ig.shown > 0 && input.page.shown ? 'page' : 'private',
         pageSwitch: false,
         href: '#gallery-media',

@@ -13,7 +13,7 @@ import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { tierCaps, asVendorTier, TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { sectionsOf, type PageSaved } from '@/lib/supplier-page-draft';
+import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { DomainRow } from './actions';
 
 /**
@@ -179,15 +179,11 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
   const visible = isPubliclyVisible(profile.public_visibility ?? 'coming_soon');
   const live = isShopLive({ public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null });
 
-  const saved: PageSaved = {
-    about: microsite.about ?? '',
-    services: microsite.featuredServiceIds.filter((k) => services.some((s) => s.key === k)),
-    sections: sectionsOf(microsite.sections),
-    hero: microsite.heroPhotoKey && portfolioKeys.includes(microsite.heroPhotoKey) ? microsite.heroPhotoKey : '',
-    accent: microsite.accent ?? '',
-    pin: microsite.pinnedReviewId ?? '',
-    stories: microsite.featuredEditorialIds,
-  };
+  const saved: PageSaved = pageSavedFrom(
+    microsite,
+    services.map((x) => x.key),
+    portfolioKeys,
+  );
 
   return {
     vendorId,

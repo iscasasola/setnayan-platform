@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus } from 'lucide-react';
+import { Images, Plus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 
 /**
@@ -9,12 +9,20 @@ import { ActionButton } from '@/components/action-button';
  * same address (the supplier closed the fold meanwhile), the address does not change and the browser sends no
  * `hashchange`, so the button sends one itself.
  */
-export function OpenFoldButton({ anchor, label }: { anchor: string; label: string }) {
+export function OpenFoldButton({
+  anchor,
+  label,
+  icon = 'plus',
+}: {
+  anchor: string;
+  label: string;
+  icon?: 'plus' | 'photo';
+}) {
   return (
     <ActionButton
       tone="brand"
       main
-      icon={Plus}
+      icon={icon === 'photo' ? Images : Plus}
       label={label}
       onClick={() => {
         const target = `#${anchor}`;

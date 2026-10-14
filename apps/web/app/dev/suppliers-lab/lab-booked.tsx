@@ -48,14 +48,17 @@ export function LabBookedStandIns({
   payFail = false,
   paySlow = false,
   money = 'due',
+  today,
   children,
 }: {
   payFail?: boolean;
   paySlow?: boolean;
   /** Bituin's reservation at a stage of the money loop (`money-pair.ts`). */
   money?: MoneyStage;
+  /** The lab's day — the Pay sheet reads the same day as the Booked rows (one clock). */
+  today: string;
   children: ReactNode;
 }) {
-  const value = useMemo(() => standIns(payFail, paySlow, money), [payFail, paySlow, money]);
+  const value = useMemo(() => ({ ...standIns(payFail, paySlow, money), today }), [payFail, paySlow, money, today]);
   return <BookedStandInCtx.Provider value={value}>{children}</BookedStandInCtx.Provider>;
 }

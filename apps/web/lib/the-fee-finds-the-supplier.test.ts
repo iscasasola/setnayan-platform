@@ -623,7 +623,7 @@ test('the couple is never shown the supplier’s fee', () => {
 // SABOTAGE: set feePesos to maximumFractionDigits 0 → RED on every assertion.
 test('a ₱837.50 bill never reads ₱838 — anywhere', () => {
   assert.equal(feePesos(837.5), '₱837.50');
-  assert.match(feeDueCopy(OWNERS_BILL, '2026-09-20').headline, /₱837\.50/);
+  assert.match(feeDueCopy(OWNERS_BILL, '2026-09-20', false).headline, /₱837\.50/);
   assert.match(bookingFeeNoticeCopy(OWNERS_BILL).title, /₱837\.50/);
   assert.match(bookingFeeNoticeCopy(OWNERS_BILL).body, /Sep 27, 2026/);
   // The rounding formatter is GONE, not merely unused.
@@ -708,7 +708,8 @@ test('the due date escalates by day, compared as strings', () => {
  * SABOTAGE: add "your booking will be cancelled" to the overdue detail → RED.
  */
 test('the overdue warning promises no consequence the code does not implement', () => {
-  const overdue = feeDueCopy(OWNERS_BILL, '2026-10-05');
+  // With the lock OFF the booking is not affected — and nothing is invented either way.
+  const overdue = feeDueCopy(OWNERS_BILL, '2026-10-05', false);
   assert.equal(overdue.tone, 'overdue');
   assert.match(overdue.headline, /overdue/i);
   assert.match(overdue.detail, /booking is not affected/);
@@ -789,10 +790,14 @@ test('the overdue copy derives its consequence from feeEnforcementSentence, neve
       '(lib/event-access-stage.ts) — the ONE place NEXT_PUBLIC_FEE_UNLOCKS_EVENT is ' +
       'read — never hand-write "not affected" a second time.',
   );
-  const overdue = feeDueCopy(OWNERS_BILL, '2026-10-05');
-  assert.ok(
-    overdue.detail.includes(feeEnforcementSentence()),
-    "the overdue detail does not contain feeEnforcementSentence()'s live sentence " +
-      '— it has drifted from the gate it is supposed to match',
-  );
+  for (const enforced of [false, true]) {
+    const overdue = feeDueCopy(OWNERS_BILL, '2026-10-05', enforced);
+    assert.ok(
+      overdue.detail.includes(feeEnforcementSentence({ enforced })),
+      `the overdue detail (enforced=${enforced}) does not contain feeEnforcementSentence's sentence ` +
+        '— it has drifted from the gate it is supposed to match',
+    );
+  }
+  // 🔴 batch-5 walk F: the LOCKED state must never be told "not affected".
+  assert.doesNotMatch(feeDueCopy(OWNERS_BILL, '2026-10-05', true).detail, /not affected/);
 });

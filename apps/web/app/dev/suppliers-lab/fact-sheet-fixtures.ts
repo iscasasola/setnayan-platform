@@ -92,6 +92,8 @@ export function labDateSheet(o: LabFactOptions, month: string | null): DateSheet
     drafted: o.drafted,
     ceremonyTime: '15:00',
     bookedNames: o.venues === 'booked' ? ['Seda Vertis North'] : [],
+    // Seda's booking holds the LIVE day (Dec 12) — a drafted Dec 19 is not held by it.
+    bookedDay: o.venues === 'booked' ? '2026-12-12' : null,
     change,
     help:
       o.help === 'nomonth'

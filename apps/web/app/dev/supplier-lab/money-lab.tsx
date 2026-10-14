@@ -108,7 +108,7 @@ export function MoneyLab({ state, next, open, mpage }: { state: MoneyState; next
           fees: {
             billsRead: !fail,
             bills: fail || state === 'money-empty' || state === 'money-waived' ? [] : BILLS,
-            copyFor: (b) => feeDueCopy(b, TODAY),
+            copyFor: (b) => feeDueCopy(b, TODAY, true),
             waived: fail || state === 'money-empty' ? [] : state === 'money-waived' ? ALL_WAIVED : WAIVED,
           },
           year: state === 'money-locked' ? 'locked' : fail ? null : state === 'money-empty' ? moneyYear({ measured: true, ytdPhp: 0, months: [] }, TODAY) : moneyYear(YEAR, TODAY),

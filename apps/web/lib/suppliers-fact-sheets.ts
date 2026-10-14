@@ -40,6 +40,11 @@ export type DateSheetData = {
   ceremonyTime: string | null;
   /** Booked suppliers (`CONFIRMED_VENDOR_STATUSES`) — a day they cannot do is asked of them, never moved. */
   bookedNames: string[];
+  /**
+   * The day those bookings actually hold — the LIVE event date (a draft never books anyone; bookings stay on the
+   * live row). Null when nobody is booked or the live date is not a day. "held by …" is said only of THIS day.
+   */
+  bookedDay: string | null;
   /** The open date-change request (J51), or null. */
   change: DateChangeView | null;
   /** Help me choose's days — null when there is no month to compare yet, or 'unread' when the calendars failed. */
@@ -94,10 +99,14 @@ export function timeWords(hhmm: string | null): string | null {
 }
 
 /** The date's ladder: Year → Month → Day → Time (a rung is lit when known; the Day names who holds it). */
-export function dateLadder(d: Pick<DateSheetData, 'date' | 'precision' | 'ceremonyTime' | 'bookedNames'>): LadderRung[] {
+export function dateLadder(d: Pick<DateSheetData, 'date' | 'precision' | 'ceremonyTime' | 'bookedNames' | 'bookedDay'>): LadderRung[] {
   const at = d.date ? utc(d.date) : null;
   const p = d.precision;
-  const heldBy = d.bookedNames.length > 0 && p === 'day' ? `held by ${d.bookedNames[0]}’s booking` : null;
+  // Only the day the booking holds is "held by" it — a drafted day nobody booked is not (batch-5 walk W2).
+  const heldBy =
+    d.bookedNames.length > 0 && p === 'day' && !!d.date && !!d.bookedDay && d.date.slice(0, 10) === d.bookedDay.slice(0, 10)
+      ? `held by ${d.bookedNames[0]}’s booking`
+      : null;
   const time = timeWords(d.ceremonyTime);
   return [
     { key: 'year', on: !!at, label: 'Year', value: at ? String(at.getUTCFullYear()) : 'not yet' },

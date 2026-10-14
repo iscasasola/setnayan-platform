@@ -33,7 +33,7 @@ export function CustomersSegments({
           scroll={false}
           aria-current={s === seg ? 'page' : undefined}
           data-customers-seg={s}
-          className="min-h-11 text-[13.5px]"
+          className="h-11 min-h-11 text-[13.5px]"
         >
           {CUSTOMER_SEGMENT_LABEL[s]}
           {s === 'people' && waiting ? <b className="font-medium opacity-80">{formatCount(waiting)}</b> : null}

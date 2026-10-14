@@ -33,6 +33,7 @@
  *
  * Pure: no React, no I/O, no clock of its own (`now` is a parameter).
  */
+import { priceToday } from './price-summary';
 import { lockRequestFuseLabel } from './lock-request-state';
 import { cardVerbWords, type CardVerbKey } from './supplier-card-verbs';
 import { initialsOf, type SupplierRow } from './budget-page-view';
@@ -119,6 +120,11 @@ export type BookedNext =
       label: string;
       amountPhp: number | null;
       dueDate: string | null;
+      /**
+       * The due date has passed — the SAME test the Pay sheet's rows use (`priceSummaryOf`: due and
+       * `due_date < priceToday()`), so the row says "was due" exactly when the sheet does (batch-5 walk).
+       */
+      late: boolean;
     }
   /** Everything agreed has been paid. */
   | { kind: 'paid_in_full'; paidPhp: number }
@@ -279,6 +285,9 @@ function bookedRowOf(
     }),
   });
   const said = (text: string, needsYou: boolean): BookedNext => ({ kind: 'said', text, needsYou });
+  // One clock for the row and its Pay sheet: Manila's day, from the `now` the caller hands in.
+  const today = priceToday(extra.now ?? new Date());
+  const isLate = (dueDate: string | null) => dueDate !== null && dueDate.slice(0, 10) < today;
 
   // After the day — the review window, exactly as `teamRowOf` decided it.
   if (team.action?.kind === 'review') return withVerbs(said(team.next, true), verb('review', { main: true }));
@@ -301,7 +310,7 @@ function bookedRowOf(
   const instalment = plan && plan.isDefaultSeeded !== true ? (plan.steps?.find((s) => s.state === 'due') ?? null) : null;
   if (instalment) {
     return withVerbs(
-      { kind: 'due', label: instalment.label, amountPhp: instalment.amount_php, dueDate: instalment.due_date },
+      { kind: 'due', label: instalment.label, amountPhp: instalment.amount_php, dueDate: instalment.due_date, late: isLate(instalment.due_date) },
       verb('pay', { main: true }),
     );
   }
@@ -311,7 +320,7 @@ function bookedRowOf(
   const due = money?.dues[0] ?? null;
   if (due) {
     return withVerbs(
-      { kind: 'due', label: due.label, amountPhp: due.amountPhp, dueDate: due.dueDate },
+      { kind: 'due', label: due.label, amountPhp: due.amountPhp, dueDate: due.dueDate, late: isLate(due.dueDate) },
       verb('pay', { main: true }),
     );
   }

@@ -184,6 +184,8 @@ const TODAY: Record<string, TodayState> = {
 
 /* Two unpaid booking fees (`?s=doors`): the Next card shows the first, the hairline rows the second. */
 const LAB_TODAY = '2026-10-02';
+/** Production measured 2026-10-14: the fee lock IS enforced (platform_settings switch) — the lab says what it says. */
+const LAB_FEE_ENFORCED = true;
 const FEE_BILLS: DueFeeBill[] = [
   { orderId: 'S89O-LAB0000001', amountPhp: 750, eventId: 'ana', coupleName: 'Ana & Miguel', dueOn: '2026-10-09' },
   { orderId: 'S89O-LAB0000002', amountPhp: 1200, eventId: 'rolando', coupleName: 'Rolando & Carmen', dueOn: '2026-10-01' },
@@ -202,7 +204,7 @@ const TOASTS: Record<string, { text: string; tone: 'ok' | 'note' | 'bad'; retry?
 function TodayLab({ state, toast }: { state: TodayState; toast: string | undefined }) {
   const { answer: needsAnswer, news: nothingToAnswer } = splitDesk(state.whatsNew);
   const nextAnswer = nextAnswerOf(needsAnswer);
-  const fee = state.extras ? { bill: FEE_BILLS[0]!, copy: feeDueCopy(FEE_BILLS[0]!, LAB_TODAY) } : null;
+  const fee = state.extras ? { bill: FEE_BILLS[0]!, copy: feeDueCopy(FEE_BILLS[0]!, LAB_TODAY, LAB_FEE_ENFORCED) } : null;
   const findability = state.extras
     ? { title: 'Couples can’t find you yet.', body: 'Your shop is approved, but it is not showing in the marketplace.', cta: { label: 'Ask us to list your shop', href: '/help#contact' } }
     : null;
@@ -270,7 +272,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
         hasBills={Boolean(state.extras || state.bills)}
         bills={
           state.extras || state.bills ? (
-            <BookingFeeBills rows bills={next.kind === 'fee' ? FEE_BILLS.slice(1) : FEE_BILLS} copyFor={(b) => feeDueCopy(b, LAB_TODAY)} />
+            <BookingFeeBills rows bills={next.kind === 'fee' ? FEE_BILLS.slice(1) : FEE_BILLS} copyFor={(b) => feeDueCopy(b, LAB_TODAY, LAB_FEE_ENFORCED)} />
           ) : null
         }
         shop={{ name: 'Lumina Studio', line: 'Photo & video · Live', live: true }}

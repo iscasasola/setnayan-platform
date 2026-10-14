@@ -35,6 +35,19 @@ self-save wait broken → RED). The Suppliers b3fix (44-px reach, live Build cou
 (`find-thumb-row`, `every-press-reaches-44` guard re-pointed) and #6505's lab shell (live count on Find; the Build tab
 keeps its body's count).
 
+Fixes from the two batch-5 lab walks (2026-10-14), each with a guard that went red without it:
+- **W1** Booked › Budget: a partial read whose floor is ₱0 (the supplier money refused) reads Owed "—", never "₱0+"
+  (`lib/booked-budget.ts`; `booked-budget.test.ts`).
+- **W2** the date sheet says "held by …'s booking" only of the day the booking holds (the LIVE date) — never of a drafted
+  day (`dateLadder` + `DateSheetData.bookedDay`; `help-me-choose.test.ts`).
+- **F (live wrong)** the overdue booking-fee sentence now states the lock the gate enforces: `feeEnforcementSentence` and
+  `feeDueCopy` take `enforced` (required, no env default), and every shipped caller passes `resolveFeeEnforcement()`
+  (env flag OR `platform_settings.fee_unlocks_event_enforced`) — production's switch is TRUE, so suppliers stop reading
+  "not affected" while locked (`lib/the-fee-sentence-tells-the-lock.test.ts`).
+- Customers People · Dates · Money are 44-px boxes (`h-11` beats the shared pill's `min-h-[38px]`; `people-is-rows` 3d).
+- A Booked row whose payment is past due says "was due Oct 5" in the danger colour, by the Pay sheet's own rule
+  (`late` on `BookedNext`, one clock for the row and the sheet; the lab takes `&today=`; `booked-rows.test.ts`).
+
 Generated files regenerated against the join (never hand-merged): ugat screens, root-map baselines, no-card baseline,
 port-control baseline, exposure-surface baseline (PGlite replay), admin jobs + admin routes.
 

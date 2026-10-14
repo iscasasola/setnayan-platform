@@ -13,6 +13,7 @@ import { earningsView, readVendorEarnings } from '@/lib/vendor-earnings-view';
 import { PAYOUT_STAGE_LABEL, type PayoutStage } from '@/lib/payouts';
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { fetchDueFeeBills, fetchWaivedFeeCharges, FEE_BILLS_UNREADABLE } from '@/lib/booking-fee-disclosure.server';
 import { billsForSurface, feeDueCopy, type DueFeeBill, type WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { manilaToday } from '@/lib/std-views';
@@ -83,7 +84,7 @@ export async function CustomersMoney({ search }: { search: SP }) {
   const tier = await resolveVendorTier(supabase, vendorProfileId);
   const yearLocked = isVendorFeatureGateEnabled() && !canUseSoloBusinessTools(tier);
 
-  const [paydayRead, feeBillsRead, waivedRead, earningsRead, payoutRead, feeSchedule] = await Promise.all([
+  const [paydayRead, feeBillsRead, waivedRead, earningsRead, payoutRead, feeSchedule, feeEnforced] = await Promise.all([
     readVendorPaydayInstallments(supabase),
     // UNREADABLE renders a "couldn't load" row; it must never read as "you owe nothing".
     fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
@@ -111,6 +112,8 @@ export async function CustomersMoney({ search }: { search: SP }) {
     // The LIVE schedule for the locked year's line — never the code default (#6507, audit 2026-10-12 item 5).
     // NULL names the fee without a rate. Read only when the year is locked (the line is drawn only then).
     yearLocked ? getLiveBookingFeeSchedule() : Promise.resolve(null),
+    // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
+    resolveFeeEnforcement(),
   ]);
 
   // ⚠ PAGED TO THE SERVER'S EXACT COUNT. A read that did not reach the end renders as "couldn't load", never as a
@@ -188,7 +191,7 @@ export async function CustomersMoney({ search }: { search: SP }) {
           fees: {
             billsRead: feeBillsRead !== FEE_BILLS_UNREADABLE,
             bills: feeBills,
-            copyFor: (b) => feeDueCopy(b, manilaToday()),
+            copyFor: (b) => feeDueCopy(b, manilaToday(), feeEnforced),
             waived,
           },
           year,

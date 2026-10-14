@@ -76,7 +76,8 @@ import {
 import { LabSuppliersShell } from './lab-build';
 import { BookedBody } from '@/app/dashboard/[eventId]/vendors/_components/booked-body';
 import { LabBookedStandIns } from './lab-booked';
-import { labBookedBudget, labBookedMoney, labBookedView, type LabBookedOptions } from './booked-fixtures';
+import { labBookedBudget, labBookedMoney, labBookedNow, labBookedView, type LabBookedOptions } from './booked-fixtures';
+import { priceToday } from '@/lib/price-summary';
 import { BookedBudgetSection } from '@/app/dashboard/[eventId]/vendors/_components/booked-budget';
 import { moneyStageOf } from './money-pair';
 import { LabFactSheets } from './lab-fact-sheets';
@@ -130,6 +131,7 @@ export default async function SuppliersLabPage({
     booked: one('booked') !== '0',
     seed: one('seed') === 'proto' || one('seed') === 'asked' ? (one('seed') as 'proto' | 'asked') : null,
     money: moneyStageOf(one('money')),
+    today: one('today') ?? null,
   };
   const bookedMoney = labBookedMoney(bookedOpts);
   const bookedLabView = labBookedView(bookedOpts, bookedMoney);
@@ -207,7 +209,7 @@ export default async function SuppliersLabPage({
           bookedCount={booked}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           bookedSlot={
-            <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} money={bookedOpts.money}>
+            <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} money={bookedOpts.money} today={priceToday(labBookedNow(bookedOpts))}>
               <BookedBody
                 eventId={LAB_EVENT}
                 state={

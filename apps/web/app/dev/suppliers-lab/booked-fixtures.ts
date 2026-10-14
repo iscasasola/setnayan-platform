@@ -94,7 +94,14 @@ export type LabBookedOptions = {
   dateChange: boolean;
   /** Bituin's reservation at a stage of the money loop (`money-pair.ts`). */
   money?: MoneyStage;
+  /** `&today=YYYY-MM-DD` — the lab's day for the rows AND the Pay sheet (one clock); left out, LAB_BOOKED_NOW. */
+  today?: string | null;
 };
+
+/** The lab's clock: `&today=` when given (e.g. 2026-10-14 makes Seda's Oct 5 late), else LAB_BOOKED_NOW. */
+export function labBookedNow(o: Pick<LabBookedOptions, 'today'>): Date {
+  return o.today && /^\d{4}-\d{2}-\d{2}$/.test(o.today) ? new Date(`${o.today}T04:00:00Z`) : LAB_BOOKED_NOW;
+}
 
 const PROTO_ROWS: ReadonlySet<string> = new Set(['v-seda', 'v-santuario']);
 const inSeed = (o: LabBookedOptions, vendorId: string) =>
@@ -159,7 +166,7 @@ export function labBookedBudget(o: LabBookedOptions, money: EventMoney): BookedB
 
 export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedView {
   const team = o.booked ? TEAM.filter((t) => inSeed(o, t.vendorId)) : [];
-  const rows = teamRows(team, { eventId: LAB_EVENT, lockHandshakeEnabled: true, now: LAB_BOOKED_NOW });
+  const rows = teamRows(team, { eventId: LAB_EVENT, lockHandshakeEnabled: true, now: labBookedNow(o) });
   // Bituin's plan is THEIRS (`event_vendor_payment_plan`), folded as the page folds it.
   const plans = new Map<string, PlanProgress>([
     ['v-bituin', { steps: bituinSteps(o.money ?? 'due'), clearedAt: null, isDefaultSeeded: false }],
@@ -182,5 +189,5 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
         now: LAB_BOOKED_NOW.getTime(),
       })
     : null;
-  return bookedView({ rows, facts: FACTS, money: buildBudgetList(money).suppliers, plans, rooms, dateChange, now: LAB_BOOKED_NOW });
+  return bookedView({ rows, facts: FACTS, money: buildBudgetList(money).suppliers, plans, rooms, dateChange, now: labBookedNow(o) });
 }

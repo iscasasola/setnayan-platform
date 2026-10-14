@@ -133,6 +133,8 @@ export async function openFactSheet(
         drafted: isDrafted,
         ceremonyTime,
         bookedNames,
+        // The day the bookings hold: the LIVE date (a draft books nobody).
+        bookedDay: bookedNames.length > 0 && live.event_date && (live.event_date_precision ?? 'day') === 'day' ? live.event_date : null,
         change: change.ok ? change.view : null,
         help,
       },

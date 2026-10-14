@@ -132,7 +132,7 @@ export function PaySheet({
                   idPrefix={`pay-${vendorId}`}
                   summary={priceSummaryOf(state.data.plan.steps, 'couple', {
                     clearedAt: state.data.plan.clearedAt,
-                    today: priceToday(),
+                    today: standIn.today ?? priceToday(),
                   })}
                 />
               ) : null}

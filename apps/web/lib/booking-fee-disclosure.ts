@@ -655,7 +655,15 @@ export function feeDueStage(dueOn: string | null, todayPh: string): FeeDueStage 
  * gate there cannot drift apart — see `the-fee-finds-the-supplier.test.ts`'s
  * cross-lane tripwire, which fails loudly the day they do.
  */
-export function feeDueCopy(bill: DueFeeBill, todayPh: string): FeeDisclosure {
+export function feeDueCopy(
+  bill: DueFeeBill,
+  todayPh: string,
+  /**
+   * Is the fee lock enforced? The GATE's own answer — `resolveFeeEnforcement()` (env flag OR
+   * `platform_settings.fee_unlocks_event_enforced`), never the env flag alone. Required: no caller may forget it.
+   */
+  enforced: boolean,
+): FeeDisclosure {
   const stage = feeDueStage(bill.dueOn, todayPh);
   const who = bill.coupleName?.trim() ? ` for ${bill.coupleName.trim()}` : '';
   const amount = feePesos(bill.amountPhp);
@@ -665,11 +673,11 @@ export function feeDueCopy(bill: DueFeeBill, todayPh: string): FeeDisclosure {
       return {
         tone: 'overdue',
         headline: `Booking fee overdue — ${amount}${who}`,
-        // The consequence clause is `feeEnforcementSentence` — the ONE
-        // function that reads NEXT_PUBLIC_FEE_UNLOCKS_EVENT — so this promise
-        // and the actual gate in `eventAccessUnlocked` cannot disagree.
+        // The consequence clause is `feeEnforcementSentence`, handed the SAME
+        // answer the lock gate uses (`resolveFeeEnforcement`), so this promise
+        // and the actual lock cannot disagree (batch-5 walk F).
         detail:
-          `This was due${by ? by.replace(' by ', ' on ') : ''}. ${feeEnforcementSentence()} ` +
+          `This was due${by ? by.replace(' by ', ' on ') : ''}. ${feeEnforcementSentence({ enforced })} ` +
           'Pay it the same way your couples pay; it clears within 24 hours of our team confirming it.',
       };
     case 'last_day':

@@ -15,5 +15,7 @@ export type BookedStandIns = {
   askRoom?: (threadId: string) => Promise<void>;
   /** The Pay sheet's one request. */
   loadPay?: (vendorId: string) => Promise<LoadPaySheetResult>;
+  /** The lab's day (Manila 'YYYY-MM-DD') — the Pay sheet's "Was due" reads the SAME day as the row beside it. */
+  today?: string;
 };
 export const BookedStandInCtx = createContext<BookedStandIns>({});

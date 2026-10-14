@@ -100,11 +100,16 @@ test('the date the page plans on is the draft’s — only when it differs from 
 });
 
 test('the ladders say what is known, and a typed place says it is for guests', () => {
-  const rungs = dateLadder({ date: '2026-12-12', precision: 'day', ceremonyTime: '15:00', bookedNames: ['Seda Vertis North'] });
+  const rungs = dateLadder({ date: '2026-12-12', precision: 'day', ceremonyTime: '15:00', bookedNames: ['Seda Vertis North'], bookedDay: '2026-12-12' });
   assert.deepEqual(rungs.map((r) => r.on), [true, true, true, true]);
   assert.match(rungs[2]!.note ?? '', /held by Seda Vertis North/);
+  // A DRAFTED day that is not the booking's day is not "held by" it (batch-5 walk W2: Seda holds Dec 12, the draft says Dec 19).
+  const drafted = dateLadder({ date: '2026-12-19', precision: 'day', ceremonyTime: '15:00', bookedNames: ['Seda Vertis North'], bookedDay: '2026-12-12' });
+  assert.equal(drafted[2]!.note ?? null, null, 'a drafted day is said to be held by a booking that holds another day');
+  // No known booked day → never claimed.
+  assert.equal(dateLadder({ date: '2026-12-12', precision: 'day', ceremonyTime: null, bookedNames: ['Seda Vertis North'], bookedDay: null })[2]!.note ?? null, null);
   assert.match(rungs[3]!.value, /3:00 PM ceremony/);
-  const month = dateLadder({ date: '2026-12-01', precision: 'month', ceremonyTime: null, bookedNames: [] });
+  const month = dateLadder({ date: '2026-12-01', precision: 'month', ceremonyTime: null, bookedNames: [], bookedDay: null });
   assert.deepEqual(month.map((r) => r.on), [true, true, false, false]);
   const place = placeLadder({
     city: 'Quezon City',

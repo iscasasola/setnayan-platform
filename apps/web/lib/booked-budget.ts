@@ -29,7 +29,8 @@
  * ── A FIGURE NOBODY MEASURED IS NOT ₱0 ─────────────────────────────────────
  *   · a refused source → Paid is `null` ("—"), Owed is a FLOOR ("₱950,400+"),
  *     the meter draws no bar, and there is no Next line (it could be wrong);
- *   · every source refused → Owed is `null` too: a floor of nothing is not ₱0.
+ *   · every source refused → Owed is `null` too: a floor of nothing is not ₱0;
+ *   · a partial read whose floor is ₱0 → Owed is `null` as well ("—", never "₱0+").
  *
  * Pure: no React, no I/O.
  */
@@ -58,7 +59,9 @@ export function bookedBudgetBlock(money: EventMoney, targetPhp: number | null): 
   const nothingRead = r.suppliers === 'failed' && r.orders === 'failed' && r.costs === 'failed';
   return {
     paidPhp: t.paidPhp,
-    owed: nothingRead ? null : { php: t.owedAtLeastPhp, atLeast: t.partial },
+    // A floor of NOTHING is not ₱0 — every source refused, OR a partial read whose floor is 0 (the supplier money
+    // was refused and the sources that answered owe nothing): "—", never "₱0+" (batch-5 walk W1, 2026-10-14).
+    owed: nothingRead || (t.partial && t.owedAtLeastPhp <= 0) ? null : { php: t.owedAtLeastPhp, atLeast: t.partial },
     meter: budgetMeter({ targetPhp, agreedPhp: t.agreedPhp, paidPhp: t.paidPhp }),
     // A partial ledger may have lost the earliest payment: no Next line rather
     // than a wrong one (the Budget page's own rule, `ledgerRefused ? null`).

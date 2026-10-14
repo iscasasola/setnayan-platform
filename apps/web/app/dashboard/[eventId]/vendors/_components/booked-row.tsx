@@ -355,14 +355,16 @@ export function BookedRowItem({
             {n.kind === 'set_price' ? (
               <span className="text-sn-accent">{NEXT_SET_PRICE}</span>
             ) : n.kind === 'due' ? (
-              <span className="tabular-nums text-sn-accent">
-                {[
-                  n.label.toLowerCase(),
-                  n.amountPhp !== null ? formatPhp(n.amountPhp) : null,
-                  n.dueDate ? `by ${shortDate(n.dueDate)}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
+              <span className="tabular-nums text-sn-accent" data-booked-late={n.late ? '' : undefined}>
+                {[n.label.toLowerCase(), n.amountPhp !== null ? formatPhp(n.amountPhp) : null].filter(Boolean).join(' · ')}
+                {n.dueDate ? (
+                  // Late is said the way the Pay sheet says it ("Was due Oct 5", in the danger colour) — never "by" a past day.
+                  n.late ? (
+                    <> · <span className="text-[rgb(var(--color-danger))]">was due {shortDate(n.dueDate)}</span></>
+                  ) : (
+                    ` · by ${shortDate(n.dueDate)}`
+                  )
+                ) : null}
               </span>
             ) : (
               <span className={n.needsYou ? 'text-sn-accent' : 'text-ink/80'}>{n.text}</span>

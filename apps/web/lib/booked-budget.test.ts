@@ -89,6 +89,17 @@ test('NOTHING ANSWERED: Owed is unknown too — a floor of nothing is not ₱0',
   assert.equal(b.owed, null, '"₱0+" drawn for a ledger that never answered');
 });
 
+test('A PARTIAL READ WITH A FLOOR OF ₱0: Owed is unknown — "—", never "₱0+" (batch-5 walk W1)', () => {
+  // The supplier money was refused; orders and costs answered and owe nothing — the floor is 0, which is not a figure.
+  const b = bookedBudgetBlock(
+    money({ vendors: [], lineItems: [], payments: [], orders: [], costs: [] }, { suppliers: 'failed', orders: 'ok', costs: 'ok' }),
+    2_250_000,
+  );
+  assert.equal(b.partial, true);
+  assert.equal(b.paidPhp, null);
+  assert.equal(b.owed, null, '"₱0+" drawn for a floor of nothing');
+});
+
 test('no target: the bar is scaled to what is agreed, and nothing is invented', () => {
   const b = bookedBudgetBlock(money(), null);
   assert.equal(b.meter.agreedPct, 100);

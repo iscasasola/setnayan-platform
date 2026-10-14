@@ -82,7 +82,7 @@ import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
 import { COORDINATOR_TILE } from '@/lib/day-requests';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
-import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { resolveEventFeeGate, resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { redactBriefForStage, reconcileStageWithPayload } from '@/lib/event-access-stage';
 import { EventLockedByFee } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
@@ -763,9 +763,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     : null;
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
-  const clientFeeBillsRead = await fetchDueFeeBills(supabase, user.id).catch(
-    () => FEE_BILLS_UNREADABLE,
-  );
+  // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
+  const [clientFeeBillsRead, feeEnforced] = await Promise.all([
+    fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
+    resolveFeeEnforcement(),
+  ]);
   const clientFeeBills: DueFeeBill[] =
     clientFeeBillsRead === FEE_BILLS_UNREADABLE
       ? []
@@ -1511,7 +1513,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             the ask panel: by the time a fee exists the ask has been answered. */}
         <BookingFeeBills
           bills={clientFeeBills}
-          copyFor={(b) => feeDueCopy(b, manilaToday())}
+          copyFor={(b) => feeDueCopy(b, manilaToday(), feeEnforced)}
         />
         <WaivedFeeRows charges={clientWaived} />
         <div className="mt-2 flex flex-wrap items-center gap-2">

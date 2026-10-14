@@ -94,7 +94,7 @@ test('a booked supplier with a dated payment owed: the next step names it, and P
   assert.equal(view.waiting.length, 0);
   const [r] = view.booked;
   assert.ok(r);
-  assert.deepEqual(r.next, { kind: 'due', label: 'First payment', amountPhp: 528_000, dueDate: '2026-10-05' });
+  assert.deepEqual(r.next, { kind: 'due', label: 'First payment', amountPhp: 528_000, dueDate: '2026-10-05', late: false });
   // The prototype's row for a supplier the couple added: Pay · Your record · Chat · Workspace · Cancel booking.
   assert.equal(keys(r.verbs), 'pay record chat workspace cancel');
   assert.equal(r.verbs[0]?.main, true);
@@ -235,6 +235,29 @@ const inst = (seq: number, label: string, amount_php: number | null, due_date: s
   percent_bps: null,
 });
 
+test('A PAST DUE DATE IS LATE ON THE ROW EXACTLY WHEN THE PAY SHEET SAYS "Was due" (batch-5 walk: "by Oct 5" beside "Was due Oct 5")', async () => {
+  const { priceSummaryOf } = await import('./price-summary');
+  const steps = computeStepper([inst(1, 'First payment', 528_000, '2026-10-05')], []);
+  const rowAt = (now: Date) =>
+    bookedView({
+      rows: teamRows([team({ vendorId: 'sv', name: 'Seda', pricePhp: 1_056_000, depositStep: 'sent' })], { eventId: E, lockHandshakeEnabled: true, now }),
+      facts: [fact({ vendorId: 'sv', pricePhp: 1_056_000 })],
+      money: ledger({ vendors: [{ vendor_id: 'sv', event_id: E, category: 'venue', vendor_name: 'Seda', status: 'contracted', total_cost_php: 1_056_000 }] }),
+      plans: new Map([['sv', { steps, clearedAt: null, isDefaultSeeded: false }]]),
+      now,
+    }).booked[0]!.next;
+  for (const [now, today] of [[new Date('2026-10-14T04:00:00Z'), '2026-10-14'], [new Date('2026-10-01T04:00:00Z'), '2026-10-01'], [new Date('2026-10-05T04:00:00Z'), '2026-10-05']] as const) {
+    const next = rowAt(now);
+    assert.equal(next.kind, 'due');
+    const sheet = priceSummaryOf(steps, 'couple', { clearedAt: null, today }).rows[0]!.badge.text;
+    assert.equal((next as { late: boolean }).late, /^Was due/.test(sheet), `row late=${(next as { late: boolean }).late} but the sheet says "${sheet}" on ${today}`);
+  }
+  // The row draws it the sheet's way: "was due Oct 5" in the danger colour, never "by" a past day.
+  const ROW = stripComments(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app/dashboard/[eventId]/vendors/_components/booked-row.tsx'), 'utf8'));
+  assert.match(ROW, /n\.late \? \([\s\S]{0,120}text-\[rgb\(var\(--color-danger\)\)\][^>]*>was due \{shortDate\(n\.dueDate\)\}/);
+});
+
+
 test('THE SUPPLIER’S OWN PLAN names the next step: the first instalment still due — one awaiting their confirmation is their turn', () => {
   const instances = [inst(1, 'Reservation', 105_600, '2026-08-02'), inst(2, 'Second payment', 528_000, '2026-10-05'), inst(3, 'Balance', 422_400, null)];
   const plan = (payments: Parameters<typeof computeStepper>[1], isDefaultSeeded = false): PlanProgress => ({
@@ -251,14 +274,15 @@ test('THE SUPPLIER’S OWN PLAN names the next step: the first instalment still 
       now: NOW,
     }).booked[0]!;
   // Nothing logged: the first instalment.
-  assert.deepEqual(one(plan([])).next, { kind: 'due', label: 'Reservation', amountPhp: 105_600, dueDate: '2026-08-02' });
+  // Aug 2 is before NOW (Oct 1): the reservation is LATE.
+  assert.deepEqual(one(plan([])).next, { kind: 'due', label: 'Reservation', amountPhp: 105_600, dueDate: '2026-08-02', late: true });
   // The reservation is logged and waiting on them → the couple's next step is the one after it.
   const second = one(plan([{ schedule_instance_seq: 1, vendor_confirmed: false }]));
-  assert.deepEqual(second.next, { kind: 'due', label: 'Second payment', amountPhp: 528_000, dueDate: '2026-10-05' });
+  assert.deepEqual(second.next, { kind: 'due', label: 'Second payment', amountPhp: 528_000, dueDate: '2026-10-05', late: false });
   assert.equal(second.verbs[0]?.key, 'pay');
   // A date the plan has not resolved is not invented.
   const last = one(plan([{ schedule_instance_seq: 1, vendor_confirmed: true }, { schedule_instance_seq: 2, vendor_confirmed: true }]));
-  assert.deepEqual(last.next, { kind: 'due', label: 'Balance', amountPhp: 422_400, dueDate: null });
+  assert.deepEqual(last.next, { kind: 'due', label: 'Balance', amountPhp: 422_400, dueDate: null, late: false });
   // The pencilled-in 50/50 is an ESTIMATE: it never names an amount on the row.
   assert.deepEqual(one(plan([], true)).next, { kind: 'said', text: 'they confirm your first payment', needsYou: false });
   // The plan answered even though the ledger did not: the next step is still said.

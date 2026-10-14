@@ -85,6 +85,7 @@ import {
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import { displayServiceLabel } from '@/lib/vendors';
 import { MiniTour } from '@/app/_components/mini-tour';
+import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -359,9 +360,12 @@ export default async function VendorOverviewPage({
   //
   // ⚠ UNREADABLE renders NOTHING rather than "you owe nothing" — an empty list
   // and a refused read must not look the same on a money surface.
-  const feeBillsRead = await fetchDueFeeBills(supabase, user.id).catch(
-    () => FEE_BILLS_UNREADABLE,
-  );
+  // The overdue sentence states the lock's TRUE state — the gate's own answer (env flag OR the
+  // platform_settings switch), read in parallel with the bills (batch-5 walk F).
+  const [feeBillsRead, feeEnforced] = await Promise.all([
+    fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
+    resolveFeeEnforcement(),
+  ]);
   const todayFeeBills: DueFeeBill[] =
     feeBillsRead === FEE_BILLS_UNREADABLE
       ? []
@@ -494,7 +498,7 @@ export default async function VendorOverviewPage({
     ? { title: findabilityBanner.title, body: findabilityBanner.body, cta: findabilityBanner.cta ?? null }
     : null;
   const feeRule = todayFeeBills[0]
-    ? { bill: todayFeeBills[0], copy: feeDueCopy(todayFeeBills[0], manilaToday()) }
+    ? { bill: todayFeeBills[0], copy: feeDueCopy(todayFeeBills[0], manilaToday(), feeEnforced) }
     : null;
   const next = pickSupplierNext({
     answer: nextAnswer,
@@ -657,7 +661,7 @@ export default async function VendorOverviewPage({
           <BookingFeeBills
             rows
             bills={next.kind === 'fee' ? todayFeeBills.slice(1) : todayFeeBills}
-            copyFor={(b) => feeDueCopy(b, manilaToday())}
+            copyFor={(b) => feeDueCopy(b, manilaToday(), feeEnforced)}
           />
         }
       />

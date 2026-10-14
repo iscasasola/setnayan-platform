@@ -207,6 +207,16 @@ test('3c · "People 3" — the count is the waiting count People has just measur
   assert.match(PAGE, /\{seg === 'people' \|\| \(seg === 'dates' && search\.day\) \? null : <CustomersSegments seg=\{seg\} \/>\}/, 'Dates / Money draw a count they never read');
 });
 
+test('3d · People · Dates · Money are 44-px presses — the box itself, not only the reach (batch-5 walk: they measured 38)', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { CustomersSegments } = await import('./_components/customers-segments');
+  const html = renderToStaticMarkup(React.createElement(CustomersSegments, { seg: 'people', hrefOf: (s: string) => `/x?seg=${s}` } as never));
+  const links = html.match(/<a [^>]*data-customers-seg="[a-z]+"[^>]*>/g) ?? [];
+  assert.equal(links.length, CUSTOMER_SEGMENTS.length, 'the segments did not draw');
+  // The shared pill is min-h-[38px]; a min-h-11 beside it loses the cascade — only a HEIGHT makes the box 44.
+  for (const a of links) assert.match(a, /class="[^"]*(?:^|\s)h-11(?:\s|")/, `a segment is not a 44-px box: ${a}`);
+});
+
 // ── 4 · HONEST MONEY ──────────────────────────────────────────────────────
 
 test('4 · an unread payday says "couldn’t load" on a booked row — never "No plan yet", never a figure', () => {

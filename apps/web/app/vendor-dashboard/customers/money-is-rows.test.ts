@@ -115,7 +115,7 @@ test('5 · the fee is the fee lane’s: Money words and sums no fee, and shows e
   }
   assert.match(VIEW, /<BookingFeeBills compact bills=\{fees\.bills\} copyFor=\{fees\.copyFor\} \/>/);
   assert.match(VIEW, /<WaivedFeeRows compact charges=\{fees\.waived\.slice\(0, WAIVED_SHOWN\)\} \/>/);
-  assert.match(SEGMENT, /copyFor: \(b\) => feeDueCopy\(b, manilaToday\(\)\)/);
+  assert.match(SEGMENT, /copyFor: \(b\) => feeDueCopy\(b, manilaToday\(\), feeEnforced\)/);
   // An unread bill list is a "couldn't load" row, never "you owe nothing".
   assert.match(VIEW, /\{fees\.billsRead \? \(\s*<BookingFeeBills/);
   assert.match(SEGMENT, /billsRead: feeBillsRead !== FEE_BILLS_UNREADABLE/);
@@ -126,8 +126,8 @@ test('5b · the compact fee rows say the fee lane’s sentence, and the bill kee
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { BookingFeeBills, WaivedFeeRows } = await import('@/app/_components/booking-fee-notice');
   const bill: DueFeeBill = { orderId: 'S89O-TEST000001', amountPhp: 837.5, eventId: 'e1', coupleName: 'Cruz', dueOn: '2026-10-10' };
-  const html = renderToStaticMarkup(React.createElement(BookingFeeBills, { compact: true, bills: [bill], copyFor: (b: DueFeeBill) => feeDueCopy(b, '2026-10-02') }));
-  assert.ok(html.includes(feeDueCopy(bill, '2026-10-02').headline.replace(/&/g, '&amp;')), 'the compact row reworded the bill');
+  const html = renderToStaticMarkup(React.createElement(BookingFeeBills, { compact: true, bills: [bill], copyFor: (b: DueFeeBill) => feeDueCopy(b, '2026-10-02', true) }));
+  assert.ok(html.includes(feeDueCopy(bill, '2026-10-02', true).headline.replace(/&/g, '&amp;')), 'the compact row reworded the bill');
   assert.match(html, /₱837\.50/, 'the exact peso did not reach the compact row');
   assert.match(html, /data-fee-bill-compact=""/);
   assert.match(html, /href="\/vendor-dashboard\/booking-fees\/[^"]*S89O-TEST000001/);

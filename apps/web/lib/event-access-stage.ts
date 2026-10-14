@@ -526,8 +526,11 @@ const PHP = new Intl.NumberFormat('en-PH', {
  * hand-writing the sentence — one cross-lane tripwire in that same file checks
  * the two can never drift apart again.
  */
-export function feeEnforcementSentence(opts?: { enforced?: boolean }): string {
-  const enforced = opts?.enforced ?? isFeeUnlocksEventEnabled();
+export function feeEnforcementSentence(opts: { enforced: boolean }): string {
+  // 🔴 REQUIRED, NO DEFAULT (batch-5 walk F, 2026-10-14). The default used to be the env flag ALONE — unset in
+  // production while `platform_settings.fee_unlocks_event_enforced` = TRUE locks the event — so suppliers read
+  // "not affected" while locked. The caller passes the GATE's own answer (`resolveFeeEnforcement`).
+  const enforced = opts.enforced;
   if (!enforced) {
     // Measured, not assumed: nothing reads `expires_at`, there is no scheduler,
     // and access is `lock_request_state = 'agreed'` alone. Nothing happens.

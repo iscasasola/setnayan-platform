@@ -34,7 +34,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerCalendarMonth } from '@/lib/vendor-customers';
-import { asksByDate, capacityLine, dayRowsOf, dayStateOf, openAsksOf } from '@/lib/vendor-dates';
+import { asksByDate, capacityLine, dayAnswerOf, dayRowsOf, dayStateOf, openAsksOf } from '@/lib/vendor-dates';
 import { dayStateWords } from '@/lib/calendar-grid';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -73,32 +73,41 @@ test('1 · the shared grid draws kind 31: dots, a hatched blocked square, a bold
   const { CalendarGrid, CalendarLegend } = await import('../../_components/calendar');
   const states = new Map([
     ['2026-10-03', { dots: ['booked' as const] }],
-    ['2026-10-24', { dots: ['booked' as const, 'holding' as const], full: true }],
+    ['2026-10-24', { dots: ['booked' as const, 'asking' as const], full: true }],
+    // A booking from outside: its OWN grey dot (owner 2026-10-14); a morning not available: the top half hatched.
+    ['2026-10-11', { dots: ['outside' as const], part: true }],
     // A closed day with a booking on it (an outside client taken before the closure): the hatch says it, no dot.
     ['2026-10-14', { blocked: true, dots: ['booked' as const] }],
     ['2026-10-15', { blocked: true }],
   ]);
   const html = await paint(h(CalendarGrid, { value: '2026-10-15', today: '2026-10-02', states, onPick: () => {} }));
-  // A dot per meaning, coloured by the MEANING tokens (never a hex, never the accent for booked/holding).
+  // A dot per meaning, coloured by the MEANING tokens (never a hex, never the accent for booked/asking).
   const three = /data-calendar-day="2026-10-03"[^>]*>3<span aria-hidden="true" data-calendar-dots=""[^>]*>(.*?)<\/span>/.exec(html)?.[1] ?? '';
   assert.match(three, /data-calendar-dot="booked"[^>]*style="background:rgb\(var\(--color-ok\)\)"/, 'Booked is not the green dot');
   const busy = /data-calendar-day="2026-10-24"[^>]*>24<span aria-hidden="true" data-calendar-dots=""[^>]*>(.*?)<\/span>/.exec(html)?.[1] ?? '';
   assert.equal(count(busy, /data-calendar-dot=/g), 2, 'two things on a day are not two dots');
-  assert.match(busy, /data-calendar-dot="holding"[^>]*style="background:rgb\(var\(--color-warn\)\)"/, 'Holding is not the amber dot');
+  assert.match(busy, /data-calendar-dot="asking"[^>]*style="background:rgb\(var\(--color-warn\)\)"/, 'Asking is not the amber dot');
+  const sunday = /data-calendar-day="2026-10-11"[^>]*>/.exec(html)?.[0] ?? '';
+  assert.match(sunday, /data-calendar-part=""/, 'a part-day block is not marked on its day');
+  assert.match(sunday, /background-size:100% 50%/, 'a part-day block hatches the whole day — it must be the top half only');
+  assert.match(html, /data-calendar-dot="outside"[^>]*style="background:rgb\(var\(--color-ink\) \/ 0\.45\)"/, 'a booking from outside lost its own grey dot');
+  assert.match(html, /aria-label="October 11, 2026 — Outside and some hours not available"/);
   // Full = bold; its words say so.
-  assert.match(html, /aria-label="October 24, 2026 — Booked and Holding, full" data-calendar-day="2026-10-24" data-calendar-full=""[^>]*class="[^"]*font-bold/);
-  // Blocked = the hatched square with a grey number, no dots; said in words.
-  assert.match(html, /aria-label="October 14, 2026 — blocked" data-calendar-day="2026-10-14" data-calendar-blocked="" style="background-image:repeating-linear-gradient\(135deg, transparent 0 3px, rgb\(var\(--color-ink\) \/ 0\.16\) 3px 4px\)" class="[^"]*rounded text-ink\/45/);
+  assert.match(html, /aria-label="October 24, 2026 — Booked here and Asking, full" data-calendar-day="2026-10-24" data-calendar-full=""[^>]*class="[^"]*font-bold/);
+  // Not available = the hatched square with a grey number, no dots; said in words.
+  assert.match(html, /aria-label="October 14, 2026 — not available" data-calendar-day="2026-10-14" data-calendar-blocked="" style="background-image:repeating-linear-gradient\(135deg, transparent 0 3px, rgb\(var\(--color-ink\) \/ 0\.16\) 3px 4px\)" class="[^"]*rounded text-ink\/45/);
   assert.doesNotMatch(/data-calendar-day="2026-10-14"[^]*?<\/button>/.exec(html)?.[0] ?? '', /data-calendar-dot/, 'a blocked day carries a dot');
   // The picked day — even a blocked one — is the ONE circle, in the "on" look, no hatch.
   assert.equal(count(html, /aria-pressed="true"/g), 1);
   const picked = /<button[^>]*aria-pressed="true"[^>]*>/.exec(html)?.[0] ?? '';
   assert.match(picked, /rounded-full/);
   assert.doesNotMatch(picked, /background-image/, 'the picked day wears the hatch instead of the circle');
-  // The legend: every mark in words, the hatch beside Blocked.
-  const legend = await paint(h(CalendarLegend, { dots: ['booked', 'holding'], blocked: true }));
-  for (const w of ['Booked', 'Holding', 'Blocked']) assert.match(legend, new RegExp(`</i>${w}</span>`), `the legend lost "${w}"`);
-  assert.equal(dayStateWords({ dots: ['holding', 'booked'] }), 'Booked and Holding', 'the words do not follow the legend’s order');
+  // The legend (owner 2026-10-14 plain words): Booked here · Outside · Asking · Not available · Full.
+  const legend = await paint(h(CalendarLegend, { dots: ['booked', 'outside', 'asking'], blocked: true, full: true }));
+  for (const w of ['Booked here', 'Outside', 'Asking', 'Not available']) assert.match(legend, new RegExp(`</i>${w}</span>`), `the legend lost "${w}"`);
+  assert.match(legend, /data-calendar-legend-full=""[^>]*><b[^>]*>12<\/b>Full</, 'the legend does not say what a bold day means');
+  assert.doesNotMatch(legend, /Holding|Blocked/, 'the legend still says an old word');
+  assert.equal(dayStateWords({ dots: ['asking', 'booked'] }), 'Booked here and Asking', 'the words do not follow the legend’s order');
 });
 
 /* ── 2 · one source for the day's truth ───────────────────────────────── */
@@ -113,14 +122,20 @@ test('2 · the month folds the ONE derivation — it counts nothing itself, and 
   }
   assert.equal(existsSync(join(VD, 'calendar', 'surface.tsx')), false, 'calendar/surface.tsx (the second renderer) is back');
   assert.equal(existsSync(join(HERE, '_components', 'customers-filter-bar.tsx')), false, 'the filter bar is back — Dates has ONE dropdown');
-  assert.match(MONTH, /<PickMenu label="Calendars"/, 'the month lost its ONE dropdown of calendars');
+  assert.match(MONTH, /<PickMenu label="Schedules"/, 'the month lost its ONE dropdown — "All schedules ▾"');
+  assert.match(MONTH, /\{ key: 'all', label: 'All schedules' \}/, 'the dropdown does not say "All schedules"');
+  assert.match(MONTH, /monthPicker=\{\(view, go\) => \(\s*<PickMenu\s+label="Month"/, 'the month is not a dropdown between ‹ and ›');
   // The pure fold, executed: blocked and held are blocked; a seat is booked; an ask or a waiter is holding.
   const base = { state: null, consumed: 0, inquiryCount: 0, waitlistCount: 0 } as const;
   assert.deepEqual(dayStateOf({ ...base, state: 'blocked', consumed: 1 }), { blocked: true });
   assert.deepEqual(dayStateOf({ ...base, state: 'locked' }), { blocked: true });
   assert.deepEqual(dayStateOf({ ...base, state: 'booked', consumed: 1 }), { dots: ['booked'] });
-  assert.deepEqual(dayStateOf({ ...base, state: 'full', consumed: 2, inquiryCount: 1 }), { dots: ['booked', 'holding'], full: true });
-  assert.deepEqual(dayStateOf({ ...base, state: 'waitlist', waitlistCount: 2 }), { dots: ['holding'] });
+  assert.deepEqual(dayStateOf({ ...base, state: 'full', consumed: 2, inquiryCount: 1 }), { dots: ['booked', 'asking'], full: true });
+  // An outside booking is its own grey dot; the waiting list is no longer amber (it has its own fold).
+  assert.deepEqual(dayStateOf({ ...base, state: 'booked', consumed: 2, setnayanConsumed: 1 }), { dots: ['booked', 'outside'] });
+  assert.deepEqual(dayStateOf({ ...base, state: 'booked', consumed: 1, setnayanConsumed: 0 }), { dots: ['outside'] });
+  assert.equal(dayStateOf({ ...base, state: 'waitlist' }), null, 'the waiting list is drawn amber again');
+  assert.deepEqual(dayStateOf({ ...base, partBlocked: true }), { part: true }, 'a morning not available draws nothing');
   assert.equal(dayStateOf({ ...base, state: 'whitelist' }), null, 'approve-first with nothing on it draws a mark');
   // …through the real builder: an outside client consumes a seat (booked), a closure blocks.
   const m = buildCustomerCalendarMonth(
@@ -129,6 +144,9 @@ test('2 · the month folds the ONE derivation — it counts nothing itself, and 
     [
       { poolId: 'p', source: 'external_client', startDate: '2026-10-17', endDate: '2026-10-17' },
       { poolId: null, source: 'manual', startDate: '2026-10-14', endDate: '2026-10-14' },
+      // Every Monday, all day, from Sep 7 — a REPEAT closes October's Mondays; every Sunday morning leaves Sundays open.
+      { poolId: null, source: 'manual', startDate: '2026-09-07', endDate: '2026-09-07', repeat: 'weekly', dayPart: 'all_day' },
+      { poolId: null, source: 'manual', startDate: '2026-09-06', endDate: '2026-09-06', repeat: 'weekly', dayPart: 'morning' },
     ],
     [],
     [],
@@ -138,22 +156,33 @@ test('2 · the month folds the ONE derivation — it counts nothing itself, and 
   );
   const st = (d: string) => dayStateOf(m.days.find((x) => x.date === d)!);
   assert.deepEqual(st('2026-10-03'), { dots: ['booked'], full: true });
-  assert.deepEqual(st('2026-10-17'), { dots: ['booked'], full: true });
+  assert.deepEqual(st('2026-10-17'), { dots: ['outside'], full: true });
   assert.deepEqual(st('2026-10-14'), { blocked: true });
-  assert.deepEqual(st('2026-10-24'), { dots: ['holding'] });
-  assert.equal(st('2026-10-05'), null);
+  assert.deepEqual(st('2026-10-24'), { dots: ['asking'] });
+  assert.deepEqual(st('2026-10-05'), { blocked: true }, 'a weekly all-day block did not close a later Monday');
+  assert.deepEqual(st('2026-10-11'), { part: true }, 'a weekly morning block did not mark a later Sunday — or closed it');
+  assert.equal(st('2026-10-06'), null);
 });
 
 /* ── 3 · never "Free" ─────────────────────────────────────────────────── */
 
-test('3 · a quiet day is "Nothing on this day", a shop with no calendar is "Not set" — never "Free" (owner P5)', () => {
+// Re-pointed 2026-10-14 (owner ✅ "APPROVE": the day's answer line "Free · Still has room · Full · Not available").
+// P5 still holds where it bites: a shop with NO schedule is never told a day is free — it reads "Not set".
+test('3 · "Free" only where a schedule says so; a shop with no schedule is "Not set" (owner P5, re-worded 2026-10-14)', () => {
   const rows = dayRowsOf('2026-10-05', { today: '2026-10-02', poolIds: new Set(['p']), poolLabel: () => 'Main', namePools: false, bookings: [], blocks: [], holds: [], asking: 0, waiting: 0 });
   assert.deepEqual(rows.map((r) => r.title), ['Nothing on this day']);
   assert.equal(capacityLine([]), 'Not set');
-  assert.match(FOLDS, /data-dates-not-set=""[^>]*>\s*Not set\./, 'Capacity with no calendar does not say "Not set"');
-  assert.match(PAGE, /Calendar not set/, 'Dates with no calendar does not say so over the month');
-  for (const [name, src] of [['vendor-dates', RULES], ['customers-calendar', MONTH], ['dates-folds', FOLDS], ['day-sheet', DAY]] as const) {
-    assert.doesNotMatch(src, /\bFree\b/, `${name} calls a day "Free"`);
+  assert.match(FOLDS, /data-dates-not-set=""[^>]*>\s*Not set\./, 'How many a day with no schedule does not say "Not set"');
+  assert.match(PAGE, /Schedule not set/, 'Dates with no schedule does not say so over the month');
+  // The answer: none without a schedule; then the four words, each where it is true.
+  assert.equal(dayAnswerOf({ schedules: 0, capacity: 0, taken: 0, asking: 0, closedWhy: null, partWords: [] }), null, 'a shop with no schedule was told a day is free');
+  assert.equal(dayAnswerOf({ schedules: 1, capacity: 1, taken: 0, asking: 0, closedWhy: null, partWords: [] })?.word, 'Free');
+  assert.deepEqual(dayAnswerOf({ schedules: 1, capacity: 2, taken: 1, asking: 0, closedWhy: null, partWords: ['morning'] }), { tone: 'ok', word: 'Still has room', line: '1 booked · 1 more fits · morning not available' });
+  assert.equal(dayAnswerOf({ schedules: 1, capacity: 1, taken: 1, asking: 0, closedWhy: null, partWords: [] })?.word, 'Full');
+  assert.equal(dayAnswerOf({ schedules: 1, capacity: 1, taken: 1, asking: 0, closedWhy: 'Masses', partWords: [] })?.word, 'Not available');
+  assert.match(DAY, /Schedule not set — open How many a day/, 'the day with no schedule does not say "Not set"');
+  for (const [name, src] of [['customers-calendar', MONTH], ['dates-folds', FOLDS]] as const) {
+    assert.doesNotMatch(src, /\bFree\b/, `${name} calls a day "Free" without the day's answer`);
   }
   // A busy day lists what is on it, each opening the day.
   const busy = dayRowsOf('2026-10-17', {
@@ -171,7 +200,8 @@ test('3 · a quiet day is "Nothing on this day", a shop with no calendar is "Not
     waiting: 1,
   });
   assert.deepEqual(busy.map((r) => r.kind), ['booked', 'outside', 'blocked', 'held', 'asking', 'waiting']);
-  assert.equal(busy[2]!.line, 'Oct 16–18 · every calendar');
+  assert.equal(busy[2]!.title, 'Not available');
+  assert.equal(busy[2]!.line, 'Family trip · Oct 16–18 · every schedule');
   assert.match(MONTH, /href=\{daySheetHref\(picked\)\}/, 'the picked day’s rows do not open the day');
 });
 
@@ -237,7 +267,7 @@ test('5 · every Dates form posts the shipped action and comes back to Dates (an
 
 /* ── 6 · one day ──────────────────────────────────────────────────────── */
 
-test('6 · the old day route forwards to the day sheet; its Block switch is a real submit; opening a long block asks', async () => {
+test('6 · the old day route forwards to the day; its Not available switch is a real submit; opening a long block or a repeat asks; Show a QR has the date', async () => {
   const old = code(join(VD, 'calendar', '[date]', 'page.tsx'));
   assert.match(old, /redirect\(`\$\{daySheetHref\(date\)\}/, '/calendar/[date] no longer lands on the day sheet');
   assert.doesNotMatch(old, /fetchVendor/, 'the old day route still reads and draws a second day');
@@ -247,26 +277,36 @@ test('6 · the old day route forwards to the day sheet; its Block switch is a re
   const base = {
     day: '2026-10-14',
     today: '2026-10-02',
-    calendarsLine: '',
+    sub: '',
     backHref: '/x',
-    bookings: [],
-    outside: [],
+    answer: { tone: 'ok' as const, word: 'Free' as const, line: 'nothing on this day' },
+    groups: [],
     holders: [],
     holdersMeasured: true,
+    holdingCeiling: 5,
     waiting: 0,
     holds: [],
     whoWorks: null,
+    qrHref: '/vendor-dashboard/invite?mode=locked&date=2026-10-14',
   };
   const actions = { addManualBlock: act, removeBlock: act, setCalendarDayState: act, notifyWaitlistSlot: act };
   const open = await paint(h(DaySheet, { data: { ...base, closures: [] }, actions }));
-  assert.match(open, /<button type="submit" role="switch" aria-checked="false" aria-label="Block this day"/, 'Block this day is not a switch that submits');
+  assert.match(open, /<button type="submit" role="switch" aria-checked="false" aria-label="Not available"/, 'Not available is not a switch that submits');
   assert.match(open, /name="scope" value="org"[\s\S]{0,200}name="start_date" value="2026-10-14"[\s\S]{0,80}name="end_date" value="2026-10-14"/);
-  const shut = await paint(h(DaySheet, { data: { ...base, closures: [{ blockId: 'b1', label: 'Family trip', startDate: '2026-10-14', endDate: '2026-10-15', scope: 'every calendar' }] }, actions }));
-  assert.match(shut, /role="switch" aria-checked="true" aria-label="Block this day"/);
-  assert.match(DAY, /<ConfirmForm\b[\s\S]{0,400}This opens the whole block — \$\{rangeWords/, 'opening a multi-day block does not say it opens them all');
+  assert.match(open, /data-dates-day-answer="Free"[^>]*><b[^>]*>Free<\/b> · nothing on this day/, 'the day does not answer first');
+  assert.match(open, /href="\/vendor-dashboard\/invite\?mode=locked&amp;date=2026-10-14"/, 'Show a QR does not carry the date');
+  const shut = await paint(
+    h(DaySheet, { data: { ...base, closures: [{ blockId: 'b1', label: 'Family trip', startDate: '2026-10-14', endDate: '2026-10-15', scope: 'every schedule', repeatWords: '' }] }, actions }),
+  );
+  assert.match(shut, /role="switch" aria-checked="true" aria-label="Not available"/);
   assert.match(shut, /Family trip · Oct 14–15/);
+  assert.match(DAY, /This opens the whole block — \$\{rangeWords/, 'opening a multi-day block does not say it opens them all');
+  assert.match(DAY, /This removes “\$\{c\.repeatWords\}” — every one of those days opens again\./, 'opening a repeat does not say every day opens');
   assert.match(DAY, /Who works it/);
   assert.doesNotMatch(DAY, /<PickMenu|<select/, '"Who works it" is a dropdown with nothing to save');
+  // "Holding this date · N of M" — the plan's ceiling is back (checklist X11 drift).
+  const held = await paint(h(DaySheet, { data: { ...base, closures: [], holders: [{ threadId: 't1', title: 'Dela Cruz', line: 'asked Oct 1' }] }, actions }));
+  assert.match(held, /Holding this date[\s\S]{0,200}1 of 5 · your plan’s ceiling/, 'the day lost "Holding this date · N of M"');
 });
 
 /* ── 7 · the counter ──────────────────────────────────────────────────── */

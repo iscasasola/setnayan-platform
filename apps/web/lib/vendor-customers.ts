@@ -27,7 +27,7 @@ import type {
   VendorCalendarDayState,
 } from '@/lib/vendor-schedule';
 import type { PaydayInstallmentRow } from '@/lib/vendor-cashflow';
-import { blockOnDay } from '@/lib/not-available';
+import { blockOnDay, type DayPart, type RepeatRule } from '@/lib/not-available';
 
 /**
  * The exact slices of bookings / blocks the month builder actually reads. The
@@ -54,7 +54,7 @@ export type CalendarBlockInput = Pick<
   'poolId' | 'source' | 'startDate' | 'endDate'
 > &
   /** "Not available" repeats + hours (2026-10-14). Absent = a one-off, all day — what every block was before. */
-  Partial<Pick<CalendarBlockEntry, 'repeat' | 'repeatUntil' | 'dayPart'>>;
+  { repeat?: RepeatRule | null; repeatUntil?: string | null; dayPart?: DayPart | null };
 
 /**
  * The six day states, precedence order (highest first). Mirrors the taxonomy

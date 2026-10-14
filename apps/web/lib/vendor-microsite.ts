@@ -382,6 +382,34 @@ function coerceStringArray(raw: unknown): string[] {
     : [];
 }
 
+/** Every microsite column, for a caller that reads them in its OWN select beside other columns of the row. */
+export const MICROSITE_COLUMNS =
+  'microsite_about,microsite_sections,microsite_featured_service_ids,microsite_hero_photo_key,microsite_accent,microsite_pinned_review_id,microsite_featured_editorial_ids,microsite_video_ids';
+
+/**
+ * A row that already holds `MICROSITE_COLUMNS` → the microsite, by the same rules `fetchVendorMicrosite` applies.
+ * Your page (step 5, 2026-10-14) reads the microsite, the plan and the verification state in ONE select instead of
+ * three; this is the parser that lets it, so the two readers can never coerce a value differently.
+ */
+export function micrositeFromRow(row: Record<string, unknown> | null | undefined): VendorMicrosite {
+  if (!row) return DEFAULT_MICROSITE;
+  const r = row as MicrositeRow;
+  const about = r.microsite_about?.trim();
+  return {
+    about: about ? about : null,
+    sections: coerceSections(r.microsite_sections),
+    featuredServiceIds: coerceStringArray(r.microsite_featured_service_ids),
+    heroPhotoKey: r.microsite_hero_photo_key ?? null,
+    accent: r.microsite_accent ?? null,
+    pinnedReviewId: r.microsite_pinned_review_id ?? null,
+    featuredEditorialIds: coerceStringArray(r.microsite_featured_editorial_ids),
+    videos: coerceStringArray(r.microsite_video_ids)
+      .map((v) => deserializeVideoRef(v))
+      .filter((v): v is VideoRef => Boolean(v))
+      .slice(0, MICROSITE_VIDEOS_MAX),
+  };
+}
+
 /**
  * Read a vendor's microsite customization. Soft/defensive: a missing column
  * (schema not yet applied) or any query error degrades to DEFAULT_MICROSITE so

@@ -3,12 +3,21 @@ import { DATE_ANSWER_NOTICE } from '@/lib/date-change';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
-import { PAYMENT_OPTIONS_HREF, payoutNudgeCopy } from './_components/payout-method-nudge';
+import { PAYMENT_OPTIONS_HREF } from './_components/payout-method-nudge';
 import { redirect } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { todayCreditNotice } from '@/lib/vendor-credit-warning';
+import {
+  readEventDayFacts,
+  readTodaySchedules,
+  readTodayShopRow,
+  readTodayViews,
+  type EventDayFacts,
+  type TodaySchedules,
+  type TodayShopRow,
+} from '@/lib/supplier-today.server';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import {
   fetchVendorOverviewData,
@@ -17,24 +26,8 @@ import {
   type VendorEarningsSummary,
 } from '@/lib/vendor-overview';
 import { ServerTimer } from '@/lib/server-timing';
-import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
-import {
-  vendorAcknowledgeDeposit,
-  vendorMarkServiceComplete,
-  vendorRejectDeposit,
-  vendorAgreeToLock,
-  vendorDeclineLock,
-  vendorAgreeToDeletion,
-  vendorDeclineDeletion,
-  vendorAnswerDateChange,
-} from './clients/[eventId]/actions';
-// The desk TAKES these two answers rather than linking away to them. Both are
-// the shipped actions, unchanged in what they enforce: the reply action still
-// posts one final public reply through the vendor's own session, and
-// `respondAppointment` still refuses an answer from the side that proposed.
-import { postVendorReply } from './reviews/actions';
-import { respondAppointment } from '@/app/_components/appointments-actions';
-import { WhatsNewFeed, NothingToAnswerFeed } from './_components/overview-sections';
+// The answers (`vendorAgreeToLock` … `respondAppointment`) are mounted by `SupplierTodayScreen`, the one drawing
+// of this page that the dev lab shares — the shipped actions, unchanged in what they enforce.
 import {
   splitDesk,
   oldestAskWaitDays,
@@ -44,7 +37,6 @@ import { fetchVendorFirstStepsState } from '@/lib/vendor-first-steps.server';
 import type { FirstStepsRail } from '@/lib/vendor-first-steps';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import { businessMilestone } from '@/lib/vendor-milestone';
-import { fetchVendorBusinessStartDate } from '@/lib/vendor-profile';
 import { manilaToday } from '@/lib/std-views';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -65,25 +57,12 @@ import {
 } from '@/lib/booking-fee-disclosure.server';
 import {
   billsForSurface,
-  feeDueCopy,
   type DueFeeBill,
   type FeeDisclosure,
 } from '@/lib/booking-fee-disclosure';
-import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
-import { SupplierTodayFirstScreen } from './_components/supplier-today-first-screen';
+import { SupplierTodayScreen } from './_components/supplier-today-screen';
 import { SupplierToast } from './_components/supplier-toast';
-import {
-  pickSupplierNext,
-  nextAnswerOf,
-  nextLook,
-  nextMeta,
-  nextSecond,
-  supplierWaiting,
-  waitingOnYou,
-  eventsThisWeek,
-  owedToYouPhp,
-} from '@/lib/supplier-today';
-import { formatPesoCompact } from '@/lib/vendors-plan-budget';
+import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { displayServiceLabel } from '@/lib/vendors';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
@@ -270,28 +249,31 @@ export default async function VendorOverviewPage({
   }
 
   const timer = new ServerTimer('vendor-dashboard/overview');
+  const todayIso = manilaToday();
+  const vendorProfileId = profile.vendor_profile_id;
   let data;
   let spotlightAwards;
-  let earnings: VendorEarningsSummary | null;
-  let firstSteps: FirstStepsRail | null;
+  let shopRow: TodayShopRow | null;
+  let schedules: TodaySchedules;
   try {
-    // The decision feed, Spotlight Award banner, and earnings summary all key
-    // off the same vendor_profile_id and have no dependency on each other —
-    // fetch them in parallel (2026-07-01 perf). Awards + earnings fail soft
-    // (→ [] / null) so a failed read only hides that widget instead of tripping
-    // the overview-unavailable page.
-    [data, spotlightAwards, earnings, firstSteps] = await timer.track('overview-data', () => Promise.all([
+    /*
+      🧮 WAVE 1 — everything keyed on the shop alone, in parallel (2026-07-01 perf). The decision feed is the slow
+      one; the rest ride beside it. Awards fail soft (→ []) so a failed read only hides that word.
+
+      🧮 THE SIMPLER TODAY MUST NOT GROW (2026-10-14). `readTodayShopRow` is ONE `vendor_profiles` read where three
+      single-column reads used to be (first steps' `verification_state` · the milestone's start date · the credit
+      about to expire); `readTodaySchedules` is ONE read for the schedules' names, the bookings from outside and the
+      days off ahead. The census is in `lib/supplier-today.server.ts`.
+    */
+    [data, spotlightAwards, shopRow, schedules] = await timer.track('overview-data', () => Promise.all([
       fetchVendorOverviewData(
         supabase,
-        profile.vendor_profile_id,
+        vendorProfileId,
         profile.services ?? [],
       ),
-      fetchVendorCurrentAwards(supabase, profile.vendor_profile_id).catch(() => []),
-      fetchVendorEarningsSummary(supabase, profile.vendor_profile_id).catch(() => null),
-      // The order-of-operations rail. Null on a verified shop (it short-circuits
-      // after one cheap read) and null on any failure — a nudge must never be
-      // what takes the vendor's home page down.
-      fetchVendorFirstStepsState(supabase, profile).catch(() => null),
+      fetchVendorCurrentAwards(supabase, vendorProfileId).catch(() => []),
+      readTodayShopRow(supabase, vendorProfileId),
+      readTodaySchedules(supabase, vendorProfileId, todayIso),
     ]));
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -339,59 +321,70 @@ export default async function VendorOverviewPage({
     oldestAskWaitDays(needsAnswer, cardTimestamp, new Date()),
   );
 
-  // S19 · can a couple see anywhere to pay this shop? Asked ONLY when a booking
-  // ask is on screen — that card is where the nudge sits, because agreeing is
-  // what makes the deposit the couple's next step. `unreadable` renders nothing.
-  // 2026-09-19 · and whenever the shop holds ANY upcoming booking: a booked
-  // couple owes a deposit, and Today is the one screen every supplier opens.
+  // S19 · can a couple see anywhere to pay this shop? Asked only when a booking ask is on screen or the shop holds
+  // an upcoming booking (2026-09-19) — a booked couple owes a deposit. `unreadable` renders nothing.
   const hasLockAsk = needsAnswer.some((c) => c.kind === 'lock_request');
   const hasBooking = upcoming.length > 0;
-  const payoutReadiness: PayoutReadiness = hasLockAsk || hasBooking
-    ? await readSupplierPayoutReadiness({
-        adminClient: createAdminClient(),
-        vendorProfileId: profile.vendor_profile_id,
-        vendorUserId: profile.user_id,
-      }).catch((): PayoutReadiness => 'unreadable')
-    : 'unreadable';
+  // 🌑 AN EVENT DAY — the first booking is today. Its card is "Run the day", and its numbers are the day's own.
+  const eventToday = upcoming[0] && upcoming[0].inDays <= 0 ? upcoming[0] : null;
 
-  // WHAT THIS SHOP OWES SETNAYAN — on the one screen every supplier opens.
-  //
-  // 🔴 Owner, 2026-09-20, having just been billed ₱837.50 as the supplier
-  // Saysay: "i never saw the payment screen to pay us." The bill existed and
-  // rendered correctly on /vendor-dashboard/booking-fees; the only link to that
-  // page anywhere was one tile on /vendor-dashboard/subscription. This is the
-  // first of the three surfaces in BOOKING_FEE_BILL_SURFACES.
-  //
-  // ⚠ UNREADABLE renders NOTHING rather than "you owe nothing" — an empty list
-  // and a refused read must not look the same on a money surface.
-  // The overdue sentence states the lock's TRUE state — the gate's own answer (env flag OR the
-  // platform_settings switch), read in parallel with the bills (batch-5 walk F).
-  const [feeBillsRead, feeEnforced] = await Promise.all([
+  /*
+    🧮 WAVE 2 — everything that needs wave 1's answer, in ONE parallel round (it used to be five rounds, one after
+    another: payout · fees · forecasts · start date · credit). Each fails soft.
+
+      · first steps — only for a shop not yet approved (wave 1 read `verification_state`; a refused read leaves it
+        to probe for itself, as before);
+      · WHAT THIS SHOP OWES SETNAYAN (owner 2026-09-20, billed ₱837.50 as Saysay: "i never saw the payment screen
+        to pay us") — ⚠ UNREADABLE renders NOTHING rather than "you owe nothing"; the lock sentence states the
+        GATE's own answer (`resolveFeeEnforcement`, batch-5 walk F);
+      · WHAT AGREEING WOULD COST — priced per booking ask, read BEFORE the Agree button, never on the bill;
+      · money still to come in — NOT on an event day: the dark card shows the day's numbers instead, and the day's
+        two reads take its place (the screen does not grow);
+      · page views for "How is business" — only once couples can see the shop.
+  */
+  const [firstSteps, payoutReadiness, feeBillsRead, feeEnforced, feeForecasts, earnings, views, dayFacts]: [
+    FirstStepsRail | null,
+    PayoutReadiness,
+    Awaited<ReturnType<typeof fetchDueFeeBills>>,
+    boolean,
+    Record<string, FeeDisclosure | null>,
+    VendorEarningsSummary | null,
+    number | null,
+    EventDayFacts | null,
+  ] = await Promise.all([
+    shopRow?.verified
+      ? Promise.resolve(null)
+      : fetchVendorFirstStepsState(supabase, profile, {
+          verified: shopRow ? shopRow.verified : undefined,
+          blocks: schedules.complete ? { notAvailable: schedules.notAvailableAhead, outside: schedules.outside.length } : undefined,
+        }).catch(() => null),
+    hasLockAsk || hasBooking
+      ? readSupplierPayoutReadiness({
+          adminClient: createAdminClient(),
+          vendorProfileId,
+          vendorUserId: profile.user_id,
+        }).catch((): PayoutReadiness => 'unreadable')
+      : Promise.resolve<PayoutReadiness>('unreadable'),
     fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
     resolveFeeEnforcement(),
+    forecastsForBookings(createAdminClient(), {
+      vendorProfileId,
+      eventVendorIds: needsAnswer
+        .filter((c): c is Extract<typeof c, { kind: 'lock_request' }> => c.kind === 'lock_request')
+        .map((c) => c.eventVendorId),
+    }).catch(() => ({})),
+    eventToday ? Promise.resolve(null) : fetchVendorEarningsSummary(supabase, vendorProfileId).catch(() => null),
+    shopRow?.verified ? readTodayViews(supabase, vendorProfileId, new Date(Date.now() - 28 * 86_400_000).toISOString()) : Promise.resolve(null),
+    eventToday ? readEventDayFacts(createAdminClient(), eventToday.eventId, Date.now()).catch(() => null) : Promise.resolve(null),
   ]);
   const todayFeeBills: DueFeeBill[] =
     feeBillsRead === FEE_BILLS_UNREADABLE
       ? []
       : billsForSurface(feeBillsRead, 'today');
 
-  // WHAT AGREEING WOULD COST — priced per booking ask on the desk, so the
-  // supplier reads the fee BEFORE the Agree button rather than on the bill.
-  // Empty object when no ask is on screen: nothing is read and nothing renders.
-  const feeForecasts: Record<string, FeeDisclosure | null> = await forecastsForBookings(
-    createAdminClient(),
-    {
-      vendorProfileId: profile.vendor_profile_id,
-      eventVendorIds: needsAnswer
-        .filter((c): c is Extract<typeof c, { kind: 'lock_request' }> => c.kind === 'lock_request')
-        .map((c) => c.eventVendorId),
-    },
-  ).catch(() => ({}));
-
   // BUSINESS MILESTONE (owner 2026-07-13) — a monthsary while the shop is new
   // (its first year) and a yearly anniversary after. Prefers the precise
-  // founding date (guarded read, so a not-yet-applied migration degrades to the
-  // open-date + year fallback).
+  // founding date (now off the one shop-row read), else the open-date + year.
   //
   // ⚠ RETIRED 2026-08-05 (owner, looking at the live shop overview: "on vendor
   // why is there plan a celebration? there shouldn't be") — the pill shipped
@@ -399,15 +392,11 @@ export default async function VendorOverviewPage({
   // That is the COUPLE doorway; a vendor's shop overview must not hand them a
   // plan-your-own-event flow. The badge stays (it was the ask); do NOT re-add
   // the CTA.
-  const businessStartDate = await fetchVendorBusinessStartDate(
-    supabase,
-    profile.vendor_profile_id,
-  );
   const milestone = businessMilestone(
     profile.created_at,
-    manilaToday(),
+    todayIso,
     profile.in_business_since_year,
-    businessStartDate,
+    shopRow?.businessStartDate ?? null,
   );
 
   timer.flush();
@@ -427,112 +416,35 @@ export default async function VendorOverviewPage({
     ⏳ CREDIT ABOUT TO EXPIRE (owner 2026-10-02, tracker d5: "warn a supplier
     7 days before a balance expires — one notice on their Today page + email").
     The email + tray half already ships (`maybeSweepVendorCreditWarnings`, once
-    per term). This is the Today half: the same rule and the same words
-    (`todayCreditNotice`), shown while the window is open.
-    ⚠ ITS OWN QUERY: the shared profile select does not carry these two columns,
-    and naming one PostgREST does not know refuses the whole select. A failed
-    read shows nothing here — the email and the tray still went out — and is
-    logged, never read as "no credit".
+    per term). This is the Today half: the same rule (`todayCreditNotice`), shown
+    while the window is open, in the prototype's words ("Credits expiring · ₱X ·
+    Sat 31 Oct"). The two columns ride the one shop-row read; a failed read shows
+    nothing here — the email and the tray still went out — and is logged, never
+    read as "no credit".
   */
-  const { data: creditRow, error: creditErr } = await supabase
-    .from('vendor_profiles')
-    .select('subscription_credit_php, tier_expires_at')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
-  if (creditErr) console.error('[supabase-error] /vendor-dashboard credit notice read', creditErr);
-  const creditNotice = creditRow
-    ? todayCreditNotice(
-        {
-          creditPhp: Number((creditRow as { subscription_credit_php?: number | string | null }).subscription_credit_php ?? 0),
-          tierExpiresAt: (creditRow as { tier_expires_at?: string | null }).tier_expires_at ?? null,
-        },
-        Date.now(),
-      )
+  const creditNotice = shopRow
+    ? todayCreditNotice({ creditPhp: shopRow.creditPhp, tierExpiresAt: shopRow.tierExpiresAt }, Date.now())
     : null;
 
   /*
-    ── 📱 TODAY, AS ROWS (supplier dashboard redesign S-PR1, 2026-10-08 — corpus
-    `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "Today" + § 3;
-    prototype `supplier_dashboard_2026-10-08_fable.html` frames 01 · 02 · 15 ·
-    31) ─────────────────────────────────────────────────────────────────────
-    ONE Next card ("1 of 3") → three numbers → Coming up (3) → Also waiting
-    (the rest of the queue) → one Shop row. The first screen approved on
-    2026-10-01 is kept; "Everything else" under it is gone.
-
-    WHERE EACH THING THAT WAS BELOW THE FOLD WENT — nothing is dropped unsaid:
-      · the desk ("Needs your answer")   → Also waiting: one row per ask, the
-        answer opening in place (the same forms, the same actions)
+    ── 📱 TODAY, THE SIMPLER WAY (owner APPROVE 2026-10-14 — corpus DECISION_LOG ✅ "THE SIMPLER SUPPLIER
+    DASHBOARD"; prototype `prototypes/supplier_easy_dashboard_2026-10-14_fable.html`, SCREENS.today) ──────────────
+    ONE Next card (the couple's initials; a booking ask answered ON it) → its status line → three numbers →
+    (event day: Also today) → Coming up (with the bookings from outside) → Also waiting (every row with its icon;
+    the closed lines too) → the Shop row → How is business. Built on S-PR1 (2026-10-08); nothing it showed is gone:
+      · the desk ("Needs your answer")   → Also waiting, one row per ask, the answer opening in place (the same
+        forms, the same actions); a quote or contract never sent and an open dispute are door rows
+      · "Nothing to answer"              → the same list, no second heading (a lapsed window and a flagged delay
+        are still shown nowhere else)
       · the findability banner           → `pickSupplierNext` rule `findable`
-      · the first-steps rail             → rule `setup` (its current step)
-        (each is the Next card when it wins, and a row under Also waiting when
-        a busier rule wins — `supplierWaiting().doors`)
-      · the booking-fee bills            → rule `fee` when it wins; and KEPT
-        below, every unpaid bill with its own Pay — the rule knows one bill and
-        a shop can owe several (`the-fee-finds-the-supplier.test.ts`)
-      · the credit-expiring banner       → NO rule in `pickSupplierNext`, so its
-        meaning is kept as a row (`doors`, id `credit`)
-      · the payout nudge                 → NO rule either; kept as a row (`payout`)
-      · the Spotlight Award banner       → its planned home (Shop › Page ›
-        Reviews) is S-PR7; until then its label rides on the Shop row's line
-      · the business-milestone pill      → on the Shop row's line
-      · the two "Your money" tiles       → the "to come in" number here; the
-        figures themselves are on Earnings and Payday (Customers › Money, S-PR4)
-      · "Nothing to answer"              → kept, as quiet rows: a lapsed
-        booking window and a flagged delay are shown nowhere else
-      · the token note · Ongoing · Upcoming schedules → removed (the queue and
-        Coming up already say them)
+      · the first-steps rail             → rule `setup` (its current step, "N of 6")
+      · the booking-fee bills            → rule `fee` when it wins; and KEPT below, every unpaid bill with its own
+        Pay, the lock said once under them (`the-fee-finds-the-supplier.test.ts`)
+      · the credit-expiring banner       → a door row ("Credits expiring")
+      · the payout nudge                 → a door row with Set up ("Where couples pay you")
+      · the Spotlight Award + milestone  → on the Shop row's line
   */
-  const owedPhp = owedToYouPhp(earnings);
   const firstCategory = (profile.services ?? [])[0] as string | undefined;
-  // The shared resolver, never an inline humaniser (`one-word-per-category.test.ts`).
-  const categoryWord = firstCategory ? displayServiceLabel(firstCategory) : null;
-  const shopState = firstSteps ? 'Not live yet' : findability.findable ? 'Live' : 'Not listed';
-  // 🗓 A date-change request (3-day deadline) is the Next card whenever one waits.
-  const nextAnswer = nextAnswerOf(needsAnswer);
-  const now = Date.now();
-  const setupStep = firstSteps?.current
-    ? {
-        title: firstSteps.current.title,
-        body: firstSteps.current.body,
-        cta: firstSteps.current.cta,
-        href: firstSteps.current.href,
-      }
-    : null;
-  const findabilityRule = findabilityBanner
-    ? { title: findabilityBanner.title, body: findabilityBanner.body, cta: findabilityBanner.cta ?? null }
-    : null;
-  const feeRule = todayFeeBills[0]
-    ? { bill: todayFeeBills[0], copy: feeDueCopy(todayFeeBills[0], manilaToday(), feeEnforced) }
-    : null;
-  const next = pickSupplierNext({
-    answer: nextAnswer,
-    answerSince: nextAnswer ? cardTimestamp(nextAnswer) : null,
-    deskIncomplete,
-    upcoming,
-    setupStep,
-    findability: findabilityRule,
-    fee: feeRule,
-    owedPhp,
-    now,
-  });
-  // The door to "How clients pay you" while a booked couple cannot see anywhere
-  // to pay. Not when a booking ask is on screen: that ask's own answer carries
-  // the same nudge, and one screen says it once.
-  const payoutCopy = hasBooking && !hasLockAsk ? payoutNudgeCopy(payoutReadiness, 'today') : null;
-  const waiting = supplierWaiting({
-    next,
-    needsAnswer,
-    since: cardTimestamp,
-    setupStep,
-    findability: findabilityRule,
-    credit: creditNotice ? { title: creditNotice.title, body: creditNotice.body, href: creditNotice.href } : null,
-    payout: payoutCopy ? { title: payoutCopy.cta, body: payoutCopy.body, href: PAYMENT_OPTIONS_HREF } : null,
-    now,
-  });
-  const nextIsAnswer = next.kind === 'answer' ? nextAnswer : null;
-
-  // The one Shop row's line — what the shop line at the top used to say, plus
-  // the two things that used to be banners about the shop itself.
   const milestoneWord = milestone
     ? `your ${milestone.label}${
         milestone.daysUntil > 92
@@ -544,11 +456,47 @@ export default async function VendorOverviewPage({
               : ` in ${milestone.daysUntil} days`
       }`
     : null;
-  const awardWord = [...new Set(spotlightAwards)].map((a) => AWARD_LABELS[a]).join(' · ') || null;
-  const shopLine = [categoryWord, shopState, awardWord, milestoneWord].filter((p): p is string => Boolean(p)).join(' · ');
+  // 🧩 ONE ASSEMBLY (`lib/supplier-today-view.ts`) — the page hands it the reads, the dev lab hands it fixtures,
+  // and both draw the same Today. `verified` comes off the one shop-row read; when that read was refused, the
+  // rail's own answer stands (no rail = approved), as it always did.
+  const view = assembleSupplierToday({
+    needsAnswer,
+    closed: nothingToAnswer,
+    deskIncomplete,
+    upcoming,
+    schedules,
+    firstSteps,
+    verified: shopRow ? shopRow.verified : firstSteps == null,
+    findable: findability.findable,
+    findability: findabilityBanner
+      ? { title: findabilityBanner.title, body: findabilityBanner.body, cta: findabilityBanner.cta ?? null }
+      : null,
+    feeBills: todayFeeBills,
+    feeEnforced,
+    earnings,
+    credit: creditNotice && shopRow ? { creditPhp: shopRow.creditPhp, tierExpiresAt: shopRow.tierExpiresAt, href: creditNotice.href } : null,
+    payoutReadiness,
+    payoutHref: PAYMENT_OPTIONS_HREF,
+    shop: {
+      name: profile.business_name,
+      // The shared resolver, never an inline humaniser (`one-word-per-category.test.ts`).
+      categoryWord: firstCategory ? displayServiceLabel(firstCategory) : null,
+      details: businessProfileChecklist(profile),
+      awardWord: [...new Set(spotlightAwards)].map((a) => AWARD_LABELS[a]).join(' · ') || null,
+      milestoneWord,
+    },
+    views,
+    inquiries28: data.inquiries28 ?? null,
+    askDayHolds: data.askDayHolds,
+    dayFacts,
+    todayIso,
+    now: Date.now(),
+    since: cardTimestamp,
+  });
 
   // The outcome of an answer given ON this page — the shared top toast (its
-  // first sentence) and the whole sentence as the page's status line.
+  // first sentence) and the whole sentence as the status line, now drawn UNDER
+  // the Next card with the door it asks for (fee held → "Pay the booking fee").
   //   ok   = it happened · note = nothing changed · bad = refused or failed.
   // "Try again" only where pressing again can work: the one generic failure
   // ("That did not go through. Nothing changed — please try again."), which all
@@ -556,8 +504,12 @@ export default async function VendorOverviewPage({
   const genericFailure = new Set(
     [lockAgreeNotice('error')?.text, DATE_ANSWER_NOTICE.failed, DEPOSIT_ANSWER_NOTICE.error].filter(Boolean),
   );
-  const outcome: { text: string; tone: 'ok' | 'note' | 'bad' } | null = lockAnswer
-    ? { text: lockAnswer.text, tone: lockAnswer.tone === 'ok' ? 'ok' : lockAnswer.tone === 'noop' ? 'note' : 'bad' }
+  const outcome: { text: string; tone: 'ok' | 'note' | 'bad'; door?: { label: string; href: string } | null } | null = lockAnswer
+    ? {
+        text: lockAnswer.text,
+        tone: lockAnswer.tone === 'ok' ? 'ok' : lockAnswer.tone === 'noop' ? 'note' : 'bad',
+        door: lockAnswer.door ?? null,
+      }
     : dateAnswer
       ? {
           text: dateAnswer,
@@ -580,94 +532,21 @@ export default async function VendorOverviewPage({
           }
         : null;
 
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
-      {/* The outcome of an answer given ON this page (a booking ask · a date
-          change · a payment that never arrived). A refusal is the whole point:
-          without it the supplier presses Agree, is refused, and sees the same
-          page with no explanation. The server draws words only — nothing to
-          press — so the Next card below is still the first thing you can tap;
-          the toast (and its Try again) arrives once the page is running. */}
-      {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} /> : null}
+      {/* The toast that says how an answer went (a booking ask · a date change · a payment that never arrived).
+          A refusal is the whole point: without it the supplier presses Agree, is refused, and sees the same page
+          with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}
+      {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} line={false} /> : null}
 
-      <SupplierTodayFirstScreen
-        next={next}
-        look={nextLook(next.kind, nextIsAnswer)}
-        second={nextSecond(next, nextIsAnswer, upcoming)}
-        counter={waiting.counter}
-        meta={nextMeta(nextIsAnswer, nextIsAnswer ? cardTimestamp(nextIsAnswer) : null, now)}
-        dateChange={
-          nextIsAnswer?.kind === 'date_change' ? { card: nextIsAnswer, answer: vendorAnswerDateChange } : null
-        }
-        numbers={{
-          waiting: waitingOnYou(needsAnswer.length, deskIncomplete),
-          waitingNow: needsAnswer.length > 0,
-          thisWeek: eventsThisWeek(upcoming),
-          // ₱48K, not ₱48,000 — three numbers share one phone row. `null` when
-          // payday was not read: the number then says "couldn't load", never ₱0.
-          toComeIn: owedPhp === null ? null : formatPesoCompact(owedPhp * 100),
-        }}
-        // On an event day the card IS today's event; Coming up is what follows it.
-        comingUp={(next.kind === 'run_day' ? upcoming.slice(1) : upcoming).slice(0, 3)}
-        alsoWaitingHeaded={waiting.asks.length > 0 || deskIncomplete}
-        doors={waiting.doors}
-        shop={{ name: profile.business_name, line: shopLine, live: shopState === 'Live' }}
-        alsoWaiting={
-          <>
-            {/* The asks, each opening its answer in place — the booking fee is
-                still read BEFORE Agree, the receipt before Confirm. */}
-            <WhatsNewFeed
-              cards={needsAnswer}
-              asks={waiting.asks}
-              statusLine={askStatus}
-              incomplete={deskIncomplete}
-              acceptInquiry={acceptInquiry}
-              declineInquiry={declineInquiry}
-              confirmLock={vendorAcknowledgeDeposit}
-              rejectLock={vendorRejectDeposit}
-              agreeLock={vendorAgreeToLock}
-              declineLock={vendorDeclineLock}
-              agreeDeletion={vendorAgreeToDeletion}
-              declineDeletion={vendorDeclineDeletion}
-              answerDateChange={vendorAnswerDateChange}
-              postReviewReply={postVendorReply}
-              respondMeeting={respondAppointment}
-              markServiceComplete={vendorMarkServiceComplete}
-              payoutReadiness={payoutReadiness}
-              feeForecasts={feeForecasts}
-            />
-            {/* The closed lines. Renders nothing when empty. */}
-            <NothingToAnswerFeed
-              cards={nothingToAnswer}
-              acceptInquiry={acceptInquiry}
-              declineInquiry={declineInquiry}
-              confirmLock={vendorAcknowledgeDeposit}
-              rejectLock={vendorRejectDeposit}
-              agreeLock={vendorAgreeToLock}
-              declineLock={vendorDeclineLock}
-              agreeDeletion={vendorAgreeToDeletion}
-              declineDeletion={vendorDeclineDeletion}
-              answerDateChange={vendorAnswerDateChange}
-              postReviewReply={postVendorReply}
-              respondMeeting={respondAppointment}
-              markServiceComplete={vendorMarkServiceComplete}
-            />
-          </>
-        }
-        // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own
-        // Pay (owner 2026-09-20: "i never saw the payment screen to pay us").
-        // The Next card shows ONE bill, and only when nothing busier wins; this
-        // shows the rest, always, last under Also waiting. Renders nothing when
-        // there is no unpaid fee, and nothing when the read failed — an unread
-        // bill list is not "you owe nothing".
-        hasBills={(next.kind === 'fee' ? todayFeeBills.length - 1 : todayFeeBills.length) > 0}
-        bills={
-          <BookingFeeBills
-            rows
-            bills={next.kind === 'fee' ? todayFeeBills.slice(1) : todayFeeBills}
-            copyFor={(b) => feeDueCopy(b, manilaToday(), feeEnforced)}
-          />
-        }
+      <SupplierTodayScreen
+        view={view}
+        outcome={outcome}
+        feeForecasts={feeForecasts}
+        cards={[...needsAnswer, ...nothingToAnswer]}
+        askStatus={askStatus}
+        deskIncomplete={deskIncomplete}
       />
 
       {/* First visit only — the shipped MiniTour (owner rule: every feature

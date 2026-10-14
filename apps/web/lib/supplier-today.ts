@@ -36,9 +36,10 @@
  * flow's door).
  */
 import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
-import type { DueFeeBill, FeeDisclosure } from '@/lib/booking-fee-disclosure';
+import { feeDueStage, feePesos, type DueFeeBill, type FeeDisclosure } from '@/lib/booking-fee-disclosure';
+import { feeEnforcementSentence } from '@/lib/event-access-stage';
 import { formatCount } from '@/lib/format-number';
-import { formatLongDate } from '@/lib/format-date';
+import { dayMonth, formatLongDate } from '@/lib/format-date';
 import { formatCentavosPhp, formatPhp } from '@/lib/php';
 import { waitingAge } from '@/lib/waiting-age';
 import { dateChangeWhen } from '@/lib/date-change';
@@ -78,6 +79,8 @@ export type SupplierNextTarget =
   | { to: 'fee'; orderId: string }
   | { to: 'payday' }
   | { to: 'customers' }
+  | { to: 'dates' }
+  | { to: 'day'; date: string }
   | { to: 'today' }
   /** A door another module already decided (first steps, findability, an upcoming row). */
   | { to: 'given'; href: string };
@@ -140,6 +143,12 @@ export function nextAnswerOf<T extends { kind: string }>(needsAnswer: readonly T
   return needsAnswer[0] ?? null;
 }
 
+/** The asker's name on an inquiry — null for the stand-in "New customer". */
+function inquiryName(card: Extract<WhatsNewCard, { kind: 'inquiry' }>): string | null {
+  const d = (card.descriptor ?? '').trim();
+  return d && d !== 'New customer' ? d : null;
+}
+
 function join(parts: Array<string | null | undefined>): string {
   return parts.filter((p): p is string => Boolean(p && p.trim())).join(' · ');
 }
@@ -158,10 +167,14 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
   const waited = waitedLine(since, now);
   switch (card.kind) {
     case 'inquiry':
+      // 🧑‍🤝‍🧑 WHO ASKS IS NAMED (owner 2026-09-08 — `descriptor` IS the event's name, "New customer" only when it
+      // has none); the simpler Today puts the name in the title and their own words on the line.
       return {
         kind: 'answer',
-        title: 'Reply to a new inquiry',
-        body: join([card.descriptor, card.eventDate ? formatLongDate(card.eventDate) : null, card.paxAtInquiry ? `~${formatCount(card.paxAtInquiry)} guests` : null]) + (waited ? `. ${waited}` : '.'),
+        title: inquiryName(card) ? `Reply to ${inquiryName(card)}` : 'Reply to a new inquiry',
+        body: card.messageExcerpt
+          ? `“${card.messageExcerpt}”` + (waited ? ` ${waited}` : '')
+          : join([inquiryName(card) ? null : card.descriptor, card.eventDate ? formatLongDate(card.eventDate) : null, card.paxAtInquiry ? `~${formatCount(card.paxAtInquiry)} guests` : null]) + (waited ? `. ${waited}` : '.'),
         action: 'Reply',
         target: { to: 'thread', threadId: card.threadId },
       };
@@ -271,10 +284,12 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
 export function pickSupplierNext(input: SupplierNextInput): SupplierNext {
   const first = input.upcoming[0] ?? null;
   if (first && first.inDays <= 0) {
+    // 🌑 The prototype's dark card (`supplier_easy_dashboard_2026-10-14_fable.html`, moment "Event day"): the
+    // eyebrow says "Today", the title is the event, the line is where and how many — the Event Hub is the button.
     return {
       kind: 'run_day',
-      title: `Today: ${first.eventName}`,
-      body: join([first.place, 'Your schedule, list and headcount are in the Event Hub']) + '.',
+      title: first.eventName,
+      body: join([first.place, first.guests ? `${formatCount(first.guests)} guests` : null]) || 'Your schedule, list and headcount are in the Event Hub.',
       action: 'Run the day',
       target: { to: 'event-hub' },
     };
@@ -334,12 +349,15 @@ export function pickSupplierNext(input: SupplierNextInput): SupplierNext {
       target: { to: 'payday' },
     };
   }
+  // 🧘 Nothing waiting (prototype: "Nothing waiting · Next: <booking> · See the month"). The next booking is
+  // named when there is one; the button opens the month, where a quiet day is planned.
+  const nb = input.upcoming[0] ?? null;
   return {
     kind: 'clear',
-    title: 'You’re all caught up',
-    body: 'New inquiries land here the moment a couple asks.',
-    action: 'See your customers',
-    target: { to: 'customers' },
+    title: 'Nothing waiting',
+    body: nb ? `Next: ${nb.eventName} · ${shortDay(nb.date) ?? formatLongDate(nb.date)}.` : 'No bookings yet. New inquiries land here the moment a couple asks.',
+    action: 'See the month',
+    target: { to: 'dates' },
   };
 }
 
@@ -514,6 +532,8 @@ export type SupplierWaitingDoor = {
   label: string;
   line: string;
   target: SupplierNextTarget;
+  /** A small grey button of its own on the row (prototype "Where couples pay you … Set up"). */
+  button?: string | null;
 };
 
 export type SupplierWaiting = {
@@ -537,7 +557,7 @@ export function supplierWaiting(args: {
   /** The credit-about-to-expire notice (`todayCreditNotice`) — it has no rule above, so it is always a row. */
   credit: { title: string; body: string; href: string } | null;
   /** Couples cannot see where to pay this shop (`PayoutMethodNudge`'s rule) — no rule above either. */
-  payout: { title: string; body: string; href: string } | null;
+  payout: { title: string; body: string; href: string; button?: string | null } | null;
   now: number;
 }): SupplierWaiting {
   const { next, needsAnswer, now } = args;
@@ -576,7 +596,7 @@ export function supplierWaiting(args: {
     doors.push({ id: 'credit', label: args.credit.title, line: args.credit.body, target: { to: 'given', href: args.credit.href } });
   }
   if (args.payout) {
-    doors.push({ id: 'payout', label: args.payout.title, line: args.payout.body, target: { to: 'given', href: args.payout.href } });
+    doors.push({ id: 'payout', label: args.payout.title, line: args.payout.body, target: { to: 'given', href: args.payout.href }, button: args.payout.button ?? null });
   }
 
   return {
@@ -596,4 +616,242 @@ export function supplierWaiting(args: {
 export function waitingOnYou(count: number, deskIncomplete: boolean): string | null {
   if (!deskIncomplete) return formatCount(count);
   return count > 0 ? `${formatCount(count)}+` : null;
+}
+
+
+/* ─── THE SIMPLER TODAY (owner APPROVE 2026-10-14) ──────────────────────────────────────────────────────────────
+ *
+ * Corpus DECISION_LOG 2026-10-14 ✅ "APPROVE: THE SIMPLER SUPPLIER DASHBOARD"; prototype
+ * `Setnayan/prototypes/supplier_easy_dashboard_2026-10-14_fable.html` (SCREENS.today · nextCard · the Also-waiting
+ * list). `pickSupplierNext` above is UNCHANGED — the nine rules, in their order: an overdue fee never jumps ahead of
+ * a couple's ask (the prototype drew it first; the brief kept LIVE's order). What follows is only how each thing is
+ * SAID: the couple's initials on the card, the short row words, one icon per row, and the doors' plain words.
+ */
+
+/** "Rolando & Carmen" → "RC" · "The Cruz wedding" → "CW" · "A couple" → null (no stand-in initials). */
+export function initialsOf(name: string | null | undefined): string | null {
+  const n = (name ?? '').trim();
+  if (!n || /^a (couple|celebration)$/i.test(n)) return null;
+  const caps = n
+    .split(/\s+/)
+    .filter((w) => /^[A-Z]/.test(w) && !/^(The|A|An)$/.test(w))
+    .map((w) => w[0]!);
+  return caps.length ? caps.slice(0, 2).join('') : null;
+}
+
+/** Whose card it is — the circle before the Next card's title. Only an ask that names a couple has one. */
+export function nextWho(next: SupplierNext, answer: WhatsNewCard | null): string | null {
+  if (next.kind !== 'answer' || !answer) return null;
+  switch (answer.kind) {
+    case 'lock_request':
+    case 'lock':
+    case 'date_change':
+    case 'message':
+    case 'meeting':
+    case 'review':
+    case 'lock_request_lapsed':
+      return initialsOf(answer.coupleName);
+    case 'delete_request':
+      return initialsOf(answer.coupleName);
+    case 'mark_complete':
+    case 'dispute':
+      return initialsOf(answer.eventName);
+    case 'inquiry':
+      return initialsOf(inquiryName(answer));
+    default:
+      return null;
+  }
+}
+
+/** The icon a row wears (the prototype's round icon, `ICON_BY`) — named as data; the component draws it. */
+export type TodayRowIcon = 'chat' | 'calendar' | 'calx' | 'peso' | 'clock' | 'file' | 'star' | 'help' | 'shop' | 'chart' | 'scan' | 'people' | 'check' | 'remove' | 'gear';
+
+export type TodayRowWords = {
+  label: string;
+  line: string;
+  icon: TodayRowIcon;
+  /** A state on the row ("2 d", "Lapsed") — a Badge, never pressed. */
+  pill?: { word: string; tone: 'wait' | 'quiet' | 'no' } | null;
+  /** The line's colour: `warn` for a deadline, `danger` for something gone wrong. */
+  lineTone?: 'warn' | 'danger' | null;
+  /**
+   * A row that is only a DOOR (a quote or contract you never sent, a dispute Setnayan is looking at): no answer
+   * is given on Today, so the row opens the place it is given. Absent → the row folds open in place.
+   */
+  door?: SupplierNextTarget | null;
+};
+
+const WEEKDAY3 = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+/** `2026-12-26` → "Sat 26 Dec" (the prototype's `shortDate`) — a civil date, read without ICU or a clock zone. */
+export function shortDay(iso: string | null | undefined): string | null {
+  const dm = dayMonth(iso?.slice(0, 10));
+  if (!iso || !dm) return null;
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  return `${WEEKDAY3[d.getUTCDay()]} ${dm}`;
+}
+
+/** Whole days left on a deadline, rounded up — "2 d". Null once it has passed. */
+function daysLeft(dueAt: string, now: number): number | null {
+  const ms = new Date(dueAt).getTime() - now;
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return Math.ceil(ms / 86_400_000);
+}
+
+/**
+ * 📋 ONE ROW UNDER "ALSO WAITING" — its few words. The prototype's labels ("Date change", "Cancel request",
+ * "Mark it done", "Reply to a review", "Finish quote draft", "Contract draft", "Ask lapsed", "Dispute open"), each
+ * with who and when on the line. The answer under the row is the shipped one, unchanged.
+ */
+export function todayRowWords(card: WhatsNewCard, now: number): TodayRowWords {
+  switch (card.kind) {
+    case 'inquiry':
+      return {
+        label: inquiryName(card) ? `Reply to ${inquiryName(card)}` : 'Reply to a new inquiry',
+        line: join([card.messageExcerpt ? `“${card.messageExcerpt}”` : null, card.eventDate ? shortDay(card.eventDate) : null]),
+        icon: 'chat',
+      };
+    case 'message':
+      return { label: `Reply to ${card.coupleName}`, line: card.excerpt ? `“${card.excerpt}”` : 'They are waiting on your reply', icon: 'chat' };
+    case 'lock_request':
+      return { label: 'Agree to this booking', line: join([card.coupleName, shortDay(card.eventDate)]), icon: 'check', lineTone: 'warn' };
+    case 'lock':
+      return { label: 'Confirm a payment', line: join([card.coupleName, shortDay(card.eventDate), 'they logged it']), icon: 'peso', lineTone: 'warn' };
+    case 'date_change': {
+      const left = daysLeft(card.dueAt, now);
+      return {
+        label: 'Date change',
+        line: `${card.coupleName} · ${card.fromDate ? dateChangeWhen(card.fromDate, card.fromPrecision) : 'their date'} → ${dateChangeWhen(card.proposedDate, card.proposedPrecision)}`,
+        icon: 'calendar',
+        lineTone: 'warn',
+        pill: { word: left === null ? 'Due' : `${formatCount(left)} d`, tone: left === null ? 'no' : 'wait' },
+      };
+    }
+    case 'delete_request':
+      return { label: 'Cancel request', line: join([card.coupleName ?? null, shortDay(card.eventDate), 'they asked to remove it']), icon: 'remove', lineTone: 'warn' };
+    case 'mark_complete':
+      return { label: 'Mark it done', line: join([card.eventName, shortDay(card.eventDate)]), icon: 'check' };
+    case 'review':
+      return { label: 'Reply to a review', line: join([card.coupleName, card.rating ? `${card.rating} ★` : null]), icon: 'star' };
+    case 'meeting':
+      return { label: `${card.coupleName} proposed a time`, line: card.label, icon: 'calendar' };
+    case 'quote_draft':
+      return {
+        label: 'Finish quote draft',
+        line: join([card.title, card.totalCentavos != null ? formatCentavosPhp(card.totalCentavos) : null]),
+        icon: 'file',
+        door: { to: 'proposals' },
+      };
+    case 'contract_draft':
+      return { label: 'Contract draft', line: card.title, icon: 'file', door: { to: 'contracts' } };
+    case 'lock_request_lapsed':
+      return { label: 'Ask lapsed', line: join([card.coupleName, shortDay(card.eventDate), 'released']), icon: 'clock', pill: { word: 'Lapsed', tone: 'quiet' } };
+    case 'dispute':
+      return {
+        label: 'Dispute open',
+        line: join([card.eventName, 'Setnayan is looking']),
+        icon: 'help',
+        lineTone: 'danger',
+        door: card.threadHref ? { to: 'given', href: card.threadHref } : { to: 'card', eventId: card.eventId, tab: 'details' },
+      };
+  }
+}
+
+/**
+ * 🔘 THE NEXT CARD'S GREY SECOND BUTTON, IN THE SIMPLER TODAY. On top of `nextSecond` (Chat on an event day, Their
+ * brief on a reply owed): a new inquiry or a reply with a date gets **See the day** (the Dates day — is it free?),
+ * a booking ask gets **Chat** when its thread is known, and a fee gets **See the event** (the customer card, where
+ * the lock is said). Null when none applies.
+ */
+export type TodayNextSecond = SupplierNextSecond | { label: 'See the day'; to: 'given'; href: string } | { label: 'See the event'; to: 'card'; eventId: string };
+
+export function todayNextSecond(
+  next: SupplierNext,
+  answer: WhatsNewCard | null,
+  upcoming: readonly UpcomingEventRow[],
+  fee: { bill: DueFeeBill } | null,
+): TodayNextSecond | null {
+  const live = nextSecond(next, answer, upcoming);
+  if (live) return live;
+  if (next.kind === 'fee' && fee?.bill.eventId) return { label: 'See the event', to: 'card', eventId: fee.bill.eventId };
+  if (next.kind !== 'answer' || !answer) return null;
+  if (answer.kind === 'inquiry' && answer.eventDate) {
+    return { label: 'See the day', to: 'given', href: `/vendor-dashboard/customers?seg=dates&day=${answer.eventDate}` };
+  }
+  if (answer.kind === 'lock_request' && answer.threadId) {
+    return { label: 'Chat', to: 'given', href: `/vendor-dashboard/messages/${answer.threadId}` };
+  }
+  return null;
+}
+
+/** The doors' plain words (prototype: "Where couples pay you · Add GCash or a bank" · "Credits expiring · ₱X · Sat 31 Oct"). */
+export const PAYOUT_DOOR_WORDS = { title: 'Where couples pay you', body: 'Add GCash or a bank' } as const;
+
+export function creditDoorWords(creditPhp: number, tierExpiresAt: string | null): { title: string; body: string } {
+  return {
+    title: 'Credits expiring',
+    body: join([formatPhp(creditPhp), tierExpiresAt ? shortDay(tierExpiresAt.slice(0, 10)) : null]),
+  };
+}
+
+/* ─── THE SHOP ROW AND "HOW IS BUSINESS" ─────────────────────────────────────────────────────────────────────── */
+
+/** The Shop row's state pill: Checking (documents with Setnayan / not approved) · Live · Not yet (approved, hidden). */
+export type ShopPill = 'Checking' | 'Live' | 'Not yet';
+
+export function shopPillOf(input: { verified: boolean; findable: boolean }): ShopPill {
+  if (!input.verified) return 'Checking';
+  return input.findable ? 'Live' : 'Not yet';
+}
+
+/** "couples can find you" · "send your documents to go live" · "Setnayan is checking your documents" · "not shown yet". */
+export function shopStateWords(input: { pill: ShopPill; docsWithSetnayan: boolean }): string {
+  if (input.pill === 'Checking') return input.docsWithSetnayan ? 'Setnayan is checking your documents' : 'send your documents to go live';
+  return input.pill === 'Live' ? 'couples can find you' : 'not shown yet';
+}
+
+/**
+ * "312 looked · 14 asked" — the last 28 days: page views (`readTodayViews`, one head count) and new inquiries
+ * (counted off the threads the desk already read). The prototype says "booked"; a booked count would be one more
+ * request on the busiest supplier screen, so the line says the two figures Today already pays for — the Insights
+ * row it opens has the whole funnel. Null when the views were not read: the row then shows no number, never 0.
+ */
+export function businessLine(f: { views: number | null; asked: number | null }): string | null {
+  if (f.views === null) return null;
+  return join([`${formatCount(f.views)} looked`, f.asked === null ? null : `${formatCount(f.asked)} asked`]);
+}
+
+/* ─── 💸 THE FEE ROWS ─────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * One unpaid booking fee as a Today row (prototype `feeBillRows`): "Booking fee · Cruz wedding" over
+ * "₱4,250 · due Tue 20 Oct" — or "overdue since Sat 10 Oct", or "due today". The amount is the bill's own, to the
+ * centavo (`feePesos`), never a typed figure. The tone is the escalation `feeDueCopy` decides (`feeDueStage`).
+ */
+export function feeRowCopy(bill: DueFeeBill, todayPh: string): FeeDisclosure {
+  const stage = feeDueStage(bill.dueOn, todayPh);
+  const when = bill.dueOn ? shortDay(bill.dueOn) : null;
+  const detail =
+    stage === 'overdue'
+      ? join([feePesos(bill.amountPhp), when ? `overdue since ${when}` : 'overdue'])
+      : stage === 'last_day'
+        ? join([feePesos(bill.amountPhp), 'due today'])
+        : join([feePesos(bill.amountPhp), when ? `due ${when}` : null]);
+  return {
+    headline: bill.coupleName?.trim() ? `Booking fee · ${bill.coupleName.trim()}` : 'Booking fee',
+    detail,
+    tone: stage === 'overdue' || stage === 'last_day' ? 'overdue' : 'due',
+  };
+}
+
+/**
+ * 🔒 THE LOCK, SAID ONCE UNDER THE BILLS — the gate's own sentence (`feeEnforcementSentence`, handed
+ * `resolveFeeEnforcement()`'s answer). Enforced: the event is locked from the yes until the fee settles, whatever
+ * the due date (checklist D2 X1 — the prototype drew it only when overdue, which is not what the gate does), so it
+ * is said whenever a bill is on screen. Not enforced: said only once a bill is overdue, as the overdue bill always has.
+ */
+export function feeLockLine(bills: readonly DueFeeBill[], todayPh: string, enforced: boolean): string | null {
+  if (bills.length === 0) return null;
+  if (enforced) return feeEnforcementSentence({ enforced });
+  return bills.some((b) => feeDueStage(b.dueOn, todayPh) === 'overdue') ? feeEnforcementSentence({ enforced }) : null;
 }

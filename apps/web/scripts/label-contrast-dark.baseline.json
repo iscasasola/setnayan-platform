@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 305,
+  "total": 302,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -115,7 +115,6 @@
     "app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx · ink on white": 2,
     "app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx · ink on white": 1,
     "app/dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx · ink on white": 1,
-    "app/dashboard/[eventId]/launch/_components/details-city-pick.tsx · ink on white": 1,
     "app/dashboard/[eventId]/launch/_components/details-date-finder.tsx · ink on white": 1,
     "app/dashboard/[eventId]/launch/_components/details-date-finder.tsx · white on mulberry": 2,
     "app/dashboard/[eventId]/launch/_components/details-guide.tsx · ink on white": 2,
@@ -207,8 +206,6 @@
     "app/vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx · white on ink": 1,
     "app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx · ink on white": 2,
     "app/vendor-dashboard/clients/[eventId]/page.tsx · ink on white": 5,
-    "app/vendor-dashboard/customers/_components/customers-calendar.tsx · #3B4E67 on rgba(59,78,103,0.10)": 1,
-    "app/vendor-dashboard/customers/_components/customers-filter-bar.tsx · m-slate on #fff": 1,
     "app/vendor-dashboard/lines/page.tsx · ink on white": 2,
     "app/vendor-dashboard/manpower/_components/gig-card.tsx · danger-700 on white": 1,
     "app/vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx · ink on white": 2,

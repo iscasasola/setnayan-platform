@@ -747,7 +747,7 @@ export function StudioPosterPhoto({ eventId, saved, thumb }: { eventId: string; 
               {shown ? <img src={shown} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" /> : null}
               {pct !== null ? (
                 <span data-upload-pie={pct} className="relative flex h-14 w-14 items-center justify-center rounded-full" style={{ background: `conic-gradient(rgb(var(--sn-accent)) ${pct}%, rgb(0 0 0 / 0.1) 0)` }}>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[12px] font-bold tabular-nums text-sn-accent">{pct}%</span>
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-[12px] font-bold tabular-nums text-sn-accent">{pct}%</span>
                 </span>
               ) : !shown ? (
                 <>

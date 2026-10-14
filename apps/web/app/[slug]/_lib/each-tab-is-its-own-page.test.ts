@@ -72,7 +72,7 @@ const guestAt = (stage: 'rsvp' | 'event', over: Partial<NavInput> = {}): NavSlot
 
 test('1 · the Invitation: Welcome · Details · Our Love Story · Me — keys home/details/story/me', () => {
   const bar = guestAt('rsvp');
-  assert.deepEqual(bar.map((s) => s.label), ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  assert.deepEqual(bar.map((s) => s.label), ['Welcome', 'Details', 'Story', 'Me']);
   assert.deepEqual(bar.map((s) => s.key), ['home', 'details', 'story', 'me'], 'the keys stay (links keep working)');
 });
 
@@ -99,7 +99,7 @@ test('1 · NO RSVP SLOT — for anyone, in any phase, tabbed or not', () => {
 });
 
 test('1 · the Maker’s Page ▾ offers the same pages, in the same words', () => {
-  assert.deepEqual(makerGuestPages('rsvp', []).map((p) => p.label), ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  assert.deepEqual(makerGuestPages('rsvp', []).map((p) => p.label), ['Welcome', 'Details', 'Story', 'Me']);
   assert.deepEqual(makerGuestPages('event', []).map((p) => p.label), ['Live', 'Welcome', 'Camera', 'Gallery', 'Me']);
 });
 

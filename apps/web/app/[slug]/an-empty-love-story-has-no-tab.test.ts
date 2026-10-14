@@ -51,7 +51,7 @@ test('2 · the first chapter filled opens the tab', () => {
   const told = { how_we_met: 'We met at a friend’s birthday in Makati' };
   assert.equal(storyTabHasChapter(told, true), true);
   assert.equal(storyTabHasChapter(told, false), true);
-  assert.deepEqual(barFor(storyTabHasChapter(told, true)), ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  assert.deepEqual(barFor(storyTabHasChapter(told, true)), ['Welcome', 'Details', 'Story', 'Me']);
 });
 
 test('3 · both menus ask `storyTabHasChapter`, never the column’s truthiness', () => {

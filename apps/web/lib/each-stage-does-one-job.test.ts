@@ -145,9 +145,9 @@ const bar = (stage: LifecyclePhase, over: Partial<Parameters<typeof resolveSiteN
 test('3 · the Invitation bar: Welcome · Details · Our Love Story · Me — always the four, no RSVP tab', () => {
   // Owner 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love
   // Story - Me"* and *"RSVP does not have 4 tabs under"* — replied or not.
-  assert.deepEqual(bar('rsvp'), ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  assert.deepEqual(bar('rsvp'), ['Welcome', 'Details', 'Story', 'Me']);
   // A stranger: Welcome · Details · Our Love Story, no Me.
-  assert.deepEqual(bar('rsvp', { viewer: { kind: 'public' } }), ['Welcome', 'Details', 'Our Love Story']);
+  assert.deepEqual(bar('rsvp', { viewer: { kind: 'public' } }), ['Welcome', 'Details', 'Story']);
   const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
   assert.doesNotMatch(BODY, /\breplied: Boolean\(guest\.rsvp_status\)/, 'the bar is told whether they answered again — an RSVP tab is back');
 });
@@ -165,7 +165,7 @@ test('4 · the On the Day bar: Live · Welcome · Camera · Gallery · Me', () =
 test('5 · the Save the Date: no Camera tab — Welcome · Our Love Story, and Me for a key-holder', () => {
   const std = bar('save_the_date');
   assert.ok(!std.includes('Camera'), `the Save the Date offers a camera: ${std.join(' · ')}`);
-  assert.deepEqual(std, ['Welcome', 'Our Love Story', 'Me']);
+  assert.deepEqual(std, ['Welcome', 'Story', 'Me']);
 });
 
 /* ── 6 · empty scenes ──────────────────────────────────────────────────── */

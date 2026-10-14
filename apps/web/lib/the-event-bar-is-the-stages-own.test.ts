@@ -113,7 +113,7 @@ test('2 · the tab bar follows the stage’s one config — On the Day is Live �
   // 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love Story
   // - Me"*; *"RSVP does not have 4 tabs under"* — no RSVP tab, ever).
   const invite = canvasBar('rsvp', { hasDetails: true, hasStory: true }).map((b) => b.label);
-  assert.deepEqual(invite, ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  assert.deepEqual(invite, ['Welcome', 'Details', 'Story', 'Me']);
   // the allow-list removes: a stage that does not list a slot never draws it
   const narrowed = resolveSiteNav({
     viewer: { kind: 'public' }, phase: 'after', hostAllowsCamera: true, anyChapterPublic: true, liveBroadcast: false,

@@ -83,7 +83,7 @@ const hostCanvasBar = (stage: 'rsvp' | 'event') =>
 /* ══ a · ONE PAGE LIST ═══════════════════════════════════════════════════════ */
 
 test('a · the Stages pages ARE the Maker’s bar: Invitation four, The Day five — and they are the parts map’s pages', () => {
-  assert.deepEqual(makerStagesPages('rsvp').map((p) => p.label), ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  assert.deepEqual(makerStagesPages('rsvp').map((p) => p.label), ['Welcome', 'Details', 'Story', 'Me']);
   assert.deepEqual(makerStagesPages('event').map((p) => p.label), ['Live', 'Welcome', 'Camera', 'Gallery', 'Me']);
   for (const stage of TABBED_STAGES) {
     assert.deepEqual(keysOf(stage), makerGuestPages(stage, []).map((p) => p.key as string), `${stage}: a second page list`);

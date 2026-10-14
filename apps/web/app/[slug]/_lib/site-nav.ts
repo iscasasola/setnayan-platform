@@ -340,9 +340,6 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
             lockedReason: 'No camera is open for this event yet',
           },
     );
-  } else if (phase === 'before' && !(viewer.kind === 'guest' && input.earlyOwnShots === true)) {
-    // Before the day a guest's Camera is drawn ONLY with early shooting on (owner
-    // 2026-10-14, below). Otherwise the stage list never carried it anyway.
   } else if (!isVendor) {
     // 📸 EARLY SHOOTING (owner 2026-10-14, on #6529): before the day, with "Let
     // guests shoot now" on, an invited guest gets the Camera tab too — the same

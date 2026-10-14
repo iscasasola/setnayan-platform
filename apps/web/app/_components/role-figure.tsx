@@ -1,29 +1,37 @@
-import { roleFigureDataUri } from '@/lib/role-figure';
+import { figureDataUri, figurePeopleSvg, roleFigureDataUri, type FigurePerson, type FigurePick } from '@/lib/role-figure';
 
 /**
- * THE ILLUSTRATED PERSON IN A ROLE'S COLOURS (owner 2026-09-27, "an ILLUSTRATED
- * person in the exact role colours — not AI, exact colour, free"). The picture
- * is drawn by `lib/role-figure.ts` — the reception scene's own gown and suit
- * figures — and shown as an image, so no markup is injected into the page.
- * Nothing to wear (no valid colour) → nothing drawn.
+ * THE ILLUSTRATED PERSON IN A ROLE'S COLOURS (owner 2026-09-27, "an ILLUSTRATED person in the exact role colours —
+ * not AI, exact colour, free"; redrawn 2026-10-14, DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"). ONE component,
+ * TWO places: the guest's dress code (server-rendered) and the Studio's Attire blocks (the Mood Board's lazy chunk).
+ * The drawing is `lib/role-figure.ts` over the artwork seam `lib/attire-figures.ts`, shown as an image — no markup is
+ * injected into the page. Nothing to wear (no valid colour) → nothing drawn.
  *
- * No hooks, no state: the Event Hub's server-rendered dress-code scene and the
- * Mood Board's client palette mount the same component.
+ * Either the role's colours (`roleKey` + `hexes`, and its `picks` — who and what each wears) or the `people`
+ * themselves (the Studio, where "Not said yet" is the dotted silhouette).
+ *
+ * No hooks, no state.
  */
 export function RoleFigure({
   roleKey,
-  hexes,
+  hexes = [],
   meaning = 'outfit',
-  className = 'h-12 w-auto',
+  picks = null,
+  people = null,
+  className = 'h-16 w-auto',
 }: {
   /** A Mood Board `PaletteKey`, a `custom:<slug>`, or a guest-list role. */
   roleKey: string;
-  hexes: readonly string[];
-  /** `options` = the guests: one person per colour, never combined. */
+  hexes?: readonly string[];
+  /** `options` = the guests: a colour each, never combined. */
   meaning?: 'outfit' | 'options';
+  /** Who the role's people are and what each wears (`picksOf`, `lib/attire-rows.ts`). */
+  picks?: readonly FigurePick[] | null;
+  /** The people, drawn exactly — overrides the rest. */
+  people?: readonly FigurePerson[] | null;
   className?: string;
 }) {
-  const src = roleFigureDataUri(roleKey, hexes, meaning);
+  const src = people ? figureDataUri(figurePeopleSvg(people)) : roleFigureDataUri(roleKey, hexes, meaning, picks);
   if (!src) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element -- an inline SVG data URI drawn from the role's own colours

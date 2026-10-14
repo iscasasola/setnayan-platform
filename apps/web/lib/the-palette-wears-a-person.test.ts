@@ -39,6 +39,10 @@ const WEB = join(__dirname, '..');
 
 /** The fills an SVG paints, upper-cased. */
 const fills = (svg: string) => [...svg.matchAll(/fill="(#[0-9A-Fa-f]{6})"/g)].map((m) => m[1]!.toUpperCase());
+/** Who a picture draws, in order (`<g data-person>`). */
+const people = (svg: string) => [...svg.matchAll(/<g data-person="([a-z]+)"/g)].map((m) => m[1]!);
+/** What each person in a picture wears. */
+const garments = (svg: string) => [...svg.matchAll(/<g data-person="[a-z]+" data-garment="([a-z]+)"/g)].map((m) => m[1]!);
 /** The picture inside an `<img data-role-figure>` of `html`, decoded. */
 function figureIn(html: string): string | null {
   const m = /<img[^>]*src="data:image\/svg\+xml;charset=utf-8,([^"]+)"[^>]*data-role-figure="[^"]*"/.exec(html);
@@ -102,10 +106,18 @@ test('📜 the dress-code scene: every role row carries its person, in that row�
   for (const key of ['bride', 'groom', 'principal_sponsors', 'guest'] as const) {
     const pic = figureIn(rowHtml(html, key));
     assert.ok(pic, `${key}: the row draws its person`);
-    const want = key === 'guest' ? BOARD.guest! : [BOARD[key]![0]!];
+    const want = [BOARD[key]![0]!];
     for (const hex of want) assert.ok(fills(pic).includes(hex.toUpperCase()), `${key}: ${hex} is worn`);
   }
-  assert.equal((figureIn(rowHtml(html, 'guest'))!.match(/<(polygon|rect x="[^"]*" y="[^"]*" width="[^"]*" height="[^"]*" rx="2")/g) ?? []).length, 3, 'three guest colours → three guests');
+  /* 👥 The guests (owner 2026-10-14): a man and a woman — the two picks — each in the FIRST of the options ("the
+     figures show the first"), never two of them combined on one person. */
+  const guests = figureIn(rowHtml(html, 'guest'))!;
+  assert.deepEqual(people(guests), ['m', 'f'], 'the guests are a man and a woman');
+  assert.ok(fills(guests).includes(BOARD.guest![0]!.toUpperCase()));
+  assert.ok(!fills(guests).includes(BOARD.guest![1]!.toUpperCase()), 'a second option colour is worn — options are never combined');
+  /* The sponsors hold both: a man and a woman. The bride is one woman. */
+  assert.deepEqual(people(figureIn(rowHtml(html, 'principal_sponsors'))!), ['m', 'f']);
+  assert.deepEqual(people(figureIn(rowHtml(html, 'bride'))!), ['f']);
 });
 
 test('📜 the reader’s own panel: a ninang sees a woman in her colours', async () => {
@@ -113,7 +125,7 @@ test('📜 the reader’s own panel: a ninang sees a woman in her colours', asyn
   const you = html.slice(html.indexOf('data-dress-code="you"'));
   const pic = figureIn(you);
   assert.ok(pic, 'her panel draws her');
-  assert.equal((pic!.match(/<polygon/g) ?? []).length, 1, 'one gown — not the sponsors’ pair');
+  assert.deepEqual(people(pic!), ['f'], 'one woman — not the sponsors’ pair');
   assert.ok(fills(pic!).includes('#C9A24B'));
 });
 

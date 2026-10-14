@@ -28,6 +28,7 @@ import {
   HUB_ELEMENT_SIZE_BASE,
   HUB_ELEMENT_SIZE_BOUNDS,
   HUB_ELEMENT_SIZE_STEPS,
+  HUB_SCENE_ELEMENT_KEYS,
   hubElementSizePct,
   isHubElementKey,
   withElementChoice,
@@ -60,15 +61,33 @@ export function partLookSizes(el: HubElementKey): number[] {
   return (HUB_ELEMENT_SIZE_STEPS as readonly number[]).filter((s) => s >= min && s <= max);
 }
 
+/**
+ * 🔠 THE WORDS A SIZE PICK SCALES (owner 2026-10-14, live: *"when we where changing size, the text did not shrink, the
+ * highlight just moved"*). A cover part is its own words (`el`). A SCENE is every word it draws — its label, heading
+ * and words (`HUB_SCENE_ELEMENT_KEYS`, the three the page stamps and styles). It used to be the heading alone, and the
+ * Countdown, the Message, What to bring and the Love Story draw NO heading: the slider moved, `elements.heading.size`
+ * was saved, and not one word on the stage changed (measured on the Maker lab, 2026-10-15). Each word keeps the
+ * theme's own proportions — the step is a percent of ITS size — and a step outside a word's bounds is pulled to its
+ * nearest bound by the shipped sanitizer (`sanitizeHubElementSize`), so every word still moves the same way.
+ * Held by `lib/a-scene-size-reaches-every-word.test.ts`.
+ */
+export function partLookSizeEls(t: PartLookTarget): readonly HubElementKey[] {
+  return t.key.startsWith('w:') ? HUB_SCENE_ELEMENT_KEYS : [t.el];
+}
+
 /** The part's colour (null: the theme's own) and size (100: the theme's own), on the Maker's own copy of its canvas. */
 export function partLookNow(t: PartLookTarget, server: HubSectionCanvas | null | undefined): { colour: string | null; size: number } {
-  const part = draftedCanvasOr(t.widgetType, server).elements?.[t.el];
-  return { colour: part?.color ?? null, size: hubElementSizePct(part?.size) ?? HUB_ELEMENT_SIZE_BASE };
+  const elements = draftedCanvasOr(t.widgetType, server).elements;
+  const part = elements?.[t.el];
+  /* The size the row shows: the part's own, else the first of its words that has one (a scene sized before any heading). */
+  const size = [t.el, ...partLookSizeEls(t)].map((k) => hubElementSizePct(elements?.[k]?.size)).find((v) => v !== null);
+  return { colour: part?.color ?? null, size: size ?? HUB_ELEMENT_SIZE_BASE };
 }
 
 /** The canvas a pick makes: `before` with the one choice set — null when it changes nothing. */
 export function partLookNext(t: PartLookTarget, before: HubSectionCanvas, field: 'color' | 'size', value: string | number | null): HubSectionCanvas | null {
-  const elements = withElementChoice(before.elements, t.el, field, value);
+  let elements = before.elements ?? null;
+  for (const k of field === 'size' ? partLookSizeEls(t) : [t.el]) elements = withElementChoice(elements, k, field, value);
   const next: HubSectionCanvas = { ...before };
   if (elements) next.elements = elements;
   else delete next.elements;

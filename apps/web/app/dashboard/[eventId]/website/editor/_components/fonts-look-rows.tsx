@@ -18,7 +18,7 @@
  * Loaded lazily with the Look panel (`pro-panels.tsx` draws it for the Studio's Font part) — never in the Maker's
  * first load.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   FONT_PAIRING_MIXED,
   FONT_ROWS,
@@ -32,9 +32,10 @@ import {
   type FontChoice,
   type FontRow,
 } from '@/lib/font-pairings';
-import { sanitizeHubFontKey } from '@/lib/hub-fonts';
-import type { InviteThemeId } from '@/lib/invite-themes';
-import { tellLookSample } from '@/lib/look-sample-store';
+import { hubFontPreviewStack, sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { hubFontKeyForFamily } from '@/lib/hub-font-shelves';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { readLookSampleWorn, subscribeLookSampleWorn, tellLookSample } from '@/lib/look-sample-store';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { STUDIO_ROW_PICK } from '@/lib/studio-skin';
 import { hubDraftAction } from '../../hub-draft-actions';
@@ -43,6 +44,24 @@ import { FontPick } from './font-pick';
 import { PickMenu } from './pick-menu';
 
 const MIXED = 'mixed';
+
+/**
+ * 🔤 THE LINE EACH FACE IS SHOWN WITH IN ITS DROPDOWN (owner 2026-10-14, Maker test item 4: *"font needs to show
+ * their look on their dropdown preview texts before showing on the preview screen"*): the words that row sets —
+ * the couple's own names for Names (as the sample screen has them), a heading, a line of details, a label.
+ */
+export const FONT_ROW_SAMPLE: Readonly<Record<Exclude<FontRow, 'names'>, string>> = {
+  heading: 'Our day',
+  body: 'The ceremony begins at four',
+  highlight: 'Reply · Directions',
+};
+const NAMES_SAMPLE = 'Your names';
+
+/** A pairing's own look — its Names face (the theme's heading face), so the list shows each pairing as it reads. */
+function pairingFace(id: InviteThemeId): string | undefined {
+  const key = hubFontKeyForFamily(INVITE_THEMES[id]?.fonts.heading);
+  return key ? hubFontPreviewStack(key) : undefined;
+}
 
 export function FontsLookRows({
   eventId,
@@ -112,6 +131,9 @@ export function FontsLookRows({
 
   const pairings = fontPairings(themeId);
   const pairing = fontPairingOf(themeId, choice);
+  /* The couple's names as the sample screen draws them (`look-sample.tsx` says them once it is up) — never sample words. */
+  const names = useSyncExternalStore(subscribeLookSampleWorn, () => readLookSampleWorn(eventId)?.names ?? null, () => null);
+  const sampleOf = (row: FontRow) => (row === 'names' ? (names?.trim() || NAMES_SAMPLE) : FONT_ROW_SAMPLE[row]);
   return (
     <div data-fonts-look="" className="flex flex-col">
       {/* THE FAST PATH — a shipped pairing fills all four rows; "Your own mix" once a row was changed alone. */}
@@ -123,7 +145,7 @@ export function FontsLookRows({
           value={pairing ?? MIXED}
           options={[
             ...(pairing ? [] : [{ key: MIXED, label: FONT_PAIRING_MIXED, disabledNote: 'what you have now' }]),
-            ...pairings.map((p) => ({ key: p.id, label: p.name, hint: p.faces })),
+            ...pairings.map((p) => ({ key: p.id, label: p.name, hint: p.faces, fontFamily: pairingFace(p.id) })),
           ]}
           onPick={(k) => {
             const picked = pairings.find((p) => p.id === k);
@@ -139,6 +161,7 @@ export function FontsLookRows({
             dataAttr={`data-font-row-${row}`}
             value={choice[row]}
             lead={FONT_ROW_LEAD[row]}
+            sample={sampleOf(row)}
             className={STUDIO_ROW_PICK}
             onPick={(key) => commit({ ...choice, [row]: key })}
           />

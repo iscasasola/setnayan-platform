@@ -6,6 +6,8 @@
  */
 import { renderUrlQrSvg } from '@/lib/qr';
 import type { SchedulePool } from '@/lib/vendor-schedule';
+import { dayAnswerOfGroups, dayGroupsOf, seatsByPool, type DatesBlock } from '@/lib/vendor-dates';
+import { CheckADate } from '@/app/vendor-dashboard/customers/_components/check-a-date';
 import { formatPhp } from '@/lib/orders';
 import { CustomersCalendar } from '@/app/vendor-dashboard/customers/_components/customers-calendar';
 import { CustomersSegments } from '@/app/vendor-dashboard/customers/_components/customers-segments';
@@ -31,7 +33,7 @@ import {
   updateWaitlistSettings,
 } from '@/app/vendor-dashboard/calendar/actions';
 
-export const DATES_STATES = ['dates', 'dates-free', 'dates-empty', 'dates-day', 'dates-dayblocked', 'qr', 'qr-booked', 'qr-issued', 'qr-fail'] as const;
+export const DATES_STATES = ['dates', 'dates-free', 'dates-empty', 'dates-day', 'dates-dayblocked', 'dates-sunday', 'qr', 'qr-booked', 'qr-issued', 'qr-fail'] as const;
 export type DatesState = (typeof DATES_STATES)[number];
 
 const TODAY = '2026-10-02'; // Fri Oct 2 in Manila (the lab's NOW)
@@ -54,9 +56,12 @@ const BOOKINGS = [
   { poolId: 'p-second', bookedDate: '2026-10-10', eventName: 'Bautista christening' },
   { poolId: 'p-main', bookedDate: '2026-10-31', eventName: 'Santos wedding' },
 ];
-const BLOCKS = [
-  { poolId: null, source: 'manual' as const, startDate: '2026-10-14', endDate: '2026-10-15', label: 'Family trip', clientName: null },
-  { poolId: 'p-second', source: 'external_client' as const, startDate: '2026-10-17', endDate: '2026-10-17', label: null, clientName: 'Lopez anniversary' },
+const BLOCKS: DatesBlock[] = [
+  { poolId: null, source: 'manual', startDate: '2026-10-14', endDate: '2026-10-15', label: 'Family trip', clientName: null },
+  // The parish's case (owner 2026-10-14): every Sunday morning, Masses — one row, repeating, part of the day.
+  { poolId: null, source: 'manual', startDate: '2026-09-06', endDate: '2026-09-06', label: 'Masses', repeat: 'weekly', repeatUntil: null, dayPart: 'morning' },
+  { poolId: 'p-second', source: 'external_client', startDate: '2026-10-17', endDate: '2026-10-17', label: null, clientName: 'Lopez anniversary', clientTime: '15:00' },
+  { poolId: 'p-main', source: 'external_client', startDate: '2026-10-11', endDate: '2026-10-11', label: null, clientName: 'Mendoza & Cruz', clientTime: '15:00' },
 ];
 const ASKS = [
   { requestedDate: '2026-10-24', count: 2 },
@@ -78,34 +83,57 @@ const WAIT_FREE: DatesWaitlist = { ...WAIT_ON, tierCap: 0, on: false, cap: 1, da
 
 const ACTIONS = { removeBlock, updateWaitlistSettings, pickWaitlistCouple, notifyWaitlistSlot, updatePoolCapacity, createCalendar, editCalendar, reassignCategoryPool };
 
-const DAY: DaySheetData = {
-  day: '2026-10-03',
-  today: TODAY,
-  calendarsLine: 'Main team',
-  backHref: '/dev/supplier-lab?s=dates',
-  bookings: [{ key: 'b1', title: 'Reyes debut', line: 'Tagaytay · Debut · Main team', href: '/dev/supplier-lab?s=dates-day' }],
-  outside: [],
-  holders: [
-    { threadId: 't-dela', title: 'Dela Cruz', line: 'asked Sep 30 · not booked' },
-    { threadId: 't-santos', title: 'Santos', line: 'asked Oct 1 · not booked' },
-  ],
-  holdersMeasured: true,
-  waiting: 0,
-  closures: [],
-  holds: [],
-  whoWorks: 'You',
-};
-const DAY_BLOCKED: DaySheetData = {
-  ...DAY,
-  day: '2026-10-14',
-  calendarsLine: '',
-  bookings: [],
-  holders: [],
-  closures: [{ blockId: 'blk-1', label: 'Family trip', startDate: '2026-10-14', endDate: '2026-10-15', scope: 'every calendar' }],
-  holds: [{ key: 'h1', scope: 'p-second', title: 'Held by you', line: 'Second team' }],
-  waiting: 2,
-  whoWorks: null,
-};
+/** A day as the page builds it — the REAL `dayGroupsOf` / `dayAnswerOfGroups` over the fixtures. */
+function labDay(day: string, pools: SchedulePool[], extra: Partial<DaySheetData>): DaySheetData {
+  const groups = dayGroupsOf(day, {
+    today: TODAY,
+    pools,
+    bookings: BOOKINGS.filter((b) => b.bookedDate === day).map((b, i) => ({
+      key: `b${i}`,
+      poolId: b.poolId,
+      title: b.eventName,
+      line: 'Tagaytay · Debut · Booked here',
+      href: '/dev/supplier-lab?s=dates-day',
+    })),
+    blocks: BLOCKS.map((b, i) => ({ ...b, blockId: `blk-${i}` })),
+    holds: [],
+  });
+  const holders = extra.holders ?? [];
+  return {
+    day,
+    today: TODAY,
+    sub: '',
+    backHref: '/dev/supplier-lab?s=dates',
+    answer: dayAnswerOfGroups(groups, holders.length),
+    groups,
+    holders,
+    holdersMeasured: true,
+    holdingCeiling: 5,
+    waiting: 0,
+    closures: [],
+    holds: [],
+    whoWorks: null,
+    qrHref: `/dev/supplier-lab?s=qr-booked`,
+    ...extra,
+  };
+}
+const DAY = (): DaySheetData =>
+  labDay('2026-10-03', [MAIN, SECOND], {
+    sub: 'Tomorrow',
+    holders: [
+      { threadId: 't-dela', title: 'Dela Cruz', line: 'asked Sep 30 · not booked' },
+      { threadId: 't-santos', title: 'Santos', line: 'asked Oct 1 · not booked' },
+    ],
+    whoWorks: 'You',
+  });
+const DAY_BLOCKED = (): DaySheetData =>
+  labDay('2026-10-14', [MAIN, SECOND], {
+    sub: 'in 12 days',
+    closures: [{ blockId: 'blk-0', label: 'Family trip', startDate: '2026-10-14', endDate: '2026-10-15', scope: 'every schedule', repeatWords: '' }],
+    holds: [{ key: 'h1', scope: 'p-second', title: 'Held by you', line: 'Second team' }],
+    waiting: 2,
+  });
+const DAY_SUNDAY = (): DaySheetData => labDay('2026-10-11', [MAIN], { sub: 'in 9 days · Main team schedule' });
 
 const LAB_TOASTS = {
   blocked: { text: 'Blocked. Couples see only “unavailable”.', tone: 'ok' as const },
@@ -178,13 +206,25 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
     );
   }
 
-  if (state === 'dates-day' || state === 'dates-dayblocked') {
+  if (state === 'dates-day' || state === 'dates-dayblocked' || state === 'dates-sunday') {
     return (
       <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
         {t ? <SupplierToast {...t} /> : null}
-        <DaySheet data={state === 'dates-day' ? DAY : DAY_BLOCKED} actions={{ addManualBlock, removeBlock, setCalendarDayState, notifyWaitlistSlot }} />
+        <DaySheet
+          data={state === 'dates-day' ? DAY() : state === 'dates-sunday' ? DAY_SUNDAY() : DAY_BLOCKED()}
+          actions={{ addManualBlock, removeBlock, setCalendarDayState, notifyWaitlistSlot }}
+        />
         <SupplierThumbRow name="dates" label="Date tools">
-          <OutsideClientAdd pools={[MAIN, SECOND]} action={importExternalClient} today={TODAY} setupHref={base} returnTo="dates" />
+          <OutsideClientAdd
+            pools={state === 'dates-sunday' ? [MAIN] : [MAIN, SECOND]}
+            action={importExternalClient}
+            today={TODAY}
+            setupHref={base}
+            returnTo="dates"
+            day={state === 'dates-sunday' ? '2026-10-11' : state === 'dates-day' ? '2026-10-03' : '2026-10-14'}
+            seats={seatsByPool([MAIN, SECOND], BOOKINGS, BLOCKS, TODAY)}
+            label="Add a booking"
+          />
         </SupplierThumbRow>
       </div>
     );
@@ -200,7 +240,7 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
         <div id="calendar">
           {pools.length === 0 ? (
             <p className="mb-2 text-[13.5px] text-ink/70" data-dates-no-calendar="">
-              Calendar not set — open Capacity below to make one.
+              Schedule not set — open How many a day below to make one.
             </p>
           ) : null}
           <CustomersCalendar
@@ -222,7 +262,14 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
           today={TODAY}
           month="2026-10"
           open={open ?? null}
-          closures={state === 'dates-empty' ? [] : [{ blockId: 'blk-1', label: 'Family trip', startDate: '2026-10-14', endDate: '2026-10-15', scope: 'every calendar' }]}
+          closures={
+            state === 'dates-empty'
+              ? []
+              : [
+                  { blockId: 'blk-1', label: 'Masses', startDate: '2026-09-06', endDate: '2026-09-06', scope: 'every schedule', repeat: 'weekly', repeatUntil: null, dayPart: 'morning' },
+                  { blockId: 'blk-0', label: 'Family trip', startDate: '2026-10-14', endDate: '2026-10-15', scope: 'every schedule' },
+                ]
+          }
           closuresIncomplete={false}
           waitlist={state === 'dates' ? WAIT_ON : WAIT_FREE}
           calendars={pools.map((p) => ({
@@ -241,12 +288,16 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
             { serviceId: 'svc-2', label: 'Styling', poolId: 'p-second' },
           ]}
           qrHref="/dev/supplier-lab?s=qr"
+          slotsHref="/dev/supplier-lab?s=dates"
+          icsHref="/dev/supplier-lab?s=dates"
+          approveFirst
+          blockAdd={<BlockDateAdd pools={pools} action={addManualBlock} today={TODAY} month="2026-10" />}
           actions={ACTIONS}
         />
       </div>
       <SupplierThumbRow name="dates" label="Date tools">
-        <BlockDateAdd pools={pools} action={addManualBlock} today={TODAY} month="2026-10" />
-        <OutsideClientAdd pools={pools} action={importExternalClient} today={TODAY} setupHref={base} returnTo="dates" />
+        {pools.length > 0 ? <CheckADate /> : null}
+        <OutsideClientAdd pools={pools} action={importExternalClient} today={TODAY} setupHref={base} returnTo="dates" seats={seatsByPool(pools, BOOKINGS, BLOCKS, TODAY)} />
       </SupplierThumbRow>
     </div>
   );

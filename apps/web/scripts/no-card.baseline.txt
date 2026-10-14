@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 685 files · 1892 lines
+# 684 files · 1890 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -604,7 +604,6 @@
 3 apps/web/app/vendor-dashboard/disputes/page.tsx
 10 apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx
 1 apps/web/app/vendor-dashboard/messages/_components/inquiry-outcomes-rollup.tsx
-2 apps/web/app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx
 4 apps/web/app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx

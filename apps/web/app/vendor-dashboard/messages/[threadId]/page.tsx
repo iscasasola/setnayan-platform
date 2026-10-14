@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays, CheckCircle2, ChevronLeft, CircleDashed, XCircle } from 'lucide-react';
+import { CalendarDays, ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -114,11 +114,11 @@ import {
   serviceTagVaries,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
-import { AnswerAskButton, CHAT_ATTACH_INPUT_ID, ThreadToolsSheet } from './_components/thread-tools-sheet';
+import { CHAT_ATTACH_INPUT_ID, ThreadToolsSheet } from './_components/thread-tools-sheet';
+import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from './_components/thread-answer-line';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
-import { threadDayIsOpen, threadDayWords, type ThreadDayAnswer } from '@/lib/thread-day-answer';
-import { dayTitle, daySheetHref } from '@/lib/vendor-dates';
+import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { manilaDate } from '@/lib/vendor-schedule';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
@@ -1343,7 +1343,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
      what keeps the rail cheap and every anchor id unique. */
   const vendorTools = toolsMounted ? (
       <div>
-        {VENDOR_THREAD_PANELS.filter((t) => toolNodes[t.id] != null).map((t) => (
+        {/* A panel whose body is null (the booking ask, while none is open) is not drawn at all. */}
+        {VENDOR_THREAD_PANELS.map((t) => toolNodes[t.id] == null ? null : (
           <ThreadToolPanel
             key={t.id}
             id={t.id}
@@ -1429,55 +1430,22 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     guestCountChanges: paxProposals.length,
   };
 
-  /* THE ANSWER LINE — the couple's initials, their date (a door to that day on Dates) and the day's answer from the
-     supplier's own schedules. While their booking ask is open, the one tap that answers it sits on the same line. */
-  const dayWords = dayAnswer ? threadDayWords(dayAnswer) : null;
+  /* THE ANSWER LINE — the couple's initials, their date and the day's answer (`ThreadAnswerLine`). */
   const eventDay = event?.event_date ? String(event.event_date).slice(0, 10) : null;
-  const DayIcon = dayWords?.tone === 'ok' ? CheckCircle2 : dayWords?.tone === 'danger' ? XCircle : CircleDashed;
   const answerLine = (
-    <div
-      data-thread-day-answer={dayAnswer?.kind ?? 'unknown'}
-      className="flex min-h-[56px] items-center gap-3 border-b border-ink/10 px-3 py-2 sm:px-4"
-    >
-      <span
-        aria-hidden
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sn-accent/10 text-[13px] font-semibold text-ink"
-      >
-        {railInitials}
-      </span>
-      <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-[15px] text-ink">
-        {eventDay ? (
-          <Link href={daySheetHref(eventDay)} className="font-medium underline-offset-2 hover:underline">
-            {dayTitle(todayIso, eventDay)}
-          </Link>
-        ) : null}
-        {dayWords ? (
-          <>
-            {eventDay ? <span aria-hidden className="text-ink/40">·</span> : null}
-            <b
-              className={`inline-flex items-center gap-1 font-semibold ${
-                dayWords.tone === 'ok' ? 'text-success-700' : dayWords.tone === 'danger' ? 'text-danger-700' : 'text-ink/60'
-              }`}
-            >
-              <DayIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
-              {dayWords.word}
-            </b>
-          </>
-        ) : null}
-      </p>
-      {askOpen && toolsMounted ? <AnswerAskButton /> : null}
-    </div>
+    <ThreadAnswerLine
+      initials={railInitials}
+      eventDay={eventDay}
+      todayIso={todayIso}
+      answer={dayAnswer}
+      askOpen={askOpen && toolsMounted}
+    />
   );
 
-  /* QUICK REPLIES (prototype "Yes po, that day is free · Let me check and reply today · Sending our price now") —
-     offered only while the couple spoke last, so they never sit over a conversation the supplier already answered.
-     Each is the shipped send (`sendChatMessage`) as a plain form; the "free" one only on a day that IS open. */
+  /* QUICK REPLIES — offered only while the couple spoke last, so they never sit over a conversation the supplier
+     already answered; "Yes po, that day is free" only on an open day (`quickRepliesFor`). */
   const lastFromCouple = lastThreadMessage?.sender_role === 'couple';
-  const quickReplies = [
-    ...(threadDayIsOpen(dayAnswer) ? ['Yes po, that day is free'] : []),
-    'Let me check and reply today',
-    'Sending our price now',
-  ];
+  const quickReplies = quickRepliesFor(dayAnswer);
 
   msgTimer.flush();
 
@@ -1787,21 +1755,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   </p>
                 ) : null}
                 {lastFromCouple ? (
-                  <div className="flex gap-2 overflow-x-auto pb-0.5" data-quick-replies="">
-                    {quickReplies.map((q) => (
-                      <form key={q} action={sendChatMessage} className="shrink-0">
-                        <input type="hidden" name="thread_id" value={threadId} />
-                        <input type="hidden" name="body" value={q} />
-                        <input type="hidden" name="return_to" value={`/vendor-dashboard/messages/${threadId}`} />
-                        <SubmitButton
-                          pendingLabel="Sending…"
-                          className="sn-press inline-flex min-h-11 items-center whitespace-nowrap rounded-full border border-ink/15 bg-ink/[0.04] px-4 text-sm text-ink hover:border-ink/30"
-                        >
-                          {q}
-                        </SubmitButton>
-                      </form>
-                    ))}
-                  </div>
+                  <QuickReplies threadId={threadId} replies={quickReplies} sendAction={sendChatMessage} />
                 ) : null}
                 {/* NOTHING BETWEEN THE LAST MESSAGE AND THE BOX BUT THE BOX.
                     ＋ · message · Send (simpler supplier dashboard step 4, 2026-10-14): the grey ＋ opens ONE sheet

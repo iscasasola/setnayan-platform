@@ -240,17 +240,31 @@ function QuoteSection({
 
 /** The three ways to be paid the prototype offers, plus whatever the supplier has built by hand. */
 type PlanPreset = 'p20' | 'half' | 'full';
-const PLAN_PRESETS: ReadonlyArray<{ key: PlanPreset; label: string; percent: number; finalDays: number }> = [
-  { key: 'p20', label: '20% to book · rest 7 days before', percent: 20, finalDays: 7 },
-  { key: 'half', label: 'Half to book · half 7 days before', percent: 50, finalDays: 7 },
-  { key: 'full', label: 'Full when they book', percent: 100, finalDays: 7 },
-];
+/** The prototype's final-payment timing for its plans, in days before the event. */
+const PLAN_FINAL_DAYS = 7;
+/** The prototype's three plans — each label is composed from the plan's own numbers, never typed beside them. */
+const PLAN_PRESETS: ReadonlyArray<{ key: PlanPreset; label: string; percent: number; finalDays: number }> = (
+  [
+    ['p20', 20],
+    ['half', 50],
+    ['full', 100],
+  ] as const
+).map(([key, percent]) => ({
+  key,
+  percent,
+  finalDays: PLAN_FINAL_DAYS,
+  label:
+    percent === 100
+      ? 'Full when they book'
+      : percent === 50
+        ? `Half to book · half ${PLAN_FINAL_DAYS} days before`
+        : `${percent}% to book · rest ${PLAN_FINAL_DAYS} days before`,
+}));
 
 /** "Good for" — the prototype's three, plus no end date. */
+const GOOD_FOR_DAYS = [7, 14, 30] as const;
 const GOOD_FOR: ReadonlyArray<{ key: string; label: string; days: number | null }> = [
-  { key: '7', label: '7 days', days: 7 },
-  { key: '14', label: '14 days', days: 14 },
-  { key: '30', label: '30 days', days: 30 },
+  ...GOOD_FOR_DAYS.map((d) => ({ key: String(d), label: `${d} days`, days: d })),
   { key: 'none', label: 'No end date', days: null },
 ];
 
@@ -2234,7 +2248,8 @@ export function ProposalMaker({
         </button>
         {asTheySee ? (
           <div className="mt-3 flex justify-center">
-            <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
+            {/* no-card-ok: this IS the couple's quote card (the stream's own frame), reproduced so the supplier sees it as they will. */}
+            <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3"> {/* no-card-ok: the couple's quote card, as they see it */}
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">📄 Quote</p>
               <p className="mt-1 text-sm font-semibold text-ink">{title.trim() || cardTitle || 'Your quote'}</p>
               <p className="text-sm text-ink/70">
@@ -2247,7 +2262,7 @@ export function ProposalMaker({
                   {coupleCard.primary.label}
                 </span>
                 {coupleCard.offerCounter ? (
-                  <span className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry">
+                  <span className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry"> {/* no-card-ok: a drawn copy of the couple's Counter-offer pill */}
                     Counter-offer
                   </span>
                 ) : null}

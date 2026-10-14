@@ -1,4 +1,7 @@
-import { formatCentavos, type ProposalLineItem } from '@/lib/vendor-proposals';
+import { formatCentavos } from '@/lib/vendor-proposals';
+
+/** A line as both callers hold it — the stream's stored row (label may be null) and the builder's composed one. */
+export type QuoteCardLine = { label: string | null; detail?: string | null; amount_centavos: number | null };
 
 /**
  * THE LINES ON A QUOTE CARD IN THE CONVERSATION — the first five, then "+ N more in the full quote".
@@ -7,7 +10,7 @@ import { formatCentavos, type ProposalLineItem } from '@/lib/vendor-proposals';
  * (`chat-message-stream.tsx`), and the supplier's quote screen draws it under "As they see it" (`proposal-maker.tsx`,
  * simpler supplier dashboard step 4) — so the preview is the shipped card's own markup, never a redrawing of it.
  */
-export function QuoteCardLines({ items }: { items: readonly ProposalLineItem[] }) {
+export function QuoteCardLines({ items }: { items: readonly QuoteCardLine[] }) {
   const shown = items.filter((li) => li.label?.trim());
   if (shown.length === 0) return null;
   return (

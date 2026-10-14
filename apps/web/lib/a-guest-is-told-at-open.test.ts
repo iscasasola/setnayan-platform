@@ -45,6 +45,8 @@ test('the camera STARTS run out — before a shot, not after a refused one', () 
 });
 
 test('the guest is told in the owner\'s words, in credits, and "running low" stays quiet', () => {
-  assert.match(CAMERA, /credits have run out — the hosts can add more/);
+  // Said ONCE — over the viewfinder; the caption under it no longer repeats it (walk-b6 guest F2).
+  assert.equal((CAMERA.match(/credits have run out — the hosts can add more/g) ?? []).length, 1, 'the run-out sentence is said twice again');
+  assert.match(CAMERA, /\{exhausted && poolEmpty \? null : \(/, 'the caption speaks over the run-out sentence again');
   assert.match(CAMERA, /: poolEmpty \? null\s*: poolLow \? \(/, 'at zero the "Running low for everyone" pill would be false');
 });

@@ -178,7 +178,26 @@ test('the receipt fires on the WAIVED arm, and the waived arm alone', () => {
   // so slicing from it swallowed the waived arm itself and this assertion
   // convicted a correct tree. A guard anchored on the first match faces the
   // wrong cell.
-  const billable = src.slice(armEnd);
+  //
+  // ⚖ 2026-10-12 (audit item 4): every OTHER waiver with an amount — a free
+  // window today — sends the same receipt from the not-billable arm that
+  // returns `zero_fee`, gated on the ONE list `WAIVED_FEE_RECEIPT_STATUSES`.
+  // So the billable path now begins after THAT arm's return, and the not-
+  // billable arm must name the list rather than send unconditionally (a ₱0
+  // `paid` or an import is not a waiver and gets no receipt).
+  const zeroArm = src.indexOf("res.status !== 'pending'", armEnd);
+  const zeroEnd = src.indexOf("status: 'zero_fee'", zeroArm);
+  assert.ok(zeroArm > armEnd && zeroEnd > zeroArm, 'the not-billable arm is gone or moved');
+  const notBillable = src.slice(zeroArm, zeroEnd);
+  assert.ok(
+    notBillable.includes('sendWaivedFeeReceipt'),
+    'a promo-waived booking returns zero_fee without its receipt — the supplier hears nothing',
+  );
+  assert.ok(
+    notBillable.includes('WAIVED_FEE_RECEIPT_STATUSES.has(res.status)'),
+    'the not-billable arm sends a receipt without asking whether the status IS a waiver',
+  );
+  const billable = src.slice(zeroEnd);
   assert.ok(billable.length > 1000, `billable slice floor: ${billable.length} chars`);
   assert.ok(
     !billable.includes('sendWaivedFeeReceipt'),
@@ -349,4 +368,41 @@ test('the COUPLE is told nothing about the supplier’s fee', () => {
     !/event_members|couple/i.test(fn),
     'the waived receipt reaches for the couple — it is the supplier’s fee, and only theirs',
   );
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   4 · EVERY WAIVER, NOT ONLY THE FREE FIVE (audit 2026-10-12, item 4)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+test('a promo-waived booking gets a receipt that says WHY, and spends none of the five', async () => {
+  // SABOTAGE: drop 'waived_promo' from WAIVED_FEE_RECEIPT_STATUSES → RED; make
+  // the promo branch print the free-5 position → RED.
+  const { WAIVED_FEE_RECEIPT_STATUSES, waivedFeeReasonOf } = await import('./booking-fee-disclosure');
+  assert.ok(WAIVED_FEE_RECEIPT_STATUSES.has('waived_free5'));
+  assert.ok(WAIVED_FEE_RECEIPT_STATUSES.has('waived_promo'), 'a promo waiver sends no receipt');
+  assert.ok(
+    !WAIVED_FEE_RECEIPT_STATUSES.has('waived_import'),
+    "a supplier's own client never had a fee to waive — a receipt would invent one",
+  );
+  assert.equal(waivedFeeReasonOf('waived_promo'), 'promo');
+  assert.equal(waivedFeeReasonOf('waived_free5'), 'free5');
+
+  const promo = waivedFeeReceiptCopy({ ...CHARGE, reason: 'promo', ordinal: 9 });
+  assert.match(promo.title, /₱508\.50 — waived for Rosa & Ben/);
+  assert.match(promo.body, /free-fee promotion/);
+  assert.match(promo.body, /did not use up any of your free bookings/);
+  assert.doesNotMatch(promo.body, /booking 9 of your first/, 'a promo booking claimed a free-5 position');
+  assert.doesNotMatch(promo.body, /more free booking/);
+});
+
+test('the fee hub and the receipt read the SAME waiver list as the collector', () => {
+  const server = stripComments(readFileSync(join(HERE, 'booking-fee-disclosure.server.ts'), 'utf8'));
+  assert.ok(
+    !server.includes(".eq('status', 'waived_free5')"),
+    'a waived-charge read still filters the free five alone — a promo waiver would be sent a ' +
+      'receipt and then be missing from the hub',
+  );
+  const reads = server.match(/\.in\('status', WAIVED_STATUSES\)/g) ?? [];
+  assert.equal(reads.length, 2, `expected both waived reads on the one list, found ${reads.length}`);
+  assert.ok(server.includes('[...WAIVED_FEE_RECEIPT_STATUSES]'), 'the hub list is not the receipt list');
 });

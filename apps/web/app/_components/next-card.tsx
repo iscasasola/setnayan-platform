@@ -27,6 +27,16 @@ import type { ReactNode } from 'react';
  * quiet "Later" under the button. It posts an EXISTING server action (no new
  * one), so the offer is answered without a line of client code.
  */
+/**
+ * 🌑 THE EVENT-DAY CARD (frame 02) — dark in BOTH themes. Its ground is the
+ * page's dark ink in light mode; in dark mode `ink` turns to paper, so the card
+ * would flip to a white slab — there it takes a raised dark of its own (the
+ * page's ground lifted toward paper), and its words stay paper. One class list,
+ * read by the guard that holds it readable.
+ */
+export const NEXT_DAY_CARD =
+  'home-card !border-ink !bg-ink !text-cream dark:!border-ink/25 dark:![background:color-mix(in_srgb,rgb(var(--color-ink))_12%,rgb(var(--color-cream)))] dark:!text-ink [&_.home-card-body]:!text-cream/70 [&_.home-eyebrow]:!text-cream/70 dark:[&_.home-card-body]:!text-ink/70 dark:[&_.home-eyebrow]:!text-ink/70';
+
 export function NextCard({
   marker,
   kind,
@@ -37,6 +47,11 @@ export function NextCard({
   later = null,
   actions,
   bad = false,
+  meta,
+  counter = null,
+  day = false,
+  note,
+  soft = false,
 }: {
   marker: 'data-home-next' | 'data-today-next';
   kind: string;
@@ -56,14 +71,57 @@ export function NextCard({
   actions?: ReactNode;
   /** A read failed — the card says so in the danger wash (H3), never as success. */
   bad?: boolean;
+  /**
+   * 🧾 THE SUPPLIER'S TODAY (redesign S-PR1, 2026-10-08 —
+   * `prototypes/supplier_dashboard_2026-10-08_fable.html` frames 01 · 02 · 31).
+   * All four are optional and only read by the `actions` variant; a caller
+   * that passes none (the couple's Home) gets the card exactly as it was.
+   *   `meta`    a few words after the eyebrow ("waiting 2 h" · "answer today")
+   *   `counter` where this is in the queue ("1 of 3"), top right
+   *   `day`     an event is TODAY — the card goes ink, its words paper
+   *   `note`    one line under the buttons, said BEFORE the press
+   *   `soft`    the supplier prototype's title: 24 px, medium (`.next h2`).
+   *             Only the words — the card has no ground of its own any more.
+   *
+   * 🧾 NO FRAME, NO FILL (owner 2026-10-12, "APPROVE ALL" look call 9: the
+   * Next card keeps the approved layout "with the look board's styling (no
+   * frame on the main card)"). The card sits on the page's own ground, like
+   * the rows under it — no border, no tint, no gold wash. Fixed ONCE, here, so
+   * the couple's Home and the supplier's Today stay one card. Two states keep
+   * a ground of their own because they ARE their state: a failed read (`bad`,
+   * the danger wash — it must never look like success) and an event day
+   * (`day`, the dark card of frame 02).
+   */
+  meta?: ReactNode;
+  counter?: string | null;
+  day?: boolean;
+  note?: ReactNode;
+  soft?: boolean;
 }) {
   if (actions !== undefined) {
     return (
-      <div {...{ [marker]: kind }} data-next-bad={bad ? '' : undefined} className={`home-card${bad ? ' home-card-bad' : ''}`}>
-        <p className="home-eyebrow">Your next step</p>
+      <div
+        {...{ [marker]: kind }}
+        data-next-bad={bad ? '' : undefined}
+        data-next-day={day ? '' : undefined}
+        data-next-bare={bad || day ? undefined : ''}
+        className={`relative min-w-0 text-left text-ink${
+          bad ? ' home-card home-card-bad' : day ? ` ${NEXT_DAY_CARD}` : ' py-1'
+        }${soft ? ' [&_.home-card-title]:!text-[24px] [&_.home-card-title]:!font-medium [&_.home-card-title]:!leading-[1.1]' : ''}`}
+      >
+        {counter ? (
+          <span data-next-counter="" className={`absolute right-3.5 top-3 text-[12px] ${day ? 'text-cream/70 dark:text-ink/70' : 'text-ink/60'}${bad || day ? '' : ' !right-0 !top-1'}`}>
+            {counter}
+          </span>
+        ) : null}
+        <p className="home-eyebrow">
+          Your next step
+          {meta ? <> · {meta}</> : null}
+        </p>
         <h2 className="home-card-title">{title}</h2>
         <p className="home-card-body">{body}</p>
         <div className="home-acts">{actions}</div>
+        {note ? <p data-next-note="" className={`mt-2 text-[12.5px] leading-snug ${day ? 'text-cream/70 dark:text-ink/70' : 'text-ink/60'}`}>{note}</p> : null}
       </div>
     );
   }

@@ -406,7 +406,7 @@ const STILL: Record<string, string> = {
   'app/admin/studio/_surfaces/social-queue-surface.tsx': 'the preview of an EXPORTED social image',
   'app/panood/control/[eventId]/page.tsx': 'the broadcast corner mark — composited into the stream (the encoder canvas), an export',
   'app/panood/program/[eventId]/program-surface.tsx': 'the OBS program window — whatever it shows is broadcast, an export',
-  'app/vendor-dashboard/_components/qr-section.tsx': 'a QR code, not the couple’s logo',
+  'app/_components/qr-card.tsx': 'a QR code (kind 24), not the couple’s logo',
   'app/monogram/public-monogram-studio.tsx': 'the public monogram tool’s download (an export), not a couple’s saved logo',
   'app/dev/hero-lab/page.tsx': 'a dev-only lab',
   'app/dev/guests-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in for the Digital Pass picture (a sample card with a text name) — not the couple’s saved logo',

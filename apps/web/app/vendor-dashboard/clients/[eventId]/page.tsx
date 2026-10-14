@@ -54,7 +54,6 @@ import {
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
-import { computePlanRollup } from '@/lib/vendor-service-payment-schedules';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -83,7 +82,7 @@ import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
 import { COORDINATOR_TILE } from '@/lib/day-requests';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
-import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { resolveEventFeeGate, resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { redactBriefForStage, reconcileStageWithPayload } from '@/lib/event-access-stage';
 import { EventLockedByFee } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
@@ -109,8 +108,12 @@ import {
   vendorAgreeToLock,
   vendorDeclineLock,
 } from './actions';
-import { lockRequestFuseLabel } from '@/lib/lock-request-state';
+import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
+import { lockAgreeFeeHeld, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
+import { CustomerMoneyFold } from './_components/customer-money-fold';
 import { BookingMoneySummary } from './_components/booking-money-summary';
 import { bookingMoney, type BookingMoney } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
@@ -187,11 +190,7 @@ import {
   type FeeDisclosure,
   type WaivedFeeCharge,
 } from '@/lib/booking-fee-disclosure';
-import {
-  BookingFeeBills,
-  BookingFeeNotice,
-  WaivedFeeRows,
-} from '@/app/_components/booking-fee-notice';
+import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
@@ -480,6 +479,13 @@ type Props = {
     completed?: string;
     /** The payment-ask outcome flag — see PaymentAsksPanel. */
     ask?: string;
+    /** `vendorAgreeToLock` / `vendorDeclineLock` answered from THIS card
+     *  (`return_to`) — the sentence is said where the supplier pressed. */
+    lock_agree?: string;
+    /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
+    fee?: string;
+    lock_decline?: string;
+    competing?: string;
   }>;
 };
 
@@ -622,7 +628,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       admin
         .from('event_vendors')
         .select(
-          'vendor_id, source, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_declined_at, deposit_decline_reason, deposit_proof_url',
+          'vendor_id, source, status, lock_request_state, lock_declined_at, lock_decline_reason, lock_request_expires_at, lock_request_cancelled_at, completion_status, service_marked_complete_at, customer_confirmed_received_at, deposit_recorded_at, deposit_acknowledged_at, deposit_declined_at, deposit_decline_reason, deposit_proof_url',
         )
         .eq('event_id', eventId)
         .eq('marketplace_vendor_id', profile.vendor_profile_id)
@@ -675,7 +681,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ]),
   );
 
-  const completionRow = (evRow ?? null) as {
+  const completionRow = (evRow ?? null) as ({
     vendor_id: string | null;
     source: string | null;
     completion_status: string | null;
@@ -686,7 +692,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     deposit_declined_at: string | null;
     deposit_decline_reason: string | null;
     deposit_proof_url: string | null;
-  } | null;
+  } & SupplierAskRow) | null;
+  // 🔒 THE LAST ASK, WHEN IT CLOSED WITHOUT A BOOKING (pair P2, owner
+  // 2026-10-10: "ask, agree, decline, lapse, withdraw all show on both pages in
+  // the same words"). While it is open the panel below answers it; once the
+  // supplier said no, the 48 hours ran out or the couple took it back, the card
+  // says so — the sentence the couple's Build and Find read for this same row
+  // (`lib/booking-ask-words.ts`). Before this the card simply went back to
+  // "In conversation", as if nobody had ever asked.
+  const askOutcome =
+    isBooked || lockRequest ? null : supplierAskOutcomeOf(completionRow, isLockHandshakeEnabled());
+  // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
+  const lockNotice =
+    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee) }) ??
+    lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored
   // value, which the couple's session can write (a `https://wa.me/…` there
@@ -746,9 +765,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     : null;
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
-  const clientFeeBillsRead = await fetchDueFeeBills(supabase, user.id).catch(
-    () => FEE_BILLS_UNREADABLE,
-  );
+  // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
+  const [clientFeeBillsRead, feeEnforced] = await Promise.all([
+    fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
+    resolveFeeEnforcement(),
+  ]);
   const clientFeeBills: DueFeeBill[] =
     clientFeeBillsRead === FEE_BILLS_UNREADABLE
       ? []
@@ -980,7 +1001,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // read them through the SAME admin-gated fetchers the chat thread uses
   // (ownership proven inside via event_vendors.marketplace_vendor_id === us).
   // NO RLS weakening, NO new SECURITY DEFINER — reuse only.
-  let planSteps: ReturnType<typeof computePlanRollup> | null = null;
   let planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null = null;
   let pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>> = [];
   // Full per-booking plan list — retained (beyond the single matched row) so the
@@ -1028,7 +1048,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     // eventVendorId matches the completion row (there is normally exactly one).
     planStepRows =
       plans.find((p) => p.eventVendorId === eventVendorId) ?? plans[0] ?? null;
-    if (planStepRows?.steps) planSteps = computePlanRollup(planStepRows.steps);
     pendingPayments = pending;
   }
   // H4 — what still waits on the SUPPLIER. A payment they said never arrived is
@@ -1476,13 +1495,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             them a request they could read and not answer. A decision with a
             seven-day fuse may not be reachable from exactly one screen. Same two
             server actions, no second state machine. */}
+        {lockNotice ? <LockAnswerLine notice={lockNotice} /> : null}
         {lockRequest ? (
           <LockRequestAnswer
             eventVendorId={lockRequest.event_vendor_id}
             expiresAt={lockRequest.expires_at}
             payoutReadiness={payoutReadiness}
             feeForecast={feeForecast}
+            returnTo={`/vendor-dashboard/clients/${eventId}`}
+            agreeLock={vendorAgreeToLock}
+            declineLock={vendorDeclineLock}
           />
+        ) : askOutcome ? (
+          <BookingAskOutcomeLine outcome={askOutcome} />
         ) : isBooked && !depositAcked ? (
           <PayoutMethodNudge readiness={payoutReadiness} context="client" />
         ) : null}
@@ -1490,7 +1515,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             the ask panel: by the time a fee exists the ask has been answered. */}
         <BookingFeeBills
           bills={clientFeeBills}
-          copyFor={(b) => feeDueCopy(b, manilaToday())}
+          copyFor={(b) => feeDueCopy(b, manilaToday(), feeEnforced)}
         />
         <WaivedFeeRows charges={clientWaived} />
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1700,9 +1725,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const quoteNode = (
     <QuoteTab
+      eventId={eventId}
       proposals={proposals}
       isBooked={isBooked}
-      planRollup={planSteps}
       planStepRows={planStepRows}
       // Only what still waits on the supplier — a refused payment is Setnayan's.
       pendingPayments={awaitingPayments}
@@ -2969,9 +2994,9 @@ function OverviewTab(props: {
 // QUOTE & PAYMENTS TAB
 // ===========================================================================
 function QuoteTab(props: {
+  eventId: string;
   proposals: ProposalRow[];
   isBooked: boolean;
-  planRollup: ReturnType<typeof computePlanRollup> | null;
   planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null;
   pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>>;
   /** No-plan booking: the logged payments and the balance (AREA-VENDOR). */
@@ -2987,9 +3012,9 @@ function QuoteTab(props: {
   askPanel: React.ReactNode;
 }) {
   const {
+    eventId,
     proposals,
     isBooked,
-    planRollup,
     planStepRows,
     pendingPayments,
     ledgerMoney,
@@ -3064,70 +3089,21 @@ function QuoteTab(props: {
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> A payment schedule
             appears once they book you and pay a first payment.
           </p>
-        ) : steps && steps.length > 0 && planRollup ? (
+        ) : (
           <>
-            <div className="mb-3 flex items-center justify-between text-xs text-ink/55">
-              <span>
-                <span className="font-semibold text-ink">{fmtPeso(planRollup.received)}</span>{' '}
-                received of {fmtPeso(planRollup.total)}
-              </span>
-              <span>{planRollup.percentReceived}%</span>
-            </div>
-            <div className="mb-4 h-2 overflow-hidden rounded-full bg-ink/10">
-              <div
-                className="h-full rounded-full bg-success-600"
-                style={{ width: `${Math.min(100, planRollup.percentReceived)}%` }}
-              />
-            </div>
-            <ul className="space-y-2">
-              {steps.map((s) => (
-                <li
-                  key={s.seq}
-                  className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
-                >
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                      s.state === 'paid'
-                        ? 'border-success-600 bg-success-600 text-white'
-                        : 'border-ink/20 bg-white'
-                    }`}
-                  >
-                    {s.state === 'paid' ? <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} /> : null}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">
-                      {s.label} · {fmtPeso(s.amount_php)}
-                    </p>
-                    {s.due_date ? (
-                      <p className="text-xs text-ink/55">Due {fmtShortDate(s.due_date)}</p>
-                    ) : null}
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                      s.state === 'paid'
-                        ? 'bg-success-100 text-success-900'
-                        : s.state === 'pending'
-                          ? 'bg-warn-100 text-warn-900'
-                          : 'bg-ink/5 text-ink/60'
-                    }`}
-                  >
-                    {s.state === 'paid' ? 'Paid' : s.state === 'pending' ? 'Pending' : 'Open'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {planRollup.next ? (
-              <div className="mt-3 flex items-center gap-2 rounded-xl border border-terracotta/25 bg-terracotta/[0.06] px-3 py-2.5 text-sm text-ink/70">
-                <Wallet aria-hidden className="h-4 w-4 shrink-0 text-terracotta" />
-                <span>
-                  Next expected: <span className="font-semibold text-ink">{planRollup.next.label}</span>{' '}
-                  · {fmtPeso(planRollup.next.amountPhp)}
-                  {planRollup.next.dueDate ? ` · due ${fmtShortDate(planRollup.next.dueDate)}` : ''}
-                </span>
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-success-700">All payments settled.</p>
-            )}
+            {/* Suppliers Pair 3 (2026-10-13): the Money fold — Paid · Due, the
+                instalments as kind 26 rows, and each payment the couple logged
+                answered HERE (Confirm received · Not received), not in chat. */}
+            <CustomerMoneyFold
+              eventId={eventId}
+              steps={steps}
+              clearedAt={planStepRows?.clearedAt ?? null}
+              pending={pendingPayments}
+              ledgerMoney={ledgerMoney}
+              ledgerUnreadable={ledgerUnreadable}
+              threadId={threadId}
+              unreadableNote={<LedgerUnreadableNote />}
+            />
             {planStepRows?.reservationAcknowledgedAt ? (
               <p className="mt-2 text-xs text-ink/45">
                 Protected by your reservation policy · acknowledged{' '}
@@ -3135,44 +3111,7 @@ function QuoteTab(props: {
               </p>
             ) : null}
           </>
-        ) : ledgerUnreadable ? (
-          <LedgerUnreadableNote />
-        ) : ledgerMoney.rows.length > 0 ? (
-          <BookingMoneySummary money={ledgerMoney} />
-        ) : (
-          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
-            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No formal payment schedule
-            on this booking yet.
-          </p>
         )}
-
-        {/* Pending couple-logged payments awaiting confirmation. */}
-        {pendingPayments.length > 0 ? (
-          <div className="mt-3 rounded-xl border border-warn-300/50 bg-warn-50 px-3 py-2.5">
-            <p className="text-xs font-semibold text-warn-900">
-              {pendingPayments.length} payment{pendingPayments.length === 1 ? '' : 's'} awaiting your
-              confirmation
-            </p>
-            <ul className="mt-1.5 space-y-1 text-xs text-warn-900/85">
-              {pendingPayments.map((pp) => (
-                <li key={pp.paymentId}>
-                  {fmtPeso(pp.amountPhp)}
-                  {pp.installmentLabel ? ` · ${pp.installmentLabel}` : ''} · logged{' '}
-                  {fmtShortDate(pp.paidAt)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {threadId ? (
-          <Link
-            href={`/vendor-dashboard/messages/${threadId}`}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-cream"
-          >
-            <Wallet aria-hidden className="h-3.5 w-3.5" /> Log &amp; confirm payments in chat
-          </Link>
-        ) : null}
       </div>
 
       {/* Ask for a payment — directly under the balance it is about. */}
@@ -3991,101 +3930,6 @@ function ScheduleTab(props: {
           )}
         </ShopCard>
       ) : null}
-    </div>
-  );
-}
-
-/**
- * The supplier's answer, on the client card itself (PR-H slice B).
- *
- * 🔑 A SECOND PLACE TO ANSWER, NOT A SECOND ANSWER. Both buttons post to the
- * SAME two server actions the Overview feed's card uses, which post to the same
- * two DEFINER RPCs. Nothing about the state machine lives here — this file
- * decides where the control appears and nothing else. If the decline reason ever
- * changes shape, it changes in one place.
- *
- * ⚠ THE FORM CARRIES ONLY `vendor_id`. The actions read `event_id` off the
- * envelope the RPC returns from the row it authorized, never off the form — the
- * confused-deputy rule those actions carry in their own docblock.
- */
-function LockRequestAnswer({
-  eventVendorId,
-  expiresAt,
-  payoutReadiness,
-  feeForecast,
-}: {
-  eventVendorId: string;
-  expiresAt: string | null;
-  /** S19 — asked HERE because agreeing makes the deposit the couple's next step. */
-  payoutReadiness: PayoutReadiness;
-  /**
-   * What agreeing will cost them, named BEFORE the button. `null` when the fee
-   * system is dark or this booking carries none — silence, never a "₱0".
-   */
-  feeForecast: FeeDisclosure | null;
-}) {
-  // Server-rendered, so "now" is the render instant. The deadline is the one the
-  // DATABASE stamped and the sweep enforces — never a window recomputed here.
-  const left = lockRequestFuseLabel(expiresAt, new Date());
-  const fuse =
-    left === null
-      ? 'They are waiting on your answer.'
-      : left === 'closing now'
-        ? 'Closing now — once it does, the request is gone and they will look elsewhere.'
-        : `${left} — after that the request closes and they will look elsewhere.`;
-  return (
-    <div
-      className="mt-3 rounded-2xl border p-4"
-      style={{ borderColor: 'var(--sn-line)', background: 'var(--sn-surface, #fff)' }}
-    >
-      <p className="text-sm font-semibold text-ink">They want to book you</p>
-      <p className="mt-0.5 text-sm text-ink/60">{fuse}</p>
-      {/* Saying WHY the page is thin is part of the answer. Without this the
-          supplier reads the locked rows below as a broken page rather than as
-          the deal: the venue address and the run-of-show arrive with the yes. */}
-      <p className="mt-2 text-sm text-ink/55">
-        You are seeing the area, the date and the headcount. The exact venue and the
-        day-of run-of-show open the moment you agree.
-      </p>
-      <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
-      {/* ⚠ ABOVE THE BUTTON, NOT BELOW IT. A fee named after the press is a
-          receipt, not a disclosure. */}
-      <BookingFeeNotice disclosure={feeForecast} />
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <form action={vendorAgreeToLock}>
-          <input type="hidden" name="vendor_id" value={eventVendorId} />
-          <SubmitButton
-            pendingLabel="Agreeing…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-success)' }}
-          >
-            Agree to this booking
-          </SubmitButton>
-        </form>
-      </div>
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          Can&rsquo;t take this booking?
-        </summary>
-        <form action={vendorDeclineLock} className="mt-2 flex flex-wrap items-center gap-2">
-          <input type="hidden" name="vendor_id" value={eventVendorId} />
-          <input
-            type="text"
-            name="reason"
-            maxLength={240}
-            placeholder="Why? (optional — the couple sees this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
-            style={{ borderColor: 'var(--sn-line)' }}
-          />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Turn it down
-          </SubmitButton>
-        </form>
-      </details>
     </div>
   );
 }

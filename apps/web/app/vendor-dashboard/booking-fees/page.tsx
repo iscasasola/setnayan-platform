@@ -162,7 +162,7 @@ export default async function VendorBookingFeesPage() {
           whether any fee has ever been computed for this shop. */}
       {waived.length > 0 ? (
         <section className="mt-8">
-          <h2 className="sn-eye">Waived — your first 5</h2>
+          <h2 className="sn-eye">Waived — nothing owed</h2>
           <WaivedFeeRows charges={waived} />
         </section>
       ) : null}

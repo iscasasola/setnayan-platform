@@ -241,6 +241,46 @@ test('the couple can update and delete their own cost', () => {
   })();
 });
 
+test('an edit by someone who may not write changes NOTHING and raises NOTHING — so the edit asks for the row back', () => {
+  // Budget B2 (2026-10-08): the expense sheet saves Amount and Paid so far as
+  // the couple types, through `recordEventCost`'s `cost_id` branch. An UPDATE
+  // that RLS filters to zero rows is not an error in Postgres, and PostgREST
+  // reports it as `error: null`. If the action trusted that, the sheet would
+  // print "Saved." over a figure that never moved. This is the fact that makes
+  // `.select('cost_id')` + "no row came back = refused" load-bearing.
+  return (async () => {
+    const w = await seed('edit');
+    await tryInsert(w.couple, w.eventId, { label: 'Licence', amount: '600' });
+
+    for (const [who, uid] of [
+      ['a stranger', w.otherCouple],
+      ['a delegate who may only READ the budget', w.budgetDelegate],
+    ] as const) {
+      await asUser(uid);
+      const res = await db.query<{ cost_id: string }>(
+        `UPDATE public.event_costs SET amount_php = 1, paid_php = 1 WHERE event_id = $1 RETURNING cost_id`,
+        [w.eventId],
+      );
+      assert.equal(res.rows.length, 0, `${who} changed the couple's expense`);
+    }
+
+    await asUser(w.couple);
+    const kept = await db.query<{ amount_php: string; paid_php: string }>(
+      `SELECT amount_php, paid_php FROM public.event_costs WHERE event_id = $1`,
+      [w.eventId],
+    );
+    assert.equal(Number(kept.rows[0]!.amount_php), 600, 'the amount moved');
+    assert.equal(Number(kept.rows[0]!.paid_php), 0, 'the paid figure moved');
+
+    // And the couple's own edit DOES hand the row back.
+    const mine = await db.query<{ cost_id: string }>(
+      `UPDATE public.event_costs SET amount_php = 650, paid_php = 300 WHERE event_id = $1 RETURNING cost_id`,
+      [w.eventId],
+    );
+    assert.equal(mine.rows.length, 1, 'the couple could not edit their own expense');
+  })();
+});
+
 // ── 2 · WHO CAN READ IT ──────────────────────────────────────────────────────
 
 test('another couple sees NOTHING, and cannot plant a cost on this wedding', () => {

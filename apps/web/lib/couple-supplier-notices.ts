@@ -180,6 +180,7 @@ export const COUPLE_SUPPLIER_NOTICES = {
   },
   // ── The claim link ────────────────────────────────────────────────────────
   vendor_joined: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
+  vendor_invite_declined: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   // ── After the event ───────────────────────────────────────────────────────
   review_request: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   review_received: {

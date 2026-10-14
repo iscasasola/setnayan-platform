@@ -34,78 +34,64 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MODAL = path.join(HERE, 'new-manual-vendor-modal.tsx');
 const GLOBALS = path.resolve(HERE, '..', '..', '..', 'globals.css');
 
+/** The old hand-made dialog's classes — still defined in globals.css, still held to `backwards` below. */
 const SHEET_CLASSES = ['sn-addman-veil', 'sn-addman-sheet', 'sn-addman-field'];
+
+/*
+ * ⚠ RE-POINTED 2026-10-12 (suppliers step 2, the controller's template rule:
+ * every popup is the house `Sheet` — INTERACTION_RULES § 9, "popups darken +
+ * blur"). The sheet is no longer a hand-made `fixed inset-0` dialog wearing
+ * `sn-addman-veil` / `sn-addman-sheet` / `sn-addman-field`: it is
+ * `<Sheet … rise>`, whose motion is `.sn-rise` / `.sn-fade` and whose height cap
+ * and inner scroll are the Sheet's own (`max-h-[90dvh]`, `overflow-y-auto`). The
+ * PROMISES are unchanged and still asserted below: the motion reaches the
+ * render, it is `backwards` (never `both`), the sheet cannot grow off a short
+ * screen, and Save stays pinned. Only WHERE they live moved.
+ */
+const SHEET = path.resolve(HERE, '..', '..', '..', '_components', 'sheet.tsx');
 
 describe('the add-manually sheet is animated', () => {
   const modal = readFileSync(MODAL, 'utf8');
   const css = readFileSync(GLOBALS, 'utf8');
+  const sheet = readFileSync(SHEET, 'utf8');
 
-  it('found both files', () => {
+  it('found the files', () => {
     assert.ok(modal.length > 1000, 'modal source looks wrong — re-point this guard');
     assert.ok(css.includes('@keyframes'), 'globals.css looks wrong — re-point this guard');
+    assert.ok(sheet.includes('export function Sheet('), 'sheet.tsx looks wrong — re-point this guard');
   });
 
-  it('every motion class is BOTH defined and worn', () => {
-    for (const c of SHEET_CLASSES) {
-      assert.ok(css.includes(`.${c}`), `.${c} is not defined in globals.css`);
-      assert.ok(
-        modal.includes(c),
-        `.${c} is defined but nothing in the modal wears it — a keyframe no ` +
-          'component references animates nothing.',
-      );
+  it('the modal is the house Sheet, mounted WITH its rise', () => {
+    assert.match(modal, /<Sheet\b[^>]*\brise\b/, 'the add sheet is not the house Sheet with `rise` — it would open without motion');
+    assert.doesNotMatch(modal, /className="[^"]*\bfixed inset-0\b/, 'a hand-made fixed overlay is back in the modal');
+  });
+
+  it("the Sheet's rise and fade are defined, worn by the Sheet, and `backwards`", () => {
+    for (const c of ['sn-rise', 'sn-fade']) {
+      const i = css.indexOf(`.${c} {`);
+      assert.ok(i > 0, `.${c} is not defined in globals.css`);
+      const decl = css.slice(i, css.indexOf('}', i));
+      assert.match(decl, /\bbackwards\b/, `.${c} is not \`backwards\``);
+      assert.doesNotMatch(decl, /\bboth\b/, `.${c} uses \`both\``);
+      assert.ok(sheet.includes(c), `the Sheet no longer wears .${c}`);
     }
-  });
-
-  it('the backdrop and the sheet are the elements that carry it', () => {
-    // Pinned to the two mounts rather than a bare file match, so moving the
-    // class onto an inner div (where it would animate the wrong box) fails.
-    // ⚠ Pinned to the ELEMENT, not to the class ORDER. The first version
-    // matched the literal `sn-addman-sheet w-full max-w-md`, and the next edit
-    // to that className (adding the height cap) broke it for a reason that had
-    // nothing to do with animation. The property is "the sheet wears it"; the
-    // sheet is the one element carrying `max-w-md`.
-    assert.match(modal, /className="sn-addman-veil [^"]*fixed inset-0/);
-    assert.match(modal, /className="sn-addman-sheet [^"]*\bmax-w-md\b/);
   });
 });
 
 /**
  * THE SHEET CAN BE REACHED. (2026-09-21 — a bug found LIVE on production the
- * day the eight-field sheet shipped, not by any test.)
- *
- * Measured in the browser: the sheet was 1,513px tall in a 768px window. It
- * sits in a `fixed inset-0` overlay, which cannot scroll, and was centred — so
- * it overflowed 372px off BOTH edges. The required Vendor name field was at
- * y = -174 and "Save & add" was below the fold. A couple on a laptop could not
- * fill in the one required name or press save.
- *
- * ⚠ A SOURCE GUARD CANNOT MEASURE LAYOUT, and this one does not pretend to. It
- * pins the two declarations whose ABSENCE produced the bug — a height cap with
- * scrolling on the sheet, and a sticky footer — so that removing either fails
- * CI with the reason. Whether the result is comfortable to use is still a
- * browser question; whether the cap exists at all is not.
+ * day the eight-field sheet shipped: 1,513 px tall in a 768 px window, centred
+ * in an overlay that cannot scroll, its required name field at y = -174.) The
+ * house Sheet caps its height and scrolls inside itself; the modal keeps Save
+ * pinned at the foot.
  */
 describe('the sheet can be reached on a short screen', () => {
   const modal = readFileSync(MODAL, 'utf8');
-  const sheetClass = (modal.match(/className="(sn-addman-sheet [^"]*)"/) ?? [])[1] ?? '';
+  const sheet = readFileSync(SHEET, 'utf8');
 
-  it('found the sheet className to inspect', () => {
-    assert.ok(sheetClass.length > 0, 'could not find the sheet className — re-point this guard');
-  });
-
-  it('caps its own height, on phones and on desktop', () => {
-    assert.match(sheetClass, /(^|\s)max-h-\[/, 'the sheet has no mobile max-height');
-    assert.match(sheetClass, /\bsm:max-h-\[/, 'the sheet has no desktop max-height');
-  });
-
-  it('scrolls inside itself', () => {
-    assert.match(
-      sheetClass,
-      /\boverflow-y-auto\b/,
-      'the sheet does not scroll. Inside a fixed overlay, a sheet taller than the ' +
-        'window overflows off both edges and cannot be reached — measured on ' +
-        'production 2026-09-21 with the Vendor name field at y = -174.',
-    );
+  it('the Sheet caps its own height and scrolls inside itself', () => {
+    assert.match(sheet, /max-h-\[90dvh\]/, 'the house Sheet has no height cap');
+    assert.match(sheet, /flex-1 overflow-y-auto/, 'the house Sheet does not scroll inside itself');
   });
 
   it('keeps Save & add pinned so the primary action never scrolls away', () => {

@@ -62,7 +62,9 @@ import { jobPrefillIsRead } from './prefill-consumers';
  * exactly how the previous guard in this feature came to pass while the thing
  * it guarded was broken.
  */
-export const MODEL_CHOICE_CAP = 143;
+// 144 since 2026-10-12: /admin/launch-offer is a new admin page (owner 2026-10-08
+// "ONE admin page" for the launch offer) — the rule above, raised by one.
+export const MODEL_CHOICE_CAP = 144;
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on

@@ -34,7 +34,17 @@ import { emitNotification } from '@/lib/notification-emit';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
 import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
+import type { BookedFacts } from '@/lib/booked-rows';
+import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact, type LiveTallyBase } from '@/lib/suppliers-shell';
+import { dateFitOf, type DateFit } from '@/lib/calendar-truth';
+import { readCalendarTruth } from '@/lib/calendar-truth.server';
+import { readHubDraft } from '@/lib/hub-draft-store';
+import { readOpenDateChange } from '@/lib/date-change.server';
+import { draftedEventDate } from '@/lib/suppliers-fact-sheets';
+import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
+import { displayBuildTitle, normalizeBuildTitle, sortSavedBuilds } from '@/lib/named-builds';
+import { BLOCKED_LOCK_ROW } from '@/lib/explore-info-copy';
 import { pickVenueBookingRows, type VenueBookingRow } from '@/lib/event-venues';
 import { regionLabel } from '@/lib/region-source';
 import { plannedTileIdSet } from '@/lib/leaf-suggestions';
@@ -91,6 +101,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion, type VendorReviewStatus } from './_components/plan-budget-accordion';
 import { reviewState } from '@/lib/completion-handshake';
 import { ShortlistCategories } from './_components/shortlist-categories';
+import { readInviteStatusByVendorId } from '@/lib/supplier-invite-status.server';
 import {
   PendingLockProposals,
   type PendingLockProposal,
@@ -117,6 +128,7 @@ import { lockRequestStateOf } from '@/lib/lock-request-state';
 import {
   classifyAgainstBuildWindow,
   convergenceBanner,
+  formatDayKeyLabel,
   freeDaysLine,
   resolveBuildDateWindow,
   resolveProbeWindow,
@@ -128,11 +140,14 @@ import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { DatePlaceLine } from './_components/date-place-line';
-import { TeamRows } from './_components/team-rows';
-import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
+import { BookedBody } from './_components/booked-body';
+import { BookedSlot } from './_components/booked-slot';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
+import { BuildBody } from './_components/build-body';
+import { BookThisBuild } from './_components/book-this-build';
 import { computeBuildGuard, type GuardPick } from '@/lib/merkado-guard';
-import type { FillableCategory } from './_components/quote-fill';
+import { QuoteFillRow, type FillableCategory } from './_components/quote-fill';
+import { TeamClearCandidates } from './_components/team-controls';
 import { BuildLocked } from './_components/build-locked';
 import { ReuseBookingsPanel } from './_components/reuse-bookings-panel';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
@@ -273,7 +288,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // a review_request. Idempotent — flipped rows no longer match.
   await sweepRipeReviewRequests(eventId, user.id);
 
-  const [vendorsRead, eventCtx, photoMaps, changeLines] = await Promise.all([
+  const [vendorsRead, eventCtx, photoMaps, changeLines, hubDraft, openDateChange] = await Promise.all([
     // MEASURED, so a refused read reaches the screen as "Couldn't load your
     // team" — never as an empty team (lib/event-vendors-read.ts).
     readEventVendorsMeasured(supabase, eventId),
@@ -308,6 +323,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // "Show the total now"). `fetchEventVendors` is shared with other surfaces,
     // so the lines are joined here rather than inside it.
     fetchChangeLinesByVendor(supabase, eventId),
+    // PR5 — the date AS THE COUPLE IS WORKING ON IT: a date saved on this page (or in the Maker) waits in the Event
+    // Hub draft until Apply (owner 2026-10-10 answer 7), and Find, Build and the line plan on it meanwhile. Unread →
+    // the live date, as the Maker does.
+    readHubDraft(supabase, eventId).catch(() => null),
+    // …and a date change asked of a booked supplier shows here too (answer 10). One row when there is none.
+    readOpenDateChange(supabase, eventId).catch(() => ({ ok: false as const })),
   ]);
   // ⛔ A REFUSED TEAM READ STOPS HERE. Every surface below — the rows, the
   // bench, Picks, Plans — is built from these rows, and each would draw the
@@ -320,7 +341,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         <p aria-hidden className="font-display text-[28px] leading-none text-ink">
           Suppliers
         </p>
-        <TeamRows
+        <BookedBody
           eventId={eventId}
           state={{ kind: 'unreadable', retryHref: `/dashboard/${eventId}/vendors` }}
         />
@@ -353,6 +374,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   }
 
   const ev = (eventCtx.data as EventBudgetRow | null) ?? null;
+  // PR5 — the date the couple is PLANNING on: a drafted date waits for Apply (answer 7), yet the line, the bench's
+  // date fit and Build's fit line read it, so choosing a day re-runs the fit everywhere. Bookings, locks and every
+  // write keep reading the LIVE row (`ev`) — a draft never books anyone.
+  const draftedDate = draftedEventDate(ev, hubDraft);
+  const planDate = draftedDate ? draftedDate.date : (ev?.event_date ?? null);
+  const planPrecision = draftedDate ? draftedDate.precision : ((ev?.event_date_precision as string | null | undefined) ?? 'day');
   const eventDate = ev?.event_date ?? null;
   const daysUntilWedding = eventDate
     ? Math.round((new Date(eventDate).getTime() - Date.now()) / 86_400_000)
@@ -422,6 +449,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const reviewStatusRead = startRead(readReviewStatus());
   const coveredTilesRead = startRead(readCoveredTiles());
   const excludedTilesRead = startRead(readExcludedTiles());
+  // Where each self-added supplier's claim link stands (owner 2026-10-10: the
+  // couple is told when the supplier declines or never answers). One read, the
+  // one-screen page only; `null` from it = the read failed, and the card says so.
+  const inviteStatusRead = isExploreReplanEnabled()
+    ? startRead(readInviteStatusByVendorId(supabase, vendors.map((v) => v.vendor_id), Date.now()))
+    : null;
 
   // Coordinator "propose a lock" (spec § 4) — pending proposals for the couple
   // to confirm. Only the couple sees the confirm strip (the money-adjacent
@@ -1506,51 +1539,35 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return tiles.size > 0 ? tiles : undefined;
   })();
 
-  // ── Bench date-availability fit (2026-07-09) ────────────────────────────────
-  // The fast-follow the shipped reach + budget fit-badges left open. A third live
-  // badge — "Free on your date" / "Booked that day" — on the Shortlist bench.
-  // GATED: only runs behind BUDGET_BUILD_ENABLED (the sole path that renders the
-  // bench) AND when the event has a COMMITTED (day-precision) date. Reuses the
-  // batched per-vendor calendar primitive `getBatchVendorAvailableDays` — the
-  // same vendor-availability path that backs the Compare tab — so it costs ONE
-  // extra query for the whole bench (no N+1). ADMIN client because 'considering'
-  // bench vendors are pre-booking and the 0022 § 2.3 calendar RLS only opens
-  // after a booking (same client choice compareAvailability makes below).
-  // Fail-open: the helper returns a full window on a read error, so a calendar
-  // flake reads 'free', never a false 'booked' (mirrors reach's no-false-out-of-
-  // range rule); any thrown error → empty map → no date badges at all.
-  const dateFitByVendorId = new Map<string, 'free' | 'booked'>();
-  if (isBudgetBuildEnabled() && eventDate && matchPrecision === 'day') {
-    try {
-      const committed = computeCandidateWindow(eventDate, 'day');
-      if (committed) {
-        const committedKey = formatDayKey(committed.start);
-        // vendor_id → marketplace vendor_profile_id, for connected picks only.
-        // Off-platform / manual vendors have no calendar → never a date badge.
-        const profileByVendorId = new Map<string, string>();
-        for (const v of vendors) {
-          if (v.marketplace_vendor_id) {
-            profileByVendorId.set(v.vendor_id, v.marketplace_vendor_id);
-          }
-        }
-        const profileIds = [...new Set(profileByVendorId.values())];
-        if (profileIds.length > 0) {
-          const availByProfile = await getBatchVendorAvailableDays(
-            createAdminClient(),
-            profileIds,
-            committed.start,
-            committed.end,
-          );
-          for (const [vendorId, profileId] of profileByVendorId) {
-            const days = availByProfile.get(profileId);
-            if (!days) continue; // no signal for this profile → no badge
-            dateFitByVendorId.set(vendorId, days.has(committedKey) ? 'free' : 'booked');
-          }
+  // ── Bench date fit — CALENDAR TRUTH (P5, owner 2026-10-10: "Not set", never "Free") ──
+  // "Free on your date" / "Booked that day" / "Calendar not set" on the bench card, the sheet and Build's fit line.
+  // ONE read (`lib/calendar-truth.server.ts`): the lock's own refusal (`service_cards_unbookable_on` — closure, the
+  // shop's hard hold, a full calendar, a full slot: what marks the supplier's own Dates day Blocked or full) and
+  // whether the shop has a calendar at all (a schedule pool). It used to read calendar BLOCKS only and call an unset
+  // calendar "free". GATED as before: behind BUDGET_BUILD_ENABLED and a COMMITTED (day-precision) date. ADMIN client
+  // (the RPC is service_role-only; only a verdict per supplier leaves the server). A failed read → no badges at all.
+  const dateFitByVendorId = new Map<string, DateFit>();
+  if (isBudgetBuildEnabled() && planDate && planPrecision === 'day') {
+    const committed = computeCandidateWindow(planDate, 'day');
+    if (committed) {
+      const committedKey = formatDayKey(committed.start);
+      // vendor_id → marketplace vendor_profile_id, for connected picks only.
+      // Off-platform / manual vendors have no calendar → never a date badge.
+      const profileByVendorId = new Map<string, string>();
+      for (const v of vendors) {
+        if (v.marketplace_vendor_id) profileByVendorId.set(v.vendor_id, v.marketplace_vendor_id);
+      }
+      const truth = await readCalendarTruth({
+        admin: createAdminClient(),
+        supplierIds: [...profileByVendorId.values()],
+        days: [committedKey],
+      });
+      if (truth) {
+        for (const [vendorId, profileId] of profileByVendorId) {
+          const fit = dateFitOf(truth.get(profileId), committedKey);
+          if (fit) dateFitByVendorId.set(vendorId, fit);
         }
       }
-    } catch {
-      // Fail-soft — no date badges rather than a broken bench.
-      dateFitByVendorId.clear();
     }
   }
 
@@ -1882,6 +1899,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // the bench renders byte-identically to pre-replan production. Fail-soft: a
   // read error degrades to the normal rails (the surface is unaffected).
   const coveredByTile: Record<string, string> = await coveredTilesRead;
+  const inviteStatusByVendorId = inviteStatusRead ? await inviteStatusRead : undefined;
   async function readCoveredTiles(): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
     if (!isExploreReplanEnabled()) return out;
@@ -2014,6 +2032,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // Booked first, one next step each. NO NEW READ AND NO NEW STATE: every fact
   // below was already resolved above for the bench, Picks or Payments, and the
   // one derivation that turns them into a row is lib/your-team-rows.ts.
+  // What the Booked body needs beside a row (`lib/booked-rows.ts`) — filled in
+  // the same pass, from the same maps. No read of its own.
+  const bookedFacts: BookedFacts[] = [];
   const teamRowList = (() => {
     const replanOn = isExploreReplanEnabled();
     // The supplier's OWN bench card (not an "also covers" copy) — its name,
@@ -2062,6 +2083,26 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         : inBuild && !blocked
           ? (where?.groupId ?? null)
           : null;
+      const depositStep = depositStepByVendorId.get(row.vendor_id) ?? null;
+      bookedFacts.push({
+        vendorId: row.vendor_id,
+        groupId: where?.groupId ?? null,
+        // No shop on Setnayan: the couple added them and keeps the record.
+        own: row.marketplace_vendor_id == null,
+        shopId: row.marketplace_vendor_id ?? null,
+        pricePhp: where?.pricePhp ?? card?.v.totalCostPhp ?? null,
+        threadId: ext?.thread_id ?? card?.v.threadId ?? null,
+        // The SAME helper `cancelBookingAsHost` gates on. A recorded first
+        // payment (sent · confirmed · refused) is the couple's own claim that
+        // money moved — it stamps `deposit_recorded_at`, never `deposit_paid_php`.
+        moneyMoved: bookingMoneyMoved({
+          status: row.status,
+          deposit_paid_php: row.deposit_paid_php,
+          deposit_recorded_at:
+            depositStep === 'sent' || depositStep === 'confirmed' || depositStep === 'refused' ? 'recorded' : null,
+        }),
+        lockRequestExpiresAt: row.lock_request_expires_at ?? null,
+      });
       return {
         vendorId: row.vendor_id,
         name:
@@ -2088,7 +2129,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     });
     return teamRows(facts, { eventId, lockHandshakeEnabled: isLockHandshakeEnabled() });
   })();
-  const teamSlot = <TeamRows eventId={eventId} state={{ kind: 'rows', rows: teamRowList }} />;
+  const teamSlot = (
+    <BookedSlot
+      eventId={eventId}
+      rows={teamRowList}
+      facts={bookedFacts}
+      // The small Budget block's meter track — the couple's Target.
+      targetPhp={ev?.estimated_budget_centavos != null ? Math.round(ev.estimated_budget_centavos / 100) : null}
+    />
+  );
   const benchUnread = benchUnreadFrom(unreadRead);
 
   const shortlistMaster = (
@@ -2140,6 +2189,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         payHrefByVendorId={Object.fromEntries(
           teamRowList.flatMap((r) => (r.action?.kind === 'pay' ? [[r.vendorId, r.action.href] as const] : [])),
         )}
+        // A self-added supplier's claim link: sent · declined · ran out · joined.
+        inviteStatusByVendorId={inviteStatusByVendorId}
         // Explore Replan PR-G1 — the convergence banner between the Coverage
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.
@@ -2247,14 +2298,80 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           ],
         };
       });
-    const currentPlan: PlanBuildSnapshot = {
-      budgetPhp:
-        ev?.estimated_budget_centavos != null
-          ? Math.round(ev.estimated_budget_centavos / 100)
-          : null,
-      totalPhp: planPicks.reduce((s, p) => s + (p.costPhp ?? 0), 0),
-      picks: planPicks,
-    };
+    // ── THE BUILD BODY'S LINES (Suppliers PR3, owner 2026-10-07) ─────────────
+    // NO NEW READ. One line per category row Find shows (the same
+    // `resolveBenchRing`), holding the booked supplier, the build pick, and the
+    // dropdown: the couple's own shortlist for it — priced, and free on their
+    // date. Prices are the plan model's (the figures the segment's own total
+    // sums); "cannot be booked" is the card's own verdict
+    // (`lockBlockedByVendorId`) plus a calendar that shows the day taken.
+    const onePage = isExploreReplanEnabled();
+    const buildBudgetPhp =
+      ev?.estimated_budget_centavos != null ? Math.round(ev.estimated_budget_centavos / 100) : null;
+    const buildLines = (() => {
+      if (!onePage) return [];
+      const inBuild = new Set([...buildPicksByGroup.values()].flat());
+      const tiles = shortlistFolders.flatMap((f) => f.tiles);
+      const ring = resolveBenchRing({
+        tiles: tiles.map((t) => ({
+          tile: t.tile,
+          planned: t.planned,
+          vendorCount: t.vendors.length,
+          lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+          buildCount: t.vendors.filter((v) => inBuild.has(v.vendorId)).length,
+        })),
+        excludedTiles,
+        pinnedTile: sp.open ?? null,
+        starterTiles: [...popularTilesFor(ev?.event_type ?? null)],
+      });
+      const priceByVendorId = new Map<string, number | null>();
+      // What each price comes with — the two lists the old "Current" column
+      // saved into a build (the supplier's linked services, the couple's own).
+      const inclusionsByVendorId = new Map<string, string[]>();
+      for (const c of model.folders.flatMap((f) => f.children)) {
+        for (const p of c.picks) {
+          priceByVendorId.set(p.vendor_id, p.rolled_cost_php);
+          inclusionsByVendorId.set(p.vendor_id, [
+            ...(p.linked_services?.map((l) => l.label) ?? []),
+            ...(p.host_inclusions ?? []),
+          ]);
+        }
+      }
+      const blocked = new Map<string, string>();
+      for (const [vendorId, why] of lockBlockedByVendorId) blocked.set(vendorId, BLOCKED_LOCK_ROW[why]);
+      for (const [vendorId, fit] of dateFitByVendorId) {
+        if (fit === 'booked' && !blocked.has(vendorId)) blocked.set(vendorId, BLOCKED_LOCK_ROW.not_available);
+      }
+      return buildLinesOf({
+        tiles: tiles
+          .filter((t) => ring.inPlan.has(t.tile))
+          .map((t) => ({
+            tile: t.tile,
+            label: t.label,
+            vendors: t.vendors.map((v) => ({
+              vendorId: v.vendorId,
+              name: v.name,
+              status: v.status,
+              planGroupId: v.planGroupId,
+              lockState: v.lockRequestState,
+            })),
+          })),
+        priceOf: (vendorId) => priceByVendorId.get(vendorId) ?? null,
+        inclusionsOf: (vendorId) => inclusionsByVendorId.get(vendorId) ?? [],
+        inBuild,
+        blocked,
+      });
+    })();
+    // 🔑 On the one-screen page a build is the BOOKED suppliers plus the PICKS
+    // (`buildSnapshotOf`) — what Save posts and what "This build" compares.
+    // Flag off, the old "Current" column is unchanged.
+    const currentPlan: PlanBuildSnapshot = onePage
+      ? buildSnapshotOf(buildLines, buildBudgetPhp)
+      : {
+          budgetPhp: buildBudgetPhp,
+          totalPhp: planPicks.reduce((s, p) => s + (p.costPhp ?? 0), 0),
+          picks: planPicks,
+        };
     // (The "available dates for the locked team" panel was retired 2026-06-20
     // with "Build absorbs Lock" — PR2: the standalone Lock tab is gone and its
     // vendor-availability-intersection extra went with it. The per-BUILD date
@@ -2598,12 +2715,59 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         ? (teamRowList.find((r) => r.vendorId === booked.vendor_id)?.name ?? booked.vendor_name)
         : null;
       return {
-        date: suppliersDateFact(ev.event_date, ev.event_date_precision),
+        date: suppliersDateFact(planDate, planPrecision),
+        drafted: draftedDate != null,
         // The area by its own name; an unlisted spelling is shown as typed
         // (what the Build body's Location tile already prints).
         place: suppliersPlaceFact(venueName, regionLabel(ev.region) ?? ev.region),
       };
     })();
+
+    // ── THE BUILD BODY, AS ONE VALUE (`lib/suppliers-build.ts`) ──────────────
+    // Each build's "Free:" line is the row the old compare table printed, read
+    // from the SAME two maps (`compareAvailability` · `compareAnchoredDate`):
+    // no calendar read → no line, never "free" and never "taken".
+    const buildDayLabel = planPrecision === 'day' && planDate ? formatDayKeyLabel(planDate.slice(0, 10)) : null;
+    const buildFreeOf = (key: string): BuildCardFree => {
+      const span = compareAvailability?.byColumn[key];
+      if (span) {
+        if (span.connectedCount === 0) return null;
+        return span.conflictText
+          ? { kind: 'none', who: [] }
+          : { kind: 'dates', labels: span.dayLabels, more: span.moreCount };
+      }
+      const day = compareAnchoredDate?.byColumn[key];
+      if (!day || day.checkedCount === 0 || !buildDayLabel) return null;
+      return day.bookedNames.length > 0
+        ? { kind: 'none', who: day.bookedNames }
+        : { kind: 'dates', labels: [buildDayLabel], more: 0 };
+    };
+    const buildView = onePage
+      ? buildViewOf({
+          lines: buildLines,
+          money: buildMoneyOf(buildChildren, model.chosenCentavos, buildBudgetPhp),
+          dateFit: dateFitByVendorId.size > 0 ? dateFitByVendorId : null,
+          dateLabel: buildDayLabel,
+          saved: sortSavedBuilds(savedBuilds).map((b, i) => ({
+            id: b.build_id,
+            name: displayBuildTitle(b, i),
+            title: normalizeBuildTitle(b.title),
+            budgetPhp: b.snapshot?.budgetPhp ?? b.budget_php ?? null,
+            picks: b.snapshot?.picks ?? [],
+          })),
+          buildsMeasured: savedBuildsMeasured,
+          freeByBuildId: Object.fromEntries(
+            ['current', ...savedBuilds.map((b) => b.build_id)].map((key) => [key, buildFreeOf(key)]),
+          ),
+        })
+      : null;
+
+    // PR5 — Help me choose offers only the days EVERY PRICED pick can take (owner 2026-10-10 answer 8): the build's
+    // priced picks, booked ones included (the server adds every booked supplier itself).
+    const pricedPickIds = (buildView?.lines ?? [])
+      .map((l) => l.booked ?? l.pick)
+      .filter((x): x is NonNullable<typeof x> => x != null && x.pricePhp != null)
+      .map((x) => x.vendorId);
 
     const buildSlot = (
       <div className="space-y-6">
@@ -2656,16 +2820,64 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           // the finished-event summary); anything else opens on Find.
           initialTab={initialTab}
           // The date · place line — the only place on this page they appear.
-          factsSlot={<DatePlaceLine eventId={eventId} facts={shellFacts} />}
+          factsSlot={
+            <DatePlaceLine
+              eventId={eventId}
+              facts={shellFacts}
+              drafted={shellFacts?.drafted ?? false}
+              changeAsked={openDateChange.ok && openDateChange.view != null}
+              priced={pricedPickIds}
+            />
+          }
           // Find · Build N/M · Booked N — counted from what the bodies draw.
           tally={shellTally}
           liveTally={liveTallyBase}
           bookedCount={teamCountsLine(teamRowList).booked}
           premium={aiActive}
-          teamSlot={teamSlot}
+          bookedSlot={teamSlot}
           shortlistSlot={shortlistContent}
           buildSlot={buildSlot}
-          budgetSlot={<MerkadoBudgetLens eventId={eventId} />}
+          // Suppliers PR3 — on the one-screen page the Build body is drawn
+          // whole: "This build" and "All builds" (`build-body.tsx`). Flag off,
+          // `buildSlot` + `compareSlot` are the body, unchanged.
+          buildBody={
+            buildView ? (
+              <>
+                <BuildBody
+                  eventId={eventId}
+                  view={buildView}
+                  guardSlot={showGuard ? <MerkadoGuardBanner guard={buildGuard} demand={guardDemand} /> : null}
+                  // KEPT REACHABLE — the prototype is silent about both, so
+                  // neither is dropped: "fill your build from your quotes"
+                  // (nothing when there are none) and "Clear candidates".
+                  extrasSlot={
+                    <>
+                      <QuoteFillRow eventId={eventId} fillable={quoteFillable} budgetPhp={buildBudgetPhp} />
+                      {buildLines.some((l) => l.pick && !l.booked) ? (
+                        <div className="flex justify-end">
+                          <TeamClearCandidates eventId={eventId} />
+                        </div>
+                      ) : null}
+                    </>
+                  }
+                  // "Book this build" — every pick not booked and not already
+                  // asked, through the one booking path (`book-this-build.tsx`).
+                  bookSlot={
+                    <BookThisBuild
+                      eventId={eventId}
+                      picks={buildLines.flatMap((l) =>
+                        l.pick && !l.booked && !l.pickAsked
+                          ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]
+                          : [],
+                      )}
+                    />
+                  }
+                />
+                {/* Dark behind NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED; null when off. */}
+                <ReuseBookingsPanel />
+              </>
+            ) : undefined
+          }
           compareSlot={
             <BuildCompare
               eventId={eventId}

@@ -534,9 +534,14 @@ test('⑦ the quote names a count only when the bill will carry it', async () =>
 
   assert.equal(await ask(await newEvent('quote-none')), 'no_booking');
 
-  const eNo = await newEvent('quote-no');
-  await newBooking(eNo, vendorProfileId, 50_000, { serviceId: no, status: 'considering' });
-  assert.equal(await ask(eNo), 'card_says_no');
+  // ⚖ 2026-10-12 (owner #7, migration 20271268087628): the card is asked LAST,
+  // after every "is there a fee at all" arm. A brand-new shop's booking is free,
+  // so its card-off quote is `free_booking` — `card_says_no` is the one arm the
+  // quote's own switch can turn into a promise, and a free booking must not
+  // reach it. The card-off case is asked past the five, below.
+  const eNoFree = await newEvent('quote-no-free');
+  await newBooking(eNoFree, vendorProfileId, 50_000, { serviceId: no, status: 'considering' });
+  assert.equal(await ask(eNoFree), 'free_booking');
 
   const eImport = await newEvent('quote-import');
   await newBooking(eImport, vendorProfileId, 50_000, { serviceId: yes, status: 'considering', sourced: false });
@@ -552,6 +557,10 @@ test('⑦ the quote names a count only when the bill will carry it', async () =>
   const eSixth = await newEvent('quote-sixth');
   await newBooking(eSixth, vendorProfileId, 50_000, { serviceId: yes, status: 'considering' });
   assert.equal(await ask(eSixth), 'applies');
+
+  const eNo = await newEvent('quote-no');
+  await newBooking(eNo, vendorProfileId, 50_000, { serviceId: no, status: 'considering' });
+  assert.equal(await ask(eNo), 'card_says_no');
 });
 
 test('⑦ every new function is server-only — no browser role may call it', async () => {

@@ -876,6 +876,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/booking-fees',
       },
       {
+        // The launch offer (owner 2026-10-08: "ONE admin page") — the first
+        // N fee-free bookings, free Pro's end date, the Papic credits, and the
+        // free-fee window. Beside "Fees owed" because it decides who owes.
+        key: 'launch-offer',
+        label: 'Launch offer',
+        href: '/admin/launch-offer',
+        icon: Gift,
+        matchPrefix: '/admin/launch-offer',
+      },
+      {
         // Money queue — vendor payout release (was in Money group).
         key: 'payouts',
         label: 'Payouts',

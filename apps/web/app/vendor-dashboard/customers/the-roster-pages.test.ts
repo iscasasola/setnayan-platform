@@ -141,24 +141,23 @@ test('search filters by name BEFORE paging', () => {
 
 // ── 2 · RENDER IT ─────────────────────────────────────────────────────────
 
-async function renderPage(raw: string, lane?: string) {
+async function renderPage(raw: string, lane?: string, q = '') {
   (globalThis as { React?: unknown }).React = React;
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { CustomersRoster } = await import('./_components/customers-roster');
   const v = rosterView(lanes, {
     lane,
-    q: undefined,
+    q: q || undefined,
     page: raw,
-    decorate: (r) => ({ ...r, note: null }),
+    decorate: (r) => ({ ...r, note: null, kind: null, quoted: false, returning: false }),
   });
   return renderToStaticMarkup(
     React.createElement(CustomersRoster, {
       rows: v.paged.items,
       paged: v.paged,
-      query: '',
+      query: q,
       incomplete: false,
       pagerKeepParams: lane ? `lane=${lane}` : '',
-      searchKeepParams: '',
       counts: v.laneCounts,
       nowMs: Date.UTC(2026, 8, 20),
       holdingPerDate: new Map(),
@@ -166,21 +165,23 @@ async function renderPage(raw: string, lane?: string) {
   );
 }
 
-test('the render draws 20 rows, the whole-list counts line, and "41–60 of 1,000"', async () => {
+test('the render draws 20 rows, each one door, and "41–60 of 1,000"', async () => {
   const html = await renderPage('3');
   const rows = (html.match(/<li\b/g) ?? []).length;
   assert.equal(rows, 20, `the roster drew ${rows} rows`);
-  // The counts line (2026-10-01: it replaced the lane chip row — Filter ▾ is
-  // a PickMenu slot the page hands in) counts EVERYONE, not the page.
-  assert.ok(
-    html.includes('37 waiting on you · 63 holding · 500 talking · 300 booked · 100 done'),
-    'the counts line is not the whole-list count of every lane',
-  );
   assert.ok(html.includes('41–60 of 1,000'), 'the pager range is missing');
   assert.ok(html.includes('href="?page=4#customers"'), 'Next does not go to page 4');
   assert.ok(html.includes('href="?page=2#customers"'), 'Prev does not go to page 2');
-  // Every row carries its one next-step button.
-  assert.equal((html.match(/data-row-next/g) ?? []).length, 20, 'a row lost its next-step button');
+  // S-PR2: the row IS the one tap (no button inside it, prototype frame 03) — and it still names its next step.
+  assert.equal((html.match(/data-customer-row=/g) ?? []).length, 20, 'a row is missing');
+  assert.equal((html.match(/aria-label="[^"]+ — (Reply|Agree|Follow up|Send a quote|See the quote|See the day|Open)"/g) ?? []).length, 20, 'a row lost the words of its next step');
+});
+
+test('a search says how many it found OF EVERYONE (kind 30: "3 of 5 guests")', async () => {
+  const needle = derived[987]!.title;
+  const html = await renderPage('1', undefined, needle);
+  assert.ok(html.includes('1 of 1,000 customers'), 'the found line does not count against the whole list');
+  assert.match(html, /data-search-hit=""[^>]*>[^<]+<\/mark>/, 'the matching letters are not marked');
 });
 
 test('the pager keeps the Filter lane; page 1 drops the param', async () => {
@@ -210,13 +211,16 @@ test('the page hands the roster the SLICE and the WHOLE-LIST counts', () => {
   assert.match(pageSrc, /counts=\{laneCounts\}/, 'the chips are not handed the whole-list counts');
   assert.match(pageSrc, /page:\s*search\.page/, 'the ?page= param no longer reaches the roster');
   assert.match(pageSrc, /q:\s*search\.q/, 'the ?q= search no longer reaches the roster');
+  // The box itself lives in the thumb row now (kind 30) — the shared one, on `?q=`.
+  assert.match(pageSrc, /<SearchBox\b[\s\S]{0,200}defaultValue=\{search\.q \?\? ''\}/, 'the thumb row lost the customer search');
 });
 
 test('the roster maps its rows once and mounts the shared pager on ?page=', () => {
   assert.equal((rosterSrc.match(/\brows\.map\(/g) ?? []).length, 1, 'the roster renders its rows in a second place');
   assert.equal((rosterSrc.match(/<ListPager\b/g) ?? []).length, 1, 'the roster pager is missing');
   assert.match(rosterSrc, /param="page"/);
-  assert.match(rosterSrc, /name="q"/, 'the name search box is gone');
+  // The search box moved to the thumb row (S-PR2); its word still travels as `q`.
+  assert.match(stripComments(readFileSync(join(APP, '..', '_components', 'search-box.tsx'), 'utf8')), /name = 'q'/, 'the search box no longer searches on ?q=');
 });
 
 /**
@@ -237,11 +241,13 @@ const LISTS: { file: string; pagers: number; renders: RegExp[]; mustNot: RegExp[
     renders: [/const activeThreads = activePage\.items/, /const archivedThreads = archivedPage\.items/],
     mustNot: [/\bthreads\.map\(renderRow\)/],
   },
+  // S-PR2: the Clients page (three pagers: booked · in conversation · outside) is retired. Its booked and
+  // in-conversation customers ARE roster rows (paged above); the outside clients page on their own `copage`.
   {
-    file: 'clients/surface.tsx',
-    pagers: 3,
-    renders: [/\bbookedPage\.items\.map\(/, /\bacceptedPage\.items\.map\(/, /const externals = externalsPage\.items/],
-    mustNot: [/\[\.\.\.bookedByEvent\.entries\(\)\]\.map\(/, /\baccepted\.map\(/],
+    file: 'customers/_components/people-more.tsx',
+    pagers: 1,
+    renders: [/\bpaged\.items\.map\(/],
+    mustNot: [],
   },
   {
     file: 'proposals/surface.tsx',
@@ -266,6 +272,7 @@ test('no two lists on the hub page through the same param', () => {
   for (const l of LISTS) {
     for (const m of read(l.file).matchAll(/<ListPager\b[\s\S]*?param="([a-z]+)"/g)) params.push(m[1]!);
   }
-  assert.equal(params.length, 8, `found ${params.length} pager params: ${params.join(',')}`);
+  // 8 → 6 (S-PR2): the retired Clients page's three pagers became People's one (`copage`).
+  assert.equal(params.length, 6, `found ${params.length} pager params: ${params.join(',')}`);
   assert.equal(new Set(params).size, params.length, `two lists share a page param: ${params.join(',')}`);
 });

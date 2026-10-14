@@ -91,6 +91,21 @@ export type BookingFeeStanding =
       endsAt: string | null;
     }
   | { kind: 'billable'; ordinal: number; ordinalIsFrozen: boolean; schedule: BookingFeeSchedule }
+  /**
+   * THE LAUNCH OFFER (migration 20271268832636) — the booking is, or would be,
+   * one of Setnayan's first `cap` sourced bookings, fee-free. It sits ABOVE
+   * free-5 (owner 2026-10-12 #4) and spends none of the five. Carries the
+   * schedule for the same reason `free` does: the amount it would have cost is
+   * named. `isFrozen` = the booking already took its place (`number`).
+   */
+  | {
+      kind: 'launch_offer';
+      schedule: BookingFeeSchedule;
+      cap: number;
+      papicCredits: number | null;
+      isFrozen: boolean;
+      number: number | null;
+    }
   | { kind: 'unreadable' };
 
 /**
@@ -281,6 +296,35 @@ export function bookingFeeForecast(
       };
     }
 
+    case 'launch_offer': {
+      // The launch offer. Named as a FEE that is waived — never "commission
+      // while we launch" (BANNED_LAUNCH_WINDOW_SHAPE) — with the amount it
+      // would have cost, like every other waiver here.
+      const total = Number(totalPhp);
+      const cap = new Intl.NumberFormat('en-PH').format(standing.cap);
+      const credits =
+        typeof standing.papicCredits === 'number' && standing.papicCredits > 0
+          ? ` It also adds ${new Intl.NumberFormat('en-PH').format(standing.papicCredits)} Papic credits for this event.`
+          : '';
+      const which = standing.isFrozen
+        ? `This booking is one of Setnayan's first ${cap} bookings${standing.number ? ` (number ${new Intl.NumberFormat('en-PH').format(standing.number)})` : ''}, which are free — the launch offer.`
+        : `Setnayan's first ${cap} bookings are free — the launch offer — and it is still open, so if this booking is agreed now it costs you nothing.`;
+      const tail = ` It does not use up any of your ${FREE_BOOKING_LIMIT} free bookings.${credits}`;
+      if (!Number.isFinite(total) || total <= 0) {
+        return {
+          tone: 'good',
+          headline: 'Booking fee — free with the launch offer (we could not work out the amount yet).',
+          detail: `${which}${tail}`,
+        };
+      }
+      const fee = bookingFeePhp(total, standing.schedule);
+      return {
+        tone: 'good',
+        headline: `Booking fee ${feePesos(fee)} — free with the launch offer.`,
+        detail: `${which}${tail}`,
+      };
+    }
+
     case 'unreadable':
       return {
         tone: 'info',
@@ -313,8 +357,40 @@ export function bookingFeeForecast(
  * stamped — never a count derived on this side (owner's instruction, and the
  * reason the fetch joins the ledger rather than counting rows).
  */
+/**
+ * EVERY WAIVER THAT GETS A RECEIPT — owner 2026-09-20 (*"add the email receipt
+ * for waived bookings"*) and the 2026-10-12 audit item 4: a promo-waived
+ * booking used to leave the supplier no word at all. One list, read by the
+ * collector (who sends), by the fee hub and by the receipt (who show), so a
+ * waiver cannot be shown on one and missing from the other.
+ *
+ * ⛔ `waived_import` IS NOT HERE, ON PURPOSE. A supplier's own client never had
+ * a fee to waive — the RPC records `computed_fee_centavos = 0` for it, and the
+ * standing for it (`not_sourced`) already says nothing on every surface. A
+ * receipt reading "Booking fee — waived" for the shop's own client would invent
+ * a fee that was never owed.
+ */
+export const WAIVED_FEE_RECEIPT_STATUSES: ReadonlySet<string> = new Set([
+  'waived_free5',
+  'waived_promo',
+  // The launch offer (migration 20271268832636) — during it, EVERY sourced
+  // booking is one of these, so without a receipt the supplier hears nothing.
+  'waived_launch',
+]);
+
+/** Why a waived charge was waived, from its status. */
+export type WaivedFeeReason = 'free5' | 'promo' | 'launch';
+
+export function waivedFeeReasonOf(status: string | null | undefined): WaivedFeeReason {
+  if (status === 'waived_promo') return 'promo';
+  if (status === 'waived_launch') return 'launch';
+  return 'free5';
+}
+
 export type WaivedFeeCharge = {
   chargeId: string;
+  /** Why it was waived. Absent on rows read before 2026-10-12 ⇒ the free-5. */
+  reason?: WaivedFeeReason;
   eventId: string | null;
   coupleName: string | null;
   /** `computed_fee_centavos` ÷ 100 — what it WOULD have cost. Null ⇒ print none. */
@@ -323,6 +399,10 @@ export type WaivedFeeCharge = {
   ordinal: number | null;
   /** `YYYY-MM-DD` the charge was opened, or null. */
   waivedOn: string | null;
+  /** Launch offer only: `booking_fee_ledger.launch_offer_number`, the place it took. */
+  launchNumber?: number | null;
+  /** Launch offer only: the Papic credits its grant row actually carries (null = none read). */
+  launchCredits?: number | null;
 };
 
 /**
@@ -339,10 +419,26 @@ export function waivedFeeCopy(charge: WaivedFeeCharge): FeeDisclosure {
   // the fee hub and another in the supplier's inbox. Only claimed when the
   // ledger gave a real ordinal — `freeBookingsLeftAfter(null)` is not a number
   // anyone measured.
+  //
+  // ⚠ A PROMOTION SPENDS NONE OF THE FIVE, and the receipt must not say it did:
+  // the window sits below free-5 in the RPC, so a promo-waived booking is the
+  // shop's sixth or later and its ordinal is not a position among the five.
+  const credits =
+    typeof charge.launchCredits === 'number' && charge.launchCredits > 0
+      ? ` It also added ${new Intl.NumberFormat('en-PH').format(charge.launchCredits)} Papic credits for this event.`
+      : '';
   const position =
-    typeof charge.ordinal === 'number' && Number.isFinite(charge.ordinal)
-      ? `This was booking ${charge.ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan, which are free${freeBookingsLeftClause(charge.ordinal)}.`
-      : `It fell inside your first ${FREE_BOOKING_LIMIT} Setnayan bookings, which are free.`;
+    charge.reason === 'launch'
+      ? `${
+          typeof charge.launchNumber === 'number' && Number.isFinite(charge.launchNumber)
+            ? `This was booking ${new Intl.NumberFormat('en-PH').format(charge.launchNumber)} of the Setnayan launch offer`
+            : 'This booking was part of the Setnayan launch offer'
+        }, so its fee is waived. It did not use up any of your free bookings.${credits}`
+      : charge.reason === 'promo'
+      ? 'A Setnayan free-fee promotion was running when this booking was made, so its fee is waived. It did not use up any of your free bookings.'
+      : typeof charge.ordinal === 'number' && Number.isFinite(charge.ordinal)
+        ? `This was booking ${charge.ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan, which are free${freeBookingsLeftClause(charge.ordinal)}.`
+        : `It fell inside your first ${FREE_BOOKING_LIMIT} Setnayan bookings, which are free.`;
   // ⚠ NO NUMBER ⇒ NO NUMBER. An unreadable computed amount must not degrade to
   // "₱0" — that would state the fee was nothing rather than that it was waived.
   const amount =
@@ -452,7 +548,21 @@ export type DueFeeBill = {
   coupleName: string | null;
   /** `booking_fee_charges.expires_at` as `YYYY-MM-DD`, or null when unknown. */
   dueOn: string | null;
+  /**
+   * When the booking is the couple's hand-typed record of this shop, the day
+   * Setnayan first showed the couple the shop (`booking_fee_introduced_on`,
+   * `YYYY-MM-DD`) — WHY the manual add is billable (owner 2026-10-12, answer 11:
+   * the supplier is told, on their bill only). Null/absent otherwise.
+   */
+  introducedOn?: string | null;
 };
+
+/** The one line that tells a supplier why a booking the couple typed in carries a fee. Null = nothing to say. */
+export function feeIntroducedLine(bill: Pick<DueFeeBill, 'introducedOn'>): string | null {
+  const d = bill.introducedOn;
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  return `Setnayan introduced this couple to you on ${formatDueDate(d)}.`;
+}
 
 /**
  * THE DECISION: which of a supplier's due bills does `surface` show?
@@ -545,7 +655,15 @@ export function feeDueStage(dueOn: string | null, todayPh: string): FeeDueStage 
  * gate there cannot drift apart — see `the-fee-finds-the-supplier.test.ts`'s
  * cross-lane tripwire, which fails loudly the day they do.
  */
-export function feeDueCopy(bill: DueFeeBill, todayPh: string): FeeDisclosure {
+export function feeDueCopy(
+  bill: DueFeeBill,
+  todayPh: string,
+  /**
+   * Is the fee lock enforced? The GATE's own answer — `resolveFeeEnforcement()` (env flag OR
+   * `platform_settings.fee_unlocks_event_enforced`), never the env flag alone. Required: no caller may forget it.
+   */
+  enforced: boolean,
+): FeeDisclosure {
   const stage = feeDueStage(bill.dueOn, todayPh);
   const who = bill.coupleName?.trim() ? ` for ${bill.coupleName.trim()}` : '';
   const amount = feePesos(bill.amountPhp);
@@ -555,11 +673,11 @@ export function feeDueCopy(bill: DueFeeBill, todayPh: string): FeeDisclosure {
       return {
         tone: 'overdue',
         headline: `Booking fee overdue — ${amount}${who}`,
-        // The consequence clause is `feeEnforcementSentence` — the ONE
-        // function that reads NEXT_PUBLIC_FEE_UNLOCKS_EVENT — so this promise
-        // and the actual gate in `eventAccessUnlocked` cannot disagree.
+        // The consequence clause is `feeEnforcementSentence`, handed the SAME
+        // answer the lock gate uses (`resolveFeeEnforcement`), so this promise
+        // and the actual lock cannot disagree (batch-5 walk F).
         detail:
-          `This was due${by ? by.replace(' by ', ' on ') : ''}. ${feeEnforcementSentence()} ` +
+          `This was due${by ? by.replace(' by ', ' on ') : ''}. ${feeEnforcementSentence({ enforced })} ` +
           'Pay it the same way your couples pay; it clears within 24 hours of our team confirming it.',
       };
     case 'last_day':

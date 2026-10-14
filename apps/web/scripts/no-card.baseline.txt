@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 711 files · 1967 lines
+# 685 files · 1892 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -21,7 +21,6 @@
 1 apps/web/app/_components/chat/conversation-column.tsx
 1 apps/web/app/_components/chat/thread-list-card.tsx
 1 apps/web/app/_components/chosen-proof-field.tsx
-1 apps/web/app/_components/confirm-dialog.tsx
 2 apps/web/app/_components/contracts/contract-card.tsx
 1 apps/web/app/_components/cookie-consent-banner.tsx
 1 apps/web/app/_components/door/door-shell.tsx
@@ -49,7 +48,7 @@
 10 apps/web/app/_components/proposal-maker.tsx
 1 apps/web/app/_components/push-toggle.tsx
 1 apps/web/app/_components/report-page-button.tsx
-3 apps/web/app/_components/requirements-modal.tsx
+1 apps/web/app/_components/requirements-modal.tsx
 3 apps/web/app/_components/run-of-show-header.tsx
 1 apps/web/app/_components/schedule-suggest-chip.tsx
 2 apps/web/app/_components/service-card-view.tsx
@@ -287,7 +286,6 @@
 5 apps/web/app/dashboard/(launcher)/page.tsx
 1 apps/web/app/dashboard/[eventId]/_components/after/finished-event-summary.tsx
 3 apps/web/app/dashboard/[eventId]/_components/checklist/checklist-full.tsx
-2 apps/web/app/dashboard/[eventId]/_components/connect-supplier-modal.tsx
 1 apps/web/app/dashboard/[eventId]/_components/coordinator-colour-domains.tsx
 1 apps/web/app/dashboard/[eventId]/_components/day-of-mode/banner.tsx
 2 apps/web/app/dashboard/[eventId]/_components/day-of-mode/coordinator-broadcast-card.tsx
@@ -298,16 +296,14 @@
 1 apps/web/app/dashboard/[eventId]/_components/day-of-mode/your-table-card.tsx
 2 apps/web/app/dashboard/[eventId]/_components/feature-us-card.tsx
 5 apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
-4 apps/web/app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx
+2 apps/web/app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx
 2 apps/web/app/dashboard/[eventId]/_components/nikah-essentials-card.tsx
 1 apps/web/app/dashboard/[eventId]/_components/papic-ready-nudge.tsx
-1 apps/web/app/dashboard/[eventId]/_components/payment-plan-rows.tsx
 1 apps/web/app/dashboard/[eventId]/_components/payment-under-review.tsx
 2 apps/web/app/dashboard/[eventId]/_components/reveal-preview-card.tsx
 1 apps/web/app/dashboard/[eventId]/_components/set-date-nudge.tsx
 1 apps/web/app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx
 2 apps/web/app/dashboard/[eventId]/_components/std-media-picker.tsx
-2 apps/web/app/dashboard/[eventId]/_components/supplier-connect-panel.tsx
 5 apps/web/app/dashboard/[eventId]/_components/vendor-direct-pay.tsx
 2 apps/web/app/dashboard/[eventId]/_components/vendor-itemization-card.tsx
 5 apps/web/app/dashboard/[eventId]/_components/vendor-marketplace-info.tsx
@@ -315,9 +311,6 @@
 1 apps/web/app/dashboard/[eventId]/access-requests/page.tsx
 1 apps/web/app/dashboard/[eventId]/alaala/assignments/page.tsx
 5 apps/web/app/dashboard/[eventId]/alaala/page.tsx
-2 apps/web/app/dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx
-5 apps/web/app/dashboard/[eventId]/budget/_components/budget-ledger-table.tsx
-3 apps/web/app/dashboard/[eventId]/budget/_components/costs-with-no-supplier.tsx
 1 apps/web/app/dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx
 2 apps/web/app/dashboard/[eventId]/budget/page.tsx
 1 apps/web/app/dashboard/[eventId]/clearance/page.tsx
@@ -378,7 +371,7 @@
 1 apps/web/app/dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx
 1 apps/web/app/dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx
 4 apps/web/app/dashboard/[eventId]/seating/_components/seating-context-dock.tsx
-35 apps/web/app/dashboard/[eventId]/seating/_components/seating-editor.tsx
+34 apps/web/app/dashboard/[eventId]/seating/_components/seating-editor.tsx
 3 apps/web/app/dashboard/[eventId]/seating/_components/seating-frame.tsx
 6 apps/web/app/dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx
 7 apps/web/app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx
@@ -472,15 +465,12 @@
 3 apps/web/app/dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx
 2 apps/web/app/dashboard/[eventId]/studio/website-pro/page.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-build.tsx
-8 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx
-4 apps/web/app/dashboard/[eventId]/vendors/_components/build-locked.tsx
+3 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx
 5 apps/web/app/dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx
-2 apps/web/app/dashboard/[eventId]/vendors/_components/lock-milestone.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/pending-lock-proposals.tsx
 4 apps/web/app/dashboard/[eventId]/vendors/_components/quote-fill.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/_components/reuse-bookings-panel.tsx
-1 apps/web/app/dashboard/[eventId]/vendors/_components/services-takeover.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/team-controls.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/trusted-circle-badge.tsx
@@ -578,24 +568,18 @@
 2 apps/web/app/vendor-dashboard/_components/branch-pin-map.tsx
 1 apps/web/app/vendor-dashboard/_components/event-locked-by-fee.tsx
 1 apps/web/app/vendor-dashboard/_components/feature-accordion.tsx
-1 apps/web/app/vendor-dashboard/_components/first-steps.tsx
 1 apps/web/app/vendor-dashboard/_components/instagram-connect-card.tsx
 4 apps/web/app/vendor-dashboard/_components/kit.tsx
 1 apps/web/app/vendor-dashboard/_components/list-pager.tsx
-1 apps/web/app/vendor-dashboard/_components/overview-sections.tsx
 1 apps/web/app/vendor-dashboard/_components/payments-paused-note.tsx
 1 apps/web/app/vendor-dashboard/_components/payout-method-nudge.tsx
 2 apps/web/app/vendor-dashboard/_components/pipeline-pressure-line.tsx
-2 apps/web/app/vendor-dashboard/_components/qr-section.tsx
-1 apps/web/app/vendor-dashboard/_components/spotlight-award-banner.tsx
 2 apps/web/app/vendor-dashboard/_components/tier-gate.tsx
 1 apps/web/app/vendor-dashboard/attributes/_components/attribute-field-renderer.tsx
 2 apps/web/app/vendor-dashboard/attributes/page.tsx
 3 apps/web/app/vendor-dashboard/booking-fees/[orderId]/page.tsx
 1 apps/web/app/vendor-dashboard/booking-fees/page.tsx
 1 apps/web/app/vendor-dashboard/bookings/surface.tsx
-2 apps/web/app/vendor-dashboard/calendar/[date]/page.tsx
-10 apps/web/app/vendor-dashboard/calendar/surface.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/_components/booking-money-summary.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx
@@ -609,30 +593,22 @@
 1 apps/web/app/vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx
 4 apps/web/app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx
 2 apps/web/app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx
-33 apps/web/app/vendor-dashboard/clients/[eventId]/page.tsx
+29 apps/web/app/vendor-dashboard/clients/[eventId]/page.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx
 3 apps/web/app/vendor-dashboard/clients/[eventId]/seat-plan/page.tsx
-2 apps/web/app/vendor-dashboard/clients/surface.tsx
 1 apps/web/app/vendor-dashboard/contracts/new/page.tsx
 2 apps/web/app/vendor-dashboard/creators/page.tsx
-3 apps/web/app/vendor-dashboard/customers/_components/customers-calendar.tsx
-3 apps/web/app/vendor-dashboard/customers/_components/customers-filter-bar.tsx
-1 apps/web/app/vendor-dashboard/customers/_components/customers-roster.tsx
-1 apps/web/app/vendor-dashboard/customers/page.tsx
 2 apps/web/app/vendor-dashboard/deep-search/_components/deep-search-runner.tsx
 1 apps/web/app/vendor-dashboard/deep-search/_components/dossier-view.tsx
 2 apps/web/app/vendor-dashboard/demand/_components/demand-radar-card.tsx
 3 apps/web/app/vendor-dashboard/disputes/page.tsx
-2 apps/web/app/vendor-dashboard/earnings/surface.tsx
 10 apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx
-4 apps/web/app/vendor-dashboard/invite/page.tsx
-2 apps/web/app/vendor-dashboard/locked-qr/page.tsx
 1 apps/web/app/vendor-dashboard/messages/_components/inquiry-outcomes-rollup.tsx
 2 apps/web/app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx
 4 apps/web/app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx
-4 apps/web/app/vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx
+3 apps/web/app/vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx
 8 apps/web/app/vendor-dashboard/messages/[threadId]/page.tsx
 1 apps/web/app/vendor-dashboard/moodboard-library/_components/rejection-notice.tsx
 5 apps/web/app/vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx
@@ -653,9 +629,7 @@
 4 apps/web/app/vendor-dashboard/on-the-day/page.tsx
 6 apps/web/app/vendor-dashboard/packages/_components/package-editor.tsx
 2 apps/web/app/vendor-dashboard/packages/page.tsx
-1 apps/web/app/vendor-dashboard/page.tsx
 2 apps/web/app/vendor-dashboard/partnerships/page.tsx
-1 apps/web/app/vendor-dashboard/payday/surface.tsx
 1 apps/web/app/vendor-dashboard/payment-options/_components/add-payment-method.tsx
 3 apps/web/app/vendor-dashboard/payment-options/surface.tsx
 2 apps/web/app/vendor-dashboard/performance/_components/funnel-benchmark-card.tsx

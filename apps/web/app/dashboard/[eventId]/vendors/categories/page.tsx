@@ -188,6 +188,9 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
       eventId,
       ...benchSearchScopeForTile(openTile.tile),
       query: q || undefined,
+      // 2026-10-10 "SEARCH SHOWS ONLY WHAT CAN BE BOOKED FOR THIS EVENT": a supplier with no booking left on the
+      // event's date (or any day of its month) leaves Find — the same refusal the search sheet and More to compare use.
+      hideUnbookable: true,
     });
     const rows = applyFindFilter(res.results, picked);
     return (

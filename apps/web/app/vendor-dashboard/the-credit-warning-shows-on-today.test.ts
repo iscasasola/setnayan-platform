@@ -40,10 +40,39 @@ test('2 · the same words as the email, and a way to act', () => {
   assert.ok(!/vendor/i.test(n.title + n.body), 'the words say "vendor"');
 });
 
-test('3 · Today reads the two columns on their own and draws the notice', () => {
+test('3 · Today reads the two columns on their own and draws the notice', async () => {
   const page = stripComments(readFileSync(join(import.meta.dirname, 'page.tsx'), 'utf8'));
   assert.match(page, /\.select\('subscription_credit_php, tier_expires_at'\)/, 'the credit read is folded into another select');
   assert.match(page, /todayCreditNotice\(/);
-  assert.match(page, /\{creditNotice \? \(/, 'Today does not draw the credit warning');
+  // Redrawn 2026-10-08 (supplier redesign S-PR1): the notice is a ROW under
+  // "Also waiting" now, not a banner — `pickSupplierNext` has no rule for an
+  // expiring credit, so it is handed to `supplierWaiting` as a door and drawn
+  // whenever it applies. Same title, same body, same door to the plan.
+  assert.match(
+    page,
+    /credit: creditNotice \? \{ title: creditNotice\.title, body: creditNotice\.body, href: creditNotice\.href \} : null,/,
+    'Today does not hand the credit warning to the Also-waiting rows',
+  );
+  assert.match(page, /doors=\{waiting\.doors\}/, 'the Also-waiting doors are computed and never drawn');
   assert.match(page, /if \(creditErr\) console\.error/, 'a failed read is silent');
+  // …and the row really comes out the other end, whatever the Next card is.
+  // SABOTAGE: `if (args.credit)` → `if (args.credit && next.kind === 'clear')` → RED.
+  const { supplierWaiting, pickSupplierNext } = await import('@/lib/supplier-today');
+  const n = todayCreditNotice({ creditPhp: 2500, tierExpiresAt: at(3) }, NOW)!;
+  const input = { answer: null, answerSince: null, deskIncomplete: true, upcoming: [], setupStep: null, findability: null, fee: null, owedPhp: null, now: NOW };
+  const w = supplierWaiting({
+    next: pickSupplierNext(input),
+    needsAnswer: [],
+    since: () => null,
+    setupStep: null,
+    findability: null,
+    credit: { title: n.title, body: n.body, href: n.href },
+    payout: null,
+    now: NOW,
+  });
+  assert.deepEqual(
+    w.doors.map((d) => [d.id, d.label, d.target]),
+    [['credit', n.title, { to: 'given', href: '/vendor-dashboard/subscription' }]],
+    'the credit warning is not a row on Today',
+  );
 });

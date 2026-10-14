@@ -762,7 +762,11 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   'app/dashboard/[eventId]/vendors/actions.ts': {
     what: 'lock — the downpayment amount',
     needles: [[AGREED_NOW, 1], [EMBED, 1], [/const totalCostPhp = agreedTotalNow\(/, 1]],
-    column: 16,
+    // 17 since 2026-10-12: `updateSelfAddedSupplier` reads the record sheet's typed
+    // `total_cost_php` FORM FIELD for the fee-leak price check — a price the couple
+    // just typed, never a stored agreed total, so it is not one to route through
+    // agreedTotalNow.
+    column: 17,
   },
   'lib/booking-payment-plan.server.ts': {
     what: 'the payment plan amounts — frozen at the direct lock and at the supplier’s yes',
@@ -839,7 +843,9 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     // hands on are checked through its own entry below, `readEventVendorsMeasured`.
     // `lib/date-clash.server.ts` reads only each supplier's status and calendar (is a BOOKED
     // supplier free that day) — never a price: availability only, owner 2026-10-01.
-    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx', 'lib/date-clash.server.ts', 'lib/event-preload.ts', 'lib/event-vendors-read.ts'],
+    // `vendors/_actions/fact-sheet.ts` (PR5's date sheet) reads names, statuses and categories for Help me choose and
+    // the booked-supplier names — never a price.
+    readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/vendors/_actions/fact-sheet.ts', 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx', 'lib/date-clash.server.ts', 'lib/event-preload.ts', 'lib/event-vendors-read.ts'],
   },
   readEventVendorsMeasured: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   // Find a supplier (P3) calls it with `vendorRows: []` — only to learn which
@@ -861,6 +867,10 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
 const NOT_A_PRICE_SHOWN: Record<string, string> = {
   'app/dev/suppliers-lab/fixtures.ts':
     'FIXTURE rows for /dev/suppliers-lab (no event, no database, 404 in production) — typed in the lab, never read from event_vendors',
+  'app/dev/suppliers-lab/booked-fixtures.ts':
+    'FIXTURE rows for the Booked body of /dev/suppliers-lab, handed to computeEventMoney (which applies the agreed-total cascade itself); no table is queried and the lab 404s in production',
+  'app/dev/budget-lab/fixture.ts':
+    'NOT A READ — the dev lab’s hand-written rows, handed to computeEventMoney (which applies the agreed-total cascade itself); no table is queried and the lab 404s in production',
   'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx':
     'WRITES the typed price into the form; shows nothing back',
   'app/dashboard/[eventId]/vendors/_components/self-added-price.tsx':

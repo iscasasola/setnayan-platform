@@ -28,7 +28,7 @@ import {
   llmsFeatureRoutes,
 } from './llms-txt';
 import { KNOWN_PUBLIC_ROUTES } from './seo/health-checks';
-import { bookingFeeScheduleSummary } from './booking-fee';
+import { BOOKING_FEE, bookingFeeScheduleSummary } from './booking-fee';
 
 import { RETAIL, VENDOR, INPUT_FOR_GUARDS as INPUT } from './llms-txt-guard-input';
 
@@ -288,8 +288,16 @@ function supplierSection(body: string): string {
 // SABOTAGE: drop `${supplierFee}` from the tier-table paragraph or the
 // List-Your-Business line → RED.
 test('with the fee on, every supplier-facing "0% commission" is followed by the fee', () => {
-  const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
-  const schedule = bookingFeeScheduleSummary();
+  // ⚖ THE LIVE RATE, NOT THE CODE DEFAULT (audit 2026-10-12, item 5): the route
+  // hands in the schedule it read from `platform_settings`. An owner-edited
+  // schedule is used here so a file quoting the code default would fail.
+  const live = { ...BOOKING_FEE, rate: 0.04 };
+  const body = withFeeFlag('true', () => renderLlmsTxt({ ...INPUT, bookingFee: live }));
+  const schedule = bookingFeeScheduleSummary(live);
+  assert.ok(
+    !body.includes(bookingFeeScheduleSummary(BOOKING_FEE)),
+    'llms.txt printed the CODE DEFAULT rate beside the live one',
+  );
   assert.ok(
     supplierSection(body).includes(schedule),
     'the vendor tier section says 0% commission and never states the booking fee',

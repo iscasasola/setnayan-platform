@@ -137,11 +137,13 @@ const FLAGS: FlagSpec[] = [
       // the flag flips (measured: ₱80,000 apart on prod event `044f7e64…`).
       // (Now through `lib/budget-live-read.ts`, the one helper the lens and Home's first screen share.)
       'lib/budget-live-read.ts',
-      // BA2 — the Realtime refetch behind that same /budget card. The server
-      // render and this action are TWO WRITERS of one number; if this one stops
-      // asking the flag, the card silently reverts to the legacy total (which
-      // includes unconfirmed vendors' quotes) on the first payment event.
-      'app/dashboard/[eventId]/budget/actions.ts',
+      // ⤷ 2026-10-08 (Budget B1): `budget/actions.ts` LEFT this list because the
+      // thing it gated is gone — `getBudgetLiveSummary`, the Realtime refetch
+      // that was the SECOND writer of the /budget card, was deleted with that
+      // card. A Realtime change now re-runs the page's own server render
+      // (`router.refresh()`), so the page above is the ONLY writer and the
+      // only gate. `money-wears-the-ledger-face.test.ts` holds that the action
+      // does not come back.
     ],
     pureCores: [
       // Take `enabled` as a parameter, so their suites drive BOTH states in one

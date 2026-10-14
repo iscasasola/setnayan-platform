@@ -141,10 +141,12 @@ export function ServicesTakeover({
   bookedCount,
   shortlistSlot,
   buildSlot,
+  buildBody,
   budgetSlot,
   compareSlot,
   premium = false,
   teamSlot,
+  bookedSlot,
 }: {
   eventId: string;
   /** The `?tab=` the page arrived with (the lock door, a checklist deep link,
@@ -165,8 +167,21 @@ export function ServicesTakeover({
   bookedCount: number;
   /** The team, as rows — booked first, one next step each (`team-rows.tsx`). */
   teamSlot?: ReactNode;
+  /**
+   * THE BOOKED BODY, WHOLE (`booked-slot.tsx`, Suppliers PR4): Waiting for
+   * their yes · Booked · Budget, each under its own heading. When given it IS
+   * the body — `teamSlot` and `budgetSlot` are then not drawn.
+   */
+  bookedSlot?: ReactNode;
   shortlistSlot?: ReactNode;
   buildSlot?: ReactNode;
+  /**
+   * THE BUILD BODY, WHOLE (Suppliers PR3 — `build-body.tsx`): "This build" and
+   * "All builds" under their own headings, carrying the `#svc-build` and
+   * `#svc-compare` anchors themselves. Given → it is the Build body, and
+   * `buildSlot` / `compareSlot` are not drawn.
+   */
+  buildBody?: ReactNode;
   budgetSlot?: ReactNode;
   compareSlot?: ReactNode;
   /** Setnayan AI active for this event → the crest strip saying smart matching
@@ -432,6 +447,9 @@ export function ServicesTakeover({
 
         {drawn('build') ? (
           <div data-suppliers-body="build" hidden={mode !== 'build'}>
+            {buildBody ? (
+              buildBody
+            ) : (
             <div className="space-y-8">
               <ServiceSection tab="build" heading={SECTION_HEADING.build}>
                 {buildSlot ?? <SectionStub tab="build" />}
@@ -442,17 +460,22 @@ export function ServicesTakeover({
                 {compareSlot ?? <SectionStub tab="compare" />}
               </ServiceSection>
             </div>
+            )}
           </div>
         ) : null}
 
         {drawn('booked') ? (
           <div data-suppliers-body="booked" hidden={mode !== 'booked'}>
+            {bookedSlot ? (
+              <div data-booked-slot="">{bookedSlot}</div>
+            ) : (
             <div className="space-y-8">
               {teamSlot ? <div data-team-slot="">{teamSlot}</div> : null}
               <ServiceSection tab="budget" heading={SECTION_HEADING.budget}>
                 {budgetSlot ?? <SectionStub tab="budget" />}
               </ServiceSection>
             </div>
+            )}
           </div>
         ) : null}
       </div>

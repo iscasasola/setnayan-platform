@@ -253,7 +253,7 @@ test('the labeller owns the fallback chain, and every card screen asks it', () =
     'app/vendor-dashboard/messages/[threadId]/page.tsx',
     'app/api/vendor/chat/[threadId]/compose-options/route.ts',
     'app/vendor-dashboard/invite/page.tsx',
-    'app/vendor-dashboard/_components/qr-section.tsx',
+    // (_components/qr-section.tsx — retired by S-PR3: Dates links to the one QR codes page, `invite/page.tsx`, above)
   ]) {
     const src = read(screen);
     assert.match(src, /cardKindLabeller\(\)/, `${screen} stopped asking the shared labeller`);

@@ -166,7 +166,8 @@ test('supplier · both forms post only the row id and the way home — the same 
 
 test('supplier · the answer lands back in the thread, and the thread says what happened', () => {
   assert.equal(count(actions, /const back = lockAnswerReturnTo\(formData\.get\('return_to'\)\);/g), 2);
-  assert.equal(count(actions, /redirect\(`\$\{back\}\?lock_agree=\$\{flag\}\$\{competing\}`\);/g), 1);
+  // Batch 5 (audit F9): the redirect also carries `&fee=held` when the couple's news waits on the fee.
+  assert.equal(count(actions, /redirect\(`\$\{back\}\?lock_agree=\$\{flag\}\$\{competing\}\$\{feeHeld\}`\);/g), 1);
   assert.equal(count(actions, /redirect\(`\$\{back\}\?lock_decline=\$\{flag\}`\);/g), 1);
   assert.equal(count(actions, /redirect\(`\/vendor-dashboard\?lock_(agree|decline)=/g), 0, 'an answer is hard-wired to the Overview again');
   // The thread page reads both and renders the sentence, a refusal as an alert.

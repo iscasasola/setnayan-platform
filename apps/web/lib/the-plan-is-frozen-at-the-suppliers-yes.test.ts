@@ -43,10 +43,14 @@ test('the yes freezes the plan — on `ok`, and on nothing else', () => {
   const when = [...fn.matchAll(/if \(([^)]*)\) \{\s*try \{\s*await freezePaymentPlanAfterSupplierAgreed\(/g)].map((m) => m[1]!);
   console.log(`# vendorAgreeToLock freezes the plan when → ${JSON.stringify(when)}`);
   assert.deepEqual(when, ["!error && env.status === 'ok' && eventId"], 'the plan must be frozen exactly when the function answered ok');
-  // The real emitter: no third argument, so `payment_info_sent` really goes out.
+  // The real emitter — EXCEPT while the fee the yes just made is billed and
+  // unpaid (owner 2026-10-07 "no handshake, no confirmation … no booking fee
+  // paid to us"; 2026-10-12 #1): then "your booking is confirmed" waits for the
+  // fee to settle and `tellCoupleTheBookingIsConfirmed` sends the confirmation.
+  // ONLY that one condition may silence it; `undefined` is the real emitter.
   assert.match(
     fn,
-    /await freezePaymentPlanAfterSupplierAgreed\(createAdminClient\(\), \{ eventId, eventVendorId \}\);/,
+    /await freezePaymentPlanAfterSupplierAgreed\(\s*createAdminClient\(\),\s*\{ eventId, eventVendorId \},\s*feeBilledUnpaid \? \{ emit: async \(\) => \{\} \} : undefined,\s*\);/,
     'the yes path overrides the emitter (or changed its arguments) — the notice may never be sent',
   );
   // After the function ran, never before.

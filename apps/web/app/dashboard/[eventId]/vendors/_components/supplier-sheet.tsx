@@ -308,7 +308,7 @@ export default function SupplierSheet({
             {target.fits.length > 0 ? (
               <p className="flex flex-wrap gap-x-3.5 gap-y-1 text-[13.5px]">
                 {target.fits.map((f) => (
-                  <span key={f.kind} className={f.tone === 'ok' ? 'text-[rgb(var(--color-ok))]' : 'text-[rgb(var(--color-warn))]'}>
+                  <span key={f.kind} className={f.tone === 'ok' ? 'text-[rgb(var(--color-ok))]' : f.tone === 'muted' ? 'text-ink/60' : 'text-[rgb(var(--color-warn))]'}>
                     {f.text}
                   </span>
                 ))}

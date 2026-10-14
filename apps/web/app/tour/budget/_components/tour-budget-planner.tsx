@@ -2,7 +2,7 @@
 
 // ============================================================================
 // TourBudgetPlanner — CLIENT-ONLY interactive fork of
-// app/dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx for
+// the dashboard planner (budget-allocation-planner.tsx, deleted 2026-10-13 — unmounted by Budget B2) for
 // the public Maria & Jose tour.
 //
 // Why a fork (not a reuse): the dashboard BudgetAllocationPlanner imports

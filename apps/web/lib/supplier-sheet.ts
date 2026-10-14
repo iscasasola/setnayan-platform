@@ -12,6 +12,8 @@
  * month. Neither type has a field a name could arrive in, so a later edit
  * cannot leak one by "just passing the row through".
  */
+import { askEndedOf, askLine, coupleAskEndedLine } from './booking-ask-words';
+import type { LockRequestState } from './lock-request-state';
 import type { BenchServiceCard } from '@/lib/bench-service-card';
 import { PRICE_ON_REQUEST } from '@/lib/bench-service-card';
 import { formatCount } from '@/lib/format-number';
@@ -23,6 +25,7 @@ import {
   type ReviewRow,
   type VendorCompletedEventRow,
 } from '@/lib/reviews';
+import { DATE_FIT_WORDS, type DateFit } from './calendar-truth';
 
 /** How many of each the sheet shows — it is a glance, the full profile has all. */
 export const SHEET_REVIEW_LIMIT = 3;
@@ -193,7 +196,7 @@ export function askAboutLabel(label: string): string {
 
 /** One "why they fit" line — the SAME reach / budget / date signals the card
  *  shows, decided once here for the sheet and the desktop inspector alike. */
-export type SheetFit = { tone: 'ok' | 'warn'; kind: 'reach' | 'budget' | 'date'; inRange?: boolean; text: string };
+export type SheetFit = { tone: 'ok' | 'warn' | 'muted'; kind: 'reach' | 'budget' | 'date'; inRange?: boolean; text: string };
 
 export function sheetFits(v: {
   distanceKm: number | null;
@@ -203,7 +206,7 @@ export function sheetFits(v: {
   serviceRadiusKm: number | null;
   budgetFit: 'fits' | 'over' | null;
   budgetEstimated: boolean;
-  dateFit: 'free' | 'booked' | null;
+  dateFit: DateFit | null;
 }): SheetFit[] {
   const fits: SheetFit[] = [];
   // The helper owns the precedence (a declared ring wins; else the tier-derived
@@ -218,8 +221,8 @@ export function sheetFits(v: {
   if (reach) fits.push({ tone: reach.tone, kind: 'reach', inRange: reach.inRange, text: reach.text });
   if (v.budgetFit === 'fits') fits.push({ tone: 'ok', kind: 'budget', text: v.budgetEstimated ? 'Fits budget · est.' : 'Fits budget' });
   else if (v.budgetFit === 'over') fits.push({ tone: 'warn', kind: 'budget', text: v.budgetEstimated ? 'Over budget · est.' : 'Over budget' });
-  if (v.dateFit === 'free') fits.push({ tone: 'ok', kind: 'date', text: 'Free on your date' });
-  else if (v.dateFit === 'booked') fits.push({ tone: 'warn', kind: 'date', text: 'Booked that day' });
+  // P5 calendar truth: a calendar the supplier never set says so — quiet, never "Free" (`lib/calendar-truth.ts`).
+  if (v.dateFit) fits.push({ tone: v.dateFit === 'free' ? 'ok' : v.dateFit === 'booked' ? 'warn' : 'muted', kind: 'date', text: DATE_FIT_WORDS[v.dateFit] });
   return fits;
 }
 
@@ -232,13 +235,22 @@ export function sheetStateLine(s: {
   booked: boolean;
   /** Asked to book; no yes yet. */
   asked: boolean;
+  /**
+   * Where the last booking ask stands (`lockRequestStateOf`). A no, a lapse or
+   * a take-back is SAID — the same words the supplier's card reads for the row
+   * (`lib/booking-ask-words.ts`; map rows 14–15, where the couple's line used
+   * to simply disappear). Absent → as before.
+   */
+  lockState?: LockRequestState | null;
   quoteIn: boolean;
   inBuild: boolean;
   hasThread: boolean;
   selfAdded: boolean;
 }): string {
-  if (s.booked) return 'Booked';
-  if (s.asked) return 'Asked to book · waiting for their yes';
+  if (s.booked) return askLine('locked', 'couple');
+  if (s.asked) return askLine('requested', 'couple');
+  const ended = askEndedOf(s.lockState);
+  if (ended) return coupleAskEndedLine(ended);
   if (s.quoteIn) return 'Quote in';
   if (s.inBuild) return 'In your build';
   if (s.hasThread) return 'Asked for a quote';

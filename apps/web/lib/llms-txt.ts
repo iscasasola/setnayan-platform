@@ -33,7 +33,7 @@
  */
 
 import { AI_TIER_SKU, AI_TIER_FALLBACK_PHP, type AiPriceTier } from './setnayan-ai-type-pricing';
-import { bookingFeeScheduleSummary } from './booking-fee';
+import { bookingFeeScheduleSummary, type BookingFeeSchedule } from './booking-fee';
 import { FREE_BOOKING_LIMIT } from './booking-fee-lock';
 import { isBookingFeeEnabled } from './booking-fee-gate';
 import { FEATURE_GROUPS, FEATURE_PAGES, featurePaths } from './feature-pages';
@@ -60,6 +60,12 @@ export type LlmsTxtInput = {
   vendor: readonly VendorRow[];
   /** ISO date (YYYY-MM-DD) stamped in the footer. Passed in — this module is clock-free. */
   refreshedOn: string;
+  /**
+   * The LIVE supplier booking-fee schedule (`platform_settings`), read by the
+   * route — never the code default (audit 2026-10-12, item 5). Absent/NULL: the
+   * fee is stated without a rate, rather than a rate nobody is billed.
+   */
+  bookingFee?: BookingFeeSchedule | null;
 };
 
 /**
@@ -506,7 +512,7 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   // Derived from the same sources the bill uses — never hand-typed — and gated
   // on the same flag that decides whether anyone is billed.
   const supplierFee = isBookingFeeEnabled()
-    ? `Separately, suppliers pay Setnayan a booking fee of ${bookingFeeScheduleSummary()}, only on couples Setnayan introduces — the first ${FREE_BOOKING_LIMIT} are free, and a supplier's own clients are always free. It is billed to the supplier, never added to what a couple pays.`
+    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, only on couples Setnayan introduces — the first ${FREE_BOOKING_LIMIT} are free, and a supplier's own clients are always free. It is billed to the supplier, never added to what a couple pays.`
     : 'No booking fee is charged while it is switched off.';
   const aiLadderLine = ladder
     .map(({ tier, php }) => {

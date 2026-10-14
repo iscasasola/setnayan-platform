@@ -23,7 +23,15 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SURFACE = stripComments(readFileSync(resolve(HERE, 'surface.tsx'), 'utf8'));
+/*
+  S-PR2 (2026-10-13): the Clients page that read the kept notes is retired; they
+  are read and drawn on Customers › People now — the page reads, the fold draws.
+  Every claim below is the same claim, held where it lives.
+*/
+const SURFACE = stripComments(
+  readFileSync(resolve(HERE, '..', 'customers', 'page.tsx'), 'utf8') +
+    readFileSync(resolve(HERE, '..', 'customers', '_components', 'people-more.tsx'), 'utf8'),
+);
 
 test('the clients hub actually asks for the unfiled notes', () => {
   assert.match(
@@ -51,6 +59,14 @@ test('it renders them, and from a LIVE branch', () => {
     /keptNotesMeasured && keptNotes\.length > 0 \?[\s\S]{0,900}keptNotes\.map\(/,
     'the list must be rendered FROM the measured-and-non-empty branch, not merely present',
   );
+  // …and the branch hands them to the fold that draws them — not to anything else…
+  assert.match(
+    SURFACE,
+    /keptNotesMeasured && keptNotes\.length > 0 \?\s*\(\s*<KeptNotesFold notes=\{keptNotes\.map\(/,
+    'the measured, non-empty branch no longer hands the notes to the Kept notes fold',
+  );
+  // …and what that branch hands over is DRAWN: the fold maps every note it is given.
+  assert.match(SURFACE, /export function KeptNotesFold[\s\S]{0,1200}notes\.map\(/, 'the fold does not draw the notes it is handed');
   assert.match(SURFACE, /Kept notes/, 'and the section must be named for a person reading it');
 });
 

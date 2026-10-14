@@ -13,6 +13,8 @@ import type { SupplierStanding } from '@/lib/supplier-standing';
 import { formatPhp } from '@/lib/orders';
 import type { SupplierSheetData } from '@/lib/supplier-sheet';
 import type { CategoryVendorResult } from '@/app/dashboard/[eventId]/vendors/_actions/category-search';
+import type { MarketplaceVendorSuggestion } from '@/app/dashboard/[eventId]/vendors/actions';
+import { supplierInviteStatus, type SupplierInviteStatus } from '@/lib/supplier-invite-status';
 
 export const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -146,3 +148,50 @@ export function labSheet(vendorProfileId: string): SupplierSheetData {
     sharePath: `/v/${vendorProfileId.replace(/^p-/, '')}`,
   };
 }
+
+// ── "Add your own" (2026-10-10) ────────────────────────────────────────────
+/** `&added=1` — the row the four-step walk leaves behind, under Catering. Sample names, nobody real. */
+export const LAB_ADDED_ROW: EventVendorRowInput = row({
+  vendor_id: 'v-tita',
+  vendor_name: "Tita Baby's Catering",
+  category: 'catering',
+  manual_vendor_id: 'm-tita',
+});
+
+/** Where each hand-added supplier's claim link stands — one of every state. */
+export function labInviteStatuses(nowMs: number): Record<string, SupplierInviteStatus> {
+  const at = (days: number) => new Date(nowMs + days * 86_400_000).toISOString();
+  const out: Record<string, SupplierInviteStatus> = {};
+  const put = (id: string, s: SupplierInviteStatus | null) => {
+    if (s) out[id] = s;
+  };
+  put('v-tita', supplierInviteStatus({ status: 'pending', sentAt: at(0), expiresAt: at(90), openedAt: null }, nowMs));
+  // Sent three days ago and never opened — the couple is told (owner 2026-10-10).
+  put('v-tinapay', supplierInviteStatus({ status: 'pending', sentAt: at(-3), expiresAt: at(87), openedAt: null }, nowMs));
+  put('v-asukal', supplierInviteStatus({ status: 'declined', sentAt: at(-5), expiresAt: at(85) }, nowMs));
+  put('v-bibingka', supplierInviteStatus({ status: 'pending', sentAt: at(-95), expiresAt: at(-5) }, nowMs));
+  // Opened, not joined yet.
+  put('v-seda', supplierInviteStatus({ status: 'pending', sentAt: at(-6), expiresAt: at(84), openedAt: at(-2) }, nowMs));
+  put('v-santuario', supplierInviteStatus({ status: 'claimed', sentAt: at(-20), expiresAt: at(70) }, nowMs));
+  return out;
+}
+
+/** The walk's name search: the lab's own marketplace, matched the way a name is. */
+export function labNameMatches(query: string, category: string): MarketplaceVendorSuggestion[] {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const tile = category === 'cake_maker' ? 'cake' : category;
+  return (LAB_MARKET[tile]?.rows ?? [])
+    .filter((r) => r.name.toLowerCase().includes(q))
+    .map((r) => ({
+      vendor_profile_id: r.vendorProfileId,
+      business_name: r.name,
+      logo_display_url: null,
+      city: r.city ?? null,
+      categories: [category as MarketplaceVendorSuggestion['categories'][number]],
+      serves_current_category: true,
+    }));
+}
+
+/** A sample claim link — the shape `buildClaimUrl` makes; the token is not a real one. */
+export const LAB_CLAIM_URL = 'https://www.setnayan.com/vendor/claim/x7k2qp-sample';

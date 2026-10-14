@@ -52,6 +52,7 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 // rows (extra branches, nationwide reach, negotiated ceilings, domain).
 import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
 import { supplierCommissionPromise } from '@/lib/commission-promise';
+import type { BookingFeeSchedule } from '@/lib/booking-fee';
 
 type Col = 'verified' | 'solo' | 'pro' | 'enterprise' | 'custom';
 const ALL_COLS: Col[] = ['verified', 'solo', 'pro', 'enterprise', 'custom'];
@@ -288,7 +289,14 @@ export function tierTag(price: string | null, unit: string): { price: string; un
   return price === null ? { price: '—', unit: 'price unavailable' } : { price, unit };
 }
 
-export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices }) {
+export function VendorTierMatrix({
+  prices,
+  feeSchedule,
+}: {
+  prices: VendorTierMatrixPrices;
+  /** The LIVE booking-fee schedule the server page read; NULL names the fee, no rate. */
+  feeSchedule: BookingFeeSchedule | null;
+}) {
   const [selected, setSelected] = useState<Col>('pro');
   const groups = useMemo(
     () => [
@@ -535,7 +543,7 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
           {/* 🔴 "0% commission while we launch" plus a HAND-TYPED schedule:
               two ways to go stale in one sentence, and the launch half was
               already false. Both now derive from the bill. */}
-          {supplierCommissionPromise()}
+          {supplierCommissionPromise(feeSchedule)}
         </p>
 
         {/* The dark "Custom · beyond Enterprise" band lived here. Hidden

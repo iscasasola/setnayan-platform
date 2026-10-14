@@ -5,6 +5,8 @@
  * (presigned display URLs → AWS SDK). Importing this module from a client
  * component is a build error by design — keep it server-side only.
  */
+import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import 'server-only';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { decodeQrPayloadFromImage } from '@/lib/qr-decode';
@@ -76,6 +78,13 @@ export async function readPublishedMethodsForCouple(opts: {
     (ev as { marketplace_vendor_id: string | null } | null)?.marketplace_vendor_id ?? null;
   // off-platform/manual vendor (or not the couple's row) → coordinate in chat
   if (!marketplaceVendorId) return { state: 'off_platform', methods: [] };
+
+  // 1b. ⚖ NO HANDSHAKE, NO RECORD (owner 2026-10-07; audit F2, build item 13).
+  // A supplier's account numbers are shown once the booking is booked and
+  // settled as the couple sees it — not on a mere ask.
+  if (await coupleMoneyNotYet(adminClient, eventVendorId, isLockHandshakeEnabled())) {
+    return { state: 'not_yet', methods: [] };
+  }
 
   // 2. Resolve the vendor's auth user (for the pro-tier check).
   const { data: vp, error: vpError } = await adminClient

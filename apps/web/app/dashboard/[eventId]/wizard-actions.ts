@@ -533,6 +533,10 @@ async function completeVendorPickFromMarketplace(
       category,
       status: handshakeAsk ? 'considering' : 'contracted',
       marketplace_vendor_id: marketplaceVendorIdRaw,
+      // The wizard's own recommendation — Setnayan showed this shop (booking-fee
+      // audit B6, owner "APPROVE ALL" 2026-10-12): it was stamped nothing, so a
+      // recommended shop booked without a chat was waived forever.
+      source: 'host_marketplace_search',
       ...(handshakeAsk
         ? {
             lock_request_state: 'pending',

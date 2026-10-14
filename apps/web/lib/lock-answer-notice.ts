@@ -25,19 +25,52 @@
 /** Whether the notice is good news, a refusal, or a nothing-changed. */
 export type LockAnswerTone = 'ok' | 'refused' | 'noop';
 
-export type LockAnswerNotice = { tone: LockAnswerTone; text: string };
+export type LockAnswerNotice = {
+  tone: LockAnswerTone;
+  text: string;
+  /**
+   * A door the sentence asks the supplier to go through (the booking-fee pay hub when the couple's news waits on it).
+   * Drawn where the page has no Pay of its own (the thread); Today and the customer card already draw the new bill
+   * with its Pay right under the sentence (`BookingFeeBills`), so they say the sentence and let that Pay be the door.
+   */
+  door?: { label: string; href: string };
+};
 
 /** Extra facts the RPC hands back alongside a refusal. */
 export type LockAnswerContext = {
   /** `resolve_others_first` — how many other couples are waiting on this date. */
   competing?: number | null;
+  /**
+   * `ok` — the yes left a BILLED, UNPAID booking fee, so the couple's "said yes" / "your booking is confirmed" is
+   * HELD BACK until the fee settles (`vendorAgreeToLock`'s `feeBilledUnpaid` — the SAME value that holds the news
+   * back; it rides the redirect as `&fee=held`, read by `lockAgreeFeeHeld`). Batch-5 needs audit F9, 2026-10-14.
+   */
+  feeHeld?: boolean;
 };
 
+/** The redirect's `fee` value when the couple's news waits on the fee — the one spelling, written and read here. */
+export const LOCK_AGREE_FEE_HELD = 'held';
+/** Read `?fee=` back: true only for the one spelling `vendorAgreeToLock` writes. */
+export function lockAgreeFeeHeld(raw: unknown): boolean {
+  return raw === LOCK_AGREE_FEE_HELD;
+}
+/** Where the supplier pays — the shipped booking-fee hub (each due bill has its Pay there). */
+const PAY_THE_FEE_HREF = '/vendor-dashboard/booking-fees';
+
 const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
-  ok: () => ({
-    tone: 'ok',
-    text: 'You took the booking. The couple has been told, and they will send you their payment details next.',
-  }),
+  // The couple is told ONLY when their news is not held back (`ctx.feeHeld`). With a billed, unpaid fee the yes is
+  // real but the couple hears nothing until the fee settles — so the supplier is told THAT, and given the Pay door.
+  ok: (ctx) =>
+    ctx.feeHeld
+      ? {
+          tone: 'ok',
+          text: 'You said yes. Pay the booking fee and we’ll tell the couple their booking is confirmed.',
+          door: { label: 'Pay the booking fee', href: PAY_THE_FEE_HREF },
+        }
+      : {
+          tone: 'ok',
+          text: 'You took the booking. The couple has been told, and they will send you their payment details next.',
+        },
   already: () => ({
     tone: 'noop',
     text: 'You had already agreed to this one — nothing changed.',
@@ -167,7 +200,15 @@ export function lockDeclineNotice(
  * always gone. This is an allowlist of one shape, never a denylist.
  */
 const THREAD_RETURN = /^\/vendor-dashboard\/messages\/[A-Za-z0-9_-]{1,80}$/;
+/**
+ * …and the supplier's CUSTOMER CARD (2026-10-12, pair P2): the ask is answered
+ * there too (`clients/[eventId]/_components/booking-ask-panel.tsx`), and until
+ * now its forms posted no `return_to`, so a supplier who pressed Agree on the
+ * card was thrown to the Overview. The card reads `?lock_agree=` itself. Same
+ * one-shape rule: the bare card path, an event id of id characters, no query.
+ */
+const CLIENT_CARD_RETURN = /^\/vendor-dashboard\/clients\/[A-Za-z0-9-]{1,64}$/;
 
 export function lockAnswerReturnTo(raw: unknown): string {
-  return typeof raw === 'string' && THREAD_RETURN.test(raw) ? raw : '/vendor-dashboard';
+  return typeof raw === 'string' && (THREAD_RETURN.test(raw) || CLIENT_CARD_RETURN.test(raw)) ? raw : '/vendor-dashboard';
 }

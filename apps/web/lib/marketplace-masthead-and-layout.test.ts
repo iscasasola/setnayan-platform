@@ -158,9 +158,10 @@ test('no glass-era bg-white/N survives in the Marketplace components', () => {
   assert.deepEqual(offenders, [], `glass fill left in: ${offenders.join(', ')}`);
 });
 
-test('the payments lens wears the warm-editorial card', () => {
-  assert.match(code(join(COMPONENTS, 'merkado-budget-lens.tsx')), /className="sn-tile/);
-});
+// 'the payments lens wears the warm-editorial card' — retired 2026-10-13 with the
+// lens itself (merkado-budget-lens.tsx): Suppliers › Booked draws the approved B4
+// Budget block instead (booked-budget.tsx, guarded by lib/booked-budget.test.ts),
+// and an unmounted lens was an orphan to ugat-both-ends.
 
 test('the crest no longer tells every couple they are on a premium tier', () => {
   // `premium` is `aiActive`, and while the AI paywall is off `aiActive` is true

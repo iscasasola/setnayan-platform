@@ -518,7 +518,10 @@ test('the optional depth is named under the card, and starts shut', () => {
   const tag = src.lastIndexOf('<details', at);
   assert.ok(tag > 0 && !/\bopen\b/.test(src.slice(tag, at)), 'the optional list started open');
   // It opens the SAME sheets the card opens — one maker, listed twice.
-  assert.match(src, /onClick=\{\(\) => setSheet\(row\.key\)\}/, 'the optional list stopped opening the shipped sheets');
+  // (2026-10-12: through `askSheet` — the same sheets, except that on a card a couple's link
+  // seeded, the price sheet waits for the photo and what's included, `lib/price-waits.ts`.)
+  assert.match(src, /onClick=\{\(\) => askSheet\(row\.key\)\}/, 'the optional list stopped opening the shipped sheets');
+  assert.match(src, /const askSheet = \(key: SheetKey\) =>\s*setSheet\(/, 'askSheet no longer opens the shipped sheets');
 });
 
 test('the publish moment says the right thing in both directions', () => {

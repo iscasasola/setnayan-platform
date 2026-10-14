@@ -53,6 +53,7 @@ import { pickedRenderObjectKey } from '@/lib/moodboard-gallery-copy';
 import { r2Upload, R2_BUCKETS, isR2Configured } from '@/lib/r2';
 import { readPooledGalleryBytes, signPooledGalleryImage } from '@/lib/moodboard-render-serve';
 
+import { readCoupleBookingStandings } from '@/lib/couple-booked-and-settled.server';
 export async function saveRolePalette(formData: FormData) {
   const eventId = formData.get('event_id');
   const paletteJson = formData.get('palette_json');
@@ -746,16 +747,26 @@ export async function shareMoodBoardWithVendors(
   // is a member of, so this both authorizes the action and gathers the targets.
   const { data: vendorRows, error: vendorErr } = await supabase
     .from('event_vendors')
-    .select('marketplace_vendor_id')
+    .select('vendor_id, marketplace_vendor_id')
     .eq('event_id', eventId)
     .not('marketplace_vendor_id', 'is', null);
   if (vendorErr) throw new Error(vendorErr.message);
+
+  // ⚖ NO HANDSHAKE, NO ACCESS (owner 2026-10-07; audit F3, build item 13). This
+  // pinged EVERY Setnayan supplier on the event — even one only shortlisted —
+  // with a link to the board. Only a supplier booked and settled as the couple
+  // sees it is told; the board RPC itself waits for the fee too.
+  const standings = await readCoupleBookingStandings(
+    createAdminClient(),
+    (vendorRows ?? []).map((r) => r.vendor_id as string),
+  );
 
   // Distinct profiles — one vendor can hold several event_vendors rows (one per
   // category), but we ping them once.
   const profileIds = Array.from(
     new Set(
       (vendorRows ?? [])
+        .filter((r) => standings.get(r.vendor_id as string)?.standing === 'booked')
         .map((r) => r.marketplace_vendor_id as string | null)
         .filter((id): id is string => Boolean(id)),
     ),

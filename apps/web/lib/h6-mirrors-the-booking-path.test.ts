@@ -478,10 +478,14 @@ test('only server code calls it, with the admin client', () => {
     const src = stripComments(readFileSync(file, 'utf8'));
     if (src.includes(`'${MIRROR_FN}'`)) callers.push(relative(WEB, file));
   }
-  assert.deepEqual(callers, ['lib/bench-bookable-days.server.ts']);
-  const server = tsSource('lib/bench-bookable-days.server.ts');
-  assert.match(server, new RegExp(`args\\.admin\\.rpc\\(\\s*'${MIRROR_FN}'`));
-  assert.doesNotMatch(server, /session/, 'the refusals are never read through, or returned to, the browser session');
+  // PR5's calendar truth (`lib/calendar-truth.server.ts`) asks the same refusal for the couple's date fit — so the
+  // fit and the lock cannot disagree (connection map row 30). Same rules: admin client, a verdict out, never days.
+  assert.deepEqual(callers, ['lib/bench-bookable-days.server.ts', 'lib/calendar-truth.server.ts']);
+  for (const f of callers) {
+    const server = tsSource(f);
+    assert.match(server, new RegExp(`args\\.admin\\.rpc\\(\\s*'${MIRROR_FN}'`), f);
+    assert.doesNotMatch(server, /session/, `${f}: the refusals are never read through, or returned to, the browser session`);
+  }
 });
 
 // ── 3 · THE POOLS ─────────────────────────────────────────────────────────
@@ -558,8 +562,9 @@ test('only the bench asks to hide — every other caller is unchanged', () => {
     'app/dashboard/[eventId]/progress/_actions/free-venue-shortlist.ts': ['unchanged'],
     'app/dashboard/[eventId]/vendors/_actions/inline-more-row.ts': ['hides'],
     'app/dashboard/[eventId]/vendors/_actions/unlock-category.ts': ['unchanged'],
-    // Find a supplier (P3) lists a category's suppliers as the search ranks them.
-    'app/dashboard/[eventId]/vendors/categories/page.tsx': ['unchanged'],
+    // Find a supplier (P3) lists a category's suppliers as the search ranks them — and since PR5 (2026-10-10
+    // "SEARCH SHOWS ONLY WHAT CAN BE BOOKED FOR THIS EVENT") only the ones that can be booked on the date.
+    'app/dashboard/[eventId]/vendors/categories/page.tsx': ['hides'],
     'app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx': ['hides', 'hides'],
     'app/dashboard/[eventId]/vendors/build-3state-fallback-actions.ts': ['unchanged'],
   });

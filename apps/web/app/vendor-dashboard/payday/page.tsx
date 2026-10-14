@@ -4,10 +4,11 @@ import { customerLandingAnchor } from '../customers/anchors';
 /**
  * /vendor-dashboard/payday — folded into the My Customers hub (owner 5-page IA,
  * 2026-07-12: "overview, my shop, my customers, my performance, BEO are all
- * 1-page each with the different features integrated"). The surface lives on
- * in ./surface.tsx, rendered by the hub's ?tab=payday. This stub keeps every
- * old deep-link working and forwards its params (pattern: /vendor-dashboard/
- * services → My Shop, owner 2026-07-02).
+ * 1-page each with the different features integrated"), and since S-PR4 drawn as
+ * Customers › Money's rows (`customers/_components/money-segment.tsx`; the old
+ * `./surface.tsx` is gone). `?tab=payday` opens Money (`customers/segments.ts`).
+ * This stub keeps every old deep-link working and forwards its params (pattern:
+ * /vendor-dashboard/services → My Shop, owner 2026-07-02).
  */
 export default async function RedirectPayday({
   searchParams,
@@ -16,9 +17,11 @@ export default async function RedirectPayday({
 }) {
   const sp = await searchParams;
   const qs = new URLSearchParams();
+  // `seg` too: the accordion drops `tab` once a fold is pressed, and Money must stay Money (S-PR4).
   qs.set('tab', 'payday');
+  qs.set('seg', 'money');
   for (const [k, v] of Object.entries(sp)) {
-    if (typeof v === 'string' && v.length > 0 && k !== 'tab') qs.set(k, v);
+    if (typeof v === 'string' && v.length > 0 && k !== 'tab' && k !== 'seg') qs.set(k, v);
   }
   // 🔑 NAMES ITS FOLD. A bare redirect reloaded My Customers at the top — the roster —
   // for a link that said payday. The anchors module says where payday lives.

@@ -211,3 +211,10 @@ test('T4 · the place is the booked venue and its area; the area alone while non
   assert.deepEqual(suppliersPlaceFact(null, 'Metro Manila'), { text: 'Metro Manila', open: true });
   assert.deepEqual(suppliersPlaceFact('  ', ''), { text: 'Pick the place', open: true });
 });
+
+test('the thumb row’s scope is the ONE open category; Expand all and nothing open search everything (owner 2026-10-13)', async () => {
+  const { thumbScopeTile } = await import('./suppliers-shell');
+  assert.equal(thumbScopeTile({ openTile: 'reception', openAll: false }), 'reception', 'Reception open → "Search Reception…", ＋ adds there');
+  assert.equal(thumbScopeTile({ openTile: null, openAll: false }), null, 'nothing open → all suppliers, ＋ asks');
+  assert.equal(thumbScopeTile({ openTile: 'reception', openAll: true }), null, 'Expand all is no one category');
+});

@@ -17,6 +17,7 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { SetnayanAiValue } from './_components/setnayan-ai-value';
 import type { AiValueTerms } from './_components/setnayan-ai-value-copy';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { ServicePageBand, ServiceSection, ServiceListRow, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
 import { PlanMyselfSwitch } from '@/app/dashboard/[eventId]/launch/_components/plan-myself';
 import { planMyselfOn } from '@/lib/plan-myself';
@@ -207,7 +208,7 @@ export default async function SetnayanAiPage({ params, searchParams }: Props) {
       <PageMasthead title="Planner · Setnayan AI" />
 
       <div>
-        <ServicePageBand eventId={eventId} glance={glance} label="Your Planner" storeShell={storeShell} buyError={search.buy_error ?? null} />
+        <ServicePageBand name={SERVICE_NAMES['setnayan-ai'].plain} brand={SERVICE_NAMES['setnayan-ai'].brand} eventId={eventId} glance={glance} label="Your Planner" storeShell={storeShell} buyError={search.buy_error ?? null} />
 
         {/* ✅ THE SECTIONS AS DRAWN (prototype `sections('ai')`): each row a door with its state
             as a chip; not added → dim, so the couple sees what it gives before paying. */}

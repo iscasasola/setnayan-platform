@@ -13,6 +13,7 @@ import {
   Unlink2,
   MonitorPlay,
 } from 'lucide-react';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
 import { liveGlance, serviceDayOf } from '@/lib/services-glance';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -426,6 +427,8 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
 
       <div>
         <ServicePageBand
+          name={SERVICE_NAMES['live-studio'].plain}
+          brand={SERVICE_NAMES['live-studio'].brand}
           eventId={eventId}
           glance={glance}
           label="Your live stream"

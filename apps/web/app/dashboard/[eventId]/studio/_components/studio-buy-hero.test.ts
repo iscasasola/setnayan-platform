@@ -53,9 +53,14 @@ function studioPages(): { name: string; src: string }[] {
     .filter((x): x is { name: string; src: string } => x !== null);
 }
 
-/** Pages that RENDER a checkout control — not pages that merely say "checkout". */
+/**
+ * Pages that RENDER a checkout control — not pages that merely say "checkout".
+ * ✅ 2026-10-14: the five services' pages sell through their ONE band
+ * (`ServicePageBand` — "Add for ₱…" → the sheet → /pay, owner 🧩 5), so the band
+ * is a checkout control too.
+ */
 function sellingPages() {
-  return studioPages().filter((p) => /<(InlineCheckoutDrawer|BuyButton)\b/.test(code(p.src)));
+  return studioPages().filter((p) => /<(InlineCheckoutDrawer|BuyButton|ServicePageBand)\b/.test(code(p.src)));
 }
 
 test('the selling pages are found by what they RENDER, not by a word in a comment', () => {
@@ -87,7 +92,11 @@ test('no selling page hides its headline behind the screen-reader masthead alone
   const offenders: string[] = [];
   for (const p of sellingPages()) {
     const src = code(p.src);
-    if (!/<StudioBuyHero\b/.test(src)) offenders.push(p.name);
+    // A band that sells names its service ON SCREEN (`name=`), the prototype's top-bar pill.
+    const bandAt = src.indexOf('<ServicePageBand');
+    const band = bandAt > -1 ? src.slice(bandAt, src.indexOf('/>', bandAt)) : '';
+    const bandNamed = /\bname=\{?[^}\s]/.test(band);
+    if (!/<StudioBuyHero\b/.test(src) && !bandNamed) offenders.push(p.name);
   }
   assert.deepEqual(
     offenders,

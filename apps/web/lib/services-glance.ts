@@ -50,6 +50,9 @@ export type ServiceRowKey = (typeof SERVICE_ROW_ORDER)[number];
  */
 export const FREE_TOOLS_NEVER_ROWS = ['budget', 'date-finder', 'maker', 'chat', 'guest-list', 'seating'] as const;
 
+/** Event Hub Pro's names — not a Setnayan "service" in `lib/service-names.ts`, so written once here (owner 🧾 2026-10-14: the brand line says what it unlocks). */
+export const HUB_PRO_NAMES = { plain: 'Event Hub Pro', brand: '◆ Themes · photo and video backgrounds' } as const;
+
 /** The catalog code each row sells (Papic sells credit sizes, read on the tap). */
 export const SERVICE_ROW_SKU: Readonly<Record<Exclude<ServiceRowKey, 'papic'>, string>> = {
   ai: 'SETNAYAN_AI',

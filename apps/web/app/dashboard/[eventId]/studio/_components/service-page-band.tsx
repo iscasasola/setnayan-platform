@@ -87,6 +87,8 @@ export function ServicePageBand({
   eventId,
   glance,
   label,
+  name,
+  brand,
   storeShell = false,
   buyError = null,
   addButton = null,
@@ -95,6 +97,9 @@ export function ServicePageBand({
   eventId: string;
   glance: ServiceRowGlance;
   label: string;
+  /** The plain name (first) and the Setnayan name (small, under) — drawn on screen. */
+  name: string;
+  brand?: string;
   storeShell?: boolean;
   /** `?buy_error=` — a refused purchase: the sheet opens on it, said in words. */
   buyError?: string | null;
@@ -126,6 +131,8 @@ export function ServicePageBand({
       mood={glance.mood}
       line={b.line}
       label={label}
+      name={name}
+      brand={brand}
       marker={{ 'data-service-band': glance.key, 'data-ownership': glance.ownership }}
       main={mainNode}
       second={second ? <Door eventId={eventId} row={glance.key} door={second} price={priceFor(second)} main={false} buyOpen={Boolean(buyError) && second.kind !== 'add' && !main} buyError={buyError} /> : null}

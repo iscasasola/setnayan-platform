@@ -51,6 +51,7 @@ import { getTiktokOAuthConfig } from '@/lib/patiktok-tiktok';
 import { disconnectPatiktokTiktok, savePatiktokBoothTemplates } from './actions';
 import { ReelRenderer } from './_components/reel-renderer';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
 import { boothGlance, serviceDayOf } from '@/lib/services-glance';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
@@ -272,7 +273,7 @@ export default async function PatiktokGallery({
       {/* ✅ ONE BAND, then the sections as drawn (prototype `sections('booth')`). The band IS the
           one Save & share door — "◆ Save" on a reel points here (`#patiktok-save`). */}
       <div id="patiktok-save" className="scroll-mt-24">
-        <ServicePageBand eventId={eventId} glance={glance} label="Your video booth" storeShell={storeShell} buyError={buyError ?? null} />
+        <ServicePageBand name={SERVICE_NAMES.patiktok.plain} brand={SERVICE_NAMES.patiktok.brand} eventId={eventId} glance={glance} label="Your video booth" storeShell={storeShell} buyError={buyError ?? null} />
         <div className="mt-2">
           <ServiceSection
             icon={<Film strokeWidth={1.9} />}

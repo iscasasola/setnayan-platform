@@ -201,7 +201,16 @@ export function ServiceBand({
   second,
   label,
   marker,
+  name,
+  brand,
 }: {
+  /**
+   * The service's plain name, with the Setnayan name under it — ON SCREEN (the
+   * prototype's top-bar pill): a page that asks for money says what it is
+   * (`studio-buy-hero.test.ts`; owner, 2026-08: "it does not look appealing").
+   */
+  name?: string;
+  brand?: string;
   big: string;
   bigWord?: boolean;
   word: string | null;
@@ -215,6 +224,12 @@ export function ServiceBand({
 }) {
   return (
     <section className="sg-band" data-mood={mood} data-glance-band="" aria-label={label} {...marker}>
+      {name ? (
+        <p className="sg-band-name" data-band-name="">
+          <b>{name}</b>
+          {brand ? <span>{brand}</span> : null}
+        </p>
+      ) : null}
       <div className="min-w-0">
         <div className="sg-big" data-mood={mood} data-word={bigWord ? '' : undefined} data-glance-count="">
           {big}

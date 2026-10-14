@@ -38,7 +38,7 @@ import { SERVICE_NAMES } from '@/lib/service-names';
 import { isToInvite, type InviteFacts } from '@/lib/guest-roster-view';
 import type { PapicMoment } from '@/lib/papic-glance';
 import type { GlanceLine, ServiceGlance } from '@/lib/service-glance';
-import { SERVICE_ROW_ORDER, type ServiceRowGlance, type ServiceRowKey } from '@/lib/services-glance';
+import { HUB_PRO_NAMES, SERVICE_ROW_ORDER, type ServiceRowGlance, type ServiceRowKey } from '@/lib/services-glance';
 
 export type HomeNextKind = 'live' | 'music' | 'guide' | 'date' | 'unread' | 'guests' | 'invite' | 'papic' | 'ai' | 'plan';
 
@@ -408,7 +408,7 @@ const ROW_NAMES: Readonly<Record<ServiceRowKey, { name: string; brand: string }>
   music: { name: SERVICE_NAMES['music-maker'].plain, brand: SERVICE_NAMES['music-maker'].brand },
   booth: { name: SERVICE_NAMES.patiktok.plain, brand: SERVICE_NAMES.patiktok.brand },
   /* 🧾 Owner 2026-10-14: the brand line says what it unlocks. */
-  hub: { name: 'Event Hub Pro', brand: '◆ Themes · photo and video backgrounds' },
+  hub: { name: HUB_PRO_NAMES.plain, brand: HUB_PRO_NAMES.brand },
 };
 
 /**

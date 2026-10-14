@@ -2,23 +2,19 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ArrowUpRight, Clock, Globe2, Sparkles } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { ArrowLeft, Diamond, Globe2, ImageIcon, Sparkles } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { formatPhp } from '@/lib/orders';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
 import {
   eventOwnsCoupleWebsitePro,
   eventCoupleWebsiteProActive,
 } from '@/lib/couple-website-pro';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
-import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { HUB_PRO_NAMES, hubProGlance } from '@/lib/services-glance';
+import { homeCoverAndHubLookFor } from '@/lib/home-cover.server';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
 
 export const metadata = { title: 'Event Hub PRO' };
@@ -68,9 +64,8 @@ const SKU_CODE = 'COUPLE_WEBSITE_PRO';
  * Event Hub PRO is the top tier, so there's no cross-sell line up from it.
  */
 
-type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string; buy_error?: string }> };
 
-const WEBSITE_HUB_HREF = (eventId: string) => `/dashboard/${eventId}/website`;
 
 /**
  * Every line here is a thing a couple WITHOUT this upgrade is refused, checked
@@ -115,23 +110,29 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  // Purchaser-scoped under orders RLS → admin client so a co-host sees the
-  // owned state too.
-  const admin = createAdminClient();
-
   // active — admin-approved (feature unlocked). owned — owned INCLUDING a
   // pending 'submitted' order (double-buy prevention). owned && !active ⇒
-  // payment under review.
-  const [active, owned] = await Promise.all([
+  // waiting for payment. Both ride the render's one orders read.
+  const [active, owned, storeShell] = await Promise.all([
     eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false),
     eventOwnsCoupleWebsitePro(await eventEntitlementClient(eventId), eventId).catch(() => false),
+    isStoreShellRequest(),
   ]);
 
-  const supabase = await createClient();
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
-  const priceCentavos = skuRecord?.price_centavos ?? null;
-  const settings = await fetchPlatformSettings(supabase);
+  // What Pro has unlocked on THIS event — read only for an owner (the cover's own two reads).
+  const look = active ? (await homeCoverAndHubLookFor(eventId).catch(() => null))?.look ?? null : null;
+
+  /* ✅ EVENT HUB PRO'S ONE BAND (owner 2026-10-14 🧾 + ✅ the services prototype): owned
+     "Pro on · <theme> · <background>" · Open the Maker; not added → the price and "Add for ₱…"
+     (the one sheet → /pay). ◆ marks Pro and never blocks: the free Maker stays a door. */
+  const glance = hubProGlance({
+    ownership: active ? 'on' : owned ? 'waiting' : 'none',
+    price: pricePhp,
+    theme: look?.theme ?? null,
+    background: look?.background ?? null,
+  });
 
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
@@ -139,22 +140,33 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
         <ArrowLeft aria-hidden className="h-4 w-4" /> {back.label}
       </Link>
 
-      {/*
-        The buy state opens with the product's name, its promise and its price;
-        every other state keeps the quiet masthead. `PageMasthead` renders its
-        title `sr-only` — right for a page you live in, wrong for the one state
-        where nothing has been decided yet. ⚠ One h1 per page: either/or.
-      */}
-      {active || owned ? (
-        <PageMasthead title={HERO.label} />
-      ) : (
-        <StudioBuyHero
-          productName={HERO.label}
-          promise={HERO.blurb}
-          price={pricePhp != null ? formatPhp(pricePhp) : undefined}
-          priceNote={pricePhp != null ? 'One upgrade, for the whole Event Hub' : undefined}
-        />
-      )}
+      <PageMasthead title={HERO.label} />
+
+      <div>
+        <ServicePageBand name={HUB_PRO_NAMES.plain} brand={HUB_PRO_NAMES.brand} eventId={eventId} glance={glance} label="Your Event Hub Pro" storeShell={storeShell} buyError={search.buy_error ?? null} />
+        {/* ✅ THE SECTIONS AS DRAWN (prototype `sections('hub')`) — each opens the Maker, where a theme
+            or a background is picked; a ◆ choice is tried freely and applied with Pro. */}
+        <div className="mt-2">
+          <ServiceSection
+            icon={<Diamond strokeWidth={1.9} />}
+            title="Your theme"
+            sub={active ? (look?.theme ? `${look.theme} · applied` : 'Applied') : 'Classic (free) · ◆ with Pro'}
+            end={<ServiceQuietLink href={`/dashboard/${eventId}/launch`} label="Change" />}
+          />
+          <ServiceSection
+            icon={<ImageIcon strokeWidth={1.9} />}
+            title="Backgrounds"
+            sub={active ? (look?.background ? `${look.background.replace(/^./, (c) => c.toUpperCase())} · applied` : 'Applied') : 'Colours and patterns · ◆ media'}
+            end={<ServiceQuietLink href={`/dashboard/${eventId}/launch`} label="Change" />}
+          />
+          <ServiceSection
+            icon={<Globe2 strokeWidth={1.9} />}
+            title="Your Event Hub"
+            sub={active ? 'Watermark-free, everywhere guests see it' : 'Carries the Setnayan mark'}
+            end={active ? <ServiceChip mood="ok" words="Pro on" /> : <ServiceChip mood="off" words="Free" />}
+          />
+        </div>
+      </div>
 
       {/* What it covers — benefit language, no implementation names. */}
       <ul className="sn-tile space-y-2 p-5">
@@ -165,65 +177,6 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
           </li>
         ))}
       </ul>
-
-      {active ? (
-        /* ── Owned + admin-approved. ── */
-        <div className="rounded-xl border border-success-200 bg-success-50 p-5">
-          <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
-            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="lg" tone="current" /> Unlocked
-          </p>
-          <p className="text-sm text-ink/70">
-            Event Hub PRO is active. Every premium touch is on across your Event Hub, watermark-free.
-          </p>
-          <Link
-            href={fromMaker ? back.href : WEBSITE_HUB_HREF(eventId)}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
-          >
-            Open your Event Hub
-            <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
-        </div>
-      ) : owned ? (
-        /* ── Pending order (submitted, not yet approved). No second drawer. ── */
-        <div className="rounded-xl border border-mulberry/20 bg-mulberry/5 p-5">
-          <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-mulberry">
-            <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} /> Payment under review
-          </p>
-          <p className="text-sm text-ink/70">
-            We&rsquo;ve received your Event Hub PRO order. Our team reconciles within one business day —
-            you&rsquo;ll get an email when it moves to approved, and every premium touch unlocks
-            automatically.
-          </p>
-          <Link
-            href={`/dashboard/${eventId}/orders`}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-mulberry underline underline-offset-2 hover:text-mulberry-600"
-          >
-            Track your order
-          </Link>
-          {fromMaker ? (
-            <Link
-              href={back.href}
-              className="mt-3 ml-4 inline-flex items-center gap-1.5 text-sm font-medium text-mulberry underline underline-offset-2 hover:text-mulberry-600"
-            >
-              {back.label}
-            </Link>
-          ) : null}
-        </div>
-      ) : priceCentavos != null && pricePhp != null ? (
-        /* ── NOT OWNED — the working buy drawer. ── */
-        <InlineCheckoutDrawer
-          serviceKey={SKU_CODE}
-          displayName="Event Hub PRO"
-          originalPriceCentavos={String(priceCentavos)}
-          eventId={eventId}
-          settings={settings}
-          triggerLabel="Unlock Event Hub PRO"
-        />
-      ) : (
-        <p className="text-sm text-ink/65">
-          Pricing loads from your catalog &mdash; please refresh in a moment.
-        </p>
-      )}
     </section>
   );
 }

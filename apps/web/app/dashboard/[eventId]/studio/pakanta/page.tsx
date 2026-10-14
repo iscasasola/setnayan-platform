@@ -21,6 +21,7 @@ import { PakantaMusicForm } from './_components/pakanta-music-form';
 import { UseSongButton } from './_components/use-song-button';
 import { AiDisclosure } from '@/components/AiDisclosure';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
 import { SongPlayer } from './_components/song-player';
 import { musicGlance, serviceDayOf } from '@/lib/services-glance';
@@ -196,7 +197,7 @@ export default async function PakantaPage({ params, searchParams }: Props) {
       />
 
       <div>
-        <ServicePageBand eventId={eventId} glance={glance} label="Your song" storeShell={storeShell} buyError={search.buy_error ?? null} />
+        <ServicePageBand name={SERVICE_NAMES['music-maker'].plain} brand={SERVICE_NAMES['music-maker'].brand} eventId={eventId} glance={glance} label="Your song" storeShell={storeShell} buyError={search.buy_error ?? null} />
         {/* ✅ THE SECTIONS AS DRAWN (prototype `sections('music')`) — dim until it is added. */}
         <div className="mt-2">
           <ServiceSection

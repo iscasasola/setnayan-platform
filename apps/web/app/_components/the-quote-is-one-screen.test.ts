@@ -65,7 +65,8 @@ test('Start from: card · a saved quote (only when there is one) · blank — an
 
 test('a line is dropped, never deleted — and a dropped line costs nothing', () => {
   assert.doesNotMatch(maker, /removeLine/);
-  assert.match(maker, /const toggleDrop = /);
+  assert.match(maker, /const toggleDrop = \(key: string\) =>\s*setItems\(\(prev\) => prev\.map\(\(l\) => \(l\.key === key \? \{ \.\.\.l, dropped: !l\.dropped \} : l\)\)\);/, 'a tap no longer toggles the line in place');
+  assert.doesNotMatch(maker, /setItems\(\(prev\) => prev\.filter\(/, 'a line is removed from the list — the drop must keep it, struck');
   assert.match(maker, /if \(l\.free \|\| l\.dropped\) return 0;/);
   assert.match(maker, /items\.filter\(\(l\) => !l\.dropped\)/);
 });

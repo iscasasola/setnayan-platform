@@ -87,7 +87,7 @@ function serviceDoorHref(kind: ServiceDoor['kind'], eventId: string): string {
     { kind: 'hear', href: `/dashboard/${eventId}/studio/pakanta#song` },
     { kind: 'brief', href: `/dashboard/${eventId}/studio/pakanta#brief` },
     { kind: 'booth', href: `/dashboard/${eventId}/studio/patiktok/booth` },
-    { kind: 'reels', href: `/dashboard/${eventId}/studio/patiktok#reels` },
+    { kind: 'reels', href: `/dashboard/${eventId}/studio/patiktok#renders` },
     { kind: 'maker', href: `/dashboard/${eventId}/launch` },
     { kind: 'order', href: `/dashboard/${eventId}/orders` },
   ];

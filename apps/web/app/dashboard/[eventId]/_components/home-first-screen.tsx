@@ -472,8 +472,8 @@ export function HomeFirstScreen({
                   if (svc.glance && svc.key !== 'nikah') {
                     return <ServiceFullRow key={svc.key} eventId={eventId} svc={svc} glance={svc.glance} storeShell={storeShell} />;
                   }
-                  return (
-                    <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
+                  const plain = (
+                    <>
                       <span className="home-t">
                         <Icon aria-hidden strokeWidth={1.9} />
                         <span className="truncate">{svc.name}</span>
@@ -481,6 +481,16 @@ export function HomeFirstScreen({
                       {/* The Setnayan name, small under the plain one (owner d17). */}
                       {svc.brand ? <span className="block truncate text-[11px] text-ink/50">{svc.brand}</span> : null}
                       <span className="block truncate text-[12.5px] text-ink/60">{svc.status}</span>
+                    </>
+                  );
+                  /* 🔒 In the iPhone app a paid service's page is web-only — its row is status, not a door. */
+                  return storeShell && svc.key !== 'nikah' ? (
+                    <div key={svc.key} data-home-service={svc.key} className="home-tile">
+                      {plain}
+                    </div>
+                  ) : (
+                    <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
+                      {plain}
                     </Link>
                   );
                 })}

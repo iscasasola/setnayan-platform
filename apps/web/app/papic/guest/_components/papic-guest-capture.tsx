@@ -1865,15 +1865,17 @@ export function PapicGuestCapture({
             </div>
           </div>
         ) : null}
-        <p className="text-center text-xs text-cream/60">
-          {exhausted
-            ? poolEmpty
-              ? 'This celebration’s credits have run out — the hosts can add more.'
-              : 'Your camera is all used up — enjoy the celebration.'
-            : recording
-              ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
-              : 'Tap for a photo · press and hold to record (up to 10s).'}
-        </p>
+        {/* ONE run-out sentence (walk-b6 guest, fault 2, 2026-10-14): at zero it is said
+            over the viewfinder, where the shutter would be — the caption no longer repeats it. */}
+        {exhausted && poolEmpty ? null : (
+          <p className="text-center text-xs text-cream/60">
+            {exhausted
+              ? 'Your camera is all used up — enjoy the celebration.'
+              : recording
+                ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
+                : 'Tap for a photo · press and hold to record (up to 10s).'}
+          </p>
+        )}
 
         {/* Papic Challenges (Papic Games §5#3) — self-gated: renders nothing
             until NEXT_PUBLIC_PAPIC_GAMES_V1 is on / the event has live missions.

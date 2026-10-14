@@ -45,7 +45,7 @@ export function GlanceLineText({ line }: { line: GlanceLine }) {
     <>
       {line.lead ?? null}
       {line.strong ? <b>{line.strong}</b> : null}
-      {line.tail ?? null}
+      {line.tail ? line.tailWhileNext ? <span data-while-next="">{line.tail}</span> : line.tail : null}
     </>
   );
 }

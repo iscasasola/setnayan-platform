@@ -19,7 +19,13 @@
 export type ServiceMood = 'wait' | 'ok' | 'low' | 'gone' | 'plain';
 
 /** The status line, split so the count can be bold: `lead` + **strong** + `tail`. */
-export type GlanceLine = { lead?: string; strong?: string; tail?: string };
+export type GlanceLine = {
+  lead?: string;
+  strong?: string;
+  tail?: string;
+  /** The tail repeats a card that may be on screen — drawn, marked `data-while-next`. */
+  tailWhileNext?: boolean;
+};
 
 export type ServiceGlance = {
   /** What is left (credits, minutes, …) — null when not measured. */

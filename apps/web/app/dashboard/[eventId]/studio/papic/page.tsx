@@ -449,7 +449,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   })();
 
   /**
-   * THE TEN BLOCKS, IN THE ORDER EACH PHASE WANTS THEM (owner 2026-09-22).
+   * THE ELEVEN BLOCKS, IN THE ORDER EACH PHASE WANTS THEM (owner 2026-09-22; `cameras`
+   * split out of `gallery` 2026-10-14 so "your cameras" stand right under the band).
    *
    * ⚠ WRITTEN OUT, NEVER COMPUTED. Tailwind reads class names as literal text,
    * so `order-${n}` produces a class that is never generated — the page would
@@ -463,20 +464,24 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
    * the live pool config and the live head count on every render.
    */
   const BLOCK_ORDER = {
-    /* 📍 Owner "Yes", 2026-10-13: the band first (above these), then cameras ·
-       guests' cameras · photos · Settings, with a quiet "Change dates" LAST —
-       the dates are automatic now, so they no longer ask to be second. */
+    /* 📍 Owner "Yes", 2026-10-13: the band first (above these), then YOUR
+       CAMERAS (the four ways in + "Right now") · GUESTS' CAMERAS ("Let guests
+       shoot now", Allotment) · PHOTOS (the library, Download all) · the Live wall
+       after the photos it shows · Settings, with a quiet "Change dates" LAST.
+       (walk-b6 F2/F3, 2026-10-14: "your cameras" had sat inside the gallery
+       block and the Live wall between guests' cameras and photos.) */
     before: {
       credits: 'order-1',
-      guests: 'order-2',
-      wall: 'order-3',
+      cameras: 'order-2',
+      guests: 'order-3',
       gallery: 'order-4',
-      challenges: 'order-5',
-      filter: 'order-6',
-      kwento: 'order-7',
-      made: 'order-8',
-      more: 'order-9',
-      dates: 'order-10',
+      wall: 'order-5',
+      challenges: 'order-6',
+      filter: 'order-7',
+      kwento: 'order-8',
+      made: 'order-9',
+      more: 'order-10',
+      dates: 'order-11',
     },
     after: {
       gallery: 'order-1',
@@ -484,11 +489,12 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       made: 'order-3',
       wall: 'order-4',
       credits: 'order-5',
-      guests: 'order-6',
-      filter: 'order-7',
-      challenges: 'order-8',
-      more: 'order-9',
-      dates: 'order-10',
+      cameras: 'order-6',
+      guests: 'order-7',
+      filter: 'order-8',
+      challenges: 'order-9',
+      more: 'order-10',
+      dates: 'order-11',
     },
   } as const;
   type PapicBlock = keyof (typeof BLOCK_ORDER)['before'];
@@ -922,57 +928,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           celebration, not configuring a window. Before the dates exist this is the
           one do-this-first card; once they are set it folds to a single row. */}
       <div className={`flex flex-col gap-7 ${ord('dates')}`}>
-      {/* ⚠ EXACTLY ONE NEXT STEP, AND IT KNOWS THE MOMENT.
-          Owner, opening his own wedding's Papic page: *"entering papic inside an
-          event needs to me simpler and better to manage. if I am a customer and
-          I see this, I will be confused."*
-
-          Before the dates are picked there is only one thing that matters, and
-          nothing can be captured without it. Once they are picked, the next real
-          thing is handing the cameras out — which used to be a small tile two
-          sections inside a tab the couple had to guess. Two states, never both:
-          a page with two "do this first" cards has no first. */}
+      {/* (The "Right now · N camera QRs still in your pocket" prompt that lived here
+          moved up with YOUR CAMERAS — walk-b6 F2, 2026-10-14 — so moving the dates
+          last never takes the next real step down with them.) */}
       {/* 📸 THE "DO THIS FIRST · WHEN CAN YOUR CAMERAS SHOOT?" CARD IS GONE (owner
           2026-10-13): Papic switches on by itself 6 months before the day
           (`resolveStoredWindow`'s default, `PAPIC_CAPTURE_MONTHS_BEFORE`), so
           there is nothing a couple MUST pick — "Nothing can be captured until
           you pick the days" was false. The dates are a quiet "Change dates" in
           Coverage below; the band at the top says when the cameras are on. */}
-      {claimLinkUnclaimed > 0 ? (
-        <section className="overflow-hidden rounded-2xl border border-mulberry/25 bg-surface">
-          <div className="h-[3px] w-full bg-mulberry" aria-hidden />
-          <div className="space-y-3 p-5 sm:p-6">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-mulberry-600">
-              Right now
-            </p>
-            <h2 className="text-lg font-semibold tracking-tight text-ink">
-              {claimLinkUnclaimed} camera QR{claimLinkUnclaimed === 1 ? '' : 's'}{' '}
-              {claimLinkUnclaimed === 1 ? 'is' : 'are'} still in your pocket
-            </h2>
-            <p className="max-w-prose text-sm text-ink/65">
-              Show them at the door — each one is a camera. They scan, they shoot,
-              and it all lands in your library.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href={`/dashboard/${eventId}/studio/papic/crew`}
-                className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
-              >
-                <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Show the QR codes
-              </Link>
-              <Link
-                href={`/dashboard/${eventId}/studio/papic/crew/print`}
-                target="_blank"
-                rel="noopener"
-                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-              >
-                Print cards
-              </Link>
-            </div>
-          </div>
-        </section>
-      ) : null}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold tracking-tight text-ink">Coverage</h2>
@@ -1052,46 +1016,48 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       <div className={`flex flex-col gap-7 ${ord('wall')}`}>
       <LiveWallCard eventId={eventId} />
       </div>
-      {/* ══ GALLERY ══════════════════════════════════════════════════
-          GALLERY — the library itself, the four ways media reaches it, and what the
-          couple may hide. Before the day it sits below the setup that fills it; on
-          the day and after, it leads. */}
-      <div id="papic-gallery" style={{ scrollMarginTop: 80 }} className={`flex flex-col gap-7 ${ord('gallery')}`}>
-      {/* ⚠ THE STAGE — the page opens on the library, in every state.
-          Owner 2026-08-28: *"it doesn't look like a photo app control center. it
-          still feels like it is a business page."* Every product in this market
-          opens on its content; the four facts still come before anything asks
-          for a decision, they simply sit on the thing they describe now.
-          See _components/papic-stage.tsx for the reasoning and the measured
-          contrast ratios on the dark ground. */}
-      <PapicStage
-        standings={standings}
-        windowWords={papicWindowWords}
-        opensInDays={papicOpensInDays}
-        uploadsOpen={uploadsOpen}
-        firstMemorySlot={
-          /* ⚠ A DOOR, NOT A SECOND PICKER. The upload sheet lives behind the
-             "Your uploads" way-in below; putting the picker here too would be a
-             second copy of a control, which is the failure this codebase pays
-             for most. This scrolls to it. */
-          <a
-            href="#ways-into-your-library"
-            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-cream"
-            style={{ backgroundColor: '#C24E25' }}
-          >
-            Add the first memory
-          </a>
-        }
-      >
-        <GalleryPreviewCard
-          eventId={eventId}
-          openOnArrival={search.gallery === 'open'}
-          venue={{
-            lat: ((ev as { venue_latitude?: number | null }).venue_latitude ?? null),
-            lng: ((ev as { venue_longitude?: number | null }).venue_longitude ?? null),
-          }}
-        />
-      </PapicStage>
+      {/* ══ CAMERAS ══════════════════════════════════════════════════
+          📍 YOUR CAMERAS, RIGHT UNDER THE BAND (owner "Yes", 2026-10-13 — band ·
+          your cameras · guests' cameras · photos · Settings with Change dates
+          last; walk-b6 F2/F3). The "Right now · N camera QRs still in your
+          pocket" prompt rides with them — it is the next real thing to do, so
+          it must not fall to the bottom with the dates it used to live beside. */}
+      <div className={`flex flex-col gap-7 ${ord('cameras')}`}>
+      {claimLinkUnclaimed > 0 ? (
+        <section className="overflow-hidden rounded-2xl border border-mulberry/25 bg-surface">
+          <div className="h-[3px] w-full bg-mulberry" aria-hidden />
+          <div className="space-y-3 p-5 sm:p-6">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-mulberry-600">
+              Right now
+            </p>
+            <h2 className="text-lg font-semibold tracking-tight text-ink">
+              {claimLinkUnclaimed} camera QR{claimLinkUnclaimed === 1 ? '' : 's'}{' '}
+              {claimLinkUnclaimed === 1 ? 'is' : 'are'} still in your pocket
+            </h2>
+            <p className="max-w-prose text-sm text-ink/65">
+              Show them at the door — each one is a camera. They scan, they shoot,
+              and it all lands in your library.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/dashboard/${eventId}/studio/papic/crew`}
+                className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
+              >
+                <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Show the QR codes
+              </Link>
+              <Link
+                href={`/dashboard/${eventId}/studio/papic/crew/print`}
+                target="_blank"
+                rel="noopener"
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+              >
+                Print cards
+              </Link>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {/* ══ FOUR WAYS INTO YOUR LIBRARY ═══════════════════════════════════════
           🔑 THIS SECTION IS WHAT REPLACED THE THREE TABS.
@@ -1285,6 +1251,48 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           Everything lands in the same library and is screened before anyone sees it.
         </p>
       </section>
+      </div>
+      {/* ══ GALLERY ══════════════════════════════════════════════════
+          GALLERY — the library itself, the four ways media reaches it, and what the
+          couple may hide. Before the day it sits below the setup that fills it; on
+          the day and after, it leads. */}
+      <div id="papic-gallery" style={{ scrollMarginTop: 80 }} className={`flex flex-col gap-7 ${ord('gallery')}`}>
+      {/* ⚠ THE STAGE — the page opens on the library, in every state.
+          Owner 2026-08-28: *"it doesn't look like a photo app control center. it
+          still feels like it is a business page."* Every product in this market
+          opens on its content; the four facts still come before anything asks
+          for a decision, they simply sit on the thing they describe now.
+          See _components/papic-stage.tsx for the reasoning and the measured
+          contrast ratios on the dark ground. */}
+      <PapicStage
+        standings={standings}
+        windowWords={papicWindowWords}
+        opensInDays={papicOpensInDays}
+        uploadsOpen={uploadsOpen}
+        firstMemorySlot={
+          /* ⚠ A DOOR, NOT A SECOND PICKER. The upload sheet lives behind the
+             "Your uploads" way-in below; putting the picker here too would be a
+             second copy of a control, which is the failure this codebase pays
+             for most. This scrolls to it. */
+          <a
+            href="#ways-into-your-library"
+            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-cream"
+            style={{ backgroundColor: '#C24E25' }}
+          >
+            Add the first memory
+          </a>
+        }
+      >
+        <GalleryPreviewCard
+          eventId={eventId}
+          openOnArrival={search.gallery === 'open'}
+          venue={{
+            lat: ((ev as { venue_latitude?: number | null }).venue_latitude ?? null),
+            lng: ((ev as { venue_longitude?: number | null }).venue_longitude ?? null),
+          }}
+        />
+      </PapicStage>
+
 
       {/* ══ YOUR PHOTOS, YOUR SAY ════════════════════════════════════════════ */}
       <VendorMediaControls eventId={eventId} />

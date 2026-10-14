@@ -295,10 +295,16 @@ export type HomeService = {
 /** What the Papic row draws beyond its name — from `papicGlance` (lib/papic-glance.ts). */
 export type PapicRowDoors = {
   glance: Pick<ServiceGlance, 'count' | 'total' | 'mood' | 'pct' | 'result'>;
-  /** The status line, the count bold — already trimmed while Papic holds the Next card. */
+  /** The status line, the count bold — whole; its doubled tail is marked by `whileNext`. */
   line: GlanceLine;
-  /** Offer "Buy more" here (false when the viewer may not buy, or the Next card already offers it). */
+  /** Offer "Buy more" here (false only when the viewer may not buy). */
   buy: boolean;
+  /**
+   * What the Papic Next card already says (`papicRowDoubled`): drawn, but marked
+   * `data-while-next` so it stands down ONLY while that card is on screen — a
+   * "Later" brings it straight back (walk-b6 F1, 2026-10-14).
+   */
+  whileNext?: { buy: boolean; tail: boolean };
 };
 
 /** What `resolvePapicHomeTile` returned, or 'failed' when it threw. */
@@ -374,7 +380,7 @@ export function homeServices(input: {
       ];
   const all: HomeService[] = [
     /* ⛔ NEVER TWICE — for Papic the row STAYS and drops the button the Next
-       card offers (owner 2026-10-14, `papicRowWhileNext`); a service with no
+       card offers, while it is on screen (owner 2026-10-14, `papicRowDoubled`); a service with no
        doors (Setnayan AI) still leaves the row while it is the Next card. */
     ...paid.filter((s) => s.key !== input.next || (s.key === 'papic' && s.papic)),
     ...(input.nikah != null ? [{ key: 'nikah' as const, name: NIKAH_NAME, status: input.nikah }] : []),

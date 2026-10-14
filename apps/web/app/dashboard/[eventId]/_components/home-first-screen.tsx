@@ -383,14 +383,24 @@ export function HomeFirstScreen({
  * 2026-10-14; prototype `renderHome()`): name · the status line with its dot ·
  * the meter · Buy more (the sheet) · See N photos (opens the gallery directly).
  * The row's words and its "Buy more" are already trimmed by NEVER TWICE when
- * Papic holds the Next card (`papicRowWhileNext`).
+ * Papic holds the Next card — and only while that card is on screen (`papicRowDoubled`,
+ * `[data-while-next]`): a "Later" brings the row's own Buy more straight back (walk-b6 F1).
  */
 function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string; svc: HomeService; doors: PapicRowDoors; left: number | null; sizes: PoolRung[] | null }) {
   const photos = typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
   const acts =
     doors.buy || photos ? (
       <>
-        {doors.buy ? <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} /> : null}
+        {doors.buy ? (
+          doors.whileNext?.buy ? (
+            /* NEVER TWICE, only while the card that offers it is on screen (walk-b6 F1). */
+            <span data-while-next="" className="contents">
+              <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
+            </span>
+          ) : (
+            <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
+          )
+        ) : null}
         {photos ? <PapicSeePhotos tone="neutral" label={seePhotosWord(photos)} href={`/dashboard/${eventId}/studio/papic?gallery=open`} /> : null}
       </>
     ) : null;
@@ -402,7 +412,7 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
       icon={<Camera aria-hidden strokeWidth={1.9} />}
       mood={doors.glance.mood}
       pct={doors.glance.pct}
-      line={doors.line}
+      line={doors.whileNext?.tail ? { ...doors.line, tailWhileNext: true } : doors.line}
       meterLabel="Credits left"
       actions={acts}
       marker={{ 'data-home-service': 'papic' }}

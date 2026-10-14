@@ -153,9 +153,10 @@ test('6 · Attire: every colour a role wears is a button that opens the SAME pic
   const src = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
   const attire = src.slice(src.indexOf("{tab === 'attire' ? ("), src.indexOf("{tab === 'insp' ? ("));
   assert.doesNotMatch(attire, /<i key=\{i\} aria-label=\{c\}/, 'a role’s colour is still a static dot (owner: “the palettes can still be changed to colors manually”)');
-  assert.match(attire, /data-mood-board-role-colour=\{i\}[\s\S]*?onClick=\{\(\) => setSheet\(\{ kind: 'picker', target: \{ kind: 'role-colour'/, 'a dot does not open the picker');
+  /* RE-AIMED 2026-10-14 (two picks): the first pick's dot opens the role's colour; the second's, its own (`second-colour`). */
+  assert.match(attire, /data-mood-board-role-colour=\{i\}[\s\S]*?setSheet\(\{\s*kind: 'picker',\s*target: pi === 0 \? \{ kind: 'role-colour'/, 'a dot does not open the picker');
   /* RE-AIMED 2026-10-09: the ＋ is the ActionButton, icon only — its label is its name. */
-  assert.match(attire, /label=\{`Add a colour for \$\{row\.label\}`\}/, 'the role lost its ＋');
+  assert.match(attire, /`Add a colour for \$\{row\.label\}`/, 'the role lost its ＋');
   /* The picker is the one sheet every colour here uses, and a pick goes through `commit` → the draft. */
   assert.equal((src.match(/<ColourPickerSheet/g) ?? []).length, 1, 'a second picker was invented');
   assert.match(src, /const setRoleColour = [\s\S]*?commit\(withRoleColours\(/, 'a role colour change does not go through the draft');

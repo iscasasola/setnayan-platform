@@ -599,21 +599,21 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     return (
       <div className="flex flex-col gap-1" data-mood-board-slot={slot.slotKey}>
         <div className="flex min-h-11 items-center gap-1.5">
-          {photos.map(({ pos, tile }) => (
-            <button
-              key={pos}
-              type="button"
-              aria-label={tile!.url ? `Remove this photo from ${slot.label}` : 'Uploading'}
-              disabled={!tile!.url}
-              onClick={() => setAskRemove({ slot: slot.slotKey, pos, label: slot.label })}
-              className="sn-press relative h-[34px] w-[34px] flex-none overflow-hidden rounded-[7px] bg-ink/5"
-            >
-              {tile!.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={tile!.url} alt="" className="h-full w-full object-cover" />
-              ) : null}
-            </button>
-          ))}
+          {photos.map(({ pos, tile }) =>
+            tile!.url ? (
+              <ActionButton
+                key={pos}
+                tone="neutral"
+                quiet
+                iconOnly
+                icon={<Thumb src={tile!.url} />}
+                label={`Remove this photo from ${slot.label}`}
+                onClick={() => setAskRemove({ slot: slot.slotKey, pos, label: slot.label })}
+              />
+            ) : (
+              <span key={pos} className="h-[34px] w-[34px] flex-none animate-pulse rounded-[7px] bg-ink/10" />
+            ),
+          )}
           <span className="ml-1 min-w-0 flex-1 truncate text-[12px] text-ink/55">{named ? `${slot.label} · ${count}` : count}</span>
           <ActionButton tone="neutral" iconOnly icon={Plus} label={`Add a photo to ${slot.label}`} onClick={() => openUpload(slot.slotKey)} />
           <span data-mood-board-search={slot.slotKey}>
@@ -756,8 +756,8 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 </header>
                 {row.people ? <p className="text-[12px] text-ink/65">{row.people === 1 ? '1 person' : `${row.people} people`}</p> : null}
                 <div className="flex gap-2.5" data-mood-board-picks={picks.length}>
-                  {picks.map((pick, i) => {
-                    const colours = i === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
+                  {picks.map((pick, pi) => {
+                    const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
                     const max = row.paletteKey ? PALETTE_LIMITS[row.paletteKey].max : 0;
                     const pickLabel = two ? `${row.label} — ${PICK_LABEL[pick.who].toLowerCase()}` : row.label;
                     const figure = (
@@ -771,16 +771,16 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     );
                     const swatches = row.paletteKey ? (
                       <span className={`flex items-center ${two ? 'flex-col items-start' : 'flex-wrap'}`} data-mood-board-swatches={pick.who}>
-                        {colours.map((c, ci) => (
+                        {colours.map((c, i) => (
                           <button
-                            key={ci}
+                            key={i}
                             type="button"
                             aria-label={`${pickLabel} colour ${c} — change it`}
-                            data-mood-board-role-colour={ci}
+                            data-mood-board-role-colour={i}
                             onClick={() =>
                               setSheet({
                                 kind: 'picker',
-                                target: i === 0 ? { kind: 'role-colour', key: row.paletteKey!, label: row.label, index: ci } : { kind: 'second-colour', row, label: pickLabel, index: ci },
+                                target: pi === 0 ? { kind: 'role-colour', key: row.paletteKey!, label: row.label, index: i } : { kind: 'second-colour', row, label: pickLabel, index: i },
                               })
                             }
                             className={`sn-press inline-flex h-11 w-11 items-center justify-center rounded-full ${two ? '-my-1' : ''}`}
@@ -788,16 +788,16 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                             <i aria-hidden className={`${two ? 'h-[26px] w-[26px]' : 'h-7 w-7'} rounded-full border border-ink/10`} style={{ background: c }} />
                           </button>
                         ))}
-                        {colours.length < max && (i === 0 || dress) ? (
+                        {colours.length < max && (pi === 0 || dress) ? (
                           <ActionButton
                             tone="neutral"
                             iconOnly
                             icon={Plus}
-                            label={i === 0 ? `Add a colour for ${row.label}` : `Add a colour for ${pickLabel}`}
+                            label={pi === 0 ? `Add a colour for ${row.label}` : `Add a colour for ${pickLabel}`}
                             onClick={() =>
                               setSheet({
                                 kind: 'picker',
-                                target: i === 0 ? { kind: 'role', key: row.paletteKey!, label: row.label } : { kind: 'second-colour', row, label: pickLabel, index: null },
+                                target: pi === 0 ? { kind: 'role', key: row.paletteKey!, label: row.label } : { kind: 'second-colour', row, label: pickLabel, index: null },
                               })
                             }
                           />
@@ -806,13 +806,13 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     ) : null;
                     /* Wear ▾ — the house dropdown (one ChosenRow); each person's fitting styles first, from the ONE vocabulary. */
                     const wearRow = dress ? (
-                      <FormRows width="short" data="mood-board-attire">
+                      <FormRows width="short" data="mood-board-wear">
                         <ChosenRow
                           name="Wear"
                           label={`${pickLabel} — what to wear`}
                           value={pick.style ?? ''}
                           options={[{ key: '', label: 'Not said yet' }, ...STYLE_ORDER[pick.who].map((k) => ({ key: k, label: props.attireStyles.find((st) => st.key === k)?.label ?? k }))]}
-                          onPick={(k) => (i === 0 ? wear(row, k || null) : wearSecond(row, k || null))}
+                          onPick={(k) => (pi === 0 ? wear(row, k || null) : wearSecond(row, k || null))}
                           buttonText={pick.style ? (props.attireStyles.find((st) => st.key === pick.style)?.label ?? pick.style) : 'Not said yet'}
                           dataAttr="data-mood-board-wear"
                           attrs={{ 'data-mood-board-wear-for': pick.who }}
@@ -836,7 +836,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 </div>
                 {row.key === 'guest' ? <p className="text-[12px] leading-snug text-ink/65">Guests wear any one of the colours above — never combined. The figures show the first.</p> : null}
                 {canNote ? (
-                  <div className="flex min-h-11 items-center gap-2" data-mood-board-note={row.key}>
+                  <div className="flex min-h-11 items-center gap-2" data-mood-board-role-note={row.key}>
                     <span className="flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55">Note</span>
                     {note ? <em className="min-w-0 flex-1 truncate text-[13px] text-ink">“{note}”</em> : <span className="min-w-0 flex-1 text-[13px] text-ink/55">Nothing yet</span>}
                     <ActionButton tone="neutral" quiet icon={PenLine} label={note ? 'Change' : 'Add a note'} name={`${note ? 'Change' : 'Add'} the note for ${row.label}`} onClick={() => setSheet({ kind: 'note', row })} />
@@ -1050,12 +1050,18 @@ function LaneRow({ part, five, palette, frozen, onTap }: { part: LanePart; five:
   return <ColourRow hex={c.hex} name={part.label} line={line} onTap={part.field ? onTap : undefined} disabled={frozen} data={`part-${part.label}`} />;
 }
 
+/** A role's photo, small — the picture of the button that takes it off the board (a tap asks once, the same confirm box). */
+function Thumb({ src }: { src: string }) {
+  // eslint-disable-next-line @next/next/no-img-element -- the couple's own photo, already sized by the board
+  return <img src={src} alt="" className="h-[34px] w-[34px] rounded-[7px] object-cover" />;
+}
+
 /** 👗 A role's note — one line, up to 120 letters, read by that role on their invitation. Keep closes it unchanged. */
 function NoteSheet({ label, start, onClose, onSave }: { label: string; start: string; onClose: () => void; onSave: (text: string) => void }) {
   const [text, setText] = useState(start);
   return (
     <StudioSheet label={label} onClose={onClose}>
-      <div className="flex flex-col gap-2 px-1 pb-2" data-mood-board-note-sheet="">
+      <div className="flex flex-col gap-2 px-1 pb-2" data-mood-board-role-note-sheet="">
         <input
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, 120))}

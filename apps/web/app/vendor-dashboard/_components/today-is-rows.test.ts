@@ -350,7 +350,7 @@ test('3 · each banner taken off Today either has a rule in pickSupplierNext or 
   // A busy shop: an ask wins the Next card; every other thing still shows.
   const find = { title: 'Couples can’t find you yet.', body: 'b', cta: { label: 'Ask us', href: '/help#contact' } };
   const credit = { title: 'Your ₱2,500 credit expires in 3 days', body: 'Renew to keep it.', href: '/vendor-dashboard/subscription' };
-  const payout = { title: 'Add a payment method', body: 'Couples can’t see anywhere to pay you yet.', href: '/vendor-dashboard/shop?open=payments#shop-folds' };
+  const payout = { title: 'Add a payment method', body: 'Couples can’t see anywhere to pay you yet.', href: '/vendor-dashboard/profile#pay' };
   const busy = await queue({ needsAnswer: [REPLY], findability: find, credit, payout });
   assert.equal(busy.next.kind, 'answer');
   assert.deepEqual(busy.waiting.doors.map((d) => d.id), ['findable', 'credit', 'payout']);
@@ -359,7 +359,7 @@ test('3 · each banner taken off Today either has a rule in pickSupplierNext or 
   const expected: ReadonlyArray<readonly [id: string, label: string, href: string]> = [
     ['findable', 'Couples can’t find you yet.', '/help#contact'],
     ['credit', 'Your ₱2,500 credit expires in 3 days', '/vendor-dashboard/subscription'],
-    ['payout', 'Add a payment method', '/vendor-dashboard/shop?open=payments#shop-folds'],
+    ['payout', 'Add a payment method', '/vendor-dashboard/profile#pay'],
   ];
   for (const [id, label, href] of expected) {
     assert.match(doors, new RegExp(`<a[^>]*data-today-row="${id}"[^>]*href="${href.replace(/[?#/.]/g, '\\$&')}"|<a[^>]*href="${href.replace(/[?#/.]/g, '\\$&')}"[^>]*data-today-row="${id}"`), `${id}: no row, or the row goes somewhere else`);

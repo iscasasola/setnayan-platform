@@ -231,7 +231,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
       ? todayCreditNotice({ creditPhp: 2500, tierExpiresAt: new Date(NOW + 3 * 86_400_000).toISOString() }, NOW)
       : null,
     payout: state.extras
-      ? { title: 'Add a payment method', body: 'You have bookings, and your couples can’t see anywhere to pay you yet.', href: '/vendor-dashboard/shop?open=payments#shop-folds' }
+      ? { title: 'Add a payment method', body: 'You have bookings, and your couples can’t see anywhere to pay you yet.', href: '/vendor-dashboard/profile#pay' }
       : null,
     now: NOW,
   });

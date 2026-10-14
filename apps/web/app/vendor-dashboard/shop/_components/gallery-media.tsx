@@ -57,7 +57,6 @@ export function GalleryMedia({
 
   return (
     <section
-      id="gallery-media"
       className="space-y-5 rounded-xl border p-4"
       style={{ borderColor: 'var(--m-line)' }}
     >

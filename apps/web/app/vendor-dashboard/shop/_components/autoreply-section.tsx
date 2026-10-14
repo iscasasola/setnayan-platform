@@ -66,7 +66,8 @@ export async function AutoReplySection({ vendorProfileId }: { vendorProfileId: s
     // defaults above
   }
   return (
-    <section id="auto-reply" aria-labelledby="auto-reply-heading">
+    // `#auto-reply` is carried by the Your-page fold that holds this section (one id per page).
+    <section aria-labelledby="auto-reply-heading">
       <AutoReplyCard
         initialEnabled={enabled}
         initialDailyCap={dailyCap}

@@ -64,20 +64,33 @@ test('no read between them is awaited at the loader body depth', () => {
   );
 });
 
-test('the shop gate still runs first, and the admin team lookup waits for the scoped rows', () => {
+test('the shop gate still runs first', () => {
   const gate = src.indexOf("if (!profile) return 'no-vendor';");
   const start = src.indexOf(START);
   assert.ok(gate > 0 && gate < start, 'the reads must start only after the shop is known to be theirs');
+});
 
-  const region = src.slice(start, src.indexOf(WAIT));
-  const enrich = region.indexOf('enrichTeamWithUsers(createAdminClient(), team)');
-  assert.ok(enrich > 0, 'the team-name lookup left the read block');
-  // The started promise that holds it must first wait for the RLS-scoped rows.
-  const opens = region.lastIndexOf('(async () => {', enrich);
-  const body = region.slice(opens, enrich);
-  assert.match(
-    body,
-    /const team = await teamRead;/,
-    'the service-role lookup must run on rows the RLS read already scoped to THIS shop',
-  );
+/*
+ * ✂ STEP 5 (2026-10-14): door 1's panels moved to Your details · Your page ·
+ * Your collections, and their reads went with them (the old third test here held
+ * the team-name lookup's ordering — the team panel was a second copy of
+ * /vendor-dashboard/team and left with it). A read that drifts BACK onto My Shop
+ * is a trip every Shop visit pays for a panel that is not drawn here.
+ */
+test('the reads that moved with door 1 stay off My Shop', () => {
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  for (const reader of [
+    'fetchVendorTeam',
+    'enrichTeamWithUsers',
+    'fetchVendorBranches',
+    'fetchVendorMicrosite',
+    'fetchVendorIgConnection',
+    'fetchReviewsForVendorWithCouple',
+    'fetchCorrectionRequests',
+    'fetchPendingSignupCoverageSuggestion',
+    'fetchVendorServicePickerVocab',
+    'readContactStamps',
+  ]) {
+    assert.ok(!code.includes(reader), `${reader} is back on My Shop — it belongs to the screen that draws it`);
+  }
 });

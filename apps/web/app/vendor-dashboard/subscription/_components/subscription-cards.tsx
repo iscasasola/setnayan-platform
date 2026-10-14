@@ -226,7 +226,7 @@ export function SubscriptionCards({
               ) : (
                 <div className="mt-5 space-y-2">
                   <Link
-                    href="/vendor-dashboard/shop#get-verified"
+                    href="/vendor-dashboard/profile#docs"
                     className="button-primary flex w-full items-center justify-center gap-1.5"
                   >
                     <Lock className="h-4 w-4" strokeWidth={2} aria-hidden />

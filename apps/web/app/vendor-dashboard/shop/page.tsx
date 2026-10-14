@@ -1,9 +1,7 @@
 import Link from 'next/link';
-import { isStoreShellRequest } from '@/lib/request-platform';
 import { redirect } from 'next/navigation';
 import {
   ArrowRight,
-  Building2,
   Check,
   ChevronRight,
   Eye,
@@ -21,114 +19,34 @@ import { createClient } from '@/lib/supabase/server';
 import { isMusicToolCategory } from '@/lib/songs';
 import { shopToolShelves } from './shop-tool-shelves';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { createAdminClient } from '@/lib/supabase/admin';
-import {
-  fetchOwnVendorProfile,
-  fetchVendorBusinessStartDate,
-  businessProfileChecklist,
-  type BusinessProfileItem,
-} from '@/lib/vendor-profile';
-import {
-  VENDOR_DOC_SLOTS,
-  countCompleteVendorSlots,
-  fetchLatestApplication,
-  requiredDocsComplete,
-  verificationSubmitMissing,
-  type DocUploadMap,
-} from '@/lib/vendor-verification';
-import {
-  fetchReviewStats,
-  fetchReviewsForVendorWithCouple,
-  type ReviewStatsRow,
-} from '@/lib/reviews';
-import {
-  fetchVendorBranches,
-  fetchBranchFeePhp,
-  branchAutoRadiusKm,
-  BRANCH_FEE_PHP,
-  type VendorBranchView,
-} from '@/lib/vendor-branches';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { openRailDetails } from '@/lib/payment-channels';
-import { tierCaps, asVendorTier, isTierAtLeast, entryTierAllowance } from '@/lib/vendor-tier-caps';
-import { vendorAllowance, vendorPaywallApplies } from '@/lib/vendor-feature-gate';
-import { isVendorSearchGateEnabled } from '@/lib/vendor-search-gate';
-import { PaidMark } from '@/app/_components/paid-mark';
-import { ReachMap } from './_components/reach-map';
-import { ServiceRadiusFields } from './_components/service-radius-fields';
-import { VenueMatchCard } from './_components/venue-match-card';
-import { VenueTypeCard } from './_components/venue-type-card';
-import { PublicLineCard } from './_components/public-line-card';
-import { SuggestedCoverageCard } from './_components/suggested-coverage-card';
-import {
-  fetchPendingSignupCoverageSuggestion,
-  type PendingCoverageSuggestion,
-} from '@/lib/vendor-signup-coverage-suggest-reader';
-import { RequestCorrectionCard } from './_components/request-correction-card';
-import {
-  fetchCorrectionRequests,
-  type VendorCorrectionRequestRow,
-} from '@/lib/vendor-corrections';
-import { VisibilityCard } from './_components/visibility-card';
-import { BranchManager, type PayInfo } from '../_components/branch-manager';
-import {
-  fetchVendorTeam,
-  enrichTeamWithUsers,
-  VENDOR_TEAM_ROLE_LABEL,
-  type VendorTeamMemberRow,
-  type VendorTeamMemberWithUser,
-} from '@/lib/vendor-team';
+import { fetchOwnVendorProfile, businessProfileChecklist } from '@/lib/vendor-profile';
+import { fetchLatestApplication, requiredDocsComplete, type DocUploadMap } from '@/lib/vendor-verification';
+import { fetchReviewStats, type ReviewStatsRow } from '@/lib/reviews';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { loadVendorRecaps } from '@/lib/recap-vendor';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
-import { isInstagramConnectConfigured } from '@/lib/vendor-instagram';
-import {
-  fetchVendorIgConnection,
-  fetchVendorIgMediaForOwner,
-  type VendorIgConnectionStatus,
-  type VendorIgMediaRow,
-} from '@/lib/vendor-instagram-status';
 import { CopyButton } from '@/app/_components/copy-button';
 import { VendorAvatar, deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { inviteVendorTeamMember } from '@/app/vendor-dashboard/team/actions';
 
 import {
   VendorServicesManager,
   type ServicesManagerSearch,
 } from '@/app/vendor-dashboard/services/_components/services-manager';
 
-import {
-  fetchVendorMicrosite,
-  micrositeCan,
-  type VendorMicrosite,
-} from '@/lib/vendor-microsite';
-
-import { ManageTiles } from './_components/manage-tiles';
 import { ShopRail, ShopDoorSection } from './_components/shop-rail';
+import { ShopSegments } from './_components/shop-segments';
 import { CouldNotLoad } from './_components/could-not-load';
 import { SoftReadLog } from '@/lib/soft-read';
-import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
-import { VerifySection, type VerifySummary } from './_components/verify-section';
-import { readContactStamps } from './inline-docs-actions';
-import { WebsiteEditor } from './_components/website-editor';
-import type { ProfileFieldData } from './_components/editable-row';
-import { updateBusinessStartDate } from '../actions';
 import { ServicesDisclosure } from './_components/services-disclosure';
-import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
-import {
-  AUTO_ACCEPT_THRESHOLD_DEFAULT,
-  DAILY_AUTO_ACCEPT_CAP_DEFAULT,
-  DAILY_REPLY_CAP_DEFAULT,
-} from '@/lib/vendor-autoreply/config';
-import { AutoReplyCard } from './_components/autoreply-card';
-// Advanced voice-match panel — self-gating on NEXT_PUBLIC_VENDOR_AI_VOICE_MATCH
-// (returns null, zero queries, when the flag is off).
-import { VoiceMatchSection } from './_components/voice-match-section';
+import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
+import { DatesRow } from '../customers/_components/dates-row';
+
+/** Your details, and its papers fold — where every "finish your profile" / "get verified" link on this page goes. */
+const DETAILS_HREF = '/vendor-dashboard/profile';
+const DOCS_HREF = '/vendor-dashboard/profile#docs';
 
 /**
  * /vendor-dashboard/shop — "My Shop".
@@ -171,8 +89,6 @@ function titleCase(s: string): string {
     .join(' ');
 }
 
-type TeamMember = VendorTeamMemberWithUser;
-
 type ShopData = {
   businessName: string;
   initials: string;
@@ -184,47 +100,19 @@ type ShopData = {
   tier: string | null;
   isVerified: boolean;
   websiteLive: boolean;
-  isProWebsite: boolean;
-  /** Server-decided (vendorPaywallApplies): saving a Personalize control asks for Solo. */
-  personalizeAsks: boolean;
-  /** Server-decided (vendorPaywallApplies): saving a Page extra asks for Pro. */
-  proAsks: boolean;
-  isEnterpriseWebsite: boolean;
-  yearsLabel: string | null;
-  microsite: VendorMicrosite;
-  portfolioPhotos: { key: string; url: string }[];
-  /** Tier portfolio-photo cap for the <FileUpload maxFiles> (∞ → 999 sentinel). */
-  portfolioMax: number;
-  /** Presigned thumbnails for every stored portfolio ref (first-paint). */
-  portfolioDisplayMap: Record<string, string>;
-  /** The vendor's current portfolio r2 refs (fed to <FileUpload currentValue>). */
-  portfolioRefs: string[];
-  /** Featured-video external URLs (all tiers · gallery_video_links). */
-  galleryVideoLinks: string[];
-  /** Instagram connect card inputs (inert when Meta App env is unset). */
-  igConfigured: boolean;
-  igConnection: VendorIgConnectionStatus | null;
-  igMedia: VendorIgMediaRow[];
-  reviewOptions: { id: string; label: string }[];
-  /* Set when the read FAILED, as opposed to legitimately returning nothing.
-     A panel that cannot tell these apart tells the supplier their shop is
-     empty when it is not — see the note beside the probes. */
-  teamNamesUnavailable: boolean;
+  /* Set when the read FAILED, as opposed to legitimately returning nothing —
+     the hero says "could not load your logo" instead of showing initials as if
+     the shop had none. */
   logoUnavailable: boolean;
-  igUnavailable: boolean;
-  reviewOptionsUnavailable: boolean;
-  editorialOptions: { id: string; label: string }[];
   completionPct: number;
-  verify: VerifySummary;
-  checklist: BusinessProfileItem[];
-  profileFields: ProfileFieldData;
-  businessStartDate: string | null;
-  /** Shop-DECLARED reception settings. NULL = undeclared = open to every venue. */
-  compatibleVenueSettings: string[] | null;
-  /** Shop-DECLARED ceremonies. NULL = undeclared = open to every ceremony. */
-  compatibleCeremonyTypes: string[] | null;
-  /** Shop-DECLARED fine venue type. NULL = undeclared = matches every pick. */
-  venueType: string | null;
+  /** Fields of the business profile still empty (the hero's "Finish profile"). */
+  fieldsLeft: number;
+  verify: {
+    status: VerifyStatus;
+    requiredDocsIn: boolean;
+    emailConfirmedAt: string | null;
+    phoneConfirmedAt: string | null;
+  };
   profileViewsWeek: number;
   rating: number;
   reviewCount: number;
@@ -237,50 +125,10 @@ type ShopData = {
    */
   unreadable: string[];
   recapClips: number;
-  teamMembers: number;
-  /** Sub-line for the Team tile — how many more seats the plan allows. */
-  teamSub: string;
-  branchLocations: number;
-  /** Sub-line for the Branch tile — whether more locations can be added. */
-  branchSub: string;
-  hqLat: number | null;
-  hqLng: number | null;
-  /** Tier reach in km (vendor-tier-caps · serviceRadiusKm). 0 = unscoped.
-   *  Under the inner/outer model (§17) this is the CEILING on what the vendor
-   *  may declare below, not a claim about them. */
-  reachKm: number;
-  /** Vendor-DECLARED free-transport ring in km. NULL = not declared yet. */
-  innerRadiusKm: number | null;
-  /** Vendor-DECLARED overall range in km. NULL = not declared yet. */
-  outerRadiusKm: number | null;
-  branchViews: VendorBranchView[];
-  branchFeePhp: number;
-  branchAutoRadius: number;
-  branchPay: PayInfo;
   recommendedByShops: number;
-  team: TeamMember[];
-  /** Public one-liner under the shop name (`tagline`). */
-  tagline: string | null;
-  /** The shop's OWN website (`website`), not its Setnayan page. */
-  website: string | null;
-  /** Opted into the couple's Day-of "Get help" shortlist. */
-  sameDayAvailable: boolean;
-  /** Declined the verification celebration post on Setnayan's socials. */
-  socialFeatureOptOut: boolean;
-  /** The celebration post already went out — a later opt-out can't recall it. */
-  socialAlreadyFeatured: boolean;
-  /**
-   * The vendor's OWN still-open correction requests, so the ask-card can show
-   * "waiting on Setnayan" instead of inviting the same request a second time.
-   */
-  openCorrections: VendorCorrectionRequestRow[];
-  /**
-   * The shop's one open "your website suggests you also do…" suggestion
-   * (C5, 2026-08-28) — null when the flag is off, nothing was read yet, the
-   * read found nothing usable, or the shop already resolved it.
-   */
-  pendingCoverageSuggestion: PendingCoverageSuggestion | null;
 };
+
+type VerifyStatus = 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rejected' | 'withdrawn' | null;
 
 async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const supabase = await createClient();
@@ -308,26 +156,19 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // and My Shop took 1.7 s to load (measured on prod, 2026-09-29). Each block is
   // STARTED here, as a promise, with its own graceful-degrade exactly as it was,
   // and they are all awaited together in the one `Promise.all` below.
-  //   · stories + recaps wait for the pool bookings (they need its eventIds);
-  //   · the contact stamps wait for the verification application (its id);
-  //   · the branch fee + payout accounts wait for the tier (Enterprise-only);
-  //   · the team's names wait for the team rows — the admin client that reads
-  //     them must only ever see members already scoped to THIS shop.
+  //   · stories + recaps wait for the pool bookings (they need its eventIds).
   // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
   // RUN — one stray `await` puts a full database trip back in front of the page.
-
-  // THIS shop's open correction requests. Read here rather than in the card so
-  // the card stays a client component with no data access — and scoped to
-  // `vendorId` EXPLICITLY, because RLS is not the scope: the read policy is
-  // `owns the profile OR is_admin()`, deliberately widened so the same helper
-  // can back /admin/corrections. Without the filter, a vendor who is also an
-  // admin (production has exactly one — the owner's own shop) would see every
-  // OTHER shop's requests rendered as their own "waiting on Setnayan", and
-  // would lose the ability to ask about those fields themselves.
-  const openCorrectionsRead = fetchCorrectionRequests(supabase, {
-    status: 'open',
-    vendorProfileId: vendorId,
-  });
+  //
+  // ✂ STEP 5 (2026-10-14) — SIXTEEN READS LEFT THIS PAGE. Door 1's panels moved to
+  // their own screens: Your details (`profile/details-data.ts` — the profile
+  // fields, the papers, the switches, the travel distances, the branches, the
+  // corrections, the coverage suggestion, the payment methods), Your page
+  // (`website/page-data.ts` — the microsite, the review picker, the stories) and
+  // Your collections (`collections/collections-data.ts` — the portfolio, Instagram).
+  // The team panel was a second copy of /vendor-dashboard/team. Each of those reads
+  // now runs only on the screen that draws it; My Shop keeps the hero and the
+  // numbers.
 
   // Tier — not in the shared profile select; soft-probe it.
   const tierRead = (async () => {
@@ -338,9 +179,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
         .select('tier_state')
         .eq('vendor_profile_id', vendorId)
         .maybeSingle();
-      // ⚠ THEIR PLAN. Refused, the shop reads as having no tier — every
-      // ⚠ tier-gated thing on this page then looks like something they never
-      // ⚠ bought. The soft fallback stays; the reason now reaches the logs.
+      // ⚠ THEIR PLAN. Refused, the shop reads as having no tier. The soft
+      // ⚠ fallback stays; the reason reaches the logs.
       if (error) {
         logQueryError('VendorShopPage.tierState', error, { vendorId }, 'graceful_degrade');
       }
@@ -349,41 +189,6 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       tier = null;
     }
     return tier;
-  })();
-
-  // Visibility preferences — deliberately a SEPARATE soft-probe, not columns
-  // added to FULL_VENDOR_PROFILE_SELECT: a column lagging a migration there
-  // fails the whole projection and drops the page to the LEGACY select, which
-  // would silently strip hq_* and the 0043 compat columns from every panel.
-  // Failure here degrades to the column defaults and nothing else.
-  const shopSwitchesRead = (async () => {
-    let sameDayAvailable = false;
-    let socialFeatureOptOut = false;
-    let socialAlreadyFeatured = false;
-    try {
-      const { data, error } = await supabase
-        .from('vendor_profiles')
-        .select('same_day_available, social_feature_opt_out, social_featured_at')
-        .eq('vendor_profile_id', vendorId)
-        .maybeSingle();
-      // ⚠ SWITCHES THIS SUPPLIER SET THEMSELVES. Refused, a setting they turned
-      // ⚠ ON renders OFF — and the obvious response is to turn it on again, which
-      // ⚠ writes over whatever is really stored.
-      if (error) {
-        logQueryError('VendorShopPage.shopSwitches', error, { vendorId }, 'graceful_degrade');
-      }
-      const row = data as {
-        same_day_available?: boolean | null;
-        social_feature_opt_out?: boolean | null;
-        social_featured_at?: string | null;
-      } | null;
-      sameDayAvailable = row?.same_day_available === true;
-      socialFeatureOptOut = row?.social_feature_opt_out === true;
-      socialAlreadyFeatured = row?.social_featured_at != null;
-    } catch {
-      /* pre-migration or read hiccup — fall back to the column defaults */
-    }
-    return { sameDayAvailable, socialFeatureOptOut, socialAlreadyFeatured };
   })();
 
   const weekStart = startOfWeekIso();
@@ -402,26 +207,20 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
    * NOT reject: it RESOLVES with `{ count: null, error }`. The old
    * `.then(r => r.count ?? 0, () => 0)` had a rejection arm that almost never
    * ran, and the real failure arrived through the SUCCESS path as a null that
-   * `?? 0` turned into a confident zero. Adding a logger to that handler would
-   * have instrumented the branch that does not fire.
+   * `?? 0` turned into a confident zero.
    */
   const soft = new SoftReadLog('VendorShopPage');
 
-  // Latest verification application — feeds the Get-verified stepper + the
-  // Hero "N of 3" pill. Cheap read (no presigns — those stay lazy on Step 1
-  // expand). Null when the vendor has never started.
+  // Latest verification application — the Hero's "Get verified · N of 2" pill.
+  // The contact stamps ride on the row itself (`fetchLatestApplication` merges
+  // them), so there is no second read for them.
   const verifyAppRead = soft.read(
     'latestApplication',
     () => fetchLatestApplication(supabase, vendorId),
     null,
   );
   /*
-   * 🔑 `null`, NOT A ZEROED ROW. The old `.catch(() => ({…: 0}))` widened the
-   * type and handed every consumer a fabricated stats row that is
-   * indistinguishable from a real shop with no reviews. Padding the fallback
-   * out to a full `ReviewStatsRow` of zeroes to satisfy the compiler would
-   * have undone this whole change — the tile would print a confident 0 again.
-   * The Reviews tile already consults `cantRead('reviewStats')`.
+   * 🔑 `null`, NOT A ZEROED ROW — the Reviews tile consults `cantRead('reviewStats')`.
    */
   const reviewStatsRead = soft.read<ReviewStatsRow | null>(
     'reviewStats',
@@ -438,23 +237,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       .eq('vendor_profile_id', vendorId)
       .gte('viewed_at', weekStart),
   );
-  // Service-role ORDER reader (branch rows still run under the caller's RLS).
-  // A shop's second manager cannot see the order its owner paid, so without
-  // this a live branch reads back to them as "Pending payment" — and that
-  // status is now what decides whether the branch is public and usable.
-  const branchesRead = soft.read(
-    'branches',
-    () => fetchVendorBranches(supabase, vendorId, createAdminClient()),
-    [],
-  );
-  const teamRead = soft.read(
-    'team',
-    () => fetchVendorTeam(supabase, vendorId),
-    [] as VendorTeamMemberRow[],
-  );
-  // LEFT ON THE POOL READ: these eventIds become the "Featured editorials"
-  // picker, i.e. what this shop publishes about itself. Same reason as
-  // real-stories — a public claim needs the pool row, not the handshake.
+  // LEFT ON THE POOL READ: a public claim (a story tagged to this shop) needs
+  // the pool row, not the handshake.
   const bookingsRead = soft.read(
     'poolBookings',
     () => fetchVendorPoolBookings(supabase, vendorId),
@@ -480,472 +264,43 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     ]);
   })();
 
-  // ── Get-verified summary (owner redesign 2026-07-03) ─────────────────────
-  // Everything the always-visible stepper needs, WITHOUT presigning documents
-  // (that stays lazy on Step 1 expand). Contact stamps + the VALIDATE send-to
-  // settings are soft probes — their columns land in a parallel migration, so
-  // pre-migration reads degrade to "waiting" / defaults instead of crashing.
-  // The stamps are keyed on the application — they wait for that read only.
-  const contactStampsRead = (async () => {
-    const verifyApp = await verifyAppRead;
-    return verifyApp
-      ? await readContactStamps(supabase, verifyApp.application_id)
-      : { emailConfirmedAt: null, phoneConfirmedAt: null };
-  })();
-  const validateContactsRead = (async () => {
-    let validateEmail = 'verify@setnayan.com';
-    let validatePhone: string | null = null;
-    try {
-      const { data, error } = await supabase
-        .from('platform_settings')
-        .select('vendor_validate_email,vendor_validate_phone')
-        .eq('id', 1)
-        .maybeSingle();
-      // ⚠ OUR OWN support contacts, not theirs — a refusal falls back to the
-      // ⚠ defaults above, which is honest enough to render but still worth knowing.
-      if (error) {
-        logQueryError('VendorShopPage.validateContacts', error, { vendorId }, 'graceful_degrade');
-      }
-      const row = data as { vendor_validate_email?: string | null; vendor_validate_phone?: string | null } | null;
-      if (row?.vendor_validate_email?.trim()) validateEmail = row.vendor_validate_email.trim();
-      validatePhone = row?.vendor_validate_phone?.trim() || null;
-    } catch {
-      // pre-migration → defaults above
-    }
-    return { validateEmail, validatePhone };
-  })();
-  // Anti-farm identity gate input (migration 20270925937630) — soft-probe the
-  // vendor's registration number so the shared submit gate can require it. A
-  // collided number keeps raw (needs_review) → still counts as "on file".
-  const registrationNumberOnFileRead = (async () => {
-    let registrationNumberOnFile = false;
-    try {
-      const { data, error } = await supabase
-        // `vendor_profiles_self` (migration 20271217955839), never the table:
-        // `registration_number_raw` is off `authenticated`'s column allowlist, and
-        // the catch below SWALLOWS the 42501 — read off the table this probe would
-        // report "not on file" for a shop that HAS one, forever, and the gate then
-        // asks the supplier for a number we are already holding.
-        .from('vendor_profiles_self')
-        .select('registration_number_raw')
-        .eq('vendor_profile_id', vendorId)
-        .maybeSingle();
-      // ⚠ THE WORST OF THE SIX. Refused, this reads NOT on file, and the gate
-      // ⚠ then asks the supplier for a registration number they have already
-      // ⚠ given us — the product asking again for something it is holding.
-      if (error) {
-        logQueryError('VendorShopPage.registrationOnFile', error, { vendorId }, 'graceful_degrade');
-      }
-      registrationNumberOnFile = Boolean(
-        (data as { registration_number_raw?: string | null } | null)?.registration_number_raw,
-      );
-    } catch {
-      // pre-migration → treated as not-on-file (the gate then asks for it)
-    }
-    return registrationNumberOnFile;
-  })();
-
-  // Vendor-declared travel rings (migration 20271013561924 · §17) — SOFT-PROBED
-  // in their own query, deliberately, for the same deploy-order reason as
-  // `registration_number_raw` above and `std-video-gate.ts:116`. Vercel ships on
-  // merge and migrations apply on their own schedule, so there is a window where
-  // this code is live and the columns are not. Folded into a big select, a
-  // missing column (42703) nulls the WHOLE row and would blank the shop page;
-  // isolated, the worst case is a null declaration — which reads as "not
-  // declared yet", which is the correct state in that window anyway.
-  const travelRingsRead = (async () => {
-    let innerRadiusKm: number | null = null;
-    let outerRadiusKm: number | null = null;
-    try {
-      const { data, error } = await supabase
-        .from('vendor_profiles')
-        .select('inner_radius_km, outer_radius_km')
-        .eq('vendor_profile_id', vendorId)
-        .maybeSingle();
-      // ⚠ the travel radius they set. Refused, it reads as never set, so the
-      // ⚠ page invites them to define a service area they have already defined.
-      if (error) {
-        logQueryError('VendorShopPage.serviceRadius', error, { vendorId }, 'graceful_degrade');
-      }
-      const rings = (data ?? null) as {
-        inner_radius_km?: number | null;
-        outer_radius_km?: number | null;
-      } | null;
-      innerRadiusKm = rings?.inner_radius_km ?? null;
-      outerRadiusKm = rings?.outer_radius_km ?? null;
-    } catch {
-      // pre-migration → both stay null (the card renders empty fields)
-    }
-    return { innerRadiusKm, outerRadiusKm };
-  })();
-
-  // Branch add/manage data — only Enterprise-or-higher renders the inline
-  // manager, so the fee + payout accounts are only fetched for that tier (skips
-  // two reads for everyone else). The tier gate lives INSIDE this promise: it
-  // waits for the tier read only, then decides whether to read at all.
-  const branchPayRead = (async () => {
-    const tier = await tierRead;
-    let branchFeePhp = BRANCH_FEE_PHP;
-    // Below Enterprise the manager does not render; `open: []` is never read.
-    let branchPay: PayInfo = { accounts: [], open: [] };
-    if (isTierAtLeast(tier, 'enterprise')) {
-      const [fee, settings] = await Promise.all([
-        soft.read('branchFee', () => fetchBranchFeePhp(supabase), BRANCH_FEE_PHP),
-        soft.read('platformSettings', () => fetchPlatformSettings(supabase), null),
-      ]);
-      branchFeePhp = fee;
-      if (settings) {
-        // Only an OPEN rail's details reach the "How to pay" box — printing a
-        // number IS offering the rail (lib/payment-channels.ts · openRailDetails).
-        branchPay = openRailDetails(settings);
-      }
-    }
-    return { branchFeePhp, branchPay };
-  })();
-
-  /*
-   * 🔑 WHAT COULD NOT BE LOADED, AS OPPOSED TO WHAT IS NOT THERE.
-   *
-   * Every optional read below degrades to an empty value so one hiccup cannot
-   * blank My Shop — that part is right and stays. What was wrong is that the
-   * empty value it degrades to is BYTE-IDENTICAL to a supplier who genuinely
-   * has no logo, no reviews and no Instagram. The comment beside
-   * `logoDisplayMap` said so in as many words: failures collapse "exactly like
-   * a vendor who hasn't set those yet".
-   *
-   * So each probe whose result a supplier can SEE now records that it failed,
-   * and the panel says so instead of rendering as emptiness. Logging alone
-   * would not have been enough — a log line never changed a pixel, and they
-   * would still be looking at a shop that appears empty.
-   *
-   * ⚠ Only probes whose failure is otherwise INDISTINGUISHABLE get a flag. The
-   * portfolio thumbnails do not: the page knows how many keys it asked for, so
-   * a short list is already visible without being announced.
-   *
-   * Each flag is set inside the started read it belongs to and handed back with
-   * that read's value — the four reads now run side by side.
-   */
-
-  // Attach email/display_name (Pattern A — other users' identity needs the
-  // admin client). Fail-soft: keep the rows nameless rather than crash.
-  // ⚠ Waits for the team rows: the admin client only ever sees members the
-  // RLS read above already scoped to THIS shop.
-  const enrichedTeamRead = (async () => {
-    const team = await teamRead;
-    let teamNamesUnavailable = false;
-    let enrichedTeam: TeamMember[];
-    try {
-      enrichedTeam = await enrichTeamWithUsers(createAdminClient(), team);
-    } catch (err) {
-      logQueryError('VendorShopPage.enrichTeam', err, { vendorId, members: team.length });
-      teamNamesUnavailable = team.length > 0;
-      enrichedTeam = team.map((m) => ({ ...m, email: null, display_name: null }));
-    }
-    return { enrichedTeam, teamNamesUnavailable };
-  })();
-
-  // Live field values + editor vocabulary for the inline Business-Profile editor
-  // (the My Shop Profile panel). Degrade-safe: a logo-presign or taxonomy hiccup
-  // must not blank the whole My Shop page, so failures collapse to neutral
-  // defaults (no thumbnail · in-code service labels · no extra leaves) exactly
-  // like a vendor who hasn't set those yet.
+  // The hero's logo. A presign hiccup must not blank the page — and must not
+  // look like a shop with no logo either (`logoUnavailable`).
   const logoRead = (async () => {
-    let logoUnavailable = false;
-    let logoDisplayMap: Record<string, string> = {};
     try {
-      const logoDisplayUrl = profile.logo_url
-        ? await displayUrlForStoredAsset(profile.logo_url)
-        : null;
-      if (profile.logo_url && logoDisplayUrl) {
-        logoDisplayMap = { [profile.logo_url]: logoDisplayUrl };
-      }
+      const url = profile.logo_url ? await displayUrlForStoredAsset(profile.logo_url) : null;
+      return { logoUrl: url, logoUnavailable: false };
     } catch (err) {
       logQueryError('VendorShopPage.logoDisplayUrl', err, { vendorId, hasLogo: !!profile.logo_url });
-      logoUnavailable = !!profile.logo_url;
-      logoDisplayMap = {};
+      return { logoUrl: null, logoUnavailable: !!profile.logo_url };
     }
-    return { logoDisplayMap, logoUnavailable };
-  })();
-  const serviceVocabRead = fetchVendorServicePickerVocab();
-
-  // Microsite customization (My Shop → Website editor). Soft/defensive read —
-  // decoupled from the shared profile select so a not-yet-applied migration
-  // never blanks My Shop.
-  const micrositeRead = fetchVendorMicrosite(supabase, vendorId);
-  // Precise founding date (optional) — guarded, so a not-yet-applied migration
-  // never blanks My Shop. Feeds the exact business anniversary/monthsary day.
-  const businessStartDateRead = fetchVendorBusinessStartDate(supabase, vendorId);
-
-  // Portfolio thumbnails — reused by BOTH the Pro hero-photo picker and the
-  // Gallery-&-media <FileUpload> first-paint. Best-effort — a presign hiccup
-  // just drops that thumbnail, never crashes the page.
-  const portfolioRefs = (profile.portfolio_r2_keys ?? []) as string[];
-  const portfolioPhotosRead = (async () =>
-    (
-      await Promise.all(
-        portfolioRefs.map(async (key) => {
-          try {
-            const url = await displayUrlForStoredAsset(key);
-            return url ? { key, url } : null;
-          } catch (err) {
-            logQueryError('VendorShopPage.portfolioThumb', err, { vendorId, key });
-            return null;
-          }
-        }),
-      )
-    ).filter((p): p is { key: string; url: string } => p !== null))();
-
-  // Instagram connect + sync (inert when the Meta App env is unset). Both loaders
-  // are best-effort + degrade to null/[] on any error (pre-migration DB, etc.) so
-  // the IG card never blanks My Shop. Mirrors the retired /profile page.
-  const igConfigured = isInstagramConnectConfigured();
-  const instagramRead = (async () => {
-    let igUnavailable = false;
-    let igConnection: VendorIgConnectionStatus | null = null;
-    let igMedia: VendorIgMediaRow[] = [];
-    try {
-      igConnection = await fetchVendorIgConnection(vendorId);
-      igMedia = igConnection ? await fetchVendorIgMediaForOwner(vendorId) : [];
-    } catch (err) {
-      logQueryError('VendorShopPage.instagram', err, { vendorId });
-      igUnavailable = true;
-      igConnection = null;
-      igMedia = [];
-    }
-    return { igConnection, igMedia, igUnavailable };
-  })();
-
-  // Review options for the Pro pinned-review picker. Best-effort — a fetch
-  // hiccup just yields an empty picker ("no reviews yet"), never a crash.
-  const reviewOptionsRead = (async () => {
-    let reviewOptionsUnavailable = false;
-    let reviewOptions: { id: string; label: string }[] = [];
-    try {
-      const rows = await fetchReviewsForVendorWithCouple(supabase, vendorId, {
-        limit: 20,
-        offset: 0,
-      });
-      reviewOptions = rows.map((r) => {
-        const name = r.couple_display_name ?? 'A couple';
-        const snippet = r.body
-          ? `“${r.body.slice(0, 60)}${r.body.length > 60 ? '…' : ''}”`
-          : `${r.rating_overall}★`;
-        return { id: r.review_id, label: `${name} · ${snippet}` };
-      });
-    } catch (err) {
-      logQueryError('VendorShopPage.reviewOptions', err, { vendorId });
-      reviewOptionsUnavailable = true;
-      reviewOptions = [];
-    }
-    return { reviewOptions, reviewOptionsUnavailable };
-  })();
-
-  // "Your website suggests you also do…" (C5, 2026-08-28) — best-effort; a
-  // read hiccup here must never break My Shop, so it degrades to "nothing to
-  // suggest" exactly like the review-options read above.
-  const pendingCoverageSuggestionRead = (async () => {
-    let pendingCoverageSuggestion: PendingCoverageSuggestion | null = null;
-    try {
-      pendingCoverageSuggestion = await fetchPendingSignupCoverageSuggestion(
-        vendorId,
-        profile.services ?? [],
-      );
-    } catch (err) {
-      logQueryError('VendorShopPage.coverageSuggestion', err, { vendorId });
-      pendingCoverageSuggestion = null;
-    }
-    return pendingCoverageSuggestion;
   })();
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
-    openCorrections,
     tier,
-    { sameDayAvailable, socialFeatureOptOut, socialAlreadyFeatured },
     verifyApp,
     reviewStats,
     savesRes,
     viewsRes,
-    branches,
-    team,
     partnershipsRes,
     [stories, recapCount],
-    contactStamps,
-    { validateEmail, validatePhone },
-    registrationNumberOnFile,
-    { innerRadiusKm, outerRadiusKm },
-    { branchFeePhp, branchPay },
-    { enrichedTeam, teamNamesUnavailable },
-    { logoDisplayMap, logoUnavailable },
-    { serviceLabels, extraServiceLeaves },
-    microsite,
-    businessStartDate,
-    portfolioPhotos,
-    { igConnection, igMedia, igUnavailable },
-    { reviewOptions, reviewOptionsUnavailable },
-    pendingCoverageSuggestion,
+    { logoUrl, logoUnavailable },
   ] = await Promise.all([
-    openCorrectionsRead,
     tierRead,
-    shopSwitchesRead,
     verifyAppRead,
     reviewStatsRead,
     savesRead,
     viewsRead,
-    branchesRead,
-    teamRead,
     partnershipsRead,
     storiesAndRecapsRead,
-    contactStampsRead,
-    validateContactsRead,
-    registrationNumberOnFileRead,
-    travelRingsRead,
-    branchPayRead,
-    enrichedTeamRead,
     logoRead,
-    serviceVocabRead,
-    micrositeRead,
-    businessStartDateRead,
-    portfolioPhotosRead,
-    instagramRead,
-    reviewOptionsRead,
-    pendingCoverageSuggestionRead,
   ]);
-
-  const storiesTagged = stories.length;
-  // Picker options for the Pro "Featured editorials" control (id = event_id).
-  const editorialOptions = stories.map((s) => ({
-    id: s.eventId,
-    label: [s.hostNames, [s.city, s.dateLabel].filter(Boolean).join(' · ')]
-      .filter(Boolean)
-      .join(' — '),
-  }));
 
   const completion = businessProfileChecklist(profile);
   const completionPct =
-    completion.total === 0
-      ? 0
-      : Math.round((completion.done / completion.total) * 100);
-
+    completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
   const verifyUploads = (verifyApp?.doc_uploads ?? {}) as DocUploadMap;
-  const meetSlot = verifyUploads.google_meet;
-  const meetScheduledAt =
-    meetSlot && typeof meetSlot === 'object' && !Array.isArray(meetSlot) && 'scheduled_at' in meetSlot
-      ? ((meetSlot as { scheduled_at?: string | null }).scheduled_at ?? null)
-      : null;
-  const verify: VerifySummary = {
-    status: (verifyApp?.status as VerifySummary['status']) ?? null,
-    vendorComplete: countCompleteVendorSlots(verifyUploads),
-    vendorTotal: VENDOR_DOC_SLOTS.length,
-    requiredDocsIn: requiredDocsComplete(verifyUploads),
-    emailConfirmedAt: contactStamps.emailConfirmedAt,
-    phoneConfirmedAt: contactStamps.phoneConfirmedAt,
-    meetScheduledAt,
-    decisionReason: (verifyApp?.decision_reason as string | null) ?? null,
-    submitMissing: verificationSubmitMissing({
-      profileComplete: completion.complete,
-      uploads: verifyUploads,
-      registrationNumberOnFile,
-    }),
-    validateEmail,
-    validatePhone,
-  };
-
-  const activeBranches = branches.filter((b) => b.status === 'active').length;
-
-  // 🔒 The store shell never shows a ◆ purchase hint (lib/store-shell.ts).
-  const noteShell = await isStoreShellRequest();
-
-  // Team seat headroom for the Team tile sub-line. Mirrors the seat-cap contract
-  // enforced in team/actions.ts: the plan's `agentAccounts` counts only members
-  // BEYOND the founding admin (vendor_profiles.user_id), so exclude the founder
-  // from the used count. Infinity = unlimited. A plan with NO seats is a
-  // paywall, so its number goes through the same flag-aware allowance the
-  // invite action uses — while the switch is off it gets the entry plan's seats
-  // and the tile never says "Upgrade".
-  const teamSeatCap = vendorAllowance(
-    tierCaps(asVendorTier(tier)).agentAccounts,
-    entryTierAllowance('agentAccounts'),
-  );
-  const teamSeatsUsed = team.filter((m) => m.user_id !== profile.user_id).length;
-  const teamSeatsLeft =
-    teamSeatCap === Infinity ? Infinity : Math.max(0, teamSeatCap - teamSeatsUsed);
-  const teamSub =
-    teamSeatCap === Infinity
-      ? 'Unlimited seats'
-      : teamSeatCap === 0
-        ? noteShell
-          ? 'Not on your plan'
-          : '◆ Paid plans'
-        : teamSeatsLeft > 0
-          ? `Add up to ${teamSeatsLeft}`
-          : 'Seats full';
-  // Branch headroom: Enterprise-or-higher may add locations (each is a paid
-  // add-on, no hard cap). For every other plan that requirement is a paywall,
-  // asked through vendorPaywallApplies — off, anyone may add one (and pays for
-  // the branch itself at its own checkout); on, the tile wears ◆ and the
-  // branch's own Add step asks for the plan.
-  const branchSub =
-    vendorPaywallApplies(isTierAtLeast(tier, 'enterprise')) && !noteShell
-      ? 'Add locations ◆ Enterprise'
-      : 'Add locations';
-
-  // The Hero avatar shows the uploaded logo when present (owner 2026-07-02),
-  // falling back to initials. Same presigned URL the Profile row's thumbnail uses.
-  const logoUrl = profile.logo_url ? (logoDisplayMap[profile.logo_url] ?? null) : null;
-  const profileFields: ProfileFieldData = {
-    business_name: profile.business_name ?? '',
-    business_owner_name: profile.business_owner_name ?? '',
-    hq_address: profile.hq_address ?? '',
-    location_city: profile.location_city ?? '',
-    hq_latitude: profile.hq_latitude ?? null,
-    hq_longitude: profile.hq_longitude ?? null,
-    contact_phone: profile.contact_phone ?? '',
-    contact_email: profile.contact_email ?? '',
-    in_business_since_year: profile.in_business_since_year
-      ? String(profile.in_business_since_year)
-      : '',
-    // Venue room size + capacity. Empty strings when unset — the inputs are
-    // plain text/number fields and `null` would render the string "null".
-    venue_width_m: profile.venue_width_m != null ? String(profile.venue_width_m) : '',
-    venue_length_m: profile.venue_length_m != null ? String(profile.venue_length_m) : '',
-    capacity_min: profile.capacity_min != null ? String(profile.capacity_min) : '',
-    capacity_max: profile.capacity_max != null ? String(profile.capacity_max) : '',
-    logo_url: profile.logo_url ?? null,
-    logoDisplayMap,
-    services: (profile.services ?? []) as string[],
-    serviceLabels,
-    extraServiceLeaves,
-    vendorProfileId: vendorId,
-  };
-
-  const isProWebsite = tierCaps(asVendorTier(tier)).customWebsiteName;
-  // 💳 Asked through the ONE flag-aware question — false for everyone while
-  // VENDOR_TIER_FEATURE_GATE is off (see lib/vendor-feature-gate.ts). These
-  // only draw the ◆ note; the save itself is where a plan is asked. 🔒 The
-  // App Store / Play Store shell never shows a purchase hint (lib/store-shell.ts).
-  const personalizeAsks =
-    vendorPaywallApplies(micrositeCan(tier).canPersonalize) && !noteShell;
-  const proAsks = vendorPaywallApplies(isProWebsite) && !noteShell;
-  const isEnterpriseWebsite = micrositeCan(tier).isEnterprise;
-  const yearsLabel = profile.in_business_since_year
-    ? `${Math.max(0, new Date().getFullYear() - profile.in_business_since_year)} yrs in business`
-    : null;
-
-  // Map form for <FileUpload initialDisplayUrls> so the thumbnails render on
-  // first paint (mirrors the retired /profile page's portfolioDisplayMap).
-  const portfolioDisplayMap: Record<string, string> = {};
-  for (const p of portfolioPhotos) portfolioDisplayMap[p.key] = p.url;
-
-  // Tier portfolio-photo cap (FREE 30 · VERIFIED 50 · PRO 100 · ENTERPRISE ∞).
-  // The <FileUpload> needs a finite maxFiles, so ∞ → a high sentinel — mirrors
-  // the retired /profile page exactly.
-  const portfolioCap = tierCaps(asVendorTier(tier)).portfolioPhotos;
-  const portfolioMax = Number.isFinite(portfolioCap) ? portfolioCap : 999;
-
-  // Featured-video links (all tiers · gallery_video_links) — the relocated
-  // <VideoLinksEditor> seed.
-  const galleryVideoLinks = (profile.gallery_video_links ?? []) as string[];
 
   return {
     businessName,
@@ -956,70 +311,24 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     primaryService: profile.services?.[0] ? titleCase(profile.services[0]) : null,
     tier,
     isVerified: profile.public_visibility === 'verified',
-    // Scoped to this vendor EXPLICITLY (RLS alone is not the scope — see the
-    // read above). Defensive by construction: fetchCorrectionRequests
-    // returns [] on ANY error, so a read hiccup shows the ask-card with nothing
-    // pending rather than hiding the only doorway a wrong address has.
-    openCorrections,
-    pendingCoverageSuggestion,
-    websiteLive:
-      Boolean(profile.business_slug) &&
-      isPubliclyVisible(profile.public_visibility),
-    isProWebsite,
-    personalizeAsks,
-    proAsks,
-    isEnterpriseWebsite,
-    yearsLabel,
-    microsite,
-    portfolioPhotos,
-    portfolioMax,
-    portfolioDisplayMap,
-    portfolioRefs,
-    galleryVideoLinks,
-    igConfigured,
-    igConnection,
-    igMedia,
-    reviewOptions,
-    teamNamesUnavailable,
+    websiteLive: Boolean(profile.business_slug) && isPubliclyVisible(profile.public_visibility),
     logoUnavailable,
-    igUnavailable,
-    reviewOptionsUnavailable,
-    editorialOptions,
     completionPct,
-    verify,
-    checklist: completion.items,
-    profileFields,
-    businessStartDate,
-    compatibleVenueSettings: profile.compatible_venue_settings ?? null,
-    compatibleCeremonyTypes: profile.compatible_ceremony_types ?? null,
-    venueType: profile.venue_type ?? null,
-    tagline: profile.tagline,
-    website: profile.website,
-    sameDayAvailable,
-    socialFeatureOptOut,
-    socialAlreadyFeatured,
+    fieldsLeft: completion.items.filter((i) => !i.ok).length,
+    verify: {
+      status: (verifyApp?.status as VerifyStatus) ?? null,
+      requiredDocsIn: requiredDocsComplete(verifyUploads),
+      emailConfirmedAt: verifyApp?.contact_email_confirmed_at ?? null,
+      phoneConfirmedAt: verifyApp?.contact_phone_confirmed_at ?? null,
+    },
     profileViewsWeek: viewsRes ?? 0,
     rating: Number(reviewStats?.avg_rating_overall ?? 0) || 0,
     reviewCount: Number(reviewStats?.total_count ?? 0) || 0,
     savedByCouples: savesRes ?? 0,
-    storiesTagged,
+    storiesTagged: stories.length,
     unreadable: soft.labels,
     recapClips: recapCount,
-    teamMembers: team.length,
-    teamSub,
-    branchLocations: 1 + activeBranches,
-    branchSub,
-    hqLat: profile.hq_latitude ?? null,
-    hqLng: profile.hq_longitude ?? null,
-    reachKm: tierCaps(asVendorTier(tier)).serviceRadiusKm,
-    innerRadiusKm,
-    outerRadiusKm,
-    branchViews: branches,
-    branchFeePhp,
-    branchAutoRadius: branchAutoRadiusKm(),
-    branchPay,
     recommendedByShops: partnershipsRes ?? 0,
-    team: enrichedTeam,
   };
 }
 
@@ -1040,7 +349,7 @@ async function ShopHome({
   searchParams,
 }: {
   searchParams: Promise<
-    ServicesManagerSearch & { ig_connected?: string; ig_error?: string }
+    ServicesManagerSearch
   >;
 }) {
   let data: ShopData | 'no-vendor' | null;
@@ -1104,21 +413,12 @@ async function ShopHome({
   const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
 
-  // Instagram card flash from the OAuth-callback redirect params (the callback
-  // now lands on /vendor-dashboard/shop with these flags · 2026-07-05).
-  const igFlash: { kind: 'ok' | 'error'; message: string } | null = sp.ig_connected
-    ? { kind: 'ok', message: 'Instagram connected. Press “Sync now” to pull your posts.' }
-    : sp.ig_error
-      ? {
-          kind: 'error',
-          message:
-            IG_ERROR_COPY[sp.ig_error] ??
-            'Instagram connection could not be completed. Try again.',
-        }
-      : null;
-
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      {/* Shop › Services · Page · How it is going (step 5) — Page is the door to Your page, details and collections. */}
+      <div className="mx-auto max-w-3xl">
+        <ShopSegments on="services" />
+      </div>
       <HeroCard data={data} publicPath={publicPath} />
 
       {/* ── HOW YOU'RE DOING — read-only pulse (detail pages live in the sidebar).
@@ -1179,223 +479,92 @@ async function ShopHome({
 
       {/*
         ── DOOR 1 · "Your shop" (G1, drawing approved 2026-09-14) ───────────
-        The shop-information tiles and the papers now sit in ONE room, which is
-        what the drawing asks for and what a shop owner already assumes: "fix my
-        shop information and verification, branches, team" is one errand.
+        ✂ STEP 5 (2026-10-14): the room is now four rows into the screens the
+        approved supplier prototype gives each errand — Your details (the form,
+        the papers, where you work, how clients pay you), Your page (the page as
+        couples scroll it, a draft and one Apply), Your collections (every photo
+        and video) and Helpers (/vendor-dashboard/team, which the Team tile
+        duplicated). The editors are the SAME components, mounted there.
 
-        🔑 RE-MOUNTED, NOT REWRITTEN. `ManageTiles` and `VerifySection` are the
-        SAME components with the SAME props they had before — the only change is
-        that the papers moved up to sit beside the tiles instead of below the
-        service cards, which is the "three things moved" the drawing names.
-
-        ⚠ THEIR ANCHORS LIVE INSIDE THEM, NOT HERE. `#manage-shop` is on
-        `ManageTiles`'s own <section> and `#get-verified` on `VerifySection`'s;
-        the hero pills, Today's first steps and the Subscription page all
-        deep-link to those two ids. Wrapping them must not shadow or duplicate
-        either one — the guard beside this file asserts both still resolve, and
-        that each appears exactly once.
+        ⚠ THE TWO OLD ANCHORS STILL RESOLVE HERE, ONCE EACH. `#manage-shop` is on
+        the rows and `#get-verified` on the documents row: links already sent —
+        notifications stored with `/vendor-dashboard/shop#get-verified`, a
+        bookmark — land on a row one tap from the fold. Every link this code
+        still writes points straight at Your details (`/vendor-dashboard/profile#docs`).
       */}
       <ShopDoorSection
         id="d1"
         title="Your shop"
         question="Shop information, verification, branches and team"
       >
-        <ManageTiles
-          // The Instagram result is printed INSIDE the Website panel, so a page
-          // carrying one opens that panel on the server (no closed-fold flash).
-          initialOpen={igFlash ? 'website' : null}
-          completionPct={data.completionPct}
-          verifyLabel={
-            data.completionPct >= 100
-              ? 'All fields in'
-              : `${data.checklist.filter((i) => !i.ok).length} field${data.checklist.filter((i) => !i.ok).length === 1 ? '' : 's'} left`
-          }
-          teamLabel={nf.format(data.teamMembers)}
-          teamSub={data.teamSub}
-          branchLabel={nf.format(data.branchLocations)}
-          branchSub={data.branchSub}
-          profilePanel={
-            <>
-              <ProfileChecklistEditor
-                items={data.checklist}
-                data={data.profileFields}
-                isVerified={data.isVerified}
-              />
-              {/* Precise founding DATE (optional) — powers the EXACT business
-                  anniversary/monthsary day on your Overview. Plain server-action
-                  form; blank clears it and we fall back to the year (EST). */}
-              <form
-                action={updateBusinessStartDate}
-                className="mt-3 rounded-xl border p-4"
-                style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-              >
-                <label
-                  htmlFor="in_business_since_date"
-                  className="block text-sm font-medium"
-                  style={{ color: 'var(--m-ink)' }}
-                >
-                  Business start date{' '}
-                  <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
-                    (optional)
-                  </span>
-                </label>
-                <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-                  The exact day you started — powers your business anniversary. Leave
-                  blank to use the year (EST) above.
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input
-                    id="in_business_since_date"
-                    name="in_business_since_date"
-                    type="date"
-                    defaultValue={data.businessStartDate ?? ''}
-                    className="input-field max-w-[12rem]"
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
-                    style={{ background: 'var(--m-accent-deep)' }}
-                  >
-                    Save
-                  </button>
-                </div>
-              </form>
-              {/* Which weddings this shop is a fit for. NOT a checklist item: it
-                  is optional by design (undeclared = open to all), so it must
-                  never drag a finished profile back below 100%. This card is the
-                  writer both columns shipped without — Explore has filtered on
-                  them since 0043 while no form in the product could set them. */}
-              <VenueMatchCard
-                initialVenueSettings={data.compatibleVenueSettings}
-                initialCeremonyTypes={data.compatibleCeremonyTypes}
-              />
-              {/* What kind of venue this shop is (C2, 2026-08-31) — the writer
-                  `vendor_profiles.venue_type` shipped without. Read publicly by
-                  the v1 vendor profile API and by Explore since migration
-                  20260810000000; every shop was stuck on the seed default. */}
-              <VenueTypeCard initialVenueType={data.venueType} />
-              {/* The public one-liner + the shop's own website. Not checklist
-                  items, for the same reason as the card above — and not inline
-                  identity fields either: the verified lock would put a rebrand
-                  behind an admin correction ticket. Both columns are read by the
-                  public page, Explore and three v1 API routes, and neither had a
-                  writer a real vendor could reach after /profile was retired. */}
-              <PublicLineCard
-                initialTagline={data.tagline}
-                initialWebsite={data.website}
-              />
-              {/* "Your website suggests you also do…" (C5, 2026-08-28) — only
-                  renders when a completed, unresolved signup-suggestion dossier
-                  found trades this shop has not already declared. Suggested,
-                  never applied: nothing here writes coverage on its own. */}
-              {data.pendingCoverageSuggestion ? (
-                <SuggestedCoverageCard
-                  dossierId={data.pendingCoverageSuggestion.dossierId}
-                  suggestions={data.pendingCoverageSuggestion.suggestions}
-                />
-              ) : null}
-              {/* Day-of shortlist opt-in + the social celebration opt-out. Both
-                  only ACT on a verified shop, so routing them through the
-                  verified-locked inline editor would have made them settable
-                  only by the vendors they can never apply to. */}
-              <VisibilityCard
-                initialSameDayAvailable={data.sameDayAvailable}
-                initialSocialFeatureOptOut={data.socialFeatureOptOut}
-                isVerified={data.isVerified}
-                // Mirrors findSameDayVendors' `.neq('tier_state','free')`, which
-                // in Postgres also excludes a NULL tier — so NULL is not paid.
-                isPaidTier={data.tier != null && data.tier !== 'free'}
-                alreadyFeatured={data.socialAlreadyFeatured}
-              />
-              {/* The ASK. `requestProfileCorrection` + the /admin/corrections
-                  queue that resolves it both shipped complete and had ZERO
-                  callers — no screen rendered a form, so prod held zero rows and
-                  the queue could never receive anything. The web address is
-                  offered to every vendor at every tier (it is immutable for
-                  everyone, which is precisely why a signup typo has no other
-                  remedy); the rest appear once the verified lock is what is
-                  actually stopping an inline edit. */}
-              <RequestCorrectionCard
-                currentSlug={data.slug}
-                isVerified={data.isVerified}
-                openRequests={data.openCorrections}
-              />
-            </>
-          }
-          websitePanel={
-            <WebsiteEditor
-              publicPath={publicPath}
-              displayHost={DISPLAY_HOST}
-              websiteLive={data.websiteLive}
-              isPro={data.isProWebsite}
-              personalizeAsks={data.personalizeAsks}
-              proAsks={data.proAsks}
-              about={data.microsite.about}
-              sections={data.microsite.sections}
-              featuredServiceIds={data.microsite.featuredServiceIds}
-              services={data.profileFields.services}
-              serviceLabels={data.profileFields.serviceLabels}
-              isVerified={data.isVerified}
-              yearsLabel={data.yearsLabel}
-              slug={data.slug}
-              heroPhotoKey={data.microsite.heroPhotoKey}
-              accent={data.microsite.accent}
-              portfolioPhotos={data.portfolioPhotos}
-              reviews={data.reviewOptions}
-              pinnedReviewId={data.microsite.pinnedReviewId}
-              editorials={data.editorialOptions}
-              featuredEditorialIds={data.microsite.featuredEditorialIds}
-              vendorProfileId={data.profileFields.vendorProfileId}
-              portfolioRefs={data.portfolioRefs}
-              portfolioDisplayMap={data.portfolioDisplayMap}
-              portfolioMax={data.portfolioMax}
-              galleryVideoLinks={data.galleryVideoLinks}
-              igConfigured={data.igConfigured}
-              igConnection={data.igConnection}
-              igUnavailable={data.igUnavailable}
-              reviewsUnavailable={data.reviewOptionsUnavailable}
-              igMedia={data.igMedia}
-              igFlash={igFlash}
+        <div id="manage-shop" className="scroll-mt-24 divide-y divide-ink/10" data-shop-doors="">
+          <DatesRow
+            data="shop-details"
+            title="Your details"
+            line="Name · what you do · where · contact · documents · how clients pay you"
+            badge={
+              data.fieldsLeft > 0
+                ? { tone: 'wait', word: data.fieldsLeft === 1 ? '1 field left' : `${data.fieldsLeft} fields left` }
+                : null
+            }
+            href="/vendor-dashboard/profile"
+          />
+          <DatesRow
+            data="shop-page"
+            title="Your page"
+            line="As couples see it · edit · share"
+            badge={data.websiteLive ? { tone: 'ok', word: 'Couples can see it' } : { tone: 'quiet', word: 'Not shown yet' }}
+            href="/vendor-dashboard/website"
+          />
+          <DatesRow
+            data="shop-collections"
+            title="Your collections"
+            line="Every photo and video in one place"
+            href="/vendor-dashboard/collections"
+          />
+          <DatesRow data="shop-helpers" title="Helpers" line="Who works with you on Setnayan" href="/vendor-dashboard/team" />
+        </div>
+        <div id="get-verified" className="scroll-mt-24 border-t border-ink/10">
+          <DatesRow
+            data="shop-documents"
+            title="Your documents"
+            line={
+              data.isVerified
+                ? 'Verified'
+                : data.verify.status === 'pending_review' || data.verify.status === 'in_review'
+                  ? 'Setnayan is checking your documents'
+                  : 'DTI or SEC · BIR 2303 · permit · a bank proof'
+            }
+            badge={
+              data.isVerified
+                ? { tone: 'ok', word: 'Verified' }
+                : data.verify.status === 'pending_review' || data.verify.status === 'in_review'
+                  ? { tone: 'wait', word: 'Checking' }
+                  : { tone: 'wait', word: 'Send them' }
+            }
+            href={DOCS_HREF}
+          />
+        </div>
+        {/* The rail's doors 4 and 5 point at these two: their rooms moved to Your
+            page › Auto-reply and Your details › How clients pay you (step 5). */}
+        <div id="getting-paid" className="scroll-mt-24 border-t border-ink/10">
+          <DatesRow
+            data="shop-getting-paid"
+            title="How clients pay you"
+            line="GCash · bank · what couples see"
+            href="/vendor-dashboard/profile#pay"
+          />
+        </div>
+        {vendorAutoReplyEnabled() ? (
+          <div id="auto-reply" className="scroll-mt-24 border-t border-ink/10">
+            <DatesRow
+              data="shop-auto-reply"
+              title="Auto-reply"
+              line="Answers the first message"
+              href="/vendor-dashboard/website#auto-reply"
             />
-          }
-          teamPanel={
-            <TeamPanel
-              members={data.team}
-              namesUnavailable={data.teamNamesUnavailable}
-              listUnavailable={cantRead('team')}
-            />
-          }
-          branchPanel={
-            <BranchPanel
-              city={data.city}
-              branchLocations={data.branchLocations}
-              tier={data.tier}
-              hqLat={data.hqLat}
-              hqLng={data.hqLng}
-              reachKm={data.reachKm}
-              innerRadiusKm={data.innerRadiusKm}
-              outerRadiusKm={data.outerRadiusKm}
-              branches={data.branchViews}
-              branchFeePhp={data.branchFeePhp}
-              branchAutoRadius={data.branchAutoRadius}
-              branchPay={data.branchPay}
-            />
-          }
-        />
-
-        {/* ── GET VERIFIED — the verification journey, promoted to its own
-            always-visible stage (owner redesign 2026-07-03). SEQUENCED (owner
-            flow): a teaser until the profile is 100% complete → the documents
-            reveal (auto-open) → upload + send VALIDATE → Submit → "we'll contact
-            you for final confirmation" (the Meet). Hero pill deep-links here. */}
-        <VerifySection
-          businessName={data.businessName}
-          vendorProfileId={data.profileFields.vendorProfileId}
-          isVerified={data.isVerified}
-          profileComplete={data.completionPct >= 100}
-          profileFieldsLeft={data.checklist.filter((i) => !i.ok).length}
-          verify={data.verify}
-        />
+          </div>
+        ) : null}
       </ShopDoorSection>
 
 
@@ -1460,14 +629,8 @@ async function ShopHome({
         </section>
       ) : null}
 
-      {/* ── AUTO-REPLY ASSISTANT — Phase-4 config card (flag-DARK: renders
-          only behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1; flag-off = today's page
-          exactly). Sits right under Services because the assistant answers
-          FROM that catalog. Anchor id is the deep-link target the Messages
-          header quick-toggle will use (Whats-Next §Phase-4). */}
-      {vendorAutoReplyEnabled() ? (
-        <AutoReplySection vendorProfileId={data.profileFields.vendorProfileId} />
-      ) : null}
+      {/* AUTO-REPLY moved to Your page › Auto-reply (step 5, 2026-10-14) —
+          `_components/autoreply-section.tsx`, still behind its switch, still `#auto-reply`. */}
     </section>
   );
 }
@@ -1510,7 +673,7 @@ function HeroCard({
             </span>
           ) : data.verify.status === 'pending_review' || data.verify.status === 'in_review' ? (
             <a
-              href="#get-verified"
+              href={DOCS_HREF}
               className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
               style={{ background: 'var(--m-paper)', color: 'var(--m-slate)' }}
             >
@@ -1523,7 +686,7 @@ function HeroCard({
             // pill points at the prerequisite instead (owner flow: profile
             // first → then the documents appear).
             <a
-              href="#get-verified"
+              href={DOCS_HREF}
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors hover:bg-[color:var(--m-orange-3)]"
               style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
             >
@@ -1613,10 +776,10 @@ function HeroCard({
           // the manage tiles.
           const cta =
             data.completionPct < 100
-              ? { href: '#manage-shop', label: 'Finish profile' }
+              ? { href: DETAILS_HREF, label: 'Finish profile' }
               : data.isVerified
-                ? { href: '#manage-shop', label: 'Manage shop' }
-                : { href: '#get-verified', label: 'Get verified' };
+                ? { href: DETAILS_HREF, label: 'Manage shop' }
+                : { href: DOCS_HREF, label: 'Get verified' };
           return (
             <a
               href={cta.href}
@@ -1712,92 +875,6 @@ function StatTile({
   );
 }
 
-/* ─── Inline panels (rendered server-side, hosted by ManageTiles) ───────── */
-
-function TeamPanel({
-  members,
-  namesUnavailable,
-  listUnavailable,
-}: {
-  members: TeamMember[];
-  /* The rows loaded; the NAMES behind them did not. Without this the panel
-     renders a team of blanks and looks like nobody filled their details in. */
-  namesUnavailable?: boolean;
-  /* The ROWS themselves could not be read — so `members` is empty for a reason
-     that has nothing to do with the supplier, and "No team members yet" would
-     be a lie rather than an empty state. */
-  listUnavailable?: boolean;
-}) {
-  return (
-    <div className="space-y-4">
-      <p className="text-xs text-ink/55">Any admin can manage the team.</p>
-      {listUnavailable ? (
-        <CouldNotLoad what="your team" />
-      ) : namesUnavailable ? (
-        <CouldNotLoad what="your team's names and emails" />
-      ) : null}
-
-      <ul className="space-y-2">
-        {members.length === 0 ? (
-          <li className="text-sm text-ink/60">No team members yet.</li>
-        ) : (
-          members.map((m) => (
-            <li
-              key={m.vendor_team_member_id}
-              className="flex items-center gap-3"
-            >
-              <span
-                aria-hidden
-                className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold"
-                style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-              >
-                {deriveInitials(m.display_name ?? m.email ?? 'SN')}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-ink">
-                  {m.display_name ?? m.email ?? 'Member'}
-                </p>
-                <p className="text-xs text-ink/55">
-                  {VENDOR_TEAM_ROLE_LABEL[m.role]}
-                  {m.team_label ? ` · ${m.team_label}` : ''}
-                </p>
-              </div>
-            </li>
-          ))
-        )}
-      </ul>
-
-      <form
-        action={inviteVendorTeamMember}
-        className="grid gap-2 sm:grid-cols-[1fr_auto_auto]"
-      >
-        <input type="hidden" name="returnTo" value="shop" />
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder="colleague@example.com"
-          className="input-field"
-          aria-label="Team member email"
-        />
-        <select
-          name="role"
-          defaultValue="viewer"
-          className="input-field cursor-pointer"
-          aria-label="Role"
-        >
-          <option value="admin">Admin</option>
-          <option value="agent">Agent</option>
-          <option value="viewer">Viewer</option>
-        </select>
-        <SubmitButton className="button-primary" pendingLabel="Adding…">
-          Add
-        </SubmitButton>
-      </form>
-    </div>
-  );
-}
-
 /* ── My Shop hub (owner 5-page IA, 2026-07-12) ──────────────────────────────
  * One menu item, the whole business integrated: the shop home (profile ·
  * services · verify · website — this file's original body, incl. the
@@ -1805,13 +882,12 @@ function TeamPanel({
  * How clients pay you, Manpower as tabs, and a Tools tab linking the
  * long-tail surfaces that left the sidebar. Old routes redirect in. */
 import { Suspense } from 'react';
-import { HandCoins, HardHat, Boxes } from 'lucide-react';
+import { HardHat, Boxes } from 'lucide-react';
 import {
   FeatureAccordion,
   AccordionSkeleton,
   type AccordionSection,
 } from '../_components/feature-accordion';
-import PaymentOptionsSurface from '../payment-options/surface';
 import ManpowerSurface from '../manpower/surface';
 
 // The folded feature sections, in strategic order below the shop home. Each
@@ -1833,12 +909,6 @@ import ManpowerSurface from '../manpower/surface';
   tab goes dark.
 */
 const SHOP_SECTIONS: AccordionSection[] = [
-  {
-    key: 'payments',
-    label: 'How clients pay you',
-    sub: 'Bank, GCash, and link methods couples can use',
-    icon: <HandCoins className="h-4 w-4" strokeWidth={1.75} />,
-  },
   {
     key: 'manpower',
     label: 'Manpower',
@@ -1912,17 +982,8 @@ function ShopTools({
  *  queries run. Only the matching one renders, so folded sections cost nothing
  *  until expanded. `tools` awaits the cheap stylist check internally so the
  *  accordion headers paint instantly. */
-async function ShopSectionBody({
-  open,
-  sp,
-}: {
-  open: string;
-  sp: Record<string, string | string[] | undefined>;
-}) {
-  const pass = Promise.resolve(sp);
+async function ShopSectionBody({ open }: { open: string }) {
   switch (open) {
-    case 'payments':
-      return <PaymentOptionsSurface searchParams={pass as never} />;
     case 'manpower':
       return <ManpowerSurface />;
     case 'tools': {
@@ -1950,6 +1011,18 @@ export default async function VendorShopHub({
     (typeof sp.open === 'string' && sp.open) ||
     (typeof sp.tab === 'string' && sp.tab) ||
     null;
+  // HOW CLIENTS PAY YOU left these folds for Your details (step 5, 2026-10-14). An
+  // old `?open=payments` / `?tab=payments` link — the payout nudge's, a bookmark —
+  // lands on that fold, with any flash it carried.
+  if (openRaw === 'payments') {
+    const qs = new URLSearchParams();
+    for (const k of ['msg', 'error'] as const) {
+      const v = sp[k];
+      if (typeof v === 'string' && v) qs.set(k, v);
+    }
+    const query = qs.toString();
+    redirect(`/vendor-dashboard/profile${query ? `?${query}` : ''}#pay`);
+  }
   const open =
     openRaw && SHOP_SECTIONS.some((s) => s.key === openRaw) ? openRaw : null;
 
@@ -1966,7 +1039,7 @@ export default async function VendorShopHub({
         <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>
           {open ? (
             <Suspense fallback={<AccordionSkeleton />}>
-              <ShopSectionBody open={open} sp={sp} />
+              <ShopSectionBody open={open} />
             </Suspense>
           ) : null}
         </FeatureAccordion>

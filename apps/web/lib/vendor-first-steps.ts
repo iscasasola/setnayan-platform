@@ -182,7 +182,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
           : underReview
             ? 'Sent. Setnayan checks these within 5 working days and will contact you to confirm.'
             : 'Your DTI or SEC, BIR 2303, business permit and bank proof. You can start uploading these any time — gathering them is the slow part.',
-      href: '/vendor-dashboard/shop#get-verified',
+      href: '/vendor-dashboard/profile#docs',
       cta: docsStatus === 'rejected' ? 'Send them again' : 'Upload documents',
       meter: docsTotal > 0 ? `${formatCount(docsIn)} of ${formatCount(docsTotal)} uploaded` : null,
       // The one real hard gate in the flow, quoted from the server-side check.

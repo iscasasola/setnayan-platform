@@ -85,7 +85,10 @@ async function readSeatMembers(
     .from('vendor_team_members')
     .select('vendor_team_member_id,user_id,role')
     .eq('vendor_profile_id', vendorProfileId);
-  if (error) return null;
+  if (error) {
+    logQueryError('team/actions: seat members', error, { vendor_profile_id: vendorProfileId });
+    return null;
+  }
   return (data ?? []) as SeatMember[];
 }
 

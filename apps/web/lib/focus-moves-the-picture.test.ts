@@ -73,7 +73,7 @@ test('(2a) every Focus is a different crop, and Left · Right — the phone’s 
   const bridge = read(`${G}/main-ground-preview.ts`);
   const listed = /const POSITIONS = (\[[^\]]*\]);/.exec(bridge);
   assert.ok(listed, 'anti-vacuity: the bridge’s position list was not found');
-  assert.deepEqual(JSON.parse(listed![1].replace(/'/g, '"')).sort(), [...MAIN_GROUND_POSITIONS].sort(), 'the canvas refuses a Focus the panel can pick');
+  assert.deepEqual(JSON.parse(listed![1]!.replace(/'/g, '"')).sort(), [...MAIN_GROUND_POSITIONS].sort(), 'the canvas refuses a Focus the panel can pick');
   for (const at of MAIN_GROUND_POSITIONS) {
     const lay = { still: '/std/backgrounds/golden-hour.webp', clip: null, position: at, color: null, image: null, size: null, scrim: 0.2, blur: null, vars: {} };
     const got = sanitizeMainGroundPreview({ seq: 1, lay }, 'https://setnayan.test');

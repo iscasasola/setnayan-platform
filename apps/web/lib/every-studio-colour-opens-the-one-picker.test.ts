@@ -291,6 +291,9 @@ const PAINTS: Record<string, [number, string]> = {
   'website/editor/_components/background-effects.tsx': [2, 'Effects › Colour ▾’s dots (Original + the palette’s five, one PickMenu — no picker of its own) and a card’s veil — no colour is picked'],
   'website/editor/_components/buttons-look-row.tsx': [1, 'the dot beside “Accent” — it says where the buttons’ colour comes from; no colour is picked here'],
   'website/editor/_components/colour-well.tsx': [1, 'the split well’s wheel half — a trigger'],
+  /* 2026-10-14 (owner, Maker test item 4: "return the type name to show color as well"): a type row's swatch beside
+     its name — the colour the sample screen's words of that type are drawn in, READ off them. No colour is picked. */
+  'website/editor/_components/fonts-look-rows.tsx': [1, 'the swatch beside a type row’s name (Names · Headings · Text · Labels & buttons) — says the colour it wears; no colour is picked'],
   'website/editor/_components/main-background-panel.tsx': [2, 'labels (Buttons · Accents · Ornaments) and a still’s fallback — no colour is picked'],
   'website/editor/_components/sections-panel.tsx': [1, 'the older editor’s scene colour row, from the couple’s own palette (server forms)'],
 };

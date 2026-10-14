@@ -168,6 +168,6 @@ test('(c) every face in the dropdown carries a line of the event’s words IN th
   // Every font row passes its own line; the pairings are drawn in their face.
   const rows = read(`${E}/fonts-look-rows.tsx`);
   assert.match(rows, /sample=\{sampleOf\(row\)\}/);
-  assert.match(rows, /\.\.\.pairings\.map\(\(p\) => \(\{ key: p\.id, label: p\.name, hint: p\.faces, fontFamily: pairingFace\(p\.id\) \}\)\)/);
+  assert.match(rows, /\.\.\.pairings\.map\(\(p\) => \(\{ key: p\.id, label: p\.name, hint: p\.faces, \.\.\.\(p\.face \? \{ fontFamily: p\.face \} : \{\}\) \}\)\)/);
   assert.match(read(`${E}/font-pick.tsx`), /hubFontPickOptions\(\{ recent, inUse: maker\?\.lookPages\?\.fontsInUse \?\? \[\], lead, sample \}\)/);
 });

@@ -32,9 +32,8 @@ import {
   type FontChoice,
   type FontRow,
 } from '@/lib/font-pairings';
-import { hubFontPreviewStack, sanitizeHubFontKey } from '@/lib/hub-fonts';
-import { hubFontKeyForFamily } from '@/lib/hub-font-shelves';
-import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { sanitizeHubFontKey } from '@/lib/hub-fonts';
+import type { InviteThemeId } from '@/lib/invite-themes';
 import { readLookSampleInks, readLookSampleWorn, subscribeLookSampleInks, subscribeLookSampleWorn, tellLookSample, type LookSampleInks } from '@/lib/look-sample-store';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { STUDIO_ROW_PICK } from '@/lib/studio-skin';
@@ -57,11 +56,6 @@ export const FONT_ROW_SAMPLE: Readonly<Record<Exclude<FontRow, 'names'>, string>
 };
 const NAMES_SAMPLE = 'Your names';
 
-/** A pairing's own look — its Names face (the theme's heading face), so the list shows each pairing as it reads. */
-function pairingFace(id: InviteThemeId): string | undefined {
-  const key = hubFontKeyForFamily(INVITE_THEMES[id]?.fonts.heading);
-  return key ? hubFontPreviewStack(key) : undefined;
-}
 
 export function FontsLookRows({
   eventId,
@@ -147,7 +141,8 @@ export function FontsLookRows({
           value={pairing ?? MIXED}
           options={[
             ...(pairing ? [] : [{ key: MIXED, label: FONT_PAIRING_MIXED, disabledNote: 'what you have now' }]),
-            ...pairings.map((p) => ({ key: p.id, label: p.name, hint: p.faces, fontFamily: pairingFace(p.id) })),
+            /* 🔤 Each pairing drawn in its own Names face (`FontPairing.face`) — its look before it is picked. */
+            ...pairings.map((p) => ({ key: p.id, label: p.name, hint: p.faces, ...(p.face ? { fontFamily: p.face } : {}) })),
           ]}
           onPick={(k) => {
             const picked = pairings.find((p) => p.id === k);

@@ -87,6 +87,9 @@ const GUIDE = { done: 9, total: 20, stageTitle: 'Invitation', stageDone: 4, stag
 
 /** One input per kind, so every branch of the picker is drawn. */
 const EVERY_STATE: HomeNextInput[] = [
+  // ✅ The services' two MOMENTS lead (owner 2026-10-14): live on the day, then the song once.
+  { ...NOTHING, live: true, music: true, guide: GUIDE, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
+  { ...NOTHING, music: true, guide: GUIDE, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
   { ...NOTHING, guide: GUIDE, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
   { ...NOTHING, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
   // An unread guest list is its OWN step (H3, 2026-10-07) — never "on track".
@@ -253,8 +256,12 @@ test('d · never twice: the service that is Next is left out of the row', () => 
   assert.equal(count(html, '/studio/papic'), 1, 'Papic is linked twice on one screen');
 });
 
-test('d · the store shell draws no services row (both are STORE_SHELL_HIDDEN_ADDON_KEYS)', () => {
-  assert.deepEqual(homeServices({ next: 'plan', storeShell: true, papic: 'x', ai: 'y' }), []);
+test('d · the store shell shows only what the event OWNS — status only, never a sale (owner 2026-10-14 ✅)', () => {
+  /* ✅ The services prototype ("iPhone app = owned only", owner "approve all" 2026-10-14) replaced
+     "no services row at all": an owned service is shown, a sale never is. Papic is every event's
+     (its free pool is armed at creation); the Planner's legacy status carries no ownership, so it
+     stays out. The rows there carry no door and no buy button — their pages are web-only. */
+  assert.deepEqual(homeServices({ next: 'plan', storeShell: true, papic: 'x', ai: 'y' }).map((s) => s.key), ['papic']);
   assert.equal(count(draw({ services: [] }), 'data-home-services'), 0);
   assert.match(PAGE, /homeServices\(\{[\s\S]*?storeShell,/, 'the page must hand the store-shell answer to the row');
   assert.match(PAGE, /papicReady: Boolean\([^)]*!storeShell\)/, 'the Papic Next card must not send a store-shell user to a web-only page');
@@ -373,8 +380,8 @@ test('e · the Nikah essentials moved to their own page and the Home keeps one l
   assert.match(html, /<a data-home-service="nikah"[^>]*href="\/dashboard\/e1\/nikah"[^>]*>[\s\S]*?3 of 4 in place/, 'a Muslim wedding\'s row opens the page with its count');
   assert.equal(count(draw(), 'data-home-service="nikah"'), 0, 'every other wedding has no Nikah line');
   assert.equal(nikahStatus(null), '—', 'a refused guest read is "—", never "0 of 4"');
-  // Free, so it is in the store shell too — the paid two are not.
-  assert.deepEqual(homeServices({ next: 'plan', storeShell: true, papic: 'x', ai: 'y', nikah: nikahStatus(1) }).map((x) => x.key), ['nikah']);
+  // Free, so it is in the store shell too — beside what the event owns (Papic), never a sale.
+  assert.deepEqual(homeServices({ next: 'plan', storeShell: true, papic: 'x', ai: 'y', nikah: nikahStatus(1) }).map((x) => x.key), ['papic', 'nikah']);
   assert.match(PAGE, /nikah:\s*isNikahEvent\s*\?\s*nikahStatus\(\s*guestsMeasured\s*\?\s*nikahTrackedDone\(/, 'the Home must feed the row from the same count as the card, "—" when the guest read failed');
 });
 

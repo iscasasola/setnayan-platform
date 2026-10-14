@@ -441,7 +441,9 @@ export function homeServices(input: {
   for (const key of SERVICE_ROW_ORDER) {
     const names = ROW_NAMES[key];
     if (key === 'papic') {
-      /* Papic is every event's (its free pool is armed at creation): always a full row. */
+      /* Papic is every event's (its free pool is armed at creation): always a full row —
+         except the plain row (no doors) while Papic itself is the Next card (never twice). */
+      if (input.next === 'papic' && !input.papicDoors) continue;
       full.push({
         key,
         ...names,

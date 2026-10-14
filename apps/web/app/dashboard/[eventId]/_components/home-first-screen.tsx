@@ -260,7 +260,7 @@ export function HomeFirstScreen({
   const m = figures && figures.money && figures.money !== 'unread' ? figures.money : null;
   const paidPct = m && m.paid + m.owing > 0 ? Math.round((m.paid / (m.paid + m.owing)) * 100) : null;
   const nb = NEXT_BUTTON[next.kind];
-  const AfterIcon = nextAfter ? NEXT_BUTTON[nextAfter.kind].icon : null;
+  const AfterIcon = nextAfter ? NEXT_BUTTON[nextAfter.kind].icon : Sparkles;
   const nextMain =
     next.kind === 'unread' ? (
       <HomeReload main />
@@ -358,7 +358,7 @@ export function HomeFirstScreen({
                   <ActionButton
                     tone={NEXT_BUTTON[nextAfter.kind].tone}
                     main
-                    icon={AfterIcon ? <AfterIcon aria-hidden="true" strokeWidth={1.9} /> : undefined}
+                    icon={<AfterIcon aria-hidden="true" strokeWidth={1.9} />}
                     label={nextAfter.action}
                     href={nextHref(nextAfter.kind, eventId)}
                   />

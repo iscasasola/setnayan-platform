@@ -108,7 +108,9 @@ test('at zero the row also keeps its "stopped" words, marked the same way', () =
 });
 
 test('…and the ONE rule that hides them reads whether the card is actually on screen', () => {
-  assert.match(CSS, /\[data-home-first-screen\]:has\(\[data-home-next="papic"\]:not\(\[hidden\]\)\) \[data-while-next\] \{ display: none; \}/);
+  /* ✅ 2026-10-14: the rule names Papic's own marker (`=""`) — the services' moments mark theirs
+     `"music"` / `"live"`, so the Papic card never stands another service's doors down. */
+  assert.match(CSS, /\[data-home-first-screen\]:has\(\[data-home-next="papic"\]:not\(\[hidden\]\)\) \[data-while-next=""\] \{ display: none; \}/);
   // "Later" is what sets `hidden` on that card.
   const parts = readFileSync(join(HERE, '_components', 'home-parts.tsx'), 'utf8');
   assert.match(parts, /closest<HTMLElement>\('\[data-home-next\]'\)[\s\S]{0,40}card\.hidden = true/);

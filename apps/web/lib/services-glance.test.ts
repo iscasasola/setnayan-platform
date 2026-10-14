@@ -13,6 +13,7 @@ import {
   WAITING_WORDS,
   boothGlance,
   doorBuys,
+  finalBillsToSettle,
   hubProGlance,
   liveGlance,
   musicGlance,
@@ -254,4 +255,18 @@ test('a buy door is told apart from a door that opens (the store shell draws non
   assert.equal(doorBuys({ kind: 'more-song', label: 'Another song' }), true);
   assert.equal(doorBuys({ kind: 'more-screen', label: 'Add a venue screen' }), true);
   assert.equal(doorBuys({ kind: 'controller', label: 'Open controller' }), false);
+});
+
+test('final bills to settle: suppliers still owed, once each; a failed supplier read is unknown', () => {
+  const lines = [
+    { vendorId: 'caterer', stillOwedPhp: 45000 },
+    { vendorId: 'caterer', stillOwedPhp: 5000 },
+    { vendorId: 'band', stillOwedPhp: 12000 },
+    { vendorId: 'venue', stillOwedPhp: 0 },
+    { vendorId: null, stillOwedPhp: 900 },
+  ];
+  assert.equal(finalBillsToSettle({ reads: { suppliers: 'ok' }, lines }), 2);
+  assert.equal(finalBillsToSettle({ reads: { suppliers: 'ok' }, lines: [] }), 0);
+  assert.equal(finalBillsToSettle({ reads: { suppliers: 'failed' }, lines }), null, 'a refused read is not "every bill settled"');
+  assert.equal(finalBillsToSettle(null), null);
 });

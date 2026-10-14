@@ -32,7 +32,7 @@ import { loadAfterSummary, type AfterSummary } from '@/lib/after-summary';
 import { formatEventDate } from '@/lib/events';
 import { eventNoun } from '@/lib/event-noun';
 import { FinishedEventSummary } from './_components/after/finished-event-summary';
-import { eventSkuActive } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchBlockRosMeta } from '@/lib/schedule-ros';
 import {
@@ -59,7 +59,23 @@ import { HomeFirstScreen } from './_components/home-first-screen';
 import { rosterStats } from '@/lib/guest-roster-view';
 import { HomeWhatsNext } from './_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { homeCoverFor } from '@/lib/home-cover.server';
+import { homeCoverAndHubLookFor } from '@/lib/home-cover.server';
+import {
+  boothGlance,
+  finalBillsToSettle,
+  hubProGlance,
+  liveGlance,
+  musicGlance,
+  plannerGlance,
+  serviceDayOf,
+  SERVICE_ROW_SKU,
+  VENUE_SCREEN_SKU,
+  type ServiceOwnership,
+  type ServiceRowGlance,
+} from '@/lib/services-glance';
+import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
+import { ADD_ONS } from '@/lib/add-ons-catalog';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { DateChangeDoorway } from './_components/date-change-doorway';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { readNikahImam } from './_components/nikah-imam';
@@ -70,7 +86,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
 import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
-import { resolveStoredWindow } from '@/lib/papic-window';
+import { formatPapicDayInWords, resolveStoredWindow } from '@/lib/papic-window';
 import { papicIsOn } from '@/lib/event-answers';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
@@ -80,6 +96,18 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { withPickedDate } from '@/lib/event-anchor';
 
 export const dynamic = 'force-dynamic';
+
+/** What `event_service_figures` answers (migration 20271269705444). */
+type ServiceFigures = {
+  suppliers: number;
+  cameras: number;
+  live: boolean;
+  live_since: string | null;
+  recorded: boolean;
+  recorded_minutes: number | null;
+  reels: number;
+  prices: Record<string, number | string>;
+};
 
 /*
   ─── THE BROWSER TAB SAID "FILIPINO WEDDING PLANNING + VERIFIED VENDORS" ───
@@ -172,7 +200,7 @@ export default async function EventHomePage({
   // pattern for migration drift between local + prod.
   const eventRes = await (async () => {
     const leanSelect =
-      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end';
+      'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end, pakanta_song_status, pakanta_song_r2_key, pakanta_song_adopted_as_site_music';
     const leanRes = await supabase
       .from('events')
       .select(leanSelect)
@@ -567,6 +595,57 @@ export default async function EventHomePage({
     readHomeGuide({ eventId, memberType: viewerMemberType }).catch(() => null),
   );
 
+  // ✅ HOME › YOUR SERVICES (owner "approve all", 2026-10-14 — the services
+  // prototype): every figure the five rows say comes back in ONE request
+  // (`event_service_figures`: suppliers watched · cameras · live / recorded ·
+  // reels · each service's catalog price), asked only of a viewer the counts
+  // are shared with — the couple or a coordinator, the Papic gate above. A
+  // refused or failed read is null and every row says "—", never 0.
+  const serviceFiguresRead = papicViewerRead.then(async ({ canViewPapicCounts: may }) => {
+    if (!may) return null;
+    try {
+      const { data, error } = await supabase.rpc('event_service_figures', { p_event_id: eventId });
+      if (error) {
+        logQueryError('EventHome.serviceFigures', error, { event_id: eventId }, 'graceful_degrade');
+        return null;
+      }
+      return (data ?? null) as ServiceFigures | null;
+    } catch {
+      return null;
+    }
+  });
+  // Who holds what — the gates' own answers. In a render these ride the one
+  // orders read the page already makes (`lib/request-once`), so the five SKUs
+  // cost no request of their own.
+  const serviceOwnershipRead = (async () => {
+    const ent = await eventEntitlementClient(eventId);
+    const one = async (sku: string): Promise<ServiceOwnership | null> => {
+      try {
+        const [active, owns] = await Promise.all([eventSkuActive(ent, eventId, sku), eventOwnsSku(ent, eventId, sku)]);
+        return active ? 'on' : owns ? 'waiting' : 'none';
+      } catch {
+        return null;
+      }
+    };
+    const [ai, live, music, booth, hub] = await Promise.all([
+      one(SERVICE_ROW_SKU.ai),
+      one(SERVICE_ROW_SKU.live),
+      one(SERVICE_ROW_SKU.music),
+      one(SERVICE_ROW_SKU.booth),
+      one(SERVICE_ROW_SKU.hub),
+    ]);
+    return { ai, live, music, booth, hub };
+  })();
+  // The header's ground and what Event Hub Pro unlocked — the SAME two reads.
+  const coverRead = homeCoverAndHubLookFor(eventId).catch(() => ({ cover: null, look: { theme: null, background: null } }));
+  // Music Maker is not offered to every event type (the Studio's own surface gate).
+  const musicOfferedRead = resolveProfile((event.event_type as string | null) ?? 'wedding')
+    .then((profile) => {
+      const entry = ADD_ONS.find((a) => a.key === 'pakanta');
+      return entry ? addOnOfferedForEvent(entry, profile) : false;
+    })
+    .catch(() => false);
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
     { rows: guests, measured: guestsMeasured, stats: guestStats },
@@ -587,6 +666,10 @@ export default async function EventHomePage({
     { now: moneyNow, guard: guardMoney },
     papicTile,
     homeNavSlots,
+    serviceFigures,
+    serviceOwnership,
+    { cover: homeCover, look: hubLook },
+    musicOffered,
   ] = await Promise.all([
     guestsRead,
     afterSummaryRead,
@@ -599,6 +682,10 @@ export default async function EventHomePage({
     moneyRead,
     papicTileRead,
     navSlotsRead,
+    serviceFiguresRead,
+    serviceOwnershipRead,
+    coverRead,
+    musicOfferedRead,
   ]);
 
   /*
@@ -627,8 +714,105 @@ export default async function EventHomePage({
     papicOn: papicSwitch === undefined ? null : papicIsOn(papicSwitch),
   });
   const papicNudgeVisible = papicNow.moment === 'ready';
+
+  /*
+    ✅ THE FIVE SERVICES AT A GLANCE (owner "approve all", 2026-10-14 — the
+    services prototype's `glance(k)`, translated in lib/services-glance.ts): each
+    row's words and doors, from the figures read once above, the gates' own
+    ownership, the catalog's prices and the menu's one phase. No read of its own.
+  */
+  const serviceDay = serviceDayOf(lifecyclePhase);
+  const price = (code: string): number | null => {
+    const v = serviceFigures?.prices?.[code];
+    return typeof v === 'number' || typeof v === 'string' ? Number(v) : null;
+  };
+  const eventDayWords = formatPapicDayInWords((event.event_date as string | null) ?? null);
+  const aiEntitled =
+    paywallOn === null
+      ? null
+      : isSetnayanAiActiveForEvent(
+          {
+            // The ENTITLEMENT — "Plan it myself" only rests it, it never un-buys it.
+            planning_mode: 'guided',
+            setnayan_ai_active: (event as { setnayan_ai_active?: boolean | null }).setnayan_ai_active ?? null,
+            setnayan_ai_active_until: (event as { setnayan_ai_active_until?: string | null }).setnayan_ai_active_until ?? null,
+          },
+          { paywallEnabled: paywallOn },
+        );
+  const serviceRows: ServiceRowGlance[] = [
+    ...(aiEntitled === null
+      ? []
+      : [
+          plannerGlance({
+            ownership: aiEntitled ? 'on' : serviceOwnership.ai === 'waiting' || serviceOwnership.ai === 'on' ? 'waiting' : 'none',
+            // The price THIS event pays — per event type, the comeback included (the resolver
+            // the charge path agrees with); none when there is nothing to sell.
+            price: aiOffer ? (aiOffer.kind === 'comeback' ? aiOffer.comebackPhp : aiOffer.regularPhp) : null,
+            day: serviceDay,
+            suppliers: serviceFigures ? serviceFigures.suppliers : null,
+            finalBills: finalBillsToSettle(guardMoney),
+            manual: (event as { planning_mode?: string | null }).planning_mode === 'manual',
+          }),
+        ]),
+    ...(serviceOwnership.live === null
+      ? []
+      : [
+          liveGlance({
+            ownership: serviceOwnership.live,
+            price: price(SERVICE_ROW_SKU.live),
+            screenPrice: price(VENUE_SCREEN_SKU),
+            day: serviceDay,
+            cameras: serviceFigures ? serviceFigures.cameras : null,
+            live: serviceFigures ? serviceFigures.live : null,
+            liveSince: serviceFigures?.live_since ?? null,
+            recorded: serviceFigures ? serviceFigures.recorded : null,
+            recordedMinutes: serviceFigures?.recorded_minutes ?? null,
+            dayWords: eventDayWords,
+          }),
+        ]),
+    ...(serviceOwnership.music === null
+      ? []
+      : [
+          musicGlance({
+            ownership: serviceOwnership.music,
+            price: price(SERVICE_ROW_SKU.music),
+            day: serviceDay,
+            offered: musicOffered,
+            song:
+              (event as { pakanta_song_status?: string | null }).pakanta_song_status === 'ready' &&
+              (event as { pakanta_song_r2_key?: string | null }).pakanta_song_r2_key
+                ? 'ready'
+                : 'in_production',
+            playing: (event as { pakanta_song_adopted_as_site_music?: boolean | null }).pakanta_song_adopted_as_site_music === true,
+          }),
+        ]),
+    ...(serviceOwnership.booth === null
+      ? []
+      : [
+          boothGlance({
+            ownership: serviceOwnership.booth,
+            price: price(SERVICE_ROW_SKU.booth),
+            day: serviceDay,
+            reels: serviceFigures ? serviceFigures.reels : null,
+            dayWords: eventDayWords,
+          }),
+        ]),
+    ...(serviceOwnership.hub === null
+      ? []
+      : [
+          hubProGlance({
+            ownership: serviceOwnership.hub,
+            price: price(SERVICE_ROW_SKU.hub),
+            theme: hubLook.theme,
+            background: hubLook.background,
+          }),
+        ]),
+  ];
+  // 🔒 The services' moments never reach the iPhone app (their pages are web-only there).
+  const liveNow = !storeShell && serviceRows.some((r) => r.moment === 'live-now');
+  const songReady = !storeShell && serviceRows.some((r) => r.moment === 'song-ready');
   const aiOfferShown = Boolean(aiOffer && aiOfferSettings && !storeShell);
-  const homeNext = pickHomeNext({
+  const homeNextInput = {
     guide: homeGuide,
     hasDate: Boolean(event.event_date),
     // 👥 "Add your guests" / "Send N invitations" (first-timer fix 9) — from the
@@ -645,7 +829,12 @@ export default async function EventHomePage({
         ? { moment: papicNow.moment, left: papicNow.count, total: papicNow.total }
         : null,
     aiOffer: aiOfferShown,
-  });
+    live: liveNow,
+    music: songReady,
+  };
+  const homeNext = pickHomeNext(homeNextInput);
+  // ✅ The step under the song card — shown once this device has heard the song.
+  const homeNextAfter = homeNext.kind === 'music' ? pickHomeNext({ ...homeNextInput, music: false }) : null;
   // 🔑 THE NUMBERS HOME STATES ARE WORKED OUT ONCE, HERE — days to go, coming,
   // no reply, Paid / Still owing (`lib/home-facts.ts`). The first screen DRAWS
   // them and the dashboard below is handed `daysOut` + the guest counts, so the
@@ -713,8 +902,8 @@ export default async function EventHomePage({
     .replace(/\b\w/g, (c) => c.toUpperCase());
   const homeDateLabel = event.event_date ? formatEventDate(event.event_date as string) || null : null;
   /* 🖼 The header wears the Event Hub's main background (owner 2026-10-07); a
-     refused read keeps today's colour, never a broken Home. */
-  const homeCover = await homeCoverFor(eventId).catch(() => null);
+     refused read keeps today's colour, never a broken Home. Read with the rest
+     above (`coverRead`) — it used to wait for its own turn after the one wait. */
   const homeFirstScreen = (
     <HomeFirstScreen
       eventId={eventId}
@@ -723,6 +912,8 @@ export default async function EventHomePage({
         name: ((event as { display_name?: string | null }).display_name ?? '').trim() || `Your ${homeTypeLabel}`,
       }}
       next={homeNext}
+      nextAfter={homeNextAfter}
+      storeShell={storeShell}
       days={facts.days}
       coming={facts.coming}
       noReply={facts.noReply}

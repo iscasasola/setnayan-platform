@@ -131,6 +131,8 @@ export type ServiceRowGlance = {
   moment: ServiceMoment | null;
   /** The catalog price of the thing Add buys — null when not on sale / unread. */
   price: number | null;
+  /** The price of its "buy more" (a venue-screen day · another song) — null when none. */
+  morePrice: number | null;
   /** Drop the row from Home altogether (nothing to show or to buy). */
   hidden: boolean;
 };
@@ -183,6 +185,7 @@ function notYet(input: {
     },
     moment: null,
     price: input.price,
+    morePrice: null,
     hidden: false,
   };
 }
@@ -228,6 +231,7 @@ export function plannerGlance(input: PlannerGlanceInput): ServiceRowGlance {
     doors: [shortlist],
     moment: null,
     price: input.price,
+    morePrice: null,
     hidden: false,
   };
   if (input.day === 'after') {
@@ -269,6 +273,21 @@ export function plannerGlance(input: PlannerGlanceInput): ServiceRowGlance {
       second: null,
     },
   };
+}
+
+/**
+ * Owner call 3 (2026-10-14): after the day, the Planner row counts the FINAL
+ * BILLS TO SETTLE — the suppliers with money still owing, from the one money
+ * resolver Home already holds (`resolveEventMoney`, `lib/budget-truth.ts`). A
+ * supplier read that failed makes the count unknown (null → not "0 to settle").
+ */
+export function finalBillsToSettle(
+  money: { reads: { suppliers: 'ok' | 'failed' }; lines: ReadonlyArray<{ vendorId: string | null; stillOwedPhp: number }> } | null,
+): number | null {
+  if (!money || money.reads.suppliers !== 'ok') return null;
+  const owing = new Set<string>();
+  for (const l of money.lines) if (l.vendorId && l.stillOwedPhp > 0) owing.add(l.vendorId);
+  return owing.size;
 }
 
 /* ─── Live stream · Live Watch ──────────────────────────────────────────── */
@@ -324,7 +343,7 @@ export function liveGlance(input: LiveGlanceInput): ServiceRowGlance {
     // The buy path closes after the day (`addOnSellableNow`); nothing to add then.
     return { ...g, hidden: input.ownership === 'none' && (input.day === 'after' || priceWords(input.price) === null) };
   }
-  const base = { key: 'live' as const, ownership: 'on' as const, slim: null, price: input.price, hidden: false };
+  const base = { key: 'live' as const, ownership: 'on' as const, slim: null, price: input.price, morePrice: screenP ? input.screenPrice : null, hidden: false };
   const goesLive = input.dayWords ? `Goes live ${input.dayWords}` : 'Goes live on your day';
   if (input.live === true) {
     const since = sinceWords(input.liveSince);
@@ -433,7 +452,7 @@ export function musicGlance(input: MusicGlanceInput): ServiceRowGlance {
     });
     return { ...g, hidden: input.ownership === 'none' && (!input.offered || p === null) };
   }
-  const base = { key: 'music' as const, ownership: 'on' as const, slim: null, price: input.price, hidden: false };
+  const base = { key: 'music' as const, ownership: 'on' as const, slim: null, price: input.price, morePrice: p ? input.price : null, hidden: false };
   const another: ServiceDoor | null = p ? { kind: 'more-song', label: 'Another song' } : null;
   const hear: ServiceDoor = { kind: 'hear', label: 'Hear your song' };
   if (input.song !== 'ready') {
@@ -510,7 +529,7 @@ export function boothGlance(input: BoothGlanceInput): ServiceRowGlance {
     });
     return { ...g, hidden: input.ownership === 'none' && (input.day === 'after' || priceWords(input.price) === null) };
   }
-  const base = { key: 'booth' as const, ownership: 'on' as const, slim: null, price: input.price, hidden: false, moment: null };
+  const base = { key: 'booth' as const, ownership: 'on' as const, slim: null, price: input.price, morePrice: null, hidden: false, moment: null };
   const n = input.reels;
   const seeReels = (lead: string): ServiceDoor => ({ kind: 'reels', label: `${lead} ${n === null ? '' : formatCount(n) + ' '}${n === 1 ? 'reel' : 'reels'}`.replace(/\s+/g, ' ') });
   if (input.day === 'after') {
@@ -588,6 +607,7 @@ export function hubProGlance(input: HubProGlanceInput): ServiceRowGlance {
     band: { big: 'On', bigWord: true, word: look || 'Event Hub Pro', of: 'never expires', line: 'Pro on · themes, photo and video backgrounds', main: maker, second: null },
     moment: null,
     price: input.price,
+    morePrice: null,
     hidden: false,
   };
 }

@@ -23,11 +23,12 @@
  */
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { CalendarClock, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, RotateCw, Sparkles, UserRound, CalendarCheck } from 'lucide-react';
+import { CalendarClock, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, Play, RotateCw, Sparkles, UserRound, CalendarCheck } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count } from '@/components/count';
 import { homeDoorwayIcon, type HomeDoorwayKey } from '@/lib/nav-line-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import { markSongHeard, songWasHeard } from '@/lib/song-heard';
 
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -148,6 +149,53 @@ export function HomeLater({ eventId, kind }: { eventId: string; kind: string }) 
       }}
     />
   );
+}
+
+/**
+ * ✅ "Hear your song" (owner "approve all", 2026-10-14) — opens the song on the
+ * Music page and marks it heard on this device (`lib/song-heard.ts`), so the
+ * next Home hands the Next card to the next step.
+ */
+export function HearYourSong({
+  eventId,
+  href,
+  main = false,
+  tone = 'brand',
+}: {
+  eventId: string;
+  href: string;
+  main?: boolean;
+  tone?: ActionTone;
+}) {
+  return (
+    <ActionButton
+      tone={tone}
+      main={main}
+      icon={Play}
+      label="Hear your song"
+      href={href}
+      onClick={() => markSongHeard(eventId)}
+      data-testid="home-hear-song"
+    />
+  );
+}
+
+/**
+ * ✅ ONCE, UNTIL HEARD — the song card hands Home's Next card back. When this
+ * device has heard the song, the song card stands down and the card under it
+ * (`[data-home-next-after]`, drawn hidden by the server) is shown. No write.
+ */
+export function SongHeardSwap({ eventId }: { eventId: string }) {
+  const mark = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    if (!songWasHeard(eventId)) return;
+    const root = mark.current?.closest<HTMLElement>('[data-home-first-screen]');
+    const card = root?.querySelector<HTMLElement>('[data-home-next="music"]');
+    const after = root?.querySelector<HTMLElement>('[data-home-next-after] > [data-home-next]');
+    if (card) card.hidden = true;
+    if (after) after.hidden = false;
+  }, [eventId]);
+  return <span ref={mark} hidden aria-hidden="true" />;
 }
 
 /** "⟳ Reload" — runs the page's reads again. Never claims the read worked. */

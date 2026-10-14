@@ -483,6 +483,18 @@ export async function dressEventCover(r: CoverRow, heroConfig: unknown): Promise
  * background, as on Discover.
  */
 export async function readEventCover(admin: Admin, eventId: string): Promise<DressedEventCover | null> {
+  return (await readEventCoverAndHero(admin, eventId))?.cover ?? null;
+}
+
+/**
+ * The same two reads, handing back the live hero row's `config_json` as well —
+ * Home's Event Hub Pro row names the Main background from it (owner 2026-10-14,
+ * `lib/hub-pro-look-words.ts`) without a read of its own.
+ */
+export async function readEventCoverAndHero(
+  admin: Admin,
+  eventId: string,
+): Promise<{ cover: DressedEventCover; heroConfig: unknown } | null> {
   const [ev, hero] = await Promise.all([
     admin.from('events').select(coverColumns()).eq('event_id', eventId).maybeSingle(),
     admin.from('invitation_widgets').select('config_json').eq('event_id', eventId).eq('widget_type', 'hero').maybeSingle(),
@@ -493,7 +505,7 @@ export async function readEventCover(admin: Admin, eventId: string): Promise<Dre
   }
   if (hero.error) logQueryError('event-cover.hero', hero.error, { event_id: eventId }, 'graceful_degrade');
   const heroConfig = (hero.data as { config_json: unknown } | null)?.config_json ?? null;
-  return dressEventCover(ev.data as unknown as CoverRow, heroConfig);
+  return { cover: await dressEventCover(ev.data as unknown as CoverRow, heroConfig), heroConfig };
 }
 
 async function readTypeLabels(): Promise<Map<string, string>> {

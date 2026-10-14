@@ -61,8 +61,12 @@ export function ServiceGlanceRow({
   meterLabel,
   actions,
   marker,
+  meter = true,
+  say = null,
+  pending = false,
 }: {
-  href: string;
+  /** The row's door to its page — null draws the row without one (the store shell). */
+  href: string | null;
   name: string;
   brand?: string;
   icon: ReactNode;
@@ -74,10 +78,15 @@ export function ServiceGlanceRow({
   actions?: ReactNode;
   /** A data-* hook for guards and walks, e.g. `{ 'data-home-service': 'papic' }`. */
   marker?: Record<string, string>;
+  /** Draw the meter — only where there is a true total (Papic's credits). */
+  meter?: boolean;
+  /** ✅ The row's one quiet line under the status (services prototype `.say`). */
+  say?: string | null;
+  /** Bought, waiting for payment — the dashed edge. */
+  pending?: boolean;
 }) {
-  return (
-    <div className="sg-row" data-mood={mood} {...marker}>
-      <Link href={href} className="block min-w-0">
+  const body = (
+    <>
         <span className="sg-head">
           <span className="sg-mark" aria-hidden>
             {icon}
@@ -87,7 +96,7 @@ export function ServiceGlanceRow({
             {/* The Setnayan name, small under the plain one (owner d17). */}
             {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
           </span>
-          <ChevronRight aria-hidden className="sg-arrow h-[18px] w-[18px]" strokeWidth={1.9} />
+          {href ? <ChevronRight aria-hidden className="sg-arrow h-[18px] w-[18px]" strokeWidth={1.9} /> : null}
         </span>
         <span className="sg-status" data-mood={mood} data-glance-status="">
           {mood !== 'plain' ? <GlanceDot mood={mood} /> : null}
@@ -95,10 +104,134 @@ export function ServiceGlanceRow({
             <GlanceLineText line={line} />
           </span>
         </span>
-        {mood !== 'plain' ? <GlanceMeter mood={mood} pct={pct} label={meterLabel} /> : null}
-      </Link>
+        {meter && mood !== 'plain' ? <GlanceMeter mood={mood} pct={pct} label={meterLabel} /> : null}
+        {say ? <span className="sg-say-row block">{say}</span> : null}
+    </>
+  );
+  return (
+    <div className="sg-row" data-mood={mood} data-pending={pending ? '' : undefined} {...marker}>
+      {href ? (
+        <Link href={href} className="block min-w-0">
+          {body}
+        </Link>
+      ) : (
+        <div className="block min-w-0">{body}</div>
+      )}
       {actions ? <div className="sg-acts">{actions}</div> : null}
     </div>
+  );
+}
+
+/**
+ * ✅ THE SLIM ROW — a service not added yet (owner "approve all", 2026-10-14,
+ * services prototype `rowSlim`): one line — the mark, the plain name with the
+ * brand under, the PRICE under that — and Add on the right. Never a meter, never
+ * a mood line. Bought and waiting for payment: the same size, the dashed edge,
+ * the waiting words in place of the price, no Add. The name is the door to the
+ * service's page (what it gives); Add opens the sheet.
+ */
+export function ServiceSlimRow({
+  href,
+  name,
+  brand,
+  icon,
+  lead,
+  price,
+  tail,
+  add,
+  pending = false,
+  marker,
+}: {
+  href: string | null;
+  name: string;
+  brand?: string;
+  icon: ReactNode;
+  lead: string | null;
+  price: string | null;
+  tail: string;
+  add?: ReactNode;
+  pending?: boolean;
+  marker?: Record<string, string>;
+}) {
+  const body = (
+    <span className="sg-head">
+      <span className="sg-mark" aria-hidden>
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="sg-name block truncate">{name}</span>
+        {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
+        <span className="sg-price block" data-glance-price="">
+          {lead}
+          {price ? <b>{price}</b> : null}
+          {tail}
+        </span>
+      </span>
+    </span>
+  );
+  return (
+    <div className="sg-row sg-slim" data-pending={pending ? '' : undefined} {...marker}>
+      {href ? (
+        <Link href={href} className="block min-w-0 flex-1">
+          {body}
+        </Link>
+      ) : (
+        <div className="block min-w-0 flex-1">{body}</div>
+      )}
+      {add ? <span className="sg-tail">{add}</span> : null}
+    </div>
+  );
+}
+
+/**
+ * ✅ A SERVICE PAGE'S ONE BAND (owner "approve all", 2026-10-14 — services
+ * prototype `renderPage()`): the big count — or a word, never a clock — · what
+ * it is · the status line with its dot · the page's ONE main button and the
+ * second door. Papic keeps `ServiceGlanceBand` (it has a meter and a buy button
+ * up top); the other five wear this one. Not added: the price is the big thing
+ * and "Add for ₱…" the main button.
+ */
+export function ServiceBand({
+  big,
+  bigWord = false,
+  word,
+  mood,
+  line,
+  main,
+  second,
+  label,
+  marker,
+}: {
+  big: string;
+  bigWord?: boolean;
+  word: string | null;
+  mood: ServiceMood;
+  line: string;
+  main?: ReactNode;
+  second?: ReactNode;
+  /** What the band is about, for a screen reader ("Your Planner"). */
+  label: string;
+  marker?: Record<string, string>;
+}) {
+  return (
+    <section className="sg-band" data-mood={mood} data-glance-band="" aria-label={label} {...marker}>
+      <div className="min-w-0">
+        <div className="sg-big" data-mood={mood} data-word={bigWord ? '' : undefined} data-glance-count="">
+          {big}
+        </div>
+        {word ? <div className="sg-of">{word}</div> : null}
+      </div>
+      <p className="sg-line sg-band-line" data-mood={mood}>
+        {mood !== 'plain' ? <GlanceDot mood={mood} /> : null}
+        <span>{line}</span>
+      </p>
+      {main || second ? (
+        <div className="sg-see sg-see-two">
+          {main ?? null}
+          {second ?? null}
+        </div>
+      ) : null}
+    </section>
   );
 }
 

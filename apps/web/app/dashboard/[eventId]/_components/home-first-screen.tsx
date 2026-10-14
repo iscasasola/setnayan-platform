@@ -1,6 +1,25 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { BookOpen, Camera, CalendarDays, Check, Info, ListChecks, Mail, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
+import {
+  BookOpen,
+  Camera,
+  CalendarDays,
+  Check,
+  Clapperboard,
+  Diamond,
+  Images,
+  Info,
+  ListChecks,
+  ListMusic,
+  Mail,
+  Music,
+  Play,
+  Radio,
+  Sparkles,
+  UserPlus,
+  Video,
+  type LucideIcon,
+} from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
@@ -10,10 +29,13 @@ import type { HomeCover } from '@/lib/home-cover';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { completeTour } from '@/lib/tour-actions';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
-import { HomeDoorways, HomeLater, HomeReload, HomeWhatsNext } from './home-parts';
+import { HearYourSong, HomeDoorways, HomeLater, HomeReload, HomeWhatsNext, SongHeardSwap } from './home-parts';
+import { ServiceBuySheet } from './service-buy-sheet';
+import { doorBuys, type ServiceDoor, type ServiceRowGlance } from '@/lib/services-glance';
+import { offerForDoor } from '@/lib/service-offers';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { PapicSeePhotos } from '../studio/papic/_components/papic-see-photos';
-import { ServiceGlanceRow } from '@/app/_components/service-glance';
+import { ServiceGlanceRow, ServiceSlimRow } from '@/app/_components/service-glance';
 import { seePhotosWord } from '@/lib/papic-glance';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
 
@@ -25,6 +47,8 @@ import type { PoolRung } from '@/lib/papic-pool-rungs';
  */
 function nextHref(kind: HomeNextKind, eventId: string): string {
   const doors: ReadonlyArray<{ kind: HomeNextKind; href: string }> = [
+    { kind: 'live', href: `/panood/control/${eventId}` },
+    { kind: 'music', href: `/dashboard/${eventId}/studio/pakanta#song` },
     { kind: 'guide', href: `/dashboard/${eventId}/launch?tool=details&guide=1` },
     { kind: 'date', href: `/dashboard/${eventId}/date-selection` },
     { kind: 'unread', href: `/dashboard/${eventId}` },
@@ -42,9 +66,28 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
   const doors: ReadonlyArray<{ key: HomeServiceKey; href: string }> = [
     { key: 'papic', href: `/dashboard/${eventId}/studio/papic` },
     { key: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
+    { key: 'live', href: `/dashboard/${eventId}/studio/live-studio-control` },
+    { key: 'music', href: `/dashboard/${eventId}/studio/pakanta` },
+    { key: 'booth', href: `/dashboard/${eventId}/studio/patiktok` },
+    { key: 'hub', href: `/dashboard/${eventId}/studio/website-pro` },
     { key: 'nikah', href: `/dashboard/${eventId}/nikah` },
   ];
   return doors.find((d) => d.key === key)?.href ?? `/dashboard/${eventId}`;
+}
+
+/** Where each door on a service row goes — `href:` literals, for the same scan. */
+function serviceDoorHref(kind: ServiceDoor['kind'], eventId: string): string {
+  const doors: ReadonlyArray<{ kind: ServiceDoor['kind']; href: string }> = [
+    { kind: 'shortlist', href: `/dashboard/${eventId}/vendors` },
+    { kind: 'controller', href: `/panood/control/${eventId}` },
+    { kind: 'recording', href: `/dashboard/${eventId}/studio/live-studio-control#recording` },
+    { kind: 'hear', href: `/dashboard/${eventId}/studio/pakanta#song` },
+    { kind: 'brief', href: `/dashboard/${eventId}/studio/pakanta#brief` },
+    { kind: 'booth', href: `/dashboard/${eventId}/studio/patiktok/booth` },
+    { kind: 'reels', href: `/dashboard/${eventId}/studio/patiktok#reels` },
+    { kind: 'maker', href: `/dashboard/${eventId}/launch` },
+  ];
+  return doors.find((d) => d.kind === kind)?.href ?? `/dashboard/${eventId}`;
 }
 
 /**
@@ -80,6 +123,8 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
   Held by `home-hands-the-client-no-functions.test.ts`.
 */
 const NEXT_BUTTON: Record<HomeNextKind, { icon: LucideIcon; tone: ActionTone }> = {
+  live: { icon: Radio, tone: 'brand' },
+  music: { icon: Play, tone: 'brand' },
   guide: { icon: Sparkles, tone: 'brand' },
   date: { icon: CalendarDays, tone: 'brand' },
   unread: { icon: Check, tone: 'neutral' },
@@ -90,7 +135,30 @@ const NEXT_BUTTON: Record<HomeNextKind, { icon: LucideIcon; tone: ActionTone }> 
   plan: { icon: ListChecks, tone: 'ok' },
 };
 
-const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = { papic: Camera, ai: Sparkles, nikah: BookOpen };
+const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = {
+  papic: Camera,
+  ai: Sparkles,
+  live: Video,
+  music: Music,
+  booth: Clapperboard,
+  hub: Diamond,
+  nikah: BookOpen,
+};
+
+/** Each service door's icon — the prototype's (`ICO`). */
+const DOOR_ICON: Record<ServiceDoor['kind'], LucideIcon> = {
+  shortlist: ListChecks,
+  controller: Radio,
+  recording: Play,
+  hear: Play,
+  brief: ListMusic,
+  booth: Clapperboard,
+  reels: Images,
+  maker: Diamond,
+  add: Sparkles,
+  'more-screen': Sparkles,
+  'more-song': Sparkles,
+};
 
 /**
  * 📱 THE HOME'S FIRST SCREEN — owner-APPROVED 2026-10-01 ("THE SIMPLE PHONE APP
@@ -143,6 +211,13 @@ export type HomeFirstScreenProps = {
   papicLeft?: number | null;
   /** The credit ladder, ONLY when a dev lab already holds it — Home reads it on the tap. */
   papicSizes?: PoolRung[] | null;
+  /**
+   * ✅ The step UNDER a moment card — drawn hidden, shown once the moment passes
+   * (the song "once, until heard": `SongHeardSwap`). Null when the card is a step.
+   */
+  nextAfter?: HomeNext | null;
+  /** 🔒 The iPhone app: rows are status only — no doors to web-only pages, no buy button. */
+  storeShell?: boolean;
 };
 
 /** Only the three slots the doorways read cross to the client — not the whole registry. */
@@ -177,18 +252,24 @@ export function HomeFirstScreen({
   whatsNext,
   papicLeft = null,
   papicSizes = null,
+  nextAfter = null,
+  storeShell = false,
 }: HomeFirstScreenProps) {
   const guestsUnread = figures ? figures.coming === null : coming === '—';
   const moneyUnread = figures ? figures.money === 'unread' : money !== null && money.paid === '—';
   const m = figures && figures.money && figures.money !== 'unread' ? figures.money : null;
   const paidPct = m && m.paid + m.owing > 0 ? Math.round((m.paid / (m.paid + m.owing)) * 100) : null;
   const nb = NEXT_BUTTON[next.kind];
+  const AfterIcon = nextAfter ? NEXT_BUTTON[nextAfter.kind].icon : null;
   const nextMain =
     next.kind === 'unread' ? (
       <HomeReload main />
     ) : next.kind === 'papic' && (next.papicMoment === 'stopped' || next.papicMoment === 'low-today') ? (
       /* 🎨 The card's Buy more opens the same sheet as the row (owner 2026-10-14). */
       <PapicBuySheet eventId={eventId} left={papicLeft} tone="brand" main sizes={papicSizes} />
+    ) : next.kind === 'music' ? (
+      /* ✅ Hearing it hands the card back (`lib/song-heard.ts`). */
+      <HearYourSong eventId={eventId} href={nextHref('music', eventId)} main />
     ) : (
       <ActionButton tone={nb.tone} main icon={<nb.icon aria-hidden="true" strokeWidth={1.9} />} label={next.action} href={nextHref(next.kind, eventId)} />
     );
@@ -260,6 +341,34 @@ export function HomeFirstScreen({
             </>
           }
         />
+
+        {next.kind === 'music' && nextAfter ? (
+          /* ✅ ONCE, UNTIL HEARD — the step under the song card, shown when this device has heard it. */
+          <div data-home-next-after="" className="contents">
+            <NextCard
+              marker="data-home-next"
+              kind={nextAfter.kind}
+              title={nextAfter.title}
+              body={nextAfter.body}
+              action={nextAfter.action}
+              href={nextHref(nextAfter.kind, eventId)}
+              hidden
+              actions={
+                <>
+                  <ActionButton
+                    tone={NEXT_BUTTON[nextAfter.kind].tone}
+                    main
+                    icon={AfterIcon ? <AfterIcon aria-hidden="true" strokeWidth={1.9} /> : undefined}
+                    label={nextAfter.action}
+                    href={nextHref(nextAfter.kind, eventId)}
+                  />
+                  <HomeLater eventId={eventId} kind={nextAfter.kind} />
+                </>
+              }
+            />
+            <SongHeardSwap eventId={eventId} />
+          </div>
+        ) : null}
 
         {/* ② THE THREE DOORS (owner 2026-10-07: "maybe add the 3 buttons. Edit your
             Gueslist, Edit your Suppliers, Edit your Event Hub") — the bottom bar's icons. */}
@@ -347,29 +456,52 @@ export function HomeFirstScreen({
         {/* ⑤ WHAT'S NEXT — the one row; it unfolds in place (H7), no sheet. */}
         {whatsNext ?? <HomeWhatsNext open={null} rows={[]} checklist={{ href: `/dashboard/${eventId}/checklist`, pct: null }} />}
 
-        {/* ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. */}
+        {/* ⑥ YOUR SERVICES — the paid services + Event Hub Pro (owner 2026-10-14 🧾 ✅): owned rows
+            full size first, then the ones not added yet, slim. Free tools are never rows. */}
         {services.length > 0 ? (
           <nav aria-label="Your services" data-home-services className="flex flex-col">
             <p className="home-k2 !mt-1">Your services</p>
             <div className="home-svc">
-              {services.map((svc) => {
-                const Icon = SERVICE_ICON[svc.key];
-                if (svc.key === 'papic' && svc.papic) {
-                  return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} />;
-                }
-                return (
-                  <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
-                    <span className="home-t">
-                      <Icon aria-hidden strokeWidth={1.9} />
-                      <span className="truncate">{svc.name}</span>
-                    </span>
-                    {/* The Setnayan name, small under the plain one (owner d17). */}
-                    {svc.brand ? <span className="block truncate text-[11px] text-ink/50">{svc.brand}</span> : null}
-                    <span className="block truncate text-[12.5px] text-ink/60">{svc.status}</span>
-                  </Link>
-                );
-              })}
+              {services
+                .filter((svc) => svc.size !== 'slim')
+                .map((svc) => {
+                  const Icon = SERVICE_ICON[svc.key];
+                  if (svc.key === 'papic' && svc.papic) {
+                    return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} storeShell={storeShell} />;
+                  }
+                  if (svc.glance && svc.key !== 'nikah') {
+                    return <ServiceFullRow key={svc.key} eventId={eventId} svc={svc} glance={svc.glance} storeShell={storeShell} />;
+                  }
+                  return (
+                    <Link key={svc.key} href={serviceHref(svc.key, eventId)} data-home-service={svc.key} className="home-tile">
+                      <span className="home-t">
+                        <Icon aria-hidden strokeWidth={1.9} />
+                        <span className="truncate">{svc.name}</span>
+                      </span>
+                      {/* The Setnayan name, small under the plain one (owner d17). */}
+                      {svc.brand ? <span className="block truncate text-[11px] text-ink/50">{svc.brand}</span> : null}
+                      <span className="block truncate text-[12.5px] text-ink/60">{svc.status}</span>
+                    </Link>
+                  );
+                })}
             </div>
+            {services.some((svc) => svc.size === 'slim') ? (
+              <>
+                <p className="home-k2 flex items-center" data-home-not-added="">
+                  Not added
+                  <span className="home-k2-r">
+                    {services.filter((svc) => svc.size === 'slim').length === 1 ? 'tap to see what it gives' : 'one line each · tap to see what each gives'}
+                  </span>
+                </p>
+                <div className="home-svc">
+                  {services
+                    .filter((svc) => svc.size === 'slim' && svc.glance && svc.key !== 'nikah' && svc.key !== 'papic')
+                    .map((svc) => (
+                      <ServiceSlim key={svc.key} eventId={eventId} svc={svc} glance={svc.glance!} storeShell={storeShell} />
+                    ))}
+                </div>
+              </>
+            ) : null}
           </nav>
         ) : null}
       </div>
@@ -386,10 +518,25 @@ export function HomeFirstScreen({
  * Papic holds the Next card — and only while that card is on screen (`papicRowDoubled`,
  * `[data-while-next]`): a "Later" brings the row's own Buy more straight back (walk-b6 F1).
  */
-function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string; svc: HomeService; doors: PapicRowDoors; left: number | null; sizes: PoolRung[] | null }) {
+function PapicServiceRow({
+  eventId,
+  svc,
+  doors,
+  left,
+  sizes,
+  storeShell = false,
+}: {
+  eventId: string;
+  svc: HomeService;
+  doors: PapicRowDoors;
+  left: number | null;
+  sizes: PoolRung[] | null;
+  storeShell?: boolean;
+}) {
   const photos = typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
-  const acts =
-    doors.buy || photos ? (
+  const acts = storeShell
+    ? null
+    : doors.buy || photos ? (
       <>
         {doors.buy ? (
           doors.whileNext?.buy ? (
@@ -406,7 +553,7 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
     ) : null;
   return (
     <ServiceGlanceRow
-      href={`/dashboard/${eventId}/studio/papic`}
+      href={storeShell ? null : `/dashboard/${eventId}/studio/papic`}
       name={svc.name}
       brand={svc.brand}
       icon={<Camera aria-hidden strokeWidth={1.9} />}
@@ -416,6 +563,101 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
       meterLabel="Credits left"
       actions={acts}
       marker={{ 'data-home-service': 'papic' }}
+    />
+  );
+}
+
+
+/** One door on a service row — opens its page, plays the song, or opens the Add sheet. */
+function ServiceDoorButton({
+  eventId,
+  row,
+  door,
+  price,
+  tone,
+}: {
+  eventId: string;
+  row: ServiceRowGlance['key'];
+  door: ServiceDoor;
+  price: number | null;
+  tone: ActionTone;
+}) {
+  if (door.kind === 'add' || door.kind === 'more-screen' || door.kind === 'more-song') {
+    return <ServiceBuySheet eventId={eventId} kind={offerForDoor(row, door.kind)} price={price} label={door.label} tone="brand" />;
+  }
+  if (door.kind === 'hear') return <HearYourSong eventId={eventId} href={serviceDoorHref('hear', eventId)} tone={tone} />;
+  const Icon = DOOR_ICON[door.kind];
+  return <ActionButton tone={tone} icon={<Icon aria-hidden="true" strokeWidth={1.9} />} label={door.label} href={serviceDoorHref(door.kind, eventId)} />;
+}
+
+/**
+ * ✅ AN OWNED SERVICE'S ROW (owner "approve all", 2026-10-14 — prototype `rowFull`):
+ * mark · plain name with the brand under · the status line (its dot + words, the
+ * count bold) · one quiet line · at most two doors. No meter — only Papic has a
+ * true total. The doors the Next card already offers are drawn, marked
+ * `data-while-next="<moment>"`, and stand down only while that card shows.
+ */
+function ServiceFullRow({ eventId, svc, glance, storeShell }: { eventId: string; svc: HomeService; glance: ServiceRowGlance; storeShell: boolean }) {
+  const Icon = SERVICE_ICON[svc.key];
+  const doors = storeShell ? [] : glance.doors;
+  const drawn = doors.map((d) => (
+    <ServiceDoorButton
+      key={d.kind}
+      eventId={eventId}
+      row={glance.key}
+      door={d}
+      price={d.kind === 'add' ? glance.price : glance.morePrice}
+      tone={doorBuys(d) ? 'brand' : 'neutral'}
+    />
+  ));
+  const acts =
+    drawn.length === 0 ? null : svc.whileNext && glance.moment ? (
+      <span data-while-next={glance.moment === 'song-ready' ? 'music' : 'live'} className="contents">
+        {drawn}
+      </span>
+    ) : (
+      drawn
+    );
+  return (
+    <ServiceGlanceRow
+      href={storeShell ? null : serviceHref(svc.key, eventId)}
+      name={svc.name}
+      brand={svc.brand}
+      icon={<Icon aria-hidden strokeWidth={1.9} />}
+      mood={glance.mood}
+      pct={0}
+      meter={false}
+      line={glance.line}
+      say={glance.say}
+      meterLabel=""
+      actions={acts}
+      pending={glance.ownership === 'waiting'}
+      marker={{ 'data-home-service': svc.key, 'data-ownership': glance.ownership }}
+    />
+  );
+}
+
+/**
+ * ✅ A SERVICE NOT ADDED YET — or bought and waiting for payment (prototype
+ * `rowSlim`): the price under the name, Add on the right; the name opens the
+ * page (what it gives). The iPhone app never reaches here with a sale
+ * (`homeServices` keeps only what is owned there).
+ */
+function ServiceSlim({ eventId, svc, glance, storeShell }: { eventId: string; svc: HomeService; glance: ServiceRowGlance; storeShell: boolean }) {
+  const Icon = SERVICE_ICON[svc.key];
+  const add = glance.doors.find((d) => d.kind === 'add');
+  return (
+    <ServiceSlimRow
+      href={storeShell ? null : serviceHref(svc.key, eventId)}
+      name={svc.name}
+      brand={svc.brand}
+      icon={<Icon aria-hidden strokeWidth={1.9} />}
+      lead={glance.slim?.lead ?? null}
+      price={glance.slim?.price ?? null}
+      tail={glance.slim?.tail ?? ''}
+      add={add && !storeShell ? <ServiceBuySheet eventId={eventId} kind={offerForDoor(glance.key, 'add')} price={glance.price} label="Add" tone="brand" /> : null}
+      pending={glance.ownership === 'waiting'}
+      marker={{ 'data-home-service': svc.key, 'data-ownership': glance.ownership }}
     />
   );
 }

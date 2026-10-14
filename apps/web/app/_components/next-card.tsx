@@ -52,6 +52,7 @@ export function NextCard({
   day = false,
   note,
   soft = false,
+  hidden = false,
 }: {
   marker: 'data-home-next' | 'data-today-next';
   kind: string;
@@ -97,11 +98,17 @@ export function NextCard({
   day?: boolean;
   note?: ReactNode;
   soft?: boolean;
+  /**
+   * ✅ Drawn but not shown (owner 2026-10-14, the song card "once, until heard"):
+   * the step under a moment card, which the client shows once the moment passes.
+   */
+  hidden?: boolean;
 }) {
   if (actions !== undefined) {
     return (
       <div
         {...{ [marker]: kind }}
+        hidden={hidden || undefined}
         data-next-bad={bad ? '' : undefined}
         data-next-day={day ? '' : undefined}
         data-next-bare={bad || day ? undefined : ''}

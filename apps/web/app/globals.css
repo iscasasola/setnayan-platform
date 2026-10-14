@@ -6704,7 +6704,12 @@ html:has([data-sticky-top]) {
  * Producers: app/_components/service-glance.tsx. */
 /* NEVER TWICE — ONLY WHILE THE CARD IS ON SCREEN (walk-b6 F1, 2026-10-14): what the Papic Next card already
  * offers stands down in the row while that card is visible; "Later" (`hidden`) brings it straight back. */
-[data-home-first-screen]:has([data-home-next="papic"]:not([hidden])) [data-while-next] { display: none; }
+[data-home-first-screen]:has([data-home-next="papic"]:not([hidden])) [data-while-next=""] { display: none; }
+/* ✅ The same NEVER TWICE for the services' moments (owner 2026-10-14): the song row's doors while
+   "Your song is ready" shows, Live stream's controller while "You are live" shows. Each names its card,
+   so one card never stands down another service's doors. */
+[data-home-first-screen]:has([data-home-next="music"]:not([hidden])) [data-while-next="music"] { display: none; }
+[data-home-first-screen]:has([data-home-next="live"]:not([hidden])) [data-while-next="live"] { display: none; }
 .sg-row { grid-column: 1 / -1; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); border-radius: 16px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); padding: 12px 14px; min-width: 0; color: rgb(var(--color-ink)); }
 .sg-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .sg-mark { width: 34px; height: 34px; border-radius: 10px; background: var(--sn-gold-100); display: grid; place-items: center; flex: none; }
@@ -6747,6 +6752,30 @@ html:has([data-sticky-top]) {
 :is(button).ab.sg-pay:disabled { opacity: 1; transform: scale(0.97); filter: brightness(0.88); }
 .sg-step { font-size: 13px; text-align: center; margin: 8px 0 0; min-height: 18px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
 @media (prefers-reduced-motion: reduce) { .sg-meter > span { transition: none; } }
+/* ✅ THE FIVE SERVICES ON THE GLANCE (owner "approve all", 2026-10-14 — services prototype
+   `.svc`, `.svc.slim`, `.band`): the row's quiet line, the slim size, the waiting edge, the live dot. */
+.sg-say-row { font-size: 13px; margin: 6px 0 0; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.sg-row[data-pending] { border-style: dashed; }
+.sg-row + .sg-row { margin-top: 10px; }
+.sg-slim { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 14px; }
+.sg-row.sg-slim + .sg-row.sg-slim { margin-top: 8px; }
+.sg-slim .sg-mark { width: 30px; height: 30px; border-radius: 9px; }
+.sg-slim .sg-mark svg { width: 16px; height: 16px; }
+.sg-slim .sg-name { font-size: 14.5px; }
+.sg-slim .sg-brand { font-size: 11.5px; }
+.sg-price { font-size: 12.5px; margin-top: 2px; line-height: 1.3; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.sg-price b { color: rgb(var(--color-ink)); font-weight: 600; font-variant-numeric: tabular-nums; }
+.sg-tail { flex: none; display: flex; align-items: center; gap: 8px; }
+.sg-dot[data-mood="live"] { background: rgb(var(--color-danger)); position: relative; }
+.sg-dot[data-mood="live"]::before { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid rgb(var(--color-danger)); opacity: 0; animation: sg-live 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) infinite; }
+@keyframes sg-live { 0% { transform: scale(0.6); opacity: 0.8; } 100% { transform: scale(1.25); opacity: 0; } }
+.sg-big[data-word] { font-size: 26px; }
+.sg-big[data-mood="live"] { color: rgb(var(--color-danger)); }
+.sg-band-line { margin-top: 12px; }
+.sg-see-two { display: flex; gap: 8px; flex-wrap: wrap; }
+.sg-see-two > * { flex: 1 1 auto; justify-content: center; }
+.home-k2-r { margin-left: auto; letter-spacing: 0; text-transform: none; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .sg-dot[data-mood="live"]::before { animation: none; opacity: 0.6; transform: none; } }
 /* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */
 :is(button, a).ab.ab-neutral.home-cover-ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
 /* Rise on load, staggered — once (the prototype's `up`). */

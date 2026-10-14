@@ -76,6 +76,9 @@ export type DetailsData = {
   pendingCoverageSuggestion: PendingCoverageSuggestion | null;
   verify: VerifySummary;
   verifyMeasured: boolean;
+  /** Required papers in, of how many — the documents row's line ("1 of 4 in"). */
+  docsIn: number;
+  docsTotal: number;
   branch: {
     city: string | null;
     branchLocations: number;
@@ -319,6 +322,8 @@ export async function loadDetailsData(
     pendingCoverageSuggestion: suggestion,
     verify,
     verifyMeasured,
+    docsIn: requiredIn,
+    docsTotal: REQUIRED_DOC_SLOT_KEYS.size,
     branch: {
       city: profile.location_city ?? null,
       branchLocations: 1 + branches.filter((b) => b.status === 'active').length,

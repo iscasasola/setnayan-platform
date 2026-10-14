@@ -240,6 +240,8 @@ function detailsFixture(who: Who): DetailsData {
     pendingCoverageSuggestion: null,
     verify,
     verifyMeasured: true,
+    docsIn: f.docsIn,
+    docsTotal: 4,
     branch: {
       city: f.city,
       branchLocations: 1,

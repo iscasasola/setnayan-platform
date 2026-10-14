@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { FileText, ListChecks, MapPin, MessageSquareWarning, Pencil, Phone, Wallet } from 'lucide-react';
+import { RowIcon } from '../../_components/row-icon';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
 import { detailsLine, DETAILS_CHECKLIST_KEYS, type DetailsKey } from '@/lib/supplier-details';
@@ -13,6 +15,7 @@ import { RequestCorrectionCard } from '../../shop/_components/request-correction
 import { CouldNotLoad } from '../../shop/_components/could-not-load';
 import { ShopSegments } from '../../shop/_components/shop-segments';
 import { DatesRow } from '../../customers/_components/dates-row';
+import { formatCount } from '@/lib/format-number';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { OpenFoldButton } from '../../_components/open-fold-button';
 import { updateBusinessStartDate } from '../../actions';
@@ -94,6 +97,7 @@ export function DetailsScreen({
         <div className="divide-y divide-ink/10" data-details-list="">
           <Fold
             anchor="name"
+            lead={<RowIcon icon={Pencil} />}
             data="details-name"
             title="Name and logo"
             line={d.businessName}
@@ -133,6 +137,7 @@ export function DetailsScreen({
 
           <Fold
             anchor="what"
+            lead={<RowIcon icon={ListChecks} />}
             data="details-what"
             title="What you do"
             line={services.length ? services.join(' · ') : 'Not set yet'}
@@ -161,6 +166,7 @@ export function DetailsScreen({
 
           <Fold
             anchor="where"
+            lead={<RowIcon icon={MapPin} />}
             data="details-where"
             title="Where you work"
             line={d.profileFields.location_city || d.profileFields.hq_address || 'Not set yet'}
@@ -179,6 +185,7 @@ export function DetailsScreen({
 
           <Fold
             anchor="contact"
+            lead={<RowIcon icon={Phone} />}
             data="details-contact"
             title="Contact"
             line={[d.profileFields.contact_phone, d.profileFields.contact_email].filter(Boolean).join(' · ') || 'Not set yet'}
@@ -212,6 +219,7 @@ export function DetailsScreen({
 
           <DatesRow
             data="details-about"
+            lead={<RowIcon icon={Pencil} />}
             title="About"
             line={d.about ? d.about.split(/(?<=[.!?])\s/)[0] : 'Optional · one paragraph on your page'}
             badge={d.about ? { tone: 'ok', word: 'Done' } : { tone: 'quiet', word: 'Optional' }}
@@ -220,12 +228,15 @@ export function DetailsScreen({
 
           <Fold
             anchor="docs"
+            lead={<RowIcon icon={FileText} />}
             data="details-docs"
             title="Your documents"
             line={
               docsState === 'checking'
                 ? 'Setnayan is checking your documents'
-                : 'DTI or SEC · BIR 2303 · permit · a bank proof'
+                : d.isVerified
+                  ? 'Verified · kept private'
+                  : `${formatCount(d.docsIn)} of ${formatCount(d.docsTotal)} in · DTI or SEC · BIR 2303 · permit · a bank proof`
             }
             aside={badge('docs')}
           >
@@ -245,6 +256,7 @@ export function DetailsScreen({
 
           <Fold
             anchor="pay"
+            lead={<RowIcon icon={Wallet} />}
             data="details-pay"
             title="How clients pay you"
             line={
@@ -259,7 +271,7 @@ export function DetailsScreen({
             <div className="pb-4">{payBody}</div>
           </Fold>
 
-          <Fold anchor="fix" data="details-fix" title="Something wrong?" line="Ask us to correct it">
+          <Fold anchor="fix" data="details-fix" title="Something wrong?" line="Ask us to correct it" lead={<RowIcon icon={MessageSquareWarning} />}>
             <div className="pb-4">
               <RequestCorrectionCard currentSlug={d.slug} isVerified={d.isVerified} openRequests={d.openCorrections} />
             </div>

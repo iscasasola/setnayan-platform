@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Eye, Share2 } from 'lucide-react';
+import { Award, Check, Eye, Globe, Image as ImageIcon, Images, MapPin, MessageSquareReply, Pencil, Share2, Sparkles, Star, Store } from 'lucide-react';
+import { RowIcon } from '../../_components/row-icon';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -191,12 +192,13 @@ export function PageParts({
       <div className="divide-y divide-ink/10" data-page-parts="" data-ready={ready ? '' : undefined}>
         <DatesRow
           data="page-details"
+          lead={<RowIcon icon={Pencil} />}
           title="Your details"
           line="Name and logo · what you do · where · contact · documents"
           href="/vendor-dashboard/profile"
         />
 
-        <Fold anchor="cover" data="page-cover" title={`Cover photo${diamond(d.proAsks)}`} line={shown.hero ? 'Your pick' : 'Automatic — your first photo'}>
+        <Fold anchor="cover" data="page-cover" lead={<RowIcon icon={ImageIcon} />} title={`Cover photo${diamond(d.proAsks)}`} line={shown.hero ? 'Your pick' : 'Automatic — your first photo'}>
           <div className="space-y-2 pb-4">
             {d.proAsks ? <PlanAsk plan="Pro" /> : null}
             {d.portfolio.length === 0 ? (
@@ -212,7 +214,7 @@ export function PageParts({
           </div>
         </Fold>
 
-        <Fold anchor="about" data="page-about" title={`About${diamond(d.personalizeAsks)}`} line={shown.about ? shown.about.split(/(?<=[.!?])\s/)[0] : 'One paragraph · optional'}>
+        <Fold anchor="about" data="page-about" lead={<RowIcon icon={Pencil} />} title={`About${diamond(d.personalizeAsks)}`} line={shown.about ? shown.about.split(/(?<=[.!?])\s/)[0] : 'One paragraph · optional'}>
           <div className="space-y-2 pb-4">
             {d.personalizeAsks ? <PlanAsk plan="Solo" /> : null}
             <textarea
@@ -232,6 +234,7 @@ export function PageParts({
 
         <Fold
           anchor="services"
+          lead={<RowIcon icon={Store} />}
           data="page-services"
           title={`Services shown first${diamond(d.personalizeAsks)}`}
           line={`${formatCount(shown.services.length)} of ${formatCount(Math.min(MICROSITE_FEATURED_SERVICES_MAX, d.services.length))} picked`}
@@ -262,6 +265,7 @@ export function PageParts({
 
         <Fold
           anchor="photos"
+          lead={<RowIcon icon={Images} />}
           data="page-photos"
           title="Photos and videos"
           line={`${formatCount(d.photoCount)} photos · ${formatCount(d.videoCount)} videos · from your collections`}
@@ -281,7 +285,7 @@ export function PageParts({
           </div>
         </Fold>
 
-        <Fold anchor="reviews" data="page-reviews" title="Reviews and stories" line={ratingLine ?? 'Could not be read just now'}>
+        <Fold anchor="reviews" data="page-reviews" lead={<RowIcon icon={Star} />} title="Reviews and stories" line={ratingLine ?? 'Could not be read just now'}>
           <div className="space-y-1 pb-4">
             <p className="pt-1 text-[13px] font-semibold text-ink">Pinned at the top{diamond(d.proAsks)}</p>
             {d.proAsks ? <PlanAsk plan="Pro" /> : null}
@@ -335,10 +339,11 @@ export function PageParts({
           </div>
         </Fold>
 
-        <DatesRow data="page-where" title="Where you work" line={d.whereLine} href="/vendor-dashboard/profile#where" />
+        <DatesRow data="page-where" lead={<RowIcon icon={MapPin} />} title="Where you work" line={d.whereLine} href="/vendor-dashboard/profile#where" />
 
         <DatesRow
           data="page-badges"
+          lead={<RowIcon icon={Award} />}
           title="Awards and badges"
           line={[d.isVerified ? 'Verified' : null, d.yearsLabel, 'they show by themselves'].filter(Boolean).join(' · ')}
         />
@@ -348,7 +353,7 @@ export function PageParts({
           data="page-look"
           title={`Look${diamond(d.personalizeAsks)}`}
           line={accent?.label ?? 'Your colour'}
-          lead={<span aria-hidden className="h-5 w-5 flex-none rounded-full border border-ink/10" style={{ background: accent?.swatch }} />}
+          lead={<span aria-hidden className="h-9 w-9 flex-none rounded-full border border-ink/10" style={{ background: accent?.swatch }} />}
         >
           <div className="space-y-2 pb-4">
             {d.personalizeAsks ? <PlanAsk plan="Solo" /> : null}
@@ -369,6 +374,7 @@ export function PageParts({
 
         <Fold
           anchor="domain"
+          lead={<RowIcon icon={Globe} />}
           data="page-domain"
           title="Your web address"
           line={d.publicPath ? `${d.displayHost}${d.publicPath}` : 'Name your shop first'}
@@ -377,13 +383,13 @@ export function PageParts({
         </Fold>
 
         {autoReplyBody ? (
-          <Fold anchor="auto-reply" data="page-autoreply" title="Auto-reply" line="Answers the first message">
+          <Fold anchor="auto-reply" data="page-autoreply" lead={<RowIcon icon={MessageSquareReply} />} title="Auto-reply" line="Answers the first message">
             <div className="pb-4">{autoReplyBody}</div>
           </Fold>
         ) : null}
 
         {d.storeShell ? null : (
-          <Fold anchor="plans" data="page-plans" title="What each plan adds" line={d.plans.map((p) => (p.pro ? `${p.plan} ◆` : p.plan)).join(' · ')}>
+          <Fold anchor="plans" data="page-plans" lead={<RowIcon icon={Sparkles} />} title="What each plan adds" line={d.plans.map((p) => (p.pro ? `${p.plan} ◆` : p.plan)).join(' · ')}>
             <div className="pb-4">
               {d.plans.map((p) => (
                 <DatesRow key={p.plan} data={`page-plan-${p.plan.toLowerCase()}`} title={p.pro ? `◆ ${p.plan}` : p.plan} line={p.line} />

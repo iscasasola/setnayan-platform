@@ -89,3 +89,7 @@ test('"As they see it" is the couple card\'s own lines, shared with the conversa
   assert.equal(count(stream, /<QuoteCardLines items=\{items\} \/>/g), 1, 'the conversation no longer draws the shared lines');
   assert.match(maker, /quoteCardState\(\{ status: 'sent', isLatest: true, viewer: 'couple' \}\)/);
 });
+
+test('the lab seed is the lab\'s alone — the thread page never hands the builder one', () => {
+  assert.doesNotMatch(page, /labSeed=/, 'the thread page passes a lab seed — a real quote would open on fixture lines');
+});

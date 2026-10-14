@@ -308,7 +308,14 @@ export function ProposalMaker({
   savedQuotes = [],
   askedCardId = null,
   todayIso = '',
+  labSeed = null,
 }: {
+  /**
+   * DEV LAB ONLY (`/dev/supplier-chat-lab`, no session, no database): what the first open would have read — the lines
+   * a card seeds and the catalogue's extras — handed in, so the lab draws a filled quote without a server call. The
+   * thread page never passes it (`the-quote-is-one-screen.test.ts`).
+   */
+  labSeed?: { lines: QuoteSeedLine[]; extras: QuoteCatalogueExtra[] } | null;
   threadId: string;
   /**
    * The shop's saved quotes (`vendor_proposal_templates`) — "Start from · a saved quote". Empty → the option is not
@@ -959,6 +966,12 @@ export function ProposalMaker({
     const run = () => {
       if (firstOpenDone.current) return;
       firstOpenDone.current = true;
+      if (labSeed) {
+        setExtras(labSeed.extras);
+        setItems(labSeed.lines.map((l) => ({ ...l, key: nextKey() })));
+        setFrom(cards[0] ? `card:${cards[0].id}` : 'blank');
+        return;
+      }
       void loadCatalogueExtrasForQuote().then(setExtras).catch(() => setExtras([]));
       if (revision) return;
       const first = askedCardId && cards.some((c) => c.id === askedCardId) ? askedCardId : cards.length === 1 ? cards[0]!.id : null;

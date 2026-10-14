@@ -970,6 +970,7 @@ export function ProposalMaker({
         setExtras(labSeed.extras);
         setItems(labSeed.lines.map((l) => ({ ...l, key: nextKey() })));
         setFrom(cards[0] ? `card:${cards[0].id}` : 'blank');
+        if (cards[0]) setPickedCards({ [cards[0].id]: true });
         return;
       }
       void loadCatalogueExtrasForQuote().then(setExtras).catch(() => setExtras([]));
@@ -1092,9 +1093,12 @@ export function ProposalMaker({
   const coupleCard = quoteCardState({ status: 'sent', isLatest: true, viewer: 'couple' });
 
   /* ── Styles ───────────────────────────────────────────────────────────── */
+  // 44px floor on every field (house rule: ≥ 44 px presses) — the quote is one screen of them now.
   const field =
-    'rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm text-ink focus:border-terracotta focus:outline-none';
+    'min-h-11 rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm text-ink focus:border-terracotta focus:outline-none';
   const numField = `${field} text-right tabular-nums`;
+  // A native select ignores min-height on WebKit (the Safari engine measured 26px) — it gets a real height.
+  const selectField = `${field} h-11`;
   const lbl = 'font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta';
 
   if (!open) {
@@ -1252,7 +1256,7 @@ export function ProposalMaker({
               void seedFromPackage(e.target.value);
               e.target.value = '';
             }}
-            className={`${field} min-w-[10rem]`}
+            className={`${selectField} min-w-[10rem]`}
           >
             <option value="" disabled>
               {seeding ? 'Loading…' : 'Choose a bundle…'}
@@ -1418,7 +1422,7 @@ export function ProposalMaker({
                   value={l.label}
                   onChange={(e) => patchLine(l.key, { label: e.target.value })}
                   aria-label="Line item name"
-                  className={`min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none ${l.dropped ? 'line-through' : ''}`}
+                  className={`min-h-11 min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none ${l.dropped ? 'line-through' : ''}`}
                 />
                 {l.free ? (
                   <span className="whitespace-nowrap rounded-full border border-success-300/70 bg-white px-2 py-0.5 text-[10.5px] font-medium text-success-700">
@@ -1455,7 +1459,7 @@ export function ProposalMaker({
                     value={l.basis}
                     onChange={(e) => patchLine(l.key, { basis: e.target.value as Basis })}
                     aria-label="Pricing basis"
-                    className={field}
+                    className={selectField}
                   >
                     <option value="flat">Flat</option>
                     <option value="per_pax">Per pax</option>
@@ -1632,7 +1636,7 @@ export function ProposalMaker({
               value={crew.mode}
               onChange={(e) => setCrew({ ...crew, mode: e.target.value as CrewMode })}
               aria-label="Crew meal handling"
-              className={`${field} ml-auto`}
+              className={`${selectField} ml-auto`}
             >
               <option value="included">Included</option>
               <option value="charge">Charge</option>
@@ -1678,7 +1682,7 @@ export function ProposalMaker({
               value={transport.mode}
               onChange={(e) => setTransport({ ...transport, mode: e.target.value as TransportMode })}
               aria-label="Transportation handling"
-              className={`${field} ml-auto`}
+              className={`${selectField} ml-auto`}
             >
               <option value="included">Included</option>
               <option value="flat">Flat fee</option>
@@ -1950,7 +1954,7 @@ export function ProposalMaker({
                   value={r.label}
                   onChange={(e) => patchInstallment(r.key, { label: e.target.value })}
                   aria-label="Payment name"
-                  className="min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none"
+                  className="min-h-11 min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none"
                 />
                 {r.kind === 'percent' ? (
                   <span className="flex items-center gap-1">
@@ -2021,7 +2025,7 @@ export function ProposalMaker({
                   value={r.due}
                   onChange={(e) => patchInstallment(r.key, { due: e.target.value as InstallmentDue })}
                   aria-label="Due timing"
-                  className={field}
+                  className={selectField}
                 >
                   {DUE_OPTIONS.map(([v, label]) => (
                     <option key={v} value={v}>
@@ -2075,7 +2079,7 @@ export function ProposalMaker({
                 value={autoBalanceMeta.due}
                 onChange={(e) => setAutoBalanceMeta((m) => ({ ...m, due: e.target.value as InstallmentDue }))}
                 aria-label="Final balance due timing"
-                className={field}
+                className={selectField}
               >
                 {DUE_OPTIONS.map(([v, label]) => (
                   <option key={v} value={v}>
@@ -2270,7 +2274,7 @@ export function ProposalMaker({
               </p>
               <QuoteCardLines items={lineItems} />
               {/* The couple's own buttons, from the same rule their card reads (`quoteCardState`) — drawn, not live. */}
-              <div className="mt-2 flex flex-wrap items-center gap-2" aria-hidden>
+              <div className="mt-2 flex flex-wrap items-center gap-2 opacity-60" aria-hidden>
                 <span className="inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream">
                   {coupleCard.primary.label}
                 </span>

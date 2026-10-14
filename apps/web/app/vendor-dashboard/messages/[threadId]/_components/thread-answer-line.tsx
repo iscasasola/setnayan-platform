@@ -37,7 +37,7 @@ export function ThreadAnswerLine({
       </span>
       <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-[15px] text-ink">
         {eventDay ? (
-          <Link href={daySheetHref(eventDay)} className="font-medium underline-offset-2 hover:underline">
+          <Link href={daySheetHref(eventDay)} className="inline-flex min-h-11 items-center font-medium underline-offset-2 hover:underline">
             {dayTitle(todayIso, eventDay)}
           </Link>
         ) : null}

@@ -50,7 +50,7 @@ export function DeclineReasonFields() {
         maxLength={200}
         aria-label="A note for the couple (optional)"
         placeholder="Optional · one line for them"
-        className="h-11 min-w-0 flex-1 rounded-full border bg-transparent px-4 text-sm text-ink"
+        className="h-11 min-h-11 min-w-0 shrink-0 rounded-full border bg-transparent px-4 text-sm text-ink sm:flex-1"
         style={{ borderColor: 'var(--sn-line)' }}
       />
     </span>

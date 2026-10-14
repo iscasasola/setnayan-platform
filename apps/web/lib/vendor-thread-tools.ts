@@ -52,7 +52,7 @@ export const VENDOR_THREAD_PANELS: readonly VendorThreadPanel[] = [
     */
     id: 'build-quote',
     label: 'Send a quote',
-    hint: 'Line by line, or from a saved template',
+    hint: 'From your card, a saved quote or blank',
   },
   {
     /*

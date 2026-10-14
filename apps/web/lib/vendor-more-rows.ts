@@ -31,13 +31,17 @@
  * then there was no settings page, so a Settings row would have pretended; now
  * `/vendor-dashboard/settings` exists and holds Notifications, Plan, Getting
  * paid, Helpers, More tools, Help and Sign out as rows. The rows that left:
- *   · Calendar · Money in · Messages — Customers › Dates / Money and the
- *     envelope in the top bar carry them (each was already one tap there);
+ *   · Calendar · Money in — Customers › Dates / Money carry them (each was
+ *     already one tap there);
+ * Messages STAYS (owner answer 1, 2026-10-01, held by vendor-nav-boundary.test.ts)
+ * until the envelope opens its own Messages screen (plan S-PR9) — the prototype's
+ * three-row More assumes that screen, which is not built yet;
  *   · Notifications · Plan — Settings rows (and the bell, and the avatar);
  * "How is my business doing" stays here until Shop › How it is going lands
  * (the prototype's shopSeg — another step owns Shop).
  */
-import { BarChart2, CalendarCheck, Settings, Wrench, type LucideIcon } from 'lucide-react';
+import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
+import { BarChart2, CalendarCheck, MessageSquare, Settings, Wrench, type LucideIcon } from 'lucide-react';
 
 export type VendorMoreRow = {
   key: string;
@@ -65,6 +69,13 @@ export const VENDOR_MORE_ROWS: readonly VendorMoreRow[] = [
     href: '/vendor-dashboard/on-the-day',
     Icon: CalendarCheck,
     slot: 'vendor.bottom-nav.onday',
+  },
+  {
+    key: 'messages',
+    label: 'Messages',
+    sub: 'Every conversation in one inbox.',
+    href: customerLandingHref('messages'),
+    Icon: MessageSquare,
   },
   {
     key: 'performance',

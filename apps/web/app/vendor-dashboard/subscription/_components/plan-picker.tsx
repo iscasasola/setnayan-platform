@@ -58,6 +58,7 @@ export function PlanPicker({
   const [picked, setPicked] = useState(plans.some((p) => p.key === current) ? current : 'free');
   const [cycle, setCycle] = useState<Cycle>(startCycle);
   const plan = plans.find((p) => p.key === picked) ?? plans[0];
+  if (!plan) return null;
   const isFree = plan.key === 'free';
   const price = plan.price[cycle];
   const tooShort = plan.tooShort[cycle] ?? null;
@@ -135,7 +136,7 @@ export function PlanPicker({
       />
       {!verified && !isFree ? (
         <p className="pb-1 text-[13px] text-ink/60" data-plan-unverified="">
-          Plans open once Setnayan approves your shop. <Link href="/vendor-dashboard/shop#get-verified" className="font-medium text-sn-accent underline underline-offset-4">Send your documents</Link>
+          Plans open once Setnayan approves your shop. <Link href="/vendor-dashboard/shop#get-verified" className="font-medium text-sn-accent underline underline-offset-4">Get verified in Your shop</Link>
         </p>
       ) : null}
     </div>

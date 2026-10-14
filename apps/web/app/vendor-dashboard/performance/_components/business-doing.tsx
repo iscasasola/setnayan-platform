@@ -67,9 +67,10 @@ export function BusinessDoing({
   /** Doors to the full cards below, each `{ title, line, href, pro }` — `pro` = the paywall applies here (◆). */
   more: readonly { key: string; title: string; line: string; href: string; pro: boolean }[];
 }) {
-  const [key, setKey] = useState<'month' | 'year'>(windows.some((w) => w.key === initial) ? initial : windows[0].key);
-  const w = windows.find((x) => x.key === key) ?? windows[0];
+  const [key, setKey] = useState<'month' | 'year'>(windows.some((x) => x.key === initial) ? initial : (windows[0]?.key ?? 'year'));
   const still = useStill();
+  const w = windows.find((x) => x.key === key) ?? windows[0];
+  if (!w) return null;
   const dur = still ? 0 : 650;
 
   return (

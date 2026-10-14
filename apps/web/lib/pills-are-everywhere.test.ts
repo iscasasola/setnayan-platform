@@ -182,7 +182,11 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   // 31 → 30 (S-PR3): the two QR-type tracks became ONE dropdown on ONE page (see the note in the list); the
   // Customers views track (People | Dates | Money) joined. Not a line removed to go green — two selectors that no
   // longer exist, one that does.
-  assert.ok(CONVERTED.length >= 30, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  // 30 → 29 (simpler supplier dashboard step 6, 2026-10-14): the Plan page's billing-cycle track became ONE "Cycle ▾"
+  // dropdown in the plan's rows (owner-APPROVED prototype SCREENS.plan; held by
+  // app/vendor-dashboard/subscription/the-plan-is-rows.test.ts). A selector that no longer exists, not a line removed
+  // to go green.
+  assert.ok(CONVERTED.length >= 29, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);

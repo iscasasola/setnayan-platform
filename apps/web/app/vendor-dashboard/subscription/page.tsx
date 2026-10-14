@@ -46,6 +46,7 @@ import {
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { PlanPicker, type PlanPick } from './_components/plan-picker';
+import { PlanRows } from './_components/plan-rows';
 import { startSubscriptionPurchase } from './actions';
 import { AiAddonCard } from './_components/ai-addon-card';
 import { BoothAddonCard } from './_components/booth-addon-card';
@@ -53,7 +54,6 @@ import { PapicChallengeCard } from './_components/papic-challenge-card';
 import { PlanChangeNotice } from './_components/plan-change-notice';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
-import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -63,9 +63,8 @@ import { planWord } from '@/lib/vendor-plan-change-words';
 import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-rows';
 import { VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE } from '@/lib/vendor-papic-credits';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
-import { Fold } from '@/app/_components/fold';
 import { ShopNotice } from '../_components/kit';
-import { DatesRow } from '../customers/_components/dates-row';
+
 
 /**
  * /vendor-dashboard/subscription — the vendor Plan hub. Self-serve Pro /
@@ -428,153 +427,63 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-plan-screen="">
-      <h1 className="sn-h1">Your plan</h1>
-      {/* The answer line — where the shop stands, in one sentence. */}
-      <p className="mt-2 text-[15px] text-ink" data-plan-answer="">
-        <b className="font-semibold">You are on {planWord(currentTier)}</b> · {pays}
-        {expiresOn ? <span className={expiresSoon ? 'font-medium text-orange' : 'text-ink/60'}> · until {expiresOn}</span> : null}
-      </p>
-
-      <div className="mt-3 space-y-3">
-        {/* A scheduled change, and money the shop is holding — in plain words,
-            each shown only when it is true. The date it names is
-            `tierExpiresAt`; there is no separate stored effective date. */}
-        <PlanChangeNotice
-          situation={{
-            currentTier,
-            pendingTier,
-            tierExpiresAt,
-            creditPhp: heldCreditPhp,
-          }}
-        />
-        {search.applied && (
-          <ShopNotice tone="success" role="status">
-            Done — there was nothing to pay. The money already on your account covered it, and your new plan is on now.
-          </ShopNotice>
-        )}
-        {search.kept && (
-          <ShopNotice tone="success" role="status">
-            Your plan stays as it is. What you paid for the change is on your account and comes off your next bill.
-          </ShopNotice>
-        )}
-        {search.ordered && (
-          <ShopNotice tone="success" role="status">
-            Order started. Pay with the reference <span className="font-mono font-semibold">{search.ordered}</span> —
-            it starts once we confirm the payment.
-          </ShopNotice>
-        )}
-        {search.error && (
-          <ShopNotice tone="gold" role="alert">
-            {search.error}
-          </ShopNotice>
-        )}
-      </div>
-
-      {/* ── THE ROWS (prototype SCREENS.plan) ── */}
-      <div className="mt-3" data-plan-rows="">
-        <PlanPicker
-          plans={plans}
-          current={pickCurrent}
-          cycle={currentCycleKey}
-          verified={isVerifiedVendor}
-          action={startSubscriptionPurchase}
-        />
-
-        {feeRow ? (
-          <DatesRow
-            data="plan-booking-fee"
-            title="Booking fee"
-            line={feeRow.line}
-            badge={feeRow.badge}
-            href={VENDOR_BOOKING_FEES_PATH}
+      <PlanRows
+        tier={currentTier}
+        pays={pays}
+        expiresOn={expiresOn}
+        expiresSoon={expiresSoon}
+        isPaid={isPaid}
+        notices={
+          <>
+            {/* A scheduled change, and money the shop is holding — in plain words,
+                each shown only when it is true. The date it names is
+                `tierExpiresAt`; there is no separate stored effective date. */}
+            <PlanChangeNotice
+              situation={{
+                currentTier,
+                pendingTier,
+                tierExpiresAt,
+                creditPhp: heldCreditPhp,
+              }}
+            />
+            {search.applied && (
+              <ShopNotice tone="success" role="status">
+                Done — there was nothing to pay. The money already on your account covered it, and your new plan is on now.
+              </ShopNotice>
+            )}
+            {search.kept && (
+              <ShopNotice tone="success" role="status">
+                Your plan stays as it is. What you paid for the change is on your account and comes off your next bill.
+              </ShopNotice>
+            )}
+            {search.ordered && (
+              <ShopNotice tone="success" role="status">
+                Order started. Pay with the reference <span className="font-mono font-semibold">{search.ordered}</span> —
+                it starts once we confirm the payment.
+              </ShopNotice>
+            )}
+            {search.error && (
+              <ShopNotice tone="gold" role="alert">
+                {search.error}
+              </ShopNotice>
+            )}
+          </>
+        }
+        picker={
+          <PlanPicker
+            plans={plans}
+            current={pickCurrent}
+            cycle={currentCycleKey}
+            verified={isVerifiedVendor}
+            action={startSubscriptionPurchase}
           />
-        ) : null}
-
-        <div className="border-t border-ink/10" data-plan-fold="gives">
-          <Fold title={`What ${planWord(currentTier)} gives you`} line="Read from your plan" data="plan-gives">
-            <div className="pb-3">
-              {gives.map((g) => (
-                <DatesRow key={g.key} data="plan-gives-row" title={g.title} line={g.line} />
-              ))}
-            </div>
-          </Fold>
-        </div>
-
-        <div className="border-t border-ink/10" data-plan-fold="receipts">
-          <Fold
-            title="Receipts"
-            line={
-              planReceipts === null
-                ? 'Couldn’t load — nothing is lost'
-                : planReceipts.length > 0
-                  ? `${formatCount(planReceipts.length)} · last ${planReceipts[0].line.split(' · ')[0]}`
-                  : 'None yet'
-            }
-            data="plan-receipts"
-          >
-            <div className="pb-3">
-              {planReceipts === null ? (
-                <p className="py-2 text-[13.5px] text-ink/70" role="status">
-                  Your plan receipts couldn&rsquo;t load. Reload to try again — nothing you paid has changed.
-                </p>
-              ) : planReceipts.length === 0 ? (
-                <p className="py-2 text-[13.5px] text-ink/60">Nothing paid for a plan yet.</p>
-              ) : (
-                planReceipts.map((r) => (
-                  <DatesRow
-                    key={r.key}
-                    data="plan-receipt"
-                    title={r.title}
-                    line={r.line}
-                    href={r.receiptId ? `/receipts/${r.receiptId}` : null}
-                    badge={r.receiptId ? null : { tone: 'quiet', word: 'Paid' }}
-                  />
-                ))
-              )}
-            </div>
-          </Fold>
-        </div>
-
-        <DatesRow
-          data="plan-add-ons"
-          title="Add-ons"
-          line="AI replies · 3D booth · Papic Challenges · Deep Search"
-          href="#add-ons"
-        />
-        <DatesRow
-          data="plan-papic-credits"
-          title="Papic credits"
-          line={
-            papicPackPrice !== null
-              ? `Buy 100 for ${formatPhp(papicPackPrice)} · for each booked event, in its Event Hub`
-              : 'Bought for each booked event, in its Event Hub'
-          }
-          href="/vendor-dashboard/on-the-day"
-        />
-        <DatesRow
-          data="plan-boost"
-          title="Featured by Setnayan"
-          line={featured ? 'Setnayan features your work in its stories' : 'Setnayan features Pro shops in its stories'}
-          badge={featured ? { tone: 'ok', word: 'On' } : { tone: 'quiet', word: 'Pro' }}
-        />
-        <DatesRow
-          data="plan-custom"
-          title="Custom plan"
-          line={currentTier === 'custom' ? 'Yours · branches, reach, seats' : 'Branches · reach · seats — beyond Enterprise'}
-          href="/vendor-dashboard/subscription/custom"
-        />
-        <DatesRow
-          data="plan-cancel"
-          title="Cancel the plan"
-          line={
-            isPaid
-              ? expiresOn
-                ? `Nothing renews by itself — skip the next payment and you are on Free after ${expiresOn}`
-                : 'Nothing renews by itself — skip the next payment and you are on Free'
-              : 'You are on Free — there is nothing to cancel'
-          }
-        />
-      </div>
+        }
+        feeRow={feeRow}
+        gives={gives}
+        receipts={planReceipts}
+        papicPackPrice={papicPackPrice}
+        featured={featured}
+      />
 
       {/* ── ADD-ONS — the shipped cards, unchanged, under the row that points here ── */}
       <h2 id="add-ons" className="sn-sec mt-8 scroll-mt-24">

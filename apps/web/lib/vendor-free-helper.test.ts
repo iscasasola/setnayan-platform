@@ -71,5 +71,5 @@ test('unlimited plans are never refused', () => {
 test('the line says what is used and that the Helper is free', () => {
   assert.equal(seatLine(teamSeats([m('a', 'agent'), m('b', 'viewer')], FOUNDER), 3), '1 of 3 used · your free Helper is in use');
   assert.equal(seatLine(teamSeats([], FOUNDER), 0), '0 of 0 used · 1 Helper free on every plan');
-  assert.equal(seatLine(teamSeats([m('a', 'agent')], FOUNDER), Infinity), '1 on your team · no limit · 1 Helper free on every plan');
+  assert.equal(seatLine(teamSeats([m('a', 'agent')], FOUNDER), Infinity), '1 with you · no limit · 1 Helper free on every plan');
 });

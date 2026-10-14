@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4a3a29caf2",
-  "routeCount": 438,
-  "destinations": 949,
-  "actions": 671,
-  "blocks": 6284,
+  "generatedFromRef": "0b445800b",
+  "routeCount": 440,
+  "destinations": 962,
+  "actions": 664,
+  "blocks": 6313,
   "routes": {
     "/": {
       "files": [
@@ -12149,8 +12149,10 @@
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/proposals",
         "/vendor-dashboard/reviews",
+        "/vendor-dashboard/settings",
         "/vendor-dashboard/shop",
-        "/vendor-dashboard/subscription"
+        "/vendor-dashboard/subscription",
+        "/vendor-dashboard/team"
       ],
       "actions": [
         "acceptInquiry",
@@ -12888,6 +12890,16 @@
       "actions": [],
       "blocks": []
     },
+    "/vendor-dashboard/help": {
+      "files": [
+        "vendor-dashboard/help/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DatesRow"
+      ]
+    },
     "/vendor-dashboard/invite": {
       "files": [
         "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
@@ -13108,20 +13120,19 @@
         "vendor-dashboard/notifications/push-toggle.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard",
-        "/vendor-dashboard/notifications"
+        "/vendor-dashboard/notifications",
+        "/vendor-dashboard/settings"
       ],
       "actions": [
         "markAllNotificationsRead"
       ],
       "blocks": [
         "ArrayBuffer",
-        "Link",
+        "DatesRow",
         "ListPageSkeleton",
         "NotificationsList",
         "PermissionState",
-        "PushToggle",
-        "SubmitButton",
+        "SupplierSubmit",
         "UnblockGuide"
       ]
     },
@@ -13407,6 +13418,7 @@
     },
     "/vendor-dashboard/performance": {
       "files": [
+        "vendor-dashboard/performance/_components/business-doing.tsx",
         "vendor-dashboard/performance/_components/capacity-card.tsx",
         "vendor-dashboard/performance/_components/conversion-deals-card.tsx",
         "vendor-dashboard/performance/_components/count-up.tsx",
@@ -13438,13 +13450,16 @@
         "AttributionBar",
         "BandRail",
         "BookingsBars",
+        "BusinessDoing",
         "CapacityCard",
         "ChartCaption",
         "CompositeRing",
         "ConversionDealsCard",
         "CountUp",
+        "DatesRow",
         "DemandRadarCard",
         "EarningsSparkline",
+        "Fold",
         "FunnelBenchmarkCard",
         "FunnelPreviewCard",
         "GrowthCard",
@@ -13457,6 +13472,7 @@
         "MomentumMode",
         "MomentumWindowToggle",
         "PerformanceControls",
+        "PickMenu",
         "PillButton",
         "PillTrack",
         "PillarBar",
@@ -13775,6 +13791,33 @@
         "ServiceWizard"
       ]
     },
+    "/vendor-dashboard/settings": {
+      "files": [
+        "vendor-dashboard/settings/page.tsx",
+        "vendor-dashboard/settings/settings-rows.ts"
+      ],
+      "destinations": [
+        "/dashboard/profile",
+        "/dashboard?hub=1",
+        "/help",
+        "/help/what-do-suppliers-pay-setnayan",
+        "/vendor-dashboard/deep-search",
+        "/vendor-dashboard/disputes",
+        "/vendor-dashboard/manpower",
+        "/vendor-dashboard/notifications",
+        "/vendor-dashboard/shop",
+        "/vendor-dashboard/shop?open=payments",
+        "/vendor-dashboard/team"
+      ],
+      "actions": [],
+      "blocks": [
+        "Badge",
+        "DatesRow",
+        "Fold",
+        "Icon",
+        "PushToggle"
+      ]
+    },
     "/vendor-dashboard/shop": {
       "files": [
         "vendor-dashboard/shop/_components/autoreply-card.tsx",
@@ -13964,10 +14007,10 @@
       "files": [
         "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
         "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
-        "vendor-dashboard/subscription/_components/cycle-toggle.tsx",
         "vendor-dashboard/subscription/_components/papic-challenge-card.tsx",
         "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
-        "vendor-dashboard/subscription/_components/subscription-cards.tsx",
+        "vendor-dashboard/subscription/_components/plan-picker.tsx",
+        "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
@@ -13977,32 +14020,37 @@
       ],
       "destinations": [
         "/vendor-dashboard/deep-search",
+        "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/shop",
-        "/vendor-dashboard/subscription/custom",
-        "/vendor-dashboard/subscription?cycle=[seg]"
+        "/vendor-dashboard/subscription/custom"
       ],
       "actions": [
+        "action",
         "cancelScheduledPlanChange",
         "formAction",
         "startSubscriptionPurchase"
       ],
       "blocks": [
+        "ActionButton",
         "AiAddonCard",
+        "BookingFeeStanding",
         "BoothAddonCard",
-        "CycleLink",
+        "Cycle",
+        "DatesRow",
+        "Fold",
         "GridPageSkeleton",
         "Link",
-        "PageMasthead",
         "PaidMark",
         "PapicChallengeCard",
         "PaymentsPausedNote",
         "PhotoChallengeActionState",
-        "PillLink",
-        "PillTrack",
+        "PickMenu",
         "PlanChangeNotice",
+        "PlanPicker",
+        "PlanRows",
+        "ShopNotice",
         "SubmitButton",
-        "SubscriptionCards",
-        "SubscriptionCycleToggle",
+        "SupplierSubmit",
         "Vendor3dBoothActionState",
         "VendorAiAddonActionState"
       ]
@@ -14038,27 +14086,37 @@
     },
     "/vendor-dashboard/team": {
       "files": [
+        "vendor-dashboard/team/_components/helpers-controls.tsx",
+        "vendor-dashboard/team/_components/helpers-view.tsx",
         "vendor-dashboard/team/actions.ts",
         "vendor-dashboard/team/loading.tsx",
         "vendor-dashboard/team/page.tsx"
       ],
       "destinations": [],
       "actions": [
-        "buyExtraSeat",
-        "cancelAdminMotion",
-        "inviteVendorTeamMember",
-        "proposeAdminMotion",
-        "removeVendorTeamMember",
-        "setVendorAgentServices",
-        "stepDownSelf",
-        "updateVendorTeamMember",
-        "voteAdminMotion"
+        "action"
       ],
       "blocks": [
+        "ActionButton",
         "AgentServiceAssignment",
+        "Badge",
+        "ChosenRow",
+        "DatesRow",
+        "Fold",
         "FormPageSkeleton",
+        "FormRows",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "HelpersView",
+        "InviteHelperSheet",
+        "PickMenu",
+        "RolePick",
+        "Sheet",
         "ShopNotice",
-        "SubmitButton"
+        "SubmitButton",
+        "SupplierSubmit",
+        "SupplierThumbRow",
+        "TypedRow"
       ]
     },
     "/vendor-dashboard/theft-watch": {

@@ -97,6 +97,6 @@ export function seatLine(seats: TeamSeats, cap: number): string {
     FREE_HELPER_SEATS > 0
       ? ` · ${seats.freeHelpers > 0 ? 'your free Helper is in use' : `${formatCount(FREE_HELPER_SEATS)} Helper free on every plan`}`
       : '';
-  if (!Number.isFinite(cap)) return `${formatCount(seats.people)} on your team · no limit${free}`;
+  if (!Number.isFinite(cap)) return `${formatCount(seats.people)} with you · no limit${free}`;
   return `${formatCount(seats.counted)} of ${formatCount(cap)} used${free}`;
 }

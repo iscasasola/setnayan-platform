@@ -14,7 +14,7 @@ import { shopToolShelves, type ShopTool, type ShopToolShelf } from '../shop/shop
 export const SETTINGS_HELP_HREF = '/vendor-dashboard/help';
 
 const TEAM_HREF = '/vendor-dashboard/team';
-const MANPOWER: ShopTool = { href: '/vendor-dashboard/manpower', label: 'Manpower', sub: 'Pick up paid crew gigs from events already booked.' };
+const MANPOWER: ShopTool = { href: '/vendor-dashboard/shop?open=manpower#shop-folds', label: 'Manpower', sub: 'Pick up paid crew gigs from events already booked.' };
 const DEEP_SEARCH: ShopTool = { href: '/vendor-dashboard/deep-search', label: 'Deep Search', sub: 'We read the web about your business and fill your details.' };
 
 export function settingsMoreTools(opts: {

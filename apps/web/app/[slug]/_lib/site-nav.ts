@@ -413,6 +413,13 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     const i = allowed.findIndex((s) => s.key === 'suppliers');
     if (i >= 0) allowed.splice(i, 1);
   }
+  // 🖼 Before the day with early shooting on and no stage list to cut it, the
+  // Camera yields to "Your shots" — whose empty state carries the Camera — so
+  // Me is never the one pushed off the end.
+  if (allowed.length > 5 && phase === 'before') {
+    const i = allowed.findIndex((s) => s.key === 'camera');
+    if (i >= 0) allowed.splice(i, 1);
+  }
   const five = allowed.slice(0, 5);
   // 📱 Each tab its own page: an in-page tab goes to its address, not a mark.
   return input.tabbed

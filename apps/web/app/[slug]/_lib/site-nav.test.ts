@@ -260,3 +260,43 @@ test('a guest, couple and vendor keep their own in-page Me slot', () => {
     assert.ok(me?.href.startsWith('#'), `${viewer.kind}'s Me should stay an in-page anchor`);
   }
 });
+
+test('🖼 RULING 2026-10-14: early shooting gives an invited guest "Your shots" before the day — and nothing more', () => {
+  // ⚖ Owner, picker: *"Only their own shots."* With "Let guests shoot now" on
+  // (`papic_guest_capture_early`) and the camera gate open, the guest's bar
+  // also shows Gallery; it holds THEIR OWN captures. Off → the four, unchanged.
+  const inv = {
+    viewer: { kind: 'guest' },
+    phase: 'before',
+    hasStory: true,
+    destinations: { camera: '/papic/guest' },
+    stageSlots: STAGE_BAR.rsvp.slots,
+  } as Partial<NavInput>;
+  assert.deepEqual(keys(at(inv)), ['home', 'details', 'story', 'me'], 'early off: the Invitation keeps its four');
+  assert.deepEqual(keys(at({ ...inv, earlyOwnShots: true })), ['home', 'details', 'story', 'gallery', 'me']);
+  const g = at({ ...inv, earlyOwnShots: true }).find((s) => s.key === 'gallery');
+  assert.equal(g?.state, 'live');
+  assert.equal(g?.label, 'Gallery', 'NAMING LOCK — never "Photos"');
+  // Save the Date too (the other before-the-day stage).
+  assert.deepEqual(
+    keys(at({ ...inv, stageSlots: STAGE_BAR.save_the_date.slots, earlyOwnShots: true })),
+    ['home', 'story', 'gallery', 'me'],
+  );
+  // 🔒 A stranger, a supplier and the couple: unchanged by the switch.
+  for (const viewer of [{ kind: 'public' as const }, { kind: 'vendor' as const, kits: [] as VendorKit[] }, { kind: 'couple' as const }]) {
+    assert.deepEqual(
+      keys(at({ ...inv, viewer, earlyOwnShots: true })),
+      keys(at({ ...inv, viewer, earlyOwnShots: false })),
+      `${viewer.kind}: early shooting changed this bar — it is an invited guest's own shots only`,
+    );
+  }
+  // …and it never reaches the day's or the recap's rules: those keep "public chapter or nothing".
+  for (const phase of ['day', 'after'] as const) {
+    assert.ok(!keys(at({ viewer: { kind: 'guest' }, phase, anyChapterPublic: false, earlyOwnShots: true })).includes('gallery'));
+  }
+  // Still five at most — and Me is never the one pushed off the end.
+  const open = at({ ...inv, stageSlots: undefined, earlyOwnShots: true });
+  assert.ok(open.length <= 5);
+  assert.equal(open[open.length - 1]?.key, 'me');
+  assert.ok(keys(open).includes('gallery'));
+});

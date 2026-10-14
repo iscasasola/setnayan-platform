@@ -198,6 +198,8 @@ test('after minting · a cancel that does not land keeps the order (never strand
 
 const STUDIO = 'app/dashboard/[eventId]/studio/papic/actions.ts';
 const GUEST = 'app/papic/buy/actions.ts';
+/** ✅ The five services' Add / Buy more (owner 2026-10-14 🧩 5 — the Papic shape). */
+const SERVICES = 'app/dashboard/[eventId]/service-buy-actions.ts';
 
 const bodyOf = (src: string, name: string): string => {
   const i = src.indexOf(`export async function ${name}(`);
@@ -212,6 +214,7 @@ for (const [file, fn, before, sideEffect] of [
   [STUDIO, 'purchasePapicExtras', true, /provisionPaidCamerasAdmin\(/],
   [STUDIO, 'activatePapicLimited', false, /from\('papic_limited_snapshots'\)\s*\.insert\(/],
   [GUEST, 'startPapicGuestPurchase', false, /from\('papic_guest_orders'\)\.insert\(/],
+  [SERVICES, 'buyService', true, /revalidatePath\(/],
 ] as const) {
   test(`wiring · ${fn} settles twins after minting and before its side effect`, () => {
     const body = bodyOf(read(file), fn);
@@ -232,6 +235,7 @@ for (const [file, what] of [
   ['app/dashboard/[eventId]/studio/papic/_components/papic-buy-form.tsx', 'Continue to payment'],
   ['app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx', 'extra cameras'],
   ['app/dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx', 'guest cameras'],
+  ['app/dashboard/[eventId]/_components/service-buy-sheet.tsx', 'the services\' Add / Buy more'],
 ] as const) {
   test(`button · ${what} locks while pressed and names the step`, () => {
     const src = read(file);

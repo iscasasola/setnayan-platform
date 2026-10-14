@@ -59,6 +59,10 @@ const PAID_PATHS = [
   // lives at the bottom of this file); the couple's door was nowhere.
   'app/dashboard/[eventId]/studio/papic/actions.ts',
   'app/papic/buy/actions.ts',
+  // ⬇ ADDED 2026-10-14 (owner 🧩 5: "all four move to the same mint-then-/pay
+  // page as Papic — one way to pay"): the Planner, Live stream, Music, Video
+  // booth and Event Hub Pro's Add / Buy more sheet.
+  'app/dashboard/[eventId]/service-buy-actions.ts',
 ] as const;
 
 /**

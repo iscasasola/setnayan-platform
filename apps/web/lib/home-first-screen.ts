@@ -38,8 +38,9 @@ import { SERVICE_NAMES } from '@/lib/service-names';
 import { isToInvite, type InviteFacts } from '@/lib/guest-roster-view';
 import type { PapicMoment } from '@/lib/papic-glance';
 import type { GlanceLine, ServiceGlance } from '@/lib/service-glance';
+import { SERVICE_ROW_ORDER, type ServiceRowGlance, type ServiceRowKey } from '@/lib/services-glance';
 
-export type HomeNextKind = 'guide' | 'date' | 'unread' | 'guests' | 'invite' | 'papic' | 'ai' | 'plan';
+export type HomeNextKind = 'live' | 'music' | 'guide' | 'date' | 'unread' | 'guests' | 'invite' | 'papic' | 'ai' | 'plan';
 
 /**
  * The guided flow's button — it names what the tap does (owner, live phone test
@@ -47,8 +48,16 @@ export type HomeNextKind = 'guide' | 'date' | 'unread' | 'guests' | 'invite' | '
  */
 export const HOME_GUIDE_ACTION = 'Pick a stage';
 
-/** The order the Home already stacked its nudges in — the first that applies is Next. */
-export const HOME_NEXT_ORDER: readonly HomeNextKind[] = ['guide', 'date', 'unread', 'papic', 'guests', 'invite', 'ai', 'plan'];
+/**
+ * The order the Home already stacked its nudges in — the first that applies is Next.
+ *
+ * ✅ The services' two MOMENTS lead it (owner "approve all", 2026-10-14 — services
+ * prototype `nextCard()`): "Live now" ON THE EVENT DAY ONLY (call 1), and "Your
+ * song is ready" ONCE, until it is heard — no email goes out (2026-10-11), so
+ * this card is the couple's one "ready" signal. Both are moments, not steps:
+ * they pass on their own, so they never hold the card from the steps for long.
+ */
+export const HOME_NEXT_ORDER: readonly HomeNextKind[] = ['live', 'music', 'guide', 'date', 'unread', 'papic', 'guests', 'invite', 'ai', 'plan'];
 
 /**
  * The guided flow, as Home reads it (null = nothing left, not for this viewer,
@@ -123,6 +132,10 @@ export type HomeNextInput = {
   papic?: { moment: PapicMoment; left: number; total: number } | null;
   /** An AI offer exists AND may be shown here (never in the store shell). */
   aiOffer: boolean;
+  /** ✅ Live stream is on the air ON THE EVENT DAY (`liveGlance(...).moment === 'live-now'`). */
+  live?: boolean;
+  /** ✅ The song is delivered and not yet heard (`musicGlance(...).moment === 'song-ready'`). */
+  music?: boolean;
 };
 
 /**
@@ -135,6 +148,24 @@ export type HomeNextInput = {
  */
 export function pickHomeNext(input: HomeNextInput): HomeNext {
   const { guide, hasDate, guests, noun, papicReady, papic = null, aiOffer } = input;
+  if (input.live) {
+    /* ✅ Owner call 1 (2026-10-14): on the day, "Live now" takes this card — that day only. */
+    return {
+      kind: 'live',
+      title: 'You are live',
+      body: 'Your guests are watching on your Event Hub. Your controller has every camera.',
+      action: 'Open controller',
+    };
+  }
+  if (input.music) {
+    /* ✅ The prototype's card, word for word — once, until it is heard. */
+    return {
+      kind: 'music',
+      title: 'Your song is ready',
+      body: 'Written and produced from your story. Hear it, then it plays on your Event Hub.',
+      action: 'Hear your song',
+    };
+  }
   if (guide) {
     /* "Finish your Event Hub — n of m · Pick a stage": the whole in place, then
        the first stage still to do with its own count. */
@@ -274,7 +305,7 @@ export function glanceMoney(php: number | null): string {
   A read that failed prints "—".
 */
 
-export type HomeServiceKey = 'papic' | 'ai' | 'nikah';
+export type HomeServiceKey = ServiceRowKey | 'nikah';
 /**
  * `name` is the plain name (first), `brand` the Setnayan name (small under) — `lib/service-names.ts`.
  * Nikah essentials is not a Setnayan service, so it carries no brand line.
@@ -285,11 +316,24 @@ export type HomeService = {
   brand?: string;
   status: string;
   /**
+   * ✅ The two sizes (owner "approve all", 2026-10-14): `full` for a service the
+   * event owns (status line, its doors), `slim` for one not added yet — or bought
+   * and waiting for payment — "price under the name · Add on the right".
+   */
+  size?: 'full' | 'slim';
+  /**
    * 🎨 Papic's row is the service glance (owner 2026-10-14): its status line, a
    * meter, and its two doors — "Buy more" (the shipped stepper in a sheet) and
    * "See N photos" (the gallery, opened directly). Absent = the plain row.
    */
   papic?: PapicRowDoors;
+  /** ✅ Every other paid service's row — `lib/services-glance.ts`. */
+  glance?: ServiceRowGlance;
+  /**
+   * NEVER TWICE: this row's doors are what the Next card on screen offers —
+   * drawn, marked `data-while-next`, standing down only while that card shows.
+   */
+  whileNext?: boolean;
 };
 
 /** What the Papic row draws beyond its name — from `papicGlance` (lib/papic-glance.ts). */
@@ -356,34 +400,82 @@ export function nikahStatus(done: number | null): string {
   return `${formatCount(done)} of ${formatCount(NIKAH_TRACKED_TOTAL)} in place`;
 }
 
+/** The row's plain + brand names — the one list (`lib/service-names.ts`), plus Event Hub Pro. */
+const ROW_NAMES: Readonly<Record<ServiceRowKey, { name: string; brand: string }>> = {
+  papic: { name: SERVICE_NAMES.papic.plain, brand: SERVICE_NAMES.papic.brand },
+  ai: { name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand },
+  live: { name: SERVICE_NAMES['live-studio'].plain, brand: SERVICE_NAMES['live-studio'].brand },
+  music: { name: SERVICE_NAMES['music-maker'].plain, brand: SERVICE_NAMES['music-maker'].brand },
+  booth: { name: SERVICE_NAMES.patiktok.plain, brand: SERVICE_NAMES.patiktok.brand },
+  /* 🧾 Owner 2026-10-14: the brand line says what it unlocks. */
+  hub: { name: 'Event Hub Pro', brand: '◆ Themes · photo and video backgrounds' },
+};
+
+/**
+ * HOME › YOUR SERVICES (owner "approve all", 2026-10-14 — services prototype
+ * `renderHome()`): the paid services + Event Hub Pro, and nothing else (🧾 — free
+ * tools are never rows). OWNED rows first, full size, in the one order (papic ·
+ * ai · live · music · booth · hub); then the services NOT ADDED yet (and those
+ * waiting for payment), slim. The store shell (the iPhone app) shows only what
+ * the event owns, and never a buy door (`STORE_SHELL_HIDDEN_ADDON_KEYS`).
+ *
+ * ⛔ NEVER TWICE — the Setnayan AI offer card and the AI row never stand
+ * together; a service whose MOMENT is the Next card keeps its row and marks the
+ * doors the card already offers (`whileNext`), like Papic's (walk-b6 F1).
+ */
 export function homeServices(input: {
   next: HomeNextKind;
   storeShell: boolean;
   papic: string;
   /** 📍 Papic's doors (Buy more · See N photos), when the glance offers them. */
   papicDoors?: PapicRowDoors | null;
+  /** The Planner's plain status — used only when no `rows` glance is given for it. */
   ai: string;
+  /** ✅ The other five services' glances (`lib/services-glance.ts`). */
+  rows?: readonly ServiceRowGlance[];
   /** 🕌 Set ONLY for a Muslim wedding — the Nikah essentials' status line. Free, so it is also in the store shell. */
   nikah?: string | null;
 }): HomeService[] {
-  const paid: HomeService[] = input.storeShell
-    ? []
-    : [
-        {
-          key: 'papic',
-          name: SERVICE_NAMES.papic.plain,
-          brand: SERVICE_NAMES.papic.brand,
-          status: input.papic,
-          ...(input.papicDoors ? { papic: input.papicDoors } : {}),
-        },
-        { key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai },
-      ];
-  const all: HomeService[] = [
-    /* ⛔ NEVER TWICE — for Papic the row STAYS and drops the button the Next
-       card offers, while it is on screen (owner 2026-10-14, `papicRowDoubled`); a service with no
-       doors (Setnayan AI) still leaves the row while it is the Next card. */
-    ...paid.filter((s) => s.key !== input.next || (s.key === 'papic' && s.papic)),
-    ...(input.nikah != null ? [{ key: 'nikah' as const, name: NIKAH_NAME, status: input.nikah }] : []),
+  const full: HomeService[] = [];
+  const slim: HomeService[] = [];
+  for (const key of SERVICE_ROW_ORDER) {
+    const names = ROW_NAMES[key];
+    if (key === 'papic') {
+      /* Papic is every event's (its free pool is armed at creation): always a full row. */
+      full.push({
+        key,
+        ...names,
+        status: input.papic,
+        size: 'full',
+        ...(input.papicDoors ? { papic: input.papicDoors } : {}),
+      });
+      continue;
+    }
+    const glance = input.rows?.find((r) => r.key === key) ?? null;
+    if (!glance) {
+      /* No glance handed in: the Planner keeps its plain status row (the page's legacy shape). */
+      if (key === 'ai' && !input.storeShell && input.next !== 'ai') full.push({ key, ...names, status: input.ai, size: 'full' });
+      continue;
+    }
+    if (glance.hidden) continue;
+    const owned = glance.ownership === 'on';
+    /* 🔒 The iPhone app: owned only — a sale is never offered there. */
+    if (input.storeShell && glance.ownership === 'none') continue;
+    /* ⛔ The AI offer card IS the not-added Planner row — never both. */
+    if (key === 'ai' && !owned && input.next === 'ai') continue;
+    const row: HomeService = {
+      key,
+      ...names,
+      status: `${glance.line.lead ?? ''}${glance.line.strong ?? ''}${glance.line.tail ?? ''}`,
+      size: owned ? 'full' : 'slim',
+      glance,
+      ...((key === 'music' && input.next === 'music') || (key === 'live' && input.next === 'live') ? { whileNext: true } : {}),
+    };
+    (owned ? full : slim).push(row);
+  }
+  return [
+    ...full,
+    ...slim,
+    ...(input.nikah != null ? [{ key: 'nikah' as const, name: NIKAH_NAME, status: input.nikah, size: 'full' as const }] : []),
   ];
-  return all;
 }

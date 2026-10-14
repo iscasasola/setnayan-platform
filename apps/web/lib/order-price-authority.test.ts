@@ -153,6 +153,14 @@ const ORDER_MINTERS: Record<string, string> = {
     'Papic camera/window buys. Amount is a server-computed quote (quote.totalPhp / ' +
     'quote.frozenBillPhp); the form supplies quantities and windows, never pesos. ' +
     'Already service-role before SEC-4b — unchanged.',
+  'app/dashboard/[eventId]/service-buy-actions.ts':
+    'Add / Buy more for the Planner, Live stream, Music, Video booth and Event Hub Pro (owner ' +
+    '2026-10-14 🧩 5: mint-then-/pay, the Papic shape). The form carries the event and an OFFER ' +
+    'KIND from a closed list (lib/service-offers.ts) — never pesos, never a quantity. ' +
+    'resolveServiceSellability rejects a retired SKU first, then resolveOrderChargeCentavos sets ' +
+    'the amount (the catalog, the AI per-event-type ladder and comeback included) and REFUSES on ' +
+    'any read error. Service-role write (`moneyWriter`) via orderRowFor; authorized by getUser + ' +
+    'a couple event_members row; an unlock already owned or pending is not sold twice.',
   'lib/onboarding-services-orders.ts':
     'The ONBOARDING SERVICES BASKET (owner 2026-08-11) — ONE bill covering the couple’s ' +
     'Papic Pool rung, their extra Papic One cameras, and Setnayan AI, so they get one total, ' +

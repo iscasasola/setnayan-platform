@@ -25,6 +25,7 @@ import {
   type QuoteSeedLine,
   type ServiceCardQuoteSeed,
 } from '@/lib/quote-from-service-card';
+import { parseSavedQuoteDraft, type SavedQuoteDraft } from '@/lib/saved-quote';
 
 // The builder imports the seed-line shape from here; it is now defined once,
 // in the pure module both seeds share.
@@ -179,6 +180,156 @@ export async function loadPackageLinesForQuote(packageId: string): Promise<Quote
         }
       : null,
   };
+}
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* The one-screen quote (simpler supplier dashboard step 4, 2026-10-14)      */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+/** One catalogue extra — a package item the shop marked NOT included by default, offered as a switch. */
+export type QuoteCatalogueExtra = {
+  id: string;
+  /** The item's own words, with the package it belongs to when the shop has more than one. */
+  label: string;
+  line: QuoteSeedLine;
+};
+
+/**
+ * "FROM YOUR CATALOGUE" — the shop's optional package items (`vendor_package_items.is_default_included = false`).
+ *
+ * Rule 0's worked example, verbatim: the catalogue picker "turned out to be `vendor_package_items` rows with
+ * `is_default_included = false`, which vendors already author and `lock-modal.tsx` deliberately hides". Nothing new is
+ * stored: the quote shows them as switches, and a switch on adds the item as a line priced by its own basis.
+ *
+ * Read ONCE, when the supplier opens the quote — never on the thread's own load (free plan: a thread that is only
+ * read costs no catalogue read). Under the supplier's own session; RLS returns only their packages. Empty on any
+ * refusal — the section then says nothing, the same as a shop with no optional items.
+ */
+export async function loadCatalogueExtrasForQuote(): Promise<QuoteCatalogueExtra[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return [];
+  const { data, error } = await supabase
+    .from('vendor_packages')
+    .select(
+      'package_id, package_name, vendor_package_items ( item_id, service_description, is_default_included, display_order, pricing_basis, replacement_value_centavos, per_pax_price_centavos, min_pax, hour_base_centavos, min_hours, extra_hour_centavos )',
+    )
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('is_active', true);
+  if (error || !data) return [];
+  type Item = {
+    item_id: string;
+    service_description: string | null;
+    is_default_included: boolean;
+    display_order: number;
+    pricing_basis: 'fixed' | 'per_pax' | 'per_hour' | null;
+    replacement_value_centavos: number | null;
+    per_pax_price_centavos: number | null;
+    min_pax: number | null;
+    hour_base_centavos: number | null;
+    min_hours: number | null;
+    extra_hour_centavos: number | null;
+  };
+  const pkgs = data as { package_id: string; package_name: string | null; vendor_package_items: Item[] | null }[];
+  const named = pkgs.filter((p) => (p.vendor_package_items ?? []).some((i) => !i.is_default_included)).length > 1;
+  const peso = (c: number | null | undefined) => Math.round((Number(c) || 0) / 100);
+  const out: QuoteCatalogueExtra[] = [];
+  for (const p of pkgs) {
+    const items = (p.vendor_package_items ?? []).filter((i) => !i.is_default_included).sort((a, b) => a.display_order - b.display_order);
+    for (const i of items) {
+      const basis = i.pricing_basis === 'per_pax' || i.pricing_basis === 'per_hour' ? i.pricing_basis : 'flat';
+      const label = (i.service_description ?? '').trim() || 'Extra';
+      const flatPhp = peso(i.replacement_value_centavos);
+      out.push({
+        id: i.item_id,
+        label: named && p.package_name ? `${label} · ${p.package_name}` : label,
+        line: {
+          label,
+          basis,
+          free: basis === 'flat' && flatPhp === 0,
+          flatPhp,
+          ratePhp: peso(i.per_pax_price_centavos),
+          minPax: Number(i.min_pax) || 0,
+          basePhp: peso(i.hour_base_centavos),
+          inclHours: Number(i.min_hours) || 0,
+          extraPhp: peso(i.extra_hour_centavos),
+        },
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * "SAVE THIS QUOTE" — writes the builder's draft as a saved quote (`vendor_proposal_templates`, with its lines in
+ * `quote_draft`, migration `…_saved_quote_draft`). The body is the note, so a saved quote still reads sensibly
+ * everywhere the old templates are listed (`/vendor-dashboard/proposals`).
+ *
+ * The draft is re-parsed HERE (`parseSavedQuoteDraft`) — the browser's copy is a suggestion; what is stored is what
+ * the parser keeps. RLS (`vendor_proposal_templates_org_all`) is the fence: the row is the caller's own shop's.
+ */
+export async function saveQuoteAsTemplate(input: {
+  name: string;
+  draft: SavedQuoteDraft;
+}): Promise<{ ok: true; id: string; name: string } | { ok: false; reason: 'name' | 'empty' | 'failed' }> {
+  const name = String(input?.name ?? '').trim().slice(0, 120);
+  if (!name) return { ok: false, reason: 'name' };
+  const draft = parseSavedQuoteDraft(input?.draft);
+  if (!draft) return { ok: false, reason: 'empty' };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, reason: 'failed' };
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return { ok: false, reason: 'failed' };
+  const { data, error } = await supabase
+    .from('vendor_proposal_templates')
+    .insert({
+      vendor_profile_id: profile.vendor_profile_id,
+      template_name: name,
+      body: draft.note,
+      terms: '',
+      quote_draft: draft,
+    })
+    .select('template_id')
+    .single();
+  if (error || !data) {
+    console.error('[supabase-error] proposal-actions.ts · from:vendor_proposal_templates.insert (saveQuoteAsTemplate)', error);
+    return { ok: false, reason: 'failed' };
+  }
+  revalidatePath('/vendor-dashboard/proposals');
+  return { ok: true, id: (data as { template_id: string }).template_id, name };
+}
+
+/**
+ * "START FROM · A SAVED QUOTE" — one saved quote, as the builder loads it. A quote saved from the builder comes back
+ * whole (`quote_draft`); an old-style template comes back as its package's lines (the shipped package seed) and its
+ * body as the note — exactly what sending it as a template would have priced.
+ */
+export async function loadSavedQuote(
+  templateId: string,
+): Promise<{ draft: SavedQuoteDraft | null; packageSeed: QuoteSeed | null; note: string; name: string } | null> {
+  if (!templateId) return null;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data, error } = await supabase
+    .from('vendor_proposal_templates')
+    .select('template_name, body, default_package_id, quote_draft')
+    .eq('template_id', templateId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { template_name: string; body: string | null; default_package_id: string | null; quote_draft: unknown };
+  const draft = parseSavedQuoteDraft(row.quote_draft);
+  const packageSeed = !draft && row.default_package_id ? await loadPackageLinesForQuote(row.default_package_id) : null;
+  return { draft, packageSeed, note: draft ? draft.note : (row.body ?? ''), name: row.template_name };
 }
 
 /**

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays, ChevronLeft } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ChevronLeft, CircleDashed, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -97,7 +97,6 @@ import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info
 import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
-import { RevealToolButton } from '@/app/_components/chat/reveal-tool-button';
 import { affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
 import {
@@ -106,7 +105,6 @@ import {
   type QuoteRevisionSeed,
   type QuoteRevisionSource,
 } from '@/lib/quote-revision-seed';
-import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import {
   buildVendorConversationRows,
@@ -116,6 +114,12 @@ import {
   serviceTagVaries,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
+import { AnswerAskButton, CHAT_ATTACH_INPUT_ID, ThreadToolsSheet } from './_components/thread-tools-sheet';
+import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
+import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
+import { threadDayIsOpen, threadDayWords, type ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { dayTitle, daySheetHref } from '@/lib/vendor-dates';
+import { manilaDate } from '@/lib/vendor-schedule';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
@@ -726,6 +730,22 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     standingNowMs,
   ).then((extras) => extras.get(profile.vendor_profile_id));
 
+  /* THE ANSWER LINE (simpler supplier dashboard step 4 · prototype "Sat 12 Dec · Free"). The couple's date read off the
+     supplier's OWN schedules — four narrow reads, `readThreadDayAnswer` — and only when there is a question: no date
+     → "No date yet", already booked → "Booked", both with no read at all. It waits for the event and the stage, both
+     already started above, so it never costs a read the answer does not need. */
+  const todayIso = manilaDate(new Date().toISOString());
+  const dayAnswerRead: Promise<ThreadDayAnswer | null> = (async () => {
+    const [{ data: ev }, stage] = await Promise.all([eventRead, railStageRead]);
+    if (!ev?.event_date) return { kind: 'no_date' };
+    if (THREAD_STAGE_HAS_AGREEMENT[stage]) return { kind: 'booked' };
+    return readThreadDayAnswer(supabase, {
+      vendorProfileId: profile.vendor_profile_id,
+      date: String(ev.event_date).slice(0, 10),
+      todayIso,
+    });
+  })();
+
   /* ── THE LEFT COLUMN: every conversation, beside the one being read ────────
      Owner 2026-09-08: "list · conversation · context".
 
@@ -946,6 +966,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     payoutReadiness,
     standingExtras,
     conversationRows,
+    dayAnswer,
   ] = await Promise.all([
     callsEnabledRead,
     composerFeeStandingRead,
@@ -970,9 +991,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     payoutReadinessRead,
     standingExtrasRead,
     conversationRowsRead,
+    dayAnswerRead,
   ]);
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
+  // The couple's booking ask is open — the one fact that lists "Answer their booking ask" and mounts its panel.
+  const askOpen = lockHandshake?.state === 'requested' && Boolean(lockHandshake.eventVendorId);
 
   // WHO IS ASKING — one label, the same before and after accepting. The
   // anonymization-until-accept placeholder ("A couple planning a wedding in
@@ -1230,6 +1254,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           brief={quoteBrief}
           paymentMethods={proposalPaymentMethods}
           revision={quoteRevision}
+          // Start from · a saved quote — hidden when the shop has none (owner 2026-10-14).
+          savedQuotes={proposalTemplates.map((t) => ({ id: t.id, name: t.name }))}
+          // The card this couple asked about, when it is one of the shop's active cards — the quote starts from it.
+          askedCardId={existingInterests.find((i) => i.vendor_service_id)?.vendor_service_id ?? null}
+          todayIso={todayIso}
           viewerPromo={
             attribution?.audienceRateTerms
               ? {
@@ -1249,6 +1278,25 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         />
       </div>
     ),
+    /*
+      THE COUPLE'S BOOKING ASK — the customer card's own panel (`LockRequestAnswer`), answered here: the fee named
+      ABOVE Agree (`forecastForBooking`, the same forecast Today and the card read), Agree = `vendorAgreeToLock`, Turn it
+      down = `vendorDeclineLock` with the reason. The answer lands back in this thread (`return_to`) and the line at
+      the top of the page says what it did — "You said yes. Pay the booking fee…" with its Pay door when the fee held
+      the couple's news back. Null (no panel) while no ask is open.
+    */
+    'booking-ask':
+      askOpen && lockHandshake?.eventVendorId ? (
+        <LockRequestAnswer
+          eventVendorId={lockHandshake.eventVendorId}
+          expiresAt={lockHandshake.expiresAt}
+          payoutReadiness={payoutReadiness}
+          feeForecast={chatFeeForecast}
+          returnTo={`/vendor-dashboard/messages/${threadId}`}
+          agreeLock={vendorAgreeToLock}
+          declineLock={vendorDeclineLock}
+        />
+      ) : null,
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
     'thread-call': (
         <ThreadCallLauncher
@@ -1295,7 +1343,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
      what keeps the rail cheap and every anchor id unique. */
   const vendorTools = toolsMounted ? (
       <div>
-        {VENDOR_THREAD_PANELS.map((t) => (
+        {VENDOR_THREAD_PANELS.filter((t) => toolNodes[t.id] != null).map((t) => (
           <ThreadToolPanel
             key={t.id}
             id={t.id}
@@ -1367,17 +1415,69 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     service: railService,
     threadId,
     eventId: thread.event_id,
-    // The launchers are only honest while the panels they open are on the page.
-    toolsMounted,
-    templateCount: proposalTemplates.length,
-    /*
-      Whether this couple has actually agreed — the one fact "Propose schedule"
-      needs, because the Schedule tab it leaves for is shut before a booking and
-      says so. Read from the STAGE VALUE through the exhaustive map, never from
-      the stage pill's label beside it: the pill is display text.
-    */
-    hasAgreement: THREAD_STAGE_HAS_AGREEMENT[railStage],
   };
+
+  /*
+    WHAT DECIDES EACH ROW OF THE ＋ TOOLS SHEET — facts this page already holds, no extra read. `hasAgreement` is
+    read from the STAGE VALUE through the exhaustive map, never from the stage pill's label beside it: the pill is
+    display text, and "Your call time" / "Ask for a payment" open only once they book you.
+  */
+  const toolsState = {
+    hasAgreement: THREAD_STAGE_HAS_AGREEMENT[railStage],
+    askOpen,
+    paymentsToConfirm: pendingPayments.length,
+    guestCountChanges: paxProposals.length,
+  };
+
+  /* THE ANSWER LINE — the couple's initials, their date (a door to that day on Dates) and the day's answer from the
+     supplier's own schedules. While their booking ask is open, the one tap that answers it sits on the same line. */
+  const dayWords = dayAnswer ? threadDayWords(dayAnswer) : null;
+  const eventDay = event?.event_date ? String(event.event_date).slice(0, 10) : null;
+  const DayIcon = dayWords?.tone === 'ok' ? CheckCircle2 : dayWords?.tone === 'danger' ? XCircle : CircleDashed;
+  const answerLine = (
+    <div
+      data-thread-day-answer={dayAnswer?.kind ?? 'unknown'}
+      className="flex min-h-[56px] items-center gap-3 border-b border-ink/10 px-3 py-2 sm:px-4"
+    >
+      <span
+        aria-hidden
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sn-accent/10 text-[13px] font-semibold text-ink"
+      >
+        {railInitials}
+      </span>
+      <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-[15px] text-ink">
+        {eventDay ? (
+          <Link href={daySheetHref(eventDay)} className="font-medium underline-offset-2 hover:underline">
+            {dayTitle(todayIso, eventDay)}
+          </Link>
+        ) : null}
+        {dayWords ? (
+          <>
+            {eventDay ? <span aria-hidden className="text-ink/40">·</span> : null}
+            <b
+              className={`inline-flex items-center gap-1 font-semibold ${
+                dayWords.tone === 'ok' ? 'text-success-700' : dayWords.tone === 'danger' ? 'text-danger-700' : 'text-ink/60'
+              }`}
+            >
+              <DayIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
+              {dayWords.word}
+            </b>
+          </>
+        ) : null}
+      </p>
+      {askOpen && toolsMounted ? <AnswerAskButton /> : null}
+    </div>
+  );
+
+  /* QUICK REPLIES (prototype "Yes po, that day is free · Let me check and reply today · Sending our price now") —
+     offered only while the couple spoke last, so they never sit over a conversation the supplier already answered.
+     Each is the shipped send (`sendChatMessage`) as a plain form; the "free" one only on a day that IS open. */
+  const lastFromCouple = lastThreadMessage?.sender_role === 'couple';
+  const quickReplies = [
+    ...(threadDayIsOpen(dayAnswer) ? ['Yes po, that day is free'] : []),
+    'Let me check and reply today',
+    'Sending our price now',
+  ];
 
   msgTimer.flush();
 
@@ -1414,7 +1514,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     panel past 55dvh.
   */
   const blocked = blockState.blockedByMe || blockState.blockedByThem;
-  const dealOpen = toolsMounted && chatNegotiationEnabled();
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-12rem)] min-h-[27rem] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8 xl:max-w-[86rem]">
@@ -1530,7 +1629,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               </div>
             </>
           }
-          notice={<ChatPrivacyNotice inBox viewer="vendor" />}
+          notice={
+            <>
+              {answerLine}
+              <ChatPrivacyNotice inBox viewer="vendor" />
+            </>
+          }
           pinned={
             /* The cards that must stay in sight. Empty for most threads, and
                then it takes no space at all (`empty:hidden`). The band carries
@@ -1607,6 +1711,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       {/* Pending surcharge confirms (Adaptive Pax Pricing Phase 5) — the count
           moved a booked service's cost; nothing changes until the vendor taps
           Accept. Symmetric: a drop shows a credit. Owner-locked confirm flow. */}
+      <div id="guest-count" className="space-y-2 scroll-mt-24 empty:hidden">
       {paxProposals.map((p) => {
         const up = p.delta > 0;
         return (
@@ -1651,6 +1756,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           </div>
         );
       })}
+      </div>
 
       {/* Pending payment confirms + per-booking plan progress — moved into a
           live client component so the vendor's payment cards update in real
@@ -1680,26 +1786,41 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                     {proposalNotice}
                   </p>
                 ) : null}
+                {lastFromCouple ? (
+                  <div className="flex gap-2 overflow-x-auto pb-0.5" data-quick-replies="">
+                    {quickReplies.map((q) => (
+                      <form key={q} action={sendChatMessage} className="shrink-0">
+                        <input type="hidden" name="thread_id" value={threadId} />
+                        <input type="hidden" name="body" value={q} />
+                        <input type="hidden" name="return_to" value={`/vendor-dashboard/messages/${threadId}`} />
+                        <SubmitButton
+                          pendingLabel="Sending…"
+                          className="sn-press inline-flex min-h-11 items-center whitespace-nowrap rounded-full border border-ink/15 bg-ink/[0.04] px-4 text-sm text-ink hover:border-ink/30"
+                        >
+                          {q}
+                        </SubmitButton>
+                      </form>
+                    ))}
+                  </div>
+                ) : null}
                 {/* NOTHING BETWEEN THE LAST MESSAGE AND THE BOX BUT THE BOX.
-                    attach · message · 🧾 deal · 📞 call · send; the two icons
-                    open panels in the tray below, the seven other tools open
-                    from the rail. Neither icon dials or sends. */}
+                    ＋ · message · Send (simpler supplier dashboard step 4, 2026-10-14): the grey ＋ opens ONE sheet
+                    of every tool this conversation has (`thread-tools-sheet.tsx`) — it replaced the composer's
+                    🧾 / 📞 icons and the rail's Tools column. The paperclip moved into that sheet ("Share a file or
+                    the contract"); its input stays here so the file still rides this form. Send is the one main. */}
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  accessories={
-                    <>
-                      {dealOpen ? <RevealToolButton affordance="deal" entry={dealEntry} /> : null}
-                      <RevealToolButton affordance="call" label={`Call ${coupleLabel}`} />
-                    </>
-                  }
+                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} />}
+                  attachInputId={CHAT_ATTACH_INPUT_ID}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+          {/* TALK TO THEM (prototype `inquiry`: "New inquiry · Say yes to talk — nothing is booked yet"). The
+              shipped accept-to-reply, in plain words: it opens the conversation, it books nothing. */}
           <p className="text-sm text-ink">
-            <span className="font-semibold">New inquiry.</span> Accept to reply,
-            or decline if you&rsquo;re not available for this date.
+            <span className="font-semibold">New inquiry.</span> Say yes to talk — nothing is booked yet.
           </p>
           {/* The facts a supplier decides on. These came from the gated
               get_pending_inquiry_basics RPC, which returned four deliberately
@@ -1813,10 +1934,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 value={`/vendor-dashboard/messages/${threadId}`}
               />
               <SubmitButton
-                pendingLabel="Accepting…"
+                pendingLabel="Opening…"
                 className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
               >
-                Accept inquiry
+                Talk to them
               </SubmitButton>
             </form>
             <form action={declineInquiry}>

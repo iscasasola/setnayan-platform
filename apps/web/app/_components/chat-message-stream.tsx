@@ -38,6 +38,7 @@ import type { CoupleLockTarget } from '@/lib/lock-door';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
 import { LockAnswerForms } from './lock-answer-forms';
+import { QuoteCardLines } from './quote-card-lines';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { DepositReservation } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation';
 import { moneyStepLine, type MoneyStep } from '@/lib/accepted-quote-terms';
@@ -1168,30 +1169,8 @@ export function ChatMessageStream({
                       card.status === 'accepted' ? (
                         <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
                       ) : null}
-                      {items.length > 0 ? (
-                        <ul className="mt-2 space-y-0.5 border-t border-terracotta/20 pt-2 text-xs text-ink/70">
-                          {items.slice(0, 5).map((li, i) => (
-                            <li key={i} className="flex items-baseline justify-between gap-3">
-                              <span className="min-w-0 truncate">
-                                {li.label}
-                                {li.detail ? (
-                                  <span className="text-ink/45"> · {li.detail}</span>
-                                ) : null}
-                              </span>
-                              <span className="shrink-0 tabular-nums">
-                                {typeof li.amount_centavos === 'number'
-                                  ? formatCentavos(li.amount_centavos)
-                                  : 'Complimentary'}
-                              </span>
-                            </li>
-                          ))}
-                          {items.length > 5 ? (
-                            <li className="text-ink/45">
-                              + {items.length - 5} more in the full quote
-                            </li>
-                          ) : null}
-                        </ul>
-                      ) : null}
+                      {/* The card's lines — one component with the supplier's "As they see it" preview. */}
+                      <QuoteCardLines items={items} />
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Link
                           href={`/proposals/${card.publicId}`}

@@ -369,6 +369,32 @@
   }
 
   /*
+   * 👆 `.sn-hit` — THE SHARED CONTROLS PRESS AT 44 WITHOUT CHANGING THEIR DRAWING (owner 2026-10-12: 44 px is the
+   * minimum; dark-mode PR 4 "shared pieces", 2026-10-13). Measured faults it closes: a pill selector's choice 38
+   * tall, a form-row pill and a dropdown button 40, a chip 40, the toast's Undo / Try again 34.
+   *
+   * A PAINTED control cannot grow its own box without its pill growing too, so its press grows instead: an
+   * invisible `::after` that reaches 46 px tall around the control's centre (`top`/`bottom` are a share of the
+   * control's own height — `(100% − 46px) / 2`, never above 0, so a control already 46 or taller is left as it
+   * is). 46, not 44: a 44 that starts on a half pixel presses at 43 (measured on the link form of ActionButton,
+   * #6499). VERTICAL ONLY — a sideways bleed would add to a fitted row's `scrollWidth` and `useFitRow` would read
+   * it as overflow. `position: relative` sits in `:where()` (zero specificity) so a caller's own
+   * `absolute`/`fixed`/`sticky` still wins and the press follows it. A control that already draws with its
+   * `::after` (a switch's knob) does not wear this. Held by `lib/the-shared-controls-press-at-44.test.ts`.
+   */
+  :where(.sn-hit) {
+    position: relative;
+  }
+  .sn-hit::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: min(0px, calc((100% - 46px) / 2));
+    bottom: min(0px, calc((100% - 46px) / 2));
+  }
+
+  /*
    * Press feedback (owner directive 2026-05-31 — "buttons don't feel like
    * buttons; no animation when pressed"; made universal 2026-06-13). We kill
    * the default mobile tap-highlight above, so every button-like control needs
@@ -1128,6 +1154,14 @@ html.guests-subnav-docked [data-shell-main] {
 @layer utilities {
   .qr-slot:has(> svg[data-qr-shape='circle']) {
     border-radius: 9999px;
+  }
+  /* 🔳 THE QR PLATE STAYS WHITE IN DARK (dark-mode PR 4, 2026-10-13; the approved template kind 24: *"the code is
+     ALWAYS dark on white, in Light and in Dark (a scanner needs it)"*). A plate drawn `bg-cream` (the join-link
+     panel) would turn the page's near-black under dark modules, and a scanner reads nothing. In dark every plate
+     is white with the template's faint light edge; Light is untouched (its plates are already white). */
+  html.dark .qr-slot {
+    background-color: #fff;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08), 0 10px 26px -16px rgb(0 0 0 / 0.8);
   }
 }
 
@@ -4657,6 +4691,11 @@ html.dark {
   background-color: rgb(var(--color-ink) / 0.2);
   transition: background-color var(--sn-pill-dur) var(--sn-ease);
 }
+/* Dark (PR 4, 2026-10-13): "off" is the approved template's dark line (`--line2`, the page's ink at 28 %) — at 20 % the
+   track sank into the card. `:where()` keeps it at the base rule's weight, so "on" (the accent, below) still wins. */
+:where(html.dark) .sn-switch {
+  background-color: rgb(var(--color-ink) / 0.28);
+}
 .sn-switch[data-on='true'],
 .peer:checked ~ .sn-switch {
   background-color: rgb(var(--sn-accent));
@@ -6055,6 +6094,10 @@ html.dark .sn-popup-dark {
 /* Same pairing, same fix — see the note above `.app-surface .button-primary`. */
 .sn-btn-primary { background: var(--sn-gold-700); color: #FFFDF8; }
 .sn-btn-primary:hover { background: var(--sn-gold-800); transform: translateY(-2px); box-shadow: 0 14px 26px -12px var(--sn-gold-500); }
+/* Dark (PR 4 "shared pieces", 2026-10-13): the three shared filled buttons' fills turn LIGHT in dark (mulberry
+   #E5794E, gold #E2C98B, their hovers lighter still), so their white words read ~2:1. Their words are the page's
+   ink-black there (`--color-cream` in dark, #17160F) — the same answer as the accent's own `--sn-on-accent`. */
+html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(--color-cream)); }
 .sn-btn-secondary { background: transparent; color: var(--sn-ink-900); border: 1.5px solid var(--sn-ink-900); }
 .sn-btn-secondary:hover { background: var(--sn-ink-900); color: var(--sn-paper); transform: translateY(-2px); }
 .sn-btn-ghost { background: transparent; color: var(--sn-ink-700); }
@@ -8544,9 +8587,14 @@ input.sn-switch:focus-visible {
  * the button form's (an icon-only button is 40 wide too).
  * `position: relative` sits in `:where()` (zero specificity) so a caller's own
  * `absolute`/`fixed`/`sticky` utility still wins and the expander follows it.
- * Held by lib/action-link-presses-at-44.test.ts. */
-:where(a.ab) { position: relative; }
-a.ab::after { content: ''; position: absolute; inset: -3px 0; }
+ * Held by lib/action-link-presses-at-44.test.ts.
+ * ── AND THE BUTTON FORM WHERE ITS FLOOR IS TAKEN AWAY (dark-mode PR 4, 2026-10-13) — a `<button class="ab">` presses
+ * at 44 only while the base floor reaches it; a panel that resets `button { min-height: 0 }` (or a caller's
+ * `min-h-0`) left it a 40px press. So the expander is the BUTTON's too, written as the shared press (`.sn-hit`):
+ * 46px around the centre whatever the box, never above 0 — an `.ab` already 44 tall gains 1px each way, which
+ * neither a row nor `useFitRow` (vertical only) can see. */
+:where(.ab) { position: relative; }
+.ab::after { content: ''; position: absolute; left: 0; right: 0; top: min(0px, calc((100% - 46px) / 2)); bottom: min(0px, calc((100% - 46px) / 2)); }
 /* Tone rules are ELEMENT + BASE CLASS + TONE (specificity 0,2,1) — never a bare
  * tone class. Owner 2026-10-07: a specificity slip (a bare `.t-brand` losing to
  * the base rule) made every tone fall back to ink in the prototypes. The main

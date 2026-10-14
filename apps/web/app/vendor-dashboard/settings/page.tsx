@@ -8,6 +8,7 @@ import { countUnread } from '@/lib/notifications';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import { teamSeats } from '@/lib/vendor-free-helper';
 import { isMusicToolCategory } from '@/lib/songs';
+import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
 import { settingsMoreTools } from './settings-rows';
 import { SettingsView } from './settings-view';
 
@@ -31,7 +32,7 @@ export const metadata = { title: 'Settings · Supplier' };
  * ⚠ "SETTINGS IS NOT A ROW" (lib/vendor-more-rows.ts, 2026-10-01) WAS TRUE UNTIL THIS PAGE: there was no settings
  * page to open, so a Settings row would have pretended. Now there is one, and More lists it.
  *
- * Reads (each once): role · profile · tier · team roles · payout readiness · unread count · moodboard access. A
+ * Reads (each once): role · profile · tier · team roles · payout readiness (2) · unread count — 7 after sign-in. A
  * scoped team member (agent / viewer) sees only the rows that are theirs: Account · Notifications · Help · Switch
  * shop.
  */
@@ -49,7 +50,7 @@ export default async function VendorSettingsPage() {
   ]);
   const manager = !role || canManageVendor(role);
 
-  const [unread, tierRow, teamRead, payout, moodboard] = await Promise.all([
+  const [unread, tierRow, teamRead, payout] = await Promise.all([
     countUnread(supabase, user.id),
     manager && profile
       ? supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle()
@@ -64,10 +65,9 @@ export default async function VendorSettingsPage() {
           vendorUserId: profile.user_id,
         }).catch(() => 'unreadable' as const)
       : Promise.resolve('unreadable' as const),
-    manager
-      ? import('@/lib/moodboard-library-access').then((m) => m.resolveMoodboardLibraryAccess(supabase, user.id)).then((a) => a.allowed).catch(() => false)
-      : Promise.resolve(false),
   ]);
+  // The Moodboard library gate, decided from the profile already read (the pure half — no second read).
+  const moodboard = manager && moodboardLibraryAccessForProfile(profile).allowed;
 
   const tier = (tierRow?.data as { tier_state?: string | null } | null)?.tier_state ?? null;
   const team = teamRead && !teamRead.error ? ((teamRead.data ?? []) as { user_id: string; role: string }[]) : null;

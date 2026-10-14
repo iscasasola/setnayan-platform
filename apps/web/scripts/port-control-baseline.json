@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0b445800b",
-  "routeCount": 440,
-  "destinations": 962,
-  "actions": 664,
-  "blocks": 6313,
+  "generatedFromRef": "c1ded5738",
+  "routeCount": 441,
+  "destinations": 963,
+  "actions": 665,
+  "blocks": 6324,
   "routes": {
     "/": {
       "files": [
@@ -10592,6 +10592,28 @@
         "WhatsNewFeed"
       ]
     },
+    "/dev/supplier-plan-lab": {
+      "files": [
+        "dev/supplier-plan-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/supplier-plan-lab?s=notifs"
+      ],
+      "actions": [
+        "startSubscriptionPurchase"
+      ],
+      "blocks": [
+        "BusinessDoing",
+        "DatesRow",
+        "HelpersView",
+        "Icon",
+        "Link",
+        "NotificationsView",
+        "PlanPicker",
+        "PlanRows",
+        "SettingsView"
+      ]
+    },
     "/dev/suppliers-lab": {
       "files": [
         "dev/suppliers-lab/booked-fixtures.ts",
@@ -13116,6 +13138,7 @@
     "/vendor-dashboard/notifications": {
       "files": [
         "vendor-dashboard/notifications/loading.tsx",
+        "vendor-dashboard/notifications/notifications-view.tsx",
         "vendor-dashboard/notifications/page.tsx",
         "vendor-dashboard/notifications/push-toggle.tsx"
       ],
@@ -13131,6 +13154,7 @@
         "DatesRow",
         "ListPageSkeleton",
         "NotificationsList",
+        "NotificationsView",
         "PermissionState",
         "SupplierSubmit",
         "UnblockGuide"
@@ -13794,7 +13818,8 @@
     "/vendor-dashboard/settings": {
       "files": [
         "vendor-dashboard/settings/page.tsx",
-        "vendor-dashboard/settings/settings-rows.ts"
+        "vendor-dashboard/settings/settings-rows.ts",
+        "vendor-dashboard/settings/settings-view.tsx"
       ],
       "destinations": [
         "/dashboard/profile",
@@ -13803,9 +13828,9 @@
         "/help/what-do-suppliers-pay-setnayan",
         "/vendor-dashboard/deep-search",
         "/vendor-dashboard/disputes",
-        "/vendor-dashboard/manpower",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/shop",
+        "/vendor-dashboard/shop?open=manpower",
         "/vendor-dashboard/shop?open=payments",
         "/vendor-dashboard/team"
       ],
@@ -13815,7 +13840,8 @@
         "DatesRow",
         "Fold",
         "Icon",
-        "PushToggle"
+        "PushToggle",
+        "SettingsView"
       ]
     },
     "/vendor-dashboard/shop": {

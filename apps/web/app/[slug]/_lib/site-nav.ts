@@ -264,15 +264,21 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   //     day (their table, their look, the reminders, E-Gifts) — the same `home`
   //     key as the Invitation's Welcome, because it is the same page idea. A
   //     supplier gets no Welcome: it is a guest's page.
+  //
+  // 🏠 THE TAB'S WORD IS NOW "Home" (owner 2026-10-14, DECISION_LOG 2026-10-14
+  //     "Home"): every phase where the bar read "Welcome" now reads "Home" — the
+  //     six-tab early bar must fit a 320 px phone. Only the TAB's word moved: the
+  //     page and section titles that say Welcome stay, the key stays `home`, and
+  //     after the day it is still "Recap".
   if (phase === 'day') {
     slots.push({ key: 'live', label: 'Live', state: 'live', href: ANCHOR.home });
     if (!isVendor && (input.hasWelcome ?? true)) {
-      slots.push({ key: 'home', label: 'Welcome', state: 'live', href: ANCHOR.welcome });
+      slots.push({ key: 'home', label: 'Home', state: 'live', href: ANCHOR.welcome });
     }
   } else {
     slots.push({
       key: 'home',
-      label: phase === 'after' ? 'Recap' : 'Welcome',
+      label: phase === 'after' ? 'Recap' : 'Home',
       state: 'live',
       href: ANCHOR.home,
     });

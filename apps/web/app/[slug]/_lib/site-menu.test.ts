@@ -26,7 +26,7 @@ test('all sections present → the full five tabs in order', () => {
     // Owner 2026-09-30: "Welcome - Details - Our Love Story - Me" (keys unchanged);
     // the tab's word became "Story" with a heart 2026-10-14 ("(heart) Story?") — the
     // section title stays "Our Love Story".
-    ['Welcome', 'Details', 'Story', 'Gallery', 'Me'],
+    ['Home', 'Details', 'Story', 'Gallery', 'Me'],
   );
 });
 

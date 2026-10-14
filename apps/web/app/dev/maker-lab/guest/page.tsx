@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { WishLab } from './wish-lab';
 import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
+import { LAB_SIGNED } from '../lab-own-media';
 import { CountdownWidget } from '@/app/[slug]/_components/countdown';
 import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
 import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
@@ -187,6 +188,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         event: { event_id: '00000000-0000-4000-8000-000000000000' },
         viewerIsHost: true,
         tryOn: true,
+        /* 🖼🎬 The lab's own photo and hero video (`../lab-own-media.ts`) — local addresses, nothing signed. */
+        signed: { ...LAB_SIGNED },
       })
     : null;
   /* 🎨 The lab's drafted scene canvases (`lab_widgets`, the lab's save

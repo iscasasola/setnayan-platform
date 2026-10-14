@@ -84,3 +84,19 @@ test('3 · every guest-facing file that writes a guest’s rsvp_status asks the 
   assert.ok(writers.includes('app/[slug]/actions.ts') && writers.includes('app/join/[eventId]/actions.ts'), `the known writers were not found: ${writers.join(', ')}`);
   assert.deepEqual(missing, [], 'these guest-facing files write a reply without asking the reply window');
 });
+
+test('4 · a join request refused before replies open is told the Reply card’s words and day — one source', async () => {
+  const { joinDoorRefusalMessage } = await import('./join-door-refusal-copy');
+  const { replyWindowWords } = await import('./reply-window');
+  const w = { theOrganizer: 'the couple' };
+  const notYet = replyWindowWords({ state: 'not_yet', reason: 'opens_on_date', opensOn: '2026-11-14', closesOn: null }, w.theOrganizer);
+  assert.equal(joinDoorRefusalMessage('replies_not_yet', w, notYet), 'Replies open on Saturday, 14 November');
+  const closed = replyWindowWords({ state: 'closed', reason: 'closed_by_couple', opensOn: null, closesOn: null }, w.theOrganizer);
+  assert.equal(joinDoorRefusalMessage('replies_closed', w, closed), 'Replies are closed. Need to change? Message the couple.');
+  // The door reads the window from its own one read and hands the words in — never a date from the address.
+  const flow = src('app/join/[eventId]/_components/join-flow.tsx');
+  assert.match(flow, /\.select\(REPLY_WINDOW_EVENT_COLUMNS\)/, 'the door no longer reads the window’s columns');
+  assert.match(flow, /replyWindowWords\(await replyWindowOfRow\(askRow\), w\.theOrganizer\)/, 'the door’s words are not the window’s');
+  assert.match(flow, /joinDoorRefusalMessage\(errorKey, w, repliesShut\)/, 'the refusal is not handed the window’s words');
+  assert.doesNotMatch(flow, /search(Params)?\.(opens|date)/, 'a date read from the address');
+});

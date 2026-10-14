@@ -273,14 +273,19 @@ test('🖼 RULING 2026-10-14: early shooting gives an invited guest "Your shots"
     stageSlots: STAGE_BAR.rsvp.slots,
   } as Partial<NavInput>;
   assert.deepEqual(keys(at(inv)), ['home', 'details', 'story', 'me'], 'early off: the Invitation keeps its four');
-  assert.deepEqual(keys(at({ ...inv, earlyOwnShots: true })), ['home', 'details', 'story', 'gallery', 'me']);
+  // …and (owner 2026-10-14, on #6529) the Camera too — SIX, once: Welcome · Details · Story · Camera · Gallery · Me.
+  assert.deepEqual(keys(at({ ...inv, earlyOwnShots: true })), ['home', 'details', 'story', 'camera', 'gallery', 'me']);
+  const c = at({ ...inv, earlyOwnShots: true }).find((s) => s.key === 'camera');
+  assert.equal(c?.state, 'live');
+  assert.equal(c?.href, '/papic/guest', 'the Camera tab goes where the Gallery\'s "Take your first photo" goes');
+  assert.ok(!keys(at(inv)).includes('camera'), 'early off: no Camera before the day');
   const g = at({ ...inv, earlyOwnShots: true }).find((s) => s.key === 'gallery');
   assert.equal(g?.state, 'live');
   assert.equal(g?.label, 'Gallery', 'NAMING LOCK — never "Photos"');
   // Save the Date too (the other before-the-day stage).
   assert.deepEqual(
     keys(at({ ...inv, stageSlots: STAGE_BAR.save_the_date.slots, earlyOwnShots: true })),
-    ['home', 'story', 'gallery', 'me'],
+    ['home', 'story', 'camera', 'gallery', 'me'],
   );
   // 🔒 A stranger, a supplier and the couple: unchanged by the switch.
   for (const viewer of [{ kind: 'public' as const }, { kind: 'vendor' as const, kits: [] as VendorKit[] }, { kind: 'couple' as const }]) {
@@ -294,9 +299,7 @@ test('🖼 RULING 2026-10-14: early shooting gives an invited guest "Your shots"
   for (const phase of ['day', 'after'] as const) {
     assert.ok(!keys(at({ viewer: { kind: 'guest' }, phase, anyChapterPublic: false, earlyOwnShots: true })).includes('gallery'));
   }
-  // Still five at most — and Me is never the one pushed off the end.
+  // Six is this rule's alone — and Me is never pushed off the end.
   const open = at({ ...inv, stageSlots: undefined, earlyOwnShots: true });
-  assert.ok(open.length <= 5);
-  assert.equal(open[open.length - 1]?.key, 'me');
-  assert.ok(keys(open).includes('gallery'));
+  assert.deepEqual(keys(open), ['home', 'details', 'story', 'camera', 'gallery', 'me']);
 });

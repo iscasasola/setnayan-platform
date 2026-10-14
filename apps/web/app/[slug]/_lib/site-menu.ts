@@ -43,7 +43,7 @@ export type SiteMenuTab = {
 const TAB_LABELS: Record<SiteMenuTabKey, string> = {
   home: 'Welcome',
   details: 'Details',
-  story: 'Our Love Story',
+  story: 'Story', // ❤️ owner 2026-10-14 — the TAB's word; the section title stays "Our Love Story"
   gallery: 'Gallery', // owner-renamed — never "Photos"
   me: 'Me',
 };

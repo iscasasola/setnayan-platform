@@ -302,8 +302,10 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   //     happening, Live/Welcome/Camera/Gallery are what a guest needs, and the bar
   //     holds five.
   if (phase === 'before' && !isVendor && hasStory) {
-    // "Our Love Story" (owner 2026-09-30) — the tab's words, the key stays `story`.
-    slots.push({ key: 'story', label: 'Our Love Story', state: 'live', href: ANCHOR.story });
+    // ❤️ "Story" with a heart (owner 2026-10-14, "(heart) Story?") — the TAB's word, so
+    // it never truncates in a six-tab bar; the page/section title stays "Our Love
+    // Story" (owner 2026-09-30). The key stays `story`.
+    slots.push({ key: 'story', label: 'Story', state: 'live', href: ANCHOR.story });
   }
 
   // 3½ — NO RSVP TAB. ⚖ Owner 2026-09-30: *"RSVP does not have 4 tabs under"*
@@ -338,7 +340,13 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
             lockedReason: 'No camera is open for this event yet',
           },
     );
+  } else if (phase === 'before' && !(viewer.kind === 'guest' && input.earlyOwnShots === true)) {
+    // Before the day a guest's Camera is drawn ONLY with early shooting on (owner
+    // 2026-10-14, below). Otherwise the stage list never carried it anyway.
   } else if (!isVendor) {
+    // 📸 EARLY SHOOTING (owner 2026-10-14, on #6529): before the day, with "Let
+    // guests shoot now" on, an invited guest gets the Camera tab too — the same
+    // gate and the same address as the Gallery's "Take your first photo".
     // ⚠ THE HOST'S SWITCH IS THE GATE — owner ruling, pinned by
     // site-nav.test.ts ("for everyone else the HOST'S SWITCH is the gate").
     // An earlier cut of this fix ALSO required a guest session here, which
@@ -405,7 +413,10 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   }
 
   const allow = input.stageSlots;
-  const allowed = allow ? slots.filter((s) => allow.includes(s.key)) : slots;
+  // 📸 Early shooting's Camera is not on a before-the-day stage's list (no other
+  // guest gets one there) — it passes the list on this rule's own say-so.
+  const earlyGuest = phase === 'before' && viewer.kind === 'guest' && input.earlyOwnShots === true;
+  const allowed = allow ? slots.filter((s) => allow.includes(s.key) || (earlyGuest && s.key === 'camera')) : slots;
   // ⚖ Five slots, always. After the day the couple can have six doors (their
   // camera is unconditional); Suppliers — a scroll within the page they edit —
   // yields first. Nobody else can exceed five.
@@ -413,14 +424,10 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     const i = allowed.findIndex((s) => s.key === 'suppliers');
     if (i >= 0) allowed.splice(i, 1);
   }
-  // 🖼 Before the day with early shooting on and no stage list to cut it, the
-  // Camera yields to "Your shots" — whose empty state carries the Camera — so
-  // Me is never the one pushed off the end.
-  if (allowed.length > 5 && phase === 'before') {
-    const i = allowed.findIndex((s) => s.key === 'camera');
-    if (i >= 0) allowed.splice(i, 1);
-  }
-  const five = allowed.slice(0, 5);
+  // 📸 SIX, ONCE: before the day with early shooting on, an invited guest's bar is
+  // Welcome · Details · Story · Camera · Gallery · Me (owner 2026-10-14). Nobody
+  // else, and no other moment, exceeds five.
+  const five = allowed.slice(0, earlyGuest ? 6 : 5);
   // 📱 Each tab its own page: an in-page tab goes to its address, not a mark.
   return input.tabbed
     ? five.map((sl) => (sl.state === 'live' && IN_PAGE_ANCHORS.includes(sl.href) ? { ...sl, href: hubTabHref(sl.key) } : sl))

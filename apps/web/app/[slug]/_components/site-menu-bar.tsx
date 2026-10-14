@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Activity, Home, Info, BookOpen, Camera, Images, Radio, User, Lock, CalendarClock, Film, Users } from 'lucide-react';
+import { Activity, Home, Info, Camera, Images, Radio, User, Lock, CalendarClock, Film, Users, Heart } from 'lucide-react';
 import type { NavSlot } from '../_lib/site-nav';
 import { HUB_TAB_PARAM, activeHubTab, cameraHrefWithBack, inPageTabs } from '../_lib/hub-tabs';
 
@@ -91,7 +91,8 @@ const ICONS: Record<NavSlot['key'], typeof Home> = {
   home: Home,
   details: Info,
   schedule: CalendarClock,
-  story: BookOpen,
+  // ❤️ owner 2026-10-14, "(heart) Story?" — the love story's tab wears a heart.
+  story: Heart,
   // 📖 After the day (owner 2026-09-25, E1): the replay and films, and the team.
   film: Film,
   suppliers: Users,

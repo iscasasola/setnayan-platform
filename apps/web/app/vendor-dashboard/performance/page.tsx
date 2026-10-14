@@ -84,8 +84,10 @@ import { SourceBreakdown } from '../_components/source-breakdown';
 import { PerformanceControls } from './_components/performance-controls';
 import { Reanimate } from './_components/reanimate';
 import { formatCount } from '@/lib/format-number';
+import { BusinessDoing, type DoingWindow } from './_components/business-doing';
+import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 
-export const metadata = { title: 'My Performance · Supplier' };
+export const metadata = { title: 'How is my business doing · Supplier' };
 
 export const dynamic = 'force-dynamic';
 
@@ -696,8 +698,61 @@ export default async function PerformanceHome({
     now: Date.now(),
   });
 
+  // ── HOW IS MY BUSINESS DOING (simpler supplier dashboard step 6) ─────────
+  // The top block, in plain words, over the SAME reads made above — nothing new
+  // is fetched. The 28-day window exists only where the page already reads it
+  // (Pro-and-up, or everyone while the plan paywall is off).
+  const doingWindows: DoingWindow[] = [
+    ...(canAdvanced
+      ? [
+          {
+            key: 'month' as const,
+            label: 'Last 28 days',
+            views: funnelTotalsMonth.views,
+            inquiries: funnelTotalsMonth.inquiries,
+            booked: funnelTotalsMonth.booked,
+            bookedPhp: attributionMonth?.totalRevenuePhp ?? 0,
+            ...businessSentence(funnelTotalsMonth),
+            from: fromLine(attributionMonth),
+          },
+        ]
+      : []),
+    {
+      key: 'year' as const,
+      label: 'Last 12 months',
+      views: funnelTotalsYear.views,
+      inquiries: funnelTotalsYear.inquiries,
+      booked: funnelTotalsYear.booked,
+      bookedPhp: attributionYear?.totalRevenuePhp ?? 0,
+      ...businessSentence(funnelTotalsYear),
+      from: fromLine(attributionYear),
+    },
+  ];
+  const doingMore = [
+    { key: 'over-time', title: 'Over time', line: 'Bookings and money by day, month and year', href: '#over-time', pro: false },
+    { key: 'market', title: 'Demand and prices near you', line: 'Busy months ahead · how your prices sit', href: '#market', pro: gateOn && !canMarket },
+    { key: 'compare', title: 'How you compare', line: 'Your funnel against shops like you', href: '#market', pro: gateOn && !canMarket },
+  ];
+
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      {/* 0 · HOW IS MY BUSINESS DOING — the plain-words top (step 6). Below it,
+          the full cards, unchanged ("only the words change"). */}
+      <div className="mx-auto w-full max-w-xl lg:mx-0">
+        <h1 className="sn-h1">How is my business doing</h1>
+        <div className="mt-2">
+          <BusinessDoing
+            windows={doingWindows}
+            initial={momentumMode === 'year' ? 'year' : 'month'}
+            bars={barHeights(bookingSeries)}
+            barLabels={bookingSeries.map((p) => p.label)}
+            reply={replyLine(replyVerdict)}
+            rating={ratingLine(statsRow as { review_avg_bayesian?: number | null; review_count?: number | null } | null)}
+            more={doingMore}
+          />
+        </div>
+      </div>
+
       {/* ── Arrangement (owner 2026-07-02 design pass): ONE bounded windowed zone
           headed by the filter, the acquisition→conversion→revenue story reunited
           high, and every non-windowed card grouped into a clean back-half so the
@@ -721,7 +776,7 @@ export default async function PerformanceHome({
           Funnel → ROI → by-source, plus the coming money graphs) responds to the
           Daily/Monthly/Annual window + service scope, INSTANTLY client-side (no
           refetch, no Apply button). Nothing else on the page follows the filter. */}
-      <div>
+      <div id="over-time" className="scroll-mt-24">
         <SectionEyebrow label="Performance over time" />
         <p className="mb-4 -mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
           Pick a window and service below — this whole section updates instantly.
@@ -790,7 +845,7 @@ export default async function PerformanceHome({
 
       {/* 4 · Looking ahead & the market — forward-looking (Capacity) + market
           intel (Demand radar), both deliberately OUTSIDE the period filter. */}
-      <div>
+      <div id="market" className="scroll-mt-24">
         <SectionEyebrow label="Looking ahead & the market · not affected by the period filter" />
         <div className="space-y-6">
           {canAdvanced && capacityAnalytics && (

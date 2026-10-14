@@ -691,6 +691,11 @@ export function shortDay(iso: string | null | undefined): string | null {
   return `${WEEKDAY3[d.getUTCDay()]} ${dm}`;
 }
 
+/** A date change's date, short ("Sun 25 Oct") when it is a day; the request's own words for a month or a year. */
+export function dateChangeShort(date: string, precision: 'day' | 'month' | 'year'): string {
+  return (precision === 'day' ? shortDay(date) : null) ?? dateChangeWhen(date, precision);
+}
+
 /** Whole days left on a deadline, rounded up — "2 d". Null once it has passed. */
 function daysLeft(dueAt: string, now: number): number | null {
   const ms = new Date(dueAt).getTime() - now;
@@ -721,7 +726,7 @@ export function todayRowWords(card: WhatsNewCard, now: number): TodayRowWords {
       const left = daysLeft(card.dueAt, now);
       return {
         label: 'Date change',
-        line: `${card.coupleName} · ${card.fromDate ? dateChangeWhen(card.fromDate, card.fromPrecision) : 'their date'} → ${dateChangeWhen(card.proposedDate, card.proposedPrecision)}`,
+        line: `${card.coupleName} · ${card.fromDate ? dateChangeShort(card.fromDate, card.fromPrecision) : 'their date'} → ${dateChangeShort(card.proposedDate, card.proposedPrecision)}`,
         icon: 'calendar',
         lineTone: 'warn',
         pill: { word: left === null ? 'Due' : `${formatCount(left)} d`, tone: left === null ? 'no' : 'wait' },

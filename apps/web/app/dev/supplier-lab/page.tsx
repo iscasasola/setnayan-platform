@@ -46,6 +46,20 @@ import { SupplierTodayScreen } from '@/app/vendor-dashboard/_components/supplier
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { SupplierToast } from '@/app/vendor-dashboard/_components/supplier-toast';
 import { cardTimestamp, type UpcomingEventRow, type WhatsNewCard } from '@/lib/vendor-overview';
+import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
+import {
+  vendorAcknowledgeDeposit,
+  vendorMarkServiceComplete,
+  vendorRejectDeposit,
+  vendorAgreeToLock,
+  vendorDeclineLock,
+  vendorAgreeToDeletion,
+  vendorDeclineDeletion,
+  vendorAnswerDateChange,
+} from '@/app/vendor-dashboard/clients/[eventId]/actions';
+import { postVendorReply } from '@/app/vendor-dashboard/reviews/actions';
+import { respondAppointment } from '@/app/_components/appointments-actions';
+import type { TodayActions } from '@/app/vendor-dashboard/_components/supplier-today-screen';
 import { splitDesk } from '@/lib/vendor-desk-disposition';
 import type { DueFeeBill } from '@/lib/booking-fee-disclosure';
 import { PeopleLab } from './people-lab';
@@ -179,6 +193,22 @@ const TOASTS: Record<string, { text: string; tone: 'ok' | 'note' | 'bad'; retry?
   failed: { text: 'That did not go through. Nothing changed — please try again.', tone: 'bad', retry: true },
 };
 
+/* The SHIPPED answers, exactly as the page mounts them — with no session every one refuses; nothing is written. */
+const ACTIONS: TodayActions = {
+  acceptInquiry,
+  declineInquiry,
+  confirmLock: vendorAcknowledgeDeposit,
+  rejectLock: vendorRejectDeposit,
+  agreeLock: vendorAgreeToLock,
+  declineLock: vendorDeclineLock,
+  agreeDeletion: vendorAgreeToDeletion,
+  declineDeletion: vendorDeclineDeletion,
+  answerDateChange: vendorAnswerDateChange,
+  postReviewReply: postVendorReply,
+  respondMeeting: respondAppointment,
+  markServiceComplete: vendorMarkServiceComplete,
+};
+
 function TodayLab({ state, toast }: { state: TodayState; toast: string | undefined }) {
   const { answer: needsAnswer, news: closed } = splitDesk(state.whatsNew);
   const findability = state.extras
@@ -223,6 +253,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
         cards={state.whatsNew}
         askStatus=""
         deskIncomplete={state.deskIncomplete}
+        actions={ACTIONS}
       />
     </div>
   );
@@ -237,7 +268,7 @@ export default async function SupplierLabPage({
   const q = await searchParams;
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
-    return <TodayEasyLab sup={sup} moment={q.easy as EasyMoment} />;
+    return <TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} />;
   }
   if (q.s && (PEOPLE_STATES as readonly string[]).includes(q.s)) {
     return <PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} />;

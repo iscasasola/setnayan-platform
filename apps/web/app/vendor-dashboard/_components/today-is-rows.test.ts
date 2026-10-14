@@ -80,11 +80,20 @@ type Opts = {
   owedPhp?: number | null;
   findability?: { title: string; body: string; cta: { label: string; href: string } | null } | null;
   setupStep?: { title: string; body: string; cta: string | null; href: string | null } | null;
-  credit?: { title: string; body: string; href: string } | null;
-  payout?: { title: string; body: string; href: string } | null;
-  /** A stand-in for the page's `<BookingFeeBills rows>`. */
+  /** The plan credit about to expire (`todayCreditNotice` said yes). */
+  credit?: boolean;
+  /** Couples cannot see where to pay this shop. */
+  payout?: boolean;
+  /** Two unpaid booking fees. */
   bills?: boolean;
+  /** The outcome of an answer (status line under the card). */
+  outcome?: { text: string; tone: 'ok' | 'note' | 'bad'; door?: { label: string; href: string } | null };
 };
+
+const BILLS = [
+  { orderId: 'S89O-T0000001', amountPhp: 750, eventId: 'e-ana', coupleName: 'Ana & Miguel', dueOn: '2026-10-09', introducedOn: '2026-09-30' },
+  { orderId: 'S89O-T0000002', amountPhp: 1200, eventId: 'e-rc', coupleName: 'Rolando & Carmen', dueOn: '2026-10-01' },
+];
 
 async function queue(o: Opts) {
   const L = await lib();
@@ -108,44 +117,60 @@ async function queue(o: Opts) {
     since,
     setupStep: input.setupStep,
     findability: input.findability,
-    credit: o.credit ?? null,
-    payout: o.payout ?? null,
+    credit: o.credit ? { title: 'Credits expiring', body: '₱2,500 · Mon 5 Oct', href: '/vendor-dashboard/subscription' } : null,
+    payout: o.payout ? { title: 'Where couples pay you', body: 'Add GCash or a bank', href: '/vendor-dashboard/shop?open=payments#shop-folds', button: 'Set up' } : null,
     now: NOW,
   });
   return { L, next, waiting, needsAnswer, nextAnswer: next.kind === 'answer' ? nextAnswer : null, input };
 }
 
-/** Today, drawn exactly as the page composes it. */
+/**
+ * Today, drawn exactly as the page composes it: the ONE assembly (`assembleSupplierToday`) and the ONE drawing
+ * (`SupplierTodayScreen`) the page and the dev lab share — with the answers as no-ops (a test has no server).
+ */
 async function render(o: Opts): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { SupplierTodayFirstScreen } = await import('./supplier-today-first-screen');
-  const { WhatsNewFeed } = await import('./overview-sections');
-  const { L, next, waiting, needsAnswer, nextAnswer, input } = await queue(o);
+  const { SupplierTodayScreen } = await import('./supplier-today-screen');
+  const { assembleSupplierToday } = await import('@/lib/supplier-today-view');
+  const { splitDesk } = await import('@/lib/vendor-desk-disposition');
+  const { answer, news } = splitDesk(o.needsAnswer ?? []);
+  const view = assembleSupplierToday({
+    needsAnswer: answer,
+    closed: news,
+    deskIncomplete: o.deskIncomplete ?? false,
+    upcoming: o.upcoming ?? [],
+    schedules: { pools: [], outside: [], complete: true },
+    firstSteps: null,
+    verified: true,
+    findable: !o.findability,
+    findability: o.findability ?? null,
+    feeBills: o.bills ? BILLS : [],
+    feeEnforced: true,
+    earnings: o.owedPhp === undefined || o.owedPhp === null ? null : { confirmedPhp: 0, expectedPhp: o.owedPhp, paydayMeasured: true },
+    credit: o.credit ? { creditPhp: 2500, tierExpiresAt: '2026-10-05T00:00:00Z', href: '/vendor-dashboard/subscription' } : null,
+    payoutReadiness: o.payout ? 'none' : 'unreadable',
+    payoutHref: '/vendor-dashboard/shop?open=payments#shop-folds',
+    shop: { name: 'Lumina Studio', categoryWord: 'Photo & video', details: { done: 6, total: 6, complete: true }, awardWord: null, milestoneWord: null },
+    views: 312,
+    inquiries28: 14,
+    dayFacts: null,
+    todayIso: '2026-10-02',
+    now: NOW,
+    since,
+  });
   const actions = {
     acceptInquiry: noop, declineInquiry: noop, confirmLock: noop, rejectLock: noop, agreeLock: noop, declineLock: noop,
     agreeDeletion: noop, declineDeletion: noop, answerDateChange: noop, postReviewReply: noop, respondMeeting: noop, markServiceComplete: noop,
   };
   return renderToStaticMarkup(
-    React.createElement(SupplierTodayFirstScreen, {
-      next,
-      look: L.nextLook(next.kind, nextAnswer),
-      second: L.nextSecond(next, nextAnswer, input.upcoming),
-      counter: waiting.counter,
-      meta: L.nextMeta(nextAnswer, nextAnswer ? since(nextAnswer) : null, NOW),
-      dateChange: nextAnswer?.kind === 'date_change' ? { card: nextAnswer, answer: noop } : null,
-      numbers: {
-        waiting: L.waitingOnYou(needsAnswer.length, input.deskIncomplete),
-        waitingNow: needsAnswer.length > 0,
-        thisWeek: L.eventsThisWeek(input.upcoming),
-        toComeIn: input.owedPhp === null ? null : `₱${input.owedPhp}`,
-      },
-      comingUp: (next.kind === 'run_day' ? input.upcoming.slice(1) : input.upcoming).slice(0, 3),
-      alsoWaitingHeaded: waiting.asks.length > 0 || input.deskIncomplete,
-      doors: waiting.doors,
-      hasBills: o.bills ?? false,
-      bills: o.bills ? React.createElement('div', { 'data-testid': 'booking-fee-bill', className: 'border-t' }, 'Booking fee due') : null,
-      shop: { name: 'Lumina Studio', line: 'Photo & video · Live', live: true },
-      alsoWaiting: React.createElement(WhatsNewFeed, { cards: needsAnswer, asks: waiting.asks, incomplete: input.deskIncomplete, ...actions }),
+    React.createElement(SupplierTodayScreen, {
+      view,
+      outcome: o.outcome ?? null,
+      feeForecasts: {},
+      cards: o.needsAnswer ?? [],
+      askStatus: '',
+      deskIncomplete: o.deskIncomplete ?? false,
+      actions,
     }),
   );
 }
@@ -163,11 +188,14 @@ test('1 · "1 of 3" is the Next card; the rows are 2 of 3 and 3 of 3 — never t
   ]);
   assert.ok(waiting.asks.every((a) => !a.open));
 
+  // 🧾 The simpler Today (owner APPROVE 2026-10-14) draws the rows in the prototype's short words, with no queue
+  // number on each — the Next card's "1 of 3" is the count; the rows are the rest, in the desk's order.
   const html = await render({ needsAnswer: [REPLY, BOOKING, QUOTE] });
   const t = text(html);
   assert.match(t, /1 of 3/);
-  assert.match(t, /Also waiting.*Agree to this booking.*2 of 3.*Send your quote.*3 of 3/, `the rows are not the rest of the queue, in order: ${t.slice(0, 600)}`);
+  assert.match(t, /Also waiting.*Agree to this booking.*Finish quote draft/, `the rows are not the rest of the queue, in order: ${t.slice(0, 600)}`);
   assert.equal((t.match(/\b1 of 3\b/g) ?? []).length, 1, 'the Next ask is drawn twice');
+  assert.doesNotMatch(t, /\b[23] of 3\b/, 'a row wears a queue number again — the prototype has none');
   assert.equal((html.match(/data-today-ask=/g) ?? []).length, 2);
 });
 
@@ -184,11 +212,11 @@ test('1c · on an event day the card is the day, and every ask is a row numbered
   assert.equal(waiting.counter, null, 'the day card is not one of the asks');
   assert.deepEqual(waiting.asks.map((a) => a.position), [1, 2]);
   const html = await render({ needsAnswer: [REPLY, BOOKING], upcoming: [today] });
-  assert.match(text(html), /1 of 2.*2 of 2/);
+  assert.equal((html.match(/data-today-ask=/g) ?? []).length, 2, 'on an event day every ask is a row');
   // The card IS today's event — it is not listed again under Coming up.
   const coming = html.slice(html.indexOf('data-today-coming-up'), html.indexOf('data-also-waiting'));
   assert.doesNotMatch(text(coming), /Cruz wedding/, 'today’s event is on the card AND under Coming up');
-  assert.match(code('app/vendor-dashboard/page.tsx'), /comingUp=\{\(next\.kind === 'run_day' \? upcoming\.slice\(1\) : upcoming\)\.slice\(0, 3\)\}/);
+  assert.match(code('lib/supplier-today-view.ts'), /\.\.\.\(eventToday \? upcoming\.slice\(1\) : upcoming\)\.map\(/);
   // A lone ask has no "1 of 1".
   const one = await render({ needsAnswer: [BOOKING], upcoming: [today] });
   assert.match(one, /data-today-ask="lock_request"/);
@@ -196,13 +224,12 @@ test('1c · on an event day the card is the day, and every ask is a row numbered
 });
 
 test('1d · the doors are never drawn under the wrong heading', async () => {
-  const credit = { title: 'Your ₱2,500 credit expires in 3 days', body: 'Renew to keep it.', href: '/vendor-dashboard/subscription' };
   // No ask row: the doors carry "Also waiting" themselves.
-  const alone = await render({ needsAnswer: [REPLY], credit });
+  const alone = await render({ needsAnswer: [REPLY], credit: true });
   assert.doesNotMatch(alone, /data-also-waiting/);
-  assert.match(text(alone.slice(alone.indexOf('data-today-doors'), alone.indexOf('data-today-shop'))), /> Also waiting Your ₱2,500 credit expires in 3 days/);
+  assert.match(text(alone.slice(alone.indexOf('data-today-doors'), alone.indexOf('data-today-shop'))), /> Also waiting Credits expiring/);
   // With ask rows: one heading, above the asks.
-  const both = await render({ needsAnswer: [REPLY, BOOKING], credit });
+  const both = await render({ needsAnswer: [REPLY, BOOKING], credit: true });
   assert.equal((text(both).match(/Also waiting/g) ?? []).length, 1);
 });
 
@@ -210,7 +237,7 @@ test('1e · the booking-fee rows sit LAST under "Also waiting" — never under C
   // Found on the 375 walk (2026-10-12): with one ask (the Next card) and no door, two fee rows were drawn straight
   // under the last Coming-up row.
   const heading = (html: string) => (text(html).match(/Also waiting/g) ?? []).length;
-  for (const o of [{ needsAnswer: [REPLY] }, { needsAnswer: [REPLY, BOOKING] }, { needsAnswer: [REPLY], credit: { title: 'Credit ends', body: 'b', href: '/vendor-dashboard/subscription' } }] as Opts[]) {
+  for (const o of [{ needsAnswer: [REPLY] }, { needsAnswer: [REPLY, BOOKING] }, { needsAnswer: [REPLY], credit: true }] as Opts[]) {
     const html = await render({ ...o, upcoming: [{ ...today, date: '2026-10-05', inDays: 3 }], bills: true });
     const bill = html.indexOf('data-testid="booking-fee-bill"');
     assert.ok(bill > 0, 'anti-vacuity: the bill was not drawn');
@@ -269,15 +296,22 @@ test('2b · a row OPENS ITS ANSWER IN PLACE — the form is inside the row, one 
   // The SHARED fold (kind 19): its head is a button that says whether it is open, its body stays mounted — and it
   // joins the one-open-at-a-time mechanism (`fold.tsx` → `useOneOpen`), which a hand-made <details> never did.
   for (const r of rows) {
+    // 🚪 A quote never sent is a DOOR row (simpler Today 2026-10-14, "Finish quote draft →"): nothing is answered on
+    // Today, so the row opens the quotes fold where it is. Every other row opens its answer in place.
+    if (r.includes('data-today-ask="quote_draft"')) {
+      assert.match(r, /<a[^>]*href="\/vendor-dashboard\/customers\?seg=money&amp;open=proposals#customer-tools"/, 'the quote-draft row does not open the quotes');
+      assert.doesNotMatch(r, /<form/, 'a door row grew a form');
+      continue;
+    }
     assert.match(r, /<div data-fold="today-ask"/, 'the row is not the shared Fold');
     assert.match(r, /<button type="button" data-fold-head="" aria-expanded="(?:true|false)"/, 'the row has no fold head');
     assert.doesNotMatch(r, /<details|<summary/, 'the row is a hand-made <details> again');
+    assert.match(r, /data-row-icon="/, 'the row lost its round icon (the prototype draws one on every row)');
   }
   assert.match(code('app/_components/fold.tsx'), /const scope = useOneOpen\(open, setOpen\);/, 'the shared fold stopped closing its peers');
   const ask = rows.find((r) => r.includes('data-today-ask="lock_request"'))!;
   const head = ask.slice(ask.indexOf('data-fold-head'), ask.indexOf('data-fold-body'));
-  assert.match(text(head), /Agree to this booking.*2 of 3/, 'the row does not say what it is and where it is in the queue');
-  assert.match(head, /data-badge="wait"[^>]*>2 of 3</, '"2 of 3" is not the shared Badge');
+  assert.match(text(head), /Agree to this booking.*Rolando & Carmen/, 'the row does not say what it is and whose it is');
   assert.match(ask, /<form[\s\S]*name="vendor_id" value="ev-rc"[\s\S]*Agree to this booking/, 'the booking ask cannot be agreed to from its row');
   assert.match(ask, /Turn it down/, 'the "no" left the row');
   assert.doesNotMatch(ask, /sn-card|sn-tile/, 'the answer is back in a box');
@@ -316,8 +350,12 @@ test('2d · a date change IS answered on the Next card — Move · Unlock, the s
   // …and it is not listed a second time below.
   assert.doesNotMatch(html, /data-today-ask="date_change"/);
   assert.match(text(html), /1 of 3/);
-  // The page hands the card the SHIPPED action, not a new one.
-  assert.match(code('app/vendor-dashboard/page.tsx'), /\{ card: nextIsAnswer, answer: vendorAnswerDateChange \}/);
+  // The page hands the card the SHIPPED action, not a new one (through the one drawing it shares with the lab).
+  assert.match(code('app/vendor-dashboard/page.tsx'), /answerDateChange: vendorAnswerDateChange,/);
+  assert.match(code('app/vendor-dashboard/_components/supplier-today-screen.tsx'), /\{ card: view\.dateChangeOnCard, answer: actions\.answerDateChange \}/);
+  // The prototype's words: "Move to <date>" · "Unlock my service".
+  assert.match(text(card), /Move to Oct 11|Move to 11 Oct|Move to [A-Z][a-z]+ 11/, `the move names no date: ${text(card).slice(0, 300)}`);
+  assert.match(text(card), /Unlock my service/);
 });
 
 /* ═══ 3 · EVERY DELETED BANNER'S MEANING IS STILL ON THE PAGE ══════════════ */
@@ -341,32 +379,39 @@ test('3 · each banner taken off Today either has a rule in pickSupplierNext or 
   for (const gone of ['<VendorFirstSteps', '<SpotlightAwardBanner', '<PayoutMethodNudge', '<OngoingTasks', '<UpcomingSchedules', 'id="today-all"', 'Answering couples is free']) {
     assert.ok(!page.includes(gone), `${gone} is back on Today`);
   }
-  assert.match(page, /payout: payoutCopy \? \{ title: payoutCopy\.cta, body: payoutCopy\.body, href: PAYMENT_OPTIONS_HREF \} : null,/, 'the payout nudge lost its row');
-  assert.match(page, /const payoutCopy = hasBooking && !hasLockAsk \? payoutNudgeCopy\(payoutReadiness, 'today'\) : null;/, 'the payout row no longer follows the nudge’s own rule');
-  assert.match(page, /const shopLine = \[categoryWord, shopState, awardWord, milestoneWord\]/, 'the award and the milestone left the Shop row');
-  assert.match(page, /<BookingFeeBills\s+rows\s+bills=\{next\.kind === 'fee' \? todayFeeBills\.slice\(1\) : todayFeeBills\}/, 'the fee bills are no longer all on Today, as rows');
-  assert.match(page, /hasBills=\{\(next\.kind === 'fee' \? todayFeeBills\.length - 1 : todayFeeBills\.length\) > 0\}/, 'the page does not say when it has bills, so they may be drawn with no heading');
+  // 🧩 Since the simpler Today (2026-10-14) the page reads and `assembleSupplierToday` decides — each anchor is
+  // where it now lives.
+  const view = code('lib/supplier-today-view.ts');
+  const screen = code('app/vendor-dashboard/_components/supplier-today-screen.tsx');
+  assert.match(page, /payoutReadiness,\s*payoutHref: PAYMENT_OPTIONS_HREF,/, 'the payout nudge lost its row');
+  assert.match(page, /hasLockAsk \|\| hasBooking\s*\?\s*readSupplierPayoutReadiness\(/, 'the payout row no longer follows the nudge’s own rule (a booking or an ask on screen)');
+  assert.match(view, /if \(r === 'none'\) return \{ body: PAYOUT_DOOR_WORDS\.body, button: 'Set up' \};/, 'the payout row lost its words or its Set up');
+  assert.match(view, /input\.shop\.awardWord,\s*input\.shop\.milestoneWord,/, 'the award and the milestone left the Shop row');
+  assert.match(view, /const bills = next\.kind === 'fee' \? input\.feeBills\.slice\(1\) : \[\.\.\.input\.feeBills\];/, 'the fee bills are no longer all on Today');
+  assert.match(screen, /<BookingFeeBills today bills=\{view\.bills\} copyFor=\{view\.billCopy\} \/>/, 'the fee bills are no longer drawn on Today, as rows');
+  assert.match(screen, /hasBills=\{view\.bills\.length > 0\}/, 'the screen does not say when it has bills, so they may be drawn with no heading');
 
   // A busy shop: an ask wins the Next card; every other thing still shows.
   const find = { title: 'Couples can’t find you yet.', body: 'b', cta: { label: 'Ask us', href: '/help#contact' } };
-  const credit = { title: 'Your ₱2,500 credit expires in 3 days', body: 'Renew to keep it.', href: '/vendor-dashboard/subscription' };
-  const payout = { title: 'Add a payment method', body: 'Couples can’t see anywhere to pay you yet.', href: '/vendor-dashboard/shop?open=payments#shop-folds' };
-  const busy = await queue({ needsAnswer: [REPLY], findability: find, credit, payout });
+  const busy = await queue({ needsAnswer: [REPLY], findability: find, credit: true, payout: true });
   assert.equal(busy.next.kind, 'answer');
   assert.deepEqual(busy.waiting.doors.map((d) => d.id), ['findable', 'credit', 'payout']);
-  const html = await render({ needsAnswer: [REPLY], findability: find, credit, payout });
+  const html = await render({ needsAnswer: [REPLY], findability: find, credit: true, payout: true });
   const doors = html.slice(html.indexOf('data-today-doors'), html.indexOf('data-today-shop'));
   const expected: ReadonlyArray<readonly [id: string, label: string, href: string]> = [
     ['findable', 'Couples can’t find you yet.', '/help#contact'],
-    ['credit', 'Your ₱2,500 credit expires in 3 days', '/vendor-dashboard/subscription'],
-    ['payout', 'Add a payment method', '/vendor-dashboard/shop?open=payments#shop-folds'],
+    ['credit', 'Credits expiring', '/vendor-dashboard/subscription'],
   ];
   for (const [id, label, href] of expected) {
     assert.match(doors, new RegExp(`<a[^>]*data-today-row="${id}"[^>]*href="${href.replace(/[?#/.]/g, '\\$&')}"|<a[^>]*href="${href.replace(/[?#/.]/g, '\\$&')}"[^>]*data-today-row="${id}"`), `${id}: no row, or the row goes somewhere else`);
     assert.ok(text(doors).includes(label), `${id}: the row does not say "${label}"`);
   }
+  // 💳 "Where couples pay you · Add GCash or a bank" carries its own grey Set up to the payment options.
+  const pay = doors.slice(doors.indexOf('data-today-row="payout"'));
+  assert.ok(pay.length > 0 && text(pay).includes('Where couples pay you'), 'the payout row is gone');
+  assert.match(pay, /<a[^>]*class="ab ab-neutral[^"]*"[^>]*href="\/vendor-dashboard\/shop\?open=payments&amp;#shop-folds"|<a[^>]*href="\/vendor-dashboard\/shop\?open=payments#shop-folds"[^>]*>|Set up/, 'the payout row has no Set up');
   // A quiet shop: findability wins the card, so it is NOT also a row.
-  const quiet = await queue({ findability: find, credit });
+  const quiet = await queue({ findability: find, credit: true });
   assert.equal(quiet.next.kind, 'findable');
   assert.deepEqual(quiet.waiting.doors.map((d) => d.id), ['credit']);
 });
@@ -424,11 +469,15 @@ test('5 · every main verb is terracotta, the icon says what kind of press it is
   // The grey second: a reply's "Their brief" opens the CARD, named section and all.
   assert.match(reply, /class="ab ab-neutral[^"]*"[^>]*href="\/vendor-dashboard\/clients\/e-ana\?tab=details"|href="\/vendor-dashboard\/clients\/e-ana\?tab=details"[^>]*class="ab ab-neutral[^"]*"/, 'no "Their brief", or it opens a bare client route');
   assert.match(text(reply), /Their brief/);
-  // No grey button that lands by accident: a booking ask carries no thread id.
+  // ✅ A booking ask is answered ON the card (simpler Today 2026-10-14): Agree posts the shipped form, terracotta;
+  // no grey Chat that lands by accident while the ask carries no thread id — and Chat when it does.
   const agree = await render({ needsAnswer: [BOOKING] });
   const card = agree.slice(agree.indexOf('data-today-next'), agree.indexOf('data-today-numbers'));
-  assert.equal((card.match(/<a\b/g) ?? []).length, 1, 'a second button with nowhere named to go');
-  assert.match(card, /class="ab ab-brand ab-main[^"]*"/);
+  assert.equal((card.match(/<a\b/g) ?? []).length, 0, 'a button with nowhere named to go');
+  assert.match(card, /<form[\s\S]*name="vendor_id" value="ev-rc"[\s\S]*class="ab ab-brand ab-main[^"]*"[\s\S]*Agree to this booking/, 'Agree is not the card’s own terracotta answer');
+  const chat = await render({ needsAnswer: [{ ...BOOKING, threadId: 't-rc' } as WhatsNewCard] });
+  const chatCard = chat.slice(chat.indexOf('data-today-next'), chat.indexOf('data-today-numbers'));
+  assert.match(chatCard, /<a[^>]*class="ab ab-neutral[^"]*"[^>]*href="\/vendor-dashboard\/messages\/t-rc"|<a[^>]*href="\/vendor-dashboard\/messages\/t-rc"[^>]*class="ab ab-neutral[^"]*"/, 'no grey Chat to the couple’s thread');
   // Every answer in the rows is the button rule — a door is an ActionButton, a form's submit a SupplierSubmit —
   // and the main verb of each is terracotta, unless it takes something away for good (the delete look).
   const sections = code('app/vendor-dashboard/_components/overview-sections.tsx');
@@ -442,7 +491,14 @@ test('5 · every main verb is terracotta, the icon says what kind of press it is
 
 test('6 · the three outcome notices are the shared TOP toast + a status line — drawn by the server, and the line never leaves by itself', async () => {
   const page = code('app/vendor-dashboard/page.tsx');
-  assert.match(page, /\{outcome \? <SupplierToast text=\{outcome\.text\} tone=\{outcome\.tone\} retry=\{genericFailure\.has\(outcome\.text\)\} \/> : null\}/, 'Today does not say the outcome');
+  assert.match(page, /\{outcome \? <SupplierToast text=\{outcome\.text\} tone=\{outcome\.tone\} retry=\{genericFailure\.has\(outcome\.text\)\} line=\{false\} \/> : null\}/, 'Today does not say the outcome');
+  // …and the lasting status line is drawn UNDER the Next card, by the server, with the door the sentence asks for
+  // (fee held → "Pay the booking fee", lib/lock-answer-notice.ts).
+  assert.match(page, /door: lockAnswer\.door \?\? null,/, 'the status line lost the Pay door the fee-held sentence asks for');
+  const said = await render({ needsAnswer: [REPLY], outcome: { text: 'You said yes. Pay the booking fee and we’ll tell the couple their booking is confirmed.', tone: 'ok', door: { label: 'Pay the booking fee', href: '/vendor-dashboard/booking-fees' } } });
+  const statusAt = said.indexOf('role="status" data-supplier-outcome="ok"');
+  assert.ok(statusAt > said.indexOf('data-today-next') && statusAt < said.indexOf('data-today-numbers'), 'the status line is not between the Next card and the numbers');
+  assert.match(said.slice(statusAt, said.indexOf('data-today-numbers')), /href="\/vendor-dashboard\/booking-fees"[\s\S]*Pay the booking fee/, 'the status line has no Pay door');
   const outcome = page.slice(page.indexOf('const outcome:'), page.indexOf('return (', page.indexOf('const outcome:')));
   for (const src of ['lockAnswer.text', 'dateAnswer', 'depositAnswer']) assert.ok(outcome.includes(src), `the ${src} notice is no longer said`);
   assert.match(outcome, /lockAnswer\.tone === 'ok' \? 'ok' : lockAnswer\.tone === 'noop' \? 'note' : 'bad'/, 'a refused booking answer is not drawn as a failure');
@@ -482,8 +538,11 @@ test('7 · the shop line moved to one row at the bottom — its name, its state,
   const html = await render({ needsAnswer: [REPLY] });
   assert.ok(html.indexOf('data-today-shop') > html.indexOf('data-today-coming-up'), 'the Shop row is not at the bottom');
   const shop = html.slice(html.indexOf('data-today-shop'));
-  assert.match(text(shop), /Shop Open Lumina Studio Photo & video · Live Live/);
+  assert.match(text(shop), /Shop Open Lumina Studio Photo & video · couples can find you Live/);
   assert.equal((shop.match(/href="\/vendor-dashboard\/shop"/g) ?? []).length, 2, 'the eyebrow door and the row both open Shop');
+  // 📈 …and "How is business" under it, to Insights, with its two figures.
+  assert.match(text(shop), /How is business 312 looked · 14 asked/);
+  assert.match(shop, /href="\/vendor-dashboard\/performance"/);
   assert.doesNotMatch(html, /bg-mulberry/, 'the mulberry shop block is back above the Next card');
   assert.match(shop, /data-badge="ok"[^>]*>Live</, '"Live" is not the shared Badge');
 });

@@ -17,7 +17,7 @@ import { BOOKING_FEE, bookingFeePhp } from '@/lib/booking-fee';
 import { buildFirstStepsRail } from '@/lib/vendor-first-steps';
 import { splitDesk } from '@/lib/vendor-desk-disposition';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
-import { SupplierTodayScreen } from '@/app/vendor-dashboard/_components/supplier-today-screen';
+import { SupplierTodayScreen, type TodayActions } from '@/app/vendor-dashboard/_components/supplier-today-screen';
 import type { TodayOutcome } from '@/app/vendor-dashboard/_components/supplier-today-first-screen';
 
 export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed'] as const;
@@ -255,7 +255,7 @@ function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment }: { sup: EasySupplier; moment: EasyMoment }) {
+export function TodayEasyLab({ sup: supKey, moment, actions }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions }) {
   const sup = SUPS[moment === 'hallask' ? 'venue' : supKey];
   const setup = moment === 'setup';
   const withAsk = moment === 'ask' || moment === 'hallask' || moment === 'agreed';
@@ -328,7 +328,7 @@ export function TodayEasyLab({ sup: supKey, moment }: { sup: EasySupplier; momen
 
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today-easy" data-easy-moment={moment} data-easy-sup={supKey}>
-      <SupplierTodayScreen view={view} outcome={outcome} feeForecasts={forecasts} cards={desk} askStatus="" deskIncomplete={false} />
+      <SupplierTodayScreen view={view} outcome={outcome} feeForecasts={forecasts} cards={desk} askStatus="" deskIncomplete={false} actions={actions} />
     </div>
   );
 }

@@ -69,7 +69,7 @@ async function render(
 ): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SupplierTodayFirstScreen } = await import('./supplier-today-first-screen');
-  const { pickSupplierNext, eventsThisWeek, owedToYouPhp, nextLook, nextSecond } = await import('@/lib/supplier-today');
+  const { pickSupplierNext, eventsThisWeek, owedToYouPhp, nextLook, todayNextSecond } = await import('@/lib/supplier-today');
   const owed = owedToYouPhp(earnings);
   const next = pickSupplierNext({
     answer: null,
@@ -86,13 +86,13 @@ async function render(
     React.createElement(SupplierTodayFirstScreen, {
       next,
       look: nextLook(next.kind, null),
-      second: nextSecond(next, null, upcoming),
+      second: todayNextSecond(next, null, upcoming, null),
       counter: null,
       meta: null,
       // The page words the number; `null` is "payday was not read".
       numbers: { waiting: '0', waitingNow: false, thisWeek: eventsThisWeek(upcoming), toComeIn: owed === null ? null : String(owed) },
-      comingUp: upcoming.slice(0, 3),
-      shop: { name: 'Saysay Host and Band', line: 'Host & band · Live', live: true },
+      comingUp: (next.kind === 'run_day' ? upcoming.slice(1) : upcoming).slice(0, 3).map((r) => ({ id: r.id, href: r.href, label: `${r.date} · ${r.eventName}`, line: r.place })),
+      shop: { name: 'Saysay Host and Band', line: 'Host & band · couples can find you', pill: 'Live' as const },
     }),
   );
 }
@@ -111,7 +111,7 @@ test('a supplier with a booking is told about it — in words that fit every cra
 test('"to come in" is the booked total less what is confirmed — and the Next card says payday', async () => {
   const html = await render();
   const t = text(html);
-  assert.match(t, /8170 to come in/, `the money number is not ₱10,170 − ₱2,000: ${t.slice(0, 500)}`);
+  assert.match(t, /8,?170 to come in/, `the money number is not ₱10,170 − ₱2,000: ${t.slice(0, 500)}`);
   assert.doesNotMatch(t, /owed to you/, 'the redesign words it "to come in"');
   assert.match(html, /data-today-next="payday"/, 'with nothing to answer and money to come in, Next is not payday');
 });
@@ -171,8 +171,16 @@ test('Today renders the first screen before anything tappable on the page', () =
   const ret = src.lastIndexOf('\n  return (');
   assert.ok(ret > 0, 'Today’s render could not be found');
   const jsx = src.slice(ret);
-  const first = jsx.indexOf('<SupplierTodayFirstScreen');
-  assert.ok(first > 0, 'Today no longer renders SupplierTodayFirstScreen');
+  // The simpler Today (2026-10-14) draws the first screen through `SupplierTodayScreen` (the one drawing the dev
+  // lab shares), which renders `SupplierTodayFirstScreen` first thing.
+  const first = jsx.indexOf('<SupplierTodayScreen');
+  assert.ok(first > 0, 'Today no longer renders SupplierTodayScreen');
+  const screen = stripComments(readFileSync(join(__dirname, 'supplier-today-screen.tsx'), 'utf8'));
+  const screenRet = screen.slice(screen.lastIndexOf('\n  return ('));
+  assert.ok(
+    screenRet.indexOf('<SupplierTodayFirstScreen') > 0 && screenRet.search(/<(Link|a|button|form|details|summary)\b/) === -1,
+    'SupplierTodayScreen draws something tappable outside the first screen',
+  );
   const tappable = jsx.search(/<(Link|a|button|form|details|summary)\b/);
   assert.ok(tappable === -1 || tappable > first, 'a link, button or form is back above the Next card on Today');
   // Redesign S-PR1: there is no "Everything else" under the first screen any

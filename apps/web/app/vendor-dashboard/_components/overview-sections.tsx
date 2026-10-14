@@ -285,7 +285,7 @@ export function WhatsNewFeed({
 }) {
   const rows =
     asks ??
-    cards.map((card, i) => ({ card, label: cardTone(card).eyebrow, line: '', position: i + 1, open: false }));
+    cards.map((card, i) => ({ card, label: cardTone(card).eyebrow, line: '', position: i + 1, open: false, words: undefined as TodayRowWords | undefined }));
   // Nothing waits and everything was read: the Next card says "all caught up".
   // An empty list here would be furniture — and an empty list that could NOT be
   // read is not empty, so that case still speaks, below.

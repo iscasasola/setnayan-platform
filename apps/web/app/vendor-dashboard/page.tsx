@@ -26,8 +26,23 @@ import {
   type VendorEarningsSummary,
 } from '@/lib/vendor-overview';
 import { ServerTimer } from '@/lib/server-timing';
-// The answers (`vendorAgreeToLock` … `respondAppointment`) are mounted by `SupplierTodayScreen`, the one drawing
-// of this page that the dev lab shares — the shipped actions, unchanged in what they enforce.
+import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
+import {
+  vendorAcknowledgeDeposit,
+  vendorMarkServiceComplete,
+  vendorRejectDeposit,
+  vendorAgreeToLock,
+  vendorDeclineLock,
+  vendorAgreeToDeletion,
+  vendorDeclineDeletion,
+  vendorAnswerDateChange,
+} from './clients/[eventId]/actions';
+// The desk TAKES these two answers rather than linking away to them. Both are
+// the shipped actions, unchanged in what they enforce: the reply action still
+// posts one final public reply through the vendor's own session, and
+// `respondAppointment` still refuses an answer from the side that proposed.
+import { postVendorReply } from './reviews/actions';
+import { respondAppointment } from '@/app/_components/appointments-actions';
 import {
   splitDesk,
   oldestAskWaitDays,
@@ -547,6 +562,20 @@ export default async function VendorOverviewPage({
         cards={[...needsAnswer, ...nothingToAnswer]}
         askStatus={askStatus}
         deskIncomplete={deskIncomplete}
+        actions={{
+          acceptInquiry,
+          declineInquiry,
+          confirmLock: vendorAcknowledgeDeposit,
+          rejectLock: vendorRejectDeposit,
+          agreeLock: vendorAgreeToLock,
+          declineLock: vendorDeclineLock,
+          agreeDeletion: vendorAgreeToDeletion,
+          declineDeletion: vendorDeclineDeletion,
+          answerDateChange: vendorAnswerDateChange,
+          postReviewReply: postVendorReply,
+          respondMeeting: respondAppointment,
+          markServiceComplete: vendorMarkServiceComplete,
+        }}
       />
 
       {/* First visit only — the shipped MiniTour (owner rule: every feature

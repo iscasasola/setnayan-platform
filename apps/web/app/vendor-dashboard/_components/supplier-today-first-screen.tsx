@@ -30,6 +30,7 @@ import { NextCard } from '@/app/_components/next-card';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import { Count } from '@/components/count';
+import { dateChangeShort } from '@/lib/supplier-today';
 import type {
   ShopPill,
   SupplierIcon,
@@ -418,7 +419,7 @@ export function SupplierTodayFirstScreen({
       <form action={dateChange.answer} className="contents" data-date-change-next={dateChange.card.eventVendorId}>
         <input type="hidden" name="vendor_id" value={dateChange.card.eventVendorId} />
         <input type="hidden" name="answer" value="moved" />
-        <SupplierSubmit tone="brand" main icon={<Check aria-hidden="true" strokeWidth={1.9} />} label="Move" pendingLabel="Saving…" />
+        <SupplierSubmit tone="brand" main icon={<Check aria-hidden="true" strokeWidth={1.9} />} label={`Move to ${dateChangeShort(dateChange.card.proposedDate, dateChange.card.proposedPrecision)}`} pendingLabel="Saving…" />
       </form>
       <form action={dateChange.answer} className="contents">
         <input type="hidden" name="vendor_id" value={dateChange.card.eventVendorId} />

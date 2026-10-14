@@ -1,31 +1,45 @@
 import { Badge } from '@/app/_components/badge';
 import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
-import { respondAppointment } from '@/app/_components/appointments-actions';
-import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
-import {
-  vendorAcknowledgeDeposit,
-  vendorMarkServiceComplete,
-  vendorRejectDeposit,
-  vendorAgreeToLock,
-  vendorDeclineLock,
-  vendorAgreeToDeletion,
-  vendorDeclineDeletion,
-  vendorAnswerDateChange,
-} from '../clients/[eventId]/actions';
-import { postVendorReply } from '../reviews/actions';
 import { LockRequestBody, WhatsNewFeed } from './overview-sections';
 import { SupplierTodayFirstScreen, TodayNoteRow, type TodayOutcome } from './supplier-today-first-screen';
+
+type Act = (formData: FormData) => void | Promise<void>;
+
+/**
+ * The SHIPPED answers, handed in by whoever mounts the screen (the Today page; the dev lab, where with no session
+ * every one refuses). Taken as props — never imported here — so "which page mounts this answer" stays a question
+ * about pages (`today-is-rows.test.ts` test 2), and a test can draw the screen without a server.
+ */
+export type TodayActions = {
+  acceptInquiry: Act;
+  declineInquiry: Act;
+  /** `vendorAcknowledgeDeposit` */
+  confirmLock: Act;
+  /** `vendorRejectDeposit` */
+  rejectLock: Act;
+  /** `vendorAgreeToLock` — the booking ask's yes (the fee mint door, F4). */
+  agreeLock: Act;
+  /** `vendorDeclineLock` */
+  declineLock: Act;
+  agreeDeletion: Act;
+  declineDeletion: Act;
+  /** `vendorAnswerDateChange` — Move · Unlock my service. */
+  answerDateChange: Act;
+  postReviewReply: Act;
+  respondMeeting: Act;
+  markServiceComplete: Act;
+};
 
 /**
  * 📱 THE SIMPLER TODAY, DRAWN — the one place the assembled view (`assembleSupplierToday`) meets the shipped answer
  * forms. The Today page renders it with its reads; `/dev/supplier-lab?easy=…` renders it with fixtures — so the lab
  * shows exactly what ships (the same components, the same server actions; with no session every one refuses).
  *
- * Every answer here is the SHIPPED one: `vendorAgreeToLock` / `vendorDeclineLock` (the booking ask, answered ON the
+ * Every answer here is the SHIPPED one (handed in as `actions`): `vendorAgreeToLock` / `vendorDeclineLock` (the booking ask, answered ON the
  * Next card with the fee named above Agree), Move · Unlock (`vendorAnswerDateChange`), Agree to remove it in the
  * delete look / Keep it for now, I delivered this service, Post reply, and each unpaid booking fee with its Pay.
  */
@@ -36,6 +50,7 @@ export function SupplierTodayScreen({
   cards,
   askStatus,
   deskIncomplete,
+  actions,
 }: {
   view: SupplierTodayView;
   outcome: TodayOutcome | null;
@@ -45,6 +60,7 @@ export function SupplierTodayScreen({
   cards: WhatsNewCard[];
   askStatus: string;
   deskIncomplete: boolean;
+  actions: TodayActions;
 }) {
   return (
       <SupplierTodayFirstScreen
@@ -56,7 +72,7 @@ export function SupplierTodayScreen({
         who={view.who}
         eyebrow={view.eyebrow}
         nextNote={view.nextNote}
-        dateChange={view.dateChangeOnCard ? { card: view.dateChangeOnCard, answer: vendorAnswerDateChange } : null}
+        dateChange={view.dateChangeOnCard ? { card: view.dateChangeOnCard, answer: actions.answerDateChange } : null}
         answerOnCard={
           view.askOnCard ? (
             /* ✅ The couple's ask, answered ON the card: the fee BEFORE Agree, Agree, Turn it down — the shipped
@@ -75,8 +91,8 @@ export function SupplierTodayScreen({
               <LockRequestBody
                 onCard
                 card={view.askOnCard}
-                agreeLock={vendorAgreeToLock}
-                declineLock={vendorDeclineLock}
+                agreeLock={actions.agreeLock}
+                declineLock={actions.declineLock}
                 payoutReadiness="unreadable"
                 feeForecast={feeForecasts[view.askOnCard.eventVendorId] ?? null}
               />
@@ -104,18 +120,7 @@ export function SupplierTodayScreen({
             asks={view.askRows}
             statusLine={askStatus}
             incomplete={deskIncomplete}
-            acceptInquiry={acceptInquiry}
-            declineInquiry={declineInquiry}
-            confirmLock={vendorAcknowledgeDeposit}
-            rejectLock={vendorRejectDeposit}
-            agreeLock={vendorAgreeToLock}
-            declineLock={vendorDeclineLock}
-            agreeDeletion={vendorAgreeToDeletion}
-            declineDeletion={vendorDeclineDeletion}
-            answerDateChange={vendorAnswerDateChange}
-            postReviewReply={postVendorReply}
-            respondMeeting={respondAppointment}
-            markServiceComplete={vendorMarkServiceComplete}
+            {...actions}
             payoutReadiness="unreadable"
             feeForecasts={feeForecasts}
           />

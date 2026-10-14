@@ -55,8 +55,10 @@ test('a locked pill is still a disabled button, not a link', () => {
   );
   // The pill's own JSX must not carry an href — the link is the reason
   // sentence beside it, never the pill itself.
-  const pillFn = src.slice(src.indexOf('function KindPill'), src.indexOf('function CardRegion'));
-  assert.ok(!/href=/.test(pillFn), 'the pill itself started carrying a link');
+  // (The simpler maker draws kinds as ROWS — `KindRow`, 2026-10-14 — the rule is the same.)
+  const rowFn = src.slice(src.indexOf('function KindRow'), src.indexOf('function ChipGroup'));
+  assert.ok(rowFn.length > 200, 'KindRow could not be read');
+  assert.ok(!/href=/.test(rowFn), 'the kind row itself started carrying a link');
 });
 
 // ---------------------------------------------------------------------------
@@ -87,9 +89,11 @@ test('the reason sentence links to the shared href, imported not hand-typed', ()
     /\{lockedWhy \? \([\s\S]{0,400}<Link\s+href=\{PROPOSE_CATEGORY_HREF\}/,
     'the one reason sentence stopped leading anywhere',
   );
-  // One link for the whole greyed set — not one per pill.
+  // One link for the whole greyed set — not one per row — plus the kind sheet's own "Ask us" row (the 2026-10-14
+  // prototype: "Something else · … · Ask us — Tell us what you do in your own words").
   const linkCount = (src.match(/href=\{PROPOSE_CATEGORY_HREF\}/g) ?? []).length;
-  assert.equal(linkCount, 1, `PROPOSE_CATEGORY_HREF is linked ${linkCount} times, expected exactly 1`);
+  assert.equal(linkCount, 2, `PROPOSE_CATEGORY_HREF is linked ${linkCount} times, expected 2 (Ask us + the reason sentence)`);
+  assert.match(src, /href=\{PROPOSE_CATEGORY_HREF\}[\s\S]{0,400}Ask us/, 'the kind sheet lost its Ask us row');
 });
 
 test('the intake tab opens on arrival, and scrolls to itself', () => {
@@ -163,5 +167,5 @@ test('the way back does not depend on a new mechanism — the maker already offe
   // paying for — see lib/canvas-draft-keep.ts.
   const maker = read(MAKER);
   assert.match(maker, /window\.localStorage\.setItem\(keepKey/, 'the draft keep the return path relies on is gone');
-  assert.match(maker, /You left a card here/, 'the offer-it-back prompt the return path relies on is gone');
+  assert.match(maker, /Picked up where you left off\?/, 'the offer-it-back prompt the return path relies on is gone');
 });

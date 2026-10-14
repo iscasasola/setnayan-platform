@@ -72,7 +72,6 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // not a feature paywall. Governed by the pipeline-caps switch, not this one.
   'services/actions.ts': 'numeric quotas (services per category, categories, bookings/day, time slots)',
   'services/_components/coverage-panel.tsx': 'numeric quota (coverage areas)',
-  'services/_components/canvas-maker.tsx': 'numeric quota (families on a one-family plan)',
   // Enforced by the DATABASE unconditionally, so the switch cannot lift it:
   // offer_creator_reach_hold raises TIER_BELOW_PRO_NO_REACH (owner decision
   // #4, 2026-07-16). The page is try-first (browse + draft); Send asks.

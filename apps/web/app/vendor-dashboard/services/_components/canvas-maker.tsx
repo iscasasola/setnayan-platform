@@ -56,6 +56,7 @@ import {
 import { readSnapshot, type Snapshot } from '@/lib/service-card-snapshot';
 import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-groups';
 import type { CanvasInitial } from '@/lib/canvas-initial';
+import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
 import { PROPOSE_CATEGORY_HREF } from '@/lib/service-picker-anchor';
 import { rankTradeMatches, type TradeMatch } from '@/lib/kind-search-trades';
@@ -519,7 +520,6 @@ export function CanvasMaker({
   const [face, setFace] = useState<Snapshot | null>(null);
   const [clipSeconds, setClipSeconds] = useState<number | null>(null);
   const onClipDurationSeconds = useCallback((s: number | null) => setClipSeconds(s), []);
-  void clipSeconds;
 
   // Which coverage this card sits in — one hidden input on the card form, picked in "Who it is for".
   const [coverageId, setCoverageId] = useState<string>(initial?.coverageId ?? '');
@@ -919,7 +919,10 @@ export function CanvasMaker({
             <Fold
               data="photos"
               title="Photos"
-              line={snap.hasCover ? `Cover added · up to 5 more${snap.photoCount ? ` · ${formatCount(snap.photoCount)} in` : ''}` : 'One cover is enough'}
+              line={`${snap.hasCover ? `Cover added · up to 5 more${snap.photoCount ? ` · ${formatCount(snap.photoCount)} in` : ''}` : 'One cover is enough'}${
+                // The clip's MEASURED length (never a fabricated 0:00 — lib/clip-duration-label.ts).
+                snap.hasClip ? ` · ▶ ${clipPillLabel(clipSeconds)}` : ''
+              }`}
               lead={<RowIcon><ImageIcon aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
               aside={snap.hasCover ? <Badge tone="ok">Added</Badge> : <Badge tone="wait">Add</Badge>}
             >
@@ -1472,7 +1475,7 @@ export function CanvasMaker({
       ) : null}
 
       {/* Preview — the card as couples meet it. */}
-      <CanvasSheet id="canvas-preview" title="As couples see it" open={sheet === 'preview'} onClose={() => setSheet(null)} confirmLabel={null}>
+      <CanvasSheet id="canvas-preview" title="As couples see it" open={sheet === 'preview'} onClose={() => setSheet(null)} confirmLabel="Back to the card">
         {face ? (
           <ServiceCardFace
             snap={{ ...face, name: title.trim() || activeCategoryLabel || 'Your service' }}

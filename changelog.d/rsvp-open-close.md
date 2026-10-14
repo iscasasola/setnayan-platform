@@ -20,6 +20,10 @@ Owner ruling 2026-10-14 (DECISION_LOG 📬 "RSVP GETS ITS OWN OPEN AND CLOSE").
   Save the Date film's automatic date is the same day (was 3 calendar months).
 - Guards: `lib/reply-window.test.ts` (every pick × stage, edge minutes, venue clock), `lib/every-reply-writer-asks-the-window.test.ts`,
   `lib/the-invitation-opens-on-one-date.test.ts` (tree walk), `tests/db/replies-have-their-own-open-and-close.db.test.ts`.
+- **Join door (walk of batch 6):** a request refused before replies open is told the Reply card's own words and
+  day ("Replies open on Saturday, 14 November") — the door hands `replyWindowWords` from its one read to the refusal copy.
+- **Reply page at 320 × 568:** "Tap one to continue" no longer stands on "Joyfully accepts" — the hint is see-through to
+  taps and, under 600 px tall, stays in the card instead of sticking. 375 × 667 and taller unchanged (measured).
 
 SPEC IMPACT: the 📬 row's default close words change — owner 2026-10-14 on review: the default close pick reads "On the event day" (never the stage's old name);
 join-door requests are refused outside the window. Builder readings (Now also re-opens after a close date; "On the

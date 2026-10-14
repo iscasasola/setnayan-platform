@@ -758,16 +758,14 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 <div className="flex gap-2.5" data-mood-board-picks={picks.length}>
                   {picks.map((pick, i) => {
                     const colours = i === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
-                    const kid = pick.who === 'boy' || pick.who === 'girl';
-                    const options = row.key === 'guest';
                     const max = row.paletteKey ? PALETTE_LIMITS[row.paletteKey].max : 0;
                     const pickLabel = two ? `${row.label} — ${PICK_LABEL[pick.who].toLowerCase()}` : row.label;
                     const figure = (
-                      <span className={`flex h-[132px] flex-none items-end justify-center ${two ? 'w-[62px]' : 'w-[86px]'}`} data-mood-board-figure={pick.who}>
+                      <span className={`flex h-[132px] flex-none items-end justify-center ${two ? "min-w-[62px]" : "min-w-[86px]"}`} data-mood-board-figure={pick.who}>
                         <RoleFigure
                           roleKey={row.key}
-                          people={[{ who: pick.who, garment: garmentFor(pick.who, pick.style), main: colours[0] ?? five[3]!, ...(colours[1] && !options ? { accent: colours[1] } : {}) }]}
-                          className={kid ? 'h-[104px] w-auto' : 'h-[132px] w-auto'}
+                          people={[{ who: pick.who, garment: garmentFor(pick.who, pick.style), main: colours[0] ?? five[3]! }]}
+                          className="h-[132px]"
                         />
                       </span>
                     );

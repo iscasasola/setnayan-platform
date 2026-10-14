@@ -23,11 +23,11 @@
  *
  * 👗 2026-10-14 (owner, DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"): the PERSON a role's palette wears is now
  * the illustrated figure (`lib/attire-figures.ts` — the artwork seam), in the garment its Wear ▾ names, ONE drawing
- * for the Studio's Attire and the guest's dress code (`roleFigurePeople` → `figurePeopleSvg`). The little gown and
+ * for the Studio's Attire and the guest's dress code (`roleFigurePeople` → `app/_components/role-figure.tsx`). The little gown and
  * suit below stay what the reception scene draws its crowd with.
  */
 
-import { FIGURE_BOX, figureArt, figureIsChild, garmentFor, type FigureGarment, type FigureWho } from './attire-figures';
+import { garmentFor, type FigureGarment, type FigureWho } from './attire-figures';
 import type { AttireStyle } from './role-dress-code';
 
 export const SKIN = '#E7C8A2';
@@ -150,14 +150,14 @@ export function roleFigures(
 
 /* ── the people, drawn (owner 2026-10-14) ────────────────────────────────── */
 
-/** One person in a picture: who, what they wear, and the colour slots. */
-export type FigurePerson = { who: FigureWho; garment: FigureGarment; main: string; accent?: string };
+/** One person in a picture: who, what they wear, and the colour their garment is dyed (the role's hex, exactly). */
+export type FigurePerson = { who: FigureWho; garment: FigureGarment; main: string };
 /** A pick as a reader sees it (`picksOf`, lib/attire-rows.ts): who, the Wear (null = not said), its own colours (null = the row's). */
 export type FigurePick = { who: FigureWho; style: AttireStyle | null; colours: readonly string[] | null };
 
 /** What a person wears on the GUEST page when the Wear is not said but their colours are: the plain garment of
  *  their kind — the palette still wears a person (the dotted silhouette is the Studio's "Not said yet"). */
-export const PLAIN_GARMENT: Readonly<Record<FigureWho, FigureGarment>> = { f: 'gown', m: 'suit', girl: 'dress', boy: 'suitb' };
+export const PLAIN_GARMENT: Readonly<Record<FigureWho, FigureGarment>> = { f: 'gown', m: 'suit', girl: 'flowergirl', boy: 'suitb' };
 
 /** Keys whose single person is a child. */
 const CHILD: Record<string, FigureWho> = { flower_girl: 'girl', ring_bearer: 'boy', bible_bearer: 'boy', coin_bearer: 'boy' };
@@ -165,62 +165,25 @@ const CHILD: Record<string, FigureWho> = { flower_girl: 'girl', ring_bearer: 'bo
 /**
  * The people a role's picture shows.
  *   · `picks` given (the dress code's rows and the reader's own panel): one person per pick, in the pick's garment
- *     (its plain one when not said) and its colours — colour 1 the main piece, colour 2 its accent; an OPTIONS role
- *     (the guests) wears its first colour, never two combined;
+ *     (its plain one when not said), dyed its FIRST colour — the main piece (the drawings are dyed one colour; an
+ *     OPTIONS role, the guests, wears its first, never two combined);
  *   · no `picks` (the Mood Board's palette cards): `roleFigures`' people — a gown is a woman, a suit a man — each in
  *     their plain garment.
  * Nothing valid to wear → nobody.
  */
-export function roleFigurePeople(key: string, hexes: readonly string[], meaning: 'outfit' | 'options' = 'outfit', picks?: readonly FigurePick[] | null): FigurePerson[] {
+export function roleFigurePeople(key: string, hexes: readonly string[], _meaning: 'outfit' | 'options' = 'outfit', picks?: readonly FigurePick[] | null): FigurePerson[] {
   if (picks && picks.length > 0) {
     const out: FigurePerson[] = [];
     for (const p of picks) {
       const colours = (p.colours && p.colours.length > 0 ? p.colours : hexes).filter((h) => HEX.test(h));
       if (!colours.length) continue;
-      const accent = meaning === 'options' ? undefined : colours[1];
-      out.push({ who: p.who, garment: p.style ? garmentFor(p.who, p.style) : PLAIN_GARMENT[p.who], main: colours[0]!, ...(accent ? { accent } : {}) });
+      out.push({ who: p.who, garment: p.style ? garmentFor(p.who, p.style) : PLAIN_GARMENT[p.who], main: colours[0]! });
     }
     return out;
   }
   const isPair = key === 'bearers_flower_girl';
-  return roleFigures(key, hexes, meaning).map((f) => {
+  return roleFigures(key, hexes, _meaning).map((f) => {
     const who: FigureWho = CHILD[key] ?? (isPair ? (f.kind === 'gown' ? 'girl' : 'boy') : f.kind === 'gown' ? 'f' : 'm');
-    return { who, garment: PLAIN_GARMENT[who], main: f.color, ...(f.accent ? { accent: f.accent } : {}) };
+    return { who, garment: PLAIN_GARMENT[who], main: f.color };
   });
-}
-
-/**
- * The people as ONE picture — side by side, standing on one line, each in a `<g data-person>`; the artwork is
- * `lib/attire-figures.ts`'s (the seam the final drawings drop into). Null when there is nobody.
- */
-export function figurePeopleSvg(people: readonly FigurePerson[]): string | null {
-  if (!people.length) return null;
-  const tall = Math.max(...people.map((p) => (figureIsChild(p.who) ? FIGURE_BOX.child : FIGURE_BOX.adult)));
-  const step = FIGURE_BOX.w * 0.78;
-  const w = FIGURE_BOX.w + step * (people.length - 1);
-  const body = people
-    .map((p, i) => {
-      const h = figureIsChild(p.who) ? FIGURE_BOX.child : FIGURE_BOX.adult;
-      return `<g data-person="${p.who}" data-garment="${p.garment}" transform="translate(${(i * step).toFixed(1)} ${tall - h})">${figureArt(p.who, p.garment, { main: p.main, accent: p.accent ?? null })}</g>`;
-    })
-    .join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w.toFixed(1)} ${tall}" width="${w.toFixed(1)}" height="${tall}">${body}</svg>`;
-}
-
-/**
- * The role's people as one SVG, or null when the role has no colour to dress anybody in. (`picks`: see
- * `roleFigurePeople`.)
- */
-export function roleFigureSvg(key: string, hexes: readonly string[], meaning: 'outfit' | 'options' = 'outfit', picks?: readonly FigurePick[] | null): string | null {
-  return figurePeopleSvg(roleFigurePeople(key, hexes, meaning, picks));
-}
-
-/** A picture as an `<img>` source — no markup is ever injected into the page. */
-export function figureDataUri(svg: string | null): string | null {
-  return svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : null;
-}
-
-/** The same picture as an `<img>` source — no markup is ever injected into the page. */
-export function roleFigureDataUri(key: string, hexes: readonly string[], meaning: 'outfit' | 'options' = 'outfit', picks?: readonly FigurePick[] | null): string | null {
-  return figureDataUri(roleFigureSvg(key, hexes, meaning, picks));
 }

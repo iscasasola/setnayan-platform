@@ -557,7 +557,7 @@ test('(7) an effect on the guest page is the sample screen’s own answer — on
     'the cover': { follow: 'hero', of: REF, tint: frame },
   };
   for (const [name, m] of Object.entries(mains)) if (m) assert.deepEqual(sanitizeHubMainGround(m), m, `${name}: not a background the app stores`);
-  const effects: HubMainEffect[] = [{ kind: 'lanterns', intensity: 'standard' }, { kind: 'petals', intensity: 'lavish', colour: 'accent2' }, { kind: 'sparkles', intensity: 'subtle', colour: 'dominant' }];
+  const effects: HubMainEffect[] = [{ kind: 'lanterns', intensity: 'standard' }, { kind: 'petals', intensity: 'lavish', colour: 'accent2' }, { kind: 'dust', intensity: 'subtle', colour: 'dominant' }];
   let rows = 0;
   let compared = 0;
   const grounds = new Set<string>();
@@ -653,7 +653,7 @@ test('(7c) ONE engine call for the page, ONE layer for everyone — and nothing 
   for (const f of ['lib/ambient-effects.ts', 'app/[slug]/_components/ambient-effect.tsx']) {
     assert.doesNotMatch(read(f), /sn-accent|--sn-|mulberry|terracotta|PILL_ON_CLASS/, `${f} names the app’s own colour — it would leak into a guest’s Event Hub`);
   }
-  assert.equal(HUB_MAIN_EFFECTS.length, 6);
+  assert.equal(HUB_MAIN_EFFECTS.length, 8);
 });
 
 /* ── (8) 🔘 the buttons' colour has ONE source ────────────────────────────── */

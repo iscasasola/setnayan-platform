@@ -436,7 +436,7 @@ function AgentServiceAssignment({
 }) {
   const assignedSet = new Set(assigned);
   return (
-    <form action={action} className="mt-3 space-y-2 rounded-xl border border-success-200/70 bg-success-50/40 p-3">
+    <form action={action} className="mt-3 space-y-2">
       <input type="hidden" name="vendor_team_member_id" value={memberId} />
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-900/70">
         Their services — they see only these, and those customers

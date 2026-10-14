@@ -110,7 +110,7 @@ import {
 } from './actions';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
 import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
-import { lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { lockAgreeFeeHeld, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { CustomerMoneyFold } from './_components/customer-money-fold';
@@ -482,6 +482,8 @@ type Props = {
     /** `vendorAgreeToLock` / `vendorDeclineLock` answered from THIS card
      *  (`return_to`) — the sentence is said where the supplier pressed. */
     lock_agree?: string;
+    /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
+    fee?: string;
     lock_decline?: string;
     competing?: string;
   }>;
@@ -702,7 +704,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     isBooked || lockRequest ? null : supplierAskOutcomeOf(completionRow, isLockHandshakeEnabled());
   // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
   const lockNotice =
-    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null }) ??
+    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee) }) ??
     lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored

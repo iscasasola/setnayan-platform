@@ -11,7 +11,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
-import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { LOCK_AGREE_FEE_HELD, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
 import {
   changeOrderAnsweredNotice,
@@ -1231,7 +1231,10 @@ export async function vendorAgreeToLock(formData: FormData) {
     env.status === 'resolve_others_first' && typeof env.competing === 'number'
       ? `&competing=${env.competing}`
       : '';
-  redirect(`${back}?lock_agree=${flag}${competing}`);
+  // 🔑 ONE ANSWER: the SAME `feeBilledUnpaid` that held the couple's news back above tells the supplier so — and
+  // that paying the fee is what lets the couple know (`lockAgreeNotice` · `ok` with `feeHeld`). Batch-5 audit F9.
+  const feeHeld = flag === 'ok' && feeBilledUnpaid ? `&fee=${LOCK_AGREE_FEE_HELD}` : '';
+  redirect(`${back}?lock_agree=${flag}${competing}${feeHeld}`);
 }
 
 /**

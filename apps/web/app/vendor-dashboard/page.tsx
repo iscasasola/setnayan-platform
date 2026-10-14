@@ -49,6 +49,7 @@ import { manilaToday } from '@/lib/std-views';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
+  lockAgreeFeeHeld,
   lockAgreeNotice,
   lockDeclineNotice,
   type LockAnswerNotice,
@@ -188,6 +189,8 @@ export default async function VendorOverviewPage({
   searchParams?: Promise<{
     deposit_answer?: string;
     lock_agree?: string;
+    /** `held` — the yes left an unpaid booking fee, so the couple's news waits on it (`vendorAgreeToLock`). */
+    fee?: string;
     lock_decline?: string;
     competing?: string;
     date_answer?: string;
@@ -215,6 +218,7 @@ export default async function VendorOverviewPage({
   const lockAnswer: LockAnswerNotice | null =
     lockAgreeNotice(search.lock_agree, {
       competing: Number.isFinite(competing) ? competing : null,
+      feeHeld: lockAgreeFeeHeld(search.fee),
     }) ?? lockDeclineNotice(search.lock_decline);
   const supabase = await createClient();
   const {

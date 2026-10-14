@@ -48,6 +48,13 @@ Fixes from the two batch-5 lab walks (2026-10-14), each with a guard that went r
 - A Booked row whose payment is past due says "was due Oct 5" in the danger colour, by the Pay sheet's own rule
   (`late` on `BookedNext`, one clock for the row and the sheet; the lab takes `&today=`; `booked-rows.test.ts`).
 
+Supplier-needs audit F9 (2026-10-14): after Agree, a yes that leaves a billed, unpaid booking fee no longer tells the
+supplier "The couple has been told" — the couple's news is HELD until the fee settles (#6511). The supplier now reads
+"You said yes. Pay the booking fee and we'll tell the couple their booking is confirmed." The redirect's `&fee=held`
+is written from the SAME `feeBilledUnpaid` that holds the news back; Today, the customer card and the thread read it
+(`lockAgreeFeeHeld`); the thread draws a "Pay the booking fee" door to /vendor-dashboard/booking-fees, Today and the
+card already draw the new bill with its Pay. Guard `lib/the-yes-says-what-the-couple-heard.test.ts` (sabotage 2/2 RED).
+
 Generated files regenerated against the join (never hand-merged): ugat screens, root-map baselines, no-card baseline,
 port-control baseline, exposure-surface baseline (PGlite replay), admin jobs + admin routes.
 

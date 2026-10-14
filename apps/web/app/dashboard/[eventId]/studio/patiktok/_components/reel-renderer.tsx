@@ -25,15 +25,12 @@ import {
   RotateCcw,
   Sparkles,
 } from 'lucide-react';
-import { findPatiktokTemplate, PATIKTOK_SERVICE_KEY } from '@/lib/patiktok';
+import { findPatiktokTemplate } from '@/lib/patiktok';
 import { renderReel } from '@/lib/reel-render';
 import { PATIKTOK_PREVIEW_WATERMARK } from '@/lib/patiktok-access';
 import { formatPhp } from '@/lib/orders';
 import { PaidMark } from '@/app/_components/paid-mark';
-import {
-  InlineCheckoutDrawer,
-  type InlineCheckoutDrawerProps,
-} from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { ServiceBuySheet } from '@/app/dashboard/[eventId]/_components/service-buy-sheet';
 import {
   claimPatiktokRenderJob,
   failPatiktokRenderJob,
@@ -55,7 +52,6 @@ type Phase =
  */
 export type ReelSaveCheckout = {
   pricePhp: number | null;
-  settings: InlineCheckoutDrawerProps['settings'];
   /** A Patiktok order is already submitted and awaiting confirmation. */
   pending: boolean;
   /** App-store shell: no purchase door at all (lib/store-shell.ts). */
@@ -368,14 +364,14 @@ function PreviewPanel({
               <PaidMark state="try" label="Comes with Patiktok" size="sm" />
               Save &amp; share
             </p>
-            <InlineCheckoutDrawer
+            {/* ✅ The one Add sheet → the order is minted → /pay (owner 2026-10-14 🧩 5). */}
+            <ServiceBuySheet
               eventId={eventId}
-              serviceKey={PATIKTOK_SERVICE_KEY}
-              displayName="Patiktok booth"
-              originalPriceCentavos={String(Math.round((checkout.pricePhp ?? 0) * 100))}
-              settings={checkout.settings}
-              triggerLabel={priceLabel ? `Save & share · ${priceLabel}` : 'Save & share'}
-              triggerClassName="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
+              kind="booth"
+              price={checkout.pricePhp}
+              label={priceLabel ? `Save & share · ${priceLabel}` : 'Save & share'}
+              tone="brand"
+              main
             />
             <p className="text-[11px] text-ink/55">
               This reel waits in &ldquo;Your renders&rdquo; — once Patiktok is

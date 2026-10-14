@@ -3,13 +3,12 @@ import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { ServiceParts } from '../_components/service-parts';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Music, Heart, Sparkles, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowLeft, Music, Heart, Sparkles, ListMusic, Settings2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { eventSkuActive } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
@@ -22,6 +21,11 @@ import { PakantaMusicForm } from './_components/pakanta-music-form';
 import { UseSongButton } from './_components/use-song-button';
 import { AiDisclosure } from '@/components/AiDisclosure';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { SongPlayer } from './_components/song-player';
+import { musicGlance, serviceDayOf } from '@/lib/services-glance';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 export const metadata = { title: 'Music Maker' };
 
@@ -57,10 +61,11 @@ type EventRow = {
   pakanta_song_adopted_as_site_music: boolean | null;
 };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ buy_error?: string }> };
 
-export default async function PakantaPage({ params }: Props) {
+export default async function PakantaPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const search = (await searchParams) ?? {};
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -72,7 +77,7 @@ export default async function PakantaPage({ params }: Props) {
   let { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, love_story, story_tone, pakanta_song_r2_key, pakanta_song_status, pakanta_song_filename, pakanta_song_adopted_as_site_music',
+      'event_id, display_name, love_story, story_tone, pakanta_song_r2_key, pakanta_song_status, pakanta_song_filename, pakanta_song_adopted_as_site_music, event_date, cleared_at, timezone, event_end_date',
     )
     .eq('event_id', eventId)
     .maybeSingle<EventRow>();
@@ -100,7 +105,11 @@ export default async function PakantaPage({ params }: Props) {
   // Owned gate (bundle-aware, admin-approved). Drives the three owned-states:
   // not-owned → buy/intake form; owned + in-production/no-song → "in production";
   // owned + 'ready' → delivered preview + "use this song" button.
-  const owned = await eventSkuActive(await eventEntitlementClient(eventId), eventId, 'PAKANTA').catch(() => false);
+  const ent = await eventEntitlementClient(eventId);
+  const [owned, ownsOrWaits] = await Promise.all([
+    eventSkuActive(ent, eventId, 'PAKANTA').catch(() => false),
+    eventOwnsSku(ent, eventId, 'PAKANTA').catch(() => false),
+  ]);
   const songReady = event.pakanta_song_status === 'ready' && !!event.pakanta_song_r2_key;
   const songPreviewUrl =
     owned && songReady
@@ -148,7 +157,23 @@ export default async function PakantaPage({ params }: Props) {
 
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
-  const settings = await fetchPlatformSettings(supabase);
+
+  /* ✅ THE MUSIC PAGE'S ONE BAND (owner "approve all", 2026-10-14 — services prototype):
+     the glance Home's row reads. "In production" is a word — no clock, no promise (🧩 4). */
+  const ev = event as EventRow & { event_date?: string | null; cleared_at?: string | null; timezone?: string | null; event_end_date?: string | null };
+  const phase = ev.event_date
+    ? getMenuLifecyclePhase(ev.event_date, ev.cleared_at ?? null, ev.timezone ?? undefined, undefined, ev.event_end_date ?? null)
+    : 'plan';
+  const glance = musicGlance({
+    ownership: owned ? 'on' : ownsOrWaits ? 'waiting' : 'none',
+    price: pricePhp,
+    day: serviceDayOf(phase),
+    offered: true,
+    song: songReady ? 'ready' : 'in_production',
+    playing: adopted,
+  });
+  const storeShell = await isStoreShellRequest();
+  const briefWords = [responses?.music_type, responses?.pet_names].map((x) => (x ?? '').trim()).filter(Boolean).join(' · ');
 
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
@@ -169,6 +194,51 @@ export default async function PakantaPage({ params }: Props) {
           </span>
         }
       />
+
+      <div>
+        <ServicePageBand eventId={eventId} glance={glance} label="Your song" storeShell={storeShell} buyError={search.buy_error ?? null} />
+        {/* ✅ THE SECTIONS AS DRAWN (prototype `sections('music')`) — dim until it is added. */}
+        <div className="mt-2">
+          <ServiceSection
+            id="brief"
+            icon={<ListMusic strokeWidth={1.9} />}
+            title="Your brief"
+            sub={briefWords || 'Style, mood, your story'}
+            end={<ServiceQuietLink href="#brief-form" label={responses ? 'See' : 'Tell us'} />}
+            dim={glance.ownership !== 'on'}
+          />
+          <ServiceSection
+            id="song"
+            icon={<Music strokeWidth={1.9} />}
+            title="Your song"
+            sub={owned && songReady ? `Ready${event.pakanta_song_filename ? ` · ${event.pakanta_song_filename}` : ''}` : owned ? 'In production' : 'Lands here when ready'}
+            dim={!owned}
+          >
+            {owned && songReady && songPreviewUrl ? (
+              <>
+                <SongPlayer eventId={eventId} src={songPreviewUrl} />
+                <AiDisclosure generator="song" className="mt-2" />
+              </>
+            ) : owned ? (
+              <div className="ss-empty">
+                <b>In production</b>
+                <span>No clock on this — you will see Ready here first.</span>
+              </div>
+            ) : null}
+          </ServiceSection>
+          {/* A setting is ONE row. Turning the song ON is the shipped one-tap adopt; once it plays,
+              the Event Hub's own music settings are where it is changed. */}
+          <ServiceSection
+            icon={<Settings2 strokeWidth={1.9} />}
+            title="Play on your Event Hub"
+            sub="Softly, as a guest opens it"
+            end={adopted ? <ServiceChip mood="ok" words="Playing" /> : owned && songReady ? null : <ServiceChip mood="off" words="When ready" />}
+            dim={!owned}
+          >
+            {owned && songReady && !adopted ? <UseSongButton eventId={eventId} /> : null}
+          </ServiceSection>
+        </div>
+      </div>
 
       {/* 🧩 Playlist, under Music Maker (it sat under the Music Maker card on
           the retired More Services page — owner, tracker d1). */}
@@ -225,64 +295,17 @@ export default async function PakantaPage({ params }: Props) {
         )}
       </div>
 
-      {/* ── OWNED + DELIVERED — the finished song is on file. ────────────── */}
-      {owned && songReady ? (
-        <div className="rounded-xl border border-success-200 bg-success-50 p-5">
-          <p className="mb-2 inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
-            <CheckCircle2 aria-hidden className="h-5 w-5" strokeWidth={2} /> Delivered
-            {event.pakanta_song_filename ? ` — ${event.pakanta_song_filename}` : ''}
+      {/* The brief itself — the three questions. Before it is added, "Continue to payment" saves
+          it and opens /pay (`buyService`); once added, it saves only, while the song is written. */}
+      <div id="brief-form" className="scroll-mt-24">
+        {pricePhp != null ? (
+          <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} paid={ownsOrWaits} />
+        ) : (
+          <p className="text-sm text-ink/65">
+            Pricing loads from your catalog &mdash; please refresh in a moment.
           </p>
-          <p className="text-sm text-ink/70">
-            Your custom wedding song is ready. Have a listen.
-          </p>
-          {songPreviewUrl ? (
-            <>
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-              <audio controls preload="none" src={songPreviewUrl} className="mt-3 w-full" />
-              <AiDisclosure generator="song" className="mt-2" />
-            </>
-          ) : null}
-          {adopted ? (
-            <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-success-800">
-              <Music aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Now playing on your
-              wedding page as guests browse.
-            </p>
-          ) : (
-            <UseSongButton eventId={eventId} />
-          )}
-        </div>
-      ) : owned ? (
-        /* ── OWNED + IN PRODUCTION — paid, song not yet delivered. ──────── */
-        <div className="space-y-4">
-          <div className="rounded-xl border border-mulberry/20 bg-mulberry/5 p-5">
-            <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-mulberry">
-              <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} /> Your song is in production
-            </p>
-            <p className="text-sm text-ink/70">
-              Your song is being composed with Setnayan AI from your story. When it’s ready it will
-              appear here — and play on your wedding page automatically.
-            </p>
-          </div>
-          {/* Keep the brief/intake visible while in production so the couple
-              can still add or refine their music notes before it's written. */}
-          {pricePhp != null ? (
-            <PakantaMusicForm
-              eventId={eventId}
-              initial={responses}
-              pricePhp={pricePhp}
-              settings={settings}
-              paid
-            />
-          ) : null}
-        </div>
-      ) : pricePhp != null ? (
-        /* ── NOT OWNED — buy + intake form (unchanged). ────────────────── */
-        <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} settings={settings} />
-      ) : (
-        <p className="text-sm text-ink/65">
-          Pricing loads from your catalog &mdash; please refresh in a moment.
-        </p>
-      )}
+        )}
+      </div>
     </section>
   );
 }

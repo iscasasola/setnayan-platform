@@ -47,13 +47,15 @@ import { formatPhp } from '@/lib/orders';
 // Cross-refs:
 //   • apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
 //   • apps/web/app/dashboard/[eventId]/checkout/actions.ts
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { getTiktokOAuthConfig } from '@/lib/patiktok-tiktok';
 import { disconnectPatiktokTiktok, savePatiktokBoothTemplates } from './actions';
 import { ReelRenderer } from './_components/reel-renderer';
-import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
-import { addOnHeroCopy } from '@/lib/add-ons-catalog';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { ServicePageBand, ServiceSection, ServiceChip, ServiceQuietLink } from '@/app/dashboard/[eventId]/studio/_components/service-page-band';
+import { boothGlance, serviceDayOf } from '@/lib/services-glance';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { formatPapicDayInWords } from '@/lib/papic-window';
+import { readServiceFigures } from '@/lib/service-figures.server';
 
 type RenderJobRow = {
   job_id: string;
@@ -73,21 +75,9 @@ type TiktokGrant = {
   expires_at: string;
 };
 
-type PaymentSettings = {
-  bdo_account_name: string | null;
-  bdo_account_number: string | null;
-  bdo_qr_url: string | null;
-  gcash_account_name: string | null;
-  gcash_number: string | null;
-  gcash_qr_url: string | null;
-};
 
 export const metadata = { title: 'Patiktok' };
 
-/* Name + promise from the one record every Studio row already reads, so a buy
-   page can never give a couple a second account of one product. It throws on an
-   unknown key rather than rendering a hero with no product name on it. */
-const PATIKTOK_HERO = addOnHeroCopy('patiktok');
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -101,6 +91,8 @@ type Props = {
     /** Set by the booth's "Change primary / backup": pick one template for that slot. */
     role?: string;
     other?: string;
+    /** A refused Save & share purchase (`buyService`) — the sheet opens on it. */
+    buy_error?: string;
   }>;
 };
 
@@ -118,6 +110,7 @@ export default async function PatiktokGallery({
     missing: tiktokMissing,
     role: roleParam,
     other: otherParam,
+    buy_error: buyError,
   } = await searchParams;
   // Picking a template FOR the booth (audit 2026-09-29: this was ignored, so the
   // choice never saved). Only a known slot and a known other template count.
@@ -133,7 +126,7 @@ export default async function PatiktokGallery({
 
   const { data: event, error: eventError } = await supabase
     .from('events')
-    .select('display_name, event_date')
+    .select('display_name, event_date, cleared_at, timezone, event_end_date')
     .eq('event_id', eventId)
     .maybeSingle();
   // ⚠ the event record. Degrades rather than claiming.
@@ -225,9 +218,6 @@ export default async function PatiktokGallery({
   const tiktokConfig = await getTiktokOAuthConfig();
   const tiktokAvailable = tiktokConfig.ready;
 
-  // BDO + GCash for the InlineCheckoutDrawer. Cheaper to fetch once at page level.
-  const settings = await fetchPlatformSettings(supabase);
-
   // Admin-managed price for the single Patiktok SKU, read from the authoritative
   // V2 retail catalog (platform_retail_catalog_v2 via formatV2Sku) — never
   // hardcoded. null → the buy card falls back to generic copy. The checkout
@@ -238,10 +228,26 @@ export default async function PatiktokGallery({
   // The unpaid preview opens this checkout in place (null for an owner).
   const saveCheckout = patiktokActive
     ? null
-    : { pricePhp, settings, pending: patiktokPending, storeShell };
-  // "◆ Save" on an unpaid finished reel points at the save card — only when that
-  // card is mounted (a fragment to a missing id fails silently).
-  const saveCardMounted = !patiktokActive && !storeShell;
+    : { pricePhp, pending: patiktokPending, storeShell };
+  // "◆ Save" on an unpaid finished reel points at the band (`#patiktok-save`),
+  // whose main button is Save & share — only where the band sells (never the app).
+  const saveCardMounted = !patiktokActive && !patiktokPending && !storeShell;
+
+  /* ✅ THE VIDEO BOOTH'S ONE BAND (owner "approve all", 2026-10-14 — services
+     prototype): the glance Home's row reads. PER EVENT (🧩 3). Its reels come
+     from the one figures read (a count, not the 20 rows listed below). */
+  const ev = (event ?? {}) as { event_date?: string | null; cleared_at?: string | null; timezone?: string | null; event_end_date?: string | null };
+  const phase = ev.event_date
+    ? getMenuLifecyclePhase(ev.event_date, ev.cleared_at ?? null, ev.timezone ?? undefined, undefined, ev.event_end_date ?? null)
+    : 'plan';
+  const figures = await readServiceFigures(eventId);
+  const glance = boothGlance({
+    ownership: patiktokActive ? 'on' : patiktokPending ? 'waiting' : 'none',
+    price: pricePhp,
+    day: serviceDayOf(phase),
+    reels: figures ? figures.reels : null,
+    dayWords: formatPapicDayInWords(ev.event_date ?? null),
+  });
 
   return (
     <section className="space-y-6">
@@ -261,22 +267,40 @@ export default async function PatiktokGallery({
         </Link>
       </div>
 
-      {/*
-        ⚖ NAME AND PROMISE, BUT NO PRICE — AND THE ABSENCE IS THE DECISION.
-        The brief asked every buy page to open with "product name, one-line
-        promise, price". Measured, this page does not have *a* price: the booth pass is one offer on a page whose
-        main job is choosing templates, and its price sits with it.
-        Hoisting one of them above the fold would say the page costs that, which
-        is the opposite of honest. So the figures stay beside the exact thing
-        each one buys, and the hero does the half it can do truthfully.
-      */}
-      <StudioBuyHero productName={PATIKTOK_HERO.label} promise="Pick the reel templates for your booth" />
-      <div className="mt-3 space-y-3">
-        <p className="sn-eye">
-          Record and preview free · save and share with Patiktok
-        </p>
-      </div>
+      <PageMasthead title="Video booth · Patiktok" />
 
+      {/* ✅ ONE BAND, then the sections as drawn (prototype `sections('booth')`). The band IS the
+          one Save & share door — "◆ Save" on a reel points here (`#patiktok-save`). */}
+      <div id="patiktok-save" className="scroll-mt-24">
+        <ServicePageBand eventId={eventId} glance={glance} label="Your video booth" storeShell={storeShell} buyError={buyError ?? null} />
+        <div className="mt-2">
+          <ServiceSection
+            icon={<Film strokeWidth={1.9} />}
+            title="Templates"
+            sub="Pick your booth's reels"
+            end={<ServiceQuietLink href="#templates" label="Change" />}
+          />
+          <ServiceSection
+            icon={<Download strokeWidth={1.9} />}
+            title="Your reels"
+            sub={
+              glance.ownership === 'on'
+                ? figures
+                  ? `${figures.reels} ${figures.reels === 1 ? 'reel' : 'reels'} · guests record free`
+                  : 'Guests record free'
+                : 'Watermarked until added'
+            }
+            end={<ServiceQuietLink href="#renders" label="See" />}
+          />
+          <ServiceSection
+            icon={<Hash strokeWidth={1.9} />}
+            title="Post to TikTok"
+            sub={tiktokGrant?.tiktok_handle ? `@${tiktokGrant.tiktok_handle}` : tiktokAvailable ? 'Not connected' : 'Not set up yet'}
+            end={<ServiceChip mood={tiktokGrant ? 'ok' : 'off'} words={tiktokGrant ? 'Connected' : 'Not set up'} />}
+            dim={glance.ownership !== 'on'}
+          />
+        </div>
+      </div>
       {queued ? (
         <p
           role="status"
@@ -370,14 +394,6 @@ export default async function PatiktokGallery({
             absent (lib/store-shell.ts) — the booth still works.
           */}
           <BoothLaunchPanel eventId={eventId} owned={false} />
-          {saveCardMounted ? (
-            <SaveShareCard
-              eventId={eventId}
-              pricePhp={pricePhp}
-              settings={settings}
-              pending={patiktokPending}
-            />
-          ) : null}
           <YourRenders
             jobs={jobs}
             eventId={eventId}
@@ -407,7 +423,7 @@ export default async function PatiktokGallery({
         </p>
       ) : null}
 
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul id="templates" className="grid scroll-mt-24 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {visibleTemplates.map((t) => (
           <li key={t.slug}>
             <TemplateCard
@@ -548,7 +564,7 @@ function YourRenders({
 }) {
   if (jobs.length === 0) return null;
   return (
-    <section className="sn-tile space-y-3 p-5">
+    <section id="renders" className="sn-tile scroll-mt-24 space-y-3 p-5">
       <header className="flex items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight">Your renders</h2>
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
@@ -662,86 +678,6 @@ function RenderStatusPill({ status }: { status: RenderJobRow['status'] }) {
       />
       {label}
     </span>
-  );
-}
-
-/**
- * The ONE Patiktok door: save & share. One order keyed on PATIKTOK_COMPILER; the
- * inline checkout drawer handles voucher + QR + screenshot. Display price comes
- * from the admin-managed retail catalog (priceLabel); the checkout action
- * re-resolves the authoritative charge server-side — no peso is hardcoded here.
- *
- * 💎 Owner 2026-09-29: "yes use for free. but pay to save and share". So this is
- * not a gate in front of the booth — the booth is above it, open — it is the
- * save/share half, marked ◆ PRO (information, never a padlock). Mounted only
- * outside the app-store shell.
- */
-function SaveShareCard({
-  eventId,
-  pricePhp,
-  settings,
-  pending,
-}: {
-  eventId: string;
-  /** Admin-managed price in PHP from the V2 retail catalog. null = unreadable. */
-  pricePhp: number | null;
-  settings: PaymentSettings;
-  /** An order is already submitted and awaiting confirmation. */
-  pending: boolean;
-}) {
-  const priceLabel = pricePhp != null ? formatPhp(pricePhp) : null;
-  const triggerLabel = priceLabel ? `Save & share · ${priceLabel}` : 'Save & share';
-  return (
-    <section id="patiktok-save" className="sn-tile scroll-mt-24 space-y-3 p-5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="space-y-1">
-          <p className="sn-eye inline-flex items-center gap-1.5">
-            <PaidMark state="try" label="Comes with Patiktok" size="xs" />
-            Save &amp; share
-          </p>
-          <h2 className="text-lg font-semibold tracking-tight">Keep your reels</h2>
-          <p className="max-w-prose text-sm text-ink/70">
-            Recording and watching your reels is free. Add Patiktok to save
-            them without the preview mark, download them and share them —
-            every reel your booth makes, for this whole event.
-          </p>
-        </div>
-        {priceLabel ? (
-          <span className="shrink-0 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-700">
-            {priceLabel}
-          </span>
-        ) : null}
-      </div>
-      <p className="text-xs text-ink/55">
-        Soft cap: {PATIKTOK_VIDEO_SOFT_CAP} captured videos per booth per day —
-        guidance only, not a charge.
-      </p>
-      {pending ? (
-        <p
-          role="status"
-          className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70"
-        >
-          Your Patiktok payment is being confirmed. Once it is, open any reel in
-          &ldquo;Your renders&rdquo; and it saves without the mark.
-        </p>
-      ) : (
-        <div className="pt-1">
-          <InlineCheckoutDrawer
-            eventId={eventId}
-            serviceKey={PATIKTOK_SERVICE_KEY}
-            displayName="Patiktok booth"
-            originalPriceCentavos={String(Math.round((pricePhp ?? 0) * 100))}
-            settings={settings}
-            triggerLabel={triggerLabel}
-            triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
-          />
-          <p className="pt-2 text-[11px] text-ink/55">
-            Apply-then-pay · Setnayan confirms inside 24 h after your
-            payment is logged.
-          </p>
-        </div>
-      )}
-    </section>
   );
 }
 

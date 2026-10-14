@@ -1721,6 +1721,11 @@ export async function finalizeVendor(
             currentLimit: 0,
             existingHoldCount: 0,
           };
+        case 'blocked':
+          // 2026-10-14: the chosen time meets the supplier's "Not available"
+          // hours that day (e.g. every Sunday morning) — the same couple-facing
+          // words as a closed date (never who / why), so they pick another time.
+        // falls through
         case 'locked':
           // PHASE 5 gapfix: the vendor has a hard hold on this date — same
           // couple-facing outcome as a closure (never who / why / which state).

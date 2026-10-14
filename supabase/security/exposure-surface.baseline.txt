@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6678
+# facts: 6697
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     571
-#   col       4887
-#   policy    949
+#   tpriv     572
+#   col       4901
+#   policy    951
 #   view      8
-#   func      259
+#   func      261
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -549,6 +549,7 @@ tpriv	public.vendor_service_attributes|anon	SIUD
 tpriv	public.vendor_service_attributes|authenticated	SIUD
 tpriv	public.vendor_service_discounts|anon	SIUD
 tpriv	public.vendor_service_discounts|authenticated	SIUD
+tpriv	public.vendor_service_halls|authenticated	SIUD
 tpriv	public.vendor_service_inclusions|anon	SIUD
 tpriv	public.vendor_service_inclusions|authenticated	SIUD
 tpriv	public.vendor_service_links|anon	SIUD
@@ -4251,8 +4252,11 @@ col	public.vendor_admin_motions.target_user_id	anon=SIU authenticated=SIU
 col	public.vendor_admin_motions.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_availability_freed.blocked_at	anon=SIU authenticated=SIU
 col	public.vendor_availability_freed.blocked_until	anon=SIU authenticated=SIU
+col	public.vendor_availability_freed.day_part	anon=SIU authenticated=SIU
 col	public.vendor_availability_freed.freed_at	anon=SIU authenticated=SIU
 col	public.vendor_availability_freed.id	anon=SIU authenticated=SIU
+col	public.vendor_availability_freed.repeat_rule	anon=SIU authenticated=SIU
+col	public.vendor_availability_freed.repeat_until	anon=SIU authenticated=SIU
 col	public.vendor_availability_freed.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.created_at	anon=SIU authenticated=SIU
 col	public.vendor_billing_catalog.description	anon=SIU authenticated=SIU
@@ -4318,9 +4322,13 @@ col	public.vendor_calendar_blocks.blocked_until	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.client_contact	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.client_name	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.client_note	anon=SIU authenticated=SIU
+col	public.vendor_calendar_blocks.client_time	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.created_at	anon=SIU authenticated=SIU
+col	public.vendor_calendar_blocks.day_part	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.is_private	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.pool_id	anon=SIU authenticated=SIU
+col	public.vendor_calendar_blocks.repeat_rule	anon=SIU authenticated=SIU
+col	public.vendor_calendar_blocks.repeat_until	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.service_id	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.setnayan_booking_id	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.updated_at	anon=SIU authenticated=SIU
@@ -5111,9 +5119,12 @@ col	public.vendor_schedule_pools.calendar_name	anon=- authenticated=SIU
 col	public.vendor_schedule_pools.created_at	anon=- authenticated=SIU
 col	public.vendor_schedule_pools.daily_booking_capacity	anon=- authenticated=SIU
 col	public.vendor_schedule_pools.is_active	anon=- authenticated=SIU
+col	public.vendor_schedule_pools.is_hall	anon=- authenticated=SIU
 col	public.vendor_schedule_pools.is_vendor_created	anon=- authenticated=SIU
 col	public.vendor_schedule_pools.pool_id	anon=- authenticated=SIU
 col	public.vendor_schedule_pools.pool_label	anon=- authenticated=SIU
+col	public.vendor_schedule_pools.seated_capacity	anon=- authenticated=SIU
+col	public.vendor_schedule_pools.standing_capacity	anon=- authenticated=SIU
 col	public.vendor_schedule_pools.updated_at	anon=- authenticated=SIU
 col	public.vendor_schedule_pools.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_screen_name_sequences.canonical_service	anon=- authenticated=SIU
@@ -5152,6 +5163,10 @@ col	public.vendor_service_discounts.unit	anon=SIU authenticated=SIU
 col	public.vendor_service_discounts.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_service_discounts.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_service_discounts.vendor_service_id	anon=SIU authenticated=SIU
+col	public.vendor_service_halls.created_at	anon=- authenticated=SIU
+col	public.vendor_service_halls.pool_id	anon=- authenticated=SIU
+col	public.vendor_service_halls.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_service_halls.vendor_service_id	anon=- authenticated=SIU
 col	public.vendor_service_inclusions.created_at	anon=SIU authenticated=SIU
 col	public.vendor_service_inclusions.id	anon=SIU authenticated=SIU
 col	public.vendor_service_inclusions.label	anon=SIU authenticated=SIU
@@ -6373,6 +6388,8 @@ policy	public.vendor_service_attributes|vendor_service_attributes_team_admin	mod
 policy	public.vendor_service_discounts|vendor_service_discounts_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_console_admin() check=is_console_admin()
 policy	public.vendor_service_discounts|vendor_service_discounts_public_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.is_published = true))) AND (vendor_service_id IN ( SELECT vendor_services.vendor_service_id FROM vendor_services WHERE (vendor_services.is_active = true)))) check=NULL
 policy	public.vendor_service_discounts|vendor_service_discounts_vendor_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_service_halls|vendor_service_halls_owner	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) check=(vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid())))
+policy	public.vendor_service_halls|vendor_service_halls_public_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.is_published = true))) check=NULL
 policy	public.vendor_service_inclusions|vendor_service_inclusions_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=is_console_admin() check=is_console_admin()
 policy	public.vendor_service_inclusions|vendor_service_inclusions_public_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.is_published = true))) AND (vendor_service_id IN ( SELECT vendor_services.vendor_service_id FROM vendor_services WHERE (vendor_services.is_active = true)))) check=NULL
 policy	public.vendor_service_inclusions|vendor_service_inclusions_vendor_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
@@ -6464,6 +6481,8 @@ func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,a
 func	public.booking_fee_free_window_active(p_at timestamp with time zone)	secdef=no exec=anon,authenticated search_path=public
 func	public.booking_fee_proposal_cleared(p_proposal_id uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.bundles_granting_sku(p_child text)	secdef=no exec=anon,authenticated search_path=public
+func	public.calendar_block_meets_time(p_day_part text, p_start time without time zone, p_end time without time zone)	secdef=no exec=anon,authenticated search_path=public
+func	public.calendar_block_on_day(p_blocked_at timestamp with time zone, p_blocked_until timestamp with time zone, p_repeat_rule text, p_repeat_until date, p_day date)	secdef=no exec=anon,authenticated search_path=public
 func	public.call_rtc_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.cancel_event_deletion_request(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_part_finalization_request(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
@@ -6537,7 +6556,7 @@ func	public.godchildren_with_birthday_soon(p_today date, p_within integer)	secde
 func	public.guest_link_capture(p_guest_id uuid, p_source_table text, p_source_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.guest_pool_gallery(p_guest_id uuid, p_before timestamp with time zone, p_limit integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.guest_unlink_capture(p_guest_id uuid, p_source_table text, p_source_id uuid)	secdef=yes exec=anon,authenticated search_path=public
-func	public.import_external_client(p_vendor_profile_id uuid, p_pool_id uuid, p_client_name text, p_client_contact text, p_client_note text, p_start_date date, p_end_date date)	secdef=yes exec=anon,authenticated search_path=public
+func	public.import_external_client(p_vendor_profile_id uuid, p_pool_id uuid, p_client_name text, p_client_contact text, p_client_note text, p_start_date date, p_end_date date, p_client_time time without time zone)	secdef=yes exec=authenticated search_path=public
 func	public.incoming_requests_for_me()	secdef=yes exec=authenticated search_path=public
 func	public.is_admin()	secdef=yes exec=anon,authenticated search_path=public
 func	public.is_console_admin()	secdef=yes exec=anon,authenticated search_path=public

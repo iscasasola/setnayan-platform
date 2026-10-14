@@ -314,6 +314,12 @@ AS $$
   FROM r
 $$;
 
+-- Pure arithmetic, read by the SECURITY DEFINER gates below (which run as their owner). No browser needs them.
+REVOKE ALL ON FUNCTION public.calendar_block_on_day(TIMESTAMPTZ, TIMESTAMPTZ, TEXT, DATE, DATE) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.calendar_block_meets_time(TEXT, TIME, TIME) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.calendar_block_on_day(TIMESTAMPTZ, TIMESTAMPTZ, TEXT, DATE, DATE) TO service_role;
+GRANT EXECUTE ON FUNCTION public.calendar_block_meets_time(TEXT, TIME, TIME) TO service_role;
+
 COMMENT ON FUNCTION public.calendar_block_meets_time(TEXT, TIME, TIME) IS
   'Does a block''s day_part meet a time range? all_day meets everything; a part meets a range that overlaps it (half-open) or a moment inside it. TS twin: apps/web/lib/not-available.ts dayPartMeetsTime.';
 

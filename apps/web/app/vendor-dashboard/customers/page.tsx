@@ -17,6 +17,7 @@ import {
 } from '@/lib/vendor-schedule';
 import {
   asksByDate,
+  clockWords,
   dayAnswerOfGroups,
   dayGroupsOf,
   daySheetHref,
@@ -28,6 +29,7 @@ import {
   type DatesAsk,
 } from '@/lib/vendor-dates';
 import { blockClosesDay, repeatWords } from '@/lib/not-available';
+import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { asVendorTier, entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
@@ -178,6 +180,9 @@ const PEOPLE_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; 
   bad_pool: { tone: 'bad', text: 'Pick which schedule this client belongs to. Nothing was added.', retry: true },
   save_failed: { tone: 'bad', text: 'That did not go through. Nothing changed — please try again.', retry: true },
 };
+
+/** The kinds a shop sells that make it a venue with halls (owner 2026-10-14 🏛). */
+const VENUE_KINDS = new Set(['venue', 'religious_venue']);
 
 function categoryLabel(key: string): string {
   return (VENDOR_CATEGORY_LABEL as Record<string, string>)[key] ?? key.replace(/_/g, ' ');
@@ -845,6 +850,8 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
       scope: b.poolId === null ? 'every schedule' : (poolLabelOf.get(b.poolId) ?? 'one schedule'),
     }));
   const initialDay = todayIso.startsWith(month) ? todayIso : `${month}-01`;
+  // A VENUE lists its halls (owner 2026-10-14 🏛): it already has a hall, or it sells a venue.
+  const venue = pools.some((p) => p.isHall) || services.some((s) => VENUE_KINDS.has(String(s.category ?? '')));
 
   return (
     <>
@@ -886,6 +893,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           }))}
           agents={agents}
           agentCategories={agentCategories}
+          halls={pools.every((p) => p.isHall) && pools.length > 0}
         />
       </div>
 
@@ -911,6 +919,8 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           name: p.calendarName ?? p.label,
           capacity: p.capacity,
           isHall: p.isHall === true,
+          seated: p.seatedCapacity ?? null,
+          standing: p.standingCapacity ?? null,
           line: p.categories.map(categoryLabel).join(', '),
           serviceIds: p.serviceIds,
           categories: p.categories.map((c) => ({ key: c, label: categoryLabel(c) })),
@@ -922,6 +932,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
         slotsHref="/vendor-dashboard/shop"
         icsHref="/vendor-dashboard/customers/calendar.ics"
         approveFirst={isLockHandshakeEnabled()}
+        venue={venue}
         blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
         actions={DATES_ACTIONS}
       />
@@ -936,6 +947,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           today={todayIso}
           setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
           returnTo="dates"
+          halls={pools.length > 0 && pools.every((p) => p.isHall)}
           seats={seatsByPool(pools, bookings, blocks, todayIso)}
         />
       </SupplierThumbRow>
@@ -1038,6 +1050,45 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     blocks: blocksRead.blocks,
     holds: holds.map((h) => ({ poolId: h.poolId, stateDate: h.stateDate, dayState: h.dayState })),
   });
+  // 🏛 A VENUE'S DAY, PER HALL (prototype "the day per hall"): each hall booked · outside · not available · free, and
+  // under "Joined halls" each card that uses several halls, free or saying which hall is taken.
+  let venueDay: DaySheetData['venue'] = null;
+  const hallPools = pools.filter((p) => p.isHall);
+  if (hallPools.length > 0 && hallPools.length === pools.length) {
+    const hallList = hallPools.map((p) => ({ poolId: p.poolId, name: p.label, capacity: p.capacity, seated: p.seatedCapacity ?? null, standing: p.standingCapacity ?? null }));
+    const joinedIds = new Map<string, string[]>();
+    for (const p of hallPools) for (const sid of p.hallServiceIds ?? []) joinedIds.set(sid, [...(joinedIds.get(sid) ?? []), p.poolId]);
+    const multi = [...joinedIds.entries()].filter(([, ids]) => ids.length > 1);
+    const cardNames = multi.length > 0 ? new Map((await fetchVendorServices(supabase, vendorProfileId)).map((s) => [s.vendor_service_id, s.title ?? s.category])) : new Map<string, string>();
+    const state = hallsOnDay(
+      day,
+      hallList,
+      bookedToday.map((b) => ({ poolId: b.poolId, eventId: b.eventId, title: b.eventName })),
+      blocksRead.blocks,
+    );
+    const joinedOf = (eventId: string) => state.filter((x) => x.used.some((u) => u.eventId === eventId)).map((x) => x.hall.name);
+    venueDay = {
+      answer: hallsAnswer(state),
+      halls: state.map((x) => {
+        const first = x.used[0];
+        const joined = first && !first.outside ? joinedOf(first.eventId) : [];
+        return {
+          key: x.hall.poolId,
+          title: x.hall.name,
+          line: first
+            ? [first.time ? clockWords(first.time) : '', first.title, joined.length > 1 ? `joined ${joined.join(' + ')}` : ''].filter(Boolean).join(' · ')
+            : x.closedBy ?? (hallGuests(x.hall) || 'Free'),
+          badge: first ? (first.outside ? { tone: 'quiet' as const, word: 'Outside' } : { tone: 'ok' as const, word: 'Booked' }) : x.closedBy ? { tone: 'quiet' as const, word: 'Not available' } : { tone: 'ok' as const, word: 'Free' },
+          href: first && !first.outside ? `/vendor-dashboard/clients/${first.eventId}` : null,
+        };
+      }),
+      joined: multi.map(([sid, ids]) => {
+        const j = joinedCardOnDay({ serviceId: sid, name: cardNames.get(sid) ?? 'Joined halls', poolIds: ids }, state, hallList);
+        return { key: sid, title: cardNames.get(sid) ?? ids.map((id) => hallList.find((h) => h.poolId === id)?.name).join(' + '), line: j.line, free: j.free };
+      }),
+    };
+  }
+
   const holders = asks
     .filter((a) => a.date === day)
     .map((a) => ({ threadId: a.threadId, title: a.name ?? 'A couple', line: `${askedOn(a.askedAt)} · not booked` }));
@@ -1077,6 +1128,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     })),
     whoWorks,
     qrHref: `/vendor-dashboard/invite?mode=locked&date=${day}`,
+    venue: venueDay,
   };
 
   return (
@@ -1096,6 +1148,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
           today={todayIso}
           setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
           returnTo="dates"
+          halls={pools.length > 0 && pools.every((p) => p.isHall)}
           day={day}
           seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
           label="Add a booking"

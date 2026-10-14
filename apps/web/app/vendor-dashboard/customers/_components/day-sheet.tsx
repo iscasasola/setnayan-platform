@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BellRing, CalendarX2, ChevronLeft, Clock, MessageSquare, QrCode, RotateCcw, Users } from 'lucide-react';
+import { BellRing, CalendarX2, ChevronLeft, Clock, MapPin, MessageSquare, QrCode, RotateCcw, Users } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
@@ -64,6 +64,15 @@ export type DaySheetData = {
   whoWorks: string | null;
   /** The booked QR with this date filled (`/vendor-dashboard/invite?mode=locked&date=`). */
   qrHref: string;
+  /**
+   * A VENUE'S DAY, PER HALL (owner 2026-10-14 🏛): the answer ("Hall B · Hall C free · Hall A booked"), a row per hall,
+   * and "Joined halls" — each card using several halls, free or saying which hall is taken. Null for other shops.
+   */
+  venue?: {
+    answer: { tone: 'ok' | 'bad'; word: string; line: string } | null;
+    halls: { key: string; title: string; line: string; badge: { tone: 'ok' | 'quiet'; word: string }; href: string | null }[];
+    joined: { key: string; title: string; line: string; free: boolean }[];
+  } | null;
 };
 
 const ANSWER_TONE: Record<DayAnswer['tone'], string> = {
@@ -104,8 +113,12 @@ export function DaySheet({
       </h2>
       {data.sub ? <p className="mt-1 text-[14px] text-ink/60">{data.sub}</p> : null}
 
-      {/* THE ANSWER LINE (prototype `.answer`): one coloured word, then what is true. */}
-      {data.answer ? (
+      {/* THE ANSWER LINE (prototype `.answer`): one coloured word, then what is true. A venue answers per hall. */}
+      {data.venue?.answer ? (
+        <p className="mt-2 text-[17px] leading-snug" style={{ color: ANSWER_TONE[data.venue.answer.tone] }} data-dates-day-answer={data.venue.answer.word}>
+          <b className="font-semibold">{data.venue.answer.word}</b> · {data.venue.answer.line}
+        </p>
+      ) : data.answer ? (
         <p className="mt-2 text-[17px] leading-snug" style={{ color: ANSWER_TONE[data.answer.tone] }} data-dates-day-answer={data.answer.word}>
           <b className="font-semibold">{data.answer.word}</b> · {data.answer.line}
         </p>
@@ -116,7 +129,31 @@ export function DaySheet({
       )}
 
       <div className="mt-3" data-dates-day-rows="">
-        {data.groups.map((g) => (
+        {data.venue ? (
+          <div data-dates-day-halls="">
+            {data.venue.halls.map((h) => (
+              <DatesRow key={h.key} data="hall" lead={<RowTile><MapPin strokeWidth={1.75} /></RowTile>} title={h.title} line={h.line} badge={h.badge} href={h.href} />
+            ))}
+            {data.venue.joined.length > 0 ? (
+              <>
+                <p className="border-t border-ink/10 pb-0.5 pt-3.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink/55" data-dates-day-joined="">
+                  Joined halls
+                </p>
+                {data.venue.joined.map((j) => (
+                  <DatesRow
+                    key={j.key}
+                    data="joined"
+                    lead={<RowTile><MapPin strokeWidth={1.75} /></RowTile>}
+                    title={j.title}
+                    line={j.line}
+                    badge={j.free ? { tone: 'ok', word: 'Free' } : { tone: 'quiet', word: 'Not available' }}
+                  />
+                ))}
+              </>
+            ) : null}
+          </div>
+        ) : null}
+        {(data.venue ? [] : data.groups).map((g) => (
           <div key={g.poolId} data-dates-day-group={g.poolId}>
             {many ? (
               <p className="flex items-center gap-2 border-t border-ink/10 pb-0.5 pt-3.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink/55 first:border-t-0">

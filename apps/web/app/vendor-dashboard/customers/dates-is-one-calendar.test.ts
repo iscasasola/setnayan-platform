@@ -123,7 +123,7 @@ test('2 · the month folds the ONE derivation — it counts nothing itself, and 
   assert.equal(existsSync(join(VD, 'calendar', 'surface.tsx')), false, 'calendar/surface.tsx (the second renderer) is back');
   assert.equal(existsSync(join(HERE, '_components', 'customers-filter-bar.tsx')), false, 'the filter bar is back — Dates has ONE dropdown');
   assert.match(MONTH, /<PickMenu label="Schedules"/, 'the month lost its ONE dropdown — "All schedules ▾"');
-  assert.match(MONTH, /\{ key: 'all', label: 'All schedules' \}/, 'the dropdown does not say "All schedules"');
+  assert.match(MONTH, /\{ key: 'all', label: halls \? 'All halls' : 'All schedules' \}/, 'the dropdown does not say "All schedules" (or "All halls" for a venue)');
   assert.match(MONTH, /monthPicker=\{\(view, go\) => \(\s*<PickMenu\s+label="Month"/, 'the month is not a dropdown between ‹ and ›');
   // The pure fold, executed: blocked and held are blocked; a seat is booked; an ask or a waiter is holding.
   const base = { state: null, consumed: 0, inquiryCount: 0, waitlistCount: 0 } as const;
@@ -182,7 +182,8 @@ test('3 · "Free" only where a schedule says so; a shop with no schedule is "Not
   assert.equal(dayAnswerOf({ schedules: 1, capacity: 1, taken: 1, asking: 0, closedWhy: 'Masses', partWords: [] })?.word, 'Not available');
   assert.match(DAY, /Schedule not set — open How many a day/, 'the day with no schedule does not say "Not set"');
   for (const [name, src] of [['customers-calendar', MONTH], ['dates-folds', FOLDS]] as const) {
-    assert.doesNotMatch(src, /\bFree\b/, `${name} calls a day "Free" without the day's answer`);
+    // "Free on every plan" (a venue's halls, 2026-10-14 🏛) is about the plan, never a day.
+    assert.doesNotMatch(src, /\bFree\b(?! on every plan)/, `${name} calls a day "Free" without the day's answer`);
   }
   // A busy day lists what is on it, each opening the day.
   const busy = dayRowsOf('2026-10-17', {

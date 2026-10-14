@@ -35,6 +35,8 @@ export type SchedulePool = {
   /** A hall's guest capacity, seated and standing. */
   seatedCapacity?: number | null;
   standingCapacity?: number | null;
+  /** The cards that USE this hall (`vendor_service_halls`) — a joined card appears on each of its halls. */
+  hallServiceIds?: string[];
 };
 
 /** A vendor service shaped for the calendar service-picker (Named Calendars). */
@@ -267,6 +269,7 @@ export async function fetchVendorPools(
         isVendorCreated: p.is_vendor_created === true,
         serviceIds,
         isHall: p.is_hall === true,
+        hallServiceIds: hallCards,
         seatedCapacity: p.seated_capacity ?? null,
         standingCapacity: p.standing_capacity ?? null,
       };

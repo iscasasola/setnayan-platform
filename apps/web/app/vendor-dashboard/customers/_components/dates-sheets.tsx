@@ -308,3 +308,99 @@ export function ShareTeamPick({
     </form>
   );
 }
+
+/* ── A HALL — new, or its name and guests (Your halls, owner 2026-10-14 🏛) ── */
+
+/**
+ * A venue's hall (prototype section 9 "Halls setup": name · seated · standing; "Halls are free on every plan").
+ * A hall IS a schedule (`createCalendar` / `editCalendar` with `is_hall`) taking one booking a day; which cards book it
+ * is said on the card ("Uses"). Posts the shipped actions; comes back to the Your halls fold.
+ */
+export function HallSheet({
+  hall,
+  createAction,
+  editAction,
+  month,
+}: {
+  /** The hall to edit; absent = a new one. */
+  hall?: { poolId: string; name: string; capacity: number; seated: number | null; standing: number | null } | null;
+  createAction: Action;
+  editAction: Action;
+  month: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const mounted = usePortal();
+  const headingId = useId();
+  const form = useRef<HTMLFormElement>(null);
+  const editing = Boolean(hall);
+  const [name, setName] = useState(hall?.name ?? '');
+  const [seated, setSeated] = useState(hall?.seated ? String(hall.seated) : '');
+  const [standing, setStanding] = useState(hall?.standing ? String(hall.standing) : '');
+  const digits = (t: string) => t.replace(/[^\d]/g, '').slice(0, 6);
+
+  const sheet = (
+    <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
+      <div className="px-5 pb-4 pt-5" data-dates-hall-sheet={editing ? 'edit' : 'new'}>
+        <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
+          {editing ? hall!.name : 'New hall'}
+        </h2>
+        <p className="mt-1 text-[13.5px] text-ink/60">Free on every plan. Join halls on a card to sell a bigger one.</p>
+        <form
+          ref={form}
+          action={editing ? editAction : createAction}
+          className="mt-3"
+          onSubmit={(e) => {
+            if (!name.trim()) {
+              e.preventDefault();
+              nudgeFormRows(form.current ?? undefined);
+            }
+          }}
+        >
+          <input type="hidden" name="return_to" value="dates" />
+          <input type="hidden" name="return_fold" value="capacity" />
+          <input type="hidden" name="return_month" value={month} />
+          <input type="hidden" name="is_hall" value="on" />
+          <input type="hidden" name="capacity" value={String(hall?.capacity ?? 1)} />
+          <input type="hidden" name="seated_capacity" value={seated} />
+          <input type="hidden" name="standing_capacity" value={standing} />
+          {editing ? <input type="hidden" name="pool_id" value={hall!.poolId} /> : null}
+          <FormRows width="wide">
+            <TypedRow name="Name" value={name} required maxLength={80} fieldName="calendar_name" autoCapitalize="words" empty="Hall A" onKeep={(t) => setName(t)} />
+            <TypedRow name="Seated" value={seated} inputMode="numeric" maxLength={6} empty="Guests seated" clean={digits} onKeep={(t) => setSeated(digits(t))} />
+            <TypedRow name="Standing" value={standing} inputMode="numeric" maxLength={6} empty="Guests standing" clean={digits} onKeep={(t) => setStanding(digits(t))} />
+          </FormRows>
+          <div className="mt-4">
+            <SupplierSubmit
+              tone="brand"
+              main
+              icon={editing ? <Pencil aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+              label={editing ? 'Save hall' : 'Add the hall'}
+              pendingLabel="Saving…"
+              className="w-full"
+            />
+          </div>
+        </form>
+      </div>
+    </Sheet>
+  );
+
+  return (
+    <>
+      {editing ? (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+          className="sn-press -my-1 inline-flex min-h-11 max-w-full items-center gap-1.5 text-left text-[15px] font-medium text-ink"
+          data-dates-hall-edit=""
+        >
+          <span className="truncate">{hall!.name}</span>
+          <Pencil aria-hidden className="h-3.5 w-3.5 flex-none text-sn-accent" strokeWidth={2} />
+        </button>
+      ) : (
+        <ActionButton tone="neutral" icon={Plus} label="New hall" aria-haspopup="dialog" onClick={() => setOpen(true)} data-testid="dates-new-hall" />
+      )}
+      {mounted ? createPortal(sheet, document.body) : null}
+    </>
+  );
+}

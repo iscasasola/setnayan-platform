@@ -10,6 +10,16 @@ import { ChosenRow, FormRow, FormRows, TypedRow, nudgeFormRows } from '@/app/_co
 import { DateRow } from '@/app/_components/form-row-date';
 import type { CalendarDay } from '@/lib/calendar-grid';
 import { seatLine, type SeatsByPool } from '@/lib/vendor-dates';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+
+/** The halls line: of the halls picked, which are already full that day (seats the page read), or that they are free. */
+function hallsSeatLine(seats: SeatsByPool | null, pools: readonly OutsidePool[], picked: readonly string[], date: string | null): { tone: 'ok' | 'bad'; text: string } | null {
+  if (!seats || !date || picked.length === 0) return null;
+  const name = (id: string) => pools.find((p) => p.poolId === id)?.label ?? 'A hall';
+  const taken = picked.filter((id) => (seats[id]?.taken[date] ?? 0) >= (seats[id]?.capacity ?? 1)).map(name);
+  if (taken.length > 0) return { tone: 'bad', text: `${taken.join(' and ')} ${taken.length === 1 ? 'is' : 'are'} booked that day` };
+  return { tone: 'ok', text: `${picked.map(name).join(' + ')} free that day` };
+}
 import { SupplierSubmit } from '../../_components/supplier-submit';
 
 /**
@@ -47,7 +57,13 @@ export function OutsideClientAdd({
   day = null,
   seats = null,
   label = 'Add',
+  halls = false,
 }: {
+  /**
+   * The shop's schedules are a venue's HALLS (owner 2026-10-14 🏛, prototype "Add from outside · which halls"): the
+   * sheet asks "Which halls" — one or more, a dropdown with checkmarks — and each hall picked holds the day.
+   */
+  halls?: boolean;
   /** The shop's schedules — an outside client holds a date on one of them. */
   pools: readonly OutsidePool[];
   /** The shipped `importExternalClient` server action. */
@@ -79,7 +95,8 @@ export function OutsideClientAdd({
   const [from, setFrom] = useState<CalendarDay | null>(day);
   const [to, setTo] = useState<CalendarDay | null>(null);
   const [time, setTime] = useState('');
-  const line = seats ? seatLine(seats, pool, from) : null;
+  const [picked, setPicked] = useState<string[]>([]);
+  const line = halls ? hallsSeatLine(seats, pools, picked, from) : seats ? seatLine(seats, pool, from) : null;
 
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
@@ -102,7 +119,7 @@ export function OutsideClientAdd({
             className="mt-3"
             onSubmit={(e) => {
               // An unfinished answer shakes and the sheet moves to it — never a silent refusal.
-              if (!name.trim() || !from) {
+              if (!name.trim() || !from || (halls && picked.length === 0)) {
                 e.preventDefault();
                 nudgeFormRows(form.current ?? undefined);
               }
@@ -110,7 +127,7 @@ export function OutsideClientAdd({
           >
             <input type="hidden" name="return_to" value={returnTo} />
             {returnTo === 'dates' && from ? <input type="hidden" name="return_month" value={from.slice(0, 7)} /> : null}
-            <input type="hidden" name="pool_id" value={pool ?? ''} />
+            {halls ? picked.map((id) => <input key={id} type="hidden" name="pool_ids" value={id} />) : <input type="hidden" name="pool_id" value={pool ?? ''} />}
             <input type="hidden" name="start_date" value={from ?? ''} />
             <input type="hidden" name="end_date" value={to ?? ''} />
             <input type="hidden" name="client_time" value={time} />
@@ -125,7 +142,20 @@ export function OutsideClientAdd({
                 empty="Their name"
                 onKeep={(t) => setName(t)}
               />
-              {pools.length > 1 ? (
+              {halls ? (
+                <FormRow name="Which halls" data="outside-halls">
+                  <PickMenu
+                    label="Which halls"
+                    value={picked[0] ?? null}
+                    picked={picked}
+                    buttonText={picked.length > 0 ? pools.filter((p) => picked.includes(p.poolId)).map((p) => p.label).join(' · ') : 'Pick one or more'}
+                    options={pools.map((p) => ({ key: p.poolId, label: p.label }))}
+                    onPick={(k) => setPicked((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))}
+                    dataAttr="data-outside-halls"
+                    className="!min-h-11"
+                  />
+                </FormRow>
+              ) : pools.length > 1 ? (
                 <ChosenRow
                   name="Schedule"
                   label="Which schedule holds the date"

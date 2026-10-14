@@ -56,7 +56,10 @@ export function CustomersCalendar({
   agents = [],
   agentCategories = {},
   fetchMonth = fetchCustomerCalendarMonth,
+  halls = false,
 }: {
+  /** Every schedule is a venue's hall (2026-10-14 🏛) — the dropdown says "All halls" and each hall by its name. */
+  halls?: boolean;
   /** The first-painted month's raw day states + waiting list (server-fetched). */
   initialDayStates: VendorCalendarDayState[];
   initialWaitlist: WaitlistDateGroup[];
@@ -162,8 +165,8 @@ export function CustomersCalendar({
   });
 
   const options = [
-    { key: 'all', label: 'All schedules' },
-    ...pools.map((p) => ({ key: `pool:${p.poolId}`, label: `${p.label} schedule` })),
+    { key: 'all', label: halls ? 'All halls' : 'All schedules' },
+    ...pools.map((p) => ({ key: `pool:${p.poolId}`, label: halls ? p.label : `${p.label} schedule` })),
     ...agents.map((a) => ({ key: `agent:${a.value}`, label: `${a.label}’s work` })),
   ];
   // The month dropdown: last month to a year ahead (prototype: the month as a dropdown with ‹ ›).
@@ -180,7 +183,7 @@ export function CustomersCalendar({
         </div>
       ) : pools.length === 1 ? (
         <p className="mb-2 mt-1 text-[14px] font-medium text-ink" data-dates-one-schedule="">
-          One schedule · {pools[0]!.capacity} {pools[0]!.capacity === 1 ? 'event' : 'events'} a day
+          {halls ? 'One hall' : 'One schedule'} · {pools[0]!.capacity} {pools[0]!.capacity === 1 ? 'event' : 'events'} a day
         </p>
       ) : null}
       <div style={{ opacity: pending ? 0.6 : 1 }} className="transition-opacity">

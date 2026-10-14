@@ -984,6 +984,84 @@ BEGIN
 END;
 $$;
 
+-- ── 9 · THE SUPPLIER'S YES ON A JOINED HALL (owner 2026-10-14 🏛 "Approve all") ─
+-- Prototype "A + B asked, A taken": before the yes books anything, the shop is
+-- told WHICH of the card's halls is already taken that day and which halls are
+-- still free to offer. vendor_agree_to_lock never took a pool seat (the seat is
+-- taken at the deposit / the fee), so a joined-hall yes over a taken hall would
+-- book a wedding the venue cannot hold. This read answers it; the app refuses
+-- the yes with these names (`vendorAgreeToLock`, `lib/lock-answer-notice.ts`
+-- 'hall_taken'). Same occupancy as acquire_schedule_pools: other live pool
+-- bookings + outside bookings vs the hall's capacity, or an all-day closure.
+CREATE OR REPLACE FUNCTION public.vendor_card_halls_on(p_event_vendor_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_service UUID;
+  v_vpid    UUID;
+  v_date    DATE;
+  v_prec    TEXT;
+  v_taken   JSONB;
+  v_free    JSONB;
+BEGIN
+  SELECT ev.service_id, ev.marketplace_vendor_id, e.event_date, e.event_date_precision
+    INTO v_service, v_vpid, v_date, v_prec
+    FROM public.event_vendors ev
+    JOIN public.events e ON e.event_id = ev.event_id
+   WHERE ev.vendor_id = p_event_vendor_id;
+  -- Only the shop that was asked may read its own halls' day.
+  IF v_vpid IS NULL OR (v_vpid NOT IN (SELECT public.current_vendor_profile_ids()) AND NOT public.is_admin()) THEN
+    RETURN jsonb_build_object('status', 'not_authorized');
+  END IF;
+  IF v_service IS NULL OR v_date IS NULL OR v_prec IS DISTINCT FROM 'day'
+     OR NOT EXISTS (SELECT 1 FROM public.vendor_service_halls h WHERE h.vendor_service_id = v_service) THEN
+    RETURN jsonb_build_object('status', 'no_halls');
+  END IF;
+
+  WITH hall AS (
+    SELECT p.pool_id, COALESCE(NULLIF(trim(p.calendar_name), ''), p.pool_label) AS name, p.daily_booking_capacity AS cap,
+           EXISTS (SELECT 1 FROM public.vendor_service_halls h WHERE h.vendor_service_id = v_service AND h.pool_id = p.pool_id) AS mine
+      FROM public.vendor_schedule_pools p
+     WHERE p.vendor_profile_id = v_vpid AND p.is_hall AND p.is_active
+  ), state AS (
+    SELECT hall.*,
+           (EXISTS (
+              SELECT 1 FROM public.vendor_calendar_blocks b
+               WHERE b.vendor_profile_id = v_vpid
+                 AND b.block_source IN ('manual', 'synced_calendar')
+                 AND (b.pool_id = hall.pool_id OR b.pool_id IS NULL)
+                 AND b.day_part = 'all_day'
+                 AND public.calendar_block_on_day(b.blocked_at, b.blocked_until, b.repeat_rule, b.repeat_until, v_date))
+            OR (
+              (SELECT count(*) FROM public.vendor_schedule_pool_bookings pb
+                WHERE pb.pool_id = hall.pool_id AND pb.booked_date = v_date
+                  AND pb.released_at IS NULL AND pb.event_vendor_id <> p_event_vendor_id)
+            + (SELECT count(*) FROM public.vendor_calendar_blocks b
+                WHERE b.pool_id = hall.pool_id AND b.block_source = 'external_client'
+                  AND public.calendar_block_on_day(b.blocked_at, b.blocked_until, b.repeat_rule, b.repeat_until, v_date))
+              ) >= hall.cap) AS taken
+      FROM hall
+  )
+  SELECT COALESCE(jsonb_agg(name ORDER BY name) FILTER (WHERE mine AND taken), '[]'::jsonb),
+         COALESCE(jsonb_agg(name ORDER BY name) FILTER (WHERE NOT taken), '[]'::jsonb)
+    INTO v_taken, v_free
+    FROM state;
+
+  RETURN jsonb_build_object('status', CASE WHEN jsonb_array_length(v_taken) > 0 THEN 'hall_taken' ELSE 'ok' END,
+                            'taken', v_taken, 'free', v_free, 'date', v_date);
+END;
+$$;
+
+COMMENT ON FUNCTION public.vendor_card_halls_on(UUID) IS
+  'For the supplier''s yes on a card that uses halls (owner 2026-10-14 🏛): which of the card''s halls are taken that day (other live bookings + outside bookings vs capacity, or an all-day closure) and which of the shop''s halls are free to offer. Owner-only; names only.';
+
+REVOKE ALL ON FUNCTION public.vendor_card_halls_on(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.vendor_card_halls_on(UUID) TO authenticated;
+
 -- ── POST-CONDITIONS ─────────────────────────────────────────────────────────
 DO $$
 BEGIN

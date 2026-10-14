@@ -250,7 +250,10 @@ const DAY_PART_STORED: Readonly<Record<DayPart, readonly [string, string]>> = {
 export async function importExternalClient(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
 
-  const poolId = str(formData, 'pool_id');
+  // A venue's booking from outside may hold SEVERAL halls (owner 2026-10-14 🏛, "Which halls") — one row per hall,
+  // each the same shipped RPC (one pool each, by CHECK).
+  const hallIds = [...new Set(formData.getAll('pool_ids').map((v) => String(v)).filter(Boolean))].slice(0, 12);
+  const poolId = hallIds[0] ?? str(formData, 'pool_id');
   const clientName = str(formData, 'client_name');
   const startDate = str(formData, 'start_date');
   const endDate = str(formData, 'end_date') || startDate;
@@ -280,6 +283,19 @@ export async function importExternalClient(formData: FormData): Promise<void> {
   const status = (data as { status?: string; reason?: string } | null)?.status;
   if (status !== 'ok') {
     backToCalendar(formData, 'save_failed');
+  }
+  for (const hallId of hallIds.slice(1)) {
+    const more = await supabase.rpc('import_external_client', {
+      p_vendor_profile_id: profile.vendor_profile_id,
+      p_pool_id: hallId,
+      p_client_name: clientName,
+      p_client_contact: str(formData, 'client_contact') || null,
+      p_client_note: str(formData, 'client_note') || null,
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_client_time: /^\d{2}:\d{2}$/.test(time) ? time : null,
+    });
+    if (more.error || (more.data as { status?: string } | null)?.status !== 'ok') backToCalendar(formData, 'save_failed');
   }
 
   revalidateScheduleSurfaces();
@@ -825,16 +841,30 @@ export async function editCalendar(formData: FormData): Promise<void> {
   if (!pool) backToCalendar(formData, 'bad_pool');
   const capacity = await clampCapacityToTier(supabase, profile.vendor_profile_id, raw, (pool as { is_hall?: boolean } | null)?.is_hall === true);
 
+  // A hall's guests (2026-10-14 🏛) — only a hall carries them (the table's CHECK); blank = not said.
+  const isHall = (pool as { is_hall?: boolean } | null)?.is_hall === true;
+  const guestsOf = (key: string) => {
+    const n = Number(str(formData, key));
+    return Number.isInteger(n) && n >= 1 && n <= 100000 ? n : null;
+  };
   const { error: upErr } = await supabase
     .from('vendor_schedule_pools')
     .update({
       calendar_name: name.slice(0, 80),
       daily_booking_capacity: capacity,
+      ...(isHall && formData.has('seated_capacity') ? { seated_capacity: guestsOf('seated_capacity'), standing_capacity: guestsOf('standing_capacity') } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('pool_id', poolId)
     .eq('vendor_profile_id', profile.vendor_profile_id);
   if (upErr) backToCalendar(formData, 'save_failed');
+
+  // The hall sheet says nothing about services — a hall's cards are said on each card ("Uses"), so its save must
+  // never read as "no services on this schedule" and empty the membership.
+  if (isHall && str(formData, 'is_hall') === 'on') {
+    revalidateScheduleSurfaces();
+    backToCalendar(formData, 'calendar_saved');
+  }
 
   // Reconcile membership via a set-diff (positive .in only — no fragile negation).
   const desired = await ownedServiceIds(
@@ -918,5 +948,10 @@ export async function setServiceHalls(formData: FormData): Promise<void> {
     if (error) backToCalendar(formData, 'save_failed');
   }
   revalidateScheduleSurfaces();
+  // From a card in the Shop ("Uses"), back to the Shop; from Dates, back to Dates.
+  if (str(formData, 'return_to') === 'shop') {
+    revalidatePath('/vendor-dashboard/shop');
+    redirect('/vendor-dashboard/shop?saved=1');
+  }
   backToCalendar(formData, 'calendar_saved');
 }

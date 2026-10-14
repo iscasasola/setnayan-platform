@@ -646,3 +646,52 @@ test('HALLS · a one-schedule card keeps working unchanged (the 06-20 membership
     assert.equal(await bookCard(plain, HALL_DAY), 'full');
   });
 });
+
+test('HALLS · the supplier’s yes reads which of the card’s halls is taken, and which halls are free to offer', async () => {
+  await inRollback(async () => {
+    assert.equal(await bookCard(hallCard.A, HALL_DAY), 'ok');
+    // Santos & Lim ask for A + B that day: a pending row on the card.
+    const ev = await db.query<{ event_id: string }>(
+      `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting, event_date, event_date_precision)
+       VALUES ('Santos & Lim', 'wedding', 'catholic', 'garden', $1::date, 'day') RETURNING event_id`,
+      [HALL_DAY],
+    );
+    const evr = await db.query<{ vendor_id: string }>(
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, service_id)
+       SELECT $1, 'misc', 'Casa', 'shortlisted', vendor_profile_id, vendor_service_id FROM public.vendor_services WHERE vendor_service_id = $2
+       RETURNING vendor_id`,
+      [ev.rows[0]!.event_id, hallCard.AB],
+    );
+    const owner = await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [venue]);
+    await setAuthUid(db, owner.rows[0]!.user_id);
+    const r = await db.query<{ out: { status: string; taken: string[]; free: string[] } }>(`SELECT public.vendor_card_halls_on($1) AS out`, [evr.rows[0]!.vendor_id]);
+    assert.equal(r.rows[0]!.out.status, 'hall_taken');
+    assert.deepEqual(r.rows[0]!.out.taken, ['Hall A']);
+    assert.deepEqual(r.rows[0]!.out.free, ['Hall B', 'Hall C']);
+    // Another shop (the parish's owner) may not read the venue's day.
+    const other = await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [parish]);
+    await setAuthUid(db, other.rows[0]!.user_id);
+    const refused = await db.query<{ out: { status: string } }>(`SELECT public.vendor_card_halls_on($1) AS out`, [evr.rows[0]!.vendor_id]);
+    assert.equal(refused.rows[0]!.out.status, 'not_authorized');
+  });
+});
+
+test('HALLS · a card with no halls is not judged by halls at the yes', async () => {
+  await inRollback(async () => {
+    const ev = await db.query<{ event_id: string }>(
+      `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting, event_date, event_date_precision)
+       VALUES ('x', 'wedding', 'catholic', 'garden', $1::date, 'day') RETURNING event_id`,
+      [HALL_DAY],
+    );
+    const evr = await db.query<{ vendor_id: string }>(
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, service_id)
+       SELECT $1, 'misc', 'x', 'shortlisted', vendor_profile_id, vendor_service_id FROM public.vendor_services WHERE vendor_service_id = $2
+       RETURNING vendor_id`,
+      [ev.rows[0]!.event_id, wholeDayCard],
+    );
+    const owner = await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [parish]);
+    await setAuthUid(db, owner.rows[0]!.user_id);
+    const r = await db.query<{ out: { status: string } }>(`SELECT public.vendor_card_halls_on($1) AS out`, [evr.rows[0]!.vendor_id]);
+    assert.equal(r.rows[0]!.out.status, 'no_halls');
+  });
+});

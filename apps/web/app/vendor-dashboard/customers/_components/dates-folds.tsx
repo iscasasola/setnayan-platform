@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BellRing, CalendarClock, CalendarX2, Check, Clock, Download, QrCode, Users, X } from 'lucide-react';
+import { BadgeCheck, BellRing, CalendarClock, CalendarX2, Check, Clock, Download, MapPin, QrCode, Users, X } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { FormCounter } from '@/app/_components/form-counter';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -7,10 +7,11 @@ import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { CALENDAR_HATCH, CALENDAR_PART_STYLE } from '@/lib/calendar-grid';
 import { blockDaysLine, capacityLine, closureWords, rangeWords, waitlistLine } from '@/lib/vendor-dates';
 import type { DayPart, RepeatRule } from '@/lib/not-available';
+import { hallGuests } from '@/lib/vendor-halls';
 import { formatCount } from '@/lib/format-number';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow, RowTile } from './dates-row';
-import { CalendarSheet, ShareTeamPick, type DatesService } from './dates-sheets';
+import { CalendarSheet, HallSheet, ShareTeamPick, type DatesService } from './dates-sheets';
 
 /**
  * 2026-10-14 (owner ✅ "APPROVE" — prototype `datesBody`, plain words): the folds are **Not available** (every
@@ -74,6 +75,9 @@ export type DatesCalendar = {
   capacity: number;
   /** A venue's hall (2026-10-14 🏛) — not limited by the plan's per-day number. */
   isHall?: boolean;
+  /** A hall's guests. */
+  seated?: number | null;
+  standing?: number | null;
   /** What it holds, in words ("Photo & video"). */
   line: string;
   serviceIds: string[];
@@ -96,6 +100,7 @@ export function DatesFolds({
   icsHref,
   approveFirst,
   blockAdd,
+  venue = false,
   actions,
 }: {
   today: string;
@@ -122,6 +127,8 @@ export function DatesFolds({
   approveFirst: boolean;
   /** The "Mark days not available" button + sheet (`BlockDateAdd`, a client island). */
   blockAdd: ReactNode;
+  /** The shop is a venue (it sells a venue kind, or has a hall) — it may list its halls (owner 2026-10-14 🏛). */
+  venue?: boolean;
   actions: {
     removeBlock: Action;
     updateWaitlistSettings: Action;
@@ -140,6 +147,9 @@ export function DatesFolds({
       <input type="hidden" name="return_month" value={month} />
     </>
   );
+  // A venue's halls have their own fold; "How many a day" holds the other schedules.
+  const halls = calendars.filter((c) => c.isHall);
+  const schedules = calendars.filter((c) => !c.isHall);
   const capMax = waitlist.unlimited ? 99 : Math.max(waitlist.tierCap, waitlist.grandfathered, 1);
 
   return (
@@ -286,16 +296,53 @@ export function DatesFolds({
         </Fold>
       </div>
 
-      {/* ── HOW MANY A DAY ── */}
+      {/* ── YOUR HALLS (prototype section 9 "Halls setup") — each hall its own schedule with its guests; free on every
+          plan; a card says which halls it uses. ── */}
+      {venue ? (
+        <div className="border-b border-ink/10" data-dates-fold="halls">
+          <Fold
+            lead={<RowTile><MapPin strokeWidth={1.75} /></RowTile>}
+            title="Your halls"
+            line={halls.length > 0 ? `${halls.map((h) => h.label).join(' · ')} · free on every plan` : 'Add your first hall · free on every plan'}
+            defaultOpen={open === 'capacity'}
+            data="dates-halls"
+          >
+            <div className="pb-3">
+              {halls.map((h) => (
+                <DatesRow
+                  key={h.poolId}
+                  data="hall"
+                  lead={<RowTile><MapPin strokeWidth={1.75} /></RowTile>}
+                  title={<HallSheet hall={{ poolId: h.poolId, name: h.name, capacity: h.capacity, seated: h.seated ?? null, standing: h.standing ?? null }} createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} />}
+                  line={hallGuests({ seated: h.seated ?? null, standing: h.standing ?? null }) || 'Add its guests'}
+                  badge={{ tone: 'ok', word: 'Free on every plan' }}
+                />
+              ))}
+              <DatesRow
+                data="halls-free"
+                lead={<RowTile><BadgeCheck strokeWidth={1.75} /></RowTile>}
+                title="Halls are free on every plan"
+                line="They never count against your plan’s limit"
+              />
+              <div className="mt-3">
+                <HallSheet createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} />
+              </div>
+            </div>
+          </Fold>
+        </div>
+      ) : null}
+
+      {/* ── HOW MANY A DAY ── (a venue whose schedules are all halls has only Your halls) */}
+      {venue && schedules.length === 0 ? null : (
       <div className="border-b border-ink/10" data-dates-fold="capacity">
-        <Fold lead={<RowTile><Users strokeWidth={1.75} /></RowTile>} title="How many a day" line={capacityLine(calendars)} defaultOpen={open === 'capacity'} data="dates-capacity">
+        <Fold lead={<RowTile><Users strokeWidth={1.75} /></RowTile>} title="How many a day" line={capacityLine(schedules)} defaultOpen={open === 'capacity'} data="dates-capacity">
           <div className="pb-3">
-            {calendars.length === 0 ? (
+            {schedules.length === 0 ? (
               <p className="py-2 text-[13.5px] text-ink/60" data-dates-not-set="">
                 Not set. {namedCalendars ? 'Make a schedule for the team that does the work.' : 'Add a service — each kind you offer gets its own schedule.'}
               </p>
             ) : (
-              calendars.map((c) => (
+              schedules.map((c) => (
                 // The name opens its sheet OUTSIDE the counter's form — a portalled form inside another form's React
                 // tree would hand its submit to the wrong action.
                 <div key={c.poolId} className="flex min-h-[60px] items-center gap-3 border-t border-ink/10 first:border-t-0" data-dates-calendar={c.poolId}>
@@ -326,18 +373,18 @@ export function DatesFolds({
                 </div>
               ))
             )}
-            {calendars.length > 0 && approveFirst ? (
+            {schedules.length > 0 && approveFirst ? (
               <DatesRow
                 data="approve-first"
                 lead={<RowTile><Clock strokeWidth={1.75} /></RowTile>}
-                title={calendars.length > 1 ? 'Approve first · every schedule' : 'Approve first'}
+                title={schedules.length > 1 ? 'Approve first · every schedule' : 'Approve first'}
                 line="Couples wait for your yes"
                 badge={{ tone: 'ok', word: 'On' }}
               />
             ) : null}
-            {calendars.length > 0 ? (
+            {schedules.length > 0 ? (
               <p className="pt-2 text-[13px] text-ink/60" data-dates-capacity-note="">
-                {calendars.length > 1
+                {schedules.length > 1
                   ? 'Each schedule fills on its own — one can be full while the other is free.'
                   : 'One number for the whole shop. Add a second schedule only if two can run at the same time.'}
               </p>
@@ -346,17 +393,17 @@ export function DatesFolds({
               <div className="mt-3">
                 <CalendarSheet services={services} ceiling={ceiling} createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} />
               </div>
-            ) : calendars.length > 1 ? (
+            ) : schedules.length > 1 ? (
               <div className="mt-2" data-dates-share-team="">
                 <p className="home-k2 pt-2">Which services share a schedule</p>
-                {calendars.flatMap((c) =>
+                {schedules.flatMap((c) =>
                   c.categories.map((cat) => (
                     <ShareTeamPick
                       key={cat.key}
                       categoryKey={cat.key}
                       categoryLabel={cat.label}
                       value={c.poolId}
-                      pools={calendars.map((p) => ({ poolId: p.poolId, label: p.label }))}
+                      pools={schedules.map((p) => ({ poolId: p.poolId, label: p.label }))}
                       moveAction={actions.reassignCategoryPool}
                       month={month}
                     />
@@ -367,6 +414,7 @@ export function DatesFolds({
           </div>
         </Fold>
       </div>
+      )}
 
       {/* ── QR CODES › (frames 10 · 40) ── */}
       <DatesRow

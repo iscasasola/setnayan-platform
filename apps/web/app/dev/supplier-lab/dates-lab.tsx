@@ -6,7 +6,8 @@
  */
 import { renderUrlQrSvg } from '@/lib/qr';
 import type { SchedulePool } from '@/lib/vendor-schedule';
-import { dayAnswerOfGroups, dayGroupsOf, seatsByPool, type DatesBlock } from '@/lib/vendor-dates';
+import { clockWords, dayAnswerOfGroups, dayGroupsOf, seatsByPool, type DatesBlock } from '@/lib/vendor-dates';
+import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
 import { CheckADate } from '@/app/vendor-dashboard/customers/_components/check-a-date';
 import { formatPhp } from '@/lib/orders';
 import { CustomersCalendar } from '@/app/vendor-dashboard/customers/_components/customers-calendar';
@@ -33,7 +34,7 @@ import {
   updateWaitlistSettings,
 } from '@/app/vendor-dashboard/calendar/actions';
 
-export const DATES_STATES = ['dates', 'dates-free', 'dates-empty', 'dates-day', 'dates-dayblocked', 'dates-sunday', 'qr', 'qr-booked', 'qr-issued', 'qr-fail'] as const;
+export const DATES_STATES = ['dates', 'dates-free', 'dates-empty', 'dates-day', 'dates-dayblocked', 'dates-sunday', 'dates-halls', 'dates-hallday', 'qr', 'qr-booked', 'qr-issued', 'qr-fail'] as const;
 export type DatesState = (typeof DATES_STATES)[number];
 
 const TODAY = '2026-10-02'; // Fri Oct 2 in Manila (the lab's NOW)
@@ -135,6 +136,83 @@ const DAY_BLOCKED = (): DaySheetData =>
   });
 const DAY_SUNDAY = (): DaySheetData => labDay('2026-10-11', [MAIN], { sub: 'in 9 days · Main team schedule' });
 
+
+/* ── A VENUE WITH THREE HALLS (owner 2026-10-14 🏛; prototype section 9) ── */
+const hall = (poolId: string, label: string, seated: number, standing: number, cards: string[]): SchedulePool => ({
+  poolId,
+  label,
+  capacity: 1,
+  categories: [],
+  calendarName: label,
+  isVendorCreated: true,
+  serviceIds: cards,
+  isHall: true,
+  seatedCapacity: seated,
+  standingCapacity: standing,
+  hallServiceIds: cards,
+});
+const HALLS = [
+  hall('h-a', 'Hall A', 150, 250, ['c-a', 'c-ab', 'c-grand']),
+  hall('h-b', 'Hall B', 200, 350, ['c-b', 'c-ab', 'c-grand']),
+  hall('h-c', 'Hall C', 120, 200, ['c-c', 'c-grand']),
+];
+const HALL_CARDS = new Map([
+  ['c-ab', 'A + B'],
+  ['c-grand', 'Grand Hall · A + B + C'],
+]);
+const HALL_BOOKINGS = [
+  { poolId: 'h-a', bookedDate: '2026-12-12', eventName: 'Reyes wedding', eventId: 'e-reyes' },
+  { poolId: 'h-a', bookedDate: '2026-12-19', eventName: 'Go & Tan wedding', eventId: 'e-gotan' },
+  { poolId: 'h-b', bookedDate: '2026-12-19', eventName: 'Go & Tan wedding', eventId: 'e-gotan' },
+];
+const HALL_BLOCKS: DatesBlock[] = [
+  { poolId: 'h-b', source: 'external_client', startDate: '2026-12-05', endDate: '2026-12-05', clientName: 'Dizon christening', clientTime: '11:00' },
+];
+function labHallDay(day: string): DaySheetData {
+  const list = HALLS.map((p) => ({ poolId: p.poolId, name: p.label, capacity: p.capacity, seated: p.seatedCapacity ?? null, standing: p.standingCapacity ?? null }));
+  const today = HALL_BOOKINGS.filter((b) => b.bookedDate === day);
+  const state = hallsOnDay(day, list, today.map((b) => ({ poolId: b.poolId, eventId: b.eventId, title: b.eventName })), HALL_BLOCKS);
+  const joinedOf = (eventId: string) => state.filter((x) => x.used.some((u) => u.eventId === eventId)).map((x) => x.hall.name);
+  const multi = new Map<string, string[]>();
+  for (const p of HALLS) for (const sid of p.hallServiceIds ?? []) multi.set(sid, [...(multi.get(sid) ?? []), p.poolId]);
+  return {
+    day,
+    today: TODAY,
+    sub: 'in 2 months',
+    backHref: '/dev/supplier-lab?s=dates-halls',
+    answer: null,
+    groups: [],
+    holders: [{ threadId: 't-sl', title: 'Santos & Lim', line: 'A + B · asked 1 h ago' }],
+    holdersMeasured: true,
+    holdingCeiling: 5,
+    waiting: 0,
+    closures: [],
+    holds: [],
+    whoWorks: null,
+    qrHref: '/dev/supplier-lab?s=qr-booked',
+    venue: {
+      answer: hallsAnswer(state),
+      halls: state.map((x) => {
+        const first = x.used[0];
+        const joined = first && !first.outside ? joinedOf(first.eventId) : [];
+        return {
+          key: x.hall.poolId,
+          title: x.hall.name,
+          line: first ? [first.time ? clockWords(first.time) : '', first.title, joined.length > 1 ? `joined ${joined.join(' + ')}` : ''].filter(Boolean).join(' · ') : hallGuests(x.hall),
+          badge: first ? (first.outside ? { tone: 'quiet' as const, word: 'Outside' } : { tone: 'ok' as const, word: 'Booked' }) : { tone: 'ok' as const, word: 'Free' },
+          href: null,
+        };
+      }),
+      joined: [...multi.entries()]
+        .filter(([, ids]) => ids.length > 1)
+        .map(([sid, ids]) => {
+          const j = joinedCardOnDay({ serviceId: sid, name: HALL_CARDS.get(sid) ?? sid, poolIds: ids }, state, list);
+          return { key: sid, title: HALL_CARDS.get(sid) ?? sid, line: j.line, free: j.free };
+        }),
+    },
+  };
+}
+
 const LAB_TOASTS = {
   blocked: { text: 'Blocked. Couples see only “unavailable”.', tone: 'ok' as const },
   failed: { text: 'That did not go through. Nothing changed — please try again.', tone: 'bad' as const, retry: true },
@@ -206,6 +284,27 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
     );
   }
 
+  if (state === 'dates-hallday') {
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
+        <DaySheet data={labHallDay('2026-12-12')} actions={{ addManualBlock, removeBlock, setCalendarDayState, notifyWaitlistSlot }} />
+        <SupplierThumbRow name="dates" label="Date tools">
+          <OutsideClientAdd
+            pools={HALLS}
+            action={importExternalClient}
+            today={TODAY}
+            setupHref={base}
+            returnTo="dates"
+            day="2026-12-12"
+            seats={seatsByPool(HALLS, HALL_BOOKINGS, HALL_BLOCKS, TODAY)}
+            label="Add a booking"
+            halls
+          />
+        </SupplierThumbRow>
+      </div>
+    );
+  }
+
   if (state === 'dates-day' || state === 'dates-dayblocked' || state === 'dates-sunday') {
     return (
       <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
@@ -230,7 +329,8 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
     );
   }
 
-  const pools = state === 'dates-empty' ? [] : state === 'dates-free' ? [MAIN] : [MAIN, SECOND];
+  const venue = state === 'dates-halls';
+  const pools = venue ? HALLS : state === 'dates-empty' ? [] : state === 'dates-free' ? [MAIN] : [MAIN, SECOND];
   const shown = new Set(pools.map((p) => p.poolId));
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
@@ -247,12 +347,13 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
             initialDayStates={state === 'dates' ? [{ dayStateId: 'ds-1', poolId: 'p-second', stateDate: '2026-10-21', dayState: 'locked', note: null }] : []}
             initialWaitlist={state === 'dates' ? WAITLIST : []}
             inquiries={state === 'dates-empty' ? [] : ASKS}
-            initialMonth="2026-10"
-            initialDay="2026-10-03"
+            initialMonth={venue ? '2026-12' : '2026-10'}
+            initialDay={venue ? '2026-12-12' : '2026-10-03'}
+            halls={venue}
             todayIso={TODAY}
             pools={pools}
-            bookings={BOOKINGS.filter((b) => shown.has(b.poolId))}
-            blocks={state === 'dates-empty' ? [] : BLOCKS.filter((b) => b.poolId === null || shown.has(b.poolId))}
+            bookings={venue ? HALL_BOOKINGS : BOOKINGS.filter((b) => shown.has(b.poolId))}
+            blocks={venue ? HALL_BLOCKS : state === 'dates-empty' ? [] : BLOCKS.filter((b) => b.poolId === null || shown.has(b.poolId))}
             agents={state === 'dates' ? [{ value: 'tm-marco', label: 'Marco' }] : []}
             agentCategories={{ 'tm-marco': ['styling'] }}
             fetchMonth={null}
@@ -277,7 +378,10 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
             label: p.label,
             name: p.label,
             capacity: p.capacity,
-            line: p.poolId === 'p-main' ? 'Photo & video' : 'Styling',
+            isHall: p.isHall === true,
+            seated: p.seatedCapacity ?? null,
+            standing: p.standingCapacity ?? null,
+            line: venue ? '' : p.poolId === 'p-main' ? 'Photo & video' : 'Styling',
             serviceIds: [],
             categories: [],
           }))}
@@ -291,13 +395,22 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
           slotsHref="/dev/supplier-lab?s=dates"
           icsHref="/dev/supplier-lab?s=dates"
           approveFirst
+          venue={venue}
           blockAdd={<BlockDateAdd pools={pools} action={addManualBlock} today={TODAY} month="2026-10" />}
           actions={ACTIONS}
         />
       </div>
       <SupplierThumbRow name="dates" label="Date tools">
         {pools.length > 0 ? <CheckADate /> : null}
-        <OutsideClientAdd pools={pools} action={importExternalClient} today={TODAY} setupHref={base} returnTo="dates" seats={seatsByPool(pools, BOOKINGS, BLOCKS, TODAY)} />
+        <OutsideClientAdd
+          pools={pools}
+          action={importExternalClient}
+          today={TODAY}
+          setupHref={base}
+          returnTo="dates"
+          seats={venue ? seatsByPool(HALLS, HALL_BOOKINGS, HALL_BLOCKS, TODAY) : seatsByPool(pools, BOOKINGS, BLOCKS, TODAY)}
+          halls={venue}
+        />
       </SupplierThumbRow>
     </div>
   );

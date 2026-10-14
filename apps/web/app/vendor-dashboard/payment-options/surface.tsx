@@ -37,6 +37,16 @@ export const metadata = { title: 'How clients pay you · Supplier · Setnayan' }
 
 type Props = {
   searchParams: Promise<{ msg?: string; error?: string }>;
+  /**
+   * YOUR DETAILS (step 5) mounts this surface INSIDE its "How clients pay you" fold: no page masthead, no page
+   * padding — the fold is the heading. Default: the full page, exactly as it was.
+   */
+  embedded?: boolean;
+  /**
+   * The methods, when the caller has ALREADY read them (Your details reads them once for its "N of 6" line) — so
+   * the same render never asks the database twice. Absent → this surface reads them itself, as before.
+   */
+  preloaded?: { methods: VendorPaymentMethodRow[]; measured: boolean };
 };
 
 /** Show only the last 4 digits of an account number; keep short ones whole. */
@@ -81,7 +91,7 @@ function cardTitle(m: VendorPaymentMethodRow): string {
   );
 }
 
-export default async function VendorPaymentOptionsPage({ searchParams }: Props) {
+export default async function VendorPaymentOptionsPage({ searchParams, embedded = false, preloaded }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
   const {
@@ -91,10 +101,8 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const { methods, measured: methodsMeasured } = await fetchOwnPaymentMethodsMeasured(
-    supabase,
-    profile.vendor_profile_id,
-  );
+  const { methods, measured: methodsMeasured } =
+    preloaded ?? (await fetchOwnPaymentMethodsMeasured(supabase, profile.vendor_profile_id));
   // 💳 Links are a Pro feature, asked through the one flag-aware question
   // (lib/vendor-feature-gate.ts). `linksOpen` = the shop's links count and are
   // shown; `linkAsks` = the switch is on and saving a link asks for Pro.
@@ -118,10 +126,14 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <PageMasthead
-        title="How clients pay you"
-      />
+    <div
+      className={
+        embedded
+          ? 'w-full pb-2'
+          : 'mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8'
+      }
+    >
+      {embedded ? null : <PageMasthead title="How clients pay you" />}
 
       {search.error ? (
         <FormFlash tone="error">

@@ -1,34 +1,43 @@
 import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import PaymentOptionsSurface from '../payment-options/surface';
+import { BranchPanel } from '../shop/_components/branch-panel';
+import { loadDetailsData } from './details-data';
+import { DetailsScreen } from './_components/details-screen';
+
+export const metadata = { title: 'Your details' };
 
 /**
- * /vendor-dashboard/profile — RETIRED 2026-07-05.
+ * /vendor-dashboard/profile — YOUR DETAILS (simpler supplier dashboard step 5, 2026-10-14).
  *
- * The vendor profile editor (identity fields) and the three media editors
- * (portfolio photos, featured videos, Instagram) were consolidated onto the
- * current surface: My Shop → Website Editor (`/vendor-dashboard/shop`). Profile
- * identity already edits inline there (ProfileChecklistEditor); the media
- * editors moved into the Website Editor's "Gallery & media" section.
- *
- * This route now permanently redirects to My Shop so old bookmarks, nav links,
- * and the many `?saved=1` / `?error=` / `?ig_connected=` redirect targets that
- * still point here land on the live surface instead of a dead page. The
- * Instagram OAuth callback was repointed to /vendor-dashboard/shop directly.
- *
- * `redirect()` also forwards any query string implicitly is NOT true — so we
- * preserve the incoming search params (e.g. a legacy `?saved=1`) by appending
- * them to the target.
+ * ⏮ RETIRED 2026-07-05, BACK 2026-10-14. It became a redirect into My Shop when the identity fields and the media
+ * editors moved onto Shop's tiles. The approved prototype (moment 6) gives the details their own list again —
+ * profile picture › Your details, or Shop › Page › the first row — so this address is that list. The editors are the
+ * same ones the tiles held (see `details-screen.tsx`); the old `?saved=1` / `?error=` / `?msg=` targets that still
+ * point here land on it, and `/verify` (`#docs`), `/payment-options` (`#pay`) and `/branches` (`#where`) forward
+ * into its folds.
  */
-export default async function VendorProfileRedirect({
+export default async function YourDetailsPage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<{ msg?: string; error?: string }>;
 }) {
-  const sp = await searchParams;
-  const qs = new URLSearchParams();
-  for (const [key, value] of Object.entries(sp)) {
-    if (typeof value === 'string') qs.set(key, value);
-    else if (Array.isArray(value) && value[0]) qs.set(key, value[0]);
-  }
-  const query = qs.toString();
-  redirect(`/vendor-dashboard/shop${query ? `?${query}` : ''}`);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/open-shop');
+
+  const d = await loadDetailsData(supabase, profile);
+
+  return (
+    <DetailsScreen
+      d={d}
+      payBody={<PaymentOptionsSurface searchParams={searchParams} embedded preloaded={d.pay} />}
+      branchBody={<BranchPanel {...d.branch} />}
+    />
+  );
 }

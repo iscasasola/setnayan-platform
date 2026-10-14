@@ -91,6 +91,12 @@ export type GuestSiteIdentity = {
   guestOwnShots: GuestOwnShots | null;
   /** The couple's shipped "Shared gallery" switch is on — the Gallery offers everyone's photos. */
   poolGalleryOpen: boolean;
+  /**
+   * 🖼 Before the day, the host's "Let guests shoot now" is on and the camera
+   * gate is open: the bar shows Gallery holding THIS guest's own shots only
+   * (owner 2026-10-14, DECISION_LOG 🖼). False everywhere else.
+   */
+  earlyOwnShots: boolean;
   /** Event owns CUSTOM_QR_GUEST → advertise the personalized seat pass link
    *  (seat-finding PR4). Additive; the find-my-table link is unaffected. */
   seatPassActive: boolean;
@@ -477,12 +483,12 @@ export function anonymousIdentity(input: {
 export function guestIdentity(
   input: Omit<
     GuestSiteIdentity,
-    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen'
+    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
   > &
     Partial<
       Pick<
         GuestSiteIdentity,
-        'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen'
+        'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
       >
     >,
 ): GuestSiteIdentity {
@@ -494,6 +500,7 @@ export function guestIdentity(
     guestLiveGallery: input.guestLiveGallery,
     guestOwnShots: input.guestOwnShots ?? null,
     poolGalleryOpen: input.poolGalleryOpen === true,
+    earlyOwnShots: input.earlyOwnShots === true,
     seatPassActive: input.seatPassActive,
     needsFaceEnroll: input.needsFaceEnroll,
     guestHubData: input.guestHubData,

@@ -23,7 +23,11 @@ import { fileURLToPath } from 'node:url';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const STEPPER = readFileSync(join(PAPIC, '_components', 'credit-stepper.tsx'), 'utf8');
-const CARD = readFileSync(join(PAPIC, '_components', 'papic-pool-card.tsx'), 'utf8');
+// 🎨 The credit card became the Buy more sheet (owner 2026-10-14): the ladder is
+// read and SORTED in lib/papic-pool-rungs.ts, and drawn by papic-buy-form.tsx.
+const CARD =
+  readFileSync(join(PAPIC, '_components', 'papic-buy-form.tsx'), 'utf8') +
+  readFileSync(join(PAPIC, '..', '..', '..', '..', '..', 'lib', 'papic-pool-rungs.ts'), 'utf8');
 
 /** Comments stripped — a guard must never pass on the prose explaining it. */
 const strip = (s: string) =>

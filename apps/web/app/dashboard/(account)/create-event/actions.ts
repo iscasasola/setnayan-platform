@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -481,13 +480,9 @@ export async function createWeddingEvent(formData: FormData) {
   // the event does — an event with no grant takes papic_event_pool_status()'s
   // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal.
   await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
-  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
-  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
-  // shared pool because the two are different products — the pool grant does
-  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
-  // idempotent (fixed seat index + a partial unique index on the grant), so the
-  // creation call and the studio self-heal collapse to one camera.
-  await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
+  // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
+  // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
+  // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
 
   // Add the creating user as a couple member.
   const { error: memberError } = await admin.from('event_members').insert({
@@ -692,13 +687,9 @@ export async function planNextYearEvent(formData: FormData) {
   // copied by buildNextYearClonePayload, so without this the clone would be the
   // one unmetered event in the account. Idempotent + non-fatal.
   await ensureFreePapicPoolGrantAdmin(admin, inserted.event_id, user.id);
-  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
-  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
-  // shared pool because the two are different products — the pool grant does
-  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
-  // idempotent (fixed seat index + a partial unique index on the grant), so the
-  // creation call and the studio self-heal collapse to one camera.
-  await ensureFreePapicOneCameraAdmin(admin, inserted.event_id);
+  // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
+  // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
+  // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: inserted.event_id,

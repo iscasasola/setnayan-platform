@@ -7,6 +7,7 @@ import { railForNewOrder } from '@/lib/rail-for-new-order';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/php';
 import { revokeAllSessions } from '@/lib/force-logout';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';

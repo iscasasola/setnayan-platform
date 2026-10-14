@@ -29,6 +29,7 @@ export function YourShotsGallery({
   qrToken,
   cameraOn,
   everyoneHref,
+  cameraHref = null,
 }: {
   shots: GuestOwnShots | null;
   /** The guest's own key — the Save link's credential. Null: the tiles do not link. */
@@ -37,6 +38,12 @@ export function YourShotsGallery({
   cameraOn: boolean;
   /** The shared gallery, when the couple shares it; null hides the door. */
   everyoneHref: string | null;
+  /**
+   * 🖼 The Camera, for the empty state's invitation (owner 2026-10-14: a guest
+   * with no shots yet sees a line inviting them to take one, never an empty
+   * wall). Null: the line alone.
+   */
+  cameraHref?: string | null;
 }) {
   const everyone = everyoneHref ? (
     <a
@@ -66,6 +73,15 @@ export function YourShotsGallery({
       <section aria-label="Your shots" data-your-shots="" className="space-y-3">
         <p className="sn-eye text-ink/70">Your shots</p>
         <p className="text-sm text-ink/65">Photos you take with the Camera land here.</p>
+        {cameraHref ? (
+          <a
+            data-your-shots-camera=""
+            href={cameraHref}
+            className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center"
+          >
+            <span className="lbl">Take your first photo</span>
+          </a>
+        ) : null}
         {everyone}
       </section>
     );

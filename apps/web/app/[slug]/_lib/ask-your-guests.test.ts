@@ -250,7 +250,9 @@ test('the song-request API route re-reads the toggle server-side, never trusting
 test('submitRsvp re-reads rsvp_ask_config from the database, not from the form', () => {
   const src = stripComments(read('actions.ts'));
   const submit = src.slice(src.indexOf('export async function submitRsvp'));
-  assert.match(submit, /\.select\('slug, event_date, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config'\)/);
+  // 📬 + the reply window's columns (2026-10-14) — `REPLY_WINDOW_EVENT_COLUMNS` carries rsvp_ask_config.
+  assert.match(submit, /\.select\(`slug, guest_count_locked_at, \$\{REPLY_WINDOW_EVENT_COLUMNS\}`\)/);
+  assert.match(read('../../lib/reply-window.ts'), /REPLY_WINDOW_EVENT_COLUMNS =\s*'[^']*\brsvp_ask_config\b/);
   assert.match(submit, /const ask = resolveRsvpAsk\(evRsvp\?\.rsvp_ask_config\);/);
 });
 

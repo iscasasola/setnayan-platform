@@ -1,5 +1,5 @@
 /**
- * GUARD — the five render-time self-heals run on EVERY render, always.
+ * GUARD — the four render-time self-heals run on EVERY render, always.
  *
  * 🚨 THE TRAP THIS EXISTS TO KILL, and it is the tidy move, not a careless one.
  *
@@ -13,7 +13,9 @@
  *                                   `papic_reserve_event_points()` takes its
  *                                   "fence absent → allow" branch and capture
  *                                   runs UNMETERED.
- *   ensureFreePapicOneCameraAdmin — the one free dedicated camera.
+ *   (ensureFreePapicOneCameraAdmin — the free dedicated camera — was the sixth
+ *    and is GONE, owner 2026-10-13: its points are 0 since 20271130515135, so it
+ *    armed nothing and cost a request on every view.)
  *   reconcileLimitedSnapshot      — pending → active.
  *   syncGuestCameras              — keeps guest cameras level with late RSVPs.
  *
@@ -50,11 +52,10 @@ const PAGE = readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8');
 /** Comments stripped — a guard must never pass on the prose explaining it. */
 const CODE = PAGE.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 
-/** The five writes, by the call this page makes. */
+/** The four writes, by the call this page makes. */
 const SELF_HEALS = [
   'provisionFreeCamerasAdmin',
   'ensureFreePapicPoolGrantAdmin',
-  'ensureFreePapicOneCameraAdmin',
   'reconcileLimitedSnapshot',
   'syncGuestCameras',
 ] as const;
@@ -72,7 +73,7 @@ function prologue(): string {
   return out;
 }
 
-test('the five self-heals are still called by this page at all', () => {
+test('the four self-heals are still called by this page at all', () => {
   // If one disappears entirely, that is a bigger change than this guard covers —
   // but it must not pass silently on its way out.
   const missing = SELF_HEALS.filter((fn) => !new RegExp(`\\b${fn}\\s*\\(`).test(CODE));
@@ -96,7 +97,7 @@ test('🚨 every self-heal runs BEFORE the page renders anything', () => {
 test('🚨 no self-heal is gated on anything that came from the URL', () => {
   // ⚠ THE SUBTLER SHAPE THIS EXISTS FOR: called before the JSX, but inside a
   // branch derived from the request — which is exactly what "only in the
-  // Cameras room" was. Two of these five DO sit inside conditions, on purpose:
+  // Cameras room" was. Two of these four DO sit inside conditions, on purpose:
   // `reconcileLimitedSnapshot` runs only when a snapshot exists, and
   // `syncGuestCameras` only when the camera count actually disagrees with the
   // guest list (an unread count is not a count of zero, and a write triggered

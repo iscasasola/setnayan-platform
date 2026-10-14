@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7a56eae20e",
+  "generatedFromRef": "c25b76cfd3",
   "routeCount": 438,
   "destinations": 950,
   "actions": 671,
-  "blocks": 6303,
+  "blocks": 6307,
   "routes": {
     "/": {
       "files": [
@@ -979,6 +979,7 @@
         "[slug]/_components/venue-widget.tsx",
         "[slug]/_components/watch-live-block.tsx",
         "[slug]/_components/watch-live-embed.tsx",
+        "[slug]/_components/welcome-gifts-content.tsx",
         "[slug]/_components/what-to-bring-styles.tsx",
         "[slug]/_components/what-to-bring-widget.tsx",
         "[slug]/_components/when-yes-celebration.tsx",
@@ -1183,6 +1184,8 @@
         "GetInside",
         "GetTickets",
         "GiftDoorCard",
+        "GiftPageBody",
+        "GiftPageContent",
         "GlowBlob",
         "GracefulFallback",
         "GuestCameraPlayer",
@@ -1506,6 +1509,7 @@
         "WaxSeal",
         "WaxSealGLState",
         "WelcomeGifts",
+        "WelcomeGiftsContent",
         "WelcomeSlot",
         "WereYouThere",
         "WhatToBringGiftLine",
@@ -1750,9 +1754,12 @@
     },
     "/[slug]/pabuya": {
       "files": [
+        "[slug]/pabuya/_components/gift-page-body.tsx",
         "[slug]/pabuya/_components/gift-record-sheet.tsx",
         "[slug]/pabuya/_components/gift-tell.tsx",
         "[slug]/pabuya/_components/wish-list.tsx",
+        "[slug]/pabuya/_lib/gift-cards.ts",
+        "[slug]/pabuya/_lib/gift-page.server.ts",
         "[slug]/pabuya/page.tsx"
       ],
       "destinations": [
@@ -1760,6 +1767,8 @@
       ],
       "actions": [],
       "blocks": [
+        "GiftPageBody",
+        "GiftPageContent",
         "GiftRecordSheet",
         "GiftTell",
         "HTMLInputElement",
@@ -10498,7 +10507,8 @@
         "EditorBridge",
         "EntourageSection",
         "Fragment",
-        "GiftTell",
+        "GiftPageBody",
+        "GuestWelcome",
         "HTMLElement",
         "HubCanvasFrame",
         "HubCoverHold",
@@ -10516,8 +10526,6 @@
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
         "Metadata",
-        "PabuyaCardList",
-        "PabuyaTrustNote",
         "PahinaMasthead",
         "ReplyCardRow",
         "ReplyWindowNote",
@@ -10530,9 +10538,9 @@
         "SpecialMessageWidget",
         "VenueWidget",
         "WelcomeGifts",
+        "WelcomeGiftsContent",
         "WhenYesCelebration",
-        "WishLab",
-        "WishList"
+        "WishLab"
       ]
     },
     "/dev/maker-lab/guest/scrub": {

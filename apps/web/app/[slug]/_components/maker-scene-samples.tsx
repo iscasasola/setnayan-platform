@@ -475,7 +475,7 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
     <span className="block space-y-2.5">
       <Line w="w-2/3" />
       {['w-1/3', 'w-2/5'].map((w) => (
-        <span key={w} className="flex items-center gap-3 rounded-2xl border border-ink/10 px-3 py-3">
+        <span key={w} className="flex items-center gap-3 rounded-2xl bg-ink/5 px-3 py-3">
           <span aria-hidden data-sample-box="" className="block h-10 w-10 shrink-0 rounded-full bg-ink/15" />
           <span className="block flex-1 space-y-2">
             <Line w={w} />

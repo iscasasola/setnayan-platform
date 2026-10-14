@@ -16,6 +16,8 @@ import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
 import { PillSelector } from '@/app/_components/pill-selector';
 import { StatusLine } from '@/app/_components/status-line';
+import { formatCount } from '@/lib/format-number';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   PAPER_EMPTY,
   PRINT_PAPER_HEADER,
@@ -411,11 +413,12 @@ export function PrintPaperSheet({
     pts.current.delete(e.pointerId);
   };
 
-  /* Escape closes; ← → turn the pages. */
+  /* Focus is kept in the sheet and Escape closes it (`useModalA11y`); ← → turn the pages. */
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      else if (e.key === 'ArrowRight') go(1);
+      if (e.key === 'ArrowRight') go(1);
       else if (e.key === 'ArrowLeft') go(-1);
     };
     window.addEventListener('keydown', key);
@@ -440,14 +443,15 @@ export function PrintPaperSheet({
   const line =
     shown.status === 'loading' || shown.status === 'idle'
       ? page > 1
-        ? `Drawing page ${page}…`
+        ? `Drawing page ${formatCount(page)}…`
         : `Opening your ${name}…`
       : pages > 1
-        ? `Page ${page} of ${pages}`
+        ? `Page ${formatCount(page)} of ${formatCount(pages)}`
         : chipsFor(paper, facts)[0] ?? '';
 
   const node = (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={`${paper.title} — preview`}
@@ -495,7 +499,7 @@ export function PrintPaperSheet({
           // eslint-disable-next-line @next/next/no-img-element -- the print's own picture from its route, full size
           <img
             src={shown.loaded.url}
-            alt={`${paper.title}${pages > 1 ? ` — page ${page} of ${pages}` : ''}`}
+            alt={`${paper.title}${pages > 1 ? ` — page ${formatCount(page)} of ${formatCount(pages)}` : ''}`}
             draggable={false}
             data-print-paper-picture={page}
             style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})` }}
@@ -534,7 +538,7 @@ export function PrintPaperSheet({
               ))
             ) : (
               <b className="whitespace-nowrap px-1 text-[12.5px] font-semibold text-ink/70">
-                Page {page} of {pages}
+                Page {formatCount(page)} of {formatCount(pages)}
               </b>
             )}
           </div>

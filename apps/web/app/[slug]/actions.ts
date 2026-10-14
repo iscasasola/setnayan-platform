@@ -46,6 +46,8 @@ import { SONG_ARTIST_MAX, SONG_TITLE_MAX } from '@/lib/guest-song-request-rule';
 import { cookies, headers } from 'next/headers';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { REPLY_WINDOW_EVENT_COLUMNS } from '@/lib/reply-window';
+import { replyWindowOfRow } from '@/lib/reply-window.server';
 import { FACE_TAGGING_FIELD, SELFIE_DELETE_FIELD, parseFaceTaggingAnswer, stripInviteFaceFields } from '@/lib/face-tagging-wish';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
@@ -386,7 +388,8 @@ export async function submitRsvp(
   const { data: evRsvp, error: evRsvpError } = await withSchemaRetry(() =>
     admin
       .from('events')
-      .select('slug, event_date, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config')
+      // + the reply window's columns (`REPLY_WINDOW_EVENT_COLUMNS`) — on THIS read, never a second one.
+      .select(`slug, guest_count_locked_at, ${REPLY_WINDOW_EVENT_COLUMNS}`)
       .eq('event_id', eventId)
       .maybeSingle(),
   );
@@ -401,6 +404,21 @@ export async function submitRsvp(
   // decides what is ENFORCED. A field that is off is ignored below even when a
   // crafted POST carries a value for it — never required, never applied.
   const ask = resolveRsvpAsk(evRsvp?.rsvp_ask_config);
+
+  /*
+    📬 REPLIES HAVE THEIR OWN OPEN AND CLOSE (owner 2026-10-14, DECISION_LOG 📬; `lib/reply-window.ts`).
+    Hiding the Reply button is the page's half; THIS is the half a stale tab, a bookmarked reply page or
+    a crafted post cannot skip. Outside the window NOTHING of the reply is written — not the answer, not
+    the meal, not the note: the reply card is not offered then, so there is no reply to take details
+    from — and the guest is sent back to the page with the sentence that says why
+    (`?rsvp=window` → `replyRefusedWords`). The checklist tick and "Add name" above are not replies and
+    returned before this. The couple's own Guest list edits never pass through here.
+    An unreadable event already stopped above (`replySlug`), so a failed read is never read as "open".
+  */
+  if (evRsvp && (await replyWindowOfRow(evRsvp)).state !== 'open') {
+    if (toInvite) redirect(`${inviteReplyPath(replySlug)}?rsvp=window`);
+    redirect(`/${replySlug}?rsvp=window`);
+  }
 
   // A locked reply renders NO rsvp_status control, so an ordinary save posts
   // nothing here — and the old `!RSVP_VALUES.includes(status) → return` would

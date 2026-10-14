@@ -20,6 +20,7 @@
  * safe to import from the client film component.
  */
 import { formatEventDate } from '@/lib/events';
+import { invitationOpensOn } from '@/lib/invitation-opens-on';
 import {
   googleCalendarUrl,
   buildSaveTheDateIcs,
@@ -106,18 +107,18 @@ const MONO_SPLIT = /\s*[&+]\s*|\s+and\s+/i;
 const MAX_GALLERY = 6;
 
 /**
- * The default invitation-launch date — 3 months before the wedding (owner
- * 2026-06-19: "the invitation is automatic 3 months before the wedding date").
+ * The default invitation-launch date — 90 days before the wedding (owner
+ * 2026-06-19: "the invitation is automatic 3 months before the wedding date";
+ * owner 2026-10-14, DECISION_LOG 📬 item 6: the film and the page's switch read
+ * ONE date, "else 90 days out"). It was 3 calendar months here while the page
+ * switched at 90 days, so the film could name a day the page did not open on.
+ * Asks `invitationOpensOn` — the one function the phase switch asks too.
  * Returns null when there's no wedding date. A manually-set
  * events.std_invitation_launch_date overrides this (resolved by the caller:
  * `std_invitation_launch_date ?? defaultInvitationLaunchIso(event_date)`).
  */
 export function defaultInvitationLaunchIso(weddingIso: string | null | undefined): string | null {
-  if (!weddingIso) return null;
-  const d = new Date(weddingIso);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setMonth(d.getMonth() - 3);
-  return d.toISOString().slice(0, 10);
+  return invitationOpensOn(weddingIso, null);
 }
 
 /** Two-initial monogram from a couple's display name, e.g. "Maria & Jose" → "M & J". */

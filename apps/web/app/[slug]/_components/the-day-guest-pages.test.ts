@@ -203,7 +203,10 @@ test('the camera comes back to the tab it was opened from — Live when opened d
   // REACHED: the bar carries the tab, the bridge passes it, the camera draws
   // the × and the thumbnail, and the page says what landed.
   assert.match(src('app/[slug]/_components/site-menu-bar.tsx'), /cameraHrefWithBack\(slot\.href, activeKey\)/);
-  assert.match(BODY(), /camera: papicGuest\s*\?\s*`\/papic\/me\/\$\{encodeURIComponent\(guest\.qr_token\)\}\/session\?next=guest&from=/);
+  // 🖼 The address is one value since 2026-10-14 (`guestCameraHref`) — the bar's Camera and the
+  // early Gallery's "Take your first photo" share it.
+  assert.match(BODY(), /const guestCameraHref = papicGuest\s*\?\s*`\/papic\/me\/\$\{encodeURIComponent\(guest\.qr_token\)\}\/session\?next=guest&from=/);
+  assert.match(BODY(), /camera: guestCameraHref,/);
   assert.match(src('app/papic/me/[token]/session/route.ts'), /cameraBackTab\(url\.searchParams\.get\(CAMERA_BACK_PARAM\)\)/);
   const cam = src('app/papic/guest/_components/papic-guest-capture.tsx');
   assert.match(cam, /data-camera-exit=""[\s\S]{0,80}href=\{cameraExitHref\(exitTo\.slug, exitTo\.tab, added\)\}/);

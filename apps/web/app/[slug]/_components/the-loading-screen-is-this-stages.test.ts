@@ -171,7 +171,7 @@ test('(5) page.tsx hands the skeleton the rule’s answer, from the venue’s cl
   const page = stripComments(readFileSync(join(__dirname, '..', 'page.tsx'), 'utf8'));
   const door = page.slice(page.indexOf('const loadingScreen = loadingScreenFor({'), page.indexOf('<InvitationBody'));
   assert.ok(door.length > 200, 'page.tsx no longer asks which loading screen to draw');
-  assert.match(door, /clockPhase: getLifecyclePhase\(event\.event_date, venueTz, event\.event_end_date \?\? null\)/);
+  assert.match(door, /clockPhase: getLifecyclePhase\(event\.event_date, venueTz, event\.event_end_date \?\? null, undefined, event\.std_invitation_launch_date \?\? null\)/);
   assert.match(door, /pinnedPhase: manualLaunchPhase\(event\.launch_mode, event\.manual_phase\)/);
   assert.match(door, /hostCanvas: asksForHostCanvas\(search\)/);
   assert.match(door, /storedLead: await skeletonStdLead\(admin, event\.event_id\)/);

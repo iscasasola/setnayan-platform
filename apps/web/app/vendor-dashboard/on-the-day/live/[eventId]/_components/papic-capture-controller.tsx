@@ -221,7 +221,7 @@ export function PapicCaptureController({
             if (typeof json.pointsSpent === 'number' && pointsCap != null) {
               setSpent(pointsCap);
             }
-            flash('You’re out of shots for this event.');
+            flash('You’re out of credits for this event.');
           } else if (json.error === 'video_not_allowed') {
             flash('This tier is photos only.');
           } else if (json.error === 'consent_required') {
@@ -252,7 +252,7 @@ export function PapicCaptureController({
 
   const takePhoto = useCallback(async () => {
     if (!canPhoto) {
-      flash(outOfPoints ? 'You’re out of shots for this event.' : 'No points left.');
+      flash(outOfPoints ? 'You’re out of credits for this event.' : 'No credits left.');
       return;
     }
     const blob = await grabFrame();

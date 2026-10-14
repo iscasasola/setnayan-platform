@@ -121,8 +121,8 @@ test('the balance itself is untouched — this guard must not have silenced the 
     join(WEB, 'app/dashboard/[eventId]/studio/papic/page.tsx'),
     'utf8',
   );
-  assert.match(page, /<HostPoolMeterCard\b/, 'the live credit balance is gone from the Papic page');
-  assert.match(page, /<PapicPoolCard\b/, 'the pool card is gone from the Papic page');
+  // 🎨 One band now carries the balance, the meter and Buy more (owner 2026-10-14).
+  assert.match(page, /<PapicTopBand\b/, 'the live credit balance is gone from the Papic page');
 });
 
 test('🎟 the ONE sanctioned recommendation — onboarding, by the owner\'s later word, with no number of its own', () => {

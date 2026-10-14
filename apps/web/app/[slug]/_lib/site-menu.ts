@@ -41,9 +41,9 @@ export type SiteMenuTab = {
 /* 🏠 The Invitation's words (owner 2026-09-30: *"on Invitation, the menu is
    Welcome - Details - Our Love Story - Me"*). Keys and anchors are unchanged. */
 const TAB_LABELS: Record<SiteMenuTabKey, string> = {
-  home: 'Welcome',
+  home: 'Home', // 🏠 owner 2026-10-14 (DECISION_LOG "Home") — the TAB's word; titles that say Welcome stay
   details: 'Details',
-  story: 'Our Love Story',
+  story: 'Story', // ❤️ owner 2026-10-14 — the TAB's word; the section title stays "Our Love Story"
   gallery: 'Gallery', // owner-renamed — never "Photos"
   me: 'Me',
 };

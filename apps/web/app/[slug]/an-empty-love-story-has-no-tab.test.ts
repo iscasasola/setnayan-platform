@@ -44,14 +44,14 @@ test('1 · maria-and-jose’s `{}` has no chapter — the tab is not drawn', () 
   // … and without it the prose stands in — also nothing to tell.
   assert.equal(storyTabHasChapter(MJ_LOVE_STORY, false), false);
   assert.equal(storyTabHasChapter(null, true), false);
-  assert.deepEqual(barFor(storyTabHasChapter(MJ_LOVE_STORY, true)), ['Welcome', 'Details', 'Me']);
+  assert.deepEqual(barFor(storyTabHasChapter(MJ_LOVE_STORY, true)), ['Home', 'Details', 'Me']);
 });
 
 test('2 · the first chapter filled opens the tab', () => {
   const told = { how_we_met: 'We met at a friend’s birthday in Makati' };
   assert.equal(storyTabHasChapter(told, true), true);
   assert.equal(storyTabHasChapter(told, false), true);
-  assert.deepEqual(barFor(storyTabHasChapter(told, true)), ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  assert.deepEqual(barFor(storyTabHasChapter(told, true)), ['Home', 'Details', 'Story', 'Me']);
 });
 
 test('3 · both menus ask `storyTabHasChapter`, never the column’s truthiness', () => {

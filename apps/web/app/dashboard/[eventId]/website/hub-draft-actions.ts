@@ -61,7 +61,6 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
 import { nameStyleFrom } from '@/lib/name-style';
 import { passCardDesignFrom } from '@/lib/pass-card';
@@ -671,7 +670,9 @@ export async function hubDraftAction(
       if (eventsPatch.papic_on === true) {
         const admin = createAdminClient();
         await ensureFreePapicPoolGrantAdmin(admin, eventId);
-        await ensureFreePapicOneCameraAdmin(admin, eventId);
+        // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
+        // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
+        // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
       }
     }
     if (qrWrite !== undefined) {

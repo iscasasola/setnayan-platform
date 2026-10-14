@@ -10,24 +10,42 @@
  *   ?hidden=1                        the budget is not shared with this viewer
  *   ?proto=1                         the prototype's own figures (Cale & Ice, 72 days, 7 coming…)
  *   ?store=1                         the App Store / Play shell (no Your services row)
+ *   ?view=papic                      🎨 the Papic page's TOP BAND instead of Home, in the same
+ *                                    ?papic= state (the real PapicTopBand; the Buy more sheet
+ *                                    on the prototype's ladder seed — no database)
+ *   ?view=early&early=1|0&shots=N    🖼 an invited guest's Invitation before the day with the host's
+ *                                    "Let guests shoot now" on/off (owner 2026-10-14): the REAL
+ *                                    resolver + bar (`resolveSiteNav`, `SiteMenuBar`) and the REAL
+ *                                    "Your shots" (empty → "Take your first photo"; N sample shots)
+ *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
+ *                                    2026-10-14): before the window · on · running low ·
+ *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { notFound } from 'next/navigation';
 import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
+import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
+import { SiteMenuBar } from '@/app/[slug]/_components/site-menu-bar';
+import { YourShotsGallery } from '@/app/[slug]/_components/your-shots-gallery';
+import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
+import { resolveStoredWindow } from '@/lib/papic-window';
+import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
 import {
   aiStatus,
   glanceCount,
   glanceDays,
   glanceMoney,
   homeServices,
-  papicStatus,
   pickHomeNext,
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 
 export const dynamic = 'force-dynamic';
 
+/** Sample shots for the early-shots lab — the repo's own portraits, nothing real. */
+const LAB_PHOTOS = ['isabel-mendoza.avif', 'andres-delgado.avif', 'isabella-reyes.avif', 'miguel-santos-garden.avif'];
 const DONE_GUESTS = { total: 96, unsent: 0 };
 const STATES: Record<string, HomeNextInput> = {
   guide: {
@@ -49,7 +67,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string }>;
+  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -62,11 +80,102 @@ export default async function HomeLab({
   const picked = proto
     ? { guide: null, hasDate: true, guests: { total: 14, unsent: 3 }, noun: 'wedding' as const, papicReady: false, aiOffer: false }
     : STATES[q.next ?? 'guide'] ?? STATES.guide!;
+  const E = '00000000-0000-4000-8000-000000000000';
+  /* 🎨 Papic's row and band — the REAL glance over the approved prototype's own sample
+     (papic_easy_home_and_band_2026-10-14_fable.html: Maria & Jose, 2,000 credits bought),
+     the REAL default window. `lowday` = running low ON the event day (owner call 1). */
+  const papicState = q.papic ?? null;
+  const dayMs = 86_400_000;
+  const iso = (ms: number) => new Date(ms + 8 * 3_600_000).toISOString().slice(0, 10);
+  const PAPIC: Record<string, { left: number; photos: number; days: number }> = {
+    before: { left: 2000, photos: 0, days: 234 },
+    on: { left: 1240, photos: 86, days: 66 },
+    low: { left: 140, photos: 1860, days: 66 },
+    stopped: { left: 0, photos: 2000, days: 66 },
+    empty: { left: 2000, photos: 0, days: 66 },
+    lowday: { left: 140, photos: 1860, days: 0 },
+  };
+  const ps = papicState ? PAPIC[papicState] ?? PAPIC.on! : null;
+  const papicEventDate = iso(Date.now() + (ps?.days ?? 40) * dayMs);
+  const papicWin = resolveStoredWindow({ windowStart: null, windowEnd: null, eventDate: papicEventDate });
+  const papicNow = papicGlance({
+    permitted: true,
+    tile: unread
+      ? 'failed'
+      : ps
+        ? { shotsLeft: ps.left, shotsTotal: 2000, photosGathered: ps.photos }
+        : proto
+          ? { shotsLeft: 50, shotsTotal: 50, photosGathered: 0 }
+          : { shotsLeft: 1240, shotsTotal: 1500, photosGathered: 12 },
+    window: { startDate: papicWin.startDate, endIso: papicWin.endIso },
+    eventDate: papicEventDate,
+    papicOn: true,
+  });
+  /* The prototype's ladder seed — for the lab's sheet only; the app reads the catalog. */
+  const LAB_SIZES = [
+    { serviceCode: 'LAB_100', points: 100, pricePhp: 70, discountPercent: 30 },
+    { serviceCode: 'LAB_300', points: 300, pricePhp: 210, discountPercent: 30 },
+    { serviceCode: 'LAB_500', points: 500, pricePhp: 350, discountPercent: 30 },
+    { serviceCode: 'LAB_1000', points: 1000, pricePhp: 700, discountPercent: 30 },
+    { serviceCode: 'LAB_3000', points: 3000, pricePhp: 1680, discountPercent: 44 },
+  ];
+  if (q.view === 'early') {
+    const early = q.early !== '0';
+    const n = Math.max(0, Number(q.shots ?? 0) || 0);
+    const bar = resolveSiteNav({
+      viewer: { kind: 'guest' },
+      phase: 'before',
+      stageSlots: STAGE_BAR.rsvp.slots,
+      hostAllowsCamera: true,
+      anyChapterPublic: false,
+      hasStory: true,
+      liveBroadcast: false,
+      earlyOwnShots: early,
+      destinations: { camera: '/papic/guest?from=lab' },
+    });
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-28 pt-3">
+        <div className="mx-auto flex max-w-xl flex-col gap-6">
+          <p className="sn-eye text-ink/70">Gallery · before the day</p>
+          {early ? (
+            <YourShotsGallery
+              shots={{ shots: Array.from({ length: n }, (_, i) => ({ id: `lab-${i}`, url: '/portraits/' + LAB_PHOTOS[i % LAB_PHOTOS.length]!, capturedAt: null })), total: n }}
+              qrToken={null}
+              cameraOn
+              everyoneHref={null}
+              cameraHref="/papic/guest?from=lab"
+            />
+          ) : (
+            <p className="text-sm text-ink/60">(Early shooting off — the bar keeps its four; there is no Gallery before the day.)</p>
+          )}
+        </div>
+        <SiteMenuBar slots={bar} />
+      </div>
+    );
+  }
+  if (q.view === 'papic') {
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
+        <div className="mx-auto flex max-w-xl flex-col gap-7">
+          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={LAB_SIZES} />
+        </div>
+      </div>
+    );
+  }
   /* An unread guest list reaches the picker as `null` — exactly as the page hands it. */
-  const input: HomeNextInput = unread ? { ...picked, guide: null, guests: null } : picked;
+  const base: HomeNextInput = ps
+    ? {
+        ...picked,
+        guide: null,
+        papicReady: false,
+        papic: papicNow.moment && papicNow.count !== null && papicNow.total !== null
+          ? { moment: papicNow.moment, left: papicNow.count, total: papicNow.total }
+          : null,
+      }
+    : picked;
+  const input: HomeNextInput = unread ? { ...base, guide: null, guests: null } : base;
   const next = pickHomeNext(input);
   const slots = await getNavSlotMap().catch(() => null);
-  const E = '00000000-0000-4000-8000-000000000000';
   return (
     <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
       <HomeFirstScreen
@@ -100,13 +209,18 @@ export default async function HomeLab({
             ? null
             : { paid: glanceMoney(unread ? null : F.paid), owing: glanceMoney(unread ? null : F.owing) }
         }
+        papicLeft={papicNow.count}
+        papicSizes={LAB_SIZES}
         services={homeServices({
           next: next.kind,
           storeShell: q.store === '1',
-          papic: papicStatus({
-            permitted: true,
-            tile: unread ? 'failed' : proto ? { photosGathered: 0, preCapture: true } : { photosGathered: 12, preCapture: false },
-          }),
+          papic: papicNow.status,
+          papicDoors: {
+            glance: papicNow,
+            line: papicNow.line,
+            buy: papicNow.buy,
+            whileNext: papicRowDoubled(next.kind === 'papic' ? next.papicMoment ?? null : null),
+          },
           ai: aiStatus(unread ? null : false),
         })}
       />

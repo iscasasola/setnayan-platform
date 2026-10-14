@@ -44,16 +44,19 @@ import type { PapicStandings } from '@/lib/papic-standings';
  */
 export function PapicStage({
   standings,
-  windowIsSet,
-  windowSummary,
+  windowWords,
   opensInDays,
   uploadsOpen,
   children,
   firstMemorySlot,
 }: {
   standings: PapicStandings;
-  windowIsSet: boolean;
-  windowSummary: string;
+  /**
+   * 📸 When the cameras are on, IN WORDS (owner 2026-10-13) — "On from Saturday,
+   * 12 June · until 12 h after your day". Always set: the window is the saved
+   * one or the automatic 6-month default, so the stage never asks for dates.
+   */
+  windowWords: string;
   /** Whole days until the capture window opens; null when unset or already open. */
   opensInDays: number | null;
   uploadsOpen: boolean;
@@ -94,8 +97,7 @@ export function PapicStage({
         {isEmpty ? (
           <EmptyRoll
             opensInDays={opensInDays}
-            windowIsSet={windowIsSet}
-            windowSummary={windowSummary}
+            windowWords={windowWords}
             uploadsOpen={uploadsOpen}
             firstMemorySlot={firstMemorySlot}
           />
@@ -109,11 +111,7 @@ export function PapicStage({
           celebration, and still come before anything asks them to decide — the
           rule that survived from the approved 08-25 drawing. What changed is
           only that they now sit on the thing they describe. */}
-      <StandingsStrip
-        standings={standings}
-        windowIsSet={windowIsSet}
-        windowSummary={windowSummary}
-      />
+      <StandingsStrip standings={standings} windowWords={windowWords} />
     </section>
   );
 }
@@ -124,39 +122,27 @@ export function PapicStage({
  */
 function EmptyRoll({
   opensInDays,
-  windowIsSet,
-  windowSummary,
+  windowWords,
   uploadsOpen,
   firstMemorySlot,
 }: {
   opensInDays: number | null;
-  windowIsSet: boolean;
-  windowSummary: string;
+  windowWords: string;
   uploadsOpen: boolean;
   firstMemorySlot?: React.ReactNode;
 }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        {windowIsSet ? (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em]"
-            style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: '#46A46C' }}
-          >
-            <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
-            {opensInDays != null && opensInDays > 0
-              ? `Opens in ${opensInDays} day${opensInDays === 1 ? '' : 's'}`
-              : 'Your cameras are open'}
-          </span>
-        ) : (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em]"
-            style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: '#E5794E' }}
-          >
-            <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
-            Cameras — set the dates
-          </span>
-        )}
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em]"
+          style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: '#46A46C' }}
+        >
+          <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
+          {opensInDays != null && opensInDays > 0
+            ? `Opens in ${opensInDays} day${opensInDays === 1 ? '' : 's'}`
+            : 'Your cameras are open'}
+        </span>
       </div>
 
       <ul className="grid grid-cols-4 gap-1.5 sm:grid-cols-6" aria-hidden>
@@ -180,11 +166,7 @@ function EmptyRoll({
       {uploadsOpen && firstMemorySlot ? <div>{firstMemorySlot}</div> : null}
 
       <p className="max-w-prose text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
-        {windowIsSet ? (
-          <>These frames start filling {windowSummary.toLowerCase()}.</>
-        ) : (
-          <>These frames start filling when your cameras open — set the dates below.</>
-        )}{' '}
+        <>These frames fill as your cameras shoot — {windowWords}.</>{' '}
         {uploadsOpen ? <>Older memories are welcome right now.</> : null}
       </p>
     </div>
@@ -194,12 +176,10 @@ function EmptyRoll({
 /** The four facts, on the stage's edge. */
 function StandingsStrip({
   standings,
-  windowIsSet,
-  windowSummary,
+  windowWords,
 }: {
   standings: PapicStandings;
-  windowIsSet: boolean;
-  windowSummary: string;
+  windowWords: string;
 }) {
   const { inLibrary, cameras, credits } = standings;
   // ⚠ ONE SOURCE FOR THE CAMERA COUNT. A guest camera is also a seat, so adding
@@ -231,19 +211,12 @@ function StandingsStrip({
         )}
       </Fact>
 
-      <Fact icon={<Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />} label="Still coming">
-        {windowIsSet ? (
-          windowSummary
-        ) : (
-          /* #E5794E measures 5.7:1 on obsidian. The light theme's action colour
-             is 3.5:1 here and would fail — the exact swap a light-only contrast
-             check waves through. */
-          <span style={{ color: '#E5794E' }}>Cameras — set the dates</span>
-        )}
+      <Fact icon={<Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />} label="Cameras">
+        {windowWords}
       </Fact>
 
       <Fact icon={<Coins aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />} label="Credits">
-        {credits === null ? <Unmeasured /> : <>{credits.toLocaleString('en-PH')} left</>}
+        {credits === null ? <Unmeasured /> : <>{credits.toLocaleString('en-PH')} credits left</>}
       </Fact>
     </div>
   );

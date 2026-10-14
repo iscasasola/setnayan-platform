@@ -78,7 +78,9 @@ test('(2) the Event Hub: no reply on the page in the Save the Date — open brow
   const day = resolveArrivalAction({ slug: 'a', rsvpStatus: 'attending', eventDate: '2026-10-11', today: '2026-10-11', hasPass: true, replyOpen: false });
   assert.equal(day?.kind, 'day-of');
   // The page hands the action its own plan's answer.
-  assert.match(code('app/[slug]/_components/site-body.tsx'), /resolveArrivalAction\(\{[\s\S]{0,400}?replyOpen: plan\.rsvpShouldRender,/);
+  assert.match(code('app/[slug]/_components/site-body.tsx'), /resolveArrivalAction\(\{[\s\S]{0,400}?replyOpen: replyOpenHere,/);
+  // 📬 …and the couple's reply window (owner 2026-10-14): the reply is open HERE only when both are.
+  assert.match(code('app/[slug]/_components/site-body.tsx'), /const replyOpenHere = plan\.rsvpShouldRender && repliesWindow\.state === 'open';/);
 });
 
 test('(3) the key gate sends nobody to the reply while nothing is asked', () => {
@@ -88,7 +90,8 @@ test('(3) the key gate sends nobody to the reply while nothing is asked', () => 
   assert.deepEqual(rsvpGate({ ...facts, guestsReply: false }), { kind: 'inside', didntReply: false });
   // …and the page hands the gate the rule, on the phase it resolved.
   const page = code('app/[slug]/page.tsx');
-  assert.match(page, /guestsReply: readGuestsReply\(event\.rsvp_ask_config\) && replyAskedInStage\(\{ phasesEnabled, lifecyclePhase \}\),/);
+  // 📬 …and on the couple's reply window (owner 2026-10-14): never sent to a form that would refuse.
+  assert.match(page, /guestsReply: readGuestsReply\(event\.rsvp_ask_config\) && replyAskedInStage\(\{ phasesEnabled, lifecyclePhase \}\) &&\s*repliesNow\.state === 'open',/);
 });
 
 const MESSAGE_FACTS = { template: null, formalName: 'Mr. Bean Banlag', hostsName: 'Marco & Marga', eventWord: 'wedding', solemn: false, eventDate: null, datePrecision: null } as const;
@@ -167,7 +170,8 @@ test('(7) the landing page draws the Save the Date form on the rule’s "no", fr
   assert.match(page, /const saveTheDateDoor = \{ href: `\/\$\{home\}`, label: destinationWords\.cta \};/);
   assert.match(page, /askToReply: replyAsked \|\| canvas,/);
   // No Reply button on the other pre-reply arm either (a plus-one holding a full ticket).
-  assert.match(page, /\{unreplied \? \(\s*!replyAsked \? null : \(\s*<div data-landing="reply">/);
+  // 📬 …and with the couple's window shut, the window's words stand in the button's place (owner 2026-10-14).
+  assert.match(page, /\{unreplied \? \(\s*!replyAsked \? null : repliesShut \? \(\s*<div data-landing="reply" data-reply-window=\{replies\.state\}[\s\S]{0,400}?\) : \(\s*<div data-landing="reply">/);
   // The time comes through the guests' own schedule read, and only for a real day.
   assert.match(page, /if \(precision === 'day' && event\.event_date\) \{\s*try \{\s*ceremonyTime = blockTime\(\s*ceremonyBlock\(await fetchPublicScheduleBlocks\(/);
 });

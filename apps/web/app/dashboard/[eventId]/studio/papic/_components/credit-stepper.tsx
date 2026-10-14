@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 
 export type StepperRung = {
@@ -36,9 +36,20 @@ export type StepperRung = {
  * off the code and re-reads the price itself, so a tampered client can move which
  * rung it asks for but can never move what a rung costs.
  */
-export function CreditStepper({ rungs }: { rungs: readonly StepperRung[] }) {
+export function CreditStepper({
+  rungs,
+  onRungChange,
+}: {
+  rungs: readonly StepperRung[];
+  /** 🎨 Told the rung on screen, so the sheet can say "After this: N credits" (owner 2026-10-14). */
+  onRungChange?: (rung: StepperRung) => void;
+}) {
   const [i, setI] = useState(0);
   const liveId = useId();
+  const shown = rungs[Math.min(Math.max(i, 0), rungs.length - 1)];
+  useEffect(() => {
+    if (shown && onRungChange) onRungChange(shown);
+  }, [shown, onRungChange]);
 
   // A caller with no sellable rung renders no card at all, so this is a
   // belt-and-braces guard rather than a state anybody can reach.
@@ -60,7 +71,7 @@ export function CreditStepper({ rungs }: { rungs: readonly StepperRung[] }) {
 
   return (
     <div className="space-y-2">
-      <span className="block text-xs font-medium text-ink/70">How much to add</span>
+      <span className="home-eyebrow block">How much to add</span>
 
       <div className="flex items-stretch gap-2">
         <button
@@ -68,7 +79,7 @@ export function CreditStepper({ rungs }: { rungs: readonly StepperRung[] }) {
           onClick={() => setI(at - 1)}
           disabled={atFloor}
           aria-label="Less"
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
+          className="inline-flex h-[60px] w-12 shrink-0 items-center justify-center rounded-2xl border border-ink/15 text-mulberry transition-transform active:scale-95 disabled:cursor-not-allowed disabled:text-ink/40 disabled:opacity-50"
         >
           <Minus aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
@@ -79,13 +90,13 @@ export function CreditStepper({ rungs }: { rungs: readonly StepperRung[] }) {
         <div
           id={liveId}
           aria-live="polite"
-          className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl border border-ink/15 bg-surface px-3 py-2 text-center"
+          className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-2xl border border-ink/15 bg-cream px-2.5 py-1.5 text-center"
         >
-          <span className="font-mono text-xl font-semibold tabular-nums text-ink">
+          <span className="text-2xl font-semibold leading-tight tracking-tight tabular-nums text-ink">
             {peso(rung.pricePhp)}
           </span>
-          <span className="text-xs text-ink/65">
-            adds {rung.points.toLocaleString('en-PH')} shots
+          <span className="whitespace-nowrap text-[12.5px] text-ink/65">
+            adds {rung.points.toLocaleString('en-PH')} credits
             {rung.discountPercent != null ? ` · ${rung.discountPercent}% off` : ''}
           </span>
         </div>
@@ -95,7 +106,7 @@ export function CreditStepper({ rungs }: { rungs: readonly StepperRung[] }) {
           onClick={() => setI(at + 1)}
           disabled={atCeiling}
           aria-label="More"
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-ink/15 text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
+          className="inline-flex h-[60px] w-12 shrink-0 items-center justify-center rounded-2xl border border-ink/15 text-mulberry transition-transform active:scale-95 disabled:cursor-not-allowed disabled:text-ink/40 disabled:opacity-50"
         >
           <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
@@ -104,7 +115,7 @@ export function CreditStepper({ rungs }: { rungs: readonly StepperRung[] }) {
       {/* The two ends of the ladder, said once, so a disabled button is never a
           dead end somebody has to guess at. Both figures are the real first and
           last rung — never a typed range. */}
-      <p className="text-[11px] text-ink/50">
+      <p className="text-xs text-ink/60">
         {peso(floor.pricePhp)} to {peso(ceiling.pricePhp)} ·{' '}
         {rungs.length} sizes · add any of them again later.
       </p>

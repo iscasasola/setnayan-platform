@@ -120,12 +120,15 @@ export function ReplyCardRow({ card, landed = false }: { card: ReplyCard; landed
         {card.line}
       </p>
       {card.replyBy ? <p className="text-sm text-ink/70">{card.replyBy}</p> : null}
-      <Link
-        href={card.href}
-        className="mt-1 inline-flex min-h-[48px] items-center justify-center rounded-lg bg-mulberry px-7 text-sm font-semibold tracking-wide text-cream transition-colors hover:bg-mulberry-600"
-      >
-        {card.cta}
-      </Link>
+      {/* 📬 A shut window draws no button at all (owner 2026-10-14) — not a disabled one. */}
+      {card.href !== null ? (
+        <Link
+          href={card.href}
+          className="mt-1 inline-flex min-h-[48px] items-center justify-center rounded-lg bg-mulberry px-7 text-sm font-semibold tracking-wide text-cream transition-colors hover:bg-mulberry-600"
+        >
+          {card.cta}
+        </Link>
+      ) : null}
     </div>
   );
 }

@@ -361,7 +361,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // `event_type` added 2026-09-02 (EH6): the retired /website hub showed its
       // "Our story" door to weddings only, and that door moved here. One more
       // column on a query already running — not a second read.
-      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type, planning_mode')
+      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type, planning_mode, std_invitation_launch_date')
       .eq('event_id', eventId)
       .maybeSingle(),
     // S2 fact 2 + 3. The MEASURED read, never the array-only wrapper: this page
@@ -424,6 +424,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     timezone?: string | null;
     event_type?: string | null;
     planning_mode?: string | null;
+    std_invitation_launch_date?: string | null;
   } | null;
 
   /*
@@ -439,6 +440,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     clearedAt: eventRow?.cleared_at ?? null,
     timezone: eventRow?.timezone ?? null,
     slug: eventRow?.slug ?? null,
+    invitationLaunchDate: eventRow?.std_invitation_launch_date ?? null,
   };
   const eventSlug: string | null = eventRead.slug ?? null;
 

@@ -18,6 +18,8 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { arrivalSteps, inviteReplyPath } from '@/lib/invite-arrival';
 import { joinDoorRefusalMessage } from '@/lib/join-door-refusal-copy';
+import { REPLY_WINDOW_EVENT_COLUMNS, replyWindowWords } from '@/lib/reply-window';
+import { replyWindowOfRow } from '@/lib/reply-window.server';
 
 /*
   🔴 THESE WERE A MODULE CONSTANT SAYING "the couple" ON EVERY EVENT TYPE, and
@@ -100,19 +102,25 @@ export async function JoinFlow({
   // 🔑 A RESOLVER THAT IS CALLED IS NOT A RESOLVER THAT CAN ANSWER — the guard
   // written for this counted the CALL, and the call was there the whole time.
   const w = await eventWordsForEvent(eventId);
-  const errorMessage = joinDoorRefusalMessage(errorKey, w);
   const loginHref = `/login?next=${encodeURIComponent(returnPath)}`;
   const signupHref = `/signup?next=${encodeURIComponent(returnPath)}`;
 
   // "Who can RSVP?" and the switched-on questions — one read, service-role
   // (a signed-out visitor holds no `events` SELECT), through lib/rsvp-ask.ts.
+  // 📬 + the reply window's columns, on THIS read: a request refused before replies open is told the
+  // same words and day as the Reply card ("Replies open on Saturday, 14 November"), on the venue's clock.
   const admin = createAdminClient();
   const { data: askRow } = await admin
     .from('events')
-    .select('rsvp_ask_config')
+    .select(REPLY_WINDOW_EVENT_COLUMNS)
     .eq('event_id', eventId)
     .maybeSingle();
   const ask = sanitizeRsvpAskConfig(askRow?.rsvp_ask_config);
+  const repliesShut =
+    askRow && (errorKey === 'replies_not_yet' || errorKey === 'replies_closed')
+      ? replyWindowWords(await replyWindowOfRow(askRow), w.theOrganizer)
+      : null;
+  const errorMessage = joinDoorRefusalMessage(errorKey, w, repliesShut);
   const Organizer = w.theOrganizer.charAt(0).toUpperCase() + w.theOrganizer.slice(1);
 
   // Auth check.

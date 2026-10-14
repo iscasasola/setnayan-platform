@@ -18,6 +18,11 @@ import { Field } from '@/app/_components/forms/field';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import {
+  enterWouldSubmit,
+  joinPortaledFieldsToForm,
+  ownerFormOf,
+} from '@/lib/portaled-fields-join-their-form';
 import { allowedEventOptions, droppedEventTypes } from '@/lib/coverage-allowed-events';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { parseCustomizationDraft } from '@/lib/service-customization-draft';
@@ -158,6 +163,13 @@ const SHEET_FOR_FINDING: Record<CardHealthSheet, SheetKey | 'title'> = {
   audience: 'audience',
   title: 'title',
 };
+
+/**
+ * 🔑 THE CARD FORM'S ID — what every portaled sheet's fields name with `form=`.
+ * The sheets render under <body> (see CanvasSheet), outside this <form> in the
+ * DOM; without the association none of their fields posts. One maker per page.
+ */
+export const CARD_FORM_ID = 'canvas-card-form';
 
 const line = 'var(--m-line)';
 const paper = 'var(--m-paper)';
@@ -560,15 +572,21 @@ export function CanvasMaker({
         }
       }, 800);
     };
-    form.addEventListener('input', hold);
-    form.addEventListener('change', hold);
+    // Heard on the DOCUMENT, kept to this card's fields: the sheets portal to
+    // <body>, so their typing never bubbles through the <form> element.
+    const doc = form.ownerDocument;
+    const holdIfCard = (e: Event) => {
+      if (ownerFormOf(e.target as Element | null) === form) hold();
+    };
+    doc.addEventListener('input', holdIfCard);
+    doc.addEventListener('change', holdIfCard);
     // The one thing that must NOT survive: a card that got saved. Submitting is
     // the end of this draft either way — published or kept as a draft row.
     form.addEventListener('submit', clearKeep);
     return () => {
       if (timer) clearTimeout(timer);
-      form.removeEventListener('input', hold);
-      form.removeEventListener('change', hold);
+      doc.removeEventListener('input', holdIfCard);
+      doc.removeEventListener('change', holdIfCard);
       form.removeEventListener('submit', clearKeep);
     };
   }, [keepKey, clearKeep]);
@@ -803,14 +821,23 @@ export function CanvasMaker({
       deferred = setTimeout(read, 0);
     };
     read();
-    form.addEventListener('input', read);
-    form.addEventListener('change', read);
-    form.addEventListener('click', readAfterCommit);
+    // On the DOCUMENT, kept to this card's fields — see the keep effect above.
+    const doc = form.ownerDocument;
+    const fromCard = (e: Event) => ownerFormOf(e.target as Element | null) === form;
+    const readIfCard = (e: Event) => {
+      if (fromCard(e)) read();
+    };
+    const readAfterCommitIfCard = (e: Event) => {
+      if (fromCard(e)) readAfterCommit();
+    };
+    doc.addEventListener('input', readIfCard);
+    doc.addEventListener('change', readIfCard);
+    doc.addEventListener('click', readAfterCommitIfCard);
     const tick = setInterval(read, 400);
     return () => {
-      form.removeEventListener('input', read);
-      form.removeEventListener('change', read);
-      form.removeEventListener('click', readAfterCommit);
+      doc.removeEventListener('input', readIfCard);
+      doc.removeEventListener('change', readIfCard);
+      doc.removeEventListener('click', readAfterCommitIfCard);
       if (deferred) clearTimeout(deferred);
       clearInterval(tick);
     };
@@ -1039,7 +1066,17 @@ export function CanvasMaker({
           ) : null}
         </div>
       ) : null}
-      <form ref={formRef} action={commitVendorService} className="space-y-4">
+      {/* noValidate: most of this form's fields live in CLOSED sheets. A browser
+          that refuses a submit over a field it cannot show (a decimal in a
+          whole-peso box) focuses nothing and says nothing — the press just does
+          nothing. commitVendorService re-validates every field and says why. */}
+      <form
+        id={CARD_FORM_ID}
+        ref={formRef}
+        action={commitVendorService}
+        noValidate
+        className="space-y-4"
+      >
         <input type="hidden" name="category" value={category} />
         {/* C3 2026-08-28 — set only when the current `category` resolved a
             genuine search miss (see `collectPhrase` above). Empty on every
@@ -1436,6 +1473,7 @@ export function CanvasMaker({
             cannot get from a form no matter how short it is. */}
         {inPass && firstCardEver ? (
           <CanvasSheet
+            formId={CARD_FORM_ID}
             id="canvas-intro"
             title="A card is how couples meet what you make"
             open={sheet === 'intro'}
@@ -1520,6 +1558,7 @@ export function CanvasMaker({
             customization editor all redraw for the chosen kind. */}
         {canChooseKind ? (
           <CanvasSheet
+            formId={CARD_FORM_ID}
             id="canvas-kind"
             title="What kind of service?"
             open={sheet === 'kind'}
@@ -1690,6 +1729,7 @@ export function CanvasMaker({
         ) : null}
 
         <CanvasSheet
+          formId={CARD_FORM_ID}
           id="canvas-media"
           title={inPass ? 'Show one photo' : 'Photos'}
           open={sheet === 'media'}
@@ -1732,6 +1772,7 @@ export function CanvasMaker({
         </CanvasSheet>
 
         <CanvasSheet
+          formId={CARD_FORM_ID}
           id="canvas-price"
           title="Price"
           open={sheet === 'price'}
@@ -1808,6 +1849,7 @@ export function CanvasMaker({
         </CanvasSheet>
 
         <CanvasSheet
+          formId={CARD_FORM_ID}
           id="canvas-excl"
           title={inPass ? 'Give a Setnayan gift?' : 'Setnayan gift'}
           open={sheet === 'excl'}
@@ -1866,6 +1908,7 @@ export function CanvasMaker({
         </CanvasSheet>
 
         <CanvasSheet
+          formId={CARD_FORM_ID}
           id="canvas-custom"
           title={inPass ? 'What’s included?' : 'What couples get'}
           open={sheet === 'custom'}
@@ -2419,6 +2462,7 @@ function ChipGroup({
  *     rise replays on every open without any JS.
  */
 function CanvasSheet({
+  formId,
   id,
   title,
   open,
@@ -2451,8 +2495,18 @@ function CanvasSheet({
    */
   confirmLabel?: string | null;
   children: ReactNode;
+  /**
+   * 🔴 THE FORM THIS SHEET'S FIELDS POST WITH — required for every sheet that
+   * sits inside the card <form> in the React tree. The portal below moves the
+   * DOM under <body>, and the browser builds FormData from DOM descendants and
+   * `form=`-associated controls only, so without this every field in the sheet
+   * silently posts nothing (live 2026-09-07 → 2026-10-14). Omit it only for a
+   * sheet that carries its own <form> (the audience sheet).
+   */
+  formId?: string;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose, containerRef: dialogRef });
 
   /**
@@ -2479,10 +2533,26 @@ function CanvasSheet({
    */
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!mounted || !formId || !root) return;
+    return joinPortaledFieldsToForm(root, formId);
+  }, [mounted, formId]);
   if (!mounted) return null;
 
   return createPortal(
-    <div hidden={!open} className="fixed inset-0 z-40">
+    <div
+      ref={rootRef}
+      hidden={!open}
+      className="fixed inset-0 z-40"
+      onKeyDown={
+        formId
+          ? (e) => {
+              if (enterWouldSubmit(e.key, e.target as HTMLInputElement)) e.preventDefault();
+            }
+          : undefined
+      }
+    >
       <button
         type="button"
         aria-label="Close"

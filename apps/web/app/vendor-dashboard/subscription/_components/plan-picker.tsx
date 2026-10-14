@@ -16,7 +16,7 @@
  */
 import { useState } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Wallet } from 'lucide-react';
+import { BadgeCheck, CalendarDays, Gem, Wallet } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ActionButton } from '@/components/action-button';
 import { DatesRow } from '../../customers/_components/dates-row';
@@ -37,6 +37,8 @@ export type PlanPick = {
   /** What picking this plan does, in one line (`planPickLine`). */
   pickLine: string;
 };
+
+const lead = (Icon: typeof Gem) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 
 const CYCLE_WORD: Record<Cycle, string> = { monthly: '28 days', annual: 'a year' };
 
@@ -73,6 +75,7 @@ export function PlanPicker({
     <div data-plan-picker="">
       <DatesRow
         data="plan-pick"
+        lead={lead(Gem)}
         title="Your plan"
         line={plan.pickLine}
         end={
@@ -90,6 +93,7 @@ export function PlanPicker({
       {isFree || isCustom ? null : (
         <DatesRow
           data="plan-cycle"
+          lead={lead(CalendarDays)}
           title="Cycle"
           line={cycle === 'annual' ? 'Paid once a year' : 'Paid every 28 days'}
           end={
@@ -110,6 +114,7 @@ export function PlanPicker({
       )}
       <DatesRow
         data="plan-pay"
+        lead={lead(Wallet)}
         title="What you pay"
         line={
           isFree

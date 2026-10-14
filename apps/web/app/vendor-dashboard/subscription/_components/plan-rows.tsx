@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { BadgeCheck, Camera, CircleX, ReceiptText, Sparkles, Star, Store, type LucideIcon } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
@@ -21,6 +22,9 @@ import type { PlanLine, PlanRowBadge } from '@/lib/vendor-plan-rows';
  * Presentational: every value arrives read; nothing here fetches or writes. The page and `/dev/supplier-plan-lab`
  * both mount it, so the lab shows what ships.
  */
+const ic = (Icon: LucideIcon) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
+const icFold = (Icon: LucideIcon) => <span className="mr-1 flex">{ic(Icon)}</span>;
+
 export function PlanRows({
   tier,
   pays,
@@ -63,11 +67,11 @@ export function PlanRows({
         {picker}
 
         {feeRow ? (
-          <DatesRow data="plan-booking-fee" title="Booking fee" line={feeRow.line} badge={feeRow.badge} href={VENDOR_BOOKING_FEES_PATH} />
+          <DatesRow data="plan-booking-fee" lead={ic(ReceiptText)} title="Booking fee" line={feeRow.line} badge={feeRow.badge} href={VENDOR_BOOKING_FEES_PATH} />
         ) : null}
 
         <div className="border-t border-ink/10" data-plan-fold="gives">
-          <Fold title={`What ${planWord(tier)} gives you`} line="Read from your plan" data="plan-gives">
+          <Fold title={`What ${planWord(tier)} gives you`} line="Read from your plan" lead={icFold(BadgeCheck)} data="plan-gives">
             <div className="pb-3">
               {gives.map((g) => (
                 <DatesRow key={g.key} data="plan-gives-row" title={g.title} line={g.line} />
@@ -86,6 +90,7 @@ export function PlanRows({
                   ? `${formatCount(receipts.length)} · last ${receipts[0]?.line.split(' · ')[0] ?? ''}`
                   : 'None yet'
             }
+            lead={icFold(ReceiptText)}
             data="plan-receipts"
           >
             <div className="pb-3">
@@ -111,9 +116,10 @@ export function PlanRows({
           </Fold>
         </div>
 
-        <DatesRow data="plan-add-ons" title="Add-ons" line="AI replies · 3D booth · Papic Challenges · Deep Search" href="#add-ons" />
+        <DatesRow data="plan-add-ons" lead={ic(Store)} title="Add-ons" line="AI replies · 3D booth · Papic Challenges · Deep Search" href="#add-ons" />
         <DatesRow
           data="plan-papic-credits"
+          lead={ic(Camera)}
           title="Papic credits"
           line={
             papicPackPrice !== null
@@ -124,18 +130,21 @@ export function PlanRows({
         />
         <DatesRow
           data="plan-boost"
+          lead={ic(Star)}
           title="Featured by Setnayan"
           line={featured ? 'Setnayan features your work in its stories' : 'Setnayan features Pro shops in its stories'}
           badge={featured ? { tone: 'ok', word: 'On' } : { tone: 'quiet', word: 'Pro' }}
         />
         <DatesRow
           data="plan-custom"
+          lead={ic(Sparkles)}
           title="Custom plan"
           line={tier === 'custom' ? 'Yours · branches, reach, seats' : 'Branches · reach · seats — beyond Enterprise'}
           href="/vendor-dashboard/subscription/custom"
         />
         <DatesRow
           data="plan-cancel"
+          lead={ic(CircleX)}
           title="Cancel the plan"
           line={
             isPaid

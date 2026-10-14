@@ -229,7 +229,7 @@ export function HelpersView({
               title="Who works what"
               line={
                 agents.length > 0
-                  ? agents.map((a) => `${a.display_name?.trim() || a.email || 'Team member'} · ${(assignments[a.vendor_team_member_id] ?? []).length} services`).join(' · ')
+                  ? agents.map((a) => { const n = (assignments[a.vendor_team_member_id] ?? []).length; return `${a.display_name?.trim() || a.email || 'Team member'} · ${formatCount(n)} ${n === 1 ? 'service' : 'services'}`; }).join(' · ')
                   : 'What each helper does'
               }
               data="helpers-who-works-what"

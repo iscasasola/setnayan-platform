@@ -49,7 +49,7 @@ export function SettingsView({
           <Fold
             title="Notifications"
             line={unread > 0 ? `${formatCount(unread)} new` : 'Nothing new'}
-            lead={ic(Bell)}
+            lead={<span className="mr-1 flex">{ic(Bell)}</span>}
             aside={unread > 0 ? <Badge tone="no" data="settings-unread">{formatCount(unread)}</Badge> : undefined}
             data="settings-notifications"
           >
@@ -111,7 +111,7 @@ export function SettingsView({
             />
 
             <div className="border-t border-ink/10" data-settings-fold="more-tools" id="more-tools">
-              <Fold title="More tools" line={`${formatCount(toolCount)} · what couples see · with others · protection`} lead={ic(Wrench)} data="settings-more-tools">
+              <Fold title="More tools" line={`${formatCount(toolCount)} · what couples see · with others · protection`} lead={<span className="mr-1 flex">{ic(Wrench)}</span>} data="settings-more-tools">
                 <div className="pb-3">
                   {tools.map((g) => (
                     <div key={g.key} data-settings-tools={g.key}>

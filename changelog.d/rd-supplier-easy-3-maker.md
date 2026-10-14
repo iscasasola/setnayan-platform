@@ -28,7 +28,8 @@ card · every field"). Built on the shipped `CanvasMaker` (Rule 0), not beside i
   to what you do? Couples will find you there." Yes → `addCoverageForCard` (its own action; the same body as
   `createCoverage`, `lib/vendor-coverage-write.ts`, which runs `syncProfileFromCoverages`) within the plan's family
   cap; over the cap the plan option shows and the card still saves. Not now → the card saves, coverage unchanged.
-- **Time slots open to every plan** (owner 2026-10-14 🧑‍🤝‍🧑, call 3): `canPlotTimeSlots` returns true for every tier.
+- **Time slots on every plan** (owner 2026-10-14 🧑‍🤝‍🧑, call 3): the maker's one save writes them for any plan; the
+  per-slot action's plan check (`canPlotTimeSlots`) is opened by step 2 (Schedules) in its own PR.
 - One loader for the three doors into the maker (`lib/service-card-maker.server.ts`); `/services/new` makes one
   request fewer than before (no `getTaxonomy`, no second coverage read; + the shop's schedules).
 - Guards: `lib/the-maker-maps-every-field.test.ts` (every field the save reads is posted; every truth-table row has a

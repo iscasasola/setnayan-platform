@@ -1,5 +1,6 @@
 import 'server-only';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
@@ -54,9 +55,19 @@ export async function readServiceFigures(eventId: string): Promise<ServiceFigure
  * render both ride the event's one orders read (`lib/request-once`). null =
  * the answer could not be read (the row says "—").
  */
-export async function serviceOwnership(eventId: string, sku: string): Promise<ServiceOwnership | null> {
+export async function serviceOwnership(
+  eventId: string,
+  sku: string,
+  /**
+   * The client to ask with. Home passes its service-role client (the caller is
+   * already a member — `notFound()` refused anyone else): its answers then share
+   * the render's one orders read with every other service-role asker, and the
+   * membership look-up `eventEntitlementClient` makes is not repeated.
+   */
+  client?: SupabaseClient,
+): Promise<ServiceOwnership | null> {
   try {
-    const ent = await eventEntitlementClient(eventId);
+    const ent = client ?? (await eventEntitlementClient(eventId));
     const [active, owns] = await Promise.all([eventSkuActive(ent, eventId, sku), eventOwnsSku(ent, eventId, sku)]);
     return active ? 'on' : owns ? 'waiting' : 'none';
   } catch {

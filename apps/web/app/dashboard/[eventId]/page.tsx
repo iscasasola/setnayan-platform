@@ -597,11 +597,11 @@ export default async function EventHomePage({
   // cost no request of their own.
   const serviceOwnershipRead = (async () => {
     const [ai, live, music, booth, hub] = await Promise.all([
-      serviceOwnership(eventId, SERVICE_ROW_SKU.ai),
-      serviceOwnership(eventId, SERVICE_ROW_SKU.live),
-      serviceOwnership(eventId, SERVICE_ROW_SKU.music),
-      serviceOwnership(eventId, SERVICE_ROW_SKU.booth),
-      serviceOwnership(eventId, SERVICE_ROW_SKU.hub),
+      serviceOwnership(eventId, SERVICE_ROW_SKU.ai, adminClient),
+      serviceOwnership(eventId, SERVICE_ROW_SKU.live, adminClient),
+      serviceOwnership(eventId, SERVICE_ROW_SKU.music, adminClient),
+      serviceOwnership(eventId, SERVICE_ROW_SKU.booth, adminClient),
+      serviceOwnership(eventId, SERVICE_ROW_SKU.hub, adminClient),
     ]);
     return { ai, live, music, booth, hub };
   })();

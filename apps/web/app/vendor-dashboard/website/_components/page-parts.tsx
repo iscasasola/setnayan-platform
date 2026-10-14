@@ -169,11 +169,11 @@ export function PageParts({
         </div>
         <div className="flex flex-wrap gap-2 px-3.5 pb-3.5">
           {d.publicPath && d.visible ? (
-            <ActionButton tone="neutral" icon={Eye} label="View my page" href={d.publicPath} target="_blank" />
+            <ActionButton tone="neutral" icon={Eye} label="View my page" href={d.publicPath} target="_blank" className="min-h-11" />
           ) : (
-            <ActionButton tone="neutral" icon={Eye} label="View my page" waiting />
+            <ActionButton tone="neutral" icon={Eye} label="View my page" waiting className="min-h-11" />
           )}
-          <ActionButton tone="neutral" icon={Share2} label="Share my page" onClick={share} waiting={!d.publicPath || !d.live} />
+          <ActionButton tone="neutral" icon={Share2} label="Share my page" onClick={share} waiting={!d.publicPath || !d.live} className="min-h-11" />
         </div>
         {!d.live ? (
           <p className="border-t border-ink/10 px-3.5 py-2.5 text-[13px] text-ink/60">

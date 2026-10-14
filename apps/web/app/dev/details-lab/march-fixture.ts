@@ -59,7 +59,10 @@ const ROWS: Row[] = [
  * dev server's memory only (the lab has no database), so the march drawn after the card closes shows the new name, exactly
  * as the Maker re-reads a real guest's.
  */
-export const LAB_MARCH_RENAMES = new Map<string, { prefix: string | null; first: string; last: string }>();
+type LabRenames = Map<string, { prefix: string | null; first: string; last: string }>;
+const labGlobal = globalThis as unknown as { __labMarchRenames?: LabRenames };
+// On globalThis: the dev server bundles a server action and the page separately, so a module-level Map is two Maps.
+export const LAB_MARCH_RENAMES: LabRenames = (labGlobal.__labMarchRenames ??= new Map());
 
 /** One lab person as the guest card reads them (maria-and-jose's march). */
 export function labMarchPerson(id: string): { id: string; prefix: string | null; first: string; last: string; role: string } | null {

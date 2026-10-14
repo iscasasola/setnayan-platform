@@ -195,14 +195,18 @@ export function papicGlance(input: PapicGlanceInput): PapicGlance {
 }
 
 /**
- * NEVER TWICE (owner 2026-10-14): when Papic holds the Next card, the row drops
- * the button the card already offers — and at zero (call 3) its "Stopped" words
- * too, keeping only the red meter. Returns what the ROW shows.
+ * NEVER TWICE (owner 2026-10-14) — WHILE THE CARD IS ON SCREEN. When Papic holds
+ * the Next card, the row's own Buy more (and at zero, call 3, its "stopped"
+ * words) would say what the card says. Returns WHICH parts are doubled; the row
+ * still DRAWS them, marked, and they stand down only while the card is visible
+ * (`[data-while-next]`, globals.css). 🔴 walk-b6 F1 (2026-10-14): they used to be
+ * left out on the server, so a couple who pressed "Later" on "Your cameras have
+ * stopped" was left with no Buy more anywhere on Home for the rest of the day.
  */
-export function papicRowWhileNext(g: PapicGlance, next: PapicMoment | null): { line: GlanceLine; buy: boolean } {
-  if (next === 'stopped') return { line: { strong: g.line.strong }, buy: false };
-  if (next === 'low-today') return { line: g.line, buy: false };
-  return { line: g.line, buy: g.buy };
+export function papicRowDoubled(next: PapicMoment | null): { buy: boolean; tail: boolean } {
+  if (next === 'stopped') return { buy: true, tail: true };
+  if (next === 'low-today') return { buy: true, tail: false };
+  return { buy: false, tail: false };
 }
 
 /**

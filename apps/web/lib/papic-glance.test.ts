@@ -14,7 +14,7 @@ import { creditsWord, glanceTileFromStandings, papicGlance, seePhotosWord, type 
 import { formatPapicDayInWords, resolveStoredWindow } from './papic-window';
 import { POOL_METER_LOW_PCT, poolLevel } from './papic-pool-meter';
 import { pickHomeNext, homeServices, type HomeNextInput } from './home-first-screen';
-import { papicRowWhileNext } from './papic-glance';
+import { papicRowDoubled } from './papic-glance';
 
 const DAY = 86_400_000;
 /** Noon Manila on 2026-10-14 — a fixed "now". */
@@ -66,9 +66,9 @@ test('at zero: "Stopped", Buy more, and the Next card\'s "stopped" moment', () =
   assert.equal(next.title, 'Your cameras have stopped');
   assert.match(next.body, /^All 2,000 credits are used\./);
   assert.equal(next.action, 'Buy more');
-  // Owner call 3: the row keeps the red meter only — no second "Stopped", no second Buy more.
-  const row = papicRowWhileNext(g, 'stopped');
-  assert.deepEqual(row, { line: { strong: '0 credits left' }, buy: false });
+  // Owner call 3: while the card is on screen the row keeps the red meter only — its
+  // "stopped" words and Buy more are DOUBLED (drawn, marked, hidden while the card shows).
+  assert.deepEqual(papicRowDoubled('stopped'), { buy: true, tail: true });
 });
 
 test('ready before the first photo — the Next card\'s other moment (never the retired free camera)', () => {
@@ -77,7 +77,7 @@ test('ready before the first photo — the Next card\'s other moment (never the 
   const next = pickHomeNext({ ...NOTHING, papic: { moment: 'ready', left: 50, total: 50 } });
   assert.equal(next.title, 'Your cameras are ready');
   assert.equal(next.action, 'Open Papic');
-  assert.deepEqual(papicRowWhileNext(g, 'ready').buy, true, 'the ready card offers Open Papic, so the row keeps Buy more');
+  assert.deepEqual(papicRowDoubled('ready'), { buy: false, tail: false }, 'the ready card offers Open Papic, so nothing of the row is doubled');
   assert.ok(!/free camera/i.test(`${next.title} ${next.body}`), 'the retired free "One" camera is promised again');
 });
 
@@ -131,7 +131,7 @@ test('owner call 1: running low ON THE EVENT DAY takes the Next card, once', () 
   const next = pickHomeNext({ ...NOTHING, papic: { moment: 'low-today', left: 140, total: 2000 } });
   assert.equal(next.title, 'Your credits are running low');
   assert.equal(next.action, 'Buy more');
-  assert.equal(papicRowWhileNext(g, 'low-today').buy, false, 'the card offers Buy more, so the row does not');
+  assert.deepEqual(papicRowDoubled('low-today'), { buy: true, tail: false }, 'the card offers Buy more — doubled while it shows');
 });
 
 test('NEVER TWICE: while Papic holds the Next card the ROW STAYS (owner 2026-10-14) — only its doubled button goes', () => {

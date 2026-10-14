@@ -29,7 +29,7 @@ import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
 import { SiteMenuBar } from '@/app/[slug]/_components/site-menu-bar';
 import { YourShotsGallery } from '@/app/[slug]/_components/your-shots-gallery';
-import { papicGlance, papicRowWhileNext } from '@/lib/papic-glance';
+import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
 import {
@@ -215,10 +215,12 @@ export default async function HomeLab({
           next: next.kind,
           storeShell: q.store === '1',
           papic: papicNow.status,
-          papicDoors: (() => {
-            const t = papicRowWhileNext(papicNow, next.kind === 'papic' ? next.papicMoment ?? null : null);
-            return { glance: papicNow, line: t.line, buy: t.buy };
-          })(),
+          papicDoors: {
+            glance: papicNow,
+            line: papicNow.line,
+            buy: papicNow.buy,
+            whileNext: papicRowDoubled(next.kind === 'papic' ? next.papicMoment ?? null : null),
+          },
           ai: aiStatus(unread ? null : false),
         })}
       />

@@ -69,7 +69,7 @@ import { MiniTour } from '@/app/_components/mini-tour';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
-import { papicGlance, papicRowWhileNext } from '@/lib/papic-glance';
+import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { papicIsOn } from '@/lib/event-answers';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
@@ -666,17 +666,15 @@ export default async function EventHomePage({
     storeShell,
     papic: papicNow.status,
     // 🎨 The row's line, meter and doors (owner 2026-10-14). Buy more is the
-    // couple's (the purchase is couple-only); NEVER TWICE trims what the Next
-    // card already offers (`papicRowWhileNext`).
+    // couple's (the purchase is couple-only); NEVER TWICE marks what the Next
+    // card already offers, hidden only while that card is on screen (`papicRowDoubled`).
     papicDoors: canViewPapicCounts
-      ? (() => {
-          const trimmed = papicRowWhileNext(papicNow, homeNext.kind === 'papic' ? homeNext.papicMoment ?? null : null);
-          return {
-            glance: papicNow,
-            line: trimmed.line,
-            buy: trimmed.buy && viewerMemberType === 'couple',
-          };
-        })()
+      ? {
+          glance: papicNow,
+          line: papicNow.line,
+          buy: papicNow.buy && viewerMemberType === 'couple',
+          whileNext: papicRowDoubled(homeNext.kind === 'papic' ? homeNext.papicMoment ?? null : null),
+        }
       : null,
     ai: aiStatus(
       paywallOn === null

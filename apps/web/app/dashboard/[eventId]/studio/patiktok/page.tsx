@@ -703,7 +703,7 @@ function SaveShareCard({
           <p className="max-w-prose text-sm text-ink/70">
             Recording and watching your reels is free. Add Patiktok to save
             them without the preview mark, download them and share them —
-            every reel your booth makes, all event day.
+            every reel your booth makes, for this whole event.
           </p>
         </div>
         {priceLabel ? (

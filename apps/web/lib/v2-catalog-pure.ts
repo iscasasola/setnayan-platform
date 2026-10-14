@@ -114,8 +114,9 @@ export type BuildStatus = 'live' | 'partial' | 'not_built';
 const BILLING_PERIOD_SUFFIX: Record<BillingPeriod, string> = {
   one_time: '',
   per_28d: ' / 28 days',
-  // Per event-day charge (Patiktok ₱1,499/day) — same event-day model as Panood;
-  // the amount is flat per purchase, the couple activates it per day.
+  // Per event-day charge (the hosted venue-screen channel) — the amount is flat
+  // per purchase. Patiktok USED to be the example here; it is per EVENT since
+  // owner 2026-10-14 (migration 20271269192746 set its row to one_time).
   per_day: ' / day',
   // Annual prepaid block (Custom Subdomain ₱999/year · owner 2026-07-10) — manual
   // renewal reminder before expiry, no auto-charge (mirrors the vendor prepaid blocks).

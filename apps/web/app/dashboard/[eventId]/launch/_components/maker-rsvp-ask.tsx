@@ -49,6 +49,7 @@ import type { ReplyByFrame } from '../../_components/guest-setup/reply-by';
 import { formatCount } from '@/lib/format-number';
 import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration';
 import { CelebrationPick } from './celebration-pick';
+import { RepliesWindowRows } from './replies-window-rows';
 import { studioDraftKeep } from './studio-info';
 import { STUDIO_GROUP } from '@/lib/studio-skin';
 import { SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
@@ -511,6 +512,8 @@ export function MakerRsvpSettings({
   ) : (
     <FormRow data="reply-by" name="Reply by" problem="We couldn’t read your reply-by date just now, so it can’t be changed here. Nothing was changed." />
   );
+  /* 📬 Replies open ▾ · Replies close ▾ (owner 2026-10-14) — under Reply by, the same one object, drafted. */
+  const windowRows = <RepliesWindowRows config={local} onSave={(patch, what) => save(patch, what)} />;
   /** ❓ A pick of "How guests answer" — the ONE writer of `oneAtATime`, for the list's pill selector and for the
    *  toolbar's dropdown on the card's Edit (`RsvpCardEditRows`). */
   const pickAnswer = (value: string) => {
@@ -588,6 +591,7 @@ export function MakerRsvpSettings({
   const formRows = (
     <FormRows data="rsvp">
       {replyByRow}
+      {windowRows}
       {answerRow}
       {wordRows('form')}
       {getInRow}
@@ -910,6 +914,8 @@ export function MakerRsvpSettings({
             We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
           </p>
         )}
+        {/* 📬 When replies open and close — the two dropdowns, right under the date they can close on. */}
+        <FormRows data="rsvp-window">{windowRows}</FormRows>
       </section>
       </DetailsPieceOnly>
 

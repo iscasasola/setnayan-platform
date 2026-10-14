@@ -780,7 +780,7 @@ export function StdBuilderClient({
                 />
                 <p className={helperCls}>
                   {!launchDate && defaultInvitationLaunchIso(dateIso)
-                    ? `Automatic: 3 months before — ${formatEventDate(defaultInvitationLaunchIso(dateIso)!)}. Set a date to override.`
+                    ? `Automatic: 90 days before — ${formatEventDate(defaultInvitationLaunchIso(dateIso)!)}. Set a date to override.`
                     : 'We’ll add a “remind me when the invite arrives” to the end-of-film calendar.'}
                 </p>
               </div>

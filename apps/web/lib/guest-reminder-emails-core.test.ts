@@ -143,19 +143,21 @@ test('"Reply by" goes to an UNREPLIED guest while the date is still ahead — an
   const replyBy = { date: '2026-11-18' };
   const today = '2026-11-01';
   assert.equal(
-    replyByLine({ rsvpStatus: 'pending', replyBy, today, listClosed: false }),
+    replyByLine({ rsvpStatus: 'pending', replyBy, today, listClosed: false, repliesOpen: true }),
     'Reply by Wednesday, November 18, 2026',
   );
-  assert.equal(replyByLine({ rsvpStatus: null, replyBy, today, listClosed: false }), 'Reply by Wednesday, November 18, 2026');
+  assert.equal(replyByLine({ rsvpStatus: null, replyBy, today, listClosed: false, repliesOpen: true }), 'Reply by Wednesday, November 18, 2026');
   for (const s of ['attending', 'declined', 'maybe']) {
-    assert.equal(replyByLine({ rsvpStatus: s, replyBy, today, listClosed: false }), null, s);
+    assert.equal(replyByLine({ rsvpStatus: s, replyBy, today, listClosed: false, repliesOpen: true }), null, s);
   }
   // The guest list is final — a reply can no longer change, so do not ask for one.
-  assert.equal(replyByLine({ rsvpStatus: 'pending', replyBy, today, listClosed: true }), null);
+  assert.equal(replyByLine({ rsvpStatus: 'pending', replyBy, today, listClosed: true, repliesOpen: true }), null);
   // The reply-by date has passed.
-  assert.equal(replyByLine({ rsvpStatus: 'pending', replyBy, today: '2026-11-19', listClosed: false }), null);
+  assert.equal(replyByLine({ rsvpStatus: 'pending', replyBy, today: '2026-11-19', listClosed: false, repliesOpen: true }), null);
   // No date at all (no event date yet).
-  assert.equal(replyByLine({ rsvpStatus: 'pending', replyBy: null, today, listClosed: false }), null);
+  assert.equal(replyByLine({ rsvpStatus: 'pending', replyBy: null, today, listClosed: false, repliesOpen: true }), null);
+  // 📬 Outside the couple's reply window the reply ask waits / stops (owner 2026-10-14).
+  assert.equal(replyByLine({ rsvpStatus: 'pending', replyBy, today, listClosed: false, repliesOpen: false }), null);
 });
 
 test('the headline names the MILESTONE, so a catch-up day still reads right', () => {

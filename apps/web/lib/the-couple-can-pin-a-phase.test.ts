@@ -52,6 +52,7 @@ test('a pin moves the arrival door with the page', () => {
     profile: WEDDING_PROFILE,
     eventDate: farOut,
     eventEndDate: null,
+    invitationLaunchDate: null,
     venueTz: 'Asia/Manila',
     nowMs: NOW,
   };

@@ -183,7 +183,7 @@ test('the store shell is never shown a second, marked-up price', () => {
   // users, then point them at the cheaper web page. One price, from the
   // catalogue, everywhere.
   const src = readFileSync(
-    join(__dirname, '../app/vendor-dashboard/subscription/_components/subscription-cards.tsx'),
+    join(__dirname, '../app/vendor-dashboard/subscription/_components/plan-picker.tsx'),
     'utf8',
   );
   // Match the multiplier, not the digits: `1.5` alone hits Tailwind spacing
@@ -192,7 +192,7 @@ test('the store shell is never shown a second, marked-up price', () => {
     !/MOBILE_SRP|mobileSrp|SRP_MULTIPLIER/.test(src),
     'a channel-dependent price multiplier is back',
   );
-  assert.ok(!/isNativeApp/.test(src), 'plan cards should no longer branch on native-ness at all');
+  assert.ok(!/isNativeApp/.test(src), 'the plan picker should not branch on native-ness at all');
 });
 
 test('the build number is past the one App Review rejected', () => {

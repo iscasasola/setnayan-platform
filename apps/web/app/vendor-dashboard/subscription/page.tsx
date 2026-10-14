@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight, Crown, Search, Sparkles, ReceiptText } from 'lucide-react';
+import { ArrowRight, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { payPath } from '@/lib/pay-path';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -45,19 +45,27 @@ import {
 } from '@/lib/vendor-addon-first5-free';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
-import { SubscriptionCycleToggle } from './_components/cycle-toggle';
-import {
-  SubscriptionCards,
-  type SubscriptionCardData,
-} from './_components/subscription-cards';
+import { PlanPicker, type PlanPick } from './_components/plan-picker';
+import { startSubscriptionPurchase } from './actions';
 import { AiAddonCard } from './_components/ai-addon-card';
 import { BoothAddonCard } from './_components/booth-addon-card';
 import { PapicChallengeCard } from './_components/papic-challenge-card';
 import { PlanChangeNotice } from './_components/plan-change-notice';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
-import { PageMasthead } from '@/app/_components/page-masthead';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 import { formatCount } from '@/lib/format-number';
+import { formatPhp } from '@/lib/php';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { resolveBookingFeeStanding } from '@/lib/booking-fee-disclosure.server';
+import type { BookingFeeStanding } from '@/lib/booking-fee-disclosure';
+import { planWord } from '@/lib/vendor-plan-change-words';
+import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-rows';
+import { VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE } from '@/lib/vendor-papic-credits';
+import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
+import { Fold } from '@/app/_components/fold';
+import { ShopNotice } from '../_components/kit';
+import { DatesRow } from '../customers/_components/dates-row';
 
 /**
  * /vendor-dashboard/subscription — the vendor Plan hub. Self-serve Pro /
@@ -122,51 +130,6 @@ const PAID_TIERS: PaidTier[] = ['solo', 'pro', 'enterprise'];
  * cannot disagree about what a "monthly" plan is worth.
  */
 const TERM_DAYS: Record<'monthly' | 'annual', number> = { monthly: 28, annual: 365 };
-
-const TIER_PITCH: Record<PaidTier, string> = {
-  solo: 'For solo pros — one category, your real business name, unlimited inquiries.',
-  pro: 'For growing studios — more categories, agent seats, and full analytics.',
-  enterprise: 'For multi-branch teams — the widest reach, seats, and listings.',
-};
-
-// The tier-DIFFERENTIATING benefits, in a PARALLEL order across the three cards
-// so a vendor can compare Solo → Pro → Enterprise line-by-line. Derived from the
-// TIER_CAPS matrix (vendor-tier-caps.ts) so the copy can never drift from the
-// enforced caps. Benefits shared by ALL paid plans (real name day one, unlimited
-// in-app inquiries, marketplace search, own event website) live in the "Every
-// plan includes" strip above the cards, not repeated on each card.
-function keyCapLines(tier: PaidTier): string[] {
-  const c = TIER_CAPS[tier];
-  const fin = (n: number) => (Number.isFinite(n) ? NUMBER.format(n) : 'Unlimited');
-
-  const categories = Number.isFinite(c.parentCategories)
-    ? `${fin(c.parentCategories)} listing categor${c.parentCategories === 1 ? 'y' : 'ies'}`
-    : 'List under every category';
-
-  const seats =
-    c.agentAccounts === 0
-      ? 'Solo operator — no agent seats'
-      : `${fin(c.agentAccounts)} agent seat${c.agentAccounts === 1 ? '' : 's'}`;
-
-  const reach =
-    !Number.isFinite(c.serviceRadiusKm) || c.serviceRadiusKm >= 100
-      ? 'Nationwide reach'
-      : `${fin(c.serviceRadiusKm)} km service reach`;
-
-  const listings = Number.isFinite(c.servicesPerLeaf)
-    ? `${fin(c.servicesPerLeaf)} service listings / category`
-    : 'Unlimited service listings';
-
-  const photos = `${fin(c.portfolioPhotos)} portfolio photos`;
-
-  const analytics = c.marketIntel
-    ? 'Advanced analytics + Demand Radar'
-    : c.performanceAdvanced
-      ? 'Advanced ROI & funnel analytics'
-      : 'Business-performance basics';
-
-  return [categories, seats, reach, listings, photos, analytics];
-}
 
 function skuFor(tier: PaidTier, cycle: 'monthly' | 'annual'): string {
   return `${tier}_vendor_${cycle}`;
@@ -381,45 +344,98 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     ? await countDueVendorFeeOrders(supabase, user.id)
     : 0;
 
-  return (
-    <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-      <PageMasthead
-        title="Choose your plan."
-      />
-      <div className="mt-3 space-y-3">
-        {/* Current tier + renewal */}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium"
-                    style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
-                  >
-                    <Crown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                    Current plan:{' '}
-                    {currentTier === 'custom'
-                      ? 'Custom'
-                      : currentTier === 'enterprise'
-                        ? 'Enterprise'
-                        : currentTier === 'pro'
-                          ? 'Pro'
-                          : currentTier === 'solo'
-                            ? 'Solo'
-                            : currentTier === 'verified'
-                              ? 'Free · Verified'
-                              : 'Free'}
-                    {currentCycle ? ` · ${currentCycle}` : ''}
-                  </span>
-                  {isPaid && tierExpiresAt && (
-                    <span
-                      className={
-                        'text-xs ' + (expiresSoon ? 'font-medium text-orange' : 'text-ink/55')
-                      }
-                    >
-                      {expiresSoon ? 'Renews / expires soon — ' : ''}
-                      active through {fmtDate(tierExpiresAt)}
-                    </span>
-                  )}
-                </div>
+  // ── THE ROWS' OWN READS (simpler supplier dashboard step 6) ──────────────
+  // Two, in one parallel batch, each the shipped reader:
+  //   · the booking-fee STANDING for the shop's next Setnayan booking — the same
+  //     resolver the Agree forecast uses, so "N of 5 used" and the live schedule
+  //     are the numbers the supplier is billed on (silent when the fee is off:
+  //     no read at all);
+  //   · the plan's paid orders and their receipts — one embedded read.
+  const [feeStanding, planOrdersRead] = await Promise.all([
+    isBookingFeeEnabled()
+      ? resolveBookingFeeStanding(createAdminClient(), {
+          vendorProfileId: profile.vendor_profile_id,
+          eventId: null,
+        }).catch((): BookingFeeStanding => ({ kind: 'unreadable' }))
+      : Promise.resolve<BookingFeeStanding>({ kind: 'silent' }),
+    supabase
+      .from('orders')
+      .select('order_id, description, requested_total_php, created_at, receipts!receipts_order_id_fkey(receipt_id)')
+      .eq('user_id', user.id)
+      .like('service_key', 'vendor_subscription__%')
+      .eq('status', 'paid')
+      .order('created_at', { ascending: false })
+      .limit(6),
+  ]);
+  if (planOrdersRead.error) logQueryError('subscription: plan receipts', planOrdersRead.error);
+  const planReceipts = planOrdersRead.error
+    ? null
+    : ((planOrdersRead.data ?? []) as Array<{
+        order_id: string;
+        description: string | null;
+        requested_total_php: number | string | null;
+        created_at: string;
+        receipts: { receipt_id: string } | { receipt_id: string }[] | null;
+      }>).map((o) => {
+        const r = Array.isArray(o.receipts) ? o.receipts[0] : o.receipts;
+        return {
+          key: o.order_id,
+          title: o.description?.trim() || 'Your plan',
+          line: `${fmtDate(o.created_at)} · ${formatPhp(Number(o.requested_total_php ?? 0))}`,
+          receiptId: r?.receipt_id ?? null,
+        };
+      });
+  const feeRow = bookingFeeRow(feeStanding, bookingFeeDueCount);
 
+  // The plan as ONE dropdown — every plan with its catalogue price per cycle.
+  const expiresOn = isPaid && tierExpiresAt ? fmtDate(tierExpiresAt) : null;
+  const pickCurrent = currentTier === 'verified' ? 'free' : currentTier;
+  const plans: PlanPick[] = [
+    { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(currentTier, 'free', expiresOn) },
+    ...visibleTiers.map((tier) => ({
+      key: tier,
+      name: planWord(tier),
+      price: Object.fromEntries(
+        (['monthly', 'annual'] as const).flatMap((cy) => {
+          const v = priceBySku.get(skuFor(tier, cy)) ?? TIER_PRICE_PHP[tier][cy];
+          return Number.isFinite(v) ? [[cy, v]] : [];
+        }),
+      ) as PlanPick['price'],
+      tooShort: {
+        monthly: termIsTooShort(TERM_DAYS.monthly, tierExpiresAt, now) ? termTooShortMessage(tierExpiresAt) : null,
+        annual: termIsTooShort(TERM_DAYS.annual, tierExpiresAt, now) ? termTooShortMessage(tierExpiresAt) : null,
+      },
+      pickLine: planPickLine(currentTier, tier, expiresOn),
+    })),
+  ];
+  const currentCycleKey: 'monthly' | 'annual' = currentCycle === 'annual' ? 'annual' : cycle;
+  const currentPrice =
+    currentTier === 'solo' || currentTier === 'pro' || currentTier === 'enterprise'
+      ? priceBySku.get(skuFor(currentTier, currentCycleKey)) ?? null
+      : null;
+  const pays =
+    currentTier === 'custom'
+      ? 'your Custom quote'
+      : currentPrice !== null
+        ? `${formatPhp(currentPrice)} / ${currentCycleKey === 'annual' ? 'year' : '28 days'}`
+        : isPaid
+          ? 'paid'
+          : 'nothing to pay';
+  const papicPackPrice =
+    vendorCatalog.find((r) => r.sku_code === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE)?.price_php ?? null;
+  const gives = planGivesLines(currentTier, isVendorFeatureGateEnabled());
+  const featured = TIER_CAPS[currentTier].editorialFeatures;
+
+  return (
+    <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-plan-screen="">
+      <h1 className="sn-h1">Your plan</h1>
+      {/* The answer line — where the shop stands, in one sentence. */}
+      <p className="mt-2 text-[15px] text-ink" data-plan-answer="">
+        <b className="font-semibold">You are on {planWord(currentTier)}</b> · {pays}
+        {expiresOn ? <span className={expiresSoon ? 'font-medium text-orange' : 'text-ink/60'}> · until {expiresOn}</span> : null}
+      </p>
+
+      <div className="mt-3 space-y-3">
         {/* A scheduled change, and money the shop is holding — in plain words,
             each shown only when it is true. The date it names is
             `tierExpiresAt`; there is no separate stored effective date. */}
@@ -431,128 +447,139 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
             creditPhp: heldCreditPhp,
           }}
         />
-
         {search.applied && (
-                  <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
-                    ✓ Done — there was nothing to pay. The money already on your
-                    account covered it, and your new plan is on now.
-                  </div>
-                )}
+          <ShopNotice tone="success" role="status">
+            Done — there was nothing to pay. The money already on your account covered it, and your new plan is on now.
+          </ShopNotice>
+        )}
         {search.kept && (
-                  <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
-                    ✓ Your plan stays as it is. What you paid for the change is on
-                    your account and comes off your next bill.
-                  </div>
-                )}
+          <ShopNotice tone="success" role="status">
+            Your plan stays as it is. What you paid for the change is on your account and comes off your next bill.
+          </ShopNotice>
+        )}
         {search.ordered && (
-                  <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
-                    ✓ Order started. Pay with the reference{' '}
-                    <span className="font-mono font-semibold">{search.ordered}</span> using
-                    the instructions below — it activates once we confirm the payment.
-                  </div>
-                )}
+          <ShopNotice tone="success" role="status">
+            Order started. Pay with the reference <span className="font-mono font-semibold">{search.ordered}</span> —
+            it starts once we confirm the payment.
+          </ShopNotice>
+        )}
         {search.error && (
-                  <div className="mt-4 rounded-md border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-900">
-                    {search.error}
-                  </div>
-                )}
+          <ShopNotice tone="gold" role="alert">
+            {search.error}
+          </ShopNotice>
+        )}
       </div>
 
-      {/* Booking-fee doorway — appears only when the fee system is live AND this
-          vendor has an unpaid fee (surfacing layer; no fee → nothing shows). */}
-      {bookingFeeDueCount > 0 ? (
-        <Link
-          href={VENDOR_BOOKING_FEES_PATH}
-          className="sn-card sn-press mb-5 flex flex-wrap items-center gap-4 border-warn-300/60 bg-warn-50 p-5 sm:flex-nowrap"
-        >
-          <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-            style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
-          >
-            <ReceiptText className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-base font-semibold text-ink">
-              You have {formatCount(bookingFeeDueCount)} unpaid booking{' '}
-              {bookingFeeDueCount === 1 ? 'fee' : 'fees'}.
-            </p>
-            <p className="mt-0.5 text-sm text-ink/60">
-              Pay your Setnayan booking fee the same way your couples pay — it clears
-              once our team confirms your payment.
-            </p>
-          </div>
-          <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink">
-            View booking fees
-            <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
-          </span>
-        </Link>
-      ) : null}
-
-      {/* Monthly / annual toggle (client component · updates ?cycle=) */}
-      <SubscriptionCycleToggle cycle={cycle} />
-
-      {/* Plan cards + mobile "Buy on web" nudge (client component for isNativeApp detection) */}
-      <div className="mt-5">
-        <SubscriptionCards
-          cycle={cycle}
+      {/* ── THE ROWS (prototype SCREENS.plan) ── */}
+      <div className="mt-3" data-plan-rows="">
+        <PlanPicker
+          plans={plans}
+          current={pickCurrent}
+          cycle={currentCycleKey}
           verified={isVerifiedVendor}
-          cards={visibleTiers.flatMap((tier) => {
-            const sku = skuFor(tier, cycle);
-            // Catalog price first; fall back to the code matrix only if the DB
-            // read failed (e.g. CI with no service-role key).
-            const price = priceBySku.get(sku) ?? TIER_PRICE_PHP[tier][cycle];
-            const isCurrent = currentTier === tier && currentCycle === cycle;
-            return [
-              {
-                tier,
-                sku,
-                // A plan shorter than the time this shop already holds cannot be
-                // bought (owner 2026-08-27). Decided per CYCLE, not per tier —
-                // it is the TERM LENGTH that is measured, so on a shop with 300
-                // days left every monthly card carries it and every annual card
-                // does not.
-                tooShortReason: termIsTooShort(TERM_DAYS[cycle], tierExpiresAt, now)
-                  ? termTooShortMessage(tierExpiresAt)
-                  : null,
-                pitch: TIER_PITCH[tier],
-                price,
-                cycle,
-                capLines: keyCapLines(tier),
-                isCurrent,
-                isPaid,
-              } satisfies SubscriptionCardData,
-            ];
-          })}
+          action={startSubscriptionPurchase}
+        />
+
+        {feeRow ? (
+          <DatesRow
+            data="plan-booking-fee"
+            title="Booking fee"
+            line={feeRow.line}
+            badge={feeRow.badge}
+            href={VENDOR_BOOKING_FEES_PATH}
+          />
+        ) : null}
+
+        <div className="border-t border-ink/10" data-plan-fold="gives">
+          <Fold title={`What ${planWord(currentTier)} gives you`} line="Read from your plan" data="plan-gives">
+            <div className="pb-3">
+              {gives.map((g) => (
+                <DatesRow key={g.key} data="plan-gives-row" title={g.title} line={g.line} />
+              ))}
+            </div>
+          </Fold>
+        </div>
+
+        <div className="border-t border-ink/10" data-plan-fold="receipts">
+          <Fold
+            title="Receipts"
+            line={
+              planReceipts === null
+                ? 'Couldn’t load — nothing is lost'
+                : planReceipts.length > 0
+                  ? `${formatCount(planReceipts.length)} · last ${planReceipts[0].line.split(' · ')[0]}`
+                  : 'None yet'
+            }
+            data="plan-receipts"
+          >
+            <div className="pb-3">
+              {planReceipts === null ? (
+                <p className="py-2 text-[13.5px] text-ink/70" role="status">
+                  Your plan receipts couldn&rsquo;t load. Reload to try again — nothing you paid has changed.
+                </p>
+              ) : planReceipts.length === 0 ? (
+                <p className="py-2 text-[13.5px] text-ink/60">Nothing paid for a plan yet.</p>
+              ) : (
+                planReceipts.map((r) => (
+                  <DatesRow
+                    key={r.key}
+                    data="plan-receipt"
+                    title={r.title}
+                    line={r.line}
+                    href={r.receiptId ? `/receipts/${r.receiptId}` : null}
+                    badge={r.receiptId ? null : { tone: 'quiet', word: 'Paid' }}
+                  />
+                ))
+              )}
+            </div>
+          </Fold>
+        </div>
+
+        <DatesRow
+          data="plan-add-ons"
+          title="Add-ons"
+          line="AI replies · 3D booth · Papic Challenges · Deep Search"
+          href="#add-ons"
+        />
+        <DatesRow
+          data="plan-papic-credits"
+          title="Papic credits"
+          line={
+            papicPackPrice !== null
+              ? `Buy 100 for ${formatPhp(papicPackPrice)} · for each booked event, in its Event Hub`
+              : 'Bought for each booked event, in its Event Hub'
+          }
+          href="/vendor-dashboard/on-the-day"
+        />
+        <DatesRow
+          data="plan-boost"
+          title="Featured by Setnayan"
+          line={featured ? 'Setnayan features your work in its stories' : 'Setnayan features Pro shops in its stories'}
+          badge={featured ? { tone: 'ok', word: 'On' } : { tone: 'quiet', word: 'Pro' }}
+        />
+        <DatesRow
+          data="plan-custom"
+          title="Custom plan"
+          line={currentTier === 'custom' ? 'Yours · branches, reach, seats' : 'Branches · reach · seats — beyond Enterprise'}
+          href="/vendor-dashboard/subscription/custom"
+        />
+        <DatesRow
+          data="plan-cancel"
+          title="Cancel the plan"
+          line={
+            isPaid
+              ? expiresOn
+                ? `Nothing renews by itself — skip the next payment and you are on Free after ${expiresOn}`
+                : 'Nothing renews by itself — skip the next payment and you are on Free'
+              : 'You are on Free — there is nothing to cancel'
+          }
         />
       </div>
 
-      {/* Beyond Enterprise — compose a Custom plan (VENDOR_TIERS §11). Routes to
-          the sub-route configurator; framed as the top-of-ladder escape valve. */}
-      <Link
-        href="/vendor-dashboard/subscription/custom"
-        className="sn-card sn-press mt-5 flex flex-wrap items-center gap-4 p-5 sm:flex-nowrap"
-      >
-        <span
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-          style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
-        >
-          <Sparkles className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold text-ink">
-            Beyond Enterprise? Compose a Custom plan.
-          </p>
-          <p className="mt-0.5 text-sm text-ink/60">
-            {currentTier === 'custom'
-              ? 'Review or adjust your Custom plan — dial in branches, reach, seats, listings and photos.'
-              : 'Everything in Enterprise with its limits removed — dial in exactly the branches, reach, seats and listings you need.'}
-          </p>
-        </div>
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink">
-          {currentTier === 'custom' ? 'Manage' : 'Build a Custom plan'}
-          <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
-        </span>
-      </Link>
+      {/* ── ADD-ONS — the shipped cards, unchanged, under the row that points here ── */}
+      <h2 id="add-ons" className="sn-sec mt-8 scroll-mt-24">
+        Add-ons
+      </h2>
 
       {/* Vendor AI ("the AI Chatbot") add-on — free first 28-day cycle, then
           ₱1,500/28d, on paid + verified shops (owner 2026-07-22). */}

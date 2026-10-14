@@ -82,7 +82,9 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'shared', what: 'Workspace sections (Chat · Quote · Payments · Files · Call · Details) — both sides', file: 'app/_components/relationship-tab-shell.tsx', anchor: 'aria-label="Workspace sections"', via: 'classes', thumb: 'slides', gone: 'rounded-xl border border-ink/10 bg-cream/70 p-1' },
   /* ── area 2 · the supplier's dashboard ── */
   { area: 'supplier', what: 'Momentum window (Daily | Monthly | Annual)', file: `${V}/performance/_components/momentum-window-toggle.tsx`, anchor: 'aria-label="Momentum window"', via: 'track', thumb: 'slides', gone: "background: 'var(--m-ink)', color: 'var(--m-paper)'" },
-  { area: 'supplier', what: 'Billing cycle (Monthly | Annual)', file: `${V}/subscription/_components/cycle-toggle.tsx`, anchor: 'data-cycle-toggle=""', via: 'track', thumb: 'slides', gone: 'bg-ink text-paper sn-bounce' },
+  /* "Billing cycle (Monthly | Annual)" left this list 2026-10-14: the simpler supplier dashboard (owner-APPROVED,
+     prototype SCREENS.plan "Cycle ▾") draws the plan and its cycle as ONE dropdown each, in rows. The toggle file is
+     deleted; the dropdowns are held by `app/vendor-dashboard/subscription/the-plan-is-rows.test.ts`. */
   { area: 'supplier', what: 'Your services sections (Coverage | Service cards)', file: `${V}/services/_components/manager-tabs.tsx`, anchor: 'aria-label="Your services sections"', via: 'track', thumb: 'slides', gone: 'var(--m-orange-3)' },
   /* The two "QR type (Shortlist | Locked)" tracks — on the dashboard card and on the QR Code Generator — are not
      removed to go green: the two places are ONE page since S-PR3, and the plan its owner approved draws the choice

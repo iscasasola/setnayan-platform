@@ -35,7 +35,7 @@ import { giftCardsFor, type GiftPageContent } from './gift-cards';
 export type GiftPageEvent = {
   event_id: string;
   display_name: string | null;
-  event_type: string | null;
+  event_type?: string | null;
   gifts_on?: boolean | null;
   style_preferences?: unknown;
   /** Handed in when the caller already holds it (the gift page reads it; the Maker's canvas has the DRAFT's). */

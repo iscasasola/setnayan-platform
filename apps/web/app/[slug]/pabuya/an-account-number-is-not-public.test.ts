@@ -254,8 +254,12 @@ test('🔒 the Welcome page’s E-Gifts goes through the gift page’s own gate 
   const BODY = flat('app/[slug]/_components/site-body.tsx');
   /* (1) Only where the door would stand — `doorways.pabuya` — and only through the gift page's reader. */
   assert.match(BODY, /const giftsOnWelcome = doorways\.pabuya !== null && \(/);
-  assert.match(BODY, /const giftPage = giftsOnWelcome \? loadGiftPage\(createAdminClient\(\), event\)\.catch\(/);
-  assert.equal((BODY.match(/loadGiftPage\(/g) ?? []).length, 1, 'the body reads the gift content some second way');
+  assert.match(BODY, /const giftPage = giftsOnWelcome && giftPageReader \? giftPageReader\(event\)\.catch\(/);
+  assert.equal((BODY.match(/giftPageReader\(/g) ?? []).length, 1, 'the body reads the gift content some second way');
+  /* …and the reader it is handed is the gift page's own — by the page that holds the request, and by nothing else. */
+  const PAGE = flat('app/[slug]/page.tsx');
+  assert.match(PAGE, /giftPageReader: \(e: GiftPageEvent\) => loadGiftPage\(admin, e\),/);
+  assert.equal((PAGE.match(/giftPageReader:/g) ?? []).length, 1);
   assert.doesNotMatch(BODY, /fetchEgiftMethods|readEgiftMethods|event_egift_methods|giftCardsFor|PabuyaCardList/, 'the event page reads or draws a way to give itself');
   /* Every Welcome that carries the gate carries the content — and nothing else hands it over. */
   const gated = (BODY.match(/giftHref=\{doorways\.pabuya\}/g) ?? []).length;

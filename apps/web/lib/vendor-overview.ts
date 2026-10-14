@@ -1002,13 +1002,11 @@ export async function fetchVendorOverviewData(
   for (const ar of answerableAsks) {
     const day = eventMeta.get(ar.eventId)?.eventDate ?? null;
     if (!day) continue;
-    askDayHolds[ar.eventVendorId] = [
-      ...new Set(
-        roomBookings
-          .filter((b) => b.bookedDate === day && b.eventId !== ar.eventId && b.poolId)
-          .map((b) => b.poolId as string),
-      ),
-    ];
+    // One entry per booking (a schedule booked twice that day is listed twice) — Today weighs it against the
+    // schedule's own "how many a day".
+    askDayHolds[ar.eventVendorId] = roomBookings
+      .filter((b) => b.bookedDate === day && b.eventId !== ar.eventId && b.poolId)
+      .map((b) => b.poolId as string);
   }
 
   return { whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds };

@@ -18,7 +18,6 @@ import { Fold } from '@/app/_components/fold';
 import { SupplierSubmit } from './supplier-submit';
 import { waitingAge } from '@/lib/waiting-age';
 import { formatLongDate, monthDay } from '@/lib/format-date';
-import { dateChangeWhen } from '@/lib/date-change';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from './payout-method-nudge';
@@ -31,7 +30,7 @@ import { formatPhp } from '@/lib/orders';
 import { formatCentavosPhp } from '@/lib/php';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
-import type { TodayRowWords } from '@/lib/supplier-today';
+import { dateChangeShort, type TodayRowWords } from '@/lib/supplier-today';
 import { RowIcon, TodayRow, nextHref } from './supplier-today-first-screen';
 
 /*
@@ -750,8 +749,9 @@ function DateChangeBody({
   card: Extract<WhatsNewCard, { kind: 'date_change' }>;
   answerDateChange: (formData: FormData) => void | Promise<void>;
 }) {
-  const to = dateChangeWhen(card.proposedDate, card.proposedPrecision);
-  const from = card.fromDate ? dateChangeWhen(card.fromDate, card.fromPrecision) : 'their current date';
+  // The short words the Next card says ("Move to Sun 25 Oct") — one way to say the date on one screen.
+  const to = dateChangeShort(card.proposedDate, card.proposedPrecision);
+  const from = card.fromDate ? dateChangeShort(card.fromDate, card.fromPrecision) : 'their current date';
   const overdue = new Date(card.dueAt).getTime() <= Date.now();
   return (
     <>

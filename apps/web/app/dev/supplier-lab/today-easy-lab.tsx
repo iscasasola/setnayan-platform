@@ -129,7 +129,7 @@ const bill = (id: string, name: string, amountPhp: number, dueOn: string): DueFe
 type Sup = {
   name: string;
   categoryWord: string;
-  pools: Array<{ id: string; name: string }>;
+  pools: Array<{ id: string; name: string; cap: number }>;
   upcoming: UpcomingEventRow[];
   outside: ReturnType<typeof out>[];
   desk: WhatsNewCard[];
@@ -155,8 +155,8 @@ const SUPS: Record<EasySupplier, Sup> = {
     name: 'Lumina Studio',
     categoryWord: 'Photo & video',
     pools: [
-      { id: 'main', name: 'Main team' },
-      { id: 'second', name: 'Second team' },
+      { id: 'main', name: 'Main team', cap: 1 },
+      { id: 'second', name: 'Second team', cap: 2 },
     ],
     upcoming: [
       up('reyes', 'Reyes debut', '2026-10-17', 'Tagaytay', 'main'),
@@ -183,8 +183,8 @@ const SUPS: Record<EasySupplier, Sup> = {
     name: 'San Agustin Parish',
     categoryWord: 'Church',
     pools: [
-      { id: 'church', name: 'Church' },
-      { id: 'chapel', name: 'Chapel' },
+      { id: 'church', name: 'Church', cap: 2 },
+      { id: 'chapel', name: 'Chapel', cap: 1 },
     ],
     upcoming: [up('mc', 'Mendoza & Cruz', '2026-10-17', 'Intramuros', 'church', 150), up('rs', 'Reyes & Santos', '2026-12-05', 'Intramuros', 'church')],
     outside: [out('o1', 'Ramos', '2026-10-24', 'chapel'), out('o2', 'Villanueva', '2026-12-12', 'church'), out('o3', 'Garcia', '2026-12-19', 'chapel')],
@@ -204,7 +204,7 @@ const SUPS: Record<EasySupplier, Sup> = {
   caterer: {
     name: "Tita Nena's Catering",
     categoryWord: 'Caterer',
-    pools: [{ id: 'main', name: "Tita Nena's" }],
+    pools: [{ id: 'main', name: "Tita Nena's", cap: 2 }],
     upcoming: [up('bb', 'Bautista christening', '2026-10-18', 'Quezon City', 'main', 60), up('ow', 'Ocampo wedding', '2026-12-19', 'Tagaytay', 'main')],
     outside: [out('o1', 'Lim · 60 guests', '2026-10-31', 'main'), out('o2', 'Barangay Christmas party', '2026-12-12', 'main')],
     desk: [done('sb', 'Santos birthday', '2026-10-11'), inquiry('ko', 'Katrina Ocampo', '2026-12-19', 'Hi po! Do you have buffet for 80 on Dec 19 in Tagaytay? Budget around ₱40k.', 20), LAPSED],
@@ -224,9 +224,9 @@ const SUPS: Record<EasySupplier, Sup> = {
     name: 'Casa Alegria Events',
     categoryWord: 'Reception venue',
     pools: [
-      { id: 'A', name: 'Hall A' },
-      { id: 'B', name: 'Hall B' },
-      { id: 'C', name: 'Hall C' },
+      { id: 'A', name: 'Hall A', cap: 1 },
+      { id: 'B', name: 'Hall B', cap: 1 },
+      { id: 'C', name: 'Hall C', cap: 1 },
     ],
     upcoming: [up('villar', 'Villar wedding', '2026-10-17', 'Grand Hall', 'A', 400), up('reyes', 'Reyes wedding', '2026-12-12', 'Hall A', 'A'), up('gt', 'Go & Tan wedding', '2026-12-19', 'A + B', 'A')],
     outside: [out('o1', 'Rotary lunch', '2026-10-24', 'C'), out('o2', 'Dizon christening', '2026-12-05', 'B')],

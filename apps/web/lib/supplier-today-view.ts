@@ -248,15 +248,21 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
   const askNotes: SupplierTodayView['askNotes'] = [];
   if (askOnCard) {
     const day = askOnCard.eventDate;
-    const held = new Set([
+    // How many bookings each schedule already holds that day (Setnayan + outside), against its own "how many a day"
+    // (unknown → one). Only a FULL schedule is named — a church that takes two weddings a day is not "taken" by one.
+    const held = new Map<string, number>();
+    for (const id of [
       ...(input.askDayHolds?.[askOnCard.eventVendorId] ?? []),
       ...(day ? schedules.outside.filter((o) => o.date === day).map((o) => o.poolId) : []),
-    ]);
-    const names = manyPools ? schedules.pools.filter((p) => held.has(p.id)).map((p) => p.name) : [];
+    ]) {
+      held.set(id, (held.get(id) ?? 0) + 1);
+    }
+    const full = manyPools ? schedules.pools.filter((p) => (held.get(p.id) ?? 0) >= Math.max(1, p.cap ?? 1)) : [];
+    const names = full.map((p) => p.name);
     if (names.length > 0) {
       askNotes.push({
         id: 'held',
-        label: `${names.join(' and ')} ${names.length > 1 ? 'are' : 'is'} booked that day`,
+        label: `${names.join(' and ')} ${names.length > 1 ? 'are' : 'is'} ${full.every((p) => (p.cap ?? 1) <= 1) ? 'booked' : 'full'} that day`,
         line: 'Check which of yours their booking needs before you agree',
         pill: { word: 'Taken', tone: 'no' },
         icon: 'calx',

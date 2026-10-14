@@ -69,8 +69,8 @@ export type TodayOutsideBooking = {
 };
 
 export type TodaySchedules = {
-  /** The shop's schedules, oldest first: id → the name the supplier gave it. */
-  pools: Array<{ id: string; name: string }>;
+  /** The shop's schedules, oldest first: id → the name the supplier gave it, and how many a day it takes. */
+  pools: Array<{ id: string; name: string; cap?: number | null }>;
   /** Bookings from outside still ahead (today included). */
   outside: TodayOutsideBooking[];
   /** Days marked not available on one schedule, still ahead (first steps' step 4). */
@@ -101,7 +101,7 @@ export async function readTodaySchedules(
   try {
     const { data, error } = await supabase
       .from('vendor_schedule_pools')
-      .select('pool_id, pool_label, calendar_name, vendor_calendar_blocks(block_id, block_source, blocked_at, blocked_until, client_name)')
+      .select('pool_id, pool_label, calendar_name, daily_booking_capacity, vendor_calendar_blocks(block_id, block_source, blocked_at, blocked_until, client_name)')
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true)
       .in('vendor_calendar_blocks.block_source', ['manual', 'external_client'])
@@ -115,6 +115,7 @@ export async function readTodaySchedules(
       pool_id: string;
       pool_label: string | null;
       calendar_name: string | null;
+      daily_booking_capacity: number | null;
       vendor_calendar_blocks: Array<{
         block_id: string;
         block_source: string;
@@ -125,7 +126,11 @@ export async function readTodaySchedules(
     }>;
     const out: TodaySchedules = { pools: [], outside: [], notAvailableAhead: 0, complete: true };
     for (const p of rows) {
-      out.pools.push({ id: p.pool_id, name: (p.calendar_name ?? p.pool_label ?? '').trim() || 'Your schedule' });
+      out.pools.push({
+        id: p.pool_id,
+        name: (p.calendar_name ?? p.pool_label ?? '').trim() || 'Your schedule',
+        cap: typeof p.daily_booking_capacity === 'number' ? p.daily_booking_capacity : null,
+      });
       for (const b of p.vendor_calendar_blocks ?? []) {
         if (b.block_source === 'external_client') {
           // An outside booking that started before today and runs on is still "today".

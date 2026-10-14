@@ -195,6 +195,10 @@ test('2b · before Agree: a hall already booked that day, and an unapproved shop
   const t = text(cardOf(html));
   assert.match(t, /Hall A and Hall C are booked that day/, `the taken halls are not said: ${t.slice(0, 300)}`);
   assert.match(cardOf(html), /data-badge="no"[^>]*>Taken</);
+  // A schedule that takes two a day is not "taken" by one booking.
+  const two = { ...halls, pools: halls.pools.map((p) => ({ ...p, cap: 2 })) };
+  assert.doesNotMatch(text(cardOf((await draw({ desk: [ASK], schedules: two, askDayHolds: { 'ev-rc': ['A'] } })).html)), /booked that day|full that day/);
+  assert.match(text(cardOf((await draw({ desk: [ASK], schedules: two, askDayHolds: { 'ev-rc': ['A', 'A'] } })).html)), /Hall A is full that day/);
   // One schedule: there is no hall to name.
   assert.doesNotMatch(text(cardOf((await draw({ desk: [ASK], askDayHolds: { 'ev-rc': ['main'] } })).html)), /booked that day/);
   // Not approved: a yes is refused until the documents are in.

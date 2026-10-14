@@ -9,14 +9,17 @@
  * WORDS and in a dot/meter colour (gold before the window, amber under 10%, red
  * at zero — never colour alone). The same shape, `{count, unit, mood, onFrom,
  * result}`, is the template for Setnayan AI, Live Watch, Music Maker and
- * Patiktok when each is mapped — ONLY Papic uses it today.
+ * Patiktok when each is mapped — and they now do (`lib/services-glance.ts`,
+ * owner "approve all" 2026-10-14, the services prototype).
  */
 
 /**
  * wait = before the window (gold) · ok = in it (green) · low = under 10% (amber) ·
- * gone = nothing left (red) · plain = no meter to draw (not measured / no pot).
+ * gone = nothing left (red) · plain = no meter to draw (not measured / no pot) ·
+ * live = on the air right now (red, the dot pulses — still under reduced motion),
+ * worn by Live stream (owner "approve all" 2026-10-14, services prototype).
  */
-export type ServiceMood = 'wait' | 'ok' | 'low' | 'gone' | 'plain';
+export type ServiceMood = 'wait' | 'ok' | 'low' | 'gone' | 'plain' | 'live';
 
 /** The status line, split so the count can be bold: `lead` + **strong** + `tail`. */
 export type GlanceLine = {

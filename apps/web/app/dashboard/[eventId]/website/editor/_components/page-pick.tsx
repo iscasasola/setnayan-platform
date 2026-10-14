@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, BookOpen, CalendarClock, Camera, Home, Images, Info, Radio, User, type LucideIcon } from 'lucide-react';
+import { Activity, CalendarClock, Camera, Home, Images, Info, Radio, User, type LucideIcon, Heart } from 'lucide-react';
 import type { NavSlotKey } from '@/app/[slug]/_lib/site-nav';
 
 /**
@@ -20,7 +20,7 @@ export const GUEST_PAGE_ICON: Readonly<Partial<Record<NavSlotKey, LucideIcon>>> 
   home: Home,
   details: Info,
   schedule: CalendarClock,
-  story: BookOpen,
+  story: Heart, // ❤️ the guest bar's own icon (owner 2026-10-14)
   camera: Camera,
   watch: Radio,
   gallery: Images,

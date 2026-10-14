@@ -116,7 +116,7 @@ test('the hub page asks the stage exactly as the event’s page does — preview
   assert.match(PAGE, compose, 'the event page no longer composes the stage this way — re-read both before touching this guard');
   assert.match(HUB, compose, 'the hub page resolves the stage some other way than the event’s own page');
   assert.match(HUB, /pinnedPhase: LifecyclePhase \| null = manualLaunchPhase\(event\.launch_mode, event\.manual_phase\)/);
-  assert.match(HUB, /getLifecyclePhase\(event\.event_date, venueTz, event\.event_end_date \?\? null\)/, 'the venue’s clock or the last day is no longer handed in');
+  assert.match(HUB, /getLifecyclePhase\(event\.event_date, venueTz, event\.event_end_date \?\? null, undefined, [^)]*std_invitation_launch_date/, 'the venue’s clock or the last day is no longer handed in');
   // …with the columns the pin and a several-day event are read from.
   const select = /\.from\('events'\)\s*\.select\(\s*(?:\/\/[^\n]*\n\s*)*`([^`]*)`/.exec(readFileSync(join(HERE, '..', 'hub/page.tsx'), 'utf8'));
   assert.ok(select, 'could not find the hub’s events select — update this guard, do not delete it');

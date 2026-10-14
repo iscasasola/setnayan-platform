@@ -1,6 +1,7 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
+import { PAPIC_OPEN_GALLERY } from './papic-see-photos';
 import { Play, Download, Sparkles, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
 import { PAPIC_POINTS_PER_SNIPPET } from '@/lib/papic-cameras-pure';
@@ -76,8 +77,15 @@ export function PapicGalleryGrid({
   preservationTotals,
   chapters,
   timeZone,
+  openOnArrival = false,
 }: {
   photos: GalleryPhoto[];
+  /**
+   * 🎨 "See N photos" opens the gallery DIRECTLY (owner call 2, 2026-10-14): the
+   * first photo full screen on arrival (`?gallery=open` from Home), and again
+   * whenever the page's band asks (`PAPIC_OPEN_GALLERY`) — never a scroll.
+   */
+  openOnArrival?: boolean;
   /**
    * The day split into the moments it happened in — computed server-side by
    * `lib/alaala-chapters.ts` from the event's run of show.
@@ -123,7 +131,12 @@ export function PapicGalleryGrid({
   // only, so a couple could never look at one of their own PHOTOGRAPHS larger
   // than a sixth of a phone width. The archetype says "click any tile for the
   // lightbox"; this is that.
-  const [opened, setOpened] = useState<GalleryPhoto | null>(null);
+  const [opened, setOpened] = useState<GalleryPhoto | null>(openOnArrival ? (photos[0] ?? null) : null);
+  useEffect(() => {
+    const open = () => setOpened(photos[0] ?? null);
+    window.addEventListener(PAPIC_OPEN_GALLERY, open);
+    return () => window.removeEventListener(PAPIC_OPEN_GALLERY, open);
+  }, [photos]);
 
   const shown = photos.filter((p) => {
     if (filter === 'tagged') return p.tagged;

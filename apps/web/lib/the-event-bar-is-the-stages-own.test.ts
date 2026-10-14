@@ -108,12 +108,12 @@ test('2 · the tab bar follows the stage’s one config — On the Day is Live �
   // GALLERY · ME" (it supersedes 2026-09-27's Now · Schedule). Gallery joins
   // once a chapter is public — none is here.
   const day = canvasBar('event', { hasDetails: true, hasStory: false }).map((b) => b.label);
-  assert.deepEqual(day, ['Live', 'Welcome', 'Camera', 'Me']);
+  assert.deepEqual(day, ['Live', 'Home', 'Camera', 'Me']);
   // …and the Invitation reads Welcome · Details · Our Love Story · Me (owner
   // 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love Story
   // - Me"*; *"RSVP does not have 4 tabs under"* — no RSVP tab, ever).
   const invite = canvasBar('rsvp', { hasDetails: true, hasStory: true }).map((b) => b.label);
-  assert.deepEqual(invite, ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  assert.deepEqual(invite, ['Home', 'Details', 'Story', 'Me']);
   // the allow-list removes: a stage that does not list a slot never draws it
   const narrowed = resolveSiteNav({
     viewer: { kind: 'public' }, phase: 'after', hostAllowsCamera: true, anyChapterPublic: true, liveBroadcast: false,

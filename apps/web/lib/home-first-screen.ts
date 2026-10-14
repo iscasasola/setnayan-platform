@@ -17,7 +17,11 @@
  *   guests → "Add your guests", while the (measured) list is empty
  *   invite → "Send N invitations", N = the measured guests not yet sent one
  *            (first-timer fix 9, 2026-10-02 — the approved frame 1 card)
- *   papic → "Your free camera is ready", until the first photo is shot
+ *   papic → at its moments (`lib/papic-glance.ts`, owner 2026-10-13 📍 · 2026-10-14 🎨):
+ *           "Your cameras are ready" before the first photo · "Your cameras have
+ *           stopped" at zero · running low on the event day. The approved
+ *           prototype ranks it ABOVE the guest steps (its stopped card stands
+ *           where "Send 12 invitations" would), so it does here.
  *   ai    → the Setnayan AI offer, last because it is a purchase, not a step
  *   plan  → nothing above is waiting: the checklist (the whole plan, step by step)
  *
@@ -32,6 +36,8 @@ import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { SERVICE_NAMES } from '@/lib/service-names';
 import { isToInvite, type InviteFacts } from '@/lib/guest-roster-view';
+import type { PapicMoment } from '@/lib/papic-glance';
+import type { GlanceLine, ServiceGlance } from '@/lib/service-glance';
 
 export type HomeNextKind = 'guide' | 'date' | 'unread' | 'guests' | 'invite' | 'papic' | 'ai' | 'plan';
 
@@ -42,7 +48,7 @@ export type HomeNextKind = 'guide' | 'date' | 'unread' | 'guests' | 'invite' | '
 export const HOME_GUIDE_ACTION = 'Pick a stage';
 
 /** The order the Home already stacked its nudges in — the first that applies is Next. */
-export const HOME_NEXT_ORDER: readonly HomeNextKind[] = ['guide', 'date', 'unread', 'guests', 'invite', 'papic', 'ai', 'plan'];
+export const HOME_NEXT_ORDER: readonly HomeNextKind[] = ['guide', 'date', 'unread', 'papic', 'guests', 'invite', 'ai', 'plan'];
 
 /**
  * The guided flow, as Home reads it (null = nothing left, not for this viewer,
@@ -73,6 +79,8 @@ export type HomeNext = {
    * the ordinary one-button card.
    */
   offer?: boolean;
+  /** 📍 Which Papic moment this card is (kind 'papic') — its button follows it. */
+  papicMoment?: PapicMoment;
 };
 
 /**
@@ -107,6 +115,12 @@ export type HomeNextInput = {
   guests: HomeGuestsRead;
   noun: 'wedding' | 'event';
   papicReady: boolean;
+  /**
+   * 📍 Papic's moment, from `papicGlance` (owner 2026-10-13/14): ready · stopped ·
+   * low on the day — with the credits for the card's words. Wins over the bare
+   * `papicReady` when present.
+   */
+  papic?: { moment: PapicMoment; left: number; total: number } | null;
   /** An AI offer exists AND may be shown here (never in the store shell). */
   aiOffer: boolean;
 };
@@ -120,7 +134,7 @@ export type HomeNextInput = {
  * the guided flow's `?tool=details&guide=1` first read as "lost".
  */
 export function pickHomeNext(input: HomeNextInput): HomeNext {
-  const { guide, hasDate, guests, noun, papicReady, aiOffer } = input;
+  const { guide, hasDate, guests, noun, papicReady, papic = null, aiOffer } = input;
   if (guide) {
     /* "Finish your Event Hub — n of m · Pick a stage": the whole in place, then
        the first stage still to do with its own count. */
@@ -158,6 +172,38 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       action: 'Reload',
     };
   }
+  /* 📍 PAPIC'S MOMENTS — the approved prototype's three cards, word for word. */
+  if (papic?.moment === 'stopped') {
+    return {
+      kind: 'papic',
+      papicMoment: 'stopped',
+      title: 'Your cameras have stopped',
+      body: `All ${formatCount(papic.total)} credits are used. Your guests’ cameras rest until you add more — nothing they shot is lost.`,
+      action: 'Buy more',
+    };
+  }
+  if (papic?.moment === 'low-today') {
+    /* Owner call 1 (2026-10-14): on the day, running low takes this card once. */
+    return {
+      kind: 'papic',
+      papicMoment: 'low-today',
+      title: 'Your credits are running low',
+      body: `${formatCount(papic.left)} ${papic.left === 1 ? 'credit is' : 'credits are'} left for today. Add more so your guests’ cameras keep shooting.`,
+      action: 'Buy more',
+    };
+  }
+  if (papic?.moment === 'ready' || (!papic && papicReady)) {
+    /* The retired free "One" camera (owner 2026-08-11) is not promised here. */
+    return {
+      kind: 'papic',
+      papicMoment: 'ready',
+      title: 'Your cameras are ready',
+      body: papic
+        ? `${formatCount(papic.left)} credits are in. Share your Event Hub link — the first photo a guest shoots lands here.`
+        : 'Your credits are in. Share your Event Hub link — the first photo a guest shoots lands here.',
+      action: `Open ${SERVICE_NAMES.papic.brand}`,
+    };
+  }
   if (guests.total === 0) {
     return {
       kind: 'guests',
@@ -174,14 +220,6 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       /* The prototype's words (HOME_AND_GUESTS 2026-10-07, frame Home). */
       body: `${n} ${guests.unsent === 1 ? 'guest has' : 'guests have'} no invitation yet. One tap sends each their own link and ticket.`,
       action: 'Send invitations',
-    };
-  }
-  if (papicReady) {
-    return {
-      kind: 'papic',
-      title: 'Your free camera is ready',
-      body: 'Hand it to someone you trust and the candids start landing in your gallery.',
-      action: `Open ${SERVICE_NAMES.papic.plain.toLowerCase()}`,
     };
   }
   if (aiOffer) {
@@ -241,7 +279,33 @@ export type HomeServiceKey = 'papic' | 'ai' | 'nikah';
  * `name` is the plain name (first), `brand` the Setnayan name (small under) — `lib/service-names.ts`.
  * Nikah essentials is not a Setnayan service, so it carries no brand line.
  */
-export type HomeService = { key: HomeServiceKey; name: string; brand?: string; status: string };
+export type HomeService = {
+  key: HomeServiceKey;
+  name: string;
+  brand?: string;
+  status: string;
+  /**
+   * 🎨 Papic's row is the service glance (owner 2026-10-14): its status line, a
+   * meter, and its two doors — "Buy more" (the shipped stepper in a sheet) and
+   * "See N photos" (the gallery, opened directly). Absent = the plain row.
+   */
+  papic?: PapicRowDoors;
+};
+
+/** What the Papic row draws beyond its name — from `papicGlance` (lib/papic-glance.ts). */
+export type PapicRowDoors = {
+  glance: Pick<ServiceGlance, 'count' | 'total' | 'mood' | 'pct' | 'result'>;
+  /** The status line, the count bold — whole; its doubled tail is marked by `whileNext`. */
+  line: GlanceLine;
+  /** Offer "Buy more" here (false only when the viewer may not buy). */
+  buy: boolean;
+  /**
+   * What the Papic Next card already says (`papicRowDoubled`): drawn, but marked
+   * `data-while-next` so it stands down ONLY while that card is on screen — a
+   * "Later" brings it straight back (walk-b6 F1, 2026-10-14).
+   */
+  whileNext?: { buy: boolean; tail: boolean };
+};
 
 /** What `resolvePapicHomeTile` returned, or 'failed' when it threw. */
 export type PapicStatusInput =
@@ -296,6 +360,8 @@ export function homeServices(input: {
   next: HomeNextKind;
   storeShell: boolean;
   papic: string;
+  /** 📍 Papic's doors (Buy more · See N photos), when the glance offers them. */
+  papicDoors?: PapicRowDoors | null;
   ai: string;
   /** 🕌 Set ONLY for a Muslim wedding — the Nikah essentials' status line. Free, so it is also in the store shell. */
   nikah?: string | null;
@@ -303,11 +369,20 @@ export function homeServices(input: {
   const paid: HomeService[] = input.storeShell
     ? []
     : [
-        { key: 'papic', name: SERVICE_NAMES.papic.plain, brand: SERVICE_NAMES.papic.brand, status: input.papic },
+        {
+          key: 'papic',
+          name: SERVICE_NAMES.papic.plain,
+          brand: SERVICE_NAMES.papic.brand,
+          status: input.papic,
+          ...(input.papicDoors ? { papic: input.papicDoors } : {}),
+        },
         { key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai },
       ];
   const all: HomeService[] = [
-    ...paid.filter((s) => s.key !== input.next),
+    /* ⛔ NEVER TWICE — for Papic the row STAYS and drops the button the Next
+       card offers, while it is on screen (owner 2026-10-14, `papicRowDoubled`); a service with no
+       doors (Setnayan AI) still leaves the row while it is the Next card. */
+    ...paid.filter((s) => s.key !== input.next || (s.key === 'papic' && s.papic)),
     ...(input.nikah != null ? [{ key: 'nikah' as const, name: NIKAH_NAME, status: input.nikah }] : []),
   ];
   return all;

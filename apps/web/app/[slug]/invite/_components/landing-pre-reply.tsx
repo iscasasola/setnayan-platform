@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { LANDING_WORDS } from '@/lib/guest-landing';
 import { TicketPicture } from '../../_components/ticket-picture';
 
@@ -39,7 +40,10 @@ export function LandingPreReply({
   ticketSrc,
   awaitingLine,
   whenWhere = null,
+  shut = null,
 }: {
+  /** 📬 The couple's reply window is shut: its note (`ReplyWindowNote`) stands where the button was — no button. */
+  shut?: ReactNode;
   /**
    * 🗓 WHEN AND WHERE, ONE LINE, ABOVE THE BUTTON (owner 2026-10-11: a guest was
    * asked to reply without being told when or where) — `landingWhenWhere`:
@@ -77,10 +81,16 @@ export function LandingPreReply({
             {whenWhere}
           </p>
         ) : null}
-        <Link className="button-primary w-full" href={replyHref} data-landing-reply="">
-          {LANDING_WORDS.reply}
-        </Link>
-        {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/70">Please reply by {replyByLabel}</p> : null}
+        {shut ? (
+          shut
+        ) : (
+          <>
+            <Link className="button-primary w-full" href={replyHref} data-landing-reply="">
+              {LANDING_WORDS.reply}
+            </Link>
+            {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/70">Please reply by {replyByLabel}</p> : null}
+          </>
+        )}
       </div>
 
       {fadedTicket ? (

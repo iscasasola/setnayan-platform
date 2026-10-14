@@ -36,10 +36,12 @@ import { PILL_ON_CLASS } from '@/app/_components/pill-selector';
  */
 
 /** One row: its name (and what it is, behind ⓘ) on the left, its ONE control on the right. */
-export function BgRow({ label, info, data, children }: { label: string; info?: ReactNode; data: string; children: ReactNode }) {
+export function BgRow({ label, info, data, mark, children }: { label: string; info?: ReactNode; data: string; mark?: ReactNode; children: ReactNode }) {
   return (
     <div data-bg-row={data} className={`${STUDIO_ROW} justify-between`}>
-      <span className="flex shrink-0 items-center text-[14px] text-ink">
+      <span className="flex shrink-0 items-center gap-2 text-[14px] text-ink">
+        {/* A small mark before the name (Elements' type rows: the colour that type wears). */}
+        {mark}
         {info ? (
           <InfoTip label={label} align="start">
             {info}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useSyncExternalStore, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type CSSProperties } from 'react';
 import { backgroundLayOf, lookGroundPictures, type LookGroundSources } from '@/lib/background-pick';
 import { LANDING_WORDS } from '@/lib/guest-landing';
 import { AmbientEffectLayer } from '@/app/[slug]/_components/ambient-effect';
@@ -10,7 +10,7 @@ import type { HubMusicButton } from '@/lib/hub-music-button';
 import { MUSIC_BUTTON_CLASS, MusicButtonFace } from '@/app/[slug]/_components/music-button-face';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { lookEffectOn, lookSampleEffect, lookSampleGround, lookSampleScope, type LookSampleRow } from '@/lib/look-sample';
-import { lookSampleVersion, readLookSample, subscribeLookSample, tellLookSampleWorn, type LookSampleValues } from '@/lib/look-sample-store';
+import { cssColourHex, lookSampleVersion, readLookSample, subscribeLookSample, tellLookSampleInks, tellLookSampleWorn, type LookSampleValues } from '@/lib/look-sample-store';
 import { boardWithMainColours, mainColoursOf, type MainColourDraft } from '@/lib/main-colours';
 import { LOOK_SECTION_ITEM_KEYS } from '@/lib/maker-details-items';
 import { holdCanvasRedraw } from '@/lib/maker-refresh';
@@ -171,6 +171,23 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
     ...(picture ? ground.vars : {}),
   } as CSSProperties;
 
+  /* 🔤 THE COLOUR EACH TYPE IS DRAWN IN, read off these words after they draw (owner 2026-10-14: "return the type name
+     to show color as well") — Elements' type rows wear it as a swatch beside each name (`fonts-look-rows.tsx`). */
+  const box = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const root = box.current;
+    if (!root) return;
+    const ink = (sel: string) => {
+      const el = root.querySelector<HTMLElement>(sel);
+      return el ? cssColourHex(getComputedStyle(el).color) : null;
+    };
+    const names = ink('[data-look-sample-names]');
+    const heading = ink('[data-look-sample-style="heading"]');
+    const body = ink('[data-look-sample-line]') ?? ink('[data-look-sample-date]');
+    const highlight = ink('[data-look-sample-eyebrow]');
+    if (names && heading && body && highlight) tellLookSampleInks(seed.eventId, { names, heading, body, highlight });
+  });
+
   const [first, second] = splitNames(seed.words.names);
   const moving = Boolean(picture?.clip);
   const blur = picture?.blur ? { filter: `blur(${BLUR_PX[picture.blur]}px)`, transform: 'scale(1.08)' } : undefined;
@@ -179,6 +196,7 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
 
   return (
     <div
+      ref={box}
       data-look-sample=""
       /* 🌑 A LIVE PREVIEW STAYS CLEAR behind a pop-up (owner 2026-10-08) — a sheet's dark is cut around this box. */
       data-popup-clear=""

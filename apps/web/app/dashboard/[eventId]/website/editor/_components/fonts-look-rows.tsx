@@ -35,7 +35,7 @@ import {
 import { hubFontPreviewStack, sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { hubFontKeyForFamily } from '@/lib/hub-font-shelves';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
-import { readLookSampleWorn, subscribeLookSampleWorn, tellLookSample } from '@/lib/look-sample-store';
+import { readLookSampleInks, readLookSampleWorn, subscribeLookSampleInks, subscribeLookSampleWorn, tellLookSample, type LookSampleInks } from '@/lib/look-sample-store';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { STUDIO_ROW_PICK } from '@/lib/studio-skin';
 import { hubDraftAction } from '../../hub-draft-actions';
@@ -134,6 +134,8 @@ export function FontsLookRows({
   /* The couple's names as the sample screen draws them (`look-sample.tsx` says them once it is up) — never sample words. */
   const names = useSyncExternalStore(subscribeLookSampleWorn, () => readLookSampleWorn(eventId)?.names ?? null, () => null);
   const sampleOf = (row: FontRow) => (row === 'names' ? (names?.trim() || NAMES_SAMPLE) : FONT_ROW_SAMPLE[row]);
+  /* 🎨 The colour each type is drawn in, as the sample screen draws it — beside its name (owner 2026-10-14). */
+  const inks = useSyncExternalStore(subscribeLookSampleInks, () => readLookSampleInks(eventId), () => null);
   return (
     <div data-fonts-look="" className="flex flex-col">
       {/* THE FAST PATH — a shipped pairing fills all four rows; "Your own mix" once a row was changed alone. */}
@@ -154,7 +156,7 @@ export function FontsLookRows({
         />
       </BgRow>
       {FONT_ROWS.map((row: FontRow) => (
-        <BgRow key={row} label={FONT_ROW_LABEL[row]} data={`font-${row}`}>
+        <BgRow key={row} label={FONT_ROW_LABEL[row]} data={`font-${row}`} mark={<TypeColour row={row} inks={inks} />}>
           <FontPick
             eventId={eventId}
             label={`${FONT_ROW_LABEL[row]} font`}
@@ -173,5 +175,26 @@ export function FontsLookRows({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 🎨 THE TYPE'S COLOUR, BESIDE ITS NAME (owner 2026-10-14, Maker test item 4: *"return the type name to show color as
+ * well"* — the approved role rows drew each type's swatch beside its name, `look-restudy-built-2026-10-08/09-el`). The
+ * colour is the one the sample screen's words of that type are drawn in (`LookSampleInks`), so it moves with every
+ * pick of the five, a picture's tint and a dark shade. Nothing is drawn until the sample has said it — never a guess.
+ */
+export function TypeColour({ row, inks }: { row: FontRow; inks: LookSampleInks | null }) {
+  const hex = inks?.[row] ?? null;
+  if (!hex) return null;
+  return (
+    <span
+      data-font-row-colour={row}
+      data-colour={hex}
+      role="img"
+      aria-label={`${FONT_ROW_LABEL[row]} colour ${hex}`}
+      className="h-4 w-4 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]"
+      style={{ backgroundColor: hex }}
+    />
   );
 }

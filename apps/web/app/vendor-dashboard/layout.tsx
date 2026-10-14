@@ -26,7 +26,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
-import { resolveVendorRole } from '@/lib/vendor-role';
+import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
@@ -375,6 +375,18 @@ export default async function VendorDashboardLayout({
     redirect('/dashboard');
   }
 
+  // The supplier's own rows in the account sheet (simpler supplier dashboard
+  // step 6; prototype SHEETS.avatar): Helpers · Plan · Settings for an owner or
+  // admin, Settings alone for a scoped team member. Plan never in the store
+  // shell (the route is refused there). No read — the role is already here.
+  const switcherShopRows = canManageVendor(vendorRole) || !vendorRole
+    ? [
+        { href: '/vendor-dashboard/team', label: 'Helpers', sub: 'Who can see your schedule' },
+        ...(storeShell ? [] : [{ href: '/vendor-dashboard/subscription', label: 'Plan', sub: 'What you pay · what it gives you' }]),
+        { href: '/vendor-dashboard/settings', label: 'Settings', sub: 'Notifications · getting paid · help' },
+      ]
+    : [{ href: '/vendor-dashboard/settings', label: 'Settings', sub: 'Notifications · help' }];
+
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
   // mobile-only (lg:hidden); desktop users open the same panel from the
   // SwitcherPlaqueTrigger business plaque in the sidebar header
@@ -450,7 +462,7 @@ export default async function VendorDashboardLayout({
         way to sign out and no error to notice. Matches what the account
         spokes already render at all widths.
       */}
-      <AccountSwitcher data={switcherData} />
+      <AccountSwitcher data={switcherData} shopRows={switcherShopRows} />
     </div>
   );
 

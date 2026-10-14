@@ -17,8 +17,16 @@ import {
 import type { SwitcherData } from './get-switcher-data';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
+/** A row of the supplier's own account sheet (simpler supplier dashboard step 6 — prototype SHEETS.avatar). */
+export type SwitcherShopRow = { href: string; label: string; sub: string };
+
 type Props = {
   data: SwitcherData;
+  /**
+   * The SUPPLIER'S rows (Helpers · Plan · Settings …), handed in by the supplier layout only. The prototype's avatar
+   * sheet lists them under the shop; every other surface passes nothing and the panel is unchanged.
+   */
+  shopRows?: readonly SwitcherShopRow[] | null;
   /** When provided, shown next to the avatar in the trigger pill (e.g. event display name). */
   currentEventName?: string | null;
   /** Panel "Home" item label override (couple surfaces pass
@@ -81,11 +89,13 @@ function SwitcherPanelBody({
   close,
   homeLabel = 'Home',
   referHref = null,
+  shopRows = null,
 }: {
   data: SwitcherData;
   close: () => void;
   homeLabel?: string;
   referHref?: string | null;
+  shopRows?: readonly SwitcherShopRow[] | null;
 }) {
   const showShop = data.context.hasVendor;
   const showHQ = data.context.isAdmin;
@@ -172,6 +182,26 @@ function SwitcherPanelBody({
             ) : null}
           </div>
         </div>
+      ) : null}
+
+      {/* ── The supplier's own rows (supplier layout only) — one tap each to a page that exists. ── */}
+      {shopRows && shopRows.length > 0 ? (
+        <ul className="border-t border-ink/10 px-2 py-1.5" data-switcher-shop-rows="">
+          {shopRows.map((r) => (
+            <li key={r.href}>
+              <Link
+                href={r.href}
+                onClick={close}
+                className="flex min-h-[52px] items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-ink/5"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-medium text-ink">{r.label}</span>
+                  <span className="block truncate text-[12.5px] text-ink/55">{r.sub}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       ) : null}
 
       {/* ── Footer — Profile & settings (left) · Secure-your-plan (anon) /
@@ -271,7 +301,7 @@ function SwitcherPanelBody({
   );
 }
 
-export function AccountSwitcher({ data, currentEventName, homeLabel, referHref }: Props) {
+export function AccountSwitcher({ data, currentEventName, homeLabel, referHref, shopRows }: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -395,7 +425,7 @@ export function AccountSwitcher({ data, currentEventName, homeLabel, referHref }
         {/* Drag handle (mobile only) */}
         <div aria-hidden className="mx-auto mb-1 mt-2 h-1 w-10 shrink-0 rounded-full bg-ink/15 lg:hidden" />
 
-        <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} referHref={referHref} />
+        <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} referHref={referHref} shopRows={shopRows} />
       </div>
     );
   }

@@ -26,23 +26,18 @@
  * which dropped the supplier at the top of the roster. Calendar still links its
  * stub: `/vendor-dashboard/calendar` already lands on the month grid.
  *
- * ⚠ "SETTINGS" IS NOT A ROW. The prototype draws one "Settings · Notifications,
- * plan, team, sign out" row, but the supplier side has no settings page: those
- * are three pages (Notifications here, the Plan hub here, Team inside Shop) and
- * sign-out is the account menu. A "Settings" row would have to open one of them
- * and pretend it was all four, so the rows name the pages that exist.
+ * ⚙ SETTINGS IS A ROW NOW (simpler supplier dashboard step 6, owner-APPROVED
+ * 2026-10-14; prototype SCREENS.more = Event Hub · Settings · More tools). Until
+ * then there was no settings page, so a Settings row would have pretended; now
+ * `/vendor-dashboard/settings` exists and holds Notifications, Plan, Getting
+ * paid, Helpers, More tools, Help and Sign out as rows. The rows that left:
+ *   · Calendar · Money in · Messages — Customers › Dates / Money and the
+ *     envelope in the top bar carry them (each was already one tap there);
+ *   · Notifications · Plan — Settings rows (and the bell, and the avatar);
+ * "How is my business doing" stays here until Shop › How it is going lands
+ * (the prototype's shopSeg — another step owns Shop).
  */
-import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
-import {
-  BarChart2,
-  Bell,
-  CalendarCheck,
-  CalendarDays,
-  Gem,
-  MessageSquare,
-  Wallet,
-  type LucideIcon,
-} from 'lucide-react';
+import { BarChart2, CalendarCheck, Settings, Wrench, type LucideIcon } from 'lucide-react';
 
 export type VendorMoreRow = {
   key: string;
@@ -64,35 +59,6 @@ export type VendorMoreRow = {
 
 export const VENDOR_MORE_ROWS: readonly VendorMoreRow[] = [
   {
-    key: 'calendar',
-    label: 'Calendar',
-    sub: 'Your dates, blocked days and who holds them.',
-    href: '/vendor-dashboard/calendar',
-    Icon: CalendarDays,
-  },
-  {
-    key: 'payday',
-    label: 'Money in',
-    sub: 'What came in, what is due, when it lands.',
-    href: customerLandingHref('payday'),
-    Icon: Wallet,
-  },
-  {
-    key: 'messages',
-    label: 'Messages',
-    sub: 'Every conversation in one inbox.',
-    href: customerLandingHref('messages'),
-    Icon: MessageSquare,
-  },
-  {
-    key: 'performance',
-    label: 'Insights',
-    sub: 'How you are doing, and where the demand is.',
-    href: '/vendor-dashboard/performance',
-    Icon: BarChart2,
-    slot: 'vendor.bottom-nav.performance',
-  },
-  {
     key: 'on-the-day',
     label: 'Event Hub',
     sub: 'Run the day: schedule, list and headcount.',
@@ -101,19 +67,26 @@ export const VENDOR_MORE_ROWS: readonly VendorMoreRow[] = [
     slot: 'vendor.bottom-nav.onday',
   },
   {
-    key: 'notifications',
-    label: 'Notifications',
-    sub: 'What we tell you, and how.',
-    href: '/vendor-dashboard/notifications',
-    Icon: Bell,
+    key: 'performance',
+    label: 'How is my business doing',
+    sub: 'Who looked at you, who asked, who booked.',
+    href: '/vendor-dashboard/performance',
+    Icon: BarChart2,
+    slot: 'vendor.bottom-nav.performance',
   },
   {
-    key: 'plan',
-    label: 'Plan',
-    sub: 'Your plan, and what it unlocks.',
-    href: '/vendor-dashboard/subscription',
-    Icon: Gem,
-    webOnly: true,
+    key: 'settings',
+    label: 'Settings',
+    sub: 'Account · notifications · plan · getting paid · helpers · help',
+    href: '/vendor-dashboard/settings',
+    Icon: Settings,
+  },
+  {
+    key: 'more-tools',
+    label: 'More tools',
+    sub: 'What couples see · with others · protection',
+    href: '/vendor-dashboard/settings#more-tools',
+    Icon: Wrench,
   },
 ];
 
@@ -134,6 +107,8 @@ export const VENDOR_MORE_MATCH: readonly string[] = [
   '/vendor-dashboard/demand',
   '/vendor-dashboard/on-the-day',
   '/vendor-dashboard/notifications',
+  '/vendor-dashboard/settings',
+  '/vendor-dashboard/help',
 ];
 
 /** The rows THIS person sees: the registry's words and hides, the store shell. */

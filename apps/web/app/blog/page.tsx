@@ -88,7 +88,7 @@ function LeadCard({ article }: { article: BlogArticle }) {
           Read the guide
           <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-0.5" strokeWidth={1.75} />
         </span>
-        <p className="mt-4 text-xs text-ink/45">{metaLine(article)}</p>
+        <p className="mt-4 text-xs text-ink/70">{metaLine(article)}</p>
       </div>
     </Link>
   );

@@ -330,7 +330,7 @@ export function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; t
       <div className="mt-2 flex flex-wrap items-center gap-1.5 px-0.5">
         {item.vendors && item.vendors.length > 0 ? (
           <>
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+            <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
               Team
             </span>
             {item.vendors.map((v) => (
@@ -372,7 +372,7 @@ function SectionHead({ title, note }: { title: string; note?: string }) {
   return (
     <div className="mb-3 mt-10 flex items-baseline justify-between gap-3 sm:mt-12">
       <h2 className="text-base font-semibold tracking-tight text-ink sm:text-lg">{title}</h2>
-      {note ? <span className="text-[11px] text-ink/45">{note}</span> : null}
+      {note ? <span className="text-xs text-ink/70">{note}</span> : null}
     </div>
   );
 }
@@ -414,7 +414,7 @@ function Companions({
               wedding are two photos in a row — which is exactly the confusion
               the old "practical guides" heading prevented, and the reason the
               heading could only be removed if the card took the job. */}
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+          <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
             Article
           </p>
           <StoryCard article={a} />

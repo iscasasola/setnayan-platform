@@ -268,7 +268,9 @@ function TileLink({
       <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
       <div className="flex flex-col items-center leading-tight">
         <span className="text-[12px] font-medium">{label}</span>
-        <span className="font-mono text-[9px] opacity-60">{formatCount(count)}</span>
+        {/* 12px at the tile's own colour (quality sweep 2026-10-13, item 7): it was
+            9px at 60% opacity — 2.0–2.3:1, the faintest text on the site. */}
+        <span className="font-mono text-[12px]">{formatCount(count)}</span>
       </div>
     </a>
   );

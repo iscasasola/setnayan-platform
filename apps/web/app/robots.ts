@@ -10,7 +10,12 @@ const ALLOWED_PATHS = [
   '/creators',
   '/help',
   '/realstories',
-  '/tl', // Taglish locale subpath (Taglish ≈ tl; localization first slice — /tl/about live)
+  // Taglish locale SUBPATH (Taglish ≈ tl): /tl/about, /tl/features, /tl/features/<slug>.
+  // ⚠ '/tl/' with the slash (2026-10-13): there is no bare /tl page — the corpus
+  // keeps /tl as the locale prefix for twins, not a Tagalog home — and the bare
+  // 'Allow: /tl' read as a page that 404s (quality sweep item 10). The prefix
+  // still allows every twin. Guard: app/robots-allows-only-real-pages.test.ts.
+  '/tl/',
   // Forward-looking — these surfaces are in the SEO playbook
   // (17_SEO_and_AI_Discoverability_Playbook.md §5.1) but not yet
   // shipped. Pre-allowing them avoids a robots.txt edit when they go live.

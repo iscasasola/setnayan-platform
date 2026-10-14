@@ -1,6 +1,38 @@
 import type { Config } from 'tailwindcss';
 import defaultTheme from 'tailwindcss/defaultTheme';
 import tailwindcssAnimate from 'tailwindcss-animate';
+import plugin from 'tailwindcss/plugin';
+
+/* ── WORDS IN GOLD AND GREY READ AT 4.5:1 (quality sweep 2026-10-13, item 9) ──
+   The live sweep measured the three brand colours most often used as TEXT under
+   the WCAG AA floor on nearly every public page:
+     gold  #A9834B  3.48:1 on white   — every `text-terracotta` (349 pages)
+     grey  #8B8A89  3.45:1            — `text-ink/55` (357 pages)
+     grey  #969594  3.01:1            — `text-ink/50` (155 pages)
+   TEXT ONLY, through `theme.extend.textColor` (the `text-gild` precedent above):
+   `bg-*`, `border-*`, `fill-*`, `ring-*` keep the raw brand values, so every
+   fill, rule, pill and the logo look exactly as they did.
+     • `text-terracotta` → the accent's deepest step `--color-terracotta-700`
+       (#8C6932, 5.02:1). Every Event Hub look that moves the accent moves -700
+       with it (theme-colours, story-light, scene-legibility, candlelight …), so
+       a themed hub's words keep their theme. A gold ICON (an `<svg class="text-terracotta">`)
+       keeps the brand gold — see the plugin at the bottom; icons need 3:1.
+     • `text-ink/50` … `text-ink/65` → rendered at INK_TEXT_FLOOR (ink/70:
+       5.40:1 on white, 5.07:1 on the warm wash #F6F1E7). Fainter tints (/45 and
+       under) are left alone: those are separators, placeholders and disabled
+       states, which AA exempts. `lint:contrast` reads these two numbers from
+       this file and fails if either stops clearing 4.5:1.
+   ⚠ Two tokens are touched and no token VALUE changes — the light and dark
+   values in globals.css are byte-identical; only which value text points at. */
+const INK_TEXT_FLOOR = 0.7;
+const INK_TEXT_FLOOR_FROM = 0.5;
+function inkText({ opacityValue }: { opacityValue?: string }): string {
+  const a = Number(opacityValue);
+  if (Number.isFinite(a) && a >= INK_TEXT_FLOOR_FROM && a < INK_TEXT_FLOOR) {
+    return `rgb(var(--color-ink) / ${INK_TEXT_FLOOR})`;
+  }
+  return `rgb(var(--color-ink) / ${opacityValue ?? 1})`;
+}
 
 // Locked breakpoints per kickoff brief — Tailwind defaults match the spec
 // (sm 640 / md 768 / lg 1024 / xl 1280). Re-declared explicitly so a future
@@ -50,6 +82,15 @@ const config: Config = {
          ornaments (`bg-gild`, `border-gild`, rings, seals) keep the raw hue. */
       textColor: {
         gild: 'rgb(var(--color-gild-text, var(--color-gild)) / <alpha-value>)',
+        // Item 9 (see the note at the top): words in gold use the deepest step.
+        terracotta: {
+          DEFAULT: 'rgb(var(--color-terracotta-700) / <alpha-value>)',
+          500: 'rgb(var(--color-terracotta-700) / <alpha-value>)',
+        },
+        // Item 9: ink tints /50–/65 render at INK_TEXT_FLOOR when they are WORDS.
+        // Tailwind 3 accepts a function colour at runtime (withAlphaValue /
+        // withAlphaVariable call it) but its Config type does not say so.
+        ink: { DEFAULT: inkText as unknown as string },
       },
       // Single radius source of truth — every `rounded-*` class resolves to the
       // --m-r-* token scale in globals.css (Approach B "softer corners", owner-
@@ -484,7 +525,18 @@ const config: Config = {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [
+    tailwindcssAnimate,
+    // A gold ICON is not a word: it keeps the brand gold (3:1 is the non-text
+    // floor, and #A9834B clears it). `svg[class~=…]` out-specifies the
+    // `.text-terracotta` utility (0,1,1 > 0,1,0) — and is an attribute
+    // selector, not a class, so Tailwind does not mint `hover:`/`md:` copies.
+    plugin(({ addBase }) => {
+      addBase({
+        "svg[class~='text-terracotta']": { color: 'rgb(var(--color-terracotta) / var(--tw-text-opacity, 1))' },
+      });
+    }),
+  ],
 };
 
 export default config;

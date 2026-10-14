@@ -61,7 +61,7 @@ export function DetailsScreen({
   };
   const pct = Math.round((p.done / p.of) * 100);
   const line = detailsLine(p);
-  const head = line.split(' · ')[0];
+  const head = line.split(' · ')[0] ?? line;
   const rest = line.slice(head.length);
   const services = d.profileFields.services.map((s) => d.profileFields.serviceLabels?.[s] ?? s);
   const docsState = row('docs').state;

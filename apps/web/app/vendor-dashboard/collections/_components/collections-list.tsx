@@ -81,7 +81,7 @@ export function CollectionsList({
       <p className="text-[15px] text-ink" data-collections-line="">
         {(() => {
           const l = collectionsLine(rows);
-          const head = l.split(' · ')[0];
+          const head = l.split(' · ')[0] ?? l;
           return (
             <>
               <b className="font-semibold">{head}</b>

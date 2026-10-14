@@ -404,9 +404,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     /* The lab wraps the gift card; the Maker asks the block's root whether it is the real card (`data-welcome-gifts`),
        so the wrapper says so when the real card is what it holds — else Animate is grey here and cannot be tried. */
     <div data-lab-scene="gifts" {...(words ? { 'data-welcome-gifts': '' } : {})} className="border-t border-ink/10 px-4 py-8 text-left">
-      {/* 🧱 E-Gifts' own mark, right BEFORE the real block (`lib/block-looks.ts`) — inside the lab's wrapper. */}
+      {/* 🧱 E-Gifts' own mark, right BEFORE the real block (`lib/block-looks.ts`) — inside the lab's wrapper. 🎁 The block
+          is E-Gifts drawn in place, as a guest reads it on Welcome (2026-10-14): the lab's two ways to give and four wishes. */}
       <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
-      {/* 🎁 E-Gifts drawn in place, as a guest reads it on Welcome (2026-10-14) — the real block on the lab's two ways to give and four wishes. */}
       {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')}>
           <WelcomeGiftsContent content={Promise.resolve({ ...labGiftContent(words), wishShape: wishListShape(look('gifts')) })} href="#gifts" words={words} />
         </WelcomeGifts> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}

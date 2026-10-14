@@ -1628,7 +1628,37 @@ export const loadGuestContext = cache(
     // control (`papicPoolGalleryActive`, which costs no read while the flag is
     // off). Never a second "share the whole gallery" setting.
     const galleryWindow = dayOfPhase === 'live' || dayOfPhase === 'post';
-    const [guestOwnShots, poolGalleryOpen] = galleryWindow
+    /* 🖼 EARLY SHOOTING GETS "YOUR SHOTS" BEFORE THE DAY (owner 2026-10-14,
+       DECISION_LOG 🖼, "Only their own shots"): when the host has "Let guests
+       shoot now" on and the guest camera gate is OPEN before the day, this guest
+       may see the shots THEY took — and nothing else: no "Photos of you", no
+       everyone's, no public chapters until the day. The SAME early flag and the
+       SAME gate the camera uses (`guestCaptureGate`), read from the event's one
+       row (`eventRowOnce` — the gate columns ride the shell's read, no request). */
+    let earlyOwnShots = false;
+    if (!galleryWindow && guest.rsvp_status !== 'declined') {
+      const { data: earlyRow, error: earlyErr } = await eventRowOnce(admin, event.event_id, GUEST_CAPTURE_GATE_COLUMNS, () =>
+        admin
+          .from('events')
+          .select(GUEST_CAPTURE_GATE_COLUMNS)
+          .eq('event_id', event.event_id)
+          .maybeSingle(),
+      );
+      if (earlyErr) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:events.select(early own shots)', earlyErr);
+      const e = earlyRow as { event_date?: string | null; papic_guest_capture_early?: boolean | null; papic_window_start?: string | null; papic_window_end?: string | null } | null;
+      earlyOwnShots =
+        !earlyErr &&
+        e?.papic_guest_capture_early === true &&
+        guestCaptureGate({
+          earlyAllowed: e.papic_guest_capture_early,
+          eventDate: e.event_date,
+          windowStart: e.papic_window_start,
+          windowEnd: e.papic_window_end,
+        }).state === 'open';
+    }
+    const [guestOwnShots, poolGalleryOpen] = earlyOwnShots
+      ? [await getGuestOwnShots(event.event_id, guest.guest_id), false]
+      : galleryWindow
       ? await Promise.all([
           ownShotsAhead ?? getGuestOwnShots(event.event_id, guest.guest_id),
           (async () => {
@@ -2083,6 +2113,7 @@ export const loadGuestContext = cache(
       guestLiveGallery,
       guestOwnShots,
       poolGalleryOpen,
+      earlyOwnShots,
       needsFaceEnroll,
       papicGuest,
       guestHubData,

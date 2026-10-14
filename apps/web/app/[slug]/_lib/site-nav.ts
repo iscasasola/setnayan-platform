@@ -159,6 +159,15 @@ export type NavInput = {
   hostAllowsCamera: boolean;
   /** Has the couple made at least one gallery chapter public? */
   anyChapterPublic: boolean;
+  /**
+   * 🖼 EARLY SHOOTING (owner 2026-10-14, DECISION_LOG 🖼, "Only their own
+   * shots"): before the day, the host has "Let guests shoot now" on and the
+   * guest camera gate is open. An invited guest's bar then also carries
+   * Gallery — and it holds THEIR OWN shots only (`your-shots-gallery.tsx`):
+   * nobody else's photo and no public chapter before the day. Absent/false →
+   * the bar is unchanged. Never for a stranger, a supplier or the couple.
+   */
+  earlyOwnShots?: boolean;
   /** Did the couple write a story section? */
   hasStory?: boolean;
   /** Is a details section actually on the page? Without this the Details tab
@@ -364,6 +373,11 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     if (isCouple || anyChapterPublic) {
       slots.push({ key: 'gallery', label: 'Gallery', state: 'live', href: ANCHOR.gallery });
     }
+  } else if (phase === 'before' && viewer.kind === 'guest' && input.earlyOwnShots === true) {
+    // 🖼 BEFORE THE DAY, ONLY WITH EARLY SHOOTING ON, ONLY AN INVITED GUEST —
+    // and it holds their OWN shots, which are theirs to see. Announcing it hides
+    // nothing of anybody else's: the rule 3 asymmetry still stands for the rest.
+    slots.push({ key: 'gallery', label: 'Gallery', state: 'live', href: ANCHOR.gallery });
   }
 
   // 5 — ME. Always last, always present; its name follows who they are.

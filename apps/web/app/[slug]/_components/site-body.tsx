@@ -2529,6 +2529,7 @@ export async function SiteBody({
       guestLiveGallery,
       guestOwnShots,
       poolGalleryOpen,
+      earlyOwnShots,
       seatPassActive,
       needsFaceEnroll,
       guestHubData,
@@ -2820,10 +2821,19 @@ export async function SiteBody({
        precedence — a guest's OWN roll first, then the couple's shared camera,
        the same order GuestHubBar already uses; neither open ⇒ the resolver
        LOCKS the slot rather than hiding it. */
+    /* 📸 The guest's camera, wherever it opens from — the bar's Camera and, before the
+       day with early shooting on, the Gallery's "Take your first photo" (one address). */
+    const guestCameraHref = papicGuest
+      ? `/papic/me/${encodeURIComponent(guest.qr_token)}/session?next=guest&from=${event.slug ?? ''}`
+      : hostCameraOpen
+        ? `/papic/guest?from=${event.slug}`
+        : null;
     const guestBar = resolveSiteNav({
       viewer: { kind: 'guest' },
       phase: navPhase,
       stageSlots: STAGE_BAR[pageStage].slots,
+      // 🖼 Before the day with "Let guests shoot now" on: Gallery = their own shots (owner 2026-10-14).
+      earlyOwnShots,
       // `papicGuest` is the guest's own roll (an object), not a flag —
       // coerce it, or the resolver receives a truthy non-boolean.
       hostAllowsCamera: Boolean(papicGuest) || hostCameraOpen,
@@ -2849,13 +2859,9 @@ export async function SiteBody({
         // 📸 Straight to the camera — "the whole page is the camera" (prototype
         // frame 3b) — through the token→session bridge, carrying the event so
         // its × comes back here (`cameraHrefWithBack` adds the tab).
-        camera: papicGuest
-          ? `/papic/me/${encodeURIComponent(guest.qr_token)}/session?next=guest&from=${event.slug ?? ''}`
-          : hostCameraOpen
-            ? // Same reason as the anonymous tree: carry the event so a
-              // refusal can hand them back their invitation.
-              `/papic/guest?from=${event.slug}`
-            : null,
+        // Same reason as the anonymous tree: the address carries the event so a
+        // refusal can hand them back their invitation (`guestCameraHref`).
+        camera: guestCameraHref,
         watch: `/${event.slug}/hub`,
         join: `/${event.slug}/invite`,
       },
@@ -3459,6 +3465,17 @@ export async function SiteBody({
                   qrToken={guest.qr_token || null}
                   cameraOn={Boolean(papicGuest)}
                   everyoneHref={poolGalleryOpen && guest.qr_token ? `/papic/me/${encodeURIComponent(guest.qr_token)}/session?next=pool` : null}
+                />
+              ) : earlyOwnShots ? (
+                /* 🖼 BEFORE THE DAY, EARLY SHOOTING ON (owner 2026-10-14, "Only their own
+                   shots"): THEIR shots and nothing else — no "Photos of you", no door to
+                   everyone's, no public chapter. No shots yet → the line and the Camera. */
+                <YourShotsGallery
+                  shots={guestOwnShots}
+                  qrToken={guest.qr_token || null}
+                  cameraOn
+                  everyoneHref={null}
+                  cameraHref={guestCameraHref}
                 />
               ) : null}</>, { chapters: true, className: 'space-y-12', id: tabs.on ? SITE_MENU_ANCHORS.gallery : undefined })}
 

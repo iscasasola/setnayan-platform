@@ -409,6 +409,8 @@ export type GuestContext =
       guestLiveGallery: GuestLiveGallery | null;
       /** The shots THIS guest took — live/post window only; null = the read failed. */
       guestOwnShots: GuestOwnShots | null;
+      /** 🖼 Before the day with "Let guests shoot now" on: the Gallery holds this guest's own shots only (owner 2026-10-14). */
+      earlyOwnShots: boolean;
       /** The couple's "Shared gallery" switch is on (`events.pool_gallery_open`, gated). */
       poolGalleryOpen: boolean;
       needsFaceEnroll: boolean;

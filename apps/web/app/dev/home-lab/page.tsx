@@ -13,6 +13,10 @@
  *   ?view=papic                      🎨 the Papic page's TOP BAND instead of Home, in the same
  *                                    ?papic= state (the real PapicTopBand; the Buy more sheet
  *                                    on the prototype's ladder seed — no database)
+ *   ?view=early&early=1|0&shots=N    🖼 an invited guest's Invitation before the day with the host's
+ *                                    "Let guests shoot now" on/off (owner 2026-10-14): the REAL
+ *                                    resolver + bar (`resolveSiteNav`, `SiteMenuBar`) and the REAL
+ *                                    "Your shots" (empty → "Take your first photo"; N sample shots)
  *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
@@ -21,6 +25,10 @@ import { notFound } from 'next/navigation';
 import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
+import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
+import { SiteMenuBar } from '@/app/[slug]/_components/site-menu-bar';
+import { YourShotsGallery } from '@/app/[slug]/_components/your-shots-gallery';
 import { papicGlance, papicRowWhileNext } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { PapicTopBand } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-top-band';
@@ -36,6 +44,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/** Sample shots for the early-shots lab — the repo's own portraits, nothing real. */
+const LAB_PHOTOS = ['isabel-mendoza.avif', 'andres-delgado.avif', 'isabella-reyes.avif', 'miguel-santos-garden.avif'];
 const DONE_GUESTS = { total: 96, unsent: 0 };
 const STATES: Record<string, HomeNextInput> = {
   guide: {
@@ -57,7 +67,7 @@ const STATES: Record<string, HomeNextInput> = {
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string }>;
+  searchParams: Promise<{ proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -109,6 +119,40 @@ export default async function HomeLab({
     { serviceCode: 'LAB_1000', points: 1000, pricePhp: 700, discountPercent: 30 },
     { serviceCode: 'LAB_3000', points: 3000, pricePhp: 1680, discountPercent: 44 },
   ];
+  if (q.view === 'early') {
+    const early = q.early !== '0';
+    const n = Math.max(0, Number(q.shots ?? 0) || 0);
+    const bar = resolveSiteNav({
+      viewer: { kind: 'guest' },
+      phase: 'before',
+      stageSlots: STAGE_BAR.rsvp.slots,
+      hostAllowsCamera: true,
+      anyChapterPublic: false,
+      hasStory: true,
+      liveBroadcast: false,
+      earlyOwnShots: early,
+      destinations: { camera: '/papic/guest?from=lab' },
+    });
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-28 pt-3">
+        <div className="mx-auto flex max-w-xl flex-col gap-6">
+          <p className="sn-eye text-ink/70">Gallery · before the day</p>
+          {early ? (
+            <YourShotsGallery
+              shots={{ shots: Array.from({ length: n }, (_, i) => ({ id: `lab-${i}`, url: '/portraits/' + LAB_PHOTOS[i % LAB_PHOTOS.length]!, capturedAt: null })), total: n }}
+              qrToken={null}
+              cameraOn
+              everyoneHref={null}
+              cameraHref="/papic/guest?from=lab"
+            />
+          ) : (
+            <p className="text-sm text-ink/60">(Early shooting off — the bar keeps its four; there is no Gallery before the day.)</p>
+          )}
+        </div>
+        <SiteMenuBar slots={bar} />
+      </div>
+    );
+  }
   if (q.view === 'papic') {
     return (
       <div className="min-h-screen bg-cream px-4 pb-6 pt-3">

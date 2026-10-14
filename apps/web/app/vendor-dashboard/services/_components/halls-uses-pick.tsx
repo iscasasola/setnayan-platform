@@ -30,7 +30,7 @@ export function HallsUsesPick({
   const changed = picked.length !== uses.length || picked.some((p) => !uses.includes(p));
   const words = picked.length > 0 ? `${halls.filter((h) => picked.includes(h.poolId)).map((h) => h.name).join(' · ')}${picked.length > 1 ? ' · joined' : ''}` : 'Which halls this card books';
   return (
-    <form action={action} className="flex min-h-[60px] flex-wrap items-center gap-3 rounded-xl border p-3" style={{ borderColor: 'var(--m-line)' }} data-halls-uses={serviceId}>
+    <form action={action} className="flex min-h-[60px] flex-wrap items-center gap-3 border-t border-ink/10 py-2" data-halls-uses={serviceId}>
       <input type="hidden" name="vendor_service_id" value={serviceId} />
       <input type="hidden" name="return_to" value="shop" />
       {picked.map((id) => (

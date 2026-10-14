@@ -47,6 +47,13 @@ type El = {
 function join(el: El, formId: string): void {
   if (el.hasAttribute('form')) return;
   if (el.closest('form')) return;
+  // 🔴 A <button> with no `type` is a SUBMIT button. Joined to the card form it
+  // would submit (publish) the card from inside a sheet — where, unjoined, it
+  // did nothing. Only an explicit type="submit" may submit; everything else is
+  // made a plain button BEFORE it joins.
+  if ((el as { tagName?: string }).tagName === 'BUTTON' && !el.hasAttribute('type')) {
+    el.setAttribute('type', 'button');
+  }
   el.setAttribute('form', formId);
 }
 

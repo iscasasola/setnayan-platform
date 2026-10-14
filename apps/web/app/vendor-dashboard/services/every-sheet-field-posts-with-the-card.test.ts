@@ -176,6 +176,33 @@ test('every control under a portaled sheet joins the card form — now and when 
   });
 });
 
+test('a type-less button in a sheet can never submit the card; an explicit submit still can', () => {
+  withFakeObserver((fire) => {
+    const bare = new FakeEl('button'); // no type ⇒ a submit button, once joined
+    const plain = new FakeEl('button', { type: 'button' });
+    const submit = new FakeEl('button', { type: 'submit' });
+    const ownForm = new FakeEl('form').add(new FakeEl('button')); // a sibling form's own button
+    const root = new FakeEl('div').add(new FakeEl('div').add(bare), plain, submit, ownForm);
+    joinPortaledFieldsToForm(root as unknown as Element, 'card');
+
+    assert.equal(bare.getAttribute('form'), 'card');
+    assert.equal(
+      bare.getAttribute('type'),
+      'button',
+      'a type-less sheet button joined the card form as a SUBMIT button — one tap publishes the card',
+    );
+    assert.equal(plain.getAttribute('type'), 'button');
+    assert.equal(submit.getAttribute('type'), 'submit', 'an explicit submit button was silenced');
+    assert.equal(ownForm.children[0]!.getAttribute('type'), null, "a sibling form's own button was changed");
+
+    // A type-less button mounted later (a row editor, a picker) gets the same treatment.
+    const later = new FakeEl('button');
+    fire([{ addedNodes: [new FakeEl('div').add(later)] }]);
+    assert.equal(later.getAttribute('form'), 'card');
+    assert.equal(later.getAttribute('type'), 'button', 'a type-less button mounted later can submit the card');
+  });
+});
+
 test('ownerFormOf finds the form across the portal, and only that form', () => {
   const card = new FakeEl('form', { id: 'card' });
   const doc = { getElementById: (id: string) => (id === 'card' ? card : null) };

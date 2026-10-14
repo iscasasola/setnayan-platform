@@ -401,7 +401,7 @@ export async function VendorServicesManager({
   // the capacity input when the tier allows bookings at all (slotsCap > 0).
   const slotsCap = caps.slotsPerDay;
   const slotsCapForUi = Number.isFinite(slotsCap) ? slotsCap : 99;
-  // #3 time-bound slots: ENTERPRISE-only plotting (keyed on the enterprise tier).
+  // Exact time slots: every plan may plot them (owner 2026-10-14; were Enterprise-only).
   const canPlotSlots = canPlotTimeSlots(tier);
   const allBranches =
     // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so Custom
@@ -2031,8 +2031,8 @@ function DiscountBadge({
 }
 
 /**
- * Time-bound slot sub-editor (tier #3, Enterprise). Restyled to the editorial
- * palette; behaviour unchanged.
+ * Exact time slots — on every plan since 2026-10-14 (owner, DECISION_LOG 🧑‍🤝‍🧑
+ * call 3; were Enterprise-only). Restyled to the editorial palette.
  */
 function SlotEditor({
   serviceId,
@@ -2049,7 +2049,7 @@ function SlotEditor({
       <div className="flex items-center gap-1.5">
         <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} style={{ color: 'var(--m-slate)' }} />
         <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-          Time slots (Enterprise)
+          Exact time slots
         </p>
       </div>
       <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
@@ -2132,8 +2132,7 @@ function SlotEditor({
         </form>
       ) : (
         <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Time slots are an Enterprise feature — these existing slots stay active
-          and you can remove them anytime.
+          These slots stay active and you can remove them anytime.
         </p>
       )}
     </div>

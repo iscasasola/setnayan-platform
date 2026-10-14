@@ -108,6 +108,8 @@ export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
   'qr-codes',
   'seat-plan',
   'seating-pack',
+  /* 🪧 The entrance seating chart — its own row since 2026-10-14 (owner, on the Studio › Prints previews). */
+  'seating-chart',
   'caterer',
   'event-qr',
 ];

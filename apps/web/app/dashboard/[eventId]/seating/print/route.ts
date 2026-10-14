@@ -18,6 +18,7 @@ import {
   parseChartLayout,
   parseChartSize,
   seatingUnits,
+  unseatedCount,
   type SeatedUnit,
 } from '@/lib/print-entrance-chart';
 import { registryDate } from '@/lib/print-guest-registry';
@@ -27,6 +28,7 @@ import { renderPrintSvg } from '@/lib/print-render-svg';
 import type { PrintImages } from '@/lib/print-layout';
 import { formatCount } from '@/lib/format-number';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { PAPER_HOW, previewPage, printPaperHeader } from '@/lib/print-paper';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,9 +105,25 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     });
     if (params.get('format') === 'preview') {
       // A picture, not the vector: a full chart's SVG is ~5 MB of letter outlines.
+      /* 📄 Beside it (Studio › Prints' preview, owner 2026-10-14): how many names, who is not on it, and — the chart's own
+         measure — whether every name fits on this size and which size does (`x-print-paper`). */
+      const names = result.seated;
+      const unseated = unseatedCount(cTables, cAssignments, cGuests);
       return new NextResponse(Buffer.from(await entranceChartPreviewPng(result.doc)), {
         status: 200,
-        headers: { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store' },
+        headers: {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'private, no-store',
+          ...printPaperHeader({
+            pages: 1,
+            page: 1,
+            how: PAPER_HOW.chart(names, unseated),
+            empty: cTables.length === 0 ? 'tables' : names === 0 ? 'seated' : null,
+            fits: result.ok,
+            suggest: result.ok ? null : result.suggest,
+            tooFull: result.ok ? null : entranceChartTooBigWords(result.seated, size, result.suggest),
+          }),
+        },
       });
     }
     // Never a chart that loses someone: too many names for this sheet is said, not printed.
@@ -183,9 +201,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     }));
     const docs = layoutSeatingPack({ coupleName: coupleNameEarly, dateLabel: dateLabelEarly, units: packUnits, signLine: signSub });
     if (format === 'preview') {
-      return new NextResponse(renderPrintSvg(docs[0]!, {}), {
+      /* 📄 `?page=N` — the preview sheet's page N (Studio › Prints, owner 2026-10-14); its paper in `x-print-paper`. */
+      const page = previewPage(params, docs.length);
+      const cards = packUnits.reduce((a, u) => a + u.guests.length, 0);
+      return new NextResponse(renderPrintSvg(docs[page - 1]!, {}), {
         status: 200,
-        headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, max-age=60' },
+        headers: {
+          'Content-Type': 'image/svg+xml; charset=utf-8',
+          'Cache-Control': 'private, max-age=60',
+          ...printPaperHeader({ pages: docs.length, page, how: PAPER_HOW.seatingPack(docs.length, units.length, cards), empty: units.length === 0 ? 'tables' : null }),
+        },
       });
     }
     const images: PrintImages = {};

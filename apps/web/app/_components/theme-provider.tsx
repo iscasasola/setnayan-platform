@@ -1,45 +1,46 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import {
+  appearanceCookieAssignment,
+  appearanceFromCookie,
+  isAppearance,
+  type Appearance,
+} from '@/lib/appearance';
 
 /**
- * Theme Provider — LIGHT-LOCKED.
+ * Theme Provider — Appearance = Light · Dark, the person's choice (dark mode PR 3, 2026-10-13).
  *
- * WHY: Owner directive 2026-06-04 — "the app used to adjust automatic to light
- * and dark theme. disable this and just always keep it light theme." This
- * reverts the 2026-05-22 brand-pivot Light / Dark / Auto trio (CLAUDE.md
- * decision-log). Setnayan now renders in the light Clean-Editorial palette on
- * every dashboard / marketing surface, ignoring the OS `prefers-color-scheme`
- * AND any previously-stored `users.theme_preference` / `localStorage.theme`.
+ * WHY THIS CHANGED. The app was LIGHT-LOCKED from 2026-06-04 (owner: "just always keep it light
+ * theme"): `mode` was frozen at 'light', `setMode` did nothing and `.dark` was stripped on mount.
+ * The owner lifted it — "dark mode should work" (2026-10-11) — and approved how it is turned on
+ * (DECISION_LOG 2026-10-13, "approve all"): one setting, Light · Dark, no "follow the phone",
+ * per person, the same everywhere; dark appears area by area through a READY-LIST of routes; the
+ * couple's guest pages and signed-out visitors stay Light.
  *
- * WHY KEEP THE PROVIDER: ~7 components call `useTheme()` (site-editor, dashboard
- * layout, onboarding shell, a few vendor rows). Rather than refactor every
- * call-site, the provider + `useTheme()` API are KEPT but hard-locked: `mode`
- * and `resolvedTheme` are always `'light'`, and `setMode` is a no-op. The
- * `.dark` class is never applied (and is actively stripped on mount in case a
- * stale cached HTML shell shipped with it). Re-enabling Dark/Auto later is a
- * small revert of this file + the bootstrap script.
+ * WHAT IT HOLDS. `mode` = what the person chose (from the `sn-theme` cookie). `resolvedTheme` =
+ * what THIS screen paints, which is `dark` only where `lib/appearance.ts` `darkApplies` says so —
+ * with the ready-list empty, that is nowhere, so the app is still light everywhere.
  *
- * HOW IT STAYS LIGHT BY CONSTRUCTION: `darkMode: 'class'` in tailwind.config.ts
- * means every `dark:` variant + every `html.dark` token override in globals.css
- * keys off the `.dark` class on <html>. globals.css carries NO
- * `@media (prefers-color-scheme: dark)` rule, so with `.dark` never present,
- * all dark styling stays inert → light, regardless of the device setting.
+ * ONE RULE, TWO TIMES. The inline <head> script (`theme-bootstrap-script.ts`) paints the class
+ * before the first frame and leaves its rule on `window.__snTheme`. This provider asks that SAME
+ * function again after a client navigation and after the person changes their choice, so the
+ * route list is not shipped twice and the two cannot disagree.
  *
- * DORMANT: the `users.theme_preference` column + its `updateThemePreference`
- * server action are left in place (unread) so the revert is trivial.
+ * PRINT IS ALWAYS LIGHT (owner call 9): `.dark` comes off for `beforeprint` and goes back after.
  *
- * COUPLE-LANDING PAGE OUT OF SCOPE: the wedding landing page chrome at
- * `app/[slug]/page.tsx` is driven by the couple's mood-board palette per
- * iteration 0010 + 0002 — never touched by this provider.
+ * `useTheme()` keeps its shape (`mode`, `resolvedTheme`, `setMode`). `setMode` records the choice in
+ * the cookie and repaints at once — no server round trip; the Appearance control saves the column
+ * (`updateThemePreference`) as the cross-device record.
  */
 
-export type ThemeMode = 'light' | 'dark' | 'auto';
+export type ThemeMode = Appearance;
 
-export const THEME_MODES: ThemeMode[] = ['light', 'dark', 'auto'];
+export const THEME_MODES: readonly ThemeMode[] = ['light', 'dark'];
 
 export function isThemeMode(value: unknown): value is ThemeMode {
-  return value === 'light' || value === 'dark' || value === 'auto';
+  return isAppearance(value);
 }
 
 interface ThemeContextValue {
@@ -48,13 +49,13 @@ interface ThemeContextValue {
   setMode: (mode: ThemeMode) => void;
 }
 
-// Frozen light-locked context value. `setMode` is intentionally a no-op — the
-// app no longer exposes a way to switch modes (owner 2026-06-04).
-const LIGHT_LOCKED: ThemeContextValue = {
-  mode: 'light',
-  resolvedTheme: 'light',
-  setMode: () => {},
-};
+type SnTheme = { decide: (pathname: string, cookie?: string) => boolean; paint: (dark: boolean) => void };
+
+function snTheme(): SnTheme | null {
+  if (typeof window === 'undefined') return null;
+  const t = (window as unknown as { __snTheme?: SnTheme }).__snTheme;
+  return t && typeof t.decide === 'function' && typeof t.paint === 'function' ? t : null;
+}
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
@@ -62,23 +63,50 @@ export function ThemeProvider({
   children,
 }: {
   children: React.ReactNode;
-  /**
-   * Retained for call-site compatibility (app/providers.tsx still passes the
-   * SSR-resolved mode). Ignored — the app is light-locked.
-   */
+  /** Retained for call-site compatibility. The choice is read from the cookie the <head> script reads. */
   initialMode?: ThemeMode;
 }) {
-  // Defend against a stale `.dark` class from a previously-cached HTML shell
-  // (old service-worker response, bfcache restore, etc.). The bootstrap script
-  // in <head> already strips it before first paint; this is the post-hydration
-  // belt-and-suspenders pass.
+  const pathname = usePathname() ?? '/';
+  // Light on the server and on the first client render (the markup never depends on the choice);
+  // the cookie is read after mount.
+  const [mode, setModeState] = useState<ThemeMode>('light');
+  const [resolvedTheme, setResolved] = useState<'light' | 'dark'>('light');
+
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.documentElement.classList.remove('dark');
-    }
+    setModeState(appearanceFromCookie(document.cookie));
   }, []);
 
-  const value = useMemo(() => LIGHT_LOCKED, []);
+  // Re-apply the head script's rule whenever the screen or the choice changes.
+  useEffect(() => {
+    const t = snTheme();
+    const dark = t ? t.decide(pathname) : false;
+    if (t) t.paint(dark);
+    else document.documentElement.classList.remove('dark');
+    setResolved(dark ? 'dark' : 'light');
+  }, [pathname, mode]);
+
+  // Paper is always light.
+  useEffect(() => {
+    const before = () => document.documentElement.classList.remove('dark');
+    const after = () => {
+      const t = snTheme();
+      if (t) t.paint(t.decide(window.location.pathname));
+    };
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', after);
+    return () => {
+      window.removeEventListener('beforeprint', before);
+      window.removeEventListener('afterprint', after);
+    };
+  }, []);
+
+  const setMode = useCallback((next: ThemeMode) => {
+    if (!isThemeMode(next)) return;
+    document.cookie = appearanceCookieAssignment(next, window.location.protocol === 'https:');
+    setModeState(next);
+  }, []);
+
+  const value = useMemo(() => ({ mode, resolvedTheme, setMode }), [mode, resolvedTheme, setMode]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
@@ -90,4 +118,3 @@ export function useTheme(): ThemeContextValue {
   }
   return ctx;
 }
-

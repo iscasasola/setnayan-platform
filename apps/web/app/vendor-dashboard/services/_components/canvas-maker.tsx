@@ -18,7 +18,11 @@ import { Field } from '@/app/_components/forms/field';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { joinPortaledFieldsToForm, ownerFormOf } from '@/lib/portaled-fields-join-their-form';
+import {
+  enterWouldSubmit,
+  joinPortaledFieldsToForm,
+  ownerFormOf,
+} from '@/lib/portaled-fields-join-their-form';
 import { allowedEventOptions, droppedEventTypes } from '@/lib/coverage-allowed-events';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { parseCustomizationDraft } from '@/lib/service-customization-draft';
@@ -2537,7 +2541,18 @@ function CanvasSheet({
   if (!mounted) return null;
 
   return createPortal(
-    <div ref={rootRef} hidden={!open} className="fixed inset-0 z-40">
+    <div
+      ref={rootRef}
+      hidden={!open}
+      className="fixed inset-0 z-40"
+      onKeyDown={
+        formId
+          ? (e) => {
+              if (enterWouldSubmit(e.key, e.target as HTMLInputElement)) e.preventDefault();
+            }
+          : undefined
+      }
+    >
       <button
         type="button"
         aria-label="Close"

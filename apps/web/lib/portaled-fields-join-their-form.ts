@@ -75,6 +75,36 @@ export function joinPortaledFieldsToForm(root: Element, formId: string): () => v
 }
 
 /**
+ * Input types whose Enter press would IMPLICITLY SUBMIT their form. Joining a
+ * sheet's fields to the card form also makes Enter in them submit the card —
+ * through its default button, which is "Publish service". Since the portal
+ * shipped, Enter in a sheet did nothing; it must keep doing nothing rather than
+ * publish a card from inside the price box. (Textareas take Enter as a newline
+ * and never submit; checkboxes, radios and buttons never implicitly submit.)
+ */
+const NON_SUBMITTING_INPUT_TYPES = new Set([
+  'button',
+  'submit',
+  'reset',
+  'image',
+  'checkbox',
+  'radio',
+  'file',
+  'hidden',
+  'range',
+  'color',
+]);
+
+/** True when an Enter keydown on `target` would implicitly submit its form. */
+export function enterWouldSubmit(
+  key: string,
+  target: { tagName?: string; type?: string } | null | undefined,
+): boolean {
+  if (key !== 'Enter' || !target || target.tagName !== 'INPUT') return false;
+  return !NON_SUBMITTING_INPUT_TYPES.has((target.type ?? 'text').toLowerCase());
+}
+
+/**
  * The form a node belongs to: its enclosing <form>, else the form its portaled
  * root names. Use this instead of `closest('form')` anywhere a component can be
  * rendered inside a portaled sheet — `closest` is blind across the portal.

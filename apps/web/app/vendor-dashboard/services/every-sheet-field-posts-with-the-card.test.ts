@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
 import {
+  enterWouldSubmit,
   FORM_CONTROL_SELECTOR,
   FORM_OWNER_ATTR,
   joinPortaledFieldsToForm,
@@ -194,6 +195,18 @@ test('ownerFormOf finds the form across the portal, and only that form', () => {
   assert.equal(ownerFormOf(null), null);
 });
 
+test('Enter in a joined sheet field never submits the card; Enter elsewhere is untouched', () => {
+  for (const type of ['text', 'number', 'search', 'url', 'email', 'tel', 'date', undefined]) {
+    assert.equal(enterWouldSubmit('Enter', { tagName: 'INPUT', type }), true, `Enter in <input type=${type}> would publish`);
+  }
+  for (const type of ['checkbox', 'radio', 'button', 'submit', 'file', 'hidden']) {
+    assert.equal(enterWouldSubmit('Enter', { tagName: 'INPUT', type }), false, `<input type=${type}> was blocked for nothing`);
+  }
+  assert.equal(enterWouldSubmit('Enter', { tagName: 'TEXTAREA' }), false, 'a textarea lost its newline');
+  assert.equal(enterWouldSubmit('Enter', { tagName: 'BUTTON', type: 'button' }), false, 'a button lost its Enter press');
+  assert.equal(enterWouldSubmit('a', { tagName: 'INPUT', type: 'text' }), false, 'typing was blocked');
+});
+
 // ── 2 + 3 · the maker wires it, for every sheet and every field ─────────────
 
 /** End of a JSX opening tag starting at `start` (`<Tag`), skipping `{…}` props. */
@@ -304,8 +317,15 @@ test('the sheet joins its fields by construction, on the portaled root', () => {
   );
   assert.match(
     body,
-    /createPortal\(\s*<div ref=\{rootRef\}/,
+    /createPortal\(\s*<div\s+ref=\{rootRef\}/,
     'the joining watches something other than the portaled root',
+  );
+  // Joined fields would let Enter in the price box submit the card through its
+  // default button — Publish. The joined sheet swallows that one key.
+  assert.match(
+    body,
+    /onKeyDown=\{\s*formId\s*\?\s*\(e\) => \{\s*if \(enterWouldSubmit\(e\.key, e\.target as HTMLInputElement\)\) e\.preventDefault\(\);/,
+    'a joined sheet lets Enter submit (and publish) the card',
   );
 });
 

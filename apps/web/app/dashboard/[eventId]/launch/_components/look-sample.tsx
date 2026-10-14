@@ -203,7 +203,7 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
         <div aria-hidden data-look-sample-picture="" className="absolute inset-0 -z-10 overflow-hidden">
           <div className={`absolute inset-0${drifting ? ' sn-look-sample-drift' : ''}`} style={blur}>
             {/* 🥧 The film's own figure (`buffered` / `duration` of THIS element) is told to the pick that waits for it — no request. */}
-            <LoopPicture src={picture.clip} onLoad={(load) => tellFilmLoad(picture.clip, load)}>
+            <LoopPicture src={picture.clip} position={picture.position} onLoad={(load) => tellFilmLoad(picture.clip, load)}>
               <StillOverSwatch src={picture.still} swatch="transparent" position={picture.position} />
             </LoopPicture>
           </div>

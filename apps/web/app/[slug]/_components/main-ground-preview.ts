@@ -33,7 +33,7 @@
  * 🔒 NOTHING FROM THE MESSAGE BECOMES CSS UNCHECKED: an address must be this
  * origin's own path or an https URL with no quote, bracket or space; a colour a
  * 6-digit hex; a blend or pattern a gradient spelled in a closed alphabet (no
- * `url(`, no quote, no semicolon); a position one of three words. The bridge
+ * `url(`, no quote, no semicolon); a position one of five words. The bridge
  * also checks the message's origin. Tiny and dependency-free: it ships in the
  * guest page's bundle, behind the bridge.
  */
@@ -54,7 +54,9 @@ export type MainGroundLay = {
 };
 export type MainGroundPreview = { seq: number; lay: MainGroundLay | null } | { seq: number; landed: true };
 
-const POSITIONS = ['center', 'center top', 'center bottom'];
+/* The words `mainGroundPosition` gives (`MAIN_GROUND_POSITIONS`, held equal by `lib/focus-moves-the-picture.test.ts`) —
+   spelled out here because this file ships in the guest page's bundle and imports nothing. */
+const POSITIONS = ['center', 'center top', 'center bottom', 'left center', 'right center'];
 const BLURS = ['soft', 'strong'];
 const HEX = /^#[0-9a-f]{6}$/i;
 const TRIPLET = /^\d{1,3} \d{1,3} \d{1,3}$/;

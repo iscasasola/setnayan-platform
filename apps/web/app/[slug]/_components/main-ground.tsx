@@ -74,7 +74,7 @@ export function MainGround({
   veil?: { color: string; opacity: number } | null;
   /** 🌫 Blur ▾ — Soft · Strong; null = sharp. */
   blur?: HubMainBlur | null;
-  /** 🎯 Focus ▾ — which part of a photo stays in view; null = the centre. */
+  /** 🎯 Focus ▾ — which part of the picture (a photo or the clip) stays in view; null = the centre. */
   focus?: HubMainFocus | null;
 }) {
   if (!still && !clip) return null;
@@ -116,7 +116,9 @@ export function MainGround({
             play="loop"
             open="inplace"
             label=""
-            className={`absolute inset-0 h-full w-full object-cover ${focus === 'top' ? 'object-top' : focus === 'bottom' ? 'object-bottom' : ''}`}
+            className="absolute inset-0 h-full w-full object-cover"
+            /* 🎯 The film is held where its still is — the ONE crop rule, not a second copy in class names. */
+            position={position}
               revealOnPlay
             />
           </div>

@@ -414,9 +414,12 @@ function useReducedMotion(): boolean {
 export function LoopPicture({
   src,
   onLoad,
+  position,
   children,
 }: {
   src: string | null;
+  /** 🎯 Where the film is held when it is cropped — the guest page's own rule (`mainGroundPosition`). Absent = its centre. */
+  position?: string;
   /**
    * 🥧 How much of the film is in, and whether it is ready — read off THIS element (`buffered` / `duration`), the one
    * that plays; no request is made to learn it (`lib/pick-load.ts`). "Ready" is also said where the film will never
@@ -485,6 +488,7 @@ export function LoopPicture({
           onPause={() => setMoving(false)}
           onError={() => setFailed(true)}
           className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${moving ? 'opacity-100' : 'opacity-0'}`}
+          {...(position && position !== 'center' ? { style: { objectPosition: position } } : {})}
         />
       ) : null}
     </>

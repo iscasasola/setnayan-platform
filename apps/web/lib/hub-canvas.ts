@@ -1322,8 +1322,17 @@ export const HUB_MAIN_PATTERN_LABEL: Readonly<Record<HubMainPatternKey, string>>
 export const HUB_MAIN_BLURS = ['soft', 'strong'] as const;
 export type HubMainBlur = (typeof HUB_MAIN_BLURS)[number];
 
-/** Focus ▾ — Centre (absent) · Top · Bottom; which part of a PHOTO stays in view. */
-export const HUB_MAIN_FOCUSES = ['top', 'bottom'] as const;
+/**
+ * Focus ▾ — Centre (absent) · Top · Bottom · Left · Right; which part of a picture (a photo OR a clip) stays in view
+ * when the screen crops it.
+ *
+ * 🎯 LEFT · RIGHT (owner 2026-10-14, Maker test item 2: *"focus not working"*). The page's background covers the
+ * screen, and a PHONE is taller than almost any photo (375 × 812 is 0.46 wide-to-tall; a square is 1, an upright 4:5
+ * is 0.8) — so on a phone the picture is cropped at its SIDES and Top · Bottom moved nothing at all. They only bite
+ * on a wide screen. Left · Right are the phone's crop; Top · Bottom stay for the wide one. Stored words only — an
+ * event that holds `top` keeps it.
+ */
+export const HUB_MAIN_FOCUSES = ['top', 'bottom', 'left', 'right'] as const;
 export type HubMainFocus = (typeof HUB_MAIN_FOCUSES)[number];
 
 /**
@@ -1334,9 +1343,20 @@ export type HubMainFocus = (typeof HUB_MAIN_FOCUSES)[number];
  * page as a phone crops it) — a second copy would let a card show a face the
  * page has cropped away.
  */
-export function mainGroundPosition(focus: HubMainFocus | null | undefined): 'center top' | 'center bottom' | 'center' {
-  return focus === 'top' ? 'center top' : focus === 'bottom' ? 'center bottom' : 'center';
+export function mainGroundPosition(focus: HubMainFocus | null | undefined): MainGroundPosition {
+  return focus ? MAIN_GROUND_POSITION[focus] : 'center';
 }
+
+/** Each Focus as CSS — `background-position` and `object-position` read the same words. */
+const MAIN_GROUND_POSITION = {
+  top: 'center top',
+  bottom: 'center bottom',
+  left: 'left center',
+  right: 'right center',
+} as const satisfies Record<HubMainFocus, string>;
+export type MainGroundPosition = 'center' | (typeof MAIN_GROUND_POSITION)[HubMainFocus];
+/** Every position a background can be held at — the canvas bridge accepts these words and no others. */
+export const MAIN_GROUND_POSITIONS: readonly MainGroundPosition[] = ['center', ...HUB_MAIN_FOCUSES.map((f) => MAIN_GROUND_POSITION[f])];
 
 /**
  * Shade ▾ — Darker · Dark · As is · Light · Lighter. THE vocabulary (re-exported
@@ -1433,11 +1453,12 @@ export function hubMainLook(m: HubMainGround | null | undefined): HubMainLook {
   return { ...(shade ? { shade } : {}), ...(blur ? { blur } : {}), ...(focus ? { focus } : {}) };
 }
 
-/** Can this main background take Shade · Blur (footage), and Focus (a photo)? */
+/** Can this main background take Shade · Blur (footage), and Focus (their own photo or clip, the cover)? */
 export function hubMainTakes(m: HubMainGround | null | undefined): { shade: boolean; blur: boolean; focus: boolean } {
   if (!m) return { shade: false, blur: false, focus: false };
   if ('follow' in m) return { shade: true, blur: true, focus: true };
-  if ('media' in m) return { shade: true, blur: true, focus: m.kind === 'photo' };
+  /* 🎯 A clip is cropped exactly as a photo is (owner 2026-10-14: Focus must work "for a photo and a video"). */
+  if ('media' in m) return { shade: true, blur: true, focus: true };
   if (m.ground === 'loop') return { shade: true, blur: true, focus: false };
   return { shade: false, blur: false, focus: false };
 }
@@ -1561,7 +1582,7 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   const tint = sanitizeHubTint(src.tint);
   if (tint) out.tint = tint;
   if (src.motion === 'parallax' && out.kind === 'photo') out.motion = 'parallax';
-  return { ...out, ...readMainLook(src, { focus: out.kind === 'photo' }), ...fx };
+  return { ...out, ...readMainLook(src, { focus: true }), ...fx };
 }
 
 /** The Main background stored on a row's `config_json` (the hero row's), or null. */

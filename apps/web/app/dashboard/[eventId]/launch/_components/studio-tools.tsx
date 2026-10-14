@@ -746,7 +746,7 @@ async function draftTook(send: Promise<{ ok: boolean }>): Promise<boolean> {
 
 const NONE_LABEL = { blur: 'None', focus: 'Centre', pattern: 'None' } as const;
 const BLUR_LABEL = { soft: 'Soft', strong: 'Strong' } as const;
-const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
+const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' } as const;
 
 /**
  * 🌄 THE MAIN BACKGROUND'S EXTRAS (owner 2026-10-06 DECISION_LOG "STUDIO › LOOK IS
@@ -756,7 +756,7 @@ const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
  *   · Pattern ▾  None · Fine lines · Dots · Lace · Grid — a pattern on the
  *     Background colour, the prototype's Pattern type (picking one puts it
  *     behind every stage; None takes it off, back to just the colour);
- *   · Focus ▾    Centre · Top · Bottom — a photo;
+ *   · Focus ▾    Centre · Top · Bottom · Left · Right — a photo or a clip;
  *   · Blur ▾     None · Soft · Strong — a photo, a clip or a moving background;
  *   · Shade ▾    Darker · Dark · As is · Light · Lighter — the same three; the
  *     guest page lays the veil and never crosses the contrast floor.

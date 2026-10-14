@@ -22,3 +22,9 @@ Pure data (one UPDATE on `paparazzi_seats`, idempotent), never applied anywhere.
 
 SPEC IMPACT: None beyond the members' own (see their fragments; the corpus 📬 row's "On the day (default)" →
 "On the event day" amendment is still owed, per #6530's handover).
+
+Then the members' batch-6 walk fixes, merged `--no-ff` at their new heads: #6529 @b956a0e576 ("Later" never takes Buy
+more away · the Papic page order · the run-out sentence said once over the viewfinder) and #6530 @ae4a566a76 (a join
+request refused before replies open is told the Reply card's words and day · "Tap one to continue" never covers an
+answer at 320 × 568, the reply-card golden carrying those two CSS rules). No conflicts; the stage golden and the
+reply-card golden both pass on the join unchanged. Port-control baseline regenerated.

@@ -102,7 +102,9 @@ const ICONS: Record<NavSlot['key'], typeof Home> = {
 };
 
 /** One slot's chrome. `min-w-0` + nowrap + ellipsis because a label that wraps
- *  grows its slot and tilts the whole bar. */
+ *  grows its slot and tilts the whole bar. The label is its OWN block (2026-10-14):
+ *  as a bare text node in a centred flex column it could not take an ellipsis, so
+ *  "Our Love Story" in a five-tab bar was clipped at BOTH ends ("Dur Love Story"). */
 const SLOT =
   'flex h-full flex-col items-center justify-center gap-1 px-0.5 text-center ' +
   'text-xs font-semibold leading-none tracking-tight ' +
@@ -160,7 +162,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
                 strokeWidth={2.5}
               />
             </span>
-            {slot.label}
+            <span className="block max-w-full truncate">{slot.label}</span>
           </button>
         ) : (
           <a
@@ -169,7 +171,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
             className={`${SLOT} ${slot.key === activeKey ? 'text-ink' : 'text-ink/65 hover:text-ink'}`}
           >
             <Icon aria-hidden className="h-5 w-5" strokeWidth={slot.key === activeKey ? 2.25 : 1.75} />
-            {slot.label}
+            <span className="block max-w-full truncate">{slot.label}</span>
           </a>
         )}
       </li>
@@ -196,13 +198,13 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
               strokeWidth={2.5}
             />
           </span>
-          {slot.label}
+          <span className="block max-w-full truncate">{slot.label}</span>
         </button>
       ) : (
         /* 📸 It carries the tab it was tapped on, so the camera's × comes back here. */
         <a href={cameraHrefWithBack(slot.href, activeKey)} className={`${SLOT} text-mulberry hover:text-mulberry-600`}>
           <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
-          {slot.label}
+          <span className="block max-w-full truncate">{slot.label}</span>
         </a>
       )}
     </li>
@@ -239,7 +241,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
                 strokeWidth={2.5}
               />
             </span>
-            {slot.label}
+            <span className="block max-w-full truncate">{slot.label}</span>
           </button>
         ) : (
           <a
@@ -254,7 +256,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
             }`}
           >
             <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            {slot.label}
+            <span className="block max-w-full truncate">{slot.label}</span>
           </a>
         )}
       </li>

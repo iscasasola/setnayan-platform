@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4a3a29caf2",
-  "routeCount": 438,
-  "destinations": 949,
-  "actions": 671,
-  "blocks": 6284,
+  "generatedFromRef": "6558c438b",
+  "routeCount": 440,
+  "destinations": 956,
+  "actions": 666,
+  "blocks": 6298,
   "routes": {
     "/": {
       "files": [
@@ -10288,6 +10288,18 @@
         "BudgetScreen"
       ]
     },
+    "/dev/card-maker-lab": {
+      "files": [
+        "dev/card-maker-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/card-maker-lab"
+      ],
+      "actions": [],
+      "blocks": [
+        "CanvasMaker"
+      ]
+    },
     "/dev/customer-money-lab": {
       "files": [
         "dev/customer-money-lab/page.tsx"
@@ -13632,7 +13644,6 @@
         "vendor-dashboard/services/_components/manager-tabs.tsx",
         "vendor-dashboard/services/_components/payment-schedule-editor.tsx",
         "vendor-dashboard/services/_components/pricing-basis-editor.tsx",
-        "vendor-dashboard/services/_components/publish-gate-submit.tsx",
         "vendor-dashboard/services/_components/refinements-editor.tsx",
         "vendor-dashboard/services/_components/service-card-face.tsx",
         "vendor-dashboard/services/_components/service-card-live-preview.tsx",
@@ -13649,32 +13660,32 @@
       ],
       "destinations": [
         "/vendor-dashboard/attributes",
-        "/vendor-dashboard/services/new/[seg]?from=[seg]"
+        "/vendor-dashboard/packages",
+        "/vendor-dashboard/services/new/[seg]?from=[seg]",
+        "/vendor-dashboard/subscription"
       ],
       "actions": [
-        "addServiceTimeSlot",
         "commitVendorService",
         "createCoverage",
         "createVendorService",
         "deleteCoverage",
-        "deleteServiceTimeSlot",
         "deleteVendorService",
         "proposeCategory",
         "saveAudience",
         "saveServiceRefinements",
         "setServiceAddons",
-        "setServiceLinks",
-        "setServicePaymentSchedule",
         "toggleVendorServiceActive",
-        "updateCoverageServes",
-        "updateVendorService"
+        "updateCoverageServes"
       ],
       "blocks": [
+        "ActionButton",
+        "AddCoverageForCardResult",
         "AddRowButton",
         "AddServiceForm",
         "AddonsEditor",
         "AmountInput",
         "AttributeFieldRenderer",
+        "Badge",
         "Basis",
         "BranchAssignment",
         "BranchSelect",
@@ -13682,11 +13693,8 @@
         "CanvasKeep",
         "CanvasSheet",
         "CardRecordSection",
-        "CardRegion",
         "CheckChip",
         "ChipGroup",
-        "CoachChip",
-        "ConfirmForm",
         "CoverageBrowse",
         "CoverageLeaf",
         "CoveragePanel",
@@ -13701,34 +13709,37 @@
         "DraftOption",
         "Field",
         "FileUpload",
-        "FindingRow",
+        "Fold",
         "Fragment",
         "GridCard",
         "HTMLDivElement",
         "HTMLFormElement",
-        "HTMLInputElement",
-        "HealthHeader",
         "Icon",
         "IncludedFlags",
         "InclusionsEditor",
-        "KindPill",
+        "KindGroup",
+        "KindRow",
         "LastMinuteFields",
         "LeafIndex",
         "LineRow",
         "Link",
+        "MakerRow",
         "ManagerTabs",
         "Muted",
         "PField",
+        "ParsedScheduleRow",
         "PaymentScheduleEditor",
+        "PendingWatch",
+        "PickMenu",
         "PillButton",
         "PillTrack",
         "PriceBracketsEditor",
         "PricingBasisEditor",
-        "PublishGateSubmit",
         "Recap",
         "RefinementsEditor",
         "RequestStatusBadge",
         "Row",
+        "RowIcon",
         "RowRemove",
         "SectionEyebrow",
         "SelectChip",
@@ -13739,13 +13750,33 @@
         "SetnayanGiftField",
         "SetnayanGiftLine",
         "SheetKey",
+        "Shell",
         "ShowcaseMediaFields",
-        "SlotEditor",
+        "SlotRows",
         "Snapshot",
+        "SubIcon",
         "SubLabel",
         "SubmitButton",
+        "SupplierSubmit",
+        "SupplierThumbRow",
         "SwitchTrack",
         "YourCoverage"
+      ]
+    },
+    "/vendor-dashboard/services/[serviceId]": {
+      "files": [
+        "vendor-dashboard/services/[serviceId]/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/services/[seg]",
+        "/vendor-dashboard/shop"
+      ],
+      "actions": [],
+      "blocks": [
+        "CanvasMaker",
+        "CardRecordSection",
+        "Link",
+        "RefinementsEditor"
       ]
     },
     "/vendor-dashboard/services/new": {
@@ -13753,12 +13784,14 @@
         "vendor-dashboard/services/new/page.tsx"
       ],
       "destinations": [
+        "/vendor-dashboard/services/new",
         "/vendor-dashboard/shop"
       ],
       "actions": [],
       "blocks": [
         "CanvasMaker",
-        "Link"
+        "Link",
+        "RefinementsEditor"
       ]
     },
     "/vendor-dashboard/services/new/[category]": {
@@ -13766,12 +13799,14 @@
         "vendor-dashboard/services/new/[category]/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/services"
+        "/vendor-dashboard/services",
+        "/vendor-dashboard/services/new/[seg]"
       ],
       "actions": [],
       "blocks": [
         "CanvasMaker",
         "Link",
+        "RefinementsEditor",
         "ServiceWizard"
       ]
     },

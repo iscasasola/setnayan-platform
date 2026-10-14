@@ -391,6 +391,10 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   const pickCurrent = currentTier === 'verified' ? 'free' : currentTier;
   const plans: PlanPick[] = [
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(currentTier, 'free', expiresOn) },
+    // A Custom shop's own plan is not sold here — it is listed so the dropdown shows what they are on.
+    ...(currentTier === 'custom'
+      ? [{ key: 'custom', name: 'Custom', price: {}, tooShort: {}, pickLine: 'Your own plan — change it under Custom plan below' }]
+      : []),
     ...visibleTiers.map((tier) => ({
       key: tier,
       name: planWord(tier),

@@ -60,12 +60,13 @@ export function PlanPicker({
   const plan = plans.find((p) => p.key === picked) ?? plans[0];
   if (!plan) return null;
   const isFree = plan.key === 'free';
+  const isCustom = plan.key === 'custom';
   const price = plan.price[cycle];
   const tooShort = plan.tooShort[cycle] ?? null;
 
   const options = plans.map((p) => ({
     key: p.key,
-    label: p.key === 'free' ? 'Free' : p.price[cycle] !== undefined ? `${p.name} · ${formatPhp(p.price[cycle]!)} / ${CYCLE_WORD[cycle]}` : p.name,
+    label: p.key === 'free' || p.key === 'custom' ? p.name : p.price[cycle] !== undefined ? `${p.name} · ${formatPhp(p.price[cycle]!)} / ${CYCLE_WORD[cycle]}` : p.name,
   }));
 
   return (
@@ -86,7 +87,7 @@ export function PlanPicker({
           />
         }
       />
-      {isFree ? null : (
+      {isFree || isCustom ? null : (
         <DatesRow
           data="plan-cycle"
           title="Cycle"
@@ -113,12 +114,14 @@ export function PlanPicker({
         line={
           isFree
             ? 'Nothing to pay · nothing renews by itself'
-            : price === undefined
+            : isCustom
+              ? 'Your Custom quote'
+              : price === undefined
               ? 'Not sold on this cycle right now'
               : tooShort ?? `${formatPhp(price)} / ${CYCLE_WORD[cycle]} · Setnayan confirms your payment`
         }
         end={
-          isFree || price === undefined || tooShort ? undefined : verified ? (
+          isFree || isCustom || price === undefined || tooShort ? undefined : verified ? (
             <form action={action} data-plan-pay-form="">
               <input type="hidden" name="sku_code" value={`${plan.key}_vendor_${cycle}`} />
               <SupplierSubmit
@@ -134,7 +137,7 @@ export function PlanPicker({
           )
         }
       />
-      {!verified && !isFree ? (
+      {!verified && !isFree && !isCustom ? (
         <p className="pb-1 text-[13px] text-ink/60" data-plan-unverified="">
           Plans open once Setnayan approves your shop. <Link href="/vendor-dashboard/shop#get-verified" className="font-medium text-sn-accent underline underline-offset-4">Get verified in Your shop</Link>
         </p>

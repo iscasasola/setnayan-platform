@@ -51,6 +51,7 @@ import {
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailDetails } from '@/lib/payment-channels';
 import { tierCaps, asVendorTier, isTierAtLeast, entryTierAllowance } from '@/lib/vendor-tier-caps';
+import { FREE_HELPER_SEATS, teamSeats } from '@/lib/vendor-free-helper';
 import { vendorAllowance, vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { isVendorSearchGateEnabled } from '@/lib/vendor-search-gate';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -867,19 +868,26 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     tierCaps(asVendorTier(tier)).agentAccounts,
     entryTierAllowance('agentAccounts'),
   );
-  const teamSeatsUsed = team.filter((m) => m.user_id !== profile.user_id).length;
+  // 🧑‍🤝‍🧑 One Helper rides free on every plan — the same count the invite action applies.
+  const teamSeatNow = teamSeats(team, profile.user_id);
+  const teamSeatsUsed = teamSeatNow.counted;
+  const freeHelperOpen = teamSeatNow.freeHelpers < FREE_HELPER_SEATS;
   const teamSeatsLeft =
     teamSeatCap === Infinity ? Infinity : Math.max(0, teamSeatCap - teamSeatsUsed);
   const teamSub =
     teamSeatCap === Infinity
       ? 'Unlimited seats'
       : teamSeatCap === 0
-        ? noteShell
-          ? 'Not on your plan'
-          : '◆ Paid plans'
+        ? freeHelperOpen
+          ? 'One Helper free'
+          : noteShell
+            ? 'Not on your plan'
+            : '◆ Paid plans'
         : teamSeatsLeft > 0
           ? `Add up to ${teamSeatsLeft}`
-          : 'Seats full';
+          : freeHelperOpen
+            ? 'One Helper free'
+            : 'Seats full';
   // Branch headroom: Enterprise-or-higher may add locations (each is a paid
   // add-on, no hard cap). For every other plan that requirement is a paywall,
   // asked through vendorPaywallApplies — off, anyone may add one (and pays for

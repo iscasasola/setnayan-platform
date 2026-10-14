@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { Gavel, LogOut, Mail, Trash2, UserPlus, Users } from 'lucide-react';
+import { Check, Gavel, LogOut, Trash2, UserPlus, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tierCaps, asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
@@ -10,6 +10,7 @@ import {
   fetchExtraAgentSeats,
   fetchSeatFeePhp,
 } from '@/lib/vendor-seats';
+import { FREE_HELPER_ROLE, seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import {
   enrichTeamWithUsers,
   fetchAdminVendorContext,
@@ -18,16 +19,18 @@ import {
   fetchOpenAdminMotions,
   fetchVendorTeam,
   isVendorAdminRole,
-  VENDOR_ASSIGNABLE_ROLES,
   VENDOR_TEAM_ROLE_BLURB,
   VENDOR_TEAM_ROLE_LABEL,
+  VENDOR_TEAM_ROLE_PICK,
   type AssignableService,
   type VendorAdminMotion,
   type VendorAdminMotionVote,
   type VendorTeamMemberWithUser,
-  type VendorTeamRole,
 } from '@/lib/vendor-team';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Badge } from '@/app/_components/badge';
+import { Fold } from '@/app/_components/fold';
+import { formatPhp } from '@/lib/php';
 import {
   buyExtraSeat,
   cancelAdminMotion,
@@ -40,9 +43,24 @@ import {
   voteAdminMotion,
 } from './actions';
 import { ShopNotice } from '../_components/kit';
+import { SupplierSubmit } from '../_components/supplier-submit';
+import { DatesRow } from '../customers/_components/dates-row';
+import { InviteHelperSheet, RolePick } from './_components/helpers-controls';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Team · Supplier' };
+/**
+ * /vendor-dashboard/team — HELPERS (simpler supplier dashboard step 6; owner-APPROVED 2026-10-14 "team seats →
+ * Helpers"; prototype SCREENS.helpers + SHEETS.invite). The shipped Team page, re-drawn as rows:
+ *
+ *   · one row per person, the role as ONE dropdown (`RolePick` → the shipped `updateVendorTeamMember`), ✕ removes;
+ *   · Helpers on your plan — the seat line, with the ONE FREE HELPER every plan carries (lib/vendor-free-helper.ts);
+ *   · Add a seat (Enterprise/Custom, live catalogue price) · Who works what (labels + an agent's services) ·
+ *     Admin changes (two admins agree — the shipped motions) · Step down;
+ *   · the one terracotta button, "Invite a helper", opens the invite sheet (the shipped `inviteVendorTeamMember`).
+ *
+ * Same reads as before, same actions; nothing new is fetched. ADMIN-gated as before.
+ */
+export const metadata = { title: 'Helpers · Supplier' };
 
 type Props = {
   searchParams: Promise<{
@@ -52,13 +70,6 @@ type Props = {
     motion?: string;
     voted?: string;
   }>;
-};
-
-const ROLE_TONE: Record<VendorTeamRole, string> = {
-  owner: 'bg-sky-100 text-sky-800',
-  admin: 'bg-sky-100 text-sky-800',
-  agent: 'bg-success-100 text-success-800',
-  viewer: 'bg-ink/10 text-ink/65',
 };
 
 // A NULL proposer means the account was deleted (migration 20271210831005).
@@ -71,8 +82,8 @@ function nameOf(members: VendorTeamMemberWithUser[], userId: string | null): str
 }
 
 function motionLabel(m: VendorAdminMotion): string {
-  if (m.kind === 'remove') return 'Remove from store';
-  return `Demote to ${m.new_role === 'viewer' ? 'Viewer' : 'Agent'}`;
+  if (m.kind === 'remove') return 'Remove from the shop';
+  return `Make a ${m.new_role === 'viewer' ? 'Helper' : 'Team member'}`;
 }
 
 export default async function VendorTeamPage({ searchParams }: Props) {
@@ -118,10 +129,10 @@ export default async function VendorTeamPage({ searchParams }: Props) {
     canBuySeats ? fetchSeatFeePhp(supabase) : Promise.resolve(0),
   ]);
   const effectiveCap = effectiveSeatCap(baseSeatCap, extraSeats);
-  const usedSeats = enriched.filter((m) => m.user_id !== ctx.founderUserId).length;
-  const seatsLeft = Number.isFinite(effectiveCap)
-    ? Math.max(effectiveCap - usedSeats, 0)
-    : Infinity;
+  // 🧑‍🤝‍🧑 One Helper rides free on every plan (lib/vendor-free-helper.ts) — the SAME
+  // rule the invite and role-change actions apply, read off the rows already here.
+  const seats = teamSeats(enriched, ctx.founderUserId);
+  const seatsLine = seatLine(seats, effectiveCap);
 
   const { motions, votes } = motionData;
   const votesByMotion = new Map<string, VendorAdminMotionVote[]>();
@@ -132,335 +143,312 @@ export default async function VendorTeamPage({ searchParams }: Props) {
   }
 
   const storeShell = await isStoreShellRequest();
+  const me = enriched.find((m) => m.user_id === user.id) ?? null;
+  const iAmAdmin = me ? isVendorAdminRole(me.role) : true;
+  const otherAdmins = enriched.filter((m) => m.user_id !== user.id && isVendorAdminRole(m.role));
+  const agents = enriched.filter((m) => m.role === 'agent');
+  const nonAdmins = enriched.filter((m) => m.user_id !== user.id && !isVendorAdminRole(m.role));
+  const roleOptions = VENDOR_TEAM_ROLE_PICK.map((o) => ({ key: o.key as string, label: o.label }));
+
   return (
-    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <Users aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-        </div>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Team</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Your store is run by one or more <strong>Admins</strong>. Any admin can manage the team;
-          changing or removing another admin needs a majority vote of the other admins. Agents are
-          scoped to assigned services; Viewers are read-only. The optional label is what shows in the
-          couple-facing chat when this person replies for the business.
+    <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6 sm:pt-10" data-helpers-screen="">
+      <header className="space-y-1">
+        <h1 className="sn-h1">Helpers</h1>
+        <p className="text-[14px] text-ink/65">
+          Helpers and team members see Today and Customers only. Admins run the shop with you.
         </p>
       </header>
 
-      {search.error ? (
-        <ShopNotice tone="gold" role="alert">
-          {decodeURIComponent(search.error)}
-        </ShopNotice>
-      ) : null}
-      {search.invited ? (
-        <ShopNotice tone="success" role="status">
-          Team member added.
-        </ShopNotice>
-      ) : null}
-      {search.motion ? (
-        <p role="status" className="rounded-md border border-sky-300/60 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-          Vote started — the other admins can now weigh in.
-        </p>
-      ) : null}
-      {search.voted ? (
-        <p role="status" className="rounded-md border border-sky-300/60 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-          Your vote was recorded.
-        </p>
-      ) : null}
-      {search.saved ? (
-        <ShopNotice tone="success" role="status">
-          Team updated.
-        </ShopNotice>
-      ) : null}
+      <div className="mt-3 space-y-2">
+        {search.error ? (
+          <ShopNotice tone="gold" role="alert">
+            {decodeURIComponent(search.error)}
+          </ShopNotice>
+        ) : null}
+        {search.invited ? (
+          <ShopNotice tone="success" role="status">
+            They are on your team. They see it the next time they open Setnayan.
+          </ShopNotice>
+        ) : null}
+        {search.motion ? (
+          <ShopNotice tone="success" role="status">
+            Vote started — the other admins can now weigh in.
+          </ShopNotice>
+        ) : null}
+        {search.voted ? (
+          <ShopNotice tone="success" role="status">
+            Your vote was recorded.
+          </ShopNotice>
+        ) : null}
+        {search.saved ? (
+          <ShopNotice tone="success" role="status">
+            Saved.
+          </ShopNotice>
+        ) : null}
+      </div>
 
-      {/* ── Open admin votes ──────────────────────────────────────────── */}
-      {motions.length > 0 ? (
-        <section className="space-y-3 rounded-2xl border border-sky-200 bg-sky-50/50 p-5">
-          <h2 className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-sky-900/70">
-            <Gavel className="h-4 w-4" strokeWidth={1.75} aria-hidden /> Admin votes ({motions.length})
-          </h2>
-          <ul className="space-y-3">
-            {motions.map((m) => {
-              const others = Math.max(adminCount - 1, 0); // admins excluding the target
-              const needed = Math.floor(others / 2) + 1;
-              const mv = votesByMotion.get(m.motion_id) ?? [];
-              const approvals = mv.filter((v) => v.approve && v.voter_user_id !== m.target_user_id).length;
-              const myVote = mv.find((v) => v.voter_user_id === user.id);
-              const iAmTarget = m.target_user_id === user.id;
-              return (
-                <li key={m.motion_id} className="rounded-xl border border-sky-200 bg-white/70 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-ink">
-                        {motionLabel(m)} · {nameOf(enriched, m.target_user_id)}
-                      </p>
-                      <p className="text-xs text-ink/55">
-                        Proposed by {nameOf(enriched, m.proposed_by)} · {formatCount(approvals)}/{formatCount(needed)} approvals needed
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-sky-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-sky-800">
-                      Open
-                    </span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {iAmTarget ? (
-                      <span className="text-xs text-ink/55">You can’t vote on a motion about yourself.</span>
-                    ) : (
-                      <>
-                        <form action={voteAdminMotion}>
-                          <input type="hidden" name="motion_id" value={m.motion_id} />
-                          <input type="hidden" name="approve" value="true" />
-                          <SubmitButton
-                            className={`inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium ${myVote?.approve ? 'bg-success-600 text-white' : 'border border-success-300 bg-white/70 text-success-900 hover:border-success-500'}`}
-                            pendingLabel="…"
-                          >
-                            Approve{myVote?.approve ? ' ✓' : ''}
-                          </SubmitButton>
-                        </form>
-                        <form action={voteAdminMotion}>
-                          <input type="hidden" name="motion_id" value={m.motion_id} />
-                          <input type="hidden" name="approve" value="false" />
-                          <SubmitButton
-                            className={`inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium ${myVote && !myVote.approve ? 'bg-terracotta text-white' : 'border border-ink/20 bg-white/70 text-ink hover:border-ink/40'}`}
-                            pendingLabel="…"
-                          >
-                            Reject{myVote && !myVote.approve ? ' ✓' : ''}
-                          </SubmitButton>
-                        </form>
-                      </>
-                    )}
-                    <form action={cancelAdminMotion} className="ml-auto">
-                      <input type="hidden" name="motion_id" value={m.motion_id} />
-                      <SubmitButton
-                        className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-ink/55 hover:text-terracotta-700"
-                        pendingLabel="…"
-                      >
-                        Cancel vote
-                      </SubmitButton>
-                    </form>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
-
-      {/* ── Invite ────────────────────────────────────────────────────── */}
-      <section className="space-y-3 sn-tile p-5">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Invite a team member
-        </h2>
-        <p className="text-xs text-ink/55">
-          Your colleague needs a Setnayan account first (any kind). Once they&rsquo;ve signed up,
-          add them here by email.
-        </p>
-        <form action={inviteVendorTeamMember} className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto]">
-          <label htmlFor="invite-email" className="block space-y-1">
-            <span className="block text-xs font-medium text-ink/70">Email</span>
-            <input id="invite-email" name="email" type="email" required placeholder="colleague@example.com" className="input-field" />
-          </label>
-          <label htmlFor="invite-role" className="block space-y-1">
-            <span className="block text-xs font-medium text-ink/70">Role</span>
-            <select id="invite-role" name="role" defaultValue="viewer" className="input-field cursor-pointer">
-              {VENDOR_ASSIGNABLE_ROLES.map((r) => (
-                <option key={r} value={r}>{VENDOR_TEAM_ROLE_LABEL[r]}</option>
-              ))}
-            </select>
-          </label>
-          <label htmlFor="invite-label" className="block space-y-1">
-            <span className="block text-xs font-medium text-ink/70">Label (optional)</span>
-            <input id="invite-label" name="team_label" maxLength={64} placeholder="e.g. Videographer" className="input-field" />
-          </label>
-          <div className="flex items-end">
-            <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Adding…">
-              <Mail className="mr-1.5 h-4 w-4" strokeWidth={1.75} aria-hidden />
-              Add
-            </SubmitButton>
-          </div>
-        </form>
-        <p className="text-xs text-ink/55">
-          {Number.isFinite(effectiveCap) ? (
-            <>
-              {/* Just the used/cap glance here — the base + extra breakdown lives
-                  once, in the Extra seats card below (deduped 2026-07-16). */}
-              <strong>{formatCount(usedSeats)}</strong> of <strong>{formatCount(effectiveCap)}</strong> team seat
-              {effectiveCap === 1 ? '' : 's'} used — the founding admin is always
-              free and doesn’t count.
-            </>
-          ) : (
-            <>The founding admin is always free and doesn’t count toward seats.</>
-          )}
-        </p>
-      </section>
-
-      {/* ── Extra seats (Enterprise/Custom ₱250/28d add-on · owner 2026-07-02) ── */}
-      {/* 🔒 Never in the App Store / Play Store shell — a seat is a paid add-on
-          (guideline 3.1.1; lib/store-shell.ts). */}
-      {canBuySeats && !storeShell ? (
-        <section className="space-y-3 rounded-2xl border border-terracotta/20 bg-terracotta/[0.04] p-5">
-          <h2 className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            <UserPlus className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden /> Extra
-            seats
-          </h2>
-          <p className="text-sm text-ink/70">
-            Your plan includes <strong>{baseSeatCap}</strong> team seats. Need more? Add extra seats
-            at <strong>₱{seatFeePhp.toLocaleString('en-PH')}/28&nbsp;days</strong> each — they fold
-            into your renewal. You currently have{' '}
-            <strong>{extraSeats}</strong> extra seat{extraSeats === 1 ? '' : 's'} (
-            {Number.isFinite(seatsLeft) ? `${formatCount(seatsLeft)} seat${seatsLeft === 1 ? '' : 's'} free` : 'seats free'}
-            ).
-          </p>
-          <form action={buyExtraSeat} className="flex flex-wrap items-end gap-3">
-            <SubmitButton className="button-primary" pendingLabel="Starting…">
-              <UserPlus className="mr-1.5 h-4 w-4" strokeWidth={1.75} aria-hidden />
-              Add a seat (₱{seatFeePhp.toLocaleString('en-PH')})
-            </SubmitButton>
-          </form>
-          <p className="text-xs text-ink/50">
-            Apply-then-pay: you’ll get a reference code to pay externally, and the seat unlocks once
-            our team confirms your payment.
-          </p>
-        </section>
-      ) : null}
-
-      {/* ── Members ───────────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Members ({enriched.length}) · {formatCount(adminCount)} admin{adminCount === 1 ? '' : 's'}
-        </h2>
-
+      {/* ── WHO IS ON THE TEAM — one row each; a role is ONE dropdown ── */}
+      <div className="mt-4" data-helpers-members="">
         {enriched.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
-            <Users aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-            <p className="text-sm font-medium text-ink">No team members yet.</p>
-          </div>
+          <DatesRow data="helpers-none" title="Just you so far" line="Invite a helper — one Helper is free on every plan" />
         ) : (
-          <ul className="space-y-3">
-            {enriched.map((m) => {
-              const isSelf = m.user_id === user.id;
-              const isAdmin = isVendorAdminRole(m.role);
-              const hasOpenMotion = motions.some((mo) => mo.target_user_id === m.user_id);
-              return (
-                <li key={m.vendor_team_member_id} className="sn-row p-4">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1">
-                      <p className="truncate text-base font-semibold text-ink">
-                        {m.display_name?.trim() || m.email || 'Team member'}
-                        {isSelf ? (
-                          <span className="ml-2 rounded-full bg-ink/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">You</span>
-                        ) : null}
-                      </p>
-                      <p className="truncate font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-                        {m.email ?? '—'}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${ROLE_TONE[m.role]}`}>
-                          {VENDOR_TEAM_ROLE_LABEL[m.role]}
-                        </span>
-                        {m.team_label ? (
-                          <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[11px] text-ink/70">{m.team_label}</span>
-                        ) : null}
-                      </div>
-                      <p className="text-xs text-ink/55">{VENDOR_TEAM_ROLE_BLURB[m.role]}</p>
-                    </div>
-
-                    {/* Self admin → Step down. Non-admin other → unilateral remove. */}
-                    {isSelf && isAdmin ? (
-                      <form action={stepDownSelf}>
-                        <button
-                          type="submit"
-                          disabled={adminCount <= 1}
-                          title={adminCount <= 1 ? 'You’re the only admin — promote someone first' : 'Step down to Agent'}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-md bg-ink/5 px-3 text-xs font-medium text-ink/70 hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <LogOut className="h-4 w-4" strokeWidth={1.75} /> Step down
-                        </button>
-                      </form>
-                    ) : !isSelf && !isAdmin ? (
+          enriched.map((m) => {
+            const isSelf = m.user_id === user.id;
+            const isAdmin = isVendorAdminRole(m.role);
+            const who = m.display_name?.trim() || m.email || 'Team member';
+            const line = [m.team_label, isSelf ? 'You' : m.email].filter(Boolean).join(' · ');
+            return (
+              <DatesRow
+                key={m.vendor_team_member_id}
+                data="helpers-member"
+                title={who}
+                line={line || VENDOR_TEAM_ROLE_BLURB[m.role]}
+                end={
+                  !isSelf && !isAdmin ? (
+                    <span className="flex flex-none items-center gap-1">
+                      <RolePick
+                        memberId={m.vendor_team_member_id}
+                        name={who}
+                        role={m.role}
+                        teamLabel={m.team_label}
+                        options={roleOptions}
+                        action={updateVendorTeamMember}
+                      />
                       <form action={removeVendorTeamMember}>
                         <input type="hidden" name="vendor_team_member_id" value={m.vendor_team_member_id} />
-                        <button type="submit" aria-label="Remove team member" className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-ink/5 text-ink/70 hover:bg-terracotta/10 hover:text-terracotta">
-                          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-                        </button>
+                        <SupplierSubmit
+                          tone="danger"
+                          icon={<Trash2 aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                          label={`Remove ${who}`}
+                          pendingLabel="Removing…"
+                          className="icon-only"
+                        />
                       </form>
+                    </span>
+                  ) : (
+                    <Badge tone={isAdmin ? 'ok' : 'quiet'} data="helpers-role">
+                      {m.user_id === ctx.founderUserId ? 'Owner' : VENDOR_TEAM_ROLE_LABEL[m.role]}
+                    </Badge>
+                  )
+                }
+              />
+            );
+          })
+        )}
+      </div>
+
+      {/* ── THE PLAN, THE EDGES ── */}
+      <div className="mt-5 border-t border-ink/10" data-helpers-rows="">
+        <DatesRow
+          data="helpers-plan"
+          title="Helpers on your plan"
+          line={seatsLine}
+          badge={{ tone: 'quiet', word: 'Plan' }}
+          href={storeShell ? null : '/vendor-dashboard/subscription'}
+        />
+
+        {/* Extra seats — Enterprise/Custom ₱/28d add-on, the live catalogue price. 🔒 Never in the store shell. */}
+        {canBuySeats && !storeShell ? (
+          <DatesRow
+            data="helpers-add-seat"
+            title="Add a seat"
+            line={`${formatPhp(seatFeePhp)} / 28 days each · ${formatCount(extraSeats)} added · joins your renewal`}
+            end={
+              <form action={buyExtraSeat}>
+                <SupplierSubmit
+                  tone="neutral"
+                  icon={<UserPlus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                  label="Add a seat"
+                  pendingLabel="Starting…"
+                />
+              </form>
+            }
+          />
+        ) : null}
+
+        {/* Who works what — the agents' services, and every helper's "what they do" label. */}
+        {nonAdmins.length > 0 ? (
+          <div className="border-t border-ink/10" data-helpers-fold="who-works-what">
+            <Fold
+              title="Who works what"
+              line={
+                agents.length > 0
+                  ? agents.map((a) => `${a.display_name?.trim() || a.email || 'Team member'} · ${(assignments[a.vendor_team_member_id] ?? []).length} services`).join(' · ')
+                  : 'What each helper does'
+              }
+              data="helpers-who-works-what"
+            >
+              <div className="space-y-3 pb-3">
+                {nonAdmins.map((m) => (
+                  <div key={m.vendor_team_member_id} className="border-t border-ink/10 pt-3 first:border-t-0 first:pt-0">
+                    <form action={updateVendorTeamMember} className="flex min-h-[60px] items-end gap-2">
+                      <input type="hidden" name="vendor_team_member_id" value={m.vendor_team_member_id} />
+                      <input type="hidden" name="role" value={m.role} />
+                      <label className="block min-w-0 flex-1 space-y-1">
+                        <span className="block text-[13px] text-ink/60">
+                          What {m.display_name?.trim() || m.email || 'they'} do{' '}
+                        </span>
+                        <input name="team_label" maxLength={64} defaultValue={m.team_label ?? ''} placeholder="e.g. Front desk" className="input-field min-h-11" />
+                      </label>
+                      <SupplierSubmit
+                        tone="neutral"
+                        icon={<Check aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                        label="Save"
+                        pendingLabel="Saving…"
+                      />
+                    </form>
+                    {m.role === 'agent' ? (
+                      <AgentServiceAssignment
+                        memberId={m.vendor_team_member_id}
+                        services={services}
+                        assigned={assignments[m.vendor_team_member_id] ?? []}
+                      />
                     ) : null}
                   </div>
+                ))}
+              </div>
+            </Fold>
+          </div>
+        ) : null}
 
-                  {/* Non-admin, non-self → inline role/label edit (promotion to Admin is unilateral). */}
-                  {!isSelf && !isAdmin ? (
-                    <form action={updateVendorTeamMember} className="grid gap-3 sm:grid-cols-[auto_1fr_auto]">
-                      <input type="hidden" name="vendor_team_member_id" value={m.vendor_team_member_id} />
-                      <label className="block space-y-1">
-                        <span className="block text-xs font-medium text-ink/70">Role</span>
-                        <select name="role" defaultValue={m.role} className="input-field cursor-pointer">
-                          {VENDOR_ASSIGNABLE_ROLES.map((r) => (
-                            <option key={r} value={r}>{VENDOR_TEAM_ROLE_LABEL[r]}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="block space-y-1">
-                        <span className="block text-xs font-medium text-ink/70">Label</span>
-                        <input name="team_label" maxLength={64} defaultValue={m.team_label ?? ''} placeholder="e.g. Videographer" className="input-field" />
-                      </label>
-                      <div className="flex items-end">
-                        <SubmitButton className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-4 text-xs font-medium text-ink hover:border-ink/40" pendingLabel="Saving…">
-                          Save
-                        </SubmitButton>
-                      </div>
-                    </form>
-                  ) : null}
-
-                  {/* Another admin → governance: start a demotion/removal vote. */}
-                  {!isSelf && isAdmin ? (
-                    hasOpenMotion ? (
-                      <p className="rounded-xl border border-sky-200 bg-sky-50/50 p-3 text-xs text-sky-900/80">
-                        A vote about this admin is open above.
+        {/* Admin changes — two admins agree (the shipped motions). */}
+        {otherAdmins.length > 0 || motions.length > 0 ? (
+          <div className="border-t border-ink/10" data-helpers-fold="admin-changes">
+            <Fold
+              title="Admin changes"
+              line={motions.length > 0 ? `${formatCount(motions.length)} vote${motions.length === 1 ? '' : 's'} open · two admins agree` : 'Two admins agree'}
+              aside={motions.length > 0 ? <Badge tone="wait" data="helpers-motions">{formatCount(motions.length)}</Badge> : undefined}
+              data="helpers-admin-changes"
+            >
+              <div className="space-y-3 pb-3">
+                {motions.map((m) => {
+                  const others = Math.max(adminCount - 1, 0); // admins excluding the target
+                  const needed = Math.floor(others / 2) + 1;
+                  const mv = votesByMotion.get(m.motion_id) ?? [];
+                  const approvals = mv.filter((v) => v.approve && v.voter_user_id !== m.target_user_id).length;
+                  const myVote = mv.find((v) => v.voter_user_id === user.id);
+                  const iAmTarget = m.target_user_id === user.id;
+                  return (
+                    <div key={m.motion_id} className="border-t border-ink/10 pt-3 first:border-t-0 first:pt-0" data-helpers-motion="">
+                      <p className="text-[15px] font-medium text-ink">
+                        {motionLabel(m)} · {nameOf(enriched, m.target_user_id)}
                       </p>
-                    ) : (
-                      <div className="space-y-2 rounded-xl border border-sky-200 bg-sky-50/40 p-3">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-sky-900/70">
-                          Admin changes need a team vote
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <form action={proposeAdminMotion} className="flex items-center gap-2">
-                            <input type="hidden" name="target_user_id" value={m.user_id} />
-                            <input type="hidden" name="kind" value="demote" />
-                            <select name="new_role" defaultValue="agent" className="input-field h-8 cursor-pointer py-0 text-xs">
-                              <option value="agent">Demote to Agent</option>
-                              <option value="viewer">Demote to Viewer</option>
-                            </select>
-                            <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md border border-sky-300 bg-white/70 px-3 text-xs font-medium text-sky-900 hover:border-sky-500" pendingLabel="…">
-                              Start vote
-                            </SubmitButton>
-                          </form>
-                          <form action={proposeAdminMotion}>
-                            <input type="hidden" name="target_user_id" value={m.user_id} />
-                            <input type="hidden" name="kind" value="remove" />
-                            <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-ink/55 hover:text-terracotta" pendingLabel="…">
-                              Start removal vote
-                            </SubmitButton>
-                          </form>
-                        </div>
+                      <p className="text-[13px] text-ink/60">
+                        Asked by {nameOf(enriched, m.proposed_by)} · {formatCount(approvals)} of {formatCount(needed)} agree
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {iAmTarget ? (
+                          <span className="text-[13px] text-ink/60">You can’t vote on a change about yourself.</span>
+                        ) : (
+                          <>
+                            <form action={voteAdminMotion}>
+                              <input type="hidden" name="motion_id" value={m.motion_id} />
+                              <input type="hidden" name="approve" value="true" />
+                              <SupplierSubmit
+                                tone="ok"
+                                main={myVote?.approve === true}
+                                icon={<Check aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                                label={myVote?.approve ? 'You agreed' : 'Agree'}
+                                pendingLabel="…"
+                              />
+                            </form>
+                            <form action={voteAdminMotion}>
+                              <input type="hidden" name="motion_id" value={m.motion_id} />
+                              <input type="hidden" name="approve" value="false" />
+                              <SupplierSubmit
+                                tone="danger"
+                                icon={<X aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                                label={myVote && !myVote.approve ? 'You said no' : 'Say no'}
+                                pendingLabel="…"
+                              />
+                            </form>
+                          </>
+                        )}
+                        <form action={cancelAdminMotion}>
+                          <input type="hidden" name="motion_id" value={m.motion_id} />
+                          <SupplierSubmit
+                            tone="neutral"
+                            icon={<X aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                            label="Call off the vote"
+                            pendingLabel="…"
+                          />
+                        </form>
                       </div>
-                    )
-                  ) : null}
+                    </div>
+                  );
+                })}
+                {otherAdmins.map((m) => {
+                  const who = m.display_name?.trim() || m.email || 'Admin';
+                  const hasOpenMotion = motions.some((mo) => mo.target_user_id === m.user_id);
+                  if (hasOpenMotion) return null;
+                  return (
+                    <div key={m.vendor_team_member_id} className="border-t border-ink/10 pt-3 first:border-t-0 first:pt-0" data-helpers-propose="">
+                      <p className="text-[15px] font-medium text-ink">{who}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <form action={proposeAdminMotion}>
+                          <input type="hidden" name="target_user_id" value={m.user_id} />
+                          <input type="hidden" name="kind" value="demote" />
+                          <input type="hidden" name="new_role" value="agent" />
+                          <SupplierSubmit
+                            tone="neutral"
+                            icon={<Gavel aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                            label="Ask to make them a Team member"
+                            pendingLabel="Starting…"
+                          />
+                        </form>
+                        <form action={proposeAdminMotion}>
+                          <input type="hidden" name="target_user_id" value={m.user_id} />
+                          <input type="hidden" name="kind" value="demote" />
+                          <input type="hidden" name="new_role" value="viewer" />
+                          <SupplierSubmit
+                            tone="neutral"
+                            icon={<Gavel aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                            label="Ask to make them a Helper"
+                            pendingLabel="Starting…"
+                          />
+                        </form>
+                        <form action={proposeAdminMotion}>
+                          <input type="hidden" name="target_user_id" value={m.user_id} />
+                          <input type="hidden" name="kind" value="remove" />
+                          <SupplierSubmit
+                            tone="danger"
+                            icon={<Trash2 aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                            label="Ask to remove them"
+                            pendingLabel="Starting…"
+                          />
+                        </form>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Fold>
+          </div>
+        ) : null}
 
-                  {m.role === 'agent' ? (
-                    <AgentServiceAssignment
-                      memberId={m.vendor_team_member_id}
-                      services={services}
-                      assigned={assignments[m.vendor_team_member_id] ?? []}
-                    />
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+        {/* Step down — an admin leaves the admin role (stays as a Team member). */}
+        {iAmAdmin && me ? (
+          <DatesRow
+            data="helpers-step-down"
+            title="Step down"
+            line={adminCount <= 1 ? 'You are the only admin — make someone else an admin first' : 'Leave the admin role · you stay as a Team member'}
+            end={
+              adminCount <= 1 ? undefined : (
+                <form action={stepDownSelf}>
+                  <SupplierSubmit
+                    tone="danger"
+                    icon={<LogOut aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                    label="Step down"
+                    pendingLabel="Stepping down…"
+                  />
+                </form>
+              )
+            }
+          />
+        ) : null}
+      </div>
+
+      <InviteHelperSheet options={roleOptions} defaultRole={FREE_HELPER_ROLE} action={inviteVendorTeamMember} seatLine={seatsLine} />
     </section>
   );
 }
@@ -491,7 +479,7 @@ function AgentServiceAssignment({
     <form action={setVendorAgentServices} className="mt-3 space-y-2 rounded-xl border border-success-200/70 bg-success-50/40 p-3">
       <input type="hidden" name="vendor_team_member_id" value={memberId} />
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-900/70">
-        Assigned services — this agent sees only these (and their customers)
+        Their services — they see only these, and those customers
       </p>
       {services.length === 0 ? (
         <p className="text-xs text-ink/55">Add services on the Services page first, then assign them here.</p>
@@ -499,15 +487,15 @@ function AgentServiceAssignment({
         <>
           <div className="flex flex-wrap gap-2">
             {services.map((s) => (
-              <label key={s.vendor_service_id} className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs text-ink/80 hover:border-ink/30">
+              <label key={s.vendor_service_id} className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-3 py-1 text-[13px] text-ink/80 hover:border-ink/30">
                 <input type="checkbox" name="service_ids" value={s.vendor_service_id} defaultChecked={assignedSet.has(s.vendor_service_id)} className="h-3.5 w-3.5 accent-success-600" />
                 {categoryLabel(s.category)}
                 {s.is_active ? null : <span className="text-ink/40">(inactive)</span>}
               </label>
             ))}
           </div>
-          <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md border border-success-300 bg-white/70 px-3 text-xs font-medium text-success-900 hover:border-success-500" pendingLabel="Saving…">
-            Save assignments
+          <SubmitButton className="inline-flex min-h-11 items-center justify-center rounded-md border border-success-300 bg-white/70 px-4 text-[13px] font-medium text-success-900 hover:border-success-500" pendingLabel="Saving…">
+            Save their services
           </SubmitButton>
         </>
       )}

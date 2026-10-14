@@ -108,6 +108,18 @@ async function openCardShipped(eventId: string, guestId: string): Promise<MarchC
 /** A press that moved less than this and never lifted is a TAP (the drag's own thresholds: 4 px for a mouse, 8 for a finger). */
 const TAP_SLOP_MOUSE = 4;
 const TAP_SLOP_TOUCH = 8;
+/** 🪪 A finger's tap is a pointerup and THEN a click, at the same spot. The card opens at the pointerup, so that click
+ *  would land on the sheet's scrim and close the card the instant it opened (measured in the lab: dialog 1 → 0 in 15 ms).
+ *  The click that belongs to this tap is swallowed — once, and only for half a second. */
+function swallowTapClick(): void {
+  const eat = (ev: Event) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    window.removeEventListener('click', eat, true);
+  };
+  window.addEventListener('click', eat, true);
+  setTimeout(() => window.removeEventListener('click', eat, true), 500);
+}
 
 /** What one drop puts in the draft: its steps, after the drafted ones — or the last drafted move back off. */
 type MarchDraftPatch = Pick<HubDraftPatch, 'march' | 'marchUndo'>;
@@ -607,7 +619,10 @@ function MarchMakerBody({
          name opens their guest card over the march. A press that wandered was a scroll, not a tap. */
       if (e && press && (press.source.kind === 'name' || press.source.kind === 'out')) {
         const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
-        if (moved <= (press.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE)) setCard({ id: press.source.id, name: press.el.dataset.marchName ?? '' });
+        if (moved <= (press.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE)) {
+          setCard({ id: press.source.id, name: press.el.dataset.marchName ?? '' });
+          swallowTapClick();
+        }
       }
       return;
     }

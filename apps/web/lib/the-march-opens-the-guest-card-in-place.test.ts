@@ -46,6 +46,9 @@ test('1 · a tap (no lift, under the drag’s own slop) on a walking name or a t
     /press\.source\.kind === 'name' \|\| press\.source\.kind === 'out'[\s\S]{0,200}Math\.hypot\(e\.clientX - press\.x, e\.clientY - press\.y\)[\s\S]{0,120}press\.touch \? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE[\s\S]{0,40}setCard\(\{ id: press\.source\.id/,
     'a tap on a name does not open their card',
   );
+  // The tap's own click must not reach the sheet's scrim (a finger's pointerup opens the card, then its click closes it).
+  assert.match(up, /setCard\(\{ id: press\.source\.id[^;]*;\s*swallowTapClick\(\);/, 'the tap’s own click is not swallowed — on a phone the card closes the instant it opens');
+  assert.match(MARCH, /function swallowTapClick\(\): void \{[\s\S]{0,300}addEventListener\('click', eat, true\)/, 'swallowTapClick no longer catches the next click in the capture phase');
   assert.match(MARCH, /const TAP_SLOP_MOUSE = 4;\s*const TAP_SLOP_TOUCH = 8;/, 'the tap’s slop is no longer the drag’s own (a lift at 4 px, a scroll at 8 px)');
   // The drag's thresholds are the same numbers, so a press is EITHER a tap or a drag, never both.
   assert.match(MARCH, /if \(moved > 8\) stopAll\(\);/);

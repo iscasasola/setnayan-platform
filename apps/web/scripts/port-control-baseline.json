@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7a56eae20e",
+  "generatedFromRef": "054bdcff4",
   "routeCount": 438,
-  "destinations": 950,
-  "actions": 671,
-  "blocks": 6303,
+  "destinations": 957,
+  "actions": 672,
+  "blocks": 6338,
   "routes": {
     "/": {
       "files": [
@@ -5393,6 +5393,7 @@
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
         "dashboard/[eventId]/_components/reveal-preview.tsx",
         "dashboard/[eventId]/_components/safe-form.tsx",
+        "dashboard/[eventId]/_components/service-buy-sheet.tsx",
         "dashboard/[eventId]/_components/services-covered-picker.tsx",
         "dashboard/[eventId]/_components/set-date-nudge.tsx",
         "dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx",
@@ -5412,6 +5413,7 @@
         "dashboard/[eventId]/nikah-actions.ts",
         "dashboard/[eventId]/page.tsx",
         "dashboard/[eventId]/pakanta-actions.ts",
+        "dashboard/[eventId]/service-buy-actions.ts",
         "dashboard/[eventId]/template.tsx",
         "dashboard/[eventId]/wizard-actions.ts"
       ],
@@ -5435,13 +5437,19 @@
         "/dashboard/[seg]/live",
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/nikah",
+        "/dashboard/[seg]/orders",
         "/dashboard/[seg]/orders/[seg]",
         "/dashboard/[seg]/schedule",
         "/dashboard/[seg]/seating",
+        "/dashboard/[seg]/studio/live-studio-control",
         "/dashboard/[seg]/studio/mood-board",
+        "/dashboard/[seg]/studio/pakanta",
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/papic?gallery=open",
+        "/dashboard/[seg]/studio/patiktok",
+        "/dashboard/[seg]/studio/patiktok/booth",
         "/dashboard/[seg]/studio/setnayan-ai",
+        "/dashboard/[seg]/studio/website-pro",
         "/dashboard/[seg]/vendors",
         "/dashboard/[seg]/vendors?part=budget",
         "/dashboard/[seg]/vendors?tab=shortlist",
@@ -5449,6 +5457,7 @@
         "/dashboard/notifications",
         "/help",
         "/login?next=[seg]",
+        "/panood/control/[seg]",
         "/signup?next=[seg]",
         "/v/[seg]",
         "/wall/[seg]"
@@ -5456,6 +5465,7 @@
       "actions": [
         "action",
         "addLineItem",
+        "buyService",
         "deleteLineItem",
         "deletePayment",
         "grantShareConsent",
@@ -5476,6 +5486,7 @@
         "AddOwnStandIn",
         "AddOwnStep",
         "AddressPinField",
+        "AfterIcon",
         "AfterSummary",
         "AppPreload",
         "AppRailShell",
@@ -5553,6 +5564,7 @@
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HeadcountView",
+        "HearYourSong",
         "HomeDecisionRow",
         "HomeDoorways",
         "HomeFirstScreen",
@@ -5609,6 +5621,7 @@
         "PapicReadyNudge",
         "PapicSeePhotos",
         "PapicServiceRow",
+        "PayStep",
         "PaymentDetailsBlock",
         "PaymentPlanRows",
         "PaymentSection",
@@ -5644,8 +5657,13 @@
         "SaveToContinue",
         "Screen",
         "SendBroadcastResult",
+        "ServiceBuySheet",
+        "ServiceDoorButton",
+        "ServiceFullRow",
         "ServiceGlanceRow",
         "ServiceRow",
+        "ServiceSlim",
+        "ServiceSlimRow",
         "ServicesCard",
         "ServicesCoveredPicker",
         "SetCeremonyResult",
@@ -5657,6 +5675,7 @@
         "SidebarItem",
         "SidebarSection",
         "Sk",
+        "SongHeardSwap",
         "StatusIcon",
         "StepKey",
         "SubmitButton",
@@ -8188,6 +8207,7 @@
     },
     "/dashboard/[eventId]/studio/live-studio-control": {
       "files": [
+        "dashboard/[eventId]/studio/live-studio-control/_components/live-sections.tsx",
         "dashboard/[eventId]/studio/live-studio-control/actions.ts",
         "dashboard/[eventId]/studio/live-studio-control/page.tsx"
       ],
@@ -8202,6 +8222,11 @@
         "ChoosePlanSheet",
         "HostedChannelUpsell",
         "Link",
+        "LiveSections",
+        "ServiceChip",
+        "ServicePageBand",
+        "ServiceQuietLink",
+        "ServiceSection",
         "SubmitButton",
         "YoutubeChannelPanel"
       ]
@@ -8391,7 +8416,9 @@
     },
     "/dashboard/[eventId]/studio/pakanta": {
       "files": [
+        "dashboard/[eventId]/studio/pakanta/_components/music-sections.tsx",
         "dashboard/[eventId]/studio/pakanta/_components/pakanta-music-form.tsx",
+        "dashboard/[eventId]/studio/pakanta/_components/song-player.tsx",
         "dashboard/[eventId]/studio/pakanta/_components/use-song-button.tsx",
         "dashboard/[eventId]/studio/pakanta/actions.ts",
         "dashboard/[eventId]/studio/pakanta/loading.tsx",
@@ -8406,14 +8433,19 @@
         "EventRow",
         "Field",
         "HTMLFormElement",
-        "InlineCheckoutDrawer",
         "Link",
         "ListPageSkeleton",
+        "MusicSections",
         "PageMasthead",
         "PakantaIntakeResponses",
         "PakantaMusicForm",
         "Result",
+        "ServiceChip",
+        "ServicePageBand",
         "ServiceParts",
+        "ServiceQuietLink",
+        "ServiceSection",
+        "SongPlayer",
         "UseSongButton"
       ]
     },
@@ -8831,6 +8863,7 @@
     "/dashboard/[eventId]/studio/patiktok": {
       "files": [
         "dashboard/[eventId]/studio/patiktok/_components/booth-capture.tsx",
+        "dashboard/[eventId]/studio/patiktok/_components/booth-sections.tsx",
         "dashboard/[eventId]/studio/patiktok/_components/reel-renderer.tsx",
         "dashboard/[eventId]/studio/patiktok/_components/render-form.tsx",
         "dashboard/[eventId]/studio/patiktok/_components/tag-sheet.tsx",
@@ -8854,6 +8887,7 @@
       "blocks": [
         "Blob",
         "BoothLaunchPanel",
+        "BoothSections",
         "BoothTag",
         "CategoryChips",
         "GridPageSkeleton",
@@ -8861,12 +8895,12 @@
         "HTMLVideoElement",
         "HowItWorks",
         "Icon",
-        "InlineCheckoutDrawer",
         "Link",
         "LinkPickMenu",
         "MediaRecorder",
         "MediaStream",
         "MusicTrackOption",
+        "PageMasthead",
         "PaidMark",
         "Phase",
         "Preview",
@@ -8874,8 +8908,11 @@
         "ReelRenderer",
         "RenderJobRow",
         "RenderStatusPill",
-        "SaveShareCard",
-        "StudioBuyHero",
+        "ServiceBuySheet",
+        "ServiceChip",
+        "ServicePageBand",
+        "ServiceQuietLink",
+        "ServiceSection",
         "SubmitButton",
         "TagSheet",
         "TemplateCard",
@@ -9066,6 +9103,7 @@
     },
     "/dashboard/[eventId]/studio/setnayan-ai": {
       "files": [
+        "dashboard/[eventId]/studio/setnayan-ai/_components/planner-sections.tsx",
         "dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value-copy.ts",
         "dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx",
         "dashboard/[eventId]/studio/setnayan-ai/page.tsx"
@@ -9075,13 +9113,16 @@
       ],
       "actions": [],
       "blocks": [
-        "InlineCheckoutDrawer",
         "Link",
         "PageMasthead",
-        "PaidMark",
+        "PlanMyselfSwitch",
+        "PlannerSections",
+        "ServiceListRow",
+        "ServicePageBand",
+        "ServiceQuietLink",
+        "ServiceSection",
         "SetnayanAiValue",
-        "Spotlights",
-        "StudioBuyHero"
+        "Spotlights"
       ]
     },
     "/dashboard/[eventId]/studio/thank-you": {
@@ -9103,19 +9144,22 @@
     },
     "/dashboard/[eventId]/studio/website-pro": {
       "files": [
+        "dashboard/[eventId]/studio/website-pro/_components/hub-pro-sections.tsx",
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/launch${search.then === 'apply' ?",
-        "/dashboard/[seg]/orders"
+        "/dashboard/[seg]/launch",
+        "/dashboard/[seg]/launch${search.then === 'apply' ?"
       ],
       "actions": [],
       "blocks": [
-        "InlineCheckoutDrawer",
+        "HubProSections",
         "Link",
         "PageMasthead",
-        "PaidMark",
-        "StudioBuyHero"
+        "ServiceChip",
+        "ServicePageBand",
+        "ServiceQuietLink",
+        "ServiceSection"
       ]
     },
     "/dashboard/[eventId]/vendors": {
@@ -10424,7 +10468,8 @@
     },
     "/dev/home-lab": {
       "files": [
-        "dev/home-lab/page.tsx"
+        "dev/home-lab/page.tsx",
+        "dev/home-lab/services-lab.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]/checklist",
@@ -10433,9 +10478,16 @@
       ],
       "actions": [],
       "blocks": [
+        "BoothSections",
         "HomeFirstScreen",
         "HomeWhatsNext",
+        "HubProSections",
+        "LiveSections",
+        "MusicSections",
         "PapicTopBand",
+        "PlannerSections",
+        "ServicePageBand",
+        "ServicesLabPage",
         "SiteMenuBar",
         "YourShotsGallery"
       ]

@@ -55,6 +55,7 @@ test('Planner · waiting: the services menu\'s words, no second Add', () => {
   assert.equal(slimText(g), WAITING_WORDS);
   assert.deepEqual(g.doors, []);
   assert.equal(g.band.main, null, 'a pending order is never offered a second time');
+  assert.deepEqual(g.band.second, { kind: 'order', label: 'See your order' }, 'a bought, unpaid service loses its way back to the bill');
   assert.equal(g.mood, 'wait');
 });
 

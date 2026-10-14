@@ -143,7 +143,7 @@ test('4 · never twice: the song card\'s doors stand down on the music row while
   assert.match(song, /data-home-next="music"/);
   const row = song.slice(song.indexOf('data-home-service="music"'));
   assert.match(row.slice(0, 4000), /<span data-while-next="music" class="contents">/, 'the row dropped its doors instead of marking them');
-  assert.match(song, /data-home-next-after=""/, 'no card waits under the song card — hearing it would leave Home without a step');
+  assert.match(song, /data-home-next-slot="after"/, 'no card waits under the song card — hearing it would leave Home without a step');
   const offer = home(rows({ ai: 'none' }), { next: { aiOffer: true, guests: { total: 32, unsent: 0 } } });
   assert.match(offer, /data-home-next="ai"/);
   assert.ok(!keysIn(offer).includes('ai'), 'the AI offer card and a Planner row stand together');

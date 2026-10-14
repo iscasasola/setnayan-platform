@@ -89,7 +89,7 @@ export function ServiceBuySheet({
           </p>
         ) : null}
         <span className="home-eyebrow block">What it costs</span>
-        <div className="mt-2 flex min-h-[60px] flex-col items-center justify-center rounded-2xl border border-ink/15 bg-cream px-2.5 py-1.5 text-center">
+        <div className="mt-2 flex min-h-[60px] flex-col items-center justify-center rounded-2xl border border-ink/15 bg-cream px-2.5 py-1.5 text-center"> {/* no-card-ok: the shipped CreditStepper's value box (credit-stepper.tsx), the one-unit counter of the approved sheet */}
           <span className="text-2xl font-semibold leading-tight tracking-tight tabular-nums text-ink" data-service-price="">
             {priced ? `₱${price!.toLocaleString('en-PH', { maximumFractionDigits: 0 })}` : '—'}
           </span>
@@ -108,7 +108,7 @@ export function ServiceBuySheet({
           <b>{offer.after}</b>
         </div>
         {notices.length > 0 ? (
-          <div className="mt-3 space-y-2 rounded-xl border border-ink/15 bg-cream/60 px-3.5 py-3 text-[12.5px] leading-relaxed text-ink/80" data-service-buy-notice="">
+          <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-ink/80" data-service-buy-notice="">
             {notices.map((n) => (
               <p key={n} className="m-0">
                 {n}

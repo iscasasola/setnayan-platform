@@ -87,6 +87,7 @@ export type ServiceDoorKind =
   | 'booth'
   | 'reels'
   | 'maker'
+  | 'order'
   | 'add'
   | 'more-screen'
   | 'more-song';
@@ -184,7 +185,8 @@ function notYet(input: {
       of: null,
       line: waiting ? waitingLine : input.band.line,
       main: waiting ? null : addDoor(input.price),
-      second: input.band.second ?? null,
+      // Bought, not yet approved: the way back to the bill (to pay it, or see it confirmed).
+      second: waiting ? { kind: 'order', label: 'See your order' } : input.band.second ?? null,
     },
     moment: null,
     price: input.price,

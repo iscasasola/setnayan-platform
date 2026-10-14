@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Clapperboard, Diamond, Images, ListChecks, ListMusic, Play, Radio, type LucideIcon } from 'lucide-react';
+import { ChevronDown, ChevronRight, Clapperboard, Diamond, Images, ListChecks, ListMusic, Play, Radio, Receipt, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ServiceBand } from '@/app/_components/service-glance';
 import { ServiceBuySheet } from '@/app/dashboard/[eventId]/_components/service-buy-sheet';
@@ -21,6 +21,7 @@ function doorHref(kind: ServiceDoor['kind'], eventId: string): string {
     { kind: 'booth', href: `/dashboard/${eventId}/studio/patiktok/booth` },
     { kind: 'reels', href: `/dashboard/${eventId}/studio/patiktok#reels` },
     { kind: 'maker', href: `/dashboard/${eventId}/launch` },
+    { kind: 'order', href: `/dashboard/${eventId}/orders` },
   ];
   return doors.find((d) => d.kind === kind)?.href ?? `/dashboard/${eventId}`;
 }
@@ -33,6 +34,7 @@ const DOOR_ICON: Partial<Record<ServiceDoor['kind'], LucideIcon>> = {
   booth: Clapperboard,
   reels: Images,
   maker: Diamond,
+  order: Receipt,
 };
 
 function Door({ eventId, row, door, price, main, buyOpen, buyError }: {

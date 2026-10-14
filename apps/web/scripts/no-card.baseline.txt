@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 683 files · 1888 lines
+# 680 files · 1883 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -409,7 +409,6 @@
 3 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/template-gallery.tsx
 1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx
 2 apps/web/app/dashboard/[eventId]/studio/pakanta/_components/pakanta-music-form.tsx
-2 apps/web/app/dashboard/[eventId]/studio/pakanta/page.tsx
 6 apps/web/app/dashboard/[eventId]/studio/panood/broadcast/control-room.tsx
 1 apps/web/app/dashboard/[eventId]/studio/panood/broadcast/page.tsx
 1 apps/web/app/dashboard/[eventId]/studio/panood/cameras/page.tsx
@@ -459,9 +458,7 @@
 3 apps/web/app/dashboard/[eventId]/studio/save-the-date/page.tsx
 1 apps/web/app/dashboard/[eventId]/studio/save-the-date/stamp/wax-stamp-maker.tsx
 1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx
-1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/page.tsx
 3 apps/web/app/dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx
-2 apps/web/app/dashboard/[eventId]/studio/website-pro/page.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-build.tsx
 3 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx
 5 apps/web/app/dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx

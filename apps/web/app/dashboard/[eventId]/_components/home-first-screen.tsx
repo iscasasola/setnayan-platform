@@ -15,6 +15,7 @@ import {
   Music,
   Play,
   Radio,
+  Receipt,
   Sparkles,
   UserPlus,
   Video,
@@ -88,6 +89,7 @@ function serviceDoorHref(kind: ServiceDoor['kind'], eventId: string): string {
     { kind: 'booth', href: `/dashboard/${eventId}/studio/patiktok/booth` },
     { kind: 'reels', href: `/dashboard/${eventId}/studio/patiktok#reels` },
     { kind: 'maker', href: `/dashboard/${eventId}/launch` },
+    { kind: 'order', href: `/dashboard/${eventId}/orders` },
   ];
   return doors.find((d) => d.kind === kind)?.href ?? `/dashboard/${eventId}`;
 }
@@ -157,6 +159,7 @@ const DOOR_ICON: Record<ServiceDoor['kind'], LucideIcon> = {
   booth: Clapperboard,
   reels: Images,
   maker: Diamond,
+  order: Receipt,
   add: Sparkles,
   'more-screen': Sparkles,
   'more-song': Sparkles,
@@ -321,56 +324,55 @@ export function HomeFirstScreen({
 
         {/* ① THE ONE NEXT CARD — the shared `NextCard`, drawn with the button rule's row:
             the main verb (+ 📅 Later). An unread guest list is SAID here, with ⟳ Reload (H3). */}
-        <NextCard
-          marker="data-home-next"
-          kind={next.kind}
-          title={next.title}
-          body={next.body}
-          action={next.action}
-          href={nextHref(next.kind, eventId)}
-          bad={next.kind === 'unread'}
-          actions={
-            <>
-              {nextMain}
-              {next.offer ? (
-                /* 🧭 The once-offer's Later answers it — the shipped tour action, no new one. */
-                <form action={completeTour.bind(null, HUB_SETUP_OFFER_TOUR)} className="contents">
-                  <ActionButton type="submit" tone="neutral" icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Later" data-testid="home-next-later" />
-                </form>
-              ) : next.kind !== 'unread' ? (
-                <HomeLater eventId={eventId} kind={next.kind} />
-              ) : null}
-            </>
-          }
-        />
-
-        {next.kind === 'music' && nextAfter ? (
-          /* ✅ ONCE, UNTIL HEARD — the step under the song card, shown when this device has heard it. */
-          <div data-home-next-after="" className="contents">
+        {[
+          { step: next, slot: 'now' as const, main: nextMain },
+          /* ✅ ONCE, UNTIL HEARD — the step under the song card, drawn hidden and shown when this
+             device has heard the song (`SongHeardSwap`). Still ONE card on screen. */
+          ...(next.kind === 'music' && nextAfter
+            ? [
+                {
+                  step: nextAfter,
+                  slot: 'after' as const,
+                  main: (
+                    <ActionButton
+                      tone={NEXT_BUTTON[nextAfter.kind].tone}
+                      main
+                      icon={<AfterIcon aria-hidden="true" strokeWidth={1.9} />}
+                      label={nextAfter.action}
+                      href={nextHref(nextAfter.kind, eventId)}
+                    />
+                  ),
+                },
+              ]
+            : []),
+        ].map(({ step: next, slot, main }) => (
+          <div key={slot} data-home-next-slot={slot} className="contents">
             <NextCard
               marker="data-home-next"
-              kind={nextAfter.kind}
-              title={nextAfter.title}
-              body={nextAfter.body}
-              action={nextAfter.action}
-              href={nextHref(nextAfter.kind, eventId)}
-              hidden
+              kind={next.kind}
+              title={next.title}
+              body={next.body}
+              action={next.action}
+              href={nextHref(next.kind, eventId)}
+              bad={next.kind === 'unread'}
+              hidden={slot === 'after'}
               actions={
                 <>
-                  <ActionButton
-                    tone={NEXT_BUTTON[nextAfter.kind].tone}
-                    main
-                    icon={<AfterIcon aria-hidden="true" strokeWidth={1.9} />}
-                    label={nextAfter.action}
-                    href={nextHref(nextAfter.kind, eventId)}
-                  />
-                  <HomeLater eventId={eventId} kind={nextAfter.kind} />
+                  {main}
+                  {next.offer ? (
+                    /* 🧭 The once-offer's Later answers it — the shipped tour action, no new one. */
+                    <form action={completeTour.bind(null, HUB_SETUP_OFFER_TOUR)} className="contents">
+                      <ActionButton type="submit" tone="neutral" icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Later" data-testid="home-next-later" />
+                    </form>
+                  ) : next.kind !== 'unread' ? (
+                    <HomeLater eventId={eventId} kind={next.kind} />
+                  ) : null}
                 </>
               }
             />
-            <SongHeardSwap eventId={eventId} />
+            {slot === 'after' ? <SongHeardSwap eventId={eventId} /> : null}
           </div>
-        ) : null}
+        ))}
 
         {/* ② THE THREE DOORS (owner 2026-10-07: "maybe add the 3 buttons. Edit your
             Gueslist, Edit your Suppliers, Edit your Event Hub") — the bottom bar's icons. */}

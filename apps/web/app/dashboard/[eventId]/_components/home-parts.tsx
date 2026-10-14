@@ -154,7 +154,7 @@ export function HomeLater({ eventId, kind }: { eventId: string; kind: string }) 
 /**
  * ✅ ONCE, UNTIL HEARD — the song card hands Home's Next card back. When this
  * device has heard the song, the song card stands down and the card under it
- * (`[data-home-next-after]`, drawn hidden by the server) is shown. No write.
+ * (`[data-home-next-slot="after"]`, drawn hidden by the server) is shown. No write.
  */
 export function SongHeardSwap({ eventId }: { eventId: string }) {
   const mark = useRef<HTMLSpanElement | null>(null);
@@ -162,9 +162,17 @@ export function SongHeardSwap({ eventId }: { eventId: string }) {
     if (!songWasHeard(eventId)) return;
     const root = mark.current?.closest<HTMLElement>('[data-home-first-screen]');
     const card = root?.querySelector<HTMLElement>('[data-home-next="music"]');
-    const after = root?.querySelector<HTMLElement>('[data-home-next-after] > [data-home-next]');
+    const after = root?.querySelector<HTMLElement>('[data-home-next-slot="after"] > [data-home-next]');
     if (card) card.hidden = true;
-    if (after) after.hidden = false;
+    if (!after) return;
+    // A step the couple put off with "Later" today stays put off.
+    let later = false;
+    try {
+      later = window.localStorage.getItem(todayKey(eventId, after.getAttribute('data-home-next') ?? '')) === '1';
+    } catch {
+      /* storage refused — show it, the honest default */
+    }
+    if (!later) after.hidden = false;
   }, [eventId]);
   return <span ref={mark} hidden aria-hidden="true" />;
 }

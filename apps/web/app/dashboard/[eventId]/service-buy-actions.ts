@@ -24,6 +24,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { eventIsOver } from '@/lib/event-is-over.server';
 import { eventOwnsSku } from '@/lib/entitlements';
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { orderTotalToPhp, resolveOrderChargeCentavos } from '@/lib/order-charge-authority';
 import { orderRowFor } from '@/lib/order-mint-identity';
@@ -83,7 +84,7 @@ export async function buyService(formData: FormData) {
 
   // An unlock already held — paid or waiting — is never sold twice. A "more"
   // (another song, another venue-screen day) is a new purchase on purpose.
-  if (offer.unlock && (await eventOwnsSku(admin, eventId, offer.sku).catch(() => false))) {
+  if (offer.unlock && (await eventOwnsSku(await eventEntitlementClient(eventId), eventId, offer.sku).catch(() => false))) {
     redirect(back);
   }
 

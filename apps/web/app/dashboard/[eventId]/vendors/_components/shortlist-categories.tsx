@@ -71,6 +71,7 @@ import {
   X,
 } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
+import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
 import { formatPhp } from '@/lib/orders';
 import {
   UNREAD_UNKNOWN,
@@ -104,6 +105,8 @@ import {
   isSaiAssistFreeForCategory,
 } from '@/lib/setnayan-ai-free-assist';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
+import { AddYourOwnWalk } from '@/app/dashboard/[eventId]/_components/add-your-own-walk';
+import { INVITE_STATUS_UNREAD_LINE, joinedLine, ownRecordLine, type InviteStatusByVendorId } from '@/lib/supplier-invite-status';
 import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
 import {
   searchMarketplaceForBench,
@@ -119,7 +122,7 @@ import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
 import { FindThumbRow } from './find-thumb-row';
-import { SUP_REACH_Y, categoryRowState, isCategoryOpen, ringCoveredCount } from '@/lib/suppliers-shell';
+import { SUP_REACH_Y, categoryRowState, isCategoryOpen, ringCoveredCount, thumbScopeTile } from '@/lib/suppliers-shell';
 import { Count } from '@/components/count';
 import { ActionButton } from '@/components/action-button';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
@@ -399,6 +402,14 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 .slcat .sc-name{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:var(--sans);font-size:14px;font-weight:600;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
 .slcat .sc-disc{font-size:10px;font-weight:500;line-height:1.3;padding:2px 8px;border-radius:var(--m-r-full);background:rgba(46,125,79,.1);color:#1F5C39}
 .slcat .sc-own{font-size:11.5px;color:var(--ink-soft)}
+.slcat .sc-rec{font-size:12px;line-height:1.35;color:var(--ink-soft)}
+.slcat .sc-link{font-size:12px;font-weight:500;line-height:1.35;color:var(--ink-soft)}
+.slcat .sc-link.t-warn{color:#8a5a12}
+.slcat .sc-link.t-danger{color:#a3342b}
+.slcat .sc-link.t-ok{color:#2e7d4f}
+html.dark .slcat .sc-link.t-warn{color:#e2b968}
+html.dark .slcat .sc-link.t-danger{color:#f0958c}
+html.dark .slcat .sc-link.t-ok{color:#7bc79a}
 .slcat .sc-price{font-size:12.5px;font-weight:500;color:var(--m-orange-2,var(--gold-deep))}
 .slcat .sc-price.none{color:var(--ink-soft);font-weight:400}
 .slcat .sc-inc{display:flex;align-items:flex-start;gap:4px;font-size:11.5px;font-weight:500;line-height:1.35;color:#2e7d4f}
@@ -603,6 +614,7 @@ html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
 .slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .slcat .vc .fit.warn{color:#6F5A2E;background:rgba(169,131,75,.16)}
+.slcat .vc .fit.muted{color:rgb(var(--color-ink) / .7);background:rgb(var(--color-ink) / .06)}
 html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
@@ -1249,6 +1261,14 @@ const UnreadCtx = createContext<BenchUnread>(UNREAD_UNKNOWN);
  * that something is owed. Empty → no card offers Pay (it offers "Payments").
  */
 const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
+/**
+ * vendorId → where the couple's claim link stands, for a supplier they added
+ * themselves (`lib/supplier-invite-status.ts`). `undefined` = this bench was
+ * not given the read (the pre-replan render, a lab without it): the card draws
+ * no link line at all. `null` = the read FAILED: the card says so, because a
+ * failed read must not look like "no link was ever sent".
+ */
+const InviteStatusCtx = createContext<InviteStatusByVendorId | undefined>(undefined);
 
 /**
  * THE SERVICE CARD A BENCH CARD WEARS (owner 2026-10-07 · PR2). On the
@@ -1362,6 +1382,7 @@ function VendorCard({
   const selfAdded = Boolean(actions?.connect);
   const sheetDoor = useContext(SheetDoorCtx);
   const payHrefs = useContext(PayDueCtx);
+  const inviteStatuses = useContext(InviteStatusCtx);
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
   const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
@@ -1417,6 +1438,7 @@ function VendorCard({
       stateLine: sheetStateLine({
         booked,
         asked: v.lockRequestState === 'requested',
+        lockState: v.lockRequestState,
         quoteIn: standing?.needsYou === true,
         inBuild: actions?.build?.kind === 'in_build',
         hasThread: v.threadId != null,
@@ -1549,6 +1571,31 @@ function VendorCard({
             in the bench's mono voice. Renders only when there IS a signal; a
             calendar we could not read stays silent rather than guessing. */}
         <CardDateBlock line={v.freeDaysLine} dates={dates ?? null} name={v.name} />
+        {/* A supplier the couple added themselves: what they typed is THEIR
+            RECORD, not a booking — and where their claim link stands (owner
+            2026-10-10: the couple is told when the supplier declines or never
+            answers). Only drawn in the one-screen shape, for a self-added card. */}
+        {look.face && selfAdded ? (
+          <span className="sc-rec" data-own-record="">
+            {ownRecordLine(v.status === 'locked')}
+          </span>
+        ) : null}
+        {/* …and once they have joined through it the card is no longer
+            self-added, but it still says where this shop came from. */}
+        {look.face && inviteStatuses !== undefined && (selfAdded || inviteStatuses?.[v.vendorId]?.key === 'joined') ? (
+          inviteStatuses === null ? (
+            <span className="sc-link" data-invite-status="unread">
+              {INVITE_STATUS_UNREAD_LINE}
+            </span>
+          ) : inviteStatuses[v.vendorId] ? (
+            <span
+              className={`sc-link t-${inviteStatuses[v.vendorId]!.tone}`}
+              data-invite-status={inviteStatuses[v.vendorId]!.key}
+            >
+              {inviteStatuses[v.vendorId]!.key === 'joined' ? joinedLine(svc != null) : inviteStatuses[v.vendorId]!.line}
+            </span>
+          ) : null
+        ) : null}
         {/* Where you stand — the last line of the meta block, under the dates.
             The couple's eye lands on the photo, then the name, then this. */}
         <CardStanding standing={standing ?? null} />
@@ -1752,7 +1799,14 @@ function FitBadges({ v }: { v: ShortlistVendor }) {
             icon: <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />,
             text: 'Booked that day',
           }
-        : null;
+        : v.dateFit === 'not_set'
+          ? {
+              // P5 calendar truth: their calendar is not set — said, never "Free" (`lib/calendar-truth.ts`).
+              cls: 'muted',
+              icon: <CalendarDays size={9} strokeWidth={2.25} aria-hidden />,
+              text: DATE_FIT_WORDS.not_set,
+            }
+          : null;
   // SOFT schedule convergence (PR-G1). Amber, never red: the vendor is fine —
   // it is the couple's own build that has narrowed past them, and un-narrowing
   // it is one tap away. The badge NAMES the clashing candidate so that tap is
@@ -2048,7 +2102,6 @@ function MoreToCompare({
   probeDayKeys,
   sortMenu,
   onSeeAll,
-  onAdd,
 }: {
   eventId: string;
   tile: string;
@@ -2068,8 +2121,6 @@ function MoreToCompare({
   sortMenu: ReactNode;
   /** Opens the full sheet — still the only place with filters and facets. */
   onSeeAll: () => void;
-  /** An empty list's first action (§ 9 kind 16): add someone the couple knows. */
-  onAdd?: () => void;
 }) {
   const router = useRouter();
   const sheetDoor = useContext(SheetDoorCtx);
@@ -2419,12 +2470,9 @@ function MoreToCompare({
       ) : shown === 0 ? (
         moreError ? null : (
           <div className="mrnote" role="status">
+            {/* Its first action is the thumb row's ＋ — it adds in THIS category while it is open (owner 2026-10-13:
+                ONE add on Find). */}
             <span>{moreToCompareEmpty(label, moreQ)}</span>
-            {onAdd ? (
-              <span className="mrfirst">
-                <ActionButton tone="brand" icon={Plus} label="Add your own" onClick={onAdd} />
-              </span>
-            ) : null}
           </div>
         )
       ) : (
@@ -2505,6 +2553,7 @@ export function ShortlistCategories({
   excludedTiles = [],
   starterTiles,
   payHrefByVendorId = NO_PAY_DUE,
+  inviteStatusByVendorId,
   serviceCardByVendorId = null,
   convergence = null,
   buildWindow = null,
@@ -2591,6 +2640,9 @@ export function ShortlistCategories({
   /** vendorId → the Pay link of a booked supplier with a payment due now
    *  (`PayDueCtx`). Absent → nobody is offered Pay from a card. */
   payHrefByVendorId?: Readonly<Record<string, string>>;
+  /** vendorId → where a self-added supplier's claim link stands
+   *  (`InviteStatusCtx`). Absent → no link line; `null` → the read failed. */
+  inviteStatusByVendorId?: InviteStatusByVendorId;
   /** Pick id → the supplier's own service card. `null` = the read failed (or
    *  the pre-replan bench, which draws none). */
   serviceCardByVendorId?: Readonly<Record<string, BenchServiceCard>> | null;
@@ -2719,12 +2771,10 @@ export function ShortlistCategories({
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   // "＋ Add your own" with no category open asks which one FIRST.
   const [addAsk, setAddAsk] = useState(false);
-  // THE SCOPE (owner 2026-10-07 late: *"which ever is pinned is where we
-  // search?"* — yes): the open category whose header is stuck under the pinned
-  // block. The thumb row's words, its search and its Add follow it.
-  const [scopeTile, setScopeTile] = useState<string | null>(null);
   const benchRef = useRef<HTMLDivElement>(null);
-  const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
+  // `name` = what was typed in the thumb row's box when ＋ was pressed.
+  const [manual, setManual] = useState<{ category: string; label: string; name?: string } | null>(null);
+  const typedForAdd = useRef('');
   // ── In-place category search (2026-07-29) ─────────────────────────────────
   // Owner: "clicking find more doesn't search specifically for that category.
   // and it jumps to a new page, it needs to stay on that page."
@@ -3054,6 +3104,7 @@ export function ShortlistCategories({
             out[t.tile] = sheetStateLine({
               booked: there.status === 'locked',
               asked: there.lockRequestState === 'requested',
+              lockState: there.lockRequestState,
               quoteIn: standings[there.vendorId]?.needsYou === true,
               inBuild: buildPickVendorIds.includes(there.vendorId),
               hasThread: there.threadId != null,
@@ -3293,36 +3344,6 @@ export function ShortlistCategories({
     const el = benchRef.current;
     return el ? parseFloat(getComputedStyle(el).getPropertyValue('--stick-h')) || 0 : 0;
   }
-  // Which open category is pinned right now — read a beat after the scroll
-  // settles (the prototype's 80 ms), so the words do not flicker mid-fling.
-  useEffect(() => {
-    if (!replan) return;
-    let timer = 0;
-    const read = () => {
-      const line = stickLine();
-      let pinned: string | null = null;
-      for (const row of benchRef.current?.querySelectorAll<HTMLElement>('.cat.open[data-tile]') ?? []) {
-        const head = row.querySelector<HTMLElement>(':scope > .cat-head-row');
-        if (!head) continue;
-        const hd = head.getBoundingClientRect();
-        if (Math.abs(hd.top - line) < 3 && row.getBoundingClientRect().bottom > line + hd.height) {
-          pinned = row.dataset.tile ?? null;
-          break;
-        }
-      }
-      setScopeTile((cur) => (cur === pinned ? cur : pinned));
-    };
-    const onScroll = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(read, 80);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('scroll', onScroll);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replan]);
   /**
    * A tap on a row's header (BUTTON_RULE rule 6): scrolled INTO the category —
    * its header pinned, its first card above the line — the first tap goes back
@@ -3391,9 +3412,11 @@ export function ShortlistCategories({
     ? folders.flatMap((f) => f.tiles.filter((t) => !inPlanTiles.has(t.tile)).map((t) => ({ t, f })))
     : [];
   /** ＋ Add your own: straight into the ONE open category; otherwise ask which first. */
-  function addYourOwn() {
-    const open = scopeRow ?? (!openAll && !searching && openTile ? benchRows.find((r) => r.t.tile === openTile) : null);
-    if (open) setManual({ category: open.t.category, label: open.t.label });
+  function addYourOwn(typed = '') {
+    // The name typed in the box rides into the walk's first step (the
+    // prototype: "type a name in the box first, then ＋").
+    typedForAdd.current = typed.trim();
+    if (scopeRow) setManual({ category: scopeRow.t.category, label: scopeRow.t.label, name: typedForAdd.current });
     else setAddAsk(true);
   }
 
@@ -3456,7 +3479,12 @@ export function ShortlistCategories({
   const q = query.trim().toLowerCase();
   // With a category pinned the box searches THAT category (its cards below);
   // with none it searches everything and the rows with a hit unfold.
-  const scopeRow = replan && scopeTile ? (benchRows.find((r) => r.t.tile === scopeTile) ?? null) : null;
+  // THE SCOPE (owner 2026-10-07: *"apply this rule to the suppliers as well but just the search and add depending on
+  // the category they are in"*; 2026-10-13: *"whatever category is picked, that is where we add manually and
+  // search"*): the ONE open category — the moment it opens, not only once its header has pinned. Expand all is no one
+  // category, so it searches everything (`thumbScopeTile`, executed in `lib/suppliers-shell.test.ts`).
+  const scopeTile = replan ? thumbScopeTile({ openTile, openAll }) : null;
+  const scopeRow = scopeTile ? (benchRows.find((r) => r.t.tile === scopeTile) ?? null) : null;
   const searching = q.length > 0 && !scopeRow;
   const scopedQ = scopeRow ? q : '';
   const visibleFolders = searching
@@ -3559,6 +3587,7 @@ export function ShortlistCategories({
     <SheetDoorCtx.Provider value={replan ? sheetDoor : null}>
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
+    <InviteStatusCtx.Provider value={inviteStatusByVendorId}>
     <ServiceCardCtx.Provider value={serviceLook}>
     <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
@@ -4301,22 +4330,10 @@ export function ShortlistCategories({
                               probeDayKeys={probeDayKeys}
                               sortMenu={sortMenu}
                               onSeeAll={() => openSearch(t.tile, t.label)}
-                              onAdd={() => setManual({ category: t.category, label: t.label })}
                             />
                           ) : null}
-                          {/* A booked category shows no list, so its own way
-                              to add someone the couple already knows sits at
-                              its foot (the prototype's booked row). */}
-                          {replan && rowBooked ? (
-                            <div className="morefoot">
-                              <ActionButton
-                                tone="brand"
-                                icon={Plus}
-                                label="Add your own"
-                                onClick={() => setManual({ category: t.category, label: t.label })}
-                              />
-                            </div>
-                          ) : null}
+                          {/* No add of its own here (owner 2026-10-13: ONE add — the thumb row's ＋, which adds in
+                              THIS category while it is the open one). */}
                           {/* "Not needed? Remove" (PR-C · decision #6). Quiet,
                               at the foot of an OPEN category, and absent
                               entirely when the category holds a locked vendor —
@@ -4433,7 +4450,7 @@ export function ShortlistCategories({
                   onPick={(tile) => {
                     const row = benchRows.find((r) => r.t.tile === tile);
                     setAddAsk(false);
-                    if (row) setManual({ category: row.t.category, label: row.t.label });
+                    if (row) setManual({ category: row.t.category, label: row.t.label, name: typedForAdd.current });
                   }}
                   className="w-full border border-ink/15"
                 />
@@ -4442,7 +4459,51 @@ export function ShortlistCategories({
             document.body,
           )
         : null}
-      {manual ? (
+      {/* THE FIRST ADD IS THE FOUR-STEP WALK (owner-approved 2026-10-10) in the
+          one-screen shape; editing a record stays the one form
+          (`NewManualVendorModal` in edit mode, opened from the card). The
+          pre-replan bench keeps the eight-field sheet, byte for byte. */}
+      {manual && replan ? (
+        <AddYourOwnWalk
+          eventId={eventId}
+          category={manual.category}
+          categoryLabel={manual.label}
+          initialName={manual.name ?? ''}
+          // ONE dropdown of only the categories on the event. Two rows can
+          // share a stored category; the first one names it.
+          categories={benchRows
+            .filter((r, i, all) => all.findIndex((o) => o.t.category === r.t.category) === i)
+            .map(({ t, group }) => ({ category: t.category, label: t.label, group }))}
+          // The leak line's facts: shops on this event that quoted, from the
+          // cards already on the page (no read).
+          quotedShops={folders.flatMap((f) =>
+            f.tiles.flatMap((t) =>
+              t.vendors
+                .filter((v) => v.marketplaceVendorId && standings[v.vendorId]?.needsYou === true)
+                .map((v) => ({
+                  category: t.category,
+                  name: v.name,
+                  threadHref: v.threadId ? `/dashboard/${eventId}/messages/${v.threadId}` : null,
+                })),
+            ),
+          )}
+          onClose={() => setManual(null)}
+          // ONE refresh, the moment the record exists — behind the link step,
+          // so the card is under its category by the time they press Done.
+          onRecorded={() => router.refresh()}
+          onDone={(outcome) => {
+            setManual(null);
+            // Land on the category the supplier went under, then say what happened.
+            const row = benchRows.find((r) => r.t.category === outcome.category);
+            if (row) setOpenTile(row.t.tile);
+            // The page's one toast, from the top (§ 9 kind 12). A part that did
+            // not happen (they were added, the ask did not send) reads red.
+            setToast({ tone: outcome.whole ? 'ok' : 'bad', text: outcome.said, key: Date.now() });
+            // An add already refreshed behind the link; an ask has not.
+            if (outcome.kind === 'asked') router.refresh();
+          }}
+        />
+      ) : manual ? (
         <NewManualVendorModal
           eventId={eventId}
           category={manual.category}
@@ -4526,6 +4587,7 @@ export function ShortlistCategories({
       ) : null}
     </div>
     </ServiceCardCtx.Provider>
+    </InviteStatusCtx.Provider>
     </PayDueCtx.Provider>
     </UnreadCtx.Provider>
     </SheetDoorCtx.Provider>

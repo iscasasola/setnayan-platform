@@ -5,11 +5,13 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
+import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
+import { mintLeftAnUnpaidBill } from '@/lib/couple-booked-and-settled';
 import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
-import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { LOCK_AGREE_FEE_HELD, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
 import {
   changeOrderAnsweredNotice,
@@ -1050,45 +1052,67 @@ export async function vendorAgreeToLock(formData: FormData) {
   const env = (data ?? {}) as { status?: string; event_id?: string; competing?: number };
   const eventId = typeof env.event_id === 'string' ? env.event_id : null;
 
-  // Tell the couple, on a FRESH agreement only — a re-call ('already') stays
-  // silent. Best-effort: the booking is already made and a notification hiccup
-  // must never roll it back.
+  // ── 1 · THE GIFT PROMISE IS CONFIRMED HERE — owner 2026-09-16, asked which
+  // of the two lock moments freezes it: **"both. the supplier needs to pay us
+  // before this becomes true."** The couple's press RECORDED it; this is the
+  // moment the booking actually exists, so this CONFIRMS it and the four value
+  // columns become immutable. FIRST, because the fee made in step 2 sizes the
+  // gift from this stamp. Best-effort: an unstamped booking falls back to live
+  // derivation, which is exactly the behaviour before stamps existed.
+  if (!error && env.status === 'ok' && eventId) {
+    try {
+      await createAdminClient().rpc('stamp_setnayan_gift_at_lock', {
+        p_event_vendor_id: eventVendorId,
+        p_confirm: true,
+      });
+    } catch (e) {
+      console.error(`[vendorAgreeToLock] gift stamp failed for vendor_id=${eventVendorId}:`, e);
+    }
+  }
+
+  // ── 2 · THE YES MAKES THE BOOKING FEE (owner 2026-10-12, answer 1: "the fee
+  // is CREATED at the supplier's YES — no handshake, no access"). At launch the
+  // charge is waived at this same moment (free five, a free window, the launch
+  // offer, the supplier's own client), so nobody waits; only a billed booking
+  // carries a bill from here. On `ok` ONLY — the one call that flipped the row
+  // to booked. Its own try: a fee hiccup must never undo the booking, and the
+  // render-time catch-up re-makes a fee that failed here.
+  //
+  // ⚖ AND IT DECIDES WHAT THE COUPLE IS TOLD (owner 2026-10-07: "no handshake,
+  // no confirmation of the event being booked to them · meaning. no booking fee
+  // paid to us"; audit F6, build item 13). A BILLED fee the supplier has not
+  // paid means the booking is not confirmed to the couple yet: they are not
+  // sent "said yes" or "your booking is confirmed" now — they are told when the
+  // fee settles (`tellCoupleTheBookingIsConfirmed`, from the payment approval).
+  // The couple is never told why (R12): to them the supplier simply has not
+  // finished. A failed or unknown mint tells them now, as before — a fee
+  // hiccup must not silence a real yes.
+  let feeBilledUnpaid = false;
+  if (!error && env.status === 'ok' && eventId) {
+    try {
+      const mint = await mintBookingFeeForBooking(createAdminClient(), {
+        eventVendorId,
+        door: 'supplier_yes',
+      });
+      feeBilledUnpaid = mintLeftAnUnpaidBill(mint.fee?.status);
+    } catch (e) {
+      console.error(`[vendorAgreeToLock] booking fee mint failed for vendor_id=${eventVendorId}:`, e);
+    }
+  }
+
+  // ── 3 · TELL THE COUPLE — on a FRESH agreement only (a re-call answers
+  // 'already' and stays silent). Best-effort: the booking is already made and a
+  // notification hiccup must never roll it back.
   if (!error && env.status === 'ok' && eventId) {
     try {
       const admin = createAdminClient();
 
-      /**
-       * ⚖ THE GIFT PROMISE IS CONFIRMED HERE — owner 2026-09-16, asked which of
-       * the two lock moments freezes it: **"both. the supplier needs to pay us
-       * before this becomes true."**
-       *
-       * The couple's press RECORDED it; this is the moment the booking actually
-       * exists, so this CONFIRMS it and the four value columns become immutable.
-       * Delivery is unchanged: the photographs still reach the couple only when
-       * the supplier's bill is paid.
-       *
-       * Best-effort, deliberately: the booking is already made and a stamp
-       * hiccup must never roll it back. An unstamped booking falls back to live
-       * derivation, which is exactly today's behaviour.
-       */
-      await admin.rpc('stamp_setnayan_gift_at_lock', {
-        p_event_vendor_id: eventVendorId,
-        p_confirm: true,
-      });
-
       // ── THE DATE NARROWS HERE, NOT AT THE ASK (owner §6.1 · slice B) ──────
       // A couple with no wedding day yet carries CANDIDATE days; every supplier
       // they actually book removes the days that supplier cannot work, and when
-      // one candidate is left, that is the date. Slice A deliberately SKIPPED
-      // this at the couple's press — running it there would have pinned the
-      // wedding date off a supplier who had agreed to nothing and could still
-      // decline, and the date would have survived the decline. An AGREEMENT is
-      // the event that legitimately narrows it, and this is that moment.
-      //
-      // Best-effort and ordered FIRST so the notification below can say what
-      // happened: the booking is already committed by the RPC, and a failure to
-      // narrow must never roll it back. `still_open` / `no_op` / `lost_race`
-      // are all ordinary outcomes, not errors.
+      // one candidate is left, that is the date. An AGREEMENT is the event that
+      // legitimately narrows it, and this is that moment. Best-effort and
+      // ordered before the notification so it can say what happened.
       let narrowedDate: string | null = null;
       try {
         const narrowed = await narrowEventDateAfterAgreement(admin, {
@@ -1116,6 +1140,21 @@ export async function vendorAgreeToLock(formData: FormData) {
         .eq('member_type', 'couple');
       for (const m of members ?? []) {
         if (!m.user_id) continue;
+        if (feeBilledUnpaid) {
+          // 🗣 A DATE MUST NEVER APPEAR ON A COUPLE'S SCREEN WITHOUT THEM BEING
+          // TOLD IT WAS SET — even while the yes waits on the supplier's side.
+          // So the date is said, and the booking is not.
+          if (narrowedDate) {
+            await emitNotification({
+              userId: m.user_id,
+              type: 'lock_request_agreed',
+              title: 'Your date is set',
+              body: `That leaves one day everyone you are booking can make, so your date is now ${formatCandidateDate(narrowedDate)}.`,
+              relatedUrl: `/dashboard/${eventId}/vendors`,
+            });
+          }
+          continue;
+        }
         await emitNotification({
           userId: m.user_id,
           type: 'lock_request_agreed',
@@ -1138,17 +1177,19 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
-  // 💸 THE YES MADE A BOOKING — FREEZE ITS PAYMENT PLAN. Until 2026-10-10 this
-  // happened only on the couple's direct press, below the line where the
-  // handshake returns; a booking made the normal way (ask → yes) had no plan
-  // row and `payment_info_sent` never fired. The SAME function the direct path
-  // calls, on `ok` ONLY: `ok` is answered by the one call that flips the row to
-  // booked (a second press answers `already`), so the plan and its notice are
-  // written once. Its own try: a plan failure must not undo the booking, and
-  // must not be undone by the notice above failing.
+  // ── 4 · THE YES MADE A BOOKING — FREEZE ITS PAYMENT PLAN. The SAME function
+  // the direct path calls, on `ok` ONLY, so the plan is written once. Its notice
+  // ("your booking is confirmed") follows step 2's rule: held back while the
+  // fee is billed and unpaid, and replaced by the confirmation sent when it
+  // settles. The PLAN itself is always written — it is the couple's record of
+  // what they will pay, whatever the supplier owes us.
   if (!error && env.status === 'ok' && eventId) {
     try {
-      await freezePaymentPlanAfterSupplierAgreed(createAdminClient(), { eventId, eventVendorId });
+      await freezePaymentPlanAfterSupplierAgreed(
+        createAdminClient(),
+        { eventId, eventVendorId },
+        feeBilledUnpaid ? { emit: async () => {} } : undefined,
+      );
     } catch (e) {
       console.error(
         `[vendorAgreeToLock] payment-plan snapshot failed for vendor_id=${eventVendorId}:`,
@@ -1190,7 +1231,10 @@ export async function vendorAgreeToLock(formData: FormData) {
     env.status === 'resolve_others_first' && typeof env.competing === 'number'
       ? `&competing=${env.competing}`
       : '';
-  redirect(`${back}?lock_agree=${flag}${competing}`);
+  // 🔑 ONE ANSWER: the SAME `feeBilledUnpaid` that held the couple's news back above tells the supplier so — and
+  // that paying the fee is what lets the couple know (`lockAgreeNotice` · `ok` with `feeHeld`). Batch-5 audit F9.
+  const feeHeld = flag === 'ok' && feeBilledUnpaid ? `&fee=${LOCK_AGREE_FEE_HELD}` : '';
+  redirect(`${back}?lock_agree=${flag}${competing}${feeHeld}`);
 }
 
 /**

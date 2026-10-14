@@ -69,11 +69,12 @@ export function DateClashNote({
             date stays as it is meanwhile, and guests see nothing.
           </p>
           <div className="flex flex-wrap gap-2">
+            {/* The confirm's yes is the screen's main verb — terracotta, never ink (look audit 2026-10-13). */}
             <button
               type="button"
               onClick={ask}
               disabled={pending}
-              className="inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-60"
+              className="inline-flex min-h-11 items-center rounded-full bg-sn-accent px-4 text-[13px] font-semibold text-sn-on-accent disabled:opacity-60"
             >
               {pending ? 'Asking…' : 'Yes, ask them'}
             </button>

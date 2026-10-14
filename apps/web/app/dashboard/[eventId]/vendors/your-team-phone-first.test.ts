@@ -15,9 +15,11 @@
  *       the five-row menu, the hidden find area and the second chat icon are
  *       gone and stay gone;
  *   (b) each booked row's one next step comes from real state — executed in
- *       `lib/your-team-rows.test.ts`; here, that the page feeds the rows from
- *       the SAME maps the Picks list and the bench already read, and the row
- *       renders the one lock path rather than a second one;
+ *       `lib/your-team-rows.test.ts` and `lib/booked-rows.test.ts`; here, that
+ *       the page feeds the rows from the SAME maps the Picks list and the
+ *       bench already read, and that a row's verbs (the Booked body, owner
+ *       2026-10-07) call the actions that already ship — never a second
+ *       writer, never a second booking path;
  *   (c) a refused team read says "Couldn't load your suppliers" — never an
  *       empty team (the read itself is executed in
  *       `your-team-read-is-honest.test.ts`) — and a refused EVENT read says
@@ -39,7 +41,9 @@ const code = (...p: string[]) => stripComments(readFileSync(join(DIR, ...p), 'ut
 
 const TAKEOVER = code('_components', 'services-takeover.tsx');
 const PAGE = code('page.tsx');
-const ROWS = code('_components', 'team-rows.tsx');
+const BODY = code('_components', 'booked-body.tsx');
+const ROW = code('_components', 'booked-row.tsx');
+const SLOT = code('_components', 'booked-slot.tsx');
 const LINE = code('_components', 'date-place-line.tsx');
 
 /** The takeover's own render — from `export function ServicesTakeover(` to the next top-level `}`. */
@@ -148,19 +152,20 @@ test('(a) retired and gone: the five-row menu, the hidden find area, the second 
   }
 });
 
-test('(a) the date · place line: the page’s own facts, opening the SHIPPED editor for each', () => {
+test('(a) the date · place line: the page’s own facts, each opening its sheet on this page (PR5)', () => {
   // Server-rendered by the page, only placed by the shell.
-  assert.match(PAGE, /factsSlot=\{<DatePlaceLine eventId=\{eventId\} facts=\{shellFacts\} \/>\}/);
-  // No second editor and no write: each value is a link to the one field for that fact.
-  assert.match(LINE, /href=\{recordFieldHref\(eventId, 'date'\)\}/);
-  assert.match(LINE, /href=\{recordFieldHref\(eventId, 'venues'\)\}/);
+  assert.match(PAGE, /factsSlot=\{\s*<DatePlaceLine\s+eventId=\{eventId\}\s+facts=\{shellFacts\}/);
+  // PR5 (re-pointed 2026-10-13): no link away — each value opens its sheet here (`fact-line.tsx` → the lazy
+  // `fact-sheets.tsx`, whose writes are the one draft door — `the-date-and-place-open-here.test.ts`). The line itself
+  // still writes nothing: no input, no form, no action.
+  assert.match(LINE, /<FactLine\b/);
   assert.doesNotMatch(LINE, /'use client'|'use server'|<input\b|<form\b|onClick=/);
   // Date and place appear ONCE in the shell — the line.
   assert.equal(takeoverBody().split('{factsSlot}').length - 1, 1);
-  // The words come from the one pure module, from facts the page already read.
+  // The words come from the one pure module, from facts the page already read (the drafted date is planned on).
   const facts = PAGE.slice(PAGE.indexOf('const shellFacts'), PAGE.indexOf('const buildSlot'));
   assert.ok(facts.length > 0, 'shellFacts moved — re-anchor');
-  assert.match(facts, /suppliersDateFact\(ev\.event_date, ev\.event_date_precision\)/);
+  assert.match(facts, /suppliersDateFact\(planDate, planPrecision\)/);
   assert.match(facts, /pickVenueBookingRows\(venueRows\)/, 'the venue is no longer picked by the Event Hub’s own rule');
   assert.doesNotMatch(facts, /await |\.from\(/, 'the line grew a read of its own');
 });
@@ -186,17 +191,38 @@ test('(b) the rows are derived by the one pure module from the page’s existing
   assert.doesNotMatch(block, /kind: '(pay|lock|nudge|review)'/);
 });
 
-test('(b) a row draws at most one action, and Lock is the shipped lock path', () => {
-  const action = ROWS.slice(ROWS.indexOf('function RowAction('));
-  assert.match(action, /if \(!a\) return null;/);
-  assert.equal((action.match(/<AccordionLockButton\b/g) ?? []).length, 1);
-  // 2026-10-12 look sweep: the row's door is the ActionButton (href → a Link),
-  // no longer a hand-drawn <Link> — still exactly ONE, and still a link.
-  assert.equal((action.match(/<ActionButton\b/g) ?? []).length, 1);
-  assert.match(action, /<ActionButton\s+href=\{a\.href\}/);
-  assert.doesNotMatch(action, /<Link\b/, 'a second, hand-drawn door');
-  assert.match(ROWS, /<RowAction eventId=\{eventId\} row=\{r\} \/>/);
-  assert.doesNotMatch(ROWS, /finalizeVendor|'use client'/, 'a second lock path, or a client component');
+test('(b) the Booked body draws the rows the one module decided, and a verb calls the action that already ships', () => {
+  // The page hands the body its own rows and facts; the slot makes the money reads.
+  assert.match(PAGE, /const teamSlot = \(\s*<BookedSlot\s+eventId=\{eventId\}\s+rows=\{teamRowList\}\s+facts=\{bookedFacts\}/);
+  // …and it IS the Booked body: mounted once, its own three headings, nothing beside it.
+  assert.match(PAGE, /bookedSlot=\{teamSlot\}/);
+  assert.doesNotMatch(PAGE, /MerkadoBudgetLens|budgetSlot=|\bteamSlot=\{/, 'the old lens or a second Booked mount is back on the page');
+  assert.equal(takeoverBody().split('{bookedSlot}').length - 1, 1, 'the Booked body is mounted more than once');
+  // The small Budget block (B4) is handed only the Target; its figures are the
+  // slot's ONE resolver read (lib/booked-budget.test.ts holds that).
+  assert.match(PAGE, /targetPhp=\{ev\?\.estimated_budget_centavos != null \? Math\.round\(ev\.estimated_budget_centavos \/ 100\) : null\}/);
+  assert.match(SLOT, /bookedView\(\{ rows, facts, money: list\.suppliers, plans, rooms, dateChange: dateChange\.ok \? dateChange\.view : null \}\)/);
+  assert.match(SLOT, /buildBudgetList\(money\)/, 'the body totals money itself instead of reading the one list');
+  // A SERVER body around client rows; which verbs a row has is the module's answer.
+  assert.doesNotMatch(BODY, /'use client'/, 'the Booked body became a client component');
+  assert.match(ROW, /\{verbs\.map\(draw\)\}/);
+  assert.match(ROW, /data-booked-verbs=\{verbs\.map\(\(v\) => v\.key\)\.join\(' '\)\}/);
+  // Every write is somebody else's shipped action — nothing is written here.
+  for (const shipped of ['contactShortlistVendor(', '<WithdrawAskButton', '<CancelBookingButton', 'loadSelfAddedSupplier(', '<NewManualVendorModal']) {
+    assert.ok(ROW.includes(shipped), `the row no longer goes through ${shipped}`);
+  }
+  for (const src of [BODY, ROW, SLOT]) {
+    assert.doesNotMatch(
+      src,
+      /finalizeVendor|recordDeposit|logPayment|logScheduledPayment|cancelBookingAsHost|withdrawVendorLockRequest|revertVendorToConsidering|\.insert\(|\.update\(|\.delete\(/,
+      'a second booking path, or a second writer of a payment / a cancellation',
+    );
+  }
+  // Nothing opens before their yes: a waiting row is never handed a row's own verbs.
+  const waiting = ROW.slice(ROW.indexOf('export function WaitingRowItem('));
+  assert.ok(waiting.length > 0, 'WaitingRowItem moved — re-anchor');
+  assert.match(waiting, /verbs=\{row\.verbs\}/);
+  assert.doesNotMatch(waiting, /depositStepHref|workspace|CreditCard/);
 });
 
 /* ── (c) a refused read is said, not drawn as nobody ─────────────────────── */
@@ -224,11 +250,17 @@ test('(c) a refused EVENT read says so on the line — never "Pick your date"', 
   assert.doesNotMatch(unreadable, /Pick your date|Pick the place|recordFieldHref/);
 });
 
-test('(c) TeamRows says "Couldn’t load your team" for unreadable, and "empty" only for a measured zero', () => {
-  const unreadable = ROWS.slice(ROWS.indexOf("state.kind === 'unreadable'"), ROWS.indexOf('const { rows } = state;'));
+test('(c) the Booked body says "Couldn’t load your suppliers" for unreadable, and "nothing booked" only for a measured zero', () => {
+  const split = BODY.indexOf('const { waiting, booked, unpriced } = state.view;');
+  assert.ok(split > -1, 'the body no longer splits the refused read from the view — re-anchor');
+  const unreadable = BODY.slice(BODY.indexOf("state.kind === 'unreadable'"), split);
   assert.match(unreadable, /Couldn’t load your suppliers/);
   assert.match(unreadable, /retryHref/);
-  assert.doesNotMatch(unreadable, /No suppliers yet/);
-  const empty = ROWS.slice(ROWS.indexOf('const { rows } = state;'));
-  assert.match(empty, /rows\.length === 0[\s\S]{0,200}No suppliers yet\./);
+  assert.match(unreadable, /return \(/, 'the refusal must RETURN before a list is drawn from nothing');
+  assert.doesNotMatch(unreadable, /BOOKED_EMPTY|Nothing booked/);
+  const view = BODY.slice(split);
+  assert.match(view, /booked\.length === 0 \? \([\s\S]{0,200}\{BOOKED_EMPTY\}/);
+  // A count a person reads is printed through formatCount.
+  assert.match(view, /\{formatCount\(booked\.length\)\} booked/);
+  assert.match(view, /\{formatCount\(waiting\.length\)\} asked/);
 });

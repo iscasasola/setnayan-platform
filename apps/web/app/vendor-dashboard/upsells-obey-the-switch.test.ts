@@ -73,8 +73,6 @@ const NOT_THE_SWITCH: Record<string, string> = {
   'services/actions.ts': 'numeric quotas (services per category, categories, bookings/day, time slots)',
   'services/_components/coverage-panel.tsx': 'numeric quota (coverage areas)',
   'services/_components/canvas-maker.tsx': 'numeric quota (families on a one-family plan)',
-  'calendar/surface.tsx':
-    'asks the switch for the waitlist; ALSO carries the bookings-per-day quota notice (capacity_clamped)',
   // Enforced by the DATABASE unconditionally, so the switch cannot lift it:
   // offer_creator_reach_hold raises TIER_BELOW_PRO_NO_REACH (owner decision
   // #4, 2026-07-16). The page is try-first (browse + draft); Send asks.

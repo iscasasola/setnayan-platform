@@ -88,7 +88,9 @@ export const SHOP_DOORS: readonly ShopDoor[] = [
     key: 'd5',
     title: 'Getting paid',
     question: 'Bank, GCash and your earnings',
-    href: '#earnings',
+    // S-PR4: the earnings left Shop for Customers › Money (owner 2026-10-08 round 1, "2. Money"); the Bank and GCash
+    // half of this door is the "How clients pay you" fold, first in `#shop-folds`. S-PR6 retires the rail.
+    href: '#shop-folds',
     built: false,
   },
   {

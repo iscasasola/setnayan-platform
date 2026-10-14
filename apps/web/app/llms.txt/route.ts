@@ -21,6 +21,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin';
 import { renderLlmsTxt, type RetailRow, type VendorRow } from '@/lib/llms-txt';
+import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 
 export const revalidate = 3600;
 
@@ -75,6 +76,9 @@ export async function GET(): Promise<Response> {
     const body = renderLlmsTxt({
       retail: retailRes.data as RetailRow[],
       vendor: vendorRes.data as VendorRow[],
+      // The LIVE booking-fee schedule (audit 2026-10-12, item 5) — never the
+      // code default. A failed read degrades to the locked schedule inside.
+      bookingFee: await getBookingFeeSchedule(admin),
       refreshedOn: new Date().toISOString().slice(0, 10),
     });
 

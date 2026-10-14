@@ -33,6 +33,7 @@ import {
   customerLandingHref,
   type CustomerLanding,
 } from './customers/anchors';
+import { customersSegmentOf } from './customers/segments';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -67,16 +68,20 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
     assert.equal(n, 1, `${key}: the hub must render id="${anchor.slice(1)}" once — found ${n}`);
     if (fold) {
       assert.ok(folds.has(fold), `${key}: "${fold}" is not a fold on the hub`);
-      assert.ok(href.includes(`?open=${fold}`), `${key}: ${href} does not open the fold`);
+      assert.ok(href.includes(`&open=${fold}`), `${key}: ${href} does not open the fold`);
     } else {
       assert.equal(href.includes('open='), false, `${key}: payday is always on the page, not a fold`);
     }
+    // S-PR2: Customers is three segments and a fragment never reaches the server — the landing names its segment,
+    // and that segment is the one the page draws for it (`customersSegmentOf`).
+    const seg = new URL(href, 'https://x').searchParams;
+    assert.equal(customersSegmentOf(Object.fromEntries(seg)), CUSTOMER_LANDINGS[key].seg, `${key}: ${href} opens the wrong segment`);
   }
   // The exact targets the owner named.
-  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?open=messages#customer-tools');
-  assert.equal(customerLandingHref('proposals'), '/vendor-dashboard/customers?open=proposals#customer-tools');
-  assert.equal(customerLandingHref('contracts'), '/vendor-dashboard/customers?open=contracts#customer-tools');
-  assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers#payday');
+  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people&open=messages#customer-tools');
+  assert.equal(customerLandingHref('proposals'), '/vendor-dashboard/customers?seg=money&open=proposals#customer-tools');
+  assert.equal(customerLandingHref('contracts'), '/vendor-dashboard/customers?seg=money&open=contracts#customer-tools');
+  assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers?seg=money#payday');
 });
 
 test('1b · every More row lands on its section — none is a bare stub', async () => {
@@ -94,10 +99,14 @@ async function renderToday(target: unknown, action = 'Go'): Promise<string> {
   const { SupplierTodayFirstScreen } = await import('./_components/supplier-today-first-screen');
   return renderToStaticMarkup(
     React.createElement(SupplierTodayFirstScreen, {
-      cover: { eyebrow: 'Photo & video · Live', name: 'Shop' },
       next: { kind: 'answer', title: 'T', body: 'B', action, target } as never,
-      numbers: { inquiries: '1', thisWeek: '2', owed: '3' },
+      look: { tone: 'brand', icon: 'forward' },
+      second: null,
+      counter: null,
+      meta: null,
+      numbers: { waiting: '1', waitingNow: true, thisWeek: '2', toComeIn: '3' },
       comingUp: [],
+      shop: { name: 'Shop', line: 'Photo & video · Live', live: true },
     }),
   );
 }
@@ -113,11 +122,11 @@ test('1c · the Next card’s Send quote / Send contract / Payday buttons land o
   }
 });
 
-test('1d · the "owed to you" tile lands on payday, in view', async () => {
+test('1d · the "to come in" number lands on payday, in view', async () => {
   const html = await renderToday({ to: 'today' });
   const tiles = html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-coming-up'));
-  const owed = tiles.match(/<a [^>]*href="([^"]+)"[^>]*>(?:(?!<\/a>).)*owed to you/s);
-  assert.ok(owed, 'the owed-to-you tile did not render as a link');
+  const owed = tiles.match(/<a [^>]*href="([^"]+)"[^>]*>(?:(?!<\/a>).)*to come in/s);
+  assert.ok(owed, 'the to-come-in number did not render as a link');
   assert.equal(owed[1], customerLandingHref('payday'));
 });
 
@@ -133,6 +142,9 @@ test('1e · the redirect stubs name their fold too (old links, emails, notificat
     }
     assert.match(url, /^\/vendor-dashboard\/customers\?tab=/, `${key} stub did not redirect to the hub: ${url}`);
     assert.ok(url.endsWith(CUSTOMER_LANDINGS[key].anchor), `${key} stub drops the user at the top of the roster: ${url}`);
+    // …and its `?tab=` opens the segment that fragment is drawn in (S-PR2).
+    const params = Object.fromEntries(new URL(url, 'https://x').searchParams);
+    assert.equal(customersSegmentOf(params), CUSTOMER_LANDINGS[key].seg, `${key} stub opens the wrong segment: ${url}`);
   }
 });
 

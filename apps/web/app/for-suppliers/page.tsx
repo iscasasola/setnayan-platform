@@ -63,6 +63,8 @@ import { VendorTierMatrix } from './_components/vendor-tier-matrix';
 import { VendorTierDeltas } from './_components/vendor-tier-deltas';
 import { RevealOnView } from './_components/for-vendors-motion';
 import { getVendorPrices } from '@/lib/v2-catalog';
+import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commission-promise';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 
@@ -98,7 +100,8 @@ function tierPriceCopy(
 
 // DB-driven metadata — the tier prices come from getVendorPrices().
 export async function generateMetadata() {
-  const p = await getVendorPrices();
+  // The LIVE booking-fee schedule, never the code default (audit 2026-10-12, item 5).
+  const [p, fee] = await Promise.all([getVendorPrices(), getLiveBookingFeeSchedule()]);
   const all = ['solo', 'pro', 'enterprise'] as const;
   const allLine = tierPriceCopy(p, all);
   const title = `Setnayan for Suppliers · Built to grow your business — free${allLine ? ` · ${allLine} / 28d` : ''}`;
@@ -106,11 +109,11 @@ export async function generateMetadata() {
   const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], '/28d');
   return {
     title,
-    description: `Run your whole wedding business here free — import clients, get a search-ready website, get discovered. Free to join. ${supplierCommissionShort()} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
+    description: `Run your whole wedding business here free — import clients, get a search-ready website, get discovered. Free to join. ${supplierCommissionShort(fee)} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
     alternates: { canonical: '/for-suppliers' },
     openGraph: {
       title,
-      description: `Run your whole business here free · ${supplierCommissionShort()} · your own clients always free.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
+      description: `Run your whole business here free · ${supplierCommissionShort(fee)} · your own clients always free.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
       url: '/for-suppliers',
       type: 'website',
       siteName: 'Setnayan',
@@ -118,7 +121,7 @@ export async function generateMetadata() {
     twitter: {
       card: 'summary_large_image',
       title,
-      description: `Built to grow your business — free. ${supplierCommissionShort()}.${allLine ? ` ${allLine}/28d.` : ''}`,
+      description: `Built to grow your business — free. ${supplierCommissionShort(fee)}.${allLine ? ` ${allLine}/28d.` : ''}`,
     },
   };
 }
@@ -130,7 +133,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 // Schema.org pricing — vendor tier Offers (Solo / Pro / Enterprise · prices
 // from the live catalog, never hardcoded).
-function forVendorsJsonLd(p: VendorPrices) {
+function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
   // An Offer is emitted only for a tier whose price was actually read.
   const offer = (
     id: string,
@@ -186,7 +189,7 @@ function forVendorsJsonLd(p: VendorPrices) {
       offer(
         'solo-vendor-subscription',
         'Solo Supplier (28-day prepaid block)',
-        `1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. ${supplierCommissionPromise()}`,
+        `1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. ${supplierCommissionPromise(fee)}`,
         p.num.soloMonthly,
       ),
       offer(
@@ -214,22 +217,22 @@ function forVendorsJsonLd(p: VendorPrices) {
 }
 
 export default async function ForVendorsPage() {
-  const p = await getVendorPrices();
+  const [p, fee] = await Promise.all([getVendorPrices(), getLiveBookingFeeSchedule()]);
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(forVendorsJsonLd(p)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(forVendorsJsonLd(p, fee)) }}
       />
       <main className="m-surface min-h-dvh">
-        <VendorGrowHero />
-        <VendorGrowThesis />
+        <VendorGrowHero fee={fee} />
+        <VendorGrowThesis fee={fee} />
         <RevealOnView>
           <VendorGrowHub />
         </RevealOnView>
         <VendorGrowAI />
         <RevealOnView>
-          <VendorGrowFairPay />
+          <VendorGrowFairPay fee={fee} />
         </RevealOnView>
         <RevealOnView>
           <VendorGrowWebsite />
@@ -271,8 +274,10 @@ export default async function ForVendorsPage() {
               customFrom: p.customFrom,
               branch: p.branch,
             }}
+            feeSchedule={fee}
             matrix={
               <VendorTierMatrix
+                feeSchedule={fee}
                 prices={{
                   soloMonthly: p.soloMonthly,
                   proMonthly: p.proMonthly,
@@ -336,7 +341,7 @@ export default async function ForVendorsPage() {
             </div>
           </div>
         </section>
-        <VendorGrowCTA />
+        <VendorGrowCTA fee={fee} />
         <VendorGrowStyles />
       </main>
     </>

@@ -60,8 +60,35 @@ const DEFINITION = 'lib/booking-fee-lock.server.ts';
  * payment". `deposit-acknowledge-fires-from-every-door.test.ts` holds the
  * door-to-module edge; this file holds the module-to-collector edge.
  */
-const CANONICAL_CALLER = 'lib/deposit-acknowledged-effects.server.ts';
-const CANONICAL_FUNCTION = 'runDepositAcknowledgedEffects';
+/*
+ * 2026-10-12 — THE SIXTH RULING. Owner, "APPROVE ALL: THE BOOKING-FEE
+ * QUESTIONS (14)", answer 1: *the fee is CREATED at the supplier's YES ("no
+ * handshake, no access"); it supersedes the 2026-07-27 ruling 5 timing.* The
+ * collector's one call site moved to `lib/booking-fee-mint.server.ts`, and the
+ * DOORS into it are pinned below — the yes, the Locked-QR claim (the
+ * supplier's printed yes), the deposit acknowledgement (a yes on the paths
+ * that never asked) and the catch-up sweep. Still ONE collector call; more than
+ * one door cannot double-bill because the RPC reuses its one live charge and
+ * the bill is keyed on that charge by a unique index.
+ */
+const CANONICAL_CALLER = 'lib/booking-fee-mint.server.ts';
+const CANONICAL_FUNCTION = 'mintBookingFeeForBooking';
+
+/**
+ * Every non-test file that calls the mint, and the function each call sits in.
+ * A new door is a ruling about WHEN a supplier owes Setnayan money — it is
+ * added here with its reason, never discovered in production.
+ */
+const MINT_DOORS: Record<string, string[]> = {
+  // The yes to a couple's ask (owner 2026-10-12 #1).
+  'app/vendor-dashboard/clients/[eventId]/actions.ts': ['vendorAgreeToLock'],
+  // The couple claims the supplier's own printed Locked QR (audit C4).
+  'app/vendor/lock/[token]/actions.ts': ['claimLockedQr'],
+  // A confirmed payment — every acknowledging door reaches it through here.
+  'lib/deposit-acknowledged-effects.server.ts': ['runDepositAcknowledgedEffects'],
+  // The catch-up for handshakes that pre-date the move or whose mint failed.
+  'lib/booking-fee-mint.server.ts': ['maybeCatchUpHandshakesWithoutFee'],
+};
 
 /** Strip comments — the three "no fee here any more" notes must not read as calls. */
 function code(src: string): string {
@@ -94,7 +121,7 @@ test('the booking fee has EXACTLY ONE non-test call site', () => {
     found,
     [CANONICAL_CALLER],
     `The syncing fee must be collected in exactly one place — ${CANONICAL_CALLER} ` +
-      `(the vendor accepting the payment; owner 2026-07-27, ruling 5 of 5).\n` +
+      `(the one mint, called at the supplier's yes; owner 2026-10-12, ruling 6).\n` +
       `Found: ${found.join(', ') || 'NOTHING'}.\n\n` +
       `• MORE than one → the same booking bills twice, and which routes bill ` +
       `depends only on how the couple got there. The three sites that used to ` +
@@ -128,6 +155,41 @@ test('the canonical caller is the ACKNOWLEDGE-EFFECTS function, not some other e
   // And exactly once in that file — a second call anywhere in it is a second trigger.
   const calls = src.match(/collectBookingFeeAtLock\s*\(/g) ?? [];
   assert.equal(calls.length, 1, `expected 1 collector call in ${CANONICAL_CALLER}, found ${calls.length}`);
+});
+
+/** Name of the `export async function` enclosing each match of `needle`. */
+function enclosingFunctions(src: string, needle: RegExp): string[] {
+  const out: string[] = [];
+  const re = new RegExp(needle.source, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    const before = src.slice(0, m.index);
+    const fnIdx = before.lastIndexOf('export async function ');
+    out.push(fnIdx < 0 ? '<top-level>' : (before.slice(fnIdx).match(/export async function (\w+)/)?.[1] ?? '<?>'));
+  }
+  return out;
+}
+
+test('the mint is called from EXACTLY the known handshake doors, each inside its own action', () => {
+  // SABOTAGE: delete the mint call in vendorAgreeToLock → RED (the yes makes no
+  // fee); add one to any other action → RED (a surprise trigger).
+  // A CALL, not the declaration (`export async function mintBookingFeeForBooking(`).
+  const MINT_CALL = /(?<!function\s)mintBookingFeeForBooking\s*\(/;
+  const found: Record<string, string[]> = {};
+  for (const f of ALL) {
+    const rel = relative(WEB, f);
+    if (/\.test\.tsx?$/.test(rel)) continue;
+    const src = code(readFileSync(f, 'utf8'));
+    if (!MINT_CALL.test(src)) continue;
+    const fns = enclosingFunctions(src, MINT_CALL);
+    if (fns.length > 0) found[rel] = fns;
+  }
+  assert.deepEqual(
+    found,
+    MINT_DOORS,
+    `The booking fee is made at a handshake and nowhere else (owner 2026-10-12 #1). ` +
+      `Found: ${JSON.stringify(found)}. A new door is a ruling — add it to MINT_DOORS with its reason.`,
+  );
 });
 
 test('the fee resolves the ANCHOR row before charging', () => {

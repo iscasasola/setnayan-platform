@@ -3509,6 +3509,42 @@ export const UGAT_JOINTS: UgatJoint[] = [
     traps:
       'A record is what a guest SAID, so no reader may call it received, paid, verified or funded. A removed record (removed_at) still exists and must be left out of every sum. A wish with price_php NULL never marks itself got. event_gift_records.wish_item_id is a single-column FK — nothing in the table ties it to the SAME event, so every reader filters on event_id as well. Deleting a wish keeps its gifts (they fall back to "Any gift"). Public ids: wishes S89H- (a letter chat_threads also uses), records S89Y- (the E-Gifts letter, shared with event_egift_methods) — all 26 letters are taken, the letter is a reading aid and never a key.',
   },
+  {
+    /**
+     * 📝 "ADD YOUR OWN" — THE COUPLE'S OWN RECORD OF A SUPPLIER (promoted from
+     * the concept baseline 2026-10-12, suppliers step 2, the moment it gained a
+     * claim: migration 20271267252894). The record a couple keeps for a supplier
+     * who is not on Setnayan; `event_vendors.manual_vendor_id` points at it. It
+     * gains a link to a SHOP: `leak_match_vendor_profile_id`, the Setnayan shop
+     * the record matches (its name, or a price within the owner's 10 % of a quote
+     * this event got) — read by fee rule B in `booking_fee_attribution_for`.
+     */
+    id: 'J53',
+    claims: [
+      { kind: 'table', table: 'event_manual_vendors' },
+      { kind: 'fk', table: 'event_manual_vendors', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_manual_vendors', column: 'leak_match_vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'event_vendors', column: 'manual_vendor_id', references: 'event_manual_vendors' },
+      { kind: 'column', table: 'event_manual_vendors', column: 'business_name' },
+      { kind: 'column', table: 'event_manual_vendors', column: 'created_at' },
+      { kind: 'column', table: 'platform_settings', column: 'fee_leak_price_tolerance' },
+      { kind: 'column', table: 'vendor_invites', column: 'first_opened_at' },
+    ],
+    chain: 7,
+    pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
+    title: 'Event → a supplier the couple brought (their own record)',
+    joint: 'event_manual_vendors',
+    cardinality:
+      'One record per supplier the couple typed in · at most one matched shop per record (leak_match_vendor_profile_id, nullable)',
+    implementedBy:
+      'event_manual_vendors (business_name · contact_person · contact_number · address + pin · photo · created_at · leak_match_vendor_profile_id → vendor_profiles SET NULL) ← event_vendors.manual_vendor_id. The claim link (vendor_invites, first_opened_at) is how the supplier walks in and becomes event_vendors.marketplace_vendor_id.',
+    writtenBy:
+      'addManualSupplier (the four-step "Add your own" walk and the eight-field sheet) · updateSelfAddedSupplier (the record sheet) · the match stamp ONLY by stampManualLeakMatch with the service role',
+    guardedBy:
+      'event_manual_vendors_host_all (couple members + accepted moderators + admin) · guard_manual_vendor_leak_match (a couple session can neither set nor clear the stamp) · add-your-own-fee-rule.db.test.ts',
+    traps:
+      'The stamp BILLS NOBODY: booking_fee_open_lock_charge still skips a row with no marketplace_vendor_id, so a matched-but-unclaimed record is attributed, never charged. Rule B counts a view only if it came from a sourced surface BEFORE the record was made (vendor_profile_views.viewed_at < event_manual_vendors.created_at); a match dismissed with "Not them?" is never stamped. Couples are never told any of it (owner 2026-10-12).',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

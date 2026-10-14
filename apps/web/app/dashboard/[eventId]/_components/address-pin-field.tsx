@@ -29,6 +29,8 @@
 
 import { useState, useTransition } from 'react';
 import { Loader2, MapPin, Search } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { BranchPinMap, type LatLng } from '@/app/vendor-dashboard/_components/branch-pin-map';
 import {
   MANUAL_VENUE_ADDRESS_HINT,
@@ -66,6 +68,9 @@ export function AddressPinField({
   onChange?: (next: { address: string; pin: LatLng | null }) => void;
 }) {
   const [address, setAddressState] = useState(initialAddress ?? '');
+  /** What is typed in the open field right now (Find reads it); `address` is what was KEPT. A Form row's ✕ must be able to
+   *  leave the kept answer as it was — feeding the typing back into `value` made ✕ keep it (walked in the Maker 2026-10-12). */
+  const [liveAddress, setLiveAddress] = useState(initialAddress ?? '');
   const [pin, setPinState] = useState<LatLng | null>(initialPin ?? null);
   const setAddress = (next: string) => {
     setAddressState(next);
@@ -79,7 +84,7 @@ export function AddressPinField({
   const [note, setNote] = useState<string | null>(null);
 
   function locate() {
-    if (address.trim().length < 3) {
+    if (liveAddress.trim().length < 3) {
       setNote('Type the address first.');
       return;
     }
@@ -87,7 +92,7 @@ export function AddressPinField({
     startLocating(async () => {
       /* 📵 A lookup that never answered (no signal, a 5xx) is a miss like any other — the map is open below. Thrown
          into this transition it replaced the whole page (in the Maker, the whole Maker) with the app's error screen. */
-      const r = await locateAddressPin(address).catch(() => null);
+      const r = await locateAddressPin(liveAddress).catch(() => null);
       if (r) {
         setPin({ lat: r.lat, lng: r.lng });
         setNote(null);
@@ -101,42 +106,39 @@ export function AddressPinField({
 
   return (
     <div className="space-y-1.5">
-      <label
-        htmlFor={id}
-        className={hideHints ? 'sr-only' : 'block text-xs font-medium uppercase tracking-[0.08em] text-ink/65'}
-      >
-        {required ? 'Exact address' : 'Address'}
-        {required ? <span className="ml-0.5 text-terracotta-700">*</span> : null}
-      </label>
-
-      <div className="flex items-start gap-1.5">
-        <input
-          id={id}
-          name="address"
-          type="text"
-          required={required}
-          maxLength={MANUAL_VENUE_ADDRESS_MAX}
-          disabled={disabled}
-          value={address}
-          autoComplete="street-address"
-          placeholder={MANUAL_VENUE_ADDRESS_PLACEHOLDER}
-          onChange={(e) => setAddress(e.target.value)}
-          className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
-        />
-        <button
-          type="button"
+      {/* The address is a Form row (INTERACTION_RULES § 9 — "a field IS a Form
+          row") that posts under `address`; Find is the one ActionButton. The map
+          itself has no template yet (§ 9: "the map pin field" has no drawing) —
+          it stays the shipped BranchPinMap. */}
+      {/* The row keeps its whole width (its name was cut to "Addres" at 375 px
+          with Find beside it — walked 2026-10-12); Find sits under it, right. */}
+      <div className="flex flex-col items-end gap-1.5" data-address-row={id}>
+        <div className="w-full min-w-0">
+          <FormRows width="wide" data={`address-${id}`}>
+            <TypedRow
+              name={required ? 'Exact address' : 'Address'}
+              fieldName="address"
+              value={address}
+              required={required}
+              maxLength={MANUAL_VENUE_ADDRESS_MAX}
+              placeholder={MANUAL_VENUE_ADDRESS_PLACEHOLDER}
+              attrs={{ 'data-address-field': id }}
+              onType={(t) => setLiveAddress(t)}
+              onKeep={(t) => {
+                setLiveAddress(t);
+                setAddress(t);
+              }}
+            />
+          </FormRows>
+        </div>
+        <ActionButton
+          tone="neutral"
+          icon={locating ? Loader2 : Search}
+          label="Find"
+          name="Find this address on the map"
           onClick={locate}
           disabled={disabled || locating}
-          aria-label="Find this address on the map"
-          className="inline-flex h-[38px] shrink-0 items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/40 hover:text-ink disabled:opacity-60"
-        >
-          {locating ? (
-            <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-          ) : (
-            <Search aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          )}
-          Find
-        </button>
+        />
       </div>
 
       {hideHints ? null : (
@@ -145,7 +147,8 @@ export function AddressPinField({
         </p>
       )}
 
-      <div className="sn-addman-field overflow-hidden rounded-md border border-ink/15">
+      {/* The map is pressable (drag it) — its frame is the control's own. */}
+      <div className="overflow-hidden rounded-md border border-ink/15">
         <BranchPinMap
           value={pin}
           onChange={(v) => {

@@ -76,11 +76,12 @@ export default function WaitlistPage() {
             <li>· Supplier browsing — real vendor portfolios + free vendor subdomain at slug.setnayan.com</li>
             <li>· Setnayan AI — Filipino-wedding AI guide that surfaces the next step</li>
             <li>· Vendor contracts hosted in-app — both sides keep a copy alongside the chat thread</li>
-            {/* 🔴 "Setnayan only sells software" stopped being the whole truth the
-                day the booking fee went live and collected ₱837.50. The zero
-                commission is still true and stays; what was missing is the
-                second sentence the 2026-08-06 ruling requires beside it. */}
-            <li>· Zero commission on vendor bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee only on couples we introduce.</li>
+            {/* ⚖ OWNER 2026-10-12 (#14): couple-facing pages do NOT mention the
+                supplier's fee. This page is the couples' waitlist ("Setnayan is
+                live for couples"), so the zero stands alone here — a couple
+                pays no commission, unqualified. Suppliers read the fee on
+                /for-suppliers, which the link below goes to. */}
+            <li>· Zero commission on vendor bookings — couples pay suppliers directly.</li>
             <li>· A receipt on every software purchase, archived in your dashboard</li>
           </ul>
           <p className="mt-6 text-xs text-ink/55">

@@ -133,6 +133,7 @@ export type NotificationType =
   //   schedule_suggestion   → couple: vendor/coordinator suggested a timeline edit
   //   pax_surcharge_changed → couple: vendor adjusted the pax-based surcharge
   //   vendor_joined         → couple: an invited vendor claimed their profile
+  //   vendor_invite_declined → couple: the supplier they added declined their claim link (in-app only)
   //   editorial_decision    → vendor/couple: editorial/sponsored decision landed
   //   showcase_featured     → couple: their event was featured in the showcase
   //   guest_claim_rejected  → guest: couple rejected their invite-claim request
@@ -196,6 +197,7 @@ export type NotificationType =
   | 'event_deletion_answered'
   | 'pax_surcharge_changed'
   | 'vendor_joined'
+  | 'vendor_invite_declined'
   | 'editorial_decision'
   | 'showcase_featured'
   | 'guest_claim_rejected'
@@ -536,6 +538,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_deletion_answered: 'About removing an event',
   pax_surcharge_changed: 'Guest-count charge updated',
   vendor_joined: 'Supplier joined',
+  vendor_invite_declined: 'Link declined',
   editorial_decision: 'Editorial decision',
   showcase_featured: 'Featured in the showcase',
   guest_claim_rejected: 'Guest request declined',
@@ -695,6 +698,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   pax_surcharge_changed: 'bg-warn-100 text-warn-900',
   // An invited vendor accepting/claiming = a positive arrival → emerald.
   vendor_joined: 'bg-success-100 text-success-800',
+  vendor_invite_declined: 'bg-danger-100 text-danger-800',
   // An editorial/sponsored decision is informational → sky.
   editorial_decision: 'bg-sky-100 text-sky-800',
   // Being featured in the showcase is celebratory → emerald.

@@ -123,7 +123,16 @@ export function payoutReadinessOf(
  *                  shop to hold payment details.
  * `unreadable`   — the read failed. Must NOT read as "they have none".
  */
-export type CouplePayMethodsState = 'listed' | 'off_platform' | 'unreadable';
+export type CouplePayMethodsState =
+  | 'listed'
+  | 'off_platform'
+  | 'unreadable'
+  /**
+   * The supplier has not finished confirming the booking (owner 2026-10-07:
+   * "no handshake, no record"; audit F2). Their account numbers are not shown
+   * on a mere ask. Never a word about why (R12).
+   */
+  | 'not_yet';
 
 /** Null when there IS something to show — the pay sheet speaks for itself. */
 export function noPayMethodsSentence(
@@ -133,6 +142,9 @@ export function noPayMethodsSentence(
 ): string | null {
   if (state === 'unreadable') {
     return `We couldn’t load ${vendorName}’s payment details just now. Refresh the page to try again.`;
+  }
+  if (state === 'not_yet') {
+    return `${vendorName} hasn’t finished confirming your booking yet. Their payment details appear here once they have.`;
   }
   if (state === 'off_platform') {
     return `${vendorName} isn’t on Setnayan, so their payment details aren’t here. Pay them the way you agreed with them.`;

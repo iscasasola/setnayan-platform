@@ -84,7 +84,7 @@ import {
   forecastForBooking,
   resolveBookingFeeStanding,
 } from '@/lib/booking-fee-disclosure.server';
-import { lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { lockAgreeFeeHeld, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import {
@@ -154,6 +154,8 @@ type Props = {
     compose?: string;
     /** The RPC status of a booking-ask answer given from this thread's quote card. */
     lock_agree?: string;
+    /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
+    fee?: string;
     lock_decline?: string;
     competing?: string;
   }>;
@@ -205,6 +207,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const lockAnswer =
     lockAgreeNotice(sp?.lock_agree, {
       competing: Number.isFinite(lockCompeting) ? lockCompeting : null,
+      feeHeld: lockAgreeFeeHeld(sp?.fee),
     }) ?? lockDeclineNotice(sp?.lock_decline);
   const supabase = await createClient();
   const {
@@ -1440,6 +1443,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             }`}
           >
             {lockAnswer.text}
+            {lockAnswer.door ? (
+              <>
+                {' '}
+                <Link href={lockAnswer.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
+                  {lockAnswer.door.label}
+                </Link>
+              </>
+            ) : null}
           </p>
         ) : null}
         <ChatBox

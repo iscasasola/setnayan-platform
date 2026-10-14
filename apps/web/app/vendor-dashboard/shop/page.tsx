@@ -2027,7 +2027,7 @@ async function BranchPanel({
 /* ── My Shop hub (owner 5-page IA, 2026-07-12) ──────────────────────────────
  * One menu item, the whole business integrated: the shop home (profile ·
  * services · verify · website — this file's original body, incl. the
- * services fold-in from 2026-07-02) plus Contracts, Proposals, Earnings,
+ * services fold-in from 2026-07-02) plus Contracts, Proposals (Earnings moved to Customers › Money, S-PR4),
  * How clients pay you, Manpower as tabs, and a Tools tab linking the
  * long-tail surfaces that left the sidebar. Old routes redirect in. */
 import { Suspense } from 'react';
@@ -2037,7 +2037,6 @@ import {
   AccordionSkeleton,
   type AccordionSection,
 } from '../_components/feature-accordion';
-import EarningsSurface from '../earnings/surface';
 import PaymentOptionsSurface from '../payment-options/surface';
 import ManpowerSurface from '../manpower/surface';
 
@@ -2184,13 +2183,6 @@ export default async function VendorShopHub({
     <>
       {/* Home stays on top: identity · stats · Manage tiles · verify · services. */}
       <ShopHome searchParams={Promise.resolve(sp) as never} />
-
-      {/* Earnings promoted to always-on (owner "build it" 2026-07-12) — money
-          is the #1 glance. Tier-gated: free/below-Solo shops see a cheap gate,
-          paid shops see the ledger. */}
-      <div id="earnings">
-        <EarningsSurface searchParams={Promise.resolve(sp) as never} />
-      </div>
 
       {/* Everything else folds in below — one open at a time, loaded on expand.
           The id is what door 6 on the rail points at: the folds are where those

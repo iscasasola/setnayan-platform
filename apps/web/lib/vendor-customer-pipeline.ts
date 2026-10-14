@@ -162,6 +162,15 @@ export type PipelineBooking = LockRequestRow & {
   requestedAt: string | null;
   /** The MATERIALIZED deadline, never one recomputed here. */
   expiresAt: string | null;
+  /**
+   * The couple said it was received (`completion_status` confirmed /
+   * auto_confirmed, or `customer_confirmed_received_at`) — the caller's answer
+   * from the ONE shared predicate, `rowReadsCompleted` (vendor-thread-stage.ts).
+   * Optional: absent, only the booking machine's own status finishes a row,
+   * exactly as before. The supplier's own "I'm done" (`vendor_marked`) is a
+   * claim, not a release, and that predicate does not count it.
+   */
+  completed?: boolean;
 };
 
 export type PipelineInput = {
@@ -273,7 +282,9 @@ export function customerLaneOf(
 
   if (lockState === 'locked') {
     lane =
-      booking?.status && FINISHED_STATUSES.has(booking.status) ? 'finished' : 'booked';
+      (booking?.status && FINISHED_STATUSES.has(booking.status)) || booking?.completed === true
+        ? 'finished'
+        : 'booked';
   } else if (lockState === 'requested') {
     // The bigger of the two unanswered questions wins the row. A couple with an
     // un-accepted enquiry AND a live booking ask is one person waiting, not two

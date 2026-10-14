@@ -296,15 +296,66 @@ export async function declineVendorInviteByToken(formData: FormData): Promise<vo
   const token = String(formData.get('claim_token') ?? '').trim();
   if (!token) return;
   const admin = createAdminClient();
-  const { error } = await admin
+  // The row back, so a zero-row update (already declined, claimed, run out)
+  // never tells anybody anything.
+  const { data: declined, error } = await admin
     .from('vendor_invites')
     .update({ status: 'declined', declined_at: new Date().toISOString() })
     .eq('claim_token', token)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('vendor_id, business_name');
   if (error) {
     console.error('[vendor-invite-actions] decline failed:', error);
   }
+  const row = (declined ?? [])[0] as { vendor_id: string | null; business_name: string | null } | undefined;
+  if (row?.vendor_id) await tellCoupleTheirLinkWasDeclined(admin, row.vendor_id, row.business_name);
   redirect(`/vendor/claim/${token}`);
+}
+
+/**
+ * THE COUPLE IS TOLD WHEN THE SUPPLIER DECLINES THEIR LINK (owner 2026-10-10,
+ * "4-6 do as you recommend": the couple IS told when the supplier declines or
+ * never opens the link). In the app only — the type is not on the email
+ * allowlist (owner 2026-10-11: no new emails). Every couple member of the
+ * event, the way `vendor_joined` is fanned out. Fail-soft: the decline itself
+ * already stands; the couple's row also says it on every visit
+ * (`lib/supplier-invite-status.ts`).
+ */
+async function tellCoupleTheirLinkWasDeclined(
+  admin: ReturnType<typeof createAdminClient>,
+  eventVendorId: string,
+  businessName: string | null,
+): Promise<void> {
+  try {
+    const { data: ev } = await admin
+      .from('event_vendors')
+      .select('event_id, vendor_name')
+      .eq('vendor_id', eventVendorId)
+      .maybeSingle();
+    const eventId = (ev?.event_id as string | null) ?? null;
+    if (!eventId) return;
+    const name = ((ev?.vendor_name as string | null) ?? businessName ?? '').trim() || 'Your supplier';
+    const { data: members } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('member_type', 'couple');
+    const coupleUserIds = (members ?? []).map((m) => m.user_id as string).filter(Boolean);
+    await Promise.all(
+      coupleUserIds.map((uid) =>
+        emitNotification({
+          userId: uid,
+          type: 'vendor_invite_declined',
+          title: `${name} declined your link`,
+          body: 'They said they are not this supplier. Their record is still yours.',
+          relatedUrl: `/dashboard/${eventId}/vendors`,
+          eventId,
+        }),
+      ),
+    );
+  } catch (e) {
+    console.warn('[claim] vendor_invite_declined notify skipped:', e);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -362,12 +413,20 @@ export async function applyClaimAutoLink(args: {
   //    different profile matches 0 rows and is refused. The legitimate FIRST
   //    claim has marketplace_vendor_id = null → the .or() admits it. A same-
   //    profile retry matches via the second predicate → still succeeds.
-  const { error: linkErr } = await admin
-    .from('event_vendors')
-    .update({ marketplace_vendor_id: args.claimedVendorProfileId })
-    .eq('vendor_id', invite.vendor_id)
-    .or(`marketplace_vendor_id.is.null,marketplace_vendor_id.eq.${args.claimedVendorProfileId}`);
+  //
+  //    ⚠ ONE SQL CALL, `claim_link_record_to_shop` (migration 20271268139017,
+  //    2026-10-12). It keeps that guard AND handles the case that used to fail the
+  //    claim outright: the shop is ALREADY a live row on this event (a save from
+  //    Find), and the one-row-per-shop-per-event index refused a second. The
+  //    couple's record then MERGES onto that row (the earliest sourced fact
+  //    stays), and the call returns the row that now carries the booking.
+  const { data: linkedId, error: linkErr } = await admin.rpc('claim_link_record_to_shop', {
+    p_record_vendor_id: invite.vendor_id,
+    p_vendor_profile_id: args.claimedVendorProfileId,
+  });
   if (linkErr) return { ok: false, code: 'LINK_FAILED', message: linkErr.message };
+  const bookingVendorId = typeof linkedId === 'string' && linkedId ? linkedId : (invite.vendor_id as string);
+  const merged = bookingVendorId !== invite.vendor_id;
 
   // 2b. Reconcile SIBLING category rows for the same manually-added vendor.
   //     A couple who added this vendor under multiple categories has N distinct
@@ -382,7 +441,8 @@ export async function applyClaimAutoLink(args: {
     .select('manual_vendor_id,event_id')
     .eq('vendor_id', invite.vendor_id)
     .maybeSingle();
-  if (parentRow?.manual_vendor_id && parentRow.event_id) {
+  // (Not after a merge: the shop's one live row on this event is the survivor.)
+  if (!merged && parentRow?.manual_vendor_id && parentRow.event_id) {
     await admin
       .from('event_vendors')
       .update({ marketplace_vendor_id: args.claimedVendorProfileId })
@@ -492,7 +552,7 @@ export async function applyClaimAutoLink(args: {
     }
   }
 
-  return { ok: true, vendorId: invite.vendor_id as string, coupleUserIds };
+  return { ok: true, vendorId: bookingVendorId, coupleUserIds };
 }
 
 // ---------------------------------------------------------------------------
@@ -759,6 +819,9 @@ export async function registerClaimedServiceToCouple(args: {
             title: 'Your supplier joined Setnayan',
             body: 'A supplier you added has linked their service to your plan.',
             relatedUrl: `/dashboard/${eventId}/vendors`,
+            // Named, not left to be worked out of the URL: the notice belongs
+            // to this event, and its email states the event and the date.
+            eventId,
           }),
         ),
       );

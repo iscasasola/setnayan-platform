@@ -69,7 +69,10 @@ const SHIPPED_MOUNTS: ReadonlyArray<readonly [string, string]> = [
   ['<ManageTiles', 'door 1 — shop information'],
   ['<VerifySection', 'door 1 — your papers'],
   ['<ServicesDisclosure', 'door 3 — what you sell'],
-  ['<EarningsSurface', 'door 5 — earnings'],
+  // ['<EarningsSurface', 'door 5 — earnings'] — RETIRED by owner ruling 2026-10-08 (supplier dashboard round 1,
+  // "2. Money": Earnings & payday become Customers › Money; plan § 2 "earnings/surface.tsx … Merge into Customers ›
+  // Money"). Deleted with its mount in S-PR4; the year, the fee bills and the legacy payouts are Money's now
+  // (`app/vendor-dashboard/customers/_components/money-segment.tsx`).
   ['<FeatureAccordion', 'door 6 — the folds'],
 ];
 

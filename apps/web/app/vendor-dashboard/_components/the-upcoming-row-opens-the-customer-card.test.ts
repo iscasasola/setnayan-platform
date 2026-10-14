@@ -46,7 +46,9 @@ const SECTIONS = 'app/vendor-dashboard/_components/overview-sections.tsx';
 const BUILDER = 'lib/vendor-overview.ts';
 const DOOR = 'lib/upcoming-schedule-door.ts';
 const CLIENT_PAGE = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
-const CLIENTS_ROSTER = 'app/vendor-dashboard/clients/surface.tsx';
+// S-PR2 (2026-10-13): the Clients page is retired — its customers are rows on Customers › People, whose page is
+// read here in its place (its outside clients have no card, so it may hold no client link at all).
+const CLIENTS_ROSTER = 'app/vendor-dashboard/customers/page.tsx';
 const CUSTOMERS_ROSTER = 'app/vendor-dashboard/customers/_components/customers-roster.tsx';
 
 const sections = read(SECTIONS);
@@ -208,29 +210,47 @@ test('6 · no supplier-side door onto a customer card is left bare', () => {
   // Each fixed door names the section its own words promise.
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=quote/g), 1, 'the deposit card lost its money section');
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=schedule/g), 2, 'the meeting / handover doors lost their calendar');
-  assert.equal(count(clientsRoster, /clients\/\$\{(?:eventId|t\.event_id)\}\?tab=details/g), 2);
+  // The retired Clients page had two "Customer card" links of its own; on People every row's door is the roster's
+  // `hrefFor` (held just above), and the page itself writes none.
+  assert.equal(count(clientsRoster, /clients\/\$\{(?:eventId|t\.event_id)\}/g), 0, 'People grew a second door onto the card beside the roster rows');
 });
 
-test('7 · the Message control is a SIBLING of the row, and is conditional', () => {
+/*
+  ⚠ RE-ANCHORED 2026-10-08 (supplier redesign S-PR1). The "Upcoming schedules"
+  list this test read is gone from Today — Coming up (three rows) already said
+  it, and the plan removes the duplicate. Its two properties are held where
+  they live now:
+    · a Coming-up row is ONE link, to the row's own door (`row.href` — the
+      customer card), with no second anchor nested inside it;
+    · the conversation is still offered, and still conditionally: on an event
+      day the Next card's grey "Chat" opens the thread — only when the thread is
+      not the same place the row already goes (`nextSecond`).
+*/
+test('7 · a Coming-up row is one link to its own door; the conversation is the event-day card\'s grey Chat, and is conditional', async () => {
+  const firstScreen = read('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
   assert.equal(
-    count(sections, /href=\{row\.threadHref\}/g),
+    count(firstScreen, /<TodayRow key=\{row\.id\} href=\{row\.href\}/g),
     1,
-    'the Upcoming row no longer offers the conversation at all',
+    'a Coming-up row no longer opens the row’s own door',
   );
-  assert.equal(
-    count(sections, /row\.threadHref && row\.threadHref !== row\.href/g),
-    1,
-    'the Message link is unconditional — in the fallback it would duplicate the row',
-  );
-  // An <a> inside an <a> is invalid HTML and the inner one stops working, so
-  // the row's own Link must close before the Message link opens.
-  const rowLink = sections.indexOf('href={row.href}');
-  const msgLink = sections.indexOf('href={row.threadHref}');
-  assert.ok(rowLink > 0 && msgLink > rowLink);
-  assert.ok(
-    sections.slice(rowLink, msgLink).includes('</Link>'),
-    'the Message link sits inside the row’s own <Link> — nested anchors do not work',
-  );
+  const rowFn = firstScreen.slice(firstScreen.indexOf('export function TodayRow('), firstScreen.indexOf('export type SupplierTodayNumbers'));
+  assert.equal(count(rowFn, /<Link\b/g), 1, 'a row holds more than one link — nested anchors do not work');
+  assert.equal(count(sections, /row\.threadHref/g), 0, 'the old Upcoming list is back in the desk file');
+
+  const { nextSecond, pickSupplierNext } = await import('@/lib/supplier-today');
+  const base = { answer: null, answerSince: null, deskIncomplete: false, setupStep: null, findability: null, fee: null, owedPhp: null, now: Date.UTC(2026, 9, 1) };
+  const row = (threadHref: string | null) =>
+    ({ id: 'up', eventId: EVENT, eventName: 'E', date: '2026-10-01', place: null, category: null, inDays: 0, href: `/vendor-dashboard/clients/${EVENT}?tab=details`, threadHref, opensCard: true }) as never;
+  const withThread = [row(`/vendor-dashboard/messages/${THREAD}`)];
+  assert.deepEqual(nextSecond(pickSupplierNext({ ...base, upcoming: withThread }), null, withThread), {
+    label: 'Chat',
+    to: 'given',
+    href: `/vendor-dashboard/messages/${THREAD}`,
+  });
+  const noThread = [row(null)];
+  assert.equal(nextSecond(pickSupplierNext({ ...base, upcoming: noThread }), null, noThread), null, 'a Chat button with no conversation behind it');
+  const fallback = [{ ...(row(`/vendor-dashboard/messages/${THREAD}`) as object), href: `/vendor-dashboard/messages/${THREAD}` } as never];
+  assert.equal(nextSecond(pickSupplierNext({ ...base, upcoming: fallback }), null, fallback), null, 'in the fallback the grey button would duplicate where the row already goes');
 });
 
 test('8 · the open-task list has no no-op row', () => {

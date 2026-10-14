@@ -172,3 +172,31 @@ test('wave 1: a child component posts ITS OWN inputs, not its file-mates\'', () 
   assert.deepEqual(mg.inputs, ['dup_id', 'keep_id']);
   assert.deepEqual(mg.notRead, []);
 });
+
+test('a Form row posts its fieldName — its visible name ("Contact", "From") is a label, not a field (S-PR2)', () => {
+  const root = fixture({
+    'app/b/page.tsx': `import { add } from './actions';
+export default function P() {
+  return (
+    <form action={add}>
+      <input type="hidden" name="start_date" value="x" />
+      <TypedRow name="Contact" value="" fieldName="client_contact" onKeep={() => {}} />
+      <TypedRow name="Client name" value="" fieldName="client_name" onKeep={() => {}} />
+      <DateRow name="From" value={null} onKeep={() => {}} />
+      <ChosenRow name="Schedule" value={null} options={[]} onPick={() => {}} />
+    </form>
+  );
+}
+`,
+    'app/b/actions.ts': `'use server';
+export async function add(formData: FormData) {
+  await s.from('t').insert({ a: formData.get('start_date'), b: formData.get('client_contact'), c: formData.get('client_name') });
+}
+`,
+  });
+  const m = scanFields({ webRoot: root, screens: scanScreens({ webRoot: root, builders: new Map(), tableNodes: new Map() }) });
+  const f = m.forms.find((x) => x.actions.includes('app/b/actions.ts#add'))!;
+  assert.ok(f, 'the form is mapped');
+  assert.deepEqual(f.inputs, ['client_contact', 'client_name', 'start_date'], 'a row label was read as a posted field, or a fieldName was missed');
+  assert.deepEqual(f.notRead, []);
+});

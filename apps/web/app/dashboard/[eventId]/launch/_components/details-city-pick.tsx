@@ -135,14 +135,14 @@ export function CityPick({
           aria-label="City or area"
           onClick={() => setOpen((o) => !o)}
           data-city-pick-button=""
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3.5 text-sm text-ink"
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3.5 text-sm text-ink dark:bg-cream"
         >
           {value ? `${value}${shown ? ` · ${area(shown.r)}` : ''}` : 'Pick a city or area'}
           <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/50" strokeWidth={2} />
         </button>
       </div>
       {open ? (
-        <div className="flex flex-col gap-2 rounded-md border border-ink/10 bg-white p-2.5" role="dialog" aria-label="City or area">
+        <div className="flex flex-col gap-2 rounded-md border border-ink/10 bg-white p-2.5 dark:bg-cream" role="dialog" aria-label="City or area">
           <div className="flex items-center gap-2">
             <label className="flex min-h-10 flex-1 items-center gap-2 rounded-md border border-ink/15 px-2.5">
               <Search aria-hidden className="h-3.5 w-3.5 text-ink/45" strokeWidth={2} />

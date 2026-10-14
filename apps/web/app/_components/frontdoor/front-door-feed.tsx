@@ -427,7 +427,8 @@ export function FrontDoorFeed({
             {isBookingFeeEnabled() ? (
               <>
                 Your first {formatCount(FREE_BOOKING_LIMIT)} bookings we introduce are free;
-                after that a booking fee of {bookingFeeScheduleSummary()}, only
+                after that a booking fee
+                {data.bookingFee ? <> of {bookingFeeScheduleSummary(data.bookingFee)}</> : null}, only
                 on couples we bring you. Your own clients stay free.{' '}
               </>
             ) : (

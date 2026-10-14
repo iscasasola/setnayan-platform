@@ -163,7 +163,9 @@ test('🛑 NO DRIVE TIME anywhere in the venue lists — kilometres only (owner:
 
 test('🔑 the commit shortlists a listed pick as "considering" and never touches a lock', () => {
   const actions = code('app/onboarding/wedding/actions.ts');
-  assert.match(actions, /status: 'considering' as const,\s*source: 'host_manual' as const/);
+  // A LISTED pick is a shop Setnayan showed — stamped 'host_marketplace_search' since 2026-10-12 (booking-fee audit B7);
+  // 'host_manual' stays for the suppliers the couple typed in themselves.
+  assert.match(actions, /marketplace_vendor_id: v\.vendorId,[\s\S]{0,500}?status: 'considering' as const,[\s\S]{0,300}?source: 'host_marketplace_search' as const/);
   assert.ok(!/lock_request_state|lock_requested_at|isLockHandshakeEnabled|collectBookingFeeAtLock/.test(actions), 'onboarding must not send or take a lock');
   // …and the OWN venue goes through the one row builder (the DB test holds its shape)
   assert.match(actions, /ownVenueRows\(venue, \{ eventId: insertedEvent\.event_id, userId: user\.id \}\)/);

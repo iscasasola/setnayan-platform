@@ -189,6 +189,21 @@ export function isCategoryOpen(s: {
   return s.openTile === s.tile;
 }
 
+/**
+ * THE THUMB ROW'S SCOPE — which category the box searches and ＋ adds in (owner 2026-10-07: *"apply this rule to the
+ * suppliers as well but just the search and add depending on the category they are in"*; 2026-10-13: *"whatever
+ * category is picked, that is where we add manually and search"*).
+ *
+ *   · one category open   → that category: "Search Reception or add your own", its cards and its More to compare
+ *                           only, and ＋ adds there without asking;
+ *   · "Expand all"        → no ONE category: everything, and ＋ asks which;
+ *   · nothing open        → everything, and ＋ asks which.
+ * It follows the rows as they open and close — never only once a header has pinned.
+ */
+export function thumbScopeTile(s: { openTile: string | null; openAll: boolean }): string | null {
+  return s.openAll ? null : s.openTile;
+}
+
 /* ── FIND: A ROW'S STATE WORD, AND "COVERED N OF M" ──────────────────────── */
 
 /** A category's coverage state, as `lib/coverage-strip.ts` derives it. */

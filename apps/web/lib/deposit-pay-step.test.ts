@@ -38,6 +38,7 @@ const VENDORS_PAGE = '../app/dashboard/[eventId]/vendors/page.tsx';
 const BUILD_LOCKED = '../app/dashboard/[eventId]/vendors/_components/build-locked.tsx';
 const SERVER_READS = './vendor-payment-methods.server.ts';
 const CLIENT_PAGE = '../app/vendor-dashboard/clients/[eventId]/page.tsx';
+const CLIENT_ASK_PANEL = '../app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx';
 const FEED = '../app/vendor-dashboard/_components/overview-sections.tsx';
 const OVERVIEW = '../app/vendor-dashboard/page.tsx';
 
@@ -217,9 +218,10 @@ test('the tile says what it measures — build picks NOT yet locked', () => {
 test('the supplier is asked at the moment it matters — on the ask, and on a booked client', () => {
   const client = read(CLIENT_PAGE);
   const feed = read(FEED);
-  // The client page: once inside LockRequestAnswer, once for a booked client.
+  // The client page: once inside LockRequestAnswer (its own panel since
+  // 2026-10-12, pair P2), once for a booked client.
   assert.equal(
-    (client.match(/<PayoutMethodNudge readiness=\{payoutReadiness\} context="lock" \/>/g) ?? []).length,
+    (read(CLIENT_ASK_PANEL).match(/<PayoutMethodNudge readiness=\{payoutReadiness\} context="lock" \/>/g) ?? []).length,
     1,
   );
   assert.equal(

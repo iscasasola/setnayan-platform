@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b5415c5fe",
-  "routeCount": 432,
-  "destinations": 959,
-  "actions": 675,
-  "blocks": 6144,
+  "generatedFromRef": "4a3a29caf2",
+  "routeCount": 438,
+  "destinations": 949,
+  "actions": 671,
+  "blocks": 6284,
   "routes": {
     "/": {
       "files": [
@@ -2031,6 +2031,7 @@
         "/admin/hub-music",
         "/admin/integrations",
         "/admin/integrity-watch",
+        "/admin/launch-offer",
         "/admin/live-studio-channels",
         "/admin/money",
         "/admin/moodboard-library",
@@ -2365,15 +2366,21 @@
     },
     "/admin/booking-fees": {
       "files": [
-        "admin/booking-fees/page.tsx"
+        "admin/booking-fees/actions.ts",
+        "admin/booking-fees/page.tsx",
+        "admin/booking-fees/review-min-form.tsx"
       ],
       "destinations": [
         "/admin/payments?filter=all&q=[seg]"
       ],
-      "actions": [],
+      "actions": [
+        "formAction"
+      ],
       "blocks": [
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "ReviewMinForm",
+        "ReviewMinState"
       ]
     },
     "/admin/brain": {
@@ -3269,6 +3276,24 @@
       "destinations": [],
       "actions": [],
       "blocks": []
+    },
+    "/admin/launch-offer": {
+      "files": [
+        "admin/launch-offer/actions.ts",
+        "admin/launch-offer/launch-offer-form.tsx",
+        "admin/launch-offer/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "formAction"
+      ],
+      "blocks": [
+        "FreeFeeWindowForm",
+        "LaunchOfferActionState",
+        "LaunchOfferNumbersForm",
+        "PageMasthead",
+        "Result"
+      ]
     },
     "/admin/live-studio-channels": {
       "files": [
@@ -5310,6 +5335,7 @@
         "dashboard/[eventId]/_actions/day-of-broadcast.ts",
         "dashboard/[eventId]/_actions/share-consent.ts",
         "dashboard/[eventId]/_components/access-requests-doorway.tsx",
+        "dashboard/[eventId]/_components/add-your-own-walk.tsx",
         "dashboard/[eventId]/_components/address-pin-field.tsx",
         "dashboard/[eventId]/_components/after/finished-event-summary.tsx",
         "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
@@ -5440,6 +5466,10 @@
         "AccessRequestsDoorway",
         "AccountSwitcher",
         "ActionButton",
+        "AddOwnCategory",
+        "AddOwnQuotedShop",
+        "AddOwnStandIn",
+        "AddOwnStep",
         "AddressPinField",
         "AfterSummary",
         "AppPreload",
@@ -5494,7 +5524,6 @@
         "EventStudioRow",
         "EventVendorRowInput",
         "ExpandCard",
-        "Field",
         "Figure",
         "FileUpload",
         "Fill",
@@ -5552,6 +5581,7 @@
         "MarketplaceContact",
         "MarketplaceReviewsData",
         "MarketplaceVendorSuggestion",
+        "MatchLogo",
         "Metadata",
         "MethodCard",
         "MethodIcon",
@@ -5586,6 +5616,7 @@
         "PromoFreeWindowBanner",
         "QrBody",
         "ReadRefusedNotice",
+        "RecordLinkBlock",
         "Remaining",
         "ReplyBy",
         "RequestResult",
@@ -5617,7 +5648,6 @@
         "SidebarItem",
         "SidebarSection",
         "Sk",
-        "Spinner",
         "StatusIcon",
         "StepKey",
         "SubmitButton",
@@ -5629,6 +5659,7 @@
         "SupplierInviteView",
         "SupplierReachLinks",
         "Suspense",
+        "TypedRow",
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "UpcomingItem",
@@ -5721,12 +5752,9 @@
     },
     "/dashboard/[eventId]/budget": {
       "files": [
-        "dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx",
-        "dashboard/[eventId]/budget/_components/budget-ledger-table.tsx",
-        "dashboard/[eventId]/budget/_components/budget-live-summary.tsx",
-        "dashboard/[eventId]/budget/_components/budget-setter.tsx",
-        "dashboard/[eventId]/budget/_components/budget-summary-ids.ts",
-        "dashboard/[eventId]/budget/_components/costs-with-no-supplier.tsx",
+        "dashboard/[eventId]/budget/_components/budget-screen.tsx",
+        "dashboard/[eventId]/budget/_components/budget-sheets.tsx",
+        "dashboard/[eventId]/budget/_components/budget-summary.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
         "dashboard/[eventId]/budget/actions.ts",
@@ -5740,59 +5768,53 @@
         "/api/budget/[seg]/export?format=csv",
         "/api/budget/[seg]/ics",
         "/dashboard/[seg]",
-        "/dashboard/[seg]/vendors"
+        "/dashboard/[seg]/messages"
       ],
       "actions": [
         "formAction"
       ],
       "blocks": [
-        "AbsorptionDisclosure",
-        "AllocationConfig",
-        "BudgetAllocationPlanner",
-        "BudgetLedgerTable",
-        "BudgetLiveSummary",
-        "BudgetLiveSummaryCard",
-        "BudgetSetter",
-        "BudgetTopSummary",
-        "Cell",
+        "ActionButton",
+        "AddExpenseSheet",
+        "BudgetScreen",
+        "BudgetSheetState",
+        "BudgetSheets",
+        "BudgetSummary",
         "ChineseTraditionInfoCard",
-        "ConfidenceChip",
-        "CostsWithNoSupplier",
+        "ContactShortlistVendorButton",
+        "Count",
         "DeleteCostResult",
         "DeniedState",
-        "DueRollup",
-        "EmptyBudget",
         "EventMoney",
-        "Field",
-        "HTMLButtonElement",
-        "HTMLDivElement",
+        "ExpenseGroup",
+        "ExpenseSheet",
+        "Figure",
+        "Fill",
+        "GroupHead",
+        "GroupUnread",
         "HTMLFormElement",
-        "LeafRow",
-        "LedgerRow",
+        "HTMLInputElement",
+        "InfoTip",
         "Link",
         "ListPageSkeleton",
         "MahrInfoCard",
         "MiniTour",
-        "NoFinalizedVendors",
-        "OverspendBanner",
+        "OrderGroup",
+        "OwedLine",
         "PageMasthead",
+        "Peso",
         "PickMenu",
-        "PinnedStat",
         "RecordCostResult",
-        "RecordedCostRow",
+        "RecordSheet",
         "SaveSnapshotResult",
-        "SaveState",
         "SetEventBudgetResult",
         "SetShareBudgetBandResult",
         "ShareBudgetBandToggle",
+        "Sheet",
         "SuggestMilestonesResult",
-        "SummaryStat",
-        "SupplierInvite",
-        "SwitchTrack",
-        "TiltEditor",
-        "TotalCell",
-        "UpcomingRow",
-        "VendorItemizationCard"
+        "SupplierGroup",
+        "SupplierSheet",
+        "SwitchTrack"
       ]
     },
     "/dashboard/[eventId]/checklist": {
@@ -9083,13 +9105,23 @@
         "dashboard/[eventId]/vendors/_actions/bench-marketplace-search.ts",
         "dashboard/[eventId]/vendors/_actions/category-search.ts",
         "dashboard/[eventId]/vendors/_actions/contact-shortlist-vendor.ts",
+        "dashboard/[eventId]/vendors/_actions/fact-sheet.ts",
         "dashboard/[eventId]/vendors/_actions/inline-more-row.ts",
+        "dashboard/[eventId]/vendors/_actions/pay-sheet.ts",
         "dashboard/[eventId]/vendors/_actions/reuse-actions.ts",
         "dashboard/[eventId]/vendors/_actions/unlock-category.ts",
         "dashboard/[eventId]/vendors/_components/accordion-build.tsx",
         "dashboard/[eventId]/vendors/_components/accordion-lock.tsx",
         "dashboard/[eventId]/vendors/_components/bench-local.ts",
         "dashboard/[eventId]/vendors/_components/bench-vendor-actions.tsx",
+        "dashboard/[eventId]/vendors/_components/book-this-build.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-body.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-budget.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-room-line.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-row.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-slot.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-stand-ins.ts",
+        "dashboard/[eventId]/vendors/_components/build-body.tsx",
         "dashboard/[eventId]/vendors/_components/build-cart.tsx",
         "dashboard/[eventId]/vendors/_components/build-compare.tsx",
         "dashboard/[eventId]/vendors/_components/build-locked.tsx",
@@ -9097,11 +9129,13 @@
         "dashboard/[eventId]/vendors/_components/category-search-overlay.tsx",
         "dashboard/[eventId]/vendors/_components/contact-shortlist-vendor-button.tsx",
         "dashboard/[eventId]/vendors/_components/date-place-line.tsx",
+        "dashboard/[eventId]/vendors/_components/fact-line.tsx",
+        "dashboard/[eventId]/vendors/_components/fact-sheets.tsx",
         "dashboard/[eventId]/vendors/_components/find-thumb-row.tsx",
         "dashboard/[eventId]/vendors/_components/go-to-find.tsx",
         "dashboard/[eventId]/vendors/_components/lock-milestone.tsx",
-        "dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx",
         "dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx",
+        "dashboard/[eventId]/vendors/_components/pay-sheet.tsx",
         "dashboard/[eventId]/vendors/_components/pending-lock-proposals.tsx",
         "dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx",
         "dashboard/[eventId]/vendors/_components/quote-fill.tsx",
@@ -9113,7 +9147,6 @@
         "dashboard/[eventId]/vendors/_components/supplier-sheet.tsx",
         "dashboard/[eventId]/vendors/_components/suppliers-mode.tsx",
         "dashboard/[eventId]/vendors/_components/team-controls.tsx",
-        "dashboard/[eventId]/vendors/_components/team-rows.tsx",
         "dashboard/[eventId]/vendors/_components/trusted-circle-badge.tsx",
         "dashboard/[eventId]/vendors/_components/vendor-quickview-inspector.tsx",
         "dashboard/[eventId]/vendors/_components/waiting-for-quotes.tsx",
@@ -9137,6 +9170,7 @@
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
+        "/dashboard/[seg]/vendors?open=[seg]",
         "/dashboard/[seg]/vendors?part=budget",
         "/explore?q=[seg]"
       ],
@@ -9154,10 +9188,13 @@
         "AddCard",
         "AddManualSupplierResult",
         "AddOnEntry",
+        "AddYourOwnWalk",
+        "AddressPinField",
         "AddressPinResult",
         "ArrangementResult",
         "AttachManualVendorResult",
         "AttachMarketplaceVendorResult",
+        "BarButtons",
         "BenchLocal",
         "BenchLocalCtx.Provider",
         "BenchRollUp",
@@ -9165,38 +9202,61 @@
         "BenchUnread",
         "BenchVendorActions",
         "BenchWrites",
+        "BookOutcome",
+        "BookSheet",
+        "BookThisBuild",
+        "BookedBody",
+        "BookedBudgetSection",
+        "BookedRoomLine",
+        "BookedRowItem",
+        "BookedSlot",
+        "BookedStandIns",
         "BudgetBuildTab",
         "BudgetPage",
         "BuildActionResult",
         "BuildAdded",
+        "BuildBar",
+        "BuildBody",
+        "BuildCard",
+        "BuildCardColumn",
         "BuildCart",
         "BuildCompare",
         "BuildFallbackResult",
+        "BuildLineRow",
         "BuildLocked",
         "BuildPickResult",
+        "BuildWrites",
         "CancelBookingAsHostResult",
+        "CancelBookingButton",
         "CardDateBlock",
         "CardStanding",
         "CatIcon",
         "CategoryDecisionResult",
+        "CategoryLine",
         "CategorySearchOverlay",
         "CategorySearchResult",
         "ChangePickButton",
         "ChildRail",
         "Chips",
+        "CityPick",
         "CompareSheet",
         "CompareVerbs",
         "ConnectSupplierModal",
         "ContactShortlistVendorButton",
         "ContactShortlistVendorResult",
         "Count",
+        "DateBody",
+        "DateClashNote",
         "DatePlaceLine",
+        "DateRow",
         "DeadlineChip",
         "DeleteManualVendorResult",
         "DependencyNudge",
         "DepositLine",
+        "DepositReservation",
         "DialogState",
         "DigitalServicesRail",
+        "Done",
         "DownpaymentModal",
         "EventVendorRowInput",
         "ExceptionModal",
@@ -9204,11 +9264,18 @@
         "ExploreInfoToggle",
         "Face",
         "FacetSelection",
+        "FactLine",
+        "FactSheet",
+        "FactSheetData",
+        "FactSheetStandIns",
         "FallbackPanel",
+        "Figure",
+        "Fill",
         "FillableCategory",
         "FinalizeVendorResult",
         "FindThumbRow",
         "FitBadges",
+        "FitLine",
         "FolderIcon",
         "FolderSection",
         "FormRows",
@@ -9219,22 +9286,31 @@
         "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HelpBody",
+        "HubDraftActionResult",
         "ISeg",
         "ISegmented",
         "Icon",
         "InAppServiceCard",
+        "InfoTip",
         "InlineMoreCard",
         "InlineMoreRowResult",
         "InspectorColumn",
         "InspectorLayout",
         "InspectorTrigger",
+        "InviteStatusByVendorId",
+        "InviteStatusCtx.Provider",
         "KeepAnswer",
+        "Ladder",
         "LastSeenCapture",
         "LastSeenFallback",
         "Link",
         "ListPageSkeleton",
+        "Load",
         "LoadCategoryRequirementsResult",
+        "LoadPaySheetResult",
         "LoadSelfAddedSupplierResult",
+        "Loaded",
         "LoadingStatus",
         "LockConfirmModal",
         "LockImpact",
@@ -9242,22 +9318,32 @@
         "LockPopup",
         "LockState",
         "LockTile",
+        "Logo",
         "ManualVendorInviteResult",
         "ManualVendorResult",
         "MarketplaceVendorSuggestion",
-        "MerkadoBudgetLens",
         "MerkadoGuardBanner",
+        "MonthCompare",
         "MoreToCompare",
+        "NamedBuildRow",
         "NewManualVendorModal",
+        "NextPayButton",
         "NotSharedWithYou",
         "PageMasthead",
         "PayDueCtx.Provider",
+        "PaySheet",
         "PeekToast",
+        "PendingChange",
         "PendingLockProposals",
+        "Peso",
         "PickMenu",
+        "PillSelector",
         "PillarPartPicker",
+        "PlaceBody",
+        "PlaceSlot",
         "PlanBudgetAccordion",
         "PlansRowPick",
+        "PriceSummary",
         "QuoteFillRow",
         "RenamePlanRequest",
         "RequirementsModal",
@@ -9267,11 +9353,12 @@
         "ReuseBookingsPanel",
         "RevertVendorResult",
         "Row",
-        "RowAction",
         "RowPrice",
         "RunBuildResult",
         "Said",
+        "SaveAnswer",
         "SaveCategoryRequirementsResult",
+        "SaveSheetBody",
         "SaveVendorResult",
         "SavedPhotoMarker",
         "SearchMarketplaceVendorsResult",
@@ -9305,9 +9392,9 @@
         "TeamClearCandidates",
         "TeamDecisionDoorway",
         "TeamRemoveCandidate",
-        "TeamRows",
         "TeamSavePlan",
         "ThumbControls",
+        "Toast",
         "ToastState",
         "TypedRow",
         "UnlockCategoryResult",
@@ -9320,8 +9407,11 @@
         "VendorCategory",
         "VendorQuickViewInspector",
         "VendorStatus",
+        "VenueSlotBody",
+        "VerbRow",
         "WaitingForQuotes",
         "WaitingRow",
+        "WaitingRowItem",
         "WeddingFolder",
         "WithdrawAskButton",
         "WithdrawLockRequestResult"
@@ -10140,6 +10230,35 @@
         "DemoCaptureReel"
       ]
     },
+    "/dev/add-your-own-lab": {
+      "files": [
+        "dev/add-your-own-lab/lab-client.tsx",
+        "dev/add-your-own-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CanvasMaker",
+        "CoupleLinkDoor",
+        "LabCard",
+        "LabRecord",
+        "NewManualVendorModal"
+      ]
+    },
+    "/dev/booking-ask-lab": {
+      "files": [
+        "dev/booking-ask-lab/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/clients/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "BookingAskOutcomeLine",
+        "LockAnswerLine",
+        "LockRequestAnswer"
+      ]
+    },
     "/dev/booth-lab": {
       "files": [
         "dev/booth-lab/booth-lab-client.tsx",
@@ -10154,6 +10273,29 @@
         "Environment",
         "Lab3DBooth",
         "OrbitControls"
+      ]
+    },
+    "/dev/budget-lab": {
+      "files": [
+        "dev/budget-lab/fixture.ts",
+        "dev/budget-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/messages"
+      ],
+      "actions": [],
+      "blocks": [
+        "BudgetScreen"
+      ]
+    },
+    "/dev/customer-money-lab": {
+      "files": [
+        "dev/customer-money-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CustomerMoneyFold"
       ]
     },
     "/dev/details-lab": {
@@ -10396,28 +10538,111 @@
         "Switch"
       ]
     },
+    "/dev/supplier-lab": {
+      "files": [
+        "dev/supplier-lab/dates-lab.tsx",
+        "dev/supplier-lab/money-lab.tsx",
+        "dev/supplier-lab/page.tsx",
+        "dev/supplier-lab/people-lab.tsx"
+      ],
+      "destinations": [
+        "/dev/supplier-lab?s=dates",
+        "/dev/supplier-lab?s=dates-day",
+        "/dev/supplier-lab?s=people",
+        "/dev/supplier-lab?s=qr",
+        "/dev/supplier-lab?s=qr-booked",
+        "/dev/supplier-lab?thumb=customer",
+        "/dev/supplier-lab?thumb=people",
+        "/help",
+        "/vendor-dashboard/clients/[seg]?tab=details",
+        "/vendor-dashboard/shop?open=payments"
+      ],
+      "actions": [
+        "addManualBlock",
+        "importExternalClient"
+      ],
+      "blocks": [
+        "ActionButton",
+        "BlockDateAdd",
+        "BookingFeeBills",
+        "CustomersCalendar",
+        "CustomersPick",
+        "CustomersRoster",
+        "CustomersSegments",
+        "DatesFolds",
+        "DatesLab",
+        "DaySheet",
+        "Fix",
+        "KeptNotesFold",
+        "LockedQrGenerator",
+        "MoneyLab",
+        "MoneyLog",
+        "MoneyView",
+        "NothingToAnswerFeed",
+        "OutsideClientAdd",
+        "OutsideClientRows",
+        "PeopleLab",
+        "QrCodes",
+        "SearchBox",
+        "SupplierSubmit",
+        "SupplierThumbRow",
+        "SupplierToast",
+        "SupplierTodayFirstScreen",
+        "TodayLab",
+        "WhatsNewFeed"
+      ]
+    },
     "/dev/suppliers-lab": {
       "files": [
+        "dev/suppliers-lab/booked-fixtures.ts",
+        "dev/suppliers-lab/build-fixtures.ts",
+        "dev/suppliers-lab/fact-sheet-fixtures.ts",
         "dev/suppliers-lab/fixtures.ts",
         "dev/suppliers-lab/lab-bench.tsx",
+        "dev/suppliers-lab/lab-booked.tsx",
+        "dev/suppliers-lab/lab-build.tsx",
+        "dev/suppliers-lab/lab-fact-sheets.tsx",
         "dev/suppliers-lab/lab-stage.tsx",
-        "dev/suppliers-lab/page.tsx"
+        "dev/suppliers-lab/money-pair.ts",
+        "dev/suppliers-lab/page.tsx",
+        "dev/suppliers-lab/pay-fixtures.ts"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dev/suppliers-lab?mode=booked"
+      ],
       "actions": [],
       "blocks": [
+        "AddOwnStandInCtx.Provider",
         "BenchServiceCard",
         "BenchWritesStandInCtx.Provider",
+        "BookStandInCtx.Provider",
+        "BookThisBuild",
+        "BookedBody",
+        "BookedBudgetSection",
+        "BookedStandInCtx.Provider",
         "BottomDock",
+        "BuildBody",
+        "BuildSnapshotPick",
+        "BuildWrites",
+        "BuildWritesStandInCtx.Provider",
         "CategoryVendorResult",
+        "CoupleFacingMethod",
         "DatePlaceLine",
         "EventVendorRowInput",
+        "FactSheetStandInCtx.Provider",
+        "FactSheetStandIns",
+        "FinalizeVendorResult",
         "InspectorLayout",
         "LabBench",
+        "LabBookedStandIns",
+        "LabFactSheets",
+        "LabSuppliersShell",
+        "MerkadoGuardBanner",
         "MoreRowStandInCtx.Provider",
         "ServicesTakeover",
         "ShortlistCategories",
-        "SuppliersLabStage"
+        "SuppliersLabStage",
+        "TeamRowFacts"
       ]
     },
     "/download": {
@@ -11878,7 +12103,6 @@
         "vendor-dashboard/_components/collapsible.tsx",
         "vendor-dashboard/_components/event-locked-by-fee.tsx",
         "vendor-dashboard/_components/feature-accordion.tsx",
-        "vendor-dashboard/_components/first-steps.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
         "vendor-dashboard/_components/kit.tsx",
         "vendor-dashboard/_components/list-pager.tsx",
@@ -11887,10 +12111,11 @@
         "vendor-dashboard/_components/payout-method-nudge.tsx",
         "vendor-dashboard/_components/pipeline-pressure-line.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
-        "vendor-dashboard/_components/qr-card.tsx",
-        "vendor-dashboard/_components/qr-section.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
-        "vendor-dashboard/_components/spotlight-award-banner.tsx",
+        "vendor-dashboard/_components/supplier-submit.tsx",
+        "vendor-dashboard/_components/supplier-thumb-leave.ts",
+        "vendor-dashboard/_components/supplier-thumb-row.tsx",
+        "vendor-dashboard/_components/supplier-toast.tsx",
         "vendor-dashboard/_components/supplier-today-first-screen.tsx",
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
@@ -11909,24 +12134,19 @@
       "destinations": [
         "/api/vendor/instagram/connect",
         "/dashboard",
-        "/explore",
         "/signup?as=vendor",
         "/vendor-dashboard",
         "/vendor-dashboard/calendar",
-        "/vendor-dashboard/clients",
         "/vendor-dashboard/clients/[seg]?tab=[seg]",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/customers?lane=waiting",
-        "/vendor-dashboard/earnings",
-        "/vendor-dashboard/locked-qr",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/more",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
-        "/vendor-dashboard/payday",
         "/vendor-dashboard/proposals",
         "/vendor-dashboard/reviews",
         "/vendor-dashboard/shop",
@@ -11945,7 +12165,6 @@
         "disconnectInstagram",
         "formAction",
         "markServiceComplete",
-        "null",
         "postReviewReply",
         "rejectLock",
         "renewAction",
@@ -11954,11 +12173,13 @@
       ],
       "blocks": [
         "AccountSwitcher",
+        "ActionButton",
         "AddBranchForm",
         "AgeLine",
         "AgentHome",
         "AppPreload",
         "AppRailShell",
+        "Badge",
         "BookingFeeBills",
         "BookingFeeNotice",
         "BottomNav",
@@ -11971,16 +12192,19 @@
         "Connected",
         "ContractDraftBody",
         "CorrectionRequestResult",
+        "Count",
         "CountUp",
         "DateChangeBody",
         "DeleteRequestBody",
         "DisputeBody",
-        "EmptyCard",
         "EventLockedByFee",
         "FeedCard",
         "FieldSaveResult",
+        "Figure",
+        "Fold",
         "GuidedTour",
         "HTMLDivElement",
+        "I",
         "Icon",
         "Image",
         "InquiryBody",
@@ -11989,10 +12213,7 @@
         "LockBody",
         "LockRequestBody",
         "LockRequestLapsedBody",
-        "LockedBody",
-        "LockedQrGenerator",
         "MarkCompleteBody",
-        "Marker",
         "MediaTile",
         "MeetingBody",
         "MessageBody",
@@ -12001,38 +12222,35 @@
         "NextCard",
         "NotConnected",
         "NothingToAnswerFeed",
-        "OngoingTasks",
         "PageMasthead",
         "PaidMark",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
-        "PillButton",
-        "PillTrack",
+        "PeekToast",
         "Pips",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
-        "QrActions",
-        "QrCard",
         "QuoteDraftBody",
         "ReviewBody",
         "RowSkeleton",
         "Screen",
-        "SectionHeader",
-        "SegButton",
-        "ShortlistBody",
         "Sk",
-        "SpotlightAwardBanner",
         "State",
-        "StepRow",
         "SubmitButton",
+        "SupplierSubmit",
+        "SupplierToast",
         "SupplierTodayFirstScreen",
         "SyncResult",
+        "TapMark",
+        "ThumbFit",
+        "TodayEyebrow",
+        "TodayRow",
         "TrackRecordRow",
+        "Unread",
         "UnreadBellBadge",
-        "UpcomingSchedules",
+        "UnreadMessagesBadge",
         "VendorBottomNav",
         "VendorDealFacts",
-        "VendorFirstSteps",
         "VendorRailContext",
         "WhatsNewFeed"
       ]
@@ -12164,81 +12382,36 @@
       "files": [
         "vendor-dashboard/calendar/actions.ts",
         "vendor-dashboard/calendar/loading.tsx",
-        "vendor-dashboard/calendar/page.tsx",
-        "vendor-dashboard/calendar/surface.tsx"
+        "vendor-dashboard/calendar/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/calendar/[seg]?pool=[seg]",
-        "/vendor-dashboard/calendar?pool=[seg]&m=[seg]",
-        "/vendor-dashboard/calendar?pool=all&m=[seg]",
-        "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/services",
-        "/vendor-dashboard/subscription"
-      ],
-      "actions": [
-        "addManualBlock",
-        "createCalendar",
-        "editCalendar",
-        "importExternalClient",
-        "notifyWaitlistSlot",
-        "pickWaitlistCouple",
-        "reassignCategoryPool",
-        "removeBlock",
-        "updatePoolCapacity",
-        "updateWaitlistSettings"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "BoardPageSkeleton",
-        "ConfirmForm",
-        "Link",
-        "SubmitButton"
+        "BoardPageSkeleton"
       ]
     },
     "/vendor-dashboard/calendar/[date]": {
       "files": [
         "vendor-dashboard/calendar/[date]/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/calendar?m=[seg]${\n    search.pool ?",
-        "/vendor-dashboard/messages/[seg]"
-      ],
-      "actions": [
-        "notifyWaitlistSlot",
-        "setCalendarDayState"
-      ],
-      "blocks": [
-        "Link",
-        "SubmitButton"
-      ]
+      "destinations": [],
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/clients": {
       "files": [
         "vendor-dashboard/clients/loading.tsx",
-        "vendor-dashboard/clients/page.tsx",
-        "vendor-dashboard/clients/surface.tsx"
+        "vendor-dashboard/clients/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/bookings",
-        "/vendor-dashboard/calendar",
-        "/vendor-dashboard/clients/[seg]?tab=details",
-        "/vendor-dashboard/customers?open=availability",
-        "/vendor-dashboard/messages/[seg]"
-      ],
-      "actions": [
-        "importExternalClient",
-        "removeBlock"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "ConfirmForm",
-        "Link",
-        "ListPageSkeleton",
-        "ListPager",
-        "StageChip",
-        "SubmitButton"
+        "ListPageSkeleton"
       ]
     },
     "/vendor-dashboard/clients/[eventId]": {
       "files": [
+        "vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booking-money-summary.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-event-buy-form.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx",
@@ -12248,6 +12421,7 @@
         "vendor-dashboard/clients/[eventId]/_components/customer-card-activity.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/customer-money-fold.tsx",
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
@@ -12263,6 +12437,7 @@
         "/proposals/[seg]",
         "/vendor-dashboard/activities",
         "/vendor-dashboard/clients",
+        "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/clients/[seg]/calendar.ics[seg]",
         "/vendor-dashboard/clients/[seg]/challenge-photos",
         "/vendor-dashboard/clients/[seg]/cocktail",
@@ -12281,16 +12456,16 @@
       ],
       "actions": [
         "action",
+        "agreeLock",
         "createClientNote",
         "createVendorChallengeAction",
+        "declineLock",
         "deleteClientNote",
         "formAction",
         "suggestScheduleChange",
         "toggleClientNoteDone",
         "vendorAcknowledgeDeposit",
-        "vendorAgreeToLock",
         "vendorAskForPayment",
-        "vendorDeclineLock",
         "vendorMarkServiceComplete",
         "vendorPostHandover",
         "vendorRaiseChangeOrder",
@@ -12303,6 +12478,8 @@
         "ActivityFeed",
         "AppointmentsSection",
         "AskAccess",
+        "AskSubmit",
+        "BookingAskOutcomeLine",
         "BookingFeeBills",
         "BookingFeeNotice",
         "BookingMoneySummary",
@@ -12314,21 +12491,28 @@
         "Card",
         "CardTabs",
         "ClientNotes",
+        "Count",
         "CoupleLogo",
+        "CustomerMoneyFold",
         "EventLockedByFee",
         "FileUpload",
         "FilesTab",
+        "Fill",
         "Icon",
         "Image",
         "LedgerUnreadableNote",
         "Link",
+        "LockAnswerLine",
         "LockRequestAnswer",
         "OverviewTab",
         "PaymentAsksPanel",
         "PaymentHistoryList",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
+        "PendingPaymentAnswer",
+        "Peso",
         "PipelineStrip",
+        "PriceSummary",
         "ProofImage",
         "QuoteTab",
         "RelationshipTabShell",
@@ -12534,47 +12718,109 @@
     "/vendor-dashboard/customers": {
       "files": [
         "vendor-dashboard/customers/_components/customers-calendar.tsx",
-        "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
         "vendor-dashboard/customers/_components/customers-pick.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
+        "vendor-dashboard/customers/_components/customers-segments.tsx",
+        "vendor-dashboard/customers/_components/dates-folds.tsx",
+        "vendor-dashboard/customers/_components/dates-row.tsx",
+        "vendor-dashboard/customers/_components/dates-sheets.tsx",
+        "vendor-dashboard/customers/_components/day-sheet.tsx",
+        "vendor-dashboard/customers/_components/money-figures.tsx",
+        "vendor-dashboard/customers/_components/money-log.tsx",
+        "vendor-dashboard/customers/_components/money-segment.tsx",
+        "vendor-dashboard/customers/_components/money-view.tsx",
+        "vendor-dashboard/customers/_components/outside-client-add.tsx",
+        "vendor-dashboard/customers/_components/people-more.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
         "vendor-dashboard/customers/page.tsx",
-        "vendor-dashboard/customers/roster-view.ts"
+        "vendor-dashboard/customers/roster-view.ts",
+        "vendor-dashboard/customers/segments.ts"
       ],
       "destinations": [
+        "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/clients/[seg]?tab=details",
+        "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/services"
+        "/vendor-dashboard/subscription"
       ],
-      "actions": [],
+      "actions": [
+        "action",
+        "addManualBlock",
+        "createAction",
+        "editAction",
+        "importExternalClient",
+        "moveAction",
+        "removeBlock"
+      ],
       "blocks": [
         "AccordionSkeleton",
+        "ActionButton",
+        "Badge",
+        "BlockDateAdd",
+        "BookingFeeBills",
         "BookingsSurface",
-        "CalendarSurface",
-        "ClientsSurface",
+        "CalendarDay",
+        "CalendarGrid",
+        "CalendarLegend",
+        "CalendarSheet",
+        "ChosenRow",
+        "ConfirmForm",
         "ContractsSurface",
+        "Count",
         "CustomerCalendarMonth",
         "CustomerSectionBody",
         "CustomersCalendar",
-        "CustomersFilterBar",
+        "CustomersDates",
+        "CustomersDay",
+        "CustomersMoney",
         "CustomersPick",
         "CustomersPipeline",
         "CustomersRoster",
+        "CustomersSegments",
+        "DateRow",
+        "DatesFolds",
+        "DatesRow",
+        "DaySheet",
         "FeatureAccordion",
-        "FilterSelect",
+        "Fill",
+        "Fold",
+        "FormCounter",
+        "FormRows",
+        "HTMLFormElement",
+        "HTMLInputElement",
+        "KeptNotesFold",
         "Link",
         "ListPager",
+        "Marked",
         "MessagesSurface",
         "MiniTour",
-        "PaydaySurface",
+        "MoneyFill",
+        "MoneyLog",
+        "MoneyRow",
+        "MoneyView",
+        "MonthInputs",
+        "OutsideClient",
+        "OutsideClientAdd",
+        "OutsideClientRows",
+        "PesoCount",
         "PickMenu",
+        "PillLink",
+        "PillTrack",
         "ProposalsSurface",
         "R",
         "RosterRow",
-        "ShopEmpty",
+        "RosterRowView",
+        "SearchBox",
+        "ShareTeamPick",
+        "Sheet",
+        "SupplierSubmit",
+        "SupplierThumbRow",
+        "SupplierToast",
         "Suspense",
-        "VendorQrSection"
+        "SwitchTrack",
+        "TypedRow",
+        "WaivedFeeRows"
       ]
     },
     "/vendor-dashboard/deep-search": {
@@ -12636,52 +12882,35 @@
     "/vendor-dashboard/earnings": {
       "files": [
         "vendor-dashboard/earnings/loading.tsx",
-        "vendor-dashboard/earnings/page.tsx",
-        "vendor-dashboard/earnings/surface.tsx"
+        "vendor-dashboard/earnings/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/earnings?page=[seg]",
-        "/vendor-dashboard/subscription"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "BookingFeeBills",
-        "Link",
-        "PayoutKpi",
-        "Stat",
-        "VendorTierGate",
-        "WaivedFeeRows"
-      ]
+      "blocks": []
     },
     "/vendor-dashboard/invite": {
       "files": [
         "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
+        "vendor-dashboard/invite/_components/qr-codes.tsx",
         "vendor-dashboard/invite/actions.ts",
         "vendor-dashboard/invite/date-status-actions.ts",
         "vendor-dashboard/invite/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/invite?mode=locked",
-        "/vendor-dashboard/invite?mode=shortlist",
-        "/vendor-dashboard/locked-qr",
-        "/vendor-dashboard/shop"
-      ],
+      "destinations": [],
       "actions": [
         "issueLockedQr"
       ],
       "blocks": [
+        "CustomersPick",
+        "DatesRow",
+        "Fold",
         "HTMLInputElement",
         "Icon",
         "Link",
-        "LockedMode",
         "LockedQrGenerator",
-        "PillLink",
-        "PillTrack",
-        "QrActions",
+        "QrCard",
+        "QrCodes",
         "Row",
-        "ShopCard",
-        "ShopNotice",
-        "ShortlistMode",
         "SubmitButton"
       ]
     },
@@ -12706,20 +12935,9 @@
       "files": [
         "vendor-dashboard/locked-qr/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/invite?mode=locked",
-        "/vendor-dashboard/invite?mode=locked&issued=[seg]",
-        "/vendor-dashboard/shop"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "Icon",
-        "Link",
-        "QrActions",
-        "ShopEmpty",
-        "ShopPill",
-        "StatusBadge"
-      ]
+      "blocks": []
     },
     "/vendor-dashboard/manpower": {
       "files": [
@@ -13149,22 +13367,13 @@
     },
     "/vendor-dashboard/payday": {
       "files": [
-        "vendor-dashboard/payday/_components/payday-installment-row.tsx",
-        "vendor-dashboard/payday/_components/payday-summary.tsx",
         "vendor-dashboard/payday/loading.tsx",
-        "vendor-dashboard/payday/page.tsx",
-        "vendor-dashboard/payday/surface.tsx"
+        "vendor-dashboard/payday/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/bookings"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
-        "ListPageSkeleton",
-        "PaydayRow",
-        "PaydaySummary",
-        "ShopEmpty"
+        "ListPageSkeleton"
       ]
     },
     "/vendor-dashboard/payment-options": {
@@ -13648,7 +13857,6 @@
         "DocSlotSaveResult",
         "DocsBody",
         "DocsStep",
-        "EarningsSurface",
         "EditableLine",
         "EditableRow",
         "FeatureAccordion",
@@ -13929,6 +14137,7 @@
     },
     "/vendor/claim/[token]": {
       "files": [
+        "vendor/claim/[token]/_components/claim-parts.tsx",
         "vendor/claim/[token]/loading.tsx",
         "vendor/claim/[token]/page.tsx"
       ],
@@ -13939,13 +14148,14 @@
         "declineVendorInviteByToken"
       ],
       "blocks": [
+        "ActionButton",
+        "CoupleLinkDoor",
         "DeclineForm",
         "DoorShell",
         "FormPageSkeleton",
         "Link",
         "Perk",
         "SnapshotField",
-        "SubmitButton",
         "TerminalCard"
       ]
     },

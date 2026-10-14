@@ -1,12 +1,11 @@
 /**
  * the-ledger-reads-one-clock.test.ts — BA6's fence.
  *
- * The per-category ledger now shows a row's next-payment chip and a
- * roll-up of what is overdue / due soon (`lib/budget-ledger.ts` +
- * `_components/budget-ledger-table.tsx`). Every day count and every tier it
- * renders comes from `MoneyLine.dueState` / `MoneyBucket.due`, which are
- * themselves computed ONCE by `paymentDueState` in `setnayan-ai-triggers.ts`
- * and carried through `budget-truth.ts`.
+ * The Budget page shows when money is due: the summary's "Next" line, a
+ * supplier row's "owed · Oct 5", the "Due" rows in a supplier's sheet. Every
+ * date and every due-state it draws comes from `MoneyLine.dueDate` /
+ * `MoneyLine.dueState`, which are themselves computed ONCE by `paymentDueState`
+ * in `setnayan-ai-triggers.ts` and carried through `budget-truth.ts`.
  *
  * The defect this fences: a second definition of "due soon" or "overdue"
  * written locally — `if (d <= 7)`, `days > 30` — as a shortcut instead of
@@ -15,6 +14,13 @@
  * in the repo CLAUDE.md): each passes its own test while disagreeing with
  * the other, and the page would start telling the couple something GRD-01's
  * email does not.
+ *
+ * ── KEPT, AND RE-POINTED (2026-10-08, Budget B2) ───────────────────────────
+ * It used to read `lib/budget-ledger.ts` and the "Category by category" table.
+ * The table left the page; the rule did not. It now reads the files that draw
+ * a date today — `lib/budget-page-view.ts`, `budget-screen.tsx`,
+ * `budget-sheets.tsx`, `budget-summary.tsx` — and still reads
+ * `lib/budget-ledger.ts`, which the CSV / print export builds from.
  *
  * ── HOW THE SOURCE PROPERTY PROVES IT CAN SEE ───────────────────────────────
  * A source guard that cannot match the line it was written to catch ships
@@ -36,10 +42,16 @@ import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LIB = resolve(HERE, '../../../../lib/budget-ledger.ts');
-const TABLE = resolve(HERE, '_components/budget-ledger-table.tsx');
+/** Every file that draws a due date on the Budget page today. */
+const PAGE_FILES = [
+  resolve(HERE, '../../../../lib/budget-page-view.ts'),
+  resolve(HERE, '_components/budget-screen.tsx'),
+  resolve(HERE, '_components/budget-sheets.tsx'),
+  resolve(HERE, '_components/budget-summary.tsx'),
+] as const;
 
 const libSrc = () => stripComments(readFileSync(LIB, 'utf8'));
-const tableSrc = () => stripComments(readFileSync(TABLE, 'utf8'));
+const pageSrcs = () => PAGE_FILES.map((f) => ({ file: f, src: stripComments(readFileSync(f, 'utf8')) }));
 
 /**
  * Finds a day-ish identifier (`daysUntilDue`, `dueDays`, `d`ays…) compared
@@ -95,24 +107,33 @@ test('lib/budget-ledger.ts never compares a day count against its own threshold'
   );
 });
 
-test('the ledger table never compares a day count against its own threshold', () => {
-  const hits = findHardcodedDayThresholds(tableSrc());
-  assert.deepEqual(
-    hits,
-    [],
-    `Found a locally re-derived day threshold: ${JSON.stringify(hits)}. The table ` +
-      `renders \`row.nextDue.state\` / \`ledger.totals\`; it must never re-derive ` +
-      `a tier from a day count itself.`,
-  );
+test('the page really does draw due dates — or this guard is fencing nothing', () => {
+  const all = pageSrcs().map((p) => p.src).join('\n');
+  assert.match(all, /\bdueDate\b/, 'no file under guard reads a due date any more — re-point this guard at whatever does');
+  assert.match(all, /\bshortDate\(/, 'no file under guard formats a due date any more');
 });
 
-test('neither file imports TRIGGER_THRESHOLDS, paymentDueState, or daysUntilDue directly', () => {
+test('nothing that draws the Budget page compares a day count against its own threshold', () => {
+  for (const { file, src } of pageSrcs()) {
+    const hits = findHardcodedDayThresholds(src);
+    assert.deepEqual(
+      hits,
+      [],
+      `${file}: found a locally re-derived day threshold: ${JSON.stringify(hits)}. The page draws ` +
+        `the date and state a line already carries; it must never re-derive a tier from a day ` +
+        `count itself.`,
+    );
+  }
+});
+
+test('no file under guard imports TRIGGER_THRESHOLDS, paymentDueState, or daysUntilDue directly', () => {
   // BA6's whole point: the page reads the STATE a line already carries
   // (`MoneyLine.dueState`, `MoneyBucket.due`) rather than reaching past
   // `budget-truth.ts` to re-run the clock itself. Importing the trigger
   // engine's primitives here would be the first step toward a second
   // definition, even if nothing hard-codes 7 or 30 yet.
-  for (const src of [libSrc(), tableSrc()]) {
+  for (const src of [libSrc(), ...pageSrcs().map((p) => p.src)]) {
     assert.doesNotMatch(src, /from ['"]@\/lib\/setnayan-ai-triggers['"]/);
+    assert.doesNotMatch(src, /\bnew Date\(\)\s*[<>]|Date\.now\(\)\s*[<>-]/, 'a file under guard compares a date against the clock itself');
   }
 });

@@ -58,12 +58,6 @@ const SURFACES: Surface[] = [
     to: '<UnreadCtx.Provider value={benchUnread}>',
   },
   {
-    name: 'Budget — Save / Standard / Splurge',
-    file: 'app/dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx',
-    from: 'function TiltEditor(',
-    to: 'Or set your own (PHP)',
-  },
-  {
     name: 'Budget tour — Save / Standard / Splurge',
     file: 'app/tour/budget/_components/tour-budget-planner.tsx',
     from: 'function TiltEditor(',

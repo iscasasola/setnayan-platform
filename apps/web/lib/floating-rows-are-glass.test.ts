@@ -36,13 +36,14 @@ const E = 'app/dashboard/[eventId]';
 const ROWS: ReadonlyArray<readonly [key: string, file: string]> = [
   ['mood-board-pdfs', `${E}/studio/mood-board/_components/mood-board-editor.tsx`],
   ['control-room-tabs', `${E}/studio/panood/broadcast/control-room.tsx`],
-  ['budget-save-plan', `${E}/budget/_components/budget-allocation-planner.tsx`],
   ['half-sheet-slim', `${E}/launch/_components/maker-sheet.tsx`],
   ['pay-bar', 'app/pay/[reference]/_components/pay-panel.tsx'],
   ['onboarding-nav', 'app/onboarding/[type]/_components/generic-onboarding.tsx'],
   // Find's thumb row (Suppliers PR2): the row has no background of its own —
   // the search field is the frosted piece, and Add keeps its full colour.
   ['suppliers-find', `${E}/vendors/_components/find-thumb-row.tsx`],
+  // The supplier's thumb row (supplier redesign S-PR0, 2026-10-08).
+  ['supplier-thumb', 'app/vendor-dashboard/_components/supplier-thumb-row.tsx'],
 ];
 
 function ruleBody(selector: string): string {

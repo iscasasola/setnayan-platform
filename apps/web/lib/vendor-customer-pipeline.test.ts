@@ -91,6 +91,16 @@ test('a delivered or completed booking is finished, not booked', () => {
   }
 });
 
+test('a booking the couple confirmed as received is finished — the supplier’s own claim is not (S-PR2)', () => {
+  // `completed` is the caller's answer from `rowReadsCompleted` — the couple's
+  // confirmation. A live booking with it is finished; without it, still booked.
+  assert.equal(customerLaneOf(input({ booking: { ...booking('deposit_paid'), completed: true } }), false)?.lane, 'finished');
+  assert.equal(customerLaneOf(input({ booking: { ...booking('deposit_paid'), completed: false } }), false)?.lane, 'booked');
+  // It finishes a BOOKING only: a booking ask, a declined row or no booking at all is not lifted by it.
+  assert.equal(customerLaneOf(input({ booking: { ...booking('considering', 'pending'), completed: true } }), true)?.lane, 'waiting');
+  assert.equal(customerLaneOf(input({ booking: { ...booking('considering'), completed: true } }), false), null);
+});
+
 test('a live booking ask is waiting — but ONLY with the handshake flag on', () => {
   const on = customerLaneOf(input({ booking: booking('considering', 'pending') }), true);
   assert.equal(on?.lane, 'waiting');

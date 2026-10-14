@@ -11,12 +11,15 @@ import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
 import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
+import { maybeCatchUpHandshakesWithoutFee } from '@/lib/booking-fee-mint.server';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
+import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
+import { customerLandingHref } from './customers/anchors';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { VendorRailContext } from './_components/vendor-rail-context';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -341,6 +344,13 @@ export default async function VendorDashboardLayout({
   // flag-gated inside, and every run is recorded.
   after(() => maybeCatchUpAcknowledgedDeposits(user.id).catch(() => {}));
 
+  // 💸 The fee is made at the YES since 2026-10-12 (owner #1). A booking this
+  // shop agreed to (or whose Locked QR a couple claimed) before that shipped —
+  // or whose mint failed mid-way — has no charge, and "no charge" no longer
+  // unlocks the event. This makes it, for the signed-in shop's own handshaken
+  // bookings only; idempotent like the sweep above.
+  after(() => maybeCatchUpHandshakesWithoutFee(user.id).catch(() => {}));
+
   // 🔴 Unbilled booking-fee repair (CRON-FREE · FLEET-WIDE · claimed).
   // The catch-up directly above heals "a booking with no charge". This heals
   // the OTHER absence: a charge that IS open and owed whose BILL was never
@@ -365,8 +375,6 @@ export default async function VendorDashboardLayout({
     redirect('/dashboard');
   }
 
-  const displayName = profile?.display_name ?? profile?.email ?? 'Supplier';
-
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
   // mobile-only (lg:hidden); desktop users open the same panel from the
   // SwitcherPlaqueTrigger business plaque in the sidebar header
@@ -390,6 +398,27 @@ export default async function VendorDashboardLayout({
       {/* The mobile "More" overflow link was removed 2026-07-16 with the /more
           landing it opened — under the 5-page IA the bottom nav already covers
           every hub, and every deeper surface lives as a tab inside its hub. */}
+      {/*
+        ✉ THE ENVELOPE — MESSAGES, ONE TAP FROM EVERY SUPPLIER PAGE (S-PR0,
+        corpus SUPPLIER_DASHBOARD_REDESIGN_2026-10-08 § 1 + § 3 "Shell on every
+        page: … envelope (unread badge) · avatar"). The SAME live badge the
+        couple's event bar carries (`UnreadMessagesBadge`, not a second one),
+        seeded from the `countUnreadMessages` read this layout already makes
+        for the phone bar — no new query. It lands on the inbox through the
+        anchors table, never the bare stub.
+
+        🔔 THE BELL STAYS BESIDE IT FOR NOW. The redesign's shell draws the
+        envelope and the avatar only, and files the notification list under
+        Settings › Notifications › Recent — a page that does not exist until
+        S-PR9. Taking the bell away before then would leave an unread
+        notification with no badge anywhere, and `one-top-bar.test.ts` holds
+        the bell on every signed-in tree. It goes when its new home ships.
+      */}
+      <UnreadMessagesBadge
+        userId={user.id}
+        initialUnread={threadsUnread}
+        href={customerLandingHref('messages')}
+      />
       <UnreadBellBadge
         userId={user.id}
         initialUnread={unreadCount}
@@ -397,7 +426,11 @@ export default async function VendorDashboardLayout({
         ariaBaseLabel="Notifications"
         ariaUnreadSuffix="unread"
       />
-      <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
+      {/* The SHOP's name, not the person's (the redesign's shell: "SETNAYAN ·
+          shop name"). The person is the avatar beside it. */}
+      <span className="hidden max-w-[14rem] truncate text-sm text-ink/70 sm:inline" data-supplier-shell-shop="">
+        {vendorSidebarName}
+      </span>
       {/*
         SIGN OUT USED TO SIT HERE, LOOSE IN THE TOP BAR — retired 2026-08-13
         (Redesign Session 6, "the seam"), the same removal as the admin

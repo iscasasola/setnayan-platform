@@ -280,7 +280,16 @@ function DownloadOverlay({
  * (`hr-ov-card-glass`) matching the nav's blur(16px). No `pricing` dependency —
  * opens instantly.
  */
-function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () => void }) {
+function VendorsOverlay({
+  current,
+  onClose,
+  pricing,
+}: {
+  current: OverlayId;
+  onClose: () => void;
+  /** Lazily fetched; until it lands the fee line names no rate (never the code default). */
+  pricing: PricingData | null;
+}) {
   return (
     <OverlayShell
       id="vendors"
@@ -297,7 +306,7 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
       <ul className="hr-glist">
         <li>
           {/* Supplier-facing: the second sentence is owed here. */}
-          <b>{supplierCommissionShort()}</b>
+          <b>{supplierCommissionShort(pricing?.bookingFee ?? null)}</b>
         </li>
         <li>Free business public website</li>
         <li>Get verified — free</li>
@@ -633,7 +642,7 @@ export function HomeOverlays({
           line-link out. They mount + open instantly; the Prices popup's AI price
           line fills in when the lazy `pricing` fetch lands (owner 2026-07-04). */}
       <PricesOverlay current={current} onClose={onClose} pricing={pricing} />
-      <VendorsOverlay current={current} onClose={onClose} />
+      <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />
       {pricing && (
         <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
       )}

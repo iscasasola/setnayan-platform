@@ -27,8 +27,9 @@
  *   Owed     — agreed minus paid
  *
  * `BUDGET_LEDGER_COLUMNS` is the ONE place they are spelled. Abbreviating
- * "Agreed" to "Agr." or swapping Paid and Owed is what the guard in
- * `the-plan-meets-the-ledger.test.ts` exists to refuse.
+ * "Agreed" to "Agr." or swapping Paid and Owed is what `budget-ledger.test.ts`
+ * exists to refuse. (Since 2026-10-08 these columns are drawn only by the CSV /
+ * print export — the on-page table left with Budget B2.)
  *
  * ── §18.5 rule 5 · unknown is unknown, never ₱0 ─────────────────────────────
  * 13 of the 27 active benchmark leaves carry a NULL `benchmark_php` in

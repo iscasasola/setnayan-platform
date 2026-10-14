@@ -72,6 +72,12 @@ async function resolveActiveServiceForVendor(
   return { vendorServiceId: chosen.vendor_service_id, categoryKey: chosen.category };
 }
 
+/** `event_vendors.source` values that mean the SUPPLIER brought this couple — never Setnayan-sourced. */
+const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept']);
+function rowWasBroughtBySupplier(source: unknown): boolean {
+  return typeof source === 'string' && SUPPLIER_BROUGHT_SOURCES.has(source);
+}
+
 export async function contactShortlistVendor(input: {
   eventId: string;
   /** event_vendors.vendor_id — the couple's shortlist row for this vendor. */
@@ -121,7 +127,7 @@ export async function contactShortlistVendor(input: {
 
   const { data: row } = await supabase
     .from('event_vendors')
-    .select('marketplace_vendor_id, service_id, category')
+    .select('marketplace_vendor_id, service_id, category, source')
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -154,8 +160,12 @@ export async function contactShortlistVendor(input: {
       (row?.category ? String(row.category) : null) ?? resolved.categoryKey ?? null,
     alsoServiceIds: [],
     // Inquiry-source taxonomy (owner 2026-07-17) — this inquiry originated from
-    // the couple's shortlist/build workspace.
-    inquirySource: 'shortlist',
+    // the couple's shortlist/build workspace. EXCEPT a shop the SUPPLIER brought
+    // onto the list (their invite, their Locked QR, a reused booking): asking it
+    // from the shortlist is not Setnayan showing the couple that shop, so the
+    // thread keeps no source and stays an import (booking-fee audit B3, owner
+    // "APPROVE ALL" 2026-10-12 — it used to turn billable on the first tap).
+    inquirySource: rowWasBroughtBySupplier(row?.source) ? null : 'shortlist',
   });
 }
 

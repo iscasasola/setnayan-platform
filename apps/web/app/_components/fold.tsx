@@ -25,11 +25,24 @@ export function Fold({
   children,
   data,
   className = '',
+  line,
+  aside,
+  lead,
 }: {
   /** What the fold is — "More for guests". */
   title: string;
   /** One quiet line of what is inside — "the address, who can view, the QR". */
   summary?: string;
+  /**
+   * A LIST ROW THAT OPENS IN PLACE (a queue of asks — the supplier's "Also waiting"): the row's one line, UNDER the
+   * title instead of beside it, each cut with "…" so the row stays one height. Absent → the head is exactly as it was.
+   */
+  line?: string;
+  /** A state shown at the right, before the arrow — a `Badge` ("2 of 3"). Never something pressable. */
+  aside?: ReactNode;
+  /** A mark at the LEFT of the head — a list row's avatar, so a row that opens in place lines up with the rows that go
+   *  somewhere. Never something pressable. Absent → the head is exactly as it was. */
+  lead?: ReactNode;
   defaultOpen?: boolean;
   children: ReactNode;
   /** `data-fold="<data>"`. */
@@ -49,10 +62,19 @@ export function Fold({
         onClick={() => setOpen((o) => !o)}
         className="sn-press flex min-h-[52px] w-full items-center gap-2 text-left text-[15px] font-semibold text-ink"
       >
-        <span className="min-w-0 flex-1">
-          {title}
-          {summary ? <small className="text-[12.5px] font-normal text-ink/55"> · {summary}</small> : null}
-        </span>
+        {lead}
+        {line !== undefined ? (
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{title}</span>
+            {line ? <span className="block truncate text-[13px] font-normal text-ink/60">{line}</span> : null}
+          </span>
+        ) : (
+          <span className="min-w-0 flex-1">
+            {title}
+            {summary ? <small className="text-[12.5px] font-normal text-ink/55"> · {summary}</small> : null}
+          </span>
+        )}
+        {aside}
         <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform duration-sn-pill ease-sn-spring motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
       </button>
       <div

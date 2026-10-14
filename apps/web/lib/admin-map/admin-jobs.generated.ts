@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 318 jobs, 202 of them form-driven, as of eb03067be.
+// that performs it. 320 jobs, 204 of them form-driven, as of 981ed8a46.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -2434,6 +2434,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "saveFeeReviewMin",
+    "phrase": "save fee review min",
+    "ownerPath": "/admin/booking-fees",
+    "resolvedPath": "/admin/booking-fees",
+    "fields": [
+      "fee_review_unsettled_events_min"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "saveHubMusic",
     "phrase": "save hub music",
     "ownerPath": "/admin/hub-music",
@@ -2450,6 +2461,22 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "integration_id",
       "secret"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "saveLaunchOffer",
+    "phrase": "save launch offer",
+    "ownerPath": "/admin/launch-offer",
+    "resolvedPath": "/admin/launch-offer",
+    "fields": [
+      "intent",
+      "launch_offer_booking_cap",
+      "launch_offer_papic_credits",
+      "launch_offer_cycle_days",
+      "booking_fee_free_from",
+      "booking_fee_free_until"
     ],
     "refusedWhenEmpty": [],
     "destructive": false

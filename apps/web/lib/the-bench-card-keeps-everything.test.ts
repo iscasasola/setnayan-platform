@@ -183,13 +183,14 @@ test('🔑 on the one-screen page both rail controls have a permanent home', () 
   // honest because each job is still on the screen, without a tap:
   //   · "Find more"    → the marketplace list, always open under the cards;
   //   · "Add manually" → "＋ Add your own" in the thumb row, aimed at the
-  //                      category in view, and at the foot of a booked category.
+  //                      OPEN category (owner 2026-10-13: "whatever category is picked, that is where we add
+  //                      manually and search") — a booked category too, so it carries no second Add of its own.
   assert.match(src, /\{replan && tileOpen && !rowBooked && !coveredGroup \? \(\s*<MoreToCompare/);
   assert.match(src, /<FindThumbRow[\s\S]{0,300}?onAdd=\{addYourOwn\}/);
   assert.match(
     src,
-    /\{replan && rowBooked \? \([\s\S]{0,260}?label="Add your own"[\s\S]{0,120}?setManual\(\{ category: t\.category, label: t\.label \}\)/,
-    'a booked category has no list — it lost its way to add a supplier the couple already knows',
+    /if \(scopeRow\) setManual\(\{ category: scopeRow\.t\.category, label: scopeRow\.t\.label/,
+    'the thumb row no longer adds in the open category — a booked category lost its way to add a supplier the couple already knows',
   );
 });
 

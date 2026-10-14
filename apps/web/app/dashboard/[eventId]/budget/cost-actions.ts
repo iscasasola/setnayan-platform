@@ -34,6 +34,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import {
+  parseCostAmountPhp,
   readCostDraft,
   vendorCategoryForCostCategory,
   type CostDraft,
@@ -202,10 +203,70 @@ async function recordWithSupplier(
 /**
  * Record one cost. `supplier_name` blank → the supplier-less door.
  */
+/**
+ * Budget B2 (2026-10-08) · EDIT a recorded cost's two figures — what it cost and
+ * what has been paid so far. The expense sheet has no Save button; it posts
+ * here as the couple types.
+ *
+ * NOT its own exported action, on purpose: every exported `'use server'`
+ * function is a route against Vercel's ceiling (`lint-server-action-budget`),
+ * so the edit rides `recordEventCost` on a `cost_id` field — present = edit this
+ * row, absent = record a new one. Same parser for the two amounts as the insert.
+ *
+ * 🛑 AN UPDATE THAT MATCHES NO ROW IS A FAILURE, AND POSTGREST DOES NOT SAY SO.
+ * An RLS refusal or a row deleted in another tab resolves with `error: null`
+ * and zero rows changed. So the write asks for the row back and treats "none"
+ * as refused — otherwise the sheet would print "Saved." over a figure that
+ * never moved.
+ */
+async function updateRecordedCost(
+  eventId: string,
+  costId: string,
+  formData: FormData,
+): Promise<RecordCostResult> {
+  const amountPhp = parseCostAmountPhp(formData.get('amount_php'));
+  if (amountPhp === null || amountPhp <= 0) {
+    return { ok: false, error: 'Enter what it cost, as a number above zero.' };
+  }
+  const paidRaw = formData.get('paid_php');
+  const paidText = typeof paidRaw === 'string' ? paidRaw.trim() : '';
+  const paidPhp = paidText.length === 0 ? 0 : parseCostAmountPhp(paidText);
+  if (paidPhp === null) {
+    return { ok: false, error: 'Enter what you have paid so far, or leave it blank.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+
+  const { data: changed, error } = await supabase
+    .from('event_costs')
+    // No trigger maintains `updated_at` on this table; the edit stamps it.
+    .update({ amount_php: amountPhp, paid_php: paidPhp, updated_at: new Date().toISOString() })
+    .eq('cost_id', costId)
+    .eq('event_id', eventId)
+    .select('cost_id');
+  if (error) return { ok: false, error: error.message };
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: 'That expense could not be changed. Refresh and try again.' };
+  }
+
+  revalidate(eventId);
+  return { ok: true, supplier: null, inviteUnavailable: false };
+}
+
 export async function recordEventCost(formData: FormData): Promise<RecordCostResult> {
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     return { ok: false, error: 'Missing event reference. Please refresh and try again.' };
+  }
+
+  // A `cost_id` means "change this one" — see `updateRecordedCost`.
+  const costId = formData.get('cost_id');
+  if (typeof costId === 'string' && costId.length > 0) {
+    return updateRecordedCost(eventId, costId, formData);
   }
 
   const parsed = readCostDraft({

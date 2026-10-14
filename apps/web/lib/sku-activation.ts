@@ -1,3 +1,4 @@
+import { tellCoupleTheBookingIsConfirmed } from '@/lib/couple-booking-confirmed.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
 import {
@@ -1854,6 +1855,13 @@ const PREFIX_HOOKS: ReadonlyArray<{
       } catch (e) {
         reportActivationFault('activate:vendor_hold_date', ctx, e);
       }
+
+      // 💌 THE COUPLE IS TOLD NOW (owner 2026-10-07 "no handshake, no
+      // confirmation … no booking fee paid to us"; 2026-10-12 #1). A billed
+      // fee held back the couple's "said yes" at the supplier's yes; this is
+      // the moment it becomes true. ONLY when the charge flipped just now, so a
+      // re-approval cannot send it twice. Fail-soft inside.
+      if (settled) await tellCoupleTheBookingIsConfirmed(ctx.admin, chargeId);
     },
   },
   {

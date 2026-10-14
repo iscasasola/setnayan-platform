@@ -40,6 +40,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { tierRank, type VendorTier } from '@/lib/vendor-tier-caps';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
+import { launchProEndsAtNow, type LaunchOfferSettings } from '@/lib/launch-offer';
 
 /** The paid tiers a vendor free window can promote every vendor to. */
 export type PromotedVendorTier = 'solo' | 'pro' | 'enterprise';
@@ -442,9 +443,69 @@ export const getVendorDealWindows = cache(async (): Promise<PromoFreeWindow[]> =
 export async function getPromotedVendorTierFor(
   facts: VendorDealFacts,
   loadWindows: () => Promise<readonly PromoFreeWindow[]> = getVendorDealWindows,
+  loadLaunchWindow: () => Promise<PromoFreeWindow | null> = loadLaunchProWindow,
 ): Promise<PromotedVendorTier | null> {
-  if (!isPromoFreeWindowsEnabled()) return null;
-  return resolveVendorDealTier(await loadWindows(), facts, Date.now());
+  const windows: PromoFreeWindow[] = [];
+  if (isPromoFreeWindowsEnabled()) windows.push(...(await loadWindows()));
+  // ⚖ THE LAUNCH OFFER'S FREE PRO (owner 2026-10-08; 2026-10-12 #5). Its own
+  // switch is `platform_settings.launch_offer_enabled`, set on the ONE admin
+  // page the owner asked for — not this env flag — so it is read OUTSIDE the
+  // gate above, through the same resolver every other vendor deal uses.
+  const launch = await loadLaunchWindow();
+  if (launch) windows.push(launch);
+  if (windows.length === 0) return null;
+  return resolveVendorDealTier(windows, facts, Date.now());
+}
+
+/** A stable id for the launch offer's virtual window — it is not a table row. */
+export const LAUNCH_PRO_WINDOW_ID = 'launch-offer-free-pro';
+
+/**
+ * THE LAUNCH OFFER AS A VENDOR DEAL — free Pro for every verified supplier from
+ * the offer's start until free Pro's ONE end date (owner 2026-10-12 #5): the
+ * end of the 28-day cycle running when the offer closed, or — while it is still
+ * open — the end of the cycle running now, so it rolls forward and never lapses
+ * mid-offer. Built from `platform_settings`, never a stored placeholder date
+ * (the audit, C11: "extend the existing window rather than build a new one" —
+ * this IS a `PromoFreeWindow`, resolved by the same `resolveVendorDealTier`).
+ *
+ * Pure. Null when the offer is off, has no start, or has no end to compute.
+ */
+export function launchProWindow(
+  s: LaunchOfferSettings | null,
+  nowMs: number,
+): PromoFreeWindow | null {
+  if (!s || !s.enabled || !s.startedAt) return null;
+  const ends = launchProEndsAtNow(s, nowMs);
+  if (!ends) return null;
+  return {
+    promo_window_id: LAUNCH_PRO_WINDOW_ID,
+    title: 'Launch offer — free Pro',
+    blurb: null,
+    covered_service_keys: [],
+    audience_type: 'all_vendors',
+    promoted_vendor_tier: 'pro',
+    starts_at: s.startedAt,
+    ends_at: ends,
+    show_banner: false,
+    deal_length_days: null,
+    event_date_from: null,
+    event_date_to: null,
+  };
+}
+
+/**
+ * The live launch window, or null. The reader is imported lazily: it is
+ * `server-only`, and this module is also imported by unit tests for its pure
+ * rules.
+ */
+async function loadLaunchProWindow(): Promise<PromoFreeWindow | null> {
+  try {
+    const { getLaunchOffer } = await import('@/lib/launch-offer.server');
+    return launchProWindow(await getLaunchOffer(), Date.now());
+  } catch {
+    return null;
+  }
 }
 
 /**

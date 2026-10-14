@@ -31,9 +31,10 @@ const count = (src: string, needle: string) => src.split(needle).length - 1;
 /** File → how many times it mounts the strip. Exactly, not at least. */
 const STRIP_MOUNTS: Record<string, number> = {
   // Supplier side
-  'app/vendor-dashboard/_components/qr-section.tsx': 1, // Shortlist QR (My Customers)
-  'app/vendor-dashboard/invite/page.tsx': 2, // Shortlist + the just-issued Locked QR
-  'app/vendor-dashboard/locked-qr/page.tsx': 1, // each pending Locked QR row
+  // The QR card (kind 24, 2026-10-12) — Share · Download as its buttons, the strip (NFC · Copy link) under it. ONE
+  // mount, drawn by every card: the supplier's QR codes page (Shortlist + the issued Booked code — S-PR3 merged
+  // `/invite` and `/locked-qr`, whose ledger rows now open a code's card instead of carrying a strip each).
+  'app/_components/qr-card.tsx': 1,
   'app/vendor-dashboard/on-the-day/_components/guest-review-qr.tsx': 1, // review QR
   // Couple side
   'app/dashboard/[eventId]/invitation/page.tsx': 2, // per-guest rows, table + list
@@ -85,6 +86,15 @@ test('every link-QR mounts the strip, exactly as many times as it has QRs', () =
     assert.equal(mounts, expected);
   }
   console.log(report.join('\n'));
+});
+
+test('the supplier’s codes are drawn by the QR card (kind 24), so each carries the strip', () => {
+  const page = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
+  assert.equal(count(page, '<QrCard'), 2, 'the Shortlist and the issued Booked code are not both QR cards');
+  assert.match(page, /from '@\/app\/_components\/qr-card'/);
+  for (const gone of ['app/vendor-dashboard/invite/page.tsx', 'app/vendor-dashboard/locked-qr/page.tsx']) {
+    assert.equal(count(read(gone), 'dangerouslySetInnerHTML'), 0, `${gone} draws a code outside the QR card`);
+  }
 });
 
 test('a QR that is not a link carries none of the strip', () => {

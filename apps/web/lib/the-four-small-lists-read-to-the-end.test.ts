@@ -300,7 +300,8 @@ const read = (rel: string) =>
 
 test('screens: every money reader of the payday RPC goes through the paged read', () => {
   for (const rel of [
-    'app/vendor-dashboard/payday/surface.tsx',
+    // S-PR4: Payday is Customers › Money — its read is the segment's.
+    'app/vendor-dashboard/customers/_components/money-segment.tsx',
     'app/vendor-dashboard/customers/page.tsx',
     'app/vendor-dashboard/clients/[eventId]/page.tsx',
     'lib/vendor-overview.ts',
@@ -316,9 +317,12 @@ test('screens: every money reader of the payday RPC goes through the paged read'
 });
 
 test('screens: an unfinished payday read is said, and its rows are never summed', () => {
-  const payday = read('app/vendor-dashboard/payday/surface.tsx');
-  assert.match(payday, /const rows = paydayIncomplete \? \[\] : paydayRead\.rows;/);
-  assert.match(payday, /\{paydayIncomplete \? \(\s*<p role="status"/);
+  // S-PR4: Money hands an unfinished read to the pure module as `null` (no totals, no rows — `lib/vendor-money.test.ts`
+  // executes that), and its view says so in the figures' own place.
+  const payday = read('app/vendor-dashboard/customers/_components/money-segment.tsx');
+  assert.match(payday, /moneyPicture\(paydayIncomplete \? null : paydayRead\.rows, /);
+  const moneyView = read('app/vendor-dashboard/customers/_components/money-view.tsx');
+  assert.match(moneyView, /\) : \(\s*<div className="[^"]*" role="status" data-money-unread="">\s*<p[^>]*>\s*<b[^>]*>Couldn&rsquo;t load your payments\./);
 
   const customers = read('app/vendor-dashboard/customers/page.tsx');
   assert.match(customers, /const paydayRows = paydayIncomplete \? \[\] : paydayRes\.rows;/);
@@ -329,33 +333,43 @@ test('screens: an unfinished payday read is said, and its rows are never summed'
 });
 
 test('screens: blocks, unread and booked each say so when their read comes up short', () => {
-  const cal = read('app/vendor-dashboard/calendar/surface.tsx');
-  assert.match(cal, /\{blocksIncomplete \? \(\s*<p role="status"/);
+  // S-PR3: calendar/surface.tsx is retired — its blocks are Dates' (the month's note, the Block days fold's line)
+  // and one day's (its own note).
   const customers = read('app/vendor-dashboard/customers/page.tsx');
   assert.match(customers, /\{blocksIncomplete \? \(\s*<p role="status"/);
+  assert.match(customers, /closuresIncomplete=\{blocksIncomplete\}/, 'the Block days fold is not told its list came up short');
+  assert.match(customers, /\{!blocksRead\.complete \? \(\s*<p role="status"/, 'one day does not say its blocks came up short');
+  const folds = read('app/vendor-dashboard/customers/_components/dates-folds.tsx');
+  assert.match(folds, /closuresIncomplete \? 'Some couldn’t load/, 'Block days says "No days blocked" over a short read');
 
   const bookings = read('app/vendor-dashboard/bookings/surface.tsx');
   assert.match(bookings, /let factsIncomplete = !unreadRead\.complete;/);
   assert.match(bookings, /if \(!roomEvents\.complete\) factsIncomplete = true;/);
   assert.match(bookings, /\{factsIncomplete \? \(\s*<p\s+role="status"/);
 
-  const clients = read('app/vendor-dashboard/clients/surface.tsx');
-  assert.match(clients, /incomplete=\{!threadsRead\.complete \|\| !roomRead\.complete\}/);
-  assert.match(clients, /incomplete=\{!blocksRead\.complete\}/);
+  // S-PR2: the Clients lists are retired — their customers are People's roster (said short by `rosterIncomplete`,
+  // which counts the threads read) and their outside clients are People's (said short by the blocks read).
+  assert.match(customers, /const rosterIncomplete =\s*!threadsRead\.complete \|\| !evRead\.complete/);
+  assert.match(customers, /incomplete=\{rosterIncomplete\}/);
+  assert.match(customers, /<OutsideClientRows[\s\S]{0,120}incomplete=\{!blocksRead\.complete\}/);
 });
 
 test('screens: the Earned tile and the payouts totals never print a short or unread total', () => {
   const lib = read('lib/vendor-overview.ts');
   assert.equal((lib.match(/fetchVendorLedgerEarnings\(admin, vendorProfileId\)\.catch\(\(\) => \[\]\)/g) ?? []).length, 0);
   assert.match(lib, /earningsMeasured: earnings !== null/);
-  // The Earned tile became Today's money line on 2026-10-01 (DECISION_LOG "THE
-  // SUPPLIER PHONE APP — APPROVED"); it prints "—" when the ledger was not read.
+  // The Earned tile was Today's money line from 2026-10-01 to 2026-10-08; the
+  // supplier redesign (S-PR1) took both money tiles off Today — the figure
+  // lives on Earnings, held just below. Today must not print it again without
+  // asking whether the ledger was read.
   const today = read('app/vendor-dashboard/page.tsx');
-  assert.match(today, /earnings\.earningsMeasured \? formatPhp\(earnings\.earnedThisYearPhp\) : '—'/);
+  assert.doesNotMatch(today, /earnedThisYearPhp/, 'Today prints "Earned this year" again — it must ask earningsMeasured first');
 
-  const earn = read('app/vendor-dashboard/earnings/surface.tsx');
+  // S-PR4: the payouts read moved with the Earnings page into Customers › Money.
+  const earn = read('app/vendor-dashboard/customers/_components/money-segment.tsx');
   assert.doesNotMatch(earn, /\.from\('vendor_payouts'\)[\s\S]{0,900}?\.limit\(/);
-  assert.match(earn, /const payoutRows = payoutRead\.complete \? payoutRead\.rows : null;/);
+  assert.match(earn, /const payoutsMeasured = payoutRead\.complete;/);
+  assert.match(earn, /legacy = payoutsMeasured \? \(payoutRead\.rows as unknown as PayoutRow\[\]\)\.map\(legacyRow\) : null;/);
 });
 
 // ═══ WHAT THE #5724 SWEEP LEFT ════════════════════════════════════════════

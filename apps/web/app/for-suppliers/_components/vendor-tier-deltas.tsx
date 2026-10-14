@@ -59,7 +59,7 @@ import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
  * headline. So this line is both derived and more accurate than the sentence it
  * replaces.
  */
-import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
+import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 // See the note in vendor-grow-sections.tsx: the launch-period 0% promise is
 // gated on the flag that decides whether anybody is actually billed.
@@ -151,10 +151,16 @@ function SoonPill() {
 export function VendorTierDeltas({
   prices,
   matrix,
+  feeSchedule,
 }: {
   prices: VendorTierMatrixPrices;
   /** The full grid, rendered inside this section's disclosure. */
   matrix: React.ReactNode;
+  /**
+   * The LIVE booking-fee schedule the server page read — never the code
+   * default (audit 2026-10-12, item 5). NULL: the fee is named, no rate.
+   */
+  feeSchedule: BookingFeeSchedule | null;
 }) {
   const [showMatrix, setShowMatrix] = useState(false);
 
@@ -365,7 +371,7 @@ export function VendorTierDeltas({
                     {isBookingFeeEnabled()
                       ? `Your first ${FREE_BOOKING_LIMIT} Setnayan-sourced bookings are free — after that`
                       : '0% commission — no booking fee while it is switched off; if it is switched on'}{' '}
-                    {bookingFeeScheduleSummary()}, only on couples Setnayan
+                    {feeSchedule ? bookingFeeScheduleSummary(feeSchedule) : 'a booking fee'}, only on couples Setnayan
                     brings you; your own clients stay free.
                   </p>
                 ) : null}

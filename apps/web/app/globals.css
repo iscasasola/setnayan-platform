@@ -6801,6 +6801,14 @@ html:has([data-sticky-top]) {
 .hub-arr-full { max-width: none; margin-inline: 0; }
 .hub-arr-text { max-width: 58ch; margin-inline: auto; }
 
+/* ↔ WHERE A PART'S WIDTH BOX SITS WHEN THE PART HAS NO ALIGNMENT OF ITS OWN (Style › Width, owner 2026-10-14 —
+   `hubElementWidthDeclarations`, lib/element-style.ts): where the THEME's alignment puts it. The theme says it with
+   `text-left` / `text-center` / `text-right`; the nearest one around the part wins (a custom property inherits).
+   Without one, the box starts at the start, as a block does. Zero specificity: nothing else is touched. */
+:where(.text-left) { --hub-el-mi: 0 auto; }
+:where(.text-center) { --hub-el-mi: auto; }
+:where(.text-right) { --hub-el-mi: auto 0; }
+
 /* ── PHOTO BESIDE THE WORDS (left / right) ─────────────────────────────────
    `hubPhotoPlacement` returns `beside` for these two, and the frame then draws
    `.hub-canvas-photo` as a SIBLING of the words rather than a layer under them.

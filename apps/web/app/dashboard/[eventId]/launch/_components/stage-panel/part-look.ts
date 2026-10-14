@@ -1,5 +1,5 @@
 /**
- * 🎨 A PART'S COLOUR AND SIZE, FOR STYLE'S LAST ROW (owner 2026-10-09: *"color and size share the same row"* ·
+ * 🎨 A PART'S COLOUR, SIZE AND WIDTH, FOR STYLE'S LAST ROW (owner 2026-10-09: *"color and size share the same row"* ·
  * *"Color just 1 circle…"*; `TOOLBAR-SPEC-2026-10-09.md` § STYLE). They were two rows of the Text tool, which left
  * the toolbar with its Font (*"there is already a universal font"*).
  *
@@ -14,6 +14,10 @@
  * saved through the one draft door under the SAME queue key (`canvasWriteKey`) — so a pick here, in the part's
  * sheet and words typed beside them are one write, the latest. `held`: no Maker render. A refused save puts the
  * page and the Maker's copy back and says what did not save.
+ *
+ * ↔ WIDTH (owner 2026-10-14, `prototypes/maker_text_width_2026-10-14_fable.html`) is a third field on the SAME write
+ * — `elements[el].width`, Narrow · Wide · Full, Normal an absence — so it has the same queue key, the same ↺ and the
+ * same put-back on a refusal. Only the parts in `HUB_ELEMENT_WIDTH_PARTS` take it.
  */
 import { FIXED_STYLE_SCENES } from '@/lib/fixed-scene-styles';
 import { sceneStyleOptions } from '@/lib/scene-styles';
@@ -28,16 +32,20 @@ import {
   HUB_ELEMENT_SIZE_BASE,
   HUB_ELEMENT_SIZE_BOUNDS,
   HUB_ELEMENT_SIZE_STEPS,
+  HUB_ELEMENT_WIDTHS,
   hubElementSizePct,
   isHubElementKey,
   withElementChoice,
   type HubElementKey,
+  type HubElementWidth,
 } from '@/lib/element-style';
 import { elementPreview, refusedChoiceWords } from '../../../website/editor/_components/element-preview';
 import { canvasPickUndo } from '@/lib/canvas-pick-undo';
 import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
 
 export type PartLookTarget = { key: string; widgetType: string; el: HubElementKey };
+/** The three fields Style's last row sets — one write each, the part sheet's own. */
+export type PartLookField = 'color' | 'size' | 'width';
 
 /** The words whose colour and size Style's last row sets for a part — null: the part has none. */
 export function partLookTarget(canvasKey: string | null | undefined, el: string | null | undefined): PartLookTarget | null {
@@ -48,10 +56,10 @@ export function partLookTarget(canvasKey: string | null | undefined, el: string 
   return HUB_ELEMENT_EXCLUDED_WIDGETS.includes(type) ? null : { key: canvasKey, widgetType: type, el: 'heading' };
 }
 
-/** What that part can take (the shipped table). Neither: no row. */
-export function partLookFields(t: PartLookTarget | null): { colour: boolean; size: boolean } {
+/** What that part can take (the shipped table). None: no row. */
+export function partLookFields(t: PartLookTarget | null): { colour: boolean; size: boolean; width: boolean } {
   const fields: readonly string[] = t ? HUB_ELEMENT_FIELDS[t.el] : [];
-  return { colour: fields.includes('color'), size: fields.includes('size') };
+  return { colour: fields.includes('color'), size: fields.includes('size'), width: fields.includes('width') };
 }
 
 /** The sizes a part may be set to — the shipped steps inside its bounds. */
@@ -60,14 +68,18 @@ export function partLookSizes(el: HubElementKey): number[] {
   return (HUB_ELEMENT_SIZE_STEPS as readonly number[]).filter((s) => s >= min && s <= max);
 }
 
-/** The part's colour (null: the theme's own) and size (100: the theme's own), on the Maker's own copy of its canvas. */
-export function partLookNow(t: PartLookTarget, server: HubSectionCanvas | null | undefined): { colour: string | null; size: number } {
+/** The part's colour (null: the theme's own), size (100: the theme's own) and width (null: Normal, the theme's own), on the Maker's own copy of its canvas. */
+export function partLookNow(
+  t: PartLookTarget,
+  server: HubSectionCanvas | null | undefined,
+): { colour: string | null; size: number; width: HubElementWidth | null } {
   const part = draftedCanvasOr(t.widgetType, server).elements?.[t.el];
-  return { colour: part?.color ?? null, size: hubElementSizePct(part?.size) ?? HUB_ELEMENT_SIZE_BASE };
+  const width = (HUB_ELEMENT_WIDTHS as readonly unknown[]).includes(part?.width) ? (part?.width as HubElementWidth) : null;
+  return { colour: part?.color ?? null, size: hubElementSizePct(part?.size) ?? HUB_ELEMENT_SIZE_BASE, width };
 }
 
 /** The canvas a pick makes: `before` with the one choice set — null when it changes nothing. */
-export function partLookNext(t: PartLookTarget, before: HubSectionCanvas, field: 'color' | 'size', value: string | number | null): HubSectionCanvas | null {
+export function partLookNext(t: PartLookTarget, before: HubSectionCanvas, field: PartLookField, value: string | number | null): HubSectionCanvas | null {
   const elements = withElementChoice(before.elements, t.el, field, value);
   const next: HubSectionCanvas = { ...before };
   if (elements) next.elements = elements;
@@ -83,8 +95,8 @@ function show(message: unknown): void {
 
 export type PartLookDoor = { eventId: string; draftAction: ElementDraftAction; canvases: Readonly<Record<string, HubSectionCanvas>> | null | undefined };
 
-/** KEEP a colour or a size: on the page now, then ONE draft write (the latest of a burst), held. */
-export async function keepPartLook(t: PartLookTarget, field: 'color' | 'size', value: string | number | null, door: PartLookDoor): Promise<{ ok: true } | { ok: false; error: string }> {
+/** KEEP a colour, a size or a width: on the page now, then ONE draft write (the latest of a burst), held. */
+export async function keepPartLook(t: PartLookTarget, field: PartLookField, value: string | number | null, door: PartLookDoor): Promise<{ ok: true } | { ok: false; error: string }> {
   const server = door.canvases?.[t.widgetType] ?? null;
   const before = draftedCanvasOr(t.widgetType, server);
   const next = partLookNext(t, before, field, value);

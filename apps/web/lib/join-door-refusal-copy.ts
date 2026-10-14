@@ -85,12 +85,21 @@ export function joinDoorRefusalMessages(w: JoinDoorOrganizerWords): Record<JoinD
 }
 
 /** Look up one refusal sentence; an unrecognised key echoes itself back
- *  (matches the previous inline fallback in `join-flow.tsx`). */
+ *  (matches the previous inline fallback in `join-flow.tsx`).
+ *
+ *  📬 `shut` — the couple's reply window as the door reads it NOW (`replyWindowWords(replyWindow(…))`,
+ *  lib/reply-window.ts, on the venue's clock). With it, a `replies_*` refusal says exactly what the Reply
+ *  card says — "Replies open on Saturday, 14 November" — ONE source for the words and the date, never a
+ *  date carried in the address. Without it (unread, or the window has opened since), the plain sentence. */
 export function joinDoorRefusalMessage(
   errorKey: string | null | undefined,
   w: JoinDoorOrganizerWords,
+  shut?: { line: string; sub: string | null } | null,
 ): string | null {
   if (!errorKey) return null;
+  if ((errorKey === 'replies_not_yet' || errorKey === 'replies_closed') && shut) {
+    return shut.sub ? `${shut.line} ${shut.sub}` : shut.line;
+  }
   const messages = joinDoorRefusalMessages(w) as Record<string, string>;
   return messages[errorKey] ?? errorKey;
 }

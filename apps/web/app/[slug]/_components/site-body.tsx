@@ -194,6 +194,8 @@ import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost, type HubCoverHoldBoxes } from './hub-scenes';
 import { RsvpWidget } from './rsvp-widget';
+import { OPEN_REPLY_WINDOW, type ReplyWindow } from '@/lib/reply-window';
+import { ReplyWindowNote } from './reply-window-note';
 import { RsvpLookStyle } from './rsvp-look-style';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
 import { signRsvpPictures } from '@/lib/rsvp-pictures.server';
@@ -385,6 +387,12 @@ type SiteBodyProps = {
   // consulted when `phasesEnabled` is true. See lib/invitation-widgets.ts.
   phasesEnabled: boolean;
   lifecyclePhase: LifecyclePhase;
+  /**
+   * 📬 The couple's reply window (owner 2026-10-14, `lib/reply-window.ts`), resolved by the page from the
+   * row it holds. Absent = open (every mount written before it, and the Maker's canvas, unchanged).
+   * Not open: no door to the reply anywhere on the page, and the Reply card says when — or that they closed.
+   */
+  replyWindow?: ReplyWindow;
   /** PR4 P1 — render the auto-playing STD film instead of the static section. */
   stdFilm: boolean;
   stdBackground?: StdBackground;
@@ -582,6 +590,7 @@ export async function SiteBody({
   songRequestDoor = null,
   phasesEnabled,
   lifecyclePhase,
+  replyWindow: repliesWindow = OPEN_REPLY_WINDOW,
   stdFilm,
   stdBackground,
   stdBackgroundUrl,
@@ -1175,6 +1184,10 @@ export async function SiteBody({
      a Maker change. A guest is never served it. */
   const replyDoor = inviteReplyPath(event.slug ?? '');
   const replySheetDrawn = plan.rsvpShouldRender && isEditorCanvas;
+  /* 📬 THE REPLY IS OPEN HERE — the stage allows it (`plan.rsvpShouldRender`) AND the couple's window is
+     open (owner 2026-10-14). Every guest door to the reply below asks THIS; the Reply card alone still
+     draws while the window is shut, to say when replies open or that they have closed. */
+  const replyOpenHere = plan.rsvpShouldRender && repliesWindow.state === 'open';
   const arrivalAction =
     identity.kind === 'guest'
       ? resolveArrivalAction({
@@ -1183,8 +1196,9 @@ export async function SiteBody({
           eventDate: event.event_date,
           today: manilaToday(),
           hasPass: Boolean(guestToken),
-          // A door to the reply only where the reply is open — never "RSVP" on the Save the Date.
-          replyOpen: plan.rsvpShouldRender,
+          // A door to the reply only where the reply is open — never "RSVP" on the Save the Date,
+          // nor outside the couple's reply window (📬 2026-10-14).
+          replyOpen: replyOpenHere,
         })
       : null;
   const doorways = doorwayFacts
@@ -2529,6 +2543,7 @@ export async function SiteBody({
       guestLiveGallery,
       guestOwnShots,
       poolGalleryOpen,
+      earlyOwnShots,
       seatPassActive,
       needsFaceEnroll,
       guestHubData,
@@ -2643,6 +2658,9 @@ export async function SiteBody({
             replyBy: replyBy ? formatEventDateWithPrecision(replyBy.date, 'day') || null : null,
             seats: 1 + plusOneSeats(guest),
             solemn: clientWords.solemn,
+            // 📬 Shut: "Replies open on …" / "Replies are closed." — no button (owner 2026-10-14).
+            window: repliesWindow,
+            organizer: clientWords.theOrganizer,
           })
         : null;
     /* 👗 THIS GUEST'S OWN LOOK — read once, for the Welcome's "you" panel and
@@ -2820,10 +2838,19 @@ export async function SiteBody({
        precedence — a guest's OWN roll first, then the couple's shared camera,
        the same order GuestHubBar already uses; neither open ⇒ the resolver
        LOCKS the slot rather than hiding it. */
+    /* 📸 The guest's camera, wherever it opens from — the bar's Camera and, before the
+       day with early shooting on, the Gallery's "Take your first photo" (one address). */
+    const guestCameraHref = papicGuest
+      ? `/papic/me/${encodeURIComponent(guest.qr_token)}/session?next=guest&from=${event.slug ?? ''}`
+      : hostCameraOpen
+        ? `/papic/guest?from=${event.slug}`
+        : null;
     const guestBar = resolveSiteNav({
       viewer: { kind: 'guest' },
       phase: navPhase,
       stageSlots: STAGE_BAR[pageStage].slots,
+      // 🖼 Before the day with "Let guests shoot now" on: Gallery = their own shots (owner 2026-10-14).
+      earlyOwnShots,
       // `papicGuest` is the guest's own roll (an object), not a flag —
       // coerce it, or the resolver receives a truthy non-boolean.
       hostAllowsCamera: Boolean(papicGuest) || hostCameraOpen,
@@ -2849,13 +2876,9 @@ export async function SiteBody({
         // 📸 Straight to the camera — "the whole page is the camera" (prototype
         // frame 3b) — through the token→session bridge, carrying the event so
         // its × comes back here (`cameraHrefWithBack` adds the tab).
-        camera: papicGuest
-          ? `/papic/me/${encodeURIComponent(guest.qr_token)}/session?next=guest&from=${event.slug ?? ''}`
-          : hostCameraOpen
-            ? // Same reason as the anonymous tree: carry the event so a
-              // refusal can hand them back their invitation.
-              `/papic/guest?from=${event.slug}`
-            : null,
+        // Same reason as the anonymous tree: the address carries the event so a
+        // refusal can hand them back their invitation (`guestCameraHref`).
+        camera: guestCameraHref,
         watch: `/${event.slug}/hub`,
         join: `/${event.slug}/invite`,
       },
@@ -3397,6 +3420,7 @@ export async function SiteBody({
                   faceTaggingWish={guest.face_tagging_wanted ?? null}
                   capApplies={papicGuest.capApplies}
                   poolLow={papicGuest.poolLow}
+                  poolEmpty={papicGuest.poolEmpty}
                   sponsorShare={papicGuest.sponsorShare}
                   eventStyle={papicGuest.eventStyle}
                   faceMode={papicGuest.faceMode}
@@ -3458,6 +3482,17 @@ export async function SiteBody({
                   qrToken={guest.qr_token || null}
                   cameraOn={Boolean(papicGuest)}
                   everyoneHref={poolGalleryOpen && guest.qr_token ? `/papic/me/${encodeURIComponent(guest.qr_token)}/session?next=pool` : null}
+                />
+              ) : earlyOwnShots ? (
+                /* 🖼 BEFORE THE DAY, EARLY SHOOTING ON (owner 2026-10-14, "Only their own
+                   shots"): THEIR shots and nothing else — no "Photos of you", no door to
+                   everyone's, no public chapter. No shots yet → the line and the Camera. */
+                <YourShotsGallery
+                  shots={guestOwnShots}
+                  qrToken={guest.qr_token || null}
+                  cameraOn
+                  everyoneHref={null}
+                  cameraHref={guestCameraHref}
                 />
               ) : null}</>, { chapters: true, className: 'space-y-12', id: tabs.on ? SITE_MENU_ANCHORS.gallery : undefined })}
 
@@ -3642,7 +3677,10 @@ export async function SiteBody({
                       guest who replied on a tabbed page — Me carries "Change
                       your reply" there. A guest still owed a reply on the day
                       keeps this line: it is their only way in. */}
-                  {actionOpensReply(arrivalAction) ||
+                  {/* 📬 THE WINDOW IS SHUT and no Reply card says so on this page (owner 2026-10-14): the same
+                      words, where the door to the reply would have been. */}
+                  {!replyOpenHere && !replyCard ? <ReplyWindowNote window={repliesWindow} organizer={clientWords.theOrganizer} /> : null}
+                  {!replyOpenHere || actionOpensReply(arrivalAction) ||
                   (tabs.on && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined')) ? null : (
                   <a
                     href={replyDoor}
@@ -3951,7 +3989,7 @@ export async function SiteBody({
               ? meSection({
                   replyHref: meLeadsWithReply({
                     action: arrivalAction,
-                    replyOpen: plan.rsvpShouldRender,
+                    replyOpen: replyOpenHere,
                     isPlusOne: Boolean(guest.plus_one_of_guest_id),
                   })
                     ? replyDoor
@@ -3974,7 +4012,7 @@ export async function SiteBody({
             {guest.photo_source === 'selfie' ? (
               <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
             ) : null}
-            {plan.rsvpShouldRender && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined') && !actionOpensReply(arrivalAction) ? (
+            {replyOpenHere && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined') && !actionOpensReply(arrivalAction) ? (
               <a
                 href={replyDoor}
                 data-me-change-reply=""

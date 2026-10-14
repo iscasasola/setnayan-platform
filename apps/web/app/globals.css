@@ -6709,6 +6709,56 @@ html:has([data-sticky-top]) {
 .home-svc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .home-svc .home-t { font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .home-svc .home-t svg { width: 16px; height: 16px; flex: none; }
+/* 🎨 THE SERVICE GLANCE — Home's Papic row and the Papic page's band, ONE object at two
+ * sizes (owner "approve all", 2026-10-14; prototype papic_easy_home_and_band_2026-10-14_fable.html,
+ * its `.svc` · `.band` · `.meter` · `.dot` rules on the app's tokens). The mood is in WORDS
+ * and in the dot/meter colour — gold before the window, amber under 10%, red at zero.
+ * Producers: app/_components/service-glance.tsx. */
+/* NEVER TWICE — ONLY WHILE THE CARD IS ON SCREEN (walk-b6 F1, 2026-10-14): what the Papic Next card already
+ * offers stands down in the row while that card is visible; "Later" (`hidden`) brings it straight back. */
+[data-home-first-screen]:has([data-home-next="papic"]:not([hidden])) [data-while-next] { display: none; }
+.sg-row { grid-column: 1 / -1; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); border-radius: 16px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); padding: 12px 14px; min-width: 0; color: rgb(var(--color-ink)); }
+.sg-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sg-mark { width: 34px; height: 34px; border-radius: 10px; background: var(--sn-gold-100); display: grid; place-items: center; flex: none; }
+.sg-mark svg { width: 18px; height: 18px; }
+.sg-name { font-weight: 600; }
+.sg-brand { font-size: 12px; margin-top: -2px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.sg-arrow { margin-left: auto; color: rgb(var(--color-mulberry)); flex: none; }
+.sg-status { margin: 10px 0 0; font-size: 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sg-status b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.sg-status[data-mood="low"] { color: rgb(var(--color-warn)); }
+.sg-status[data-mood="gone"] { color: rgb(var(--color-danger)); }
+.sg-dot { width: 6px; height: 6px; border-radius: 50%; background: rgb(var(--color-ok)); display: inline-block; flex: none; }
+.sg-dot[data-mood="wait"] { background: rgb(var(--color-terracotta)); }
+.sg-dot[data-mood="low"] { background: rgb(var(--color-warn)); }
+.sg-dot[data-mood="gone"] { background: rgb(var(--color-danger)); }
+.sg-meter { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); overflow: hidden; margin-top: 8px; }
+.sg-meter > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: rgb(var(--color-ok)); transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.sg-meter[data-mood="wait"] > span { background: rgb(var(--color-terracotta)); }
+.sg-meter[data-mood="low"] > span { background: rgb(var(--color-warn)); }
+.sg-meter[data-mood="gone"] > span { background: rgb(var(--color-danger)); }
+.sg-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.sg-band { border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 28%, color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent)); border-radius: 20px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); padding: 16px 16px 14px; color: rgb(var(--color-ink)); }
+.sg-band .sg-row1 { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; }
+.sg-big { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.sg-big[data-mood="low"] { color: rgb(var(--color-warn)); }
+.sg-big[data-mood="gone"] { color: rgb(var(--color-danger)); }
+.sg-of { font-size: 13px; margin-top: 2px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.sg-band .sg-meter { margin: 12px 0 10px; }
+.sg-say { font-size: 14px; margin: 8px 0 0; font-weight: 500; }
+.sg-say[data-mood="low"] { color: rgb(var(--color-warn)); }
+.sg-say[data-mood="gone"] { color: rgb(var(--color-danger)); }
+.sg-see { margin-top: 12px; }
+.sg-see > .ab { width: 100%; justify-content: center; }
+.sg-line { font-size: 13.5px; margin: 10px 0 0; display: flex; gap: 6px; align-items: center; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.sg-line .sg-dot { width: 7px; height: 7px; }
+/* The Buy more sheet: the shipped stepper + "After this", on the template. */
+.sg-after { margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, rgb(var(--color-ink)) 6%, transparent); font-size: 14px; display: flex; justify-content: space-between; gap: 10px; }
+.sg-after b { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* The pressed "Continue to payment" stays the accent — pressed, darker, never faded (prototype `.btn.working`). */
+:is(button).ab.sg-pay:disabled { opacity: 1; transform: scale(0.97); filter: brightness(0.88); }
+.sg-step { font-size: 13px; text-align: center; margin: 8px 0 0; min-height: 18px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+@media (prefers-reduced-motion: reduce) { .sg-meter > span { transition: none; } }
 /* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */
 :is(button, a).ab.ab-neutral.home-cover-ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
 /* Rise on load, staggered — once (the prototype's `up`). */

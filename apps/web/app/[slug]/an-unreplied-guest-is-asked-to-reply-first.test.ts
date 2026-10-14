@@ -117,7 +117,7 @@ test('3 · the wiring: SiteBody decides from its plan; page.tsx hands it to both
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(
     body,
-    /typeof meSection === 'function'\s*\?\s*meSection\(\{\s*replyHref: meLeadsWithReply\(\{\s*action: arrivalAction,\s*replyOpen: plan\.rsvpShouldRender,/,
+    /typeof meSection === 'function'\s*\?\s*meSection\(\{\s*replyHref: meLeadsWithReply\(\{\s*action: arrivalAction,\s*replyOpen: replyOpenHere,/,
     'Me must ask meLeadsWithReply with the page’s own action and reply-sheet gate',
   );
   const page = read('app/[slug]/page.tsx');

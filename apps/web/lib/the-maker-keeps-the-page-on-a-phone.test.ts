@@ -373,7 +373,8 @@ test('📏 the top bar is ONE row at 375 px — ✕ Exit · the screen · ↶ Un
   assert.match(lt, /env\(safe-area-inset-bottom\)/, 'the lower third does not respect the phone’s bottom safe area');
   // 🏷 The screen you are on (owner 2026-10-05, "RSVP · When yes"): the stage and its page — never "as a guest sees it".
   const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
-  assert.match(header, /data-maker-screen-label=""[^>]*>Invitation · Welcome</, 'the top bar does not name the screen the couple is on');
+  // The screen's name is the guest bar's tab word — "Home" since 2026-10-14 (DECISION_LOG "Home").
+  assert.match(header, /data-maker-screen-label=""[^>]*>Invitation · Home</, 'the top bar does not name the screen the couple is on');
   assert.doesNotMatch(header, /as a guest sees it/, 'the cut-off "as a guest sees it" is back on the top bar');
   // The draft bar draws Undo and Apply with exactly these phone props (the stub above is its copy).
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');

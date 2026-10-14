@@ -87,9 +87,11 @@ test('a door points at it — the top control itself, or the line in the reply s
   const at = BODY.indexOf('href={replyDoor}');
   assert.match(
     BODY.slice(Math.max(0, at - 300), at),
-    /\{actionOpensReply\(arrivalAction\) \|\|\s*\(tabs\.on && \(guest\.rsvp_status === 'attending' \|\| guest\.rsvp_status === 'declined'\)\) \? null : \(\s*<a\s*$/,
+    /\{!replyOpenHere \|\| actionOpensReply\(arrivalAction\) \|\|\s*\(tabs\.on && \(guest\.rsvp_status === 'attending' \|\| guest\.rsvp_status === 'declined'\)\) \? null : \(\s*<a\s*$/,
     'the reply-section door must render exactly when no other door does — else a guest has none, or two',
   );
+  // 📬 …and never while the couple's reply window is shut (owner 2026-10-14): `replyOpenHere` is the plan's gate AND the window.
+  assert.match(BODY, /const replyOpenHere = plan\.rsvpShouldRender && repliesWindow\.state === 'open';/);
 });
 
 test('🔑 the door sits inside the same gate as the sheet it opens', () => {

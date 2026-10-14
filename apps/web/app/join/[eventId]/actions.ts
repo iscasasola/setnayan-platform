@@ -1,6 +1,8 @@
 'use server';
 
 import { allowGuestSelfJoinAttempt } from '@/lib/join-door-throttle';
+import { REPLY_WINDOW_EVENT_COLUMNS } from '@/lib/reply-window';
+import { replyWindowOfRow } from '@/lib/reply-window.server';
 import { parsePersonName } from '@/lib/person-name-parse';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { redirect } from 'next/navigation';
@@ -220,7 +222,8 @@ async function createJoinRequest(
      wins. Unreadable fails closed. */
   const { data: setting, error: settingErr } = await admin
     .from('events')
-    .select('rsvp_ask_config')
+    // + the reply window's columns: a request carries an ANSWER, so it is a reply (📬 owner 2026-10-14).
+    .select(REPLY_WINDOW_EVENT_COLUMNS)
     .eq('event_id', eventId)
     .maybeSingle();
   if (settingErr) {
@@ -230,6 +233,10 @@ async function createJoinRequest(
     return null;
   }
   if (!anyoneMayAskToJoin(setting?.rsvp_ask_config)) return null;
+  /* 📬 …AND ONLY WHILE REPLIES ARE OPEN (owner 2026-10-14, `lib/reply-window.ts`). A request carries
+     an answer — yes or no, a meal, a note — so it is a reply, and a reply never lands outside the
+     window. Every caller already refused with the sentence first; this is the property. */
+  if (!setting || (await replyWindowOfRow(setting)).state !== 'open') return null;
   const now = new Date().toISOString();
   const answerColumns = {
     rsvp_status: answers.rsvp_status,
@@ -415,7 +422,7 @@ export async function joinEventAction(eventId: string, token: string, formData: 
   // holds HERE, through the SAME resolver the guest site uses.
   const { data: visRow } = await admin
     .from('events')
-    .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at, rsvp_ask_config')
+    .select(`slug, landing_page_visibility, scheduled_launch_at, std_launched_at, ${REPLY_WINDOW_EVENT_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -531,6 +538,9 @@ export async function joinEventAction(eventId: string, token: string, formData: 
   }
 
   // Everyone else → a REQUEST. Nothing is bound; the couple decides.
+  // 📬 A request carries an answer: only while replies are open (owner 2026-10-14).
+  const replies = await replyWindowOfRow(visRow);
+  if (replies.state !== 'open') return backToDoor(eventId, token, replies.state === 'not_yet' ? 'replies_not_yet' : 'replies_closed');
   const read = readRequestAnswers(formData, sanitizeRsvpAskConfig(visRow.rsvp_ask_config), accountEmail);
   if (!read.ok) return backToDoor(eventId, token, read.error);
 
@@ -569,7 +579,7 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   // `selfJoinRefusalPath`. From the DATABASE, never the form.
   const { data: event } = await admin
     .from('events')
-    .select('slug, rsvp_ask_config')
+    .select(`slug, ${REPLY_WINDOW_EVENT_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   const slug = ((event?.slug as string | null) ?? '').trim() || null;
@@ -650,6 +660,10 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
   if ((count ?? 0) >= SELF_JOIN_CEILING) {
     return refuse('join_closed');
   }
+
+  // 📬 4b. A request carries an answer: only while replies are open (owner 2026-10-14).
+  const replies = event ? await replyWindowOfRow(event) : null;
+  if (!replies || replies.state !== 'open') return refuse(replies?.state === 'not_yet' ? 'replies_not_yet' : 'replies_closed');
 
   // 5. The request. The name only ever SUGGESTS a match to the couple — it
   //    never hands this browser another guest's seat (a name is not a secret).

@@ -199,6 +199,8 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     // didntReply (2026-09-27) — THIS guest's own "Didn't reply · you're in"
     // mark after the final count locked. About the guest's own reply only.
     'didntReply',
+    // earlyOwnShots (2026-10-14) — before the day with early shooting on, Gallery = their own shots.
+    'earlyOwnShots',
     'eventVendorCredits',
     'faceMode',
     // faceTaggingAskable (2026-09-29) — may THIS guest's reply card ask "Want

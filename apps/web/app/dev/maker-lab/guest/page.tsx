@@ -33,7 +33,10 @@ import { RsvpLookStyle } from '@/app/[slug]/_components/rsvp-look-style';
 import { RsvpWidget } from '@/app/[slug]/_components/rsvp-widget';
 import { submitInviteReply } from '@/app/[slug]/invite/actions';
 import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
-import { LabReplyDoor } from './lab-reply-door';
+import { LabReplyDoor, labWindow } from './lab-reply-door';
+import { replyCardOf } from '@/lib/guest-me-parts';
+import { resolveArrivalAction } from '@/lib/arrival-action';
+import { ReplyCardRow } from '@/app/[slug]/_components/guest-me-parts';
 import { RsvpNoteLines } from '@/app/[slug]/_components/rsvp-note-lines';
 import type { GuestRow } from '@/app/[slug]/_lib/types';
 import { landingHeadline } from '@/lib/guest-landing';
@@ -163,6 +166,27 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 🎁 `?wish=…` — the guest's wish list on fixtures (`wish-lab.tsx`), instead of the canvas. */
   if (typeof sp.wish === 'string') {
     return <WishLab state={sp.wish} look={typeof sp.look === 'string' ? sp.look : undefined} known={sp.known !== '0'} named={sp.name !== '0'} mine={sp.mine === '1'} />;
+  }
+  /* 📬 `?replycard=open|going|not_yet|closed` — the Event Hub's Welcome Reply card (`ReplyCardRow` from
+     `replyCardOf`, the page's own two) in each state of the couple's reply window, on the lab's house ground. */
+  if (typeof sp.replycard === 'string') {
+    const state = sp.replycard;
+    const card = replyCardOf({
+      action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: state === 'going' ? 'attending' : 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true }),
+      replyBy: 'Saturday, December 5, 2026',
+      seats: 1,
+      window: labWindow(state) ?? undefined,
+      organizer: 'the couple',
+    });
+    return (
+      <main className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col items-center gap-6 bg-cream px-4 pt-24 text-center" data-lab-replycard={state}>
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        <p className="text-xs uppercase tracking-[0.28em] text-ink/60">Together with their families</p>
+        <h1 className="font-pahina text-5xl font-light leading-tight text-ink">Maria &amp; Jose</h1>
+        <p className="text-sm text-ink/70">Saturday, December 12, 2026 · Seda Vertis North</p>
+        {card ? <ReplyCardRow card={card} /> : null}
+      </main>
+    );
   }
   const rsvp = typeof sp.rsvp === 'string' ? sp.rsvp : null;
   /* 🎉 `?play=<pick>` plays the When yes celebration as a guest who just said

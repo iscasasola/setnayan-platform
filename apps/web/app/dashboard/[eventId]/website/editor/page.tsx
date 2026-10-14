@@ -271,6 +271,8 @@ export default async function WebsiteEditorPage({
     (event.event_date as string | null) ?? null,
     ((event as { timezone?: string | null }).timezone) ?? undefined,
     (event as { event_end_date?: string | null }).event_end_date ?? null,
+    undefined,
+    (event as { std_invitation_launch_date?: string | null }).std_invitation_launch_date ?? null,
   );
   const initialPhase = pinnedPhase ?? clockPhase;
 

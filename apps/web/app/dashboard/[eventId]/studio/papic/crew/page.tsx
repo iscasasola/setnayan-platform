@@ -475,7 +475,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                     {s.shotsLeftLabel ? (
                       <p
                         className={`mt-1.5 text-xs font-medium ${
-                          s.shotsLeftLabel === 'Out of shots'
+                          s.shotsLeftLabel === 'Out of credits'
                             ? 'text-mulberry-600'
                             : 'text-ink/55'
                         }`}

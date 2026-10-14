@@ -31,6 +31,13 @@ export type PapicStandings = {
   cameras: number | null;
   /** Credits left in the shared pot. null = not measured, or no pot applies. */
   credits: number | null;
+  /**
+   * Credits the pot has ever held (free grant + every top-up) — what "low" is a
+   * share of (`poolLevel`). null = not measured, or no pot applies.
+   */
+  creditsTotal: number | null;
+  /** Did the pool read itself succeed? false = `credits` is unread, not "no pot". */
+  poolRead: boolean;
 };
 
 export async function readPapicStandings(
@@ -75,5 +82,7 @@ export async function readPapicStandings(
     inLibrary:
       photoRes.error || guestRes.error ? null : (photoRes.count ?? 0) + (guestRes.count ?? 0),
     credits: pool.ok && pool.status.applies ? pool.status.remainingPoints : null,
+    creditsTotal: pool.ok && pool.status.applies ? pool.status.totalPoints : null,
+    poolRead: pool.ok,
   };
 }

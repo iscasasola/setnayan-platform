@@ -4,6 +4,8 @@ import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
 import { PASSED_AWAY, type GuestRole } from '@/lib/guests';
 import { guestReplyBy, readGuestReminders } from '@/lib/rsvp-ask';
+import { replyFaceOf, replyWindow } from '@/lib/reply-window';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { hasReplied } from '@/lib/venue-disclosure';
 import { buildInvitationUrl } from '@/lib/qr';
@@ -118,6 +120,11 @@ type ReminderEventRow = {
   guest_list_edit_deadline: string | null;
   guest_count_locked_at: string | null;
   rsvp_ask_config: unknown;
+  event_type: string | null;
+  event_end_date: string | null;
+  launch_mode: string | null;
+  manual_phase: string | null;
+  std_invitation_launch_date: string | null;
 };
 
 type ReminderGuestRow = StdGuestRow & {
@@ -147,7 +154,7 @@ export async function runGuestReminderEmails(now: Date = new Date()): Promise<Gu
   const { data: events, error: eventsErr } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, bride_name, groom_name, event_date, timezone, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, dress_code_config, role_palette, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config',
+      'event_id, slug, display_name, bride_name, groom_name, event_date, timezone, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, dress_code_config, role_palette, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, event_type, event_end_date, launch_mode, manual_phase, std_invitation_launch_date',
     )
     .in('event_date', dates)
     .not('slug', 'is', null)
@@ -263,6 +270,8 @@ async function remindOneEvent(
   });
   // Only a date the host set, still ahead (controller 2026-09-30) — never the default.
   const replyBy = guestReplyBy({ deadline: ev.guest_list_edit_deadline, today });
+  // 📬 The couple's reply window, on this event's own clock (lib/reply-window.ts).
+  const repliesOpen = replyWindow(ev, now, tz, replyFaceOf(await resolveProfile((ev.event_type ?? '').trim() || 'wedding'))).state === 'open';
 
   let sent = 0;
   for (const g of guests) {
@@ -281,7 +290,7 @@ async function remindOneEvent(
         tableLabel: seatsOpen ? (tableLabelById.get(tableIdByGuest.get(g.guest_id) ?? '') ?? null) : null,
       });
       const pending = untickedItems(items, ticksByGuest.get(g.guest_id) ?? []);
-      const replyLine = replyByLine({ rsvpStatus: g.rsvp_status, replyBy, today, listClosed });
+      const replyLine = replyByLine({ rsvpStatus: g.rsvp_status, replyBy, today, listClosed, repliesOpen });
       // Nothing left to say → no email, and no lock (an untick later still earns the next one).
       if (pending.length === 0 && !replyLine) continue;
 

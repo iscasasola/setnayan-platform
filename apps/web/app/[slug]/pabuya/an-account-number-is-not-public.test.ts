@@ -33,6 +33,10 @@
  * three with the route itself. Every pin is the one that was here, retargeted —
  * and the rule is now EXECUTED (test 0), and the Welcome is held to the SAME
  * reader (the last test).
+ *
+ * 🛡 Sabotaged, each red then restored (2026-10-14): `withhold = false` in the rule → 0, 1 and the drawn Welcome red ·
+ * one Welcome handed no content → the gate test red · the content started without the door's gate → the gate test
+ * red · the Welcome drawing E-Gifts with no gift gate → the drawn Welcome red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

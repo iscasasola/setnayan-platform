@@ -3498,6 +3498,26 @@ html.dark {
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   🙈 NOTHING BEHIND THE VEIL PLAYS (owner 2026-10-15, verbatim: "on the reveal.
+   nothing behind it should be playing until we open the reveal").
+   `lib/hub-veil.ts` holds the whole rule: `data-veiled` sits on <html> from
+   before the body parses (an inline script `RevealMount` writes only where an
+   opening is mounted) until the guest's tap / swipe up opens it, or the opening
+   stands down. While it is there EVERY CSS animation outside the opening's own
+   box waits at wherever it is — ambient effects, a scene's build-in, an auto
+   run, a theme loop drawn in CSS, ones written after today — and they all play
+   the moment it comes off. Videos, audio and Web Animations are held by the
+   same script. Fail-visible: the script lets go by itself if no opening claims
+   the page (`VEIL_HOLD_FAILSAFE_MS`), so a failed bundle never leaves an
+   entrance frozen at its first frame. No opening → never set → nothing changes.
+   ───────────────────────────────────────────────────────────────────────────── */
+html[data-veiled] body *:not([data-reveal-layer], [data-reveal-layer] *),
+html[data-veiled] body *:not([data-reveal-layer], [data-reveal-layer] *)::before,
+html[data-veiled] body *:not([data-reveal-layer], [data-reveal-layer] *)::after {
+  animation-play-state: paused !important;
+}
+
 /* ── Pahina hero cover parallax (design §6: "±6%, rAF-throttled transform on
    the media wrapper") ───────────────────────────────────────────────────────
 
@@ -8793,24 +8813,4 @@ html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
     animation-timeline: auto;
     animation-range: normal;
   }
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   🙈 NOTHING BEHIND THE VEIL PLAYS (owner 2026-10-15, verbatim: "on the reveal.
-   nothing behind it should be playing until we open the reveal").
-   `lib/hub-veil.ts` holds the whole rule: `data-veiled` sits on <html> from
-   before the body parses (an inline script `RevealMount` writes only where an
-   opening is mounted) until the guest's tap / swipe up opens it, or the opening
-   stands down. While it is there EVERY CSS animation outside the opening's own
-   box waits at wherever it is — ambient effects, a scene's build-in, an auto
-   run, a theme loop drawn in CSS, ones written after today — and they all play
-   the moment it comes off. Videos, audio and Web Animations are held by the
-   same script. Fail-visible: the script lets go by itself if no opening claims
-   the page (`VEIL_HOLD_FAILSAFE_MS`), so a failed bundle never leaves an
-   entrance frozen at its first frame. No opening → never set → nothing changes.
-   ───────────────────────────────────────────────────────────────────────────── */
-html[data-veiled] body *:not([data-reveal-layer], [data-reveal-layer] *),
-html[data-veiled] body *:not([data-reveal-layer], [data-reveal-layer] *)::before,
-html[data-veiled] body *:not([data-reveal-layer], [data-reveal-layer] *)::after {
-  animation-play-state: paused !important;
 }

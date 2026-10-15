@@ -179,6 +179,12 @@ test('(4) the guest page hands the button the hero row’s design, and the butto
   assert.match(music, /const \[playing, setPlaying\] = useState\(false\);/);
   assert.match(music, /await el\.play\(\);\s*setPlaying\(true\);/);
   assert.equal((music.match(/setPlaying\(true\)/g) ?? []).length, 1, 'something other than the tap sets it playing');
+  // …and the ONE start is reached from exactly two places, both the guest's own gesture: the button's tap, and
+  // the tap / swipe up that opened the veil (owner 2026-10-15: "when they unveil, the music starts playing upon
+  // tap") — the latter from the `hub-unveil` listener itself, so `play()` runs inside that gesture.
+  assert.match(music, /await startSong\(el\);/, 'the button no longer starts the song through the one start');
+  assert.match(music, /addEventListener\(HUB_UNVEIL_EVENT, onUnveil\)/, 'the unveil no longer starts the song');
+  assert.match(music, /const onUnveil = \(\) => \{[\s\S]*?startRef\.current\(el\)/, 'the unveil listener does not start the song itself (a deferred play() is refused)');
   // The accessible name still says play / mute, and the round is the one the Maker draws.
   assert.match(music, /aria-label=\{playing \? 'Mute background music' : 'Play background music'\}/);
   assert.match(music, /className=\{`\$\{MUSIC_BUTTON_CLASS\} transition hover:bg-cream`\}/);

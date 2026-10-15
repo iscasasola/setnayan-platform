@@ -107,3 +107,14 @@ test('a staff preview build keeps the overlay mounted so ?reveal= can demo', asy
   const { RevealMount, overlaysIn } = await load();
   assert.equal(overlaysIn(RevealMount(props({ isStaffPreview: true }))).length, 1);
 });
+
+/* 🙈 NOTHING BEHIND IT PLAYS UNTIL IT IS OPENED (owner 2026-10-15 · lib/hub-veil.ts). The hold is in the SERVER
+   HTML exactly where an overlay is mounted — so a page with no opening never holds anything. */
+test('the hold rides with the overlay — in the server HTML for a Pro opening, absent for every page without one', async () => {
+  const { RevealMount, renderToStaticMarkup } = await load();
+  const held = (p: Partial<RevealMountProps>) => renderToStaticMarkup(RevealMount(props(p))).includes("setAttribute('data-veiled'");
+  assert.equal(held({ ownsPro: true }), true, 'a Pro opening’s page is not held before it parses');
+  assert.equal(held({ ownsPro: false }), false, 'a free couple (no opening) is held');
+  assert.equal(held({ ownsPro: true, eventTemplate: 'none' }), false, 'No Reveal is held');
+  assert.equal(held({ ownsPro: true, enabled: false }), false, 'outside the reveal phase the page is held');
+});

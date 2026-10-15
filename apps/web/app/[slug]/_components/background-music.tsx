@@ -92,24 +92,30 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
     const onUnveil = () => {
       const el = audioRef.current;
       if (!el || !el.paused) return;
-      let p: Promise<void> | undefined;
-      try {
-        p = el.play();
-      } catch {
-        return;
-      }
-      void p
-        ?.then(() => {
-          setTouched(true);
-          setPlaying(true);
-        })
-        .catch(() => {
-          /* refused — the ▶ and its hint stay */
-        });
+      // `startSong` calls `el.play()` before its first await — i.e. right here, inside the gesture.
+      void startRef.current(el).then((ok) => {
+        if (ok) setTouched(true);
+      });
     };
     window.addEventListener(HUB_UNVEIL_EVENT, onUnveil);
     return () => window.removeEventListener(HUB_UNVEIL_EVENT, onUnveil);
   }, []);
+
+  /** The ONE way the song starts — the guest's tap on the button, or their tap / swipe that opened the veil. */
+  async function startSong(el: HTMLAudioElement): Promise<boolean> {
+    try {
+      await el.play();
+      setPlaying(true);
+      return true;
+    } catch {
+      // Autoplay/gesture policy rejected play — leave it paused. The tap that
+      // triggered this IS a user gesture, so a second tap reliably starts it.
+      setPlaying(false);
+      return false;
+    }
+  }
+  const startRef = useRef(startSong);
+  startRef.current = startSong;
 
   async function toggle() {
     setTouched(true);
@@ -120,14 +126,7 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
       setPlaying(false);
       return;
     }
-    try {
-      await el.play();
-      setPlaying(true);
-    } catch {
-      // Autoplay/gesture policy rejected play — leave it paused. The tap that
-      // triggered this IS a user gesture, so a second tap reliably starts it.
-      setPlaying(false);
-    }
+    await startSong(el);
   }
 
   const control = (

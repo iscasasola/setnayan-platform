@@ -44,7 +44,7 @@ test('1 · only a function, a forwardRef or a memo is a component; an element, a
   const { Gem } = await import('lucide-react');
   assert.equal(iconIsAComponent(Gem), true, 'a lucide icon (forwardRef) is a component');
   assert.equal(iconIsAComponent(() => null), true);
-  assert.equal(iconIsAComponent(React.memo(() => null)), true);
+  assert.equal(iconIsAComponent(React.memo(function MemoIcon() { return null; })), true);
   assert.equal(iconIsAComponent(React.createElement('span')), false, 'an element is a node');
   assert.equal(iconIsAComponent(liveLazyMark()), false, 'the lazy the live page received is a node');
   assert.equal(iconIsAComponent('★'), false);

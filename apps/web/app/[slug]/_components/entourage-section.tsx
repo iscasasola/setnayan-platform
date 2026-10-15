@@ -166,10 +166,16 @@ export function EntourageSection({
  */
 type Look = 'axis' | 'lines';
 
+/*
+  The prototype sets these small caps at 9.5–10 px; the Guest Legibility Floor (`lint-guest-legibility.mjs`,
+  2026-06-20) holds small labels at 12 px (`text-xs`) — the role word is how a guest tells "Father of the Groom"
+  from "Mother of the Bride", so it is load-bearing. Muted words are `text-ink/65`, the faintest tint that reads in
+  every look (`lint-label-on-fill-contrast.mjs`).
+*/
 /** The small-caps word UNDER a name (never beside it — owner 2026-10-15). */
-const UNDER = 'mt-0.5 block font-sans text-[10px] uppercase tracking-[0.16em]';
+const UNDER = 'mt-0.5 block font-sans text-xs uppercase tracking-[0.16em]';
 /** The small-caps words of the column row and a by-role sub-heading. */
-const SMALL_CAPS = 'font-sans text-[9.5px] uppercase tracking-[0.16em] text-ink/60';
+const SMALL_CAPS = 'font-sans text-xs uppercase tracking-[0.16em] text-ink/65';
 
 /** A group's heading: On the axis — centred between two hairlines; Lines — the page's own eyebrow. */
 function GroupHeading({ label, look }: { label: string; look: Look }) {
@@ -210,7 +216,7 @@ function Person({ person, word, muted = false }: { person: EntouragePerson; word
       <span className="text-base text-ink" data-person="">
         {person.name}
       </span>
-      {word ? <span className={`${UNDER} ${muted ? 'text-ink/60' : 'text-gild'}`}>{word}</span> : null}
+      {word ? <span className={`${UNDER} ${muted ? 'text-ink/65' : 'text-gild'}`}>{word}</span> : null}
     </>
   );
 }

@@ -11,6 +11,7 @@ import {
   type HubHeroElementKey,
 } from '@/lib/element-style';
 import { HERO_DESIGN_ATTR, HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/hero-design';
+import { COVER_SCENE_ATTR, COVER_SCENE_CENTRED, COVER_SCENE_SCREEN } from '@/lib/cover-scene';
 
 /**
  * PahinaMasthead — the typographic hero of the Pahina guest site
@@ -426,7 +427,7 @@ export function PahinaMasthead({
 
     if (design === 'marquee') {
       return (
-        <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design }} className="text-center">
+        <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design, [COVER_SCENE_ATTR]: '' }} className={`${COVER_SCENE_CENTRED} text-center`}>
           {badgeSlot}
           <div>
             {eyebrowText ? (
@@ -459,7 +460,7 @@ export function PahinaMasthead({
 
     if (design === 'crest') {
       return (
-        <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design }} className="text-center">
+        <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design, [COVER_SCENE_ATTR]: '' }} className={`${COVER_SCENE_CENTRED} text-center`}>
           {badgeSlot}
           <div>
             {eyebrowText ? (
@@ -497,8 +498,10 @@ export function PahinaMasthead({
     return (
       <header
         data-pahina-first-screen=""
-        {...{ [HERO_DESIGN_ATTR]: design }}
-        className="relative flex min-h-[70svh] flex-col justify-end text-left sm:min-h-0 sm:justify-start"
+        {...{ [HERO_DESIGN_ATTR]: design, [COVER_SCENE_ATTR]: '' }}
+        /* 🖼 The Cover Scene fills the whole first screen on every device (owner 2026-10-15) — The Letter keeps its
+           foot-of-the-screen column on a phone, and its left column from `sm`, at full height on both. */
+        className={`relative flex ${COVER_SCENE_SCREEN} flex-col justify-end text-left sm:justify-center`}
       >
         {monogramSlot ? (
           <div
@@ -533,7 +536,7 @@ export function PahinaMasthead({
 
   if (card) {
     return (
-      <header data-pahina-first-screen="" className="text-center">
+      <header data-pahina-first-screen="" {...{ [COVER_SCENE_ATTR]: '' }} className={`${COVER_SCENE_CENTRED} text-center`}>
         {badgeSlot}
         {/* 🖼 THE COVER LOSES ITS FRAME (owner 2026-10-06, DECISION_LOG "THE COVER
             LOSES ITS FRAME, WEARS THE GLOBAL BACKGROUND"; 2026-10-07 *"for
@@ -581,7 +584,7 @@ export function PahinaMasthead({
   }
 
   return (
-    <header data-pahina-first-screen="" className="text-center">
+    <header data-pahina-first-screen="" {...{ [COVER_SCENE_ATTR]: '' }} className={`${COVER_SCENE_CENTRED} text-center`}>
       {badgeSlot}
       {/* owner 2026-09-25 "drop the numbers": the chapter numeral is gone —
           hiding a section no longer leaves a gap in a numbered sequence.

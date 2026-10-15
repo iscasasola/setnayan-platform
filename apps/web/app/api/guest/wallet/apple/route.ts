@@ -6,13 +6,8 @@ import { asPassCardRow, loadPassCardKit, readPassCardGuest } from '@/lib/pass-ca
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { applePassJson, decideWalletPassAccess, walletPassContent } from '@/lib/wallet-pass';
 import { buildPkpass, WalletSigningError } from '@/lib/wallet-pass-pkpass';
-import {
-  isWalletPassEnabled,
-  readAppleWalletConfig,
-  walletPassFactsFor,
-  walletPassFileNameFor,
-  walletPassImages,
-} from '@/lib/wallet-pass.server';
+import { isWalletPassEnabled, readAppleWalletConfig } from '@/lib/wallet-pass-config.server';
+import { walletPassFactsFor, walletPassFileNameFor, walletPassImages } from '@/lib/wallet-pass.server';
 
 /**
  * GET /api/guest/wallet/apple — the guest's OWN ticket as an Apple Wallet pass

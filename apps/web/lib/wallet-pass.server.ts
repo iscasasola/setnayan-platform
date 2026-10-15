@@ -1,73 +1,19 @@
 import 'server-only';
 
 import sharp from 'sharp';
-import { envFlagEnabled } from '@/lib/env-flag';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { passCardFileNameFor, passCardPass, passCardGuestName, type PassCardGuest, type PassCardKit } from '@/lib/pass-card.server';
 import { SETNAYAN_WALLET_IMAGES } from '@/lib/wallet-pass-icons';
-import { pemFromEnvValue, type AppleWalletSigner } from '@/lib/wallet-pass-pkpass';
-import { walletPassFileName, type AppleWalletIds, type WalletPassFacts } from '@/lib/wallet-pass';
+import { walletPassFileName, type WalletPassFacts } from '@/lib/wallet-pass';
 
 /**
- * lib/wallet-pass.server.ts — THE APPLE WALLET PASS'S READS: the one reader of
- * its env, the facts shaped from the ticket's kit, and the pass's pictures.
- *
- * 🔒 SECRETS. The certificate, key, passphrase and WWDR certificate live ONLY in
- * Vercel env vars (owner set-up, 2026-10-13). This module is the ONE place they
- * are read, and it never logs, returns or interpolates a value — a missing or
- * unreadable one is reported by NAME only (`missing`), and
- * `the-wallet-pass-keeps-its-secrets.test.ts` holds every file on the path to
- * that rule. Certificate expiry: 2027-11-12 (set-up log; the Secrets board row
- * `apple_wallet_pass` carries the renewal steps).
+ * lib/wallet-pass.server.ts — THE APPLE WALLET PASS'S READS: the facts shaped
+ * from the ticket's kit, and the pass's pictures. The env (the certificates and
+ * the switch) is read in ONE other place, lib/wallet-pass-config.server.ts —
+ * kept apart so the guest page, which only asks "is it offered?", never loads
+ * sharp, node-forge or the embedded icons.
  */
-
-/** The env var NAMES (never values). The flag is separate: the pass is offered only when it is ON. */
-export const APPLE_WALLET_ENV = {
-  passTypeId: 'APPLE_PASS_TYPE_ID',
-  teamId: 'APPLE_TEAM_ID',
-  cert: 'APPLE_PASS_CERT_B64',
-  key: 'APPLE_PASS_KEY_B64',
-  keyPassphrase: 'APPLE_PASS_KEY_PASSPHRASE',
-  wwdr: 'APPLE_WWDR_CERT_B64',
-} as const;
-
-export type AppleWalletConfig =
-  | { ok: true; ids: AppleWalletIds; signer: AppleWalletSigner }
-  | { ok: false; missing: string[] };
-
-/**
- * 🚦 THE SWITCH — `WALLET_PASS_ENABLED` (server-only, default OFF). With it off
- * nothing is offered and the route answers 404, whatever the certificates.
- */
-export function isWalletPassEnabled(): boolean {
-  return envFlagEnabled(process.env.WALLET_PASS_ENABLED);
-}
-
-/** The signing set, or the NAMES of what is missing. Never a value. */
-export function readAppleWalletConfig(env: NodeJS.ProcessEnv = process.env): AppleWalletConfig {
-  const passTypeIdentifier = env[APPLE_WALLET_ENV.passTypeId]?.trim() || null;
-  const teamIdentifier = env[APPLE_WALLET_ENV.teamId]?.trim() || null;
-  const certPem = pemFromEnvValue(env[APPLE_WALLET_ENV.cert]);
-  const keyPem = pemFromEnvValue(env[APPLE_WALLET_ENV.key]);
-  const wwdrPem = pemFromEnvValue(env[APPLE_WALLET_ENV.wwdr]);
-  // The passphrase may legitimately be empty (an unencrypted key), so it is never "missing".
-  const keyPassphrase = env[APPLE_WALLET_ENV.keyPassphrase] ?? null;
-  const missing = [
-    !passTypeIdentifier && APPLE_WALLET_ENV.passTypeId,
-    !teamIdentifier && APPLE_WALLET_ENV.teamId,
-    !certPem && APPLE_WALLET_ENV.cert,
-    !keyPem && APPLE_WALLET_ENV.key,
-    !wwdrPem && APPLE_WALLET_ENV.wwdr,
-  ].filter((n): n is (typeof APPLE_WALLET_ENV)[keyof typeof APPLE_WALLET_ENV] => Boolean(n));
-  if (missing.length > 0 || !passTypeIdentifier || !teamIdentifier || !certPem || !keyPem || !wwdrPem) return { ok: false, missing };
-  return { ok: true, ids: { passTypeIdentifier, teamIdentifier }, signer: { certPem, keyPem, keyPassphrase, wwdrPem } };
-}
-
-/** Is the "Add to Apple Wallet" button offered at all — the switch ON and every value present. */
-export function appleWalletOffered(): boolean {
-  return isWalletPassEnabled() && readAppleWalletConfig().ok;
-}
 
 /**
  * The pass's facts, from the SAME kit and the SAME `passCardPass` the PNG is

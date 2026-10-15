@@ -21,7 +21,8 @@
  * Signing and zipping: lib/wallet-pass-pkpass.ts. Reads: lib/wallet-pass.server.ts.
  */
 import { createHash } from 'node:crypto';
-import { PASS_CARD_REFUSED, PASS_CARD_WORDS, decidePassCardAccess, type PassCardRow, type PassCardVerdict } from './pass-card';
+import { inAppHandoff } from './guest-landing';
+import { APPLE_WALLET_ROUTE, PASS_CARD_REFUSED, PASS_CARD_WORDS, decidePassCardAccess, type PassCardRow, type PassCardVerdict } from './pass-card';
 import { printLookFor, CLASSIC_PRINT_THEME } from './print-pieces';
 import { publicEventUrl } from './public-event-url';
 import { buildInvitationUrl } from './qr';
@@ -292,6 +293,22 @@ export function walletPassFileName(pngName: string): string {
   return pngName.replace(/\.png$/i, '') + '.pkpass';
 }
 
+/**
+ * The value of a `*_B64` env var as PEM text: base64 of the PEM file (the
+ * owner's set-up step 8), or — forgiving a paste of the file itself — the PEM.
+ */
+export function pemFromEnvValue(raw: string | null | undefined): string | null {
+  const v = raw?.trim();
+  if (!v) return null;
+  if (v.includes('-----BEGIN')) return v;
+  try {
+    const text = Buffer.from(v, 'base64').toString('utf8');
+    return text.includes('-----BEGIN') ? text : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Who is offered the button ──────────────────────────────────────────────
 
 /**
@@ -304,4 +321,22 @@ export function appleWalletDevice(userAgent: string | null | undefined): boolean
   if (/iPhone|iPad|iPod/i.test(ua)) return true;
   if (/Macintosh/i.test(ua)) return /Safari\//.test(ua) && !/Chrome\/|CriOS|Chromium|Firefox\/|FxiOS|Edg\//.test(ua);
   return false;
+}
+
+/** What the ticket section offers: Apple's button, or (inside Messenger on an iPhone) the Safari hand-off. */
+export type AppleWalletLink = { href: string; label: string; handoff: boolean };
+
+/**
+ * The link beside "Save my ticket", or null. `offered` is the server's answer
+ * (`appleWalletOffered`: the switch ON and every Apple value present). Inside an
+ * iPhone's in-app browser the Add-pass sheet does not open, so the link is the
+ * SAME Safari hand-off "Save my ticket" already uses there (`inAppHandoff`) —
+ * the guest's own link, which signs them in on the Safari side.
+ */
+export function appleWalletLink(userAgent: string | null | undefined, personalLink: string, offered: boolean): AppleWalletLink | null {
+  if (!offered) return null;
+  const inApp = inAppHandoff(userAgent, personalLink);
+  if (inApp.kind === 'ios') return { href: inApp.safariHref, label: PASS_CARD_WORDS.appleWalletInApp, handoff: true };
+  if (inApp.kind !== 'none') return null;
+  return appleWalletDevice(userAgent) ? { href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet, handoff: false } : null;
 }

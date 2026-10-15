@@ -27,13 +27,14 @@ import {
   contrastRatio,
   decideWalletPassAccess,
   passCardQrUrl,
+  pemFromEnvValue,
   walletColors,
   walletPassContent,
   walletRelevantDate,
   walletSerial,
   type WalletPassFacts,
 } from './wallet-pass';
-import { WalletSigningError, buildPkpass, pemFromEnvValue, pkpassManifest } from './wallet-pass-pkpass';
+import { WalletSigningError, buildPkpass, pkpassManifest } from './wallet-pass-pkpass';
 
 const GUEST = '11111111-1111-4111-8111-111111111111';
 const EVENT = '22222222-2222-4222-8222-222222222222';

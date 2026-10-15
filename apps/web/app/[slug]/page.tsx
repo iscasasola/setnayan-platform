@@ -63,6 +63,8 @@ import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { GuestMe } from './_components/guest-me';
 import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.server';
 import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
+import { appleWalletLink } from '@/lib/wallet-pass';
+import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { addCelebrantFromEvent, setFollowByPublicId } from '@/app/dashboard/(account)/people/actions';
@@ -2078,6 +2080,9 @@ async function invitationBody({
   // Read before the slot is built: the slot is a function now (Me's answer to
   // "lead with the reply?" comes from the body), and a function cannot await.
   const meUserAgent = (await headers()).get('user-agent');
+  // 🍎 "Add to Apple Wallet" beside the ticket (lib/wallet-pass.ts) — only for a real ticket, an Apple device
+  // (or the iPhone in-app hand-off), and only while the switch is on and every Apple value is present.
+  const meAppleWallet = passCard === 'pass' ? appleWalletLink(meUserAgent, invitationUrl, appleWalletOffered()) : null;
   const meTermsCarried = rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value);
   // ✉ `replyHref` — set when Me leads with the reply (`meLeadsWithReply`,
   // decided in SiteBody from the plan it resolves): the ticket waits for a Yes.
@@ -2102,6 +2107,7 @@ async function invitationBody({
           name={guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'}
           invitationUrl={invitationUrl}
           replyHref={replyHref}
+          appleWallet={meAppleWallet}
           mark={passBlockMark}
         />
       </div>

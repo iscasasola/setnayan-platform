@@ -43,22 +43,6 @@ export class WalletSigningError extends Error {
   }
 }
 
-/**
- * The value of a `*_B64` env var as PEM text: base64 of the PEM file (the
- * owner's set-up step 8), or — forgiving a paste of the file itself — the PEM.
- */
-export function pemFromEnvValue(raw: string | null | undefined): string | null {
-  const v = raw?.trim();
-  if (!v) return null;
-  if (v.includes('-----BEGIN')) return v;
-  try {
-    const text = Buffer.from(v, 'base64').toString('utf8');
-    return text.includes('-----BEGIN') ? text : null;
-  } catch {
-    return null;
-  }
-}
-
 /** The first `-----BEGIN <label>-----` block — `openssl pkcs12` puts "Bag Attributes" text before it. */
 function pemBlock(text: string, label: RegExp): string | null {
   const re = new RegExp(`-----BEGIN (${label.source})-----[\\s\\S]+?-----END \\1-----`);

@@ -109,6 +109,6 @@ waits	users	app/open-shop/actions.ts	1
 waits	users	app/vendor-dashboard/actions.ts	1
 waits	users	lib/link-guest-account.ts	1
 waits	vendor_profiles	app/admin/vendors/actions.ts	2
-waits	vendor_profiles	app/vendor-dashboard/services/coverage-actions.ts	1
 waits	vendor_profiles	app/vendor-dashboard/shop/suggested-coverage-actions.ts	1
 waits	vendor_profiles	app/vendor/claim/[token]/finalize/page.tsx	1
+waits	vendor_profiles	lib/vendor-coverage-write.ts	1

@@ -9,18 +9,14 @@ import { buildCanvasInitialFromCoupleCard } from '@/lib/vendor-card-from-couple'
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ServiceWizard } from '../../_components/service-wizard';
 import { CanvasMaker } from '../../_components/canvas-maker';
-import {
-  fetchVendorCoverages,
-  getCoverageTaxonomy,
-  resolveCoverageLabels,
-} from '@/lib/vendor-coverages';
+import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
+import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
+import { RefinementsEditor } from '../../_components/refinements-editor';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { buildLeafIndex, isCoverageLeafKind } from '@/lib/service-card-kind';
 import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
 import { buildCanvasInitialFromCard } from '@/lib/vendor-card-copy';
-import { getVendorServableEventTypes } from '@/lib/event-types-db';
-import { FAITH_REGISTRY } from '@/lib/faith-registry';
 
 export const metadata = { title: 'Add a service' };
 
@@ -69,10 +65,10 @@ export default async function NewServicePage({
   searchParams,
 }: {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ claim?: string; from?: string }>;
+  searchParams: Promise<{ claim?: string; from?: string; error?: string }>;
 }) {
   const { category } = await params;
-  const { claim, from } = await searchParams;
+  const { claim, from, error } = await searchParams;
   // ⚖ TWO VOCABULARIES ARE LEGAL HERE (owner 2026-08-28, *"yes their own
   // words"*): a legacy kind, or one of the shop's own COVERAGE LEAVES. Without
   // the second arm this route 404s on a card the new door legitimately created —
@@ -125,69 +121,17 @@ export default async function NewServicePage({
     claimContext.serviceCategory === category;
 
   // The vendor's OTHER offered categories → the "comes with" link options.
-  const { data: ownRows } = await supabase
-    .from('vendor_services')
-    .select('category')
-    .eq('vendor_profile_id', profile.vendor_profile_id);
-  const otherCategories = Array.from(
-    new Set(
-      ((ownRows ?? []) as { category: string }[])
-        .map((r) => r.category)
-        .filter((c) => c !== cat),
-    ),
-  ).map((c) => ({ value: c, label: kindLabel(c) }));
+  // ONE loader for every door into the maker (lib/service-card-maker.server.ts). The kind is fixed by the address,
+  // so the kind list is not read.
+  const ctx = await loadMakerContext(supabase, profile.vendor_profile_id, {
+    fixedCategory: category,
+    withKindList: false,
+  });
+  const otherCategories = ctx.otherCategories;
+  const coverageOptions = ctx.coverages;
 
-  // The vendor's coverages → the "assign this card to a coverage" picker.
-  const [vendorCoverages, coverageLabels] = await Promise.all([
-    fetchVendorCoverages(supabase, profile.vendor_profile_id).catch(() => []),
-    resolveCoverageLabels().catch(() => null),
-  ]);
-  const coverageOptions = vendorCoverages.map((c) => ({
-    id: c.id,
-    label: coverageLabels
-      ? coverageLabels.pathLabel(c.canonical_service)
-      : c.canonical_service,
-  }));
-
-  // ── Zero-step canvas maker (NEXT_PUBLIC_CANVAS_MAKER_ENABLED, ships dark) ──
-  // Flag OFF ⇒ nothing below runs and <ServiceWizard> renders exactly as it does
-  // today, down to the queries this page makes. The audience vocab is only
-  // fetched for the canvas, which is the only surface that shows it.
   const canvas = canvasMakerEnabled();
 
-  // ── "Start from one of your cards" (?from=<vendor_service_id>) ────────────
-  // Owner-asked 2026-07-28. Only the canvas can be seeded — the 6-step wizard
-  // takes no defaults — so with the flag OFF the parameter is IGNORED rather
-  // than half-honoured, and the doorway that produces it is gated on the same
-  // flag. A link that silently does nothing is worse than no link.
-  //
-  // The id is hostile input: the builder scopes the read to THIS profile and
-  // returns null for a foreign, deleted or malformed one, so a bad `?from=`
-  // opens an ordinary blank maker instead of an error.
-  //
-  // ── AND THE SECOND SOURCE: what the couple already told us (2026-09-20) ───
-  // Owner: "when a vendor gets this lock, the service card will be the one
-  // registering for that portfolio. and the price as well."
-  //
-  // A supplier arriving on a claim QR used to meet a BLANK maker, then retype
-  // a price the couple had already agreed with them and recorded. The couple's
-  // booking is seeded into the SAME `initial` prop, through the same type, so
-  // the canvas cannot tell the two doorways apart and every field-parity
-  // guarantee that covers `?from=` covers this too.
-  //
-  // `?from=` WINS when both are present: it is an explicit choice the supplier
-  // just made on this screen, and the claim seed is a default they never asked
-  // for. Precedence is stated here rather than left to whichever read runs
-  // first.
-  //
-  // ⚠ ADMIN CLIENT, AND ONLY BEHIND `showClaimBanner`. The couple's
-  // `event_vendors` row is couple-owned and a freshly signed-up supplier holds
-  // no RLS read on it. `showClaimBanner` is already the four-way proof — the
-  // invite is 'claimed', it belongs to THIS user, it resolved to THIS vendor
-  // profile, and its category matches this route — the same chain
-  // `registerClaimedServiceToCouple` demands before it writes. Seeding on a
-  // weaker condition would hand one couple's agreed price to whoever guessed
-  // a token.
   const fromCard =
     canvas && typeof from === 'string' && from.length > 0
       ? await buildCanvasInitialFromCard(supabase, profile.vendor_profile_id, from, category)
@@ -201,37 +145,7 @@ export default async function NewServicePage({
           category,
         )
       : null);
-  const eventTypeOptions = canvas
-    ? (await getVendorServableEventTypes().catch(() => [])).map((e) => ({
-        key: e.key,
-        label: e.label,
-      }))
-    : [];
-  const faithOptions = canvas
-    ? FAITH_REGISTRY.map((f) => ({ key: f.faithCol, label: f.label }))
-    : [];
-  // coverage id → its CURRENT event_types / faiths, so the audience chips open
-  // showing what the vendor already serves rather than an empty slate.
-  const coverageAudience: Record<number, { eventTypes: string[]; faiths: string[] }> = {};
-  // coverage id → the leaf's allowed event types from the live taxonomy, so the
-  // audience chips render only what the server will keep on save. Fail-soft: a
-  // failed tree read leaves every id unmapped → null → full vocab (pre-fix
-  // behaviour), never a false restriction.
-  const coverageAllowed: Record<number, string[] | null> = {};
-  if (canvas) {
-    const tree = await getCoverageTaxonomy().catch(() => []);
-    const allowedByLeaf = new Map<string, string[] | null>();
-    for (const p of tree)
-      for (const b of p.branches)
-        for (const l of b.leaves) allowedByLeaf.set(l.canonicalService, l.allowedEventTypes);
-    for (const c of vendorCoverages) {
-      coverageAudience[c.id] = {
-        eventTypes: c.event_types ?? [],
-        faiths: c.faiths ?? [],
-      };
-      coverageAllowed[c.id] = allowedByLeaf.get(c.canonical_service) ?? null;
-    }
-  }
+  const details = canvas ? await loadKindDetails(supabase, profile.vendor_profile_id, category) : null;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
@@ -276,10 +190,26 @@ export default async function NewServicePage({
           coverages={coverageOptions}
           vendorProfileId={profile.vendor_profile_id}
           claimToken={showClaimBanner ? claimToken : null}
-          eventTypeOptions={eventTypeOptions}
-          faithOptions={faithOptions}
-          coverageAudience={coverageAudience}
-          coverageAllowed={coverageAllowed}
+          eventTypeOptions={ctx.eventTypeOptions}
+          faithOptions={ctx.faithOptions}
+          coverageAudience={ctx.coverageAudience}
+          coverageAllowed={ctx.coverageAllowed}
+          shopName={profile.business_name ?? ''}
+          supplierType={ctx.supplierType}
+          folderOfKind={ctx.folderOfKind}
+          coverageAsk={ctx.coverageAsk}
+          schedules={ctx.schedules}
+          scheduleOfKind={ctx.scheduleOfKind}
+          slotsPerDay={ctx.slotsPerDay}
+          branches={ctx.branches}
+          detailsKind={details ? category : null}
+          detailsSlot={
+            details ? (
+              <RefinementsEditor canonicalService={category} refinements={details.refinements} initial={details.values} leafLabel={kindLabel(cat)} bare />
+            ) : null
+          }
+          errorLine={typeof error === 'string' && error.length > 0 ? error : null}
+          returnTo={`/vendor-dashboard/services/new/${category}`}
           initial={initial}
         />
       ) : (

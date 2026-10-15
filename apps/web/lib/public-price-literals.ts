@@ -157,14 +157,6 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
       'pricing their OWN booth — never stored or shown as a value.',
   },
   {
-    file: 'app/vendor-dashboard/services/_components/canvas-maker.tsx',
-    literal: '₱25,000',
-    sku: null,
-    reason:
-      'Preview card illustrating the maker (a made-up supplier, "from ₱25,000 per ' +
-      'event") — that supplier\'s own price, not a Setnayan SKU.',
-  },
-  {
     file: 'app/vendor-dashboard/shop/_components/voice-match-card.tsx',
     literal: '₱48,000',
     sku: null,

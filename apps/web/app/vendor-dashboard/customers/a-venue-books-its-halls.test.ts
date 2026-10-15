@@ -100,7 +100,8 @@ test('4 · Your halls · Uses · Which halls — the screens post the shipped ac
   const calendar = code('calendar/actions.ts');
   assert.match(calendar, /for \(const hallId of hallIds\.slice\(1\)\)/, 'a booking from outside holds only its first hall');
   assert.match(calendar, /export async function setServiceHalls/);
-  const manager = code('services/_components/services-manager.tsx');
+  // The card's own screen (step 3 retired the Shop's inline editor; the supplier batch moved "Uses" here).
+  const manager = code('services/[serviceId]/page.tsx');
   assert.match(manager, /<HallsUsesPick\b[\s\S]{0,400}action=\{setServiceHalls\}/, 'a card cannot say which halls it uses');
   const uses = code('services/_components/halls-uses-pick.tsx');
   assert.match(uses, /picked=\{picked\}/, '"Uses" is not one list with checkmarks');

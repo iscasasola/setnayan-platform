@@ -13,6 +13,11 @@ import {
   type VercelDomain,
 } from '@/lib/vercel-domains';
 import { isSetnayanHost } from '@/lib/custom-domain-resolve';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+
+/** Owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS" (3)): your own web address is a ◆ Pro item. */
+const OWN_ADDRESS_ASKS_FOR_PRO = 'Your own web address is part of Pro. Pick Pro on the Plan page to add one.';
 
 // ── Custom-domain management for the vendor's public page (PR8) ───────────────
 // A vendor points their own domain (e.g. sny.theirshop.com) at Setnayan. The
@@ -89,6 +94,20 @@ export async function addVendorDomain(rawDomain: string): Promise<DomainActionRe
   if ('error' in owner) return { ok: false, error: owner.error };
 
   const supabase = await createClient();
+  // 💳 The ◆ Pro ask — the final action is where a Pro-less shop is asked, and only while the switch is on
+  // (`vendorPaywallApplies`, the payment-link pattern). The SAME cap the page's ◆ reads (`customWebsiteName`).
+  // An unread plan is asked as "no plan" — the paywall never opens on a failed read.
+  const { data: tierRow, error: tierErr } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state')
+    .eq('vendor_profile_id', owner.vendorId)
+    .maybeSingle();
+  if (tierErr) console.error('[supabase-error] app/vendor-dashboard/website/actions.ts · from:vendor_profiles.select', tierErr);
+  const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
+  if (vendorPaywallApplies(tierCaps(asVendorTier(tier)).customWebsiteName)) {
+    return { ok: false, error: OWN_ADDRESS_ASKS_FOR_PRO };
+  }
+
   // Insert as the vendor (RLS-gated; the guard trigger forces it unverified).
   const { data: inserted, error: insErr } = await supabase
     .from('custom_domains')

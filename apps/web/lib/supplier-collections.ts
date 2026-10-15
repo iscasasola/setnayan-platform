@@ -14,9 +14,11 @@
  *   moodboard  mood board library        `moodboard_library_assets` (only for a shop that may supply looks)
  *
  * 🔑 THE SWITCH EXISTS ONLY WHERE A SHIPPED COLUMN SAYS "SHOWN". The page gallery has one — the page's Portfolio
- * section (`microsite_sections.portfolio`), which is a Your-page draft change like any other. The private album and
- * your own shots have NO publish path in the product (the album is private by its schema; a capture's consent basis
- * is still pending the DPO ruling), so their rows say "Only you" and never offer a switch that would invent one.
+ * section (`microsite_sections.portfolio`), which is a Your-page draft change like any other. The private album stays
+ * private as an album, but ONE photo at a time can be put on the page — "Put on my page" on the photo (owner
+ * 2026-10-15, "SIX OWNER ANSWERS" (3); `putAlbumPhotoOnMyPage` copies it into the page gallery). Your own shots have
+ * no such path: they sit in the COUPLE'S gallery, which the couple can take down, and a copy on the supplier's page
+ * would not follow a take-down. So the album row offers the tap's place; neither row offers a switch.
  *
  * 🔑 A COUNT THAT COULD NOT BE READ IS "NOT READ", NEVER 0 — "nothing yet" is a claim about the supplier.
  *
@@ -124,7 +126,7 @@ export function collectionRows(input: CollectionsInput): CollectionRow[] {
         ? NOT_READ
         : a.photos === 0
           ? 'Nothing yet · fills when a couple shares their Papic photos with you'
-          : `${n(a.events, 'event', 'events')} · ${n(a.photos, 'photo', 'photos')} · only you`,
+          : `${n(a.events, 'event', 'events')} · ${n(a.photos, 'photo', 'photos')} · only you · put one on your page from the photo`,
       who: 'private',
       pageSwitch: false,
       href: '/vendor-dashboard/on-the-day',

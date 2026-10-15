@@ -20,10 +20,10 @@ class N {
   attrs = new Map<string, string>();
   style = { setProperty: () => {}, removeProperty: () => {} };
   constructor(public nodeType: number, public tagName = '', public data = '') {}
-  get nodeValue() { return this.nodeType === 3 ? this.data : null; }
+  get nodeValue(): string | null { return this.nodeType === 3 ? this.data : null; }
   set nodeValue(v: string | null) { if (this.nodeType === 3) this.data = v ?? ''; }
-  get children() { return this.childNodes.filter((c) => c.nodeType === 1); }
-  get parentElement() { return this.parentNode && this.parentNode.nodeType === 1 ? this.parentNode : null; }
+  get children(): N[] { return this.childNodes.filter((c) => c.nodeType === 1); }
+  get parentElement(): N | null { return this.parentNode && this.parentNode.nodeType === 1 ? this.parentNode : null; }
   get textContent(): string { return this.nodeType === 3 ? this.data : this.childNodes.map((c) => c.textContent).join(''); }
   set textContent(v: string) { if (this.nodeType === 3) { this.data = v; return; } for (const c of this.childNodes) c.parentNode = null; this.childNodes = []; if (v) this.appendChild(new N(3, '', v)); }
   appendChild(c: N) { c.parentNode?.removeChild(c); c.parentNode = this; this.childNodes.push(c); return c; }

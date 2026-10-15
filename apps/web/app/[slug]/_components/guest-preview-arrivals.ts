@@ -26,7 +26,7 @@ export function startGuestArrivals(
   const h = win.innerHeight || doc.documentElement.clientHeight || 0;
   const rearmed: HTMLElement[] = [];
   const io = new win.IntersectionObserver(
-    (es) => {
+    (es: IntersectionObserverEntry[]) => {
       let k = 0;
       for (const e of es) {
         if (!e.isIntersecting) continue;

@@ -18,3 +18,14 @@ every `DB_UNREACHABLE`, so the next "fetch failed" says why. Guards:
 `lib/booking-fee-minting-stamp.test.ts`, `lib/telemetry/every-failure-is-recorded.test.ts`.
 
 SPEC IMPACT: None.
+
+### 2 · `GuestPageDidNotLoad: slug/invitation-body: event_wish_items did not answer in time` (2026-10-15 08:50)
+
+A guest saw "This invitation didn't load". Vercel's log for that minute shows a genuine Supabase stall
+(`/api/health/deep` → `supabase_timeout` five times in seven seconds; `/vendor-dashboard` took 18.8 s) —
+but on the first render only ONE read lapsed: the Welcome door's open-wish count, whose own caller
+already answers "unread → name no list". It is now a decoration read (`lib/read-limit.ts`
+`DECORATION_READS`): alone it leaves its line out instead of taking the invitation down. Every other read
+stays essential; the event read itself still fails honestly. Guard: `lib/read-limit.test.ts` § 2c.
+
+SPEC IMPACT: None.

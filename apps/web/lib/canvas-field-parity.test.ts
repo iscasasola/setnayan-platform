@@ -373,7 +373,10 @@ test('the canvas takes the wizard’s props unchanged, and only ADDS optional on
 test('the card is wired to the LIVE form — no per-region save, nothing waits for submit', () => {
   const canvas = stripComments(readFileSync(CANVAS, 'utf8'));
 
-  // The read is event-driven off the form itself…
+  // The read is event-driven off the form itself — every card field is a DOM
+  // descendant of the card <form> (in-page folds, no sheet holds a field since
+  // the supplier-easy step 3 rebuild; every-sheet-field-posts-with-the-card.test.ts
+  // pins that), so their events bubble through it…
   assert.match(canvas, /form\.addEventListener\('input', read\)/);
   assert.match(canvas, /form\.addEventListener\('change', read\)/);
   // …plus a deferred click read, because the basis picker and the unit toggles
@@ -392,7 +395,7 @@ test('the card is wired to the LIVE form — no per-region save, nothing waits f
     canvas.indexOf('</form>', canvas.indexOf('action={commitVendorService}')),
   );
   assert.equal([...cardForm.matchAll(/<SubmitButton|type="submit"/g)].length, 0, 'a per-region save is back inside the card form');
-  assert.match(canvas, /type="submit"\s+form=\{FORM_ID\}/, 'the one Create stopped submitting the card form');
+  assert.match(canvas, /type="submit"\s+form=\{CARD_FORM_ID\}/, 'the one Create stopped submitting the card form');
 });
 
 /**

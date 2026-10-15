@@ -187,7 +187,11 @@ type SheetKey = 'kind' | 'audience' | 'ask' | 'delete' | 'preview';
 
 const line = 'var(--m-line)';
 const paper = 'var(--m-paper)';
-const FORM_ID = 'card-maker-form';
+/**
+ * 🔑 THE CARD FORM'S ID. Every card field is a DOM descendant of this <form> (in-page folds, never a sheet — a sheet
+ * portals to <body>, see CanvasSheet); the thumb row's Create names it with `form=`. One maker per page.
+ */
+export const CARD_FORM_ID = 'card-maker-form';
 
 // ════════════════════════════════════════════════════════════════════════════
 // The maker
@@ -842,11 +846,15 @@ export function CanvasMaker({
           </p>
         </div>
 
+        {/* noValidate: most fields sit in SHUT folds (inert). A browser that refuses a submit over a field it cannot
+            show focuses nothing and says nothing — the press just does nothing. commitVendorService re-validates
+            every field and says why (carried from the live card-fields fix, #6534). */}
         <form
-          id={FORM_ID}
+          id={CARD_FORM_ID}
           ref={formRef}
           action={commitVendorService}
           onSubmit={onSubmit}
+          noValidate
           className="mt-2 lg:mt-0"
           data-card-form=""
         >
@@ -1327,7 +1335,7 @@ export function CanvasMaker({
           tone="brand"
           main
           type="submit"
-          form={FORM_ID}
+          form={CARD_FORM_ID}
           icon={Check}
           label={pending ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save' : 'Create'}
           waiting={pending || saveBlocked}

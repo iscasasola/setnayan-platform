@@ -152,12 +152,12 @@ test('(1) one source, two doors: Studio › RSVP and the stage’s form draw the
   assert.ok(a === b, `the stage’s form and Studio › RSVP are not the same rows — they part at ${at}: stage …${a.slice(Math.max(0, at - 90), at + 90)}… · Studio …${b.slice(Math.max(0, at - 90), at + 90)}…`);
   // In the Studio's order: Reply by · How guests answer · the two answers, each with its Start from · How guests
   // get in · the six asks.
-  assert.deepEqual([...studio.matchAll(/data-form-row="([^"]+)"/g)].map((m) => m[1]), ['reply-by', 'how-guests-answer', 'word-attending', 'word-attending-start', 'word-declined', 'word-declined-start', 'get-in', 'asks']);
+  assert.deepEqual([...studio.matchAll(/data-form-row="([^"]+)"/g)].map((m) => m[1]), ['reply-by', /* 📬 2026-10-14 */ 'replies-open', 'replies-close', 'how-guests-answer', 'word-attending', 'word-attending-start', 'word-declined', 'word-declined-start', 'get-in', 'asks']);
   // Each is a direct child of the ONE list — so the hairline between rows is drawn (`first:` is the list's first).
-  assert.equal(count(studio, /class="border-t border-ink\/10 first:border-t-0"/g), 8, 'a row is wrapped, or a row is not on the list’s hairline');
+  assert.equal(count(studio, /class="border-t border-ink\/10 first:border-t-0"/g), 10, 'a row is wrapped, or a row is not on the list’s hairline');
   // ONE list in the source, drawn by both doors — with the three lazy parts in their places.
   const src = read(PANEL);
-  assert.match(src, /<FormRows data="rsvp">\s*\{replyByRow\}\s*\{answerRow\}\s*\{wordRows\('form'\)\}\s*\{getInRow\}\s*\{asksRow\}\s*<\/FormRows>/);
+  assert.match(src, /<FormRows data="rsvp">\s*\{replyByRow\}\s*\{windowRows\}\s*\{answerRow\}\s*\{wordRows\('form'\)\}\s*\{getInRow\}\s*\{asksRow\}\s*<\/FormRows>/);
   assert.equal(count(src, /<FormRows data="rsvp">/g), 1, 'a door has a list of its own');
   assert.match(src, /<div className="flex flex-col px-1" data-rsvp-stage-controls="form">\s*\{formRows\}\s*\{status\}\s*<\/div>/, 'the stage’s form draws more than the rows');
   assert.match(src, /<div className="flex flex-col" data-studio-rsvp="">\s*<div className=\{STUDIO_GROUP\}>\{formRows\}<\/div>/, 'Studio › RSVP does not open on the rows (a title or a heading is over them)');

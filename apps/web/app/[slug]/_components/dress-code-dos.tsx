@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { HUB_SCENE_WORDS_CLASS } from '@/lib/scene-words-class';
 import { DOS_LOOK_DEFAULT, type DosLookId } from '@/lib/dress-code-looks';
 
 /**
@@ -29,7 +30,7 @@ function List({ heading, rows, mark, tone, kind }: { heading: ReactNode; rows: r
       <p className={HEAD}>{heading}</p>
       <ul className={LINES}>
         {rows.map((row, i) => (
-          <li key={i} className="flex gap-3">
+          <li key={i} className={`flex gap-3 ${HUB_SCENE_WORDS_CLASS}`}>
             <span aria-hidden data-dos-mark="" className={`w-4 shrink-0 text-center font-sans font-medium ${tone}`}>
               {mark}
             </span>

@@ -257,7 +257,7 @@ test('3 of 8 landed is said as 3 of 8, in the guest’s own numbers', () => {
   assert.ok(t);
   assert.match(t.headline, /3 of your 8 shots landed/);
   assert.match(t.detail, /The other 5 weren’t saved/);
-  assert.match(t.detail, /the shots ran out/);
+  assert.match(t.detail, /the credits ran out/); // the unit is "credits" (owner 2026-10-13)
 });
 
 test('one refused shot is not reported in the plural', () => {
@@ -321,7 +321,7 @@ test('and the seat screen says the same thing to a screen reader', () => {
     /'Not saved — your credits ran out'/,
     'the refused-shot label must not call a shared pot her credits',
   );
-  assert.match(src, /'Not saved — the shots ran out'/);
+  assert.match(src, /'Not saved — the credits ran out'/);
 });
 
 test('a refused shot is never called saved', () => {
@@ -370,7 +370,7 @@ test('the seat screen mounts the tally and badges a refused shot', () => {
   );
   assert.match(
     src,
-    /shot\.status === 'capped'\s*\?\s*'[^']*the shots ran out'/,
+    /shot\.status === 'capped'\s*\?\s*'[^']*the credits ran out'/,
     'a refused shot must say so to a screen reader too',
   );
   assert.match(

@@ -61,10 +61,13 @@ export async function syncProfileFromCoverages(
   const coveredCanon = coverages.map((c) => c.canonical_service);
   const services = Array.from(new Set([...preservedCoarse, ...coveredCanon]));
 
-  await supabase
+  const { error: syncError } = await supabase
     .from('vendor_profiles')
     .update({ event_types, services })
     .eq('vendor_profile_id', vendorProfileId);
+  // The coverage row is already written; a failed profile sync only delays where couples find the shop until the
+  // next coverage change re-syncs it — logged, never thrown over the supplier's save.
+  if (syncError) console.error('[supabase-error] lib/vendor-coverage-write.ts · from:vendor_profiles.update', syncError);
 }
 
 export type InsertCoverageResult =

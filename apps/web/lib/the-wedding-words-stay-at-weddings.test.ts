@@ -63,8 +63,9 @@ test('1 · a type with no two people has no love-story scene and no Our Love Sto
   const tiles = (l: typeof birthday) => l.shown.map((t) => t.key);
   const pagesOf = (hasStory: boolean, l: typeof birthday) => makerGuestPages('rsvp', tiles(l), hasStory).map((p) => p.label);
   console.log(`  wedding: ${pagesOf(true, wedding).join(' · ')}\n  birthday: ${pagesOf(false, birthday).join(' · ')}`);
-  assert.ok(pagesOf(true, wedding).includes('Our Love Story'), 'the wedding lost its Story page');
-  assert.ok(!pagesOf(false, birthday).includes('Our Love Story'), 'a birthday’s Page ▾ still offers Our Love Story');
+  // The page's TAB word is "Story" (with a heart) since 2026-10-14; the title stays "Our Love Story".
+  assert.ok(pagesOf(true, wedding).includes('Story'), 'the wedding lost its Story page');
+  assert.ok(!pagesOf(false, birthday).includes('Story'), 'a birthday’s Page ▾ still offers the love story');
 
   // The flag reaches the shell from the profile, never a constant.
   assert.doesNotMatch(read('lib/maker-guest-pages.ts'), /hasStory: true/);

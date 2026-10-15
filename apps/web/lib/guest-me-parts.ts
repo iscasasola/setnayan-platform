@@ -37,6 +37,7 @@
  *
  * Pure. No I/O, no React.
  */
+import { replyWindowWords, type ReplyWindow } from './reply-window';
 import type { GuestsGetIn } from './who-can-reply';
 import type { GuestRole } from './guests';
 import { REQUEST_ENTRY_SOURCE, guestRoleLabel } from './guests';
@@ -136,16 +137,30 @@ export function guestMePartsShown(input: {
  * reply states become the card; on the day and after, the action keeps its
  * own words ("Show your ticket", "See the photos"). Null: no card.
  */
-export type ReplyCard = {
-  kind: 'ask' | 'going' | 'declined';
-  /** The line above the control. */
-  line: string;
-  /** "Reply by Friday, March 12, 2027" — the host's own date only, or null. */
-  replyBy: string | null;
-  /** The control's words. */
-  cta: 'Reply' | 'Change my reply';
-  href: string;
-};
+export type ReplyCard =
+  | {
+      kind: 'ask' | 'going' | 'declined';
+      /** The line above the control. */
+      line: string;
+      /** "Reply by Friday, March 12, 2027" — the host's own date only, or null. */
+      replyBy: string | null;
+      /** The control's words. */
+      cta: 'Reply' | 'Change my reply';
+      href: string;
+    }
+  | {
+      /**
+       * 📬 THE COUPLE'S REPLY WINDOW IS SHUT (owner 2026-10-14, DECISION_LOG 📬 items 2–3):
+       *   not yet  "Replies open on Saturday, 14 November" — no button
+       *   closed   "Replies are closed." · "Need to change? Message the couple." — no Reply, no Change
+       */
+      kind: 'not_yet' | 'closed';
+      line: string;
+      /** The line under it ("Need to change? Message the couple."), or null. */
+      replyBy: string | null;
+      cta: null;
+      href: null;
+    };
 
 export function replyCardOf(input: {
   action: ArrivalAction | null;
@@ -154,7 +169,15 @@ export function replyCardOf(input: {
   /** This guest's seats: themself plus the extra seats they bring (`plusOneSeats`). */
   seats: number;
   solemn?: boolean;
+  /** 📬 The couple's reply window (`replyWindow`, lib/reply-window.ts). Absent = open. */
+  window?: ReplyWindow;
+  /** The event's word for its hosts ("the couple") — for "Need to change? Message …". */
+  organizer?: string;
 }): ReplyCard | null {
+  const shut = input.window ? replyWindowWords(input.window, input.organizer) : null;
+  if (shut && input.window && input.window.state !== 'open') {
+    return { kind: input.window.state, line: shut.line, replyBy: shut.sub, cta: null, href: null };
+  }
   const a = input.action;
   if (!a || (a.kind !== 'ask' && a.kind !== 'going' && a.kind !== 'declined')) return null;
   if (a.kind === 'ask') {

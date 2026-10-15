@@ -332,7 +332,10 @@ export async function assignCardSchedule(
       })
       .select('pool_id')
       .maybeSingle();
-    if (error || !data) return 'Your card was saved, but its own schedule could not be made. Set it from Dates.';
+    if (error || !data) {
+      if (error) console.error('[supabase-error] lib/service-card-save-parts.ts · from:vendor_schedule_pools.insert', error);
+      return 'Your card was saved, but its own schedule could not be made. Set it from Dates.';
+    }
     poolId = (data as { pool_id: string }).pool_id;
   } else {
     const { data: pool } = await supabase
@@ -351,5 +354,9 @@ export async function assignCardSchedule(
       { vendor_service_id: serviceId, pool_id: poolId, vendor_profile_id: vendorProfileId },
       { onConflict: 'vendor_service_id' },
     );
-  return memErr ? 'Your card was saved, but its schedule could not be set. Set it from Dates.' : null;
+  if (memErr) {
+    console.error('[supabase-error] lib/service-card-save-parts.ts · from:vendor_schedule_calendar_services.upsert', memErr);
+    return 'Your card was saved, but its schedule could not be set. Set it from Dates.';
+  }
+  return null;
 }

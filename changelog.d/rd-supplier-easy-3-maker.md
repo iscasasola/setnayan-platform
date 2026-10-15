@@ -39,3 +39,14 @@ card · every field"). Built on the shipped `CanvasMaker` (Rule 0), not beside i
 SPEC IMPACT: None to the decisions — builds the approved 2026-10-14 design and the 🏷 ruling. Three build calls are
 flagged for the owner in the PR (the Setnayan gift is not pre-filled on; no peso or payment split is pre-filled; the
 Portfolio row is read-only words until the per-card album read exists).
+
+**Merged with the live card-fields fix (#6534, 2026-10-15).** That fix joined the old maker's portaled sheet fields to
+the card form with `form=`; this rebuild ends the same fault by construction (every card field is in an in-page fold,
+a DOM descendant of the form; no sheet sits inside the form). Kept from the fix: `export const CARD_FORM_ID`,
+`noValidate` on the card form (a shut fold is `inert`, so a native refusal would be a silent dead press), FileUpload's
+`ownerFormOf`, and the joining helper `lib/portaled-fields-join-their-form.ts` with its tests. Re-pointed:
+`every-sheet-field-posts-with-the-card.test.ts` now pins "no sheet inside the card form · a sheet carries no loose
+field · every field sits in a form" (sabotaged: noValidate removed · a field put in a sheet · a sheet put in the
+form — all red); `canvas-field-parity.test.ts` listens on the form again. Also: the coverage sync and the card's
+schedule writes now log their `[supabase-error]`; `vendor_schedule_pools.is_vendor_created` listed in the
+handles-have-gates baseline with its reason; generated baselines regenerated (port, screens, unread-error, home-shelf).

@@ -91,6 +91,8 @@ export function arrivalDestinationFor(input: {
    *  this, or a pinned site's door describes a face the page is not wearing. */
   launchMode?: string | null;
   manualPhase?: string | null;
+  /** `events.std_invitation_launch_date` — the ONE date the Invitation opens (owner 2026-10-14). */
+  invitationLaunchDate: string | null;
   nowMs?: number;
 }): ArrivalDestination {
   const { profile } = input;
@@ -99,7 +101,7 @@ export function arrivalDestinationFor(input: {
     phasesEnabled,
     lifecyclePhase: solemnAdjustedPhase(
       (phasesEnabled ? manualLaunchPhase(input.launchMode, input.manualPhase) : null) ??
-        getLifecyclePhase(input.eventDate, input.venueTz, input.eventEndDate, input.nowMs),
+        getLifecyclePhase(input.eventDate, input.venueTz, input.eventEndDate, input.nowMs, input.invitationLaunchDate),
       profile.terminology.register === 'solemn',
     ),
   });

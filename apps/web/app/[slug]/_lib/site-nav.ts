@@ -159,6 +159,15 @@ export type NavInput = {
   hostAllowsCamera: boolean;
   /** Has the couple made at least one gallery chapter public? */
   anyChapterPublic: boolean;
+  /**
+   * 🖼 EARLY SHOOTING (owner 2026-10-14, DECISION_LOG 🖼, "Only their own
+   * shots"): before the day, the host has "Let guests shoot now" on and the
+   * guest camera gate is open. An invited guest's bar then also carries
+   * Gallery — and it holds THEIR OWN shots only (`your-shots-gallery.tsx`):
+   * nobody else's photo and no public chapter before the day. Absent/false →
+   * the bar is unchanged. Never for a stranger, a supplier or the couple.
+   */
+  earlyOwnShots?: boolean;
   /** Did the couple write a story section? */
   hasStory?: boolean;
   /** Is a details section actually on the page? Without this the Details tab
@@ -255,15 +264,21 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   //     day (their table, their look, the reminders, E-Gifts) — the same `home`
   //     key as the Invitation's Welcome, because it is the same page idea. A
   //     supplier gets no Welcome: it is a guest's page.
+  //
+  // 🏠 THE TAB'S WORD IS NOW "Home" (owner 2026-10-14, DECISION_LOG 2026-10-14
+  //     "Home"): every phase where the bar read "Welcome" now reads "Home" — the
+  //     six-tab early bar must fit a 320 px phone. Only the TAB's word moved: the
+  //     page and section titles that say Welcome stay, the key stays `home`, and
+  //     after the day it is still "Recap".
   if (phase === 'day') {
     slots.push({ key: 'live', label: 'Live', state: 'live', href: ANCHOR.home });
     if (!isVendor && (input.hasWelcome ?? true)) {
-      slots.push({ key: 'home', label: 'Welcome', state: 'live', href: ANCHOR.welcome });
+      slots.push({ key: 'home', label: 'Home', state: 'live', href: ANCHOR.welcome });
     }
   } else {
     slots.push({
       key: 'home',
-      label: phase === 'after' ? 'Recap' : 'Welcome',
+      label: phase === 'after' ? 'Recap' : 'Home',
       state: 'live',
       href: ANCHOR.home,
     });
@@ -293,8 +308,10 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   //     happening, Live/Welcome/Camera/Gallery are what a guest needs, and the bar
   //     holds five.
   if (phase === 'before' && !isVendor && hasStory) {
-    // "Our Love Story" (owner 2026-09-30) — the tab's words, the key stays `story`.
-    slots.push({ key: 'story', label: 'Our Love Story', state: 'live', href: ANCHOR.story });
+    // ❤️ "Story" with a heart (owner 2026-10-14, "(heart) Story?") — the TAB's word, so
+    // it never truncates in a six-tab bar; the page/section title stays "Our Love
+    // Story" (owner 2026-09-30). The key stays `story`.
+    slots.push({ key: 'story', label: 'Story', state: 'live', href: ANCHOR.story });
   }
 
   // 3½ — NO RSVP TAB. ⚖ Owner 2026-09-30: *"RSVP does not have 4 tabs under"*
@@ -330,6 +347,9 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
           },
     );
   } else if (!isVendor) {
+    // 📸 EARLY SHOOTING (owner 2026-10-14, on #6529): before the day, with "Let
+    // guests shoot now" on, an invited guest gets the Camera tab too — the same
+    // gate and the same address as the Gallery's "Take your first photo".
     // ⚠ THE HOST'S SWITCH IS THE GATE — owner ruling, pinned by
     // site-nav.test.ts ("for everyone else the HOST'S SWITCH is the gate").
     // An earlier cut of this fix ALSO required a guest session here, which
@@ -364,6 +384,11 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     if (isCouple || anyChapterPublic) {
       slots.push({ key: 'gallery', label: 'Gallery', state: 'live', href: ANCHOR.gallery });
     }
+  } else if (phase === 'before' && viewer.kind === 'guest' && input.earlyOwnShots === true) {
+    // 🖼 BEFORE THE DAY, ONLY WITH EARLY SHOOTING ON, ONLY AN INVITED GUEST —
+    // and it holds their OWN shots, which are theirs to see. Announcing it hides
+    // nothing of anybody else's: the rule 3 asymmetry still stands for the rest.
+    slots.push({ key: 'gallery', label: 'Gallery', state: 'live', href: ANCHOR.gallery });
   }
 
   // 5 — ME. Always last, always present; its name follows who they are.
@@ -391,7 +416,10 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   }
 
   const allow = input.stageSlots;
-  const allowed = allow ? slots.filter((s) => allow.includes(s.key)) : slots;
+  // 📸 Early shooting's Camera is not on a before-the-day stage's list (no other
+  // guest gets one there) — it passes the list on this rule's own say-so.
+  const earlyGuest = phase === 'before' && viewer.kind === 'guest' && input.earlyOwnShots === true;
+  const allowed = allow ? slots.filter((s) => allow.includes(s.key) || (earlyGuest && s.key === 'camera')) : slots;
   // ⚖ Five slots, always. After the day the couple can have six doors (their
   // camera is unconditional); Suppliers — a scroll within the page they edit —
   // yields first. Nobody else can exceed five.
@@ -399,7 +427,10 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
     const i = allowed.findIndex((s) => s.key === 'suppliers');
     if (i >= 0) allowed.splice(i, 1);
   }
-  const five = allowed.slice(0, 5);
+  // 📸 SIX, ONCE: before the day with early shooting on, an invited guest's bar is
+  // Welcome · Details · Story · Camera · Gallery · Me (owner 2026-10-14). Nobody
+  // else, and no other moment, exceeds five.
+  const five = allowed.slice(0, earlyGuest ? 6 : 5);
   // 📱 Each tab its own page: an in-page tab goes to its address, not a mark.
   return input.tabbed
     ? five.map((sl) => (sl.state === 'live' && IN_PAGE_ANCHORS.includes(sl.href) ? { ...sl, href: hubTabHref(sl.key) } : sl))

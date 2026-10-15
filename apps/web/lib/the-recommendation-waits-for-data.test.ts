@@ -125,30 +125,51 @@ test('the balance itself is untouched — this guard must not have silenced the 
   assert.match(page, /<PapicTopBand\b/, 'the live credit balance is gone from the Papic page');
 });
 
-test('🎟 the ONE sanctioned recommendation — onboarding, by the owner\'s later word, with no number of its own', () => {
-  // ⚖ Owner, 2026-10-01 (DECISION_LOG "ONBOARDING RECOMMENDS A PAPIC PACK"):
-  // *"yes. we will recommend but they can change the number."* That is a LATER,
-  // SPECIFIC ruling than the 2026-09-23 one above, for this one surface. The
-  // exception is a single module, so this guard stays a tripwire everywhere else.
-  const mod = 'lib/onboarding/papic-recommendation.ts';
-  const code = stripComments(readFileSync(join(WEB, mod), 'utf8'));
+test('🎟 onboarding recommends NOTHING either — each pack states its own estimate (owner 2026-10-15)', () => {
+  // ⚖ Owner, 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS", answer 1): the
+  // onboarding Papic card's "We recommend N credits for your X guests" — the one
+  // exception the 2026-10-01 ruling had carved out — is REMOVED. Each pack now
+  // says what it buys ("about N photos, or N short clips") and no module may turn
+  // a guest count into a credit figure to show a couple. `points_per_guest` stays,
+  // as the SPENDING CEILING for paying events — that is a cap, not advice.
 
-  // 1. It is the ONLY module that multiplies a guest count by a per-guest figure.
-  const multipliers = SOURCES.filter((f) => /\bpointsPerGuest\b/.test(stripComments(readFileSync(f, 'utf8'))))
-    .map((f) => f.slice(WEB.length + 1))
-    .filter((f) => !/papic-pool-sizing|papic-pool-learning|services-step-server|services-step-data|papic-recommendation|papic-event-pool|papic-type-sizing-editor|price-control-actions/.test(f));
-  assert.deepEqual(multipliers, [], 'another module reads pointsPerGuest to size credits');
+  // 1. The module that used to do it is gone, and so are its functions.
+  assert.ok(
+    !existsSync(join(WEB, 'lib/onboarding/papic-recommendation.ts')),
+    'lib/onboarding/papic-recommendation.ts is back — onboarding no longer sizes a pack from the guest count',
+  );
+  for (const symbol of ['recommendedPackStep', 'nearestPackStep', 'targetPoolPoints', 'PapicSizing']) {
+    const offenders = SOURCES.filter((f) => new RegExp(`\\b${symbol}\\b`).test(stripComments(readFileSync(f, 'utf8'))))
+      .map((f) => f.slice(WEB.length + 1));
+    assert.deepEqual(offenders, [], `${symbol} is back in shipped code — it picks a pack from the guest count`);
+  }
 
-  // 2. It has no number of its own — the sizing arrives from papic_event_pool_config.
-  const literals = (code.match(/(?<![\w.])\d+(?:[_.]\d+)*/g) ?? []).filter((n) => n !== '0' && n !== '1');
-  assert.deepEqual(literals, [], 'a numeric constant appeared — a number that governs money must come from its existing home (papic_event_pool_config)');
+  // 2. pointsPerGuest is read ONLY where it is the ceiling or its admin editor —
+  //    never by the onboarding view model that feeds the card.
+  const readers = SOURCES.filter((f) => /\bpointsPerGuest\b/.test(stripComments(readFileSync(f, 'utf8'))))
+    .map((f) => f.slice(WEB.length + 1));
+  assert.ok(readers.length > 0, 'no pointsPerGuest reader at all — the ceiling itself is gone, or the walk is blind');
+  const outside = readers.filter(
+    (f) => !/papic-pool-sizing|papic-pool-learning|papic-event-pool|papic-type-sizing-editor|price-control-actions/.test(f),
+  );
+  assert.deepEqual(outside, [], 'a module outside the ceiling/admin set reads pointsPerGuest — is it sizing what a couple is told to buy?');
 
-  // 3. Its caller refuses the code fallback: unreadable config recommends NOTHING.
-  const server = stripComments(readFileSync(join(WEB, 'lib/onboarding/services-step-server.ts'), 'utf8'));
-  assert.match(server, /poolSizing !== FALLBACK_POOL_SIZING/, 'a code default would size what a couple is told to buy');
-
-  // 4. It never pre-fills a purchase: the card needs an explicit "Add Papic".
+  // 3. The card takes no guest count at all, and every pack states its estimate.
   const step = stripComments(readFileSync(join(WEB, 'app/onboarding/_shared/services-step.tsx'), 'utf8'));
-  assert.match(step, /Add Papic/);
-  assert.ok(!/useState\(\s*recommended/.test(step) || /startStep/.test(step));
+  assert.ok(!/\bguests\b/.test(step), 'the onboarding Papic card takes a guest count again');
+  const estimates = step.match(/papicPackEstimatePhrase\(/g)?.length ?? 0;
+  assert.ok(estimates >= 3, `only ${estimates} estimate call(s) — the pack picker, the running stepper and the ladder each state one`);
+  assert.match(step, /Add Papic/, 'the card must still need an explicit "Add Papic"');
+  const data = stripComments(readFileSync(join(WEB, 'lib/onboarding/services-step-server.ts'), 'utf8'));
+  assert.ok(!/fetchEventPoolSizing/.test(data), 'the onboarding view reads the per-guest sizing again');
+
+  // 4. The estimate's numbers are the capture-path weights, never typed.
+  const copy = stripComments(readFileSync(join(WEB, 'lib/papic-tier-copy.ts'), 'utf8'));
+  const body = copy.slice(copy.indexOf('export function papicPackEstimatePhrase'));
+  const fn = body.slice(0, body.indexOf('\n}\n') + 2);
+  assert.match(fn, /PAPIC_POINTS_PER_PHOTO/);
+  assert.match(fn, /PAPIC_POINTS_PER_SNIPPET/);
+  assert.match(fn, /formatCount\(photos\)[\s\S]*formatCount\(clips\)/, 'both figures go through formatCount');
+  const literals = (fn.match(/(?<![\w.])\d+(?:[_.]\d+)*/g) ?? []).filter((n) => n !== '0');
+  assert.deepEqual(literals, [], 'a number was typed into the pack estimate');
 });

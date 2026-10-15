@@ -4365,8 +4365,9 @@ export function OnboardingShell({
                    mount whose commit ignores them. */
                 selection={servicesSelection}
                 onSelectionChange={setServicesStepSelection}
-                /* The approved wedding recommends its nearest pack for the guest estimate. */
-                guests={approvedFlow ? state.pax : null}
+                /* The approved wedding gets the − [pack] + / Add Papic picker. No guest-count
+                   recommendation (owner 2026-10-15) — each pack states its own estimate. */
+                packPicker={approvedFlow}
               />
             </section>
           ) : null}

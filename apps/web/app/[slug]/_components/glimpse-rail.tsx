@@ -277,18 +277,22 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
     <div
       className="group relative"
       data-glimpse=""
-      onMouseEnter={() => {
+      /* A MOUSE hovering holds it — never a finger: a tap fires compatibility mouse events with no leave after
+         them, which held the drift for good (measured in the lab walk, 2026-10-15). */
+      onPointerEnter={(e) => {
+        if (e.pointerType !== 'mouse') return;
         st.current.hover = true;
         pause(0);
       }}
-      onMouseLeave={() => {
+      onPointerLeave={(e) => {
+        if (e.pointerType !== 'mouse') return;
         st.current.hover = false;
         pause();
       }}
     >
       <div
         ref={railRef}
-        className="sn-glimpse-rail flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-5 pt-2.5 outline-none sm:gap-[18px] [&::-webkit-scrollbar]:hidden"
+        className="sn-glimpse-rail flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-7 pt-3 outline-none sm:gap-[18px] [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: 'none', paddingInline: 'calc((100% - var(--g-w)) / 2)', ['--g-w' as string]: 'min(62vw, 380px)' }}
         role="region"
         aria-roledescription="carousel"
@@ -348,7 +352,7 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
                 bring(k);
               }
             }}
-            className="relative !min-h-0 aspect-[3/4] w-[var(--g-w)] shrink-0 snap-center overflow-hidden rounded-[18px] bg-ink/5 p-0 shadow-[0_18px_40px_rgb(var(--color-ink)/0.18)] [opacity:var(--g-o,1)] [transform:scale(var(--g-s,1))] motion-safe:transition-[transform,opacity] motion-safe:duration-200"
+            className="relative !min-h-0 aspect-[3/4] w-[var(--g-w)] shrink-0 snap-center overflow-hidden rounded-[18px] bg-ink/5 p-0 shadow-[0_6px_16px_rgb(var(--color-ink)/0.14)] [opacity:var(--g-o,1)] [transform:scale(var(--g-s,1))] motion-safe:transition-[transform,opacity] motion-safe:duration-200"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={url} alt="" aria-hidden loading="lazy" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
@@ -363,7 +367,7 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
             aria-label="Previous photo"
             onClick={() => step(-1)}
             disabled={ends && centre === 0}
-            className="absolute left-4 top-[calc(50%-1.5rem)] hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-ink/10 bg-cream/90 text-xl text-ink opacity-0 backdrop-blur transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 disabled:!opacity-0 [@media(hover:hover)]:grid"
+            className="absolute left-4 top-[calc(50%-1.5rem)] hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-ink/10 bg-cream/90 text-2xl leading-none text-ink opacity-0 backdrop-blur transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 disabled:!opacity-0 [@media(hover:hover)]:grid"
           >
             ‹
           </button>
@@ -372,7 +376,7 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
             aria-label="Next photo"
             onClick={() => step(1)}
             disabled={ends && centre === n - 1}
-            className="absolute right-4 top-[calc(50%-1.5rem)] hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-ink/10 bg-cream/90 text-xl text-ink opacity-0 backdrop-blur transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 disabled:!opacity-0 [@media(hover:hover)]:grid"
+            className="absolute right-4 top-[calc(50%-1.5rem)] hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-ink/10 bg-cream/90 text-2xl leading-none text-ink opacity-0 backdrop-blur transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 disabled:!opacity-0 [@media(hover:hover)]:grid"
           >
             ›
           </button>

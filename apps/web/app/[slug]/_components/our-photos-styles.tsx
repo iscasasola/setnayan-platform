@@ -93,9 +93,12 @@ export function OurPhotosFilmStrip({ urls, heading = null }: { urls: readonly st
 export function OurPhotosGlimpse({ urls, heading = null }: { urls: readonly string[]; heading?: string | null }) {
   return (
     <section className="space-y-4" data-scene-style="glimpse">
-      <p className="pahina-eyebrow justify-center">
-        <span>Our photos</span>
-      </p>
+      {/* Centred over the rail — the eyebrow is inline-flex, so its line centres it. */}
+      <div className="text-center">
+        <p className="pahina-eyebrow">
+          <span>Our photos</span>
+        </p>
+      </div>
       <PhotosHeading heading={heading} centred />
       <GlimpseRail urls={urls} label={heading ?? 'Our photos'} />
     </section>

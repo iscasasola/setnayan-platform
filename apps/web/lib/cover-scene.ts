@@ -105,7 +105,9 @@ export function coverGroundSamples(g: HubCoverGround): string[] {
     const tint = g.color ?? '#FFFFFF';
     const a = (hubGlassOpacity(g.opacity) ?? 70) / 100;
     base = [compositeOver(tint, g.kind === 'frost' ? a * 0.65 : a, THEME_GLASS_UNDER)];
-  } else base = g.kind === 'color' ? [g.color] : [g.color, compositeOver('#000000', 0.3, g.color), compositeOver('#FFFFFF', 0.3, g.color)];
+  } else if (g.kind === 'color') base = [g.color];
+  else if (g.kind === 'diagonal' || g.kind === 'glow') base = [g.color, compositeOver('#000000', 0.3, g.color), compositeOver('#FFFFFF', 0.3, g.color)];
+  else base = [...COVER_PHOTO_SAMPLES];
   const veil = coverShadeVeil(g.shade);
   return veil ? base.map((c) => compositeOver(veil.color, veil.opacity, c)) : base;
 }

@@ -55,3 +55,14 @@ lets a moderator with view-only access SELECT what it cannot DELETE, so a zero-r
 refusal in silence — the case the fault exists for. Its request logs are past Vercel's retention.
 
 SPEC IMPACT: None.
+
+### 5 · A failed `platform_settings` read was remembered for an hour as the admin's choice
+
+`lib/brand-settings.ts` and `lib/loader-settings.ts` — the two settings reads on every page, both already
+cached (`unstable_cache`, 1 h) — RETURNED their defaults from inside the cache when the read failed, so
+the data cache kept the gold defaults / stock loader for an hour. The house rule
+(`lib/global-settings-cache.ts`) is "a refused read is never remembered": the failure now throws inside
+the cache (nothing stored; a stale entry keeps serving) and the default is used for that one request.
+Guard: `lib/a-failed-settings-read-is-never-remembered.test.ts` (AST of each cached loader).
+
+SPEC IMPACT: None.

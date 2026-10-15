@@ -58,10 +58,13 @@ import { labSeen, labStageTiles } from '../lab-navigator';
 import { sceneOnStage } from '@/lib/what-guests-see';
 import type { WidgetType } from '@/lib/invitation-widgets';
 import { heroCanvasOf } from '@/app/[slug]/_lib/hero-design-of';
+import { coverSceneLayer } from '@/app/[slug]/_lib/cover-scene-layer';
+import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
 import { labPhotoUrls } from './lab-photos';
+import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -150,6 +153,14 @@ function labRsvpConfig(raw: string | string[] | undefined): { look: unknown } | 
  * page had no title of its own, so its tab read the SITE's default line (the walk of 2026-10-11, M16). That line —
  * the brand's — is not this file's to change.
  */
+/** 🧪 The lab's loop stand-ins (the Maker lab's own, `../page.tsx`): files this repo ships, by the loop's place. */
+const LAB_STILLS = ['ballroom', 'starlit', 'fairy-lights', 'rose-archway', 'seascape', 'sunrise', 'aurora', 'peonies', 'bridgerton'];
+const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'john-jane-vclip', 'peter-mary-vclip'];
+function labLoopMedia(loop: string): { still: string; clip: string } | null {
+  const i = hubMovingBackgroundIds().indexOf(loop as never);
+  return i < 0 ? null : { still: `/std/backgrounds/${LAB_STILLS[i % LAB_STILLS.length]}.webp`, clip: `/realstories/${LAB_CLIPS[i % LAB_CLIPS.length]}.mp4` };
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const words = await eventWordsFor('wedding').catch(() => null);
   return { title: `${(words?.eventWord ?? 'event').replace(/^./, (c) => c.toUpperCase())} invitation`, robots: { index: false, follow: false } };
@@ -331,6 +342,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       eyebrow={LAB_SAMPLE.openingLine}
       elements={heroCanvas.elements ?? null}
       design={heroDesignOf(heroCanvas)}
+      /* 🖼 The Cover Scene's background, as the real page lays it (`site-body.tsx` `heroElements.ground`) — the lab's
+         loops wear the stand-in files the Maker lab's Look rows use. */
+      ground={coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: null, loopMedia: labLoopMedia })}
       stampElements
       looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
       monogramSlot={
@@ -469,7 +483,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     ) : null;
   /* 🧩 THE LAB'S NODE FOR EACH CANVAS KEY — a stage draws the ones its own list names (`./lab-stage.tsx`). */
   const stageGiven: Record<string, ReactNode> = {
-    'f:hero': <section className="px-4 pb-10 pt-6">{masthead}</section>,
+    'f:hero': <section data-page-column="" className="px-4 pb-10 pt-6">{masthead}</section>,
     'f:greeting': guestScene('greeting'),
     'f:pass': guestScene('pass'),
     'f:rsvp': guestScene('rsvp'),
@@ -717,7 +731,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   return (
-    <main className={`min-h-dvh text-center text-ink ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase}>
+    <main className={`min-h-dvh text-center text-ink [--cover-scene-above:calc(35px_+_1.5rem)] [--cover-scene-pad:1.5rem] ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase}>
+      {/* 📐 `--cover-scene-above`: the lab's bar (35px) + its section's pt-6 — the shell's rule (`lib/cover-scene-screen.ts`), lab-sized. */}
       {/* The page's paper is a LAYER under everything, as the real page's is (`GuestGround`) — never the box's own
           fill, which would hide a background laid behind the page (the main background, and its instant preview). */}
       {labPhoto && !ground ? null : <div data-guest-ground="" aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[#FBF9F5]" />}
@@ -734,7 +749,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           cover, the greeting, the ticket — stands still while a hand-over plays. (`holds` 0 off the chain: nothing is
           wrapped.) */}
       <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) + (coverLeaves ? 1 : 0) : 0}>
-      <div className="flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
+      <CoverSceneMenuWaits />
+      <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
       </div>
@@ -754,7 +770,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         cover={
           <>
       {mark('f:hero')}
-      <section className="px-4 pb-10 pt-6">
+      <section data-page-column="" className="px-4 pb-10 pt-6">
         {masthead}
       </section>
           </>

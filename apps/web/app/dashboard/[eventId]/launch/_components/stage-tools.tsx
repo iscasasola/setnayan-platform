@@ -18,6 +18,9 @@ import {
   makerPartQuietRow,
   makerPartToolFor,
   makerPartToolWhy,
+  makerPartParent,
+  MAKER_COVER_SCENE_DOOR,
+  MAKER_COVER_WORD_BG_WHY,
   makerPartToolWorks,
   makerPartsOnPage,
   makerPartsTappable,
@@ -1226,6 +1229,9 @@ export function StageTools({
   /* …said to the work area's body under the selector (`StageStyle` shows that tool's part of the scene's Format). */
   useEffect(() => setStageTool(shownTool), [shownTool]);
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
+  /** 🖼 THE ONE TAP A COVER WORD'S BACKGROUND LINE ENDS IN: "This sits on the Cover Scene." → Select the Cover Scene ›
+   *  (`makerPartParent`, the approved prototype's door). It selects the group; it never navigates. */
+  const whyDoor = why && why.words === MAKER_COVER_WORD_BG_WHY && !rsvpOpen ? makerPartParent(picked) : null;
   setWhyRef.current = (words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }));
   /** The one plain line a grey tool answers with. A SAMPLE on the canvas (each guest sees their own there) says so,
    *  naming the thing (`BLOCK_SAMPLE_WHY`); E-Gifts with nothing for a guest to see yet says that; any other, the
@@ -1560,7 +1566,7 @@ export function StageTools({
           (`the-maker-first-render-is-the-servers.test.ts`; 9c added one and broke that guard). */}
       {why
         ? createPortal(
-            <PeekToast key={why.n} tone="note" data="tool-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))}>
+            <PeekToast key={why.n} tone="note" data="tool-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))} action={whyDoor ? { label: MAKER_COVER_SCENE_DOOR, onPress: () => (setWhy(null), pickPartRef.current(whyDoor)) } : undefined}>
               {why.words}
             </PeekToast>,
             document.body,

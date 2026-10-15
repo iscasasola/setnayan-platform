@@ -113,6 +113,9 @@ export const MAKER_STAGE_KEYS: readonly MakerStageKey[] = ['save_the_date', RSVP
 const PE = ['cover', 'videos', 'letters', 'seating', 'entourage', 'couple', 'loved', 'powered', 'you'] as const;
 export const MAKER_PART_KEYS = [
   'reveal',
+  /* 🖼 THE COVER SCENE (owner-approved 2026-10-15, prototype `maker_cover_group_background_2026-10-14_fable.html`):
+     the GROUP of every word on the cover — one thing to select, one outline, one Background. */
+  'coverscene',
   'logo',
   'ename',
   'names',
@@ -278,6 +281,8 @@ const pe = (s: string): MakerPartDef => ({ label: POST_EVENT_SCENE_NAMES[s] ?? '
 export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* The Reveal is the first part of three stages — its kinds are PR 3's (`maker-reveal.tsx`). */
   reveal: { label: 'Reveal', source: 'tool', canvas: null, layouts: NONE },
+  /* 🖼 No `el`: it IS the cover's section (`[data-maker-section="f:hero"]`) — every word on it is one of its parts. */
+  coverscene: { label: 'Cover Scene', source: 'tool', canvas: 'f:hero', layouts: NONE },
   logo: { label: 'Logo', source: 'studio:logo', canvas: 'f:hero', el: 'mark', layouts: scene('hero_mark') },
   /* The stage's first line ("Save the date", "The wedding of") — typed on the page; NOT the Event Name. */
   ename: { label: 'Title', source: 'info:title', canvas: 'f:hero', el: 'eyebrow', layouts: scene('hero_eyebrow') },
@@ -410,6 +415,8 @@ export const MAKER_PARTS_NO_LOOK: readonly MakerPartKey[] = ['spotlight', 'befor
  * A Post Event scene (`p:`), and the parts the canvas does not draw (the Reveal, the Camera) have neither.
  */
 export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): boolean {
+  /* 🖼 The Cover Scene has Background ONLY — its words each keep their own Edit, Style and Animate. */
+  if (key === MAKER_COVER_SCENE) return tool === 'bg';
   if (tool === 'style') return !MAKER_PARTS_NO_LOOK.includes(key);
   if (key === 'camera') return false;
   if (tool === 'edit') return true;
@@ -417,6 +424,33 @@ export function makerPartToolWorks(key: MakerPartKey, tool: MakerPartTool): bool
   if (!def.canvas) return false;
   if (tool === 'bg') return def.canvas.startsWith('w:');
   return Boolean(def.el) || def.canvas.startsWith('w:');
+}
+
+/**
+ * 🖼 THE COVER SCENE — the group of every word on the cover (owner-approved 2026-10-15: *"Call it Cover Scene"*;
+ * prototype `maker_cover_group_background_2026-10-14_fable.html`). A cover word's Background was grey with a true
+ * sentence and nowhere to go ("This sits on the cover's background.") — the owner, there: *"I don't know how to select
+ * it"*. Now the sentence names the group and ends in ONE tap that selects it (`makerPartParent` → the toolbar's door).
+ * Three doors reach the group: that line, a tap on the cover's empty space (`makerPartOfTap('f:hero', null)`), and
+ * its place first among the cover's words on every page that leads with the cover (`MAKER_STAGE_PAGES`).
+ */
+export const MAKER_COVER_SCENE = 'coverscene' as const satisfies MakerPartKey;
+/** A cover word's Background line — the prototype's own words; the door's label is `MAKER_COVER_SCENE_DOOR`. */
+export const MAKER_COVER_WORD_BG_WHY = 'This sits on the Cover Scene.';
+export const MAKER_COVER_SCENE_DOOR = 'Select the Cover Scene ›';
+/** Why the group's Edit, Style and Animate are grey — the prototype's delta line ("Tap a word to edit it."), and its
+ *  three panel lines cut to the toolbar's one short line (`a-tool-with-nothing-to-do-says-so.test.ts`: ≤ 60). */
+export const MAKER_COVER_SCENE_TOOL_WHY: Readonly<Record<Exclude<MakerPartTool, 'bg'>, string>> = {
+  edit: 'Tap a word to edit it.',
+  style: 'Tap a word for its colour and size.',
+  animate: 'Tap a word to animate it on its own.',
+};
+
+/** The group a part sits in — the Cover Scene for every word on the cover; null for any other part. */
+export function makerPartParent(key: MakerPartKey | null): typeof MAKER_COVER_SCENE | null {
+  if (!key || key === MAKER_COVER_SCENE) return null;
+  const def = MAKER_PARTS[key];
+  return def.canvas === 'f:hero' && def.el ? MAKER_COVER_SCENE : null;
 }
 
 /** 🎛 Why the Camera's Edit, Background and Animate are grey — the approved prototype's own three lines. */
@@ -434,7 +468,8 @@ export const MAKER_CAMERA_TOOL_WHY: Readonly<Record<Exclude<MakerPartTool, 'styl
 export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool): string {
   /* 🎛 The Camera's own three lines (the approved prototype's words, 2026-10-09: it is the whole screen). */
   if (key === 'camera' && tool !== 'style') return MAKER_CAMERA_TOOL_WHY[tool];
-  if (tool === 'bg' && key && MAKER_PARTS[key].canvas === 'f:hero' && MAKER_PARTS[key].el) return 'This sits on the cover’s background.';
+  if (key === MAKER_COVER_SCENE && tool !== 'bg') return MAKER_COVER_SCENE_TOOL_WHY[tool];
+  if (tool === 'bg' && key && makerPartParent(key) === MAKER_COVER_SCENE) return MAKER_COVER_WORD_BG_WHY;
   const src = key ? makerPartSource(key) : null;
   if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
   return `${MAKER_PART_TOOL_LABEL[tool]} has nothing to change on this part.`;
@@ -461,7 +496,7 @@ export function makerPartToolFor(key: MakerPartKey | null, remembered: MakerPart
  */
 export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<string, readonly MakerPartKey[]>>>> = {
   save_the_date: {
-    home: ['reveal', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'countdown', 'message'],
+    home: ['reveal', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'countdown', 'message'],
     story: ['story'],
     me: ['pass'],
   },
@@ -473,20 +508,20 @@ export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<s
     decline: ['logo', 'names', 'heroline', 'nonote'],
   },
   rsvp: {
-    home: ['reveal', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts'],
+    home: ['reveal', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts'],
     details: ['details', 'schedule', 'venue', 'dress', 'march', 'bring'],
     story: ['story'],
     me: ['rsvpcard', 'myrole', 'mywear', 'myarrive', 'myguests', 'seats'],
   },
   event: {
-    live: ['reveal', 'spotlight', 'announce', 'livehub', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'schedule'],
+    live: ['reveal', 'spotlight', 'announce', 'livehub', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'schedule'],
     home: ['venue', 'dress', 'march', 'bring'],
     camera: ['camera'],
     gallery: ['gallery', 'myphotos'],
     me: ['seats', 'pass'],
   },
   editorial: {
-    home: ['logo', 'ename', 'names', 'date', 'numbers', 'message', 'wishes', 'story', 'suppliers'],
+    home: ['coverscene', 'logo', 'ename', 'names', 'date', 'numbers', 'message', 'wishes', 'story', 'suppliers'],
     film: ['film'],
     suppliers: ['suppliers'],
     gallery: ['film', 'gallery', 'myphotos'],
@@ -560,11 +595,13 @@ export function makerPartStepHeldWhy(label: string, held: 'after' | 'before', en
 /**
  * 👆 THE PART PICKED ON ARRIVING at a stage's page (owner 2026-10-09: something is always picked): the first part the
  * page DRAWS (`ordered`, top to bottom) that Edit has a row for — its words to type, or its one door — so the first
- * thing seen is never an empty tool. Never the Reveal (it leads three pages and has only Style). A page whose parts
+ * thing seen is never an empty tool. Never the Reveal (it leads three pages and has only Style), nor the Cover Scene
+ * (Background only — the words under it come first). A page whose parts
  * all have no row lands on its first part all the same; a page that draws nothing picks nothing.
  */
 export function makerArrivalPart(ordered: readonly MakerPartKey[], hasEditRow: (k: MakerPartKey) => boolean): MakerPartKey | null {
-  const parts = ordered.filter((k) => k !== 'reveal');
+  /* 🖼 …nor the Cover Scene: it has Background alone, and its words are what a couple came to change. */
+  const parts = ordered.filter((k) => k !== 'reveal' && k !== MAKER_COVER_SCENE);
   return parts.find(hasEditRow) ?? parts[0] ?? null;
 }
 

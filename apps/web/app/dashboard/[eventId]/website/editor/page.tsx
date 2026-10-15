@@ -39,7 +39,7 @@ import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { siteSkin } from '@/app/[slug]/_components/skins/site-skin';
 /* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
-import { ButtonsLookRow, ColorsPanel, HeroFrameSync, LookSample, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
+import { ButtonsLookRow, ColorsPanel, HeroFrameSync, LookSample, MainBackgroundPanel, ProLockPanel, SceneBackgroundRow } from '../../launch/_components/details-lazy';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 import { SCRUB_OUT_OFFERED, offeredTransition } from '@/lib/scrub-out-offered';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
@@ -1559,6 +1559,24 @@ export default async function WebsiteEditorPage({
                  your draft". */
               heroCanvas={sanitizeHubCanvas(allWidgets.find((r) => r.widget_type === 'hero')?.config_json)}
               liveHeroCanvas={sanitizeHubCanvas(liveWidgets.find((r) => r.widget_type === 'hero')?.config_json)}
+              /* 🖼 Details › Hero is the SECOND DOOR to the Cover Scene's Background (owner-approved 2026-10-15):
+                 the toolbar's own rows, the same lazy door, the same draft over live — one value, two doors. */
+              coverScene={
+                <SceneBackgroundRow
+                  eventId={eventId}
+                  widgetType="hero"
+                  canvas={sanitizeHubCanvas(allWidgets.find((r) => r.widget_type === 'hero')?.config_json)}
+                  stageScenes={[]}
+                  stageLabel=""
+                  draftAction={hubDraftAction}
+                  themeColours={colorChoices}
+                  board={mainColoursOf((drafted as { role_palette?: unknown }).role_palette, currentThemeId)}
+                  photoChoices={photoChoices}
+                  mediaUsedBytes={mediaUsedBytes}
+                  loopPosters={Object.fromEntries(hubMovingBackgroundIds().map((id) => [id, resolveThemeGround(id, { ownColours: false })?.poster ?? null]))}
+                  ownsPro={ownsPro}
+                />
+              }
             />
             {/* 🎞 The hero is also the Main background (owner 2026-09-25 item 6):
                 a new hero photo is measured HERE, where it was made, so the page
@@ -1706,6 +1724,8 @@ export default async function WebsiteEditorPage({
         /* 👗 Read again, never `dressCodeConfig`: that one carries the INC starter and a filled-in palette for
            the old panel's form — writing it back would store words the couple never wrote. */
         dressCode: normalizeDressCodeConfig((drafted as { dress_code_config?: unknown }).dress_code_config),
+        /* 🖼 The Cover Scene's Scene ◆ tiles — each ready-made loop's first frame, already on R2. */
+        loopPosters: Object.fromEntries(hubMovingBackgroundIds().map((id) => [id, resolveThemeGround(id, { ownColours: false })?.poster ?? null])),
         colorChoices,
         photoChoices,
         videoChoice,

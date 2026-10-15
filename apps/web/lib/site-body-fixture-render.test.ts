@@ -137,7 +137,8 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
   /* The guest tree's own article, once, and the cover in its first group — the shape the cover's hand-over will meet. */
   assert.equal(count(html, '<article data-pahina-chapters="true" class="space-y-12">'), 1, 'the guest tree’s article');
   assert.match(html, /<article data-pahina-chapters="true" class="space-y-12"><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="space-y-12 empty:hidden">/);
-  assert.match(html, /<header data-pahina-first-screen="" class="text-center">/, 'the cover (`PahinaMasthead`) is drawn');
+  /* 🖼 …as the Cover Scene: the whole first screen (owner 2026-10-15, `lib/cover-scene.ts`). */
+  assert.match(html, /<header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-center text-center">/, 'the cover (`PahinaMasthead`) is drawn');
   /* The cover: the two names, the mark, the date. */
   const [first, second] = FIXTURE_WORDS.names.split(' & ');
   assert.match(html, new RegExp(`<h1[^>]*data-hub-names=""[^>]*><span class="block">${first}</span><span[^>]*>and</span><span class="block">${second}</span></h1>`));
@@ -310,7 +311,7 @@ test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, wi
      the marked first-screen wrapper with the ONE door under it, the general details — and nothing of a guest's. */
   assert.equal(count(html, '<article data-pahina-chapters="true">'), 1, 'the stranger’s article');
   assert.equal(count(html, '<article data-pahina-chapters="true" class="space-y-12">'), 0, 'this is the guest’s tree');
-  assert.match(html, /<div data-pahina-first-screen="" class="space-y-6 text-center"><header data-pahina-first-screen="" class="text-center">/, 'the text-only masthead, in its marked wrapper');
+  assert.match(html, /<div data-pahina-first-screen="" class="space-y-6 text-center"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-center text-center">/, 'the text-only masthead, in its marked wrapper');
   /* (2026-10-11 on main: the door's row draws no box of its own now — `sn-door-row`, `display: contents`.) */
   assert.match(html, /<\/header><div class="sn-door-row">[\s\S]{0,400}data-get-inside="/, 'the one door, right under the masthead');
   const [first, second] = FIXTURE_WORDS.names.split(' & ');
@@ -320,7 +321,7 @@ test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, wi
   /* …and with a photo the stranger's OTHER masthead: the cover alone in the page's first group, the door in the next. */
   const photo = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), ...PHOTO });
   assert.deepEqual(photo.complaints, []);
-  assert.match(photo.html, /<div id="site-home" aria-hidden="true" class="scroll-mt-6"><\/div><header data-pahina-first-screen="" class="text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">/, 'the photo cover is not the last thing in the first group, with the door in the next');
+  assert.match(photo.html, /<div id="site-home" aria-hidden="true" class="scroll-mt-6"><\/div><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-center text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">/, 'the photo cover is not the last thing in the first group, with the door in the next');
   assert.ok(photo.html.includes('fixture-hero.jpg'));
 
   /* BYTE FOR BYTE: twice the same, and the committed page (`UPDATE_GOLDEN=1` to accept an intended change). */
@@ -472,6 +473,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     /* …and (2026-10-10, the cover's hand-over) the script that writes the fixture page out for a real browser —
        `scripts/scrub-browser-check.mjs` (16). Run by hand, bundled into nothing; the claim is unchanged. */
     'scripts/scrub-fixture-page.tsx',
+    /* …and (2026-10-15) the Cover Scene's guard, which draws the real page with a stored ground. A test. */
+    'lib/the-cover-scene-is-one-group.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

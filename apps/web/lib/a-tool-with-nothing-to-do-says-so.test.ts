@@ -44,6 +44,12 @@ test('(1) Edit and Style always work; Animate works exactly where there is a sav
   for (const k of KEYS) {
     /* (Re-aimed 2026-10-10: Style on every part BUT one with no look to pick at all — The Day's "Happening now" card,
        where Style slid over four empty rows on the lab. Listed, and the list is held to that one part below.) */
+    /* 🖼 (The Cover Scene — the group of the cover's words — has Background ONLY: owner-approved 2026-10-15; its own
+       claims are `lib/the-cover-scene-is-one-group.test.ts`'s.) */
+    if (k === 'coverscene') {
+      no.push(k);
+      continue;
+    }
     assert.equal(makerPartToolWorks(k, 'style'), !MAKER_PARTS_NO_LOOK.includes(k), `${k}: Style`);
     /* (The Camera is a full-screen design with ONLY Style live — owner 2026-10-09: its Edit is grey too.) */
     assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera', `${k}: Edit`);
@@ -94,7 +100,7 @@ test('(3) a tap on a tool with nothing to set answers with ONE plain line — St
       /* A line of the cover under Background says whose background it sits on (the prototype's own words) — before
          where its content is changed: the Logo is Studio's AND a line of the cover. */
       const coverLine = Boolean(k) && t === 'bg' && MAKER_PARTS[k!].canvas === 'f:hero' && Boolean(MAKER_PARTS[k!].el);
-      if (coverLine) assert.equal(line, 'This sits on the cover’s background.', `${k}: a line of the cover does not say whose background it is`);
+      if (coverLine) assert.equal(line, 'This sits on the Cover Scene.', `${k}: a line of the cover does not say whose background it is`);
       else if (k && makerPartSource(k).kind === 'studio') assert.equal(line, 'Nothing to change here — edit it in Studio.', `${k}: its content is Studio’s and the line does not say so`);
     }
   }
@@ -103,7 +109,7 @@ test('(3) a tap on a tool with nothing to set answers with ONE plain line — St
   assert.equal(makerPartToolWhy('reveal', 'bg'), 'Background has nothing to change on this part.');
   assert.equal(makerPartToolWhy('reveal', 'animate'), 'Animate has nothing to change on this part.');
   assert.equal(makerPartToolWhy('pass', 'animate'), 'Animate has nothing to change on this part.');
-  assert.equal(makerPartToolWhy('names', 'bg'), 'This sits on the cover’s background.');
+  assert.equal(makerPartToolWhy('names', 'bg'), 'This sits on the Cover Scene.');
 });
 
 test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed with nothing to set, its tap says the line; such a part opens on Edit', () => {
@@ -141,7 +147,8 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
      claim is unchanged: a tap on a grey tool says ONE plain line and sets nothing. */
   assert.match(tools, /const pickTool = \(t: MakerPartTool\) => \{\s*if \(!toolWorks\(t\)\) return setWhy\(\(w\) => \(\{ words: whyNot\(t\), n: \(w\?\.n \?\? 0\) \+ 1 \}\)\);\s*setTool\(t\);/);
   assert.match(tools, /return sample \?\? empty \?\? makerPartToolWhy\(picked, t\);/, 'the part’s own line is no longer the default');
-  assert.match(tools, /<PeekToast key=\{why\.n\} tone="note" data="tool-why" onGone=\{\(\) => setWhy\(\(w\) => \(w\?\.n === why\.n \? null : w\)\)\}>\s*\{why\.words\}\s*<\/PeekToast>/, 'the line is not said through the app’s toast');
+  /* 🖼 …the toast may end in ONE door: a cover word's Background line selects the Cover Scene (`whyDoor`). */
+  assert.match(tools, /<PeekToast key=\{why\.n\} tone="note" data="tool-why" onGone=\{\(\) => setWhy\(\(w\) => \(w\?\.n === why\.n \? null : w\)\)\}(?: action=\{whyDoor \? \{ label: MAKER_COVER_SCENE_DOOR, onPress: \(\) => \(setWhy\(null\), pickPartRef\.current\(whyDoor\)\) \} : undefined\})?>\s*\{why\.words\}\s*<\/PeekToast>/, 'the line is not said through the app’s toast');
   /* Picking a part (a tap on the page) opens the tool that HAS something there. */
   assert.match(tools, /const toolFor = useCallback\(\(k: MakerPartKey \| null\): MakerPartTool => makerPartToolFor\(k, toolRef\.current\), \[\]\);/);
   assert.equal((tools.match(/askTool\(toolFor\(k\), k\);/g) ?? []).length, 2, 'a pick can still ask the work area for a tool it has no panel for');

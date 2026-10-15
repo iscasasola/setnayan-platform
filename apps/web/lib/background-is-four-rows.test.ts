@@ -167,7 +167,11 @@ test('(2) what a scene can store is what is offered — every tile round-trips; 
   assert.match(branch, /\{ key: 'hub', pro: false \},\s*\{ key: 'colour', pro: false \},\s*\.\.\.\(offerMedia \? \(\['scene', 'own'\] as const\)\.map\(\(key\) => \(\{ key, pro: Boolean\(mediaMark\) && BACKGROUND_SOURCE_IS_PRO\[key\] \}\)\) : \[\]\),/);
   assert.equal(BACKGROUND_SOURCE_IS_PRO.scene && BACKGROUND_SOURCE_IS_PRO.own && !BACKGROUND_SOURCE_IS_PRO.colour, true);
   assert.deepEqual([BACKGROUND_SOURCE_LABEL.colour, BACKGROUND_SOURCE_LABEL.scene, BACKGROUND_SOURCE_LABEL.own], ['Colour', 'Scene', 'Upload']);
-  assert.match(read(`${L}/stage-panel/stage-background.tsx`), /label: `\$\{s\.key === 'hub' \? 'The Event Hub’s' : BACKGROUND_SOURCE_LABEL\[s\.key\]\}\$\{s\.pro \? ' ◆' : ''\}`/);
+  /* (The first source's name is a prop since 2026-10-15 — the Cover Scene's reads "The theme's own"; a scene's is
+     still "The Event Hub's", its default.) */
+  const sb = read(`${L}/stage-panel/stage-background.tsx`);
+  assert.match(sb, /hubLabel = 'The Event Hub’s',/);
+  assert.match(sb, /label: `\$\{s\.key === 'hub' \? hubLabel : BACKGROUND_SOURCE_LABEL\[s\.key\]\}\$\{s\.pro \? ' ◆' : ''\}`/);
   /* THE SOURCE WORN is read off the stored background: a ready-made picture is Scene, the couple's own is Upload. */
   assert.match(branch, /!bg \|\| scopeNow === 'every' \? 'hub' : bg\.kind === 'photo' \? \(isStdLibrarySrc\(bg\.media\) \? 'scene' : 'own'\) : bg\.kind === 'snippet' \? 'own' : 'colour';/);
 });

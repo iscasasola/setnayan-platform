@@ -227,6 +227,7 @@ import type { SeeAs } from '@/lib/see-as';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, type CanvasStylePreview } from '../_lib/editor-canvas';
 import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
+import { coverSceneLayer } from '../_lib/cover-scene-layer';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { GetInside } from './get-inside';
@@ -879,6 +880,8 @@ export async function SiteBody({
     design: heroDesignOf(heroCanvas),
     /* 🎨 The hero parts' own styles — set below, once the page's stage is known. */
     looks: null as Partial<Record<keyof typeof HERO_PART_LOOK, string>> | null,
+    /* 🖼 The Cover Scene's background (owner-approved 2026-10-15) — nothing stored: The theme's own, as before. */
+    ground: coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: heroPhotoUrl ?? null }),
   };
   /* ✍ Does any scene carry a run (one letter, one word in its own look)? Only
      then is the small script that lays them mounted (`HubSceneRuns`) — the

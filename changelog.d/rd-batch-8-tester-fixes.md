@@ -4,3 +4,4 @@
 
 SPEC IMPACT: None
 - **R2** — after a TAP unveil the page could not be scrolled for ~6 s (the veil's full-screen `touch-action:none` grab-zone stayed up through the hands-free lift). Both unveils (tap, swipe up) now release the pointer capture and drop the zone to the top band in the same `pointerup` (`freeThePage`); the swipe down that re-covers clears it. Pinned in `the-veil-opens-on-a-tap.test.ts`.
+- **R3** — on a first visit the cookie notice (z 70) covered the veil's only instruction, "Tap or swipe up to unveil". The hint now stands `calc(4rem + var(--cookie-banner-top, 0px))` above the edge, as #6518 did for the hub. Pinned in `the-hub-leaves-room-above-the-cookie-notice.test.ts` (sabotaged: fails).

@@ -273,7 +273,7 @@ export default async function EditorialPrintPage({
     const admin = createAdminClient();
     const { data: monoRow } = await admin
       .from('events')
-      .select(HERO_MONOGRAM_COLUMNS)
+      .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
       .eq('event_id', event.event_id)
       .maybeSingle();
     mono = await resolveEventMonogram(admin, event.event_id, monoRow);

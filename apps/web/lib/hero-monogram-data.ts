@@ -17,7 +17,7 @@ import { resolveMonogramMotion, type MonogramMotionKey } from '@/lib/monogram-mo
 import { sanitizeStudioConfig, markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { logoSwitchedOff, resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 
 /** Reusable SELECT column list for any page that resolves the hero monogram. */
@@ -49,6 +49,8 @@ export type HeroMonogramRow = {
   monogram_motion_key: string | null;
   monogram_studio_config: unknown;
   role_palette?: unknown;
+  /** The Logo switch — a select that names it lets `resolveEventMonogramSvg` honour "No, use our names". */
+  logo_wanted?: boolean | null;
 };
 
 /** Serializable bundle of the <HeroMonogram> inputs. */
@@ -71,23 +73,9 @@ export type HeroMonogramData = {
   bespokeSvg: string | null;
 };
 
-/**
- * 🔘 THE LOGO SWITCH — `events.logo_wanted` ("Do you want a logo?" · "Yes, make
- * one" / "No, use our names"). Owner 2026-10-15 (DECISION_LOG "SIX OWNER
- * ANSWERS", answer 4): *"make the Logo switch work"* — OFF ⇒ the couple's drawn
- * logo is on neither the cover nor the QR centre; ON ⇒ it is on both.
- *
- * Only an explicit `false` is OFF. NULL is "not asked yet" (lib/event-answers.ts)
- * and keeps the logo every existing event already shows; a caller whose select
- * did not name the column reads the same as NULL — which is why every cover and
- * QR select names it (`logo-switch-is-real.test.ts`).
- *
- * The ONE reader: `heroMarkSvg` (the hub cover, the invite doors' crest, the
- * prints' mark) and `qrLookFromRow` (every QR's centre) both ask this.
- */
-export function logoSwitchedOff(row: { logo_wanted?: boolean | null } | null | undefined): boolean {
-  return row?.logo_wanted === false;
-}
+/** 🔘 THE LOGO SWITCH — asked inside `resolveEventMonogramSvg` (lib/monogram-svg-safe.ts), the one resolver every
+ *  mark goes through; re-exported here where its first callers import it. */
+export { logoSwitchedOff };
 
 /**
  * THE COUPLE'S LOGO, EXACTLY AS THE EVENT HUB HERO DRAWS IT — the one sanitised

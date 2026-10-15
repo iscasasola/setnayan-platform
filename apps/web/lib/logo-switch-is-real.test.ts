@@ -21,11 +21,13 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { heroMarkSvg, logoSwitchedOff } from '@/lib/hero-monogram-data';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { revealMarkSvg } from '@/app/[slug]/_lib/reveal-props';
 import { QR_LOOK_COLUMNS, qrLookFromRow } from '@/lib/qr-look.server';
 import { FREE_QR_LOOK } from '@/lib/qr-look';
 import { stripComments } from '@/lib/strip-comments';
@@ -98,4 +100,104 @@ test('every cover and QR select CARRIES the switch — an omitted column reads a
   assert.match(heroFn.slice(0, heroFn.indexOf('\n}\n')), /logoSwitchedOff\(row\)/);
   const qr = stripComments(read('lib/qr-look.server.ts'));
   assert.match(qr, /logoSvg: logoSwitchedOff\(row\) \? null :/);
+});
+
+/*
+  🗂 EVERY READER OF THE COUPLE'S LOGO, LISTED (Batch 9 walk W3, 2026-10-16). The walk found the print sheet, the wax
+  seal, the recap / story-after-the-day / wall mastheads and the live screens drawing the logo with the switch off:
+  the check lived in two callers (`heroMarkSvg`, `qrLookFromRow`), not in the resolver every mark goes through. It now
+  lives in `resolveEventMonogramSvg` itself, so a reader follows the switch exactly when its row CARRIES the column.
+  This census walks app/ lib/ components/ for every caller of a mark resolver and requires each to be classified:
+    carries — its own select names `logo_wanted`;
+    via     — it draws a row read elsewhere, and THAT read names it (checked);
+    host    — the couple's own tools / the admin console (the switch decides what guests and the public see);
+    editor  — the Logo editor itself, which must open the logo the couple made (`evenIfSwitchedOff`);
+    lettered — draws only the lettered mark, never the svg;
+    resolver — defines the resolvers.
+  A new reader fails here until someone decides which it is. Sabotage (2026-10-16): the gate removed from
+  `resolveEventMonogramSvg` → red; `logo_wanted` dropped from the print sheet's mark read → red.
+*/
+
+test('🔘 the ONE resolver every mark goes through follows the switch (seal, mastheads, prints, live screens)', () => {
+  assert.ok(resolveEventMonogramSvg(row(true))?.includes('<svg'));
+  assert.ok(resolveEventMonogramSvg(row(null)), 'never asked = on');
+  assert.equal(resolveEventMonogramSvg(row(false)), null, 'the resolver draws the logo with the switch off');
+  assert.equal(revealMarkSvg(row(false)), null, "the opening's wax seal draws the logo with the switch off");
+  assert.ok(revealMarkSvg(row(true)), 'the wax seal lost the logo with the switch on');
+  assert.ok(resolveEventMonogramSvg(row(false), { evenIfSwitchedOff: true }), 'the Logo editor cannot open the logo the couple made');
+  const hero = stripComments(read('lib/hero-monogram-data.ts'));
+  const fn = hero.slice(hero.indexOf('export async function resolveEventMonogram('));
+  assert.match(fn.slice(0, fn.indexOf('\n}\n')), /const bespokeSvg = resolveEventMonogramSvg\(row, \{ ink: markInk \}\);/, 'the mastheads’ resolver bypasses the gated one');
+});
+
+const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'editor' | 'lettered' | 'resolver', why: string]> = {
+  'app/[slug]/_components/editorial/editorial-content.tsx': ['carries', 'the story-after-the-day masthead'],
+  'app/[slug]/_components/site-body.tsx': ['via', "the opening's wax seal draws loadEventShell's event (app/[slug]/_lib/loaders.ts)"],
+  'app/[slug]/_lib/icon-source.ts': ['carries', "the Event Hub's app icon"],
+  'app/[slug]/_lib/loaders.ts': ['carries', 'the Event Hub cover (loadEventShell)'],
+  'app/[slug]/_lib/reveal-props.ts': ['resolver', "the wax seal's mark, through resolveEventMonogramSvg"],
+  'app/[slug]/invite/_lib/load-invite-look.ts': ['carries', "the invite doors' crest (INVITE_MARK_COLUMNS)"],
+  'app/[slug]/invite/page.tsx': ['via', "the opening's wax seal draws a row selected with INVITE_MARK_COLUMNS"],
+  'app/[slug]/print/page.tsx': ['carries', 'the recap print sheet'],
+  'app/[slug]/recap/page.tsx': ['carries', 'the recap masthead'],
+  'app/[slug]/seat/_components/arrival-bloom.tsx': ['lettered', 'Your seat draws the lettered mark only (the seat read selects no logo)'],
+  'app/_components/account-switcher/get-switcher-data.ts': ['host', "the host's own account switcher"],
+  'app/_components/event-monogram.tsx': ['resolver', "draws whatever its caller's row carries, through resolveEventMonogramSvg"],
+  'app/admin/studio/_surfaces/social-queue-surface.tsx': ['host', 'the admin console'],
+  'app/api/social/card/[postId]/route.ts': ['carries', 'the shareable social card'],
+  'app/dashboard/(account)/library/_components/album-shelf.tsx': ['host', "the host's own library"],
+  'app/dashboard/(account)/library/_components/photos-tab.tsx': ['host', "the host's own library"],
+  'app/dashboard/(launcher)/page.tsx': ['host', "the host's launcher"],
+  'app/dashboard/[eventId]/_components/event-rail-context.tsx': ['host', "the host's rail"],
+  'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx': ['host', "the Maker's poster (reads the drafted switch when the draft carries it)"],
+  'app/dashboard/[eventId]/layout.tsx': ['host', "the host's rail (select *: it follows the switch too)"],
+  'app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx': ['host', "the host's logo upgrade card"],
+  'app/dashboard/[eventId]/seating/lab/page.tsx': ['host', "the host's seating lab"],
+  'app/dashboard/[eventId]/studio/save-the-date/page.tsx': ['host', "the host's Save the Date studio"],
+  'app/dashboard/[eventId]/studio/save-the-date/stamp/page.tsx': ['host', "the host's Save the Date stamp"],
+  'app/live/_lib/load-screen.ts': ['carries', 'the live screen'],
+  'app/panood/control/[eventId]/page.tsx': ['carries', 'the Panood control (what goes on air)'],
+  'app/panood/program/[eventId]/page.tsx': ['carries', 'the Panood program output'],
+  'app/papic/guest/page.tsx': ['carries', "the guest camera's look"],
+  'app/wall/[eventId]/page.tsx': ['carries', 'the Live Photo Wall masthead'],
+  'lib/discover-events.ts': ['via', 'discovery cards draw rows selected with coverColumns() (lib/home-public-reads-core.ts)'],
+  'lib/event-cover-given.ts': ['via', 'discovery covers draw CoverRow (lib/home-public-reads-core.ts COVER_COLUMNS)'],
+  'lib/hero-monogram-data.ts': ['resolver', 'heroMarkSvg · resolveEventMonogram'],
+  'lib/home-public-reads-core.ts': ['carries', 'the public home shelves (COVER_COLUMNS)'],
+  'lib/maker-logo-opening.ts': ['editor', 'the Maker Logo editor'],
+  'lib/monogram-svg-safe.ts': ['resolver', 'resolveEventMonogramSvg — the gate itself'],
+  'lib/print-set.server.ts': ['carries', 'the print set'],
+  'lib/qr-look.server.ts': ['carries', 'every QR centre (QR_LOOK_COLUMNS)'],
+};
+/** For a `via` reader: the file whose read must name the column. */
+const VIA_SOURCE: Record<string, string> = {
+  'app/[slug]/_components/site-body.tsx': 'app/[slug]/_lib/loaders.ts',
+  'app/[slug]/invite/page.tsx': 'app/[slug]/invite/_lib/load-invite-look.ts',
+  'lib/discover-events.ts': 'lib/home-public-reads-core.ts',
+  'lib/event-cover-given.ts': 'lib/home-public-reads-core.ts',
+};
+
+test('🗂 every reader of the couple’s logo is listed, and every guest / public one carries the switch', () => {
+  const walk = (dir: string): string[] =>
+    readdirSync(join(WEB, dir)).flatMap((name) => {
+      const rel = `${dir}/${name}`;
+      if (name === 'node_modules' || name.startsWith('.')) return [];
+      if (statSync(join(WEB, rel)).isDirectory()) return walk(rel);
+      return /\.(?:tsx?|mjs)$/.test(name) && !/\.(?:test|spec)\.tsx?$/.test(name) ? [rel] : [];
+    });
+  const CALL = /\b(?:resolveEventMonogramSvg|resolveEventMonogram|heroMarkSvg|revealMarkSvg)\(|<EventMonogram\b/;
+  const found = ['app', 'lib', 'components'].flatMap(walk).filter((f) => CALL.test(stripComments(read(f)))).sort();
+  assert.ok(found.length >= 30, `anti-vacuity: only ${found.length} readers found — the walk or the pattern broke`);
+  assert.deepEqual(found.filter((f) => !(f in READERS)), [], 'a new reader of the couple’s logo — classify it in READERS');
+  assert.deepEqual(Object.keys(READERS).filter((f) => !found.includes(f)), [], 'a listed reader no longer draws the logo — drop it');
+  for (const [f, [kind]] of Object.entries(READERS)) {
+    const s = stripComments(read(f));
+    if (kind === 'carries') assert.match(s, /\blogo_wanted\b/, `${f} (${READERS[f]![1]}) draws the logo from a read without logo_wanted`);
+    if (kind === 'via') assert.match(stripComments(read(VIA_SOURCE[f]!)), /\blogo_wanted\b/, `${f}: its source read lacks logo_wanted`);
+    if (kind === 'editor') assert.match(s, /evenIfSwitchedOff: true/, `${f}: the Logo editor would open "no logo"`);
+    if (kind === 'lettered') assert.doesNotMatch(s, /monogram_(?:custom|uploaded)_svg/, `${f} now reads the logo svg — reclassify it`);
+  }
+  /* The print sheet's mark: the second read feeding resolveEventMonogram names the column (the walk's W3 (a)). */
+  const print = stripComments(read('app/[slug]/print/page.tsx'));
+  assert.match(print, /\.select\(`\$\{HERO_MONOGRAM_COLUMNS\}, logo_wanted`\)[\s\S]{0,200}resolveEventMonogram\(admin, event\.event_id, monoRow\)/);
 });

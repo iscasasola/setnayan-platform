@@ -381,7 +381,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // not exist. The two are distinguishable; they are now distinguished.
   const { data: event, error: eventError } = await supabase
     .from('events')
-    .select(`event_id, slug, event_date, ${HERO_MONOGRAM_COLUMNS}`)
+    .select(`event_id, slug, event_date, ${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventError) {

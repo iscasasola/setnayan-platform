@@ -25,4 +25,6 @@ walk (`controller-2026-10-12/test-animate/WALK.md`), ranked by what a couple not
 
 SPEC IMPACT: the loading screen's names (DECISION_LOG 2026-09-27 "THE EVENT HUB'S LOADING SCREEN BECOMES A SKELETON
 OF THE REAL PAGE") — a hero part with its own Build in is now held undrawn on the loading screen for up to 2.5 s so it
-arrives once; recorded in the corpus DECISION_LOG (2026-10-16 row) for the owner's sign-off.
+arrives once. A builder's call under the brief's two offered options, recorded in the branch HANDOVER and the PR for
+the owner's sign-off (not yet in the corpus DECISION_LOG — the local corpus checkout holds another session's
+uncommitted edits to that file).

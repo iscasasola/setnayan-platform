@@ -52,11 +52,15 @@ async function renderLoading(path: string): Promise<string> {
     React.createElement(
       PathnameContext.Provider,
       { value: path },
-      React.createElement(
-        HomeCoverWordsProvider,
-        { eventId: 'e1', words: { eyebrow: 'Wedding · December 18, 2026', name: 'Indalecio & Claire' } },
-        React.createElement(HomeLoadingScreen, { label: 'Loading your event', hero: React.createElement('i', { 'data-sk-hero': '' }) }, React.createElement('b', null, 'rest')),
-      ),
+      React.createElement(HomeCoverWordsProvider, {
+        eventId: 'e1',
+        words: { eyebrow: 'Wedding · December 18, 2026', name: 'Indalecio & Claire' },
+        children: React.createElement(HomeLoadingScreen, {
+          label: 'Loading your event',
+          hero: React.createElement('i', { 'data-sk-hero': '' }),
+          children: React.createElement('b', null, 'rest'),
+        }),
+      }),
     ),
   );
 }

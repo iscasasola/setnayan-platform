@@ -14,6 +14,7 @@ import {
 } from '@/lib/seating-pdf';
 import { seatPlanPreviewSvg } from '@/lib/seat-plan-preview-svg';
 import { printFileName } from '@/lib/print-pieces';
+import { PAPER_HOW, printPaperHeader } from '@/lib/print-paper';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,7 +95,12 @@ export async function GET(
     for (const a of assignments) seated.set(a.table_id, (seated.get(a.table_id) ?? 0) + 1);
     return new NextResponse(seatPlanPreviewSvg({ tables, floorPlan, seatedByTable: seated, mode, palette: flatHexPalette }), {
       status: 200,
-      headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, max-age=60' },
+      headers: {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Cache-Control': 'private, max-age=60',
+        /* 📄 One A3 page; how many tables and seats it shows (Studio › Prints' preview, owner 2026-10-14). */
+        ...printPaperHeader({ pages: 1, page: 1, how: PAPER_HOW.seatPlan(tables.length, assignments.length), empty: tables.length === 0 ? 'tables' : null }),
+      },
     });
   }
 

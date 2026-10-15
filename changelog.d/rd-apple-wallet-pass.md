@@ -1,0 +1,10 @@
+## 2026-10-15 · feat(wallet): Add to Apple Wallet — the guest's own ticket as a signed .pkpass (flag-dark)
+
+- **The pass is the ticket.** `lib/wallet-pass.ts` (pure) builds `pass.json` for an `eventTicket` from the SAME kit and `passCardPass` the saved PNG is drawn from: couple, date, arrive, venue NAME (never the address — dropped if it carries `venue_address`), guest in the Name style, "and 1 guest", the table only from the event day (`readTicketSeats`). The QR message is the PNG's own string (`buildInvitationUrl`, decoded back to the token by the door desk's `parseGuestQrPayload` in the test). No `altText`, no `locations`, no `expirationDate`, `sharingProhibited`. Lock-screen time = the parked-UTC wall clock read as Manila. Colours = the ticket look with contrast fallbacks.
+- **Signed.** `lib/wallet-pass-pkpass.ts`: SHA-1 manifest + detached PKCS#7 (node-forge 1.4.0, pinned — Node cannot write CMS; the key is decrypted by Node). Every failure is a fixed sentence naming a step, never a value.
+- **Route.** `GET /api/guest/wallet/apple` — the guest session for ITSELF only (no `?guest=`, no host, no pending request), the PNG's one 404 for every refusal, `private, no-store`. OFF unless `WALLET_PASS_ENABLED` is on AND the six Apple env vars are present (read by name in ONE module, `lib/wallet-pass-config.server.ts`).
+- **Button.** "Add to Apple Wallet" under "Save my ticket" on Me and the thank-you, Apple devices / Mac Safari only; the iPhone in-app browser gets the existing Safari hand-off. Plain link until Apple's official badge artwork is committed (`APPLE_WALLET_BADGE_SRC`).
+- **Secrets board** row `apple_wallet_pass` (expires 2027-11-12). Guard `the-wallet-pass-keeps-its-secrets.test.ts` (one reader; no console/log of a value on the path), sabotaged three ways.
+- Static route: +0 Vercel routes. Google Wallet: deferred by the owner.
+
+SPEC IMPACT: None in this PR. Builds Phase A (Apple half) of controller-2026-10-12/WALLET_PASS_PLAN_2026-10-13.md under the DECISION_LOG 2026-10-13 ruling, taking the plan's §5 recommendations Q2 · Q3 · Q5 · Q6 · Q7 · Q9 as written — they still want the owner's DECISION_LOG row.

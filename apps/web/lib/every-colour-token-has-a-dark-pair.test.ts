@@ -58,7 +58,6 @@ const ALLOW: Record<string, string> = {
   'color-paper-deep': "the guest Hub's own — overridden by the couple's palette",
   'color-veil': "the guest Hub's own — overridden by the couple's palette",
   'color-ink-on-light': 'set only by dark Event Hub looks; falls back to --color-ink, which is paired',
-  'color-ink-on-plate': 'set only by the Hub plate; falls back to --color-ink, which is paired',
   // The story's candle — the same colour at every wedding (owner ruling 2026-09-09); painted per
   // light-stage on the story's wrapper by lib/story-light.ts.
   'color-candle': 'the story candle — same at every wedding, painted by lib/story-light.ts',

@@ -45,7 +45,12 @@ export function coverSceneLayer(ground: HubCoverGround | null | undefined, ctx: 
   if (ground.kind === 'loop') {
     const media = INVITE_THEMES[ground.loop].media;
     if (!media) return null;
-    return { ...base, css: null, still: publicUrl(media.poster), clip: publicUrl(media.loop) };
+    const still = publicUrl(media.poster);
+    const clip = publicUrl(media.loop);
+    /* 🚫 A loop whose files do not resolve is NOT drawn as an empty veil (a failure never renders as success): the
+       cover stays The theme's own. */
+    if (!still && !clip) return null;
+    return { ...base, css: null, still, clip };
   }
   if (ground.kind === 'photo' || ground.kind === 'snippet') {
     /* A clip never reaches here while it may not play for guests (the sanitiser drops it); its still is what is drawn. */

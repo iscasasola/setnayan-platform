@@ -210,3 +210,27 @@ test('(7) ONE background, ONE hero writer: an Upload pick IS the hero photo, and
   assert.match(plate, /data-plate/, 'anti-vacuity: the photo cover draws its plate');
   assert.doesNotMatch(cover({ mediaSlot: React.createElement('img', { alt: '', 'data-plate': '' }), ground: layer }), /data-plate/, 'the photo is drawn twice');
 });
+
+test('(8) the REAL guest page draws it: a stored ground lays the layer behind the words, the first screen tall', async () => {
+  const { renderSiteBodyFixtureFull } = await import('./site-body-fixture-render');
+  const { fixtureWidgets } = await import('./site-body-fixture');
+  const page = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground: { kind: 'color', color: '#111111', shape: 'full' } } }) });
+  assert.deepEqual(page.complaints, []);
+  assert.match(page.html, /<header data-pahina-first-screen=""[^>]*data-cover-scene="full"[^>]*data-cover-tone="cream"[^>]*><div aria-hidden="true" data-cover-scene-ground="full"/, 'the stored colour is not drawn behind the cover, or the words did not flip');
+  assert.match(page.html, /data-cover-scene-ground="full"[^>]*><div class="[^"]*m-0 rounded-none[^"]*" style="background:#111111"/, 'Full width is not edge to edge, or the colour is not painted');
+  const framed = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground: { kind: 'color', color: '#F6EFE3' } } }) });
+  assert.match(framed.html, /data-cover-scene="framed"[^>]*data-cover-tone="ink"/);
+  assert.match(framed.html, /data-cover-scene-ground="framed"[^>]*><div class="[^"]*m-3 rounded-\[18px\]/, 'Framed is not inset with its rounded margin');
+  /* 🚫 The fixture pins the environment (no media host): a loop whose files do not resolve is NOT drawn as an empty
+     veil — the cover stays The theme's own. A clip stored by hand never reaches the page at all. */
+  const loop = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground: { kind: 'loop', loop: hubMovingBackgroundIds()[0]! } } }) });
+  assert.doesNotMatch(loop.html, /data-cover-scene-ground/, 'an unresolved loop drew an empty layer');
+  const clip = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground: { kind: 'snippet', media: 'r2://setnayan-media/events/x/scene-background/a.mp4' } } }) });
+  assert.doesNotMatch(clip.html, /data-cover-scene-ground/, 'a stored clip was drawn on the cover');
+  /* …and a resolved loop PLAYS (the layer as the page lays it, the shipped SceneClip). */
+  const { CoverSceneGround } = await import('@/app/[slug]/_components/cover-scene-ground');
+  const played = renderToStaticMarkup(
+    React.createElement(CoverSceneGround, { layer: { shape: 'framed', css: null, still: 'https://media.test/p.jpg', clip: 'https://media.test/l.mp4', parallax: false, veil: null, scrim: { color: COVER_INK, opacity: 0.4 }, tone: 'cream' } }),
+  );
+  assert.match(played, /<video[^>]*>/, 'the ready-made loop does not play');
+});

@@ -22,6 +22,7 @@ import { revalidatePath } from 'next/cache';
 import { ANSWER_IN_PLACE_FIELD, answersInPlace } from '@/lib/answer-in-place';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
@@ -3052,7 +3053,9 @@ export async function revertVendorToConsidering(
         .delete()
         .eq('event_id', eventId)
         .eq('plan_group_id', revertGroup)
-        .eq('decision', 'complete');
+        .eq('decision', 'complete')
+        // Absent is the goal: RLS's DELETE and SELECT doors are the same here (current_event_ids).
+        .setHeader(ABSENT_IS_FINE_HEADER, '1');
     }
   }
 

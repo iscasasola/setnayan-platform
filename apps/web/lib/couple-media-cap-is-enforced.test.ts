@@ -262,7 +262,7 @@ test('4 · the meter renders under the scene’s Upload media, with the settled 
 test('4a · a FREE couple reads 10 MB, and at the cap sees one ◆ Pro line with Unlock Pro on the existing path', async () => {
   const part = await paintRow({ ownsPro: false, mediaUsedBytes: 4 * MB });
   const meter = (h: string) => /data-inspector-row="scene-upload"[\s\S]*$/.exec(h)?.[0] ?? '';
-  assert.match(meter(part), /4\.0 MB of 10 MB used/, 'a Free couple reads the Free number');
+  assert.match(meter(part), /4 MB of 10 MB used/, 'a Free couple reads the Free number');
   assert.doesNotMatch(meter(part), /Unlock Pro/, 'the Pro line waits until the allowance is used');
   const full = meter(await paintRow({ ownsPro: false, mediaUsedBytes: coupleMediaCapBytes(false) }));
   assert.match(full, /10 MB of 10 MB used/);

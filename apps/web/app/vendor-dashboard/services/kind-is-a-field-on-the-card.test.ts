@@ -35,6 +35,8 @@ const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 const MAKER = 'app/vendor-dashboard/services/_components/canvas-maker.tsx';
 const NEW_DOOR = 'app/vendor-dashboard/services/new/page.tsx';
 const OLD_DOOR = 'app/vendor-dashboard/services/new/[category]/page.tsx';
+// Since 2026-10-14 every door into the maker reads through ONE loader.
+const LOADER = 'lib/service-card-maker.server.ts';
 
 // ⚠ Asserted first: a guard reading an empty file runs zero real checks and
 // reports a pass. Every count below is measured against a file this size.
@@ -57,27 +59,13 @@ test('the posted category is the vendor’s choice, not the prop', () => {
   assert.equal(named.length, 1, `the maker posts ${named.length} category fields, expected 1`);
 });
 
-test('nothing saves without a kind — publish AND draft', () => {
+test('nothing saves without a kind — the one Create waits for it', () => {
   const src = read(MAKER);
-  assert.match(
-    src,
-    /const needsCategory = category\.length === 0;/,
-    'the maker stopped noticing that no kind was chosen',
-  );
-  assert.match(
-    src,
-    /const blocked = health\.blockers\.length > 0 \|\| needsCategory;/,
-    'Publish stopped waiting for a kind',
-  );
-  // The draft button is the one that bites: it has no health gate at all, so
-  // without its own check it posts an empty category straight into a throw.
-  assert.match(
-    src,
-    /value="false"\s*\n\s*disabled=\{needsCategory\}/,
-    'Save as draft stopped waiting for a kind — it would hand the vendor a raw error',
-  );
-  // And the screen says why, rather than showing two dead buttons.
-  assert.match(src, /Tell us what kind of service this is/, 'the blocked state stopped explaining itself');
+  // `commitVendorService` throws on an empty category on every path. The one Create (owner 2026-10-08 Q3) cannot
+  // post without one: the submit is stopped and the kind sheet opens instead.
+  assert.match(src, /if \(!category\) \{\s*e\.preventDefault\(\);\s*setSheet\('kind'\);/, 'Create stopped waiting for a kind');
+  // …and the status line names it first.
+  assert.match(src, /hasKind: category\.length > 0/, 'the status line stopped counting the kind');
 });
 
 test('every per-kind editor reads the chosen kind', () => {
@@ -101,10 +89,11 @@ test('every per-kind editor reads the chosen kind', () => {
 test('the new door opens the maker with no kind chosen, and hands it the list', () => {
   const src = read(NEW_DOOR);
   assert.match(src, /categoryValue=""/, 'the new door started pre-picking a kind');
-  assert.match(src, /categoryOptions=\{categoryOptions\}/, 'the new door stopped handing over the kinds');
-  // Drawn from the SAME groups My Shop draws, never a second hand-typed list.
-  assert.match(src, /SERVICE_GROUPS\.map/, 'the kinds stopped coming from the shared groups');
-  assert.match(src, /groupDisplayOptions\(/, 'the kinds stopped collapsing legacy keys that share a label');
+  assert.match(src, /categoryOptions=\{ctx\.categoryOptions\}/, 'the new door stopped handing over the kinds');
+  // Drawn from the SAME groups My Shop draws (in the one loader), never a second hand-typed list.
+  const loader = read(LOADER);
+  assert.match(loader, /SERVICE_GROUPS\.map/, 'the kinds stopped coming from the shared groups');
+  assert.match(loader, /groupDisplayOptions\(/, 'the kinds stopped collapsing legacy keys that share a label');
 });
 
 test('the old door is untouched — a route-chosen kind has nothing to choose', () => {
@@ -162,15 +151,15 @@ test('one definition of the rule, asked by both the chooser and the save', () =>
 });
 
 test('the chooser asks that rule, with the shop’s real caps', () => {
-  const src = read(NEW_DOOR);
+  const src = read(LOADER);
   assert.match(src, /standingForCategory\(/, 'the chooser stopped asking which kinds are allowed');
-  // The caps have to be THIS shop's, including the founder override the save
-  // applies — a chooser reading the default tier would grey a founder's list.
-  assert.match(src, /tierCaps\(asVendorTier\(tierRowTyped\?\.tier_state\)\)/, 'the chooser stopped reading the shop’s plan');
+  // The caps have to be THIS shop's, including the founder override the save applies.
+  assert.match(src, /tierCaps\(asVendorTier\(tierRow\?\.tier_state\)\)/, 'the chooser stopped reading the shop’s plan');
   assert.match(src, /is_founder === true/, 'the chooser stopped honouring the founder override');
-  // Families come from cards ∪ coverages — coverage is the source of truth, and
-  // a coverage-first shop (zero cards) is the common case.
-  assert.match(src, /coverageParents\(supabase/, 'the chooser stopped counting coverage families');
+  // Families come from cards ∪ coverages — the coverages are read once and their families derived, the SAME union
+  // `coverageParents()` gives the save.
+  assert.match(src, /\.\.\.\[\.\.\.coveredLeafSet\]\.map\(\(l\) => leaves\.folder\.get\(l\)\)/, 'the chooser stopped counting coverage families');
+  assert.match(src, /ownCategories\.flatMap\(\(c\) => parentsOfKind\(c, leaves\)\)/, 'the chooser stopped counting card families');
 });
 
 test('a refused kind is disabled, not merely greyed', () => {
@@ -206,113 +195,45 @@ test('a one-trade shop is asked nothing', () => {
 // painting itself. Everything else was always optional and only LOOKED required
 // because it was all on screen at once.
 
-test('the pass asks the publish gate and nothing else', () => {
+test('every publish requirement is a FIRST question, before More settings', () => {
+  // ⚖ The first questions ARE the gate (the 2026-10-14 prototype: "only the three things that make it visible are
+  // open"). Derived from the gate, so a requirement that joins it fails here first.
   const src = read(MAKER);
-  // ⚖ The steps ARE the gate. This guard is DERIVED from the gate rather than
-  // hard-typed, so it keeps meaning as the gate changes: every requirement in
-  // `PUBLISH_REQUIREMENTS` must have a question in the pass, and the pass must
-  // ask nothing that is not either a requirement or one of the two the maker
-  // owns for itself (the kind, and the cover photo the server never asks for).
-  //
-  // 🔑 IT ALREADY EARNED ITS KEEP ONCE. Its previous form pinned the literal
-  // `steps.push('media', 'excl')` with the note "if a third question ever joins
-  // them it is a product decision, not a tidy-up, and it fails here first" — and
-  // on 2026-08-28 a price joined the publish gate and this is exactly where it
-  // failed. The decision is the owner's (his own drawing: "Publish stays shut
-  // until the price is in"); the guard did its job by making it be one.
-  // ⚠ EVERY `steps.push(...)` in the memo, not the first one. A single-match
-  // read finds `steps.push('intro')` and concludes the pass asks one question —
-  // green for a pass that asks nothing the gate requires.
-  const steps: string[] = [...src.matchAll(/steps\.push\(([^)]*)\)/g)].flatMap((m) =>
-    [...(m[1] ?? '').matchAll(/'([a-z]+)'/g)].flatMap((o) => (o[1] ? [o[1]] : [])),
-  );
-  assert.ok(steps.length >= 3, `the pass pushes only ${steps.length} steps — it stopped being the gate`);
-  const SHEET_FOR_REQUIREMENT: Record<string, string | undefined> = {
-    // H2 (2026-09-11): the cover and "what's included" joined the gate — the
-    // owner's "the cover-photo · title · inclusions requirements stay".
-    cover: 'media',
+  const FOLD_FOR_REQUIREMENT: Record<string, string | undefined> = {
+    cover: 'photos',
     price: 'price',
-    inclusions: 'custom',
-    exclusive: 'excl',
+    inclusions: 'included',
   };
+  const more = src.indexOf('data="more"');
+  assert.ok(more > 0, 'More settings is gone');
   for (const requirement of PUBLISH_REQUIREMENTS) {
-    const sheet = SHEET_FOR_REQUIREMENT[requirement];
-    // ⚠ A requirement with no sheet mapped here is not a pass — it means the
-    // gate grew something this guard cannot see, which would otherwise sail
-    // through as "nothing to check".
-    if (!sheet) {
-      assert.fail(`the publish gate grew "${requirement}" and this guard has no sheet for it`);
-    }
-    assert.ok(
-      steps.includes(sheet),
-      `the publish gate requires "${requirement}" and the first pass never asks for it — ` +
-        'a supplier finishes the pass and meets a shut Publish button',
-    );
-    // …and the question must be answerable-gated, or Continue walks past it.
-    assert.match(
-      src,
-      new RegExp(`passStep === '${sheet}'`),
-      `the "${requirement}" question is in the pass with no Continue rule of its own`,
-    );
+    const fold = FOLD_FOR_REQUIREMENT[requirement];
+    if (!fold) assert.fail(`the publish gate grew "${requirement}" and this guard has no first question for it`);
+    const at = src.indexOf(`data="${fold}"`);
+    assert.ok(at > 0, `the publish gate requires "${requirement}" and the maker has no "${fold}" question`);
+    assert.ok(at < more, `"${requirement}" sits under More settings — a supplier would meet a hidden card`);
   }
-  const OWN = ['media', 'intro', 'kind'];
-  const sheets = Object.values(SHEET_FOR_REQUIREMENT).filter(
-    (v): v is string => typeof v === 'string',
-  );
-  const extras = steps.filter((s) => !OWN.includes(s) && !sheets.includes(s));
-  assert.deepEqual(
-    extras,
-    [],
-    'the first pass grew a question that is not part of the publish gate — a product decision, not a tidy-up',
-  );
-  // The kind is asked ONLY when the shop's own record cannot answer it.
-  assert.match(src, /if \(!category\) steps\.push\('kind'\)/, 'the pass started asking a shop that already knows');
 });
 
-test('the pass is only ever the blank card on the new-card door', () => {
+test('the status line asks the publish gate, never a list of its own', () => {
   const src = read(MAKER);
-  assert.match(
-    src,
-    /if \(!canChooseKind \|\| initial !== null\) return \[\];/,
-    'the first pass leaked onto the [category] door or onto a copied card',
-  );
-  // Frozen at mount: answering must not renumber the question on screen.
-  assert.match(src, /const \[passIndex, setPassIndex\] = useState/, 'the pass stopped tracking where it is');
+  assert.match(src, /const status = makerStatus\(/, 'the status line stopped asking the shared rule');
+  const lib = read('lib/service-card-maker.ts');
+  assert.match(lib, /unmetPublishRequirements\(facts\)/, 'makerStatus stopped asking the publish gate');
+  assert.match(lib, /'Hidden until:'/, 'the prototype’s words are gone');
 });
 
-test('every question can be left, and leaving lands on the whole card', () => {
-  const src = read(MAKER);
-  assert.match(src, /Skip &rsquo;|Skip — I&rsquo;ll build it myself/, 'the skip out of the pass is gone');
-  assert.match(src, /onClose=\{inPass \? leavePass : \(\) => setSheet\(null\)\}/, 'closing a guided sheet stopped leaving the pass');
-  // Continue is never a gate — a vendor with nothing to add here moves on and
-  // meets the real gate at Publish.
-  assert.ok(
-    !/disabled=\{[^}]*inPass/.test(src),
-    'the pass grew a gate of its own — the publish gate is the only gate',
-  );
-});
 
-test('the card stays visible while it paints, and is not graded mid-build', () => {
-  const src = read(MAKER);
-  // The guided sheet drops the dark veil; every later edit is still a modal.
-  assert.match(src, /guided\s*\n?\s*\? 'absolute inset-0 cursor-default'/, 'the first pass started veiling the card it is painting');
-  // ⚠ Matches the guided branch's OPENING, not the whole class string: the
-  // desktop column was added to that same branch later, and an assertion pinned
-  // to the exact string would have failed for a change it does not care about.
-  assert.match(src, /guided\s*\n?\s*\?[\s\S]{0,400}'max-h-\[58dvh\]/, 'the guided sheet stopped leaving the card room');
-  // No meter over two unanswered questions.
-  assert.match(src, /\{inPass \? null : \(\s*<HealthHeader/, 'the score came back during the first pass');
-});
+
+
+
+
 
 test('a pre-filled kind says where it came from', () => {
   const src = read(MAKER);
-  assert.match(src, /from your shop · change/, 'the pre-filled kind stopped explaining itself');
+  assert.match(src, /From your shop · change/, 'the pre-filled kind stopped explaining itself');
   assert.match(src, /setKindFromShop\(false\)/, 'picking a kind by hand still claims it came from the shop');
 });
-
-// ---------------------------------------------------------------------------
-// THE HALF-FINISHED CARD IS KEPT (owner 2026-08-28 · "add it")
-// ---------------------------------------------------------------------------
 
 test('what was typed is held in the vendor’s own browser, never in a card row', () => {
   const src = read(MAKER);
@@ -340,21 +261,16 @@ test('every touch of storage is wrapped — it throws outright in some browsers'
 
 test('a kept card is offered, never restored behind their back', () => {
   const src = read(MAKER);
-  assert.match(src, /You left a card here/, 'the offer is gone — work would come back unasked');
-  assert.match(src, /Pick up where I left off/, 'the way to take it back is gone');
-  assert.match(src, /Start a fresh card/, 'the way to refuse it is gone');
-  // An unanswered offer must not have a question opening on top of it.
-  assert.match(
-    src,
-    /!\(offeredKeep && !keepDecided\)/,
-    'the first pass stopped waiting for the offer to be answered',
-  );
+  assert.match(src, /Picked up where you left off\?/, 'the offer is gone — work would come back unasked');
+  assert.match(src, /label="Pick up"/, 'the way to take it back is gone');
+  assert.match(src, /label="Fresh"/, 'the way to refuse it is gone');
+  assert.match(src, /offeredKeep && !keepDecided/, 'the offer stopped waiting to be answered');
 });
 
-test('saving clears the keep, and a copied card never offers one', () => {
+test('saving clears the keep, and a copied or existing card never offers one', () => {
   const src = read(MAKER);
   assert.match(src, /addEventListener\('submit', clearKeep\)/, 'a saved card would keep offering its own draft back');
-  assert.match(src, /if \(initial !== null\) return;/, 'a card started FROM another card started offering an abandoned one');
+  assert.match(src, /if \(initial !== null \|\| isEdit\) return;/, 'a copied or existing card started offering an abandoned one');
 });
 
 test('restoring puts state through React and everything else through the DOM', () => {
@@ -371,35 +287,13 @@ test('restoring puts state through React and everything else through the DOM', (
 // (owner 2026-08-28 · "build it")
 // ---------------------------------------------------------------------------
 
-test('the card is explained once, ever — never to a shop on its fourth card', () => {
-  const src = read(MAKER);
-  assert.match(src, /if \(firstCardEver\) steps\.push\('intro'\)/, 'the first-card explainer is gone');
-  const door = read(NEW_DOOR);
-  assert.match(
-    door,
-    /firstCardEver=\{ownCategories\.length === 0\}/,
-    'the explainer stopped asking whether this shop has ever made a card',
-  );
-  // It carries no field — it is the one screen that answers "what am I making?"
-  assert.ok(
-    !/id="canvas-intro"[\s\S]{0,1200}<input/.test(src),
-    'the explainer grew a field — it is a sentence, not a question',
-  );
-});
 
-test('a value arriving on the card is REMOUNTED, not class-toggled', () => {
+
+test('the card on top is the SHIPPED face, painted from the live form', () => {
   const src = read(MAKER);
-  // 🔑 A CSS animation that has already run does not replay because the class is
-  // set again. Keying each node on its own value is the whole mechanism; a
-  // static className here would animate once and then never again.
-  assert.match(src, /key=\{snap\.priceLine\} className="sn-paint-in"/, 'the price stopped landing visibly');
-  assert.match(src, /key=\{comesWith\.join\('\|'\)\}/, 'what couples get stopped landing visibly');
-  // The Setnayan gift became a yes/no on 2026-09-09, so the key is now the
-  // boolean rather than the length of the retired free text. The MECHANISM is
-  // unchanged and is what this line guards: the region is keyed on its own
-  // value, so it remounts and replays the paint-in when the answer changes.
-  assert.match(src, /key=\{giftOn \? 'gift-on' : 'gift-off'\}/, 'the Setnayan gift stopped lighting up');
-  assert.match(src, /key="cover-set" className="sn-paint-cover/, 'the cover stopped settling in');
+  // One card for couples and suppliers (owner 2026-09-08: "we want to show the actual service cards").
+  assert.match(src, /import \{ ServiceCardFace \} from '\.\/service-card-face';/, 'the maker drew its own card');
+  assert.match(src, /readSnapshot\(fd\)/, 'the face stopped reading the live form');
 });
 
 test('every painted state has a reduced-motion off switch', () => {
@@ -417,56 +311,11 @@ test('every painted state has a reduced-motion off switch', () => {
   }
 });
 
-test('the ready pulse cannot remount the card it sits on', () => {
-  const src = read(MAKER);
-  // Keying the CARD would remount the title input mid-typing. The wrapper costs
-  // nothing inside it.
-  assert.match(
-    src,
-    /key=\{blocked \? 'card-blocked' : 'card-ready'\} className=\{blocked \? undefined : 'sn-paint-live/,
-    'the ready pulse moved onto the card itself, which remounts the name field',
-  );
-});
 
-test('on a laptop the question sits beside the card, not over it', () => {
-  const src = read(MAKER);
-  assert.match(src, /lg:right-0[^']*lg:max-w-\[400px\]/, 'the guided panel stopped becoming a column on desktop');
-  // Only the guided presentation moves — an ordinary edit is still a sheet.
-  assert.match(src, /: 'max-h-\[78dvh\]'/, 'the normal sheet lost its own sizing');
-});
 
-// ---------------------------------------------------------------------------
-// THE SHIPPED SCREEN MATCHES WHAT WAS DRAWN (owner 2026-08-28 · "make sure we
-// achieve that output" — prototypes/service_card_wizard_2026-08-28.html rev 2)
-// ---------------------------------------------------------------------------
-//
-// ⚖ EACH ONE IS A PROMISE THE DRAWING MAKES, not a preference. They are pinned
-// separately so a regression names the promise it broke rather than "the maker
-// changed".
 
-test('Continue waits for the answer; skip never does', () => {
-  const src = read(MAKER);
-  // Drawn: "the Continue button stays off until the required thing on that sheet
-  // exists". Letting it past an empty question only moves the same refusal
-  // further from the field that fixes it.
-  assert.match(src, /passStep === 'media'\s*\n?\s*\? snap\.hasCover/, 'the photo question stopped waiting for a photo');
-  assert.match(src, /passStep === 'price'\s*\n?\s*\? snap\.hasPrice/, 'the price question stopped waiting for a price');
-  // ⚖ THE GIFT QUESTION DELIBERATELY NO LONGER HOLDS CONTINUE (owner 2026-09-09:
-  // it is optional). The question stays in the pass — it is still worth
-  // offering — but a shop may walk straight past it. This was the THIRD place
-  // the old rule was written, after `PUBLISH_REQUIREMENTS` and the database
-  // trigger, and it is the one a new shop meets first: relaxing the other two
-  // without it would have left the ruling invisible to exactly the people it is
-  // for. Pinned in `lib/the-setnayan-gift-is-optional.test.ts`.
-  const answered = src.slice(src.indexOf('const passAnswered ='));
-  assert.ok(
-    !/perk/.test(answered.slice(0, answered.indexOf(';'))),
-    'Continue waits for a gift again — the gift is optional',
-  );
-  assert.match(src, /disabled=\{!passAnswered\}/, 'Continue stopped waiting at all');
-  // The escape must survive the gate, or it is a disabled button with no way past.
-  assert.match(src, /Skip — I&rsquo;ll build it myself/, 'the skip went away with the gate');
-});
+
+
 
 test('the card name is written for them, and never over their typing', () => {
   const src = read(MAKER);
@@ -477,30 +326,15 @@ test('the card name is written for them, and never over their typing', () => {
 
 test('the covered band speaks the shop’s own words', () => {
   const src = read(MAKER);
-  const door = read(NEW_DOOR);
-  // 🔑 THE RULE IS UNCHANGED AND IS NOW MET MORE STRONGLY. SetnaProd's leaf is
-  // "Pabati"; a supplier must never be asked to recognise their trade under a
-  // word they never chose.
-  //
-  // When this was written no "Pabati" PILL existed — the pills bridged by
-  // FAMILY — so the only way to say the shop's own word was to quote it in the
-  // band's prose: `What you already do — your ${coverageNames…}`. The owner then
-  // ruled on the vocabulary itself (2026-08-28, *"yes their own words"*), so the
-  // band's pills ARE the coverage words now and their stored value is the leaf.
-  // Keeping the old assertion would have pinned the WORKAROUND and rejected the
-  // fix; quoting the names in prose as well would print *Pabati* twice, once as
-  // text and once as the thing you press.
-  assert.match(
-    door,
-    /const coverageKindOptions = vendorCoverages\.map\(/,
-    'the covered band stopped being built from the shop’s own coverage',
-  );
+  const door = read(LOADER);
+  // SetnaProd's leaf is "Pabati"; a supplier is never asked to recognise their trade under a word they never chose
+  // (owner 2026-08-28, "yes their own words"). The band's rows ARE the coverage words and their stored value is the leaf.
+  assert.match(door, /const coverageKindOptions = vendorCoverages\.map\(/, 'the covered band stopped being built from the shop’s own coverage');
   assert.match(door, /leafLabel\(c\.canonical_service\)/, 'the coverage names stopped coming from the taxonomy');
   assert.match(door, /value: c\.canonical_service/, 'the band offers the shop’s words but stores something else');
-  // The band still says whose words these are, and the names still reach the
-  // maker for that sentence.
   assert.match(src, /in your own words/, 'the covered band stopped saying whose words these are');
-  assert.match(door, /coverageNames=\{coverageNames\}/, 'the door stopped passing the coverage names');
+  // The 2026-10-14 heading: "Common for a caterer".
+  assert.match(src, /heading=\{`Common for \$\{typeWord\}`\}/, 'the band lost its "Common for …" heading');
 });
 
 test('the full list is searchable, and says so when nothing matches', () => {
@@ -509,33 +343,28 @@ test('the full list is searchable, and says so when nothing matches', () => {
   assert.match(src, /Nothing matches/, 'an empty search result says nothing at all');
 });
 
-test('the optional depth is named under the card, and starts shut', () => {
+test('every other field lives under More settings, and it starts shut', () => {
   const src = read(MAKER);
-  assert.match(src, /Make it richer — all optional, any time/, 'the optional list is gone');
-  // ⚖ SHUT BY DEFAULT: the point of two questions is that a supplier can stop —
-  // a list that greets them open is the wall coming back one section lower.
-  const at = src.indexOf('Make it richer');
-  const tag = src.lastIndexOf('<details', at);
-  assert.ok(tag > 0 && !/\bopen\b/.test(src.slice(tag, at)), 'the optional list started open');
-  // It opens the SAME sheets the card opens — one maker, listed twice.
-  // (2026-10-12: through `askSheet` — the same sheets, except that on a card a couple's link
-  // seeded, the price sheet waits for the photo and what's included, `lib/price-waits.ts`.)
-  assert.match(src, /onClick=\{\(\) => askSheet\(row\.key\)\}/, 'the optional list stopped opening the shipped sheets');
-  assert.match(src, /const askSheet = \(key: SheetKey\) =>\s*setSheet\(/, 'askSheet no longer opens the shipped sheets');
+  const at = src.indexOf('data="more"');
+  assert.ok(at > 0, 'More settings is gone');
+  const head = src.slice(src.lastIndexOf('<Fold', at), at + 300);
+  assert.match(head, /defaultOpen=\{discountSeed !== null\}/, 'More settings opens by itself — the wall coming back one row lower');
+  // The prototype's folds, in its order (makerMore()).
+  const folds = ['m-price', 'm-disc', 'm-inc', 'm-addons', 'm-gift', 'm-crew', 'm-terms', 'm-pay', 'm-who', 'm-details', 'm-comes', 'm-record', 'm-portfolio', 'm-live'];
+  let last = at;
+  for (const f of folds) {
+    const i = src.indexOf(`data="${f}"`);
+    assert.ok(i > last, `the "${f}" fold is missing or out of the prototype's order`);
+    last = i;
+  }
 });
 
-test('the publish moment says the right thing in both directions', () => {
+test('ONE Create: live when the gate is met, else saved not shown yet (owner 2026-10-08 Q3)', () => {
   const src = read(MAKER);
-  assert.match(src, /Everything you have typed stays on this screen while you finish\./, 'the refusal stopped reassuring');
-  assert.match(src, /Your card is ready\./, 'the ready state stopped saying so');
+  assert.match(src, /const gateOpen = canPublishService\(facts\);/, 'Create stopped asking the shared gate');
+  assert.match(src, /isEdit \? \(liveOn \? 'true' : 'false'\) : gateOpen \? 'true' : 'false'/, 'the one Create stopped deciding live / not shown yet from the gate');
+  assert.match(src, /<input type="hidden" name="publish" value=\{publishValue\} \/>/, 'the publish answer stopped posting');
+  assert.ok(!/Save as draft/.test(src), 'a second save button is back');
 });
 
-test('the explainer shows a card, because that is what it is explaining', () => {
-  const src = read(MAKER);
-  const intro = src.slice(src.indexOf('id="canvas-intro"'));
-  const body = intro.slice(0, intro.indexOf('</CanvasSheet>'));
-  // S43 · 6: the sample became trade-neutral (see the-card-maker-sample-is-honest.test.ts).
-  assert.match(body, /from ₱25,000 per event/, 'the sample card is gone from the explainer');
-  // Plainly a sample — never a fake card of theirs.
-  assert.match(body, /A sample card — this is what couples browse\./, 'the sample stopped saying it is a sample');
-});
+

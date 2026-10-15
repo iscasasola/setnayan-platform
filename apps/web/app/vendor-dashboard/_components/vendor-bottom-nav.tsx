@@ -139,6 +139,8 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/profile',
       '/vendor-dashboard/verify',
       '/vendor-dashboard/website',
+      // Your collections — Shop › Page's third screen (step 5, 2026-10-14).
+      '/vendor-dashboard/collections',
       '/vendor-dashboard/reviews',
       '/vendor-dashboard/theft-watch',
       '/vendor-dashboard/real-stories',

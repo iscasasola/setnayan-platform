@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 682 files · 1887 lines
+# 677 files · 1859 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -601,7 +601,6 @@
 3 apps/web/app/vendor-dashboard/disputes/page.tsx
 10 apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx
 1 apps/web/app/vendor-dashboard/messages/_components/inquiry-outcomes-rollup.tsx
-2 apps/web/app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx
 4 apps/web/app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx
@@ -641,7 +640,7 @@
 2 apps/web/app/vendor-dashboard/recommendations/_panel.tsx
 2 apps/web/app/vendor-dashboard/reviews/page.tsx
 1 apps/web/app/vendor-dashboard/services/_components/addons-editor.tsx
-12 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx
+2 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx
 3 apps/web/app/vendor-dashboard/services/_components/coverage-panel.tsx
 3 apps/web/app/vendor-dashboard/services/_components/customization-step.tsx
 3 apps/web/app/vendor-dashboard/services/_components/payment-schedule-editor.tsx
@@ -650,13 +649,12 @@
 1 apps/web/app/vendor-dashboard/services/_components/service-card-face.tsx
 4 apps/web/app/vendor-dashboard/services/_components/service-list-editors.tsx
 4 apps/web/app/vendor-dashboard/services/_components/service-wizard.tsx
-16 apps/web/app/vendor-dashboard/services/_components/services-manager.tsx
+12 apps/web/app/vendor-dashboard/services/_components/services-manager.tsx
 1 apps/web/app/vendor-dashboard/services/_components/showcase-media-fields.tsx
 1 apps/web/app/vendor-dashboard/services/new/[category]/page.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/autoreply-card.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/docs-body.tsx
 8 apps/web/app/vendor-dashboard/shop/_components/editable-row.tsx
-1 apps/web/app/vendor-dashboard/shop/_components/manage-tiles.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/public-line-card.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/reach-map.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/service-radius-fields.tsx
@@ -668,15 +666,12 @@
 6 apps/web/app/vendor-dashboard/shop/_components/verify-section.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/visibility-card.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/voice-match-card.tsx
-2 apps/web/app/vendor-dashboard/shop/_components/website-editor.tsx
-2 apps/web/app/vendor-dashboard/shop/page.tsx
+1 apps/web/app/vendor-dashboard/shop/page.tsx
 3 apps/web/app/vendor-dashboard/subscription/_components/ai-addon-card.tsx
 3 apps/web/app/vendor-dashboard/subscription/_components/booth-addon-card.tsx
 2 apps/web/app/vendor-dashboard/subscription/_components/papic-challenge-card.tsx
-1 apps/web/app/vendor-dashboard/subscription/_components/subscription-cards.tsx
 2 apps/web/app/vendor-dashboard/subscription/custom/_components/custom-configurator.tsx
 1 apps/web/app/vendor-dashboard/subscription/page.tsx
-7 apps/web/app/vendor-dashboard/team/page.tsx
 1 apps/web/app/vendor-dashboard/theft-watch/page.tsx
 1 apps/web/app/vendor-dashboard/track-record/page.tsx
 1 apps/web/app/vendor-invite/[slug]/loading.tsx

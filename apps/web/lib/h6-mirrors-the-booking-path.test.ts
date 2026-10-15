@@ -169,10 +169,10 @@ function mirrorParts(body: string): Record<Cte, string> {
 
 type Predicate = { name: string; side: 'pools' | 'slots' | 'count' | 'gate' | 'agree'; booking: RegExp; mirror: Array<[Cte, RegExp]> };
 
+// 2026-10-14 (migration 20271269411264): a block covers a day through THE ONE RULE — a one-off range on the Manila
+// calendar, or a REPEAT from its first day (`calendar_block_on_day`; TS twin lib/not-available.ts).
 const DAY_COVERS = (d: string) =>
-  new RegExp(
-    `\\(b\\.blocked_at AT TIME ZONE 'Asia/Manila'\\)::date <= ${d} AND \\(b\\.blocked_until AT TIME ZONE 'Asia/Manila'\\)::date >= ${d}`,
-  );
+  new RegExp(`public\\.calendar_block_on_day\\(b\\.blocked_at, b\\.blocked_until, b\\.repeat_rule, b\\.repeat_until, ${d}\\)`);
 
 const PREDICATES: Predicate[] = [
   {
@@ -201,6 +201,23 @@ const PREDICATES: Predicate[] = [
       ['pool_refused', DAY_COVERS('d\\.day')],
       ['shop_closed', DAY_COVERS('d\\.day')],
     ],
+  },
+  {
+    // A morning / afternoon / evening block refuses only the times it meets (the slot gate below) — never a date.
+    name: 'only an all-day block closes a date',
+    side: 'pools',
+    booking: /AND b\.day_part = 'all_day'/,
+    mirror: [
+      ['pool_refused', /AND b\.day_part = 'all_day'/],
+      ['shop_closed', /AND b\.day_part = 'all_day'/],
+    ],
+  },
+  {
+    // Every Sunday morning refuses a Sunday 10 AM slot, not 3 PM — one shared predicate on both sides.
+    name: 'a slot meeting "Not available" hours is refused',
+    side: 'slots',
+    booking: /public\.calendar_blocks_refuse_slot\(p_service_id, v_date, v_start, v_end\)/,
+    mirror: [['slot_refused', /NOT public\.calendar_blocks_refuse_slot\(sl\.sid, d\.day, sl\.st, sl\.et\)/]],
   },
   {
     name: 'a day state covers the pool or the whole shop',
@@ -505,14 +522,15 @@ test('the pool resolver still reads exactly what the mirror reads', () => {
   const rpcs = new Set([...body.matchAll(/\.rpc\(\s*'([a-z_]+)'/g)].map((m) => m[1]));
   assert.deepEqual(
     [...tables].sort(),
-    ['vendor_schedule_calendar_services', 'vendor_service_links', 'vendor_services'],
+    // vendor_service_halls: a card on halls is on exactly its halls (owner 2026-10-14 🏛).
+    ['vendor_schedule_calendar_services', 'vendor_service_halls', 'vendor_service_links', 'vendor_services'],
     'resolvePoolIdsForService reads a new source — service_cards_unbookable_on must read it too',
   );
   assert.deepEqual([...rpcs], ['resolve_schedule_pool']);
   assert.match(body, /namedCalendarsEnabled\(\)/, 'the lock reads the named-calendars switch through the one helper');
   // resolve_schedule_pool finds an existing pool through the category map.
   assert.match(resolver.body, /FROM public\.vendor_schedule_pool_categories WHERE vendor_profile_id = p_vendor_profile_id AND category_key = p_category_key/);
-  for (const t of ['vendor_schedule_calendar_services', 'vendor_service_links', 'vendor_schedule_pool_categories']) {
+  for (const t of ['vendor_schedule_calendar_services', 'vendor_service_halls', 'vendor_service_links', 'vendor_schedule_pool_categories']) {
     assert.match(mirror.body, new RegExp(`public\\.${t}\\b`), `the mirror no longer reads ${t}`);
   }
   // The search passes the same switch.

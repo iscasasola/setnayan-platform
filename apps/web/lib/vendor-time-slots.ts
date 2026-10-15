@@ -1,18 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Vendor tier feature #3 — Enterprise-only TIME-BOUND booking slots.
- * Canonical: Vendor_Tier_Capability_Matrix_2026-06-07.md · owner 2026-06-07
- * (Enterprise-only) + 2026-06-09 (the couple PICKS the slot at lock).
+ * EXACT TIME SLOTS — TIME-BOUND booking slots, on EVERY plan since 2026-10-14
+ * (owner, DECISION_LOG 🧑‍🤝‍🧑 call 3; were Enterprise-only, "tier feature #3").
+ * Canonical: Vendor_Tier_Capability_Matrix_2026-06-07.md · owner 2026-06-09
+ * (the couple PICKS the slot at lock).
  *
- * An Enterprise vendor plots named per-service time windows ("AM Ceremony",
+ * A supplier plots named per-service time windows ("AM Ceremony",
  * "Grand Ballroom"), each with its own per-day capacity. When a service has
  * >=1 active slot, finalizeVendor enforces PER-SLOT same-date counts (via the
  * atomic acquire_service_time_slot RPC) and SKIPS vendor_services.daily_capacity
  * (#2). Services with zero slots keep #2 unchanged.
  *
- * Tier gate (slotsPerDay === Infinity = Enterprise) lives in vendor-tier-caps
- * (`canPlotTimeSlots`) and is re-checked server-side on every plot/edit action.
+ * `canPlotTimeSlots` (vendor-tier-caps) answers true for every plan. A slot that
+ * overlaps a part-day "Not available" block is refused on that day by
+ * acquire_service_time_slot (migration 20271269411264).
  */
 
 export const SLOT_LABEL_MAX = 80;

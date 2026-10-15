@@ -51,10 +51,10 @@ function RowRemove({ onClick, label }: { onClick: () => void; label: string }) {
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border"
       style={{ borderColor: line, color: 'var(--m-slate)' }}
     >
-      <X className="h-3.5 w-3.5" strokeWidth={1.75} />
+      <X className="h-4 w-4" strokeWidth={1.75} />
     </button>
   );
 }
@@ -64,10 +64,10 @@ function AddRowButton({ onClick, children }: { onClick: () => void; children: Re
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 text-xs font-medium"
+      className="sn-press inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold"
       style={{ color: 'var(--m-orange-2)' }}
     >
-      <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+      <Plus className="h-4 w-4" strokeWidth={2} />
       {children}
     </button>
   );
@@ -79,15 +79,58 @@ function AddRowButton({ onClick, children }: { onClick: () => void; children: Re
 export type InclusionDraft = { label: string; worth: string };
 type InclusionRow = InclusionDraft & { key: number };
 
-export function InclusionsEditor({ initial }: { initial: InclusionDraft[] }) {
-  const nextKey = useRef(initial.length);
+export function InclusionsEditor({
+  initial,
+  bare = false,
+}: {
+  initial: InclusionDraft[];
+  /**
+   * The rows only, open, with ONE line ready to type when there is none (the simpler maker's "What's included ·
+   * One line is enough", 2026-10-14) — no second fold inside the maker's own. Same field names.
+   */
+  bare?: boolean;
+}) {
+  const nextKey = useRef(Math.max(initial.length, 1));
   const [rows, setRows] = useState<InclusionRow[]>(
-    initial.map((r, i) => ({ key: i, ...r })),
+    initial.length > 0 || !bare
+      ? initial.map((r, i) => ({ key: i, ...r }))
+      : [{ key: 0, label: '', worth: '' }],
   );
 
   const add = () =>
     setRows((cur) => [...cur, { key: nextKey.current++, label: '', worth: '' }]);
   const remove = (key: number) => setRows((cur) => cur.filter((r) => r.key !== key));
+
+  if (bare) {
+    return (
+      <div className="space-y-2" data-inclusions-bare="">
+        {rows.map((r, i) => (
+          <div key={r.key} className="flex items-center gap-2">
+            <input
+              name="inclusion_label"
+              defaultValue={r.label}
+              maxLength={80}
+              aria-label={`Included ${i + 1}`}
+              placeholder="e.g. Same-day highlight reel"
+              className="input-field min-w-0 flex-[2]"
+            />
+            <input
+              name="inclusion_worth"
+              defaultValue={r.worth}
+              type="number"
+              min={0}
+              step={1}
+              aria-label="Worth (PHP, optional)"
+              placeholder="worth ₱"
+              className="input-field min-w-0 flex-1"
+            />
+            <RowRemove onClick={() => remove(r.key)} label="Remove inclusion" />
+          </div>
+        ))}
+        <AddRowButton onClick={add}>Add a line</AddRowButton>
+      </div>
+    );
+  }
 
   return (
     <details

@@ -82,6 +82,8 @@ const SERVER_ONLY_STUB = path.join(process.cwd(), '__server_only_stub__.js');
  *       foreign key is returned as an error, never guessed around
  *   await .from(t).update(row).eq(...)
  *   await .from(t).upsert(row, { onConflict: 'a,b' })
+ * …and, since 2026-10-14, a `text[]` value on insert / update / upsert (the 🏷 coverage write of
+ * lib/vendor-coverage-write.ts).
  * A jsonb column is written as JSON (the column's own type is read from the
  * catalog) — PGlite would otherwise send a JS array as a Postgres array.
  * Anything else throws loudly rather than silently skipping the call.
@@ -268,6 +270,12 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
       params.push(JSON.stringify(value));
       return `$${params.length}::jsonb`;
     }
+    // A text[] column (vendor_coverages.event_types · vendor_profiles.services): PGlite binds a JS array as its
+    // FIRST ELEMENT, so the array travels as JSON and is unpacked in SQL — every element, in order.
+    if (t.rows[0]?.data_type === 'ARRAY' && Array.isArray(value)) {
+      params.push(JSON.stringify(value));
+      return `ARRAY(SELECT jsonb_array_elements_text($${params.length}::jsonb))`;
+    }
     params.push(value);
     return `$${params.length}`;
   }
@@ -324,12 +332,16 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
       const entries = Object.entries(this.payload ?? {});
       assertModelled(entries.length > 0, `.insert({}) into ${this.table}`);
       const names = entries.map(([c]) => `"${c}"`).join(', ');
-      const values = entries
-        .map(([, v]) => {
+      // An array value goes through `bind` (see the text[] note there); every other value binds as before.
+      const parts: string[] = [];
+      for (const [c, v] of entries) {
+        if (Array.isArray(v)) parts.push(await this.bind(c, v, params));
+        else {
           params.push(v);
-          return `$${params.length}`;
-        })
-        .join(', ');
+          parts.push(`$${params.length}`);
+        }
+      }
+      const values = parts.join(', ');
       sql =
         `INSERT INTO public."${this.table}" (${names}) VALUES (${values})` +
         (this.projection ? ` RETURNING ${this.cols()}` : '');

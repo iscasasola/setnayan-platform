@@ -156,20 +156,20 @@ test('2b · the trigger stopped RE-JUDGING a live card when its gift text change
   assert.match(judging, /starting_price_php/, 'the judging clause stopped watching the price');
 });
 
-test('3 · the guided first pass lets a shop walk past the gift', () => {
+test('3 · the maker never waits on the gift — it sits under More settings, and Create asks the gate alone', () => {
+  // The guided pass retired with the simpler maker (2026-10-14). The ruling survives in its new shape: the gift is
+  // NOT a first question, and the facts Create asks the gate with carry no gift.
   const maker = read(
     join(WEB, 'app', 'vendor-dashboard', 'services', '_components', 'canvas-maker.tsx'),
   );
-  const start = maker.indexOf('const passAnswered =');
-  assert.ok(start > 0, 'the pass no longer computes whether its question is answered');
-  const clause = maker.slice(start, maker.indexOf(';', start));
-  assert.ok(
-    !/perk/.test(clause),
-    'Continue still waits for a gift — a new shop cannot reach the state the ruling created',
-  );
-  // The two that DO still hold it, so this never becomes "nothing blocks anything".
-  assert.match(clause, /snap\.hasCover/, 'the cover photo stopped holding Continue');
-  assert.match(clause, /snap\.hasPrice/, 'the price stopped holding Continue');
+  const more = maker.indexOf('data="more"');
+  const gift = maker.indexOf('data="m-gift"');
+  assert.ok(more > 0 && gift > more, 'the gift became a first question — a new shop would read it as required');
+  const facts = maker.slice(maker.indexOf('const facts = {'), maker.indexOf('};', maker.indexOf('const facts = {')));
+  assert.ok(facts.length > 20, 'the facts Create asks the gate with could not be read');
+  assert.ok(!/gift|perk|Exclusive/i.test(facts), 'Create is feeding a gift fact to the gate again');
+  assert.match(facts, /hasCover/, 'the cover photo stopped holding Create');
+  assert.match(facts, /hasPrice/, 'the price stopped holding Create');
 });
 
 test('4 · nothing in the app still calls the gate with a gift fact', () => {
@@ -179,7 +179,7 @@ test('4 · nothing in the app still calls the gate with a gift fact', () => {
   // reaches a reviewer.
   const files = [
     join(WEB, 'app', 'vendor-dashboard', 'services', 'actions.ts'),
-    join(WEB, 'app', 'vendor-dashboard', 'services', '_components', 'publish-gate-submit.tsx'),
+    join(WEB, 'app', 'vendor-dashboard', 'services', '_components', 'canvas-maker.tsx'),
     join(WEB, 'app', 'vendor-dashboard', 'services', '_components', 'service-wizard.tsx'),
     join(WEB, 'lib', 'card-health.ts'),
   ];

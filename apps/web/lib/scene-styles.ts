@@ -72,6 +72,13 @@ export type SceneStyle = {
   stages?: readonly HubStage[];
   /** The event types it suits (`events.event_type`). Absent = every type. */
   eventTypes?: readonly string[];
+  /**
+   * 🏷 ONE ID, A STAGE'S OWN WORDS — set by the merge, never written in a list. When two files register the SAME
+   * id under DIFFERENT names (the entourage's `roll-call`: Post Event's "Roll call", the Invitation's and the Day's
+   * "On the axis", owner 2026-10-15), the id stays one style — so a pick still carries across stages — and each
+   * stage the later file draws it on shows that file's name and line (`sceneStylesOn`).
+   */
+  stageNames?: Partial<Record<HubStage, { name: string; line: string }>>;
 };
 
 export type SceneStyleSet = {
@@ -106,10 +113,16 @@ export function mergeSceneStyleSets(...lists: ReadonlyArray<readonly SceneStyleS
         if (i < 0) into.styles.push({ ...st });
         else {
           const was = into.styles[i]!;
+          /* The same id under another name: that file's words on that file's stages (see `stageNames`). */
+          const renamed =
+            st.stages && (st.name !== was.name || st.line !== was.line)
+              ? Object.fromEntries(st.stages.map((stage) => [stage, { name: st.name, line: st.line }]))
+              : null;
           into.styles[i] = {
             ...was,
             stages: union(was.stages, st.stages),
             eventTypes: union(was.eventTypes, st.eventTypes),
+            ...(renamed ? { stageNames: { ...was.stageNames, ...renamed } } : {}),
           };
         }
       }
@@ -137,11 +150,16 @@ export function sceneStyleSet(type: string | null | undefined): SceneStyleSet | 
 export function sceneStylesOn(type: string | null | undefined, stage: HubStage, eventType?: string | null): SceneStyle[] {
   const set = sceneStyleSet(type);
   if (!set) return [];
-  return set.styles.filter(
-    (st) =>
-      (!st.stages || st.stages.includes(stage)) &&
-      (!st.eventTypes || !eventType || st.eventTypes.includes(eventType)),
-  );
+  return set.styles
+    .filter(
+      (st) =>
+        (!st.stages || st.stages.includes(stage)) &&
+        (!st.eventTypes || !eventType || st.eventTypes.includes(eventType)),
+    )
+    .map((st) => {
+      const own = st.stageNames?.[stage];
+      return own ? { ...st, ...own } : st;
+    });
 }
 
 /** The style a scene wears on this stage when nothing was picked. Null = the type has no styles here. */

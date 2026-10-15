@@ -138,15 +138,24 @@ test('supplier · the card mounts the answer, gated on the rule, fed the SAME tw
     least one. That survives any number of feeds AND catches the thing a bare
     `>= 1` would miss — one correct binding beside one wrong one.
   */
-  const overviewAgreeBindings = overview.match(/agreeLock=\{[^}]*\}/g) ?? [];
+  // 🧩 Since the simpler Today (2026-10-14) the Overview hands its answers to the one drawing (`SupplierTodayScreen`)
+  // as an `actions` object (`agreeLock: vendorAgreeToLock,`), and the drawing binds only what it is handed
+  // (`agreeLock={actions.agreeLock}` on the Next card, `{...actions}` on the rows). Both halves are asserted.
+  const overviewAgreeBindings = overview.match(/agreeLock(?:=\{[^}]*\}|: [A-Za-z.]+,)/g) ?? [];
   assert.ok(
     overviewAgreeBindings.length >= 1,
     'the Overview stopped posting the same action — no agreeLock binding at all',
   );
   assert.deepEqual(
     [...new Set(overviewAgreeBindings)],
-    ['agreeLock={vendorAgreeToLock}'],
+    ['agreeLock: vendorAgreeToLock,'],
     `the Overview posts an agree action the chat card does not: ${[...new Set(overviewAgreeBindings)].join(' · ')}`,
+  );
+  const screen = read('app/vendor-dashboard/_components/supplier-today-screen.tsx');
+  assert.deepEqual(
+    [...new Set(screen.match(/agreeLock=\{[^}]*\}/g) ?? [])],
+    ['agreeLock={actions.agreeLock}'],
+    'the Today drawing binds an agree action it was not handed',
   );
   // Exactly one definition of each answer.
   const defs = (name: string) => count(actions, new RegExp(`export async function ${name}\\(`, 'g'));

@@ -106,7 +106,7 @@ async function renderToday(target: unknown, action = 'Go'): Promise<string> {
       meta: null,
       numbers: { waiting: '1', waitingNow: true, thisWeek: '2', toComeIn: '3' },
       comingUp: [],
-      shop: { name: 'Shop', line: 'Photo & video · Live', live: true },
+      shop: { name: 'Shop', line: 'Photo & video · couples can find you', pill: 'Live' },
     }),
   );
 }

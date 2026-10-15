@@ -334,8 +334,9 @@ export function makerSave<T>(send: () => Promise<T>, refresh: () => void, option
  */
 export const MAKER_SAVES_QUIET_EVENT = 'setnayan:maker-saves-quiet';
 function announceSavesQuiet(): void {
-  if (typeof window === 'undefined') return;
-  window.setTimeout(() => {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+  setTimeout(() => {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
     if (shared.inFlight() + writer.pending() === 0) window.dispatchEvent(new Event(MAKER_SAVES_QUIET_EVENT));
   }, 0);
 }

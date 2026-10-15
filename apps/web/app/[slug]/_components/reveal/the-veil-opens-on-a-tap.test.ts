@@ -83,7 +83,8 @@ test('🎵 the unveil runs inside the gesture: onUnveil first, synchronously, in
   assert.match(OVERLAY, /onUnveil=\{unveilInGesture\}/, 'the guest overlay no longer unveils inside the gesture');
   // …which lets the page play FIRST, then tells the music.
   const fn = HUB_VEIL.slice(HUB_VEIL.indexOf('export function unveilInGesture'));
-  assert.ok(fn.indexOf('releaseVeilHold()') < fn.indexOf('cb()'), 'release must come before the unveil callbacks, or the song is held');
+  const rel = fn.indexOf('releaseVeilHold()');
+  assert.ok(rel > 0 && rel < fn.indexOf('cb()'), 'the unveil must release the page, before its callbacks, or the song is held');
   // Called DIRECTLY — never through dispatchEvent (DECISION_LOG 2026-06-22: no gesture credit through a dispatched event).
   assert.equal(/dispatchEvent/.test(fn.slice(0, fn.indexOf('\n}'))), false, 'the unveil reaches the music through a dispatched event');
 });

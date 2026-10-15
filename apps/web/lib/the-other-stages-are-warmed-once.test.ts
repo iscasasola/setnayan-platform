@@ -354,6 +354,17 @@ test('⏳ a save before the warm PUTS IT OFF: nothing is warmed while it is on i
   }
 });
 
+test('⏳ warmOnce itself: a save on its way returns the state untouched and the list as it was — put off, never spent', () => {
+  const m = new MakerOpen('rsvp');
+  m.settle();
+  const left = m.wanted().slice(0, 1);
+  const step = warmOnce(m.s, left, m.wanted(), 1, { ready: () => true, hidden: false, saved: true });
+  assert.equal(step.state, m.s, 'nothing warmed during a save');
+  assert.equal(step.left, left, 'the decision is put off, not spent');
+  const none = warmOnce(m.s, null, m.wanted(), 1, { ready: () => true, hidden: false, saved: true });
+  assert.equal(none.left, null);
+});
+
 test('a save in the middle of the warm: the stage being warmed is kept — nothing more is fetched, during or after', () => {
   const m = new MakerOpen('rsvp');
   m.settle();

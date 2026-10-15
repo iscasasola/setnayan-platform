@@ -91,7 +91,8 @@ test('🎵 the unveil runs inside the gesture: onUnveil first, synchronously, in
   // The pointerup is where it is wired.
   assert.match(VEIL, /window\.addEventListener\('pointerup', release\)/, 'the gestures no longer run on pointerup');
   // The guest overlay hands the veil the one in-gesture unveil.
-  assert.match(OVERLAY, /onUnveil=\{unveilInGesture\}/, 'the guest overlay no longer unveils inside the gesture');
+  // The overlay's unveil: `unveilInGesture()` FIRST (the music's play() must run in the gesture), then the hint goes.
+  assert.match(OVERLAY, /onUnveil=\{\(\) => \{\s*unveilInGesture\(\);\s*setLifting\(true\);\s*\}\}/, 'the guest overlay no longer unveils inside the gesture (unveilInGesture first)');
   // …which lets the page play FIRST, then tells the music.
   const fn = HUB_VEIL.slice(HUB_VEIL.indexOf('export function unveilInGesture'));
   const rel = fn.indexOf('releaseVeilHold()');
@@ -253,4 +254,11 @@ test('the unveil calls its callbacks in the same call stack, and a refused one n
   unveilInGesture();
   assert.deepEqual(calls, ['song', 'after'], 'an unsubscribed callback still ran');
   assert.equal(HUB_VEIL_RELEASED_EVENT, 'hub-veil-released');
+});
+
+test('👆 the instruction goes the moment the guest taps or swipes — not when the cloth has risen (live 2026-10-15, /cale-ice)', () => {
+  const hint = OVERLAY.slice(OVERLAY.lastIndexOf('data-veil-hint', OVERLAY.indexOf('{VEIL_HINT}')), OVERLAY.indexOf('{VEIL_HINT}'));
+  assert.ok(hint.length > 0, 'anti-vacuity: the hint lost its data-veil-hint marker');
+  assert.match(hint, /lifting \? 'opacity-0 duration-0'/, 'the hint waits for the lift to finish (or fades slowly) after the guest has already tapped');
+  assert.match(OVERLAY, /setLifting\(true\)/, 'nothing marks the veil as lifting at the gesture');
 });

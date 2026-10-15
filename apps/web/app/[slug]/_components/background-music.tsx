@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 import { HUB_MUSIC_BUTTON_DEFAULT, type HubMusicButton } from '@/lib/hub-music-button';
 import { MUSIC_BUTTON_CLASS, MusicButtonFace } from './music-button-face';
-import { HUB_UNVEIL_EVENT, VEIL_FREE_ATTR } from '@/lib/hub-veil';
+import { onUnveil as whenUnveiled, VEIL_FREE_ATTR } from '@/lib/hub-veil';
 
 /**
  * Looping background music for the wedding site (Increment B ·
@@ -81,11 +81,11 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
 
   /*
     🎵 THE UNVEIL STARTS THE SONG (owner 2026-10-15, verbatim: "when they unveil, the music starts playing upon
-    tap"). The veil fires `HUB_UNVEIL_EVENT` synchronously inside the guest's tap / swipe up, and `play()` is
-    called HERE, in that listener — still inside the gesture, the one moment a browser lets sound start (iOS
+    tap"). The veil calls this synchronously inside the guest's tap / swipe up (`onUnveil`, a direct call —
+    not a dispatched event), and `play()` is called HERE — still inside the gesture, the one moment a browser lets sound start (iOS
     Safari refuses anything later, silently). Not after the lift, not in a timeout.
     🔇 A REFUSAL IS NOT SILENT: the button stays ▶ and "Tap for their song" stays under it, exactly as before
-    the first tap. No veil on the page → the event never fires → the song starts on a tap, as it always has.
+    the first tap. No veil on the page → this is never called → the song starts on a tap, as it always has.
     Reduced motion has no say over sound: those guests get no veil, so their song is the tap, as today.
   */
   useEffect(() => {
@@ -97,8 +97,7 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
         if (ok) setTouched(true);
       });
     };
-    window.addEventListener(HUB_UNVEIL_EVENT, onUnveil);
-    return () => window.removeEventListener(HUB_UNVEIL_EVENT, onUnveil);
+    return whenUnveiled(onUnveil);
   }, []);
 
   /** The ONE way the song starts — the guest's tap on the button, or their tap / swipe that opened the veil. */

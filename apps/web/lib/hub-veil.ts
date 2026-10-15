@@ -44,11 +44,18 @@ export const REVEAL_LAYER_ATTR = 'data-reveal-layer';
 /** On a media element that only plays on the guest's own tap, or that owns its own wait for the lift. */
 export const VEIL_FREE_ATTR = 'data-veil-free';
 /**
- * 👆 Dispatched on `window` SYNCHRONOUSLY INSIDE THE UNVEIL GESTURE (tap / swipe up). A listener that starts
- * sound must call `play()` in the listener itself — not after the lift, not in a timeout — or the browser
- * refuses it (silently, on iOS Safari above all).
+ * 👆 Who runs INSIDE THE UNVEIL GESTURE (tap / swipe up) — called DIRECTLY, in the gesture's own call stack,
+ * not through `dispatchEvent` (DECISION_LOG 2026-06-22: never rely on a dispatched event for iOS gesture
+ * credit). A callback that starts sound must call `play()` in itself — not after the lift, not in a timeout —
+ * or the browser refuses it (silently, on iOS Safari above all). Returns the unsubscribe.
  */
-export const HUB_UNVEIL_EVENT = 'hub-unveil';
+const unveilCallbacks = new Set<() => void>();
+export function onUnveil(cb: () => void): () => void {
+  unveilCallbacks.add(cb);
+  return () => {
+    unveilCallbacks.delete(cb);
+  };
+}
 /** Dispatched on `window` when the hold comes off — by the gesture or by the opening standing down. */
 export const HUB_VEIL_RELEASED_EVENT = 'hub-veil-released';
 /** No opening claimed the page in this long → the script lets go by itself (fail-visible). */
@@ -133,12 +140,18 @@ export function releaseVeilHold(): void {
 
 /**
  * 👆 THE UNVEIL, INSIDE THE GESTURE. Call it synchronously from the tap's / swipe's own handler: the page is
- * released first (so a player starting now is not held), then `HUB_UNVEIL_EVENT` lets the music start in the
- * same activation.
+ * released first (so a player starting now is not held), then every `onUnveil` callback runs — directly, in
+ * the same call stack — so the music starts in the same activation.
  */
 export function unveilInGesture(): void {
   releaseVeilHold();
-  if (typeof window !== 'undefined') window.dispatchEvent(new Event(HUB_UNVEIL_EVENT));
+  for (const cb of [...unveilCallbacks]) {
+    try {
+      cb();
+    } catch {
+      /* one callback never stops the unveil */
+    }
+  }
 }
 
 /** True while an opening holds the page. */

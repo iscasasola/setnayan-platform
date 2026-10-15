@@ -616,13 +616,17 @@ export function CanvasMaker({
       deferred = setTimeout(read, 0);
     };
     read();
-    form.addEventListener('input', read);
-    form.addEventListener('change', read);
+    // 🪤 EVERY live read waits a tick (supplier batch walk, 2026-10-15 — W1). This listener sits on the <form>, which
+    // the event reaches BEFORE React's root listener: a synchronous setSnap/setFace there re-rendered the controlled
+    // Name (`value={title}`) back to its old value before its onChange ran, so React saw no change and every keystroke
+    // in Name was lost (both engines). Reading after the commit lets React take the keystroke first.
+    form.addEventListener('input', readAfterCommit);
+    form.addEventListener('change', readAfterCommit);
     form.addEventListener('click', readAfterCommit);
     const tick = setInterval(read, 400);
     return () => {
-      form.removeEventListener('input', read);
-      form.removeEventListener('change', read);
+      form.removeEventListener('input', readAfterCommit);
+      form.removeEventListener('change', readAfterCommit);
       form.removeEventListener('click', readAfterCommit);
       if (deferred) clearTimeout(deferred);
       clearInterval(tick);

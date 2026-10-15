@@ -377,8 +377,12 @@ test('the card is wired to the LIVE form — no per-region save, nothing waits f
   // descendant of the card <form> (in-page folds, no sheet holds a field since
   // the supplier-easy step 3 rebuild; every-sheet-field-posts-with-the-card.test.ts
   // pins that), so their events bubble through it…
-  assert.match(canvas, /form\.addEventListener\('input', read\)/);
-  assert.match(canvas, /form\.addEventListener\('change', read\)/);
+  // …and READ A TICK LATER (W1, 2026-10-15): the form hears an event before React's root listener, so a synchronous
+  // state update there re-rendered the controlled Name back to its old value and every keystroke was lost.
+  assert.match(canvas, /form\.addEventListener\('input', readAfterCommit\)/);
+  assert.match(canvas, /form\.addEventListener\('change', readAfterCommit\)/);
+  assert.doesNotMatch(canvas, /form\.addEventListener\('(?:input|change)', read\)/, 'a synchronous live read eats the Name keystrokes');
+  assert.match(canvas, /const readAfterCommit = \(\) => \{[\s\S]{0,120}setTimeout\(read, 0\)/, 'the deferred read no longer defers');
   // …plus a deferred click read, because the basis picker and the unit toggles
   // are type="button" controls writing React-controlled hidden inputs.
   assert.match(canvas, /form\.addEventListener\('click', readAfterCommit\)/);

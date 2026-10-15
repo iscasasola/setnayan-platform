@@ -200,3 +200,81 @@ test('every banned frame still exists — a rotted ban protects nothing', () => 
     );
   }
 });
+
+/**
+ * ── EVERY DEMO FILE AN ADD-ON PAGE NAMES, NOT ONLY A SPOTLIGHT'S ───────────
+ *
+ * The test above reads the three SPOTLIGHT shapes. It did not read the other
+ * ways a doorway names a demo file — a bare `src="/add-ons/demo/x.mp4"` /
+ * `poster=` on a page's own `<video>`, a `<DemoFilm slug="x">`, the `/pa3d`
+ * parts list, or the app cards' `RICH_MEDIA` table — and that is exactly how
+ * `/panood` shipped a "This is what turning it on looks like." section around a
+ * film that was never recorded: an empty gap on a public page and two 404s on
+ * every visit, found by the live quality sweep (2026-10-13, item 2), not by CI.
+ *
+ * Rule: any `/add-ons/demo/...` file named by a shelled page, and both halves
+ * (`.mp4` + its `.jpg` poster) of every film slug, must exist under `public/`.
+ * A film that is not recorded yet is OMITTED, never referenced and hidden.
+ */
+const DEMO_LITERAL = /['"`](\/add-ons\/demo\/[a-z0-9/_-]+\.(?:mp4|webm|jpg|jpeg|png|webp|avif))['"`]/g;
+const DEMOFILM_SLUG = /<DemoFilm\b[^>]*?\bslug=["']([a-z0-9-]+)["']/g;
+
+function filmHalves(slug: string): string[] {
+  return ['mp4', 'jpg'].map((ext) => `/add-ons/demo/${slug}.${ext}`).filter((rel) => !existsSync(join(PUBLIC, rel)));
+}
+
+/** Every .ts/.tsx under a shelled route folder, recursively (a page's private
+ *  `_components` included) — the spotlight scan above reads one level only. */
+function shelledSourcesDeep(): Array<{ path: string; src: string }> {
+  const out: Array<{ path: string; src: string }> = [];
+  const walk = (abs: string, rel: string) => {
+    for (const f of readdirSync(abs)) {
+      const a = join(abs, f);
+      const r = `${rel}/${f}`;
+      if (statSync(a).isDirectory()) walk(a, r);
+      else if (/\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f)) out.push({ path: r, src: stripComments(readFileSync(a, 'utf8')) });
+    }
+  };
+  walk(SHELLED, 'app/(shell)');
+  for (const rel of ['app/_components/marketing/_demo-film.tsx', 'app/_components/app-store/studio-card-demo.tsx']) {
+    out.push({ path: rel, src: stripComments(readFileSync(join(WEB, rel), 'utf8')) });
+  }
+  return out;
+}
+
+test('every demo file an add-on page names exists in public/ (no film that was never recorded)', () => {
+  const missing: string[] = [];
+  let seen = 0;
+  for (const { path, src } of shelledSourcesDeep()) {
+    for (const m of src.matchAll(DEMO_LITERAL)) {
+      seen++;
+      if (!existsSync(join(PUBLIC, m[1]!))) missing.push(`${path} → ${m[1]}`);
+    }
+    for (const m of src.matchAll(DEMOFILM_SLUG)) {
+      seen++;
+      for (const rel of filmHalves(m[1]!)) missing.push(`${path} → <DemoFilm slug="${m[1]}"> needs ${rel}`);
+    }
+  }
+  // The app cards' looping films — `m('slug')` rows in RICH_MEDIA.
+  const cards = stripComments(readFileSync(join(WEB, 'app/_components/app-store/studio-card-demo.tsx'), 'utf8'));
+  const table = cards.slice(cards.indexOf('const RICH_MEDIA'));
+  const cardSlugs = [...table.slice(0, table.indexOf('};')).matchAll(/\bm\(\s*['"]([a-z0-9-]+)['"]\s*\)/g)].map((m) => m[1]!);
+  assert.ok(cardSlugs.length >= 5, `RICH_MEDIA read ${cardSlugs.length} rows — did its shape change?`);
+  for (const slug of cardSlugs) for (const rel of filmHalves(slug)) missing.push(`studio-card-demo.tsx RICH_MEDIA → ${rel}`);
+  // /pa3d's three parts each play `PartFilm slug={p.slug}` — the slugs live in PARTS.
+  const pa3d = stripComments(readFileSync(join(SHELLED, 'pa3d', 'page.tsx'), 'utf8'));
+  const partsBlock = pa3d.slice(pa3d.indexOf('const PARTS'));
+  const partSlugs = [...partsBlock.slice(0, partsBlock.indexOf('] as const')).matchAll(/\bslug:\s*['"]([a-z0-9-]+)['"]/g)].map((m) => m[1]!);
+  assert.ok(partSlugs.length >= 3, `/pa3d PARTS read ${partSlugs.length} film slugs — did its shape change?`);
+  for (const slug of partSlugs) for (const rel of filmHalves(slug)) missing.push(`(shell)/pa3d/page.tsx PARTS → ${rel}`);
+  seen += cardSlugs.length + partSlugs.length;
+
+  assert.ok(seen > 10, `the scan found only ${seen} demo references — did the pages change shape?`);
+  assert.deepEqual(
+    missing,
+    [],
+    'These demo files are named by an add-on page and do not exist under public/. ' +
+      'Record and commit the file, or OMIT the section until it exists — never ship a ' +
+      'heading over an empty frame:\n  ' + missing.join('\n  '),
+  );
+});

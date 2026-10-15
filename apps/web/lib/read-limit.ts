@@ -71,6 +71,12 @@ const DECORATION_READS: ReadonlyArray<RegExp> = [
   // The arrival banner.
   /^guest_checkins$/,
   /^scan_events$/,
+  // The Welcome door's open-wish count (`readOpenWishCount`, a HEAD count): unread is `null`, and the
+  // door then names no list — never "0 things". Production 2026-10-15 08:50: during a database
+  // stall this ONE read lapsed while the event itself had answered, and the guest was shown "This
+  // invitation didn't load" over a line about a gift list. (On the gift page itself the list read
+  // has its own honest `{ read: false }`; that page opens no read-limit scope.)
+  /^event_wish_items$/,
 ];
 
 export type ReadLapse = { what: string; essential: boolean; waitedMs: number };

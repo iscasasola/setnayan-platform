@@ -25,10 +25,16 @@ export function ProfileChecklistEditor({
   items,
   data,
   isVerified,
+  showProgress = true,
 }: {
   items: BusinessProfileItem[];
   data: ProfileFieldData;
   isVerified: boolean;
+  /**
+   * Your details (step 5) mounts this editor once per fold with that fold's rows only, under the screen's ONE
+   * progress line — so the per-editor badge, count and bar step aside there. Default: exactly as it was.
+   */
+  showProgress?: boolean;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -38,6 +44,7 @@ export function ProfileChecklistEditor({
 
   return (
     <div className="space-y-4">
+      {showProgress ? (
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           {isVerified ? (
@@ -90,6 +97,7 @@ export function ProfileChecklistEditor({
           </p>
         )}
       </div>
+      ) : null}
 
       <ul className="space-y-2">
         {items.map((item) =>

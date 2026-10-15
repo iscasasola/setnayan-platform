@@ -286,7 +286,7 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
             caption whose code is the fixed mono no font choice changes (`--font-space-mono`) — ON A CARD, the page's
             plate (`bg-paper-deep`), so the Mood Board's Supporting ("Cards · panels") shows here too (owner 2026-10-14:
             "changing colors does not show on preview" — it had nowhere to show). */}
-        <p aria-hidden data-look-sample-styles="" data-look-sample-card="" className="mt-2.5 flex items-baseline gap-3 rounded-lg bg-paper-deep px-3 py-1.5 font-sans text-[11.5px] text-ink">
+        <p aria-hidden data-look-sample-styles="" data-look-sample-card="" className="mt-2.5 flex items-baseline gap-3 rounded-lg bg-paper-deep px-3 py-1.5 font-sans text-[11.5px] text-ink dark:text-ink-on-plate">
           <span data-look-sample-style="heading" className="font-display text-[14px]">
             Our day
           </span>

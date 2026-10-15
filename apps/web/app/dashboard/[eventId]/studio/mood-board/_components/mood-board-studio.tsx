@@ -1069,7 +1069,7 @@ function NoteSheet({ label, start, onClose, onSave }: { label: string; start: st
           maxLength={120}
           placeholder="e.g. ivory, not white"
           aria-label={label}
-          className="h-11 w-full rounded-xl border border-ink/15 bg-white px-3 text-[14px] text-ink" // no-card-ok: a text field, not a container
+          className="h-11 w-full rounded-xl border border-ink/15 bg-raised px-3 text-[14px] text-ink" // no-card-ok: a text field, not a container
         />
         <div className="flex gap-2 [&>span]:flex-1 [&_.ab]:w-full">
           <span>

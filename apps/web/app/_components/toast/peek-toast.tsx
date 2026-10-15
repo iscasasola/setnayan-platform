@@ -84,11 +84,13 @@ export function peekToastUnder(doc: Pick<Document, 'querySelectorAll'>): number 
   });
   return Math.round(bottom);
 }
-/** The two looks — the accent for a good result; the danger token, darkened, for a failure. */
+/** The two looks — the accent for a good result; the danger token, darkened, for a failure. In dark (PR 4, 2026-10-13) the
+ *  note and the small pills are the approved card (`dark:bg-raised`, the template's `--surf`) — white with dark-mode ink
+ *  was white on white — and the failure's words are the page's ink (cream turns dark there). */
 export const PEEK_TOAST_TONE: Readonly<Record<PeekToastTone, string>> = {
   ok: 'bg-sn-accent text-sn-on-accent',
-  bad: 'bg-[color-mix(in_srgb,rgb(var(--color-danger))_68%,black)] !pl-[18px] !pr-2 text-cream',
-  note: 'bg-white text-ink ring-1 ring-inset ring-ink/15',
+  bad: 'bg-[color-mix(in_srgb,rgb(var(--color-danger))_68%,black)] !pl-[18px] !pr-2 text-cream dark:text-ink',
+  note: 'bg-white text-ink ring-1 ring-inset ring-ink/15 dark:bg-raised',
 };
 
 export type PeekToastAction = { label: string; onPress: () => void };
@@ -148,12 +150,12 @@ export function PeekToast({
         <Mark aria-hidden className="h-[18px] w-[18px] flex-none" strokeWidth={2.4} />
         <span className={PEEK_TOAST_WORDS}>{children}</span>
         {action ? (
-          <button type="button" onClick={action.onPress} data-peek-toast-action="" className="sn-press pointer-events-auto inline-flex !h-[34px] !min-h-0 flex-none items-center rounded-full bg-white px-3.5 text-[13px] font-bold text-ink">
+          <button type="button" onClick={action.onPress} data-peek-toast-action="" className="sn-press sn-hit pointer-events-auto inline-flex !h-[34px] !min-h-0 flex-none items-center rounded-full bg-white px-3.5 text-[13px] font-bold text-ink dark:bg-raised">
             {action.label}
           </button>
         ) : null}
         {tone === 'bad' && onRetry ? (
-          <button type="button" onClick={onRetry} data-peek-toast-retry="" className="sn-press pointer-events-auto inline-flex !h-[34px] !min-h-0 flex-none items-center rounded-full bg-white px-3.5 text-[13px] font-bold text-ink">
+          <button type="button" onClick={onRetry} data-peek-toast-retry="" className="sn-press sn-hit pointer-events-auto inline-flex !h-[34px] !min-h-0 flex-none items-center rounded-full bg-white px-3.5 text-[13px] font-bold text-ink dark:bg-raised">
             Try again
           </button>
         ) : null}

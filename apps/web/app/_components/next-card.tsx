@@ -52,6 +52,9 @@ export function NextCard({
   day = false,
   note,
   soft = false,
+  who = null,
+  eyebrow = null,
+  rows = null,
 }: {
   marker: 'data-home-next' | 'data-today-next';
   kind: string;
@@ -97,6 +100,16 @@ export function NextCard({
   day?: boolean;
   note?: ReactNode;
   soft?: boolean;
+  /**
+   * 🧾 THE SIMPLER SUPPLIER TODAY (owner APPROVE 2026-10-14, `supplier_easy_dashboard_2026-10-14_fable.html`).
+   * Optional, read only by the `actions` variant; the couple's Home passes none and is unchanged.
+   *   `who`     the couple's initials in a small circle before the title ("RC")
+   *   `eyebrow` the words in place of "Your next step" (an event day: "Today · live since 12:00")
+   *   `rows`    what sits between the line and the buttons — a booking ask's fee and its answer
+   */
+  who?: string | null;
+  eyebrow?: string | null;
+  rows?: ReactNode;
 }) {
   if (actions !== undefined) {
     return (
@@ -115,12 +128,25 @@ export function NextCard({
           </span>
         ) : null}
         <p className="home-eyebrow">
-          Your next step
+          {eyebrow ?? 'Your next step'}
           {meta ? <> · {meta}</> : null}
         </p>
-        <h2 className="home-card-title">{title}</h2>
+        <h2 className="home-card-title">
+          {who ? (
+            <span
+              data-next-who=""
+              aria-hidden
+              className="mr-2 inline-grid h-[34px] w-[34px] place-items-center rounded-full align-middle text-[12px] font-semibold not-italic"
+              style={{ background: 'color-mix(in srgb, rgb(var(--color-gild)) 16%, transparent)' }}
+            >
+              {who}
+            </span>
+          ) : null}
+          {title}
+        </h2>
         <p className="home-card-body">{body}</p>
-        <div className="home-acts">{actions}</div>
+        {rows ? <div data-next-rows="">{rows}</div> : null}
+        {actions ? <div className="home-acts">{actions}</div> : null}
         {note ? <p data-next-note="" className={`mt-2 text-[12.5px] leading-snug ${day ? 'text-cream/70 dark:text-ink/70' : 'text-ink/60'}`}>{note}</p> : null}
       </div>
     );

@@ -53,6 +53,17 @@ type Props = {
    * They return the moment the box is empty again.
    */
   accessories?: ReactNode;
+  /**
+   * ONE control at the start of the row, always shown — the supplier's grey ＋ that opens the Tools sheet (simpler
+   * supplier dashboard step 4, 2026-10-14: "＋ · message · Send"). It must be a `type="button"`, never a form.
+   */
+  lead?: ReactNode;
+  /**
+   * The paperclip moves into the ＋ sheet ("Share a file or the contract"): the visible button is dropped, the file
+   * input stays — with this id, so the sheet's row opens the SAME picker and the file still rides this form's
+   * `attachment` with every limit and the compression it has. Absent → the paperclip, unchanged (the couple's page).
+   */
+  attachInputId?: string;
 };
 
 // The picker's list and the size ceilings are DERIVED from the one shared
@@ -61,7 +72,7 @@ type Props = {
 // which is how a picker comes to offer a type the server refuses, with a file
 // that simply will not send as the only symptom.
 
-export function ChatSendForm({ threadId, sendAction, accessories }: Props) {
+export function ChatSendForm({ threadId, sendAction, accessories, lead, attachInputId }: Props) {
   const [hasDraft, setHasDraft] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -201,15 +212,22 @@ export function ChatSendForm({ threadId, sendAction, accessories }: Props) {
       ) : null}
 
       <div className="flex items-end gap-2">
-        {/* Paperclip attach button — opens the OS file picker. */}
+        {lead ?? null}
+        {/* Paperclip attach button — opens the OS file picker. With `attachInputId` the button is gone (the ＋ sheet
+            opens the picker) but the input stays, clipped, so the picked file still rides this form. */}
         <label
-          className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md border border-ink/15 text-ink/60 hover:bg-ink/[0.04] hover:text-ink"
+          className={
+            attachInputId
+              ? 'sr-only'
+              : 'inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md border border-ink/15 text-ink/60 hover:bg-ink/[0.04] hover:text-ink'
+          }
           title="Attach a file"
         >
           <span className="sr-only">Attach a file</span>
           <Paperclip className="h-4 w-4" strokeWidth={1.75} />
           <input
             ref={fileInputRef}
+            id={attachInputId}
             type="file"
             name="attachment"
             accept={CHAT_ATTACHMENT_ACCEPT}

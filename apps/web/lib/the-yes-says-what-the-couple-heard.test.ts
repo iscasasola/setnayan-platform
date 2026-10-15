@@ -63,7 +63,10 @@ test('3 · every page that says the answer reads the flag back (Today · the cus
   };
   for (const [rel, re] of Object.entries(readers)) assert.match(src(rel), re, `${rel} says "the couple has been told" without asking whether it was`);
   assert.match(src('app/vendor-dashboard/messages/[threadId]/page.tsx'), /lockAnswer\.door \?[\s\S]{0,200}href=\{lockAnswer\.door\.href\}/);
-  // Today and the card draw the new bill with its own Pay right there (`BookingFeeBills`).
-  assert.match(src('app/vendor-dashboard/page.tsx'), /<BookingFeeBills/);
+  // Today and the card draw the new bill with its own Pay right there (`BookingFeeBills`) — Today through its one
+  // drawing (`SupplierTodayScreen`), which since the simpler Today (2026-10-14) ALSO draws the sentence's own door
+  // ("Pay the booking fee") on the status line under the Next card.
+  assert.match(src('app/vendor-dashboard/_components/supplier-today-screen.tsx'), /<BookingFeeBills/);
+  assert.match(src('app/vendor-dashboard/page.tsx'), /door: lockAnswer\.door \?\? null,/, 'Today drops the Pay door the fee-held sentence asks for');
   assert.match(src('app/vendor-dashboard/clients/[eventId]/page.tsx'), /<BookingFeeBills/);
 });

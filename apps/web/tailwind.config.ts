@@ -1,6 +1,38 @@
 import type { Config } from 'tailwindcss';
 import defaultTheme from 'tailwindcss/defaultTheme';
 import tailwindcssAnimate from 'tailwindcss-animate';
+import plugin from 'tailwindcss/plugin';
+
+/* ── WORDS IN GOLD AND GREY READ AT 4.5:1 (quality sweep 2026-10-13, item 9) ──
+   The live sweep measured the three brand colours most often used as TEXT under
+   the WCAG AA floor on nearly every public page:
+     gold  #A9834B  3.48:1 on white   — every `text-terracotta` (349 pages)
+     grey  #8B8A89  3.45:1            — `text-ink/55` (357 pages)
+     grey  #969594  3.01:1            — `text-ink/50` (155 pages)
+   TEXT ONLY, through `theme.extend.textColor` (the `text-gild` precedent above):
+   `bg-*`, `border-*`, `fill-*`, `ring-*` keep the raw brand values, so every
+   fill, rule, pill and the logo look exactly as they did.
+     • `text-terracotta` → the accent's deepest step `--color-terracotta-700`
+       (#8C6932, 5.02:1). Every Event Hub look that moves the accent moves -700
+       with it (theme-colours, story-light, scene-legibility, candlelight …), so
+       a themed hub's words keep their theme. A gold ICON (an `<svg class="text-terracotta">`)
+       keeps the brand gold — see the plugin at the bottom; icons need 3:1.
+     • `text-ink/50` … `text-ink/65` → rendered at INK_TEXT_FLOOR (ink/70:
+       5.40:1 on white, 5.07:1 on the warm wash #F6F1E7). Fainter tints (/45 and
+       under) are left alone: those are separators, placeholders and disabled
+       states, which AA exempts. `lint:contrast` reads these two numbers from
+       this file and fails if either stops clearing 4.5:1.
+   ⚠ Two tokens are touched and no token VALUE changes — the light and dark
+   values in globals.css are byte-identical; only which value text points at. */
+const INK_TEXT_FLOOR = 0.7;
+const INK_TEXT_FLOOR_FROM = 0.5;
+function inkText({ opacityValue }: { opacityValue?: string }): string {
+  const a = Number(opacityValue);
+  if (Number.isFinite(a) && a >= INK_TEXT_FLOOR_FROM && a < INK_TEXT_FLOOR) {
+    return `rgb(var(--color-ink) / ${INK_TEXT_FLOOR})`;
+  }
+  return `rgb(var(--color-ink) / ${opacityValue ?? 1})`;
+}
 
 // Locked breakpoints per kickoff brief — Tailwind defaults match the spec
 // (sm 640 / md 768 / lg 1024 / xl 1280). Re-declared explicitly so a future
@@ -50,6 +82,15 @@ const config: Config = {
          ornaments (`bg-gild`, `border-gild`, rings, seals) keep the raw hue. */
       textColor: {
         gild: 'rgb(var(--color-gild-text, var(--color-gild)) / <alpha-value>)',
+        // Item 9 (see the note at the top): words in gold use the deepest step.
+        terracotta: {
+          DEFAULT: 'rgb(var(--color-terracotta-700) / <alpha-value>)',
+          500: 'rgb(var(--color-terracotta-700) / <alpha-value>)',
+        },
+        // Item 9: ink tints /50–/65 render at INK_TEXT_FLOOR when they are WORDS.
+        // Tailwind 3 accepts a function colour at runtime (withAlphaValue /
+        // withAlphaVariable call it) but its Config type does not say so.
+        ink: { DEFAULT: inkText as unknown as string },
       },
       // Single radius source of truth — every `rounded-*` class resolves to the
       // --m-r-* token scale in globals.css (Approach B "softer corners", owner-
@@ -171,19 +212,21 @@ const config: Config = {
         terracotta: {
           DEFAULT: 'rgb(var(--color-terracotta) / <alpha-value>)',
           // Champagne Gold tint ladder for fills / hover states / soft
-          // pills. Kept as raw hex (not CSS-var) because these are
-          // non-themed shades — they read fine on alabaster (light) and
-          // obsidian (dark) surfaces alike.
-          50: '#f9f5ec',
-          100: '#f3ecdf',
-          200: '#e4d4b4',
-          300: '#cba766',
-          400: '#b99456',
+          // pills. 🌗 TOKENS SINCE 2026-10-13 (dark mode, PR 1): each shade is
+          // `--ramp-terracotta-N` in globals.css — the SAME light value it
+          // held as hex, plus a dark value under html.dark (the ladder read
+          // from its other end, so a pale wash stays a quiet wash on a dark
+          // page). They were "fine on both" only while dark was never on.
+          50: 'rgb(var(--ramp-terracotta-50) / <alpha-value>)',
+          100: 'rgb(var(--ramp-terracotta-100) / <alpha-value>)',
+          200: 'rgb(var(--ramp-terracotta-200) / <alpha-value>)',
+          300: 'rgb(var(--ramp-terracotta-300) / <alpha-value>)',
+          400: 'rgb(var(--ramp-terracotta-400) / <alpha-value>)',
           500: 'rgb(var(--color-terracotta) / <alpha-value>)',
           600: 'rgb(var(--color-terracotta-600) / <alpha-value>)',
           700: 'rgb(var(--color-terracotta-700) / <alpha-value>)',
-          800: '#5c4726',
-          900: '#3f3019',
+          800: 'rgb(var(--ramp-terracotta-800) / <alpha-value>)',
+          900: 'rgb(var(--ramp-terracotta-900) / <alpha-value>)',
         },
         /*
           THE CANDLE — the colour the loudest table on the story's floor plan
@@ -208,24 +251,26 @@ const config: Config = {
         mulberry: {
           DEFAULT: 'rgb(var(--color-mulberry) / <alpha-value>)',
           // TERRACOTTA tint ladder (Warm Editorial Archive, owner 2026-08-01).
-          // 500/600/700 track the --color-mulberry vars; the rest are raw hex
+          // 500/600/700 track the --color-mulberry vars; the rest were
           // GENERATED from #C24E25 toward the cream page / a warm black —
-          // not hand-picked, so they cannot drift out of the hue.
+          // not hand-picked, so they cannot drift out of the hue. Since
+          // 2026-10-13 they are `--ramp-mulberry-N` tokens (same light value,
+          // dark value = the ladder read from its other end).
           //
           // ⚠ These static shades were GOLD (#f3ecdf … #3f3019) until now — a
           // leftover from when `mulberry` held the gold CTA (2026-07-12). With
           // the slot holding terracotta, a `bg-mulberry-100` would have painted
           // a gold wash under an orange button.
-          50: '#f9f1ea',
-          100: '#f5e5dc',
-          200: '#ebc7b8',
-          300: '#dea18a',
-          400: '#d07857',
+          50: 'rgb(var(--ramp-mulberry-50) / <alpha-value>)',
+          100: 'rgb(var(--ramp-mulberry-100) / <alpha-value>)',
+          200: 'rgb(var(--ramp-mulberry-200) / <alpha-value>)',
+          300: 'rgb(var(--ramp-mulberry-300) / <alpha-value>)',
+          400: 'rgb(var(--ramp-mulberry-400) / <alpha-value>)',
           500: 'rgb(var(--color-mulberry) / <alpha-value>)',
           600: 'rgb(var(--color-mulberry-600) / <alpha-value>)',
           700: 'rgb(var(--color-mulberry-700) / <alpha-value>)',
-          800: '#8c391b',
-          900: '#612813',
+          800: 'rgb(var(--ramp-mulberry-800) / <alpha-value>)',
+          900: 'rgb(var(--ramp-mulberry-900) / <alpha-value>)',
         },
         // `link` — NEW SLOT 2026-08-01 (Warm Editorial Archive). The app had no
         // link token; anchors inherited `ink`. Slate indigo, scoped by owner
@@ -271,6 +316,12 @@ const config: Config = {
         'accent-deep': 'var(--accent-deep)',
         'accent-soft': 'var(--accent-soft)',
         surface: 'var(--surface)',
+        // `raised` — a CARD above the page (dark mode PR 1, 2026-10-13). In
+        // Light it is white, exactly what `bg-white` paints today (the page
+        // has been white since 2026-08-20), so a `bg-white` → `bg-raised`
+        // swap changes no light pixel; in Dark it is the approved card
+        // #232019 on the #17160F page.
+        raised: 'rgb(var(--color-raised) / <alpha-value>)',
         'surface-soft': 'var(--surface-soft)',
         // ─────────────────────────────────────────────────────────────────
         // SEMANTIC STATUS FAMILIES (Wave-3 token swap · 2026-06-19)
@@ -288,47 +339,53 @@ const config: Config = {
         //   - `warn`    ← champagne gold  (--m-orange #C5A059 / --m-orange-2 #A88340)
         //                  (50–400 reuse the existing terracotta gold ladder verbatim)
         //   - `danger`  ← blush/terracotta(--m-blush #F4D7C9 / --m-blush-deep #B65A3A)
-        // Raw hex (not CSS-vars) — these are status accents, not themed
-        // surfaces, and read correctly on both alabaster (light) and obsidian
-        // (dark) backgrounds, same as the terracotta/mulberry ladders above.
+        // 🌗 TOKENS, NOT HEX (dark mode PR 1, owner "approve all" 2026-10-13).
+        // Every shade is `--ramp-<family>-<N>` in globals.css, holding the
+        // EXACT light value the hex held (so nothing in Light moves), with a
+        // dark value under html.dark: the same ladder read from its other end
+        // (50 ↔ 950, 100 ↔ 900 … 500 stays), so `bg-success-100
+        // text-success-800` is still a quiet chip with readable words on a
+        // dark page. One config file + one CSS block reach ~3,700 class uses.
+        // `lib/every-colour-token-has-a-dark-pair.test.ts` fails if a
+        // literal colour comes back here.
         success: {
-          50: '#f3f7f1',
-          100: '#e3ece0',
-          200: '#c5d2bd', // --m-sage
-          300: '#a3b89a',
-          400: '#7d9873',
-          500: '#5f7d55',
-          600: '#4f6b4a', // --m-sage-deep
-          700: '#41573d',
-          800: '#364632',
-          900: '#2c392a',
-          950: '#172013',
+          50: 'rgb(var(--ramp-success-50) / <alpha-value>)',
+          100: 'rgb(var(--ramp-success-100) / <alpha-value>)',
+          200: 'rgb(var(--ramp-success-200) / <alpha-value>)', // --m-sage
+          300: 'rgb(var(--ramp-success-300) / <alpha-value>)',
+          400: 'rgb(var(--ramp-success-400) / <alpha-value>)',
+          500: 'rgb(var(--ramp-success-500) / <alpha-value>)',
+          600: 'rgb(var(--ramp-success-600) / <alpha-value>)', // --m-sage-deep
+          700: 'rgb(var(--ramp-success-700) / <alpha-value>)',
+          800: 'rgb(var(--ramp-success-800) / <alpha-value>)',
+          900: 'rgb(var(--ramp-success-900) / <alpha-value>)',
+          950: 'rgb(var(--ramp-success-950) / <alpha-value>)',
         },
         warn: {
-          50: '#f9f5ec',
-          100: '#f3ecdf',
-          200: '#e4d4b4',
-          300: '#cba766',
-          400: '#b99456',
-          500: '#a9834b', // --m-orange (kit gold-500)
-          600: '#8a6b39', // --m-orange-2 (kit gold-700)
-          700: '#7a5e32',
-          800: '#5c4726',
-          900: '#3f3019',
-          950: '#2a200f',
+          50: 'rgb(var(--ramp-warn-50) / <alpha-value>)',
+          100: 'rgb(var(--ramp-warn-100) / <alpha-value>)',
+          200: 'rgb(var(--ramp-warn-200) / <alpha-value>)',
+          300: 'rgb(var(--ramp-warn-300) / <alpha-value>)',
+          400: 'rgb(var(--ramp-warn-400) / <alpha-value>)',
+          500: 'rgb(var(--ramp-warn-500) / <alpha-value>)', // --m-orange (kit gold-500)
+          600: 'rgb(var(--ramp-warn-600) / <alpha-value>)', // --m-orange-2 (kit gold-700)
+          700: 'rgb(var(--ramp-warn-700) / <alpha-value>)',
+          800: 'rgb(var(--ramp-warn-800) / <alpha-value>)',
+          900: 'rgb(var(--ramp-warn-900) / <alpha-value>)',
+          950: 'rgb(var(--ramp-warn-950) / <alpha-value>)',
         },
         danger: {
-          50: '#fdf4f0',
-          100: '#f4d7c9', // --m-blush
-          200: '#eab8a2',
-          300: '#dd9477',
-          400: '#cd7252',
-          500: '#bf5d3f',
-          600: '#b65a3a', // --m-blush-deep
-          700: '#974930',
-          800: '#783b28',
-          900: '#5f3021',
-          950: '#34170f',
+          50: 'rgb(var(--ramp-danger-50) / <alpha-value>)',
+          100: 'rgb(var(--ramp-danger-100) / <alpha-value>)', // --m-blush
+          200: 'rgb(var(--ramp-danger-200) / <alpha-value>)',
+          300: 'rgb(var(--ramp-danger-300) / <alpha-value>)',
+          400: 'rgb(var(--ramp-danger-400) / <alpha-value>)',
+          500: 'rgb(var(--ramp-danger-500) / <alpha-value>)',
+          600: 'rgb(var(--ramp-danger-600) / <alpha-value>)', // --m-blush-deep
+          700: 'rgb(var(--ramp-danger-700) / <alpha-value>)',
+          800: 'rgb(var(--ramp-danger-800) / <alpha-value>)',
+          900: 'rgb(var(--ramp-danger-900) / <alpha-value>)',
+          950: 'rgb(var(--ramp-danger-950) / <alpha-value>)',
         },
         /**
          * `gold` — the owner-locked brand gold (`#A9834B`, UI-only), which was
@@ -360,22 +417,24 @@ const config: Config = {
          * `text-gold-deep` in this change for exactly that reason; the rest of the
          * `text-gold` uses are `aria-hidden` icons, which are non-text.
          *
-         * Values mirror `--sn-gold-*` in globals.css — the same ladder the
+         * Values mirror `--sn-gold-*` in globals.css (held as `--ramp-gold-*`
+         * triples since 2026-10-13, so the alpha modifiers work and dark has
+         * its own value) — the same ladder the
          * `warn` semantic already carries. Registered under its own name rather
          * than pointed at `warn` because a celebration is not a warning, and a
          * stored/authored value whose NAME misleads is a defect this repo has
          * already paid for twice (`sponsored_included`, `tagged_only`).
          */
         gold: {
-          DEFAULT: '#A9834B', // --sn-gold-500 · fills, borders, decorative icons
-          deep: '#8A6B39', // --sn-gold-700 · the readable one — use for TEXT
-          dark: '#5C4726', // --sn-gold-800 · text on a gold wash
-          100: '#F3ECDF',
-          300: '#CBA766',
-          500: '#A9834B',
-          600: '#95713D',
-          700: '#8A6B39',
-          800: '#5C4726',
+          DEFAULT: 'rgb(var(--ramp-gold) / <alpha-value>)', // --sn-gold-500 · fills, borders, decorative icons
+          deep: 'rgb(var(--ramp-gold-deep) / <alpha-value>)', // --sn-gold-700 · the readable one — use for TEXT
+          dark: 'rgb(var(--ramp-gold-dark) / <alpha-value>)', // --sn-gold-800 · text on a gold wash
+          100: 'rgb(var(--ramp-gold-100) / <alpha-value>)',
+          300: 'rgb(var(--ramp-gold-300) / <alpha-value>)',
+          500: 'rgb(var(--ramp-gold-500) / <alpha-value>)',
+          600: 'rgb(var(--ramp-gold-600) / <alpha-value>)',
+          700: 'rgb(var(--ramp-gold-700) / <alpha-value>)',
+          800: 'rgb(var(--ramp-gold-800) / <alpha-value>)',
         },
         /**
          * `champagne` — the second dead colour family, found by the guard this
@@ -388,9 +447,9 @@ const config: Config = {
          * is exactly why every shipped use is a fill, a ring or a border.
          */
         champagne: {
-          DEFAULT: '#C5A059',
-          gold: '#C5A059', // --m-orange
-          deep: '#A88340', // --m-orange-2
+          DEFAULT: 'rgb(var(--ramp-champagne) / <alpha-value>)',
+          gold: 'rgb(var(--ramp-champagne) / <alpha-value>)', // --m-orange
+          deep: 'rgb(var(--ramp-champagne-deep) / <alpha-value>)', // --m-orange-2
         },
         /**
          * `sage` — the third. 4 uses (`text-sage` · `border-sage` · `bg-sage`)
@@ -400,8 +459,8 @@ const config: Config = {
          * `DEFAULT` is the pale fill, `deep` the readable text tone.
          */
         sage: {
-          DEFAULT: '#C5D2BD', // --m-sage
-          deep: '#4F6B4A', // --m-sage-deep
+          DEFAULT: 'rgb(var(--ramp-sage) / <alpha-value>)', // --m-sage
+          deep: 'rgb(var(--ramp-sage-deep) / <alpha-value>)', // --m-sage-deep
         },
         // `info` ← INFO-SLATE (Atelier-Glass kit `--sn-info` #4E6C82). The
         // sanctioned NEUTRAL semantic — for outcomes that are neither success
@@ -409,17 +468,17 @@ const config: Config = {
         // tier). Added 2026-07-15 to retire the last raw `violet` one-offs on the
         // vendor surface (kit: gold + info-slate + warm semantics only).
         info: {
-          50: '#f2f5f7',
-          100: '#e2eaef', // --sn-info-soft
-          200: '#c5d3dd',
-          300: '#9fb4c3',
-          400: '#7292a8',
-          500: '#547690',
-          600: '#4e6c82', // --sn-info
-          700: '#405767',
-          800: '#374a57',
-          900: '#2f3e49',
-          950: '#1e2831',
+          50: 'rgb(var(--ramp-info-50) / <alpha-value>)',
+          100: 'rgb(var(--ramp-info-100) / <alpha-value>)', // --sn-info-soft
+          200: 'rgb(var(--ramp-info-200) / <alpha-value>)',
+          300: 'rgb(var(--ramp-info-300) / <alpha-value>)',
+          400: 'rgb(var(--ramp-info-400) / <alpha-value>)',
+          500: 'rgb(var(--ramp-info-500) / <alpha-value>)',
+          600: 'rgb(var(--ramp-info-600) / <alpha-value>)', // --sn-info
+          700: 'rgb(var(--ramp-info-700) / <alpha-value>)',
+          800: 'rgb(var(--ramp-info-800) / <alpha-value>)',
+          900: 'rgb(var(--ramp-info-900) / <alpha-value>)',
+          950: 'rgb(var(--ramp-info-950) / <alpha-value>)',
         },
       },
       fontFamily: {
@@ -466,7 +525,18 @@ const config: Config = {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [
+    tailwindcssAnimate,
+    // A gold ICON is not a word: it keeps the brand gold (3:1 is the non-text
+    // floor, and #A9834B clears it). `svg[class~=…]` out-specifies the
+    // `.text-terracotta` utility (0,1,1 > 0,1,0) — and is an attribute
+    // selector, not a class, so Tailwind does not mint `hover:`/`md:` copies.
+    plugin(({ addBase }) => {
+      addBase({
+        "svg[class~='text-terracotta']": { color: 'rgb(var(--color-terracotta) / var(--tw-text-opacity, 1))' },
+      });
+    }),
+  ],
 };
 
 export default config;

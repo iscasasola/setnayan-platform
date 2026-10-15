@@ -5,6 +5,9 @@
  * production builds 404 this route, the same kill-switch as `/dev/home-lab`.
  * It draws the REAL supplier components, so what it shows is what ships.
  *
+ *   ?easy=<moment>&sup=<supplier>   THE SIMPLER TODAY (owner APPROVE 2026-10-14) on the prototype's own people —
+ *                     moments normal · setup · ask · eventday · locked · hallask · agreed; suppliers parish · caterer ·
+ *                     studio · venue (`today-easy-lab.tsx`; the same assembly + screen as the page)
  *   ?s=today          Today — Next card "1 of 3", numbers, Coming up, Also waiting, Shop (frame 01)
  *   ?s=day            Today on an event day — the dark card, Run the day        (frame 02)
  *   ?s=fail           the desk and payday could not be read — said, never 0     (frame 15)
@@ -29,6 +32,8 @@
  *                     This year, Log a payment (frame 05)  &next=next|all · &open=log
  *   ?s=money-waived   every fee waived (frame 30)   ?s=money-locked  the year on a plan without it
  *   ?s=money-empty    no payment plan yet           ?s=money-fail    nothing could be read — said, never ₱0 (frame 15)
+ *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
+ *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
  *
  * ⚠ The Today states mount the SHIPPED answer actions, exactly as the page
  * does — the lab adds no server action of its own. With no session every one
@@ -39,9 +44,10 @@ import { Check, MessageSquare, Phone, Plus, Send, Wallet } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
-import { SupplierTodayFirstScreen } from '@/app/vendor-dashboard/_components/supplier-today-first-screen';
+import { SupplierTodayScreen } from '@/app/vendor-dashboard/_components/supplier-today-screen';
+import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { SupplierToast } from '@/app/vendor-dashboard/_components/supplier-toast';
-import { WhatsNewFeed, NothingToAnswerFeed } from '@/app/vendor-dashboard/_components/overview-sections';
+import { cardTimestamp, type UpcomingEventRow, type WhatsNewCard } from '@/lib/vendor-overview';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import {
   vendorAcknowledgeDeposit,
@@ -55,25 +61,14 @@ import {
 } from '@/app/vendor-dashboard/clients/[eventId]/actions';
 import { postVendorReply } from '@/app/vendor-dashboard/reviews/actions';
 import { respondAppointment } from '@/app/_components/appointments-actions';
-import { cardTimestamp, type UpcomingEventRow, type WhatsNewCard } from '@/lib/vendor-overview';
-import {
-  eventsThisWeek,
-  nextAnswerOf,
-  nextLook,
-  nextMeta,
-  nextSecond,
-  pickSupplierNext,
-  supplierWaiting,
-  waitingOnYou,
-} from '@/lib/supplier-today';
+import type { TodayActions } from '@/app/vendor-dashboard/_components/supplier-today-screen';
 import { splitDesk } from '@/lib/vendor-desk-disposition';
-import { formatPesoCompact } from '@/lib/vendors-plan-budget';
-import { todayCreditNotice } from '@/lib/vendor-credit-warning';
-import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
-import { feeDueCopy, type DueFeeBill } from '@/lib/booking-fee-disclosure';
+import type { DueFeeBill } from '@/lib/booking-fee-disclosure';
 import { PeopleLab } from './people-lab';
+import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
+import { PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
 
 const PEOPLE_STATES = ['people', 'clash', 'empty', 'fail', 'nopools'] as const;
 
@@ -201,87 +196,67 @@ const TOASTS: Record<string, { text: string; tone: 'ok' | 'note' | 'bad'; retry?
   failed: { text: 'That did not go through. Nothing changed — please try again.', tone: 'bad', retry: true },
 };
 
+/* The SHIPPED answers, exactly as the page mounts them — with no session every one refuses; nothing is written. */
+const ACTIONS: TodayActions = {
+  acceptInquiry,
+  declineInquiry,
+  confirmLock: vendorAcknowledgeDeposit,
+  rejectLock: vendorRejectDeposit,
+  agreeLock: vendorAgreeToLock,
+  declineLock: vendorDeclineLock,
+  agreeDeletion: vendorAgreeToDeletion,
+  declineDeletion: vendorDeclineDeletion,
+  answerDateChange: vendorAnswerDateChange,
+  postReviewReply: postVendorReply,
+  respondMeeting: respondAppointment,
+  markServiceComplete: vendorMarkServiceComplete,
+};
+
 function TodayLab({ state, toast }: { state: TodayState; toast: string | undefined }) {
-  const { answer: needsAnswer, news: nothingToAnswer } = splitDesk(state.whatsNew);
-  const nextAnswer = nextAnswerOf(needsAnswer);
-  const fee = state.extras ? { bill: FEE_BILLS[0]!, copy: feeDueCopy(FEE_BILLS[0]!, LAB_TODAY, LAB_FEE_ENFORCED) } : null;
+  const { answer: needsAnswer, news: closed } = splitDesk(state.whatsNew);
   const findability = state.extras
     ? { title: 'Couples can’t find you yet.', body: 'Your shop is approved, but it is not showing in the marketplace.', cta: { label: 'Ask us to list your shop', href: '/help#contact' } }
     : null;
-  const next = pickSupplierNext({
-    answer: nextAnswer,
-    answerSince: nextAnswer ? cardTimestamp(nextAnswer) : null,
+  const bills = state.extras || state.bills ? FEE_BILLS : [];
+  // The same assembly and the same screen as the Today page (`assembleSupplierToday` · `SupplierTodayScreen`).
+  const view = assembleSupplierToday({
+    needsAnswer,
+    closed,
     deskIncomplete: state.deskIncomplete,
     upcoming: state.upcoming,
-    setupStep: null,
+    schedules: { pools: [], outside: [], complete: true },
+    firstSteps: null,
+    verified: true,
+    findable: !state.extras,
     findability,
-    fee,
-    owedPhp: state.owedPhp,
+    feeBills: bills,
+    feeEnforced: LAB_FEE_ENFORCED,
+    earnings: state.owedPhp === null ? null : { confirmedPhp: 0, expectedPhp: state.owedPhp, paydayMeasured: true },
+    // The shipped sentence's two figures — a credit that ends in three days. The lab types no peso figure of its
+    // own (`public-price-literals`): the amount is the shipped notice's own fixture.
+    credit: state.extras ? { creditPhp: 2500, tierExpiresAt: new Date(NOW + 3 * 86_400_000).toISOString(), href: '/vendor-dashboard/subscription' } : null,
+    payoutReadiness: state.extras ? 'none' : 'unreadable',
+    payoutHref: '/vendor-dashboard/profile#pay',
+    shop: { name: 'Lumina Studio', categoryWord: 'Photo & video', details: { done: 6, total: 6, complete: true }, awardWord: null, milestoneWord: null },
+    views: 312,
+    inquiries28: 14,
+    dayFacts: null,
+    todayIso: LAB_TODAY,
     now: NOW,
-  });
-  const waiting = supplierWaiting({
-    next,
-    needsAnswer,
     since: cardTimestamp,
-    setupStep: null,
-    findability,
-    // The shipped sentence, from the shipped rule — a credit that ends in three
-    // days. The lab types no peso figure of its own (`public-price-literals`).
-    credit: state.extras
-      ? todayCreditNotice({ creditPhp: 2500, tierExpiresAt: new Date(NOW + 3 * 86_400_000).toISOString() }, NOW)
-      : null,
-    payout: state.extras
-      ? { title: 'Add a payment method', body: 'You have bookings, and your couples can’t see anywhere to pay you yet.', href: '/vendor-dashboard/shop?open=payments#shop-folds' }
-      : null,
-    now: NOW,
   });
-  const nextIsAnswer = next.kind === 'answer' ? nextAnswer : null;
-  const actions = {
-    acceptInquiry,
-    declineInquiry,
-    confirmLock: vendorAcknowledgeDeposit,
-    rejectLock: vendorRejectDeposit,
-    agreeLock: vendorAgreeToLock,
-    declineLock: vendorDeclineLock,
-    agreeDeletion: vendorAgreeToDeletion,
-    declineDeletion: vendorDeclineDeletion,
-    answerDateChange: vendorAnswerDateChange,
-    postReviewReply: postVendorReply,
-    respondMeeting: respondAppointment,
-    markServiceComplete: vendorMarkServiceComplete,
-  };
+  const t = toast ? TOASTS[toast] : undefined;
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today">
-      {toast && TOASTS[toast] ? <SupplierToast {...TOASTS[toast]!} /> : null}
-      <SupplierTodayFirstScreen
-        next={next}
-        look={nextLook(next.kind, nextIsAnswer)}
-        second={nextSecond(next, nextIsAnswer, state.upcoming)}
-        counter={waiting.counter}
-        meta={nextMeta(nextIsAnswer, nextIsAnswer ? cardTimestamp(nextIsAnswer) : null, NOW)}
-        dateChange={nextIsAnswer?.kind === 'date_change' ? { card: nextIsAnswer, answer: vendorAnswerDateChange } : null}
-        numbers={{
-          waiting: waitingOnYou(needsAnswer.length, state.deskIncomplete),
-          waitingNow: needsAnswer.length > 0,
-          thisWeek: eventsThisWeek(state.upcoming),
-          toComeIn: state.owedPhp === null ? null : formatPesoCompact(state.owedPhp * 100),
-        }}
-        comingUp={(next.kind === 'run_day' ? state.upcoming.slice(1) : state.upcoming).slice(0, 3)}
-        alsoWaitingHeaded={waiting.asks.length > 0 || state.deskIncomplete}
-        doors={waiting.doors}
-        hasBills={Boolean(state.extras || state.bills)}
-        bills={
-          state.extras || state.bills ? (
-            <BookingFeeBills rows bills={next.kind === 'fee' ? FEE_BILLS.slice(1) : FEE_BILLS} copyFor={(b) => feeDueCopy(b, LAB_TODAY, LAB_FEE_ENFORCED)} />
-          ) : null
-        }
-        shop={{ name: 'Lumina Studio', line: 'Photo & video · Live', live: true }}
-        alsoWaiting={
-          <>
-            <WhatsNewFeed cards={needsAnswer} asks={waiting.asks} incomplete={state.deskIncomplete} {...actions} />
-            <NothingToAnswerFeed cards={nothingToAnswer} {...actions} />
-          </>
-        }
+      {t ? <SupplierToast {...t} line={false} /> : null}
+      <SupplierTodayScreen
+        view={view}
+        outcome={t ? { text: t.text, tone: t.tone } : null}
+        feeForecasts={{}}
+        cards={state.whatsNew}
+        askStatus=""
+        deskIncomplete={state.deskIncomplete}
+        actions={ACTIONS}
       />
     </div>
   );
@@ -290,15 +265,22 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
+  if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
+    const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
+    return <TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} />;
+  }
   if (q.s && (PEOPLE_STATES as readonly string[]).includes(q.s)) {
     return <PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} />;
   }
   if (q.s && (DATES_STATES as readonly string[]).includes(q.s)) {
     return <DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} />;
+  }
+  if (q.s && (PAGE_LAB_STATES as readonly string[]).includes(q.s)) {
+    return <PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} />;
   }
   if (q.s && (MONEY_STATES as readonly string[]).includes(q.s)) {
     return <MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} />;

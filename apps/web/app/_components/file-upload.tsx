@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { unsavedTail } from '@/lib/upload-unsaved-line';
 import {
@@ -269,6 +270,13 @@ type FileUploadBaseProps = {
    * The refusal is the widget's own error line, in place. Fail-open.
    */
   audioGuard?: boolean;
+  /**
+   * A way forward that rides ON a refusal line (batch 7 R3, 2026-10-16): when the error the widget shows
+   * contains `when` (the server's own sentence — e.g. the media allowance's ◆ Pro mention), the link sits inside
+   * that same alert, so a couple refused below the meter's "full" still reads Unlock Pro where they were refused.
+   * 12 px words, pressed at 44+ (`.sn-hit`).
+   */
+  refusalLink?: { when: string; href: string; label: string } | null;
 };
 
 /**
@@ -473,6 +481,7 @@ export function FileUpload({
   stallMs,
   send,
   tileNote,
+  refusalLink,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1211,7 +1220,17 @@ export function FileUpload({
           className="flex items-start gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/10 px-3 py-2 text-xs text-terracotta-700"
         >
           <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-          <span>{error}</span>
+          <span>
+            {error}
+            {refusalLink && error.includes(refusalLink.when) ? (
+              <>
+                {' '}
+                <Link href={refusalLink.href} className="sn-hit inline-block text-xs font-medium underline underline-offset-2">
+                  {refusalLink.label}
+                </Link>
+              </>
+            ) : null}
+          </span>
         </p>
       ) : null}
 

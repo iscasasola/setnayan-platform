@@ -126,6 +126,7 @@ export function BookingFeeBillRow({
   copy,
   line = false,
   compact = false,
+  today = false,
 }: {
   bill: DueFeeBill;
   /** `feeDueCopy(bill, phToday())` — the escalation is decided, not styled. */
@@ -145,8 +146,45 @@ export function BookingFeeBillRow({
    * every bill's history live one tap on, on the pay page and the Booking fees page.
    */
   compact?: boolean;
+  /**
+   * 📋 THE SIMPLER TODAY'S ROW (owner APPROVE 2026-10-14, `supplier_easy_dashboard_2026-10-14_fable.html`
+   * `feeBillRows`): the round icon · "Booking fee · <couple>" · one line ("₱4,250 · due Tue 20 Oct · Setnayan
+   * introduced this couple to you on …") · a grey Pay. The words are the caller's `copy` (headline → the label,
+   * detail → the line); the introduced line is added here, as on every bill. Pay is grey: the screen's one
+   * terracotta main is its Next card (look call 11). The lock sentence is said ONCE under the bills, by the page.
+   */
+  today?: boolean;
 }) {
   const { accent, Icon } = TONE[copy.tone];
+  if (today) {
+    const introduced = feeIntroducedLine(bill);
+    return (
+      <div role="note" data-testid="booking-fee-bill" data-fee-bill-today="" className="grid min-h-11 grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-ink/10 py-2.5">
+        <span
+          aria-hidden
+          className="grid h-9 w-9 place-items-center rounded-full text-ink"
+          style={{ background: 'color-mix(in srgb, rgb(var(--color-gild)) 16%, transparent)' }}
+        >
+          <Wallet className="h-[18px] w-[18px]" strokeWidth={1.8} />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[15px] font-medium leading-tight text-ink">{copy.headline}</span>
+          <span className="block text-[13px] leading-snug" style={{ color: copy.tone === 'overdue' ? 'rgb(var(--color-danger))' : 'rgb(var(--color-warn))' }}>
+            {copy.detail}
+            {introduced ? <span className="text-ink/60" data-fee-introduced=""> · {introduced.replace(/\.$/, '')}</span> : null}
+          </span>
+        </span>
+        <ActionButton
+          tone="neutral"
+          icon={<Wallet aria-hidden strokeWidth={1.9} />}
+          label="Pay"
+          name={`Pay — ${copy.headline}`}
+          href={vendorBookingFeePayPath(bill.orderId)}
+          className="min-h-11 shrink-0"
+        />
+      </div>
+    );
+  }
   if (compact) {
     return (
       <div role="note" data-testid="booking-fee-bill" data-fee-bill-compact="" className="flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0">
@@ -248,9 +286,12 @@ export function BookingFeeBills({
   copyFor,
   rows = false,
   compact = false,
+  today = false,
 }: {
   bills: readonly DueFeeBill[];
   copyFor: (bill: DueFeeBill) => FeeDisclosure;
+  /** The simpler Today's rows — `BookingFeeBillRow`'s `today`. */
+  today?: boolean;
   /** Hairline rows instead of boxes — `BookingFeeBillRow`'s `line` (the supplier's Today). */
   rows?: boolean;
   /** One hairline row per bill — `BookingFeeBillRow`'s `compact` (Customers › Money). */
@@ -260,7 +301,7 @@ export function BookingFeeBills({
   return (
     <>
       {bills.map((b) => (
-        <BookingFeeBillRow key={b.orderId} bill={b} copy={copyFor(b)} line={rows} compact={compact} />
+        <BookingFeeBillRow key={b.orderId} bill={b} copy={copyFor(b)} line={rows} compact={compact} today={today} />
       ))}
     </>
   );

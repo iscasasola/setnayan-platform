@@ -120,6 +120,7 @@ const NOT_GUEST_FACING: Record<string, string> = {
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx': 'supplier — the stage script on the day',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts': 'coordinator — floor command on the day',
   'lib/supplier-night-before-email.ts': 'supplier — their own call time, the night before',
+  'lib/supplier-today.server.ts': 'supplier — their own Today on an event day: the next moment and how many checked in, for a booking the room read proved is theirs',
 };
 
 /** Every non-test source file under the three trees that queries the table. */

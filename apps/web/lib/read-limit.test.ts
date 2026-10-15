@@ -164,6 +164,28 @@ test('2b · what counts as decoration is a short, named list — everything else
   }
 });
 
+test('2c · the Welcome door’s open-wish count is decoration — alone it never takes the invitation down (production 2026-10-15 08:50)', async () => {
+  // Measured: a database stall lapsed ONLY `event_wish_items` (the event had answered), and the guest
+  // was shown the failure page for a count whose own caller already says "no list" when unread.
+  database(['event_wish_items']);
+  const page = await quiet(() =>
+    withGuestReadLimit(
+      'slug/invitation-body',
+      async () => {
+        const admin = createAdminClient();
+        const [event, wishes] = await Promise.all([
+          admin.from('events').select('event_id').eq('slug', 's'),
+          admin.from('event_wish_items').select('wish_item_id', { count: 'exact', head: true }).eq('event_id', 'e').is('got_at', null),
+        ]);
+        return { eventRead: !event.error, wishDoor: wishes.error ? 'names no list' : 'names the list' };
+      },
+      FAST,
+    ),
+  );
+  assert.deepEqual(page, { eventRead: true, wishDoor: 'names no list' });
+  assert.equal(isDecorationRead('event_wish_items'), true);
+});
+
 test('3 · five stalled reads in a row cost ONE budget, not five limits', async () => {
   database(['invitation_widgets']);
   const started = Date.now();

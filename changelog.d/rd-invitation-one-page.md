@@ -14,6 +14,10 @@ only; the desktop system sheet and desktop pages are a later build.
   (`#site-home` · `#site-details` · `#site-story`), Me is `?tab=me`. One `IntersectionObserver` lights the last mark
   crossed (`_lib/jump-marks.ts` `litJumpMark`, `aria-current="true"`); Me, opened, is lit as its page. Hidden over the
   cover and slid up on the first swipe by the Cover Scene's own rule (batch #6553), reduced motion = no slide.
+- **The bars hide again whenever the cover is back on screen** (Q3, *"where the bar hides again"*): the Cover Scene's
+  one `<style data-cover-menu>` in `<head>` (batch W1, hydration-safe — the root is never touched) goes back to `"wait"`
+  when the page is scrolled back to the shown cover and to `"open"` on leaving it (`cover-scene-menu.tsx`); reduced
+  motion = no slide. Held by the guard's claim (5), which runs the shipped script.
 - **Home jumps to the first section after the cover** (Q3): on these stages its mark is drawn after the cover and its one
   action (zero height, out of the rhythm), never at the top.
 - **Old links land** (`hub/hub-shell.tsx`): `?tab=details` / `?tab=story` open the one page scrolled to that section and

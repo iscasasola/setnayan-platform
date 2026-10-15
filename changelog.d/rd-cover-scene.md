@@ -8,8 +8,10 @@ Full width = edge to edge · the Hero folds into the Cover Scene's Background (o
   first among the cover's words on Save the Date · Welcome · The Day › Live · Post Event. A cover word's Background
   line is now "This sits on the Cover Scene." and the toast ends in ONE door, "Select the Cover Scene ›". A tap on
   the cover's empty space selects the group (it fell to the logo before). Arriving never lands on it.
-- **The whole first screen** (`lib/cover-scene.ts`): every `PahinaMasthead` design is `min-h-[100svh]`
-  (`100dvh` where supported), words centred (The Letter keeps its foot column).
+- **The whole first screen** (`lib/cover-scene.ts`): every `PahinaMasthead` design is `100svh` (`100dvh` where
+  supported) LESS what sits above it — the guest column sets `--cover-scene-above` to the top bar + its padding
+  (`lib/cover-scene-screen.ts`), so the cover ends at the fold (walked at 375 · 390 · iPhone 13 WebKit · 1280).
+  Words centred (The Letter keeps its foot column); with a ground the words keep inside the Framed edge.
 - **One background** (`HubSectionCanvas.ground` on the hero row, `sanitizeHubCoverGround` — no migration):
   Colour (Plain · Diagonal · Glow · Opaque · Frosted, free) · Scene ◆ (Setnayan's own loops, they play for guests) ·
   Upload ◆ (a photo — it IS the hero photo: the same save writes `landing_page_hero_image_url`, and the cover draws
@@ -22,9 +24,11 @@ Full width = edge to edge · the Hero folds into the Cover Scene's Background (o
   reached through the existing lazy `SceneBackgroundRow` door (no new `dynamic()` stand-in).
 - **Apply** (`lib/hub-draft.ts`): a 'ground' facet — a loop or a photo on the cover asks Event Hub Pro; a Colour
   and taking one off are free.
-- Guard `apps/web/lib/the-cover-scene-is-one-group.test.ts` (10 claims, each sabotaged red once).
+- **Details › Hero is the second door** (`maker-made-once.tsx` `coverScene` slot, `data-same-field="cover_scene"`):
+  the same rows through the same lazy door; the old hero-photo form only where no rows are handed in.
+- Guard `apps/web/lib/the-cover-scene-is-one-group.test.ts` (11 claims, each sabotaged red once).
 
-Not built (for the next step / owner): Details › Hero as a second door drawing the same rows; a parts ▾ row (the
+Not built (for the next step / owner): a parts ▾ row (the
 shipped top bar is the locked Stage ▾ | Studio ▾ — there is no parts ▾ to extend); the RSVP reply form does not get
 the group (its stage has its own tools).
 

@@ -133,7 +133,7 @@ export function walletDateLabel(eventDate: string | null): string | null {
 /**
  * 🕗 WHEN THE PASS RISES ON THE LOCK SCREEN — the arrive time on the event's
  * date, in Manila. ⚠ The schedule stores the venue's wall-clock PARKED IN UTC
- * (`…T15:00:00Z` means 3 PM at the venue — the 8-hour bug `readArriveLabel`
+ * (`…T15:00:00Z` means 3 PM at the venue — the 8-hour bug `readArrive`
  * notes), so the instant is BUILT from its UTC hours, never passed through.
  * No arrive time → 09:00 on the date. No date → null.
  */

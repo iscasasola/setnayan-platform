@@ -149,6 +149,12 @@ export type PassCardKit = {
   set: LoadedPrintSet;
   /** When the doors open — the FIRST public block, formatted like the programme. */
   arrive: string | null;
+  /**
+   * The same block's raw start — the venue's wall-clock PARKED IN UTC. Only the
+   * Apple Wallet pass reads it (its lock-screen time, `walletRelevantDate`);
+   * optional so every hand-built kit stays valid.
+   */
+  arriveAt?: string | null;
   /** bringer guest_id → how many NAMED companions they bring who are coming. */
   party: Map<string, number>;
   /** 🎟 guest_id → their table and seat — filled ON THE DAY only (`readTicketSeats`). */
@@ -176,9 +182,9 @@ export async function loadPassCardKit(
     set = await loadPrintSet(eventId, { mode: 'screen', withEventQr: false, previewTheme: CLASSIC_PRINT_THEME });
     if (!set) return null;
   }
-  const [words, arrive, party, seats] = await Promise.all([
+  const [words, arriveRead, party, seats] = await Promise.all([
     eventWordsForEvent(eventId).catch(() => null),
-    readArriveLabel(admin, eventId),
+    readArrive(admin, eventId),
     readPartyCounts(admin, eventId, opts.seatsFor),
     readTicketSeats(admin, eventId),
   ]);
@@ -195,7 +201,7 @@ export async function loadPassCardKit(
     qrLook: { ...set.qrLook, dark: '#111111', light: '#FFFFFF' },
     data: { ...set.data, eyebrow, eventWord, details: { ...set.data.details, guestNames: true, setnayanMark: !ownsPro } },
   };
-  return { set, arrive, party, seats };
+  return { set, arrive: arriveRead.label, arriveAt: arriveRead.at, party, seats };
 }
 
 /**
@@ -228,17 +234,18 @@ export async function readTicketSeats(admin: SupabaseClient, eventId: string): P
   return out;
 }
 
-async function readArriveLabel(admin: SupabaseClient, eventId: string): Promise<string | null> {
+async function readArrive(admin: SupabaseClient, eventId: string): Promise<{ label: string | null; at: string | null }> {
   try {
     const blocks = await fetchPublicScheduleBlocks(admin, eventId, await isCoordinatorPrepReleaseEnabled());
     const first = blocks[0];
     // The programme's own formatter — the schedule stores the event's
     // wall-clock parked in UTC (see site-body's pass for the 8-hour bug).
-    return first?.start_at ? formatBlockTimeRange(first.start_at, null) || null : null;
+    const label = first?.start_at ? formatBlockTimeRange(first.start_at, null) || null : null;
+    return { label, at: label ? first!.start_at : null };
   } catch (err) {
     // Omitted, never guessed: a card with no ARRIVE is true; a wrong one is not.
     logQueryError('pass-card.arrive', err, { event_id: eventId }, 'graceful_degrade');
-    return null;
+    return { label: null, at: null };
   }
 }
 

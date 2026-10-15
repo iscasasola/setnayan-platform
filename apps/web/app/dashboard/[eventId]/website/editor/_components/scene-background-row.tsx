@@ -11,6 +11,7 @@ import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-ref
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
+import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { uploadStill } from '@/lib/upload-still';
 import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
@@ -185,7 +186,7 @@ export function SceneBackgroundRow({
   videoChoice?: { ref: string; url: string; poster?: string | null } | null;
   /** Photos and clips the scenes already wear from their own upload folder. */
   sceneUploads?: readonly SceneUpload[];
-  /** 💾 The event's settled `couple_media_bytes` — the 100 MB meter under the upload. Absent = no meter. */
+  /** 💾 The event's settled `couple_media_bytes` — the plan's media meter under the upload. Absent = no meter. */
   mediaUsedBytes?: number;
   ownsPro: boolean;
   /**
@@ -547,10 +548,15 @@ export function SceneBackgroundRow({
               label="Upload a photo or clip"
             />
             {reading ? <p className="pt-1 text-[12px] text-ink/60">Reading your clip…</p> : null}
-            {/* 💾 The event's 100 MB of uploads, beside the upload that spends it
+            {/* 💾 The event's uploads against its PLAN's allowance (Free 10 MB · Pro 500 MB), beside the upload that spends it
                 (DECISION_LOG 2026-09-25: "with a visible meter"). */}
             {typeof mediaUsedBytes === 'number' ? (
-              <MakerMediaMeter usedBytes={mediaUsedBytes} className="pt-2" />
+              <MakerMediaMeter
+                usedBytes={mediaUsedBytes}
+                capBytes={coupleMediaCapBytes(ownsPro)}
+                proHref={ownsPro || storeShell ? null : `/dashboard/${eventId}/studio/website-pro`}
+                className="pt-2"
+              />
             ) : null}
           </div>
   );

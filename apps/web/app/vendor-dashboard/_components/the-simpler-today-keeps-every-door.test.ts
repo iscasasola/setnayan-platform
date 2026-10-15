@@ -361,7 +361,9 @@ test('10 · the page does not grow: one shop-row read for three, the schedules i
   const server = code('lib/supplier-today.server.ts');
   assert.equal((server.match(/\.from\('vendor_profiles'\)/g) ?? []).length, 1);
   assert.equal((server.match(/\.from\('vendor_schedule_pools'\)/g) ?? []).length, 1);
-  assert.match(server, /vendor_calendar_blocks\(block_id, block_source, blocked_at, blocked_until, client_name\)/, 'the outside bookings left the one schedules read');
+  // The blocks stay embedded in the one schedules read — now with the repeat columns (walk W2), still no read of their own.
+  assert.match(server, /vendor_calendar_blocks\(block_id, block_source, blocked_at, blocked_until, client_name, \$\{NOT_AVAILABLE_COLUMNS\}\)/, 'the outside bookings left the one schedules read');
+  assert.equal((server.match(/\.from\('vendor_calendar_blocks'\)/g) ?? []).length, 0, 'the blocks grew a read of their own');
   // Views only once couples can see the shop.
   assert.match(page, /shopRow\?\.verified \? readTodayViews\(/);
 });

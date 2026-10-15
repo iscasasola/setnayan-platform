@@ -5,8 +5,8 @@
  * our only reveal at the moment is veil."* — and: *"when they unveil, the music starts playing upon tap"*.
  *
  * ── THE SIGNAL ─────────────────────────────────────────────────────────────────────────────────────────────
- * `data-veiled` on `<html>` (`HUB_VEILED_ATTR`) while an opening covers the page and has not been opened. It is
- * set by `VEIL_HOLD_SCRIPT`, an inline script the server writes ONLY where it mounts an opening
+ * one `<style data-veil-hold>` in `<head>` (`VEIL_HOLD_ATTR`), present while an opening covers the page and has
+ * not been opened. It is written by `VEIL_HOLD_SCRIPT`, an inline script the server writes ONLY where it mounts an opening
  * (`RevealMount`), so it lands before the page body is even parsed — a `<video autoPlay>` cannot start ahead
  * of it. It comes off exactly once, through `releaseVeilHold()`:
  *
@@ -19,9 +19,9 @@
  *     loaded, must never leave a page whose entrances are frozen at their first frame.
  *
  * ── WHAT HOLDS UNDER IT (one mechanism each, nothing per-widget unless it must be) ────────────────────────
- *   · CSS animations — one rule in `globals.css` ("NOTHING BEHIND THE VEIL PLAYS"): `animation-play-state:
- *     paused` for everything outside the opening's own box (`[data-reveal-layer]`). Ambient effects, scene
- *     build-ins, auto runs, theme loops drawn in CSS — all of them, including ones written after today.
+ *   · CSS animations — the hold's own rule (`VEIL_HOLD_CSS`): `animation-play-state: paused` for everything
+ *     outside the opening's own box (`[data-reveal-layer]`). Ambient effects, scene build-ins, auto runs,
+ *     theme loops drawn in CSS — all of them, including ones written after today.
  *   · `<video>` / `<audio>` — the script's capture-phase `play` listener pauses any element that starts, and
  *     resumes exactly those on release. Autoplay heroes, scene clips, the main ground loop, theme loops.
  *     An element marked `data-veil-free` is left alone: it only ever plays on the guest's own tap (the music
@@ -33,13 +33,18 @@
  * 🪤 NO REACT IN THIS FILE: `RevealMount` (a server component) imports the script from here, and a hook in
  * the same module breaks the server build ("useSyncExternalStore … only works in a Client Component").
  *
- * When no opening is shown nothing here ever runs: the script is not written, the attribute is never set,
+ * When no opening is shown nothing here ever runs: the script is not written, no rule is ever added,
  * and every player behaves exactly as before. Reduced motion: the script does not hold at all (those guests
  * get no opening — `RevealOverlay`).
  */
 
-/** On `<html>` while an opening covers the page and has not been opened. */
-export const HUB_VEILED_ATTR = 'data-veiled';
+/**
+ * The hold's `<style>` element in `<head>` — present exactly while an opening covers the page and has not been
+ * opened. A `<style>` in head, NOT an attribute on `<html>`: an attribute a script writes before hydration is a
+ * hydration mismatch on the root (measured on the first lab load: `- data-veiled=""` on `<html>`), while React 19
+ * skips unexpected tags in `<head>`.
+ */
+export const VEIL_HOLD_ATTR = 'data-veil-hold';
 /** The opening's own box — never held (the veil, its hint, a rigid opening's flaps). */
 export const REVEAL_LAYER_ATTR = 'data-reveal-layer';
 /** On a media element that only plays on the guest's own tap, or that owns its own wait for the lift. */
@@ -59,6 +64,16 @@ export function onUnveil(cb: () => void): () => void {
 }
 /** Dispatched on `window` when the hold comes off — by the gesture or by the opening standing down. */
 export const HUB_VEIL_RELEASED_EVENT = 'hub-veil-released';
+/**
+ * What the hold's `<style>` says: every CSS animation outside the opening's own box waits where it is — ambient
+ * effects, a scene's build-in, an auto run, a theme loop drawn in CSS, and ones written after today. It exists
+ * only while held, so a page with no opening carries no such rule at all.
+ */
+export const VEIL_HOLD_CSS =
+  'body *:not([data-reveal-layer], [data-reveal-layer] *),' +
+  'body *:not([data-reveal-layer], [data-reveal-layer] *)::before,' +
+  'body *:not([data-reveal-layer], [data-reveal-layer] *)::after{animation-play-state:paused !important}';
+
 /** No opening claimed the page in this long → the script lets go by itself (fail-visible). */
 export const VEIL_HOLD_FAILSAFE_MS = 12000;
 
@@ -76,14 +91,16 @@ export const VEIL_HOLD_SCRIPT = `(function(){try{
 var d=document.documentElement,w=window;
 if(w.__veilRelease)return;
 if(w.matchMedia&&w.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-d.setAttribute('${HUB_VEILED_ATTR}','');
+var st=document.createElement('style');st.setAttribute('${VEIL_HOLD_ATTR}','');st.textContent='${VEIL_HOLD_CSS}';
+(document.head||d).appendChild(st);
+var on=function(){return st.isConnected!==false&&!!st.parentNode};
 var held=[],anims=[],raf=0;
 var free=function(el){return !el||!el.closest||el.closest('[${REVEAL_LAYER_ATTR}],[${VEIL_FREE_ATTR}]')};
 var hold=function(m){if(free(m))return;try{m.pause()}catch(e){}if(held.indexOf(m)<0)held.push(m)};
-var onPlay=function(e){var m=e.target;if(!d.hasAttribute('${HUB_VEILED_ATTR}'))return;if(m&&(m.tagName==='VIDEO'||m.tagName==='AUDIO'))hold(m)};
+var onPlay=function(e){var m=e.target;if(!on())return;if(m&&(m.tagName==='VIDEO'||m.tagName==='AUDIO'))hold(m)};
 document.addEventListener('play',onPlay,true);
 var ms=document.querySelectorAll('video,audio');for(var i=0;i<ms.length;i++){if(!ms[i].paused)hold(ms[i])}
-var scan=function(){raf=0;if(!d.hasAttribute('${HUB_VEILED_ATTR}'))return;
+var scan=function(){raf=0;if(!on())return;
 if(document.getAnimations){var as=document.getAnimations();for(var j=0;j<as.length;j++){var a=as[j];
 if(w.CSSAnimation&&a instanceof w.CSSAnimation)continue;if(w.CSSTransition&&a instanceof w.CSSTransition)continue;
 if(a.playState!=='running')continue;var t=a.effect&&a.effect.target;
@@ -92,8 +109,8 @@ try{a.pause();anims.push(a)}catch(e){}}}
 raf=w.requestAnimationFrame?w.requestAnimationFrame(scan):0};
 scan();
 w.__veilRelease=function(){
-if(!d.hasAttribute('${HUB_VEILED_ATTR}'))return;
-d.removeAttribute('${HUB_VEILED_ATTR}');
+if(!on())return;
+if(st.parentNode)st.parentNode.removeChild(st);
 document.removeEventListener('play',onPlay,true);
 if(raf&&w.cancelAnimationFrame)w.cancelAnimationFrame(raf);
 var hs=held;held=[];for(var k=0;k<hs.length;k++){var m=hs[k];if(m.isConnected){var p=m.play();if(p&&p.catch)p.catch(function(){})}}
@@ -101,7 +118,7 @@ var an=anims;anims=[];for(var n=0;n<an.length;n++){try{an[n].play()}catch(e){}}
 try{w.dispatchEvent(new Event('${HUB_VEIL_RELEASED_EVENT}'))}catch(e){}
 };
 setTimeout(function(){if(!w.__veilClaimed)w.__veilRelease()},${VEIL_HOLD_FAILSAFE_MS});
-}catch(e){try{document.documentElement.removeAttribute('${HUB_VEILED_ATTR}')}catch(e2){}}})()`;
+}catch(e){try{var x=document.querySelector('style[${VEIL_HOLD_ATTR}]');if(x&&x.parentNode)x.parentNode.removeChild(x)}catch(e2){}}})()`;
 
 /**
  * Hold the page from the client — for a client-side navigation, where the server's inline script is not run
@@ -124,7 +141,7 @@ export function claimVeilHold(): void {
   (window as VeilWindow).__veilClaimed = true;
 }
 
-/** Let the page play: everything held starts again, `data-veiled` comes off. Idempotent. */
+/** Let the page play: everything held starts again, the hold's `<style>` comes off. Idempotent. */
 export function releaseVeilHold(): void {
   if (typeof document === 'undefined') return;
   const w = window as VeilWindow;
@@ -132,11 +149,7 @@ export function releaseVeilHold(): void {
     w.__veilRelease();
     return;
   }
-  // No script on this page (an opening the server never wrote one for) — nothing is held but the mark.
-  if (document.documentElement.hasAttribute(HUB_VEILED_ATTR)) {
-    document.documentElement.removeAttribute(HUB_VEILED_ATTR);
-    window.dispatchEvent(new Event(HUB_VEIL_RELEASED_EVENT));
-  }
+  // No script ran on this page — nothing can be held.
 }
 
 /**
@@ -157,5 +170,5 @@ export function unveilInGesture(): void {
 
 /** True while an opening holds the page. */
 export function isVeilHeld(): boolean {
-  return typeof document !== 'undefined' && document.documentElement.hasAttribute(HUB_VEILED_ATTR);
+  return typeof document !== 'undefined' && document.querySelector(`style[${VEIL_HOLD_ATTR}]`) !== null;
 }

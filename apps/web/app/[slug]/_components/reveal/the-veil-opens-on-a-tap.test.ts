@@ -4,8 +4,8 @@
  *   1. *"before we had double tap to unveil. now we make it simpler. Tap, swipe up to unveil"* — the veil's
  *      ONLY unveil gestures are a tap and a swipe up. No double-tap, no `dblclick`, no tap that bats a petal.
  *   2. *"nothing behind it should be playing until we open the reveal"* — ONE signal (`lib/hub-veil.ts`,
- *      `data-veiled` on `<html>`), written before the body parses wherever an opening is mounted, and read by
- *      every player: CSS animations (one rule), video/audio and Web Animations (the script), the countdown's
+ *      a `<style data-veil-hold>` in `<head>`), written before the body parses wherever an opening is mounted,
+ *      and read by every player: CSS animations (its one rule), video/audio and Web Animations (the script), the countdown's
  *      clock (`useVeilHeld`).
  *   3. *"when they unveil, the music starts playing upon tap"* — the unveil runs INSIDE the gesture: the
  *      veil's `pointerup` calls `onUnveil` synchronously → `unveilInGesture` releases the page and calls
@@ -30,7 +30,8 @@ import {
   onUnveil,
   unveilInGesture,
   HUB_VEIL_RELEASED_EVENT,
-  HUB_VEILED_ATTR,
+  VEIL_HOLD_ATTR,
+  VEIL_HOLD_CSS,
   VEIL_HOLD_FAILSAFE_MS,
   VEIL_HOLD_SCRIPT,
 } from '@/lib/hub-veil';
@@ -107,13 +108,14 @@ test('🪤 the hold module stays server-safe — RevealMount (a server component
 });
 
 test('🙈 the players read the one signal', () => {
-  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
-  assert.match(
-    css,
-    /html\[data-veiled\] body \*:not\(\[data-reveal-layer\], \[data-reveal-layer\] \*\)[^{]*\{\s*animation-play-state: paused !important;/,
-    'the stylesheet no longer holds CSS animations under the veil',
+  // CSS animations: the hold's own rule — everything outside the opening's box waits.
+  assert.equal(
+    VEIL_HOLD_CSS,
+    'body *:not([data-reveal-layer], [data-reveal-layer] *),body *:not([data-reveal-layer], [data-reveal-layer] *)::before,body *:not([data-reveal-layer], [data-reveal-layer] *)::after{animation-play-state:paused !important}',
+    'the hold no longer pauses every CSS animation behind the opening',
   );
-  assert.equal(HUB_VEILED_ATTR, 'data-veiled');
+  assert.ok(VEIL_HOLD_SCRIPT.includes(`st.textContent='${VEIL_HOLD_CSS}'`), 'the hold no longer writes its rule');
+  assert.equal(VEIL_HOLD_ATTR, 'data-veil-hold');
   assert.match(code('app/[slug]/_components/countdown.tsx'), /const veiled = useVeilHeld\(\);[\s\S]*?if \(veiled\) return;\s*const id = window\.setInterval/, 'the countdown ticks under the veil');
   const film = code('app/[slug]/_components/save-the-date-film.tsx');
   assert.equal((film.match(/\[VEIL_FREE_ATTR\]: ''/g) ?? []).length, 3, 'the film’s soundtrack and both clips own their wait — they must be veil-free');
@@ -145,7 +147,18 @@ function standIn(opts: { reduce?: boolean } = {}) {
     removeAttribute: (n: string) => void attrs.delete(n),
     hasAttribute: (n: string) => attrs.has(n),
   };
+  const head = {
+    kids: [] as Array<{ parentNode: unknown }>,
+    appendChild(el: { parentNode: unknown }) { head.kids.push(el); el.parentNode = head; },
+    removeChild(el: { parentNode: unknown }) { head.kids = head.kids.filter((k) => k !== el); el.parentNode = null; },
+  };
   const document = {
+    head,
+    createElement: () => {
+      const el = { parentNode: null as unknown, textContent: '', attrs: {} as Record<string, string>, setAttribute(n: string, v: string) { el.attrs[n] = v; } };
+      Object.defineProperty(el, 'isConnected', { get: () => el.parentNode !== null });
+      return el;
+    },
     documentElement: root,
     addEventListener: (t: string, f: Listener) => void (docListeners[t] ??= []).push(f),
     removeEventListener: (t: string, f: Listener) => void (docListeners[t] = (docListeners[t] ?? []).filter((x) => x !== f)),
@@ -163,13 +176,15 @@ function standIn(opts: { reduce?: boolean } = {}) {
       timers.push({ fn, ms }),
     );
   const play = (m: unknown) => (docListeners.play ?? []).forEach((f) => f({ target: m }));
-  return { attrs, window, winEvents, timers, media, run, play };
+  const held = () => head.kids.some((k) => (k as unknown as { attrs: Record<string, string> }).attrs[VEIL_HOLD_ATTR] === '');
+  return { attrs, window, winEvents, timers, media, run, play, held, head };
 }
 
 test('🙈 the hold, run: it holds what starts, leaves the veil-free alone, and resumes exactly what it held', () => {
   const s = standIn();
   s.run();
-  assert.ok(s.attrs.has(HUB_VEILED_ATTR), 'the script did not mark the page veiled');
+  assert.ok(s.held(), 'the script did not hold the page');
+  assert.equal(s.attrs.size, 0, 'the script wrote an attribute on <html> — a hydration mismatch on the root');
   const hero = s.media(false);
   const song = s.media(true);
   hero.play();
@@ -179,7 +194,7 @@ test('🙈 the hold, run: it holds what starts, leaves the veil-free alone, and 
   assert.equal(hero.paused, true, 'a video behind the veil kept playing');
   assert.equal(song.paused, false, 'a veil-free element (the song the guest asked for) was held');
   (s.window.__veilRelease as () => void)();
-  assert.equal(s.attrs.has(HUB_VEILED_ATTR), false, 'the release left the page veiled');
+  assert.equal(s.held(), false, 'the release left the page held');
   assert.equal(hero.paused, false, 'the release did not start what it held');
   assert.equal(hero.plays, 2);
   assert.equal(song.plays, 1, 'the release touched an element it never held');
@@ -197,19 +212,19 @@ test('🛟 fail-visible: unclaimed, it lets go by itself; claimed, it waits for 
   const fs = a.timers.find((t) => t.ms === VEIL_HOLD_FAILSAFE_MS);
   assert.ok(fs, 'the hold has no failsafe — a failed bundle would freeze the page’s entrances');
   fs.fn();
-  assert.equal(a.attrs.has(HUB_VEILED_ATTR), false, 'unclaimed, the hold never let go');
+  assert.equal(a.held(), false, 'unclaimed, the hold never let go');
 
   const b = standIn();
   b.run();
   b.window.__veilClaimed = true;
   b.timers.find((t) => t.ms === VEIL_HOLD_FAILSAFE_MS)!.fn();
-  assert.ok(b.attrs.has(HUB_VEILED_ATTR), 'a claimed hold (the veil is up) let go before the guest opened it');
+  assert.ok(b.held(), 'a claimed hold (the veil is up) let go before the guest opened it');
 });
 
 test('♿ reduced motion: no hold at all (those guests get no opening)', () => {
   const s = standIn({ reduce: true });
   s.run();
-  assert.equal(s.attrs.has(HUB_VEILED_ATTR), false);
+  assert.equal(s.held(), false);
   assert.equal(s.window.__veilRelease, undefined);
 });
 

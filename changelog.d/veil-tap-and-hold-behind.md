@@ -9,10 +9,11 @@ unveil"* · *"when they unveil, the music starts playing upon tap"*.
   tap that batted a petal are retired. A tap on an already-lifted veil does nothing (swipe down re-covers). New
   `onUnveil` prop, called synchronously inside the tap's / swipe's `pointerup`. One instruction:
   "Tap or swipe up to unveil" (`VEIL_HINT`, `reveal-overlay.tsx`).
-- **Nothing behind it plays** — ONE signal, `lib/hub-veil.ts`: `data-veiled` on `<html>`, set by an inline
+- **Nothing behind it plays** — ONE signal, `lib/hub-veil.ts`: a `<style data-veil-hold>` in `<head>` (not an attribute on `<html>` — that was a
+  hydration mismatch on the root, caught in the lab), written by an inline
   script `RevealMount` writes only where an opening is mounted (so it runs before the hero's `<video autoPlay>`
   parses), released by the unveil gesture or by the opening standing down (reduced motion, seen this visit,
-  landed part-way down, no WebGL, a rigid opening's open). While set: one `globals.css` rule pauses every CSS
+  landed part-way down, no WebGL, a rigid opening's open). While held: the hold's own rule pauses every CSS
   animation outside the opening's box; the script holds every `<video>`/`<audio>` that starts and every Web
   Animation (the layered logo) and resumes exactly those; the countdown's tick waits (`useVeilHeld`). The film's
   own media (`data-veil-free`) and the song the guest taps are never held. Fail-visible: unclaimed for 12 s (the

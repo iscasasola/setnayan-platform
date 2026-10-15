@@ -112,7 +112,7 @@ test('a staff preview build keeps the overlay mounted so ?reveal= can demo', asy
    HTML exactly where an overlay is mounted — so a page with no opening never holds anything. */
 test('the hold rides with the overlay — in the server HTML for a Pro opening, absent for every page without one', async () => {
   const { RevealMount, renderToStaticMarkup } = await load();
-  const held = (p: Partial<RevealMountProps>) => renderToStaticMarkup(RevealMount(props(p))).includes("setAttribute('data-veiled'");
+  const held = (p: Partial<RevealMountProps>) => renderToStaticMarkup(RevealMount(props(p))).includes("setAttribute('data-veil-hold'");
   assert.equal(held({ ownsPro: true }), true, 'a Pro opening’s page is not held before it parses');
   assert.equal(held({ ownsPro: false }), false, 'a free couple (no opening) is held');
   assert.equal(held({ ownsPro: true, eventTemplate: 'none' }), false, 'No Reveal is held');

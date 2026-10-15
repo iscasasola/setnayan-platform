@@ -1073,8 +1073,8 @@ export function focalToObjectPosition(focal: HubFocalPoint): string {
  * Guard: `lib/a-scroll-arrival-finishes-in-view.test.ts` (models the range for every height and feel).
  */
 export const HUB_SCROLL_IN_END = {
-  quick: 'entry min(50%, 20vh)',
-  calm: 'entry min(92%, 30vh)',
+  quick: 'entry min(50%, 28vh)',
+  calm: 'entry min(92%, 34vh)',
   cinematic: 'entry min(100%, 40vh)',
 } as const;
 /** The feel a stored Build-in duration plays with the scroll: Quick under a second, Cinematic over Calm's 1.1 s. */

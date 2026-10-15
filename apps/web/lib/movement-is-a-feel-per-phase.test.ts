@@ -140,10 +140,10 @@ test('(2) old data draws what it drew — no new value is emitted for it, and th
   sceneInFeel(frozen, resolveHubMotion(frozen));
   sceneOutFeel(frozen);
   /* THE STYLESHEET: every scroll range reads the feel with the OLD range as its fallback — and no bare one is left. */
-  assert.equal((CSS.match(/animation-range: entry 0% var\(--hub-in-end, entry min\(92%, 30vh\)\), var\(--hub-out-range, exit 8% exit 100%\);/g) ?? []).length, 1, 'the whole scene’s scroll ranges');
+  assert.equal((CSS.match(/animation-range: entry 0% var\(--hub-in-end, entry min\(92%, 34vh\)\), var\(--hub-out-range, exit 8% exit 100%\);/g) ?? []).length, 1, 'the whole scene’s scroll ranges');
   const partIn = [...CSS.matchAll(/--hub-part-in-range: entry (\d+)% ([^;]+);/g)];
   assert.deepEqual(partIn.map((m) => m[1]), ['0', '4', '8', '12', '16', '20', '24', '28', '0'], 'the parts’ staggered arrival ranges');
-  for (const m of partIn) assert.equal(m[2], 'var(--hub-in-end, entry min(92%, 30vh))', 'a part’s arrival does not fall back to Calm’s range');
+  for (const m of partIn) assert.equal(m[2], 'var(--hub-in-end, entry min(92%, 34vh))', 'a part’s arrival does not fall back to Calm’s range');
   const partOut = [...CSS.matchAll(/--hub-part-out-range: ([^;]+);/g)].map((m) => m[1]).filter((v) => v !== 'normal');
   assert.deepEqual(partOut, ['var(--hub-out-range, exit 8% exit 100%)', 'var(--hub-out-range, exit 8% exit 100%)'], 'a part’s way out does not fall back to exit 8% → 100%');
   assert.doesNotMatch(CSS, /entry \d+% entry 92%;|entry 92%\)|: exit 8% exit 100%;|, exit 8% exit 100%;/, 'a scroll range no longer reads the feel');

@@ -6,7 +6,7 @@ buffered-canvas-frame.tsx, mood-board-studio.tsx — do not edit.
 
 ## Done
 - F1 · scroll arrival finishes in view: `HUB_SCROLL_IN_END` (hub-canvas.ts), written for every scroll scene; CSS fallback
-  = Calm's `entry min(92%, 30vh)`. Guard lib/a-scroll-arrival-finishes-in-view.test.ts (sabotaged red twice).
+  = Calm’s `entry min(92%, 34vh)` (Quick min(50%,28vh) · Cinematic min(100%,40vh); Quick capped at 28vh so the 8th staggered part never gets an inverted range — guard 2b). Guard lib/a-scroll-arrival-finishes-in-view.test.ts (sabotaged red twice).
 
 - F3 · delayed part holds its first frame: motionSlots fill `backwards`; fixture rehashed by a script that proves the fill is the only change; guard = the-motion-reaches-the-guest test 9 (sabotaged red).
 

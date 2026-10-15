@@ -76,6 +76,19 @@ test('(2) at every height and every feel, the arrival is complete once the scene
   assert.ok(at('quick') < at('calm') && at('calm') < at('cinematic'), 'Quick · Calm · Cinematic are not three tempos');
 });
 
+test('(2b) a part that arrives one after another never gets a range that ends before it starts — at any height', () => {
+  /* The parts' staggered starts (`entry 4%` … `entry 28%`, globals.css) must sit before the feel's end, or the part's
+     arrival range is inverted. */
+  const starts = [...CSS.matchAll(/--hub-part-in-range: entry (\d+)% var\(--hub-in-end/g)].map((m) => Number(m[1]));
+  assert.ok(starts.length >= 8 && Math.max(...starts) === 28, `anti-vacuity: ${starts}`);
+  for (const [feel, range] of Object.entries(HUB_SCROLL_IN_END)) {
+    for (const screenH of [568, 812, 932]) for (let h = 20; h <= 3 * screenH; h += 13) {
+      const entry = Math.min(h, screenH);
+      for (const s of starts) assert.ok((s / 100) * entry <= endsAt(range, h, screenH) + 0.5, `${feel}: a ${h}px part starting at entry ${s}% ends before it starts`);
+    }
+  }
+});
+
 test('(3) the stylesheet falls back to Calm’s own range wherever it reads the feel', () => {
   const reads = [...CSS.matchAll(/var\(--hub-in-end, ([^)]*\)?)\)/g)].map((m) => m[1]);
   assert.ok(reads.length >= 9, `anti-vacuity: ${reads.length} reads`);

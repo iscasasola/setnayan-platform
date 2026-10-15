@@ -77,10 +77,10 @@ test('(3) laying it swaps the motion and leaves everything else as drawn', () =>
     ['hub-canvas', 'hub-has-media', 'hub-bg-photo', 'hub-seq-whole', 'hub-in-fade', 'hub-out-none', 'hub-during-still', 'hub-tl-time', 'pahina-in'],
     { '--hub-media': 'url("a")', '--hub-zoom': '1', '--hub-in-kf': 'hub-in-fade', '--hub-duration': '1.1s', '--hub-stagger': '0.12s', '--hub-in-o': '0' },
   );
-  laySceneMotion(frame as never, { classes: ['hub-seq-parts', 'hub-in-move', 'hub-out-fade', 'hub-during-lift', 'hub-tl-scrub'], vars: [['--hub-in-kf', 'hub-in-mix'], ['--hub-in-end', 'entry min(92%, 30vh)'], ['--hub-duration', '1.8s']] });
+  laySceneMotion(frame as never, { classes: ['hub-seq-parts', 'hub-in-move', 'hub-out-fade', 'hub-during-lift', 'hub-tl-scrub'], vars: [['--hub-in-kf', 'hub-in-mix'], ['--hub-in-end', 'entry min(92%, 34vh)'], ['--hub-duration', '1.8s']] });
   sync();
   assert.deepEqual([...cls].sort(), ['hub-bg-photo', 'hub-canvas', 'hub-during-lift', 'hub-has-media', 'hub-in-move', 'hub-out-fade', 'hub-seq-parts', 'hub-tl-scrub', 'pahina-in'].sort(), 'an old motion class stayed, or something else went');
-  assert.deepEqual(Object.fromEntries(st), { '--hub-media': 'url("a")', '--hub-zoom': '1', '--hub-in-kf': 'hub-in-mix', '--hub-in-end': 'entry min(92%, 30vh)', '--hub-duration': '1.8s' }, 'an old motion value stayed (a stale stagger plays a stale gap), or the photo went');
+  assert.deepEqual(Object.fromEntries(st), { '--hub-media': 'url("a")', '--hub-zoom': '1', '--hub-in-kf': 'hub-in-mix', '--hub-in-end': 'entry min(92%, 34vh)', '--hub-duration': '1.8s' }, 'an old motion value stayed (a stale stagger plays a stale gap), or the photo went');
 });
 
 test('(4) the wiring: every Animate pick sends, the bridge lays and plays, a new frame is told the latest', () => {

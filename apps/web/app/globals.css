@@ -7881,7 +7881,7 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
       /* 🎚 Each end's own FEEL (owner 2026-10-09 "movement independent from each"): how far the scroll-driven arrival
          runs (`--hub-in-end`) and how much of the way out the hand-off takes (`--hub-out-range`), from
          `hubCanvasVars` — set only by a couple's own choice; absent, the ranges every scene had. */
-      animation-range: entry 0% var(--hub-in-end, entry min(92%, 30vh)), var(--hub-out-range, exit 8% exit 100%);
+      animation-range: entry 0% var(--hub-in-end, entry min(92%, 34vh)), var(--hub-out-range, exit 8% exit 100%);
       animation-fill-mode: both, both;
       animation-timing-function: linear, linear;
       will-change: opacity, transform;
@@ -7930,18 +7930,18 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
     .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > * {
       --hub-part-in: var(--hub-in-kf, none);
       --hub-part-in-tl: view();
-      --hub-part-in-range: entry 0% var(--hub-in-end, entry min(92%, 30vh));
+      --hub-part-in-range: entry 0% var(--hub-in-end, entry min(92%, 34vh));
       --hub-part-out: var(--hub-out-kf, none);
       --hub-part-out-tl: view();
       --hub-part-out-range: var(--hub-out-range, exit 8% exit 100%);
     }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { --hub-part-in-range: entry 4% var(--hub-in-end, entry min(92%, 30vh)); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: entry 8% var(--hub-in-end, entry min(92%, 30vh)); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: entry 12% var(--hub-in-end, entry min(92%, 30vh)); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: entry 16% var(--hub-in-end, entry min(92%, 30vh)); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: entry 20% var(--hub-in-end, entry min(92%, 30vh)); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: entry 24% var(--hub-in-end, entry min(92%, 30vh)); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: entry 28% var(--hub-in-end, entry min(92%, 30vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { --hub-part-in-range: entry 4% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: entry 8% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: entry 12% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: entry 16% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: entry 20% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: entry 24% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: entry 28% var(--hub-in-end, entry min(92%, 34vh)); }
 
     /* ── DURING: the PICTURE drifts, never the words ──────────────────────
        🔑 It lives on the media layer on purpose. Put on the same element as
@@ -8064,7 +8064,7 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
         --hub-part-dur: 1s;
         --hub-part-ease: linear;
         --hub-part-in-tl: view();
-        --hub-part-in-range: entry 0% var(--hub-in-end, entry min(92%, 30vh));
+        --hub-part-in-range: entry 0% var(--hub-in-end, entry min(92%, 34vh));
         --hub-part-out: var(--hub-out-kf, none);
         --hub-part-out-tl: view();
         --hub-part-out-range: var(--hub-out-range, exit 8% exit 100%);

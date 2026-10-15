@@ -220,6 +220,7 @@ export async function loadCatalogueExtrasForQuote(): Promise<QuoteCatalogueExtra
     )
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .eq('is_active', true);
+  if (error) console.error('[supabase-error] app/vendor-dashboard/messages/[threadId]/proposal-actions.ts · from:vendor_packages.select (catalogue extras)', error);
   if (error || !data) return [];
   type Item = {
     item_id: string;
@@ -325,6 +326,7 @@ export async function loadSavedQuote(
     .select('template_name, body, default_package_id, quote_draft')
     .eq('template_id', templateId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] app/vendor-dashboard/messages/[threadId]/proposal-actions.ts · from:vendor_proposal_templates.select (saved quote)', error);
   if (error || !data) return null;
   const row = data as { template_name: string; body: string | null; default_package_id: string | null; quote_draft: unknown };
   const draft = parseSavedQuoteDraft(row.quote_draft);

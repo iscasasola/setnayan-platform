@@ -1,5 +1,6 @@
 'use client';
 
+import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import Link from 'next/link';
 import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -50,7 +51,6 @@ import {
  * Portalled to `document.body`: the dashboard's page wrapper keeps a transform, which makes it the containing block
  * for a `position: fixed` sheet drawn inside it.
  */
-export const CHAT_ATTACH_INPUT_ID = 'thread-attach-input';
 
 const ICON: Record<VendorThreadToolIcon, LucideIcon> = {
   quote: ReceiptText,

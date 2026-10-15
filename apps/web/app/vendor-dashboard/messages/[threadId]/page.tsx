@@ -114,7 +114,8 @@ import {
   serviceTagVaries,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
-import { CHAT_ATTACH_INPUT_ID, ThreadToolsSheet } from './_components/thread-tools-sheet';
+import { ThreadToolsSheet } from './_components/thread-tools-sheet';
+import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from './_components/thread-answer-line';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';

@@ -109,3 +109,29 @@ test('3 · the first screen is marked in every shape the masthead renders', () =
   const close = body.indexOf('</div>', wrap);
   assert.ok(next > wrap && next < close, 'the marked wrapper no longer holds the masthead');
 });
+
+/*
+ * 4 · NO BAR OVER THE COVER (owner 2026-10-15, DECISION_LOG "THE COVER SCENE TAKES THE WHOLE FIRST SCREEN — NO TOP
+ * BAR, NO BOTTOM BAR OVER IT", and the one-page Invitation approved the same day: "the bar … is hidden over the cover
+ * and slides up on the first swipe"). The first screen is the cover, and nothing of the page's chrome sits on it:
+ * while the cover leads the page (`sn-cover-wait`, not yet `sn-cover-open`) the ONE top bar and the ONE bottom bar /
+ * rail are moved off screen and taken out of the accessibility tree — never merely faded — and on the one page the
+ * bar's Home mark lands BELOW the cover, so a tap on Home can never bring the bar back over it.
+ */
+test('4 · no bar over the cover — held off screen until the first swipe, and Home never lands on the cover', () => {
+  const sheet = css.replace(/\s+/g, ' ');
+  const waiting = "html.sn-cover-wait:not(.sn-cover-open):has(header[data-cover-scene])";
+  const bottom = rules(sheet).find((r) => r.selector === `${waiting} nav[aria-label='Site sections']`);
+  assert.ok(bottom, 'nothing holds the bottom bar off the cover');
+  assert.match(bottom.body, /translate:\s*0 100%/, 'the bottom bar is not moved off the cover');
+  assert.match(bottom.body, /visibility:\s*hidden/, 'the bottom bar over the cover is still in the accessibility tree');
+  const top = rules(sheet).find((r) => r.selector === `${waiting} [data-sticky-top]`);
+  assert.ok(top && /translate:\s*0 -100%/.test(top.body), 'the top bar is not moved off the cover');
+  // Both of the bar's forms are the nav that rule names (the pinned bar and the rail) — no third, unnamed one.
+  const bar = read('app/[slug]/_components/site-menu-bar.tsx');
+  assert.equal(bar.match(/<nav\s+aria-label="Site sections"/g)?.length, 2, 'a bar the cover rule does not name');
+  // On the one page, Home's mark is drawn after the cover in both trees — never at the top of the page.
+  const body = read('app/[slug]/_components/site-body.tsx');
+  assert.equal(body.match(/data-home-after-cover=""/g)?.length, 2, 'Home’s one-page mark is not after the cover in both trees');
+  assert.match(body, /\{menuOn && !onePage \? \(\s*<div id=\{SITE_MENU_ANCHORS\.home\}/, 'the top-of-page Home mark is still drawn on the one page');
+});

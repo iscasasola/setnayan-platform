@@ -299,8 +299,8 @@ test('(7) nothing else writes — the callers’ Movement goes through the feel,
   const ss = tab.slice(from, tab.indexOf('<div data-scene-tab="animate" aria-busy={pending}>', from));
   assert.ok(ss.includes('<StageAnimate') && ss.length > 800, 'anti-vacuity: the scene’s Animate was found');
   assert.doesNotMatch(ss, /\.preset\b|c\.duration\b|c\.stagger\b|c\.outSpeed\b|HUB_MOTION_PRESETS/, 'the scene’s Animate writes a preset or a tempo outside the feel');
-  assert.match(ss, /onPick: \(f\) => save\(\(c\) => laySceneInFeel\(c, f\)\)/);
-  assert.match(ss, /onPick: \(f\) => save\(\(c\) => laySceneOutFeel\(c, f\)\)/);
+  assert.match(ss, /onPick: \(f\) => save\(\(c\) => laySceneInFeel\(c, f\), 'in'\)/);
+  assert.match(ss, /onPick: \(f\) => save\(\(c\) => laySceneOutFeel\(c, f\), 'out'\)/);
   assert.match(ss, /transition === 'auto'\s*\? \{ value: autoFeel\(shown\.autoSpeed\), onPick: \(f\) => setTransition\('auto', autoSpeedOf\(f\)\) \}/);
   assert.equal((ss.match(/c\.timeline\b/g) ?? []).length, 1, 'the drive is written by something other than Plays');
   const sheet = read(`${E}/element-sheet.tsx`);

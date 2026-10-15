@@ -55,7 +55,7 @@ test('(1) every scene’s arrival plays on the clock once the observer marks it 
   assert.match(whole, /animation:\s*var\(--hub-in-kf, none\) var\(--hub-duration, 1\.1s\) [^;]* both;/);
   assert.match(r, /:not\(\.hub-auto\) > \.hub-seq-parts\.pahina-in > \.hub-canvas-body > \* > \*,/, 'its parts do not arrive');
   assert.match(r, /\.hub-seq-parts\.pahina-in > \.hub-canvas-body > \* > \*:nth-child\(2\)[^{]*\{ animation-delay: calc\(var\(--hub-stagger, 0\.12s\) \* 1\); \}/, 'parts arrive together');
-  assert.match(r, /\[data-hub-rows\] > \.pahina-in \{\s*animation-delay: calc\(var\(--hub-stagger, 0\.12s\) \* var\(--hub-row-at, 1\)\);/, 'rows arrive together');
+  assert.match(r, /\[data-hub-rows\] > \.pahina-in \{\s*animation: var\(--hub-in-kf, none\) var\(--hub-duration, 1\.1s\) [^;]* calc\(var\(--hub-stagger, 0\.12s\) \* var\(--hub-row-at, 1\)\) both;/, 'rows arrive together');
   /* The drive is not asked: a scroll scene arrives on arrival there (no `.hub-tl-time` in the selectors). */
   assert.doesNotMatch(r, /hub-tl-time|hub-tl-scrub/, 'only one drive arrives without scroll timelines');
   /* …and a scene that asked for nothing is not animated. */

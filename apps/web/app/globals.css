@@ -8331,25 +8331,27 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { animation-delay: calc(var(--hub-stagger, 0.12s) * 5); }
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { animation-delay: calc(var(--hub-stagger, 0.12s) * 6); }
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 8) { animation-delay: calc(var(--hub-stagger, 0.12s) * 7); }
-    /* 🧾 …and a list's rows ONE BY ONE, as the guest page brings them in (the 2026-10-15 walk, F7: ▶ showed every row
-       at the same instant whatever Rows said): the list's own part stands still, its rows arrive a stagger apart,
-       the first a stagger after the heading. */
-    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
-    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]) {
-      animation: none;
+    @media screen {
+      /* 🧾 …and a list's rows ONE BY ONE, as the guest page brings them in (the 2026-10-15 walk, F7: ▶ showed every row
+         at the same instant whatever Rows said): the list's own part stands still, its rows arrive a stagger apart,
+         the first a stagger after the heading. */
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]) {
+        animation: none;
+      }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
+        animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) var(--hub-ease, ease-out) calc(var(--hub-stagger, 0.12s) * var(--sn-row, 8)) both;
+        animation-timeline: auto;
+        animation-range: normal;
+      }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(1) { --sn-row: 1; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(2) { --sn-row: 2; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(3) { --sn-row: 3; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(4) { --sn-row: 4; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(5) { --sn-row: 5; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(6) { --sn-row: 6; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(7) { --sn-row: 7; }
     }
-    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
-      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) var(--hub-ease, ease-out) calc(var(--hub-stagger, 0.12s) * var(--sn-row, 8)) both;
-      animation-timeline: auto;
-      animation-range: normal;
-    }
-    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(1) { --sn-row: 1; }
-    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(2) { --sn-row: 2; }
-    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(3) { --sn-row: 3; }
-    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(4) { --sn-row: 4; }
-    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(5) { --sn-row: 5; }
-    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(6) { --sn-row: 6; }
-    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(7) { --sn-row: 7; }
   }
 }
 
@@ -8371,7 +8373,6 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
   @media screen and (prefers-reduced-motion: no-preference) {
     :not(.hub-auto) > .hub-seq-whole.pahina-in > .hub-canvas-body,
     :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *,
-    :not(.hub-arun):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body [data-hub-rows] > .pahina-in,
     .hub-canvas.sn-replay.sn-replay.hub-seq-whole > .hub-canvas-body,
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > * {
       animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) cubic-bezier(0.22, 0.61, 0.36, 1) 0s both;
@@ -8402,7 +8403,7 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(7) { --sn-row: 7; }
     /* A list's rows arrive one by one; the list's own part stands still (two opacities would multiply). */
     :not(.hub-arun):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body [data-hub-rows] > .pahina-in {
-      animation-delay: calc(var(--hub-stagger, 0.12s) * var(--hub-row-at, 1));
+      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) cubic-bezier(0.22, 0.61, 0.36, 1) calc(var(--hub-stagger, 0.12s) * var(--hub-row-at, 1)) both;
     }
     :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > [data-hub-rows],
     :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:has([data-hub-rows]),

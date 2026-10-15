@@ -84,3 +84,12 @@ test('the switcher and the rail slot go through it, keyed by the verified user; 
   assert.match(fn, /const user = await getCurrentUser\(\);/);
   assert.match(fn, /chromeSnapshot\(\s*'rail-account',\s*user\.id,/);
 });
+
+test('the search index asks auth once and goes through the snapshot too', () => {
+  const WEB = join(__dirname, '..');
+  const cmd = stripComments(readFileSync(join(WEB, 'app/_components/frontdoor/command-data.ts'), 'utf8'));
+  const fn = cmd.slice(cmd.indexOf('export const resolveCommandItems'));
+  assert.doesNotMatch(fn.slice(0, fn.indexOf('async function loadCommandItems')), /auth\.getUser\(\)/);
+  assert.doesNotMatch(cmd, /supabase\.auth\.getUser\(\)/, 'a second auth-server round trip per render');
+  assert.match(fn, /chromeSnapshot\('command-items', user\.id, \(\) => loadCommandItems\(user\.id\), \(items\) => items\.length > 0\)/);
+});

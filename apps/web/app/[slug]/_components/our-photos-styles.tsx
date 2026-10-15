@@ -1,5 +1,7 @@
+import { GlimpseRail } from './glimpse-rail';
+
 /**
- * THE SAVE THE DATE PHOTOS' OTHER TWO STYLES — Grid and Film strip
+ * THE SAVE THE DATE PHOTOS' OTHER STYLES — Grid, Film strip and Glimpse
  * (prototype `every_scene_three_styles_2026-09-29.html` §13). They carry the
  * Post Event gallery's NAMES and ids (`grid`, `film-strip`) — the photos row
  * is the `gallery` scene type — so one pick carries across stages. A · Mosaic
@@ -58,6 +60,24 @@ export function OurPhotosFilmStrip({ urls }: { urls: readonly string[] }) {
         ))}
       </div>
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/70">Slides sideways</p>
+    </section>
+  );
+}
+
+/**
+ * Glimpse — one 3:4 photo at a time, centred; the previous and next peek in at both edges, and the rail drifts slowly
+ * sideways (owner 2026-10-15, DECISION_LOG "GLIMPSE PHOTO STYLE APPROVED" + "…A SLOW CONTINUOUS DRIFT"; prototype
+ * `photos_glimpse_style_2026-10-15_fable.html`). Save the Date only — its own id, not one of Post Event's. The rail,
+ * its drift, the dots and the full-screen photo are the small client leaf `glimpse-rail.tsx`; the server draws it as a
+ * plain snap rail, every photo once, so the page reads before any JavaScript.
+ */
+export function OurPhotosGlimpse({ urls }: { urls: readonly string[] }) {
+  return (
+    <section className="space-y-4" data-scene-style="glimpse">
+      <p className="pahina-eyebrow">
+        <span>Our photos</span>
+      </p>
+      <GlimpseRail urls={urls} />
     </section>
   );
 }

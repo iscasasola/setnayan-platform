@@ -1,4 +1,4 @@
-import { OurPhotosFilmStrip, OurPhotosGrid } from './our-photos-styles';
+import { OurPhotosFilmStrip, OurPhotosGlimpse, OurPhotosGrid } from './our-photos-styles';
 
 /**
  * Our Photos — the couple's own curated gallery (Increment A.4). Reads the
@@ -13,13 +13,14 @@ export function OurPhotosWidget({
   sceneStyle = null,
 }: {
   urls: string[];
-  /** 🎨 `mosaic` (this, the default) · `grid` · `film-strip` — `our-photos-styles.tsx`. */
+  /** 🎨 `mosaic` (this, the default) · `grid` · `film-strip` · `glimpse` — `our-photos-styles.tsx`. */
   sceneStyle?: string | null;
 }) {
   const photos = (urls ?? []).filter((u) => typeof u === 'string' && u.length > 0);
   if (photos.length === 0) return null;
   if (sceneStyle === 'grid') return <OurPhotosGrid urls={photos} />;
   if (sceneStyle === 'film-strip') return <OurPhotosFilmStrip urls={photos} />;
+  if (sceneStyle === 'glimpse') return <OurPhotosGlimpse urls={photos} />;
 
   // Pahina editorial mosaic (design 2026-07-25 §7): the uniform square grid
   // becomes a magazine spread — the first frame is a full-width cover plate,

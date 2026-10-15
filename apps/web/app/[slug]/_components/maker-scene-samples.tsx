@@ -343,6 +343,21 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
       ))}
     </span>
   ),
+  /* 🎞 Glimpse — one 3:4 card centred, the previous and next peeking in, a row of dots under them. */
+  'gallery:glimpse': () => (
+    <span className="block space-y-3">
+      <span className="flex items-center justify-center gap-3 overflow-hidden">
+        <Box className="aspect-[3/4] w-[46%] shrink-0 scale-[.92] rounded-[14px] opacity-70" />
+        <Box className="aspect-[3/4] w-[46%] shrink-0 rounded-[14px]" />
+        <Box className="aspect-[3/4] w-[46%] shrink-0 scale-[.92] rounded-[14px] opacity-70" />
+      </span>
+      <span className="flex justify-center gap-1.5">
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} aria-hidden data-sample-box="" className={`block h-1.5 w-1.5 rounded-full ${i === 1 ? 'bg-ink/40' : 'bg-ink/15'}`} />
+        ))}
+      </span>
+    </span>
+  ),
   /* ── Love Story ── */
   'our_love_story:chapters': () => (
     <span className="block space-y-5 text-left">

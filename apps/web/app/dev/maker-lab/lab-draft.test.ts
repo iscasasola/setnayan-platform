@@ -260,6 +260,7 @@ test('the lab’s pages are handed EVERY key of a scene’s draft — the list o
     /* "What guests see", pass 2 — the fixed parts' choices (kept on the hero row by the real sanitiser). */
     part_show: { gifts: { event: false } },
     std_lead: 'photos',
+    photos_heading: 'A few of our favourites',
     custom: { title: 'Ours', body: 'Words.' },
     venue: { ceremony: { source: 'own' } },
     removed: true,
@@ -272,8 +273,8 @@ test('the lab’s pages are handed EVERY key of a scene’s draft — the list o
   /* …and no hand-kept list is back in its place. */
   assert.doesNotMatch(read('lab-draft.ts'), /w\.stage_order !== undefined \? \{ stage_order/);
   /* What the real overlay lays for the keys the sample's rows take, it lays here: place, eye, mode, per-stage choice,
-     and the Save the Date's Film · Photos pick on the gallery's row. */
-  const real: HubDraft = { ...emptyHubDraft(), widgets: { countdown: { mode: 'hidden', is_visible: false, display_order: 9, stage_order: { rsvp: 3 }, stage_show: { rsvp: false, event: true } }, our_photos: { std_lead: 'photos' } } };
+     and the Save the Date's Film · Photos pick and the Photos heading on the gallery's row. */
+  const real: HubDraft = { ...emptyHubDraft(), widgets: { countdown: { mode: 'hidden', is_visible: false, display_order: 9, stage_order: { rsvp: 3 }, stage_show: { rsvp: false, event: true } }, our_photos: { std_lead: 'photos', photos_heading: 'A few of our favourites' } } };
   assert.deepEqual(labDraftedRows(labDraftCookies(real, false)[LAB_ROWS_COOKIE] ?? undefined), overlayHubDraftWidgets(labRows(), real));
 });
 

@@ -60,6 +60,7 @@ import { heroCanvasOf } from '@/app/[slug]/_lib/hero-design-of';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
+import { labPhotoUrls } from './lab-photos';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -195,12 +196,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      Glimpse rail, its drift and the shipped full-screen viewer are walked with no database. */
   if (typeof sp.photos === 'string') {
     const n = Math.max(1, Math.min(24, Number(sp.photos) || 5));
-    const hues = [28, 352, 205, 160, 44, 290, 12, 190, 75, 330, 230, 98];
-    const urls = Array.from({ length: n }, (_, i) => {
-      const hue = hues[i % hues.length]!;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400"><defs><linearGradient id="g" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="hsl(${hue} 38% 72%)"/><stop offset=".55" stop-color="hsl(${hue} 42% 48%)"/><stop offset="1" stop-color="hsl(${(hue + 30) % 360} 36% 30%)"/></linearGradient></defs><rect width="300" height="400" fill="url(#g)"/><circle cx="${60 + ((i * 51) % 150)}" cy="${70 + ((i * 33) % 80)}" r="48" fill="rgba(255,255,255,.28)"/><line x1="40" x2="260" y1="300" y2="300" stroke="rgba(255,255,255,.4)"/><text x="20" y="384" font-family="sans-serif" font-size="18" letter-spacing="3" fill="rgba(255,255,255,.8)">${String(i + 1).padStart(2, '0')}</text></svg>`;
-      return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-    });
+    const urls = labPhotoUrls(n);
     const gstyle = typeof sp.gstyle === 'string' ? sp.gstyle : 'glimpse';
     const heading = typeof sp.heading === 'string' && sp.heading.trim() ? sp.heading.trim() : null;
     /* `&pe=1` — the SAME pictures as Post Event's gallery PREVIEW inside the real open-up (the preview is the open-up's

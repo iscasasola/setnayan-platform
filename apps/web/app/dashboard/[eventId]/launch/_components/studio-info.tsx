@@ -52,11 +52,33 @@ export function setStudioDraftDoor(next: StudioDraftDoor | null): void {
  */
 export async function studioDraftKeep(eventId: string, key: string, events: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> {
   if (Object.keys(events).length === 0) return { ok: true };
-  return studioDraftKeepPatch(eventId, key, { events });
+  let res: Awaited<ReturnType<typeof hubDraftAction>> | typeof SUPERSEDED;
+  try {
+    /* `makerRedrawSave`: a HELD save (no render of the Maker is owed for it) whose change the bridge cannot draw —
+       so once the last one in flight has landed, the pages the Maker shows redraw themselves, in place, once. */
+    res = await makerRedrawSave(
+      () =>
+        makerLatestWrite(key, () => {
+          const fd = new FormData();
+          fd.set('intent', 'save');
+          fd.set('patch', JSON.stringify({ events }));
+          fd.set(HUB_DRAFT_BAR_FIELD, '1');
+          return door(eventId, fd);
+        }),
+      requestMakerRefresh,
+      (r) => r !== SUPERSEDED && r.ok === true,
+    );
+  } catch {
+    return { ok: false, error: 'Please try again.' };
+  }
+  /* A later keep of the same fact took its place: that one answers for both. */
+  if (res === SUPERSEDED) return { ok: true };
+  if (!res.ok) return { ok: false, error: res.error || 'Please try again.' };
+  return { ok: true };
 }
 
 /** …the same ONE request for an answer kept on a scene's own row (`{ widgets: { <type>: … } }`) — the Photos heading. */
-async function studioDraftKeepPatch(eventId: string, key: string, patch: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function studioPhotosHeadingKeep(eventId: string, key: string, patch: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> {
   let res: Awaited<ReturnType<typeof hubDraftAction>> | typeof SUPERSEDED;
   try {
     /* `makerRedrawSave`: a HELD save (no render of the Maker is owed for it) whose change the bridge cannot draw —
@@ -286,7 +308,7 @@ export function StudioPhotosHeading({ eventId, value }: { eventId: string; value
           const kept = next.replace(/\s+/g, ' ').trim().slice(0, PHOTOS_HEADING_MAX);
           setText(kept);
           tellOtherDoors('photos_heading', kept, 'typed');
-          return studioDraftKeepPatch(eventId, 'widgets:our_photos.photos_heading', { widgets: { our_photos: { photos_heading: kept || null } } });
+          return studioPhotosHeadingKeep(eventId, 'widgets:our_photos.photos_heading', { widgets: { our_photos: { photos_heading: kept || null } } });
         }}
       />
     </FormRows>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🎞 GLIMPSE — THE RAIL (owner 2026-10-15, DECISION_LOG "GLIMPSE PHOTO STYLE APPROVED" + "GLIMPSE'S MOTION IS A SLOW
@@ -348,7 +349,7 @@ export function GlimpseRail({
       >
         {drawn.flat().map(({ url, i, copy }, k) => {
           const cardClass =
-            'relative !min-h-0 block aspect-[3/4] w-[var(--g-w)] shrink-0 snap-center overflow-hidden rounded-[18px] bg-ink/5 p-0 shadow-[0_6px_16px_rgb(var(--color-ink)/0.14)] [opacity:var(--g-o,1)] [transform:scale(var(--g-s,1))] motion-safe:transition-[transform,opacity] motion-safe:duration-200';
+            'relative !min-h-0 block aspect-[3/4] w-[var(--g-w)] shrink-0 snap-center overflow-hidden rounded-card bg-ink/5 p-0 shadow-[0_6px_16px_rgb(var(--color-ink)/0.14)] [opacity:var(--g-o,1)] [transform:scale(var(--g-s,1))] motion-safe:transition-[transform,opacity] motion-safe:duration-200';
           /* eslint-disable-next-line @next/next/no-img-element */
           const img = <img src={url} alt="" aria-hidden loading="lazy" draggable={false} className="absolute inset-0 h-full w-full object-cover" />;
           if (preview) {
@@ -366,7 +367,7 @@ export function GlimpseRail({
               data-glimpse-photo={i}
               tabIndex={-1}
               aria-hidden={copy === (loops ? 1 : 0) ? undefined : true}
-              aria-label={`Photo ${i + 1} of ${n}`}
+              aria-label={`Photo ${formatCount(i + 1)} of ${formatCount(n)}`}
               onClick={() => {
                 if (k === st.current.centreCard) {
                   pause();
@@ -418,12 +419,12 @@ export function GlimpseRail({
                 ))}
               </span>
             ) : (
-              <span className="font-sans text-[11px] font-medium tabular-nums tracking-[0.18em] text-ink/70" aria-live="polite">
-                {centre + 1} / {n}
+              <span className="font-sans text-xs font-medium tabular-nums tracking-[0.18em] text-ink/70" aria-live="polite">
+                {formatCount(centre + 1)} / {formatCount(n)}
               </span>
             )}
           </div>
-          {preview ? null : <p className="mt-2.5 text-center font-sans text-[11px] font-medium uppercase tracking-[0.2em] text-ink/70">Swipe · tap to open</p>}
+          {preview ? null : <p className="mt-2.5 text-center font-sans text-xs font-medium uppercase tracking-[0.2em] text-ink/70">Swipe · tap to open</p>}
         </>
       ) : null}
 
@@ -431,7 +432,7 @@ export function GlimpseRail({
         <GalleryLightbox
           src={urls[open]!}
           kind="photo"
-          label={`Photo ${open + 1} of ${n}`}
+          label={`Photo ${formatCount(open + 1)} of ${formatCount(n)}`}
           onClose={() => {
             const at = open;
             setOpen(null);
@@ -445,8 +446,8 @@ export function GlimpseRail({
                 <button type="button" aria-label="Previous photo" onClick={() => setOpen((o) => (o === null ? o : (o - 1 + n) % n))} className="sn-gal-btn flex h-11 w-11 items-center justify-center rounded-full text-xl">
                   ‹
                 </button>
-                <span className="sn-gal-soft font-mono text-[11px] tabular-nums tracking-[0.14em]">
-                  {open + 1} / {n}
+                <span className="sn-gal-soft font-mono text-xs tabular-nums tracking-[0.14em]">
+                  {formatCount(open + 1)} / {formatCount(n)}
                 </span>
                 <button type="button" aria-label="Next photo" onClick={() => setOpen((o) => (o === null ? o : (o + 1) % n))} className="sn-gal-btn flex h-11 w-11 items-center justify-center rounded-full text-xl">
                   ›

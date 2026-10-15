@@ -878,9 +878,11 @@ test('🔒 do’s & don’ts · no pick, "notes" and a stored id this version do
     }
     assert.doesNotMatch(shipped, /data-dos-look|✓|✕/, 'the shipped notes grew marks nobody picked');
   }
-  /* The default layout's notes are the markup guests have today — its two fills and its "·" lines, pinned. */
+  /* The default layout's notes are the markup guests have today — its two fills and its "·" lines, pinned. Each line
+     wears the scene-words mark since 2026-10-15 (owner: the do / don't lines follow Style's Size and Colour —
+     `lib/scene-words-class.ts`); nothing a guest sees changes until a couple picks one. */
   const a = decode(dosBlock(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD } as never))));
-  assert.match(a, /^<div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-dress-code="dos"><div class="space-y-2 border-l-2 border-gild bg-veil\/50 p-4 text-sm text-ink\/80"><p class="font-mono text-\[0\.66rem\] uppercase tracking-\[0\.28em\] text-gild">Do<\/p><ul class="space-y-1"><li>· Wear Filipiniana or long gowns<\/li>/);
+  assert.match(a, /^<div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-dress-code="dos"><div class="space-y-2 border-l-2 border-gild bg-veil\/50 p-4 text-sm text-ink\/80"><p class="font-mono text-\[0\.66rem\] uppercase tracking-\[0\.28em\] text-gild">Do<\/p><ul class="space-y-1"><li class="hub-el-words">· Wear Filipiniana or long gowns<\/li>/);
   assert.match(a, /<div class="space-y-2 border-l-2 border-ink\/30 bg-paper-deep p-4 text-sm text-ink\/75">/);
   /* A pick is stored beside the palette look, survives the sanitiser, and frames nothing (no motion nobody chose). */
   assert.deepEqual(sanitizeHubCanvas({ canvas: { dos: 'marks', palette: 'ribbon' } }), { palette: 'ribbon', dos: 'marks' });

@@ -78,3 +78,17 @@ walking that machinery now) and the theme script's `.dark` removal (dark-mode PR
 rewrite that file).
 
 SPEC IMPACT: None.
+
+### 7 · The cover's monogram took ~14 s on a phone, and never appeared with JavaScript failing
+
+Traced by the Animate test (`controller-2026-10-12/test-animate/WALK.md` L1): `CoupleLogo` kept a playing
+logo's still in the server HTML but hid it with `motion-safe:invisible` until hydration, then a second
+chunk, then the draw. It is now hidden by `.sn-logo-wait` (`app/globals.css`) — a 2.5 s CSS animation that
+ENDS, so the still shows by CSS alone. Live hydration on maria-and-jose measured 0.4–1.3 s after the still
+arrives, so a normal page still draws its entrance; when the wait ran out first the logo arrives `settled`
+(no "shown, gone, drawn again"), and the still stays up while the player's chunk loads. A logo offscreen
+when JavaScript arrives is held hidden and plays on arrival, as before. Guard:
+`lib/every-logo-plays.test.ts` § 3 (no endless hide in the server HTML) and § 3b (the wait is CSS,
+motion-gated, ≤ 3 s, never filled; a seen still arrives settled).
+
+SPEC IMPACT: None — the 2.5 s cap is an engineering ceiling, recorded here; the owner may tune it.

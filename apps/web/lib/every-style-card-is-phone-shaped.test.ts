@@ -104,7 +104,7 @@ test('what the couple sees: every look card of a part, of the palette and of the
     assert.ok(options.length >= 2, `${type} offers looks on ${stage}`);
     sets.push([type, renderToStaticMarkup(React.createElement(StyleCards, { options, value: options[0]!.id, onPick: () => {}, pending: false, canvasKey: `w:${type}`, sceneType: type })), options.length]);
   }
-  sets.push(['palette', renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'tags', onPick: () => {} })), 5]);
+  sets.push(['palette', renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'tags', onPick: () => {} })), (await import('./palette-looks')).PALETTE_LOOK_IDS.length]);
   sets.push(['dos', renderToStaticMarkup(React.createElement(DosLookCards, { value: 'notes', onPick: () => {} })), 3]);
   let cards = 0;
   for (const [what, html, n] of sets) {

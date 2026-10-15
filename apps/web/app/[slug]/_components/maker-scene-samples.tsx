@@ -7,7 +7,7 @@
  * grey lines where words go. The day's parts and Photo moments were first (`maker-fixed-parts.tsx`
  * `MakerDayPartStandIn`, `photo-moments-widget.tsx`); this is every other scene that is empty on a new event:
  * Special message · Schedule · Venue map · Reminders · Love Story · Photos · Countdown · Dress code (its three
- * layouts and its five palette looks) · Do's & Don'ts · E-Gifts.
+ * layouts and its palette looks) · Do's & Don'ts · E-Gifts.
  *
  * ── THE SHARED PLACE ───────────────────────────────────────────────────────────────────────────────
  * A look card is the guest page itself, asked for one scene in one style (`stage-panel/style-preview.tsx`), so
@@ -46,8 +46,8 @@ const Rule = ({ className = '' }: { className?: string }) => <span aria-hidden c
 const GREYS = ['bg-ink/10', 'bg-ink/20', 'bg-ink/30', 'bg-ink/15'] as const;
 
 /**
- * 🎨 "OUR COLOURS", AS EACH PALETTE LOOK ARRANGES THEM — Tags · Fabric swatches · Paint chips · Circles · Ribbon
- * (`lib/palette-looks.ts`), in greys. The Dress code scene draws this where its colours will go while the
+ * 🎨 "OUR COLOURS", AS EACH PALETTE LOOK ARRANGES THEM — Tags · Silk swatches · Paint chips · Circles · Ribbon ·
+ * Arch tabs · Watercolour dots · Paint strokes (`lib/palette-looks.ts`), in greys. The Dress code scene draws this where its colours will go while the
  * couple has picked none.
  */
 export const PALETTE_SAMPLE: Record<PaletteLookId, () => ReactNode> = {
@@ -65,10 +65,8 @@ export const PALETTE_SAMPLE: Record<PaletteLookId, () => ReactNode> = {
     <span className="flex justify-center gap-3">
       {GREYS.map((g, i) => (
         <span key={i} className="block w-14 space-y-1.5">
-          <span aria-hidden data-sample-box="" className={`block h-14 w-14 rounded-none p-1 ${g}`}>
-            <span className="block h-full w-full border border-dashed border-ink/30" />
-          </span>
           <Line w="w-3/4" className="mx-auto" />
+          <span aria-hidden data-sample-box="" className={`block h-[4.5rem] w-14 rounded-none ${g} [clip-path:polygon(0_4%,12.5%_0,25%_4%,37.5%_0,50%_4%,62.5%_0,75%_4%,87.5%_0,100%_4%,100%_96%,87.5%_100%,75%_96%,62.5%_100%,50%_96%,37.5%_100%,25%_96%,12.5%_100%,0_96%)]`} />
         </span>
       ))}
     </span>
@@ -90,6 +88,38 @@ export const PALETTE_SAMPLE: Record<PaletteLookId, () => ReactNode> = {
         ))}
       </span>
       <Line w="w-1/2" className="mx-auto" />
+    </span>
+  ),
+  arch: () => (
+    <span className="flex justify-center">
+      {GREYS.map((g, i) => (
+        <span key={i} aria-hidden data-sample-box="" className={`flex h-[7.375rem] w-1/4 max-w-[5.5rem] items-end justify-center rounded-b-full rounded-t-none pb-4 ${g}`}>
+          <span className="block h-1.5 w-1/2 rounded-full bg-ink/25" />
+        </span>
+      ))}
+    </span>
+  ),
+  watercolour: () => (
+    <span className="flex justify-center gap-2">
+      {GREYS.map((g, i) => (
+        <span key={i} className="block w-16 space-y-2">
+          <span aria-hidden data-sample-box="" className={`mx-auto block h-[3.75rem] w-[3.75rem] rounded-full ${g}`} />
+          <Line w="w-3/4" className="mx-auto" />
+        </span>
+      ))}
+    </span>
+  ),
+  strokes: () => (
+    <span className="block py-3 pl-1">
+      {GREYS.map((g, i) => (
+        <span
+          key={i}
+          aria-hidden
+          data-sample-box=""
+          className={`block h-10 w-[14.375rem] max-w-full origin-left -rotate-[7deg] rounded-full ${i > 0 ? '-mt-3' : ''} ${g}`}
+          style={{ marginLeft: `${i * 9}px` }}
+        />
+      ))}
     </span>
   ),
   ribbon: () => (

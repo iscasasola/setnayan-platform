@@ -1,5 +1,6 @@
 /**
- * 🎨 THE FIVE PALETTE LOOKS — how the Dress code scene draws "Our colours".
+ * 🎨 THE PALETTE LOOKS — how the Dress code scene draws "Our colours" (five shipped 2026-09-30, three more
+ * 2026-10-15; the globals.css block keeps its first name, "THE FIVE PALETTE LOOKS", as its anchor).
  *
  * ⚠ NOT `lib/palette-styles.ts`. That is the Mood Board's derivation engine
  * (Simple · Depth · Complex — how the couple's five colours become every
@@ -13,10 +14,24 @@
  *
  *   · tags     — today's `.pahina-swatch` tags. The DEFAULT, so a live page
  *                that never picked keeps its look.
- *   · fabric   — pinked cloth squares with a weave and a stitch.
+ *   · fabric   — pinked cloth. REDRAWN 2026-10-15 as the silk swatch (a tall
+ *                pinked rectangle with silk folds, the name above) — same id,
+ *                so a page that picked it keeps its pick.
  *   · chips    — one paint-store strip, the name ON the colour.
  *   · circles  — overlapping buttons in one row, the names under.
  *   · ribbon   — one notched band splitting into the colours.
+ *
+ * Owner, 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS" (2)) on
+ * `prototypes/palette_styles_2026-10-15_fable.html`: *"palette keep Watercolour,
+ * Arch tabs, Paint strokes, redraw Fabric as Silk, drop Script circles, no hex"*:
+ *
+ *   · arch        — tall tabs rounded at the foot, edge to edge, a sprig, the
+ *                   name at the foot in spaced caps. NO hex (the 2026-09-30
+ *                   "a colour is said by name" rule stands).
+ *   · watercolour — painted dots with a roughened edge, the name under each in
+ *                   the page's own ink.
+ *   · strokes     — glossy paint strokes cascading down the page, the name on
+ *                   each stroke's left end.
  *
  * Every look is FREE (a pick from a dropdown — nothing typed, uploaded or
  * tuned) and STILL: the design's per-look entrances were cut by the owner on
@@ -39,7 +54,7 @@
 
 import { sanitizeSceneStyleId } from '@/lib/scene-style-id';
 
-export const PALETTE_LOOK_IDS = ['tags', 'fabric', 'chips', 'circles', 'ribbon'] as const;
+export const PALETTE_LOOK_IDS = ['tags', 'fabric', 'chips', 'circles', 'ribbon', 'arch', 'watercolour', 'strokes'] as const;
 export type PaletteLookId = (typeof PALETTE_LOOK_IDS)[number];
 
 /**
@@ -64,13 +79,16 @@ export type PaletteLook = {
   line: string;
 };
 
-/** In the dropdown's order — the prototype's A to E. */
+/** In the dropdown's order — the 2026-09-29 prototype's A to E, then the 2026-10-15 three (its "Delta to build" order). */
 export const PALETTE_LOOKS: readonly PaletteLook[] = [
   { id: 'tags', name: 'Tags', line: 'Tall tags on a pin, the name under each' },
-  { id: 'fabric', name: 'Fabric swatches', line: 'Cloth squares with a weave and a stitch' },
+  { id: 'fabric', name: 'Silk swatches', line: 'Pinked silk, the name above each' },
   { id: 'chips', name: 'Paint chips', line: 'One strip, the name on the colour' },
   { id: 'circles', name: 'Circles', line: 'Buttons in a row, the names under' },
   { id: 'ribbon', name: 'Ribbon', line: 'One band splitting into the colours' },
+  { id: 'arch', name: 'Arch tabs', line: 'Tall tabs, the name at the foot' },
+  { id: 'watercolour', name: 'Watercolour dots', line: 'Painted dots, the names under' },
+  { id: 'strokes', name: 'Paint strokes', line: 'Glossy strokes down the page (best up to six colours)' },
 ];
 
 export function isPaletteLookId(v: unknown): v is PaletteLookId {
@@ -78,7 +96,7 @@ export function isPaletteLookId(v: unknown): v is PaletteLookId {
 }
 
 /**
- * THE LOOK THE PALETTE IS DRAWN IN — the pick when it is one of the five, else
+ * THE LOOK THE PALETTE IS DRAWN IN — the pick when it is one of the looks, else
  * Tags. One resolver for the guest page and the Maker's dropdown, so the two
  * can never disagree about what an absent pick means.
  */

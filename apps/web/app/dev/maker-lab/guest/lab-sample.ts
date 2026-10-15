@@ -117,3 +117,34 @@ export function labRolePalette(board: readonly string[]) {
     guest: [board[3], board[1]],
   };
 }
+
+/**
+ * 🎨 `?board=cale` — the palette prototype's REAL colours (`prototypes/palette_styles_2026-10-15_fable.html`,
+ * cale-ice's `role_palette` + `dress_code_config`, exported there SELECT-only), so a palette look's lab shot can be
+ * set beside the design it was built from colour for colour: the Mood Board's five reception colours lead, the six
+ * typed in the dress-code editor follow (eleven in "Our colours"), and the Principal Sponsors wear Taupe — the one
+ * real colour that takes the third ink step — and Dim Gray. Fixture only; nothing here reaches a guest.
+ */
+export const LAB_CALE_BOARD = ['#5C0700', '#669C35', '#B51A00', '#F7F2EC', '#CFAFAF'] as const;
+export function labCaleDressConfig() {
+  return {
+    title: 'Formal',
+    palette: [
+      { name: 'Oxblood', hex: '#351115' },
+      { name: 'Olive Grove', hex: '#646B38' },
+      { name: 'Piña Cream', hex: '#F3E5B9' },
+      { name: 'Blush', hex: '#E6C0B3' },
+      { name: 'Burgundy', hex: '#803236' },
+      { name: 'Narra Brown', hex: '#6B4226' },
+    ],
+    roles: { principal_sponsor_ninang: { style: 'long_gown' } },
+  };
+}
+export function labCaleRolePalette() {
+  return {
+    reception: [...LAB_CALE_BOARD],
+    parents_immediate_family: ['#5C0700', '#669C35', '#B51A00'],
+    principal_sponsors: ['#8B7E74', '#6C6C6C'],
+    touched_roles: ['parents_immediate_family', 'principal_sponsors'],
+  };
+}

@@ -124,7 +124,7 @@ test('🔒 no stored look id is renamed or dropped — every shipped id still dr
   for (const stage of ['rsvp', 'event'] as const) {
     assert.equal(resolveSceneStyle('entourage', stage, 'two-sides', 'wedding'), 'roll-call', `entourage on ${stage}: a stored two-sides`);
   }
-  assert.deepEqual([...PALETTE_LOOK_IDS], ['tags', 'fabric', 'chips', 'circles', 'ribbon']);
+  assert.deepEqual([...PALETTE_LOOK_IDS], ['tags', 'fabric', 'chips', 'circles', 'ribbon', 'arch', 'watercolour', 'strokes']);
   for (const id of PALETTE_LOOK_IDS) assert.equal(resolvePaletteLook(id), id);
   assert.equal(resolvePaletteLook(undefined), PALETTE_LOOK_DEFAULT);
   assert.equal(PALETTE_LOOK_DEFAULT, 'tags', 'an absent palette pick no longer draws today’s tags');

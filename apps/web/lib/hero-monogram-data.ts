@@ -72,6 +72,24 @@ export type HeroMonogramData = {
 };
 
 /**
+ * 🔘 THE LOGO SWITCH — `events.logo_wanted` ("Do you want a logo?" · "Yes, make
+ * one" / "No, use our names"). Owner 2026-10-15 (DECISION_LOG "SIX OWNER
+ * ANSWERS", answer 4): *"make the Logo switch work"* — OFF ⇒ the couple's drawn
+ * logo is on neither the cover nor the QR centre; ON ⇒ it is on both.
+ *
+ * Only an explicit `false` is OFF. NULL is "not asked yet" (lib/event-answers.ts)
+ * and keeps the logo every existing event already shows; a caller whose select
+ * did not name the column reads the same as NULL — which is why every cover and
+ * QR select names it (`logo-switch-is-real.test.ts`).
+ *
+ * The ONE reader: `heroMarkSvg` (the hub cover, the invite doors' crest, the
+ * prints' mark) and `qrLookFromRow` (every QR's centre) both ask this.
+ */
+export function logoSwitchedOff(row: { logo_wanted?: boolean | null } | null | undefined): boolean {
+  return row?.logo_wanted === false;
+}
+
+/**
  * THE COUPLE'S LOGO, EXACTLY AS THE EVENT HUB HERO DRAWS IT — the one sanitised
  * mark (`resolveEventMonogramSvg`: the Maker's Logo composition first, then an
  * upload), painted in their reception ink when the mark asks for the palette.
@@ -87,7 +105,9 @@ export function heroMarkSvg(row: {
   monogram_custom_svg?: string | null;
   monogram_uploaded_svg?: string | null;
   role_palette?: unknown;
+  logo_wanted?: boolean | null;
 }): string | null {
+  if (logoSwitchedOff(row)) return null;
   return resolveEventMonogramSvg(row, {
     ink: getPrimaryColor(sanitizeRolePalette(row.role_palette), 'reception') ?? null,
   });

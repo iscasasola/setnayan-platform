@@ -19,6 +19,7 @@ import { eventWordsFor, eventWordsFromProfile, solemnAdjustedPhase } from './_li
 import { replyFaceOf, replyRefusedWords, replyWindow } from '@/lib/reply-window';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveMonogram } from '@/lib/monogram';
+import { logoSwitchedOff } from '@/lib/hero-monogram-data';
 import { venueNamesLine } from '@/lib/event-venues';
 import { InvitationSkeleton } from './_components/invitation-skeleton';
 import { heroDesignForSkeleton } from './_lib/hero-design-of';
@@ -621,7 +622,8 @@ async function publicInvitationPage({ params, searchParams }: Props) {
           quiet={loadingScreen === 'quiet'}
           showHeader={!(asksForEditorBridge(search) && search.bars !== '1')}
           mark={
-            event.monogram_custom_svg || event.monogram_uploaded_svg
+            // 🔘 The Logo switch OFF draws initials, so the skeleton does too.
+            (event.monogram_custom_svg || event.monogram_uploaded_svg) && !logoSwitchedOff(event)
               ? null
               : { design: event, monogram: resolveMonogram(event) }
           }

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
-import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
+import { HERO_MONOGRAM_COLUMNS, logoSwitchedOff } from '@/lib/hero-monogram-data';
 import { getPrimaryColor, PALETTE_ORDER, sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveMonogram } from '@/lib/monogram';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
@@ -37,7 +37,7 @@ import {
  */
 
 /** The event columns a look needs, beyond the canonical monogram list. */
-export const QR_LOOK_EXTRA_COLUMNS = 'role_palette, style_preferences';
+export const QR_LOOK_EXTRA_COLUMNS = 'role_palette, style_preferences, logo_wanted';
 
 /**
  * Reusable SELECT fragment: the canonical monogram list + the look's own two.
@@ -80,6 +80,8 @@ export type QrLookRow = {
   monogram_uploaded_svg?: string | null;
   role_palette?: unknown;
   style_preferences?: unknown;
+  /** 🔘 The Logo switch (`logoSwitchedOff`): false ⇒ no drawn logo in the centre. */
+  logo_wanted?: boolean | null;
 };
 
 /** What the Maker's Details controls need to draw the three dropdowns. */
@@ -107,7 +109,9 @@ export function qrLookFromRow(row: QrLookRow | null | undefined, ownsPro: boolea
       monogram_style: row.monogram_style ?? null,
       monogram_frame_key: row.monogram_frame_key ?? null,
     }),
-    logoSvg: resolveEventMonogramSvg(row, { ink }),
+    // 🔘 The Logo switch OFF ⇒ no drawn logo in the centre: a Pro code then wears
+    // the couple's lettered lockup ("No, use our names"), as it does with no logo.
+    logoSvg: logoSwitchedOff(row) ? null : resolveEventMonogramSvg(row, { ink }),
   });
 }
 

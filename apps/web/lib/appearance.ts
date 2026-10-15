@@ -45,8 +45,9 @@ export const THEME_COLOR: Record<Appearance, string> = {
 /**
  * 🚦 THE READY-LIST — route prefixes whose screens have been swept for dark.
  *
- * EMPTY ON PURPOSE (owner call 3, 2026-10-13): the switch ships before any screen is ready, so a
- * person who picks Dark today sees NOTHING change. Each area PR adds its prefix once every screen
+ * EMPTY ON PURPOSE (owner call 3, 2026-10-13). The switch itself is HIDDEN while the list is empty
+ * (owner, 2026-10-16: "Hide the Light/Dark switch until the first area is ready for dark mode") —
+ * `appearanceSwitchShown` below, so nobody can pick a Dark that changes nothing. Each area PR adds its prefix once every screen
  * under it has been walked in dark ("/dashboard", "/vendor-dashboard", "/admin" …); the last one
  * deletes the list. Nobody ever sees a half-dark screen. A prefix matches itself and everything
  * below it ("/dashboard" → "/dashboard/abc/guests"), never a sibling ("/dashboardx").
@@ -55,6 +56,16 @@ export const THEME_COLOR: Record<Appearance, string> = {
  * couple's slug can never be put on the list by mistake.
  */
 export const DARK_READY: readonly string[] = [];
+
+/**
+ * 🚦 Is the Appearance row (Preferences › Light · Dark) shown? Only once an area is on the ready-list —
+ * owner 2026-10-16: "Hide the Light/Dark switch until the first area is ready for dark mode." ONE
+ * condition, read from the ready-list itself, so the first area PR that adds its prefix shows the switch
+ * with no second edit. Held by `lib/appearance.test.ts` (the switch never shows with an empty list).
+ */
+export function appearanceSwitchShown(ready: readonly string[] = DARK_READY): boolean {
+  return ready.length > 0;
+}
 
 
 /** The person's choice from `document.cookie` — anything but an explicit `dark` is Light. */

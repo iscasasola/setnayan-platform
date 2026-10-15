@@ -22,7 +22,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
-import { DARK_READY, THEME_COLOR, appearanceCookieAssignment, appearanceFromCookie, darkApplies, signedInFromCookie } from './appearance';
+import { DARK_READY, THEME_COLOR, appearanceSwitchShown, appearanceCookieAssignment, appearanceFromCookie, darkApplies, signedInFromCookie } from './appearance';
 import { ROUTE_RESERVED_SLUGS } from './reserved-slugs';
 import { buildThemeBootstrapScript, themeBootstrapScript } from '../app/_components/theme-bootstrap-script';
 
@@ -149,6 +149,11 @@ test('(e) the lock is gone, the save re-renders nothing, the control is the pill
   const pane = page.slice(page.indexOf('const preferencesPane'));
   assert.ok(pane.indexOf('<AppearanceChoice') > -1 && pane.indexOf('<AppearanceChoice') < pane.indexOf('label="Planner mode"'),
     'Appearance is the first row of Preferences, above Planner mode');
+  // 🚦 HIDDEN WHILE THE READY-LIST IS EMPTY (owner 2026-10-16): every mount sits behind the ONE condition.
+  const mounts = [...page.matchAll(/<AppearanceChoice\b/g)].length;
+  const gated = [...page.matchAll(/\{appearanceSwitchShown\(\) \? <AppearanceChoice\b[^}]*\} \/> : null\}/g)].length;
+  assert.equal(mounts, 1, 'one Appearance row');
+  assert.equal(gated, mounts, 'the Appearance row renders only when appearanceSwitchShown() — never with an empty ready-list');
 
   const dir = join(WEB, '..', '..', 'supabase', 'migrations');
   const mig = readdirSync(dir).filter((f) => /users_theme_preference_light_by_default\.sql$/.test(f));
@@ -156,4 +161,11 @@ test('(e) the lock is gone, the save re-renders nothing, the control is the pill
   const sql = readFileSync(join(dir, mig[0] ?? ''), 'utf8');
   assert.match(sql, /SET theme_preference = 'light'\s+WHERE theme_preference = 'auto'/);
   assert.match(sql, /ALTER COLUMN theme_preference SET DEFAULT 'light'/);
+});
+
+test('🚦 the Light/Dark switch never shows with an empty ready-list (owner 2026-10-16)', () => {
+  assert.equal(appearanceSwitchShown([]), false, 'empty list → no switch');
+  assert.equal(appearanceSwitchShown(['/dashboard']), true, 'the first area on the list → the switch shows');
+  assert.equal(appearanceSwitchShown(), DARK_READY.length > 0, 'the default reads the ready-list itself');
+  if (DARK_READY.length === 0) assert.equal(appearanceSwitchShown(), false, 'today: hidden');
 });

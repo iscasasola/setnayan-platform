@@ -37,3 +37,9 @@ line 5 (still says light-locked, picker removed) is updated WHEN THIS BATCH MERG
 - **R3** — `FileUpload` `refusalLink`: a refusal holding the server's ◆ Pro mention carries Unlock Pro in the same alert (`coupleMediaRefusalLink`), so a Free couple refused below "full" can act on it.
 
 SPEC IMPACT: None.
+
+## 2026-10-16 · fix(appearance): the Light/Dark switch is hidden until the first area is ready for dark
+
+Owner, 2026-10-16: *"Hide the Light/Dark switch until the first area is ready for dark mode."* Preferences' Appearance row renders only when `appearanceSwitchShown()` (`lib/appearance.ts`) — one condition, `DARK_READY.length > 0`, so the first area PR that adds its prefix shows the switch with no second edit. `lib/appearance.test.ts` holds it (the row is gated; an empty list shows no switch); sabotaged red both ways (ungated row · a condition that always shows).
+
+SPEC IMPACT: DECISION_LOG 2026-10-16 owner ruling (hide the switch while the ready-list is empty) — refines the 2026-10-13 "ship the switch early" call; corpus `DARK_MODE_MAP_2026-10-13.md` §3 to follow.

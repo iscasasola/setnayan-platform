@@ -919,7 +919,7 @@ export function CanvasMaker({
                     maxLength={80}
                     aria-label="Service name"
                     placeholder={activeCategoryLabel || 'Service name'}
-                    className="mt-1 w-full rounded-xl border bg-white px-3 py-2 text-[15px] text-ink outline-none focus:border-sn-accent"
+                    className="mt-1 w-full rounded-xl border bg-raised px-3 py-2 text-[15px] text-ink outline-none focus:border-sn-accent"
                     style={{ borderColor: line }}
                   />
                   <span className="mt-0.5 block text-[13px] text-ink/55">Written for you · change it if you like</span>

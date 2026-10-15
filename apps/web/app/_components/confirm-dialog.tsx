@@ -92,12 +92,13 @@ export function ConfirmDialog({
   // DARK AND BLURRED (black, never `ink` — ink turns light in dark mode), a tap
   // on the dark closes it as "keep" (never as the destructive answer), and its
   // two answers are the one action-button source: the safe one grey, the answer
-  // filled — red for a delete, the app's accent otherwise.
+  // filled — red for a delete, the app's accent otherwise. In dark the box is the
+  // approved card (`dark:bg-raised`, the template's `--surf`), lifted off the page.
   const node = (
     <dialog
       ref={dialogRef}
       data-confirm-box=""
-      className="m-auto w-[min(340px,calc(100vw-48px))] rounded-2xl border-0 bg-cream p-0 text-ink shadow-[0_24px_60px_-20px_rgba(0,0,0,.5)] backdrop:bg-black/50 backdrop:backdrop-blur-sm"
+      className="m-auto w-[min(340px,calc(100vw-48px))] rounded-2xl border-0 bg-cream p-0 text-ink dark:bg-raised shadow-[0_24px_60px_-20px_rgba(0,0,0,.5)] backdrop:bg-black/50 backdrop:backdrop-blur-sm"
       onClick={(e) => {
         // Backdrop click closes — the dialog element itself has the click
         // target equal to the currentTarget only when the user clicked

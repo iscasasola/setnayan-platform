@@ -115,16 +115,16 @@ function createIdbStorage(): Storage {
 
 export function Providers({
   children,
-  initialThemeMode = 'auto',
+  initialThemeMode = 'light',
   brandMarkUrl = null,
   loaderConfig = DEFAULT_LOADER_CONFIG,
 }: {
   children: React.ReactNode;
   /**
-   * SSR-resolved theme mode from `users.theme_preference` (or 'auto' for
-   * anonymous visitors). Wraps everything so client components can call
-   * `useTheme()` to read/write the current mode.
-   * 2026-05-22 brand pivot — see CLAUDE.md decision-log.
+   * Retained for call-site compatibility; nothing passes it. The person's
+   * Appearance (Light · Dark, 2026-10-13) is read from the `sn-theme` cookie by
+   * the <head> script and the ThemeProvider — see lib/appearance.ts. Wraps
+   * everything so client components can call `useTheme()`.
    */
   initialThemeMode?: ThemeMode;
   /**

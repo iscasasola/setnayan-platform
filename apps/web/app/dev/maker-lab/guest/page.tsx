@@ -723,7 +723,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           wrapped.) */}
       <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) + (coverLeaves ? 1 : 0) : 0}>
       <CoverSceneMenuWaits />
-      <div data-sticky-top="" className="z-20 flex justify-between border-b border-ink/10 bg-cream px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
+      <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
       </div>

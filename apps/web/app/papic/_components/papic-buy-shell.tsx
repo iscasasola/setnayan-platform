@@ -43,7 +43,7 @@ const ERROR_COPY: Record<string, string> = {
   // Owner 2026-08-21: "no. it needs to be in a new event." Shots belong to one
   // celebration, and this one has finished — say the rule, not just "no".
   event_over:
-    'This celebration has finished, so there is nothing left to shoot. Shots are bought for one event at a time — the next one starts fresh.',
+    'This celebration has finished, so there is nothing left to shoot. Credits are bought for one event at a time — the next one starts fresh.',
   not_here: "We couldn't tell which camera you're holding. Reopen your QR link and try again.",
   too_fast: 'One moment — try that again in a few seconds.',
   unknown_rung: 'That option is no longer available. Pick another one.',

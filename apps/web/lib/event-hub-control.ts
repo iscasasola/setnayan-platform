@@ -75,6 +75,8 @@ export type HubEventRead = {
   clearedAt?: string | null;
   timezone?: string | null;
   slug?: string | null;
+  /** `events.std_invitation_launch_date` — the ONE date the Invitation opens (owner 2026-10-14). */
+  invitationLaunchDate?: string | null;
 };
 
 /**
@@ -144,6 +146,7 @@ export function resolveHubStage(read: HubEventRead, nowMs?: number): LifecyclePh
     read.timezone ?? undefined,
     read.eventEndDate ?? null,
     nowMs,
+    read.invitationLaunchDate ?? null,
   );
 }
 

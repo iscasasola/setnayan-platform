@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
@@ -233,7 +232,9 @@ export async function startTheNextCelebration(
   // The new event is metered like any other (owner-locked 2026-07-27 · 2026-07-29).
   // Idempotent + non-fatal: a celebration with no camera has nothing to try.
   await ensureFreePapicPoolGrantAdmin(admin, inserted.event_id, user.id);
-  await ensureFreePapicOneCameraAdmin(admin, inserted.event_id);
+  // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
+  // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
+  // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
 
   // The back cover reads the same whichever button was pressed, so the
   // announcement is written here too — the door on this story is the point.

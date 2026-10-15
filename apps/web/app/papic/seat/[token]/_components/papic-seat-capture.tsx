@@ -1539,7 +1539,7 @@ export function PapicSeatCapture({
                       : shot.status === 'capped'
                         // ⛔ "the shots", not "your credits" — a guest's ceiling
                         // holds nothing back for her (see papic-exhaustion-truth).
-                        ? 'Not saved — the shots ran out'
+                        ? 'Not saved — the credits ran out'
                         : shot.status === 'saved'
                           ? 'Tag who’s in this shot'
                           : shot.kind === 'clip'

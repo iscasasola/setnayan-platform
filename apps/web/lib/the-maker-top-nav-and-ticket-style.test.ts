@@ -135,9 +135,9 @@ test('2a · ✕ Exit is red, an X, its own pill — "‹" never again', async ()
   assert.match(exit[1]!, /lucide-chevron-left hidden h-6 w-6 lg:block/, 'the desktop lost its ‹');
 });
 
-test('2b · the bar names the screen you are on — "Invitation · Welcome", never "as a guest sees it"', async () => {
+test('2b · the bar names the screen you are on — "Invitation · Home" (the guest bar\'s word since 2026-10-14), never "as a guest sees it"', async () => {
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
-  assert.match(header, /data-maker-screen-label=""[^>]*class="[^"]*\btruncate\b[^"]*"[^>]*>Invitation · Welcome</);
+  assert.match(header, /data-maker-screen-label=""[^>]*class="[^"]*\btruncate\b[^"]*"[^>]*>Invitation · Home</);
   assert.doesNotMatch(header, /as a guest sees it/);
 });
 

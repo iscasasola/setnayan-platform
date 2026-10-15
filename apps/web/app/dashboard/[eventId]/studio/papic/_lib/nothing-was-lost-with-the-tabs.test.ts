@@ -68,7 +68,6 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   'GuestCameraTierPicker',
   'GuestCamerasChoice',
   'GuestContributionsCard',
-  'HostPoolMeterCard',
   'InlineCheckoutDrawer',
   'LegendDot',
   'LifeFlashCard',
@@ -94,7 +93,12 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   // cannot be re-added by restoring a file. `no-camera-holds-its-own-credits.test.ts`
   // holds both halves, including that the FREE camera grant survived.
   'PapicGalleryGrid',
-  'PapicPoolCard',
+  // 🎨 MOVED, NOT REMOVED (owner "approve all", 2026-10-14). `HostPoolMeterCard`
+  // (the balance + meter) and `PapicPoolCard` (the − / + stepper and "Continue to
+  // payment") are now ONE band first on the page — the same balance, the same
+  // meter, the same stepper in the Buy more sheet (`papic-buy-sheet.tsx` →
+  // `papic-buy-form.tsx`). This line follows them.
+  'PapicTopBand',
   'PapicWindowPicker',
   'PoolGalleryCard',
   'RecapCard',

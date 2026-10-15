@@ -87,7 +87,7 @@ function budgetLine(rung: ExtraCameraRung): string | null {
   // the sanctioned helper for a LIFETIME bucket (lib/papic-tier-copy is the
   // ONLY place allowed to phrase a Papic claim) and it is honest about the one
   // purse — spending points on clips takes them from photos.
-  return `${rung.points.toLocaleString('en-PH')} shots, that camera's own — ${papicBucketPhrase(
+  return `${rung.points.toLocaleString('en-PH')} credits, that camera's own — ${papicBucketPhrase(
     rung.points,
   )}`;
 }

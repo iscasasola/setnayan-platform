@@ -184,6 +184,11 @@ export function RsvpOneAtATime({ hint = null }: { /** The couple's own hint unde
   useEffect(() => {
     if (slot) slot.hidden = !(total > 1) || last;
   }, [slot, total, last]);
+  /* 👆 The answer screen's foot holds only the hint ("Tap one to continue"), never an action — marked, so the
+     stylesheet can keep it off the answers it would otherwise sit on (`ONE_AT_A_TIME_CSS`). */
+  useEffect(() => {
+    if (slot) slot.toggleAttribute('data-rsvp-tap', awaitingTap);
+  }, [slot, awaitingTap]);
   const progress = total > 1 ? <RsvpStepProgress index={index} total={total} onBack={() => go(-1)} /> : null;
   return (
     <>
@@ -211,6 +216,16 @@ export const ONE_AT_A_TIME_CSS = [
   // screen. Not on the last one — there the Send is inside the step itself.
   '[data-one-at-a-time]:not([data-rsvp-last]) [data-rsvp-here]{min-height:min(18rem,42dvh)}',
   '[data-rsvp-next-slot]{position:sticky;bottom:0;z-index:1;padding-top:.75rem;padding-bottom:max(.75rem,env(safe-area-inset-bottom))}',
+  /* 👆 THE HINT IS NOT AN ACTION, SO IT NEVER STANDS ON AN ANSWER (controller walk 2026-10-14, 320 × 568: the sticky
+     "Tap one to continue" covered most of "Joyfully accepts", and a tap there did nothing until the guest scrolled).
+     Taps go THROUGH it everywhere. */
+  '[data-rsvp-next-slot][data-rsvp-tap]{pointer-events:none}',
+  /* 📏 ON A SHORT SCREEN THE FOOT NEVER STICKS — hint OR Next (re-check R1, 2026-10-14, 320 × 568: after Yes → ‹ Back
+     the slot holds Next, sticky at 496–568, over "Joyfully accepts" and the top of "Sadly can't make it"; in WebKit a
+     tap on that strip of No pressed NEXT and went on with Yes kept). Under 600 px tall (a 320 × 568 phone, a phone on
+     its side) there is no room for a foot that floats over the answers, so it stays where the card puts it — after
+     the answers, one scroll away. 375 × 667 and taller: unchanged, Next keeps its sticky foot. */
+  '@media (max-height:599.98px){[data-rsvp-next-slot]{position:static}}',
 ].join('');
 
 /**

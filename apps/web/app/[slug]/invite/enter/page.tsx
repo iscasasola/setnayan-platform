@@ -14,6 +14,8 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
+import { OPEN_REPLY_WINDOW, replyFaceOf, replyWindow, replyWindowWords, type ReplyWindowEvent } from '@/lib/reply-window';
+import { ReplyWindowNote } from '../../_components/reply-window-note';
 import { renderInvitationQrSvg, buildInvitationUrl } from '@/lib/qr';
 import { QR_LOOK_COLUMNS_AFTER_INVITE_MARK, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -280,7 +282,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
         // already carry display_name · monogram_text · monogram_color · the two
         // SVGs · role_palette): the pass drawn below wears the event's look —
         // lib/qr-look.server.ts.
-        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, monogram_studio_config`,
+        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, monogram_studio_config, std_invitation_launch_date`,
       )
       .ilike('slug', slug)
       .maybeSingle(),
@@ -445,12 +447,14 @@ async function inviteEnterPage({ params, searchParams }: Props) {
      🔒 ASKED, NEVER RESTATED. `arrivalDestinationFor` runs the SAME composition
      app/[slug]/page.tsx runs to pick its own face, so the door cannot drift
      from the page. No threshold is named here or in that module. */
+  const profile = await profileAhead;
   const destination = arrivalDestinationFor({
-    profile: await profileAhead,
+    profile,
     eventDate: event.event_date as string | null,
     eventEndDate: (event.event_end_date as string | null) ?? null,
     launchMode: (event.launch_mode as string | null) ?? null,
     manualPhase: (event.manual_phase as string | null) ?? null,
+    invitationLaunchDate: (event.std_invitation_launch_date as string | null) ?? null,
     venueTz: eventTimezoneFromCoords(
       event.venue_latitude as number | null,
       event.venue_longitude as number | null,
@@ -551,6 +555,18 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   /* 📅 IS A REPLY ASKED FOR YET? Not while this door opens the Save the Date (owner
      2026-10-11) — the same reading as `destination` above, never a second one. */
   const replyAsked = replyIsAsked(destination);
+  /* 📬 …AND THE COUPLE'S REPLY WINDOW (owner 2026-10-14, `lib/reply-window.ts`): shut, the landing says
+     when replies open — or that they closed — where the Reply / Change button would be, and draws no
+     button. From the row in hand, on the venue's clock. The Maker's canvas always draws the buttons. */
+  const replies = canvas
+    ? OPEN_REPLY_WINDOW
+    : replyWindow(
+        event as unknown as ReplyWindowEvent,
+        Date.now(),
+        eventTimezoneFromCoords(event.venue_latitude as number | null, event.venue_longitude as number | null),
+        replyFaceOf(profile),
+      );
+  const repliesShut = replyWindowWords(replies, words.theOrganizer);
   /* 📲 The tile's code for today — the SAME call the metadata makes
      (`tileCodeOnce`), so its row is stored before the page is done. Only after
      a Yes, where the ShortcutLine is offered; never on the Maker canvas. */
@@ -598,7 +614,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   });
   const inApp = canvas ? ({ kind: 'none' } as const) : inAppHandoff(userAgent, invitationUrl);
   const safariSave = inApp.kind === 'ios' ? inApp.safariHref : null;
-  const changeWords = canvas ? null : changeReplyWords(reply);
+  const changeWords = canvas || repliesShut ? null : changeReplyWords(reply);
   const ticketLabel = `${guestName}’s ${PASS_CARD_WORDS.digitalTicket}`;
   const ticketFallback = (
     <p role="alert" className="text-xs text-ink/70">
@@ -691,6 +707,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
             message={message}
             hosts={hosts}
             replyHref={replyHrefCarrying(home, search.k)}
+            shut={repliesShut ? <ReplyWindowNote window={replies} organizer={words.theOrganizer} align="center" /> : null}
             replyByLabel={replyByLabel}
             whenWhere={whenWhere}
             fadedTicket={ticket === 'faded'}
@@ -790,7 +807,11 @@ async function inviteEnterPage({ params, searchParams }: Props) {
         {/* 2 · REPLY TO THE INVITATION — the one main button, only until they
             reply (then a small "Change my reply" stays at the foot). */}
         {unreplied ? (
-          !replyAsked ? null : (
+          !replyAsked ? null : repliesShut ? (
+          <div data-landing="reply" data-reply-window={replies.state}>
+            <ReplyWindowNote window={replies} organizer={words.theOrganizer} align="center" />
+          </div>
+          ) : (
           <div data-landing="reply">
             <Link className="button-primary w-full" href={replyHrefCarrying(home, search.k)} data-landing-reply="">
               {LANDING_WORDS.reply}
@@ -895,6 +916,10 @@ async function inviteEnterPage({ params, searchParams }: Props) {
 
         {/* The reply is done: a small "Change my reply" stays (frame 3), or
             "Changed your plans?" after a No (frame 4). */}
+        {/* 📬 Replied, and replies have closed: the closed words where "Change my reply" was. */}
+        {!unreplied && replies.state === 'closed' ? (
+          <ReplyWindowNote window={replies} organizer={words.theOrganizer} align="center" />
+        ) : null}
         {changeWords ? (
           <p className="text-center">
             <Link

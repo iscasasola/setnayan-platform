@@ -16,6 +16,10 @@ import { RsvpWidget } from '../../_components/rsvp-widget';
 import { NotYouSwitch } from '../../_components/not-you-switch';
 import { submitInviteReply } from '../actions';
 import { rsvpGate } from '@/lib/guest-one-path';
+import { OPEN_REPLY_WINDOW, replyFaceOf, replyRefusedWords, replyWindow, replyWindowWords, type ReplyWindowEvent } from '@/lib/reply-window';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { ReplyWindowNote } from '../../_components/reply-window-note';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { headers } from 'next/headers';
 import { isLinkPreviewFetch, passHopMissFault, replyEntry } from '@/lib/guest-pass-hop';
@@ -103,7 +107,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
     admin
       .from('events')
       .select(
-        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, role_palette, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
+        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, role_palette, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, venue_latitude, venue_longitude`,
       )
       // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
       .ilike('slug', slug)
@@ -231,6 +235,19 @@ async function inviteReplyPage({ params, searchParams }: Props) {
   const replyLocked = guestListIsClosed({
     lockedAt: event.guest_count_locked_at as string | null,
   });
+  /* 📬 THE COUPLE'S REPLY WINDOW (owner 2026-10-14, `lib/reply-window.ts`) — from the row in hand (the
+     shell carries every column), on the venue's clock. Shut: the page says when, or that replies closed,
+     and draws NO form — a bookmark or a stale link meets the words, not a form that refuses on Send.
+     The Maker's canvas always draws the form (it is the couple editing it). */
+  const replies = canvas
+    ? OPEN_REPLY_WINDOW
+    : replyWindow(
+        event as unknown as ReplyWindowEvent,
+        Date.now(),
+        eventTimezoneFromCoords((event.venue_latitude as number | null) ?? null, (event.venue_longitude as number | null) ?? null),
+        replyFaceOf(await resolveProfile(event.event_type as string)),
+      );
+  const repliesShut = replyWindowWords(replies, words.theOrganizer);
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
   const gate = canvas ? ({ kind: 'inside', didntReply: false } as const) : rsvpGate({
     rsvpStatus: guest.rsvp_status as string | null,
@@ -289,6 +306,12 @@ async function inviteReplyPage({ params, searchParams }: Props) {
             tone: 'error' as const,
             text: 'Please tick “I agree to the Terms” to send your reply — it has not been sent yet.',
           }
+        : // 📬 Sent from a page left open after replies shut, or before they opened (submitRsvp).
+          search.rsvp === 'window'
+          ? {
+              tone: 'error' as const,
+              text: replyRefusedWords(replies, words.theOrganizer) || 'Your reply was not sent.',
+            }
         : null;
 
   /* ── THE WAY ONWARD FOR SOMEBODY WHO HAS ALREADY ANSWERED ────────────────
@@ -389,10 +412,10 @@ async function inviteReplyPage({ params, searchParams }: Props) {
               >
                 Open your invitation and your QR
               </Link>
-              {replyLocked ? null : <> &mdash; or change your answer below.</>}
+              {replyLocked || repliesShut ? null : <> &mdash; or change your answer below.</>}
             </DoorNotice>
           </FirstScreenOnly>
-        ) : closesLabel && (guest.rsvp_status as string | null) === 'pending' ? (
+        ) : closesLabel && !repliesShut && (guest.rsvp_status as string | null) === 'pending' ? (
           <FirstScreenOnly on={oneQuestionFrame}>
             <p className="text-sm text-ink/70" data-rsvp-word={canvas ? rsvpWordBridgeKey('reply-by') : undefined}>
               Please reply by {closesLabel}.
@@ -400,6 +423,10 @@ async function inviteReplyPage({ params, searchParams }: Props) {
           </FirstScreenOnly>
         ) : null}
 
+        {repliesShut ? (
+          /* 📬 Shut: the window's words, no form (and the refusal above them when a Send was refused). */
+          <ReplyWindowNote window={replies} organizer={words.theOrganizer} refused={search.rsvp === 'window'} />
+        ) : (
         <RsvpWidget
           words={words}
           guest={{
@@ -450,6 +477,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
           lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), 'rsvp')}
           pictures={rsvpPictures}
         />
+        )}
         </CanvasSection>
       </DoorShell>
       {/* 🍪 Drawn inside the Maker's canvas, this page shows none of the app's own floating notices (the cookie card,

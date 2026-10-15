@@ -24,7 +24,7 @@ test('menu bar · icon AND label on every slot — never icons alone', () => {
   // mono TEXT with no icons at all, and he said so on sight.
   assert.match(BAR, /from 'lucide-react'/);
   // Every slot renders an icon component next to its label.
-  for (const icon of ['Home', 'Info', 'BookOpen', 'Camera', 'Images', 'Radio', 'User']) {
+  for (const icon of ['Home', 'Info', 'Heart', 'Camera', 'Images', 'Radio', 'User']) {
     assert.ok(BAR.includes(icon), `the bar has no ${icon} icon`);
   }
   // …and the label still renders — icons alone would be a regression.

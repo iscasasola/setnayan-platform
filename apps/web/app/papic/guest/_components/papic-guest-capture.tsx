@@ -44,6 +44,7 @@ import {
   recordUploadSample,
 } from '@/lib/papic-adaptive-quality';
 import { formatCount } from '@/lib/format-number';
+import { formatPapicDayInWords } from '@/lib/papic-window';
 import { cameraExitHref, type HubTabKey } from '@/app/[slug]/_lib/hub-tabs';
 import { cameraLookDrawsLogo, type CameraLook } from '@/lib/camera-look';
 import { FocusCorners } from './camera-focus-corners';
@@ -109,10 +110,11 @@ function guestWindowRejectMessage(
   error: unknown,
   eventDay: unknown,
 ): string | null {
-  const day = typeof eventDay === 'string' && eventDay ? eventDay : null;
+  // 📸 In words, on the venue's clock (owner 2026-10-13) — "Saturday, 12 December".
+  const day = typeof eventDay === 'string' && eventDay ? formatPapicDayInWords(eventDay) : null;
   if (error === 'guest_capture_not_open_yet') {
     return day
-      ? `Guest cameras open on ${day}. Your host can open them earlier.`
+      ? `Guest cameras switch on ${day}. Your host can open them earlier.`
       : 'Guest cameras open on the day of the event. Your host can open them earlier.';
   }
   if (error === 'guest_capture_closed') {
@@ -195,6 +197,13 @@ type Props = {
    *  balance is the couple's money and is no longer sent to either. The warning
    *  stays: a guest does need to know to wind down. */
   poolLow?: boolean;
+  /** True when the shared pot is ALREADY at zero as the camera opens.
+   *
+   *  📸 Owner 2026-10-13 ("Add all", tester item 2): the guest used to learn
+   *  the pot was empty only from a REFUSED shot — that photo was lost. Told at
+   *  open, the shutter rests and nothing is thrown away. A boolean, like
+   *  `poolLow`: the guest learns the pot's STATE, never its figure (PRIV-1). */
+  poolEmpty?: boolean;
   /** Her number is a sponsor's bigger share (two or three of the equal shares),
    *  so the counter says so — otherwise a ninang reading "33 left" beside a
    *  cousin's "11 left" has no idea why. Resolved by `fetchGuestQuota`.
@@ -306,6 +315,7 @@ export function PapicGuestCapture({
   canKwento = false,
   capApplies,
   poolLow = false,
+  poolEmpty: poolEmptyAtOpen = false,
   sponsorShare,
   eventStyle,
   faceMode,
@@ -451,7 +461,9 @@ export function PapicGuestCapture({
   // guessed — only capReason === 'guest_spend_ceiling' gets the one extra
   // sentence naming a remedy the flat 150 does not have.
   const [capReason, setCapReason] = useState<string | null>(null);
-  const [poolEmpty, setPoolEmpty] = useState(false);
+  // Starts TRUE when the pot was already empty at open (server-read), so the
+  // shutter rests before a shot is taken and lost — not after.
+  const [poolEmpty, setPoolEmpty] = useState(poolEmptyAtOpen);
   const capExhausted = capReached || (capApplies && remaining <= 0);
   const exhausted = capExhausted || poolEmpty;
 
@@ -1592,10 +1604,10 @@ export function PapicGuestCapture({
         {capApplies ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {low ? `Running low — ${remaining} left` : `${remaining} left`}
+            {low ? `Running low — ${formatCount(remaining)} ${remaining === 1 ? 'credit' : 'credits'} left` : `${formatCount(remaining)} ${remaining === 1 ? 'credit' : 'credits'} left`}
             {sponsorShare ? <span className="text-cream/60">· a sponsor’s share</span> : null}
           </span>
-        ) : poolLow ? (
+        ) : poolEmpty ? null /* run out: the camera says so itself — "running low" would be false */ : poolLow ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Running low for everyone
@@ -1701,12 +1713,12 @@ export function PapicGuestCapture({
                  shot that was thrown away is the exact defect this splits. */
               <>
                 <ImageIcon aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
-                <p className="text-base font-semibold">
-                  {eventName} has run out of shots.
+                <p className="text-base font-semibold" data-papic-pool-empty="">
+                  This celebration&rsquo;s credits have run out — the hosts can add more.
                 </p>
                 <p className="text-sm text-cream/70">
-                  Everybody here is sharing one set of shots and they&rsquo;re all
-                  spent. The host can add more at any time.
+                  Everybody here shares one set of credits. Your camera starts again
+                  the moment they do.
                 </p>
               </>
             ) : (
@@ -1853,15 +1865,17 @@ export function PapicGuestCapture({
             </div>
           </div>
         ) : null}
-        <p className="text-center text-xs text-cream/60">
-          {exhausted
-            ? poolEmpty
-              ? 'This celebration is out of shots for now.'
-              : 'Your camera is all used up — enjoy the celebration.'
-            : recording
-              ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
-              : 'Tap for a photo · press and hold to record (up to 10s).'}
-        </p>
+        {/* ONE run-out sentence (walk-b6 guest, fault 2, 2026-10-14): at zero it is said
+            over the viewfinder, where the shutter would be — the caption no longer repeats it. */}
+        {exhausted && poolEmpty ? null : (
+          <p className="text-center text-xs text-cream/60">
+            {exhausted
+              ? 'Your camera is all used up — enjoy the celebration.'
+              : recording
+                ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
+                : 'Tap for a photo · press and hold to record (up to 10s).'}
+          </p>
+        )}
 
         {/* Papic Challenges (Papic Games §5#3) — self-gated: renders nothing
             until NEXT_PUBLIC_PAPIC_GAMES_V1 is on / the event has live missions.

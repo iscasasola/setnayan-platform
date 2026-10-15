@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { buildCustomerCalendarMonth } from '@/lib/vendor-customers';
 import { manilaDate, type SchedulePool } from '@/lib/vendor-schedule';
 import { threadDayAnswerOf, type ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { NOT_AVAILABLE_COLUMNS, blockClosesDay, notAvailableFieldsOf, notAvailableWindowFilter } from '@/lib/not-available';
 
 /**
  * thread-day-answer.server — the ONE read behind the supplier conversation's answer line (`thread-day-answer.ts`).
@@ -44,12 +45,13 @@ export async function readThreadDayAnswer(
         .is('released_at', null),
       supabase
         .from('vendor_calendar_blocks')
-        .select('pool_id, block_source, blocked_at, blocked_until')
+        .select(`pool_id, block_source, blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
         .eq('vendor_profile_id', vendorProfileId)
-        // A block touches the day when it starts on/before the day's end and ends on/after its start (PH clock) —
-        // the exact civil-day test is the month builder's own, after `manilaDate` below.
+        // A block touches the day when it starts on/before the day's end and — a one-off — ends on/after its start, or
+        // is a REPEAT that began earlier (every Sunday …; lib/not-available.ts, step 2). The exact civil-day test is the
+        // month builder's own (`blockOnDay`), after `manilaDate` below.
         .lte('blocked_at', `${date}T23:59:59.999+08:00`)
-        .gte('blocked_until', `${date}T00:00:00+08:00`),
+        .or(notAvailableWindowFilter(`${date}T00:00:00+08:00`)),
       supabase
         .from('vendor_calendar_day_states')
         .select('pool_id, state_date, day_state')
@@ -85,12 +87,21 @@ export async function readThreadDayAnswer(
       eventName: '',
     }));
     const blocks = (
-      (blocksRes.data ?? []) as { pool_id: string | null; block_source: string; blocked_at: string; blocked_until: string }[]
+      (blocksRes.data ?? []) as {
+        pool_id: string | null;
+        block_source: string;
+        blocked_at: string;
+        blocked_until: string;
+        repeat_rule?: unknown;
+        repeat_until?: unknown;
+        day_part?: unknown;
+      }[]
     ).map((b) => ({
       poolId: b.pool_id,
       source: b.block_source as 'manual' | 'setnayan_booking' | 'synced_calendar' | 'external_client',
       startDate: manilaDate(b.blocked_at),
       endDate: manilaDate(b.blocked_until),
+      ...notAvailableFieldsOf(b),
     }));
     const dayStates = ((statesRes.data ?? []) as { pool_id: string | null; state_date: string; day_state: 'locked' | 'whitelist' }[]).map(
       (s) => ({ dayStateId: '', poolId: s.pool_id, stateDate: s.state_date, dayState: s.day_state, note: null }),
@@ -101,7 +112,7 @@ export async function readThreadDayAnswer(
     // A shop with no schedule still has its typed closures: the builder only marks days per schedule, so a closure
     // on a schedule-less shop is read straight off the blocks.
     if (pools.length === 0) {
-      const closed = blocks.some((b) => b.source !== 'external_client' && b.startDate <= date && b.endDate >= date);
+      const closed = blocks.some((b) => b.source !== 'external_client' && blockClosesDay(b, date));
       return threadDayAnswerOf({
         day: { state: closed ? 'blocked' : null, consumed: 0, capacity: 0 },
         hasSchedule: false,

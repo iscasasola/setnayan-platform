@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { notAvailableWindowFilter } from '@/lib/not-available';
 
 import { businessProfileChecklist, type VendorProfileRow } from '@/lib/vendor-profile';
 import {
@@ -115,7 +116,11 @@ async function countVendorServices(
   return error || count == null ? 0 : count;
 }
 
-/** Days off marked for the whole shop (`pool_id` null), not yet over. A failed read → 0 (step not done — the safe side). */
+/**
+ * Days off marked for the whole shop (`pool_id` null), not yet over — a one-off that ends today or later, or a REPEAT
+ * (every Sunday …, step 2: its stored range is only the first occurrence, so `blocked_until` alone would drop it).
+ * A failed read → 0 (step not done — the safe side).
+ */
 async function countShopWideDaysOff(supabase: SupabaseClient, vendorProfileId: string): Promise<number> {
   const { count, error } = await supabase
     .from('vendor_calendar_blocks')
@@ -123,7 +128,7 @@ async function countShopWideDaysOff(supabase: SupabaseClient, vendorProfileId: s
     .eq('vendor_profile_id', vendorProfileId)
     .eq('block_source', 'manual')
     .is('pool_id', null)
-    .gte('blocked_until', new Date().toISOString());
+    .or(notAvailableWindowFilter(new Date().toISOString()));
   if (error) console.error('[supabase-error] lib/vendor-first-steps.server.ts · from:vendor_calendar_blocks.select', error);
   return error || count == null ? 0 : count;
 }

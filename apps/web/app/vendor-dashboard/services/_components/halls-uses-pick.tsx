@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Check, MapPin } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SupplierSubmit } from '../../_components/supplier-submit';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * "USES" — which halls a card books (owner 2026-10-14 🏛 "Approve all", prototype "A card uses halls": the maker's
@@ -45,7 +46,7 @@ export function HallsUsesPick({
         label="Uses which halls"
         value={picked[0] ?? null}
         picked={picked}
-        buttonText={`${picked.length} of ${halls.length}`}
+        buttonText={`${formatCount(picked.length)} of ${formatCount(halls.length)}`}
         options={halls.map((h) => ({ key: h.poolId, label: h.name }))}
         onPick={(k) => setPicked((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))}
         dataAttr="data-halls-uses-pick"

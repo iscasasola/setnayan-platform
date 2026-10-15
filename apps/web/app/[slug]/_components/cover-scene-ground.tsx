@@ -3,8 +3,20 @@ import { COVER_SCENE_FRAMED, COVER_SCENE_FULL } from '@/lib/cover-scene';
 import type { CoverSceneLayer } from '../_lib/cover-scene-layer';
 import { SceneClip } from './scene-clip';
 
-/** The cover's words in the paper ink over a dark ground (`--color-ink` is what every `text-ink/…` word reads). */
-export const COVER_SCENE_CREAM_VARS = { '--color-ink': '251 250 247' } as CSSProperties;
+/**
+ * The cover's words in the paper ink over a dark ground — EVERY colour a cover word reads, not only `--color-ink`
+ * (`text-ink/…`). Batch 8 tester R4, 2026-10-15: on a `#3a4a5a` ground every word flipped except the scroll cue
+ * "the day, the place ↓" (`text-mulberry`, ~1.9:1) and the "and" joiner (`text-gild`, ~2.6:1), which kept their
+ * light-page colours. Held by `lib/the-cover-scene-is-one-group.test.ts` (13): a `text-<colour>` on a cover word
+ * that this does not repaint fails it.
+ */
+const COVER_PAPER_CHANNELS = '251 250 247';
+export const COVER_SCENE_CREAM_VARS = {
+  '--color-ink': COVER_PAPER_CHANNELS,
+  '--color-mulberry': COVER_PAPER_CHANNELS,
+  '--color-mulberry-600': COVER_PAPER_CHANNELS,
+  '--color-gild-text': COVER_PAPER_CHANNELS,
+} as CSSProperties;
 
 /**
  * 🖼 THE COVER SCENE'S BACKGROUND, DRAWN — behind the cover's words, the whole first screen tall (the header is

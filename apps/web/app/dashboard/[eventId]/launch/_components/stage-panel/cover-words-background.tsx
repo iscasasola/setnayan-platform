@@ -9,7 +9,8 @@ import { HUB_GLASS_OPACITY_MAX, HUB_GLASS_OPACITY_MIN, HUB_GLASS_OPACITY_STEP, h
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave } from '@/lib/maker-refresh';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
-import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
+import { MAKER_MAX_CLIP_SECONDS, coupleMediaCapBytes, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
+import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { sceneShadeAt, sceneShadeOf } from '@/lib/scene-shade-bar';
 import { tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPhoto } from '@/lib/bg-tile-name';
@@ -46,6 +47,8 @@ export function CoverSceneGroundRows({
   board,
   photoChoices = [],
   mediaUsedBytes,
+  ownsPro,
+  proHref,
   loopPosters = {},
 }: {
   /** Each ready-made loop's first frame, resolved on the server (`INVITE_THEMES[id].media.poster`) — its tile's picture. */
@@ -58,6 +61,10 @@ export function CoverSceneGroundRows({
   board?: readonly string[];
   photoChoices?: readonly { ref: string; url: string }[];
   mediaUsedBytes?: number;
+  /** The real Pro gate for this event (`eventCoupleWebsiteProActive`) — the meter's allowance is the PLAN's (Free 10 MB · Pro 500 MB). Required, so a new mount cannot fall back to Free silently. */
+  ownsPro: boolean;
+  /** The existing Event Hub Pro buy path — given only to a Free event (null for Pro / a store shell), as `main-background-panel.tsx` does. */
+  proHref: string | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -146,6 +153,7 @@ export function CoverSceneGroundRows({
     <div className="py-2.5" data-cover-scene-upload="">
       <FileUpload
         bucket="media"
+      refusalLink={coupleMediaRefusalLink(proHref)}
         pathPrefix={sceneBackgroundPathPrefix(eventId)}
         multiple={false}
         maxSizeMB={100}
@@ -175,7 +183,7 @@ export function CoverSceneGroundRows({
       <p className="pt-1 text-[12px] text-ink/60" data-cover-scene-clip-line="" role={clipKept ? 'status' : undefined}>
         {COVER_SCENE_CLIP_LINE}
       </p>
-      {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} className="pt-2" /> : null}
+      {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={proHref} className="pt-2" /> : null}
     </div>
   );
   return (

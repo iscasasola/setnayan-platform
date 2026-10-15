@@ -17,7 +17,12 @@
  *   3 · the route reserves BEFORE it signs the PUT, and refuses with the plain
  *       reason; the old after-the-fact increment is gone;
  *   4 · the meter renders under the Maker's Upload media, and the Main
- *       background's upload, inside the lazy chunk (never the first load).
+ *       background's upload, inside the lazy chunk (never the first load);
+ *   4c · EVERY mount of the meter passes the plan's cap (+ the buy path unless
+ *       the page is Pro-only), and every media uploader beside it carries the
+ *       Unlock Pro link on its refusal — batch 7 W1/R3, 2026-10-16: batch 8's
+ *       Cover Scene mounted the meter with no cap and a Pro couple read
+ *       "120 MB of 10 MB"; 3c pinned the constant, not the callers.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,6 +36,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import {
   COUPLE_MEDIA_FULL_CODE,
   coupleMediaFullMessage,
+  coupleMediaProMention,
+  coupleMediaRefusalLink,
   isCoupleMediaMeterPath,
   measureCoupleMediaBytes,
   referencedEventKeys,
@@ -290,4 +297,95 @@ test('4b · the Main background shows it too, and both stay in the lazy Maker ch
   assert.match(lazy, /SceneBackgroundRow = dynamic\(/);
   assert.match(lazy, /MainBackgroundPanel = dynamic\(/);
   assert.doesNotMatch(shell, /import \{[^}]*MakerMediaMeter/, 'the meter is never pulled into the shell’s first load');
+});
+
+/* ── 4c · EVERY METER MOUNT CARRIES THE PLAN (batch 7 W1 · R2 · R3, 2026-10-16) ── */
+
+async function meterMounts(): Promise<{ file: string; tag: string }[]> {
+  const { readdirSync, statSync } = await import('node:fs');
+  const out: { file: string; tag: string }[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(join(ROOT, dir))) {
+      if (name === 'node_modules' || name === '.next') continue;
+      const rel = `${dir}/${name}`;
+      if (statSync(join(ROOT, rel)).isDirectory()) walk(rel);
+      else if (/\.tsx$/.test(name) && !/\.test\.tsx$/.test(name)) {
+        const src = read(rel);
+        for (const m of src.matchAll(/<MakerMediaMeter\b[\s\S]*?\/>/g)) out.push({ file: rel, tag: m[0] });
+      }
+    }
+  };
+  walk('app');
+  walk('lib');
+  walk('components');
+  return out;
+}
+
+test('4c · EVERY <MakerMediaMeter> passes the plan’s cap, and the buy path unless its page is Pro-only', async () => {
+  const mounts = await meterMounts();
+  console.log(`# meter mounts: ${mounts.length} — ${[...new Set(mounts.map((m) => m.file))].join(' · ')}`);
+  assert.ok(mounts.length >= 5, `the walk found the meter's mounts (${mounts.length})`);
+  const offenders: string[] = [];
+  for (const { file, tag } of mounts) {
+    const cap = /\bcapBytes=\{coupleMediaCapBytes\(([^)]*)\)\}/.exec(tag);
+    if (!cap) {
+      offenders.push(`${file}: a meter without capBytes={coupleMediaCapBytes(…)} — it would read every couple as Free`);
+      continue;
+    }
+    if (cap[1].trim() !== 'true' && !/\bproHref=\{/.test(tag)) offenders.push(`${file}: a plan-dependent meter without proHref — a Free couple at the cap gets no Unlock Pro`);
+  }
+  assert.deepEqual(offenders, []);
+});
+
+test('4c · every media uploader beside a plan meter carries Unlock Pro on its refusal', async () => {
+  const files = [...new Set((await meterMounts()).filter((m) => !/coupleMediaCapBytes\(true\)/.test(m.tag)).map((m) => m.file))];
+  assert.ok(files.length >= 3, `the plan meters' files (${files.length})`);
+  const offenders: string[] = [];
+  let uploaders = 0;
+  for (const f of files) {
+    for (const m of read(f).matchAll(/<FileUpload\b[\s\S]*?\/>/g)) {
+      if (!/bucket="media"/.test(m[0])) continue;
+      uploaders += 1;
+      if (!/\brefusalLink=\{coupleMediaRefusalLink\(/.test(m[0])) offenders.push(`${f}: a media uploader whose refusal has no Unlock Pro`);
+    }
+  }
+  console.log(`# media uploaders beside a plan meter: ${uploaders}`);
+  assert.ok(uploaders >= 4, `found the uploaders (${uploaders})`);
+  assert.deepEqual(offenders, []);
+});
+
+test('4c · the refusal link rides the FREE refusal only — including one below the meter’s “full”', () => {
+  const link = coupleMediaRefusalLink(`/dashboard/${E}/studio/website-pro`);
+  assert.ok(link);
+  assert.equal(link.label, 'Unlock Pro');
+  assert.equal(link.when, coupleMediaProMention());
+  // 9.5 MB held + a 2 MB file: refused BEFORE the meter reads full — the refusal still holds the mention.
+  assert.ok(coupleMediaFullMessage(9.5 * MB, 2 * MB, false).includes(link.when), 'a Free refusal below “full” carries the link');
+  assert.ok(!coupleMediaFullMessage(499 * MB, 2 * MB, true).includes(link.when), 'a Pro refusal never does');
+  assert.equal(coupleMediaRefusalLink(null), null);
+  const fu = read('app/_components/file-upload.tsx');
+  assert.match(fu, /refusalLink && error\.includes\(refusalLink\.when\) \? \([\s\S]*?<Link href=\{refusalLink\.href\} className="sn-hit inline-block text-xs/, 'the link sits inside the alert, 12 px, pressed at 44+');
+});
+
+test('4c · the Cover Scene (the hero’s upload) is handed the PLAN — its upload opens on a press, so this reads the wiring', () => {
+  // The upload sheet opens only on a press (`StageBackground` state), so a static paint cannot reach it; the meter's
+  // render is held by 4/4a, its mount by the walk above, and the hand-off here. `ownsPro`/`proHref` are REQUIRED
+  // props of `CoverSceneGroundRows`, so the typecheck refuses a mount that forgets them.
+  const row = read(`${EDITOR}/_components/scene-background-row.tsx`);
+  const heroBranch = /if \(props\.widgetType === 'hero'\) \{[\s\S]*?<CoverSceneGroundRows[\s\S]*?\/>/.exec(row)?.[0] ?? '';
+  assert.match(heroBranch, /ownsPro=\{props\.ownsPro\}/, 'the hero branch hands the real Pro gate on');
+  assert.match(heroBranch, /proHref=\{props\.ownsPro \|\| props\.storeShell \? null : `\/dashboard\/\$\{props\.eventId\}\/studio\/website-pro`\}/, 'and the buy path, for a Free event only');
+  const cover = read('app/dashboard/[eventId]/launch/_components/stage-panel/cover-words-background.tsx');
+  assert.match(cover, /\n\s*ownsPro: boolean;/, 'ownsPro is required');
+  assert.match(cover, /\n\s*proHref: string \| null;/, 'proHref is required');
+});
+
+test('4c · R2 · Unlock Pro is 12 px words pressed at 44+', async () => {
+  const full = await paintRow({ ownsPro: false, mediaUsedBytes: coupleMediaCapBytes(false) });
+  const a = /<a [^>]*>Unlock Pro<\/a>/.exec(full)?.[0] ?? '';
+  assert.match(a, /class="[^"]*\bsn-hit\b[^"]*"/, 'the shared 46 px press');
+  assert.match(a, /class="[^"]*\btext-xs\b[^"]*"/, '12 px words');
+  const line = /<p class="([^"]*)">◆ Event Hub Pro gives you/.exec(full)?.[1] ?? '';
+  assert.match(line, /\btext-xs\b/);
+  assert.doesNotMatch(line, /text-\[10px\]/);
 });

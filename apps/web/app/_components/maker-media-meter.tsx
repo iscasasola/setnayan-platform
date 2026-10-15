@@ -74,9 +74,10 @@ export function MakerMediaMeter({
         <p className="text-[10px] text-ink/55">Getting close to your event’s storage allowance.</p>
       ) : null}
       {state.isFull && offerPro ? (
-        <p className="text-[10px] text-ink/75">
+        <p className="text-xs text-ink/75">
           ◆ Event Hub Pro gives you {formatMakerMediaMB(proBytes)}.{' '}
-          <Link href={proHref as string} className="font-medium underline underline-offset-2">
+          {/* 12 px words, pressed at 44+ (`.sn-hit` — batch 7 R2: it was 10 px in a 13 px box). */}
+          <Link href={proHref as string} className="sn-hit inline-block text-xs font-medium underline underline-offset-2">
             Unlock Pro
           </Link>
         </p>

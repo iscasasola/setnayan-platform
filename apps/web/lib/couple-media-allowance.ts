@@ -91,6 +91,15 @@ export function coupleMediaProMention(): string {
 }
 
 /**
+ * The Unlock Pro link a refusal carries (batch 7 R3): `FileUpload`'s `refusalLink` puts it inside the refusal line
+ * whenever the server's sentence holds the Pro mention — so a Free couple refused BELOW the meter's "full" (9.5 MB
+ * + a 2 MB file) still reads Unlock Pro right there. `null` for Pro / no buy path: the mention is never sent to Pro.
+ */
+export function coupleMediaRefusalLink(proHref: string | null | undefined): { when: string; href: string; label: string } | null {
+  return proHref ? { when: coupleMediaProMention(), href: proHref, label: 'Unlock Pro' } : null;
+}
+
+/**
  * The plain reason the couple reads (INTERACTION_RULES: failure = the plain
  * reason; the uploader stays open, so picking again IS the "Try again"). It
  * names THIS plan's number; a Free couple gets the one-line Pro mention after it.

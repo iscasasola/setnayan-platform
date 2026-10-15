@@ -88,6 +88,7 @@ import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/m
 import { uploadStill } from '@/lib/upload-still';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 
 /**
  * BEHIND EVERY SCENE — your hero, and the theme follows its colours
@@ -1233,6 +1234,7 @@ export function MainBackgroundPanel({
             <FileUpload
               bucket="media"
               pathPrefix={`events/${eventId}/main-background`}
+              refusalLink={coupleMediaRefusalLink(ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`)}
               multiple={false}
               maxSizeMB={100}
               acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
@@ -1525,6 +1527,7 @@ export function MainBackgroundPanel({
           <FileUpload
             bucket="media"
             pathPrefix={`events/${eventId}/main-background`}
+            refusalLink={coupleMediaRefusalLink(ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`)}
             multiple={false}
             maxSizeMB={100}
             acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}

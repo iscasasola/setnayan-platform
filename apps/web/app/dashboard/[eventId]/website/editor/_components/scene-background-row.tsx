@@ -12,6 +12,7 @@ import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { uploadStill } from '@/lib/upload-still';
 import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
@@ -146,6 +147,8 @@ export function SceneBackgroundRow(props: Parameters<typeof SceneBackgroundRows>
         board={props.board}
         photoChoices={props.photoChoices}
         mediaUsedBytes={props.mediaUsedBytes}
+        ownsPro={props.ownsPro}
+        proHref={props.ownsPro || props.storeShell ? null : `/dashboard/${props.eventId}/studio/website-pro`}
         loopPosters={props.loopPosters}
       />
     );
@@ -556,6 +559,7 @@ function SceneBackgroundRows({
           <div className="border-b border-ink/[0.07] py-2.5" data-inspector-row="scene-upload">
             <FileUpload
               bucket="media"
+            refusalLink={coupleMediaRefusalLink(ownsPro || storeShell ? null : `/dashboard/${eventId}/studio/website-pro`)}
               pathPrefix={sceneBackgroundPathPrefix(eventId)}
               multiple={false}
               maxSizeMB={100}

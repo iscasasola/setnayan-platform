@@ -9276,6 +9276,16 @@ html:has(> head > style[data-cover-menu='wait']):has(header[data-cover-scene]) n
   min-height: 0;
   flex: 1 0 auto;
 }
+/* 📱 …AND NOTHING PULLS IT ABOVE THE SCREEN (Batch 9 walk R4, 2026-10-16: 375 × 667, the first-visit notice up — the
+   block started at −24 px, the eyebrow cut off the top). With no room, the first-screen fit closes up "the first
+   screen's margin" by pulling the block up 1.5rem (`[data-first-screen-fit]`, `--fs-air` → 0). That margin is the
+   column's top padding — which the Cover Scene has already taken away (the rule above that sets `padding-top: 0`,
+   under the same marker), so the pull had nothing to close and lifted the cover off the screen instead. Under the
+   marker the pull is off; with no script (no marker) the padding is there and the fit closes it as before. Held by
+   `tests/e2e/the-strangers-cover-keeps-its-order.spec.ts` (375 × 667, "nothing is cut off the top"). */
+html:has(> head > style[data-cover-menu]) [data-first-screen-fit]:has(> header[data-cover-scene]) {
+  margin-top: 0;
+}
 @media (prefers-reduced-motion: reduce) {
   html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-sticky-top],
   html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) nav[aria-label='Site sections'] {

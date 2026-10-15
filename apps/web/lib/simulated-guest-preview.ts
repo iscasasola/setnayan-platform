@@ -113,8 +113,9 @@ export function shouldSimulateRepliedGuest(input: {
  *
  * A verified host may ask for any of the four See as states (`SEE_AS`,
  * lib/see-as.ts) on any stage — a guest is a guest on every stage — from the
- * Maker's canvas (👁 Preview) or from their own Event Hub (the ribbon's
- * Preview ▾): ONE preview mechanism (coordinator 2026-10-04). The old
+ * Maker's canvas (👁 Preview, and on a phone the hold-▶ preview's See as ▾ — the
+ * host strip's Preview ▾ that also asked went 2026-10-15): ONE preview mechanism
+ * (coordinator 2026-10-04). The old
  * `?as=replied` door is one of the four, unchanged on the RSVP stage.
  *
  * THE GATE IS THE SAME ONE: no `OwnerCapability`, or one for another event,

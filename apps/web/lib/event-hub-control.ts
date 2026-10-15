@@ -566,7 +566,7 @@ export function resolveHubNextStep(
 
    ── AND: NO NEW ROUTE, NO NEW ENGINE, NO SECOND PHASE OPINION ──────────────
    Every door below is one that already ships and is already gated SERVER-side:
-     · `/{slug}` .................... the host's own page (owner ribbon)
+     · `/{slug}` .................... the host's own page (host body; no strip since 2026-10-15)
      · `/{slug}?phase=` ............. the four-value preview, gated by
                                       `loadHostMembership` in app/[slug]/page.tsx
      · `?as=replied` ................ the SIMULATED seat-holder, gated by a
@@ -736,10 +736,10 @@ export function resolveHubRoleView(input: {
         name: 'You',
         headline: 'Your own page, as yourself.',
         blurb:
-          'Never "scan your QR" on your own wedding. A slim ribbon rides the top with the edit door and every stage behind it.',
+          'Never "scan your QR" on your own wedding. Nothing of the editor sits on top — you edit from Home and preview each stage in the Maker.',
         cells: [
           { mark: 'full', text: 'Everything a guest sees, at any stage', known: true },
-          { mark: 'full', text: 'The ribbon, the print sheet, the four channels', known: true },
+          { mark: 'full', text: 'The print sheet, the four channels', known: true },
           { mark: 'full', text: 'Arms all three day-of services', known: true },
         ],
         previewHref: at(ownDoor),
@@ -752,9 +752,9 @@ export function resolveHubRoleView(input: {
         role,
         who: 'Appointed co-host',
         name: 'Coordinator',
-        headline: 'A host key — the same page, the same ribbon.',
+        headline: 'A host key — the same page you open.',
         blurb:
-          'They open exactly what you open. The edit button honestly sends them to the planning desk instead of the site editor, because that is where their work is.',
+          'They open exactly what you open. Their work is on the planning desk, not in the site editor.',
         cells: [
           { mark: 'full', text: 'Writes the announcements guests read where they stand', known: true },
           { mark: 'full', text: 'The only role that may advance the running order', known: true },

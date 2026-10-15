@@ -33,7 +33,7 @@ import React from 'react';
 
 import { stripComments } from './strip-comments';
 import { ANIMATE_FEELS, FEEL_OFF, FEEL_SECONDS, LEAVES_OPTIONS, autoFeel, autoSpeedOf, laySceneInFeel, laySceneOutFeel, partFeel, partSpeedOf, sceneInFeel, sceneOutFeel, type AnimateFeel } from './animate-feel';
-import { HUB_MOTION_PRESETS, HUB_PRESET_BODY, hubCanvasClass, hubCanvasVars, resolveHubMotion, sanitizeHubCanvas, type HubSectionCanvas } from './hub-canvas';
+import { HUB_MOTION_PRESETS, HUB_PRESET_BODY, HUB_SCROLL_IN_END, hubCanvasClass, hubCanvasVars, resolveHubMotion, sanitizeHubCanvas, type HubSectionCanvas } from './hub-canvas';
 import { hubElementMotionDeclarations, sanitizeHubElementMotion, withElementMotion, type HubElementMotion } from './element-style';
 import { HUB_CANVAS_MOTION_KEYS } from './hub-look-pro';
 import { nextTransition } from './hub-scenes';
@@ -65,7 +65,8 @@ const lay = (c: HubSectionCanvas, f: (draft: HubSectionCanvas) => void): HubSect
   f(draft);
   return sanitizeHubCanvas(draft);
 };
-const IN_END: Record<AnimateFeel, string | undefined> = { quick: 'entry 50%', calm: undefined, cinematic: 'cover 30%' };
+/* 🎚 Every feel writes its range now — Calm too (2026-10-16, F1: the old absent Calm never finished on a tall scene). */
+const IN_END: Record<AnimateFeel, string> = { ...HUB_SCROLL_IN_END };
 const OUT_RANGE: Record<AnimateFeel, string | undefined> = { quick: 'exit 0% exit 50%', calm: undefined, cinematic: 'cover 50% exit 100%' };
 
 test('(1) a scene: each end holds its own feel, and laying one changes nothing else — executed through the sanitizer and the page’s values', () => {
@@ -114,7 +115,9 @@ test('(2) old data draws what it drew — no new value is emitted for it, and th
   let seen = 0;
   for (const c of scenes()) {
     const v = hubCanvasVars(c);
-    assert.equal(v['--hub-in-end'], undefined, `an untouched scene got a new arrival range (${JSON.stringify(c)})`);
+    /* The one deliberate change (F1, 2026-10-16): a scene that follows the scroll is given Calm's range — the old
+       fallback never finished on a tall scene. A scene that plays on arrival is given none. */
+    assert.equal(v['--hub-in-end'], resolveHubMotion(c).timeline === 'scrub' ? HUB_SCROLL_IN_END[sceneInFeel(c, resolveHubMotion(c))] : undefined, `an untouched scene got the wrong arrival range (${JSON.stringify(c)})`);
     assert.equal(v['--hub-out-range'], undefined, `an untouched scene got a new way out (${JSON.stringify(c)})`);
     seen++;
   }
@@ -127,6 +130,7 @@ test('(2) old data draws what it drew — no new value is emitted for it, and th
     '--hub-in-kf': 'hub-in-movefade-left',
     '--hub-out-kf': 'hub-out-settle',
     '--hub-duration': '1.8s',
+    '--hub-in-end': HUB_SCROLL_IN_END.calm,
     '--hub-stagger': '0.25s',
     '--hub-ease': 'linear',
   });
@@ -136,13 +140,13 @@ test('(2) old data draws what it drew — no new value is emitted for it, and th
   sceneInFeel(frozen, resolveHubMotion(frozen));
   sceneOutFeel(frozen);
   /* THE STYLESHEET: every scroll range reads the feel with the OLD range as its fallback — and no bare one is left. */
-  assert.equal((CSS.match(/animation-range: entry 0% var\(--hub-in-end, entry 92%\), var\(--hub-out-range, exit 8% exit 100%\);/g) ?? []).length, 1, 'the whole scene’s scroll ranges');
+  assert.equal((CSS.match(/animation-range: entry 0% var\(--hub-in-end, entry min\(92%, 30vh\)\), var\(--hub-out-range, exit 8% exit 100%\);/g) ?? []).length, 1, 'the whole scene’s scroll ranges');
   const partIn = [...CSS.matchAll(/--hub-part-in-range: entry (\d+)% ([^;]+);/g)];
   assert.deepEqual(partIn.map((m) => m[1]), ['0', '4', '8', '12', '16', '20', '24', '28', '0'], 'the parts’ staggered arrival ranges');
-  for (const m of partIn) assert.equal(m[2], 'var(--hub-in-end, entry 92%)', 'a part’s arrival does not fall back to entry 92%');
+  for (const m of partIn) assert.equal(m[2], 'var(--hub-in-end, entry min(92%, 30vh))', 'a part’s arrival does not fall back to Calm’s range');
   const partOut = [...CSS.matchAll(/--hub-part-out-range: ([^;]+);/g)].map((m) => m[1]).filter((v) => v !== 'normal');
   assert.deepEqual(partOut, ['var(--hub-out-range, exit 8% exit 100%)', 'var(--hub-out-range, exit 8% exit 100%)'], 'a part’s way out does not fall back to exit 8% → 100%');
-  assert.doesNotMatch(CSS, /entry \d+% entry 92%;|: exit 8% exit 100%;|, exit 8% exit 100%;/, 'a scroll range no longer reads the feel');
+  assert.doesNotMatch(CSS, /entry \d+% entry 92%;|entry 92%\)|: exit 8% exit 100%;|, exit 8% exit 100%;/, 'a scroll range no longer reads the feel');
 });
 
 test('(3) the word shown is what plays — for every scene, against the page’s own values', () => {

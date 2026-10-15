@@ -51,6 +51,7 @@ import { motionFxOn, motionFxVars, sanitizeMotionFx, type MotionFx } from '@/lib
 import { sanitizeDetailsOverrides, type HubDetailsOverrides } from '@/lib/details-bound';
 import { sanitizeHeroDesign, type HeroDesignId } from '@/lib/hero-design';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
+import { GUEST_HERO_VIDEO_PLAYBACK } from '@/lib/guest-hero-video';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -434,7 +435,63 @@ export type HubSectionCanvas = {
    * contract and the one read rule (`sceneBoundText`) are `lib/details-bound.ts`.
    */
   details?: HubDetailsOverrides;
+  /**
+   * 🖼 THE COVER SCENE'S BACKGROUND — the hero row's only (owner-approved 2026-10-15, `lib/cover-scene.ts`): ONE
+   * background for the whole first screen, the Hero folded in. Absent = The theme's own (today's written card). Its
+   * Upload pick is written through to the hero photo by the one hero writer, so `resolveHero` keeps answering.
+   */
+  ground?: HubCoverGround;
 };
+
+/**
+ * 🖼 WHAT THE COVER SCENE WEARS (`HubSectionCanvas.ground`). The Background tool's four sources, as stored:
+ *   Colour   Plain · Diagonal · Glow (a colour) · Opaque · Frosted (a glass over the theme's own) — free
+ *   Scene ◆  a ready-made loop, Setnayan's own (`INVITE_THEMES[loop].media`) — screened by definition, plays for guests
+ *   Upload ◆ the couple's photo — and a clip only once the hero clip may reach guests (`GUEST_HERO_VIDEO_PLAYBACK`)
+ * `shade` is the one Darker ↔ Lighter bar (not on a glass); `shape` Framed (absent) | Full width.
+ */
+export type HubCoverGround = (
+  | { kind: 'color' | 'diagonal' | 'glow'; color: string }
+  | { kind: 'glass' | 'frost'; color?: string; opacity?: number }
+  | { kind: 'loop'; loop: InviteThemeId }
+  | { kind: 'photo' | 'snippet'; media: string; poster?: string; motion?: 'parallax' }
+) & { shade?: HubMainShadeValue; shape?: 'full' };
+
+/**
+ * Anything → the Cover Scene's background, or null (The theme's own). Drops rather than repairs, like every canvas
+ * key. 🔒 A clip is REFUSED while the hero clip may not reach guests (`clipOk` false — SEC-6): an own video is kept in
+ * the couple's media, never worn on the cover.
+ */
+export function sanitizeHubCoverGround(raw: unknown, clipOk = false): HubCoverGround | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const g = raw as Record<string, unknown>;
+  let out: HubCoverGround | null = null;
+  if (g.kind === 'color' || g.kind === 'diagonal' || g.kind === 'glow') {
+    const color = hubBackgroundColor(g.color);
+    if (color) out = { kind: g.kind, color };
+  } else if (g.kind === 'glass' || g.kind === 'frost') {
+    const pane: { kind: 'glass' | 'frost'; color?: string; opacity?: number } = { kind: g.kind };
+    const color = hubBackgroundColor(g.color);
+    if (color) pane.color = color;
+    const opacity = hubGlassOpacity(g.opacity);
+    if (opacity !== null) pane.opacity = opacity;
+    out = pane;
+  } else if (g.kind === 'loop') {
+    if (isInviteThemeId(g.loop) && INVITE_THEMES[g.loop].media && INVITE_THEMES[g.loop].ready) out = { kind: 'loop', loop: g.loop };
+  } else if (g.kind === 'photo' || (g.kind === 'snippet' && clipOk)) {
+    const media = hubMediaRef(g.media);
+    if (media) {
+      const own: { kind: 'photo' | 'snippet'; media: string; poster?: string; motion?: 'parallax' } = { kind: g.kind, media };
+      const poster = hubMediaRef(g.poster);
+      if (poster && g.kind === 'snippet') own.poster = poster;
+      if (g.motion === 'parallax' && g.kind === 'photo') own.motion = 'parallax';
+      out = own;
+    }
+  }
+  if (!out) return null;
+  const shade = out.kind === 'glass' || out.kind === 'frost' ? undefined : sanitizeHubMainShade(g.shade);
+  return { ...out, ...(shade !== undefined && shade !== 0 ? { shade } : {}), ...(g.shape === 'full' ? { shape: 'full' as const } : {}) };
+}
 
 /** One slot of a template scene. See `slots` above. */
 export type HubSceneSlot = {
@@ -761,6 +818,9 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (design) out.design = design;
   const details = sanitizeDetailsOverrides(canvas.details);
   if (details) out.details = details;
+  /* 🖼 The Cover Scene's background (the hero row's) — a clip refused while the hero clip may not reach guests. */
+  const coverGround = sanitizeHubCoverGround(canvas.ground, GUEST_HERO_VIDEO_PLAYBACK);
+  if (coverGround) out.ground = coverGround;
   return out;
 }
 

@@ -68,7 +68,8 @@ export function PaletteLookCards({ value, onPick, pending = false }: { value: Pa
  */
 export function PaletteLookStrip({ value, colours, onPick, pending = false }: { value: PaletteLookId; colours: readonly string[]; onPick: (id: PaletteLookId) => void; pending?: boolean }) {
   /* The couple's colours — or, before they have any, quiet stand-ins, so the five shapes still read. */
-  const shown = colours.length > 0 ? colours.slice(0, 5) : PALETTE_STAND_INS;
+  /* Three, like the dropdown's thumbnails: eight looks in one row leave each picture ~41 px (2026-10-15). */
+  const shown = colours.length > 0 ? colours.slice(0, 3) : PALETTE_STAND_INS;
   return (
     <div role="radiogroup" aria-label="Palette style" data-look-row="palette" data-palette-strip="" className={SP_PALETTE_ROW}>
       {PALETTE_LOOKS.map((o) => (

@@ -3773,7 +3773,8 @@ html.dark {
   align-items: stretch;
 }
 .sn-editorial .sn-pal-arch > li {
-  flex: 0 0 25%;
+  /* Four to a row on a phone; never wider than a desk's tab, so a tablet-wide column does not draw domes. */
+  flex: 0 0 min(25%, 96px);
   height: 118px;
   color: var(--k);
 }

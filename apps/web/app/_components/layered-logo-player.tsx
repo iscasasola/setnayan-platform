@@ -239,64 +239,97 @@ export function LayeredLogoPlayer({
         const px = ctm && Math.abs(ctm.a) > 1e-6 ? 1 / Math.abs(ctm.a) : Math.max(w, h) * 0.003;
         const strokeMs = inMs * 0.75;
         const inkIn = { duration: inMs * 0.5, delay: delayMs + inMs * 0.5, fill: 'both' as const, easing: 'ease-in' };
-        const pens: Array<{ el: SVGPathElement; len: number }> = [];
-        body.querySelectorAll<SVGGeometryElement>('path, rect, circle, ellipse, polygon').forEach((shape) => {
-          // Every shape inks in with the fill, whatever else happens to it.
-          anims.push(shape.animate([{ opacity: 0 }, { opacity: 1 }], inkIn));
-          const ink = getComputedStyle(shape).fill;
-          if (shape.tagName === 'rect' || !ink || ink === 'none') return; // a white card
-          let total = 0;
-          try {
-            total = shape.getTotalLength();
-          } catch {
-            total = 0;
-          }
-          if (!total) return;
-          // Walk the outline; a jump far bigger than a step is a new subpath.
-          const n = Math.min(1500, Math.max(120, Math.round(total / 2)));
-          const step = total / n;
-          let run: string[] = [];
-          let prev: DOMPoint | null = null;
-          const flush = () => {
-            if (run.length > 1) {
-              const el = document.createElementNS(NS, 'path');
-              el.setAttribute('d', `M${run.join('L')}`);
-              el.setAttribute('fill', 'none');
-              el.setAttribute('data-logo-pen', '');
-              el.style.stroke = ink;
-              el.style.strokeWidth = String(1.6 * px);
-              el.style.strokeLinejoin = 'round';
-              el.style.strokeLinecap = 'butt';
-              body.appendChild(el);
-              pens.push({ el, len: el.getTotalLength() });
+        /* ⚡ THE PEN IS TRACED IN SLICES, NEVER IN ONE LONG TASK (measured 2026-10-16).
+           `getPointAtLength` walks the outline from its start on every call, so a traced
+           letter's ~640 samples cost ~650 ms at 4× CPU — ONE task, on the owner's events
+           board, the moment the Maria & Jose card's logo played. The board froze for it:
+           taps did nothing. The samples, the pens and the timings are exactly as before; the
+           walk now yields to the page every ~8 ms, and the layer stays hidden until its pen
+           is ready (never shown, gone, drawn again). The animations then start ON their
+           original schedule when the trace was quicker than the layer's delay, else at once.
+           🔒 lib/the-pen-is-traced-in-slices.test.ts */
+        const shapes = Array.from(body.querySelectorAll<SVGGeometryElement>('path, rect, circle, ellipse, polygon'));
+        const scheduledAt = document.timeline.currentTime;
+        const tracedFrom = performance.now();
+        body.style.visibility = 'hidden';
+        const nextFrame = () =>
+          new Promise<void>((resolve) => {
+            frames.push(requestAnimationFrame(() => resolve()));
+          });
+        void (async () => {
+          const pens: Array<{ el: SVGPathElement; len: number }> = [];
+          let slice = performance.now();
+          for (const shape of shapes) {
+            const ink = getComputedStyle(shape).fill;
+            if (shape.tagName === 'rect' || !ink || ink === 'none') continue; // a white card
+            let total = 0;
+            try {
+              total = shape.getTotalLength();
+            } catch {
+              total = 0;
             }
-            run = [];
-          };
-          for (let k = 0; k <= n; k++) {
-            const pt = shape.getPointAtLength(Math.min(total, k * step));
-            if (prev && Math.hypot(pt.x - prev.x, pt.y - prev.y) > step * 4) flush();
-            run.push(`${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`);
-            prev = pt;
+            if (!total) continue;
+            // Walk the outline; a jump far bigger than a step is a new subpath.
+            const n = Math.min(1500, Math.max(120, Math.round(total / 2)));
+            const step = total / n;
+            let run: string[] = [];
+            let prev: DOMPoint | null = null;
+            const flush = () => {
+              if (run.length > 1) {
+                const el = document.createElementNS(NS, 'path');
+                el.setAttribute('d', `M${run.join('L')}`);
+                el.setAttribute('fill', 'none');
+                el.setAttribute('data-logo-pen', '');
+                el.style.stroke = ink;
+                el.style.strokeWidth = String(1.6 * px);
+                el.style.strokeLinejoin = 'round';
+                el.style.strokeLinecap = 'butt';
+                body.appendChild(el);
+                pens.push({ el, len: el.getTotalLength() });
+              }
+              run = [];
+            };
+            for (let k = 0; k <= n; k++) {
+              if (performance.now() - slice > 8) {
+                await nextFrame();
+                if (!host.isConnected || host.firstChild !== root) return; // unmounted or redrawn
+                slice = performance.now();
+              }
+              const pt = shape.getPointAtLength(Math.min(total, k * step));
+              if (prev && Math.hypot(pt.x - prev.x, pt.y - prev.y) > step * 4) flush();
+              run.push(`${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`);
+              prev = pt;
+            }
+            flush();
           }
-          flush();
-        });
-        const all = pens.reduce((sum, p) => sum + p.len, 0) || 1;
-        let done = 0;
-        for (const { el, len } of pens) {
-          el.style.strokeDasharray = `${len + 1} ${len + 1}`;
-          el.style.strokeDashoffset = String(len + 1);
-          const share = (len / all) * strokeMs;
-          anims.push(
-            el.animate([{ strokeDashoffset: len + 1 }, { strokeDashoffset: 0 }], {
-              duration: Math.max(1, share),
-              delay: delayMs + (done / all) * strokeMs,
-              fill: 'both',
-            }),
-          );
-          // the pen's line gives way to the ink as the fill arrives
-          anims.push(el.animate([{ opacity: 1 }, { opacity: 0 }], { ...inkIn, easing: 'ease-out' }));
-          done += len;
-        }
+          if (!host.isConnected || host.firstChild !== root) return;
+          // On schedule when the trace beat the layer's own delay; otherwise from now, whole.
+          const onTime = typeof scheduledAt === 'number' && performance.now() - tracedFrom <= delayMs;
+          const play = (a: Animation) => {
+            if (onTime) a.startTime = scheduledAt;
+            anims.push(a);
+          };
+          // Every shape inks in with the fill, whatever else happens to it.
+          shapes.forEach((shape) => play(shape.animate([{ opacity: 0 }, { opacity: 1 }], inkIn)));
+          const all = pens.reduce((sum, p) => sum + p.len, 0) || 1;
+          let done = 0;
+          for (const { el, len } of pens) {
+            el.style.strokeDasharray = `${len + 1} ${len + 1}`;
+            el.style.strokeDashoffset = String(len + 1);
+            const share = (len / all) * strokeMs;
+            play(
+              el.animate([{ strokeDashoffset: len + 1 }, { strokeDashoffset: 0 }], {
+                duration: Math.max(1, share),
+                delay: delayMs + (done / all) * strokeMs,
+                fill: 'both',
+              }),
+            );
+            // the pen's line gives way to the ink as the fill arrives
+            play(el.animate([{ opacity: 1 }, { opacity: 0 }], { ...inkIn, easing: 'ease-out' }));
+            done += len;
+          }
+          body.style.visibility = '';
+        })();
       } else if (motion.in === 'rise' || motion.in === 'fade') {
         const from = motion.in === 'rise' ? { opacity: 0, transform: 'translateY(8%)' } : { opacity: 0 };
         const to = motion.in === 'rise' ? { opacity: 1, transform: 'none' } : { opacity: 1 };

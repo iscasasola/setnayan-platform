@@ -3,7 +3,7 @@
 Owner FINAL 2026-10-15: *"Free 10MB"* · *"Pro is 500MB"*. The single 100 MB cap is gone.
 
 - **What each plan gets:** a Free couple may keep up to **10 MB** of their own Event Hub uploads per event; a couple with Event Hub Pro (`eventCoupleWebsiteProActive` — internal-hosted events are Pro by the existing rule) up to **500 MB**. Guest/Papic media still never counts.
-- **One cap function:** `coupleMediaCapBytes(isPro)` in `lib/maker-media-limits.ts` replaces `MAKER_EVENT_MEDIA_BYTES_CAP`. `/api/upload` reserves against the plan's number (`reserveCoupleMediaBytes` reads the plan itself, with the real gate — the "view as a free couple" switch never reaches it); the meter and the "full" sentence show the same number.
+- **One cap, the same constant:** the existing `MAKER_EVENT_MEDIA_BYTES_CAP` in `lib/maker-media-limits.ts` is now plan-aware (`{ free: 10 MB, pro: 500 MB }`) and is read only through `coupleMediaCapBytes(isPro)`; no second quota constant exists. `/api/upload` reserves against the plan's number (`reserveCoupleMediaBytes` reads the plan itself, with the real gate — the "view as a free couple" switch never reaches it); the meter ("Your media · N MB of 500 MB") and the "full" sentence show the same number.
 - **A Free couple at the cap** reads one line: "◆ Event Hub Pro gives you 500 MB" with "Unlock Pro" on the existing `/studio/website-pro` path. No padlock.
 - **Existing files are never deleted.** A couple already over their plan's number is simply full and cannot add.
 - **No migration:** `reserve_couple_media_bytes(event, bytes, cap)` already takes the cap as a parameter.

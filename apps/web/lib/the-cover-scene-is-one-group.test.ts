@@ -234,3 +234,20 @@ test('(8) the REAL guest page draws it: a stored ground lays the layer behind th
   );
   assert.match(played, /<video[^>]*>/, 'the ready-made loop does not play');
 });
+
+test('(9) Apply asks Pro for a Scene ◆ or Upload ◆ on the cover — never for a Colour, never for taking one off', async () => {
+  const { canvasLookChange, canvasWithoutFacet, canvasLookFacets } = await import('./hub-draft');
+  const none = {};
+  const loop = { ground: { kind: 'loop' as const, loop: hubMovingBackgroundIds()[0]! } };
+  const photo = { ground: { kind: 'photo' as const, media: 'r2://setnayan-media/events/e1/scene-background/a.jpg' } };
+  const colour = { ground: { kind: 'color' as const, color: '#111111' } };
+  assert.equal(canvasLookChange(none, loop), 'add', 'a loop on the cover went live free');
+  assert.equal(canvasLookChange(none, photo), 'add', 'a photo on the cover went live free');
+  assert.equal(canvasLookChange(colour, loop), 'add');
+  assert.equal(canvasLookChange(none, colour), 'none', 'a Colour asked for Pro');
+  assert.equal(canvasLookChange(loop, none), 'remove', 'taking the loop off asked for Pro');
+  assert.ok(canvasLookFacets(none, loop).some((f) => f.key === 'ground' && f.group === 'media'));
+  /* "Remove" on the Apply sheet puts back what guests see — the live ground, whole. */
+  assert.deepEqual(canvasWithoutFacet(colour, loop, { key: 'ground' }), colour);
+  assert.deepEqual(canvasWithoutFacet(none, photo, { key: 'ground' }), {});
+});

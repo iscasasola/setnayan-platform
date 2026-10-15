@@ -313,7 +313,8 @@ test('d · the canvas shows one tab’s groups, refuses a tab it has no page for
 test('d · WIRING: the swap starts at the top and stays there; the label follows the canvas, not a guess', () => {
   const tab = BRIDGE.slice(BRIDGE.indexOf("data.t === 'hubTab'"));
   const handler = tab.slice(0, tab.indexOf('return;\n      }') + 20);
-  assert.match(handler, /if \(!openHubTab\(document, window, lift, tab\)\) return;\s*pageTop\.hold\(\);/, 'a pick starts at the top');
+  /* 📜 A page of its own starts at the top and is held there; a jump mark of the one page (2026-10-15) is not held. */
+  assert.match(handler, /const opened = openHubTab\(document, window, lift, tab\);\s*if \(!opened\) return;\s*if \(opened === true\) pageTop\.hold\(\);/, 'a pick starts at the top');
   // After a RELOAD the page that was on screen is put back on the fresh page's own document, at once — before the
   // buffered swap carries the scroll — and never through a message that would send it to the top.
   assert.match(TOOLS, /if \(was\?\.stage === stage && was\.tab !== d\.tab && putTabBack\(from, was\.tab\)\) return;/);

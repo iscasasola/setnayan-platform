@@ -136,7 +136,8 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
 
   /* The guest tree's own article, once, and the cover in its first group — the shape the cover's hand-over will meet. */
   assert.equal(count(html, '<article data-pahina-chapters="true" class="space-y-12">'), 1, 'the guest tree’s article');
-  assert.match(html, /<article data-pahina-chapters="true" class="space-y-12"><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="space-y-12 empty:hidden">/);
+  /* 📜 The Invitation is one page (owner 2026-10-15): each group also names its PAGE — the one page, `home`. */
+  assert.match(html, /<article data-pahina-chapters="true" class="space-y-12"><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="space-y-12 empty:hidden">/);
   /* 🖼 …as the Cover Scene: the whole first screen (owner 2026-10-15, `lib/cover-scene.ts`). */
   assert.match(html, /<header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-center text-center">/, 'the cover (`PahinaMasthead`) is drawn');
   /* The cover: the two names, the mark, the date. */
@@ -321,7 +322,8 @@ test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, wi
   /* …and with a photo the stranger's OTHER masthead: the cover alone in the page's first group, the door in the next. */
   const photo = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), ...PHOTO });
   assert.deepEqual(photo.complaints, []);
-  assert.match(photo.html, /<div id="site-home" aria-hidden="true" class="scroll-mt-6"><\/div><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-center text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">/, 'the photo cover is not the last thing in the first group, with the door in the next');
+  /* 📜 On the one page (owner 2026-10-15) Home's mark is no longer at the top: it lands AFTER the cover and its door. */
+  assert.match(photo.html, /<article data-pahina-chapters="true"><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-center text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">/, 'the photo cover is not the last thing in the first group, with the door in the next');
   assert.ok(photo.html.includes('fixture-hero.jpg'));
 
   /* BYTE FOR BYTE: twice the same, and the committed page (`UPDATE_GOLDEN=1` to accept an intended change). */
@@ -367,8 +369,8 @@ test('(8) the STRANGER’s cover stored to leave by Scrub: while Scrub ships dar
            and the door is in the NEXT group, where the engine finds it. */
         const CELL = '<div data-pahina-first-screen="" class="hub-cover-cell"><div data-pahina-chapters="" class="hub-cover" data-hub-fx="">';
         const REST = '</header></div><div data-pahina-chapters="" class="hub-cover-after empty:hidden"></div></div>';
-        assert.ok(stored.html.includes(`<div id="site-home" aria-hidden="true" class="scroll-mt-6"></div>${CELL}<header data-pahina-first-screen=""`), 'the photo masthead is not in the cover’s box, in the first group');
-        assert.ok(stored.html.includes(`${REST}</div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">`), 'the rest box is not empty, or the door is not the next group’s');
+        assert.ok(stored.html.includes(`<div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden">${CELL}<header data-pahina-first-screen=""`), 'the photo masthead is not in the cover’s box, in the first group');
+        assert.ok(stored.html.includes(`${REST}</div><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">`), 'the rest box is not empty, or the door is not the next group’s');
         unwrapped = unwrapped.replace(CELL, '').replace(REST, '</header>');
       } else {
         /* THE TEXT-ONLY COVER — inside its marked first-screen wrapper, the door in the rest box with the wrapper's
@@ -382,7 +384,10 @@ test('(8) the STRANGER’s cover stored to leave by Scrub: while Scrub ships dar
         unwrapped = unwrapped.replace(CELL, '').replace(REST, '</header>');
         /* (The rest box and the cell close right after the door, before the wrapper and the group do: two closing
            tags out of a run of them, just before the next group.) */
-        const next = unwrapped.indexOf('<div data-hub-tab=', unwrapped.indexOf('data-get-inside='));
+        /* 📜 On the one page Home's mark follows the cover and its door inside the wrapper (owner 2026-10-15), so the
+           two boxes close just before it. */
+        const home = unwrapped.indexOf('<div id="site-home" aria-hidden="true" data-home-after-cover=""', unwrapped.indexOf('data-get-inside='));
+        const next = home > 0 ? home : unwrapped.indexOf('<div data-hub-tab=', unwrapped.indexOf('data-get-inside='));
         assert.ok(unwrapped.slice(next - 12, next) === '</div></div>', 'the page after the door is not shaped as expected');
         unwrapped = unwrapped.slice(0, next - 12) + unwrapped.slice(next);
       }

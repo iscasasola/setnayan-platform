@@ -55,20 +55,24 @@ const pagesOf = (html: string) =>
     nodes: [...m[3]!.matchAll(/data-node="([^"]+)"/g)].map((n) => n[1]!),
   }));
 
-test('P04 — the Invitation is four pages, one on screen, each part on the page the real filing puts it on', async () => {
+test('P04 — the Invitation is four tabs — ONE page of three marks and Me — each part on the page the real filing puts it on', async () => {
   const tiles = labStageTiles(labRows(), 'rsvp');
   const pages = pagesOf(await draw({ tiles, paged: true }));
   const want = makerStagesPages('rsvp').map((p) => p.key);
   assert.deepEqual(pages.map((p) => p.key), want);
   assert.deepEqual(pages.map((p) => p.key), ['home', 'details', 'story', 'me']);
-  assert.deepEqual(pages.filter((p) => !p.hidden).map((p) => p.key), ['home'], 'more than one page is on screen');
+  /* 📜 One page (owner 2026-10-15): Home · Details · Story are on screen together; Me is its own page. */
+  assert.deepEqual(pages.filter((p) => !p.hidden).map((p) => p.key), ['home', 'details', 'story'], 'the one page is not on screen whole');
   for (const p of pages) for (const k of p.nodes) assert.equal(makerStagesPageOf('rsvp', k, want), p.key, `${k} is on ${p.key}`);
   assert.ok(pages.find((p) => p.key === 'details')!.nodes.includes('w:schedule'));
   assert.ok(pages.find((p) => p.key === 'home')!.nodes.includes('f:hero'));
   /* `?tab=me` opens that page — the address the Maker's tab reload puts back. */
   assert.deepEqual(pagesOf(await draw({ tiles, paged: true, tab: 'me' })).filter((p) => !p.hidden).map((p) => p.key), ['me']);
-  /* A stage that is one page (Save the Date), and any page not asked for as tabs, has no groups at all. */
-  assert.doesNotMatch(await draw({ tiles: labStageTiles(labRows(), 'save_the_date'), paged: true, stage: 'save_the_date' }), /data-hub-tab/);
+  /* 📜 Save the Date is one page too, with Me its own: its marks are on screen together, Me is not. */
+  const std = pagesOf(await draw({ tiles: labStageTiles(labRows(), 'save_the_date'), paged: true, stage: 'save_the_date' }));
+  assert.deepEqual(std.map((p) => p.key), makerStagesPages('save_the_date').map((p) => p.key));
+  assert.deepEqual(std.filter((p) => p.hidden).map((p) => p.key), ['me'], 'Save the Date: only Me is a page of its own');
+  /* …and any page not asked for as tabs has no groups at all. */
   assert.doesNotMatch(await draw({ tiles, paged: false }), /data-hub-tab/);
   /* Each part is right after its marker, as the bridge finds it — and a self-marked one is not marked twice. */
   const one = await draw({ tiles, paged: false });

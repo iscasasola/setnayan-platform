@@ -207,7 +207,7 @@ test('(3) the Camera’s page IS the camera: one screen per look from its own pi
   const page = read(`${L}/stage-panel/camera-page.tsx`);
   /* ON THE CANVAS'S OWN CAMERA PAGE — the page the real canvas draws for the tab (`site-body.tsx` `rest()`)… */
   assert.match(page, /const CAMERA_PAGE = '\[data-stages-page="camera"\]';/);
-  assert.match(read('app/[slug]/_components/site-body.tsx'), /<div key=\{p\} \{\.\.\.\{ \[HUB_TAB_ATTR\]: p \}\} data-stages-page=\{p\} hidden=\{p !== active \? true : undefined\}>\s*<MakerPageStandIn page=\{p\}/, 'the canvas no longer marks its Camera page — the camera has nowhere to be drawn');
+  assert.match(read('app/[slug]/_components/site-body.tsx'), /<div key=\{p\} \{\.\.\.\{ \[HUB_TAB_ATTR\]: p, \[HUB_PAGE_ATTR\]: pageOf\(p\) \}\} data-stages-page=\{p\} hidden=\{pageOf\(p\) !== active \? true : undefined\}>\s*<MakerPageStandIn page=\{p\}/, 'the canvas no longer marks its Camera page — the camera has nowhere to be drawn');
   /* …of THIS stage's canvas, and only once that page has FINISHED LOADING (its bridge has bound its parts): a node put
      into a page its own React has not taken over yet is a hydration failure — the whole page thrown away and drawn
      again. A canvas with no Camera page gets no camera. */

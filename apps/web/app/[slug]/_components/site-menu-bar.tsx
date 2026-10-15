@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Activity, Home, Info, Camera, Images, Radio, User, Lock, CalendarClock, Film, Users, Heart } from 'lucide-react';
 import type { NavSlot } from '../_lib/site-nav';
@@ -14,7 +14,7 @@ import {
   inPageTabs,
   isJumpMarkHref,
 } from '../_lib/hub-tabs';
-import { litJumpMark } from '../_lib/jump-marks';
+import { LIT_LINE, litJumpMark } from '../_lib/jump-marks';
 
 /**
  * THE EVENT-SITE BOTTOM BAR — icon + label, one shape for everyone.
@@ -136,20 +136,37 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
   const marks = onePage ? slots.filter((s) => s.state === 'live' && isJumpMarkHref(s.href)) : [];
   const markKey = marks.map((m) => `${m.key}=${m.href}`).join('|');
   const [spied, setSpied] = useState<string | null>(marks[0]?.key ?? null);
+  const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!onePage || page !== SCROLL_PAGE) return;
     const pairs = markKey.split('|').filter(Boolean).map((p) => p.split('=') as [string, string]);
     const targets = pairs.map(([key, href]) => ({ key, el: document.getElementById(href.slice(1)) }));
     const seen = targets.filter((t): t is { key: string; el: HTMLElement } => t.el !== null);
     if (seen.length === 0 || typeof IntersectionObserver === 'undefined') return;
+    /** Is the page's END on screen? Then the last section can rise no further — the last one on screen is lit
+     *  (walked 2026-10-15: a short Story at the foot never reached the line, so a tap on Story left Details lit). */
+    let atEnd = false;
     const spy = () =>
-      setSpied(litJumpMark(seen.map((t) => ({ key: t.key, top: t.el.getBoundingClientRect().top })), window.innerHeight) ?? pairs[0]?.[0] ?? null);
-    /* The top 40 % of the screen is where a section "is": a mark crossing into it, or out of it at either edge,
-       is the only moment the lit item can change — so one observer, no scroll handler. */
-    const io = new IntersectionObserver(spy, { rootMargin: '0px 0px -60% 0px', threshold: [0, 1] });
+      setSpied(litJumpMark(seen.map((t) => ({ key: t.key, top: t.el.getBoundingClientRect().top })), window.innerHeight, atEnd) ?? pairs[0]?.[0] ?? null);
+    /* The top quarter of the screen (`LIT_LINE`) is where a section "is": a mark crossing into it, or out of it at
+       either edge, is the only moment the lit item can change — so ONE observer on the marks, no scroll handler. */
+    const io = new IntersectionObserver(spy, { rootMargin: `0px 0px -${Math.round((1 - LIT_LINE) * 100)}% 0px`, threshold: [0, 1] });
     for (const t of seen) io.observe(t.el);
+    /* …and one on the page's foot — the bar's own spacer, the last thing in the page's flow. */
+    const end = endRef.current;
+    const foot = end
+      ? new IntersectionObserver((entries) => {
+          /* (A page shorter than two screens shows its foot at once: unscrolled, the top section is still Home.) */
+          atEnd = entries.some((e) => e.isIntersecting) && window.scrollY > 0;
+          spy();
+        })
+      : null;
+    if (end && foot) foot.observe(end);
     spy();
-    return () => io.disconnect();
+    return () => {
+      io.disconnect();
+      foot?.disconnect();
+    };
   }, [onePage, page, markKey]);
   const activeKey = onePage ? (page === SCROLL_PAGE ? spied : page) : page;
   /** 📜 A lit jump mark is "the place you are on this page" (`true`); a lit page is the page (`page`). */
@@ -321,7 +338,7 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
         attribute order as a single string; splitting it across lines for
         readability broke that guard in CI. The guard is right and the
         formatting was mine, so the formatting gives way. */}
-    <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] print:hidden xl:hidden" />
+    <div ref={endRef} aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] print:hidden xl:hidden" />
     {/* The reason, said out loud. Sits ABOVE the bar so it is never the thing
         the bar is covering, and dismisses on its own tap — no click-away layer
         to fight the tabs underneath it. */}

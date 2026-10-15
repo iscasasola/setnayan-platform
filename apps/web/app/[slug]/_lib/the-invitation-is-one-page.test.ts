@@ -20,7 +20,8 @@
  *   5 · the bar over the cover: the cover leads the page, the bar is the one the cover's rule holds off screen
  *       (`nav[aria-label="Site sections"]` while `<style data-cover-menu="wait">`), it slides in on leaving the
  *       cover and hides again whenever the cover is back on screen (Q3) — the shipped script, executed.
- *   6 · the lit item: one IntersectionObserver, the last mark crossed is lit (`litJumpMark`), `aria-current="true"`.
+ *   6 · the lit item: one IntersectionObserver on the marks, the last crossed is lit (`litJumpMark`), at the page's
+ *       end the lowest on screen (a second observer on the foot), `aria-current="true"`.
  *
  * SABOTAGES (each run once, seen red, put back — recorded in the PR body and the handover).
  */
@@ -254,9 +255,15 @@ test('6 · scroll-spy: one IntersectionObserver on the marks, the last crossed i
   assert.equal(litJumpMark(marks(-4000, -2000, 100), vh), 'story');
   assert.equal(litJumpMark(marks(-4000, -2000, line + 1), vh), 'details', 'Story is lit before its mark reaches the line');
   assert.equal(litJumpMark([], vh), null);
+  // At the page's end a short last section never reaches the line: the lowest mark on screen is lit.
+  assert.equal(litJumpMark(marks(-4000, -1500, 500), vh, true), 'story', 'a tap on Story at the foot leaves Details lit');
+  assert.equal(litJumpMark(marks(-4000, -1500, vh + 10), vh, true), 'details', 'at the end, a mark below the screen is lit');
   const BAR = src('_components', 'site-menu-bar.tsx');
-  assert.equal(BAR.match(/new IntersectionObserver\(/g)?.length, 1, 'one observer, not one per mark');
-  assert.match(BAR, /litJumpMark\(seen\.map\(\(t\) => \(\{ key: t\.key, top: t\.el\.getBoundingClientRect\(\)\.top \}\)\), window\.innerHeight\)/);
+  // One observer on the marks (never one per mark), and one on the page's foot (the bar's spacer).
+  assert.equal(BAR.match(/new IntersectionObserver\(/g)?.length, 2, 'one observer on the marks + one on the foot');
+  assert.match(BAR, /for \(const t of seen\) io\.observe\(t\.el\);/);
+  assert.match(BAR, /<div ref=\{endRef\} aria-hidden className="h-\[calc\(3\.5rem\+env\(safe-area-inset-bottom\)\)\]/, 'the foot observed is not the bar’s own spacer');
+  assert.match(BAR, /litJumpMark\(seen\.map\(\(t\) => \(\{ key: t\.key, top: t\.el\.getBoundingClientRect\(\)\.top \}\)\), window\.innerHeight, atEnd\)/);
   assert.match(BAR, /if \(!onePage \|\| page !== SCROLL_PAGE\) return;/, 'the spy runs off the one page');
   assert.doesNotMatch(BAR, /addEventListener\('scroll'/, 'a scroll handler beside the observer');
   assert.match(BAR, /onePage && marks\.some\(\(m\) => m\.key === key\) \? 'true' : 'page'/, 'a lit mark is not `aria-current="true"`');

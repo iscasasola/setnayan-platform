@@ -137,6 +137,15 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
   const markKey = marks.map((m) => `${m.key}=${m.href}`).join('|');
   const [spied, setSpied] = useState<string | null>(marks[0]?.key ?? null);
   const endRef = useRef<HTMLDivElement>(null);
+  /** 👆 A TAPPED MARK STAYS LIT UNTIL THE GUEST MOVES THE PAGE (Batch 9 walk W1). On a page too short to bring a mark
+   *  to the line (a Save the Date), the jump cannot scroll far enough for the spy to see it; the tapped item is the
+   *  place the guest asked for, so it is lit until their own next touch, wheel or key moves the page. */
+  const pinnedRef = useRef<string | null>(null);
+  const pinMark = (key: string) => {
+    if (!marks.some((m) => m.key === key)) return;
+    pinnedRef.current = key;
+    setSpied(key);
+  };
   useEffect(() => {
     if (!onePage || page !== SCROLL_PAGE) return;
     const pairs = markKey.split('|').filter(Boolean).map((p) => p.split('=') as [string, string]);
@@ -147,7 +156,7 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
      *  (walked 2026-10-15: a short Story at the foot never reached the line, so a tap on Story left Details lit). */
     let atEnd = false;
     const spy = () =>
-      setSpied(litJumpMark(seen.map((t) => ({ key: t.key, top: t.el.getBoundingClientRect().top })), window.innerHeight, atEnd) ?? pairs[0]?.[0] ?? null);
+      setSpied(pinnedRef.current ?? litJumpMark(seen.map((t) => ({ key: t.key, top: t.el.getBoundingClientRect().top })), window.innerHeight, atEnd) ?? pairs[0]?.[0] ?? null);
     /* The top quarter of the screen (`LIT_LINE`) is where a section "is": a mark crossing into it, or out of it at
        either edge, is the only moment the lit item can change — so ONE observer on the marks, no scroll handler. */
     const io = new IntersectionObserver(spy, { rootMargin: `0px 0px -${Math.round((1 - LIT_LINE) * 100)}% 0px`, threshold: [0, 1] });
@@ -162,10 +171,20 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
         })
       : null;
     if (end && foot) foot.observe(end);
+    /* The guest's own gesture (not the jump's smooth scroll) hands the lit item back to the spy. A tap's touchstart
+       comes before its click, so tapping a mark unpins and then pins it. */
+    const unpin = () => {
+      if (pinnedRef.current === null) return;
+      pinnedRef.current = null;
+      spy();
+    };
+    const GESTURES = ['wheel', 'touchstart', 'keydown'] as const;
+    for (const g of GESTURES) window.addEventListener(g, unpin, { passive: true });
     spy();
     return () => {
       io.disconnect();
       foot?.disconnect();
+      for (const g of GESTURES) window.removeEventListener(g, unpin);
     };
   }, [onePage, page, markKey]);
   const activeKey = onePage ? (page === SCROLL_PAGE ? spied : page) : page;
@@ -221,6 +240,7 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
           <a
             href={slot.href}
             aria-current={currentOf(slot.key)}
+            onClick={() => pinMark(slot.key)}
             className={`${SLOT} ${slot.key === activeKey ? 'text-ink' : 'text-ink/65 hover:text-ink'}`}
           >
             <Icon aria-hidden className="h-5 w-5" strokeWidth={slot.key === activeKey ? 2.25 : 1.75} />
@@ -300,6 +320,7 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
           <a
             href={isCamera ? cameraHrefWithBack(slot.href, activeKey) : slot.href}
             aria-current={currentOf(slot.key)}
+            onClick={isCamera ? undefined : () => pinMark(slot.key)}
             className={`${RAIL_SLOT} ${
               isCamera
                 ? 'text-mulberry hover:text-mulberry-600'

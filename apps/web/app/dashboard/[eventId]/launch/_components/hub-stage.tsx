@@ -172,9 +172,9 @@ export function HubStage({
                address the frame above is showing.
 
                🔴 IT SAID "Open as a guest", AND IT DOES NOT OPEN AS A GUEST.
-               The host's session travels with the click and `buildOwnerRibbon`
-               lights the ribbon from a server-verified capability, so what
-               opens is the host's own page. The frame above now shows that
+               The host's session travels with the click and the page draws the
+               host's body from a server-verified capability (`viewerIsEventHost`),
+               so what opens is the host's own page. The frame above now shows that
                plainly, which made the old label a contradiction a couple could
                see in one glance.
 

@@ -13,8 +13,9 @@
  *   · guest-registry → /api/hub-print/guest-registry   (new, lib/print-guest-registry.ts)
  *   · qr-codes       → /api/hub-print/qr-codes         (#5977, the Guest list's QR PDF)
  *   · seat-plan      → /dashboard/<id>/seating/export  (lib/seating-pdf.ts — ONE A3 landscape page; moodboard | blueprint)
- *   · seating-pack   → /dashboard/<id>/seating/print   (directory, table signs, place cards — and, `?chart=table|az`, the
- *                                                       ENTRANCE SEATING CHART, owner 2026-10-13, #6503)
+ *   · seating-pack   → /dashboard/<id>/seating/print   (directory, table signs, place cards)
+ *   · seating-chart  → /dashboard/<id>/seating/print?chart=table|az (the ENTRANCE SEATING CHART, owner 2026-10-13, #6503 —
+ *                                                       its own row since 2026-10-14)
  *   · caterer        → /dashboard/<id>/seating/caterer (meal counts; CSV too)
  *   · event-qr       → /api/website/qr/<slug>          (the event's own QR, PNG)
  *
@@ -41,14 +42,25 @@ export type FreePrintSave = {
 };
 
 export type FreePrint = {
-  key: 'guest-registry' | 'qr-codes' | 'seat-plan' | 'seating-pack' | 'caterer' | 'event-qr';
+  key: 'guest-registry' | 'qr-codes' | 'seat-plan' | 'seating-pack' | 'seating-chart' | 'caterer' | 'event-qr';
   label: string;
   /** One line: what it is and what it is for. */
   blurb: string;
   /** A same-origin image URL — the first page, or the thing itself. */
   preview: string;
+  /**
+   * 📐 The paper's shape, width ÷ height — the thumbnail and the preview sheet draw the picture at true proportions
+   * (Studio › Prints' previews, owner 2026-10-14). The SIZES the routes lay out: A4 portrait, A3 landscape, the chart's A2.
+   */
+  aspect: number;
+  /** The paper, in a few words — the preview sheet's first chip ("A4", "A3 landscape"). */
+  paper: string;
+  /** 📄 The preview route takes `?page=N` (the reports, the pack, the QR sheet) — the sheet flips their pages. */
+  pages?: true;
   saves: FreePrintSave[];
 };
+
+const A4 = 210 / 297;
 
 /**
  * 💾 What names a preview's picture — so a changed picture is a new address
@@ -71,6 +83,9 @@ export function freePrints(eventId: string, slug: string | null, stamps: FreePri
       label: 'Guest list registry',
       blurb: 'The reception desk list — A to Z, party size, table, RSVP, a box to tick and a line to sign.',
       preview: `/api/hub-print/guest-registry?event=${e}&mode=screen`,
+      aspect: A4,
+      paper: 'A4',
+      pages: true,
       saves: [{ label: 'Save PDF', href: `/api/hub-print/guest-registry?event=${e}`, file: printFileName(slug, 'guest-registry') }],
     },
     {
@@ -79,6 +94,9 @@ export function freePrints(eventId: string, slug: string | null, stamps: FreePri
       blurb: 'Every guest’s own QR with their name, twelve to an A4 page.',
       // The thumbnail wears the drafted QR look (`draft=`); the PDF is live.
       preview: `/api/hub-print/qr-codes?event=${e}&mode=screen${v}${draft}`,
+      aspect: A4,
+      paper: 'A4 · 12 to a page',
+      pages: true,
       saves: [{ label: 'Save PDF', href: `/api/hub-print/qr-codes?event=${e}`, file: printFileName(slug, 'qr-codes') }],
     },
     {
@@ -86,6 +104,8 @@ export function freePrints(eventId: string, slug: string | null, stamps: FreePri
       label: '2D seat plan',
       blurb: 'One A3 page: your room from above — every table with its chairs, and who sits where.',
       preview: `/dashboard/${e}/seating/export?format=preview&mode=moodboard`,
+      aspect: 420 / 297,
+      paper: 'A3 landscape',
       saves: [
         { label: 'Save in your colours', href: `/dashboard/${e}/seating/export?mode=moodboard`, file: printFileName(slug, 'seat-plan') },
         { label: 'Save as blueprint', href: `/dashboard/${e}/seating/export?mode=blueprint`, file: printFileName(slug, 'seat-plan-blueprint') },
@@ -94,12 +114,27 @@ export function freePrints(eventId: string, slug: string | null, stamps: FreePri
     {
       key: 'seating-pack',
       label: 'Table signs & place cards',
-      blurb: 'A table directory, one sign per table with its QR, a place card for every seated guest — and one entrance chart, by table or A to Z.',
+      blurb: 'A table directory, one sign per table with its QR, and a place card for every seated guest.',
       preview: `/dashboard/${e}/seating/print?format=preview`,
+      aspect: A4,
+      paper: 'A4',
+      pages: true,
+      saves: [{ label: 'Save PDF', href: `/dashboard/${e}/seating/print?format=pdf`, file: printFileName(slug, 'seating-pack') }],
+    },
+    /* 🪧 THE ENTRANCE SEATING CHART (owner 2026-10-13, #6503) — ITS OWN ROW (owner 2026-10-14, on the previews prototype's open
+       question: "the entrance seating chart is its own row"; it is a different sheet and size from the pack). The SAME route and
+       files as before (`/seating/print?chart=table|az`, its default size A2; a sheet too full for it is said, never printed), named
+       as the route names them. */
+    {
+      key: 'seating-chart',
+      label: 'Entrance seating chart',
+      blurb: 'One sheet for the door — every seated guest, by table or A to Z.',
+      preview: `/dashboard/${e}/seating/print?chart=table&format=preview`,
+      /* The chart's default sheet, A2 (`DEFAULT_ENTRANCE_CHART_SIZE`) — written here, not imported: this list rides pages that
+         must not carry the chart's layout code (`free-prints.test.ts` holds the two equal). */
+      aspect: 420 / 594,
+      paper: 'A2',
       saves: [
-        { label: 'Save PDF', href: `/dashboard/${e}/seating/print?format=pdf`, file: printFileName(slug, 'seating-pack') },
-        /* 🪧 THE ENTRANCE SEATING CHART (owner 2026-10-13, #6503): one sheet for the door, beside the pack it is printed with — the SAME
-           route (`?chart=table|az`, its default size A2; a sheet too full for it is said, never printed), named as the route names it. */
         { label: 'Entrance chart · by table', href: `/dashboard/${e}/seating/print?chart=table&format=pdf`, file: printFileName(slug, 'seating-chart-by-table') },
         { label: 'Entrance chart · A to Z', href: `/dashboard/${e}/seating/print?chart=az&format=pdf`, file: printFileName(slug, 'seating-chart-a-to-z') },
       ],
@@ -109,6 +144,9 @@ export function freePrints(eventId: string, slug: string | null, stamps: FreePri
       label: 'Caterer meal counts',
       blurb: 'Meals per table and every dietary note, for confirmed guests.',
       preview: `/dashboard/${e}/seating/caterer?format=preview`,
+      aspect: A4,
+      paper: 'A4',
+      pages: true,
       saves: [
         { label: 'Save PDF', href: `/dashboard/${e}/seating/caterer?format=pdf`, file: printFileName(slug, 'caterer-meal-counts') },
         { label: 'Save spreadsheet', href: `/dashboard/${e}/seating/caterer?format=csv`, file: printFileName(slug, 'caterer-meal-counts', 'csv') },
@@ -125,6 +163,8 @@ export function freePrints(eventId: string, slug: string | null, stamps: FreePri
       // `draft=1`: the QR look the host is trying (host-only, never cached),
       // `v=` names it — the same picture as the code beside the address.
       preview: `/api/website/qr/${s}?draft=1${both ? `&v=${encodeURIComponent(both)}` : ''}`,
+      aspect: 1,
+      paper: 'PNG · one code',
       saves: [{ label: 'Save image', href: `/api/website/qr/${s}`, file: printFileName(slug, 'event-qr', 'png') }],
     });
   }

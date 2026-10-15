@@ -200,6 +200,7 @@ export function PickMenu({
   function renderOption(o: PickOption) {
     const plain = pickInHub(btnRef.current);
     const chosen = !picked && o.key === value;
+    const face = o.fontFamily ? { fontFamily: o.fontFamily } : undefined;
     return (
       <li key={o.key} role="none" className={fontRowClass(o.fontFamily)}>
         <button
@@ -223,13 +224,13 @@ export function PickMenu({
           {o.preview ? <span aria-hidden className="shrink-0">{o.preview}</span> : null}
           {o.hint ? (
             <span className="min-w-0">
-              <span className="block font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
+              <span className="block font-semibold" style={face}>
                 {o.label}
               </span>
-              <span className="block text-[12px] font-medium leading-snug opacity-75">{o.hint}</span>
+              <span className="block text-[12px] font-medium leading-snug opacity-75" style={face}>{o.hint}</span>
             </span>
           ) : (
-            <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
+            <span className="font-semibold" style={face}>
               {o.label}
             </span>
           )}

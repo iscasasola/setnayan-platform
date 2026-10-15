@@ -371,13 +371,13 @@ export type HubNextStep = {
 
   All three steps below that used it carry `ctaPath: ''`, which
   `launch/page.tsx` renders as `/<slug>` in a new tab. The host's session travels
-  with that click, `site-body.tsx` mounts `<OwnerRibbon>`, and `buildOwnerRibbon`
-  lights it from the server-verified capability ALONE — no query param, no
-  cookie, no prop a caller may set (`lib/owner-ribbon.ts`, owner-locked
-  2026-07-26). So what opened was the HOST's page with the host's ribbon across
-  the top, under a button promising a guest's view.
+  with that click, and `site-body.tsx` draws the HOST's body (`viewerIsEventHost`)
+  from the server-verified capability ALONE — no query param, no cookie, no prop
+  a caller may set (owner-locked 2026-07-26). So what opened was the HOST's page
+  (then with the host's ribbon across the top — removed 2026-10-15, owner:
+  "Remove it"), under a button promising a guest's view.
 
-  ⛔ THE FIX IS THE LABEL, NEVER THE GATE. A "hide the ribbon" param would be
+  ⛔ THE FIX IS THE LABEL, NEVER THE GATE. A "be a guest" param would be
   weakening a locked capability check to win an argument with a caption. The
   words moved; the gate did not.
 
@@ -395,8 +395,8 @@ export type HubNextStep = {
   already in use ("Open the live hub", "Open the live desk").
 
   ✅ `plan3d-stage.tsx` KEEPS "Open as a guest", deliberately. Its door is
-  `/<slug>/venue`, and that route mounts no `OwnerRibbon` and no `SiteBody`
-  (`git grep -n OwnerRibbon -- 'apps/web/app/[slug]/venue'` → nothing), nor does
+  `/<slug>/venue`, and that route mounts no `SiteBody`
+  (`git grep -n SiteBody -- 'apps/web/app/[slug]/venue'` → nothing), nor does
   it read the viewer's seat. A host opening the room sees what a guest opening it
   directly sees. The reasoning above simply does not reach it, and renaming it to
   match would have been a false fix.
@@ -566,7 +566,7 @@ export function resolveHubNextStep(
 
    ── AND: NO NEW ROUTE, NO NEW ENGINE, NO SECOND PHASE OPINION ──────────────
    Every door below is one that already ships and is already gated SERVER-side:
-     · `/{slug}` .................... the host's own page (owner ribbon)
+     · `/{slug}` .................... the host's own page (host body; no strip since 2026-10-15)
      · `/{slug}?phase=` ............. the four-value preview, gated by
                                       `loadHostMembership` in app/[slug]/page.tsx
      · `?as=replied` ................ the SIMULATED seat-holder, gated by a
@@ -736,10 +736,10 @@ export function resolveHubRoleView(input: {
         name: 'You',
         headline: 'Your own page, as yourself.',
         blurb:
-          'Never "scan your QR" on your own wedding. A slim ribbon rides the top with the edit door and every stage behind it.',
+          'Never "scan your QR" on your own wedding. Nothing of the editor sits on top — you edit from Home and preview each stage in the Maker.',
         cells: [
           { mark: 'full', text: 'Everything a guest sees, at any stage', known: true },
-          { mark: 'full', text: 'The ribbon, the print sheet, the four channels', known: true },
+          { mark: 'full', text: 'The print sheet, the four channels', known: true },
           { mark: 'full', text: 'Arms all three day-of services', known: true },
         ],
         previewHref: at(ownDoor),
@@ -752,9 +752,9 @@ export function resolveHubRoleView(input: {
         role,
         who: 'Appointed co-host',
         name: 'Coordinator',
-        headline: 'A host key — the same page, the same ribbon.',
+        headline: 'A host key — the same page you open.',
         blurb:
-          'They open exactly what you open. The edit button honestly sends them to the planning desk instead of the site editor, because that is where their work is.',
+          'They open exactly what you open. Their work is on the planning desk, not in the site editor.',
         cells: [
           { mark: 'full', text: 'Writes the announcements guests read where they stand', known: true },
           { mark: 'full', text: 'The only role that may advance the running order', known: true },

@@ -90,7 +90,8 @@ import {
   type PapicTypeView,
   type ServicesStepView,
 } from '@/lib/onboarding/services-step-data';
-import { recommendedPackStep } from '@/lib/onboarding/papic-recommendation';
+import { papicPackEstimatePhrase } from '@/lib/papic-tier-copy';
+import { formatCount } from '@/lib/format-number';
 import {
   poolPriceAt,
   poolListPriceAt,
@@ -148,15 +149,19 @@ const TYPE_COPY: Record<
 };
 
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
-const pts = (n: number) => `${n.toLocaleString('en-PH')} pts`;
+// 🔤 The unit is "credits" on every Papic surface (owner 2026-10-13; lib/papic-unit-is-credits.test.ts).
+const credits = (n: number) => `${formatCount(n)} credits`;
 
 function LadderRow({
   left,
   right,
+  note,
   free = false,
 }: {
   left: string;
   right: string;
+  /** The pack's plain estimate (owner 2026-10-15) — "about N photos, or N short clips". */
+  note?: string;
   free?: boolean;
 }) {
   return (
@@ -168,7 +173,14 @@ function LadderRow({
           : 'border-t border-ink/[0.07] first:border-t-0',
       ].join(' ')}
     >
-      <span className="font-semibold text-ink">{left}</span>
+      <span className="flex flex-col">
+        <span className="font-semibold text-ink">{left}</span>
+        {note ? (
+          <span data-papic-pack-estimate className="font-sans text-xs font-normal text-ink/55">
+            {note}
+          </span>
+        ) : null}
+      </span>
       <span className={free ? 'font-semibold text-terracotta-700' : 'text-ink/60'}>
         {right}
       </span>
@@ -304,8 +316,8 @@ function PoolPicker({
       <Stepper
         decLabel="Fewer shots"
         incLabel="More shots"
-        value={pts(poolShotsAt(type, step))}
-        sub={step === 0 ? 'Yours already' : 'Shared by every camera'}
+        value={credits(poolShotsAt(type, step))}
+        sub={step === 0 ? 'Yours already' : papicPackEstimatePhrase(poolShotsAt(type, step))}
         canDec={step > 0}
         canInc={step < last}
         onDec={() => onChange(stepPool(type, selection, -1))}
@@ -315,7 +327,7 @@ function PoolPicker({
       {step < last ? (
         <p className="mt-2 text-center text-xs text-ink/60">
           Press <span className="font-semibold text-ink">+</span> to add{' '}
-          <span className="font-semibold text-ink">{pts(nextShots)}</span> more for{' '}
+          <span className="font-semibold text-ink">{credits(nextShots)}</span> more for{' '}
           <span className="font-semibold text-ink">{peso(nextPrice)}</span>.
         </p>
       ) : (
@@ -330,46 +342,49 @@ function PoolPicker({
 
 
 /**
- * 🎟 The Pool with the owner's ONE recommendation (2026-10-01): "We recommend
- * {pack} Papic credits for your {guests} guests." — the NEAREST pack on the live
- * ladder (ties up), with − [pack] + stepping the live packs and "Add Papic ·
- * ₱X" / "Not now" deciding. Nothing is added until "Add Papic": the free
- * floor stays the default, so a resumed draft never carries a purchase.
+ * 📦 The Pool as − [pack] + with "Add Papic · ₱X" / "Not now" (owner 2026-10-01
+ * "THE PAPIC PACK IS A − [NUMBER] + STEPPER"). Each pack says what it buys —
+ * "about N photos, or N short clips" — and NOTHING sizes it from the guest count:
+ * owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS", answer 1) removed the
+ * "We recommend N credits for your X guests" line this picker used to open on.
+ *
+ * ⚖ THE PACK IT OPENS ON (builder's call, recorded in the handover): the pack
+ * already added, else the SMALLEST paid pack. With the recommendation gone there
+ * is no other default, and the smallest is the one that cannot be read as us
+ * steering a couple toward spending more. Nothing is added until "Add Papic":
+ * the free floor stays the selection, so a resumed draft never carries a purchase.
  */
-function RecommendedPoolPicker({
+function PackPoolPicker({
   type,
   selection,
   onChange,
-  guests,
-  startStep,
+  eventWord,
 }: {
   type: PapicTypeView;
   selection: ServicesStepSelection;
   onChange: (next: ServicesStepSelection) => void;
-  guests: number;
-  startStep: number;
+  eventWord: string;
 }) {
   const last = poolStepCount(type) - 1;
-  const [view, setView] = useState(startStep);
-  const added = poolStepOf(type, selection) > 0;
+  const addedStep = poolStepOf(type, selection);
+  const [view, setView] = useState(addedStep > 0 ? addedStep : 1);
+  const added = addedStep > 0;
   const rung = poolRungAt(type, view);
   const move = (to: number) => {
     setView(to);
     // An added pack follows the stepper, so the bill is never a step behind it.
     if (added) onChange(stepPool(type, selection, to - poolStepOf(type, selection)));
   };
-  const credits = (n: number) => `${n.toLocaleString('en-PH')} credits`;
   return (
-    <div className="mx-3 mb-3" data-papic-recommended>
+    <div className="mx-3 mb-3" data-papic-pack-picker>
       <p className="mb-2 text-sm font-medium text-ink">
-        We recommend {(poolRungAt(type, startStep)?.points ?? 0).toLocaleString('en-PH')} Papic credits for your{' '}
-        {guests.toLocaleString('en-PH')} guests.
+        How many credits do you want for this {eventWord}?
       </p>
       <Stepper
         decLabel="Smaller pack"
         incLabel="Bigger pack"
         value={credits(rung?.points ?? 0)}
-        sub="Shared by every camera"
+        sub={papicPackEstimatePhrase(rung?.points ?? 0)}
         canDec={view > 1}
         canInc={view < last}
         onDec={() => move(view - 1)}
@@ -413,12 +428,12 @@ function PapicType({
   selection,
   onSelectionChange,
   eventWord,
-  recommendedFor,
+  packPicker = false,
 }: {
   type: PapicTypeView;
   suggested: boolean;
-  /** The guest estimate + sizing, when this mount recommends a pack (the approved wedding). */
-  recommendedFor?: { guests: number; startStep: number } | null;
+  /** true ⇒ the − [pack] + / Add Papic picker (the approved wedding) instead of the running-total stepper. */
+  packPicker?: boolean;
   /** Both present ⇒ this product gets controls. Absent ⇒ read-only ladder. */
   selection?: ServicesStepSelection;
   onSelectionChange?: (next: ServicesStepSelection) => void;
@@ -432,8 +447,11 @@ function PapicType({
 
   return (
     <section className="overflow-hidden rounded-[var(--m-r-md)] border border-ink/12 bg-paper">
-      <div className="flex items-baseline justify-between gap-3 px-4 pb-1 pt-4">
-        <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
+      {/* 📐 Wraps, never clips: at 375 the kicker sat on one `whitespace-nowrap` line beside
+          the title and ran out of the card ("SHARED C…"). It now drops under the title
+          when there is no room, and may break between its own words at 320. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 pb-1 pt-4">
+        <h3 className="flex shrink-0 items-center gap-2 text-base font-semibold text-ink">
           <Icon aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
           <span className="flex flex-col leading-tight">
             {copy.title}
@@ -441,7 +459,7 @@ function PapicType({
             <span className="text-[11px] font-normal text-ink/50">{SERVICE_NAMES.papic.brand}</span>
           </span>
         </h3>
-        <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
+        <span data-papic-kind className="min-w-0 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
           {copy.kind}
         </span>
       </div>
@@ -463,13 +481,12 @@ function PapicType({
         // couple buys. Anything else falls through to the read-only ladder
         // below rather than to a control — which is what a retired product
         // should look like on the screen where money is chosen.
-        recommendedFor ? (
-          <RecommendedPoolPicker
+        packPicker ? (
+          <PackPoolPicker
             type={type}
             selection={selection}
             onChange={onSelectionChange}
-            guests={recommendedFor.guests}
-            startStep={recommendedFor.startStep}
+            eventWord={eventWord}
           />
         ) : (
         <PoolPicker
@@ -484,7 +501,7 @@ function PapicType({
           {showFree ? (
             <LadderRow
               free
-              left={pts(type.freePoints)}
+              left={credits(type.freePoints)}
               right={
                 type.freeCameras === null
                   ? 'Free — yours now'
@@ -495,8 +512,9 @@ function PapicType({
           {type.rungs.map((r) => (
             <LadderRow
               key={r.key}
-              left={type.id === 'pool' ? `+${pts(r.points)}` : pts(r.points)}
+              left={type.id === 'pool' ? `+${credits(r.points)}` : credits(r.points)}
               right={peso(r.pricePhp)}
+              note={type.id === 'pool' ? papicPackEstimatePhrase(r.points) : undefined}
             />
           ))}
         </ul>
@@ -517,7 +535,7 @@ export function ServicesStep({
   selection,
   onSelectionChange,
   className,
-  guests = null,
+  packPicker = false,
   solemn = false,
 }: {
   /**
@@ -556,10 +574,11 @@ export function ServicesStep({
    */
   solemn?: boolean;
   /**
-   * The couple's guest estimate. Present (with the view's `papic.sizing`) ⇒ the Pool
-   * card recommends its nearest pack. Absent ⇒ every existing mount reads as before.
+   * true ⇒ the Pool card is the − [pack] + / "Add Papic" picker (the approved
+   * wedding). It used to open on a pack sized from the guest estimate; owner
+   * 2026-10-15 removed that — every pack now states its own estimate instead.
    */
-  guests?: number | null;
+  packPicker?: boolean;
 }) {
   const { papic, ai } = view;
   const hubPro = view.hubPro ?? null;
@@ -569,11 +588,6 @@ export function ServicesStep({
   );
   const named = useMemo(() => new Set(interestedServices), [interestedServices]);
   const eventWord = papic.eventWord || 'event';
-  const recommendation = useMemo(() => {
-    const pool = papic.types.find((t) => t.id === 'pool');
-    const step = pool ? recommendedPackStep(pool.rungs, guests, papic.sizing) : 0;
-    return step > 0 && guests ? { guests, startStep: step } : null;
-  }, [papic.types, papic.sizing, guests]);
   const interactive = selection != null && onSelectionChange != null;
   const quote = useMemo(
     () =>
@@ -701,7 +715,7 @@ export function ServicesStep({
               eventWord={eventWord}
               selection={selection}
               onSelectionChange={onSelectionChange}
-              recommendedFor={t.id === 'pool' ? recommendation : null}
+              packPicker={t.id === 'pool' && packPicker}
             />
           ))}
         </div>

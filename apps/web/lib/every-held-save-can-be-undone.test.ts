@@ -30,12 +30,15 @@ export const UNDO_NOT_DRAWN: Record<string, string> = {
   'app/dashboard/[eventId]/launch/_components/studio-wish-list.tsx › changeGift': 'a LIVE gift record, not a draft step',
   /* — the bridge cannot draw these: the page is redrawn in place after the save (tier B) — */
   'app/dashboard/[eventId]/launch/_components/studio-info.tsx › studioDraftKeep': `Studio › Info / RSVP keep (redrawn in place) — ${PHASE_2}`,
+  'app/dashboard/[eventId]/launch/_components/studio-info.tsx › studioPhotosHeadingKeep': `Studio › Info Photos heading keep (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/fonts-look-rows.tsx › commit': `fonts (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx › <jsx handler>': `a fixed part's style (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts › save': `a scene's Style variant (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts › useHeldEventsSave': `a scene's look held on the events row (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx › pickLook': `the main background's look — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx › save': `a scene background (Colour · Plain · a photo) — ${PHASE_2}`,
+  /* 🖼 The Cover Scene's background (2026-10-15) — the same save shape as a scene's, redrawn in place. */
+  'app/dashboard/[eventId]/launch/_components/stage-panel/cover-words-background.tsx › put': `the Cover Scene's background (the hero row's canvas.ground) — ${PHASE_2}`,
   /* — drawn by their own message, an inverse not yet handed — */
   'app/dashboard/[eventId]/website/editor/_components/music-button-row.tsx › commit': `the music button — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx › commit': `Look › Buttons — ${PHASE_2}`,

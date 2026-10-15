@@ -92,6 +92,8 @@ const FREE_SAMPLES: Array<[string, HubElementStyle]> = [
   ['heading', { italic: true }],
   ['heading', { underline: true }],
   ['heading', { align: 'left' }],
+  ['heading', { width: 'wide' }],
+  ['body', { width: 'full' }],
   ['heading', { leading: 1.2 } as HubElementStyle],
   ['heading', { tracking: -2 } as HubElementStyle],
   ['body', { hidden: true }],

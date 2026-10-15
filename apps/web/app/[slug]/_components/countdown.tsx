@@ -1,5 +1,6 @@
 'use client';
 
+import { useVeilHeld } from '@/lib/use-veil-held';
 import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
 import { useEffect, useState } from 'react';
@@ -98,12 +99,17 @@ export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle 
    */
   const [remaining, setRemaining] = useState<Remaining | null>(null);
 
+  // 🙈 Under a veil that has not been opened the clock is READ but does not TICK (owner 2026-10-15: "nothing
+  // behind it should be playing until we open the reveal" · `lib/hub-veil.ts`); it starts on the unveil.
+  // No veil → `veiled` is always false → exactly the clock it always was.
+  const veiled = useVeilHeld();
   useEffect(() => {
     if (target === null) return;
     setRemaining(compute(target));
+    if (veiled) return;
     const id = window.setInterval(() => setRemaining(compute(target)), 1000);
     return () => window.clearInterval(id);
-  }, [target]);
+  }, [target, veiled]);
 
   // A date we cannot anchor draws NO clock. A missing countdown is a gap; a
   // countdown running to the wrong instant is a lie a guest would act on.

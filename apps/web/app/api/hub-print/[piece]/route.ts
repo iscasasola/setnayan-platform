@@ -49,6 +49,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { readHubDraft, saveHubDraftPatch } from '@/lib/hub-draft-store';
 import type { HubDraftEvents } from '@/lib/hub-draft';
 import { printDraftOf } from '@/lib/ceremony-time';
+import { PAPER_HOW, previewPage, printPaperHeader, type PrintPaperFacts } from '@/lib/print-paper';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -193,6 +194,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     let docs: PrintDoc[];
     let images: PrintImages = {};
     let subject: string;
+    /* 📄 The preview's page (`?page=N`, Studio › Prints' preview sheet) and what the sheet says about its paper (`x-print-paper`). */
+    let paper: (pages: number, page: number) => PrintPaperFacts;
     if (piece === 'qr-codes') {
       /* 💾 THE MAKER'S THUMBNAIL WEARS THE DRAFTED QR LOOK (owner 2026-10-06: "i
          changed the QR Code style, why did the QR codes not change?"). Only the
@@ -217,7 +220,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         // the couple's own on Event Hub Pro (lib/qr-look.ts).
         qrLook: qrLookForHostDraft(event, sheetDraft) ?? (await resolveEventQrLook(admin, eventId, event)),
       };
-      const loaded = await loadGuestPasses(set, { width: thumb ? 160 : 420, limit: thumb ? 12 : undefined });
+      /* 📄 The thumbnail draws ONE page's twelve codes (page 1 unless `?page=N`), the sheet still laid out whole. */
+      const askedPage = Math.max(1, Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1);
+      const loaded = await loadGuestPasses(set, { width: thumb ? 160 : 420, ...(thumb ? { drawOnly: { from: (askedPage - 1) * 12, count: 12 } } : {}) });
       if (!loaded.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
       images = loaded.images;
       docs = layoutQrCodes(
@@ -226,6 +231,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         set.qrLook.shape,
       );
       subject = `${formatCount(loaded.passes.length)} guests`;
+      const codes = loaded.passes.length;
+      paper = (pages, page) => ({ pages, page, how: PAPER_HOW.qrCodes(codes, pages), empty: codes === 0 ? 'guests' : null });
     } else {
       // THE GUEST LIST REGISTRY — the reception-desk list (lib/print-guest-registry.ts).
       // The measured read: a refused guest list is "we could not read it", never
@@ -250,11 +257,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       const rows = registryRows(guests.rows, tableOf);
       docs = layoutGuestRegistry({ title: event.display_name ?? 'Guest list', dateLabel: registryDate(event.event_date), rows });
       subject = `${rows.filter((r) => r.counted).length} guests`;
+      const listed = rows.length;
+      paper = (pages, page) => ({ pages, page, how: PAPER_HOW.registry(listed, pages), empty: listed === 0 ? 'guests' : null });
     }
     if (thumb) {
-      return new NextResponse(renderPrintSvg(docs[0]!, images), {
+      const page = previewPage(url.searchParams, docs.length);
+      return new NextResponse(renderPrintSvg(docs[page - 1]!, images), {
         status: 200,
-        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60' },
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60', ...printPaperHeader(paper(docs.length, page)) },
       });
     }
     const bytes = await renderPrintPdf(docs, images, { mode: 'plain', title: `${event.display_name ?? 'Guest'} — ${PRINT_PIECES[piece].label}`, subject });
@@ -340,6 +350,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       const firstPass = guestPass?.passes[0];
       const view = layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece), ...(firstPass ? { pass: firstPass } : {}) });
       const svg = renderPrintSvg(view, firstPass ? { ...set.images, ...guestPass!.images } : set.images, { compact: true });
+      /* 📄 The picture shows every side at once (Front · Back side by side); the file's pages are the sides it prints. */
+      const sides = layoutPieceDocs(piece as PrintSetKey, { ...input, format: formatParam(piece) }).length;
       return new NextResponse(svg, {
         status: 200,
         // ⚡ A VERSIONED ADDRESS IS IMMUTABLE (owner 2026-09-28: the
@@ -348,7 +360,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         // address can only ever mean the same picture — a year, `immutable`.
         // Without a `v`, the old 60 s + `stale-while-revalidate` (a couple
         // flipping between theme chips paints the last render instantly).
-        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': previewCacheControl(url.searchParams.get('v')), ...fieldsHeader(view) },
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': previewCacheControl(url.searchParams.get('v')), ...fieldsHeader(view), ...printPaperHeader({ pages: 1, page: 1, sides: Math.max(1, sides) }) },
       });
     }
     // THE MENU IS NEVER PRINTED BLANK: with no dishes it is refused on its own

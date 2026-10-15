@@ -50,6 +50,7 @@ import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
 import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import { storedPhotosHeading } from '@/lib/photos-heading';
 import { overlayHubDraftEvent } from '@/lib/hub-draft';
 import { hubMainGround, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { mainColoursOf, sanitizeMainColourDraft } from '@/lib/main-colours';
@@ -1085,7 +1086,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     const studioMissingP = stagesStudio
       ? Promise.all([
           supabase.from('events').select('gift_registry_url, qr_shown').eq('event_id', eventId).maybeSingle(),
-          printAdmin.from('invitation_widgets').select('config_json').eq('event_id', eventId).eq('widget_type', 'hero').maybeSingle(),
+          /* ✍ …and the Photos scene's row, in the SAME read (owner 2026-10-15: its heading is typed in Info). */
+          printAdmin.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId).in('widget_type', ['hero', 'our_photos']),
         ])
       : null;
     const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
@@ -1158,6 +1160,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let draftedVenue: unknown = null;
       // 🖼 The drafted Look › Background (the hero row's `main`) — the guided Look step's "done" reads it.
       let draftedMain: unknown = undefined;
+      // ✍ The drafted Photos heading (the Photos row's `photos_heading`) — Studio › Info's row shows it.
+      let draftedPhotosHeading: string | null | undefined = undefined;
       // 🔳 The QR look being edited — drafted over live (owner 2026-09-29, "yes to all 3").
       let qrPrefs: unknown = printEvent.style_preferences;
       // 🚶 The Wedding March's drafted moves (owner 2026-10-06, "Wait for apply"); null = the draft could not be read.
@@ -1168,6 +1172,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         if (d) draftedEvents = d.events as Record<string, unknown>;
         if (d) draftedVenue = d.widgets.venue_map?.venue ?? null;
         if (d && d.widgets.hero && 'main' in d.widgets.hero) draftedMain = d.widgets.hero.main ?? null;
+        if (d && d.widgets.our_photos && 'photos_heading' in d.widgets.our_photos) draftedPhotosHeading = d.widgets.our_photos.photos_heading ?? null;
         if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
         if (d && 'love_story' in d.events) storyRaw = d.events.love_story;
         if (d && 'style_preferences' in d.events) qrPrefs = d.events.style_preferences;
@@ -1652,7 +1657,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             if (heroRes?.error) logQueryError('LaunchPage.studioMainGround', heroRes.error, { event_id: eventId }, 'graceful_degrade');
             const fields = fieldsRes && !fieldsRes.error ? (fieldsRes.data as { gift_registry_url?: string | null; qr_shown?: boolean | null } | null) : null;
             /* The main background as the Maker shows it: the drafted one over live. */
-            const liveMain = heroRes && !heroRes.error ? hubMainGround((heroRes.data as { config_json?: unknown } | null)?.config_json) : undefined;
+            const sceneRows = heroRes && !heroRes.error ? ((heroRes.data ?? []) as Array<{ widget_type: string; config_json?: unknown }>) : null;
+            const liveMain = sceneRows ? hubMainGround(sceneRows.find((r) => r.widget_type === 'hero')?.config_json) : undefined;
+            /* ✍ The Photos heading as the Maker shows it: the drafted one over live; undefined when the row could not be read. */
+            const photosHeading =
+              draftedPhotosHeading !== undefined ? draftedPhotosHeading : sceneRows ? storedPhotosHeading(sceneRows) : undefined;
             const studioMain = draftedMain !== undefined ? sanitizeHubMainGround(draftedMain) : liveMain;
             /* The five main colours as the page wears them — the Mood Board drafted over live. */
             const dressedRow = overlayHubDraftEvent(
@@ -1687,6 +1696,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                     qrDisplayUrl: m.qrDisplayUrl,
                   }))
                 : null,
+              photosHeading,
               whatToBring:
                 'what_to_bring' in draftedEvents
                   ? ((draftedEvents.what_to_bring as string | null) ?? null)

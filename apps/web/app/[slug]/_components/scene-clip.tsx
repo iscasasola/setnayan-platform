@@ -30,6 +30,7 @@ export function SceneClip({
   className = 'hub-tpl-media',
   poster = null,
   revealOnPlay = false,
+  position = null,
 }: {
   src: string;
   /** The clip's still — its first frame before it plays, and under reduced motion. */
@@ -53,6 +54,8 @@ export function SceneClip({
    * dead link. No guest-side control is ever shown.
    */
   revealOnPlay?: boolean;
+  /** 🎯 Where the film is held when it is cropped (`mainGroundPosition` — the Main background's Focus). Null = its centre. */
+  position?: string | null;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [started, setStarted] = useState(false);
@@ -98,8 +101,9 @@ export function SceneClip({
         className={className}
         src={src}
         {...(poster ? { poster } : {})}
-        {...(revealOnPlay
-          ? { style: { opacity: moving ? 1 : 0 }, onPlaying: () => setMoving(true) }
+        {...(revealOnPlay ? { onPlaying: () => setMoving(true) } : {})}
+        {...(revealOnPlay || (position && position !== 'center')
+          ? { style: { ...(revealOnPlay ? { opacity: moving ? 1 : 0 } : {}), ...(position && position !== 'center' ? { objectPosition: position } : {}) } }
           : {})}
         muted
         loop

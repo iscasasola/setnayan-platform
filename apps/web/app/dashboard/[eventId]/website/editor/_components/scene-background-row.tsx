@@ -56,6 +56,7 @@ import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageBackground, type StageBgSource, type StageBgTile } from '../../../launch/_components/stage-panel/stage-background';
+import { CoverSceneGroundRows } from '../../../launch/_components/stage-panel/cover-words-background';
 import { TILE_FOOT, TILE_RAMP_SPAN, tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPhoto, tileNameOnRamp } from '@/lib/bg-tile-name';
 import { BACKGROUND_SOURCE_IS_PRO } from '@/lib/background-source';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -129,7 +130,30 @@ export type SceneUpload = {
   posterUrl?: string | null;
 };
 
-export function SceneBackgroundRow({
+/**
+ * 🖼 THE ONE DOOR TO A BACKGROUND ROW. A scene's is below; the hero row's is the COVER SCENE's (owner-approved
+ * 2026-10-15) — its own four rows (`stage-panel/cover-words-background.tsx`), drawn through this same lazy door so the
+ * Maker's first load carries no second stand-in.
+ */
+export function SceneBackgroundRow(props: Parameters<typeof SceneBackgroundRows>[0] & { loopPosters?: Readonly<Record<string, string | null>> }) {
+  if (props.widgetType === 'hero') {
+    return (
+      <CoverSceneGroundRows
+        eventId={props.eventId}
+        canvas={props.canvas}
+        draftAction={props.draftAction}
+        themeColours={props.themeColours}
+        board={props.board}
+        photoChoices={props.photoChoices}
+        mediaUsedBytes={props.mediaUsedBytes}
+        loopPosters={props.loopPosters}
+      />
+    );
+  }
+  return <SceneBackgroundRows {...props} />;
+}
+
+function SceneBackgroundRows({
   eventId,
   widgetType,
   canvas,

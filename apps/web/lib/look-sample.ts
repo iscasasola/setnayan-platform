@@ -85,6 +85,14 @@ export function lookSampleScope(event: LookSampleRow, themeId: InviteThemeId): L
     ramp = ombreRamp(background.ombre).map((stop) => compositeOver(color, opacity, stop));
   }
 
+  /* 🎨 THE NAMES' DOMINANT IS MEASURED ON THE BOARD'S PAPER (`buildSitePaletteVars`) — over a page colour of the
+     couple's own, a blend or Candlelight that paper is gone, so the names keep the page's measured ink. */
+  if (vars && '--hub-names-ink' in vars && (background || event.site_art_direction === 'candlelight')) {
+    const { '--hub-names-ink': _overAnotherPaper, ...rest } = vars;
+    void _overAnotherPaper;
+    vars = rest;
+  }
+
   vars = pinWordInks(vars, pageWordBase(themeId, palette, event.site_art_direction === 'candlelight' ? 'candlelight' : null), ramp);
 
   /* 🔤 The couple's four fonts, layered last — as the guest page (`guestLookFrom`). */

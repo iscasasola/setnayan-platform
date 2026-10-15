@@ -114,6 +114,14 @@ test('4 · names shared with Post Event are ONE style, drawn on both', () => {
     const st = gal.styles.find((s) => s.id === id)!;
     assert.ok(st.stages?.includes('editorial') && st.stages.includes('save_the_date'), id);
   }
+  /* 🎞 Glimpse (owner 2026-10-15) is the Save the Date's own — not one of Post Event's, so it is never offered there. */
+  const glimpse = gal.styles.find((s) => s.id === 'glimpse');
+  assert.ok(glimpse, 'the Photos scene offers Glimpse');
+  assert.equal(glimpse!.name, 'Glimpse');
+  assert.ok(glimpse!.stages?.includes('save_the_date'), 'Glimpse is drawn on the Save the Date');
+  assert.ok(!glimpse!.stages?.includes('editorial'), 'Glimpse is not offered on Post Event (owner: "later, second step")');
+  assert.ok(sceneStylesOn('gallery', 'save_the_date').some((s) => s.id === 'glimpse'), 'the Style pick lists Glimpse on the Save the Date');
+  assert.equal(defaultSceneStyle('gallery', 'save_the_date', 'wedding'), 'mosaic', 'Glimpse is a pick, never the default');
 });
 
 test('5 · the five fixed parts are registered, three styles each where guests meet them', () => {

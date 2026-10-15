@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 import { HUB_MUSIC_BUTTON_DEFAULT, type HubMusicButton } from '@/lib/hub-music-button';
 import { MUSIC_BUTTON_CLASS, MusicButtonFace } from './music-button-face';
+import { onUnveil, VEIL_FREE_ATTR } from '@/lib/hub-veil';
 
 /**
  * Looping background music for the wedding site (Increment B ·
@@ -78,6 +79,43 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
     };
   }, []);
 
+  /*
+    🎵 THE UNVEIL STARTS THE SONG (owner 2026-10-15, verbatim: "when they unveil, the music starts playing upon
+    tap"). The veil calls this synchronously inside the guest's tap / swipe up (`onUnveil`, a direct call —
+    not a dispatched event), and `play()` is called HERE — still inside the gesture, the one moment a browser lets sound start (iOS
+    Safari refuses anything later, silently). Not after the lift, not in a timeout.
+    🔇 A REFUSAL IS NOT SILENT: the button stays ▶ and "Tap for their song" stays under it, exactly as before
+    the first tap. No veil on the page → this is never called → the song starts on a tap, as it always has.
+    Reduced motion has no say over sound: those guests get no veil, so their song is the tap, as today.
+  */
+  useEffect(() => {
+    const startOnUnveil = () => {
+      const el = audioRef.current;
+      if (!el || !el.paused) return;
+      // `startSong` calls `el.play()` before its first await — i.e. right here, inside the gesture.
+      void startRef.current(el).then((ok) => {
+        if (ok) setTouched(true);
+      });
+    };
+    return onUnveil(startOnUnveil);
+  }, []);
+
+  /** The ONE way the song starts — the guest's tap on the button, or their tap / swipe that opened the veil. */
+  async function startSong(el: HTMLAudioElement): Promise<boolean> {
+    try {
+      await el.play();
+      setPlaying(true);
+      return true;
+    } catch {
+      // Autoplay/gesture policy rejected play — leave it paused. The tap that
+      // triggered this IS a user gesture, so a second tap reliably starts it.
+      setPlaying(false);
+      return false;
+    }
+  }
+  const startRef = useRef(startSong);
+  startRef.current = startSong;
+
   async function toggle() {
     setTouched(true);
     const el = audioRef.current;
@@ -87,14 +125,7 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
       setPlaying(false);
       return;
     }
-    try {
-      await el.play();
-      setPlaying(true);
-    } catch {
-      // Autoplay/gesture policy rejected play — leave it paused. The tap that
-      // triggered this IS a user gesture, so a second tap reliably starts it.
-      setPlaying(false);
-    }
+    await startSong(el);
   }
 
   const control = (
@@ -125,7 +156,9 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
     <>
       {/* Optional background soundtrack the guest opts into — no captions. */}
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <audio ref={audioRef} src={src} loop preload="none" />
+      {/* `data-veil-free`: it only ever plays on the guest's own tap or the unveil itself — the veil's hold
+          (`lib/hub-veil.ts`) must not pause the song the guest just asked for. */}
+      <audio ref={audioRef} src={src} loop preload="none" {...{ [VEIL_FREE_ATTR]: '' }} />
       {mounted ? (slot ? createPortal(control, slot) : <div data-top-corner className={CORNER_ALONE}>{control}</div>) : null}
     </>
   );

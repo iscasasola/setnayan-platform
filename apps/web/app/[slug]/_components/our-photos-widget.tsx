@@ -1,4 +1,4 @@
-import { OurPhotosFilmStrip, OurPhotosGrid } from './our-photos-styles';
+import { OurPhotosFilmStrip, OurPhotosGlimpse, OurPhotosGrid, PhotosHeading } from './our-photos-styles';
 
 /**
  * Our Photos — the couple's own curated gallery (Increment A.4). Reads the
@@ -11,15 +11,19 @@ import { OurPhotosFilmStrip, OurPhotosGrid } from './our-photos-styles';
 export function OurPhotosWidget({
   urls,
   sceneStyle = null,
+  heading = null,
 }: {
   urls: string[];
-  /** 🎨 `mosaic` (this, the default) · `grid` · `film-strip` — `our-photos-styles.tsx`. */
+  /** ✍ The couple's own heading (`config_json.photos_heading`, `lib/photos-heading.ts`) — every style draws it; null = none. */
+  heading?: string | null;
+  /** 🎨 `mosaic` (this, the default) · `grid` · `film-strip` · `glimpse` — `our-photos-styles.tsx`. */
   sceneStyle?: string | null;
 }) {
   const photos = (urls ?? []).filter((u) => typeof u === 'string' && u.length > 0);
   if (photos.length === 0) return null;
-  if (sceneStyle === 'grid') return <OurPhotosGrid urls={photos} />;
-  if (sceneStyle === 'film-strip') return <OurPhotosFilmStrip urls={photos} />;
+  if (sceneStyle === 'grid') return <OurPhotosGrid urls={photos} heading={heading} />;
+  if (sceneStyle === 'film-strip') return <OurPhotosFilmStrip urls={photos} heading={heading} />;
+  if (sceneStyle === 'glimpse') return <OurPhotosGlimpse urls={photos} heading={heading} />;
 
   // Pahina editorial mosaic (design 2026-07-25 §7): the uniform square grid
   // becomes a magazine spread — the first frame is a full-width cover plate,
@@ -31,6 +35,7 @@ export function OurPhotosWidget({
       <p className="pahina-eyebrow">
         <span>Our photos</span>
       </p>
+      <PhotosHeading heading={heading} />
       {lead ? (
         <figure className="relative aspect-[4/3] overflow-hidden border border-ink/10 bg-ink/5">
           {/* eslint-disable-next-line @next/next/no-img-element */}

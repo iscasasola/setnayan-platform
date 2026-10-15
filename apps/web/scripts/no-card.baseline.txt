@@ -119,7 +119,7 @@
 2 apps/web/app/[slug]/find-my-table/page.tsx
 11 apps/web/app/[slug]/hub/page.tsx
 1 apps/web/app/[slug]/invite/_components/invite-qr-panel.tsx
-2 apps/web/app/[slug]/pabuya/page.tsx
+2 apps/web/app/[slug]/pabuya/_components/gift-page-body.tsx
 3 apps/web/app/[slug]/recap/page.tsx
 1 apps/web/app/[slug]/seat/_components/guest-push-prompt.tsx
 5 apps/web/app/[slug]/seat/page.tsx

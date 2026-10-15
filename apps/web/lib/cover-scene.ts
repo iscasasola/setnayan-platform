@@ -13,7 +13,9 @@
  * Pure. No I/O, no React.
  */
 import { BACKGROUND_SOURCE_IS_PRO, BACKGROUND_SOURCE_LABEL } from './background-source';
-import type { HubCoverGround } from './hub-canvas';
+import { hubGlassOpacity, hubMainFadeAt, type HubCoverGround } from './hub-canvas';
+import { compositeOver, requiredScrim } from './hub-legibility';
+import { INVITE_THEMES } from './invite-themes';
 
 /**
  * 📐 THE WHOLE FIRST SCREEN, ON ANY DEVICE: `100svh` — the SMALL viewport, so a phone's browser bars never cut the
@@ -73,4 +75,61 @@ export const COVER_SCENE_FRAMED = 'm-3 rounded-[18px] sm:m-6 overflow-hidden';
 export const COVER_SCENE_FULL = 'm-0 rounded-none overflow-hidden';
 export function coverGroundShape(g: HubCoverGround | null | undefined): 'framed' | 'full' {
   return g?.shape === 'full' ? 'full' : 'framed';
+}
+
+/* ── legibility: the words follow the Cover Scene's OWN ground (`lib/hub-legibility.ts`, free by ruling 2026-09-25) ─ */
+
+/** The two inks the cover's words take — the page's espresso and its paper. */
+export const COVER_INK = '#2C2A29';
+export const COVER_PAPER = '#FBFAF7';
+/** A photo is not measured on the server: its worst case is assumed — a mid, a deep and a bright patch under the words. */
+export const COVER_PHOTO_SAMPLES: readonly string[] = ['#7A7A7A', '#2A2A2A', '#D8D8D8'];
+const THEME_GLASS_UNDER = '#EDE3D2';
+
+/** The Darker ↔ Lighter bar laid over a ground, as the veil the page draws (black down to −100, white up to +100). */
+export function coverShadeVeil(shade: HubCoverGround['shade']): { color: string; opacity: number } | null {
+  const at = hubMainFadeAt(shade ?? null);
+  if (!at) return null;
+  return at < 0 ? { color: '#000000', opacity: Number(((-at / 100) * 0.75).toFixed(2)) } : { color: '#FFFFFF', opacity: Number(((at / 100) * 0.8).toFixed(2)) };
+}
+
+/** What lies under the words, as colours to measure: the colour, the glass over the theme's paper, the loop's
+ *  measured clusters, or a photo's worst case — each under the shade veil when one is laid. */
+export function coverGroundSamples(g: HubCoverGround): string[] {
+  let base: string[];
+  if (g.kind === 'loop') {
+    const m = INVITE_THEMES[g.loop].media;
+    base = m ? [m.samples.light, m.samples.dark] : [...COVER_PHOTO_SAMPLES];
+  } else if (g.kind === 'photo' || g.kind === 'snippet') base = [...COVER_PHOTO_SAMPLES];
+  else if (g.kind === 'glass' || g.kind === 'frost') {
+    const tint = g.color ?? '#FFFFFF';
+    const a = (hubGlassOpacity(g.opacity) ?? 70) / 100;
+    base = [compositeOver(tint, g.kind === 'frost' ? a * 0.65 : a, THEME_GLASS_UNDER)];
+  } else base = g.kind === 'color' ? [g.color] : [g.color, compositeOver('#000000', 0.3, g.color), compositeOver('#FFFFFF', 0.3, g.color)];
+  const veil = coverShadeVeil(g.shade);
+  return veil ? base.map((c) => compositeOver(veil.color, veil.opacity, c)) : base;
+}
+
+/**
+ * The words' tone over the Cover Scene's ground, and the weakest scrim that holds them at AA over every sample —
+ * whichever ink needs the lighter scrim wins (the prototype: slide the bar past the middle and the words flip
+ * from cream to ink on their own).
+ */
+export function coverSceneLegibility(g: HubCoverGround): { tone: 'ink' | 'cream'; scrim: { color: string; opacity: number } } {
+  const samples = coverGroundSamples(g);
+  const ink = requiredScrim(COVER_INK, COVER_PAPER, samples);
+  const paper = requiredScrim(COVER_PAPER, COVER_INK, samples);
+  return ink <= paper ? { tone: 'ink', scrim: { color: COVER_PAPER, opacity: ink } } : { tone: 'cream', scrim: { color: COVER_INK, opacity: paper } };
+}
+
+/** The CSS a colour or a glass paints with (the prototype's tiles: Plain · Diagonal · Glow · Opaque · Frosted). */
+export function coverGroundCss(g: HubCoverGround): string | null {
+  if (g.kind === 'color') return g.color;
+  if (g.kind === 'diagonal') return `linear-gradient(150deg, ${g.color} 0%, color-mix(in srgb, ${g.color} 70%, #000) 100%)`;
+  if (g.kind === 'glow') return `radial-gradient(80% 70% at 50% 40%, color-mix(in srgb, ${g.color} 70%, #fff) 0%, ${g.color} 100%)`;
+  if (g.kind === 'glass' || g.kind === 'frost') {
+    const a = Math.round((hubGlassOpacity(g.opacity) ?? 70) * (g.kind === 'frost' ? 0.65 : 1));
+    return `color-mix(in srgb, ${g.color ?? '#FFFFFF'} ${a}%, ${THEME_GLASS_UNDER})`;
+  }
+  return null;
 }

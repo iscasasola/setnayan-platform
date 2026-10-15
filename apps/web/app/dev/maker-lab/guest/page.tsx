@@ -264,6 +264,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* ⏱ A `lab_slow` cookie: the canvas page takes as long as production's to arrive. */
   if ((await cookies()).get('lab_slow')?.value === '1') await new Promise((r) => setTimeout(r, 2500));
   const labPhoto = (await cookies()).get('lab_photo')?.value === '1';
+  const labCast = (await cookies()).get('lab_cast')?.value === 'standin' ? 'standin' : 'sample';
   const stage: HubStage | null = (HUB_STAGES as readonly string[]).includes(phase) ? (phase as HubStage) : null;
   /* 🖼 A style's true miniature (`?only=` + `?style=`), as the real canvas honours them — the lab is a host canvas. */
   const only = canvasOnlyScene({ only: typeof sp.only === 'string' ? sp.only : undefined }, true);
@@ -375,7 +376,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* 🧱 The March's own mark, right BEFORE the real block as the real page puts it (`lib/block-looks.ts`) — inside
           the lab's wrapper, so a look lands on the block a guest sees and not on the lab's own padding. */}
       <span hidden {...{ [BLOCK_MARK_ATTR]: 'entourage' }} />
-      <EntourageSection groups={labEntourage()} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
+      <EntourageSection groups={labEntourage(labCast)} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
     </div>
   );
   /* 🧩 THE LAB'S SCENES, each drawn ONCE — placed by the ordinary sample below, or (`?scrub=1`) by the Scrub chain. */

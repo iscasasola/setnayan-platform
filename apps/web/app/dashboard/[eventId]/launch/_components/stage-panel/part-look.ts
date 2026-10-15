@@ -62,32 +62,35 @@ export function partLookSizes(el: HubElementKey): number[] {
 }
 
 /**
- * 🔠 THE WORDS A SIZE PICK SCALES (owner 2026-10-14, live: *"when we where changing size, the text did not shrink, the
- * highlight just moved"*). A cover part is its own words (`el`). A SCENE is every word it draws — its label, heading
- * and words (`HUB_SCENE_ELEMENT_KEYS`, the three the page stamps and styles). It used to be the heading alone, and the
- * Countdown, the Message, What to bring and the Love Story draw NO heading: the slider moved, `elements.heading.size`
- * was saved, and not one word on the stage changed (measured on the Maker lab, 2026-10-15). Each word keeps the
- * theme's own proportions — the step is a percent of ITS size — and a step outside a word's bounds is pulled to its
- * nearest bound by the shipped sanitizer (`sanitizeHubElementSize`), so every word still moves the same way.
- * Held by `lib/a-scene-size-reaches-every-word.test.ts`.
+ * 🔠🎨 THE WORDS A SIZE OR COLOUR PICK REACHES (owner 2026-10-14, live: *"when we where changing size, the text did not
+ * shrink, the highlight just moved"*; 2026-10-15, on Colour: *"All the words"*). A cover part is its own words (`el`).
+ * A SCENE is every word it draws — its label, heading and words (`HUB_SCENE_ELEMENT_KEYS`, the three the page stamps
+ * and styles; Dress code's chip names and do / don't lines are words too, `lib/scene-words-class.ts`). Both used to
+ * be the heading alone, and the Countdown, the Message, What to bring and the Love Story draw NO heading: the slider
+ * moved, the circle took the colour, `elements.heading` was saved, and not one word on the stage changed (measured on
+ * the Maker lab, 2026-10-15). A size keeps each word's proportions — the step is a percent of ITS size — and a step
+ * outside a word's bounds is pulled to its nearest bound by the shipped sanitizer (`sanitizeHubElementSize`). A colour
+ * is one colour for all of them (stages that coloured only the heading now colour every word — accepted by the owner).
+ * Held by `lib/a-scene-look-reaches-every-word.test.ts`.
  */
-export function partLookSizeEls(t: PartLookTarget): readonly HubElementKey[] {
+export function partLookEls(t: PartLookTarget): readonly HubElementKey[] {
   return t.key.startsWith('w:') ? HUB_SCENE_ELEMENT_KEYS : [t.el];
 }
 
 /** The part's colour (null: the theme's own) and size (100: the theme's own), on the Maker's own copy of its canvas. */
 export function partLookNow(t: PartLookTarget, server: HubSectionCanvas | null | undefined): { colour: string | null; size: number } {
   const elements = draftedCanvasOr(t.widgetType, server).elements;
-  const part = elements?.[t.el];
-  /* The size the row shows: the part's own, else the first of its words that has one (a scene sized before any heading). */
-  const size = [t.el, ...partLookSizeEls(t)].map((k) => hubElementSizePct(elements?.[k]?.size)).find((v) => v !== null);
-  return { colour: part?.color ?? null, size: size ?? HUB_ELEMENT_SIZE_BASE };
+  /* What the row shows: the part's own, else the first of its words that has one (a scene styled before any heading). */
+  const keys = [t.el, ...partLookEls(t)];
+  const size = keys.map((k) => hubElementSizePct(elements?.[k]?.size)).find((v) => v !== null);
+  const colour = keys.map((k) => elements?.[k]?.color ?? null).find((v) => v !== null);
+  return { colour: colour ?? null, size: size ?? HUB_ELEMENT_SIZE_BASE };
 }
 
 /** The canvas a pick makes: `before` with the one choice set — null when it changes nothing. */
 export function partLookNext(t: PartLookTarget, before: HubSectionCanvas, field: 'color' | 'size', value: string | number | null): HubSectionCanvas | null {
   let elements = before.elements ?? null;
-  for (const k of field === 'size' ? partLookSizeEls(t) : [t.el]) elements = withElementChoice(elements, k, field, value);
+  for (const k of partLookEls(t)) elements = withElementChoice(elements, k, field, value);
   const next: HubSectionCanvas = { ...before };
   if (elements) next.elements = elements;
   else delete next.elements;

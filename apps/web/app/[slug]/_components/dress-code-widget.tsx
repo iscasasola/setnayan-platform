@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { HUB_SCENE_WORDS_CLASS } from '@/lib/scene-words-class';
 import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
 import { guestRoleLabel, type GuestRole } from '@/lib/guests';
@@ -575,7 +576,7 @@ export function DressCodeWidget({
                 <li key={`${p.hex}-${i}`} className="w-[3.25rem]" title={colourName(p.hex, p.name) || undefined}>
                   <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: p.hex }} />
                   {colourName(p.hex, p.name) ? (
-                    <span className="mt-2 block text-center font-mono text-[0.6rem] uppercase leading-tight tracking-[0.12em] text-ink/70">
+                    <span className={`mt-2 block text-center font-mono text-[0.6rem] uppercase leading-tight tracking-[0.12em] text-ink/70 ${HUB_SCENE_WORDS_CLASS}`}>
                       {colourName(p.hex, p.name)}
                     </span>
                   ) : null}
@@ -649,7 +650,7 @@ export function DressCodeWidget({
               <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">Do</p>
               <ul className="space-y-1">
                 {dos.map((row, i) => (
-                  <li key={i}>· {row}</li>
+                  <li key={i} className={HUB_SCENE_WORDS_CLASS}>· {row}</li>
                 ))}
               </ul>
             </div>
@@ -661,7 +662,7 @@ export function DressCodeWidget({
               </p>
               <ul className="space-y-1">
                 {donts.map((row, i) => (
-                  <li key={i}>· {row}</li>
+                  <li key={i} className={HUB_SCENE_WORDS_CLASS}>· {row}</li>
                 ))}
               </ul>
             </div>
@@ -688,7 +689,7 @@ function YourColours({ hexes, look }: { hexes: readonly string[]; look: PaletteL
       {hexes.map((hex, i) => (
         <li key={`${hex}-${i}`} className="w-[3.25rem]">
           <span aria-hidden className={`pahina-swatch ${SWATCH_EDGE}`} style={{ backgroundColor: hex }} />
-          <span className="mt-2 block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.08em] text-ink/70">
+          <span className={`mt-2 block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.08em] text-ink/70 ${HUB_SCENE_WORDS_CLASS}`}>
             {colourName(hex)}
           </span>
         </li>

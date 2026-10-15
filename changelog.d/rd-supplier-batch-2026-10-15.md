@@ -14,3 +14,14 @@ fragment. What the batch itself changed where steps met:
 - Links step 6 wrote to the old Shop folds now go to step 5's homes (`/profile#docs`, `/profile#pay`).
 
 SPEC IMPACT: None (each step's own fragment carries its spec impact).
+
+## 2026-10-15 · feat(supplier): put a photo on my page; your own web address is ◆ Pro
+
+Owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS" (3)) — the two questions step 5 left open, built in the batch:
+- **Put on my page** — one tap on any photo in the private album copies it into the page gallery
+  (`putAlbumPhotoOnMyPage`; same SEC-1 pin, plan cap, QR guard, repost watch as the gallery save). Your own shots
+  get no such tap: they live in the couple's gallery and a copy would not follow the couple's take-down.
+- **Your web address** wears ◆ and a plan line (the page's existing flag-aware `proAsks`); `addVendorDomain` asks
+  for Pro before anything is written. While the owner's paywall switch is off, nothing changes for anyone.
+
+SPEC IMPACT: None — implements the 2026-10-15 decision row as written.

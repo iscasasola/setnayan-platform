@@ -14,6 +14,16 @@ buffered-canvas-frame.tsx, mood-board-studio.tsx — do not edit.
 
 - F4 · live names blink: CHOSE "the loading screen does not draw a part that will arrive" (keeps its place, `data-el-waits`, visibility hold ≤2.5 s inside the motion gates) — not "skip the replay", which would mean the couple’s Build in never plays for a guest. Parts with no own Build in are drawn as before. `heroArrivingForSkeleton` (hero-design-of.ts). Guard app/[slug]/_components/the-loading-screen-never-blinks-the-names.test.ts (sabotaged red).
 
+- F5/F10 · scene motion pick laid on the shown frame + played once (`scene-motion-lay.ts`, `sceneMotion` message from
+  scene-animate-tab; `ready` re-send). Guard lib/a-scene-pick-plays-on-the-canvas.test.ts.
+- F6 · hold ▶ re-arms below-fold arrivals, replays on-screen (`guest-preview-arrivals.ts`). S3 · lab mounts the real observer.
+  Guard lib/hold-play-arrives-as-a-guest.test.ts.
+- F7/F8 · ▶ staggers one-by-one parts and rows (`oneAfterAnother`) + CSS sn-replay rows; ends at rest (`settleAtRest`
+  finishes restarted arrivals). Guard lib/play-shows-one-by-one-and-ends-at-rest.test.ts.
+- F11 · Slow lift offered only where `hubLiftMoves` (photo/clip behind), plus a note on Action.
+- F2 · verified live (signed out): monogram solid ink at 2.77 s (Chromium) / 2.57 s (WebKit iPhone 13); JS chunks
+  blocked → the CSS fallback shows the still at 2.9 s / 3.0 s. Tester before: 6.6 s / 4.8 s / never.
+
 ## Next
-F3 fill backwards · F4 skeleton names · F5/F6 canvas + hold-▶ arrivals · F7 rows · F8 action end · F9 From ▾ ·
-F10 latest pick · F11 Slow lift · F12 no-view() engines · F2 verify live.
+F9 (From ▾ on a part) needs a browser to find the cause · walk before/after (scratchpad aw/t/scripts: probe-scroll,
+g-guest RUN=f3|rows|f12, m-maker, verify-part) · F4 real-page walk needs prod env · push + draft PR + CI.

@@ -50,7 +50,7 @@ test('the Maker mounts the parts in its Studio, its stage form and its Details e
   assert.equal(count(MAKER, /<GuestsGetIn\b/g), 2, 'the reply’s rows (Studio + the stage) and Event Details');
   assert.equal(count(MAKER, /<RsvpAsks\b/g), 2, 'the reply’s rows (Studio + the stage) and Event Details');
   assert.equal(count(MAKER, /\{formRows\}/g), 2, 'Studio › RSVP and the stage’s form do not draw the same rows');
-  assert.match(MAKER, /<FormRows data="rsvp">\s*\{replyByRow\}\s*\{answerRow\}\s*\{wordRows\('form'\)\}\s*\{getInRow\}\s*\{asksRow\}\s*<\/FormRows>/);
+  assert.match(MAKER, /<FormRows data="rsvp">\s*\{replyByRow\}\s*\{windowRows\}\s*\{answerRow\}\s*\{wordRows\('form'\)\}\s*\{getInRow\}\s*\{asksRow\}\s*<\/FormRows>/);
   /* Owner on the preview 2026-10-08: *"where it the reply by date?"* → *"date is not changeable on studio."* —
      the Maker mounts the part as an EDITABLE row (it printed the date read-only), drafted. */
   assert.ok(/<ReplyBy\s+layout="frame"\s+frame=\{replyByFrame\}[^>]*\baction=\{replyByAction\}\s+draft\s*\/>/.test(MAKER), 'the Maker does not mount an editable, drafted Reply by row');

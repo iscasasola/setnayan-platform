@@ -176,6 +176,8 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     // switch on for guests (events.pool_gallery_open); a yes/no about what a
     // guest may browse, never an owner capability.
     'poolGalleryOpen',
+    // `earlyOwnShots` (2026-10-14) — false here: the sample guest's event is not shooting early.
+    'earlyOwnShots',
     // profileDetails (renamed from `profileDetails` 2026-08-21) — THIS PERSON'S OWN
     // offered back as the reply card's default. It is per-person data the guest
     // themselves supplied, never anything about the host or the event, and it is

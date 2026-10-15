@@ -996,7 +996,7 @@ export function ServicesStep({
             {quote.totalPhp > 0 ? (
               <>
                 We&rsquo;ll show you where to send it right after this — your {eventWord}{' '}
-                and your free shots are live either way, and what you added arrives once
+                and your free credits are live either way, and what you added arrives once
                 your payment is confirmed.
               </>
             ) : (

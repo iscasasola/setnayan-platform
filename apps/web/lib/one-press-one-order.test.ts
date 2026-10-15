@@ -229,7 +229,7 @@ for (const [file, fn, before, sideEffect] of [
 }
 
 for (const [file, what] of [
-  ['app/dashboard/[eventId]/studio/papic/_components/papic-pool-card.tsx', 'Continue to payment'],
+  ['app/dashboard/[eventId]/studio/papic/_components/papic-buy-form.tsx', 'Continue to payment'],
   ['app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx', 'extra cameras'],
   ['app/dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx', 'guest cameras'],
 ] as const) {

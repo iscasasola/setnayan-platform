@@ -16,6 +16,7 @@ import { ServerTimer } from '@/lib/server-timing';
 import { Suspense } from 'react';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor, eventWordsFromProfile, solemnAdjustedPhase } from './_lib/event-words';
+import { replyFaceOf, replyRefusedWords, replyWindow } from '@/lib/reply-window';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveMonogram } from '@/lib/monogram';
 import { venueNamesLine } from '@/lib/event-venues';
@@ -594,7 +595,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     hostCanvas: asksForHostCanvas(search),
     phasesEnabled: isWebsitePhasesEnabled() || surfaceEnabled(eventTypeProfile, 'website'),
     // The venue's own clock, as the body's own call below is handed (`venueTz`).
-    clockPhase: getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null),
+    clockPhase: getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null, undefined, event.std_invitation_launch_date ?? null),
     pinnedPhase: manualLaunchPhase(event.launch_mode, event.manual_phase),
     askedPhase:
       askedPhase === 'save_the_date' || askedPhase === 'rsvp' || askedPhase === 'event' || askedPhase === 'editorial'
@@ -1207,9 +1208,17 @@ async function invitationBody({
         // resolved `undefined` on every render and the multi-day arm below it
         // has never run. The column is selected now (see `_lib/types.ts`).
         event.event_end_date ?? null,
+        undefined,
+        // 📬 The ONE date the Invitation opens — the film says the same one (owner 2026-10-14).
+        event.std_invitation_launch_date ?? null,
       ),
     eventTypeProfile.terminology.register === 'solemn',
   );
+  /* 📬 THE REPLY WINDOW (owner 2026-10-14, DECISION_LOG 📬; `lib/reply-window.ts`) — the couple's
+     "Replies open / Replies close", read from the row this page already holds (no new request), on the
+     venue's clock. It reads the GUESTS' face (the pin, else the clock), never a host's ?phase= preview:
+     the Reply card says what a guest would be told. */
+  const repliesNow = replyWindow(event, Date.now(), venueTz, replyFaceOf(eventTypeProfile));
 
   // PR4 P1 — flag-gate the auto-playing Save-the-Date "film". The bare film is
   // the free base (the static STD view is the fallback); the cinematic openings
@@ -1474,6 +1483,7 @@ async function invitationBody({
     hostCameraOpen,
     phasesEnabled,
     lifecyclePhase,
+    replyWindow: repliesNow,
     // 📱 The tab in the address — the page opens on it (`_lib/hub-tabs.ts`).
     activeTab: typeof search.tab === 'string' ? search.tab : null,
     // 📸 Back from the camera: how many shots landed (`cameraExitHref`).
@@ -1834,7 +1844,9 @@ async function invitationBody({
     // 📅 …AND NOBODY IS ASKED YET WHILE THE STAGE IS THE SAVE THE DATE (owner
     // 2026-10-11, `replyAskedInStage`): the gate's own "no reply needed" arm —
     // the key opens the door, and the door is the Save the Date.
-    guestsReply: readGuestsReply(event.rsvp_ask_config) && replyAskedInStage({ phasesEnabled, lifecyclePhase }),
+    guestsReply: readGuestsReply(event.rsvp_ask_config) && replyAskedInStage({ phasesEnabled, lifecyclePhase }) &&
+      // 📬 …nor while the couple's replies are not open (owner 2026-10-14): never sent to a form that refuses.
+      repliesNow.state === 'open',
   });
   // 🚪 "Open the invitation" on the guest's landing page (owner 2026-09-30,
   // prototype guest_landing_page frame 1) opens it BEFORE a reply — the landing
@@ -1855,6 +1867,7 @@ async function invitationBody({
     guestLiveGallery,
     guestOwnShots,
     poolGalleryOpen,
+    earlyOwnShots,
     needsFaceEnroll,
     papicGuest,
     guestHubData,
@@ -1983,7 +1996,13 @@ async function invitationBody({
                 tone: 'error' as const,
                 text: 'Your details are saved, but your reply was not changed — the guest list is already final. Please tell the host directly.',
               }
-            : null;
+            : // 📬 A reply that arrived outside the couple's reply window (submitRsvp) — nothing was saved.
+              search.rsvp === 'window'
+              ? {
+                  tone: 'error' as const,
+                  text: replyRefusedWords(repliesNow, eventWordsFromProfile(eventTypeProfile).theOrganizer) || 'Your reply was not sent.',
+                }
+              : null;
 
   const saveFlash =
     search.save === 'ok'
@@ -2206,6 +2225,7 @@ async function invitationBody({
           guestLiveGallery,
           guestOwnShots,
           poolGalleryOpen,
+          earlyOwnShots,
           seatPassActive,
           needsFaceEnroll,
           guestHubData,

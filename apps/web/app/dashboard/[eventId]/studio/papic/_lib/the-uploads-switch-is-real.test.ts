@@ -40,7 +40,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -142,14 +142,15 @@ test('7 · the value the picker branches on is actually SELECTED from the databa
       `and reports OPEN forever; more than one is a second copy of the read.`,
   );
 
-  // …and on its own, so an unknown column cannot take the main event read down.
-  assert.doesNotMatch(
-    selects[0]!,
-    /event_id,|papic_storage_target/,
-    'papic_uploads_open was folded into the main event select. On a database ' +
-      'that predates its migration PostgREST refuses that whole query, and this ' +
-      'page answers an unreadable event with notFound() — a live celebration ' +
-      'would render as missing.',
+  // 🔌 FOLDED INTO THE ONE EVENT READ (2026-10-13, owner: least requests per
+  // screen). It used to be its own round trip so a database that predated the
+  // column could not take the main read down. That database no longer exists:
+  // the migration has been in the replay and in production for two months. So
+  // what must hold now is that the migration is still in the tree — delete it
+  // and the main event read (and the page) would fail, and this goes red first.
+  assert.ok(
+    existsSync(join(dirname(dirname(fileURLToPath(import.meta.url))), '..', '..', '..', '..', '..', '..', '..', 'supabase', 'migrations', '20271170068924_papic_uploads_open.sql')),
+    'the papic_uploads_open migration is gone, but the main event read names the column',
   );
 
   // The branch must consume THAT read, not something shaped like it.

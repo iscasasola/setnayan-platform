@@ -14,6 +14,7 @@ import { trackFailure } from '@/lib/telemetry/track-error';
 import type { UploadOutcome, UploadSend } from '@/lib/upload-send';
 import { formatCount } from '@/lib/format-number';
 import { uploadTypeOf } from '@/lib/upload-type-names';
+import { ownerFormOf } from '@/lib/portaled-fields-join-their-form';
 
 /**
  * Reusable file-upload widget that targets Cloudflare R2 via the
@@ -527,7 +528,9 @@ export function FileUpload({
    */
   useEffect(() => {
     if (inFlight.length === 0) return;
-    const form = rootRef.current?.closest('form');
+    // ownerFormOf, not closest('form'): inside a portaled sheet (the service-card
+    // maker's) closest() finds no form and this guard used to switch itself off.
+    const form = ownerFormOf(rootRef.current);
     if (!form) return;
     const refuse = (e: Event) => {
       e.preventDefault();

@@ -72,6 +72,7 @@ import { papicIsOn } from '@/lib/event-answers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
 import { countEventGuestCaptures } from '@/lib/papic-guest';
+import { askedOnce } from '@/lib/request-once';
 
 export type PapicHomeTile = {
   /** Shots left in the shared pool. */
@@ -227,7 +228,13 @@ export async function resolvePapicHomeTile(
   canViewPapicCounts: boolean,
 ): Promise<PapicHomeTile | null> {
   if (!eventId || !canViewPapicCounts) return null;
+  // 🔌 ONCE PER RENDER (2026-10-13): Home asks this for its "Your services" row
+  // and the dashboard's batch asks it again for its tile — one answer serves
+  // both (`askedOnce`; outside a render it reads fresh every time).
+  return askedOnce(admin, 'papic-home-tile', [eventId], () => resolvePapicHomeTileNow(admin, eventId));
+}
 
+async function resolvePapicHomeTileNow(admin: SupabaseClient, eventId: string): Promise<PapicHomeTile | null> {
   const [pool, cameras, photosGathered] = await Promise.all([
     fetchEventPoolStatus(admin, eventId),
     countLiveCameras(admin, eventId),

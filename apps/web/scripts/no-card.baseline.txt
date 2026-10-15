@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 684 files · 1891 lines
+# 682 files · 1887 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -419,13 +419,11 @@
 2 apps/web/app/dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx
 2 apps/web/app/dashboard/[eventId]/studio/papic/_components/guest-allotments-choice.tsx
 2 apps/web/app/dashboard/[eventId]/studio/papic/_components/guest-contributions-card.tsx
-1 apps/web/app/dashboard/[eventId]/studio/papic/_components/host-pool-meter-card.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/_components/life-flash-card.tsx
 3 apps/web/app/dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx
 2 apps/web/app/dashboard/[eventId]/studio/papic/_components/live-wall-controls.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/_components/magazine-card.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx
-2 apps/web/app/dashboard/[eventId]/studio/papic/_components/papic-pool-card.tsx
 2 apps/web/app/dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/_components/recap-card.tsx
 8 apps/web/app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx
@@ -435,7 +433,7 @@
 1 apps/web/app/dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue-controls.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue.tsx
 4 apps/web/app/dashboard/[eventId]/studio/papic/moderation/page.tsx
-19 apps/web/app/dashboard/[eventId]/studio/papic/page.tsx
+18 apps/web/app/dashboard/[eventId]/studio/papic/page.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/papic-window-picker.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/recap/_components/recap-drive-nudge.tsx
 5 apps/web/app/dashboard/[eventId]/studio/papic/recap/page.tsx

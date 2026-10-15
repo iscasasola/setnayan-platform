@@ -1,4 +1,5 @@
 import { guestReusesAccountFace } from '@/lib/account-face-profile';
+import { formatPapicDayInWords } from '@/lib/papic-window';
 import { Camera } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import Link from 'next/link';
@@ -226,8 +227,10 @@ export default async function PapicGuestPage({
         sub={
           gate.state === 'not_open_yet' ? (
             <>
-              Your camera for {eventName} switches on
-              {gate.eventDay ? ` on ${gate.eventDay}` : ' on the day of the event'}.
+              {/* 📸 The day IN WORDS, on the venue's clock (owner 2026-10-13):
+                  "switches on Saturday, 12 December" — never "on on 2026-12-12". */}
+              Your camera for {eventName} switches on{' '}
+              {formatPapicDayInWords(gate.eventDay) ?? 'the day of the event'}.
               Your host can open it earlier if they&rsquo;d like shots of the
               preparations.
             </>
@@ -414,6 +417,7 @@ export default async function PapicGuestPage({
       canKwento={canKwento}
       capApplies={quota.capApplies}
       poolLow={quota.poolLow}
+      poolEmpty={quota.poolEmpty}
       sponsorShare={quota.sponsorShare}
       eventStyle={eventStyle}
       faceMode={faceMode}

@@ -262,6 +262,8 @@ export type GuestQuota = {
    * `fetchEventPoolStatus` directly and is untouched by this.
    */
   poolLow: boolean;
+  /** The shared pot is already at zero — told at camera-open (owner 2026-10-13). A boolean, never a figure (PRIV-1). */
+  poolEmpty: boolean;
   /**
    * The number on her counter is a SPONSOR'S share — two or three of the equal
    * shares, not one (migration 20271220526938). Only when the couple's ceiling
@@ -434,6 +436,10 @@ export async function fetchGuestQuota(
   // is available right here and is deliberately not published: every caller of
   // this function renders to a guest, and the pot's balance is the couple's.
   const poolLow = poolApplies && poolRead.status.soft;
+  // 📸 …and whether it is already EMPTY (owner 2026-10-13): told at camera-open,
+  // so no guest takes a photo the pot cannot pay for. A state, never a figure;
+  // an unread pool is not "empty" (it fails open, like `poolUnknown`).
+  const poolEmpty = poolApplies && poolRead.ok && poolRead.status.remainingPoints <= 0;
 
   // ⚠ CREDITS, NOT ROWS — same reasoning as the RPC's own SUM(points_cost):
   // a ten-second clip costs up to 8. `used` (row count) only equals credits
@@ -525,6 +531,7 @@ export async function fetchGuestQuota(
     unlimited,
     capApplies,
     poolLow,
+    poolEmpty,
     // The ceiling is the couple's (not the platform's 150, not lifted by a
     // release) and she takes more than one share of it.
     sponsorShare: capApplies && guestCeiling !== null && (shareWeight ?? 1) > 1,

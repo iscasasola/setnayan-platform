@@ -184,7 +184,9 @@ test('(4) the guest page hands the button the hero row’s design, and the butto
   // tap") — the latter from the `hub-unveil` listener itself, so `play()` runs inside that gesture.
   assert.match(music, /await startSong\(el\);/, 'the button no longer starts the song through the one start');
   assert.match(music, /addEventListener\(HUB_UNVEIL_EVENT, onUnveil\)/, 'the unveil no longer starts the song');
-  assert.match(music, /const onUnveil = \(\) => \{[\s\S]*?startRef\.current\(el\)/, 'the unveil listener does not start the song itself (a deferred play() is refused)');
+  const onUnveil = music.slice(music.indexOf('const onUnveil = () => {'), music.indexOf('window.addEventListener(HUB_UNVEIL_EVENT'));
+  assert.match(onUnveil, /\n\s*void startRef\.current\(el\)\.then/, 'the unveil listener does not start the song itself, right there');
+  assert.equal(/setTimeout|requestAnimationFrame|queueMicrotask|await /.test(onUnveil), false, 'the unveil defers the song — a deferred play() is refused (iOS Safari above all)');
   // The accessible name still says play / mute, and the round is the one the Maker draws.
   assert.match(music, /aria-label=\{playing \? 'Mute background music' : 'Play background music'\}/);
   assert.match(music, /className=\{`\$\{MUSIC_BUTTON_CLASS\} transition hover:bg-cream`\}/);

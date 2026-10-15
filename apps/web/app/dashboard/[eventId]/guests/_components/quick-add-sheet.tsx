@@ -177,7 +177,8 @@ export function QuickAddSheet({
       if (seen.has(key)) continue;
       seen.add(key);
       const ov = roleOverrides[g.guest_id];
-      merged.push(ov ? { ...g, ...ov } : g);
+      const row = { ...g, extra_roles: g.extra_roles ?? [] };
+      merged.push(ov ? { ...row, ...ov } : row);
     }
     return merged;
   }, [existingGuests, addedLocal, roleOverrides]);

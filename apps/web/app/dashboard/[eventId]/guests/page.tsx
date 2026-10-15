@@ -840,14 +840,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
   // Minimal pool the quick-add sheet matches new names against for the
   // duplicate check — full unfiltered list, not the filtered `visible`.
-  const quickAddPool = guests.map((g) => ({
-    guest_id: g.guest_id,
-    first_name: g.first_name,
-    last_name: g.last_name,
-    side: g.side,
-    role: g.role,
-    extra_roles: g.extra_roles ?? [],
-  }));
+  /* ⚡ THE SAME ROWS, NOT A COPY (measured 2026-10-16). This pool was a fresh object per guest,
+     so the page sent every name twice — once to the list, once here (22 KB for 84 guests).
+     Handing the sheet the very row objects the list already gets lets the RSC payload send
+     each once and point at it. The sheet reads the six fields it always read (and keeps its
+     own `extra_roles ?? []`). 🔒 app/dashboard/[eventId]/guests/the-guest-list-does-no-work-twice.test.ts */
+  const quickAddPool = guests;
   const quickAddGroups = groups.map((g) => ({
     group_id: g.group_id,
     label: g.label,

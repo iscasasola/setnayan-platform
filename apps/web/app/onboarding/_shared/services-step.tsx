@@ -331,7 +331,7 @@ function PoolPicker({
           <span className="font-semibold text-ink">{peso(nextPrice)}</span>.
         </p>
       ) : (
-        <p className="mt-2 text-center text-xs text-ink/45">
+        <p className="mt-2 text-center text-xs text-ink/70">
           That&rsquo;s the biggest pool we sell in one go — you can add more later from
           your Papic studio.
         </p>
@@ -521,7 +521,7 @@ function PapicType({
       )}
 
       {copy.note ? (
-        <p className="px-4 pb-4 text-xs italic leading-relaxed text-ink/45">{copy.note}</p>
+        <p className="px-4 pb-4 text-xs italic leading-relaxed text-ink/70">{copy.note}</p>
       ) : null}
     </section>
   );
@@ -744,7 +744,7 @@ export function ServicesStep({
           Plan a year ahead and that&rsquo;s a year of storage — the window is free,
           however long it is.
         </p>
-        <p className="mt-2 text-xs leading-relaxed text-ink/45">
+        <p className="mt-2 text-xs leading-relaxed text-ink/70">
           Guests shoot with any phone — nothing to install. Add credits here now, or top
           up later from your Papic studio.
         </p>
@@ -770,7 +770,7 @@ export function ServicesStep({
             <span className="font-mono text-lg font-semibold tabular-nums text-ink">
               {ai.priceLabel}
             </span>
-            <span className="text-xs text-ink/45">
+            <span className="text-xs text-ink/70">
               one-time · yours through your {eventWord}
             </span>
           </p>
@@ -864,7 +864,7 @@ export function ServicesStep({
             <span className="font-mono text-lg font-semibold tabular-nums text-ink">
               {hubPro.priceLabel}
             </span>
-            <span className="text-xs text-ink/45">one-time · for this {eventWord}</span>
+            <span className="text-xs text-ink/70">one-time · for this {eventWord}</span>
           </p>
           {/* The same comparison as the planner's: a row with no sign-up
               discount has list === price, and this line says nothing at all. */}
@@ -1023,7 +1023,7 @@ export function ServicesStep({
         </div>
       ) : null}
 
-      <p className="text-center text-xs text-ink/45">
+      <p className="text-center text-xs text-ink/70">
         {interactive
           ? 'Nothing is charged now, and finishing never waits on a payment. You can add more from your studio whenever you want.'
           : 'No payment in this step. Upgrades live in your studio, whenever you want them.'}

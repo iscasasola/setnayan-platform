@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useHydrated } from '@/lib/use-hydrated';
 import { useRouter } from 'next/navigation';
 import { Archive, CalendarPlus, MoreVertical, Trash2 } from 'lucide-react';
 
@@ -905,13 +906,18 @@ function RemoveDialog({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  /* ⚡ NOT `typeof document` — that differs between the server pass and the hydration pass, so
+     the server sent no `<dialog>` and the first client render drew one: React #418 on every
+     phone load of the board, and the whole board rendered again on the phone (662–676 ms long
+     task at 4× CPU, measured 2026-10-16). `useHydrated` is false for both of those passes. */
+  const hydrated = useHydrated();
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (open && !el.open) el.showModal();
     else if (!open && el.open) el.close();
-  }, [open]);
+  }, [open, hydrated]);
 
   /*
     A native dialog closes itself on ESC without telling React. Routing its
@@ -927,9 +933,9 @@ function RemoveDialog({
     }
     el.addEventListener('close', handleClose);
     return () => el.removeEventListener('close', handleClose);
-  }, [open, onDismiss]);
+  }, [open, onDismiss, hydrated]);
 
-  if (typeof document === 'undefined') return null;
+  if (!hydrated) return null;
 
   return createPortal(
     <dialog

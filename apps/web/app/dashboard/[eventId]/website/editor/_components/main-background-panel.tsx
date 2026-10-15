@@ -87,6 +87,8 @@ import { useMaker } from '../../../launch/_components/maker-context';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { uploadStill } from '@/lib/upload-still';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
+import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 
 /**
  * BEHIND EVERY SCENE — your hero, and the theme follows its colours
@@ -442,7 +444,7 @@ export function MainBackgroundPanel({
   photoChoices?: readonly { ref: string; url: string }[];
   videoChoice?: { ref: string; url: string; poster?: string | null } | null;
   sceneUploads?: readonly SceneUpload[];
-  /** 💾 The event's settled `couple_media_bytes` — the 100 MB meter under the upload. Absent = no meter. */
+  /** 💾 The event's settled `couple_media_bytes` — the plan's media meter under the upload. Absent = no meter. */
   mediaUsedBytes?: number;
   /** The draft door — `hubDraftAction` (the default); the dev Maker lab hands its own stand-in so no write leaves it. */
   draftAction?: typeof hubDraftAction;
@@ -1232,6 +1234,7 @@ export function MainBackgroundPanel({
             <FileUpload
               bucket="media"
               pathPrefix={`events/${eventId}/main-background`}
+              refusalLink={coupleMediaRefusalLink(ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`)}
               multiple={false}
               maxSizeMB={100}
               acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
@@ -1248,7 +1251,7 @@ export function MainBackgroundPanel({
               disabled={pending}
               label="Upload a photo or clip"
             />
-            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} /> : null}
+            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
             <span className="text-[12px] text-ink/70" data-main-ground-tip="">
               <InfoTip label="Best size" align="start">
                 An upright (portrait) photo, {IMAGE_MAX_EDGE.toLocaleString('en-US')} pixels or more on its long side. Faces near the middle — the edges are cropped. Clips up to{' '}
@@ -1524,6 +1527,7 @@ export function MainBackgroundPanel({
           <FileUpload
             bucket="media"
             pathPrefix={`events/${eventId}/main-background`}
+            refusalLink={coupleMediaRefusalLink(ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`)}
             multiple={false}
             maxSizeMB={100}
             acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
@@ -1538,8 +1542,8 @@ export function MainBackgroundPanel({
             disabled={pending}
             label="Upload a photo or clip"
           />
-          {/* 💾 The event's 100 MB of uploads, beside the upload that spends it. */}
-          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} /> : null}
+          {/* 💾 The event's uploads against its PLAN's allowance (Free 10 MB · Pro 500 MB), beside the upload that spends it. */}
+          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
           {/* 📐 The owner asked for the best size (2026-10-01). The photo fills
               the screen and is cropped to it, and 99% of guests are on a phone —
               so upright, and at least the size the upload keeps. */}

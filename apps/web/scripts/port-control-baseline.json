@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b88d5e0202",
+  "generatedFromRef": "aef3c5280",
   "routeCount": 446,
   "destinations": 989,
   "actions": 663,
-  "blocks": 6472,
+  "blocks": 6473,
   "routes": {
     "/": {
       "files": [
@@ -427,7 +427,6 @@
     },
     "/(shell)/panood": {
       "files": [
-        "(shell)/panood/_panood-film.tsx",
         "(shell)/panood/loading.tsx",
         "(shell)/panood/page.tsx"
       ],
@@ -439,9 +438,7 @@
       "actions": [],
       "blocks": [
         "DoorwayPage",
-        "HTMLVideoElement",
         "Link",
-        "PanoodFilm",
         "SpotlightSection"
       ]
     },
@@ -5088,6 +5085,7 @@
     "/dashboard/(account)/profile": {
       "files": [
         "dashboard/(account)/profile/_components/analytics-choice.tsx",
+        "dashboard/(account)/profile/_components/appearance-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
         "dashboard/(account)/profile/_components/settings-shell.tsx",
         "dashboard/(account)/profile/actions.ts",
@@ -5127,6 +5125,8 @@
       ],
       "blocks": [
         "AnalyticsChoice",
+        "Appearance",
+        "AppearanceChoice",
         "ConfirmForm",
         "CookieConsent",
         "Field",
@@ -5139,6 +5139,7 @@
         "Link",
         "PageMasthead",
         "PillButton",
+        "PillSelector",
         "PillTrack",
         "PrefixSelect",
         "ProfileShareButton",

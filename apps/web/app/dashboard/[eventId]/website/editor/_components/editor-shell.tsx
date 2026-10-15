@@ -296,7 +296,7 @@ export function MakerWork({
     videoChoice: { ref: string; url: string; poster?: string | null } | null;
     /** The scenes' own in-place uploads (their `scene-background` folder), signed. */
     sceneUploads?: readonly SceneUpload[];
-    /** 💾 `events.couple_media_bytes`, settled — the 100 MB meter beside Upload media. */
+    /** 💾 `events.couple_media_bytes`, settled — the plan's media meter beside Upload media. */
     mediaUsedBytes?: number;
     mediaHref: string;
     hubTheme: string;

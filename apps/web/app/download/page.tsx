@@ -62,7 +62,7 @@ export default async function DownloadPage() {
   const winDownloadLabel = 'Download for Windows';
 
   return (
-    <main className="min-h-dvh bg-cream text-ink">
+    <main className="min-h-dvh overflow-x-clip bg-cream text-ink">
 
       {/* ───────────────────────── Hero ─────────────────────────
           Airy two-column editorial split. Copy leads with a hairline eyebrow + a

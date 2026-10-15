@@ -1,11 +1,13 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { R2_BUCKETS, isR2Configured, r2List } from '@/lib/r2';
-import { MAKER_EVENT_MEDIA_BYTES_CAP, readCoupleMediaBytes } from '@/lib/maker-media-limits';
+import { coupleMediaCapBytes, readCoupleMediaBytes } from '@/lib/maker-media-limits';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { measureCoupleMediaBytes } from '@/lib/couple-media-allowance';
 
 /**
- * The I/O half of the 100 MB allowance (`lib/couple-media-allowance.ts` holds the
+ * The I/O half of the plan's media allowance — Free 10 MB · Event Hub Pro 500 MB
+ * (`lib/couple-media-allowance.ts` holds the
  * rule and its reasoning). Service-role only: both functions it calls are
  * granted to `service_role` alone, so a couple can never move their own number.
  */
@@ -14,7 +16,8 @@ type Admin = ReturnType<typeof createAdminClient>;
 
 export type CoupleMediaReservation =
   | { kind: 'reserved'; usedBytes: number }
-  | { kind: 'full'; usedBytes: number }
+  /** `isPro` is the plan the refusal was decided under — the sentence names ITS number. */
+  | { kind: 'full'; usedBytes: number; isPro: boolean }
   | { kind: 'unavailable' };
 
 /**
@@ -29,11 +32,20 @@ export async function reserveCoupleMediaBytes(
   bytes: number,
   admin: Admin = createAdminClient(),
 ): Promise<CoupleMediaReservation> {
+  // THE PLAN, READ WITH THE REAL GATE — `eventCoupleWebsiteProActive` is what every
+  // write calls (the "view as a free couple" switch is render-only and never
+  // reaches here), and an internal-hosted event is Pro by that same rule. Asked
+  // with the admin client: `orders` RLS is purchaser-scoped, so a co-host who did
+  // not place the order would otherwise read "Free" for an event that paid. A
+  // read that fails reads Free (the smaller number) — a cap never widens by error.
+  const isPro = await eventCoupleWebsiteProActive(admin, eventId).catch(() => false);
+  const capBytes = coupleMediaCapBytes(isPro);
+
   const ask = async (): Promise<number | null | 'error'> => {
     const { data, error } = await admin.rpc('reserve_couple_media_bytes', {
       p_event_id: eventId,
       p_bytes: bytes,
-      p_cap: MAKER_EVENT_MEDIA_BYTES_CAP,
+      p_cap: capBytes,
     });
     if (error) {
       console.error('[couple-media] reserve_couple_media_bytes failed', { eventId, error: error.message });
@@ -43,8 +55,8 @@ export async function reserveCoupleMediaBytes(
   };
 
   // One file larger than the whole allowance can never fit — no settle can help.
-  if (bytes > MAKER_EVENT_MEDIA_BYTES_CAP) {
-    return { kind: 'full', usedBytes: await readCoupleMediaBytes(admin, eventId) };
+  if (bytes > capBytes) {
+    return { kind: 'full', usedBytes: await readCoupleMediaBytes(admin, eventId), isPro };
   }
 
   const first = await ask();
@@ -59,7 +71,7 @@ export async function reserveCoupleMediaBytes(
     if (second === 'error') return { kind: 'unavailable' };
     if (second !== null && Number.isFinite(second)) return { kind: 'reserved', usedBytes: second };
   }
-  return { kind: 'full', usedBytes: await readCoupleMediaBytes(admin, eventId) };
+  return { kind: 'full', usedBytes: await readCoupleMediaBytes(admin, eventId), isPro };
 }
 
 /**

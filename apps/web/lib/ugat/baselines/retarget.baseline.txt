@@ -36,7 +36,6 @@ app/onboarding/wedding/_components/onboarding-shell.tsx → /dashboard/[eventId]
 app/onboarding/wedding/_components/onboarding-shell.tsx → /dashboard/[eventId]/website	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/_components/overview-sections.tsx → /vendor-dashboard/contracts	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/_components/overview-sections.tsx → /vendor-dashboard/proposals	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/_components/supplier-today-first-screen.tsx → /vendor-dashboard/calendar	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/activities/page.tsx → /vendor-dashboard/verify	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/bookings	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/branches	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
@@ -94,5 +93,4 @@ lib/reusable-bookings.server.ts → /vendor-dashboard/proposals	# first run 2026
 lib/vendor-email-triggers.ts → /vendor-dashboard/clients	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 lib/vendor-growth-recs.ts → /vendor-dashboard/calendar	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 lib/vendor-growth-recs.ts → /vendor-dashboard/messages	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-lib/vendor-more-rows.ts → /vendor-dashboard/calendar	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 lib/vendor-service-tools.ts → /vendor-dashboard/manpower	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one

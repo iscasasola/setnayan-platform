@@ -2,7 +2,7 @@ import { cameraLookFromPreferences } from '@/lib/camera-look';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { makerMediaMeterState } from '@/lib/maker-media-limits';
+import { coupleMediaCapBytes, makerMediaMeterState } from '@/lib/maker-media-limits';
 import { settleCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
 import { hubSetupApplies } from '@/lib/hub-setup-locks';
 import { resolveMonogram } from '@/lib/monogram';
@@ -366,7 +366,7 @@ export default async function WebsiteEditorPage({
     fetchHubMusicChoices(),
   ]);
 
-  /* 💾 THE 100 MB ALLOWANCE, shown where the uploads happen (Upload media on a
+  /* 💾 THE PLAN'S ALLOWANCE (Free 10 MB · Pro 500 MB), shown where the uploads happen (Upload media on a
      scene, the Main background). The counter only grows between settles, so a
      picture the couple removed still sits on it: settle it — R2's own sizes of
      what the event still keeps (`lib/couple-media-allowance.ts`). Near the cap
@@ -375,7 +375,7 @@ export default async function WebsiteEditorPage({
      and the next refresh (every save brings one) shows the freed bytes. */
   const countedMediaBytes = (event as { couple_media_bytes?: number | null }).couple_media_bytes ?? 0;
   let mediaUsedBytes = countedMediaBytes;
-  if (makerMediaMeterState(countedMediaBytes).isNear) {
+  if (makerMediaMeterState(countedMediaBytes, coupleMediaCapBytes(ownsPro)).isNear) {
     mediaUsedBytes = (await settleCoupleMediaBytes(eventId)) ?? countedMediaBytes;
   } else if (countedMediaBytes > 0) {
     after(async () => {

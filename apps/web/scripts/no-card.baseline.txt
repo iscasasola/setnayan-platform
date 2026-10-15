@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 678 files · 1860 lines
+# 677 files · 1859 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -78,7 +78,6 @@
 1 apps/web/app/(shell)/pa3d/_pa3d-parts.tsx
 4 apps/web/app/(shell)/pa3d/_pa3d-room.tsx
 3 apps/web/app/(shell)/pa3d/page.tsx
-1 apps/web/app/(shell)/panood/_panood-film.tsx
 2 apps/web/app/(shell)/papic/_papic-dial.tsx
 3 apps/web/app/(shell)/papic/_papic-scan.tsx
 1 apps/web/app/(shell)/papic/_papic-sections.tsx

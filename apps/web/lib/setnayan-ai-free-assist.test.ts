@@ -229,11 +229,13 @@ test('EVERY mount of the offer is actually FED the catalog price', () => {
   assert.equal(fed.length, mounts.length, 'a mount renders the offer without the catalog price');
 
   // …and the price must come from the catalog resolver, not from a literal here.
+  // ⚡ Started ahead with the other second-run reads (2026-10-16), awaited as `fullSaiPhp`.
   assert.match(
     dash,
-    /const fullSaiPhp = await resolveSetnayanAiDisplayPricePhp\(/,
+    /const fullSaiRead = startAhead\(\s*resolveSetnayanAiDisplayPricePhp\(/,
     'the page must resolve the price through the shared Sai resolver',
   );
+  assert.match(dash, /const fullSaiPhp = await fullSaiRead;/);
   const pesoLiterals = dash.match(/fullSaiPhp=\{\s*\d/g) ?? [];
   assert.deepEqual(pesoLiterals, [], 'a mount is passing a hard-coded number');
 });

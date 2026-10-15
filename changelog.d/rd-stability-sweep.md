@@ -66,3 +66,15 @@ the cache (nothing stored; a stale entry keeps serving) and the default is used 
 Guard: `lib/a-failed-settings-read-is-never-remembered.test.ts` (AST of each cached loader).
 
 SPEC IMPACT: None.
+
+### 6 · The RSVP sheet's pre-hydration flag moves off `<html class>` (allowlist 3 → 2)
+
+`rsvp-sheet.tsx` added `.sn-sheet-js` to `<html>` before hydration — a class on an element whose
+`className` React renders, so React never patches the mismatch. It is now `data-sn-sheet` (an attribute
+React does not render), with the same CSS gate and the same no-JavaScript fallback; its row leaves
+`lib/nothing-touches-the-root-before-hydration.allowlist.txt`. Not moved, with the reason on each row:
+`.pahina-js` (16 CSS rules, the Maker tile previews and six guards read it, and the Animate test is
+walking that machinery now) and the theme script's `.dark` removal (dark-mode PRs #6502 #6522 #6532 each
+rewrite that file).
+
+SPEC IMPACT: None.

@@ -85,7 +85,7 @@ export const SIMULATED_GUEST_PHASE: LifecyclePhase = 'rsvp';
  *     `?as=replied` on any URL they like and get the ordinary page;
  *   - a capability resolved for a DIFFERENT event than the one being rendered
  *     (stricter re-statement of the capability's own event binding, mirroring
- *     `buildOwnerRibbon` — a capability for event A never lights up event B);
+ *     `viewerIsEventHost` — a capability for event A never lights up event B);
  *   - any phase other than `rsvp`;
  *   - any `?as=` value other than `replied` (absent, empty, misspelt, an array
  *     from a repeated param — all false).

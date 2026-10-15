@@ -371,13 +371,13 @@ export type HubNextStep = {
 
   All three steps below that used it carry `ctaPath: ''`, which
   `launch/page.tsx` renders as `/<slug>` in a new tab. The host's session travels
-  with that click, `site-body.tsx` mounts `<OwnerRibbon>`, and `buildOwnerRibbon`
-  lights it from the server-verified capability ALONE — no query param, no
-  cookie, no prop a caller may set (`lib/owner-ribbon.ts`, owner-locked
-  2026-07-26). So what opened was the HOST's page with the host's ribbon across
-  the top, under a button promising a guest's view.
+  with that click, and `site-body.tsx` draws the HOST's body (`viewerIsEventHost`)
+  from the server-verified capability ALONE — no query param, no cookie, no prop
+  a caller may set (owner-locked 2026-07-26). So what opened was the HOST's page
+  (then with the host's ribbon across the top — removed 2026-10-15, owner:
+  "Remove it"), under a button promising a guest's view.
 
-  ⛔ THE FIX IS THE LABEL, NEVER THE GATE. A "hide the ribbon" param would be
+  ⛔ THE FIX IS THE LABEL, NEVER THE GATE. A "be a guest" param would be
   weakening a locked capability check to win an argument with a caption. The
   words moved; the gate did not.
 
@@ -395,8 +395,8 @@ export type HubNextStep = {
   already in use ("Open the live hub", "Open the live desk").
 
   ✅ `plan3d-stage.tsx` KEEPS "Open as a guest", deliberately. Its door is
-  `/<slug>/venue`, and that route mounts no `OwnerRibbon` and no `SiteBody`
-  (`git grep -n OwnerRibbon -- 'apps/web/app/[slug]/venue'` → nothing), nor does
+  `/<slug>/venue`, and that route mounts no `SiteBody`
+  (`git grep -n SiteBody -- 'apps/web/app/[slug]/venue'` → nothing), nor does
   it read the viewer's seat. A host opening the room sees what a guest opening it
   directly sees. The reasoning above simply does not reach it, and renaming it to
   match would have been a false fix.

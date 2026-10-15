@@ -13,7 +13,7 @@
  * coordinator. An unsubscribed vendor in ANY category renders the generic kit
  * and nothing more.
  *
- * WHY A PURE MODULE. Same reason as `lib/owner-ribbon.ts`: the interesting part
+ * WHY A PURE MODULE. Same reason as the old `lib/owner-ribbon.ts` (removed 2026-10-15): the interesting part
  * is a DECISION, not markup, and a decision is only trustworthy if a test can
  * hold it down. Every rule lives here as a pure function over
  * (subscription state × category); the DB read lives next door in

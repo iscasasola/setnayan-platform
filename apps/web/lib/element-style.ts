@@ -44,6 +44,7 @@
  * Pure. No I/O.
  */
 
+import { HUB_SCENE_WORDS_CLASS } from './scene-words-class';
 import { HUB_FONT_BY_KEY, sanitizeHubFontKey, type HubFontKey } from '@/lib/hub-fonts';
 import { contrastRatio } from '@/lib/hub-legibility';
 import { adaptHubRuns } from '@/lib/element-runs-adapt';
@@ -131,12 +132,17 @@ export function isHubElementKey(v: unknown): v is HubElementKey {
  *
  * Measured on the widgets (`app/[slug]/_components/*-widget.tsx`): a scene's
  * small label is `.pahina-eyebrow`; its heading is an `h1`–`h3` or a template
- * scene's `.hub-tpl-h`; its words are every other paragraph.
+ * scene's `.hub-tpl-h`; its words are every other paragraph — and the words a
+ * scene draws OUTSIDE a paragraph that are still the couple's, marked
+ * `HUB_SCENE_WORDS_CLASS` (owner 2026-10-15, Dress code: *"Yes, include them"* —
+ * the colour-chip names and the do / don't lines follow Size and Colour). Never
+ * put the mark inside a `p`: a size would be laid twice.
  */
+export { HUB_SCENE_WORDS_CLASS };
 export const HUB_SCENE_ELEMENT_SELECTOR: Record<HubSceneElementKey, string> = {
   label: '.pahina-eyebrow',
   heading: 'h1, h2, h3, .hub-tpl-h',
-  body: 'p:not(.pahina-eyebrow):not(.hub-tpl-h)',
+  body: `p:not(.pahina-eyebrow):not(.hub-tpl-h), .${HUB_SCENE_WORDS_CLASS}`,
 };
 
 /**

@@ -71,6 +71,16 @@ export type HostPoolMeter = {
 };
 
 /**
+ * THE ONE LOW / STOPPED RULE — the host card, Home's Papic row and the Papic
+ * page's top band all read it, so "Running low" can never mean two things.
+ * From RAW ratios, not rounded percentages — 9.6% left reads 'low'.
+ */
+export function poolLevel(remainingPoints: number, totalPoints: number): HostPoolMeterLevel {
+  if (remainingPoints <= 0) return 'exhausted';
+  return remainingPoints * 100 < totalPoints * POOL_METER_LOW_PCT ? 'low' : 'ok';
+}
+
+/**
  * Shape a pool status into the host meter. PURE + unit-tested.
  *
  * Returns null when there is nothing to meter: the pool doesn't apply to this
@@ -104,12 +114,7 @@ export function shapeHostPoolMeter(
 
   // Level from RAW ratios, not the rounded pcts — a 9.6%-remaining pool must
   // read 'low' even though pctRemaining rounds to 10.
-  const level: HostPoolMeterLevel =
-    remainingPoints <= 0
-      ? 'exhausted'
-      : remainingPoints * 100 < totalPoints * POOL_METER_LOW_PCT
-        ? 'low'
-        : 'ok';
+  const level = poolLevel(remainingPoints, totalPoints);
 
   return {
     totalPoints,

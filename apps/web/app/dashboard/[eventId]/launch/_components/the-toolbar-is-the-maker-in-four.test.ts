@@ -138,7 +138,8 @@ test('the rendered toolbar is EXACTLY ‹ Exit · Page ▾ · Event Details · �
   // The words a first-timer reads — one button, no Look chip.
   assert.doesNotMatch(header, />Look</, 'the Look chip came back');
   assert.match(header, new RegExp(`>${MAKER_DETAILS_LABEL}<`));
-  assert.match(header, /aria-label="Page: Invitation › Welcome"/, 'Page ▾ says the stage › the page');
+  // The guest bar's tab reads "Home" since 2026-10-14 (DECISION_LOG "Home"); Page ▾ takes its words from the bar.
+  assert.match(header, /aria-label="Page: Invitation › Home"/, 'Page ▾ says the stage › the page');
 });
 
 test('the four stage names are not a top-level row — they live inside Page ▾', async () => {
@@ -243,7 +244,7 @@ test('Page ▾ lists the five stages as groups, each with the guest bar’s own 
   // One live dot, on the live stage's first page.
   assert.deepEqual(m.options.filter((o) => o.dot).map((o) => o.key), [m.options.find((o) => o.key.startsWith('rsvp:'))!.key]);
   // The button names where the couple is.
-  assert.equal(m.buttonText, 'Invitation › Welcome');
+  assert.equal(m.buttonText, 'Invitation › Home'); // the bar's word since 2026-10-14
   const onDay = makerPageMenu({ stage: 'event', rsvpOpen: false, liveStage: null, pagesOf, shownPage: 'gallery', hasWork: true });
   assert.equal(onDay.value, 'event:gallery');
   assert.match(onDay.buttonText, /^The Day › /);

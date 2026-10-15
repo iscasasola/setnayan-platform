@@ -33,3 +33,7 @@ shipped editors. Shop gains **Services · Page · How it is going**; door 1 of M
 SPEC IMPACT: None — implements the approved prototype (DECISION_LOG 2026-10-14 "✅ APPROVE: THE SIMPLER …"). Product
 calls made in the build (the six counted, the browser draft, no switch on the private album or own shots) are listed
 for the owner in the PR body and the handover.
+
+Merge round (2026-10-15): `applyVendorPageDraft` is one more page-curation write the home page may show up to 300 s
+late (the same class as `updateVendorWebsiteField`; home-shelf baseline regenerated, not a clear). The s41c log-site
+floor for the retired "(videos)" probe is removed — `fetchVendorMicrosite` is one select and keeps its one log site.

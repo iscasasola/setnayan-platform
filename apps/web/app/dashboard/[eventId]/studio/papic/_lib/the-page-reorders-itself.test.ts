@@ -40,9 +40,9 @@ const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const RAW = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
 const PAGE = stripComments(RAW);
 
-/** The ten blocks, from the owner's own order. */
+/** The eleven blocks, from the owner's own order (`cameras` split out of `gallery` 2026-10-14). */
 const BLOCKS = [
-  'credits', 'dates', 'guests', 'filter', 'challenges',
+  'credits', 'cameras', 'dates', 'guests', 'filter', 'challenges',
   'wall', 'gallery', 'kwento', 'made', 'more',
 ] as const;
 
@@ -57,18 +57,18 @@ function phaseMap(phase: 'before' | 'after'): Map<string, number> {
   return out;
 }
 
-test('BOTH PHASES ARE A PERMUTATION OF ALL TEN BLOCKS', () => {
+test('BOTH PHASES ARE A PERMUTATION OF ALL ELEVEN BLOCKS', () => {
   for (const phase of ['before', 'after'] as const) {
     const map = phaseMap(phase);
     assert.deepEqual(
       [...map.keys()].sort(),
       [...BLOCKS].sort(),
-      `${phase}: the blocks do not match the ten the owner ordered`,
+      `${phase}: the blocks do not match the eleven the owner ordered`,
     );
     assert.deepEqual(
       [...map.values()].sort((a, b) => a - b),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-      `${phase}: ranks must be 1..10, each exactly once — a duplicate is two blocks fighting for one slot`,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      `${phase}: ranks must be 1..11, each exactly once — a duplicate is two blocks fighting for one slot`,
     );
   }
 });
@@ -84,7 +84,7 @@ test('EVERY ORDER CLASS IS A LITERAL — an interpolated one never reaches the s
   assert.ok(at > 0, 'BLOCK_ORDER is gone');
   const body = PAGE.slice(at, PAGE.indexOf('} as const;', at));
   const literals = [...body.matchAll(/'order-\d+'/g)].length;
-  assert.equal(literals, 20, `expected 20 literal order classes, found ${literals}`);
+  assert.equal(literals, 22, `expected 22 literal order classes, found ${literals}`);
   assert.ok(
     !/order-\$\{/.test(body),
     'an order class is interpolated — Tailwind will never generate it and the page silently keeps source order',
@@ -115,13 +115,18 @@ test('THE OWNER’S TWO MOVES ARE THE ONES THAT SHIPPED', () => {
   // The photographs lead once the day has come.
   assert.equal(after.get('gallery'), 1, 'on the day and after, the gallery must lead');
 
-  // ⚖ THE LIVE WALL MOVED UP, ABOVE THE GALLERY — in BOTH phases. It is a setup
-  // job (pick a style, get the screen code) that was sitting below the results
-  // it helps produce.
-  assert.ok(
-    before.get('wall')! < before.get('gallery')!,
-    'before the day the live wall must sit above the gallery it helps fill',
-  );
+  // 📍 OWNER "Yes", 2026-10-13 (DECISION_LOG 📍), enforced 2026-10-14 (walk-b6 F3):
+  // under the band — YOUR CAMERAS · GUESTS' CAMERAS · PHOTOS · Settings, Change
+  // dates LAST. This supersedes 2026-09-22's "Live wall above the gallery": the
+  // wall now follows the photos it shows.
+  assert.equal(before.get('cameras'), 2, 'before the day, your cameras come right under the credits');
+  assert.ok(before.get('cameras')! < before.get('guests')!, "your cameras, then guests' cameras");
+  assert.ok(before.get('guests')! < before.get('gallery')!, "guests' cameras, then the photos");
+  assert.ok(before.get('gallery')! < before.get('wall')!, 'the Live wall follows the photos (walk-b6 F3)');
+  for (const phase of ['before', 'after'] as const) {
+    const m = phaseMap(phase);
+    assert.equal(m.get('dates'), Math.max(...m.values()), `${phase}: Change dates is not last`);
+  }
   assert.ok(
     after.get('wall')! < after.get('credits')!,
     'after the day the live wall is still running, so it comes before the money',
@@ -150,7 +155,7 @@ test('THE OWNER’S TWO MOVES ARE THE ONES THAT SHIPPED', () => {
      unguarded; this asserts what actually makes it honest today. */
   assert.match(
     PAGE,
-    /<HostPoolMeterCard\b/,
+    /<PapicTopBand\b/,
     'the credits block no longer carries a live balance, so nothing up there recomputes and the inversion is not honest',
   );
   assert.ok(

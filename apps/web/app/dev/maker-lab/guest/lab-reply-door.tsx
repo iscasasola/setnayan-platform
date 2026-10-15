@@ -6,6 +6,15 @@ import type { GuestRow } from '@/app/[slug]/_lib/types';
 import { RsvpLookStyle } from '@/app/[slug]/_components/rsvp-look-style';
 import { RsvpWidget } from '@/app/[slug]/_components/rsvp-widget';
 import { rsvpScreenLayout, type readRsvpLook } from '@/lib/rsvp-look';
+import { ReplyWindowNote } from '@/app/[slug]/_components/reply-window-note';
+import type { ReplyWindow } from '@/lib/reply-window';
+
+/** 📬 The lab's two shut windows — the ruling's own example day for "not yet" (Saturday, 14 November 2026). */
+export function labWindow(v: unknown): ReplyWindow | null {
+  if (v === 'not_yet') return { state: 'not_yet', reason: 'opens_on_date', opensOn: '2026-11-14', closesOn: null };
+  if (v === 'closed') return { state: 'closed', reason: 'closed_by_couple', opensOn: null, closesOn: null };
+  return null;
+}
 
 /**
  * 🚪 THE LAB'S REPLY PAGE, AS A GUEST WALKS IT (`/dev/maker-lab/guest?rsvp=form&door=1`) — `invite/reply` without a
@@ -15,7 +24,9 @@ import { rsvpScreenLayout, type readRsvpLook } from '@/lib/rsvp-look';
  * grey italic answers). The lab's own words and look are handed in by the lab page.
  *
  *   `&ask=all` every question on (else the owner's own event's: mobile and plus-ones) · `&plus=<n>` seats ·
- *   `&scene=question|ticket` · `&look=<json>` a stored look.
+ *   `&scene=question|ticket` · `&look=<json>` a stored look ·
+ *   📬 `&replies=not_yet|closed` the couple's reply window shut (the page's own `ReplyWindowNote`, no form) ·
+ *   `&refused=1` as a Send refused outside it (`?rsvp=window`).
  *
  * Never press Send: the lab's save is the real one.
  */
@@ -59,6 +70,13 @@ export function LabReplyDoor({
             Teresita Aquino
           </p>
         </div>
+        {labWindow(sp.replies) ? (
+          <ReplyWindowNote
+            window={labWindow(sp.replies)!}
+            organizer={words.theOrganizer}
+            refused={sp.refused === '1'}
+          />
+        ) : (
         <RsvpWidget
           words={words}
           guest={{ ...guest, plus_one_allowed: plus > 0, plus_one_count: plus } as GuestRow}
@@ -74,6 +92,7 @@ export function LabReplyDoor({
           answerWords={{ attending: 'Joyfully accepts', declined: 'Sadly can’t make it' }}
           lines={rsvpScreenLayout(look, 'rsvp')}
         />
+        )}
       </DoorShell>
       <RsvpLookStyle config={config} board={board} parts={['rsvp']} />
     </>

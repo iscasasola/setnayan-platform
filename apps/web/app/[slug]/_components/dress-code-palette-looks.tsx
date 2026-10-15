@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { PaletteLookId } from '@/lib/palette-looks';
 import { paletteInkOn } from '@/lib/palette-ink';
+import { HUB_SCENE_WORDS_CLASS } from '@/lib/scene-words-class';
 
 /**
  * 🎨 FOUR MORE WAYS TO DRAW THE COUPLE'S COLOURS — Fabric swatches · Paint
@@ -61,17 +62,17 @@ export function PaletteLookList({
               <span className="sr-only">{it.name ? `${it.name} ${it.hex}` : it.hex}</span>
             ) : look === 'chips' ? (
               <>
-                <b className="font-pahina text-[1.2rem] font-light leading-none tracking-tight">{it.name || it.hex}</b>
-                {it.name ? <small className="font-mono text-[0.6rem] uppercase tracking-[0.1em] opacity-80">{it.hex}</small> : null}
+                <b className={`font-pahina text-[1.2rem] font-light leading-none tracking-tight ${HUB_SCENE_WORDS_CLASS}`}>{it.name || it.hex}</b>
+                {it.name ? <small className={`font-mono text-[0.6rem] uppercase tracking-[0.1em] opacity-80 ${HUB_SCENE_WORDS_CLASS}`}>{it.hex}</small> : null}
               </>
             ) : (
               <>
                 {it.name ? (
-                  <b className="mt-2 block text-center font-mono text-[0.6rem] font-normal uppercase leading-tight tracking-[0.12em] text-ink/70">
+                  <b className={`mt-2 block text-center font-mono text-[0.6rem] font-normal uppercase leading-tight tracking-[0.12em] text-ink/70 ${HUB_SCENE_WORDS_CLASS}`}>
                     {it.name}
                   </b>
                 ) : null}
-                <small className={`${it.name ? 'mt-0.5' : 'mt-2'} block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.06em] text-ink/70`}>
+                <small className={`${it.name ? 'mt-0.5' : 'mt-2'} ${HUB_SCENE_WORDS_CLASS} block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.06em] text-ink/70`}>
                   {it.hex}
                 </small>
               </>

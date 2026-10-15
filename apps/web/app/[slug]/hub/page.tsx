@@ -135,7 +135,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       .select(
         // The CANONICAL monogram list + the QR look's two columns, never a
         // hand-typed near-copy: the guest's code below wears the event's look.
-        `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at, event_end_date, launch_mode, manual_phase`,
+        `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at, event_end_date, launch_mode, manual_phase, std_invitation_launch_date`,
       )
       .ilike('slug', slug)
       .maybeSingle(),
@@ -225,7 +225,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const pageStage: LifecyclePhase = solemnAdjustedPhase(
     phaseOverride ??
       pinnedPhase ??
-      getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null),
+      getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null, undefined, (event as { std_invitation_launch_date?: string | null }).std_invitation_launch_date ?? null),
     eventTypeProfile.terminology.register === 'solemn',
   );
 

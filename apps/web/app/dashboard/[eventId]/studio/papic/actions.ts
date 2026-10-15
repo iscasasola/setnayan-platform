@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { eventIsOver } from '@/lib/event-is-over.server';
 import { payPath } from '@/lib/pay-path';
+import { loadPoolRungs, type PoolRung } from '@/lib/papic-pool-rungs';
 import { keepFirstTwin, openTwinReference } from '@/lib/one-press-one-order';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -1719,6 +1720,27 @@ export async function setPapicWindow(formData: FormData) {
 // What deliberately STAYS: the activation hooks in lib/sku-activation.ts and
 // the deactivated tier rows they resolve against. Deleting a buy path is not
 // the same as abandoning the orders it already minted.
+
+/**
+ * 📍 HOME'S IN-PLACE "BUY MORE" (owner 2026-10-13) — the credit ladder, read
+ * only when somebody taps the button, so Home's own view pays nothing for it
+ * (prod is on the free plan; owner: least requests per screen).
+ *
+ * Returns the SAME rungs `PapicPoolCard` sells (lib/papic-pool-rungs.ts); the
+ * charge still happens in `purchasePapicPoolTopUp`, which re-reads every price.
+ * Couple-only, exactly like the purchase it leads to — a coordinator would be
+ * refused at the charge, so they are told so here instead of after a tap.
+ */
+export async function papicBuySizes(
+  rawEventId: string,
+): Promise<{ ok: true; rungs: PoolRung[] } | { ok: false; reason: 'not_couple' | 'over' | 'none' }> {
+  const who = await getCoupleEventId(rawEventId);
+  if (!who.ok) return { ok: false, reason: 'not_couple' };
+  const admin = createAdminClient();
+  if (await eventIsOver(admin, who.eventId)) return { ok: false, reason: 'over' };
+  const rungs = await loadPoolRungs(admin);
+  return rungs.length > 0 ? { ok: true, rungs } : { ok: false, reason: 'none' };
+}
 
 /**
  * Buy a Papic POOL top-up — add shots to the event's SHARED pool.

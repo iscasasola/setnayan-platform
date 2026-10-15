@@ -56,7 +56,7 @@ export async function hiddenPartDoors(
   const facts = await guestRead('part door (event)', () =>
     admin
       .from('events')
-      .select('event_date, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase')
+      .select('event_date, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, std_invitation_launch_date')
       .eq('event_id', eventId)
       .maybeSingle(),
   );
@@ -68,10 +68,11 @@ export async function hiddenPartDoors(
     venue_longitude: number | null;
     launch_mode: string | null;
     manual_phase: string | null;
+    std_invitation_launch_date: string | null;
   };
   const stage = solemnAdjustedPhase(
     manualLaunchPhase(e.launch_mode, e.manual_phase) ??
-      getLifecyclePhase(e.event_date, eventTimezoneFromCoords(e.venue_latitude, e.venue_longitude), e.event_end_date ?? null),
+      getLifecyclePhase(e.event_date, eventTimezoneFromCoords(e.venue_latitude, e.venue_longitude), e.event_end_date ?? null, undefined, e.std_invitation_launch_date ?? null),
     profile.terminology.register === 'solemn',
   );
   return partsHiddenOn(widgets, stage, phasesEnabled);

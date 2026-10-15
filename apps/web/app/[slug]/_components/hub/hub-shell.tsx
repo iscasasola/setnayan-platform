@@ -91,12 +91,18 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useDayOfLiveTick } from '@/lib/use-day-of-live-refresh';
 import type { NavSlot } from '../../_lib/site-nav';
 import {
+  HUB_PAGE_ATTR,
   HUB_TAB_ATTR,
   HUB_TAB_PARAM,
+  SCROLL_PAGE,
   activeHubTab,
+  filingTabs,
+  hubPagesOf,
   hubTabOfHref,
   inPageTabs,
+  isJumpMarkTab,
 } from '../../_lib/hub-tabs';
+import { SITE_MENU_ANCHORS, type SiteMenuTabKey } from '../../_lib/site-menu';
 import { hashOpensSheet } from '../rsvp-sheet-state';
 
 export type HubPanelKey =
@@ -150,6 +156,9 @@ type HubPageProps = {
    *  The bar itself is the page's own `SiteMenuBar`, which reads the same
    *  address to mark the tab you are on. */
   slots: readonly NavSlot[];
+  /** 📜 The Invitation and Save the Date (owner 2026-10-15): ONE page of jump marks, and Me its own page. The frame
+   *  switches between those two pages; the marks are the page's own anchors. */
+  onePage?: boolean;
 };
 
 /** THE ONE SHELL. `frame="page"` → the event page's tabs; otherwise the stage. */
@@ -168,19 +177,21 @@ export function HubShell(props: HubStageProps | HubPageProps) {
  * search params in step — so every reader of the address moves together, Back
  * and Forward included, and a later refresh re-renders the SAME tab.
  */
-function useTabAddress(keys: readonly string[]) {
+function useTabAddress(keys: readonly string[], onePage = false) {
   const params = useSearchParams();
   const active = activeHubTab(params?.get(HUB_TAB_PARAM) ?? null, keys);
   const go = useCallback((key: string, mode: 'push' | 'replace', hash?: string) => {
     const url = new URL(window.location.href);
-    url.searchParams.set(HUB_TAB_PARAM, key);
+    /* 📜 The one page is the event's own bare address — its marks ride the #hash, never `?tab=`. */
+    if (onePage && key === SCROLL_PAGE) url.searchParams.delete(HUB_TAB_PARAM);
+    else url.searchParams.set(HUB_TAB_PARAM, key);
     url.hash = hash ? `#${hash}` : '';
     const next = `${url.pathname}${url.search}${url.hash}`;
     const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (next === here) return;
     if (mode === 'push') window.history.pushState(null, '', next);
     else window.history.replaceState(null, '', next);
-  }, []);
+  }, [onePage]);
   return [active, go] as const;
 }
 
@@ -413,16 +424,18 @@ function HubStageFrame({
  * first thing on a tab sits at the top of it with no borrowed gap.
  */
 function showTab(key: string) {
+  /* 📜 By PAGE (`data-hub-page`): on a one-page stage Home · Details · Story are all the one page. */
   document.querySelectorAll<HTMLElement>(`[${HUB_TAB_ATTR}]`).forEach((el) => {
-    el.hidden = el.getAttribute(HUB_TAB_ATTR) !== key;
+    el.hidden = (el.getAttribute(HUB_PAGE_ATTR) ?? el.getAttribute(HUB_TAB_ATTR)) !== key;
   });
 }
 
-/** The tab holding an element, when that element is on one. */
+/** The page holding an element, when that element is on one. */
 function tabHolding(id: string): string | null {
   if (!id) return null;
   const el = document.getElementById(id);
-  return el?.closest(`[${HUB_TAB_ATTR}]`)?.getAttribute(HUB_TAB_ATTR) ?? null;
+  const group = el?.closest(`[${HUB_TAB_ATTR}]`);
+  return group ? (group.getAttribute(HUB_PAGE_ATTR) ?? group.getAttribute(HUB_TAB_ATTR)) : null;
 }
 
 /**
@@ -430,9 +443,10 @@ function tabHolding(id: string): string | null {
  * docblock). Renders the guest's bar and nothing else: the tabs' content is the
  * page's own, already on it.
  */
-function HubPageFrame({ slots }: HubPageProps) {
-  const keys = inPageTabs(slots);
-  const [active, go] = useTabAddress(keys);
+function HubPageFrame({ slots, onePage = false }: HubPageProps) {
+  /* 📜 One page: the pages are the one page (`SCROLL_PAGE`) and Me — the marks are not pages (`hubPagesOf`). */
+  const keys = onePage ? hubPagesOf(filingTabs(slots, true), true) : inPageTabs(slots);
+  const [active, go] = useTabAddress(keys, onePage);
   const activeRef = useRef(active);
   activeRef.current = active;
   const keysRef = useRef(keys);
@@ -455,6 +469,18 @@ function HubPageFrame({ slots }: HubPageProps) {
       document.getElementById(id)?.scrollIntoView({ block: 'start' });
       return true;
     };
+
+    /* 📜 AN OLD TAB'S ADDRESS ON THE ONE PAGE (`?tab=details`, `?tab=story` — every link shared before
+       2026-10-15) still lands: on the one page, scrolled to that section, the address made the mark it now is.
+       `?tab=home` was the page from its top: it is simply the bare address. */
+    if (onePage) {
+      const asked = new URLSearchParams(window.location.search).get(HUB_TAB_PARAM)?.trim() ?? '';
+      if (asked && isJumpMarkTab(asked, true) && keysRef.current.includes(SCROLL_PAGE)) {
+        const anchor = asked !== SCROLL_PAGE && asked in SITE_MENU_ANCHORS ? SITE_MENU_ANCHORS[asked as SiteMenuTabKey] : undefined;
+        go(SCROLL_PAGE, 'replace', anchor && !window.location.hash ? anchor : window.location.hash.slice(1) || undefined);
+        if (anchor) requestAnimationFrame(() => document.getElementById(anchor)?.scrollIntoView({ block: 'start' }));
+      }
+    }
 
     // An address that arrived with a mark on another tab (`/slug#site-details`).
     const arrived = decodeURIComponent(window.location.hash.slice(1));
@@ -498,7 +524,7 @@ function HubPageFrame({ slots }: HubPageProps) {
       document.removeEventListener('click', onClick);
       window.removeEventListener('hashchange', onHash);
     };
-  }, [go]);
+  }, [go, onePage]);
 
   // The bar is the page's own (`SiteMenuBar`, mounted beside this); this frame
   // is the mechanism behind it and draws nothing of its own.

@@ -37,12 +37,15 @@ type Props = {
    * Your page · Your collections · Helpers · Plan · Settings · Switch shop · Sign out"). Handed in by the vendor
    * layout only, so every other surface's panel is exactly as it was. Each is a plain link; the panel's own "Switch to"
    * rail and Sign out stay the switch-shop and sign-out rows. Read nothing: a count here would put the documents and
-   * payment reads on every supplier page.
+   * payment reads on every supplier page. The finished sheet (which rows, for which role, Plan never in the store
+   * shell) is step 6's — built in the vendor layout.
    */
-  shopRows?: readonly ShopRow[];
+  shopRows?: readonly ShopRow[] | null;
 };
 
 export type ShopRow = { key: string; href: string; label: string; sub: string };
+/** Step 6's name for the same row (simpler supplier dashboard — prototype SHEETS.avatar); one shape, two names. */
+export type SwitcherShopRow = ShopRow;
 
 /**
  * AccountSwitcher — unified identity panel (account-switcher iteration).
@@ -92,13 +95,13 @@ function SwitcherPanelBody({
   close,
   homeLabel = 'Home',
   referHref = null,
-  shopRows = [],
+  shopRows = null,
 }: {
   data: SwitcherData;
   close: () => void;
   homeLabel?: string;
   referHref?: string | null;
-  shopRows?: readonly ShopRow[];
+  shopRows?: readonly ShopRow[] | null;
 }) {
   const showShop = data.context.hasVendor;
   const showHQ = data.context.isAdmin;
@@ -150,7 +153,7 @@ function SwitcherPanelBody({
       </div>
 
       {/* ── The supplier's own rows — vendor layout only (step 5) ── */}
-      {shopRows.length > 0 ? (
+      {shopRows && shopRows.length > 0 ? (
         <nav aria-label="Your shop" className="border-t border-ink/10 px-2 py-1" data-switcher-shop-rows="">
           {shopRows.map((r) => (
             <Link

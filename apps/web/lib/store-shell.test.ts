@@ -183,7 +183,7 @@ test('the store shell is never shown a second, marked-up price', () => {
   // users, then point them at the cheaper web page. One price, from the
   // catalogue, everywhere.
   const src = readFileSync(
-    join(__dirname, '../app/vendor-dashboard/subscription/_components/subscription-cards.tsx'),
+    join(__dirname, '../app/vendor-dashboard/subscription/_components/plan-picker.tsx'),
     'utf8',
   );
   // Match the multiplier, not the digits: `1.5` alone hits Tailwind spacing
@@ -192,7 +192,7 @@ test('the store shell is never shown a second, marked-up price', () => {
     !/MOBILE_SRP|mobileSrp|SRP_MULTIPLIER/.test(src),
     'a channel-dependent price multiplier is back',
   );
-  assert.ok(!/isNativeApp/.test(src), 'plan cards should no longer branch on native-ness at all');
+  assert.ok(!/isNativeApp/.test(src), 'the plan picker should not branch on native-ness at all');
 });
 
 test('the build number is past the one App Review rejected', () => {
@@ -521,7 +521,9 @@ test('wiring: the vendor side shows no plan upsell, add-on price or pack in the 
   // still never in the store shell.
   // Since step 5 (2026-10-14) the branch panel is its own file, mounted on Your details.
   before('app/vendor-dashboard/shop/_components/branch-panel.tsx', /\{storeShell \? null : \(/, '<BranchManager');
-  assert.match(src('app/vendor-dashboard/team/page.tsx'), /\{canBuySeats && !storeShell \? \(/);
+  // The Helpers screen moved into `helpers-view.tsx` (simpler supplier dashboard step 6); the page hands it storeShell.
+  assert.match(src('app/vendor-dashboard/team/_components/helpers-view.tsx'), /\{canBuySeats && !storeShell \? \(/);
+  assert.match(src('app/vendor-dashboard/team/page.tsx'), /storeShell=\{storeShell\}/);
   const recs = src('app/vendor-dashboard/recommendations/page.tsx');
   assert.equal((recs.match(/formatSkuPriceLabel\(/g) ?? []).length, 1, 'every price label goes through priceLabelFor');
   assert.match(recs, /storeShell \? null : formatSkuPriceLabel\(row, null\)/);

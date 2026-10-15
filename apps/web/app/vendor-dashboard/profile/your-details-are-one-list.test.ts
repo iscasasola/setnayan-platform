@@ -14,7 +14,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { DETAILS_CHECKLIST_KEYS } from '@/lib/supplier-details';
-import { supplierAvatarRows } from '../_components/supplier-avatar-rows';
+import { scopedMemberAvatarRows, supplierAvatarRows } from '../_components/supplier-avatar-rows';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -56,9 +56,13 @@ test('3 · the account panel rows go somewhere real, and only for owners and adm
     const page = join(WEB, 'app', r.href.replace(/^\//, ''), 'page.tsx');
     assert.ok(existsSync(page), `${r.label} goes to ${r.href}, which has no page`);
   }
+  // Step 6 owns the finished sheet: the owner rows go to owners and admins; a scoped member gets Settings alone;
+  // Plan never in the store shell (supplier batch, 2026-10-15).
   assert.match(
     src('app/vendor-dashboard/layout.tsx'),
-    /shopRows=\{canManageVendor\(vendorRole\) \? supplierAvatarRows\(\) : \[\]\}/,
+    /canManageVendor\(vendorRole\) \|\| !vendorRole \? supplierAvatarRows\(\{ storeShell \}\) : scopedMemberAvatarRows\(\)/,
     'the supplier rows are not gated to owners and admins',
   );
+  assert.ok(!supplierAvatarRows({ storeShell: true }).some((r) => r.label === 'Plan'), 'Plan shows in the store shell');
+  assert.deepEqual(scopedMemberAvatarRows().map((r) => r.label), ['Settings'], 'a scoped member sees owner rooms');
 });

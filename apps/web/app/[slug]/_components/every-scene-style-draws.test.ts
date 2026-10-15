@@ -567,7 +567,13 @@ test('🎞 Post Event · the gallery preview in Glimpse is the SAME rail, with n
   // Inside the real open-up the whole thing is ONE button and the markup nests no button in it.
   const { OpenUpScene } = await import('./editorial/open-up-layer');
   const wrapped = html(
-    h(OpenUpScene, { kind: 'gallery', title: 'From the Day', openLabel: 'Open the gallery', preview: h(GalleryPreview, { style: 'glimpse', photos: URLS, total: 5, names: 'Maria', words: {} }) }, h('p', null, 'x')),
+    h(OpenUpScene, {
+      kind: 'gallery',
+      title: 'From the Day',
+      openLabel: 'Open the gallery',
+      preview: h(GalleryPreview, { style: 'glimpse', photos: URLS, total: 5, names: 'Maria', words: {} }),
+      children: h('p', null, 'x'),
+    }),
   );
   const inside = wrapped.slice(wrapped.indexOf('<button'), wrapped.indexOf('</button>'));
   assert.equal((inside.match(/<button/g) ?? []).length, 1, 'the open-up trigger holds a second button');

@@ -721,9 +721,9 @@ export default async function WebsiteEditorPage({
   const heroLocked = draftedRowLockedIf(Boolean(heroRef));
   const backdropLocked = draftedRowLockedIf(Boolean(rsvpBackdrop));
 
-  /* 🎬 THE HERO VIDEO's uploader — built ONCE. It is the `hero-video` row (Look › Background) and, in the new
-     Maker's Studio, the same node is drawn by the Background's "Your photo or video" source (`heroVideo`);
-     Look never mounts both (`LookPanel`). */
+  /* 🎬 THE HERO VIDEO's uploader — built ONCE, for the shipped Maker's `hero-video` row. The new Maker's Studio does
+     NOT draw it (owner 2026-10-14, Maker test item 1: it "has no use for the background"): there the hero video is
+     the Background's "Your video" card (`videoChoice`), and a new clip comes in through that source's own Upload. */
   const heroVideoPanel = musicLocked ? (
     lockPanel('Your own hero video')
   ) : (
@@ -881,8 +881,6 @@ export default async function WebsiteEditorPage({
                         /* ⚡ A picture's tint leaves the couple's own button colour alone — the panel must know, to draw a pick without a render. */
                         ownButton: false, // 🔘 the page no longer reads a stored `site_button_color` (owner 2026-10-08)
                       }}
-                      /* 🎬 …and the hero video's own uploader, drawn there under "Your photo or video". */
-                      heroVideo={heroVideoPanel}
                       photoChoices={photoChoices}
                       videoChoice={videoChoice}
                       sceneUploads={sceneUploads}

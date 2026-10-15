@@ -31,6 +31,7 @@ import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/
 import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import { LabStudioActions } from '../details-lab/lab-studio-actions';
 import { LabLogoActions } from './lab-logo-actions';
+import { LAB_PHOTO_CHOICES, LAB_VIDEO_CHOICE } from './lab-own-media';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 
@@ -322,10 +323,12 @@ export function MakerLabShell({
           drafted={false}
           ownsPro={false}
           loops={loops}
+          /* 🖼🎬 "Your photo or video" — a photo and a hero video of the lab's own (`lab-own-media.ts`), so Focus can be walked. */
+          photoChoices={LAB_PHOTO_CHOICES}
+          videoChoice={LAB_VIDEO_CHOICE}
           /* 🌈 Studio › Look › Background's Colour source — Classic's paper and maria-and-jose's five. */
           page={{ bgColor: pageColour, resolved: house.palette.canvas, five: LAB_FIVE, artDirection: null, ownButton: false }}
           draftAction={labDraft as never}
-          heroVideo={heroVideo}
         />
       ),
     },
@@ -440,7 +443,7 @@ export function MakerLabShell({
                 },
                 main: mainBackground ?? null,
                 coverRef: null,
-                sources: { loops, photoChoices: [], videoChoice: null, sceneUploads: [], cover: null, themeId: 'house' },
+                sources: { loops, photoChoices: LAB_PHOTO_CHOICES, videoChoice: LAB_VIDEO_CHOICE, sceneUploads: [], cover: null, themeId: 'house' },
                 words: { names: LAB_SAMPLE.names, date: LAB_SAMPLE.dateLabel, line: LAB_SAMPLE.venue },
                 /* On, so the sample shows the music button while Music is the tab open. */
                 musicOn: true,

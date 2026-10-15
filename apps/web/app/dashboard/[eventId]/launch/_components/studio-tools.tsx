@@ -728,11 +728,11 @@ export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
 /* ── 🌄 LOOK › BACKGROUND — THE MAIN BACKGROUND'S EXTRAS ─────────────────── */
 
 /** One drafted write through the ONE draft door (`hubDraftAction` intent=save) — never live. Sent inside `makerSave` by the handler that drew it. */
-function draftSend(eventId: string, patch: Record<string, unknown>) {
+function draftSend(eventId: string, patch: Record<string, unknown>, door: typeof hubDraftAction = hubDraftAction) {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify(patch));
-  return hubDraftAction(eventId, fd);
+  return door(eventId, fd);
 }
 
 /** Did the draft door take it? A thrown save is a refusal, said by the caller. */
@@ -746,7 +746,7 @@ async function draftTook(send: Promise<{ ok: boolean }>): Promise<boolean> {
 
 const NONE_LABEL = { blur: 'None', focus: 'Centre', pattern: 'None' } as const;
 const BLUR_LABEL = { soft: 'Soft', strong: 'Strong' } as const;
-const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
+const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' } as const;
 
 /**
  * 🌄 THE MAIN BACKGROUND'S EXTRAS (owner 2026-10-06 DECISION_LOG "STUDIO › LOOK IS
@@ -756,7 +756,7 @@ const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
  *   · Pattern ▾  None · Fine lines · Dots · Lace · Grid — a pattern on the
  *     Background colour, the prototype's Pattern type (picking one puts it
  *     behind every stage; None takes it off, back to just the colour);
- *   · Focus ▾    Centre · Top · Bottom — a photo;
+ *   · Focus ▾    Centre · Top · Bottom · Left · Right — a photo or a clip;
  *   · Blur ▾     None · Soft · Strong — a photo, a clip or a moving background;
  *   · Shade ▾    Darker · Dark · As is · Light · Lighter — the same three; the
  *     guest page lays the veil and never crosses the contrast floor.
@@ -886,6 +886,8 @@ export function StudioMainColours({
   useEffect(() => setSlots(drafted), [drafted]);
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
+  /* The draft door — the shipped action, or (only in the dev lab) its stand-in, so a lab pick reaches no database. */
+  const { hubDraftAction: door } = useStudioActions();
   const pick = (slot: MainColourSlot, hex: string) => {
     const up = hex.toUpperCase();
     if (five[slot] === up) return;
@@ -898,7 +900,7 @@ export function StudioMainColours({
     setSlots(nextSlots);
     setError(null);
     start(async () => {
-      const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { main_colours: nextSlots } }), requestMakerRefresh));
+      const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { main_colours: nextSlots } }, door), requestMakerRefresh));
       if (!ok) {
         tellLookSample(eventId, { five: before.five });
         setFive(before.five);

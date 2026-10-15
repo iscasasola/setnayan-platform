@@ -4636,6 +4636,18 @@ html.dark {
 [data-hub-roles~='names'] [data-hub-names] {
   font-family: var(--hub-names-face);
 }
+/* 🎨 THE NAMES WEAR THE DOMINANT (owner 2026-10-14, Maker test: *"changing colors does not show on preview"* — the
+   Mood Board's Dominant is "Headings · the names", and nothing on the page wore it). `--hub-names-ink` is the
+   Dominant AA-large on the paper and the cards (`buildSitePaletteVars`); wherever the words sit on another ground
+   (a page colour of the couple's own, a blend, Candlelight, a picture, a scene's own ground, the canvas preview) it
+   is taken off, and the names fall back to the page's measured ink — exactly what they wore before. A part's own
+   colour (Stages › Names, inline) still wins. */
+[data-guest-look] [data-hub-names] {
+  color: rgb(var(--hub-names-ink, var(--color-ink)));
+}
+[data-guest-look][data-art='candlelight'] {
+  --hub-names-ink: initial !important;
+}
 [data-hub-roles~='body'] {
   --font-sans: var(--font-body);
   font-family: var(--font-body);

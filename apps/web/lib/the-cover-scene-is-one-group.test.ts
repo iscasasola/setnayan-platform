@@ -285,7 +285,7 @@ test('(12) no bar is drawn over the cover; the bars come in only after the cover
   assert.match(css, /html:has\(> head > style\[data-cover-menu\]\):has\(header\[data-cover-scene\]\) \[data-page-column\] \{[^}]*padding-top: 0;[^}]*--cover-scene-above: 0px;/, 'the cover does not start at the top edge');
   const { CoverSceneMenuWaits } = await import('@/app/[slug]/_components/cover-scene-menu');
   const script = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits));
-  assert.match(script, /window\.scrollY>4\|\|!shown\(\)\)\{m\.setAttribute\('data-cover-menu','open'\)/, 'the bars never come in after the swipe that moves the cover');
+  assert.match(script, /window\.scrollY>4\|\|!shown\(\)\)\{if\(!isOpen\(\)\)m\.setAttribute\('data-cover-menu','open'\)/, 'the bars never come in after the swipe that moves the cover');
   assert.match(script, /catch\(e\)\{try\{if\(m\)m\.setAttribute\('data-cover-menu','open'\)\}/, 'a failure hides the menu for good — it must fail visible');
 });
 

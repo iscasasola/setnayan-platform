@@ -7,8 +7,14 @@
  * ONE top bar (`[data-sticky-top]`) and ONE bottom bar / rail (`nav[aria-label="Site sections"]`) off screen while a
  * VISIBLE Cover Scene (`header[data-cover-scene]`) leads the page, and drops the column's top padding so the cover
  * starts at the top edge. The guest's first upward swipe or scroll that moves the page sets it to `"open"` — the bars
- * slide in (reduced motion: they just appear) and stay. A page whose cover is not shown (another tab, an address with
- * a mark) opens at once. The Veil's own swipe does not scroll the page, so the menu waits for the swipe that opens the
+ * slide in (reduced motion: they just appear). A page whose cover is not shown (another tab, an address with a mark)
+ * opens at once.
+ *
+ * 📜 …AND THEY HIDE AGAIN WHENEVER THE COVER IS BACK ON SCREEN (owner 2026-10-15, the one-page Invitation approved with
+ * its five recommendations — Q3: *"the cover is reached by scrolling up, where the bar hides again"*). Scrolled back
+ * to the top with the cover shown, the marker returns to `"wait"` (the bars slide away; reduced motion: no slide), and
+ * the next move off the cover opens it again. Only the marker's VALUE changes — the same `<style>`, never the root.
+ * Held by `app/[slug]/_lib/the-invitation-is-one-page.test.ts` (5). The Veil's own swipe does not scroll the page, so the menu waits for the swipe that opens the
  * cover.
  *
  * 🚫 NOT A CLASS ON `<html>` (tester, 2026-10-15, Batch 8 W1): the first cut added `sn-cover-wait` to the root's
@@ -35,8 +41,7 @@ if(!d.head)return;
 m=d.createElement('style');m.setAttribute('${COVER_MENU_ATTR}','${COVER_MENU_WAIT}');d.head.appendChild(m);
 function isOpen(){return m.getAttribute('${COVER_MENU_ATTR}')==='${COVER_MENU_OPEN}'}
 function shown(){var h=d.querySelector('header[data-cover-scene]');return !!(h&&h.offsetParent!==null)}
-function off(){removeEventListener('scroll',check);removeEventListener('hashchange',check);d.removeEventListener('click',later,true)}
-function check(){if(isOpen())return off();if(window.scrollY>4||!shown()){m.setAttribute('${COVER_MENU_ATTR}','${COVER_MENU_OPEN}');off()}}
+function check(){if(window.scrollY>4||!shown()){if(!isOpen())m.setAttribute('${COVER_MENU_ATTR}','${COVER_MENU_OPEN}')}else if(isOpen())m.setAttribute('${COVER_MENU_ATTR}','${COVER_MENU_WAIT}')}
 function later(){setTimeout(check,60)}
 addEventListener('scroll',check,{passive:true});addEventListener('hashchange',check);d.addEventListener('click',later,true);
 if(d.readyState==='loading')d.addEventListener('DOMContentLoaded',check);else check();

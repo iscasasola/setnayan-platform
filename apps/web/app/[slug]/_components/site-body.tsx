@@ -105,9 +105,13 @@ import { OurStory, storyTabHasChapter } from './our-story';
 import { HubShell } from './hub/hub-shell';
 import { DayDirections } from './day-directions';
 import {
+  HUB_PAGE_ATTR,
   HUB_TAB_ATTR,
   activeHubTab,
   directionsLead,
+  hubPageModeOf,
+  hubPageOf,
+  hubPagesOf,
   hubTabFor,
   hubTabHref,
   hubTabsOn,
@@ -330,6 +334,10 @@ function stdLockupFor(event: EventRow): StdLockup {
  *     nothing in it draws nothing (`empty:hidden`, as a group does).
  * Measured in a browser on the fixture page, wrapped against today's (`scripts/scrub-browser-check.mjs` 16).
  */
+/** 📜 The one page's Home mark (owner 2026-10-15): the first thing after the cover, zero height, and kept out of the
+ *  `space-y-*` rhythm of the group it ends, so it moves nothing on the page. */
+const ONE_PAGE_HOME_MARK = '!mt-0 h-0 scroll-mt-20';
+
 const GUEST_COVER_BOXES: HubCoverHoldBoxes = {
   cell: { 'data-pahina-first-screen': '' },
   cover: { 'data-pahina-chapters': '' },
@@ -1246,7 +1254,16 @@ export async function SiteBody({
       (showGuestBars || (stagesTabs && isMakerCanvas)),
     makerCanvas: isMakerCanvas || canvasOnly !== null,
     stagesCanvas: stagesTabs && isMakerCanvas && canvasOnly === null,
+    bodyFilm: plan.body === 'save_the_date',
   });
+  /* 📜 THE INVITATION AND SAVE THE DATE ARE ONE PAGE (owner 2026-10-15, DECISION_LOG "THE INVITATION AND SAVE THE
+     DATE BECOME ONE PAGE"; the approved `prototypes/event_hub_one_page_and_desktop_2026-10-15_fable.html` §1). The
+     groups below are filed exactly as before — on Home · Details · Story · Me — but on these two stages every
+     jump-mark tab is on ONE page (`hubPageOf`): Home's scenes, Details' scenes, the entourage and Story are all
+     drawn, in that order, under one scroll, and only Me is a page of its own. The Day keeps a page per tab. */
+  const onePage = tabsOn && hubPageModeOf(pageStage) === 'one-page';
+  /** What each bar is told: The Day's tabs are pages; a one-page stage's are marks (and Me a page). */
+  const barTabbed: boolean | 'one-page' = tabsOn ? (onePage ? 'one-page' : true) : false;
   /** The Day's first tab, or the Invitation's — where the masthead lives. */
   const leadTab = pageStage === 'event' ? 'live' : 'home';
   /* 🧭 THE STAGES CANVAS'S PAGES (owner 08 Oct, on the Maker's Stages view: *"i do not see the individual pages. i
@@ -1276,9 +1293,12 @@ export async function SiteBody({
     (Array.isArray(node) && node.every(nothingIn)) ||
     (isValidElement(node) && node.type === Fragment && nothingIn((node.props as { children?: React.ReactNode }).children));
   const pageTabsFor = (bar: readonly NavSlot[]) => {
-    const inPage = pageTabKeys({ tabsOn, bar, stagesPages });
+    const inPage = pageTabKeys({ tabsOn, bar, stagesPages, onePage });
     const on = inPage.length > 0;
-    const active = activeHubTab(activeTab, inPage);
+    /** 📜 The PAGE on show: The Day's tab; on a one-page stage the one page, or Me (`?tab=details` → the one page). */
+    const active = activeHubTab(activeTab, hubPagesOf(inPage, onePage));
+    /** The page a tab's group is on, and whether it is on the page on show. */
+    const pageOf = (tab: string) => hubPageOf(tab, onePage);
     /** The tabs something was filed on — the Stages canvas draws every OTHER page of its list a stand-in (`rest`). */
     const filled = new Set<string>();
     /** One tab's content. `chapters` keeps the §6 scroll reveal on its children
@@ -1296,8 +1316,8 @@ export async function SiteBody({
       return (
         <div
           id={opts.id}
-          {...{ [HUB_TAB_ATTR]: tab }}
-          hidden={tab !== active ? true : undefined}
+          {...{ [HUB_TAB_ATTR]: tab, [HUB_PAGE_ATTR]: pageOf(tab) }}
+          hidden={pageOf(tab) !== active ? true : undefined}
           {...(opts.chapters ? { 'data-pahina-first-screen': '', 'data-pahina-chapters': '' } : {})}
           className={`${opts.className ?? ''} empty:hidden`.trim()}
         >
@@ -1307,10 +1327,10 @@ export async function SiteBody({
     };
     /** The same marks, for a block that draws its own root (a component
      *  outside both trees). Empty on a page that is one scroll. */
-    const attrs = (want: string): { [HUB_TAB_ATTR]?: string; hidden?: boolean } => {
+    const attrs = (want: string): { [HUB_TAB_ATTR]?: string; [HUB_PAGE_ATTR]?: string; hidden?: boolean } => {
       if (!on) return {};
       const tab = hubTabFor(want, inPage);
-      return { [HUB_TAB_ATTR]: tab, ...(tab !== active ? { hidden: true } : {}) };
+      return { [HUB_TAB_ATTR]: tab, [HUB_PAGE_ATTR]: pageOf(tab), ...(pageOf(tab) !== active ? { hidden: true } : {}) };
     };
     /** 🧭 Stages canvas only: a page of the Maker's list nothing was filed on is STILL a page — its stand-in, in
      *  its own group (the Camera, which guests open as its own screen; a page with nothing on it yet). Called
@@ -1318,7 +1338,7 @@ export async function SiteBody({
     const rest = () =>
       on && stagesPageList
         ? stagesPagesLeft(inPage, filled).map((p) => (
-            <div key={p} {...{ [HUB_TAB_ATTR]: p }} data-stages-page={p} hidden={p !== active ? true : undefined}>
+            <div key={p} {...{ [HUB_TAB_ATTR]: p, [HUB_PAGE_ATTR]: pageOf(p) }} data-stages-page={p} hidden={pageOf(p) !== active ? true : undefined}>
               <MakerPageStandIn page={p} label={stagesPageList.find((x) => x.key === p)?.label ?? p} />
             </div>
           ))
@@ -1532,6 +1552,8 @@ export async function SiteBody({
            Date's own still view — is the top of the page (owner 2026-10-11). With a date the page has its own
            scenes (the countdown, the photos), and nothing is added. Never in the Maker's canvas. */
         closing={!isMakerCanvas && stdFilm && !event.event_date ? stdStillView() : null}
+        /* 📜 Me is its own page on the one-page Save the Date (owner 2026-10-15): opened there, the film is lifted. */
+        liftOnLanding={onePage && pageTabs.active !== hubPageOf('home', onePage)}
       >
         {normalBody()}
       </StdFilmHandoff>
@@ -1696,9 +1718,12 @@ export async function SiteBody({
       // and a type with no two people has no answer.
       // 📖 …and only once there is a chapter to land on (`storyTabHasChapter`):
       // open-browse no longer draws it empty — `{}` read as a story.
+      // 📜 …and on Save the Date whenever it is on the page: `phasedBody` draws the stage's own body under the film
+      // for EVERY event (2026-08-05), so Our Love Story is there with or without open browse — the bar lets Story
+      // through as a jump mark (owner 2026-10-15, "Home · Story · Me on Save the Date").
       story:
         weddingOnly.love_story &&
-        bodyRenders &&
+        (bodyRenders || plan.body === 'save_the_date') &&
         storyTabHasChapter(event.love_story, storySceneShown) &&
         !storyOffHere,
       // "Gallery" = the live photo wall ON THE DAY (the livestream is a separate
@@ -1903,7 +1928,7 @@ export async function SiteBody({
               (findSeatShown && (ownPage('f:find_your_seat', 'home') === 'home' || !(ownerCapability || isEditorCanvas)))
             : findSeatShown),
         // 📱 Each tab its own page, on the Invitation and The Day.
-        tabbed: tabsOn,
+        tabbed: barTabbed,
     });
     const tabs = pageTabsFor(anonBar);
     pageTabs = tabs;
@@ -1980,7 +2005,7 @@ export async function SiteBody({
         {group(leadTab, <>
         {/* Menu-shell anchor targets (PR6). aria-hidden zero-height markers so
             the fixed SiteMenuBar's in-page links land on the right sections. */}
-        <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
+        {onePage ? null : <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />}
         {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
             event.website_open_browse is TRUE; identity-aware.
             ☝ ONE BUTTON (owner 2026-09-26/27): the stranger's "Find your
@@ -2129,6 +2154,8 @@ export async function SiteBody({
                 </div>
               )}
               </HubCoverHold>
+              {/* 📜 One page: Home lands after the cover and its one door (see the guest tree). */}
+              {onePage ? <div id={SITE_MENU_ANCHORS.home} aria-hidden data-home-after-cover="" className={ONE_PAGE_HOME_MARK} /> : null}
             </div>
             ), { chapters: true })}
 
@@ -2532,11 +2559,13 @@ export async function SiteBody({
         {menuOn && showGuestBars ? (
           <SiteMenuBar
             slots={anonBar}
+            onePage={onePage && tabs.on}
           />
         ) : null}
-        {/* 📱 Each tab its own page — the hub shell's page frame shows one tab
-            at a time and keeps its address (`hub/hub-shell.tsx`). */}
-        {menuOn && showGuestBars && tabs.on ? <HubShell frame="page" slots={anonBar} /> : null}
+        {/* 📱 Each tab its own page — the hub shell's page frame shows one page
+            at a time and keeps its address (`hub/hub-shell.tsx`); 📜 on a one-page
+            stage that is the one page or Me (owner 2026-10-15). */}
+        {menuOn && showGuestBars && tabs.on ? <HubShell frame="page" slots={anonBar} onePage={onePage} /> : null}
             </>
           );
         })()}
@@ -2724,7 +2753,8 @@ export async function SiteBody({
         (makerPages ? detailsSceneList.some((w) => sceneOwnPage(w) === 'details') : detailsSceneList.length > 0),
       // A type with no two people has no love story (same gate as the public page).
       // …and only once there is a chapter to land on (`storyTabHasChapter`).
-      story: weddingOnly.love_story && guestBodyRenders && storyTabHasChapter(event.love_story, storySceneShown) && !storyOffHere,
+      // 📜 On Save the Date the body is under the film for every event, so the story is on the page (see the stranger's tree).
+      story: weddingOnly.love_story && (guestBodyRenders || plan.body === 'save_the_date') && storyTabHasChapter(event.love_story, storySceneShown) && !storyOffHere,
       // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
       // gate below), the recap's photo run after it. A guest's own "photos of
       // you" strip is deliberately NOT a third answer: it closes with the
@@ -2876,7 +2906,7 @@ export async function SiteBody({
         ((Boolean(seatMap) || seatPassActive) && ownPage('f:find_your_seat', 'home') === 'home') ||
         (makerPages !== null && detailsSceneList.some((w) => sceneOwnPage(w) === 'home')),
       // 📱 Each tab its own page, on the Invitation and The Day.
-      tabbed: tabsOn,
+      tabbed: barTabbed,
       // 📖 After the day: Film and Suppliers, only where the recap drew them.
       postEvent: recapBar,
       destinations: {
@@ -3081,7 +3111,7 @@ export async function SiteBody({
           {group(leadTab, <>
           {/* Menu-shell anchor target (PR6) — top-of-page "Home" landing. Gated
               on menuOn so the flag-off DOM is untouched. */}
-          {menuOn ? (
+          {menuOn && !onePage ? (
             <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
           ) : null}
           {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
@@ -3185,6 +3215,10 @@ export async function SiteBody({
           />
           )}
           </HubCoverHold>
+          {/* 📜 ON THE ONE PAGE "HOME" JUMPS TO THE FIRST SECTION AFTER THE COVER (owner 2026-10-15, Q3 approved:
+              Home lands on the welcome line, so the bar never re-hides itself; the cover is reached by scrolling
+              up). Zero height, and out of the group's rhythm (`!mt-0`), so the page is not moved by it. */}
+          {menuOn && onePage ? <div id={SITE_MENU_ANCHORS.home} aria-hidden data-home-after-cover="" className={ONE_PAGE_HOME_MARK} /> : null}
           </>, { chapters: true, className: 'space-y-12' })}
 
           {group('home', <>
@@ -4144,11 +4178,13 @@ export async function SiteBody({
         {menuOn && showGuestBars ? (
           <SiteMenuBar
             slots={guestBar}
+            onePage={onePage && tabs.on}
           />
         ) : null}
-        {/* 📱 Each tab its own page — the hub shell's page frame shows one tab
-            at a time and keeps its address (`hub/hub-shell.tsx`). */}
-        {menuOn && showGuestBars && tabs.on ? <HubShell frame="page" slots={guestBar} /> : null}
+        {/* 📱 Each tab its own page — the hub shell's page frame shows one page
+            at a time and keeps its address (`hub/hub-shell.tsx`); 📜 on a one-page
+            stage that is the one page or Me (owner 2026-10-15). */}
+        {menuOn && showGuestBars && tabs.on ? <HubShell frame="page" slots={guestBar} onePage={onePage} /> : null}
       </>
     );
   };

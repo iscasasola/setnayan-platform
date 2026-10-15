@@ -16,8 +16,9 @@
  * `makerStagesPages` is the stage's pages in Stages. The Maker's bar (`stage-tools.tsx`), the stage menu's page count
  * (`stage-item-menu.tsx`) and the canvas's groups (`app/[slug]/_components/site-body.tsx`) all ask it — never a
  * second list. It is the guest bar's own pages (`guestBarForStage`, the function the Maker's Page ▾ is built from),
- * on the stages whose page is tabs (`TABBED_STAGES`, the canvas's own rule); a stage the canvas draws as ONE page is
- * one page here too.
+ * on the stages whose page is tabs or one page of jump marks (`hubPageModeOf`, the canvas's own rule — The Day's tabs
+ * are pages, the Invitation's and Save the Date's jump on one page with Me its own, owner 2026-10-15); a stage with
+ * neither (Post Event) is one page here too.
  *
  * ── ONE FILING ──────────────────────────────────────────────────────────────
  * `makerStagesPageOf` answers which page a part drawn at a canvas key is on: the page the approved prototype's
@@ -45,7 +46,7 @@
  * Pure. No React, no DOM, no I/O. ⚠ Read by the canvas (a server component), the Stages tools (lazy) and tests —
  * NEVER import it from a file on the Maker's first load (`check-maker-js-budget.mjs`).
  */
-import { TABBED_STAGES, hubTabFor, inPageTabs } from '../app/[slug]/_lib/hub-tabs';
+import { filingTabs, hubPageModeOf, hubTabFor } from '../app/[slug]/_lib/hub-tabs';
 import type { WelcomePart } from './invitation-welcome';
 import type { LifecyclePhase } from './invitation-widgets';
 import { guestBarForStage } from './maker-guest-pages';
@@ -61,10 +62,13 @@ export type MakerStagesPage = { key: string; label: string };
  */
 export function makerStagesPages(stage: LifecyclePhase, hasStory = true): MakerStagesPage[] {
   const bar = guestBarForStage(stage, hasStory).map(({ key, label }) => ({ key: key as string, label }));
-  return TABBED_STAGES.includes(stage) ? bar : bar.slice(0, 1);
+  /* 📜 The one-page stages (owner 2026-10-15) keep every tab of their bar here too — Home · Details · Story jump on
+     one page and Me is its own (`hubPageOf`), the same split as the guest's (`app/[slug]/_lib/hub-tabs.ts`). */
+  return hubPageModeOf(stage) !== null ? bar : bar.slice(0, 1);
 }
 
-/** Does the Stages canvas draw this stage as tabs, each its own page? (More than one page.) */
+/** Does the Stages canvas draw this stage as tabs (each its own page on The Day; jump marks + Me on the one-page
+ *  stages)? (More than one tab.) */
 export function makerStageIsPaged(stage: LifecyclePhase, hasStory = true): boolean {
   return makerStagesPages(stage, hasStory).length > 1;
 }
@@ -164,9 +168,11 @@ export function pageTabKeys(input: {
   tabsOn: boolean;
   bar: ReadonlyArray<{ key: string; href: string; state: 'live' | 'locked' }>;
   stagesPages: readonly string[] | null;
+  /** 📜 A one-page stage (owner 2026-10-15): its jump marks are tabs content is filed on too (`filingTabs`). */
+  onePage?: boolean;
 }): string[] {
   if (!input.tabsOn) return [];
-  return input.stagesPages ? [...input.stagesPages] : inPageTabs(input.bar);
+  return input.stagesPages ? [...input.stagesPages] : filingTabs(input.bar, input.onePage === true);
 }
 
 /** The pages no content was filed on — the canvas still draws each one a page (its stand-in). */

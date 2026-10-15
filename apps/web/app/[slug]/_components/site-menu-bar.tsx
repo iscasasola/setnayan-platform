@@ -1,10 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Activity, Home, Info, Camera, Images, Radio, User, Lock, CalendarClock, Film, Users, Heart } from 'lucide-react';
 import type { NavSlot } from '../_lib/site-nav';
-import { HUB_TAB_PARAM, activeHubTab, cameraHrefWithBack, inPageTabs } from '../_lib/hub-tabs';
+import {
+  HUB_TAB_PARAM,
+  SCROLL_PAGE,
+  activeHubTab,
+  cameraHrefWithBack,
+  filingTabs,
+  hubPagesOf,
+  inPageTabs,
+  isJumpMarkHref,
+} from '../_lib/hub-tabs';
+import { litJumpMark } from '../_lib/jump-marks';
 
 /**
  * THE EVENT-SITE BOTTOM BAR — icon + label, one shape for everyone.
@@ -111,15 +121,40 @@ const SLOT =
   'text-xs font-semibold leading-none tracking-tight ' +
   'whitespace-nowrap overflow-hidden text-ellipsis transition-colors';
 
-export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
+export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlot[]; onePage?: boolean }) {
   /* 📱 WHICH TAB YOU ARE ON — when each tab is its own page (owner 2026-09-30,
      `hub-tabs.ts`), the bar marks the page showing: `aria-current="page"`, full
      ink. Read from the address, the ONE state the hub shell's page frame keeps
      (`hub/hub-shell.tsx`), so the mark and the page cannot disagree. On a page
      that is one scroll no tab is "the page" and none is marked — as before. */
   const params = useSearchParams();
-  const tabKeys = inPageTabs(slots);
-  const activeKey = tabKeys.length > 0 ? activeHubTab(params?.get(HUB_TAB_PARAM) ?? null, tabKeys) : null;
+  /* 📜 THE ONE PAGE (owner 2026-10-15 — the Invitation, Save the Date): its pages are the one page and Me; on the
+     one page the lit item is the section scrolled to (`spied`), from ONE IntersectionObserver on the bar's own
+     marks — the last one crossed is lit (`litJumpMark`). Me, opened, is lit as its page. */
+  const tabKeys = onePage ? hubPagesOf(filingTabs(slots, true), true) : inPageTabs(slots);
+  const page = tabKeys.length > 0 ? activeHubTab(params?.get(HUB_TAB_PARAM) ?? null, tabKeys) : null;
+  const marks = onePage ? slots.filter((s) => s.state === 'live' && isJumpMarkHref(s.href)) : [];
+  const markKey = marks.map((m) => `${m.key}=${m.href}`).join('|');
+  const [spied, setSpied] = useState<string | null>(marks[0]?.key ?? null);
+  useEffect(() => {
+    if (!onePage || page !== SCROLL_PAGE) return;
+    const pairs = markKey.split('|').filter(Boolean).map((p) => p.split('=') as [string, string]);
+    const targets = pairs.map(([key, href]) => ({ key, el: document.getElementById(href.slice(1)) }));
+    const seen = targets.filter((t): t is { key: string; el: HTMLElement } => t.el !== null);
+    if (seen.length === 0 || typeof IntersectionObserver === 'undefined') return;
+    const spy = () =>
+      setSpied(litJumpMark(seen.map((t) => ({ key: t.key, top: t.el.getBoundingClientRect().top })), window.innerHeight) ?? pairs[0]?.[0] ?? null);
+    /* The top 40 % of the screen is where a section "is": a mark crossing into it, or out of it at either edge,
+       is the only moment the lit item can change — so one observer, no scroll handler. */
+    const io = new IntersectionObserver(spy, { rootMargin: '0px 0px -60% 0px', threshold: [0, 1] });
+    for (const t of seen) io.observe(t.el);
+    spy();
+    return () => io.disconnect();
+  }, [onePage, page, markKey]);
+  const activeKey = onePage ? (page === SCROLL_PAGE ? spied : page) : page;
+  /** 📜 A lit jump mark is "the place you are on this page" (`true`); a lit page is the page (`page`). */
+  const currentOf = (key: string): 'page' | 'true' | undefined =>
+    key !== activeKey ? undefined : onePage && marks.some((m) => m.key === key) ? 'true' : 'page';
   // 🔴 A LOCKED TAB'S REASON WAS IN A `title=`, WHICH A PHONE CANNOT SHOW.
   //
   // This file's own comment says "a padlock with its reason says the truth" —
@@ -168,7 +203,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         ) : (
           <a
             href={slot.href}
-            aria-current={slot.key === activeKey ? 'page' : undefined}
+            aria-current={currentOf(slot.key)}
             className={`${SLOT} ${slot.key === activeKey ? 'text-ink' : 'text-ink/65 hover:text-ink'}`}
           >
             <Icon aria-hidden className="h-5 w-5" strokeWidth={slot.key === activeKey ? 2.25 : 1.75} />
@@ -247,7 +282,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         ) : (
           <a
             href={isCamera ? cameraHrefWithBack(slot.href, activeKey) : slot.href}
-            aria-current={slot.key === activeKey ? 'page' : undefined}
+            aria-current={currentOf(slot.key)}
             className={`${RAIL_SLOT} ${
               isCamera
                 ? 'text-mulberry hover:text-mulberry-600'

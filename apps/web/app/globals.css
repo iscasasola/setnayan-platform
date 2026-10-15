@@ -8675,8 +8675,9 @@ html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
    `CoverSceneMenuWaits` (app/[slug]/_components/cover-scene-menu.tsx) puts ONE `<style data-cover-menu="wait">` in
    `<head>` — never a class on <html>, which React renders and would not patch after a pre-hydration change; while a
    Cover Scene leads the page the ONE top bar and the ONE bottom bar / rail are held off screen and the column's top
-   padding goes, so the cover is the whole screen. The first swipe or scroll sets it to "open": the bars slide in
-   and stay. No script → no marker → the bars as always. */
+   padding goes, so the cover is the whole screen. The first swipe or scroll sets it to "open": the bars slide in;
+   back at the cover it is "wait" again and they slide away (one-page Invitation, Q3, owner 2026-10-15). No script →
+   no marker → the bars as always. */
 html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-sticky-top] {
   position: fixed;
   left: 0;

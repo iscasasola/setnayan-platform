@@ -8794,3 +8794,38 @@ html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
     animation-range: normal;
   }
 }
+
+/* ═══ THE COVER SCENE TAKES THE WHOLE FIRST SCREEN — NO BAR OVER IT (owner 2026-10-15) ═══
+   `sn-cover-wait` is put on the root by `CoverSceneMenuWaits` (app/[slug]/_components/cover-scene-menu.tsx); while a
+   Cover Scene leads the page the ONE top bar and the ONE bottom bar / rail are held off screen and the column's top
+   padding goes, so the cover is the whole screen. The first swipe or scroll adds `sn-cover-open`: the bars slide in
+   and stay. No script → no `sn-cover-wait` → the bars as always. */
+html.sn-cover-wait:has(header[data-cover-scene]) [data-sticky-top] {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  transition: translate 0.35s ease;
+}
+html.sn-cover-wait:has(header[data-cover-scene]) [data-page-column] {
+  padding-top: 0;
+  --cover-scene-above: 0px;
+  --cover-scene-pad: 0px;
+}
+html.sn-cover-wait:has(header[data-cover-scene]) nav[aria-label='Site sections'] {
+  transition: translate 0.35s ease, opacity 0.35s ease, visibility 0.35s;
+}
+html.sn-cover-wait:not(.sn-cover-open):has(header[data-cover-scene]) [data-sticky-top] {
+  translate: 0 -100%;
+}
+html.sn-cover-wait:not(.sn-cover-open):has(header[data-cover-scene]) nav[aria-label='Site sections'] {
+  translate: 0 100%;
+  opacity: 0;
+  visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.sn-cover-wait:has(header[data-cover-scene]) [data-sticky-top],
+  html.sn-cover-wait:has(header[data-cover-scene]) nav[aria-label='Site sections'] {
+    transition: none;
+  }
+}

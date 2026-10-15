@@ -273,3 +273,18 @@ test('(11) the first screen is the cover LESS what sits above it: the guest colu
     assert.ok(COVER_SCENE_ABOVE_CANVAS.split(' ').some((c) => c.startsWith(`${bp}[--cover-scene-above:`)), `the canvas at "${bp || 'phone'}" forgets its padding`);
   }
 });
+
+test('(12) no bar is drawn over the cover; the bars come in only after the cover leaves the screen (owner 2026-10-15)', async () => {
+  const shell = read('app/[slug]/_components/invitation-shell.tsx');
+  assert.equal((shell.match(/<CoverSceneMenuWaits \/>/g) ?? []).length, 2, 'a guest page path (the shell, or the Veil/film full-bleed one) no longer holds the bars off the cover');
+  assert.match(shell, /<div\s+data-page-column=""/, 'the page column lost its marker — its top padding stays above the cover');
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  for (const bar of ["\\[data-sticky-top\\]", "nav\\[aria-label='Site sections'\\]"]) {
+    assert.match(css, new RegExp(`html\\.sn-cover-wait:not\\(\\.sn-cover-open\\):has\\(header\\[data-cover-scene\\]\\) ${bar} \\{[^}]*translate:`), `a bar (${bar}) is drawn over the cover`);
+  }
+  assert.match(css, /html\.sn-cover-wait:has\(header\[data-cover-scene\]\) \[data-page-column\] \{[^}]*padding-top: 0;[^}]*--cover-scene-above: 0px;/, 'the cover does not start at the top edge');
+  const { CoverSceneMenuWaits } = await import('@/app/[slug]/_components/cover-scene-menu');
+  const script = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits));
+  assert.match(script, /window\.scrollY>4\|\|!shown\(\)\)\{r\.classList\.add\('sn-cover-open'\)/, 'the bars never come in after the swipe that moves the cover');
+  assert.match(script, /catch\(e\)\{r\.classList\.add\('sn-cover-open'\)\}/, 'a failure hides the menu for good — it must fail visible');
+});

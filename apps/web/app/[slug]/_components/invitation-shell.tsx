@@ -9,6 +9,7 @@ import {
   ArrivalOnce,
 } from './pahina-motion';
 import { MagicMove } from './magic-move';
+import { CoverSceneMenuWaits } from './cover-scene-menu';
 import type { MagicTraveller } from '@/lib/magic-move';
 import { COVER_SCENE_ABOVE_CANVAS, COVER_SCENE_ABOVE_PAGE } from '@/lib/cover-scene-screen';
 
@@ -131,6 +132,7 @@ export function InvitationShell({
         */
         className={`min-h-dvh text-ink ${themed ? 'relative' : 'bg-cream'}`}
       >
+        <CoverSceneMenuWaits />
         {children}
       </main>
     );
@@ -147,6 +149,7 @@ export function InvitationShell({
           in either one leaves the page fully visible. */}
       <PahinaMotionRootFlag />
       <ArrivalOnce />
+      <CoverSceneMenuWaits />
       {backdrop}
       {/* `sn-top-label` steps aside for the fixed top-right controls (the
           music button, a guest's Account) — see `.sn-top-label` in
@@ -246,6 +249,7 @@ export function InvitationShell({
           the page — `rail-fits.test.ts` asserts that sum. */}
       {/* text-shadow INHERITS: every text node in the column gets a soft cream halo — invisible on the widgets' own cream cards, but it rims the LOOSE dark text (intro copy, eyebrows, greetings) so it stays readable directly on the world art. This carries the legibility duty the retired vellum/wash used to (v3, owner screenshot feedback: even the /35 wash read as a white veil). */}
       <div
+        data-page-column=""
         className={`${editorCanvas ? COVER_SCENE_ABOVE_CANVAS : COVER_SCENE_ABOVE_PAGE} ${
           backdrop
             ? 'relative z-10 mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8 xl:py-20 [text-shadow:0_1px_14px_rgba(251,251,250,0.9),0_0_4px_rgba(251,251,250,0.75),0_1px_1px_rgba(30,34,41,0.18)]'

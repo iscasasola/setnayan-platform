@@ -5,6 +5,11 @@
  * (`invitation-shell.tsx`); nothing set = 0, the whole screen.
  */
 export const COVER_SCENE_ABOVE_PAGE =
-  '[--cover-scene-above:calc(4rem_+_1px_+_2.5rem)] sm:[--cover-scene-above:calc(4rem_+_1px_+_3.5rem)] xl:[--cover-scene-above:calc(4rem_+_1px_+_5rem)]';
+  '[--cover-scene-above:calc(4rem_+_1px_+_2.5rem)] sm:[--cover-scene-above:calc(4rem_+_1px_+_3.5rem)] xl:[--cover-scene-above:calc(4rem_+_1px_+_5rem)] [--cover-scene-pad:2.5rem] sm:[--cover-scene-pad:3.5rem] xl:[--cover-scene-pad:5rem]';
 /** …in the Maker's canvas (no top bar there): the column's top padding only. */
-export const COVER_SCENE_ABOVE_CANVAS = '[--cover-scene-above:2.5rem] sm:[--cover-scene-above:3.5rem] xl:[--cover-scene-above:5rem]';
+export const COVER_SCENE_ABOVE_CANVAS =
+  '[--cover-scene-above:2.5rem] sm:[--cover-scene-above:3.5rem] xl:[--cover-scene-above:5rem] [--cover-scene-pad:2.5rem] sm:[--cover-scene-pad:3.5rem] xl:[--cover-scene-pad:5rem]';
+/**
+ * `--cover-scene-pad` (set beside it): the column's top padding alone — Full width's ground reaches UP through it, so
+ * an edge-to-edge scene starts right under the top bar (owner's controller, 2026-10-15: no white band above it).
+ */

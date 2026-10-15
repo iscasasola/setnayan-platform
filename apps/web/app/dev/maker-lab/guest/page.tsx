@@ -59,6 +59,7 @@ import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
+import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -455,7 +456,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     ) : null;
   /* 🧩 THE LAB'S NODE FOR EACH CANVAS KEY — a stage draws the ones its own list names (`./lab-stage.tsx`). */
   const stageGiven: Record<string, ReactNode> = {
-    'f:hero': <section className="px-4 pb-10 pt-6">{masthead}</section>,
+    'f:hero': <section data-page-column="" className="px-4 pb-10 pt-6">{masthead}</section>,
     'f:greeting': guestScene('greeting'),
     'f:pass': guestScene('pass'),
     'f:rsvp': guestScene('rsvp'),
@@ -703,7 +704,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   return (
-    <main className={`min-h-dvh text-center text-ink [--cover-scene-above:calc(35px_+_1.5rem)] ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase}>
+    <main className={`min-h-dvh text-center text-ink [--cover-scene-above:calc(35px_+_1.5rem)] [--cover-scene-pad:1.5rem] ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase}>
       {/* 📐 `--cover-scene-above`: the lab's bar (35px) + its section's pt-6 — the shell's rule (`lib/cover-scene-screen.ts`), lab-sized. */}
       {/* The page's paper is a LAYER under everything, as the real page's is (`GuestGround`) — never the box's own
           fill, which would hide a background laid behind the page (the main background, and its instant preview). */}
@@ -721,7 +722,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           cover, the greeting, the ticket — stands still while a hand-over plays. (`holds` 0 off the chain: nothing is
           wrapped.) */}
       <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) + (coverLeaves ? 1 : 0) : 0}>
-      <div className="flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
+      <CoverSceneMenuWaits />
+      <div data-sticky-top="" className="flex justify-between border-b border-ink/10 bg-cream px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
       </div>
@@ -741,7 +743,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         cover={
           <>
       {mark('f:hero')}
-      <section className="px-4 pb-10 pt-6">
+      <section data-page-column="" className="px-4 pb-10 pt-6">
         {masthead}
       </section>
           </>

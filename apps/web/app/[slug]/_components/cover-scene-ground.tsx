@@ -9,12 +9,13 @@ export const COVER_SCENE_CREAM_VARS = { '--color-ink': '251 250 247' } as CSSPro
 /**
  * 🖼 THE COVER SCENE'S BACKGROUND, DRAWN — behind the cover's words, the whole first screen tall (the header is
  * `min-h-[100svh]`, `lib/cover-scene.ts`). Framed: inset with a rounded margin, the page colour round it; Full width:
- * edge to edge (the layer is as wide as the screen, whatever column the words sit in). A ready-made loop plays through
+ * edge to edge (the layer is as wide as the screen, whatever column the words sit in) and up through the column's top
+ * padding (`--cover-scene-pad`), so it starts right under the top bar. A ready-made loop plays through
  * the shipped `SceneClip` (muted · inline · only while on screen; its still first and whenever it cannot play).
  */
 export function CoverSceneGround({ layer }: { layer: CoverSceneLayer }) {
   return (
-    <div aria-hidden data-cover-scene-ground={layer.shape} className="pointer-events-none absolute inset-y-0 left-1/2 -z-10 w-screen max-w-[100vw] -translate-x-1/2">
+    <div aria-hidden data-cover-scene-ground={layer.shape} className={`pointer-events-none absolute ${layer.shape === 'full' ? '-top-[var(--cover-scene-pad,0px)] bottom-0' : 'inset-y-0'} left-1/2 -z-10 w-screen max-w-[100vw] -translate-x-1/2`}>
       <div className={`absolute inset-0 ${layer.shape === 'full' ? COVER_SCENE_FULL : COVER_SCENE_FRAMED}`} style={layer.css ? { background: layer.css } : undefined}>
         {layer.still ? (
           <div

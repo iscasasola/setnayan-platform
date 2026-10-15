@@ -81,6 +81,8 @@ import { keepPartLook, partLookFields, partLookTarget, partStyleIsEmptyOn, type 
 import type { MakerPartOps } from './maker-part-ops';
 import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from './stage-panel/part-words';
 import { ActionButton } from '@/components/action-button';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { SEE_AS, SEE_AS_EDITING, seeAsDrawingLine, seeAsLabel, type SeeAs } from '@/lib/see-as';
 import { revealStubHtml } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -367,6 +369,9 @@ export function StageTools({
   const [previewing, setPreviewing] = useState(false);
   const previewingRef = useRef(false);
   previewingRef.current = previewing;
+  /** 👁 See as, as the Maker holds it (`maker-shell.tsx` seeAs/setSeeAs) — read by Exit preview, declared above it. */
+  const seeAsNow = useRef<{ seeAs: SeeAs | null; set?: (next: SeeAs | null) => void }>({ seeAs: null });
+  seeAsNow.current = { seeAs: maker?.seeAs ?? null, set: maker?.setSeeAs };
   /** Where they were when the preview began — the page, the part: Exit returns to exactly that. */
   const before = useRef<{ picked: MakerPartKey | null; page: string | null }>({ picked: null, page: null });
   /** Animate's phase (the same store the tool itself reads): ▶ plays the one they are on. */
@@ -958,6 +963,8 @@ export function StageTools({
   const exitPreview = useCallback(() => {
     postToCanvas({ source: 'setnayan-editor', t: 'guest', on: false });
     setPreviewing(false);
+    /* 👁 Back to editing: the page is the couple's own again (the prototype's exitPreview — See as returns to You). */
+    if (seeAsNow.current.seeAs !== null) seeAsNow.current.set?.(null);
     /* Back to exactly where they were: the page they left, then the part they held (the tool was never changed). */
     const was = before.current;
     const page = was.page && was.page !== where.current.shownPage ? pagesRef.current.find((p) => p.key === was.page) : null;
@@ -981,6 +988,19 @@ export function StageTools({
       document.removeEventListener('keydown', onKey);
     };
   }, [previewing, exitPreview]);
+  /* 👁 A SEE AS PICK REDRAWS THE CANVAS (its address gains `?as=`), and a fresh canvas takes taps as the Maker's again:
+     while the preview is on, a canvas of this stage that says it loaded is told at once that it is a guest's. */
+  useEffect(() => {
+    if (!previewing) return;
+    const onReady = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { source?: unknown; t?: unknown } | null;
+      if (d?.source !== 'setnayan-site' || d.t !== 'ready') return;
+      stageCanvasOf(e.source, stage)?.postMessage({ source: 'setnayan-editor', t: 'guest', on: true }, window.location.origin);
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, [previewing, stage]);
   /* Leaving the stage, or the toolbar, while previewing: the canvas gets its taps back. */
   useEffect(() => () => postToCanvas({ source: 'setnayan-editor', t: 'guest', on: false }), []);
   /** ▶'s press: a tap plays, a hold previews. The pressed look is the button's own, at once (`sn-press`). */
@@ -1695,10 +1715,33 @@ export function StageTools({
                  area at z-30 in this same shell (`maker-shell.tsx`, `data-maker-rsvp-layer`); the button, one above the
                  guests' bar (26), was UNDER that layer's own frame — on the RSVP stage a tap on it reached the guest's
                  page and never left the preview (owner 2026-10-10: "has not return button?"). */
-              className="pointer-events-none absolute inset-x-0 z-[31] flex justify-center lg:hidden"
+              className="pointer-events-none absolute inset-x-0 z-[31] flex justify-center gap-2 px-3 lg:hidden"
               style={{ bottom: `calc(env(safe-area-inset-bottom) + ${pages.length > 1 || rsvpOpen ? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX}px)` }}
             >
               <ActionButton tone="brand" main icon={X} label="Exit preview" onClick={exitPreview} className="pointer-events-auto shadow-lg" />
+              {/* 👁 SEE AS ▾ — the phone's one See as (owner 2026-10-15, with the host strip removed: "See as on phone
+                  YES"). ONE PickMenu beside "Exit preview": the same rows and the same `setSeeAs` as the desktop's
+                  dropdown above the preview; a pick redraws the canvas at `?as=` and never leaves the preview. Not on
+                  the RSVP stage: that canvas is the reply page, always drawn for a guest who has not replied. */}
+              {maker?.setSeeAs && !rsvpOpen ? (
+                <PickMenu
+                  label="See as"
+                  value={maker.seeAs ?? SEE_AS_EDITING.key}
+                  buttonText={`See as · ${maker.seeAs ? seeAsLabel(maker.seeAs) : 'You'}`}
+                  options={[
+                    { key: SEE_AS_EDITING.key, label: SEE_AS_EDITING.label },
+                    ...SEE_AS.map((s) => ({ key: s.key, label: s.label, ...(s.note ? { hint: s.note } : {}) })),
+                  ]}
+                  onPick={(key) => {
+                    const next = SEE_AS.find((s) => s.key === key)?.key ?? null;
+                    if (next === (maker.seeAs ?? null)) return;
+                    maker.setSeeAs?.(next);
+                    setWhyRef.current(seeAsDrawingLine(next));
+                  }}
+                  dataAttr="data-stage-see-as"
+                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
+                />
+              ) : null}
             </div>,
             shellEl,
           )

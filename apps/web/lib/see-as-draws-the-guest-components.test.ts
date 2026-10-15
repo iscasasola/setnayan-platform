@@ -14,8 +14,9 @@
  *       `GuestMeSection` + `GuestTicket` — and the navigator goes to it;
  *   4 · Signed out draws the stranger's door (`GetInside`), or the lock screen
  *       on a private event;
- *   5 · See as lives only in 👁 Preview (phone rows) and its desktop form above
- *       the preview — one control per width, nowhere else.
+ *   5 · See as lives only in 👁 Preview (phone rows), its desktop form above
+ *       the preview, and the phone's hold-▶ preview (See as ▾ beside "Exit
+ *       preview", 2026-10-15) — nowhere else.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,7 +33,6 @@ import {
   SIMULATED_GUEST_ID,
 } from './simulated-guest-preview';
 import { resolveArrivalAction } from './arrival-action';
-import { buildOwnerRibbon } from './owner-ribbon';
 import type { OwnerCapability } from '../app/[slug]/_lib/site-identity';
 
 const WEB = join(__dirname, '..');
@@ -81,21 +81,16 @@ test('1 · each state resolves for a verified host — on every stage, canvas or
   assert.equal(resolveSampleViewer({ ownerCapability: HOST, asParam: ['replied'], lifecyclePhase: 'rsvp', eventId: 'ev-1' }), null);
 });
 
-test('1 · ONE preview mechanism: the host ribbon’s Preview ▾ offers the same states, as ?as= addresses', () => {
-  const model = buildOwnerRibbon({ ownerCapability: { ...HOST, maySiteEdit: true } as OwnerCapability, eventId: 'ev-1', slug: 'mj', phasesEnabled: true, lifecyclePhase: 'rsvp', seeAs: 'declined' });
-  assert.ok(model);
-  assert.deepEqual(model.seeAsLinks.map((l) => l.label), ['You', ...SEE_AS.map((s) => s.label)]);
-  assert.deepEqual(model.seeAsLinks.map((l) => l.href), ['/mj?phase=rsvp', ...SEE_AS.map((s) => `/mj?phase=rsvp&as=${s.key}`)]);
-  assert.deepEqual(model.seeAsLinks.filter((l) => l.active).map((l) => l.key), ['declined']);
-  // (The RSVP stage is the reply page, always drawn for a guest who has not replied — it takes no `as`.)
-  assert.ok(model.phaseLinks.filter((l) => l.phase !== 'rsvp-stage').every((l) => l.href.endsWith('&as=declined')), 'a stage pick drops whose eyes the page is drawn with');
-  assert.equal(model.editorLabel, 'Edit your Event Hub');
-  const menu = read('app/[slug]/_components/owner-phase-menu.tsx');
-  assert.equal((menu.match(/<PickMenu\b/g) ?? []).length, 1, 'the ribbon’s preview is not ONE dropdown');
-  // Both groups are DRAWN FROM the model's links — the stages, then every See as link.
-  assert.match(menu, /\.\.\.links\.map\(\(l\) => \(\{ key: `\$\{STAGE\}\$\{l\.phase\}`, label: l\.label, group: 'Stage' \}\)\)/);
-  assert.match(menu, /\.\.\.seeAs\.map\(\(l\) => \(\{\s*key: `\$\{AS\}\$\{l\.key\}`,\s*label: l\.label,\s*group: 'See as'/, 'the ribbon’s Preview ▾ lost See as');
-  assert.match(menu, /seeAs\.find\(\(l\) => `\$\{AS\}\$\{l\.key\}` === key\)/, 'a See as pick goes nowhere');
+test('1 · ONE preview mechanism: the phone’s hold-▶ preview offers the same states, through the same setSeeAs', () => {
+  // The host strip's Preview ▾ was the phone's only See as; it went 2026-10-15 (owner: "Remove it") and the
+  // See as ▾ beside "Exit preview" took its place — the same rows, the same Maker state, never a second mechanism.
+  const tools = read('app/dashboard/[eventId]/launch/_components/stage-tools.tsx');
+  const row = tools.slice(tools.indexOf('data-stage-exit-preview=""'), tools.indexOf('shellEl,', tools.indexOf('data-stage-exit-preview=""')));
+  assert.ok(row.length > 400, 'the hold-▶ preview’s row was not found — the scan is blind');
+  assert.match(row, /\{ key: SEE_AS_EDITING\.key, label: SEE_AS_EDITING\.label \},\s*\.\.\.SEE_AS\.map\(/, 'the phone’s See as ▾ does not list You · editing and the four states');
+  assert.match(row, /maker\.setSeeAs\?\.\(next\)/, 'a pick does not set the Maker’s one See as state');
+  assert.doesNotMatch(row, /router\.push|window\.location|href=/, 'a See as pick leaves the preview');
+  assert.doesNotMatch(PAGE + BODY, /ribbonCapability/, 'the strip’s capability hand-off is back on the page');
 });
 
 test('2 · each guest state IS the guest page’s reply state — RSVP · You’re going · the declined line', () => {
@@ -150,12 +145,12 @@ test('4 · Signed out draws the door — the stranger’s GetInside, or the priv
   assert.match(BODY, /vendorCapability \|\| \(isEditorCanvas && sampleViewer !== 'signed-out'\) \? null : \(\s*<GetInside/);
   // …drawn as a GUEST, never as the host: the owner and supplier capabilities are dropped.
   const props = branch.slice(branch.indexOf('const asSample = seeAs'), branch.indexOf("if (seeAs === 'signed-out')"));
-  for (const k of ['ownerCapability: null', 'vendorCapability: null', 'supplierDesk: null', 'sampleViewer: seeAs', 'ribbonCapability: ownerCapability']) {
+  for (const k of ['ownerCapability: null', 'vendorCapability: null', 'supplierDesk: null', 'sampleViewer: seeAs']) {
     assert.ok(props.includes(k), `the sample is still drawn with "${k.split(':')[0]}" — it must be drawn as a guest`);
   }
 });
 
-test('5 · See as lives only in 👁 Preview — phone rows in the menu, the one dropdown above the preview on a desktop (and the host ribbon’s Preview ▾)', () => {
+test('5 · See as lives only in 👁 Preview — phone rows in the menu, the one dropdown above the preview on a desktop, and the hold-▶ preview’s See as ▾', () => {
   // Phone: rows of the Preview menu, hidden from lg up.
   const rows = MAKER.slice(MAKER.indexOf('const previewRows = '), MAKER.indexOf('  return (\n    <MakerContext.Provider'));
   assert.ok(rows.length > 400, 'Preview’s rows were not found — the scan is blind');
@@ -181,11 +176,11 @@ test('5 · See as lives only in 👁 Preview — phone rows in the menu, the one
     'app/[slug]/_components/site-body.tsx',
     'app/dashboard/[eventId]/launch/_components/maker-context.tsx',
     'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
+    // The phone's hold-▶ preview: See as ▾ beside "Exit preview" (owner 2026-10-15, with the host strip removed).
+    'app/dashboard/[eventId]/launch/_components/stage-tools.tsx',
     'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx',
-    // The host's own Event Hub: the ribbon's Preview ▾ — the same preview, off the canvas (coordinator 2026-10-04).
-    'lib/owner-ribbon.ts',
     'lib/simulated-guest-preview.ts',
-  ], 'See as is read somewhere new — it lives only in 👁 Preview, the ribbon’s Preview ▾ and the guest page that draws it');
+  ], 'See as is read somewhere new — it lives only in 👁 Preview, the hold-▶ preview’s See as ▾ and the guest page that draws it');
 });
 
 test('5 · no Maker-only twin: the Maker draws none of the guest states itself', () => {

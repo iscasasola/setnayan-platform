@@ -467,6 +467,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'app/[slug]/_components/me-has-the-pages-gutter.test.ts',
     /* …and (2026-10-14, Width) a stored width read off the real page — the cover's names inline, a scene's words scoped. A test. */
     'lib/element-width.test.ts',
+    /* …and (2026-10-15) the same page drawn for a signed-in HOST, to read that no host strip rides it. A test. */
+    'app/[slug]/_lib/the-host-page-has-no-host-strip.test.ts',
     /* …and (2026-10-10, the cover's hand-over) the script that writes the fixture page out for a real browser —
        `scripts/scrub-browser-check.mjs` (16). Run by hand, bundled into nothing; the claim is unchanged. */
     'scripts/scrub-fixture-page.tsx',

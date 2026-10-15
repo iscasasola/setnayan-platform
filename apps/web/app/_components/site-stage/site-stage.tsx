@@ -23,9 +23,9 @@ import { formatCount } from '@/lib/format-number';
  *   WHEN is REAL. The frame is the couple's own `/{slug}`, and a picked stage
  *   asks it for `?phase=` — the host-gated preview `app/[slug]/page.tsx` has
  *   honoured for months. So the frame genuinely becomes that stage's page.
- *   WHO is DESCRIBED. The frame is always the HOST's signed-in page (the owner
- *   ribbon rides it, and `buildOwnerRibbon` gates on a server-verified
- *   capability alone — no param may hide it). Each role's read of the picked
+ *   WHO is DESCRIBED. The frame is always the HOST's signed-in page (the host
+ *   body is drawn from a server-verified capability alone — `viewerIsEventHost`;
+ *   no param may change it. The owner ribbon that also rode it went 2026-10-15). Each role's read of the picked
  *   stage is the card under the frame, resolved server-side by
  *   `resolveHubRoleView`. Rendering a different viewer INSIDE the frame needs a
  *   server-verified "as <role>" preview that `/[slug]` does not have; the only

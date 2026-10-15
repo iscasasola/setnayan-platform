@@ -91,6 +91,7 @@ import {
   type ServicesStepView,
 } from '@/lib/onboarding/services-step-data';
 import { papicPackEstimatePhrase } from '@/lib/papic-tier-copy';
+import { formatCount } from '@/lib/format-number';
 import {
   poolPriceAt,
   poolListPriceAt,
@@ -148,7 +149,8 @@ const TYPE_COPY: Record<
 };
 
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
-const pts = (n: number) => `${n.toLocaleString('en-PH')} pts`;
+// 🔤 The unit is "credits" on every Papic surface (owner 2026-10-13; lib/papic-unit-is-credits.test.ts).
+const credits = (n: number) => `${formatCount(n)} credits`;
 
 function LadderRow({
   left,
@@ -314,7 +316,7 @@ function PoolPicker({
       <Stepper
         decLabel="Fewer shots"
         incLabel="More shots"
-        value={pts(poolShotsAt(type, step))}
+        value={credits(poolShotsAt(type, step))}
         sub={step === 0 ? 'Yours already' : papicPackEstimatePhrase(poolShotsAt(type, step))}
         canDec={step > 0}
         canInc={step < last}
@@ -325,7 +327,7 @@ function PoolPicker({
       {step < last ? (
         <p className="mt-2 text-center text-xs text-ink/60">
           Press <span className="font-semibold text-ink">+</span> to add{' '}
-          <span className="font-semibold text-ink">{pts(nextShots)}</span> more for{' '}
+          <span className="font-semibold text-ink">{credits(nextShots)}</span> more for{' '}
           <span className="font-semibold text-ink">{peso(nextPrice)}</span>.
         </p>
       ) : (
@@ -373,7 +375,6 @@ function PackPoolPicker({
     // An added pack follows the stepper, so the bill is never a step behind it.
     if (added) onChange(stepPool(type, selection, to - poolStepOf(type, selection)));
   };
-  const credits = (n: number) => `${n.toLocaleString('en-PH')} credits`;
   return (
     <div className="mx-3 mb-3" data-papic-pack-picker>
       <p className="mb-2 text-sm font-medium text-ink">
@@ -446,8 +447,11 @@ function PapicType({
 
   return (
     <section className="overflow-hidden rounded-[var(--m-r-md)] border border-ink/12 bg-paper">
-      <div className="flex items-baseline justify-between gap-3 px-4 pb-1 pt-4">
-        <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
+      {/* 📐 Wraps, never clips: at 375 the kicker sat on one `whitespace-nowrap` line beside
+          the title and ran out of the card ("SHARED C…"). It now drops under the title
+          when there is no room, and may break between its own words at 320. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 pb-1 pt-4">
+        <h3 className="flex shrink-0 items-center gap-2 text-base font-semibold text-ink">
           <Icon aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
           <span className="flex flex-col leading-tight">
             {copy.title}
@@ -455,7 +459,7 @@ function PapicType({
             <span className="text-[11px] font-normal text-ink/50">{SERVICE_NAMES.papic.brand}</span>
           </span>
         </h3>
-        <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
+        <span data-papic-kind className="min-w-0 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
           {copy.kind}
         </span>
       </div>
@@ -497,7 +501,7 @@ function PapicType({
           {showFree ? (
             <LadderRow
               free
-              left={pts(type.freePoints)}
+              left={credits(type.freePoints)}
               right={
                 type.freeCameras === null
                   ? 'Free — yours now'
@@ -508,7 +512,7 @@ function PapicType({
           {type.rungs.map((r) => (
             <LadderRow
               key={r.key}
-              left={type.id === 'pool' ? `+${pts(r.points)}` : pts(r.points)}
+              left={type.id === 'pool' ? `+${credits(r.points)}` : credits(r.points)}
               right={peso(r.pricePhp)}
               note={type.id === 'pool' ? papicPackEstimatePhrase(r.points) : undefined}
             />

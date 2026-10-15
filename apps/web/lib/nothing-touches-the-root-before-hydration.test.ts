@@ -42,7 +42,7 @@ export function renderedRootAttrs(layoutSrc: string): { html: Set<string>; body:
     const m = layoutSrc.match(new RegExp(`<${tag}\\s+([A-Za-z][\\s\\S]*?)(?:\\n\\s*>|"\\s*>)`));
     const out = new Set<string>();
     if (!m) return out;
-    for (const a of m[1].matchAll(/(?:^|\s)([A-Za-z][\w-]*)=/g)) out.add(a[1] === 'className' ? 'class' : a[1]);
+    for (const a of (m[1] ?? '').matchAll(/(?:^|\s)([A-Za-z][\w-]*)=/g)) out.add(a[1] === 'className' ? 'class' : (a[1] ?? ''));
     return out;
   };
   return { html: pick('html'), body: pick('body') };
@@ -51,11 +51,11 @@ export function renderedRootAttrs(layoutSrc: string): { html: Set<string>; body:
 /** The faults in one piece of script text: `[root, what]`, e.g. `['html', 'class']`. */
 export function rootMutations(text: string, rendered: { html: Set<string>; body: Set<string> }): Array<[string, string]> {
   if (!/document/.test(text)) return [];
-  const docAliases = ['document', ...[...text.matchAll(/\b([A-Za-z_$][\w$]*)\s*=\s*document\b(?!\s*\.)/g)].map((m) => m[1])];
+  const docAliases = ['document', ...[...text.matchAll(/\b([A-Za-z_$][\w$]*)\s*=\s*document\b(?!\s*\.)/g)].map((m) => m[1] ?? '').filter(Boolean)];
   const doc = `(?:${docAliases.map((a) => a.replace(/\$/g, '\\$')).join('|')})`;
   const targets: Array<[string, string]> = [];
   for (const [root, prop] of [['html', 'documentElement'], ['body', 'body']] as const) {
-    const aliases = [...text.matchAll(new RegExp(`\\b([A-Za-z_$][\\w$]*)\\s*=\\s*${doc}\\.${prop}\\b`, 'g'))].map((m) => m[1].replace(/\$/g, '\\$'));
+    const aliases = [...text.matchAll(new RegExp(`\\b([A-Za-z_$][\\w$]*)\\s*=\\s*${doc}\\.${prop}\\b`, 'g'))].map((m) => (m[1] ?? '').replace(/\$/g, '\\$')).filter(Boolean);
     targets.push([root, `(?:${[`${doc}\\.${prop}`, ...aliases.map((a) => `\\b${a}`)].join('|')})`]);
   }
   const out: Array<[string, string]> = [];
@@ -64,7 +64,7 @@ export function rootMutations(text: string, rendered: { html: Set<string>; body:
     if (new RegExp(`${t}\\.(?:classList\\.(?:add|remove|toggle|replace)|className\\s*[+]?=)`).test(text)) out.push([root, 'class']);
     if (attrs.has('style') && new RegExp(`${t}\\.style\\b`).test(text)) out.push([root, 'style']);
     for (const m of text.matchAll(new RegExp(`${t}\\.(?:setAttribute|removeAttribute|toggleAttribute)\\(\\s*['"]([\\w-]+)`, 'g'))) {
-      const a = m[1] === 'className' ? 'class' : m[1];
+      const a = m[1] === 'className' ? 'class' : (m[1] ?? '');
       if (attrs.has(a)) out.push([root, a]);
     }
     if (attrs.has('lang') && new RegExp(`${t}\\.lang\\s*=`).test(text)) out.push([root, 'lang']);
@@ -155,7 +155,7 @@ test('(3) no inline script changes an attribute React renders on <html> or <body
     `an inline script changes what React renders on the root BEFORE hydration — React will not patch it up and every page logs a hydration mismatch. Use a <style data-…> in <head> (lib/hub-veil.ts, cover-scene-menu.tsx) or a data attribute React does not render:\n  ${fresh.join('\n  ')}`,
   );
   const stale = [...allowed].filter((row) => {
-    const [file, w] = row.split(' ');
+    const [file = '', w = ''] = row.split(' ');
     return !found.get(file)?.has(w);
   });
   assert.deepEqual(stale, [], `allowlist rows that no longer match — delete them:\n  ${stale.join('\n  ')}`);

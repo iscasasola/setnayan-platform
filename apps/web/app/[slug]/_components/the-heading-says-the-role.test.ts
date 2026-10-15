@@ -128,7 +128,12 @@ function visible(html: string): string {
 
 test('Principal Sponsors: names, and no Ninong / Ninang / Principal Sponsor beside them', async () => {
   const s = section(await render(), 'Principal Sponsors');
-  const seen = visible(s);
+  /* ⚖ Owner 2026-10-15 (On the axis · Lines): the two columns' words are said ONCE at the head of the group
+     ("Ninong | Ninang", `data-entourage-sides`) — never under or beside a name. */
+  const sides = [...s.matchAll(/<p[^>]*data-entourage-sides[^>]*>([\s\S]*?)<\/p>/g)];
+  assert.equal(sides.length, 1, 'the column words are said once');
+  assert.equal(visible(sides[0]![1]!).trim(), 'Principal Sponsor · Ninong Ninang');
+  const seen = visible(s.replace(/<p[^>]*data-entourage-sides[^>]*>[\s\S]*?<\/p>/, ''));
   for (const name of ['Jose Abad', 'Teresita Abad', 'Legacy Sponsor', 'Villahermosa', 'Bautista']) {
     assert.ok(seen.includes(name), `${name} prints`);
   }
@@ -263,7 +268,8 @@ test('a section that MIXES roles the heading cannot name keeps the word beside e
   assert.match(parents, /Rosa Lim Mother of the Bride/);
   assert.doesNotMatch(parents.replace(/^Parents/, ''), /Parents of the/, 'a plural beside one name');
   // Under "Maid of Honor & Best Man" a Matron is NOT what the heading says — she keeps hers.
-  const honour = visible(section(html, 'Maid of Honor &amp; Best Man'));
+  // The column words ("Maid of Honor | Best Man", owner 2026-10-15) are said once at the head — not per name.
+  const honour = visible(section(html, 'Maid of Honor &amp; Best Man').replace(/<p[^>]*data-entourage-sides[^>]*>[\s\S]*?<\/p>/, ''));
   assert.match(honour, /Tess Ong Matron of Honor/);
   assert.doesNotMatch(honour.replace('Maid of Honor & Best Man', ''), /Maid of Honor|Best Man/);
 });

@@ -82,7 +82,11 @@ test('2 · no pick is style A — and a pick is drawn only on a stage that draws
   }
   assert.equal(fixedSceneStyleOf(PREFS, 'entourage', 'event', 'wedding'), 'march');
   assert.equal(fixedSceneStyleOf({ scene_styles: { find_your_seat: 'place-card' } }, 'find_your_seat', 'rsvp'), null, 'no seat styles before the day');
-  assert.equal(fixedSceneStyleOf({ scene_styles: { entourage: 'two-sides' } }, 'entourage', 'event', 'birthday'), 'roll-call', 'two sides is a wedding style');
+  /* 🚫 Two sides withdrawn (owner 2026-10-15): a saved pick reads as the default everywhere — a wedding too. */
+  for (const t of ['wedding', 'birthday']) {
+    assert.equal(fixedSceneStyleOf({ scene_styles: { entourage: 'two-sides' } }, 'entourage', 'event', t), 'roll-call', `two sides is withdrawn (${t})`);
+  }
+  assert.equal(fixedSceneStyleOf({ scene_styles: { entourage: 'lines' } }, 'entourage', 'rsvp', 'wedding'), 'lines', 'Lines is drawn');
   assert.equal(fixedSceneStyleOf(PREFS, 'entourage', null), null, 'no stage → the component’s own look');
 });
 

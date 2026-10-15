@@ -324,6 +324,8 @@ export function MakerWork({
     names?: { style: NameStyle; person: NameParts | null };
     /** 🎫 The guest's Ticket style — the drafted one when the draft holds it, else live (`print_details.pass_design`). */
     ticketStyle?: PassCardDesign;
+    /** 🖼 Each ready-made loop's first frame (each theme loop's poster, resolved on the server) — the Cover Scene's Scene ◆ tiles. */
+    loopPosters?: Record<string, string | null>;
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -3401,6 +3403,25 @@ export function MakerWork({
               />
             );
           })()}
+          coverSceneBackground={
+            selection.kind === 'row' && fixedOfKey(selection.key) === 'hero' && elementEditing && sceneFormat ? (
+              <SceneBackgroundRow
+                key="hero"
+                eventId={eventId}
+                widgetType="hero"
+                canvas={draftedCanvasOr('hero', elementEditing.canvases.hero ?? {})}
+                stageScenes={[]}
+                stageLabel=""
+                draftAction={elementEditing.draftAction}
+                themeColours={sceneFormat.colorChoices}
+                board={elementEditing.palette.board}
+                photoChoices={sceneFormat.photoChoices}
+                mediaUsedBytes={sceneFormat.mediaUsedBytes}
+                loopPosters={sceneFormat.loopPosters}
+                ownsPro={ownsPro}
+              />
+            ) : null
+          }
           fixedStylePanel={(() => {
             if (selection.kind !== 'row' || !elementEditing) return null;
             const fixed = fixedOfKey(selection.key);
@@ -3769,6 +3790,7 @@ function Inspector({
   postEventTile = null,
   postEventPanel = null,
   fixedStylePanel = null,
+  coverSceneBackground = null,
   scene,
   scenePanel,
   rows,
@@ -3816,6 +3838,8 @@ function Inspector({
   postEventPanel?: ReactNode;
   /** 🎨 A fixed part's Style row (the entourage and the day's own parts) — its Format, Style only. */
   fixedStylePanel?: ReactNode;
+  /** 🖼 The Cover Scene's Background rows (the hero row's `canvas.ground`) — the hero's fixed panel draws them. */
+  coverSceneBackground?: ReactNode;
   scene: MakerScene | null;
   scenePanel: ReactNode;
   rows: Record<string, MakerRowPanel>;
@@ -3937,7 +3961,9 @@ function Inspector({
               {fixedFact ?? toolHere}
             </>
           }
-          background={null}
+          /* 🖼 THE COVER IS THE COVER SCENE (owner-approved 2026-10-15): its Background is the group's — ONE
+             background for the whole first screen (`stage-panel/cover-words-background.tsx`, through the same lazy door). */
+          background={fixed === 'hero' ? coverSceneBackground : null}
           arrange={null}
         />
       </section>

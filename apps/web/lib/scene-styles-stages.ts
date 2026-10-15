@@ -158,6 +158,8 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'mosaic', name: 'Mosaic', line: 'A cover photo, then two across, offset.', stages: STD },
       { id: 'grid', name: 'Grid', line: 'Three across, every photo the same size.', stages: STD },
       { id: 'film-strip', name: 'Film strip', line: 'Strips that slide sideways.', stages: STD },
+      /* 🎞 Owner 2026-10-15 (DECISION_LOG "GLIMPSE PHOTO STYLE APPROVED"): its own id — not one of Post Event's. */
+      { id: 'glimpse', name: 'Glimpse', line: 'One photo at a time, centred; the next peeks in.', stages: STD },
     ],
     // Post Event's Grid is listed first; the shipped Save the Date look stays the default.
     defaults: { save_the_date: 'mosaic' },

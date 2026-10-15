@@ -124,7 +124,7 @@ const ok = (p: { place: string; what: string }, of: string) => {
 test('every draft kind maps to a plain "Place · What" label', () => {
   for (const c of HUB_DRAFT_EVENT_COLUMNS) ok(HUB_DRAFT_EVENT_PLACE[c], `events.${c}`);
   const base = { change: 'change' as const, pro: false, value: null };
-  const fields = ['mode', 'is_visible', 'display_order', 'canvas', 'main', 'stage_order', 'std_lead', 'custom', 'venue'] as const;
+  const fields = ['mode', 'is_visible', 'display_order', 'canvas', 'main', 'stage_order', 'std_lead', 'photos_heading', 'custom', 'venue'] as const;
   for (const field of fields) {
     const item = { ...base, kind: 'widget', widgetType: 'schedule', widgetId: 'w-schedule', field } as HubDraftItem;
     ok(hubDraftChangePlace(item, LIVE), `widget field ${field}`);

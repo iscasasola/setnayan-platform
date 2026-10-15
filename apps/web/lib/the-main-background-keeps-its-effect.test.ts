@@ -50,7 +50,7 @@ const EFFECTS: HubMainEffect[] = HUB_MAIN_EFFECTS.flatMap((kind) =>
 );
 
 test('every shape keeps an effect — the kind, how much and the colour, exactly', () => {
-  assert.equal(EFFECTS.length, 6 * 3 * 6, 'six effects × three amounts × (Original + the five)');
+  assert.equal(EFFECTS.length, 8 * 3 * 6, 'eight effects × three amounts × (Original + the five)');
   for (const [name, shape] of Object.entries(SHAPES)) {
     for (const effect of EFFECTS) {
       const read = sanitizeHubMainGround({ ...shape, effect });
@@ -114,8 +114,8 @@ test('a broken effect is dropped — the background under it is untouched; a col
   assert.equal(sanitizeHubMainGround({ effect: { kind: 'sparkles', intensity: 'standard' } }), null);
 });
 
-test('the vocabulary: six effects, three amounts, and the colours ARE the palette’s five slots', () => {
-  assert.deepEqual([...HUB_MAIN_EFFECTS].sort(), ['bokeh', 'capiz', 'lanterns', 'petals', 'shimmer', 'sparkles']);
+test('the vocabulary: eight effects, three amounts, and the colours ARE the palette’s five slots', () => {
+  assert.deepEqual([...HUB_MAIN_EFFECTS].sort(), ['bokeh', 'dust', 'grain', 'haze', 'lanterns', 'leak', 'petals', 'shimmer']);
   assert.deepEqual([...HUB_MAIN_EFFECT_INTENSITIES], ['subtle', 'standard', 'lavish']);
   assert.deepEqual([...HUB_MAIN_EFFECT_COLOURS], Object.keys(MAIN_SLOT), 'an effect’s colour is a palette slot by the palette’s own names — one fact, one home');
   assert.equal((HUB_MAIN_EFFECTS as readonly string[]).includes('candlelight'), false, 'Candlelight is not an effect (owner: "remove candlelight")');

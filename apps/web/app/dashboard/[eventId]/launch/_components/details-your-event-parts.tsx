@@ -16,6 +16,7 @@ import {
 import type { VenueSlot } from './details-your-event';
 import type { MarchSectionData } from './details-march';
 import type { MarchOut } from '@/lib/march-drag';
+import type { MarchCardResult } from '../march-card-actions';
 import type { HostPiece, PersonPiece } from './details-people';
 /* ⚡ Your event's editors and pictures load when Details is opened — never with the Maker (`details-lazy.tsx`). */
 import {
@@ -96,6 +97,8 @@ export type YourEventInput = {
      * against a march that is not the one the couple drafted.
      */
     draftUnread?: boolean;
+    /** 🪪 The dev Maker lab only: its stand-in for reading a tapped name's guest card (a server action that reaches no database). */
+    openCard?: (eventId: string, guestId: string) => Promise<MarchCardResult>;
   };
 };
 
@@ -194,6 +197,7 @@ export function yourEventParts({
         out={input.march.out === undefined ? [] : input.march.out}
         lab={input.march.lab === true}
         draftUnread={input.march.draftUnread === true}
+        openCard={input.march.openCard}
       />
     ),
   };

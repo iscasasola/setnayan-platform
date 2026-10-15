@@ -243,6 +243,8 @@ export const HUB_ELEMENT_FREE_FIELDS = [
   'italic',
   'underline',
   'align',
+  // ↔ Width (Narrow · Wide · Full, owner 2026-10-14) — a text choice like size and colour: free, no ◆.
+  'width',
   'leading',
   'tracking',
   'hidden',

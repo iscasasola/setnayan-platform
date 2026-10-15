@@ -99,24 +99,27 @@ test('📏 the orphan cannot come back — "you" alone on a line', () => {
   assert.match(
     pillMarkup(),
     /text-balance/,
-    'the second line lost its balanced wrapping, so "you" can be stranded on a ' +
+    'the instruction lost its balanced wrapping, so "you" can be stranded on a ' +
       'line of its own again — measured at 375px on the live site',
   );
 });
 
-test('the owner’s words are untouched', () => {
+test('the owner’s words — one instruction, "Tap or swipe up to unveil" (2026-10-15)', () => {
   const pill = pillMarkup();
-  assert.match(pill, /Lift the veil ↑/, 'the headline wording changed');
-  assert.match(pill, /or double-tap to lift it for you/, 'the second line wording changed');
+  // The words live in one constant so the lab walk and this guard read the same string.
+  const src = readFileSync(OVERLAY, 'utf8');
+  assert.match(src, /export const VEIL_HINT = 'Tap or swipe up to unveil';/, 'the veil instruction is not the owner’s words');
+  assert.match(pill, /\{VEIL_HINT\}/, 'the pill no longer draws the owner’s instruction');
+  // 🚫 The double-tap is retired (owner: "before we had double tap to unveil. now we make it simpler").
+  assert.equal(/double-tap|Lift the veil/.test(pill), false, 'the retired two-line wording is back on the pill');
 });
 
 test('it uses the guest editorial stack, not a third register', () => {
   const pill = pillMarkup();
-  // Inside .sn-editorial, font-display resolves to Cormorant and font-sans to
-  // Manrope — verified in the live DOM. Anything else here would be a new
-  // typeface introduced on the most-seen screen in the product.
-  assert.match(pill, /font-display/, 'the headline left the editorial display face');
-  assert.match(pill, /font-sans/, 'the second line left the editorial sans');
+  // Inside .sn-editorial, font-display resolves to Cormorant — verified in the
+  // live DOM. Anything else here would be a new typeface introduced on the
+  // most-seen screen in the product.
+  assert.match(pill, /font-display/, 'the instruction left the editorial display face');
 });
 
 /* ⛔ THE H-2 GATE THAT USED TO SIT HERE IS GONE, DELIBERATELY — NOT LOST.

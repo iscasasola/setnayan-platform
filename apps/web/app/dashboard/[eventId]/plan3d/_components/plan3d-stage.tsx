@@ -136,14 +136,15 @@ export function Plan3dStage({
               On 2026-09-23 the same words were retired from the controller
               (`launch/_components/hub-stage.tsx`) and from all three
               `ctaLabel`s in `lib/event-hub-control.ts`, because those doors open
-              `/<slug>` — which mounts `<OwnerRibbon>` from a server-verified
-              capability no param can switch off, so the host got their OWN page
-              under a button promising a guest's.
+              `/<slug>` — which draws the HOST's page (then with `<OwnerRibbon>`
+              on top — removed 2026-10-15; the host body stays) from a
+              server-verified capability no param can switch off, so the host
+              got their OWN page under a button promising a guest's.
 
               THIS door is `/<slug>/venue`, and that route is different in the
               two ways that matter. Measured on `origin/main`, 2026-09-23:
-                • `git grep -n OwnerRibbon -- 'apps/web/app/[slug]/venue'` →
-                  nothing. No ribbon, and no `SiteBody` to carry one.
+                • `git grep -n SiteBody -- 'apps/web/app/[slug]/venue'` →
+                  nothing. No `SiteBody`, so no host body.
                 • it reads no guest session and no seat, so it has nothing
                   personal to withhold from a host.
               A host opening the room sees what a guest opening it directly

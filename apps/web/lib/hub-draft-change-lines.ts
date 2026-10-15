@@ -296,6 +296,8 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
           return { place: 'Music', what: 'Music button' };
         case 'std_lead':
           return { place: 'Save the Date', what: 'Film or photos' };
+        case 'photos_heading':
+          return { place, what: 'Heading' };
         case 'mode':
         case 'is_visible':
           return { place, what: 'Shown or hidden' };

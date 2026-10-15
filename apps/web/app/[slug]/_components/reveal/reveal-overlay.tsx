@@ -58,6 +58,7 @@ import { markRevealSeen, revealAlreadySeen } from '@/lib/reveal-once-per-visit';
 import { landedOnTheFirstPage } from '@/lib/reveal-stages';
 import { revealAllowedFor } from '@/lib/reveal-access';
 import { revealMaterialVars, type RevealMaterials } from '@/lib/reveal-materials';
+import { claimVeilHold, ensureVeilHold, releaseVeilHold, unveilInGesture, REVEAL_LAYER_ATTR } from '@/lib/hub-veil';
 
 // NOTE: the gold-monogram + molten-monogram openings were RETIRED here (owner
 // 2026-06-22 "this is monogram animation, not a reveal") — they now live ONLY as
@@ -162,6 +163,9 @@ type Props = {
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
 
+/** 👆 The veil's one instruction (owner 2026-10-15, verbatim: *"Tap, swipe up to unveil"*). */
+export const VEIL_HINT = 'Tap or swipe up to unveil';
+
 /** 🎭 On the page (`<html>`) while a guest is looking at the opening — read by the Scrub island (`hub-scrub.tsx`). */
 export const REVEAL_UP_ATTR = 'data-reveal-up';
 
@@ -187,6 +191,9 @@ export function RevealOverlay({
   const [reveal, setReveal] = useState('');
   const [reducedMotion, setReducedMotion] = useState(false);
   const [open, setOpen] = useState(false);
+  /* 👆 The guest has tapped or swiped up: the instruction is done the moment the gesture lands — not when the cloth has
+     finished rising (live 2026-10-15, `/cale-ice`: the pill stayed ~10 s through the hands-free lift). */
+  const [lifting, setLifting] = useState(false);
   const [gone, setGone] = useState(false);
   // 🎚 The couple's fine-tune over the house look (Maker's Reveal page) —
   // untouched when they tuned nothing. `lib/std-reveal-effects.ts`.
@@ -331,6 +338,23 @@ export function RevealOverlay({
     };
   }, [active, mounted, gone, oncePerVisit, seenEventId]);
 
+  /*
+    🙈 NOTHING BEHIND IT PLAYS UNTIL IT IS OPENED (owner 2026-10-15 · `lib/hub-veil.ts`). The server wrote the
+    hold before the body parsed; THIS is where it is decided whether it stays. The same `showing` the film
+    handshake reads: an opening a guest is really looking at keeps the page held (the veil claims it once its
+    hit-zone is armed; a rigid opening is drawn at once, so it claims here) — and every reason it stands down
+    lets the page play. Waits for `mounted`: the very first render knows none of the reasons yet.
+  */
+  useEffect(() => {
+    if (!mounted) return;
+    if (!active || gone) {
+      releaseVeilHold();
+      return;
+    }
+    ensureVeilHold();
+    if (!veil) claimVeilHold();
+  }, [active, mounted, gone, veil]);
+
   if (!active || !mounted || gone) return null;
 
   if (veil) {
@@ -347,7 +371,7 @@ export function RevealOverlay({
     // while covering, top valance band once lifted). So: swipe the top band →
     // grab/re-cover the veil; swipe the body → scrub the film messages.
     return (
-      <div className="pointer-events-none fixed inset-0 z-[60] overflow-hidden">
+      <div className="pointer-events-none fixed inset-0 z-[60] overflow-hidden" {...{ [REVEAL_LAYER_ATTR]: '' }}>
         <VeilReveal
           veilColor={eventEffects?.veilColor ?? veilColor}
           petalsColor={eventEffects?.petalColor ?? petalsColor}
@@ -357,10 +381,18 @@ export function RevealOverlay({
             logo: config?.features?.logo ?? true,
             music: eventEffects?.music ?? config?.features?.music ?? false,
           }}
+          /* 👆 THE TAP / SWIPE UP ITSELF, synchronously inside its pointerup: the page behind starts, and the
+             music with it (owner 2026-10-15: "when they unveil, the music starts playing upon tap"). */
+          onUnveil={() => {
+            unveilInGesture();
+            setLifting(true);
+          }}
           onRevealed={() => {
             // Start the film once, on the first lift; keep the veil on top.
             if (!open) window.dispatchEvent(new CustomEvent('std-reveal-done'));
             setOpen(true);
+            // A lift with no gesture (no WebGL, reduced motion switched on) still lets the page play.
+            releaseVeilHold();
           }}
         />
         {/* Legible instruction (owner 2026-06-20 "the text at the bottom should
@@ -391,18 +423,26 @@ export function RevealOverlay({
 
             ⛔ NOT H-2. That is the FILM's label face (`lib/std-themes.ts`), it
             is owner-gated, and nothing here touches it. This is the reveal
-            overlay — a different component, and W3-D's own scheduled item. */}
+            overlay — a different component, and W3-D's own scheduled item.
+
+            👆 2026-10-15 — ONE LINE NOW, IN THE OWNER'S NEW WORDS (*"before we
+            had double tap to unveil. now we make it simpler. Tap, swipe up to
+            unveil"*). The two lines ("Lift the veil ↑" / "or double-tap to lift
+            it for you") said two gestures; there is one instruction now, set at
+            the headline's 24px, so legibility still only went up. */}
+        {/* 🍪 ABOVE THE FIRST-VISIT COOKIE NOTICE (Batch 8 tester R3, 2026-10-15: the notice, z 70 over the veil's 60,
+            covered this — the veil's ONE instruction — until it was answered). It stands the notice's published
+            height (`--cookie-banner-top`, 0 once answered or off a phone) above its old 4rem, as #6518 did. */}
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-16 flex justify-center transition-opacity duration-500 ${
-            open ? 'opacity-0' : 'opacity-100'
+          data-veil-hint=""
+          className={`pointer-events-none absolute inset-x-0 flex justify-center transition-opacity ${
+            lifting ? 'opacity-0 duration-0' : open ? 'opacity-0 duration-500' : 'opacity-100 duration-500'
           }`}
+          style={{ bottom: 'calc(4rem + var(--cookie-banner-top, 0px))' }}
         >
           <div className="rounded-full bg-black/35 px-6 py-3 text-center backdrop-blur-[2px]">
-            <p className="font-display text-2xl font-medium leading-snug text-cream [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
-              Lift the veil ↑
-            </p>
-            <p className="mt-1 text-balance font-sans text-sm leading-snug text-cream/85 [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
-              or double-tap to lift it for you
+            <p className="text-balance font-display text-2xl font-medium leading-snug text-cream [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+              {VEIL_HINT}
             </p>
           </div>
         </div>
@@ -413,6 +453,7 @@ export function RevealOverlay({
   // Rigid family — RigidStage owns the seal-swipe gate + scroll-scrub open and
   // fires onOpened once the flaps are fully clear; we then remove the overlay.
   const onOpened = () => {
+    releaseVeilHold();
     window.dispatchEvent(new CustomEvent('std-reveal-done'));
     setGone(true);
   };
@@ -422,6 +463,7 @@ export function RevealOverlay({
   return (
     <div
       className="fixed inset-0 z-[60] overflow-hidden"
+      {...{ [REVEAL_LAYER_ATTR]: '' }}
       data-reveal-dressed={materials ? '' : undefined}
       style={revealMaterialVars(materials ?? null) as CSSProperties}
     >

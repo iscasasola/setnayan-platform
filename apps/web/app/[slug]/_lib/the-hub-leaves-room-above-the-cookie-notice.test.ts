@@ -24,6 +24,7 @@ const CSS = read('globals.css');
 const SITE = read('[slug]/_components/site-body.tsx');
 const FILM = read('[slug]/_components/save-the-date-film.tsx');
 const BANNER = read('_components/cookie-consent-banner.tsx');
+const OVERLAY = read('[slug]/_components/reveal/reveal-overlay.tsx');
 
 test('the notice still publishes the height the hub reads', () => {
   assert.match(BANNER, /'--cookie-banner-top'/, 'the notice stopped publishing `--cookie-banner-top`');
@@ -46,4 +47,14 @@ test('the Save the Date film’s quiet “See our page” stands above the notic
   const wrap = /<div className="absolute bottom-5 left-4 z-20"([\s\S]*?)>\s*<button/.exec(FILM);
   assert.ok(wrap, 'the quiet "See our page" no longer sits in its corner wrapper');
   assert.match(wrap[1] ?? '', /style=\{\{\s*bottom:\s*'calc\(1\.25rem \+ var\(--cookie-banner-top, 0px\)\)'\s*\}\}/, 'the quiet "See our page" is under the first-visit notice again');
+});
+
+test('the veil’s one instruction stands above the notice (Batch 8 R3)', () => {
+  const at = OVERLAY.indexOf('{VEIL_HINT}');
+  assert.ok(at > -1, 'the veil lost its instruction');
+  // The hint's positioned wrapper is the last `absolute inset-x-0` <div> before it.
+  const before = OVERLAY.slice(0, at);
+  const wrap = before.slice(before.lastIndexOf('pointer-events-none absolute inset-x-0'));
+  assert.doesNotMatch(wrap, /\bbottom-16\b/, 'the hint is pinned at a fixed bottom-16 again — under the first-visit notice');
+  assert.match(wrap, /style=\{\{\s*bottom:\s*'calc\(4rem \+ var\(--cookie-banner-top, 0px\)\)'\s*\}\}/, '"Tap or swipe up to unveil" is under the first-visit notice again');
 });

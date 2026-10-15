@@ -38,6 +38,14 @@ import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoi
 import { DetailsGoTo } from './details-go';
 import { PASS_ZIP_PRO_NOTE } from '@/lib/studio-prints-six';
 import { StudioTool } from './details-lazy';
+import type { StudioChartInput, StudioPaper } from './print-paper';
+import {
+  DEFAULT_ENTRANCE_CHART_SIZE,
+  ENTRANCE_CHART_LAYOUTS,
+  ENTRANCE_CHART_LAYOUT_LABELS,
+  ENTRANCE_CHART_SIZES,
+  chartFileStem,
+} from '@/lib/print-entrance-chart';
 
 /**
  * THE PRINTS, AS PARTS OF THE DETAILS PAGE. Until 2026-09-28 this file drew
@@ -312,6 +320,31 @@ export function PrintPieceEditor({
     );
   if (studio) {
     const sizes = fam ? formatsFor(fam).map((f) => f.label) : [];
+    const changed = (
+      <ChangedSincePrinted
+        eventId={input.eventId}
+        piece={k}
+        version={input.previewVersion}
+        again={themedReady ? ({ href: q(k, 'print'), file: file.themed(k) }) : { href: classic(k), file: file.classic(k) }}
+      />
+    );
+    /* 🖼 THE PIECE'S PICTURE IN ITS HEAD (owner 2026-10-14): the SAME address its body draws (`PrintPieceBody`), at its paper's shape. */
+    const paper: StudioPaper = {
+      item: k,
+      eventId: input.eventId,
+      src: q(k, 'screen'),
+      aspect: fam ? formats[fam].wMm / formats[fam].hMm : spec.widthPt / spec.heightPt,
+      title: spec.label,
+      chips: [
+        fam ? `${formats[fam].label} · ${formats[fam].wMm} × ${formats[fam].hMm} mm` : spec.size,
+        themed && !themedReady ? `◆ ${t.name} · sample until Pro` : t.name,
+      ],
+      empty: menuEmpty
+        ? { title: 'No menu yet', line: 'The moments of your night and the dishes of each — this card is never printed blank.', door: { kind: 'here', selector: '[data-print-editor="menu"] [data-print-menu-add] button', label: 'Add your menu' } }
+        : storyMissing
+          ? { title: 'No Love Story yet', line: 'The poster prints your chapters, moment by moment. It is never printed blank.', door: { kind: 'item', item: 'love-story', label: 'Add your Love Story' } }
+          : null,
+    };
     return (
       <div data-print-editor={k} data-print-studio="" className="flex flex-col gap-1">
         {/* The piece's name, its sizes and its size ▾ — ONE Form row (the chosen answer, or just the name where it has one size). */}
@@ -319,6 +352,8 @@ export function PrintPieceEditor({
           part="print-head"
           name={spec.label.replace(/^the\s+/i, '')}
           line={sizes.length > 1 ? sizes.join(sizes.length > 2 ? ' · ' : ' or ') : spec.size}
+          paper={paper}
+          sheet={{ actions: saves, changed }}
           picker={
             sizePicker && fam
               ? {
@@ -336,12 +371,7 @@ export function PrintPieceEditor({
           </div>
         ) : null}
         {/* 1 · Changed since you printed — the amber status line with one quiet "Save again" (the piece's main file). */}
-        <ChangedSincePrinted
-          eventId={input.eventId}
-          piece={k}
-          version={input.previewVersion}
-          again={themedReady ? ({ href: q(k, 'print'), file: file.themed(k) }) : { href: classic(k), file: file.classic(k) }}
-        />
+        {changed}
         {children}
         {/* 6 · The poster's photo — Theme's picture | My photo, the upload square, the plain-words problem (`studio-prints-six.tsx`). */}
         {k === 'story-poster' && !storyMissing ? (
@@ -559,14 +589,16 @@ export function freePrintParts(
       </div>
     ),
     editor: studio ? (
-      <div className="flex flex-col gap-2 pb-1" data-free-print-saves={fp.key} data-print-studio="">
-        <p className="text-[11.5px] leading-snug text-ink/55">{fp.blurb}</p>
-        <div className="flex flex-wrap gap-1.5">
-          {fp.saves.map((s, i) => (
-            <PrintSaveButton key={s.href} href={s.href} file={s.file} variant="action" main={i === 0} label={s.label} />
-          ))}
+      fp.key === 'seating-chart' ? (
+        /* 🪧 The entrance seating chart — its own row, with By table | A to Z and its size ▾ (owner 2026-10-14). */
+        <StudioTool part="chart" chart={studioChartInput(eventId, slug, fp)} />
+      ) : (
+        <div className="flex flex-col gap-2 pb-1" data-free-print-saves={fp.key} data-print-studio="">
+          {/* 🖼 Its name and its picture — the route's own page 1, at its paper's shape (owner 2026-10-14); the blurb is the row's small line. */}
+          <StudioTool part="print-head" name={fp.label} line={fp.blurb} picker={null} paper={freePaper(eventId, fp)} sheet={{ actions: freeSaves(fp) }} />
+          <div className="flex flex-wrap gap-1.5">{freeSaves(fp)}</div>
         </div>
-      </div>
+      )
     ) : (
       <div className="flex flex-col gap-2" data-free-print-saves={fp.key}>
         <p className="text-xs text-ink/60">
@@ -585,6 +617,34 @@ export function freePrintParts(
       </div>
     ),
   }));
+}
+
+/** A free print's Saves, Studio's look — the row and its preview sheet draw the same ones. */
+function freeSaves(fp: FreePrint) {
+  return fp.saves.map((s, i) => <PrintSaveButton key={s.href} href={s.href} file={s.file} variant="action" main={i === 0} label={s.label} />);
+}
+
+/** 🖼 A free print's picture: its route's own preview (`fp.preview`), at its paper's shape — page 1, the pages flipped in the sheet. */
+function freePaper(eventId: string, fp: FreePrint): StudioPaper {
+  return { item: fp.key, eventId, src: fp.preview, aspect: fp.aspect, title: fp.label, chips: [fp.paper, 'free'], ...(fp.pages ? { pages: true } : {}) };
+}
+
+/** 🪧 The entrance chart's row, read from the chart's own sizes and layouts (`lib/print-entrance-chart.ts`) — the files named as the route names them. */
+export function studioChartInput(eventId: string, slug: string | null, fp: FreePrint): StudioChartInput {
+  return {
+    eventId,
+    route: `/dashboard/${encodeURIComponent(eventId)}/seating/print`,
+    sizes: ENTRANCE_CHART_SIZES.map((s) => ({ key: s.key, label: s.label, mm: s.mm, aspect: s.wMm / s.hMm })),
+    defaultSize: DEFAULT_ENTRANCE_CHART_SIZE,
+    layouts: ENTRANCE_CHART_LAYOUTS.map((l) => ({ key: l, label: ENTRANCE_CHART_LAYOUT_LABELS[l] })),
+    files: { table: printFileName(slug, chartFileStem('table')), az: printFileName(slug, chartFileStem('az')) },
+    saveLabels: {
+      table: fp.saves.find((s) => s.href.includes('chart=table'))?.label ?? 'Entrance chart · by table',
+      az: fp.saves.find((s) => s.href.includes('chart=az'))?.label ?? 'Entrance chart · A to Z',
+    },
+    title: fp.label,
+    blurb: fp.blurb,
+  };
 }
 
 /**

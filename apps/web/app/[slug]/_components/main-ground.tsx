@@ -74,7 +74,7 @@ export function MainGround({
   veil?: { color: string; opacity: number } | null;
   /** 🌫 Blur ▾ — Soft · Strong; null = sharp. */
   blur?: HubMainBlur | null;
-  /** 🎯 Focus ▾ — which part of a photo stays in view; null = the centre. */
+  /** 🎯 Focus ▾ — which part of the picture (a photo or the clip) stays in view; null = the centre. */
   focus?: HubMainFocus | null;
 }) {
   if (!still && !clip) return null;
@@ -87,7 +87,8 @@ export function MainGround({
     .join('');
   const css =
     '[data-guest-ground] [data-theme-loop],[data-guest-ground] [data-theme-poster]{display:none}' +
-    (declarations ? `[data-guest-look]{${declarations}}` : '');
+    /* 🎨 Over a picture the names keep the measured ink — the Dominant was measured on the paper (`globals.css`). */
+    `[data-guest-look]{${declarations}--hub-names-ink:initial !important;}`;
   return (
     <>
       <style data-main-ground-style="">{css}</style>
@@ -116,7 +117,9 @@ export function MainGround({
             play="loop"
             open="inplace"
             label=""
-            className={`absolute inset-0 h-full w-full object-cover ${focus === 'top' ? 'object-top' : focus === 'bottom' ? 'object-bottom' : ''}`}
+            className="absolute inset-0 h-full w-full object-cover"
+            /* 🎯 The film is held where its still is — the ONE crop rule, not a second copy in class names. */
+            position={position}
               revealOnPlay
             />
           </div>

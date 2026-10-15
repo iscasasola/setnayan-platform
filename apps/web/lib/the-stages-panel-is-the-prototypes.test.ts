@@ -223,7 +223,8 @@ test('every part with a Studio bar has a door; every focused field exists in the
   for (const [part, sel] of Object.entries(MAKER_PART_FOCUS)) {
     const field = /data-same-field="([a-z_]+)"/.exec(sel!)?.[1];
     assert.ok(field, `${part}: focuses a same-field door`);
-    const hits = execSync(`grep -rl 'data-same-field="${field}"' app --include=*.tsx`, { cwd: WEB }).toString().trim();
+    /* …drawn either as the attribute itself or through a row's `pillAttrs={{ 'data-same-field': '<key>' }}` (the Photos heading). */
+    const hits = execSync(`grep -rl -e 'data-same-field="${field}"' -e "data-same-field': '${field}'" app --include=*.tsx`, { cwd: WEB }).toString().trim();
     assert.ok(hits.length > 0, `${part}: no editor draws data-same-field="${field}"`);
   }
   const shell = read(`${LAUNCH}/maker-shell.tsx`);

@@ -9,6 +9,7 @@
  *     (`.button-primary`)            rgb(30 34 41) on rgb(55 59 49) — 1.4 : 1
  *   · the footer's "See you soon."   rgb(42 45 37) on the dark page — 1.1 : 1
  *   · the host's ribbon label        the page's pale ink on the gold plate
+ *     (the strip went 2026-10-15; the plate ink it was read with is still measured)
  *
  * `.button-primary` is `bg-mulberry text-cream`: its LABEL is the page's paper
  * and its FILL is "the colour that paper reads on". The Mood Board (and every
@@ -367,10 +368,11 @@ test('(6) the page paints with the tokens measured above', () => {
   const door = stripComments(read('app/[slug]/_components/get-inside.tsx'));
   assert.match(door, /<summary className="button-primary [^"]*">\s*<span className="text-base">Get inside<\/span>/);
 
-  // The host's ribbon is the PLATE's paper, so its label takes the plate's ink.
-  const ribbon = stripComments(read('app/[slug]/_components/owner-ribbon.tsx'));
-  assert.match(ribbon, /bg-paper-deep\/95/);
-  assert.match(ribbon, /text-ink-on-plate\/70">\s*Your Event Hub — as a guest sees it/);
+  // Words on the PLATE's paper take the plate's ink — a plain block's plate (`lib/block-looks.ts` ROOT_PLAIN) paints
+  // exactly that pair. (This was measured on the host strip's label until the strip went, 2026-10-15 — owner:
+  // "Remove it"; the pair, and the measure below — taken at the label's old 70 %, a stricter bar — are unchanged.)
+  const plateWords = stripComments(read('lib/block-looks.ts'));
+  assert.match(plateWords, /--block-ink:var\(--color-ink-on-plate, var\(--color-ink\)\);color:rgb\(var\(--block-ink\)\);background:rgb\(var\(--color-paper-deep\)\)/);
   assert.match(
     read('tailwind.config.ts'),
     /'on-plate': 'rgb\(var\(--color-ink-on-plate, var\(--color-ink\)\) \/ <alpha-value>\)'/,
@@ -392,8 +394,8 @@ test('(6) the page paints with the tokens measured above', () => {
     const c = contrastOf(blendOver(p.plateInk, plate, 0.7), plate);
     if (c < AA) failures.push(`${where}: ${c.toFixed(2)} : 1 (ink ${p.plateInk} on ${plate})`);
   });
-  assert.ok(held >= LOOKS / 2, `only ${held} of ${LOOKS} looks hold a readable plate ink — the ribbon claim is nearly vacuous`);
-  assert.deepEqual(failures, [], `the ribbon label cannot be read:\n  ${failures.join('\n  ')}`);
+  assert.ok(held >= LOOKS / 2, `only ${held} of ${LOOKS} looks hold a readable plate ink — the plate claim is nearly vacuous`);
+  assert.deepEqual(failures, [], `words on the plate cannot be read:\n  ${failures.join('\n  ')}`);
 
   // The composition: the words are re-measured AFTER the ombré is spread, with its ramp, and before the plate pin.
   const loaders = stripComments(read('app/[slug]/_lib/loaders.ts'));

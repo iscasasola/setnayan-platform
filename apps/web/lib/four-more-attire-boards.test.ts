@@ -4,9 +4,8 @@
  * Bridesmaid, Flowergirl, Ring Bearer"* · *"this simply means on attire, they can upload inspiration
  * photos and also search from the photos uploaded by vendors"*; the database change: *"go"*).
  *
- * Studio › Mood Board & Dress Code › Attire holds seven boards, in his order with the whole party's
- * board kept last: Bridal gown · Groom's suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer ·
- * Entourage. Each is the shipped board — the couple's own photos (＋) and the suppliers' photos
+ * Studio › Mood Board & Dress Code › Attire holds six boards, in his order: Bridal gown · Groom's suit ·
+ * Bridesmaids · Groomsmen · Flower girl · Ring bearer (Entourage removed 2026-10-14, owner: "remove entourage"). Each is the shipped board — the couple's own photos (＋) and the suppliers' photos
  * (Search ideas ›) — on a slot of its own.
  *
  * What is held here:
@@ -65,6 +64,7 @@ import { canonicalServicesForTile } from './vendor-counts';
 }
 
 const FOUR = ['bridesmaids', 'groomsmen', 'flower_girl', 'ring_bearer'] as const;
+/** 🗑 Six since 2026-10-14 (owner: "remove entourage" — DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"). */
 const SEVEN: ReadonlyArray<readonly [string, string]> = [
   ['bride', 'Bridal gown'],
   ['groom', 'Groom’s suit'],
@@ -72,7 +72,6 @@ const SEVEN: ReadonlyArray<readonly [string, string]> = [
   ['groomsmen', 'Groomsmen'],
   ['flower_girl', 'Flower girl'],
   ['ring_bearer', 'Ring bearer'],
-  ['entourage', 'Entourage'],
 ];
 
 const WEB = join(__dirname, '..');
@@ -202,10 +201,11 @@ test('2 · the migration widens BOTH slot gates by exactly the four — and the 
 
 /* ── 3 ─────────────────────────────────────────────────────────────────────── */
 
-test('3 · Attire holds seven boards in the owner’s order, each exactly once whatever the guest list holds', () => {
-  assert.deepEqual(STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => [s.slotKey, s.label]), SEVEN, 'not Bridal gown · Groom’s suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer · Entourage');
+test('3 · Attire holds six boards in the owner’s order (Entourage gone, 2026-10-14), each exactly once whatever the guest list holds', () => {
+  assert.deepEqual(STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => [s.slotKey, s.label]), SEVEN, 'not Bridal gown · Groom’s suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer');
+  assert.equal(STUDIO_INSPIRATION_SLOTS.some((s) => s.slotKey === 'entourage'), false, 'the Entourage board is back');
   const placed = (rows: string[]) => [...rows.flatMap((r) => attireBoardsUnder(r)), ...attireBoardsAfter(rows)].map((s) => s.slotKey);
-  /* Nobody but the couple yet: bride and groom under their rows, the other five after, in order. */
+  /* Nobody but the couple yet: bride and groom under their rows, the other four after, in order. */
   assert.deepEqual(placed(['bride', 'groom', 'guest']), SEVEN.map(([k]) => k));
   /* The whole party on the list: each under its own row; the bearers' ONE row holds two boards. */
   assert.deepEqual(placed(['bride', 'groom', 'bridesmaids', 'groomsmen', 'bearers_flower_girl', 'guest']), SEVEN.map(([k]) => k));
@@ -220,13 +220,16 @@ test('3 · drawn: each board mounts in Attire with its own ＋ and its own Searc
   for (const [what, rows] of [['the couple alone', [...COUPLE, GUESTS]], ['the whole party', [...COUPLE, ...PARTY, GUESTS]]] as const) {
     const out = await drawn('attire', rows);
     assert.match(out, /data-mood-board-attire=""/, `${what}: the Attire tab was not drawn`);
-    assert.deepEqual(boardOrder(out), SEVEN.map(([k]) => k), `${what}: the boards are not the seven, in order, once each`);
+    assert.deepEqual(boardOrder(out), SEVEN.map(([k]) => k), `${what}: the boards are not the six, in order, once each`);
     for (const [slot, label] of SEVEN) {
       const board = boardOf(out, slot);
-      assert.match(board, new RegExp(`<b[^>]*>${label}</b>`), `${what}: ${label} is not named on its board`);
+      /* RE-AIMED 2026-10-14 (the role blocks): a board is the role's compact photo row — named where its role holds two
+         (the bearers) or has no block yet; under a role of its own, the role's name above it says whose it is. */
+      const alone = what === 'the couple alone' && !['bride', 'groom'].includes(slot);
+      if (alone || ['flower_girl', 'ring_bearer'].includes(slot)) assert.match(board, new RegExp(`>${label} · No photos yet<`), `${what}: ${label} is not named on its board`);
       assert.match(board, new RegExp(`<button[^>]*aria-label="Add a photo to ${label}"`), `${what}: ${label} cannot take the couple’s own photo`);
       assert.match(board, new RegExp(`data-mood-board-search="${slot}"><button[^>]*aria-label="Search ideas for ${label}"[\\s\\S]*?<span class="lbl">Search ideas</span>`), `${what}: ${label} cannot search the suppliers’ photos`);
-      assert.match(board, /Add photos to get its palette/, `${what}: an empty ${label} does not say how it gets a palette`);
+      assert.match(board, /No photos yet/, `${what}: an empty ${label} does not say it is empty`);
     }
   }
   /* Under its role: the bearers' row holds Flower girl and Ring bearer; a role's board is inside that role's row. */
@@ -244,7 +247,7 @@ test('3 · drawn: each board mounts in Attire with its own ＋ and its own Searc
   for (const [slot] of SEVEN) assert.doesNotMatch(insp, new RegExp(`data-mood-board-slot="${slot}"`), `Inspiration also draws the ${slot} board`);
   /* The board IS the shipped one — its ＋ and its search are the two the other boards use. */
   const src = read(`${MB}/_components/mood-board-studio.tsx`);
-  const board = src.slice(src.indexOf('const slotBoard = '), src.indexOf('const bar = ('));
+  const board = src.slice(src.indexOf('const ideasRow = '), src.indexOf('const bar = ('));
   assert.match(board, /onClick=\{\(\) => openUpload\(slot\.slotKey\)\}/, 'a board’s ＋ does not open the upload for ITS slot');
   assert.match(board, /data-mood-board-search=\{slot\.slotKey\}>\s*<ActionButton[^>]*onClick=\{\(\) => setSheet\(\{ kind: 'browse', slot \}\)\}/, 'a board’s Search ideas › does not open the suppliers’ photos for ITS slot');
 });

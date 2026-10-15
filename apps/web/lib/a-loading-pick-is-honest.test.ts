@@ -393,7 +393,7 @@ test('(6) loaded first, applied second — a cancel has written nothing; one req
   assert.match(pickLook, /const film = opts\.render \? null : opts\.film !== undefined \? opts\.film : filmOf\(next\);\s*if \(film && fresh\) beginFilmLoad\(film\);/, 'a film worn before can let a new pick through');
   // The figure is the SAMPLE'S OWN `<video>`: told by the element that draws the film, measured off that element.
   const sample = read('app/dashboard/[eventId]/launch/_components/look-sample.tsx');
-  assert.match(sample, /<LoopPicture src=\{picture\.clip\} onLoad=\{\(load\) => tellFilmLoad\(picture\.clip, load\)\}>/, 'the film’s figure is not told by the element that plays it');
+  assert.match(sample, /<LoopPicture src=\{picture\.clip\}(?: position=\{picture\.position\})? onLoad=\{\(load\) => tellFilmLoad\(picture\.clip, load\)\}>/, 'the film’s figure is not told by the element that plays it');
   assert.match(cards, /tell\.current\?\.\(\{ pct: v \? filmLoadPct\(v\.buffered, v\.duration\) : null, ready \}\);/);
   assert.match(cards, /const v = ref\.current;/);
   assert.equal((cards.match(/<video\b/g) ?? []).length, 1, 'a second <video> is made to measure the film');

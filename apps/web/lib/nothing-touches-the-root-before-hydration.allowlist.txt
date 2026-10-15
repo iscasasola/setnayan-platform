@@ -1,0 +1,6 @@
+# <file> <root.attr> — inline scripts that changed a React-rendered root attribute BEFORE this guard (2026-10-15).
+# Each is the same class of fault as Batch 8 W1 (a class on <html> React renders). Not measured as a warning on the
+# Batch 8 lab walk; each should move to a <style data-…> in <head> or a data attribute. Delete the row when fixed.
+app/[slug]/_components/pahina-motion.tsx html.class        # `.pahina-js` scroll-choreography flag (fail-visible; removed after 2 s if unarmed)
+app/[slug]/_components/rsvp-sheet.tsx html.class           # `.sn-sheet-js`, so the RSVP form is never seen in the flow then yanked
+app/_components/theme-bootstrap-script.ts html.class       # removes a stale `.dark` from a cached shell; a no-op on a fresh render (React never renders `dark`)

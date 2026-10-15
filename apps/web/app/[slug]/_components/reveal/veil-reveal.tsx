@@ -10,8 +10,8 @@
  *   Reference prototype     : 0024_save_the_date/0024_Veil_Reveal_Prototype_2026-06-17.html
  *
  * A sheer tulle veil drapes over the invitation on a TRANSPARENT full-screen
- * canvas, simulated as a real Verlet cloth. The guest lifts it off — swipe up,
- * double-tap (hands-free), or grab-and-pull — and the fabric folds away in a
+ * canvas, simulated as a real Verlet cloth. The guest lifts it off — a TAP or a
+ * SWIPE UP (owner 2026-10-15: *"Tap, swipe up to unveil"*) — and the fabric folds away in a
  * sim-driven trailing fold (NOT a rigid rotation) to a valance droop at the top
  * while the card reveals beneath. Once clear, `onRevealed` fires and the overlay
  * removes itself. Rose petals shower the moment the veil lifts; lowering it
@@ -36,6 +36,7 @@ import * as THREE from 'three';
 import { MARK_PATH } from './veil-shared';
 import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/reveal-config-pure';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { claimVeilHold } from '@/lib/hub-veil';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
@@ -48,6 +49,14 @@ type Props = {
   features?: RevealFeatures;
   /** Fired once when the veil has been lifted clear of the invitation. */
   onRevealed: () => void;
+  /**
+   * 👆 FIRED INSIDE THE UNVEIL GESTURE ITSELF — synchronously, from the `pointerup` of the tap or the swipe up,
+   * before the fabric has moved a pixel. This is the one moment a browser lets sound start (owner 2026-10-15:
+   * *"when they unveil, the music starts playing upon tap"*), so whatever must begin "on the unveil" begins
+   * here, never in `onRevealed` (which fires ~1 s later, from the animation loop, outside any gesture — a
+   * play() there is silently refused, on iOS Safari above all). Not fired by the preview's hands-free demo.
+   */
+  onUnveil?: () => void;
   /**
    * Preview/demo mode (dashboard Step-1 chooser): auto-lift the veil hands-free
    * on mount and ignore all gesture input. Default false → live guest page is
@@ -88,7 +97,7 @@ type GrabState = {
   cy0: number;
 };
 
-export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed, autoplay = false, lowRes = false }: Props) {
+export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed, onUnveil, autoplay = false, lowRes = false }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   // Pointer hit-zone (owner 2026-06-19 "I still want the veil accessible but
   // also want to navigate the messages"): the canvas renders full-screen but
@@ -105,6 +114,8 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
   petalColorRef.current = petalsColor;
   const onRevealedRef = useRef(onRevealed);
   onRevealedRef.current = onRevealed;
+  const onUnveilRef = useRef(onUnveil);
+  onUnveilRef.current = onUnveil;
   const revealedRef = useRef(false);
 
   // Honor the OS "reduce motion" setting. Read at the React level (SSR-safe,
@@ -870,19 +881,25 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       }
     }
 
+    /* 👆 FREED: the guest unveiled (tap or swipe up). The grab-zone drops to the top band AT ONCE, not when the cloth
+       has risen past 35 % — a tap starts the hands-free lift, which takes ~6 s, and a full-screen `touch-action:none`
+       zone for all of it ate the guest's first swipe on the page behind (Batch 8 tester R2, 2026-10-15: the page
+       was not scrollable for 6.0 s after a tap). Cleared by the swipe down that re-covers. */
+    let freed = false;
+    const freeThePage = (pointerId: number) => {
+      freed = true;
+      try { grabRef.current?.releasePointerCapture?.(pointerId); } catch { /* not captured */ }
+      const g = grabRef.current;
+      if (g && !grabTopBandRef.current) {
+        grabTopBandRef.current = true;
+        g.style.bottom = 'auto';
+        g.style.height = '24vh';
+      }
+    };
     const startAuto = () => {
       auto = true;
       autoT = 0;
       locked = true;
-    };
-    const doRevealAuto = () => {
-      if (locked) {
-        locked = false;
-        auto = false;
-        liftTarget = 0;
-      } else {
-        startAuto();
-      }
     };
     const setLift = (v: number) => {
       auto = false;
@@ -915,7 +932,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       // top valance band captures input so the film below is navigable; covering
       // (lift low) → full-screen so the guest can grab anywhere to lift again.
       // Hysteresis (0.6 / 0.35) avoids flicker as lift animates through.
-      const wantTopBand = grabTopBandRef.current ? lift > 0.35 : lift > 0.6;
+      const wantTopBand = freed || (grabTopBandRef.current ? lift > 0.35 : lift > 0.6);
       if (wantTopBand !== grabTopBandRef.current && grabRef.current) {
         grabTopBandRef.current = wantTopBand;
         const g = grabRef.current;
@@ -954,9 +971,21 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       raf = requestAnimationFrame(loop);
     };
 
-    // ── Gestures: grab-and-pull (local hold) · swipe up = reveal · swipe down =
-    // re-cover · double-tap = hands-free auto · tap = bat a petal away.
-    let lastTap = 0;
+    // ── Gestures (owner 2026-10-15, verbatim: *"before we had double tap to unveil. now we make it simpler.
+    // Tap, swipe up to unveil"*): a TAP unveils — the same sim-driven hands-free lift the preview plays
+    // (`startAuto`), so the fabric still folds away — and a SWIPE UP unveils. Swipe down re-covers. Grab-and-
+    // pull still holds the cloth. 🚫 Retired with the ruling: the double-tap (a tap is enough now) and the
+    // tap that batted a petal away (a tap means "unveil", and one gesture cannot mean two things).
+    //
+    // 🎵 Both unveils run `unveil()` FIRST, synchronously inside this `pointerup` — that is what lets the
+    // music start on the tap itself (see `onUnveil`).
+    const unveil = () => {
+      try { onUnveilRef.current?.(); } catch { /* never let a listener stop the lift */ }
+      // The lift IS the user gesture — ask the film (z-50) to go full screen
+      // NOW, synchronously, while this activation is live (Fullscreen API
+      // needs a gesture; the film auto-plays to full screen as the veil lifts).
+      try { window.dispatchEvent(new Event('std-go-fullscreen')); } catch { /* noop */ }
+    };
     const onDown = (e: PointerEvent) => {
       const hp = meshHit(e.clientX, e.clientY);
       grabs[e.pointerId] = {
@@ -1022,36 +1051,37 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         const net = Math.hypot(dxC, dyC);
         delete grabs[e.pointerId];
         if (up > 40 && dur < 460 && up > Math.abs(dxC) * 1.0) {
-          // The lift IS the user gesture — ask the film (z-50) to go full screen
-          // NOW, synchronously, while this activation is live (Fullscreen API
-          // needs a gesture; the film auto-plays to full screen as the veil lifts).
-          try { window.dispatchEvent(new Event('std-go-fullscreen')); } catch { /* noop */ }
+          // SWIPE UP = unveil.
+          unveil();
           setLift(1);
+          freeThePage(e.pointerId);
           return;
         }
         if (dyC > 40 && dur < 460 && dyC > Math.abs(dxC) * 1.0) {
+          freed = false;
           setLift(0);
           return;
         }
         if (dur < 300 && net < 18) {
-          if (petalsSeeded) bounceAt(e.clientX, e.clientY);
-          const n = performance.now();
-          if (n - lastTap < 340) {
-            doRevealAuto();
-            lastTap = 0;
-          } else lastTap = n;
+          // TAP = unveil — only while the veil still covers: a tap on the lifted valance (the top band the
+          // film keeps reachable) does nothing; swipe down is how it comes back down.
+          if (!locked && liftTarget < 1) {
+            unveil();
+            startAuto();
+            freeThePage(e.pointerId);
+          }
         }
       } else delete grabs[e.pointerId];
     };
     const onCancel = (e: PointerEvent) => {
       if (grabs[e.pointerId]) delete grabs[e.pointerId];
     };
-    // Gestures are ALWAYS live — on the live page (drag / double-tap to lift)
+    // Gestures are ALWAYS live — on the live page (tap / swipe up to unveil)
     // AND in the preview, where the couple ALSO gets the hands-free auto-demo
-    // (startAuto, below). A swipe or double-tap cleanly overrides the demo
-    // (setLift / doRevealAuto clear `auto`/`locked`), so the couple can drag
-    // and double-tap the veil in the preview. (owner 2026-06-18 — "on preview
-    // i cannot control the veil")
+    // (startAuto, below). A swipe cleanly overrides the demo (setLift clears
+    // `auto`/`locked`); a tap while the demo is already lifting is a no-op (the
+    // demo IS the tap's lift). (owner 2026-06-18 — "on preview i cannot control
+    // the veil")
     // pointerdown binds to the grab-zone (not the canvas) so input is scoped to
     // its region; move/up stay on window so a drag keeps tracking past the zone.
     // Coordinate math uses cv's rect (full-screen) — clientX/Y are viewport
@@ -1138,6 +1168,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
        invisible blocker. We are past every one of those returns here — the sim is
        built and the loop is about to run — so the veil can now take input. */
     if (grabRef.current) grabRef.current.style.pointerEvents = 'auto';
+    // 🙈 The veil is really up and can be opened — the page behind stays held until it is
+    // (`lib/hub-veil.ts`; its failsafe stands down now). A no-op where nothing holds (Studio, previews).
+    claimVeilHold();
     raf = requestAnimationFrame(loop);
 
     return () => {

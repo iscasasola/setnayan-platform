@@ -170,8 +170,9 @@ test('(3) the Studio draws ONE Source dropdown and the cards of the source on sc
   assert.match(studio, /name="Your cover photo"[\s\S]{0,260}onPick=\{\(\) => pickGround\('src:hero'\)\}/);
   assert.match(studio, /name="Photo or video" data="upload"[\s\S]{0,160}onPick=\{\(\) => setUploadOpen\(\(o\) => !o\)\}/, 'the Upload card does not open the uploader in place');
   assert.match(studio, /<FileUpload[\s\S]{0,400}compressImage\s*compressVideo\s*videoCompressProfile="maker"/, 'the upload is not the shipped one (compressed on the phone)');
-  // 🎬 The hero video (it was under Music) sits with the couple's other pictures.
-  assert.match(studio, /\{view === 'own' \? heroVideo : null\}/);
+  // 🎬 The hero video (it was under Music) is the "Your video" CARD among the couple's other pictures — never its own
+  // uploader here (owner 2026-10-14: it "has no use for the background"; `focus-moves-the-picture.test.ts` (1)).
+  assert.doesNotMatch(studio, /heroVideo/);
   // The colour of the page (and of a pattern) opens the Mood Board's ONE picker.
   assert.match(studio, /<StudioColourField\s+data="background"[\s\S]{0,260}palette=\{five\}/);
   // Only the ring of the source the page WEARS is drawn — a card of another source is never "on".
@@ -340,9 +341,9 @@ test('(7) Look draws each control ONCE: in the Studio the Background holds the p
   // …and so does a Studio with no main background panel to hold them (the app-store shell): never dropped.
   const shell = paint(true, null);
   for (const s of ['page-fill', 'hero-video', 'old-extras']) assert.match(shell, new RegExp(`data-stub="${s}"`), `with no Background panel, ${s} has no home`);
-  // The panel is handed both, by the page that builds them once.
+  // The page builds the hero video's row once — for the shipped Maker; the Studio's Background is handed none (2026-10-14).
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
-  assert.match(page, /heroVideo=\{heroVideoPanel\}/);
+  assert.doesNotMatch(page, /heroVideo=\{heroVideoPanel\}/);
   assert.match(page, /key: 'hero-video',[\s\S]{0,260}panel: heroVideoPanel,/, 'the hero video is built twice');
   assert.equal(page.split('part="video"').length - 1, 1, 'the hero video is built twice');
   assert.match(page, /page=\{\{\s*bgColor: \(drafted\.site_bg_color as string \| null\) \?\? null,/);
@@ -479,14 +480,14 @@ test('(9) a card is PHONE-SHAPED: a 3 : 4 portrait frame of a fixed width that c
   const media = cssRule('.sn-phone-card :is(img, video)');
   assert.equal(media['object-fit'], 'cover');
   // 🎯 Cropped WHERE THE PAGE CROPS: one rule, read by the guest page and by the card of the picture on the page.
-  assert.deepEqual([null, ...HUB_MAIN_FOCUSES].map((f) => mainGroundPosition(f)), ['center', 'center top', 'center bottom']);
+  assert.deepEqual([null, ...HUB_MAIN_FOCUSES].map((f) => mainGroundPosition(f)), ['center', 'center top', 'center bottom', 'left center', 'right center']);
   const guest = read(`${G}/main-ground.tsx`);
   assert.match(guest, /const position = mainGroundPosition\(focus\);/, 'the guest page positions its background by a rule of its own');
   assert.doesNotMatch(guest, /'center top'|'center bottom'/, 'the guest page keeps a second copy of the crop rule');
   assert.match(studio, /const heldAt = mainGroundPosition\(takes\.focus \? \(extra\('focus'\) as HubMainFocus \| null\) : null\);/);
   // …and the card ON the page really is handed that position (a `held` that answers nothing would crop every card at its centre).
   assert.match(studio, /const held = \(isOn: boolean \| null \| undefined\) => \(isOn \? \{ position: heldAt \} : \{\}\);/, 'the card of the picture on the page is not held where Focus holds it');
-  assert.doesNotMatch(studio, /object-(?:top|bottom)|'center top'|'center bottom'/, 'the cards keep a second copy of the crop rule');
+  assert.doesNotMatch(studio, /object-(?:top|bottom|left|right)\b|'center top'|'center bottom'|'left center'|'right center'/, 'the cards keep a second copy of the crop rule');
   const stills = studio.split('<StillOverSwatch').slice(1).map((c) => c.slice(0, c.indexOf('/>')));
   assert.ok(stills.filter((c) => /\{\.\.\.held\(active/.test(c)).length >= 5, 'a picture that can be ON the page is not cropped where the page crops it');
   for (const f of HUB_MAIN_FOCUSES) {
@@ -564,7 +565,7 @@ test('(11) Colour is two circles like the Mood Board’s: the second is optional
   assert.doesNotMatch(two, /data-bg-colour-well="add"/);
   // The Mood Board's circle: a 44-px target around a 28-px colour — for every circle and the "+".
   const mood = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
-  assert.match(mood, /className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full"\s*>\s*<i aria-hidden className="h-7 w-7 rounded-full border border-ink\/10"/, 'anti-vacuity: the Mood Board draws its palette circle some other way now');
+  assert.match(mood, /className=\{`sn-press inline-flex h-11 w-11 items-center justify-center rounded-full[^`]*`\}\s*>\s*<i aria-hidden className=\{`\$\{two \? 'h-\[26px\] w-\[26px\]' : 'h-7 w-7'\} rounded-full border border-ink\/10`\}/, 'anti-vacuity: the Mood Board draws its palette circle some other way now');
   for (const html of [one, two]) {
     const targets = [...html.matchAll(/<button[^>]*data-bg-colour-well="[^"]+"[^>]*>/g)].map((m) => m[0]);
     assert.equal(targets.length, 2);

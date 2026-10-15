@@ -19,8 +19,8 @@ import { SUPPLIER_DESK_ANCHOR } from './supplier-desk-anchor';
  * today paints the supplier's only strip out of sight for months."*
  *
  * ── PORTED, NOT INVENTED — TWICE ────────────────────────────────────────────
- * 1. **The chrome is the host's.** `owner-ribbon.tsx` is the same idea for the
- *    host on the same page, and its docblock already worked out the hard part:
+ * 1. **The chrome is the host's.** `owner-ribbon.tsx` (removed 2026-10-15) was the
+ *    same idea for the host on the same page, and its docblock had worked out the hard part:
  *    `sticky top-0 z-[90]` *"clears the Save-the-Date stack (film z-50/70,
  *    reveal z-60, touch glow z-80) so a host previewing ?phase=save_the_date can
  *    still click their way back out."* Same stack, same answer, same materials.

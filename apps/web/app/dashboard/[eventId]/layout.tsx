@@ -711,7 +711,15 @@ export default async function EventLayout({ children, params }: Props) {
               precedence — an uploaded mark outranks a bespoke one — which
               `EventMonogram` cannot do alone because it reads one column.
             */
-            eventMonogram={{
+            eventMonogram={
+              /* ⚡ ONE COPY OF THE LOGO ON THE PAGE (measured 2026-10-16): the switcher in the top
+                 bar already carries this event's mark — gated by `resolveEventMonogramSvg`, WITH the
+                 couple's ink (get-switcher-data.ts) — and the rail drew its own copy, so every event
+                 page sent the same ~13 KB SVG twice. Handing the rail the switcher's own entry (the
+                 SAME object) lets the RSC payload send it once and point at it. The rail's own
+                 build stays as the fallback for a switcher that could not read the events.
+                 🔒 app/dashboard/[eventId]/the-logo-travels-once.test.ts */
+              switcherData.events.find((e) => e.event_id === eventId) ?? {
               display_name: (event.display_name as string | null) ?? null,
               monogram_text: (event.monogram_text as string | null) ?? null,
               monogram_color: (event.monogram_color as string | null) ?? null,
@@ -726,8 +734,9 @@ export default async function EventLayout({ children, params }: Props) {
                   monogram_custom_svg?: string | null;
                 },
               ),
-              plays: railMarkPlays,
-            }}
+              }
+            }
+            eventMonogramPlays={railMarkPlays}
           />
         }
         topBarSlot={topBar}

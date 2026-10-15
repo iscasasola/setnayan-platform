@@ -1,6 +1,12 @@
 /* The decision, with no request in it — `lib/chrome-snapshot.ts` adds the request (and the docblock). Split so a
    guard can run it under node (`server-only` throws outside Next). */
 export const SNAPSHOT_MS = 20_000;
+
+/** An in-app request that may reuse a snapshot: the app's own fetch, not a page load, not a Server Action. */
+export function mayReuseChrome(h: { get(name: string): string | null }): boolean {
+  if (h.get('next-action')) return false;
+  return h.get('sec-fetch-dest') === 'empty';
+}
 const MAX_ENTRIES = 500;
 
 type Entry = { at: number; value: unknown };

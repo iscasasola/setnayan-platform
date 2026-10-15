@@ -2,7 +2,7 @@
  * a-prefetch-reuses-the-chrome.test.ts — ⚡ A PREFETCH REUSES THE CHROME THE SAME PERSON JUST HAD; NOTHING CROSSES PEOPLE.
  *
  * Measured 2026-10-16 (production build, the owner's rows replayed): one visit of `/dashboard`
- * fired nine RSC prefetches, and each re-read the account chrome — the switcher and the rail's
+ * fired nine RSC prefetches (and every in-app tap is one more RSC request), and each re-read the account chrome — the switcher and the rail's
  * account slot — for the person the page had just read it for. The rail also asked the auth
  * server who was looking a SECOND time per render (`auth.getUser()` beside `getCurrentUser()`).
  * Holds the rules in `lib/chrome-snapshot.ts` (decision: `lib/chrome-snapshot-core.ts`).
@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { __clearChromeSnapshots, chromeSnapshotWith as chromeSnapshot, SNAPSHOT_MS } from './chrome-snapshot-core';
+import { __clearChromeSnapshots, chromeSnapshotWith as chromeSnapshot, mayReuseChrome, SNAPSHOT_MS } from './chrome-snapshot-core';
 
 let clock = 1_000_000;
 const now = () => clock;
@@ -24,7 +24,7 @@ function counter(tag: string) {
   return { load: async () => ({ tag, n: (n += 1), measured: true }), reads: () => n };
 }
 
-test('a page the person opens always reads fresh; a prefetch right after reuses it', async () => {
+test('a page load always reads fresh; an in-app request right after reuses it', async () => {
   __clearChromeSnapshots();
   const c = counter('a');
   await chromeSnapshot('switcher', 'user-a', c.load, undefined, now, no);
@@ -62,6 +62,16 @@ test('a failed or unmeasured answer is never replayed', async () => {
   await chromeSnapshot('switcher', 'user-a', load, keep, now, no); // unmeasured
   const pf = await chromeSnapshot('switcher', 'user-a', load, keep, now, yes);
   assert.equal(pf.n, 2, 'a prefetch was handed the unmeasured answer');
+});
+
+test('only an in-app fetch may reuse — never a page load, a Server Action, or an unknown client', () => {
+  const h = (o: Record<string, string>) => ({ get: (k: string) => o[k] ?? null });
+  assert.equal(mayReuseChrome(h({ 'sec-fetch-dest': 'empty' })), true);
+  assert.equal(mayReuseChrome(h({ 'sec-fetch-dest': 'document' })), false, 'a page load (refresh, new tab) must read fresh');
+  assert.equal(mayReuseChrome(h({ 'sec-fetch-dest': 'empty', 'next-action': 'abc' })), false, 'the re-render after a change must carry the change');
+  assert.equal(mayReuseChrome(h({})), false, 'no Sec-Fetch-Dest: not a browser we can read — read fresh');
+  const snap = stripComments(readFileSync(join(__dirname, 'chrome-snapshot.ts'), 'utf8'));
+  assert.match(snap, /return mayReuseChrome\(await headers\(\)\);/);
 });
 
 test('the switcher and the rail slot go through it, keyed by the verified user; the rail asks auth once', () => {

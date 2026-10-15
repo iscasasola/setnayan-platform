@@ -746,7 +746,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // exempt — its prefix is derived server-side from the seat, so there is no
   // client-named id to verify.
   // Set below, only for the couple's OWN media-bucket upload against an event
-  // they hold — the 100 MB/event meter (DECISION_LOG 2026-09-25) counts
+  // they hold — the per-event allowance (DECISION_LOG 2026-09-25; Free 10 MB /
+  // Pro 500 MB since 2026-10-15) counts
   // exactly this population and nothing else (never Papic/guest captures,
   // never a vendor's own uploads, never a chat/order attachment).
   let coupleMediaEventId: string | null = null;
@@ -927,9 +928,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // ── THE 100 MB ALLOWANCE IS A CAP (DECISION_LOG 2026-09-25) ────────────────
-  // "they can only upload a total of 100MB compressed files." `sizeBytes` is the
-  // COMPRESSED length — the client ran `compressImageForWeb`/`compressVideoForWeb`
+  // ── THE ALLOWANCE IS A CAP, AND IT FOLLOWS THE PLAN ────────────────────────
+  // DECISION_LOG 2026-09-25: "they can only upload a total of 100MB compressed
+  // files"; owner FINAL 2026-10-15: Free 10 MB · Event Hub Pro 500 MB — the
+  // reservation reads the plan itself (lib/couple-media-allowance.server.ts).
+  // `sizeBytes` is the COMPRESSED length — the client ran `compressImageForWeb`/`compressVideoForWeb`
   // before calling this route — and the signed content-length binds the PUT to
   // it. Reserved BEFORE the PUT is signed, atomically, so an upload that would
   // take the event over its allowance is refused here and never reaches storage.
@@ -941,7 +944,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (reservation.kind === 'full') {
       return NextResponse.json(
         {
-          error: coupleMediaFullMessage(reservation.usedBytes, sizeBytes),
+          error: coupleMediaFullMessage(reservation.usedBytes, sizeBytes, reservation.isPro),
           code: COUPLE_MEDIA_FULL_CODE,
         },
         { status: 413 },

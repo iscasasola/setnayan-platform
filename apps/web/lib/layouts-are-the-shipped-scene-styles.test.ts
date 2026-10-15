@@ -102,7 +102,7 @@ test('🔒 no stored look id is renamed or dropped — every shipped id still dr
   /* The ids live pages may hold today (frozen here on 2026-10-08, the morning invitations went out). */
   const SHIPPED: ReadonlyArray<readonly [string, 'save_the_date' | 'rsvp' | 'event', readonly string[]]> = [
     ['dress_code', 'rsvp', ['colours-and-roles', 'palette', 'line']],
-    ['gallery', 'save_the_date', ['mosaic', 'grid', 'film-strip']],
+    ['gallery', 'save_the_date', ['mosaic', 'grid', 'film-strip', 'glimpse']],
     ['photos_of_you', 'event', ['grid', 'lead', 'polaroids']],
     ['special_message', 'rsvp', ['note', 'letter', 'quote']],
     ['schedule', 'rsvp', ['programme-rail', 'one-per-screen', 'clock-face']],

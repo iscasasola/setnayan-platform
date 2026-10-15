@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react';
 import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
-import type { GuestRole } from '@/lib/guests';
+import type { GuestAttire, GuestRole } from '@/lib/guests';
 import type { MarchPlace } from '@/lib/march-place';
 import type { WelcomePart } from '@/lib/invitation-welcome';
 import type { PaletteLookId } from '@/lib/palette-looks';
 import type { DosLookId } from '@/lib/dress-code-looks';
 import { DressCodeWidget } from './dress-code-widget';
 import { WelcomeGifts } from './guest-doorway-strip';
+import { WelcomeGiftsContent } from './welcome-gifts-content';
+import type { GiftPageContent } from '../pabuya/_lib/gift-cards';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from './maker-guest-scenes';
 
 /**
@@ -33,7 +35,9 @@ import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from './maker-guest-scenes';
  *   · `reminders` — the couple's Reminders scene, drawn by the caller in the
  *                   couple's own scene look (background, font — the scene
  *                   frame belongs to the dispatcher that owns it).
- *   · `giftHref`  — the E-Gifts door (`resolveGuestDoorways(...).pabuya`).
+ *   · `giftHref`  — may this reader open E-Gifts (`resolveGuestDoorways(...).pabuya`)? Null: no E-Gifts.
+ *   · `giftContent` — E-Gifts itself (owner 2026-10-14: the content on Welcome, not a door) — the gift page's
+ *                   own read (`loadGiftPage`), started by the caller only when `giftHref` is set. Absent: the door.
  *
  * `mark` is the Maker canvas's navigator handle (`site-body.tsx` `makerMark`):
  * it stands immediately before each part so a tap selects it. Guests get null.
@@ -47,6 +51,8 @@ export type WelcomeLook = {
   ceremonyType: string | null;
   genderSeparation: string | null;
   guestRole: GuestRole | null;
+  /** 👗 `guests.attire` — which of a two-pick role's picks is theirs (`DressCodeWidget` `guestAttire`). */
+  guestAttire?: GuestAttire | null;
   march: MarchPlace | null;
   rolePalette: unknown;
   /** 🎨 The Dress code scene's palette look (`paletteLookOfRow`) — the reader's own colours follow it here too. Absent = Tags. */
@@ -64,6 +70,7 @@ export function GuestWelcome({
   venue = null,
   giftHref,
   giftWishes = 0,
+  giftContent = null,
   mark = () => null,
   maker = false,
   partLooks = null,
@@ -85,6 +92,9 @@ export function GuestWelcome({
   giftHref: string | null;
   /** 🎁 Open wishes behind the gift door (`resolveGuestDoorways(...).wishes`) — its one extra line. */
   giftWishes?: number;
+  /** 🎁 E-Gifts' content, read by the gift page's own reader (`loadGiftPage`) — never rejects (a failed read is null:
+   *  the door stands). Absent: the door, as before. */
+  giftContent?: Promise<GiftPageContent | null> | null;
   mark?: (key: string) => ReactNode;
   maker?: boolean;
 }) {
@@ -104,6 +114,7 @@ export function GuestWelcome({
                 ceremonyType={look.ceremonyType}
                 genderSeparation={look.genderSeparation}
                 guestRole={look.guestRole}
+                guestAttire={look.guestAttire ?? null}
                 march={look.march}
                 rolePalette={look.rolePalette}
                 paletteLook={look.paletteLook ?? null}
@@ -136,7 +147,9 @@ export function GuestWelcome({
           return (
             <WelcomeSlot key="gifts">
               {mark('f:gifts')}
-              <WelcomeGifts href={giftHref} words={words} look={partLooks?.gifts ?? null} wishes={giftWishes} />
+              <WelcomeGifts href={giftHref} words={words} look={partLooks?.gifts ?? null} wishes={giftWishes}>
+                {giftContent ? <WelcomeGiftsContent content={giftContent} href={giftHref} words={words} wishes={giftWishes} /> : null}
+              </WelcomeGifts>
             </WelcomeSlot>
           );
         }

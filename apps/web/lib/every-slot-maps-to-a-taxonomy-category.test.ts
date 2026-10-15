@@ -25,7 +25,8 @@ import { AWAITING_A_SLOT, STUDIO_INSPIRATION_SLOTS } from './inspiration-slots';
    boards added (2026-10-08: Groom's suit drawn on the stored `groom` slot; Groomsmen · Bridesmaids ·
    Flower girl · Ring bearer each on a slot of their own since migration 20271266380994 — DRAWN, no
    longer waiting; `four-more-attire-boards.test.ts` holds the four). */
-const OWNERS_TWELVE = ['Flowers', 'Tables', 'Venue & decor', 'Bridal gown', 'Groom’s suit', 'Entourage', 'Cake', 'Bridal bouquet', 'Centrepieces', 'Stage', 'Ceiling', 'Wall', 'Tunnel', 'Groomsmen', 'Bridesmaids', 'Flower girl', 'Ring bearer'];
+/* The Entourage board left Attire on 2026-10-14 (owner: the Attire screen is one block per role; its stored photos stay, `wedding_party` stays the silent palette fallback). */
+const OWNERS_TWELVE = ['Flowers', 'Tables', 'Venue & decor', 'Bridal gown', 'Groom’s suit', 'Cake', 'Bridal bouquet', 'Centrepieces', 'Stage', 'Ceiling', 'Wall', 'Tunnel', 'Groomsmen', 'Bridesmaids', 'Flower girl', 'Ring bearer'];
 
 test('every drawn part is a stored slot with a supplying trade', () => {
   for (const s of STUDIO_INSPIRATION_SLOTS) {

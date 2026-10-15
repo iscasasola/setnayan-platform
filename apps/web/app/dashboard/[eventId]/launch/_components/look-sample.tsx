@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useSyncExternalStore, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type CSSProperties } from 'react';
 import { backgroundLayOf, lookGroundPictures, type LookGroundSources } from '@/lib/background-pick';
 import { LANDING_WORDS } from '@/lib/guest-landing';
 import { AmbientEffectLayer } from '@/app/[slug]/_components/ambient-effect';
@@ -10,7 +10,7 @@ import type { HubMusicButton } from '@/lib/hub-music-button';
 import { MUSIC_BUTTON_CLASS, MusicButtonFace } from '@/app/[slug]/_components/music-button-face';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { lookEffectOn, lookSampleEffect, lookSampleGround, lookSampleScope, type LookSampleRow } from '@/lib/look-sample';
-import { lookSampleVersion, readLookSample, subscribeLookSample, tellLookSampleWorn, type LookSampleValues } from '@/lib/look-sample-store';
+import { cssColourHex, lookSampleVersion, readLookSample, subscribeLookSample, tellLookSampleInks, tellLookSampleWorn, type LookSampleValues } from '@/lib/look-sample-store';
 import { boardWithMainColours, mainColoursOf, type MainColourDraft } from '@/lib/main-colours';
 import { LOOK_SECTION_ITEM_KEYS } from '@/lib/maker-details-items';
 import { holdCanvasRedraw } from '@/lib/maker-refresh';
@@ -167,9 +167,27 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
        guest page. They are not spread a second time: that put the Names face back over a Headings face. */
     ...(scope.vars ?? {}),
     ...(scope.buttons?.vars ?? {}),
-    /* A picture's tint and a dark shade's flipped words win over the scope, as the guest page's `!important` sheet does. */
-    ...(picture ? ground.vars : {}),
+    /* A picture's tint and a dark shade's flipped words win over the scope, as the guest page's `!important` sheet does —
+       and over a picture the names keep the measured ink (`main-ground.tsx`). */
+    ...(picture ? { ...ground.vars, '--hub-names-ink': 'initial' } : {}),
   } as CSSProperties;
+
+  /* 🔤 THE COLOUR EACH TYPE IS DRAWN IN, read off these words after they draw (owner 2026-10-14: "return the type name
+     to show color as well") — Elements' type rows wear it as a swatch beside each name (`fonts-look-rows.tsx`). */
+  const box = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const root = box.current;
+    if (!root) return;
+    const ink = (sel: string) => {
+      const el = root.querySelector<HTMLElement>(sel);
+      return el ? cssColourHex(getComputedStyle(el).color) : null;
+    };
+    const names = ink(TYPE_INK_AT.names);
+    const heading = ink(TYPE_INK_AT.heading);
+    const body = ink(TYPE_INK_AT.body) ?? ink(TYPE_INK_AT.date);
+    const highlight = ink(TYPE_INK_AT.highlight);
+    if (names && heading && body && highlight) tellLookSampleInks(seed.eventId, { names, heading, body, highlight });
+  });
 
   const [first, second] = splitNames(seed.words.names);
   const moving = Boolean(picture?.clip);
@@ -179,6 +197,7 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
 
   return (
     <div
+      ref={box}
       data-look-sample=""
       /* 🌑 A LIVE PREVIEW STAYS CLEAR behind a pop-up (owner 2026-10-08) — a sheet's dark is cut around this box. */
       data-popup-clear=""
@@ -203,7 +222,7 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
         <div aria-hidden data-look-sample-picture="" className="absolute inset-0 -z-10 overflow-hidden">
           <div className={`absolute inset-0${drifting ? ' sn-look-sample-drift' : ''}`} style={blur}>
             {/* 🥧 The film's own figure (`buffered` / `duration` of THIS element) is told to the pick that waits for it — no request. */}
-            <LoopPicture src={picture.clip} onLoad={(load) => tellFilmLoad(picture.clip, load)}>
+            <LoopPicture src={picture.clip} position={picture.position} onLoad={(load) => tellFilmLoad(picture.clip, load)}>
               <StillOverSwatch src={picture.still} swatch="transparent" position={picture.position} />
             </LoopPicture>
           </div>
@@ -264,8 +283,10 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
           </span>
         </div>
         {/* Every other text style on the page, in one row: a section heading (the Headings face), a link, and a
-            caption whose code is the fixed mono no font choice changes (`--font-space-mono`). */}
-        <p aria-hidden data-look-sample-styles="" className="mt-2.5 flex items-baseline gap-3 font-sans text-[11.5px] text-ink">
+            caption whose code is the fixed mono no font choice changes (`--font-space-mono`) — ON A CARD, the page's
+            plate (`bg-paper-deep`), so the Mood Board's Supporting ("Cards · panels") shows here too (owner 2026-10-14:
+            "changing colors does not show on preview" — it had nowhere to show). */}
+        <p aria-hidden data-look-sample-styles="" data-look-sample-card="" className="mt-2.5 flex items-baseline gap-3 rounded-lg bg-paper-deep px-3 py-1.5 font-sans text-[11.5px] text-ink">
           <span data-look-sample-style="heading" className="font-display text-[14px]">
             Our day
           </span>
@@ -307,3 +328,12 @@ export function splitNames(names: string | null): [string, string | null] {
   const parts = whole.split(/\s+(?:&|and)\s+/i);
   return parts.length === 2 && parts[0] && parts[1] ? [parts[0], parts[1]] : [whole, null];
 }
+
+/** Where each TYPE's words are on the sample — read for their colour after they draw (`LookSampleInks`). */
+const TYPE_INK_AT = {
+  names: '[data-look-sample-names]',
+  heading: '[data-look-sample-style="heading"]',
+  body: '[data-look-sample-line]',
+  date: '[data-look-sample-date]',
+  highlight: '[data-look-sample-eyebrow]',
+} as const;

@@ -461,7 +461,7 @@ test('(6) the canvas lays the still first, the clip when it moves, lets a second
   // ⚡ WORN AS THE PAGE WOULD DRAW IT — so no render is owed: the measured scrim (the page's own paper), the blur, the tint…
   assert.equal(c.layer.children[1]!.style.backgroundColor, 'rgb(var(--color-cream) / 0.42)', 'the scrim the page measures is not over the picture');
   assert.deepEqual([c.layer.children[0]!.style.filter, c.layer.children[0]!.style.transform], ['blur(5px)', 'scale(1.08)']);
-  assert.match(c.rule()!, /\[data-guest-look\]\{--hub-accent:#a8802f !important;\}/, 'the tint is not laid on the look scope');
+  assert.match(c.rule()!, /\[data-guest-look\]\{--hub-accent:#a8802f !important;--hub-names-ink:initial !important;\}/, 'the tint is not laid on the look scope — or the names keep the Dominant over a picture');
   // …the ground it replaces hidden (never two films decoding), that ground's own tint lifted, and Classic's opaque shell cleared.
   assert.match(c.rule()!, /\[data-main-ground\],\[data-main-ground-pattern\]\{display:none\}/);
   assert.match(c.rule()!, /\[data-guest-ground\] \[data-theme-loop\]/);

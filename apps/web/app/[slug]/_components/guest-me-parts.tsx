@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { EventRow } from '../_lib/types';
 import type { EventWords } from '../_lib/event-words';
-import type { GuestRole } from '@/lib/guests';
+import type { GuestAttire, GuestRole } from '@/lib/guests';
 import type { MarchPlace } from '@/lib/march-place';
 import type { PaletteLookId } from '@/lib/palette-looks';
 import type { RoleNames } from '@/lib/role-names';
@@ -46,6 +46,7 @@ export function GuestMeParts({
     ceremonyType: string | null;
     genderSeparation: string | null;
     guestRole: GuestRole | null;
+    guestAttire?: GuestAttire | null;
     march: MarchPlace | null;
     rolePalette: unknown;
     roleNames?: RoleNames | null;
@@ -92,6 +93,7 @@ function MePart({ p, words, look, mark = null }: { p: Exclude<GuestMePart, 'gues
       ceremonyType={look.ceremonyType}
       genderSeparation={look.genderSeparation}
       guestRole={look.guestRole}
+      guestAttire={look.guestAttire ?? null}
       march={p === 'role' ? look.march : null}
       rolePalette={look.rolePalette}
       roleNames={look.roleNames ?? null}

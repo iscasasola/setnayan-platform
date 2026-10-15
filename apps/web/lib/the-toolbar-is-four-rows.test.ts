@@ -146,6 +146,12 @@ test('(2) four tools — Edit | Style | Background | Animate — words only, eac
   assert.ok(keys.length >= 40);
   let bg = 0;
   for (const k of keys) {
+    /* 🖼 (The Cover Scene — the group of the cover's words — has Background ONLY: owner-approved 2026-10-15.) */
+    if (k === 'coverscene') {
+      assert.deepEqual(MAKER_PART_TOOLS.filter((t) => makerPartToolWorks(k, t)), ['bg'], 'the Cover Scene has Background only');
+      bg += 1;
+      continue;
+    }
     /* (The Camera is a full-screen design with ONLY Style live — owner 2026-10-09.) */
     assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera', `${k}: Edit`);
     /* (…and Style on all but a part with no look to pick at all — `MAKER_PARTS_NO_LOOK`, The Day's "Happening now".) */
@@ -155,10 +161,11 @@ test('(2) four tools — Edit | Style | Background | Animate — words only, eac
     if (scene) bg += 1;
   }
   assert.ok(bg >= 8, `anti-vacuity: only ${bg} parts have a background`);
-  /* A single line of the cover sits on the cover's — grey, and it says so in the prototype's own words. */
+  /* A single line of the cover sits on the Cover Scene — grey, and it says so in the prototype's own words (its door
+     to the group: `lib/the-cover-scene-is-one-group.test.ts`). */
   for (const k of ['logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink'] as const) {
     assert.equal(makerPartToolWorks(k, 'bg'), false, `${k}: a line of the cover has a background of its own`);
-    assert.equal(makerPartToolWhy(k, 'bg'), 'This sits on the cover’s background.');
+    assert.equal(makerPartToolWhy(k, 'bg'), 'This sits on the Cover Scene.');
   }
 });
 

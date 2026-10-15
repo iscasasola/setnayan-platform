@@ -207,6 +207,36 @@ test('Animate — While on screen and Size: the worn pill saves nothing; the oth
   assert.equal(fx.length, 1, 'Size: Shrink must save once');
 });
 
+test('Style’s last row — Width ▾: the worn width saves nothing; another saves once; Normal is taken back to the theme’s', async () => {
+  /* Owner 2026-10-14, `maker_text_width_2026-10-14_fable.html`: "a tap on the worn choice saves nothing". The row's
+     Width is the stage panel's own `Dd` (stacked, short) over the shipped PickMenu — its tap is that PickMenu's onPick. */
+  const { StageLookRow } = await import('./stage-look-row');
+  const { PickMenu } = await import('../../../website/editor/_components/pick-menu');
+  const widthMenu = (els: Made[]) => {
+    const m = els.find((e) => e.type === PickMenu && typeof e.props.label === 'string' && (e.props.label as string).startsWith('Width of the'));
+    assert.ok(m, 'Style’s last row draws no Width ▾ for the names');
+    return m.props as { onPick: (k: string) => void; value: string | null };
+  };
+  for (const [stored, worn, other] of [[undefined, 'normal', 'wide'], ['wide', 'wide', 'full'], ['full', 'full', 'normal']] as const) {
+    const keeps: Array<[string, unknown]> = [];
+    const els = await render(
+      h(StageLookRow, {
+        target: { key: 'f:hero', widgetType: `hero-worn-width-${worn}`, el: 'names' },
+        canvas: stored ? { elements: { names: { width: stored } } } : {},
+        palette: null,
+        onKeep: async (field: string, value: unknown) => (keeps.push([field, value]), { ok: true as const }),
+        onRefused() {},
+      }),
+    );
+    const menu = widthMenu(els);
+    assert.equal(menu.value, worn, `the row shows ${String(menu.value)} for a stored ${String(stored)}`);
+    menu.onPick(worn);
+    assert.deepEqual(keeps, [], `a tap on ${worn} — already worn — saved ${JSON.stringify(keeps)}`);
+    menu.onPick(other);
+    assert.deepEqual(keeps, [['width', other === 'normal' ? null : other]], `a tap on ${other} must save once — Normal as the absence`);
+  }
+});
+
 test('The cover lines’ and scenes’ one save (element-sheet commit) returns before saving a canvas that did not change', () => {
   const src = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx'), 'utf8'));
   const commit = src.slice(src.indexOf('const commit = ('), src.indexOf('start(async', src.indexOf('const commit = (')));

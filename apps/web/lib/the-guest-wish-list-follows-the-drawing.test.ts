@@ -185,13 +185,19 @@ test('5 · the door’s extra line: only with a door, only while a wish is open,
 });
 
 test('6 · the page: above the ways to give, by the one-setting rule, in the picked look, with the page’s own cards', () => {
-  const page = flat('app/[slug]/pabuya/page.tsx');
-  const body = page.slice(page.indexOf('return ( <main'));
+  /* 🏠 (2026-10-14) The page's content is ONE reader and ONE body — the gift page and the Welcome page's E-Gifts both
+     draw it (`gift-page.server.ts` · `gift-page-body.tsx`); `page` is the reader, `body` the drawing. */
+  assert.match(flat('app/[slug]/pabuya/page.tsx'), /const content = await loadGiftPage\(admin, event\);[\s\S]*<GiftPageBody content=\{content\} \/>/);
+  const page = flat('app/[slug]/pabuya/_lib/gift-page.server.ts');
+  const drawn = flat('app/[slug]/pabuya/_components/gift-page-body.tsx');
+  const body = drawn.slice(drawn.indexOf('return ( <div data-gift-page-body'));
+  assert.ok(body.length > 200, 'the gift page body is gone');
   const listAt = body.indexOf('<WishList');
   const waysAt = body.indexOf('<PabuyaCardList methods={cards} />');
   assert.ok(listAt > 0 && waysAt > listAt, 'the wish list is not above the ways to give');
-  const wordsAt = body.indexOf('event.pabuya_message');
+  const wordsAt = body.indexOf('{message ? (');
   assert.ok(wordsAt > 0 && wordsAt < listAt, 'the couple’s words come before the list');
+  assert.match(page, /const message = \('pabuya_message' in event \? event\.pabuya_message : own\?\.pabuya_message\) \?\? null;/);
 
   /* Shown by the Studio's own rule — and never drawn from a read that failed. */
   assert.match(
@@ -236,10 +242,11 @@ test('8 · "I sent it" is drawn only when the page says who is reading', async (
   /* The screenshot sentence and "I sent it" exist only when the next step is handed in. */
   assert.match(wl, /\{record \? ` Once you’ve sent it, show \$\{hostName\} your screenshot — that is how this wish fills up\.` : null\}/);
   assert.match(wl, /\{record \? \( <button type="button" data-wish-i-sent-it=""/, '"I sent it" is drawn without knowing who is reading');
-  /* The step IS built since wish list 4/5: the page hands in who is reading. */
-  const page = flat('app/[slug]/pabuya/page.tsx');
-  const mount = page.slice(page.indexOf('<WishList'), page.indexOf('{cards.length > 0 ?'));
-  assert.match(mount, /record=\{giftReader\} \/>/, 'the page no longer hands the list its reader');
+  /* The step IS built since wish list 4/5: the page hands in who is reading (its one reader → its one body, 2026-10-14). */
+  const drawn = flat('app/[slug]/pabuya/_components/gift-page-body.tsx');
+  const mount = drawn.slice(drawn.indexOf('<WishList'), drawn.indexOf('{cards.length > 0 ?'));
+  assert.match(mount, /record=\{content\.reader\} \/>/, 'the page no longer hands the list its reader');
+  assert.match(flat('app/[slug]/pabuya/_lib/gift-page.server.ts'), /reader: giftReader, \};/, 'the reader is read and not handed on');
   /* Closed, the list renders no sheet at all. */
   assert.doesNotMatch(await list('five'), /I sent it|screenshot/);
 });

@@ -6,6 +6,7 @@ import { layoutReport, printFileName } from '@/lib/print-report';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { formatCount } from '@/lib/format-number';
+import { PAPER_HOW, previewPage, printPaperHeader } from '@/lib/print-paper';
 
 export const dynamic = 'force-dynamic';
 
@@ -173,9 +174,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       ],
     });
     if (format === 'preview') {
-      return new NextResponse(renderPrintSvg(docs[0]!, {}), {
+      /* 📄 `?page=N` — the preview sheet's page N (Studio › Prints, owner 2026-10-14); its paper in `x-print-paper`. */
+      const page = previewPage(new URL(req.url).searchParams, docs.length);
+      return new NextResponse(renderPrintSvg(docs[page - 1]!, {}), {
         status: 200,
-        headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, max-age=60' },
+        headers: {
+          'Content-Type': 'image/svg+xml; charset=utf-8',
+          'Cache-Control': 'private, max-age=60',
+          ...printPaperHeader({ pages: docs.length, page, how: PAPER_HOW.caterer(attending.length, docs.length), empty: attending.length === 0 ? 'yes' : null }),
+        },
       });
     }
     const bytes = await renderPrintPdf(docs, {}, { mode: 'plain', title: `${event.display_name || 'Wedding'} — caterer meal counts` });

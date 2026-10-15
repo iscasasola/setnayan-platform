@@ -1,13 +1,16 @@
 /**
- * lib/ambient-effects.ts — THE SIX EFFECTS THAT LIE ON TOP OF THE BACKGROUND, UNDER THE WORDS.
+ * lib/ambient-effects.ts — THE EIGHT EFFECTS THAT LIE ON TOP OF THE BACKGROUND, UNDER THE WORDS.
  *
- * Owner, 2026-10-08 (DECISION_LOG "LOOK EFFECTS ROUND 4" · "LOOK ROUNDS 4–5"; contract
- * `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 2.A "The effects — art direction", approved prototype
- * `background_sources_amend_2026-10-08_fable.html` `fxHTML` + `.fx-*`): *"improve the overall look of these
- * effect"* · *"i also want the gold shimmer and bokeh lights"* · *"the effects like lanters has a color on the
- * lantern, same petal color, sparkle color. so, show color choice"*.
+ * Owner, 2026-10-14 (DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"; approved prototype
+ * `prototypes/maker_effects_and_attire_2026-10-14_fable.html`, its "Proposed" `p-*` kinds and `spawn()`): *"effects
+ * does not look professional and premium"* — so the set was redrawn restrained: slow, few, soft-edged, fading in and
+ * out at both ends of a cycle, depth by blur, palette-tinted:
  *
- *   Lanterns ◆ · Falling petals ◆ · Sparkles · Capiz glow ◆ · Gold shimmer ◆ · Bokeh lights
+ *   Soft haze · Bokeh lights · Gold dust ◆ · Petal drift ◆ · Lanterns ◆ · Gold shimmer ◆ · Light leak ◆ · Film grain ◆
+ *
+ * (Capiz glow and Sparkles are gone; a stored one is read as Soft haze / Gold dust — `HUB_MAIN_EFFECT_RETIRED`.)
+ * The 2026-10-08 rules all stand (DECISION_LOG "LOOK EFFECTS ROUND 4" · "LOOK ROUNDS 4–5"): one at a time, How much ▾,
+ * Colour ▾, the readable band, the finished still under reduce motion.
  *
  * ONE ENGINE, THREE PLACES — the guest's Event Hub, Studio › Look's sample screen, and the carousel's
  * miniatures all draw `ambientEffectSpec()` through ONE layer (`app/[slug]/_components/ambient-effect.tsx`).
@@ -15,13 +18,20 @@
  *
  * WHAT AN EFFECT IS: a handful of drawn shapes (`<i>`, CSS only — never an image, never an emoji), each animated
  * by CSS on `transform` · `translate` · `rotate` · `scale` · `opacity` and nothing else (the compositor's own
- * properties: no layout, no paint of the page). So:
+ * properties: no layout, no paint of the page). Film grain is the one drawn by an in-page SVG noise filter — three
+ * still frames, shown in turn by their opacity; it fetches nothing. So:
  *   · ZERO REQUESTS — no image, no font, no script is fetched for an effect;
  *   · ZERO JAVASCRIPT on the guest page — the layer is plain HTML and one `<style>`;
  *   · REDUCE MOTION = A FINISHED STILL — the animation is taken off and each shape is drawn, in plain CSS, where it
  *     would stand part-way through its cycle (never hidden, never left at its start off the page);
  *   · A READABLE BAND — the layer is masked to half strength across the middle, where the words sit;
  *   · LIGHT AND DARK GROUNDS — glows and blends swap (`data-ambient-ground`).
+ *
+ * ✨ GOLD SHIMMER LIVES ON THE NAMES (the approved drawing): light passes over the couple's names, plus two faint
+ * glints in the frame. The glint on the names is the shipped FOIL NAMES technique (`globals.css`, `[data-hub-foil]`:
+ * a gradient clipped to the type, its position swept) — the ONE animation here that is not a compositor property,
+ * on one heading only, and plain names under reduce motion. It reaches the names as the layer's later sibling
+ * (`[data-ambient-effect="shimmer"] ~ * [data-hub-names]`), so it needs no script and no attribute on the page.
  *
  * THE COLOUR RULE (the note's two lines): the picked palette colour is the effect's BODY; its highlight is the
  * body lifted 40 % toward white and its deep is the body dropped 35 % toward black — one colour in, three out.
@@ -33,30 +43,35 @@
  * `celebration-engine.ts` (`sysPetals`) is a canvas driven by requestAnimationFrame for a timed moment,
  * `reveal-particles.tsx` an opening flourish, `spatial-backdrop.ts` 1024² images. Each would put a script, a
  * canvas or image requests on every guest page. What IS reused: the approved prototype's engine (translated
- * rule for rule), the page's own contrast maths (`lib/hub-legibility.ts`), and the palette's slot names.
+ * rule for rule — its `spawn()` numbers and its seeded generator), the page's own contrast maths
+ * (`lib/hub-legibility.ts`), and the palette's slot names.
  *
- * Pure. Held by `lib/the-effects-are-six-and-cost-nothing.test.ts`.
+ * Pure. Held by `lib/the-effects-are-eight-and-cost-nothing.test.ts`.
  */
 import { HUB_MAIN_EFFECTS, type HubMainEffect, type HubMainEffectColour, type HubMainEffectIntensity, type HubMainEffectKind } from './hub-canvas';
 import { compositeOver, contrastRatio, relativeLuminance } from './hub-legibility';
 
 export const AMBIENT_EFFECT_LABEL: Readonly<Record<HubMainEffectKind, string>> = {
-  lanterns: 'Lanterns',
-  petals: 'Falling petals',
-  sparkles: 'Sparkles',
-  capiz: 'Capiz glow',
-  shimmer: 'Gold shimmer',
+  haze: 'Soft haze',
   bokeh: 'Bokeh lights',
+  dust: 'Gold dust',
+  petals: 'Petal drift',
+  lanterns: 'Lanterns',
+  shimmer: 'Gold shimmer',
+  leak: 'Light leak',
+  grain: 'Film grain',
 };
 
-/** ◆ Event Hub Pro — the approved prototype's marks: Sparkles and Bokeh lights are free, the other four Pro. */
+/** ◆ Event Hub Pro — the approved prototype's marks: Soft haze and Bokeh lights are free, the other six Pro. */
 export const AMBIENT_EFFECT_IS_PRO: Readonly<Record<HubMainEffectKind, boolean>> = {
-  lanterns: true,
-  petals: true,
-  sparkles: false,
-  capiz: true,
-  shimmer: true,
+  haze: false,
   bokeh: false,
+  dust: true,
+  petals: true,
+  lanterns: true,
+  shimmer: true,
+  leak: true,
+  grain: true,
 };
 
 export const AMBIENT_INTENSITY_LABEL: Readonly<Record<HubMainEffectIntensity, string>> = { subtle: 'Subtle', standard: 'Standard', lavish: 'Lavish' };
@@ -71,19 +86,26 @@ export const AMBIENT_COLOUR_LABEL: Readonly<Record<HubMainEffectColour, string>>
 };
 const SLOT: Readonly<Record<HubMainEffectColour, number>> = { dominant: 0, supporting: 1, accent: 2, neutral: 3, accent2: 4 };
 
-/** Shapes on a 375-px phone at Standard — the art direction's table. A spec, capped: never more than `AMBIENT_COUNT_CAP`. */
-export const AMBIENT_COUNT: Readonly<Record<HubMainEffectKind, number>> = { lanterns: 8, petals: 12, sparkles: 16, capiz: 9, shimmer: 14, bokeh: 9 };
+/**
+ * Shapes on a 375-px phone at Standard — the approved prototype's `count`s: fewer, larger, slower. A spec, capped:
+ * never more than `AMBIENT_COUNT_CAP`. Film grain draws no shapes — one layer of noise (`ambientCount` answers 1).
+ */
+export const AMBIENT_COUNT: Readonly<Record<HubMainEffectKind, number>> = { haze: 3, bokeh: 6, dust: 18, petals: 7, lanterns: 4, shimmer: 2, leak: 1, grain: 0 };
 export const AMBIENT_INTENSITY_SCALE: Readonly<Record<HubMainEffectIntensity, number>> = { subtle: 0.6, standard: 1, lavish: 1.5 };
 export const AMBIENT_COUNT_CAP = 24;
-/** A card's miniature draws fewer, smaller shapes — the same ones. */
-const MINI_COUNT = 0.7;
+/** A card's miniature draws fewer, smaller shapes — the same ones (the prototype's `mini`). */
+const MINI_COUNT = 0.6;
 const MINI_SIZE = 0.5;
 
-/** One cycle, in seconds (± 30 %): nothing under 3 s but a twinkle. */
-const PERIOD: Readonly<Record<HubMainEffectKind, number>> = { lanterns: 22, petals: 14, sparkles: 3.2, capiz: 5, shimmer: 9, bokeh: 18 };
+/** One cycle, in seconds (−25 % … +35 %): slow — nothing under 10 s but the grain's own step. */
+const PERIOD: Readonly<Record<HubMainEffectKind, number>> = { haze: 48, bokeh: 30, dust: 14, petals: 26, lanterns: 52, shimmer: 11, leak: 16, grain: 1.2 };
+
+/** Film grain's strength at each How much (the layer's opacity) — the prototype's `--go`. */
+export const AMBIENT_GRAIN_STRENGTH: Readonly<Record<HubMainEffectIntensity, number>> = { subtle: 0.05, standard: 0.085, lavish: 0.13 };
 
 export function ambientCount(kind: HubMainEffectKind, intensity: HubMainEffectIntensity, mini = false): number {
-  return Math.min(AMBIENT_COUNT_CAP, Math.round(AMBIENT_COUNT[kind] * AMBIENT_INTENSITY_SCALE[intensity] * (mini ? MINI_COUNT : 1)));
+  if (kind === 'grain') return 1;
+  return Math.min(AMBIENT_COUNT_CAP, Math.max(1, Math.round(AMBIENT_COUNT[kind] * AMBIENT_INTENSITY_SCALE[intensity] * (mini ? MINI_COUNT : 1))));
 }
 
 /* ── colour ─────────────────────────────────────────────────────────────── */
@@ -127,29 +149,30 @@ export function ambientTriad(body: string): [string, string, string] {
 }
 
 /**
- * The effect's own colours ("Original") — the prototype's: Lanterns a warm amber paper, Capiz a pearl shell,
- * Petals from the palette's Neutral and Accent 2, Sparkles cream on dark / Supporting on light, Bokeh warm
- * light, Gold shimmer gold. `bodies` are drawn from at random, shape by shape; `hi` · `deep` are shared.
+ * The effect's own colours ("Original") — the approved prototype's `orig(dark, five)`: the haze a warm cream on dark
+ * and the couple's Dominant on light; bokeh warm light on dark and their Accent 2 on light; gold for the dust and the
+ * shimmer; petals from their Neutral and Accent 2; lanterns a warm amber paper; the light leak warm. `bodies` are
+ * drawn from at random, shape by shape; `hi` · `deep` are shared.
  */
-function original(kind: HubMainEffectKind, dark: boolean, five: readonly string[], ground: string): { bodies: string[]; hi: string; deep: string } {
-  const [, sup = '#C5A059', , neu = '#C9A9A6', acc2 = '#D8C7B0'] = five;
+function original(kind: HubMainEffectKind, dark: boolean, five: readonly string[]): { bodies: string[]; hi: string; deep: string } {
+  const [dom = '#7A1F2B', , , neu = '#F3EBE1', acc2 = '#B88A6A'] = five;
   switch (kind) {
-    case 'lanterns':
-      return { bodies: ['#F6C97E'], hi: '#FFF1C9', deep: '#B8702A' };
-    case 'capiz':
-      return { bodies: ['#FFF6DC'], hi: '#FFFFFF', deep: '#E8D5B0' };
-    case 'petals': {
-      const a = mix(neu, '#FFFFFF', 0.5);
-      const b = mix(neu, '#7A3D4E', 0.4);
-      return { bodies: [a, b, mix(acc2, '#8A5A3A', 0.3)], hi: b, deep: mix(acc2, '#8A5A3A', 0.3) };
-    }
-    case 'sparkles':
-      /* On a light page the star is the couple's Supporting — pulled like a picked colour, or a pale one would not show at all. */
-      return { bodies: [dark ? '#FFF4D6' : ambientPull(sup, ground), dark ? '#FFFFFF' : ambientPull(sup, ground)], hi: '#FFFFFF', deep: mix(sup, '#000000', 0.35) };
-    case 'shimmer':
-      return { bodies: [dark ? '#F6DFA6' : '#C9A24E'], hi: '#FFF4D0', deep: '#8A6A22' };
+    case 'haze':
+      return { bodies: [dark ? '#F3E6CF' : dom], hi: '#FFFFFF', deep: dark ? '#C9B58F' : mix(dom, '#000000', 0.35) };
     case 'bokeh':
-      return { bodies: [dark ? '#FFE2B8' : '#E8C58F', '#FFF1D6', dark ? mix(acc2, '#FFE9B0', 0.5) : acc2], hi: '#FFF1D6', deep: '#B98D3C' };
+      return { bodies: [dark ? '#FFD9A0' : acc2], hi: '#FFF6E3', deep: dark ? '#B88A4B' : mix(acc2, '#000000', 0.35) };
+    case 'dust':
+      return { bodies: ['#D4AF37'], hi: '#FFF1B8', deep: '#8A6D1E' };
+    case 'petals':
+      return { bodies: [neu, mix(acc2, neu, 0.5)], hi: '#FFFFFF', deep: mix(acc2, '#000000', 0.25) };
+    case 'lanterns':
+      return { bodies: ['#F2B25A'], hi: '#FFE9B8', deep: '#8C5A2A' };
+    case 'shimmer':
+      return { bodies: ['#D4AF37'], hi: '#FFF4CC', deep: '#8A6D1E' };
+    case 'leak':
+      return { bodies: [dark ? '#F4B37C' : acc2], hi: '#FFE6C4', deep: '#9C5A2A' };
+    case 'grain':
+      return { bodies: ['#FFFFFF'], hi: '#FFFFFF', deep: '#000000' };
   }
 }
 
@@ -157,7 +180,7 @@ function original(kind: HubMainEffectKind, dark: boolean, five: readonly string[
 export function ambientSwatch(effect: Pick<HubMainEffect, 'kind' | 'colour'>, ground: string, five: readonly string[]): string {
   const slot = effect.colour ? five[SLOT[effect.colour]] : null;
   if (slot) return ambientPull(slot, ground);
-  return original(effect.kind, ambientGroundIsDark(ground), five, ground).bodies[0]!;
+  return original(effect.kind, ambientGroundIsDark(ground), five).bodies[0]!;
 }
 
 /* ── the ground it lies over ────────────────────────────────────────────── */
@@ -195,12 +218,15 @@ export function ambientGround(input: {
 
 /* ── the shapes ─────────────────────────────────────────────────────────── */
 
-/** The prototype's generator — the same numbers from the same seed, so a still is the same still everywhere. */
-function seeded(n: number): () => number {
-  let x = n * 9301 + 49297;
+/** The prototype's generator (`seeded`, a 32-bit integer hash) — the same numbers from the same seed, so a still is the same still everywhere. */
+function seeded(seed: number): () => number {
+  let a = seed >>> 0;
   return () => {
-    x = (x * 9301 + 49297) % 233280;
-    return x / 233280;
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
@@ -210,49 +236,90 @@ export type AmbientEffectSpec = {
   mini: boolean;
   /** The layer's CSS variables — the shared colours and their washes. */
   vars: Record<string, string>;
-  /** One per shape — its place, depth (size · blur · opacity), period, negative delay and body colour. */
+  /** One per shape — its place, depth (size · blur · opacity), period, negative delay and body colour. Film grain: one, its strength. */
   particles: Record<string, string>[];
 };
 
+/** Where a shape stands in its cycle when its negative delay starts it — the still's `--p`. */
+const stillOf = (d: number, dl: number) => (((-dl / d) % 1) + 1) % 1;
+
 /**
  * THE ONE ANSWER to "what does this effect draw here?" — for the guest page, the sample screen and a card's
- * miniature alike. `ground` is `ambientGround(…)`; `five` the palette's five in slot order.
+ * miniature alike. `ground` is `ambientGround(…)`; `five` the palette's five in slot order. The numbers are the
+ * approved prototype's `spawn()`, kind for kind (its seed: the effect's place after the six that shipped before).
  */
 export function ambientEffectSpec(effect: HubMainEffect, ground: string, five: readonly string[], mini = false): AmbientEffectSpec {
   const { kind, intensity } = effect;
   const dark = ambientGroundIsDark(ground);
   const slot = effect.colour ? five[SLOT[effect.colour]] : null;
   const picked = slot ? ambientTriad(ambientPull(slot, ground)) : null;
-  const own = original(kind, dark, five, ground);
+  const own = original(kind, dark, five);
   const bodies = picked ? [picked[0]] : own.bodies;
   const hi = picked ? picked[1] : own.hi;
   const deep = picked ? picked[2] : own.deep;
   const n = ambientCount(kind, intensity, mini);
-  const r = seeded((HUB_MAIN_EFFECTS.indexOf(kind) + 1) * 97 + n);
-  const base = PERIOD[kind];
   const particles: Record<string, string>[] = [];
-  for (let i = 0; i < n; i++) {
-    const depth = r();
-    const s = (0.55 + depth * 0.75) * (mini ? MINI_SIZE : 1);
-    const x = r() * 96 + 2;
-    const y = r() * 90 + 4;
-    const d = base * (0.75 + r() * 0.6);
-    const dl = -r() * base;
-    const still = (-dl / d) % 1;
-    const body = bodies.length > 1 ? bodies[Math.floor(r() * bodies.length)]! : bodies[0]!;
-    particles.push({
-      '--x': `${x.toFixed(1)}%`,
-      '--y': `${y.toFixed(1)}%`,
-      '--s': s.toFixed(2),
-      '--b': depth < 0.25 ? '1.4px' : depth < 0.5 ? '.5px' : '0px',
-      '--o': (0.5 + depth * 0.5).toFixed(2),
-      '--d': `${d.toFixed(1)}s`,
-      '--dl': `${dl.toFixed(1)}s`,
-      /* The STILL (reduce motion): how far through its cycle the shape stands — the place its negative delay starts it. */
-      '--p': still.toFixed(3),
-      ...(kind === 'shimmer' ? { '--g': (still < 0.45 ? still / 0.45 : (1 - still) / 0.55).toFixed(3) } : {}),
-      ...(bodies.length > 1 ? { '--c1': body } : {}),
-    });
+  if (kind === 'grain') {
+    particles.push({ '--go': (AMBIENT_GRAIN_STRENGTH[intensity] * (mini ? 0.8 : 1)).toFixed(3) });
+  } else {
+    const r = seeded((HUB_MAIN_EFFECTS.indexOf(kind) + 7) * 97 + n);
+    const base = PERIOD[kind];
+    for (let i = 0; i < n; i++) {
+      const depth = r();
+      let s = (0.55 + depth * 0.75) * (mini ? MINI_SIZE : 1);
+      const x = r() * 96 + 2;
+      const y = r() * 90 + 4;
+      const d = base * (0.75 + r() * 0.6);
+      const dl = -r() * base;
+      const still = stillOf(d, dl);
+      const body = bodies.length > 1 ? bodies[Math.floor(r() * bodies.length)]! : null;
+      let o = 0.5 + depth * 0.5;
+      let b = depth < 0.25 ? '1.4px' : depth < 0.5 ? '.5px' : '0px';
+      /* The proposed kinds hold back: lower ceilings, more blur on the far ones. */
+      if (kind === 'haze') {
+        s = (0.8 + depth * 0.5) * (mini ? 0.7 : 1);
+        o = dark ? 0.55 : 0.5;
+      }
+      if (kind === 'bokeh') {
+        o = 0.35 + depth * 0.35;
+        b = depth < 0.4 ? '6px' : depth < 0.7 ? '2px' : '0px';
+      }
+      if (kind === 'dust') {
+        o = 0.45 + depth * 0.5;
+        b = '0px';
+      }
+      if (kind === 'petals') {
+        o = 0.55 + depth * 0.4;
+        b = depth < 0.3 ? '1.6px' : depth < 0.55 ? '.6px' : '0px';
+      }
+      if (kind === 'lanterns') {
+        s = (0.55 + depth * 0.9) * (mini ? MINI_SIZE : 1);
+        o = 0.55 + depth * 0.45;
+        b = depth < 0.3 ? '1.8px' : depth < 0.6 ? '.7px' : '0px';
+      }
+      if (kind === 'shimmer') {
+        o = 0.7;
+        b = '0px';
+      }
+      if (kind === 'leak') {
+        o = dark ? 0.5 : 0.38;
+        s = 1;
+      }
+      particles.push({
+        '--x': `${x.toFixed(1)}%`,
+        '--y': `${y.toFixed(1)}%`,
+        '--s': s.toFixed(2),
+        '--b': b,
+        '--o': o.toFixed(2),
+        '--d': `${d.toFixed(1)}s`,
+        '--dl': `${dl.toFixed(1)}s`,
+        /* The STILL (reduce motion): how far through its cycle the shape stands — the place its negative delay starts it. */
+        '--p': still.toFixed(3),
+        /* A shape that fades in and out: how bright it is at that place (a glint, a mote of dust). */
+        ...(kind === 'shimmer' || kind === 'dust' ? { '--g': (still < 0.45 ? still / 0.45 : (1 - still) / 0.55).toFixed(3) } : {}),
+        ...(body ? { '--c1': body } : {}),
+      });
+    }
   }
   const c1 = bodies[0]!;
   return {
@@ -263,7 +330,7 @@ export function ambientEffectSpec(effect: HubMainEffect, ground: string, five: r
       '--c1': c1,
       '--c2': hi,
       '--c3': deep,
-      /* The washes a glow, a rim or a shell needs — worked out here, so the stylesheet needs no `color-mix()`. */
+      /* The washes a glow, a rim or a veil needs — worked out here, so the stylesheet needs no `color-mix()`. */
       '--c1-75': ambientWash(c1, 0.75),
       '--c1-45': ambientWash(c1, 0.45),
       '--c1-35': ambientWash(c1, 0.35),
@@ -277,6 +344,15 @@ export function ambientEffectSpec(effect: HubMainEffect, ground: string, five: r
   };
 }
 
+/**
+ * 🎞 FILM GRAIN'S THREE FRAMES — fine static noise drawn by an in-page SVG filter (`feTurbulence`), no image. Each frame
+ * is its own small `<svg>` so the browser draws it once and only its OPACITY steps (`sn-fx-grain`). The filter is
+ * referenced by an id in the same page (`url(#…)`) — never an address. `id` makes the ids unique per layer.
+ */
+export const AMBIENT_GRAIN_SEEDS = [3, 11, 29] as const;
+/** The noise each frame draws (the prototype's `GRAIN_SVG`): fine fractal noise, grey, nine-tenths opaque. */
+export const AMBIENT_GRAIN_NOISE = { baseFrequency: '.9', numOctaves: 2, matrix: '0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .9 0' } as const;
+
 /* ── the stylesheet ─────────────────────────────────────────────────────── */
 
 /** The readable band: full strength at the edges, half across the middle, where the names, the date and the buttons sit. */
@@ -284,11 +360,17 @@ const BAND = 'linear-gradient(180deg,#000 0 12%,rgba(0,0,0,.5) 26%,rgba(0,0,0,.5
 const A = '[data-ambient-effect]';
 const K = (kind: HubMainEffectKind) => `${A}[data-ambient-effect="${kind}"] i`;
 const LIGHT = (kind: HubMainEffectKind) => `${A}[data-ambient-effect="${kind}"][data-ambient-ground="light"] i`;
+/** The names a gold shimmer passes over: the page's own (`data-hub-names`) and a card's (`data-ambient-names`) — the layer's later siblings. */
+const NAMES = `${A}[data-ambient-effect="shimmer"]~* [data-hub-names],${A}[data-ambient-effect="shimmer"]~* [data-ambient-names]`;
+const NAMES_ON_LIGHT = `${A}[data-ambient-effect="shimmer"][data-ambient-ground="light"]~* [data-hub-names],${A}[data-ambient-effect="shimmer"][data-ambient-ground="light"]~* [data-ambient-names]`;
 
 /**
  * Everything an effect needs, as ONE stylesheet string — drawn inline beside the layer, only where an effect is on.
- * 🔒 Held by the guard: every `@keyframes` here moves only transform · translate · rotate · scale · opacity; there
- * is no `url(`, no `@import`, no `@font-face`; the band's mask is present; reduce motion PAUSES (never removes).
+ * The approved prototype's "Proposed" CSS (`p-*`), rule for rule, under the layer's own attribute.
+ * 🔒 Held by the guard: every `@keyframes` here moves only transform · translate · rotate · scale · opacity — but ONE,
+ * `sn-fx-sweep`, the names' glint (the shipped foil technique, see the docblock); there is no address (`url(` only in
+ * the grain's own in-page filter, which is markup, not this sheet), no `@import`, no `@font-face`; the band's mask is
+ * present; reduce motion draws a still (never removes).
  */
 export const AMBIENT_EFFECT_CSS =
   /* The layer: its own size is the travel (`cqh`), with the viewport as the older browsers' stand-in. Where it
@@ -297,50 +379,66 @@ export const AMBIENT_EFFECT_CSS =
   `@supports (height:1cqh){${A}{--T:125cqh}}` +
   `${A}[data-ambient-mini]{-webkit-mask-image:none;mask-image:none}` +
   `${A} i{position:absolute;display:block;will-change:transform,opacity}` +
-  /* Lanterns — a paper lantern with an inner glow, a cap and a string; rises on a slow tilt, swaying. */
-  `${K('lanterns')}{left:var(--x);bottom:-14%;width:calc(26px*var(--s));height:calc(34px*var(--s));border-radius:46% 46% 44% 44%/38% 38% 62% 62%;background:radial-gradient(ellipse at 50% 58%,var(--c2) 0,var(--c1) 22%,var(--c3) 100%);box-shadow:0 0 calc(28px*var(--s)) var(--c1-75),0 0 calc(8px*var(--s)) var(--c2-55),inset 0 calc(-4px*var(--s)) calc(6px*var(--s)) var(--c3-35);filter:blur(var(--b));opacity:var(--o);animation:sn-fx-rise var(--d) linear infinite var(--dl),sn-fx-sway calc(var(--d)/2.6) ease-in-out infinite alternate var(--dl)}` +
-  `${K('lanterns')}:before{content:"";position:absolute;left:50%;top:calc(-14px*var(--s));width:1px;height:calc(14px*var(--s));background:var(--c2-55)}` +
-  `${K('lanterns')}:after{content:"";position:absolute;left:30%;right:30%;top:calc(-3px*var(--s));height:calc(5px*var(--s));border-radius:2px;background:var(--c3)}` +
-  `${LIGHT('lanterns')}{box-shadow:0 0 calc(14px*var(--s)) var(--c3-35),inset 0 calc(-4px*var(--s)) calc(6px*var(--s)) var(--c3-35)}` +
-  '@keyframes sn-fx-rise{from{transform:translateY(0) rotate(-2deg)}to{transform:translateY(calc(-1*var(--T))) rotate(2deg)}}' +
-  '@keyframes sn-fx-sway{from{translate:calc(-8px*var(--s)) 0}to{translate:calc(8px*var(--s)) 0}}' +
-  /* Falling petals — a leaf silhouette in two tones, falling on an S-shaped drift, turning with a flutter. */
-  `${K('petals')}{left:var(--x);top:-10%;width:calc(19px*var(--s));height:calc(12px*var(--s));box-shadow:0 1px 2px rgba(0,0,0,.12);border-radius:100% 0 100% 0;background:linear-gradient(135deg,var(--c1),var(--c2));opacity:var(--o);filter:blur(var(--b));animation:sn-fx-fall var(--d) cubic-bezier(.4,.1,.6,.9) infinite var(--dl),sn-fx-turn calc(var(--d)/3) ease-in-out infinite alternate var(--dl)}` +
-  '@keyframes sn-fx-fall{from{transform:translateY(0) translateX(0)}50%{transform:translateY(calc(.5*var(--T))) translateX(calc(18px*var(--s)))}to{transform:translateY(var(--T)) translateX(calc(-12px*var(--s)))}}' +
-  '@keyframes sn-fx-turn{from{rotate:-40deg;scale:1 .7}to{rotate:50deg;scale:1 1}}' +
-  /* Sparkles — a four-point star, twinkling in place. */
-  `${K('sparkles')}{left:var(--x);top:var(--y);width:calc(10px*var(--s));height:calc(10px*var(--s));background:var(--c1);clip-path:polygon(50% 0,58% 42%,100% 50%,58% 58%,50% 100%,42% 58%,0 50%,42% 42%);filter:drop-shadow(0 0 calc(3px*var(--s)) var(--c1));animation:sn-fx-twinkle var(--d) ease-in-out infinite alternate var(--dl)}` +
-  '@keyframes sn-fx-twinkle{from{opacity:.05;transform:scale(.4) rotate(0)}to{opacity:var(--o);transform:scale(1) rotate(25deg)}}' +
-  /* Capiz glow — a translucent shell disc on a string, hanging from the top, swinging from its pivot. */
-  `${K('capiz')}{left:var(--x);top:calc(-6% + var(--y));width:calc(22px*var(--s));height:calc(22px*var(--s));border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--c2-85),var(--c1-45) 55%,var(--c1-12) 100%);border:1px solid var(--c2-55);box-shadow:0 0 calc(10px*var(--s)) var(--c1-45);opacity:var(--o);transform-origin:50% calc(-40px*var(--s));animation:sn-fx-swing var(--d) ease-in-out infinite alternate var(--dl)}` +
-  `${K('capiz')}:before{content:"";position:absolute;left:50%;top:calc(-40px*var(--s));width:1px;height:calc(40px*var(--s));background:var(--c2-55)}` +
-  `${LIGHT('capiz')}{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.95),var(--c1-35) 55%,var(--c1-12) 100%);border-color:var(--c3-35);box-shadow:0 1px calc(8px*var(--s)) var(--c3-20)}` +
-  `${LIGHT('capiz')}:before{background:var(--c3-35)}` +
-  '@keyframes sn-fx-swing{from{rotate:-6deg}to{rotate:6deg}}' +
-  /* Bokeh lights — out-of-focus discs at three depths (the far ones biggest and softest), drifting slowly. */
-  `${K('bokeh')}{left:var(--x);top:var(--y);width:calc(64px*var(--s));height:calc(64px*var(--s));border-radius:50%;background:radial-gradient(circle,var(--c1) 0,var(--c1) 55%,rgba(255,255,255,0) 72%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);filter:blur(calc(6px - 4px*var(--s)));opacity:calc(var(--o)*.7);mix-blend-mode:screen;animation:sn-fx-drift var(--d) ease-in-out infinite alternate var(--dl)}` +
-  `${LIGHT('bokeh')}{mix-blend-mode:multiply;opacity:calc(var(--o)*.35)}` +
-  '@keyframes sn-fx-drift{from{transform:translate(0,0) scale(.9)}to{transform:translate(calc(26px*var(--s)),calc(-18px*var(--s))) scale(1.1)}}' +
-  /* Gold shimmer — a slender metallic glint gliding across and fading, like light on gold leaf. Never a burst. */
-  `${K('shimmer')}{left:var(--x);top:var(--y);width:calc(70px*var(--s));height:1.5px;border-radius:1px;background:linear-gradient(90deg,transparent,var(--c1) 35%,var(--c2) 50%,var(--c1) 65%,transparent);transform:rotate(-32deg);opacity:0;animation:sn-fx-glint var(--d) ease-in-out infinite var(--dl)}` +
-  `${K('shimmer')}:after{content:"";position:absolute;left:46%;top:-4px;width:8%;height:9px;border-radius:50%;background:radial-gradient(ellipse,var(--c2),transparent 70%)}` +
+  /* Soft haze — three large veils of light drifting, barely there. Free. */
+  `${K('haze')}{left:var(--x);top:var(--y);width:calc(70%*var(--s));height:calc(42%*var(--s));border-radius:50%;background:radial-gradient(ellipse,var(--c1-75) 0,var(--c1-35) 45%,transparent 70%);filter:blur(calc(22px*var(--s)));opacity:var(--o);mix-blend-mode:screen;animation:sn-fx-veil var(--d) ease-in-out infinite alternate var(--dl)}` +
+  `${LIGHT('haze')}{mix-blend-mode:multiply;opacity:calc(var(--o)*.55)}` +
+  '@keyframes sn-fx-veil{from{transform:translate(-6%,-3%) scale(.94)}to{transform:translate(6%,4%) scale(1.06)}}' +
+  /* Bokeh lights — out-of-focus discs with the bright RIM a real lens draws, three depths, breathing. Free. */
+  `${K('bokeh')}{left:var(--x);top:var(--y);width:calc(96px*var(--s));height:calc(96px*var(--s));border-radius:50%;background:radial-gradient(circle,var(--c1-35) 0,var(--c1-45) 58%,var(--c2-85) 70%,transparent 73%);filter:blur(calc(8px - 6px*var(--s)));opacity:0;mix-blend-mode:screen;animation:sn-fx-bdrift var(--d) ease-in-out infinite alternate var(--dl),sn-fx-breathe calc(var(--d)/3) ease-in-out infinite var(--dl)}` +
+  `${LIGHT('bokeh')}{mix-blend-mode:multiply;background:radial-gradient(circle,var(--c1-12) 0,var(--c1-35) 58%,var(--c3-35) 70%,transparent 73%)}` +
+  '@keyframes sn-fx-bdrift{from{transform:translate(0,0) scale(.96)}to{transform:translate(calc(22px*var(--s)),calc(-14px*var(--s))) scale(1.04)}}' +
+  '@keyframes sn-fx-breathe{0%,100%{opacity:calc(var(--o)*.45)}50%{opacity:var(--o)}}' +
+  /* Gold dust — tiny luminous points rising and fading; never a star, never a rotation. ◆ */
+  `${K('dust')}{left:var(--x);top:var(--y);width:calc(3px*var(--s));height:calc(3px*var(--s));border-radius:50%;background:var(--c2);box-shadow:0 0 calc(5px*var(--s)) var(--c1),0 0 calc(10px*var(--s)) var(--c1-45);opacity:0;animation:sn-fx-dust var(--d) ease-in-out infinite var(--dl)}` +
+  `${LIGHT('dust')}{background:var(--c3);box-shadow:0 0 calc(4px*var(--s)) var(--c1-75)}` +
+  '@keyframes sn-fx-dust{0%{opacity:0;transform:translate(0,0)}25%{opacity:var(--o)}70%{opacity:calc(var(--o)*.6)}100%{opacity:0;transform:translate(calc(10px*var(--s)),calc(-48px*var(--s)))}}' +
+  /* Petal drift — a few petals, a real petal shape in two tones, falling on a slow S with a soft turn; fading in and out. ◆ */
+  `${K('petals')}{left:var(--x);top:-8%;width:calc(16px*var(--s));height:calc(24px*var(--s));border-radius:80% 20% 60% 40%/60% 40% 70% 30%;background:linear-gradient(160deg,var(--c2) 0,var(--c1) 55%,var(--c3) 100%);box-shadow:inset calc(2px*var(--s)) calc(-2px*var(--s)) calc(4px*var(--s)) rgba(255,255,255,.18),0 calc(2px*var(--s)) calc(4px*var(--s)) rgba(0,0,0,.14);filter:blur(var(--b));opacity:0;animation:sn-fx-fall var(--d) linear infinite var(--dl),sn-fx-sway calc(var(--d)/4) ease-in-out infinite alternate var(--dl)}` +
+  '@keyframes sn-fx-fall{0%{opacity:0;transform:translateY(0)}8%{opacity:var(--o)}88%{opacity:var(--o)}100%{opacity:0;transform:translateY(var(--T))}}' +
+  '@keyframes sn-fx-sway{from{translate:calc(-14px*var(--s)) 0;rotate:-28deg;scale:1 .92}to{translate:calc(14px*var(--s)) 0;rotate:32deg;scale:1 1}}' +
+  /* Lanterns — four, large and far apart: a ribbed paper body, a cap, a base and a tassel, a warm halo, a slow rise. ◆ */
+  `${K('lanterns')}{left:var(--x);bottom:-20%;width:calc(34px*var(--s));height:calc(46px*var(--s));border-radius:48% 48% 46% 46%/34% 34% 66% 66%;background:repeating-linear-gradient(90deg,rgba(0,0,0,0) 0 calc(5px*var(--s)),rgba(0,0,0,.07) calc(5px*var(--s)) calc(6px*var(--s))),radial-gradient(ellipse at 50% 62%,var(--c2) 0,var(--c1) 34%,var(--c3) 100%);box-shadow:0 0 calc(40px*var(--s)) var(--c1-45),0 0 calc(90px*var(--s)) var(--c1-12);filter:blur(var(--b));opacity:0;animation:sn-fx-lrise var(--d) linear infinite var(--dl),sn-fx-lsway calc(var(--d)/5) ease-in-out infinite alternate var(--dl)}` +
+  `${K('lanterns')}:before{content:"";position:absolute;left:28%;right:28%;top:calc(-4px*var(--s));height:calc(6px*var(--s));border-radius:3px 3px 1px 1px;background:var(--c3);box-shadow:0 calc(1px*var(--s)) 0 var(--c3-35)}` +
+  `${K('lanterns')}:after{content:"";position:absolute;left:50%;bottom:calc(-16px*var(--s));width:calc(2px*var(--s));height:calc(16px*var(--s));margin-left:calc(-1px*var(--s));background:linear-gradient(180deg,var(--c3) 0 35%,var(--c1) 35% 100%);border-radius:0 0 2px 2px}` +
+  `${LIGHT('lanterns')}{box-shadow:0 0 calc(22px*var(--s)) var(--c1-35),0 calc(6px*var(--s)) calc(14px*var(--s)) var(--c3-20)}` +
+  '@keyframes sn-fx-lrise{0%{opacity:0;transform:translateY(0) rotate(-1deg)}10%{opacity:var(--o)}90%{opacity:var(--o)}100%{opacity:0;transform:translateY(calc(-1*var(--T))) rotate(1deg)}}' +
+  '@keyframes sn-fx-lsway{from{translate:calc(-10px*var(--s)) 0}to{translate:calc(10px*var(--s)) 0}}' +
+  /* Gold shimmer — two faint glints in the frame… ◆ */
+  `${K('shimmer')}{left:var(--x);top:var(--y);width:calc(110px*var(--s));height:1px;background:linear-gradient(90deg,transparent,var(--c1-45) 40%,var(--c2-85) 50%,var(--c1-45) 60%,transparent);transform:rotate(-24deg);opacity:0;animation:sn-fx-glint var(--d) ease-in-out infinite var(--dl)}` +
   `${LIGHT('shimmer')}{mix-blend-mode:multiply}` +
-  '@keyframes sn-fx-glint{0%{opacity:0;transform:rotate(-32deg) translate(calc(-30px*var(--s)),calc(14px*var(--s)))}45%{opacity:var(--o)}100%{opacity:0;transform:rotate(-32deg) translate(calc(40px*var(--s)),calc(-18px*var(--s)))}}' +
+  '@keyframes sn-fx-glint{0%{opacity:0;transform:rotate(-24deg) translate(calc(-40px*var(--s)),calc(16px*var(--s)))}50%{opacity:var(--o)}100%{opacity:0;transform:rotate(-24deg) translate(calc(50px*var(--s)),calc(-20px*var(--s)))}}' +
+  /* …and the light passing over the NAMES (light on gold type): the shipped foil technique, one heading. On a light
+     ground the light is gold, not cream — a cream glint on dark ink over cream paper would read as the name vanishing. */
+  `${NAMES}{background-image:linear-gradient(100deg,currentColor 0 38%,#FFF4CC 50%,currentColor 62% 100%);background-size:260% 100%;background-position:120% 0;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:sn-fx-sweep 7.5s ease-in-out infinite}` +
+  `${NAMES_ON_LIGHT}{background-image:linear-gradient(100deg,currentColor 0 38%,#C9A24B 50%,currentColor 62% 100%)}` +
+  '@keyframes sn-fx-sweep{0%,55%{background-position:120% 0}100%{background-position:-60% 0}}' +
+  /* Light leak — one warm band of light breathing across the frame, like film. ◆ */
+  `${K('leak')}{left:-30%;top:-40%;width:160%;height:180%;background:linear-gradient(100deg,transparent 30%,var(--c1-35) 46%,var(--c2-55) 52%,var(--c1-35) 58%,transparent 72%);transform:rotate(-18deg);opacity:0;mix-blend-mode:screen;filter:blur(calc(10px*var(--s)));animation:sn-fx-leak var(--d) ease-in-out infinite var(--dl)}` +
+  `${LIGHT('leak')}{mix-blend-mode:multiply}` +
+  '@keyframes sn-fx-leak{0%{opacity:0;transform:rotate(-18deg) translateX(-22%)}40%{opacity:var(--o)}100%{opacity:0;transform:rotate(-18deg) translateX(22%)}}' +
+  /* Film grain — fine static noise, three frames stepping (each its own drawn SVG; only its opacity changes). ◆ */
+  `${K('grain')}{inset:0;opacity:var(--go)}` +
+  `${A}[data-ambient-effect="grain"] svg{position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:overlay;opacity:0;will-change:opacity;animation:sn-fx-grain 1.2s steps(1) infinite}` +
+  `${A}[data-ambient-effect="grain"] svg:nth-of-type(2){animation-delay:-.4s}${A}[data-ambient-effect="grain"] svg:nth-of-type(3){animation-delay:-.8s}` +
+  '@keyframes sn-fx-grain{0%,33%{opacity:1}34%,100%{opacity:0}}' +
   /* REDUCE MOTION = A FINISHED STILL, DRAWN WITHOUT ANY ANIMATION. Each shape stands where it would be `--p` of the way
-     through its cycle (`--g`: a glint's brightness there) — a static pose, per effect.
-     🪤 TWICE MEASURED IN A BROWSER, twice wrong before this:
+     through its cycle (`--g`: a glint's or a mote's brightness there) — a static pose, per effect; the grain shows its
+     first frame; the names are plain.
+     🪤 TWICE MEASURED IN A BROWSER (2026-10-08), twice wrong before this:
        1 · a plain `animation-play-state:paused` lost to each shape's own rule (596 animations kept running);
        2 · pausing with `!important` worked on a bare page and NOT in the app: `globals.css` (`@layer base`) answers
            reduce motion for every element with `animation-duration:.001ms · animation-delay:.001ms · iteration-count:1`,
            all `!important` — and an important declaration in a layer outranks any unlayered one. So every animation
-           ended at once at its START: the petals above the page, the lanterns below it, the glints transparent
-           (on screen: 0 of 12 petals, 0 of 14 glints, 2 of 8 lanterns).
+           ended at once at its START.
      So the still asks nothing of the animation machinery: the animation is taken off and the pose is plain CSS. */
-  `@media (prefers-reduced-motion:reduce){${A} i{animation-name:none!important}` +
-  `${K('lanterns')}{transform:translateY(calc(-1*var(--p)*var(--T))) rotate(calc(4deg*var(--p) - 2deg))}` +
-  `${K('petals')}{transform:translateY(calc(var(--p)*var(--T)));rotate:calc(90deg*var(--p) - 40deg)}` +
-  `${K('sparkles')}{opacity:calc(.05 + (var(--o) - .05)*var(--p));transform:scale(calc(.4 + .6*var(--p))) rotate(calc(25deg*var(--p)))}` +
-  `${K('capiz')}{rotate:calc(12deg*var(--p) - 6deg)}` +
-  `${K('bokeh')}{transform:translate(calc(26px*var(--s)*var(--p)),calc(-18px*var(--s)*var(--p))) scale(calc(.9 + .2*var(--p)))}` +
-  `${K('shimmer')}{opacity:calc(var(--o)*var(--g));transform:rotate(-32deg) translate(calc((70px*var(--p) - 30px)*var(--s)),calc((14px - 32px*var(--p))*var(--s)))}` +
+  `@media (prefers-reduced-motion:reduce){${A} i,${A} svg,${NAMES}{animation-name:none!important}` +
+  `${K('haze')}{transform:translate(calc(12%*var(--p) - 6%),calc(7%*var(--p) - 3%))}` +
+  `${K('bokeh')}{opacity:calc(var(--o)*.75);transform:translate(calc(22px*var(--s)*var(--p)),calc(-14px*var(--s)*var(--p)))}` +
+  `${K('dust')}{opacity:calc(var(--o)*var(--g));transform:translate(calc(10px*var(--s)*var(--p)),calc(-48px*var(--s)*var(--p)))}` +
+  `${K('petals')}{opacity:var(--o);transform:translateY(calc(var(--p)*var(--T)));rotate:calc(60deg*var(--p) - 28deg)}` +
+  `${K('lanterns')}{opacity:var(--o);transform:translateY(calc(-1*var(--p)*var(--T)))}` +
+  `${K('shimmer')}{opacity:calc(var(--o)*var(--g));transform:rotate(-24deg) translate(calc((90px*var(--p) - 40px)*var(--s)),calc((16px - 36px*var(--p))*var(--s)))}` +
+  `${K('leak')}{opacity:calc(var(--o)*.7);transform:rotate(-18deg) translateX(calc(44%*var(--p) - 22%))}` +
+  `${A}[data-ambient-effect="grain"] svg:nth-of-type(1){opacity:1}` +
+  `${NAMES},${NAMES_ON_LIGHT}{background-image:none;-webkit-text-fill-color:currentColor}` +
   '}';

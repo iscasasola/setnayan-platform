@@ -95,6 +95,7 @@ const CHOICE_WORDS: Record<string, string> = {
   color: 'colour',
   size: 'size',
   align: 'alignment',
+  width: 'width',
   leading: 'line spacing',
   tracking: 'letter spacing',
   hidden: 'show or hide choice',

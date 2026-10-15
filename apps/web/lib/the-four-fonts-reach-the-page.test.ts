@@ -237,7 +237,16 @@ test('(4) the names are marked on the three hero surfaces and nowhere else; ONE 
   /* THE STYLESHEET: exactly one rule names the mark's target, and it is gated by the scope's own mark. */
   const css = stripComments(raw('app/globals.css'));
   const rules = [...css.matchAll(/([^{}]*\[data-hub-names\][^{}]*)\{([^}]*)\}/g)].map((m) => [m[1]!.trim(), m[2]!.trim().replace(/\s+/g, ' ')]);
-  assert.deepEqual(rules, [["[data-hub-roles~='names'] [data-hub-names]", 'font-family: var(--hub-names-face);']], 'the names rule is not the ONE rule, or matches without the couple having chosen a Names font');
+  /* ONE rule sets the names' FONT (only under the mark), and ONE their COLOUR — the Mood Board's Dominant, which falls
+     back to the page's ink wherever it is taken off (owner 2026-10-14; `lib/the-five-show-on-the-sample.test.ts`). */
+  assert.deepEqual(
+    rules,
+    [
+      ["[data-hub-roles~='names'] [data-hub-names]", 'font-family: var(--hub-names-face);'],
+      ['[data-guest-look] [data-hub-names]', 'color: rgb(var(--hub-names-ink, var(--color-ink)));'],
+    ],
+    'the names rules are not the font rule (under the mark) and the colour rule — or one of them changed what it sets',
+  );
   /* Every rule keyed on the marks: these four, and none that reaches `font-pahina` (the ~100 other texts do not move). */
   const marked = [...css.matchAll(/([^{}]*\[data-hub-roles~='[a-z]+'\][^{}]*)\{([^}]*)\}/g)].map((m) => m[1]!.trim().replace(/\s+/g, ' '));
   assert.deepEqual(marked, [

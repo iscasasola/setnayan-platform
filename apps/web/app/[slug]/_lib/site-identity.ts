@@ -360,10 +360,10 @@ export async function resolveVendorCapability(input: {
  * IS THIS VIEWER A VERIFIED HOST OF *THIS* EVENT?
  *
  * The ONE derivation of that question, because it was being answered in two
- * places from the same two facts: `buildOwnerRibbon` (lib/owner-ribbon.ts) and
+ * places from the same two facts: the owner ribbon (removed 2026-10-15) and
  * the host body copy in `_components/site-body.tsx`. Two implementations of one
- * rule is how a later edit tightens the ribbon and leaves the body speaking to
- * a host it no longer recognises — or worse, the reverse.
+ * rule is how a later edit tightens one and leaves the other speaking to a host
+ * it no longer recognises — or worse, the reverse. Every host read asks this.
  *
  * 🔒 THE EVENT CHECK IS NOT OPTIONAL AND IS NOT A FORMALITY. A capability is
  * resolved against ONE event; honouring it on another would let somebody who
@@ -371,9 +371,8 @@ export async function resolveVendorCapability(input: {
  * already refuses to mint one without a database-confirmed membership, so this
  * is the second half of the same guarantee: minted for A, spendable only on A.
  *
- * ⚠ NOT derived from `buildOwnerRibbon(...) !== null` — that also returns null
- * for the unrelated reason of a missing slug, so a host of a slugless event
- * would silently lose the body variant along with the ribbon.
+ * ⚠ NOT derived from anything that needs a URL — a missing slug must never
+ * silently drop the body variant for a host of a slugless event.
  */
 export function viewerIsEventHost(
   ownerCapability: OwnerCapability | null,

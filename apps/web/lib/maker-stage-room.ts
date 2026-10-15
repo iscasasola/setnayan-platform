@@ -260,6 +260,14 @@ export const SP_BG_QUIET = 'truncate px-1 text-[14px] font-medium text-[var(--sp
 /** Style's last row: Colour (one circle) and Size (a slider) side by side — *"color and size share the same row"*. */
 export const SP_LOOK_ROW = 'flex h-full min-w-0 items-center gap-2';
 export const SP_LOOK_ROW_LABEL = 'shrink-0 text-[13px] font-medium text-[var(--sp-ink)]';
+/**
+ * ↔ Width ▾ on that row — the house two-line dropdown (`Dd stacked`: WIDTH above its value) at its SHORT size, so
+ * Colour · Size · Width fit ONE row at 375 px and the Size bar keeps ~125 px (`maker_text_width_2026-10-14_fable.html`,
+ * question 1: three written words left it ~30 px).
+ */
+export const SP_LOOK_ROW_DD = '!w-[96px] !flex-none [&_button]:!pr-1.5';
+/* 🔤 96 px (was 86) with the value's right padding 10 → 6: at 375 px "Normal" read "Nor…" — the Size bar still keeps ~115 px
+   (the prototype's 115). The small WIDTH word keeps its left edge (14 px). */
 
 /* ── the panel's body (`stage-panel/*`) — every row ONE height, 44 px (owner 2026-10-06 "keep all rows consistent in height") ── */
 

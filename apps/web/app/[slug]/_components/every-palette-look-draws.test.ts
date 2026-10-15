@@ -83,8 +83,30 @@ function block(markup: string, key: string): string {
 }
 
 /** The colours a list DRAWS, in document order: the look's `--c`, or the tag's background. */
+function withoutFigures(markup: string): string {
+  /* The person (`<span data-role-figure>`, dyed by the role's first colour — 2026-10-14) is the figure's, not the list's: it is cut out
+     whole, spans balanced, so a look is judged on its own swatches. */
+  let out = markup;
+  const start = /<span [^>]*data-role-figure=/;
+  for (let at = out.search(start); at >= 0; at = out.search(start)) {
+    const re = /<(\/?)span\b[^>]*>/g;
+    re.lastIndex = at;
+    let depth = 0;
+    let end = out.length;
+    for (let m = re.exec(out); m; m = re.exec(out)) {
+      depth += m[1] ? -1 : 1;
+      if (depth === 0) {
+        end = re.lastIndex;
+        break;
+      }
+    }
+    out = out.slice(0, at) + out.slice(end);
+  }
+  return out;
+}
+
 function drawn(markup: string): string[] {
-  return [...markup.matchAll(/(?:--c:|background-color:)\s*(#[0-9a-fA-F]{6})/g)].map((m) => m[1]!.toUpperCase());
+  return [...withoutFigures(markup).matchAll(/(?:--c:|background-color:)\s*(#[0-9a-fA-F]{6})/g)].map((m) => m[1]!.toUpperCase());
 }
 
 async function render(extra: Record<string, unknown>) {
@@ -191,7 +213,7 @@ test('6 · nothing moves: no look draws a scroll hook or an animation class', as
 test('7 · the person in the role\'s colours wears the SAME colours in every look', async () => {
   /* #6137 "the palette wears a person": the figure is drawn from the role's
      hexes, never from the look — so a look can change the chips, never the person. */
-  const figures = (out: string) => [...out.matchAll(/<img [^>]*data-role-figure="[^"]*"[^>]*>/g)].map((m) => m[0]);
+  const figures = (out: string) => [...out.matchAll(/<span data-person="[^"]*" data-garment="[^"]*"(?: data-colour="[^"]*")?/g)].map((m) => m[0]);
   for (const extra of [{}, { guestRole: 'principal_sponsor_ninang' }]) {
     const base = figures(await render(extra));
     assert.ok(base.length > 0, 'the fixture draws the person');

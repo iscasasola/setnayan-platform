@@ -189,7 +189,7 @@ function GroupHeading({ label, look }: { label: string; look: Look }) {
   return (
     <h4
       data-entourage-divider=""
-      className="flex items-center gap-3.5 text-center text-[0.66rem] uppercase tracking-[0.28em] text-gild"
+      className="flex items-center gap-3.5 text-center text-[0.66rem] uppercase tracking-[0.28em] text-gild [&>span]:max-w-[72%]"
       style={{ fontFamily: 'var(--font-editorial-mono), ui-monospace, monospace' }}
     >
       <i aria-hidden className="h-px flex-1 bg-ink/15" />

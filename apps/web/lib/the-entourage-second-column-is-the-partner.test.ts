@@ -131,3 +131,17 @@ test('the march · each built row is one numbered line, in order — pairs as bu
   assert.equal(shown.length, built.length);
   assert.deepEqual(shown, built);
 });
+
+/*
+  🖼 THE MAKER'S STYLE CARDS CAN SEE THE MARCH (owner 2026-10-15: "apply these styles to the maker"). A card is the
+  guest page asked for one part (`?only=f:entourage&style=entourage:<id>`); the March stands under its own id with no
+  `data-maker-section` marker, so the "hide everything else" rule found nothing and every entourage card drew blank
+  (Maker lab, 2026-10-15). Sabotage: drop the id rule from `canvasOnlyCss` → red.
+*/
+test('the Maker miniature isolates the March by its id, only while no marker names it', async () => {
+  const { canvasOnlyCss } = await import('../app/[slug]/_lib/editor-canvas');
+  const css = canvasOnlyCss('f:entourage');
+  assert.match(css, /body:has\(#site-entourage\):not\(:has\(\[data-maker-section="f:entourage"\]\)\) \*/);
+  assert.match(css, /:not\(#site-entourage \*\)/, 'everything inside the March stays');
+  assert.doesNotMatch(canvasOnlyCss('w:countdown'), /#site-/, 'a marked scene keeps the marker rule alone');
+});

@@ -8,8 +8,8 @@
  *      every player: CSS animations (one rule), video/audio and Web Animations (the script), the countdown's
  *      clock (`useVeilHeld`).
  *   3. *"when they unveil, the music starts playing upon tap"* — the unveil runs INSIDE the gesture: the
- *      veil's `pointerup` calls `onUnveil` synchronously → `unveilInGesture` releases the page and fires
- *      `hub-unveil` → the music's `play()` runs in that listener. (The music's own half is held in
+ *      veil's `pointerup` calls `onUnveil` synchronously → `unveilInGesture` releases the page and calls
+ *      the `onUnveil` callbacks directly → the music's `play()` runs in that call. (The music's own half is held in
  *      `lib/the-music-button-has-three-designs.test.ts`, beside the rule it shares a counter with.)
  *
  * The hold script itself is EXECUTED below against a stand-in document, not just grepped: it holds a playing
@@ -27,7 +27,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import {
-  HUB_UNVEIL_EVENT,
+  onUnveil,
+  unveilInGesture,
   HUB_VEIL_RELEASED_EVENT,
   HUB_VEILED_ATTR,
   VEIL_HOLD_FAILSAFE_MS,
@@ -82,7 +83,9 @@ test('🎵 the unveil runs inside the gesture: onUnveil first, synchronously, in
   assert.match(OVERLAY, /onUnveil=\{unveilInGesture\}/, 'the guest overlay no longer unveils inside the gesture');
   // …which lets the page play FIRST, then tells the music.
   const fn = HUB_VEIL.slice(HUB_VEIL.indexOf('export function unveilInGesture'));
-  assert.ok(fn.indexOf('releaseVeilHold()') < fn.indexOf('HUB_UNVEIL_EVENT'), 'release must come before hub-unveil, or the song is held');
+  assert.ok(fn.indexOf('releaseVeilHold()') < fn.indexOf('cb()'), 'release must come before the unveil callbacks, or the song is held');
+  // Called DIRECTLY — never through dispatchEvent (DECISION_LOG 2026-06-22: no gesture credit through a dispatched event).
+  assert.equal(/dispatchEvent/.test(fn.slice(0, fn.indexOf('\n}'))), false, 'the unveil reaches the music through a dispatched event');
 });
 
 test('🙈 the hold is written only where an opening is mounted, and the overlay decides whether it stays', () => {
@@ -203,7 +206,19 @@ test('♿ reduced motion: no hold at all (those guests get no opening)', () => {
   assert.equal(s.window.__veilRelease, undefined);
 });
 
-test('the event names are the ones the players listen for', () => {
-  assert.equal(HUB_UNVEIL_EVENT, 'hub-unveil');
+test('the unveil calls its callbacks in the same call stack, and a refused one never stops the rest', () => {
+  const calls: string[] = [];
+  const off1 = onUnveil(() => calls.push('song'));
+  const off2 = onUnveil(() => {
+    throw new Error('refused');
+  });
+  const off3 = onUnveil(() => calls.push('after'));
+  unveilInGesture();
+  assert.deepEqual(calls, ['song', 'after'], 'the unveil did not call every callback synchronously');
+  off1();
+  off2();
+  off3();
+  unveilInGesture();
+  assert.deepEqual(calls, ['song', 'after'], 'an unsubscribed callback still ran');
   assert.equal(HUB_VEIL_RELEASED_EVENT, 'hub-veil-released');
 });

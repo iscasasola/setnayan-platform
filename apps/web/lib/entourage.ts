@@ -156,7 +156,7 @@ type GroupSpec = {
   headingNames?: readonly GuestRole[];
   /** Print the group as one small sub-heading per role, names under it. See `roleBlocks`. */
   byRole?: true;
-  /** A pair the data pairs prints as ONE line on every screen and on the card. See `pairsShareALine`. */
+  /** A group of data-paired couples — ONE line on the printed card, two columns on the page (2026-10-14). See `pairsShareALine`. */
   pairsOnOneLine?: true;
   /**
    * ⚖ THE HEADING FOLLOWS THE COUPLE'S WORDS (owner 2026-09-30). A sided group
@@ -303,7 +303,11 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
        gone: option **1** — each Ninong with his paired Ninang on ONE line, on
        every screen size and on the printed card: "Hon. Ricardo & Mrs. Jessica
        Villahermosa". Supersedes the 2026-09-14 two-column pairing for this
-       group; unpaired sponsors still list alone. */
+       group; unpaired sponsors still list alone.
+       ⚖ OWNER 2026-10-14, on the Wedding March scene's Roll call: *"The names
+       feel too crowded. Maybe have their pairing show in 2 columns without the
+       &."* — on the PAGE a pair is two columns again, now holding at 375
+       (`PairRow`, `entourage-section.tsx`); the printed card keeps option 1. */
     pairsOnOneLine: true,
   },
   {
@@ -335,7 +339,7 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     /* The Bride's crew ARE the bridesmaids, the Groom's crew the groomsmen —
        owner 2026-09-30 brief: no "Bridesmaid" repeated under each name. */
     headingNames: ['bridesmaid', 'groomsman'],
-    // Owner 2026-09-30 option 1: a walking pair shares one line, as the sponsors do.
+    // A walking pair is drawn as the sponsors' are: one line on the card, two columns on the page (owner 2026-10-14).
     pairsOnOneLine: true,
     // ⚖ Owner 2026-09-30: a couple who renames Bridesmaid prints THEIR word
     // here; an untouched column keeps "Bride's Crew" / "Groom's Crew".
@@ -614,7 +618,11 @@ export function lineNames(row: EntourageRow): string {
   return (l ?? r)?.name ?? '';
 }
 
-/** Does this group print a data-paired couple on ONE line? (Principal Sponsors, the crews.) */
+/**
+ * Is this a group of data-paired couples? (Principal Sponsors, the crews.) The
+ * printed card draws each pair as ONE line (2026-09-30 option 1); the page's
+ * Roll call draws it as two columns with no "&" (owner 2026-10-14).
+ */
 export function pairsShareALine(group: EntourageGroup): boolean {
   return GROUPS.find((g) => g.key === group.key)?.pairsOnOneLine === true;
 }

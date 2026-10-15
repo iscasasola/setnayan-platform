@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7a56eae20e",
+  "generatedFromRef": "5541512475",
   "routeCount": 438,
   "destinations": 950,
   "actions": 671,
-  "blocks": 6303,
+  "blocks": 6301,
   "routes": {
     "/": {
       "files": [
@@ -872,8 +872,6 @@
         "[slug]/_components/our-photos-styles.tsx",
         "[slug]/_components/our-photos-widget.tsx",
         "[slug]/_components/our-story.tsx",
-        "[slug]/_components/owner-phase-menu.tsx",
-        "[slug]/_components/owner-ribbon.tsx",
         "[slug]/_components/pahina-keepsake.tsx",
         "[slug]/_components/pahina-masthead.tsx",
         "[slug]/_components/pahina-motion.tsx",
@@ -1300,8 +1298,6 @@
         "OurPhotosWidget",
         "OurStory",
         "OwnerCapability",
-        "OwnerPhaseMenu",
-        "OwnerRibbon",
         "PahinaCoverParallax",
         "PahinaKeepsake",
         "PahinaMasthead",

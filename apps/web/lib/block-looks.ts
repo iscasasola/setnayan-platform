@@ -80,7 +80,7 @@
  *     photo inside itself, like the gallery (`HOLDS_STILL_WHILE`).
  * With the Live hub, no part of the canvas is a sample any more (`BLOCK_SAMPLE_WHY` is empty).
  */
-import { hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElementMotion } from './element-style';
+import { NO_VIEW_GATE_OPEN, hubElementArrivalOnly, hubElementMotionDeclarations, sanitizeHubElementMotion, type HubElementMotion } from './element-style';
 
 /** The key inside `events.style_preferences`. */
 export const BLOCK_LOOKS_PREF_KEY = 'block_looks';
@@ -347,10 +347,22 @@ function blockGroundRules(looks: BlockLooks): string[] {
  */
 export function blockLooksCss(looks: BlockLooks): string {
   const rules: string[] = [];
+  /* 🧭 An engine without scroll timelines: the block's ARRIVAL alone (`hubElementArrivalOnly`), once its chapter is
+     marked — never a Build out (the 2026-10-15 walk, F12). */
+  const arriving: string[] = [];
   for (const block of BLOCK_LOOK_BLOCKS) {
     const motion = looks[block]?.motion;
     if (!motion) continue;
     const sel = `${blockSelector(block)}${OWN}${NOT_THE_DOOR[block] ?? ''}`;
+    const arrival = hubElementArrivalOnly(motion);
+    if (arrival) {
+      const vars = hubElementMotionDeclarations(motion, 'page').filter(([p]) => p.startsWith('--el-in-'));
+      const open = HOLDS_STILL_WHILE[block];
+      const still = open ? settled(motion) : null;
+      const stillArrival = still ? hubElementArrivalOnly(still) : null;
+      arriving.push(`.pahina-in ${sel},.pahina-in${sel}${OFF_CHAPTERS.includes(block) ? `,${sel}${NO_CHAPTER}` : ''}{${decl([...vars, ['animation', arrival]])}}`);
+      if (open && still) arriving.push(`.pahina-in ${sel}${open},.pahina-in${sel}${open}${OFF_CHAPTERS.includes(block) ? `,${sel}${open}${NO_CHAPTER}` : ''}{animation:${stillArrival ?? 'none'}}`);
+    }
     /* ↔ A block that travels sideways must not widen the page. */
     if (sideways(motion)) rules.push(`:has(> [${BLOCK_MARK_ATTR}="${block}"]){overflow-x:clip}`);
     rules.push(`${sel}{${decl(hubElementMotionDeclarations(motion, 'page', false))}}`);
@@ -374,5 +386,9 @@ export function blockLooksCss(looks: BlockLooks): string {
       rules.push(`.pahina-in ${at},.pahina-in${at}${OFF_CHAPTERS.includes(block) ? `,${at}${NO_CHAPTER}` : ''}{${decl(hubElementMotionDeclarations(fixed, 'page', true))}}`);
     }
   }
-  return [...blockGroundRules(looks), ...(rules.length > 0 ? [`${BLOCK_GATE_OPEN}\n${rules.join('\n')}\n}}`] : [])].join('\n');
+  return [
+    ...blockGroundRules(looks),
+    ...(rules.length > 0 ? [`${BLOCK_GATE_OPEN}\n${rules.join('\n')}\n}}`] : []),
+    ...(arriving.length > 0 ? [`${NO_VIEW_GATE_OPEN}\n${arriving.join('\n')}\n}}`] : []),
+  ].join('\n');
 }

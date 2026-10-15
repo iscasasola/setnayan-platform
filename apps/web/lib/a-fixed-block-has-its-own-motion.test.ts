@@ -65,6 +65,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
+import { NO_VIEW_GATE_OPEN } from './element-style';
 import {
   BLOCK_EMPTY_WHY,
   BLOCK_GATE_OPEN,
@@ -76,7 +77,7 @@ import {
   BLOCK_LOOK_BLOCKS,
   BLOCK_MARK_ATTR,
   BLOCK_SAMPLE_WHY,
-  blockLooksCss,
+  blockLooksCss as blockLooksCssAll,
   blockLooksWith,
   blockOfCanvas,
   blockSelector,
@@ -88,6 +89,11 @@ import { hubDraftCountedChanges, mergeHubDraft, planHubDraftApply, sanitizeHubDr
 
 const WEB = join(__dirname, '..');
 const raw = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
+/* 🧭 The page's rules for an engine WITH scroll timelines — what every check below reads. Since F12 (2026-10-16) a
+   second, separate block follows for an engine without them (its arrival alone); test 2b reads that one. */
+const NO_VIEW_SPLIT = `\n${NO_VIEW_GATE_OPEN}\n`;
+const blockLooksCss = (looks: Parameters<typeof blockLooksCssAll>[0]) => blockLooksCssAll(looks).split(NO_VIEW_SPLIT)[0]!;
+const noViewOf = (looks: Parameters<typeof blockLooksCssAll>[0]) => blockLooksCssAll(looks).split(NO_VIEW_SPLIT)[1] ?? '';
 const src = (rel: string) => stripComments(raw(rel));
 const L = 'app/dashboard/[eventId]/launch/_components';
 
@@ -157,6 +163,17 @@ test('1 · the reader is strict: the real blocks, and only what the Event Hub’
     gifts: { motion: { in: { blur: true }, during: 'drift', timeline: 'scroll', out: { fade: true, size: 'grow' } } },
   });
   for (const none of [null, undefined, 'x', [], {}, { block_looks: null }, { block_looks: [] }, { block_looks: { entourage: null } }, { block_looks: { entourage: { motion: {} } } }]) assert.deepEqual(readBlockLooks(none), {});
+});
+
+test('2b 🧭 an engine without scroll timelines gets the block’s ARRIVAL alone — never its Build out (F12)', () => {
+  const both = { in: { fade: true, move: 'below' }, during: 'drift', timeline: 'scroll', out: { fade: true, size: 'grow' } } as const;
+  const nv = noViewOf(readBlockLooks({ block_looks: { gifts: { motion: both }, entourage: { motion: { in: { fade: true }, speed: 'gentle', delay: 'short' } } } }));
+  assert.ok(nv.endsWith('\n}}'), nv);
+  assert.match(nv, /el-in-/, 'no arrival where there are no scroll timelines');
+  assert.match(nv, /el-during-drift/, 'the Drift is a clock loop — it plays there too');
+  assert.match(nv, /1\.8s cubic-bezier\(0\.22, 0\.61, 0\.36, 1\) 0\.3s backwards el-in-fade/, 'the timed arrival keeps its own seconds and Delay');
+  assert.doesNotMatch(nv, /el-out-|animation-timeline|animation-range/, 'a Build out or a timeline where the engine has none');
+  assert.equal(noViewOf(readBlockLooks({ block_looks: { gifts: { motion: { timeline: 'scroll', out: { fade: true } } } } })), '', 'only a Build out → nothing there');
 });
 
 test('2 · the rules are the Event Hub’s own: both gates, a timed Build in waits for the observer, nothing when still', () => {

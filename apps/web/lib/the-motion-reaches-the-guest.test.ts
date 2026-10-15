@@ -75,15 +75,24 @@ function blockAt(css: string, at: number): string {
   throw new Error('unclosed block');
 }
 
-/** The regions inside `@supports (animation-timeline: view())` → reduced-motion no-preference. */
-function gated(css: string): string[] {
+/**
+ * The regions inside `@supports (animation-timeline: view())` → reduced-motion no-preference — and, since F12
+ * (2026-10-16), inside its other half, `@supports not (animation-timeline: view())` → the same reduced-motion gate,
+ * where an engine without scroll timelines plays the ARRIVAL alone (`noViewGated`).
+ */
+function gatedBy(css: string, re: RegExp): string[] {
   const out: string[] = [];
-  for (const m of css.matchAll(/@supports \(animation-timeline: view\(\)\)/g)) {
+  for (const m of css.matchAll(re)) {
     const inner = blockAt(css, m.index ?? 0);
-    const mq = inner.indexOf('@media (prefers-reduced-motion: no-preference)');
+    const mq = inner.search(/@media [^{]*\(prefers-reduced-motion: no-preference\)/);
     if (mq >= 0) out.push(blockAt(inner, mq));
   }
   return out;
+}
+const viewGated = (css: string) => gatedBy(css, /@supports \(animation-timeline: view\(\)\)/g);
+const noViewGated = (css: string) => gatedBy(css, /@supports not \(animation-timeline: view\(\)\)/g);
+function gated(css: string): string[] {
+  return [...viewGated(css), ...noViewGated(css)];
 }
 
 /** What is left once the gated regions — and the gates' own conditions — are cut out. */
@@ -104,6 +113,10 @@ test('1·4 🔒 a scene part\'s motion is written ONLY inside both gates — for
       const outside = ungated(css);
       assert.match(inside, /animation:/, `no motion at all for ${JSON.stringify(motion)}`);
       assert.doesNotMatch(outside, /animation(-name|-timeline|-range)?\s*:/, `motion outside the gates: ${JSON.stringify(motion)}\n${css}`);
+      /* 🧭 Without scroll timelines only the ARRIVAL plays: never a Build out, never a timeline (F12). */
+      const noView = noViewGated(css).join('\n');
+      assert.doesNotMatch(noView, /el-out-|animation-timeline|animation-range/, `a Build out or a scroll timeline where the engine has none: ${noView}`);
+      if (motion.in) assert.match(noView, /el-in-/, `an engine without scroll timelines gets no arrival: ${JSON.stringify(motion)}`);
       // The look is NOT gated: a guest who asked for less motion keeps the couple's colour.
       assert.match(outside, /color:#112233 !important/);
       checked += 1;
@@ -125,8 +138,13 @@ test('1·4 🔒 a hero part never carries an inline animation — only propertie
   assert.match(rule[1]!, /animation:\s*var\(--el-anim\)/);
   assert.match(rule[1]!, /animation-timeline:\s*var\(--el-tl\)/);
   assert.ok(
-    gated(CSS).some((g) => g.includes('[data-el-motion]:not(#el-own)')),
+    viewGated(CSS).some((g) => /\[data-el-motion\]:not\(#el-own\)\s*\{[^}]*var\(--el-anim\)/.test(g)),
     'the [data-el-motion] rule is outside the @supports + reduced-motion gates',
+  );
+  /* 🧭 …and where there are no scroll timelines, the same hook plays the arrival alone (F12). */
+  assert.ok(
+    noViewGated(CSS).some((g) => /\[data-el-motion\]:not\(#el-own\)\s*\{\s*animation:\s*var\(--el-anim-t, none\);\s*\}/.test(g)),
+    'an engine without scroll timelines never plays a hero part — or plays its Build out',
   );
   const MAST = stripComments(read('app/[slug]/_components/pahina-masthead.tsx'));
   assert.match(MAST, /\.\.\.hubElementMotionAttr\(elements\?\.\[key\]\)/, 'the hero part must carry the hook');
@@ -325,6 +343,9 @@ test('🔎 the guest page ships it — the frame renders the gated style after t
   );
   const style = /<style hidden="" data-hub-els="schedule">([\s\S]*?)<\/style>/.exec(html);
   assert.ok(style, html);
-  assert.equal(gated(style[1]!).length, 1);
+  /* Both halves of the gate: scroll timelines (all of it) and none (its arrival alone — F12). */
+  assert.equal(viewGated(style[1]!).length, 1);
+  assert.equal(noViewGated(style[1]!).length, 1);
+  assert.doesNotMatch(noViewGated(style[1]!)[0]!, /el-out-/);
   assert.doesNotMatch(ungated(style[1]!), /animation/);
 });

@@ -10,6 +10,8 @@ buffered-canvas-frame.tsx, mood-board-studio.tsx — do not edit.
 
 - F3 · delayed part holds its first frame: motionSlots fill `backwards`; fixture rehashed by a script that proves the fill is the only change; guard = the-motion-reaches-the-guest test 9 (sabotaged red).
 
+- F12 · no scroll timelines (Safari<26, Firefox): `@supports not (animation-timeline: view())` gate in globals.css plays every scene arrival on the clock once `.pahina-in` (scroll scenes fall back to arrival, never a Build out); hero parts read `--el-anim-t` (`hubElementArrivalOnly`); scene parts + fixed blocks get the same block. Guard lib/arrival-plays-without-scroll-timelines.test.ts (sabotaged red twice) + the-motion-reaches-the-guest 1·4. Fixture rehashed by script proving only fill + anim-t + no-view block changed.
+
 ## Next
 F3 fill backwards · F4 skeleton names · F5/F6 canvas + hold-▶ arrivals · F7 rows · F8 action end · F9 From ▾ ·
 F10 latest pick · F11 Slow lift · F12 no-view() engines · F2 verify live.

@@ -1290,6 +1290,33 @@ function motionSlots(
 }
 
 /**
+ * 🧭 AN ENGINE WITHOUT SCROLL TIMELINES (Safari before 26, Firefox) — the 2026-10-15 walk, F12/S2: every rule sat
+ * behind `@supports (animation-timeline: view())`, so on those engines NOTHING moved, not even a Build in that plays
+ * ON ARRIVAL, which needs no scroll timeline at all (the page's one observer, `PahinaMotionObserver`, marks the
+ * scene; the clock plays it). Those engines now get, behind `NO_VIEW_GATE_OPEN`, the part's ARRIVAL only:
+ *   · its Build in on the clock — one that follows the scroll plays on arrival instead (its regular seconds);
+ *   · its Drift (a clock loop);
+ *   · never a Build out: it follows the scroll, and an engine that cannot follow a scroll would run it on a
+ *     one-second clock and HIDE the words (the very fault the main gate exists for — see `hubElementInlineStyle`).
+ * The shorthand only (no `animation-timeline` — those engines have none). Null when there is nothing to play.
+ */
+export function hubElementArrivalOnly(motion: HubElementMotion | undefined, approached = true): string | null {
+  if (!motion) return null;
+  const m = sanitizeHubElementMotion(motion) ?? {};
+  const out: string[] = [];
+  if (m.in) {
+    const scroll = m.timeline === 'scroll';
+    const dur = scroll ? DURATION_S.normal : DURATION_S[SPEED_DURATION[m.speed ?? 'regular']];
+    const delay = scroll ? 0 : DELAY_S[m.delay ?? 'none'];
+    out.push(approached ? `${dur}s ${EASE} ${delay}s backwards ${hubElInKeyframe(m.in).name}` : '0s none none');
+  }
+  if (m.during === 'drift') out.push(`7s ease-in-out 0s infinite alternate ${DURING_KF.drift}`);
+  return out.length > 0 ? out.join(', ') : null;
+}
+/** The gate for `hubElementArrivalOnly` — the other half of `GATE_OPEN`: no scroll timelines, motion allowed. */
+export const NO_VIEW_GATE_OPEN = '@supports not (animation-timeline: view()){@media (prefers-reduced-motion: no-preference){';
+
+/**
  * The element's animations as ONE declaration set — In, During and Out are
  * comma-separated animations that run together. Returns nothing for an element
  * with no motion of its own (it then moves with its scene).
@@ -1420,11 +1447,15 @@ export function hubElementHeroMotionVars(style: HubElementStyle | null | undefin
   const decl = hubElementMotionDeclarations(style?.motion, 'hero');
   const motion = Object.fromEntries(decl);
   if (!motion.animation) return [];
+  /* 🧭 …and what an engine without scroll timelines plays instead (`hubElementArrivalOnly`, the `[data-el-motion]`
+     rule's second gate in globals.css). */
+  const arrival = hubElementArrivalOnly(style?.motion);
   return [
     ...decl.filter(([p]) => p.startsWith('--el-')),
     ['--el-anim', motion.animation],
     ['--el-tl', motion['animation-timeline'] ?? 'auto'],
     ['--el-range', motion['animation-range'] ?? 'normal'],
+    ...(arrival ? ([['--el-anim-t', arrival]] as Array<[string, string]>) : []),
   ];
 }
 
@@ -1487,6 +1518,7 @@ export const HUB_ELEMENT_LOOK_PROPS = [
 ] as const;
 export const HUB_ELEMENT_MOTION_PROPS = [
   '--el-anim',
+  '--el-anim-t',
   '--el-tl',
   '--el-range',
   '--el-in-o',
@@ -1585,6 +1617,7 @@ export function hubElementSceneCss(
   const looks: string[] = [];
   const moving: string[] = [];
   const scenes: string[] = [];
+  const arriving: string[] = [];
   const decl = (d: Array<[string, string]>) => d.map(([p, v]) => `${p}:${v}`).join(';');
   let clipX = false;
   for (const key of HUB_SCENE_ELEMENT_KEYS) {
@@ -1613,6 +1646,12 @@ export function hubElementSceneCss(
     const at = (place: HubElementPlace, approached: boolean) => decl(hubElementMotionDeclarations(motion, place, approached));
     moving.push(`${host} ${target}${OWN}{${at('page', false)}}`);
     if (timedIn) moving.push(`.pahina-in${host} ${target}${OWN}{${at('page', true)}}`);
+    /* 🧭 No scroll timelines: the arrival alone, once the observer has marked the scene (`hubElementArrivalOnly`). */
+    const arrival = hubElementArrivalOnly(motion);
+    if (arrival) {
+      const vars = hubElementMotionDeclarations(motion, 'page').filter(([p]) => p.startsWith('--el-in-'));
+      arriving.push(`.pahina-in${host} ${target}${OWN}{${decl([...vars, ['animation', arrival]])}}`);
+    }
     if (!ownScroll) continue;
     for (const [place, prefix] of [
       ['scrub', '.hub-scrub > '],
@@ -1629,6 +1668,7 @@ export function hubElementSceneCss(
       `${GATE_OPEN}\n${moving.join('\n')}${scenes.length > 0 ? `\n${SCENES_GATE_OPEN}\n${scenes.join('\n')}\n}` : ''}\n}}`,
     );
   }
+  if (arriving.length > 0) css.push(`${NO_VIEW_GATE_OPEN}\n${arriving.join('\n')}\n}}`);
   return css.length > 0 ? css.join('\n') : null;
 }
 

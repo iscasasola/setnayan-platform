@@ -181,7 +181,7 @@ test("the hero's stored override renders for guests, inline on the part it names
   // "Plays once" arrives on the clock — no scroll timeline.
   const moving = await renderMasthead({ elements: { names: { motion: { in: 'rise' } } } });
   // As custom properties the ONE gated rule reads — never a bare inline animation.
-  assert.match(moving, /<h1 data-el-motion="" style="--el-anim:1\.1s [^"]* backwards el-in-rise;--el-tl:auto;--el-range:normal"/);
+  assert.match(moving, /<h1 data-el-motion="" style="--el-anim:1\.1s [^"]* backwards el-in-rise;--el-tl:auto;--el-range:normal;--el-anim-t:1\.1s [^"]* backwards el-in-rise"/);
   assert.doesNotMatch(moving, /style="([^"]*;)?animation(-timeline|-range)?:/);
 });
 

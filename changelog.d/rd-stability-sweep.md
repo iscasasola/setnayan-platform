@@ -29,3 +29,14 @@ already answers "unread → name no list". It is now a decoration read (`lib/rea
 stays essential; the event read itself still fails honestly. Guard: `lib/read-limit.test.ts` § 2c.
 
 SPEC IMPACT: None.
+
+### 3 · `DB_READ_REFUSED GET events — 22P02 invalid input syntax for type uuid` (75 hits)
+
+Vercel's log named the pages: every crawl of a `/realstories/<sample>` story sent
+`events?event_id=eq.sample-jack-and-jill`. `EditorialContent` resolves its words through
+`resolveProfileByEvent` before any of its sample guards, and `readEventTypeRow` asked twice (its refusal
+path retries without the new column). The one shared reader now answers a non-uuid exactly as an absent
+row, without asking (`lib/event-type-profile.ts`, `isUuid`). Guard:
+`lib/a-sample-story-asks-the-database-nothing.test.ts` (also proves a real uuid still reads).
+
+SPEC IMPACT: None.

@@ -50,3 +50,6 @@ field · every field sits in a form" (sabotaged: noValidate removed · a field p
 form — all red); `canvas-field-parity.test.ts` listens on the form again. Also: the coverage sync and the card's
 schedule writes now log their `[supabase-error]`; `vendor_schedule_pools.is_vendor_created` listed in the
 handles-have-gates baseline with its reason; generated baselines regenerated (port, screens, unread-error, home-shelf).
+Preflight round 2: the maker loader's two `vendor_services` reads log their `[supabase-error]`;
+`vendor_service_attributes.meets_visibility_minimum` listed in the handles-have-gates baseline (its reader is an RLS
+policy — `matchVendorFacets` — which a TS scan cannot see).

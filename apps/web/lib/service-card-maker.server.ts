@@ -106,6 +106,7 @@ export async function loadMakerContext(
   ]);
   const coverageLabels = await resolveCoverageLabels().catch(() => null);
 
+  if (ownRowsRes.error) console.error('[supabase-error] lib/service-card-maker.server.ts · from:vendor_services.select (own kinds)', ownRowsRes.error);
   const ownCategories = ((ownRowsRes.data ?? []) as { category: string }[]).map((r) => r.category);
   const cardsByCategory: Record<string, number> = {};
   for (const c of ownCategories) cardsByCategory[c] = (cardsByCategory[c] ?? 0) + 1;
@@ -359,6 +360,7 @@ export async function loadCardForEdit(
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/service-card-maker.server.ts · from:vendor_services.select (card for edit)', error);
   if (error || !row) return null;
   const c = row as Record<string, unknown> & {
     category: string;

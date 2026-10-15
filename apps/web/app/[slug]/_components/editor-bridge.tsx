@@ -37,6 +37,7 @@ import { createCanvasBringUp } from './canvas-bring-up';
 import { replaySceneIn, sceneFrameOf } from './scene-replay';
 import { finishArrivals, playSequence } from './play-sequence';
 import { laySceneMotion, readSceneMotion } from './scene-motion-lay';
+import { startGuestArrivals } from './guest-preview-arrivals';
 import { guestLinkLeaves } from './guest-in-canvas';
 
 /**
@@ -562,6 +563,8 @@ export function EditorBridge() {
         if (a && guestLinkLeaves(a.href, a.target, window.location.href)) refuse(e, 'link');
       };
       const onSubmit = (e: Event) => refuse(e, 'send');
+      /* 👁 …and each scene ARRIVES as a guest gets it: on screen now, below as it is scrolled to (`guest-preview-arrivals.ts`). */
+      let arrivals: (() => void) | null = null;
       const set = (on: boolean) => {
         if (on === state.on) return;
         state.on = on;
@@ -570,7 +573,15 @@ export function EditorBridge() {
           document.documentElement.setAttribute('data-maker-guest', '');
           document.addEventListener('click', onClick, true);
           document.addEventListener('submit', onSubmit, true);
+          arrivals = startGuestArrivals(document, window, (frame) => {
+            replaySceneIn(frame as never, {
+              replayPart: (part) => replayElementIn(part as unknown as HTMLElement, false),
+              later: (fn, ms) => window.setTimeout(fn, ms),
+            });
+          }, (part) => void replayElementIn(part, false));
         } else {
+          arrivals?.();
+          arrivals = null;
           document.documentElement.removeAttribute('data-maker-guest');
           document.removeEventListener('click', onClick, true);
           document.removeEventListener('submit', onSubmit, true);

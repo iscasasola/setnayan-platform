@@ -94,7 +94,7 @@ test('1 🔁 the shipped single choices map onto the four — and keep their shi
   assert.equal(sanitizeHubElementMotion({ in: 'fade', duration: 'slow' })?.speed, 'gentle');
   // Written in the new shape, the same choice draws the same shipped keyframe.
   const a = decl(hubElementMotionDeclarations({ in: { fade: true, move: 'below' } }));
-  assert.match(a, / none el-in-rise,/);
+  assert.match(a, / backwards el-in-rise,/);
   assert.doesNotMatch(a, /--el-in-/, 'a shipped combination carries no composed far end');
 });
 
@@ -132,7 +132,7 @@ test('2 🎛 Fade + Move from top-left + Grow + Blur is ONE composed In animatio
   const slots = (d.animation ?? '').split(/,\s*(?![^()]*\))/);
   const ins = slots.filter((s) => / el-in-/.test(s));
   assert.equal(ins.length, 1, `the In is not one animation: ${d.animation}`);
-  assert.match(ins[0]!, / none el-in-mix$/);
+  assert.match(ins[0]!, / backwards el-in-mix$/);
   assert.equal(d['--el-in-o'], '0');
   assert.equal(d['--el-in-t'], 'translate3d(-18px, -18px, 0) scale(0.85)');
   assert.equal(d['--el-in-f'], 'blur(8px)');

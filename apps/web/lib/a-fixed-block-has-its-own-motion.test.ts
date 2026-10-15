@@ -175,7 +175,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   /* Until the guest gets there the block RESTS, visible (a `0s none none` slot — never a hidden first frame)… */
   assert.ok(lines[0]!.startsWith(`${at}:not(#el-own){animation:0s none none,`), lines[0]);
   /* …and plays once the page's one observer marks the chapter it sits in. */
-  assert.ok(lines[1]!.startsWith(`.pahina-in ${at}:not(#el-own),.pahina-in${at}:not(#el-own){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), lines[1]);
+  assert.ok(lines[1]!.startsWith(`.pahina-in ${at}:not(#el-own),.pahina-in${at}:not(#el-own){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), lines[1]);
 
   /* 👤 A BLOCK ME DRAWS HAS NO CHAPTER (Your seat, where a guest's bar has Me): Me is a sibling of the chapters
      article, and the page's one observer marks chapters and scenes only — so the timed rule is bound there as well,
@@ -184,7 +184,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   const seatAt = `${blockSelector('find_your_seat')}:not(#el-own)`;
   assert.equal(seat.length, 2);
   assert.ok(seat[0]!.startsWith(`${seatAt}{animation:0s none none,`), seat[0]);
-  assert.ok(seat[1]!.startsWith(`.pahina-in ${seatAt},.pahina-in${seatAt},${seatAt}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), seat[1]);
+  assert.ok(seat[1]!.startsWith(`.pahina-in ${seatAt},.pahina-in${seatAt},${seatAt}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), seat[1]);
   /* The two facts that arm leans on: Me is filed with no chapters, and the observer marks nothing else. */
   const PAGE = src('app/[slug]/_components/site-body.tsx');
   const me = PAGE.slice(PAGE.indexOf("group('me', ("), PAGE.indexOf("group('me', (") + 200);
@@ -201,7 +201,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   const passAt = `${blockSelector('pass')}:not(#el-own):not(:target)`;
   assert.equal(pass.length, 2);
   assert.ok(pass[0]!.startsWith(`${passAt}{animation:0s none none,`), pass[0]);
-  assert.ok(pass[1]!.startsWith(`.pahina-in ${passAt},.pahina-in${passAt},${passAt}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), pass[1]);
+  assert.ok(pass[1]!.startsWith(`.pahina-in ${passAt},.pahina-in${passAt},${passAt}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), pass[1]);
   for (const line of pass) assert.equal(line.split('{')[0]!.split(':not(:target)').length - 1, line.split('{')[0]!.split(':not(#el-own)').length - 1, 'an arm of the pass’s motion reaches the pass while the address points at it');
   assert.match(raw('app/globals.css'), /\[data-motion='pass'\]:target \{\s*animation: sn-pass-lift var\(--sn-dur-enter\) var\(--sn-ease-out\) backwards;\s*\}/, 'the door’s lift is gone (or renamed): the pass’s `:not(:target)` guards nothing');
   /* No other block is kept from its target (none is one). */
@@ -214,7 +214,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   const rise = photos({ in: { fade: true, move: 'below' }, speed: 'gentle' });
   assert.equal(rise.length, 2, 'a timed Build in alone ends by itself: nothing more is written');
   assert.ok(rise[0]!.startsWith(`${photosAt}{animation:0s none none,`), rise[0]);
-  assert.ok(rise[1]!.startsWith(`.pahina-in ${photosAt},.pahina-in${photosAt}{animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), rise[1]);
+  assert.ok(rise[1]!.startsWith(`.pahina-in ${photosAt},.pahina-in${photosAt}{animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), rise[1]);
   /* 🖼 AN OPENED PHOTO IS DRAWN INSIDE THE BLOCK'S ROOT, OVER THE WHOLE SCREEN (`fixed inset-0`). An element being
      moved becomes the box its `fixed` children are measured from — measured in Chromium, 2026-10-10, 375 × 812, a
      300 px card: with Drift, or following the scroll, the opened photo's backdrop was the CARD (335 × 300), not the
@@ -228,7 +228,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   assert.ok(drift[2]!.startsWith(`${photosAt}${OPEN}{animation:0s none none,`), drift[2]);
   /* The timed Build in STAYS in the list (it has ended; taken out, it would play again each time a photo is closed
      — seen in the same measurement: only Drift starts again on closing). Drift does not. */
-  assert.ok(drift[3]!.startsWith(`.pahina-in ${photosAt}${OPEN},.pahina-in${photosAt}${OPEN}{animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), drift[3]);
+  assert.ok(drift[3]!.startsWith(`.pahina-in ${photosAt}${OPEN},.pahina-in${photosAt}${OPEN}{animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), drift[3]);
   for (const line of drift.slice(2)) assert.doesNotMatch(line, /el-during-drift|infinite/, 'the block still drifts while a photo is open');
   /* Following the scroll: every slot is bound to it, so none is left while a photo is open. */
   const followed = photos({ timeline: 'scroll', in: { fade: true }, out: { fade: true }, during: 'drift' });
@@ -256,7 +256,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
     const at = `${blockSelector(b)}:not(#el-own)`;
     const lines = blockLooksCss(readBlockLooks({ block_looks: { [b]: { motion: { in: { fade: true, move: 'below' }, speed: 'gentle' } } } })).split('\n').slice(1, -1);
     assert.equal(lines.length, 2, b);
-    assert.ok(lines[1]!.startsWith(`.pahina-in ${at},.pahina-in${at},${at}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), `${b}: ${lines[1]}`);
+    assert.ok(lines[1]!.startsWith(`.pahina-in ${at},.pahina-in${at},${at}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), `${b}: ${lines[1]}`);
   }
   /* 🖼 THE LIVE WALL OPENS A PHOTO INSIDE ITSELF — the gallery's own lightbox, in its root — so while one is open what
      keeps moving stands still, as for Photos of you; and since the live hub can stand outside a chapter, the timed
@@ -265,7 +265,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   const liveDrift = blockLooksCss(readBlockLooks({ block_looks: { live_hub: { motion: { in: { fade: true, move: 'below' }, speed: 'gentle', during: 'drift' } } } })).split('\n').slice(1, -1);
   assert.equal(liveDrift.length, 4);
   assert.ok(liveDrift[2]!.startsWith(`${liveAt}${OPEN}{animation:0s none none,`), liveDrift[2]);
-  assert.ok(liveDrift[3]!.startsWith(`.pahina-in ${liveAt}${OPEN},.pahina-in${liveAt}${OPEN},${liveAt}${OPEN}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), liveDrift[3]);
+  assert.ok(liveDrift[3]!.startsWith(`.pahina-in ${liveAt}${OPEN},.pahina-in${liveAt}${OPEN},${liveAt}${OPEN}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), liveDrift[3]);
   for (const line of liveDrift.slice(2)) assert.doesNotMatch(line, /el-during-drift|infinite/, 'the live hub still drifts while a photo is open');
   assert.match(src('app/[slug]/_components/live-wall-block.tsx'), /<section\s+aria-label="Live photo wall"\s+className="sn-gal p-5 sm:p-6"\s*>(?:(?!<\/section>)[\s\S])*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}[\s\S]*?<\/section>\s*\);\s*\}/, 'the wall’s opened photo is no longer drawn inside its root');
   /* 📌 ANNOUNCEMENTS RIDE STUCK TO THE SCREEN ON THE DAY (the layout's `sticky top-0`): there a motion that follows the

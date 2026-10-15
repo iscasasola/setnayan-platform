@@ -1248,14 +1248,19 @@ function motionSlots(
       timedIn = true;
       const dur = scroll ? DURATION_S.normal : DURATION_S[SPEED_DURATION[motion.speed ?? 'regular']];
       const delay = scroll ? 0 : DELAY_S[motion.delay ?? 'none'];
-      /* 🔑 fill `none`, NOT `backwards`: words move but are NEVER hidden while
-         they wait. `backwards` painted the from-keyframe (opacity 0) for the
-         whole Delay — measured, the hero's names read opacity 0 for 0.8 s.
+      /* 🔑 fill `backwards`: a Delay HOLDS the arrival's first frame until it
+         starts. Fill `none` (2026-10 until the 2026-10-15 walk, F3) drew the
+         part fully for the Delay, then snapped it to opacity 0 and faded it in
+         again — measured, the names shown at 1 for 0.75 s, then 0.1, then in:
+         a blink on every delayed part. A Delay means the part arrives LATER,
+         so it is not there before it arrives.
          ⏳ And a scene's timed In waits for the guest to GET there: until the
          page's observer marks the scene `.pahina-in` the slot is `none`, and
-         the part rests where it is, visible. */
+         the part rests where it is, visible (the observer marks it before it
+         reaches the screen, so the held first frame is never seen as a drop).
+         Guard: `lib/the-motion-reaches-the-guest.test.ts` (9). */
       slots.push({
-        a: approached || place === 'hero' ? `${dur}s ${EASE} ${delay}s none ${kf.name}` : '0s none none',
+        a: approached || place === 'hero' ? `${dur}s ${EASE} ${delay}s backwards ${kf.name}` : '0s none none',
         timeline: 'auto',
         range: 'normal',
       });

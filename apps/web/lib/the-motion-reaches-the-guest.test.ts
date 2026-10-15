@@ -288,10 +288,15 @@ test('8 🔑 every element motion STATES its timeline and range — a scene\'s v
 
 /* ── 9 — never hidden while it waits ──────────────────────────────────────── */
 
-test('9 ⏳ a timed In never paints its from-state during a Delay', () => {
+test('9 ⏳ a timed In HOLDS its first frame through a Delay — never drawn, dropped, then faded in (F3, 2026-10-15 walk)', () => {
+  /* Fill `none` drew the part fully for the Delay and snapped it to the from-state when the Delay ended — a blink on
+     every delayed part (measured: o 1 for 0.75 s → 0.1 → 1). `backwards` holds the from-state, so a delayed part
+     simply arrives later. Sabotage: `none` back → red. */
   for (const place of ['page', 'hero'] as const) {
-    const a = Object.fromEntries(hubElementMotionDeclarations(L({ in: 'rise', delay: 'long' }), place)).animation ?? '';
-    assert.match(a, /0\.8s none el-in-rise/, `a delayed In at ${place} is hidden while it waits: ${a}`);
+    for (const delay of ['short', 'long'] as const) {
+      const a = Object.fromEntries(hubElementMotionDeclarations(L({ in: 'rise', delay }), place)).animation ?? '';
+      assert.match(a, / (?:0\.3|0\.8)s (?:backwards|both) el-in-rise/, `a delayed In at ${place} is drawn, then dropped, while it waits: ${a}`);
+    }
   }
   // The hero is on screen when the page opens: its "Follows the scroll" In plays on arrival.
   const hero = Object.fromEntries(hubElementMotionDeclarations(L({ in: 'fade', timeline: 'scroll', out: 'lift' }), 'hero'));

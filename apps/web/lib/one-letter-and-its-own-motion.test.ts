@@ -151,7 +151,7 @@ test('M1 · In and During play TOGETHER — two comma-separated animations, and 
   assert.deepEqual(els?.names?.motion, { in: { fade: true, move: 'below' }, during: 'drift' }, 'choosing During cleared In');
   const decl = Object.fromEntries(hubElementMotionDeclarations(els?.names?.motion));
   // (the name is written LAST in each slot — see `MotionSlot`)
-  assert.match(decl.animation ?? '', / none el-in-rise, 7s ease-in-out 0s infinite alternate el-during-drift, /);
+  assert.match(decl.animation ?? '', / backwards el-in-rise, 7s ease-in-out 0s infinite alternate el-during-drift, /);
   // Drift moves `translate`, In moves `transform` — they compose.
   const CSS = read('app/globals.css');
   assert.match(CSS, /@keyframes el-during-drift \{[^}]*translate: 0 0;[^}]*\}/);

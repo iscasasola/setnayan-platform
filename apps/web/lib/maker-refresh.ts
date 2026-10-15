@@ -461,6 +461,16 @@ export function createCanvasRedrawer(redraw: () => void): CanvasRedrawer {
   };
 }
 
+/**
+ * ✓ A write that changes nothing the canvas draws (Apply: the draft it shows is now live) asks the Maker for a render
+ * — the canvas KEEPS its page through it (`editor-shell.tsx` holds what it shows), instead of loading a new one.
+ */
+export const MAKER_CANVAS_KEEP_EVENT = 'setnayan:maker-canvas-keep';
+export function keepCanvasForRender(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(MAKER_CANVAS_KEEP_EVENT));
+}
+
 /** Ask every page the Maker shows (the canvas and its warm stages, Look's page) to re-render in place. */
 export function requestCanvasRedraw(): void {
   if (typeof window === 'undefined') return;
@@ -496,6 +506,13 @@ const redrawer = createCanvasRedrawer(requestCanvasRedraw);
  * redraw in place once the last such save lands. `refresh` is the caller's
  * `router.refresh` (it still ends any unheld write in the same burst).
  */
-export function makerRedrawSave<T>(send: () => Promise<T>, refresh: () => void, ok?: (result: T) => boolean): Promise<T> {
-  return redrawer.save(() => makerSave(send, refresh, { held: true, ok }), ok);
+export function makerRedrawSave<T>(
+  send: () => Promise<T>,
+  refresh: () => void,
+  okOrOptions?: ((result: T) => boolean) | { ok?: (result: T) => boolean; undo?: UndoStep },
+): Promise<T> {
+  /* ↺ `undo`: the pick's inverse (`lib/maker-scene-look.ts` lays the BEFORE picture back at once) — without it the
+     journal gets a barrier and the ↺ that meets it is a whole-Maker render and a new canvas page (8.7 s, measured). */
+  const { ok, undo } = typeof okOrOptions === 'function' ? { ok: okOrOptions, undo: undefined } : (okOrOptions ?? {});
+  return redrawer.save(() => makerSave(send, refresh, { held: true, ok, ...(undo ? { undo } : {}) }), ok);
 }

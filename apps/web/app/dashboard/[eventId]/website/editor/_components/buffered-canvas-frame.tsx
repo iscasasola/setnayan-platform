@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MutableRefObject } from 'react';
 import { findMakerSection, makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import { whenIdle } from '@/lib/maker-preload';
-import { CANVAS_REFRESH_MESSAGE, makerSavesStarted } from '@/lib/maker-refresh';
+import { CANVAS_REFRESH_MESSAGE, makerSavesInFlight } from '@/lib/maker-refresh';
 
 /**
  * 🪞 THE CANVAS, DOUBLE-BUFFERED — a new render loads BEHIND the page the
@@ -51,8 +51,10 @@ import { CANVAS_REFRESH_MESSAGE, makerSavesStarted } from '@/lib/maker-refresh';
  * The next stage in order (`warmStageOrder`; the previous one from the last
  * stage), after the stage on screen is up (its bridge said `ready`, or its
  * document finished loading), on an idle moment, with the tab visible, at most
- * once. The first save of the open ENDS it — nothing is warmed after a save,
- * during one, or again. And a save's redraw (`CANVAS_REFRESH_MESSAGE`, a server
+ * once per stage on screen. ⏳ A SAVE NO LONGER ENDS IT (2026-10-15, controller; measured on the production build:
+ * after any edit EVERY stage switch loaded a cold guest page, 3.0–4.4 s at production latency — the warm had been
+ * cancelled for the rest of the visit by the first write): nothing is warmed WHILE a save is on its way; once the
+ * Maker is quiet again, the next stage — if it is not already kept — is warmed, still only that one. And a save's redraw (`CANVAS_REFRESH_MESSAGE`, a server
  * render of the page) goes to the page on screen only: a kept stage OWES it and
  * pays when it is shown (`canvasPosts`). So an open costs at most ONE extra
  * guest page, once, and a save costs none — ever. A stage the couple OPENED is
@@ -149,7 +151,8 @@ export function warmOnce(
   max: number,
   at: { ready: (f: CanvasFrame) => boolean; hidden: boolean; saved: boolean },
 ): { state: CanvasFrames; left: readonly CanvasFrame[] | null } {
-  if (at.saved) return { state, left: [] };
+  /* ⏳ A save on its way: wait — the warm comes once it has landed (never during one). */
+  if (at.saved) return { state, left };
   const held = [state.shown, ...(state.warm ?? [])];
   if (max <= 0 || at.hidden || state.loading || !held.every(at.ready)) return { state, left };
   const rest = [...(left ?? wantedWarm(state, wanted, max))];
@@ -187,6 +190,8 @@ export function canvasPosts(
 }
 /** At most this many drawn picks wait for one loading kept frame; past it the frame is let go (it loads again when opened). */
 export const MAX_WAITING_PICKS = 200;
+/** A warm put off by a save on its way is looked at again this long after. */
+export const WARM_AGAIN_MS = 1_500;
 
 /** The warm frames wanted beside what is shown and loading, within the budget. */
 function wantedWarm(state: CanvasFrames, wanted: readonly CanvasFrame[], max: number): CanvasFrame[] {
@@ -395,24 +400,29 @@ export function BufferedCanvasFrame({
     };
   }, []);
 
-  /* 🔥 THE ONE WARM OF THIS OPEN (`warmOnce`): on idle, the next stage only (`MAX_WARM_AHEAD`),
-     and over for good at the first save: a write this document has started
-     since this canvas mounted (`opened`), or a Maker render since (`warmOver`). */
+  /* 🔥 THE ONE WARM (`warmOnce`): on idle, the next stage only (`MAX_WARM_AHEAD`), never while a save is on its way —
+     looked at again a beat later — and again whenever that stage is not kept (the couple moved on to another stage). */
   const warmLeft = useRef<readonly CanvasFrame[] | null>(null);
-  const opened = useRef(makerSavesStarted());
   useEffect(() => {
-    if (warmMax <= 0 || warmLeft.current?.length === 0) return;
-    return whenIdle(() => {
+    if (warmMax <= 0) return;
+    let again: number | undefined;
+    const stop = whenIdle(() => {
       const s = framesRef.current;
-      const step = warmOnce(s, warmLeft.current, wantedRef.current, Math.min(warmMax, MAX_WARM_AHEAD), {
+      const busy = makerSavesInFlight() > 0;
+      const step = warmOnce(s, null, wantedRef.current, Math.min(warmMax, MAX_WARM_AHEAD), {
         ready: (f) => canvasFrameId(f) in readyOf.current || loaded.current.has(canvasFrameId(f)),
         hidden: document.visibilityState === 'hidden',
-        saved: warmOver || makerSavesStarted() !== opened.current,
+        saved: busy,
       });
       warmLeft.current = step.left;
       if (step.state !== s) setFrames((prev) => (prev === s ? step.state : prev));
+      else if (busy) again = window.setTimeout(() => setWarmTick((n) => n + 1), WARM_AGAIN_MS);
     });
-  }, [warmTick, warmMax, warmOver]);
+    return () => {
+      stop();
+      if (again !== undefined) window.clearTimeout(again);
+    };
+  }, [warmTick, warmMax, warmOver, frames.shown.group]);
 
   /* The loading frame's bridge says `ready` → swap. A task later, so the
      Maker's own `ready` listener (same event) still sees it as loading. */

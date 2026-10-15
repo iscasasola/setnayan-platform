@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { scenePictureUndo, shownSectionPicture, styleTap } from '@/lib/maker-scene-look';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { hubDraftAnswer } from '@/lib/hub-draft';
 import type { ElementDraftAction } from './element-sheet';
@@ -50,25 +51,46 @@ export function useSceneCanvas(
     const draft: Record<string, unknown> = { ...latest.current };
     change(draft);
     const next = sanitizeHubCanvas({ canvas: draft });
+    const before = latest.current;
     latest.current = next;
+    /* 🎨 A pick the bridge cannot draw is ON THE PAGE AT THE TAP (`lib/maker-scene-look.ts`): the BEFORE picture is
+       copied off the canvas (the ↺'s), and a Style pick lays the tapped card's own section over the page now. */
+    const key = `w:${widgetType}`;
+    const styled = opts.redraw && typeof next.style === 'string' && next.style !== before.style ? next.style : null;
+    /* ↺ its inverse: the BEFORE picture laid back at once — never a barrier (the 8.7 s slow ↺, measured). */
+    const own = onWrote ? undefined : { type: widgetType, before, next, server: canvas };
+    const onUndone = (undone: boolean) => {
+      latest.current = undone ? before : next;
+      setShown(undone ? before : next);
+      onWrote?.(undone ? before : next);
+    };
+    const refresh = () => router.refresh();
     setShown(next);
     if (onWrote) onWrote(next);
     else if (opts.redraw) noteDraftedCanvas(widgetType, next, canvas);
     setError(null);
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas: next } } }));
+    /* A held save owes no Maker render — the Apply · Undo · Restore count comes back with it. */
+    if (opts.redraw) fd.set(HUB_DRAFT_BAR_FIELD, '1');
+    const send = () => draftAction(eventId, fd);
+    /* 🖼 Held, redrawn in place once it lands — sent NOW, in the tap, after the page shows it: a Style pick lays the
+       tapped card's section on the page first (`styleTap`); any other redraw pick keeps its BEFORE picture for ↺. */
+    const held = !opts.redraw
+      ? null
+      : styled
+        ? styleTap({ canvasKey: key, sceneType: null, styleId: styled, send, refresh, canvas: own, onUndone, save: makerRedrawSave }).saved
+        : makerRedrawSave(send, refresh, { undo: scenePictureUndo(key, shownSectionPicture(key), own, onUndone) });
     start(async () => {
-      const fd = new FormData();
-      fd.set('intent', 'save');
-      fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas: next } } }));
-      /* A held save owes no Maker render — the Apply · Undo · Restore count comes back with it. */
-      if (opts.redraw) fd.set(HUB_DRAFT_BAR_FIELD, '1');
       /* 📵 A save that never answered (no signal, a 5xx) is a refusal, SAID in the row — thrown into this transition it
          replaced the whole Maker with the app's error screen (`hubDraftAnswer`). The pick stays chosen: the next save
          on this scene carries the whole canvas, so it is sent again with it. */
       const res = await hubDraftAnswer('save', async () =>
-        opts.redraw
-          ? await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh())
+        held
+          ? await held
           : // One refresh after the last save in flight (`lib/maker-refresh.ts`).
-            await makerSave(() => draftAction(eventId, fd), () => router.refresh()),
+            await makerSave(send, refresh),
       );
       if (!res.ok) setError(res.error);
     });

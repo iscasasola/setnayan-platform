@@ -86,7 +86,7 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
   ],
   camera: [['camera', 'grey', true]],
   gallery: [
-    ['gallery', null, true],
+    ['gallery', 'Open in Studio › Info', true], // the Photos heading (owner 2026-10-15): Details/Info holds the typed heading
     ['myphotos', null, true],
   ],
   me: [

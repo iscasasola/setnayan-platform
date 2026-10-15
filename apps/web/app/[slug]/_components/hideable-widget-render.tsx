@@ -22,6 +22,7 @@ import { DressCodeWidget } from './dress-code-widget';
 import { dressRiteOf } from '@/lib/chinese-wedding';
 import { OurLoveStoryWidget } from './our-love-story-widget';
 import { OurPhotosWidget } from './our-photos-widget';
+import { photosHeadingOf } from '@/lib/photos-heading';
 import { PhotoMomentsWidget } from './photo-moments-widget';
 import { ScheduleWidget } from './schedule-widget';
 import { SpecialMessageWidget } from './special-message-widget';
@@ -279,7 +280,7 @@ function HideableWidgetBody({
       return <WhatToBringWidget text={event.what_to_bring ?? null} sceneStyle={sceneStyle} />;
 
     case 'our_photos':
-      return <OurPhotosWidget urls={ourPhotoUrls} sceneStyle={sceneStyle} />;
+      return <OurPhotosWidget urls={ourPhotoUrls} sceneStyle={sceneStyle} heading={photosHeadingOf(widget.config_json)} />;
 
     // The couple's own sections. One case for all six: the words live in the
     // row's own `config_json`, so the slot number is only which SEAT it takes

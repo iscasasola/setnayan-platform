@@ -22,6 +22,7 @@ import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
 import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost } from '@/app/[slug]/_components/hub-scenes';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
+import { OurPhotosWidget } from '@/app/[slug]/_components/our-photos-widget';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
@@ -60,6 +61,7 @@ import { heroCanvasOf } from '@/app/[slug]/_lib/hero-design-of';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
+import { labPhotoUrls } from './lab-photos';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -187,6 +189,23 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         <h1 className="font-pahina text-5xl font-light leading-tight text-ink">Maria &amp; Jose</h1>
         <p className="text-sm text-ink/70">Saturday, December 12, 2026 · Seda Vertis North</p>
         {card ? <ReplyCardRow card={card} /> : null}
+      </main>
+    );
+  }
+  /* 🎞 `?photos=<n>` — the couple's Photos scene with n stand-in pictures (our own drawn gradients, never anybody's
+     photo), in `&gstyle=` (mosaic · grid · film-strip · glimpse) with `&heading=` — the REAL `OurPhotosWidget`, so the
+     Glimpse rail, its drift and the shipped full-screen viewer are walked with no database. */
+  if (typeof sp.photos === 'string') {
+    const n = Math.max(1, Math.min(24, Number(sp.photos) || 5));
+    const urls = labPhotoUrls(n);
+    const gstyle = typeof sp.gstyle === 'string' ? sp.gstyle : 'glimpse';
+    const heading = typeof sp.heading === 'string' && sp.heading.trim() ? sp.heading.trim() : null;
+    return (
+      <main className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[860px] bg-cream px-4 py-10 text-ink" data-lab-photos={n}>
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        <OurPhotosWidget urls={urls} sceneStyle={gstyle} heading={heading} />
+        <p className="mt-16 text-center text-xs text-ink/60">Below the photos — scroll past to take the rail off screen.</p>
+        <div className="h-[120vh]" aria-hidden />
       </main>
     );
   }

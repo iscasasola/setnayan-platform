@@ -30,6 +30,7 @@ export const UNDO_NOT_DRAWN: Record<string, string> = {
   'app/dashboard/[eventId]/launch/_components/studio-wish-list.tsx › changeGift': 'a LIVE gift record, not a draft step',
   /* — the bridge cannot draw these: the page is redrawn in place after the save (tier B) — */
   'app/dashboard/[eventId]/launch/_components/studio-info.tsx › studioDraftKeep': `Studio › Info / RSVP keep (redrawn in place) — ${PHASE_2}`,
+  'app/dashboard/[eventId]/launch/_components/studio-info.tsx › studioPhotosHeadingKeep': `Studio › Info Photos heading keep (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/fonts-look-rows.tsx › commit': `fonts (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx › <jsx handler>': `a fixed part's style (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts › save': `a scene's Style variant (redrawn in place) — ${PHASE_2}`,

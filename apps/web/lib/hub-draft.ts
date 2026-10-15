@@ -113,6 +113,7 @@ import {
   storedStdLead,
   type StdLead,
 } from '@/lib/stage-scenes';
+import { configWithPhotosHeading, photosHeadingOf, sanitizePhotosHeading } from '@/lib/photos-heading';
 import {
   HUB_MAIN_GROUND_KEY,
   hubMainGround,
@@ -705,6 +706,12 @@ export type HubDraftWidget = {
    */
   std_lead?: StdLead | null;
   /**
+   * ✍ `our_photos` ROW ONLY — the Photos scene's own heading (owner 2026-10-15, "Add a heading field"), kept at
+   * `config_json.photos_heading` (`lib/photos-heading.ts`); `null` = no heading, today's scene. Dropped on any other
+   * section. Words, never Pro.
+   */
+  photos_heading?: string | null;
+  /**
    * ✍ A SCENE OF THEIR OWN — its heading and words (`config_json.custom`),
    * `custom_*` rows ONLY. Drafted from the Maker when the scene has nothing in
    * it live (owner 2026-09-29, "yes to all 3": an empty scene of their own takes
@@ -1093,6 +1100,15 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
       if (lead) out.std_lead = lead;
     }
   }
+  /* ✍ The Photos heading — a blank one is "no heading" (back to today's scene), never refused. */
+  if (type === 'our_photos' && 'photos_heading' in src) {
+    const raw = src.photos_heading;
+    if (raw === null || (typeof raw === 'string' && raw.trim() === '')) out.photos_heading = null;
+    else {
+      const heading = sanitizePhotosHeading(raw);
+      if (heading) out.photos_heading = heading;
+    }
+  }
   return Object.keys(out).length > 0 ? out : null;
 }
 
@@ -1377,6 +1393,7 @@ export function overlayHubDraftWidgets(
     if (w.stage_show !== undefined && !row.is_always_on) config = configWithStageShow(config, w.stage_show);
     if (w.part_show !== undefined && row.widget_type === 'hero') config = configWithPartShow(config, w.part_show);
     if (w.std_lead !== undefined && row.widget_type === 'our_photos') config = configWithStdLead(config, w.std_lead);
+    if (w.photos_heading !== undefined && row.widget_type === 'our_photos') config = configWithPhotosHeading(config, w.photos_heading);
     if (w.music !== undefined && row.widget_type === 'hero') config = configWithMusic(config, w.music);
     if (w.custom !== undefined && isCustomSectionType(row.widget_type)) config = configWithCustom(config, w.custom);
     if (w.venue !== undefined && row.widget_type === 'venue_map') config = configWithVenue(config, w.venue);
@@ -1432,7 +1449,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'music' | 'stage_order' | 'stage_show' | 'part_show' | 'std_lead' | 'custom' | 'venue' | 'removed';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'music' | 'stage_order' | 'stage_show' | 'part_show' | 'std_lead' | 'photos_heading' | 'custom' | 'venue' | 'removed';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -2219,6 +2236,12 @@ export function classifyHubDraft(
         items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'std_lead', value: w.std_lead ?? null, change: 'change', pro: false });
       }
     }
+    /* ✍ The Photos heading — words, free; compared as the page reads it (absent ≡ none). */
+    if (w.photos_heading !== undefined && type === 'our_photos') {
+      if ((w.photos_heading ?? null) !== photosHeadingOf(row.config_json)) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'photos_heading', value: w.photos_heading ?? null, change: 'change', pro: false });
+      }
+    }
     if (w.main !== undefined && type === 'hero') {
       const liveMain = hubMainGround(row.config_json);
       const nextMain = w.main;
@@ -2892,6 +2915,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   if (item.field === 'main') return 'Behind every scene';
   if (item.field === 'music') return 'Your music button';
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
+  if (item.field === 'photos_heading') return 'Photos · its heading';
   if (item.field === 'custom') return `${sectionLabel(item.widgetType)} · its words`;
   if (item.field === 'venue') return 'Your venues';
   if (item.field === 'removed') return `${sectionLabel(item.widgetType)} · deleted for good`;

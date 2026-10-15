@@ -46,8 +46,8 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 325
-#   shadow  19
+# facts: 324
+#   shadow  18
 #   omit    306
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
@@ -66,7 +66,6 @@ shadow	app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx	SIDE_
 shadow	app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx	hasContent	lib/invitation-widgets.ts
 shadow	app/onboarding/wedding/_components/onboarding-shell.tsx	cap	app/onboarding/wedding/_components/weave-story.ts
 shadow	app/onboarding/wedding/_components/onboarding-shell.tsx	firstInitial	app/onboarding/wedding/_components/weave-story.ts
-shadow	app/vendor-dashboard/shop/page.tsx	TIER_LABEL	lib/vendor-tier-caps.ts
 shadow	lib/price-position.ts	regionLabel	lib/region-source.ts
 omit	app/[slug]/_components/editorial/data.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_latitude
 omit	app/[slug]/_components/editorial/data.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_longitude

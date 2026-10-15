@@ -53,7 +53,7 @@ test('drafted on the Photos row only; a blank one means "no heading", never a re
 test('the Maker draws the drafted heading; Apply names ONE free change, and none when it matches live', () => {
   const live: HubLiveState = { events: {}, widgets: [row({ widget_type: 'our_photos', config_json: { std_lead: 'photos' } })] };
   const draft = sanitizeHubDraft({ widgets: { our_photos: { photos_heading: 'Glimpse of Us' } } });
-  const [drawn] = overlayHubDraftWidgets(live.widgets, draft);
+  const [drawn] = overlayHubDraftWidgets(live.widgets as readonly InvitationWidgetRow[], draft);
   assert.deepEqual(drawn!.config_json, { std_lead: 'photos', photos_heading: 'Glimpse of Us' });
   const items = classifyHubDraft(draft, live).items;
   assert.equal(items.length, 1);

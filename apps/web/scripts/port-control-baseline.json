@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c4e116b3f",
+  "generatedFromRef": "f2f020963",
   "routeCount": 438,
   "destinations": 953,
   "actions": 671,
-  "blocks": 6339,
+  "blocks": 6341,
   "routes": {
     "/": {
       "files": [
@@ -1008,6 +1008,7 @@
         "[slug]/_lib/hub-tabs.ts",
         "[slug]/_lib/icon-source.ts",
         "[slug]/_lib/invitation-card.ts",
+        "[slug]/_lib/jump-marks.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/loading-stage.ts",
         "[slug]/_lib/main-ground-layer.tsx",
@@ -1447,6 +1448,7 @@
         "SpecialMessageQuote",
         "SpecialMessageWidget",
         "SpotlightCard",
+        "Sprig",
         "StageAutoplay",
         "StampEl",
         "StatisticsScene",
@@ -1513,6 +1515,7 @@
         "WatchLiveData",
         "WatchLiveEmbed",
         "WatchTheFilm",
+        "WatercolourEdge",
         "WaxSeal",
         "WaxSealGLState",
         "WelcomeGifts",

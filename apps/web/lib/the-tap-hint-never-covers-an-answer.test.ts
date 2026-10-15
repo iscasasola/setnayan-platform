@@ -15,9 +15,22 @@ import { ONE_AT_A_TIME_CSS } from '@/app/[slug]/_components/rsvp-one-at-a-time';
 
 test('the hint is see-through to taps everywhere, and does not stick on a short screen', () => {
   assert.match(ONE_AT_A_TIME_CSS, /\[data-rsvp-next-slot\]\[data-rsvp-tap\]\{pointer-events:none\}/);
-  assert.match(ONE_AT_A_TIME_CSS, /@media \(max-height:599\.98px\)\{\[data-rsvp-next-slot\]\[data-rsvp-tap\]\{position:static\}\}/);
-  // Next (no mark) keeps its sticky foot: the generic rule is still there and unconditional.
+  // Taller screens keep the sticky foot: the generic rule is there and unconditional.
   assert.match(ONE_AT_A_TIME_CSS, /\[data-rsvp-next-slot\]\{position:sticky;bottom:0;/);
+});
+
+/*
+  📏 RE-CHECK R1 (2026-10-14): after Yes → ‹ Back at 320 × 568 the foot holds NEXT, not the hint — and it stood on the
+  answers; in WebKit a tap on the visible strip of "Sadly can't make it" pressed Next and kept Yes. So on a short
+  screen the foot never sticks, whatever it holds — the rule names the slot, never the hint's mark. Measured with
+  `controller-2026-10-12/rsvp-open-close/scripts/back320.mjs` (both engines; 375 × 667 / 812 boxes unchanged).
+*/
+test('on a short screen the foot never sticks — the hint or Next — and on a taller one it does', () => {
+  const m = /@media \(max-height:([\d.]+)px\)\{([^{}]+)\{position:static\}\}/.exec(ONE_AT_A_TIME_CSS);
+  assert.ok(m, 'no short-screen rule keeps the foot in place');
+  assert.equal(m![2], '[data-rsvp-next-slot]', `the short-screen rule must name the slot itself (it names ${m![2]}) — Next sits on the answers after Back`);
+  const h = Number(m![1]);
+  assert.ok(h >= 568 && h < 667, `the short-screen line (${h}px) must hold a 320 × 568 phone and leave 375 × 667 alone`);
 });
 
 test('the walker marks the slot only while it holds the hint', () => {

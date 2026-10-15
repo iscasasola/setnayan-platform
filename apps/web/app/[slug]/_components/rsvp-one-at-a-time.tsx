@@ -218,10 +218,14 @@ export const ONE_AT_A_TIME_CSS = [
   '[data-rsvp-next-slot]{position:sticky;bottom:0;z-index:1;padding-top:.75rem;padding-bottom:max(.75rem,env(safe-area-inset-bottom))}',
   /* 👆 THE HINT IS NOT AN ACTION, SO IT NEVER STANDS ON AN ANSWER (controller walk 2026-10-14, 320 × 568: the sticky
      "Tap one to continue" covered most of "Joyfully accepts", and a tap there did nothing until the guest scrolled).
-     Taps go THROUGH it everywhere; and on a short screen (under 600 px tall — a 320 × 568 phone, a phone on its side)
-     it stays where the card puts it instead of sticking over the answers. 375 × 667 and taller: unchanged. */
+     Taps go THROUGH it everywhere. */
   '[data-rsvp-next-slot][data-rsvp-tap]{pointer-events:none}',
-  '@media (max-height:599.98px){[data-rsvp-next-slot][data-rsvp-tap]{position:static}}',
+  /* 📏 ON A SHORT SCREEN THE FOOT NEVER STICKS — hint OR Next (re-check R1, 2026-10-14, 320 × 568: after Yes → ‹ Back
+     the slot holds Next, sticky at 496–568, over "Joyfully accepts" and the top of "Sadly can't make it"; in WebKit a
+     tap on that strip of No pressed NEXT and went on with Yes kept). Under 600 px tall (a 320 × 568 phone, a phone on
+     its side) there is no room for a foot that floats over the answers, so it stays where the card puts it — after
+     the answers, one scroll away. 375 × 667 and taller: unchanged, Next keeps its sticky foot. */
+  '@media (max-height:599.98px){[data-rsvp-next-slot]{position:static}}',
 ].join('');
 
 /**

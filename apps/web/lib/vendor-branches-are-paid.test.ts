@@ -310,7 +310,8 @@ test('the server refuses an unpaid branch at every one of the three write paths'
 
 test('the dashboard reads branch status through a service-role order reader', () => {
   for (const rel of [
-    'app/vendor-dashboard/shop/page.tsx',
+    // Since step 5 (2026-10-14) the branch panel's reads live with Your details (they were My Shop's loader).
+    'app/vendor-dashboard/profile/details-data.ts',
     'app/vendor-dashboard/services/_components/services-manager.tsx',
   ]) {
     const src = read(rel);

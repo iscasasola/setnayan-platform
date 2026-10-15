@@ -253,9 +253,35 @@ test('3 · ♿ reduced motion is the still — decided at mount, and visible fro
     React.createElement(CoupleLogo, { svg: MOVING, plays: true, place: 't', still: React.createElement('img', { alt: '', 'data-still': '' }) }),
   );
   assert.match(html, /data-couple-logo="pending"/);
-  assert.match(html, /<span class="contents motion-safe:invisible"><img[^>]*data-still/, 'the still is hidden from reduced-motion viewers too');
+  assert.match(html, /<span[^>]*data-couple-logo="pending"[^>]*class="[^"]*\bsn-logo-wait\b[^"]*"><span class="contents"><img[^>]*data-still/, 'the still is not behind the capped wait');
   assert.doesNotMatch(html, /class="[^"]*(?<![:\w-])invisible/, 'the still is hidden unconditionally');
+  assert.doesNotMatch(html, /motion-safe:invisible/, 'the server HTML hides the still with no end again (WALK.md L1: ~14 s, or never without JavaScript)');
   assert.doesNotMatch(html, /<svg|<path/, 'the layers were injected on the server');
+});
+
+/* ═══ 3b · the still waits for JavaScript, but not forever ════════════════ */
+
+test('3b · ⏱ a pending still is hidden for a CAPPED wait by CSS alone — and once seen, the logo arrives settled (stability sweep 2026-10-15)', () => {
+  // Live maria-and-jose, 375×812: the cover's monogram was hidden by `motion-safe:invisible` until the
+  // page hydrated, a second chunk loaded and the draw ran — ~14 s on the owner's phone, never with JS
+  // blocked (controller-2026-10-12/test-animate/WALK.md L1).
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  const keyframes = css.match(/@keyframes sn-logo-wait\s*\{([\s\S]*?)\n\}/);
+  assert.ok(keyframes, 'the capped wait has no keyframes');
+  assert.match(keyframes[1] ?? '', /visibility:\s*hidden/);
+  assert.doesNotMatch(keyframes[1] ?? '', /visibility:\s*visible/, 'the wait must end by its animation ENDING, not by a keyframe');
+  const rule = css.match(/@media \(prefers-reduced-motion: no-preference\) \{\s*\.sn-logo-wait \{\s*animation:\s*sn-logo-wait ([\d.]+)s ([^;]*);/);
+  assert.ok(rule, 'the wait is not gated on motion being allowed — a reduced-motion guest would wait too');
+  const seconds = Number(rule[1]);
+  assert.ok(seconds > 0 && seconds <= 3, `the wait is ${seconds}s — a still hidden longer than 3 s is the fault this fixes`);
+  assert.doesNotMatch(rule[2] ?? '', /forwards|both|infinite/, 'a filled or endless wait never shows the still');
+  // Wiring: a still the guest has already seen arrives settled, and stays up while the chunk loads;
+  // a logo offscreen when JavaScript arrives is held hidden and plays its entrance on arrival.
+  const logo = code('app/_components/couple-logo.tsx');
+  assert.match(logo, /setRevealed\(!heldRef\.current && Boolean\(el\) && getComputedStyle\(el!\)\.visibility === 'visible'\)/);
+  assert.match(logo, /<Suspense fallback=\{revealed \? <span className="contents">\{still\}<\/span> : null\}>/);
+  assert.match(logo, /phase === 'pending' && !held \? ' sn-logo-wait' : ''/);
+  assert.match(logo, /heldRef\.current = true;\s*setHeld\(true\);/);
 });
 
 /* ═══ 4 · plays once ═════════════════════════════════════════════════════ */
@@ -278,7 +304,7 @@ test('4 · 1️⃣ it plays ONCE: a remount in the same place shows it arrived, 
   // Wiring: decided ONCE at mount; the player replays only for a new logo.
   const logo = code('app/_components/couple-logo.tsx');
   assert.match(logo, /const \[settled\] = useState\(\(\) => logoArrivals\.arrived\(key\)\);/);
-  assert.match(logo, /<LayeredLogoPlayer svg=\{svg\} settled=\{settled\}/);
+  assert.match(logo, /<LayeredLogoPlayer svg=\{svg\} settled=\{settled \|\| revealed\}/);
   const player = code('app/_components/layered-logo-player.tsx');
   assert.match(player, /arrivalMotion\(\s*sanitizeLogoMotion\(/, 'the player ignores `settled`');
   assert.match(player, /\}, \[svg, settled\]\);/, 'the player re-runs on something a re-render changes');

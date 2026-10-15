@@ -32,6 +32,7 @@ import { cache } from 'react';
 
 import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from './global-settings-cache';
 import { createAdminClient } from './supabase/admin';
+import { isUuid } from './is-uuid';
 import { resolveRoleSet, type RoleSet } from './role-sets';
 
 export type ProfileSurface =
@@ -927,6 +928,11 @@ const EVENT_ROW_BASE = 'event_type, ceremony_type, secondary_ceremony_type';
 
 const readEventTypeRow = cache(
   async (eventId: string): Promise<EventTypeRow | null> => {
+    // A NON-UUID IS NO EVENT, AND ASKING POSTGRES SAYS SO WITH A 400. `events.event_id` is a `uuid`:
+    // a sentinel (the /realstories samples' `sample-jack-and-jill`) is not "no row", it is `22P02`
+    // for the whole statement — twice, since the refusal below retries without the new column. That
+    // was 75 `DB_READ_REFUSED GET events` faults in three days, one per crawl of a sample story.
+    if (!isUuid(eventId)) return null;
     // 🪤 NAMING A COLUMN THAT DOES NOT EXIST YET MAKES POSTGREST REFUSE THE WHOLE
     // QUERY — and this one read backs the entire guest tree's vocabulary. In the
     // window where this code is deployed and its migration is not, a single

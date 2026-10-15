@@ -25,6 +25,7 @@
  * when date_status != 'locked'). No new orphan routes.
  */
 
+import { blockClosesDay, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { notFound, redirect } from 'next/navigation';
 import * as Sentry from '@sentry/nextjs';
 import { ArrowLeft, Calendar, Heart, Clock } from 'lucide-react';
@@ -265,7 +266,14 @@ function shortlistBudgetRange(vendors: ShortVendor[]): { lo: number; hi: number 
 // The old `id` field made the fetch a hard PostgREST 42703 (see the query) AND
 // would have compared the wrong identifier had the column existed.
 type VpRow = { vendor_profile_id: string; services: string[] | null };
-type BlockRow = { vendor_profile_id: string; blocked_at: string; blocked_until: string };
+type BlockRow = {
+  vendor_profile_id: string;
+  blocked_at: string;
+  blocked_until: string;
+  repeat_rule?: string | null;
+  repeat_until?: string | null;
+  day_part?: string | null;
+};
 
 function marketplaceCoverage(
   vpRows: VpRow[],
@@ -274,7 +282,8 @@ function marketplaceCoverage(
 ): { available: number; total: number } {
   const blockedOnDate = new Set(
     blockRows
-      .filter((b) => b.blocked_at.slice(0, 10) <= dateKey && b.blocked_until.slice(0, 10) >= dateKey)
+      // The ONE rule (`lib/not-available.ts`): Manila days, repeats from their first day, all-day blocks only.
+      .filter((b) => blockClosesDay(notAvailableShapeOf(b), dateKey))
       .map((b) => b.vendor_profile_id),
   );
   const allCategories = new Set<string>();
@@ -527,7 +536,8 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
       .from('vendor_calendar_blocks')
       .select(VENDOR_BLOCK_SELECT)
       .lte('blocked_at', `${sorted[sorted.length - 1] ?? sorted[0]}T23:30:00+08:00`)
-      .gte('blocked_until', `${sorted[0]}T00:00:00+08:00`);
+      // A repeat began before the first candidate yet covers it — keep it.
+      .or(notAvailableWindowFilter(`${sorted[0]}T00:00:00+08:00`));
     if (blockRes.error) {
       Sentry.captureException(
         new Error(`date-selection supplier blocks read failed: ${blockRes.error.message}`),

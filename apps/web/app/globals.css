@@ -2835,6 +2835,25 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   animation-delay: 0.05s;
 }
 
+/* ⏱ COUPLE'S LOGO — THE PENDING STILL WAITS FOR JAVASCRIPT, BUT NOT FOREVER (stability sweep 2026-10-15).
+   `CoupleLogo` (app/_components/couple-logo.tsx) keeps a playing logo's still in the server HTML and
+   hides it until the player can draw the entrance. That hiding was CSS with no end: the still waited on
+   the page's hydration + a second chunk, ~14 s on a slow phone for maria-and-jose's cover, and forever
+   with JavaScript failing. Now it is hidden for at most 2.5 s and then shown by CSS
+   alone; live hydration measured 0.4–1.3 s after the still arrives, so a normal page still draws.
+   Reduced motion: no wait at all — the still from the first paint. */
+@keyframes sn-logo-wait {
+  from,
+  to {
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sn-logo-wait {
+    animation: sn-logo-wait 2.5s step-end;
+  }
+}
+
 /*
  * Living Roster · in-page overlays (P1 · 2026-07-11). The entry motion for the
  * overlay primitives (`overlay-primitives.tsx` / `undo-toast.tsx`): a menu pop,

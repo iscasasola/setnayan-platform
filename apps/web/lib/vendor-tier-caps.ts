@@ -640,19 +640,13 @@ export function canAcceptInAppInquiries(tier: string | null | undefined): boolea
 }
 
 /**
- * Tier #3 (owner 2026-06-07): only ENTERPRISE may plot time-bound booking
- * slots. Keyed directly on the enterprise tier — NOT on a numeric slot cap:
- * Enterprise is now BOUNDED to slotsPerDay=8 (owner 2026-07-01), so the old
- * `slotsPerDay === Infinity` test went permanently false and broke the feature
- * for every tier. `slotsTimeBounded` is also unusable (true for Pro too). Pro
- * keeps the #2 daily_capacity model; only Enterprise gets the separate
- * named-window model. Re-checked server-side on every plot/edit action so a
- * downgrade can't keep adding slots.
+ * EXACT TIME SLOTS ARE ON EVERY PLAN (owner 2026-10-14, DECISION_LOG 🧑‍🤝‍🧑 call 3: *"Time slots open to all plans
+ * (were Enterprise-only)"*, kept by ✅ "APPROVE"). Until then only Enterprise could plot named time windows; every
+ * plan may now — Free included. The function stays so every caller keeps one place to ask; there is no SQL tier gate
+ * on slots and none is added. `time-slots-are-on-every-plan.test.ts` holds it.
  */
-export function canPlotTimeSlots(tier: string | null | undefined): boolean {
-  // Enterprise-or-higher (rank-derived so Custom, which runs as Enterprise,
-  // inherits automatically) rather than a hard `=== 'enterprise'` equality.
-  return isTierAtLeast(tier, 'enterprise');
+export function canPlotTimeSlots(_tier: string | null | undefined): boolean {
+  return true;
 }
 
 /**

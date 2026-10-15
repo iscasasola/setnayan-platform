@@ -2356,6 +2356,15 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'vendor_calendar_blocks', column: 'pool_id', references: 'vendor_schedule_pools' },
       { kind: 'table', table: 'vendor_schedule_pool_categories' },
       { kind: 'table', table: 'vendor_schedule_calendar_services' },
+      // 2026-10-14: "Not available" repeats + hours, and an outside booking's time (migration 20271269411264).
+      { kind: 'column', table: 'vendor_calendar_blocks', column: 'repeat_rule' },
+      { kind: 'column', table: 'vendor_calendar_blocks', column: 'repeat_until' },
+      { kind: 'column', table: 'vendor_calendar_blocks', column: 'day_part' },
+      { kind: 'column', table: 'vendor_calendar_blocks', column: 'client_time' },
+      // 2026-10-14 🏛 halls: a pool may be a venue's hall; a card may use several (lifts the 06-20 one-schedule lock).
+      { kind: 'column', table: 'vendor_schedule_pools', column: 'is_hall' },
+      { kind: 'table', table: 'vendor_service_halls' },
+      { kind: 'fk', table: 'vendor_service_halls', column: 'pool_id', references: 'vendor_schedule_pools' },
     ],
     chain: 1,
     pair: ['TYPE-AVAILABILITY', 'TYPE-VENDORS'],
@@ -2365,7 +2374,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy: 'vendor_calendar_blocks.pool_id + vendor_calendar_day_states.pool_id',
     writtenBy: 'the vendor calendar surface · acquire_schedule_pools()',
     guardedBy: 'pool-bypass-and-oauth-block.db.test.ts (the is_active half)',
-    traps: 'blocks.pool_id is ON DELETE SET NULL and NULL means ORG-WIDE — deleting a pool converts its scoped blocks into blocks that close the date for ALL of the vendor\u2019s pools. day_states cascades instead. The two differ.',
+    traps: 'blocks.pool_id is ON DELETE SET NULL and NULL means ORG-WIDE — deleting a pool converts its scoped blocks into blocks that close the date for ALL of the vendor\u2019s pools. day_states cascades instead. The two differ. A REPEATING block\u2019s stored range is only its first day — read it through calendar_block_on_day / lib/not-available.ts, never by the range; only day_part=all_day closes a date. A card with vendor_service_halls rows is on EXACTLY those halls, never also its category pool.',
   },
   {
     /**

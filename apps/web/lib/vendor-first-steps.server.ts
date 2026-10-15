@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { notAvailableWindowFilter } from '@/lib/not-available';
 
 import { businessProfileChecklist, type VendorProfileRow } from '@/lib/vendor-profile';
 import {
@@ -40,22 +41,33 @@ import {
 export async function fetchVendorFirstStepsState(
   supabase: SupabaseClient,
   profile: VendorProfileRow,
+  /**
+   * 🔢 WHAT THE CALLER ALREADY READ (simpler supplier dashboard, 2026-10-14 — Today must not grow).
+   *   `verified` — the shop's `verification_state === 'verified'`, read by Today in its ONE `vendor_profiles`
+   *                row read; when given, this function does not read it again. Absent → probed here, as before.
+   *   `blocks`   — days marked not available and bookings from outside (steps 4 and 5), counted from the
+   *                calendar-blocks read Today already makes for Coming up. Absent → both steps read as not done.
+   */
+  known: { verified?: boolean; blocks?: { notAvailable: number; outside: number } } = {},
 ): Promise<FirstStepsRail | null> {
   const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
 
-  const verified = await isShopVerified(supabase, vendorProfileId);
+  const verified = known.verified ?? (await isShopVerified(supabase, vendorProfileId));
   if (verified) return null;
 
   // The profile checklist needs no query — it is derived from the row the
   // Overview already loaded.
   const profileChecklist = businessProfileChecklist(profile);
 
-  const [application, serviceCount, customerCount, registrationNumberOnFile] =
+  const [application, serviceCount, customerCount, registrationNumberOnFile, shopWideDaysOff] =
     await Promise.all([
       fetchLatestApplication(supabase, vendorProfileId).catch(() => null),
       countVendorServices(supabase, vendorProfileId),
       countVendorCustomers(supabase, vendorProfileId),
       hasRegistrationNumber(supabase, vendorProfileId),
+      // Step 4 — a shop-wide day off belongs to no schedule, so Today's schedules read cannot see it. Asked only
+      // here, on a shop not yet approved (the one that sees this rail), and only when the caller counted the rest.
+      known.blocks ? countShopWideDaysOff(supabase, vendorProfileId) : Promise.resolve(0),
     ]);
 
   const uploads = (application?.doc_uploads ?? {}) as DocUploadMap;
@@ -76,6 +88,8 @@ export async function fetchVendorFirstStepsState(
       registrationNumberOnFile,
     }),
     customerCount,
+    notAvailableCount: (known.blocks?.notAvailable ?? 0) + shopWideDaysOff,
+    outsideCount: known.blocks?.outside ?? 0,
     rejectionReason: (application?.decision_reason as string | null) ?? null,
   });
 }
@@ -99,6 +113,23 @@ async function countVendorServices(
   if (error) {
     console.error('[supabase-error] lib/vendor-first-steps.server.ts · from:vendor_services.select', error);
   }
+  return error || count == null ? 0 : count;
+}
+
+/**
+ * Days off marked for the whole shop (`pool_id` null), not yet over — a one-off that ends today or later, or a REPEAT
+ * (every Sunday …, step 2: its stored range is only the first occurrence, so `blocked_until` alone would drop it).
+ * A failed read → 0 (step not done — the safe side).
+ */
+async function countShopWideDaysOff(supabase: SupabaseClient, vendorProfileId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('vendor_calendar_blocks')
+    .select('block_id', { count: 'exact', head: true })
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('block_source', 'manual')
+    .is('pool_id', null)
+    .or(notAvailableWindowFilter(new Date().toISOString()));
+  if (error) console.error('[supabase-error] lib/vendor-first-steps.server.ts · from:vendor_calendar_blocks.select', error);
   return error || count == null ? 0 : count;
 }
 

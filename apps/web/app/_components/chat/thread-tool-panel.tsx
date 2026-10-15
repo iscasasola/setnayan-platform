@@ -41,7 +41,7 @@ export function ThreadToolPanel({
       open={open || undefined}
       className="group scroll-mt-24 border-t border-ink/10 bg-cream [&:not([open])]:hidden"
     >
-      <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm font-semibold text-ink marker:content-none [&::-webkit-details-marker]:hidden sm:px-4">
+      <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-sm font-semibold text-ink marker:content-none [&::-webkit-details-marker]:hidden sm:px-4">
         <span>{label}</span>
         <span className="truncate font-normal text-ink/45">{hint}</span>
         {/* The way OUT. A panel that can only be opened never goes away. */}

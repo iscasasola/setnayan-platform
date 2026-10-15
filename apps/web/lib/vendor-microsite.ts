@@ -382,6 +382,34 @@ function coerceStringArray(raw: unknown): string[] {
     : [];
 }
 
+/** Every microsite column, for a caller that reads them in its OWN select beside other columns of the row. */
+export const MICROSITE_COLUMNS =
+  'microsite_about,microsite_sections,microsite_featured_service_ids,microsite_hero_photo_key,microsite_accent,microsite_pinned_review_id,microsite_featured_editorial_ids,microsite_video_ids';
+
+/**
+ * A row that already holds `MICROSITE_COLUMNS` → the microsite, by the same rules `fetchVendorMicrosite` applies.
+ * Your page (step 5, 2026-10-14) reads the microsite, the plan and the verification state in ONE select instead of
+ * three; this is the parser that lets it, so the two readers can never coerce a value differently.
+ */
+export function micrositeFromRow(row: Record<string, unknown> | null | undefined): VendorMicrosite {
+  if (!row) return DEFAULT_MICROSITE;
+  const r = row as MicrositeRow;
+  const about = r.microsite_about?.trim();
+  return {
+    about: about ? about : null,
+    sections: coerceSections(r.microsite_sections),
+    featuredServiceIds: coerceStringArray(r.microsite_featured_service_ids),
+    heroPhotoKey: r.microsite_hero_photo_key ?? null,
+    accent: r.microsite_accent ?? null,
+    pinnedReviewId: r.microsite_pinned_review_id ?? null,
+    featuredEditorialIds: coerceStringArray(r.microsite_featured_editorial_ids),
+    videos: coerceStringArray(r.microsite_video_ids)
+      .map((v) => deserializeVideoRef(v))
+      .filter((v): v is VideoRef => Boolean(v))
+      .slice(0, MICROSITE_VIDEOS_MAX),
+  };
+}
+
 /**
  * Read a vendor's microsite customization. Soft/defensive: a missing column
  * (schema not yet applied) or any query error degrades to DEFAULT_MICROSITE so
@@ -391,57 +419,21 @@ export async function fetchVendorMicrosite(
   client: SupabaseClient,
   vendorProfileId: string,
 ): Promise<VendorMicrosite> {
-  let base: VendorMicrosite = DEFAULT_MICROSITE;
+  // ONE read since 2026-10-14 (step 5). The videos column used to be fetched in a second, separate select so a
+  // not-yet-applied migration (20270505905788) could only empty the video rack; that migration has long been
+  // applied, and the second trip cost every public shop page a request. Same parser as every other reader.
   try {
     const { data, error } = await client
       .from('vendor_profiles')
-      .select(
-        'microsite_about,microsite_sections,microsite_featured_service_ids,microsite_hero_photo_key,microsite_accent,microsite_pinned_review_id,microsite_featured_editorial_ids',
-      )
+      .select(MICROSITE_COLUMNS)
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
     if (error || !data) {
       if (error) console.error('[supabase-error] lib/vendor-microsite.ts · from:vendor_profiles.select', error);
       return DEFAULT_MICROSITE;
     }
-    const row = data as MicrositeRow;
-    const about = row.microsite_about?.trim();
-    base = {
-      about: about ? about : null,
-      sections: coerceSections(row.microsite_sections),
-      featuredServiceIds: coerceStringArray(row.microsite_featured_service_ids),
-      heroPhotoKey: row.microsite_hero_photo_key ?? null,
-      accent: row.microsite_accent ?? null,
-      pinnedReviewId: row.microsite_pinned_review_id ?? null,
-      featuredEditorialIds: coerceStringArray(row.microsite_featured_editorial_ids),
-      videos: [],
-    };
+    return micrositeFromRow(data as Record<string, unknown>);
   } catch {
     return DEFAULT_MICROSITE;
   }
-
-  // Videos live in a column added earlier (migration 20270505905788). Fetch it
-  // SEPARATELY + defensively so a not-yet-applied migration only empties the
-  // video rack — it can never blank the rest of the microsite above. Stored
-  // values are provider-prefixed strings (`vimeo:{id}[:{hash}]`) or bare
-  // 11-char YouTube ids (legacy rows) — deserializeVideoRef handles both.
-  try {
-    const { data, error } = await client
-      .from('vendor_profiles')
-      .select('microsite_video_ids')
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
-    if (error) {
-      console.error('[supabase-error] lib/vendor-microsite.ts · from:vendor_profiles.select (videos)', error);
-    }
-    const videos = coerceStringArray((data as MicrositeRow | null)?.microsite_video_ids)
-      .map((v) => deserializeVideoRef(v))
-      .filter((v): v is VideoRef => Boolean(v))
-      .slice(0, MICROSITE_VIDEOS_MAX);
-    base = { ...base, videos };
-  } catch {
-    // Column not applied yet → no videos; the rest of the microsite is intact.
-  }
-
-  return base;
 }

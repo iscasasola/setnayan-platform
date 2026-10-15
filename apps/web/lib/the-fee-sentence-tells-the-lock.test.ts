@@ -54,7 +54,14 @@ test('3 · every shipped caller passes the gate’s own answer (`resolveFeeEnfor
   const files = walk(resolve(WEB, 'app'));
   assert.ok(files.length > 500, `only ${files.length} files walked`);
   const callers = files.map((f) => relative(WEB, f)).filter((rel) => /\bfeeDueCopy\(/.test(src(rel)));
-  assert.ok(callers.length >= 3, `only ${callers.length} shipped callers found — the scan is blind`);
+  // 🧩 Today's call moved into its pure assembly (simpler Today 2026-10-14, `lib/supplier-today-view.ts`): it is
+  // handed the page's `feeEnforced`, which the page reads from the gate — asserted on both ends below.
+  const view = src('lib/supplier-today-view.ts');
+  assert.match(view, /feeDueCopy\(input\.feeBills\[0\], todayIso, input\.feeEnforced\)/, 'Today’s fee card is not handed the gate’s answer');
+  const today = src('app/vendor-dashboard/page.tsx');
+  assert.match(today, /\[firstSteps, payoutReadiness, feeBillsRead, feeEnforced,[\s\S]*?= await Promise\.all\(\[[\s\S]*?resolveFeeEnforcement\(\)/, 'Today does not read `feeEnforced` from resolveFeeEnforcement()');
+  assert.match(today, /\n\s*feeEnforced,\n/, 'Today does not hand `feeEnforced` to the assembly');
+  assert.ok(callers.length >= 2, `only ${callers.length} shipped callers found — the scan is blind`);
   for (const rel of callers) {
     const s = src(rel);
     const calls = [...s.matchAll(/\bfeeDueCopy\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g)].map((m) => m[1]!);

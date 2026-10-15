@@ -13,7 +13,17 @@ import { useSaveLoader } from '@/components/sd-loader';
 type DnsRec = { type: string; name: string; value: string };
 type Item = DomainRow & { dns?: DnsRec[]; note?: string };
 
-export function DomainManager({ initial }: { initial: DomainRow[] }) {
+export function DomainManager({
+  initial,
+  proAsks = false,
+}: {
+  initial: DomainRow[];
+  /**
+   * The page's ◆ Pro question for your own address (owner 2026-10-15; `proAsks` on Your page). While it asks, the card
+   * must not ALSO say "It's free" — one box saying Pro and free is a money contradiction (supplier batch walk, W4).
+   */
+  proAsks?: boolean;
+}) {
   const [items, setItems] = useState<Item[]>(initial);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +94,7 @@ export function DomainManager({ initial }: { initial: DomainRow[] }) {
         <h2 className="text-lg font-semibold tracking-tight text-ink">Use your own web address</h2>
         <p className="max-w-2xl text-sm" style={{ color: 'var(--m-slate)' }}>
           Point a domain you own (like <span className="font-mono">sny.yourshop.com</span>) at your
-          Setnayan page. It’s free. You’ll add one DNS record, then verify.
+          Setnayan page.{proAsks ? '' : ' It’s free.'} You’ll add one DNS record, then verify.
         </p>
       </div>
 

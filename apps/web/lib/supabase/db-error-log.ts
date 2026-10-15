@@ -139,6 +139,32 @@ function errorFields(body: string): { code: string | null; message: string | nul
   }
 }
 
+/**
+ * 🧹 "REMOVE IT IF IT IS THERE" — a DELETE whose author has decided that matching no row is the
+ * success it looks like. `DB_ZERO_ROW` exists for the write the code ASSUMED landed ("saved", and
+ * nothing changed); a cleanup DELETE whose end state — the row is absent — holds either way is not
+ * one. Production 2026-10-15: undoing a supplier lock clears the category's `complete` decision
+ * ("deleting an absent row is a no-op", said the code) and the Problems list filed it as a fault.
+ *
+ * Set it at the call site, on the DELETE itself:
+ *     .delete().eq(…).setHeader(ABSENT_IS_FINE_HEADER, '1')
+ * ⚠ ONLY where RLS cannot hide a visible row from the delete (the table's DELETE policy is the same
+ * as its SELECT policy) — otherwise "matched nothing" can mean "refused in silence", which is
+ * exactly what `DB_ZERO_ROW` is for. Never on a PATCH: an update that matched nothing never did its
+ * job. Server-side clients only (a custom header from the browser trips CORS).
+ */
+export const ABSENT_IS_FINE_HEADER = 'x-setnayan-absent-is-fine';
+
+function absentIsFine(input: unknown, init: RequestInit | undefined): boolean {
+  try {
+    const own = init?.headers ? new Headers(init.headers).get(ABSENT_IS_FINE_HEADER) : null;
+    const req = input && typeof input === 'object' && 'headers' in input ? (input as Request).headers.get(ABSENT_IS_FINE_HEADER) : null;
+    return (own ?? req) === '1';
+  } catch {
+    return false;
+  }
+}
+
 function methodOf(input: unknown, init: RequestInit | undefined): string {
   if (init?.method) return init.method.toUpperCase();
   if (input && typeof input === 'object' && 'method' in input) return String((input as Request).method).toUpperCase();
@@ -179,7 +205,7 @@ export function createLoggingFetch(label: string, sink: DbFaultSink = defaultSin
 
       if (res.ok) {
         // Only a TARGETED PATCH/DELETE can be "saved, but nothing written".
-        if ((method === 'PATCH' || method === 'DELETE') && isTargetedWrite(url)) {
+        if ((method === 'PATCH' || (method === 'DELETE' && !absentIsFine(input, init))) && isTargetedWrite(url)) {
           const contentRange = res.headers.get('content-range');
           const bodyText = contentRange?.startsWith('*/') ? '' : await res.clone().text();
           const verdict = classifyPostgrest({ method, url, status: res.status, contentRange, bodyText });

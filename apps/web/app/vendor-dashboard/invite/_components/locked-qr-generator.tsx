@@ -158,7 +158,10 @@ export function LockedQrGenerator({
   eventTypes,
   services,
   contracts,
+  initialDate = '',
 }: {
+  /** The date filled in when the shop came from a day ("Show a QR", Dates › a day — 2026-10-14). */
+  initialDate?: string;
   eventTypes: Opt[];
   /** The vendor's own leaf offerings (vendor_services), DB-driven — value is a
    *  vendor_service_id, or a VendorCategory key for the no-published-services
@@ -173,7 +176,7 @@ export function LockedQrGenerator({
   const [eventType, setEventType] = useState('');
   const [serviceRefs, setServiceRefs] = useState<string[]>([]);
   const [serviceQuery, setServiceQuery] = useState('');
-  const [eventDate, setEventDate] = useState('');
+  const [eventDate, setEventDate] = useState(/^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? initialDate : '');
   const [serviceDescription, setServiceDescription] = useState('');
   const [contractId, setContractId] = useState('');
   // Clean numeric strings (no separators) — displayed with thousands commas.

@@ -32,8 +32,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const ACTIONS = readFileSync('app/vendor-dashboard/actions.ts', 'utf8');
+// The page editor — Your page's parts since step 5 (2026-10-14); it was My Shop's website-editor.tsx.
 const EDITOR = readFileSync(
-  'app/vendor-dashboard/shop/_components/website-editor.tsx',
+  'app/vendor-dashboard/website/_components/page-parts.tsx',
   'utf8',
 );
 const MATRIX = readFileSync('app/for-suppliers/_components/vendor-tier-matrix.tsx', 'utf8');

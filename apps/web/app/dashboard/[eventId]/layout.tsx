@@ -45,6 +45,9 @@ import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banne
 import { CohostWelcome } from './_components/cohost-welcome';
 import { AppPreload } from '@/app/_components/app-preload';
 import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
+import { HomeCoverWordsProvider } from './_components/home-loading-cover';
+import { homeCoverWords } from '@/lib/home-cover-words';
+import { withPickedDate } from '@/lib/event-anchor';
 import { appPreloadPlan } from '@/lib/app-preload-sets';
 
 type Props = {
@@ -227,7 +230,7 @@ export default async function EventLayout({ children, params }: Props) {
   const eventRead = (async () => {
     try {
       const fullSelect =
-        'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id';
+        'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id, date_candidates';
       const fullRes = await withSchemaRetry(() =>
         supabase.from('events').select(fullSelect).eq('event_id', eventId).maybeSingle(),
       );
@@ -807,7 +810,18 @@ export default async function EventLayout({ children, params }: Props) {
                   INSTANTLY, THEN REFRESHES"). Context only — the store loads
                   with those pages, never with this layout. */}
               <LastSeenScope userId={user.id} eventId={eventId}>
-                {children}
+                {/* ⚡ The Home's cover words, from THIS read of the event — its loading screen
+                    draws the couple's names at the tap (home-loading-cover.tsx, 2026-10-16). */}
+                <HomeCoverWordsProvider
+                  eventId={eventId}
+                  words={homeCoverWords(
+                    withPickedDate(
+                      event as { event_type?: string | null; event_date?: string | null; date_candidates?: string[] | null; display_name?: string | null },
+                    ),
+                  )}
+                >
+                  {children}
+                </HomeCoverWordsProvider>
               </LastSeenScope>
             </div>
           </div>

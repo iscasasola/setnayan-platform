@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MutableRefObject } from 'react';
 import { findMakerSection, makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import { whenIdle } from '@/lib/maker-preload';
-import { CANVAS_REFRESH_MESSAGE, makerSavesInFlight } from '@/lib/maker-refresh';
+import { CANVAS_REFRESH_MESSAGE, MAKER_SAVES_QUIET_EVENT, makerSavesInFlight, makerSavesStarted } from '@/lib/maker-refresh';
 
 /**
  * 🪞 THE CANVAS, DOUBLE-BUFFERED — a new render loads BEHIND the page the
@@ -190,8 +190,6 @@ export function canvasPosts(
 }
 /** At most this many drawn picks wait for one loading kept frame; past it the frame is let go (it loads again when opened). */
 export const MAX_WAITING_PICKS = 200;
-/** A warm put off by a save on its way is looked at again this long after. */
-export const WARM_AGAIN_MS = 1_500;
 
 /** The warm frames wanted beside what is shown and loading, within the budget. */
 function wantedWarm(state: CanvasFrames, wanted: readonly CanvasFrame[], max: number): CanvasFrame[] {
@@ -400,28 +398,39 @@ export function BufferedCanvasFrame({
     };
   }, []);
 
-  /* 🔥 THE ONE WARM (`warmOnce`): on idle, the next stage only (`MAX_WARM_AHEAD`), never while a save is on its way —
-     looked at again a beat later — and again whenever that stage is not kept (the couple moved on to another stage). */
+  /* 🔥 THE ONE WARM (`warmOnce`): on idle, the next stage only (`MAX_WARM_AHEAD`) — decided ONCE per stage on screen and
+     per quiet moment after saves: never while a save is on its way, and once they have all landed (`MAKER_SAVES_QUIET_EVENT`)
+     the next stage is warmed again only if it is not kept. A stage let go in between ("view as") is not fetched back by
+     an idle moment alone. */
   const warmLeft = useRef<readonly CanvasFrame[] | null>(null);
+  const warmedAt = useRef(makerSavesStarted());
+  const warmedFor = useRef<string | null>(null);
+  useEffect(() => {
+    const quiet = () => setWarmTick((n) => n + 1);
+    window.addEventListener(MAKER_SAVES_QUIET_EVENT, quiet);
+    return () => window.removeEventListener(MAKER_SAVES_QUIET_EVENT, quiet);
+  }, []);
   useEffect(() => {
     if (warmMax <= 0) return;
-    let again: number | undefined;
-    const stop = whenIdle(() => {
+    return whenIdle(() => {
       const s = framesRef.current;
       const busy = makerSavesInFlight() > 0;
-      const step = warmOnce(s, null, wantedRef.current, Math.min(warmMax, MAX_WARM_AHEAD), {
+      const savesNow = makerSavesStarted();
+      if (!busy && (savesNow !== warmedAt.current || s.shown.group !== warmedFor.current)) {
+        /* a new stage on screen, or saves that have all landed since the last warm: one fresh decision */
+        warmLeft.current = null;
+        warmedAt.current = savesNow;
+        warmedFor.current = s.shown.group;
+      }
+      if (warmLeft.current?.length === 0) return;
+      const step = warmOnce(s, warmLeft.current, wantedRef.current, Math.min(warmMax, MAX_WARM_AHEAD), {
         ready: (f) => canvasFrameId(f) in readyOf.current || loaded.current.has(canvasFrameId(f)),
         hidden: document.visibilityState === 'hidden',
         saved: busy,
       });
       warmLeft.current = step.left;
       if (step.state !== s) setFrames((prev) => (prev === s ? step.state : prev));
-      else if (busy) again = window.setTimeout(() => setWarmTick((n) => n + 1), WARM_AGAIN_MS);
     });
-    return () => {
-      stop();
-      if (again !== undefined) window.clearTimeout(again);
-    };
   }, [warmTick, warmMax, warmOver, frames.shown.group]);
 
   /* The loading frame's bridge says `ready` → swap. A task later, so the

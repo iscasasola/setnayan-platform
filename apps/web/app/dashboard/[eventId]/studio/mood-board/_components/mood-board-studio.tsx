@@ -380,7 +380,8 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     };
     put(next as typeof dress);
     const back = (text: string) => {
-      put(before);
+      draftedBoard.set(`${eventId}:dress`, JSON.stringify(before ?? null));
+      setDress(before);
       failed(text);
     };
     makerRedrawSave(() => hubDraftAction(eventId, fd), () => router.refresh(), { undo: boardUndo((undone) => put(undone ? before : (next as typeof dress))) })

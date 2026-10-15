@@ -9,14 +9,13 @@
  * into `events.style_preferences.scene_styles`. Free — no ◆. Never live before
  * Apply.
  */
-import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 
 import type { FixedSceneStyles, FixedStyleScene, StyledScene } from '@/lib/fixed-scene-styles';
 import { MAKER_PARTS } from '@/lib/maker-parts';
 import { useStagePanelNow } from '../../../launch/_components/stage-panel/store';
 import type { HubStage } from '@/lib/hub-canvas';
-import { HUB_DRAFT_BAR_FIELD, MAKER_UNHELD_WRITE_EVENT, makerRedrawSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, MAKER_UNHELD_WRITE_EVENT, makerRedrawSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { drawScenePicture, styleTap } from '@/lib/maker-scene-look';
 import { resolveSceneStyle, sceneStyleOptions } from '@/lib/scene-styles';
 import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
@@ -121,7 +120,6 @@ function StyledSceneRow({
   /** 🖼 What each miniature frames (`?only=`) — absent: the fixed part's own marker (`f:<scene>`). */
   previewKey?: string | null;
 }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   /* What the couple just picked, shown at once while the save round-trips — and kept by the Maker's own copy. */
@@ -160,7 +158,8 @@ function StyledSceneRow({
           sceneType: scene,
           styleId: id,
           send: () => draftAction(eventId, fd),
-          refresh: () => router.refresh(),
+          /* (a held save owes no render; were one owed, the bar's own refresh answers it) */
+          refresh: requestMakerRefresh,
           save: makerRedrawSave,
           onUndone: (undone) => {
             draftedFixed.set(own, undone ? before : id);

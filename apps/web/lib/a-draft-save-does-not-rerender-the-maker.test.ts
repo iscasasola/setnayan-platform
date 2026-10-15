@@ -125,7 +125,10 @@ test('every hubDraftAction caller in the Maker refreshes ONCE, through makerSave
     assert.match(src, /makerSave\(/, `${f}: a draft save outside makerSave`);
     assert.doesNotMatch(src, /await hubDraftAction\(|await draftAction\(/, `${f}: a draft save called bare`);
     // The only router.refresh() left is the one makerSave calls, once per burst.
-    const bare = src.replace(/makerSave\([\s\S]*?\(\) => router\.refresh\(\)/g, '');
+    /* (2026-10-15, rd/maker-fast-edits) `use-scene-canvas.ts` names the save's refresh once (`const refresh = …`) and
+       hands it ONLY to the save doors — that is still the save's one refresh, never one of its own. */
+    const named = f.endsWith('use-scene-canvas.ts') && /const refresh = \(\) => router\.refresh\(\);/.test(src) && !/\brefresh\(\)/.test(src.replace(/const refresh = \(\) => router\.refresh\(\);/, '').replace(/router\.refresh\(\)/g, ''));
+    const bare = src.replace(/makerSave\([\s\S]*?\(\) => router\.refresh\(\)/g, '').replace(named ? /const refresh = \(\) => router\.refresh\(\);/ : /$^/, '');
     assert.equal((bare.match(/router\.refresh\(\);/g) ?? []).length, OTHER_REFRESH[f] ?? 0, `${f}: a second refresh of its own`);
   }
 });

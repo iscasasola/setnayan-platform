@@ -75,22 +75,20 @@ export function useSceneCanvas(
     /* A held save owes no Maker render — the Apply · Undo · Restore count comes back with it. */
     if (opts.redraw) fd.set(HUB_DRAFT_BAR_FIELD, '1');
     const send = () => draftAction(eventId, fd);
-    /* 🖼 Held, redrawn in place once it lands — sent NOW, in the tap, after the page shows it: a Style pick lays the
-       tapped card's section on the page first (`styleTap`); any other redraw pick keeps its BEFORE picture for ↺. */
-    const held = !opts.redraw
-      ? null
-      : styled
-        ? styleTap({ canvasKey: key, sceneType: null, styleId: styled, send, refresh, canvas: own, onUndone, save: makerRedrawSave }).saved
-        : makerRedrawSave(send, refresh, { undo: scenePictureUndo(key, shownSectionPicture(key), own, onUndone) });
     start(async () => {
       /* 📵 A save that never answered (no signal, a 5xx) is a refusal, SAID in the row — thrown into this transition it
          replaced the whole Maker with the app's error screen (`hubDraftAnswer`). The pick stays chosen: the next save
-         on this scene carries the whole canvas, so it is sent again with it. */
+         on this scene carries the whole canvas, so it is sent again with it.
+         🖼 A redraw pick is held and redrawn in place once it lands — and is ON THE PAGE first, in this very tap
+         (`hubDraftAnswer` and the transition both run their function at once): a Style pick lays the tapped card's
+         section over the page (`styleTap`); any other keeps its BEFORE picture for the ↺ (`scenePictureUndo`). */
       const res = await hubDraftAnswer('save', async () =>
-        held
-          ? await held
-          : // One refresh after the last save in flight (`lib/maker-refresh.ts`).
-            await makerSave(send, refresh),
+        !opts.redraw
+          ? // One refresh after the last save in flight (`lib/maker-refresh.ts`).
+            await makerSave(send, refresh)
+          : styled
+            ? await styleTap({ canvasKey: key, sceneType: null, styleId: styled, send, refresh, canvas: own, onUndone, save: makerRedrawSave }).saved
+            : await makerRedrawSave(send, refresh, { undo: scenePictureUndo(key, shownSectionPicture(key), own, onUndone) }),
       );
       if (!res.ok) setError(res.error);
     });

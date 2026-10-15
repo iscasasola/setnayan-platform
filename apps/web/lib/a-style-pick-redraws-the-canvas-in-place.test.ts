@@ -83,14 +83,17 @@ test('1 · a burst that saved nothing redraws nothing; one success in it still r
 
 test('2 · a scene canvas pick marked `redraw` is held and redrawn — never a Maker render', () => {
   const hook = code(`${ED}use-scene-canvas.ts`);
-  assert.match(hook, /opts\.redraw\s*\?\s*await makerRedrawSave\(\(\) => draftAction\(eventId, fd\), \(\) => router\.refresh\(\)\)/);
+  /* (re-aimed 2026-10-15, rd/maker-fast-edits: the redraw pick is sent in the tap — a Style pick through `styleTap`, which
+     lays the tapped card on the page first — and both carry their ↺ inverse; still held, still never a Maker render.) */
+  assert.match(hook, /!opts\.redraw\s*\?[^:]*await makerSave\(send, refresh\)\s*:\s*styled\s*\?\s*await styleTap\(\{[^}]*send, refresh,[^}]*save: makerRedrawSave \}\)\.saved\s*:\s*await makerRedrawSave\(send, refresh, \{ undo: scenePictureUndo\(/);
+  assert.match(hook, /const send = \(\) => draftAction\(eventId, fd\);/);
   // The Maker's own copy stands in for the render it no longer waits for…
   assert.match(hook, /else if \(opts\.redraw\) noteDraftedCanvas\(widgetType, next, canvas\);/);
   // …and the Apply count comes back with the save (no render brings it).
   assert.match(hook, /if \(opts\.redraw\) fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\);/, 'a held pick leaves the Apply count stale');
   // The redraw save IS a held save — dropped, it is the original bug (unheld → a whole-Maker render).
   const refresh = code('lib/maker-refresh.ts');
-  assert.match(refresh, /return redrawer\.save\(\(\) => makerSave\(send, refresh, \{ held: true, ok \}\), ok\);/, 'makerRedrawSave is not held');
+  assert.match(refresh, /return redrawer\.save\(\(\) => makerSave\(send, refresh, \{ held: true, ok, \.\.\.\(undo \? \{ undo \} : \{\}\) \}\), ok\);/, 'makerRedrawSave is not held');
   const row = code(`${ED}scene-style-row.tsx`);
   const style = row.slice(row.indexOf('export function SceneStyleCanvasRow'), row.indexOf('export function PaletteLookCanvasRow'));
   assert.match(style, /useSceneCanvas\(eventId, widgetType, canvas, draftAction, undefined, \{ redraw: true \}\)/, 'a scene Style pick waits for a whole-Maker render');
@@ -100,7 +103,8 @@ test('2 · a scene canvas pick marked `redraw` is held and redrawn — never a M
 
 test('2 · a fixed part’s style and a background that redraws the card are redrawn too', () => {
   const fixed = code(`${ED}fixed-scene-style-row.tsx`);
-  assert.match(fixed, /await makerRedrawSave\(\(\) => draftAction\(eventId, fd\), \(\) => router\.refresh\(\)\)/);
+  assert.match(fixed, /const tap = styleTap\(\{[\s\S]*?send: \(\) => draftAction\(eventId, fd\),[\s\S]*?refresh: requestMakerRefresh,\s*save: makerRedrawSave,/);
+  assert.doesNotMatch(fixed, /makerNeedsRender/, 'a style pick owes the Maker no second render (its count comes back with the save)');
   assert.doesNotMatch(fixed, /await makerSave\(/);
   const bg = code(`${ED}scene-background-row.tsx`);
   assert.match(bg, /redrawsBox\s*\?\s*makerRedrawSave\(/);

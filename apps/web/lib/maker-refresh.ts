@@ -320,11 +320,24 @@ export function makerSave<T>(send: () => Promise<T>, refresh: () => void, option
   return saved
     .finally(() => {
       if (!options.held) unheldInFlight -= 1;
+      announceSavesQuiet();
     })
     .then((result) => {
       announceDraftBar(result);
       return result;
     });
+}
+
+/**
+ * ⏳ Every Maker save has landed — told once per quiet moment (a task after the last one, so a save sent in its answer
+ * counts). The canvas warms the next stage then (`buffered-canvas-frame.tsx`): never while a save is on its way.
+ */
+export const MAKER_SAVES_QUIET_EVENT = 'setnayan:maker-saves-quiet';
+function announceSavesQuiet(): void {
+  if (typeof window === 'undefined') return;
+  window.setTimeout(() => {
+    if (shared.inFlight() + writer.pending() === 0) window.dispatchEvent(new Event(MAKER_SAVES_QUIET_EVENT));
+  }, 0);
 }
 
 /** Unheld saves still on their way — their render must reload the canvas, so no redraw may hold it meanwhile. */

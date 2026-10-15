@@ -69,7 +69,12 @@ class MakerOpen {
   loads: string[] = [];
   /** Refresh messages posted, by frame id — each one is a server render too. */
   refreshes: string[] = [];
-  saved = false;
+  /** A save on its way (`makerSavesInFlight() > 0`) — the warm waits. */
+  busy = false;
+  /** Saves started (`makerSavesStarted()`), and what the last warm decision was made at. */
+  saves = 0;
+  private warmedAt = 0;
+  private warmedFor: string | null = null;
   hidden = false;
   stamp = 1;
   seeAs = false;
@@ -116,10 +121,17 @@ class MakerOpen {
   }
   /** An idle moment — the component's warm effect (it warms `min(budget, MAX_WARM_AHEAD)`). */
   idle() {
+    /* as the component: a new stage on screen, or saves that have all landed since the last warm → one fresh decision */
+    if (!this.busy && (this.saves !== this.warmedAt || this.s.shown.group !== this.warmedFor)) {
+      this.left = null;
+      this.warmedAt = this.saves;
+      this.warmedFor = this.s.shown.group;
+    }
+    if (this.left?.length === 0) return;
     const step = warmOnce(this.s, this.left, this.wanted(), Math.min(this.max, MAX_WARM_AHEAD), {
       ready: (f) => this.up.has(canvasFrameId(f)),
       hidden: this.hidden,
-      saved: this.saved,
+      saved: this.busy,
     });
     this.left = step.left;
     this.s = step.state;
@@ -147,8 +159,9 @@ class MakerOpen {
    * redraw in place once it lands; `render` — the Maker re-renders and the
    * canvas reloads (a new stamp).
    */
-  save(kind: 'drawn' | 'redraw' | 'render') {
-    this.saved = true;
+  save(kind: 'drawn' | 'redraw' | 'render', stillOnItsWay = false) {
+    this.saves += 1;
+    this.busy = stillOnItsWay;
     if (kind === 'drawn') this.broadcast(false);
     if (kind === 'redraw') this.broadcast(true);
     if (kind === 'render') {
@@ -321,27 +334,37 @@ test('"view as" warms nothing, and a stage the couple opened themselves is not f
 
 /* ═══ 2 · PER SAVE ═══════════════════════════════════════════════════════ */
 
-test('a save before the warm ENDS it: this open warms nothing, whatever the save was and however long it idles after', () => {
+test('⏳ a save before the warm PUTS IT OFF: nothing is warmed while it is on its way — once it has landed, the next stage ONCE', () => {
+  /* (2026-10-15, rd/maker-fast-edits — measured on the production build: after any edit EVERY stage switch loaded a cold
+     guest page, 3.0–4.4 s at production latency, because the first save ended the warm for the whole visit.) */
   for (const kind of ['drawn', 'redraw', 'render'] as const) {
     const m = new MakerOpen('rsvp');
     m.settle();
-    m.save(kind);
+    m.save(kind, true);
     const afterSave = m.fetches();
     m.warmFully();
-    assert.equal(m.fetches(), afterSave, `a stage was warmed after a "${kind}" save`);
-    assert.deepEqual(m.left, [], 'spent for good');
-    assert.ok(m.loads.every((id) => id.startsWith('rsvp:')), `a page nobody opened was fetched: ${m.loads.join(' · ')}`);
+    assert.equal(m.fetches(), afterSave, `a stage was warmed while a "${kind}" save was on its way`);
+    m.busy = false; // it landed
+    m.warmFully();
+    assert.equal(m.fetches(), afterSave + 1, `the next stage is warmed once the "${kind}" save has landed`);
+    assert.ok(m.loads.at(-1)!.startsWith('event:'), `the warm took ${m.loads.at(-1)} — not the next stage`);
+    m.warmFully();
+    m.warmFully();
+    assert.equal(m.fetches(), afterSave + 1, 'warmed ONCE — idle moments alone fetch nothing more');
   }
 });
 
-test('a save in the middle of the warm stops it there — the stages not yet warmed are never fetched', () => {
+test('a save in the middle of the warm: the stage being warmed is kept — nothing more is fetched, during or after', () => {
   const m = new MakerOpen('rsvp');
   m.settle();
   m.idle(); // one stage warming
   assert.equal(m.fetches(), 2);
-  m.save('drawn');
+  m.save('drawn', true);
   m.warmFully();
-  assert.equal(m.fetches(), 2, 'the warm went on after a save');
+  assert.equal(m.fetches(), 2, 'the warm went on during a save');
+  m.busy = false;
+  m.warmFully();
+  assert.equal(m.fetches(), 2, 'the next stage is already kept — landing fetches it again');
 });
 
 test('after a full warm, every kind of save costs the page on screen and nothing else — 0 · 1 · 1', () => {
@@ -506,14 +529,23 @@ test('the component: one warm effect, on idle, reading saves, the Maker render, 
   assert.match(buffer, /onLoad=\{\(\) => \{\s+loaded\.current\.add\(canvasFrameId\(f\)\);\s+setWarmTick\(\(n\) => n \+ 1\);/);
   assert.equal((buffer.match(/loaded\.current\.add\(/g) ?? []).length, 1, 'ONE thing marks a frame loaded: its load event');
   assert.match(effect, /hidden: document\.visibilityState === 'hidden',/);
-  assert.match(effect, /saved: warmOver \|\| makerSavesStarted\(\) !== opened\.current,/);
-  assert.match(effect, /const opened = useRef\(makerSavesStarted\(\)\);/, 'measured from the mount');
-  assert.match(effect, /warmLeft\.current = step\.left;/, 'the spent list is kept — never recomputed');
-  assert.doesNotMatch(effect, /warmLeft\.current = null/, 'the warm must never be re-armed');
-  // No timer or interval drives it: a `ready`, the tab coming back, the budget, a Maker render — nothing else.
-  assert.match(effect, /\}, \[warmTick, warmMax, warmOver\]\);/);
+  /* (2026-10-15, rd/maker-fast-edits) a save on its way PUTS OFF the warm; once every save has landed (one event,
+     `MAKER_SAVES_QUIET_EVENT`) — or a new stage is on screen — ONE fresh decision is made. */
+  assert.match(effect, /const busy = makerSavesInFlight\(\) > 0;/);
+  assert.match(effect, /saved: busy,/);
+  assert.match(effect, /if \(!busy && \(savesNow !== warmedAt\.current \|\| s\.shown\.group !== warmedFor\.current\)\) \{\s*warmLeft\.current = null;/, 're-armed ONLY by a new stage on screen or saves that have landed');
+  assert.equal((effect.match(/warmLeft\.current = null/g) ?? []).length, 1, 'one way to re-arm the warm');
+  assert.match(effect, /if \(warmLeft\.current\?\.length === 0\) return;/, 'a spent decision fetches nothing more');
+  assert.match(effect, /warmLeft\.current = step\.left;/);
+  assert.match(effect, /window\.addEventListener\(MAKER_SAVES_QUIET_EVENT, quiet\);/);
+  // No timer or interval drives it: a `ready`, the tab coming back, the budget, a Maker render, the saves landing.
+  assert.match(effect, /\}, \[warmTick, warmMax, warmOver, frames\.shown\.group\]\);/);
   // 🔥 It warms the NEXT stage only: the budget handed to the step is capped at MAX_WARM_AHEAD (owner 2026-10-12).
   assert.match(effect, /const step = warmOnce\(s, warmLeft\.current, wantedRef\.current, Math\.min\(warmMax, MAX_WARM_AHEAD\), \{/);
+  // …and the saves-quiet moment is told by the one save door, after the last save in flight (`lib/maker-refresh.ts`).
+  const door = stripComments(readFileSync(join(WEB, 'lib/maker-refresh.ts'), 'utf8'));
+  assert.match(door, /if \(!options\.held\) unheldInFlight -= 1;\s*announceSavesQuiet\(\);/);
+  assert.match(door, /if \(shared\.inFlight\(\) \+ writer\.pending\(\) === 0\) window\.dispatchEvent\(new Event\(MAKER_SAVES_QUIET_EVENT\)\);/);
   // …in the order the Maker hands it: `warmStageOrder` over the stages as the site lives through them.
   assert.match(shell, /\? warmStageOrder<LifecyclePhase>\(stage, PUBLIC_STAGE_ORDER\)\.map\(\(s\) => \(\{/);
   assert.doesNotMatch(shell, /function warmStageOrder/, 'ONE warm order — the one this file tests');
@@ -536,7 +568,7 @@ test('the component: one warm effect, on idle, reading saves, the Maker render, 
   assert.match(shell, /const \[openStamp\] = useState\(maker\?\.renderStamp \?\? ''\);\s+const warmOver = \(maker\?\.renderStamp \?\? ''\) !== openStamp;/);
   assert.match(shell, /warmMax=\{warmBudget\}\s+warmOver=\{warmOver\}/);
   assert.equal((shell.match(/warmOver=/g) ?? []).length, 1, 'only the stage canvas warms — never the phone pane, never a page frame');
-  assert.equal((buffer.match(/warmOver/g) ?? []).length, 4, 'warmOver is read in ONE place: the `saved` of the warm (prop · type · saved · deps)');
+  assert.equal((buffer.match(/warmOver/g) ?? []).length, 3, 'warmOver re-runs the warm decision on a Maker render (prop · type · deps)');
   // The redraw event is still sent through the broadcast (so through canvasPosts).
   assert.match(shell, /broadcastToCanvasRef\.current\(CANVAS_REFRESH_MESSAGE\);/);
 });

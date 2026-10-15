@@ -1,7 +1,9 @@
 import { Fragment, type ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { WishLab } from './wish-lab';
+import { WishLab, labGiftContent } from './wish-lab';
+import { WelcomeGiftsContent } from '@/app/[slug]/_components/welcome-gifts-content';
+import { wishListShape } from '@/lib/wish-list-guest';
 import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { LAB_SIGNED } from '../lab-own-media';
@@ -165,7 +167,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const sp = await searchParams;
   /* 🎁 `?wish=…` — the guest's wish list on fixtures (`wish-lab.tsx`), instead of the canvas. */
   if (typeof sp.wish === 'string') {
-    return <WishLab state={sp.wish} look={typeof sp.look === 'string' ? sp.look : undefined} known={sp.known !== '0'} named={sp.name !== '0'} mine={sp.mine === '1'} />;
+    return <WishLab state={sp.wish} look={typeof sp.look === 'string' ? sp.look : undefined} known={sp.known !== '0'} named={sp.name !== '0'} mine={sp.mine === '1'} blocked={sp.blocked === '1'} />;
   }
   /* 📬 `?replycard=open|going|not_yet|closed` — the Event Hub's Welcome Reply card (`ReplyCardRow` from
      `replyCardOf`, the page's own two) in each state of the couple's reply window, on the lab's house ground. */
@@ -405,9 +407,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     /* The lab wraps the gift card; the Maker asks the block's root whether it is the real card (`data-welcome-gifts`),
        so the wrapper says so when the real card is what it holds — else Animate is grey here and cannot be tried. */
     <div data-lab-scene="gifts" {...(words ? { 'data-welcome-gifts': '' } : {})} className="border-t border-ink/10 px-4 py-8 text-left">
-      {/* 🧱 E-Gifts' own mark, right BEFORE the real block (`lib/block-looks.ts`) — inside the lab's wrapper. */}
+      {/* 🧱 E-Gifts' own mark, right BEFORE the real block (`lib/block-looks.ts`) — inside the lab's wrapper. 🎁 The block
+          is E-Gifts drawn in place, as a guest reads it on Welcome (2026-10-14): the lab's two ways to give and four wishes. */}
       <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
-      {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')} /> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
+      {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')}>
+          <WelcomeGiftsContent content={Promise.resolve({ ...labGiftContent(words), wishShape: wishListShape(look('gifts')) })} href="#gifts" words={words} />
+        </WelcomeGifts> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
     </div>
   );
   /* 👤 The Invitation's "Guest's look" — the guest page's own stand-in (the Maker's What to wear part). THE MAKER'S

@@ -1,3 +1,4 @@
+import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
 import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasStylePreview, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
 import type { InviteThemeId } from '@/lib/invite-themes';
@@ -1506,6 +1507,10 @@ async function invitationBody({
     watchLive,
     broadcastPlanned,
     doorwayFacts,
+    /* 🎁 E-Gifts on Welcome is the content (owner 2026-10-14): the gift page's OWN reader, the same one `/pabuya`
+       calls — identifiers withheld from a reader the event does not recognise. SiteBody calls it only where the gift
+       door would stand (`doorways.pabuya`) on a Welcome that carries E-Gifts. */
+    giftPageReader: (e: GiftPageEvent) => loadGiftPage(admin, e),
     proWatermarkHidden,
     isEditorCanvas,
     // 💾 Post Event's drafted scenes (owner 2026-09-25 / 2026-09-29) — the

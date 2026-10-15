@@ -181,6 +181,9 @@ import { splitAroundEntourage, stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
 import { GuestWelcome } from './guest-welcome';
+import type { GiftPageEvent } from '../pabuya/_lib/gift-page.server';
+import type { GiftPageContent } from '../pabuya/_lib/gift-cards';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { scenesLeftForDetails, welcomeCarriesGifts, welcomeParts } from '@/lib/invitation-welcome';
 import { mainGroundLayerFor } from '../_lib/main-ground-layer';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
@@ -454,6 +457,10 @@ type SiteBodyProps = {
    *  each read the way the DESTINATION reads it. Absent → both doors stay shut,
    *  which is the honest default for a caller that did not resolve them. */
   doorwayFacts?: DoorwayFacts | null;
+  /** 🎁 The gift page's own reader (`loadGiftPage`), handed in by the page that holds the request (it reads the
+   *  reader's invitation and sign-in, as `/pabuya` does). Called only where Welcome draws E-Gifts. Absent → the
+   *  E-Gifts door, as before (a caller with no request — the test fixtures — draws the door). */
+  giftPageReader?: ((event: GiftPageEvent) => Promise<GiftPageContent>) | null;
   /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
@@ -610,6 +617,7 @@ export async function SiteBody({
   watchLive,
   broadcastPlanned = false,
   doorwayFacts = null,
+  giftPageReader = null,
   proWatermarkHidden,
   isEditorCanvas = false,
   editorialDraft = null,
@@ -1204,6 +1212,22 @@ export async function SiteBody({
   const doorways = doorwayFacts
     ? resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })
     : { venueWalk: null, pabuya: null, wishes: 0 };
+  /* 🎁 E-GIFTS ON WELCOME IS THE CONTENT, NOT A DOOR (owner 2026-10-14). Started HERE, beside the rest of this body's
+     reads, and ONLY when the door would have been drawn (`doorways.pabuya` — gated on what the gift page itself
+     demands) on a Welcome that carries it (`welcomeCarriesGifts`; the Maker's canvas, which can draw every stage's
+     Welcome, always), so a guest whose page has no E-Gifts there pays nothing for it. The gift page's own reader
+     (`loadGiftPage`): identifiers withheld from a reader the event does not recognise, exactly as on `/pabuya`. A
+     failed read is null — the door stands in its place (`WelcomeGiftsContent`); it is logged, never shown as nothing.
+     The reader comes from the page (`giftPageReader`), which holds the request it reads the viewer from. */
+  const giftsOnWelcome =
+    doorways.pabuya !== null &&
+    (isMakerCanvas || welcomeCarriesGifts({ stage: pageStage, bodyNormal: plan.body === 'normal', giftHref: doorways.pabuya, maker: false }));
+  const giftPage = giftsOnWelcome && giftPageReader
+    ? giftPageReader(event).catch((error: unknown) => {
+        logQueryError('site-body (welcome e-gifts)', error, { event_id: event.event_id }, 'graceful_degrade');
+        return null;
+      })
+    : null;
   // Is the real player already on this page? The player follows the broadcast,
   // not the calendar (owner-ruled 2026-09-02) — both trees mount it whenever the
   // links resolve, regardless of dayOfPhase — so one expression covers both.
@@ -2354,6 +2378,7 @@ export async function SiteBody({
                      Maker's own marker (`guestSceneMark`): a look picked there is drawn by the rules a guest gets. */
                   mark={guestSceneMark}
                   giftWishes={doorways.wishes}
+                  giftContent={giftPage}
                   maker={isMakerCanvas}
                 />
               </div>
@@ -2389,6 +2414,7 @@ export async function SiteBody({
                   giftHref={doorways.pabuya}
                   mark={giftsBlockMark}
                   giftWishes={doorways.wishes}
+                  giftContent={giftPage}
                 />
               </div>
             )) : null}
@@ -3736,6 +3762,7 @@ export async function SiteBody({
                 giftHref={doorways.pabuya}
                 mark={giftsBlockMark}
                 giftWishes={doorways.wishes}
+                giftContent={giftPage}
               />
               ), { chapters: true, className: 'space-y-12' })}
 
@@ -3782,6 +3809,7 @@ export async function SiteBody({
                   giftHref={doorways.pabuya}
                   mark={giftsBlockMark}
                   giftWishes={doorways.wishes}
+                  giftContent={giftPage}
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
 

@@ -8586,21 +8586,24 @@ html [data-part-look="eyebrow.pill"][data-part-look] {
 html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"])[data-part-look]::after { content: none; }
 html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.flanked"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"]) > span { color: inherit; }
 
-/* ── E-Gifts ── */
+/* ── E-Gifts ── the four looks lay the DOOR (`[data-gift-door]`, where it still stands) and the eyebrow; on Welcome
+   the content itself wears the look through its wish list's shape (`wishListShape`) and its centred lines, while the
+   ways to give and the trust note keep the gift page's own drawing (2026-10-14: E-Gifts on Welcome, not a door). */
 html [data-part-look="gifts.centred"] { text-align: center; }
 html [data-part-look="gifts.centred"] .pahina-eyebrow { justify-content: center; }
-html [data-part-look="gifts.centred"] a { flex-direction: column; text-align: center; gap: 0.6rem; padding-block: 1.25rem; }
-html [data-part-look="gifts.centred"] a > svg:last-child { display: none; }
-html [data-part-look="gifts.side-rule"] a {
+html [data-part-look="gifts.centred"] [data-gift-door] { flex-direction: column; text-align: center; gap: 0.6rem; padding-block: 1.25rem; }
+html [data-part-look="gifts.centred"] [data-gift-door] > svg:last-child { display: none; }
+html [data-part-look="gifts.side-rule"] [data-gift-door] {
   border: 0; border-left: 2px solid rgb(var(--color-gild)); border-radius: 0; background: transparent; padding-left: 1rem;
 }
 html [data-part-look="gifts.ruled"] { text-align: center; }
 html [data-part-look="gifts.ruled"] .pahina-eyebrow { justify-content: center; }
-html [data-part-look="gifts.ruled"] a {
+html [data-part-look="gifts.ruled"] [data-gift-door] {
   justify-content: center; border: 0; border-top: 1px solid rgb(var(--color-gild) / 0.7); border-bottom: 1px solid rgb(var(--color-gild) / 0.7);
   border-radius: 0; background: transparent; padding-block: 1rem;
 }
-html [data-part-look="gifts.ruled"] a > span:nth-child(2) { flex: none; }
+html [data-part-look="gifts.ruled"] [data-gift-door] > span:nth-child(2) { flex: none; }
+html [data-part-look^="gifts."] :is([data-gift-ways], [data-gift-trust]) { text-align: left; }
 
 /* ── The guest's own parts: Your role · What to wear · Arrive by · Coming with you ── */
 html :is([data-part-look="role.centred"], [data-part-look="wear.centred"], [data-part-look="arrive.centred"], [data-part-look="guests.centred"]) { text-align: center; }

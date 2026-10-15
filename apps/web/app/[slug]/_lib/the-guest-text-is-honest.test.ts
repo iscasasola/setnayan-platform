@@ -202,7 +202,8 @@ test('9 · every door to the money gift says "E-Gifts", and the page names only 
     assert.match(src, want, `${relative(APP, f)} does not say "E-Gifts"`);
     assert.doesNotMatch(src, /Send a gift|Send a blessing|A blessing for/, `${relative(APP, f)} uses a second name for E-Gifts`);
   }
-  const pabuya = stripComments(read(join(SLUG, 'pabuya', 'page.tsx')));
+  /* 🏠 (2026-10-14) The sentence is built where the gift page's cards are — its one pure rule, shared with the Welcome page's E-Gifts. */
+  const pabuya = [join(SLUG, 'pabuya', 'page.tsx'), join(SLUG, 'pabuya', '_lib', 'gift-cards.ts')].map((f) => stripComments(read(f))).join('\n');
   assert.doesNotMatch(pabuya, /copy a handle|Scan a QR or copy/, 'the page promises a method whatever the couple set up');
   assert.match(pabuya, /qr: methods\.some\(/, 'the sentence is not built from the couple’s own methods');
 });

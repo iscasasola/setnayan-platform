@@ -96,14 +96,14 @@ export function MakerWelcomeLook({ look = null }: { look?: string | null } = {})
   );
 }
 
-/** The E-Gifts place with no gift method on yet — the page draws the real door once there is one. */
+/** The E-Gifts place with no gift method on yet — the page draws the real E-Gifts (its ways to give, in place) once there is one. */
 export function MakerWelcomeGiftsEmpty({ look = null }: { look?: string | null } = {}) {
   return (
     <section className="space-y-2" data-maker-guest-scene="gifts" {...(look ? { 'data-part-look': look } : {})}>
       <p className="pahina-eyebrow">
         <span>E-Gifts</span>
       </p>
-      {/* 🔲 The door's shape, in greys (owner 08 Oct) — the four looks lay it by `data-part-look`, as they lay the real door. */}
+      {/* 🔲 E-Gifts' shape, in greys (owner 08 Oct) — since 2026-10-14 the content a guest reads on Welcome, not a door. */}
       <SceneSample sceneType="gifts" className="!mx-0 py-1" />
       <p className="font-pahina text-xl font-light italic text-ink/70">Add a way to receive gifts.</p>
       <p className="text-xs uppercase tracking-[0.2em] text-ink/70">Only you see this · guests see it once a gift method is on</p>

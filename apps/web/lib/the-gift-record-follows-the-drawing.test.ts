@@ -56,6 +56,10 @@ const SHEET = 'app/[slug]/pabuya/_components/gift-record-sheet.tsx';
 const LIST = 'app/[slug]/pabuya/_components/wish-list.tsx';
 const TELL = 'app/[slug]/pabuya/_components/gift-tell.tsx';
 const PAGE = 'app/[slug]/pabuya/page.tsx';
+/* 🏠 (2026-10-14) The gift page's content is ONE reader and ONE body — drawn by the page and by the Welcome page's
+   E-Gifts alike. The reader names who is reading; the body hands it on. */
+const READER = 'app/[slug]/pabuya/_lib/gift-page.server.ts';
+const BODY = 'app/[slug]/pabuya/_components/gift-page-body.tsx';
 const DOOR = 'lib/gift-door.server.ts';
 const WRITER = 'lib/gift-record.server.ts';
 const ROUTE = 'app/api/guest-selfie/route.ts';
@@ -299,19 +303,20 @@ test('8 · the sheet (and its upload) is fetched on the press, not with the gift
   // It is mounted only once something is pressed.
   assert.match(flat(LIST), /\{record && recording \? \( <GiftRecordSheet/);
   assert.match(flat(TELL), /\{open \? \( <GiftRecordSheet/);
-  // The server page never imports it at all.
-  assert.doesNotMatch(flat(PAGE), /gift-record-sheet/);
+  // The server page never imports it at all — nor its reader, nor its body.
+  for (const f of [PAGE, READER, BODY]) assert.doesNotMatch(flat(f), /gift-record-sheet/, f);
 });
 
 test('9 · the page names its reader with the RSVP’s own identity read — and reads only THEIR gifts', () => {
-  const page = flat(PAGE);
+  const page = flat(READER);
   assert.match(page, /const guestSession = await readGuestSessionForEvent\(event\.event_id\);/);
   // A removed guest is no longer a guest: not recognised, no name.
   assert.match(page, /const reader = readerRow && readerRow\.deleted_at == null \? readerRow : null;/);
   assert.match(page, /recognised: reader != null,/);
   assert.match(page, /giverName: reader \? guestDisplayName\(/);
   assert.match(page, /readGuestWishList\(admin, event\.event_id, reader\?\.guest_id \?\? null\)/);
-  assert.match(page, /record=\{giftReader\}/);
+  assert.match(page, /reader: giftReader,/);
+  assert.match(flat(BODY), /record=\{content\.reader\}/);
 
   // The reader's own gifts are asked for by THEIR guest id, at THIS event — or not asked for at all.
   const read = flat('lib/wish-list.server.ts');
@@ -329,8 +334,8 @@ test('10 · "Sent a gift? Show Maria & Jose" — a gift toward no wish opens the
   assert.match(tell, /\{GIFT_TELL_LINE\}/);
   assert.match(tell, /<GiftRecordSheet eventId=\{record\.eventId\} hostName=\{hostName\} wish=\{null\} giverName=\{record\.giverName\} recognised=\{record\.recognised\}/);
   // It sits under the ways to give, on the gift page.
-  const page = flat(PAGE);
-  inOrder(page, ['<PabuyaCardList', '<GiftTell hostName={hostName} record={giftReader} />'], 'the page');
+  const page = flat(BODY);
+  inOrder(page, ['<PabuyaCardList', '<GiftTell hostName={hostName} record={content.reader} />'], 'the page');
   // "I sent it" on a wish hands the sheet THAT wish.
   const list = flat(LIST);
   assert.match(list, /data-wish-i-sent-it=""/);

@@ -30,17 +30,22 @@ const std = (scrollY: number, home = 48, story = 242) => [
 ];
 
 test('1 · a Save the Date lights Home on its first screen and where the swipe lands, at either height', () => {
-  for (const vh of [812, 667]) {
-    for (const atEnd of [false, true]) {
-      assert.equal(litJumpMark(std(0), vh, atEnd), 'home', `${vh}: at the top (atEnd ${atEnd})`);
-      assert.equal(litJumpMark(std(48), vh, atEnd), 'home', `${vh}: the swipe lands Home's mark at the top (atEnd ${atEnd})`);
+  /* Measured in the lab (2026-10-16): 812 → the page is 860 px, the swipe lands y 48; 667 → 762 px, the swipe runs to
+     its end, y 92–95. Both are the first screen of the countdown. */
+  for (const [vh, ys] of [[812, [0, 48]], [667, [0, 48, 92, 95]]] as const) {
+    for (const y of ys) {
+      for (const atEnd of [false, true]) {
+        assert.equal(litJumpMark(std(y), vh, atEnd), 'home', `${vh}: at y ${y} (atEnd ${atEnd}) the countdown is the first screen`);
+      }
     }
   }
-  /* Scrolled past Home: the ordinary rules — Story crossed the line, or the page's end shows it. */
-  assert.equal(litJumpMark(std(120), 812), 'story');
-  assert.equal(litJumpMark(std(60, 48, 600), 812, true), 'story', 'at the end, past Home, the lowest mark on screen');
-  assert.equal(litJumpMark(std(48 - HOME_PASSED + 1, 48, 600), 812, false), 'home', 'past Home but nothing crossed yet');
-  assert.ok(HOME_PASSED < 0 && HOME_PASSED > -8, 'Home counts as passed only once its mark is above the screen');
+  /* Scrolled past Home (its mark a quarter screen above the top): the ordinary rules — Story crossed the line, or the
+     page's end shows it. */
+  const past = 48 + Math.ceil(812 * HOME_PASSED) + 1;
+  assert.equal(litJumpMark(std(past, 48, past + 100), 812), 'story');
+  assert.equal(litJumpMark(std(past, 48, past + 600), 812, true), 'story', 'at the end, past Home, the lowest mark on screen');
+  assert.equal(litJumpMark(std(past, 48, past + 600), 812, false), 'home', 'past Home but nothing crossed yet');
+  assert.equal(HOME_PASSED, LIT_LINE, 'Home is passed at the same quarter screen the other marks cross');
 });
 
 test('2 · the Invitation (4,287 px) still lights Details and Story by scrolling', () => {

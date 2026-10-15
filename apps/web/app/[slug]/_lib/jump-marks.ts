@@ -19,18 +19,21 @@
  *  line (`site-menu-bar.tsx`, `rootMargin` bottom = 1 − LIT_LINE). */
 export const LIT_LINE = 0.25;
 
-/** Home's mark counts as scrolled past only once it is above the top of the screen (a pixel's slack for subpixel
- *  rounding when a tap on Home lands it exactly at the top). */
-export const HOME_PASSED = -2;
+/** Home counts as scrolled past only once its mark has risen this far ABOVE the top of the screen — the same quarter
+ *  as `LIT_LINE`. Walked 2026-10-16 at 375 × 667: a Save the Date (762 px) scrolls only 95 px, so the first swipe
+ *  takes it to its end with Home's mark at −47 and the countdown still the first thing on screen — Home must be lit
+ *  there (the prototype's §1c frame 2). On the Invitation Home's section is far longer than a quarter screen, so this
+ *  never holds Home past the moment Details crosses its line. */
+export const HOME_PASSED = LIT_LINE;
 
 export function litJumpMark(marks: ReadonlyArray<{ key: string; top: number }>, viewportHeight: number, atEnd = false): string | null {
   if (marks.length === 0) return null;
-  /* 🏠 HOME IS LIT UNTIL THE GUEST SCROLLS PAST IT (Batch 9 walk W1, 2026-10-16). The first mark is Home. While its
-     mark is still at or below the top of the screen the guest has not scrolled past where Home lands, so Home is lit —
+  /* 🏠 HOME IS LIT UNTIL THE GUEST SCROLLS PAST IT (Batch 9 walk W1, 2026-10-16). The first mark is Home. Until its
+     mark has risen a quarter screen above the top the guest has not scrolled past Home, so Home is lit —
      even on a page so short (a Save the Date: 860–981 px) that Story's mark sits inside the top quarter, or the page's
      end is on screen, from the first screen. The prototype's §1c frame 2 has Home lit on the countdown. */
   const home = marks[0]!;
-  if (Number.isFinite(home.top) && home.top > HOME_PASSED) return home.key;
+  if (Number.isFinite(home.top) && home.top > -Math.max(1, viewportHeight) * HOME_PASSED) return home.key;
   /* At the page's end the last sections can rise no further: the lowest mark on screen is the one being read. */
   const line = Math.max(1, viewportHeight) * (atEnd ? 1 : LIT_LINE);
   let lit: string | null = null;

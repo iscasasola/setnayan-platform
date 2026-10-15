@@ -469,6 +469,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     /* …and (2026-10-10, the cover's hand-over) the script that writes the fixture page out for a real browser —
        `scripts/scrub-browser-check.mjs` (16). Run by hand, bundled into nothing; the claim is unchanged. */
     'scripts/scrub-fixture-page.tsx',
+    /* …and (2026-10-15) the Cover Scene's guard, which draws the real page with a stored ground. A test. */
+    'lib/the-cover-scene-is-one-group.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

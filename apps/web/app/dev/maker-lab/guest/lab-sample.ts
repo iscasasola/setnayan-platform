@@ -8,6 +8,9 @@
  */
 import { buildEntourage, type EntourageGuestRow } from '@/lib/entourage';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
+import STAND_IN_JSON from '@/lib/the-entourage-second-column-is-the-partner.cast.json';
+
+const STAND_IN_CAST = STAND_IN_JSON as unknown as EntourageGuestRow[];
 
 /**
  * 🧾 THE SAMPLE EVENT'S FACTS — ONE COPY (the walk of 2026-10-11, P07). Studio › Info said December 18 at The Garden
@@ -65,7 +68,11 @@ const ROWS: Row[] = [
 ];
 
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */
-export function labEntourage() {
+export function labEntourage(cast: 'sample' | 'standin' = 'sample') {
+  /* 👫 A `lab_cast=standin` cookie: the owner's REAL entourage in shape (85 rows — roles, walks, 21 Ninongs to 17
+     Ninangs), every name a stand-in (`lib/the-entourage-second-column-is-the-partner.cast.json`) — what the
+     2026-10-15 entourage styles were drawn and walked on. */
+  if (cast === 'standin') return buildEntourage(STAND_IN_CAST, null, null, DEFAULT_NAME_STYLE);
   const rows: EntourageGuestRow[] = ROWS.map(([id, prefix, first, last, role, walk, place]) => ({
     guest_id: id,
     name_prefix: prefix,

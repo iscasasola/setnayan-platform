@@ -100,6 +100,12 @@ test('🙈 the hold is written only where an opening is mounted, and the overlay
   assert.equal((OVERLAY.match(/\[REVEAL_LAYER_ATTR\]: ''/g) ?? []).length, 2, 'both opening wrappers (veil · rigid) must be the reveal layer');
 });
 
+test('🪤 the hold module stays server-safe — RevealMount (a server component) imports it', () => {
+  // A hook here broke the server build on the first lab load ("useSyncExternalStore … only works in a Client Component").
+  assert.equal(/from 'react'|from "react"/.test(HUB_VEIL), false, 'lib/hub-veil.ts imports React — the server mount cannot import it');
+  assert.match(code('lib/use-veil-held.ts'), /useSyncExternalStore\(subscribe, isVeilHeld, \(\) => false\)/);
+});
+
 test('🙈 the players read the one signal', () => {
   const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
   assert.match(

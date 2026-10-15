@@ -1,6 +1,6 @@
 'use client';
 
-import { useVeilHeld } from '@/lib/hub-veil';
+import { useVeilHeld } from '@/lib/use-veil-held';
 import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
 import { useEffect, useState } from 'react';

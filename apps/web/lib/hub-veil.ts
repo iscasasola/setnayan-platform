@@ -1,5 +1,3 @@
-import { useSyncExternalStore } from 'react';
-
 /**
  * 🙈 NOTHING BEHIND THE VEIL PLAYS UNTIL IT IS OPENED — the ONE signal every player on the guest page reads.
  *
@@ -30,7 +28,10 @@ import { useSyncExternalStore } from 'react';
  *     button) or owns its own wait for the lift (the Save-the-Date film's soundtrack).
  *   · Web Animations (`el.animate`, e.g. the couple's layered logo) — paused frame by frame while held, and
  *     played on release. A press's own feedback (an animation on a button) is never held.
- *   · JS clocks — the few that tick on their own read `useVeilHeld()` (the countdown).
+ *   · JS clocks — the few that tick on their own read `useVeilHeld()` (`lib/use-veil-held.ts`; the countdown).
+ *
+ * 🪤 NO REACT IN THIS FILE: `RevealMount` (a server component) imports the script from here, and a hook in
+ * the same module breaks the server build ("useSyncExternalStore … only works in a Client Component").
  *
  * When no opening is shown nothing here ever runs: the script is not written, the attribute is never set,
  * and every player behaves exactly as before. Reduced motion: the script does not hold at all (those guests
@@ -157,17 +158,4 @@ export function unveilInGesture(): void {
 /** True while an opening holds the page. */
 export function isVeilHeld(): boolean {
   return typeof document !== 'undefined' && document.documentElement.hasAttribute(HUB_VEILED_ATTR);
-}
-
-function subscribe(cb: () => void): () => void {
-  window.addEventListener(HUB_VEIL_RELEASED_EVENT, cb);
-  return () => window.removeEventListener(HUB_VEIL_RELEASED_EVENT, cb);
-}
-
-/**
- * For a JS clock that ticks on its own (the countdown): true while the veil holds the page — hold the tick,
- * start it when this turns false. False on the server and wherever no opening is shown.
- */
-export function useVeilHeld(): boolean {
-  return useSyncExternalStore(subscribe, isVeilHeld, () => false);
 }

@@ -14,10 +14,13 @@ import {
 } from '@/lib/vercel-domains';
 import { isSetnayanHost } from '@/lib/custom-domain-resolve';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 
 /** Owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS" (3)): your own web address is a ◆ Pro item. */
 const OWN_ADDRESS_ASKS_FOR_PRO = 'Your own web address is part of Pro. Pick Pro on the Plan page to add one.';
+/** The App Store / Play shell refuses the Plan route (lib/store-shell.ts, 3.1.1): the refusal names no place to buy. */
+const OWN_ADDRESS_ASKS_FOR_PRO_SHELL = 'Your own web address is part of Pro.';
 
 // ── Custom-domain management for the vendor's public page (PR8) ───────────────
 // A vendor points their own domain (e.g. sny.theirshop.com) at Setnayan. The
@@ -105,7 +108,7 @@ export async function addVendorDomain(rawDomain: string): Promise<DomainActionRe
   if (tierErr) console.error('[supabase-error] app/vendor-dashboard/website/actions.ts · from:vendor_profiles.select', tierErr);
   const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
   if (vendorPaywallApplies(tierCaps(asVendorTier(tier)).customWebsiteName)) {
-    return { ok: false, error: OWN_ADDRESS_ASKS_FOR_PRO };
+    return { ok: false, error: (await isStoreShellRequest()) ? OWN_ADDRESS_ASKS_FOR_PRO_SHELL : OWN_ADDRESS_ASKS_FOR_PRO };
   }
 
   // Insert as the vendor (RLS-gated; the guard trigger forces it unverified).

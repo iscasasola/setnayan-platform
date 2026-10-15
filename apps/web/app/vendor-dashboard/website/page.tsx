@@ -37,6 +37,10 @@ export default async function YourPage() {
   if (!profile) redirect('/vendor-dashboard');
 
   const d = await loadPageData(supabase, profile);
+  // 💳 ◆ is information, asked through the ONE flag-aware question (lib/vendor-feature-gate.ts): false for every plan
+  // while VENDOR_TIER_FEATURE_GATE is off; never in the App Store shell (lib/store-shell.ts). Your own web address
+  // (owner 2026-10-15) and the Pro page parts share it; the domain card reads it too, so it never also says "free".
+  const ownAddressAsks = vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).customWebsiteName) && !d.storeShell;
   const whereLine = d.city
     ? d.outerRadiusKm
       ? `${d.city} · travels up to ${d.outerRadiusKm} km`
@@ -71,7 +75,7 @@ export default async function YourPage() {
           // 💳 ◆ is information, asked through the ONE flag-aware question (lib/vendor-feature-gate.ts): false for
           // every plan while VENDOR_TIER_FEATURE_GATE is off; never in the App Store shell (lib/store-shell.ts).
           personalizeAsks: vendorPaywallApplies(micrositeCan(d.tier).canPersonalize) && !d.storeShell,
-          proAsks: vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).customWebsiteName) && !d.storeShell,
+          proAsks: ownAddressAsks,
           storeShell: d.storeShell,
           plans: d.plans,
         }}
@@ -84,7 +88,7 @@ export default async function YourPage() {
                 adding it again.
               </p>
             ) : null}
-            {d.slug ? <DomainManager initial={d.domains} /> : <p className="text-sm text-ink/60">Name your shop first — your address is made from it.</p>}
+            {d.slug ? <DomainManager initial={d.domains} proAsks={ownAddressAsks} /> : <p className="text-sm text-ink/60">Name your shop first — your address is made from it.</p>}
           </>
         }
         autoReplyBody={vendorAutoReplyEnabled() ? <AutoReplySection vendorProfileId={d.vendorId} /> : null}

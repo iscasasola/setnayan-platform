@@ -29,7 +29,8 @@ test('1 · the web-address part wears the ◆ and says which press asks for Pro'
 
 test('2 · the ◆ is asked through the switch, from the plan’s own web-address cap, never in the store shell', () => {
   const page = read('page.tsx');
-  assert.match(page, /proAsks: vendorPaywallApplies\(tierCaps\(asVendorTier\(d\.tier\)\)\.customWebsiteName\) && !d\.storeShell/);
+  assert.match(page, /const ownAddressAsks = vendorPaywallApplies\(tierCaps\(asVendorTier\(d\.tier\)\)\.customWebsiteName\) && !d\.storeShell;/);
+  assert.match(page, /proAsks: ownAddressAsks,/);
 });
 
 test('3 · adding an address asks for Pro at the action, before anything is written', () => {
@@ -39,5 +40,16 @@ test('3 · adding an address asks for Pro at the action, before anything is writ
   assert.ok(ask > 0, 'addVendorDomain never asks for Pro');
   assert.ok(ask < body.indexOf(".from('custom_domains')"), 'the domain row is written before Pro is asked');
   assert.ok(ask < body.indexOf('addProjectDomain('), 'the host is registered before Pro is asked');
-  assert.match(body.slice(ask, ask + 200), /return \{ ok: false, error: OWN_ADDRESS_ASKS_FOR_PRO \}/);
+  assert.match(body.slice(ask, ask + 260), /return \{ ok: false, error: \(await isStoreShellRequest\(\)\) \? OWN_ADDRESS_ASKS_FOR_PRO_SHELL : OWN_ADDRESS_ASKS_FOR_PRO \}/);
+  // The shell's refusal names no place to buy (the Plan route is refused there).
+  assert.doesNotMatch(a.match(/const OWN_ADDRESS_ASKS_FOR_PRO_SHELL = '([^']*)'/)?.[1] ?? 'missing Plan', /Plan|pick|buy/i);
+});
+
+test('4 · W4 — while the ◆ asks, the domain card never also says "It’s free"', () => {
+  const page = read('page.tsx');
+  assert.match(page, /<DomainManager initial=\{d\.domains\} proAsks=\{ownAddressAsks\} \/>/, 'the domain card is not told the page asks for Pro');
+  const dm = read('_domain-manager.tsx');
+  const free = dm.match(/[^\n]*It’s free[^\n]*/g) ?? [];
+  assert.ok(free.length > 0, 'the free line is gone — re-derive this test');
+  for (const line of free) assert.match(line, /proAsks \? '' : ' It’s free\.'/, `an unconditional "It's free": ${line.trim()}`);
 });

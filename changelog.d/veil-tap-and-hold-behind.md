@@ -10,8 +10,8 @@ unveil"* · *"when they unveil, the music starts playing upon tap"*.
   `onUnveil` prop, called synchronously inside the tap's / swipe's `pointerup`. One instruction:
   "Tap or swipe up to unveil" (`VEIL_HINT`, `reveal-overlay.tsx`).
 - **Nothing behind it plays** — ONE signal, `lib/hub-veil.ts`: a `<style data-veil-hold>` in `<head>` (not an attribute on `<html>` — that was a
-  hydration mismatch on the root, caught in the lab), written by an inline
-  script `RevealMount` writes only where an opening is mounted (so it runs before the hero's `<video autoPlay>`
+  hydration mismatch on the root, caught in the lab), added by an inline
+  script that `RevealMount` writes only where an opening is mounted (so it runs before the hero's `<video autoPlay>`
   parses), released by the unveil gesture or by the opening standing down (reduced motion, seen this visit,
   landed part-way down, no WebGL, a rigid opening's open). While held: the hold's own rule pauses every CSS
   animation outside the opening's box; the script holds every `<video>`/`<audio>` that starts and every Web

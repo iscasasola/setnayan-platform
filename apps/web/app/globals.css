@@ -3796,7 +3796,10 @@ html.dark [data-art='candlelight'] {
    ✂ NO MOTION. The approved design gave each look an entrance; the owner cut
    palette animation on 2026-09-30 (DECISION_LOG "THE MAKER RE-PLAN IS CUT TO
    ITS CORE"). Every look is drawn still, like the shipped tags.
-   `palette-looks.test.ts` holds that nothing here animates. UNLAYERED. */
+   `palette-looks.test.ts` holds that nothing here animates. UNLAYERED.
+   🔠 Every name is drawn at 12 px or more (Batch 9 walk W4, 2026-10-16: the names measured 8.3–11.5 px against the
+   12 px Guest Legibility Floor). A name wraps on its own spaces; a word too long for its swatch breaks rather than
+   overflow. Held by `scripts/lint-guest-legibility.mjs`, which now reads this file too. */
 .sn-editorial .sn-pal {
   display: flex;
   flex-wrap: wrap;
@@ -3824,7 +3827,7 @@ html.dark [data-art='candlelight'] {
   display: flex;
   flex-direction: column-reverse;
   align-items: center;
-  width: 56px;
+  width: 76px;
 }
 .sn-editorial .sn-pal-fabric > li > i {
   width: 56px;
@@ -3838,11 +3841,12 @@ html.dark [data-art='candlelight'] {
   margin-bottom: 6px;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: 8.6px;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   line-height: 1.25;
+  overflow-wrap: anywhere;
   color: rgb(var(--color-ink) / 0.72);
 }
 @media (min-width: 768px) {
@@ -3850,7 +3854,7 @@ html.dark [data-art='candlelight'] {
     gap: 14px 12px;
   }
   .sn-editorial .sn-pal-fabric > li {
-    width: 64px;
+    width: 84px;
   }
   .sn-editorial .sn-pal-fabric > li > i {
     width: 64px;
@@ -4036,23 +4040,25 @@ html.dark [data-art='candlelight'] {
 }
 .sn-editorial .sn-pal-arch > li > b {
   position: absolute;
-  left: 3px;
-  right: 3px;
-  bottom: 16px;
+  left: 2px;
+  right: 2px;
+  bottom: 14px;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: 8.3px;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  line-height: 1.25;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 .sn-editorial [data-dress-code='you'] .sn-pal-arch > li {
   flex: 0 0 86px;
 }
 @media (min-width: 768px) {
   .sn-editorial .sn-pal-arch > li {
-    flex: 0 0 calc(100% / 11);
+    /* (Was 100% / 11 — ~61 px, too narrow for a 12 px name; a desk now wraps the tabs, never shrinks the words.) */
+    flex: 0 0 min(calc(100% / 7), 96px);
     height: 132px;
   }
   .sn-editorial .sn-pal-arch > li > i > svg {
@@ -4060,7 +4066,6 @@ html.dark [data-art='candlelight'] {
   }
   .sn-editorial .sn-pal-arch > li > b {
     bottom: 18px;
-    font-size: 9.5px;
   }
   .sn-editorial [data-dress-code='you'] .sn-pal-arch > li {
     flex: 0 0 86px;
@@ -4079,7 +4084,7 @@ html.dark [data-art='candlelight'] {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 64px;
+  width: 76px;
 }
 .sn-editorial .sn-pal-watercolour > li > i {
   width: 60px;
@@ -4095,9 +4100,10 @@ html.dark [data-art='candlelight'] {
   display: block;
   margin-top: 7px;
   text-align: center;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.25;
+  overflow-wrap: anywhere;
   color: rgb(var(--color-ink) / 0.72);
 }
 @media (min-width: 768px) {
@@ -4105,7 +4111,7 @@ html.dark [data-art='candlelight'] {
     gap: 12px 14px;
   }
   .sn-editorial .sn-pal-watercolour > li {
-    width: 72px;
+    width: 84px;
   }
   .sn-editorial .sn-pal-watercolour > li > i {
     width: 66px;
@@ -4152,9 +4158,9 @@ html.dark [data-art='candlelight'] {
   display: flex;
   align-items: center;
   height: 40px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--k);
 }

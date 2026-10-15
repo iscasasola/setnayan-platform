@@ -881,6 +881,21 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       }
     }
 
+    /* 👆 FREED: the guest unveiled (tap or swipe up). The grab-zone drops to the top band AT ONCE, not when the cloth
+       has risen past 35 % — a tap starts the hands-free lift, which takes ~6 s, and a full-screen `touch-action:none`
+       zone for all of it ate the guest's first swipe on the page behind (Batch 8 tester R2, 2026-10-15: the page
+       was not scrollable for 6.0 s after a tap). Cleared by the swipe down that re-covers. */
+    let freed = false;
+    const freeThePage = (pointerId: number) => {
+      freed = true;
+      try { grabRef.current?.releasePointerCapture?.(pointerId); } catch { /* not captured */ }
+      const g = grabRef.current;
+      if (g && !grabTopBandRef.current) {
+        grabTopBandRef.current = true;
+        g.style.bottom = 'auto';
+        g.style.height = '24vh';
+      }
+    };
     const startAuto = () => {
       auto = true;
       autoT = 0;
@@ -917,7 +932,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       // top valance band captures input so the film below is navigable; covering
       // (lift low) → full-screen so the guest can grab anywhere to lift again.
       // Hysteresis (0.6 / 0.35) avoids flicker as lift animates through.
-      const wantTopBand = grabTopBandRef.current ? lift > 0.35 : lift > 0.6;
+      const wantTopBand = freed || (grabTopBandRef.current ? lift > 0.35 : lift > 0.6);
       if (wantTopBand !== grabTopBandRef.current && grabRef.current) {
         grabTopBandRef.current = wantTopBand;
         const g = grabRef.current;
@@ -1039,9 +1054,11 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           // SWIPE UP = unveil.
           unveil();
           setLift(1);
+          freeThePage(e.pointerId);
           return;
         }
         if (dyC > 40 && dur < 460 && dyC > Math.abs(dxC) * 1.0) {
+          freed = false;
           setLift(0);
           return;
         }
@@ -1051,6 +1068,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           if (!locked && liftTarget < 1) {
             unveil();
             startAuto();
+            freeThePage(e.pointerId);
           }
         }
       } else delete grabs[e.pointerId];

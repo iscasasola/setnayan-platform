@@ -280,11 +280,42 @@ test('(12) no bar is drawn over the cover; the bars come in only after the cover
   assert.match(shell, /<div\s+data-page-column=""/, 'the page column lost its marker — its top padding stays above the cover');
   const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
   for (const bar of ["\\[data-sticky-top\\]", "nav\\[aria-label='Site sections'\\]"]) {
-    assert.match(css, new RegExp(`html\\.sn-cover-wait:not\\(\\.sn-cover-open\\):has\\(header\\[data-cover-scene\\]\\) ${bar} \\{[^}]*translate:`), `a bar (${bar}) is drawn over the cover`);
+    assert.match(css, new RegExp(`html:has\\(> head > style\\[data-cover-menu='wait'\\]\\):has\\(header\\[data-cover-scene\\]\\) ${bar} \\{[^}]*translate:`), `a bar (${bar}) is drawn over the cover`);
   }
-  assert.match(css, /html\.sn-cover-wait:has\(header\[data-cover-scene\]\) \[data-page-column\] \{[^}]*padding-top: 0;[^}]*--cover-scene-above: 0px;/, 'the cover does not start at the top edge');
+  assert.match(css, /html:has\(> head > style\[data-cover-menu\]\):has\(header\[data-cover-scene\]\) \[data-page-column\] \{[^}]*padding-top: 0;[^}]*--cover-scene-above: 0px;/, 'the cover does not start at the top edge');
   const { CoverSceneMenuWaits } = await import('@/app/[slug]/_components/cover-scene-menu');
   const script = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits));
-  assert.match(script, /window\.scrollY>4\|\|!shown\(\)\)\{r\.classList\.add\('sn-cover-open'\)/, 'the bars never come in after the swipe that moves the cover');
-  assert.match(script, /catch\(e\)\{r\.classList\.add\('sn-cover-open'\)\}/, 'a failure hides the menu for good — it must fail visible');
+  assert.match(script, /window\.scrollY>4\|\|!shown\(\)\)\{if\(!isOpen\(\)\)m\.setAttribute\('data-cover-menu','open'\)/, 'the bars never come in after the swipe that moves the cover');
+  assert.match(script, /catch\(e\)\{try\{if\(m\)m\.setAttribute\('data-cover-menu','open'\)\}/, 'a failure hides the menu for good — it must fail visible');
+});
+
+test('(13) on a dark ground EVERY colour a cover word reads turns to the paper ink — the cue and the joiner too (Batch 8 R4)', async () => {
+  const { COVER_SCENE_CREAM_VARS } = await import('@/app/[slug]/_components/cover-scene-ground');
+  const vars = COVER_SCENE_CREAM_VARS as Record<string, string>;
+  const paper = COVER_PAPER.replace('#', '').match(/../g)!.map((h) => parseInt(h, 16)).join(' ');
+  /* A colour class → the variable it reads (tailwind.config.ts). A family not listed here is a colour the cream tone
+     cannot repaint — the test names it rather than letting it pass. */
+  const VAR: Record<string, string> = { ink: '--color-ink', mulberry: '--color-mulberry', 'mulberry-500': '--color-mulberry', 'mulberry-600': '--color-mulberry-600', gild: '--color-gild-text' };
+  const NOT_COLOUR = new Set(['xs', 'sm', 'base', 'lg', 'xl', 'center', 'left', 'right', 'start', 'end', 'justify', 'balance', 'pretty', 'wrap', 'nowrap', 'ellipsis', 'clip', 'transparent', 'inherit', 'current']);
+  const layer = { shape: 'full', css: '#3a4a5a', still: null, clip: null, parallax: false, veil: null, scrim: { color: COVER_INK, opacity: 0 }, tone: 'cream' };
+  const seen = new Set<string>();
+  for (const extra of [{ card: CARD }, ...HERO_DESIGNS.map((design) => ({ card: CARD, design }))]) {
+    const html = cover({ ...extra, ground: layer });
+    const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+    for (const cls of header.matchAll(/class="([^"]*)"/g)) {
+      for (const tok of cls[1].split(/\s+/)) {
+        const m = /^(?:[\w-]+:)*text-([a-z]+(?:-\d+)?)(?:\/\d+)?$/.exec(tok);
+        if (!m || NOT_COLOUR.has(m[1]) || /^\d*xl$/.test(m[1])) continue;
+        seen.add(m[1]);
+      }
+    }
+  }
+  assert.ok(seen.has('mulberry') && seen.has('gild'), `anti-vacuity: the cue (text-mulberry) and the joiner (text-gild) are not on the rendered cover — saw ${[...seen].join(', ')}`);
+  for (const c of seen) {
+    const v = VAR[c];
+    assert.ok(v, `a cover word reads text-${c}, a colour the dark-ground tone does not repaint — it stays a light-page colour on a dark cover`);
+    assert.equal(vars[v], paper, `text-${c} (${v}) is not the paper ink on a dark ground`);
+  }
+  /* …and the paper ink clears AA over a dark ground (the words' own check is (6)). */
+  assert.ok(contrastRatio(COVER_PAPER, '#3a4a5a') >= 4.5, 'the paper ink no longer clears AA on the tester’s ground');
 });

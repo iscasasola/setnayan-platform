@@ -114,13 +114,13 @@ test('3 · the first screen is marked in every shape the masthead renders', () =
  * 4 · NO BAR OVER THE COVER (owner 2026-10-15, DECISION_LOG "THE COVER SCENE TAKES THE WHOLE FIRST SCREEN — NO TOP
  * BAR, NO BOTTOM BAR OVER IT", and the one-page Invitation approved the same day: "the bar … is hidden over the cover
  * and slides up on the first swipe"). The first screen is the cover, and nothing of the page's chrome sits on it:
- * while the cover leads the page (`sn-cover-wait`, not yet `sn-cover-open`) the ONE top bar and the ONE bottom bar /
+ * while the cover leads the page (`<style data-cover-menu="wait">` in <head>) the ONE top bar and the ONE bottom bar /
  * rail are moved off screen and taken out of the accessibility tree — never merely faded — and on the one page the
  * bar's Home mark lands BELOW the cover, so a tap on Home can never bring the bar back over it.
  */
 test('4 · no bar over the cover — held off screen until the first swipe, and Home never lands on the cover', () => {
   const sheet = css.replace(/\s+/g, ' ');
-  const waiting = "html.sn-cover-wait:not(.sn-cover-open):has(header[data-cover-scene])";
+  const waiting = "html:has(> head > style[data-cover-menu='wait']):has(header[data-cover-scene])";
   const bottom = rules(sheet).find((r) => r.selector === `${waiting} nav[aria-label='Site sections']`);
   assert.ok(bottom, 'nothing holds the bottom bar off the cover');
   assert.match(bottom.body, /translate:\s*0 100%/, 'the bottom bar is not moved off the cover');

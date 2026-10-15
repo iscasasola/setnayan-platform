@@ -18,7 +18,8 @@
  *   4 · Save the Date: Home · Story · Me — Story let through because the story IS on the page; Me opened there
  *       lifts the film.
  *   5 · the bar over the cover: the cover leads the page, the bar is the one the cover's rule holds off screen
- *       (`nav[aria-label="Site sections"]` under `sn-cover-wait`), and it slides in on the first swipe.
+ *       (`nav[aria-label="Site sections"]` while `<style data-cover-menu="wait">`), it slides in on leaving the
+ *       cover and hides again whenever the cover is back on screen (Q3) — the shipped script, executed.
  *   6 · the lit item: one IntersectionObserver, the last mark crossed is lit (`litJumpMark`), `aria-current="true"`.
  *
  * SABOTAGES (each run once, seen red, put back — recorded in the PR body and the handover).
@@ -187,21 +188,54 @@ test('4 · Save the Date: Home · Story · Me — Story is there because the sto
 
 /* ══ 5 · THE BAR OVER THE COVER ══════════════════════════════════════════════ */
 
-test('5 · the bar is hidden over the cover and slides up on the first swipe (reduced motion: no slide)', async () => {
+test('5 · the bar is hidden over the cover, slides up on leaving it, hides again back on it (reduced motion: no slide)', async () => {
   const html = await renderSiteBodyFixture(STORY);
   // The page leads with the Cover Scene, and its bar is THE bar the cover's rule names.
   assert.ok(at(html, 'data-cover-scene=""') > 0 && at(html, 'data-cover-scene=""') < at(html, 'aria-label="Site sections"'));
   assert.ok(/<nav aria-label="Site sections" class="fixed inset-x-0 bottom-0/.test(html), 'the pinned bar is not the cover rule’s `nav[aria-label="Site sections"]`');
   const css = stripComments(readFileSync(join(WEB, 'app', 'globals.css'), 'utf8')).replace(/\s+/g, ' ');
-  assert.match(css, /html\.sn-cover-wait:not\(\.sn-cover-open\):has\(header\[data-cover-scene\]\) nav\[aria-label='Site sections'\] \{ translate: 0 100%; opacity: 0; visibility: hidden; \}/, 'the bar is not held off the cover');
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ html\.sn-cover-wait:has\(header\[data-cover-scene\]\) \[data-sticky-top\], html\.sn-cover-wait:has\(header\[data-cover-scene\]\) nav\[aria-label='Site sections'\] \{ transition: none; \}/, 'reduced motion still slides');
-  // The bar slides in on the first swipe — the one mechanism (`cover-scene-menu.tsx`), mounted by the guest shell.
+  const WAIT = "html:has(> head > style[data-cover-menu='wait']):has(header[data-cover-scene])";
+  assert.ok(css.includes(`${WAIT} nav[aria-label='Site sections'] { translate: 0 100%; opacity: 0; visibility: hidden; }`), 'the bar is not held off the cover');
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ html:has\(> head > style\[data-cover-menu\]\):has\(header\[data-cover-scene\]\) \[data-sticky-top\], html:has\(> head > style\[data-cover-menu\]\):has\(header\[data-cover-scene\]\) nav\[aria-label='Site sections'\] \{ transition: none; \}/, 'reduced motion still slides');
+  // The one mechanism (`cover-scene-menu.tsx`), mounted by the guest shell.
   const SHELL = src('_components', 'invitation-shell.tsx');
   assert.equal(SHELL.match(/<CoverSceneMenuWaits \/>/g)?.length, 2);
-  const MENU = src('_components', 'cover-scene-menu.tsx');
-  assert.match(MENU, /window\.scrollY>4/, 'the first swipe no longer opens the bars');
-  // A jump made by the bar itself also opens it (a hash change is listened for), so Home never re-hides it.
-  assert.match(MENU, /addEventListener\('hashchange',check\)/);
+
+  /* EXECUTED: the shipped script, run against a page with a shown cover. The marker is the ONE `<style>` in <head>
+     (never the root: hydration-safe) and it goes wait → open on the first swipe → WAIT AGAIN when the cover is back on
+     screen (Q3, owner 2026-10-15: "where the bar hides again") → open on leaving it again; a jump (hashchange) to a
+     section opens it; a page whose cover is not shown (Me) is open. */
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { CoverSceneMenuWaits } = await import('../_components/cover-scene-menu');
+  const code = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits)).replace(/^<script>|<\/script>$/g, '').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+  const run = (coverShown: boolean) => {
+    const attrs: Record<string, string> = {};
+    const style = { setAttribute: (k: string, v: string) => void (attrs[k] = v), getAttribute: (k: string) => attrs[k] ?? null };
+    const listeners: Record<string, Array<() => void>> = {};
+    let rootTouched = false;
+    const doc = {
+      readyState: 'complete',
+      head: { appendChild: () => {} },
+      documentElement: new Proxy({}, { get: () => { rootTouched = true; return () => {}; } }),
+      createElement: () => style,
+      querySelector: (sel: string) => (sel.startsWith('style') ? null : sel === 'header[data-cover-scene]' && coverShown ? { offsetParent: {} } : null),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    const win = { scrollY: 0, addEventListener: (t: string, f: () => void) => void (listeners[t] ??= []).push(f), removeEventListener: () => {} };
+    new Function('window', 'document', 'addEventListener', 'removeEventListener', 'setTimeout', code)(win, doc, win.addEventListener, win.removeEventListener, (f: () => void) => f());
+    const scrollTo = (y: number, ev = 'scroll') => { win.scrollY = y; for (const f of listeners[ev] ?? []) f(); return attrs['data-cover-menu']; };
+    return { now: () => attrs['data-cover-menu'], scrollTo, rootTouched: () => rootTouched };
+  };
+  const page = run(true);
+  assert.equal(page.now(), 'wait', 'the bar is over the cover on landing');
+  assert.equal(page.scrollTo(360), 'open', 'the first swipe does not bring the bar in');
+  assert.equal(page.scrollTo(0), 'wait', 'back on the cover, the bar does not hide again');
+  assert.equal(page.scrollTo(500), 'open', 'leaving the cover again does not bring the bar back');
+  assert.equal(page.scrollTo(900, 'hashchange'), 'open', 'a jump to a section leaves the bar hidden');
+  assert.equal(page.rootTouched(), false, 'the script touched <html> — hydration-unsafe');
+  assert.equal(run(false).now(), 'open', 'a page without its cover on screen (Me) holds the bar back');
 });
 
 /* ══ 6 · THE LIT ITEM ════════════════════════════════════════════════════════ */

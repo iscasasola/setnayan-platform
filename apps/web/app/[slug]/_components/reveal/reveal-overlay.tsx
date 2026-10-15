@@ -424,10 +424,14 @@ export function RevealOverlay({
             unveil"*). The two lines ("Lift the veil ↑" / "or double-tap to lift
             it for you") said two gestures; there is one instruction now, set at
             the headline's 24px, so legibility still only went up. */}
+        {/* 🍪 ABOVE THE FIRST-VISIT COOKIE NOTICE (Batch 8 tester R3, 2026-10-15: the notice, z 70 over the veil's 60,
+            covered this — the veil's ONE instruction — until it was answered). It stands the notice's published
+            height (`--cookie-banner-top`, 0 once answered or off a phone) above its old 4rem, as #6518 did. */}
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-16 flex justify-center transition-opacity duration-500 ${
+          className={`pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-500 ${
             open ? 'opacity-0' : 'opacity-100'
           }`}
+          style={{ bottom: 'calc(4rem + var(--cookie-banner-top, 0px))' }}
         >
           <div className="rounded-full bg-black/35 px-6 py-3 text-center backdrop-blur-[2px]">
             <p className="text-balance font-display text-2xl font-medium leading-snug text-cream [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">

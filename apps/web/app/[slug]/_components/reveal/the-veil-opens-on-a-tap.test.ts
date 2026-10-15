@@ -70,6 +70,16 @@ test('👆 the veil’s only unveil gestures are a tap and a swipe up — no dou
   assert.equal(/bounceAt/.test(r), false, 'a tap bats a petal again — a tap means unveil');
 });
 
+test('👆 the unveil frees the page AT ONCE — the grab-zone does not stay full screen while the cloth rises (Batch 8 R2)', () => {
+  const r = releaseHandler();
+  // Both unveils hand the page back in the same pointerup: capture released, the zone dropped to the top band.
+  assert.match(r, /unveil\(\);\s*setLift\(1\);\s*freeThePage\(e\.pointerId\);/, 'a swipe up leaves the full-screen grab-zone up while the cloth rises');
+  assert.match(r, /unveil\(\);\s*startAuto\(\);\s*freeThePage\(e\.pointerId\);/, 'a tap leaves the full-screen grab-zone up for the whole ~6 s hands-free lift — the page cannot be scrolled');
+  assert.match(VEIL, /releasePointerCapture\?\.\(pointerId\)/, 'the unveil no longer releases the pointer capture');
+  // The loop must not put the full-screen zone back while the lift is still low.
+  assert.match(VEIL, /const wantTopBand = freed \|\|/, 'the loop resizes the zone back to full screen while a freed lift is still low');
+});
+
 test('🎵 the unveil runs inside the gesture: onUnveil first, synchronously, in the pointerup', () => {
   const at = VEIL.indexOf('const unveil = () => {');
   assert.ok(at > 0, 'the veil’s `unveil` is gone');

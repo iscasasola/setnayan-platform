@@ -496,7 +496,7 @@ function PickTile({
         <span className="text-xs text-ink/60">{label}</span>
       )}
       {selected ? (
-        <span aria-hidden className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-sn-accent text-white">
+        <span aria-hidden className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-sn-accent text-sn-on-accent">
           <Check className="h-3 w-3" strokeWidth={3} />
         </span>
       ) : null}

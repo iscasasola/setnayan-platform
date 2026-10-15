@@ -191,6 +191,9 @@ export function RevealOverlay({
   const [reveal, setReveal] = useState('');
   const [reducedMotion, setReducedMotion] = useState(false);
   const [open, setOpen] = useState(false);
+  /* 👆 The guest has tapped or swiped up: the instruction is done the moment the gesture lands — not when the cloth has
+     finished rising (live 2026-10-15, `/cale-ice`: the pill stayed ~10 s through the hands-free lift). */
+  const [lifting, setLifting] = useState(false);
   const [gone, setGone] = useState(false);
   // 🎚 The couple's fine-tune over the house look (Maker's Reveal page) —
   // untouched when they tuned nothing. `lib/std-reveal-effects.ts`.
@@ -380,7 +383,10 @@ export function RevealOverlay({
           }}
           /* 👆 THE TAP / SWIPE UP ITSELF, synchronously inside its pointerup: the page behind starts, and the
              music with it (owner 2026-10-15: "when they unveil, the music starts playing upon tap"). */
-          onUnveil={unveilInGesture}
+          onUnveil={() => {
+            unveilInGesture();
+            setLifting(true);
+          }}
           onRevealed={() => {
             // Start the film once, on the first lift; keep the veil on top.
             if (!open) window.dispatchEvent(new CustomEvent('std-reveal-done'));
@@ -428,8 +434,9 @@ export function RevealOverlay({
             covered this — the veil's ONE instruction — until it was answered). It stands the notice's published
             height (`--cookie-banner-top`, 0 once answered or off a phone) above its old 4rem, as #6518 did. */}
         <div
-          className={`pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-500 ${
-            open ? 'opacity-0' : 'opacity-100'
+          data-veil-hint=""
+          className={`pointer-events-none absolute inset-x-0 flex justify-center transition-opacity ${
+            lifting ? 'opacity-0 duration-0' : open ? 'opacity-0 duration-500' : 'opacity-100 duration-500'
           }`}
           style={{ bottom: 'calc(4rem + var(--cookie-banner-top, 0px))' }}
         >

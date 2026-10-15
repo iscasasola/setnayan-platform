@@ -8951,6 +8951,36 @@ html:has(> head > style[data-cover-menu='wait']):has(header[data-cover-scene]) n
   opacity: 0;
   visibility: hidden;
 }
+/* 🚪 A STRANGER'S FIRST SCREEN IS THE COVER AND "GET INSIDE" TOGETHER (live, 2026-10-15, right after Batch 8:
+   `/maria-and-jose` signed out at 375 × 812 — the eyebrow ran into the names, the monogram was drawn below the fold,
+   "Guests arrive" fell off). The cover's header took the whole first screen ON ITS OWN (`COVER_SCENE_CENTRED`), so the
+   door that follows it in the same block was pushed below the fold, and the first-screen fit (`first-screen-door.tsx`)
+   then moved the mark and the time below the door and closed up air the centring had already spent. Here the BLOCK
+   (header + door) is the first screen, ending where the fit's limit is (the bottom bar's top — or the notice's, while
+   it is up): the header grows into what the door leaves and centres its words in it, the door stands at the foot.
+   A cover that fits does so as designed, with nothing for the fit to do; one that does not has no slack left, and
+   the fit gives way exactly as it did before the Cover Scene. Held by
+   `tests/e2e/the-strangers-cover-keeps-its-order.spec.ts`. */
+[data-pahina-first-screen]:has(> header[data-cover-scene]):has(> .sn-door-row > details) {
+  --cover-door-rest: max(calc(4.75rem + env(safe-area-inset-bottom, 0px)), calc(var(--cookie-banner-top, 0px) + 8px));
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100svh - var(--cover-scene-above, 0px) - var(--cover-door-rest) - 1px);
+}
+@supports (height: 100dvh) {
+  [data-pahina-first-screen]:has(> header[data-cover-scene]):has(> .sn-door-row > details) {
+    min-height: calc(100dvh - var(--cover-scene-above, 0px) - var(--cover-door-rest) - 1px);
+  }
+}
+@media (min-width: 1280px) {
+  [data-pahina-first-screen]:has(> header[data-cover-scene]):has(> .sn-door-row > details) {
+    --cover-door-rest: max(1rem, calc(var(--cookie-banner-top, 0px) + 8px));
+  }
+}
+[data-pahina-first-screen]:has(> header[data-cover-scene]):has(> .sn-door-row > details) > header[data-cover-scene] {
+  min-height: 0;
+  flex: 1 0 auto;
+}
 @media (prefers-reduced-motion: reduce) {
   html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-sticky-top],
   html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) nav[aria-label='Site sections'] {

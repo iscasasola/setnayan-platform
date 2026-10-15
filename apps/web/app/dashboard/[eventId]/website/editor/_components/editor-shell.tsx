@@ -324,7 +324,7 @@ export function MakerWork({
     names?: { style: NameStyle; person: NameParts | null };
     /** 🎫 The guest's Ticket style — the drafted one when the draft holds it, else live (`print_details.pass_design`). */
     ticketStyle?: PassCardDesign;
-    /** 🖼 Each ready-made loop's first frame (`INVITE_THEMES[id].media.poster`, resolved) — the Cover Scene's Scene ◆ tiles. */
+    /** 🖼 Each ready-made loop's first frame (each theme loop's poster, resolved on the server) — the Cover Scene's Scene ◆ tiles. */
     loopPosters?: Record<string, string | null>;
   } | null;
   /**

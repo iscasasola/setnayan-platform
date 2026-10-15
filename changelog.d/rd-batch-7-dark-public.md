@@ -29,3 +29,11 @@ Migration: `20271267769389_users_theme_preference_light_by_default` (dark 3) sit
 
 SPEC IMPACT: None of its own. Carried from dark 3: corpus `02_Specifications/Theme_System_Implementation_Spec.md`
 line 5 (still says light-locked, picker removed) is updated WHEN THIS BATCH MERGES, not on a draft.
+
+## 2026-10-16 · fix(media · batch 7 walk): every media meter carries the plan, and Unlock Pro is reachable where the couple is refused
+
+- **W1** — batch 8's Cover Scene upload (`cover-words-background.tsx`) mounted the meter with no cap; once #6555 joined, a Pro couple read "120 MB of 10 MB" and the typecheck failed (TS2741). `SceneBackgroundRow` now hands the Cover Scene the real Pro gate and the buy path (both required props), as `main-background-panel.tsx` does. `couple-media-cap-is-enforced.test.ts` 4c walks EVERY `<MakerMediaMeter>` mount (cap from `coupleMediaCapBytes`, buy path unless the page is Pro-only); sabotaged red with the old mount.
+- **R2** — the ◆ line and Unlock Pro are 12 px; the link presses at 46 px (`.sn-hit`).
+- **R3** — `FileUpload` `refusalLink`: a refusal holding the server's ◆ Pro mention carries Unlock Pro in the same alert (`coupleMediaRefusalLink`), so a Free couple refused below "full" can act on it.
+
+SPEC IMPACT: None.

@@ -35,8 +35,7 @@ function publicUrl(ref: string | null | undefined): string | null {
 
 /**
  * `heroPhotoUrl`: the page's resolved hero photo — an Upload pick IS the hero photo (the one hero writer writes it
- * through to `landing_page_hero_image_url`), so the URL the page already signed is the one drawn when the ref does
- * not resolve on its own.
+ * through to `landing_page_hero_image_url`), so it is the ONLY photo the cover draws.
  */
 export function coverSceneLayer(ground: HubCoverGround | null | undefined, ctx: { heroPhotoUrl: string | null }): CoverSceneLayer | null {
   if (!ground) return null;
@@ -53,8 +52,12 @@ export function coverSceneLayer(ground: HubCoverGround | null | undefined, ctx: 
     return { ...base, css: null, still, clip };
   }
   if (ground.kind === 'photo' || ground.kind === 'snippet') {
-    /* A clip never reaches here while it may not play for guests (the sanitiser drops it); its still is what is drawn. */
-    const still = ground.kind === 'photo' ? (publicUrl(ground.media) ?? ctx.heroPhotoUrl) : publicUrl(ground.poster);
+    /* 🔑 ONE VALUE (owner 2026-10-15, "Yes, one background"): an Upload pick on the cover IS the hero photo, so the
+       cover draws THE HERO PHOTO the page resolved (`resolveHero`) — never a second copy of the ref that could
+       disagree with it. Details › Hero changing the photo changes the cover; "Use the invitation card instead"
+       (no hero photo) leaves the cover on The theme's own. A clip never reaches here while it may not play for
+       guests (the sanitiser drops it). */
+    const still = ground.kind === 'photo' ? ctx.heroPhotoUrl : publicUrl(ground.poster);
     if (!still) return null;
     return { ...base, css: null, still, clip: null, parallax: ground.kind === 'photo' && ground.motion === 'parallax' };
   }

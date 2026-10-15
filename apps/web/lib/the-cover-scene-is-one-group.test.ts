@@ -251,3 +251,15 @@ test('(9) Apply asks Pro for a Scene ◆ or Upload ◆ on the cover — never fo
   assert.deepEqual(canvasWithoutFacet(colour, loop, { key: 'ground' }), colour);
   assert.deepEqual(canvasWithoutFacet(none, photo, { key: 'ground' }), {});
 });
+
+test('(10) resolveHero and the Cover Scene never disagree: a photo ground draws THE hero photo, and none without one', async () => {
+  const src = read('app/[slug]/_lib/cover-scene-layer.ts');
+  assert.match(src, /const still = ground\.kind === 'photo' \? ctx\.heroPhotoUrl : publicUrl\(ground\.poster\);/, 'the cover draws a photo of its own, apart from the hero');
+  const { renderSiteBodyFixtureFull } = await import('./site-body-fixture-render');
+  const { fixtureWidgets } = await import('./site-body-fixture');
+  const ground = { kind: 'photo', media: 'r2://setnayan-media/events/e1/scene-background/old.jpg' };
+  const withHero = await renderSiteBodyFixtureFull({ heroPhotoUrl: 'https://cdn.test/the-hero.jpg', widgets: fixtureWidgets({ hero: { ground } }) });
+  assert.match(withHero.html, /data-cover-scene-ground="framed"[\s\S]{0,300}background-image:url\(&quot;https:\/\/cdn\.test\/the-hero\.jpg&quot;\)/, 'the cover does not draw the hero photo');
+  const noHero = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground } }) });
+  assert.doesNotMatch(noHero.html, /data-cover-scene-ground/, 'a photo cover with no hero photo drew a picture of its own');
+});

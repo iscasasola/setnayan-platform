@@ -102,3 +102,7 @@ c7ebfc9f7455de94e1423c20fc6c33f4b9ffb33f:docs/FEATURE-BRIEF.md:generic-api-key:8
 # credential. Pinned by its introducing commit (the PR range is scanned per commit).
 8935baea76f2933ebb2661814747df173f1acbf9:apps/web/lib/one-press-one-order.test.ts:generic-api-key:40
 8935baea76f2933ebb2661814747df173f1acbf9:apps/web/lib/one-press-one-order.test.ts:generic-api-key:148
+# The Apple Wallet pass test's fixture qr_token — 32 hex digits made up for the
+# test ('0123456789abcdef' twice), the shape the door desk's parser requires.
+# Not a credential. Pinned by its introducing commit.
+13aa65a0ce04aea9379d0b42c90a0fa1cb1af730:apps/web/lib/wallet-pass-is-the-ticket.test.ts:generic-api-key:40

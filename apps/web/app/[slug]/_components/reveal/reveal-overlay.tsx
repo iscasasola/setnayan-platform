@@ -58,6 +58,7 @@ import { markRevealSeen, revealAlreadySeen } from '@/lib/reveal-once-per-visit';
 import { landedOnTheFirstPage } from '@/lib/reveal-stages';
 import { revealAllowedFor } from '@/lib/reveal-access';
 import { revealMaterialVars, type RevealMaterials } from '@/lib/reveal-materials';
+import { claimVeilHold, ensureVeilHold, releaseVeilHold, unveilInGesture, REVEAL_LAYER_ATTR } from '@/lib/hub-veil';
 
 // NOTE: the gold-monogram + molten-monogram openings were RETIRED here (owner
 // 2026-06-22 "this is monogram animation, not a reveal") — they now live ONLY as
@@ -334,6 +335,23 @@ export function RevealOverlay({
     };
   }, [active, mounted, gone, oncePerVisit, seenEventId]);
 
+  /*
+    🙈 NOTHING BEHIND IT PLAYS UNTIL IT IS OPENED (owner 2026-10-15 · `lib/hub-veil.ts`). The server wrote the
+    hold before the body parsed; THIS is where it is decided whether it stays. The same `showing` the film
+    handshake reads: an opening a guest is really looking at keeps the page held (the veil claims it once its
+    hit-zone is armed; a rigid opening is drawn at once, so it claims here) — and every reason it stands down
+    lets the page play. Waits for `mounted`: the very first render knows none of the reasons yet.
+  */
+  useEffect(() => {
+    if (!mounted) return;
+    if (!active || gone) {
+      releaseVeilHold();
+      return;
+    }
+    ensureVeilHold();
+    if (!veil) claimVeilHold();
+  }, [active, mounted, gone, veil]);
+
   if (!active || !mounted || gone) return null;
 
   if (veil) {
@@ -350,7 +368,7 @@ export function RevealOverlay({
     // while covering, top valance band once lifted). So: swipe the top band →
     // grab/re-cover the veil; swipe the body → scrub the film messages.
     return (
-      <div className="pointer-events-none fixed inset-0 z-[60] overflow-hidden">
+      <div className="pointer-events-none fixed inset-0 z-[60] overflow-hidden" {...{ [REVEAL_LAYER_ATTR]: '' }}>
         <VeilReveal
           veilColor={eventEffects?.veilColor ?? veilColor}
           petalsColor={eventEffects?.petalColor ?? petalsColor}
@@ -360,10 +378,15 @@ export function RevealOverlay({
             logo: config?.features?.logo ?? true,
             music: eventEffects?.music ?? config?.features?.music ?? false,
           }}
+          /* 👆 THE TAP / SWIPE UP ITSELF, synchronously inside its pointerup: the page behind starts, and the
+             music with it (owner 2026-10-15: "when they unveil, the music starts playing upon tap"). */
+          onUnveil={unveilInGesture}
           onRevealed={() => {
             // Start the film once, on the first lift; keep the veil on top.
             if (!open) window.dispatchEvent(new CustomEvent('std-reveal-done'));
             setOpen(true);
+            // A lift with no gesture (no WebGL, reduced motion switched on) still lets the page play.
+            releaseVeilHold();
           }}
         />
         {/* Legible instruction (owner 2026-06-20 "the text at the bottom should
@@ -419,6 +442,7 @@ export function RevealOverlay({
   // Rigid family — RigidStage owns the seal-swipe gate + scroll-scrub open and
   // fires onOpened once the flaps are fully clear; we then remove the overlay.
   const onOpened = () => {
+    releaseVeilHold();
     window.dispatchEvent(new CustomEvent('std-reveal-done'));
     setGone(true);
   };
@@ -428,6 +452,7 @@ export function RevealOverlay({
   return (
     <div
       className="fixed inset-0 z-[60] overflow-hidden"
+      {...{ [REVEAL_LAYER_ATTR]: '' }}
       data-reveal-dressed={materials ? '' : undefined}
       style={revealMaterialVars(materials ?? null) as CSSProperties}
     >

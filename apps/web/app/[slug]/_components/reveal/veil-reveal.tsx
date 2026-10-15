@@ -36,6 +36,7 @@ import * as THREE from 'three';
 import { MARK_PATH } from './veil-shared';
 import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/reveal-config-pure';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { claimVeilHold } from '@/lib/hub-veil';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
@@ -1149,6 +1150,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
        invisible blocker. We are past every one of those returns here — the sim is
        built and the loop is about to run — so the veil can now take input. */
     if (grabRef.current) grabRef.current.style.pointerEvents = 'auto';
+    // 🙈 The veil is really up and can be opened — the page behind stays held until it is
+    // (`lib/hub-veil.ts`; its failsafe stands down now). A no-op where nothing holds (Studio, previews).
+    claimVeilHold();
     raf = requestAnimationFrame(loop);
 
     return () => {

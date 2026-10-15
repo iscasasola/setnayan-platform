@@ -45,6 +45,7 @@ import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
+import { VEIL_FREE_ATTR } from '@/lib/hub-veil';
 
 /**
  * Set an <audio>/<video> volume safely. The HTML spec requires the setter to
@@ -691,6 +692,7 @@ export function SaveTheDateFilm({
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
           <video
             ref={videoElRef}
+            {...{ [VEIL_FREE_ATTR]: '' }}
             src={content.videoUrl ?? undefined}
             playsInline
             preload="auto"
@@ -1547,8 +1549,11 @@ export function SaveTheDateFilm({
         // when the film actually starts (`started` flips true at the veil lift) —
         // an already-playing element can be unmuted off-gesture, which is how the
         // music auto-starts on iOS where a fresh off-gesture play() is blocked.
+        // 🙈 `data-veil-free` (here and on both clips): the film owns its own wait for the lift — it keeps
+        // these RUNNING, muted, from the first touch to bank iOS audio credit — so the veil's hold
+        // (`lib/hub-veil.ts`) must never pause them; pausing would spend the very credit this protects.
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio ref={audioRef} src={content.musicUrl} loop preload="auto" muted={muted || !started} />
+        <audio ref={audioRef} src={content.musicUrl} loop preload="auto" muted={muted || !started} {...{ [VEIL_FREE_ATTR]: '' }} />
       ) : null}
 
       {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport
@@ -1871,6 +1876,7 @@ export function SaveTheDateFilm({
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
           <video
             ref={videoElRef}
+            {...{ [VEIL_FREE_ATTR]: '' }}
             src={content.videoUrl ?? undefined}
             playsInline
             preload="auto"

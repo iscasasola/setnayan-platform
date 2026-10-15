@@ -1123,6 +1123,36 @@ export function StageTools({
     return () => window.removeEventListener('message', onReady);
   }, [revealLeadsHere, revealLook.kind, revealLook.colours, shownPage]);
 
+  /* 📷 The Camera page's drawing answers a tap too, as the Reveal's does: the canvas's stand-in
+     (`data-maker-page-stand-in="camera"`, `MakerPageStandIn`) carries no Maker marker, so a tap on it sent nothing.
+     It picks the Camera part (`pickRef.current('camera')`); bound once per element. */
+  useEffect(() => {
+    const bind = () => {
+      try {
+        const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
+        const stand = doc?.querySelector<HTMLElement>('[data-maker-page-stand-in="camera"]');
+        if (!stand || stand.hasAttribute('data-maker-camera-tap')) return;
+        stand.setAttribute('data-maker-camera-tap', '');
+        stand.style.cursor = 'pointer';
+        stand.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          pickRef.current('camera');
+        });
+      } catch {
+        /* a canvas we cannot reach — the Camera tile still picks it */
+      }
+    };
+    bind();
+    const onReady = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { source?: unknown; t?: unknown } | null;
+      if (d?.source === 'setnayan-site' && d.t === 'ready') window.setTimeout(bind, 80);
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, [shownPage]);
+
   /* ── Style › Look's quiet bar and the part's own words behind ⓘ, said to the panel under the row ── */
   const canvasOfPick = picked ? MAKER_PARTS[picked].canvas : null;
   const fixedHere = canvasOfPick ? fixedOfKey(canvasOfPick) : null;

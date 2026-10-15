@@ -482,6 +482,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'lib/the-cover-scene-is-one-group.test.ts',
     /* …and (2026-10-15) the one-page Invitation's guard: the three marks, the bar's hrefs and Me read off the real page. A test. */
     'app/[slug]/_lib/the-invitation-is-one-page.test.ts',
+    /* …and (2026-10-16, Batch 9 walk W2) the map-waits guard: what the real landing asks a browser to fetch. A test. */
+    'lib/the-map-waits-until-it-is-near.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

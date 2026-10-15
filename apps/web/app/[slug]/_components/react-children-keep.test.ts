@@ -129,7 +129,7 @@ test('a guest’s own page keeps nothing (only the Maker’s canvas turns it on)
   const { keepReactNodes, keepReactChildren, putReactChildrenBack } = await import('./react-children-keep');
   keepReactNodes(false);
   const h1 = el('h1', text('A'));
-  keepReactChildren(h1);
+  keepReactChildren(h1 as never);
   h1.textContent = 'B';
   assert.equal(putReactChildrenBack(), 0);
 });

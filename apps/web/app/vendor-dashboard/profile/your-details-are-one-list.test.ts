@@ -60,9 +60,11 @@ test('3 · the account panel rows go somewhere real, and only for owners and adm
   // Plan never in the store shell (supplier batch, 2026-10-15).
   assert.match(
     src('app/vendor-dashboard/layout.tsx'),
-    /canManageVendor\(vendorRole\) \|\| !vendorRole \? supplierAvatarRows\(\{ storeShell \}\) : scopedMemberAvatarRows\(\)/,
+    /canManageVendor\(vendorRole\) \? supplierAvatarRows\(\{ storeShell \}\) : scopedMemberAvatarRows\(\)/,
     'the supplier rows are not gated to owners and admins',
   );
+  // R6 (supplier batch walk): an UNREAD role must never open the owner rows — no `|| !vendorRole` fall-through.
+  assert.doesNotMatch(src('app/vendor-dashboard/layout.tsx'), /\|\|\s*!vendorRole\s*\?\s*supplierAvatarRows/, 'the account sheet fails open on an unread role');
   assert.ok(!supplierAvatarRows({ storeShell: true }).some((r) => r.label === 'Plan'), 'Plan shows in the store shell');
   assert.deepEqual(scopedMemberAvatarRows().map((r) => r.label), ['Settings'], 'a scoped member sees owner rooms');
 });

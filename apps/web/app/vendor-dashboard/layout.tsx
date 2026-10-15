@@ -382,7 +382,10 @@ export default async function VendorDashboardLayout({
   // Plan never in the store shell — the route is refused there). No read — the role
   // is already here.
   const switcherShopRows =
-    canManageVendor(vendorRole) || !vendorRole ? supplierAvatarRows({ storeShell }) : scopedMemberAvatarRows();
+    // FAILS CLOSED (supplier batch walk R6): a role that could not be read is NOT an owner — `resolveVendorRole`
+    // already answers 'admin' for a founding owner with no membership row, so null means "not proven", and an
+    // unproven person gets the least-privileged sheet (the pages stay gated on their own either way).
+    canManageVendor(vendorRole) ? supplierAvatarRows({ storeShell }) : scopedMemberAvatarRows();
 
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
   // mobile-only (lg:hidden); desktop users open the same panel from the

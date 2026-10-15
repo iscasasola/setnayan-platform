@@ -37,7 +37,7 @@ import {
   EMPTY_LEAF_INDEX,
   type LeafIndex,
 } from '@/lib/service-card-kind';
-import { tierCaps, asVendorTier, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import {
   SLOT_LABEL_MAX,
   SLOT_CAPACITY_MIN,
@@ -2269,38 +2269,22 @@ export async function toggleVendorServiceActive(formData: FormData) {
 }
 
 // ============================================================================
-// Tier feature #3 — Enterprise-only time-bound slot CRUD.
+// Exact time slots — on EVERY plan (owner 2026-10-14, DECISION_LOG 🧑‍🤝‍🧑 call 3;
+// were Enterprise-only, "tier feature #3").
 //
-// A service with >=1 ACTIVE slot uses the #3 per-slot capacity model and SKIPS
-// the #2 daily_capacity gate (finalizeVendor branches on slot presence). Adding
-// slots is gated on ENTERPRISE (re-derived server-side via canPlotTimeSlots —
-// never trusts the form). Deleting (soft-deactivating) is NOT tier-gated so a
-// downgraded vendor can always clean up stale slots that are still enforcing
-// against their bookings (verifier C8).
+// A service with >=1 ACTIVE slot uses the per-slot capacity model and SKIPS
+// the #2 daily_capacity gate (finalizeVendor branches on slot presence).
+// 🗑 The Enterprise check that lived here (`assertCanPlotSlots`, one
+// `vendor_profiles` read per plot) is gone with the ruling — `canPlotTimeSlots`
+// answers true for every plan, so the read could only ever cost a request.
+// Ownership is still checked on every write below. Deleting (soft-deactivating)
+// was never tier-gated.
 // ============================================================================
-
-/** Re-derive the vendor's tier server-side; throw unless ENTERPRISE. */
-async function assertCanPlotSlots(
-  supabase: Awaited<ReturnType<typeof ensureProfile>>['supabase'],
-  vendorProfileId: string,
-): Promise<void> {
-  const { data } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  const tier = (data as { tier_state?: string | null } | null)?.tier_state ?? null;
-  if (!canPlotTimeSlots(tier)) {
-    throw new Error('Time slots are an Enterprise feature. Upgrade to plot them.');
-  }
-}
 
 export async function addServiceTimeSlot(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
 
   try {
-    await assertCanPlotSlots(supabase, profile.vendor_profile_id);
-
     const serviceId = String(formData.get('vendor_service_id') ?? '');
     const label = String(formData.get('slot_label') ?? '').trim();
     const start = String(formData.get('start_time') ?? '');

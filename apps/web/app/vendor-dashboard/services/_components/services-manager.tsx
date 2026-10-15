@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { HallsUsesPick } from './halls-uses-pick';
+import { setServiceHalls } from '../../calendar/actions';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { reachTally, serviceReach } from '@/lib/service-reach';
 import {
@@ -339,7 +341,9 @@ export async function VendorServicesManager({
   //   • linked-services-on-card  • tier/verification soft-probe
   //   • time-bound slots         • payment schedules
   // Each keeps its graceful-degrade contract (empty / null on error).
-  const [linkRowsRes, tierProbeRes, slotsByService, scheduleRowsByService] =
+  // 🏛 A VENUE'S HALLS (owner 2026-10-14): read only for a shop that sells a venue — every other shop pays nothing.
+  const sellsVenue = services.some((s) => s.category === 'venue' || s.category === 'religious_venue');
+  const [linkRowsRes, tierProbeRes, slotsByService, scheduleRowsByService, hallsRes] =
     await Promise.all([
       serviceIdList.length > 0
         ? supabase
@@ -360,7 +364,27 @@ export async function VendorServicesManager({
       fetchVendorTimeSlotsByService(supabase, profile.vendor_profile_id),
       // Payment schedules (Vendor Transaction Lifecycle Phase 2 · PR-A).
       fetchOwnSchedulesByService(supabase, serviceIdList),
+      sellsVenue
+        ? supabase
+            .from('vendor_schedule_pools')
+            .select('pool_id, pool_label, calendar_name, vendor_service_halls(vendor_service_id)')
+            .eq('vendor_profile_id', profile.vendor_profile_id)
+            .eq('is_hall', true)
+            .eq('is_active', true)
+            .order('created_at', { ascending: true })
+            .then((r) => r, () => ({ data: null }))
+        : Promise.resolve({ data: [] }),
     ]);
+  const hallRows = ((hallsRes as { data: unknown }).data ?? []) as {
+    pool_id: string;
+    pool_label: string;
+    calendar_name: string | null;
+    vendor_service_halls: { vendor_service_id: string }[] | null;
+  }[];
+  const venueHalls = hallRows.map((h) => ({ poolId: h.pool_id, name: h.calendar_name?.trim() || h.pool_label || 'Hall' }));
+  const hallUsesByService = new Map<string, string[]>();
+  for (const h of hallRows) for (const l of h.vendor_service_halls ?? []) hallUsesByService.set(l.vendor_service_id, [...(hallUsesByService.get(l.vendor_service_id) ?? []), h.pool_id]);
+
 
   // Linked-services-on-card (locked spec): which OTHER categories each service
   // "comes with". Pre-checks the "Comes with" picker on each edit form. The
@@ -401,7 +425,7 @@ export async function VendorServicesManager({
   // the capacity input when the tier allows bookings at all (slotsCap > 0).
   const slotsCap = caps.slotsPerDay;
   const slotsCapForUi = Number.isFinite(slotsCap) ? slotsCap : 99;
-  // #3 time-bound slots: ENTERPRISE-only plotting (keyed on the enterprise tier).
+  // Exact time slots: every plan may plot them (owner 2026-10-14; were Enterprise-only).
   const canPlotSlots = canPlotTimeSlots(tier);
   const allBranches =
     // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so Custom
@@ -1387,6 +1411,14 @@ export async function VendorServicesManager({
                         />
                       ) : null}
 
+                      {venueHalls.length > 0 ? (
+                        <HallsUsesPick
+                          serviceId={svc.vendor_service_id}
+                          halls={venueHalls}
+                          uses={hallUsesByService.get(svc.vendor_service_id) ?? []}
+                          action={setServiceHalls}
+                        />
+                      ) : null}
                       <SlotEditor
                         serviceId={svc.vendor_service_id}
                         slots={slotsByService.get(svc.vendor_service_id) ?? []}
@@ -2031,8 +2063,8 @@ function DiscountBadge({
 }
 
 /**
- * Time-bound slot sub-editor (tier #3, Enterprise). Restyled to the editorial
- * palette; behaviour unchanged.
+ * Exact time slots — on every plan since 2026-10-14 (owner, DECISION_LOG 🧑‍🤝‍🧑
+ * call 3; were Enterprise-only). Restyled to the editorial palette.
  */
 function SlotEditor({
   serviceId,
@@ -2049,7 +2081,7 @@ function SlotEditor({
       <div className="flex items-center gap-1.5">
         <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} style={{ color: 'var(--m-slate)' }} />
         <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-          Time slots (Enterprise)
+          Exact time slots
         </p>
       </div>
       <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
@@ -2132,8 +2164,7 @@ function SlotEditor({
         </form>
       ) : (
         <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Time slots are an Enterprise feature — these existing slots stay active
-          and you can remove them anytime.
+          These slots stay active and you can remove them anytime.
         </p>
       )}
     </div>

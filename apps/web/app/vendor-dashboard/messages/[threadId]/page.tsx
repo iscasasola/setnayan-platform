@@ -84,7 +84,7 @@ import {
   forecastForBooking,
   resolveBookingFeeStanding,
 } from '@/lib/booking-fee-disclosure.server';
-import { lockAgreeFeeHeld, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import {
@@ -157,6 +157,9 @@ type Props = {
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
     lock_decline?: string;
+    /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
+    taken?: string;
+    free?: string;
     competing?: string;
   }>;
 };
@@ -208,6 +211,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     lockAgreeNotice(sp?.lock_agree, {
       competing: Number.isFinite(lockCompeting) ? lockCompeting : null,
       feeHeld: lockAgreeFeeHeld(sp?.fee),
+      halls: lockAgreeHalls(sp?.taken, sp?.free),
     }) ?? lockDeclineNotice(sp?.lock_decline);
   const supabase = await createClient();
   const {

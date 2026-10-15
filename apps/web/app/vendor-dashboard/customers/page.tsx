@@ -15,7 +15,21 @@ import {
   fetchVendorPools,
   fetchVendorServicesForPicker,
 } from '@/lib/vendor-schedule';
-import { asksByDate, daySheetHref, openAsksOf, rangeWords, type DatesAsk } from '@/lib/vendor-dates';
+import {
+  asksByDate,
+  clockWords,
+  dayAnswerOfGroups,
+  dayGroupsOf,
+  daySheetHref,
+  daysFrom,
+  nearWord,
+  openAsksOf,
+  rangeWords,
+  seatsByPool,
+  type DatesAsk,
+} from '@/lib/vendor-dates';
+import { blockClosesDay, repeatWords } from '@/lib/not-available';
+import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { asVendorTier, entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
@@ -53,6 +67,7 @@ import { rosterView } from './roster-view';
 import { CustomersCalendar } from './_components/customers-calendar';
 import { DatesFolds } from './_components/dates-folds';
 import { BlockDateAdd } from './_components/dates-sheets';
+import { CheckADate } from './_components/check-a-date';
 import { DaySheet, type DaySheetData } from './_components/day-sheet';
 import { customersSegmentOf, foldsOf } from './segments';
 import { CustomersSegments } from './_components/customers-segments';
@@ -158,13 +173,16 @@ const LANE_FILTER_LABEL: Record<CustomerLane, string> = {
 
 /** An outside client's Add / Remove, said once by the toast and kept as the status line. */
 const PEOPLE_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }> = {
-  client_imported: { tone: 'ok', text: 'Outside client added — free. They now hold that date on your schedule.' },
-  block_removed: { tone: 'ok', text: 'Outside client removed. The date is open again.' },
+  client_imported: { tone: 'ok', text: 'Booking from outside added — free. It holds that date on your schedule now.' },
+  block_removed: { tone: 'ok', text: 'Booking from outside removed. The date is open again.' },
   bad_dates: { tone: 'bad', text: 'Those dates don’t work. Check the first and last day.', retry: true },
   bad_name: { tone: 'bad', text: 'The client needs a name. Nothing was added.', retry: true },
   bad_pool: { tone: 'bad', text: 'Pick which schedule this client belongs to. Nothing was added.', retry: true },
   save_failed: { tone: 'bad', text: 'That did not go through. Nothing changed — please try again.', retry: true },
 };
+
+/** The kinds a shop sells that make it a venue with halls (owner 2026-10-14 🏛). */
+const VENUE_KINDS = new Set(['venue', 'religious_venue']);
 
 function categoryLabel(key: string): string {
   return (VENDOR_CATEGORY_LABEL as Record<string, string>)[key] ?? key.replace(/_/g, ' ');
@@ -652,26 +670,26 @@ function moneyNote(
 
 /** Every calendar action's outcome, said once by the toast and kept as the status line (`?notice=`). */
 const DATES_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }> = {
-  block_added: { tone: 'ok', text: 'Blocked. Couples see only “unavailable”.' },
+  block_added: { tone: 'ok', text: 'Marked not available. Couples see only “unavailable”.' },
   block_removed: { tone: 'ok', text: 'Open again — bookable on Setnayan.' },
-  client_imported: { tone: 'ok', text: 'Outside client added — free. They hold that date on your calendar now.' },
-  capacity_saved: { tone: 'ok', text: 'Events a day saved.' },
-  capacity_clamped: { tone: 'note', text: 'Saved at the most events a day your plan takes.' },
-  pool_saved: { tone: 'ok', text: 'Saved — those services share that calendar now.' },
+  client_imported: { tone: 'ok', text: 'Booking from outside added — free. It holds that date on your schedule now.' },
+  capacity_saved: { tone: 'ok', text: 'How many a day — saved.' },
+  capacity_clamped: { tone: 'note', text: 'Saved at the most a day your plan takes.' },
+  pool_saved: { tone: 'ok', text: 'Saved — those services share that schedule now.' },
   waitlist_notified: { tone: 'ok', text: 'Told them — the couples waiting know the date is open.' },
-  waitlist_settings_saved: { tone: 'ok', text: 'Waitlist saved.' },
+  waitlist_settings_saved: { tone: 'ok', text: 'Waiting list saved.' },
   waitlist_picked: { tone: 'ok', text: 'Picked — they hold their place for that date.' },
   waitlist_full: { tone: 'note', text: 'That date’s waiting list is full. Raise how many a date to pick more.' },
   waitlist_not_in_plan: { tone: 'note', text: 'A waiting list comes with the paid plans. Nothing changed.' },
   waitlist_none: { tone: 'note', text: 'No one is waiting on that date yet.' },
   day_state_saved: { tone: 'ok', text: 'Day updated. Couples see only “unavailable”.' },
   day_state_cleared: { tone: 'ok', text: 'Day reopened — it’s bookable again.' },
-  calendar_created: { tone: 'ok', text: 'Calendar made.' },
-  calendar_saved: { tone: 'ok', text: 'Calendar saved.' },
+  calendar_created: { tone: 'ok', text: 'Schedule made.' },
+  calendar_saved: { tone: 'ok', text: 'Schedule saved.' },
   bad_dates: { tone: 'bad', text: 'Those dates don’t work. Check the first and last day.', retry: true },
   bad_name: { tone: 'bad', text: 'It needs a name. Nothing was saved.', retry: true },
-  bad_pool: { tone: 'bad', text: 'Pick which calendar it belongs to. Nothing was saved.', retry: true },
-  bad_capacity: { tone: 'bad', text: 'Events a day must be 1 or more. Nothing was saved.', retry: true },
+  bad_pool: { tone: 'bad', text: 'Pick which schedule it belongs to. Nothing was saved.', retry: true },
+  bad_capacity: { tone: 'bad', text: 'How many a day must be 1 or more. Nothing was saved.', retry: true },
   save_failed: { tone: 'bad', text: 'That did not go through. Nothing changed — please try again.', retry: true },
 };
 
@@ -812,17 +830,28 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
   const { asks } = await readOpenAsks(threadsRead.threads, bookedEventIds);
 
   const poolLabelOf = new Map(pools.map((p) => [p.poolId, p.label]));
+  // Every closure still ahead: a one-off not yet over, or a REPEAT with no end or an end still ahead. Repeats first —
+  // "Every Sunday morning" is the line a parish reads before any one-off date.
   const closures = blocks
-    .filter((b) => (b.source === 'manual' || b.source === 'synced_calendar') && b.endDate >= todayIso)
-    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .filter(
+      (b) =>
+        (b.source === 'manual' || b.source === 'synced_calendar') &&
+        (b.repeat === 'once' ? b.endDate >= todayIso : !b.repeatUntil || b.repeatUntil >= todayIso),
+    )
+    .sort((a, b) => Number(a.repeat === 'once') - Number(b.repeat === 'once') || a.startDate.localeCompare(b.startDate))
     .map((b) => ({
       blockId: b.blockId,
-      label: b.label?.trim() || 'Blocked',
+      label: b.label?.trim() && b.label.trim() !== 'Unavailable' ? b.label.trim() : 'Not available',
       startDate: b.startDate,
       endDate: b.endDate,
-      scope: b.poolId === null ? 'every calendar' : (poolLabelOf.get(b.poolId) ?? 'one calendar'),
+      repeat: b.repeat,
+      repeatUntil: b.repeatUntil,
+      dayPart: b.dayPart,
+      scope: b.poolId === null ? 'every schedule' : (poolLabelOf.get(b.poolId) ?? 'one schedule'),
     }));
   const initialDay = todayIso.startsWith(month) ? todayIso : `${month}-01`;
+  // A VENUE lists its halls (owner 2026-10-14 🏛): it already has a hall, or it sells a venue.
+  const venue = pools.some((p) => p.isHall) || services.some((s) => VENUE_KINDS.has(String(s.category ?? '')));
 
   return (
     <>
@@ -837,7 +866,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
         ) : null}
         {pools.length === 0 ? (
           <p className="mb-2 text-[13.5px] text-ink/70" data-dates-no-calendar="">
-            Calendar not set — open Capacity below to make one.
+            Schedule not set — open How many a day below to make one.
           </p>
         ) : null}
         <CustomersCalendar
@@ -857,9 +886,14 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
             endDate: k.endDate,
             label: k.source === 'external_client' ? null : k.label,
             clientName: k.source === 'external_client' ? k.clientName : null,
+            clientTime: k.source === 'external_client' ? k.clientTime : null,
+            repeat: k.repeat,
+            repeatUntil: k.repeatUntil,
+            dayPart: k.dayPart,
           }))}
           agents={agents}
           agentCategories={agentCategories}
+          halls={pools.every((p) => p.isHall) && pools.length > 0}
         />
       </div>
 
@@ -884,6 +918,9 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           label: p.label,
           name: p.calendarName ?? p.label,
           capacity: p.capacity,
+          isHall: p.isHall === true,
+          seated: p.seatedCapacity ?? null,
+          standing: p.standingCapacity ?? null,
           line: p.categories.map(categoryLabel).join(', '),
           serviceIds: p.serviceIds,
           categories: p.categories.map((c) => ({ key: c, label: categoryLabel(c) })),
@@ -892,18 +929,26 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
         namedCalendars={namedCalendars}
         services={pickerServices.map((s) => ({ serviceId: s.serviceId, label: s.label, poolId: s.poolId }))}
         qrHref="/vendor-dashboard/invite"
+        slotsHref="/vendor-dashboard/shop"
+        icsHref="/vendor-dashboard/customers/calendar.ics"
+        approveFirst={isLockHandshakeEnabled()}
+        venue={venue}
+        blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
         actions={DATES_ACTIONS}
       />
 
-      {/* 📱 THE THUMB ROW (frame 04): Block a date (grey) · Add (brand — an outside client holds a date). */}
+      {/* 📱 THE THUMB ROW (prototype thumb(), owner call 1 2026-10-14): Check a date · Add (brand — a booking from
+          outside holds a date). "Mark days not available" lives in its fold and on the day. */}
       <SupplierThumbRow name="dates" label="Date tools">
-        <BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />
+        {pools.length > 0 ? <CheckADate /> : null}
         <OutsideClientAdd
           pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
           action={importExternalClient}
           today={todayIso}
           setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
           returnTo="dates"
+          halls={pools.length > 0 && pools.every((p) => p.isHall)}
+          seats={seatsByPool(pools, bookings, blocks, todayIso)}
         />
       </SupplierThumbRow>
     </>
@@ -944,17 +989,18 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   const poolLabel = new Map(pools.map((p) => [p.poolId, p.label]));
   const namePools = pools.length > 1;
   const bookedToday = bookings.filter((b) => b.bookedDate === day);
-  const covers = (b: { startDate: string; endDate: string }) => b.startDate <= day && b.endDate >= day;
 
   // The booked events' place and kind (admin: the supplier holds no `events` RLS) — and the holders' names and dates.
   const bookedEventIds = new Set(bookings.map((b) => b.eventId));
-  const [{ asks, measured: asksMeasured }, eventsRead] = await Promise.all([
+  const [{ asks, measured: asksMeasured }, eventsRead, caps] = await Promise.all([
     readOpenAsks(threadsRead.threads, bookedEventIds),
     bookedToday.length > 0
       ? readInChunks([...new Set(bookedToday.map((b) => b.eventId))], (part) =>
           createAdminClient().from('events').select('event_id, venue_name, event_type').in('event_id', part),
         )
       : Promise.resolve({ rows: [], error: null }),
+    // "Holding this date · N of M" — the plan's ceiling, read live (a Custom plan may lift it; reads only then).
+    fetchEffectiveCaps(supabase, vendorProfileId, (tierProbe.data as { tier_state?: string } | null)?.tier_state ?? null),
   ]);
   if (eventsRead.error) logQueryError('VendorCustomersPage.dayEvents', eventsRead.error, {}, 'graceful_degrade');
   const eventById = new Map(
@@ -989,47 +1035,100 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     const d = iso.slice(0, 10);
     return `asked ${rangeWords(d, d, todayIso)}`;
   };
+  const holds = dayStates.filter((s) => s.stateDate === day);
+  // The day, schedule by schedule — every block through the ONE rule (`lib/not-available.ts`, repeats + hours).
+  const groups = dayGroupsOf(day, {
+    today: todayIso,
+    pools: pools.map((p) => ({ poolId: p.poolId, label: p.label, capacity: p.capacity })),
+    bookings: bookedToday.map((b) => ({
+      key: b.poolBookingId,
+      poolId: b.poolId,
+      title: b.eventName,
+      line: [...eventWords(eventById.get(b.eventId)), 'Booked here'].filter(Boolean).join(' · '),
+      href: `/vendor-dashboard/clients/${b.eventId}`,
+    })),
+    blocks: blocksRead.blocks,
+    holds: holds.map((h) => ({ poolId: h.poolId, stateDate: h.stateDate, dayState: h.dayState })),
+  });
+  // 🏛 A VENUE'S DAY, PER HALL (prototype "the day per hall"): each hall booked · outside · not available · free, and
+  // under "Joined halls" each card that uses several halls, free or saying which hall is taken.
+  let venueDay: DaySheetData['venue'] = null;
+  const hallPools = pools.filter((p) => p.isHall);
+  if (hallPools.length > 0 && hallPools.length === pools.length) {
+    const hallList = hallPools.map((p) => ({ poolId: p.poolId, name: p.label, capacity: p.capacity, seated: p.seatedCapacity ?? null, standing: p.standingCapacity ?? null }));
+    const joinedIds = new Map<string, string[]>();
+    for (const p of hallPools) for (const sid of p.hallServiceIds ?? []) joinedIds.set(sid, [...(joinedIds.get(sid) ?? []), p.poolId]);
+    const multi = [...joinedIds.entries()].filter(([, ids]) => ids.length > 1);
+    const cardNames = multi.length > 0 ? new Map((await fetchVendorServices(supabase, vendorProfileId)).map((s) => [s.vendor_service_id, s.title ?? s.category])) : new Map<string, string>();
+    const state = hallsOnDay(
+      day,
+      hallList,
+      bookedToday.map((b) => ({ poolId: b.poolId, eventId: b.eventId, title: b.eventName })),
+      blocksRead.blocks,
+    );
+    const joinedOf = (eventId: string) => state.filter((x) => x.used.some((u) => u.eventId === eventId)).map((x) => x.hall.name);
+    venueDay = {
+      answer: hallsAnswer(state),
+      halls: state.map((x) => {
+        const first = x.used[0];
+        const joined = first && !first.outside ? joinedOf(first.eventId) : [];
+        return {
+          key: x.hall.poolId,
+          title: x.hall.name,
+          line: first
+            ? [first.time ? clockWords(first.time) : '', first.title, joined.length > 1 ? `joined ${joined.join(' + ')}` : ''].filter(Boolean).join(' · ')
+            : x.closedBy ?? (hallGuests(x.hall) || 'Free'),
+          badge: first ? (first.outside ? { tone: 'quiet' as const, word: 'Outside' } : { tone: 'ok' as const, word: 'Booked' }) : x.closedBy ? { tone: 'quiet' as const, word: 'Not available' } : { tone: 'ok' as const, word: 'Free' },
+          href: first && !first.outside ? `/vendor-dashboard/clients/${first.eventId}` : null,
+        };
+      }),
+      joined: multi.map(([sid, ids]) => {
+        const j = joinedCardOnDay({ serviceId: sid, name: cardNames.get(sid) ?? 'Joined halls', poolIds: ids }, state, hallList);
+        return { key: sid, title: cardNames.get(sid) ?? ids.map((id) => hallList.find((h) => h.poolId === id)?.name).join(' + '), line: j.line, free: j.free };
+      }),
+    };
+  }
+
+  const holders = asks
+    .filter((a) => a.date === day)
+    .map((a) => ({ threadId: a.threadId, title: a.name ?? 'A couple', line: `${askedOn(a.askedAt)} · not booked` }));
+  const near = daysFrom(todayIso, day);
+  const ceiling = caps.whitelistPerDate;
   const data: DaySheetData = {
     day,
     today: todayIso,
-    calendarsLine: [...new Set(bookedToday.map((b) => poolLabel.get(b.poolId) ?? ''))].filter(Boolean).join(', '),
+    sub: [
+      nearWord(todayIso, day) || (near !== null && near > 0 ? `in ${near < 14 ? `${near} days` : near < 63 ? `${Math.round(near / 7)} weeks` : `${Math.round(near / 30)} months`}` : ''),
+      namePools ? '' : pools[0] ? `${pools[0].label} schedule` : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
     backHref: `/vendor-dashboard/customers?seg=dates&m=${day.slice(0, 7)}`,
-    bookings: bookedToday.map((b) => ({
-      key: b.poolBookingId,
-      title: b.eventName,
-      line: [...eventWords(eventById.get(b.eventId)), namePools ? poolLabel.get(b.poolId) : null].filter(Boolean).join(' · ') || 'Booked through Setnayan',
-      href: `/vendor-dashboard/clients/${b.eventId}`,
-    })),
-    outside: blocksRead.blocks
-      .filter((b) => b.source === 'external_client' && covers(b))
-      .map((b) => ({
-        key: b.blockId,
-        title: b.clientName?.trim() || 'Outside client',
-        line: [rangeWords(b.startDate, b.endDate, todayIso), b.poolId ? poolLabel.get(b.poolId) : null].filter(Boolean).join(' · '),
-      })),
-    holders: asks
-      .filter((a) => a.date === day)
-      .map((a) => ({ threadId: a.threadId, title: a.name ?? 'A couple', line: `${askedOn(a.askedAt)} · not booked` })),
+    answer: dayAnswerOfGroups(groups, holders.length),
+    groups,
+    holders,
     holdersMeasured: asksMeasured && threadsRead.complete,
+    holdingCeiling: Number.isFinite(ceiling) ? ceiling : null,
     waiting: waitlist.find((w) => w.requestedDate === day)?.pendingCount ?? 0,
     closures: blocksRead.blocks
-      .filter((b) => (b.source === 'manual' || b.source === 'synced_calendar') && covers(b))
+      .filter((b) => (b.source === 'manual' || b.source === 'synced_calendar') && blockClosesDay(b, day))
       .map((b) => ({
         blockId: b.blockId,
-        label: b.label?.trim() || 'Blocked',
+        label: b.label?.trim() && b.label.trim() !== 'Unavailable' ? b.label.trim() : 'Not available',
         startDate: b.startDate,
         endDate: b.endDate,
-        scope: b.poolId === null ? 'every calendar' : (poolLabel.get(b.poolId) ?? 'one calendar'),
+        scope: b.poolId === null ? 'every schedule' : (poolLabel.get(b.poolId) ?? 'one schedule'),
+        repeatWords: repeatWords(b),
       })),
-    holds: dayStates
-      .filter((s) => s.stateDate === day)
-      .map((s) => ({
-        key: s.dayStateId,
-        scope: s.poolId ?? 'org',
-        title: s.dayState === 'locked' ? 'Held by you' : 'You approve each ask',
-        line: s.poolId === null ? 'Every calendar' : (poolLabel.get(s.poolId) ?? 'One calendar'),
-      })),
+    holds: holds.map((s) => ({
+      key: s.dayStateId,
+      scope: s.poolId ?? 'org',
+      title: s.dayState === 'locked' ? 'Held by you' : 'You approve each ask',
+      line: s.poolId === null ? 'Every schedule' : (poolLabel.get(s.poolId) ?? 'One schedule'),
+    })),
     whoWorks,
+    qrHref: `/vendor-dashboard/invite?mode=locked&date=${day}`,
+    venue: venueDay,
   };
 
   return (
@@ -1041,7 +1140,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
         </p>
       ) : null}
       <DaySheet data={data} actions={{ addManualBlock, removeBlock, setCalendarDayState, notifyWaitlistSlot }} />
-      {/* 📱 Frame 35's thumb row: Add (brand) — an outside client holds a date. */}
+      {/* 📱 The day's thumb row (prototype SCREENS.day): "Add a booking" — from outside, this date filled. */}
       <SupplierThumbRow name="dates" label="Date tools">
         <OutsideClientAdd
           pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
@@ -1049,6 +1148,10 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
           today={todayIso}
           setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
           returnTo="dates"
+          halls={pools.length > 0 && pools.every((p) => p.isHall)}
+          day={day}
+          seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
+          label="Add a booking"
         />
       </SupplierThumbRow>
     </>

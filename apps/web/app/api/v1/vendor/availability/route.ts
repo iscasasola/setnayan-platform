@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, notAvailableWindowFilter } from '@/lib/not-available';
 import {
   apiErrorResponse,
   authenticateApiRequest,
@@ -15,6 +16,9 @@ type BlockRow = {
   block_source: string | null;
   is_private: boolean | null;
   setnayan_booking_id: string | null;
+  repeat_rule?: string | null;
+  repeat_until?: string | null;
+  day_part?: string | null;
 };
 
 type DayStateRow = {
@@ -56,12 +60,13 @@ export async function GET(req: Request) {
 
   let blockQuery = admin
     .from('vendor_calendar_blocks')
-    .select('blocked_at, blocked_until, block_source, is_private, setnayan_booking_id')
+    .select(`blocked_at, blocked_until, block_source, is_private, setnayan_booking_id, ${NOT_AVAILABLE_COLUMNS}`)
     .eq('vendor_profile_id', vendorProfileId)
     .order('blocked_at', { ascending: true })
     .limit(MAX_LIMIT);
   // Overlap window: a block that ends after `from` and starts before `to`.
-  if (from) blockQuery = blockQuery.gte('blocked_until', from);
+  // A REPEAT (2026-10-14) began before `from` yet covers days in the window — keep it, and say it repeats.
+  if (from) blockQuery = blockQuery.or(notAvailableWindowFilter(from));
   if (to) blockQuery = blockQuery.lte('blocked_at', to);
 
   const { data: blocks, error: blocksErr } = await blockQuery;
@@ -96,6 +101,12 @@ export async function GET(req: Request) {
       busy: true,
       source: b.is_private ? 'private' : b.block_source,
       setnayan_originated: b.setnayan_booking_id != null,
+      // "Not available" repeats + hours: `start`/`end` is the FIRST occurrence; it repeats per `repeat`
+      // (once · weekly · weekend · daily) until `repeat_until` (null = no end); `part_of_day` says which hours.
+      ...(() => {
+        const f = notAvailableFieldsOf(b);
+        return { repeat: f.repeat, repeat_until: f.repeatUntil, part_of_day: f.dayPart };
+      })(),
     })),
     day_states: ((dayStates ?? []) as DayStateRow[]).map((d) => ({
       date: d.state_date,

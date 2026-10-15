@@ -19,6 +19,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { sendWaitlistSlotOpenedEmail } from '@/lib/vendor-email-triggers';
 
 export type WaitlistDateGroup = {
@@ -187,13 +188,18 @@ export async function notifyWaitlistForFreedDate(
   const dayStart = `${requestedDate}T00:00:00+08:00`;
   const dayEnd = `${requestedDate}T23:59:59+08:00`;
 
-  const { data: covering, error: coveringErr } = await admin
+  // Every block that can touch the day — a one-off overlapping it, or a REPEAT that began on or before it (its
+  // first occurrence may be months back, so a `blocked_until >= day` filter alone would miss it) — then the ONE rule
+  // (`lib/not-available.ts`) says whether it closes the day. A part of the day (a morning) leaves the date open.
+  const { data: candidates, error: coveringErr } = await admin
     .from('vendor_calendar_blocks')
-    .select('block_id')
+    .select(`block_id, blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
     .eq('vendor_profile_id', vendorProfileId)
     .lte('blocked_at', dayEnd)
-    .gte('blocked_until', dayStart)
-    .limit(1);
+    .or(notAvailableWindowFilter(dayStart));
+  const covering = ((candidates ?? []) as { blocked_at: string; blocked_until: string; repeat_rule?: string; repeat_until?: string | null; day_part?: string }[]).filter(
+    (b) => blockClosesDay(notAvailableShapeOf(b), requestedDate),
+  );
 
   // A failed read is NOT an open date. Staying silent costs the vendor a
   // notification; emailing on a bad read sends couples to a date they cannot
@@ -221,6 +227,11 @@ export async function notifyWaitlistForFreedRange(
   vendorProfileId: string,
   startDate: string,
   endDate: string,
+  /**
+   * Only the days the removed block really closed (a repeating "every Sunday" frees Sundays, not the days between;
+   * a morning freed nothing — the day was open). Omitted = every day in the range, as before.
+   */
+  freed?: (date: string) => boolean,
 ): Promise<number> {
   const admin = createAdminClient();
 
@@ -237,7 +248,7 @@ export async function notifyWaitlistForFreedRange(
     return 0;
   }
 
-  const dates = [...new Set((data as { requested_date: string }[]).map((r) => r.requested_date))];
+  const dates = [...new Set((data as { requested_date: string }[]).map((r) => r.requested_date))].filter((d) => !freed || freed(d));
   let total = 0;
   for (const date of dates) {
     total += await notifyWaitlistForDate(vendorProfileId, date);

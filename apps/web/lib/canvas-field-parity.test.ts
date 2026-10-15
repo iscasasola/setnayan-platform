@@ -361,12 +361,16 @@ test('the canvas takes the wizard’s props unchanged, and only ADDS optional on
 test('the card is wired to the LIVE form — no per-region save, nothing waits for submit', () => {
   const canvas = stripComments(readFileSync(CANVAS, 'utf8'));
 
-  // The read is event-driven off the form itself…
-  assert.match(canvas, /form\.addEventListener\('input', read\)/);
-  assert.match(canvas, /form\.addEventListener\('change', read\)/);
+  // The read is event-driven off the card's own fields — heard on the DOCUMENT
+  // and kept to fields whose owner form is the card, because the sheets portal
+  // to <body> and their events never bubble through the <form> element
+  // (every-sheet-field-posts-with-the-card.test.ts)…
+  assert.match(canvas, /const fromCard = \(e: Event\) => ownerFormOf\(e\.target as Element \| null\) === form;/);
+  assert.match(canvas, /doc\.addEventListener\('input', readIfCard\)/);
+  assert.match(canvas, /doc\.addEventListener\('change', readIfCard\)/);
   // …plus a deferred click read, because the basis picker and the unit toggles
   // are type="button" controls writing React-controlled hidden inputs.
-  assert.match(canvas, /form\.addEventListener\('click', readAfterCommit\)/);
+  assert.match(canvas, /doc\.addEventListener\('click', readAfterCommitIfCard\)/);
   // …and a poll for the editors that write controlled hidden inputs silently.
   assert.match(canvas, /setInterval\(read, \d+\)/);
   // The card renders what that read produced, not component-local price state.

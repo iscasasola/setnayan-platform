@@ -47,13 +47,12 @@ export function readAppleWalletConfig(env: NodeJS.ProcessEnv = process.env): App
   const wwdrPem = pemFromEnvValue(env[APPLE_WALLET_ENV.wwdr]);
   // The passphrase may legitimately be empty (an unencrypted key), so it is never "missing".
   const keyPassphrase = env[APPLE_WALLET_ENV.keyPassphrase] ?? null;
-  const missing = [
-    !passTypeIdentifier && APPLE_WALLET_ENV.passTypeId,
-    !teamIdentifier && APPLE_WALLET_ENV.teamId,
-    !certPem && APPLE_WALLET_ENV.cert,
-    !keyPem && APPLE_WALLET_ENV.key,
-    !wwdrPem && APPLE_WALLET_ENV.wwdr,
-  ].filter((n): n is (typeof APPLE_WALLET_ENV)[keyof typeof APPLE_WALLET_ENV] => Boolean(n));
+  const missing: string[] = [];
+  if (!passTypeIdentifier) missing.push(APPLE_WALLET_ENV.passTypeId);
+  if (!teamIdentifier) missing.push(APPLE_WALLET_ENV.teamId);
+  if (!certPem) missing.push(APPLE_WALLET_ENV.cert);
+  if (!keyPem) missing.push(APPLE_WALLET_ENV.key);
+  if (!wwdrPem) missing.push(APPLE_WALLET_ENV.wwdr);
   if (missing.length > 0 || !passTypeIdentifier || !teamIdentifier || !certPem || !keyPem || !wwdrPem) return { ok: false, missing };
   return { ok: true, ids: { passTypeIdentifier, teamIdentifier }, signer: { certPem, keyPem, keyPassphrase, wwdrPem } };
 }

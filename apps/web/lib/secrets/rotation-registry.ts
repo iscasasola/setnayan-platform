@@ -642,6 +642,35 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     impact:
       'Desktop/app signing identities. Rotate only if compromised — new certificates change the signing identity.',
   },
+  {
+    // 🍎 The guest's Apple Wallet pass (lib/wallet-pass-config.server.ts reads these,
+    // by name, in one place). Set up by the owner 2026-10-13; the certificate
+    // EXPIRES 2027-11-12 — renew before then or no new pass can be signed.
+    id: 'apple_wallet_pass',
+    label: 'Apple Wallet pass certificate (guest tickets)',
+    group: 'infra',
+    store: 'vercel',
+    envVars: [
+      'APPLE_PASS_TYPE_ID',
+      'APPLE_TEAM_ID',
+      'APPLE_PASS_CERT_B64',
+      'APPLE_PASS_KEY_B64',
+      'APPLE_PASS_KEY_PASSPHRASE',
+      'APPLE_WWDR_CERT_B64',
+    ],
+    editable: 'instructions-only',
+    policyDays: 365,
+    providerUrl: 'https://developer.apple.com/account/resources/certificates/list',
+    steps: [
+      'The Pass Type ID certificate for pass.com.setnayan.ticket expires 2027-11-12 — renew a few weeks before.',
+      'In Certificates, IDs & Profiles, create a new Pass Type ID Certificate for pass.com.setnayan.ticket from a fresh certificate request, and export it from Keychain as a .p12.',
+      'Convert it to the three text values with the helper (controller folder: wallet-apple-to-clipboard.sh cert|key|wwdr) and paste each into its Vercel variable (Production).',
+      'Redeploy production, then add a ticket to Wallet on an iPhone to confirm it signs.',
+      'Come back here and click "Mark rotated".',
+    ],
+    impact:
+      'Signs every guest Apple Wallet pass. Expired or wrong: "Add to Apple Wallet" answers "Could not make your Wallet ticket" — the PNG ticket is unaffected.',
+  },
 ];
 
 /** Lookup by id; undefined for an unknown id (every action rejects those). */

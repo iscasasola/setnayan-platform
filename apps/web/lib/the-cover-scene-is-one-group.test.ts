@@ -280,11 +280,11 @@ test('(12) no bar is drawn over the cover; the bars come in only after the cover
   assert.match(shell, /<div\s+data-page-column=""/, 'the page column lost its marker — its top padding stays above the cover');
   const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
   for (const bar of ["\\[data-sticky-top\\]", "nav\\[aria-label='Site sections'\\]"]) {
-    assert.match(css, new RegExp(`html\\.sn-cover-wait:not\\(\\.sn-cover-open\\):has\\(header\\[data-cover-scene\\]\\) ${bar} \\{[^}]*translate:`), `a bar (${bar}) is drawn over the cover`);
+    assert.match(css, new RegExp(`html:has\\(> head > style\\[data-cover-menu='wait'\\]\\):has\\(header\\[data-cover-scene\\]\\) ${bar} \\{[^}]*translate:`), `a bar (${bar}) is drawn over the cover`);
   }
-  assert.match(css, /html\.sn-cover-wait:has\(header\[data-cover-scene\]\) \[data-page-column\] \{[^}]*padding-top: 0;[^}]*--cover-scene-above: 0px;/, 'the cover does not start at the top edge');
+  assert.match(css, /html:has\(> head > style\[data-cover-menu\]\):has\(header\[data-cover-scene\]\) \[data-page-column\] \{[^}]*padding-top: 0;[^}]*--cover-scene-above: 0px;/, 'the cover does not start at the top edge');
   const { CoverSceneMenuWaits } = await import('@/app/[slug]/_components/cover-scene-menu');
   const script = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits));
-  assert.match(script, /window\.scrollY>4\|\|!shown\(\)\)\{r\.classList\.add\('sn-cover-open'\)/, 'the bars never come in after the swipe that moves the cover');
-  assert.match(script, /catch\(e\)\{r\.classList\.add\('sn-cover-open'\)\}/, 'a failure hides the menu for good — it must fail visible');
+  assert.match(script, /window\.scrollY>4\|\|!shown\(\)\)\{m\.setAttribute\('data-cover-menu','open'\)/, 'the bars never come in after the swipe that moves the cover');
+  assert.match(script, /catch\(e\)\{try\{if\(m\)m\.setAttribute\('data-cover-menu','open'\)\}/, 'a failure hides the menu for good — it must fail visible');
 });

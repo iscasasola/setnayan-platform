@@ -301,6 +301,25 @@ test('4b · the Main background shows it too, and both stay in the lazy Maker ch
 
 /* ── 4c · EVERY METER MOUNT CARRIES THE PLAN (batch 7 W1 · R2 · R3, 2026-10-16) ── */
 
+async function componentMounts(names: readonly string[]): Promise<{ file: string; tag: string }[]> {
+  const { readdirSync, statSync } = await import('node:fs');
+  const out: { file: string; tag: string }[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(join(ROOT, dir))) {
+      if (name === 'node_modules' || name === '.next') continue;
+      const rel = `${dir}/${name}`;
+      if (statSync(join(ROOT, rel)).isDirectory()) walk(rel);
+      else if (/\.tsx$/.test(name) && !/\.test\.tsx$/.test(name)) {
+        const src = read(rel);
+        for (const n of names) for (const m of src.matchAll(new RegExp(`<${n}\\b[\\s\\S]*?\\/>`, 'g'))) out.push({ file: rel, tag: m[0] });
+      }
+    }
+  };
+  walk('app');
+  walk('components');
+  return out;
+}
+
 async function meterMounts(): Promise<{ file: string; tag: string }[]> {
   const { readdirSync, statSync } = await import('node:fs');
   const out: { file: string; tag: string }[] = [];
@@ -327,6 +346,25 @@ test('4c · EVERY <MakerMediaMeter> passes the plan’s cap, and the buy path un
   assert.ok(mounts.length >= 5, `the walk found the meter's mounts (${mounts.length})`);
   const offenders: string[] = [];
   for (const { file, tag } of mounts) {
+    // A component that is HANDED the plan's number (a required `<name>: number;` prop, e.g. the Cover Scene's
+    // `mediaCapBytes`) passes it straight on — then EVERY mount of that component must work it out with
+    // `coupleMediaCapBytes(…)`, so the walk follows the number one hop up.
+    const handed = /\bcapBytes=\{([A-Za-z]\w*)\}/.exec(tag)?.[1];
+    if (handed) {
+      const src = read(file);
+      if (!new RegExp(`\\n\\s*${handed}: number;`).test(src)) {
+        offenders.push(`${file}: capBytes={${handed}} is not a required number prop of this component`);
+        continue;
+      }
+      const comps = [...src.matchAll(/export function ([A-Z]\w*)/g)].map((m) => m[1] ?? '');
+      const callers = await componentMounts(comps);
+      if (callers.length === 0) offenders.push(`${file}: ${comps.join('/')} is never mounted — the walk cannot follow ${handed}`);
+      for (const c of callers) {
+        if (!new RegExp(`\\b${handed}=\\{coupleMediaCapBytes\\(`).test(c.tag)) offenders.push(`${c.file}: mounts ${comps.join('/')} without ${handed}={coupleMediaCapBytes(…)}`);
+      }
+      if (!/\bproHref=\{/.test(tag)) offenders.push(`${file}: a plan-dependent meter without proHref — a Free couple at the cap gets no Unlock Pro`);
+      continue;
+    }
     const cap = /\bcapBytes=\{coupleMediaCapBytes\(([^)]*)\)\}/.exec(tag);
     if (!cap) {
       offenders.push(`${file}: a meter without capBytes={coupleMediaCapBytes(…)} — it would read every couple as Free`);
@@ -369,14 +407,14 @@ test('4c · the refusal link rides the FREE refusal only — including one below
 
 test('4c · the Cover Scene (the hero’s upload) is handed the PLAN — its upload opens on a press, so this reads the wiring', () => {
   // The upload sheet opens only on a press (`StageBackground` state), so a static paint cannot reach it; the meter's
-  // render is held by 4/4a, its mount by the walk above, and the hand-off here. `ownsPro`/`proHref` are REQUIRED
+  // render is held by 4/4a, its mount by the walk above, and the hand-off here. `mediaCapBytes`/`proHref` are REQUIRED
   // props of `CoverSceneGroundRows`, so the typecheck refuses a mount that forgets them.
   const row = read(`${EDITOR}/_components/scene-background-row.tsx`);
   const heroBranch = /if \(props\.widgetType === 'hero'\) \{[\s\S]*?<CoverSceneGroundRows[\s\S]*?\/>/.exec(row)?.[0] ?? '';
-  assert.match(heroBranch, /ownsPro=\{props\.ownsPro\}/, 'the hero branch hands the real Pro gate on');
+  assert.match(heroBranch, /mediaCapBytes=\{coupleMediaCapBytes\(props\.ownsPro\)\}/, 'the hero branch hands on the plan’s number, from the real Pro gate');
   assert.match(heroBranch, /proHref=\{props\.ownsPro \|\| props\.storeShell \? null : `\/dashboard\/\$\{props\.eventId\}\/studio\/website-pro`\}/, 'and the buy path, for a Free event only');
   const cover = read('app/dashboard/[eventId]/launch/_components/stage-panel/cover-words-background.tsx');
-  assert.match(cover, /\n\s*ownsPro: boolean;/, 'ownsPro is required');
+  assert.match(cover, /\n\s*mediaCapBytes: number;/, 'mediaCapBytes is required');
   assert.match(cover, /\n\s*proHref: string \| null;/, 'proHref is required');
 });
 

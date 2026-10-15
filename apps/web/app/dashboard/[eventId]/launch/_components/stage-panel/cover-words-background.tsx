@@ -9,7 +9,7 @@ import { HUB_GLASS_OPACITY_MAX, HUB_GLASS_OPACITY_MIN, HUB_GLASS_OPACITY_STEP, h
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave } from '@/lib/maker-refresh';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
-import { MAKER_MAX_CLIP_SECONDS, coupleMediaCapBytes, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
+import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { sceneShadeAt, sceneShadeOf } from '@/lib/scene-shade-bar';
@@ -47,7 +47,7 @@ export function CoverSceneGroundRows({
   board,
   photoChoices = [],
   mediaUsedBytes,
-  ownsPro,
+  mediaCapBytes,
   proHref,
   loopPosters = {},
 }: {
@@ -61,8 +61,10 @@ export function CoverSceneGroundRows({
   board?: readonly string[];
   photoChoices?: readonly { ref: string; url: string }[];
   mediaUsedBytes?: number;
-  /** The real Pro gate for this event (`eventCoupleWebsiteProActive`) — the meter's allowance is the PLAN's (Free 10 MB · Pro 500 MB). Required, so a new mount cannot fall back to Free silently. */
-  ownsPro: boolean;
+  /** The PLAN's allowance for this event — `coupleMediaCapBytes(ownsPro)`, worked out by the caller from the real Pro
+   *  gate (Free 10 MB · Pro 500 MB). A number, not the Pro flag: this panel draws no Pro control of its own. Required,
+   *  so a new mount cannot fall back to Free silently (`couple-media-cap-is-enforced.test.ts` 4c). */
+  mediaCapBytes: number;
   /** The existing Event Hub Pro buy path — given only to a Free event (null for Pro / a store shell), as `main-background-panel.tsx` does. */
   proHref: string | null;
 }) {
@@ -183,7 +185,7 @@ export function CoverSceneGroundRows({
       <p className="pt-1 text-[12px] text-ink/60" data-cover-scene-clip-line="" role={clipKept ? 'status' : undefined}>
         {COVER_SCENE_CLIP_LINE}
       </p>
-      {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={proHref} className="pt-2" /> : null}
+      {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={mediaCapBytes} proHref={proHref} className="pt-2" /> : null}
     </div>
   );
   return (

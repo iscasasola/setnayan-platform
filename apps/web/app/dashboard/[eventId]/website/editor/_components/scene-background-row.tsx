@@ -147,7 +147,7 @@ export function SceneBackgroundRow(props: Parameters<typeof SceneBackgroundRows>
         board={props.board}
         photoChoices={props.photoChoices}
         mediaUsedBytes={props.mediaUsedBytes}
-        ownsPro={props.ownsPro}
+        mediaCapBytes={coupleMediaCapBytes(props.ownsPro)}
         proHref={props.ownsPro || props.storeShell ? null : `/dashboard/${props.eventId}/studio/website-pro`}
         loopPosters={props.loopPosters}
       />

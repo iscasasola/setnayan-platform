@@ -37,7 +37,7 @@ function world(els: El[], reduce = false) {
     style: { setProperty: (k: string, v: string) => void e.vars.set(k, v) },
     getClientRects: () => [1],
     getBoundingClientRect: () => ({ top: e.top, bottom: e.bottom }),
-    matches: (s: string) => (s === '.hub-canvas' ? e.frame : false),
+    matches: (s: string) => (s.startsWith('.hub-canvas') ? e.frame : false),
     closest: (s: string) => (s === '.hub-canvas' && e.inFrame ? {} : null),
     parentElement: { hasAttribute: (a: string) => a === 'data-hub-rows' && e.row },
   });

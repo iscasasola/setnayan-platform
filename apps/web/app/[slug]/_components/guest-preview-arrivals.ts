@@ -50,7 +50,8 @@ export function startGuestArrivals(
         rearmed.push(el);
       }
       io.observe(el);
-    } else if (el.matches('.hub-canvas') && el.getBoundingClientRect().bottom > 0) {
+    } else if (el.matches('.hub-canvas:not(.hub-tl-scrub)') && el.getBoundingClientRect().bottom > 0) {
+      /* (a scene that follows the scroll is where the scroll puts it — it has no arrival to replay) */
       replay(el);
     }
   }

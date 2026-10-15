@@ -480,6 +480,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'scripts/scrub-fixture-page.tsx',
     /* …and (2026-10-15) the Cover Scene's guard, which draws the real page with a stored ground. A test. */
     'lib/the-cover-scene-is-one-group.test.ts',
+    /* …and (2026-10-15) the one-page Invitation's guard: the three marks, the bar's hrefs and Me read off the real page. A test. */
+    'app/[slug]/_lib/the-invitation-is-one-page.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

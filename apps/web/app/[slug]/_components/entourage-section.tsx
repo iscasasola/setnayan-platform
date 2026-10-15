@@ -207,7 +207,9 @@ function ColumnWords({ words, look }: { words: readonly [string, string]; look: 
 function Person({ person, word, muted = false }: { person: EntouragePerson; word: string | null; muted?: boolean }) {
   return (
     <>
-      <span className="text-base text-ink">{person.name}</span>
+      <span className="text-base text-ink" data-person="">
+        {person.name}
+      </span>
       {word ? <span className={`${UNDER} ${muted ? 'text-ink/60' : 'text-gild'}`}>{word}</span> : null}
     </>
   );

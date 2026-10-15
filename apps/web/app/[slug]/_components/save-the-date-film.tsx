@@ -1655,7 +1655,7 @@ export function SaveTheDateFilm({
       ) : null}
 
       {/* The film carries no "swipe up to continue" cue — it duplicated the veil's
-          "Lift the veil ↑ / or double-tap" swipe-up pill, so the two were
+          unveil pill ("Tap or swipe up to unveil" since 2026-10-15), so the two were
           consolidated into that single pill (owner 2026-06-21). What remains is a
           DIFFERENT, one-time cue: "press and hold to pause", since the film has no
           transport chrome and pausing would otherwise be undiscoverable. It fades

@@ -162,6 +162,9 @@ type Props = {
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
 
+/** 👆 The veil's one instruction (owner 2026-10-15, verbatim: *"Tap, swipe up to unveil"*). */
+export const VEIL_HINT = 'Tap or swipe up to unveil';
+
 /** 🎭 On the page (`<html>`) while a guest is looking at the opening — read by the Scrub island (`hub-scrub.tsx`). */
 export const REVEAL_UP_ATTR = 'data-reveal-up';
 
@@ -391,18 +394,21 @@ export function RevealOverlay({
 
             ⛔ NOT H-2. That is the FILM's label face (`lib/std-themes.ts`), it
             is owner-gated, and nothing here touches it. This is the reveal
-            overlay — a different component, and W3-D's own scheduled item. */}
+            overlay — a different component, and W3-D's own scheduled item.
+
+            👆 2026-10-15 — ONE LINE NOW, IN THE OWNER'S NEW WORDS (*"before we
+            had double tap to unveil. now we make it simpler. Tap, swipe up to
+            unveil"*). The two lines ("Lift the veil ↑" / "or double-tap to lift
+            it for you") said two gestures; there is one instruction now, set at
+            the headline's 24px, so legibility still only went up. */}
         <div
           className={`pointer-events-none absolute inset-x-0 bottom-16 flex justify-center transition-opacity duration-500 ${
             open ? 'opacity-0' : 'opacity-100'
           }`}
         >
           <div className="rounded-full bg-black/35 px-6 py-3 text-center backdrop-blur-[2px]">
-            <p className="font-display text-2xl font-medium leading-snug text-cream [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
-              Lift the veil ↑
-            </p>
-            <p className="mt-1 text-balance font-sans text-sm leading-snug text-cream/85 [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
-              or double-tap to lift it for you
+            <p className="text-balance font-display text-2xl font-medium leading-snug text-cream [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+              {VEIL_HINT}
             </p>
           </div>
         </div>

@@ -91,9 +91,9 @@ test('meter: a negative or non-finite reading degrades to zero, never NaN/negati
 
 test('the label reads one decimal below 10 MB, whole numbers above it', () => {
   const small = makerMediaMeterState(2.4 * MB, FREE_CAP);
-  assert.equal(formatMakerMediaMeterLabel(small), '2.4 MB of 10 MB used');
+  assert.equal(formatMakerMediaMeterLabel(small), 'Your media · 2.4 MB of 10 MB');
   const large = makerMediaMeterState(12.4 * MB, PRO_CAP);
-  assert.equal(formatMakerMediaMeterLabel(large), '12 MB of 500 MB used');
+  assert.equal(formatMakerMediaMeterLabel(large), 'Your media · 12 MB of 500 MB');
 });
 
 test('the meter shows THE PLAN\'s number: the same bytes are near on Free and nowhere near on Pro', () => {
@@ -103,8 +103,8 @@ test('the meter shows THE PLAN\'s number: the same bytes are near on Free and no
   assert.equal(free.isNear, true);
   assert.equal(free.isFull, false);
   assert.equal(pro.isNear, false);
-  assert.equal(formatMakerMediaMeterLabel(free), '9.5 MB of 10 MB used');
-  assert.equal(formatMakerMediaMeterLabel(pro), '9.5 MB of 500 MB used');
+  assert.equal(formatMakerMediaMeterLabel(free), 'Your media · 9.5 MB of 10 MB');
+  assert.equal(formatMakerMediaMeterLabel(pro), 'Your media · 9.5 MB of 500 MB');
 });
 
 test('an unreadable cap falls back to the SMALLER (Free) number, never the larger', () => {

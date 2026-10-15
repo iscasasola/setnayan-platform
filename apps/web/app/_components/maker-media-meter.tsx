@@ -46,12 +46,7 @@ export function MakerMediaMeter({
   const offerPro = Boolean(proHref) && state.capBytes < proBytes;
   return (
     <div className={className ? `space-y-1 ${className}` : 'space-y-1'}>
-      <div className="flex items-center justify-between text-xs font-medium text-ink/75">
-        <span>Storage</span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
-          {formatMakerMediaMeterLabel(state)}
-        </span>
-      </div>
+      <p className="text-xs font-medium text-ink/75">{formatMakerMediaMeterLabel(state)}</p>
       <div
         role="progressbar"
         aria-valuenow={Math.round(state.pct)}

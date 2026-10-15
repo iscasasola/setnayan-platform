@@ -38,9 +38,17 @@ export const MAKER_MAX_CLIP_SECONDS = 15;
  */
 export const MAKER_CLIP_TOO_LONG_MESSAGE = 'Please pick a video under 15 seconds.';
 
-/** The two plan numbers — read ONLY through `coupleMediaCapBytes`, never on their own. */
-const FREE_COUPLE_MEDIA_BYTES = 10 * 1024 * 1024; // 10 MB
-const PRO_COUPLE_MEDIA_BYTES = 500 * 1024 * 1024; // 500 MB
+/**
+ * The couple's own upload allowance per event, counted AFTER compression — the
+ * SAME constant that held the single 100 MB cap (DECISION_LOG 2026-09-25), now
+ * plan-aware (owner FINAL 2026-10-15: Free 10 MB · Event Hub Pro 500 MB). There
+ * is no second quota constant; every caller reads it through
+ * `coupleMediaCapBytes(isPro)` below.
+ */
+export const MAKER_EVENT_MEDIA_BYTES_CAP = {
+  free: 10 * 1024 * 1024, // 10 MB
+  pro: 500 * 1024 * 1024, // 500 MB
+} as const;
 
 /**
  * THE ONE CAP FUNCTION — the couple's own upload allowance per event, counted
@@ -54,7 +62,7 @@ const PRO_COUPLE_MEDIA_BYTES = 500 * 1024 * 1024; // 500 MB
  * add (the cap only gates NEW reservations).
  */
 export function coupleMediaCapBytes(isPro: boolean): number {
-  return isPro ? PRO_COUPLE_MEDIA_BYTES : FREE_COUPLE_MEDIA_BYTES;
+  return isPro ? MAKER_EVENT_MEDIA_BYTES_CAP.pro : MAKER_EVENT_MEDIA_BYTES_CAP.free;
 }
 
 /**
@@ -163,9 +171,9 @@ export function makerMediaMeterState(usedBytes: number, capBytes: number): Maker
   };
 }
 
-/** `"12.4 MB of 500 MB used"` — the one label every meter surface shows. */
+/** `"Your media · 12.4 MB of 500 MB"` — the one label every meter surface shows (owner 2026-10-15). */
 export function formatMakerMediaMeterLabel(state: MakerMediaMeterState): string {
-  return `${formatMakerMediaMB(state.usedBytes)} of ${formatMakerMediaMB(state.capBytes)} used`;
+  return `Your media · ${formatMakerMediaMB(state.usedBytes)} of ${formatMakerMediaMB(state.capBytes)}`;
 }
 
 /**

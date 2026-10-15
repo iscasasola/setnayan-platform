@@ -197,7 +197,7 @@ test('3b · /api/upload reserves the bytes BEFORE it signs the PUT, and counts n
   assert.match(server, /if \(listing\.truncated \|\| referenceText === null\) return null;/, 'a partial view never lowers the number');
 });
 
-test('3c · ONE cap function: the old single constant is gone and no other file names a plan number', async () => {
+test('3c · ONE cap: the existing constant is plan-aware, and only its own file names it', async () => {
   const { readdirSync, statSync } = await import('node:fs');
   const files: string[] = [];
   const walk = (dir: string) => {
@@ -215,12 +215,13 @@ test('3c · ONE cap function: the old single constant is gone and no other file 
   const offenders: string[] = [];
   for (const f of files) {
     const src = read(f);
-    if (/MAKER_EVENT_MEDIA_BYTES_CAP/.test(src)) offenders.push(`${f}: the retired single cap`);
-    if (f !== 'lib/maker-media-limits.ts' && /(?:FREE|PRO)_COUPLE_MEDIA_BYTES/.test(src)) offenders.push(`${f}: a second copy of a plan number`);
+    if (f !== 'lib/maker-media-limits.ts' && /MAKER_EVENT_MEDIA_BYTES_CAP/.test(src)) offenders.push(`${f}: reads the cap around coupleMediaCapBytes`);
+    if (/(?:FREE|PRO)_COUPLE_MEDIA_BYTES|COUPLE_MEDIA_(?:BYTES_)?(?:CAP|QUOTA|LIMIT)\b/.test(src)) offenders.push(`${f}: a second quota constant`);
   }
   assert.deepEqual(offenders, []);
   const limits = read('lib/maker-media-limits.ts');
-  assert.match(limits, /export function coupleMediaCapBytes\(isPro: boolean\): number \{\s*return isPro \? PRO_COUPLE_MEDIA_BYTES : FREE_COUPLE_MEDIA_BYTES;\s*\}/);
+  assert.match(limits, /export const MAKER_EVENT_MEDIA_BYTES_CAP = \{\s*free: 10 \* 1024 \* 1024,[^\n]*\n\s*pro: 500 \* 1024 \* 1024,[^\n]*\n\} as const;/);
+  assert.match(limits, /export function coupleMediaCapBytes\(isPro: boolean\): number \{\s*return isPro \? MAKER_EVENT_MEDIA_BYTES_CAP\.pro : MAKER_EVENT_MEDIA_BYTES_CAP\.free;\s*\}/);
 });
 
 /* ── 4 · THE METER WHERE THE UPLOADS HAPPEN ──────────────────────────────── */
@@ -252,7 +253,7 @@ test('4 · the meter renders under the scene’s Upload media, with the settled 
   const html = await paintRow({ mediaUsedBytes: 42 * MB });
   const upload = /data-inspector-row="scene-upload"[\s\S]*$/.exec(html)?.[0] ?? '';
   assert.match(upload, /aria-label="Event media storage used"/, 'the meter sits in the upload row');
-  assert.match(upload, /42 MB of 500 MB used/, 'a Pro couple reads the Pro number');
+  assert.match(upload, /Your media · 42 MB of 500 MB/, 'a Pro couple reads the Pro number');
   assert.doesNotMatch(upload, /Unlock Pro/, 'a Pro couple is never offered Pro');
   const full = await paintRow({ mediaUsedBytes: coupleMediaCapBytes(true) });
   assert.match(full, /remove something to add more/, 'a full allowance says what to do');
@@ -262,16 +263,16 @@ test('4 · the meter renders under the scene’s Upload media, with the settled 
 test('4a · a FREE couple reads 10 MB, and at the cap sees one ◆ Pro line with Unlock Pro on the existing path', async () => {
   const part = await paintRow({ ownsPro: false, mediaUsedBytes: 4 * MB });
   const meter = (h: string) => /data-inspector-row="scene-upload"[\s\S]*$/.exec(h)?.[0] ?? '';
-  assert.match(meter(part), /4 MB of 10 MB used/, 'a Free couple reads the Free number');
+  assert.match(meter(part), /Your media · 4 MB of 10 MB/, 'a Free couple reads the Free number');
   assert.doesNotMatch(meter(part), /Unlock Pro/, 'the Pro line waits until the allowance is used');
   const full = meter(await paintRow({ ownsPro: false, mediaUsedBytes: coupleMediaCapBytes(false) }));
-  assert.match(full, /10 MB of 10 MB used/);
+  assert.match(full, /10 MB of 10 MB/);
   assert.match(full, /◆ Event Hub Pro gives you 500 MB\./, 'ONE line, the Pro mark, the Pro number');
   assert.match(full, new RegExp(`href="/dashboard/${E}/studio/website-pro"[^>]*>Unlock Pro<`), 'Unlock Pro goes to the existing upgrade path');
   assert.doesNotMatch(full, /🔒|padlock/i, 'never a padlock');
   // A couple already OVER the new Free number (files are never deleted): full, nothing removed, still just one line.
   const over = meter(await paintRow({ ownsPro: false, mediaUsedBytes: 40 * MB }));
-  assert.match(over, /40 MB of 10 MB used/);
+  assert.match(over, /40 MB of 10 MB/);
   assert.equal((over.match(/Event Hub Pro gives you/g) ?? []).length, 1);
 });
 

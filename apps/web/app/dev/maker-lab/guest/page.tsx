@@ -703,7 +703,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   return (
-    <main className={`min-h-dvh text-center text-ink ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase}>
+    <main className={`min-h-dvh text-center text-ink [--cover-scene-above:calc(35px_+_1.5rem)] ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase}>
+      {/* 📐 `--cover-scene-above`: the lab's bar (35px) + its section's pt-6 — the shell's rule (`lib/cover-scene-screen.ts`), lab-sized. */}
       {/* The page's paper is a LAYER under everything, as the real page's is (`GuestGround`) — never the box's own
           fill, which would hide a background laid behind the page (the main background, and its instant preview). */}
       {labPhoto && !ground ? null : <div data-guest-ground="" aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[#FBF9F5]" />}

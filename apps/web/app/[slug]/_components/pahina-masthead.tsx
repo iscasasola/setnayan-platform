@@ -146,7 +146,9 @@ export function PahinaMasthead({
     ...(ground ? { 'data-cover-tone': ground.tone, ...(ground.tone === 'cream' ? { style: COVER_SCENE_CREAM_VARS } : {}) } : {}),
   };
   const coverGround = ground ? <CoverSceneGround layer={ground} /> : null;
-  const coverBox = ground ? ' relative isolate' : '';
+  /* py-10: where the words are taller than the screen (a short window, the Maker's canvas) they still sit INSIDE the
+     Framed edge, never on its margin (walked 2026-10-15: the title sat on the 12px margin above the picture). */
+  const coverBox = ground ? ' relative isolate py-10' : '';
   const names = splitCoupleNames(displayName, twoPeople);
   /* 🗓 FORMAT ▾ (tap-to-type): the date and the time written the couple's way
      (`lib/hub-date-formats.ts`); no format = today's words, byte for byte. */

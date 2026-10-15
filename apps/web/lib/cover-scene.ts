@@ -22,7 +22,10 @@ import { INVITE_THEMES } from './invite-themes';
  * words — and `100dvh` where the browser has it (the prototype's own rule). The words are centred in it (The Letter
  * keeps its own foot-of-the-screen column); the page's first scroll begins under it.
  */
-export const COVER_SCENE_SCREEN = 'min-h-[100svh] supports-[height:100dvh]:min-h-[100dvh]';
+export const COVER_SCENE_SCREEN =
+  'min-h-[calc(100svh_-_var(--cover-scene-above,0px))] supports-[height:100dvh]:min-h-[calc(100dvh_-_var(--cover-scene-above,0px))]';
+/* 📐 …less what sits above it: `./cover-scene-screen.ts` (dependency-free — the guest shell, a client import, reads it). */
+export { COVER_SCENE_ABOVE_CANVAS, COVER_SCENE_ABOVE_PAGE } from './cover-scene-screen';
 /** …the centred column every design but The Letter lays its words in. */
 export const COVER_SCENE_CENTRED = `${COVER_SCENE_SCREEN} flex flex-col justify-center`;
 

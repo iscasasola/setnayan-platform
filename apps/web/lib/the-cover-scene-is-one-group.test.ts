@@ -148,7 +148,7 @@ function cover(extra: Record<string, unknown>): string {
     React.createElement(PahinaMasthead, { displayName: 'Maria & Juan', eventDate: '2027-02-14', monogramSlot: MARK, ...extra }),
   );
 }
-const FIRST_SCREEN = /<header data-pahina-first-screen=""[^>]*\sdata-cover-scene="[^"]*"[^>]*class="[^"]*min-h-\[100svh\] supports-\[height:100dvh\]:min-h-\[100dvh\][^"]*"/;
+const FIRST_SCREEN = /<header data-pahina-first-screen=""[^>]*\sdata-cover-scene="[^"]*"[^>]*class="[^"]*min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\][^"]*"/;
 
 test('(5) the cover is the whole first screen in every design; an absent ground draws no layer', () => {
   const variants: [string, Record<string, unknown>][] = [
@@ -262,4 +262,14 @@ test('(10) resolveHero and the Cover Scene never disagree: a photo ground draws 
   assert.match(withHero.html, /data-cover-scene-ground="framed"[\s\S]{0,300}background-image:url\(&quot;https:\/\/cdn\.test\/the-hero\.jpg&quot;\)/, 'the cover does not draw the hero photo');
   const noHero = await renderSiteBodyFixtureFull({ widgets: fixtureWidgets({ hero: { ground } }) });
   assert.doesNotMatch(noHero.html, /data-cover-scene-ground/, 'a photo cover with no hero photo drew a picture of its own');
+});
+
+test('(11) the first screen is the cover LESS what sits above it: the guest column and the Maker canvas each say how much', async () => {
+  const shell = read('app/[slug]/_components/invitation-shell.tsx');
+  assert.match(shell, /className=\{`\$\{editorCanvas \? COVER_SCENE_ABOVE_CANVAS : COVER_SCENE_ABOVE_PAGE\} \$\{/, 'the page column no longer says what sits above the cover — a full 100svh runs past the fold by the top bar and the padding');
+  const { COVER_SCENE_ABOVE_PAGE, COVER_SCENE_ABOVE_CANVAS } = await import('./cover-scene-screen');
+  for (const bp of ['', 'sm:', 'xl:']) {
+    assert.ok(COVER_SCENE_ABOVE_PAGE.split(' ').some((c) => c.startsWith(`${bp}[--cover-scene-above:calc(4rem_+_1px_+_`)), `the guest page at "${bp || 'phone'}" forgets the top bar (4rem + its rule)`);
+    assert.ok(COVER_SCENE_ABOVE_CANVAS.split(' ').some((c) => c.startsWith(`${bp}[--cover-scene-above:`)), `the canvas at "${bp || 'phone'}" forgets its padding`);
+  }
 });

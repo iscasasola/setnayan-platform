@@ -150,7 +150,10 @@ export function StageBackground({
       {/* ══ ROW 2 — its choices ══ */}
       <div className="row-start-2 min-w-0" data-stage-bg="choices">
         {source === 'hub' ? (
-          <p className={`${SP_BG_ROW} ${SP_BG_QUIET}`}>{hubLine}</p>
+          <p className={`${SP_BG_ROW} ${SP_BG_QUIET}`}>
+            {/* Two lines at most: the Cover Scene's line is a sentence (the prototype wraps it); `truncate` on a flex row cut it mid-word. */}
+            <span className="line-clamp-2 min-w-0 whitespace-normal leading-snug">{hubLine}</span>
+          </p>
         ) : (
           <div ref={strip} role="group" aria-label={`${BACKGROUND_SOURCE_LABEL[source]} backgrounds`} data-stage-bg-strip={source} className={SP_BG_STRIP}>
             {onUpload ? (

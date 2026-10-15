@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "24d79b3cac",
-  "routeCount": 445,
-  "destinations": 988,
+  "generatedFromRef": "b88d5e0202",
+  "routeCount": 446,
+  "destinations": 989,
   "actions": 663,
-  "blocks": 6470,
+  "blocks": 6472,
   "routes": {
     "/": {
       "files": [
@@ -12836,6 +12836,20 @@
         "SupplierSubmit",
         "SupplierThumbRow",
         "SwitchTrack"
+      ]
+    },
+    "/vendor-dashboard/collections/albums": {
+      "files": [
+        "vendor-dashboard/collections/albums/loading.tsx",
+        "vendor-dashboard/collections/albums/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/on-the-day/live/[seg]/papic"
+      ],
+      "actions": [],
+      "blocks": [
+        "DatesRow",
+        "ShopSegments"
       ]
     },
     "/vendor-dashboard/contracts": {

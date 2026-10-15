@@ -33,7 +33,7 @@
  * (`file_upload` for the couple's own photo, `gallery_pick` for a supplier's,
  * with `library_asset_id` naming it) — nothing else, and nothing per board. The
  * attire boards' `slot_key`s are `bride` · `groom` · `bridesmaids` ·
- * `groomsmen` · `flower_girl` · `ring_bearer` · `entourage`.
+ * `groomsmen` · `flower_girl` · `ring_bearer` (`entourage` left Attire 2026-10-14).
  *
  * Pure, client-safe: types only from the taxonomy (it reaches the server).
  */
@@ -106,8 +106,11 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
      search from the photos uploaded by vendors"*): one board each, in his order, each uploading and
      searching its own shelf of suppliers' photos through the shipped picker. The bride's card is the
      gown; the groom's slot (stored since onboarding) is the suit; the four after them have slots of
-     their own since migration 20271266380994. `entourage` STAYS, last — the whole party's board, and
-     couples' photos already live on it.
+     their own since migration 20271266380994.
+     🗑 ENTOURAGE IS GONE FROM ATTIRE (owner 2026-10-14: *"remove entourage"*): Bridesmaids · Groomsmen · Flower
+     girl · Ring bearer carry their own boards. Its stored photos stay in their rows (nothing is deleted) and its
+     slot stays in the DB vocabulary; the `wedding_party` palette stays the silent fallback the party's colours
+     resolve through (`resolveAttirePaletteColors`).
      🧒 Flower girl · Ring bearer: no palette button. The two share ONE palette (`bearers_flower_girl`),
      so "use this board's colours" from either would overwrite the other's — shown, never applied. */
   { slotKey: 'bride', label: 'Bridal gown', from: 'gown designers and make-up artists', target: { kind: 'role', key: 'bride' }, useLabel: 'Use for the bride’s colours', attire: true },
@@ -116,7 +119,6 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
   { slotKey: 'groomsmen', label: 'Groomsmen', from: 'suit and barong makers', target: { kind: 'role', key: 'groomsmen' }, useLabel: 'Use for the groomsmen', attire: true },
   { slotKey: 'flower_girl', label: 'Flower girl', from: 'dress and Filipiniana makers', target: { kind: 'none' }, useLabel: null, attire: true, beside: 'bearers_flower_girl' },
   { slotKey: 'ring_bearer', label: 'Ring bearer', from: 'suit and barong makers', target: { kind: 'none' }, useLabel: null, attire: true, beside: 'bearers_flower_girl' },
-  { slotKey: 'entourage', label: 'Entourage', from: 'attire makers', target: { kind: 'role', key: 'wedding_party' }, useLabel: 'Use for the entourage', attire: true },
   { slotKey: 'cake', label: 'Cake', from: 'cake and dessert makers', target: { kind: 'none' }, useLabel: null },
   /* 💐 Their slots exist since 2026-10-07 (migration 20271265788160, step 4c). */
   { slotKey: 'bridal_bouquet', label: 'Bridal bouquet', from: 'florists', target: { kind: 'florals' }, useLabel: 'Use for the florist’s colours' },

@@ -90,6 +90,11 @@ export function labDressConfig(board: readonly string[]) {
     dos: ['Barong Tagalog or a suit', 'Long or midi dresses'],
     donts: ['White or ivory', 'Jeans and sneakers'],
     palette: board.map((hex, i) => ({ name: names[i] ?? '', hex })),
+    /* 👗 What each role wears (2026-10-14) — so the lab draws the figures as a couple sets them: the sponsors and the
+       guests each with TWO picks, the women's sponsors in a colour of their own (`dress_code_config.women`). */
+    roles: { bride: { style: 'long_gown' }, groom: { style: 'barong_tagalog' }, guest: { style: 'smart_casual' } },
+    groups: { principal_sponsors: { style: 'barong_tagalog', note: 'In the wedding colours' }, bridesmaids: { style: 'filipiniana' }, groomsmen: { style: 'suit' } },
+    women: { groups: { principal_sponsors: { style: 'long_gown', colours: [board[2]] } }, roles: { guest: { style: 'cocktail_dress' } } },
   };
 }
 
@@ -102,5 +107,6 @@ export function labRolePalette(board: readonly string[]) {
     bridesmaids: [board[3]],
     groomsmen: [board[1]],
     principal_sponsors: [board[0]],
+    guest: [board[3], board[1]],
   };
 }

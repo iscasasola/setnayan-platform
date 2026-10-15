@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
-import { guestRoleLabel, type GuestRole } from '@/lib/guests';
+import { guestRoleLabel, type GuestAttire, type GuestRole } from '@/lib/guests';
 import type { RoleNames } from '@/lib/role-names';
 import { PALETTE_LIMITS, paletteKeyForRole, sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
 import { RoleFigure } from '@/app/_components/role-figure';
@@ -12,7 +12,9 @@ import {
   sanitizeGroupAttire,
 } from '@/lib/role-group-dress-code';
 import { dressCodeForEveryone, ourColoursWith, speaksToThisReader } from '@/lib/dress-code-for-everyone';
-import { STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
+import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
+import { PICK_LABEL, attireRowOfPalette, isTwoPick, picksOf, readerAttire } from '@/lib/attire-rows';
+import { roleFigures } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { nearestColorName } from '@/lib/color-names';
 import { roleLabel } from '@/lib/entourage';
@@ -108,6 +110,7 @@ export function DressCodeWidget({
   genderSeparation,
   words,
   guestRole = null,
+  guestAttire = null,
   march = null,
   rolePalette = null,
   roleNames = null,
@@ -170,6 +173,12 @@ export function DressCodeWidget({
   config: EventRow['dress_code_config'];
   /** The reader's own role, when the reader is an identified guest. */
   guestRole?: GuestRole | null;
+  /**
+   * 👗 What the couple marked this guest as wearing on their guest list (`guests.attire`: gown · suit · neutral) — the
+   * only word the product holds for which of a role's two picks is theirs (owner 2026-10-14: men and women each have
+   * their own). Unknown → the reader is shown both picks.
+   */
+  guestAttire?: GuestAttire | null;
   /** The couple's mood board (`events.role_palette`, raw — sanitised here) —
    *  "Our colours" and every colour a role wears come from here. */
   rolePalette?: unknown;
@@ -281,7 +290,24 @@ export function DressCodeWidget({
     palette: board,
     names: roleNames,
   }), generalHasContent);
-  const mine = resolved.panel;
+  /* 👗 THE READER'S OWN PICK (owner 2026-10-14): from a group with two picks (men · women, boys · girls), theirs — or
+     both, named, when the page cannot tell which they are. Their colours and their person follow the same pick. */
+  const mineDress = resolved.panel
+    ? readerAttire({
+        role: guestRole,
+        attire: guestAttire,
+        source: resolved.source,
+        config: config as Record<string, unknown> | null,
+        style: resolved.panel.style,
+        hexes: resolved.panel.hexes,
+        label: (st) => ATTIRE_STYLE_LABEL[st],
+        single: (role) => {
+          const people = roleFigures(role, ['#000000']);
+          return people.length === 1 ? people[0]!.kind : null;
+        },
+      })
+    : null;
+  const mine = resolved.panel && mineDress ? { ...resolved.panel, styleLabel: mineDress.styleLabel, hexes: mineDress.hexes } : resolved.panel;
   // Said only when the answer came from the group, so a reader knows the couple
   // dressed her whole group and did not overlook her.
   const mineFromGroup = resolved.source === 'group' ? groupLabelOf(guestRole, roleNames) : null;
@@ -361,7 +387,8 @@ export function DressCodeWidget({
             roleKey={guestRole}
             hexes={mine.hexes}
             meaning={meaningOf(paletteKeyForRole(guestRole) as PaletteKey)}
-            className="h-20 w-auto"
+            picks={mineDress?.picks ?? null}
+            className="h-28 w-auto"
           />
         ) : null}
         {mine.hexes.length > 0 ? <YourColours hexes={mine.hexes} look={look} /> : null}
@@ -551,7 +578,8 @@ export function DressCodeWidget({
               roleKey={guestRole}
               hexes={mine.hexes}
               meaning={meaningOf(paletteKeyForRole(guestRole) as PaletteKey)}
-              className="h-20 w-auto"
+              picks={mineDress?.picks ?? null}
+              className="h-28 w-auto"
             />
           ) : null}
           {mine.hexes.length > 0 ? <YourColours hexes={mine.hexes} look={look} /> : null}
@@ -601,11 +629,26 @@ export function DressCodeWidget({
         /* 📜 `data-hub-rows`: one role per row, arriving in turn in a "One
            part after another" scene — the run of show's mechanism, not its own. */
         <ul className="divide-y divide-ink/10 border-y border-ink/10" data-dress-code="roles" data-hub-rows="">
-          {everyone.rows.map((row) => (
+          {everyone.rows.map((row) => {
+            /* 👗 A row with two picks (owner 2026-10-14) — men · women, boys · girls — says each, draws each. */
+            const def = attireRowOfPalette(row.key);
+            const picks = def ? picksOf(config as Record<string, unknown> | null, def) : null;
+            const two = isTwoPick(def) && picks;
+            const pickLines = two ? picks.filter((p) => p.style).map((p) => ({ label: PICK_LABEL[p.who], styleLabel: ATTIRE_STYLE_LABEL[p.style!] })) : [];
+            const lines = two ? row.lines.filter((l) => l.source === 'role') : row.lines;
+            /* The group's note stays — it is the couple's words for the whole row, whichever pick a guest is. */
+            const groupNote = two ? (row.lines.find((l) => l.source === 'group')?.note ?? null) : null;
+            return (
             <li key={row.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2.5" data-role-row={row.key}>
               <div className="min-w-0 flex-1 basis-40 space-y-0.5">
                 <p className="text-sm font-medium leading-snug text-ink">{row.label}</p>
-                {row.lines.map((line, i) => (
+                {pickLines.map((line) => (
+                  <p key={line.label} className="text-xs leading-relaxed text-ink/65" data-dress-code-pick="">
+                    {line.label} · {line.styleLabel}
+                  </p>
+                ))}
+                {groupNote ? <p className="text-xs leading-relaxed text-ink/65">{groupNote}</p> : null}
+                {lines.map((line, i) => (
                   <p key={i} className="text-xs leading-relaxed text-ink/65">
                     {line.label} · {line.styleLabel}
                     {line.note ? <> — {line.note}</> : null}
@@ -617,7 +660,7 @@ export function DressCodeWidget({
                   {/* 👗 The role, drawn in its colours — a gown and a suit for a
                       role that holds both, one person per colour for the guests. */}
                   {showFigure ? (
-                    <RoleFigure roleKey={row.key} hexes={row.hexes} meaning={meaningOf(row.key)} />
+                    <RoleFigure roleKey={row.key} hexes={row.hexes} meaning={meaningOf(row.key)} picks={picks} />
                   ) : null}
                   {look !== 'tags' ? (
                     <PaletteLookList look={look} size="row" items={row.hexes.map((hex) => ({ hex, name: colourName(hex) || undefined }))} label={`${row.label} colours`} />
@@ -633,7 +676,8 @@ export function DressCodeWidget({
                 </div>
               ) : null}
             </li>
-          ))}
+            );
+          })}
         </ul>
       ) : null}
       {/* 🔲 The Maker's canvas, no list yet: where the Do's & Don'ts will go, in the look picked — in greys. */}

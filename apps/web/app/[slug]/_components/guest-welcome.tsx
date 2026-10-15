@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
-import type { GuestRole } from '@/lib/guests';
+import type { GuestAttire, GuestRole } from '@/lib/guests';
 import type { MarchPlace } from '@/lib/march-place';
 import type { WelcomePart } from '@/lib/invitation-welcome';
 import type { PaletteLookId } from '@/lib/palette-looks';
@@ -51,6 +51,8 @@ export type WelcomeLook = {
   ceremonyType: string | null;
   genderSeparation: string | null;
   guestRole: GuestRole | null;
+  /** 👗 `guests.attire` — which of a two-pick role's picks is theirs (`DressCodeWidget` `guestAttire`). */
+  guestAttire?: GuestAttire | null;
   march: MarchPlace | null;
   rolePalette: unknown;
   /** 🎨 The Dress code scene's palette look (`paletteLookOfRow`) — the reader's own colours follow it here too. Absent = Tags. */
@@ -112,6 +114,7 @@ export function GuestWelcome({
                 ceremonyType={look.ceremonyType}
                 genderSeparation={look.genderSeparation}
                 guestRole={look.guestRole}
+                guestAttire={look.guestAttire ?? null}
                 march={look.march}
                 rolePalette={look.rolePalette}
                 paletteLook={look.paletteLook ?? null}

@@ -1299,9 +1299,11 @@ const STUDIO_ATTIRE_GROUPS: ReadonlyArray<{ group: RoleGroup; paletteKey: Palett
   { group: 'officiants', paletteKey: 'officiants' },
 ];
 
-function studioAttireRows(tally: ReadonlyArray<{ role: GuestRole }>, config: DressCodeConfig | null): StudioAttireRow[] {
+function studioAttireRows(tally: ReadonlyArray<{ role: GuestRole; count?: number }>, config: DressCodeConfig | null): StudioAttireRow[] {
   const roles = new Set(tally.map((t) => t.role));
   const groups = new Set(tally.map((t) => roleGroupOf(t.role)));
+  /* 👗 How many hold it — "8 people" under the role's name (2026-10-14 blocks). */
+  const countOf = (match: (role: GuestRole) => boolean) => tally.reduce((n, t) => n + (match(t.role) ? (t.count ?? 0) : 0), 0) || undefined;
   const callOf = (tier: 'roles' | 'groups', key: string) =>
     formatCallTime(((config?.[tier] ?? {}) as Record<string, { callTime?: string }>)[key]?.callTime ?? null);
   const out: StudioAttireRow[] = [];
@@ -1310,9 +1312,9 @@ function studioAttireRows(tally: ReadonlyArray<{ role: GuestRole }>, config: Dre
   out.push({ tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: callOf('roles', 'groom') });
   for (const { group, paletteKey } of STUDIO_ATTIRE_GROUPS) {
     if (!groups.has(group)) continue;
-    out.push({ tier: 'groups', key: group, label: roleGroupLabel(group), paletteKey, arrives: callOf('groups', group) });
+    out.push({ tier: 'groups', key: group, label: roleGroupLabel(group), paletteKey, arrives: callOf('groups', group), people: countOf((r) => roleGroupOf(r) === group) });
   }
-  out.push({ tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null });
+  out.push({ tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null, people: countOf((r) => r === 'guest') });
   return out;
 }
 

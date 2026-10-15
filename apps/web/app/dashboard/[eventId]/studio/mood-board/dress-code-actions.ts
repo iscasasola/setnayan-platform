@@ -31,6 +31,7 @@ import {
   type RoleAttireRule,
 } from '@/lib/role-dress-code';
 import { sanitizeGroupAttire, type GroupAttireMap } from '@/lib/role-group-dress-code';
+import { withSecondPicksCarried, type SecondPicks } from '@/lib/attire-rows';
 import { roleLabel } from '@/lib/entourage';
 import type { GuestRole } from '@/lib/guests';
 import { getCurrentUser } from '@/lib/auth';
@@ -73,7 +74,21 @@ export type DressCodeConfig = {
    * today's look.
    */
   show_figure: boolean;
+  /**
+   * 👗 THE SECOND PICKS (owner 2026-10-14) — women's, or girls' on the bearers' row — of a row that dresses both
+   * (`lib/attire-rows.ts`). Set in Studio › Mood Board › Attire; this form has no field for them, so a save here
+   * CARRIES them from what it replaces (`withSecondPicksCarried`), never drops them.
+   */
+  women?: SecondPicks;
 };
+
+/** The live dress code, for a writer that replaces it whole — a failed read throws (nothing is written blind). */
+async function liveDressCode(eventId: string): Promise<unknown> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('events').select('dress_code_config').eq('event_id', eventId).maybeSingle();
+  if (error || !data) throw new Error('The dress code could not be read just now. Nothing was changed.');
+  return (data as { dress_code_config: unknown }).dress_code_config;
+}
 
 /**
  * Coerce a FormData value to a string + trim. Empty string is the
@@ -211,7 +226,7 @@ export async function updateDressCode(
     if (palette.length >= PALETTE_LENGTH_MAX) break;
   }
 
-  const config: DressCodeConfig = {
+  const built: DressCodeConfig = {
     title,
     description,
     dos,
@@ -227,6 +242,12 @@ export async function updateDressCode(
   // dress code until Apply.
   if (isHubDraftWrite(formData)) {
     await requireHostMembership(eventId);
+    // 👗 The second picks this form cannot show are carried from the config it replaces — the drafted one when
+    // there is one, else live (a failed read throws: replacing what could not be read would drop them unseen).
+    const drafted = await draftedEventColumn(eventId, 'dress_code_config');
+    let base: unknown = drafted.drafted ? drafted.value : null;
+    if (!drafted.drafted) base = await liveDressCode(eventId);
+    const config = withSecondPicksCarried(built, base);
     return draftEventsAndReturn(
       eventId,
       { dress_code_config: config },
@@ -237,6 +258,7 @@ export async function updateDressCode(
 
   // ----- Persist ----------------------------------------------------------
   const supabase = await createClient();
+  const config = withSecondPicksCarried(built, await liveDressCode(eventId));
   const { data: written, error } = await supabase
     .from('events')
     .update({

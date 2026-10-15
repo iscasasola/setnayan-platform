@@ -1401,9 +1401,19 @@ export function hubMainFadeAt(shade: HubMainShadeValue | null | undefined): numb
    hero row's `config_json`). ABSENT = no effect, and every stored shape without one reads byte for byte as before.
    `colour` is a palette SLOT (`MAIN_SLOT`'s keys, `lib/site-palette.ts`), never a hex — so the effect follows the
    Mood Board when the five change; absent = the effect's own colour ("Original").
-   The six are drawn by `lib/ambient-effects.ts`; this file only knows their names. */
-export const HUB_MAIN_EFFECTS = ['lanterns', 'petals', 'sparkles', 'capiz', 'shimmer', 'bokeh'] as const;
+   The effects are drawn by `lib/ambient-effects.ts`; this file only knows their names.
+   ✨ EIGHT SINCE 2026-10-14 (owner, DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"; prototype
+   `maker_effects_and_attire_2026-10-14_fable.html`): Soft haze · Bokeh lights · Gold dust ◆ · Petal drift ◆ · Lanterns ◆ ·
+   Gold shimmer ◆ · Light leak ◆ · Film grain ◆ — in the order the cards show them. Capiz glow and Sparkles are gone. */
+export const HUB_MAIN_EFFECTS = ['haze', 'bokeh', 'dust', 'petals', 'lanterns', 'shimmer', 'leak', 'grain'] as const;
 export type HubMainEffectKind = (typeof HUB_MAIN_EFFECTS)[number];
+/**
+ * 🪦 A RETIRED KIND IS READ AS ITS NEAREST NEW ONE — never blank, never an error. A couple who saved Capiz glow or
+ * Sparkles before 2026-10-14 keeps an effect: the stored `main.effect` is JSON on the hero row (`config_json`), so
+ * there is no column to migrate; every reader goes through `sanitizeHubMainEffect`, which answers the new kind, and
+ * the couple's next write stores it. How much and the Colour are kept as they were.
+ */
+export const HUB_MAIN_EFFECT_RETIRED: Readonly<Record<string, HubMainEffectKind>> = { capiz: 'haze', sparkles: 'dust' };
 export const HUB_MAIN_EFFECT_INTENSITIES = ['subtle', 'standard', 'lavish'] as const;
 export type HubMainEffectIntensity = (typeof HUB_MAIN_EFFECT_INTENSITIES)[number];
 export const HUB_MAIN_EFFECT_COLOURS = ['dominant', 'supporting', 'accent', 'neutral', 'accent2'] as const;
@@ -1417,7 +1427,8 @@ const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T => type
 /** Anything → an effect, or nothing. An unknown kind or amount drops it; an unknown colour is the effect's own. */
 export function sanitizeHubMainEffect(raw: unknown): HubMainEffect | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
-  const { kind, intensity, colour } = raw as Record<string, unknown>;
+  const { kind: stored, intensity, colour } = raw as Record<string, unknown>;
+  const kind = typeof stored === 'string' && Object.hasOwn(HUB_MAIN_EFFECT_RETIRED, stored) ? HUB_MAIN_EFFECT_RETIRED[stored] : stored;
   if (!oneOf(HUB_MAIN_EFFECTS, kind) || !oneOf(HUB_MAIN_EFFECT_INTENSITIES, intensity)) return undefined;
   return oneOf(HUB_MAIN_EFFECT_COLOURS, colour) ? { kind, intensity, colour } : { kind, intensity };
 }

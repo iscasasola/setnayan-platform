@@ -3,13 +3,13 @@
  *
  * Owner, 2026-10-08 (DECISION_LOG "LOOK EFFECTS ROUND 4" · "LOOK ROUNDS 4–5"; contract
  * `BACKGROUND_SOURCES_AMEND_2026-10-08_fable.md` § 2.A; the approved gallery's kinds 5 "Style card" and 20 "Pro
- * mark"): six effects on top of the background, chosen from a carousel of live miniatures, with How much ▾ and
+ * mark"): eight effects (since 2026-10-14) on top of the background, chosen from a carousel of live miniatures, with How much ▾ and
  * Colour ▾ under it; a Pro effect is tried on the sample and never applied.
  *
  *   (1) what a tap WRITES — the pure rules, run: the background under an effect is never touched; taking it off
  *       leaves no key; another background keeps it; it starts gentle over a ground that moves;
  *   (2) ◆ tried, never applied — the rule, the approved words, and the panel's own path (a try reaches no save);
- *   (3) the carousel, RENDERED: None first then the six in the approved order, one ring, ◆ only where it is Pro and
+ *   (3) the carousel, RENDERED: None first then the eight in the approved order, one ring, ◆ only where it is Pro and
  *       the couple has none, How much and Colour only while an effect is on, each a dropdown that opens;
  *   (4) one pick = one draft write and no whole-Maker render — read off the panel's one pick path;
  *   (5) the sample screen draws the effect through the ONE answer, and the cards are miniatures of what IT measured.
@@ -64,7 +64,7 @@ const PHOTO = stored({ kind: 'photo', media: REF, tint: TINT, shade: -40, blur: 
 const CLIP = stored({ kind: 'snippet', media: REF, poster: REF, tint: TINT });
 const VIDEO = stored({ ground: 'loop', loop: LOOP, shade: 30 });
 const COLOUR = stored({ ground: 'none' });
-const SPARKLES: HubMainEffect = { kind: 'sparkles', intensity: 'standard' };
+const HAZE: HubMainEffect = { kind: 'haze', intensity: 'standard' };
 
 /* ── (1) what a tap writes ────────────────────────────────────────────── */
 
@@ -80,13 +80,13 @@ test('(1) an effect is put on, changed and taken off without touching the backgr
     assert.equal('effect' in off, false, 'an empty "effect" key is left behind — never `effect: null`');
   }
   // Nothing stored at all: the first effect writes the page's own background with it — what "nothing" draws.
-  assert.deepEqual(withEffect(null, SPARKLES), { ground: 'theme', effect: SPARKLES });
+  assert.deepEqual(withEffect(null, HAZE), { ground: 'theme', effect: HAZE });
 });
 
 test('(1b) another background keeps the effect that was on; a background with nothing on gets nothing', () => {
-  const was = withEffect(PHOTO, SPARKLES);
-  assert.deepEqual(hubMainEffect(keepEffect(VIDEO, was)), SPARKLES, 'picking a video dropped the effect');
-  assert.deepEqual(hubMainEffect(keepEffect(COLOUR, was)), SPARKLES, 'picking a plain colour dropped the effect');
+  const was = withEffect(PHOTO, HAZE);
+  assert.deepEqual(hubMainEffect(keepEffect(VIDEO, was)), HAZE, 'picking a video dropped the effect');
+  assert.deepEqual(hubMainEffect(keepEffect(COLOUR, was)), HAZE, 'picking a plain colour dropped the effect');
   assert.deepEqual(keepEffect(VIDEO, PHOTO), VIDEO, 'an effect appeared out of nothing');
   assert.equal(keepEffect(null, null), null);
   // A next background that already says its own effect is left alone.
@@ -108,10 +108,10 @@ test('(1c) turned on over a ground that MOVES an effect starts at its gentlest; 
   // Already on: the couple's own How much and Colour are kept — even over a film (they chose it).
   assert.deepEqual(effectPicked('petals', { kind: 'lanterns', intensity: 'lavish', colour: 'neutral' }, VIDEO, false), { kind: 'petals', intensity: 'lavish', colour: 'neutral' });
   // How much ▾ and Colour ▾: "Original" takes the key off — the word is never stored.
-  const on: HubMainEffect = { kind: 'capiz', intensity: 'standard', colour: 'accent2' };
-  assert.deepEqual(effectWith(on, { intensity: 'subtle' }), { kind: 'capiz', intensity: 'subtle', colour: 'accent2' });
-  assert.deepEqual(effectWith(on, { colour: null }), { kind: 'capiz', intensity: 'standard' });
-  assert.deepEqual(effectWith({ kind: 'capiz', intensity: 'standard' }, { colour: 'dominant' }), { kind: 'capiz', intensity: 'standard', colour: 'dominant' });
+  const on: HubMainEffect = { kind: 'leak', intensity: 'standard', colour: 'accent2' };
+  assert.deepEqual(effectWith(on, { intensity: 'subtle' }), { kind: 'leak', intensity: 'subtle', colour: 'accent2' });
+  assert.deepEqual(effectWith(on, { colour: null }), { kind: 'leak', intensity: 'standard' });
+  assert.deepEqual(effectWith({ kind: 'leak', intensity: 'standard' }, { colour: 'dominant' }), { kind: 'leak', intensity: 'standard', colour: 'dominant' });
 });
 
 /* ── (2) ◆ tried, never applied ───────────────────────────────────────── */
@@ -170,11 +170,11 @@ async function carousel(props: { effect: HubMainEffect | null; trying?: HubMainE
 }
 const cardsOf = (html: string) => [...html.matchAll(/<button type="button" aria-pressed="(true|false)"[^>]*data-bg-card="fx:([a-z]+)"[\s\S]*?<\/button>/g)].map((m) => ({ key: m[2]!, on: m[1] === 'true', html: m[0] }));
 
-test('(3) the carousel: None, then the six in the approved order — one ringed, ◆ only on a Pro effect the couple cannot apply', async () => {
+test('(3) the carousel: None, then the eight in the approved order — one ringed, ◆ only on a Pro effect the couple cannot apply', async () => {
   const none = cardsOf(await carousel({ effect: null, locked: true }));
-  assert.deepEqual(none.map((c) => c.key), [EFFECT_NONE, 'lanterns', 'petals', 'sparkles', 'capiz', 'shimmer', 'bokeh'], 'the cards or their order moved off the approved prototype');
+  assert.deepEqual(none.map((c) => c.key), [EFFECT_NONE, 'haze', 'bokeh', 'dust', 'petals', 'lanterns', 'shimmer', 'leak', 'grain'], 'the cards or their order moved off the approved prototype');
   assert.deepEqual(none.filter((c) => c.on).map((c) => c.key), [EFFECT_NONE], 'with no effect, None is the one ringed card');
-  assert.deepEqual(none.filter((c) => c.html.includes('aria-label="Event Hub Pro"')).map((c) => c.key), ['lanterns', 'petals', 'capiz', 'shimmer'], 'the ◆ marks are not the approved four');
+  assert.deepEqual(none.filter((c) => c.html.includes('aria-label="Event Hub Pro"')).map((c) => c.key), ['dust', 'petals', 'lanterns', 'shimmer', 'leak', 'grain'], 'the ◆ marks are not the approved six');
   for (const c of none) {
     assert.ok(c.html.includes('sn-phone-card'), `${c.key}: not the one style card (112 × 149)`);
     assert.ok(c.html.includes(`>${c.key === EFFECT_NONE ? 'None' : AMBIENT_EFFECT_LABEL[c.key as keyof typeof AMBIENT_EFFECT_LABEL]}<`), `${c.key}: its name is not under it`);
@@ -227,11 +227,11 @@ test('(4) an effect pick is the panel’s ONE pick path: one draft write, no who
   assert.match(PANEL, /retry\.current = \(\) => pickLook\(write, failure, \{ \.\.\.\(opts\.render \? \{ render: true \} : \{\}\), \.\.\.\(opts\.fx \? \{ fx: true \} : \{\}\) \}\);/);
   // The effect is the page's own drawing: its change asks the page to redraw — once, held while the sample is the screen.
   const g = (main: HubMainGround | null): LookGround => ({ main, bg: null, art: null });
-  assert.equal(backgroundPickRedraws(g(VIDEO_PLAIN), g(withEffect(VIDEO_PLAIN, SPARKLES)), true), true, 'an effect put on asks for no redraw — Stages would show the page without it');
-  assert.equal(backgroundPickRedraws(g(withEffect(VIDEO_PLAIN, SPARKLES)), g(VIDEO_PLAIN), true), true, 'taken off');
-  assert.equal(backgroundPickRedraws(g(withEffect(VIDEO_PLAIN, SPARKLES)), g(withEffect(VIDEO_PLAIN, { ...SPARKLES, colour: 'accent' })), true), true, 'a colour change');
+  assert.equal(backgroundPickRedraws(g(VIDEO_PLAIN), g(withEffect(VIDEO_PLAIN, HAZE)), true), true, 'an effect put on asks for no redraw — Stages would show the page without it');
+  assert.equal(backgroundPickRedraws(g(withEffect(VIDEO_PLAIN, HAZE)), g(VIDEO_PLAIN), true), true, 'taken off');
+  assert.equal(backgroundPickRedraws(g(withEffect(VIDEO_PLAIN, HAZE)), g(withEffect(VIDEO_PLAIN, { ...HAZE, colour: 'accent' })), true), true, 'a colour change');
   // …and a pick that leaves the effect as it is asks for nothing more than it did.
-  assert.equal(backgroundPickRedraws(g(withEffect(VIDEO_PLAIN, SPARKLES)), g(withEffect(stored({ ground: 'loop', loop: hubMovingBackgroundIds()[1] ?? LOOP }), SPARKLES)), true), false);
+  assert.equal(backgroundPickRedraws(g(withEffect(VIDEO_PLAIN, HAZE)), g(withEffect(stored({ ground: 'loop', loop: hubMovingBackgroundIds()[1] ?? LOOP }), HAZE)), true), false);
 });
 const VIDEO_PLAIN = stored({ ground: 'loop', loop: LOOP });
 

@@ -437,6 +437,8 @@ export type GuestRow = {
   name_suffix?: string | null;
   display_name: string | null;
   role: GuestRole;
+  /** 👗 What the couple marked them as wearing on the guest list (gown · suit · neutral) — `guestAttireOf`. Absent on an older read. */
+  attire?: string | null;
   side: 'bride' | 'groom' | 'both';
   group_category: string;
   plus_one_of_guest_id: string | null;

@@ -23,6 +23,7 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 import { PAGE_COLUMN, PLATE } from '../_lib/measures';
 import { greetingWhen } from '../_lib/day-words';
 import { guestRoleLabel, plusOneSeats } from '@/lib/guests';
+import { guestAttireOf } from '@/lib/attire-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
@@ -2698,6 +2699,7 @@ export async function SiteBody({
       ceremonyType: dressRiteOf(event),
       genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
       guestRole: guest.role ?? null,
+      guestAttire: guestAttireOf(guest),
       march: marchPlaceOf(entourage, guest.guest_id),
       rolePalette: event.role_palette,
       paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
@@ -3782,6 +3784,7 @@ export async function SiteBody({
                     ceremonyType: dressRiteOf(event),
                     genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
                     guestRole: guest.role ?? null,
+                    guestAttire: guestAttireOf(guest),
                     march: marchPlaceOf(entourage, guest.guest_id),
                     rolePalette: event.role_palette,
                   }}

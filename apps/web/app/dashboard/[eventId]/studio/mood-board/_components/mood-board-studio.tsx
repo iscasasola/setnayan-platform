@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Palette, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, Palette, PenLine, Plus, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { useMaker } from '../../../launch/_components/maker-context';
+import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
 import { makerSave } from '@/lib/maker-refresh';
 import { compressImageForWeb } from '@/lib/image-compress';
@@ -14,6 +15,10 @@ import { PALETTE_LIMITS, sanitizePaletteStyle, type PaletteKey, type RolePalette
 import { derivedBoardFor, displayColorsFor } from '@/lib/mood-board-derive';
 import { FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS, lanePartColour, type LanePart } from '@/lib/colour-access';
 import { STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, photoTag, type StudioInspirationSlot } from '@/lib/inspiration-slots';
+import { PICK_LABEL, attireRow, firstStyleOf, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
+import { STYLE_ORDER, garmentFor, type FigureWho } from '@/lib/attire-figures';
+import { isAttireStyle } from '@/lib/role-dress-code';
+import { RoleFigure } from '@/app/_components/role-figure';
 import {
   MAIN_COLOUR_JOBS,
   paletteFromPhotos,
@@ -90,6 +95,8 @@ export type StudioAttireRow = {
   paletteKey: PaletteKey | null;
   /** The shipped call time, already in words ("2:00 PM"). */
   arrives: string | null;
+  /** How many on the guest list hold it — "8 people" (absent: not counted). */
+  people?: number;
 };
 
 export type MoodBoardStudioProps = {
@@ -130,8 +137,16 @@ type PickTarget =
   | { kind: 'part'; part: LanePart }
   | { kind: 'role'; key: PaletteKey; label: string }
   /** One colour a role already wears — tap its dot to change it, or remove it. */
-  | { kind: 'role-colour'; key: PaletteKey; label: string; index: number };
-type Sheet = { kind: 'picker'; target: PickTarget } | { kind: 'auto' } | { kind: 'browse'; slot: StudioInspirationSlot } | null;
+  | { kind: 'role-colour'; key: PaletteKey; label: string; index: number }
+  /** 👗 The SECOND pick's colours (women · girls, 2026-10-14) — a colour changed or removed (`index`), or added (null). */
+  | { kind: 'second-colour'; row: StudioAttireRow; label: string; index: number | null };
+type Sheet =
+  | { kind: 'picker'; target: PickTarget }
+  | { kind: 'auto' }
+  | { kind: 'browse'; slot: StudioInspirationSlot }
+  /** 👗 A role's note — "Ivory, not white" (`dress_code_config[tier][key].note`, read on their invitation). */
+  | { kind: 'note'; row: StudioAttireRow }
+  | null;
 
 type Tile = { url: string; credit: string | null; swatches: string[] };
 
@@ -276,10 +291,34 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   };
 
   /* ═══ ATTIRE ═══ */
+  /* 👗 Every attire write is ONE draft write of the WHOLE dress code (`dressCodeDraftFields`) — the first pick where it
+     has always been stored, the second (women · girls) in `women` (`lib/attire-rows.ts`), the note on the row's rule. */
   const wear = (row: StudioAttireRow, style: string | null) => {
     if (!dress) return;
+    saveDress(withFirstStyle(dress, row.tier, row.key, style, withAttireStyle));
+  };
+  const wearSecond = (row: StudioAttireRow, style: string | null) => {
+    if (!dress) return;
+    saveDress(withSecondStyle(dress, row.tier, row.key, isAttireStyle(style) ? style : null));
+  };
+  const secondColours = (row: StudioAttireRow, colours: string[] | null) => {
+    if (!dress) return;
+    saveDress(withSecondColours(dress, row.tier, row.key, colours));
+  };
+  const noteFor = (row: StudioAttireRow) => (((dress?.[row.tier] ?? {}) as Record<string, { note?: unknown }>)[row.key]?.note as string | undefined) ?? '';
+  const writeNote = (row: StudioAttireRow, note: string) => {
+    if (!dress) return;
+    const map = { ...((dress[row.tier] as Record<string, Record<string, unknown>> | undefined) ?? {}) };
+    const rule = map[row.key];
+    if (!rule) return;
+    const said = note.trim().slice(0, 120);
+    const { note: _was, ...rest } = rule;
+    map[row.key] = said ? { ...rest, note: said } : rest;
+    saveDress({ ...dress, [row.tier]: map });
+  };
+  const saveDress = (next: Record<string, unknown>) => {
+    if (!dress) return;
     const before = dress;
-    const next = withAttireStyle(dress, row.tier, row.key, style);
     setDress(next);
     const fd = new FormData();
     for (const [k, v] of Object.entries(dressCodeDraftFields(next))) fd.set(k, v);
@@ -458,7 +497,39 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           ) : null,
       };
     }
+    if (t.kind === 'second-colour') {
+      const now = secondNow(t.row);
+      const at = t.index;
+      if (at === null) return { title: t.label, job: 'Adds a colour they wear', current: now[0] ?? five[0]!, onPick: (h: string) => secondColours(t.row, [...now, h]), extra: null };
+      return {
+        title: t.label,
+        job: 'A colour they wear — any colour, not only your five',
+        current: now[at] ?? five[0]!,
+        onPick: (h: string) => secondColours(t.row, now.map((c, i) => (i === at ? h : c))),
+        extra:
+          now.length > 1 ? (
+            <span data-mood-board-role-remove="" className="self-start">
+              <ActionButton
+                tone="neutral"
+                icon={X}
+                label="Remove this colour"
+                onClick={() => {
+                  setSheet(null);
+                  secondColours(t.row, now.filter((_, i) => i !== at));
+                }}
+                className="!h-11"
+              />
+            </span>
+          ) : null,
+      };
+    }
     return { title: t.label, job: 'Adds a colour they wear', current: roleColours(t.key)[0] ?? five[0]!, onPick: (h: string) => pickRole(t.key, h), extra: null };
+  };
+  /** The second pick's colours as drawn: its own, else the row's (the first pick's). */
+  const secondNow = (row: StudioAttireRow): string[] => {
+    const def = attireRow(row.tier as AttireTier, row.key);
+    const own = def ? picksOf(dress, def)[1]?.colours : null;
+    return own ? [...own] : row.paletteKey ? roleColours(row.paletteKey) : [];
   };
 
   /* 🖼 ONE BOARD PER PART — upload (+) and Search ideas › (the suppliers' photos), drawn in Inspiration, or in Attire for the attire boards. */
@@ -514,6 +585,51 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           )}
         </div>
       </section>
+    );
+  };
+
+  /* 👗 A ROLE'S OWN PHOTOS, IN ATTIRE (prototype `ideasHTML`): its photos small, how many, ＋ (the couple's own) and
+     Search ideas › (the suppliers' — the shipped picker). A photo comes off through the same confirm box; the photos'
+     colours are offered to the role where its board has one ("Use for …"). `named` — a role with two boards (the
+     bearers: Flower girl · Ring bearer) says whose each is. */
+  const ideasRow = (slot: StudioInspirationSlot, named: boolean) => {
+    const row = tiles[slot.slotKey] ?? [];
+    const photos = MOODBOARD_SLOT_POSITIONS.map((p) => ({ pos: p, tile: row[p - 1] })).filter((x) => x.tile);
+    const slotPalette = paletteFromPhotos(photos.flatMap((x) => x.tile!.swatches), 5);
+    const count = photos.length === 0 ? 'No photos yet' : `${formatCount(photos.length)} ${photos.length === 1 ? 'photo' : 'photos'}`;
+    return (
+      <div className="flex flex-col gap-1" data-mood-board-slot={slot.slotKey}>
+        <div className="flex min-h-11 items-center gap-1.5">
+          {photos.map(({ pos, tile }) =>
+            tile!.url ? (
+              <ActionButton
+                key={pos}
+                tone="neutral"
+                quiet
+                iconOnly
+                icon={<Thumb src={tile!.url} />}
+                label={`Remove this photo from ${slot.label}`}
+                onClick={() => setAskRemove({ slot: slot.slotKey, pos, label: slot.label })}
+              />
+            ) : (
+              <span key={pos} className="h-[34px] w-[34px] flex-none animate-pulse rounded-lg bg-ink/10" />
+            ),
+          )}
+          <span className="ml-1 min-w-0 flex-1 truncate text-[12px] text-ink/55">{named ? `${slot.label} · ${count}` : count}</span>
+          <ActionButton tone="neutral" iconOnly icon={Plus} label={`Add a photo to ${slot.label}`} onClick={() => openUpload(slot.slotKey)} />
+          <span data-mood-board-search={slot.slotKey}>
+            <ActionButton tone="neutral" quiet icon={Search} label="Search ideas" name={`Search ideas for ${slot.label}`} onClick={() => setSheet({ kind: 'browse', slot })} />
+          </span>
+        </div>
+        {slotPalette.length > 0 && slot.useLabel ? (
+          <div className="flex min-h-11 items-center gap-2">
+            <Swatches colours={slotPalette} label={`${slot.label}’s palette`} />
+            <span data-mood-board-use-slot={slot.slotKey} className="ml-auto">
+              <ActionButton tone="neutral" icon={Sparkles} label={slot.useLabel} onClick={() => applySlotPalette(slot, slotPalette)} />
+            </span>
+          </div>
+        ) : null}
+      </div>
     );
   };
 
@@ -620,70 +736,125 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
       ) : null}
 
       {tab === 'attire' ? (
+        /* 👗 ONE BLOCK PER ROLE (owner 2026-10-14, DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"; prototype
+           `maker_effects_and_attire_2026-10-14_fable.html` `attireProposedHTML`): the role's name and when it arrives →
+           its people, each a figure in the garment its Wear ▾ names and the colours beside it (two picks — men · women,
+           boys · girls — where the role holds both) → the note → the role's own photos. Divided by a hairline; a frame
+           only on what is pressed. The Entourage board is gone (owner: "remove entourage"). */
         <div className="flex flex-col" data-mood-board-attire="">
           {props.attire.length === 0 ? <p className="py-4 text-[13px] text-ink/60">Add people with a role to your guest list and they appear here.</p> : null}
-          <div className={STUDIO_GROUP}>
-            <FormRows data="mood-board-attire">
-              {props.attire.map((row) => {
-                const colours = row.paletteKey ? roleColours(row.paletteKey) : [];
-                const map = (dress?.[row.tier] ?? {}) as Record<string, { style?: string }>;
-                const style = map[row.key]?.style ?? null;
-                const label = style ? props.attireStyles.find((s) => s.key === style)?.label ?? null : null;
-                const below = (
-                  <div className="flex gap-3 pb-3 pt-0.5">
-                    <Figure colour={colours[0] ?? five[3]!} />
-                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                      {row.paletteKey ? (
-                        <span className="flex flex-wrap items-center gap-1.5">
-                          {colours.map((c, i) => (
-                            <button
-                              key={i}
-                              type="button"
-                              aria-label={`${row.label} colour ${c} — change it`}
-                              data-mood-board-role-colour={i}
-                              onClick={() => setSheet({ kind: 'picker', target: { kind: 'role-colour', key: row.paletteKey!, label: row.label, index: i } })}
-                              className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full"
-                            >
-                              <i aria-hidden className="h-7 w-7 rounded-full border border-ink/10" style={{ background: c }} />
-                            </button>
-                          ))}
-                          {colours.length < PALETTE_LIMITS[row.paletteKey].max ? (
-                            <ActionButton tone="neutral" iconOnly icon={Plus} label={`Add a colour for ${row.label}`} onClick={() => setSheet({ kind: 'picker', target: { kind: 'role', key: row.paletteKey!, label: row.label } })} />
-                          ) : null}
-                        </span>
-                      ) : null}
-                      {row.arrives ? <small className="text-[11.5px] text-ink/55">Arrives {row.arrives}</small> : null}
-                      {attireBoardsUnder(row.key).map((slot) => (
-                        <div key={slot.slotKey} data-mood-board-attire-board={slot.slotKey}>
-                          {slotBoard(slot)}
+          {props.attire.map((row) => {
+            const def = attireRow(row.tier as AttireTier, row.key);
+            const picks = def ? picksOf(dress, def) : [{ who: 'f' as FigureWho, style: null, colours: null }];
+            const two = picks.length === 2;
+            const note = noteFor(row);
+            const canNote = Boolean(dress && firstStyleOf(dress, row.tier as AttireTier, row.key));
+            return (
+              <section key={`${row.tier}:${row.key}`} data-mood-board-role={row.key} className="flex flex-col gap-1.5 border-t border-ink/10 py-3 first:border-t-0">
+                <header className="flex flex-wrap items-baseline gap-2">
+                  <h3 className="font-serif text-[21px] font-medium leading-tight text-ink">{row.label}</h3>
+                  {row.arrives ? <small className="ml-auto whitespace-nowrap text-[12px] text-ink/55">Arrives {row.arrives}</small> : null}
+                </header>
+                {row.people ? <p className="text-[12px] text-ink/65">{row.people === 1 ? '1 person' : `${formatCount(row.people)} people`}</p> : null}
+                <div className="flex gap-2.5" data-mood-board-picks={picks.length}>
+                  {picks.map((pick, pi) => {
+                    const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
+                    const max = row.paletteKey ? PALETTE_LIMITS[row.paletteKey].max : 0;
+                    const pickLabel = two ? `${row.label} — ${PICK_LABEL[pick.who].toLowerCase()}` : row.label;
+                    const figure = (
+                      <span className={`flex h-[132px] flex-none items-end justify-center ${two ? "min-w-[62px]" : "min-w-[86px]"}`} data-mood-board-figure={pick.who}>
+                        <RoleFigure
+                          roleKey={row.key}
+                          people={[{ who: pick.who, garment: garmentFor(pick.who, pick.style), main: colours[0] ?? five[3]! }]}
+                          className="h-[132px]"
+                        />
+                      </span>
+                    );
+                    const swatches = row.paletteKey ? (
+                      <span className={`flex items-center ${two ? 'flex-col items-start' : 'flex-wrap'}`} data-mood-board-swatches={pick.who}>
+                        {colours.map((c, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            aria-label={`${pickLabel} colour ${c} — change it`}
+                            data-mood-board-role-colour={i}
+                            onClick={() =>
+                              setSheet({
+                                kind: 'picker',
+                                target: pi === 0 ? { kind: 'role-colour', key: row.paletteKey!, label: row.label, index: i } : { kind: 'second-colour', row, label: pickLabel, index: i },
+                              })
+                            }
+                            className={`sn-press inline-flex h-11 w-11 items-center justify-center rounded-full ${two ? '-my-1' : ''}`}
+                          >
+                            <i aria-hidden className={`${two ? 'h-[26px] w-[26px]' : 'h-7 w-7'} rounded-full border border-ink/10`} style={{ background: c }} />
+                          </button>
+                        ))}
+                        {colours.length < max && (pi === 0 || dress) ? (
+                          <ActionButton
+                            tone="neutral"
+                            iconOnly
+                            icon={Plus}
+                            label={pi === 0 ? `Add a colour for ${row.label}` : `Add a colour for ${pickLabel}`}
+                            onClick={() =>
+                              setSheet({
+                                kind: 'picker',
+                                target: pi === 0 ? { kind: 'role', key: row.paletteKey!, label: row.label } : { kind: 'second-colour', row, label: pickLabel, index: null },
+                              })
+                            }
+                          />
+                        ) : null}
+                      </span>
+                    ) : null;
+                    /* Wear ▾ — the house dropdown (one ChosenRow); each person's fitting styles first, from the ONE vocabulary. */
+                    const wearRow = dress ? (
+                      <FormRows width="short" data="mood-board-wear" className={two ? '[&_[data-form-row-name]]:sr-only' : undefined}>
+                        <ChosenRow
+                          name="Wear"
+                          label={`${pickLabel} — what to wear`}
+                          value={pick.style ?? ''}
+                          options={[{ key: '', label: 'Not said yet' }, ...STYLE_ORDER[pick.who].map((k) => ({ key: k, label: props.attireStyles.find((st) => st.key === k)?.label ?? k }))]}
+                          onPick={(k) => (pi === 0 ? wear(row, k || null) : wearSecond(row, k || null))}
+                          buttonText={pick.style ? (props.attireStyles.find((st) => st.key === pick.style)?.label ?? pick.style) : 'Not said yet'}
+                          dataAttr="data-mood-board-wear"
+                          attrs={{ 'data-mood-board-wear-for': pick.who }}
+                        />
+                      </FormRows>
+                    ) : null;
+                    return (
+                      <div key={pick.who} className="flex min-w-0 flex-1 flex-col gap-1.5" data-mood-board-pick={pick.who}>
+                        {two ? <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">{PICK_LABEL[pick.who]}</span> : null}
+                        <div className="flex items-end gap-2.5">
+                          {figure}
+                          <div className="flex min-w-0 flex-1 flex-col justify-end gap-1.5">
+                            {swatches}
+                            {two ? null : wearRow}
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                        {two ? wearRow : null}
+                      </div>
+                    );
+                  })}
+                </div>
+                {row.key === 'guest' ? <p className="text-[12px] leading-snug text-ink/65">Guests wear any one of the colours above — never combined. The figures show the first.</p> : null}
+                {canNote ? (
+                  <div className="flex min-h-11 items-center gap-2" data-mood-board-role-note={row.key}>
+                    <span className="flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55">Note</span>
+                    {note ? <em className="min-w-0 flex-1 truncate text-[13px] text-ink">“{note}”</em> : <span className="min-w-0 flex-1 text-[13px] text-ink/55">Nothing yet</span>}
+                    <ActionButton tone="neutral" quiet icon={PenLine} label={note ? 'Change' : 'Add a note'} name={`${note ? 'Change' : 'Add'} the note for ${row.label}`} onClick={() => setSheet({ kind: 'note', row })} />
                   </div>
-                );
-                return dress ? (
-                  <ChosenRow
-                    key={`${row.tier}:${row.key}`}
-                    name={row.label}
-                    label={`${row.label} — what to wear`}
-                    value={style ?? ''}
-                    options={[{ key: '', label: 'Not said yet' }, ...props.attireStyles]}
-                    onPick={(k) => wear(row, k || null)}
-                    buttonText={label ? `Wear · ${label}` : 'Not said yet'}
-                    dataAttr="data-mood-board-wear"
-                    attrs={{ 'data-mood-board-role': row.key }}
-                    below={below}
-                  />
-                ) : (
-                  <FormRow key={`${row.tier}:${row.key}`} name={row.label} attrs={{ 'data-mood-board-role': row.key }} below={below} />
-                );
-              })}
-            </FormRows>
-          </div>
-          {/* 👗 An attire board whose role is not on the list yet still has its place. */}
+                ) : null}
+                {attireBoardsUnder(row.key).map((slot) => (
+                  <div key={slot.slotKey} data-mood-board-attire-board={slot.slotKey}>
+                    {ideasRow(slot, attireBoardsUnder(row.key).length > 1)}
+                  </div>
+                ))}
+              </section>
+            );
+          })}
+          {/* 👗 A board whose role is not on the guest list yet keeps its place — ideas come before the names. */}
           {attireBoardsAfter(props.attire.map((r) => r.key)).map((slot) => (
-            <div key={slot.slotKey} data-mood-board-attire-board={slot.slotKey}>
-              {slotBoard(slot)}
+            <div key={slot.slotKey} data-mood-board-attire-board={slot.slotKey} className="border-t border-ink/10 py-2">
+              {ideasRow(slot, true)}
             </div>
           ))}
         </div>
@@ -770,6 +941,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             );
           })()
         : null}
+      {sheet?.kind === 'note' ? <NoteSheet label={`${sheet.row.label} · a note`} start={noteFor(sheet.row)} onClose={() => setSheet(null)} onSave={(text) => { const row = sheet.row; setSheet(null); writeNote(row, text); }} /> : null}
       {sheet?.kind === 'auto' ? (
         <AutoPaletteSheet suggestions={[...(photoFive ? [{ name: 'From your photos', five: photoFive, best: true as const }] : []), ...props.autoThemes.map((t) => ({ name: t.name, five: t.five }))]} onUse={takeAuto} onClose={() => setSheet(null)} />
       ) : null}
@@ -879,13 +1051,36 @@ function LaneRow({ part, five, palette, frozen, onTap }: { part: LanePart; five:
   return <ColourRow hex={c.hex} name={part.label} line={line} onTap={part.field ? onTap : undefined} disabled={frozen} data={`part-${part.label}`} />;
 }
 
-/** The role's figure, in its colour — a head and a gown. */
-function Figure({ colour }: { colour: string }) {
+/** A role's photo, small — the picture of the button that takes it off the board (a tap asks once, the same confirm box). */
+function Thumb({ src }: { src: string }) {
+  // eslint-disable-next-line @next/next/no-img-element -- the couple's own photo, already sized by the board
+  return <img src={src} alt="" className="h-[34px] w-[34px] rounded-lg object-cover" />;
+}
+
+/** 👗 A role's note — one line, up to 120 letters, read by that role on their invitation. Keep closes it unchanged. */
+function NoteSheet({ label, start, onClose, onSave }: { label: string; start: string; onClose: () => void; onSave: (text: string) => void }) {
+  const [text, setText] = useState(start);
   return (
-    <span aria-hidden className="relative h-[72px] w-[46px] shrink-0">
-      <span className="absolute left-[15px] top-0 h-4 w-4 rounded-full bg-[#E9D9C8]" />
-      <span className="absolute left-[6px] top-[18px] h-[54px] w-[34px] rounded-t-2xl rounded-b-sm ring-1 ring-inset ring-ink/10" style={{ background: colour }} />
-    </span>
+    <StudioSheet label={label} onClose={onClose}>
+      <div className="flex flex-col gap-2 px-1 pb-2" data-mood-board-role-note-sheet="">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value.slice(0, 120))}
+          maxLength={120}
+          placeholder="e.g. ivory, not white"
+          aria-label={label}
+          className="h-11 w-full rounded-xl border border-ink/15 bg-white px-3 text-[14px] text-ink" // no-card-ok: a text field, not a container
+        />
+        <div className="flex gap-2 [&>span]:flex-1 [&_.ab]:w-full">
+          <span>
+            <ActionButton tone="neutral" icon={X} label="Keep" onClick={onClose} />
+          </span>
+          <span>
+            <ActionButton tone="brand" main icon={Check} label="Save" onClick={() => onSave(text)} />
+          </span>
+        </div>
+      </div>
+    </StudioSheet>
   );
 }
 

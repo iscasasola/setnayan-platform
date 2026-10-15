@@ -8,9 +8,17 @@ import { servicesReturnBase } from '@/lib/vendor-services-return';
 import { getCoverageTaxonomy, type CoverageLeaf } from '@/lib/vendor-coverages';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getActiveFaithKeys } from '@/lib/faith-vocab-db';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
+import {
+  addCoverageForCardKind,
+  insertCoverage,
+  syncProfileFromCoverages,
+  type AddCoverageForCardResult,
+} from '@/lib/vendor-coverage-write';
+import { buildLeafIndex } from '@/lib/service-card-kind';
+import { coverageLeafForKind } from '@/lib/service-card-maker';
+import { asVendorTier, tierCaps } from '@/lib/vendor-tier-caps';
 
 /** Validate a faiths[] submission against the ACTIVE `faith_vocab` keys (the
  *  DB is the vocab authority per the vendor_coverages.faiths column comment;
@@ -70,55 +78,6 @@ async function parseEventTypes(raw: string[], allowed: string[] | null): Promise
   return ['wedding'];
 }
 
-/**
- * Coverage is the SOURCE that drives Explore (owner-locked 2026-07-02). On
- * every coverage write, recompute the vendor profile from its coverages:
- *   • event_types = union across coverages (never empty → ['wedding']); drives
- *     the Explore ?event_type= filter (read via the vendor_market_stats view).
- *   • services[] = the vendor's coarse profile categories PRESERVED + the
- *     covered canonical_service keys. Explore already matches canonical keys
- *     directly (.contains('services',[canonical])) and a tile filter overlaps
- *     against the tile's canonicals — so writing coverage canonicals here makes
- *     coverage drive category/tile discovery with NO Explore-filter or view
- *     change. Coarse entries (VENDOR_CATEGORIES, e.g. the profile picker) are
- *     preserved; only the canonical portion is recomputed, so removing a
- *     coverage correctly drops its leaf from discovery.
- */
-async function syncProfileFromCoverages(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-): Promise<void> {
-  const { data: covs } = await supabase
-    .from('vendor_coverages')
-    .select('canonical_service,event_types')
-    .eq('vendor_profile_id', vendorProfileId);
-  const coverages = (covs ?? []) as {
-    canonical_service: string;
-    event_types: string[] | null;
-  }[];
-
-  const evUnion = new Set<string>();
-  for (const c of coverages) for (const e of c.event_types ?? []) evUnion.add(e);
-  const event_types = evUnion.size > 0 ? Array.from(evUnion) : ['wedding'];
-
-  const coarse = new Set<string>(VENDOR_CATEGORIES);
-  const { data: prof } = await supabase
-    .from('vendor_profiles')
-    .select('services')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  const preservedCoarse = (
-    (prof as { services: string[] | null } | null)?.services ?? []
-  ).filter((s) => coarse.has(s));
-  const coveredCanon = coverages.map((c) => c.canonical_service);
-  const services = Array.from(new Set([...preservedCoarse, ...coveredCanon]));
-
-  await supabase
-    .from('vendor_profiles')
-    .update({ event_types, services })
-    .eq('vendor_profile_id', vendorProfileId);
-}
-
 export async function createCoverage(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
   const base = await servicesReturnBase();
@@ -130,17 +89,14 @@ export async function createCoverage(formData: FormData): Promise<void> {
     leaf.allowedEventTypes,
   );
   const faiths = await parseFaiths(formData.getAll('faiths').map(String));
-  const { error } = await supabase.from('vendor_coverages').insert({
-    vendor_profile_id: profile.vendor_profile_id,
-    canonical_service: canonical,
-    event_types: eventTypes,
+  // The one coverage write (lib/vendor-coverage-write.ts) — the maker's 🏷 Yes runs the same body.
+  const res = await insertCoverage(supabase, profile.vendor_profile_id, {
+    canonicalService: canonical,
+    eventTypes,
     faiths,
   });
-  if (error) {
-    // 23505 = unique_violation → the vendor already covers this leaf.
-    back(base, 'error', error.code === '23505' ? 'You already cover that category.' : error.message);
-  }
-  await syncProfileFromCoverages(supabase, profile.vendor_profile_id);
+  if (res.status === 'already') back(base, 'error', 'You already cover that category.');
+  if (res.status === 'error') back(base, 'error', res.message);
   revalidatePath(BASE);
   revalidatePath('/vendor-dashboard/shop');
   back(base, 'saved');
@@ -261,4 +217,46 @@ export async function deleteCoverage(formData: FormData): Promise<void> {
   revalidatePath(BASE);
   revalidatePath('/vendor-dashboard/shop');
   back(base, 'saved');
+}
+
+/**
+ * 🏷 THE MAKER'S QUESTION, ANSWERED YES (owner 2026-10-14, DECISION_LOG "A CARD IN A NEW CATEGORY ASKS ONCE, THEN
+ * ADDS IT TO THE SUPPLIER'S LISTING"): "Add <kind> to what you do? Couples will find you there."
+ *
+ * The no-redirect door onto the SAME coverage write `createCoverage` makes (`lib/vendor-coverage-write.ts`), so the
+ * card being made stays on screen and saves next, whatever this answers. Within the plan's family cap
+ * (`tierCaps(...).parentCategories`, the founder override as everywhere); over it → `over_cap`, and the maker shows
+ * the plan option while the card still saves.
+ *
+ * Its own action call, ALWAYS — `commitVendorService` never writes coverage.
+ */
+export async function addCoverageForCard(kind: string): Promise<AddCoverageForCardResult> {
+  const { supabase, profile } = await requireVendor();
+  const tree = await getCoverageTaxonomy().catch(() => []);
+  const leaves = buildLeafIndex(tree);
+  const leafKey = typeof kind === 'string' ? coverageLeafForKind(kind, leaves) : null;
+  const leaf = leafKey ? await findLeaf(leafKey) : null;
+  if (!leafKey || !leaf) {
+    return { status: 'error', message: 'That kind is not one couples search by yet, so nothing was added.' };
+  }
+  const { data: tierRow } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state, is_founder')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const t = tierRow as { tier_state?: string | null; is_founder?: boolean | null } | null;
+  const parentCategories =
+    t?.is_founder === true ? Infinity : tierCaps(asVendorTier(t?.tier_state)).parentCategories;
+  const eventTypes = await parseEventTypes([], leaf.allowedEventTypes);
+  const res = await addCoverageForCardKind(supabase, profile.vendor_profile_id, {
+    leaf: leafKey,
+    tree,
+    parentCategories,
+    eventTypes,
+  });
+  if (res.status === 'added') {
+    revalidatePath(BASE);
+    revalidatePath('/vendor-dashboard/shop');
+  }
+  return res;
 }

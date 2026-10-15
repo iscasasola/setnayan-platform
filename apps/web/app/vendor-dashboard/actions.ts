@@ -661,6 +661,10 @@ export async function updateVendorProfileField(
   }
 
   revalidatePath('/vendor-dashboard/shop');
+  // Your details · Your page · Your collections draw the same columns (step 5).
+  revalidatePath('/vendor-dashboard/profile');
+  revalidatePath('/vendor-dashboard/website');
+  revalidatePath('/vendor-dashboard/collections');
   revalidatePath('/vendor-dashboard/profile');
   // Gallery & media edits (portfolio / featured videos) also change the PUBLIC
   // microsite, so revalidate /v/[slug] + its bare-root alias — mirrors what the
@@ -760,6 +764,10 @@ export async function requestProfileCorrection(
   }
 
   revalidatePath('/vendor-dashboard/shop');
+  // Your details · Your page · Your collections draw the same columns (step 5).
+  revalidatePath('/vendor-dashboard/profile');
+  revalidatePath('/vendor-dashboard/website');
+  revalidatePath('/vendor-dashboard/collections');
   revalidatePath('/vendor-dashboard/profile');
   return { ok: true };
 }
@@ -820,51 +828,22 @@ const ENTERPRISE_WEBSITE_FIELDS = new Set(['microsite_videos']);
  * can toast), and additionally revalidates the public microsite so the change
  * shows immediately on /v/[slug] (and its bare-root alias).
  */
-export async function updateVendorWebsiteField(
-  _prevState: FieldSaveResult | null,
+/**
+ * ONE PAGE PART → its column patch, behind its plan gate. Shared by the one-field save
+ * (`updateVendorWebsiteField`) and the one Apply (`applyVendorPageDraft`, step 5) so the two can never disagree about
+ * what a part may hold or who may save it. Moved out of `updateVendorWebsiteField` unchanged (2026-10-14).
+ */
+function websiteFieldPatch(
+  field: string,
   formData: FormData,
-): Promise<FieldSaveResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Please sign in again.' };
-
-  const field = String(formData.get('field') ?? '');
-  if (!INLINE_WEBSITE_FIELDS.has(field)) {
-    return { ok: false, error: 'That field can’t be edited here.' };
-  }
-
-  // One read, reused below: current services (constrain featured picks to owned
-  // leaves), portfolio keys (constrain hero photo), slug (revalidation), tier
-  // (Pro gate).
-  const { data: row, error: rowError } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id, business_slug, services, portfolio_r2_keys, tier_state')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  // ⚠ CHECK THIS ERROR — it now decides the self-exclusion below. Supabase
-  // resolves `{ error }` rather than throwing, so an unchecked failure leaves
-  // `vendor_profile_id` null and the availability probe then sees the vendor's
-  // OWN row as somebody else's: a Pro vendor re-saving the address they already
-  // hold is told it belongs to another business.
-  if (rowError) {
-    return { ok: false, error: 'We couldn’t load your shop just now. Please try again.' };
-  }
-  const rowTyped = row as
-    | {
-        vendor_profile_id?: string | null;
-        business_slug?: string | null;
-        services?: string[] | null;
-        portfolio_r2_keys?: string[] | null;
-        tier_state?: string | null;
-      }
-    | null;
-  const currentServices = (rowTyped?.services ?? []) as string[];
-  const currentSlug = rowTyped?.business_slug ?? null;
-  const portfolioKeys = (rowTyped?.portfolio_r2_keys ?? []) as string[];
-  const caps = tierCaps(asVendorTier(rowTyped?.tier_state));
-
+  ctx: {
+    rowTyped: { tier_state?: string | null } | null;
+    caps: ReturnType<typeof tierCaps>;
+    currentServices: string[];
+    portfolioKeys: string[];
+  },
+): { ok: true; patch: Record<string, unknown> } | { ok: false; error: string } {
+  const { rowTyped, caps, currentServices, portfolioKeys } = ctx;
   // SOLO gate — personalizing the page (About / sections / featured services)
   // is a Solo+ benefit. Free/Verified are auto-composed. Server-side backstop.
   // 💳 Every plan gate below is asked through the ONE flag-aware question
@@ -1008,6 +987,58 @@ export async function updateVendorWebsiteField(
     if (viol) return { ok: false, error: viol };
   }
 
+  return { ok: true, patch };
+}
+
+export async function updateVendorWebsiteField(
+  _prevState: FieldSaveResult | null,
+  formData: FormData,
+): Promise<FieldSaveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+
+  const field = String(formData.get('field') ?? '');
+  if (!INLINE_WEBSITE_FIELDS.has(field)) {
+    return { ok: false, error: 'That field can’t be edited here.' };
+  }
+
+  // One read, reused below: current services (constrain featured picks to owned
+  // leaves), portfolio keys (constrain hero photo), slug (revalidation), tier
+  // (Pro gate).
+  const { data: row, error: rowError } = await supabase
+    .from('vendor_profiles')
+    .select('vendor_profile_id, business_slug, services, portfolio_r2_keys, tier_state')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  // ⚠ CHECK THIS ERROR — it now decides the self-exclusion below. Supabase
+  // resolves `{ error }` rather than throwing, so an unchecked failure leaves
+  // `vendor_profile_id` null and the availability probe then sees the vendor's
+  // OWN row as somebody else's: a Pro vendor re-saving the address they already
+  // hold is told it belongs to another business.
+  if (rowError) {
+    return { ok: false, error: 'We couldn’t load your shop just now. Please try again.' };
+  }
+  const rowTyped = row as
+    | {
+        vendor_profile_id?: string | null;
+        business_slug?: string | null;
+        services?: string[] | null;
+        portfolio_r2_keys?: string[] | null;
+        tier_state?: string | null;
+      }
+    | null;
+  const currentServices = (rowTyped?.services ?? []) as string[];
+  const currentSlug = rowTyped?.business_slug ?? null;
+  const portfolioKeys = (rowTyped?.portfolio_r2_keys ?? []) as string[];
+  const caps = tierCaps(asVendorTier(rowTyped?.tier_state));
+
+  const part = websiteFieldPatch(field, formData, { rowTyped, caps, currentServices, portfolioKeys });
+  if (!part.ok) return part;
+  const patch = part.patch;
+
   const { error } = await supabase
     .from('vendor_profiles')
     .update({ ...patch, updated_at: new Date().toISOString() })
@@ -1018,11 +1049,87 @@ export async function updateVendorWebsiteField(
   }
 
   revalidatePath('/vendor-dashboard/shop');
+  // Your details · Your page · Your collections draw the same columns (step 5).
+  revalidatePath('/vendor-dashboard/profile');
+  revalidatePath('/vendor-dashboard/website');
+  revalidatePath('/vendor-dashboard/collections');
   // One public path now, not two: the address cannot move, so there is no old
   // one to also revalidate.
   if (currentSlug) {
     revalidatePath(`/v/${currentSlug}`);
     revalidatePath(`/${currentSlug}`);
+  }
+  return { ok: true };
+}
+
+/**
+ * YOUR PAGE › Apply — publish the supplier's whole page draft in ONE write (simpler supplier dashboard step 5,
+ * 2026-10-14; `lib/supplier-page-draft.ts` builds the form).
+ *
+ * 🔑 THE SAME RULES AS THE ONE-FIELD SAVE, BY CONSTRUCTION. Each part goes through `websiteFieldPatch` — the
+ * allowlist, the Solo / Pro / Enterprise asks, the owned-photo and owned-service checks, the About text gate — and
+ * only then are the patches merged into ONE update. One read, one write, whatever the number of parts.
+ *
+ * 🔑 ALL OR NOTHING. If any part is refused (a plan the shop does not have, a photo that is not theirs), NOTHING is
+ * applied and the refusal names that part — a page published half-way is a page nobody chose.
+ */
+export async function applyVendorPageDraft(
+  _prevState: FieldSaveResult | null,
+  formData: FormData,
+): Promise<FieldSaveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+
+  const fields = [...new Set(formData.getAll('field').map(String))];
+  if (fields.length === 0) return { ok: false, error: 'Nothing to apply — your page already shows this.' };
+  if (fields.length > INLINE_WEBSITE_FIELDS.size || fields.some((f) => !INLINE_WEBSITE_FIELDS.has(f))) {
+    return { ok: false, error: 'That part can’t be changed here.' };
+  }
+
+  const { data: row, error: rowError } = await supabase
+    .from('vendor_profiles')
+    .select('vendor_profile_id, business_slug, services, portfolio_r2_keys, tier_state')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (rowError || !row) {
+    return { ok: false, error: 'We couldn’t load your shop just now. Nothing was changed — please try again.' };
+  }
+  const rowTyped = row as {
+    vendor_profile_id?: string | null;
+    business_slug?: string | null;
+    services?: string[] | null;
+    portfolio_r2_keys?: string[] | null;
+    tier_state?: string | null;
+  };
+  const ctx = {
+    rowTyped,
+    caps: tierCaps(asVendorTier(rowTyped.tier_state)),
+    currentServices: (rowTyped.services ?? []) as string[],
+    portfolioKeys: (rowTyped.portfolio_r2_keys ?? []) as string[],
+  };
+
+  let patch: Record<string, unknown> = {};
+  for (const field of fields) {
+    const part = websiteFieldPatch(field, formData, ctx);
+    if (!part.ok) return { ok: false, error: `Nothing was applied. ${part.error}` };
+    patch = { ...patch, ...part.patch };
+  }
+
+  const { error } = await supabase
+    .from('vendor_profiles')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
+  if (error) return { ok: false, error: 'Your page could not be updated just now. Nothing was changed — please try again.' };
+
+  revalidatePath('/vendor-dashboard/website');
+  revalidatePath('/vendor-dashboard/collections');
+  revalidatePath('/vendor-dashboard/shop');
+  if (rowTyped.business_slug) {
+    revalidatePath(`/v/${rowTyped.business_slug}`);
+    revalidatePath(`/${rowTyped.business_slug}`);
   }
   return { ok: true };
 }
@@ -1078,5 +1185,9 @@ export async function updateBusinessStartDate(formData: FormData): Promise<void>
     });
   }
   revalidatePath('/vendor-dashboard/shop');
+  // Your details · Your page · Your collections draw the same columns (step 5).
+  revalidatePath('/vendor-dashboard/profile');
+  revalidatePath('/vendor-dashboard/website');
+  revalidatePath('/vendor-dashboard/collections');
   revalidatePath('/vendor-dashboard');
 }

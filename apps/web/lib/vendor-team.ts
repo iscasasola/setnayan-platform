@@ -20,19 +20,31 @@ export const VENDOR_ASSIGNABLE_ROLES: ReadonlyArray<VendorTeamRole> = [
   'viewer',
 ];
 
+/**
+ * The roles in the supplier's plain words (simpler supplier dashboard, owner-APPROVED 2026-10-14: "team seats →
+ * Helpers"; prototype SCREENS.helpers — Admin · runs the shop / Team member · own work / Helper · sees the schedule).
+ * The keys stay the database's (`admin` / `agent` / `viewer`); only the words changed.
+ */
 export const VENDOR_TEAM_ROLE_LABEL: Record<VendorTeamRole, string> = {
   owner: 'Admin', // legacy rows surface as Admin
   admin: 'Admin',
-  agent: 'Agent',
-  viewer: 'Viewer',
+  agent: 'Team member',
+  viewer: 'Helper',
 };
 
 export const VENDOR_TEAM_ROLE_BLURB: Record<VendorTeamRole, string> = {
-  owner: 'Top role — manages the whole store, including team and roles.',
-  admin: 'Top role — manages the whole store, including team and roles.',
-  agent: 'Assigned to specific services; sees only their own work.',
-  viewer: 'Read-only access to the schedule and bookings.',
+  owner: 'Runs the shop with you — team, plan and everything else.',
+  admin: 'Runs the shop with you — team, plan and everything else.',
+  agent: 'Works the services you give them; sees only their own work.',
+  viewer: 'Sees the schedule and bookings; changes nothing.',
 };
+
+/** The one dropdown's options — "Admin · runs the shop" … in the order an admin reads them. */
+export const VENDOR_TEAM_ROLE_PICK: ReadonlyArray<{ key: VendorTeamRole; label: string }> = [
+  { key: 'admin', label: 'Admin · runs the shop' },
+  { key: 'agent', label: 'Team member · own work' },
+  { key: 'viewer', label: 'Helper · sees the schedule' },
+];
 
 /** Admin and the legacy `owner` value both count as the top management role. */
 export function isVendorAdminRole(role: VendorTeamRole): boolean {

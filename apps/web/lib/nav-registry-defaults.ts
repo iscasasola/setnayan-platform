@@ -1382,8 +1382,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     // /vendor-dashboard/verify is RETIRED (2026-09-11) — its 12-document
     // checklist page now only redirects to the current papers flow on My
     // Shop. Point the sidebar entry straight at that destination rather than
-    // bouncing through the redirect.
-    route: "/vendor-dashboard/shop#get-verified",
+    // bouncing through the redirect. Since 2026-10-14 (step 5) the papers are
+    // Your details › Your documents.
+    route: "/vendor-dashboard/profile#docs",
     label: "Verify",
     labelKind: "literal",
     iconKind: "lucide",
@@ -1618,8 +1619,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     area: "vendor-bottom-nav",
     route: "/vendor-dashboard/performance",
     // 'Performance' (11 chars) truncated in the bottom bar's 10px label row —
-    // shortened to match the hardcoded fallback in vendor-bottom-nav.tsx.
-    label: "Insights",
+    // shortened to "Insights" then. It LEFT the bar on 2026-10-01 and names a
+    // row in More now (lib/vendor-more-rows.ts), where a long label fits; the
+    // plain words were adopted 2026-10-14 (insights → How is my business doing).
+    label: "How is my business doing",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "BarChart2",

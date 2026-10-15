@@ -188,6 +188,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 1, why: "A vendor's OWN onboarding-checklist gate (is this vendor verified, to show their own next step) — not a couple-facing badge." },
   ],
   [
+    'lib/supplier-today.server.ts',
+    { count: 1, why: "The supplier's OWN Today (simpler Today 2026-10-14): is this shop approved — to pick its own Shop pill (Checking · Live · Not yet), skip its own first-steps rail and count its own page views. The same read first steps made, folded into one row read; never a couple-facing badge." },
+  ],
+  [
     'lib/vendor-corrections.ts',
     { count: 1, why: "fetchVerifiedLock — whether THIS vendor's own identity fields are locked from editing (app/vendor-dashboard/actions.ts). The shop's own dashboard concern, not a couple-facing badge." },
   ],

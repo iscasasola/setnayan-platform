@@ -88,7 +88,10 @@ test('1b · every More row lands on its section — none is a bare stub', async 
   const { VENDOR_MORE_ROWS } = await import('@/lib/vendor-more-rows');
   const by = Object.fromEntries(VENDOR_MORE_ROWS.map((r) => [r.key, r.href]));
   assert.equal(by.messages, customerLandingHref('messages'));
-  assert.equal(by.payday, customerLandingHref('payday'));
+  // "Money in" left More with the simpler supplier dashboard (2026-10-14, prototype SCREENS.more): Customers › Money
+  // is the tab it was a second door to. Every row that IS here still lands on its section (the loop below).
+  assert.equal(by.payday, undefined);
+  assert.equal(by.settings, '/vendor-dashboard/settings');
   for (const r of VENDOR_MORE_ROWS) {
     assert.doesNotMatch(r.href, BARE_STUB, `More row "${r.label}" links a bare stub (${r.href}) and lands on the roster`);
   }
@@ -106,7 +109,7 @@ async function renderToday(target: unknown, action = 'Go'): Promise<string> {
       meta: null,
       numbers: { waiting: '1', waitingNow: true, thisWeek: '2', toComeIn: '3' },
       comingUp: [],
-      shop: { name: 'Shop', line: 'Photo & video · Live', live: true },
+      shop: { name: 'Shop', line: 'Photo & video · couples can find you', pill: 'Live' },
     }),
   );
 }

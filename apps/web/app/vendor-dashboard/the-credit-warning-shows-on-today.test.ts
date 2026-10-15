@@ -40,25 +40,32 @@ test('2 · the same words as the email, and a way to act', () => {
   assert.ok(!/vendor/i.test(n.title + n.body), 'the words say "vendor"');
 });
 
-test('3 · Today reads the two columns on their own and draws the notice', async () => {
+test('3 · Today reads the two columns and draws the notice — as a row, in the simpler Today’s words', async () => {
   const page = stripComments(readFileSync(join(import.meta.dirname, 'page.tsx'), 'utf8'));
-  assert.match(page, /\.select\('subscription_credit_php, tier_expires_at'\)/, 'the credit read is folded into another select');
-  assert.match(page, /todayCreditNotice\(/);
-  // Redrawn 2026-10-08 (supplier redesign S-PR1): the notice is a ROW under
-  // "Also waiting" now, not a banner — `pickSupplierNext` has no rule for an
-  // expiring credit, so it is handed to `supplierWaiting` as a door and drawn
-  // whenever it applies. Same title, same body, same door to the plan.
+  const server = stripComments(readFileSync(join(import.meta.dirname, '..', '..', 'lib', 'supplier-today.server.ts'), 'utf8'));
+  const view = stripComments(readFileSync(join(import.meta.dirname, '..', '..', 'lib', 'supplier-today-view.ts'), 'utf8'));
+  // 🧮 THE SIMPLER TODAY MUST NOT GROW (2026-10-14): the two columns ride ONE shop-row read with the other two
+  // single-column reads of the same row (first steps' state · the milestone's date) — every column measured in the
+  // production snapshot. A refused read is LOGGED and degrades to "no notice", never to "no credit".
   assert.match(
-    page,
-    /credit: creditNotice \? \{ title: creditNotice\.title, body: creditNotice\.body, href: creditNotice\.href \} : null,/,
-    'Today does not hand the credit warning to the Also-waiting rows',
+    server,
+    /\.select\('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at'\)/,
+    'the credit columns left the one shop-row read',
   );
-  assert.match(page, /doors=\{waiting\.doors\}/, 'the Also-waiting doors are computed and never drawn');
-  assert.match(page, /if \(creditErr\) console\.error/, 'a failed read is silent');
+  assert.match(server, /logQueryError\('supplier-today: shop row'/, 'a failed read is silent');
+  assert.match(page, /todayCreditNotice\(\{ creditPhp: shopRow\.creditPhp, tierExpiresAt: shopRow\.tierExpiresAt \}, Date\.now\(\)\)/, 'Today no longer asks the rule');
+  // The notice is a ROW under "Also waiting" (S-PR1) — `pickSupplierNext` has no rule for an expiring credit, so it
+  // is handed to `supplierWaiting` as a door, drawn whenever it applies, in the prototype's words.
+  assert.match(page, /credit: creditNotice && shopRow \? \{ creditPhp: shopRow\.creditPhp, tierExpiresAt: shopRow\.tierExpiresAt, href: creditNotice\.href \} : null,/, 'Today does not hand the credit warning on');
+  assert.match(view, /credit: input\.credit \? \{ \.\.\.creditDoorWords\(input\.credit\.creditPhp, input\.credit\.tierExpiresAt\), href: input\.credit\.href \} : null,/, 'the credit warning is not handed to the Also-waiting rows');
+  assert.match(view, /doors: waiting\.doors,/, 'the Also-waiting doors are computed and never drawn');
   // …and the row really comes out the other end, whatever the Next card is.
   // SABOTAGE: `if (args.credit)` → `if (args.credit && next.kind === 'clear')` → RED.
-  const { supplierWaiting, pickSupplierNext } = await import('@/lib/supplier-today');
+  const { supplierWaiting, pickSupplierNext, creditDoorWords } = await import('@/lib/supplier-today');
   const n = todayCreditNotice({ creditPhp: 2500, tierExpiresAt: at(3) }, NOW)!;
+  const words = creditDoorWords(2500, at(3));
+  assert.equal(words.title, 'Credits expiring');
+  assert.match(words.body, /^₱2,500 · \w{3} \d{1,2} \w{3}$/, `the row does not name the amount and the day: ${words.body}`);
   const input = { answer: null, answerSince: null, deskIncomplete: true, upcoming: [], setupStep: null, findability: null, fee: null, owedPhp: null, now: NOW };
   const w = supplierWaiting({
     next: pickSupplierNext(input),
@@ -66,13 +73,13 @@ test('3 · Today reads the two columns on their own and draws the notice', async
     since: () => null,
     setupStep: null,
     findability: null,
-    credit: { title: n.title, body: n.body, href: n.href },
+    credit: { ...words, href: n.href },
     payout: null,
     now: NOW,
   });
   assert.deepEqual(
     w.doors.map((d) => [d.id, d.label, d.target]),
-    [['credit', n.title, { to: 'given', href: '/vendor-dashboard/subscription' }]],
+    [['credit', 'Credits expiring', { to: 'given', href: '/vendor-dashboard/subscription' }]],
     'the credit warning is not a row on Today',
   );
 });

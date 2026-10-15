@@ -66,8 +66,11 @@ const mountCount = (src: string, component: string) =>
  */
 const SHIPPED_MOUNTS: ReadonlyArray<readonly [string, string]> = [
   ['<HeroCard', 'hero'],
-  ['<ManageTiles', 'door 1 — shop information'],
-  ['<VerifySection', 'door 1 — your papers'],
+  // ['<ManageTiles', 'door 1 — shop information'] and ['<VerifySection', 'door 1 — your papers'] — MOVED, not
+  // retired, by the owner's approval of the simpler supplier dashboard (DECISION_LOG 2026-10-14 "✅ APPROVE: THE
+  // SIMPLER …", prototype moments 6–8): the tiles' panels and the papers are now Your details · Your page · Your
+  // collections. Every control they held is pinned at its NEW home in `MOVED_MOUNTS` below — exactly once each — so
+  // a control lost in the move still turns this red.
   ['<ServicesDisclosure', 'door 3 — what you sell'],
   // ['<EarningsSurface', 'door 5 — earnings'] — RETIRED by owner ruling 2026-10-08 (supplier dashboard round 1,
   // "2. Money": Earnings & payday become Customers › Money; plan § 2 "earnings/surface.tsx … Merge into Customers ›
@@ -75,6 +78,52 @@ const SHIPPED_MOUNTS: ReadonlyArray<readonly [string, string]> = [
   // (`app/vendor-dashboard/customers/_components/money-segment.tsx`).
   ['<FeatureAccordion', 'door 6 — the folds'],
 ];
+
+/**
+ * DOOR 1'S CONTROLS AT THEIR NEW HOMES (step 5, 2026-10-14). Transcribed from what the door's panels mounted on
+ * 2026-10-13 — the Profile tile's cards, the papers, the Branch tile, the Website tile's media and curation, the
+ * payment fold, the auto-reply card — with the file that mounts each now and how many times.
+ * ⛔ The same rule as the list above: a line leaves only with an owner ruling cited beside it.
+ */
+const MOVED_MOUNTS: ReadonlyArray<readonly [string, string, number]> = [
+  // Your details — one ProfileChecklistEditor per fold (name · what · where · contact), each handed its own rows.
+  ['ProfileChecklistEditor', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 4],
+  ['VerifySection', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
+  ['VenueMatchCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
+  ['VenueTypeCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
+  ['PublicLineCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
+  ['SuggestedCoverageCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
+  ['VisibilityCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
+  ['RequestCorrectionCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
+  ['BranchPanel', '../app/vendor-dashboard/profile/page.tsx', 1],
+  ['PaymentOptionsSurface', '../app/vendor-dashboard/profile/page.tsx', 1],
+  // Your page — the website editor's controls are its parts; the domain manager and the auto-reply card are mounted.
+  ['PageParts', '../app/vendor-dashboard/website/page.tsx', 1],
+  ['DomainManager', '../app/vendor-dashboard/website/page.tsx', 1],
+  ['AutoReplySection', '../app/vendor-dashboard/website/page.tsx', 1],
+  // Your collections — the gallery editors (portfolio photos · featured videos · Instagram).
+  ['GalleryMedia', '../app/vendor-dashboard/collections/page.tsx', 1],
+];
+
+test('🔑 EVERY CONTROL DOOR 1 HELD IS MOUNTED AT ITS NEW HOME, THE RIGHT NUMBER OF TIMES', () => {
+  for (const [name, file, times] of MOVED_MOUNTS) {
+    const at = stripComments(readFileSync(resolve(HERE, file), 'utf8'));
+    assert.equal(mountCount(at, name), times, `<${name} is mounted ${mountCount(at, name)}× in ${file}, expected ${times}`);
+  }
+});
+
+test('the Your-page parts keep every curation control the website editor had', () => {
+  const parts = stripComments(
+    readFileSync(resolve(HERE, '../app/vendor-dashboard/website/_components/page-parts.tsx'), 'utf8'),
+  );
+  // About · featured services · sections (portfolio · trusted by · stories) · cover · accent · pinned review · stories.
+  for (const part of ['about', 'services', 'portfolio', 'trusted_by', 'editorials', 'hero', 'accent', 'pin', 'stories']) {
+    assert.ok(
+      new RegExp(`change\\(\\{[^}]*\\b${part}\\b`).test(parts) || new RegExp(`\\b${part}:\\s*!shown\\.sections\\.${part}`).test(parts),
+      `Your page no longer changes "${part}" — a website-editor control was lost in the move`,
+    );
+  }
+});
 
 test('every control the page shipped before G1 is still mounted, exactly once', () => {
   const src = PAGE();
@@ -90,34 +139,32 @@ test('every control the page shipped before G1 is still mounted, exactly once', 
 
 test('🔑 BOTH DEEP-LINK ANCHORS STILL RESOLVE, AND EXACTLY ONCE EACH', () => {
   /*
-    `#manage-shop` and `#get-verified` are the targets of the hero pills,
-    Today's first steps and the Subscription page's "Get verified first". They
-    live INSIDE their components, not on the page — so a restructure that
-    wrapped them could shadow one, and a copy-paste could duplicate one. Both
-    are checked at their real homes.
+    `#manage-shop` and `#get-verified` were the targets of the hero pills,
+    Today's first steps and the Subscription page's "Get verified first". The
+    code now links straight to Your details (`/vendor-dashboard/profile#docs`),
+    but links ALREADY SENT — a notification stored with
+    `/vendor-dashboard/shop#get-verified`, a bookmark — still arrive here, so
+    door 1 carries both ids on its rows (step 5), once each, and no component
+    mounted on this page mints a competing copy.
   */
-  assert.equal(
-    count(read('_components/manage-tiles.tsx'), 'id="manage-shop"'),
-    1,
-    '#manage-shop no longer resolves — the hero pill and Today\'s first steps dead-end',
-  );
-  assert.equal(
-    count(read('_components/verify-section.tsx'), 'id="get-verified"'),
-    1,
-    '#get-verified no longer resolves — the verification deep-links dead-end',
-  );
-  // And the page must not mint a competing copy of either.
   const src = PAGE();
-  assert.equal(count(src, 'id="manage-shop"'), 0, 'the page duplicates #manage-shop');
-  assert.equal(count(src, 'id="get-verified"'), 0, 'the page duplicates #get-verified');
+  assert.equal(count(src, 'id="manage-shop"'), 1, '#manage-shop no longer resolves on My Shop (or is duplicated)');
+  assert.equal(count(src, 'id="get-verified"'), 1, '#get-verified no longer resolves on My Shop (or is duplicated)');
+  for (const f of readdirSync(resolve(SHOP, '_components')).filter((x) => x.endsWith('.tsx'))) {
+    const body = read(`_components/${f}`);
+    // VerifySection keeps its own id for its own screen (Your details); it is not mounted on My Shop.
+    if (f === 'verify-section.tsx') continue;
+    assert.equal(count(body, 'id="manage-shop"') + count(body, 'id="get-verified"'), 0, `${f} mints a second copy of a door-1 anchor`);
+  }
+  assert.equal(mountCount(src, 'VerifySection'), 0, 'VerifySection is mounted on My Shop again — two #get-verified');
 });
 
 test('door 1 holds BOTH the shop information and the papers', () => {
   /*
     The whole point of door 1: "fix my shop information and verification,
-    branches, team" is ONE errand. Before G1 the papers sat below the service
-    cards. A door that contains only the tiles is the move half-done — and
-    would look completely fine on screen.
+    branches, team" is ONE errand. Since step 5 the room is rows into the screens
+    that hold it — Your details, Your page, Your collections, Helpers — plus the
+    papers' own row. A door that lost one of them would look completely fine.
   */
   const src = PAGE();
   const open = src.indexOf('<ShopDoorSection');
@@ -125,8 +172,10 @@ test('door 1 holds BOTH the shop information and the papers', () => {
   const close = src.indexOf('</ShopDoorSection>', open);
   assert.ok(close > open, 'the door shell is never closed');
   const inside = src.slice(open, close);
-  assert.ok(inside.includes('<ManageTiles'), 'the shop information is not inside door 1');
-  assert.ok(inside.includes('<VerifySection'), 'the papers are not inside door 1');
+  for (const href of ['"/vendor-dashboard/profile"', '"/vendor-dashboard/website"', '"/vendor-dashboard/collections"', '"/vendor-dashboard/team"', '{DOCS_HREF}']) {
+    assert.ok(inside.includes(`href=${href}`), `door 1 has no row to ${href}`);
+  }
+  assert.match(inside, /id="get-verified"/, 'the papers row is not inside door 1');
   assert.match(inside, /id="d1"/, 'door 1 does not carry the anchor the rail points at');
 });
 

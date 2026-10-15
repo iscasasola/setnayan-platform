@@ -119,6 +119,13 @@ const STAFF_OR_SHOP_OWN_TREES: ReadonlyArray<{ prefix: string; why: string }> = 
   { prefix: 'app/open-shop/', why: 'A shop setting itself up, typing its own contact details.' },
   { prefix: 'app/api/', why: 'Machine endpoints, not rendered pages (see header).' },
   {
+    prefix: 'app/dev/supplier-lab/',
+    why:
+      "The supplier dashboard's dev lab — it draws the shop's OWN dashboard screens (Your details, Your " +
+      'collections) from fixtures and refuses to render in production (`notFound()`, pinned by ' +
+      'app/dev/supplier-lab/the-lab-never-ships.test.ts). Never a couple\'s or the public\'s page.',
+  },
+  {
     prefix: 'app/vendor/claim/',
     why: 'A shop CLAIMING its own profile — the form is pre-filled with its own email and phone.',
   },

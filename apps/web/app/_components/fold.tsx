@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
@@ -28,6 +28,7 @@ export function Fold({
   line,
   aside,
   lead,
+  anchor,
 }: {
   /** What the fold is — "More for guests". */
   title: string;
@@ -47,13 +48,38 @@ export function Fold({
   children: ReactNode;
   /** `data-fold="<data>"`. */
   data?: string;
+  /**
+   * A LINK CAN OPEN IT. The fold carries `id="<anchor>"`, and an address ending in `#<anchor>` — on arrival or
+   * from a link on the same page — opens it and brings it into view. No round trip: a link from elsewhere
+   * (`/vendor-dashboard/profile#docs`) and the thumb row's "Add what is left" (`#docs`) both land on the open
+   * fold. Absent → no id, and the fold is exactly as it was.
+   */
+  anchor?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const scope = useOneOpen(open, setOpen);
   const id = useId();
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!anchor) return;
+    const apply = () => {
+      if (window.location.hash !== `#${anchor}`) return;
+      setOpen(true);
+      requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'start' }));
+    };
+    apply();
+    window.addEventListener('hashchange', apply);
+    return () => window.removeEventListener('hashchange', apply);
+  }, [anchor]);
   return (
-    <div data-fold={data ?? ''} data-fold-open={open ? '' : undefined} className={className}>
+    <div
+      ref={box}
+      id={anchor}
+      data-fold={data ?? ''}
+      data-fold-open={open ? '' : undefined}
+      className={anchor ? `scroll-mt-24 ${className}` : className}
+    >
       <button
         type="button"
         data-fold-head=""

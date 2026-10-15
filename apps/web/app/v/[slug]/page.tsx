@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { marketplaceTenureLine } from '@/lib/marketplace-tenure';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
@@ -1798,13 +1799,15 @@ export async function renderVendorBySlug({
     const dayEnd = `${coupleEventDate}T23:30:00+08:00`;
     const { data: covering, error: coveringError } = await admin
       .from('vendor_calendar_blocks')
-      .select('block_id')
+      // Every block that can touch the day — a one-off overlapping it or a REPEAT that began before it — and the
+      // ONE rule decides (`lib/not-available.ts`: all-day only; a morning Mass leaves the date open).
+      .select(`block_id, blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
       .eq('vendor_profile_id', vendor.vendor_profile_id)
       .is('pool_id', null)
       .in('block_source', ['manual', 'setnayan_booking'])
       .lte('blocked_at', dayEnd)
-      .gte('blocked_until', dayStart)
-      .limit(1);
+      .or(notAvailableWindowFilter(dayStart))
+      .limit(50);
     // ⚠ 🚨 A BLOCKED DATE READS AS AVAILABLE. These are the supplier's calendar blocks
     // ⚠ covering the date a couple is looking at. `?? []`/null on a refused read means
     // ⚠ no block is found, so the page shows the date as open — and a couple enquires
@@ -1813,7 +1816,9 @@ export async function renderVendorBySlug({
     if (coveringError) {
       logQueryError('PublicVendorPage.covering', coveringError, { slug }, 'graceful_degrade');
     }
-    const isUnavailable = Array.isArray(covering) && covering.length > 0;
+    const isUnavailable =
+      Array.isArray(covering) &&
+      (covering as { blocked_at: string; blocked_until: string }[]).some((b) => blockClosesDay(notAvailableShapeOf(b), coupleEventDate));
     if (isUnavailable) {
       waitlistDate = coupleEventDate;
       // Owner 2026-07: only offer the waitlist when the vendor switched it on;

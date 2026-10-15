@@ -37,20 +37,20 @@ import {
   EMPTY_LEAF_INDEX,
   type LeafIndex,
 } from '@/lib/service-card-kind';
-import { tierCaps, asVendorTier, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import {
-  SLOT_LABEL_MAX,
-  SLOT_CAPACITY_MIN,
-  SLOT_CAPACITY_MAX,
-  SLOT_TIME_RE,
-} from '@/lib/vendor-time-slots';
-import {
-  MAX_SCHEDULE_ITEMS,
-  pctToBps,
-  phpToCentavos,
-  type AmountKind,
-  type DueAnchor,
-} from '@/lib/vendor-service-payment-schedules';
+  assignCardSchedule,
+  checkSlot,
+  parseAddonRows,
+  parseNewSlotRows,
+  parsePaymentScheduleForm,
+  parseRemovedSlotIds,
+  parseScheduleChoice,
+  replaceServiceAddons,
+  writeSchedulePolicy,
+  type ParsedScheduleRow,
+} from '@/lib/service-card-save-parts';
+import { mergeServiceRefinements } from '@/lib/vendor-service-refinements-write';
 import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
 import {
@@ -1255,137 +1255,15 @@ export async function setServicePaymentSchedule(formData: FormData) {
     return redirect(`${await servicesReturnBase()}?error=Service+not+found`);
   }
 
-  // Parse the parallel arrays into validated draft rows. Any malformed row
-  // aborts the whole save (the schedule is replaced atomically-enough; we don't
-  // want to half-apply it).
-  const labels = formData.getAll('item_label');
-  const kinds = formData.getAll('item_amount_kind');
-  const values = formData.getAll('item_value');
-  const anchors = formData.getAll('item_due_anchor');
-  const offsets = formData.getAll('item_due_offset_days');
-  // No-Show Downpayment Protection — reservation-policy parallel arrays. The
-  // editor emits one entry per row (always present, even on non-downpayment
-  // rows, to keep the index aligned); only seq 0 ever carries real values.
-  const nonRefundables = formData.getAll('item_downpayment_non_refundable');
-  const noShowForfeits = formData.getAll('item_no_show_forfeit');
-  const refundWindows = formData.getAll('item_refund_window_days');
-  const cancellationTerms = formData.getAll('item_cancellation_terms');
-
-  type Insert = {
-    vendor_service_id: string;
-    vendor_profile_id: string;
-    seq: number;
-    label: string;
-    amount_kind: AmountKind;
-    percent_bps: number | null;
-    amount_centavos: number | null;
-    due_anchor: DueAnchor | null;
-    due_offset_days: number | null;
-    cancellation_terms: string | null;
-    downpayment_non_refundable: boolean;
-    refund_window_days: number | null;
-    no_show_forfeit: boolean;
-  };
-  const rows: Insert[] = [];
-
+  // Parse the parallel arrays — the SAME parser the maker's one save uses (`parsePaymentScheduleForm`, 2026-10-14),
+  // no-show terms on the first payment included. Any malformed row aborts the whole save.
+  let rows: Array<ParsedScheduleRow & { vendor_service_id: string; vendor_profile_id: string }>;
   try {
-    const n = labels.length;
-    if (n > MAX_SCHEDULE_ITEMS) {
-      throw new Error(`A schedule can have up to ${MAX_SCHEDULE_ITEMS} payments.`);
-    }
-    for (let i = 0; i < n; i++) {
-      const label = typeof labels[i] === 'string' ? (labels[i] as string).trim() : '';
-      if (label.length === 0 || label.length > 80) {
-        throw new Error('Each payment needs a label (up to 80 characters).');
-      }
-
-      const kindRaw = kinds[i];
-      if (kindRaw !== 'percent' && kindRaw !== 'fixed') {
-        throw new Error('Each payment must be a percent or a fixed amount.');
-      }
-      const amount_kind: AmountKind = kindRaw;
-
-      const valueRaw = typeof values[i] === 'string' ? (values[i] as string).trim() : '';
-      const value = Number(valueRaw);
-      if (valueRaw.length === 0 || !Number.isFinite(value) || value < 0) {
-        throw new Error('Each payment needs a non-negative amount.');
-      }
-
-      let percent_bps: number | null = null;
-      let amount_centavos: number | null = null;
-      if (amount_kind === 'percent') {
-        if (!Number.isInteger(value) || value > 100) {
-          throw new Error('A percentage must be a whole number between 0 and 100.');
-        }
-        percent_bps = pctToBps(value);
-      } else {
-        if (!Number.isInteger(value)) {
-          throw new Error('A fixed amount must be a whole peso figure.');
-        }
-        amount_centavos = phpToCentavos(value);
-      }
-
-      // Due date is optional. Blank anchor → no anchored due date.
-      const anchorRaw = anchors[i];
-      let due_anchor: DueAnchor | null = null;
-      let due_offset_days: number | null = null;
-      if (anchorRaw === 'on_lock' || anchorRaw === 'before_event') {
-        due_anchor = anchorRaw;
-        const offRaw = typeof offsets[i] === 'string' ? (offsets[i] as string).trim() : '';
-        if (offRaw.length > 0) {
-          const off = Number(offRaw);
-          if (!Number.isInteger(off) || off < 0) {
-            throw new Error('Due-date days must be a non-negative whole number.');
-          }
-          due_offset_days = off;
-        } else {
-          due_offset_days = 0;
-        }
-      }
-
-      // No-Show Downpayment Protection — the reservation policy lives on the
-      // downpayment (seq 0) ONLY. Parse it for row 0; force defaults elsewhere
-      // so a stray submitted value can't smuggle a policy onto a later
-      // installment.
-      let cancellation_terms: string | null = null;
-      let downpayment_non_refundable = false;
-      let refund_window_days: number | null = null;
-      let no_show_forfeit = false;
-      if (i === 0) {
-        downpayment_non_refundable = nonRefundables[i] === '1';
-        no_show_forfeit = noShowForfeits[i] === '1';
-        const termsRaw =
-          typeof cancellationTerms[i] === 'string'
-            ? (cancellationTerms[i] as string).trim()
-            : '';
-        cancellation_terms = termsRaw.length > 0 ? termsRaw.slice(0, 2000) : null;
-        const windowRaw =
-          typeof refundWindows[i] === 'string' ? (refundWindows[i] as string).trim() : '';
-        if (windowRaw.length > 0) {
-          const w = Number(windowRaw);
-          if (!Number.isInteger(w) || w < 0) {
-            throw new Error('Refund window must be a non-negative whole number of days.');
-          }
-          refund_window_days = w;
-        }
-      }
-
-      rows.push({
-        vendor_service_id: serviceId,
-        vendor_profile_id: profile.vendor_profile_id,
-        seq: i, // order in the submitted arrays IS the order
-        label: label.slice(0, 80),
-        amount_kind,
-        percent_bps,
-        amount_centavos,
-        due_anchor,
-        due_offset_days,
-        cancellation_terms,
-        downpayment_non_refundable,
-        refund_window_days,
-        no_show_forfeit,
-      });
-    }
+    rows = parsePaymentScheduleForm(formData).map((r) => ({
+      ...r,
+      vendor_service_id: serviceId,
+      vendor_profile_id: profile.vendor_profile_id,
+    }));
   } catch (e) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent((e as Error).message)}`,
@@ -1534,7 +1412,18 @@ export async function commitVendorService(formData: FormData) {
     typeof formCategoryRaw === 'string' && CATEGORY_SET.has(formCategoryRaw)
       ? formCategoryRaw
       : null;
+  // THE MAKER ASKS TO BE RETURNED TO (supplier-easy step 3, 2026-10-14). A refusal used to land on My Shop with
+  // the card's screen gone; the maker now names its own address (`return_to`), allowlisted to the card screens, so
+  // the supplier reads the sentence ON the card — and a new card's typing is offered back from the device keep.
+  const returnToRaw = formData.get('return_to');
+  const returnTo =
+    typeof returnToRaw === 'string' && /^\/vendor-dashboard\/services\/(new(\/[a-z0-9_]+)?|[0-9a-f-]{36})$/i.test(returnToRaw)
+      ? returnToRaw
+      : null;
   const back = async (msg: string) => {
+    if (returnTo && !(isCreate && claimToken)) {
+      return redirect(`${returnTo}?error=${encodeURIComponent(msg)}`);
+    }
     if (isCreate && claimToken && formCategory) {
       return redirect(
         `/vendor-dashboard/services/new/${formCategory}?claim=${encodeURIComponent(
@@ -1900,13 +1789,26 @@ export async function commitVendorService(formData: FormData) {
       display_order: i,
     }));
 
-  // ---- Payment schedule rows (reuse the legacy parsing shape) ----
-  let schedule: Array<Record<string, unknown>>;
+  // ---- Payment schedule rows — the SAME parser as setServicePaymentSchedule (2026-10-14) ----
+  // The RPC replace-alls the schedule WITHOUT the no-show terms, so they are written onto the first payment after
+  // it (`writeSchedulePolicy`, below) — never dropped.
+  let scheduleRows: ParsedScheduleRow[];
+  let newSlots: ReturnType<typeof parseNewSlotRows>;
   try {
-    schedule = parseScheduleRows(formData);
+    scheduleRows = parsePaymentScheduleForm(formData);
+    newSlots = parseNewSlotRows(formData);
   } catch (e) {
     return back((e as Error).message);
   }
+  const schedule = scheduleRows.map((r) => ({
+    seq: r.seq,
+    label: r.label,
+    amount_kind: r.amount_kind,
+    percent_bps: r.percent_bps,
+    amount_centavos: r.amount_centavos,
+    due_anchor: r.due_anchor,
+    due_offset_days: r.due_offset_days,
+  }));
 
   // The three replace-all lists → the RPC's jsonb args (wizard parity: same
   // rows the inline actions write via replaceServiceLists; sort_order = the
@@ -1957,6 +1859,58 @@ export async function commitVendorService(formData: FormData) {
     p_publish: publish,
   });
   if (error) return back(error.message);
+
+  // ---- THE PARTS THAT USED TO NEED THEIR OWN SAVE (supplier-easy step 3, 2026-10-14) ----
+  // The maker shows every field of a card and saves it with ONE press (owner 2026-10-08 Q3). These are written
+  // after the card row exists, each through the SAME body as its own per-part action, owner-scoped. A part that
+  // fails is SAID on arrival — the card itself is saved, so it is never a bounce that invites a second card.
+  const partProblems: string[] = [];
+  const cardId = typeof savedId === 'string' && savedId.length > 0 ? savedId : null;
+  if (cardId) {
+    const policyErr = await writeSchedulePolicy(supabase, cardId, profile.vendor_profile_id, scheduleRows);
+    if (policyErr) partProblems.push('the no-show terms on the first payment');
+    if (formData.get('addons_present') === '1') {
+      const addonErr = await replaceServiceAddons(supabase, cardId, profile.vendor_profile_id, parseAddonRows(formData));
+      if (addonErr) partProblems.push('the add-ons');
+    }
+    if (formData.get('refinement_keys') !== null) {
+      const refErr = await mergeServiceRefinements(supabase, profile.vendor_profile_id, category, formData);
+      if (refErr) partProblems.push('the details');
+    }
+    const removedSlots = parseRemovedSlotIds(formData);
+    if (removedSlots.length > 0) {
+      for (const slotId of removedSlots) {
+        const { error: slotErr } = await supabase
+          .from('vendor_service_time_slots')
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq('slot_id', slotId)
+          .eq('vendor_service_id', cardId)
+          .eq('vendor_profile_id', profile.vendor_profile_id);
+        if (slotErr) partProblems.push('a time slot you removed');
+      }
+    }
+    if (newSlots.length > 0) {
+      const { error: slotErr } = await supabase.from('vendor_service_time_slots').insert(
+        newSlots.map((sl) => ({
+          ...sl,
+          vendor_profile_id: profile.vendor_profile_id,
+          vendor_service_id: cardId,
+        })),
+      );
+      if (slotErr) partProblems.push('the new time slots');
+    }
+    const scheduleChoice = parseScheduleChoice(formData.get('schedule_choice'));
+    if (scheduleChoice !== '') {
+      const schedErr = await assignCardSchedule(
+        supabase,
+        profile.vendor_profile_id,
+        cardId,
+        scheduleChoice,
+        (fields.title as string | null) ?? displayServiceLabel(category),
+      );
+      if (schedErr) partProblems.push('its schedule');
+    }
+  }
 
   // ---- C3 — remember a search miss the supplier resolved themselves ----
   //
@@ -2084,6 +2038,13 @@ export async function commitVendorService(formData: FormData) {
   // purpose: `/vendor-dashboard` renders no `?error=`, so routing the failure
   // there would swallow it. The couple registration above has already run, so
   // the only thing given up in this rare branch is the `claimed=1` banner.
+  if (partProblems.length > 0 && !customizationError) {
+    return redirect(
+      `${await servicesReturnBase()}?error=${encodeURIComponent(
+        `Your card was saved, but ${partProblems.join(', ')} could not be — open the card and try again.`,
+      )}#service-${savedId ?? ''}`,
+    );
+  }
   if (customizationError) {
     return redirect(
       `${await servicesReturnBase()}?error=${encodeURIComponent(
@@ -2109,79 +2070,6 @@ export async function commitVendorService(formData: FormData) {
   // `publish` IS the final is_active — a publish the RPC refuses errors above.
   const made = isCreate ? `&created=${publish ? 'live' : 'draft'}` : '';
   redirect(`${await servicesReturnBase()}?saved=1${made}${named}#service-${savedId ?? ''}`);
-}
-
-/**
- * Parse the wizard's installment rows (same field names the legacy
- * payment-schedule editor submits) into the RPC's schedule jsonb shape — WITHOUT
- * the service/profile ids (the RPC fills those). Mirrors setServicePaymentSchedule.
- */
-function parseScheduleRows(formData: FormData): Array<Record<string, unknown>> {
-  const labels = formData.getAll('item_label');
-  const kinds = formData.getAll('item_amount_kind');
-  const values = formData.getAll('item_value');
-  const anchors = formData.getAll('item_due_anchor');
-  const offsets = formData.getAll('item_due_offset_days');
-  const rows: Array<Record<string, unknown>> = [];
-  const n = labels.length;
-  if (n > MAX_SCHEDULE_ITEMS) {
-    throw new Error(`A schedule can have up to ${MAX_SCHEDULE_ITEMS} payments.`);
-  }
-  for (let i = 0; i < n; i++) {
-    const label = typeof labels[i] === 'string' ? (labels[i] as string).trim() : '';
-    if (label.length === 0 || label.length > 80) {
-      throw new Error('Each payment needs a label (up to 80 characters).');
-    }
-    const kindRaw = kinds[i];
-    if (kindRaw !== 'percent' && kindRaw !== 'fixed') {
-      throw new Error('Each payment must be a percent or a fixed amount.');
-    }
-    const amount_kind = kindRaw as AmountKind;
-    const valueRaw = typeof values[i] === 'string' ? (values[i] as string).trim() : '';
-    const value = Number(valueRaw);
-    if (valueRaw.length === 0 || !Number.isFinite(value) || value < 0) {
-      throw new Error('Each payment needs a non-negative amount.');
-    }
-    let percent_bps: number | null = null;
-    let amount_centavos: number | null = null;
-    if (amount_kind === 'percent') {
-      if (!Number.isInteger(value) || value > 100) {
-        throw new Error('A percentage must be a whole number between 0 and 100.');
-      }
-      percent_bps = pctToBps(value);
-    } else {
-      if (!Number.isInteger(value)) {
-        throw new Error('A fixed amount must be a whole peso figure.');
-      }
-      amount_centavos = phpToCentavos(value);
-    }
-    const anchorRaw = anchors[i];
-    let due_anchor: DueAnchor | null = null;
-    let due_offset_days: number | null = null;
-    if (anchorRaw === 'on_lock' || anchorRaw === 'before_event') {
-      due_anchor = anchorRaw;
-      const offRaw = typeof offsets[i] === 'string' ? (offsets[i] as string).trim() : '';
-      if (offRaw.length > 0) {
-        const off = Number(offRaw);
-        if (!Number.isInteger(off) || off < 0) {
-          throw new Error('Due-date days must be a non-negative whole number.');
-        }
-        due_offset_days = off;
-      } else {
-        due_offset_days = 0;
-      }
-    }
-    rows.push({
-      seq: i,
-      label: label.slice(0, 80),
-      amount_kind,
-      percent_bps,
-      amount_centavos,
-      due_anchor,
-      due_offset_days,
-    });
-  }
-  return rows;
 }
 
 export async function toggleVendorServiceActive(formData: FormData) {
@@ -2269,66 +2157,31 @@ export async function toggleVendorServiceActive(formData: FormData) {
 }
 
 // ============================================================================
-// Tier feature #3 — Enterprise-only time-bound slot CRUD.
+// Exact time slots — on EVERY plan (owner 2026-10-14, DECISION_LOG 🧑‍🤝‍🧑 call 3;
+// were Enterprise-only, "tier feature #3").
 //
-// A service with >=1 ACTIVE slot uses the #3 per-slot capacity model and SKIPS
-// the #2 daily_capacity gate (finalizeVendor branches on slot presence). Adding
-// slots is gated on ENTERPRISE (re-derived server-side via canPlotTimeSlots —
-// never trusts the form). Deleting (soft-deactivating) is NOT tier-gated so a
-// downgraded vendor can always clean up stale slots that are still enforcing
-// against their bookings (verifier C8).
+// A service with >=1 ACTIVE slot uses the per-slot capacity model and SKIPS
+// the #2 daily_capacity gate (finalizeVendor branches on slot presence).
+// 🗑 The Enterprise check that lived here (`assertCanPlotSlots`, one
+// `vendor_profiles` read per plot) is gone with the ruling — `canPlotTimeSlots`
+// answers true for every plan, so the read could only ever cost a request.
+// Ownership is still checked on every write below. Deleting (soft-deactivating)
+// was never tier-gated.
 // ============================================================================
-
-/** Re-derive the vendor's tier server-side; throw unless ENTERPRISE. */
-async function assertCanPlotSlots(
-  supabase: Awaited<ReturnType<typeof ensureProfile>>['supabase'],
-  vendorProfileId: string,
-): Promise<void> {
-  const { data } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  const tier = (data as { tier_state?: string | null } | null)?.tier_state ?? null;
-  if (!canPlotTimeSlots(tier)) {
-    throw new Error('Time slots are an Enterprise feature. Upgrade to plot them.');
-  }
-}
 
 export async function addServiceTimeSlot(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
 
   try {
-    await assertCanPlotSlots(supabase, profile.vendor_profile_id);
-
     const serviceId = String(formData.get('vendor_service_id') ?? '');
-    const label = String(formData.get('slot_label') ?? '').trim();
-    const start = String(formData.get('start_time') ?? '');
-    const end = String(formData.get('end_time') ?? '');
-    const capRaw = String(formData.get('slot_capacity') ?? '').trim();
-    const cap = capRaw.length === 0 ? 1 : Number(capRaw);
-    const orderRaw = String(formData.get('display_order') ?? '').trim();
-    const displayOrder = orderRaw.length === 0 ? 0 : Number(orderRaw);
-
-    if (!label || label.length > SLOT_LABEL_MAX) {
-      throw new Error(`Slot label is required (up to ${SLOT_LABEL_MAX} characters).`);
-    }
-    if (!SLOT_TIME_RE.test(start) || !SLOT_TIME_RE.test(end)) {
-      throw new Error('Times must be on the hour or half-hour (e.g. 08:00, 14:30).');
-    }
-    if (end <= start) {
-      throw new Error('End time must be after start time.');
-    }
-    if (
-      !Number.isInteger(cap) ||
-      cap < SLOT_CAPACITY_MIN ||
-      cap > SLOT_CAPACITY_MAX
-    ) {
-      throw new Error(`Capacity must be a whole number ${SLOT_CAPACITY_MIN}–${SLOT_CAPACITY_MAX}.`);
-    }
-    if (!Number.isInteger(displayOrder) || displayOrder < 0) {
-      throw new Error('Display order must be a non-negative whole number.');
-    }
+    // The one set of slot checks — shared with the maker's one save (lib/service-card-save-parts.ts).
+    const slot = checkSlot({
+      label: String(formData.get('slot_label') ?? ''),
+      start: String(formData.get('start_time') ?? ''),
+      end: String(formData.get('end_time') ?? ''),
+      capRaw: String(formData.get('slot_capacity') ?? ''),
+      orderRaw: String(formData.get('display_order') ?? ''),
+    });
 
     // Ownership: the service must belong to THIS vendor profile.
     const { data: svc } = await supabase
@@ -2344,11 +2197,7 @@ export async function addServiceTimeSlot(formData: FormData) {
     const { error } = await supabase.from('vendor_service_time_slots').insert({
       vendor_profile_id: profile.vendor_profile_id, // stamped server-side
       vendor_service_id: serviceId,
-      slot_label: label,
-      start_time: start,
-      end_time: end,
-      slot_capacity: cap,
-      display_order: displayOrder,
+      ...slot,
     });
     if (error) throw new Error(error.message);
   } catch (e) {

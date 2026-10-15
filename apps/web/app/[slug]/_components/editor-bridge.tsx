@@ -35,7 +35,8 @@ import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 import { createCanvasBringUp } from './canvas-bring-up';
 import { replaySceneIn, sceneFrameOf } from './scene-replay';
-import { playSequence } from './play-sequence';
+import { finishArrivals, playSequence } from './play-sequence';
+import { laySceneMotion, readSceneMotion } from './scene-motion-lay';
 import { guestLinkLeaves } from './guest-in-canvas';
 
 /**
@@ -1005,6 +1006,22 @@ export function EditorBridge() {
           /* ▶ where they are: Animate's Build in · Action · Build out plays that phase alone. */
           only === 'in' || only === 'act' || only === 'out' ? only : undefined,
         );
+        return;
+      }
+      if (data.t === 'sceneMotion') {
+        /* 🎬 A SCENE'S MOTION PICK, ON THE CANVAS NOW (`scene-motion-lay.ts`, the 2026-10-15 walk F5 · F10): laid on the
+           frame on screen — so ▶ always plays the latest pick — and the picked phase played once, as ▶ plays it. The
+           page's own arrival restarted by the new values is finished first, so only the one replay is seen. */
+        const motion = readSceneMotion(data);
+        const frame = sceneFrameOf(el as never) as unknown as HTMLElement | null;
+        if (!motion || !frame) return;
+        laySceneMotion(frame as never, motion);
+        finishArrivals(frame, true);
+        if (!motion.play || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        seqStop?.();
+        seqStop = playSequence(frame, true, (r) => {
+          if (r.phase === 'rest') seqStop = null;
+        }, motion.play);
         return;
       }
       if (data.t === 'playEl') {

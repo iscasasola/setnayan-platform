@@ -1166,6 +1166,17 @@ export function hubArrangement(value: unknown): HubArrangement | null {
 }
 
 /**
+ * 🌄 DOES SLOW LIFT MOVE ANYTHING HERE? It moves the scene's PICTURE behind the words — the media layer
+ * (`.hub-during-lift.hub-has-media > .hub-canvas-media`, globals.css) — and nothing else: a scene with no photo or
+ * clip behind it (a colour, a glass, a list) does not move at all. The 2026-10-15 walk, F11: it was offered on every
+ * scene (Schedule, Dress code …) and did nothing there; Animate › Action now offers it only where this is true.
+ */
+export function hubLiftMoves(canvas: HubSectionCanvas): boolean {
+  const kind = resolveHubBackground(canvas)?.kind;
+  return (kind === 'photo' || kind === 'snippet') && hubPhotoPlacement(canvas, true) === 'behind';
+}
+
+/**
  * WHERE THE PHOTO GOES, given the arrangement and whether a photo RESOLVED.
  *
  *   full  → behind the words (the shipped background, scrim and all)

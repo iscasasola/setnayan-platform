@@ -75,7 +75,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      `event_id, slug, display_name, event_type, event_date, event_end_date, timezone, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}, role_palette, style_preferences, qr_shown, logo_wanted`,
+      `event_id, slug, display_name, event_type, event_date, event_end_date, timezone, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}, role_palette, logo_wanted, style_preferences, qr_shown`,
     )
     .ilike('slug', slug)
     .maybeSingle();

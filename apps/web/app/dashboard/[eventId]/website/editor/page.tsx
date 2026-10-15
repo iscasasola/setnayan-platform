@@ -1708,6 +1708,8 @@ export default async function WebsiteEditorPage({
         /* 👗 Read again, never `dressCodeConfig`: that one carries the INC starter and a filled-in palette for
            the old panel's form — writing it back would store words the couple never wrote. */
         dressCode: normalizeDressCodeConfig((drafted as { dress_code_config?: unknown }).dress_code_config),
+        /* 🖼 The Cover Scene's Scene ◆ tiles — each ready-made loop's first frame, already on R2. */
+        loopPosters: Object.fromEntries(hubMovingBackgroundIds().map((id) => [id, resolveThemeGround(id, { ownColours: false })?.poster ?? null])),
         colorChoices,
         photoChoices,
         videoChoice,

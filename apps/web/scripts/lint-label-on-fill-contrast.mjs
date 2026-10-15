@@ -229,8 +229,10 @@ function readTailwindPalette(cssVars) {
   let line = '';
 
   const resolve1 = (value) => {
-    const viaVar = value.match(/rgb\(\s*var\(--([a-z0-9-]+)\)/i);
-    if (viaVar) return cssVars.get(viaVar[1]) ?? null;
+    // `rgb(var(--a, var(--b)) / …)` — the token, else its fallback (`ink-on-plate` / `ink-on-light`: unset on the
+    // light page, so they read as `ink` there; the dark block names the plate's own).
+    const viaVar = value.match(/rgb\(\s*var\(--([a-z0-9-]+)\s*(?:,\s*var\(--([a-z0-9-]+)\)\s*)?\)/i);
+    if (viaVar) return cssVars.get(viaVar[1]) ?? (viaVar[2] ? cssVars.get(viaVar[2]) : null) ?? null;
     const hex = value.match(/#[0-9a-f]{3,6}/i);
     return hex ? parseHex(hex[0]) : null;
   };

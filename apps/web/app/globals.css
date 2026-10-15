@@ -244,6 +244,11 @@
      */
     --color-cream: 23 22 15;           /* page bg → Atelier ink-black #17160F */
     --color-ink: 251 250 247;          /* primary text → Atelier paper #FBFAF7 */
+    /* Words on the PLATE paper (`bg-paper-deep`), which never darkens with the page: they keep the light ink #2C2A29
+     * (batch 7 join, 2026-10-16 — the Maker's look-sample card read cream on its light plate, 1.08:1). Every hub
+     * theme pins its own `--color-ink-on-plate`; candlelight, which paints a dark plate, is handed its own ink back
+     * just below. Dark only — light and the guest Event Hub (never dark) are untouched. */
+    --color-ink-on-plate: 44 42 41;
     --color-terracotta: 203 167 102;   /* accent → kit gold-300 #CBA766 (reads on dark) */
     --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
@@ -3654,6 +3659,11 @@ html.dark {
   --color-veil: 44 39 34; /* the wash reads as candle-glow, not fog */
   --color-gild: 201 163 106; /* brightened so the metallic still reads on black */
   --color-gild-text: 201 163 106; /* its words too — never a palette's light-page text gild on black */
+}
+/* In the app's dark (never on a guest page) candlelight's own dark plate keeps its own cream words — `html.dark`
+   hands every other plate the light ink (`--color-ink-on-plate`, the dark token block). */
+html.dark [data-art='candlelight'] {
+  --color-ink-on-plate: var(--color-ink);
 }
 [data-art='candlelight'] .pahina-grain::before {
   /* grain has to work HARDER on dark stock and must not multiply to mud */

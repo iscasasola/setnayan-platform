@@ -3822,6 +3822,8 @@ html.dark [data-art='candlelight'] {
    on what you press). The same id, so a page that picked Fabric keeps its pick. */
 .sn-editorial .sn-pal-fabric {
   gap: 12px 8px;
+  /* A one-line name and a two-line name sit over swatches that still line up along the row's foot. */
+  align-items: flex-end;
 }
 .sn-editorial .sn-pal-fabric > li {
   display: flex;
@@ -4040,8 +4042,8 @@ html.dark [data-art='candlelight'] {
 }
 .sn-editorial .sn-pal-arch > li > b {
   position: absolute;
-  left: 2px;
-  right: 2px;
+  left: 7px;
+  right: 7px;
   bottom: 14px;
   text-align: center;
   font-family: var(--font-mono);

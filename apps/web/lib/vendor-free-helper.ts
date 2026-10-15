@@ -91,12 +91,23 @@ export function canSeat(args: {
   return after <= cap || after <= before;
 }
 
-/** "1 of 3 used · 1 free Helper" — the Helpers screen's one line. Infinity reads as "no limit". */
+/**
+ * The Helpers screen's one line — the SEATS and the FREE HELPER said as two separate facts, so neither can read as
+ * contradicting the other (supplier batch walk R5: "0 of 1 used · your free Helper is in use" read as "nothing used,
+ * yet something is in use" — the Helper is outside the seat count, and the line never said so).
+ *   "1 of 3 seats used · plus your free Helper"            a Helper is on the team
+ *   "0 of 1 seats used · plus 1 free Helper you can invite" none yet
+ *   "No team seats on your plan · plus 1 free Helper …"    a plan with no seats
+ *   "2 with you · no seat limit · plus your free Helper"   unlimited
+ */
 export function seatLine(seats: TeamSeats, cap: number): string {
   const free =
     FREE_HELPER_SEATS > 0
-      ? ` · ${seats.freeHelpers > 0 ? 'your free Helper is in use' : `${formatCount(FREE_HELPER_SEATS)} Helper free on every plan`}`
+      ? seats.freeHelpers > 0
+        ? ' · plus your free Helper'
+        : ` · plus ${formatCount(FREE_HELPER_SEATS)} free Helper you can invite`
       : '';
-  if (!Number.isFinite(cap)) return `${formatCount(seats.people)} with you · no limit${free}`;
-  return `${formatCount(seats.counted)} of ${formatCount(cap)} used${free}`;
+  if (!Number.isFinite(cap)) return `${formatCount(seats.counted)} with you · no seat limit${free}`;
+  if (cap <= 0 && seats.counted === 0) return `No team seats on your plan${free}`;
+  return `${formatCount(seats.counted)} of ${formatCount(cap)} ${cap === 1 ? 'seat' : 'seats'} used${free}`;
 }

@@ -58,3 +58,15 @@ test('the free number and role are imported, never typed', () => {
   }
   assert.doesNotMatch(ACTIONS, /role\s*===\s*'viewer'\s*&&/, 'the free role is typed in the action');
 });
+
+// Supplier batch walk R5 (2026-10-15): a view-only Helper works no service — "Who works what" (labels + the services
+// picker) lists TEAM MEMBERS only, so a Helper is never offered a picker that does nothing for them.
+test('Who works what lists team members only — never the view-only Helper', () => {
+  const view = read('_components/helpers-view.tsx');
+  const at = view.indexOf('data-helpers-fold="who-works-what"');
+  assert.ok(at > 0, 'the Who works what fold is gone — re-derive this test');
+  const fold = view.slice(view.lastIndexOf('{', view.lastIndexOf('?', at)), view.indexOf('</Fold>', at));
+  assert.match(view.slice(at - 200, at), /\{agents\.length > 0 \? \(/, 'the fold opens for a shop whose only non-admin is a Helper');
+  assert.match(fold, /\{agents\.map\(\(m\) => \(/, 'the fold lists someone other than team members');
+  assert.doesNotMatch(fold, /\bdo\{' '\}/, 'the label reads "What <name> do"');
+});

@@ -103,7 +103,6 @@ export function HelpersView({
   const iAmAdmin = me ? isVendorAdminRole(me.role) : true;
   const otherAdmins = enriched.filter((m) => m.user_id !== userId && isVendorAdminRole(m.role));
   const agents = enriched.filter((m) => m.role === 'agent');
-  const nonAdmins = enriched.filter((m) => m.user_id !== userId && !isVendorAdminRole(m.role));
   const roleOptions = VENDOR_TEAM_ROLE_PICK.map((o) => ({ key: o.key as string, label: o.label }));
 
   return (
@@ -222,27 +221,24 @@ export function HelpersView({
           />
         ) : null}
 
-        {/* Who works what — the agents' services, and every helper's "what they do" label. */}
-        {nonAdmins.length > 0 ? (
+        {/* Who works what — each TEAM MEMBER's services and "what they do" label. A view-only Helper is not listed: they
+            work no service, so a services picker would do nothing for them (supplier batch walk R5). */}
+        {agents.length > 0 ? (
           <div className="border-t border-ink/10" data-helpers-fold="who-works-what">
             <Fold
               title="Who works what"
-              line={
-                agents.length > 0
-                  ? agents.map((a) => { const n = (assignments[a.vendor_team_member_id] ?? []).length; return `${a.display_name?.trim() || a.email || 'Team member'} · ${formatCount(n)} ${n === 1 ? 'service' : 'services'}`; }).join(' · ')
-                  : 'What each helper does'
-              }
+              line={agents.map((a) => { const n = (assignments[a.vendor_team_member_id] ?? []).length; return `${a.display_name?.trim() || a.email || 'Team member'} · ${formatCount(n)} ${n === 1 ? 'service' : 'services'}`; }).join(' · ')}
               data="helpers-who-works-what"
             >
               <div className="space-y-3 pb-3">
-                {nonAdmins.map((m) => (
+                {agents.map((m) => (
                   <div key={m.vendor_team_member_id} className="border-t border-ink/10 pt-3 first:border-t-0 first:pt-0">
                     <form action={actions.update} className="flex min-h-[60px] items-end gap-2">
                       <input type="hidden" name="vendor_team_member_id" value={m.vendor_team_member_id} />
                       <input type="hidden" name="role" value={m.role} />
                       <label className="block min-w-0 flex-1 space-y-1">
                         <span className="block text-[13px] text-ink/60">
-                          What {m.display_name?.trim() || m.email || 'they'} do{' '}
+                          What {m.display_name?.trim() || m.email || 'this team member'} does{' '}
                         </span>
                         <input name="team_label" maxLength={64} defaultValue={m.team_label ?? ''} placeholder="e.g. Front desk" className="input-field min-h-11" />
                       </label>

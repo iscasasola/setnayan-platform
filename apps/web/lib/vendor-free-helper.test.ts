@@ -68,8 +68,13 @@ test('unlimited plans are never refused', () => {
   assert.equal(canSeat({ members: [m('a', 'agent')], founderUserId: FOUNDER, cap: Infinity, change: { kind: 'invite', role: 'agent' } }), true);
 });
 
-test('the line says what is used and that the Helper is free', () => {
-  assert.equal(seatLine(teamSeats([m('a', 'agent'), m('b', 'viewer')], FOUNDER), 3), '1 of 3 used · your free Helper is in use');
-  assert.equal(seatLine(teamSeats([], FOUNDER), 0), '0 of 0 used · 1 Helper free on every plan');
-  assert.equal(seatLine(teamSeats([m('a', 'agent')], FOUNDER), Infinity), '1 with you · no limit · 1 Helper free on every plan');
+test('the line says the seats and the free Helper as two facts that cannot contradict (walk R5)', () => {
+  assert.equal(seatLine(teamSeats([m('a', 'agent'), m('b', 'viewer')], FOUNDER), 3), '1 of 3 seats used · plus your free Helper');
+  // The walk's Free parish: one Helper, entry allowance 1 → never "0 of 1 used · … in use".
+  assert.equal(seatLine(teamSeats([m('b', 'viewer')], FOUNDER), 1), '0 of 1 seat used · plus your free Helper');
+  assert.equal(seatLine(teamSeats([], FOUNDER), 0), 'No team seats on your plan · plus 1 free Helper you can invite');
+  assert.equal(seatLine(teamSeats([m('a', 'agent')], FOUNDER), Infinity), '1 with you · no seat limit · plus 1 free Helper you can invite');
+  for (const line of [seatLine(teamSeats([m('b', 'viewer')], FOUNDER), 1), seatLine(teamSeats([], FOUNDER), 1)]) {
+    assert.doesNotMatch(line, /in use/, `"in use" beside a seat count reads as a contradiction: ${line}`);
+  }
 });

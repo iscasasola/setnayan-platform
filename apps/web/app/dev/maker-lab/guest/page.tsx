@@ -19,6 +19,7 @@ import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
 import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost } from '@/app/[slug]/_components/hub-scenes';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
+import { OurPhotosWidget } from '@/app/[slug]/_components/our-photos-widget';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
@@ -184,6 +185,28 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         <h1 className="font-pahina text-5xl font-light leading-tight text-ink">Maria &amp; Jose</h1>
         <p className="text-sm text-ink/70">Saturday, December 12, 2026 · Seda Vertis North</p>
         {card ? <ReplyCardRow card={card} /> : null}
+      </main>
+    );
+  }
+  /* 🎞 `?photos=<n>` — the couple's Photos scene with n stand-in pictures (our own drawn gradients, never anybody's
+     photo), in `&gstyle=` (mosaic · grid · film-strip · glimpse) with `&heading=` — the REAL `OurPhotosWidget`, so the
+     Glimpse rail, its drift and the shipped full-screen viewer are walked with no database. */
+  if (typeof sp.photos === 'string') {
+    const n = Math.max(1, Math.min(24, Number(sp.photos) || 5));
+    const hues = [28, 352, 205, 160, 44, 290, 12, 190, 75, 330, 230, 98];
+    const urls = Array.from({ length: n }, (_, i) => {
+      const hue = hues[i % hues.length]!;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400"><defs><linearGradient id="g" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="hsl(${hue} 38% 72%)"/><stop offset=".55" stop-color="hsl(${hue} 42% 48%)"/><stop offset="1" stop-color="hsl(${(hue + 30) % 360} 36% 30%)"/></linearGradient></defs><rect width="300" height="400" fill="url(#g)"/><circle cx="${60 + ((i * 51) % 150)}" cy="${70 + ((i * 33) % 80)}" r="48" fill="rgba(255,255,255,.28)"/><line x1="40" x2="260" y1="300" y2="300" stroke="rgba(255,255,255,.4)"/><text x="20" y="384" font-family="sans-serif" font-size="18" letter-spacing="3" fill="rgba(255,255,255,.8)">${String(i + 1).padStart(2, '0')}</text></svg>`;
+      return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    });
+    const gstyle = typeof sp.gstyle === 'string' ? sp.gstyle : 'glimpse';
+    const heading = typeof sp.heading === 'string' && sp.heading.trim() ? sp.heading.trim() : null;
+    return (
+      <main className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[860px] bg-cream px-4 py-10 text-ink" data-lab-photos={n}>
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        <OurPhotosWidget urls={urls} sceneStyle={gstyle} heading={heading} />
+        <p className="mt-16 text-center text-xs text-ink/60">Below the photos — scroll past to take the rail off screen.</p>
+        <div className="h-[120vh]" aria-hidden />
       </main>
     );
   }

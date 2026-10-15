@@ -9,6 +9,12 @@
  * `host-body-variant.test.ts`), and See as on a phone YES.
  *
  * What this holds, and how:
+ *   0. RENDERED — the REAL `SiteBody` (`lib/site-body-fixture-render.ts`), drawn
+ *      for a signed-in host of the fixture event: no strip, no landmark, no
+ *      words — and still the host's body (no stranger's "Get inside"), while
+ *      the same page for a stranger keeps its door. (On the commit before this
+ *      one the host render could not even finish: the strip's Preview ▾ asked
+ *      for the app router — the strip WAS drawn.)
  *   1. NO HOST CHROME ON /[slug] — every non-test source under `app/[slug]` is
  *      read (comments stripped) for the strip's component, its marker, its
  *      landmark and its words. Zero, and the scan proves it read real files.
@@ -28,6 +34,9 @@ import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
 import { SEE_AS, seeAsDrawingLine } from '@/lib/see-as';
+import { renderSiteBodyFixtureFull } from '@/lib/site-body-fixture-render';
+import { fixtureStranger, siteBodyFixtureProps } from '@/lib/site-body-fixture';
+import type { OwnerCapability } from './site-identity';
 
 const SLUG = join(import.meta.dirname, '..');
 const WEB = join(SLUG, '..', '..');
@@ -39,6 +48,28 @@ function walk(dir: string): string[] {
     return statSync(p).isDirectory() ? walk(p) : /\.tsx?$/.test(n) && !/\.test\.tsx?$/.test(n) ? [p] : [];
   });
 }
+
+test('0 · RENDERED: a signed-in host’s own page draws no host strip — and is still the host’s page, not a stranger’s', async () => {
+  const eventId = siteBodyFixtureProps().event.event_id;
+  const host: OwnerCapability = { capability: 'owner', ownerUserId: 'lab-host', ownerEventId: eventId, maySiteEdit: true };
+  for (const phase of ['rsvp', 'event'] as const) {
+    const asHost = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), lifecyclePhase: phase, phasesEnabled: true, ownerCapability: host });
+    const asStranger = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), lifecyclePhase: phase, phasesEnabled: true });
+    assert.deepEqual(asHost.complaints, [], `${phase}: React complained drawing the host’s page`);
+    assert.ok(asHost.html.length > 10_000, `${phase}: the host render is ${asHost.html.length} bytes — not the page`);
+    for (const [what, re] of [
+      ['the strip’s landmark', /aria-label="Host controls"/],
+      ['the strip’s marker', /data-owner-ribbon/],
+      ['the strip’s words', /as a guest sees it/],
+      ['the strip’s Preview ▾', /data-owner-phase-menu/],
+    ] as const) {
+      assert.doesNotMatch(asHost.html, re, `${phase}: a signed-in host is drawn ${what}`);
+    }
+    // Strip only (owner pick): the host body stays — the host meets no stranger’s door; the stranger still does.
+    assert.doesNotMatch(asHost.html, /Get inside/, `${phase}: the host is handed the stranger’s door — the host body is gone`);
+    assert.match(asStranger.html, /Get inside/, `${phase}: the stranger lost the door — the comparison is blind`);
+  }
+});
 
 test('1 · no host strip on /[slug]: its component, its marker, its landmark and its words are nowhere on the page', () => {
   const files = walk(SLUG);

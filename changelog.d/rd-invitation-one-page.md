@@ -12,7 +12,9 @@ only; the desktop system sheet and desktop pages are a later build.
   scroll (`site-body.tsx` `pageTabsFor`). The Day is byte-for-byte its own pages, as before.
 - **The bar** (`site-nav.ts` `tabbed: 'one-page'`, `site-menu-bar.tsx`): Home · Details · Story are their anchors
   (`#site-home` · `#site-details` · `#site-story`), Me is `?tab=me`. One `IntersectionObserver` lights the last mark
-  crossed (`_lib/jump-marks.ts` `litJumpMark`, `aria-current="true"`); Me, opened, is lit as its page. Hidden over the
+  crossed into the top quarter of the screen (`_lib/jump-marks.ts` `litJumpMark`, `aria-current="true"`); at the page's foot
+  (a second observer on the bar's own spacer) the lowest section on screen is lit, so a short last Story still lights;
+  Me, opened, is lit as its page. Hidden over the
   cover and slid up on the first swipe by the Cover Scene's own rule (batch #6553), reduced motion = no slide.
 - **The bars hide again whenever the cover is back on screen** (Q3, *"where the bar hides again"*): the Cover Scene's
   one `<style data-cover-menu>` in `<head>` (batch W1, hydration-safe — the root is never touched) goes back to `"wait"`

@@ -45,7 +45,7 @@ import {
 import { FLOWS, WEDDING_SCREENS, funnelOf, reachStep, type FlowRuns } from './flows';
 import { countKeyFor, wireToRecord } from './ingest-shape';
 import { problemLine } from './problem-line';
-import { createLoggingFetch, type DbFaultSink } from '@/lib/supabase/db-error-log';
+import { ABSENT_IS_FINE_HEADER, createLoggingFetch, type DbFaultSink } from '@/lib/supabase/db-error-log';
 
 const WEB = process.cwd();
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
@@ -264,6 +264,50 @@ test('ZERO-ROW: the fetch layer every server client rides hands it to the record
     globalThis.fetch = real;
   }
   assert.equal((got[0] as { kind: string }).kind, 'DB_ZERO_ROW');
+});
+
+test('ZERO-ROW: a DELETE marked "absent is fine" is not a fault; an unmarked one, and any PATCH, still are (stability sweep 2026-10-15)', async () => {
+  const real = globalThis.fetch;
+  const got: Array<{ kind: string; action: string }> = [];
+  const sink: DbFaultSink = { verdict: (v) => got.push(v as { kind: string; action: string }), unreachable: () => {} };
+  globalThis.fetch = (async () => new Response(null, { status: 204, headers: { 'content-range': '*/*' } })) as typeof fetch;
+  const url = 'https://x.supabase.co/rest/v1/event_category_decisions?event_id=eq.e&plan_group_id=eq.g';
+  const marked = new Headers({ [ABSENT_IS_FINE_HEADER]: '1' });
+  try {
+    await createLoggingFetch(`ab-${Math.random()}`, sink)(url, { method: 'DELETE', headers: marked });
+    assert.deepEqual(got, [], 'a cleanup DELETE whose author said absent is the goal was filed as a fault');
+    await createLoggingFetch(`ab-${Math.random()}`, sink)(url, { method: 'DELETE' });
+    assert.equal(got.length, 1, 'an unmarked targeted DELETE that matched nothing must still be recorded');
+    await createLoggingFetch(`ab-${Math.random()}`, sink)(url, { method: 'PATCH', headers: marked });
+    assert.equal(got.length, 2, 'the mark must never excuse a PATCH — an update that matched nothing did not happen');
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test('ZERO-ROW: the "absent is fine" mark sits only on a DELETE chain', () => {
+  const files: string[] = [];
+  const walk = (d: string) => {
+    for (const n of readdirSync(join(WEB, d), { withFileTypes: true })) {
+      if (n.name === 'node_modules' || n.name.startsWith('.')) continue;
+      const rel = `${d}/${n.name}`;
+      if (n.isDirectory()) walk(rel);
+      else if (/\.(ts|tsx)$/.test(n.name) && !/\.test\.tsx?$/.test(n.name)) files.push(rel);
+    }
+  };
+  walk('app');
+  walk('lib');
+  let uses = 0;
+  for (const f of files) {
+    const src = code(f);
+    for (const m of src.matchAll(/\.setHeader\(\s*ABSENT_IS_FINE_HEADER/g)) {
+      uses += 1;
+      const chain = src.slice(Math.max(0, src.lastIndexOf('.from(', m.index)), m.index);
+      assert.match(chain, /\.delete\(/, `${f}: the absent-is-fine mark is on a chain that is not a DELETE`);
+      assert.doesNotMatch(chain, /\.(update|upsert|insert)\(/, `${f}: the absent-is-fine mark is on a write that must land`);
+    }
+  }
+  assert.ok(uses >= 2, `expected the two category-decision cleanups to carry the mark, found ${uses}`);
 });
 
 test('WIRED: both server Supabase clients ride the recording fetch layer', () => {

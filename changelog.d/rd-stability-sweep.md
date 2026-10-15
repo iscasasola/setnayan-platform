@@ -40,3 +40,18 @@ row, without asking (`lib/event-type-profile.ts`, `isUuid`). Guard:
 `lib/a-sample-story-asks-the-database-nothing.test.ts` (also proves a real uuid still reads).
 
 SPEC IMPACT: None.
+
+### 4 · `DB_ZERO_ROW DELETE event_category_decisions — the write matched no row` (1 hit, 2026-10-15 15:00)
+
+Undoing a supplier lock clears the category's `complete` decision — "deleting an absent row is a no-op",
+says the code — and clearing an already-clear decision is the cleared state. RLS's DELETE and SELECT
+doors on that table are the same policy (`current_event_ids`), so "matched nothing" there cannot be a
+silent refusal. Both cleanups now carry `ABSENT_IS_FINE_HEADER` (`lib/supabase/db-error-log.ts`), which
+excuses a zero-row DELETE and never a PATCH. Guards: `lib/telemetry/every-failure-is-recorded.test.ts`
+(the mark excuses only a marked DELETE; the mark sits only on a DELETE chain).
+
+⚠ `DB_ZERO_ROW DELETE event_schedule_blocks` (6 hits, 2026-10-14) is deliberately NOT marked: that table
+lets a moderator with view-only access SELECT what it cannot DELETE, so a zero-row delete there can be a
+refusal in silence — the case the fault exists for. Its request logs are past Vercel's retention.
+
+SPEC IMPACT: None.

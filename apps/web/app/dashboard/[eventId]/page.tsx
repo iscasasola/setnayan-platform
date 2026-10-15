@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { startAhead } from '@/lib/start-ahead';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -567,6 +568,12 @@ export default async function EventHomePage({
     readHomeGuide({ eventId, memberType: viewerMemberType }).catch(() => null),
   );
 
+  // 🖼 The header's ground — started with the rest (2026-10-16). It was awaited on its own
+  // AFTER the one wait below, so the first screen paid one more database trip than it had to.
+  // Every path renders the first screen, so every path awaits it; a refusal still keeps
+  // today's colour. 🔒 app/dashboard/[eventId]/the-home-second-reads-start-together.test.ts
+  const homeCoverRead = startAhead(homeCoverFor(eventId).catch(() => null));
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
     { rows: guests, measured: guestsMeasured, stats: guestStats },
@@ -714,7 +721,7 @@ export default async function EventHomePage({
   const homeDateLabel = event.event_date ? formatEventDate(event.event_date as string) || null : null;
   /* 🖼 The header wears the Event Hub's main background (owner 2026-10-07); a
      refused read keeps today's colour, never a broken Home. */
-  const homeCover = await homeCoverFor(eventId).catch(() => null);
+  const homeCover = await homeCoverRead;
   const homeFirstScreen = (
     <HomeFirstScreen
       eventId={eventId}

@@ -189,7 +189,33 @@ const readUserEvents = cache(async (
   userId: string,
   memberType?: EventWithRole['member_type'],
 ): Promise<{ events: EventWithRole[]; error: PostgrestError | null; status: number | null }> => {
+  /* ⚡ ONE TRIP FOR THE THREE PERSONAL SHELVES (measured 2026-10-16). The events board, the
+     account chrome and the event layout ask for 'couple', 'guest' and 'coordinator' in the same
+     render — three identical embedded reads of `event_members`, differing only in one filter,
+     on EVERY page and every prefetch. They now share one read of the three and split it here:
+     the same rows (the filter moved from the URL to this line), the same error for each caller
+     (it was the same table, policy and query), the same order (the sort is stable). 'vendor'
+     and "every membership" keep their own read — a supplier can hold hundreds of client rows
+     that no couple surface should pay for. 🔒 lib/the-shelves-share-one-read.test.ts */
+  if (memberType && PERSONAL_SHELVES.includes(memberType)) {
+    const all = await readPersonalShelves(supabase, userId);
+    if (all.error) return all;
+    return { ...all, events: all.events.filter((e) => e.member_type === memberType) };
+  }
   const { data, error, status } = await withSchemaRetry(() => buildUserEventsQuery(supabase, userId, memberType));
+  if (error) return { events: [], error, status: status ?? null };
+  return { events: shapeUserEvents(data), error: null, status: status ?? null };
+});
+
+const PERSONAL_SHELVES: readonly EventWithRole['member_type'][] = ['couple', 'guest', 'coordinator'];
+
+const readPersonalShelves = cache(async (
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ events: EventWithRole[]; error: PostgrestError | null; status: number | null }> => {
+  const { data, error, status } = await withSchemaRetry(() =>
+    buildUserEventsQuery(supabase, userId, undefined, PERSONAL_SHELVES),
+  );
   if (error) return { events: [], error, status: status ?? null };
   return { events: shapeUserEvents(data), error: null, status: status ?? null };
 });
@@ -198,6 +224,7 @@ function buildUserEventsQuery(
   supabase: SupabaseClient,
   userId: string,
   memberType?: EventWithRole['member_type'],
+  memberTypes?: readonly EventWithRole['member_type'][],
 ) {
   let query = supabase
     .from('event_members')
@@ -235,6 +262,8 @@ function buildUserEventsQuery(
 
   if (memberType) {
     query = query.eq('member_type', memberType);
+  } else if (memberTypes) {
+    query = query.in('member_type', [...memberTypes]);
   }
   // Account auto-surface (#7b): hide events the guest opted OUT of — a "no"
   // (declined or left) stamps event_members.hidden_at. Normal memberships have

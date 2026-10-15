@@ -29,6 +29,7 @@ import {
   readActionResult,
   redirectSaysFailed,
   scrubText,
+  describeUnreachable,
 } from './fault-normalize';
 import { redactPayload } from './redact';
 import { shapeRequestError } from './request-error-shape';
@@ -429,4 +430,15 @@ test('THE LINE: one plain sentence — what, where, what went wrong, today, 1 in
     successes: 234,
   });
   assert.equal(line, 'Reply button on the guest invitation — no answer · 6 times today · 1 in 40');
+});
+
+test('a call that never got an answer is recorded WITH its cause — "fetch failed" alone cannot say why (stability sweep 2026-10-15)', () => {
+  const reset = new TypeError('fetch failed');
+  (reset as { cause?: unknown }).cause = Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET', name: 'SocketError' });
+  assert.equal(describeUnreachable(reset), 'TypeError: fetch failed (UND_ERR_SOCKET: other side closed)');
+  const bare = new TypeError('fetch failed');
+  assert.equal(describeUnreachable(bare), 'TypeError: fetch failed', 'no cause → the message as it was');
+  // …and the recorder actually uses it.
+  const src = stripComments(readFileSync(join(__dirname, 'server-fault.ts'), 'utf8'));
+  assert.match(src, /kind: 'DB_UNREACHABLE',[\s\S]{0,80}message: describeUnreachable\(err\)/, 'recordDbUnreachable drops the cause again');
 });

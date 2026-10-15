@@ -303,10 +303,11 @@ test('(13) on a dark ground EVERY colour a cover word reads turns to the paper i
     const html = cover({ ...extra, ground: layer });
     const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
     for (const cls of header.matchAll(/class="([^"]*)"/g)) {
-      for (const tok of cls[1].split(/\s+/)) {
+      for (const tok of (cls[1] ?? '').split(/\s+/)) {
         const m = /^(?:[\w-]+:)*text-([a-z]+(?:-\d+)?)(?:\/\d+)?$/.exec(tok);
-        if (!m || NOT_COLOUR.has(m[1]) || /^\d*xl$/.test(m[1])) continue;
-        seen.add(m[1]);
+        const fam = m?.[1];
+        if (!fam || NOT_COLOUR.has(fam) || /^\d*xl$/.test(fam)) continue;
+        seen.add(fam);
       }
     }
   }

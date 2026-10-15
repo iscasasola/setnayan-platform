@@ -34,6 +34,10 @@ import type { ReactElement, ReactNode } from 'react';
 import type { DayChapter } from './data';
 import type { PostEventStyleId } from '@/lib/post-event-styles';
 import { postEventElementScope } from '@/lib/post-event-styles';
+import { GlimpseRail } from '../glimpse-rail';
+
+/** Glimpse in the flow draws this many photos (the rail draws them three times once live). */
+export const GLIMPSE_PREVIEW_MAX = 12;
 
 export type PeWords = Partial<Record<'label' | 'heading' | 'body', string>>;
 
@@ -655,6 +659,18 @@ export function GalleryPreview({
               <Photo url={u} alt={i === 0 ? `${names} — a moment from the day` : ''} />
             </span>
           ))}
+        </span>
+      </div>
+    );
+  }
+  if (style === 'glimpse') {
+    /* Glimpse — the Save the Date's rail, the SAME component, in its preview form (nothing in it to press: the whole
+       preview is the open-up's button). Bleeds to the screen edges like the film strip so the neighbours peek. */
+    return (
+      <div>
+        {head}
+        <span className="-mx-5 mt-3.5 block sm:-mx-10">
+          <GlimpseRail preview urls={photos.slice(0, GLIMPSE_PREVIEW_MAX)} label={`${names} — the gallery`} />
         </span>
       </div>
     );

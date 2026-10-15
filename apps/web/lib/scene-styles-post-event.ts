@@ -67,6 +67,10 @@ export const POST_EVENT_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'grid', name: 'Grid', line: 'Two columns of photos, filed by the time they were taken.', stages: PE },
       { id: 'mosaic', name: 'Mosaic', line: 'Wide and tall photos break the grid.', template: 21, stages: PE },
       { id: 'film-strip', name: 'Film strip', line: 'One frame at a time, with its frame number.', template: 20, stages: PE },
+      /* 🎞 Owner 2026-10-15 ("Later, second step"): Glimpse, ONE id with the Save the Date's (`lib/scene-styles-stages.ts`), so the
+         pick carries across stages. Drawn by the same `GlimpseRail`, in its non-interactive preview form (the flow's preview
+         sits inside the open-up's button). */
+      { id: 'glimpse', name: 'Glimpse', line: 'One photo at a time, centred; the next peeks in.', stages: PE },
     ],
   },
   {

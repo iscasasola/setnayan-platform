@@ -20,6 +20,8 @@ import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMo
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
 import { OurPhotosWidget } from '@/app/[slug]/_components/our-photos-widget';
+import { OpenUpScene } from '@/app/[slug]/_components/editorial/open-up-layer';
+import { GalleryPreview } from '@/app/[slug]/_components/editorial/post-event-scene-views';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
@@ -189,7 +191,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   /* 🎞 `?photos=<n>` — the couple's Photos scene with n stand-in pictures (our own drawn gradients, never anybody's
-     photo), in `&gstyle=` (mosaic · grid · film-strip · glimpse) with `&heading=` — the REAL `OurPhotosWidget`, so the
+     photo), in `&gstyle=` (mosaic · grid · film-strip · glimpse) with `&heading=` (and `&pe=1` for Post Event's gallery preview) — the REAL `OurPhotosWidget`, so the
      Glimpse rail, its drift and the shipped full-screen viewer are walked with no database. */
   if (typeof sp.photos === 'string') {
     const n = Math.max(1, Math.min(24, Number(sp.photos) || 5));
@@ -201,6 +203,27 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     });
     const gstyle = typeof sp.gstyle === 'string' ? sp.gstyle : 'glimpse';
     const heading = typeof sp.heading === 'string' && sp.heading.trim() ? sp.heading.trim() : null;
+    /* `&pe=1` — the SAME pictures as Post Event's gallery PREVIEW inside the real open-up (the preview is the open-up's
+       button, so Glimpse draws its non-interactive form): `GalleryPreview` + `OpenUpScene`, the page's own pair. */
+    if (sp.pe === '1') {
+      return (
+        <main className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[860px] bg-cream py-10 text-ink" data-lab-photos={n} data-lab-pe="">
+          <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+          <div className="px-5 sm:px-10">
+            <OpenUpScene
+              kind="gallery"
+              title="From the Day"
+              eyebrow="Maria · the gallery"
+              openLabel={`Open the gallery · ${n} ${n === 1 ? 'photo' : 'photos'}`}
+              preview={<GalleryPreview style={gstyle} photos={urls} total={n} names="Maria" words={{}} />}
+            >
+              <p className="py-20 text-center text-sm text-ink/70">The whole gallery opens here.</p>
+            </OpenUpScene>
+          </div>
+          <div className="h-[120vh]" aria-hidden />
+        </main>
+      );
+    }
     return (
       <main className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[860px] bg-cream px-4 py-10 text-ink" data-lab-photos={n}>
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>

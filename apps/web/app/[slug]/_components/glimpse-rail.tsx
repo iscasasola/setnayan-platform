@@ -43,7 +43,21 @@ function prefersReducedMotion(): boolean {
   }
 }
 
-export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly string[]; label?: string }) {
+export function GlimpseRail({
+  urls,
+  label = 'Our photos',
+  preview = false,
+}: {
+  urls: readonly string[];
+  label?: string;
+  /**
+   * 👁 A PREVIEW is the same rail with nothing in it to press — for a place that sits INSIDE a button (Post Event's
+   * gallery preview is the open-up's button, and a button may not hold buttons). Same drift, same emphasis, same
+   * pause on touch and hover; the cards are plain boxes, there is no ‹ ›, no full-screen photo and no "tap to open"
+   * line, and the region is not a tab stop — a tap anywhere is the parent's, which opens the whole gallery.
+   */
+  preview?: boolean;
+}) {
   const n = urls.length;
   const railRef = useRef<HTMLDivElement>(null);
   /** Live after the first effect: the loop's copies are drawn and the emphasis is measured. */
@@ -294,10 +308,7 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
         ref={railRef}
         className="sn-glimpse-rail flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-7 pt-3 outline-none sm:gap-[18px] [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: 'none', paddingInline: 'calc((100% - var(--g-w)) / 2)', ['--g-w' as string]: 'min(62vw, 380px)' }}
-        role="region"
-        aria-roledescription="carousel"
-        aria-label={label}
-        tabIndex={0}
+        {...(preview ? { 'aria-hidden': true } : { role: 'region', 'aria-roledescription': 'carousel', 'aria-label': label, tabIndex: 0 })}
         data-glimpse-snap="on"
         onPointerDown={() => {
           st.current.touching = true;
@@ -335,33 +346,46 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
           }
         }}
       >
-        {drawn.flat().map(({ url, i, copy }, k) => (
-          <button
-            key={`${copy}-${i}-${url.slice(0, 24)}`}
-            type="button"
-            data-glimpse-card=""
-            data-glimpse-photo={i}
-            tabIndex={-1}
-            aria-hidden={copy === (loops ? 1 : 0) ? undefined : true}
-            aria-label={`Photo ${i + 1} of ${n}`}
-            onClick={() => {
-              if (k === st.current.centreCard) {
-                pause();
-                setOpen(i);
-              } else {
-                bring(k);
-              }
-            }}
-            className="relative !min-h-0 aspect-[3/4] w-[var(--g-w)] shrink-0 snap-center overflow-hidden rounded-[18px] bg-ink/5 p-0 shadow-[0_6px_16px_rgb(var(--color-ink)/0.14)] [opacity:var(--g-o,1)] [transform:scale(var(--g-s,1))] motion-safe:transition-[transform,opacity] motion-safe:duration-200"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt="" aria-hidden loading="lazy" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
-          </button>
-        ))}
+        {drawn.flat().map(({ url, i, copy }, k) => {
+          const cardClass =
+            'relative !min-h-0 block aspect-[3/4] w-[var(--g-w)] shrink-0 snap-center overflow-hidden rounded-[18px] bg-ink/5 p-0 shadow-[0_6px_16px_rgb(var(--color-ink)/0.14)] [opacity:var(--g-o,1)] [transform:scale(var(--g-s,1))] motion-safe:transition-[transform,opacity] motion-safe:duration-200';
+          /* eslint-disable-next-line @next/next/no-img-element */
+          const img = <img src={url} alt="" aria-hidden loading="lazy" draggable={false} className="absolute inset-0 h-full w-full object-cover" />;
+          if (preview) {
+            return (
+              <span key={`${copy}-${i}-${url.slice(0, 24)}`} data-glimpse-card="" data-glimpse-photo={i} aria-hidden className={cardClass}>
+                {img}
+              </span>
+            );
+          }
+          return (
+            <button
+              key={`${copy}-${i}-${url.slice(0, 24)}`}
+              type="button"
+              data-glimpse-card=""
+              data-glimpse-photo={i}
+              tabIndex={-1}
+              aria-hidden={copy === (loops ? 1 : 0) ? undefined : true}
+              aria-label={`Photo ${i + 1} of ${n}`}
+              onClick={() => {
+                if (k === st.current.centreCard) {
+                  pause();
+                  setOpen(i);
+                } else {
+                  bring(k);
+                }
+              }}
+              className={cardClass}
+            >
+              {img}
+            </button>
+          );
+        })}
       </div>
 
       {n > 1 ? (
         <>
+          {preview ? null : (
           <button
             type="button"
             aria-label="Previous photo"
@@ -371,6 +395,8 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
           >
             ‹
           </button>
+          )}
+          {preview ? null : (
           <button
             type="button"
             aria-label="Next photo"
@@ -380,6 +406,7 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
           >
             ›
           </button>
+          )}
           <div className="flex min-h-[22px] items-center justify-center" data-glimpse-where="">
             {n <= DOTS_MAX ? (
               <span className="flex gap-1.5" aria-hidden>
@@ -396,11 +423,11 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
               </span>
             )}
           </div>
-          <p className="mt-2.5 text-center font-sans text-[11px] font-medium uppercase tracking-[0.2em] text-ink/70">Swipe · tap to open</p>
+          {preview ? null : <p className="mt-2.5 text-center font-sans text-[11px] font-medium uppercase tracking-[0.2em] text-ink/70">Swipe · tap to open</p>}
         </>
       ) : null}
 
-      {open !== null && urls[open] ? (
+      {!preview && open !== null && urls[open] ? (
         <GalleryLightbox
           src={urls[open]!}
           kind="photo"

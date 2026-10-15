@@ -64,7 +64,24 @@ export const PASS_CARD_WORDS = {
   style: 'Ticket style',
   digital: 'Digital ticket (PNG)',
   print: 'Printed ticket (PDF)',
+  /**
+   * 🍎 The Apple Wallet pass (lib/wallet-pass.ts). The button is Apple's own
+   * badge, unmodified (Apple's rules); this is its accessible name and the
+   * words of the plain button shown until the badge artwork is in the repo.
+   */
+  appleWallet: 'Add to Apple Wallet',
+  /** Inside Messenger on an iPhone: the Add-pass sheet does not open there. */
+  appleWalletInApp: 'Open in Safari to add to Apple Wallet',
+  /** Me, from 00:00 Manila on the date (Phase A has no pushes). */
+  walletTableToday: 'Your table is on your ticket now — tap Add to Apple Wallet again to put it on your pass.',
+  /** The back of the pass. */
+  walletAtTheDoor: 'Show this at the door.',
+  walletTableLater: 'Your table appears here on the event day.',
+  walletRemove: 'Tap ··· on this pass, then Remove Pass.',
 } as const;
+
+/** Where a guest's OWN Apple Wallet pass is fetched (no query — never someone else's). */
+export const APPLE_WALLET_ROUTE = '/api/guest/wallet/apple';
 
 /** The three looks, as the couple reads them in the one dropdown. */
 export const PASS_CARD_DESIGN_LABEL: Record<PassCardDesignKey, string> = {

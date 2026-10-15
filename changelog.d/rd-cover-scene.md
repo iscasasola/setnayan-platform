@@ -24,9 +24,15 @@ Full width = edge to edge · the Hero folds into the Cover Scene's Background (o
   reached through the existing lazy `SceneBackgroundRow` door (no new `dynamic()` stand-in).
 - **Apply** (`lib/hub-draft.ts`): a 'ground' facet — a loop or a photo on the cover asks Event Hub Pro; a Colour
   and taking one off are free.
+- **No bar over the cover** (owner 2026-10-15, DECISION_LOG "THE COVER SCENE TAKES THE WHOLE FIRST SCREEN — NO TOP
+  BAR, NO BOTTOM BAR OVER IT"): `app/[slug]/_components/cover-scene-menu.tsx` + `globals.css` hold the page's one top
+  bar and one bottom bar / rail off screen while a shown Cover Scene leads the page (column top padding dropped, the
+  cover fills 100svh); the first swipe or scroll slides them in and they stay (reduced motion: no slide). Fail-visible:
+  no script → bars as always. The Veil's swipe does not scroll the page (touch-action none), so the menu waits for the
+  swipe that opens the cover. Full width runs edge to edge from the top.
 - **Details › Hero is the second door** (`maker-made-once.tsx` `coverScene` slot, `data-same-field="cover_scene"`):
   the same rows through the same lazy door; the old hero-photo form only where no rows are handed in.
-- Guard `apps/web/lib/the-cover-scene-is-one-group.test.ts` (11 claims, each sabotaged red once).
+- Guard `apps/web/lib/the-cover-scene-is-one-group.test.ts` (12 claims, each sabotaged red once).
 
 Not built (for the next step / owner): a parts ▾ row (the
 shipped top bar is the locked Stage ▾ | Studio ▾ — there is no parts ▾ to extend); the RSVP reply form does not get

@@ -22,6 +22,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
+import { NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, notAvailableWindowFilter } from '@/lib/not-available';
 
 export type TodayShopRow = {
   verified: boolean;
@@ -84,6 +85,13 @@ function phDate(iso: string): string {
   return new Date(new Date(iso).getTime() + 8 * 3_600_000).toISOString().slice(0, 10);
 }
 
+/** A Not-available block with a day still to come: a one-off not over, or a repeat whose end (if any) is not past. */
+function stillAhead(b: { blocked_until: string; repeat_rule?: unknown; repeat_until?: unknown; day_part?: unknown }, todayIso: string): boolean {
+  const f = notAvailableFieldsOf(b);
+  if (f.repeat === 'once') return phDate(b.blocked_until) >= todayIso;
+  return f.repeatUntil === null || f.repeatUntil >= todayIso;
+}
+
 /**
  * The schedules and what sits on them, in ONE request: `vendor_schedule_pools` with its `vendor_calendar_blocks`
  * embedded (one foreign key between the two — `vendor_calendar_blocks.pool_id`), the blocks narrowed to the two
@@ -101,11 +109,14 @@ export async function readTodaySchedules(
   try {
     const { data, error } = await supabase
       .from('vendor_schedule_pools')
-      .select('pool_id, pool_label, calendar_name, daily_booking_capacity, vendor_calendar_blocks(block_id, block_source, blocked_at, blocked_until, client_name)')
+      .select(`pool_id, pool_label, calendar_name, daily_booking_capacity, vendor_calendar_blocks(block_id, block_source, blocked_at, blocked_until, client_name, ${NOT_AVAILABLE_COLUMNS})`)
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true)
       .in('vendor_calendar_blocks.block_source', ['manual', 'external_client'])
-      .gte('vendor_calendar_blocks.blocked_until', `${todayIso}T00:00:00+08:00`)
+      // 🪤 A repeat (every Sunday …) stores only its FIRST day, so `blocked_until >= today` alone dropped every repeat
+      // that began before today (supplier batch walk, W2). The ONE rule's window: a one-off not over, or any repeat —
+      // whose own end is checked below (`stillAhead`).
+      .or(notAvailableWindowFilter(`${todayIso}T00:00:00+08:00`), { referencedTable: 'vendor_calendar_blocks' })
       .order('created_at', { ascending: true });
     if (error) {
       logQueryError('supplier-today: schedules', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
@@ -122,6 +133,9 @@ export async function readTodaySchedules(
         blocked_at: string;
         blocked_until: string;
         client_name: string | null;
+        repeat_rule?: unknown;
+        repeat_until?: unknown;
+        day_part?: unknown;
       }> | null;
     }>;
     const out: TodaySchedules = { pools: [], outside: [], notAvailableAhead: 0, complete: true };
@@ -141,7 +155,7 @@ export async function readTodaySchedules(
             clientName: (b.client_name ?? '').trim() || 'A booking from outside',
             poolId: p.pool_id,
           });
-        } else if (b.block_source === 'manual') {
+        } else if (b.block_source === 'manual' && stillAhead(b, todayIso)) {
           out.notAvailableAhead += 1;
         }
       }

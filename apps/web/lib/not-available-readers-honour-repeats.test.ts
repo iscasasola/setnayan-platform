@@ -48,7 +48,12 @@ const ALLOWED: Record<string, string> = {
   'app/api/admin/demo/seed/route.ts': 'writes demo one-off blocks; never reads one back',
 };
 
-const READS_BLOCKS = /\.from\(\s*['"`]vendor_calendar_blocks['"`]\s*\)/;
+// A reader is EITHER a direct `.from('vendor_calendar_blocks')` OR an EMBEDDED `vendor_calendar_blocks(...)` inside
+// another table's select (supplier batch walk W2: Today read the blocks embedded under `vendor_schedule_pools` and
+// this guard, matching only `.from(...)`, could not see it).
+const READS_BLOCKS = /\.from\(\s*['"`]vendor_calendar_blocks['"`]\s*\)|\bvendor_calendar_blocks\s*\(/;
+/** `blocked_until` filtered from below — direct, or through the embed's dotted path. */
+const FILTERS_FROM_BELOW = /\.gte?\(\s*['"`](?:vendor_calendar_blocks\.)?blocked_until['"`]/;
 
 test('1 · every reader of vendor_calendar_blocks asks the one rule and never filters blocked_until from below', () => {
   const readers: string[] = [];
@@ -60,11 +65,11 @@ test('1 · every reader of vendor_calendar_blocks asks the one rule and never fi
     readers.push(rel);
     if (ALLOWED[rel]) continue;
     if (!/from ['"](?:@\/lib\/|\.\/|\.\.\/)*not-available['"]/.test(src)) bad.push(`${rel}: reads the blocks without lib/not-available`);
-    if (/\.gte?\(\s*['"]blocked_until['"]/.test(src)) bad.push(`${rel}: filters blocked_until from below — every repeat that began earlier is dropped`);
+    if (FILTERS_FROM_BELOW.test(src)) bad.push(`${rel}: filters blocked_until from below — every repeat that began earlier is dropped`);
   }
   assert.deepEqual(bad, []);
   // Not vacuous: the readers this file was written against are all still found.
-  for (const must of ['lib/vendor-availability.ts', 'lib/vendor-schedule.ts', 'lib/vendor-waitlist.ts', 'app/v/[slug]/page.tsx', 'app/vendor-dashboard/invite/date-status-actions.ts']) {
+  for (const must of ['lib/vendor-availability.ts', 'lib/vendor-schedule.ts', 'lib/vendor-waitlist.ts', 'app/v/[slug]/page.tsx', 'app/vendor-dashboard/invite/date-status-actions.ts', 'lib/supplier-today.server.ts']) {
     assert.ok(readers.includes(must), `${must} no longer reads the blocks — re-derive this guard`);
   }
   assert.ok(readers.length >= 9, `only ${readers.length} readers found — the scan is blind`);

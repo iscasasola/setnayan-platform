@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 import { HUB_MUSIC_BUTTON_DEFAULT, type HubMusicButton } from '@/lib/hub-music-button';
 import { MUSIC_BUTTON_CLASS, MusicButtonFace } from './music-button-face';
-import { onUnveil as whenUnveiled, VEIL_FREE_ATTR } from '@/lib/hub-veil';
+import { onUnveil, VEIL_FREE_ATTR } from '@/lib/hub-veil';
 
 /**
  * Looping background music for the wedding site (Increment B ·
@@ -89,7 +89,7 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
     Reduced motion has no say over sound: those guests get no veil, so their song is the tap, as today.
   */
   useEffect(() => {
-    const onUnveil = () => {
+    const startOnUnveil = () => {
       const el = audioRef.current;
       if (!el || !el.paused) return;
       // `startSong` calls `el.play()` before its first await — i.e. right here, inside the gesture.
@@ -97,7 +97,7 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
         if (ok) setTouched(true);
       });
     };
-    return whenUnveiled(onUnveil);
+    return onUnveil(startOnUnveil);
   }, []);
 
   /** The ONE way the song starts — the guest's tap on the button, or their tap / swipe that opened the veil. */

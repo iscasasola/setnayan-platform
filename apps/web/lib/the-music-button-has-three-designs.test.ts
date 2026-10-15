@@ -183,8 +183,8 @@ test('(4) the guest page hands the button the hero row’s design, and the butto
   // the tap / swipe up that opened the veil (owner 2026-10-15: "when they unveil, the music starts playing upon
   // tap") — the latter called directly by the unveil (`onUnveil`, lib/hub-veil.ts), so `play()` runs inside that gesture.
   assert.match(music, /await startSong\(el\);/, 'the button no longer starts the song through the one start');
-  assert.match(music, /return whenUnveiled\(onUnveil\);/, 'the unveil no longer starts the song');
-  const onUnveil = music.slice(music.indexOf('const onUnveil = () => {'), music.indexOf('return whenUnveiled(onUnveil);'));
+  assert.match(music, /return onUnveil\(startOnUnveil\);/, 'the unveil no longer starts the song');
+  const onUnveil = music.slice(music.indexOf('const startOnUnveil = () => {'), music.indexOf('return onUnveil(startOnUnveil);'));
   assert.match(onUnveil, /\n\s*void startRef\.current\(el\)\.then/, 'the unveil listener does not start the song itself, right there');
   assert.equal(/setTimeout|requestAnimationFrame|queueMicrotask|await /.test(onUnveil), false, 'the unveil defers the song — a deferred play() is refused (iOS Safari above all)');
   // The accessible name still says play / mute, and the round is the one the Maker draws.

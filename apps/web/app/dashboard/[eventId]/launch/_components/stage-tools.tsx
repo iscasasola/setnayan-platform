@@ -77,7 +77,7 @@ import { stageStill } from './scene-drag';
 import { StageEdit } from './stage-panel/stage-edit';
 import { StageAbout } from './stage-panel/kit';
 import { StageLookRow } from './stage-panel/stage-look-row';
-import { keepPartLook, partLookFields, partLookTarget, partStyleIsEmptyOn } from './stage-panel/part-look';
+import { keepPartLook, partLookFields, partLookTarget, partStyleIsEmptyOn, type PartLookField } from './stage-panel/part-look';
 import type { MakerPartOps } from './maker-part-ops';
 import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from './stage-panel/part-words';
 import { ActionButton } from '@/components/action-button';
@@ -1372,7 +1372,7 @@ export function StageTools({
     if (lookOn) setLookOps(askPartOps());
   }, [lookOn, lookTarget, renderStamp]);
   const keepLook = useCallback(
-    async (field: 'color' | 'size', value: string | number | null) => {
+    async (field: PartLookField, value: string | number | null) => {
       const o = askPartOps();
       if (!o?.draftAction || !lookTarget) return { ok: false as const, error: 'That could not be saved just now. Please try again.' };
       return keepPartLook(lookTarget, field, value, { eventId: o.eventId, draftAction: o.draftAction, canvases: o.canvases });

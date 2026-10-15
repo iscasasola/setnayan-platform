@@ -332,7 +332,7 @@ test('4c · EVERY <MakerMediaMeter> passes the plan’s cap, and the buy path un
       offenders.push(`${file}: a meter without capBytes={coupleMediaCapBytes(…)} — it would read every couple as Free`);
       continue;
     }
-    if (cap[1].trim() !== 'true' && !/\bproHref=\{/.test(tag)) offenders.push(`${file}: a plan-dependent meter without proHref — a Free couple at the cap gets no Unlock Pro`);
+    if ((cap[1] ?? '').trim() !== 'true' && !/\bproHref=\{/.test(tag)) offenders.push(`${file}: a plan-dependent meter without proHref — a Free couple at the cap gets no Unlock Pro`);
   }
   assert.deepEqual(offenders, []);
 });

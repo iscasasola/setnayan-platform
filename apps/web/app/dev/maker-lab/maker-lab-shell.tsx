@@ -505,6 +505,8 @@ export function MakerLabShell({
           heroCard: true,
           heroPhoto: false,
           ticketStyle: 'classic',
+          /* 🖼 The Cover Scene's Scene ◆ tiles — the lab's loop stills (its stand-ins where it has no media host). */
+          loopPosters: Object.fromEntries(loops.map((l) => [l.id, l.stillUrl ?? null])),
           fixedStyles,
           cameraLook,
           blockLooks,

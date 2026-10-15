@@ -37,15 +37,23 @@ function publicUrl(ref: string | null | undefined): string | null {
  * `heroPhotoUrl`: the page's resolved hero photo — an Upload pick IS the hero photo (the one hero writer writes it
  * through to `landing_page_hero_image_url`), so it is the ONLY photo the cover draws.
  */
-export function coverSceneLayer(ground: HubCoverGround | null | undefined, ctx: { heroPhotoUrl: string | null }): CoverSceneLayer | null {
+export function coverSceneLayer(
+  ground: HubCoverGround | null | undefined,
+  ctx: {
+    heroPhotoUrl: string | null;
+    /** 🧪 The lab only (`/dev/maker-lab`, no public media host): a loop's stand-in files this repo ships. */
+    loopMedia?: (loop: string) => { still: string | null; clip: string | null } | null;
+  },
+): CoverSceneLayer | null {
   if (!ground) return null;
   const legible = coverSceneLegibility(ground);
   const base = { shape: coverGroundShape(ground), veil: coverShadeVeil(ground.shade), scrim: legible.scrim, tone: legible.tone, parallax: false };
   if (ground.kind === 'loop') {
     const media = INVITE_THEMES[ground.loop].media;
     if (!media) return null;
-    const still = publicUrl(media.poster);
-    const clip = publicUrl(media.loop);
+    const stand = ctx.loopMedia?.(ground.loop) ?? null;
+    const still = publicUrl(media.poster) ?? stand?.still ?? null;
+    const clip = publicUrl(media.loop) ?? stand?.clip ?? null;
     /* 🚫 A loop whose files do not resolve is NOT drawn as an empty veil (a failure never renders as success): the
        cover stays The theme's own. */
     if (!still && !clip) return null;

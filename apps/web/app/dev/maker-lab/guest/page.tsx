@@ -54,6 +54,8 @@ import { labSeen, labStageTiles } from '../lab-navigator';
 import { sceneOnStage } from '@/lib/what-guests-see';
 import type { WidgetType } from '@/lib/invitation-widgets';
 import { heroCanvasOf } from '@/app/[slug]/_lib/hero-design-of';
+import { coverSceneLayer } from '@/app/[slug]/_lib/cover-scene-layer';
+import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
@@ -145,6 +147,14 @@ function labRsvpConfig(raw: string | string[] | undefined): { look: unknown } | 
  * page had no title of its own, so its tab read the SITE's default line (the walk of 2026-10-11, M16). That line —
  * the brand's — is not this file's to change.
  */
+/** 🧪 The lab's loop stand-ins (the Maker lab's own, `../page.tsx`): files this repo ships, by the loop's place. */
+const LAB_STILLS = ['ballroom', 'starlit', 'fairy-lights', 'rose-archway', 'seascape', 'sunrise', 'aurora', 'peonies', 'bridgerton'];
+const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'john-jane-vclip', 'peter-mary-vclip'];
+function labLoopMedia(loop: string): { still: string; clip: string } | null {
+  const i = hubMovingBackgroundIds().indexOf(loop as never);
+  return i < 0 ? null : { still: `/std/backgrounds/${LAB_STILLS[i % LAB_STILLS.length]}.webp`, clip: `/realstories/${LAB_CLIPS[i % LAB_CLIPS.length]}.mp4` };
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const words = await eventWordsFor('wedding').catch(() => null);
   return { title: `${(words?.eventWord ?? 'event').replace(/^./, (c) => c.toUpperCase())} invitation`, robots: { index: false, follow: false } };
@@ -307,6 +317,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       eyebrow={LAB_SAMPLE.openingLine}
       elements={heroCanvas.elements ?? null}
       design={heroDesignOf(heroCanvas)}
+      /* 🖼 The Cover Scene's background, as the real page lays it (`site-body.tsx` `heroElements.ground`) — the lab's
+         loops wear the stand-in files the Maker lab's Look rows use. */
+      ground={coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: null, loopMedia: labLoopMedia })}
       stampElements
       looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
       monogramSlot={

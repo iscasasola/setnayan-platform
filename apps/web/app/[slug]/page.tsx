@@ -146,8 +146,6 @@ import {
   SIMULATED_GUEST_INVITATION_TEXT,
 } from '@/lib/simulated-guest-preview';
 import { SampleViewerInert } from './_components/sample-viewer-inert';
-import { OwnerRibbon } from './_components/owner-ribbon';
-import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { PrivateLanding } from './_components/private-landing';
 // The ONE body tree (OPEN-BROWSE PR3) — renders every identity tier; the
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
@@ -1316,10 +1314,10 @@ async function invitationBody({
     viewerUserId: viewerAccount?.id ?? null,
     checkHostMembership: (userId) => loadHostMembership(admin, event.event_id, userId),
     // The stricter second question, asked only of somebody the first already
-    // admitted: are they one of the COUPLE? It decides which door the ribbon
-    // offers, because the site editor redirects every other member type. Same
-    // column, same value the editor itself checks — two copies of that rule is
-    // how the ribbon and the editor came to disagree about the same person.
+    // admitted: are they one of the COUPLE? (It decided which door the owner
+    // ribbon offered — the ribbon went on 2026-10-15, owner: "Remove it" — and
+    // `maySiteEdit` stays on the capability as the editor's own column.) Same
+    // column, same value the editor itself checks.
     checkSiteEditing: (userId) => loadCoupleMembership(admin, event.event_id, userId),
   });
 
@@ -1535,8 +1533,8 @@ async function invitationBody({
     // page. See `_lib/editor-canvas.ts`.
     makerWayBack: previewWayBackHref(search, event.event_id, isEditorCanvas),
     // ⚠ NO LONGER "declared but unconsumed", which this line claimed long after
-    // both had consumers. `ownerCapability` drives the read-only owner ribbon
-    // and the host's own body copy (lib/owner-ribbon.ts, site-body.tsx);
+    // both had consumers. `ownerCapability` drives the host's own body copy
+    // (site-body.tsx — the owner ribbon that also read it went 2026-10-15);
     // `vendorCapability` mounts the supplier doorway above the tier fork. Both
     // are null for everyone else, so nothing renders for a stranger.
     ownerCapability,
@@ -1645,10 +1643,9 @@ async function invitationBody({
   // 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the SAME branch, extended: `?as=`
   // may name any of the four See as states (lib/see-as.ts `SEE_AS`) on any
   // stage, for a verified host only — from the Maker's canvas (👁 Preview) or
-  // their own Event Hub (the ribbon's Preview ▾): one preview mechanism. The
+  // the Maker's hold-▶ preview on a phone (See as ▾ beside "Exit preview"): one preview mechanism. The
   // sample is drawn AS A GUEST, never as the host: the owner and supplier
-  // capabilities are dropped for the body (the ribbon keeps the host's, off the
-  // canvas), and `sampleViewer` makes the body swallow every submit and every
+  // capabilities are dropped for the body, and `sampleViewer` makes the body swallow every submit and every
   // press that could act (sample-viewer-inert.tsx). 🔒 READS ONLY —
   // `loadPreviewPerson` is a select; nothing here inserts, updates or deletes
   // (`see-as-never-writes.test.ts`).
@@ -1662,9 +1659,6 @@ async function invitationBody({
     ? {
         ...siteProps,
         ownerCapability: null,
-        // The host's own ribbon stays on their page (never in the canvas) — so
-        // the ribbon's Preview ▾ can switch back. The BODY is drawn as a guest.
-        ribbonCapability: ownerCapability,
         vendorCapability: null,
         supplierDesk: null,
         chaptersOnThisDay: [],
@@ -1679,19 +1673,6 @@ async function invitationBody({
     if (visibility === 'private' || visibility === 'invited_accounts') {
       return (
         <>
-          {/* Off the canvas, the host keeps their ribbon — its Preview ▾ is the way back. */}
-          {isEditorCanvas ? null : (
-            <OwnerRibbon
-              model={buildOwnerRibbon({
-                ownerCapability,
-                eventId: event.event_id,
-                slug: event.slug ?? null,
-                phasesEnabled,
-                lifecyclePhase,
-                seeAs,
-              })}
-            />
-          )}
           <PrivateLanding
             event={event}
             monogram={monogram}

@@ -148,9 +148,7 @@ import {
 import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
 import { revealOnlyOnTheFirstPage } from '@/lib/reveal-stages';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
-import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
-import { OwnerRibbon } from './owner-ribbon';
 import { viewerIsEventHost } from '../_lib/site-identity';
 import type {
   AnonymousSiteIdentity,
@@ -564,8 +562,6 @@ type SiteBodyProps = {
    * drawn on the canvas (`meSection`).
    */
   sampleViewer?: SeeAs | null;
-  /** 👁 The host's capability for the RIBBON alone while the body is drawn for a See as sample (page.tsx). Null: `ownerCapability`. */
-  ribbonCapability?: OwnerCapability | null;
   /**
    * 🧭 THE NEW MAKER'S GUEST SIDE is on for this event (`guestStagesOn`,
    * page.tsx — the Maker's own switch, or an internal host's event). On: the
@@ -630,7 +626,6 @@ export async function SiteBody({
   shotsAdded = null,
   meSection = null,
   sampleViewer = null,
-  ribbonCapability = null,
   guestStages = false,
   comingWith = [],
 }: SiteBodyProps) {
@@ -765,22 +760,6 @@ export async function SiteBody({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
-  // OWNER LAYER · surface 1 (2026-07-26). `null` for every guest and every
-  // anonymous visitor — `buildOwnerRibbon` returns a model ONLY for the
-  // server-verified capability, so `<OwnerRibbon>` renders nothing and their
-  // DOM is byte-identical to before this PR. Read-only: links only.
-  const ownerRibbon = buildOwnerRibbon({
-    // 👁 A See as sample keeps the HOST's ribbon (its Preview ▾ switches back) while the body is drawn as a guest.
-    ownerCapability: ribbonCapability ?? ownerCapability,
-    eventId: event.event_id,
-    slug: event.slug ?? null,
-    phasesEnabled,
-    // The phase the body is ACTUALLY being built from on this render — the
-    // same value `plan` is computed with, so `?phase=` overrides are reflected.
-    lifecyclePhase,
-    seeAs: sampleViewer,
-  });
-
   /**
    * Is the viewer a verified HOST of this event?
    *
@@ -790,18 +769,17 @@ export async function SiteBody({
    * the STRANGER'S body: "This is a Setnayan invitation page. Scan your
    * personal QR or open the link the couple sent you." That sentence is
    * addressed to the couple, about their own wedding, telling them to go and
-   * find a link they are the ones who send. The read-only ribbon sat on top of
-   * it saying "your event", so the page contradicted itself.
+   * find a link they are the ones who send. (A read-only host strip sat on top
+   * of it saying "your event", so the page contradicted itself; the strip went
+   * on 2026-10-15 — owner: "Remove it" — and the host's page now looks like a
+   * guest's, less the stranger's door.)
    *
    * ⚖ READ-ONLY STAYS READ-ONLY. This changes only what the host is TOLD. Every
    * real control (guest list, seating, budget, schedule, vendors) stays in
-   * /dashboard/[eventId] and nothing here links anywhere the ribbon does not
-   * already link. It is the same server-verified capability the ribbon uses —
-   * no new gate. The rule now lives in ONE place — `viewerIsEventHost` in
-   * _lib/site-identity.ts, shared with `buildOwnerRibbon` — rather than being
-   * restated here, which is how the ribbon and the body would drift apart.
-   * (Still NOT derived from `ownerRibbon !== null`: that is also null for a
-   * missing slug, which would silently drop the body variant.)
+   * /dashboard/[eventId] and nothing here links into it. It is the same
+   * server-verified capability every host read uses — no new gate. The rule
+   * lives in ONE place — `viewerIsEventHost` in _lib/site-identity.ts — rather
+   * than being restated here.
    */
   const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
 
@@ -904,7 +882,7 @@ export async function SiteBody({
 
   /*
     WHO IS ASKING — resolved ONCE, here, from the same facts this page already
-    established for its lock screen and its ribbon.
+    established for its lock screen and its host body.
 
     ⚠ IT USED TO BE BUILT AT THE `<EditorialContent>` CALL, AND ONE READER GOT
     THERE FIRST. The gallery-anchor probe below asks the story loader how many
@@ -1434,7 +1412,7 @@ export async function SiteBody({
           galleryAnchorId={recapGalleryAnchorId}
           /*
             WHO IS ASKING — resolved ONCE here, from the same three facts this
-            page already established for its lock screen and its ribbon, rather
+            page already established for its lock screen and its host body, rather
             than re-derived inside the story where it could disagree with them.
             "The people of this celebration" is exactly who the page already
             recognises: a host, a guest with a seat or a redeemed invitation, and
@@ -1838,8 +1816,8 @@ export async function SiteBody({
 
           The owner opened his own wedding page while signed in and the
           bar's last tab said **"Join"** — a stranger's invitation to add
-          themselves to the guest list — while the owner ribbon two
-          hundred lines above said "YOUR LIVE SITE". Two mechanisms on one
+          themselves to the guest list — while the owner ribbon (removed
+          2026-10-15) above it said "YOUR LIVE SITE". Two mechanisms on one
           screen, at one moment, disagreeing about who the reader is. He
           asked: *"story and join seems incorrect. is that correct?"* It
           was not.
@@ -2078,8 +2056,8 @@ export async function SiteBody({
                    whose host membership the database just confirmed, and the
                    invite-error wording would be actively wrong for them.
                    ✂ No explaining paragraph (owner 2026-10-03, "too much going
-                   on"): the host ribbon above already says "Your Event Hub — as
-                   a guest sees it". The host simply meets no "Get inside". */
+                   on"), and since 2026-10-15 no host strip either ("Remove it"):
+                   the host's page is a guest's. The host simply meets no "Get inside". */
                 null
               ) : (
                 /* ── THE STRANGER'S ONE BUTTON (owner 2026-09-26/27) ──────────
@@ -4200,23 +4178,16 @@ export async function SiteBody({
           hides everything but that scene. See `_lib/editor-canvas.ts`. */}
       {isEditorCanvas && canvasOnly ? <style>{canvasOnlyCss(canvasOnly)}</style> : null}
       <GuestPreload eventSlug={event.slug} />
-      {/* OWNER LAYER · surface 1 — mounted HERE, as a sibling ABOVE both
-          identity trees, for three reasons: (1) it is chrome, not a chapter,
-          so it must not be a direct child of `<article data-pahina-chapters>`
-          where the §6 scroll observer would keep it hidden until scrolled to;
-          (2) one mount point serves the guest tree, the anonymous tree and
-          every lifecycle phase (including the full-bleed Save-the-Date film);
-          (3) it renders `null` for a null model, so a guest's DOM is unchanged
-          byte-for-byte. */}
-      {/* 🖼 Never in the Maker's canvas: its "Edit this site" link, tapped
-          inside the canvas, loaded the Maker into itself. */}
-      <OwnerRibbon model={isEditorCanvas ? null : ownerRibbon} />
+      {/* 🚫 NO HOST STRIP (owner 2026-10-15, on the live Event Hub: "Remove it"). A signed-in host's page looks
+          exactly like a guest's — the "Your Event Hub — as a guest sees it" ribbon, its Edit link and its Preview ▾
+          are gone. Editing is from the dashboard (Home's "Edit your Event Hub"); previews are the Maker's (hold ▶,
+          See as ▾ beside "Exit preview"). `the-host-page-has-no-host-strip.test.ts` holds it. */}
       {/* ↩ THE WAY BACK TO THE MAKER — the preview tab only (DECISION_LOG
-          2026-09-28). A sibling of both trees, like the ribbon: never inside the
+          2026-09-28). A sibling of both trees: never inside the
           chapters article, where a transform breaks `position: fixed`. */}
       {isStagePreview && makerWayBack ? <PreviewWayBack href={makerWayBack} /> : null}
-      {/* THE SUPPLIER'S RIBBON — mounted here for reason (2) above, and for one
-          of its own: in the Save-the-Date phase the film covers the viewport at
+      {/* THE SUPPLIER'S RIBBON — mounted here, a sibling ABOVE both identity trees (one mount point serves the
+          guest tree, the anonymous tree and every lifecycle phase), and for one reason of its own: in the Save-the-Date phase the film covers the viewport at
           z-50 with the veil at z-60, and the supplier's strip renders in
           ordinary flow underneath both. A booked supplier signing in to check
           the address got a wedding film and no visible way to their call sheet,

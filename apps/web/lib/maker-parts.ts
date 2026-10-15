@@ -189,6 +189,8 @@ export const MAKER_INFO_FIELDS = [
   'greeting',
   'yes_note',
   'no_note',
+  /** ✍ The Photos scene's heading (`config_json.photos_heading` on its row, owner 2026-10-15) — Studio › Info's row. */
+  'photos_heading',
 ] as const;
 export type MakerInfoField = (typeof MAKER_INFO_FIELDS)[number];
 
@@ -221,6 +223,8 @@ export const MAKER_INFO_DOORS: Readonly<Record<MakerInfoField, { page: string | 
   greeting: { page: null, sameField: null },
   yes_note: { page: null, sameField: null },
   no_note: { page: null, sameField: null },
+  /* ✍ Its Info door is `StudioPhotosHeading` (`studio-info.tsx`); not typed on the page yet. */
+  photos_heading: { page: null, sameField: 'photos_heading' },
 };
 
 export type MakerPartSource =
@@ -307,7 +311,8 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   announce: { label: 'Announcements', source: 'tool', canvas: 'f:announcements', layouts: scene('announcements') },
   /* 🎛 The Camera's own three — never the shared families. */
   camera: { label: 'Camera', source: 'tool', canvas: null, layouts: { kind: 'own', names: MAKER_CAMERA_LAYOUTS } },
-  gallery: { label: 'Gallery', source: 'tool', canvas: 'w:our_photos', layouts: scene('gallery') },
+  /* ✍ Its heading is typed in Studio › Info (owner 2026-10-15) — Edit's door goes there. */
+  gallery: { label: 'Gallery', source: 'info:photos_heading', canvas: 'w:our_photos', layouts: scene('gallery') },
   myphotos: { label: 'Photos of you', source: 'tool', canvas: 'f:photos_of_you', layouts: scene('photos_of_you') },
   /* 🗳 The RSVP stage's two after-screens (owner 2026-10-07/08: "yes and no page for the rsvp is to show what the
      rsvp looks like after the reply yes or no"): the couple's heading and message, marked on the Maker's canvas of
@@ -687,6 +692,7 @@ export const MAKER_PART_FOCUS: Partial<Record<MakerPartKey, string>> = {
   names: '[data-same-field="display_name"], [data-details-names] input',
   opening: '[data-same-field="opening_line"]',
   message: '[data-same-field="special_message"]',
+  gallery: '[data-same-field="photos_heading"]',
 };
 
 /** Where a part's Style bar goes: its Studio tile, and the field focused there (or null). */

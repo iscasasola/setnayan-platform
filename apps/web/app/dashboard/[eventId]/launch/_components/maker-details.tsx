@@ -213,6 +213,11 @@ export type MakerDetailsProps = {
     egiftMethods: ManagerMethod[] | null;
     /** What to bring (`events.what_to_bring`, drafted over live). */
     whatToBring: string | null;
+    /**
+     * ✍ The Photos scene's heading (`config_json.photos_heading` on the `our_photos` row, drafted over live; owner
+     * 2026-10-15). Undefined = the row could not be read — its field is then not drawn, never a guessed blank.
+     */
+    photosHeading?: string | null;
     /** The live address's path (`publicEventPath`) — the QR's Copy · Share · Download. */
     livePath: string | null;
     /**
@@ -1098,6 +1103,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         <>
           <StudioTool part="words" eventId={eventId} fact="special_message" value={specialMessage} />
           <StudioTool part="words" eventId={eventId} fact="what_to_bring" value={st.whatToBring} />
+          {/* ✍ The Photos heading (owner 2026-10-15) — undefined: its row could not be read, so it is not drawn. */}
+          {st.photosHeading !== undefined ? <StudioTool part="photos-heading" eventId={eventId} value={st.photosHeading} /> : null}
         </>
       );
     }

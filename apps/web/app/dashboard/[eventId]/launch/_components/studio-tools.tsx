@@ -59,7 +59,7 @@ import { fadeWords } from '@/lib/background-fade';
 import { MAIN_COLOUR_JOB, MAIN_COLOUR_SLOTS, type MainColourDraft, type MainColourSlot } from '@/lib/main-colours';
 import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access';
 import { StudioEventName } from './studio-event-name';
-import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioWords, studioDraftKeep } from './studio-info';
+import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioPhotosHeading, StudioWords, studioDraftKeep } from './studio-info';
 import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { Fold } from '@/app/_components/fold';
 import { Check, RotateCcw, Undo } from 'lucide-react';
@@ -1153,6 +1153,8 @@ export type StudioToolProps =
   | ({ part: 'main-extras' } & Parameters<typeof StudioMainExtras>[0])
   | ({ part: 'main-colours' } & Parameters<typeof StudioMainColours>[0])
   | ({ part: 'words' } & Parameters<typeof StudioWords>[0])
+  /* ✍ The Photos heading (owner 2026-10-15) — the same one lazy door. */
+  | ({ part: 'photos-heading' } & Parameters<typeof StudioPhotosHeading>[0])
   | ({ part: 'opening-line' } & Parameters<typeof StudioOpeningLine>[0])
   | ({ part: 'event-name' } & Parameters<typeof StudioEventName>[0])
   /* ⚖ A round-3 piece rides this one lazy door (2026-10-08) — a door of its own cost the Maker's first load. */
@@ -1190,6 +1192,8 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioMainColours {...props} />;
     case 'words':
       return <StudioWords {...props} />;
+    case 'photos-heading':
+      return <StudioPhotosHeading {...props} />;
     case 'opening-line':
       return <StudioOpeningLine {...props} />;
     case 'event-name':

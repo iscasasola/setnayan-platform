@@ -6788,6 +6788,13 @@ html:active-view-transition .sn-page-enter { animation: none; }
    the names for 0.18s, then faded. They now SETTLE: a small rise with no
    opacity at all, so the names and date are readable on the very first frame
    and the stagger is felt, not waited for. */
+/* 👻 Held undrawn — the loading screen's parts that the real cover brings in (`[data-el-waits]`, inside the motion gates). */
+@keyframes sn-el-waits {
+  from,
+  to {
+    visibility: hidden;
+  }
+}
 @keyframes sn-arrive-settle {
   from {
     transform: translateY(8px);
@@ -8084,6 +8091,12 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
       animation-timeline: var(--el-tl);
       animation-range: var(--el-range);
     }
+    /* 👻 THE LOADING SCREEN'S PARTS THAT WILL ARRIVE (`data-el-waits`, `heroArrivingForSkeleton`): kept in place, not
+       drawn, so the real cover's own Build in is the first time they are seen — never drawn, gone, faded in again
+       (the 2026-10-15 walk, F4: live, the names blinked on every load). At most 2.5 s: a slow server still shows them. */
+    [data-el-waits] {
+      animation: sn-el-waits 2.5s step-end;
+    }
 
     /* ══ THE SCENES — THE PROGRESS MARK · AUTO RUNS ═══════════════════════
        🔒 A THIRD GATE, INSIDE THE FIRST TWO. What is below names timelines across siblings (`timeline-scope`): a
@@ -8373,6 +8386,9 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
     /* A hero part's own arrival (`--el-anim-t`): its Build in on the clock and its Drift — never its Build out. */
     [data-el-motion]:not(#el-own) {
       animation: var(--el-anim-t, none);
+    }
+    [data-el-waits] {
+      animation: sn-el-waits 2.5s step-end;
     }
   }
 }

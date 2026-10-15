@@ -52,9 +52,9 @@ import { FEEL_OFF, leavesOptions, autoFeel, autoSpeedOf, laySceneInFeel, layScen
  * clipped "Cinematic" on a phone, handoff NEXT BUILDS 3). 💾 The draft, never live.
  */
 
-/** The pages the Maker shows a scene on — the stage canvas on screen, and the old editor's page frame. */
 /** Said on Action where there is nothing for Slow lift to move. */
 export const LIFT_NEEDS_A_PHOTO = 'Slow lift moves a photo behind the scene — this scene has none.';
+/** The pages the Maker shows a scene on — the stage canvas on screen, and the old editor's page frame. */
 const MOTION_FRAMES = 'iframe[data-maker-canvas-frame="shown"], iframe[data-maker-page-frame]';
 
 function ErrorLine({ error }: { error: string | null }) {

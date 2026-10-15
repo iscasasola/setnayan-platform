@@ -57,7 +57,7 @@ test('(1) one by one: parts a stagger apart, a list’s rows one by one after th
   const { steps } = sequenceOf(frame as never, true, 'in');
   assert.equal(steps.length, 1);
   const s = steps[0]!;
-  const all = [{ node: s.node, animation: s.animation }, ...(s.more ?? [])] as Array<{ node: N; animation: string }>;
+  const all = [{ node: s.node, animation: s.animation }, ...(s.more ?? [])] as unknown as Array<{ node: N; animation: string }>;
   assert.ok(!all.some((x) => x.node === list), 'the list’s own part moved — two opacities multiply');
   assert.deepEqual(all.map((x) => [x.node.tag, delayOf(x.animation)]), [['h2', 0], ['li', 120], ['li', 240], ['li', 360], ['li', 480], ['p', 240]], 'not staggered as the guest page staggers');
   for (const x of all) assert.match(x.animation, /^hub-in-fade 1100ms /);

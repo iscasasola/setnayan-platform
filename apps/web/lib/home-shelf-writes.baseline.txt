@@ -56,7 +56,7 @@ unreadable	vendor_profiles	app/admin/corrections/actions.ts	1
 unreadable	vendor_profiles	app/admin/verify/actions.ts	2
 unreadable	vendor_profiles	app/api/admin/cron/dispute-counter/route.ts	2
 unreadable	vendor_profiles	app/open-shop/actions.ts	1
-unreadable	vendor_profiles	app/vendor-dashboard/actions.ts	2
+unreadable	vendor_profiles	app/vendor-dashboard/actions.ts	3
 unreadable	vendor_profiles	app/vendor-dashboard/shop/inline-docs-actions.ts	1
 unreadable	vendor_profiles	app/vendor-dashboard/shop/public-line-actions.ts	1
 unreadable	vendor_profiles	lib/erasure/purge.ts	1

@@ -118,7 +118,7 @@ async function queue(o: Opts) {
     setupStep: input.setupStep,
     findability: input.findability,
     credit: o.credit ? { title: 'Credits expiring', body: '₱2,500 · Mon 5 Oct', href: '/vendor-dashboard/subscription' } : null,
-    payout: o.payout ? { title: 'Where couples pay you', body: 'Add GCash or a bank', href: '/vendor-dashboard/shop?open=payments#shop-folds', button: 'Set up' } : null,
+    payout: o.payout ? { title: 'Where couples pay you', body: 'Add GCash or a bank', href: '/vendor-dashboard/profile#pay', button: 'Set up' } : null,
     now: NOW,
   });
   return { L, next, waiting, needsAnswer, nextAnswer: next.kind === 'answer' ? nextAnswer : null, input };
@@ -149,7 +149,7 @@ async function render(o: Opts): Promise<string> {
     earnings: o.owedPhp === undefined || o.owedPhp === null ? null : { confirmedPhp: 0, expectedPhp: o.owedPhp, paydayMeasured: true },
     credit: o.credit ? { creditPhp: 2500, tierExpiresAt: '2026-10-05T00:00:00Z', href: '/vendor-dashboard/subscription' } : null,
     payoutReadiness: o.payout ? 'none' : 'unreadable',
-    payoutHref: '/vendor-dashboard/shop?open=payments#shop-folds',
+    payoutHref: '/vendor-dashboard/profile#pay',
     shop: { name: 'Lumina Studio', categoryWord: 'Photo & video', details: { done: 6, total: 6, complete: true }, awardWord: null, milestoneWord: null },
     views: 312,
     inquiries28: 14,
@@ -409,7 +409,7 @@ test('3 · each banner taken off Today either has a rule in pickSupplierNext or 
   // 💳 "Where couples pay you · Add GCash or a bank" carries its own grey Set up to the payment options.
   const pay = doors.slice(doors.indexOf('data-today-row="payout"'));
   assert.ok(pay.length > 0 && text(pay).includes('Where couples pay you'), 'the payout row is gone');
-  assert.match(pay, /<a[^>]*class="ab ab-neutral[^"]*"[^>]*href="\/vendor-dashboard\/shop\?open=payments&amp;#shop-folds"|<a[^>]*href="\/vendor-dashboard\/shop\?open=payments#shop-folds"[^>]*>|Set up/, 'the payout row has no Set up');
+  assert.match(pay, /<a[^>]*class="ab ab-neutral[^"]*"[^>]*href="\/vendor-dashboard\/profile#pay"|<a[^>]*href="\/vendor-dashboard\/profile#pay"[^>]*>|Set up/, 'the payout row has no Set up');
   // A quiet shop: findability wins the card, so it is NOT also a row.
   const quiet = await queue({ findability: find, credit: true });
   assert.equal(quiet.next.kind, 'findable');

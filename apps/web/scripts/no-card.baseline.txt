@@ -656,7 +656,6 @@
 2 apps/web/app/vendor-dashboard/shop/_components/autoreply-card.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/docs-body.tsx
 8 apps/web/app/vendor-dashboard/shop/_components/editable-row.tsx
-1 apps/web/app/vendor-dashboard/shop/_components/manage-tiles.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/public-line-card.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/reach-map.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/service-radius-fields.tsx
@@ -668,8 +667,7 @@
 6 apps/web/app/vendor-dashboard/shop/_components/verify-section.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/visibility-card.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/voice-match-card.tsx
-2 apps/web/app/vendor-dashboard/shop/_components/website-editor.tsx
-2 apps/web/app/vendor-dashboard/shop/page.tsx
+1 apps/web/app/vendor-dashboard/shop/page.tsx
 3 apps/web/app/vendor-dashboard/subscription/_components/ai-addon-card.tsx
 3 apps/web/app/vendor-dashboard/subscription/_components/booth-addon-card.tsx
 2 apps/web/app/vendor-dashboard/subscription/_components/papic-challenge-card.tsx

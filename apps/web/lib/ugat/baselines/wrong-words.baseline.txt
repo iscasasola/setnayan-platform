@@ -108,7 +108,6 @@ app/vendor-dashboard/services/_components/canvas-maker.tsx "Start another from t
 app/vendor-dashboard/services/_components/services-manager.tsx "Edit · every field" → /vendor-dashboard/services/[serviceId]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/services/_components/services-manager.tsx "Set up off-season offer" → /vendor-dashboard/services/[serviceId]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/services/_components/services-manager.tsx "Start a new card from this one" → /vendor-dashboard/services/new/[category]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
-app/vendor-dashboard/website/page.tsx "see what s left" → /vendor-dashboard/shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor/claim/[token]/page.tsx "This invite was previously declined." → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/waitlist/page.tsx "Pre-register your business today" → /for-suppliers	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 lib/free-tools-rail.ts "Groups" → /dashboard	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
@@ -126,4 +125,3 @@ lib/nav-registry-defaults.ts "Personalization" → /dashboard/[eventId]/details	
 lib/nav-registry-defaults.ts "Search" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 lib/nav-registry-defaults.ts "Setnayan brand logo / Home" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 lib/nav-registry-defaults.ts "Summary" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-lib/nav-registry-defaults.ts "Verify" → /vendor-dashboard/shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster

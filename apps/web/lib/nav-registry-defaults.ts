@@ -1382,8 +1382,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     // /vendor-dashboard/verify is RETIRED (2026-09-11) — its 12-document
     // checklist page now only redirects to the current papers flow on My
     // Shop. Point the sidebar entry straight at that destination rather than
-    // bouncing through the redirect.
-    route: "/vendor-dashboard/shop#get-verified",
+    // bouncing through the redirect. Since 2026-10-14 (step 5) the papers are
+    // Your details › Your documents.
+    route: "/vendor-dashboard/profile#docs",
     label: "Verify",
     labelKind: "literal",
     iconKind: "lucide",

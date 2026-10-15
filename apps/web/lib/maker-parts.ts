@@ -433,11 +433,12 @@ export const MAKER_COVER_SCENE = 'coverscene' as const satisfies MakerPartKey;
 /** A cover word's Background line — the prototype's own words; the door's label is `MAKER_COVER_SCENE_DOOR`. */
 export const MAKER_COVER_WORD_BG_WHY = 'This sits on the Cover Scene.';
 export const MAKER_COVER_SCENE_DOOR = 'Select the Cover Scene ›';
-/** Why the group's Edit, Style and Animate are grey — the approved prototype's three lines. */
+/** Why the group's Edit, Style and Animate are grey — the prototype's delta line ("Tap a word to edit it."), and its
+ *  three panel lines cut to the toolbar's one short line (`a-tool-with-nothing-to-do-says-so.test.ts`: ≤ 60). */
 export const MAKER_COVER_SCENE_TOOL_WHY: Readonly<Record<Exclude<MakerPartTool, 'bg'>, string>> = {
-  edit: 'Nothing to type on the Cover Scene as a whole — tap a word to edit it.',
-  style: 'Style has nothing to change on the Cover Scene — tap a word for its colour and size.',
-  animate: 'The Cover Scene opens with the Reveal — tap a word to animate it on its own.',
+  edit: 'Tap a word to edit it.',
+  style: 'Tap a word for its colour and size.',
+  animate: 'Tap a word to animate it on its own.',
 };
 
 /** The group a part sits in — the Cover Scene for every word on the cover; null for any other part. */

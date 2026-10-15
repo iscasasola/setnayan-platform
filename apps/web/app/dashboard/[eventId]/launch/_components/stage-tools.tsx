@@ -20,6 +20,7 @@ import {
   makerPartToolWhy,
   makerPartParent,
   MAKER_COVER_SCENE_DOOR,
+  MAKER_COVER_WORD_BG_WHY,
   makerPartToolWorks,
   makerPartsOnPage,
   makerPartsTappable,
@@ -1207,8 +1208,10 @@ export function StageTools({
   const blockGround = open && groundBlock !== null && shownTool === 'bg';
   /* …said to the work area's body under the selector (`StageStyle` shows that tool's part of the scene's Format). */
   useEffect(() => setStageTool(shownTool), [shownTool]);
-  /** 🖼 `door`: the one tap the line ends in — a cover word's Background names the Cover Scene and selects it. */
-  const [why, setWhy] = useState<{ words: string; n: number; door?: MakerPartKey } | null>(null);
+  const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
+  /** 🖼 THE ONE TAP A COVER WORD'S BACKGROUND LINE ENDS IN: "This sits on the Cover Scene." → Select the Cover Scene ›
+   *  (`makerPartParent`, the approved prototype's door). It selects the group; it never navigates. */
+  const whyDoor = why && why.words === MAKER_COVER_WORD_BG_WHY && !rsvpOpen ? makerPartParent(picked) : null;
   setWhyRef.current = (words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }));
   /** The one plain line a grey tool answers with. A SAMPLE on the canvas (each guest sees their own there) says so,
    *  naming the thing (`BLOCK_SAMPLE_WHY`); E-Gifts with nothing for a guest to see yet says that; any other, the
@@ -1223,12 +1226,7 @@ export function StageTools({
     return sample ?? empty ?? makerPartToolWhy(picked, t);
   };
   const pickTool = (t: MakerPartTool) => {
-    if (!toolWorks(t)) {
-      /* 🖼 A cover word's Background: "This sits on the Cover Scene." ends in ONE tap that selects the group
-         (`makerPartParent`, the approved prototype's door) — it selects, it never navigates. */
-      const door = t === 'bg' && !rsvpOpen ? makerPartParent(picked) : null;
-      return setWhy((w) => ({ words: whyNot(t), n: (w?.n ?? 0) + 1, ...(door ? { door } : {}) }));
-    }
+    if (!toolWorks(t)) return setWhy((w) => ({ words: whyNot(t), n: (w?.n ?? 0) + 1 }));
     setTool(t);
     /* Nothing picked: the tool is remembered for the next part. The Reveal's body is this toolbar's own. */
     if (!picked || picked === 'reveal') return;
@@ -1548,13 +1546,7 @@ export function StageTools({
           (`the-maker-first-render-is-the-servers.test.ts`; 9c added one and broke that guard). */}
       {why
         ? createPortal(
-            <PeekToast
-              key={why.n}
-              tone="note"
-              data="tool-why"
-              onGone={() => setWhy((w) => (w?.n === why.n ? null : w))}
-              action={why.door ? { label: MAKER_COVER_SCENE_DOOR, onPress: () => { setWhy(null); pickPartRef.current(why.door!); } } : undefined}
-            >
+            <PeekToast key={why.n} tone="note" data="tool-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))} action={whyDoor ? { label: MAKER_COVER_SCENE_DOOR, onPress: () => (setWhy(null), pickPartRef.current(whyDoor)) } : undefined}>
               {why.words}
             </PeekToast>,
             document.body,

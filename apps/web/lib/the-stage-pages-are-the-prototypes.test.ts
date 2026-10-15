@@ -45,12 +45,15 @@ const PROTOTYPE: Record<string, ReadonlyArray<[label: string, page: string | nul
 /** What the code adds to a prototype page, and why. Anything else extra is red. */
 const ADDED: Record<string, readonly string[]> = {
   /* "every visible piece of the page must be a pickable part" (owner 2026-10-07): the cover's invite line and link. */
-  'save_the_date/home': ['heroline', 'herolink'],
-  'rsvp/home': ['heroline', 'herolink'],
+  /* 🖼 …and the Cover Scene, the group of every word on the cover (owner-approved 2026-10-15,
+     `maker_cover_group_background_2026-10-14_fable.html`), first among them on every page the cover leads. */
+  'save_the_date/home': ['coverscene', 'heroline', 'herolink'],
+  'rsvp/home': ['coverscene', 'heroline', 'herolink'],
+  'editorial/home': ['coverscene'],
   /* …the Details page's "THE DETAILS · WHEN · WHERE" block. */
   'rsvp/details': ['details'],
   /* …the day's "Happening now" card, and the day's cover draws its Title too. */
-  'event/live': ['spotlight', 'livehub', 'ename', 'heroline', 'herolink'],
+  'event/live': ['spotlight', 'livehub', 'coverscene', 'ename', 'heroline', 'herolink'],
   /* …and the RSVP stage's two after-screens draw the couple's mark, their names and their invitation line over the
      note (`invite/enter`'s masthead) — each a part there (`lib/the-rsvp-stage-is-parts.test.ts`). */
   'rsvp_stage/thanks': ['logo', 'names', 'heroline'],

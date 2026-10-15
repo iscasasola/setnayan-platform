@@ -51,8 +51,6 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
   const [reduced, setReduced] = useState(false);
   const [centre, setCentre] = useState(0);
   const [open, setOpen] = useState<number | null>(null);
-  /** Snap on — the guest is browsing by hand (or there is no drift at all). */
-  const [snap, setSnap] = useState(true);
 
   const loops = live && !reduced && n > 1;
   const copies = loops ? COPIES : 1;
@@ -150,9 +148,14 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
     measure();
   }, [loops, leftFor, measure, n]);
 
+  /** Hold the drift for `ms` and give the guest's hand the snap back. */
   const pause = useCallback((ms = RESUME_AFTER_MS) => {
     st.current.pausedUntil = performance.now() + ms;
-    setSnap(true);
+    const rail = railRef.current;
+    if (rail && rail.dataset.glimpseSnap !== 'on') {
+      rail.style.scrollSnapType = '';
+      rail.dataset.glimpseSnap = 'on';
+    }
   }, []);
 
   /* 🎞 The drift. One frame loop for the rail's life; it moves only when nothing holds it. */
@@ -168,8 +171,10 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
       s.last = now;
       const free = !s.hover && !s.touching && !s.open && s.onScreen && document.visibilityState === 'visible' && now >= s.pausedUntil;
       if (free) {
-        if (rail.style.scrollSnapType !== 'none') {
+        if (rail.dataset.glimpseSnap !== 'off') {
+          /* Snap off while it drifts — a mandatory snap would pull every small step back to the nearest photo. */
           rail.style.scrollSnapType = 'none';
+          rail.dataset.glimpseSnap = 'off';
           s.pos = rail.scrollLeft;
         }
         const step = (cards()[1]?.offsetLeft ?? 0) - (cards()[0]?.offsetLeft ?? 0);
@@ -185,12 +190,6 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
     s.raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(s.raf);
   }, [loops, cards, measure, wrap]);
-
-  /* Snap back on while the guest browses by hand. */
-  useEffect(() => {
-    const rail = railRef.current;
-    if (rail && snap) rail.style.scrollSnapType = '';
-  }, [snap]);
 
   /* Only while it is on screen. */
   useEffect(() => {
@@ -289,13 +288,13 @@ export function GlimpseRail({ urls, label = 'Our photos' }: { urls: readonly str
     >
       <div
         ref={railRef}
-        className="sn-glimpse-rail flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-5 pt-2.5 outline-none sm:gap-[18px]"
+        className="sn-glimpse-rail flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-5 pt-2.5 outline-none sm:gap-[18px] [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: 'none', paddingInline: 'calc((100% - var(--g-w)) / 2)', ['--g-w' as string]: 'min(62vw, 380px)' }}
         role="region"
         aria-roledescription="carousel"
         aria-label={label}
         tabIndex={0}
-        data-glimpse-snap={snap ? 'on' : 'off'}
+        data-glimpse-snap="on"
         onPointerDown={() => {
           st.current.touching = true;
           pause();

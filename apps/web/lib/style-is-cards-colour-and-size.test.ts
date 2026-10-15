@@ -242,13 +242,13 @@ test('(4) the Dress code: the palette’s five looks are ONE row of five picture
   /* The couple's own colours, in each look's shape — and greys, never an invented colour, before they have any. */
   assert.ok((html.match(/background-color:#A9834B/gi) ?? []).length >= 5, 'a look is not drawn in the couple’s colours');
   const empty = renderToStaticMarkup(React.createElement(PaletteLookStrip, { value: 'tags', colours: [], onPick: () => {} }));
-  assert.equal((empty.match(/role="radio"/g) ?? []).length, 5, 'with no colours yet the row is gone');
+  assert.equal((empty.match(/role="radio"/g) ?? []).length, PALETTE_LOOK_IDS.length, 'with no colours yet the row is gone');
   assert.doesNotMatch(empty, /#A9834B/i);
   /* ONE frame a look: the picture fills its button (the dropdown thumbnail's own small box and line are put away). */
   for (const c of ['overflow-hidden', 'items-stretch', '[&>[data-palette-thumb]]:!w-full', '[&>[data-palette-thumb]]:!h-auto', '[&>[data-palette-thumb]]:!shadow-none', '[&>[data-palette-thumb]]:!rounded-none']) {
     assert.ok(has(SP_PALETTE_PICK, c), `a palette picture is a box inside a box (no ${c})`);
   }
-  assert.equal((html.match(/data-palette-thumb="/g) ?? []).length, 5, 'anti-vacuity: the thumbnail’s mark moved');
+  assert.equal((html.match(/data-palette-thumb="/g) ?? []).length, PALETTE_LOOK_IDS.length, 'anti-vacuity: the thumbnail’s mark moved');
   /* It is a row of Style (kept under the cards), never a card strip of its own. */
   assert.doesNotMatch(html, /data-look-cards|data-style-carousel/);
 });

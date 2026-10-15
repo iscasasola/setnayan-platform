@@ -64,7 +64,7 @@ const DRESS = {
   roles: { principal_sponsor_ninang: { style: 'long_gown' } },
 };
 const WORDS = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
-const LOOKS = ['tags', 'fabric', 'chips', 'circles', 'ribbon'] as const;
+const LOOKS = ['tags', 'fabric', 'chips', 'circles', 'ribbon', 'arch', 'watercolour', 'strokes'] as const;
 
 /** The markup of one `data-dress-code="…"` block (up to its matching close). */
 function block(markup: string, key: string): string {
@@ -115,7 +115,7 @@ test('1 · absent, `tags` and an unknown id are ONE markup — the shipped tags,
   assert.doesNotMatch(absent, /data-pal-row/);
 });
 
-test('2 · each of the five looks draws every colour of "Our colours", in order', async () => {
+test('2 · each of the looks draws every colour of "Our colours", in order', async () => {
   const want = drawn(block(await render({}), 'ours'));
   // The couple's seven typed colours are all there (the Mood Board's lead, the rest follow).
   for (const c of SEVEN) assert.ok(want.includes(c.hex.toUpperCase()), `${c.name} is in the palette`);

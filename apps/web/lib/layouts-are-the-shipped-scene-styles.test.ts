@@ -117,7 +117,7 @@ test('🔒 no stored look id is renamed or dropped — every shipped id still dr
     assert.equal(resolveSceneStyle(type, stage, 'no-such-style', 'wedding'), resolveSceneStyle(type, stage, null, 'wedding'));
     assert.ok(ids.includes(resolveSceneStyle(type, stage, null, 'wedding')!), `${type}: the default is not a shipped look`);
   }
-  assert.deepEqual([...PALETTE_LOOK_IDS], ['tags', 'fabric', 'chips', 'circles', 'ribbon']);
+  assert.deepEqual([...PALETTE_LOOK_IDS], ['tags', 'fabric', 'chips', 'circles', 'ribbon', 'arch', 'watercolour', 'strokes']);
   for (const id of PALETTE_LOOK_IDS) assert.equal(resolvePaletteLook(id), id);
   assert.equal(resolvePaletteLook(undefined), PALETTE_LOOK_DEFAULT);
   assert.equal(PALETTE_LOOK_DEFAULT, 'tags', 'an absent palette pick no longer draws today’s tags');

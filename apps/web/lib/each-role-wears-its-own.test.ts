@@ -166,7 +166,8 @@ test('a config with ONLY roles still renders — seen on a real event, 2026-09-2
   */
   const rhs = src.slice(src.indexOf('=', minedAt) + 1, src.indexOf(';', minedAt)).trim();
   const RESOLVER = /resolveGuest(DressCode|AttireWithGroups)\s*\(/;
-  const viaIdentifier = /^([A-Za-z_$][\w$]*)\s*(?:\.\w+)?$/.exec(rhs);
+  /* `resolved.panel && mineDress ? {…} : resolved.panel` (the reader's own pick, 2026-10-14) still starts at the identifier the resolver bound. */
+  const viaIdentifier = /^([A-Za-z_$][\w$]*)(?:\.\w+)?(?=\s|$)/.exec(rhs);
   const sourced =
     RESOLVER.test(rhs) ||
     (viaIdentifier !== null &&

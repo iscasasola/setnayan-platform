@@ -3,6 +3,7 @@ import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { guestRoleLabel } from '@/lib/guests';
+import { guestAttireOf } from '@/lib/attire-rows';
 import type { RoleNames } from '@/lib/role-names';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { renderCustomSection } from './custom-section-widget';
@@ -21,6 +22,7 @@ import { DressCodeWidget } from './dress-code-widget';
 import { dressRiteOf } from '@/lib/chinese-wedding';
 import { OurLoveStoryWidget } from './our-love-story-widget';
 import { OurPhotosWidget } from './our-photos-widget';
+import { photosHeadingOf } from '@/lib/photos-heading';
 import { PhotoMomentsWidget } from './photo-moments-widget';
 import { ScheduleWidget } from './schedule-widget';
 import { SpecialMessageWidget } from './special-message-widget';
@@ -253,7 +255,7 @@ function HideableWidgetBody({
          editing the hub — answering for the groom's own row showed the couple
          "You are in the entourage · #FAF7F2" instead of the dress code their
          guests will read. So the role is withheld on the canvas, not passed. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeGeneral ? (guest?.role ?? null) : null} march={guestView && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeGeneral ? (guest?.role ?? null) : null} guestAttire={guestView && !dressCodeGeneral && guest ? guestAttireOf(guest) : null} march={guestView && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;
@@ -278,7 +280,7 @@ function HideableWidgetBody({
       return <WhatToBringWidget text={event.what_to_bring ?? null} sceneStyle={sceneStyle} />;
 
     case 'our_photos':
-      return <OurPhotosWidget urls={ourPhotoUrls} sceneStyle={sceneStyle} />;
+      return <OurPhotosWidget urls={ourPhotoUrls} sceneStyle={sceneStyle} heading={photosHeadingOf(widget.config_json)} />;
 
     // The couple's own sections. One case for all six: the words live in the
     // row's own `config_json`, so the slot number is only which SEAT it takes

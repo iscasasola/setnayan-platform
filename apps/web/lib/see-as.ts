@@ -23,9 +23,10 @@
  * matches none), no session, and the canvas swallows every submit and press
  * (`sample-viewer-inert.tsx`). `see-as-never-writes.test.ts` holds it.
  *
- * ONE PLACE: the Preview menu (👁) — on a desktop drawn as the one dropdown
- * above the preview, on a phone as the menu's rows. `null` = the couple's own
- * editing canvas ("You · editing").
+ * ONE PLACE PER WIDTH: on a desktop the one dropdown above the preview; on a
+ * phone the one dropdown beside "Exit preview" in the hold-▶ preview
+ * (`stage-tools.tsx`, owner 2026-10-15 — it replaced the host strip's Preview ▾,
+ * which was removed). `null` = the couple's own editing canvas ("You · editing").
  */
 export const SEE_AS_PARAM = 'as';
 
@@ -41,9 +42,6 @@ export type SeeAs = (typeof SEE_AS)[number]['key'];
 /** The editing canvas's row — the couple's own view, nobody's eyes borrowed. */
 export const SEE_AS_EDITING = { key: 'editing', label: 'You · editing' } as const;
 
-/** The same row on the host's own Event Hub (the ribbon's Preview ▾) — nothing is being edited there. */
-export const SEE_AS_YOU = { key: 'you', label: 'You' } as const;
-
 /** The value of `?as=`, read strictly: one of the four keys, or null. A repeated param (an array) is never a match. */
 export function seeAsOf(v: unknown): SeeAs | null {
   if (typeof v !== 'string') return null;
@@ -54,6 +52,25 @@ export function seeAsOf(v: unknown): SeeAs | null {
 /** The label a state wears ("See as · Replied Yes"). */
 export function seeAsLabel(v: SeeAs | null): string {
   return SEE_AS.find((s) => s.key === v)?.label ?? SEE_AS_EDITING.label;
+}
+
+/**
+ * The one line said while the canvas redraws for a See as pick (the hold-▶ preview's See as ▾ on a phone — the
+ * prototype's words, `host_preview_after_ribbon_2026-10-15_fable.html`): whose eyes the page is being drawn with.
+ */
+export function seeAsDrawingLine(v: SeeAs | null): string {
+  switch (v) {
+    case 'pending':
+      return 'Drawing it as a guest who hasn’t replied…';
+    case 'replied':
+      return 'Drawing it as a guest who replied Yes…';
+    case 'declined':
+      return 'Drawing it as a guest who declined…';
+    case 'signed-out':
+      return 'Drawing it as a signed-out visitor…';
+    default:
+      return 'Back to your own view…';
+  }
 }
 
 /** Does this state draw a guest's Me on the canvas? A signed-out visitor has no Me; the editing canvas draws none. */

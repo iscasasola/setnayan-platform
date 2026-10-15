@@ -13,8 +13,9 @@
  *      them — and still SAYS the role to a screen reader (sr-only);
  *   2. a section that mixes roles the heading cannot name keeps the word beside
  *      each name (Bearers, Parents, a Matron under "Maid of Honor & Best Man");
- *   3. Secondary Sponsors draw one sub-heading per role, pairs on one line, no
- *      "Candle Sponsor" anywhere — stacked by default, "Role: names" inline;
+ *   3. Secondary Sponsors draw one sub-heading per role, no "Candle Sponsor"
+ *      anywhere — stacked by default (each pair two columns, owner
+ *      2026-10-14), "Role: names" inline;
  *   4. the printed Entourage card groups them the same way;
  *   5. the guest's own "You are Ninong" still has its word (`roleLabel`).
  *
@@ -134,7 +135,7 @@ test('Principal Sponsors: names, and no Ninong / Ninang / Principal Sponsor besi
   assert.doesNotMatch(seen, /Ninong|Ninang/, `no role repeats under the heading — saw: ${seen}`);
   assert.doesNotMatch(seen.replace('Principal Sponsors', ''), /Principal Sponsor\b/, 'the legacy role does not repeat either');
   // The word is not lost to a screen reader.
-  assert.match(s, /<span class="sr-only">, Ninong &amp; Ninang<\/span>/);
+  assert.match(s, /<span class="sr-only">, Ninong and Ninang<\/span>/);
   assert.match(s, /<span class="sr-only">, Ninong<\/span>/);
 });
 
@@ -143,22 +144,87 @@ function items(html: string): string[] {
   return [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => visible(m[1]!).trim());
 }
 
-test('option 1 — a walking Ninong & Ninang share ONE line: both full names, couple or not (owner 2026-10-01)', async () => {
-  const lines = items(section(await render(), 'Principal Sponsors'));
+/** What a screen reader hears — tags stripped, the visually-hidden words KEPT. */
+function heard(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&#x27;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Every row of a section as the eye reads it: a PAIR row (`data-pair-row`) is
+ * its two cells, `[left, right]`; any other row is its one line, `[name]`.
+ */
+function rows(html: string): string[][] {
+  return [...html.matchAll(/<li([^>]*)>([\s\S]*?)<\/li>/g)].map((m) => {
+    if (!/data-pair-row/.test(m[1]!)) return [visible(m[2]!).trim()];
+    const cells = m[2]!.split(/(?=<span[^>]*data-pair-cell)/).filter((c) => /data-pair-cell/.test(c));
+    return cells.map((c) => visible(c).trim());
+  });
+}
+
+/** The `class` of every pair row in a section. */
+function pairRowClasses(html: string): string[] {
+  return [...html.matchAll(/<li class="([^"]*)"[^>]*data-pair-row/g)].map((m) => m[1]!);
+}
+
+/*
+  ⚖ OWNER 2026-10-14, on the Wedding March scene's Roll call — SUPERSEDES
+  2026-09-30 option 1 (a pair as ONE line, "A & B") on the page: *"The names
+  feel too crowded. Maybe have their pairing show in 2 columns without the &."*
+  The printed card keeps option 1 (its test is further down).
+*/
+test('⚖ 2026-10-14 — a walking Ninong & Ninang are TWO columns with no "&": both full names, couple or not', async () => {
+  const s = section(await render(), 'Principal Sponsors');
+  const lines = rows(s);
+  const show = lines.map((r) => r.join(' ‖ ')).join(' | ');
   // A couple with a shared surname → both full names, titles as entered — the march never shortens.
-  assert.ok(lines.includes('Hon. Ricardo Villahermosa & Mrs. Jessica Villahermosa'), lines.join(' | '));
-  // Different surnames → both full names joined by " & ".
-  assert.ok(lines.includes('Dr. Eduardo Bautista & Carmen Reyes'), lines.join(' | '));
+  assert.ok(show.includes('Hon. Ricardo Villahermosa ‖ Mrs. Jessica Villahermosa'), show);
+  // Different surnames → each in its own cell.
+  assert.ok(show.includes('Dr. Eduardo Bautista ‖ Carmen Reyes'), show);
   // A suffix is never compressed away.
-  assert.ok(lines.includes('Mario Lopez Jr. & Nora Lopez'), lines.join(' | '));
-  // Same surname but unpaired in the data: two lines of their own, never merged.
-  assert.ok(lines.includes('Jose Abad') && lines.includes('Teresita Abad'), lines.join(' | '));
-  assert.ok(!lines.some((l) => /Jose & .*Teresita|Teresita & .*Jose/.test(l)), 'a shared surname is not a pairing');
-  // One line per pair, one per single: 3 pairs + 2 unpaired + 1 legacy.
-  assert.equal(lines.length, 6, lines.join(' | '));
+  assert.ok(show.includes('Mario Lopez Jr. ‖ Nora Lopez'), show);
+  // Same surname but unpaired in the data: two rows of their own, never merged.
+  assert.ok(lines.some((r) => r.length === 1 && r[0] === 'Jose Abad'), show);
+  assert.ok(lines.some((r) => r.length === 1 && r[0] === 'Teresita Abad'), show);
+  // One row per pair, one per single: 3 pairs + 2 unpaired + 1 legacy.
+  assert.equal(lines.length, 6, show);
+  assert.equal(lines.filter((r) => r.length === 2).length, 3, `three pair rows, each exactly two cells — ${show}`);
+  // No "&" anywhere a sighted guest reads under this heading.
+  assert.doesNotMatch(visible(s).replace('Principal Sponsors', ''), /&/, 'a pair is joined by an "&" again');
 });
 
-test('option 1 keeps the couple’s march order — a hand-placed pair leads', async () => {
+test('⚖ 2026-10-14 — the two columns HOLD at 375: equal, never stacking, a long name wraps in its own cell', async () => {
+  const html = await render();
+  for (const heading of ['Principal Sponsors', 'Secondary Sponsors', 'Bride&#x27;s Crew &amp; Groom&#x27;s Crew']) {
+    const classes = pairRowClasses(section(html, heading));
+    assert.ok(classes.length > 0, `${heading}: no pair row drew`);
+    for (const c of classes) {
+      const tokens = c.split(/\s+/);
+      // `grid-cols-2` with NO breakpoint prefix is two columns on a phone; `grid-cols-1` / `sm:grid-cols-2` is the stack.
+      assert.ok(tokens.includes('grid-cols-2'), `${heading}: a pair row is not two columns at every width — "${c}"`);
+      assert.ok(!tokens.some((t) => /(^|:)grid-cols-1$/.test(t) || /^[a-z0-9]+:grid-cols-/.test(t)), `${heading}: a pair row stacks on a phone — "${c}"`);
+      assert.ok(tokens.includes('items-baseline'), `${heading}: the two cells no longer share a baseline — "${c}"`);
+    }
+    // Each cell may shrink below its name's width (`min-w-0`), so a long name wraps INSIDE it.
+    const cells = [...section(html, heading).matchAll(/<span class="([^"]*)" data-pair-cell/g)].map((m) => m[1]!);
+    assert.ok(cells.length >= 2 && cells.every((c) => /\bmin-w-0\b/.test(c) && /\bbreak-words\b/.test(c)), `${heading}: ${cells.join(' | ')}`);
+  }
+});
+
+test('⚖ 2026-10-14 — a screen reader still hears the pair as a pair: "X and Y", then the roles', async () => {
+  const s = section(await render(), 'Principal Sponsors');
+  const pair = [...s.matchAll(/<li[^>]*data-pair-row[^>]*>([\s\S]*?)<\/li>/g)].map((m) => heard(m[1]!));
+  assert.ok(
+    pair.includes('Hon. Ricardo Villahermosa and Mrs. Jessica Villahermosa, Ninong and Ninang'),
+    pair.join(' | '),
+  );
+});
+
+test('the couple’s march order still decides the rows — a hand-placed pair leads', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { EntourageSection } = await import('./entourage-section');
   // n3 + a3's walk goes to the front; every other walk moves behind it.
@@ -169,12 +235,12 @@ test('option 1 keeps the couple’s march order — a hand-placed pair leads', a
     return { ...r, march: { walk_no: m.walk_no === front.walk_no ? -1 : m.walk_no } };
   });
   const html = renderToStaticMarkup(React.createElement(EntourageSection as never, { groups: buildEntourage(placed) }));
-  assert.equal(items(section(html, 'Principal Sponsors'))[0], 'Mario Lopez Jr. & Nora Lopez');
+  assert.deepEqual(rows(section(html, 'Principal Sponsors'))[0], ['Mario Lopez Jr.', 'Nora Lopez']);
 });
 
-test('option 1 — a walking pair in the crews shares one line too', async () => {
-  const lines = items(section(await render(), 'Bride&#x27;s Crew &amp; Groom&#x27;s Crew'));
-  assert.deepEqual(lines, ['Carla Mendoza & Dan Lim']);
+test('⚖ 2026-10-14 — a walking pair in the crews is two columns too', async () => {
+  const s = section(await render(), 'Bride&#x27;s Crew &amp; Groom&#x27;s Crew');
+  assert.deepEqual(rows(s), [['Carla Mendoza', 'Dan Lim']]);
 });
 
 test("Bride's Crew & Groom's Crew and Flower Girls: no Bridesmaid / Groomsman / Flower Girl per name", async () => {
@@ -202,7 +268,7 @@ test('a section that MIXES roles the heading cannot name keeps the word beside e
   assert.doesNotMatch(honour.replace('Maid of Honor & Best Man', ''), /Maid of Honor|Best Man/);
 });
 
-test('Secondary Sponsors, stacked by default: one sub-heading per role, the pair on ONE line, no role per name', async () => {
+test('Secondary Sponsors, stacked by default: one sub-heading per role, the pair in two columns, no role per name', async () => {
   const s = section(await render(), 'Secondary Sponsors');
   assert.match(s, /data-role-layout="stacked"/, 'B is the default');
   const seen = visible(s);
@@ -210,10 +276,14 @@ test('Secondary Sponsors, stacked by default: one sub-heading per role, the pair
   for (const role of ['Candle', 'Veil', 'Cord']) {
     assert.equal(seen.split(` ${role} `).length - 1, 1, `"${role}" is said exactly once`);
   }
-  // Each pair is one <li>, both names in it.
-  assert.match(s, /<li[^>]*>(Paolo Cruz &amp; Bea Cruz|Bea Cruz &amp; Paolo Cruz)<\/li>/);
+  // Each pair is one row of two cells, no "&" (owner 2026-10-14).
+  const shown = rows(s).map((r) => [...r].sort().join(' ‖ '));
+  assert.ok(shown.includes('Bea Cruz ‖ Paolo Cruz'), shown.join(' | '));
   // Walking together is not being a couple: both full names.
-  assert.match(s, /<li[^>]*>(Miguel Reyes &amp; Anna Reyes|Anna Reyes &amp; Miguel Reyes)<\/li>/);
+  assert.ok(shown.includes('Anna Reyes ‖ Miguel Reyes'), shown.join(' | '));
+  assert.doesNotMatch(seen, /&/, 'a stacked pair is joined by an "&" again');
+  // The sub-heading already says "Candle" — no role is whispered after the names as well.
+  assert.doesNotMatch(s, /class="sr-only">, /, 'a by-role pair repeats its role to a screen reader');
   // Order: the sub-heading, then its names.
   assert.ok(seen.indexOf('Candle') < seen.indexOf('Cruz') && seen.indexOf('Cruz') < seen.indexOf('Veil'));
   assert.ok(seen.indexOf('Veil') < seen.indexOf('Reyes') && seen.indexOf('Reyes') < seen.indexOf('Cord'));
@@ -252,7 +322,8 @@ test('option 1 on the printed card: a data pair is ONE centred line, in the page
   const lines = printedEntourageLines(ps, false);
   const pairs = lines.filter((l) => l.pair).map((l) => l.c);
   // The couple's march order is the builder's; the card and the page both follow it.
-  const onPage = items(section(await render(), 'Principal Sponsors')).filter((l) => l.includes(' & '));
+  // The page draws each pair as two cells (2026-10-14); read left then right, it is the card's line.
+  const onPage = rows(section(await render(), 'Principal Sponsors')).filter((r) => r.length === 2).map((r) => r.join(' & '));
   assert.deepEqual(pairs, onPage);
   assert.deepEqual([...pairs].sort(), [
     'Dr. Eduardo Bautista & Carmen Reyes',

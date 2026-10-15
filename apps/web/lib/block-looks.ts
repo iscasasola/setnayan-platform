@@ -136,7 +136,10 @@ const SEAT_CARDS = ['.pahina-plate', ' > .bg-paper-deep', ' > [data-maker-sample
  *  whose words are light on its own dark (`announcement-styles.tsx`: `bg-ink text-cream`) — and, on the canvas, the
  *  sample's card shape (`maker-fixed-parts.tsx`: `data-sample-card`). */
 const ANNOUNCE_CARDS = [' > div:not(.bg-ink):not([data-maker-sample])', ' > [data-maker-sample] > [data-sample-card]'] as const;
-const GROUND_CARD: Readonly<Record<BlockGroundBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: ' > a', spotlight: '', find_your_seat: SEAT_CARDS, pass: null, announcements: ANNOUNCE_CARDS, look: null };
+/** 🎁 E-Gifts: on Welcome its content is drawn in place (owner 2026-10-14) — each way to give is a card; where the
+ *  content could not be read, the door that stands in its place is the one card. */
+const GIFT_CARDS = [' > a', ' [data-gift-ways] > ul > li'] as const;
+const GROUND_CARD: Readonly<Record<BlockGroundBlock, string | readonly string[] | null>> = { entourage: null, details: ' > .pahina-plate', gifts: GIFT_CARDS, spotlight: '', find_your_seat: SEAT_CARDS, pass: null, announcements: ANNOUNCE_CARDS, look: null };
 /** The root where it stands bare ('' = always; null = never) — there the root itself takes the paper or the glass. */
 const GROUND_BARE: Readonly<Record<BlockGroundBlock, string | null>> = {
   entourage: '',

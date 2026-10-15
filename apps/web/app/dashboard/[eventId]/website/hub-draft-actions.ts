@@ -112,6 +112,7 @@ import { hubDraftStamp, hubDraftUndoMatched } from '@/lib/hub-draft-stamp';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { PART_SHOW_KEY, STAGE_ORDER_KEY, STAGE_SHOW_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
+import { PHOTOS_HEADING_KEY } from '@/lib/photos-heading';
 import { HUB_MUSIC_KEY } from '@/lib/hub-music-button';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -895,6 +896,8 @@ export async function hubDraftAction(
                   ? PART_SHOW_KEY
                 : item.field === 'std_lead'
                   ? STD_LEAD_KEY
+                : item.field === 'photos_heading'
+                  ? PHOTOS_HEADING_KEY
                   : item.field === 'custom'
                     ? 'custom'
                     : item.field === 'venue'

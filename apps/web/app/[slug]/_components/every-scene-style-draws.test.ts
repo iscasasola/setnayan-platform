@@ -518,6 +518,32 @@ test('photos you add · grid and film strip show every photo, in order', async (
   }
 });
 
+test('🎞 photos you add · Glimpse draws every photo once, in order, on a snap rail — the server markup needs no JavaScript', async () => {
+  const { OurPhotosWidget } = await import('./our-photos-widget');
+  const many = Array.from({ length: 12 }, (_, i) => `https://m/${i + 1}.jpg`);
+  for (const urls of [URLS.slice(0, 1), URLS.slice(0, 2), URLS, many]) {
+    const out = html(h(OurPhotosWidget, { urls, sceneStyle: 'glimpse' }));
+    assertStyled(out, 'glimpse', `glimpse × ${urls.length}`);
+    // Every photo once (the loop's copies are added only once the page is live), in the couple's order.
+    const seen = [...out.matchAll(/<img src="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(seen, urls, `glimpse × ${urls.length}: the photos drawn, in order`);
+    assert.match(out, /snap-x snap-mandatory/, `glimpse × ${urls.length}: the rail snaps`);
+    assert.equal((out.match(/data-glimpse-card=""/g) ?? []).length, urls.length, `glimpse × ${urls.length}: one card per photo`);
+    assert.match(out, /aspect-\[3\/4\]/, `glimpse × ${urls.length}: the cards are 3:4`);
+    // Where am I: no dots for one photo; dots up to eight; "1 / 12" from nine up.
+    const dots = (out.match(/<i class="h-1\.5 w-1\.5/g) ?? []).length;
+    if (urls.length === 1) {
+      assert.equal(dots, 0, 'one photo: no dots');
+      assert.ok(!out.includes('Swipe · tap to open'), 'one photo: no hint');
+    } else if (urls.length <= 8) {
+      assert.equal(dots, urls.length, `${urls.length} photos: a dot each`);
+    } else {
+      assert.equal(dots, 0, `${urls.length} photos: no dots`);
+      assert.match(out, new RegExp(`1(?:<!-- -->)? / (?:<!-- -->)?${urls.length}`), `${urls.length} photos: the "1 / ${urls.length}" counter`);
+    }
+  }
+});
+
 test('each guest’s photos · the big one and polaroids place every tile whole — its controls come with it', async () => {
   const { PhotosOfYouLead, PhotosOfYouPolaroids } = await import('./photos-of-you-styles');
   const tiles = ['a', 'b', 'c'].map((k, i) => ({

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { EntourageGroup, EntouragePerson, EntourageRoleLayout } from '@/lib/entourage';
+import type { EntourageGroup, EntouragePerson, EntourageRoleLayout, EntourageRow } from '@/lib/entourage';
 import {
   roleLabel,
   peopleOf,
@@ -108,7 +108,7 @@ export function EntourageSection({
         {shown.map((group) => {
           const blocks = roleBlocks(group);
           if (blocks) return <ByRoleGroup key={group.key} group={group} blocks={blocks} layout={roleLayout} />;
-          if (pairsShareALine(group)) return <OneLinePairs key={group.key} group={group} />;
+          if (pairsShareALine(group)) return <PairedGroup key={group.key} group={group} />;
           /* Does ANY line in this group hold two people? A group nobody paired
              prints as one column — two columns of names with every right-hand
              cell empty is a table pretending to be a pairing. */
@@ -182,51 +182,111 @@ function Cell({ person, group }: { person: EntouragePerson | null; group: Entour
 }
 
 /**
- * A group whose data-paired couples share ONE line — Principal Sponsors and
- * the crews. ⚖ Owner 2026-09-30, option 1: "Hon. Ricardo & Mrs. Jessica
- * Villahermosa" on every screen size (`lineNames` decides the words). An
- * unpaired sponsor is a line of their own; the order is the march order the
- * rows already carry.
+ * A group whose couples the DATA pairs — Principal Sponsors and Bride's Crew &
+ * Groom's Crew — one pair per row, in the march order the rows already carry.
+ *
+ * ⚖ OWNER 2026-10-14, on the Wedding March scene (Roll call): *"we find the
+ * roll call okay but. The names feel too crowded. Maybe have their pairing show
+ * in 2 columns without the &."* — SUPERSEDES 2026-09-30 option 1 ("Hon. Ricardo
+ * & Mrs. Jessica Villahermosa" as ONE line) on the page. The printed card keeps
+ * option 1 (`printedEntourageLines`, `lib/print-layout.ts`); this ruling was
+ * about the scene. See `PairRow` for how a row is drawn.
  */
-function OneLinePairs({ group }: { group: EntourageGroup }) {
+function PairedGroup({ group }: { group: EntourageGroup }) {
   return (
     <div className="space-y-3">
       <h4 className="pahina-eyebrow">
         <span>{group.label}</span>
       </h4>
-      <ul className="space-y-2">
-        {group.rows.map((row, i) => {
-          const people = row.filter((p): p is EntouragePerson => p !== null);
-          const beside = people.map((p) => roleBesideName(group, p)).filter(Boolean);
-          const spoken = people
-            .filter((p) => !roleBesideName(group, p))
-            .map((p) => roleLabel(p.role, group.names))
-            .filter(Boolean);
-          return (
-            <li key={`${group.key}-${i}`} className="leading-snug" data-pair-line={people.length > 1 ? '' : undefined}>
-              <span className="text-base text-ink">{lineNames(row)}</span>
-              {beside.length ? <span className="ml-2 text-sm text-ink/70">{beside.join(' & ')}</span> : null}
-              {spoken.length ? <span className="sr-only">, {spoken.join(' & ')}</span> : null}
-            </li>
-          );
-        })}
+      <ul className="space-y-3">
+        {group.rows.map((row, i) => (
+          <PairRow key={`${group.key}-${i}`} row={row} group={group} />
+        ))}
       </ul>
     </div>
   );
 }
 
 /**
+ * ONE ROW OF A PAIRED LIST — two people side by side in two equal columns, no
+ * "&" between them. ⚖ Owner 2026-10-14 (see `PairedGroup`).
+ *
+ *   · THE TWO COLUMNS HOLD AT 375. The other two-column groups stack to one
+ *     column under `sm:`; a pair here never does — a pair that stacks reads as
+ *     two strangers, and a stacked list is the crowding the owner named.
+ *     `grid-cols-2` is `minmax(0, 1fr)` twice: equal widths, and a long name
+ *     ("Hon. Ricardo Villanueva-Santos") wraps INSIDE its own cell instead of
+ *     pushing its partner over. `items-baseline` keeps the first lines of the
+ *     two cells on one baseline however many lines either wraps to.
+ *   · SOMEONE WALKING ALONE is a row of their own that STARTS IN THE LEFT
+ *     COLUMN and may run across both (a plain line, not a grid). Every name in the list
+ *     then begins on one of the same two edges — a centred single would sit
+ *     astride the gutter and read as a third column — and a long single name
+ *     gets the whole width instead of wrapping in half of it.
+ *   · A SCREEN READER STILL HEARS A PAIR: the left cell ends in a visually
+ *     hidden " and", so the row reads "X and Y", then the roles the heading
+ *     names (", Ninong and Ninang") as before.
+ *   · Who is shown, and in what order, is the rows' — this draws, it decides
+ *     nothing. A walk's left person is the row's left cell (Ninong left, Ninang
+ *     right; bridesmaid left, groomsman right).
+ */
+function PairRow({
+  row,
+  group,
+  speakRoles = true,
+}: {
+  row: EntourageRow;
+  group: EntourageGroup;
+  /** False under a by-role sub-heading ("Candle"): the sub-heading already says it, to the eye and the ear alike. */
+  speakRoles?: boolean;
+}) {
+  const people = row.filter((p): p is EntouragePerson => p !== null);
+  if (people.length === 0) return null;
+  const beside = people.map((p) => roleBesideName(group, p));
+  const spoken = people
+    .filter((p) => speakRoles && !roleBesideName(group, p))
+    .map((p) => roleLabel(p.role, group.names))
+    .filter(Boolean);
+  const said = spoken.length ? <span className="sr-only">, {spoken.join(' and ')}</span> : null;
+  if (people.length === 1) {
+    return (
+      <li className="break-words leading-snug">
+        <span className="text-base text-ink">{people[0]!.name}</span>
+        {beside[0] ? <span className="ml-2 text-sm text-ink/70">{beside[0]}</span> : null}
+        {said}
+      </li>
+    );
+  }
+  return (
+    <li className="grid grid-cols-2 items-baseline gap-x-6 leading-snug" data-pair-row="">
+      <span className="min-w-0 break-words" data-pair-cell="">
+        <span className="text-base text-ink">{people[0]!.name}</span>
+        {beside[0] ? <span className="ml-2 text-sm text-ink/70">{beside[0]}</span> : null}
+        <span className="sr-only"> and </span>
+      </span>
+      <span className="min-w-0 break-words" data-pair-cell="">
+        <span className="text-base text-ink">{people[1]!.name}</span>
+        {beside[1] ? <span className="ml-2 text-sm text-ink/70">{beside[1]}</span> : null}
+        {said}
+      </span>
+    </li>
+  );
+}
+
+/**
  * A group drawn BY ROLE — the Secondary Sponsors. ⚖ Owner 2026-09-30.
  *
- *   stacked (B, default)      inline (A)
- *   Candle                    Candle: Ana & Ben Cruz
- *   Ana & Ben Cruz            Veil: Carla & Dan Reyes
+ *   stacked (B, default)        inline (A)
+ *   Candle                      Candle: Ana Cruz & Ben Cruz
+ *   Ana Cruz      Ben Cruz      Veil: Carla Reyes & Dan Reyes
  *   Veil
- *   Carla & Dan Reyes
+ *   Carla Reyes   Dan Reyes
  *
- * A pair is ONE line ("Ana Cruz & Ben Cruz"), never split across two cells —
- * on a 375 phone the two-column grid stacks anyway, and a pair that stacks
- * reads as two strangers.
+ * Stacked, a pair is a `PairRow` — two columns, no "&" (⚖ owner 2026-10-14,
+ * superseding 2026-09-30's one line "Ana Cruz & Ben Cruz"; the two columns
+ * hold at 375, so the pair never stacks into two strangers). Inline (A) is one
+ * line by its nature ("Candle: names") and keeps the " & " — nothing sets it
+ * yet.
  */
 function ByRoleGroup({
   group,
@@ -256,11 +316,9 @@ function ByRoleGroup({
           {blocks.map((b) => (
             <div key={b.key} className="space-y-1">
               <p className="text-sm text-ink/70">{b.label}</p>
-              <ul className="space-y-1">
+              <ul className="space-y-2">
                 {b.rows.map((row, i) => (
-                  <li key={`${b.key}-${i}`} className="text-base leading-snug text-ink">
-                    {lineNames(row)}
-                  </li>
+                  <PairRow key={`${b.key}-${i}`} row={row} group={group} speakRoles={false} />
                 ))}
               </ul>
             </div>

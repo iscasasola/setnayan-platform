@@ -1,0 +1,73 @@
+import 'server-only';
+
+import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { coverGroundCss, coverGroundShape, coverSceneLegibility, coverShadeVeil } from '@/lib/cover-scene';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import type { HubCoverGround } from '@/lib/hub-canvas';
+
+/**
+ * 🖼 THE COVER SCENE'S BACKGROUND, READY TO DRAW (`cover-scene-ground.tsx`) — the stored `canvas.ground` of the hero
+ * row (`sanitizeHubCoverGround` already refused a clip while the hero clip may not reach guests) resolved to URLs,
+ * the shade's veil and the words' tone over it (`coverSceneLegibility`). Null: nothing stored — The theme's own, the
+ * page exactly as before.
+ */
+export type CoverSceneLayer = {
+  shape: 'framed' | 'full';
+  /** A colour or a glass — the CSS background. */
+  css: string | null;
+  /** A photo, or a loop's first frame. */
+  still: string | null;
+  /** A ready-made loop (Setnayan's own — screened by definition, it plays for guests). */
+  clip: string | null;
+  parallax: boolean;
+  veil: { color: string; opacity: number } | null;
+  scrim: { color: string; opacity: number };
+  tone: 'ink' | 'cream';
+};
+
+function publicUrl(ref: string | null | undefined): string | null {
+  try {
+    return publicUrlForStoredAsset(ref ?? null);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `heroPhotoUrl`: the page's resolved hero photo — an Upload pick IS the hero photo (the one hero writer writes it
+ * through to `landing_page_hero_image_url`), so it is the ONLY photo the cover draws.
+ */
+export function coverSceneLayer(
+  ground: HubCoverGround | null | undefined,
+  ctx: {
+    heroPhotoUrl: string | null;
+    /** 🧪 The lab only (`/dev/maker-lab`, no public media host): a loop's stand-in files this repo ships. */
+    loopMedia?: (loop: string) => { still: string | null; clip: string | null } | null;
+  },
+): CoverSceneLayer | null {
+  if (!ground) return null;
+  const legible = coverSceneLegibility(ground);
+  const base = { shape: coverGroundShape(ground), veil: coverShadeVeil(ground.shade), scrim: legible.scrim, tone: legible.tone, parallax: false };
+  if (ground.kind === 'loop') {
+    const media = INVITE_THEMES[ground.loop].media;
+    if (!media) return null;
+    const stand = ctx.loopMedia?.(ground.loop) ?? null;
+    const still = publicUrl(media.poster) ?? stand?.still ?? null;
+    const clip = publicUrl(media.loop) ?? stand?.clip ?? null;
+    /* 🚫 A loop whose files do not resolve is NOT drawn as an empty veil (a failure never renders as success): the
+       cover stays The theme's own. */
+    if (!still && !clip) return null;
+    return { ...base, css: null, still, clip };
+  }
+  if (ground.kind === 'photo' || ground.kind === 'snippet') {
+    /* 🔑 ONE VALUE (owner 2026-10-15, "Yes, one background"): an Upload pick on the cover IS the hero photo, so the
+       cover draws THE HERO PHOTO the page resolved (`resolveHero`) — never a second copy of the ref that could
+       disagree with it. Details › Hero changing the photo changes the cover; "Use the invitation card instead"
+       (no hero photo) leaves the cover on The theme's own. A clip never reaches here while it may not play for
+       guests (the sanitiser drops it). */
+    const still = ground.kind === 'photo' ? ctx.heroPhotoUrl : publicUrl(ground.poster);
+    if (!still) return null;
+    return { ...base, css: null, still, clip: null, parallax: ground.kind === 'photo' && ground.motion === 'parallax' };
+  }
+  return { ...base, veil: ground.kind === 'glass' || ground.kind === 'frost' ? null : base.veil, css: coverGroundCss(ground), still: null, clip: null };
+}

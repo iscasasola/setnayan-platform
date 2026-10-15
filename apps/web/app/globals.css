@@ -4636,6 +4636,18 @@ html.dark {
 [data-hub-roles~='names'] [data-hub-names] {
   font-family: var(--hub-names-face);
 }
+/* 🎨 THE NAMES WEAR THE DOMINANT (owner 2026-10-14, Maker test: *"changing colors does not show on preview"* — the
+   Mood Board's Dominant is "Headings · the names", and nothing on the page wore it). `--hub-names-ink` is the
+   Dominant AA-large on the paper and the cards (`buildSitePaletteVars`); wherever the words sit on another ground
+   (a page colour of the couple's own, a blend, Candlelight, a picture, a scene's own ground, the canvas preview) it
+   is taken off, and the names fall back to the page's measured ink — exactly what they wore before. A part's own
+   colour (Stages › Names, inline) still wins. */
+[data-guest-look] [data-hub-names] {
+  color: rgb(var(--hub-names-ink, var(--color-ink)));
+}
+[data-guest-look][data-art='candlelight'] {
+  --hub-names-ink: initial !important;
+}
 [data-hub-roles~='body'] {
   --font-sans: var(--font-body);
   font-family: var(--font-body);
@@ -6801,6 +6813,14 @@ html:has([data-sticky-top]) {
 .hub-arr-full { max-width: none; margin-inline: 0; }
 .hub-arr-text { max-width: 58ch; margin-inline: auto; }
 
+/* ↔ WHERE A PART'S WIDTH BOX SITS WHEN THE PART HAS NO ALIGNMENT OF ITS OWN (Style › Width, owner 2026-10-14 —
+   `hubElementWidthDeclarations`, lib/element-style.ts): where the THEME's alignment puts it. The theme says it with
+   `text-left` / `text-center` / `text-right`; the nearest one around the part wins (a custom property inherits).
+   Without one, the box starts at the start, as a block does. Zero specificity: nothing else is touched. */
+:where(.text-left) { --hub-el-mi: 0 auto; }
+:where(.text-center) { --hub-el-mi: auto; }
+:where(.text-right) { --hub-el-mi: auto 0; }
+
 /* ── PHOTO BESIDE THE WORDS (left / right) ─────────────────────────────────
    `hubPhotoPlacement` returns `beside` for these two, and the frame then draws
    `.hub-canvas-photo` as a SIBLING of the words rather than a layer under them.
@@ -8574,21 +8594,24 @@ html [data-part-look="eyebrow.pill"][data-part-look] {
 html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"])[data-part-look]::after { content: none; }
 html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.flanked"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"]) > span { color: inherit; }
 
-/* ── E-Gifts ── */
+/* ── E-Gifts ── the four looks lay the DOOR (`[data-gift-door]`, where it still stands) and the eyebrow; on Welcome
+   the content itself wears the look through its wish list's shape (`wishListShape`) and its centred lines, while the
+   ways to give and the trust note keep the gift page's own drawing (2026-10-14: E-Gifts on Welcome, not a door). */
 html [data-part-look="gifts.centred"] { text-align: center; }
 html [data-part-look="gifts.centred"] .pahina-eyebrow { justify-content: center; }
-html [data-part-look="gifts.centred"] a { flex-direction: column; text-align: center; gap: 0.6rem; padding-block: 1.25rem; }
-html [data-part-look="gifts.centred"] a > svg:last-child { display: none; }
-html [data-part-look="gifts.side-rule"] a {
+html [data-part-look="gifts.centred"] [data-gift-door] { flex-direction: column; text-align: center; gap: 0.6rem; padding-block: 1.25rem; }
+html [data-part-look="gifts.centred"] [data-gift-door] > svg:last-child { display: none; }
+html [data-part-look="gifts.side-rule"] [data-gift-door] {
   border: 0; border-left: 2px solid rgb(var(--color-gild)); border-radius: 0; background: transparent; padding-left: 1rem;
 }
 html [data-part-look="gifts.ruled"] { text-align: center; }
 html [data-part-look="gifts.ruled"] .pahina-eyebrow { justify-content: center; }
-html [data-part-look="gifts.ruled"] a {
+html [data-part-look="gifts.ruled"] [data-gift-door] {
   justify-content: center; border: 0; border-top: 1px solid rgb(var(--color-gild) / 0.7); border-bottom: 1px solid rgb(var(--color-gild) / 0.7);
   border-radius: 0; background: transparent; padding-block: 1rem;
 }
-html [data-part-look="gifts.ruled"] a > span:nth-child(2) { flex: none; }
+html [data-part-look="gifts.ruled"] [data-gift-door] > span:nth-child(2) { flex: none; }
+html [data-part-look^="gifts."] :is([data-gift-ways], [data-gift-trust]) { text-align: left; }
 
 /* ── The guest's own parts: Your role · What to wear · Arrive by · Coming with you ── */
 html :is([data-part-look="role.centred"], [data-part-look="wear.centred"], [data-part-look="arrive.centred"], [data-part-look="guests.centred"]) { text-align: center; }
@@ -8648,6 +8671,42 @@ html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
 [data-me-stage] {
   padding-bottom: var(--cookie-banner-top, 0px);
 }
+/* ═══ THE COVER SCENE TAKES THE WHOLE FIRST SCREEN — NO BAR OVER IT (owner 2026-10-15) ═══
+   `CoverSceneMenuWaits` (app/[slug]/_components/cover-scene-menu.tsx) puts ONE `<style data-cover-menu="wait">` in
+   `<head>` — never a class on <html>, which React renders and would not patch after a pre-hydration change; while a
+   Cover Scene leads the page the ONE top bar and the ONE bottom bar / rail are held off screen and the column's top
+   padding goes, so the cover is the whole screen. The first swipe or scroll sets it to "open": the bars slide in
+   and stay. No script → no marker → the bars as always. */
+html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-sticky-top] {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  transition: translate 0.35s ease;
+}
+html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-page-column] {
+  padding-top: 0;
+  --cover-scene-above: 0px;
+  --cover-scene-pad: 0px;
+}
+html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) nav[aria-label='Site sections'] {
+  transition: translate 0.35s ease, opacity 0.35s ease, visibility 0.35s;
+}
+html:has(> head > style[data-cover-menu='wait']):has(header[data-cover-scene]) [data-sticky-top] {
+  translate: 0 -100%;
+}
+html:has(> head > style[data-cover-menu='wait']):has(header[data-cover-scene]) nav[aria-label='Site sections'] {
+  translate: 0 100%;
+  opacity: 0;
+  visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-sticky-top],
+  html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) nav[aria-label='Site sections'] {
+    transition: none;
+  }
+}
+
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
@@ -8794,3 +8853,4 @@ html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
     animation-range: normal;
   }
 }
+

@@ -173,9 +173,11 @@ test('3 · the rules: fixed strings on fixed selectors, the RSVP card’s own gr
   /* Happening now IS a card: it goes bare, or to glass. Nothing is put round it. */
   assert.equal(css({ spotlight: { g: 'none' } }), `${at('spotlight')}{${NONE}--color-ink:inherit!important;color:inherit!important;--pahina-frame-opacity:0!important;}`);
   assert.equal(css({ spotlight: { g: 'frost' } }), `${at('spotlight')}{${FROST}${EDGE}--pahina-frame-opacity:0!important;}`);
-  /* E-Gifts: its one card is the door INSIDE it. */
-  assert.equal(css({ gifts: { g: 'none' } }), `${at('gifts')} > a{${NONE}--color-ink:inherit!important;color:inherit!important;--pahina-frame-opacity:0!important;}`);
-  assert.equal(css({ gifts: { g: 'frost' } }), `${at('gifts')} > a{${FROST}${EDGE}--pahina-frame-opacity:0!important;}`);
+  /* E-Gifts: its cards are INSIDE it — each way to give (on Welcome since 2026-10-14), or the one door that stands
+     where the content could not be read. */
+  const giftCards = `${at('gifts')} > a,${at('gifts')} [data-gift-ways] > ul > li`;
+  assert.equal(css({ gifts: { g: 'none' } }), `${giftCards}{${NONE}--color-ink:inherit!important;color:inherit!important;--pahina-frame-opacity:0!important;}`);
+  assert.equal(css({ gifts: { g: 'frost' } }), `${giftCards}{${FROST}${EDGE}--pahina-frame-opacity:0!important;}`);
   /* The Wedding March stands bare: the block itself takes the hub's paper (the plate's own) or the glass. */
   const PAPER = '--block-ink:var(--color-ink-on-plate, var(--color-ink));color:rgb(var(--block-ink));background:rgb(var(--color-paper-deep))!important;border:1px solid rgb(var(--block-ink) / 0.1)!important;padding:1.25rem!important;';
   /* The paper's ink is handed to what is INSIDE the block (a variable that names itself is thrown away whole, and the
@@ -245,10 +247,14 @@ test('4 · one card, never two: the markup each ground leans on is there', () =>
   const DETAILS = src(`${G}/empty-states.tsx`);
   assert.match(DETAILS, /<section className="space-y-4">\s*<p className="pahina-eyebrow">\s*<span>The details<\/span>\s*<\/p>\s*<div className="pahina-plate space-y-5">/);
   assert.doesNotMatch(src(`${G}/event-details-styles.tsx`), /pahina-plate/, 'Big date or Card grew a plate: the block would wear two grounds');
-  /* E-GIFTS: an eyebrow, then its one door — a link, the root's direct child. */
+  /* E-GIFTS: an eyebrow, then its content (owner 2026-10-14: on Welcome, E-Gifts itself, not a door) — each way to
+     give is a card (`[data-gift-ways] > ul > li`); where the content could not be read, its one door — a link, the
+     root's direct child. */
   const GIFTS = src(`${G}/guest-doorway-strip.tsx`);
   /* (2026-10-12, release hub-batch-2) the one card may carry the wish list's count (`wishes`, #6440) — still ONE card. */
-  assert.match(GIFTS, /<section className="space-y-3" data-welcome-gifts=""[^>]*>\s*<p className="pahina-eyebrow">\s*<span>E-Gifts<\/span>\s*<\/p>\s*<GiftDoorCard href=\{href\} words=\{words\}(?: wishes=\{wishes\})? \/>\s*<\/section>/);
+  assert.match(GIFTS, /<section className="space-y-3" data-welcome-gifts=""[^>]*>\s*<p className="pahina-eyebrow">\s*<span>E-Gifts<\/span>\s*<\/p>\s*\{children \?\? <GiftDoorCard href=\{href\} words=\{words\} wishes=\{wishes\} \/>\}\s*<\/section>/);
+  assert.match(src('app/[slug]/pabuya/_components/gift-page-body.tsx'), /<div data-gift-ways="">[\s\S]*?<PabuyaCardList methods=\{cards\} \/>/);
+  assert.match(src('app/_components/pabuya/pabuya-card-list.tsx'), /<ul className="space-y-3">\s*\{methods\.map\(\(m, i\) => \{[\s\S]*?<li\s+key=\{`\$\{m\.kind\}-\$\{i\}`\}\s+className="overflow-hidden rounded-2xl border border-ink\/10 bg-cream /, 'a way to give is no longer the card the background dresses');
   assert.match(GIFTS, /function GiftDoorCard\([^)]*\) \{\s*return \(\s*<DoorCard/);
   assert.match(GIFTS, /return \(\s*<Link\s+href=\{href\}\s+className="group flex items-center gap-3 rounded-2xl border border-ink\/10 bg-cream /);
   /* HAPPENING NOW: the block's root is the card itself. */

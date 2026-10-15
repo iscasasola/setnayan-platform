@@ -144,12 +144,16 @@ test('3 · the colours, the outfits and the lists are Form rows in lists with th
   assert.match(s.palette, /<span data-mood-board-colour="part-Bridal bouquet"|<span data-mood-board-colour="part-Entourage bouquets"/);
   assert.match(s.palette, /data-form-rows="mood-board-changes"/, 'a supplier’s change is not a row');
   assert.doesNotMatch(s.paletteQuiet, /data-form-rows="mood-board-changes"/, 'an empty list of changes is drawn');
-  assert.equal(count(s.attire, /data-form-row-kind="chosen"/g), 3, 'each role’s outfit is not a dropdown row');
+  /* RE-AIMED 2026-10-14 (owner, DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"): ONE BLOCK PER ROLE, and a role that holds
+     both is two picks — so the bride · the groom · the guests (men + women) are FOUR outfits, each still the Form row's
+     dropdown, each in its own one-row list under its person. */
+  assert.equal(count(s.attire, /data-form-row-kind="chosen"/g), 4, 'each pick’s outfit is not a dropdown row');
   assert.equal(count(s.attireNoDress, /data-form-row-kind="chosen"/g), 0, 'an outfit is offered where the dress code could not be read');
-  assert.equal(count(s.attire, /data-form-rows="mood-board-attire"/g), 1, 'the roles are not ONE list');
+  assert.equal(count(s.attire, /<section[^>]*data-mood-board-role="/g), 3, 'the roles are not one block each');
+  assert.equal(count(s.attire, /data-form-rows="mood-board-wear"/g), 4);
   assert.equal(count(s.dos, /data-form-rows="dress-(?:dos|donts)"/g), 2);
   assert.doesNotMatch(s.palette + s.attire, /border-b border-ink\/10 px-1 py-1\.5/, 'a hand-made row is back');
-  assert.match(s.attire, /data-mood-board-role="bride"[^>]*data-form-row-kind="chosen"|data-form-row-kind="chosen"[^>]*data-mood-board-role="bride"/, 'the bride’s row lost its mark');
+  assert.match(s.attire, /data-mood-board-role="bride"[\s\S]*?data-form-row-kind="chosen"[^>]*data-mood-board-wear-for="f"|data-mood-board-role="bride"[\s\S]*?data-mood-board-wear-for="f"[^>]*data-form-row-kind="chosen"/, 'the bride’s block lost its outfit');
 });
 
 test('4 · a choice is the one dropdown — no PickMenu of the page’s own', async () => {
@@ -167,9 +171,9 @@ test('4 · a choice is the one dropdown — no PickMenu of the page’s own', as
 test('5 · no colour of the page’s own on a control — the accent is the token, nothing is filled by hand', () => {
   const HAND = /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber|ink)\b(?!\/)|\btext-(?:terracotta|mulberry|gild)|\bborder-(?:terracotta|mulberry)|\bring-(?:terracotta|mulberry)/;
   for (const f of [STUDIO, DOS]) assert.doesNotMatch(read(f), HAND, `${f} writes a colour of its own`);
-  /* The only literal colour is the figure's skin tone (a drawing). */
+  /* No literal colour at all: the figure (the one drawing that had one, its skin tone) is the shared `RoleFigure` since 2026-10-14. */
   const hexes = [...read(STUDIO).matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((m) => m[0]);
-  assert.deepEqual(hexes, ['#E9D9C8'], 'a hex colour is written on the page');
+  assert.deepEqual(hexes, [], 'a hex colour is written on the page');
   assert.match(read(STUDIO), /text-sn-accent/, 'the page’s marks are not the accent token');
 });
 

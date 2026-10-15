@@ -129,7 +129,8 @@ export function collectionRows(input: CollectionsInput): CollectionRow[] {
           : `${n(a.events, 'event', 'events')} · ${n(a.photos, 'photo', 'photos')} · only you · put one on your page from the photo`,
       who: 'private',
       pageSwitch: false,
-      href: '/vendor-dashboard/on-the-day',
+      // Every booked event's album, on ANY day (supplier batch walk W3) — the on-the-day console links today's alone.
+      href: '/vendor-dashboard/collections/albums',
       unread: !a,
       items: a ? a.photos : null,
     });

@@ -25,11 +25,14 @@ export async function PortfolioAlbumSection({
   supabase,
   eventId,
   creditsLeft,
+  canPutOnPage = false,
 }: {
   supabase: SupabaseClient;
   eventId: string;
   /** null = unlimited (Unli tier); a number is what's left to spend. */
   creditsLeft: number | null;
+  /** Owners and admins only — the page is an owner room, and `putAlbumPhotoOnMyPage` refuses everyone else. */
+  canPutOnPage?: boolean;
 }) {
   const { data, error } = await supabase
     .from('vendor_papic_portfolio_photos')
@@ -43,7 +46,7 @@ export async function PortfolioAlbumSection({
   // as own-captures-strip.tsx.
   if (error) {
     return (
-      <section className="mt-8 border-t pt-6" style={{ borderColor: 'var(--m-line)' }}>
+      <section id="portfolio" className="mt-8 scroll-mt-24 border-t pt-6" style={{ borderColor: 'var(--m-line)' }}>
         <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
           Couldn&rsquo;t load your portfolio just now. Your photos are safe — this is only
           the view.
@@ -70,7 +73,7 @@ export async function PortfolioAlbumSection({
   const canImport = creditsLeft == null || creditsLeft >= 1;
 
   return (
-    <section className="mt-8 border-t pt-6" style={{ borderColor: 'var(--m-line)' }}>
+    <section id="portfolio" className="mt-8 scroll-mt-24 border-t pt-6" style={{ borderColor: 'var(--m-line)' }}>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
           Your private portfolio
@@ -101,7 +104,7 @@ export async function PortfolioAlbumSection({
               </div>
               {/* One tap puts THIS photo on your page (owner 2026-10-15, "SIX OWNER ANSWERS" (3)) — a copy in your
                   page's gallery; the album keeps its private one. */}
-              <PutOnMyPageButton photoId={photo.photoId} />
+              {canPutOnPage ? <PutOnMyPageButton photoId={photo.photoId} /> : null}
             </li>
           ))}
         </ul>

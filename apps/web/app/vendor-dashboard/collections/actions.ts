@@ -77,13 +77,15 @@ export async function putAlbumPhotoOnMyPage(_prev: PutOnPageResult | null, formD
     return { ok: false, error: 'Your page’s photos are full. Take one off in Your collections › Add photos first.' };
   }
 
+  // The QR guard reads the ALBUM photo — the same bytes the copy will carry — BEFORE the copy, so a refused photo
+  // leaves no orphan object in the shop's page folder (supplier batch walk, W3).
+  if (await vendorQrGuardRejects([photo.r2_object_key])) return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
   try {
     await r2Copy({ bucket: R2_BUCKETS.media, fromKey: albumKey, toKey: pageKey });
   } catch (err) {
     console.error('[put-on-my-page] copy failed', err);
     return { ok: false, error: 'The photo could not be copied just now. Nothing was changed — please try again.' };
   }
-  if (await vendorQrGuardRejects([pageRef])) return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
 
   const { data: updated, error: upErr } = await supabase
     .from('vendor_profiles')

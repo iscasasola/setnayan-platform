@@ -544,6 +544,45 @@ test('🎞 photos you add · Glimpse draws every photo once, in order, on a snap
   }
 });
 
+test('🎞 Post Event · the gallery preview in Glimpse is the SAME rail, with nothing in it to press (it sits inside the open-up button)', async () => {
+  const { GalleryPreview, GLIMPSE_PREVIEW_MAX } = await import('./editorial/post-event-scene-views');
+  const many = Array.from({ length: 20 }, (_, i) => `https://m/${i + 1}.jpg`);
+  for (const urls of [URLS.slice(0, 1), URLS.slice(0, 2), URLS, many.slice(0, 12), many]) {
+    const out = html(h(GalleryPreview, { style: 'glimpse', photos: urls, total: urls.length, names: 'Maria', words: {} }));
+    const want = urls.slice(0, GLIMPSE_PREVIEW_MAX);
+    const what = `post event glimpse × ${urls.length}`;
+    // The photos, once, in the couple's order, capped — the loop's copies are added only once the page is live.
+    const seen = [...out.matchAll(/<img src="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(seen, want, `${what}: the photos drawn, in order`);
+    assert.match(out, /snap-x snap-mandatory/, `${what}: the rail snaps`);
+    assert.equal((out.match(/data-glimpse-card=""/g) ?? []).length, want.length, `${what}: one card per photo`);
+    assert.match(out, /aspect-\[3\/4\]/, `${what}: the cards are 3:4`);
+    // 🔒 It is drawn INSIDE a <button> (OpenUpScene) — nothing in it may be a button, a link or a tab stop.
+    assert.ok(!/<button|<a[ >]|tabindex/i.test(out), `${what}: something interactive sits inside the open-up's button`);
+    assert.ok(!out.includes('Swipe · tap to open') && !out.includes('Previous photo') && !out.includes('Next photo'), `${what}: the full rail's controls leaked into the preview`);
+    assert.ok(!out.includes('role="region"'), `${what}: the preview rail claims to be a carousel of its own`);
+    // The scene keeps its own words above the rail.
+    assert.ok(out.includes('From the day'), `${what}: the scene's label`);
+  }
+  // Inside the real open-up the whole thing is ONE button and the markup nests no button in it.
+  const { OpenUpScene } = await import('./editorial/open-up-layer');
+  const wrapped = html(
+    h(OpenUpScene, { kind: 'gallery', title: 'From the Day', openLabel: 'Open the gallery', preview: h(GalleryPreview, { style: 'glimpse', photos: URLS, total: 5, names: 'Maria', words: {} }) }, h('p', null, 'x')),
+  );
+  const inside = wrapped.slice(wrapped.indexOf('<button'), wrapped.indexOf('</button>'));
+  assert.equal((inside.match(/<button/g) ?? []).length, 1, 'the open-up trigger holds a second button');
+  assert.ok(inside.includes('data-glimpse-card'), 'the open-up trigger does not hold the Glimpse rail');
+});
+
+test('🔒 Post Event draws Glimpse with the Save the Date’s rail — there is no second copy of the drift', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { stripComments } = await import('@/lib/strip-comments');
+  const views = stripComments(readFileSync(new URL('./editorial/post-event-scene-views.tsx', import.meta.url), 'utf8'));
+  assert.match(views, /import \{ GlimpseRail \} from '\.\.\/glimpse-rail'/, 'Post Event no longer imports the one GlimpseRail');
+  assert.match(views, /<GlimpseRail preview /, 'the Post Event Glimpse branch does not mount the rail in its preview form');
+  assert.doesNotMatch(views, /requestAnimationFrame|scrollLeft|IntersectionObserver/, 'Post Event grew its own drift');
+});
+
 test('each guest’s photos · the big one and polaroids place every tile whole — its controls come with it', async () => {
   const { PhotosOfYouLead, PhotosOfYouPolaroids } = await import('./photos-of-you-styles');
   const tiles = ['a', 'b', 'c'].map((k, i) => ({

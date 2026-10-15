@@ -114,14 +114,22 @@ test('4 · names shared with Post Event are ONE style, drawn on both', () => {
     const st = gal.styles.find((s) => s.id === id)!;
     assert.ok(st.stages?.includes('editorial') && st.stages.includes('save_the_date'), id);
   }
-  /* 🎞 Glimpse (owner 2026-10-15) is the Save the Date's own — not one of Post Event's, so it is never offered there. */
+  /* 🎞 Glimpse (owner 2026-10-15; Post Event "later, second step" → built) is ONE id drawn on the Save the Date AND on Post
+     Event, so the couple's one pick carries across stages — exactly like Grid, Mosaic and Film strip. */
   const glimpse = gal.styles.find((s) => s.id === 'glimpse');
   assert.ok(glimpse, 'the Photos scene offers Glimpse');
   assert.equal(glimpse!.name, 'Glimpse');
   assert.ok(glimpse!.stages?.includes('save_the_date'), 'Glimpse is drawn on the Save the Date');
-  assert.ok(!glimpse!.stages?.includes('editorial'), 'Glimpse is not offered on Post Event (owner: "later, second step")');
+  assert.ok(glimpse!.stages?.includes('editorial'), 'Glimpse is drawn on Post Event');
+  assert.equal(gal.styles.filter((s) => s.id === 'glimpse').length, 1, 'ONE Glimpse in the registry, never a Post Event copy beside the Save the Date one');
   assert.ok(sceneStylesOn('gallery', 'save_the_date').some((s) => s.id === 'glimpse'), 'the Style pick lists Glimpse on the Save the Date');
+  assert.ok(sceneStylesOn('gallery', 'editorial').some((s) => s.id === 'glimpse'), 'the Style pick lists Glimpse on Post Event');
+  assert.ok(!sceneStylesOn('gallery', 'rsvp').some((s) => s.id === 'glimpse'), 'Glimpse is not offered where it is not drawn (the Invitation)');
   assert.equal(defaultSceneStyle('gallery', 'save_the_date', 'wedding'), 'mosaic', 'Glimpse is a pick, never the default');
+  assert.equal(defaultSceneStyle('gallery', 'editorial', 'wedding'), 'grid', 'Glimpse is a pick, never Post Event’s default');
+  /* The pick carries: one stored value resolves to Glimpse on both stages. */
+  assert.equal(resolveSceneStyle('gallery', 'save_the_date', 'glimpse', 'wedding'), 'glimpse');
+  assert.equal(resolveSceneStyle('gallery', 'editorial', 'glimpse', 'wedding'), 'glimpse');
 });
 
 test('5 · the five fixed parts are registered, three styles each where guests meet them', () => {

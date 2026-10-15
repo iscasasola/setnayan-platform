@@ -301,7 +301,9 @@ export function PahinaMasthead({
 
   /* ── THE COVER PLATE (photo/video demoted below the type) — one markup for
      every design of the plain masthead. See the note inside. */
-  const coverPlate = mediaSlot ? (
+  /* 🖼 ONE BACKGROUND (owner 2026-10-15, "Yes, one background"): with a Cover Scene ground the picture IS the screen —
+     the photo plate under the words is not drawn a second time. */
+  const coverPlate = mediaSlot && !ground ? (
     <figure className="relative -mx-4 mt-8 sm:-mx-0">
       {/* ⚠ The `aspect-*` pair is LOAD-BEARING, not decoration. `mediaSlot`
           is always `HeroBackgroundMedia`, whose <img>/<video> is

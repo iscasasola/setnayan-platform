@@ -197,3 +197,16 @@ test('(6) the words follow the ground: the tone flips with it, and AA holds over
   assert.ok(light, 'anti-vacuity: a light loop');
   assert.equal(coverSceneLegibility({ kind: 'loop', loop: light!, shade: -100 }).tone, 'cream', 'Darker did not flip the words');
 });
+
+test('(7) ONE background, ONE hero writer: an Upload pick IS the hero photo, and the photo is never drawn twice', () => {
+  /* The same save writes the photo to the column `resolveHero` reads (the poster, the home card, Post Event). */
+  const rows = read('app/dashboard/[eventId]/launch/_components/stage-panel/cover-words-background.tsx');
+  assert.match(rows, /const heroPhoto = canvasNext\.ground\?\.kind === 'photo' \? canvasNext\.ground\.media : null;/);
+  assert.match(rows, /fd\.set\('patch', JSON\.stringify\(\{ widgets: \{ hero: \{ canvas: canvasNext \} \}, \.\.\.\(heroPhoto \? \{ events: \{ landing_page_hero_image_url: heroPhoto \} \} : \{\}\) \}\)\);/, 'the cover’s photo and the hero photo are written apart');
+  assert.equal((rows.match(/fd\.set\('patch'/g) ?? []).length, 1, 'a second save of the cover — two writers');
+  /* With a ground, the photo plate under the words is not drawn a second time. */
+  const layer = { shape: 'framed', css: null, still: 'https://x.test/a.jpg', clip: null, parallax: false, veil: null, scrim: { color: COVER_PAPER, opacity: 0.5 }, tone: 'ink' };
+  const plate = cover({ mediaSlot: React.createElement('img', { alt: '', 'data-plate': '' }) });
+  assert.match(plate, /data-plate/, 'anti-vacuity: the photo cover draws its plate');
+  assert.doesNotMatch(cover({ mediaSlot: React.createElement('img', { alt: '', 'data-plate': '' }), ground: layer }), /data-plate/, 'the photo is drawn twice');
+});

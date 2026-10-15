@@ -79,7 +79,11 @@ export function CoverSceneGroundRows({
   const worn = source === stored;
   const tint = (ground && 'color' in ground && ground.color) || themeColours[0] || '#2C2A29';
 
-  /** ONE save of the hero row's canvas with this ground (null: The theme's own). */
+  /**
+   * ONE save of the hero row's canvas with this ground (null: The theme's own). 🔑 THE ONE HERO WRITER: an Upload pick
+   * IS the hero photo — the same save writes it to `landing_page_hero_image_url`, so `resolveHero` (the poster, the
+   * home card, Post Event's starting cover, Details › Hero) keeps reading ONE value. Never two photos that disagree.
+   */
   const put = (next: HubCoverGround | null) => {
     setError(null);
     setView(null);
@@ -92,7 +96,8 @@ export function CoverSceneGroundRows({
     start(async () => {
       const fd = new FormData();
       fd.set('intent', 'save');
-      fd.set('patch', JSON.stringify({ widgets: { hero: { canvas: canvasNext } } }));
+      const heroPhoto = canvasNext.ground?.kind === 'photo' ? canvasNext.ground.media : null;
+      fd.set('patch', JSON.stringify({ widgets: { hero: { canvas: canvasNext } }, ...(heroPhoto ? { events: { landing_page_hero_image_url: heroPhoto } } : {}) }));
       fd.set(HUB_DRAFT_BAR_FIELD, '1');
       const res = await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => ({
         ok: false as const,

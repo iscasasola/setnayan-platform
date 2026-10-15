@@ -43,6 +43,7 @@ const COUPLE = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
 const SUPPLIER = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
 const OVERVIEW = 'app/vendor-dashboard/page.tsx';
 const ANSWER = 'app/_components/lock-answer-forms.tsx';
+const DECLINE_FIELDS = read('app/_components/decline-reason-fields.tsx');
 const ACTIONS = 'app/vendor-dashboard/clients/[eventId]/actions.ts';
 
 const stream = read(STREAM);
@@ -169,7 +170,9 @@ test('supplier · both forms post only the row id and the way home — the same 
   assert.equal(count(answer, /name="vendor_id" value=\{eventVendorId\}/g), 2);
   assert.equal(count(answer, /name="return_to" value=\{returnTo\}/g), 2);
   assert.equal(count(answer, /name="event_id"/g), 0, 'an answer form posts event_id — the confused-deputy rule');
-  assert.equal(count(answer, /name="reason"/g), 1, 'the decline lost its reason');
+  // The reason is ONE field still — now composed by `DeclineReasonFields` (Why ▾ + an optional line, step 4).
+  assert.equal(count(answer, /<DeclineReasonFields \/>/g), 1, 'the decline lost its reason');
+  assert.equal(count(DECLINE_FIELDS, /name="reason"/g), 1, 'the reason fields no longer post the one `reason` the action reads');
   assert.equal(count(card, /returnTo=\{`\/vendor-dashboard\/messages\/\$\{threadId\}`\}/g), 1);
 });
 

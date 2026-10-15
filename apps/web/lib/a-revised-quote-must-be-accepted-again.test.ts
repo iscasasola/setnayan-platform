@@ -275,7 +275,10 @@ test('the couple’s page resolves the Lock target from event_vendors and passes
 
 test('the builder opens expanded and seeded when given a revision, and says what sending does', () => {
   const m = read(MAKER);
-  assert.match(m, /useState\(revision != null\)/, 'a revision does not open the builder');
+  // 2026-10-14 · the builder opens for EVERY quote (the ＋ sheet's "Send a quote" opens the panel, and the quote is
+  // the panel), so a revision opens expanded by the same rule — and starts from the quote it replaces.
+  assert.match(m, /const \[open, setOpen\] = useState\(true\)/, 'the builder does not open expanded');
+  assert.match(m, /useState<string>\(revision \? 'revision' : 'blank'\)/, 'a revision does not start from the quote it replaces');
   assert.match(m, /revision\.lines\.map\(/, 'the lines are not seeded');
   assert.match(m, /useState\(revision\?\.discountPhp \?\? 0\)/, 'the folded discount is not seeded');
   assert.match(m, /Sending replaces that quote/, 'the banner does not say sending replaces the quote');

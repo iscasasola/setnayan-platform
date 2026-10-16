@@ -60,6 +60,8 @@ function passesRouteCheck(route: string): boolean {
     route.length <= 200 &&
     /^\/[A-Za-z0-9._\[\]/…-]*$/.test(route) &&
     !/[0-9]{4,}/.test(route) &&
+    !/[0-9a-f]{8}-[0-9a-f]{4}-/i.test(route) &&
+    !/S89[A-Z]{1,4}-/i.test(route) &&
     !/[^/]{41,}/.test(route)
   );
 }
@@ -75,6 +77,11 @@ test('1 · an event page is stored as its route pattern — never its id, query 
   assert.equal(toPattern('/v/juan-photography'), '/v/[slug]');
   assert.equal(toPattern('/'), '/');
   assert.equal(toPattern('/admin/app-performance'), '/admin/app-performance');
+});
+
+test('1 · every real route pattern passes the table’s CHECK (so no real page is ever refused)', () => {
+  const bad = PATTERNS.filter((p) => !passesRouteCheck(p));
+  assert.deepEqual(bad, []);
 });
 
 test('1 · a path no route matches keeps only route words — free text becomes […]', () => {

@@ -31,8 +31,8 @@
 -- PERSONAL DATA: NONE. `route` is a route PATTERN (/dashboard/[eventId]/guests)
 -- — ids are blanked in the browser before sending and the pattern is matched
 -- against the app's own route list at the ingest. The CHECK on `route` is the
--- last line: no digit run of 4+, no '@', no '?', no '#', no segment over 40
--- characters, only route characters — a raw URL with an id or a token cannot
+-- last line: no digit run of 4+, no uuid, no S89 id, no '@', no '?', no '#',
+-- no segment over 40 characters, only route characters — a raw URL with an id or a token cannot
 -- be stored even if every layer above failed. No user id, no IP, no address.
 --
 -- RLS (enabled at CREATE) with NO policy and NO grant to anon or authenticated
@@ -102,11 +102,14 @@ CREATE TABLE IF NOT EXISTS public.app_load_timings (
   ),
   -- 🔒 A ROUTE PATTERN, NEVER A URL. Route characters only (letters, digits,
   -- . _ - [ ] / and the … of a blanked segment); no digit run of 4+ (an id, a
-  -- phone, a date), no segment over 40 characters (a token).
+  -- phone, a date), no uuid, no S89 public id, no segment over 40 characters
+  -- (a token).
   CONSTRAINT app_load_timings_route_chk CHECK (
     char_length(route) BETWEEN 1 AND 200
     AND route ~ '^/[A-Za-z0-9._\[\]/…-]*$'
     AND route !~ '[0-9]{4,}'
+    AND route !~* '[0-9a-f]{8}-[0-9a-f]{4}-'
+    AND route !~* 'S89[A-Z]{1,4}-'
     AND route !~ '[^/]{41,}'
   )
 );

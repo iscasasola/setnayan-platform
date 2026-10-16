@@ -56,7 +56,6 @@ const APP = dirname(HERE); // app
 const NOT_THE_SWITCH: Record<string, string> = {
   // The plan page itself — it is where a supplier chooses to buy.
   'subscription/actions.ts': 'the Plans checkout — buying is its job',
-  'subscription/_components/subscription-cards.tsx': 'the Plans page cards',
   'subscription/_components/ai-addon-card.tsx': 'Vendor AI — a separately sold add-on, on the Plans page',
   'subscription/_components/booth-addon-card.tsx': '3D Booth — a separately sold add-on, on the Plans page',
   'subscription/_components/papic-challenge-card.tsx': 'the Plans page cards',
@@ -72,7 +71,6 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // not a feature paywall. Governed by the pipeline-caps switch, not this one.
   'services/actions.ts': 'numeric quotas (services per category, categories, bookings/day, time slots)',
   'services/_components/coverage-panel.tsx': 'numeric quota (coverage areas)',
-  'services/_components/canvas-maker.tsx': 'numeric quota (families on a one-family plan)',
   // Enforced by the DATABASE unconditionally, so the switch cannot lift it:
   // offer_creator_reach_hold raises TIER_BELOW_PRO_NO_REACH (owner decision
   // #4, 2026-07-16). The page is try-first (browse + draft); Send asks.

@@ -1,3 +1,5 @@
+import { NearViewport } from '@/app/_components/near-viewport';
+
 /**
  * VendorLocationMap — a visual map with a marker pin for a location.
  *
@@ -46,6 +48,11 @@ type Props = {
    */
   label?: string | null;
   /**
+   * 🗺 Load the embed only when the map nears the screen (`NearViewport`, 300 px) — the guest's one-page Invitation,
+   * where the map sits far below the cover and every landing would otherwise fetch it (Batch 9 walk W2).
+   */
+  deferUntilNear?: boolean;
+  /**
    * Seat the map FLUSH against whatever sits directly beneath it — square
    * bottom corners and no bottom border, so it reads as the top of one block
    * rather than a rounded card floating on a square plate. Used by the guest
@@ -55,7 +62,7 @@ type Props = {
   flush?: boolean;
 };
 
-export function VendorLocationMap({ latitude, longitude, label, flush = false }: Props) {
+export function VendorLocationMap({ latitude, longitude, label, flush = false, deferUntilNear = false }: Props) {
   if (latitude == null || longitude == null) return null;
 
   const lat = Number(latitude.toFixed(6));
@@ -71,19 +78,28 @@ export function VendorLocationMap({ latitude, longitude, label, flush = false }:
   const largerMap = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
   const title = label ? `Map showing ${label}` : 'Map showing the location';
 
+  const iframe = (
+    <iframe
+      title={title}
+      src={embedSrc}
+      loading="lazy"
+      className="block h-[220px] w-full"
+      style={{ border: 0 }}
+    />
+  );
+
   return (
     <div
+      data-osm-embed=""
       className={`overflow-hidden border border-ink/10 ${
         flush ? 'rounded-t-xl border-b-0' : 'rounded-xl'
       }`}
     >
-      <iframe
-        title={title}
-        src={embedSrc}
-        loading="lazy"
-        className="block h-[220px] w-full"
-        style={{ border: 0 }}
-      />
+      {deferUntilNear ? (
+        <NearViewport className="h-[220px] w-full">{iframe}</NearViewport>
+      ) : (
+        iframe
+      )}
       <a
         href={largerMap}
         target="_blank"

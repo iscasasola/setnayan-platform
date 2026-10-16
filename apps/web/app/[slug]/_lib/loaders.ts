@@ -197,7 +197,7 @@ export const loadEventShell = cache(async (slug: string) => {
   readDataPrivacyControlsTogether();
   const admin = createAdminClient();
   const { data, error } = await theOneEventRead(admin, slug).select(
-      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, event_date_precision, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_roles, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, gifts_on, date_candidates',
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, event_date_precision, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_roles, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, logo_wanted, gifts_on, date_candidates',
   );
   // A FAILED READ IS NOT A MISSING EVENT (2026-08-05).
   //
@@ -347,6 +347,14 @@ export function guestLookFrom(
     vars = { ...(vars ?? {}), ...look.vars };
     const { color, opacity } = look.legibility.scrim;
     ramp = ombreRamp(background.ombre).map((stop) => compositeOver(color, opacity, stop));
+  }
+
+  /* 🎨 THE NAMES' DOMINANT IS MEASURED ON THE BOARD'S PAPER (`buildSitePaletteVars`) — over a page colour of the
+     couple's own, a blend or Candlelight that paper is gone, so the names keep the page's measured ink. */
+  if (vars && '--hub-names-ink' in vars && (background || event.site_art_direction === 'candlelight')) {
+    const { '--hub-names-ink': _overAnotherPaper, ...rest } = vars;
+    void _overAnotherPaper;
+    vars = rest;
   }
 
   /* 🔤 THE WORDS FOLLOW THE PAPER (2026-10-08, live: a dark ombré over a light
@@ -1450,7 +1458,7 @@ export const loadGuestOwnRow = cache(async (admin: AdminClient, guestId: string)
     };
   };
   return select(
-    'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
+    'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, attire, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
   );
 });
 

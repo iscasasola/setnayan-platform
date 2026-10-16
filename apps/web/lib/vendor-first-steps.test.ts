@@ -92,8 +92,10 @@ test('while documents are under review the rail hands over free work, not silenc
       submitMissing: [],
     };
     assert.equal(stateOf(waiting, 'documents'), 'waiting');
-    // The skip is the point: the vendor gets something they CAN do today.
-    assert.equal(stateOf(waiting, 'own_customers'), 'now');
+    // The skip is the point: the vendor gets something they CAN do today — the next of the six (2026-10-14).
+    assert.equal(stateOf(waiting, 'not_available'), 'now');
+    assert.equal(stateOf({ ...waiting, notAvailableCount: 1 }, 'outside_bookings'), 'now');
+    assert.equal(stateOf({ ...waiting, notAvailableCount: 1, outsideCount: 2 }, 'own_customers'), 'now');
   }
 });
 
@@ -113,6 +115,8 @@ test('go-live is never presented as something the vendor can press', () => {
     docsStatus: 'approved',
     docsIn: 12,
     customerCount: 5,
+    notAvailableCount: 1,
+    outsideCount: 1,
     submitMissing: [],
   };
   const rail = buildFirstStepsRail(approvedNotYetFlipped);
@@ -133,6 +137,8 @@ test('nothing is recommended while the shop is genuinely waiting on Setnayan', (
     docsStatus: 'in_review',
     docsIn: 12,
     customerCount: 5,
+    notAvailableCount: 1,
+    outsideCount: 1,
     submitMissing: [],
   });
   // Documents waiting, everything the vendor CAN do already done → silence is
@@ -201,10 +207,14 @@ test('the rail counts only what is genuinely done', () => {
     docsStatus: 'approved',
     docsIn: 12,
     customerCount: 2,
+    notAvailableCount: 3,
+    outsideCount: 1,
     submitMissing: [],
   });
-  assert.equal(live.doneCount, 5);
-  assert.equal(live.total, 5);
+  assert.equal(live.doneCount, 7);
+  assert.equal(live.total, 7);
+  // "N of 6" on Today counts the steps a supplier can DO — the approval is not one of them.
+  assert.equal(live.actionable, 6);
 });
 
 test('steps stay in their published order', () => {
@@ -213,7 +223,39 @@ test('steps stay in their published order', () => {
   const rail = buildFirstStepsRail(FRESH);
   assert.deepEqual(
     rail.steps.map((s) => s.key),
-    ['shop_details', 'service_card', 'documents', 'own_customers', 'go_live'],
+    ['shop_details', 'service_card', 'documents', 'not_available', 'outside_bookings', 'own_customers', 'go_live'],
   );
-  assert.deepEqual(rail.steps.map((s) => s.n), [1, 2, 3, 4, 5]);
+  assert.deepEqual(rail.steps.map((s) => s.n), [1, 2, 3, 4, 5, 6, 7]);
+});
+
+/*
+  🧰 THE SIX STEPS, IN THE OWNER'S WORDS (owner APPROVE 2026-10-14 — prototype
+  `supplier_easy_dashboard_2026-10-14_fable.html`, moment "First-time setup": "Your next step · 1 of 6").
+  SABOTAGE: dropping the days-off step (or its `done` rule) → RED here.
+*/
+test('the six steps a supplier can do, in the prototype’s words — and the two new ones count real rows', () => {
+  const rail = buildFirstStepsRail(FRESH);
+  assert.equal(rail.actionable, 6);
+  assert.deepEqual(
+    rail.steps.filter((s) => s.key !== 'go_live').map((s) => [s.n, s.title, s.cta]),
+    [
+      [1, 'Your details', 'Fill them in'],
+      [2, 'Add what you offer', 'Add a service'],
+      [3, 'Send your documents', 'Send documents'],
+      [4, 'Mark the days you are not available', 'Mark days'],
+      [5, 'Add the bookings you already have', 'Add a booking'],
+      [6, 'Show your QR to the next couple', 'Open QR'],
+    ],
+  );
+  assert.equal(rail.current?.n, 1);
+  // A day off marked → step 4 done; a booking from outside added → step 5 done. Absent → not done (the safe side).
+  const later: FirstStepsInput = { ...FRESH, profileDone: 8, serviceCount: 1, docsStatus: 'in_review', docsIn: 12, submitMissing: [] };
+  assert.equal(stateOf(later, 'not_available'), 'now');
+  assert.equal(stateOf({ ...later, notAvailableCount: 1 }, 'not_available'), 'done');
+  assert.equal(stateOf({ ...later, outsideCount: 1 }, 'outside_bookings'), 'done');
+  // Each opens the place it is done.
+  const href = (k: string) => rail.steps.find((s) => s.key === k)?.href;
+  assert.equal(href('not_available'), '/vendor-dashboard/customers?seg=dates&open=block');
+  assert.equal(href('outside_bookings'), '/vendor-dashboard/customers?add=outside');
+  assert.equal(href('own_customers'), '/vendor-dashboard/invite');
 });

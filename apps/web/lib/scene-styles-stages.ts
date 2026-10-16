@@ -170,9 +170,17 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
     type: 'entourage',
     label: 'Entourage',
     styles: [
-      { id: 'roll-call', name: 'Roll call', line: 'Each group under its heading, pairs side by side.', stages: INV_DAY },
-      // Sides are read from roles only a wedding's entourage carries.
-      { id: 'two-sides', name: 'Two sides', line: 'The two sides as two columns; the pairs under a rule.', stages: INV_DAY, eventTypes: ['wedding'] },
+      /* 👫 OWNER 2026-10-15 (DECISION_LOG "ENTOURAGE STYLES 4 AND 5 APPROVED"; prototype
+         `entourage_two_columns_2026-10-15_fable.html` styles 4 and 5): *"and 4 and 5 looks good. apply these
+         styles to the maker"*. On the axis REPLACES the old Roll call under the SAME id, so every couple who picked
+         Roll call — and the default — gets the cleaned layout with no data change; Post Event keeps its own "Roll
+         call" under that id (`stageNames`, `lib/scene-styles.ts`). Lines is new.
+         🚫 Two sides (`two-sides`) is WITHDRAWN (same day: *"two sides feels messy. the counter column must have
+         significance to the first column."*) — it put a Ninong beside an unrelated name. A saved `two-sides`
+         is no longer drawn anywhere, so the resolver reads it as the default. In every two-column style the
+         right cell is the left cell's PARTNER, from the existing pairing (`buildEntourage`), or blank. */
+      { id: 'roll-call', name: 'On the axis', line: 'Each pair meets at the centre; a single keeps his side.', stages: INV_DAY },
+      { id: 'lines', name: 'Lines', line: 'Pairs in two columns; anyone alone centred with their role.', stages: INV_DAY },
       { id: 'march', name: 'The march', line: 'Numbered, in walking order, each role under its names.', stages: INV_DAY },
     ],
   },

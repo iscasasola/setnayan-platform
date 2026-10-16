@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
+import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
 
 // /tl/about — Taglish edition of the brand/entity page (localization first
 // slice). The two public locales are ENGLISH (root) and TAGLISH (the real
@@ -159,7 +160,7 @@ export default function AboutPageTaglish() {
             <Link
               href="/about"
               hrefLang="en-PH"
-              className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+              className={LOCALE_SWITCH_CLASS}
             >
               English
             </Link>

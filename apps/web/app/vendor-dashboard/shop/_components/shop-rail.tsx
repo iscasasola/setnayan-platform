@@ -81,6 +81,7 @@ export const SHOP_DOORS: readonly ShopDoor[] = [
     key: 'd4',
     title: 'Auto-reply',
     question: 'The assistant that answers for you',
+    // Since step 5 (2026-10-14) the card is Your page › Auto-reply; `#auto-reply` is door 1's row into it.
     href: '#auto-reply',
     built: false,
   },
@@ -89,8 +90,9 @@ export const SHOP_DOORS: readonly ShopDoor[] = [
     title: 'Getting paid',
     question: 'Bank, GCash and your earnings',
     // S-PR4: the earnings left Shop for Customers › Money (owner 2026-10-08 round 1, "2. Money"); the Bank and GCash
-    // half of this door is the "How clients pay you" fold, first in `#shop-folds`. S-PR6 retires the rail.
-    href: '#shop-folds',
+    // half is "How clients pay you" — since step 5 (2026-10-14) a fold of Your details, reached from door 1's
+    // `#getting-paid` row. S-PR6 retires the rail.
+    href: '#getting-paid',
     built: false,
   },
   {

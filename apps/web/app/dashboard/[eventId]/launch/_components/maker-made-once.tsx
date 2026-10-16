@@ -1,5 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
-import { cache } from 'react';
+import { cache, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { overlayHubDraftEvent, type HubDraft } from '@/lib/hub-draft';
@@ -136,10 +136,18 @@ export async function MakerHeroPanel({
   storeShell,
   heroCanvas = {},
   liveHeroCanvas = {},
+  coverScene = null,
 }: {
   eventId: string;
   ownsPro: boolean;
   storeShell: boolean;
+  /**
+   * 🖼 THE SECOND DOOR TO THE COVER SCENE'S BACKGROUND (owner-approved 2026-10-15, "Hero folded in"): the SAME rows
+   * the toolbar draws for the Cover Scene (`stage-panel/cover-words-background.tsx`, through the lazy
+   * `SceneBackgroundRow` door), handed in by the page. Two doors, one value — its Upload pick IS the hero photo, so
+   * the old photo picker is that adapter's Upload source and is not drawn a second time here.
+   */
+  coverScene?: ReactNode;
   /**
    * 🎴 The hero row's canvas, draft over live, and the live one — the Design
    * dropdown reads its design off it and writes the whole canvas back
@@ -209,7 +217,13 @@ export async function MakerHeroPanel({
         </div>
       </div>
 
-      {canUpload ? (
+      {/* 🖼 Two doors, one value: the Cover Scene's own rows when the page hands them in; the hero photo's form only
+          where it does not (a surface without the Maker's draft action). Never both. */}
+      {coverScene ? (
+        <div data-same-field="cover_scene" className="flex flex-col gap-2">
+          {coverScene}
+        </div>
+      ) : canUpload ? (
         <SafeForm action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-white/70 px-3 py-3">
           {photoMark ? (
             <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" />

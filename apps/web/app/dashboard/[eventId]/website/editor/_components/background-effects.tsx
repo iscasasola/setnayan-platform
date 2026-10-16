@@ -44,7 +44,7 @@ import { PickMenu } from './pick-menu';
  * effect"* · *"show color choice"* · *"open choices not just switch automatically"*.
  *
  * control → kind (`INTERACTION_RULES.md` § 9):
- *   · the seven cards (None + the six) → Style card: one size (112 × 149, `.sn-phone-card`), no frame, the picked
+ *   · the nine cards (None + the eight, 2026-10-14) → Style card: one size (112 × 149, `.sn-phone-card`), no frame, the picked
  *     one ringed and named in the accent and centred in its row — `BgCard` / `BgCards`, the shipped template;
  *   · ◆ on a Pro effect → Pro mark (kind 20): shown, tappable, TRIED on the sample, never applied; one note offers
  *     See Pro / Not now;
@@ -101,7 +101,7 @@ export function BgEffects({
   );
   const words = (
     <span aria-hidden className={`pointer-events-none absolute inset-x-0 top-[38%] z-[1] flex flex-col items-center gap-1.5 px-1 ${dark ? 'text-cream' : 'text-ink'}`}>
-      <span className="max-w-full truncate font-serif text-[11px] leading-none">{worn?.names ?? 'Your names'}</span>
+      <span data-ambient-names="" className="max-w-full truncate font-serif text-[11px] leading-none">{worn?.names ?? 'Your names'}</span>
       <span className="h-2.5 w-11 rounded-full" style={{ backgroundColor: worn?.five[2] }} />
     </span>
   );

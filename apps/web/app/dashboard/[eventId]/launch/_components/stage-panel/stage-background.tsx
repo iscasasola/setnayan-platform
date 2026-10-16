@@ -57,7 +57,12 @@ export function StageBackground({
   motion,
   onMotion,
   pending,
+  hubLabel = 'The Event Hub’s',
+  hubLine = 'Uses the Event Hub’s own background.',
 }: {
+  /** 🖼 The first source's name and its one quiet line — the Cover Scene's is "The theme's own" (its written card). */
+  hubLabel?: string;
+  hubLine?: string;
   /** The source the stored background IS, and the ones offered (each with ◆ where Apply asks for Event Hub Pro). */
   source: StageBgSource;
   sources: ReadonlyArray<{ key: StageBgSource; pro: boolean }>;
@@ -138,14 +143,17 @@ export function StageBackground({
           label="Background"
           data="bg"
           value={source}
-          options={sources.map((s) => ({ key: s.key, label: `${s.key === 'hub' ? 'The Event Hub’s' : BACKGROUND_SOURCE_LABEL[s.key]}${s.pro ? ' ◆' : ''}` }))}
+          options={sources.map((s) => ({ key: s.key, label: `${s.key === 'hub' ? hubLabel : BACKGROUND_SOURCE_LABEL[s.key]}${s.pro ? ' ◆' : ''}` }))}
           onPick={(k) => onSource(k as StageBgSource)}
         />
       </div>
       {/* ══ ROW 2 — its choices ══ */}
       <div className="row-start-2 min-w-0" data-stage-bg="choices">
         {source === 'hub' ? (
-          <p className={`${SP_BG_ROW} ${SP_BG_QUIET}`}>Uses the Event Hub’s own background.</p>
+          <p className={`${SP_BG_ROW} ${SP_BG_QUIET}`}>
+            {/* Two lines at most: the Cover Scene's line is a sentence (the prototype wraps it); `truncate` on a flex row cut it mid-word. */}
+            <span className="line-clamp-2 min-w-0 whitespace-normal leading-snug">{hubLine}</span>
+          </p>
         ) : (
           <div ref={strip} role="group" aria-label={`${BACKGROUND_SOURCE_LABEL[source]} backgrounds`} data-stage-bg-strip={source} className={SP_BG_STRIP}>
             {onUpload ? (

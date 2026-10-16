@@ -161,7 +161,8 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
      toast is drawn on the page's body; and the Maker's top bar leaves for the preview as it does for ▶. */
   /* Re-aimed (9d): the property is "on the body", not the browser check 9c wrote before it — that check is a
      render-time branch `the-maker-first-render-is-the-servers.test.ts` forbids, and `why` (set only by a press) needs none. */
-  assert.match(tools, /\{why\s*\? createPortal\(\s*<PeekToast key=\{why\.n\} tone="note" data="tool-why"[\s\S]{0,200}<\/PeekToast>,\s*document\.body,\s*\)/, 'the toolbar’s toast is drawn inside the toolbar');
+  /* (400: the toast may carry ONE action — a cover word's "Select the Cover Scene ›", 2026-10-15.) */
+  assert.match(tools, /\{why\s*\? createPortal\(\s*<PeekToast key=\{why\.n\} tone="note" data="tool-why"[\s\S]{0,400}<\/PeekToast>,\s*document\.body,\s*\)/, 'the toolbar’s toast is drawn inside the toolbar');
   assert.equal((tools.match(/<PeekToast\b/g) ?? []).length, 1, 'a second toast of the toolbar’s, not on the body');
   assert.match(tools, /away \? 'pointer-events-none translate-y-\[110%\]' : ''/, 'anti-vacuity: the toolbar leaves by a transform');
   assert.match(tools, /shell\?\.setAttribute\('data-stage-previewing', ''\);[\s\S]{0,700}shell\?\.removeAttribute\('data-stage-previewing'\);/);

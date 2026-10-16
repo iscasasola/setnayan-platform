@@ -29,6 +29,7 @@ import { ZoomGuard } from './_components/zoom-guard';
 import { PressFeel } from './_components/press-feel';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-bootstrap-script';
+import { THEME_COLOR } from '@/lib/appearance';
 import { stylesheetRecoveryScript } from '@/lib/stylesheet-recovery';
 import {
   DEFAULT_APPLE_TOUCH,
@@ -39,6 +40,7 @@ import {
   withBrandVersion,
 } from '@/lib/brand-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
+import { scheduleBookingFeeMintingStamp } from '@/lib/booking-fee-minting-stamp.server';
 import { orgSameAs } from '@/lib/seo/org-same-as';
 import { envFlagEnabled } from '@/lib/env-flag';
 
@@ -556,7 +558,11 @@ const organizationJsonLd = {
 // ⚠ Trades away WCAG 1.4.4 browser pinch-zoom by owner decision; OS-level zoom
 // (iOS/Android Accessibility → Zoom) remains as the user fallback.
 export const viewport: Viewport = {
-  themeColor: '#FBFBFA',
+  // The LIGHT browser-bar colour, unchanged. In Dark the <head> theme script swaps the tag's
+  // content for the dark page (`THEME_COLOR.dark`) and restores this value on the way back — a
+  // static `viewport` cannot follow a choice made in the app, and a `media` pair would follow the
+  // PHONE, which the owner ruled out (2026-10-13, call 1).
+  themeColor: THEME_COLOR.light,
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
@@ -577,6 +583,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // 💸 The booking-fee minting stamp: once per instance, AFTER this response is sent — never at
+  // server start, never on anybody's wait (lib/booking-fee-minting-stamp.ts, stability sweep 2).
+  scheduleBookingFeeMintingStamp();
+
   // Preconnect to backend origins the marketing + dashboard surfaces will
   // hit within the first second — saves the cold DNS+TCP+TLS roundtrip on
   // the first auth check, first analytics event, and first signed-URL fetch.
@@ -604,16 +614,20 @@ export default async function RootLayout({
   return (
     <html
       lang="en-PH"
+      // The <head> theme script may add `.dark` before React hydrates (Appearance = Dark on a
+      // ready screen) — an attribute React did not render, on purpose.
+      suppressHydrationWarning
       data-loader-variant={loaderConfig.variant}
       style={{ '--sd-veil': `${loaderConfig.veilOpacity}%` } as React.CSSProperties}
       className={`${cormorant.variable} ${fraunces.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable} ${HUB_CHOICE_FACES_CLASS}`}
     >
       <head>
         {/*
-          FOUC-safe theme bootstrap — light-locked 2026-06-04. Runs
-          synchronously before first paint and strips any stale `.dark` class
-          from <html> (e.g. a cached shell from before the light lock) so the
-          app always paints light. See _components/theme-provider.tsx.
+          FOUC-safe theme bootstrap — Appearance = Light · Dark (2026-10-13).
+          Runs synchronously before first paint: `.dark` only for a signed-in
+          person who chose it, on an app screen on the ready-list (empty today,
+          so everyone paints light); otherwise it strips any stale `.dark`.
+          See _components/theme-bootstrap-script.ts and lib/appearance.ts.
         */}
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         {/*

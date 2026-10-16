@@ -7,11 +7,8 @@ import {
 } from '@/lib/setnayan-gift';
 import {
   bookingFeeForecast,
-  feePesos,
   type BookingFeeStanding,
 } from '@/lib/booking-fee-disclosure';
-import { bookingFeePhp } from '@/lib/booking-fee';
-import { formatGiftPhotos } from '@/lib/setnayan-gift';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import {
   papicTopUpForQuote,
@@ -22,7 +19,11 @@ import {
   type PapicQuoteStanding,
 } from '@/lib/papic-on-a-quote';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { QuoteCardLines } from '@/app/_components/quote-card-lines';
+import { quoteCardState } from '@/lib/quote-card-state';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   resolvePackageLine,
@@ -31,7 +32,7 @@ import {
   transportChargeCentavos,
   type PackageLinePricingRow,
 } from '@/lib/package-line-pricing';
-import { formatCentavos, type ProposalLineItem } from '@/lib/vendor-proposals';
+import { formatCentavos, PROPOSAL_STATUS_LABEL, type ProposalLineItem } from '@/lib/vendor-proposals';
 import {
   resolveSchedule,
   type InstallmentDraft,
@@ -42,18 +43,20 @@ import {
   sendCustomProposalFromChat,
   loadPackageLinesForQuote,
   loadServiceCardLinesForQuote,
+  loadCatalogueExtrasForQuote,
+  loadSavedQuote,
+  saveQuoteAsTemplate,
+  type QuoteCatalogueExtra,
   type QuoteSeedLine,
 } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
+import {
+  SAVED_QUOTE_VERSION,
+  validDaysOf,
+  validUntilFor,
+  type SavedQuoteDraft,
+} from '@/lib/saved-quote';
 import { applyCardSeedToDraft, type QuoteSeedWarning } from '@/lib/quote-from-service-card';
 import type { QuoteEventBrief } from '@/lib/quote-event-brief';
-import {
-  QUOTE_STAGES,
-  nextStage,
-  openingStage,
-  stageStates,
-  stageSummaries,
-  type QuoteStageId,
-} from '@/lib/quote-stages';
 import type { QuoteRevisionSeed } from '@/lib/quote-revision-seed';
 import { formatCount } from '@/lib/format-number';
 
@@ -96,6 +99,11 @@ type Line = {
   basePhp: number;
   inclHours: number;
   extraPhp: number;
+  /**
+   * TAPPED OUT ("What's in it · tap to drop", prototype `SCREENS.quote`). A dropped line stays on screen, struck
+   * through, with a way back — it is left out of the total and of what is sent, never deleted under the supplier.
+   */
+  dropped?: boolean;
 };
 
 type Crew = { mode: CrewMode; size: number; perHeadPhp: number };
@@ -183,7 +191,7 @@ function lineToRow(l: Line): PackageLinePricingRow {
 }
 
 function resolveLineCentavos(l: Line, pax: number, hours: number): number {
-  if (l.free) return 0;
+  if (l.free || l.dropped) return 0;
   return resolvePackageLine(lineToRow(l), { pax, hours });
 }
 
@@ -201,88 +209,64 @@ function basisDetail(l: Line, pax: number, hours: number): string | null {
   return null;
 }
 
-/* ── One step of the five (owner 2026-09-22: "evident separation … a clean continuity") ── */
+/* ── One section of the ONE screen (simpler supplier dashboard step 4, 2026-10-14) ───────────────────────────── */
 
 /**
- * A STEP ON THE SPINE. Draws only what `lib/quote-stages.ts` decided: its
- * number, title and state, the one-line summary when folded, and the Next band
- * that ends every step but the last. The body is HIDDEN, not unmounted, when
- * the step is folded — every input keeps its state and every existing mount
- * guard keeps counting one of each control.
+ * A SECTION OF THE QUOTE — an eyebrow and its rows. The quote was a five-step walk (2026-09-22); the approved simpler
+ * dashboard draws it as ONE screen (prototype `SCREENS.quote`: Start from · What's in it · From your catalogue · The
+ * money · As they see it · Send). Every control the steps held is still here, in the same order, all on view.
  */
-function QuoteStage({
+function QuoteSection({
   id,
-  state,
-  summary,
-  onOpen,
-  onNext,
+  title,
+  hint,
   children,
 }: {
-  id: QuoteStageId;
-  state: 'done' | 'cur' | 'later';
-  summary: string;
-  onOpen: () => void;
-  onNext: (() => void) | null;
+  id: string;
+  title: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
-  const def = QUOTE_STAGES.find((d) => d.id === id)!;
-  const isCur = state === 'cur';
   return (
-    <section
-      data-stage={id}
-      data-state={state}
-      aria-label={`Step ${formatCount(def.n)} of ${QUOTE_STAGES.length}: ${def.title}`}
-      className={`relative border-b border-ink/10 pl-12 ${state === 'later' ? 'opacity-60' : ''}`}
-    >
-      {/* the spine: number bubble + the line to the next step */}
-      <span
-        aria-hidden
-        className={`absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-semibold ${
-          isCur
-            ? 'border-terracotta bg-terracotta text-cream'
-            : state === 'done'
-              ? 'border-success-300 bg-success-100 text-success-700'
-              : 'border-ink/15 bg-white text-ink/50'
-        }`}
-      >
-        {state === 'done' ? '✓' : def.n}
-      </span>
-      <button
-        type="button"
-        onClick={onOpen}
-        disabled={isCur}
-        className="flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left disabled:cursor-default"
-      >
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
-          Step {formatCount(def.n)} of {formatCount(QUOTE_STAGES.length)}
-        </span>
-        <span className="font-serif text-lg font-semibold leading-tight text-ink">{def.title}</span>
-        {!isCur ? (
-          <span className="text-xs text-ink/60">
-            {state === 'later' ? 'Up next · ' : ''}
-            {summary}
-          </span>
-        ) : null}
-      </button>
-      <div hidden={!isCur} className="pb-1">
-        {children}
-        {onNext && def.lead ? (
-          <div className="mx-4 mb-4 mt-2 flex items-center gap-3 rounded-xl bg-ink px-4 py-3 text-cream">
-            <span className="flex-1 text-sm text-cream/80">{def.lead}</span>
-            <button
-              type="button"
-              onClick={onNext}
-              data-stage-next={id}
-              className="inline-flex h-10 items-center rounded-full bg-terracotta-700 px-4 text-sm font-semibold text-cream hover:brightness-95"
-            >
-              Next · {QUOTE_STAGES.find((d) => d.id === nextStage(id))?.title}
-            </button>
-          </div>
-        ) : null}
-      </div>
+    <section data-quote-section={id} aria-label={title} className="border-b border-ink/10">
+      <p className="flex items-baseline justify-between gap-3 px-4 pt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
+        <span>{title}</span>
+        {hint ? <span className="normal-case tracking-normal text-ink/40">{hint}</span> : null}
+      </p>
+      {children}
     </section>
   );
 }
+
+/** The three ways to be paid the prototype offers, plus whatever the supplier has built by hand. */
+type PlanPreset = 'p20' | 'half' | 'full';
+/** The prototype's final-payment timing for its plans, in days before the event. */
+const PLAN_FINAL_DAYS = 7;
+/** The prototype's three plans — each label is composed from the plan's own numbers, never typed beside them. */
+const PLAN_PRESETS: ReadonlyArray<{ key: PlanPreset; label: string; percent: number; finalDays: number }> = (
+  [
+    ['p20', 20],
+    ['half', 50],
+    ['full', 100],
+  ] as const
+).map(([key, percent]) => ({
+  key,
+  percent,
+  finalDays: PLAN_FINAL_DAYS,
+  label:
+    percent === 100
+      ? 'Full when they book'
+      : percent === 50
+        ? `Half to book · half ${PLAN_FINAL_DAYS} days before`
+        : `${percent}% to book · rest ${PLAN_FINAL_DAYS} days before`,
+}));
+
+/** "Good for" — the prototype's three, plus no end date. */
+const GOOD_FOR_DAYS = [7, 14, 30] as const;
+const GOOD_FOR: ReadonlyArray<{ key: string; label: string; days: number | null }> = [
+  ...GOOD_FOR_DAYS.map((d) => ({ key: String(d), label: `${d} days`, days: d })),
+  { key: 'none', label: 'No end date', days: null },
+];
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 
@@ -321,8 +305,27 @@ export function ProposalMaker({
   feeStanding = null,
   papicStanding = null,
   revision = null,
+  savedQuotes = [],
+  askedCardId = null,
+  todayIso = '',
+  labSeed = null,
 }: {
+  /**
+   * DEV LAB ONLY (`/dev/supplier-chat-lab`, no session, no database): what the first open would have read — the lines
+   * a card seeds and the catalogue's extras — handed in, so the lab draws a filled quote without a server call. The
+   * thread page never passes it (`the-quote-is-one-screen.test.ts`).
+   */
+  labSeed?: { lines: QuoteSeedLine[]; extras: QuoteCatalogueExtra[] } | null;
   threadId: string;
+  /**
+   * The shop's saved quotes (`vendor_proposal_templates`) — "Start from · a saved quote". Empty → the option is not
+   * offered at all (owner 2026-10-14: hidden when the supplier has none).
+   */
+  savedQuotes?: { id: string; name: string }[];
+  /** The card this couple asked about (the thread's first interest), when it is one of the shop's active cards. */
+  askedCardId?: string | null;
+  /** PH civil today (`YYYY-MM-DD`) — "Good for N days" is counted from it. */
+  todayIso?: string;
   /**
    * S5 · "Update this quote": the LIVE quote this builder opens pre-filled
    * from (`seedQuoteRevision`). Present → the builder opens already expanded,
@@ -425,14 +428,11 @@ export function ProposalMaker({
    */
   viewerPromo?: { terms: string; creatorName?: string | null } | null;
 }) {
-  // S5 · a revision opens EXPANDED — the supplier came here from "Update this
-  // quote" and a closed "Build a quote" button would read as a link that did
-  // nothing (the same trap the `?compose=deal` panel fell into on 2026-09-18).
-  const [open, setOpen] = useState(revision != null);
-  // WHICH STEP IS OPEN. A fresh quote starts at Know the event; "Update this
-  // quote" opens at Set the price (`openingStage`). Nothing is locked — a
-  // folded step's header reopens it.
-  const [stage, setStage] = useState<QuoteStageId>(() => openingStage({ revision: revision != null }));
+  // OPEN FROM THE START (2026-10-14). The ＋ Tools sheet's "Send a quote" opens this panel, and the quote is the panel
+  // — a second "Build a quote" tap behind the first one read as a door that led to another door. Cancel closes the
+  // panel itself (see `closePanel`). A revision ("Update this quote") was always opened expanded.
+  const [open, setOpen] = useState(true);
+  const rootRef = useRef<HTMLDivElement>(null);
   /*
     THE OPENING GUEST COUNT — the live one, falling back to the inquiry count.
 
@@ -501,6 +501,21 @@ export function ProposalMaker({
   const [cardTerms, setCardTerms] = useState<string | null>(null);
   const [cardWarnings, setCardWarnings] = useState<QuoteSeedWarning[]>([]);
   const [cardTitle, setCardTitle] = useState<string>('');
+  // WHERE THIS QUOTE STARTED — "Start from" (prototype: card · a saved quote · blank). One key: `card:<id>`,
+  // `tpl:<id>`, `blank`, or `revision` for "Update this quote" (which starts from the quote it replaces).
+  const [from, setFrom] = useState<string>(revision ? 'revision' : 'blank');
+  // Whether the discount's reason is the CARD's (cleared when the figure is retyped) or the supplier's own words.
+  const [reasonFromCard, setReasonFromCard] = useState(false);
+  // FROM YOUR CATALOGUE — the shop's optional package items, read once when the quote first opens.
+  const [extras, setExtras] = useState<QuoteCatalogueExtra[]>([]);
+  const [extrasOn, setExtrasOn] = useState<Record<string, boolean>>({});
+  // The saved quotes this screen can start from — the page's list, plus any saved here.
+  const [saved, setSaved] = useState(savedQuotes);
+  const [saveName, setSaveName] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
+  const [saving, startSave] = useTransition();
+  // "As they see it" — the couple's own quote card, drawn from this draft.
+  const [asTheySee, setAsTheySee] = useState(false);
   /*
     THE SETNAYAN GIFT ON THIS QUOTE (owner 2026-09-22: "per-quote switch", and,
     on the switch drawn disabled in the approved prototype: "We want this
@@ -551,7 +566,11 @@ export function ProposalMaker({
       transport_flat_centavos: toCentavos(transport.flatPhp),
     };
 
-    const resolved = items.map((l) => ({ l, c: resolveLineCentavos(l, pax, hours) }));
+    // The lines on the quote: what is in it (minus any tapped out) and every catalogue extra switched on.
+    const extraLines: Line[] = extras
+      .filter((x) => extrasOn[x.id])
+      .map((x) => ({ ...x.line, key: `x_${x.id}` }));
+    const resolved = [...items.filter((l) => !l.dropped), ...extraLines].map((l) => ({ l, c: resolveLineCentavos(l, pax, hours) }));
     const linesSum = resolved.reduce((s, x) => s + x.c, 0);
     const charge = crewChargeCentavos(crewRow);
     const trans = transportChargeCentavos(transportRow);
@@ -612,7 +631,7 @@ export function ProposalMaker({
       });
     }
     return { subtotal: sub, gross: grs, credit: cr, netPayable: net, lineItems: li };
-  }, [items, crew, transport, discountPhp, discountReason, pax, hours, viewerPromo]);
+  }, [items, extras, extrasOn, crew, transport, discountPhp, discountReason, pax, hours, viewerPromo]);
 
   /**
    * THE GIFT, RE-PRICED AS THEY TYPE — and what it costs them.
@@ -700,44 +719,6 @@ export function ProposalMaker({
   // The generated auto "Final balance" row (last resolved installment), if any.
   const autoRow = schedule.installments.find((r) => r.is_auto_balance) ?? null;
 
-  /**
-   * THE FIVE STEPS — their states and their one-line summaries, from the live
-   * draft through `lib/quote-stages.ts`. The fee and the Papic figures are the
-   * SAME calls the open step renders (`bookingFeePhp` on the standing's own
-   * schedule; `gift` from `previewGiftForTotal`), so a folded step can never
-   * show a number the open one does not.
-   */
-  const stageState = stageStates(stage);
-  const pickedCardLabels = cards.filter((c) => pickedCards[c.id]).map((c) => c.label);
-  const feeText =
-    feeStanding && (feeStanding.kind === 'free' || feeStanding.kind === 'billable') && netPayable > 0
-      ? `${feePesos(bookingFeePhp(netPayable / 100, feeStanding.schedule))}${feeStanding.kind === 'free' ? ' waived' : ''}`
-      : null;
-  const papicText = gift
-    ? `${formatGiftPhotos(gift.credits)} photos`
-    : papicStanding?.kind === 'available'
-      ? 'off'
-      : null;
-  const stageSummary = stageSummaries({
-    eventLine: brief?.eventLine ?? (coupleName?.trim() || null),
-    pax,
-    hours,
-    cardsLine: pickedCardLabels.length ? pickedCardLabels.join(' + ') : null,
-    netPayableCentavos: netPayable,
-    feeText,
-    papicText,
-    paymentsCount: installments.length + (autoRow && autoRow.amount_centavos > 0 ? 1 : 0),
-    railLabels: paymentMethods.filter((m) => selectedMethods[m.id]).map((m) => m.label),
-    validUntil,
-  });
-  const stageProps = (id: QuoteStageId) => ({
-    id,
-    state: stageState[id],
-    summary: stageSummary[id],
-    onOpen: () => setStage(id),
-    onNext: nextStage(id) ? () => setStage(nextStage(id)!) : null,
-  });
-
   const selectedMethodIds = useMemo(
     () => paymentMethods.filter((m) => selectedMethods[m.id]).map((m) => m.id),
     [paymentMethods, selectedMethods],
@@ -776,7 +757,9 @@ export function ProposalMaker({
   /* ── Line mutation helpers ────────────────────────────────────────────── */
   const patchLine = (key: string, patch: Partial<Line>) =>
     setItems((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
-  const removeLine = (key: string) => setItems((prev) => prev.filter((l) => l.key !== key));
+  // Tap to drop, tap to put back — never a delete (prototype "What's in it · tap to drop").
+  const toggleDrop = (key: string) =>
+    setItems((prev) => prev.map((l) => (l.key === key ? { ...l, dropped: !l.dropped } : l)));
   const moveLine = (fromKey: string, toKey: string) =>
     setItems((prev) => {
       if (fromKey === toKey) return prev;
@@ -890,6 +873,7 @@ export function ProposalMaker({
       setTransport(after.transport);
       setDiscountPhp(after.discountPhp);
       setDiscountReason(after.discountReason);
+      setReasonFromCard(after.discountReason != null);
       if (after.schedule) setInstallments(after.schedule.map((d) => ({ ...d, key: nextSchedKey() })));
       setCardTerms(after.terms);
       setCardWarnings(seed.warnings);
@@ -907,6 +891,194 @@ export function ProposalMaker({
     reseedFromCards(pickedCards, next);
   };
 
+  /* ── START FROM (card · a saved quote · blank) ─────────────────────────── */
+
+  /** A saved quote, loaded whole: its lines, crew, transport, discount + reason, how they pay, good for, note. */
+  function applySavedDraft(d: SavedQuoteDraft) {
+    setItems(d.lines.map((l) => ({ ...l, key: nextKey() })));
+    setCrew(d.crew);
+    setTransport(d.transport);
+    setDiscountPhp(d.discountPhp);
+    setDiscountReason(d.discountReason);
+    setReasonFromCard(false);
+    setInstallments(d.schedule.manual.map((m) => ({ ...m, key: nextSchedKey() })));
+    setAutoBalanceMeta(d.schedule.autoBalance);
+    setValidUntil(validUntilFor(todayIso, d.validDays));
+    setNote(d.note);
+  }
+
+  function startFrom(key: string) {
+    setFrom(key);
+    if (key.startsWith('card:')) {
+      // One card, fresh — its own lines, terms and discount; more cards can still be added below.
+      const id = key.slice(5);
+      const nextPicked = { [id]: true };
+      setPickedCards(nextPicked);
+      setChosenAddons({});
+      reseedFromCards(nextPicked, {});
+      return;
+    }
+    setPickedCards({});
+    setChosenAddons({});
+    setCardTerms(null);
+    setCardWarnings([]);
+    setCardTitle('');
+    if (key.startsWith('tpl:')) {
+      const id = key.slice(4);
+      startSeed(async () => {
+        const got = await loadSavedQuote(id);
+        if (!got) return;
+        if (got.draft) applySavedDraft(got.draft);
+        else {
+          if (got.packageSeed && got.packageSeed.lines.length > 0) {
+            setItems(got.packageSeed.lines.map((l) => ({ ...l, key: nextKey() })));
+            if (got.packageSeed.crew) setCrew(got.packageSeed.crew);
+            if (got.packageSeed.transport) setTransport(got.packageSeed.transport);
+          }
+          if (got.note) setNote(got.note);
+        }
+        if (!title) setCardTitle(got.name);
+      });
+      return;
+    }
+    // Blank — one empty line, nothing carried over. No discount is filled in (owner 2026-10-14: offered, never filled).
+    setItems([newLine(false)]);
+    setDiscountPhp(0);
+    setDiscountReason(null);
+    setReasonFromCard(false);
+  }
+
+  const startOptions = [
+    ...(revision ? [{ key: 'revision', label: `Updating “${revision.of.title}”` }] : []),
+    ...cards.map((c) => ({ key: `card:${c.id}`, label: c.label })),
+    ...saved.map((t) => ({ key: `tpl:${t.id}`, label: `Saved · ${t.name}` })),
+    { key: 'blank', label: 'Blank' },
+  ];
+
+  /*
+    THE FIRST OPEN. The panel is mounted closed with the thread (one mount, every anchor unique) — so the seed and the
+    catalogue are read when the supplier first OPENS it, never on the thread's own load. A fresh quote starts from the
+    card the couple asked about (or the shop's only card); "Update this quote" starts from the quote it replaces.
+  */
+  const firstOpenDone = useRef(false);
+  useEffect(() => {
+    const panel = rootRef.current?.closest('details');
+    const run = () => {
+      if (firstOpenDone.current) return;
+      firstOpenDone.current = true;
+      if (labSeed) {
+        setExtras(labSeed.extras);
+        setItems(labSeed.lines.map((l) => ({ ...l, key: nextKey() })));
+        setFrom(cards[0] ? `card:${cards[0].id}` : 'blank');
+        if (cards[0]) setPickedCards({ [cards[0].id]: true });
+        return;
+      }
+      void loadCatalogueExtrasForQuote().then(setExtras).catch(() => setExtras([]));
+      if (revision) return;
+      const first = askedCardId && cards.some((c) => c.id === askedCardId) ? askedCardId : cards.length === 1 ? cards[0]!.id : null;
+      if (first) startFrom(`card:${first}`);
+    };
+    if (!panel || panel.open) {
+      run();
+      return;
+    }
+    const onToggle = () => {
+      if (panel.open) run();
+    };
+    panel.addEventListener('toggle', onToggle);
+    return () => panel.removeEventListener('toggle', onToggle);
+    // The first open only — later renders must not re-seed over what the supplier typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Cancel = put the panel away (the ＋ sheet opens it again, as it was). */
+  const closePanel = () => {
+    const panel = rootRef.current?.closest('details');
+    if (panel) panel.open = false;
+    else setOpen(false);
+  };
+
+  /* ── HOW THEY PAY — the prototype's three plans, one tap each; the rows below stay editable ─────────────────── */
+  const planPresetOf = (): PlanPreset | null => {
+    if (installments.length !== 1) return null;
+    const first = installments[0]!;
+    if (first.kind !== 'percent' || first.due !== 'on_lock') return null;
+    const hit = PLAN_PRESETS.find(
+      (p) => p.percent === first.percent && (p.percent === 100 || (autoBalanceMeta.due === 'before_event' && autoBalanceMeta.offsetDays === p.finalDays)),
+    );
+    return hit?.key ?? null;
+  };
+  const applyPlanPreset = (key: string) => {
+    const p = PLAN_PRESETS.find((x) => x.key === key);
+    if (!p) return;
+    setInstallments([
+      { key: nextSchedKey(), label: p.percent === 100 ? 'Full payment' : 'First payment', kind: 'percent', amountPhp: null, percent: p.percent, due: 'on_lock', offsetDays: 0 },
+    ]);
+    setAutoBalanceMeta((m) => ({ ...m, due: 'before_event', offsetDays: p.finalDays }));
+  };
+  const planWords = (): string => {
+    const preset = planPresetOf();
+    if (preset) return PLAN_PRESETS.find((p) => p.key === preset)!.label;
+    const first = installments[0];
+    const firstWords =
+      first?.kind === 'percent' ? `${first.percent ?? 0}% to book` : first ? `${formatCentavos(toCentavos(first.amountPhp ?? 0))} to book` : 'Your own plan';
+    return `${firstWords} · ${installments.length + (autoRow && autoRow.amount_centavos > 0 ? 1 : 0)} payments`;
+  };
+
+  /* ── GOOD FOR ───────────────────────────────────────────────────────────── */
+  const goodForKey = (): string => {
+    if (!validUntil) return 'none';
+    const days = validDaysOf(todayIso, validUntil);
+    return GOOD_FOR.find((g) => g.days === days)?.key ?? 'date';
+  };
+  const goodForOptions = [
+    ...GOOD_FOR.map((g) => ({ key: g.key, label: g.label })),
+    ...(goodForKey() === 'date' ? [{ key: 'date', label: `Until ${validUntil}` }] : []),
+  ];
+
+  /* ── SAVE THIS QUOTE ─────────────────────────────────────────────────────── */
+  const draftForSave = (): SavedQuoteDraft => ({
+    v: SAVED_QUOTE_VERSION,
+    lines: items
+      .filter((l) => !l.dropped)
+      .map(({ label, basis, free, flatPhp, ratePhp, minPax, basePhp, inclHours, extraPhp }) => ({
+        label,
+        basis,
+        free,
+        flatPhp,
+        ratePhp,
+        minPax,
+        basePhp,
+        inclHours,
+        extraPhp,
+      })),
+    crew,
+    transport,
+    discountPhp,
+    discountReason,
+    schedule: {
+      manual: installments.map(({ label, kind, amountPhp, percent, due, offsetDays }) => ({ label, kind, amountPhp, percent, due, offsetDays })),
+      autoBalance: autoBalanceMeta,
+    },
+    validDays: validUntil ? validDaysOf(todayIso, validUntil) : null,
+    note,
+  });
+  const saveQuote = () => {
+    const name = (saveName ?? '').trim();
+    if (!name) return;
+    setSaveState('saving');
+    startSave(async () => {
+      const res = await saveQuoteAsTemplate({ name, draft: draftForSave() }).catch(() => null);
+      if (res && res.ok) {
+        setSaved((prev) => [...prev, { id: res.id, name: res.name }]);
+        setSaveState('saved');
+        setSaveName(null);
+      } else {
+        setSaveState('failed');
+      }
+    });
+  };
+
   /*
     Undo my edits — back to what the builder OPENED at, not back to the inquiry
     count. Reset that jumped to a different number than the one the supplier
@@ -917,15 +1089,21 @@ export function ProposalMaker({
     setHours(requestedHours);
   };
 
+  /** The couple's card for this draft once sent — the same rule their conversation reads. */
+  const coupleCard = quoteCardState({ status: 'sent', isLatest: true, viewer: 'couple' });
+
   /* ── Styles ───────────────────────────────────────────────────────────── */
+  // 44px floor on every field (house rule: ≥ 44 px presses) — the quote is one screen of them now.
   const field =
-    'rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm text-ink focus:border-terracotta focus:outline-none';
+    'min-h-11 rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm text-ink focus:border-terracotta focus:outline-none';
   const numField = `${field} text-right tabular-nums`;
+  // A native select ignores min-height on WebKit (the Safari engine measured 26px) — it gets a real height.
+  const selectField = `${field} h-11`;
   const lbl = 'font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta';
 
   if (!open) {
     return (
-      <div className="rounded-xl border border-terracotta/30 bg-terracotta/[0.05] p-3">
+      <div ref={rootRef} className="rounded-xl border border-terracotta/30 bg-terracotta/[0.05] p-3">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -941,15 +1119,18 @@ export function ProposalMaker({
   }
 
   return (
+    <div ref={rootRef}>
     <form
       action={sendCustomProposalFromChat}
       // data-flow — the Problems list counts open → edit → send → sent here
       // (lib/telemetry/flows.ts, "supplier_quote").
       data-flow="supplier-quote"
+      data-quote-one-screen=""
       className="overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-sm"
     >
       <input type="hidden" name="thread_id" value={threadId} />
       <input type="hidden" name="payload" value={payload} />
+
 
       {/* S5 · UPDATING A QUOTE. Says what sending does — replaces the named
           quote, and the couple must accept again (owner: "they can do updates
@@ -970,114 +1151,30 @@ export function ProposalMaker({
         </div>
       ) : null}
 
-      {/* THE STEP STRIP — where the supplier is, and the way back to any step. */}
-      <div data-testid="quote-step-strip" className="flex gap-1 overflow-x-auto border-b border-ink/10 px-3 py-2">
-        {QUOTE_STAGES.map((d) => (
-          <button
-            key={d.id}
-            type="button"
-            onClick={() => setStage(d.id)}
-            aria-pressed={stageState[d.id] === 'cur'}
-            className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] ${
-              stageState[d.id] === 'cur'
-                ? 'bg-ink text-cream'
-                : stageState[d.id] === 'done'
-                  ? 'text-success-700'
-                  : 'text-ink/40'
-            }`}
-          >
-            {stageState[d.id] === 'done' ? '✓ ' : `${d.n} `}
-            {d.title}
-          </button>
-        ))}
-      </div>
-
-      {/* ── STEP 1 · KNOW THE EVENT ─────────────────────────────────────── */}
-      <QuoteStage {...stageProps('know')}>
-      {/* THEIR EVENT — the rail's rows plus the stage-1 facts, beside the quote. */}
-      {brief ? (
-        <div data-testid="quote-event-brief" className="space-y-2 border-b border-ink/10 px-4 py-3">
-          <div className="flex items-center justify-between">
-            <span className={lbl}>Their event</span>
-            <a href={brief.fullBriefHref} className="text-[11px] text-terracotta-700 underline hover:text-terracotta">
-              Full brief ›
-            </a>
-          </div>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-            {brief.rows.map((r) => (
-              <div key={r.label} className="contents">
-                <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45 pt-0.5">{r.label}</dt>
-                <dd className={`text-right ${r.unknown ? 'text-ink/45' : 'text-ink'}`}>
-                  {r.value}
-                  {r.note ? <span className="text-ink/45"> · {r.note}</span> : null}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          {brief.withheld ? (
-            <p data-testid="quote-brief-withheld" className="text-[11px] text-ink/55">
-              <span className="font-medium text-ink/70">{brief.withheld.headline}</span> {brief.withheld.detail}
-            </p>
+      {/* ── THE ANSWER: what they pay you (prototype: the big number at the top of the quote) ───────────────── */}
+      <div className="flex items-baseline justify-between gap-3 border-b border-ink/10 px-4 py-3" data-quote-answer="">
+        <span className="text-sm text-ink/60">What they pay you</span>
+        <span className="text-right">
+          <b className="font-serif text-2xl font-semibold tabular-nums text-ink">{formatCentavos(netPayable)}</b>
+          {discountPhp > 0 ? (
+            <span className="block text-xs text-ink/55">after {formatCentavos(toCentavos(discountPhp))} off</span>
           ) : null}
-        </div>
-      ) : null}
-      {/* Header — seeded pax/hours (rule 0) */}
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 p-4">
-        <div className="min-w-0">
-          <h3 className="font-serif text-xl font-semibold leading-none text-ink">
-            {coupleName?.trim() || 'New quote'}
-          </h3>
-          <p className="mt-1.5 text-xs text-ink/55">
-            {atSeed ? (
-              <>
-                Sized to their plan now · <strong className="text-ink/75">{formatCount(seedPax)} pax</strong> · {requestedHours}h
-                {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
-              </>
-            ) : (
-              <>
-                Quoting <strong className="text-ink/75">{formatCount(pax)} pax · {hours}h</strong> — their plan says {formatCount(seedPax)} now
-                {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}{' '}
-                <button
-                  type="button"
-                  onClick={resetToSeed}
-                  className="text-terracotta-700 underline hover:text-terracotta"
-                >
-                  reset
-                </button>
-              </>
-            )}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <label className="flex flex-col items-center gap-1 text-[10px] uppercase tracking-wider text-ink/50">
-            pax
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={pax}
-              onChange={(e) => setPax(Number(e.target.value) || 0)}
-              className={`${numField} w-16 text-center`}
-            />
-          </label>
-          <label className="flex flex-col items-center gap-1 text-[10px] uppercase tracking-wider text-ink/50">
-            hrs
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={hours}
-              onChange={(e) => setHours(Number(e.target.value) || 0)}
-              className={`${numField} w-14 text-center`}
-            />
-          </label>
-        </div>
+        </span>
       </div>
 
-      </QuoteStage>
-
-      {/* ── STEP 2 · CHOOSE WHAT TO OFFER ───────────────────────────────── */}
-      <QuoteStage {...stageProps('offer')}>
+      {/* ── START FROM ─────────────────────────────────────────────────────────────────────────────────────── */}
+      <QuoteSection id="start" title="Start from">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" data-quote-start-from="">
+          <span className="text-sm text-ink/70">{seeding ? 'Loading…' : 'Card · a saved quote · blank'}</span>
+          <PickMenu
+            label="Start this quote from"
+            value={from}
+            options={startOptions}
+            onPick={startFrom}
+            dataAttr="data-quote-start-pick"
+            className="min-h-11"
+          />
+        </div>
       {/* YOUR CARDS — the shop's service cards seed the quote (owner 2026-09-22).
           One or several; each contributes its priced line, its freebies and the
           add-ons ticked under it. Mounted ONCE, and only when the shop has a card. */}
@@ -1086,7 +1183,7 @@ export function ProposalMaker({
           <div className="flex items-center justify-between">
             <span className={lbl}>Your cards</span>
             <span className="text-[11px] text-ink/45">
-              {seeding ? 'Loading…' : 'Pick one or more · sets the lines, terms and discount'}
+              {seeding ? 'Loading your card…' : 'Add another card · its lines join this quote'}
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1112,28 +1209,10 @@ export function ProposalMaker({
             ))}
           </div>
           {cards
-            .filter((c) => pickedCards[c.id] && (c.addons.length > 0 || c.comesWith.length > 0))
+            .filter((c) => pickedCards[c.id] && c.comesWith.length > 0)
             .map((c) => (
               <div key={`x-${c.id}`} className="flex flex-wrap items-center gap-1.5 pl-1 text-[11px] text-ink/55">
                 <span>{c.label}:</span>
-                {c.addons.map((a) => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => toggleAddon(a.id)}
-                    disabled={seeding}
-                    aria-pressed={Boolean(chosenAddons[a.id])}
-                    className={`rounded-full border px-2 py-0.5 ${
-                      chosenAddons[a.id]
-                        ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
-                        : 'border-ink/15 bg-white hover:border-ink/40'
-                    }`}
-                  >
-                    {chosenAddons[a.id] ? '✓ ' : '+ '}
-                    {a.label}
-                    {a.fromPhp != null ? ` · +${formatCentavos(toCentavos(a.fromPhp))}` : ''}
-                  </button>
-                ))}
                 {c.comesWith.map((w) => {
                   // "Comes with" names a KIND; offer the shop's card of that kind when there is one.
                   const other = cards.find((o) => o.id !== c.id && o.label === w && !pickedCards[o.id]);
@@ -1166,7 +1245,6 @@ export function ProposalMaker({
           ) : null}
         </div>
       ) : null}
-
       {/* Bundle picker (optional) */}
       {packages.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-ink/10 px-4 py-3">
@@ -1178,7 +1256,7 @@ export function ProposalMaker({
               void seedFromPackage(e.target.value);
               e.target.value = '';
             }}
-            className={`${field} min-w-[10rem]`}
+            className={`${selectField} min-w-[10rem]`}
           >
             <option value="" disabled>
               {seeding ? 'Loading…' : 'Choose a bundle…'}
@@ -1192,16 +1270,121 @@ export function ProposalMaker({
           <span className="text-xs text-ink/45">Seeds the line items — you can still edit each one.</span>
         </div>
       ) : null}
+      {/* THEIR EVENT — folded under the start: what Setnayan can tell you about this couple, a tap away. */}
+      {brief ? (
+        <details className="border-t border-ink/10" data-quote-their-event="">
+          <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm text-ink/70">Their event</summary>
+      {/* THEIR EVENT — the rail's rows plus the stage-1 facts, beside the quote. */}
+      {brief ? (
+        <div data-testid="quote-event-brief" className="space-y-2 border-b border-ink/10 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className={lbl}>Their event</span>
+            <a href={brief.fullBriefHref} className="text-[11px] text-terracotta-700 underline hover:text-terracotta">
+              Full brief ›
+            </a>
+          </div>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+            {brief.rows.map((r) => (
+              <div key={r.label} className="contents">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45 pt-0.5">{r.label}</dt>
+                <dd className={`text-right ${r.unknown ? 'text-ink/45' : 'text-ink'}`}>
+                  {r.value}
+                  {r.note ? <span className="text-ink/45"> · {r.note}</span> : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {brief.withheld ? (
+            <p data-testid="quote-brief-withheld" className="text-[11px] text-ink/55">
+              <span className="font-medium text-ink/70">{brief.withheld.headline}</span> {brief.withheld.detail}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+        </details>
+      ) : null}
+      </QuoteSection>
 
-      </QuoteStage>
-
-      {/* ── STEP 3 · SET THE PRICE ──────────────────────────────────────── */}
-      <QuoteStage {...stageProps('price')}>
+      {/* ── WHAT'S IN IT ───────────────────────────────────────────────────────────────────────────────────── */}
+      <QuoteSection id="lines" title="What's in it" hint="tap ✕ to drop">
+      {/* Header — seeded pax/hours (rule 0) */}
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 p-4">
+        <div className="min-w-0">
+          <h3 className="font-serif text-xl font-semibold leading-none text-ink">
+            {coupleName?.trim() || 'New quote'}
+          </h3>
+          <p className="mt-1.5 text-xs text-ink/55">
+            {atSeed ? (
+              <>
+                Sized to their plan now · <strong className="text-ink/75">{formatCount(seedPax)} pax</strong> · {requestedHours}h
+                {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
+              </>
+            ) : (
+              <>
+                Quoting <strong className="text-ink/75">{formatCount(pax)} pax · {hours}h</strong> — their plan says {formatCount(seedPax)} now
+                {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}{' '}
+                <button
+                  type="button"
+                  onClick={resetToSeed}
+                  className="text-terracotta-700 underline hover:text-terracotta"
+                >
+                  reset
+                </button>
+              </>
+            )}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {/* GUESTS — a counter (prototype "Guests · Re-prices per-guest lines"): − / + move it by ten, the field
+              takes any number. Every per-guest line re-prices as it moves. */}
+          <div className="flex flex-col items-center gap-1 text-[10px] uppercase tracking-wider text-ink/50" data-quote-guests="">
+            guests
+            <span className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPax((n) => Math.max(1, n - 10))}
+                aria-label="Ten fewer guests"
+                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/[0.06] text-base text-ink"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={pax}
+                onChange={(e) => setPax(Number(e.target.value) || 0)}
+                aria-label="Guests"
+                className={`${numField} h-11 w-16 text-center`}
+              />
+              <button
+                type="button"
+                onClick={() => setPax((n) => n + 10)}
+                aria-label="Ten more guests"
+                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/[0.06] text-base text-ink"
+              >
+                +
+              </button>
+            </span>
+          </div>
+          <label className="flex flex-col items-center gap-1 text-[10px] uppercase tracking-wider text-ink/50">
+            hrs
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={hours}
+              onChange={(e) => setHours(Number(e.target.value) || 0)}
+              className={`${numField} w-14 text-center`}
+            />
+          </label>
+        </div>
+      </div>
       {/* Line items */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <div className="flex items-center justify-between">
           <span className={lbl}>Line items</span>
-          <span className="text-[11px] text-ink/45">⠿ drag to reorder</span>
+          <span className="text-[11px] text-ink/45">✕ drops a line · ⠿ drag to reorder</span>
         </div>
         {items.map((l) => {
           const cents = resolveLineCentavos(l, pax, hours);
@@ -1214,8 +1397,13 @@ export function ProposalMaker({
                 if (dragKey) moveLine(dragKey, l.key);
                 setDragKey(null);
               }}
+              data-quote-line={l.dropped ? 'dropped' : 'in'}
               className={`rounded-xl border p-2.5 ${
-                l.free ? 'border-success-300/60 bg-success-100/40' : 'border-ink/10 bg-white'
+                l.dropped
+                  ? 'border-ink/10 bg-ink/[0.03] opacity-60'
+                  : l.free
+                    ? 'border-success-300/60 bg-success-100/40'
+                    : 'border-ink/10 bg-white'
               } ${dragKey === l.key ? 'opacity-40' : ''}`}
             >
               <div className="flex items-center gap-2">
@@ -1234,7 +1422,7 @@ export function ProposalMaker({
                   value={l.label}
                   onChange={(e) => patchLine(l.key, { label: e.target.value })}
                   aria-label="Line item name"
-                  className="min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none"
+                  className={`min-h-11 min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none ${l.dropped ? 'line-through' : ''}`}
                 />
                 {l.free ? (
                   <span className="whitespace-nowrap rounded-full border border-success-300/70 bg-white px-2 py-0.5 text-[10.5px] font-medium text-success-700">
@@ -1253,23 +1441,25 @@ export function ProposalMaker({
                 >
                   🎁
                 </button>
+                {/* TAP TO DROP — and back. A dropped line is left out of the total and the quote, never deleted. */}
                 <button
                   type="button"
-                  onClick={() => removeLine(l.key)}
-                  aria-label="Remove line item"
-                  className="px-1 text-sm text-ink/40 hover:text-danger-700"
+                  onClick={() => toggleDrop(l.key)}
+                  aria-label={l.dropped ? 'Put this line back' : 'Drop this line'}
+                  aria-pressed={Boolean(l.dropped)}
+                  className="inline-flex h-11 min-w-11 items-center justify-center rounded-full px-2 text-sm text-ink/45 hover:text-ink"
                 >
-                  ✕
+                  {l.dropped ? 'Put back' : '✕'}
                 </button>
               </div>
 
-              {!l.free ? (
+              {!l.free && !l.dropped ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-dashed border-ink/10 pl-6 pt-2 text-xs text-ink/60">
                   <select
                     value={l.basis}
                     onChange={(e) => patchLine(l.key, { basis: e.target.value as Basis })}
                     aria-label="Pricing basis"
-                    className={field}
+                    className={selectField}
                   >
                     <option value="flat">Flat</option>
                     <option value="per_pax">Per pax</option>
@@ -1356,7 +1546,7 @@ export function ProposalMaker({
             onClick={() => setItems((prev) => [...prev, newLine(false)])}
             className="rounded-full border border-dashed border-terracotta/60 px-3 py-1 text-xs text-terracotta-700 hover:border-terracotta"
           >
-            + Feature
+            + Something else · just for them
           </button>
           <button
             type="button"
@@ -1367,7 +1557,68 @@ export function ProposalMaker({
           </button>
         </div>
       </div>
+      </QuoteSection>
 
+      {/* ── FROM YOUR CATALOGUE: your card's add-ons and your packages' optional items, as switches ─────────── */}
+      {extras.length > 0 || cards.some((c) => pickedCards[c.id] && c.addons.length > 0) ? (
+        <QuoteSection id="catalogue" title="From your catalogue">
+          <div className="px-4 pb-2" data-quote-catalogue="">
+            {cards
+              .filter((c) => pickedCards[c.id])
+              .flatMap((c) => c.addons)
+              .map((a) => (
+                <div key={`a-${a.id}`} className="flex min-h-[52px] items-center gap-3 border-t border-ink/10 first:border-t-0">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-ink">{a.label}</span>
+                    <span className="block text-xs text-ink/55">
+                      {a.fromPhp != null ? `+ ${formatCentavos(toCentavos(a.fromPhp))}` : 'no charge'}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(chosenAddons[a.id])}
+                    aria-label={a.label}
+                    disabled={seeding}
+                    onClick={() => toggleAddon(a.id)}
+                    className={SWITCH_BUTTON}
+                  >
+                    <SwitchTrack on={Boolean(chosenAddons[a.id])} />
+                  </button>
+                </div>
+              ))}
+            {extras.map((x) => (
+              <div key={`x-${x.id}`} className="flex min-h-[52px] items-center gap-3 border-t border-ink/10 first:border-t-0">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-ink">{x.label}</span>
+                  <span className="block text-xs text-ink/55">
+                    {x.line.free
+                      ? 'no charge'
+                      : x.line.basis === 'per_pax'
+                        ? `+ ${formatCentavos(toCentavos(x.line.ratePhp))} per guest`
+                        : x.line.basis === 'per_hour'
+                          ? `+ ${formatCentavos(toCentavos(x.line.basePhp))}`
+                          : `+ ${formatCentavos(toCentavos(x.line.flatPhp))}`}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(extrasOn[x.id])}
+                  aria-label={x.label}
+                  onClick={() => setExtrasOn((on) => ({ ...on, [x.id]: !on[x.id] }))}
+                  className={SWITCH_BUTTON}
+                >
+                  <SwitchTrack on={Boolean(extrasOn[x.id])} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </QuoteSection>
+      ) : null}
+
+      {/* ── THE MONEY ──────────────────────────────────────────────────────────────────────────────────────── */}
+      <QuoteSection id="money" title="The money">
       {/* Crew meal & transportation */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <span className={lbl}>Crew meal &amp; transportation</span>
@@ -1385,7 +1636,7 @@ export function ProposalMaker({
               value={crew.mode}
               onChange={(e) => setCrew({ ...crew, mode: e.target.value as CrewMode })}
               aria-label="Crew meal handling"
-              className={`${field} ml-auto`}
+              className={`${selectField} ml-auto`}
             >
               <option value="included">Included</option>
               <option value="charge">Charge</option>
@@ -1431,7 +1682,7 @@ export function ProposalMaker({
               value={transport.mode}
               onChange={(e) => setTransport({ ...transport, mode: e.target.value as TransportMode })}
               aria-label="Transportation handling"
-              className={`${field} ml-auto`}
+              className={`${selectField} ml-auto`}
             >
               <option value="included">Included</option>
               <option value="flat">Flat fee</option>
@@ -1460,7 +1711,6 @@ export function ProposalMaker({
           )}
         </div>
       </div>
-
       {/* Totals */}
       <div className="space-y-2 border-b border-ink/10 bg-cream/70 p-4">
         {/* PR-C — viewer-promo nudge: this inquiry arrived through a storyteller
@@ -1499,14 +1749,38 @@ export function ProposalMaker({
               value={discountPhp}
               onChange={(e) => {
                 setDiscountPhp(Number(e.target.value) || 0);
-                // A hand-edited figure is the supplier's, not the card's.
-                setDiscountReason(null);
+                // A hand-edited figure is the supplier's, not the card's — the card's caption goes with it; the
+                // supplier's own reason stays.
+                if (reasonFromCard) {
+                  setDiscountReason(null);
+                  setReasonFromCard(false);
+                }
               }}
               aria-label="Discount"
               className={`${numField} w-24`}
             />
           </span>
         </div>
+        {/* THE REASON — the couple reads it beside the discount (prototype "Discount · reason"). Nothing is filled
+            in for them: no discount and no reason until the supplier gives one (owner 2026-10-14). */}
+        {discountPhp > 0 && !viewerPromo ? (
+          <label className="flex items-center justify-between gap-3 text-sm text-ink/60">
+            <span>Why</span>
+            <input
+              type="text"
+              maxLength={160}
+              value={discountReason ?? ''}
+              onChange={(e) => {
+                setDiscountReason(e.target.value || null);
+                setReasonFromCard(false);
+              }}
+              placeholder="e.g. Booked early · they see this"
+              aria-label="Why you are giving a discount"
+              data-quote-discount-why=""
+              className={`${field} h-11 min-w-0 flex-1`}
+            />
+          </label>
+        ) : null}
         <div className="flex items-baseline justify-between border-t border-ink/15 pt-2">
           <span className="text-sm font-medium text-ink">Total</span>
           <span className="font-serif text-2xl text-ink tabular-nums">{formatCentavos(gross)}</span>
@@ -1625,11 +1899,6 @@ export function ProposalMaker({
           </div>
         ) : null}
       </div>
-
-      </QuoteStage>
-
-      {/* ── STEP 4 · TERMS ──────────────────────────────────────────────── */}
-      <QuoteStage {...stageProps('terms')}>
       {/* Payment schedule — self-balancing, pays to ₱0 (§ 8) */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <div className="flex items-center justify-between">
@@ -1647,6 +1916,20 @@ export function ProposalMaker({
               ✓ balances to ₱0
             </span>
           )}
+        </div>
+
+        {/* HOW THEY PAY — the prototype's three plans as ONE dropdown; the plan's own rows below stay editable. */}
+        <div className="flex flex-wrap items-center justify-between gap-2" data-quote-plan="">
+          <span className="text-sm text-ink/70">How they pay</span>
+          <PickMenu
+            label="How they pay"
+            value={planPresetOf()}
+            options={PLAN_PRESETS.map((p) => ({ key: p.key, label: p.label }))}
+            buttonText={planWords()}
+            onPick={applyPlanPreset}
+            dataAttr="data-quote-plan-pick"
+            className="min-h-11"
+          />
         </div>
 
         {cardTerms ? (
@@ -1671,7 +1954,7 @@ export function ProposalMaker({
                   value={r.label}
                   onChange={(e) => patchInstallment(r.key, { label: e.target.value })}
                   aria-label="Payment name"
-                  className="min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none"
+                  className="min-h-11 min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none"
                 />
                 {r.kind === 'percent' ? (
                   <span className="flex items-center gap-1">
@@ -1742,7 +2025,7 @@ export function ProposalMaker({
                   value={r.due}
                   onChange={(e) => patchInstallment(r.key, { due: e.target.value as InstallmentDue })}
                   aria-label="Due timing"
-                  className={field}
+                  className={selectField}
                 >
                   {DUE_OPTIONS.map(([v, label]) => (
                     <option key={v} value={v}>
@@ -1796,7 +2079,7 @@ export function ProposalMaker({
                 value={autoBalanceMeta.due}
                 onChange={(e) => setAutoBalanceMeta((m) => ({ ...m, due: e.target.value as InstallmentDue }))}
                 aria-label="Final balance due timing"
-                className={field}
+                className={selectField}
               >
                 {DUE_OPTIONS.map(([v, label]) => (
                   <option key={v} value={v}>
@@ -1835,7 +2118,6 @@ export function ProposalMaker({
           settles the plan to ₱0{credit > 0 ? '; the crew-meal credit comes off it first' : ''}.
         </p>
       </div>
-
       {/* Accepted payment methods (§ 9) — which of the vendor's rails the couple sees */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <span className={lbl}>Accepted payment methods</span>
@@ -1872,7 +2154,6 @@ export function ProposalMaker({
           </>
         )}
       </div>
-
       {/* Meta + send */}
       <div className="space-y-3 p-4">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1887,15 +2168,22 @@ export function ProposalMaker({
               className={`${field} w-full`}
             />
           </label>
-          <label className="block space-y-1">
-            <span className={lbl}>Valid until (optional)</span>
-            <input
-              type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              className={`${field} w-full`}
+          {/* GOOD FOR (prototype "Good for · 7 / 14 / 30 days") — one dropdown; it writes the same valid-until date. */}
+          <div className="block space-y-1" data-quote-good-for="">
+            <span className={lbl}>Good for</span>
+            <PickMenu
+              label="How long this quote is good for"
+              value={goodForKey()}
+              options={goodForOptions}
+              onPick={(key) => {
+                if (key === 'date') return;
+                const g = GOOD_FOR.find((x) => x.key === key);
+                setValidUntil(validUntilFor(todayIso, g?.days ?? null));
+              }}
+              dataAttr="data-quote-good-for-pick"
+              className="min-h-11 w-full"
             />
-          </label>
+          </div>
         </div>
         <label className="block space-y-1">
           <span className={lbl}>Note to the couple (optional)</span>
@@ -1908,11 +2196,100 @@ export function ProposalMaker({
             className={`${field} w-full resize-y`}
           />
         </label>
-      </div>
-      </QuoteStage>
 
-      {/* ── STEP 5 · REVIEW & SEND ──────────────────────────────────────── */}
-      <QuoteStage {...stageProps('send')}>
+        {/* SAVE THIS QUOTE — reuse it next time ("Start from · a saved quote"). Saves the prices and terms, never this
+            couple: no name, no count, no date (lib/saved-quote.ts). */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3" data-quote-save="">
+          {saveName === null ? (
+            <>
+              <span className="min-w-0 flex-1 text-sm text-ink/70">
+                {saveState === 'saved'
+                  ? 'Saved — it is in Start from now.'
+                  : saveState === 'failed'
+                    ? 'That did not save. Nothing changed — try again.'
+                    : 'Save this quote · reuse it next time'}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSaveName(title.trim() || cardTitle || '');
+                  setSaveState('idle');
+                }}
+                className="sn-press inline-flex min-h-11 items-center rounded-full border border-ink/15 px-4 text-sm text-ink hover:border-ink/40"
+              >
+                Save
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                type="text"
+                maxLength={120}
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                aria-label="Name this saved quote"
+                placeholder="Name it · e.g. Garden wedding 150"
+                className={`${field} h-11 min-w-0 flex-1`}
+              />
+              <button
+                type="button"
+                onClick={saveQuote}
+                disabled={saving || !saveName.trim()}
+                className="sn-press inline-flex min-h-11 items-center rounded-full border border-ink/15 px-4 text-sm font-medium text-ink hover:border-ink/40 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSaveName(null)}
+                className="inline-flex min-h-11 items-center rounded-full px-3 text-sm text-ink/60"
+              >
+                Not now
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      </QuoteSection>
+
+      {/* AS THEY SEE IT — the couple's own quote card, drawn from this draft with the card's own lines component
+          (`QuoteCardLines`, shared with the conversation). Nothing is sent by looking. */}
+      <div className="border-b border-ink/10 px-4 py-3" data-quote-as-they-see="">
+        <button
+          type="button"
+          onClick={() => setAsTheySee((v) => !v)}
+          aria-expanded={asTheySee}
+          className="sn-press inline-flex min-h-11 items-center rounded-full border border-ink/15 px-4 text-sm text-ink hover:border-ink/40"
+        >
+          {asTheySee ? 'Hide what they see' : 'As they see it'}
+        </button>
+        {asTheySee ? (
+          <div className="mt-3 flex justify-center">
+            {/* no-card-ok: this IS the couple's quote card (the stream's own frame), reproduced so the supplier sees it as they will. */}
+            <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3"> {/* no-card-ok: the couple's quote card, as they see it */}
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">📄 Quote</p>
+              <p className="mt-1 text-sm font-semibold text-ink">{title.trim() || cardTitle || 'Your quote'}</p>
+              <p className="text-sm text-ink/70">
+                {netPayable > 0 ? formatCentavos(netPayable) : 'Price on request'} · {PROPOSAL_STATUS_LABEL.sent}
+              </p>
+              <QuoteCardLines items={lineItems} />
+              {/* The couple's own buttons, from the same rule their card reads (`quoteCardState`) — drawn, not live. */}
+              <div className="mt-2 flex flex-wrap items-center gap-2 opacity-60" aria-hidden>
+                <span className="inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream">
+                  {coupleCard.primary.label}
+                </span>
+                {coupleCard.offerCounter ? (
+                  <span className="inline-flex h-9 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry"> {/* no-card-ok: a drawn copy of the couple's Counter-offer pill */}
+                    Counter-offer
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── SEND — it goes into the chat ───────────────────────────────────────────────────────────────────── */}
       <div className="space-y-3 p-4">
         {/*
           🔴 THIS SAID "accepting just adds it to their plan" AND THAT IS
@@ -1946,14 +2323,14 @@ export function ProposalMaker({
           </SubmitButton>
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={closePanel}
             className="inline-flex h-11 items-center rounded-xl border border-ink/15 px-4 text-sm text-ink/70 hover:border-ink/40"
           >
             Cancel
           </button>
         </div>
       </div>
-      </QuoteStage>
     </form>
+    </div>
   );
 }

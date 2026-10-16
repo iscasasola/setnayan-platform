@@ -1,4 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { cache } from 'react';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import {
   isMissingRelationError,
   logQueryError,
@@ -1099,6 +1100,26 @@ export type GuestGroupRow = {
   updated_at: string;
 };
 
+/**
+ * ⚡ ONE READ OF AN EVENT'S GROUP MEMBERSHIPS PER RENDER (measured 2026-10-16: the guest
+ * list read `guest_group_memberships` twice per load — once for the per-group counts, once
+ * for the guest→groups map — the same rows with and without `guest_id`). Both readers take
+ * this one, React-`cache()`d on (client, event), and each keeps its own refusal handling:
+ * an error still reaches each of them as the error it was. 🔒 lib/the-groups-are-read-once.test.ts
+ */
+export const readEventGroupMemberships = cache(
+  async (
+    supabase: SupabaseClient,
+    eventId: string,
+  ): Promise<{ data: Array<{ guest_id: string; group_id: string }> | null; error: PostgrestError | null }> => {
+    const { data, error } = await supabase
+      .from('guest_group_memberships')
+      .select('guest_id, group_id, guest_groups!inner(event_id)')
+      .eq('guest_groups.event_id', eventId);
+    return { data: (data ?? null) as Array<{ guest_id: string; group_id: string }> | null, error };
+  },
+);
+
 export type GuestGroupWithCount = GuestGroupRow & {
   member_count: number;
 };
@@ -1127,11 +1148,10 @@ export async function fetchGuestGroupsByEventMeasured(
       .order('label', { ascending: true }),
     // Pull all memberships for groups in this event in one round trip;
     // join through group_id then count client-side. Avoids a per-group
-    // count(*) which would N+1.
-    supabase
-      .from('guest_group_memberships')
-      .select('group_id, guest_groups!inner(event_id)')
-      .eq('guest_groups.event_id', eventId),
+    // count(*) which would N+1. ⚡ The SAME read the guest→groups map makes
+    // (`readEventGroupMemberships`, cached per render) — the guest list asked
+    // it twice per load, once without `guest_id` (measured 2026-10-16).
+    readEventGroupMemberships(supabase, eventId),
   ]);
 
   // 5th-pass hotfix 2026-05-23: collapse to "always graceful-degrade,
@@ -1213,10 +1233,7 @@ export async function fetchGroupMembershipsByEventMeasured(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<{ memberships: Map<string, string[]>; measured: boolean }> {
-  const { data, error } = await supabase
-    .from('guest_group_memberships')
-    .select('guest_id, group_id, guest_groups!inner(event_id)')
-    .eq('guest_groups.event_id', eventId);
+  const { data, error } = await readEventGroupMemberships(supabase, eventId);
 
   // Graceful-degrade on any error — render the page with no custom-group
   // memberships rather than crashing. Symmetric with the 5th-pass

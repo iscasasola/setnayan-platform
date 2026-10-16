@@ -365,6 +365,17 @@ async function middlewareCore(request: NextRequest) {
     );
   }
 
+  // /explore/compare with no `ids` is not a comparison, and the page itself
+  // `redirect()`s to /explore. But the page STREAMS (its `loading.tsx` commits
+  // the 200 and the shell first), so that redirect arrived in-stream: the shell's
+  // links had already started prefetching, then the page navigated away and
+  // Safari logged every aborted prefetch ("Failed to fetch RSC payload … Load
+  // failed" × 8 on the 2026-10-13 quality sweep, item 10). Answered here as a
+  // real 307 before anything streams. With `ids`, the page decides as before.
+  if (pathname === '/explore/compare' && !request.nextUrl.searchParams.get('ids')) {
+    return NextResponse.redirect(new URL('/explore', request.url), 307);
+  }
+
   // Legacy /services → /add-ons. 308 (permanent + method-preserving) since
   // the rename is intentional and not coming back.
   const legacyMatch = pathname.match(LEGACY_SERVICES_RE);

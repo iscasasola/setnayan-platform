@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CalendarDays,
   ClipboardList,
+  Signpost,
   Download,
   FileText,
   Gift,
@@ -89,6 +90,7 @@ import {
 import { LOOK_ITEM_SECTIONS, type LookPart } from '@/lib/maker-look-sections';
 /* 🧭 The new Maker's Studio tools (`studio`) — lazy, so the shipped Maker's first load carries none of them. */
 import { StudioTool } from './details-lazy';
+import { freePrints } from '@/lib/free-prints';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import type { StudioHubFacts } from './studio-tools';
 import type { HubMainGround } from '@/lib/hub-canvas';
@@ -133,6 +135,7 @@ import {
   PrintSetDownloads,
   SeatPlan3dNote,
   freePrintParts,
+  studioChartInput,
   type PrintsInput,
 } from './maker-prints';
 
@@ -418,6 +421,7 @@ const FREE_ICON: Record<string, ReactNode> = {
   'qr-codes': <Grid3x3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   'seat-plan': <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   'seating-pack': <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'seating-chart': <Signpost aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   caterer: <CalendarDays aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   'event-qr': <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
 };
@@ -779,6 +783,9 @@ export function MakerDetails(props: MakerDetailsProps) {
     </>
   );
   for (const f of free) bodies[f.key] = f.body;
+  /* 🪧 Studio: the entrance chart's picture follows the row's By table | A to Z and size (`StudioChartBody`, owner 2026-10-14). */
+  const chartPrint = props.studio ? freePrints(eventId, slug).find((x) => x.key === 'seating-chart') : undefined;
+  if (chartPrint) bodies['seating-chart'] = <StudioTool part="chart-body" chart={studioChartInput(eventId, slug, chartPrint)} />;
   if (ye) Object.assign(bodies, ye.bodies);
   Object.assign(bodies, ap.bodies);
   /* 🪑 The seat plan — the shipped editor fills the middle part ('fill'). */
@@ -1019,7 +1026,8 @@ export function MakerDetails(props: MakerDetailsProps) {
   for (const f of free) {
     editors[f.key] =
       f.key === 'seat-plan' ? (
-        <div className="flex flex-col gap-3">
+        /* 🧭 In Studio the row names itself (its head, with its picture) — the form's own heading steps aside (`data-print-studio`). */
+        <div className="flex flex-col gap-3" data-print-studio={props.studio ? '' : undefined}>
           {freeEditor(f)}
           <IncludeSwitch form={WORDS_FORM} name="inc_seat_plan" label="Offer a seat plan with the set" on={inc.seatPlan !== 'none'} tip="Prints your seating chart from the Seat plan you already made.">
             {props.studio ? (

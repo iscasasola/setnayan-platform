@@ -1,5 +1,6 @@
 'use server';
 
+import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 
@@ -52,11 +53,13 @@ export async function resolveVendorDateStatus(dateIso: string): Promise<{
   const [blocksRes, dayStatesRes, bookingsRes, waitlistRes] = await Promise.all([
     supabase
       .from('vendor_calendar_blocks')
-      .select('block_label')
+      // Manila day (+08 — the window was UTC before 2026-10-14), and every block that can touch it: a one-off
+      // overlapping it or a REPEAT that began before it (`lib/not-available.ts`). The rule picks below.
+      .select(`block_label, blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
       .eq('vendor_profile_id', vendorProfileId)
-      .lte('blocked_at', `${dateIso}T23:59:59Z`)
-      .gt('blocked_until', `${dateIso}T00:00:00Z`)
-      .limit(5),
+      .lte('blocked_at', `${dateIso}T23:59:59+08:00`)
+      .or(notAvailableWindowFilter(`${dateIso}T00:00:00+08:00`))
+      .limit(50),
     supabase
       .from('vendor_calendar_day_states')
       .select('day_state')
@@ -76,7 +79,10 @@ export async function resolveVendorDateStatus(dateIso: string): Promise<{
       .eq('requested_date', dateIso),
   ]);
 
-  const blockLabels = ((blocksRes.data ?? []) as { block_label: string }[])
+  const blockLabels = ((blocksRes.data ?? []) as { block_label: string; blocked_at: string; blocked_until: string }[])
+    // Only a block that CLOSES the day says it is blocked — a morning Mass leaves the day open.
+    .filter((b) => blockClosesDay(notAvailableShapeOf(b), dateIso))
+    .slice(0, 5)
     .map((b) => b.block_label)
     .filter(Boolean);
   const dayStates = ((dayStatesRes.data ?? []) as { day_state: string }[]).map(

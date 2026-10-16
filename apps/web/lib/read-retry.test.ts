@@ -186,7 +186,7 @@ function stubClient(results: Result[]) {
       const r = results[Math.min(calls, results.length - 1)]!;
       calls += 1;
       const b: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'is']) b[m] = () => b;
+      for (const m of ['select', 'eq', 'in', 'is']) b[m] = () => b;
       b.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
         Promise.resolve(r).then(resolve, reject);
       return b;

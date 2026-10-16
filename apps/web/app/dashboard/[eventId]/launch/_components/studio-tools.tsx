@@ -67,6 +67,7 @@ import { ActionButton } from '@/components/action-button';
 import { PrintChoicePicker } from './print-choice-picker';
 import { PrintSaveButton } from './print-save-button';
 import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto, StudioProDoor } from './studio-prints-six';
+import { PrintPaperHead, StudioChartBody, StudioChartPaper, type PrintSheetParts, type StudioPaper } from './print-paper';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -728,11 +729,11 @@ export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
 /* ── 🌄 LOOK › BACKGROUND — THE MAIN BACKGROUND'S EXTRAS ─────────────────── */
 
 /** One drafted write through the ONE draft door (`hubDraftAction` intent=save) — never live. Sent inside `makerSave` by the handler that drew it. */
-function draftSend(eventId: string, patch: Record<string, unknown>) {
+function draftSend(eventId: string, patch: Record<string, unknown>, door: typeof hubDraftAction = hubDraftAction) {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify(patch));
-  return hubDraftAction(eventId, fd);
+  return door(eventId, fd);
 }
 
 /** Did the draft door take it? A thrown save is a refusal, said by the caller. */
@@ -746,7 +747,7 @@ async function draftTook(send: Promise<{ ok: boolean }>): Promise<boolean> {
 
 const NONE_LABEL = { blur: 'None', focus: 'Centre', pattern: 'None' } as const;
 const BLUR_LABEL = { soft: 'Soft', strong: 'Strong' } as const;
-const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
+const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' } as const;
 
 /**
  * 🌄 THE MAIN BACKGROUND'S EXTRAS (owner 2026-10-06 DECISION_LOG "STUDIO › LOOK IS
@@ -756,7 +757,7 @@ const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
  *   · Pattern ▾  None · Fine lines · Dots · Lace · Grid — a pattern on the
  *     Background colour, the prototype's Pattern type (picking one puts it
  *     behind every stage; None takes it off, back to just the colour);
- *   · Focus ▾    Centre · Top · Bottom — a photo;
+ *   · Focus ▾    Centre · Top · Bottom · Left · Right — a photo or a clip;
  *   · Blur ▾     None · Soft · Strong — a photo, a clip or a moving background;
  *   · Shade ▾    Darker · Dark · As is · Light · Lighter — the same three; the
  *     guest page lays the veil and never crosses the contrast floor.
@@ -886,6 +887,8 @@ export function StudioMainColours({
   useEffect(() => setSlots(drafted), [drafted]);
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
+  /* The draft door — the shipped action, or (only in the dev lab) its stand-in, so a lab pick reaches no database. */
+  const { hubDraftAction: door } = useStudioActions();
   const pick = (slot: MainColourSlot, hex: string) => {
     const up = hex.toUpperCase();
     if (five[slot] === up) return;
@@ -898,7 +901,7 @@ export function StudioMainColours({
     setSlots(nextSlots);
     setError(null);
     start(async () => {
-      const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { main_colours: nextSlots } }), requestMakerRefresh));
+      const ok = await draftTook(makerSave(() => draftSend(eventId, { events: { main_colours: nextSlots } }, door), requestMakerRefresh));
       if (!ok) {
         tellLookSample(eventId, { five: before.five });
         setFive(before.five);
@@ -975,22 +978,34 @@ export const STUDIO_PRINT_ROWS = { 'data-studio-print-rows': '' } as const;
 /**
  * 🖨 A PRINT PIECE'S HEAD (owner 2026-10-08/09, the Form row): its name and its sizes on the left, its size ▾ on the right — ONE Form row. A piece with
  * one size has just the name and the size as its small line. The pick is the shipped `PrintChoicePicker`'s: the same address, the same warm sizes.
+ *
+ * 🖼 …WITH ITS PICTURE (owner 2026-10-14, *"i cannot see what the different prints look like"*): `paper` puts the print's real picture at the row's
+ * left — the route's own, at its paper's shape — and a tap opens it full size with the same size ▾ and the same Saves (`print-paper.tsx`).
  */
 export function StudioPrintHead({
   name,
   line,
   picker,
+  paper = null,
+  sheet = {},
 }: {
   name: string;
   line: string;
   picker: { label: string; value: string; dataAttr?: string; options: Array<{ key: string; label: string; href: string }> } | null;
+  paper?: StudioPaper | null;
+  /** What the preview sheet repeats from the row — its Saves and its "Changed since you printed" line. */
+  sheet?: Omit<PrintSheetParts, 'size'>;
 }) {
-  if (picker) return <PrintChoicePicker {...picker} row={{ name, line }} />;
-  return (
+  const row = picker ? (
+    <PrintChoicePicker {...picker} row={{ name, line }} />
+  ) : (
     <FormRows data="print-head" attrs={STUDIO_PRINT_ROWS}>
       <FormRow name={name} line={line} />
     </FormRows>
   );
+  if (!paper) return row;
+  /* The sheet's size ▾ is the SAME pick (the same addresses) — named for the paper. */
+  return <PrintPaperHead paper={paper} row={row} sheet={{ ...sheet, size: picker ? <PrintChoicePicker {...picker} row={{ name: 'Paper size' }} /> : null }} />;
 }
 
 /**
@@ -1172,7 +1187,10 @@ export type StudioToolProps =
   | ({ part: 'kindly-reply' } & Parameters<typeof StudioKindlyReply>[0])
   | ({ part: 'menu' } & Parameters<typeof StudioMenuEditor>[0])
   | ({ part: 'poster-photo' } & Parameters<typeof StudioPosterPhoto>[0])
-  | ({ part: 'pass-rows' } & Parameters<typeof StudioPassRows>[0]);
+  | ({ part: 'pass-rows' } & Parameters<typeof StudioPassRows>[0])
+  /* 🪧 The entrance seating chart's own row and, on a computer, its picture (owner 2026-10-14, `print-paper.tsx`). */
+  | ({ part: 'chart' } & Parameters<typeof StudioChartPaper>[0])
+  | ({ part: 'chart-body' } & Parameters<typeof StudioChartBody>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -1222,5 +1240,9 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioPosterPhoto {...props} />;
     case 'pass-rows':
       return <StudioPassRows {...props} />;
+    case 'chart':
+      return <StudioChartPaper {...props} />;
+    case 'chart-body':
+      return <StudioChartBody {...props} />;
   }
 }

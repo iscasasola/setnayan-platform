@@ -1,6 +1,6 @@
 'use client';
 
-import { HUB_DRAFT_BAR_FIELD, MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, announceUnheldWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, announceUnheldWrite, keepCanvasForRender, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { HUB_DRAFT_EXPECT_FIELD, onFirstUndoStep, undoJournal } from '@/lib/maker-drawn-undo';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
 import { MAKER_PRESS_APPLY_EVENT, type MakerApplyOutcome, type MakerPressApplyDetail } from './maker-press-apply';
@@ -213,7 +213,33 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
         }
       }
     }
+    if (intent === 'apply') {
+      applyHeld(fields);
+      return;
+    }
     slow(fields, intent);
+  };
+  /**
+   * ✓ APPLY, ANSWERED AT ITS OWN WRITE (2026-10-15, `controller-2026-10-12/maker-speed/MEASURE.md`: Apply was an unheld
+   * save — a whole-Maker render and a NEW canvas page, ~9.8 s at production latency before the Maker was itself again,
+   * and every save after it queued behind that render). Apply changes nothing the canvas draws (the canvas IS the
+   * draft, which is now live), so it is HELD: "N changes are now live" and the count come back with the write, the
+   * canvas keeps its page (`keepCanvasForRender`), and the Maker's own render runs behind, outside any transition.
+   */
+  const applyHeld = (fields: Record<string, string>) => {
+    setSettling('apply');
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+    fd.set(HUB_DRAFT_BAR_FIELD, '1');
+    void hubDraftAnswer('apply', () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: true, undo: 'noted' })).then((r) => {
+      setSettling(null);
+      if (r.ok) {
+        undoJournal.clear();
+        keepCanvasForRender();
+        requestMakerRefresh();
+      }
+      setResult(r);
+    });
   };
   /** Undo · Restore · Reset · Apply the Maker did NOT draw: the page shows them after the render they bring. */
   const slow = (fields: Record<string, string>, intent: HubDraftIntent | null) => {

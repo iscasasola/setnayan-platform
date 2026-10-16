@@ -144,6 +144,17 @@ test('5 · the five fixed parts are registered, three styles each where guests m
     for (const stage of stages) assert.ok(sceneStylesOn(type, stage, 'wedding').length >= 3, `${type} on ${stage}`);
     assert.equal(sceneStylesOn(type, 'save_the_date').length, 0, `${type} is not on the Save the Date`);
   }
-  assert.ok(!sceneStylesOn('entourage', 'event', 'birthday').some((s) => s.id === 'two-sides'), 'two sides is a wedding style');
+  /* 👫 Owner 2026-10-15: On the axis · Lines · The march; Two sides withdrawn, on every stage and event type. */
+  for (const stage of ['rsvp', 'event'] as const) {
+    for (const t of ['wedding', 'birthday', null]) {
+      assert.deepEqual(
+        sceneStylesOn('entourage', stage, t).map((s) => [s.id, s.name]),
+        [['roll-call', 'On the axis'], ['lines', 'Lines'], ['march', 'The march']],
+        `entourage on ${stage} (${t})`,
+      );
+    }
+  }
+  assert.ok(!sceneStylesOn('entourage', 'editorial', 'wedding').some((s) => s.id === 'two-sides' || s.id === 'lines'));
+  assert.equal(sceneStylesOn('entourage', 'editorial', 'wedding').find((s) => s.id === 'roll-call')?.name, 'Roll call', 'Post Event keeps its own Roll call');
   assert.equal(recommendedStageSceneStyle('find_your_seat', 'event', null), 'table-number');
 });

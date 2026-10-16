@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { servicesReturnBase } from '@/lib/vendor-services-return';
+import { parseAddonRows, replaceServiceAddons } from '@/lib/service-card-save-parts';
 
 /**
  * Service add-on write path (Vendor Services rework 2026-07-02). Replace-all,
@@ -13,7 +14,6 @@ import { servicesReturnBase } from '@/lib/vendor-services-return';
  */
 
 const BASE = '/vendor-dashboard/services';
-const MAX_ADDONS = 12;
 
 function back(base: string, kind: 'saved' | 'error', msg?: string): never {
   redirect(kind === 'error' && msg ? `${base}?error=${encodeURIComponent(msg)}` : `${base}?saved=1`);
@@ -42,40 +42,9 @@ export async function setServiceAddons(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!svc) back(base, 'error', 'Service not found.');
 
-  const labels = formData.getAll('addon_label').map((v) => String(v));
-  const prices = formData.getAll('addon_price').map((v) => String(v));
-  const rows: {
-    vendor_service_id: string;
-    vendor_profile_id: string;
-    label: string;
-    from_price_php: number | null;
-    sort_order: number;
-  }[] = [];
-  for (let i = 0; i < labels.length && rows.length < MAX_ADDONS; i++) {
-    const label = (labels[i] ?? '').trim();
-    if (!label) continue; // blank rows dropped
-    const priceRaw = (prices[i] ?? '').trim();
-    const priceNum = priceRaw === '' ? NaN : Math.round(Number(priceRaw));
-    const from_price_php = Number.isFinite(priceNum) && priceNum >= 0 ? priceNum : null;
-    rows.push({
-      vendor_service_id: serviceId,
-      vendor_profile_id: profile.vendor_profile_id,
-      label: label.slice(0, 80),
-      from_price_php,
-      sort_order: rows.length,
-    });
-  }
-
-  const del = await supabase
-    .from('vendor_service_addons')
-    .delete()
-    .eq('vendor_service_id', serviceId)
-    .eq('vendor_profile_id', profile.vendor_profile_id);
-  if (del.error) back(base, 'error', del.error.message);
-  if (rows.length > 0) {
-    const ins = await supabase.from('vendor_service_addons').insert(rows);
-    if (ins.error) back(base, 'error', ins.error.message);
-  }
+  // The one add-on parse + replace-all, shared with the maker's one save (lib/service-card-save-parts.ts).
+  const err = await replaceServiceAddons(supabase, serviceId, profile.vendor_profile_id, parseAddonRows(formData));
+  if (err) back(base, 'error', err);
   revalidatePath(BASE);
   revalidatePath('/vendor-dashboard/shop');
   back(base, 'saved');

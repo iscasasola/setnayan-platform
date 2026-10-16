@@ -55,6 +55,27 @@ export const BROWSER_KINDS: ReadonlySet<string> = new Set([
   'RAGE_TAP',
 ]);
 
+/**
+ * A call that never got an answer, in words that say WHY.
+ *
+ * Node's `fetch` rejects every transport failure with the same `TypeError: fetch failed`; the reason
+ * — a reset socket, a refused connection, a DNS miss, a connect timeout — is on `err.cause`
+ * (`code` such as `UND_ERR_SOCKET` / `ECONNRESET`, and a message). The Problems list recorded the
+ * bare message for 116 hits of `platform_settings`, which could not tell a stale keep-alive socket
+ * (one retry absorbs it) from a database that was down (nothing absorbs it). The cause is ONE
+ * short clause, so the fingerprint splits by reason and no further.
+ */
+export function describeUnreachable(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const head = `${err.name}: ${err.message}`;
+  const cause = (err as { cause?: unknown }).cause;
+  if (!cause || typeof cause !== 'object') return head;
+  const c = cause as { code?: unknown; name?: unknown; message?: unknown };
+  const code = typeof c.code === 'string' && c.code ? c.code : typeof c.name === 'string' ? c.name : 'Error';
+  const why = typeof c.message === 'string' ? c.message.slice(0, 120) : '';
+  return `${head} (${code}${why ? `: ${why}` : ''})`;
+}
+
 export function coerceBrowserKind(value: unknown): FaultKind {
   return typeof value === 'string' && BROWSER_KINDS.has(value) ? (value as FaultKind) : 'OTHER';
 }

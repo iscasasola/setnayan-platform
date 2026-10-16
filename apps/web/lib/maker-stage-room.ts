@@ -208,15 +208,17 @@ export function styleCardFit(
 }
 /**
  * 🎨 THE DRESS CODE'S PALETTE ROW (owner 2026-10-09: *"row 3 is palette style"* — Tags · Fabric swatches · Paint
- * chips · Circles · Ribbon, `lib/palette-looks.ts`): five equal buttons in one row, each the couple's colours drawn
+ * chips · Circles · Ribbon, and since 2026-10-15 Arch tabs · Watercolour dots · Paint strokes, `lib/palette-looks.ts`): equal buttons in one row, each the couple's colours drawn
  * in that look. 44 px; the picked one wears the accent's line and ring.
  */
-export const SP_PALETTE_ROW = 'flex h-[var(--sp-rh)] shrink-0 items-center gap-1.5';
+export const SP_PALETTE_ROW = 'flex h-[var(--sp-rh)] shrink-0 items-center gap-1';
 export const SP_PALETTE_PICK =
   'sn-press flex h-11 min-w-0 flex-1 items-stretch justify-center overflow-hidden rounded-lg border border-[var(--sp-line)] bg-white aria-checked:border-[var(--sp-cta)] aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_3px_var(--sp-cta-wash)] ' +
   /* The picture fills the button — one frame, not the dropdown thumbnail's small box inside a second one — and its
-     marks are drawn half as large again, to be read at a glance. */
-  '[&>[data-palette-thumb]]:!h-auto [&>[data-palette-thumb]]:!w-full [&>[data-palette-thumb]]:!rounded-none [&>[data-palette-thumb]]:!shadow-none [&>[data-palette-thumb]>*]:scale-150';
+     marks are drawn a little larger, to be read at a glance. 2026-10-15: eight looks (Arch tabs · Watercolour dots ·
+     Paint strokes joined) make each button ~41 px at 375, so the strip draws three colours (`PaletteLookStrip`) at
+     110 % — the widest picture (37 px) still fits whole; at five colours and 150 % every picture was cut off. */
+  '[&>[data-palette-thumb]]:!h-auto [&>[data-palette-thumb]]:!w-full [&>[data-palette-thumb]]:!rounded-none [&>[data-palette-thumb]]:!shadow-none [&>[data-palette-thumb]>*]:scale-110';
 /* ── 🖼 BACKGROUND'S FOUR ROWS (owner 2026-10-09: *"copy the background on studio look"*; `TOOLBAR-SPEC-2026-10-09.md`
    § BACKGROUND) — row 1 the source ▾, row 2 that source's choices as ONE row of small pictures (the prototype's
    `.gs` / `.gt`), row 3 the choice's one control, row 4 its shape. ── */
@@ -258,6 +260,14 @@ export const SP_BG_QUIET = 'truncate px-1 text-[14px] font-medium text-[var(--sp
 /** Style's last row: Colour (one circle) and Size (a slider) side by side — *"color and size share the same row"*. */
 export const SP_LOOK_ROW = 'flex h-full min-w-0 items-center gap-2';
 export const SP_LOOK_ROW_LABEL = 'shrink-0 text-[13px] font-medium text-[var(--sp-ink)]';
+/**
+ * ↔ Width ▾ on that row — the house two-line dropdown (`Dd stacked`: WIDTH above its value) at its SHORT size, so
+ * Colour · Size · Width fit ONE row at 375 px and the Size bar keeps ~125 px (`maker_text_width_2026-10-14_fable.html`,
+ * question 1: three written words left it ~30 px).
+ */
+export const SP_LOOK_ROW_DD = '!w-[96px] !flex-none [&_button]:!pr-1.5';
+/* 🔤 96 px (was 86) with the value's right padding 10 → 6: at 375 px "Normal" read "Nor…" — the Size bar still keeps ~115 px
+   (the prototype's 115). The small WIDTH word keeps its left edge (14 px). */
 
 /* ── the panel's body (`stage-panel/*`) — every row ONE height, 44 px (owner 2026-10-06 "keep all rows consistent in height") ── */
 

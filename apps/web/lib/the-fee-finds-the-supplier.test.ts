@@ -150,8 +150,10 @@ const BILL_MOUNTS: Record<
     argFile?: string;
   }
 > = {
+  // The simpler Today (2026-10-14): read on the page, drawn (once) by its one drawing — the screen the dev lab shares.
   today: {
-    file: 'app/vendor-dashboard/page.tsx',
+    file: 'app/vendor-dashboard/_components/supplier-today-screen.tsx',
+    argFile: 'app/vendor-dashboard/page.tsx',
     surfaceArg: /billsForSurface\(feeBillsRead, 'today'\)/,
   },
   // S-PR4: the `earnings` surface is Customers › Money — read in the segment, drawn (once) in its view.

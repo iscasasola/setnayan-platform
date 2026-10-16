@@ -28,7 +28,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { TABBED_STAGES, hubTabFor, hubTabsOn, inPageTabs } from '../app/[slug]/_lib/hub-tabs';
+import { ONE_PAGE_STAGES, TABBED_STAGES as DAY_STAGES, hubTabFor, hubTabsOn, inPageTabs } from '../app/[slug]/_lib/hub-tabs';
+
+/** 📜 Every stage the Stages canvas draws as tabs: The Day's pages AND the one-page stages' jump marks + Me (owner
+ *  2026-10-15 — the Maker's per-tab view follows the guest's split, so both keep a page list here). */
+const TABBED_STAGES = [...DAY_STAGES, ...ONE_PAGE_STAGES];
 import { navPhaseFor, resolveSiteNav } from '../app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '../app/[slug]/_lib/stage-bar';
 import { HUB_TAB_FREES, HUB_TAB_HOLD_MS, createPageTop, openHubTab, showHubTab, shownHubTab } from '../app/[slug]/_components/hub-tab-dom';
@@ -117,7 +121,7 @@ test('a · the canvas groups by the Maker’s list — a tab the READER’s bar 
   }
   // The owner's own example: Our Love Story is its own page, never the foot of Details.
   assert.equal(makerStagesPageOf('rsvp', 'w:our_love_story', pageTabKeys({ tabsOn: true, bar: inv, stagesPages: keysOf('rsvp') })), 'story');
-  assert.match(BODY, /const inPage = pageTabKeys\(\{ tabsOn, bar, stagesPages \}\);/, 'the canvas asks the one function');
+  assert.match(BODY, /const inPage = pageTabKeys\(\{ tabsOn, bar, stagesPages, onePage \}\);/, 'the canvas asks the one function');
   assert.match(BODY, /tabsOn && stagesTabs && isMakerCanvas && canvasOnly === null \? makerStagesPages\(pageStage, weddingOnly\.love_story\) : null/);
 });
 
@@ -126,7 +130,7 @@ test('a · EVERY page of the list gets a group — a page nothing was filed on d
   assert.deepEqual(stagesPagesLeft(keysOf('rsvp'), new Set(keysOf('rsvp'))), []);
   // Both trees end with it, after every group() has run; it marks each page as a tab of its own.
   assert.equal(BODY.match(/\{tabs\.rest\(\)\}/g)?.length, 2, 'both trees draw the pages nothing was filed on');
-  assert.match(BODY, /stagesPagesLeft\(inPage, filled\)\.map\(\(p\) => \(\s*<div key=\{p\} \{\.\.\.\{ \[HUB_TAB_ATTR\]: p \}\}/);
+  assert.match(BODY, /stagesPagesLeft\(inPage, filled\)\.map\(\(p\) => \(\s*<div key=\{p\} \{\.\.\.\{ \[HUB_TAB_ATTR\]: p, \[HUB_PAGE_ATTR\]: pageOf\(p\) \}\}/);
   assert.match(BODY, /if \(!opts\.quiet\) filled\.add\(tab\);/, 'a group records the page it filled');
   const React = await import('react');
   /* The canvas's stand-ins are compiled with the classic JSX runtime under `tsx` — they read the global. */
@@ -153,7 +157,8 @@ test('b · every part the canvas marks is on the prototype’s page for it', () 
         assert.equal(makerStagesPageOf(stage, canvas, pages), page, `${stage}: ${part} (${canvas}) is not on ${page}`);
       }
     }
-    assert.ok(seen.size >= 8, `precondition: ${stage} marks several parts (${seen.size})`);
+    /* Save the Date is the smallest stage (cover, countdown, message, story, pass): five canvas keys. */
+    assert.ok(seen.size >= (stage === 'save_the_date' ? 5 : 8), `precondition: ${stage} marks several parts (${seen.size})`);
   }
 });
 
@@ -308,7 +313,8 @@ test('d · the canvas shows one tab’s groups, refuses a tab it has no page for
 test('d · WIRING: the swap starts at the top and stays there; the label follows the canvas, not a guess', () => {
   const tab = BRIDGE.slice(BRIDGE.indexOf("data.t === 'hubTab'"));
   const handler = tab.slice(0, tab.indexOf('return;\n      }') + 20);
-  assert.match(handler, /if \(!openHubTab\(document, window, lift, tab\)\) return;\s*pageTop\.hold\(\);/, 'a pick starts at the top');
+  /* 📜 A page of its own starts at the top and is held there; a jump mark of the one page (2026-10-15) is not held. */
+  assert.match(handler, /const opened = openHubTab\(document, window, lift, tab\);\s*if \(!opened\) return;\s*if \(opened === true\) pageTop\.hold\(\);/, 'a pick starts at the top');
   // After a RELOAD the page that was on screen is put back on the fresh page's own document, at once — before the
   // buffered swap carries the scroll — and never through a message that would send it to the top.
   assert.match(TOOLS, /if \(was\?\.stage === stage && was\.tab !== d\.tab && putTabBack\(from, was\.tab\)\) return;/);

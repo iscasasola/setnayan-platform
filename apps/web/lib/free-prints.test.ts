@@ -38,7 +38,8 @@ function routeFileFor(href: string): string {
 
 test('the free group names every print the owner and the controller listed', () => {
   const keys = freePrints(EVENT, 'cale-ice').map((p) => p.key);
-  assert.deepEqual(keys, ['guest-registry', 'qr-codes', 'seat-plan', 'seating-pack', 'caterer', 'event-qr']);
+  /* 🪧 The entrance seating chart is its own row since 2026-10-14 (owner, on the Studio › Prints previews). */
+  assert.deepEqual(keys, ['guest-registry', 'qr-codes', 'seat-plan', 'seating-pack', 'seating-chart', 'caterer', 'event-qr']);
   // The event QR needs an address; without one it is left out rather than broken.
   assert.ok(!freePrints(EVENT, null).some((p) => p.key === 'event-qr'));
 });
@@ -98,8 +99,9 @@ test('file names follow the owner’s rule: <event slug>-<print>', () => {
   assert.deepEqual(byKey['guest-registry'], ['cale-ice-guest-registry.pdf']);
   assert.deepEqual(byKey['seat-plan'], ['cale-ice-seat-plan.pdf', 'cale-ice-seat-plan-blueprint.pdf']);
   assert.deepEqual(byKey['qr-codes'], ['cale-ice-qr-codes.pdf']);
-  /* 🪧 The entrance chart rides beside the pack (owner 2026-10-13, #6503) — the route's own names (`chartFileStem`). */
-  assert.deepEqual(byKey['seating-pack'], ['cale-ice-seating-pack.pdf', 'cale-ice-seating-chart-by-table.pdf', 'cale-ice-seating-chart-a-to-z.pdf']);
+  /* 🪧 The entrance chart (owner 2026-10-13, #6503) is its own row since 2026-10-14 — the SAME route, the route's own names (`chartFileStem`). */
+  assert.deepEqual(byKey['seating-pack'], ['cale-ice-seating-pack.pdf']);
+  assert.deepEqual(byKey['seating-chart'], ['cale-ice-seating-chart-by-table.pdf', 'cale-ice-seating-chart-a-to-z.pdf']);
   assert.deepEqual(byKey['event-qr'], ['cale-ice-event-qr.png']);
   // …and the routes name the file the same way when saved without the button.
   assert.match(read('app/dashboard/[eventId]/seating/export/route.ts'), /printFileName\(event\.slug, mode === 'blueprint' \? 'seat-plan-blueprint' : 'seat-plan'\)/);
@@ -129,4 +131,19 @@ test('the event QR is the GUEST code, never the crew-pairing code', () => {
     assert.doesNotMatch(href, /event-qr/, 'the /event-qr page carries the master pairing token — not for guests');
     assert.match(href, /^\/api\/website\/qr\//);
   }
+});
+
+test('🪧 the entrance chart row draws the chart\'s own default sheet — its shape and name are the chart\'s, written once here and held equal', async () => {
+  const { DEFAULT_ENTRANCE_CHART_SIZE, chartSizeSpec, chartFileStem } = await import('./print-entrance-chart');
+  const chart = freePrints(EVENT, 'cale-ice').find((p) => p.key === 'seating-chart')!;
+  const spec = chartSizeSpec(DEFAULT_ENTRANCE_CHART_SIZE);
+  assert.equal(chart.aspect, spec.wMm / spec.hMm, 'the chart row draws a different sheet from the chart’s default');
+  assert.equal(chart.paper, spec.label);
+  /* The same route draws its picture and saves its files — never a second renderer. */
+  assert.match(chart.preview, /\/seating\/print\?chart=table&format=preview$/);
+  for (const s of chart.saves) assert.match(s.href, /\/seating\/print\?chart=(?:table|az)&format=pdf$/);
+  assert.deepEqual(chart.saves.map((s) => s.file), [`cale-ice-${chartFileStem('table')}.pdf`, `cale-ice-${chartFileStem('az')}.pdf`]);
+  /* …and the pack no longer carries it. */
+  const pack = freePrints(EVENT, 'cale-ice').find((p) => p.key === 'seating-pack')!;
+  assert.ok(!pack.saves.some((s) => /chart=/.test(s.href)), 'the pack still saves the chart — two rows for one file');
 });

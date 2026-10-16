@@ -148,3 +148,37 @@ export function subscribeLookSampleWorn(hear: () => void): () => void {
     wornHears.delete(hear);
   };
 }
+
+/* ── 🔤 the colour each TYPE is drawn in on the sample ──────────────────────────────────────────────────────────
+   Owner, Maker test 2026-10-14 (item 4): *"return the type name to show color as well"* — Elements' type rows
+   (Names · Headings · Text · Labels & buttons) show the colour that type wears, as the approved role rows did
+   (`look-restudy-built-2026-10-08/09-el`: the type's name with its swatch). The colour is READ OFF THE SAMPLE'S OWN
+   WORDS after it draws (`getComputedStyle` of the four marked lines) — the page's palette, a picture's tint and a
+   dark shade's flipped words included — so a swatch can never say a colour the page does not wear. Told after the
+   render, never in it; asks for nothing; no timer. */
+export type LookSampleInks = { names: string; heading: string; body: string; highlight: string };
+const inks = new Map<string, LookSampleInks>();
+const inkHears = new Set<() => void>();
+
+export function tellLookSampleInks(eventId: string, value: LookSampleInks): void {
+  if (fingerprint(inks.get(eventId)) === fingerprint(value)) return;
+  inks.set(eventId, value);
+  for (const hear of inkHears) hear();
+}
+/** The same object until it changes — `useSyncExternalStore`'s snapshot. Null: no sample has drawn yet. */
+export function readLookSampleInks(eventId: string): LookSampleInks | null {
+  return inks.get(eventId) ?? null;
+}
+export function subscribeLookSampleInks(hear: () => void): () => void {
+  inkHears.add(hear);
+  return () => {
+    inkHears.delete(hear);
+  };
+}
+
+/** `rgb(…)` / `rgba(…)` as `getComputedStyle` gives it → `#rrggbb` (alpha dropped), or null. */
+export function cssColourHex(css: string | null | undefined): string | null {
+  const m = /^rgba?\(\s*(\d{1,3})[\s,]+(\d{1,3})[\s,]+(\d{1,3})/.exec((css ?? '').trim());
+  if (!m) return /^#[0-9a-f]{6}$/i.test((css ?? '').trim()) ? (css as string).trim().toLowerCase() : null;
+  return `#${[m[1], m[2], m[3]].map((n) => Math.min(255, Number(n)).toString(16).padStart(2, '0')).join('')}`;
+}

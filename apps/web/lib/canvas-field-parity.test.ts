@@ -170,29 +170,41 @@ test('the scan reaches the shipped child editors (canary — an empty scan must 
 // 2 · THE PARITY ASSERTION
 // ════════════════════════════════════════════════════════════════════════════
 
-test('the canvas posts EXACTLY the wizard’s field names — the server cannot tell them apart', () => {
+/**
+ * The fields the simpler maker (2026-10-14) posts that the 6-step wizard never did — each READ by
+ * `commitVendorService` (or a part it writes through: lib/service-card-save-parts.ts ·
+ * lib/vendor-service-refinements-write.ts). `lib/the-maker-maps-every-field.test.ts` proves every one is read.
+ */
+const MAKER_ONLY_FIELDS = [
+  'vendor_service_id', // the edit sheet of an existing card (commit's UPDATE path)
+  'return_to', //         a refusal lands back on the card
+  'schedule_choice', //   Schedule — its own / shares one
+  'addons_present', 'addon_label', 'addon_price', // Add-ons
+  'schedule_present', 'item_label', 'item_amount_kind', 'item_value', 'item_due_anchor', 'item_due_offset_days',
+  'item_downpayment_non_refundable', 'item_no_show_forfeit', 'item_refund_window_days', 'item_cancellation_terms', // Payment schedule
+  'new_slot_label', 'new_slot_start', 'new_slot_end', 'new_slot_capacity', 'remove_slot_id', // Time slots
+  'daily_capacity', 'branch_id', // Booking terms · Who it is for
+] as const;
+
+test('the maker posts EVERY field the wizard posts — the server cannot tell a field went missing', () => {
   const wizard = collectNames(WIZARD);
   const canvas = collectNames(CANVAS);
-
   const onlyWizard = sorted(wizard).filter((n) => !canvas.has(n));
-  const onlyCanvas = sorted(canvas).filter((n) => !wizard.has(n));
-
-  assert.deepEqual(
-    onlyCanvas,
-    [],
-    'The canvas posts field(s) the wizard does not: ' +
-      `${onlyCanvas.join(', ')}. commitVendorService would have to change to ` +
-      'read them — it must not. Either drop the field or route it through an ' +
-      'existing name.',
-  );
   assert.deepEqual(
     onlyWizard,
     [],
-    'The canvas DROPS field(s) the wizard posts: ' +
-      `${onlyWizard.join(', ')}. A vendor using the canvas would silently lose ` +
-      'them. Mount the editor that owns them.',
+    'The maker DROPS field(s) the wizard posts: ' +
+      `${onlyWizard.join(', ')}. A supplier using the maker would silently lose them. Mount the editor that owns them.`,
   );
-  assert.deepEqual(sorted(canvas), sorted(wizard));
+  // Anything beyond the wizard's set is a NAMED field the save reads — never an unnamed extra.
+  // `<SupplierThumbRow name="maker">` names the thumb row (its guard anchor), not a form field.
+  const known = new Set<string>([...MAKER_ONLY_FIELDS, 'maker']);
+  const onlyCanvas = sorted(canvas).filter((n) => !wizard.has(n) && !known.has(n));
+  assert.deepEqual(
+    onlyCanvas,
+    [],
+    `The maker posts field(s) nobody listed: ${onlyCanvas.join(', ')} — add each to MAKER_ONLY_FIELDS with the save that reads it.`,
+  );
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -361,32 +373,33 @@ test('the canvas takes the wizard’s props unchanged, and only ADDS optional on
 test('the card is wired to the LIVE form — no per-region save, nothing waits for submit', () => {
   const canvas = stripComments(readFileSync(CANVAS, 'utf8'));
 
-  // The read is event-driven off the card's own fields — heard on the DOCUMENT
-  // and kept to fields whose owner form is the card, because the sheets portal
-  // to <body> and their events never bubble through the <form> element
-  // (every-sheet-field-posts-with-the-card.test.ts)…
-  assert.match(canvas, /const fromCard = \(e: Event\) => ownerFormOf\(e\.target as Element \| null\) === form;/);
-  assert.match(canvas, /doc\.addEventListener\('input', readIfCard\)/);
-  assert.match(canvas, /doc\.addEventListener\('change', readIfCard\)/);
+  // The read is event-driven off the form itself — every card field is a DOM
+  // descendant of the card <form> (in-page folds, no sheet holds a field since
+  // the supplier-easy step 3 rebuild; every-sheet-field-posts-with-the-card.test.ts
+  // pins that), so their events bubble through it…
+  // …and READ A TICK LATER (W1, 2026-10-15): the form hears an event before React's root listener, so a synchronous
+  // state update there re-rendered the controlled Name back to its old value and every keystroke was lost.
+  assert.match(canvas, /form\.addEventListener\('input', readAfterCommit\)/);
+  assert.match(canvas, /form\.addEventListener\('change', readAfterCommit\)/);
+  assert.doesNotMatch(canvas, /form\.addEventListener\('(?:input|change)', read\)/, 'a synchronous live read eats the Name keystrokes');
+  assert.match(canvas, /const readAfterCommit = \(\) => \{[\s\S]{0,120}setTimeout\(read, 0\)/, 'the deferred read no longer defers');
   // …plus a deferred click read, because the basis picker and the unit toggles
   // are type="button" controls writing React-controlled hidden inputs.
-  assert.match(canvas, /doc\.addEventListener\('click', readAfterCommitIfCard\)/);
+  assert.match(canvas, /form\.addEventListener\('click', readAfterCommit\)/);
   // …and a poll for the editors that write controlled hidden inputs silently.
   assert.match(canvas, /setInterval\(read, \d+\)/);
   // The card renders what that read produced, not component-local price state.
   assert.match(canvas, /snap\.priceLine/);
   assert.match(canvas, /hasPrice: snap\.hasPrice/);
 
-  // The ONLY submits on the card form are the single commit's two buttons.
-  // A per-region "save" would mean the canvas had stopped being one form.
+  // ONE save (owner 2026-10-08 Q3): the card form carries no per-region submit; the one Create / Save sits in the
+  // thumb row and submits the card form by its id.
   const cardForm = canvas.slice(
     canvas.indexOf('action={commitVendorService}'),
-    canvas.indexOf('</form>'),
+    canvas.indexOf('</form>', canvas.indexOf('action={commitVendorService}')),
   );
-  const submits = [...cardForm.matchAll(/<SubmitButton/g)];
-  assert.equal(submits.length, 2, 'exactly Publish + Save as draft');
-  assert.match(cardForm, /name="publish"\s+value="true"/);
-  assert.match(cardForm, /name="publish"\s+value="false"/);
+  assert.equal([...cardForm.matchAll(/<SubmitButton|type="submit"/g)].length, 0, 'a per-region save is back inside the card form');
+  assert.match(canvas, /type="submit"\s+form=\{CARD_FORM_ID\}/, 'the one Create stopped submitting the card form');
 });
 
 /**

@@ -25,8 +25,10 @@ const TINT = { match: false, frame: ['#f4efe6', '#1e1a12'] };
 test('each extra is kept only where it means something', () => {
   const photo = sanitizeHubMainGround({ kind: 'photo', media: 'r2://setnayan-media/events/E1/main-background/c.jpg', tint: TINT, shade: 'dark', blur: 'soft', focus: 'top' });
   assert.deepEqual([photo && 'shade' in photo && photo.shade, photo && 'blur' in photo && photo.blur, photo && 'focus' in photo && photo.focus], ['dark', 'soft', 'top']);
-  const clip = sanitizeHubMainGround({ kind: 'snippet', media: 'r2://setnayan-media/events/E1/main-background/c.mp4', shade: 'lighter', focus: 'top' });
-  assert.equal(clip && 'focus' in clip ? clip.focus : undefined, undefined, 'a clip takes no Focus');
+  /* 🎯 A clip takes Focus too since 2026-10-14 (owner, Maker test item 2) — it is cropped exactly as a photo is. */
+  const clip = sanitizeHubMainGround({ kind: 'snippet', media: 'r2://setnayan-media/events/E1/main-background/c.mp4', shade: 'lighter', focus: 'left' });
+  assert.equal(clip && 'focus' in clip ? clip.focus : undefined, 'left', 'a clip lost its Focus');
+  assert.equal((sanitizeHubMainGround({ ground: 'loop', loop: 'velvet', focus: 'left' }) as { focus?: unknown } | null)?.focus, undefined, 'a loop of ours takes no Focus (it is cut for a phone already)');
   assert.equal(clip && 'shade' in clip ? clip.shade : undefined, 'lighter');
   assert.deepEqual(sanitizeHubMainGround({ ground: 'none', shade: 'dark' }), { ground: 'none' }, 'the plain colour takes no Shade');
   assert.deepEqual(sanitizeHubMainGround({ ground: 'pattern', pattern: 'lace' }), { ground: 'pattern', pattern: 'lace' });

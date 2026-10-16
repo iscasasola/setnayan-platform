@@ -16,6 +16,7 @@ import {
   RevealGrid,
   RevealSection,
 } from './_about-motion';
+import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
 
 // /about — the canonical brand/entity page. Fully static: brand facts, no DB,
 // no session. This is the surface SEO + GEO engines (ChatGPT-User, Perplexity,
@@ -176,7 +177,7 @@ export default function AboutPage() {
           <Link
             href="/tl/about"
             hrefLang="tl-PH"
-            className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+            className={LOCALE_SWITCH_CLASS}
           >
             Taglish
           </Link>

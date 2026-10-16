@@ -14,6 +14,7 @@ import {
 } from '@/lib/seating-pdf';
 import { seatPlanPreviewSvg } from '@/lib/seat-plan-preview-svg';
 import { printFileName } from '@/lib/print-pieces';
+import { PAPER_HOW, printPaperHeader } from '@/lib/print-paper';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,7 @@ export async function GET(
   const { data: event } = await supabase
     .from('events')
     .select(
-      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, style_preferences',
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, style_preferences, logo_wanted',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -94,7 +95,12 @@ export async function GET(
     for (const a of assignments) seated.set(a.table_id, (seated.get(a.table_id) ?? 0) + 1);
     return new NextResponse(seatPlanPreviewSvg({ tables, floorPlan, seatedByTable: seated, mode, palette: flatHexPalette }), {
       status: 200,
-      headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, max-age=60' },
+      headers: {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Cache-Control': 'private, max-age=60',
+        /* 📄 One A3 page; how many tables and seats it shows (Studio › Prints' preview, owner 2026-10-14). */
+        ...printPaperHeader({ pages: 1, page: 1, how: PAPER_HOW.seatPlan(tables.length, assignments.length), empty: tables.length === 0 ? 'tables' : null }),
+      },
     });
   }
 

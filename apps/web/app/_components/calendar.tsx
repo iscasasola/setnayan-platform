@@ -7,8 +7,10 @@ import {
   CALENDAR_MOTION,
   CALENDAR_MONTH_SLIDE_PX,
   CALENDAR_WEEKDAYS,
+  CALENDAR_BLOCKED_WORD,
   CALENDAR_DOT_WORD,
   CALENDAR_HATCH,
+  CALENDAR_PART_STYLE,
   calendarOpensAs,
   dayDots,
   dayLook,
@@ -69,10 +71,14 @@ export const CALENDAR_DAY_CLASS =
 /** ‹ and › — round, 44 px, the accent arrow (the small mark that says "you can tap this"). */
 const STEP_CLASS = 'sn-press flex h-11 min-h-11 w-11 flex-none items-center justify-center rounded-full p-0 text-sn-accent disabled:opacity-40';
 
-/** A dot's colour: the house MEANING tokens (green booked, amber holding) — the viewer's own event is the accent class. */
+/**
+ * A dot's colour: the house MEANING tokens (green booked here, amber asking) and the quiet ink for a booking from
+ * outside (its own grey dot — owner 2026-10-14) — the viewer's own event is the accent class.
+ */
 const DOT_FILL: Readonly<Record<Exclude<CalendarDot, 'event'>, string>> = {
   booked: 'rgb(var(--color-ok))',
-  holding: 'rgb(var(--color-warn))',
+  outside: 'rgb(var(--color-ink) / 0.45)',
+  asking: 'rgb(var(--color-warn))',
 };
 
 /* ── THE GRID ───────────────────────────────────────────────────────────── */
@@ -88,6 +94,7 @@ export function CalendarGrid({
   startAt = null,
   onPick,
   onMonth,
+  monthPicker,
   data,
 }: {
   /** The one day picked (`YYYY-MM-DD`). */
@@ -112,6 +119,12 @@ export function CalendarGrid({
   onPick: (day: CalendarDay) => void;
   /** The month on show changed (‹ or ›) — a screen that reads a month at a time fetches it here. */
   onMonth?: (month: CalendarMonth) => void;
+  /**
+   * The month's title as a DROPDOWN between ‹ and › (supplier Dates, owner 2026-10-14 prototype "the month as a
+   * dropdown"): the screen draws its own one PickMenu and calls `go` with the month picked. Left out, the title is
+   * plain words — so this shared grid never carries a menu it does not use.
+   */
+  monthPicker?: (view: CalendarMonth, go: (month: CalendarMonth) => void) => ReactNode;
   /** `data-calendar="<data>"`. */
   data?: string;
 }) {
@@ -139,6 +152,13 @@ export function CalendarGrid({
     setView(next);
     onMonth?.(next);
   };
+  const go = (next: CalendarMonth) => {
+    const side = next.y * 12 + next.m - (view.y * 12 + view.m);
+    if (side === 0) return;
+    came.current = side > 0 ? 1 : -1;
+    setView(next);
+    onMonth?.(next);
+  };
   const { lead, days } = monthCells(view);
   return (
     <div data-calendar={data ?? ''} data-calendar-month={`${view.y}-${String(view.m).padStart(2, '0')}`} className="w-full select-none">
@@ -146,9 +166,15 @@ export function CalendarGrid({
         <button type="button" aria-label="Earlier month" data-calendar-step="-1" onClick={() => step(-1)} className={STEP_CLASS}>
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>
-        <b id={titleId} aria-live="polite" data-calendar-title="" className="min-w-0 flex-1 text-center text-[15px] font-semibold text-ink">
-          {monthTitle(view)}
-        </b>
+        {monthPicker ? (
+          <span id={titleId} aria-live="polite" data-calendar-title="" className="flex min-w-0 flex-1 justify-center">
+            {monthPicker(view, go)}
+          </span>
+        ) : (
+          <b id={titleId} aria-live="polite" data-calendar-title="" className="min-w-0 flex-1 text-center text-[15px] font-semibold text-ink">
+            {monthTitle(view)}
+          </b>
+        )}
         <button type="button" aria-label="Later month" data-calendar-step="1" onClick={() => step(1)} className={STEP_CLASS}>
           <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>
@@ -168,6 +194,7 @@ export function CalendarGrid({
           const st = states?.get(day) ?? null;
           const dots = dayDots(st);
           const blocked = st?.blocked === true;
+          const part = !blocked && st?.part === true;
           const stWords = dayStateWords(st);
           return (
             <button
@@ -180,18 +207,19 @@ export function CalendarGrid({
               data-calendar-day={day}
               data-calendar-in-range={look.inRange ? '' : undefined}
               data-calendar-blocked={blocked ? '' : undefined}
+              data-calendar-part={part ? '' : undefined}
               data-calendar-full={st?.full ? '' : undefined}
               onClick={() => onPick(day)}
               /* ONE shape per day: a circle — or, strictly between a range's two ends, a square of the soft fill; or
                  (kind 31) a blocked day's hatched square. The picked day is always the one circle. */
-              style={blocked && !look.picked ? { backgroundImage: CALENDAR_HATCH } : undefined}
+              style={blocked && !look.picked ? { backgroundImage: CALENDAR_HATCH } : part && !look.picked ? CALENDAR_PART_STYLE : undefined}
               className={`${CALENDAR_DAY_CLASS} ${
                 look.picked
                   ? `rounded-full ${PILL_ON_CLASS} font-bold`
                   : look.out
                     ? 'pointer-events-none rounded-full text-ink/25'
-                    : blocked
-                      ? 'rounded text-ink/45'
+                    : blocked || part
+                      ? `rounded ${blocked ? 'text-ink/45' : 'text-ink'}`
                       : look.inRange
                         ? 'rounded-none bg-sn-accent/[0.14] text-ink'
                         : 'rounded-full text-ink'
@@ -224,11 +252,20 @@ export function CalendarGrid({
  * KIND 31 · THE LEGEND — every dot's word under the month (the colour is never the only sign): a dot per meaning the
  * screen uses, and the hatch when it can show a blocked day. Shown, never pressed.
  */
-export function CalendarLegend({ dots, blocked = false }: { dots: readonly CalendarDot[]; blocked?: boolean }) {
+export function CalendarLegend({
+  dots,
+  blocked = false,
+  full = false,
+}: {
+  dots: readonly CalendarDot[];
+  blocked?: boolean;
+  /** Also say what a bold number means (supplier Dates: "12 Full"). */
+  full?: boolean;
+}) {
   return (
     <p data-calendar-legend="" className="flex flex-wrap gap-x-3.5 gap-y-1.5 px-0.5 pt-2 text-[12px] text-ink/70">
       {dots.map((d) => (
-        <span key={d} className="inline-flex items-center gap-1.5">
+        <span key={d} className="inline-flex items-center gap-1.5" data-calendar-legend-dot={d}>
           <i aria-hidden className={`block h-2 w-2 rounded-full ${d === 'event' ? 'bg-sn-accent' : ''}`} style={d === 'event' ? undefined : { background: DOT_FILL[d] }} />
           {CALENDAR_DOT_WORD[d]}
         </span>
@@ -236,7 +273,15 @@ export function CalendarLegend({ dots, blocked = false }: { dots: readonly Calen
       {blocked ? (
         <span className="inline-flex items-center gap-1.5">
           <i aria-hidden className="block h-2.5 w-3.5 rounded-sm" style={{ backgroundImage: CALENDAR_HATCH }} />
-          Blocked
+          {CALENDAR_BLOCKED_WORD}
+        </span>
+      ) : null}
+      {full ? (
+        <span className="inline-flex items-center gap-1.5" data-calendar-legend-full="">
+          <b aria-hidden className="font-bold text-ink">
+            12
+          </b>
+          Full
         </span>
       ) : null}
     </p>

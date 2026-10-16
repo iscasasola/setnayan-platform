@@ -350,7 +350,7 @@ test('⛔ NOT A SECOND FIXED BOTTOM BAR — nothing is positioned while closed',
     );
   }
   assert.ok(
-    SHEET_CODE.includes('.sn-sheet-js .sn-rsvp-sheet{display:none}'),
+    SHEET_CODE.includes('[data-sn-sheet] .sn-rsvp-sheet{display:none}'),
     'a closed sheet is no longer hidden',
   );
 });
@@ -377,11 +377,11 @@ test('🔑 focus is managed by the SHARED hook, not hand-rolled here', () => {
 });
 
 test('with the bundle dead the reply card is still a reachable section', () => {
-  // The flow ⇄ sheet switch hangs off `.sn-sheet-js`, added to <html> by an
+  // The flow ⇄ sheet switch hangs off `[data-sn-sheet]`, set on <html> by an
   // inline script. With JS off the class never lands, the panel keeps its
   // default flow rendering, and `#your-details` scrolls to a real form —
   // instead of to something `display:none` that cannot be answered at all.
-  assert.match(SHEET_CODE, /classList\.add\('sn-sheet-js'\)/);
+  assert.match(SHEET_CODE, /setAttribute\('data-sn-sheet','1'\)/);
   assert.ok(
     !/^\s*\.sn-rsvp-sheet\{display:none\}/m.test(SHEET_CODE),
     'the panel is hidden unconditionally — a guest without JavaScript cannot RSVP',

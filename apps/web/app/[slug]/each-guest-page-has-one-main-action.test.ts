@@ -184,12 +184,9 @@ test('Post Event · no phase ribbon repeating the footer, and no link to its own
   assert.equal((ed.match(/href=\{`\/\$\{slug\}\/hub`\}/g) ?? []).length, 1, 'the Day’s link is drawn more than once');
 });
 
-test('The host’s own hub · "Preview ▾" is ONE dropdown, not a pill row', () => {
-  const ribbon = read('_components/owner-ribbon.tsx');
-  // 👁 PR-10: the ONE dropdown also holds See as (one preview mechanism with the Maker).
-  assert.match(ribbon, /<OwnerPhaseMenu links=\{model\.phaseLinks\} seeAs=\{model\.seeAsLinks\} \/>/);
-  assert.doesNotMatch(ribbon, /phaseLinks\.map\(/, 'the phase pills are back');
-  assert.match(read('_components/owner-phase-menu.tsx'), /<PickMenu\b/, 'the preview is not the shared dropdown');
+test('The host’s own hub · no host strip, so no Preview ▾ over the page (owner 2026-10-15: "Remove it")', () => {
+  // The strip's ONE dropdown ("Preview ▾") went with it: the stages and See as are the Maker's (hold ▶ · See as ▾).
   const body = read('_components/site-body.tsx');
-  assert.ok(!body.includes('This is your event page'), 'the host’s explaining paragraph is back under the ribbon');
+  assert.doesNotMatch(body, /<OwnerRibbon\b|<OwnerPhaseMenu\b|data-owner-phase-menu/, 'the host’s Preview ▾ is back over the page');
+  assert.ok(!body.includes('This is your event page'), 'the host’s explaining paragraph is back');
 });

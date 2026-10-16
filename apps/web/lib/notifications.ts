@@ -492,7 +492,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   vendor_inquiry_received: 'New booking inquiry',
   inquiry_accepted: 'Inquiry accepted',
   inquiry_declined: 'Inquiry declined',
-  inquiry_displaced: 'Inquiry released',
+  inquiry_displaced: 'Someone else was booked',
   force_majeure_filed: 'Force-majeure flag filed',
   new_chapter_from_followed: 'New chapter',
   creator_offer_received: 'Discount offer',

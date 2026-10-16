@@ -71,6 +71,7 @@
  *           Not a column: Apply REPLAYS them through the shipped march actions,
  *           in order. Free. Never Pro.
  */
+import { coverGroundIsPro } from './cover-scene';
 import { sanitizeStdFollowTheme } from './std-backgrounds';
 import {
   sanitizeFixedSceneStylesDraft,
@@ -1862,7 +1863,19 @@ export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas)
     out.push({ key: `slot:${i}`, group: 'slot-media', slot: i, change: refChange(slotMediaRef(live, i), slotMediaRef(next, i)) });
   }
   out.push({ key: 'video', group: 'playback', change: refChange(asText(live.video), asText(next.video)) });
+  /* 🖼 THE COVER SCENE'S BACKGROUND (`canvas.ground`, the hero row's — owner-approved 2026-10-15): Scene ◆ (a
+     ready-made loop) and Upload ◆ (a photo) are Event Hub Pro by the shipped rule (`BACKGROUND_SOURCE_IS_PRO`);
+     Colour is free and taking either off is free. Without this facet a free couple could draft a loop on the cover
+     and Apply it — the gate would see no look key change at all. */
+  out.push({ key: 'ground', group: 'media', change: refChange(coverGroundProRef(live), coverGroundProRef(next)) });
   return out;
+}
+
+/** The Cover Scene's background as one comparable ref — only its Pro half (a loop, a photo); null for a colour or none. */
+function coverGroundProRef(c: HubSectionCanvas): string | null {
+  const g = c.ground;
+  if (!g || !coverGroundIsPro(g)) return null;
+  return g.kind === 'loop' ? `loop:${g.loop}` : g.kind === 'photo' || g.kind === 'snippet' ? `${g.kind}:${g.media}` : null;
 }
 
 /** A section's canvas, live → drafted, as ONE change: the most demanding facet. */
@@ -1920,6 +1933,8 @@ export function canvasWithoutFacet(
     for (const k of CANVAS_GROUND_KEYS) put(k, liveRec[k]);
   } else if (key === 'video') {
     put('video', live.video);
+  } else if (key === 'ground') {
+    put('ground', live.ground);
   } else if (key.startsWith('slot:')) {
     const i = Number(key.slice('slot:'.length));
     if (next.slots && Number.isInteger(i) && i >= 0 && i < next.slots.length) {

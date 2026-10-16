@@ -161,10 +161,13 @@ test('the Overview passes the payday measurement through to what it prints', () 
   // hands that null on, and the first screen draws <Unread /> for it). The
   // "Confirmed of booked" line left Today with the two money tiles; that
   // figure is on Payday, whose own honest read the rows above hold.
-  const s = src('app/vendor-dashboard/page.tsx');
-  assert.equal(all(s, 'owedToYouPhp(earnings)').length, 1);
-  assert.equal(all(s, 'toComeIn: owedPhp === null ? null : formatPesoCompact(owedPhp * 100)').length, 1, 'an unread payday is no longer handed on as "not read"');
-  assert.equal(all(s, "owedPhp === null ? '—'").length, 0, 'the bare dash is back — an unread payday must be said in words');
+  // 🧩 Since the simpler Today (2026-10-14) the page reads, `assembleSupplierToday` decides and `SupplierTodayScreen`
+  // draws — the null travels through all three.
+  const s = src('app/vendor-dashboard/page.tsx') + src('lib/supplier-today-view.ts') + src('app/vendor-dashboard/_components/supplier-today-screen.tsx');
+  assert.equal(all(s, 'owedToYouPhp(input.earnings)').length, 1);
+  assert.equal(all(s, 'toComeInPhp: owedPhp,').length, 1, 'the assembly no longer hands payday on as read or not');
+  assert.equal(all(s, 'toComeIn: view.numbers.toComeInPhp === null ? null : formatPesoCompact(view.numbers.toComeInPhp * 100)').length, 1, 'an unread payday is no longer handed on as "not read"');
+  assert.equal(all(s, "=== null ? '—'").length, 0, 'the bare dash is back — an unread payday must be said in words');
   assert.equal(all(s, 'earnings.confirmedPhp').length, 0, 'Today prints a payday figure again without asking whether payday was read');
   const screen = src('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
   assert.match(screen, /numbers\.toComeIn === null \? \(\s*<Unread \/>/, 'the first screen no longer says "couldn’t load" for an unread payday');

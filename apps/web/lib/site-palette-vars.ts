@@ -152,6 +152,14 @@ export function buildSitePaletteVars(
     '--color-ink-on-plate': channels(ink),
     '--color-veil': channels(hexToRgb(veilColorFromPalette(veilBoard)) ?? PAHINA_VEIL_FALLBACK),
     '--hub-heading': toHex(heading),
+    /* 🎨 THE NAMES WEAR THE DOMINANT (owner 2026-10-14, Maker test item 4: *"changing colors does not show on
+       preview"* — the Dominant's job is "Headings · the names" (`MAIN_COLOUR_JOB`), and nothing on the page wore
+       it). The same colour as `--hub-heading`, AA-large on the paper AND the cards, as channels for `rgb()`.
+       Worn by `[data-hub-names]` (`globals.css`) ONLY over the paper it was measured on: the page drops it under
+       a page colour of the couple's own, a blend or Candlelight (`guestLookFrom` · `lookSampleScope`), and a
+       picture ground, a scene's own ground and the canvas preview each take it off (`main-ground.tsx` ·
+       `scene-legibility.ts` · `main-ground-preview.ts`) — so the names fall back to the page's measured ink. */
+    '--hub-names-ink': channels(heading),
   };
 }
 

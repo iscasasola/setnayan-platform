@@ -39,6 +39,7 @@ import { updateEventSlug } from '@/app/dashboard/[eventId]/invitation/actions';
 import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions';
 import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-message/actions';
 import { labMarchSections } from './march-fixture';
+import { labOpenMarchCard } from './lab-march-cards';
 import { LabStudioLoveStory, LabStudioSchedule } from './studio-lab-fixtures';
 import { LAB_LOVE_STORY } from './love-story-fixture';
 import { LAB_SAMPLE } from '../maker-lab/guest/lab-sample';
@@ -157,6 +158,8 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         march: marchLab || studioLab ? { ...labMarchSections(one('march')), lab: true } : { sections: [] },
       }
     : null;
+  /* 🪪 A tapped name opens its guest card over the march — the lab's card stands in for the read (`lab-march-cards.tsx`). */
+  if (yourEvent && (marchLab || studioLab)) yourEvent.march.openCard = labOpenMarchCard;
   const needsDb = (what: string) => <p className="p-6 text-sm text-ink/60">{what} is read from the database — open it in the Maker.</p>;
   return (
       <MakerDetails

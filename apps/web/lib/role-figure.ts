@@ -20,7 +20,15 @@
  *
  * Pure strings, no DOM, no React: the Event Hub's server-rendered dress-code
  * scene and the Mood Board's client palette both call it.
+ *
+ * 👗 2026-10-14 (owner, DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"): the PERSON a role's palette wears is now
+ * the illustrated figure (`lib/attire-figures.ts` — the artwork seam), in the garment its Wear ▾ names, ONE drawing
+ * for the Studio's Attire and the guest's dress code (`roleFigurePeople` → `app/_components/role-figure.tsx`). The little gown and
+ * suit below stay what the reception scene draws its crowd with.
  */
+
+import { garmentFor, type FigureGarment, type FigureWho } from './attire-figures';
+import type { AttireStyle } from './role-dress-code';
 
 export const SKIN = '#E7C8A2';
 export const HAIR = '#352720';
@@ -140,37 +148,42 @@ export function roleFigures(
   return kinds.map((kind) => ({ kind, color, ...(accent ? { accent } : {}) }));
 }
 
-/** Figure height and spacing in the little picture, in its own units. */
-const FIG_H = 56;
-const STEP = 24;
+/* ── the people, drawn (owner 2026-10-14) ────────────────────────────────── */
+
+/** One person in a picture: who, what they wear, and the colour their garment is dyed (the role's hex, exactly). */
+export type FigurePerson = { who: FigureWho; garment: FigureGarment; main: string };
+/** A pick as a reader sees it (`picksOf`, lib/attire-rows.ts): who, the Wear (null = not said), its own colours (null = the row's). */
+export type FigurePick = { who: FigureWho; style: AttireStyle | null; colours: readonly string[] | null };
+
+/** What a person wears on the GUEST page when the Wear is not said but their colours are: the plain garment of
+ *  their kind — the palette still wears a person (the dotted silhouette is the Studio's "Not said yet"). */
+export const PLAIN_GARMENT: Readonly<Record<FigureWho, FigureGarment>> = { f: 'gown', m: 'suit', girl: 'flowergirl', boy: 'suitb' };
+
+/** Keys whose single person is a child. */
+const CHILD: Record<string, FigureWho> = { flower_girl: 'girl', ring_bearer: 'boy', bible_bearer: 'boy', coin_bearer: 'boy' };
 
 /**
- * The role's people as one small SVG (standing on a soft shadow), or null when
- * the role has no colour to dress anybody in.
+ * The people a role's picture shows.
+ *   · `picks` given (the dress code's rows and the reader's own panel): one person per pick, in the pick's garment
+ *     (its plain one when not said), dyed its FIRST colour — the main piece (the drawings are dyed one colour; an
+ *     OPTIONS role, the guests, wears its first, never two combined);
+ *   · no `picks` (the Mood Board's palette cards): `roleFigures`' people — a gown is a woman, a suit a man — each in
+ *     their plain garment.
+ * Nothing valid to wear → nobody.
  */
-export function roleFigureSvg(key: string, hexes: readonly string[], meaning: 'outfit' | 'options' = 'outfit'): string | null {
-  const people = roleFigures(key, hexes, meaning);
-  if (!people.length) return null;
-  const pad = 10;
-  const w = pad * 2 + STEP * (people.length - 1) + 20;
-  const h = FIG_H + 8;
-  const baseY = FIG_H + 2;
-  const body = people
-    .map((p, i) => {
-      const cx = pad + 10 + i * STEP;
-      return p.kind === 'gown' ? gownFig(cx, baseY, FIG_H, p.color, p.accent) : suitFig(cx, baseY, FIG_H * 0.97, p.color, p.accent);
-    })
-    .join('');
-  return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">` +
-    `<ellipse cx="${(w / 2).toFixed(1)}" cy="${baseY.toFixed(1)}" rx="${(w / 2 - 4).toFixed(1)}" ry="3" fill="#000" opacity="0.08"/>` +
-    body +
-    `</svg>`
-  );
-}
-
-/** The same picture as an `<img>` source — no markup is ever injected into the page. */
-export function roleFigureDataUri(key: string, hexes: readonly string[], meaning: 'outfit' | 'options' = 'outfit'): string | null {
-  const svg = roleFigureSvg(key, hexes, meaning);
-  return svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : null;
+export function roleFigurePeople(key: string, hexes: readonly string[], _meaning: 'outfit' | 'options' = 'outfit', picks?: readonly FigurePick[] | null): FigurePerson[] {
+  if (picks && picks.length > 0) {
+    const out: FigurePerson[] = [];
+    for (const p of picks) {
+      const colours = (p.colours && p.colours.length > 0 ? p.colours : hexes).filter((h) => HEX.test(h));
+      if (!colours.length) continue;
+      out.push({ who: p.who, garment: p.style ? garmentFor(p.who, p.style) : PLAIN_GARMENT[p.who], main: colours[0]! });
+    }
+    return out;
+  }
+  const isPair = key === 'bearers_flower_girl';
+  return roleFigures(key, hexes, _meaning).map((f) => {
+    const who: FigureWho = CHILD[key] ?? (isPair ? (f.kind === 'gown' ? 'girl' : 'boy') : f.kind === 'gown' ? 'f' : 'm');
+    return { who, garment: PLAIN_GARMENT[who], main: f.color };
+  });
 }

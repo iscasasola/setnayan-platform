@@ -18,7 +18,6 @@ import { Fold } from '@/app/_components/fold';
 import { SupplierSubmit } from './supplier-submit';
 import { waitingAge } from '@/lib/waiting-age';
 import { formatLongDate, monthDay } from '@/lib/format-date';
-import { dateChangeWhen } from '@/lib/date-change';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from './payout-method-nudge';
@@ -31,6 +30,8 @@ import { formatPhp } from '@/lib/orders';
 import { formatCentavosPhp } from '@/lib/php';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
+import { dateChangeShort, type TodayRowWords } from '@/lib/supplier-today';
+import { RowIcon, TodayRow, nextHref } from './supplier-today-first-screen';
 
 /*
   🔘 THE ANSWERS WEAR THE BUTTON RULE (2026-10-12, owner "APPROVE ALL" look calls 1–3): every press here is an
@@ -237,7 +238,7 @@ export function WhatsNewFeed({
    * is left out by that rule, not by this component. Absent → every card is a
    * row, numbered in the order given (a caller with no Next card).
    */
-  asks?: ReadonlyArray<{ card: WhatsNewCard; label: string; line: string; position: number; open: boolean }>;
+  asks?: ReadonlyArray<{ card: WhatsNewCard; label: string; line: string; position: number; open: boolean; words?: TodayRowWords }>;
   /**
    * A booking-ask or deposit read did not reach the end. Said above the list,
    * and the "all caught up" empty state is never drawn on top of it — an empty
@@ -283,8 +284,7 @@ export function WhatsNewFeed({
 }) {
   const rows =
     asks ??
-    cards.map((card, i) => ({ card, label: cardTone(card).eyebrow, line: '', position: i + 1, open: false }));
-  const total = cards.length;
+    cards.map((card, i) => ({ card, label: cardTone(card).eyebrow, line: '', position: i + 1, open: false, words: undefined as TodayRowWords | undefined }));
   // Nothing waits and everything was read: the Next card says "all caught up".
   // An empty list here would be furniture — and an empty list that could NOT be
   // read is not empty, so that case still speaks, below.
@@ -317,24 +317,33 @@ export function WhatsNewFeed({
         </p>
       ) : null}
       <div className="[&>div:first-child]:border-t-0">
-        {rows.map(({ card, label, line, position, open }) => (
+        {rows.map(({ card, label, line, open, words }) =>
+          /* 🚪 A ROW THAT IS ONLY A DOOR (simpler Today 2026-10-14: "Finish quote draft", "Contract draft", "Dispute
+             open") — nothing is answered on Today, so the row opens the place it is answered. */
+          words?.door ? (
+            <div key={card.id} id={`ask-${card.id}`} data-today-ask={card.kind} className="scroll-mt-24 [&>a]:border-t-0 border-t border-ink/10">
+              <TodayRow
+                href={nextHref(words.door)}
+                label={words.label}
+                line={words.line}
+                lineTone={words.lineTone ?? null}
+                rowIcon={words.icon}
+                pill={words.pill ? <Badge tone={words.pill.tone} data="today-ask">{words.pill.word}</Badge> : undefined}
+              />
+            </div>
+          ) : (
           /* 🗂 THE SHARED FOLD (kind 19) — its terracotta arrow, its 0.7 s open, ONE open at a time on the screen
              (`useOneOpen`), and what is inside stays mounted while shut. The row's hairline and its anchor are this
-             wrapper's; `#ask-<id>` is the address older links name. */
+             wrapper's; `#ask-<id>` is the address older links name. The row wears its icon (`lead`) and its state
+             ("2 d" · "Lapsed"), never a queue number — the Next card's "1 of 3" already says the count. */
           <div key={card.id} id={`ask-${card.id}`} data-today-ask={card.kind} className="scroll-mt-24 border-t border-ink/10">
             <Fold
               data="today-ask"
-              title={label}
-              line={line}
+              title={words?.label ?? label}
+              line={words?.line ?? line}
               defaultOpen={open}
-              aside={
-                /* "1 of 1" is noise — a lone ask has no place in a queue to name. */
-                total > 1 ? (
-                  <Badge tone="wait" data="today-ask">
-                    {formatCount(position)} of {formatCount(total)}
-                  </Badge>
-                ) : null
-              }
+              lead={words ? <RowIcon name={words.icon} /> : undefined}
+              aside={words?.pill ? <Badge tone={words.pill.tone} data="today-ask">{words.pill.word}</Badge> : null}
             >
             <div className="pb-3 pl-3">
               <FeedCard
@@ -357,7 +366,8 @@ export function WhatsNewFeed({
             </div>
             </Fold>
           </div>
-        ))}
+          ),
+        )}
       </div>
     </section>
   );
@@ -646,12 +656,13 @@ function InquiryBody({
  * The decline sits inside a fold (the shared `Fold`) rather than beside Agree — a no is a real
  * answer the couple needs, but it should not be one mis-tap away from a yes.
  */
-function LockRequestBody({
+export function LockRequestBody({
   card,
   agreeLock,
   declineLock,
   payoutReadiness,
   feeForecast,
+  onCard = false,
 }: {
   card: Extract<WhatsNewCard, { kind: 'lock_request' }>;
   agreeLock: (formData: FormData) => void | Promise<void>;
@@ -659,6 +670,12 @@ function LockRequestBody({
   payoutReadiness: PayoutReadiness;
   /** What this booking will cost them, named BEFORE the Agree button. */
   feeForecast: FeeDisclosure | null;
+  /**
+   * ✅ ON THE NEXT CARD (simpler Today, 2026-10-14 — prototype moment "The couple asks to book"): the card's own
+   * title and line already say who and when, so the answer starts at the fee. The SAME forms, the SAME fee notice
+   * above Agree — one answer, drawn in two places, never two answers.
+   */
+  onCard?: boolean;
 }) {
   // Rendered on the server, so "now" is the render instant.
   // ONE phrasing, shared with the customer card and the Customers roster — three
@@ -675,8 +692,14 @@ function LockRequestBody({
   ]);
   return (
     <>
-      <p className="text-sm font-semibold text-ink">{card.coupleName} wants to book you</p>
-      <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
+      {onCard ? (
+        fuse ? <p className="mb-1 text-[13px] text-ink/60">{fuse}</p> : null
+      ) : (
+        <>
+          <p className="text-sm font-semibold text-ink">{card.coupleName} wants to book you</p>
+          <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
+        </>
+      )}
       <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
       {/* ⚠ ABOVE THE BUTTON. A fee named after the press is a receipt. */}
       <BookingFeeNotice disclosure={feeForecast} />
@@ -686,7 +709,7 @@ function LockRequestBody({
           <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Agree to this booking" pendingLabel="Agreeing…" />
         </form>
       </div>
-      <Fold data="answer-no" title="Can’t take this booking?" className="mt-1">
+      <Fold data="answer-no" title={onCard ? 'Turn it down' : 'Can’t take this booking?'} className="mt-1">
         <form action={declineLock} className="mb-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input
@@ -726,8 +749,9 @@ function DateChangeBody({
   card: Extract<WhatsNewCard, { kind: 'date_change' }>;
   answerDateChange: (formData: FormData) => void | Promise<void>;
 }) {
-  const to = dateChangeWhen(card.proposedDate, card.proposedPrecision);
-  const from = card.fromDate ? dateChangeWhen(card.fromDate, card.fromPrecision) : 'their current date';
+  // The short words the Next card says ("Move to Sun 25 Oct") — one way to say the date on one screen.
+  const to = dateChangeShort(card.proposedDate, card.proposedPrecision);
+  const from = card.fromDate ? dateChangeShort(card.fromDate, card.fromPrecision) : 'their current date';
   const overdue = new Date(card.dueAt).getTime() <= Date.now();
   return (
     <>

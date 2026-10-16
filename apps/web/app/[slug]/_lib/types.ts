@@ -263,6 +263,8 @@ export type EventRow = {
   // 🗂 The host's "Accept gifts?" (events.gifts_on, owner 2026-10-02 — changed
   // in the Maker's Your info). false = no E-Gifts part anywhere; null = on.
   gifts_on?: boolean | null;
+  /** 🔘 The Logo switch (`logoSwitchedOff`, owner 2026-10-15): false ⇒ the cover draws no logo. */
+  logo_wanted?: boolean | null;
   // Couple-curated photo gallery (Increment A.4). JSONB array of r2:// refs
   // shipped 20260919000000; edited at /dashboard/[eventId]/website/our-photos.
   // Refs resolved to presigned display URLs (ourPhotoUrls) before render;
@@ -437,6 +439,8 @@ export type GuestRow = {
   name_suffix?: string | null;
   display_name: string | null;
   role: GuestRole;
+  /** 👗 What the couple marked them as wearing on the guest list (gown · suit · neutral) — `guestAttireOf`. Absent on an older read. */
+  attire?: string | null;
   side: 'bride' | 'groom' | 'both';
   group_category: string;
   plus_one_of_guest_id: string | null;

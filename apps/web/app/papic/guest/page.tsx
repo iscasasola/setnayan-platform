@@ -371,7 +371,7 @@ export default async function PapicGuestPage({
     ? await (async () => {
         const { data: lookRow, error: lookErr } = await admin
           .from('events')
-          .select(`${HERO_MONOGRAM_COLUMNS}, style_preferences, invite_theme, role_palette`)
+          .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted, style_preferences, invite_theme, role_palette`)
           .eq('event_id', session.event_id)
           .maybeSingle();
         if (lookErr) console.error('[supabase-error] app/papic/guest/page.tsx · from:events.select (camera look)', lookErr);

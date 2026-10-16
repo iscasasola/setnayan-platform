@@ -34,42 +34,51 @@ export { DEFAULT_LOADER_CONFIG, type LoaderConfig };
 const SELECT =
   'loader_variant,loader_veil_opacity,loader_step_interval_ms,loader_pop_enabled';
 
+/*
+  ⛔ A REFUSED READ IS NEVER REMEMBERED (the house rule, `lib/global-settings-cache.ts`). A failed read
+  used to RETURN the default from inside `unstable_cache`, and the data cache kept it for an hour —
+  the admin's loader choice silently undone by one database hiccup. Now it THROWS inside the cache
+  (nothing stored; a stale entry keeps serving) and `getLoaderSettings` falls to the default for this
+  request only. Stability sweep 2026-10-15.
+*/
 const loadLoaderSettings = unstable_cache(
   async (): Promise<LoaderConfig> => {
-    try {
-      const admin = createAdminClient();
-      const { data, error } = await admin
-        .from('platform_settings')
-        .select(SELECT)
-        .eq('id', 1)
-        .maybeSingle();
-      if (error) {
-        logQueryError('loader-settings: platform_settings', error);
-        return DEFAULT_LOADER_CONFIG;
-      }
-      if (!data) return DEFAULT_LOADER_CONFIG;
-      const r = data as Record<string, unknown>;
-      return {
-        variant: coerceVariant(r.loader_variant),
-        veilOpacity: clampInt(r.loader_veil_opacity, 70, 100, DEFAULT_LOADER_CONFIG.veilOpacity),
-        stepIntervalMs: clampInt(
-          r.loader_step_interval_ms,
-          800,
-          3000,
-          DEFAULT_LOADER_CONFIG.stepIntervalMs,
-        ),
-        popEnabled:
-          typeof r.loader_pop_enabled === 'boolean'
-            ? r.loader_pop_enabled
-            : DEFAULT_LOADER_CONFIG.popEnabled,
-      };
-    } catch {
-      return DEFAULT_LOADER_CONFIG;
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('platform_settings')
+      .select(SELECT)
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) {
+      logQueryError('loader-settings: platform_settings', error);
+      throw new Error(`loader-settings: platform_settings unread — ${error.message}`);
     }
+    if (!data) return DEFAULT_LOADER_CONFIG;
+    const r = data as Record<string, unknown>;
+    return {
+      variant: coerceVariant(r.loader_variant),
+      veilOpacity: clampInt(r.loader_veil_opacity, 70, 100, DEFAULT_LOADER_CONFIG.veilOpacity),
+      stepIntervalMs: clampInt(
+        r.loader_step_interval_ms,
+        800,
+        3000,
+        DEFAULT_LOADER_CONFIG.stepIntervalMs,
+      ),
+      popEnabled:
+        typeof r.loader_pop_enabled === 'boolean'
+          ? r.loader_pop_enabled
+          : DEFAULT_LOADER_CONFIG.popEnabled,
+    };
   },
   ['loader-settings-v1'],
   { tags: [LOADER_SETTINGS_TAG], revalidate: 3600 },
 );
 
-/** Per-request memoized read of the admin loader-appearance settings. */
-export const getLoaderSettings = cache(loadLoaderSettings);
+/** Per-request memoized read of the admin loader-appearance settings — the default for this request when unread. */
+export const getLoaderSettings = cache(async (): Promise<LoaderConfig> => {
+  try {
+    return await loadLoaderSettings();
+  } catch {
+    return DEFAULT_LOADER_CONFIG;
+  }
+});

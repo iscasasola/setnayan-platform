@@ -273,6 +273,8 @@ export function sceneLegibilityVars(
     '--color-veil': plate,
     '--color-paper-deep': plate,
     color: `rgb(${ink})`,
+    /* 🎨 A scene's own ground: the names keep this ink, never the page's Dominant (measured on the page's paper). */
+    '--hub-names-ink': 'initial',
     '--hub-mute-floor': g.muteFloor.toFixed(2),
     /* 🌅 An ombré that needed a veil wears it in its own gradient. */
     ...((kind === 'diagonal' || kind === 'glow') && g.scrim && g.scrim.opacity > 0

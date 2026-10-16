@@ -9,14 +9,14 @@
  * into `events.style_preferences.scene_styles`. Free — no ◆. Never live before
  * Apply.
  */
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 
 import type { FixedSceneStyles, FixedStyleScene, StyledScene } from '@/lib/fixed-scene-styles';
 import { MAKER_PARTS } from '@/lib/maker-parts';
 import { useStagePanelNow } from '../../../launch/_components/stage-panel/store';
 import type { HubStage } from '@/lib/hub-canvas';
-import { makerNeedsRender, makerRedrawSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, MAKER_UNHELD_WRITE_EVENT, makerRedrawSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { drawScenePicture, styleTap } from '@/lib/maker-scene-look';
 import { resolveSceneStyle, sceneStyleOptions } from '@/lib/scene-styles';
 import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 
@@ -86,6 +86,21 @@ export function FixedSceneStyleRow(
   return <StyledSceneRow {...(props as Parameters<typeof StyledSceneRow>[0])} />;
 }
 
+/**
+ * 🎨 THE MAKER'S OWN COPY OF EACH FIXED PART'S PICK — so no whole-Maker render is owed to bring this row's `picked`
+ * back (it was: `makerNeedsRender` after every pick — a second server render behind the canvas's, measured on the
+ * production build 2026-10-15, `controller-2026-10-12/maker-speed/MEASURE.md`). Dropped once the server's `picked`
+ * agrees, and at every write that brings a render (that render is the truth).
+ */
+const draftedFixed = new Map<string, string | null>();
+if (typeof window !== 'undefined') window.addEventListener(MAKER_UNHELD_WRITE_EVENT, () => draftedFixed.clear());
+function draftedFixedOr(k: string, picked: string | null): string | null {
+  if (!draftedFixed.has(k)) return picked;
+  const mine = draftedFixed.get(k) ?? null;
+  if (mine === picked) draftedFixed.delete(k);
+  return mine;
+}
+
 function StyledSceneRow({
   eventId,
   scene,
@@ -105,11 +120,15 @@ function StyledSceneRow({
   /** 🖼 What each miniature frames (`?only=`) — absent: the fixed part's own marker (`f:<scene>`). */
   previewKey?: string | null;
 }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  /* What the couple just picked, shown at once while the save round-trips. */
-  const [shown, setShown] = useState<string | null>(picked);
+  /* What the couple just picked, shown at once while the save round-trips — and kept by the Maker's own copy. */
+  const own = `${eventId}:${scene}`;
+  const [shown, setShown] = useState<string | null>(() => draftedFixedOr(own, picked));
+  useEffect(() => {
+    setShown(draftedFixedOr(own, picked));
+  }, [own, picked]);
+  const canvasKey = previewKey ?? `f:${scene as FixedStyleScene}`;
   const options = sceneStyleOptions(scene, stage, eventType);
   if (options.length < 2) return null;
   return (
@@ -118,30 +137,47 @@ function StyledSceneRow({
       value={resolveSceneStyle(scene, stage, shown, eventType)}
       recommendedId={recommendedStageSceneStyle(scene, stage, eventType)}
       /* 🧭 The new Maker's miniatures are copied from this fixed part on the canvas. */
-      preview={{ canvasKey: previewKey ?? `f:${scene as FixedStyleScene}`, sceneType: scene }}
+      preview={{ canvasKey, sceneType: scene }}
       pending={pending}
       error={error}
       onPick={(id) => {
-        /* Drawn at the tap, then saved behind it (`every-maker-edit-shows-before-it-saves`). */
+        /* 🎨 ON THE PAGE AT THE TAP (`styleTap`, `lib/maker-scene-look.ts`): the tapped card's own section laid over the
+           canvas now, the BEFORE picture kept for the ↺ — the save sent behind it, HELD, and the page redrawn in place
+           once it lands. No whole-Maker render: the Apply count comes back with the save, the pick with this row's
+           own copy (`draftedFixed`). */
+        const before = shown;
         setError(null);
         setShown(id);
+        draftedFixed.set(own, id);
+        const fd = new FormData();
+        fd.set('intent', 'save');
+        fd.set('patch', JSON.stringify({ fixedStyles: { [scene]: id } }));
+        fd.set(HUB_DRAFT_BAR_FIELD, '1');
+        const tap = styleTap({
+          canvasKey,
+          sceneType: scene,
+          styleId: id,
+          send: () => draftAction(eventId, fd),
+          /* (a held save owes no render; were one owed, the bar's own refresh answers it) */
+          refresh: requestMakerRefresh,
+          save: makerRedrawSave,
+          onUndone: (undone) => {
+            draftedFixed.set(own, undone ? before : id);
+            setShown(undone ? before : id);
+          },
+        });
+        const back = (why: string) => {
+          if (tap.before) drawScenePicture(canvasKey, tap.before);
+          draftedFixed.set(own, before);
+          setShown(before);
+          setError(why);
+        };
         start(async () => {
           try {
-            const fd = new FormData();
-            fd.set('intent', 'save');
-            fd.set('patch', JSON.stringify({ fixedStyles: { [scene]: id } }));
-            /* 🖼 Redrawn on the canvas in place once it lands (`makerRedrawSave`);
-               the Maker's own props (this row's `picked`) still catch up with
-               one render at the end of the burst — the canvas keeps its page. */
-            const r = await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh());
-            if (r.ok) makerNeedsRender();
-            if (!r.ok) {
-              setShown(picked);
-              setError(r.error);
-            }
+            const r = await tap.saved;
+            if (!r.ok) back(r.error);
           } catch {
-            setShown(picked);
-            setError('That change could not be saved. Please try again — nothing was lost.');
+            back('That change could not be saved. Please try again — nothing was lost.');
           }
         });
       }}

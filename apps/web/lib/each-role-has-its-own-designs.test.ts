@@ -195,7 +195,8 @@ test('3 · each zone’s mask paints its own part of the figure, and nothing out
     }
     const c = Object.fromEntries(Object.entries(masks).map(([k, m]) => [k, centroid(m)]));
     assert.ok(c.a!.area > 0.15, `${key}: the garment zone is ${c.a!.area.toFixed(2)} of the frame`);
-    for (const k of Object.keys(c)) if (k !== 'a') assert.ok(c[k]!.area < c.a!.area, `${key}: ${k} is bigger than the garment`);
+    /* An accent is smaller than its garment — the tie, the shirt, the vest (pants are long: a shirt's chinos may be bigger). */
+    for (const k of ['t', 's', 'v']) if (c[k]) assert.ok(c[k]!.area < c.a!.area, `${key}: ${k} is bigger than the garment`);
     if (c.t) {
       assert.ok(c.t.y < 0.45 && Math.abs(c.t.x - 0.5) < 0.2, `${key}: the tie is not at the chest (${c.t.x.toFixed(2)}, ${c.t.y.toFixed(2)})`);
       assert.ok(c.t.area > 0.002, `${key}: no tie`);

@@ -125,7 +125,8 @@ test('🙈 the players read the one signal', () => {
     'body *:not([data-reveal-layer], [data-reveal-layer] *),body *:not([data-reveal-layer], [data-reveal-layer] *)::before,body *:not([data-reveal-layer], [data-reveal-layer] *)::after{animation-play-state:paused !important}',
     'the hold no longer pauses every CSS animation behind the opening',
   );
-  assert.ok(VEIL_HOLD_SCRIPT.includes(`st.textContent='${VEIL_HOLD_CSS}'`), 'the hold no longer writes its rule');
+  // …and, in the same `<style>`, the cover's words are not drawn (owner 2026-10-16 — `the-veil-hides-the-cover-words.test.ts`).
+  assert.ok(VEIL_HOLD_SCRIPT.includes(`st.textContent='${VEIL_HOLD_CSS}[data-cover-line]{opacity:0 !important}'`), 'the hold no longer writes its rule');
   assert.equal(VEIL_HOLD_ATTR, 'data-veil-hold');
   assert.match(code('app/[slug]/_components/countdown.tsx'), /const veiled = useVeilHeld\(\);[\s\S]*?if \(veiled\) return;\s*const id = window\.setInterval/, 'the countdown ticks under the veil');
   const film = code('app/[slug]/_components/save-the-date-film.tsx');

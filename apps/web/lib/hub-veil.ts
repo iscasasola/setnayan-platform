@@ -29,6 +29,8 @@
  *   · Web Animations (`el.animate`, e.g. the couple's layered logo) — paused frame by frame while held, and
  *     played on release. A press's own feedback (an animation on a button) is never held.
  *   · JS clocks — the few that tick on their own read `useVeilHeld()` (`lib/use-veil-held.ts`; the countdown).
+ *   · The cover's WORDS — not drawn at all while held (`COVER_LINE_ATTR`), and every line enters after the unveil
+ *     (`VEIL_WORDS_ATTR`, owner 2026-10-16). See `COVER_LINE_ATTR` below.
  *
  * 🪤 NO REACT IN THIS FILE: `RevealMount` (a server component) imports the script from here, and a hook in
  * the same module breaks the server build ("useSyncExternalStore … only works in a Client Component").
@@ -74,6 +76,44 @@ export const VEIL_HOLD_CSS =
   'body *:not([data-reveal-layer], [data-reveal-layer] *)::before,' +
   'body *:not([data-reveal-layer], [data-reveal-layer] *)::after{animation-play-state:paused !important}';
 
+/**
+ * 🎭 BEHIND THE VEIL, NONE OF THE COVER'S WORDS SHOW (owner 2026-10-16, DECISION_LOG "BEHIND THE VEIL, NONE OF THE
+ * COVER'S WORDS SHOW", verbatim: *"Yes — behind the veil, none of the cover's words show. After the unveil, every line
+ * enters with the cover's entrance (lines with no Build in get the cover's default)."*).
+ *
+ * Every line of the cover (`COVER_LINE_ATTR`, stamped by `pahina-masthead.tsx` — eyebrow, mark with its hairlines,
+ * names, line, date, time, venue, link, caption, the rule, the day's badge) is drawn at opacity 0 while held. Its place
+ * is kept (opacity, not display), so nothing moves when it enters. The cover's GROUND is not a line: the photo, clip
+ * or scene stays behind the veil as before (and does not play — the rule above).
+ *
+ * 🔴 WHY: live on cale-ice the date, the venue and the mark's two hairlines showed THROUGH the sheer fabric — they
+ * had no Build in, so there was no paused first frame to hide them; the names did (their Build in's first frame).
+ */
+export const COVER_LINE_ATTR = 'data-cover-line';
+/** `COVER_LINE_ATTR`'s value on a line with a Build in of its own — it keeps it; every other line is `""`. */
+export const COVER_LINE_OWN = 'own';
+const VEIL_HOLD_WORDS_CSS = `[${COVER_LINE_ATTR}]{opacity:0 !important}`;
+/** The hold's whole rule: everything waits, and the cover's words are not drawn. */
+const VEIL_HOLD_FULL_CSS = VEIL_HOLD_CSS + VEIL_HOLD_WORDS_CSS;
+/**
+ * …and AFTER the unveil every line ENTERS. One `<style data-veil-words>` in `<head>`, written beside the hold and
+ * NEVER taken off: it says "this page opened under a veil", and `globals.css` gives every line with no Build in of its
+ * own the cover's default entrance under it, in reading order (`--cover-at`, numbered by the release — the line's
+ * place among the cover's lines, top to bottom). A page with no opening never has it, so nothing changes there.
+ */
+export const VEIL_WORDS_ATTR = 'data-veil-words';
+/**
+ * 🎬 THE COVER'S DEFAULT ENTRANCE — the shipped default Build in, `HUB_PRESET_BODY[HUB_DEFAULT_PRESET]` (Calm): a fade
+ * (`hub-in-fade`), 1.1 s, on the timed ease, a 0.12 s stagger. Written into `globals.css` (the rule reads these
+ * numbers literally); `app/[slug]/_components/the-veil-hides-the-cover-words.test.ts` holds the two equal.
+ */
+export const COVER_DEFAULT_ENTRANCE = {
+  keyframe: 'hub-in-fade',
+  durationS: 1.1,
+  staggerS: 0.12,
+  ease: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+} as const;
+
 /** No opening claimed the page in this long → the script lets go by itself (fail-visible). */
 export const VEIL_HOLD_FAILSAFE_MS = 12000;
 
@@ -91,8 +131,9 @@ export const VEIL_HOLD_SCRIPT = `(function(){try{
 var d=document.documentElement,w=window;
 if(w.__veilRelease)return;
 if(w.matchMedia&&w.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-var st=document.createElement('style');st.setAttribute('${VEIL_HOLD_ATTR}','');st.textContent='${VEIL_HOLD_CSS}';
+var st=document.createElement('style');st.setAttribute('${VEIL_HOLD_ATTR}','');st.textContent='${VEIL_HOLD_FULL_CSS}';
 (document.head||d).appendChild(st);
+var ws=document.createElement('style');ws.setAttribute('${VEIL_WORDS_ATTR}','');(document.head||d).appendChild(ws);
 var on=function(){return st.isConnected!==false&&!!st.parentNode};
 var held=[],anims=[],raf=0;
 var free=function(el){return !el||!el.closest||el.closest('[${REVEAL_LAYER_ATTR}],[${VEIL_FREE_ATTR}]')};
@@ -110,6 +151,7 @@ raf=w.requestAnimationFrame?w.requestAnimationFrame(scan):0};
 scan();
 w.__veilRelease=function(){
 if(!on())return;
+try{var ls=document.querySelectorAll('[${COVER_LINE_ATTR}]');for(var c=0;c<ls.length;c++){ls[c].style.setProperty('--cover-at',String(c))}}catch(e){}
 if(st.parentNode)st.parentNode.removeChild(st);
 document.removeEventListener('play',onPlay,true);
 if(raf&&w.cancelAnimationFrame)w.cancelAnimationFrame(raf);

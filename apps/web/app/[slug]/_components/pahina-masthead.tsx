@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { splitCoupleNames } from '@/lib/split-names';
 import { formatEventDate } from '@/lib/events';
 import { formatHubDate, formatHubTime } from '@/lib/hub-date-formats';
@@ -7,12 +7,14 @@ import {
   hubElementMotionAttr,
   hubRunInlineStyle,
   hubTextSegments,
+  sanitizeHubElementMotion,
   type HubElementStyles,
   type HubHeroElementKey,
 } from '@/lib/element-style';
 import { HERO_DESIGN_ATTR, HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/hero-design';
 import { COVER_SCENE_ATTR, COVER_SCENE_CENTRED, COVER_SCENE_SCREEN } from '@/lib/cover-scene';
 import type { CoverSceneLayer } from '../_lib/cover-scene-layer';
+import { COVER_LINE_ATTR, COVER_LINE_OWN } from '@/lib/hub-veil';
 import { COVER_SCENE_CREAM_VARS, CoverSceneGround } from './cover-scene-ground';
 
 /**
@@ -178,9 +180,23 @@ export function PahinaMasthead({
         time: { 'data-el-at': card?.timeAt ?? '', 'data-el-title': card?.timeTitle ?? '' },
       }
     : {};
+  /**
+   * 🎭 ONE LINE OF THE COVER (`COVER_LINE_ATTR`, `lib/hub-veil.ts`): not drawn while a veil is closed, and entering after
+   * the unveil — with its own Build in (`own`) or the cover's default (owner 2026-10-16, "BEHIND THE VEIL, NONE OF THE
+   * COVER'S WORDS SHOW"). The joiner is not a line of its own: it sits inside the names and enters with them.
+   * Inert on a page with no veil — nothing reads it there.
+   */
+  const line = (key?: HubHeroElementKey) => ({
+    [COVER_LINE_ATTR]: key && sanitizeHubElementMotion(elements?.[key]?.motion)?.in ? COVER_LINE_OWN : '',
+  });
+  /** The day's badge ("Happening now") is a line too — stamped on the element the page hands in, so its box is unchanged. */
+  const badge = isValidElement(badgeSlot)
+    ? cloneElement(badgeSlot as ReactElement<Record<string, unknown>>, line())
+    : badgeSlot;
   /** The part's own style and, in the Maker canvas only, its key. */
   const el = (key: HubHeroElementKey) => ({
     ...(stampElements ? { 'data-el': key, ...makerFacts[key] } : {}),
+    ...(key === 'joiner' ? {} : line(key)),
     ...(waiting?.includes(key) ? { 'data-el-waits': '' } : {}),
     ...(looks && key in looks && looks[key as keyof typeof looks] ? { 'data-part-look': looks[key as keyof typeof looks] } : {}),
     // The part's own motion rides as custom properties; this is the hook the
@@ -455,7 +471,7 @@ export function PahinaMasthead({
       return (
         <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design, ...cover }} className={`${COVER_SCENE_CENTRED} text-center${coverBox}`}>
         {coverGround}
-          {badgeSlot}
+          {badge}
           <div>
             {eyebrowText ? (
               <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/70">
@@ -489,7 +505,7 @@ export function PahinaMasthead({
       return (
         <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design, ...cover }} className={`${COVER_SCENE_CENTRED} text-center${coverBox}`}>
         {coverGround}
-          {badgeSlot}
+          {badge}
           <div>
             {eyebrowText ? (
               <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/70">
@@ -545,7 +561,7 @@ export function PahinaMasthead({
           </div>
         ) : null}
         <div className="pr-[14%] sm:max-w-[60%] sm:pr-0">
-          {badgeSlot ? <div className="mb-4 flex justify-start">{badgeSlot}</div> : null}
+          {badge ? <div className="mb-4 flex justify-start">{badge}</div> : null}
           {eyebrowText ? (
             <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.26em] text-ink/70">
               {txt('eyebrow', eyebrowText)}
@@ -567,7 +583,7 @@ export function PahinaMasthead({
     return (
       <header data-pahina-first-screen="" {...cover} className={`${COVER_SCENE_CENTRED} text-center${coverBox}`}>
         {coverGround}
-        {badgeSlot}
+        {badge}
         {/* 🖼 THE COVER LOSES ITS FRAME (owner 2026-10-06, DECISION_LOG "THE COVER
             LOSES ITS FRAME, WEARS THE GLOBAL BACKGROUND"; 2026-10-07 *"for
             everyone"*): no paper card, no gold hairline — the words sit on the
@@ -616,7 +632,7 @@ export function PahinaMasthead({
   return (
     <header data-pahina-first-screen="" {...cover} className={`${COVER_SCENE_CENTRED} text-center${coverBox}`}>
         {coverGround}
-      {badgeSlot}
+      {badge}
       {/* owner 2026-09-25 "drop the numbers": the chapter numeral is gone —
           hiding a section no longer leaves a gap in a numbered sequence.
           When there is no eyebrow (the solemn register), render no row at
@@ -636,7 +652,7 @@ export function PahinaMasthead({
         {namesTwo(plainPair)}
       </h1>
 
-      <hr className="pahina-rule mx-auto mt-7 w-24" />
+      <hr {...line()} className="pahina-rule mx-auto mt-7 w-24" />
 
       {/* The gild date — oversized lining numerals; venue meta beneath. */}
       {dateLabel ? (

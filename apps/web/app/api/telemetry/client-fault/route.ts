@@ -8,12 +8,18 @@
  * service-role key rather than exposing an anon-writable table — the checks
  * below are the gate. Owner-confirmed posture (2026-06-07).
  *
- * TWO BODY SHAPES, ONE DOOR (no second route — the route budget is real):
+ * THREE BODY SHAPES, ONE DOOR (no second route — the route budget is real):
  *   • a FAILURE  `{ event_type, element_name, file_path, error_message, payload_snapshot }`
  *                → one `record_app_fault` call (issue upsert + sampled trace);
  *   • COUNTS     `{ counts: [{ a, ok, fail }] }` — batched successes and flow
  *                steps, sent with `sendBeacon` on pagehide. Never a row per
  *                success: `bump_app_action_counts` only increments counters.
+ *   • LOADS      `{ loads: [{ kind, route, total_ms, … }] }` — the load-time log
+ *                (lib/telemetry/load-reporter.ts, 2026-10-16), batched with
+ *                `sendBeacon`. Each route is re-mapped HERE to a route PATTERN
+ *                and every figure re-validated (`loadsFromWire`); the build SHA
+ *                and the signed-in flag are stamped here, never taken from the
+ *                browser → one `record_load_timings` call.
  *
  * Hardening: same-origin check · RATE LIMIT (2026-10-02 — this comment used to
  * say "NOT done (V1.x)"): a per-instance ceiling first (no DB), then the per-IP
@@ -33,6 +39,8 @@ import {
   countsFromWire,
   wireToRecord,
 } from '@/lib/telemetry/ingest-shape';
+import { loadsFromWire } from '@/lib/telemetry/load-timing';
+import { hasSessionCookie, recordLoads, toRoutePattern } from '@/lib/telemetry/load-timing.server';
 import { enforceRateLimit } from '@/lib/with-rate-limit';
 import { rateLimit } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/client-ip';
@@ -77,6 +85,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     body = parsed as Record<string, unknown>;
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
+  }
+
+  if (Array.isArray(body.loads)) {
+    const rows = loadsFromWire(body.loads, toRoutePattern);
+    const signedIn = hasSessionCookie(req.cookies.getAll().map((c) => c.name));
+    const n = await recordLoads(rows, signedIn);
+    return NextResponse.json({ ok: true, recorded: n }, { status: 200 });
   }
 
   if (Array.isArray(body.counts)) {

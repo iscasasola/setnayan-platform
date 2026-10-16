@@ -236,7 +236,7 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
   assert.match(sheet, /const go = step === 'up' \? now\.earlier : step === 'down' \? now\.later : now\.remove;\s*if \(go\) go\(\);\s*else drag\.say\(step === 'up' \? now\.why\.earlier : step === 'down' \? now\.why\.later : now\.why\.remove\);/, 'a grey step does not say why');
   assert.match(sheet, /can=\{\{ up: now\.earlier !== null, down: now\.later !== null, remove: now\.remove !== null \}\}/);
   /* The line, by what the part can do: it does not move at all · it moves but is at an end · it cannot be taken off. */
-  assert.deepEqual(partStepWhy('Names', false, false), { earlier: 'Names keeps its place on this page.', later: 'Names keeps its place on this page.', remove: 'Names stays on this page.' });
+  assert.deepEqual(partStepWhy('Event title', false, false), { earlier: 'Event title keeps its place on this page.', later: 'Event title keeps its place on this page.', remove: 'Event title stays on this page.' });
   assert.deepEqual(partStepWhy('Schedule', true, true), { earlier: 'It is already first on this page.', later: 'It is already last on this page.', remove: '' });
   for (const line of Object.values(partStepWhy('Supplier Stories', false, false))) assert.ok(line.length >= 20 && line.length <= 60 && /\.$/.test(line), `“${line}” is not one short line`);
   setStagePanelNow({ picked: null, quiet: null, about: null });
@@ -356,14 +356,14 @@ test('(7) the editing line is shortened from the FRONT — the part’s name is 
   const { stageEditingLine, STAGE_BAR_LINE_LEAD, STAGE_BAR_LINE_ABOUT } = await import('./maker-stage-room');
   const { MAKER_STAGE_PAGES } = await import('./maker-parts');
   /* The worked example: 375 px cut this to "… › WELCOME › N…". */
-  const pieces = ['Invitation', 'Welcome', 'Names'];
-  assert.deepEqual(stageEditingLine(pieces, 0), { lead: true, words: 'Invitation › Welcome › Names' });
-  assert.deepEqual(stageEditingLine(pieces, 1), { lead: false, words: 'Invitation › Welcome › Names' }, '"You’re editing ·" is not the first thing dropped');
-  assert.deepEqual(stageEditingLine(pieces, 2), { lead: false, words: 'Welcome › Names' }, 'the stage is not dropped before the page');
-  assert.deepEqual(stageEditingLine(pieces, 3), { lead: false, words: 'Names' });
+  const pieces = ['Invitation', 'Welcome', 'Event title'];
+  assert.deepEqual(stageEditingLine(pieces, 0), { lead: true, words: 'Invitation › Welcome › Event title' });
+  assert.deepEqual(stageEditingLine(pieces, 1), { lead: false, words: 'Invitation › Welcome › Event title' }, '"You’re editing ·" is not the first thing dropped');
+  assert.deepEqual(stageEditingLine(pieces, 2), { lead: false, words: 'Welcome › Event title' }, 'the stage is not dropped before the page');
+  assert.deepEqual(stageEditingLine(pieces, 3), { lead: false, words: 'Event title' });
   /* Past the last level nothing more is dropped — the last piece is never lost. */
-  assert.deepEqual(stageEditingLine(pieces, 9), { lead: false, words: 'Names' });
-  assert.deepEqual(stageEditingLine(['Save the Date', 'Names'], 2), { lead: false, words: 'Names' });
+  assert.deepEqual(stageEditingLine(pieces, 9), { lead: false, words: 'Event title' });
+  assert.deepEqual(stageEditingLine(['Save the Date', 'Event title'], 2), { lead: false, words: 'Event title' });
   assert.deepEqual(stageEditingLine(['Post Event'], 1), { lead: false, words: 'Post Event' });
   assert.equal(STAGE_BAR_LINE_LEAD, 'You’re editing');
 

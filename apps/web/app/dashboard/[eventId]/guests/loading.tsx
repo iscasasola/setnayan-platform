@@ -1,5 +1,5 @@
 import { GridPageSkeleton } from '@/components/skeletons';
-import { LastSeenFallback } from '@/app/_components/last-seen/last-seen-fallback';
+import { GuestsLastCopy } from './_components/guests-last-copy';
 
 /**
  * NO HEADER BUTTONS ARE RESERVED, because the page's header no longer has any
@@ -20,11 +20,11 @@ import { LastSeenFallback } from '@/app/_components/last-seen/last-seen-fallback
  */
 
 export default function GuestsLoading() {
-  // 💾 Last-seen data shows at once, then refreshes (owner 2026-10-02) — the
-  // skeleton stays for a first visit, a filtered view, or nothing kept.
+  // 📋 The host's last copy of the list, drawn LIVE by the list's own screen (owner 2026-10-16: "loads
+  // fast instead of always waiting") — the skeleton stays for a first visit, a filtered view, or nothing kept.
   return (
-    <LastSeenFallback page="guests">
+    <GuestsLastCopy>
       <GridPageSkeleton tiles={15} cols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" tileClass="h-24" />
-    </LastSeenFallback>
+    </GuestsLastCopy>
   );
 }

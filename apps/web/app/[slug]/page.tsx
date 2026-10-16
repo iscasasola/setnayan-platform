@@ -92,7 +92,14 @@ import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { GuestHubBar, GuestMeSection } from './_components/guest-hub-bar';
 import { CAMERA_ADDED_PARAM, addedShots, hubTabsOn } from './_lib/hub-tabs';
 import { pageStageFor } from './_lib/stage-bar';
-import { loadingScreenFor } from './_lib/loading-stage';
+import { loadingOpensUnderAVeil, loadingScreenFor } from './_lib/loading-stage';
+import { cinematicRevealPlays } from '@/lib/site-body-plan';
+import { fetchRevealConfig } from '@/lib/reveal-config';
+import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
+import { coerceRevealTemplate } from './_lib/reveal-props';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import { resolveHubTheme } from './_lib/hub-look';
+import { stdOpeningsActiveCached } from './_components/reveal/reveal-overlay-server';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { storedStdLead, type StdLead } from '@/lib/stage-scenes';
 import { GuestTicket } from './_components/guest-ticket';
@@ -129,7 +136,6 @@ import {
 } from '@/lib/hub-draft';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { HostDraftLook } from './_components/host-draft-look';
-import { resolveHubTheme } from './_lib/hub-look';
 import {
   anonymousIdentity,
   guestIdentity,
@@ -503,6 +509,9 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   // read inside is `cache()`d and the body makes the same ones, so the body
   // pays nothing for them again. See `skeletonHeroDesign`.
   const skeletonDesign = skeletonHeroDesign(admin, event.event_id, search);
+  // 🎭 …and whether an opening would be mounted on it (`skeletonOpeningMounts`) — started now for the same reason;
+  // the reads are the ones `RevealOverlayServer` makes, `cache()`d, so the body pays for them once.
+  const skeletonOpening = skeletonOpeningMounts(event, search);
 
   // PR6 — three-tier URL cutover (slug-routing program), flag-gated (default
   // OFF). The canonical public URL for an event is now /u/{ownerSlug}/{slug}; a
@@ -607,6 +616,27 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     storedLead: await skeletonStdLead(admin, event.event_id),
     stdFilm: search.film !== '0',
   });
+  // 🎭 BEHIND THE VEIL, NONE OF THE COVER'S WORDS SHOW (owner 2026-10-16) — nor on the loading frame before it.
+  const skeletonPhasesEnabled = isWebsitePhasesEnabled() || surfaceEnabled(eventTypeProfile, 'website');
+  const skeletonWeddingOnly = resolveWeddingOnlyParts(eventTypeProfile);
+  const skeletonVeiled = loadingOpensUnderAVeil({
+    makerCanvas: asksForEditorBridge(search),
+    openingMounts: await skeletonOpening,
+    revealPlaysOn: (lifecyclePhase) =>
+      cinematicRevealPlays({
+        phasesEnabled: skeletonPhasesEnabled,
+        lifecyclePhase,
+        weddingOnlyParts: skeletonWeddingOnly,
+        revealStages: event.reveal_stages,
+      }),
+    clockPhase: getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null, undefined, event.std_invitation_launch_date ?? null),
+    pinnedPhase: manualLaunchPhase(event.launch_mode, event.manual_phase),
+    askedPhase:
+      askedPhase === 'save_the_date' || askedPhase === 'rsvp' || askedPhase === 'event' || askedPhase === 'editorial'
+        ? askedPhase
+        : null,
+    solemn: eventTypeProfile.terminology.register === 'solemn',
+  });
   return (
     <Suspense
       fallback={
@@ -620,6 +650,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
           venueName={venueNamesLine(event)}
           design={skeletonHeroDesignId}
           arriving={skeletonArriving}
+          veiled={skeletonVeiled}
           quiet={loadingScreen === 'quiet'}
           showHeader={!(asksForEditorBridge(search) && search.bars !== '1')}
           mark={
@@ -713,6 +744,37 @@ async function skeletonHeroArriving(
  * chosen", the rule's own default, and the body — which awaits the same cached
  * read — is what reports the failure.
  */
+/**
+ * 🎭 Would the page mount an opening (the veil)? The SAME decision `RevealMount` makes — `revealAllowedFor` over the
+ * admin's Reveal Studio config, the couple's own opening (else the theme's), and Event Hub Pro ownership — through the
+ * same `cache()`d reads (`fetchRevealConfig`, `stdOpeningsActiveCached`, `resolveHubTheme`). The host's draft preview
+ * (`?preview=draft`) plays a drafted opening before Pro is bought (try then pay), so it counts as owned here. Never
+ * throws: a failed read draws the loading screen as it always was.
+ */
+async function skeletonOpeningMounts(
+  event: Parameters<typeof resolveHubTheme>[0] & { event_id: string; std_reveal_template?: unknown },
+  search: Awaited<Props['searchParams']>,
+): Promise<boolean> {
+  try {
+    const isStaffPreview = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
+    if (isStaffPreview) return true;
+    const [config, look, owns] = await Promise.all([
+      fetchRevealConfig(),
+      resolveHubTheme(event),
+      search.preview === 'draft' ? Promise.resolve(true) : stdOpeningsActiveCached(event.event_id),
+    ]);
+    const chosenTemplate =
+      coerceRevealTemplate(event.std_reveal_template) ??
+      (look.theme === 'house' ? null : coerceRevealTemplate(INVITE_THEMES[look.theme].opening));
+    return (
+      revealAllowedFor({ ownsPro: owns, chosenTemplate, adminDefault: config.defaultTemplate, isStaffPreview, allowed: config.templates }) !==
+      REVEAL_NONE
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function skeletonStdLead(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,

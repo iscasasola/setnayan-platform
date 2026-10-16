@@ -392,6 +392,12 @@ export const STAGE_TAP_TARGETS = {
 /** How long the toolbar takes to slide away for ▶ and typing, and back (the prototype's 240 ms). */
 export const STAGE_PANEL_MS = 240;
 
+/** An element laid out of the flow (a background layer, a badge pinned on top) — never the part above or below a
+ *  picked part (`add-part-sheet.tsx` `neighbourOf`; the Cover Scene's background is its cover's first child). */
+export function partNeighbourIsLayer(el: Element): boolean {
+  const pos = el.ownerDocument.defaultView?.getComputedStyle(el).position;
+  return pos === 'absolute' || pos === 'fixed';
+}
 /**
  * 🖼 THE PICKED PART'S FRAME, BETWEEN ITS NEIGHBOURS (owner 2026-10-07: the Logo's frame and ＋ sat ON "TOGETHER WITH
  * THEIR FAMILIES" — "the frame hugs its part's real box, the ＋ sits in the gap BETWEEN parts and never over another

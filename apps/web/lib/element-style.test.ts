@@ -163,6 +163,8 @@ test('⛔ the RSVP form is never element-styled, whatever is stored', async () =
 async function renderMasthead(props: Record<string, unknown>): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { PahinaMasthead } = await import('../app/[slug]/_components/pahina-masthead');
+  /* Each cover line's veil mark (`data-cover-line`) is held by `the-veil-hides-the-cover-words.test.ts`; taken out
+     here so these assertions read the look's attributes in their own order. */
   return renderToStaticMarkup(
     React.createElement(PahinaMasthead, {
       displayName: 'Cale & Ice',
@@ -171,7 +173,7 @@ async function renderMasthead(props: Record<string, unknown>): Promise<string> {
       card: { eyebrow: 'Together with their families', line: 'invite you to celebrate their wedding', timeLabel: '3:00 PM', hubHref: '#hub', hubLabel: 'Open' },
       ...props,
     }),
-  );
+  ).replace(/ data-cover-line="[^"]*"/g, '');
 }
 
 test("the hero's stored override renders for guests, inline on the part it names", async () => {

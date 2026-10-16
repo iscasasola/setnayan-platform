@@ -54,7 +54,7 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig } from './lab-sample';
 import { LabStagePages } from './lab-stage';
 import { LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom } from '../lab-draft';
 import { labSeen, labStageTiles } from '../lab-navigator';
@@ -68,6 +68,8 @@ import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
 import { labPhotoUrls } from './lab-photos';
 import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
+import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
+import { DEFAULT_REVEAL_CONFIG } from '@/lib/reveal-config-pure';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -162,6 +164,17 @@ const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'jo
 function labLoopMedia(loop: string): { still: string; clip: string } | null {
   const i = hubMovingBackgroundIds().indexOf(loop as never);
   return i < 0 ? null : { still: `/std/backgrounds/${LAB_STILLS[i % LAB_STILLS.length]}.webp`, clip: `/realstories/${LAB_CLIPS[i % LAB_CLIPS.length]}.mp4` };
+}
+/**
+ * 🖼 The lab's HERO PHOTO for a Cover Scene "Your photo" pick — the real page draws the hero photo it resolved
+ * (`coverSceneLayer`'s `heroPhotoUrl`), which the lab has none of, so a photo ground drew nothing and a Style card
+ * over a photo could not be seen here (2026-10-16, "small caps shows a weird photo"). The picked ref's local file
+ * (`../lab-own-media.ts`), else a stand-in of fabric on sand — never anybody's own photo, nothing signed.
+ */
+const LAB_COVER_PHOTO = '/realstories/jack-jill-g3.jpg';
+function labCoverPhoto(g: { kind: string; media?: string } | null | undefined): string | null {
+  if (!g || g.kind !== 'photo') return null;
+  return (g.media && LAB_SIGNED[g.media]) || LAB_COVER_PHOTO;
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -369,7 +382,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       design={heroDesignOf(heroCanvas)}
       /* 🖼 The Cover Scene's background, as the real page lays it (`site-body.tsx` `heroElements.ground`) — the lab's
          loops wear the stand-in files the Maker lab's Look rows use. */
-      ground={coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: null, loopMedia: labLoopMedia })}
+      ground={coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: labCoverPhoto(heroCanvas.ground), loopMedia: labLoopMedia })}
       stampElements
       looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
       monogramSlot={
@@ -382,14 +395,16 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* 👗 The REAL dress code, fed the sample (`./lab-sample.ts`) — the palette look it wears is the one picked in the Maker.
      `?board=cale` feeds it the palette prototype's real eleven colours instead (`&you=1`: as a Principal Sponsor). */
   const cale = sp.board === 'cale';
+  /* `?attire=shared` — the sponsors saved with ONE shared, women's Wear before the split (`labSharedAttireDressConfig`); `&you=ninong`: read by a ninong. */
+  const sharedAttire = sp.attire === 'shared';
   const dressCode = words ? (
     <DressCodeWidget
       words={words}
-      config={cale ? labCaleDressConfig() : labDressConfig(LAB_BOARD)}
+      config={cale ? labCaleDressConfig() : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
       rolePalette={cale ? labCaleRolePalette() : labRolePalette(LAB_BOARD)}
-      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : null}
+      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : null}
       roleNames={null}
       sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')}
       paletteLook={paletteLookOfRow(rowOf('dress_code'))}
@@ -784,6 +799,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           wrapped.) */}
       <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) + (coverLeaves ? 1 : 0) : 0}>
       <CoverSceneMenuWaits />
+      {/* 🎭 `&veil=1` — the REAL opening over the lab's cover (`RevealMount`, the guest page's own: its hold script, then the
+          Sheer veil), as an owned Pro page mounts it, so "behind the veil none of the cover's words show" (owner
+          2026-10-16) can be walked without a database. Never in the Maker's canvas, as on the page. */}
+      {sp.veil === '1' && !makerCanvas ? (
+        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" />
+      ) : null}
       <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>

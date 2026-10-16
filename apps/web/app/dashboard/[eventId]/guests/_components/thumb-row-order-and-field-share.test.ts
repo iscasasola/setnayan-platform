@@ -32,7 +32,8 @@ test('List: ⇕ Expand/Collapse · ☑ Select · Search or add · ⫶ Sort — i
   assert.ok(order.every((i) => i > -1), `a control is missing from the thumb row: ${order.join(',')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the thumb row is out of the owner’s order');
   // No match → the right control becomes ＋ Add, terracotta (rule 4).
-  assert.match(row, /\{noMatch \? addBtn : sortPick\}/);
+  // (On the phone's last copy — guest-list-copy.ts — nothing writes, so Add is not offered there.)
+  assert.match(row, /\{noMatch && !copy \? addBtn : sortPick\}/);
   assert.match(SCREEN, /const addBtn = \(\s*<ActionButton\s+tone="brand"/, 'Add is not terracotta');
 });
 

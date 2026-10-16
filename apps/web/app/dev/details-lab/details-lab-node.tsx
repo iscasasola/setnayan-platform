@@ -19,6 +19,9 @@
  *   ?look=1               the Look (part 3): Mood Board, Logo, Hero, Reveal — stand-ins
  *                         for the work area's pages, so the layout can be checked
  *   ?type=birthday|wake   another celebration (default: wedding) — no Love Story item
+ *   ?attire=shared        Studio › Attire with a role saved BEFORE the men/women split: Principal Sponsors (6 people) holding ONE
+ *                         shared Wear, "Long gown" (the shape cale-ice's live dress code holds) — plus a women-only and a
+ *                         men-only row. With `?studio=1`.
  *   ?venue=own            Your event › Venues with a Reception typed by hand — the shared address row (`AddressPinField`, a Form row
  *                         since 2026-10-12) on the Maker's own card. Saves go to the real draft door, which refuses here (no session).
  *   ?guide=1|walk-S|ready-S  the guided "What's left", by stage (S = save_the_date, rsvp-stage, …) — with Your event on
@@ -94,6 +97,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const marchLab = one('item') === 'march';
   /* 🧭 `?studio=1` — the new Maker's Studio tools on fixtures (`MakerDetails`'s `studio`). */
   const studioLab = one('studio') === '1';
+  /* 👗 `?attire=shared` — a two-pick role stored with one shared, women's Wear (the shape the owner's live dress code
+     holds, 2026-10-16: "the drawing is not following the type of attire"). */
+  const sharedAttire = one('attire') === 'shared';
   const wishState = labWishState(one('wish'));
   /* 📍 `?venue=own` — a Reception the couple types by hand (2026-10-12: the address row is shared with "Add your own"). */
   const venueLab = one('venue') === 'own';
@@ -334,13 +340,14 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                   <LabMoodBoardActions refuse={one('refuse') === '1'}>
                   <MoodBoardStudio
                     eventId={EVENT}
-                    palette={{ reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'] } as never}
+                    palette={{ reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'], ...(sharedAttire ? { principal_sponsors: ['#6B6B3A'] } : {}) } as never}
                     fallbackFive={['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F']}
                     frozenDressing={[]}
                     changes={[{ id: 'c1', who: 'Your florist', what: 'Bouquets', from: '#F2C8C2', to: '#C99A9A' }]}
                     attire={[
                       { tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: null },
                       { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
+                      ...(sharedAttire ? [{ tier: 'groups', key: 'principal_sponsors', label: 'Principal Sponsors', paletteKey: 'principal_sponsors', arrives: '2:00 PM', people: 6 }] : []),
                       /* The rows `studioAttireRows` really builds (a guest list with bridesmaids, groomsmen and
                          bearers) — so each attire board is seen under its own role, as in the Maker. */
                       { tier: 'groups', key: 'bridesmaids', label: 'Bridesmaids', paletteKey: 'bridesmaids', arrives: '2:00 PM' },
@@ -348,7 +355,11 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                       { tier: 'groups', key: 'bearers_flower_girl', label: 'Bearers & Flower Girl', paletteKey: 'bearers_flower_girl', arrives: null },
                       { tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null },
                     ] as never}
-                    dressConfig={{ roles: { bride: { style: ATTIRE_STYLES[0] } } }}
+                    dressConfig={
+                      sharedAttire
+                        ? { roles: { bride: { style: 'long_gown' } }, groups: { principal_sponsors: { style: 'long_gown' }, bridesmaids: { style: 'long_gown' }, groomsmen: { style: 'suit' } } }
+                        : { roles: { bride: { style: ATTIRE_STYLES[0] } } }
+                    }
                     attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}
                     inspirations={[]}
                     autoThemes={HUB_THEMES.filter((t) => t.ready).map((t) => ({ name: t.name, five: themeSeedPalette(t.id).reception }))}

@@ -1,7 +1,9 @@
 import { buildChecklist, type ChecklistItem } from '@/lib/guest-checklist';
 import { googleMapsNavUrl, googleMapsSearchByQuery } from '@/lib/geo';
 import { resolveGuestAttireWithGroups, sanitizeGroupAttire } from '@/lib/role-group-dress-code';
-import { sanitizeRoleAttire } from '@/lib/role-dress-code';
+import { ATTIRE_STYLE_LABEL, sanitizeRoleAttire } from '@/lib/role-dress-code';
+import { readerAttire } from '@/lib/attire-rows';
+import { singleWearerOf } from '@/lib/role-figure';
 import { roleLabel } from '@/lib/entourage';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { paletteSwatches } from '@/lib/site-palette';
@@ -49,12 +51,27 @@ export function guestChecklistItems(input: {
     palette?: unknown;
   } | null;
   const palette = sanitizeRolePalette(input.rolePalette);
-  const mine = resolveGuestAttireWithGroups({
+  const resolved = resolveGuestAttireWithGroups({
     role: input.role,
     roles: sanitizeRoleAttire(config?.roles, (v) => roleLabel(v as GuestRole) !== null),
     groups: sanitizeGroupAttire(config?.groups),
     palette,
-  }).panel;
+  });
+  /* 👫 The reader's OWN pick (owner 2026-10-16) — the same `readerAttire` the Dress code's "You are …" panel reads, so a
+     ninong's checklist never says the women's "Long gown" a group saved for everybody before the split. */
+  const own = resolved.panel
+    ? readerAttire({
+        role: input.role,
+        attire: null,
+        source: resolved.source,
+        config: config as Record<string, unknown> | null,
+        style: resolved.panel.style,
+        hexes: resolved.panel.hexes,
+        label: (st) => ATTIRE_STYLE_LABEL[st],
+        single: singleWearerOf,
+      })
+    : null;
+  const mine = resolved.panel && own ? { ...resolved.panel, styleLabel: own.styleLabel } : resolved.panel;
   const generalTitle = typeof config?.title === 'string' && config.title.trim() ? config.title.trim() : null;
   const dressPalette = Array.isArray(config?.palette)
     ? (config!.palette as unknown[])

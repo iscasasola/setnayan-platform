@@ -97,3 +97,31 @@ export function loadingScreenFor(
     ? 'quiet'
     : 'page';
 }
+
+/**
+ * 🎭 DOES THE PAGE ABOUT TO LAND OPEN UNDER A VEIL? (owner 2026-10-16, DECISION_LOG "BEHIND THE VEIL, NONE OF THE
+ * COVER'S WORDS SHOW"; coordinator, live on cale-ice the same day: the loading frame drew the date and the mark's
+ * hairlines, then the veil came in over them.) Behind a veil none of the cover's words show — so the loading screen in
+ * front of one draws none either, keeping their place (`InvitationSkeleton` `veiled`).
+ *
+ * The same facts the page's own opening is decided by (`RevealMount`: `plan.revealEnabled` × `revealAllowedFor`), for
+ * every stage the page could still land on — the pinned (or clock's) stage, and a `?phase=` that may be honoured. It
+ * leans to "veiled": the cost of a wrong yes is a loading frame without its words for the second before the page; the
+ * cost of a wrong no is the owner's own complaint. The Maker's canvas never opens under a veil (`enabled` is off there).
+ */
+export function loadingOpensUnderAVeil(input: {
+  /** `?editor=1` — the Maker's canvas, where no opening is ever mounted. */
+  makerCanvas: boolean;
+  /** An opening would be mounted on a stage where the reveal plays (`revealAllowedFor` ≠ none, or a staff build). */
+  openingMounts: boolean;
+  /** Does the reveal play on this stage? (`cinematicRevealPlays` — phases on, the couple's `reveal_stages`, the type.) */
+  revealPlaysOn: (phase: LifecyclePhase) => boolean;
+  clockPhase: LifecyclePhase;
+  pinnedPhase: LifecyclePhase | null;
+  askedPhase: LifecyclePhase | null;
+  solemn: boolean;
+}): boolean {
+  if (input.makerCanvas || !input.openingMounts) return false;
+  const possible = [input.pinnedPhase ?? input.clockPhase, ...(input.askedPhase ? [input.askedPhase] : [])];
+  return possible.map((p) => solemnAdjustedPhase(p, input.solemn)).some((p) => input.revealPlaysOn(p));
+}

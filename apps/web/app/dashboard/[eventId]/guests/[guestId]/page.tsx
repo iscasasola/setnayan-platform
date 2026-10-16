@@ -5,6 +5,7 @@ import { GuestHelperAccess } from '../_components/guest-helper-access';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { passCardTicketVersion } from '@/lib/pass-card.server';
 import { eventSkuActive } from '@/lib/entitlements';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
@@ -138,6 +139,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         TicketThumb={GuestTicketThumb}
         MoreMenu={GuestMoreMenu}
         kit={TEMPLATE_KIT}
+        // 🎟 The ticket at its versioned, year-long cached address (streamed — the card never waits).
+        ticketVersion={passCardTicketVersion(createAdminClient(), guestId).catch(() => null)}
         helperAccess={
           helper ? <GuestHelperAccess eventId={eventId} guestId={guestId} firstName={guest.first_name} helper={helper} /> : null
         }

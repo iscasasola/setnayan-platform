@@ -10,7 +10,36 @@
  * Inline styles only: the canvas is the guest page, whose stylesheet the Maker does
  * not write.
  */
+import { COVER_PAPER } from '@/lib/cover-scene';
+
 export type RevealColours = { dominant: string; supporting: string; accent: string; neutral: string };
+
+/**
+ * 🎨 THE EVENT'S INK, NOT THE COVER'S (owner 2026-10-16, live: a blank white rounded box over "Opens once, over the
+ * cover"). The picture's colours are read off the page's own words — the names' ink, the Title's — but over a dark
+ * Cover Scene background those words are CREAM (`COVER_SCENE_CREAM_VARS` repaints `--color-ink` on the cover), so the
+ * flaps were cream on the cream page: an empty card. A word inside a cream-toned cover is read with the page's own
+ * ink in place of the cover's paper, its alpha kept. Held by `lib/a-text-style-card-shows-its-words.test.ts`.
+ */
+export function revealPageInk(doc: Document, selector: string): string {
+  const view = doc.defaultView;
+  if (!view) return 'rgb(44, 42, 41)';
+  const el = doc.querySelector(selector) ?? doc.body;
+  const color = view.getComputedStyle(el).color;
+  const cover = el.closest('[data-cover-tone="cream"]');
+  if (!cover) return color;
+  return coverPaperAsInk(color, view.getComputedStyle(cover.parentElement ?? doc.documentElement).getPropertyValue('--color-ink'));
+}
+
+const PAPER = [1, 3, 5].map((i) => parseInt(COVER_PAPER.slice(i, i + 2), 16));
+/** `rgb(a)` in the cover's paper → the same alpha in the page's ink (`--color-ink`'s channels, "44 42 41"); else as is. */
+export function coverPaperAsInk(color: string, inkChannels: string): string {
+  const m = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)\s*(?:[,/]\s*([\d.]+))?\s*\)$/.exec(color.trim());
+  const ink = inkChannels.trim().split(/[\s,]+/).map(Number);
+  if (!m || ink.length !== 3 || ink.some((v) => !Number.isFinite(v))) return color;
+  if ([m[1], m[2], m[3]].some((v, i) => Number(v) !== PAPER[i])) return color;
+  return m[4] === undefined ? `rgb(${ink.join(', ')})` : `rgba(${ink.join(', ')}, ${m[4]})`;
+}
 
 const piece = (css: string) => `<i style="position:absolute;display:block;${css}"></i>`;
 

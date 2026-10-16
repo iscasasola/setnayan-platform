@@ -101,10 +101,13 @@ test('🎨 exact colour: the garment is dyed the role’s hex, through its own m
   }
 });
 
-test('👗 the garment follows Wear ▾ — every style drawable for every person; "Not said yet" is the dashed silhouette', async () => {
+test('👗 the garment follows Wear ▾ — each person’s own styles drawable; "Not said yet" is the dashed silhouette', async () => {
+  /* 2026-10-16 (owner: "the drawing is not following the type of attire"): a person's Wear ▾ lists only their own
+     styles — no longer every style for everyone (`each-column-wears-its-own.test.ts` holds the lists). The vocabulary
+     is still ONE: every style is somebody's, and each of a person's styles has a drawing of its own. */
+  assert.deepEqual([...new Set((['f', 'm', 'girl', 'boy'] as const).flatMap((w) => STYLE_ORDER[w]))].sort(), [...ATTIRE_STYLES].sort(), 'Wear ▾ is not the ONE vocabulary');
   for (const who of ['f', 'm', 'girl', 'boy'] as const) {
-    assert.deepEqual([...STYLE_ORDER[who]].sort(), [...ATTIRE_STYLES].sort(), `${who}: Wear ▾ is not the ONE vocabulary`);
-    for (const style of ATTIRE_STYLES) assert.ok(GARMENT_FOR[who][style] in FIGURE_ART, `${who} ${style}: no drawing`);
+    for (const style of STYLE_ORDER[who]) assert.ok(GARMENT_FOR[who][style]! in FIGURE_ART, `${who} ${style}: no drawing`);
   }
   assert.equal(garmentFor('m', 'barong_tagalog'), 'barong');
   assert.equal(garmentFor('f', 'filipiniana'), 'terno');

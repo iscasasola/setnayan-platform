@@ -24,6 +24,7 @@ import { roleBlocks, lineNames, pairsShareALine, type EntourageGroup } from '@/l
 import { guestPassFacts } from '@/lib/guest-pass';
 import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_FORMAT_ID, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import type { QrShape } from '@/lib/qr-look';
+import { MIN_CONTRAST, groundsAt, hexRgb, legibleInk, lum, over, pathBounds, samplePoints, worstContrast } from '@/lib/print-ground';
 import {
   BLEED_MM,
   PRINT_FONT_FILES,
@@ -59,9 +60,18 @@ export type PrintLayer = 'foil' | 'white' | 'die';
 
 export type PrintOp =
   | { t: 'rect'; x: number; y: number; w: number; h: number; fill?: string; stroke?: string; sw?: number; opacity?: number; dash?: boolean; layer?: PrintLayer }
-  | { t: 'path'; d: string; fill?: string; stroke?: string; sw?: number; opacity?: number; layer?: PrintLayer; evenOdd?: boolean }
+  | { t: 'path'; d: string; fill?: string; stroke?: string; sw?: number; opacity?: number; layer?: PrintLayer; evenOdd?: boolean; text?: PrintTextMeta; mark?: true }
   | { t: 'image'; ref: string; x: number; y: number; w: number; h: number; opacity?: number }
   | { t: 'circle'; cx: number; cy: number; r: number; fill?: string; stroke?: string; sw?: number; opacity?: number; dash?: boolean; nfc?: boolean };
+
+/**
+ * 📏 WHAT A LINE OF TYPE WAS, kept on its outline path so a measurement can
+ * read the drawn card rather than re-derive it (`lib/print-fit-measure.ts`,
+ * `the-printed-pass-fits.test.ts`): the words as drawn (after `printableText`
+ * and caps), the size they were SET at, the size the layout ASKED for, and the
+ * width they had to fit. The backends ignore it — it changes no ink.
+ */
+export type PrintTextMeta = { s: string; size: number; asked: number; maxWidth?: number; width: number; box?: { x: number; y: number; w: number; h: number } };
 
 /**
  * ✍ THE WORDS A COUPLE CAN TAP ON A CARD (owner 2026-09-28, "tap it, edit it on
@@ -294,14 +304,35 @@ function text(ops: PrintOp[], raw: string, x: number, y: number, o: TextOpts): n
   const tr = (o.tracking ?? 0) * size;
   let cx = o.align === 'center' ? x - width / 2 : o.align === 'right' ? x - width : x;
   const parts: string[] = [];
+  // The ink box, from the same commands the outline is written from (control
+  // points included — never smaller than the ink), so nothing re-parses the path.
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
   for (const r of runsFor(s, o.font, size, tr)) {
     if (r.ch !== ' ') {
-      const d = pathData(r.font.getPath(r.ch, cx, y, size).commands);
-      if (d) parts.push(d);
+      const commands = r.font.getPath(r.ch, cx, y, size).commands as readonly Cmd[];
+      const d = pathData(commands);
+      if (d) {
+        parts.push(d);
+        for (const c of commands) {
+          for (const [px, py] of [[c.x, c.y], [c.x1, c.y1], [c.x2, c.y2]] as const) {
+            if (typeof px !== 'number' || typeof py !== 'number') continue;
+            if (px < x0) x0 = px;
+            if (px > x1) x1 = px;
+            if (py < y0) y0 = py;
+            if (py > y1) y1 = py;
+          }
+        }
+      }
     }
     cx += r.adv;
   }
-  if (parts.length) ops.push({ t: 'path', d: parts.join(' '), fill: o.color, layer: o.layer, opacity: o.opacity });
+  if (parts.length) {
+    const box = Number.isFinite(x0) ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : undefined;
+    ops.push({ t: 'path', d: parts.join(' '), fill: o.color, layer: o.layer, opacity: o.opacity, text: { s, size, asked: o.size, maxWidth: o.maxWidth, width, box } });
+  }
   return width;
 }
 
@@ -414,7 +445,7 @@ function drawMark(ops: PrintOp[], look: PrintLook, m: PrintMonogram, cx: number,
   const own = m.parts.map((p) => p.fill).filter((f): f is string => Boolean(f));
   const vanishes = own.length > 0 && own.every((f) => contrast(f, look.paper) < 1.6);
   for (const p of m.parts) {
-    ops.push({ t: 'path', d: scalePath(p.d, s, ox, oy), fill: vanishes || !p.fill ? look.accent : p.fill, evenOdd: p.evenOdd || undefined });
+    ops.push({ t: 'path', d: scalePath(p.d, s, ox, oy), fill: vanishes || !p.fill ? look.accent : p.fill, evenOdd: p.evenOdd || undefined, mark: true });
   }
 }
 
@@ -1692,80 +1723,157 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
   const pad = Math.max(14 * k, SAFE_PT + 2);
   const nfcOn = data.details.nfc === true && nfcFits(mainW, h);
   const nfcRoom = nfcOn ? NFC_SPOT_CLEAR_R * 2 : 0;
+  const spotTop = nfcOn ? h - SAFE_PT - 2 * NFC_SPOT_R - NFC_STICKER_MARGIN_MM * PT_PER_MM : Infinity;
+  const floor = h - SAFE_PT;
+  /** The room a line has across the main area — narrower beside the NFC spot. */
+  const widthAt = (base: number, size: number) => (base + size * DESC_EM < spotTop - 2 ? mainW - pad * 2 : mainW - pad * 2 - nfcRoom);
+
+  // ── The top line: the kind, the serial — and the stub's ADMIT on the SAME
+  // baseline, at the SAME size (siblings across the tear line line up).
+  const eyeSize = Math.max(PRINT_MIN_BODY_PT, 5.8 * k);
+  const eyeY = pad + 6 * k;
+  const kind = style === 'boarding' ? 'Boarding pass' : style === 'train' ? 'Admit one' : 'Event pass';
+  const kindW = measure(kind.toUpperCase(), look.bodyFont, eyeSize, 0.22 * eyeSize);
+  eyebrow(ops, look, kind, pad, eyeY, eyeSize, 'left');
+  if (pass.serial) {
+    const room = mainW - 10 * k - (pad + kindW + 8);
+    const fit = fitWords(pass.serial, { font: 'poppins', size: Math.max(PRINT_MIN_BODY_PT, 5.4 * k), maxWidth: room, floor: PRINT_MIN_BODY_PT });
+    drawFit(ops, { lines: fit.lines.slice(0, 1), size: fit.size }, mainW - 10 * k, eyeY, { font: 'poppins', size: fit.size, color: look.muted, align: 'right' });
+  }
+
   /**
-   * The date / time / venue lines — WRAPPED, not squeezed: a long church name
-   * used to be shrunk to fit one line, down to 3.5 pt. Lines beside the NFC
-   * spot are narrower than the lines above it. The type comes down toward
-   * `PRINT_MIN_BODY_PT` only if the lines would pass the safe line.
+   * THE MAIN STACK, MEASURED — the couple, (the boarding fields,) then the
+   * date / time / venue lines — laid out at a scale `f`; the largest scale at
+   * which the last line clears the safe line is drawn. Before, the names were
+   * squeezed to 0.55 and drawn wider than the card anyway, and a venue that
+   * did not fit was stacked onto the line above it.
    */
-  const passMeta = (meta: string[], y0: number) => {
-    const spotTop = nfcOn ? h - SAFE_PT - 2 * NFC_SPOT_R - NFC_STICKER_MARGIN_MM * PT_PER_MM : Infinity;
-    const floor = h - SAFE_PT;
-    const plan = (size: number) => {
-      const lead = size * 1.31;
-      const out: Array<{ s: string; y: number; width: number }> = [];
-      let yy = y0;
-      for (const m of meta) {
-        const words = printableText(m).split(/\s+/).filter(Boolean);
-        let line = '';
-        const widthAt = (base: number) => (base + size * DESC_EM < spotTop - 2 ? mainW - pad * 2 : mainW - pad * 2 - nfcRoom);
-        for (const wd of words) {
-          const next = line ? `${line} ${wd}` : wd;
-          if (line && measure(next, look.bodyFont, size) > widthAt(yy)) {
-            out.push({ s: line, y: yy, width: widthAt(yy) });
-            yy += lead;
-            line = wd;
-          } else line = next;
-        }
-        if (line) {
-          out.push({ s: line, y: yy, width: widthAt(yy) });
-          yy += lead;
-        }
+  type Plan = { draw: Array<() => void>; bottom: number; cut: boolean; small: boolean };
+  const plan = (f: number, last: boolean): Plan => {
+    const draw: Array<() => void> = [];
+    const size = 15 * k * f;
+    const layer: PrintLayer | undefined = ctx.foil ? 'foil' : undefined;
+    let y = eyeY + 11 * k + size;
+    const nameO = { font: look.headFont, color: look.heading, align: 'left' as const, caps: look.capsNames, layer };
+    let inkBelow = 0;
+    let cut = false;
+    let small = false;
+    const nameLines = (s: string, at: number) => {
+      // The couple is the pass's secondary line (the guest's name is its first): it may go to the 6 pt floor before it is cut.
+      const spec = (wd: number): FitSpec => ({ font: look.headFont, size, maxWidth: wd, floor: Math.min(size, PRINT_MIN_BODY_PT), wrapBelow: Math.min(size, Math.max(8, size * 0.62)), maxLines: 2, caps: look.capsNames });
+      let fit = fitWords(s, spec(widthAt(at, size)));
+      if (fit.lines.some((l) => l.endsWith('…'))) cut = true;
+      if (fit.size < 8) small = true;
+      let bases = fitBaselines(fit, pad, at, { ...nameO, size: fit.size, lead: 1.08 });
+      if (widthAt(bases[bases.length - 1]!, fit.size) < widthAt(at, size)) {
+        fit = fitWords(s, spec(widthAt(bases[bases.length - 1]!, fit.size)));
+        if (fit.lines.some((l) => l.endsWith('…'))) cut = true;
+        if (fit.size < 8) small = true;
+        bases = fitBaselines(fit, pad, at, { ...nameO, size: fit.size, lead: 1.08 });
       }
-      return out;
+      const f2t = fit;
+      draw.push(() => drawFit(ops, f2t, pad, at, { ...nameO, size: f2t.size, lead: 1.08 }));
+      const lastBase = bases[bases.length - 1]!;
+      inkBelow = lastBase + lineInk(fit.lines[fit.lines.length - 1] ?? '', { ...nameO, size: fit.size }).bottom;
+      return lastBase;
     };
-    const top = 6.4 * k;
-    let lines = plan(top);
-    for (let size = top; size >= PRINT_MIN_BODY_PT - 1e-9; size = Math.round((size - 0.2) * 10) / 10) {
-      lines = plan(size);
-      if (lines.every((l) => l.y + size * DESC_EM <= floor)) {
-        for (const l of lines) text(ops, l.s, pad, l.y, { font: look.bodyFont, size, color: look.muted, align: 'left', maxWidth: l.width });
-        return;
+    y = nameLines(data.names.first, y);
+    if (data.names.second) {
+      const andO = { font: look.scriptFont ?? look.headFont, size: Math.max(PRINT_MIN_BODY_PT, size * 0.6), color: look.accent, align: 'left' as const };
+      const andWord = look.scriptFont ? 'and' : '&';
+      const andInk = lineInk(andWord, andO);
+      // "and" sits under the first name's ink, never on it (a ç or a J descends).
+      const andY = Math.max(y + size * 0.78, inkBelow + Math.max(0.8, size * 0.06) - andInk.top);
+      draw.push(() => text(ops, andWord, pad, andY, andO));
+      const secondTop = lineInk(data.names.second, { ...nameO, size }).top;
+      y = nameLines(data.names.second, Math.max(andY + size * 0.95, andY + andInk.bottom + Math.max(0.8, size * 0.06) - secondTop));
+    }
+    y += size * 0.3 + 10 * k * f;
+    if (style === 'boarding') {
+      // Gate · Seat · Boarding → Table · Seat · Time, each a small labelled field.
+      // 🎟 A Table or Seat the ticket does not carry (before the day, or not
+      // placed) goes, not print "—": an empty field reads as a table the guest
+      // was never given.
+      const fields: Array<[string, string | null]> = (
+        [
+          ['Table', pass.seat ? pass.seat.replace(/^Table\s+/i, '') : null],
+          ['Seat', pass.seatNumber ?? null],
+          ['Time', data.ceremonyTime],
+        ] as Array<[string, string | null]>
+      ).filter(([label, value]) => (label !== 'Table' && label !== 'Seat') || value !== null);
+      const labelSize = Math.max(PRINT_MIN_BODY_PT, 5 * k);
+      const vSize = 11 * k * Math.max(f, 0.8);
+      const valueY = y + labelSize * 0.4 + vSize;
+      const colW = widthAt(valueY + vSize * 1.2, vSize) / 3;
+      let rowEnd = valueY;
+      fields.forEach(([label, value], i) => {
+        const fx = pad + i * colW;
+        const fit = fitWords(value ?? '—', { font: look.headFont, size: vSize, maxWidth: colW - 6, floor: PRINT_MIN_BODY_PT, wrapBelow: 8, maxLines: 2 });
+        if (fit.lines.some((l) => l.endsWith('…'))) cut = true;
+        const vb = fitBaselines(fit, fx, valueY, { font: look.headFont, size: fit.size, color: look.heading, align: 'left', lead: 1.12 });
+        const lastV = vb[vb.length - 1]!;
+        rowEnd = Math.max(rowEnd, lastV);
+        const labelY = y;
+        draw.push(() => {
+          eyebrow(ops, look, label, fx, labelY, labelSize, 'left');
+          drawFit(ops, fit, fx, valueY, { font: look.headFont, size: fit.size, color: look.heading, align: 'left', lead: 1.12 });
+        });
+      });
+      y = rowEnd + vSize * DESC_EM + 8 * k * f;
+    }
+    // The date / time / venue lines — WRAPPED, not squeezed (a long church name
+    // used to be shrunk to fit one line, down to 3.5 pt); narrower beside the NFC spot.
+    const meta = (style === 'boarding'
+      ? [data.dateLabel, data.ceremonyVenue]
+      : [data.dateLabel, data.ceremonyTime ? `Ceremony ${data.ceremonyTime}` : null, data.ceremonyVenue]
+    ).filter(Boolean) as string[];
+    const mSize = Math.max(PRINT_MIN_BODY_PT, 6.4 * k * f);
+    const lead = mSize * 1.31;
+    let yy = y + mSize * 0.7;
+    const lines: Array<{ s: string; y: number; width: number }> = [];
+    for (const m of meta) {
+      const words = printableText(m).split(/\s+/).filter(Boolean);
+      let line = '';
+      for (const wd of words) {
+        const next = line ? `${line} ${wd}` : wd;
+        if (line && measure(next, look.bodyFont, mSize) > widthAt(yy, mSize)) {
+          lines.push({ s: line, y: yy, width: widthAt(yy, mSize) });
+          yy += lead;
+          line = wd;
+        } else line = next;
+      }
+      if (line) {
+        lines.push({ s: line, y: yy, width: widthAt(yy, mSize) });
+        yy += lead;
       }
     }
-    // Nothing fits even at the floor: set the lines as they are and let the
-    // width-fit shrink them — the fit test names the card that needs it.
-    for (const l of lines) text(ops, l.s, pad, Math.min(l.y, floor - 2), { font: look.bodyFont, size: PRINT_MIN_BODY_PT, color: look.muted, align: 'left', maxWidth: l.width });
+    let kept = lines;
+    if (last) {
+      // Nothing fits even at the smallest scale: keep the lines that do, the last one ending in "…".
+      kept = lines.filter((l) => l.y + mSize * DESC_EM <= floor);
+      if (kept.length < lines.length && kept.length) {
+        const tail = kept[kept.length - 1]!;
+        const rest = lines.slice(kept.length - 1).map((l) => l.s).join(' ');
+        kept[kept.length - 1] = { ...tail, s: ellipsize(rest, (t) => measure(t, look.bodyFont, mSize) <= tail.width * 0.999) };
+      }
+    }
+    for (const l of kept) {
+      const fit = fitWords(l.s, { font: look.bodyFont, size: mSize, maxWidth: l.width, floor: PRINT_MIN_BODY_PT });
+      draw.push(() => text(ops, fit.lines[0] ?? '', pad, l.y, { font: look.bodyFont, size: fit.size, color: look.muted, align: 'left' }));
+    }
+    if (lines.some((l) => measure(l.s, look.bodyFont, mSize) > l.width)) cut = true;
+    const bottom = lines.length ? lines[lines.length - 1]!.y + mSize * DESC_EM : y;
+    return { draw, bottom, cut, small };
   };
-  const kind = style === 'boarding' ? 'Boarding pass' : style === 'train' ? 'Admit one' : 'Event pass';
-  eyebrow(ops, look, kind, pad, pad + 6 * k, 5.8 * k, 'left');
-  if (pass.serial) text(ops, pass.serial, mainW - 10 * k, pad + 6 * k, { font: 'poppins', size: 5.4 * k, color: look.muted, align: 'right' });
-  let y = pad + 32 * k;
-  y = lockup(ops, look, data, pad, y, 15 * k, ctx.foil, mainW - pad * 2 - nfcRoom, 'left');
-  y += 10 * k;
-  if (style === 'boarding') {
-    // Gate · Seat · Boarding → Table · Seat · Time, each a small labelled field.
-    // 🎟 A Table or Seat the ticket does not carry (before the day, or not
-    // placed) goes, not print "—": an empty field reads as a table the guest
-    // was never given.
-    const fields: Array<[string, string | null]> = (
-      [
-        ['Table', pass.seat ? pass.seat.replace(/^Table\s+/i, '') : null],
-        ['Seat', pass.seatNumber ?? null],
-        ['Time', data.ceremonyTime],
-      ] as Array<[string, string | null]>
-    ).filter(([label, value]) => (label !== 'Table' && label !== 'Seat') || value !== null);
-    const colW = (mainW - pad * 2) / 3;
-    fields.forEach(([label, value], i) => {
-      const fx = pad + i * colW;
-      eyebrow(ops, look, label, fx, y, 5 * k, 'left');
-      text(ops, value ?? '—', fx, y + 12 * k, { font: look.headFont, size: 11 * k, color: look.heading, align: 'left', maxWidth: colW - 4 });
-    });
-    y += 26 * k;
-    passMeta([data.dateLabel, data.ceremonyVenue].filter(Boolean) as string[], y);
-  } else {
-    passMeta([data.dateLabel, data.ceremonyTime ? `Ceremony ${data.ceremonyTime}` : null, data.ceremonyVenue].filter(Boolean) as string[], y);
+  // The largest scale at which everything fits WHOLE; else the largest at which it fits at all.
+  // In order: whole and the couple ≥ 8 pt · whole · fits at all — each at the largest scale that does.
+  const plans: Plan[] = [];
+  for (let f = 1; f >= 0.5 - 1e-9; f = Math.round((f - 0.05) * 100) / 100) {
+    const p = plan(f, false);
+    if (p.bottom <= floor) plans.push(p);
   }
+  const chosen = plans.find((p) => !p.cut && !p.small) ?? plans.find((p) => !p.cut) ?? plans[0] ?? null;
+  for (const d of (chosen ?? plan(0.5, true)).draw) d();
   // An NFC sticker spot, 25 mm true to size, in the main area's corner (on a
   // calling card that is the only place a 25 mm sticker fits).
   // Its ring sits on the safe line, never past it.
@@ -1775,23 +1883,43 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
   const dash = style === 'train' ? 3 : 5;
   for (let py = SAFE_PT; py + (dash / 2) * k <= h - SAFE_PT; py += dash * k) ops.push({ t: 'rect', x: mainW - 0.3, y: py, w: 0.6, h: (dash / 2) * k, fill: look.ink, opacity: 0.45 });
   // The stub's words and QR are centred in what is SAFE of it: from the tear
-  // line to 5 mm inside the card's right edge.
+  // line to 5 mm inside the card's right edge, 4 pt clear of each.
   const stubRight = w - SAFE_PT;
   const stubInner = stubRight - mainW - 8;
   const sx = (mainW + stubRight) / 2;
-  eyebrow(ops, look, style === 'boarding' ? 'Passenger' : 'Admit', sx, Math.max(18 * k, SAFE_PT + 6), 5.4 * k);
+  const stubEye = fitWords(style === 'boarding' ? 'Passenger' : 'Admit', { font: look.bodyFont, size: eyeSize, maxWidth: stubInner, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.22, minTracking: 0.08 });
+  text(ops, stubEye.lines[0] ?? '', sx, eyeY, { font: look.bodyFont, size: stubEye.size, color: look.muted, align: 'center', caps: true, tracking: stubEye.tracking ?? 0.22 });
+  let stubY = eyeY + eyeSize * DESC_EM;
   // The Guest list toggle: a couple may print passes without names (hand-written, or for walk-ins).
-  if (data.details.guestNames !== false) text(ops, pass.name, sx, 34 * k, { font: look.headFont, size: 10.5 * k, color: look.heading, align: 'center', maxWidth: stubInner });
-  if (pass.seat && style !== 'boarding') text(ops, pass.seat, sx, 45 * k, { font: look.bodyFont, size: 6.4 * k, color: look.accent, align: 'center', caps: true, tracking: 0.18, maxWidth: stubInner });
-  const q = Math.min(50 * k, stubInner - 6 * k);
+  if (data.details.guestNames !== false && pass.name) {
+    const size = 10.5 * k;
+    const fit = fitWords(pass.name, { font: look.headFont, size, maxWidth: stubInner, floor: 8, wrapBelow: Math.max(8, size * 0.8), maxLines: 2 });
+    const first = Math.max(34 * k, stubY + 4 * k + fit.size);
+    stubY = drawFit(ops, fit, sx, first, { font: look.headFont, size: fit.size, color: look.heading, align: 'center', lead: 1.12 }) + fit.size * DESC_EM;
+  }
+  if (pass.seat && style !== 'boarding') {
+    const size = Math.max(PRINT_MIN_BODY_PT, 6.4 * k);
+    const fit = fitWords(pass.seat, { font: look.bodyFont, size, maxWidth: stubInner, floor: PRINT_MIN_BODY_PT, maxLines: 2, caps: true, tracking: 0.18, minTracking: 0.06 });
+    const first = Math.max(45 * k, stubY + 3 * k + fit.size * 0.75);
+    stubY = drawFit(ops, fit, sx, first, { font: look.bodyFont, size: fit.size, color: look.accent, align: 'center', caps: true, tracking: 0.18, lead: 1.25 }) + fit.size * 0.3;
+  }
   const footY = h - SAFE_PT - 1.5; // "Scan at the door", on the safe line
-  const qy = footY - 8 * k - q - 3 * k;
+  const door = fitWords('Scan at the door', { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 4.8 * k), maxWidth: stubInner, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.22, minTracking: 0.04 });
+  // Too wide even closed up (a calling card's stub is 62 pt): two lines, the last on the safe line.
+  const doorFit = door.lines[0]?.endsWith('…') ? fitWords('Scan at the door', { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 4.8 * k), maxWidth: stubInner, floor: PRINT_MIN_BODY_PT, maxLines: 2, caps: true, tracking: 0.12 }) : door;
+  const doorLead = doorFit.size * 1.2;
+  const doorFirst = footY - (doorFit.lines.length - 1) * doorLead;
+  const doorTop = doorFirst - doorFit.size * 0.75;
+  const platePad = 3 * k;
+  // The code: as large as the stub allows, never over the words above it nor the door line below.
+  const q = Math.max(0, Math.min(50 * k, stubInner - 6 * k, doorTop - 3 * k - platePad - (stubY + 3 * k + platePad)));
+  const qy = doorTop - 3 * k - platePad - q;
   if (pass.qrRef) {
-    qrPlate(ops, data.qrShape, sx - q / 2, qy, q, 3 * k);
+    qrPlate(ops, data.qrShape, sx - q / 2, qy, q, platePad);
     ops.push({ t: 'image', ref: pass.qrRef, x: sx - q / 2, y: qy, w: q, h: q });
   }
-  eyebrow(ops, look, 'Scan at the door', sx, footY, 4.8 * k);
-  return doc;
+  doorFit.lines.forEach((l, i) => text(ops, l, sx, doorFirst + i * doorLead, { font: look.bodyFont, size: doorFit.size, color: look.muted, align: 'center', caps: true, tracking: doorFit === door ? (door.tracking ?? 0.22) : 0.12 }));
+  return settlePassInk(doc, look);
 }
 
 /**
@@ -1829,6 +1957,192 @@ function fitLine(ops: PrintOp[], raw: string, x: number, y: number, o: TextOpts)
     if (width > o.maxWidth) o = { ...o, size: o.size * (o.maxWidth / width) * 0.995 };
   }
   return text(ops, raw, x, y, o);
+}
+
+/**
+ * 📏 A LINE THAT MAY NOT FIT, SET THE ONE WAY (owner 2026-10-16, on the Event
+ * pass: *"make sure nothing overlaps, make everything legible"*). Measured
+ * before, a guest's name on a calling card's stub was squeezed by `text`'s
+ * 0.55 floor to 5.8 pt and then drawn ANYWAY — wider than the stub, across the
+ * tear line and off the card; a 22-letter name already did it.
+ *
+ * In order, and never past the `floor`:
+ *   1. one line at the asked size;
+ *   2. one line SHRUNK to fit, down to `wrapBelow` (a hero name wraps long
+ *      before it is shrunk to the floor — the slot's own judgement, never
+ *      below `floor`);
+ *   3. up to `maxLines` lines — balanced, at the largest size from `wrapBelow`
+ *      down to the floor at which every line fits;
+ *   4. at the floor, the last line ends in "…" — a name is never cut silently
+ *      and never runs into its neighbour.
+ * The words are measured exactly as `text` will draw them (printable, caps,
+ * tracking), so a line this returns never needs `text`'s own shrink.
+ */
+export type FitSpec = { font: PrintFontKey; size: number; maxWidth: number; floor: number; wrapBelow?: number; maxLines?: number; caps?: boolean; tracking?: number; minTracking?: number };
+export type Fitted = { lines: string[]; size: number; tracking?: number };
+export function fitWords(raw: string, f: FitSpec): Fitted {
+  // 1b. a spaced-caps label (SCAN AT THE DOOR) closes its letter-spacing before it wraps or is cut.
+  if (f.minTracking !== undefined && (f.tracking ?? 0) > f.minTracking) {
+    const first = fitWordsAt(raw, { ...f, maxLines: 1 });
+    if (first.lines.length === 1 && !first.lines[0]!.endsWith('…')) return first;
+    for (let t = f.tracking ?? 0; t >= f.minTracking - 1e-9; t = Math.round((t - 0.02) * 100) / 100) {
+      const at = fitWordsAt(raw, { ...f, tracking: t, maxLines: 1 });
+      if (at.lines.length === 1 && !at.lines[0]!.endsWith('…')) return { ...at, tracking: t };
+    }
+    return { ...fitWordsAt(raw, { ...f, tracking: f.minTracking }), tracking: f.minTracking };
+  }
+  return fitWordsAt(raw, f);
+}
+function fitWordsAt(raw: string, f: FitSpec): Fitted {
+  const prep = (s: string) => (f.caps ? s.toUpperCase() : s);
+  const s = printableText(raw).replace(/\s+/g, ' ').trim();
+  if (!s) return { lines: [], size: f.size };
+  const room = f.maxWidth * 0.999;
+  const w = (t: string, size: number) => measure(prep(t), f.font, size, (f.tracking ?? 0) * size);
+  const top = f.size;
+  const floor = Math.min(f.floor, top);
+  const wrapBelow = Math.max(floor, Math.min(top, f.wrapBelow ?? floor));
+  const maxLines = Math.max(1, f.maxLines ?? 1);
+  const full = w(s, top);
+  if (full <= room) return { lines: [s], size: top };
+  // Tracking scales with the size, so the width is linear in it.
+  const one = top * (room / full);
+  if (one >= wrapBelow) return { lines: [s], size: one };
+  const words = s.split(' ');
+  /** The fewest, most even lines at `size`, or null if a word alone is too wide. */
+  const balanced = (size: number, n: number): string[] | null => {
+    if (n === 1) return w(s, size) <= room ? [s] : null;
+    if (n === 2) {
+      let best: string[] | null = null;
+      let bestW = Infinity;
+      for (let i = 1; i < words.length; i += 1) {
+        const a = words.slice(0, i).join(' ');
+        const b = words.slice(i).join(' ');
+        const m = Math.max(w(a, size), w(b, size));
+        if (m <= room && m < bestW) {
+          best = [a, b];
+          bestW = m;
+        }
+      }
+      return best;
+    }
+    const lines = wrap(s, f.font, size, room / (1 + (f.tracking ?? 0)));
+    return lines.length <= n && lines.every((l) => w(l, size) <= room) ? lines : null;
+  };
+  if (maxLines > 1) {
+    for (let size = wrapBelow; size >= floor - 1e-9; size = Math.round((size - 0.1) * 100) / 100) {
+      for (let n = 2; n <= maxLines; n += 1) {
+        const lines = balanced(size, n);
+        if (lines) return { lines, size };
+      }
+    }
+  }
+  // At the floor: as many words as fit on each line, the last one ending in "…".
+  const size = floor;
+  const lines: string[] = [];
+  let rest = [...words];
+  while (rest.length && lines.length < maxLines) {
+    const last = lines.length === maxLines - 1;
+    let n = 0;
+    while (n < rest.length && w(rest.slice(0, n + 1).join(' '), size) <= room) n += 1;
+    if (last || n === 0) {
+      lines.push(ellipsize(rest.join(' '), (t) => w(t, size) <= room));
+      rest = [];
+    } else {
+      lines.push(rest.slice(0, n).join(' '));
+      rest = rest.slice(n);
+    }
+  }
+  return { lines, size };
+}
+
+/** The longest start of `s` that fits with "…" after it (cut back to a word end where one is near). */
+function ellipsize(s: string, fits: (t: string) => boolean): string {
+  if (fits(s)) return s;
+  const chars = [...s];
+  for (let n = chars.length - 1; n > 0; n -= 1) {
+    const head = chars.slice(0, n).join('').replace(/[\s·,&–—-]+$/u, '');
+    if (head && fits(`${head}…`)) return `${head}…`;
+  }
+  return '…';
+}
+
+/**
+ * Where `fitWords` lines go: the first baseline at `y`, then `lead` × size
+ * apart — or further, MEASURED: the next line starts below the ink of the one
+ * above (a "J" that descends, an "Á" that rises), never on it.
+ */
+function fitBaselines(fit: Fitted, x: number, y: number, o: TextOpts & { lead?: number }): number[] {
+  if (fit.tracking !== undefined) o = { ...o, tracking: fit.tracking };
+  const step = fit.size * (o.lead ?? 1.18);
+  const gap = Math.max(0.6, fit.size * 0.08);
+  const out: number[] = [];
+  let prevBottom = -Infinity;
+  for (const line of fit.lines) {
+    const { top, bottom } = lineInk(line, { ...o, size: fit.size }); // ink above (negative) / below the baseline
+    let base = out.length ? out[out.length - 1]! + step : y;
+    if (out.length && base + top < prevBottom + gap) base = prevBottom + gap - top;
+    out.push(base);
+    prevBottom = base + bottom;
+  }
+  return out;
+}
+
+/** A line's ink above (negative) and below its baseline, measured from its outline (kept: the same line is asked many times). */
+const inkCache = new Map<string, { top: number; bottom: number }>();
+function lineInk(line: string, o: TextOpts): { top: number; bottom: number } {
+  const key = `${o.font}|${o.size}|${o.caps ? 1 : 0}|${o.tracking ?? 0}|${o.maxWidth ?? 0}|${line}`;
+  const hit = inkCache.get(key);
+  if (hit) return hit;
+  const scratch: PrintOp[] = [];
+  text(scratch, line, 0, 0, o);
+  const first = scratch[0];
+  const box = first && first.t === 'path' ? first.text?.box : undefined;
+  const out = box ? { top: box.y, bottom: box.y + box.h } : { top: -o.size * 0.8, bottom: o.size * 0.2 };
+  if (inkCache.size > 5000) inkCache.clear();
+  inkCache.set(key, out);
+  return out;
+}
+
+/** Draw `fitWords` lines (`fitBaselines`). Returns the last baseline. */
+function drawFit(ops: PrintOp[], fit: Fitted, x: number, y: number, o: TextOpts & { lead?: number }): number {
+  if (fit.tracking !== undefined) o = { ...o, tracking: fit.tracking };
+  const bases = fitBaselines(fit, x, y, o);
+  fit.lines.forEach((line, i) => text(ops, line, x, bases[i]!, { ...o, size: fit.size }));
+  return bases.length ? bases[bases.length - 1]! : y;
+}
+
+/**
+ * 🎨 EVERY LINE OF A PASS READS ON WHAT IS UNDER IT (owner 2026-10-16, "make
+ * everything legible"). Measured before: Classic's heading gold read 4.47 : 1
+ * on its paper and its accent gold 2.55 : 1 ("and", the initials, the date
+ * line); Modern's muted grey under the veil read below 4.5 : 1 on the light
+ * end of its still. Run once at the end of a pass layout: each line keeps its
+ * colour if it reads ≥ 4.5 : 1 (WCAG AA) on every ground under it
+ * (`lib/print-ground.ts` — the photo at both of its extremes); else a
+ * see-through line is made solid; else its colour is taken toward black or
+ * white, the same hue, by the least step that reads. Nothing is moved.
+ */
+function settlePassInk(doc: PrintDoc, look: PrintLook): PrintDoc {
+  doc.ops.forEach((o, i) => {
+    if (o.t !== 'path' || !o.text || !o.fill || o.layer === 'white') return;
+    const box = o.text.box ?? inkBox(o.d);
+    if (!box) return;
+    const grounds = samplePoints(box).flatMap(([x, y]) => groundsAt(doc.ops, look.theme, i, x, y));
+    if (worstContrast(hexRgb(o.fill), o.opacity ?? 1, grounds) >= MIN_CONTRAST + 0.02) return;
+    if (o.opacity !== undefined && worstContrast(hexRgb(o.fill), 1, grounds) >= MIN_CONTRAST + 0.02) {
+      doc.ops[i] = { ...o, opacity: undefined };
+      return;
+    }
+    const ink = legibleInk(o.fill, grounds);
+    if (ink) doc.ops[i] = { ...o, fill: ink, opacity: undefined };
+  });
+  return doc;
+}
+
+/** The ink box of a glyph outline (`pathData` writes coordinate PAIRS only). */
+function inkBox(d: string): { x: number; y: number; w: number; h: number } | null {
+  return pathBounds(d);
 }
 
 type CardFacts = { label: string; value: string }[];
@@ -1919,25 +2233,58 @@ function cardMark(ops: PrintOp[], look: PrintLook, data: PrintSetData, cx: numbe
   fitLine(ops, initials, cx, cy + r * 0.3, { font: look.headFont, size: r * 0.8, color: onPhoto ? '#ffffff' : look.accent, align: 'center', caps: true, tracking: 0.06, maxWidth: r * 1.6 });
 }
 
-/** "SCANS ONCE AT THE DOOR" · and, on a free event, "● SETNAYAN". On paper, "As of <date>" above it. */
-function cardFoot(ops: PrintOp[], look: PrintLook, data: PrintSetData, u: number, x0: number, x1: number, y: number, mode: PrintMode, door = 'Scans once at the door') {
-  if (mode === 'print' && data.asOf) {
-    fitLine(ops, data.asOf, (x0 + x1) / 2, y - 13 * u, { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 7 * u), color: look.muted, align: 'center', maxWidth: x1 - x0, opacity: 0.8 });
-  }
-  const o = { font: look.bodyFont, size: 9.5 * u, color: look.muted, caps: true, tracking: 0.16 } as const;
+/**
+ * "SCANS ONCE AT THE DOOR" · and, on a free event, "● SETNAYAN". On paper, "As of <date>" above it.
+ * Returns the TOP of the ink it drew, so the card's content stops above it
+ * (before, "As of" was set 13 units over the door line, ON the DATE · ARRIVE row).
+ */
+function cardFoot(ops: PrintOp[], look: PrintLook, data: PrintSetData, u: number, x0: number, x1: number, y: number, mode: PrintMode, door = 'Scans once at the door'): number {
+  const o = { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 9.5 * u), color: look.muted, caps: true, tracking: 0.16 } as const;
+  const gap = Math.max(1.2, 3 * u);
+  let top = y;
   if (data.details.setnayanMark) {
-    fitLine(ops, door, x0, y, { ...o, align: 'left', maxWidth: (x1 - x0) * 0.66 });
-    const w = fitLine(ops, 'Setnayan', x1, y, { ...o, align: 'right', tracking: 0.2 });
+    const markO = { ...o, tracking: 0.2 };
+    const markW = measure('SETNAYAN', o.font, o.size, 0.2 * o.size);
+    const room = x1 - x0 - markW - 8 * u - 10 * u;
+    const fit = fitWords(door, { font: o.font, size: o.size, maxWidth: room, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.16, minTracking: 0.04 });
+    const line = fit.lines[0] ?? '';
+    text(ops, line, x0, y, { ...o, size: fit.size, align: 'left', tracking: fit.tracking ?? 0.16 });
+    const w = text(ops, 'Setnayan', x1, y, { ...markO, align: 'right' });
     ops.push({ t: 'circle', cx: x1 - w - 5 * u, cy: y - 3.2 * u, r: 3 * u, fill: look.accent });
+    top = Math.min(y + lineInk(line, { ...o, size: fit.size }).top, y + lineInk('SETNAYAN', markO).top, y - 6.2 * u);
   } else {
-    fitLine(ops, door, (x0 + x1) / 2, y, { ...o, align: 'center', maxWidth: x1 - x0 });
+    const fit = fitWords(door, { font: o.font, size: o.size, maxWidth: x1 - x0, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.16, minTracking: 0.04 });
+    const line = fit.lines[0] ?? '';
+    text(ops, line, (x0 + x1) / 2, y, { ...o, size: fit.size, align: 'center', tracking: fit.tracking ?? 0.16 });
+    top = y + lineInk(line, { ...o, size: fit.size }).top;
   }
+  if (mode === 'print' && data.asOf) {
+    const aO = { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 7 * u), color: look.muted, align: 'center' as const, opacity: 0.8 };
+    const fit = fitWords(data.asOf, { font: aO.font, size: aO.size, maxWidth: x1 - x0, floor: PRINT_MIN_BODY_PT });
+    const line = fit.lines[0] ?? '';
+    const ink = lineInk(line, { ...aO, size: fit.size });
+    const ay = top - gap - ink.bottom;
+    text(ops, line, (x0 + x1) / 2, ay, { ...aO, size: fit.size });
+    top = ay + ink.top;
+  }
+  return top;
 }
 
-/** Label over value, centred on `cx`. */
-function cardFact(ops: PrintOp[], look: PrintLook, f: { label: string; value: string }, cx: number, y: number, u: number, size: number, maxWidth: number, ink = look.ink, muted = look.muted) {
-  fitLine(ops, f.label, cx, y, { font: look.bodyFont, size: 9.5 * u, color: muted, align: 'center', caps: true, tracking: 0.18 });
-  fitLine(ops, f.value, cx, y + (size + 3) * u, { font: look.headFont, size: size * u, color: ink, align: 'center', maxWidth });
+/**
+ * Label over value, centred on `cx` — the value fitted (shrunk, then two
+ * lines, then "…", never under 6 pt; a long table name measured 3.4 pt
+ * before). Returns the bottom of its ink.
+ */
+function cardFact(ops: PrintOp[], look: PrintLook, f: { label: string; value: string }, cx: number, y: number, u: number, size: number, maxWidth: number, ink = look.ink, muted = look.muted): number {
+  const lO = { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 9.5 * u), color: muted, align: 'center' as const, caps: true, tracking: 0.18 };
+  const lfit = fitWords(f.label, { font: lO.font, size: lO.size, maxWidth, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.18 });
+  text(ops, lfit.lines[0] ?? '', cx, y, { ...lO, size: lfit.size });
+  const vO = { font: look.headFont, size: size * u, color: ink, align: 'center' as const };
+  const vfit = fitWords(f.value, { font: vO.font, size: vO.size, maxWidth, floor: PRINT_MIN_BODY_PT, wrapBelow: Math.max(8, vO.size * 0.7), maxLines: 2 });
+  const labelBottom = y + lineInk(lfit.lines[0] ?? '', { ...lO, size: lfit.size }).bottom;
+  const first = Math.max(y + (size + 3) * u - (vO.size - vfit.size) * 0.3, labelBottom + Math.max(1, 2 * u) - lineInk(vfit.lines[0] ?? '', { ...vO, size: vfit.size }).top);
+  const last = drawFit(ops, vfit, cx, first, { ...vO, size: vfit.size, lead: 1.1 });
+  return last + lineInk(vfit.lines[vfit.lines.length - 1] ?? '', { ...vO, size: vfit.size }).bottom;
 }
 
 function cardSheet(ctx: Ctx, fmt: PrintFormat): { doc: PrintDoc; u: number } {
@@ -1971,50 +2318,74 @@ function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Pri
   const pad = inset + Math.max(X(12), 4);
   const foil: PrintLayer | undefined = ctx.foil ? 'foil' : undefined;
   const inner = w - pad * 2;
+  const frameW = Math.max(0.4, X(1));
 
-  ops.push({ t: 'path', d: roundRectPath(inset, inset, w - inset * 2, h - inset * 2, X(17)), stroke: look.accent, sw: Math.max(0.4, X(1)), opacity: 0.35 });
+  ops.push({ t: 'path', d: roundRectPath(inset, inset, w - inset * 2, h - inset * 2, X(17)), stroke: look.accent, sw: frameW, opacity: 0.35 });
 
   // head — the mark in its ring, the couple, the ornament rule
   cardMark(ops, look, data, w / 2, pad + X(20), X(20), false);
   const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
-  fitLine(ops, couple, w / 2, pad + X(64), { font: look.scriptFont ?? look.headFont, size: X(22), color: look.heading, align: 'center', caps: look.capsNames, tracking: 0.03, maxWidth: inner, layer: foil });
-  const ruleY = pad + X(76);
+  const coupleO = { font: look.scriptFont ?? look.headFont, size: X(22), color: look.heading, align: 'center' as const, caps: look.capsNames, tracking: 0.03, layer: foil };
+  const coupleFit = fitWords(couple, { font: coupleO.font, size: coupleO.size, maxWidth: inner, floor: 8, wrapBelow: X(22) * 0.7, maxLines: 2, caps: look.capsNames, tracking: 0.03 });
+  // A couple too long for one line takes two, and the card below moves down by the second.
+  const coupleLast = drawFit(ops, coupleFit, w / 2, pad + X(64), { ...coupleO, size: coupleFit.size, lead: 1.1 });
+  const coupleBottom = coupleLast + lineInk(coupleFit.lines[coupleFit.lines.length - 1] ?? '', { ...coupleO, size: coupleFit.size }).bottom;
+  const ruleY = Math.max(pad + X(76), coupleBottom + X(6));
   const gapHalf = X(10);
   ops.push({ t: 'rect', x: pad, y: ruleY, w: w / 2 - gapHalf - pad, h: Math.max(0.4, X(1)), fill: look.accent, opacity: 0.35 });
   ops.push({ t: 'rect', x: w / 2 + gapHalf, y: ruleY, w: w / 2 - gapHalf - pad, h: Math.max(0.4, X(1)), fill: look.accent, opacity: 0.35 });
   const dm = X(4);
   ops.push({ t: 'path', d: `M${f2(w / 2)} ${f2(ruleY - dm)}L${f2(w / 2 + dm)} ${f2(ruleY + X(0.5))}L${f2(w / 2)} ${f2(ruleY + dm + X(1))}L${f2(w / 2 - dm)} ${f2(ruleY + X(0.5))}Z`, fill: look.accent });
+  const diamondFoot = ruleY + dm + X(1);
 
-  // the guest, then "and 1 guest" — or on the day, the seat as a pill
-  let y = ruleY + X(30);
-  fitLine(ops, pass.name, w / 2, y, { font: look.headFont, size: X(28), color: look.heading, align: 'center', maxWidth: inner });
+  // the guest, then "and 1 guest" — or on the day, the seat as a pill.
+  // The name's ink stays CLEAR of the diamond (coordinator 2026-10-16: "make
+  // sure the name's ascenders and any 2-line name never touch it") — measured
+  // from the name's own outline, so an Á or an Ñ is held off it too.
+  const nameO = { font: look.headFont, size: X(28), color: look.heading, align: 'center' as const };
+  const nameFit = fitWords(pass.name, { font: nameO.font, size: nameO.size, maxWidth: inner, floor: 8, wrapBelow: X(28) * 0.6, maxLines: 2 });
+  const nameTop = lineInk(nameFit.lines[0] ?? '', { ...nameO, size: nameFit.size }).top;
+  const nameY = Math.max(ruleY + X(30), diamondFoot + X(5) - nameTop);
+  const nameLast = drawFit(ops, nameFit, w / 2, nameY, { ...nameO, size: nameFit.size, lead: 1.08 });
+  let y = nameLast + X(20);
   const party = pass.pending ? null : partyLine(pass.party);
   const seat = pass.pending || !pass.seat ? null : [pass.seat, pass.seatNumber ? `Seat ${pass.seatNumber}` : null].filter(Boolean).join(' · ');
-  y += X(20);
   if (seat) {
     const size = X(11);
-    const sw = Math.min(inner, measure(printableText(seat).toUpperCase(), look.bodyFont, size, 0.16 * size) + X(24));
-    const ph = X(20);
-    ops.push({ t: 'path', d: roundRectPath(w / 2 - sw / 2, y - ph + X(6), sw, ph, ph / 2), fill: look.accent, opacity: 0.14 });
-    fitLine(ops, seat, w / 2, y, { font: look.bodyFont, size, color: look.heading, align: 'center', caps: true, tracking: 0.16, maxWidth: sw - X(12) });
+    const sO = { font: look.bodyFont, size, color: look.heading, align: 'center' as const, caps: true, tracking: 0.16 };
+    const fit = fitWords(seat, { font: sO.font, size, maxWidth: inner - X(24), floor: PRINT_MIN_BODY_PT, maxLines: 2, caps: true, tracking: 0.16 });
+    const bases = fitBaselines(fit, w / 2, y, { ...sO, size: fit.size, lead: 1.25 });
+    const widest = Math.max(...fit.lines.map((l) => measure(printableText(l).toUpperCase(), sO.font, fit.size, 0.16 * fit.size)));
+    const sw = Math.min(inner, widest + X(24));
+    const ph = X(20) + (bases[bases.length - 1]! - bases[0]!);
+    ops.push({ t: 'path', d: roundRectPath(w / 2 - sw / 2, y - X(20) + X(6), sw, ph, Math.min(X(10), ph / 2)), fill: look.accent, opacity: 0.14 });
+    drawFit(ops, fit, w / 2, y, { ...sO, size: fit.size, lead: 1.25 });
+    // the pill's foot — what the code's slot must clear
+    y = bases[bases.length - 1]! + X(6);
   } else if (party) {
     fitLine(ops, party, w / 2, y, { font: look.bodyFont, size: X(11), color: look.muted, align: 'center', caps: true, tracking: 0.2, maxWidth: inner });
   }
 
-  // foot — the door line (and the small Setnayan mark on a free event)
-  const footY = h - Math.max(X(18), SAFE_PT) - X(2);
-  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode, pass.pending ? 'Not valid at the door yet' : undefined);
+  // foot — the door line (and the small Setnayan mark on a free event), INSIDE
+  // the frame: it printed ON the frame's bottom stroke before (owner's phone
+  // card, 2026-10-16 — "a text overlaps on lines"; the frame sits at
+  // h − inset and the line's baseline sat 0.4 pt above it).
+  const footY = h - inset - frameW - X(12);
+  const footTop = cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode, pass.pending ? 'Not valid at the door yet' : undefined);
 
   // the DATE · ARRIVE row above it — a pending request's band takes its place
   const facts = pass.pending ? [{ label: '', value: '' }] : cardFootFacts(data, pass);
-  const metaTop = footY - X(50);
+  const metaTop = footTop - X(9) - X(34);
   // the code in its slot, centred between the name block and the foot row
   const round = data.qrShape === 'circle';
   const tile = X(round ? ROUND_CODE_ROOM.classic : 176);
   const tilePad = X(10);
-  const slotTop = y + X(6);
-  const size = Math.min(tile, metaTop - X(6) - slotTop - tilePad * 2);
-  const codeY = slotTop + Math.max(0, (metaTop - X(6) - slotTop - size - tilePad * 2) / 2);
+  // A round code's slot ring reaches X(6) beyond its tile on every side — kept clear of the seat pill and the foot row.
+  const ringOut = round ? X(6) + Math.max(0.4, X(1)) : 0;
+  const slotTop = y + X(6) + ringOut;
+  const slotFoot = metaTop - X(6) - ringOut;
+  const size = Math.min(tile, slotFoot - slotTop - tilePad * 2);
+  const codeY = slotTop + Math.max(0, (slotFoot - slotTop - size - tilePad * 2) / 2);
   if (round) {
     // the round slot — a soft well of the paper colour, with a fine ring
     ops.push({ t: 'circle', cx: w / 2, cy: codeY + tilePad + size / 2, r: size / 2 + tilePad + X(6), fill: look.ink, opacity: 0.05 });
@@ -2028,18 +2399,20 @@ function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Pri
     const by = metaTop + X(2);
     ops.push({ t: 'rect', x: (w - bw) / 2, y: by - X(4), w: bw, h: X(38), stroke: look.accent, sw: Math.max(0.5, X(1.2)), dash: true });
     fitLine(ops, 'Request pending', w / 2, by + X(13), { font: look.headFont, size: X(16), color: look.heading, align: 'center', caps: true, tracking: 0.12, maxWidth: bw - X(16) });
-    fitLine(ops, pass.pending, w / 2, by + X(27), { font: look.bodyFont, size: X(11), color: look.muted, align: 'center', maxWidth: bw - X(16) });
+    const wait = fitWords(pass.pending, { font: look.bodyFont, size: X(11), maxWidth: bw - X(16), floor: PRINT_MIN_BODY_PT });
+    text(ops, wait.lines[0] ?? '', w / 2, by + X(27), { font: look.bodyFont, size: wait.size, color: look.muted, align: 'center' });
   } else if (facts.length) {
     ops.push({ t: 'rect', x: pad, y: metaTop, w: inner, h: Math.max(0.4, X(1)), fill: look.ink, opacity: 0.12 });
     facts.forEach((f, i) => {
       const right = i === 1 || (facts.length === 1 && f.label === 'Arrive');
       const x = right ? w - pad : pad;
       const align = right ? 'right' : 'left';
-      fitLine(ops, f.label, x, metaTop + X(15), { font: look.bodyFont, size: X(9.5), color: look.accent, align, caps: true, tracking: 0.22 });
-      fitLine(ops, f.value, x, metaTop + X(34), { font: look.headFont, size: X(19), color: look.heading, align, maxWidth: inner / 2 - X(6) });
+      fitLine(ops, f.label, x, metaTop + X(15), { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, X(9.5)), color: look.accent, align, caps: true, tracking: 0.22 });
+      const v = fitWords(f.value, { font: look.headFont, size: X(19), maxWidth: inner / 2 - X(6), floor: PRINT_MIN_BODY_PT });
+      text(ops, v.lines[0] ?? '', x, metaTop + X(34), { font: look.headFont, size: v.size, color: look.heading, align });
     });
   }
-  return doc;
+  return settlePassInk(doc, look);
 }
 
 /** The Fable ticket's foot row: DATE (the day, without the weekday) and ARRIVE — each only when it exists. */
@@ -2089,22 +2462,50 @@ function layoutPassCardTicket(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   // picture and cut on paper — a ticket even in Photos.
   doc.diePath = ticketDie(w, h, X(18), perfY, X(12));
   const foil: PrintLayer | undefined = ctx.foil ? 'foil' : undefined;
+  const room = w - pad * 2;
 
   // top half — whose day, and who this is for
   cardMark(ops, look, data, pad + X(22), pad + X(22), X(22), false);
   const word = cardWhen(data, true)?.split(' · ')[0] ?? null;
-  const kindO = { font: look.bodyFont, size: X(9.5), color: look.muted, align: 'right' as const, caps: true, tracking: 0.2 };
+  const kindO = { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, X(9.5)), color: look.muted, align: 'right' as const, caps: true, tracking: 0.2 };
   if (word && word !== cardWhen(data, false)) fitLine(ops, word, w - pad, pad + X(16), kindO);
   fitLine(ops, PASS_CARD_WORDS.kind, w - pad, pad + X(30), kindO);
   const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
-  fitLine(ops, couple, pad, pad + X(80), { font: look.headFont, size: X(24), color: look.heading, align: 'left', caps: look.capsNames, maxWidth: w - pad * 2, layer: foil });
+  const coupleO = { font: look.headFont, size: X(24), color: look.heading, align: 'left' as const, caps: look.capsNames, layer: foil };
+  const coupleFit = fitWords(couple, { font: coupleO.font, size: coupleO.size, maxWidth: room, floor: 8, wrapBelow: X(24) * 0.62, maxLines: 2, caps: look.capsNames });
+  const coupleLast = drawFit(ops, coupleFit, pad, pad + X(80), { ...coupleO, size: coupleFit.size, lead: 1.08 });
   const date = cardWhen(data, false);
-  if (date) fitLine(ops, date, pad, pad + X(98), { font: look.bodyFont, size: X(11), color: look.accent, align: 'left', caps: true, tracking: 0.14, maxWidth: w - pad * 2 });
+  let topBottom = coupleLast + lineInk(coupleFit.lines[coupleFit.lines.length - 1] ?? '', { ...coupleO, size: coupleFit.size }).bottom;
+  if (date) {
+    const dO = { font: look.bodyFont, size: X(11), color: look.accent, align: 'left' as const, caps: true, tracking: 0.14 };
+    const dFit = fitWords(date, { font: dO.font, size: dO.size, maxWidth: room, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.14 });
+    const dy = Math.max(pad + X(98), topBottom + X(4) - lineInk(dFit.lines[0] ?? '', { ...dO, size: dFit.size }).top);
+    text(ops, dFit.lines[0] ?? '', pad, dy, { ...dO, size: dFit.size });
+    topBottom = dy + X(3);
+  }
+  // The guest's name sits on the perforation's side: a two-line name grows UP,
+  // its "GUEST" label above its first line — never over the date above it.
   const party = partyLine(pass.party);
   const nameY = perfY - X(16) - (party ? X(22) : X(4));
-  fitLine(ops, 'Guest', pad, nameY - X(34), { font: look.bodyFont, size: X(9.5), color: look.muted, align: 'left', caps: true, tracking: 0.18 });
-  fitLine(ops, pass.name, pad, nameY, { font: look.headFont, size: X(34), color: look.heading, align: 'left', maxWidth: w - pad * 2 });
-  if (party) fitLine(ops, party, pad, nameY + X(20), { font: look.bodyFont, size: X(15), color: look.muted, align: 'left' });
+  const nameO = { font: look.headFont, size: X(34), color: look.heading, align: 'left' as const };
+  // The largest name that stays below the couple and the date (a long couple
+  // on two lines and a long name on two lines meet in the middle otherwise).
+  const placeName = (sz: number) => {
+    const fit = fitWords(pass.name, { font: nameO.font, size: sz, maxWidth: room, floor: Math.min(sz, 8), wrapBelow: sz * 0.6, maxLines: 2 });
+    const b = fitBaselines(fit, pad, 0, { ...nameO, size: fit.size, lead: 1.06 });
+    const first = nameY - b[b.length - 1]!;
+    return { fit, first, top: first + lineInk(fit.lines[0] ?? '', { ...nameO, size: fit.size }).top };
+  };
+  let placed = placeName(nameO.size);
+  // Room for the GUEST label between the date and the name — the name shrinks for it, and only at its floor is the label left off.
+  const labelRoom = X(8) + Math.max(PRINT_MIN_BODY_PT, X(9.5)) * 0.75 + X(6);
+  for (let sz = nameO.size; placed.top < topBottom + labelRoom && sz > 8; sz = Math.max(8, sz - 0.5)) placed = placeName(sz);
+  const { fit: nameFit, first: firstName, top: nameTop } = placed;
+  const labelO = { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, X(9.5)), color: look.muted, align: 'left' as const, caps: true, tracking: 0.18 };
+  const labelY = Math.min(nameY - X(34), nameTop - X(6));
+  if (labelY + lineInk('GUEST', labelO).top >= topBottom + X(8) - 0.01) fitLine(ops, 'Guest', pad, labelY, labelO);
+  drawFit(ops, nameFit, pad, firstName, { ...nameO, size: nameFit.size, lead: 1.06 });
+  if (party) fitLine(ops, party, pad, nameY + X(20), { font: look.bodyFont, size: X(15), color: look.muted, align: 'left', maxWidth: room });
 
   // the perforation, and the stub's slightly deeper paper
   ops.push({ t: 'rect', x: -doc.bleed, y: perfY, w: w + doc.bleed * 2, h: h - perfY + doc.bleed, fill: look.ink, opacity: 0.035 });
@@ -2114,28 +2515,43 @@ function layoutPassCardTicket(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
 
   // the stub — the code, with Table and Arrive set like a gate and a time
   const footY = h - Math.max(X(16), SAFE_PT) - X(2);
+  const footTop = cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
   const facts = passCardFacts(pass);
   // ⭕ A round code takes the whole stub (`ROUND_CODE_ROOM`), its facts in a narrower column beside
   // it, on a thinner white ring: the code's own light ring (CIRCLE_GAP) is its quiet zone.
   const round = data.qrShape === 'circle';
   const tilePad = X(round ? 5 : 10);
-  const size = round ? Math.min(X(ROUND_CODE_ROOM.ticket), footY - X(20) - perfY - X(18) - tilePad * 2) : X(128);
-  const tileY = perfY + X(18) + Math.max(0, (footY - X(20) - perfY - X(18) - size - tilePad * 2) / 2);
+  const stubFoot = Math.min(footY - X(20), footTop - X(6));
+  const size = round ? Math.min(X(ROUND_CODE_ROOM.ticket), stubFoot - perfY - X(18) - tilePad * 2) : Math.min(X(128), stubFoot - perfY - X(18) - tilePad * 2);
+  const tileY = perfY + X(18) + Math.max(0, (stubFoot - perfY - X(18) - size - tilePad * 2) / 2);
   const tileX = facts.length ? pad : w / 2 - size / 2 - tilePad;
   codeTile(ops, pass, tileX, tileY, size, tilePad, X(16), 0, data.qrShape);
   if (facts.length) {
     const cx0 = tileX + size + tilePad * 2 + X(round ? 10 : 16);
     const colW = w - pad - cx0;
-    const stepH = X(62);
-    const firstY = tileY + (size + tilePad * 2) / 2 - (facts.length * stepH) / 2 + X(12);
-    facts.forEach((f, i) => {
-      const y = firstY + i * stepH;
-      fitLine(ops, f.label, cx0, y, { font: look.bodyFont, size: X(9.5), color: look.muted, align: 'left', caps: true, tracking: 0.18 });
-      fitLine(ops, f.value, cx0, y + X(31), { font: look.headFont, size: X(30), color: look.heading, align: 'left', maxWidth: colW });
+    const lO = { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, X(9.5)), color: look.muted, align: 'left' as const, caps: true, tracking: 0.18 };
+    const vO = { font: look.headFont, size: X(30), color: look.heading, align: 'left' as const };
+    // Each fact measured — a long table name takes two lines — then the column is centred on the code.
+    const blocks = facts.map((f) => {
+      const v = fitWords(f.value, { font: vO.font, size: vO.size, maxWidth: colW, floor: PRINT_MIN_BODY_PT, wrapBelow: Math.max(8, X(30) * 0.6), maxLines: 2 });
+      const lInk = lineInk(f.label.toUpperCase(), lO);
+      const vTop = lineInk(v.lines[0] ?? '', { ...vO, size: v.size }).top;
+      const vOff = Math.max(X(31) - (vO.size - v.size) * 0.4, lInk.bottom + X(4) - vTop);
+      const vb = fitBaselines(v, cx0, vOff, { ...vO, size: v.size, lead: 1.06 });
+      const bottom = vb[vb.length - 1]! + lineInk(v.lines[v.lines.length - 1] ?? '', { ...vO, size: v.size }).bottom;
+      return { f, v, vOff, top: lInk.top, bottom };
     });
+    const gap = X(14);
+    const total = blocks.reduce((a, b) => a + (b.bottom - b.top), 0) + gap * (blocks.length - 1);
+    let y = tileY + (size + tilePad * 2) / 2 - total / 2;
+    for (const b of blocks) {
+      const base = y - b.top;
+      fitLine(ops, b.f.label, cx0, base, { ...lO, maxWidth: colW });
+      drawFit(ops, b.v, cx0, base + b.vOff, { ...vO, size: b.v.size, lead: 1.06 });
+      y = base + b.bottom + gap;
+    }
   }
-  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
-  return doc;
+  return settlePassInk(doc, look);
 }
 
 function layoutPassCardPoster(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): PrintDoc {
@@ -2145,6 +2561,7 @@ function layoutPassCardPoster(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   const X = (v: number) => v * u;
   const pad = Math.max(X(22), SAFE_PT + 2);
   const bandH = X(196);
+  const room = w - pad * 2;
 
   // the band — their cover photo, or the theme's own colour when there is none
   // Every strip runs from its own top to the band's FOOT, so the strips only
@@ -2163,54 +2580,100 @@ function layoutPassCardPoster(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
     // The theme's accent, deepening toward the foot (the prototype's band).
     band('#140f0f', 0.12, 0.55, 28);
   }
-  // the veil that keeps white type readable on any photo
+  /**
+   * The veil that keeps white type readable on any photo — at LEAST as deep
+   * as white type needs to read 4.5 : 1 on the band's LIGHTEST ground (the
+   * photo's light extreme, or the theme's accent), measured, not guessed.
+   * Before, the veil began at 5 %: white names over Modern's light still, or
+   * Classic's gold band, read 1.3–2.6 : 1.
+   */
+  const lightest = groundsAt(ops, look.theme, ops.length, w / 2, X(2)).reduce((a, g) => (lum(g) > lum(a) ? g : a));
+  let floorVeil = 0;
+  while (floorVeil < 0.9 && worstContrast(hexRgb('#ffffff'), 1, [over(hexRgb('#000000'), lightest, floorVeil)]) < MIN_CONTRAST + 0.1) floorVeil += 0.02;
+  if (floorVeil > 0) ops.push({ t: 'rect', x: -bleed, y: -bleed, w: w + bleed * 2, h: bandH + bleed, fill: '#000000', opacity: Math.round(floorVeil * 100) / 100 });
   band('#000000', 0.05, 0.45, 20);
   const top = Math.max(X(18), SAFE_PT + 2);
   cardMark(ops, look, data, pad + X(17), top + X(17), X(17), true);
   const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
-  fitLine(ops, couple, pad + X(44), top + X(24), { font: look.headFont, size: X(19), color: '#ffffff', align: 'left', caps: look.capsNames, maxWidth: w - pad * 2 - X(44) });
+  const cO = { font: look.headFont, size: X(19), color: '#ffffff', align: 'left' as const, caps: look.capsNames };
+  const cFit = fitWords(couple, { font: cO.font, size: cO.size, maxWidth: room - X(44), floor: 8, wrapBelow: X(19) * 0.65, maxLines: 2, caps: look.capsNames });
+  const cBases = fitBaselines(cFit, pad + X(44), 0, { ...cO, size: cFit.size, lead: 1.08 });
+  // one line sits level with the mark as before; two lines centre on it
+  const cFirst = cFit.lines.length > 1 ? top + X(17) - cBases[cBases.length - 1]! / 2 + cFit.size * 0.33 : top + X(24);
+  const cLast = drawFit(ops, cFit, pad + X(44), cFirst, { ...cO, size: cFit.size, lead: 1.08 });
+  let headBottom = Math.max(top + X(34), cLast + lineInk(cFit.lines[cFit.lines.length - 1] ?? '', { ...cO, size: cFit.size }).bottom);
   const when = cardWhen(data, true);
-  if (when) fitLine(ops, when, pad, top + X(56), { font: look.bodyFont, size: X(11), color: '#ffffff', opacity: 0.85, align: 'left', caps: true, tracking: 0.14, maxWidth: w - pad * 2 });
+  if (when) {
+    const wO = { font: look.bodyFont, size: X(11), color: '#ffffff', opacity: 0.85, align: 'left' as const, caps: true, tracking: 0.14 };
+    const wFit = fitWords(when, { font: wO.font, size: wO.size, maxWidth: room, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.14 });
+    const wy = Math.max(top + X(56), headBottom + X(6) - lineInk(wFit.lines[0] ?? '', { ...wO, size: wFit.size }).top);
+    text(ops, wFit.lines[0] ?? '', pad, wy, { ...wO, size: wFit.size });
+    headBottom = wy + X(3);
+  }
   const party = partyLine(pass.party);
   const nameY = bandH - X(16) - (party ? X(22) : X(6));
-  fitLine(ops, pass.name, pad, nameY, { font: look.headFont, size: X(36), color: '#ffffff', align: 'left', maxWidth: w - pad * 2 });
-  if (party) fitLine(ops, party, pad, nameY + X(20), { font: look.bodyFont, size: X(15), color: '#ffffff', opacity: 0.85, align: 'left' });
+  const nO = { font: look.headFont, size: X(36), color: '#ffffff', align: 'left' as const };
+  // A two-line name grows UP the band, never into the couple and the date.
+  const placeName = (sz: number) => {
+    const fit = fitWords(pass.name, { font: nO.font, size: sz, maxWidth: room, floor: Math.min(sz, 8), wrapBelow: sz * 0.6, maxLines: 2 });
+    const b = fitBaselines(fit, pad, 0, { ...nO, size: fit.size, lead: 1.06 });
+    const first = nameY - b[b.length - 1]!;
+    return { fit, first, top: first + lineInk(fit.lines[0] ?? '', { ...nO, size: fit.size }).top };
+  };
+  let placed = placeName(nO.size);
+  for (let sz = nO.size; placed.top < headBottom + X(6) && sz > 8; sz = Math.max(8, sz - 0.5)) placed = placeName(sz);
+  drawFit(ops, placed.fit, pad, placed.first, { ...nO, size: placed.fit.size, lead: 1.06 });
+  if (party) fitLine(ops, party, pad, nameY + X(20), { font: look.bodyFont, size: X(15), color: '#ffffff', opacity: 0.85, align: 'left', maxWidth: room });
 
   // below — the code in a white rounded tile, Table and Arrive inside it
   const footY = h - Math.max(X(16), SAFE_PT) - X(2);
+  const footTop = cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
+  const below = Math.min(footY - X(20), footTop - X(6));
   const facts = passCardFacts(pass);
   const tp = X(14);
+  /** How tall a fact block draws (label + value, a long value on two lines). */
+  const factH = (f: { label: string; value: string }, maxW: number) => cardFact([], look, f, 0, 0, u, 18, maxW) + X(9.5) * 0.75;
   if (data.qrShape === 'circle') {
     // ⭕ A round code has no tile to hold the facts, and needs more room than the tile
     // gave (`ROUND_CODE_ROOM`): the disc takes the whole height below the band, and
     // Table · Arrive stand beside it on the card's own paper, in its own ink.
     const colW = facts.length ? X(96) : 0;
-    const room = footY - X(20) - bandH - X(18);
-    const size = Math.min(X(ROUND_CODE_ROOM.poster), room - tp * 2, w - pad * 2 - tp * 2 - colW);
+    const space = below - bandH - X(18);
+    const size = Math.min(X(ROUND_CODE_ROOM.poster), space - tp * 2, w - pad * 2 - tp * 2 - colW);
     const disc = size + tp * 2;
     const x0 = facts.length ? pad : w / 2 - disc / 2;
-    const y0 = bandH + X(18) + Math.max(0, (room - disc) / 2);
+    const y0 = bandH + X(18) + Math.max(0, (space - disc) / 2);
     codeTile(ops, pass, x0, y0, size, tp, X(22), 0, 'circle');
     if (facts.length) {
       const cx = w - pad - colW / 2;
-      const stepH = X(56);
-      const firstY = y0 + disc / 2 - (facts.length * stepH) / 2 + X(14);
-      facts.forEach((f, i) => cardFact(ops, look, f, cx, firstY + i * stepH, u, 18, colW - X(4)));
+      const hs = facts.map((f) => factH(f, colW - X(4)));
+      const gap = X(12);
+      let y = y0 + disc / 2 - (hs.reduce((a, b) => a + b, 0) + gap * (hs.length - 1)) / 2 + X(9.5) * 0.75;
+      facts.forEach((f, i) => {
+        cardFact(ops, look, f, cx, y, u, 18, colW - X(4));
+        y += hs[i]! + gap;
+      });
     }
   } else {
-    const size = X(150);
-    const factsH = facts.length ? X(48) : 0;
-    const tileW = size + tp * 2;
-    const tileH = size + tp + X(12) + factsH;
-    const tileY = bandH + X(18) + Math.max(0, (footY - X(20) - bandH - X(18) - tileH) / 2);
-    codeTile(ops, pass, w / 2 - tileW / 2, tileY, size, tp, X(22), tileH - (size + tp * 2), data.qrShape);
+    const tileW = Math.min(X(150) + tp * 2, room);
+    const gap = facts.length ? Math.min(X(96), tileW / facts.length) : 0;
+    // Table · Arrive start below the code's quiet zone (the tile's own `tp` of
+    // white round the code), never inside it.
+    const capH = Math.max(PRINT_MIN_BODY_PT, X(9.5)) * 0.75;
+    const factsH = facts.length ? Math.max(...facts.map((f) => factH(f, gap - X(6)))) : 0;
+    const factsGap = facts.length ? tp + X(3) : 0;
+    const footPad = facts.length ? X(10) : tp;
+    // The code shrinks (never the type) when the facts need two lines and the card has no more room.
+    const size = Math.min(X(150), tileW - tp * 2, below - bandH - X(18) - (tp + factsGap + factsH + footPad));
+    const tileH = tp + size + factsGap + factsH + footPad;
+    const tileY = bandH + X(18) + Math.max(0, (below - bandH - X(18) - tileH) / 2);
+    codeTile(ops, pass, w / 2 - (size + tp * 2) / 2, tileY, size, tp, X(22), tileH - (size + tp * 2), data.qrShape);
     if (facts.length) {
-      const gap = Math.min(X(96), tileW / facts.length);
-      facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, tileY + tp + size + X(20), u, 18, gap - X(6), '#2b241c', '#7a7368'));
+      const labelBase = tileY + tp + size + factsGap + capH;
+      facts.forEach((f, i) => cardFact(ops, look, f, w / 2 + (i - (facts.length - 1) / 2) * gap, labelBase, u, 18, gap - X(6), '#2b241c', '#7a7368'));
     }
   }
-  cardFoot(ops, look, data, u, pad, w - pad, footY, ctx.mode);
-  return doc;
+  return settlePassInk(doc, look);
 }
 
 /** Every pass-card look, by key. The route, the zip and the print format all come through here. */

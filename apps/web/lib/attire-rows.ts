@@ -31,7 +31,7 @@
  * Pure, client-safe.
  */
 import { isAttireStyle, type AttireStyle } from './role-dress-code';
-import type { FigureWho } from './attire-figures';
+import { COUNTERPART, STYLE_ORDER, fitsWho, type FigureWho } from './attire-figures';
 import type { GuestAttire, GuestRole } from './guests';
 import type { PaletteKey } from './mood-board';
 import { roleGroupOf } from './role-groups';
@@ -50,6 +50,12 @@ export type AttireRowDef = {
   paletteKey: PaletteKey | null;
   /** Who the row dresses: one person, or two picks — first (men · boys), second (women · girls). */
   who: readonly [FigureWho] | readonly [FigureWho, FigureWho];
+  /**
+   * A ONE-pick row whose people may be EITHER (the celebrant, Nikah principals, officiants & readers): drawn as its
+   * usual wearer, but its Wear ▾ keeps every style — a reader or a judge may wear a gown — and the figure is the person
+   * whose style it is (`pickOptions`, `picksOf`).
+   */
+  either?: true;
 };
 
 /**
@@ -58,17 +64,17 @@ export type AttireRowDef = {
  * role's usual wearer — a build call, said in the handover.
  */
 export const ATTIRE_ROWS: readonly AttireRowDef[] = [
-  { tier: 'roles', key: 'celebrant', paletteKey: null, who: ['f'] },
+  { tier: 'roles', key: 'celebrant', paletteKey: null, who: ['f'], either: true },
   { tier: 'roles', key: 'bride', paletteKey: 'bride', who: ['f'] },
   { tier: 'roles', key: 'groom', paletteKey: 'groom', who: ['m'] },
   { tier: 'groups', key: 'vip_family', paletteKey: 'parents_immediate_family', who: ['m', 'f'] },
   { tier: 'groups', key: 'principal_sponsors', paletteKey: 'principal_sponsors', who: ['m', 'f'] },
   { tier: 'groups', key: 'secondary_sponsors', paletteKey: 'secondary_sponsors', who: ['m', 'f'] },
-  { tier: 'groups', key: 'muslim_principals', paletteKey: 'muslim_principals', who: ['m'] },
+  { tier: 'groups', key: 'muslim_principals', paletteKey: 'muslim_principals', who: ['m'], either: true },
   { tier: 'groups', key: 'bridesmaids', paletteKey: 'bridesmaids', who: ['f'] },
   { tier: 'groups', key: 'groomsmen', paletteKey: 'groomsmen', who: ['m'] },
   { tier: 'groups', key: 'bearers_flower_girl', paletteKey: 'bearers_flower_girl', who: ['boy', 'girl'] },
-  { tier: 'groups', key: 'officiants', paletteKey: 'officiants', who: ['m'] },
+  { tier: 'groups', key: 'officiants', paletteKey: 'officiants', who: ['m'], either: true },
   { tier: 'roles', key: 'guest', paletteKey: 'guest', who: ['m', 'f'] },
 ];
 
@@ -79,6 +85,17 @@ export function attireRowOfPalette(paletteKey: string): AttireRowDef | null {
   return ATTIRE_ROWS.find((r) => r.paletteKey === paletteKey) ?? null;
 }
 export const isTwoPick = (row: AttireRowDef | null): boolean => (row?.who.length ?? 0) === 2;
+
+/**
+ * 👫 ONE COLUMN'S Wear ▾ (owner 2026-10-16: *"the drawing is not following the type of attire"*): a column lists only
+ * its own person's styles (`STYLE_ORDER` — a men's column never offers "Long gown"); an `either` row lists its usual
+ * wearer's first, then the rest.
+ */
+export function pickOptions(row: AttireRowDef, index: 0 | 1 = 0): readonly AttireStyle[] {
+  const who = row.who[index] ?? row.who[0];
+  if (row.who.length === 1 && row.either) return [...STYLE_ORDER[who], ...STYLE_ORDER[COUNTERPART[who]].filter((s) => !STYLE_ORDER[who].includes(s))];
+  return STYLE_ORDER[who];
+}
 
 /** The block labels the couple reads above each pick. */
 export const PICK_LABEL: Readonly<Record<FigureWho, string>> = { m: 'For men', f: 'For women', boy: 'For boys', girl: 'For girls' };
@@ -127,14 +144,29 @@ export function firstStyleOf(config: Config, tier: AttireTier, key: string): Att
   return isAttireStyle(rule?.style) ? rule.style : null;
 }
 
-/** The row's two picks as a reader sees them: each one's Wear (null = not said) and its own colours (null = the row's). */
+/**
+ * The row's picks as a reader sees them: each one's Wear (null = not said) and its own colours (null = the row's).
+ *
+ * 🔑 EACH COLUMN READS ONLY ITS OWN PERSON'S STYLE (owner 2026-10-16). A row saved before the split holds ONE Wear for
+ * everybody — cale-ice's sponsors hold "Long gown" — and that one Wear is read per column:
+ *   · the person it fits keeps it (the women keep "Long gown");
+ *   · the other reads "Not said yet" (the men) — never the nearest men's style. "Long gown" said nothing about the
+ *     men, and a style is never assumed for anyone (2026-09-20, `role-dress-code.ts`: "There is no default"); the old
+ *     drawing table's "a man's Long gown is a suit" was a drawing fallback, not the couple's word.
+ * An `either` row's one person is whoever wears its style (a reader in a gown is drawn a woman).
+ */
 export function picksOf(config: Config, row: AttireRowDef): Array<{ who: FigureWho; style: AttireStyle | null; colours: string[] | null }> {
   const first = firstStyleOf(config, row.tier, row.key);
-  if (row.who.length === 1) return [{ who: row.who[0], style: first, colours: null }];
+  const own = (index: 0 | 1, style: AttireStyle | null): AttireStyle | null => (style && pickOptions(row, index).includes(style) ? style : null);
+  if (row.who.length === 1) {
+    const style = own(0, first);
+    const who = row.either && style && !fitsWho(row.who[0], style) ? COUNTERPART[row.who[0]] : row.who[0];
+    return [{ who, style, colours: null }];
+  }
   const second = sanitizeSecondPicks(config?.women)[row.tier]?.[row.key];
   return [
-    { who: row.who[0], style: first, colours: null },
-    { who: row.who[1]!, style: second && 'style' in second ? (second.style ?? null) : first, colours: second?.colours ?? null },
+    { who: row.who[0], style: own(0, first), colours: null },
+    { who: row.who[1]!, style: own(1, second && 'style' in second ? (second.style ?? null) : first), colours: second?.colours ?? null },
   ];
 }
 
@@ -164,10 +196,10 @@ export function withFirstStyle<C extends Record<string, unknown>>(
 ): C {
   const row = attireRow(tier, key);
   let base = config;
-  if (isTwoPick(row)) {
-    const was = firstStyleOf(config, tier, key);
+  if (row && isTwoPick(row)) {
     const second = womenOf(config)[tier]?.[key];
-    if (!(second && 'style' in second)) base = withSecond(base, tier, key, (p) => ({ ...p, style: was }));
+    /* Pinned to what the women READ — the shared Wear when it is theirs, else "Not said yet" (`picksOf`). */
+    if (!(second && 'style' in second)) base = withSecond(base, tier, key, (p) => ({ ...p, style: picksOf(config, row)[1]!.style }));
   }
   return write(base, tier, key, style);
 }
@@ -253,13 +285,19 @@ export function readerAttire(input: {
       const one = picks[r]!;
       return { styleLabel: say(one.style), hexes: one.colours, picks: [one] };
     }
-    const [a, b] = picks as [(typeof picks)[0], (typeof picks)[0]];
-    const both = a.style === b.style ? say(a.style) : a.style || b.style ? `${PICK_LABEL[a.who]}: ${say(a.style) ?? 'not said yet'} · ${PICK_LABEL[b.who]}: ${say(b.style) ?? 'not said yet'}` : null;
-    return { styleLabel: both, hexes: [...hexes], picks };
+    return { styleLabel: bothSaid(picks, say), hexes: [...hexes], picks };
   }
   const kind = role ? input.single(role) : null;
   const who: FigureWho[] = role && CHILD_ROLE[role] ? [CHILD_ROLE[role]!] : kind === 'gown' ? ['f'] : kind === 'suit' ? ['m'] : attire === 'gown' ? ['f'] : attire === 'suit' ? ['m'] : ['f', 'm'];
-  return { styleLabel: say(style), hexes: [...hexes], picks: who.map((w) => ({ who: w, style, colours: [...hexes] })) };
+  /* Each person keeps the one answer only where it is theirs (`fitsWho`) — a father is never told "Long gown". */
+  const picks = who.map((w) => ({ who: w, style: fitsWho(w, style) ? style : null, colours: [...hexes] }));
+  return { styleLabel: picks.length === 1 ? say(picks[0]!.style) : bothSaid(picks, say), hexes: [...hexes], picks };
+}
+
+/** Two people's Wear in one line: one style when they agree, else each named ("For men: Suit · For women: Long gown"). */
+function bothSaid(picks: ReadonlyArray<{ who: FigureWho; style: AttireStyle | null }>, say: (s: AttireStyle | null) => string | null): string | null {
+  const [a, b] = picks as [(typeof picks)[0], (typeof picks)[0]];
+  return a.style === b.style ? say(a.style) : a.style || b.style ? `${PICK_LABEL[a.who]}: ${say(a.style) ?? 'not said yet'} · ${PICK_LABEL[b.who]}: ${say(b.style) ?? 'not said yet'}` : null;
 }
 
 /**

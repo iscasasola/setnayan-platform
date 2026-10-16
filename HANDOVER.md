@@ -30,20 +30,16 @@ DECISION_LOG 2026-10-16, "A VENUE CARD'S PICTURE IS THE COUPLE'S CHOICE". Owner,
 - **Changelog**: `changelog.d/venue-picture-choice.md`.
 - ⚠ **cale-ice** shows its uploaded ceremony photo again once this is live (no stored pick), until they pick "Our drawing ◆".
 
-## Open questions (controller / owner)
-1. **The phone path does not reach this dropdown.** In Production every couple's phone gets the NEW Maker (Stages | Studio, `NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED`; desktop keeps the shipped Maker). Measured in `/dev/maker-lab?studio=1&venue=church`:
-   - the Venue scene's Edit tab is the one door "Change it in Suppliers" (`lib/maker-parts.ts` `makerPartQuietRow`);
-   - Studio › Info shows the venue read-only.
-
-   So the Picture choice (and the shipped venue photo chooser before it) is reachable only on a computer. Putting Picture ▾ on the new Maker's Venue scene Edit tab is a separate build that needs a go-ahead. (Owner memory: phone first, 99% of users.)
-2. **See-through list (controller review item 1).** The open list is the shipped PickMenu popover. Its surface is `.sn-glass-bare` (bg `rgba(255,255,255,.86)` + blur), the same as every PickMenu outside the new Maker. It is opaque only inside the new Maker, where PickMenu opens as `MakerSheet` (`maker-shell.tsx` `withPickSheet`). At 375 in the old Maker it opens above the pill and lies over the dock's "Your event ▾" pill. I did not change the shared PickMenu (every dropdown in the app uses it). Two options: make the popover opaque app-wide in `pick-menu.tsx`, or accept it because phones use the new Maker.
-3. **Dark mode.** The Maker lab is not a dark-ready route (`theme-bootstrap-script.ts` `DARK_READY`), so the dark shots add `.dark` to `<html>` by script. Say so when reporting.
+## Controller rulings 2026-10-17 (on the open questions)
+1. **Phone path — YES, built in this PR** (c3544f6). The new Maker's Venue scene › Edit: row 1 keeps "Change it in Suppliers"; rows 2–3 are each card's Picture ▾ (`VenuePictureRows` in `details-your-event.tsx`, lazy via `details-lazy.tsx`; data `MakerState.venuePictures` from `launch/page.tsx`, only when `stagesStudio`). Same `VenuePhotoPicker` (new `row` prop), same list, same `useVenueChoices` → `draftVenueChoice`, same ◆ / `makerProUsable`. Upload opens in `PickSheetContext`'s sheet. Guard section 5 (rendered rows + toolbar/launch wiring). Sabotage: toolbar drops rows → 1 red; rows never offer the drawing → 2 red; row without PickMenu → 1 red.
+   Builder decisions: captions "Ceremony picture" / "Reception picture" (one card: "Picture"); no picture drawn in the toolbar (the stage behind is the preview); a refused save is said on the line under the tools (`setWhy`).
+2. **See-through popover on the desktop old Maker — ACCEPTED as shipped.** The shared PickMenu is unchanged.
+3. **Dark via forced `.dark` — fine** (the Maker lab is not a DARK_READY route); say so in the report.
 
 ## Left, in order
-1. DONE 2026-10-17 02:00: re-shot 02 and 03, light and dark, at 375 (`shoot2.log`, all ok). Every option is on one line, ◆ Pro is on the "Our drawing" line, and the list is inside the screen. Desktop light was shot in an earlier run (`02-/03-…-desktop-light.png`). Desktop dark was not shot (the dev server ran out of memory; re-run with `DESKTOP=1` if wanted).
-   STILL SEE-THROUGH: the list is the shipped glass popover (open question 2). That needs a controller decision, not a builder fix.
-2. Report to the controller: head sha, the screenshot paths, open questions 1–3. Wait for the go/no-go on Q1 (phone path) and Q2 (opaque popover).
-3. Wait for CI on the head. Keep the PR a draft with `do-not-auto-merge`.
+1. Walk at 375 in the new Maker lab (WebKit iPhone 13): `/dev/maker-lab?studio=1&venue=church&vpic=photo` → Venue scene → Edit → Picture ▾ open → pick Our drawing ◆ → guest card (`/dev/maker-lab/guest?venues=default&photo=1&drawing=1`). Light + dark. Keep the existing desktop shots.
+2. CI to green on the head. Keep the PR DRAFT + `do-not-auto-merge`.
+3. Copy final shots to `~/Documents/Claude/Projects/shots-2026-10-17/6591/`. Report.
 4. After the PR merges: `git worktree remove ~/Documents/Claude/Projects/wt-venue-choice --force && git worktree prune`.
 
 ## The exact next command

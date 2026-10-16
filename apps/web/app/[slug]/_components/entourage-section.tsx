@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { EntourageGroup, EntouragePerson, EntourageRoleLayout, EntourageRow } from '@/lib/entourage';
 import {
   entourageCellWord,
+  loneRoleWord,
   roleLabel,
   peopleOf,
   roleBesideName,
@@ -257,12 +258,16 @@ function PairRow({
       it (`roleBesideName` — owner 2026-09-30, "the sub text Ninong can be removed"), the role still heard by a
       screen reader. Held by `lib/a-lone-person-is-centred.test.ts`.
     */
+    /* 🧍 Controller 2026-10-17 (live on /maria-and-jose after #6593): the column words are drawn only over a pair, so
+       a lone Maid of Honor or Bride's Crew centred under a two-role heading said nothing about which she is. On the
+       axis she now carries her column's word (`loneRoleWord`); a category heading (Principal Sponsors) still adds
+       none. Held by `lib/the-entourage-names-who-each-person-is.test.ts`. */
     const one = people[0]!;
-    const word = look === 'lines' ? (speakRoles ? entourageCellWord(group, one) : null) : roleBesideName(group, one);
+    const word = look === 'lines' ? (speakRoles ? entourageCellWord(group, one) : null) : loneRoleWord(group, one);
     return (
       <li className="break-words text-center leading-snug" data-solo-row="centre">
         <Person person={one} word={word} muted={look === 'lines'} />
-        {look === 'lines' && word ? null : said}
+        {word ? null : said}
       </li>
     );
   }

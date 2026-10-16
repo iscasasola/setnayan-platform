@@ -10,7 +10,8 @@
  *       (ONE pick shared by all four), a Download for that guest and All guests ◆. The Event card is not per guest.
  *   4 · One guest's place card is a real file: `/seating/print?guest=<id>` draws that card alone (`cardsOnly`), refuses an unseated
  *       guest in words; the whole pack is Event Hub Pro at its route, after its free answers.
- *   5 · Everything ◆: one route piece (`everything`), Pro, the set + every guest's pass + the day's sheets, a failed part fails the file.
+ *   5 · Everything ◆: one route piece (`everything`), Pro, the set + every guest's pass + the day's sheets, a failed part fails the file;
+ *       ONE QR picture per guest in ONE book (`renderPrintBook`), STREAMED (a buffered Vercel response stops at 4.5 MB), 300 s.
  *   6 · The words: View as ▾'s groups and counts, the count lines (the number IS the file, never a guess), the ◆ notes, the bar's ⬇.
  *
  *   7 · View as ▾ has "Search guests" once the list is longer than 8 (controller 2026-10-17): it filters every group, each head keeps its
@@ -153,8 +154,18 @@ test('5 · Everything ◆: one piece of the route, Pro, the set + every guest’
   assert.match(route, /const allName = wantsEverything \? 'everything' : wantsSet \? 'set' : piece;/);
   assert.match(route, /if \(isAllInOnePrint\(allName, mode\) && !ownsPro\) \{/, 'Everything is not refused to a free event');
   const fn = route.slice(route.indexOf('async function everythingPdf('), route.indexOf('export async function GET('));
-  for (const part of ['guest-registry', 'qr-codes']) assert.match(fn, new RegExp(`freeSheet\\('${part}'`), `Everything leaves out ${part}`);
-  assert.match(fn, /layoutPasses\(\{ \.\.\.input, format: passFormat \}, guests\.passes\)/, 'Everything leaves out every guest’s pass');
+  assert.match(fn, /freeSheet\('guest-registry'/, 'Everything leaves out the guest list registry');
+  /* 📦 ONE QR picture per guest: drawn once (every guest — the QR sheet's list), the ticket list read WITHOUT drawing, both on the
+     same `qr-<guest id>` keys; the set, the registry, the QR sheet and the passes are ONE book (each picture embedded once). */
+  assert.match(fn, /loadGuestPasses\(set, \{ width: EVERYTHING_QR_PX \}\)/, 'Everything does not draw every guest’s QR once');
+  assert.match(fn, /loadGuestPasses\(set, \{ width: EVERYTHING_QR_PX, ticketsOnly: true, drawOnly: \{ from: 0, count: 0 \} \}\)/, 'the passes draw their QRs a second time');
+  assert.match(fn, /const qrSheet = layoutQrCodes\(/, 'Everything leaves out the QR sheet');
+  assert.match(fn, /layoutPasses\(\{ \.\.\.input, format: passFormat \}, tickets\.passes/, 'Everything leaves out every guest’s pass');
+  assert.match(fn, /renderPrintBook\(\s*\[\s*\{ kind: 'pages', docs: \[\.\.\.docs, \.\.\.registry\.docs, \.\.\.qrSheet\] \},\s*\.\.\.\(passDocs\.length \? \[\{ kind: 'imposed' as const/, 'the set, the registry, the QR sheet and the passes are not ONE book');
+  /* 📤 STREAMED — a buffered Vercel response stops at 4.5 MB. */
+  assert.match(fn, /return pdfStream\(bytes, /, 'Everything is buffered — over 4.5 MB it would fail on Vercel');
+  assert.doesNotMatch(fn, /pdfResponse\(/, 'Everything is buffered');
+  assert.match(route, /export const maxDuration = 300;/, 'Everything has less than the zip route’s 300 s');
   for (const path of ['print\\?format=pdf', 'print\\?chart=table&format=pdf', 'caterer\\?format=pdf', 'export\\?mode=moodboard']) {
     assert.match(fn, new RegExp(`at\\('${path}'\\)`), `Everything leaves out the day’s sheet at ${path}`);
   }
@@ -235,4 +246,35 @@ test('7 · View as ▾ has "Search guests" over a long list — it filters every
     .filter((f) => /from '\.\/print-guest-sheet'/.test(read(`${L}/${f}`)));
   assert.deepEqual(importers, [], 'the guest sheet is imported statically');
   assert.doesNotMatch(read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx'), /search/i, 'the shared PickMenu grew a search');
+});
+
+test('8 · ONE BOOK embeds a picture once: the set’s pages and the ganged passes share each guest’s QR', async () => {
+  const { renderPrintBook, renderPrintPdf, renderImposedPdf } = await import('./print-render-pdf');
+  const { layoutPasses, layoutQrCodes } = await import('./print-layout');
+  const { printLookFor, formatFor } = await import('./print-pieces');
+  const { themeColours } = await import('./theme-colours');
+  const { PDFDocument } = await import('pdf-lib');
+  const zlib = await import('node:zlib');
+  /* A real PNG (1×1) per guest — the size difference is what is measured, not the picture. */
+  const png = (n: number) => {
+    const crc = (b: Buffer) => { let c = ~0; for (const x of b) { c ^= x; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); } return ~c >>> 0; };
+    const chunk = (t: string, d: Buffer) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const td = Buffer.concat([Buffer.from(t), d]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([l, td, c]); };
+    const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(64, 0); ihdr.writeUInt32BE(64, 4); ihdr[8] = 8; ihdr[9] = 2;
+    const raw = Buffer.alloc(64 * (1 + 64 * 3)); for (let i = 0; i < raw.length; i++) raw[i] = (i * 31 + n * 7) & 0xff; for (let r = 0; r < 64; r++) raw[r * 193] = 0;
+    return new Uint8Array(Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]));
+  };
+  const images = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`qr-g${i}`, { bytes: png(i), mime: 'image/png' as const }]));
+  const data = { names: { first: 'A', second: 'B' }, details: { parents: [], openingLine: '', rsvpContact: null, giftLines: [] }, entourage: [], attire: [], swatches: [], menu: [], hasStill: false, hasEventQr: false } as never;
+  const input = { look: printLookFor('house', themeColours('house', null)), data, mode: 'print' as const, foil: false, format: null } as never;
+  const sheet = layoutQrCodes('t', Array.from({ length: 12 }, (_, i) => ({ name: `G ${i}`, sub: null, qrRef: `qr-g${i}` })));
+  const passes = layoutPasses(input, Array.from({ length: 12 }, (_, i) => ({ name: `G ${i}`, seat: null, qrRef: `qr-g${i}`, serial: `Nº ${i}` })));
+  const fmt = formatFor('passes', null)!;
+  const book = await renderPrintBook([{ kind: 'pages', docs: sheet }, { kind: 'imposed', docs: passes, ...fmt.sheet! }], images, { title: 't' });
+  const apart = (await renderPrintPdf(sheet, images, { mode: 'print', title: 't' })).length + (await renderImposedPdf(passes, images, { ...fmt.sheet!, title: 't' })).length;
+  const doc = await PDFDocument.load(book);
+  const perSheet = fmt.sheet!.cols * fmt.sheet!.rows;
+  assert.equal(doc.getPageCount(), sheet.length + Math.ceil(12 / perSheet), 'the book is not the sheet’s pages then the ganged passes');
+  const imageObjects = doc.context.enumerateIndirectObjects().filter(([, o]) => (o as { dict?: { get: (k: unknown) => unknown } }).dict?.get?.((doc.context.obj as (x: string) => unknown)('Subtype') as never)?.toString?.() === '/Image').length;
+  assert.equal(imageObjects, 12, 'a guest’s QR is embedded more than once in the book');
+  assert.ok(book.length < apart, `the book (${book.length} B) is not smaller than the two files apart (${apart} B)`);
 });

@@ -17,7 +17,7 @@ import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { FREE_THEMES, INVITE_THEMES, themeNames, type InviteThemeId } from '@/lib/invite-themes';
 import { renderPrintSvg } from '@/lib/print-render-svg';
-import { renderImposedPdf, renderPrintPdf } from '@/lib/print-render-pdf';
+import { renderImposedPdf, renderPrintBook, renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderSampleJpeg, renderSampleSheetJpeg } from '@/lib/print-sample-raster';
 import {
   PRINT_PIECES,
@@ -98,7 +98,9 @@ import { PAPER_HOW, previewPage, printPaperHeader, type PrintPaperFacts } from '
  */
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+/* 300 s (was 60): Everything ◆ draws the set, every guest's pass and the day's sheets in one request — measured 2026-10-17 on a
+   developer Mac at ~0.1 s per guest; the shipped zip route (`/api/guest/pass-card/all`) runs under the same 300. */
+export const maxDuration = 300;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -275,34 +277,38 @@ type DayPart = { name: string; call: () => Promise<Response> };
 async function everythingPdf(
   req: Request,
   { eventId, set, docs, input, passFormat }: { eventId: string; set: LoadedPrintSet; docs: PrintDoc[]; input: Parameters<typeof layoutPasses>[0]; passFormat: string | null },
-): Promise<NextResponse> {
+): Promise<Response> {
   const admin = createAdminClient();
   const url = new URL(req.url);
-  const [registry, qrs, guests] = await Promise.all([
+  /* 📦 ONE QR PICTURE PER GUEST (2026-10-17, measured: three per guest made 240 guests a 21.9 MB file): every guest's invitation QR is
+     drawn ONCE (`all`, the QR sheet's list) and the passes reuse it — the ticket list (`tickets`) is read WITHOUT drawing a QR (its
+     refs are the same `qr-<guest id>` keys), and the set, the registry, the QR sheet and the passes are ONE document, each picture
+     embedded once (`renderPrintBook`). */
+  const [registry, all, tickets] = await Promise.all([
     freeSheet('guest-registry', admin, eventId, set.event, { thumb: false, url }),
-    freeSheet('qr-codes', admin, eventId, set.event, { thumb: false, url }),
-    loadGuestPasses(set, { width: 600, ticketsOnly: true }),
+    loadGuestPasses(set, { width: EVERYTHING_QR_PX }),
+    loadGuestPasses(set, { width: EVERYTHING_QR_PX, ticketsOnly: true, drawOnly: { from: 0, count: 0 } }),
   ]);
   if (!registry.ok) return registry.res;
-  if (!qrs.ok) return qrs.res;
-  if (!guests.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
+  if (!all.measured || !tickets.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
   const title = `${set.event.display_name ?? 'Event'} — everything`;
-  const head = await renderPrintPdf([...docs, ...registry.docs, ...qrs.docs], { ...set.images, ...qrs.images }, {
-    mode: 'print',
-    title,
-    subject: 'The set, every guest’s pass and place card, the day’s sheets',
-  });
+  const qrSheet = layoutQrCodes(set.event.display_name ?? 'Guest QR codes', all.passes.map((p) => ({ name: p.name, sub: p.seat, qrRef: p.qrRef! })), set.qrLook.shape);
+  /* 2 · every guest's pass (nobody coming yet: no pages — the set says the rest), ganged on A4, in the same book. */
+  const passDocs = layoutPasses({ ...input, format: passFormat }, tickets.passes.filter((p) => p.qrRef && all.images[p.qrRef]));
+  const fmt = formatFor('passes', passFormat)!;
+  const head = await renderPrintBook(
+    [
+      { kind: 'pages', docs: [...docs, ...registry.docs, ...qrSheet] },
+      ...(passDocs.length ? [{ kind: 'imposed' as const, docs: passDocs, ...fmt.sheet! }] : []),
+    ],
+    { ...set.images, ...all.images },
+    { title, subject: 'The set, every guest’s pass and place card, the day’s sheets' },
+  );
   const out = await PDFDocument.load(head);
   const append = async (bytes: Uint8Array) => {
     const src = await PDFDocument.load(bytes);
     for (const page of await out.copyPages(src, src.getPageIndices())) out.addPage(page);
   };
-  /* 2 · every guest's pass (nobody coming yet: no pages — the set says the rest). */
-  const passDocs = layoutPasses({ ...input, format: passFormat }, guests.passes);
-  if (passDocs.length) {
-    const fmt = formatFor('passes', passFormat)!;
-    await append(await renderImposedPdf(passDocs, { ...set.images, ...guests.images }, { ...fmt.sheet!, title, subject: `${passDocs.length} passes` }));
-  }
   /* 3 · the day's sheets, each from its own route handler. */
   const at = (path: string) => new Request(new URL(`/dashboard/${encodeURIComponent(eventId)}/seating/${path}`, url.origin), { headers: req.headers });
   const params = Promise.resolve({ eventId });
@@ -322,7 +328,39 @@ async function everythingPdf(
     await append(new Uint8Array(await res.arrayBuffer()));
   }
   const bytes = await out.save();
-  return pdfResponse(bytes, fileName(set.event.slug, 'everything', set.theme), false, await printInputsVersion(eventId).catch(() => null));
+  /* 📤 STREAMED, the shipped way for a big file (`/api/guest/pass-card/all`, `papic/me/[token]/download`): a Vercel Function's
+     BUFFERED response body stops at 4.5 MB (`FUNCTION_PAYLOAD_TOO_LARGE`); a streamed one does not ("we recommend using streaming
+     functions, which don't have this limit" — Vercel KB, "How do I bypass the 4.5MB body size limit"). The file's size and time at 240
+     and 400 guests are measured in the PR that made it (#6597), never written here. */
+  return pdfStream(bytes, fileName(set.event.slug, 'everything', set.theme), await printInputsVersion(eventId).catch(() => null));
+}
+
+/** The PDF size at which Everything's QR is drawn — the passes' own (600 px), shared by the QR sheet. */
+const EVERYTHING_QR_PX = 600;
+
+/** A PDF sent as a STREAM, in 1 MB parts — the headers `pdfResponse` sends, with no Content-Length (a streamed body). */
+function pdfStream(bytes: Uint8Array, name: string, version: string | null): Response {
+  const PART = 1 << 20;
+  let at = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(c) {
+      if (at >= bytes.length) {
+        c.close();
+        return;
+      }
+      c.enqueue(bytes.subarray(at, at + PART));
+      at += PART;
+    },
+  });
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'content-type': 'application/pdf',
+      'content-disposition': `attachment; filename="${name}"`,
+      'cache-control': 'private, no-store',
+      ...(version ? { [PRINT_VERSION_HEADER]: version } : {}),
+    },
+  });
 }
 
 export async function GET(req: Request, ctx: { params: Promise<{ piece: string }> }) {

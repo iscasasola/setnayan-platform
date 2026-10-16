@@ -136,8 +136,36 @@ function guardedRegion(): string {
   assert.fail('the @supports block never closes');
 }
 
-test('🔒 every animation binding on a .hub- selector is inside BOTH gates', () => {
+/**
+ * 🧭 THE OTHER HALF OF THE GATE (2026-10-16, the Animate walk F12): `@supports not (animation-timeline: view())` →
+ * `screen` + no reduced motion. An engine without scroll timelines (Safari before 26, Firefox) plays every scene's
+ * ARRIVAL there, on the clock, once the page's observer has marked it — so it is still fail-visible (no mark, no
+ * motion) — and it may never bind a Build out or a timeline (a Build out on a clock would hide the words for good).
+ */
+function noViewRegion(): string {
   const block = canvasBlock();
+  const at = block.indexOf('@supports not (animation-timeline: view())');
+  assert.ok(at > 0, 'the arrival for an engine without scroll timelines is gone');
+  const open = block.indexOf('{', at);
+  let depth = 0;
+  for (let i = open; i < block.length; i += 1) {
+    if (block[i] === '{') depth += 1;
+    else if (block[i] === '}' && (depth -= 1) === 0) return block.slice(open, i);
+  }
+  assert.fail('the no-scroll-timeline block never closes');
+}
+
+test('🧭 without scroll timelines: arrivals only, behind the observer’s mark, screen and no reduced motion', () => {
+  const r = noViewRegion();
+  assert.match(r, /^\{\s*@media screen and \(prefers-reduced-motion: no-preference\) \{/, 'the no-scroll-timeline block is not behind screen + no reduced motion');
+  assert.doesNotMatch(r, /--hub-out-kf|el-out-|animation-timeline|animation-range/, 'a Build out or a scroll timeline where the engine has none');
+  for (const m of r.matchAll(/([^{}]+)\{[^{}]*animation(?:-name)?\s*:\s*var\(--hub-in-kf[^{}]*\}/g)) {
+    for (const sel of (m[1] as string).split(',')) assert.match(sel.trim(), /\.pahina-in|\.sn-replay/, `an arrival bound without the observer’s mark: ${sel.trim()}`);
+  }
+});
+
+test('🔒 every animation binding on a .hub- selector is inside BOTH gates', () => {
+  const block = canvasBlock().replace(noViewRegion(), '');
   const guarded = guardedRegion();
   assert.match(guarded, /prefers-reduced-motion:\s*no-preference/, 'the second gate is inside the first');
 
@@ -166,7 +194,7 @@ test('🔒 every animation binding on a .hub- selector is inside BOTH gates', ()
 test('🔒 nothing outside the gates sets opacity or a transform on a .hub- rule', () => {
   const block = canvasBlock();
   const guarded = guardedRegion();
-  const outside = block.replace(guarded, '');
+  const outside = block.replace(guarded, '').replace(noViewRegion(), '');
   // Keyframes are allowed out here: they bind to nothing by themselves, and
   // their names are `hub-in-*` / `hub-out-*` which would otherwise read as
   // `.hub-` selectors to the regexes below.

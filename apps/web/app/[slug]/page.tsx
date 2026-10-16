@@ -23,7 +23,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { logoSwitchedOff } from '@/lib/hero-monogram-data';
 import { venueNamesLine } from '@/lib/event-venues';
 import { InvitationSkeleton } from './_components/invitation-skeleton';
-import { heroDesignForSkeleton } from './_lib/hero-design-of';
+import { heroArrivingForSkeleton, heroDesignForSkeleton } from './_lib/hero-design-of';
 import { HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/hero-design';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
@@ -583,6 +583,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   // docblock.
   const skeletonHero = resolveHero(event);
   const skeletonHeroDesignId = await skeletonDesign;
+  const skeletonArriving = await skeletonHeroArriving(admin, event.event_id, search);
   // 🤫 …AND IT IS NEVER ANOTHER STAGE'S PAGE (a guest's walk 2026-10-11: the
   // invitation's cover stood here, then the Save the Date film replaced it
   // whole). Every fact below is already in hand — the event row, the profile,
@@ -618,6 +619,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
           heroMedia={skeletonHero.photoRef !== null || skeletonHero.guestVideoRef !== null}
           venueName={venueNamesLine(event)}
           design={skeletonHeroDesignId}
+          arriving={skeletonArriving}
           quiet={loadingScreen === 'quiet'}
           showHeader={!(asksForEditorBridge(search) && search.bars !== '1')}
           mark={
@@ -687,6 +689,20 @@ async function skeletonHeroDesign(
     return heroDesignForSkeleton(widgets, draft);
   } catch {
     return HERO_DESIGN_DEFAULT;
+  }
+}
+
+/** 👻 The hero parts with a Build in of their own — undrawn on the loading screen for a moment (`heroArrivingForSkeleton`). Never throws. */
+async function skeletonHeroArriving(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  search: Awaited<Props['searchParams']>,
+): Promise<string[]> {
+  try {
+    const [widgets, draft] = await Promise.all([loadWidgets(admin, eventId), hostCanvasDraft(admin, eventId, search)]);
+    return heroArrivingForSkeleton(widgets, draft);
+  } catch {
+    return [];
   }
 }
 

@@ -87,6 +87,14 @@ test('⭐ precondition: the sheet has row rules to judge', () => {
 test('1 🔒 every row rule is inside BOTH motion gates and `screen` — reduced motion, an old engine and print see every row', () => {
   for (const r of ROW_RULES) {
     const chain = r.chain.join(' | ');
+    /* 🧭 …or in the gate's other half (2026-10-16, F12): no scroll timelines → `screen` + no reduced motion, where a
+       row ARRIVES on the clock once the observer has marked it and never leaves (its own guard:
+       `arrival-plays-without-scroll-timelines.test.ts`). */
+    if (r.chain.some((a) => /^@supports not \(animation-timeline: ?view\(\)\)/.test(a))) {
+      assert.ok(r.chain.some((a) => /^@media screen and \(prefers-reduced-motion: ?no-preference\)$/.test(a)), `a row rule without scroll timelines that also applies to print or reduced motion: ${r.selector} [${chain}]`);
+      assert.doesNotMatch(r.body, /--hub-out-kf|animation-timeline/, `a row leaves where there is no scroll: ${r.selector}`);
+      continue;
+    }
     assert.ok(
       r.chain.some((a) => /^@supports \(animation-timeline: ?view\(\)\)/.test(a)),
       `a row rule outside the scroll-timeline gate: ${r.selector} [${chain}]`,

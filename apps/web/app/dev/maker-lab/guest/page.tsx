@@ -9,6 +9,7 @@ import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { LAB_SIGNED } from '../lab-own-media';
 import { CountdownWidget } from '@/app/[slug]/_components/countdown';
 import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
+import { PahinaMotionObserver, PahinaMotionRootFlag } from '@/app/[slug]/_components/pahina-motion';
 import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
 import { CustomSectionWidget } from '@/app/[slug]/_components/custom-section-widget';
@@ -570,6 +571,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           given={stageGiven}
         />
         {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+        {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each
+            scene \`.pahina-in\` as a guest reaches it — what every "On arrival" Build in waits for. Without it the lab
+            showed every On-arrival scene, row and part standing still, and walks reported a working feature as broken
+            (the 2026-10-15 Animate walk, S3). Never in a miniature. */}
+        {!preview ? <PahinaMotionRootFlag /> : null}
+        {!preview ? <PahinaMotionObserver /> : null}
         {only ? <style>{canvasOnlyCss(only)}</style> : null}
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
         {/* 🧱 The fixed blocks' own looks on The Day's pages too, as the real page carries them — this branch had the
@@ -857,6 +864,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </HubPageHold>
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+        {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each
+            scene \`.pahina-in\` as a guest reaches it — what every "On arrival" Build in waits for. Without it the lab
+            showed every On-arrival scene, row and part standing still, and walks reported a working feature as broken
+            (the 2026-10-15 Animate walk, S3). Never in a miniature. */}
+        {!preview ? <PahinaMotionRootFlag /> : null}
+        {!preview ? <PahinaMotionObserver /> : null}
       {only ? <style>{canvasOnlyCss(only)}</style> : null}
       {/* 🍪 As the REAL canvas does (`site-body.tsx`, `isEditorCanvas`): the app's floating notices — the cookie consent
           among them — are not drawn inside the Maker's sample; the host answers them on the Maker's own page. The lab

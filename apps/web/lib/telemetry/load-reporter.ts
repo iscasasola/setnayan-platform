@@ -208,7 +208,7 @@ function install(win: Win): void {
     }
   };
   observe('event', { durationThreshold: 40 }, (e) => {
-    if ((e as PerformanceEventTiming).interactionId) {
+    if ((e as PerformanceEntry & { interactionId?: number }).interactionId) {
       sawInp = true;
       inp = Math.max(inp, e.duration);
     }

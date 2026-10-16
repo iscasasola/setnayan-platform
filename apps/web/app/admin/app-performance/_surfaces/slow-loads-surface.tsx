@@ -19,7 +19,10 @@
  * editor stands down below `lg`, and a line says where it went.
  * Frames only on what you press: rows are divided, not boxed.
  */
-import { Laptop } from 'lucide-react';
+import { Laptop, Timer } from 'lucide-react';
+
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { MIN_N } from '@/lib/admin/app-performance-stats';
@@ -102,13 +105,13 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
 
   return (
     <div className="space-y-10">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">Slow loads</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink/65">
+      <div>
+        <PageMasthead title="Slow loads" className="mb-2" />
+        <p className="max-w-prose text-sm text-ink/65">
           How long real people wait for a page — over its target is slow. Every page&apos;s target is{' '}
           {formatMs(DEFAULT_TARGET_MS)} unless it has its own.
         </p>
-      </header>
+      </div>
 
       {notice ? (
         <p role="status" className={`text-sm ${notice.bad ? 'text-danger-700' : 'text-[var(--sn-success)]'}`}>
@@ -190,101 +193,114 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
           Targets are set on the computer.
         </p>
 
-        {rowsUnread ? null : data.pages.length === 0 ? (
-          <p className="text-sm text-ink/60">No loads measured yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[40rem] border-collapse text-sm" data-testid="per-page">
-              <thead>
-                <tr className="border-b border-ink/15 text-left text-[11px] uppercase tracking-[0.1em] text-ink/50">
-                  <th className="py-2 pr-4 font-medium">Page</th>
-                  <th className="py-2 pr-4 font-medium">Target</th>
-                  <th className="py-2 pr-4 text-right font-medium">Loads</th>
-                  <th className="py-2 pr-4 text-right font-medium">p50</th>
-                  <th className="py-2 pr-4 text-right font-medium">p95</th>
-                  <th className="py-2 pr-4 text-right font-medium">Over target</th>
-                  <th className="py-2 text-right font-medium">Since last build</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/10">
-                {data.pages.map((p) => (
-                  <tr key={p.route} className="align-top">
-                    <td className="py-2.5 pr-4 font-mono text-[13px] text-ink">
-                      <span className="break-all">{p.route}</span>
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <span className="tabular-nums lg:hidden">
-                        {formatMs(p.target)}
-                        {p.targetSet ? '' : ' (default)'}
-                      </span>
-                      <div className="hidden items-center gap-1.5 lg:flex">
-                        <form action={saveLoadTarget} className="flex items-center gap-1.5">
-                          <input type="hidden" name="route" value={p.route} />
-                          <label className="sr-only" htmlFor={`t-${p.route}`}>
-                            Target for {p.route}, in seconds
-                          </label>
-                          <input
-                            id={`t-${p.route}`}
-                            name="target_s"
-                            type="number"
-                            inputMode="decimal"
-                            step="0.1"
-                            min={TARGET_MIN_MS / 1000}
-                            max={TARGET_MAX_MS / 1000}
-                            defaultValue={p.targetSet ? (p.target / 1000).toString() : ''}
-                            placeholder={(DEFAULT_TARGET_MS / 1000).toFixed(1)}
-                            className="input-field h-8 w-20 py-0 text-sm tabular-nums"
-                          />
-                          <span className="text-[11px] text-ink/50">s</span>
-                          <button type="submit" className="button-secondary h-8 px-2.5 text-xs">
-                            Save
-                          </button>
-                        </form>
-                        {p.targetSet ? (
-                          // An empty target is "no override": the page goes back to the default.
-                          <form action={saveLoadTarget}>
-                            <input type="hidden" name="route" value={p.route} />
-                            <input type="hidden" name="target_s" value="" />
-                            <button type="submit" className="h-8 px-1.5 text-xs text-ink/55 underline-offset-2 hover:underline">
-                              Use {(DEFAULT_TARGET_MS / 1000).toFixed(1)} s
-                            </button>
-                          </form>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="py-2.5 pr-4 text-right tabular-nums text-ink/75">
-                      {formatCount(p.loads)}
-                      {p.n < MIN_N && p.n > 0 ? (
-                        <span className="block text-[11px] text-ink/45">
-                          {p.n} of {MIN_N} measured
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right tabular-nums">{formatMs(p.p50)}</td>
-                    <td className="py-2.5 pr-4 text-right tabular-nums">{formatMs(p.p95)}</td>
-                    <td
-                      className={`py-2.5 pr-4 text-right tabular-nums ${p.overPct !== null && p.overPct > 0.1 ? 'font-semibold text-danger-700' : ''}`}
-                    >
-                      {pct(p.overPct)}
-                    </td>
-                    <td className="py-2.5 text-right tabular-nums">
-                      {p.trend ? (
-                        <span className={p.trend.pct > 0.05 ? 'text-danger-700' : p.trend.pct < -0.05 ? 'text-[var(--sn-success)]' : 'text-ink/60'}>
-                          {p.trend.pct > 0 ? '▲' : p.trend.pct < 0 ? '▼' : '='} {Math.abs(Math.round(p.trend.pct * 100))}%
-                          <span className="block text-[11px] text-ink/45">
-                            {formatMs(p.trend.previous)} → {formatMs(p.trend.current)}
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="text-ink/40">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ConsoleTable
+          label="Load times by page"
+          reads="the load times"
+          rows={rowsUnread ? null : data.pages}
+          readError={rowsUnread ? { message: 'app_load_timings read refused (see the earlier log line)' } : null}
+          rowKey={(p) => p.route}
+          readPermitted
+          minWidth="20rem"
+          empty={{
+            Icon: Timer,
+            title: 'No loads measured yet',
+            blurb: 'Pages appear here as real people open them.',
+          }}
+          columns={[
+            {
+              header: 'Page',
+              mono: true,
+              cell: (p) => <span className="break-all">{p.route}</span>,
+            },
+            {
+              header: 'Target',
+              cell: (p) => (
+                <>
+                  <span className="tabular-nums lg:hidden">
+                    {formatMs(p.target)}
+                    {p.targetSet ? '' : ' (default)'}
+                  </span>
+                  <div className="hidden items-center gap-1.5 lg:flex">
+                    <form action={saveLoadTarget} className="flex items-center gap-1.5">
+                      <input type="hidden" name="route" value={p.route} />
+                      <label className="sr-only" htmlFor={`t-${p.route}`}>
+                        Target for {p.route}, in seconds
+                      </label>
+                      <input
+                        id={`t-${p.route}`}
+                        name="target_s"
+                        type="number"
+                        inputMode="decimal"
+                        step="0.1"
+                        min={TARGET_MIN_MS / 1000}
+                        max={TARGET_MAX_MS / 1000}
+                        defaultValue={p.targetSet ? (p.target / 1000).toString() : ''}
+                        placeholder={(DEFAULT_TARGET_MS / 1000).toFixed(1)}
+                        className="input-field h-8 w-20 py-0 text-sm tabular-nums"
+                      />
+                      <span className="text-[11px] text-ink/50">s</span>
+                      <button type="submit" className="button-secondary h-8 px-2.5 text-xs">
+                        Save
+                      </button>
+                    </form>
+                    {p.targetSet ? (
+                      // An empty target is "no override": the page goes back to the default.
+                      <form action={saveLoadTarget}>
+                        <input type="hidden" name="route" value={p.route} />
+                        <input type="hidden" name="target_s" value="" />
+                        <button type="submit" className="h-8 px-1.5 text-xs text-ink/55 underline-offset-2 hover:underline">
+                          Use {(DEFAULT_TARGET_MS / 1000).toFixed(1)} s
+                        </button>
+                      </form>
+                    ) : null}
+                  </div>
+                </>
+              ),
+            },
+            {
+              header: 'Loads',
+              align: 'right',
+              hideBelow: 'md',
+              cell: (p) => (
+                <span className="tabular-nums">
+                  {formatCount(p.loads)}
+                  {p.n < MIN_N && p.n > 0 ? (
+                    <span className="block text-[11px] text-ink/45">
+                      {formatCount(p.n)} of {formatCount(MIN_N)} measured
+                    </span>
+                  ) : null}
+                </span>
+              ),
+            },
+            { header: 'p50', align: 'right', cell: (p) => <span className="tabular-nums">{formatMs(p.p50)}</span> },
+            { header: 'p95', align: 'right', cell: (p) => <span className="tabular-nums">{formatMs(p.p95)}</span> },
+            {
+              header: 'Over target',
+              align: 'right',
+              cell: (p) => (
+                <span className={`tabular-nums ${p.overPct !== null && p.overPct > 0.1 ? 'font-semibold text-danger-700' : ''}`}>
+                  {pct(p.overPct)}
+                </span>
+              ),
+            },
+            {
+              header: 'Since last build',
+              align: 'right',
+              hideBelow: 'md',
+              cell: (p) =>
+                p.trend ? (
+                  <span className={p.trend.pct > 0.05 ? 'text-danger-700' : p.trend.pct < -0.05 ? 'text-[var(--sn-success)]' : 'text-ink/60'}>
+                    {p.trend.pct > 0 ? '▲' : p.trend.pct < 0 ? '▼' : '='} {Math.abs(Math.round(p.trend.pct * 100))}%
+                    <span className="block text-[11px] text-ink/45">
+                      {formatMs(p.trend.previous)} → {formatMs(p.trend.current)}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-ink/40">—</span>
+                ),
+            },
+          ]}
+        />
       </section>
 
       <footer className="border-t border-ink/10 pt-4 text-xs text-ink/55">

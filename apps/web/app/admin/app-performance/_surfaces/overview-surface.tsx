@@ -684,7 +684,7 @@ export async function CockpitSurface({ searchParams }: Props) {
             >
               {loads.overall.p50 === null ? (
                 <WiringNote
-                  text={`Not enough loads measured yet (${nf.format(loads.overall.n)} of ${MIN_N} needed). The numbers appear once real people have loaded pages — never from a tiny base.`}
+                  text={`Not enough loads measured yet (${nf.format(loads.overall.n)} of ${nf.format(MIN_N)} needed). The numbers appear once real people have loaded pages — never from a tiny base.`}
                 />
               ) : (
                 <>
@@ -720,7 +720,7 @@ export async function CockpitSurface({ searchParams }: Props) {
             <ChartCard title="Web Vitals (p75)" pill="live" source="real browsers · full page loads" className="h-full">
               {loads.vitals.lcpP75 === null && loads.vitals.inpP75 === null ? (
                 <WiringNote
-                  text={`Not enough page loads measured yet (${nf.format(loads.vitals.lcpN)} of ${MIN_N} needed). Lighthouse still runs in CI per deploy.`}
+                  text={`Not enough page loads measured yet (${nf.format(loads.vitals.lcpN)} of ${nf.format(MIN_N)} needed). Lighthouse still runs in CI per deploy.`}
                 />
               ) : (
                 <dl className="grid grid-cols-2 gap-2">

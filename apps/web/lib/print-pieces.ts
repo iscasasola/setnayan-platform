@@ -484,9 +484,16 @@ export function printAccess(input: { ownsPro: boolean; storeShell: boolean }): {
  * card's included) and the whole set as one PDF (`set`, anything but its watermarked sample sheet) — need the event's Event Hub
  * Pro, in EVERY theme, Classic too. The route refuses them (`app/api/hub-print/[piece]/route.ts`); the page marks them ◆.
  * Each piece's own file and ONE guest's pass stay free (a Pro theme's print-ready file still asks for Pro: `mayServe`).
+ *
+ * 🗂 …AND THE ALL-GUESTS FILES AND EVERYTHING (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE,
+ * VIEW AS ▾ ON GUEST PRINTS, ALL GUESTS ◆, EVERYTHING ◆"): the Guest QR sheet (`qr-codes`, every guest's QR — its on-screen
+ * picture stays free) and the place-card pack (`seating-pack`, the directory, every sign and every place card) are all-guest
+ * files now; `everything` is the set, every guest's pass and place card and the day's sheets in one PDF. ONE guest's QR and ONE
+ * guest's place card stay free (`/api/website/qr/guest/<id>`, `/seating/print?guest=<id>`).
  */
 export function isAllInOnePrint(piece: string, mode: PrintMode): boolean {
-  return piece === 'passes' || (piece === 'set' && mode !== 'sample');
+  if (piece === 'qr-codes') return mode !== 'screen';
+  return piece === 'passes' || piece === 'seating-pack' || piece === 'everything' || (piece === 'set' && mode !== 'sample');
 }
 
 /**

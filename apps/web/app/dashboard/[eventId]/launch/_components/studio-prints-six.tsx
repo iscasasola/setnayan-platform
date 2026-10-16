@@ -630,12 +630,13 @@ function BoxWithX({
 /**
  * A door to the Event Hub Pro unlock that a FREE couple meets on Prints (the zip of every ticket): the same link, the same words and
  * the same mark (`studio-prints-money-is-unchanged.test.ts`) — but a tap opens the centred note (kind 20: "shown, tappable, never a
- * page jump from a row"; owner's answer (5)): "See Pro" goes to the unlock page, "Keep it" closes. Without script it is the link.
+ * page jump from a row"; owner's answer (5)): "Event Hub Pro" goes to the unlock page, "Not now" closes — the note's words since the 2026-10-17
+ * prints ruling (prototype `prints_settings_and_downloads_2026-10-17.html` `.note-pro`; it was "See Pro" / "Keep it"). Without script it is the link.
  */
 export function StudioProDoor({ href, label, icon, note }: { href: string; label: string; icon: React.ReactElement; note: { title: string; body: string } }) {
   const [open, setOpen] = useState(false);
   const link = useRef<HTMLAnchorElement | null>(null);
-  /* "See Pro" follows the SAME link (Next's own navigation) — the one press that is let through. */
+  /* "Event Hub Pro" follows the SAME link (Next's own navigation) — the one press that is let through. */
   const through = useRef(false);
   return (
     <>
@@ -659,8 +660,8 @@ export function StudioProDoor({ href, label, icon, note }: { href: string; label
         open={open}
         title={note.title}
         body={note.body}
-        confirmLabel="See Pro"
-        cancelLabel="Keep it"
+        confirmLabel="Event Hub Pro"
+        cancelLabel="Not now"
         onConfirm={() => {
           setOpen(false);
           through.current = true;

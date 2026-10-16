@@ -36,9 +36,35 @@ export const WHOLE_SET_PRO_NOTE = {
   title: 'The whole set in one file is Event Hub Pro',
   body: 'With Event Hub Pro you save every piece at once. Each piece’s own PDF still saves free.',
 } as const;
-/** What `/api/hub-print` says when it refuses an all-in-one file to an event without Event Hub Pro. */
+/**
+ * 🗂 THE ALL-GUESTS FILES AND EVERYTHING (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON
+ * GUEST PRINTS, ALL GUESTS ◆, EVERYTHING ◆": *"Per the 2026-10-16 'download all is Pro' rule, the Guest QR sheet and the place-card pack
+ * become Pro as all-guest files, while a single guest stays free"*). The prototype's words (`PRO_NOTE`), byte for byte.
+ */
+export const QR_SHEET_PRO_NOTE = {
+  title: 'Every guest’s QR in one file is Event Hub Pro',
+  body: 'With Event Hub Pro you save all your guests’ QR codes on one sheet. Each guest’s own QR still saves free, one at a time.',
+} as const;
+export const PLACE_CARDS_PRO_NOTE = {
+  title: 'Every place card in one file is Event Hub Pro',
+  body: 'With Event Hub Pro you save the table directory, every sign and every place card at once. One guest’s place card still saves free.',
+} as const;
+export const EVERYTHING_PRO_NOTE = {
+  title: 'Everything in one file is Event Hub Pro',
+  body: 'With Event Hub Pro you save every piece at once — the set, every guest’s pass and place card, the day’s sheets. Each piece’s own PDF still saves free.',
+} as const;
+/** What a route says when it refuses an all-in-one file to an event without Event Hub Pro. */
 export function allInOneRefusal(piece: string): string {
-  const n = piece === 'passes' ? PASSES_PRO_NOTE : WHOLE_SET_PRO_NOTE;
+  const n =
+    piece === 'passes'
+      ? PASSES_PRO_NOTE
+      : piece === 'qr-codes'
+        ? QR_SHEET_PRO_NOTE
+        : piece === 'seating-pack'
+          ? PLACE_CARDS_PRO_NOTE
+          : piece === 'everything'
+            ? EVERYTHING_PRO_NOTE
+            : WHOLE_SET_PRO_NOTE;
   return `${n.title}. ${n.body}`;
 }
 

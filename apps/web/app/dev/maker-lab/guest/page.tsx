@@ -55,7 +55,7 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette, labSharedAttireDressConfig, labRolesDressConfig, labRolesRolePalette } from './lab-sample';
 import { LabStagePages } from './lab-stage';
 import { LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom } from '../lab-draft';
 import { labSeen, labStageTiles } from '../lab-navigator';
@@ -258,6 +258,32 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </main>
     );
   }
+  /* ⛪ `?venues=<style>` (default · photo-card · full-photo · journey) — the REAL `VenueWidget` with cale-ice's two venue
+     NAMES (the names only — no address, no pin, no photo of theirs), as a guest who has not replied sees them.
+     `&parish=0` swaps the ceremony for a church with no drawing; `&photo=1` gives both cards a stand-in photo (a file
+     this repo ships), to see the drawing take the photo's place; `&art=candlelight` draws it on the dark Look. */
+  if (typeof sp.venues === 'string') {
+    const style = sp.venues === 'default' ? null : sp.venues;
+    const photo = sp.photo === '1' ? LAB_COVER_PHOTO : null;
+    const event = {
+      event_date: '2026-12-18',
+      venue_withheld: true,
+      venues: [
+        { role: 'ceremony', name: sp.parish === '0' ? 'Santuario de San Antonio' : 'Santuario de San Vicente de Paul Parish', address: null, latitude: null, longitude: null, photoUrl: photo },
+        { role: 'reception', name: 'Seda Hotel Vertis North', address: null, latitude: null, longitude: null, photoUrl: photo },
+      ],
+    };
+    return (
+      <main
+        className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[860px] bg-cream px-4 py-10 text-ink"
+        data-art={sp.art === 'candlelight' ? 'candlelight' : undefined}
+        data-lab-venues={sp.venues}
+      >
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        <VenueWidget event={event as never} sceneStyle={style} map="none" />
+      </main>
+    );
+  }
   const rsvp = typeof sp.rsvp === 'string' ? sp.rsvp : null;
   /* 🎉 `?play=<pick>` plays the When yes celebration as a guest who just said
      yes (`&freeze=<s>` holds one still frame for a screenshot); without it the
@@ -414,14 +440,18 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const cale = sp.board === 'cale';
   /* `?attire=shared` — the sponsors saved with ONE shared, women's Wear before the split (`labSharedAttireDressConfig`); `&you=ninong`: read by a ninong. */
   const sharedAttire = sp.attire === 'shared';
+  /* 👔 `?attire=roles` — the per-role designs in cale-ice's colours (`labRolesDressConfig`); `&you=<guest-list role>` reads it as them. */
+  const rolesAttire = sp.attire === 'roles';
+  const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
+  const rolesPick = Object.fromEntries(['groom', 'bride', 'men', 'women', 'boys', 'girls', 'gm', 'gw'].map((k) => [k, one(k)]).filter(([, v]) => v));
   const dressCode = words ? (
     <DressCodeWidget
       words={words}
-      config={cale ? labCaleDressConfig() : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
+      config={cale ? labCaleDressConfig() : rolesAttire ? labRolesDressConfig(rolesPick as never) : sharedAttire ? labSharedAttireDressConfig(LAB_BOARD) : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
-      rolePalette={cale ? labCaleRolePalette() : labRolePalette(LAB_BOARD)}
-      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : null}
+      rolePalette={cale ? labCaleRolePalette() : rolesAttire ? labRolesRolePalette() : labRolePalette(LAB_BOARD)}
+      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : sharedAttire && sp.you === 'ninong' ? 'principal_sponsor_ninong' : rolesAttire && one('you') ? (one('you') as never) : null}
       roleNames={null}
       sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')}
       paletteLook={paletteLookOfRow(rowOf('dress_code'))}

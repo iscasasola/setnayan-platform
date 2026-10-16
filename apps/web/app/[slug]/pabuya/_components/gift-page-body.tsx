@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { hasntAfter } from '../../_lib/names-verb';
 import { WishList } from './wish-list';
 import { GiftTell } from './gift-tell';
@@ -14,7 +15,16 @@ import { GIFT_DETAILS_WITHHELD_LINE, type GiftPageContent } from '../_lib/gift-c
  * `wishLimit` is the Welcome page's calm cut: the ways to give in full, the wish list short with "See all" opening the
  * rest in place (`WishList` `limit`). The gift page passes none and draws every wish, as before.
  */
-export function GiftPageBody({ content, wishLimit }: { content: GiftPageContent; wishLimit?: number }) {
+export function GiftPageBody({
+  content,
+  wishLimit,
+  kit = null,
+}: {
+  content: GiftPageContent;
+  wishLimit?: number;
+  /** 🕯 The look's art kit on the main ways-to-give list's card (`PabuyaCardList` `kit`). Absent → as before. */
+  kit?: ReactNode;
+}) {
   const { cards, wishes, identifiersWithheld, hostName, words, registryHref, message } = content;
   return (
     <div data-gift-page-body="">
@@ -80,7 +90,7 @@ export function GiftPageBody({ content, wishLimit }: { content: GiftPageContent;
               Ways to give
             </p>
           ) : null}
-          <PabuyaCardList methods={cards} />
+          <PabuyaCardList methods={cards} kit={kit} />
           {/* 🔑 SAY THAT SOMETHING IS WITHHELD, AND WHY. A card showing a bank
               with no number and no QR, and no sentence, reads as a couple who
               filled the form in wrong. This is the difference between a gate

@@ -32,6 +32,7 @@
  */
 import { isAttireStyle, type AttireStyle } from './role-dress-code';
 import { COUNTERPART, STYLE_ORDER, fitsWho, type FigureWho } from './attire-figures';
+import { GUEST_OPTIONS_MAX, columnRole, designLabel, designOf, readerFigureRole, roleDesigns, type FigureRole } from './attire-designs';
 import type { GuestAttire, GuestRole } from './guests';
 import type { PaletteKey } from './mood-board';
 import { roleGroupOf } from './role-groups';
@@ -92,6 +93,9 @@ export const isTwoPick = (row: AttireRowDef | null): boolean => (row?.who.length
  * wearer's first, then the rest.
  */
 export function pickOptions(row: AttireRowDef, index: 0 | 1 = 0): readonly AttireStyle[] {
+  /* 👔 A row with its own designs (owner 2026-10-16, "EACH ROLE HAS ITS OWN LIST OF DESIGNS") lists THAT role's. */
+  const role = columnRole(row.key, index);
+  if (role) return roleDesigns(role);
   const who = row.who[index] ?? row.who[0];
   if (row.who.length === 1 && row.either) return [...STYLE_ORDER[who], ...STYLE_ORDER[COUNTERPART[who]].filter((s) => !STYLE_ORDER[who].includes(s))];
   return STYLE_ORDER[who];
@@ -106,8 +110,10 @@ export type SecondPick = { style?: AttireStyle | null; colours?: string[] };
 export type SecondPicks = { roles?: Record<string, SecondPick>; groups?: Record<string, SecondPick> };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
-/** As many colours as a role's own palette holds (the guests' six options — `PALETTE_LIMITS.guest.max`). */
+/** As many colours as a role's own palette holds — and the guests' options, at most five (owner 2026-10-16,
+ *  `GUEST_OPTIONS_MAX` = `PALETTE_LIMITS.guest.max`). */
 export const SECOND_PICK_COLOURS_MAX = 6;
+export const secondPickColoursMax = (key: string): number => (key === 'guest' ? GUEST_OPTIONS_MAX : SECOND_PICK_COLOURS_MAX);
 
 /**
  * `dress_code_config.women` from whatever is stored — only the two-pick rows, a known style or an explicit null, real
@@ -126,7 +132,7 @@ export function sanitizeSecondPicks(raw: unknown): SecondPicks {
       const pick: SecondPick = {};
       if ('style' in v && (v.style === null || isAttireStyle(v.style))) pick.style = v.style as AttireStyle | null;
       if (Array.isArray(v.colours)) {
-        const colours = v.colours.filter((c): c is string => typeof c === 'string' && HEX.test(c)).slice(0, SECOND_PICK_COLOURS_MAX);
+        const colours = v.colours.filter((c): c is string => typeof c === 'string' && HEX.test(c)).slice(0, secondPickColoursMax(key));
         if (colours.length > 0) pick.colours = colours;
       }
       if (!('style' in pick) && !pick.colours) continue;
@@ -155,18 +161,25 @@ export function firstStyleOf(config: Config, tier: AttireTier, key: string): Att
  *     drawing table's "a man's Long gown is a suit" was a drawing fallback, not the couple's word.
  * An `either` row's one person is whoever wears its style (a reader in a gown is drawn a woman).
  */
-export function picksOf(config: Config, row: AttireRowDef): Array<{ who: FigureWho; style: AttireStyle | null; colours: string[] | null }> {
+export type ReadPick = { who: FigureWho; style: AttireStyle | null; colours: string[] | null; role: FigureRole | null };
+export function picksOf(config: Config, row: AttireRowDef): ReadPick[] {
   const first = firstStyleOf(config, row.tier, row.key);
-  const own = (index: 0 | 1, style: AttireStyle | null): AttireStyle | null => (style && pickOptions(row, index).includes(style) ? style : null);
+  /* 👔 A row with its own designs reads a stored Wear INTO the column's role (`designOf`: its own design, or an old word
+     with one meaning — `formal`, a boy's `suit`); anything else is "Not said yet". */
+  const own = (index: 0 | 1, style: AttireStyle | null): AttireStyle | null => {
+    const role = columnRole(row.key, index);
+    if (role) return designOf(role, style);
+    return style && pickOptions(row, index).includes(style) ? style : null;
+  };
   if (row.who.length === 1) {
     const style = own(0, first);
     const who = row.either && style && !fitsWho(row.who[0], style) ? COUNTERPART[row.who[0]] : row.who[0];
-    return [{ who, style, colours: null }];
+    return [{ who, style, colours: null, role: columnRole(row.key, 0) }];
   }
   const second = sanitizeSecondPicks(config?.women)[row.tier]?.[row.key];
   return [
-    { who: row.who[0], style: own(0, first), colours: null },
-    { who: row.who[1]!, style: own(1, second && 'style' in second ? (second.style ?? null) : first), colours: second?.colours ?? null },
+    { who: row.who[0], style: own(0, first), colours: null, role: columnRole(row.key, 0) },
+    { who: row.who[1]!, style: own(1, second && 'style' in second ? (second.style ?? null) : first), colours: second?.colours ?? null, role: columnRole(row.key, 1) },
   ];
 }
 
@@ -213,7 +226,7 @@ export function withSecondStyle<C extends Record<string, unknown>>(config: C, ti
 export function withSecondColours<C extends Record<string, unknown>>(config: C, tier: AttireTier, key: string, colours: readonly string[] | null): C {
   return withSecond(config, tier, key, (p) => {
     const { colours: _was, ...rest } = p;
-    const keep = (colours ?? []).filter((c) => HEX.test(c)).slice(0, SECOND_PICK_COLOURS_MAX);
+    const keep = (colours ?? []).filter((c) => HEX.test(c)).slice(0, secondPickColoursMax(key));
     return keep.length > 0 ? { ...rest, colours: keep } : rest;
   });
 }
@@ -273,31 +286,47 @@ export function readerAttire(input: {
   label: (style: AttireStyle) => string;
   /** The role's single person by the shipped figure rule (`roleFigures`' gown / suit), or null for a role that holds both. */
   single: (role: GuestRole) => 'gown' | 'suit' | null;
-}): { styleLabel: string | null; hexes: string[]; picks: Array<{ who: FigureWho; style: AttireStyle | null; colours: string[] | null }> } {
+}): { styleLabel: string | null; hexes: string[]; picks: Array<{ who: FigureWho; style: AttireStyle | null; colours: string[] | null; role: FigureRole | null }> } {
   const { role, attire, source, config, style, hexes, label } = input;
-  const say = (s: AttireStyle | null) => (s ? label(s) : null);
+  /* 👔 Said in the person's OWN words for the design ("Filipiniana (terno)" for a bride) where they have a list. */
+  const say = (p: { style: AttireStyle | null; role?: FigureRole | null }) => (p.style ? (p.role ? designLabel(p.role, p.style) : label(p.style)) : null);
   const group = role ? roleGroupOfRole(role) : null;
-  const row = source === 'group' && group ? attireRow('groups', group) : null;
-  if (row && isTwoPick(row)) {
-    const picks = picksOf(config, row).map((p) => ({ ...p, colours: p.colours ?? [...hexes] }));
-    const r = readerPick(row, role, attire);
+  const groupRow = source === 'group' && group ? attireRow('groups', group) : null;
+  if (groupRow && isTwoPick(groupRow)) {
+    const picks = picksOf(config, groupRow).map((p) => ({ ...p, colours: p.colours ?? [...hexes] }));
+    const r = readerPick(groupRow, role, attire);
     if (r !== null) {
       const one = picks[r]!;
-      return { styleLabel: say(one.style), hexes: one.colours, picks: [one] };
+      return { styleLabel: say(one), hexes: one.colours, picks: [one] };
     }
     return { styleLabel: bothSaid(picks, say), hexes: [...hexes], picks };
   }
   const kind = role ? input.single(role) : null;
   const who: FigureWho[] = role && CHILD_ROLE[role] ? [CHILD_ROLE[role]!] : kind === 'gown' ? ['f'] : kind === 'suit' ? ['m'] : attire === 'gown' ? ['f'] : attire === 'suit' ? ['m'] : ['f', 'm'];
-  /* Each person keeps the one answer only where it is theirs (`fitsWho`) — a father is never told "Long gown". */
-  const picks = who.map((w) => ({ who: w, style: fitsWho(w, style) ? style : null, colours: [...hexes] }));
-  return { styleLabel: picks.length === 1 ? say(picks[0]!.style) : bothSaid(picks, say), hexes: [...hexes], picks };
+  /* Each person keeps the one answer only where it is theirs — a father is never told "Long gown". A person with their
+     own drawings (a best man, a ninang) reads it into THEIR design (`designOf`); a best man whose groomsmen wear a vest
+     and tie (a design a best man has no drawing of) is drawn as the groomsmen are — the row's own role. */
+  const rowRole = groupRow ? columnRole(groupRow.key, 0) : null;
+  const picks = who.map((w) => {
+    const mine = readerFigureRole(role, w);
+    if (mine) {
+      const own = designOf(mine, style);
+      if (own) return { who: w, style: own, colours: [...hexes], role: mine };
+      const theirs = rowRole && rowRole !== mine ? designOf(rowRole, style) : null;
+      if (theirs && groupRow?.who[0] === w) return { who: w, style: theirs, colours: [...hexes], role: rowRole };
+      return { who: w, style: null, colours: [...hexes], role: mine };
+    }
+    return { who: w, style: fitsWho(w, style) ? style : null, colours: [...hexes], role: null };
+  });
+  return { styleLabel: picks.length === 1 ? say(picks[0]!) : bothSaid(picks, say), hexes: [...hexes], picks };
 }
 
-/** Two people's Wear in one line: one style when they agree, else each named ("For men: Suit · For women: Long gown"). */
-function bothSaid(picks: ReadonlyArray<{ who: FigureWho; style: AttireStyle | null }>, say: (s: AttireStyle | null) => string | null): string | null {
-  const [a, b] = picks as [(typeof picks)[0], (typeof picks)[0]];
-  return a.style === b.style ? say(a.style) : a.style || b.style ? `${PICK_LABEL[a.who]}: ${say(a.style) ?? 'not said yet'} · ${PICK_LABEL[b.who]}: ${say(b.style) ?? 'not said yet'}` : null;
+/** Two people's Wear in one line: one design when they agree, else each named ("For men: Suit and tie · For women: Long gown"). */
+function bothSaid<P extends { who: FigureWho; style: AttireStyle | null; role?: FigureRole | null }>(picks: readonly P[], say: (p: P) => string | null): string | null {
+  const [a, b] = picks as unknown as [P, P];
+  const sa = say(a);
+  const sb = say(b);
+  return sa === sb ? sa : sa || sb ? `${PICK_LABEL[a.who]}: ${sa ?? 'not said yet'} · ${PICK_LABEL[b.who]}: ${sb ?? 'not said yet'}` : null;
 }
 
 /**

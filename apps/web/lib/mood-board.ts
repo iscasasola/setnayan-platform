@@ -213,11 +213,13 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     slotLabels: OUTFIT_SLOT_LABELS,
     family: 'couple',
   },
+  // 👔 FOUR, not three (owner 2026-10-16, "ATTIRE COLOUR ZONES" + "EACH ROLE HAS ITS OWN LIST OF DESIGNS"): the groom's
+  // 3-piece suit is four zones — coat & pants · tie · shirt · vest — one fixed dot each.
   groom: {
     min: 1,
-    max: 3,
+    max: 4,
     label: 'Groom',
-    hint: "The groom's attire palette — 1 to 3 colors",
+    hint: "The groom's attire palette — 1 to 4 colors",
     meaning: 'outfit',
     slotLabels: OUTFIT_SLOT_LABELS,
     family: 'couple',
@@ -334,11 +336,13 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
+  // 👗 FIVE, not six (owner 2026-10-16: *"we most likely will have max of 5 guests palettes"*) — each option is drawn as
+  // its own guest figure, side by side. `sanitizeRolePalette` slices to this, so it is the cap on every write.
   guest: {
     min: 3,
-    max: 6,
+    max: 5,
     label: 'Plain guests',
-    hint: 'Dress-code palette guests can choose from — 3 to 6 colors',
+    hint: 'Dress-code palette guests can choose from — 3 to 5 colors',
     meaning: 'options',
     family: 'role',
   },

@@ -27,6 +27,7 @@ import { eventItemIsPro } from './hub-draft';
 import { RSVP_STAGE_KEY } from './rsvp-stage-shared';
 import { KitClosing } from '../app/[slug]/_components/kit-piece';
 import { createSectionBinder } from '../app/[slug]/_components/canvas-section-binder';
+import { stripComments } from './strip-comments';
 
 /* The pieces are JSX: under `tsx --test` it compiles to React.createElement (the house idiom). */
 (globalThis as unknown as { React: unknown }).React = React;
@@ -34,7 +35,7 @@ const h = React.createElement;
 const ROOT = join(__dirname, '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 /** Comments out — a docblock quoting the code must not satisfy an anchor. */
-const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = (p: string) => stripComments(read(p));
 
 /* ── 1 · selectable ─────────────────────────────────────────────────────────────────────────────────────────────── */
 

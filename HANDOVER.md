@@ -31,7 +31,12 @@ Head sha: see `git log -1` on the branch (the feature commit is `4cad4f3981`; th
 ## Left, in order
 1. DONE: preflight. The real failures were the comment-stripper lint and a stale ugat screens map, both fixed in b60d82a75d. Everything else timed out on the loaded machine.
 2. DONE: sabotage (removing the editor-shell closing branch turns test 2 red; restored, green). Recorded in a PR comment.
-3. Wait for CI green on #6595: `gh pr checks 6595`. Fix any red, then push.
+3. DONE 2026-10-17: merged origin/main (#6592 cover scene) — conflicts in `lib/maker-parts.ts` (rsvp home keeps BOTH
+   `rsvpbutton` and `closing`) and the maker-lab guest page (keeps BOTH the lab kit and the lab RSVP button). ugat
+   generators re-run: no change. 277 touched tests green (merge commit 3721053278).
+3b. Re-walk at 375 after the merge (WebKit iPhone 13, Vintage): shots to `controller-2026-10-12/closing-scene/r2/` and
+   `shots-2026-10-17/6595/`; script `closing-scene/scripts/walk2.mjs [light|dark]`.
+3c. Wait for CI green on #6595: `gh pr checks 6595`. Fix any red, then push.
 4. Report to the controller: PR #6595, head sha, CI count, walk, screenshot paths.
 
 ## Exact next command

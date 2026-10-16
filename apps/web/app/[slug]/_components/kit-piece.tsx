@@ -161,7 +161,7 @@ export function KitClosing({
           style={{ width: `min(${piece.w}px, calc(100% - 2rem))`, aspectRatio: `${piece.w} / ${piece.h}` }}
         >
           <div
-            data-kit-photo={photoUrl ? 'couple' : 'mark'}
+            data-kit-photo={photoUrl ? 'own' : 'mark'}
             className="absolute overflow-hidden"
             style={{
               left: `${((hole.cx - hole.rx) / piece.w) * 100}%`,

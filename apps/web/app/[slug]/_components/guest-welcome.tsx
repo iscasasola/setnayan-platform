@@ -154,8 +154,9 @@ export function GuestWelcome({
         if (giftHref) {
           return (
             <WelcomeSlot key="gifts">
-              {mark('f:gifts')}
+              {/* 🕯 The kit's divider stands before the block's own mark — the mark sits right before the block root. */}
               {artKit ? <KitSlot kit={artKit} slot="gifts-divider" /> : null}
+              {mark('f:gifts')}
               <WelcomeGifts href={giftHref} words={words} look={partLooks?.gifts ?? null} wishes={giftWishes}>
                 {giftContent ? (
                   <WelcomeGiftsContent

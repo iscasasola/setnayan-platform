@@ -137,11 +137,6 @@ export default async function ArtKitLabPage({ searchParams }: { searchParams: Pr
                   : null
             }
             kitSlot={kit ? <KitSlot kit={kit} slot="cover" eager /> : null}
-            monogramSlot={
-              <span className="flex h-20 w-20 items-center justify-center rounded-full border border-gild font-serif text-2xl italic text-terracotta-700">
-                M &amp; J
-              </span>
-            }
           />
           {card ? <ReplyCardRow card={card} kit={kit ? <KitSlot kit={kit} slot="reply" /> : null} /> : null}
           <div className="mt-12 space-y-10">

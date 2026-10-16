@@ -2376,9 +2376,9 @@ export async function SiteBody({
               <div className="mt-12">
                 <GuestWelcome
                   partLooks={welcomeLooks}
-                  artKit={artKit}
                   parts={parts}
                   words={clientWords}
+                  artKit={artKit}
                   look={null}
                   reminders={
                     remindersScene ? (
@@ -2420,9 +2420,9 @@ export async function SiteBody({
               <div className="mt-12">
                 <GuestWelcome
                   partLooks={welcomeLooks}
-                  artKit={artKit}
                   parts={dayWelcome}
                   words={clientWords}
+                  artKit={artKit}
                   look={null}
                   reminders={
                     dayRemindersRow ? (
@@ -3774,9 +3774,9 @@ export async function SiteBody({
               {tabs.on && welcomeHere.length === 0 ? null : group('home', (
               <GuestWelcome
                 partLooks={welcomeLooks}
-                artKit={artKit}
                 parts={welcomeHere}
                 words={clientWords}
+                artKit={artKit}
                 /* 🏠 One home per fact: once Me draws this guest's role and
                    outfit (`meParts`), the Welcome's look stands down. */
                 look={meParts.length > 0 ? null : guestLook}
@@ -3817,9 +3817,9 @@ export async function SiteBody({
               {group('home', dayWelcome.length > 0 ? (
                 <GuestWelcome
                   partLooks={welcomeLooks}
-                  artKit={artKit}
                   parts={dayWelcome}
                   words={clientWords}
+                  artKit={artKit}
                   lookMark={blockMark('look')}
                   look={{
                     config: event.dress_code_config ?? null,
@@ -4257,7 +4257,7 @@ export async function SiteBody({
               kit: artKit,
               names: event.display_name,
               date: formatEventDate(event.event_date) || null,
-              photoUrl: heroPhotoUrl,
+              photoUrl: heroPhotoUrl ?? null,
               mark: hubLook.monogram,
               twoPeople: clientWords.twoPeople,
             }

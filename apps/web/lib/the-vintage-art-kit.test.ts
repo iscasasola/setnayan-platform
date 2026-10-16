@@ -252,7 +252,7 @@ test('7 · the closing never shows another couple’s photo — the event’s ow
   const ownPics = [...own.matchAll(/<img[^>]*src="([^"]+)"/g)].map((m) => m[1]).filter((src) => !src!.startsWith(VINTAGE.dir));
   assert.deepEqual(ownPics, ['https://media.example/their-own.jpg']);
   // The page hands it THIS event's hero photo (`loadMedia`, signed for this event) — nothing else.
-  assert.match(stripComments(read('app/[slug]/_components/site-body.tsx')), /photoUrl: heroPhotoUrl,/);
+  assert.match(stripComments(read('app/[slug]/_components/site-body.tsx')), /photoUrl: heroPhotoUrl \?\? null,/);
   // …and the kit carries no stand-in of its own.
   assert.equal(kitFiles(VINTAGE).some((f) => /standin|stand-in|photo/i.test(f)), false);
   // The sign-off keeps its words and its Powered-by line, and drops it only as the plain sign-off does.

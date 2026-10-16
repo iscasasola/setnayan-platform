@@ -163,7 +163,8 @@ test('2 · with no kit every mount renders byte for byte what it did before; wit
     ['seal', /kitSeal=\{artKit \? <KitSeal kit=\{artKit\} mark=\{hubLook\.monogram\} \/> : null\}/],
     ['style', /\{artKit \? <KitStyle kit=\{artKit\} \/> : null\}/],
     ['motion', /\{artKit \? <ArtKitMotion \/> : null\}/],
-    ['closing', /kitClosing=\{\s*artKit\?\.pieces\.closing\?\.length\s*\?/],
+    /* 🕯 …the closing on a kit look even at None (its band, no oval — owner 2026-10-17), or wherever its oval is on. */
+    ['closing', /kitClosing=\{\s*artKit && \(artKit\.look \|\| artKit\.pieces\.closing\?\.length\)\s*\?/],
   ] as const) {
     assert.match(body, re, `site-body's ${what} mount is no longer gated on the kit`);
   }

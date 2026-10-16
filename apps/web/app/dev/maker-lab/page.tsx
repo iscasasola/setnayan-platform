@@ -1,3 +1,4 @@
+import { sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kit-accents';
 import { sanitizeFixedSceneStyles, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import { isCameraLook, type CameraLook } from '@/lib/camera-look';
 import { notFound } from 'next/navigation';
@@ -117,6 +118,15 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   } catch {
     blockLooks = {};
   }
+  /* 🕯 The lab's drafted Accent picks (`lab_accents`, the stand-in for `style_preferences.scene_accents`), and the look
+     the lab's page wears for them — `lab_kit=vintage` puts the Vintage look on, so each scene starts at its accent. */
+  let sceneAccents: SceneAccents = {};
+  try {
+    sceneAccents = sanitizeSceneAccents(JSON.parse(decodeURIComponent((await cookies()).get('lab_accents')?.value ?? '{}')));
+  } catch {
+    sceneAccents = {};
+  }
+  const labKitTheme = (await cookies()).get('lab_kit')?.value === 'vintage' ? ('vintage' as const) : null;
   const canvases: Record<string, HubSectionCanvas> = Object.fromEntries(
     rows.map((r) => [r.widget_type, sanitizeHubCanvas({ canvas: drafted[r.widget_type] ?? {} })]),
   );
@@ -190,6 +200,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       fixedStyles={fixedStyles}
       cameraLook={cameraLook}
       blockLooks={blockLooks}
+      sceneAccents={sceneAccents}
+      kitTheme={labKitTheme}
       /* ✓ The draft's summary as this render read it (`lab_bar`, written from the draft by the lab's door) — it was 0
          on every render, so the ✓ count fell to nothing by itself (P05). `?changes=3` still stands in for a draft. */
       summary={

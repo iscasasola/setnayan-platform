@@ -1,3 +1,6 @@
+import { artKitView, sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kits';
+import { KitClosing, KitStyle } from '@/app/[slug]/_components/kit-piece';
+import { formatEventDate } from '@/lib/events';
 import { Fragment, type ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -415,6 +418,17 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const heroCanvas = heroCanvasOf([rowOf('hero')] as never);
   /* ✍ The cover draws the DRAFTED names, as the real canvas does — so a cover drawn for one name can be typed into. */
   const labNames = labNamesFrom((await cookies()).get(LAB_NAMES_COOKIE)?.value, LAB_SAMPLE.names);
+  /* 🕯 The closing's kit — the lab's look (`lab_kit`) and its drafted Accent picks (`lab_accents`), through the page's
+     one decision (`artKitView`), tried on as the host's canvas does. Drawn when the look brings a kit or the Closing's
+     Accent is on, exactly as `site-body.tsx` decides. */
+  let labAccents: SceneAccents = {};
+  try {
+    labAccents = sanitizeSceneAccents(JSON.parse(decodeURIComponent((await cookies()).get('lab_accents')?.value ?? '{}')));
+  } catch {
+    labAccents = {};
+  }
+  const labKitView = artKitView({ theme: (await cookies()).get('lab_kit')?.value === 'vintage' ? 'vintage' : 'house', accents: labAccents, ownsPro: false, tryOn: true });
+  const labKit = labKitView && (labKitView.look || labKitView.pieces.closing?.length) ? labKitView : null;
   /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16), on the Invitation: `&rsvpstate=going|declined|closed|not_yet` draws
      it as that guest would meet it (the real `coverRsvpOf` on the real Reply card); none — a guest who has not replied. */
   const rsvpState = typeof sp.rsvpstate === 'string' ? sp.rsvpstate : 'ask';
@@ -969,6 +983,24 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         </div>
       ) : null}
       </HubPageHold>
+      {/* 🕯 THE CLOSING (owner 2026-10-17: "Make the closing (See you soon) its own scene in the Maker"), as the real
+          shell draws it under every page (`invitation-shell.tsx`): the Maker's marker right before the footer, then the
+          kit's closing — the oval only while the Closing's Accent is on — or the plain sign-off. The lab's look is
+          House unless `lab_kit=vintage`; its picks are the drafted `lab_accents`. The oval's picture is Setnayan's own. */}
+      {mark('f:closing')}
+      {labKit ? (
+        <footer className="relative z-10 text-center">
+          <KitStyle kit={labKit} />
+          <KitClosing kit={labKit} names={labNames} date={formatEventDate(LAB_SAMPLE.date) || null} photoUrl="/std/backgrounds/ballroom.webp" mark="M & J" twoPeople hideWatermark={false} />
+        </footer>
+      ) : (
+        <footer className="relative z-10 border-t border-ink/10 px-4 py-8 text-center">
+          <p data-shell-sign-off="" className="font-pahina text-lg italic text-terracotta-700">
+            See you soon.
+          </p>
+          <p className="mt-3 text-xs text-ink/70">Powered by Setnayan · setnayan.com</p>
+        </footer>
+      )}
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
         {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each

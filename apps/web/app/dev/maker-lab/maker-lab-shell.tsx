@@ -2,6 +2,7 @@
 
 import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import type { CameraLook } from '@/lib/camera-look';
+import type { SceneAccents } from '@/lib/art-kit-accents';
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
 import { LAB_SCRUB_GUEST } from './lab-scrub';
 import type * as LabDraft from './lab-draft';
@@ -177,6 +178,8 @@ export function MakerLabShell({
   fixedStyles = {},
   cameraLook = 'classic',
   blockLooks = {},
+  sceneAccents = {},
+  kitTheme = null,
   summary,
   scrub = false,
   revealLab = null,
@@ -192,6 +195,9 @@ export function MakerLabShell({
   cameraLook?: CameraLook;
   /** 🧱 The lab's drafted block looks (`lab_blocks`). */
   blockLooks?: Record<string, unknown>;
+  /** 🕯 The lab's drafted Accent picks (`lab_accents`), and the look it wears for them (`lab_kit=vintage`). */
+  sceneAccents?: SceneAccents;
+  kitTheme?: 'vintage' | null;
   /** 🧭 `?studio=1` — the new Maker ("Stages | Studio"), with its tiles. */
   stagesStudio?: boolean;
   studio?: { tiles: readonly StudioTileModel[] } | null;
@@ -500,7 +506,7 @@ export function MakerLabShell({
           photoChoices: [],
           videoChoice: null,
           mediaHref: '/dev/maker-lab',
-          hubTheme: 'house',
+          hubTheme: kitTheme ?? 'house',
           openBrowse: true,
           hideLocked: false,
           twoPeople: true,
@@ -513,6 +519,7 @@ export function MakerLabShell({
           fixedStyles,
           cameraLook,
           blockLooks,
+          sceneAccents,
         }}
       />
     </MakerShell>

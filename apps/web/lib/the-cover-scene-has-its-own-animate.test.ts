@@ -112,7 +112,11 @@ test('(4) ▶ on the cover: the closed veil with none of the words, the unveil, 
   assert.match(cover, /if \(veiled\) sayOpening\(header\.ownerDocument\.defaultView, false\);/, 'the veil stays after ▶ rests');
   const opening = read('app/[slug]/_components/reveal/cover-play-opening.tsx');
   assert.match(opening, /import \{ RevealOverlay \} from '\.\/reveal-overlay';/);
-  assert.match(opening, /<RevealOverlay key=\{run\.n\} \{\.\.\.props\} enabled premiumUnlocked eventTemplate="veil-sheer" preview=\{\{ liftAfterMs: run\.liftAfterMs \}\} \/>/, '▶ is not the guests’ overlay');
+  assert.match(opening, /<RevealOverlay key=\{run\.n\} \{\.\.\.props\} enabled premiumUnlocked eventTemplate="veil-sheer" preview=\{\{ liftAfterMs: run\.liftAfterMs, onLift: \(\) => window\.dispatchEvent\(new CustomEvent\(COVER_PLAY_LIFT_EVENT\)\) \}\} \/>/, '▶ is not the guests’ overlay');
+  /* The lines enter when the veil starts to rise — its own moment, not a second clock — and come in anyway if it never does. */
+  assert.match(cover, /view\?\.addEventListener\(COVER_PLAY_LIFT_EVENT, onLift, \{ once: true \}\);/, 'the lines do not wait for the veil to rise');
+  assert.match(cover, /timers\.push\(window\.setTimeout\(enterOnce, COVER_PLAY_VEIL_MS \+ COVER_PLAY_LIFT_WAIT_MS\)\);/, 'a veil that never rises keeps the lines out');
+  assert.match(cover, /for \(const n of lines\) n\.style\.setProperty\('visibility', 'hidden'\);/, 'a line can show through the played veil');
   const overlay = read('app/[slug]/_components/reveal/reveal-overlay.tsx');
   assert.match(overlay, /autoplay=\{preview !== null\}\s*autoplayAfterMs=\{preview\?\.liftAfterMs\}/, 'the played veil waits for a hand');
   for (const side of [/useEffect\(\(\) => \{\s*if \(preview\) return;\s*const showing/, /if \(!mounted \|\| preview\) return;/, /if \(preview\) return setOpen\(true\);/]) {

@@ -736,7 +736,7 @@ function RevealStagePart({
               }}
               picture={(id, on) => (
                 <>
-                  <StylePreview canvasKey="f:hero" sceneType="opening" styleId={id} current={on} />
+                  <StylePreview canvasKey="f:hero" sceneType="opening" styleId={id} current={on} focus="header[data-pahina-first-screen]" screen hide={id === REVEAL_NONE_ID ? null : '[data-cover-line]'} />
                   {id !== REVEAL_NONE_ID ? <RevealPicture kind={id} colours={look.colours} fill over /> : null}
                   {id !== REVEAL_NONE_ID && mark ? (
                     <span data-reveal-kind-mark="" className="absolute right-1.5 top-1 z-[1]">

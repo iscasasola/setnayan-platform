@@ -21,6 +21,19 @@ Part 2 of 2 — part 1 is #6592 (merged).
   corner kept reading "Sheer veil ◆ opens over it" after None was picked (walk 2026-10-17, WebKit 375). The toolbar is
   now handed what plays on THIS stage — and ▶ plays no veil there either.
 - A style card wakes when the cover's own rows come and go (`data-stage-cover-rows` joins `SIGHT_ATTRIBUTES`).
+- **Controller review (2026-10-17), closing the prototype gaps:**
+  - ▶ plays the GUESTS' OWN veil: the canvas mounts the shipped `RevealOverlay` (the Sheer veil + "Tap or swipe up to
+    unveil") in a new `preview` mode (`CoverPlayOpening`) — it lifts by itself (`VeilReveal` `autoplayAfterMs`) and
+    touches no hold, page flag, seen-mark or film signal; the lines enter on the veil's own lift moment
+    (`COVER_PLAY_LIFT_EVENT`, with a 4 s fallback when a phone has no WebGL). No sheet of its own any more.
+  - The "Build in · Action · Build out" bar stays away while the cover's ▶ plays (other parts unchanged).
+  - Style's cards are the toolbar's Style cards (`StyleCards`) drawn over the couple's REAL cover (`StylePreview` of
+    `f:hero`, new `screen` + `hide` props — a first-screen part no longer grows its frame for ever): None = the cover,
+    Sheer veil = the cloth and stripes over it with no words behind. One row under them: Extras ◆ ▾ + "Opens once, over
+    this cover. Behind it, nothing shows or plays." (or the None line) — no scroll at 375 × 812.
+  - The three per-stage switches are gone, as drawn: None takes THIS stage's cover out (`revealCoverPickPatch`).
+  - Four-flap envelope and Church doors exist in code, so they are shown — faint while the house has them switched
+    off, a tap saying "After the envelope proof — not yet" (prototype `.lc.soon`).
 - Guard: `lib/the-cover-scene-has-its-own-animate.test.ts`.
 
 SPEC IMPACT: None — implements the 2026-10-16 corpus rows as written.

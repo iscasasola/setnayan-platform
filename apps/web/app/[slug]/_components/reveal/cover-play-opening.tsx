@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ComponentProps } from 'react';
 import { RevealOverlay } from './reveal-overlay';
-import { COVER_PLAY_OPENING_EVENT, type CoverPlayOpeningDetail } from '../play-sequence';
+import { COVER_PLAY_LIFT_EVENT, COVER_PLAY_OPENING_EVENT, type CoverPlayOpeningDetail } from '../play-sequence';
 
 type OverlayProps = Omit<ComponentProps<typeof RevealOverlay>, 'enabled' | 'preview' | 'premiumUnlocked' | 'oncePerVisit' | 'seenEventId' | 'firstPageOnly' | 'eventTemplate'>;
 
@@ -32,5 +32,5 @@ export function CoverPlayOpening(props: OverlayProps) {
     return () => window.removeEventListener(COVER_PLAY_OPENING_EVENT, on);
   }, []);
   if (!run) return null;
-  return <RevealOverlay key={run.n} {...props} enabled premiumUnlocked eventTemplate="veil-sheer" preview={{ liftAfterMs: run.liftAfterMs }} />;
+  return <RevealOverlay key={run.n} {...props} enabled premiumUnlocked eventTemplate="veil-sheer" preview={{ liftAfterMs: run.liftAfterMs, onLift: () => window.dispatchEvent(new CustomEvent(COVER_PLAY_LIFT_EVENT)) }} />;
 }

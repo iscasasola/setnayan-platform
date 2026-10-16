@@ -172,7 +172,7 @@ type Props = {
    * itself after `liftAfterMs` (`VeilReveal` `autoplay`). It touches nothing of the page's: no hold on what plays
    * behind, no "seen" mark, no film signal, no page flag — `CoverPlayOpening` mounts it for one ▶ and takes it away.
    */
-  preview?: { liftAfterMs: number } | null;
+  preview?: { liftAfterMs: number; onLift?: () => void } | null;
 };
 
 const FLAG_ON = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
@@ -371,13 +371,6 @@ export function RevealOverlay({
     ensureVeilHold();
     if (!veil) claimVeilHold();
   }, [active, mounted, gone, veil]);
-  /* 🎬 ▶ in the Maker: no hand lifts it — the instruction goes the moment the veil starts to rise by itself. */
-  useEffect(() => {
-    if (!preview) return;
-    const t = window.setTimeout(() => setLifting(true), preview.liftAfterMs);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview?.liftAfterMs]);
 
   if (!active || !mounted || gone) return null;
 
@@ -402,6 +395,16 @@ export function RevealOverlay({
           look={looks.veil}
           autoplay={preview !== null}
           autoplayAfterMs={preview?.liftAfterMs}
+          /* 🎬 ▶ in the Maker: no hand lifts it — the instruction goes the moment it starts to rise by itself, and the
+             cover's lines enter on that same moment (`CoverPlayOpening` → `playCover`). */
+          onAutoLift={
+            preview
+              ? () => {
+                  setLifting(true);
+                  preview.onLift?.();
+                }
+              : undefined
+          }
           features={{
             petals: eventEffects?.petals ?? config?.features?.petals ?? true,
             logo: config?.features?.logo ?? true,

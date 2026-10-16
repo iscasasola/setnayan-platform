@@ -216,6 +216,10 @@ export const COVER_PLAY_LIFT_MS = 350;
  */
 export const COVER_PLAY_OPENING_EVENT = 'setnayan:cover-play-opening';
 export type CoverPlayOpeningDetail = { on: boolean; liftAfterMs: number };
+/** …and the veil says when it starts to rise: the lines enter on that moment, not on a clock of their own. */
+export const COVER_PLAY_LIFT_EVENT = 'setnayan:cover-play-lift';
+/** A veil that never rises (no WebGL on this phone) still lets the lines in. */
+export const COVER_PLAY_LIFT_WAIT_MS = 4000;
 const sayOpening = (view: Window | null, on: boolean) =>
   view?.dispatchEvent(new CustomEvent<CoverPlayOpeningDetail>(COVER_PLAY_OPENING_EVENT, { detail: { on, liftAfterMs: COVER_PLAY_VEIL_MS } }));
 export function playCover(header: HTMLElement, veil: boolean, report: (r: SeqReport) => void): () => void {
@@ -227,13 +231,18 @@ export function playCover(header: HTMLElement, veil: boolean, report: (r: SeqRep
   const lines = Array.from(header.querySelectorAll<HTMLElement>('[data-cover-line]'));
   const timers: number[] = [];
   let veiled = false;
+  let entered = false;
+  const view = header.ownerDocument.defaultView;
+  const onLift = () => timers.push(window.setTimeout(enterOnce, COVER_PLAY_LIFT_MS));
   const rest = () => {
     for (const t of timers) window.clearTimeout(t);
     timers.length = 0;
+    view?.removeEventListener(COVER_PLAY_LIFT_EVENT, onLift);
     if (veiled) sayOpening(header.ownerDocument.defaultView, false);
     veiled = false;
     for (const n of lines) {
       n.style.removeProperty('opacity');
+      n.style.removeProperty('visibility');
       settleAtRest(n);
     }
   };
@@ -251,6 +260,7 @@ export function playCover(header: HTMLElement, veil: boolean, report: (r: SeqRep
       const animation = kf ? `${kf} ${ms}ms ${SEQ_EASE} ${delay}ms 1 normal both` : `hub-in-fade 1100ms cubic-bezier(0.22, 0.61, 0.36, 1) ${120 * at}ms 1 normal both`;
       if (!kf) at += 1;
       n.style.removeProperty('opacity');
+      n.style.removeProperty('visibility');
       n.style.setProperty('animation', 'none');
       void n.offsetWidth;
       n.style.setProperty('animation', animation);
@@ -262,15 +272,23 @@ export function playCover(header: HTMLElement, veil: boolean, report: (r: SeqRep
       report({ phase: 'rest', skipped: [] });
     }, longest + 300));
   };
+  const enterOnce = () => {
+    if (entered) return;
+    entered = true;
+    enter();
+  };
   if (!veil) {
     enter();
     return rest;
   }
   /* The closed veil — the guests' own — with none of the words behind it; it lifts by itself, then every line enters. */
   for (const n of lines) n.style.setProperty('opacity', '0');
+  /* …and not drawn at all (a line with its own transition or arrival can lift its opacity back while the veil is down). */
+  for (const n of lines) n.style.setProperty('visibility', 'hidden');
   veiled = true;
+  view?.addEventListener(COVER_PLAY_LIFT_EVENT, onLift, { once: true });
   sayOpening(header.ownerDocument.defaultView, true);
   report({ phase: 'in', skipped: [] });
-  timers.push(window.setTimeout(enter, COVER_PLAY_VEIL_MS + COVER_PLAY_LIFT_MS));
+  timers.push(window.setTimeout(enterOnce, COVER_PLAY_VEIL_MS + COVER_PLAY_LIFT_WAIT_MS));
   return rest;
 }

@@ -553,7 +553,7 @@ test('the Reveal and Camera look cards are the phone-shaped frame — the Camera
      opening drawn over it at the frame's shape. */
   const card = reveal.slice(reveal.indexOf('<StyleCards'), reveal.indexOf('data-look-row="opening"'));
   assert.match(card, /<StyleCards\s+data="reveal"/, 'an Opening card is not the toolbar’s Style card');
-  assert.match(card, /<StylePreview canvasKey="f:hero" sceneType="opening" styleId=\{id\} current=\{on\} \/>/, 'the card is not the couple’s own cover');
+  assert.match(card, /<StylePreview canvasKey="f:hero" sceneType="opening" styleId=\{id\} current=\{on\} focus="header\[data-pahina-first-screen\]" screen hide=\{id === REVEAL_NONE_ID \? null : '\[data-cover-line\]'\} \/>/, 'the card is not the couple’s own cover');
   assert.match(card, /<RevealPicture kind=\{id\} colours=\{look\.colours\} fill over \/>/, 'the opening is not drawn over the cover at the frame’s shape');
   const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
   /* (Re-aimed 2026-10-10: the approved prototype now draws The Day › Camera — its looks are the toolbar's Style cards,

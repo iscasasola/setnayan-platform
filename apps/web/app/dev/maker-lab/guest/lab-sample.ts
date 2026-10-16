@@ -77,6 +77,12 @@ const ROWS: Row[] = [
 const LONE_ROWS: Row[] = [
   ['cn1', 'Mr.', 'Ramon', 'Ilagan', 'coin_sponsor', 18, 0],
   ['bmaid3', 'Ms.', 'Lea', 'Navarro', 'bridesmaid', 19, 0],
+  /* 👵 TWO GRANDPARENTS, IN THE SHAPE A COUPLE RECORDS THEM TODAY (owner 2026-10-17, "the 2 grandparents should not be
+     named immediate family"): cale-ice's two, read SELECT-only that day, are `groom_immediate_family`, titled "Ms.",
+     `relation` empty — nothing on the row says grandparent. Stand-in names. The unknown-sex parent is already above:
+     "Dr." Eduardo Santos, whose title says neither father nor mother. */
+  ['gm1', 'Ms.', 'Juana', 'Sarmiento', 'groom_immediate_family', 20, 0],
+  ['gm2', 'Ms.', 'Maxima', 'Sarmiento', 'groom_immediate_family', 20, 1],
 ];
 
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */

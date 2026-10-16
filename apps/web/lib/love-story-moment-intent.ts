@@ -20,12 +20,14 @@ import {
   MOMENT_LINE_MAX,
   MOMENT_PLACE_MAX,
   MOMENT_TITLE_MAX,
+  MOMENT_VOICE_SLOTS,
   isMomentAnchor,
   newMomentId,
   readMomentDate,
   readMomentMedia,
   withMomentOrder,
   type LoveStoryMoment,
+  type MomentVoices,
 } from './love-story-moments';
 import { storyStr, type StoryFormRead } from './love-story-words';
 
@@ -33,15 +35,37 @@ import { storyStr, type StoryFormRead } from './love-story-words';
 export const LOCAL_MOMENT_INTENTS = ['add', 'edit', 'delete', 'arrange', 'order'] as const;
 export type LocalMomentIntent = (typeof LOCAL_MOMENT_INTENTS)[number];
 
-/** The moment the form describes, or null when it lacks a year or a line. */
+/** What a moment needs, in the couple's words, when the form gave too little. */
+export const MOMENT_NEEDS = 'A moment needs a year and a few words — nothing else is required.';
+
+/**
+ * 🗣 THE VOICES THE FORM CARRIES (owner 2026-10-17, "LOVE STORY, TWO VOICES"): `voice_a` / `voice_b`, slot-keyed.
+ * A form WITHOUT a voice's field keeps the moment's own (the Studio's quick edits send none); a field sent empty
+ * clears that voice.
+ */
+function voicesFromForm(formData: StoryFormRead, prior: LoveStoryMoment | null): MomentVoices | null {
+  const out: MomentVoices = {};
+  for (const slot of MOMENT_VOICE_SLOTS) {
+    const raw = formData.get(`voice_${slot}`);
+    const words = raw === null ? (prior?.voices?.[slot] ?? '') : storyStr(raw, MOMENT_LINE_MAX);
+    if (words) out[slot] = words;
+  }
+  return out.a || out.b ? out : null;
+}
+
+/** The moment the form describes, or null when it lacks a year, or any words (a line or a voice). */
 export function momentFromForm(formData: StoryFormRead, prior: LoveStoryMoment | null, id: string): LoveStoryMoment | null {
   const date = readMomentDate({
     y: formData.get('date_y'),
     m: formData.get('date_m'),
     d: formData.get('date_d'),
   });
-  const line = storyStr(formData.get('line'), MOMENT_LINE_MAX);
-  if (!date || !line) return null; // a moment needs at least a year and a line
+  /* 🗣 The line told together. A form without the field (a moment with voices shows no "Told together" row) KEEPS
+     the moment's own — writing a voice never blanks the line it was written before. */
+  const lineRaw = formData.get('line');
+  const line = lineRaw === null ? (prior?.line ?? '') : storyStr(lineRaw, MOMENT_LINE_MAX);
+  const voices = voicesFromForm(formData, prior);
+  if (!date || (!line && !voices)) return null; // a moment needs at least a year, and a line or a voice
   const place = storyStr(formData.get('place'), MOMENT_PLACE_MAX);
   /* 📖 The title (owner 2026-10-07). A form without the field keeps the moment's own. */
   const titleRaw = formData.get('title');
@@ -57,6 +81,7 @@ export function momentFromForm(formData: StoryFormRead, prior: LoveStoryMoment |
     date,
     ...(title ? { title } : {}),
     line,
+    ...(voices ? { voices } : {}),
     ...(place ? { place } : {}),
     ...(media.length ? { media } : {}),
     ...(addedBy ? { added_by: addedBy } : {}),
@@ -94,13 +119,13 @@ export function applyMomentIntent(
   const prior = list.find((m) => m.id === id) ?? null;
   if (intent === 'add') {
     const m = momentFromForm(formData, null, newMomentId(list, random));
-    if (!m) return { ok: false, error: 'A moment needs a year and a line — nothing else is required.' };
+    if (!m) return { ok: false, error: MOMENT_NEEDS };
     return { ok: true, after: oneAnchorEach([...list, m], m), touched: m };
   }
   if (intent === 'edit') {
     if (!prior) return { ok: false, error: 'That moment is no longer here.' };
     const m = momentFromForm(formData, prior, id);
-    if (!m) return { ok: false, error: 'A moment needs a year and a line — nothing else is required.' };
+    if (!m) return { ok: false, error: MOMENT_NEEDS };
     return { ok: true, after: oneAnchorEach(list.map((x) => (x.id === id ? m : x)), m), touched: m };
   }
   if (intent === 'delete') return { ok: true, after: list.filter((m) => m.id !== id), touched: null };

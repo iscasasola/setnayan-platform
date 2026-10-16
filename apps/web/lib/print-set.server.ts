@@ -52,7 +52,7 @@ import {
   type RsvpChoice,
 } from '@/lib/print-pieces';
 import { fetchEgiftMethods } from '@/lib/egift';
-import { printStoryChapters } from '@/lib/love-story-moments';
+import { loveStoryPartners, printStoryChapters } from '@/lib/love-story-moments';
 import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { filterPassCardRows, type PassCardRow } from '@/lib/pass-card';
@@ -735,7 +735,7 @@ export async function loadPrintSet(
     hubAddress,
     menu: menuHasDishes(stored.menu) ? stored.menu : catererMenu,
     // The Our Story poster — the Love Story's one source, read from the same row.
-    story: printStoryChapters(event.love_story),
+    story: printStoryChapters(event.love_story, loveStoryPartners(event.display_name, event.event_type)),
     hasStill: Boolean(images.still),
     hasPosterBg: Boolean(images.posterBg),
     hasEventQr,

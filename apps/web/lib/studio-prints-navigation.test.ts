@@ -219,7 +219,8 @@ test('6 · the all-guests line says what the FILE holds — its passes, how many
   const { passGuestReply } = await import('./print-set.server');
   const { passCardEligibility } = await import('./pass-card');
   /* The reply a pass guest is counted under is the one the pass rule read: never `declined` for a guest who has a pass. */
-  const r = (o: Record<string, unknown> & { guest_id: string }) => ({ event_id: 'e', qr_token: 't', entry_source: 'host_seeded', rsvp_status: 'attending', ...o });
+  type Row = { guest_id: string; event_id: string; qr_token: string; entry_source: string; rsvp_status: string; plus_one_of_guest_id?: string };
+  const r = (o: Partial<Row> & { guest_id: string }): Row => ({ event_id: 'e', qr_token: 't', entry_source: 'host_seeded', rsvp_status: 'attending', ...o });
   const rows = [
     r({ guest_id: 'a' }),
     r({ guest_id: 'b', rsvp_status: 'declined' }),
@@ -230,8 +231,8 @@ test('6 · the all-guests line says what the FILE holds — its passes, how many
     r({ guest_id: 'p2', plus_one_of_guest_id: 'p', rsvp_status: 'attending' }),
   ];
   const by = new Map(rows.map((x) => [x.guest_id, x]));
-  const has = rows.filter((x) => passCardEligibility(x as never, x.plus_one_of_guest_id ? (by.get(x.plus_one_of_guest_id as string) as never) : null) === 'pass');
-  const replies = Object.fromEntries(has.map((x) => [x.guest_id, passGuestReply(x as never, x.plus_one_of_guest_id ? (by.get(x.plus_one_of_guest_id as string) ?? null) : null)]));
+  const has = rows.filter((x) => passCardEligibility(x as never, x.plus_one_of_guest_id ? (by.get(x.plus_one_of_guest_id) as never) : null) === 'pass');
+  const replies = Object.fromEntries(has.map((x) => [x.guest_id, passGuestReply(x as never, x.plus_one_of_guest_id ? (by.get(x.plus_one_of_guest_id) ?? null) : null)]));
   assert.deepEqual(replies, { a: 'attending', p: 'pending', m: 'maybe', a1: 'attending', p1: 'pending', p2: 'attending' }, 'a pass guest is counted under a reply the pass rule did not read');
   /* cale-ice's shape: 6 coming, 103 not replied — the number IS the file. */
   const draw = async (passGuests: Array<{ id: string; name: string; reply: 'attending' | 'pending' | 'maybe' }>) => {

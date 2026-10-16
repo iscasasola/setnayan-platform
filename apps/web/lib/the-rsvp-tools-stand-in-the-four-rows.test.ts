@@ -158,7 +158,7 @@ test('3 · the form’s card: Edit is its settings in rows 1–3 over the toolba
   const at = (needle: string) => tools.indexOf(needle);
   assert.ok(at('[data-stage-tool-now="edit"]) [data-phone-chrome="panel"]{visibility:hidden') < at('[data-stage-edit-card]) [data-phone-chrome="panel"]') && at('[data-stage-edit-card]) [data-phone-chrome="panel"]') < at('[data-stage-tools][aria-hidden="true"]) [data-phone-chrome="panel"]{visibility:hidden'), 'the card’s rows would show under a toolbar that has stepped away, or stay hidden on Edit');
   /* Edit's last row is still the toolbar's own, on the card as on every part. */
-  assert.match(tools, /\{editOn && !rsvpLineTypes \? \(\s*<StageEdit /, 'the card lost Edit’s last row (Earlier · Later · Remove)');
+  assert.match(tools, /(?:\{|\) : )editOn && !rsvpLineTypes \? \(\s*<StageEdit /, 'the card lost Edit’s last row (Earlier · Later · Remove)');
   /* THE DOOR goes only where everything it led to is in place: the form's card. */
   assert.match(tools, /if \(rsvpCardEdits\) quiet = null;/);
   assert.equal((tools.match(/quiet = null;/g) ?? []).length, 1, 'another part lost its door');

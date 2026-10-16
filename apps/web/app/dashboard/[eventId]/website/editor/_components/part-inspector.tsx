@@ -8,9 +8,9 @@ import { HUB_FONT_FACES, hubFontBoldWeight } from '@/lib/hub-fonts';
 import { FontPick } from './font-pick';
 import {
   HUB_EL_DELAY,
+  HUB_EL_DURING_WORDS,
   HUB_EL_DELAY_LABEL,
   HUB_EL_DURING_LABEL,
-  HUB_EL_DURING_WORDS,
   HUB_EL_TIMELINE,
   HUB_EL_TIMELINE_LABEL,
   HUB_ELEMENT_ALIGNS,
@@ -564,7 +564,8 @@ export function PartAnimateTab({
             label="While on screen"
             dataAttr="data-motion-during"
             value={motion.during ?? 'still'}
-            options={HUB_EL_DURING_WORDS.map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] }))}
+            /* The old inspector knows no part here, so it offers the two every part takes; Shimmer is the new Maker's (a text part's Action ▾). */
+            options={HUB_EL_DURING_WORDS.filter((v) => v !== 'shimmer').map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] }))}
             onPick={(v) => moveTo('during', v === 'still' ? null : v)}
             className={row}
           />

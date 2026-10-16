@@ -76,7 +76,11 @@ import { motionFxVars, sameMotionFx, sanitizeMotionFx, type MotionFx, type Motio
  * 2026-09-28: *"make it editable"*). Its words are the couple's (`word`);
  * absent = the venue it has always repeated. Only under a hero photo/video.
  */
-export const HUB_HERO_ELEMENT_KEYS = ['eyebrow', 'mark', 'names', 'joiner', 'line', 'date', 'time', 'link', 'venue', 'caption'] as const;
+/* 🔘 `rsvp` — THE RSVP BUTTON at the cover's foot (owner 2026-10-16, DECISION_LOG "THE COVER: WORDS IN THE UPPER PART, AN
+   RSVP BUTTON AND A 'SWIPE UP' HINT AT THE FOOT" · "'CONFIRM ATTENDANCE' IS THE RSVP"): its words are the couple's
+   (default `HUB_RSVP_DEFAULT_WORDS`), its look is Look › Buttons' (`.button-primary`), so it takes words, a switch and
+   motion — never a colour or size of its own. Drawn on every cover shape where the reply exists (`pahina-masthead.tsx`). */
+export const HUB_HERO_ELEMENT_KEYS = ['eyebrow', 'mark', 'names', 'joiner', 'line', 'date', 'time', 'link', 'venue', 'caption', 'rsvp'] as const;
 /**
  * Which hero parts the masthead can draw, by its shape: the invitation CARD
  * draws its line, time and link; the PLAIN masthead (a hero photo, or the
@@ -118,6 +122,7 @@ export const HUB_ELEMENT_LABEL: Record<HubElementKey, string> = {
   link: 'Details link',
   venue: 'Venue',
   caption: 'Photo caption',
+  rsvp: 'RSVP button',
   label: 'Label',
   heading: 'Heading',
   body: 'Words',
@@ -184,7 +189,10 @@ export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[
   // place on the canvas (tap-to-type, `lib/type-in-place.ts`).
   eyebrow: ['word', ...TEXT_FIELDS, 'width'],
   mark: ['size', 'motion', 'hidden'],
-  names: [...TEXT_FIELDS, 'width'],
+  /* 🏷 THE EVENT TITLE IS ALWAYS SHOWN (owner-approved 2026-10-16, "THE COVER SCENE'S OWN EDIT"): the names are what
+     the cover IS — no `hidden`, so the sanitiser drops a stored one and both doors (Cover Scene › Edit, the word's own
+     Edit) agree. Held by `lib/the-cover-scene-has-its-own-tools.test.ts`. */
+  names: [...TEXT_FIELDS.filter((f) => f !== 'hidden'), 'width'],
   // One word between two lines: no alignment or spacing of its own — it sits
   // where the names put it — but the word itself is the couple's.
   joiner: ['word', 'font', 'weight', 'italic', 'underline', 'color', 'size', 'motion', 'hidden'],
@@ -199,6 +207,8 @@ export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[
   venue: [...TEXT_FIELDS, 'width'],
   // Its words are the couple's (`word`, absent = the venue it repeats).
   caption: ['word', ...TEXT_FIELDS, 'width'],
+  // 🔘 The RSVP button: its words, its switch, its motion — its look is Look › Buttons'.
+  rsvp: ['word', 'motion', 'hidden'],
   label: TEXT_FIELDS,
   heading: [...TEXT_FIELDS, 'width'],
   body: [...TEXT_FIELDS, 'width'],
@@ -296,6 +306,8 @@ export const HUB_ELEMENT_SIZE_BOUNDS: Readonly<Record<HubElementKey, { min: HubE
   link: { min: 85, max: 145 },
   venue: { min: 85, max: 145 },
   caption: { min: 85, max: 160 },
+  /* (The RSVP button takes no size of its own — Look › Buttons' — the bounds are the line's, never offered.) */
+  rsvp: { min: 85, max: 145 },
   label: { min: 85, max: 145 },
   heading: { min: 70, max: 145 },
   body: { min: 85, max: 145 },
@@ -481,7 +493,10 @@ export const HUB_LINK_DEFAULT_WORDS = 'the day, the place, the story';
 export const HUB_PART_WORDS_HINT: Partial<Record<HubElementKey, string>> = {
   link: HUB_LINK_DEFAULT_WORDS,
   caption: 'The venue',
+  rsvp: 'Confirm attendance',
 };
+/** 🔘 The RSVP button's words while the couple wrote none (owner 2026-10-16: *"Confirm Attendance is RSVP"*). */
+export const HUB_RSVP_DEFAULT_WORDS = 'Confirm attendance';
 export function sanitizeHubPartLine(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const w = raw.replace(/\s+/g, ' ').trim();
@@ -507,7 +522,7 @@ export function sanitizeHubPartSentence(raw: unknown): string | null {
 /** A part's own words, by the part — the joiner's word, one line (the link, the caption) or one sentence. */
 export function sanitizeHubElementWord(raw: unknown, key: HubElementKey): string | null {
   if (key === 'joiner') return sanitizeHubJoinerWord(raw);
-  if (key === 'link' || key === 'caption') return sanitizeHubPartLine(raw);
+  if (key === 'link' || key === 'caption' || key === 'rsvp') return sanitizeHubPartLine(raw);
   if (key === 'eyebrow' || key === 'line') return sanitizeHubPartSentence(raw);
   return null;
 }
@@ -539,8 +554,10 @@ export function sanitizeHubElementWord(raw: unknown, key: HubElementKey): string
    read, and the page draws the mapped value with the very keyframe it drew
    before (`IN_LEGACY_KF`), so nothing a couple already chose moves a pixel. */
 export const HUB_EL_IN = ['rise', 'fade', 'none'] as const;
-export const HUB_EL_DURING = ['drift', 'still', 'kenburns', 'parallax'] as const;
-export const HUB_EL_DURING_WORDS = ['drift', 'still'] as const;
+/* ✨ `shimmer` (owner 2026-10-16, DECISION_LOG "SHIMMER IS AN ANIMATE EFFECT FOR ANY TEXT"): an Action — a lighter band of
+   the word's own ink (or Gold) passing across it every 5 s. Only on a part with words (`hubElementTakesShimmer`). */
+export const HUB_EL_DURING = ['drift', 'still', 'kenburns', 'parallax', 'shimmer'] as const;
+export const HUB_EL_DURING_WORDS = ['drift', 'still', 'shimmer'] as const;
 export const HUB_EL_OUT = ['fade', 'lift', 'settle', 'stay'] as const;
 export const HUB_EL_TIMELINE = ['once', 'scroll'] as const;
 export const HUB_EL_DURATION = ['quick', 'normal', 'slow'] as const;
@@ -558,6 +575,7 @@ export const HUB_EL_DURING_LABEL: Record<HubElDuring, string> = {
   still: 'Still',
   kenburns: 'Ken Burns',
   parallax: 'Parallax',
+  shimmer: 'Shimmer',
 };
 export const HUB_EL_OUT_LABEL: Record<HubElOut, string> = {
   fade: 'Fade away',
@@ -591,7 +609,49 @@ export type HubElementMotion = {
   outSpeed?: HubElSpeed;
   /** Only beside a timed In. */
   delay?: Exclude<HubElDelay, 'none'>;
+  /** ✨ The shimmer's band — Gold; absent = the word's own ink, lighter. Only beside `during: 'shimmer'`. */
+  band?: 'gold';
 };
+
+/* ── ✨ SHIMMER (owner 2026-10-16: *"text animate shimmer is on any text they want. it is an effect."*) ─────────────
+   A gradient clipped to the text — the word's own ink with a lighter band of the SAME hue (`color-mix`), or Gold
+   (#835C2F → #F0D9A8) — sliding across every 5 s. The paint is drawn ONLY where the band can move: under
+   `prefers-reduced-motion: no-preference` and never on a Save-Data connection (`.sn-save-data` on the root,
+   `PahinaMotionRootFlag`) — anywhere else the word is its plain colour, never transparent text with no paint.
+   ONE rule set for the hero (`[data-el-shimmer]`, globals.css) and the same declarations in a scene's own style
+   (`hubElementSceneCss`). Held by `lib/the-cover-scene-has-its-own-tools.test.ts`. */
+export const HUB_SHIMMER_PERIOD_S = 5;
+export const HUB_SHIMMER_KEYFRAME = 'el-during-shimmer';
+export const HUB_SHIMMER_BANDS = ['hue', 'gold'] as const;
+export type HubShimmerBand = (typeof HUB_SHIMMER_BANDS)[number];
+export const HUB_SHIMMER_BAND_LABEL: Readonly<Record<HubShimmerBand, string>> = { hue: 'Your colour, lighter', gold: 'Gold' };
+export const HUB_SHIMMER_GOLD = { ink: '#835C2F', band: '#F0D9A8' } as const;
+/** The attribute a shimmering hero part wears — `hue` or `gold` — the hook of the one paint rule in globals.css. */
+export const HUB_SHIMMER_ATTR = 'data-el-shimmer';
+/** The gate the paint sits behind: motion allowed, and no Save-Data. */
+export const HUB_SHIMMER_GATE_OPEN = '@media screen and (prefers-reduced-motion: no-preference){';
+export const HUB_SHIMMER_ROOT = ':root:not(.sn-save-data)';
+/** Does this part take a shimmer? A part with words — one that takes a colour (never the logo, never a button). */
+export function hubElementTakesShimmer(key: HubElementKey): boolean {
+  return HUB_ELEMENT_FIELDS[key].includes('color');
+}
+/** The shimmer's paint, as declarations — the band's own ink and colour, the gradient, the clip. */
+export function hubShimmerPaint(band: HubShimmerBand): Array<[string, string]> {
+  const ink = band === 'gold' ? HUB_SHIMMER_GOLD.ink : 'currentColor';
+  const light = band === 'gold' ? HUB_SHIMMER_GOLD.band : 'color-mix(in srgb, currentColor 45%, #fff)';
+  return [
+    ['background-image', `linear-gradient(100deg, ${ink} 0 38%, ${light} 50%, ${ink} 62% 100%)`],
+    ['background-size', '260% 100%'],
+    ['background-position', '120% 0'],
+    ['-webkit-background-clip', 'text'],
+    ['background-clip', 'text'],
+    ['-webkit-text-fill-color', 'transparent'],
+  ];
+}
+/** A part's shimmer band, or null when it does not shimmer. */
+export function hubElementShimmer(motion: HubElementMotion | null | undefined): HubShimmerBand | null {
+  return motion?.during === 'shimmer' ? (motion.band === 'gold' ? 'gold' : 'hue') : null;
+}
 
 /** The shipped single In / Out choices, as the four effects (`sanitizeHubElementMotion`). */
 export const HUB_EL_IN_AS_FX: Record<Exclude<HubElIn, 'none'>, MotionFx> = {
@@ -813,6 +873,8 @@ export function sanitizeHubElementMotion(raw: unknown): HubElementMotion | null 
   if (fxIn) out.in = fxIn;
   // Words drift or stay still; Ken Burns and Parallax are for a photo.
   if (isIn(HUB_EL_DURING_WORDS, src.during) && src.during !== 'still') out.during = src.during;
+  /* ✨ Gold is kept only beside a shimmer — the direction rule: a key that could move no pixels is not stored. */
+  if (out.during === 'shimmer' && src.band === 'gold') out.band = 'gold';
   if (scroll) out.timeline = 'scroll';
   const fxOut = scroll ? readElOut(src.out) : null;
   if (fxOut) out.out = fxOut;
@@ -889,7 +951,12 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
         : typeof src.anim === 'string'
           ? sanitizeHubElementMotion(LEGACY_ANIM[src.anim] ?? null)
           : null;
-    if (motion) out.motion = motion;
+    /* ✨ A shimmer only on a part with words — a drawing (the logo) or a button never takes one. */
+    if (motion?.during === 'shimmer' && !hubElementTakesShimmer(key)) {
+      delete motion.during;
+      delete motion.band;
+    }
+    if (motion && Object.keys(motion).length > 0) out.motion = motion;
   }
   if (HUB_ELEMENT_RUN_KEYS.includes(key) && typeof src.of === 'string' && HASH.test(src.of)) {
     const runs = sanitizeHubElementRuns(src.runs, key);
@@ -1271,6 +1338,9 @@ function motionSlots(
   if (motion.during === 'drift') {
     slots.push({ a: `7s ease-in-out 0s infinite alternate ${DURING_KF.drift}`, timeline: 'auto', range: 'normal' });
   }
+  if (motion.during === 'shimmer') {
+    slots.push({ a: `${HUB_SHIMMER_PERIOD_S}s linear 0s infinite normal none ${HUB_SHIMMER_KEYFRAME}`, timeline: 'auto', range: 'normal' });
+  }
   if (scroll && motion.out) {
     const r = OWN_SCROLL[place === 'hero' ? 'page' : place];
     const kf = hubElOutKeyframe(motion.out);
@@ -1311,6 +1381,7 @@ export function hubElementArrivalOnly(motion: HubElementMotion | undefined, appr
     out.push(approached ? `${dur}s ${EASE} ${delay}s backwards ${hubElInKeyframe(m.in).name}` : '0s none none');
   }
   if (m.during === 'drift') out.push(`7s ease-in-out 0s infinite alternate ${DURING_KF.drift}`);
+  if (m.during === 'shimmer') out.push(`${HUB_SHIMMER_PERIOD_S}s linear 0s infinite normal none ${HUB_SHIMMER_KEYFRAME}`);
   return out.length > 0 ? out.join(', ') : null;
 }
 /** The gate for `hubElementArrivalOnly` — the other half of `GATE_OPEN`: no scroll timelines, motion allowed. */
@@ -1460,8 +1531,10 @@ export function hubElementHeroMotionVars(style: HubElementStyle | null | undefin
 }
 
 /** `data-el-motion` on a hero part that moves on its own — the hook the one gated rule reads. */
-export function hubElementMotionAttr(style: HubElementStyle | null | undefined): { 'data-el-motion'?: '' } {
-  return style?.motion ? { 'data-el-motion': '' } : {};
+export function hubElementMotionAttr(style: HubElementStyle | null | undefined): { 'data-el-motion'?: ''; 'data-el-shimmer'?: HubShimmerBand } {
+  if (!style?.motion) return {};
+  const band = hubElementShimmer(style.motion);
+  return band ? { 'data-el-motion': '', [HUB_SHIMMER_ATTR]: band } : { 'data-el-motion': '' };
 }
 
 /**
@@ -1618,6 +1691,7 @@ export function hubElementSceneCss(
   const moving: string[] = [];
   const scenes: string[] = [];
   const arriving: string[] = [];
+  const shimmer: string[] = [];
   const decl = (d: Array<[string, string]>) => d.map(([p, v]) => `${p}:${v}`).join(';');
   let clipX = false;
   for (const key of HUB_SCENE_ELEMENT_KEYS) {
@@ -1642,6 +1716,9 @@ export function hubElementSceneCss(
     /* ↔ A part that travels SIDEWAYS must not widen the page — the scene's own
        rule (`.hub-in-move > .hub-canvas-body`, globals.css), for a part's move. */
     if (sideways(motion.in) || sideways(motion.out)) clipX = true;
+    /* ✨ A shimmer's paint, behind its own gate (motion allowed, no Save-Data) — the band slides in the animation list. */
+    const band = hubElementShimmer(motion);
+    if (band) shimmer.push(`${HUB_SHIMMER_ROOT} ${host} ${target}${OWN}{${decl(hubShimmerPaint(band))}}`);
     const { timedIn, ownScroll } = motionSlots(motion, 'page', true);
     const at = (place: HubElementPlace, approached: boolean) => decl(hubElementMotionDeclarations(motion, place, approached));
     moving.push(`${host} ${target}${OWN}{${at('page', false)}}`);
@@ -1669,6 +1746,7 @@ export function hubElementSceneCss(
     );
   }
   if (arriving.length > 0) css.push(`${NO_VIEW_GATE_OPEN}\n${arriving.join('\n')}\n}}`);
+  if (shimmer.length > 0) css.push(`${HUB_SHIMMER_GATE_OPEN}\n${shimmer.join('\n')}\n}`);
   return css.length > 0 ? css.join('\n') : null;
 }
 

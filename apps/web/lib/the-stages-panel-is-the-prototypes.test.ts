@@ -388,6 +388,8 @@ test('every piece the cover draws picks a part of its own (owner 2026-10-07: "ev
   for (const [stage, page] of [['save_the_date', 'home'], ['rsvp', 'home'], ['event', 'live']] as const) {
     for (const el of HUB_HERO_ELEMENT_KEYS) {
       if (GAPS.includes(el)) continue;
+      /* 🔘 The RSVP button is drawn only where the reply exists — the Invitation (2026-10-16). */
+      if (el === 'rsvp' && stage !== 'rsvp') continue;
       const k = makerPartOfTap(stage, page, 'f:hero', el);
       assert.ok(k, `${stage} › ${page}: a tap on the cover's ${el} picks nothing`);
       const want = HERO_EL_INSIDE[el] ?? el;

@@ -232,6 +232,7 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, ty
 import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { coverSceneLayer } from '../_lib/cover-scene-layer';
+import { coverRsvpOf } from '@/lib/cover-rsvp';
 import { PahinaMasthead } from './pahina-masthead';
 import { artKitView, sceneAccentsFromPreferences } from '@/lib/art-kits';
 import { KitClosing, KitSeal, KitSlot, KitStyle } from './kit-piece';
@@ -1195,6 +1196,10 @@ export async function SiteBody({
      own "RSVP page" opens the Event Hub with it up (`…&editor=1&as=replied#your-details`,
      `lib/maker-made-once-pages.ts`) and edits the card through it — pointing that at the reply page's own canvas is
      a Maker change. A guest is never served it. */
+  /* 🪪 THE LOGO SWITCH IS REAL ON THE COVER (owner 2026-10-15 (4): "Show the logo on Cover and QR" — on = the couple's
+     logo shows on the cover; off = it does not). Cover Scene › Edit's Logo line is the same fact (owner-approved
+     2026-10-16). Unanswered (null) keeps the mark, as before. */
+  const coverLogoOff = (event as { logo_wanted?: boolean | null }).logo_wanted === false;
   const replyDoor = inviteReplyPath(event.slug ?? '');
   const replySheetDrawn = plan.rsvpShouldRender && isEditorCanvas;
   /* 📬 THE REPLY IS OPEN HERE — the stage allows it (`plan.rsvpShouldRender`) AND the couple's window is
@@ -2059,7 +2064,8 @@ export async function SiteBody({
             eventDate={event.event_date}
             venueName={venueLine}
             badgeSlot={dayOfBadge}
-            monogramSlot={
+            foot={false}
+            monogramSlot={coverLogoOff ? null : (
               <HeroMonogram
                 event={event}
                 monogram={monogram}
@@ -2067,7 +2073,7 @@ export async function SiteBody({
                 bespokeSvg={bespokeSvg}
                 shadow
               />
-            }
+            )}
             mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
             mediaCaption={venueLine}
           />
@@ -2104,14 +2110,15 @@ export async function SiteBody({
                   eventDate={event.event_date}
                   venueName={venueLine}
                   badgeSlot={dayOfBadge}
-                  monogramSlot={
+                  foot={false}
+                  monogramSlot={coverLogoOff ? null : (
                     <HeroMonogram
                       event={event}
                       monogram={monogram}
                       animatedMonogram={animatedMonogram}
                       bespokeSvg={bespokeSvg}
                     />
-                  }
+                  )}
                 />
               ) : null}
                 </>}
@@ -2722,6 +2729,19 @@ export async function SiteBody({
             organizer: clientWords.theOrganizer,
           })
         : null;
+    /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16: *"Confirm Attendance is RSVP"*) — the Reply doorway drawn ON the cover,
+       reading this guest's own state (`coverRsvpOf`). On the Maker's canvas: the doorway as a guest who has not replied
+       meets it. While the cover holds it (shown), the Welcome's own Reply card under the cover is not drawn a second
+       time — one doorway, moved (Me keeps its card). */
+    const guestRsvp =
+      pageStage !== 'rsvp'
+        ? null
+        : isMakerCanvas
+          ? plan.rsvpShouldRender
+            ? coverRsvpOf({ card: null, visitorHref: replyDoor })
+            : null
+          : coverRsvpOf({ card: replyCard });
+    const coverHoldsReply = guestRsvp !== null && !heroElements.elements?.rsvp?.hidden;
     /* 👗 THIS GUEST'S OWN LOOK — read once, for the Welcome's "you" panel and
        for Me's parts (one home per fact: when Me draws them, the Welcome's
        look stands down — DECISION_LOG 2026-10-06 "'YOUR DETAILS' LIVES ON
@@ -3190,11 +3210,12 @@ export async function SiteBody({
               eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
               {...heroElements}
+              rsvp={guestRsvp}
               kitSlot={kitCover}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={venueLine}
-              monogramSlot={
+              monogramSlot={coverLogoOff ? null : (
                 <HeroMonogram
                   event={event}
                   monogram={monogram}
@@ -3202,7 +3223,7 @@ export async function SiteBody({
                   bespokeSvg={bespokeSvg}
                   shadow
                 />
-              }
+              )}
               mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
               mediaCaption={venueLine}
             />
@@ -3211,6 +3232,7 @@ export async function SiteBody({
               eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
               {...heroElements}
+              rsvp={guestRsvp}
               kitSlot={kitCover}
               card={inviteCard ?? undefined}
               /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */
@@ -3218,20 +3240,20 @@ export async function SiteBody({
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={venueLine}
-              monogramSlot={
+              monogramSlot={coverLogoOff ? null : (
                 <HeroMonogram
                   event={event}
                   monogram={monogram}
                   animatedMonogram={animatedMonogram}
                   bespokeSvg={bespokeSvg}
                 />
-              }
+              )}
             />
           ) : null
             }
           >
 
-          {replyCard ? (
+          {coverHoldsReply ? null : replyCard ? (
             <ReplyCardRow card={replyCard} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} kit={artKit ? <KitSlot kit={artKit} slot="reply" /> : null} />
           ) : (
           <ArrivalActionRow

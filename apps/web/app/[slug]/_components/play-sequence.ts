@@ -18,6 +18,8 @@
  * ♿ REDUCE MOTION: nothing is played, and the report says that too (a guest who asked for stillness gets none).
  */
 export type SeqPhase = 'in' | 'act' | 'out' | 'rest';
+import { COVER_PLAY_LIFT_EVENT, COVER_PLAY_OPENING_EVENT, type CoverPlayOpeningDetail } from './cover-play-events';
+
 export type SeqReport = { phase: SeqPhase; skipped: string[] };
 
 export const SEQ_MS = { in: 900, act: 2600, out: 900, hold: 450 } as const;
@@ -214,10 +216,6 @@ export const COVER_PLAY_LIFT_MS = 350;
  * shipped `RevealOverlay` (the Sheer veil + "Tap or swipe up to unveil") for this one ▶, lifting by itself after
  * `liftAfterMs`, and to take it away again (`on: false`) when ▶ rests or is stopped.
  */
-export const COVER_PLAY_OPENING_EVENT = 'setnayan:cover-play-opening';
-export type CoverPlayOpeningDetail = { on: boolean; liftAfterMs: number };
-/** …and the veil says when it starts to rise: the lines enter on that moment, not on a clock of their own. */
-export const COVER_PLAY_LIFT_EVENT = 'setnayan:cover-play-lift';
 /** A veil that never rises (no WebGL on this phone) still lets the lines in. */
 export const COVER_PLAY_LIFT_WAIT_MS = 4000;
 const sayOpening = (view: Window | null, on: boolean) =>

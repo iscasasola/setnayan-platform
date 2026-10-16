@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ComponentProps } from 'react';
 import { RevealOverlay } from './reveal-overlay';
-import { COVER_PLAY_LIFT_EVENT, COVER_PLAY_OPENING_EVENT, type CoverPlayOpeningDetail } from '../play-sequence';
+import { COVER_PLAY_LIFT_EVENT, COVER_PLAY_OPENING_EVENT, type CoverPlayOpeningDetail } from '../cover-play-events';
 
 type OverlayProps = Omit<ComponentProps<typeof RevealOverlay>, 'enabled' | 'preview' | 'premiumUnlocked' | 'oncePerVisit' | 'seenEventId' | 'firstPageOnly' | 'eventTemplate'>;
 

@@ -6,7 +6,7 @@ same evening: *"the accents we added should be part of pro."*
 
 - **Registry** `apps/web/lib/art-kits.ts` — `ART_KITS`, keyed by the theme's existing `ornament` hook (Vintage:
   `lace-postmark`), typed by slot. Every placement is data — piece + slot + scene + box + motion — so a later per-scene
-  picker writes into the same shape. `artKitShows()` is the one decision (resolved theme · switch · Pro · Maker try-on).
+  picker writes into the same shape. `artKitView()` is the one decision (resolved theme · each scene's pick · Pro · Maker try-on).
 - **Accents, scene by scene** (owner 2026-10-16, DECISION_LOG "AN ACCENT BELONGS TO ITS SCENE AND IS ADDED FROM THAT
   SCENE'S STYLE"): `lib/art-kit-accents.ts` — the Maker's Style for the cover, the countdown, E-Gifts and the reply
   card carries ONE **Accent ◆ ▾** (`accent-row.tsx`, the house `Dd`) listing only that scene's accents (None · each
@@ -33,5 +33,6 @@ same evening: *"the accents we added should be part of pro."*
   piece, None draws nothing, the one Accent ▾, no kit = no markup, the Pro constant both ways, reduced motion,
   ≤ 600 KB (each piece ≤ 80 KB), the seal's tap, the closing's photo.
 
-SPEC IMPACT: None — the approval and the pricing ruling are already recorded in the corpus DECISION_LOG row
-"APPROVED — THE VINTAGE ART KIT, AS THE PROOF SHOWS".
+SPEC IMPACT: None — the approval, the pricing ruling and the per-scene ruling are already recorded in the corpus
+DECISION_LOG rows "APPROVED — THE VINTAGE ART KIT, AS THE PROOF SHOWS" and "AN ACCENT BELONGS TO ITS SCENE AND IS
+ADDED FROM THAT SCENE'S STYLE".

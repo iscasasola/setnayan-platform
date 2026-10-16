@@ -20,11 +20,11 @@
  *      no "Ninong"/"Ninang" (owner 2026-09-30, "the sub text Ninong can be removed").
  * It reads the rendered HTML — the word drawn after each `data-person` — not the helpers that choose it.
  *
- * Sabotage (2026-10-17), each seen RED then restored: `roleBesideName` back to the one-role check before the parent
- * word → "axis · only the groom's parents: Mr. Pedro Abad has no word"; `marchLines` back to one word per role →
- * "the march: 2 parents, 1 parent word(s)"; the axis solo back to `roleBesideName` → "a lone person under 'Maid of
- * Honor & Best Man' has no word"; `parentWordOf` without the attire step → "Atty. Luz Abad: said Parent, the
- * couple's entry says mother".
+ * Sabotage (2026-10-17), each seen RED then restored (fails out of 11): `roleBesideName` back to the one-role check
+ * before the parent word → 3 ("only the groom's parents: … has no word"); `marchLines` back to one word per role → 1
+ * ("the march: 2 parents, 1 parent word(s)"); the axis solo back to `roleBesideName` → 2 ("a lone person under
+ * 'Maid of Honor & Best Man' has no word"); `parentWordOf` without the attire step → 4 ("Atty. Luz Abad: said
+ * Parent, the couple's entry says mother").
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

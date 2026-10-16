@@ -1,4 +1,5 @@
 import { cameraLookFromPreferences } from '@/lib/camera-look';
+import { SCENE_ACCENTS_PREF_KEY, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
@@ -499,6 +500,11 @@ export default async function WebsiteEditorPage({
   const blockLooksRaw = (hubDraft?.events.style_preferences as Record<string, unknown> | null | undefined)?.block_looks ??
     ((prefsRow as { style_preferences?: Record<string, unknown> | null } | null)?.style_preferences ?? {}).block_looks;
   const blockLooks = blockLooksRaw && typeof blockLooksRaw === 'object' && !Array.isArray(blockLooksRaw) ? (blockLooksRaw as Record<string, unknown>) : {};
+  /* 🕯 Each scene's Accent pick (owner 2026-10-16) — live with the drafted map laid on (the draft carries it whole). */
+  const draftedPrefs = hubDraft?.events.style_preferences as Record<string, unknown> | null | undefined;
+  const sceneAccents = sceneAccentsFromPreferences(
+    draftedPrefs && SCENE_ACCENTS_PREF_KEY in draftedPrefs ? draftedPrefs : (prefsRow as { style_preferences?: unknown } | null)?.style_preferences,
+  );
   const fixedStyles = fixedSceneStylesAfter(
     fixedSceneStylesFromPreferences((prefsRow as { style_preferences?: unknown } | null)?.style_preferences),
     hubDraft?.fixedStyles,
@@ -1745,6 +1751,7 @@ export default async function WebsiteEditorPage({
           !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
         heroPhoto: Boolean(heroRef || videoRef),
         fixedStyles,
+        sceneAccents,
         cameraLook,
         blockLooks,
         names: { style: nameStyleOfPrintDetails(drafted.print_details), person: nameExample },

@@ -3,7 +3,7 @@
 import { useVeilHeld } from '@/lib/use-veil-held';
 import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { countdownReading, countdownTargetMs, type CountdownReading } from '@/lib/countdown-target';
 import { sceneCardClass, sceneCardTileClass } from '@/lib/scene-card-look';
@@ -58,6 +58,12 @@ type Props = {
    * can draw a countdown the tiles would not.
    */
   sceneStyle?: string | null;
+  /**
+   * 🕯 THE LOOK'S ART KIT AT THE COUNTDOWN (`<KitSlot slot="countdown">`, owner 2026-10-16) — the narra posts at the
+   * card's edges, drawn as the card's first child (the kit's stylesheet widens the card's sides so the numbers stand
+   * clear). The four tiles only, on their own card — the proof's countdown. Absent → the card byte for byte as before.
+   */
+  kit?: ReactNode;
 };
 
 type Remaining = CountdownReading;
@@ -67,7 +73,7 @@ function compute(target: number): Remaining {
   return countdownReading(target, Date.now());
 }
 
-export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle = null }: Props) {
+export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle = null, kit = null }: Props) {
   // 🔴 THIS LABEL IS A WEDDING VOW. It read "Until we say 'I do'" on a
   // seven-year-old's birthday and on a graduation — seen on the real pages, not
   // caught by any scan, because it contains none of the words a wedding-word
@@ -155,6 +161,7 @@ export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle 
       data-scene-card={bare ? 'bare' : 'own'}
       className={sceneCardClass('countdown', bare)}
     >
+      {bare ? null : kit}
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
       <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
         {boxes.map((b) => (

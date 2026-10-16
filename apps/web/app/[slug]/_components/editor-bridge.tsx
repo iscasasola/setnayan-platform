@@ -23,6 +23,8 @@ import {
   type HubElementKey,
   type HubElementStyle,
   type HubElementStyles,
+  HUB_SHIMMER_ATTR,
+  hubElementShimmer,
 } from '@/lib/element-style';
 import { postEventElementScope } from '@/lib/post-event-styles';
 import { CANVAS_REDRAW_COMMITS_EVENT, SCENE_LOOK_HIDDEN_ATTR, findMakerSection, sectionAfter } from './maker-section-find';
@@ -307,9 +309,9 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
   const clear: string[] = [...LOOK_PROPS];
   if (motion) clear.push(...HUB_ELEMENT_MOTION_PROPS, 'animation-name');
   for (const p of clear) part.style.removeProperty(p);
-  // The Maker's canvas: a hidden part is ghosted, never gone (as the server
-  // draws it with `stampElements`).
-  for (const [p, v] of hubElementDeclarations(style, { editor: true })) part.style.setProperty(p, v);
+  // A hidden cover line LEAVES the canvas at once (owner-approved 2026-10-16) — as the server draws it — and comes
+  // back from Cover Scene › Edit's list; it is never ghosted on the cover.
+  for (const [p, v] of hubElementDeclarations(style, { editor: part.getAttribute('data-el') === 'joiner' })) part.style.setProperty(p, v);
   if (!motion) return;
   /* The motion as the guest page carries it: three custom properties and the
      `data-el-motion` hook the one gated rule in globals.css reads. */
@@ -317,6 +319,10 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
   for (const [p, v] of vars) part.style.setProperty(p, v);
   if (vars.length > 0) part.setAttribute('data-el-motion', '');
   else part.removeAttribute('data-el-motion');
+  /* ✨ …and a shimmer's band, the hook of its one paint rule (`hubElementMotionAttr`). */
+  const band = hubElementShimmer(style?.motion);
+  if (band) part.setAttribute(HUB_SHIMMER_ATTR, band);
+  else part.removeAttribute(HUB_SHIMMER_ATTR);
 }
 
 /**

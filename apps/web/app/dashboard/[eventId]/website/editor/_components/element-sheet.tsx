@@ -40,7 +40,7 @@ import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type Element
 import { canvasPickUndo } from '@/lib/canvas-pick-undo';
 import { ColourSheet } from './colour-well';
 import { FontPick } from './font-pick';
-import { HUB_EL_DURING_LABEL } from '@/lib/element-style';
+import { HUB_EL_DURING_LABEL, HUB_SHIMMER_BANDS, HUB_SHIMMER_BAND_LABEL, hubElementTakesShimmer } from '@/lib/element-style';
 import { motionFxOn } from '@/lib/motion-effects';
 import type { HubTransition } from '@/lib/hub-scenes';
 import { SP_DD, SP_DD_BUTTON } from '@/lib/maker-stage-room';
@@ -537,11 +537,23 @@ export function ElementSheet({
                 : null
             }
             does={{
-              /* Still | Drift, in the owner's order. A stored word that is neither (an older one) presses nothing. */
+              /* Still | Drift, in the owner's order — and ✨ Shimmer on every part with words (owner 2026-10-16: *"text
+                 animate shimmer is on any text they want. it is an effect."*), which makes the three ONE dropdown. A
+                 stored word that is neither (an older one) presses nothing. */
               value: motion.during ?? 'still',
-              options: (['still', 'drift'] as const).map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] })),
+              options: (hubElementTakesShimmer(target.el) ? (['still', 'drift', 'shimmer'] as const) : (['still', 'drift'] as const)).map((v) => ({ key: v, label: v === 'shimmer' ? `${HUB_EL_DURING_LABEL[v]} ◆` : HUB_EL_DURING_LABEL[v] })),
               onPick: (v) => moveTo('during', v === 'still' ? null : v),
             }}
+            /* ✨ Band ▾ while it shimmers — its own colour, lighter (an absence) · Gold. */
+            band={
+              motion.during === 'shimmer'
+                ? {
+                    value: motion.band === 'gold' ? 'gold' : 'hue',
+                    options: HUB_SHIMMER_BANDS.map((b) => ({ key: b, label: HUB_SHIMMER_BAND_LABEL[b] })),
+                    onPick: (b) => moveTo('band', b === 'gold' ? 'gold' : null),
+                  }
+                : null
+            }
             leaves={{
               /* Leaves ◆ — the part's SCENE's hand-off to the next scene (a part has none of its own), named as the
                  scene's so it is never read as this part's own. */

@@ -83,6 +83,7 @@ import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails, detailsFactEditors } from './_components/maker-details';
 import { loadYourEvent } from './_components/details-your-event-load';
 import { venuesEditorFor } from './_components/details-your-event-parts';
+import type { MakerVenuePictures } from './_components/maker-context';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { hasOwnLook } from '@/lib/theme-own-look';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
@@ -1054,6 +1055,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   /* ✍ The Details items' own editors — ONE set, drawn by Details and by the
      stage's inspector when a fact is tapped there (`detailsFactEditors`). */
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
+  /** 📱 The venue cards' Picture ▾ for the new Maker's Venue scene › Edit — the same slots Details › Venues draws. */
+  let venuePictures: MakerVenuePictures | null = null;
   /* 🧭 THE NEW MAKER — "Stages | Studio" (owner 2026-10-06; plan
      `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1): ON for the
      flag, or for an internal viewer (the reading View-as-free already made), and
@@ -1361,6 +1364,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         drafted: draftedEvents,
         draftedVenue,
         draftedMarch,
+        // ⛪ The venue card's "Our drawing ◆" — Pro as the celebration's mark reads it.
+        venuePro: { owns: printPro, storeShell },
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;
@@ -1620,6 +1625,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       });
       // 🏛 A venue card tapped on a stage opens the SAME Venues editor Details draws.
       if (yourEvent) factEditors = { ...factEditors, venues: venuesEditorFor(eventId, yourEvent) };
+      if (yourEvent && stagesStudio) venuePictures = { slots: yourEvent.venues.slots, pro: yourEvent.venues.pro ?? { owns: false, storeShell } };
       /* 🗓 THE SCHEDULE, moved whole — the shipped page, streamed so the Maker
          never waits on it, with its own query when Details › Schedule is the item. */
       const schedulePage = (
@@ -1899,6 +1905,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       details={details}
       rsvpStage={rsvpStage}
       factEditors={factEditors}
+      venuePictures={venuePictures}
       storeShell={storeShell}
       /* ⋯ › About the Maker. The short tour sells nothing (2026-10-02); the
          store-shell and price rules still apply should a slide ever carry one. */

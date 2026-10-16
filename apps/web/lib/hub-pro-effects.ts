@@ -45,8 +45,10 @@ import {
   canvasFacetGrows,
   canvasLookFacets,
   canvasWithoutFacet,
+  draftVenueChoices,
   heldStageShow,
   planHubDraftApply,
+  venueBagNewDrawings,
   rsvpAskFreePart,
   rsvpAskFreePartMoves,
   type CanvasFacetGroup,
@@ -55,6 +57,7 @@ import {
   type HubDraftItem,
   type HubDraftPatch,
   type HubDraftState,
+  type HubDraftVenueChoices,
   type HubLiveState,
 } from '@/lib/hub-draft';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
@@ -342,6 +345,32 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
           } as HubDraftPatch['widgets'],
         },
       });
+      continue;
+    }
+    if (item.field === 'venue') {
+      /* ⛪ "Our drawing ◆" on a venue card (owner 2026-10-16) — one effect per
+         card whose drawing the draft turns on. "Remove" takes the drawing off
+         that card only, keeping its drafted photo and source; with nothing else
+         drafted on the card it says "no photo" (`ownPhoto: null`), which reads
+         exactly as a card with no choice (`venuePhotoFor`). */
+      const liveCfg = row?.config_json;
+      const liveBag = draftVenueChoices(liveCfg && typeof liveCfg === 'object' && !Array.isArray(liveCfg) ? (liveCfg as Record<string, unknown>).venue : null);
+      const nextBag = item.value as HubDraftVenueChoices;
+      for (const slot of venueBagNewDrawings(liveBag, nextBag)) {
+        const { drawing: _drawing, ...rest } = nextBag[slot] ?? {};
+        void _drawing;
+        push({
+          id: `venue-drawing:${slot}`,
+          what: 'Our drawing',
+          where: slot === 'ceremony' ? 'Ceremony venue' : 'Venue',
+          jump: { kind: 'tool', key: 'details' },
+          remove: {
+            widgets: {
+              [item.widgetType]: { venue: { [slot]: Object.keys(rest).length ? rest : { ownPhoto: null } } },
+            } as HubDraftPatch['widgets'],
+          },
+        });
+      }
       continue;
     }
     if (item.field === 'canvas') {

@@ -9,6 +9,7 @@ import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubFontKey } from '@/lib/hub-fonts';
 import type { SeeAs } from '@/lib/see-as';
 import type { ElementDraftAction, ElementPalette } from '../../website/editor/_components/element-sheet';
+import type { VenueSlot } from './details-your-event';
 
 /**
  * THE MAKER'S SHARED STATE — what the toolbar says, the navigator, canvas and
@@ -46,6 +47,9 @@ export type MakerSelection =
 
 /** 'transition' is the folded tab (answer 4, "fold it") — an old address opens Animate. */
 export type MakerSceneTab = 'format' | 'animate' | 'arrange' | 'content' | 'transition';
+
+/** The venue cards the new Maker's Venue scene › Edit offers a Picture ▾ for — see `MakerState.venuePictures`. */
+export type MakerVenuePictures = { slots: readonly VenueSlot[]; pro: { owns: boolean; storeShell: boolean } };
 
 export type MakerState = {
   eventId: string;
@@ -131,6 +135,12 @@ export type MakerState = {
    * component its Details item shows, never a copy. Empty outside the Maker.
    */
   factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
+  /**
+   * 📱 THE VENUE CARDS' PICTURES for the new Maker's Venue scene › Edit (`VenuePictureRows`): the
+   * SAME slots Details › Venues draws (`loadYourEvent`) and Event Hub Pro as the viewer is shown it.
+   * Null/absent: the Venue scene keeps only its door.
+   */
+  venuePictures?: MakerVenuePictures | null;
   /**
    * ⚡ The instant scrapbook (`love-story-live.tsx`, its own lazy chunk — see
    * `maker-shell.tsx`). Handed down HERE rather than imported by the Love Story

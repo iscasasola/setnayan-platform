@@ -10,8 +10,8 @@
  * `the-entourage-second-column-is-the-partner.cast.json`, made by
  * `controller-2026-10-12/entourage-styles/scripts/make-stand-in.py`; roles, walks and name shapes are his):
  *   · a TWO-CELL row is exactly one row `buildEntourage` paired — left cell its left person, right cell its right;
- *   · a person ALONE is a row `buildEntourage` left alone, drawn with the partner cell BLANK in the cell the pairing
- *     gave him (On the axis) or centred across both (Lines) — never filled with someone unrelated;
+ *   · a person ALONE is a row `buildEntourage` left alone, drawn centred across both columns in every style (owner
+ *     2026-10-17, superseding On the axis's blank partner cell) — never filled with someone unrelated;
  *   · every built row is drawn exactly once, and nobody is drawn who is not in one.
  * The march draws each built row as one numbered line, in order.
  *
@@ -78,10 +78,9 @@ test('the stand-in cast is the real one in shape — 83 printed, 17 Ninong–Nin
 });
 
 for (const style of ['roll-call', 'lines', null, 'two-sides'] as const) {
-  test(`${style ?? 'no pick'} · every two-cell row is a pair buildEntourage made; every solo keeps a blank or is centred`, async () => {
+  test(`${style ?? 'no pick'} · every two-cell row is a pair buildEntourage made; every solo is centred`, async () => {
     const groups = buildEntourage(CAST);
     const html = await render(groups, style);
-    const lines = style === 'lines';
     const drawn = drawnRows(html);
     assert.ok(drawn.length > 0, 'no rows drew');
     assert.deepEqual(drawn.filter((d) => d.kind === 'other'), [], 'a row that is neither a pair nor a solo');
@@ -100,26 +99,23 @@ for (const style of ['roll-call', 'lines', null, 'two-sides'] as const) {
         k = key(d.cells);
         assert.ok(built.has(k), `a two-cell row that buildEntourage never paired: ${k}`);
       } else if (d.kind === 'centre') {
-        assert.ok(lines, `${style}: a centred solo outside Lines`);
         assert.equal(d.cells.length, 1, `a centred row holds ${d.cells.length} names`);
         const one = d.cells[0]!;
         k = built.has(key([one, null])) ? key([one, null]) : key([null, one]);
         assert.ok(built.has(k), `a centred name buildEntourage did not leave alone: ${one}`);
       } else {
-        assert.ok(!lines, `Lines drew a sided solo: ${key(d.cells)}`);
-        k = key(d.cells);
-        assert.ok(built.has(k), `a solo in a cell the pairing did not give him: ${k}`);
+        assert.fail(`${style}: a lone person drawn in one column (${d.kind}): ${key(d.cells)}`);
       }
       seen.set(k, (seen.get(k) ?? 0) + 1);
     }
     assert.deepEqual([...seen.entries()].sort(), [...built.entries()].sort(), 'every built row is drawn exactly once');
 
-    /* The facts the owner looked at, drawn: a Ninong beside HIS Ninang; the Best Woman right of the axis. */
+    /* The facts the owner looked at, drawn: a Ninong beside HIS Ninang; the Best Woman, alone, centred. */
     const ps = groups.find((g) => g.key === 'principal_sponsors')!;
     const [n, w] = ps.rows[0]!;
     assert.ok(drawn.some((d) => d.kind === 'pair' && d.cells[0] === n!.name && d.cells[1] === w!.name));
     const bw = groups.find((g) => g.key === 'honour')!.rows.find(([, r]) => r?.role === 'best_woman')![1]!;
-    assert.ok(drawn.some((d) => d.kind === (lines ? 'centre' : 'right') && d.cells.includes(bw.name)), 'the Best Woman');
+    assert.ok(drawn.some((d) => d.kind === 'centre' && d.cells.includes(bw.name)), 'the Best Woman');
   });
 }
 

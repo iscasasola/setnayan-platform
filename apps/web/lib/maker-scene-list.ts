@@ -81,7 +81,11 @@ export type MakerFixedKey =
      the Details page's "THE DETAILS · WHEN · WHERE" block and the day's "Happening now" card. Selectable rows —
      never navigator tiles of their own (the navigator lists what `makerStageList` builds). */
   | 'details'
-  | 'spotlight';
+  | 'spotlight'
+  /* 🕯 THE CLOSING (owner 2026-10-17, DECISION_LOG "THE CLOSING ('SEE YOU SOON') IS ITS OWN SCENE IN THE MAKER"):
+     "See you soon.", the couple's photo in the oval, the names-and-date band — the page's last block. A selectable
+     row like the two above, never a navigator tile; its Style is its Accent ◆ ▾ (`accent-row.tsx`, scene `sign-off`). */
+  | 'closing';
 
 export type MakerTile =
   | {
@@ -213,6 +217,7 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
   live_hub: { label: 'Live hub', why: 'Your live stream and live photo wall, when you have them on the day.' },
   details: { label: 'The details', why: 'Your date and venue, from the venue you booked.' },
   spotlight: { label: 'Happening now', why: 'On the day, guests are pointed to the live stream here.' },
+  closing: { label: 'Closing', why: 'Always last on the page — "See you soon." and your names.' },
 };
 
 /**
@@ -336,6 +341,9 @@ export const MAKER_FIXED_SOURCE: Partial<
   live_hub: { text: 'Filled from your live stream and your live photo wall.', page: 'live', link: 'Open your live wall', from: 'your live settings' },
   details: { text: 'Your date and venue come from the venue you booked.', page: 'schedule', link: 'Open your schedule', from: 'the venue you booked' },
   spotlight: { text: 'Shown on the day while your live stream is on.', page: 'live', link: 'Open your live wall', from: 'your live settings' },
+  /* 🕯 The closing's words are the cover's (the names, the date) and its oval holds the cover photo; its one choice — the
+     Accent — is picked right here (`accent-row.tsx`). */
+  closing: { text: 'Your names, your date and your cover photo — from your cover.', page: 'schedule', link: 'Open your schedule', from: 'your cover' },
   greeting: {
     text: 'Each guest sees their own greeting — written from your guest list.',
     page: 'guests',

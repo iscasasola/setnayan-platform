@@ -7,7 +7,7 @@ import { ceremonyBlock, firstBlockOf, type ScheduleBlockRow } from '@/lib/print-
 import { formatBlockTimeRange } from '@/lib/schedule';
 import { mapFrame } from '@/lib/scene-map-tiles';
 import { NearViewport } from '@/app/_components/near-viewport';
-import { parishDrawingFor, type ParishDrawing } from '@/lib/parish-drawings';
+import { venueDrawingFor, type ParishDrawing } from '@/lib/parish-drawings';
 
 /**
  * 🏛 THE VENUE SCENE'S OTHER TWO STYLES — Full photo · The journey (owner
@@ -202,8 +202,8 @@ function Eyebrow({ count }: { count: number }) {
  * the ceremony card, ABOVE the venue's name, on the plate itself: the file's
  * white is cut to transparent, so the plate's own paper shows round the church
  * on every Look, light or dark — no box. AVIF first, WebP fallback, lazy, with
- * its size reserved. Where a card has a drawing it takes the place of the
- * card's photo (one picture per card), as in the owner's art-kit proof.
+ * its size reserved. Where the couple PICKED the drawing it takes the place of
+ * the card's photo (one picture per card), as in the owner's art-kit proof.
  */
 export function ParishDrawingFigure({ drawing }: { drawing: ParishDrawing }) {
   return (
@@ -225,9 +225,13 @@ export function ParishDrawingFigure({ drawing }: { drawing: ParishDrawing }) {
   );
 }
 
-/** The card's picture: the parish drawing when there is one, else the photo. */
+/**
+ * The card's picture: the parish drawing when the couple PICKED it (and the
+ * library has one), else the photo. Never the drawing on its own (owner
+ * 2026-10-16, "A VENUE CARD'S PICTURE IS THE COUPLE'S CHOICE").
+ */
 export function venuePicture(venue: EventVenue): { drawing: ParishDrawing | null; photoUrl: string | null } {
-  const drawing = parishDrawingFor(venue);
+  const drawing = venueDrawingFor(venue);
   return { drawing, photoUrl: drawing ? null : (venue.photoUrl ?? null) };
 }
 
@@ -249,7 +253,7 @@ export function VenueFullPhoto({ venues, withheld, showMap, plateStyle }: StyleP
             {venue.name ? <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight">{venue.name}</h3> : null}
           </>
         );
-        // ⛪ A parish drawing takes the photo's place, on the plate above the name.
+        // ⛪ A parish drawing the couple picked takes the photo's place, on the plate above the name.
         const { drawing, photoUrl } = venuePicture(venue);
         // Under a photo the plate carries only the address and directions — with
         // neither (withheld), there is no plate at all.

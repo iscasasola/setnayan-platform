@@ -131,8 +131,9 @@ const VENUE_CHIP_GROUND = { '--color-cream': 'var(--color-paper-deep)' } as CSSP
 
 function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventRow; ownMap: boolean }) {
   const hasCoords = venue.latitude != null && venue.longitude != null;
-  // ⛪ The parish's drawing (`lib/parish-drawings.ts`) takes the photo's place:
-  // drawn on the plate, above the name — one picture per card.
+  // ⛪ The parish's drawing (`lib/parish-drawings.ts`), when the couple PICKED
+  // it, takes the photo's place: drawn on the plate, above the name — one
+  // picture per card. Never on its own (owner 2026-10-16).
   const { drawing, photoUrl } = venuePicture(venue);
   return (
     <div data-venue-role={venue.role}>

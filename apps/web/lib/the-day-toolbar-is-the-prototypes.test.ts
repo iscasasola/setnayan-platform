@@ -116,7 +116,10 @@ test('(1) the record: every part of The Day — Edit’s first row and Style —
   assert.deepEqual(Object.keys(pages), Object.keys(RECORD), 'The Day’s pages are not the prototype’s five');
   let rows = 0;
   for (const [page, parts] of Object.entries(RECORD)) {
-    assert.deepEqual([...pages[page]!], parts.map(([k]) => k), `${page}: the parts are not the prototype’s, in its order`);
+    /* 🕯 The Closing (owner 2026-10-17, after the prototype) ends every page — the shell's footer, under whichever page
+       is on show; held by `the-closing-is-its-own-scene.test.ts`, so the record is the prototype's parts above it. */
+    assert.equal(pages[page]!.at(-1), 'closing', `${page}: the Closing does not end the page`);
+    assert.deepEqual([...pages[page]!].filter((k) => k !== 'closing'), parts.map(([k]) => k), `${page}: the parts are not the prototype’s, in its order`);
     for (const [k, door, style] of parts) {
       rows += 1;
       const q = makerPartQuietRow(k);

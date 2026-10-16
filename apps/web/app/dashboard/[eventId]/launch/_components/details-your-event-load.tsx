@@ -37,6 +37,7 @@ export async function loadYourEvent({
   drafted,
   draftedVenue,
   draftedMarch,
+  venuePro,
 }: {
   supabase: SupabaseClient;
   admin: SupabaseClient;
@@ -57,6 +58,8 @@ export async function loadYourEvent({
    * not draw the march.
    */
   draftedMarch?: MarchStep[][] | null;
+  /** ⛪ Event Hub Pro as the viewer is shown it — the venue card's "Our drawing ◆" mark. */
+  venuePro?: { owns: boolean; storeShell: boolean };
 }): Promise<YourEventInput | null> {
   const [base, confirmedVendorCount, nameStyle, liveCeremonyTime, savedSections] = await Promise.all([
     readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted, draftedVenue }),
@@ -182,6 +185,7 @@ export async function loadYourEvent({
       resolved: venues,
       slots,
       city: mayShowStdFilm ? (row.std_film_venue_city ?? '') : null,
+      ...(venuePro ? { pro: venuePro } : {}),
     },
     /* 🚶 …shown as DRAFTED (owner 2026-10-06, "Wait for apply"): the live march
        with the couple's drafted moves laid on (`marchAsDrafted`). */

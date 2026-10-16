@@ -105,6 +105,16 @@ export function labDressConfig(board: readonly string[]) {
   };
 }
 
+/**
+ * 👗 `?attire=shared` — the dress code as a couple who set it BEFORE the men/women split holds it (the shape cale-ice's
+ * live dress code holds, read SELECT-only 2026-10-16): the sponsors' row has ONE Wear for everybody, and it is a
+ * women's one ("Long gown"); no `women` part at all. The owner: "the drawing is not following the type of attire".
+ */
+export function labSharedAttireDressConfig(board: readonly string[]) {
+  const { women: _split, ...rest } = labDressConfig(board);
+  return { ...rest, groups: { ...rest.groups, principal_sponsors: { style: 'long_gown' } } };
+}
+
 /** The Mood Board (`events.role_palette`) from the lab's own colours — "Our colours" and each role's row read it. */
 export function labRolePalette(board: readonly string[]) {
   return {

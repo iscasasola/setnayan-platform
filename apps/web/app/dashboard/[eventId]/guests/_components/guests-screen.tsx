@@ -114,6 +114,8 @@ import styles from './guests-screen.module.css';
 import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
 import type { GuestListRow } from '@/lib/guest-list-rows';
 import { LastSeenMark } from '@/app/_components/last-seen/last-seen-mark';
+import { createPortal } from 'react-dom';
+import { useHydrated } from '@/lib/use-hydrated';
 
 
 export type GuestsScreenProps = {
@@ -274,6 +276,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [toast, toastNode] = usePeekToast();
   const inspector = useInspectorContext();
   const roleNames = useRoleNames();
+  const hydrated = useHydrated();
   // 📋 The fresh, measured List keeps itself on the phone for the next open (`guest-list-copy.ts`).
   useKeepGuestList(
     { guests: live.guests, hasSides, groupsByGuest, tableByGuest, faceByGuest, requests, rootLabel, roleNames },
@@ -340,6 +343,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
     return new Set(first ? [first.key] : []);
   };
   const [open, setOpen] = useState<Set<string>>(() => firstOpen('role'));
+  // A refused read drew no sections; when the phone's copy replaces it, open the copy's first section.
+  useEffect(() => {
+    if (unread) setOpen(firstOpen(view));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the copy arrives
+  }, [unread]);
   // A search opens every section that has a hit (G19 — a hit inside a folded
   // section was invisible, a failure that looked like "not found").
   const isOpen = (key: string) => (q ? true : open.has(key));
@@ -824,7 +832,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
   return (
     <GuestListHasSidesContext.Provider value={hasSides}>
       {toastNode}
-      {copy ? <LastSeenMark phase={copy.phase} savedAt={copy.savedAt} /> : null}
+      {copy ? (
+        // The mark is `fixed` under the top bar; drawn inside this screen it would be pinned to the screen's
+        // own transformed box instead, so it goes to the body (a copy only ever appears after hydration —
+        // `hydrated` is false only in a server/static render, which draws it in place).
+        hydrated ? (
+          createPortal(<LastSeenMark phase={copy.phase} savedAt={copy.savedAt} />, document.body)
+        ) : (
+          <LastSeenMark phase={copy.phase} savedAt={copy.savedAt} />
+        )
+      ) : null}
       <div
         ref={rootRef}
         className={styles.screen}
@@ -891,15 +908,17 @@ export function GuestsScreen(props: GuestsScreenProps) {
                     guests"). The server writes it fresh, in the import template's own columns, so the same
                     file can be edited and uploaded again (`guests/export/route.ts`). A plain link — no
                     JavaScript, nothing added to any bundle. */}
-                <a
-                  href={`/dashboard/${eventId}/guests/export`}
-                  download
-                  className={`${styles.countsDoor} ${styles.export}`}
-                  data-guests-export=""
-                >
-                  <Download aria-hidden strokeWidth={1.9} />
-                  Download as Excel
-                </a>
+                {copy?.phase === 'failed' ? null : (
+                  <a
+                    href={`/dashboard/${eventId}/guests/export`}
+                    download
+                    className={`${styles.countsDoor} ${styles.export}`}
+                    data-guests-export=""
+                  >
+                    <Download aria-hidden strokeWidth={1.9} />
+                    Download as Excel
+                  </a>
+                )}
               </div>
               {/* 📏 A read beside the list that did not happen is SAID, here, in the strip's own words — never drawn
                   as "no groups" / "nobody seated". Only under a list that WAS read: a refused list has its own

@@ -156,7 +156,7 @@ export function EntourageSection({
  *   axis  — ON THE AXIS (`roll-call`, the default). Every group is the same two-column grid at 375. The LEFT cell
  *           is set RIGHT and the right cell left, so each pair meets at the centre of the page — where the printed
  *           invitation puts the "&" the owner removed (2026-10-14). Anyone who walks ALONE is centred across both
- *           columns with his role word (owner 2026-10-17 — it superseded 2026-09-14's "keep that line blank").
+ *           columns (owner 2026-10-17 — it superseded 2026-09-14's "keep that line blank"), his words as before.
  *           Group headings are centred between two hairlines.
  *   lines — LINES. Pairs flush-left in two columns, a hairline between groups; anyone who walks ALONE is centred
  *           across both columns with their role word — a centred name has no column to say it, so the word must.
@@ -252,15 +252,17 @@ function PairRow({
       🧍 ALONE, CENTRED ACROSS BOTH COLUMNS — in EVERY look. ⚖ Owner 2026-10-17 (DECISION_LOG "A LONE PERSON IN THE
       ENTOURAGE / WEDDING MARCH / STANDING WITH US IS CENTRED"): *"if they are just 1 and no partner, center it
       instead of just 1 side."* Supersedes On the axis keeping his side with the partner cell blank (2026-09-14).
-      A centred name sits in neither column, so it carries the word its column would have said (`entourageCellWord`,
-      as Lines has since 2026-10-15). Held by `lib/a-lone-person-is-centred.test.ts`.
+      ONLY THE PLACE MOVES — each look keeps its own words: Lines carries the word its column would have said
+      (`entourageCellWord`, 2026-10-15); On the axis keeps the word beside the name only where the heading cannot say
+      it (`roleBesideName` — owner 2026-09-30, "the sub text Ninong can be removed"), the role still heard by a
+      screen reader. Held by `lib/a-lone-person-is-centred.test.ts`.
     */
     const one = people[0]!;
-    const word = speakRoles ? entourageCellWord(group, one) : null;
+    const word = look === 'lines' ? (speakRoles ? entourageCellWord(group, one) : null) : roleBesideName(group, one);
     return (
       <li className="break-words text-center leading-snug" data-solo-row="centre">
         <Person person={one} word={word} muted={look === 'lines'} />
-        {word ? null : said}
+        {look === 'lines' && word ? null : said}
       </li>
     );
   }

@@ -5,8 +5,8 @@ CENTRED"): *"on the entourage/wedding march/standing with us, if they are just 1
 just 1 side."*
 
 - `app/[slug]/_components/entourage-section.tsx` — `PairRow`: On the axis (`roll-call`, the default) no longer keeps a
-  lone person in one column with a blank partner cell; like Lines, he is centred across both columns and carries the
-  word his column would have said (`entourageCellWord`). The column words ("Ninong | Ninang") head a group only where
+  lone person in one column with a blank partner cell; like Lines, he is centred across both columns. Only the place
+  moves — his words are the axis's own as before (`roleBesideName`; no "Ninong" under a sponsor, owner 2026-09-30). The column words ("Ninong | Ninang") head a group only where
   a pair stands in it, in both looks. Pairs are unchanged. Lines and The march render byte-identical before and after
   (Lines already centred; the march is one numbered column).
 - `lib/scene-styles-stages.ts` — the Maker's On the axis card line: "anyone alone is centred".

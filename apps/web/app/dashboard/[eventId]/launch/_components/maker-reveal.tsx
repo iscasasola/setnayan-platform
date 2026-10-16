@@ -695,9 +695,9 @@ function RevealStagePart({
   failed: ReactNode;
 }) {
   const look = useStageRevealLook();
-  /* The page's Reveal part draws the opening chosen here (`stage-tools.tsx`). */
+  /* The cover's corner names the opening chosen here (`stage-tools.tsx`) — None too ("No opening"). */
   useEffect(() => {
-    if (effective !== 'none') setStageRevealKind(effective);
+    setStageRevealKind(effective);
   }, [effective]);
   const extras = effective !== 'none' ? revealExtrasFor(effective) : [];
   const mark = makerProMark({ owns: ownsPro, storeShell });

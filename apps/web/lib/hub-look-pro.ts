@@ -210,6 +210,9 @@ export const HUB_CANVAS_LOOK_KEYS = [
   // the Text tab's other rows are free (owner 2026-09-28). `canvasLookChange`
   // compares it field by field for exactly that reason.
   'elements',
+  // 🎬 The Cover Scene's ONE entrance (owner 2026-10-16, `lib/cover-entrance.ts`) — every word's Build in, resolved
+  // at read time: motion, so Pro at Apply exactly as a part's own motion is (`HUB_ELEMENT_PRO_FIELDS`).
+  'entrance',
 ] as const;
 
 /**

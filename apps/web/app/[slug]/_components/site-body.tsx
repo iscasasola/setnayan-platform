@@ -233,6 +233,7 @@ import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { coverSceneLayer } from '../_lib/cover-scene-layer';
 import { STRANGER_DOOR_ID, coverRsvpOf } from '@/lib/cover-rsvp';
+import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { GetInside } from './get-inside';
@@ -884,7 +885,10 @@ export async function SiteBody({
   // (`_lib/hero-design-of.ts`), so the skeleton loads in this same design.
   const heroCanvas = heroCanvasOf(widgets);
   const heroElements = {
-    elements: heroCanvas.elements ?? null,
+    /* 🎬 THE COVER'S ONE ENTRANCE, resolved here onto every word with no Build in of its own (owner-approved
+       2026-10-16, `lib/cover-entrance.ts`) — a word's own Build in wins; nothing stored: the elements as they are. */
+    elements: resolveCoverEntrance(heroCanvas.entrance, heroCanvas.elements),
+    still: coverEntranceIsStill(heroCanvas.entrance),
     stampElements: isMakerCanvas,
     design: heroDesignOf(heroCanvas),
     /* 🎨 The hero parts' own styles — set below, once the page's stage is known. */

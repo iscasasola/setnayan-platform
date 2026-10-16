@@ -5449,10 +5449,9 @@ html.dark .sn-tile-dark {
  * "tap to edit" pointer on every section. Set and cleared by the bridge alone; no guest's page ever carries it. */
 html[data-maker-guest] [data-maker-empty] { display: none !important; }
 html[data-maker-guest] [data-setnayan-editor-bound] { cursor: auto !important; }
-/* 🎭 …and the Reveal's TILE (`stage-tools.tsx`, "Opens once, over the cover — then every page after it opens plain"):
- * the Maker's own picture of the opening, put at the top of the page so it can be tapped. A guest's page never has
- * it (the opening plays OVER the cover), and the preview opened on it (the walk of 2026-10-11, P10). */
-html[data-maker-guest] [data-maker-reveal-part] { display: none !important; }
+/* 🎭 …and the cover's OPENING TAG (`stage-tools.tsx`, "Sheer veil ◆ opens over it" — owner-approved 2026-10-16; the
+ * Reveal's tile above the cover is gone): the Maker's own words in the cover's corner. A guest's page never has it. */
+html[data-maker-guest] [data-maker-opening-tag] { display: none !important; }
 
 /* FROM THE CENTRE (`<Slider from="centre">` — a value that rests in the middle and goes both ways, Darker ↔ Lighter):
  * the accent runs from the middle of the line out to the knob, on whichever side it is; at rest nothing is filled. */

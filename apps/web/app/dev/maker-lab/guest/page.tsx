@@ -42,6 +42,7 @@ import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
 import { LabReplyDoor, labWindow } from './lab-reply-door';
 import { replyCardOf } from '@/lib/guest-me-parts';
 import { coverRsvpOf } from '@/lib/cover-rsvp';
+import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
 import { resolveArrivalAction } from '@/lib/arrival-action';
 import { ReplyCardRow } from '@/app/[slug]/_components/guest-me-parts';
 import { RsvpNoteLines } from '@/app/[slug]/_components/rsvp-note-lines';
@@ -395,7 +396,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       eventDate={LAB_SAMPLE.date}
       venueName={LAB_SAMPLE.venueLine}
       eyebrow={LAB_SAMPLE.openingLine}
-      elements={heroCanvas.elements ?? null}
+      elements={resolveCoverEntrance(heroCanvas.entrance, heroCanvas.elements)}
+      still={coverEntranceIsStill(heroCanvas.entrance)}
       design={heroDesignOf(heroCanvas)}
       /* 🖼 The Cover Scene's background, as the real page lays it (`site-body.tsx` `heroElements.ground`) — the lab's
          loops wear the stand-in files the Maker lab's Look rows use. */

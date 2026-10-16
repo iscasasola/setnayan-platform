@@ -93,6 +93,7 @@ export function StageAnimate({
   does,
   leaves = null,
   band = null,
+  noteDoor = null,
   pending = false,
   error = null,
   only,
@@ -134,6 +135,8 @@ export function StageAnimate({
   leaves?: AnimateDd;
   /** ✨ Action's Band ▾ — while the part shimmers (its own colour, lighter · Gold), in row 3. */
   band?: AnimateDd;
+  /** 🎬 A door beside the note (a cover word on its own: "Reset to the cover's entrance ›"). */
+  noteDoor?: { label: string; onPress: () => void } | null;
   pending?: boolean;
   error?: string | null;
 }) {
@@ -222,9 +225,14 @@ export function StageAnimate({
           <Dd small="Band" label="The shimmer's band" data="band" value={band.value} options={band.options} onPick={band.onPick} />
         </div>
       ) : note ? (
-        <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-animate-note="">
-          {note}
-        </p>
+        <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-animate-note="">
+          <p className="min-w-0 flex-1 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70">{note}</p>
+          {noteDoor ? (
+            <button type="button" onClick={noteDoor.onPress} data-stage-note-door="" className="sn-press inline-flex h-11 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold text-[var(--sp-cta)]">
+              {noteDoor.label}
+            </button>
+          ) : null}
+        </div>
       ) : null}
       {/* ══ ROW 4 — this phase's own feel, and what drives it (Action has neither) ══ */}
       {end ? (

@@ -37,6 +37,7 @@
  * later change to what "Calm" means would silently not reach them.
  */
 
+import { sanitizeCoverEntrance, type HubCoverEntrance } from './cover-entrance';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { INVITE_THEME_IDS, INVITE_THEMES, isInviteThemeId, type InviteThemeId } from '@/lib/invite-themes';
 import { hubAutoSpeed, hubTransition, type HubAutoSpeed, type HubTransition } from '@/lib/hub-scenes';
@@ -441,6 +442,12 @@ export type HubSectionCanvas = {
    * Upload pick is written through to the hero photo by the one hero writer, so `resolveHero` keeps answering.
    */
   ground?: HubCoverGround;
+  /**
+   * 🎬 THE COVER SCENE'S ONE ENTRANCE — the hero row's only (owner-approved 2026-10-16, `lib/cover-entrance.ts`): ONE
+   * value, resolved at read time onto every word that stores no Build in of its own (`resolveCoverEntrance`). Absent =
+   * The theme's own. Motion, so Event Hub Pro at Apply like a part's own motion (`HUB_CANVAS_LOOK_KEYS`).
+   */
+  entrance?: HubCoverEntrance;
 };
 
 /**
@@ -823,6 +830,9 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   /* 🖼 The Cover Scene's background (the hero row's) — a clip kept only while the cover clip may reach guests. */
   const coverGround = sanitizeHubCoverGround(canvas.ground, GUEST_COVER_CLIP_PLAYBACK);
   if (coverGround) out.ground = coverGround;
+  /* 🎬 The Cover Scene's entrance (the hero row's). */
+  const entrance = sanitizeCoverEntrance(canvas.entrance);
+  if (entrance) out.entrance = entrance;
   return out;
 }
 

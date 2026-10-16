@@ -4,13 +4,13 @@
  * colours, drawn as the chosen opening — Four-flap envelope · Two-flap side open ·
  * Two-flap top open · Church doors · Sheer veil (the shipped kinds,
  * `app/[slug]/_components/reveal/reveal-templates.ts`). ONE source, two uses: the
- * Reveal part drawn at the top of the page in Stages (`revealStubHtml`, put into the
- * canvas by `stage-tools.tsx`) and its Style › Look cards (`RevealPicture`).
+ * Cover Scene › Style's cards (`RevealPicture`) — the tile above the cover is gone (2026-10-16).
  *
  * Inline styles only: the canvas is the guest page, whose stylesheet the Maker does
  * not write.
  */
 import { COVER_PAPER } from '@/lib/cover-scene';
+import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 
 export type RevealColours = { dominant: string; supporting: string; accent: string; neutral: string };
 
@@ -73,14 +73,21 @@ export function revealPictureHtml(kind: string, c: RevealColours, w: number = RE
   }
 }
 
-/** The Reveal part as the page draws it in Stages: the picture, then its two lines. */
-export function revealStubHtml(kind: string, c: RevealColours, ink: string, mute: string): string {
-  return (
-    revealPictureHtml(kind, c) +
-    `<p style="margin:.5em 0 0;text-align:center;font-size:.82em;color:${mute}">` +
-    `<b style="display:block;margin-bottom:.2em;font-weight:500;font-size:1.25em;color:${ink};font-family:var(--font-pahina,Georgia,serif)">Opens once, over the cover</b>` +
-    'then every page after it opens plain</p>'
-  );
+/**
+ * 🎭 THE COVER'S CORNER NAMES ITS OPENING (owner-approved 2026-10-16, "THE COVER SCENE'S OWN … STYLE (OPENING)"; prototype
+ * `.openhint`): the Reveal's tile that floated above the cover is gone — the opening is Cover Scene › Style, and the
+ * cover's top-right corner says which ("Sheer veil ◆ opens over it", or "No opening"). Drawn on the Maker's canvas
+ * only, by `stage-tools.tsx`; never a part, never pressable.
+ */
+export const COVER_OPENING_TAG_ATTR = 'data-maker-opening-tag';
+export const COVER_OPENING_TAG_CSS =
+  'position:absolute;right:10px;top:10px;z-index:4;pointer-events:none;white-space:nowrap;padding:4px 8px;border-radius:999px;' +
+  'font:600 10px/1 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:rgba(0,0,0,.62);' +
+  'background:rgba(255,255,255,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)';
+export function coverOpeningTag(kind: string): string {
+  if (kind === 'none') return 'No opening';
+  const name = REVEAL_LIBRARY.find((r) => r.id === kind)?.label ?? 'The opening';
+  return `${name} ◆ opens over it`;
 }
 
 export function RevealPicture({ kind, colours, scale = 1, fill = false }: { kind: string; colours: RevealColours; scale?: number; fill?: boolean }) {

@@ -2,7 +2,7 @@
 
 Owner-approved 2026-10-16 (DECISION_LOG "APPROVED — THE COVER SCENE'S OWN EDIT · STYLE (OPENING) · ANIMATE…", "ALL
 ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆"); prototype `cover_scene_edit_animate_2026-10-16.html` v2.
-Part 2 of 2, stacked on `rd/cover-scene-tools`.
+Part 2 of 2 — part 1 is #6592 (merged).
 
 - **Cover Scene has all four tools.** Style is the Opening: the shipped reveal picker (`RevealPartTools` — None free ·
   Sheer veil ◆ · …), mounted as the group's own rows. The Reveal's tile that floated above the cover ("Opens once, over

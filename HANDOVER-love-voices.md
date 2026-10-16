@@ -26,17 +26,20 @@ Worktree: `~/Documents/Claude/Projects/wt-love-voices` (own node_modules install
 7. Local: 119 related unit test files run (fixed all 5 failures after); CI lint guards pass locally (bundle/route checks need a build → CI).
    Local full tsc NOT run (left to CI).
 
-## Screenshots (copies outside the session scratchpad)
+## Screenshots (copies outside the session scratchpad — DONE)
 `~/Documents/Claude/Projects/love-voices-shots/guest-{conversation,timeline,cards}-{light,dark}.png` (375 px, 2x, full page)
+`~/Documents/Claude/Projects/love-voices-shots/maker-sheet-{new-moment,told-together}-{light,dark}.png`
+Side by side with the prototype: `~/Documents/Claude/Projects/love-voices-shots/side-by-side/*.png`
+(Other files in that folder — after-/before-lines|march|on-the-axis — are NOT this branch's.)
+Notes: the Maker sheet's dark shot is the app's dormant `html.dark` forced in the lab (the app is light-locked); the
+partner dots there render unfilled exactly like the shipped "Added by" dots in the same lab (the lab's `--ls-*` vars).
 Script: `~/Documents/Claude/Projects/love-voices-shots/shoot.mjs` (copy into apps/web, change import to '@playwright/test').
 
 ## Left, in order
 1. Check CI on PR #6594: `gh pr checks 6594` — fix anything red (typecheck first).
-2. Look at the 6 guest screenshots against the prototype jpgs; fix visual gaps.
-3. Maker sheet screenshots (light + dark) at 375: lab `/dev/details-lab?studio=1&shape=mj` → Studio › Love Story → a row's ⋯ → More…
-   (moment `ls-siargao` has a line and no voices → shows the folded "Told together" row; `ls-umbrella` has both voices → no Added by).
-4. Side-by-side images (prototype jpg | built png) for each look + the sheet; report paths.
-5. Report to the controller: PR, head sha, CI, screenshot paths. Never merge; never --admin.
+2. (done) screenshots + side-by-side. Lab path for the sheet: `/dev/details-lab?studio=1&shape=mj` → Love Story nav item
+   (`[data-details-nav-item=love-story]`) → "Add a moment" (new) or the June 2022 moment's Edit (told together).
+3. Report to the controller: PR, head sha, CI, screenshot paths. Never merge; never --admin.
 
 ## Exact next command
 cd ~/Documents/Claude/Projects/wt-love-voices && gh pr checks 6594

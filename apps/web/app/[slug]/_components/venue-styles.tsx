@@ -7,6 +7,7 @@ import { ceremonyBlock, firstBlockOf, type ScheduleBlockRow } from '@/lib/print-
 import { formatBlockTimeRange } from '@/lib/schedule';
 import { mapFrame } from '@/lib/scene-map-tiles';
 import { NearViewport } from '@/app/_components/near-viewport';
+import { parishDrawingFor, type ParishDrawing } from '@/lib/parish-drawings';
 
 /**
  * 🏛 THE VENUE SCENE'S OTHER TWO STYLES — Full photo · The journey (owner
@@ -197,6 +198,40 @@ function Eyebrow({ count }: { count: number }) {
 }
 
 /**
+ * ⛪ THE PARISH'S DRAWING (owner 2026-10-16, `lib/parish-drawings.ts`) — drawn on
+ * the ceremony card, ABOVE the venue's name, on the plate itself: the file's
+ * white is cut to transparent, so the plate's own paper shows round the church
+ * on every Look, light or dark — no box. AVIF first, WebP fallback, lazy, with
+ * its size reserved. Where a card has a drawing it takes the place of the
+ * card's photo (one picture per card), as in the owner's art-kit proof.
+ */
+export function ParishDrawingFigure({ drawing }: { drawing: ParishDrawing }) {
+  return (
+    <figure className="m-0" data-venue-drawing={drawing.key}>
+      <picture>
+        <source type="image/avif" srcSet={drawing.avif} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={drawing.webp}
+          alt={drawing.alt}
+          width={drawing.width}
+          height={drawing.height}
+          loading="lazy"
+          decoding="async"
+          className="block h-auto w-full"
+        />
+      </picture>
+    </figure>
+  );
+}
+
+/** The card's picture: the parish drawing when there is one, else the photo. */
+export function venuePicture(venue: EventVenue): { drawing: ParishDrawing | null; photoUrl: string | null } {
+  const drawing = parishDrawingFor(venue);
+  return { drawing, photoUrl: drawing ? null : (venue.photoUrl ?? null) };
+}
+
+/**
  * 2 · FULL PHOTO — the photo is the card; the role and name sit on a fixed dark
  * gradient over it. The address and directions stay on the plate below, so they
  * never fight the picture. A venue with no photo is a clean text card — never
@@ -214,16 +249,18 @@ export function VenueFullPhoto({ venues, withheld, showMap, plateStyle }: StyleP
             {venue.name ? <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight">{venue.name}</h3> : null}
           </>
         );
+        // ⛪ A parish drawing takes the photo's place, on the plate above the name.
+        const { drawing, photoUrl } = venuePicture(venue);
         // Under a photo the plate carries only the address and directions — with
         // neither (withheld), there is no plate at all.
         const plateUnderPhoto = Boolean(venue.address) || !withheld;
         return (
           <div key={venue.role} data-venue-role={venue.role}>
-            {venue.photoUrl ? (
+            {photoUrl ? (
               <figure className="relative aspect-[4/3] overflow-hidden bg-ink" data-venue-photo="">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={venue.photoUrl}
+                  src={photoUrl}
                   alt={venue.name ? `${venue.name}` : 'The venue'}
                   loading="lazy"
                   className="absolute inset-0 h-full w-full object-cover"
@@ -237,9 +274,10 @@ export function VenueFullPhoto({ venues, withheld, showMap, plateStyle }: StyleP
                 <figcaption className="absolute inset-x-4 bottom-4 space-y-1 text-white">{words}</figcaption>
               </figure>
             ) : null}
-            {venue.photoUrl && !plateUnderPhoto ? null : (
+            {photoUrl && !plateUnderPhoto ? null : (
               <div className="pahina-plate space-y-3" style={plateStyle}>
-                {venue.photoUrl ? null : <div className="space-y-1 text-ink">{words}</div>}
+                {drawing ? <ParishDrawingFigure drawing={drawing} /> : null}
+                {photoUrl ? null : <div className="space-y-1 text-ink">{words}</div>}
                 {venue.address ? <p className="text-sm leading-relaxed text-ink/80">{venue.address}</p> : null}
                 {withheld ? null : (
                   <NavLinksRow

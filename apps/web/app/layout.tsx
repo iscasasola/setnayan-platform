@@ -40,6 +40,7 @@ import {
   withBrandVersion,
 } from '@/lib/brand-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
+import { scheduleBookingFeeMintingStamp } from '@/lib/booking-fee-minting-stamp.server';
 import { orgSameAs } from '@/lib/seo/org-same-as';
 import { envFlagEnabled } from '@/lib/env-flag';
 
@@ -582,6 +583,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // 💸 The booking-fee minting stamp: once per instance, AFTER this response is sent — never at
+  // server start, never on anybody's wait (lib/booking-fee-minting-stamp.ts, stability sweep 2).
+  scheduleBookingFeeMintingStamp();
+
   // Preconnect to backend origins the marketing + dashboard surfaces will
   // hit within the first second — saves the cold DNS+TCP+TLS roundtrip on
   // the first auth check, first analytics event, and first signed-URL fetch.

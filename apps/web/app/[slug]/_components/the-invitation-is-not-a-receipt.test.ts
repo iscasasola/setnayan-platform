@@ -168,11 +168,18 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
   // label stood over a row of four phase pills; the pills became ONE dropdown
   // (`OwnerPhaseMenu`) that names itself, so the label went with them. Host
   // chrome, not a guest section head — the protected treatment is untouched.
+  //
+  // 19 SINCE 2026-10-17 (LOVE STORY, TWO VOICES — owner-approved Conversation ·
+  // Two-lane timeline · Swipe cards). Each look names a moment by its date
+  // ("2021 · Falling") exactly as the shipped Chapters look does, in the same
+  // protected treatment — written ONCE (`MomentWhen` in our-love-story-styles.tsx)
+  // for all three looks, so the source gains one line, not three. The treatment
+  // is untouched.
   assert.equal(
     gild,
-    18,
+    19,
     `the guest tree carries ${gild} of the 0.66rem gild section eyebrows; it ` +
-      `carried 18 from 2026-10-03, 19 from 2026-10-01, 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
+      `carried 19 from 2026-10-17, 18 from 2026-10-03, 19 from 2026-10-01, 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
       `and the reply sheet, 19 when AP-3 shipped). They are an explicitly PROTECTED design ` +
       `decision — AP-3 must not have crept into them. If a legitimate change ` +
       `moves this number, change it here deliberately and say why.`,

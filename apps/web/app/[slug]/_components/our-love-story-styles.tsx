@@ -191,6 +191,17 @@ function Said({ words, long, lines, slot, alignEnd = false }: { words: string; l
 
 /** The date chip: "2018 · How we met" — its own date, then its chapter. */
 const whenOf = (s: LoveStoryScene) => `${s.when ? `${s.when} · ` : ''}${s.chapterLabel}`;
+
+/** The moment's date, in the guest tree's PROTECTED 0.66rem gild eyebrow — written ONCE for all
+ *  three looks (as `RoleLabel` is for the venue looks), so the protected-eyebrow count gains one
+ *  source line, not three. `lead` is the look's own placement classes, prepended unchanged. */
+function MomentWhen({ s, fx, at, lead }: { s: LoveStoryScene; fx: 'in' | undefined; at?: string; lead?: string }) {
+  return (
+    <p data-love-when="" data-love-fx={fx} style={at ? ({ '--love-at': at } as React.CSSProperties) : undefined} className={`${lead ? `${lead} ` : ''}font-mono text-[0.66rem] uppercase tracking-[0.26em] text-gild`}>
+      {whenOf(s)}
+    </p>
+  );
+}
 const photosOf = (s: LoveStoryScene, mediaUrls?: Readonly<Record<string, string>>) =>
   s.media.map((ref) => mediaUrls?.[ref]).filter((u): u is string => Boolean(u));
 
@@ -230,9 +241,7 @@ export function LoveStoryConversation({ scenes, partners, mediaUrls, entrance = 
         const photo = photosOf(s, mediaUrls)[0];
         return (
           <article key={s.id} data-love-scene={s.id} className="grid gap-2.5">
-            <p data-love-when="" data-love-fx="in" className="text-center font-mono text-[0.66rem] uppercase tracking-[0.26em] text-gild">
-              {whenOf(s)}
-            </p>
+            <MomentWhen s={s} fx="in" lead="text-center" />
             {s.title ? (
               <h3 data-love-title="" data-love-fx="in" className="text-center font-pahina text-2xl leading-tight text-ink">
                 {s.title}
@@ -304,9 +313,7 @@ export function LoveStoryTimeline({ scenes, partners, mediaUrls, entrance = fals
           return (
             <article key={s.id} data-love-scene={s.id} className="grid justify-items-center">
               {idx > 0 ? <span aria-hidden data-love-fx="draw" className="block h-8 w-px bg-ink/15" /> : null}
-              <p data-love-when="" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="py-0.5 text-center font-mono text-[0.66rem] uppercase tracking-[0.26em] text-gild">
-                {whenOf(s)}
-              </p>
+              <MomentWhen s={s} fx="in" at="0.3s" lead="py-0.5 text-center" />
               {s.title ? (
                 <h3 data-love-title="" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="mt-1 text-center font-pahina text-xl leading-tight text-ink">
                   {s.title}
@@ -415,9 +422,7 @@ export function LoveStoryCards({ scenes, partners, mediaUrls, entrance = false, 
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photo} alt="" loading="lazy" data-love-fx={on ? 'develop' : undefined} className="aspect-[4/3] w-full max-w-full rounded-2xl object-cover" />
               ) : null}
-              <p data-love-when="" data-love-fx={on ? 'in' : undefined} className="font-mono text-[0.66rem] uppercase tracking-[0.26em] text-gild">
-                {whenOf(s)}
-              </p>
+              <MomentWhen s={s} fx={on ? 'in' : undefined} />
               {s.title ? (
                 <h3 data-love-title="" data-love-fx={on ? 'in' : undefined} className="font-pahina text-2xl leading-tight text-ink">
                   {s.title}

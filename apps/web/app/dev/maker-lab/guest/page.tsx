@@ -163,6 +163,17 @@ function labLoopMedia(loop: string): { still: string; clip: string } | null {
   const i = hubMovingBackgroundIds().indexOf(loop as never);
   return i < 0 ? null : { still: `/std/backgrounds/${LAB_STILLS[i % LAB_STILLS.length]}.webp`, clip: `/realstories/${LAB_CLIPS[i % LAB_CLIPS.length]}.mp4` };
 }
+/**
+ * 🖼 The lab's HERO PHOTO for a Cover Scene "Your photo" pick — the real page draws the hero photo it resolved
+ * (`coverSceneLayer`'s `heroPhotoUrl`), which the lab has none of, so a photo ground drew nothing and a Style card
+ * over a photo could not be seen here (2026-10-16, "small caps shows a weird photo"). The picked ref's local file
+ * (`../lab-own-media.ts`), else a stand-in of fabric on sand — never anybody's own photo, nothing signed.
+ */
+const LAB_COVER_PHOTO = '/realstories/jack-jill-g3.jpg';
+function labCoverPhoto(g: { kind: string; media?: string } | null | undefined): string | null {
+  if (!g || g.kind !== 'photo') return null;
+  return (g.media && LAB_SIGNED[g.media]) || LAB_COVER_PHOTO;
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const words = await eventWordsFor('wedding').catch(() => null);
@@ -369,7 +380,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       design={heroDesignOf(heroCanvas)}
       /* 🖼 The Cover Scene's background, as the real page lays it (`site-body.tsx` `heroElements.ground`) — the lab's
          loops wear the stand-in files the Maker lab's Look rows use. */
-      ground={coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: null, loopMedia: labLoopMedia })}
+      ground={coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: labCoverPhoto(heroCanvas.ground), loopMedia: labLoopMedia })}
       stampElements
       looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
       monogramSlot={

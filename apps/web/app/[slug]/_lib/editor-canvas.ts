@@ -115,9 +115,14 @@ export function canvasOnlyCss(scene: CanvasOnlyScene): string {
     return `${whole}body:has(${id}):not(:has(${m})) *${keepId}{display:none!important}`;
   }
   if (!el) return whole;
-  /* One part of the scene: inside it, everything that is not the part, holds it, or is in it goes too. */
+  /* One part of the scene: inside it, everything that is not the part, holds it, or is in it goes too — except the
+     ground it is drawn on. 🖼 THE COVER SCENE'S BACKGROUND STAYS (`cover-scene-ground.tsx`, `data-cover-scene-ground`):
+     its words take their tone FROM it (cream over a dark photo, `COVER_SCENE_CREAM_VARS`), so a card that hid it drew
+     cream words on the card's white — a Title card with nothing on it (owner 2026-10-16, "previews are not showing
+     properly"). Kept, the card is the part on its own ground, in its own tone, under the shipped scrim. */
   const p = `[data-el="${el}"]`;
-  return `${whole}body:has(${m} + * ${p}) ${m} + * *:not(${p}):not(:has(${p})):not(${p} *){display:none!important}`;
+  const g = '[data-cover-scene-ground]';
+  return `${whole}body:has(${m} + * ${p}) ${m} + * *:not(${p}):not(:has(${p})):not(${p} *):not(${g}):not(${g} *){display:none!important}`;
 }
 
 /**

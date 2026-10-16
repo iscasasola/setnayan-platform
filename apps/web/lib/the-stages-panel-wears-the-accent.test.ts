@@ -144,7 +144,7 @@ test('(2b) the remove confirm answers with the second button and the DELETE butt
   assert.match(keys, /<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{p\.onClose\} \/>/, 'Done is not the main button');
   assert.doesNotMatch(keys, /#[0-9a-fA-F]{6}\b/, 'the typing bar writes a colour');
   const picker = read('app/dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet.tsx');
-  assert.match(picker, /<ActionButton tone="brand" main icon=\{Check\} label="Use" disabled=\{!typed\}/, 'Use is not the main button');
+  assert.match(picker, /<ActionButton tone="brand" main icon=\{Check\} label="Use" disabled=\{!custom\.use\}/, 'Use is not the main button');
   /* …and the colour picked NOW is marked in the accent: its ring, its row, its tick. (The "AA ✗" badge is a state
      badge and keeps its own colour.) */
   assert.match(picker, /\$\{on \? 'ring-2 ring-sn-accent ring-offset-2 ring-offset-white' : ''\}/);

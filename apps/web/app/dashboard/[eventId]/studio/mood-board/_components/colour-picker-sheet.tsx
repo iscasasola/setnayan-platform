@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { MAIN_COLOUR_NAMES, PICKER_SWATCHES, cleanHexInput, pickerReadsOn, pickerShelves, type PickerRow } from '@/lib/mood-board-studio';
+import { customColourInput } from '@/lib/colour-name-search';
 import { PickSheetContext, pickOpensAsSheet } from '../../../website/editor/_components/pick-menu-place';
 import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind';
 
@@ -29,7 +30,11 @@ import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind'
  *   Goes with your Mood Board  the Mood Board's own harmony for them (`pickerSuggestions`)
  *   From your photos         where the caller has them (the Mood Board)
  *   Swatches                 the sixteen
- *   Custom                   the system wheel + a code to type (a stylist's brief) + ✓ Use
+ *   Custom                   the system wheel + a NAME or a code to type + ✓ Use. A name lists up to six of
+ *                            OUR colours under the field as it is typed ("burgund" → Garnet · for burgundy,
+ *                            `lib/colour-name-search.ts`); a tap sets one; ✓ Use / Enter set a valid code, else
+ *                            the top match (owner 2026-10-16: *"color picker still not working"* — the field
+ *                            took only a code and ✓ Use sat grey under "burgund", saying nothing)
  *
  * ONE tap sets that colour and closes; the caller then says what it changed. Opening it writes
  * nothing. The colour chosen now is the marked row (✓), and Custom's code opens on it.
@@ -72,7 +77,14 @@ export function ColourPickerSheet({
 }) {
   const [code, setCode] = useState(current);
   const suggest = pickerShelves(palette, { names: slots ? MAIN_COLOUR_NAMES : undefined, readsOn });
-  const typed = cleanHexInput(code);
+  const custom = customColourInput(code);
+  const typed = custom.code;
+  /* The matches open UNDER the field, at the sheet's foot — brought into view as they appear, or a phone shows none of them. */
+  const matchList = useRef<HTMLDivElement>(null);
+  const matchKey = custom.matches.map((m) => m.hex).join();
+  useEffect(() => {
+    if (matchKey) matchList.current?.scrollIntoView({ block: 'nearest' });
+  }, [matchKey]);
   const now = current.toUpperCase();
   const read = pickerReadsOn(current, readsOn);
   const sw = (c: string) => {
@@ -160,20 +172,66 @@ export function ColourPickerSheet({
         </div>
         <p className={SHELF}>Custom</p>
         <div className="flex items-center gap-2" data-picker-custom="">
-          <label className="relative h-11 w-11 shrink-0 cursor-pointer overflow-hidden rounded-full" aria-label="Colour wheel" style={{ background: 'conic-gradient(red,yellow,lime,cyan,blue,magenta,red)' }}>
-            <input type="color" value={typed ?? cleanHexInput(current) ?? '#000000'} onChange={(e) => setCode(e.target.value.toUpperCase())} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
-          </label>
+          {/* 📱 THE WHEEL IS THE INPUT ITSELF — the 44 px tap target, never an invisible input inside a label, so
+              iPhone Safari opens its own colour picker on the tap. The ring is the wheel; the dot in it is the colour picked. */}
+          <input
+            type="color"
+            aria-label="Colour wheel"
+            value={(typed ?? cleanHexInput(current) ?? '#000000').toLowerCase()}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            data-picker-wheel=""
+            className="h-11 w-11 shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-2 [&::-moz-color-swatch]:border-white [&::-webkit-color-swatch-wrapper]:p-[9px] [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-2 [&::-webkit-color-swatch]:border-white"
+            style={{ background: 'conic-gradient(red,yellow,lime,cyan,blue,magenta,red)' }}
+          />
           <input
             type="text"
             value={code}
-            maxLength={7}
+            maxLength={32}
             onChange={(e) => setCode(e.target.value)}
-            aria-label="Colour code"
-            className="min-h-11 min-w-0 flex-1 rounded-full bg-ink/5 px-4 font-mono text-[15px] text-ink"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && custom.use) {
+                e.preventDefault();
+                onPick(custom.use);
+              }
+            }}
+            aria-label="Colour name or code"
+            aria-controls="picker-name-matches"
+            placeholder="Colour name or code"
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
+            className="min-h-11 min-w-0 flex-1 rounded-full bg-ink/5 px-4 text-[15px] text-ink placeholder:text-ink/40"
           />
           {/* The sheet's ONE main action: the app's main button (the accent), never an ink pill of its own. */}
-          <ActionButton tone="brand" main icon={Check} label="Use" disabled={!typed} onClick={() => typed && onPick(typed)} className="!h-11" />
+          <ActionButton tone="brand" main icon={Check} label="Use" disabled={!custom.use} onClick={() => custom.use && onPick(custom.use)} className="!h-11" />
         </div>
+        {custom.matches.length > 0 ? (
+          <div ref={matchList} id="picker-name-matches" className="-mt-1 flex flex-col" aria-label="Colours by that name" data-picker-name-matches="">
+            {custom.matches.map((m) => (
+              <button
+                key={m.hex}
+                type="button"
+                aria-label={m.typed ? `${m.name}, for ${m.typed}, ${m.hex}` : `${m.name} ${m.hex}`}
+                onClick={() => onPick(m.hex)}
+                className="sn-press flex min-h-11 w-full items-center gap-3 rounded-2xl px-3 text-left"
+                data-picker-name-match={m.hex}
+              >
+                <span aria-hidden className="h-7 w-7 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: m.hex }} />
+                <span className="min-w-0 truncate text-[14px] text-ink">
+                  {m.name}
+                  {m.typed ? <span className="text-ink/50"> · for {m.typed}</span> : null}
+                </span>
+                <small className="ml-auto shrink-0 font-mono text-[11px] text-ink/50">{m.hex}</small>
+              </button>
+            ))}
+          </div>
+        ) : !typed && /^[^#\d]{2,}$/.test(code.trim()) ? (
+          <p id="picker-name-matches" className="-mt-1 px-3 text-[12px] text-ink/55" role="status" data-picker-name-none="">
+            No colour by that name — try another word, or a code like #7A1F2B.
+          </p>
+        ) : null}
         {extra}
         {onRemove ? (
           <span data-picker-remove="" className="self-start">

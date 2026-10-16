@@ -42,6 +42,9 @@ Script: `~/Documents/Claude/Projects/love-voices-shots/shoot.mjs` (copy into app
       ONLY the love story scene, Chapters → Conversation with nothing stored = the owner's default ruling. Regenerated (UPDATE_GOLDEN=1).
 - Merged origin/main (#6592 cover scene) cleanly. Shots copied to ~/Documents/Claude/Projects/shots-2026-10-17/6594/ (look unchanged — no re-shoot).
 
+- Round 3 (c0eec58527): typecheck PASS; only unit tests (1/3) red — every-scene-style-draws "no stored style = byte-identical"
+  had no OWNER_DEFAULT carve-out. Added it (Love Story → Conversation on STD + Invitation only; sabotage → 1 fail).
+
 ## Left, in order
 1. Check CI on PR #6594: `gh pr checks 6594` — fix anything red (typecheck first).
 2. (done) screenshots + side-by-side. Lab path for the sheet: `/dev/details-lab?studio=1&shape=mj` → Love Story nav item

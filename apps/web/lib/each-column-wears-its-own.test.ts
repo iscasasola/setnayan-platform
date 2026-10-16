@@ -111,7 +111,7 @@ test('3 · a Wear stored once for everybody resolves per column — the one it f
   const pinned = withFirstStyle(SHARED, 'groups', 'principal_sponsors', 'suit', withAttireStyle);
   assert.deepEqual(picksOf(pinned, SPONSORS).map((p) => p.style), ['suit', 'long_gown']);
   const kids = withFirstStyle({ groups: { bearers_flower_girl: { style: 'barong_tagalog' } } }, 'groups', 'bearers_flower_girl', 'suit', withAttireStyle);
-  assert.deepEqual((kids.women as { groups: Record<string, unknown> }).groups.bearers_flower_girl, { style: null });
+  assert.deepEqual(((kids as Record<string, unknown>).women as { groups: Record<string, unknown> }).groups.bearers_flower_girl, { style: null });
 });
 
 /* ── the guest page reads the same truth ─────────────────────────────────── */

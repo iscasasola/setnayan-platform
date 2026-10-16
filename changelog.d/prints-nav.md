@@ -34,8 +34,10 @@ print file is"* — then the ruling (corpus DECISION_LOG "PRINTS: ONE AT A TIME 
 *"Yes — Whole set (PDF) and Every guest's pass (PDF) become Pro. Each piece's own PDF, and each guest's own pass one at a time, stay free."*
 
 - **Event pass row (Studio):** "Every guest's pass (PDF)" (the shipped `passes` file, in the size picked on the row) beside the one-pass
-  "Sample (PDF)", the line under both "<N> guests coming · <size>, ganged on A4 with cut lines" — N is the file's own count
-  (`loadPassGuestNames`, the printed passes' read and rule); unread → "Guests who are coming"; nobody → said in place, no button.
+  "Sample (PDF)", the line under both "<N> passes · <a> coming, <p> not replied yet · <size>, ganged on A4 with cut lines" — the file's
+  own count and where those guests stand (`loadPassGuestNames` + `passGuestReply`, the printed passes' read and the reply the pass rule
+  reads; coordinator 2026-10-16: the 2026-09-29 rule stands, the number IS the file). A 0 part is dropped; a "maybe" is counted, never
+  hidden. Unread → "Guests who are coming"; nobody → said in place, no button.
 - **One guest's pass, free:** "Pass for ▾" (the Form row's dropdown, guests who have a pass) + "Save PDF" → `/api/hub-print/pass?…&pass_guest=<id>`
   (new: the route prints that one guest's pass; `loadGuestPasses({ onlyGuest })`).
 - **Pro, server-enforced:** `/api/hub-print` refuses `passes` and the whole `set` (not its sample sheet) to an event without Event Hub Pro —

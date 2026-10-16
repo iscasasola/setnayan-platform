@@ -19,6 +19,11 @@
  *      does the picture of the building);
  *   6. the files exist, are ≤ 60 KB, and carry an alpha channel (the white is
  *      cut, so a dark Look shows no white box).
+ *
+ * ⛪ Since 2026-10-16 (DECISION_LOG "A VENUE CARD'S PICTURE IS THE COUPLE'S
+ * CHOICE") the drawing shows only where the couple PICKED it — every card
+ * below that draws it says `drawingChosen`. That it never shows UNPICKED is
+ * held in `a-venue-cards-picture-is-the-couples-choice.test.ts`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -46,6 +51,8 @@ const venues = (ceremonyName: string, opts: { ceremonyPhoto?: string } = {}): Ev
     address: '1 Church Rd',
     latitude: null,
     longitude: null,
+    // ⛪ The couple picked "Our drawing ◆" on this card (the drawing never shows unpicked).
+    drawingChosen: true,
     ...(opts.ceremonyPhoto ? { photoUrl: opts.ceremonyPhoto } : {}),
   },
   { role: 'reception', name: 'Seda Hotel Vertis North', address: '1 Astra Way', latitude: null, longitude: null, photoUrl: HOTEL_PHOTO },
@@ -110,7 +117,7 @@ for (const style of PICTURE_STYLES) {
     assert.ok(card(html, 'ceremony').includes(PHOTO), 'its photo still shows, as before');
   });
 
-  test(`4 · ${label}: the drawing takes the photo's place; the other card keeps its photo`, () => {
+  test(`4 · ${label}: a PICKED drawing takes the photo's place; the other card keeps its photo`, () => {
     const html = draw(venues(SANTUARIO, { ceremonyPhoto: PHOTO }), style);
     const c = card(html, 'ceremony');
     assert.equal(count(c, 'data-venue-drawing='), 1);

@@ -1,5 +1,8 @@
 import { OurLoveStoryWidget } from '@/app/[slug]/_components/our-love-story-widget';
 import { LAB_LOVE_STORY, LAB_PHOTOS } from '../../details-lab/love-story-fixture';
+import { artKitView, sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kits';
+import { KitClosing, KitStyle } from '@/app/[slug]/_components/kit-piece';
+import { formatEventDate } from '@/lib/events';
 import { Fragment, type ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -263,7 +266,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* ⛪ `?venues=<style>` (default · photo-card · full-photo · journey) — the REAL `VenueWidget` with cale-ice's two venue
      NAMES (the names only — no address, no pin, no photo of theirs), as a guest who has not replied sees them.
      `&parish=0` swaps the ceremony for a church with no drawing; `&photo=1` gives both cards a stand-in photo (a file
-     this repo ships), to see the drawing take the photo's place; `&art=candlelight` draws it on the dark Look. */
+     this repo ships); `&drawing=1` is the couple having PICKED "Our drawing ◆" on the ceremony card (owner 2026-10-16 —
+     without it the drawing never shows); `&art=candlelight` draws it on the dark Look. */
   if (typeof sp.venues === 'string') {
     const style = sp.venues === 'default' ? null : sp.venues;
     const photo = sp.photo === '1' ? LAB_COVER_PHOTO : null;
@@ -271,7 +275,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       event_date: '2026-12-18',
       venue_withheld: true,
       venues: [
-        { role: 'ceremony', name: sp.parish === '0' ? 'Santuario de San Antonio' : 'Santuario de San Vicente de Paul Parish', address: null, latitude: null, longitude: null, photoUrl: photo },
+        { role: 'ceremony', name: sp.parish === '0' ? 'Santuario de San Antonio' : 'Santuario de San Vicente de Paul Parish', address: null, latitude: null, longitude: null, photoUrl: photo, ...(sp.drawing === '1' ? { drawingChosen: true } : {}) },
         { role: 'reception', name: 'Seda Hotel Vertis North', address: null, latitude: null, longitude: null, photoUrl: photo },
       ],
     };
@@ -301,6 +305,22 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
         <OurLoveStoryWidget config={LAB_LOVE_STORY} mediaUrls={LAB_PHOTOS} sceneStyle={style} partners={['Maria', 'Jose']} entrance={sp.entrance === '1'} />
         <div className="h-[40vh]" aria-hidden />
+      </main>
+    );
+  }
+  /* 🧍 `?entourage=<style>` (default · roll-call · lines · march) — the REAL `EntourageSection` on the lone-person cast
+     (`labEntourage('lone')`: a lone Ninang, Coin sponsor, Bridesmaid, Ring Bearer and Flower Girl beside the pairs),
+     in a phone column; `&art=candlelight` draws it on the dark Look. Stand-in names only. */
+  if (typeof sp.entourage === 'string') {
+    const style = sp.entourage === 'default' ? null : sp.entourage;
+    return (
+      <main
+        className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[480px] bg-cream px-4 py-10 text-ink"
+        data-art={sp.art === 'candlelight' ? 'candlelight' : undefined}
+        data-lab-entourage={sp.entourage}
+      >
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        <EntourageSection groups={labEntourage('lone')} id="site-entourage" sceneStyle={style} />
       </main>
     );
   }
@@ -419,6 +439,17 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const heroCanvas = heroCanvasOf([rowOf('hero')] as never);
   /* ✍ The cover draws the DRAFTED names, as the real canvas does — so a cover drawn for one name can be typed into. */
   const labNames = labNamesFrom((await cookies()).get(LAB_NAMES_COOKIE)?.value, LAB_SAMPLE.names);
+  /* 🕯 The closing's kit — the lab's look (`lab_kit`) and its drafted Accent picks (`lab_accents`), through the page's
+     one decision (`artKitView`), tried on as the host's canvas does. Drawn when the look brings a kit or the Closing's
+     Accent is on, exactly as `site-body.tsx` decides. */
+  let labAccents: SceneAccents = {};
+  try {
+    labAccents = sanitizeSceneAccents(JSON.parse(decodeURIComponent((await cookies()).get('lab_accents')?.value ?? '{}')));
+  } catch {
+    labAccents = {};
+  }
+  const labKitView = artKitView({ theme: (await cookies()).get('lab_kit')?.value === 'vintage' ? 'vintage' : 'house', accents: labAccents, ownsPro: false, tryOn: true });
+  const labKit = labKitView && (labKitView.look || labKitView.pieces.closing?.length) ? labKitView : null;
   /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16), on the Invitation: `&rsvpstate=going|declined|closed|not_yet` draws
      it as that guest would meet it (the real `coverRsvpOf` on the real Reply card); none — a guest who has not replied. */
   const rsvpState = typeof sp.rsvpstate === 'string' ? sp.rsvpstate : 'ask';
@@ -973,6 +1004,24 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         </div>
       ) : null}
       </HubPageHold>
+      {/* 🕯 THE CLOSING (owner 2026-10-17: "Make the closing (See you soon) its own scene in the Maker"), as the real
+          shell draws it under every page (`invitation-shell.tsx`): the Maker's marker right before the footer, then the
+          kit's closing — the oval only while the Closing's Accent is on — or the plain sign-off. The lab's look is
+          House unless `lab_kit=vintage`; its picks are the drafted `lab_accents`. The oval's picture is Setnayan's own. */}
+      {mark('f:closing')}
+      {labKit ? (
+        <footer className="relative z-10 text-center">
+          <KitStyle kit={labKit} />
+          <KitClosing kit={labKit} names={labNames} date={formatEventDate(LAB_SAMPLE.date) || null} photoUrl="/std/backgrounds/ballroom.webp" mark="M & J" twoPeople hideWatermark={false} />
+        </footer>
+      ) : (
+        <footer className="relative z-10 border-t border-ink/10 px-4 py-8 text-center">
+          <p data-shell-sign-off="" className="font-pahina text-lg italic text-terracotta-700">
+            See you soon.
+          </p>
+          <p className="mt-3 text-xs text-ink/70">Powered by Setnayan · setnayan.com</p>
+        </footer>
+      )}
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
         {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each

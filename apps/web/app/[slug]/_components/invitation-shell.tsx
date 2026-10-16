@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { KitClosing } from './kit-piece';
 import { Logo } from '@/app/_components/logo';
@@ -39,7 +39,15 @@ export function InvitationShell({
   ownGround = false,
   exitHref = null,
   kitClosing = null,
+  closingMark = null,
 }: {
+  /**
+   * 🕯 THE CLOSING'S MAKER MARKER (owner 2026-10-17, DECISION_LOG "THE CLOSING ('SEE YOU SOON') IS ITS OWN SCENE IN THE
+   * MAKER"): `site-body.tsx`'s `makerMark('f:closing')` — a hidden span set right BEFORE the footer, so the canvas's
+   * tap binder (`canvas-section-binder.ts` · `sectionAfter`) listens to the footer as the Closing part. Null for every
+   * guest (only the Maker's canvas draws a marker), so a guest's footer is byte for byte as before.
+   */
+  closingMark?: ReactNode;
   /**
    * 🕯 THE LOOK'S ART KIT AT THE SIGN-OFF (owner 2026-10-16, `lib/art-kits.ts` · `KitClosing`): the couple's photo in
    * the kit's oval, "See you soon.", then a band with their names, the date and — unless `hideWatermark` — the
@@ -291,6 +299,7 @@ export function InvitationShell({
           gives the page an editorial sign-off without competing with the
           functional widgets above. Couple palette tokens (terracotta · ink)
           untouched. */}
+      {closingMark}
       {kitClosing ? (
         <footer className="relative z-10 text-center">
           <KitClosing {...kitClosing} hideWatermark={hideWatermark} />

@@ -55,6 +55,8 @@ import { themeSeedPalette } from '@/lib/theme-colours';
 import { labWishList, labWishState } from './wish-list-fixture';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
+/** ⛪ `?venue=church`'s stand-in "uploaded" ceremony photo — a ref in this lab event's own scene-media folder (never fetched). */
+const LAB_VENUE_PHOTO_REF = `r2://setnayan-media-public/events/${EVENT}/scene-background/lab-venue.jpg`;
 
 /** 🎟 The lab's guests who have a pass — stand-in names (no database here). */
 const LAB_PASS_GUESTS = [
@@ -116,7 +118,12 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const wishState = labWishState(one('wish'));
   /* 📍 `?venue=own` — a Reception the couple types by hand (2026-10-12: the address row is shared with "Add your own"). */
   const venueLab = one('venue') === 'own';
-  const yourEvent: YourEventInput | null = guideAddr || marchLab || studioLab || venueLab
+  /* ⛪ `?venue=church` — Details › Venues with cale-ice's two venue NAMES typed by hand (no booking): the ceremony is the
+     Santuario (a parish the drawing library has), with a stand-in uploaded photo (a file this repo ships).
+     `&vpic=photo|drawing|none` is the ceremony card's stored Picture (default photo); `&pro=1` = owns Event Hub Pro. */
+  const churchLab = one('venue') === 'church';
+  const vpic = one('vpic');
+  const yourEvent: YourEventInput | null = guideAddr || marchLab || studioLab || venueLab || churchLab
     ? {
         kind: {
           words: { twoPeople: hasTwoNamedPeople(profile), solemn: words.solemn, eventWord: words.eventWord },
@@ -154,6 +161,8 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         },
         venues: studioLab
           ? { resolved: [(mj ? { role: 'reception', name: LAB_SAMPLE.venue, address: LAB_SAMPLE.venueAddress } : { role: 'reception', name: 'The Garden at Tagaytay', address: 'Tagaytay City' }) as never], slots: [], city: null }
+          : churchLab
+            ? labChurchVenues(vpic, pro)
           : venueLab
             ? {
                 resolved: [],
@@ -405,4 +414,44 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         }
       />
   );
+}
+
+/**
+ * ⛪ `?venue=church` — Details › Venues with cale-ice's two venue NAMES typed by hand (no booking), the ceremony the
+ * Santuario (a parish the drawing library has) with a stand-in uploaded photo. Also handed to the Maker lab's shell as
+ * its `factEditors.venues`, so the new Maker's Venue scene draws the same editor (`/dev/maker-lab?studio=1&venue=church`).
+ */
+export function labChurchVenues(vpic: string | undefined, pro: boolean): YourEventInput['venues'] {
+  return {
+    resolved: [],
+    slots: [
+      {
+        label: 'Ceremony',
+        slot: 'ceremony' as const,
+        booked: null,
+        columns: { name: 'std_film_ceremony_name' as const, address: 'ceremony_venue_address' as const, lat: 'ceremony_venue_latitude' as const, lng: 'ceremony_venue_longitude' as const },
+        typed: 'Santuario de San Vicente de Paul Parish',
+        address: '',
+        pin: null,
+        choice:
+          vpic === 'none'
+            ? { source: 'own' as const, ownPhoto: null }
+            : { source: 'own' as const, ownPhoto: LAB_VENUE_PHOTO_REF, ...(vpic === 'drawing' ? { drawing: true as const } : {}) },
+        photoUrls: { [LAB_VENUE_PHOTO_REF]: '/realstories/jack-jill-g3.jpg' },
+      },
+      {
+        label: 'Reception',
+        slot: 'reception' as const,
+        booked: null,
+        columns: { name: 'std_film_venue_name' as const, address: 'venue_address' as const, lat: 'venue_latitude' as const, lng: 'venue_longitude' as const },
+        typed: 'Seda Hotel Vertis North',
+        address: '',
+        pin: null,
+        choice: { source: 'own' as const },
+        photoUrls: {},
+      },
+    ],
+    city: null,
+    pro: { owns: pro, storeShell: false },
+              };
 }

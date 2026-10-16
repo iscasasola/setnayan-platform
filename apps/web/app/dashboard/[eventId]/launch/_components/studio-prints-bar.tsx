@@ -143,7 +143,7 @@ export function StudioPrintsBar({
         <PickMenu
           label="Which print"
           value={here.key}
-          options={pieces.map((p) => ({ key: p.key, label: p.label, ...(p.group ? { group: p.group } : {}) }))}
+          options={pieces.map((p) => ({ key: p.key, label: p.label, ...(p.group ? { group: p.group } : {}), ...(p.hint ? { hint: p.hint } : {}) }))}
           onPick={(k) => go(k as DetailsItemKey)}
           stickyGroups
           dataAttr="data-prints-bar-pick"

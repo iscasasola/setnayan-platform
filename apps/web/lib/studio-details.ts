@@ -107,13 +107,13 @@ export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood
  * "Download the set". "On every print" is first and has no heading (it IS the head of the form). `caption` is the small word
  * over the piece's name on the bar. Read from `STUDIO_FORM_HEADS` and the items' own labels — never a second list of names.
  */
-export type StudioPrintsBarPiece = { key: DetailsItemKey; label: string; group?: string; caption: string };
+export type StudioPrintsBarPiece = { key: DetailsItemKey; label: string; group?: string; caption: string; hint?: string };
 export function studioPrintsBarPieces(items: ReadonlyArray<{ key: DetailsItemKey; label: string; group: DetailsItemGroup }>): StudioPrintsBarPiece[] {
   const set = STUDIO_FORM_HEADS.invitation!.title;
   const day = STUDIO_FORM_HEADS[FREE_PRINT_KEYS[0]!]!;
   return items.map((i) => {
     const label = i.label.replace(/^the\s+/i, '');
-    if (i.key === EVERY_PRINT_ITEM) return { key: i.key, label, caption: 'Prints' };
+    if (i.key === EVERY_PRINT_ITEM) return { key: i.key, label, caption: 'Prints', hint: STUDIO_FORM_HEADS[EVERY_PRINT_ITEM]!.line };
     if (i.group === 'day') return { key: i.key, label, group: `${day.title} · ${day.line}`, caption: day.title };
     if (i.group === 'download') return { key: i.key, label, group: 'Download the set', caption: 'Download the set' };
     return { key: i.key, label, group: set, caption: set };

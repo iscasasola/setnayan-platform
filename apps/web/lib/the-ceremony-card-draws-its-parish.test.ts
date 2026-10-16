@@ -137,7 +137,7 @@ test('6 · every file exists, is ≤ 60 KB and carries alpha', () => {
       if (src.endsWith('.webp')) {
         // RIFF....WEBPVP8X, flags byte at 20: bit 0x10 = alpha.
         assert.equal(bytes.toString('ascii', 12, 16), 'VP8X', `${src}: an extended WebP (one with alpha)`);
-        assert.ok((bytes[20] & 0x10) !== 0, `${src}: carries alpha`);
+        assert.ok(((bytes[20] ?? 0) & 0x10) !== 0, `${src}: carries alpha`);
       } else {
         assert.ok(bytes.includes(Buffer.from('urn:mpeg:mpegB:cicp:systems:auxiliary:alpha')), `${src}: carries an alpha plane`);
       }

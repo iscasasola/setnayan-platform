@@ -134,9 +134,13 @@ test('the themed prints wear the mark their owner has earned — both directions
   // are for pro with the diamond icon" — no padlock anywhere in the Maker.
   // The themed prints' mark + the pass cards' "Download all passes (.zip)"
   // (Event Hub Pro, 2026-09-29) — ◆ for both, never a padlock.
-  assert.equal(count(owned, 'data-paid-mark="unlocked"'), 2);
+  /* 🗂 +5 since 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the whole set and every guest's ticket — Classic and, when
+     it prints, the theme's — and the Printed ticket batch each wear ◆ too. A free couple meets the three Classic ones (the theme's
+     own are not offered without Pro). */
+  assert.equal(count(owned, 'data-paid-mark="unlocked"'), 7);
   assert.equal(count(owned, 'data-paid-mark="locked"'), 0);
-  assert.equal(count(free, 'data-paid-mark="try"'), 2, 'a free couple is not shown ◆ PRO on the themed prints and the zip');
+  assert.equal(count(free, 'data-paid-mark="try"'), 5, 'a free couple is not shown ◆ PRO on the themed prints, the zip and every all-in-one file');
+  assert.equal(count(free, 'data-print-all-in-one-pro=""'), 3, 'a free couple’s all-in-one files are not doors to the Pro unlock');
   assert.match(free, /data-pass-cards-zip-pro=""/, 'a free couple’s zip is a door to the Pro unlock');
   assert.equal(count(free, 'data-paid-mark="locked"'), 0, 'a padlock in the Maker');
   assert.equal(count(free, 'data-paid-mark="unlocked"'), 0);

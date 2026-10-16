@@ -96,7 +96,15 @@ export const LOOK_SECTION_ITEM_KEYS: readonly LookSectionItemKey[] = ['backgroun
  * opens where those controls live now — Elements — never the first row.
  */
 const RETIRED_LOOK_ITEM: Readonly<Record<string, LookSectionItemKey>> = { colours: 'elements', font: 'elements' };
-export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
+/**
+ * 🖨 "ON EVERY PRINT" (owner 2026-10-16, DECISION_LOG "STUDIO › PRINTS GETS A PIECE BAR, ONE 'ON EVERY PRINT' BLOCK AND
+ * SHORT SIZE LINES"): the head of Studio › Prints — the Event Hub QR line (Always printed), the NFC sticker spot and their
+ * one Save, drawn ONCE instead of under three pieces. The same print words form, the same field names. Present only in
+ * the new Maker's Studio (`MakerDetails`'s `studio`); the shipped list never draws it.
+ */
+export type EveryPrintItemKey = 'every-print';
+export const EVERY_PRINT_ITEM: EveryPrintItemKey = 'every-print';
+export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | EveryPrintItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 /** The Look after Theme, in the owner's order: Theme · Mood Board · Logo · Hero · Reveal. */
@@ -164,7 +172,8 @@ export const DETAILS_ITEM_GROUPS: ReadonlyArray<{
     form: true,
   },
   { group: 'elsewhere', label: 'Elsewhere', keys: ['theme', 'parents', 'papic', 'plan-myself', 'kindly-reply', 'rsvp'], hidden: true },
-  { group: 'set', label: 'Invitation set', keys: PRINT_SET_KEYS },
+  /* 🖨 "On every print" heads the set — drawn only in Studio (it is `present` only there). */
+  { group: 'set', label: 'Invitation set', keys: [EVERY_PRINT_ITEM, ...PRINT_SET_KEYS] },
   { group: 'day', label: 'For the day', keys: FREE_PRINT_KEYS },
   { group: 'download', label: 'Download the set', keys: ['download'] },
 ];

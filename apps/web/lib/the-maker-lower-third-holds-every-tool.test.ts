@@ -261,7 +261,7 @@ test('4 · a jump to another item (Look → the address, the Mood Board, the lov
  */
 const KNOWN_LINK_OUTS: Record<string, { count: number; why: string }> = {
   [`${L}/details-guide.tsx`]: { count: 3, why: 'the guided step "Your guests’ names" (→ guest list import), Send, a link step’s one way in' },
-  [`${L}/maker-prints.tsx`]: { count: 3, why: '#print-menu (in page) · the Pro unlock · the 3D seat plan' },
+  [`${L}/maker-prints.tsx`]: { count: 4, why: '#print-menu (in page) · the Pro unlock · the 3D seat plan · the Pro unlock again: a free couple’s all-in-one files in the shipped Details (2026-10-16)' },
   /* maker-details.tsx: its one link out (Prints › Set up E-Gifts → /pabuya) became E-Gifts' own editor IN PLACE (owner 2026-10-08). */
   [`${L}/details-date-clash.tsx`]: { count: 1, why: 'a clashing supplier’s thread' },
 };

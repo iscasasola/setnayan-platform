@@ -29,7 +29,7 @@ import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useSameFieldDoors } from './same-field';
 import { MAKER_TOUCH_EVENT, leaveAsks, newStepTouch, noteStepTouch, touchOrigin, type StepTouch } from '@/lib/guided-step-touch';
-import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideLinkScreen, GuideReady, StagePicker, StageStepPreview, StepBackground } from './details-lazy';
+import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideLinkScreen, GuideReady, StagePicker, StageStepPreview, StepBackground, StudioTool } from './details-lazy';
 import { GUIDED_FLOW_TITLE, guidedStepBody } from '@/lib/guided-step-layout';
 import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MakerHalfSheet } from './maker-sheet';
@@ -660,6 +660,24 @@ export function DetailsWorkspace({
     return () => window.cancelAnimationFrame(id);
   }, [formAt, sheetOpen]);
 
+  /* 🧭 STUDIO › PRINTS' PIECE BAR (owner 2026-10-16, `studio-prints-bar.tsx`): only the new Maker's Prints form, only on a
+     phone (the bar is `lg:hidden` — a computer's navigator already lists the pieces). A pick, ‹ and › run `select(k)` and THIS
+     column's own scroll to `[data-details-editor=k]` (the same as `formAt`'s — never `scrollIntoView`, which moves the Maker
+     too): done here as well as by the effect, so a piece already picked but scrolled away from is still brought back. */
+  const studioPrints = maker?.stagesStudio === true && formGroup?.key === 'prints';
+  const goToPiece = useCallback(
+    (k: DetailsItemKey) => {
+      select(k);
+      window.requestAnimationFrame(() => {
+        const box = editorRef.current;
+        const el = box?.querySelector<HTMLElement>(`[data-details-editor="${k}"]`);
+        if (!box || !el) return;
+        box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top - 8;
+      });
+    },
+    [select],
+  );
+
   /** Every item's editor — all mounted, the picked one shown (`hidden` never unmounts: a hidden field still posts). */
   const editorsBody = (whole: boolean) => (
     <div
@@ -978,6 +996,8 @@ export function DetailsWorkspace({
           </div>
           <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{formGroup ? formGroup.label : (current.panelLabel ?? current.label)}</p>
           {editorsBody(false)}
+          {/* 🧭 Under the form, in the lower third — never over it: the column ends where the bar begins. */}
+          {studioPrints && formGroup ? <StudioTool part="prints-bar" items={formGroup.items} box={editorRef} onGo={goToPiece} at={selected} /> : null}
         </aside>
         )}
         {ltTiles}

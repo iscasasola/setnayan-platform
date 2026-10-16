@@ -24,6 +24,7 @@ import {
   isPrintSetKey,
   isProPrint,
   isThemedPrint,
+  isAllInOnePrint,
   mayServe,
   menuHasDishes,
   parseMenu,
@@ -49,6 +50,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { readHubDraft, saveHubDraftPatch } from '@/lib/hub-draft-store';
 import type { HubDraftEvents } from '@/lib/hub-draft';
 import { printDraftOf } from '@/lib/ceremony-time';
+import { allInOneRefusal } from '@/lib/studio-prints-six';
 import { PAPER_HOW, previewPage, printPaperHeader, type PrintPaperFacts } from '@/lib/print-paper';
 
 /**
@@ -281,6 +283,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   ]);
   if (!printEvent) return new NextResponse('Event not found.', { status: 404 });
   const access = printAccess({ ownsPro, storeShell });
+  /* 🗂 EVERY "DOWNLOAD ALL" IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD
+     ALL' IS EVENT HUB PRO"): every guest's pass in one file and the whole set in one PDF — in EVERY theme, Classic too — need the
+     event's Event Hub Pro, the SAME read the ticket zip's route makes (`printOwnsPro` → `eventSkuActive`, an internal host
+     included: an unlock belongs to the event). Refused here, before anything is drawn, whatever the page did or did not show.
+     Each piece's own file and ONE guest's pass (`pass_guest=<id>`, below) stay free. */
+  if (isAllInOnePrint(wantsSet ? 'set' : piece, mode) && !ownsPro) {
+    return new NextResponse(storeShell ? 'Not available here.' : allInOneRefusal(wantsSet ? 'set' : piece), { status: 403 });
+  }
   /* ✍ THE MAKER'S PREVIEW DRAWS THE DRAFT (owner 2026-10-04: "the preview
      above shows the new time at once"): an on-screen picture whose address
      names the draft (`draft=<hash of it>`, `maker-prints.tsx`) is drawn with
@@ -337,6 +347,24 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         subject: `${docs.length} passes · ${fmt.label} ${fmt.wMm} × ${fmt.hMm} mm · ${fmt.sheet!.cols * fmt.sheet!.rows} per A4`,
       });
       return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false, await printInputsVersion(eventId).catch(() => null));
+    }
+    /* 🎟 ONE GUEST'S PASS, FREE (owner 2026-10-16: *"each guest's own pass one at a time, stay free"*): `pass_guest=<guest id>`
+       prints that one guest's pass — their name, their own QR, the size picked — when they have one (the ticket rule:
+       `ticketsOnly`, the same as every guest's file). Anyone else is refused in words, never a stand-in. */
+    const passGuest = url.searchParams.get('pass_guest');
+    if (piece === 'pass' && mode === 'print' && passGuest && UUID.test(passGuest)) {
+      const one = await loadGuestPasses(set, { width: 600, ticketsOnly: true, onlyGuest: passGuest });
+      if (!one.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
+      const pass = one.passes[0];
+      if (!pass) return new NextResponse('That guest has no pass — a pass is printed for a guest who is on your list and coming.', { status: 404 });
+      const docs = layoutPieceDocs('pass', { ...input, format: formatParam('pass'), pass });
+      const bytes = await renderPrintPdf(docs, { ...set.images, ...one.images }, {
+        mode: 'print',
+        title: `${set.event.display_name ?? 'Event'} — ${pass.name}`,
+        subject: 'Print-ready · 3 mm bleed · crop marks · layers: Foil, White ink, Die cut',
+      });
+      const who = pass.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'guest';
+      return pdfResponse(bytes, fileName(set.event.slug, `pass-${who}`, set.theme), false, await printInputsVersion(eventId).catch(() => null));
     }
     if (mode === 'screen') {
       /* 🎫 THE REAL TICKET (owner 2026-10-05, "isn't this the digital pass?"):

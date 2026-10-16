@@ -56,6 +56,16 @@ import { labWishList, labWishState } from './wish-list-fixture';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 
+/** 🎟 The lab's guests who have a pass — stand-in names (no database here). */
+const LAB_PASS_GUESTS = [
+  { id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000102', name: 'Ben Cruz', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000103', name: 'Carla Dizon', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000104', name: 'Dante Lim', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000105', name: 'Elena Santos', reply: 'pending' as const },
+  { id: '00000000-0000-4000-8000-000000000106', name: 'Felix Tan', reply: 'pending' as const },
+];
+
 /** The lab's Event Details page — also mounted whole inside the Maker lab (`/dev/maker-lab`). */
 export function detailsLabNode(sp: Record<string, string | string[] | undefined>) {
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
@@ -197,7 +207,10 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           previewVersion: studioLab ? 'lab-v2' : null,
           /* 🎫 The ticket style the lab's draft holds (the Maker lab's `lab_pass` cookie) — as the real page hands the drafted look in. */
           passDesign: passCardDesignFrom(one('labPass')),
-          formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
+          /* 🎟 `?studio=1`: who has a pass (Studio › Prints' Event pass, owner 2026-10-16) — stand-in names; `passGuests=0` walks "nobody yet",
+             `passGuests=x` the list that could not be read. */
+          ...(studioLab ? { passGuests: one('passGuests') === '0' ? [] : one('passGuests') === 'x' ? null : LAB_PASS_GUESTS } : {}),
+          formats: { pass: formatFor('pass', one('pass_format'))!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
         }}
         /* 🧪 `?studio=1`: Prints' six on fixtures (owner "approved" 2026-10-13) — a menu of two moments and the schedule's food moments
            to add; its quiet save and the poster photo's go to routes the walk stands in for (no database here). */

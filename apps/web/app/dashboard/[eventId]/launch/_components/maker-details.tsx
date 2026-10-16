@@ -50,6 +50,7 @@ import { ThemePickProvider } from './maker-theme-picker';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
+  EVERY_PRINT_ITEM,
   LOOK_ITEM_KEYS,
   LOOK_SECTION_ITEM_KEYS,
   RSVP_PIECES,
@@ -579,6 +580,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     }
     if (k === 'qr') return { label: 'QR code', done: Boolean(slug), usedOn: ['every print', 'every pass'], icon: <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     if (k === 'download') return { label: 'Download the set', sub: 'PDF · every pass', icon: <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    /* 🖨 Studio › Prints' head (owner 2026-10-16): the QR line and the NFC spot, once for the whole set. */
+    if (k === EVERY_PRINT_ITEM) return { label: 'On every print', sub: 'QR · NFC spot', icon: <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     if ((WORDS_ITEM_KEYS as readonly string[]).includes(k) || (STORY_ITEM_KEYS as readonly string[]).includes(k)) {
       const w = k as WordsItemKey | StoryItemKey;
       return {
@@ -612,7 +615,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...LOOK_SECTION_ITEM_KEYS, ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>(['theme', ...LOOK_SECTION_ITEM_KEYS, ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...(props.studio ? [EVERY_PRINT_ITEM] : []), ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   /* 👪 Where the type prints no parents (a birthday, a wake), "Hosts" has no march to
      live in — it is the last field of the Your event form instead (review 2026-10-06). */
   const hostsInForm = props.yourEvent ? !parentsOffered(props.yourEvent.kind) : !switches.parents;
@@ -824,6 +827,8 @@ export function MakerDetails(props: MakerDetailsProps) {
       <span className="text-xs font-medium text-ink/60">Always printed</span>
     </div>
   );
+  /* 🖨 In Studio the QR line is said ONCE, in "On every print" (owner 2026-10-16) — never under each piece. */
+  const qrPerPiece = props.studio ? null : qrAlways;
   /* ✍ The two print-only words — each ONE field in two doors (its Words item
      and its print's switch), posting through the print words form. */
   const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} titled={false} />;
@@ -903,7 +908,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         <IncludeSwitch form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
           {openingLine}
         </IncludeSwitch>
-        {qrAlways}
+        {qrPerPiece}
         {save}
       </PrintPieceEditor>
     ),
@@ -953,7 +958,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         <IncludeSwitch form={WORDS_FORM} name="inc_rsvp" label="Kindly reply" on={inc.rsvp} tip={props.studio ? PRINT_KINDLY_REPLY_TIP : 'A host or your coordinator, read from their account — or type it in.'}>
           {kindlyReply}
         </IncludeSwitch>
-        {qrAlways}
+        {qrPerPiece}
         {save}
       </PrintPieceEditor>
     ),
@@ -961,7 +966,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       <>
         <PrintPieceEditor input={prints} piece="pass" studio={Boolean(props.studio)}>
           <IncludeSwitch form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
-          {qrAlways}
+          {qrPerPiece}
           {save}
         </PrintPieceEditor>
         {/* 🎫 The pass guests save — its look (one dropdown) and its two outputs. */}
@@ -1134,12 +1139,15 @@ export function MakerDetails(props: MakerDetailsProps) {
     );
     /* The form's quiet rows — Restore · Reset… · About — stay last, outside the fold. */
     editors.qr = <StudioTool part="quiet" />;
-    /* 🖨 The NFC spot is a Finer Details switch here (it still posts with every words Save). */
-    editors.details = (
-      <>
-        {editors.details}
+    /* 🖨 ON EVERY PRINT (owner 2026-10-16, DECISION_LOG "STUDIO › PRINTS GETS A PIECE BAR…"): the head of the Prints form —
+       the Event Hub QR line, the NFC sticker spot (it prints on the pass, the details card and the QR poster: a whole-set
+       setting) and their one Save. The SAME switch and Save, posting the SAME print words form — only drawn once, here. */
+    editors[EVERY_PRINT_ITEM] = (
+      <div data-print-studio="" data-print-every="" className="flex flex-col gap-1">
+        {qrAlways}
         {nfcToggle}
-      </>
+        {save}
+      </div>
     );
     /* 🌄 Look — ONE bar over the three sections (Background · Elements · Music, owner 2026-10-08), the same editors under it.
        What the Studio adds rides under the part it belongs to (`LookPanel` `extras`): the main background's extras — Pattern ·

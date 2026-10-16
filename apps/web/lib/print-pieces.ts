@@ -478,6 +478,18 @@ export function printAccess(input: { ownsPro: boolean; storeShell: boolean }): {
 }
 
 /**
+ * 🗂 EVERY "DOWNLOAD ALL" IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL'
+ * IS EVENT HUB PRO"; verbatim: *"Whole set (PDF) and Every guest's pass (PDF) become Pro. Each piece's own PDF, and each guest's
+ * own pass one at a time, stay free."*). The all-in-one files — every guest's pass ganged on A4 (`passes`, every size, the phone
+ * card's included) and the whole set as one PDF (`set`, anything but its watermarked sample sheet) — need the event's Event Hub
+ * Pro, in EVERY theme, Classic too. The route refuses them (`app/api/hub-print/[piece]/route.ts`); the page marks them ◆.
+ * Each piece's own file and ONE guest's pass stay free (a Pro theme's print-ready file still asks for Pro: `mayServe`).
+ */
+export function isAllInOnePrint(piece: string, mode: PrintMode): boolean {
+  return piece === 'passes' || (piece === 'set' && mode !== 'sample');
+}
+
+/**
  * May this mode of this piece, drawn in this theme, be served to this viewer?
  * The route's refusal. A free theme and the free group are always yes; a
  * Pro-themed print-ready file (or the Pro-themed pass batch) needs `printReady`.

@@ -262,6 +262,8 @@ export function labDraftStep(
         intent,
         applied: hubDraftCountedChanges({ ...plan, refused: [] }).length,
         held: plan.refused.map((item) => ({ label: hubDraftItemLabel(item, makerSceneLabel), reason: 'needs_pro' as const })),
+        /* ✓ …and the bar of what is left, when asked — as the real Apply answers (`hub-draft-actions.ts`). */
+        ...(fields.bar === '1' ? { bar: labDraftBar({ v: 1, ...plan.remaining, history: [] }, scrub, some ? next : null) } : {}),
       },
     };
   }

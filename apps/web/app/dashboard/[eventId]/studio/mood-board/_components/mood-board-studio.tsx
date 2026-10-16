@@ -7,7 +7,8 @@ import { Check, ChevronDown, Palette, PenLine, Plus, Search, Sparkles, Trash2, X
 import { useMaker } from '../../../launch/_components/maker-context';
 import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
-import { makerSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, MAKER_UNHELD_WRITE_EVENT, makerRedrawSave, requestCanvasRedraw } from '@/lib/maker-refresh';
+import type { UndoStep } from '@/lib/maker-drawn-undo';
 import { compressImageForWeb } from '@/lib/image-compress';
 import { extractPaletteFromFile } from '@/lib/extract-palette';
 import { MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
@@ -152,6 +153,42 @@ type Tile = { url: string; credit: string | null; swatches: string[] };
 
 const SAVE_AFTER_MS = 600;
 
+/**
+ * 👗🎨 THE MAKER'S OWN COPY OF THE BOARD'S DRAFT (2026-10-15, `controller-2026-10-12/maker-speed/MEASURE.md`): an
+ * attire or palette pick was an UNHELD save — a whole-Maker render and a reload of the (hidden) canvas, 7.1 s busy at
+ * production latency, and every save after it queued behind that render. Now each is HELD: the board shows it at
+ * once, the canvas pages redraw in place (`makerRedrawSave`), the Apply count comes back with the save — and this copy
+ * keeps the pick if the board is closed and opened again before any render brings it. Dropped once the server's
+ * value agrees, and at every write that brings a render (that render is the truth).
+ */
+const draftedBoard = new Map<string, string>();
+if (typeof window !== 'undefined') window.addEventListener(MAKER_UNHELD_WRITE_EVENT, () => draftedBoard.clear());
+function draftedBoardOr<T>(k: string, server: T): T {
+  const mine = draftedBoard.get(k);
+  if (mine === undefined) return server;
+  if (mine === JSON.stringify(server ?? null)) {
+    draftedBoard.delete(k);
+    return server;
+  }
+  return JSON.parse(mine) as T;
+}
+/** ↺ A board pick, drawn back on the board at once; the canvas pages redraw in place when the ↺'s save lands. */
+function boardUndo(put: (undone: boolean) => void): UndoStep {
+  return {
+    undraw: () => {
+      put(true);
+      return {
+        settle: Promise.resolve('shown'),
+        now: true,
+        landed: (ok) => {
+          if (ok) requestCanvasRedraw();
+          else put(false);
+        },
+      };
+    },
+  };
+}
+
 export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const { eventId } = props;
   const router = useRouter();
@@ -189,11 +226,11 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   };
 
   /* ── the palette: local, written through the Mood Board's own writer ── */
-  const [palette, setPalette] = useState<RolePalette>(props.palette);
+  const [palette, setPalette] = useState<RolePalette>(() => draftedBoardOr(`${eventId}:palette`, props.palette));
   const paletteRef = useRef(palette);
   paletteRef.current = palette;
   /* What the draft holds, as far as this page knows — a failed write goes back to it. */
-  const savedPalette = useRef(props.palette);
+  const savedPalette = useRef(palette);
   const timer = useRef<number | null>(null);
   const flushPalette = useCallback(() => {
     if (timer.current) window.clearTimeout(timer.current);
@@ -211,14 +248,29 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
       paletteRef.current = savedPalette.current;
       failed(text);
     };
-    makerSave(() => hubDraftAction(eventId, fd), () => router.refresh())
+    fd.set(HUB_DRAFT_BAR_FIELD, '1');
+    const was = savedPalette.current;
+    const put = (p: RolePalette) => {
+      draftedBoard.set(`${eventId}:palette`, JSON.stringify(p));
+      setPalette(p);
+      paletteRef.current = p;
+      savedPalette.current = p;
+    };
+    draftedBoard.set(`${eventId}:palette`, JSON.stringify(wrote));
+    makerRedrawSave(() => hubDraftAction(eventId, fd), () => router.refresh(), { undo: boardUndo((undone) => put(undone ? was : wrote)) })
       .then((r) => {
         if (r.ok) {
           savedPalette.current = wrote;
           setProblem(null);
-        } else back(plainRefusal(r.error, MOOD_BOARD_NOT_SAVED.palette));
+        } else {
+          draftedBoard.set(`${eventId}:palette`, JSON.stringify(savedPalette.current));
+          back(plainRefusal(r.error, MOOD_BOARD_NOT_SAVED.palette));
+        }
       })
-      .catch(() => back(MOOD_BOARD_NOT_SAVED.palette));
+      .catch(() => {
+        draftedBoard.set(`${eventId}:palette`, JSON.stringify(savedPalette.current));
+        back(MOOD_BOARD_NOT_SAVED.palette);
+      });
   }, [eventId, router, hubDraftAction]);
   useEffect(
     () => () => {
@@ -258,9 +310,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const photoFive = photoColours.length > 0 ? slotsFromPhotoPalette(photoColours.slice(0, 5), five) : null;
 
   /* ── attire: the dress code as drafted ── */
-  const [dress, setDress] = useState(props.dressConfig);
+  const [dress, setDress] = useState(() => draftedBoardOr(`${eventId}:dress`, props.dressConfig));
   const dressKey = JSON.stringify(props.dressConfig);
-  useEffect(() => setDress(props.dressConfig), [dressKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setDress(draftedBoardOr(`${eventId}:dress`, props.dressConfig)), [dressKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ═══ COLOURS ═══ */
   const pickMain = (index: number, hex: string) => commit(withMainColour(palette, five, index, hex), `${MAIN_COLOUR_SLOTS[index]} changed.`);
@@ -319,14 +371,20 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const saveDress = (next: Record<string, unknown>) => {
     if (!dress) return;
     const before = dress;
-    setDress(next);
     const fd = new FormData();
     for (const [k, v] of Object.entries(dressCodeDraftFields(next))) fd.set(k, v);
+    fd.set(HUB_DRAFT_BAR_FIELD, '1');
+    const put = (d: typeof dress) => {
+      draftedBoard.set(`${eventId}:dress`, JSON.stringify(d ?? null));
+      setDress(d);
+    };
+    put(next as typeof dress);
     const back = (text: string) => {
+      draftedBoard.set(`${eventId}:dress`, JSON.stringify(before ?? null));
       setDress(before);
       failed(text);
     };
-    makerSave(() => hubDraftAction(eventId, fd), () => router.refresh())
+    makerRedrawSave(() => hubDraftAction(eventId, fd), () => router.refresh(), { undo: boardUndo((undone) => put(undone ? before : (next as typeof dress))) })
       .then((r) => {
         if (r.ok) setProblem(null);
         else back(plainRefusal(r.error, MOOD_BOARD_NOT_SAVED.wear));

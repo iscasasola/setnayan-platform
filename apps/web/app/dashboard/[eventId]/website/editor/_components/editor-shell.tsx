@@ -54,7 +54,7 @@ import {
   sceneDrawEffect,
   type CanvasHold,
 } from './element-preview';
-import { CANVAS_REFRESH_MESSAGE, HUB_DRAFT_BAR_FIELD, MAKER_CANVAS_REDRAW_EVENT, makerNeedsRender, makerSave, makerUnheldSavesInFlight, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { CANVAS_REFRESH_MESSAGE, HUB_DRAFT_BAR_FIELD, MAKER_CANVAS_KEEP_EVENT, MAKER_CANVAS_REDRAW_EVENT, makerNeedsRender, makerSave, makerUnheldSavesInFlight, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
 import { noteUndoStep, undrawScene, type SceneUndoData } from '@/lib/maker-drawn-undo';
 import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { stageEyeValue } from '@/lib/stage-eye';
@@ -768,6 +768,16 @@ export function MakerWork({
     };
     window.addEventListener(MAKER_CANVAS_REDRAW_EVENT, redraw);
     return () => window.removeEventListener(MAKER_CANVAS_REDRAW_EVENT, redraw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reads refs only
+  }, []);
+  /* ✓ A write that changes nothing the canvas draws (Apply) — the render it asks for keeps the page on screen, when
+     that render draws the same canvases and the same scenes (`canvasKeepsItsPage`); anything else still reloads. */
+  useEffect(() => {
+    const keep = () => {
+      if (makerUnheldSavesInFlight() === 0) canvasHold.current = holdChange(canvasHold.current, { canvases: drawnCanvases(), order: canvasOrderRef.current }, {}, Date.now());
+    };
+    window.addEventListener(MAKER_CANVAS_KEEP_EVENT, keep);
+    return () => window.removeEventListener(MAKER_CANVAS_KEEP_EVENT, keep);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reads refs only
   }, []);
   /* The sheet closed: its last save's refresh may still land (a few seconds),

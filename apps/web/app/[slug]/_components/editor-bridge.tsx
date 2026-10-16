@@ -26,6 +26,8 @@ import {
 } from '@/lib/element-style';
 import { postEventElementScope } from '@/lib/post-event-styles';
 import { CANVAS_REDRAW_COMMITS_EVENT, findMakerSection, sectionAfter } from './maker-section-find';
+import { layScenePicture, takeScenePicturesOff } from './scene-look-lay';
+import { keepReactChildren, keepReactNodes, putReactChildrenBack } from './react-children-keep';
 import { HUB_TAB_FREES, createPageTop, openHubTab, showHubTab, shownHubTab } from './hub-tab-dom';
 import { applySceneBgPreview, sanitizeSceneBgPreview, undoSceneBgPreviews } from './scene-bg-preview';
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
@@ -278,6 +280,7 @@ export function previewSceneWords(section: Element, text: string): boolean {
     });
   }
   if (!target) return false;
+  keepReactChildren(target);
   target.textContent = text;
   return true;
 }
@@ -322,6 +325,7 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
  */
 export function applyPartWords(part: HTMLElement, word: string | null | undefined): void {
   const target = part.querySelector<HTMLElement>('[data-el-words]') ?? part;
+  keepReactChildren(target);
   if (!target.hasAttribute('data-el-word')) target.setAttribute('data-el-word', target.textContent ?? '');
   target.textContent = word ?? target.getAttribute('data-el-word') ?? '';
 }
@@ -493,6 +497,11 @@ const undoLaidPreviews = () => {
      a part on its way): told NOW, synchronously, so it is taken off in the very commit that draws the server's order —
      never one frame of the order twice, never React finding a node it did not put there (the Maker's drag engine). */
   document.querySelector('[data-maker-scene-placeholder]')?.remove();
+  /* 🎨 …and a style pick's picture laid at the tap (`sceneLook`): the server's render of that style takes its place. */
+  takeScenePicturesOff(document);
+  /* 🧯 …and every node React made that the Maker wrote into (words typed in place, runs cut) is React's again —
+     else this very commit's `removeChild` throws and the page falls to its error screen (`react-children-keep.ts`). */
+  putReactChildrenBack();
   /* A scene ＋ brought back that this page had taken off (`sceneShow`): the render about to commit draws it. */
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(`[${SHOW_ON_REDRAW_ATTR}]`))) {
     el.style.display = '';
@@ -530,6 +539,9 @@ export function EditorBridge() {
   useEffect(() => {
     const origin = window.location.origin;
     const cleanups: Array<() => void> = [];
+    /* 🧯 the Maker's canvas: note React's nodes before every write into them (`react-children-keep.ts`) */
+    keepReactNodes(true);
+    cleanups.push(() => keepReactNodes(false));
     if (groundLayer.current) {
       groundPreview.current = createMainGroundPreviewer(groundLayer.current, (m) =>
         window.parent?.postMessage({ source: 'setnayan-site', t: 'mainGround', ...m }, origin),
@@ -962,6 +974,13 @@ export function EditorBridge() {
           const scene = typeof field === 'string' && field ? field : null;
           typing.set(findMakerSection(document, data.key), data.el, text.slice(0, scene ? 4000 : 240), scene);
         }
+        return;
+      }
+      if (data.t === 'sceneLook') {
+        /* 🎨 A STYLE PICK, ON THE PAGE AT THE TAP (`lib/maker-scene-look.ts`): the picked card's own section — the
+           guest page drawn in that style — laid over this one until the in-place redraw brings the server's. */
+        const html = (data as { html?: unknown }).html;
+        if (typeof html === 'string' && html.length < 400_000) layScenePicture(document, data.key, html);
         return;
       }
       const el = findMakerSection(document, data.key);

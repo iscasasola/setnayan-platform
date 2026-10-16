@@ -280,7 +280,6 @@ const STILL_REFRESHES = new Set([
   'app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx',
   'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx',
   'app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx',
-  'app/dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx',
   'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
   'app/dashboard/[eventId]/website/editor/_components/post-event-scene-panel.tsx',
   'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx',

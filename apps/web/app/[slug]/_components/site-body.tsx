@@ -4251,9 +4251,13 @@ export async function SiteBody({
       /* ✕ One exit, top-left, back to Setnayan — never in a Maker preview,
          which carries its own way back (`makerWayBack`). */
       exitHref={makerWayBack || isMakerCanvas ? null : '/'}
-      /* 🕯 The art kit's closing — the couple's OWN cover photo (`heroPhotoUrl`, signed for this event) or their mark. */
+      /* 🕯 The Closing is a part of the Maker (owner 2026-10-17): its marker, right before the footer. */
+      closingMark={makerMark('f:closing')}
+      /* 🕯 The art kit's closing — the couple's OWN cover photo (`heroPhotoUrl`, signed for this event) or their mark.
+         Drawn when the Closing's Accent is on (the oval), AND on a kit look whose Closing picked None (owner
+         2026-10-17: None keeps "See you soon." and the band, without the oval — `KitClosing` draws no oval then). */
       kitClosing={
-        artKit?.pieces.closing?.length
+        artKit && (artKit.look || artKit.pieces.closing?.length)
           ? {
               kit: artKit,
               names: event.display_name,

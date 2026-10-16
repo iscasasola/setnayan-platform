@@ -80,7 +80,9 @@ test('every prototype page is a page of its stage, with the prototype’s parts 
       const have = code[page];
       assert.ok(have, `${stage} › ${label} (${page}) is a page`);
       /* The prototype's parts, in order, with only the named additions between them. */
-      const added = ADDED[`${stage}/${page}`] ?? [];
+      /* 🕯 …and the Closing (owner 2026-10-17) ends every page of a stage the shell draws — its footer, under whichever
+         page is on show (`the-closing-is-its-own-scene.test.ts`). The RSVP stage's reply screens have none. */
+      const added = [...(ADDED[`${stage}/${page}`] ?? []), ...(stage === 'rsvp_stage' ? [] : ['closing'])];
       assert.deepEqual(have!.filter((k) => !added.includes(k)), [...parts], `${stage} › ${label}: the prototype's parts, in order`);
       for (const k of added) assert.ok(have!.includes(k), `${stage} › ${label}: ${k} was named as added`);
     }

@@ -164,6 +164,9 @@ export const MAKER_PART_KEYS = [
   'details',
   'spotlight',
   'livehub',
+  /* 🕯 THE CLOSING — "See you soon." at the foot of every page (owner 2026-10-17: "Make the closing (See you soon) its
+     own scene in the Maker, with Style › Accent ◆ ▾: None · Oval frame"). */
+  'closing',
   /* 🎞 THE NINE POST EVENT SCENES THE ＋ SHEET ADDS (PR 3, DECISION_LOG 2026-10-06
      "POST EVENT: EVERY SHIPPED AUTO SCENE CAN BE ADDED") — not on a page by default. */
   'road',
@@ -345,6 +348,9 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   spotlight: { label: 'Happening now', source: 'tool', canvas: 'f:spotlight', layouts: NONE },
   /* The Day's "Watch live · Live photo wall" part (`MakerDayPartStandIn` `live_hub`) — a tap on it picked nothing. */
   livehub: { label: 'Live hub', source: 'tool', canvas: 'f:live_hub', layouts: scene('live_hub') },
+  /* 🕯 The closing (`invitation-shell.tsx`, the page's footer, marked `f:closing` on the Maker's canvas): its Style is
+     ONE Accent ◆ ▾ — None · Oval frame (`lib/art-kit-accents.ts` scene `sign-off`). Drawn under every page. */
+  closing: { label: 'Closing', source: 'tool', canvas: 'f:closing', layouts: NONE },
   /* 🎞 The nine Post Event scenes the ＋ sheet adds — each by its SHIPPED name and
      key (`lib/post-event-scenes.ts` `POST_EVENT_SCENE_NAMES`), never retyped; their
      looks are Post Event's own (`post-event-style-resolve.ts`), not a scene's. */
@@ -500,11 +506,14 @@ export function makerPartToolFor(key: MakerPartKey | null, remembered: MakerPart
  * are `lib/rsvp-stage.ts`'s. A page the guest bar does not draw on this event is
  * simply not offered (the item ▾ lists the bar's pages, not these).
  */
+/* 🕯 'closing' ends EVERY page of the four stages the shell draws (owner 2026-10-17): the closing is the shell's footer,
+   drawn under whichever page is on show, so a tap on it is answered on any page. The RSVP stage's three reply screens
+   are their own routes with no closing. */
 export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<string, readonly MakerPartKey[]>>>> = {
   save_the_date: {
-    home: ['reveal', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'countdown', 'message'],
-    story: ['story'],
-    me: ['pass'],
+    home: ['reveal', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'countdown', 'message', 'closing'],
+    story: ['story', 'closing'],
+    me: ['pass', 'closing'],
   },
   [RSVP_STAGE_KEY]: {
     form: ['logo', 'ename', 'names', 'date', 'place', 'rsvp', 'greeting'],
@@ -514,23 +523,23 @@ export const MAKER_STAGE_PAGES: Readonly<Record<MakerStageKey, Readonly<Record<s
     decline: ['logo', 'names', 'heroline', 'nonote'],
   },
   rsvp: {
-    home: ['reveal', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts'],
-    details: ['details', 'schedule', 'venue', 'dress', 'march', 'bring'],
-    story: ['story'],
-    me: ['rsvpcard', 'myrole', 'mywear', 'myarrive', 'myguests', 'seats'],
+    home: ['reveal', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'rsvpcard', 'countdown', 'opening', 'greeting', 'message', 'reminders', 'gifts', 'closing'],
+    details: ['details', 'schedule', 'venue', 'dress', 'march', 'bring', 'closing'],
+    story: ['story', 'closing'],
+    me: ['rsvpcard', 'myrole', 'mywear', 'myarrive', 'myguests', 'seats', 'closing'],
   },
   event: {
-    live: ['reveal', 'spotlight', 'announce', 'livehub', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'schedule'],
-    home: ['venue', 'dress', 'march', 'bring'],
-    camera: ['camera'],
-    gallery: ['gallery', 'myphotos'],
-    me: ['seats', 'pass'],
+    live: ['reveal', 'spotlight', 'announce', 'livehub', 'coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink', 'schedule', 'closing'],
+    home: ['venue', 'dress', 'march', 'bring', 'closing'],
+    camera: ['camera', 'closing'],
+    gallery: ['gallery', 'myphotos', 'closing'],
+    me: ['seats', 'pass', 'closing'],
   },
   editorial: {
-    home: ['coverscene', 'logo', 'ename', 'names', 'date', 'numbers', 'message', 'wishes', 'story', 'suppliers'],
-    film: ['film'],
-    suppliers: ['suppliers'],
-    gallery: ['film', 'gallery', 'myphotos'],
+    home: ['coverscene', 'logo', 'ename', 'names', 'date', 'numbers', 'message', 'wishes', 'story', 'suppliers', 'closing'],
+    film: ['film', 'closing'],
+    suppliers: ['suppliers', 'closing'],
+    gallery: ['film', 'gallery', 'myphotos', 'closing'],
   },
 };
 

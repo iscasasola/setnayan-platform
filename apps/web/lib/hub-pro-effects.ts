@@ -37,6 +37,9 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { ART_KIT_IS_PRO, ART_KIT_ORNAMENTS } from '@/lib/art-kit-pro';
+import { QR_STYLE_PREF_KEY } from '@/lib/qr-look';
+import { ACCENT_NONE, ACCENT_SCENES, ACCENT_SCENE_LABEL, SCENE_ACCENTS_PREF_KEY, accentsTurnOn, resolvedAccent, sceneAccentsFromPreferences, type SceneAccents } from '@/lib/art-kit-accents';
 import { hubMainGround, isHubMainChoice, isHubMainFollow, isHubMainLoop, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
   canvasFacetGrows,
@@ -132,11 +135,20 @@ const GROUP_NAME: Record<CanvasFacetGroup, { what: string; tab: 'format' | 'anim
 function eventEffect(
   column: HubDraftEventColumn,
   value: unknown,
+  accents: SceneAccents = {},
 ): { what: string; where: string; jump: HubProEffectJump | null } {
   switch (column) {
     case 'invite_theme': {
       const id = normalizeThemeId(value);
-      return { what: 'Theme', where: id ? INVITE_THEMES[id].name : 'Your theme', jump: { kind: 'look' } };
+      /* 🕯 A look that brings an art kit says so while its Decorations are on and Pro (owner 2026-10-16: "Name it
+         'Decorations' in the Apply sheet's Pro lines") — one line, the theme's, since paying for the theme is what
+         brings them: "Theme · Vintage, with its Decorations". */
+      const withKit =
+        id !== null &&
+        ART_KIT_IS_PRO &&
+        ART_KIT_ORNAMENTS.includes(INVITE_THEMES[id].ornament) &&
+        ACCENT_SCENES.some((sc) => resolvedAccent(sc, accents, id) !== ACCENT_NONE);
+      return { what: 'Theme', where: id ? `${INVITE_THEMES[id].name}${withKit ? ', with its Decorations' : ''}` : 'Your theme', jump: { kind: 'look' } };
     }
     case 'site_font_key':
       return { what: 'Typeface', where: 'Whole Event Hub', jump: { kind: 'look' } };
@@ -229,7 +241,22 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
     // 🚶 …and so is every Wedding March move.
     if (item.kind === 'march') continue;
     if (item.kind === 'event') {
-      const named = eventEffect(item.column, item.value);
+      const liveAccents = sceneAccentsFromPreferences(live.events.style_preferences ?? null);
+      const draftAccents = { ...liveAccents, ...sceneAccentsFromPreferences(draft.events.style_preferences ?? null) };
+      /* 🕯 A scene's accent turned on is named for what it is (owner 2026-10-16: "Name it 'Decorations'"), with the
+         scenes it dresses — the same rule that refused it (`accentsTurnOn`). */
+      const turned =
+        item.column === 'style_preferences' && item.value && typeof item.value === 'object' && SCENE_ACCENTS_PREF_KEY in item.value
+          ? accentsTurnOn(liveAccents, sceneAccentsFromPreferences(item.value))
+          : [];
+      const named =
+        turned.length > 0
+          ? {
+              what: QR_STYLE_PREF_KEY in (item.value as object) ? 'Decorations and QR look' : 'Decorations',
+              where: turned.map((sc) => ACCENT_SCENE_LABEL[sc]).join(', '),
+              jump: null,
+            }
+          : eventEffect(item.column, item.value, draftAccents);
       push({
         id: `event:${item.column}`,
         ...named,

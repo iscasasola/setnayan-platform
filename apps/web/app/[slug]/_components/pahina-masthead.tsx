@@ -12,7 +12,9 @@ import {
   type HubHeroElementKey,
 } from '@/lib/element-style';
 import { HERO_DESIGN_ATTR, HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/hero-design';
-import { COVER_SCENE_ATTR, COVER_SCENE_CENTRED, COVER_SCENE_SCREEN } from '@/lib/cover-scene';
+import { COVER_FOOT_ATTR, COVER_SCENE_ATTR, COVER_SCENE_FOOT, COVER_SCENE_SCREEN, COVER_SCENE_UPPER, COVER_SWIPE_HINT } from '@/lib/cover-scene';
+import { COVER_RSVP_CHANGE, COVER_RSVP_DECLINED, COVER_RSVP_GOING, type CoverRsvp } from '@/lib/cover-rsvp';
+import { HUB_RSVP_DEFAULT_WORDS } from '@/lib/element-style';
 import type { CoverSceneLayer } from '../_lib/cover-scene-layer';
 import { COVER_LINE_ATTR, COVER_LINE_OWN } from '@/lib/hub-veil';
 import { COVER_SCENE_CREAM_VARS, CoverSceneGround } from './cover-scene-ground';
@@ -66,7 +68,20 @@ export function PahinaMasthead({
   looks = null,
   ground = null,
   waiting = null,
+  rsvp = null,
+  still = false,
 }: {
+  /**
+   * 🔘 THE RSVP BUTTON at the cover's foot (owner 2026-10-16) — this reader's state (`coverRsvpOf`): the couple's words
+   * (default "Confirm attendance"), "You're coming ✓ · Change", "You can't make it · Change", or a shut window's line,
+   * plain and not pressable. Null: no reply on this page — no button (the hint stays).
+   */
+  rsvp?: CoverRsvp | null;
+  /**
+   * 🎬 The cover's entrance is Still (`coverEntranceIsStill`): no line enters — after an unveil they appear together,
+   * so every line is marked as its own and the veil's default entrance passes them by.
+   */
+  still?: boolean;
   /**
    * 👻 THE LOADING SCREEN ONLY (`invitation-skeleton.tsx`): the parts the real cover will bring in with a Build in of
    * their own — each keeps its place but is not drawn for a moment (`data-el-waits`, globals.css). Absent on the page.
@@ -156,7 +171,9 @@ export function PahinaMasthead({
   const coverGround = ground ? <CoverSceneGround layer={ground} /> : null;
   /* py-10: where the words are taller than the screen (a short window, the Maker's canvas) they still sit INSIDE the
      Framed edge, never on its margin (walked 2026-10-15: the title sat on the 12px margin above the picture). */
-  const coverBox = ground ? ' relative isolate py-10' : '';
+  /* 📐 The words sit in the UPPER part (`COVER_SCENE_UPPER` gives the top padding), the foot at the bottom — so the
+     ground's box only needs its stacking (owner 2026-10-16). */
+  const coverBox = ground ? ' relative isolate' : '';
   const names = splitCoupleNames(displayName, twoPeople);
   /* 🗓 FORMAT ▾ (tap-to-type): the date and the time written the couple's way
      (`lib/hub-date-formats.ts`); no format = today's words, byte for byte. */
@@ -187,7 +204,7 @@ export function PahinaMasthead({
    * Inert on a page with no veil — nothing reads it there.
    */
   const line = (key?: HubHeroElementKey) => ({
-    [COVER_LINE_ATTR]: key && sanitizeHubElementMotion(elements?.[key]?.motion)?.in ? COVER_LINE_OWN : '',
+    [COVER_LINE_ATTR]: still || (key && sanitizeHubElementMotion(elements?.[key]?.motion)?.in) ? COVER_LINE_OWN : '',
   });
   /** The day's badge ("Happening now") is a line too — stamped on the element the page hands in, so its box is unchanged. */
   const badge = isValidElement(badgeSlot)
@@ -202,9 +219,9 @@ export function PahinaMasthead({
     // The part's own motion rides as custom properties; this is the hook the
     // ONE gated rule in globals.css reads (`[data-el-motion]`).
     ...hubElementMotionAttr(elements?.[key]),
-    // A part the couple hid is never drawn for a guest; in the Maker canvas it
-    // is ghosted so it can be brought back (`hubElementDeclarations`).
-    style: hubElementInlineStyle(elements?.[key], { editor: stampElements }),
+    // A part the couple hid is never drawn — for a guest, and on the Maker's canvas too: a hidden line LEAVES the
+    // cover at once and comes back from Cover Scene › Edit's list (owner-approved 2026-10-16), never ghosted.
+    style: hubElementInlineStyle(elements?.[key]),
   });
   /** ✍ In the Maker canvas only: each person's name, so a tap types in THAT
    *  person (`type-in-place-canvas.ts`) and the joiner stays the Joiner's. */
@@ -317,6 +334,41 @@ export function PahinaMasthead({
     <p {...el('venue')} className="mt-2 text-base text-ink/70">
       {placeWords(name)}
     </p>
+  );
+
+  /* 🔘 THE FOOT — THE RSVP BUTTON AND, UNDER IT, THE "SWIPE UP" HINT (owner 2026-10-16, DECISION_LOG "THE COVER: WORDS
+     IN THE UPPER PART, AN RSVP BUTTON AND A 'SWIPE UP' HINT AT THE FOOT"). The button is a real one (`.button-primary`,
+     44 px, framed — Look › Buttons styles it) that goes to the SHIPPED reply (the reply page, which asks a visitor
+     without a key for the passcode first); answered, it says so and offers Change; a shut window is plain words, no
+     frame, not pressable. The hint is the page's own affordance — never a part, never hidden — and nods gently (still
+     under reduced motion). Both are cover LINES (`line()`): behind a closed veil neither shows, and both enter last. */
+  const rsvpWords = elements?.rsvp?.word ?? HUB_RSVP_DEFAULT_WORDS;
+  const rsvpPart = !rsvp ? null : rsvp.kind === 'closed' || rsvp.kind === 'not_yet' ? (
+    <p {...el('rsvp')} data-cover-rsvp={rsvp.kind} className="text-sm text-ink/70">
+      {rsvp.line}
+    </p>
+  ) : (
+    <a {...el('rsvp')} data-cover-rsvp={rsvp.kind} href={rsvp.href} className="button-primary min-h-11 gap-1.5 px-7">
+      {rsvp.kind === 'ask' ? (
+        <span {...(stampElements ? { 'data-el-words': '', 'data-el-word': HUB_RSVP_DEFAULT_WORDS } : {})}>{rsvpWords}</span>
+      ) : (
+        <span>
+          {rsvp.kind === 'going' ? COVER_RSVP_GOING : COVER_RSVP_DECLINED}
+          {rsvp.kind === 'going' ? <b aria-hidden> ✓</b> : null} · <u className="underline-offset-2">{COVER_RSVP_CHANGE}</u>
+        </span>
+      )}
+    </a>
+  );
+  const foot = (
+    <div {...{ [COVER_FOOT_ATTR]: '' }} className={COVER_SCENE_FOOT}>
+      {rsvpPart}
+      <p {...line()} data-cover-hint="" aria-hidden className="flex flex-col items-center gap-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-ink/70">
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-[cover-hint-nod_2.4s_ease-in-out_infinite] fill-none stroke-current motion-reduce:animate-none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 15l6-6 6 6" />
+        </svg>
+        {COVER_SWIPE_HINT}
+      </p>
+    </div>
   );
 
   /* 🖼 THE PHOTO CAPTION — a part (owner 2026-09-28, "make it editable"): the
@@ -469,7 +521,7 @@ export function PahinaMasthead({
 
     if (design === 'marquee') {
       return (
-        <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design, ...cover }} className={`${COVER_SCENE_CENTRED} text-center${coverBox}`}>
+        <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design, ...cover }} className={`${COVER_SCENE_UPPER} text-center${coverBox}`}>
         {coverGround}
           {badge}
           <div>
@@ -497,13 +549,14 @@ export function PahinaMasthead({
           </div>
           {HUB_LINK}
           {coverPlate}
+          {foot}
         </header>
       );
     }
 
     if (design === 'crest') {
       return (
-        <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design, ...cover }} className={`${COVER_SCENE_CENTRED} text-center${coverBox}`}>
+        <header data-pahina-first-screen="" {...{ [HERO_DESIGN_ATTR]: design, ...cover }} className={`${COVER_SCENE_UPPER} text-center${coverBox}`}>
         {coverGround}
           {badge}
           <div>
@@ -532,6 +585,7 @@ export function PahinaMasthead({
           </div>
           {HUB_LINK}
           {coverPlate}
+          {foot}
         </header>
       );
     }
@@ -543,19 +597,18 @@ export function PahinaMasthead({
       <header
         data-pahina-first-screen=""
         {...{ [HERO_DESIGN_ATTR]: design, ...cover }}
-        /* 🖼 The Cover Scene fills the whole first screen on every device (owner 2026-10-15) — The Letter keeps its
-           foot-of-the-screen column on a phone, and its left column from `sm`, at full height on both. */
-        className={`relative flex ${COVER_SCENE_SCREEN} flex-col justify-end text-left sm:justify-center${ground ? ' isolate' : ''}`}
+        /* 🖼 The Cover Scene fills the whole first screen on every device (owner 2026-10-15) — and its words sit in the
+           UPPER part (owner 2026-10-16): The Letter keeps its ranged-left column, now from the top, the mark above it. */
+        className={`relative flex ${COVER_SCENE_SCREEN} flex-col justify-start pt-[clamp(36px,7svh,58px)] text-left${ground ? ' isolate' : ''}`}
       >
         {coverGround}
         {monogramSlot ? (
           <div
             {...el('mark')}
             data-motion="arrive-mark"
-            /* `mb-auto`: in the phone's justify-end column the mark stays at the
-               head of the screen while the words sit at the foot — in flow, so
-               the Happening-now pill below it never lands on top of it. */
-            className="mb-auto flex h-12 w-12 items-center justify-center sm:mb-6 sm:h-16 sm:w-16"
+            /* In flow above the words (they start at the top now, 2026-10-16), so the Happening-now pill below it
+               never lands on top of it. */
+            className="mb-6 flex h-12 w-12 items-center justify-center sm:h-16 sm:w-16"
           >
             <span className="block scale-[0.6] sm:scale-[0.8]">{monogramSlot}</span>
           </div>
@@ -575,13 +628,14 @@ export function PahinaMasthead({
           {HUB_LINK}
         </div>
         {coverPlate}
+        {foot}
       </header>
     );
   }
 
   if (card) {
     return (
-      <header data-pahina-first-screen="" {...cover} className={`${COVER_SCENE_CENTRED} text-center${coverBox}`}>
+      <header data-pahina-first-screen="" {...cover} className={`${COVER_SCENE_UPPER} text-center${coverBox}`}>
         {coverGround}
         {badge}
         {/* 🖼 THE COVER LOSES ITS FRAME (owner 2026-10-06, DECISION_LOG "THE COVER
@@ -625,12 +679,13 @@ export function PahinaMasthead({
           </div>
         </div>
         {hubLink('center')}
+        {foot}
       </header>
     );
   }
 
   return (
-    <header data-pahina-first-screen="" {...cover} className={`${COVER_SCENE_CENTRED} text-center${coverBox}`}>
+    <header data-pahina-first-screen="" {...cover} className={`${COVER_SCENE_UPPER} text-center${coverBox}`}>
         {coverGround}
       {badge}
       {/* owner 2026-09-25 "drop the numbers": the chapter numeral is gone —
@@ -665,6 +720,7 @@ export function PahinaMasthead({
       {/* Cover plate — the photo/video demoted below the type, framed like a
           printed plate with a mono caption. Only when media exists. */}
       {coverPlate}
+      {foot}
     </header>
   );
 }

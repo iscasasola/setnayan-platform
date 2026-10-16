@@ -7047,6 +7047,21 @@ html:active-view-transition .sn-page-enter { animation: none; }
   }
 }
 
+/* 🔘 THE COVER'S FOOT — THE RSVP BUTTON AND THE "SWIPE UP" HINT (owner 2026-10-16, "THE COVER: WORDS IN THE UPPER PART,
+   AN RSVP BUTTON AND A 'SWIPE UP' HINT AT THE FOOT"): both enter LAST. Under a veil they are the last cover lines, so
+   the rule above already brings them in last (`--cover-at`). With no veil, a foot line with no Build in of its own
+   fades in after the words (the Long beat, 0.8 s). The hint's chevron nods gently — still under reduced motion
+   (`motion-reduce:animate-none` on the drawing). `pahina-masthead.tsx` `foot`. */
+@keyframes cover-hint-nod {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  html:not(:has(> head > style[data-veil-words])) [data-cover-foot] > [data-cover-line='']:not([data-el-motion]) {
+    animation: hub-in-fade 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) 0.8s backwards;
+  }
+}
+
 /* ── THE EVENT HUB MOVES, AND EVERY MOVEMENT MEANS SOMETHING (2026-09-21) ──
    Owner: "make the whole event hub fully animated." No new tokens: every
    movement reads the site's EXISTING motion set in :root (--sn-dur-elem,
@@ -7754,6 +7769,30 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 @keyframes el-in-fade    { from { opacity: 0; } }
 @keyframes el-in-fade-p  { from { opacity: 0; } }
 @keyframes el-during-drift { from { translate: 0 0; } to { translate: 0 -6px; } }
+/* ✨ SHIMMER (owner 2026-10-16, "SHIMMER IS AN ANIMATE EFFECT FOR ANY TEXT") — an Action: the band of a gradient clipped
+   to the words slides across every 5 s (`HUB_SHIMMER_PERIOD_S`, run from the part's own animation list). The PAINT is
+   drawn only where the band can move — motion allowed and no Save-Data (`.sn-save-data`, `PahinaMotionRootFlag`) —
+   so under reduced motion or Save-Data the word is its plain colour, never transparent text with nothing behind it.
+   The hero's parts wear `data-el-shimmer` (hue · gold, `hubElementMotionAttr`); a scene's parts get the same
+   declarations in their own style (`hubElementSceneCss`). The joiner keeps its own gild. The values are
+   `hubShimmerPaint`'s, held equal by `lib/the-cover-scene-has-its-own-tools.test.ts`. */
+@keyframes el-during-shimmer { from { background-position: 120% 0; } to { background-position: -140% 0; } }
+@media screen and (prefers-reduced-motion: no-preference) {
+  :root:not(.sn-save-data) [data-el-shimmer] {
+    background-image: linear-gradient(100deg, currentColor 0 38%, color-mix(in srgb, currentColor 45%, #fff) 50%, currentColor 62% 100%);
+    background-size: 260% 100%;
+    background-position: 120% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  :root:not(.sn-save-data) [data-el-shimmer='gold'] {
+    background-image: linear-gradient(100deg, #835C2F 0 38%, #F0D9A8 50%, #835C2F 62% 100%);
+  }
+  :root:not(.sn-save-data) [data-el-shimmer] .text-gild {
+    -webkit-text-fill-color: currentColor;
+  }
+}
 @keyframes el-out-fade   { to { opacity: 0; } }
 @keyframes el-out-lift   { to { opacity: 0; transform: translate3d(0, -22px, 0); } }
 @keyframes el-out-settle { to { opacity: 0; transform: scale(0.965); } }

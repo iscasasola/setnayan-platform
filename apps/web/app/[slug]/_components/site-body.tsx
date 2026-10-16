@@ -232,6 +232,7 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, ty
 import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { coverSceneLayer } from '../_lib/cover-scene-layer';
+import { coverRsvpOf } from '@/lib/cover-rsvp';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
 import { GetInside } from './get-inside';
@@ -1181,6 +1182,9 @@ export async function SiteBody({
      `lib/maker-made-once-pages.ts`) and edits the card through it — pointing that at the reply page's own canvas is
      a Maker change. A guest is never served it. */
   const replyDoor = inviteReplyPath(event.slug ?? '');
+  /* 🔘 THE COVER'S RSVP BUTTON FOR A VISITOR WITHOUT A KEY (owner 2026-10-16): on the Invitation, the shipped reply
+     door — which asks for the passcode first. Never on a ticketed public event (its door is "Get tickets"). */
+  const visitorRsvp = pageStage === 'rsvp' && !ticketUrl ? coverRsvpOf({ card: null, visitorHref: replyDoor }) : null;
   const replySheetDrawn = plan.rsvpShouldRender && isEditorCanvas;
   /* 📬 THE REPLY IS OPEN HERE — the stage allows it (`plan.rsvpShouldRender`) AND the couple's window is
      open (owner 2026-10-14). Every guest door to the reply below asks THIS; the Reply card alone still
@@ -2042,6 +2046,7 @@ export async function SiteBody({
             eventDate={event.event_date}
             venueName={venueLine}
             badgeSlot={dayOfBadge}
+            rsvp={visitorRsvp}
             monogramSlot={
               <HeroMonogram
                 event={event}
@@ -2086,6 +2091,7 @@ export async function SiteBody({
                   eventDate={event.event_date}
                   venueName={venueLine}
                   badgeSlot={dayOfBadge}
+                  rsvp={visitorRsvp}
                   monogramSlot={
                     <HeroMonogram
                       event={event}
@@ -2700,6 +2706,19 @@ export async function SiteBody({
             organizer: clientWords.theOrganizer,
           })
         : null;
+    /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16: *"Confirm Attendance is RSVP"*) — the Reply doorway drawn ON the cover,
+       reading this guest's own state (`coverRsvpOf`). On the Maker's canvas: the doorway as a guest who has not replied
+       meets it. While the cover holds it (shown), the Welcome's own Reply card under the cover is not drawn a second
+       time — one doorway, moved (Me keeps its card). */
+    const guestRsvp =
+      pageStage !== 'rsvp'
+        ? null
+        : isMakerCanvas
+          ? plan.rsvpShouldRender
+            ? coverRsvpOf({ card: null, visitorHref: replyDoor })
+            : null
+          : coverRsvpOf({ card: replyCard });
+    const coverHoldsReply = guestRsvp !== null && !heroElements.elements?.rsvp?.hidden;
     /* 👗 THIS GUEST'S OWN LOOK — read once, for the Welcome's "you" panel and
        for Me's parts (one home per fact: when Me draws them, the Welcome's
        look stands down — DECISION_LOG 2026-10-06 "'YOUR DETAILS' LIVES ON
@@ -3167,6 +3186,7 @@ export async function SiteBody({
               eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
               {...heroElements}
+              rsvp={guestRsvp}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={venueLine}
@@ -3187,6 +3207,7 @@ export async function SiteBody({
               eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
               {...heroElements}
+              rsvp={guestRsvp}
               card={inviteCard ?? undefined}
               /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */
               linkWords={hubLinkWords({ place: openBrowseContent.venue_map && detailsSceneList.some((w) => w.widget_type === 'venue_map'), story: menuSections.story || storySceneShown })}
@@ -3206,7 +3227,7 @@ export async function SiteBody({
             }
           >
 
-          {replyCard ? (
+          {coverHoldsReply ? null : replyCard ? (
             <ReplyCardRow card={replyCard} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} />
           ) : (
           <ArrivalActionRow

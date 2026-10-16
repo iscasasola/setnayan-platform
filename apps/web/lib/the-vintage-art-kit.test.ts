@@ -138,6 +138,10 @@ test('2 · with no kit every mount renders byte for byte what it did before; wit
   assert.match(dressed, /data-kit-slot="cover"/);
   assert.equal((dressed.match(/data-kit-piece=/g) ?? []).length, viewPlacements(VIEW, 'cover').length);
 
+  // A scene at None draws NO markup at all — not an empty slot.
+  const noneView = artKitView({ theme: 'vintage', accents: { countdown: ACCENT_NONE }, ownsPro: true, tryOn: false })!;
+  assert.equal(renderToStaticMarkup(h(KitSlot, { kit: noneView, slot: 'countdown' })), '', 'None drew an (empty) slot');
+
   const card = { kind: 'ask', line: 'Will you join us?', replyBy: null, href: '#reply', cta: 'Reply' } as never;
   assert.equal(renderToStaticMarkup(h(ReplyCardRow, { card, kit: null })), renderToStaticMarkup(h(ReplyCardRow, { card })), 'a null kit changed the reply card');
   assert.match(renderToStaticMarkup(h(ReplyCardRow, { card, kit: h(KitSlot, { kit: VIEW, slot: 'reply' }) })), /data-kit-slot="reply"/);

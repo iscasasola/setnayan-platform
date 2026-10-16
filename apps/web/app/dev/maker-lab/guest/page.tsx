@@ -71,6 +71,7 @@ import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
 import { labPhotoUrls } from './lab-photos';
 import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
 import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
+import { CoverPlayOpening } from '@/app/[slug]/_components/reveal/cover-play-opening';
 import { DEFAULT_REVEAL_CONFIG } from '@/lib/reveal-config-pure';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
@@ -658,6 +659,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           given={stageGiven}
         />
         {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+        {/* 🎬 ▶ on the Cover Scene: the guests' own veil, as the real canvas mounts it (`site-body.tsx`). */}
+        {sp.editor === '1' && !preview ? <CoverPlayOpening monogram="M&J" config={DEFAULT_REVEAL_CONFIG} petalsColor={DEFAULT_REVEAL_CONFIG.petalsColor} /> : null}
         {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each
             scene \`.pahina-in\` as a guest reaches it — what every "On arrival" Build in waits for. Without it the lab
             showed every On-arrival scene, row and part standing still, and walks reported a working feature as broken
@@ -957,6 +960,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </HubPageHold>
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+        {/* 🎬 ▶ on the Cover Scene: the guests' own veil, as the real canvas mounts it (`site-body.tsx`). */}
+        {sp.editor === '1' && !preview ? <CoverPlayOpening monogram="M&J" config={DEFAULT_REVEAL_CONFIG} petalsColor={DEFAULT_REVEAL_CONFIG.petalsColor} /> : null}
         {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each
             scene \`.pahina-in\` as a guest reaches it — what every "On arrival" Build in waits for. Without it the lab
             showed every On-arrival scene, row and part standing still, and walks reported a working feature as broken

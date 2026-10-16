@@ -52,7 +52,14 @@ export const REVEAL_PICTURE_PX = { w: 150, h: 96 } as const;
  * so the card draws the same flaps at the frame's portrait shape. Every piece is laid in percentages, so nothing
  * is redrawn — the same picture at another proportion, never new artwork.
  */
-export function revealPictureHtml(kind: string, c: RevealColours, w: number = REVEAL_PICTURE_PX.w, h: number = REVEAL_PICTURE_PX.h, fill = false): string {
+export function revealPictureHtml(kind: string, c: RevealColours, w: number = REVEAL_PICTURE_PX.w, h: number = REVEAL_PICTURE_PX.h, fill = false, over = false): string {
+  /* 🎭 OVER THE COUPLE'S REAL COVER (the Cover Scene's Style cards, controller 2026-10-17; prototype `.lc .pic`): the
+     card already shows the cover itself (`StylePreview`), so None adds nothing and the Sheer veil is the sheer cloth and
+     its stripes ON it (the prototype's `.v`); a rigid opening stays the closed opening, which hides the cover. */
+  if (over && kind === 'none') return '';
+  if (over && kind === 'veil-sheer') {
+    return `<span data-reveal-picture="${kind}" data-reveal-over="" style="position:absolute;inset:0;display:block;background:linear-gradient(180deg,rgba(255,252,247,.82),rgba(255,250,243,.7));-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)">${piece('inset:0;background:repeating-linear-gradient(100deg,transparent 0 10px,rgba(255,255,255,.4) 10px 12px)')}</span>`;
+  }
   const box = `position:${fill ? 'absolute;inset:0' : `relative;width:${w}px;height:${h}px`};margin:0 auto;border-radius:var(--m-r-sm,8px);overflow:hidden;border:1px solid rgba(0,0,0,.08);box-shadow:0 8px 20px -12px rgba(44,42,41,.45);`;
   const d = `background:${c.dominant};`;
   switch (kind) {
@@ -90,13 +97,13 @@ export function coverOpeningTag(kind: string): string {
   return `${name} ◆ opens over it`;
 }
 
-export function RevealPicture({ kind, colours, scale = 1, fill = false }: { kind: string; colours: RevealColours; scale?: number; fill?: boolean }) {
+export function RevealPicture({ kind, colours, scale = 1, fill = false, over = false }: { kind: string; colours: RevealColours; scale?: number; fill?: boolean; over?: boolean }) {
   return (
     <span
       aria-hidden
       className={fill ? 'absolute inset-0 block' : 'block'}
       style={fill || scale === 1 ? undefined : { transform: `scale(${scale})`, transformOrigin: 'center' }}
-      dangerouslySetInnerHTML={{ __html: revealPictureHtml(kind, colours, REVEAL_PICTURE_PX.w, REVEAL_PICTURE_PX.h, fill) }}
+      dangerouslySetInnerHTML={{ __html: revealPictureHtml(kind, colours, REVEAL_PICTURE_PX.w, REVEAL_PICTURE_PX.h, fill, over) }}
     />
   );
 }

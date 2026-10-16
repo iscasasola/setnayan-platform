@@ -64,6 +64,11 @@ type Props = {
    */
   autoplay?: boolean;
   /**
+   * 🎬 With `autoplay`: the veil first stands CLOSED this long, then lifts by itself — the Maker's ▶ on the Cover Scene
+   * (owner-approved 2026-10-16: "the closed veil with no words → the unveil"). Absent → it lifts on mount, as before.
+   */
+  autoplayAfterMs?: number;
+  /**
    * Render at a low backing resolution (DPR capped to 1) for the small
    * watermarked preview frame — keeps it un-recordable as a final asset + cheap.
    */
@@ -97,7 +102,7 @@ type GrabState = {
   cy0: number;
 };
 
-export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed, onUnveil, autoplay = false, lowRes = false }: Props) {
+export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed, onUnveil, autoplay = false, autoplayAfterMs = 0, lowRes = false }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   // Pointer hit-zone (owner 2026-06-19 "I still want the veil accessible but
   // also want to navigate the messages"): the canvas renders full-screen but
@@ -1161,7 +1166,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     applyView();
     // Preview mode: lift the veil hands-free on mount (no drag needed in a small
     // watermarked frame). Holds final state once revealed.
-    if (autoplay) startAuto();
+    let autoAfter = 0;
+    if (autoplay && autoplayAfterMs > 0) autoAfter = window.setTimeout(startAuto, autoplayAfterMs);
+    else if (autoplay) startAuto();
 
     /* ARM THE HIT-ZONE. It renders 'none' so that any early return above (reduced
        motion, no WebGL) leaves the guest a usable page rather than a screen-wide
@@ -1175,6 +1182,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
 
     return () => {
       cancelAnimationFrame(raf);
+      if (autoAfter) window.clearTimeout(autoAfter);
       if (roFrame) cancelAnimationFrame(roFrame);
       if (roFull) window.clearTimeout(roFull);
       ro?.disconnect();

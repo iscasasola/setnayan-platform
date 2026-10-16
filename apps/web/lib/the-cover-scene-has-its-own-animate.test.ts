@@ -100,16 +100,38 @@ test('(4) ▶ on the cover: the closed veil with none of the words, the unveil, 
   assert.match(play, /export function playCover\(header: HTMLElement, veil: boolean/);
   assert.match(play, /const lines = Array\.from\(header\.querySelectorAll<HTMLElement>\('\[data-cover-line\]'\)\);/, '▶ does not play every cover line');
   assert.match(play, /for \(const n of lines\) n\.style\.setProperty\('opacity', '0'\);/, 'a word shows behind the played veil');
-  assert.match(TOOLS, /if \(picked === MAKER_COVER_SCENE && !rsvpOpen\) \{[\s\S]{0,200}t: 'playCover', key: 'f:hero', veil: revealStage !== null && revealLook\.kind !== 'none'/);
+  assert.match(TOOLS, /if \(picked === MAKER_COVER_SCENE && !rsvpOpen\) \{[\s\S]{0,400}t: 'playCover', key: 'f:hero', veil: revealStage !== null && revealLook\.kind === 'veil-sheer'/);
   assert.match(read('app/[slug]/_components/editor-bridge.tsx'), /seqStop = playCover\(header, \(data as \{ veil\?: unknown \}\)\.veil === true,/);
+  /* 🎭 THE VEIL ▶ PLAYS IS THE GUESTS' OWN (controller 2026-10-17): no sheet is drawn — the canvas mounts the shipped
+     `RevealOverlay` (the Sheer veil + "Tap or swipe up to unveil") in its preview mode, lifting by itself. */
+  const at = play.indexOf('export function playCover(');
+  const cover = play.slice(at, play.indexOf('\n}\n', at));
+  assert.ok(cover.length > 400, 'anti-vacuity: playCover was not found');
+  assert.doesNotMatch(cover, /createElement\(/, '▶ draws a veil of its own again');
+  assert.match(cover, /sayOpening\(header\.ownerDocument\.defaultView, true\);/, '▶ does not ask for the guests’ veil');
+  assert.match(cover, /if \(veiled\) sayOpening\(header\.ownerDocument\.defaultView, false\);/, 'the veil stays after ▶ rests');
+  const opening = read('app/[slug]/_components/reveal/cover-play-opening.tsx');
+  assert.match(opening, /import \{ RevealOverlay \} from '\.\/reveal-overlay';/);
+  assert.match(opening, /<RevealOverlay key=\{run\.n\} \{\.\.\.props\} enabled premiumUnlocked eventTemplate="veil-sheer" preview=\{\{ liftAfterMs: run\.liftAfterMs \}\} \/>/, '▶ is not the guests’ overlay');
+  const overlay = read('app/[slug]/_components/reveal/reveal-overlay.tsx');
+  assert.match(overlay, /autoplay=\{preview !== null\}\s*autoplayAfterMs=\{preview\?\.liftAfterMs\}/, 'the played veil waits for a hand');
+  for (const side of [/useEffect\(\(\) => \{\s*if \(preview\) return;\s*const showing/, /if \(!mounted \|\| preview\) return;/, /if \(preview\) return setOpen\(true\);/]) {
+    assert.match(overlay, side, '▶’s veil touches the page’s hold, flags or film');
+  }
+  assert.match(overlay, /\{VEIL_HINT\}/, 'the instruction is not the guests’ own');
+  const body = read('app/[slug]/_components/site-body.tsx');
+  assert.match(body, /\{isEditorCanvas && editorBridge && !themeTile \? \(\s*<CoverPlayOpeningServer/, 'the Maker canvas has no ▶ veil');
+  assert.equal((read('app/dev/maker-lab/guest/page.tsx').match(/<CoverPlayOpening /g) ?? []).length, 2, 'the lab canvas has no ▶ veil');
+  /* …and while it plays, the status bar ("Build in · Action · Build out") stays away — the cover has no phases to name. */
+  assert.match(TOOLS, /\{seq && \(playing \|\| seq\.skipped\.length > 0\) && !\(coverPlay && seq\.skipped\.length === 0\) \? <StagePlayStatus /);
+  assert.match(TOOLS, /setCoverPlay\(true\);\s*postToCanvas\(\{ source: 'setnayan-editor', t: 'playCover'/);
 });
 
 test('(3) the corner says "No opening" once None is picked — the kind the toolbar reads is what plays on THIS stage', () => {
   /* Walk 2026-10-17 (WebKit 375): None ringed, and the corner still read "Sheer veil ◆ opens over it" — None is stored as
      "no stage plays it" (`lib/reveal-none.ts`), the template stays, and the toolbar was handed the template. */
   const reveal = read('app/dashboard/[eventId]/launch/_components/maker-reveal.tsx');
-  assert.match(reveal, /const playsHere = effective !== REVEAL_NONE_ID && shownHere;/);
-  assert.match(reveal, /setStageRevealKind\(playsHere \? effective : REVEAL_NONE_ID\);/, 'the toolbar is handed the template, not what plays here');
+  assert.match(reveal, /const picked = revealCoverPicked\(now, onStage\);\s*useEffect\(\(\) => \{\s*setStageRevealKind\(picked\);/, 'the toolbar is handed the template, not what plays here');
   assert.equal((reveal.match(/setStageRevealKind\(/g) ?? []).length, 1, 'ONE place says the kind');
-  assert.match(TOOLS, /veil: revealStage !== null && revealLook\.kind !== 'none'/, '▶ plays a veil that the corner says is not there');
+  assert.match(TOOLS, /veil: revealStage !== null && revealLook\.kind === 'veil-sheer'/, '▶ plays a veil that the corner says is not there');
 });

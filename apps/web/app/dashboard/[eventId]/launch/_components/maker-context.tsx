@@ -368,3 +368,9 @@ export const MAKER_OPEN_PART_EVENT = 'maker:open-part';
  * picks it. A second tap on the picked part's words types (`makerStageMayType`).
  */
 export const MAKER_STAGE_PICK_EVENT = 'maker:stage-pick';
+
+/**
+ * 💬 A body under the Stages toolbar says one short line in the toolbar's own note (the `PeekToast` that says why a
+ * tool is grey) — `detail` = the words. The Cover Scene's Opening uses it for a card that is not offered yet.
+ */
+export const MAKER_STAGE_SAY_EVENT = 'maker:stage-say';

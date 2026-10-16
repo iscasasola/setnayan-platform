@@ -94,7 +94,7 @@ import { SEE_AS, SEE_AS_EDITING, seeAsDrawingLine, seeAsLabel, type SeeAs } from
 import { COVER_OPENING_TAG_ATTR, COVER_OPENING_TAG_CSS, coverOpeningTag, revealPageInk } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
+import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
@@ -395,6 +395,8 @@ export function StageTools({
   const goToPageRef = useRef<(key: string, option: string) => void>(() => {});
   /** ▶ The picked part's sequence as the canvas plays it: the phase now, and what it has none of (`play-sequence.ts`). */
   const [seq, setSeq] = useState<{ phase: string; skipped: string[] } | null>(null);
+  /** 🎬 ▶ is playing the Cover Scene: veil → unveil → entrance has no phases to name, so the status bar stays away. */
+  const [coverPlay, setCoverPlay] = useState(false);
   /* What it had none of stays said a moment after it rests, then goes. */
   useEffect(() => {
     if (playing || !seq) return;
@@ -745,6 +747,15 @@ export function StageTools({
     window.addEventListener(MAKER_STAGE_PICK_EVENT, onPick);
     return () => window.removeEventListener(MAKER_STAGE_PICK_EVENT, onPick);
   }, [pickPart]);
+  /* 💬 A line a body under the toolbar asks it to say (`MAKER_STAGE_SAY_EVENT`). */
+  useEffect(() => {
+    const onSay = (e: Event) => {
+      const words = (e as CustomEvent<unknown>).detail;
+      if (typeof words === 'string' && words) setWhyRef.current(words);
+    };
+    window.addEventListener(MAKER_STAGE_SAY_EVENT, onSay);
+    return () => window.removeEventListener(MAKER_STAGE_SAY_EVENT, onSay);
+  }, []);
   /* 🔑 Which part is picked, on the shell — the work area and the reply pages read it with every tap (the typing
      rule's `picked`; the answer is "select only" now, and the reply pages bring the picked part into view with it). */
   useEffect(() => {
@@ -1051,10 +1062,13 @@ export function StageTools({
        entering in its beat (`play-sequence.ts` `playCover`). No opening: the entrance alone. */
     if (picked === MAKER_COVER_SCENE && !rsvpOpen) {
       setSeq(null);
-      postToCanvas({ source: 'setnayan-editor', t: 'playCover', key: 'f:hero', veil: revealStage !== null && revealLook.kind !== 'none' });
+      setCoverPlay(true);
+      /* The guests' own veil is played (`CoverPlayOpening`); a rigid opening opens on its seal, never by itself. */
+      postToCanvas({ source: 'setnayan-editor', t: 'playCover', key: 'f:hero', veil: revealStage !== null && revealLook.kind === 'veil-sheer' });
       setPlaying(true);
       return;
     }
+    setCoverPlay(false);
     const def = picked ? MAKER_PARTS[picked] : null;
     /* ▶ A picked part plays its WHOLE life on the canvas — Build in · Action · Build out · rest (owner: "i cannot
        see the build out and action"); the canvas tells each phase back (`playSeq`). */
@@ -1629,7 +1643,7 @@ export function StageTools({
 
       {/* ══ ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the part has none of
           named ("Build out: none"), so a blank never reads as a fault. Shown over the page while it plays. ══ */}
-      {seq && (playing || seq.skipped.length > 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
+      {seq && (playing || seq.skipped.length > 0) && !(coverPlay && seq.skipped.length === 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
       {/* ══ 🚫 WHY A GREY TOOL DID NOTHING — one line, the app's toast, gone by itself ══ */}
       {/* The toolbar's one toast — drawn on the page's BODY, never inside the toolbar: the toolbar slides away for ▶ and
           for the whole-page preview (a transform), and a toast inside it went with it — seen on the review copy,

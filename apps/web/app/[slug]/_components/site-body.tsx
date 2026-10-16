@@ -88,6 +88,7 @@ import { POST_EVENT_STYLE_HOME } from '@/lib/post-event-styles';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';
+import { CoverPlayOpeningServer } from './reveal/cover-play-opening-server';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { revealMaterialsFor } from '@/lib/reveal-materials';
 import {
@@ -4509,6 +4510,15 @@ export async function SiteBody({
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
       {isEditorCanvas && editorBridge && !themeTile ? <EditorBridge /> : null}
+      {/* 🎬 ▶ on the Cover Scene plays the guests' own veil (`CoverPlayOpening`) — the same dress the overlay above wears. */}
+      {isEditorCanvas && editorBridge && !themeTile ? (
+        <CoverPlayOpeningServer
+          monogram={revealMonogram(event.display_name)}
+          kitSeal={artKit ? <KitSeal kit={artKit} mark={hubLook.monogram} /> : null}
+          veilColor={revealVeilColor(event.role_palette)}
+          eventEffects={resolveRevealEffects(event.std_reveal_effects)}
+        />
+      ) : null}
       {/* 👁 See as: the sample viewer touches nothing (sample-viewer-inert.tsx). */}
       {sampleViewer !== null ? <SampleViewerInert canvas={isEditorCanvas} /> : null}
       {sceneRunsOnPage ? <HubSceneRuns /> : null}

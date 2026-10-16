@@ -208,6 +208,16 @@ export function playSequence(target: HTMLElement, isScene: boolean, report: (r: 
  */
 export const COVER_PLAY_VEIL_MS = 900;
 export const COVER_PLAY_LIFT_MS = 350;
+/**
+ * 🎭 THE VEIL ▶ PLAYS IS THE GUESTS' OWN (controller 2026-10-17: "the SAME veil guests get on live … reuse the guest
+ * component; don't draw a new one"): `playCover` draws no sheet — it asks the canvas's `CoverPlayOpening` to mount the
+ * shipped `RevealOverlay` (the Sheer veil + "Tap or swipe up to unveil") for this one ▶, lifting by itself after
+ * `liftAfterMs`, and to take it away again (`on: false`) when ▶ rests or is stopped.
+ */
+export const COVER_PLAY_OPENING_EVENT = 'setnayan:cover-play-opening';
+export type CoverPlayOpeningDetail = { on: boolean; liftAfterMs: number };
+const sayOpening = (view: Window | null, on: boolean) =>
+  view?.dispatchEvent(new CustomEvent<CoverPlayOpeningDetail>(COVER_PLAY_OPENING_EVENT, { detail: { on, liftAfterMs: COVER_PLAY_VEIL_MS } }));
 export function playCover(header: HTMLElement, veil: boolean, report: (r: SeqReport) => void): () => void {
   if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     report({ phase: 'rest', skipped: [SEQ_STILL] });
@@ -216,12 +226,12 @@ export function playCover(header: HTMLElement, veil: boolean, report: (r: SeqRep
   header.scrollIntoView({ behavior: 'auto', block: 'start' });
   const lines = Array.from(header.querySelectorAll<HTMLElement>('[data-cover-line]'));
   const timers: number[] = [];
-  let sheet: HTMLElement | null = null;
+  let veiled = false;
   const rest = () => {
     for (const t of timers) window.clearTimeout(t);
     timers.length = 0;
-    sheet?.remove();
-    sheet = null;
+    if (veiled) sayOpening(header.ownerDocument.defaultView, false);
+    veiled = false;
     for (const n of lines) {
       n.style.removeProperty('opacity');
       settleAtRest(n);
@@ -256,24 +266,11 @@ export function playCover(header: HTMLElement, veil: boolean, report: (r: SeqRep
     enter();
     return rest;
   }
-  /* The closed veil: none of the words, a sheer sheet over the cover — then it lifts. */
+  /* The closed veil — the guests' own — with none of the words behind it; it lifts by itself, then every line enters. */
   for (const n of lines) n.style.setProperty('opacity', '0');
-  sheet = header.ownerDocument.createElement('div');
-  sheet.setAttribute('data-cover-play-veil', '');
-  sheet.style.cssText = `position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(247,242,236,.9));backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);transition:transform ${COVER_PLAY_LIFT_MS}ms cubic-bezier(.4,0,.2,1),opacity ${COVER_PLAY_LIFT_MS}ms linear`;
-  if (getComputedStyle(header).position === 'static') header.style.position = 'relative';
-  header.appendChild(sheet);
+  veiled = true;
+  sayOpening(header.ownerDocument.defaultView, true);
   report({ phase: 'in', skipped: [] });
-  timers.push(window.setTimeout(() => {
-    if (sheet) {
-      sheet.style.transform = 'translateY(-100%)';
-      sheet.style.opacity = '0';
-    }
-    timers.push(window.setTimeout(() => {
-      sheet?.remove();
-      sheet = null;
-      enter();
-    }, COVER_PLAY_LIFT_MS));
-  }, COVER_PLAY_VEIL_MS));
+  timers.push(window.setTimeout(enter, COVER_PLAY_VEIL_MS + COVER_PLAY_LIFT_MS));
   return rest;
 }

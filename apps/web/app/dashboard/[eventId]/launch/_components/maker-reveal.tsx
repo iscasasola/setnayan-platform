@@ -18,18 +18,25 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Slider } from '@/app/_components/slider';
 import { SwitchTrack } from '@/app/_components/switch-track';
 import { ActionButton } from '@/components/action-button';
-import { useMaker } from './maker-context';
+import { MAKER_STAGE_SAY_EVENT, useMaker } from './maker-context';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { ColourSheet } from '../../website/editor/_components/colour-well';
 import { StageStyle } from './stage-panel/stage-style';
-import { Dd, PanelSwitch } from './stage-panel/kit';
+import { Dd } from './stage-panel/kit';
 import { RevealPicture } from './stage-panel/reveal-picture';
-import { REVEAL_NONE_ID, revealIsNone, revealPickPatch, revealSwitchOn, revealSwitchPatch, type RevealPatch } from '@/lib/reveal-none';
+import { REVEAL_NONE_ID, revealCoverPickPatch, revealCoverPicked, type RevealPatch } from '@/lib/reveal-none';
 import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
-import { SP_LOOK_CARD, SP_LOOK_MARK, SP_LOOK_NAME, SP_LOOK_NAME_WHOLE, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
+import { SP_ROWS_ROW } from '@/lib/maker-stage-room';
+import { StyleCards } from './stage-panel/style-carousel';
+import { StylePreview } from './stage-panel/style-preview';
+import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
+
+/** 🌫 The prototype's openings after the Sheer veil (`cover_scene_edit_animate_2026-10-16.html` `OPENINGS`, owner 2026-10-15). */
+const REVEAL_COVER_SOON: readonly string[] = ['four-flap', 'church-doors'];
+const REVEAL_COVER_SOON_SAYS = 'After the envelope proof — not yet';
 
 /**
  * 🎭 THE REVEAL AS A PART (the new Maker's Stages side, plan PR 3 — owner
@@ -349,15 +356,10 @@ export function MakerRevealPicker({
       {error}
     </p>
   ) : null;
-  /* 🎭 The Stages panel's Reveal part — the prototype's Style (DECISION_LOG 2026-10-07): Look = its five
-     openings as REAL miniatures (`RevealPicture`, the picture the page draws) and Extras ▾; Arrange = On this
-     stage ▾ (Hidden = no reveal here). No Background: the reveal plays over the cover. */
+  /* 🎭 The Stages panel's Opening — Cover Scene › Style (owner-approved 2026-10-16): the openings as cards over the
+     couple's own cover, then Extras ◆ ▾ (`RevealStagePart`). No Background: the opening plays over the cover. */
   if (onStage) {
-    /* Shown / Hidden write THIS stage only, through the one helper. */
-    const showHere = (on: boolean) => (on ? setStages(revealStagesWith(stages, onStage, true)) : setStages(revealStagesWith(stages, onStage, false)));
-    /* The opening a switch takes when it is turned on from the older "No reveal" value: the default, if the event may use it. */
-    const fallback = openings.some((o) => o.id === defaultOpening) ? defaultOpening : (openings[0]?.id ?? null);
-    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} savePick={savePick} fallback={fallback} shownHere={stages.includes(onStage)} showHere={showHere} stages={stages} toggleStage={toggleStage} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
+    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} savePick={savePick} stages={stages} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
   }
   /* 🧩 The navigator's part: the openings alone. */
   if (part === 'options') {
@@ -663,31 +665,21 @@ function RevealStagePart({
   onStage,
   openings,
   effective,
-  choose,
   savePick,
-  fallback,
-  shownHere,
-  showHere,
   stages,
-  toggleStage,
   effects,
   setEffects,
   ownsPro,
   storeShell,
   failed,
 }: {
-  /** 🚫 The None card's door: one patch for the opening and where it plays (`lib/reveal-none.ts`). */
+  /** 🚫 One patch for the opening and where it plays (`lib/reveal-none.ts` `revealCoverPickPatch`). */
   savePick: (patch: RevealPatch | null) => void;
-  fallback: string | null;
-  /** Where the reveal plays — the ONE source (`events.reveal_stages`, drafted) Arrange's "On this stage" also writes. */
+  /** Where the reveal plays — the ONE source (`events.reveal_stages`, drafted). */
   stages: readonly RevealStage[];
-  toggleStage: (s: RevealStage) => void;
   onStage: RevealStage;
   openings: MakerRevealOpening[];
   effective: string;
-  choose: (value: string | null) => void;
-  shownHere: boolean;
-  showHere: (on: boolean) => void;
   effects: RevealEffects;
   setEffects: (next: RevealEffects) => void;
   ownsPro: boolean;
@@ -695,110 +687,89 @@ function RevealStagePart({
   failed: ReactNode;
 }) {
   const look = useStageRevealLook();
-  /* The cover's corner names the opening that plays on THIS stage (`stage-tools.tsx`) — None too ("No opening"), and ▶
-     plays the veil only when one does. None is stored as "no stage plays it" (`lib/reveal-none.ts`), so the template
-     stays and `effective` alone kept saying "Sheer veil ◆ opens over it" after None was picked (walk 2026-10-17). */
-  const playsHere = effective !== REVEAL_NONE_ID && shownHere;
-  useEffect(() => {
-    setStageRevealKind(playsHere ? effective : REVEAL_NONE_ID);
-  }, [effective, playsHere]);
-  const extras = effective !== 'none' ? revealExtrasFor(effective) : [];
-  const mark = makerProMark({ owns: ownsPro, storeShell });
   const now = { effective, stages };
-  const none = revealIsNone(now);
+  /* 🎭 THE CARD PICKED IS WHAT PLAYS ON THIS STAGE'S COVER (`revealCoverPicked`) — and the cover's corner names the same
+     (`stage-tools.tsx`; None too: "No opening"), and ▶ plays a veil only when one does. None keeps the event's opening
+     and only takes this stage out (`revealCoverPickPatch`), so `effective` alone kept saying "Sheer veil ◆ opens over
+     it" after None was picked (walk 2026-10-17). */
+  const picked = revealCoverPicked(now, onStage);
+  useEffect(() => {
+    setStageRevealKind(picked);
+  }, [picked]);
+  const extras = picked !== REVEAL_NONE_ID ? revealExtrasFor(picked) : [];
+  const mark = makerProMark({ owns: ownsPro, storeShell });
+  /* 🌫 The prototype's cards after the Sheer veil — the envelope and the doors exist (`REVEAL_LIBRARY`), but an opening
+     the house has not switched on is drawn faint and says why (prototype `.lc.soon`: "After the envelope proof — not
+     yet"); switched on, it is an ordinary card. */
+  const soon = REVEAL_COVER_SOON.filter((id) => !openings.some((o) => o.id === id));
+  const options = [
+    { id: REVEAL_NONE_ID, name: 'None' },
+    ...openings.map((o) => ({ id: o.id, name: o.label })),
+    ...soon.map((id) => ({ id, name: REVEAL_LIBRARY.find((r) => r.id === id)?.label ?? id })),
+  ];
   return (
     <section className="contents" data-maker-reveal-part={onStage}>
+      {/* 🎭 THE COVER SCENE'S STYLE IS THE OPENING (owner-approved 2026-10-16, prototype `drawOpening`): the cards ARE the
+          couple's own cover — the shipped miniature every Style card draws (`StyleCards` › `StylePreview`, the cover
+          `f:hero` as it is) — with the opening over it (`RevealPicture` `over`): None = the cover alone, Sheer veil = its
+          sheer cloth and stripes. Under them ONE row: Extras ◆ ▾ and what the opening does, or, with None, what that
+          means. Per stage: None takes THIS stage's cover out, never the others (the three switches are gone). */}
       <StageStyle
+        rows
         look={
           <>
-            {
-              <div role="radiogroup" aria-label="Kind" data-style-carousel="" data-maker-reveal-kinds="" className="-mx-[2px] flex shrink-0 snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden px-[2px] pb-1 pt-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {/* 🚫 NONE — the first card (owner 2026-10-08: "and none."): the cover with no opening over it. It IS
-                    "every stage switch off" (`lib/reveal-none.ts`) — one fact, drawn twice, never two values. Free. */}
-                <button type="button" role="radio" aria-checked={none} data-maker-reveal-kind={REVEAL_NONE_ID} data-style-card={REVEAL_NONE_ID} onClick={() => savePick(revealPickPatch(REVEAL_NONE_ID, now, onStage))} className={SP_LOOK_CARD}>
-                  <span
-                    data-style-card-preview=""
-                    className={`${SP_PHONE_PICTURE} ${
-                      none ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
-                    }`}
-                  >
-                    <span data-style-preview="render" className="pointer-events-none absolute inset-0">
-                      <RevealPicture kind={REVEAL_NONE_ID} colours={look.colours} fill />
+            <StyleCards
+              data="reveal"
+              label="Opening"
+              options={options}
+              value={picked}
+              dim={soon}
+              pending={false}
+              canvasKey="f:hero"
+              sceneType="opening"
+              onPick={(id) => {
+                if (soon.includes(id)) {
+                  window.dispatchEvent(new CustomEvent(MAKER_STAGE_SAY_EVENT, { detail: REVEAL_COVER_SOON_SAYS }));
+                  return;
+                }
+                savePick(revealCoverPickPatch(id, now, onStage));
+              }}
+              picture={(id, on) => (
+                <>
+                  <StylePreview canvasKey="f:hero" sceneType="opening" styleId={id} current={on} />
+                  {id !== REVEAL_NONE_ID ? <RevealPicture kind={id} colours={look.colours} fill over /> : null}
+                  {id !== REVEAL_NONE_ID && mark ? (
+                    <span data-reveal-kind-mark="" className="absolute right-1.5 top-1 z-[1]">
+                      <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" />
                     </span>
-                  </span>
-                  <span className={`${SP_LOOK_NAME} ${none ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>None</span>
-                </button>
-                {openings.map((o) => {
-                  const on = !none && effective === o.id;
-                  return (
-                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => (none ? savePick(revealPickPatch(o.id, now, onStage)) : choose(o.id))} className={SP_LOOK_CARD}>
-                      <span
-                        data-style-card-preview=""
-                        className={`${SP_PHONE_PICTURE} ${
-                          on ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
-                        }`}
-                      >
-                        <span data-style-preview="render" className="pointer-events-none absolute inset-0">
-                          <RevealPicture kind={o.id} colours={look.colours} fill />
-                        </span>
-                      </span>
-                      {/* The name reads WHOLE (two lines where it needs them, never a cut word); its ◆ Pro mark has a line of
-                          its own under it — side by side they were clipped at both ends of the 112-px frame. */}
-                      <span data-reveal-kind-name="" className={`${SP_LOOK_NAME_WHOLE} ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
-                        {o.label}
-                      </span>
-                      {mark ? (
-                        <span data-reveal-kind-mark="" className={SP_LOOK_MARK}>
-                          <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" />
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            }
-            {/* 🎚 WHERE IT PLAYS — one switch per stage that can carry a reveal (owner 2026-10-07: "reveal will have a
-                toggle for each stage it is at. to know where they want this to activate"). The same drafted list
-                Arrange › On this stage writes — one source, two doors. */}
-            <div className="grid shrink-0 grid-cols-3 gap-1.5" data-reveal-stage-switches="">
-              {REVEAL_STAGE_CHOICES.map((st) => (
-                <span key={st} className="flex min-w-0 flex-col items-center gap-0.5" data-reveal-stage-switch={st}>
-                  <span className="max-w-full truncate text-[12px] font-semibold text-[var(--sp-ink2)]">{PUBLIC_STAGE_LABELS[st]}</span>
-                  <PanelSwitch on={revealSwitchOn(now, st)} label={`Reveal on ${PUBLIC_STAGE_LABELS[st]}`} onChange={() => (effective === REVEAL_NONE_ID ? savePick(revealSwitchPatch(st, now, fallback)) : toggleStage(st))} data={`reveal-${st}`} />
-                </span>
-              ))}
+                  ) : null}
+                </>
+              )}
+            />
+            <div data-look-row="opening" className={`${SP_ROWS_ROW} h-[var(--sp-rh)] shrink-0`}>
+              {picked === REVEAL_NONE_ID ? (
+                <span className="min-w-0 flex-1 px-1 text-[12.5px] leading-snug text-[var(--sp-ink2)]">No opening: the cover shows at once, its entrance plays on arrival.</span>
+              ) : (
+                <>
+                  {extras.length > 1 ? (
+                    <Dd
+                      small="Extras ◆"
+                      label="Extras"
+                      data="reveal-extras"
+                      value={revealExtraOf(effects, picked)}
+                      options={extras.map((x) => ({ key: x, label: REVEAL_EXTRA_LABEL[x] }))}
+                      onPick={(k) => setEffects(revealEffectsWithExtra(effects, picked, k as (typeof extras)[number]))}
+                      stacked
+                    />
+                  ) : null}
+                  <span className="min-w-0 flex-[1.4] px-1 text-[12.5px] leading-snug text-[var(--sp-ink2)]">Opens once, over this cover. Behind it, nothing shows or plays.</span>
+                </>
+              )}
             </div>
-            {extras.length > 1 ? (
-              <div className="flex h-11 shrink-0">
-                <Dd
-                  small="Extras"
-                  label="Extras"
-                  data="reveal-extras"
-                  value={revealExtraOf(effects, effective)}
-                  options={extras.map((x) => ({ key: x, label: REVEAL_EXTRA_LABEL[x] }))}
-                  onPick={(k) => setEffects(revealEffectsWithExtra(effects, effective, k as (typeof extras)[number]))}
-                />
-              </div>
-            ) : null}
             {failed}
           </>
         }
         background={null}
-        arrange={
-          <div className="flex h-11 shrink-0">
-            <Dd
-              small="On this stage"
-              label="Show or hide the reveal on this stage"
-              data="reveal-show"
-              value={shownHere ? 'shown' : 'hidden'}
-              options={[
-                { key: 'shown', label: 'Shown' },
-                { key: 'hidden', label: 'Hidden — no reveal' },
-              ]}
-              onPick={(k) => showHere(k === 'shown')}
-            />
-          </div>
-        }
       />
     </section>
   );

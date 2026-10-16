@@ -2,7 +2,7 @@
 
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Check, Undo2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { extractPosterFrame } from '../../../_components/std-media-picker';
@@ -87,6 +87,8 @@ import { useMaker } from '../../../launch/_components/maker-context';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { uploadStill } from '@/lib/upload-still';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
+import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 
 /**
  * BEHIND EVERY SCENE — your hero, and the theme follows its colours
@@ -156,7 +158,9 @@ const BLUR_LABEL = { soft: 'Soft', strong: 'Strong' } as const;
 const COLOUR_INFO =
   'The first circle is your page colour. Add a second and Dawn · Diagonal · Glow blend from the first to the second. Plain uses one colour — remove the second to pick it.';
 const PLAIN_NEEDS_ONE = 'Plain uses one colour — remove the second first';
-const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
+const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' } as const;
+/** 🎯 What Focus does, behind its ⓘ — a phone crops the sides, a wide screen the top and bottom (owner 2026-10-14). */
+const FOCUS_INFO = 'Which part of your picture stays in view. A phone shows the middle and crops the sides — Left or Right keeps that side. A wide screen crops the top and bottom — Top or Bottom keeps that edge.';
 
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
@@ -410,12 +414,9 @@ export function MainBackgroundPanel({
   colours,
   draftAction = hubDraftAction,
   page = null,
-  heroVideo = null,
 }: {
   /** 🌈 Studio › Look › Background's Colour source and Shade ▾ (the new Maker). Absent = the colour is set elsewhere (the lab). */
   page?: MainBackgroundPage | null;
-  /** 🎬 The hero video's own uploader (Look › Background since 2026-10-08) — the Studio draws it under "Your photo or video". */
-  heroVideo?: ReactNode;
   eventId: string;
   /** The couple's saved theme. Classic has no moving background at all. */
   themeId: InviteThemeId;
@@ -443,7 +444,7 @@ export function MainBackgroundPanel({
   photoChoices?: readonly { ref: string; url: string }[];
   videoChoice?: { ref: string; url: string; poster?: string | null } | null;
   sceneUploads?: readonly SceneUpload[];
-  /** 💾 The event's settled `couple_media_bytes` — the 100 MB meter under the upload. Absent = no meter. */
+  /** 💾 The event's settled `couple_media_bytes` — the plan's media meter under the upload. Absent = no meter. */
   mediaUsedBytes?: number;
   /** The draft door — `hubDraftAction` (the default); the dev Maker lab hands its own stand-in so no write leaves it. */
   draftAction?: typeof hubDraftAction;
@@ -1152,7 +1153,7 @@ export function MainBackgroundPanel({
                   swatch={PAPER_SWATCH}
                   onPick={() => pickExisting({ kind: 'snippet', ref: videoChoice.ref, stillUrl: urlOf(videoChoice.poster), poster: videoChoice.poster })}
                 >
-                  <StillOverSwatch src={urlOf(videoChoice.poster)} swatch={PAPER_SWATCH} />
+                  <StillOverSwatch src={urlOf(videoChoice.poster)} swatch={PAPER_SWATCH} {...held(active && own?.kind === 'snippet' && own.media === videoChoice.ref)} />
                 </BgCard>
               ) : null}
               {sceneUploads.map((u) => (
@@ -1233,6 +1234,7 @@ export function MainBackgroundPanel({
             <FileUpload
               bucket="media"
               pathPrefix={`events/${eventId}/main-background`}
+              refusalLink={coupleMediaRefusalLink(ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`)}
               multiple={false}
               maxSizeMB={100}
               acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
@@ -1249,7 +1251,7 @@ export function MainBackgroundPanel({
               disabled={pending}
               label="Upload a photo or clip"
             />
-            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} /> : null}
+            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
             <span className="text-[12px] text-ink/70" data-main-ground-tip="">
               <InfoTip label="Best size" align="start">
                 An upright (portrait) photo, {IMAGE_MAX_EDGE.toLocaleString('en-US')} pixels or more on its long side. Faces near the middle — the edges are cropped. Clips up to{' '}
@@ -1367,7 +1369,7 @@ export function MainBackgroundPanel({
               </BgRow>
             ) : null}
             {takes.focus ? (
-              <BgRow label="Focus" data="focus">
+              <BgRow label="Focus" data="focus" info={FOCUS_INFO}>
                 <PickMenu
                   label="Focus"
                   dataAttr="data-studio-focus-pick"
@@ -1445,8 +1447,12 @@ export function MainBackgroundPanel({
           />
         ) : null}
 
-        {/* 🎬 The hero video (it was under Music) — beside the other pictures of theirs. */}
-        {view === 'own' ? heroVideo : null}
+        {/* 🎬 NO HERO-VIDEO UPLOADER HERE (owner 2026-10-14, Maker test item 1: *"there is a part there hero video that
+            has no use for the background"*). It wrote `landing_page_hero_video_r2_key` — the hero's own clip, which is
+            not the main background and never reaches a guest (`GUEST_HERO_VIDEO_PLAYBACK`). The restudy's list for this
+            source (§ 2.1: "Your cover photo · Save the Date upload · Gallery · Your video ▶ + an Upload card") has the
+            hero video as the "Your video" CARD above — a pick that makes it the background — and a new clip comes in
+            through the Upload card, which saves it AS the background. */}
 
         {error ? (
           <p role="alert" className="text-[12px] text-terracotta-700">
@@ -1521,6 +1527,7 @@ export function MainBackgroundPanel({
           <FileUpload
             bucket="media"
             pathPrefix={`events/${eventId}/main-background`}
+            refusalLink={coupleMediaRefusalLink(ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`)}
             multiple={false}
             maxSizeMB={100}
             acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
@@ -1535,8 +1542,8 @@ export function MainBackgroundPanel({
             disabled={pending}
             label="Upload a photo or clip"
           />
-          {/* 💾 The event's 100 MB of uploads, beside the upload that spends it. */}
-          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} /> : null}
+          {/* 💾 The event's uploads against its PLAN's allowance (Free 10 MB · Pro 500 MB), beside the upload that spends it. */}
+          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
           {/* 📐 The owner asked for the best size (2026-10-01). The photo fills
               the screen and is cropped to it, and 99% of guests are on a phone —
               so upright, and at least the size the upload keeps. */}

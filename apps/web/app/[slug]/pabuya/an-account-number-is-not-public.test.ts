@@ -24,6 +24,19 @@
  * nobody made. The owner then ruled on the rest himself: "gate the gcash number
  * too." A wallet handle is a mobile number; being changeable in an app makes it
  * recoverable, not public.
+ *
+ * 🏠 2026-10-14 — THE GIFTS PAGE IS NOW TWO PLACES, AND THIS GUARD FOLLOWED IT.
+ * E-Gifts is drawn on the Welcome page too, in place of its door (owner: "can't
+ * we just have it there instead of a button?"). So the page's content moved into
+ * ONE reader (`_lib/gift-page.server.ts`), ONE pure rule (`_lib/gift-cards.ts`)
+ * and ONE body (`_components/gift-page-body.tsx`), and "the page" below is those
+ * three with the route itself. Every pin is the one that was here, retargeted —
+ * and the rule is now EXECUTED (test 0), and the Welcome is held to the SAME
+ * reader (the last test).
+ *
+ * 🛡 Sabotaged, each red then restored (2026-10-14): `withhold = false` in the rule → 0, 1 and the drawn Welcome red ·
+ * one Welcome handed no content → the gate test red · the content started without the door's gate → the gate test
+ * red · the Welcome drawing E-Gifts with no gift gate → the drawn Welcome red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,16 +45,48 @@ import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
 
+/** The gifts page's content, wherever it is drawn: the route, its one reader, its one rule, its one body. */
+const GIFT_PAGE_FILES = [
+  'app/[slug]/pabuya/page.tsx',
+  'app/[slug]/pabuya/_lib/gift-page.server.ts',
+  'app/[slug]/pabuya/_lib/gift-cards.ts',
+  'app/[slug]/pabuya/_components/gift-page-body.tsx',
+] as const;
+
 function pageBody(): string {
-  const whole = stripComments(
+  const route = stripComments(
     readFileSync(join(process.cwd(), 'app/[slug]/pabuya/page.tsx'), 'utf8'),
   );
   /* 🪤 Collapse whitespace: this repo's stripComments pads comments with SPACES
      of the same length, so a character-measured window lands on blanks. */
-  const start = whole.indexOf('export default async function');
+  const start = route.indexOf('export default async function');
   assert.ok(start > 0, 'the gifts page has no default export — this guard points at nothing');
-  return whole.slice(start).replace(/\s+/g, ' ');
+  const rest = GIFT_PAGE_FILES.slice(1).map((f) => stripComments(readFileSync(join(process.cwd(), f), 'utf8')));
+  return [route.slice(start), ...rest].join('\n').replace(/\s+/g, ' ');
 }
+
+test('0 · 🔒 the rule, EXECUTED: an unrecognised reader gets no number and no QR, and is told why', async () => {
+  const { giftCardsFor } = await import('./_lib/gift-cards');
+  const methods = [
+    { method_kind: 'bank', label: 'BPI', account_name: 'Maria Santos', handle: '1234 5678 90', note: null, qrDisplayUrl: '/api/pabuya/qr/S89E-1' },
+    { method_kind: 'gcash', label: 'GCash', account_name: 'Maria S.', handle: '0917 123 4567', note: null, qrDisplayUrl: null },
+    /* QR-only: the row whose withholding once went unsaid. */
+    { method_kind: 'maya', label: 'Maya', account_name: null, handle: null, note: null, qrDisplayUrl: '/api/pabuya/qr/S89E-3' },
+  ];
+  const stranger = giftCardsFor(methods, false);
+  assert.equal(stranger.cards.length, 3, 'a way to give was dropped instead of shown without its number');
+  for (const c of stranger.cards) {
+    assert.equal(c.handle, null, `${c.label}: the number reached a reader the event does not recognise`);
+    assert.equal(c.qrUrl, null, `${c.label}: the QR reached a reader the event does not recognise`);
+  }
+  assert.deepEqual(stranger.cards.map((c) => c.accountName), ['Maria Santos', 'Maria S.', null], 'the account NAME is what a stranger may see');
+  assert.equal(stranger.identifiersWithheld, true);
+  assert.equal(giftCardsFor([methods[2]!], false).identifiersWithheld, true, 'a QR-only way withheld without a word');
+  const guest = giftCardsFor(methods, true);
+  assert.deepEqual(guest.cards.map((c) => c.handle), ['1234 5678 90', '0917 123 4567', null]);
+  assert.deepEqual(guest.cards.map((c) => c.qrUrl), ['/api/pabuya/qr/S89E-1', null, '/api/pabuya/qr/S89E-3']);
+  assert.equal(guest.identifiersWithheld, false);
+});
 
 test('🔒 EVERY payment identifier and its QR are withheld from an unrecognised reader', () => {
   const src = pageBody();
@@ -102,9 +147,10 @@ test('recognition is a session for THIS event, or a real host', () => {
     'host membership is not asked through isHostMemberType — existence was once mistaken for authority here',
   );
   // The page must actually REACH the rule; a helper nobody calls is a comment.
+  /* (2026-10-14) asked beside the page's other reads, in its one reader — the THIRD answer is the rule's. */
   assert.match(
     pageBody(),
-    /viewerIsRecognised = await viewerIsRecognisedForEvent\(event\.event_id\)/,
+    /const \[methods, wishRead, viewerIsRecognised, stored, words\] = await Promise\.all\(\[ fetchEgiftMethods\(admin, event\.event_id, \{ enabledOnly: true, \}\), readGuestWishList\(admin, event\.event_id, reader\?\.guest_id \?\? null\), viewerIsRecognisedForEvent\(event\.event_id\),/,
     'the gifts page no longer asks the shared recognition rule',
   );
 });
@@ -171,7 +217,7 @@ test('🔒 the EVENT HUB names rails only — never an identifier, never couple 
 test('🔑 the page says something is withheld, so a gate cannot read as a bug', () => {
   const src = pageBody();
   assert.ok(src.includes('identifiersWithheld'), 'nothing tracks whether anything was withheld');
-  const whole = readFileSync(join(process.cwd(), 'app/[slug]/pabuya/page.tsx'), 'utf8');
+  const whole = GIFT_PAGE_FILES.map((f) => readFileSync(join(process.cwd(), f), 'utf8')).join('\n');
   assert.match(
     whole,
     /Payment details are shown to invited guests/,
@@ -197,4 +243,81 @@ test('🔒 the wish list’s send sheet withholds identifiers exactly as the pag
   const list = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/pabuya/_components/wish-list.tsx'), 'utf8'));
   assert.doesNotMatch(list, /fetchEgiftMethods|event_egift_methods|qrDisplayUrl|\bhandle\b/, 'the wish list reads a payment identifier itself');
   assert.match(list, /ways: ReactNode;/, 'the sheet no longer takes the page’s ready-drawn ways');
+});
+
+// ── 🏠 THE WELCOME PAGE DRAWS E-GIFTS ITSELF NOW — THROUGH THE SAME DOOR, THE SAME READER ─────────
+//
+// Owner 2026-10-14: E-Gifts on Welcome is the content, not a button. A second
+// place the ways to give are drawn is a second door onto the identifiers, so it
+// must ask (1) the door's own gate — the rule `resolveGuestDoorways` applies,
+// gated on what the gift page itself demands — before it reads anything, and
+// (2) the gift page's ONE reader, which withholds through the ONE rule above.
+// It may never read a method itself, nor draw the cards some other way.
+test('🔒 the Welcome page’s E-Gifts goes through the gift page’s own gate and reader — never one of its own', () => {
+  const flat = (f: string) => stripComments(readFileSync(join(process.cwd(), f), 'utf8')).replace(/\s+/g, ' ');
+  const BODY = flat('app/[slug]/_components/site-body.tsx');
+  /* (1) Only where the door would stand — `doorways.pabuya` — and only through the gift page's reader. */
+  assert.match(BODY, /const giftsOnWelcome = doorways\.pabuya !== null && \(/);
+  assert.match(BODY, /const giftPage = giftsOnWelcome && giftPageReader \? giftPageReader\(event\)\.catch\(/);
+  assert.equal((BODY.match(/giftPageReader\(/g) ?? []).length, 1, 'the body reads the gift content some second way');
+  /* …and the reader it is handed is the gift page's own — by the page that holds the request, and by nothing else. */
+  const PAGE = flat('app/[slug]/page.tsx');
+  assert.match(PAGE, /giftPageReader: \(e: GiftPageEvent\) => loadGiftPage\(admin, e\),/);
+  assert.equal((PAGE.match(/giftPageReader:/g) ?? []).length, 1);
+  assert.doesNotMatch(BODY, /fetchEgiftMethods|readEgiftMethods|event_egift_methods|giftCardsFor|PabuyaCardList/, 'the event page reads or draws a way to give itself');
+  /* Every Welcome that carries the gate carries the content — and nothing else hands it over. */
+  const gated = (BODY.match(/giftHref=\{doorways\.pabuya\}/g) ?? []).length;
+  assert.ok(gated >= 4, `anti-vacuity: ${gated} Welcomes carry the gift gate`);
+  assert.equal((BODY.match(/giftContent=\{giftPage\}/g) ?? []).length, gated, 'a Welcome with the gift gate draws the door instead of E-Gifts, or one without it reads E-Gifts');
+  assert.equal((BODY.match(/giftContent=/g) ?? []).length, gated);
+  /* (2) The page and the Welcome share the reader; the reader withholds through the one rule. */
+  const READER = flat('app/[slug]/pabuya/_lib/gift-page.server.ts');
+  assert.match(READER, /viewerIsRecognisedForEvent\(event\.event_id\)/);
+  assert.match(READER, /const \{ cards, identifiersWithheld, howToSend \} = giftCardsFor\(methods, viewerIsRecognised\);/);
+  assert.match(READER, /fetchEgiftMethods\(admin, event\.event_id, \{ enabledOnly: true, \}\)/, 'the reader fetches more than the ENABLED ways');
+  assert.match(flat('app/[slug]/pabuya/page.tsx'), /const content = await loadGiftPage\(admin, event\);/);
+  /* The Welcome's block draws only what the reader handed it, with the gift page's own body. */
+  const INLINE = flat('app/[slug]/_components/welcome-gifts-content.tsx');
+  assert.match(INLINE, /<GiftPageBody content=\{read\} wishLimit=\{WELCOME_WISH_LIMIT\} \/>/);
+  assert.doesNotMatch(INLINE, /fetchEgiftMethods|giftCardsFor|PabuyaCardList|createAdminClient/);
+  const DRAW = flat('app/[slug]/pabuya/_components/gift-page-body.tsx');
+  assert.doesNotMatch(DRAW, /fetchEgiftMethods|giftCardsFor|qrDisplayUrl|createAdminClient|viewerIsRecognised/, 'the body decides what a reader sees');
+});
+
+test('🔒 the Welcome page’s E-Gifts, DRAWN for a reader the event does not recognise: no number, no QR, and the reason', async () => {
+  const React = await import('react');
+  /* The components are compiled with the classic runtime here (as every render test in this tree sets it). */
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { prerenderToNodeStream } = await import('react-dom/static');
+  const { GuestWelcome } = await import('../_components/guest-welcome');
+  const { giftCardsFor } = await import('./_lib/gift-cards');
+  const { eventWordsFor } = await import('../_lib/event-words');
+  const words = await eventWordsFor('wedding');
+  const methods = [
+    { method_kind: 'bank', label: 'BPI', account_name: 'Maria Santos', handle: '1234 5678 90', note: null, qrDisplayUrl: '/api/pabuya/qr/S89E-1' },
+    { method_kind: 'gcash', label: 'GCash', account_name: 'Maria S.', handle: '0917 123 4567', note: null, qrDisplayUrl: null },
+  ];
+  const html = async (recognised: boolean, giftHref: string | null = '/maria-and-jose/pabuya') => {
+    const content = {
+      eventId: 'e', words, hostName: 'Maria & Jose', displayName: 'Maria & Jose', hostPossessive: 'Maria & Jose’s',
+      message: null, registryHref: null, wishes: [], wishShape: 'rows' as const,
+      ...giftCardsFor(methods, recognised),
+      reader: { eventId: 'e', giverName: '', recognised },
+    };
+    const { prelude } = await prerenderToNodeStream(
+      React.createElement(GuestWelcome, { parts: ['gifts'], words, look: null, reminders: null, giftHref, giftContent: Promise.resolve(content) }),
+    );
+    let out = '';
+    for await (const chunk of prelude) out += String(chunk);
+    return out;
+  };
+  const stranger = await html(false);
+  assert.ok(stranger.includes('data-welcome-gifts') && stranger.includes('Maria Santos'), 'anti-vacuity: the ways to give are drawn on Welcome');
+  assert.ok(!stranger.includes('data-gift-door'), 'the Welcome still draws the door, not E-Gifts');
+  for (const id of ['1234 5678 90', '0917 123 4567', '/api/pabuya/qr/S89E-1']) assert.ok(!stranger.includes(id), `${id} reached a reader the event does not recognise`);
+  assert.ok(stranger.includes('Payment details are shown to invited guests'), 'the withholding is not said');
+  const guest = await html(true);
+  assert.ok(guest.includes('1234 5678 90') && guest.includes('/api/pabuya/qr/S89E-1'), 'a recognised guest lost the numbers');
+  /* No gift gate → nothing at all, even with content handed in: the Welcome never draws a gift page the door would not open. */
+  assert.ok(!(await html(true, null)).includes('data-welcome-gifts'));
 });

@@ -147,7 +147,9 @@ test('2 · People’s thumb row = the shared Search box (≥ 60 %) + Add (brand)
   assert.match(thumb, /<OutsideClientAdd\b/, 'the thumb row lost Add');
   assert.match(thumb, /^<SupplierThumbRow name="people" label="Customer tools">\s*<SearchBox\b/, 'the search box is not the row’s first control (≥ 60 %, Add beside it)');
   assert.ok(thumb.indexOf('<SearchBox') < thumb.indexOf('<OutsideClientAdd'), 'Add comes before the search box');
-  assert.match(ADD, /<ActionButton tone="brand" main icon=\{Plus\} label="Add"/, 'Add is not the brand main button');
+  // 2026-10-14: the same sheet is the day screen's "Add a booking" — its word is a prop, "Add" by default (People).
+  assert.match(ADD, /<ActionButton tone="brand" main icon=\{Plus\} label=\{label\}/, 'Add is not the brand main button');
+  assert.match(ADD, /label = 'Add',/, 'People’s Add lost its word');
   // The box is ONE shared piece: a field in the thumb row (rule 3b keeps it ≥ 60 %), a GET form with no script.
   assert.match(BOX, /role="search"[\s\S]{0,40}method="get"/, 'the search box stopped working without script');
   assert.match(BOX, /data-fit-field=""/, 'the search box is not the thumb row’s field — rule 3b would not keep it ≥ 60 %');

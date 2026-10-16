@@ -26,7 +26,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
-import { resolveVendorRole } from '@/lib/vendor-role';
+import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { scopedMemberAvatarRows, supplierAvatarRows } from './_components/supplier-avatar-rows';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
@@ -375,6 +376,17 @@ export default async function VendorDashboardLayout({
     redirect('/dashboard');
   }
 
+  // The supplier's own rows in the account sheet (prototype SHEETS.avatar). Step 5's
+  // rows (Your details · Your page · Your collections) + step 6's sheet (Helpers ·
+  // Plan · Settings for an owner or admin, Settings alone for a scoped team member;
+  // Plan never in the store shell — the route is refused there). No read — the role
+  // is already here.
+  const switcherShopRows =
+    // FAILS CLOSED (supplier batch walk R6): a role that could not be read is NOT an owner — `resolveVendorRole`
+    // already answers 'admin' for a founding owner with no membership row, so null means "not proven", and an
+    // unproven person gets the least-privileged sheet (the pages stay gated on their own either way).
+    canManageVendor(vendorRole) ? supplierAvatarRows({ storeShell }) : scopedMemberAvatarRows();
+
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
   // mobile-only (lg:hidden); desktop users open the same panel from the
   // SwitcherPlaqueTrigger business plaque in the sidebar header
@@ -450,7 +462,7 @@ export default async function VendorDashboardLayout({
         way to sign out and no error to notice. Matches what the account
         spokes already render at all widths.
       */}
-      <AccountSwitcher data={switcherData} />
+      <AccountSwitcher data={switcherData} shopRows={switcherShopRows} />
     </div>
   );
 

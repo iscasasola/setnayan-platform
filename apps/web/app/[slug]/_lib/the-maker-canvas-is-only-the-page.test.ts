@@ -9,8 +9,9 @@
  * inside his editor.
  *
  * What this holds, and how:
- *   1. RENDERED — the page shell drops its site header when it is the canvas,
- *      and the Host controls bar renders nothing when it is handed no model.
+ *   1. RENDERED — the page shell drops its site header when it is the canvas.
+ *      (The Host controls bar is gone from the page altogether since 2026-10-15
+ *      — owner: "Remove it"; `the-host-page-has-no-host-strip.test.ts`.)
  *   2. SOURCE, per component — every chrome mount in `site-body.tsx` and
  *      `page.tsx` is gated on `isEditorCanvas`. One anchor per component, and
  *      each count is printed, so a sabotage that ungates ONE of two mounts goes
@@ -49,17 +50,11 @@ test('RENDERED: the page shell draws no site header in the canvas, and does ever
   assert.match(canvas, /THE-SECTIONS/, 'the canvas still draws the page itself');
 });
 
-test('RENDERED: the Host controls bar renders nothing without a model', async () => {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { OwnerRibbon } = await import('../_components/owner-ribbon');
-  assert.equal(renderToStaticMarkup(React.createElement(OwnerRibbon, { model: null })), '');
-});
 
 /* One row per piece of chrome: the anchor that finds its mount, and the gate
    that must sit in front of it. `count` is how many mounts exist — every one
    must be gated. */
 const CHROME: Array<{ name: string; file: 'body' | 'page'; mount: RegExp; gated: RegExp; count: number }> = [
-  { name: 'Host controls bar', file: 'body', mount: /<OwnerRibbon\b/g, gated: /<OwnerRibbon model=\{isEditorCanvas \? null : ownerRibbon\}/g, count: 1 },
   { name: 'bottom tab bar (Home · Details · … · Manage)', file: 'body', mount: /<SiteMenuBar\b/g, gated: /\{menuOn && showGuestBars \? \(\s*<SiteMenuBar\b/g, count: 2 },
   // 📱 Each tab its own page (owner 2026-09-30): the hub shell's page frame rides
   // with the bar it serves — never in the canvas, which is one scroll of scenes.
@@ -95,9 +90,8 @@ test('the "Guest bars" switch brings back only the GUEST bars, never the host\'s
   assert.match(BODY, /viewer: ownerCapability && !isEditorCanvas \? \{ kind: 'couple' \} : isEditorCanvas \? \{ kind: 'guest' \} : \{ kind: 'public' \}/);
   // The request is canvas-only.
   assert.match(PAGE, /canvasGuestBars: isEditorCanvas && search\.bars === '1'/);
-  // Host chrome ignores the switch entirely.
-  const hostChrome = BODY.match(/<OwnerRibbon model=\{[^}]*\}/)?.[0] ?? '';
-  assert.doesNotMatch(hostChrome, /showGuestBars|canvasGuestBars/, 'the Host controls bar must never follow the Guest bars switch');
+  // Host chrome cannot follow the switch: there is none on the page (the Host controls bar went 2026-10-15).
+  assert.doesNotMatch(BODY, /<OwnerRibbon\b|data-owner-ribbon/, 'the Host controls bar is back on the page');
 });
 
 test('SOURCE: the root layout notices are hidden in the canvas by their one attribute', () => {

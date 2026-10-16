@@ -1,5 +1,5 @@
 /**
- * 🎨 A PART'S COLOUR AND SIZE, FOR STYLE'S LAST ROW (owner 2026-10-09: *"color and size share the same row"* ·
+ * 🎨 A PART'S COLOUR, SIZE AND WIDTH, FOR STYLE'S LAST ROW (owner 2026-10-09: *"color and size share the same row"* ·
  * *"Color just 1 circle…"*; `TOOLBAR-SPEC-2026-10-09.md` § STYLE). They were two rows of the Text tool, which left
  * the toolbar with its Font (*"there is already a universal font"*).
  *
@@ -14,6 +14,10 @@
  * saved through the one draft door under the SAME queue key (`canvasWriteKey`) — so a pick here, in the part's
  * sheet and words typed beside them are one write, the latest. `held`: no Maker render. A refused save puts the
  * page and the Maker's copy back and says what did not save.
+ *
+ * ↔ WIDTH (owner 2026-10-14, `prototypes/maker_text_width_2026-10-14_fable.html`) is a third field on the SAME write
+ * — `elements[el].width`, Narrow · Wide · Full, Normal an absence — so it has the same queue key, the same ↺ and the
+ * same put-back on a refusal. Only the parts in `HUB_ELEMENT_WIDTH_PARTS` take it.
  */
 import { FIXED_STYLE_SCENES } from '@/lib/fixed-scene-styles';
 import { sceneStyleOptions } from '@/lib/scene-styles';
@@ -28,17 +32,21 @@ import {
   HUB_ELEMENT_SIZE_BASE,
   HUB_ELEMENT_SIZE_BOUNDS,
   HUB_ELEMENT_SIZE_STEPS,
+  HUB_ELEMENT_WIDTHS,
   HUB_SCENE_ELEMENT_KEYS,
   hubElementSizePct,
   isHubElementKey,
   withElementChoice,
   type HubElementKey,
+  type HubElementWidth,
 } from '@/lib/element-style';
 import { elementPreview, refusedChoiceWords } from '../../../website/editor/_components/element-preview';
 import { canvasPickUndo } from '@/lib/canvas-pick-undo';
 import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
 
 export type PartLookTarget = { key: string; widgetType: string; el: HubElementKey };
+/** The three fields Style's last row sets — one write each, the part sheet's own. */
+export type PartLookField = 'color' | 'size' | 'width';
 
 /** The words whose colour and size Style's last row sets for a part — null: the part has none. */
 export function partLookTarget(canvasKey: string | null | undefined, el: string | null | undefined): PartLookTarget | null {
@@ -49,10 +57,10 @@ export function partLookTarget(canvasKey: string | null | undefined, el: string 
   return HUB_ELEMENT_EXCLUDED_WIDGETS.includes(type) ? null : { key: canvasKey, widgetType: type, el: 'heading' };
 }
 
-/** What that part can take (the shipped table). Neither: no row. */
-export function partLookFields(t: PartLookTarget | null): { colour: boolean; size: boolean } {
+/** What that part can take (the shipped table). None: no row. */
+export function partLookFields(t: PartLookTarget | null): { colour: boolean; size: boolean; width: boolean } {
   const fields: readonly string[] = t ? HUB_ELEMENT_FIELDS[t.el] : [];
-  return { colour: fields.includes('color'), size: fields.includes('size') };
+  return { colour: fields.includes('color'), size: fields.includes('size'), width: fields.includes('width') };
 }
 
 /** The sizes a part may be set to — the shipped steps inside its bounds. */
@@ -62,32 +70,41 @@ export function partLookSizes(el: HubElementKey): number[] {
 }
 
 /**
- * 🔠 THE WORDS A SIZE PICK SCALES (owner 2026-10-14, live: *"when we where changing size, the text did not shrink, the
- * highlight just moved"*). A cover part is its own words (`el`). A SCENE is every word it draws — its label, heading
- * and words (`HUB_SCENE_ELEMENT_KEYS`, the three the page stamps and styles). It used to be the heading alone, and the
- * Countdown, the Message, What to bring and the Love Story draw NO heading: the slider moved, `elements.heading.size`
- * was saved, and not one word on the stage changed (measured on the Maker lab, 2026-10-15). Each word keeps the
- * theme's own proportions — the step is a percent of ITS size — and a step outside a word's bounds is pulled to its
- * nearest bound by the shipped sanitizer (`sanitizeHubElementSize`), so every word still moves the same way.
- * Held by `lib/a-scene-size-reaches-every-word.test.ts`.
+ * 🔠🎨 THE WORDS A SIZE OR COLOUR PICK REACHES (owner 2026-10-14, live: *"when we where changing size, the text did not
+ * shrink, the highlight just moved"*; 2026-10-15, on Colour: *"All the words"*). A cover part is its own words (`el`).
+ * A SCENE is every word it draws — its label, heading and words (`HUB_SCENE_ELEMENT_KEYS`, the three the page stamps
+ * and styles; Dress code's chip names and do / don't lines are words too, `lib/scene-words-class.ts`). Both used to
+ * be the heading alone, and the Countdown, the Message, What to bring and the Love Story draw NO heading: the slider
+ * moved, the circle took the colour, `elements.heading` was saved, and not one word on the stage changed (measured on
+ * the Maker lab, 2026-10-15). A size keeps each word's proportions — the step is a percent of ITS size — and a step
+ * outside a word's bounds is pulled to its nearest bound by the shipped sanitizer (`sanitizeHubElementSize`). A colour
+ * is one colour for all of them (stages that coloured only the heading now colour every word — accepted by the owner).
+ * Held by `lib/a-scene-look-reaches-every-word.test.ts`. (WIDTH is NOT multi-word: it is per part, on `el` only.)
  */
-export function partLookSizeEls(t: PartLookTarget): readonly HubElementKey[] {
+export function partLookEls(t: PartLookTarget): readonly HubElementKey[] {
   return t.key.startsWith('w:') ? HUB_SCENE_ELEMENT_KEYS : [t.el];
 }
 
-/** The part's colour (null: the theme's own) and size (100: the theme's own), on the Maker's own copy of its canvas. */
-export function partLookNow(t: PartLookTarget, server: HubSectionCanvas | null | undefined): { colour: string | null; size: number } {
+/** The part's colour (null: the theme's own), size (100: the theme's own) and width (null: Normal, the theme's own), on the Maker's own copy of its canvas. */
+export function partLookNow(
+  t: PartLookTarget,
+  server: HubSectionCanvas | null | undefined,
+): { colour: string | null; size: number; width: HubElementWidth | null } {
   const elements = draftedCanvasOr(t.widgetType, server).elements;
+  /* What the row shows: the part's own, else the first of its words that has one (a scene styled before any heading). */
+  const keys = [t.el, ...partLookEls(t)];
+  const size = keys.map((k) => hubElementSizePct(elements?.[k]?.size)).find((v) => v !== null);
+  const colour = keys.map((k) => elements?.[k]?.color ?? null).find((v) => v !== null);
   const part = elements?.[t.el];
-  /* The size the row shows: the part's own, else the first of its words that has one (a scene sized before any heading). */
-  const size = [t.el, ...partLookSizeEls(t)].map((k) => hubElementSizePct(elements?.[k]?.size)).find((v) => v !== null);
-  return { colour: part?.color ?? null, size: size ?? HUB_ELEMENT_SIZE_BASE };
+  const width = (HUB_ELEMENT_WIDTHS as readonly unknown[]).includes(part?.width) ? (part?.width as HubElementWidth) : null;
+  return { colour: colour ?? null, size: size ?? HUB_ELEMENT_SIZE_BASE, width };
 }
 
 /** The canvas a pick makes: `before` with the one choice set — null when it changes nothing. */
-export function partLookNext(t: PartLookTarget, before: HubSectionCanvas, field: 'color' | 'size', value: string | number | null): HubSectionCanvas | null {
+export function partLookNext(t: PartLookTarget, before: HubSectionCanvas, field: PartLookField, value: string | number | null): HubSectionCanvas | null {
   let elements = before.elements ?? null;
-  for (const k of field === 'size' ? partLookSizeEls(t) : [t.el]) elements = withElementChoice(elements, k, field, value);
+  /* Size and colour reach every word of a scene; Width is per part, on `el` only. */
+  for (const k of field === 'width' ? [t.el] : partLookEls(t)) elements = withElementChoice(elements, k, field, value);
   const next: HubSectionCanvas = { ...before };
   if (elements) next.elements = elements;
   else delete next.elements;
@@ -102,8 +119,8 @@ function show(message: unknown): void {
 
 export type PartLookDoor = { eventId: string; draftAction: ElementDraftAction; canvases: Readonly<Record<string, HubSectionCanvas>> | null | undefined };
 
-/** KEEP a colour or a size: on the page now, then ONE draft write (the latest of a burst), held. */
-export async function keepPartLook(t: PartLookTarget, field: 'color' | 'size', value: string | number | null, door: PartLookDoor): Promise<{ ok: true } | { ok: false; error: string }> {
+/** KEEP a colour, a size or a width: on the page now, then ONE draft write (the latest of a burst), held. */
+export async function keepPartLook(t: PartLookTarget, field: PartLookField, value: string | number | null, door: PartLookDoor): Promise<{ ok: true } | { ok: false; error: string }> {
   const server = door.canvases?.[t.widgetType] ?? null;
   const before = draftedCanvasOr(t.widgetType, server);
   const next = partLookNext(t, before, field, value);

@@ -548,8 +548,12 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
     lib,
     /const deskIncomplete =\s*!lockRead\.complete \|\|\s*!lockAgreementRead\.complete \|\|\s*!deletionRead\.complete \|\|\s*!declinedRead\.complete \|\|\s*!dateChangeRead\.complete;/,
   );
-  assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete \};/);
+  assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds \};/);
   const page = read('app/vendor-dashboard/page.tsx');
+  // 🧩 Since the simpler Today (2026-10-14) the page hands the desk to the one drawing (`SupplierTodayScreen`),
+  // which mounts the feed; the properties below are asserted where each now lives.
+  const screen = read('app/vendor-dashboard/_components/supplier-today-screen.tsx');
+  const view = read('lib/supplier-today-view.ts');
   /*
     ⚠ WAS PINNED TO THE EXACT PROP ORDER `cards={whatsNew} incomplete={deskIncomplete}`.
     Since 2026-09-22 the desk is split in two before it is rendered, so the ask
@@ -563,19 +567,19 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
       3. the two halves come from ONE `splitDesk` call, so they cannot disagree
          about which card went where.
   */
-  const feedMount = page.match(/<WhatsNewFeed\b[\s\S]*?\/>/)?.[0] ?? '';
+  const feedMount = screen.match(/<WhatsNewFeed\b[\s\S]*?\/>/)?.[0] ?? '';
   assert.ok(feedMount, 'the Overview no longer mounts <WhatsNewFeed>');
   assert.match(
     feedMount,
     /incomplete=\{deskIncomplete\}/,
     'the short-read flag no longer reaches the feed — a partial read would render as an empty desk',
   );
-  assert.match(feedMount, /cards=\{needsAnswer\}/, 'the ask feed is no longer fed the answer half');
-  assert.match(
-    page,
-    /<NothingToAnswerFeed[\s\S]*?cards=\{nothingToAnswer\}/,
-    'the news half is computed and never rendered — those cards would vanish from the page',
-  );
+  assert.match(page, /deskIncomplete=\{deskIncomplete\}/, 'the page does not hand the short-read flag to the drawing');
+  assert.match(feedMount, /asks=\{view\.askRows\}/, 'the feed is no longer fed the rows');
+  // BOTH halves reach the rows: the asks (`supplierWaiting`) and the closed lines, one list since 2026-10-14.
+  assert.match(page, /needsAnswer,\s*closed: nothingToAnswer,/, 'the news half is computed and never handed on — those cards would vanish');
+  assert.match(view, /\.\.\.waiting\.asks\.map\([\s\S]*?\.\.\.closed\.map\(/, 'the rows lost one half of the desk');
+  assert.match(page, /cards=\{\[\.\.\.needsAnswer, \.\.\.nothingToAnswer\]\}/, 'the drawing is not handed both halves');
   assert.equal(
     (page.match(/splitDesk\(whatsNew\)/g) ?? []).length,
     1,

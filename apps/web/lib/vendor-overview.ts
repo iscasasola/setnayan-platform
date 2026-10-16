@@ -107,6 +107,11 @@ export type WhatsNewCard =
       requestedAt: string;
       /** Materialized on the row by the guard trigger — shown AND enforced. */
       expiresAt: string | null;
+      /**
+       * 💬 The conversation with this couple, when one exists — from the threads the desk already read (no query
+       * of its own). Today's Next card draws "Chat" only with it (simpler supplier dashboard 2026-10-14).
+       */
+      threadId?: string | null;
     }
   /*
     The couple wants to REMOVE a celebration this supplier was paid for, and
@@ -122,6 +127,8 @@ export type WhatsNewCard =
       eventVendorId: string;
       eventDate: string | null;
       requestedAt: string;
+      /** WHO is asking — `events.display_name` from the same meta read (Today's row: "Cancel request · <name>"). */
+      coupleName?: string;
     }
   /*
     🗓 A COUPLE ASKS TO MOVE THEIR DATE, AND IT CLASHES WITH THIS SHOP'S
@@ -323,6 +330,15 @@ export type UpcomingEventRow = {
   threadHref: string | null;
   /** True when `href` is the customer card. False = a fallback was needed. */
   opensCard: boolean;
+  /** The couple's guest count (`final_pax`, else `estimated_pax`) — the event-day card's "150 guests". */
+  guests?: number | null;
+  /** The schedule this booking holds a day on (a pool booking), when known — Today names it ("Main team", "Hall A"). */
+  poolId?: string | null;
+  /**
+   * 🏷 A booking from OUTSIDE (the supplier's own logbook — an `external_client` calendar block), drawn among the
+   * Setnayan bookings on Today's Coming up with "from outside" (simpler supplier dashboard 2026-10-14).
+   */
+  outside?: boolean;
 };
 
 export type VendorOverviewData = {
@@ -335,6 +351,17 @@ export type VendorOverviewData = {
    * never draws the empty "all caught up" state on top of it.
    */
   deskIncomplete: boolean;
+  /**
+   * New inquiries in the last 28 days — counted off the threads this read already holds (no query of its own):
+   * Today's "How is business" line ("312 looked · 14 asked").
+   */
+  inquiries28?: number;
+  /**
+   * 🏛 For each booking ask (by `eventVendorId`), the schedules already holding a booking ON the asked day — from the
+   * room bookings this read already holds (no query of its own). A venue's Today says "Hall A is booked that day"
+   * before Agree (prototype moment "9 · hallask").
+   */
+  askDayHolds?: Record<string, string[]>;
 };
 
 /**
@@ -641,6 +668,7 @@ export async function fetchVendorOverviewData(
       eventDate: meta?.eventDate ?? null,
       requestedAt: ar.requestedAt,
       expiresAt: ar.expiresAt,
+      threadId: threads.find((t) => t.event_id === ar.eventId)?.thread_id ?? null,
     });
   }
 
@@ -681,6 +709,7 @@ export async function fetchVendorOverviewData(
       eventVendorId: dr.eventVendorId,
       eventDate: meta?.eventDate ?? null,
       requestedAt: dr.requestedAt,
+      coupleName: meta?.displayName ?? 'A couple',
     });
   }
 
@@ -958,10 +987,29 @@ export async function fetchVendorOverviewData(
         href: door.href,
         threadHref: door.threadHref,
         opensCard: door.opensCard,
+        guests: meta?.guests ?? null,
+        poolId: b.poolId ?? null,
       };
     });
 
-  return { whatsNew, ongoing, upcoming, deskIncomplete };
+  const since28 = Date.now() - 28 * 86_400_000;
+  const inquiries28 = threads.filter((t) => {
+    const at = Date.parse(String((t as { created_at?: string | null }).created_at ?? ''));
+    return Number.isFinite(at) && at >= since28;
+  }).length;
+
+  const askDayHolds: Record<string, string[]> = {};
+  for (const ar of answerableAsks) {
+    const day = eventMeta.get(ar.eventId)?.eventDate ?? null;
+    if (!day) continue;
+    // One entry per booking (a schedule booked twice that day is listed twice) — Today weighs it against the
+    // schedule's own "how many a day".
+    askDayHolds[ar.eventVendorId] = roomBookings
+      .filter((b) => b.bookedDate === day && b.eventId !== ar.eventId && b.poolId)
+      .map((b) => b.poolId as string);
+  }
+
+  return { whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds };
 }
 
 // ---------------------------------------------------------------------------
@@ -1132,6 +1180,8 @@ type EventMeta = {
   region: string | null;
   venue: string | null;
   eventType: string | null;
+  /** `final_pax`, else `estimated_pax` — same row, no read of its own. */
+  guests: number | null;
 };
 
 async function fetchEventMeta(
@@ -1150,7 +1200,7 @@ async function fetchEventMeta(
   const { rows: data, error } = await readInChunks<Record<string, unknown>>(eventIds, (part) =>
     admin
       .from('events')
-      .select('event_id, display_name, event_date, region, venue_name, event_type')
+      .select('event_id, display_name, event_date, region, venue_name, event_type, estimated_pax, final_pax')
       .in('event_id', part),
   );
   if (error) {
@@ -1165,6 +1215,8 @@ async function fetchEventMeta(
     region: string | null;
     venue_name: string | null;
     event_type: string | null;
+    estimated_pax?: number | null;
+    final_pax?: number | null;
   }>) {
     out.set(row.event_id, {
       displayName: row.display_name ?? 'A couple',
@@ -1172,6 +1224,7 @@ async function fetchEventMeta(
       region: row.region,
       venue: row.venue_name,
       eventType: row.event_type,
+      guests: row.final_pax ?? row.estimated_pax ?? null,
     });
   }
   return out;

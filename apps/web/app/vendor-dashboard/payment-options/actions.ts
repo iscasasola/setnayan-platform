@@ -15,13 +15,17 @@ import {
 import { decodeQrFromR2 } from '@/lib/vendor-payment-methods.server';
 import { parseClientRef, vendorPaymentQrPolicy } from '@/lib/r2-client-ref';
 
-const BASE = '/vendor-dashboard/payment-options';
+/**
+ * Where an answer lands: Your details › How clients pay you (step 5, 2026-10-14) — straight there, not through the
+ * `/payment-options` forwarding stub, so the supplier sees the result on the fold they pressed in.
+ */
+const LANDING = '/vendor-dashboard/profile';
 
 function flash(msg: string): never {
-  redirect(`${BASE}?msg=${encodeURIComponent(msg)}`);
+  redirect(`${LANDING}?msg=${encodeURIComponent(msg)}#pay`);
 }
 function fail(msg: string): never {
-  redirect(`${BASE}?error=${encodeURIComponent(msg)}`);
+  redirect(`${LANDING}?error=${encodeURIComponent(msg)}#pay`);
 }
 
 function str(raw: FormDataEntryValue | null, max = 200): string | null {
@@ -144,7 +148,7 @@ export async function addPaymentMethod(formData: FormData) {
     }
   }
 
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
   flash(
     approved
       ? 'Payment option saved — it’s now on your clients’ payment screen.'
@@ -162,7 +166,7 @@ export async function deletePaymentMethod(formData: FormData) {
     .eq('payment_method_id', id)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
   flash('Payment option removed.');
 }
 
@@ -183,7 +187,7 @@ export async function setPrimaryPaymentMethod(formData: FormData) {
     .eq('payment_method_id', id)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
   flash('Primary payment option updated.');
 }
 
@@ -198,6 +202,6 @@ export async function togglePaymentMethodShown(formData: FormData) {
     .eq('payment_method_id', id)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
   flash(!currentlyShown ? 'Now showing to clients.' : 'Hidden from clients.');
 }

@@ -311,7 +311,7 @@ export function HowItWorks({ locale }: { locale: MarketingLocale }) {
                     <h3 className="text-base font-semibold tracking-tight text-ink">
                       {role.label}
                     </h3>
-                    <code className="text-xs text-ink/45">{ROLE_PATHS[i]}</code>
+                    <code className="text-xs text-ink/70">{ROLE_PATHS[i]}</code>
                   </div>
                 </div>
                 <p className="mt-3 text-sm text-ink/65">{role.who}</p>

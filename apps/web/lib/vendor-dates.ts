@@ -7,32 +7,43 @@
  * this file never re-counts a booking. It only says how a day is SHOWN (kind 31: a green dot Booked, an amber dot
  * Holding, a hatched square Blocked, bold when full) and which rows the picked day lists.
  *
- * 🔑 THE THREE MEANINGS, AS-BUILT (the six-state taxonomy folded into the template's three words):
- *   Booked  (green dot)   — something consumes a seat that day: a Setnayan booking or the shop's own outside client
- *                            (`consumed > 0`). Full (its limit reached) = the number bold.
- *   Holding (amber dot)   — couples are waiting on the day: an open conversation about an unbooked event on it
- *                            (`inquiryCount`, from `openAsksOf`) or someone on its waiting list (`waitlistCount`). It
- *                            holds no seat; it is a question about the day.
- *   Blocked (hatched)     — nothing new can be booked: a closure block (`blocked`) or the shop's own hard hold
- *                            (`locked`), both of which `acquire_schedule_pools` refuses on.
+ * 🔑 THE MEANINGS, IN THE PLAIN WORDS ADOPTED 2026-10-14 (owner ✅ "APPROVE": calendar → Schedule · holding →
+ * Asking · block days → Not available · an outside booking gets its OWN dot):
+ *   Booked here   (green dot) — a Setnayan booking takes a seat that day (`setnayanConsumed > 0`).
+ *   Outside       (grey dot)  — a booking from outside takes a seat (`consumed - setnayanConsumed > 0`).
+ *                               Full (its limit reached) = the number bold.
+ *   Asking        (amber dot) — couples in an open conversation about an unbooked event on the day
+ *                               (`inquiryCount`, from `openAsksOf`). It holds no seat; it is a question about the day.
+ *                               The waiting list is NOT amber any more (prototype: Asking only) — it has its own fold.
+ *   Not available (hatched)   — nothing new can be booked: an ALL-DAY closure (`blocked`, one-off or repeating) or the
+ *                               shop's own hard hold (`locked`), both of which `acquire_schedule_pools` refuses on.
+ *   Some hours    (top-half hatch) — a morning / afternoon / evening block (`partBlocked`): the day stays open.
  *   Approve-first (`whitelist`) is not a fourth mark: bookable with the shop's yes, so the day draws what is on it and
  *   its row says so.
  *
- * ⚖ CALENDAR TRUTH (owner 2026-10-10, P5): a day with nothing on it is NEVER called "Free". It says what is true —
- * "Nothing on this day" — and a shop with no calendar at all says "Not set".
+ * ⚖ CALENDAR TRUTH (owner 2026-10-10, P5 — kept, re-worded by the 2026-10-14 approved design): a shop with no
+ * schedule says "Not set" and is never told a day is free. A shop WITH a schedule hears the day's answer the
+ * prototype draws — Free · Still has room · Full · Not available (`dayAnswerOf`) — because then it is true.
  */
-import type { CalendarDayState } from './calendar-grid';
+import type { CalendarDayState, CalendarDot } from './calendar-grid';
 import type { CustomerCalendarDay } from './vendor-customers';
+import { blockOnDay, DAY_PART_SHORT, DAY_PART_WORDS, repeatWords, type DayPart, type RepeatRule } from './not-available';
 
 /** Kind 31's state for one day of the month, or null for a quiet one (drawn as a plain day). */
-export function dayStateOf(day: Pick<CustomerCalendarDay, 'state' | 'consumed' | 'inquiryCount' | 'waitlistCount'>): CalendarDayState | null {
+export function dayStateOf(
+  day: Pick<CustomerCalendarDay, 'state' | 'consumed' | 'inquiryCount'> &
+    Partial<Pick<CustomerCalendarDay, 'setnayanConsumed' | 'partBlocked'>>,
+): CalendarDayState | null {
   if (day.state === 'blocked' || day.state === 'locked') return { blocked: true };
-  const dots: ('booked' | 'holding')[] = [];
-  if (day.consumed > 0) dots.push('booked');
-  if (day.inquiryCount > 0 || day.waitlistCount > 0) dots.push('holding');
+  const dots: CalendarDot[] = [];
+  const here = day.setnayanConsumed ?? day.consumed;
+  if (here > 0) dots.push('booked');
+  if (day.consumed - here > 0) dots.push('outside');
+  if (day.inquiryCount > 0) dots.push('asking');
   const full = day.state === 'full';
-  if (dots.length === 0 && !full) return null;
-  return full ? { dots, full } : { dots };
+  const part = day.partBlocked === true;
+  if (dots.length === 0 && !full && !part) return null;
+  return { ...(dots.length > 0 ? { dots } : {}), ...(full ? { full } : {}), ...(part ? { part } : {}) };
 }
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -115,10 +126,16 @@ export type DatesBlock = {
   source: 'manual' | 'setnayan_booking' | 'synced_calendar' | 'external_client';
   startDate: string;
   endDate: string;
-  /** The shop's own words for a closure ("Family trip"); '' when none. */
+  /** The shop's own words for a closure ("Masses"); '' when none. */
   label?: string | null;
-  /** An outside client's name — the shop's own record (never their contact or note). */
+  /** An outside booking's name — the shop's own record (never their contact or note). */
   clientName?: string | null;
+  /** An outside booking's start time ("15:00"), when one was given. */
+  clientTime?: string | null;
+  /** Not available repeats + hours (2026-10-14). Absent = a one-off, all day. */
+  repeat?: RepeatRule | null;
+  repeatUntil?: string | null;
+  dayPart?: DayPart | null;
 };
 export type DatesHold = { poolId: string | null; stateDate: string; dayState: 'locked' | 'whitelist' };
 
@@ -130,6 +147,8 @@ export type DayRow = {
   line: string;
   /** A shown state (kind 11 badge) — never pressed. */
   badge: { tone: 'ok' | 'wait' | 'quiet'; word: string } | null;
+  /** A part-day block's hours ("6 AM – 12 NN"), drawn as its badge; null for all day. */
+  hours?: string | null;
 };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -156,7 +175,8 @@ export function dayRowsOf(
 ): DayRow[] {
   const { poolIds, poolLabel, namePools, today } = input;
   const onShow = (poolId: string | null) => poolId === null || poolIds.has(poolId);
-  const covers = (b: DatesBlock) => b.startDate <= day && b.endDate >= day;
+  // The ONE rule (`lib/not-available.ts`): a one-off range, or a repeat from its first day.
+  const covers = (b: DatesBlock) => blockOnDay(b, day);
   const rows: DayRow[] = [];
 
   input.bookings
@@ -166,18 +186,24 @@ export function dayRowsOf(
         key: `booked-${i}`,
         kind: 'booked',
         title: b.eventName,
-        line: namePools ? poolLabel(b.poolId) : 'Booked through Setnayan',
+        line: namePools ? poolLabel(b.poolId) : 'Booked here',
         badge: { tone: 'ok', word: 'Booked' },
       }),
     );
   input.blocks
     .filter((b) => b.source === 'external_client' && covers(b) && b.poolId !== null && poolIds.has(b.poolId))
+    .sort((a, b) => (a.clientTime ?? '99').localeCompare(b.clientTime ?? '99'))
     .forEach((b, i) =>
       rows.push({
         key: `outside-${i}`,
         kind: 'outside',
-        title: b.clientName?.trim() || 'Outside client',
-        line: [rangeWords(b.startDate, b.endDate, today), namePools ? poolLabel(b.poolId) : ''].filter(Boolean).join(' · '),
+        title: [b.clientTime ? clockWords(b.clientTime) : '', b.clientName?.trim() || 'Booking from outside'].filter(Boolean).join(' · '),
+        line: [
+          b.startDate !== b.endDate ? rangeWords(b.startDate, b.endDate, today) : 'From outside',
+          namePools ? poolLabel(b.poolId) : '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
         badge: { tone: 'quiet', word: 'Outside' },
       }),
     );
@@ -187,9 +213,16 @@ export function dayRowsOf(
       rows.push({
         key: `blocked-${i}`,
         kind: 'blocked',
-        title: b.label?.trim() || 'Blocked',
-        line: [rangeWords(b.startDate, b.endDate, today), b.poolId === null ? 'every calendar' : namePools ? poolLabel(b.poolId) : ''].filter(Boolean).join(' · '),
+        title: notAvailableTitle(b),
+        line: [
+          b.label?.trim() && b.label.trim() !== 'Unavailable' ? b.label.trim() : '',
+          (b.repeat ?? 'once') === 'once' ? rangeWords(b.startDate, b.endDate, today) : repeatWords(b).toLowerCase(),
+          b.poolId === null ? (namePools ? 'every schedule' : '') : namePools ? poolLabel(b.poolId) : '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
         badge: null,
+        hours: hoursOf(b.dayPart),
       }),
     );
   input.holds
@@ -199,7 +232,7 @@ export function dayRowsOf(
         key: `hold-${i}`,
         kind: h.dayState === 'locked' ? 'held' : 'approve',
         title: h.dayState === 'locked' ? 'Held by you' : 'You approve each ask',
-        line: h.poolId === null ? 'Every calendar' : poolLabel(h.poolId),
+        line: h.poolId === null ? 'Every schedule' : poolLabel(h.poolId),
         badge: null,
       }),
     );
@@ -207,9 +240,9 @@ export function dayRowsOf(
     rows.push({
       key: 'asking',
       kind: 'asking',
-      title: `${plural(input.asking, 'couple', 'couples')} holding this date`,
+      title: `${plural(input.asking, 'couple', 'couples')} asking`,
       line: 'Asked · not booked',
-      badge: { tone: 'wait', word: 'Holding' },
+      badge: { tone: 'wait', word: 'Asking' },
     });
   }
   if (input.waiting > 0) {
@@ -227,35 +260,263 @@ export function dayRowsOf(
   return rows;
 }
 
-/* ── THE FOLDS' ONE LINE (frame 04: "Block days · Oct 14–15 blocked") ─────────────────────────────────────────── */
-
-/** Block days' line: the next closure, and how many more — or that there are none. */
-export function blockDaysLine(blocks: readonly Pick<DatesBlock, 'startDate' | 'endDate'>[], today: string): string {
-  if (blocks.length === 0) return 'No days blocked';
-  const first = blocks[0]!;
-  const more = blocks.length - 1;
-  return `${rangeWords(first.startDate, first.endDate, today)} blocked${more > 0 ? ` · ${more} more` : ''}`;
+/** "15:00" → "3:00 PM" · "12:00" → "12:00 NN" (the prototype's clock words). */
+export function clockWords(t: string): string {
+  const hit = /^(\d{1,2}):(\d{2})/.exec(t);
+  if (!hit) return t;
+  const h = Number(hit[1]);
+  const m = hit[2]!;
+  if (h === 12 && m === '00') return '12:00 NN';
+  const ap = h >= 12 ? 'PM' : 'AM';
+  return `${((h + 11) % 12) + 1}:${m} ${ap}`;
 }
 
-/** Waitlist's line: who is waiting, on how many dates — or why there is none. */
+/** A part-day block's hours for its badge ("6 AM – 12 NN"); null for all day. */
+export function hoursOf(part: DayPart | null | undefined): string | null {
+  if (!part || part === 'all_day') return null;
+  return DAY_PART_WORDS[part].split(' · ')[1] ?? null;
+}
+
+/** "Not available" · "Not available · morning" — a closure's row title (prototype dayRowsFor). */
+export function notAvailableTitle(b: Pick<DatesBlock, 'dayPart'>): string {
+  const part = b.dayPart ?? 'all_day';
+  return part === 'all_day' ? 'Not available' : `Not available · ${DAY_PART_SHORT[part]}`;
+}
+
+/* ── THE FOLDS' ONE LINE (prototype datesBody: "Not available · Waiting list · How many a day") ──────────────── */
+
+/** One closure in a few words: "Every Sunday morning" · "Dec 24–25". */
+export function closureWords(b: Pick<DatesBlock, 'startDate' | 'endDate' | 'repeat' | 'dayPart'>, today: string): string {
+  const part = b.dayPart ?? 'all_day';
+  if ((b.repeat ?? 'once') !== 'once') return `${repeatWords(b)}${part === 'all_day' ? '' : ` ${DAY_PART_SHORT[part]}`}`;
+  return `${rangeWords(b.startDate, b.endDate, today)}${part === 'all_day' ? '' : ` · ${DAY_PART_SHORT[part]}`}`;
+}
+
+/** Not available's line: the first two closures, and how many more — or that there are none. */
+export function blockDaysLine(blocks: readonly Pick<DatesBlock, 'startDate' | 'endDate' | 'repeat' | 'dayPart'>[], today: string): string {
+  if (blocks.length === 0) return 'Nothing marked';
+  const shown = blocks.slice(0, 2).map((b) => closureWords(b, today)).join(' · ');
+  return blocks.length > 2 ? `${shown} · +${blocks.length - 2}` : shown;
+}
+
+/** Waiting list's line: who is waiting, on how many dates — or why there is none. */
 export function waitlistLine(input: { allowed: boolean; on: boolean; dates: readonly { requestedDate: string; pendingCount: number }[]; today: string }): string {
   if (!input.allowed) return 'Not on your plan';
   if (!input.on) return 'Off';
   const people = input.dates.reduce((n, d) => n + d.pendingCount, 0);
-  if (people === 0) return 'No one waiting';
-  if (input.dates.length === 1) return `${plural(people, 'couple', 'couples')} on ${rangeWords(input.dates[0]!.requestedDate, input.dates[0]!.requestedDate, input.today)}`;
-  return `${plural(people, 'couple', 'couples')} on ${input.dates.length} dates`;
+  if (people === 0) return 'Nobody waiting';
+  if (input.dates.length === 1) return `${formatPeople(people)} waiting on ${rangeWords(input.dates[0]!.requestedDate, input.dates[0]!.requestedDate, input.today)}`;
+  return `${formatPeople(people)} waiting on ${input.dates.length} dates`;
 }
 
-/** Capacity's line (frame 04: "1 event a day · 2 calendars"); "Not set" when the shop has no calendar (P5). */
-export function capacityLine(pools: readonly { capacity: number }[]): string {
+const formatPeople = (n: number) => String(n);
+
+/** How many a day's line: "Main 1 · Studio B 2 · 2 schedules"; "Not set" when the shop has no schedule (P5). */
+export function capacityLine(pools: readonly { capacity: number; label?: string }[]): string {
   if (pools.length === 0) return 'Not set';
-  const caps = [...new Set(pools.map((p) => p.capacity))];
-  const each = caps.length === 1 ? `${plural(caps[0]!, 'event', 'events')} a day` : 'Events a day differ';
-  return pools.length === 1 ? each : `${each} · ${pools.length} calendars`;
+  if (pools.length === 1) return plural(pools[0]!.capacity, 'event', 'events') + ' a day';
+  return `${pools.map((p) => `${p.label ?? 'Schedule'} ${p.capacity}`).join(' · ')} · ${pools.length} schedules`;
 }
 
-/* ── COUPLES HOLDING A DATE (amber) ────────────────────────────────────────────────────────────────────────────── */
+/* ── THE DAY'S ANSWER (prototype SCREENS.day: "Free · nothing on this day") ─────────────────────────────────── */
+
+export type DayAnswer = { tone: 'ok' | 'warn' | 'bad'; word: 'Free' | 'Still has room' | 'Full' | 'Not available'; line: string };
+
+/**
+ * The one line under the day's title — what a church helper needs first. Null when the shop has no schedule (then
+ * nothing may call the day free — P5; the page says "Not set").
+ *   Full           every schedule on show is at its limit ("2 events already")
+ *   Not available  an all-day closure or the shop's hold covers it (the closure's own words)
+ *   Still has room something is on it and more fit ("1 booked · 1 more fits")
+ *   Free           nothing on it ("nothing on this day")
+ * A part-day block adds its hours ("· morning not available") and never changes the word.
+ */
+export function dayAnswerOf(input: {
+  schedules: number;
+  capacity: number;
+  taken: number;
+  asking: number;
+  closedWhy: string | null;
+  partWords: string[];
+}): DayAnswer | null {
+  if (input.schedules === 0) return null;
+  const part = input.partWords.length > 0 ? ` · ${input.partWords.join(', ')} not available` : '';
+  if (input.closedWhy !== null) return { tone: 'warn', word: 'Not available', line: input.closedWhy || 'nothing new can take it' };
+  if (input.capacity > 0 && input.taken >= input.capacity) {
+    return { tone: 'bad', word: 'Full', line: `${plural(input.taken, 'booking', 'bookings')} already${part}` };
+  }
+  if (input.taken > 0 || input.asking > 0) {
+    const left = Math.max(0, input.capacity - input.taken);
+    return { tone: 'ok', word: 'Still has room', line: `${input.taken} booked · ${left} more ${left === 1 ? 'fits' : 'fit'}${part}` };
+  }
+  return { tone: 'ok', word: 'Free', line: `nothing on this day${part}` };
+}
+
+/* ── THE DAY SCREEN, PER SCHEDULE (prototype SCREENS.day + dayRowsFor) ─────────────────────────────────────── */
+
+export type DayGroupRow = {
+  key: string;
+  kind: 'booked' | 'outside' | 'blocked' | 'nothing';
+  title: string;
+  line: string;
+  badge: { tone: 'ok' | 'wait' | 'quiet'; word: string } | null;
+  href?: string | null;
+};
+export type DayGroup = {
+  poolId: string;
+  label: string;
+  /** The group's right-hand word (prototype `.grp .r`): Full · Not available · "room for 1 more" · "Free all day". */
+  right: { tone: 'ok' | 'bad' | 'warn'; word: string };
+  rows: DayGroupRow[];
+  /** Seats taken (Setnayan + outside) and the schedule's "how many a day". */
+  taken: number;
+  capacity: number;
+  /** An all-day closure (or the shop's hold) covers it. */
+  closed: boolean;
+  /** Its words when closed. */
+  closedWhy: string | null;
+  /** The parts of the day not available ("morning"). */
+  parts: string[];
+};
+
+/**
+ * The day, schedule by schedule: what is not available, what is booked here, the bookings from outside (by time) —
+ * or the one true line when nothing is on it. Every block is asked through the ONE rule (`lib/not-available.ts`).
+ */
+export function dayGroupsOf(
+  day: string,
+  input: {
+    today: string;
+    pools: readonly { poolId: string; label: string; capacity: number }[];
+    bookings: readonly { key: string; poolId: string; title: string; line: string; href: string | null }[];
+    blocks: readonly (DatesBlock & { blockId?: string })[];
+    /** The shop's own holds on the day (`locked` closes; `whitelist` is shown on the day, not here). */
+    holds: readonly DatesHold[];
+  },
+): DayGroup[] {
+  return input.pools.map((p) => {
+    const mine = (poolId: string | null) => poolId === null || poolId === p.poolId;
+    const closures = input.blocks.filter((b) => (b.source === 'manual' || b.source === 'synced_calendar') && mine(b.poolId) && blockOnDay(b, day));
+    const outside = input.blocks
+      .filter((b) => b.source === 'external_client' && b.poolId === p.poolId && blockOnDay(b, day))
+      .sort((a, b) => (a.clientTime ?? '99').localeCompare(b.clientTime ?? '99'));
+    const booked = input.bookings.filter((b) => b.poolId === p.poolId);
+    const taken = booked.length + outside.length;
+    const allDay = closures.filter((b) => (b.dayPart ?? 'all_day') === 'all_day');
+    const held = input.holds.some((h) => h.stateDate === day && h.dayState === 'locked' && mine(h.poolId));
+    const closed = allDay.length > 0 || held;
+    const parts = [...new Set(closures.filter((b) => (b.dayPart ?? 'all_day') !== 'all_day').map((b) => DAY_PART_SHORT[b.dayPart!]))];
+    const rows: DayGroupRow[] = [];
+    closures.forEach((b, i) =>
+      rows.push({
+        key: `na-${b.blockId ?? i}`,
+        kind: 'blocked',
+        title: notAvailableTitle(b),
+        line: [
+          b.label?.trim() && b.label.trim() !== 'Unavailable' ? b.label.trim() : '',
+          (b.repeat ?? 'once') === 'once' ? rangeWords(b.startDate, b.endDate, input.today) : repeatWords(b).toLowerCase(),
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        badge: { tone: 'quiet', word: hoursOf(b.dayPart) ?? 'all day' },
+      }),
+    );
+    booked.forEach((b) => rows.push({ key: b.key, kind: 'booked', title: b.title, line: b.line, badge: { tone: 'ok', word: 'Booked' }, href: b.href }));
+    outside.forEach((b, i) =>
+      rows.push({
+        key: `out-${b.blockId ?? i}`,
+        kind: 'outside',
+        title: [b.clientTime ? clockWords(b.clientTime) : '', b.clientName?.trim() || 'Booking from outside'].filter(Boolean).join(' · '),
+        line: b.startDate !== b.endDate ? `From outside · ${rangeWords(b.startDate, b.endDate, input.today)}` : 'From outside',
+        badge: { tone: 'quiet', word: 'Outside' },
+      }),
+    );
+    if (rows.length === 0) {
+      rows.push({ key: 'nothing', kind: 'nothing', title: 'Nothing yet', line: `${plural(p.capacity, 'event fits', 'events fit')}`, badge: { tone: 'ok', word: 'Free' } });
+    }
+    const left = p.capacity - taken;
+    const right: DayGroup['right'] = closed
+      ? { tone: 'warn', word: 'Not available' }
+      : left <= 0
+        ? { tone: 'bad', word: 'Full' }
+        : taken > 0
+          ? { tone: 'ok', word: `room for ${left} more` }
+          : { tone: 'ok', word: 'Free all day' };
+    const why = allDay[0]?.label?.trim();
+    return {
+      poolId: p.poolId,
+      label: p.label,
+      right,
+      rows,
+      taken,
+      capacity: p.capacity,
+      closed,
+      closedWhy: closed ? (why && why !== 'Unavailable' ? why : held && allDay.length === 0 ? 'held by you' : '') : null,
+      parts,
+    };
+  });
+}
+
+/** The day's ONE answer over the schedules on show (`dayAnswerOf` over `dayGroupsOf`). */
+export function dayAnswerOfGroups(groups: readonly DayGroup[], asking: number): DayAnswer | null {
+  const open = groups.filter((g) => !g.closed);
+  const everyClosed = groups.length > 0 && open.length === 0;
+  return dayAnswerOf({
+    schedules: groups.length,
+    capacity: open.reduce((n, g) => n + g.capacity, 0),
+    taken: open.reduce((n, g) => n + g.taken, 0),
+    asking,
+    closedWhy: everyClosed ? (groups.find((g) => g.closedWhy)?.closedWhy ?? '') : null,
+    partWords: [...new Set(groups.flatMap((g) => g.parts))],
+  });
+}
+
+/* ── SEATS ON A DATE, FOR THE ADD SHEET (prototype SHEETS.add: "That day is free" / "1 already · 1 more fits") ─── */
+
+/** One schedule's seats taken per date from `today` on — Setnayan bookings + bookings from outside. */
+export type SeatsByPool = Record<string, { label: string; capacity: number; taken: Record<string, number> }>;
+
+export function seatsByPool(
+  pools: readonly { poolId: string; label: string; capacity: number }[],
+  bookings: readonly { poolId: string; bookedDate: string }[],
+  blocks: readonly Pick<DatesBlock, 'poolId' | 'source' | 'startDate' | 'endDate'>[],
+  today: string,
+): SeatsByPool {
+  const out: SeatsByPool = {};
+  for (const p of pools) out[p.poolId] = { label: p.label, capacity: p.capacity, taken: {} };
+  const add = (poolId: string | null, date: string) => {
+    if (!poolId || date < today) return;
+    const s = out[poolId];
+    if (s) s.taken[date] = (s.taken[date] ?? 0) + 1;
+  };
+  for (const b of bookings) add(b.poolId, b.bookedDate);
+  for (const b of blocks) {
+    if (b.source !== 'external_client' || !b.poolId) continue;
+    // One-off and all-day by CHECK: each day of its range takes one seat (at most 32 — the RPC's span).
+    const [y, m, d] = b.startDate.split('-').map(Number);
+    const at = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+    for (let i = 0; i < 32; i++) {
+      const day = at.toISOString().slice(0, 10);
+      if (day > b.endDate) break;
+      add(b.poolId, day);
+      at.setUTCDate(at.getUTCDate() + 1);
+    }
+  }
+  return out;
+}
+
+/** The add sheet's one line for a picked date on a schedule. */
+export function seatLine(seats: SeatsByPool, poolId: string | null, date: string | null): { tone: 'ok' | 'bad'; text: string } | null {
+  if (!poolId || !date) return null;
+  const s = seats[poolId];
+  if (!s) return null;
+  const taken = s.taken[date] ?? 0;
+  if (taken >= s.capacity) return { tone: 'bad', text: `That day is full on the ${s.label} schedule — add anyway, or pick another.` };
+  if (taken > 0) return { tone: 'ok', text: `${taken} already that day · ${s.capacity - taken} more ${s.capacity - taken === 1 ? 'fits' : 'fit'}` };
+  return { tone: 'ok', text: 'That day is free' };
+}
+
+/* ── COUPLES ASKING ABOUT A DATE (amber) ────────────────────────────────────────────────────────────────────────────── */
 
 /**
  * A couple in an OPEN conversation with the shop about a dated event that is not booked — "Holding" on the month

@@ -6,7 +6,8 @@
  *       card as tall as the strip; the picked card rests in the MIDDLE with the previous and the next in view
  *       (RENDERED: a room before the first card and after the last). Sabotage: the pane scrolling again → red.
  *   (2) ROW 4 IS COLOUR + SIZE, SIDE BY SIDE (*"color and size share the same row"* · *"Color just 1 circle…"*) —
- *       RENDERED: ONE circle and one slider; no Font. For the parts that have words of their own, EXECUTED over
+ *       RENDERED: ONE circle and one slider; no Font. (2026-10-14: then Width ▾ on the parts that take one — the
+ *       word "Colour" is drawn from `sm` only; `element-width.test.ts`.) For the parts that have words of their own, EXECUTED over
  *       every part; a part with neither has no row and its cards take all four. Sabotage: Colour as a row of
  *       swatches → red.
  *   (3) A PICK IS THE PART SHEET'S OWN WRITE — EXECUTED: the shipped `withElementChoice` on the Maker's own copy of
@@ -141,20 +142,21 @@ test('(2) row 4 is Colour + Size side by side: ONE circle and one slider, no Fon
       const takes: readonly string[] = HUB_ELEMENT_FIELDS[t.el as keyof typeof HUB_ELEMENT_FIELDS];
       assert.equal(can.colour, takes.includes('color'), `${k}: colour`);
       assert.equal(can.size, takes.includes('size'), `${k}: size`);
+      assert.equal(can.width, takes.includes('width'), `${k}: width`);
       assert.ok(partLookSizes(t.el).includes(HUB_ELEMENT_SIZE_BASE), `${k}: 100 % is not a size it can be`);
       if (can.colour && can.size) both += 1;
     } else {
-      assert.deepEqual(can, { colour: false, size: false });
+      assert.deepEqual(can, { colour: false, size: false, width: false });
       none += 1;
     }
   }
   assert.ok(both >= 12 && none >= 12, `anti-vacuity: ${both} with both, ${none} with none`);
   /* The logo is a drawing: a size, no colour. The RSVP form's words are not styled part by part. */
-  assert.deepEqual(partLookFields(partLookTarget('f:hero', 'mark')), { colour: false, size: true });
+  assert.deepEqual(partLookFields(partLookTarget('f:hero', 'mark')), { colour: false, size: true, width: false });
   assert.equal(partLookTarget('w:rsvp', null), null);
   assert.equal(partLookTarget('f:gifts', null), null);
 
-  /* RENDERED: "Colour", ONE circle, "Size", ONE slider, the size said — in that order, in one row. */
+  /* RENDERED: "Colour", ONE circle, "Size", ONE slider, the size said, Width ▾ — in that order, in one row. */
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { StageLookRow } = await import(`../${L}/stage-panel/stage-look-row`);
   const draw = (el: string, canvas: object) =>
@@ -162,20 +164,25 @@ test('(2) row 4 is Colour + Size side by side: ONE circle and one slider, no Fon
   const row = draw('names', { elements: { names: { color: '#a9834b', size: 120 } } });
   assert.match(row, new RegExp(`^<div class="${SP_LOOK_ROW}" data-stage-look-row="names">`));
   assert.ok(has(SP_LOOK_ROW, 'flex') && has(SP_LOOK_ROW, 'items-center') && !has(SP_LOOK_ROW, 'flex-col') && !has(SP_LOOK_ROW, 'flex-wrap'), 'Colour and Size do not share ONE row');
-  const marks = [...row.matchAll(/>(Colour|Size)<|data-stage-look-colour="([^"]+)"|type="range"|>(\d+%)</g)].map((m) => m[1] ?? m[2] ?? m[3] ?? 'slider');
-  assert.deepEqual(marks, ['Colour', '#a9834b', 'Size', 'slider', '120%']);
+  const marks = [...row.matchAll(/>(Colour|Size)<|data-stage-look-colour="([^"]+)"|type="range"|>(\d+%)<|data-stage-dd="(look-width)"/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? m[4] ?? 'slider');
+  assert.deepEqual(marks, ['Colour', '#a9834b', 'Size', 'slider', '120%', 'look-width']);
   assert.equal((row.match(/data-stage-look-colour=/g) ?? []).length, 1, 'Colour is more than ONE circle — "Color just 1 circle…"');
-  assert.equal((row.match(/<button/g) ?? []).length, 1, 'the row holds a control beside the circle and the slider');
+  assert.equal((row.match(/<button/g) ?? []).length, 2, 'the row holds a control beside the circle, the slider and Width ▾');
+  assert.equal((row.match(/aria-haspopup="listbox"/g) ?? []).length, 1, 'more than ONE dropdown in the row — only Width ▾');
   assert.match(row, /<button[^>]*aria-label="Colour #a9834b — change it"/);
   assert.match(row, /background:#a9834b/);
-  assert.doesNotMatch(row, /Font|data-element-font|aria-haspopup="listbox"/, 'a Font control is back in the toolbar');
+  assert.doesNotMatch(row, /Font|data-element-font/, 'a Font control is back in the toolbar');
+  /* "Colour" in words from `sm` only (owner 2026-10-14, Q1) — the circle stands alone on a phone, still named. */
+  assert.match(row, /<span class="[^"]*\bhidden sm:inline\b[^"]*" aria-hidden="true">Colour<\/span>/);
   /* Nothing chosen: the circle is the theme's own (striped), the slider at 100 %. */
   const plain = draw('eyebrow', {});
   assert.match(plain, /data-stage-look-colour="theme"/);
   assert.match(plain, />100%</);
   /* The logo: its size only. */
   const logo = draw('mark', {});
-  assert.doesNotMatch(logo, /Colour|data-stage-look-colour/);
+  assert.doesNotMatch(logo, /Colour|data-stage-look-colour|look-width/);
+  /* A part that takes no width (the date) draws no Width ▾. */
+  assert.doesNotMatch(draw('date', {}), /look-width|aria-haspopup/);
   assert.match(logo, /type="range"/);
   /* The circle opens the app's ONE colour picker; the slider is the app's one slider. */
   const src = read(`${L}/stage-panel/stage-look-row.tsx`);
@@ -202,8 +209,12 @@ test('(3) a pick is the part sheet’s own write: the shipped choice on the Make
   assert.equal(partLookNext(t, { elements: { names: { color: '#a9834b' } } } as never, 'color', '#a9834b'), null);
   assert.equal(partLookNext(t, {} as never, 'color', null), null);
   /* What the row shows is read off the same place. */
-  assert.deepEqual(partLookNow(t, { elements: { names: { color: '#112233', size: 85 } } } as never), { colour: '#112233', size: 85 });
-  assert.deepEqual(partLookNow(t, {} as never), { colour: null, size: 100 });
+  assert.deepEqual(partLookNow(t, { elements: { names: { color: '#112233', size: 85, width: 'wide' } } } as never), { colour: '#112233', size: 85, width: 'wide' });
+  assert.deepEqual(partLookNow(t, {} as never), { colour: null, size: 100, width: null });
+  /* A width: the same one write; Normal (null) is an absence. */
+  assert.deepEqual((partLookNext(t, before as never, 'width', 'full') as { elements: Record<string, { width?: string }> }).elements.names!.width, 'full');
+  assert.deepEqual(partLookNext(t, { elements: { names: { width: 'full' } } } as never, 'width', null), {}, 'Normal is stored');
+  assert.equal(partLookNext(t, { elements: { names: { width: 'full' } } } as never, 'width', 'full'), null);
 
   const src = read(`${L}/stage-panel/part-look.ts`);
   const keep = src.slice(src.indexOf('export async function keepPartLook('));
@@ -242,13 +253,13 @@ test('(4) the Dress code: the palette’s five looks are ONE row of five picture
   /* The couple's own colours, in each look's shape — and greys, never an invented colour, before they have any. */
   assert.ok((html.match(/background-color:#A9834B/gi) ?? []).length >= 5, 'a look is not drawn in the couple’s colours');
   const empty = renderToStaticMarkup(React.createElement(PaletteLookStrip, { value: 'tags', colours: [], onPick: () => {} }));
-  assert.equal((empty.match(/role="radio"/g) ?? []).length, 5, 'with no colours yet the row is gone');
+  assert.equal((empty.match(/role="radio"/g) ?? []).length, PALETTE_LOOK_IDS.length, 'with no colours yet the row is gone');
   assert.doesNotMatch(empty, /#A9834B/i);
   /* ONE frame a look: the picture fills its button (the dropdown thumbnail's own small box and line are put away). */
   for (const c of ['overflow-hidden', 'items-stretch', '[&>[data-palette-thumb]]:!w-full', '[&>[data-palette-thumb]]:!h-auto', '[&>[data-palette-thumb]]:!shadow-none', '[&>[data-palette-thumb]]:!rounded-none']) {
     assert.ok(has(SP_PALETTE_PICK, c), `a palette picture is a box inside a box (no ${c})`);
   }
-  assert.equal((html.match(/data-palette-thumb="/g) ?? []).length, 5, 'anti-vacuity: the thumbnail’s mark moved');
+  assert.equal((html.match(/data-palette-thumb="/g) ?? []).length, PALETTE_LOOK_IDS.length, 'anti-vacuity: the thumbnail’s mark moved');
   /* It is a row of Style (kept under the cards), never a card strip of its own. */
   assert.doesNotMatch(html, /data-look-cards|data-style-carousel/);
 });

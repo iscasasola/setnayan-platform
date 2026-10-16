@@ -24,6 +24,14 @@
  *       the day's Live leads with Directions until the programme begins.
  *   5 · ONE shell (hub-shell.tsx, both frames), ONE bar (SiteMenuBar), ONE
  *       state (the address) — and never in the Maker's editing canvas.
+ *
+ * 📜 RE-AIMED 2026-10-15 — THE DAY ONLY. The owner returned the Invitation and
+ * Save the Date to ONE page whose bar jumps to sections, Me its own page
+ * (DECISION_LOG "THE INVITATION AND SAVE THE DATE BECOME ONE PAGE — … · THE DAY
+ * KEEPS ITS TABS"). This file still holds every rule above for The Day, where a
+ * tab IS its own full page; the two one-page stages are held by
+ * `the-invitation-is-one-page.test.ts`. The Invitation's menu WORDS and keys (1)
+ * and the filing (3) are shared by both rulings and stay asserted here.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,11 +41,13 @@ import { join } from 'node:path';
 import {
   HUB_TAB_ORDER,
   TABBED_STAGES,
+  hubPageModeOf,
   activeHubTab,
   directionsLead,
   hubTabFor,
   hubTabHref,
   hubTabOfHref,
+  hubPageOf,
   hubTabsOn,
   inPageTabs,
   isHubTabHref,
@@ -223,18 +233,20 @@ test('4 · the day’s Live leads with Directions until the programme begins —
 
 /* ══ 5 · ONE SHELL · ONE BAR · ONE STATE ═════════════════════════════════════ */
 
-test('5 · tabs are the Invitation’s and The Day’s, only where a bar is drawn, never the Maker’s canvas', () => {
-  assert.deepEqual([...TABBED_STAGES].sort(), ['event', 'rsvp']);
+test('5 · a tab is its own page on The Day ONLY, only where a bar is drawn, never the Maker’s canvas', () => {
+  /* 📜 2026-10-15: the Invitation left this list — it is one page now (`the-invitation-is-one-page.test.ts`). */
+  assert.deepEqual([...TABBED_STAGES], ['event']);
+  assert.equal(hubPageModeOf('event'), 'tabs');
+  for (const stage of ['rsvp', 'save_the_date', 'editorial'] as const) assert.notEqual(hubPageModeOf(stage), 'tabs', `${stage}: a page per tab is back`);
   const on = { bodyNormal: true, barDrawn: true, makerCanvas: false };
-  assert.equal(hubTabsOn({ ...on, stage: 'rsvp' }), true);
   assert.equal(hubTabsOn({ ...on, stage: 'event' }), true);
-  assert.equal(hubTabsOn({ ...on, stage: 'save_the_date' }), false);
   assert.equal(hubTabsOn({ ...on, stage: 'editorial' }), false);
-  assert.equal(hubTabsOn({ ...on, stage: 'rsvp', makerCanvas: true }), false, 'the canvas lists every scene it draws');
+  assert.equal(hubTabsOn({ ...on, stage: 'event', makerCanvas: true }), false, 'the canvas lists every scene it draws');
   /* 🧭 The one canvas exception (owner 2026-10-07 "yes pages"): the Stages canvas is tabbed like the guest's page. */
-  assert.equal(hubTabsOn({ ...on, stage: 'rsvp', makerCanvas: true, stagesCanvas: true }), true, 'the Stages canvas is the guest’s tabbed page');
-  assert.equal(hubTabsOn({ ...on, stage: 'save_the_date', makerCanvas: true, stagesCanvas: true }), false, 'Save the Date stays one page');
-  assert.equal(hubTabsOn({ ...on, stage: 'rsvp', barDrawn: false }), false, 'no bar, no way to another tab');
+  assert.equal(hubTabsOn({ ...on, stage: 'event', makerCanvas: true, stagesCanvas: true }), true, 'the Stages canvas is the guest’s tabbed page');
+  assert.equal(hubTabsOn({ ...on, stage: 'event', barDrawn: false }), false, 'no bar, no way to another tab');
+  // The Day's bar: every in-page tab is a `?tab=` page — never a jump mark.
+  assert.ok(guestAt('event').every((s) => !s.href.startsWith('#')), 'a jump mark on The Day');
 });
 
 test('5 · a tabbed stage always has the ordinary body (page.tsx relies on it for the Me tab)', () => {
@@ -274,21 +286,27 @@ test('5 · ONE shell: hub-shell.tsx carries both frames over one address; nothin
 
 test('5 · ONE bar: the page’s own SiteMenuBar, marking the tab from the same address', () => {
   const BAR = stripComments(read('_components', 'site-menu-bar.tsx'));
-  assert.match(BAR, /activeHubTab\(params\?\.get\(HUB_TAB_PARAM\) \?\? null, tabKeys\)/);
-  assert.match(BAR, /aria-current=\{slot\.key === activeKey \? 'page' : undefined\}/);
+  assert.match(BAR, /const page = tabKeys\.length > 0 \? activeHubTab\(params\?\.get\(HUB_TAB_PARAM\) \?\? null, tabKeys\) : null;/);
+  /* The Day's lit tab is the page (`page`); `currentOf` says `true` only for a one-page stage's jump mark. */
+  assert.match(BAR, /aria-current=\{currentOf\(slot\.key\)\}/);
+  assert.match(BAR, /const activeKey = onePage \? \(page === SCROLL_PAGE \? spied : page\) : page;/, 'off the one page, the address alone lights the tab');
+  assert.match(BAR, /key !== activeKey \? undefined : onePage && marks\.some\(\(m\) => m\.key === key\) \? 'true' : 'page'/);
   const BODY = stripComments(read('_components', 'site-body.tsx'));
   // Both trees: the bar and the shell read ONE value, and the shell rides with the bar.
   for (const v of ['anonBar', 'guestBar']) {
     assert.match(BODY, new RegExp(`<SiteMenuBar\\s+slots=\\{${v}\\}`));
-    assert.match(BODY, new RegExp(`\\{menuOn && showGuestBars && tabs\\.on \\? <HubShell frame="page" slots=\\{${v}\\} /> : null\\}`));
+    assert.match(BODY, new RegExp(`\\{menuOn && showGuestBars && tabs\\.on \\? <HubShell frame="page" slots=\\{${v}\\} onePage=\\{onePage\\} /> : null\\}`));
   }
-  assert.equal(BODY.match(/tabbed: tabsOn,/g)?.length, 2, 'both bars are told the page is tabs');
+  assert.equal(BODY.match(/tabbed: barTabbed,/g)?.length, 2, 'both bars are told the page is tabs');
+  assert.match(BODY, /const barTabbed: boolean \| 'one-page' = tabsOn \? \(onePage \? 'one-page' : true\) : false;/, 'The Day’s bars are told `true` — a page per tab');
   assert.equal(BODY.match(/pageTabs = tabs;/g)?.length, 2, 'both trees hand their tabs to the blocks outside them');
 });
 
 test('5 · every tab group is marked, hidden off its tab, and names a tab from the order', () => {
   const BODY = stripComments(read('_components', 'site-body.tsx'));
-  assert.match(BODY, /hidden=\{tab !== active \? true : undefined\}/);
+  /* Hidden off the PAGE on show — on The Day a tab's page is the tab itself (`hubPageOf(tab, false) === tab`). */
+  assert.match(BODY, /hidden=\{pageOf\(tab\) !== active \? true : undefined\}/);
+  for (const k of HUB_TAB_ORDER) assert.equal(hubPageOf(k, false), k, `The Day: ${k} is not its own page`);
   const wants = [...BODY.matchAll(/\bgroup\(\s*('([a-z]+)'|leadTab|scenesTab|pageStage === 'event' \? 'live' : 'details')/g)].map((m) => m[2] ?? m[1] ?? '');
   assert.ok(wants.length >= 20, `precondition: the groups were found (${wants.length})`);
   for (const w of wants) if (/^[a-z]+$/.test(w)) assert.ok((HUB_TAB_ORDER as readonly string[]).includes(w), `a group asks for "${w}", which is no tab`);

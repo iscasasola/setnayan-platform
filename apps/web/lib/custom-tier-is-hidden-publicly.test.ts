@@ -47,8 +47,11 @@ const DELTAS = strip(
 const OVERLAY = strip(
   readFileSync(join(WEB, 'app/_components/home/HomeOverlays.tsx'), 'utf8'),
 );
+// The vendor Plan page and its rows (the Custom row moved into `plan-rows.tsx` with the simpler supplier
+// dashboard, 2026-10-14 — the page mounts it; read together, the page still offers Custom).
 const SUBSCRIPTION = strip(
-  readFileSync(join(WEB, 'app/vendor-dashboard/subscription/page.tsx'), 'utf8'),
+  readFileSync(join(WEB, 'app/vendor-dashboard/subscription/page.tsx'), 'utf8') +
+    readFileSync(join(WEB, 'app/vendor-dashboard/subscription/_components/plan-rows.tsx'), 'utf8'),
 );
 
 test('the imports arrived — this guard cannot run on an empty module', () => {

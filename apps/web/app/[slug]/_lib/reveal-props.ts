@@ -45,6 +45,8 @@ export function revealVeilColor(palette: unknown): string {
 export function revealMarkSvg(event: {
   monogram_uploaded_svg?: string | null;
   monogram_custom_svg?: string | null;
+  /** The Logo switch: "No, use our names" seals the opening with the lettered seal. */
+  logo_wanted?: boolean | null;
 }): string | null {
   // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
   return resolveEventMonogramSvg(event);

@@ -65,7 +65,11 @@ test('their colour or ombré → the paper; nothing chosen, or a wake → today�
 });
 
 test('the Home header is drawn from it, and the page reads it from the PUBLISHED event', () => {
-  const card = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/_components/home-first-screen.tsx'), 'utf8'));
+  // The band moved to its own file (2026-10-16) so the Home's loading screen draws the same one;
+  // the Home still draws it, handed the ground.
+  const first = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/_components/home-first-screen.tsx'), 'utf8'));
+  assert.match(first, /<HomeCoverBand eventId=\{eventId\} cover=\{cover\} ground=\{ground\} \/>/);
+  const card = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/_components/home-cover-band.tsx'), 'utf8'));
   assert.match(card, /data-home-cover=\{ground\?\.kind \?\? 'colour'\}/);
   assert.match(card, /style=\{\{ background: ground\.scrim \}\}/, 'the picture has no veil under the words');
   const page = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/page.tsx'), 'utf8'));

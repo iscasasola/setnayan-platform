@@ -114,6 +114,14 @@ test('4 · names shared with Post Event are ONE style, drawn on both', () => {
     const st = gal.styles.find((s) => s.id === id)!;
     assert.ok(st.stages?.includes('editorial') && st.stages.includes('save_the_date'), id);
   }
+  /* 🎞 Glimpse (owner 2026-10-15) is the Save the Date's own — not one of Post Event's, so it is never offered there. */
+  const glimpse = gal.styles.find((s) => s.id === 'glimpse');
+  assert.ok(glimpse, 'the Photos scene offers Glimpse');
+  assert.equal(glimpse!.name, 'Glimpse');
+  assert.ok(glimpse!.stages?.includes('save_the_date'), 'Glimpse is drawn on the Save the Date');
+  assert.ok(!glimpse!.stages?.includes('editorial'), 'Glimpse is not offered on Post Event (owner: "later, second step")');
+  assert.ok(sceneStylesOn('gallery', 'save_the_date').some((s) => s.id === 'glimpse'), 'the Style pick lists Glimpse on the Save the Date');
+  assert.equal(defaultSceneStyle('gallery', 'save_the_date', 'wedding'), 'mosaic', 'Glimpse is a pick, never the default');
 });
 
 test('5 · the five fixed parts are registered, three styles each where guests meet them', () => {
@@ -128,6 +136,17 @@ test('5 · the five fixed parts are registered, three styles each where guests m
     for (const stage of stages) assert.ok(sceneStylesOn(type, stage, 'wedding').length >= 3, `${type} on ${stage}`);
     assert.equal(sceneStylesOn(type, 'save_the_date').length, 0, `${type} is not on the Save the Date`);
   }
-  assert.ok(!sceneStylesOn('entourage', 'event', 'birthday').some((s) => s.id === 'two-sides'), 'two sides is a wedding style');
+  /* 👫 Owner 2026-10-15: On the axis · Lines · The march; Two sides withdrawn, on every stage and event type. */
+  for (const stage of ['rsvp', 'event'] as const) {
+    for (const t of ['wedding', 'birthday', null]) {
+      assert.deepEqual(
+        sceneStylesOn('entourage', stage, t).map((s) => [s.id, s.name]),
+        [['roll-call', 'On the axis'], ['lines', 'Lines'], ['march', 'The march']],
+        `entourage on ${stage} (${t})`,
+      );
+    }
+  }
+  assert.ok(!sceneStylesOn('entourage', 'editorial', 'wedding').some((s) => s.id === 'two-sides' || s.id === 'lines'));
+  assert.equal(sceneStylesOn('entourage', 'editorial', 'wedding').find((s) => s.id === 'roll-call')?.name, 'Roll call', 'Post Event keeps its own Roll call');
   assert.equal(recommendedStageSceneStyle('find_your_seat', 'event', null), 'table-number');
 });

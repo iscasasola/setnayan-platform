@@ -27,15 +27,16 @@
  * otherwise a `<button type="button">` unless `type` says submit.
  */
 import Link from 'next/link';
+import { iconIsAComponent } from '@/lib/icon-is-a-component';
 import {
   forwardRef,
-  isValidElement,
   useCallback,
   useEffect,
   useLayoutEffect,
   type ComponentType,
   type MouseEventHandler,
   type ReactElement,
+  type ReactNode,
   type RefObject,
   type SVGProps,
 } from 'react';
@@ -134,7 +135,10 @@ export function actionButtonClass(
 }
 
 function renderIcon(icon: Common['icon']) {
-  if (isValidElement(icon)) return icon;
+  /* 🧩 A node (an element, or the LAZY a production RSC payload makes of a server component's element) is drawn as a
+     node; only a component is drawn as a type. `isValidElement` alone let the lazy through as a type — the live
+     Maker crash of 2026-10-15 (`lib/icon-is-a-component.ts`). */
+  if (!iconIsAComponent(icon)) return icon as ReactNode;
   const Icon = icon as IconComponent;
   return <Icon aria-hidden="true" strokeWidth={1.9} />;
 }

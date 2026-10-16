@@ -11,6 +11,8 @@ import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-ref
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
+import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { uploadStill } from '@/lib/upload-still';
 import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
@@ -55,6 +57,7 @@ import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageBackground, type StageBgSource, type StageBgTile } from '../../../launch/_components/stage-panel/stage-background';
+import { CoverSceneGroundRows } from '../../../launch/_components/stage-panel/cover-words-background';
 import { TILE_FOOT, TILE_RAMP_SPAN, tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPhoto, tileNameOnRamp } from '@/lib/bg-tile-name';
 import { BACKGROUND_SOURCE_IS_PRO } from '@/lib/background-source';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -128,7 +131,32 @@ export type SceneUpload = {
   posterUrl?: string | null;
 };
 
-export function SceneBackgroundRow({
+/**
+ * 🖼 THE ONE DOOR TO A BACKGROUND ROW. A scene's is below; the hero row's is the COVER SCENE's (owner-approved
+ * 2026-10-15) — its own four rows (`stage-panel/cover-words-background.tsx`), drawn through this same lazy door so the
+ * Maker's first load carries no second stand-in.
+ */
+export function SceneBackgroundRow(props: Parameters<typeof SceneBackgroundRows>[0] & { loopPosters?: Readonly<Record<string, string | null>> }) {
+  if (props.widgetType === 'hero') {
+    return (
+      <CoverSceneGroundRows
+        eventId={props.eventId}
+        canvas={props.canvas}
+        draftAction={props.draftAction}
+        themeColours={props.themeColours}
+        board={props.board}
+        photoChoices={props.photoChoices}
+        mediaUsedBytes={props.mediaUsedBytes}
+        mediaCapBytes={coupleMediaCapBytes(props.ownsPro)}
+        proHref={props.ownsPro || props.storeShell ? null : `/dashboard/${props.eventId}/studio/website-pro`}
+        loopPosters={props.loopPosters}
+      />
+    );
+  }
+  return <SceneBackgroundRows {...props} />;
+}
+
+function SceneBackgroundRows({
   eventId,
   widgetType,
   canvas,
@@ -185,7 +213,7 @@ export function SceneBackgroundRow({
   videoChoice?: { ref: string; url: string; poster?: string | null } | null;
   /** Photos and clips the scenes already wear from their own upload folder. */
   sceneUploads?: readonly SceneUpload[];
-  /** 💾 The event's settled `couple_media_bytes` — the 100 MB meter under the upload. Absent = no meter. */
+  /** 💾 The event's settled `couple_media_bytes` — the plan's media meter under the upload. Absent = no meter. */
   mediaUsedBytes?: number;
   ownsPro: boolean;
   /**
@@ -531,6 +559,7 @@ export function SceneBackgroundRow({
           <div className="border-b border-ink/[0.07] py-2.5" data-inspector-row="scene-upload">
             <FileUpload
               bucket="media"
+            refusalLink={coupleMediaRefusalLink(ownsPro || storeShell ? null : `/dashboard/${eventId}/studio/website-pro`)}
               pathPrefix={sceneBackgroundPathPrefix(eventId)}
               multiple={false}
               maxSizeMB={100}
@@ -547,10 +576,15 @@ export function SceneBackgroundRow({
               label="Upload a photo or clip"
             />
             {reading ? <p className="pt-1 text-[12px] text-ink/60">Reading your clip…</p> : null}
-            {/* 💾 The event's 100 MB of uploads, beside the upload that spends it
+            {/* 💾 The event's uploads against its PLAN's allowance (Free 10 MB · Pro 500 MB), beside the upload that spends it
                 (DECISION_LOG 2026-09-25: "with a visible meter"). */}
             {typeof mediaUsedBytes === 'number' ? (
-              <MakerMediaMeter usedBytes={mediaUsedBytes} className="pt-2" />
+              <MakerMediaMeter
+                usedBytes={mediaUsedBytes}
+                capBytes={coupleMediaCapBytes(ownsPro)}
+                proHref={ownsPro || storeShell ? null : `/dashboard/${eventId}/studio/website-pro`}
+                className="pt-2"
+              />
             ) : null}
           </div>
   );

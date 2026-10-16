@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { BookOpen, Camera, CalendarDays, Check, Info, ListChecks, Mail, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
+import { BookOpen, Camera, CalendarDays, Check, ListChecks, Mail, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
@@ -11,6 +11,7 @@ import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { completeTour } from '@/lib/tour-actions';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
 import { HomeDoorways, HomeLater, HomeReload, HomeWhatsNext } from './home-parts';
+import { HomeCoverBand } from './home-cover-band';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { PapicSeePhotos } from '../studio/papic/_components/papic-see-photos';
 import { ServiceGlanceRow } from '@/app/_components/service-glance';
@@ -202,37 +203,7 @@ export function HomeFirstScreen({
           "EVENT DETAILS LIVES ON EVENT HOME") — the one information-only sheet. */}
       {/* 🖼 …and it wears the Event Hub's main background (owner 2026-10-07, #6394), the
           words in the hub's own measured ink over its veil (`lib/home-cover.ts`). */}
-      <div
-        data-home-cover={ground?.kind ?? 'colour'}
-        /* Full-bleed on a phone, under the top bar (the prototype's `.cover{margin:0 -16px}` —
-           the event layout's gutter is px-4 / pt-3); a rounded band from `sm` up. */
-        /* 📐 A FULL-WIDTH BAND AT EVERY WIDTH (owner 2026-10-07: "i thought this will be
-           changed to full width"): it cancels the event layout's own gutter (px-4 · sm:px-6 ·
-           lg:px-8, pt-3 · sm:pt-6) and pads by the same amount, so it runs edge to edge of
-           the content area, square-edged, with its words on the page's gutter. The cards
-           below keep their column (`data-home-column`). */
-        className={`relative -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 pb-[18px] pt-[22px] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 ${ground ? '' : 'bg-mulberry text-cream'}`}
-        style={ground ? { background: ground.kind === 'paper' ? ground.background : undefined, color: ground.ink } : undefined}
-      >
-        {ground?.kind === 'image' ? (
-          <span aria-hidden className="absolute inset-0 block">
-            {/* A presigned R2 URL or the theme's public still — a plain <img>: the signing host is not in the next/image allowlist. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={ground.src} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
-            <span className="absolute inset-0 block" style={{ background: ground.scrim }} />
-          </span>
-        ) : null}
-        <div className="relative min-w-0">
-          {/* The page's one h1. Screen-reader only: the name is drawn once, below, for the eye — and
-              BEFORE the eyebrow, so `lint-page-masthead` does not read a label-over-h1. */}
-          <h1 className="sr-only">{cover.name}</h1>
-          <p className={`truncate text-[12px] uppercase tracking-[0.12em] ${ground ? 'opacity-85' : 'text-cream/85'}`}>{cover.eyebrow}</p>
-          <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
-        </div>
-        <span className="relative shrink-0" data-home-event-details="">
-          <ActionButton href={`/dashboard/${eventId}/details`} tone="neutral" icon={<Info aria-hidden="true" strokeWidth={1.9} />} label="Event Details" className="home-cover-ab" />
-        </span>
-      </div>
+      <HomeCoverBand eventId={eventId} cover={cover} ground={ground} />
 
       <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 lg:max-w-3xl">
 

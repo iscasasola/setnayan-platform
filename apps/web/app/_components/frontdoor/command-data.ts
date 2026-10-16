@@ -43,6 +43,8 @@ import 'server-only';
 import { cache } from 'react';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { chromeSnapshot } from '@/lib/chrome-snapshot';
 import { fetchUserEvents, type EventWithRole } from '@/lib/events';
 import { fetchUserCommunities } from '@/lib/communities';
 import { fetchUserRoleSummary } from '@/lib/roles';
@@ -113,14 +115,21 @@ export function placeLabel(event: EventWithRole): string | null {
  * never to a bar with no search in it. The underlying helpers already
  * graceful-degrade to `[]`, so the try/catch here is the outer belt.
  */
-export const resolveCommandItems = cache(
-  async (): Promise<HomeCommandItem[]> => {
+export const resolveCommandItems = cache(async (): Promise<HomeCommandItem[]> => {
+  /* ⚡ THE ONE VERIFIED USER OF THIS REQUEST (`getCurrentUser`, cache()d) — this asked the auth
+     server itself, one more `/auth/v1/user` round trip on every signed-in render and every
+     prefetch (measured 2026-10-16). And an in-app request reuses this person's search index from
+     their last render (≤ 20 s, never across people, never an empty answer) — `lib/chrome-snapshot.ts`. */
+  const user = await getCurrentUser().catch(() => null);
+  if (!user) return [];
+  return chromeSnapshot('command-items', user.id, () => loadCommandItems(user.id), (items) => items.length > 0);
+});
+
+async function loadCommandItems(userId: string): Promise<HomeCommandItem[]> {
+  const user = { id: userId };
+  {
     try {
       const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return [];
 
       const [organiser, invited, helping, communities, roles, chapters] =
         await Promise.all([
@@ -311,5 +320,5 @@ export const resolveCommandItems = cache(
     } catch {
       return [];
     }
-  },
-);
+  }
+}

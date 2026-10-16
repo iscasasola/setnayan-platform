@@ -112,6 +112,7 @@ import { hubDraftStamp, hubDraftUndoMatched } from '@/lib/hub-draft-stamp';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { PART_SHOW_KEY, STAGE_ORDER_KEY, STAGE_SHOW_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
+import { PHOTOS_HEADING_KEY } from '@/lib/photos-heading';
 import { HUB_MUSIC_KEY } from '@/lib/hub-music-button';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -895,6 +896,8 @@ export async function hubDraftAction(
                   ? PART_SHOW_KEY
                 : item.field === 'std_lead'
                   ? STD_LEAD_KEY
+                : item.field === 'photos_heading'
+                  ? PHOTOS_HEADING_KEY
                   : item.field === 'custom'
                     ? 'custom'
                     : item.field === 'venue'
@@ -1019,7 +1022,11 @@ export async function hubDraftAction(
         (remaining.widgets[item.widgetType] ??= {}).custom = item.value as CustomSectionContent | null;
       }
     }
-    await writeHubDraft(supabase, eventId, { v: 1, ...remaining, history: [] }, snapshot);
+    const left: HubDraft = { v: 1, ...remaining, history: [] };
+    await writeHubDraft(supabase, eventId, left, snapshot);
+    /* ✓ (2026-10-15) asked for (`HUB_DRAFT_BAR_FIELD`), the bar comes back WITH the apply — the ✓ count shows what is
+       left the moment the write answers, never only after the Maker's render (`hub-draft-bar.tsx` `applyHeld`). */
+    const applyBar = formData.get(HUB_DRAFT_BAR_FIELD) === '1' ? await hubDraftBarAfterSave(supabase, eventId, left) : null;
 
     revalidateWebsiteEditor(eventId);
     revalidateGuestSite(typeof ownRow.slug === 'string' ? ownRow.slug : null);
@@ -1041,10 +1048,11 @@ export async function hubDraftAction(
     const heldSaid = held
       .map(({ item, reason }) => ({ label: hubDraftItemLabel(item, label), reason }))
       .filter((h, i, all) => all.findIndex((o) => o.label === h.label && o.reason === h.reason) === i);
-    return done(
+    const applied = done(
       toWrite.length,
       [...heldSaid, ...plan.orphans.map((t) => ({ label: label(t), reason: 'missing_section' as const }))],
     );
+    return applyBar ? { ...applied, bar: applyBar } : applied;
   } catch (e) {
     console.error('[hub-draft] action failed:', intent, e instanceof Error ? e.message : e);
     // 📏 The draft would not fit even with no Undo history: say WHAT to do,

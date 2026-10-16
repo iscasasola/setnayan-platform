@@ -1,9 +1,12 @@
 import { Fragment, type ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { WishLab } from './wish-lab';
+import { WishLab, labGiftContent } from './wish-lab';
+import { WelcomeGiftsContent } from '@/app/[slug]/_components/welcome-gifts-content';
+import { wishListShape } from '@/lib/wish-list-guest';
 import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
+import { LAB_SIGNED } from '../lab-own-media';
 import { CountdownWidget } from '@/app/[slug]/_components/countdown';
 import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
 import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
@@ -19,6 +22,7 @@ import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
 import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost } from '@/app/[slug]/_components/hub-scenes';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
+import { OurPhotosWidget } from '@/app/[slug]/_components/our-photos-widget';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
@@ -47,16 +51,20 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette } from './lab-sample';
 import { LabStagePages } from './lab-stage';
 import { LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom } from '../lab-draft';
 import { labSeen, labStageTiles } from '../lab-navigator';
 import { sceneOnStage } from '@/lib/what-guests-see';
 import type { WidgetType } from '@/lib/invitation-widgets';
 import { heroCanvasOf } from '@/app/[slug]/_lib/hero-design-of';
+import { coverSceneLayer } from '@/app/[slug]/_lib/cover-scene-layer';
+import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
 import { heroDesignOf } from '@/lib/hero-design';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
+import { labPhotoUrls } from './lab-photos';
+import { CoverSceneMenuWaits } from '@/app/[slug]/_components/cover-scene-menu';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
 const LAB_BLOCK = (i: number, label: string, at: string, location: string | null, type = 'pre_ceremony') => ({
@@ -145,6 +153,14 @@ function labRsvpConfig(raw: string | string[] | undefined): { look: unknown } | 
  * page had no title of its own, so its tab read the SITE's default line (the walk of 2026-10-11, M16). That line —
  * the brand's — is not this file's to change.
  */
+/** 🧪 The lab's loop stand-ins (the Maker lab's own, `../page.tsx`): files this repo ships, by the loop's place. */
+const LAB_STILLS = ['ballroom', 'starlit', 'fairy-lights', 'rose-archway', 'seascape', 'sunrise', 'aurora', 'peonies', 'bridgerton'];
+const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'john-jane-vclip', 'peter-mary-vclip'];
+function labLoopMedia(loop: string): { still: string; clip: string } | null {
+  const i = hubMovingBackgroundIds().indexOf(loop as never);
+  return i < 0 ? null : { still: `/std/backgrounds/${LAB_STILLS[i % LAB_STILLS.length]}.webp`, clip: `/realstories/${LAB_CLIPS[i % LAB_CLIPS.length]}.mp4` };
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const words = await eventWordsFor('wedding').catch(() => null);
   return { title: `${(words?.eventWord ?? 'event').replace(/^./, (c) => c.toUpperCase())} invitation`, robots: { index: false, follow: false } };
@@ -164,7 +180,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const sp = await searchParams;
   /* 🎁 `?wish=…` — the guest's wish list on fixtures (`wish-lab.tsx`), instead of the canvas. */
   if (typeof sp.wish === 'string') {
-    return <WishLab state={sp.wish} look={typeof sp.look === 'string' ? sp.look : undefined} known={sp.known !== '0'} named={sp.name !== '0'} mine={sp.mine === '1'} />;
+    return <WishLab state={sp.wish} look={typeof sp.look === 'string' ? sp.look : undefined} known={sp.known !== '0'} named={sp.name !== '0'} mine={sp.mine === '1'} blocked={sp.blocked === '1'} />;
   }
   /* 📬 `?replycard=open|going|not_yet|closed` — the Event Hub's Welcome Reply card (`ReplyCardRow` from
      `replyCardOf`, the page's own two) in each state of the couple's reply window, on the lab's house ground. */
@@ -184,6 +200,23 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         <h1 className="font-pahina text-5xl font-light leading-tight text-ink">Maria &amp; Jose</h1>
         <p className="text-sm text-ink/70">Saturday, December 12, 2026 · Seda Vertis North</p>
         {card ? <ReplyCardRow card={card} /> : null}
+      </main>
+    );
+  }
+  /* 🎞 `?photos=<n>` — the couple's Photos scene with n stand-in pictures (our own drawn gradients, never anybody's
+     photo), in `&gstyle=` (mosaic · grid · film-strip · glimpse) with `&heading=` — the REAL `OurPhotosWidget`, so the
+     Glimpse rail, its drift and the shipped full-screen viewer are walked with no database. */
+  if (typeof sp.photos === 'string') {
+    const n = Math.max(1, Math.min(24, Number(sp.photos) || 5));
+    const urls = labPhotoUrls(n);
+    const gstyle = typeof sp.gstyle === 'string' ? sp.gstyle : 'glimpse';
+    const heading = typeof sp.heading === 'string' && sp.heading.trim() ? sp.heading.trim() : null;
+    return (
+      <main className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[860px] bg-cream px-4 py-10 text-ink" data-lab-photos={n}>
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        <OurPhotosWidget urls={urls} sceneStyle={gstyle} heading={heading} />
+        <p className="mt-16 text-center text-xs text-ink/60">Below the photos — scroll past to take the rail off screen.</p>
+        <div className="h-[120vh]" aria-hidden />
       </main>
     );
   }
@@ -211,6 +244,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         event: { event_id: '00000000-0000-4000-8000-000000000000' },
         viewerIsHost: true,
         tryOn: true,
+        /* 🖼🎬 The lab's own photo and hero video (`../lab-own-media.ts`) — local addresses, nothing signed. */
+        signed: { ...LAB_SIGNED },
       })
     : null;
   /* 🎨 The lab's drafted scene canvases (`lab_widgets`, the lab's save
@@ -229,6 +264,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* ⏱ A `lab_slow` cookie: the canvas page takes as long as production's to arrive. */
   if ((await cookies()).get('lab_slow')?.value === '1') await new Promise((r) => setTimeout(r, 2500));
   const labPhoto = (await cookies()).get('lab_photo')?.value === '1';
+  const labCast = (await cookies()).get('lab_cast')?.value === 'standin' ? 'standin' : 'sample';
   const stage: HubStage | null = (HUB_STAGES as readonly string[]).includes(phase) ? (phase as HubStage) : null;
   /* 🖼 A style's true miniature (`?only=` + `?style=`), as the real canvas honours them — the lab is a host canvas. */
   const only = canvasOnlyScene({ only: typeof sp.only === 'string' ? sp.only : undefined }, true);
@@ -307,6 +343,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       eyebrow={LAB_SAMPLE.openingLine}
       elements={heroCanvas.elements ?? null}
       design={heroDesignOf(heroCanvas)}
+      /* 🖼 The Cover Scene's background, as the real page lays it (`site-body.tsx` `heroElements.ground`) — the lab's
+         loops wear the stand-in files the Maker lab's Look rows use. */
+      ground={coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: null, loopMedia: labLoopMedia })}
       stampElements
       looks={Object.keys(heroLooks).length > 0 ? heroLooks : null}
       monogramSlot={
@@ -316,14 +355,17 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       }
     />
   );
-  /* 👗 The REAL dress code, fed the sample (`./lab-sample.ts`) — the palette look it wears is the one picked in the Maker. */
+  /* 👗 The REAL dress code, fed the sample (`./lab-sample.ts`) — the palette look it wears is the one picked in the Maker.
+     `?board=cale` feeds it the palette prototype's real eleven colours instead (`&you=1`: as a Principal Sponsor). */
+  const cale = sp.board === 'cale';
   const dressCode = words ? (
     <DressCodeWidget
       words={words}
-      config={labDressConfig(LAB_BOARD)}
+      config={cale ? labCaleDressConfig() : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
-      rolePalette={labRolePalette(LAB_BOARD)}
+      rolePalette={cale ? labCaleRolePalette() : labRolePalette(LAB_BOARD)}
+      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : null}
       roleNames={null}
       sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')}
       paletteLook={paletteLookOfRow(rowOf('dress_code'))}
@@ -337,7 +379,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* 🧱 The March's own mark, right BEFORE the real block as the real page puts it (`lib/block-looks.ts`) — inside
           the lab's wrapper, so a look lands on the block a guest sees and not on the lab's own padding. */}
       <span hidden {...{ [BLOCK_MARK_ATTR]: 'entourage' }} />
-      <EntourageSection groups={labEntourage()} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
+      <EntourageSection groups={labEntourage(labCast)} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
     </div>
   );
   /* 🧩 THE LAB'S SCENES, each drawn ONCE — placed by the ordinary sample below, or (`?scrub=1`) by the Scrub chain. */
@@ -402,9 +444,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     /* The lab wraps the gift card; the Maker asks the block's root whether it is the real card (`data-welcome-gifts`),
        so the wrapper says so when the real card is what it holds — else Animate is grey here and cannot be tried. */
     <div data-lab-scene="gifts" {...(words ? { 'data-welcome-gifts': '' } : {})} className="border-t border-ink/10 px-4 py-8 text-left">
-      {/* 🧱 E-Gifts' own mark, right BEFORE the real block (`lib/block-looks.ts`) — inside the lab's wrapper. */}
+      {/* 🧱 E-Gifts' own mark, right BEFORE the real block (`lib/block-looks.ts`) — inside the lab's wrapper. 🎁 The block
+          is E-Gifts drawn in place, as a guest reads it on Welcome (2026-10-14): the lab's two ways to give and four wishes. */}
       <span hidden {...{ [BLOCK_MARK_ATTR]: 'gifts' }} />
-      {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')} /> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
+      {words ? <WelcomeGifts href="#gifts" words={words} look={look('gifts')}>
+          <WelcomeGiftsContent content={Promise.resolve({ ...labGiftContent(words), wishShape: wishListShape(look('gifts')) })} href="#gifts" words={words} />
+        </WelcomeGifts> : <MakerWelcomeGiftsEmpty look={look('gifts')} />}
     </div>
   );
   /* 👤 The Invitation's "Guest's look" — the guest page's own stand-in (the Maker's What to wear part). THE MAKER'S
@@ -442,7 +487,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     ) : null;
   /* 🧩 THE LAB'S NODE FOR EACH CANVAS KEY — a stage draws the ones its own list names (`./lab-stage.tsx`). */
   const stageGiven: Record<string, ReactNode> = {
-    'f:hero': <section className="px-4 pb-10 pt-6">{masthead}</section>,
+    'f:hero': <section data-page-column="" className="px-4 pb-10 pt-6">{masthead}</section>,
     'f:greeting': guestScene('greeting'),
     'f:pass': guestScene('pass'),
     'f:rsvp': guestScene('rsvp'),
@@ -690,7 +735,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   return (
-    <main className={`min-h-dvh text-center text-ink ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase}>
+    <main className={`min-h-dvh text-center text-ink [--cover-scene-above:calc(35px_+_1.5rem)] [--cover-scene-pad:1.5rem] ${ground || labPhoto ? 'relative' : 'bg-cream'}`} data-lab-phase={phase}>
+      {/* 📐 `--cover-scene-above`: the lab's bar (35px) + its section's pt-6 — the shell's rule (`lib/cover-scene-screen.ts`), lab-sized. */}
       {/* The page's paper is a LAYER under everything, as the real page's is (`GuestGround`) — never the box's own
           fill, which would hide a background laid behind the page (the main background, and its instant preview). */}
       {labPhoto && !ground ? null : <div data-guest-ground="" aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[#FBF9F5]" />}
@@ -707,7 +753,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           cover, the greeting, the ticket — stands still while a hand-over plays. (`holds` 0 off the chain: nothing is
           wrapped.) */}
       <HubPageHold holds={scrub ? hubScrubHoldsAtMost(LAB_SCRUB_CHAIN.map((t) => rowOf(t)) as never, true, true) + (coverLeaves ? 1 : 0) : 0}>
-      <div className="flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
+      <CoverSceneMenuWaits />
+      <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>
       </div>
@@ -727,7 +774,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         cover={
           <>
       {mark('f:hero')}
-      <section className="px-4 pb-10 pt-6">
+      <section data-page-column="" className="px-4 pb-10 pt-6">
         {masthead}
       </section>
           </>

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { cache } from 'react';
+import { chromeSnapshot } from '@/lib/chrome-snapshot';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -98,7 +99,14 @@ export type SwitcherData = {
  * Every sub-query is wrapped in try/catch so a missing table (pre-migration)
  * or RLS error degrades to an empty array rather than crashing the chrome.
  */
-export const getSwitcherData = cache(async (userId: string): Promise<SwitcherData> => {
+export const getSwitcherData = cache(
+  async (userId: string): Promise<SwitcherData> =>
+    /* ⚡ A prefetch reuses the switcher this person's last page read (≤ 20 s, same verified
+       user, only a measured answer) — `lib/chrome-snapshot.ts`. A page they open reads fresh. */
+    chromeSnapshot('switcher', userId, () => loadSwitcherData(userId), (v) => v.eventsMeasured === true),
+);
+
+async function loadSwitcherData(userId: string): Promise<SwitcherData> {
   try {
   const supabase = await createClient();
 
@@ -240,4 +248,4 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
       context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
     };
   }
-});
+}

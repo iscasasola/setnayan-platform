@@ -69,6 +69,8 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
     ['spotlight', 'Open in Studio › Look', false],
     ['announce', null, true],
     ['livehub', null, true],
+    /* 🖼 The Cover Scene (owner-approved 2026-10-15): the group of the cover's words — Background only, so Edit is grey. */
+    ['coverscene', 'grey', false],
     ['logo', 'Open in Studio › Logo', true],
     ['ename', 'field', true],
     ['names', 'field', true],
@@ -86,7 +88,7 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
   ],
   camera: [['camera', 'grey', true]],
   gallery: [
-    ['gallery', null, true],
+    ['gallery', 'Open in Studio › Info', true], // the Photos heading (owner 2026-10-15): Details/Info holds the typed heading
     ['myphotos', null, true],
   ],
   me: [
@@ -132,7 +134,7 @@ test('(1) the record: every part of The Day — Edit’s first row and Style —
       else assert.equal(styleNow, style, `${k}: Style`);
     }
   }
-  assert.equal(rows, 21, 'anti-vacuity: the record is 21 part placements');
+  assert.equal(rows, 22, 'anti-vacuity: the record is 22 part placements');
   /* Every difference named is a part of The Day (a stale name would hide a real one). */
   const all = Object.values(RECORD).flatMap((p) => p.map(([k]) => k));
   for (const k of [...NOT_AS_DRAWN.door, ...NOT_AS_DRAWN.style]) assert.ok(all.includes(k), `${k} is not a part of The Day`);
@@ -205,7 +207,7 @@ test('(3) the Camera’s page IS the camera: one screen per look from its own pi
   const page = read(`${L}/stage-panel/camera-page.tsx`);
   /* ON THE CANVAS'S OWN CAMERA PAGE — the page the real canvas draws for the tab (`site-body.tsx` `rest()`)… */
   assert.match(page, /const CAMERA_PAGE = '\[data-stages-page="camera"\]';/);
-  assert.match(read('app/[slug]/_components/site-body.tsx'), /<div key=\{p\} \{\.\.\.\{ \[HUB_TAB_ATTR\]: p \}\} data-stages-page=\{p\} hidden=\{p !== active \? true : undefined\}>\s*<MakerPageStandIn page=\{p\}/, 'the canvas no longer marks its Camera page — the camera has nowhere to be drawn');
+  assert.match(read('app/[slug]/_components/site-body.tsx'), /<div key=\{p\} \{\.\.\.\{ \[HUB_TAB_ATTR\]: p, \[HUB_PAGE_ATTR\]: pageOf\(p\) \}\} data-stages-page=\{p\} hidden=\{pageOf\(p\) !== active \? true : undefined\}>\s*<MakerPageStandIn page=\{p\}/, 'the canvas no longer marks its Camera page — the camera has nowhere to be drawn');
   /* …of THIS stage's canvas, and only once that page has FINISHED LOADING (its bridge has bound its parts): a node put
      into a page its own React has not taken over yet is a hydration failure — the whole page thrown away and drawn
      again. A canvas with no Camera page gets no camera. */

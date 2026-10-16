@@ -39,7 +39,8 @@ export const LayeredLogoPlayer = lazy(() =>
  * (Discover's cards) ships neither that nor the player.
  *
  * ♿ `prefers-reduced-motion: reduce` → the still, from the first paint (the
- * still is in the server HTML and only `motion-safe:` hides it).
+ * still is in the server HTML and only a motion-allowed, capped wait —
+ * `.sn-logo-wait` — hides it).
  * 👁 OFFSCREEN WAITS. It starts when it scrolls into view (IntersectionObserver),
  * so a page of many cards mounts no animation it is not showing — the Maker and
  * the home board stay light.
@@ -97,6 +98,19 @@ function PlayingLogo({
   const [phase, setPhase] = useState<Phase>('pending');
   /* Decided once, at mount: had this place already shown this logo arriving? */
   const [settled] = useState(() => logoArrivals.arrived(key));
+  /* ⏱ THE STILL WAITS FOR JAVASCRIPT, BUT NOT FOREVER (stability sweep 2026-10-15). The pending still
+     used to be hidden by CSS alone (`motion-safe:invisible`) until this effect ran — so it waited on
+     the whole page's hydration, then a second chunk, then the draw: ~14 s on the owner's phone for
+     maria-and-jose's cover, and NEVER with the JavaScript failing (Animate test, WALK.md L1). Now
+     `.sn-logo-wait` (globals.css) hides it for a capped wait and then shows it, by CSS alone.
+       · JavaScript came first (the common case — measured 0.4–1.3 s on live): the entrance plays.
+       · The wait ran out first: the guest has already SEEN the still, so the logo arrives `settled`
+         (no entrance — never "shown, gone, drawn again") and the still stays up while the chunk loads.
+       · Offscreen when JavaScript arrives: it is held hidden (`held`) and plays when it scrolls in —
+         nobody was looking at it, so nothing visible changes. */
+  const [held, setHeld] = useState(false);
+  const heldRef = useRef(false);
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     const el = box.current;
@@ -107,6 +121,8 @@ function PlayingLogo({
     const start = () => {
       logoArrivals.arrive(key);
       setPhase('play');
+      // Read BEFORE the re-render drops the wait class: has the guest already seen the still?
+      setRevealed(!heldRef.current && Boolean(el) && getComputedStyle(el!).visibility === 'visible');
     };
     if (first === 'still') {
       setPhase('still');
@@ -121,7 +137,10 @@ function PlayingLogo({
         if (entries.some((e) => e.isIntersecting)) {
           io.disconnect();
           start();
+          return;
         }
+        heldRef.current = true;
+        setHeld(true);
       },
       { threshold: 0.15 },
     );
@@ -134,18 +153,20 @@ function PlayingLogo({
       ref={box}
       aria-hidden
       data-couple-logo={phase}
-      className={className ?? 'inline-flex h-full w-full items-center justify-center'}
+      className={`${className ?? 'inline-flex h-full w-full items-center justify-center'}${phase === 'pending' && !held ? ' sn-logo-wait' : ''}`}
       style={style}
     >
       {phase === 'play' ? (
-        <Suspense fallback={null}>
-          <LayeredLogoPlayer svg={svg} settled={settled} onRefused={() => setPhase('still')} className="h-full w-full" />
+        /* A still the guest has already seen stays up while the player's chunk arrives. */
+        <Suspense fallback={revealed ? <span className="contents">{still}</span> : null}>
+          <LayeredLogoPlayer svg={svg} settled={settled || revealed} onRefused={() => setPhase('still')} className="h-full w-full" />
         </Suspense>
       ) : (
         /* Until it plays: the still, kept in the HTML (no JavaScript, reduced
-           motion, a refused tree), and hidden only while motion is allowed so
-           the entrance never starts from a finished logo. */
-        <span className={phase === 'pending' ? 'contents motion-safe:invisible' : 'contents'}>{still}</span>
+           motion, a refused tree). While motion is allowed it is hidden for the
+           capped wait (`.sn-logo-wait` on the box), so a fast page's entrance
+           never starts from a finished logo — and a slow one still shows it. */
+        <span className={phase === 'pending' && held ? 'contents motion-safe:invisible' : 'contents'}>{still}</span>
       )}
     </span>
   );

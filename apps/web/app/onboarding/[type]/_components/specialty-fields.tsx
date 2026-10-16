@@ -110,7 +110,7 @@ function Roster({
           <div className="flex flex-col gap-2">
             {items.map((it) => (
               <div key={it.key}>
-                <span className="mb-1 block text-xs uppercase tracking-wide text-ink/45">
+                <span className="mb-1 block text-xs uppercase tracking-wide text-ink/70">
                   {it.key.replace(/_/g, ' ')}
                 </span>
                 <ItemInput field={it} value={row[it.key]} onChange={(v) => setCell(i, it.key, v)} />

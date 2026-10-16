@@ -44,6 +44,7 @@
  * Pure. No I/O.
  */
 
+import { HUB_SCENE_WORDS_CLASS } from './scene-words-class';
 import { HUB_FONT_BY_KEY, sanitizeHubFontKey, type HubFontKey } from '@/lib/hub-fonts';
 import { contrastRatio } from '@/lib/hub-legibility';
 import { adaptHubRuns } from '@/lib/element-runs-adapt';
@@ -131,12 +132,17 @@ export function isHubElementKey(v: unknown): v is HubElementKey {
  *
  * Measured on the widgets (`app/[slug]/_components/*-widget.tsx`): a scene's
  * small label is `.pahina-eyebrow`; its heading is an `h1`–`h3` or a template
- * scene's `.hub-tpl-h`; its words are every other paragraph.
+ * scene's `.hub-tpl-h`; its words are every other paragraph — and the words a
+ * scene draws OUTSIDE a paragraph that are still the couple's, marked
+ * `HUB_SCENE_WORDS_CLASS` (owner 2026-10-15, Dress code: *"Yes, include them"* —
+ * the colour-chip names and the do / don't lines follow Size and Colour). Never
+ * put the mark inside a `p`: a size would be laid twice.
  */
+export { HUB_SCENE_WORDS_CLASS };
 export const HUB_SCENE_ELEMENT_SELECTOR: Record<HubSceneElementKey, string> = {
   label: '.pahina-eyebrow',
   heading: 'h1, h2, h3, .hub-tpl-h',
-  body: 'p:not(.pahina-eyebrow):not(.hub-tpl-h)',
+  body: `p:not(.pahina-eyebrow):not(.hub-tpl-h), .${HUB_SCENE_WORDS_CLASS}`,
 };
 
 /**
@@ -168,16 +174,21 @@ const TEXT_FIELDS = [
   'motion',
   'hidden',
 ] as const satisfies readonly HubElementField[];
+/*
+ * ↔ `width` (Style's last row, owner 2026-10-14) goes on every part whose words can run to more than one line —
+ * `HUB_ELEMENT_WIDTH_PARTS`, below. Not the mark (a drawing), the joiner (one word), the date, the time, the details
+ * link (a button) or a scene's label (a word or two): the same rule as the mark taking no colour.
+ */
 export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[]> = {
   // ✍ Its words are the couple's (`word`, absent = the card's own) — typed in
   // place on the canvas (tap-to-type, `lib/type-in-place.ts`).
-  eyebrow: ['word', ...TEXT_FIELDS],
+  eyebrow: ['word', ...TEXT_FIELDS, 'width'],
   mark: ['size', 'motion', 'hidden'],
-  names: TEXT_FIELDS,
+  names: [...TEXT_FIELDS, 'width'],
   // One word between two lines: no alignment or spacing of its own — it sits
   // where the names put it — but the word itself is the couple's.
   joiner: ['word', 'font', 'weight', 'italic', 'underline', 'color', 'size', 'motion', 'hidden'],
-  line: ['word', ...TEXT_FIELDS],
+  line: ['word', ...TEXT_FIELDS, 'width'],
   // 🗓 How the fact is written (`format`, Format ▾ — `lib/hub-date-formats.ts`);
   // the fact itself is Details'.
   date: [...TEXT_FIELDS, 'format'],
@@ -185,13 +196,15 @@ export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[
   // Its words are the couple's (`word`, absent = the card's own words).
   link: ['word', ...TEXT_FIELDS],
   // The event's own venue — style only; the words live in Details.
-  venue: TEXT_FIELDS,
+  venue: [...TEXT_FIELDS, 'width'],
   // Its words are the couple's (`word`, absent = the venue it repeats).
-  caption: ['word', ...TEXT_FIELDS],
+  caption: ['word', ...TEXT_FIELDS, 'width'],
   label: TEXT_FIELDS,
-  heading: TEXT_FIELDS,
-  body: TEXT_FIELDS,
+  heading: [...TEXT_FIELDS, 'width'],
+  body: [...TEXT_FIELDS, 'width'],
 };
+/** ↔ The parts that take a Width (`maker_text_width_2026-10-14_fable.html`, "Which parts take Width") — read off the table. */
+export const HUB_ELEMENT_WIDTH_PARTS: readonly HubElementKey[] = HUB_ELEMENT_KEYS.filter((k) => HUB_ELEMENT_FIELDS[k].includes('width'));
 
 /**
  * ✍ THE ELEMENTS WHOSE TEXT CAN CARRY RUNS (one letter, one word in its own
@@ -241,7 +254,8 @@ export type HubElementField =
   | 'tracking'
   | 'hidden'
   | 'word'
-  | 'format';
+  | 'format'
+  | 'width';
 
 /**
  * SIZE, AS A BOUNDED SCALE RELATIVE TO THE ELEMENT'S OWN SIZE — a − / +
@@ -331,6 +345,52 @@ export function stepHubElementSize(
   const { min, max } = HUB_ELEMENT_SIZE_BOUNDS[key];
   if (next === undefined || next < min || next > max) return false;
   return next === HUB_ELEMENT_SIZE_BASE ? null : (next as HubElementSizeStep);
+}
+
+/**
+ * ↔ WIDTH — THE WIDEST A PART'S WORDS MAY RUN (owner 2026-10-14: *"what if there is a part where we want to have the
+ * text take up more width?"*; approved on `prototypes/maker_text_width_2026-10-14_fable.html`). Style's last row:
+ * Colour · Size · Width ▾ — Narrow · Normal · Wide · Full.
+ *
+ * NORMAL IS THE THEME'S OWN, and is an ABSENCE — never stored, exactly like Size 100: nothing moves until a couple
+ * picks. The other three are a SHARE of the box the part sits in (the stage INSIDE its padding — never to the edge),
+ * each capped in characters so a laptop stays readable: `max-width: min(<share>%, <cap>ch)`. Framed and full-width
+ * stages behave the same; the share is measured inside whichever box the stage is.
+ *
+ * ⚡ The re-wrap is CSS on `max-width` — the Maker lays it on the page at once (`editor-bridge.tsx`), the guest page
+ * draws the same declarations (`hubElementDeclarations`), so the two cannot disagree. Size and Width are independent:
+ * bigger words in a Narrow box wrap sooner, which is the point.
+ *
+ * ONE TABLE: the three shares and their caps live here and nowhere else (`element-width.test.ts`).
+ */
+export const HUB_ELEMENT_WIDTHS = ['narrow', 'wide', 'full'] as const;
+export type HubElementWidth = (typeof HUB_ELEMENT_WIDTHS)[number];
+export const HUB_ELEMENT_WIDTH_BOX: Readonly<Record<HubElementWidth, { share: number; cap: number }>> = {
+  narrow: { share: 60, cap: 32 },
+  wide: { share: 90, cap: 60 },
+  full: { share: 100, cap: 76 },
+};
+/** The dropdown's words, Normal (the absence) included — in the order the list shows them. */
+export const HUB_ELEMENT_WIDTH_CHOICES: ReadonlyArray<{ key: HubElementWidth | 'normal'; label: string; hint: string }> = [
+  { key: 'narrow', label: 'Narrow', hint: 'About 6 in 10 of the stage' },
+  { key: 'normal', label: 'Normal', hint: 'As the theme drew it' },
+  { key: 'wide', label: 'Wide', hint: 'About 9 in 10 of the stage' },
+  { key: 'full', label: 'Full', hint: 'Edge to edge, inside the stage’s padding' },
+];
+/**
+ * WHERE THE BOX SITS — where the part's alignment puts it (centre → centred · left → to the left · right → to the
+ * right). With no alignment of its own, it sits where the THEME's alignment puts it: `--hub-el-mi`, set in
+ * `globals.css` by the nearest `text-left` / `text-center` / `text-right` around the part (a custom property
+ * inherits, so the nearest one wins); with none, a box starts at the start, as a block does.
+ */
+const WIDTH_MARGIN: Readonly<Record<HubElementAlign, string>> = { left: '0 auto', center: 'auto', right: 'auto 0' };
+export function hubElementWidthDeclarations(style: HubElementStyle | null | undefined): Array<[string, string]> {
+  const box = style?.width ? HUB_ELEMENT_WIDTH_BOX[style.width] : undefined;
+  if (!box) return [];
+  return [
+    ['max-width', `min(${box.share}%, ${box.cap}ch)`],
+    ['margin-inline', style?.align ? WIDTH_MARGIN[style.align] : 'var(--hub-el-mi, 0 auto)'],
+  ];
 }
 
 /* ── THE TEXT TAB'S OTHER ROWS (Pages' Text inspector) ──────────────────── */
@@ -582,6 +642,8 @@ export type HubElementStyle = {
   italic?: true;
   underline?: true;
   align?: HubElementAlign;
+  /** ↔ Narrow · Wide · Full — Normal (the theme's own) is an absence. See `HUB_ELEMENT_WIDTH_BOX`. */
+  width?: HubElementWidth;
   leading?: HubElementLeading;
   tracking?: HubElementTracking;
   /**
@@ -811,6 +873,7 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
   if (fields.includes('italic') && src.italic === true) out.italic = true;
   if (fields.includes('underline') && src.underline === true) out.underline = true;
   if (fields.includes('align') && isIn(HUB_ELEMENT_ALIGNS, src.align)) out.align = src.align;
+  if (fields.includes('width') && isIn(HUB_ELEMENT_WIDTHS, src.width)) out.width = src.width;
   if (fields.includes('leading') && isIn(HUB_ELEMENT_LEADING_STEPS, src.leading)) out.leading = src.leading;
   if (fields.includes('tracking') && isIn(HUB_ELEMENT_TRACKING_STEPS, src.tracking)) out.tracking = src.tracking;
   if (fields.includes('hidden') && src.hidden === true) out.hidden = true;
@@ -906,6 +969,7 @@ export const HUB_ELEMENT_TEXT_FIELDS = [
   'color',
   'size',
   'align',
+  'width',
   'leading',
   'tracking',
 ] as const satisfies readonly HubElementField[];
@@ -1305,6 +1369,8 @@ export function hubElementDeclarations(
     out.push(['text-align', style.align]);
     out.push(['justify-content', style.align === 'left' ? 'flex-start' : style.align === 'right' ? 'flex-end' : 'center']);
   }
+  // ↔ The widest the words may run, the box where the alignment puts it.
+  out.push(...hubElementWidthDeclarations(style));
   if (style.leading) out.push(['line-height', String(style.leading)]);
   if (style.tracking !== undefined) out.push(['letter-spacing', `${style.tracking / 100}em`]);
   // Hidden: never drawn for a guest; ghosted in the Maker so it can come back.
@@ -1407,6 +1473,8 @@ export const HUB_ELEMENT_LOOK_PROPS = [
   'zoom',
   'text-align',
   'justify-content',
+  'max-width',
+  'margin-inline',
   'line-height',
   'letter-spacing',
   'opacity',

@@ -768,6 +768,12 @@ export async function loadGuestPasses(
      * keeps everyone.
      */
     ticketsOnly?: boolean;
+    /**
+     * 📄 ONE PAGE OF THE QR SHEET (owner 2026-10-14, Studio › Prints' preview: *"i cannot see what the different prints look
+     * like"*): EVERY guest is listed — so the sheet lays out into its real pages and says how many there are — but a QR is
+     * drawn only for the guests in this window (the page the preview shows). Never with `limit`.
+     */
+    drawOnly?: { from: number; count: number };
   },
 ): Promise<{ passes: PrintPass[]; images: PrintImages; measured: boolean }> {
   const admin = createAdminClient();
@@ -819,10 +825,16 @@ export async function loadGuestPasses(
   // 🔤 The event's Name style (owner 2026-09-30) — the ticket's ONE name rule,
   // shared with the Digital ticket (`passCardGuestName`) — `ticketName`.
   const style = nameStyleOfPrintDetails(set.event.print_details);
+  const drawn = (i: number) => !opts.drawOnly || (i >= opts.drawOnly.from && i < opts.drawOnly.from + opts.drawOnly.count);
   for (const g of guests) {
     n += 1;
     const name = ticketName(g, style);
     const ref = `qr-${g.guest_id}`;
+    /* 📄 Outside the page being shown: listed (its name, its place on the sheet), its QR not drawn. */
+    if (!drawn(n - 1)) {
+      passes.push({ name, seat: seatOf.get(g.guest_id) ?? null, seatNumber: seatNumberOf.get(g.guest_id) ?? null, qrRef: ref, serial: `Nº ${String(n).padStart(4, '0')}` });
+      continue;
+    }
     try {
       const png = await renderInvitationQrPng({
         appUrl: set.appUrl,

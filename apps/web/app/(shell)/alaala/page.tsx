@@ -222,7 +222,7 @@ export default function AlaalaLandingPage() {
       */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
-      <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
+      <main className="mx-auto w-full max-w-6xl overflow-x-clip px-5 pb-20 pt-10 sm:pt-14">
         {/* Hero — text-led; line-reveal headline + quiet rise. */}
         <header className="mx-auto max-w-2xl text-center">
           <p className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--m-orange-2)]">

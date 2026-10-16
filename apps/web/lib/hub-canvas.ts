@@ -51,6 +51,7 @@ import { motionFxOn, motionFxVars, sanitizeMotionFx, type MotionFx } from '@/lib
 import { sanitizeDetailsOverrides, type HubDetailsOverrides } from '@/lib/details-bound';
 import { sanitizeHeroDesign, type HeroDesignId } from '@/lib/hero-design';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
+import { GUEST_HERO_VIDEO_PLAYBACK } from '@/lib/guest-hero-video';
 
 /* ── THE FOUR ARRANGEMENTS ─────────────────────────────────────────────────
    From the approved prototypes (`story-canvas-editor-2026-09-23.html`, radio
@@ -434,7 +435,63 @@ export type HubSectionCanvas = {
    * contract and the one read rule (`sceneBoundText`) are `lib/details-bound.ts`.
    */
   details?: HubDetailsOverrides;
+  /**
+   * 🖼 THE COVER SCENE'S BACKGROUND — the hero row's only (owner-approved 2026-10-15, `lib/cover-scene.ts`): ONE
+   * background for the whole first screen, the Hero folded in. Absent = The theme's own (today's written card). Its
+   * Upload pick is written through to the hero photo by the one hero writer, so `resolveHero` keeps answering.
+   */
+  ground?: HubCoverGround;
 };
+
+/**
+ * 🖼 WHAT THE COVER SCENE WEARS (`HubSectionCanvas.ground`). The Background tool's four sources, as stored:
+ *   Colour   Plain · Diagonal · Glow (a colour) · Opaque · Frosted (a glass over the theme's own) — free
+ *   Scene ◆  a ready-made loop, Setnayan's own (`INVITE_THEMES[loop].media`) — screened by definition, plays for guests
+ *   Upload ◆ the couple's photo — and a clip only once the hero clip may reach guests (`GUEST_HERO_VIDEO_PLAYBACK`)
+ * `shade` is the one Darker ↔ Lighter bar (not on a glass); `shape` Framed (absent) | Full width.
+ */
+export type HubCoverGround = (
+  | { kind: 'color' | 'diagonal' | 'glow'; color: string }
+  | { kind: 'glass' | 'frost'; color?: string; opacity?: number }
+  | { kind: 'loop'; loop: InviteThemeId }
+  | { kind: 'photo' | 'snippet'; media: string; poster?: string; motion?: 'parallax' }
+) & { shade?: HubMainShadeValue; shape?: 'full' };
+
+/**
+ * Anything → the Cover Scene's background, or null (The theme's own). Drops rather than repairs, like every canvas
+ * key. 🔒 A clip is REFUSED while the hero clip may not reach guests (`clipOk` false — SEC-6): an own video is kept in
+ * the couple's media, never worn on the cover.
+ */
+export function sanitizeHubCoverGround(raw: unknown, clipOk = false): HubCoverGround | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const g = raw as Record<string, unknown>;
+  let out: HubCoverGround | null = null;
+  if (g.kind === 'color' || g.kind === 'diagonal' || g.kind === 'glow') {
+    const color = hubBackgroundColor(g.color);
+    if (color) out = { kind: g.kind, color };
+  } else if (g.kind === 'glass' || g.kind === 'frost') {
+    const pane: { kind: 'glass' | 'frost'; color?: string; opacity?: number } = { kind: g.kind };
+    const color = hubBackgroundColor(g.color);
+    if (color) pane.color = color;
+    const opacity = hubGlassOpacity(g.opacity);
+    if (opacity !== null) pane.opacity = opacity;
+    out = pane;
+  } else if (g.kind === 'loop') {
+    if (isInviteThemeId(g.loop) && INVITE_THEMES[g.loop].media && INVITE_THEMES[g.loop].ready) out = { kind: 'loop', loop: g.loop };
+  } else if (g.kind === 'photo' || (g.kind === 'snippet' && clipOk)) {
+    const media = hubMediaRef(g.media);
+    if (media) {
+      const own: { kind: 'photo' | 'snippet'; media: string; poster?: string; motion?: 'parallax' } = { kind: g.kind, media };
+      const poster = hubMediaRef(g.poster);
+      if (poster && g.kind === 'snippet') own.poster = poster;
+      if (g.motion === 'parallax' && g.kind === 'photo') own.motion = 'parallax';
+      out = own;
+    }
+  }
+  if (!out) return null;
+  const shade = out.kind === 'glass' || out.kind === 'frost' ? undefined : sanitizeHubMainShade(g.shade);
+  return { ...out, ...(shade !== undefined && shade !== 0 ? { shade } : {}), ...(g.shape === 'full' ? { shape: 'full' as const } : {}) };
+}
 
 /** One slot of a template scene. See `slots` above. */
 export type HubSceneSlot = {
@@ -761,6 +818,9 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (design) out.design = design;
   const details = sanitizeDetailsOverrides(canvas.details);
   if (details) out.details = details;
+  /* 🖼 The Cover Scene's background (the hero row's) — a clip refused while the hero clip may not reach guests. */
+  const coverGround = sanitizeHubCoverGround(canvas.ground, GUEST_HERO_VIDEO_PLAYBACK);
+  if (coverGround) out.ground = coverGround;
   return out;
 }
 
@@ -1322,8 +1382,17 @@ export const HUB_MAIN_PATTERN_LABEL: Readonly<Record<HubMainPatternKey, string>>
 export const HUB_MAIN_BLURS = ['soft', 'strong'] as const;
 export type HubMainBlur = (typeof HUB_MAIN_BLURS)[number];
 
-/** Focus ▾ — Centre (absent) · Top · Bottom; which part of a PHOTO stays in view. */
-export const HUB_MAIN_FOCUSES = ['top', 'bottom'] as const;
+/**
+ * Focus ▾ — Centre (absent) · Top · Bottom · Left · Right; which part of a picture (a photo OR a clip) stays in view
+ * when the screen crops it.
+ *
+ * 🎯 LEFT · RIGHT (owner 2026-10-14, Maker test item 2: *"focus not working"*). The page's background covers the
+ * screen, and a PHONE is taller than almost any photo (375 × 812 is 0.46 wide-to-tall; a square is 1, an upright 4:5
+ * is 0.8) — so on a phone the picture is cropped at its SIDES and Top · Bottom moved nothing at all. They only bite
+ * on a wide screen. Left · Right are the phone's crop; Top · Bottom stay for the wide one. Stored words only — an
+ * event that holds `top` keeps it.
+ */
+export const HUB_MAIN_FOCUSES = ['top', 'bottom', 'left', 'right'] as const;
 export type HubMainFocus = (typeof HUB_MAIN_FOCUSES)[number];
 
 /**
@@ -1334,9 +1403,20 @@ export type HubMainFocus = (typeof HUB_MAIN_FOCUSES)[number];
  * page as a phone crops it) — a second copy would let a card show a face the
  * page has cropped away.
  */
-export function mainGroundPosition(focus: HubMainFocus | null | undefined): 'center top' | 'center bottom' | 'center' {
-  return focus === 'top' ? 'center top' : focus === 'bottom' ? 'center bottom' : 'center';
+export function mainGroundPosition(focus: HubMainFocus | null | undefined): MainGroundPosition {
+  return focus ? MAIN_GROUND_POSITION[focus] : 'center';
 }
+
+/** Each Focus as CSS — `background-position` and `object-position` read the same words. */
+const MAIN_GROUND_POSITION = {
+  top: 'center top',
+  bottom: 'center bottom',
+  left: 'left center',
+  right: 'right center',
+} as const satisfies Record<HubMainFocus, string>;
+export type MainGroundPosition = 'center' | (typeof MAIN_GROUND_POSITION)[HubMainFocus];
+/** Every position a background can be held at — the canvas bridge accepts these words and no others. */
+export const MAIN_GROUND_POSITIONS: readonly MainGroundPosition[] = ['center', ...HUB_MAIN_FOCUSES.map((f) => MAIN_GROUND_POSITION[f])];
 
 /**
  * Shade ▾ — Darker · Dark · As is · Light · Lighter. THE vocabulary (re-exported
@@ -1381,9 +1461,19 @@ export function hubMainFadeAt(shade: HubMainShadeValue | null | undefined): numb
    hero row's `config_json`). ABSENT = no effect, and every stored shape without one reads byte for byte as before.
    `colour` is a palette SLOT (`MAIN_SLOT`'s keys, `lib/site-palette.ts`), never a hex — so the effect follows the
    Mood Board when the five change; absent = the effect's own colour ("Original").
-   The six are drawn by `lib/ambient-effects.ts`; this file only knows their names. */
-export const HUB_MAIN_EFFECTS = ['lanterns', 'petals', 'sparkles', 'capiz', 'shimmer', 'bokeh'] as const;
+   The effects are drawn by `lib/ambient-effects.ts`; this file only knows their names.
+   ✨ EIGHT SINCE 2026-10-14 (owner, DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"; prototype
+   `maker_effects_and_attire_2026-10-14_fable.html`): Soft haze · Bokeh lights · Gold dust ◆ · Petal drift ◆ · Lanterns ◆ ·
+   Gold shimmer ◆ · Light leak ◆ · Film grain ◆ — in the order the cards show them. Capiz glow and Sparkles are gone. */
+export const HUB_MAIN_EFFECTS = ['haze', 'bokeh', 'dust', 'petals', 'lanterns', 'shimmer', 'leak', 'grain'] as const;
 export type HubMainEffectKind = (typeof HUB_MAIN_EFFECTS)[number];
+/**
+ * 🪦 A RETIRED KIND IS READ AS ITS NEAREST NEW ONE — never blank, never an error. A couple who saved Capiz glow or
+ * Sparkles before 2026-10-14 keeps an effect: the stored `main.effect` is JSON on the hero row (`config_json`), so
+ * there is no column to migrate; every reader goes through `sanitizeHubMainEffect`, which answers the new kind, and
+ * the couple's next write stores it. How much and the Colour are kept as they were.
+ */
+export const HUB_MAIN_EFFECT_RETIRED: Readonly<Record<string, HubMainEffectKind>> = { capiz: 'haze', sparkles: 'dust' };
 export const HUB_MAIN_EFFECT_INTENSITIES = ['subtle', 'standard', 'lavish'] as const;
 export type HubMainEffectIntensity = (typeof HUB_MAIN_EFFECT_INTENSITIES)[number];
 export const HUB_MAIN_EFFECT_COLOURS = ['dominant', 'supporting', 'accent', 'neutral', 'accent2'] as const;
@@ -1397,7 +1487,8 @@ const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T => type
 /** Anything → an effect, or nothing. An unknown kind or amount drops it; an unknown colour is the effect's own. */
 export function sanitizeHubMainEffect(raw: unknown): HubMainEffect | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
-  const { kind, intensity, colour } = raw as Record<string, unknown>;
+  const { kind: stored, intensity, colour } = raw as Record<string, unknown>;
+  const kind = typeof stored === 'string' && Object.hasOwn(HUB_MAIN_EFFECT_RETIRED, stored) ? HUB_MAIN_EFFECT_RETIRED[stored] : stored;
   if (!oneOf(HUB_MAIN_EFFECTS, kind) || !oneOf(HUB_MAIN_EFFECT_INTENSITIES, intensity)) return undefined;
   return oneOf(HUB_MAIN_EFFECT_COLOURS, colour) ? { kind, intensity, colour } : { kind, intensity };
 }
@@ -1433,11 +1524,12 @@ export function hubMainLook(m: HubMainGround | null | undefined): HubMainLook {
   return { ...(shade ? { shade } : {}), ...(blur ? { blur } : {}), ...(focus ? { focus } : {}) };
 }
 
-/** Can this main background take Shade · Blur (footage), and Focus (a photo)? */
+/** Can this main background take Shade · Blur (footage), and Focus (their own photo or clip, the cover)? */
 export function hubMainTakes(m: HubMainGround | null | undefined): { shade: boolean; blur: boolean; focus: boolean } {
   if (!m) return { shade: false, blur: false, focus: false };
   if ('follow' in m) return { shade: true, blur: true, focus: true };
-  if ('media' in m) return { shade: true, blur: true, focus: m.kind === 'photo' };
+  /* 🎯 A clip is cropped exactly as a photo is (owner 2026-10-14: Focus must work "for a photo and a video"). */
+  if ('media' in m) return { shade: true, blur: true, focus: true };
   if (m.ground === 'loop') return { shade: true, blur: true, focus: false };
   return { shade: false, blur: false, focus: false };
 }
@@ -1561,7 +1653,7 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   const tint = sanitizeHubTint(src.tint);
   if (tint) out.tint = tint;
   if (src.motion === 'parallax' && out.kind === 'photo') out.motion = 'parallax';
-  return { ...out, ...readMainLook(src, { focus: out.kind === 'photo' }), ...fx };
+  return { ...out, ...readMainLook(src, { focus: true }), ...fx };
 }
 
 /** The Main background stored on a row's `config_json` (the hero row's), or null. */

@@ -137,7 +137,9 @@ test('5 · on the Save the Date the film does not replay either — it starts li
   // landing rule is one of the two reasons it lifts — still asked at landing, still through the one exit event.
   const effect = /useEffect\(\(\) => \{\s*const onExit = \(\) => \{\s*setShowFilm\(false\);[\s\S]*?\}, \[\]\);/.exec(handoff)?.[0] ?? '';
   assert.ok(effect, 'the handoff’s exit effect moved — re-anchor this guard');
-  assert.match(effect, /landedDownThePage: filmLiftedOnLanding\(/, 'the handoff stopped asking the landing rule');
+  // 📜 RE-ANCHORED 2026-10-15: …and a guest who opened Me (`liftOnLanding`, the one-page Save the Date) — the landing
+  // rule is still asked, as the other reason.
+  assert.match(effect, /landedDownThePage:\s*\(liftOnLanding && !asSlide\) \|\|\s*filmLiftedOnLanding\(/, 'the handoff stopped asking the landing rule');
   assert.match(effect, /window\.dispatchEvent\(new CustomEvent\(STD_FILM_EXIT_EVENT\)\)/, 'the lift must be the same exit "See our page" sends');
 
   // And the opening over it: the landing check is no longer the first-page-only

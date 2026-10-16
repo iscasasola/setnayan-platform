@@ -88,6 +88,8 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
     'OPEN — scene/main backgrounds belong to Builder H; reported 2026-09-29 (the choice waits on the save). Remove this line when it is drawn first.',
   'launch/_components/studio-info.tsx › studioDraftKeep':
     'Studio › Info on the Form row (owner 2026-10-08): the ONE drafted write behind a kept answer. What the couple typed or picked IS the visible change — the row shows the kept words (the switch its new side, the dropdown its pick) BEFORE this is called by `TypedRow`\'s keep, `pickStyle`, the opening line\'s pick and the QR switch; a refusal puts back only what did not save, and says so.',
+  'launch/_components/studio-info.tsx › studioPhotosHeadingKeep':
+    'Studio › Info Photos heading (owner 2026-10-15): the same ONE drafted write as `studioDraftKeep`, for a scene\'s own row. The row shows the kept words BEFORE this is called by `TypedRow`\'s keep; a refusal puts back only what did not save, and says so.',
   'launch/_components/parent-cards.tsx › add':
     'OPEN (Details, Builder K) — adding a parent creates a guest row and its card needs the server\'s new guest id; nothing shows until it lands. Reported 2026-09-29.',
 };
@@ -536,6 +538,7 @@ const HELD_WITHOUT_DRAWING: Record<string, string> = {
   'launch/_components/studio-wish-list.tsx › gotWish': 'The Got it switch and its row are drawn first; a refusal puts that one wish back.',
   'launch/_components/studio-wish-list.tsx › removeWish': 'The row leaves at the second tap, and comes back in its place if refused.',
   'launch/_components/studio-wish-list.tsx › finish': 'The list is already in its new order when the grip is let go; this is the one write behind it.',
+  'website/_components/hub-draft-bar.tsx › applyHeld': '✓ Apply (2026-10-15): it changes NOTHING the canvas draws — the canvas shows the draft, which is now live — so there is nothing to post; "N changes are now live" and the count come back with its own answer, and the Maker render it still owes is asked for behind it with the canvas kept (`keepCanvasForRender`, `requestMakerRefresh`).',
   'launch/_components/studio-wish-list.tsx › changeGift': 'A gift record (5/5): the record, its wish’s sum and its Got it are drawn first by the server’s own rule (`settleDrawn`); a refusal puts back that one record.',
 };
 

@@ -26,8 +26,10 @@
  *
  * 2️⃣ WITHOUT JAVASCRIPT THERE IS NO SHEET, AND THE FORM MUST STILL WORK. The
  *    panel's default CSS is plain flow — it renders as the section it has always
- *    been. Only `.sn-sheet-js`, added to <html> by the inline sync script below,
- *    turns it into a sheet. So a guest with a dead bundle gets the old page, not
+ *    been. Only `[data-sn-sheet]`, set on <html> by the inline sync script below,
+ *    turns it into a sheet. (A data attribute, not a class: React renders <html>'s
+ *    `className` itself, so a class added before hydration is a mismatch React
+ *    never patches — `lib/nothing-touches-the-root-before-hydration.test.ts`.) So a guest with a dead bundle gets the old page, not
  *    a page whose RSVP is `display:none` and unreachable. This is also why the
  *    flag is set by a script tag and not by an effect: an effect runs after
  *    paint, and the whole form would flash in the flow first.
@@ -75,25 +77,25 @@ import { hashOpensSheet, sheetAfterAddressChange, sheetOpensOnLoad, type RsvpShe
  */
 const SHEET_CSS = `
 .sn-rsvp-scrim{display:none}
-.sn-sheet-js .sn-rsvp-sheet{display:none}
-.sn-sheet-js .sn-rsvp-scrim[data-open="1"]{
+[data-sn-sheet] .sn-rsvp-sheet{display:none}
+[data-sn-sheet] .sn-rsvp-scrim[data-open="1"]{
   display:block;position:fixed;inset:0;z-index:40;width:100%;padding:0;border:0;
   background:rgba(30,34,41,0.45);
 }
-.sn-sheet-js .sn-rsvp-sheet[data-open="1"]{
+[data-sn-sheet] .sn-rsvp-sheet[data-open="1"]{
   display:block;position:fixed;left:0;right:0;bottom:var(--sn-kb,0px);z-index:50;
   max-height:78vh;max-height:calc(78dvh - var(--sn-kb,0px));overflow-y:auto;overscroll-behavior:contain;
   border-top-left-radius:1rem;border-top-right-radius:1rem;
   box-shadow:0 -16px 44px rgba(30,34,41,0.28);
 }
 @media (prefers-reduced-motion:no-preference){
-  .sn-sheet-js .sn-rsvp-sheet[data-open="1"]{animation:sn-rsvp-rise var(--sn-dur-elem) var(--sn-ease-out)}
+  [data-sn-sheet] .sn-rsvp-sheet[data-open="1"]{animation:sn-rsvp-rise var(--sn-dur-elem) var(--sn-ease-out)}
 }
 @keyframes sn-rsvp-rise{from{transform:translateY(12%)}to{transform:none}}
 `;
 
 /** Runs before paint, so the form is never seen in the flow and then yanked. */
-const JS_FLAG = `(function(){try{document.documentElement.classList.add('sn-sheet-js')}catch(e){}})()`;
+const JS_FLAG = `(function(){try{document.documentElement.setAttribute('data-sn-sheet','1')}catch(e){}})()`;
 
 export function RsvpSheet({
   heading,
@@ -178,8 +180,8 @@ export function RsvpSheet({
   // a page that unmounts the sheet does not leave a flag claiming it is there.
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.add('sn-sheet-js');
-    return () => root.classList.remove('sn-sheet-js');
+    root.setAttribute('data-sn-sheet', '1');
+    return () => root.removeAttribute('data-sn-sheet');
   }, []);
 
   // BOTH DOORS ARRIVE HERE. The hub card's chip and the arrival action are both

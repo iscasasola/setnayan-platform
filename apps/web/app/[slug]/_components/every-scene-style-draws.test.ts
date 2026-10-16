@@ -271,10 +271,11 @@ test('venue · photo card (the default) with two located venues draws ONE map fo
   const { VenueWidget } = await import('./venue-widget');
   const two = decode(html(h(VenueWidget, { event: EVENT } as never)));
   assert.match(two, /data-venue-map-pins="2"/, 'one map holds both pins');
-  assert.doesNotMatch(two, /openstreetmap\.org\/export\/embed/, 'and no map per card');
+  /* 🗺 The embed itself loads only near the screen (Batch 9 W2), so its box (`data-osm-embed`) is what the server draws. */
+  assert.doesNotMatch(two, /data-osm-embed|openstreetmap\.org\/export\/embed/, 'and no map per card');
   const one = decode(html(h(VenueWidget, { event: { ...EVENT, venues: [VENUES[0]!] } } as never)));
   assert.doesNotMatch(one, /data-venue-map-pins/, 'one place: no shared map …');
-  assert.match(one, /openstreetmap\.org\/export\/embed/, '… its own map stays in its card, as shipped');
+  assert.match(one, /data-osm-embed=""[\s\S]*data-near-viewport="far"/, '… its own map stays in its card, as shipped, and waits until it is near');
 });
 
 test('venue · "No map" draws no map in any style', async () => {
@@ -282,7 +283,7 @@ test('venue · "No map" draws no map in any style', async () => {
   for (const sceneStyle of [null, 'photo-card', 'full-photo', 'journey']) {
     for (const venues of [VENUES, [VENUES[0]!]]) {
       const out = decode(html(h(VenueWidget, { event: { ...EVENT, venues }, sceneStyle, map: 'none', blocks: BLOCKS } as never)));
-      assert.doesNotMatch(out, /data-venue-map-pins|openstreetmap\.org\/export\/embed|tile\.openstreetmap/, `${sceneStyle} drew a map with "No map"`);
+      assert.doesNotMatch(out, /data-venue-map-pins|data-osm-embed|openstreetmap\.org\/export\/embed|tile\.openstreetmap/, `${sceneStyle} drew a map with "No map"`);
       for (const v of venues) assert.ok(out.includes(v.name), `${sceneStyle}: ${v.name} still named`);
     }
   }
@@ -299,7 +300,7 @@ test('venue · a WITHHELD venue gives no map pin and no directions in any style,
   for (const id of ['photo-card', 'full-photo', 'journey']) {
     const out = decode(html(h(VenueWidget, { event: withheld, sceneStyle: id, blocks: BLOCKS } as never)));
     assert.doesNotMatch(out, /Get directions|>Directions|maps\.google|google\.com\/maps|waze\.com|maps\.apple/, `${id} handed out directions to a withheld venue`);
-    assert.doesNotMatch(out, /data-venue-map-pins|openstreetmap\.org\/export/, `${id} drew a pin for a withheld venue`);
+    assert.doesNotMatch(out, /data-venue-map-pins|data-osm-embed|openstreetmap\.org\/export/, `${id} drew a pin for a withheld venue`);
     assert.equal(out.split(decode(VENUE_WITHHELD_LINE)).length - 1, 1, `${id}: the withheld line, once`);
     for (const v of VENUES) assert.ok(out.includes(v.name), `${id}: the name stays before the reply`);
   }
@@ -355,25 +356,18 @@ const GROUPS = [
   { key: 'bridesmaids_groomsmen', label: "Bride's Crew & Groom's Crew", rows: [[person('g7', 'Joy Lim', 'bridesmaid'), person('g8', 'Marco Tan', 'groomsman')]] },
 ];
 
-test('entourage · two sides puts each role on its side and keeps the side-less pairs under the rule', async () => {
+test('entourage · On the axis (the default) and Lines draw; a withdrawn Two sides pick draws On the axis (owner 2026-10-15)', async () => {
   const { EntourageSection } = await import('./entourage-section');
-  const out = decode(html(h(EntourageSection, { groups: GROUPS, sceneStyle: 'two-sides' } as never)));
-  assertStyled(out, 'two-sides', 'two sides');
-  const left = out.slice(out.indexOf('data-entourage-side="0"'), out.indexOf('data-entourage-side="1"'));
-  const right = out.slice(out.indexOf('data-entourage-side="1"'));
-  for (const n of ['Mia Villanueva', 'Cora Bautista', 'Joy Lim']) assert.ok(left.includes(n), `${n} on the first side`);
-  for (const n of ['Paolo Reyes', 'Hugo Cruz', 'Marco Tan']) assert.ok(right.includes(n) && !left.includes(n), `${n} on the second side`);
-  assert.ok(out.includes('Ben Ocampo & Rica Flores'), 'a candle pair stays a pair, on no side');
-  // `best_woman` stands where the best man stands — on the second side.
-  const withBestWoman = [{ key: 'honor', label: 'Maid of Honor & Best Woman', rows: [[person('b1', 'Lara Diaz', 'maid_of_honor'), person('b2', 'Nina Uy', 'best_woman')]] }];
-  const bw = decode(html(h(EntourageSection, { groups: withBestWoman, sceneStyle: 'two-sides' } as never)));
-  assert.ok(bw.slice(bw.indexOf('data-entourage-side="1"')).includes('Nina Uy'), 'the best woman stands on the best man’s side');
-  const oneSided = [GROUPS[2]!];
-  assert.doesNotMatch(
-    html(h(EntourageSection, { groups: oneSided, sceneStyle: 'two-sides' } as never)),
-    /data-scene-style="two-sides"/,
-    'with nobody on either side, the roll call draws',
-  );
+  for (const [picked, drawn] of [[null, 'roll-call'], ['roll-call', 'roll-call'], ['lines', 'lines'], ['two-sides', 'roll-call']] as const) {
+    const out = decode(html(h(EntourageSection, { groups: GROUPS, sceneStyle: picked } as never)));
+    assertStyled(out, drawn, `${picked ?? 'no pick'}`);
+    for (const n of ['Mia Villanueva', 'Paolo Reyes', 'Hugo Cruz', 'Cora Bautista', 'Ben Ocampo', 'Rica Flores', 'Joy Lim', 'Marco Tan']) {
+      assert.ok(out.includes(n), `${picked}: ${n} prints`);
+    }
+    assert.doesNotMatch(out, /data-entourage-side=/, `${picked}: the withdrawn Two sides columns drew`);
+    // Every pair is ONE row of two cells, partner beside partner — never two family columns.
+    assert.equal((out.match(/data-pair-row=/g) ?? []).length, 4, `${picked}: one pair row per walking pair`);
+  }
 });
 
 test('entourage · the march numbers every line in order and lifts only the signed-in member’s', async () => {
@@ -515,6 +509,32 @@ test('photos you add · grid and film strip show every photo, in order', async (
     const out = html(h(OurPhotosWidget, { urls: URLS, sceneStyle: id }));
     assertStyled(out, id, id);
     for (const u of URLS) assert.ok(out.includes(u), `${id}: ${u}`);
+  }
+});
+
+test('🎞 photos you add · Glimpse draws every photo once, in order, on a snap rail — the server markup needs no JavaScript', async () => {
+  const { OurPhotosWidget } = await import('./our-photos-widget');
+  const many = Array.from({ length: 12 }, (_, i) => `https://m/${i + 1}.jpg`);
+  for (const urls of [URLS.slice(0, 1), URLS.slice(0, 2), URLS, many]) {
+    const out = html(h(OurPhotosWidget, { urls, sceneStyle: 'glimpse' }));
+    assertStyled(out, 'glimpse', `glimpse × ${urls.length}`);
+    // Every photo once (the loop's copies are added only once the page is live), in the couple's order.
+    const seen = [...out.matchAll(/<img src="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(seen, urls, `glimpse × ${urls.length}: the photos drawn, in order`);
+    assert.match(out, /snap-x snap-mandatory/, `glimpse × ${urls.length}: the rail snaps`);
+    assert.equal((out.match(/data-glimpse-card=""/g) ?? []).length, urls.length, `glimpse × ${urls.length}: one card per photo`);
+    assert.match(out, /aspect-\[3\/4\]/, `glimpse × ${urls.length}: the cards are 3:4`);
+    // Where am I: no dots for one photo; dots up to eight; "1 / 12" from nine up.
+    const dots = (out.match(/<i class="h-1\.5 w-1\.5/g) ?? []).length;
+    if (urls.length === 1) {
+      assert.equal(dots, 0, 'one photo: no dots');
+      assert.ok(!out.includes('Swipe · tap to open'), 'one photo: no hint');
+    } else if (urls.length <= 8) {
+      assert.equal(dots, urls.length, `${urls.length} photos: a dot each`);
+    } else {
+      assert.equal(dots, 0, `${urls.length} photos: no dots`);
+      assert.match(out, new RegExp(`1(?:<!-- -->)? / (?:<!-- -->)?${urls.length}`), `${urls.length} photos: the "1 / ${urls.length}" counter`);
+    }
   }
 });
 
@@ -807,9 +827,11 @@ test('🔒 do’s & don’ts · no pick, "notes" and a stored id this version do
     }
     assert.doesNotMatch(shipped, /data-dos-look|✓|✕/, 'the shipped notes grew marks nobody picked');
   }
-  /* The default layout's notes are the markup guests have today — its two fills and its "·" lines, pinned. */
+  /* The default layout's notes are the markup guests have today — its two fills and its "·" lines, pinned. Each line
+     wears the scene-words mark since 2026-10-15 (owner: the do / don't lines follow Style's Size and Colour —
+     `lib/scene-words-class.ts`); nothing a guest sees changes until a couple picks one. */
   const a = decode(dosBlock(html(h(DressCodeWidget, { words: WEDDING_WORDS, config: DRESS_LISTS, rolePalette: BOARD } as never))));
-  assert.match(a, /^<div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-dress-code="dos"><div class="space-y-2 border-l-2 border-gild bg-veil\/50 p-4 text-sm text-ink\/80"><p class="font-mono text-\[0\.66rem\] uppercase tracking-\[0\.28em\] text-gild">Do<\/p><ul class="space-y-1"><li>· Wear Filipiniana or long gowns<\/li>/);
+  assert.match(a, /^<div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-dress-code="dos"><div class="space-y-2 border-l-2 border-gild bg-veil\/50 p-4 text-sm text-ink\/80"><p class="font-mono text-\[0\.66rem\] uppercase tracking-\[0\.28em\] text-gild">Do<\/p><ul class="space-y-1"><li class="hub-el-words">· Wear Filipiniana or long gowns<\/li>/);
   assert.match(a, /<div class="space-y-2 border-l-2 border-ink\/30 bg-paper-deep p-4 text-sm text-ink\/75">/);
   /* A pick is stored beside the palette look, survives the sanitiser, and frames nothing (no motion nobody chose). */
   assert.deepEqual(sanitizeHubCanvas({ canvas: { dos: 'marks', palette: 'ribbon' } }), { palette: 'ribbon', dos: 'marks' });

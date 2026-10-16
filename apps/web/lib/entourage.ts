@@ -111,6 +111,13 @@ export type EntourageGroup = {
    * the heading used: `roleLabel(person.role, group.names)`. `{}` = usual words.
    */
   names: RoleNames;
+  /**
+   * 🏷 THE TWO COLUMNS' WORDS — `[left, right]`, or absent when the group has no sides or only one column holds
+   * anybody. Read-only, for the page's two-column styles (On the axis · Lines, owner 2026-10-15): one small row
+   * at the head of the group says each side ONCE ("Ninong | Ninang", "Bride's Crew | Groom's Crew"). Built from the
+   * SAME words the heading uses (`groupHeading`), so a role the couple renamed shows their word here too.
+   */
+  sideWords?: readonly [string, string];
 };
 
 /** Everyone in a group, in printed order — the flat view, for counting and tests. */
@@ -156,7 +163,7 @@ type GroupSpec = {
   headingNames?: readonly GuestRole[];
   /** Print the group as one small sub-heading per role, names under it. See `roleBlocks`. */
   byRole?: true;
-  /** A pair the data pairs prints as ONE line on every screen and on the card. See `pairsShareALine`. */
+  /** A group of data-paired couples — ONE line on the printed card, two columns on the page (2026-10-14). See `pairsShareALine`. */
   pairsOnOneLine?: true;
   /**
    * ⚖ THE HEADING FOLLOWS THE COUPLE'S WORDS (owner 2026-09-30). A sided group
@@ -303,7 +310,11 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
        gone: option **1** — each Ninong with his paired Ninang on ONE line, on
        every screen size and on the printed card: "Hon. Ricardo & Mrs. Jessica
        Villahermosa". Supersedes the 2026-09-14 two-column pairing for this
-       group; unpaired sponsors still list alone. */
+       group; unpaired sponsors still list alone.
+       ⚖ OWNER 2026-10-14, on the Wedding March scene's Roll call: *"The names
+       feel too crowded. Maybe have their pairing show in 2 columns without the
+       &."* — on the PAGE a pair is two columns again, now holding at 375
+       (`PairRow`, `entourage-section.tsx`); the printed card keeps option 1. */
     pairsOnOneLine: true,
   },
   {
@@ -335,7 +346,7 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     /* The Bride's crew ARE the bridesmaids, the Groom's crew the groomsmen —
        owner 2026-09-30 brief: no "Bridesmaid" repeated under each name. */
     headingNames: ['bridesmaid', 'groomsman'],
-    // Owner 2026-09-30 option 1: a walking pair shares one line, as the sponsors do.
+    // A walking pair is drawn as the sponsors' are: one line on the card, two columns on the page (owner 2026-10-14).
     pairsOnOneLine: true,
     // ⚖ Owner 2026-09-30: a couple who renames Bridesmaid prints THEIR word
     // here; an untouched column keeps "Bride's Crew" / "Groom's Crew".
@@ -462,18 +473,44 @@ function groupHeading(
     return roleNameMany(spec.roles[0], names) ?? spec.label;
   }
   if (!spec.sides || !spec.sideWords) return spec.label;
+  return columnWordLists(spec, names, present)
+    .map((words) => words.join(' / '))
+    .join(' & ');
+}
+
+/**
+ * Each column's words, `[left, right]` — the heading's own rule, shared with `sideWordsOf`. A column the couple did
+ * not rename (and holding no `unusual` role) is its usual `sideWords` word; otherwise the words of the roles
+ * standing in it. A sided group with no `sideWords` (Principal Sponsors, whose heading is a category) is always the
+ * words of the roles standing in each column ("Ninong", "Ninang").
+ */
+function columnWordLists(
+  spec: GroupSpec,
+  names: RoleNames | null | undefined,
+  present: ReadonlySet<string>,
+): string[][] {
   const unusual = new Set<string>(spec.unusual ?? []);
-  const words = spec.sides.map((sideRoles, i) => {
+  return (spec.sides ?? []).map((sideRoles, i) => {
     const here = sideRoles.filter((r) => present.has(r));
     const custom = here.some((r) => roleNameOne(r, names) !== null || unusual.has(r));
-    if (!custom) return spec.sideWords![i]!;
+    if (spec.sideWords && !custom) return [spec.sideWords[i]!];
     const shown = here.map((r) =>
       (spec.headingForm === 'many' ? roleNameMany(r, names) : roleNameOne(r, names)) ??
       (ROLE_LABEL[r] as string),
     );
-    return [...new Set(shown)].join(' / ');
+    return [...new Set(shown)];
   });
-  return words.join(' & ');
+}
+
+/** The group's two column words (see `EntourageGroup.sideWords`) — null with no sides, or a column nobody stands in. */
+function sideWordsOf(
+  spec: GroupSpec,
+  names: RoleNames | null | undefined,
+  present: ReadonlySet<string>,
+): readonly [string, string] | null {
+  if (!spec.sides || !spec.sides.every((roles) => roles.some((r) => present.has(r)))) return null;
+  const [l, r] = columnWordLists(spec, names, present).map((words) => words.join(' · '));
+  return l && r ? [l, r] : null;
 }
 
 /**
@@ -501,6 +538,21 @@ export function roleBesideName(group: EntourageGroup, person: EntouragePerson): 
   const distinct = new Set(peopleOf(group).map((p) => p.role));
   if (distinct.size <= 1) return null;
   return parentBesideOne(person, group.names) ?? roleLabel(person.role, group.names);
+}
+
+/**
+ * THE WORD UNDER SOMEONE WHO STANDS ALONE, CENTRED (Lines, owner 2026-10-15) — or null for none.
+ *
+ * A centred name sits in neither column, so the column words cannot say what he is: he carries his own role word
+ * ("Ninong", "Maid of Honor"). Where `roleBesideName` already gives one, that is it. Only a group whose people all
+ * hold one role (Flower Girls) carries none — its heading already says it.
+ */
+export function entourageCellWord(group: EntourageGroup, person: EntouragePerson): string | null {
+  const beside = roleBesideName(group, person);
+  if (beside) return beside;
+  if (GROUPS.find((g) => g.key === group.key)?.byRole) return null;
+  const distinct = new Set(peopleOf(group).map((p) => p.role));
+  return distinct.size > 1 ? roleLabel(person.role, group.names) : null;
 }
 
 /**
@@ -614,7 +666,11 @@ export function lineNames(row: EntourageRow): string {
   return (l ?? r)?.name ?? '';
 }
 
-/** Does this group print a data-paired couple on ONE line? (Principal Sponsors, the crews.) */
+/**
+ * Is this a group of data-paired couples? (Principal Sponsors, the crews.) The
+ * printed card draws each pair as ONE line (2026-09-30 option 1); the page's
+ * Roll call draws it as two columns with no "&" (owner 2026-10-14).
+ */
 export function pairsShareALine(group: EntourageGroup): boolean {
   return GROUPS.find((g) => g.key === group.key)?.pairsOnOneLine === true;
 }
@@ -1120,7 +1176,14 @@ export function buildEntourage(
     if (built.length === 0) continue;
     const present = new Set<string>();
     for (const line of built) for (const p of line) if (p) present.add(p.role);
-    groups.push({ key: spec.key, label: groupHeading(spec, names, present), rows: built, names: names ?? {} });
+    const sideWords = sideWordsOf(spec, names, present);
+    groups.push({
+      key: spec.key,
+      label: groupHeading(spec, names, present),
+      rows: built,
+      names: names ?? {},
+      ...(sideWords ? { sideWords } : {}),
+    });
   }
   return groups;
 }

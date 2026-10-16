@@ -1,23 +1,17 @@
 import Link from 'next/link';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { reachTally, serviceReach } from '@/lib/service-reach';
-import {
-  bracketsToDrafts,
-  discountsToDrafts,
-  inclusionsToDrafts,
-} from '@/lib/vendor-service-drafts';
 import { Fragment } from 'react';
 import { redirect } from 'next/navigation';
 import {
   ChevronDown,
-  Clock,
+  ChevronRight,
   Copy,
   Gift,
   Layers,
   Plus,
   Snowflake,
   Tag,
-  Trash2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -34,7 +28,6 @@ import {
   fetchVendorServices,
   fetchDiscountsByService,
   fetchInclusionsByService,
-  fetchBracketsByService,
 } from '@/lib/vendor-services';
 import { fetchVendorBranches, branchIsUsable } from '@/lib/vendor-branches';
 import {
@@ -46,14 +39,7 @@ import {
   formatLeanMonths,
   suggestPromoExpiry,
 } from '@/lib/vendor-lean-months';
-import { tierCaps, canPlotTimeSlots, isTierAtLeast } from '@/lib/vendor-tier-caps';
-import {
-  fetchVendorTimeSlotsByService,
-  formatSlotTime,
-  SLOT_CAPACITY_MAX,
-  SLOT_LABEL_MAX,
-  type VendorServiceTimeSlot,
-} from '@/lib/vendor-time-slots';
+import { tierCaps, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import {
   VENDOR_CATEGORIES,
   VENDOR_CATEGORY_LABEL,
@@ -63,6 +49,8 @@ import {
   displayServiceLabel,
 } from '@/lib/vendors';
 import { formatPhp } from '@/lib/orders';
+import { buildLeafIndex } from '@/lib/service-card-kind';
+import { NOT_IN_WHAT_YOU_DO, cardIsOutsideCoverage } from '@/lib/service-card-maker';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { labelForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import {
@@ -70,25 +58,11 @@ import {
   specialistToolsForCategories,
 } from '@/lib/vendor-service-tools';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { PublishGateSubmit } from './publish-gate-submit';
-import { ConfirmForm } from '@/app/_components/confirm-form';
 import { Field } from '@/app/_components/forms/field';
-import {
-  fetchOwnSchedulesByService,
-  rowToDraft,
-} from '@/lib/vendor-service-payment-schedules';
-import { PaymentScheduleEditor } from './payment-schedule-editor';
-import { fetchAddonsByService } from '@/lib/vendor-service-addons';
-import { AddonsEditor } from './addons-editor';
 import {
   createVendorService,
   proposeCategory,
-  updateVendorService,
   toggleVendorServiceActive,
-  deleteVendorService,
-  addServiceTimeSlot,
-  deleteServiceTimeSlot,
-  setServiceLinks,
 } from '../actions';
 import {
   fetchVendorCoverages,
@@ -286,6 +260,10 @@ export async function VendorServicesManager({
       .filter((f): f is string => Boolean(f)),
   ).size;
   const coverageLabelById = new Map(coverageItems.map((c) => [c.id, c.pathLabel]));
+  // 🏷 A card whose kind is outside "what you do" is invisible to supplier discovery — its row says so (owner
+  // 2026-10-14: "Not now → card saves … and the card's row says 'not in what you do'").
+  const coveredLeaves = buildLeafIndex(coverageTree);
+  const coveredLeafSet = new Set(vendorCoverages.map((c) => c.canonical_service));
   // Group the service list by coverage (in the coverage panel's order; unassigned
   // cards last). A stable sort keeps each group's created_at order; the render
   // below emits a group header when the coverage changes.
@@ -295,15 +273,13 @@ export async function VendorServicesManager({
     const rb = b.coverage_id != null ? coverageOrder.get(b.coverage_id) ?? 9998 : 9999;
     return ra - rb;
   });
-  const addonsByService = await fetchAddonsByService(supabase, serviceIdList);
   // Child-table lists (multi-discount + free inclusions + Fixed pax brackets ·
   // migration 20270502342558), grouped by service for the off-peak nudge, row
   // badge, and the Phase 3b list editors on each form. Batched into one round-trip.
-  const [discountsByService, inclusionsByService, bracketsByService] =
+  const [discountsByService, inclusionsByService] =
     await Promise.all([
       fetchDiscountsByService(supabase, serviceIdList),
       fetchInclusionsByService(supabase, serviceIdList),
-      fetchBracketsByService(supabase, serviceIdList),
     ]);
 
   // Presigned display URLs for existing showcase media (Phase 3c) so the edit
@@ -334,47 +310,14 @@ export async function VendorServicesManager({
     ).filter((e): e is readonly [string, string] => e !== null),
   );
 
-  // Four independent per-vendor reads batched into ONE round-trip instead of the
-  // former serial chain (2026-07-01 perf):
-  //   • linked-services-on-card  • tier/verification soft-probe
-  //   • time-bound slots         • payment schedules
-  // Each keeps its graceful-degrade contract (empty / null on error).
-  const [linkRowsRes, tierProbeRes, slotsByService, scheduleRowsByService] =
-    await Promise.all([
-      serviceIdList.length > 0
-        ? supabase
-            .from('vendor_service_links')
-            .select('vendor_service_id, linked_canonical_service')
-            .in('vendor_service_id', serviceIdList)
-            .then((r) => r, () => ({ data: null }))
-        : Promise.resolve({ data: [] }),
-      // Vendor-scoped fields not in the shared profile select:
-      //   tier_state · verification_state · name_revealed_at · screen_name.
-      // A missing column / RLS hiccup degrades to null (→ free / hidden).
-      supabase
-        .from('vendor_profiles')
-        .select('tier_state, verification_state, name_revealed_at, screen_name')
-        .eq('vendor_profile_id', profile.vendor_profile_id)
-        .maybeSingle()
-        .then((r) => r, () => ({ data: null })),
-      fetchVendorTimeSlotsByService(supabase, profile.vendor_profile_id),
-      // Payment schedules (Vendor Transaction Lifecycle Phase 2 · PR-A).
-      fetchOwnSchedulesByService(supabase, serviceIdList),
-    ]);
-
-  // Linked-services-on-card (locked spec): which OTHER categories each service
-  // "comes with". Pre-checks the "Comes with" picker on each edit form. The
-  // option set is the vendor's own distinct categories — a vendor can only
-  // advertise coverage they actually offer (enforced again in setServiceLinks).
-  const linkedByServiceId = new Map<string, Set<string>>();
-  for (const r of (linkRowsRes.data ?? []) as {
-    vendor_service_id: string;
-    linked_canonical_service: string;
-  }[]) {
-    const set = linkedByServiceId.get(r.vendor_service_id) ?? new Set<string>();
-    set.add(r.linked_canonical_service);
-    linkedByServiceId.set(r.vendor_service_id, set);
-  }
+  // The tier / verification soft-probe. (The links, time slots and payment schedules this list used to read for
+  // its inline editors are read by the card's own screen now — /vendor-dashboard/services/[serviceId].)
+  const tierProbeRes = await supabase
+    .from('vendor_profiles')
+    .select('tier_state, verification_state, name_revealed_at, screen_name')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle()
+    .then((r) => r, () => ({ data: null }));
   const distinctCategories = Array.from(new Set(services.map((s) => s.category)));
 
   // #1 multi-service-per-leaf: a category can now hold several listings, so we
@@ -401,8 +344,6 @@ export async function VendorServicesManager({
   // the capacity input when the tier allows bookings at all (slotsCap > 0).
   const slotsCap = caps.slotsPerDay;
   const slotsCapForUi = Number.isFinite(slotsCap) ? slotsCap : 99;
-  // #3 time-bound slots: ENTERPRISE-only plotting (keyed on the enterprise tier).
-  const canPlotSlots = canPlotTimeSlots(tier);
   const allBranches =
     // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so Custom
     // gets the branch picker without a hard equality edit.
@@ -474,17 +415,17 @@ export async function VendorServicesManager({
   // load the schema (chip fields only) + the vendor's saved payload per
   // category in play. Both reads fail soft to empty — the chips just don't
   // render, the card still works. Keyed by canonical_service.
-  const refinementCategories = Array.from(
-    new Set([...distinctCategories, ...(addCategory ? [addCategory] : [])]),
-  );
-  const [refinementsByCategory, refinementPayloads] = await Promise.all([
-    fetchCategoryChipRefinementsMany(supabase, refinementCategories).catch(
-      () => new Map<string, CategoryRefinements>(),
-    ),
-    fetchVendorServiceAttributes(supabase, profile.vendor_profile_id).catch(
-      () => [],
-    ),
-  ]);
+  // Only the inline add form (the wizard-off fallback, `?add=`) draws refinements now — read them only then.
+  const refinementCategories = addCategory ? [addCategory] : [];
+  const [refinementsByCategory, refinementPayloads] =
+    refinementCategories.length > 0
+      ? await Promise.all([
+          fetchCategoryChipRefinementsMany(supabase, refinementCategories).catch(
+            () => new Map<string, CategoryRefinements>(),
+          ),
+          fetchVendorServiceAttributes(supabase, profile.vendor_profile_id).catch(() => []),
+        ])
+      : [new Map<string, CategoryRefinements>(), []];
   const refinementPayloadByCategory = new Map<string, Record<string, unknown>>(
     refinementPayloads.map((p) => [
       p.canonical_service,
@@ -707,7 +648,9 @@ export async function VendorServicesManager({
             </div>
           </div>
           <Link
-            href={`${basePath}?offpeak=${offPeakTargetId}#svc-${offPeakTargetId}`}
+            href={`/vendor-dashboard/services/${offPeakTargetId}?offpeak=1${
+              suggestedExpiry ? `&exp=${suggestedExpiry.slice(0, 10)}` : ''
+            }${suggestedConditions ? `&cond=${encodeURIComponent(suggestedConditions)}` : ''}`}
             className="button-primary shrink-0 whitespace-nowrap text-center"
           >
             Set up off-season offer
@@ -919,8 +862,6 @@ export async function VendorServicesManager({
                       inactiveBranchIds.has(svc.branch_id) ? ' (not active)' : ''
                     }`
                   : 'You';
-              const hasSlots =
-                (slotsByService.get(svc.vendor_service_id)?.length ?? 0) > 0;
               // Multi-discount (Phase 3b · migration 20270502342558). The row
               // badge shows the FIRST discount + a "+N" when there are more; the
               // full list is edited in the DiscountsEditor below.
@@ -929,8 +870,6 @@ export async function VendorServicesManager({
               const svcDiscount = svcDiscountList[0] ?? null;
               const svcInclusions =
                 inclusionsByService.get(svc.vendor_service_id) ?? [];
-              const svcBrackets =
-                bracketsByService.get(svc.vendor_service_id) ?? [];
               return (
                 <Fragment key={svc.vendor_service_id}>
                   {showCovHeader ? (
@@ -1037,7 +976,7 @@ export async function VendorServicesManager({
                         />
                         <span className="truncate">
                           {reach.label}
-                          {reach.level === 'full' ? '' : ' in Edit details'}
+                          {reach.level === 'full' ? '' : ' · open the card'}
                         </span>
                       </p>
                     </div>
@@ -1086,327 +1025,31 @@ export async function VendorServicesManager({
                     </form>
                   </div>
 
-                  {/* Collapsible full editor — preserves every existing control
-                      (price · crew · pax · capacity · last-minute · branch ·
-                      discount · exclusive perk · comes-with links · time slots ·
-                      payment schedule · delete) without cluttering the row. */}
-                  <details
-                    className="border-t"
+                  {/* THE CARD OPENS IN THE MAKER (supplier-easy step 3, 2026-10-14). The inline "Edit details"
+                      editor and its six Saves retired: every field it held — and the ones only the new-card
+                      screen had — live on ONE screen with ONE Save (/vendor-dashboard/services/[serviceId]). */}
+                  <Link
+                    href={`/vendor-dashboard/services/${svc.vendor_service_id}${
+                      offPeakPrefillId === svc.vendor_service_id
+                        ? `?offpeak=1${suggestedExpiry ? `&exp=${suggestedExpiry.slice(0, 10)}` : ''}${
+                            suggestedConditions ? `&cond=${encodeURIComponent(suggestedConditions)}` : ''
+                          }`
+                        : ''
+                    }`}
+                    className="sn-press flex min-h-11 items-center justify-between gap-2 border-t px-4 py-2.5 text-[14px] font-semibold text-sn-accent"
                     style={{ borderColor: 'var(--m-line)' }}
-                    open={offPeakPrefillId === svc.vendor_service_id}
+                    data-card-edit={svc.vendor_service_id}
                   >
-                    <summary
-                      className="flex cursor-pointer select-none items-center justify-between gap-2 px-4 py-2.5 text-xs font-medium"
-                      style={{ color: 'var(--m-slate)' }}
-                    >
-                      <span>Edit details</span>
-                      <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                    </summary>
-                    <div className="space-y-3 border-t px-4 pb-4 pt-4" style={{ borderColor: 'var(--m-line)' }}>
-                      <form action={updateVendorService} className="space-y-3">
-                        <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
-                        {/* v20: the live card preview — mirrors this form as you type. */}
-                        <ServiceCardLivePreview
-                          leafPathLabel={
-                            (svc.coverage_id != null
-                              ? coverageLabelById.get(svc.coverage_id)
-                              : null) ?? displayServiceLabel(svc.category)
-                          }
-                          addonsFromPhp={(() => {
-                            const prices = (addonsByService.get(svc.vendor_service_id) ?? [])
-                              .map((a) => a.from_price_php)
-                              .filter((p): p is number => p != null && p > 0);
-                            return prices.length ? Math.min(...prices) : null;
-                          })()}
-                          initialCoverUrl={
-                            svc.primary_photo_r2_key
-                              ? showcaseDisplayUrls[svc.primary_photo_r2_key] ?? null
-                              : null
-                          }
-                        />
-                        <Field
-                          label="Cover photo"
-                          htmlFor={`cover-${svc.vendor_service_id}`}
-                          help="The first thing couples see on this card. Required to publish."
-                        >
-                          {/* watermark: owner-locked 2026-07-03 — covers carry
-                              the SETNAYAN watermark like all marketplace photos. */}
-                          <FileUpload
-                            bucket="media"
-                            pathPrefix={`vendors/${profile.vendor_profile_id}/services`}
-                            name="primary_photo_r2_key"
-                            unsavedHint="press Save changes below"
-                            maxSizeMB={5}
-                            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-                            watermark
-                            compressImage
-                            variant="square"
-                            currentValue={svc.primary_photo_r2_key}
-                            initialDisplayUrls={showcaseDisplayUrls}
-                          />
-                        </Field>
-                        {coverageItems.length > 0 ? (
-                          <Field
-                            label="Coverage"
-                            htmlFor={`cov-${svc.vendor_service_id}`}
-                            help="Which of your coverages this card belongs to."
-                          >
-                            <select
-                              id={`cov-${svc.vendor_service_id}`}
-                              name="coverage_id"
-                              defaultValue={svc.coverage_id ?? ''}
-                              className="input-field cursor-pointer"
-                            >
-                              <option value="">— not assigned —</option>
-                              {coverageItems.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.pathLabel}
-                                </option>
-                              ))}
-                            </select>
-                          </Field>
-                        ) : null}
-                        <PricingBasisEditor
-                          idPrefix={svc.vendor_service_id}
-                          category={svc.category}
-                          defaults={{
-                            pricing_basis: svc.pricing_basis,
-                            starting_price_php: svc.starting_price_php,
-                            base_pax: svc.base_pax,
-                            added_pax_price_php: svc.added_pax_price_php,
-                            per_pax_price_php: svc.per_pax_price_php,
-                            min_pax: svc.min_pax,
-                            hour_base_php: svc.hour_base_php,
-                            min_hours: svc.min_hours,
-                            extra_hour_php: svc.extra_hour_php,
-                          }}
-                          fixedExtra={
-                            <PriceBracketsEditor initial={bracketsToDrafts(svcBrackets)} />
-                          }
-                        />
-                        <Field label="Crew size" htmlFor={`crew-${svc.vendor_service_id}`}>
-                          <input
-                            id={`crew-${svc.vendor_service_id}`}
-                            name="crew_size"
-                            type="number"
-                            min={0}
-                            step={1}
-                            defaultValue={svc.crew_size ?? ''}
-                            placeholder="e.g. 4"
-                            className="input-field"
-                          />
-                        </Field>
-                        {slotsCap > 0 ? (
-                          <Field
-                            label={`Bookings per day (max ${slotsCapForUi})`}
-                            htmlFor={`cap-${svc.vendor_service_id}`}
-                            help={
-                              hasSlots
-                                ? 'Disabled — time slots below set capacity per window instead.'
-                                : undefined
-                            }
-                          >
-                            <input
-                              id={`cap-${svc.vendor_service_id}`}
-                              name="daily_capacity"
-                              type="number"
-                              min={1}
-                              max={slotsCapForUi}
-                              step={1}
-                              defaultValue={svc.daily_capacity ?? ''}
-                              placeholder="e.g. 2"
-                              disabled={hasSlots}
-                              className="input-field disabled:cursor-not-allowed disabled:opacity-50"
-                            />
-                          </Field>
-                        ) : null}
-                        <IncludedFlags
-                          idPrefix={svc.vendor_service_id}
-                          category={svc.category}
-                          defaults={{
-                            crew_meal_included: svc.crew_meal_included,
-                            transport_included: svc.transport_included,
-                            transport_flat_fee_php: svc.transport_flat_fee_php,
-                          }}
-                        />
-                        <LastMinuteFields
-                          idPrefix={svc.vendor_service_id}
-                          leadDefault={svc.recommended_lead_time_months}
-                          endDefault={svc.last_minute_end_months}
-                          surchargeDefault={svc.last_minute_surcharge_pct}
-                        />
-                        {showBranchPicker ? (
-                          <BranchSelect
-                            id={`branch-${svc.vendor_service_id}`}
-                            branches={branches}
-                            defaultValue={svc.branch_id ?? ''}
-                            inactiveOption={
-                              svc.branch_id && inactiveBranchIds.has(svc.branch_id)
-                                ? {
-                                    branch_id: svc.branch_id,
-                                    branch_label: branchLabelById.get(
-                                      svc.branch_id,
-                                    ) as string,
-                                  }
-                                : null
-                            }
-                          />
-                        ) : null}
-                        {/* Multi-discount list (Phase 3b). Preserves the
-                            Off-Season nudge: when arrived via ?offpeak and the
-                            service has no discounts yet, seed one off_peak row. */}
-                        <DiscountsEditor
-                          initial={discountsToDrafts(svcDiscountList)}
-                          seedOffPeak={
-                            offPeakPrefillId === svc.vendor_service_id &&
-                            svcDiscountList.length === 0
-                          }
-                          seedExpiry={suggestedExpiry?.slice(0, 10)}
-                          seedConditions={suggestedConditions || undefined}
-                        />
-                        <InclusionsEditor initial={inclusionsToDrafts(svcInclusions)} />
-                        <ShowcaseMediaFields
-                          vendorProfileId={profile.vendor_profile_id}
-                          unsavedHint="press Save changes below"
-                          videoCurrent={svc.showcase_video_r2_key}
-                          photosCurrent={svc.showcase_photo_r2_keys}
-                          displayUrls={showcaseDisplayUrls}
-                        />
-                        <SetnayanGiftField
-                          idPrefix={svc.vendor_service_id}
-                          giftOn={svc.includes_setnayan_gift === true}
-                          legacyPerkText={svc.exclusive_perk_text ?? undefined}
-                        />
-                        <div className="flex items-center justify-between">
-                          {/* Trigger only — the delete ConfirmForm is a SIBLING
-                              of this update form (below) and this button reaches
-                              it via the HTML form attribute. Nesting the
-                              ConfirmForm here (its own <form>) was invalid HTML:
-                              the browser hoisted its $ACTION_ID_ input into THIS
-                              form, so a no-JS / pre-hydration "Save changes"
-                              dispatched deleteVendorService instead of update. */}
-                          <button
-                            type="submit"
-                            form={`svc-delete-${svc.vendor_service_id}`}
-                            className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium"
-                            style={{ borderColor: 'var(--m-line)', color: 'var(--m-blush-deep)' }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                            Delete
-                          </button>
-                          {/* The gate, on the button. A LIVE card whose price
-                              is blank cannot be saved — the Setnayan gift left
-                              this gate on 2026-09-09 and is now optional —
-                              the trigger would refuse it and the vendor would
-                              see a generic error instead of the sentence the
-                              database wrote for them. A DRAFT is never blocked;
-                              that is the trigger's own first branch. */}
-                          <PublishGateSubmit
-                            isActive={svc.is_active}
-                            className="button-primary"
-                          >
-                            Save changes
-                          </PublishGateSubmit>
-                        </div>
-                      </form>
-
-                      {/* Delete confirm — MUST stay a sibling of the update form
-                          (never nested); triggered by the footer button above. */}
-                      <ConfirmForm
-                        formId={`svc-delete-${svc.vendor_service_id}`}
-                        className="hidden"
-                        action={deleteVendorService}
-                        title="Delete this service?"
-                        confirmLabel="Delete service"
-                        message={`Deleting "${
-                          svc.title?.trim() || displayServiceLabel(svc.category)
-                        }" removes it from your listings, along with any "comes with" bundle links${
-                          hasSlots ? ' and all its time slots' : ''
-                        }. This can't be undone.`}
-                      >
-                        <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
-                      </ConfirmForm>
-
-                      {/* Comes-with links — own action, sibling of the form. */}
-                      {distinctCategories.filter((c) => c !== svc.category).length > 0 ? (
-                        <form
-                          action={setServiceLinks}
-                          className="rounded-lg border p-3"
-                          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-                        >
-                          <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
-                          <p className="text-xs font-medium" style={{ color: 'var(--m-ink)' }}>
-                            Comes with
-                          </p>
-                          <p className="mt-0.5 text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
-                            Other categories this service bundles in — the couple&rsquo;s
-                            card shows &ldquo;comes with&rdquo; these, included in your price.
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
-                            {distinctCategories
-                              .filter((c) => c !== svc.category)
-                              .map((cat) => (
-                                <label
-                                  key={cat}
-                                  className="flex items-center gap-1.5 text-xs"
-                                  style={{ color: 'var(--m-slate)' }}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    name="linked"
-                                    value={cat}
-                                    defaultChecked={linkedByServiceId
-                                      .get(svc.vendor_service_id)
-                                      ?.has(cat)}
-                                    className="h-3.5 w-3.5 cursor-pointer accent-[var(--m-ink)]"
-                                  />
-                                  <span>{displayServiceLabel(cat)}</span>
-                                </label>
-                              ))}
-                          </div>
-                          <div className="mt-2 flex justify-end">
-                            <SubmitButton
-                              className="inline-flex h-8 items-center justify-center rounded-lg border px-3 text-[11px] font-medium"
-                              pendingLabel="Saving…"
-                            >
-                              Save links
-                            </SubmitButton>
-                          </div>
-                        </form>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span>Edit · every field</span>
+                      {cardIsOutsideCoverage(svc.category, coveredLeaves, coveredLeafSet) ? (
+                        <span className="truncate text-[13px] font-normal" style={{ color: 'rgb(var(--color-warn))' }} data-card-outside="">
+                          · {NOT_IN_WHAT_YOU_DO}
+                        </span>
                       ) : null}
-
-                      {/* Refinement chips — the leaf's facets, own action
-                          (sibling of the update form), merges into the
-                          category's attribute payload. */}
-                      {refinementsByCategory.has(svc.category) ? (
-                        <RefinementsEditor
-                          canonicalService={svc.category}
-                          refinements={refinementsByCategory.get(svc.category)!}
-                          initial={refinementPayloadByCategory.get(svc.category) ?? {}}
-                          leafLabel={displayServiceLabel(svc.category)}
-                        />
-                      ) : null}
-
-                      <SlotEditor
-                        serviceId={svc.vendor_service_id}
-                        slots={slotsByService.get(svc.vendor_service_id) ?? []}
-                        canPlot={canPlotSlots}
-                      />
-                      <PaymentScheduleEditor
-                        serviceId={svc.vendor_service_id}
-                        initial={(scheduleRowsByService.get(svc.vendor_service_id) ?? []).map(
-                          rowToDraft,
-                        )}
-                      />
-                      <AddonsEditor
-                        serviceId={svc.vendor_service_id}
-                        initial={(addonsByService.get(svc.vendor_service_id) ?? []).map((a) => ({
-                          label: a.label,
-                          price: a.from_price_php != null ? String(a.from_price_php) : '',
-                        }))}
-                      />
-                    </div>
-                  </details>
+                    </span>
+                    <ChevronRight aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+                  </Link>
 
                   {/* Card record — outside <details> on purpose: the whole point
                       is that the vendor SEES what the card has compiled without
@@ -2027,115 +1670,5 @@ function DiscountBadge({
       {valueLabel}
       {extraCount > 0 ? ` +${formatCount(extraCount)}` : ''}
     </span>
-  );
-}
-
-/**
- * Time-bound slot sub-editor (tier #3, Enterprise). Restyled to the editorial
- * palette; behaviour unchanged.
- */
-function SlotEditor({
-  serviceId,
-  slots,
-  canPlot,
-}: {
-  serviceId: string;
-  slots: VendorServiceTimeSlot[];
-  canPlot: boolean;
-}) {
-  if (slots.length === 0 && !canPlot) return null;
-  return (
-    <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}>
-      <div className="flex items-center gap-1.5">
-        <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} style={{ color: 'var(--m-slate)' }} />
-        <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-          Time slots (Enterprise)
-        </p>
-      </div>
-      <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-        Named per-day windows, each with its own capacity. When you set slots,
-        couples pick one at booking and they override &ldquo;Bookings per
-        day&rdquo; for this service.
-      </p>
-
-      {slots.length > 0 ? (
-        <ul className="divide-y rounded-lg border" style={{ borderColor: 'var(--m-line)' }}>
-          {slots.map((slot) => (
-            <li key={slot.slot_id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-              <span className="min-w-0">
-                <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
-                  {slot.slot_label}
-                </span>{' '}
-                <span style={{ color: 'var(--m-slate-2)' }}>
-                  {formatSlotTime(slot.start_time)}–{formatSlotTime(slot.end_time)}
-                  {' · '}up to {slot.slot_capacity}/day
-                </span>
-              </span>
-              <form action={deleteServiceTimeSlot}>
-                <input type="hidden" name="slot_id" value={slot.slot_id} />
-                <button
-                  type="submit"
-                  aria-label={`Remove time slot ${slot.slot_label}`}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                  style={{ background: 'var(--m-paper-2)', color: 'var(--danger-700)' }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {canPlot ? (
-        <form
-          action={addServiceTimeSlot}
-          className="grid gap-2 rounded-lg border border-dashed p-3 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:items-end"
-          style={{ borderColor: 'var(--m-line)' }}
-        >
-          <input type="hidden" name="vendor_service_id" value={serviceId} />
-          <Field label="Label" htmlFor={`slot-label-${serviceId}`}>
-            <input
-              id={`slot-label-${serviceId}`}
-              name="slot_label"
-              type="text"
-              required
-              maxLength={SLOT_LABEL_MAX}
-              placeholder="e.g. AM Ceremony"
-              className="input-field"
-            />
-          </Field>
-          <Field label="Start" htmlFor={`slot-start-${serviceId}`}>
-            <input id={`slot-start-${serviceId}`} name="start_time" type="time" required step={1800} className="input-field" />
-          </Field>
-          <Field label="End" htmlFor={`slot-end-${serviceId}`}>
-            <input id={`slot-end-${serviceId}`} name="end_time" type="time" required step={1800} className="input-field" />
-          </Field>
-          <Field label="Capacity" htmlFor={`slot-cap-${serviceId}`}>
-            <input
-              id={`slot-cap-${serviceId}`}
-              name="slot_capacity"
-              type="number"
-              min={1}
-              max={SLOT_CAPACITY_MAX}
-              step={1}
-              defaultValue={1}
-              className="input-field"
-            />
-          </Field>
-          <SubmitButton
-            className="inline-flex h-9 items-center justify-center rounded-md border px-3 text-xs font-medium"
-            pendingLabel="Adding…"
-          >
-            Add slot
-          </SubmitButton>
-        </form>
-      ) : (
-        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Time slots are an Enterprise feature — these existing slots stay active
-          and you can remove them anytime.
-        </p>
-      )}
-    </div>
   );
 }

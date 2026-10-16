@@ -119,7 +119,7 @@ test('(3) the ring is opt-in and drawn by the listener — a transient element o
   assert.doesNotMatch(css, /\.sn-press-ring[^{]*::(?:after|before)/, 'the ring is drawn twice (CSS and the listener)');
   assert.doesNotMatch(css, /\.sn-switch::before/);
   // WORN BY the template controls: the dropdown's button, the ⓘ, a style card's picture, a switch's track.
-  assert.match(read(`${E}/pick-menu-place.ts`), /return `sn-press sn-press-ring inline-flex /);
+  assert.match(read(`${E}/pick-menu-place.ts`), /return `sn-press sn-press-ring (?:sn-hit )?inline-flex /);
   assert.match(read('app/_components/info-tip.tsx'), /className="sn-press sn-press-ring sn-dot-btn /);
   assert.match(read(`${E}/background-cards.tsx`), /className=\{`sn-phone-card sn-press-ring \$\{/);
   assert.ok(STUDIO_SWITCH_TRACK.split(/\s+/).includes('sn-press-ring'));

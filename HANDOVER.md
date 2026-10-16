@@ -37,7 +37,8 @@ DECISION_LOG 2026-10-16, "A VENUE CARD'S PICTURE IS THE COUPLE'S CHOICE". Owner,
 3. **Dark via forced `.dark` — fine** (the Maker lab is not a DARK_READY route); say so in the report.
 
 ## Left, in order
-1. Walk at 375 in the new Maker lab (WebKit iPhone 13): `/dev/maker-lab?studio=1&venue=church&vpic=photo` → Venue scene → Edit → Picture ▾ open → pick Our drawing ◆ → guest card (`/dev/maker-lab/guest?venues=default&photo=1&drawing=1`). Light + dark. Keep the existing desktop shots.
+1. DONE 2026-10-17 02:45 (head 00e27ab): walked in the new Maker lab, WebKit iPhone 13 at 375, light + forced-`.dark` — all checks ok (`s17/` + `scripts/shoot-studio.mjs`, the part picked by a canvas-tap message from the frame). Shots copied to `~/Documents/Claude/Projects/shots-2026-10-17/6591/` (10 Edit rows · 11 Picture ▾ open as the bottom sheet · 12 Our drawing ◆ picked · 13 guest card). Lab note: the lab has no session, so the draft save 303-redirects ~15 s later and the lab reloads its fixture — the pick itself shows at once.
+   (was:) Walk at 375 in the new Maker lab (WebKit iPhone 13): `/dev/maker-lab?studio=1&venue=church&vpic=photo` → Venue scene → Edit → Picture ▾ open → pick Our drawing ◆ → guest card (`/dev/maker-lab/guest?venues=default&photo=1&drawing=1`). Light + dark. Keep the existing desktop shots.
 2. CI to green on the head. Keep the PR DRAFT + `do-not-auto-merge`.
 3. Copy final shots to `~/Documents/Claude/Projects/shots-2026-10-17/6591/`. Report.
 4. After the PR merges: `git worktree remove ~/Documents/Claude/Projects/wt-venue-choice --force && git worktree prune`.

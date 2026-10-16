@@ -11,6 +11,8 @@ import { WelcomeGifts } from './guest-doorway-strip';
 import { WelcomeGiftsContent } from './welcome-gifts-content';
 import type { GiftPageContent } from '../pabuya/_lib/gift-cards';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from './maker-guest-scenes';
+import type { ArtKitView } from '@/lib/art-kits';
+import { KitSlot } from './kit-piece';
 
 /**
  * 🏠 THE INVITATION'S WELCOME PAGE — the guest's own (owner 2026-09-30:
@@ -75,7 +77,13 @@ export function GuestWelcome({
   maker = false,
   partLooks = null,
   lookMark = null,
+  artKit = null,
 }: {
+  /**
+   * 🕯 THE LOOK'S ART KIT, already decided (`artKitShows`, `lib/art-kits.ts`, owner 2026-10-16): the divider above
+   * E-Gifts and the spray + abaniko on its card. Null → E-Gifts byte for byte as before.
+   */
+  artKit?: ArtKitView | null;
   /** 🧱 What to wear's own look (`lib/block-looks.ts`): its hidden mark, handed on to the reader's panel, which draws
    *  it right before its root only when it draws (`DressCodeWidget` `mark`). */
   lookMark?: ReactNode;
@@ -146,9 +154,19 @@ export function GuestWelcome({
         if (giftHref) {
           return (
             <WelcomeSlot key="gifts">
+              {/* 🕯 The kit's divider stands before the block's own mark — the mark sits right before the block root. */}
+              {artKit ? <KitSlot kit={artKit} slot="gifts-divider" /> : null}
               {mark('f:gifts')}
               <WelcomeGifts href={giftHref} words={words} look={partLooks?.gifts ?? null} wishes={giftWishes}>
-                {giftContent ? <WelcomeGiftsContent content={giftContent} href={giftHref} words={words} wishes={giftWishes} /> : null}
+                {giftContent ? (
+                  <WelcomeGiftsContent
+                    content={giftContent}
+                    href={giftHref}
+                    words={words}
+                    wishes={giftWishes}
+                    kit={artKit ? <KitSlot kit={artKit} slot="gifts-card" /> : null}
+                  />
+                ) : null}
               </WelcomeGifts>
             </WelcomeSlot>
           );

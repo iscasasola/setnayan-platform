@@ -1,4 +1,6 @@
+import type { ComponentProps } from 'react';
 import { X } from 'lucide-react';
+import { KitClosing } from './kit-piece';
 import { Logo } from '@/app/_components/logo';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { pageGround } from '@/lib/page-ground';
@@ -36,7 +38,14 @@ export function InvitationShell({
   magicTraveller = null,
   ownGround = false,
   exitHref = null,
+  kitClosing = null,
 }: {
+  /**
+   * 🕯 THE LOOK'S ART KIT AT THE SIGN-OFF (owner 2026-10-16, `lib/art-kits.ts` · `KitClosing`): the couple's photo in
+   * the kit's oval, "See you soon.", then a band with their names, the date and — unless `hideWatermark` — the
+   * Powered-by line. The sign-off restyled, never a second one. Null → the footer byte for byte as before.
+   */
+  kitClosing?: Omit<ComponentProps<typeof KitClosing>, 'hideWatermark'> | null;
   /**
    * ✕ THE EVENT HUB'S ONE EXIT (owner 2026-10-01, DECISION_LOG "THE EVENT HUB IS
    * FULL SCREEN WITH ONE EXIT…"): inside every stage a guest sees only the
@@ -282,6 +291,11 @@ export function InvitationShell({
           gives the page an editorial sign-off without competing with the
           functional widgets above. Couple palette tokens (terracotta · ink)
           untouched. */}
+      {kitClosing ? (
+        <footer className="relative z-10 text-center">
+          <KitClosing {...kitClosing} hideWatermark={hideWatermark} />
+        </footer>
+      ) : (
       <footer
         className={`relative z-10 px-4 py-8 text-center ${
           backdrop ? 'border-t border-cream/15' : 'border-t border-ink/10'
@@ -305,6 +319,7 @@ export function InvitationShell({
           </p>
         )}
       </footer>
+      )}
     </main>
   );
 }

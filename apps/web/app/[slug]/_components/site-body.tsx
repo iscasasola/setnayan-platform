@@ -233,6 +233,9 @@ import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { coverSceneLayer } from '../_lib/cover-scene-layer';
 import { PahinaMasthead } from './pahina-masthead';
+import { artKitView, sceneAccentsFromPreferences } from '@/lib/art-kits';
+import { KitClosing, KitSeal, KitSlot, KitStyle } from './kit-piece';
+import { ArtKitMotion } from './art-kit-motion';
 import { EntourageSection } from './entourage-section';
 import { GetInside } from './get-inside';
 import { GetTickets } from './get-tickets';
@@ -775,6 +778,18 @@ export async function SiteBody({
   // (free — `lib/scene-legibility.ts`). Its one I/O, the Pro gate, is
   // `cache()`d, so the shell's own call further down costs nothing extra.
   const sceneTheme = (await resolveHubTheme(event)).theme;
+
+  /*
+    🕯 THE ART KIT'S ACCENTS (owner 2026-10-16, DECISION_LOG "APPROVED — THE VINTAGE ART KIT" and "AN ACCENT BELONGS TO
+    ITS SCENE AND IS ADDED FROM THAT SCENE'S STYLE") — decided ONCE here and handed to each fixed place
+    (`lib/art-kits.ts` · `kit-piece.tsx`): each scene's Accent pick (`style_preferences.scene_accents`, draft-overlaid
+    on the host's canvas) or the look's default; the look's own seal, flourish and divider when the RESOLVED theme brings
+    a kit; and, while `ART_KIT_IS_PRO`, only with the event's Event Hub Pro as the viewer is shown it
+    (`proWatermarkHidden` — `websiteProActiveFor`, an internal host included) or on the host's own Maker canvas, where a
+    Pro look is tried free. Null → every mount draws nothing: the page byte for byte as before.
+  */
+  const artKit = artKitView({ theme: sceneTheme, accents: sceneAccentsFromPreferences((event as { style_preferences?: unknown }).style_preferences), ownsPro: proWatermarkHidden, tryOn: isEditorCanvas });
+  const kitCover = artKit ? <KitSlot kit={artKit} slot="cover" eager /> : null;
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
@@ -1751,6 +1766,7 @@ export async function SiteBody({
         stage={pageStage}
         canvasMediaUrls={canvasMediaUrls}
         hubTheme={sceneTheme}
+        artKit={artKit}
         ownClipPlays={isMakerCanvas}
         guestView={!isMakerCanvas}
         makerEmpty={
@@ -2038,6 +2054,7 @@ export async function SiteBody({
             eyebrow={mastheadEyebrow(clientWords)}
             displayName={event.display_name}
             {...heroElements}
+            kitSlot={kitCover}
             twoPeople={clientWords.twoPeople}
             eventDate={event.event_date}
             venueName={venueLine}
@@ -2079,6 +2096,7 @@ export async function SiteBody({
                   eyebrow={mastheadEyebrow(clientWords)}
                   displayName={event.display_name}
                   {...heroElements}
+                  kitSlot={kitCover}
                   card={inviteCard ?? undefined}
                   /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */
                   linkWords={hubLinkWords({ place: openBrowseContent.venue_map && detailsSceneList.some((w) => w.widget_type === 'venue_map'), story: menuSections.story || storySceneShown })}
@@ -2360,6 +2378,7 @@ export async function SiteBody({
                 <GuestWelcome
                   partLooks={welcomeLooks}
                   parts={parts}
+                  artKit={artKit}
                   words={clientWords}
                   look={null}
                   reminders={
@@ -2368,6 +2387,7 @@ export async function SiteBody({
                         widget={remindersScene}
                         canvasMediaUrls={canvasMediaUrls}
                         hubTheme={sceneTheme}
+                        artKit={artKit}
                         ownClipPlays={isMakerCanvas}
                         guestView={!isMakerCanvas}
                         makerEmpty={
@@ -2402,6 +2422,7 @@ export async function SiteBody({
                 <GuestWelcome
                   partLooks={welcomeLooks}
                   parts={dayWelcome}
+                  artKit={artKit}
                   words={clientWords}
                   look={null}
                   reminders={
@@ -2410,6 +2431,7 @@ export async function SiteBody({
                         widget={dayRemindersRow}
                         canvasMediaUrls={canvasMediaUrls}
                         hubTheme={sceneTheme}
+                        artKit={artKit}
                         ownClipPlays={isMakerCanvas}
                         guestView={!isMakerCanvas}
                         event={event}
@@ -3039,6 +3061,7 @@ export async function SiteBody({
       stage={pageStage}
       canvasMediaUrls={canvasMediaUrls}
       hubTheme={sceneTheme}
+      artKit={artKit}
       ownClipPlays={isMakerCanvas}
       guestView={!isMakerCanvas}
       event={event}
@@ -3167,6 +3190,7 @@ export async function SiteBody({
               eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
               {...heroElements}
+              kitSlot={kitCover}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={venueLine}
@@ -3187,6 +3211,7 @@ export async function SiteBody({
               eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
               {...heroElements}
+              kitSlot={kitCover}
               card={inviteCard ?? undefined}
               /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */
               linkWords={hubLinkWords({ place: openBrowseContent.venue_map && detailsSceneList.some((w) => w.widget_type === 'venue_map'), story: menuSections.story || storySceneShown })}
@@ -3207,7 +3232,7 @@ export async function SiteBody({
           >
 
           {replyCard ? (
-            <ReplyCardRow card={replyCard} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} />
+            <ReplyCardRow card={replyCard} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} kit={artKit ? <KitSlot kit={artKit} slot="reply" /> : null} />
           ) : (
           <ArrivalActionRow
             action={arrivalAction}
@@ -3751,6 +3776,7 @@ export async function SiteBody({
               <GuestWelcome
                 partLooks={welcomeLooks}
                 parts={welcomeHere}
+                artKit={artKit}
                 words={clientWords}
                 /* 🏠 One home per fact: once Me draws this guest's role and
                    outfit (`meParts`), the Welcome's look stands down. */
@@ -3763,6 +3789,7 @@ export async function SiteBody({
                       widget={remindersScene}
                       canvasMediaUrls={canvasMediaUrls}
                       hubTheme={sceneTheme}
+                      artKit={artKit}
                       ownClipPlays={isMakerCanvas}
                       guestView={!isMakerCanvas}
                       event={event}
@@ -3792,6 +3819,7 @@ export async function SiteBody({
                 <GuestWelcome
                   partLooks={welcomeLooks}
                   parts={dayWelcome}
+                  artKit={artKit}
                   words={clientWords}
                   lookMark={blockMark('look')}
                   look={{
@@ -3809,6 +3837,7 @@ export async function SiteBody({
                         widget={dayRemindersRow}
                         canvasMediaUrls={canvasMediaUrls}
                         hubTheme={sceneTheme}
+                        artKit={artKit}
                         ownClipPlays={isMakerCanvas}
                         guestView={!isMakerCanvas}
                         event={event}
@@ -4222,6 +4251,19 @@ export async function SiteBody({
       /* ✕ One exit, top-left, back to Setnayan — never in a Maker preview,
          which carries its own way back (`makerWayBack`). */
       exitHref={makerWayBack || isMakerCanvas ? null : '/'}
+      /* 🕯 The art kit's closing — the couple's OWN cover photo (`heroPhotoUrl`, signed for this event) or their mark. */
+      kitClosing={
+        artKit?.pieces.closing?.length
+          ? {
+              kit: artKit,
+              names: event.display_name,
+              date: formatEventDate(event.event_date) || null,
+              photoUrl: heroPhotoUrl ?? null,
+              mark: hubLook.monogram,
+              twoPeople: clientWords.twoPeople,
+            }
+          : null
+      }
     >
       {/* THE EVENT'S OWN WORDS — mounted once, wrapping every child of the
           shell, which is both identity trees and every lifecycle phase.
@@ -4238,6 +4280,9 @@ export async function SiteBody({
           It was right, so the mount moved rather than its anchor. */}
       <EventWordsProvider words={clientWords}>
       {mainGroundLayer}
+      {/* 🕯 The art kit's one stylesheet and its on-screen marker — only where a kit is drawn. */}
+      {artKit ? <KitStyle kit={artKit} /> : null}
+      {artKit ? <ArtKitMotion /> : null}
       {/* 🖼 The root layout's own floating notices (cookie consent, a stale
           tab) are client components this page cannot un-mount, so in the
           Maker's canvas they are hidden by the one attribute they carry. */}
@@ -4283,6 +4328,8 @@ export async function SiteBody({
         enabled={plan.revealEnabled && !isMakerCanvas}
         monogram={revealMonogram(event.display_name)}
         markSvg={revealMarkSvg(event)}
+        /* 🔴 The art kit's wax seal on the veil, the couple's mark in its centre — its tap is the veil's own. */
+        kitSeal={artKit ? <KitSeal kit={artKit} mark={hubLook.monogram} /> : null}
         waxColor={revealWaxColor(event.role_palette)}
         sealConfig={revealSealConfig(event)}
         sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}

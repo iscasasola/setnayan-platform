@@ -1,4 +1,5 @@
 import { Gift, Globe, Landmark, ShieldCheck, Smartphone } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { egiftKindMeta, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaMethodActions } from './pabuya-method-actions';
 
@@ -49,7 +50,14 @@ export function PabuyaCardList({
   methods,
   emptyHint,
   idScope = 'egift-handle',
+  kit = null,
 }: {
+  /**
+   * 🕯 THE LOOK'S ART KIT ON THE GIFT CARD (owner 2026-10-16, `lib/art-kits.ts`) — the corner spray and the lace
+   * abaniko, a ready `<KitSlot slot="gifts-card">`, drawn as the first child of ONE card: the first bank card, else the
+   * first card. Inert (it is plain markup). Absent → every card byte for byte as before.
+   */
+  kit?: ReactNode;
   methods: PabuyaMethodCard[];
   /** Shown when there are no methods — omit to render nothing. */
   emptyHint?: string;
@@ -68,6 +76,8 @@ export function PabuyaCardList({
     ) : null;
   }
 
+  /* The card the kit dresses — the proof's bank transfer card, or the first way to give when there is none. */
+  const kitAt = kit ? Math.max(0, methods.findIndex((m) => m.kind === 'bank')) : -1;
   return (
     <ul className="space-y-3">
       {methods.map((m, i) => {
@@ -98,6 +108,7 @@ export function PabuyaCardList({
             key={`${m.kind}-${i}`}
             className="overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-sm"
           >
+            {i === kitAt ? kit : null}
             <div className="flex items-start gap-3 p-4">
               {qrFirst ? (
                 qrLink

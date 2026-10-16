@@ -43,6 +43,11 @@ export const SceneAlignRow = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './scene-style-row').then((m) => m.SceneAlignRow),
   { loading: SlotRows },
 );
+/* 🕯 A scene's Accent ◆ ▾ (owner 2026-10-16) — the same door, never the Maker's first load. */
+export const AccentRow = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './accent-row').then((m) => m.AccentRow),
+  { loading: SlotRows },
+);
 export const FixedSceneStyleRow = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './fixed-scene-style-row').then((m) => m.FixedSceneStyleRow),
   { loading: SlotRows },

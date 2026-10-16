@@ -36,6 +36,8 @@ import type { MarchPlace } from '@/lib/march-place';
 import type { HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow, sceneHasEntranceOfRow } from '@/lib/scene-style-of-row';
 import { loveStoryPartners } from '@/lib/love-story-moments';
+import type { ArtKitView } from '@/lib/art-kits';
+import { KitSlot } from './kit-piece';
 import { DetailsBigDate, DetailsCard } from './event-details-styles';
 
 /**
@@ -75,6 +77,11 @@ type HideableWidgetProps = {
   canvasMediaUrls?: Readonly<Record<string, string>>;
   /** The live theme, so a scene's text follows its own background (free). */
   hubTheme?: InviteThemeId;
+  /**
+   * 🕯 THE LOOK'S ART KIT, already decided (`artKitShows`, `lib/art-kits.ts`) — the countdown card's narra posts.
+   * Null/absent → nothing drawn, the card byte for byte as before.
+   */
+  artKit?: ArtKitView | null;
   /**
    * 🎞 The couple's own Maker canvas (`isMakerCanvas`, a VERIFIED host): their
    * scene clip plays (`sceneGround`'s `ownClipPlays`). Never set for a guest —
@@ -121,6 +128,7 @@ function HideableWidgetBody({
   roleNames = {},
   dressCodeGeneral = false,
   stage = null,
+  artKit = null,
 }: HideableWidgetProps) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
@@ -204,6 +212,7 @@ function HideableWidgetBody({
           timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
           bare={bare}
           sceneStyle={sceneStyle}
+          kit={artKit && !bare ? <KitSlot kit={artKit} slot="countdown" /> : null}
         />
       ) : null;
 

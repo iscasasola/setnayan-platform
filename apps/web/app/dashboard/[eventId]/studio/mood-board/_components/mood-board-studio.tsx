@@ -17,7 +17,10 @@ import { derivedBoardFor, displayColorsFor } from '@/lib/mood-board-derive';
 import { FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS, lanePartColour, type LanePart } from '@/lib/colour-access';
 import { STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, photoTag, type StudioInspirationSlot } from '@/lib/inspiration-slots';
 import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
-import { STYLE_ORDER, garmentFor, type FigureWho } from '@/lib/attire-figures';
+import { STYLE_ORDER, garmentFor, zonesOf, type FigureWho } from '@/lib/attire-figures';
+import { GUEST_OPTIONS_MAX, designLabel } from '@/lib/attire-designs';
+import { garmentOfPick, zoneColours } from '@/lib/role-figure';
+import type { AttireStyle } from '@/lib/role-dress-code';
 import { isAttireStyle } from '@/lib/role-dress-code';
 import { RoleFigure } from '@/app/_components/role-figure';
 import {
@@ -138,9 +141,33 @@ type PickTarget =
   | { kind: 'part'; part: LanePart }
   | { kind: 'role'; key: PaletteKey; label: string }
   /** One colour a role already wears — tap its dot to change it, or remove it. */
-  | { kind: 'role-colour'; key: PaletteKey; label: string; index: number }
+  | { kind: 'role-colour'; key: PaletteKey; label: string; index: number; zone?: ZoneDot }
   /** 👗 The SECOND pick's colours (women · girls, 2026-10-14) — a colour changed or removed (`index`), or added (null). */
-  | { kind: 'second-colour'; row: StudioAttireRow; label: string; index: number | null };
+  | { kind: 'second-colour'; row: StudioAttireRow; label: string; index: number | null; zone?: ZoneDot };
+/** 👔 A FIXED ZONE DOT (owner 2026-10-16, "no more add a color... since color is fixed"): the design whose zone it is. */
+type ZoneDot = { style: AttireStyle | null; label: string | null };
+
+/**
+ * 🎨 THE ROLE'S COLOUR CIRCLE — the one hand-made button for a colour a role wears (a zone's dot, a guest's option, a
+ * pick's colour): tap it to change the colour. 44 px to the finger, the colour on the circle inside.
+ */
+function RoleColourDot({ label, colour, index, onPick, tight = false }: { label: string; colour: string; index: number; onPick: () => void; tight?: boolean }) {
+  return (
+    <button type="button" aria-label={label} data-mood-board-role-colour={index} onClick={onPick} className={`sn-press inline-flex h-11 w-11 items-center justify-center rounded-full ${tight ? '-my-1' : ''}`}>
+      <i aria-hidden className={`${tight ? 'h-[26px] w-[26px]' : 'h-7 w-7'} rounded-full border border-ink/10`} style={{ background: colour }} />
+    </button>
+  );
+}
+
+/** A role's colours with one zone set — the zones before it written down as they are worn (their defaults), so a
+ *  shirt picked before a tie never shifts into the tie's place. */
+function withZone(style: AttireStyle | null, now: readonly string[], index: number, hex: string): string[] {
+  const worn = zoneColours(style, now.length > 0 ? now : [hex]);
+  const next = [...now];
+  for (let i = next.length; i < index; i += 1) next.push(worn[i] ?? hex);
+  next[index] = hex;
+  return next;
+}
 type Sheet =
   | { kind: 'picker'; target: PickTarget }
   | { kind: 'auto' }
@@ -531,6 +558,44 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
         ) : null,
       };
     }
+    if (t.kind === 'role-colour' && t.zone) {
+      const now = roleColours(t.key);
+      const zone = t.zone;
+      const key = t.key;
+      const at = t.index;
+      return {
+        title: zone.label ? `${t.label} — ${zone.label}` : t.label,
+        job: 'The colour of this part — any colour, not only your five',
+        current: zoneColours(zone.style, now.length ? now : [five[0]!])[at] ?? five[0]!,
+        onPick: (h: string) => commit(withRoleColours(palette, key, withZone(zone.style, now, at, h)), 'Colour changed.'),
+        /* Only the LAST said colour can go back to its default — taking a middle one out would shift every zone after it.
+           One beyond the design's zones paints nothing: it is simply removed. */
+        extra:
+          at > 0 && at === now.length - 1 ? (
+            <span data-mood-board-role-remove="" className="self-start">
+              <ActionButton tone="neutral" icon={X} label={at >= zonesOf(zone.style).length ? 'Remove this colour' : 'Use the default'} onClick={() => { setSheet(null); removeRoleColour(key, at); }} className="!h-11" />
+            </span>
+          ) : null,
+      };
+    }
+    if (t.kind === 'second-colour' && t.zone && t.index !== null) {
+      const now = secondNow(t.row);
+      const zone = t.zone;
+      const row = t.row;
+      const at = t.index;
+      return {
+        title: zone.label ? `${t.label} — ${zone.label}` : t.label,
+        job: 'The colour of this part — any colour, not only your five',
+        current: zoneColours(zone.style, now.length ? now : [five[0]!])[at] ?? five[0]!,
+        onPick: (h: string) => secondColours(row, withZone(zone.style, now, at, h)),
+        extra:
+          at > 0 && at === now.length - 1 ? (
+            <span data-mood-board-role-remove="" className="self-start">
+              <ActionButton tone="neutral" icon={X} label={at >= zonesOf(zone.style).length ? 'Remove this colour' : 'Use the default'} onClick={() => { setSheet(null); secondColours(row, now.slice(0, at)); }} className="!h-11" />
+            </span>
+          ) : null,
+      };
+    }
     if (t.kind === 'role-colour') {
       const now = roleColours(t.key);
       return {
@@ -803,7 +868,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           {props.attire.length === 0 ? <p className="py-4 text-[13px] text-ink/60">Add people with a role to your guest list and they appear here.</p> : null}
           {props.attire.map((row) => {
             const def = attireRow(row.tier as AttireTier, row.key);
-            const picks = def ? picksOf(dress, def) : [{ who: 'f' as FigureWho, style: null, colours: null }];
+            const picks = def ? picksOf(dress, def) : [{ who: 'f' as FigureWho, style: null, colours: null, role: null }];
             const two = picks.length === 2;
             const note = noteFor(row);
             const canNote = Boolean(dress && firstStyleOf(dress, row.tier as AttireTier, row.key));
@@ -814,38 +879,71 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                   {row.arrives ? <small className="ml-auto whitespace-nowrap text-[12px] text-ink/55">Arrives {row.arrives}</small> : null}
                 </header>
                 {row.people ? <p className="text-[12px] text-ink/65">{row.people === 1 ? '1 person' : `${formatCount(row.people)} people`}</p> : null}
-                <div className="flex gap-2.5" data-mood-board-picks={picks.length}>
+                <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col' : ''}`} data-mood-board-picks={picks.length}>
                   {picks.map((pick, pi) => {
                     const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
                     const max = row.paletteKey ? PALETTE_LIMITS[row.paletteKey].max : 0;
                     const pickLabel = two ? `${row.label} — ${PICK_LABEL[pick.who].toLowerCase()}` : row.label;
+                    /* 👔 A ROLE WITH ITS OWN DESIGNS (owner 2026-10-16): its own drawing of the design, dyed zone by zone,
+                       and ONE FIXED DOT PER ZONE, each labelled — no "+" ("no more add a color... since color is fixed").
+                       👗 GUESTS: up to five colour OPTIONS, each drawn as its own guest, side by side, its dot under it. */
+                    const role = pick.role ?? null;
+                    const isGuests = row.key === 'guest';
+                    const zoned = Boolean(role) && !isGuests && Boolean(row.paletteKey);
+                    const zones = zonesOf(pick.style);
+                    const worn = zoneColours(pick.style, colours.length > 0 ? colours : [five[3]!]);
+                    const garment = role ? garmentOfPick(pick) : garmentFor(pick.who, pick.style);
+                    const zoneDot = (i: number, c: string, zoneLabel: string | null) => (
+                      <span key={i} className="flex flex-col items-center" data-mood-board-zone={zones[i]?.key ?? i}>
+                        <RoleColourDot
+                          label={`${pickLabel}${zoneLabel ? ` — ${zoneLabel}` : ''} colour ${c} — change it`}
+                          colour={c}
+                          index={i}
+                          onPick={() =>
+                            setSheet({
+                              kind: 'picker',
+                              target:
+                                pi === 0
+                                  ? { kind: 'role-colour', key: row.paletteKey!, label: row.label, index: i, zone: { style: pick.style, label: zoneLabel } }
+                                  : { kind: 'second-colour', row, label: pickLabel, index: i, zone: { style: pick.style, label: zoneLabel } },
+                            })
+                          }
+                        />
+                        {zoneLabel ? <small className="-mt-1 max-w-[64px] text-center text-[10.5px] leading-tight text-ink/65">{zoneLabel}</small> : null}
+                      </span>
+                    );
                     const figure = (
                       <span className={`flex h-[132px] flex-none items-end justify-center ${two ? "min-w-[62px]" : "min-w-[86px]"}`} data-mood-board-figure={pick.who}>
                         <RoleFigure
                           roleKey={row.key}
-                          people={[{ who: pick.who, garment: garmentFor(pick.who, pick.style), main: colours[0] ?? five[3]! }]}
+                          people={[{ who: pick.who, garment, main: colours[0] ?? five[3]!, colours: zoned ? worn : colours }]}
                           className="h-[132px]"
                         />
                       </span>
                     );
-                    const swatches = row.paletteKey ? (
+                    const swatches = !row.paletteKey ? null : zoned ? (
+                      <span className="flex flex-wrap items-start gap-x-1" data-mood-board-swatches={pick.who} data-mood-board-zones={zones.length}>
+                        {zones.map((z, i) => zoneDot(i, worn[i]!, zones.length > 1 ? z.label : null))}
+                        {/* A colour the role holds beyond its design's zones paints nothing and carries no label — it is
+                            still the role's palette (the approved rule 5), so it stays where the couple can see and take it off. */}
+                        {colours.slice(zones.length).map((c, j) => zoneDot(zones.length + j, c, null))}
+                      </span>
+                    ) : (
                       <span className={`flex items-center ${two ? 'flex-col items-start' : 'flex-wrap'}`} data-mood-board-swatches={pick.who}>
                         {colours.map((c, i) => (
-                          <button
+                          <RoleColourDot
                             key={i}
-                            type="button"
-                            aria-label={`${pickLabel} colour ${c} — change it`}
-                            data-mood-board-role-colour={i}
-                            onClick={() =>
+                            label={`${pickLabel} colour ${c} — change it`}
+                            colour={c}
+                            index={i}
+                            onPick={() =>
                               setSheet({
                                 kind: 'picker',
                                 target: pi === 0 ? { kind: 'role-colour', key: row.paletteKey!, label: row.label, index: i } : { kind: 'second-colour', row, label: pickLabel, index: i },
                               })
                             }
-                            className={`sn-press inline-flex h-11 w-11 items-center justify-center rounded-full ${two ? '-my-1' : ''}`}
-                          >
-                            <i aria-hidden className={`${two ? 'h-[26px] w-[26px]' : 'h-7 w-7'} rounded-full border border-ink/10`} style={{ background: c }} />
-                          </button>
+                            tight={two}
+                          />
                         ))}
                         {colours.length < max && (pi === 0 || dress) ? (
                           <ActionButton
@@ -862,24 +960,84 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                           />
                         ) : null}
                       </span>
-                    ) : null;
+                    );
                     /* Wear ▾ — the house dropdown (one ChosenRow): ONLY this column's person's styles (`pickOptions`, owner
                        2026-10-16 — a men's column never offers "Long gown"), from the ONE vocabulary. Its figure above
                        follows its own pick, and nothing else's. */
+                    /* The role's OWN name for each design ("Filipiniana (terno)" for the bride, "Long dress" for a guest). */
+                    const sayStyle = (k: string) => (role ? designLabel(role, k as AttireStyle) : (props.attireStyles.find((st) => st.key === k)?.label ?? k));
                     const wearRow = dress ? (
                       <FormRows width="short" data="mood-board-wear" className={two ? '[&_[data-form-row-name]]:sr-only' : undefined}>
                         <ChosenRow
                           name="Wear"
                           label={`${pickLabel} — what to wear`}
                           value={pick.style ?? ''}
-                          options={[{ key: '', label: 'Not said yet' }, ...(def ? pickOptions(def, pi === 0 ? 0 : 1) : STYLE_ORDER[pick.who]).map((k) => ({ key: k, label: props.attireStyles.find((st) => st.key === k)?.label ?? k }))]}
+                          options={[{ key: '', label: 'Not said yet' }, ...(def ? pickOptions(def, pi === 0 ? 0 : 1) : STYLE_ORDER[pick.who]).map((k) => ({ key: k, label: sayStyle(k) }))]}
                           onPick={(k) => (pi === 0 ? wear(row, k || null) : wearSecond(row, k || null))}
-                          buttonText={pick.style ? (props.attireStyles.find((st) => st.key === pick.style)?.label ?? pick.style) : 'Not said yet'}
+                          buttonText={pick.style ? sayStyle(pick.style) : 'Not said yet'}
                           dataAttr="data-mood-board-wear"
                           attrs={{ 'data-mood-board-wear-for': pick.who }}
                         />
                       </FormRows>
                     ) : null;
+                    if (isGuests && row.paletteKey) {
+                      /* 👗 Each option its own guest, its dot under it; "+" adds one, up to five (`GUEST_OPTIONS_MAX`). */
+                      const options = (colours.length > 0 ? colours : [five[3]!]).slice(0, GUEST_OPTIONS_MAX);
+                      const optionsMax = pi === 0 ? Math.min(max, GUEST_OPTIONS_MAX) : GUEST_OPTIONS_MAX;
+                      return (
+                        <div key={pick.who} className="flex min-w-0 flex-col gap-1.5" data-mood-board-pick={pick.who}>
+                          {two ? <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">{PICK_LABEL[pick.who]}</span> : null}
+                          <div className="flex flex-wrap items-end gap-x-1" data-mood-board-options={options.length} data-mood-board-swatches={pick.who}>
+                            {options.map((c, i) => (
+                              <span key={i} className="flex flex-col items-center" data-mood-board-option={i}>
+                                <span className="flex h-[112px] items-end" data-mood-board-figure={pick.who}>
+                                  <RoleFigure roleKey={row.key} people={[{ who: pick.who, garment, main: c, colours: [c] }]} className="h-[112px]" />
+                                </span>
+                                <RoleColourDot
+                                  label={`${pickLabel} option ${i + 1}, ${c} — change it`}
+                                  colour={c}
+                                  index={i}
+                                  onPick={() =>
+                                    setSheet({
+                                      kind: 'picker',
+                                      target: pi === 0 ? { kind: 'role-colour', key: row.paletteKey!, label: row.label, index: i } : { kind: 'second-colour', row, label: pickLabel, index: i },
+                                    })
+                                  }
+                                />
+                              </span>
+                            ))}
+                            {colours.length < optionsMax && (pi === 0 || dress) ? (
+                              <span className="flex h-11 items-center self-end">
+                                <ActionButton
+                                  tone="neutral"
+                                  iconOnly
+                                  icon={Plus}
+                                  label={pi === 0 ? `Add a colour option for ${row.label}` : `Add a colour option for ${pickLabel}`}
+                                  onClick={() =>
+                                    setSheet({
+                                      kind: 'picker',
+                                      target: pi === 0 ? { kind: 'role', key: row.paletteKey!, label: row.label } : { kind: 'second-colour', row, label: pickLabel, index: null },
+                                    })
+                                  }
+                                />
+                              </span>
+                            ) : null}
+                          </div>
+                          {wearRow}
+                        </div>
+                      );
+                    }
+                    if (zoned && two) {
+                      /* Two columns, a figure each: the figure, then its labelled dots in a row, then its Wear ▾. */
+                      return (
+                        <div key={pick.who} className="flex min-w-0 flex-1 flex-col gap-1.5" data-mood-board-pick={pick.who}>
+                          <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">{PICK_LABEL[pick.who]}</span>
+                          <div className="flex justify-start">{figure}</div>
+                          {swatches}
+                          {wearRow}
+                        </div>
+                      );
+                    }
                     return (
                       <div key={pick.who} className="flex min-w-0 flex-1 flex-col gap-1.5" data-mood-board-pick={pick.who}>
                         {two ? <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">{PICK_LABEL[pick.who]}</span> : null}
@@ -895,7 +1053,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                     );
                   })}
                 </div>
-                {row.key === 'guest' ? <p className="text-[12px] leading-snug text-ink/65">Guests wear any one of the colours above — never combined. The figures show the first.</p> : null}
+                {row.key === 'guest' ? <p className="text-[12px] leading-snug text-ink/65">Guests wear any one of these colours — never combined. Up to five.</p> : null}
                 {canNote ? (
                   <div className="flex min-h-11 items-center gap-2" data-mood-board-role-note={row.key}>
                     <span className="flex-none text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/55">Note</span>

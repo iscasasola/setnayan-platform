@@ -20,11 +20,16 @@
  * Pure data, no DOM, no React.
  */
 import type { AttireStyle } from './role-dress-code';
+import type { FigureRole } from './attire-designs';
 
 /** Who a figure is: a woman, a man, a girl or a boy. */
 export type FigureWho = 'f' | 'm' | 'girl' | 'boy';
-/** What the figure wears. `unset` — the dotted silhouette ("Not said yet": no outfit is ever assumed). */
+/** One of the 45 role drawings (owner 2026-10-16) — `<role>-<design>`, `ROLE_ART` below. */
+export type RoleArtKey = `${FigureRole}-${AttireStyle}`;
+/** What the figure wears: one of the 13 garment drawings, one of the 45 role drawings, or `unset` — the dotted
+ *  silhouette ("Not said yet": no outfit is ever assumed). */
 export type FigureGarment =
+  | RoleArtKey
   | 'gown'
   | 'terno'
   | 'cocktail'
@@ -86,9 +91,11 @@ export function garmentFor(who: FigureWho, style: AttireStyle | null | undefined
   return style ? (GARMENT_FOR[who][style] ?? 'unset') : 'unset';
 }
 
-/** Each drawing: its file, its garment mask, and its size (px) — every one 280 tall, standing on the same line. */
-export type FigureArt = { src: string; mask: string; w: number; h: number };
-const SIZE: Readonly<Record<Exclude<FigureGarment, 'unset'>, readonly [number, number]>> = {
+/** Each drawing: its file, its garment mask, and its size (px) — every one 280 tall, standing on the same line. A role
+ *  drawing also has its colour ZONES, one alpha mask each (`zones`, in dot order; the first is `mask`). */
+export type FigureArt = { src: string; mask: string; w: number; h: number; zones?: ReadonlyArray<{ key: ZoneKey; mask: string }> };
+type GarmentKey = Exclude<FigureGarment, 'unset' | RoleArtKey>;
+const SIZE: Readonly<Record<GarmentKey, readonly [number, number]>> = {
   gown: [188, 280],
   terno: [82, 280],
   cocktail: [94, 280],
@@ -103,9 +110,134 @@ const SIZE: Readonly<Record<Exclude<FigureGarment, 'unset'>, readonly [number, n
   barongb: [87, 280],
   suitb: [80, 280],
 };
-export const FIGURE_ART: Readonly<Record<Exclude<FigureGarment, 'unset'>, FigureArt>> = Object.fromEntries(
+const GARMENT_ART: Readonly<Record<GarmentKey, FigureArt>> = Object.fromEntries(
   Object.entries(SIZE).map(([g, [w, h]]) => [g, { src: `/attire/${g}.webp`, mask: `/attire/${g}-mask.webp`, w, h }]),
-) as Record<Exclude<FigureGarment, 'unset'>, FigureArt>;
+) as Record<GarmentKey, FigureArt>;
+
+/* ── THE 45 ROLE DRAWINGS (owner 2026-10-16, "Approved — use all 45 drawings") ───────────────────────────────── */
+
+/** A colour zone: `a` the garment · `t` tie / bow tie (+ pocket square) · `s` shirt · `v` vest · `p` pants. */
+export type ZoneKey = 'a' | 't' | 's' | 'v' | 'p';
+/**
+ * One zone of a design, in DOT ORDER — the word under its dot, and what it wears when the role has no colour for it.
+ *   `first` — the garment's own colour (dot 1) · `deeper` — dot 1 a shade deeper (a tie in the suit's cloth) · a hex.
+ */
+export type DesignZone = { readonly key: ZoneKey; readonly label: string | null; readonly fallback: 'first' | 'deeper' | `#${string}` };
+
+/**
+ * 🎨 THE APPROVED ZONES (DECISION_LOG 2026-10-16 "ATTIRE COLOUR ZONES"; the brief's per-design list): dot 1 the garment,
+ * dot 2 the accent (the tie on suits; the pants on a barong and smart casual), dot 3 the shirt — white unless said; a
+ * 3-piece adds its vest as dot 4, in the suit's cloth unless said. Gowns, ternos and dresses — and the kids' dresses —
+ * are one colour. Charcoal barong pants and khaki chinos are the approved prototype's own defaults.
+ */
+export const DESIGN_ZONES: Readonly<Partial<Record<AttireStyle, readonly DesignZone[]>>> = {
+  suit: [
+    { key: 'a', label: 'Coat & pants', fallback: 'first' },
+    { key: 't', label: 'Tie', fallback: 'deeper' },
+    { key: 's', label: 'Shirt', fallback: '#FFFFFF' },
+  ],
+  three_piece_suit: [
+    { key: 'a', label: 'Coat & pants', fallback: 'first' },
+    { key: 't', label: 'Tie', fallback: 'deeper' },
+    { key: 's', label: 'Shirt', fallback: '#FFFFFF' },
+    { key: 'v', label: 'Vest', fallback: 'first' },
+  ],
+  tuxedo: [
+    { key: 'a', label: 'Jacket', fallback: 'first' },
+    { key: 't', label: 'Bow tie', fallback: 'deeper' },
+    { key: 's', label: 'Shirt', fallback: '#FFFFFF' },
+  ],
+  vest_and_tie: [
+    { key: 'a', label: 'Vest & pants', fallback: 'first' },
+    { key: 't', label: 'Tie', fallback: 'deeper' },
+    { key: 's', label: 'Shirt', fallback: '#FFFFFF' },
+  ],
+  vest_and_bow_tie: [
+    { key: 'a', label: 'Vest & pants', fallback: 'first' },
+    { key: 't', label: 'Bow tie', fallback: 'deeper' },
+    { key: 's', label: 'Shirt', fallback: '#FFFFFF' },
+  ],
+  barong_tagalog: [
+    { key: 'a', label: 'Barong', fallback: 'first' },
+    { key: 'p', label: 'Pants', fallback: '#33302C' },
+  ],
+  smart_casual: [
+    { key: 'a', label: 'Shirt', fallback: 'first' },
+    { key: 'p', label: 'Pants', fallback: '#C9AD7E' },
+  ],
+};
+const ONE_ZONE: readonly DesignZone[] = [{ key: 'a', label: null, fallback: 'first' }];
+/** A design's zones in dot order — one, unlabelled, for a gown, a terno, a dress. */
+export function zonesOf(style: AttireStyle | null | undefined): readonly DesignZone[] {
+  return (style && DESIGN_ZONES[style]) || ONE_ZONE;
+}
+
+/** Each role drawing's width at 280 tall — printed by `scripts/build-role-attire.py` (the #NN is its prompt number). There is
+ *  no `best_woman` drawing: she stands where the best man stands, and the best man's four are a man's (lib/attire-designs.ts). */
+const ROLE_WIDTH: Readonly<Record<string, number>> = {
+  'groom-suit': 76, // #01
+  'best_man-suit': 80, // #02
+  'groomsman-suit': 83, // #03
+  'ninong-barong_tagalog': 85, // #04
+  'father-barong_tagalog': 81, // #05
+  'sponsor_m-barong_tagalog': 84, // #06
+  'bride-mermaid': 218, // #07
+  'maid_of_honor-long_gown': 69, // #08
+  'bridesmaid-long_gown': 87, // #09
+  'ninang-filipiniana': 80, // #10
+  'mother-filipiniana': 72, // #11
+  'sponsor_w-long_gown': 81, // #12
+  'ring_bearer-vest_and_bow_tie': 84, // #13
+  'bible_bearer-barong_tagalog': 83, // #14
+  'flower_girl-tulle_dress': 120, // #15
+  'guest_m-barong_tagalog': 105, // #16
+  'guest_w-cocktail_dress': 94, // #17
+  'groom-three_piece_suit': 80, // #18
+  'groom-barong_tagalog': 78, // #19
+  'groom-tuxedo': 83, // #20
+  'best_man-three_piece_suit': 78, // #21
+  'best_man-barong_tagalog': 82, // #22
+  'best_man-tuxedo': 80, // #23
+  'groomsman-vest_and_tie': 83, // #24
+  'groomsman-barong_tagalog': 85, // #25
+  'ninong-suit': 80, // #26
+  'father-suit': 86, // #27
+  'sponsor_m-suit': 86, // #28
+  'bride-ball_gown': 201, // #29
+  'bride-a_line': 181, // #30
+  'bride-filipiniana': 158, // #31
+  'maid_of_honor-filipiniana': 70, // #32
+  'maid_of_honor-cocktail_dress': 86, // #33
+  'bridesmaid-cocktail_dress': 96, // #34
+  'bridesmaid-filipiniana': 68, // #35
+  'ninang-long_gown': 101, // #36
+  'mother-long_gown': 73, // #37
+  'sponsor_w-filipiniana': 112, // #38
+  'ring_bearer-barong_tagalog': 83, // #39
+  'bible_bearer-vest_and_bow_tie': 83, // #40
+  'flower_girl-filipiniana': 113, // #41
+  'guest_m-suit': 76, // #42
+  'guest_m-smart_casual': 83, // #43
+  'guest_w-long_gown': 112, // #44
+  'guest_w-filipiniana': 78, // #45
+};
+const ROLE_ART: Readonly<Record<string, FigureArt>> = Object.fromEntries(
+  Object.entries(ROLE_WIDTH).map(([k, w]) => {
+    const style = k.slice(k.indexOf('-') + 1) as AttireStyle;
+    const zones = zonesOf(style).map((z) => ({ key: z.key, mask: `/attire/roles/${k}-${z.key}.webp` }));
+    return [k, { src: `/attire/roles/${k}.webp`, mask: zones[0]!.mask, w, h: 280, zones }];
+  }),
+);
+/** Every role drawing's key — 45 (a guard holds that each has its files). */
+export const ROLE_ART_KEYS = Object.keys(ROLE_WIDTH) as RoleArtKey[];
+export const isRoleArt = (g: string): g is RoleArtKey => g in ROLE_WIDTH;
+
+/** Every drawing — the 13 garments and the 45 roles. */
+export const FIGURE_ART: Readonly<Record<Exclude<FigureGarment, 'unset'>, FigureArt>> = { ...GARMENT_ART, ...ROLE_ART } as Record<Exclude<FigureGarment, 'unset'>, FigureArt>;
+/** The design a role drawing is in (`groom-tuxedo` → `tuxedo`), or null for a garment drawing. */
+export function designOfArt(g: FigureGarment): AttireStyle | null {
+  return isRoleArt(g) ? (g.slice(g.indexOf('-') + 1) as AttireStyle) : null;
+}
 
 /** A child stands about four-fifths of an adult (the prototype's 104 of 132). */
 export const CHILD_SCALE = 104 / 132;

@@ -27,7 +27,8 @@
  * suit below stay what the reception scene draws its crowd with.
  */
 
-import { garmentFor, type FigureGarment, type FigureWho } from './attire-figures';
+import { FIGURE_ART, designOfArt, garmentFor, zonesOf, type FigureGarment, type FigureWho, type ZoneKey } from './attire-figures';
+import { GUEST_OPTIONS_MAX, roleArtKey, type FigureRole } from './attire-designs';
 import type { AttireStyle } from './role-dress-code';
 
 export const SKIN = '#E7C8A2';
@@ -142,7 +143,7 @@ export function roleFigures(
 ): Array<{ kind: FigureKind; color: string; accent?: string }> {
   const colors = hexes.filter((h) => HEX.test(h));
   if (!colors.length) return [];
-  if (meaning === 'options') return colors.slice(0, 6).map((color, i) => ({ kind: i % 2 ? 'suit' : 'gown', color }));
+  if (meaning === 'options') return colors.slice(0, GUEST_OPTIONS_MAX).map((color, i) => ({ kind: i % 2 ? 'suit' : 'gown', color }));
   const [color, accent] = [colors[0]!, colors[1]];
   const kinds: FigureKind[] = SINGLE[key] ? [SINGLE[key]!] : ['gown', 'suit'];
   return kinds.map((kind) => ({ kind, color, ...(accent ? { accent } : {}) }));
@@ -156,10 +157,47 @@ export function singleWearerOf(role: string): 'gown' | 'suit' | null {
 
 /* ── the people, drawn (owner 2026-10-14) ────────────────────────────────── */
 
-/** One person in a picture: who, what they wear, and the colour their garment is dyed (the role's hex, exactly). */
-export type FigurePerson = { who: FigureWho; garment: FigureGarment; main: string };
-/** A pick as a reader sees it (`picksOf`, lib/attire-rows.ts): who, the Wear (null = not said), its own colours (null = the row's). */
-export type FigurePick = { who: FigureWho; style: AttireStyle | null; colours: readonly string[] | null };
+/**
+ * One person in a picture: who, what they wear, and the colour their garment is dyed (the role's hex, exactly). A role
+ * drawing wears `colours` ZONE BY ZONE (dot 1 the garment, dot 2 the accent…, `zoneTints`); `main` is dot 1.
+ */
+export type FigurePerson = { who: FigureWho; garment: FigureGarment; main: string; colours?: readonly string[] };
+/** A pick as a reader sees it (`picksOf`, lib/attire-rows.ts): who, the Wear (null = not said), its own colours (null =
+ *  the row's), and — for a row with its own designs — the role it is drawn as (`columnRole`, lib/attire-designs.ts). */
+export type FigurePick = { who: FigureWho; style: AttireStyle | null; colours: readonly string[] | null; role?: FigureRole | null };
+
+/** A colour a shade deeper — a tie in the suit's own cloth (the approved prototype's `deeper`, ×0.72). */
+export function deeper(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const k = 0.72;
+  const c = (v: number) => Math.round(v * k);
+  return `#${((c((n >> 16) & 255) << 16) | (c((n >> 8) & 255) << 8) | c(n & 255)).toString(16).padStart(6, '0').toUpperCase()}`;
+}
+
+/** The colour each zone of a design wears for these dots — a dot given wears its own; one not given, the zone's default. */
+export function zoneColours(style: AttireStyle | null | undefined, colours: readonly string[]): string[] {
+  const own = colours.filter((h) => HEX.test(h));
+  const first = own[0] ?? '#9B9B9B';
+  return zonesOf(style).map((z, i) => own[i] ?? (z.fallback === 'first' ? first : z.fallback === 'deeper' ? deeper(first) : z.fallback));
+}
+
+/**
+ * 🎨 THE RULE (DECISION_LOG 2026-10-16 "ATTIRE COLOUR ZONES"): one tint layer per zone of the drawing — its mask and
+ * its colour. A garment drawing (the 13) has one zone, dyed dot 1, exactly as before.
+ */
+export function zoneTints(garment: FigureGarment, colours: readonly string[]): Array<{ key: ZoneKey; mask: string; colour: string }> {
+  if (garment === 'unset') return [];
+  const art = FIGURE_ART[garment];
+  const own = colours.filter((h) => HEX.test(h));
+  if (!art.zones) return [{ key: 'a', mask: art.mask, colour: own[0] ?? '#9B9B9B' }];
+  const worn = zoneColours(designOfArt(garment), own);
+  return art.zones.map((z, i) => ({ key: z.key, mask: z.mask, colour: worn[i]! }));
+}
+
+/** The drawing for a pick: its role's own drawing of the design, else the shipped garment of that style (`garmentFor`). */
+export function garmentOfPick(p: { who: FigureWho; style: AttireStyle | null; role?: FigureRole | null }): FigureGarment {
+  return (p.role ? roleArtKey(p.role, p.style) : null) ?? garmentFor(p.who, p.style);
+}
 
 /** What a person wears on the GUEST page when the Wear is not said but their colours are: the plain garment of
  *  their kind — the palette still wears a person (the dotted silhouette is the Studio's "Not said yet"). */
@@ -184,8 +222,14 @@ export function roleFigurePeople(key: string, hexes: readonly string[], _meaning
       const colours = (p.colours && p.colours.length > 0 ? p.colours : hexes).filter((h) => HEX.test(h));
       if (!colours.length) continue;
       /* Not said — or said, but not this person's (`garmentFor` → 'unset'): their plain garment, never another's. */
-      const garment = garmentFor(p.who, p.style);
-      out.push({ who: p.who, garment: garment === 'unset' ? PLAIN_GARMENT[p.who] : garment, main: colours[0]! });
+      const drawn = garmentOfPick(p);
+      const garment = drawn === 'unset' ? PLAIN_GARMENT[p.who] : drawn;
+      /* 👗 GUESTS (an OPTIONS role): each colour is its own person, side by side — up to five (owner 2026-10-16). */
+      if (_meaning === 'options') {
+        for (const c of colours.slice(0, GUEST_OPTIONS_MAX)) out.push({ who: p.who, garment, main: c, colours: [c] });
+        continue;
+      }
+      out.push({ who: p.who, garment, main: colours[0]!, colours });
     }
     return out;
   }

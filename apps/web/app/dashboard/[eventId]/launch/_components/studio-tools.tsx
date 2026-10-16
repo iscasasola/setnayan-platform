@@ -68,6 +68,7 @@ import { PrintChoicePicker } from './print-choice-picker';
 import { PrintSaveButton } from './print-save-button';
 import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto, StudioProDoor } from './studio-prints-six';
 import { PrintPaperHead, StudioChartBody, StudioChartPaper, type PrintSheetParts, type StudioPaper } from './print-paper';
+import { StudioPrintsBar } from './studio-prints-bar';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -1190,7 +1191,9 @@ export type StudioToolProps =
   | ({ part: 'pass-rows' } & Parameters<typeof StudioPassRows>[0])
   /* 🪧 The entrance seating chart's own row and, on a computer, its picture (owner 2026-10-14, `print-paper.tsx`). */
   | ({ part: 'chart' } & Parameters<typeof StudioChartPaper>[0])
-  | ({ part: 'chart-body' } & Parameters<typeof StudioChartBody>[0]);
+  | ({ part: 'chart-body' } & Parameters<typeof StudioChartBody>[0])
+  /* 🧭 Studio › Prints' piece bar, phone only (owner 2026-10-16, `studio-prints-bar.tsx`) — the same one lazy door. */
+  | ({ part: 'prints-bar' } & Parameters<typeof StudioPrintsBar>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -1244,5 +1247,7 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioChartPaper {...props} />;
     case 'chart-body':
       return <StudioChartBody {...props} />;
+    case 'prints-bar':
+      return <StudioPrintsBar {...props} />;
   }
 }

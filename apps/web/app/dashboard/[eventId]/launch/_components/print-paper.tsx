@@ -28,6 +28,7 @@ import {
   type PrintPaperFacts,
 } from '@/lib/print-paper';
 import { DetailsSelectContext } from './details-go';
+import { chartHeadLine } from '@/lib/print-head-line';
 import { PrintPreview } from './print-preview';
 import { PrintSaveButton } from './print-save-button';
 
@@ -742,7 +743,8 @@ export function StudioChartPaper({ chart }: { chart: StudioChartInput }) {
           >
             <ChosenRow
               name={chart.title}
-              line={chart.blurb}
+              /* The CHOSEN size only — "A2 · one sheet for the door" (owner 2026-10-16, `lib/print-head-line.ts`). */
+              line={chartHeadLine(spec)}
               label="Chart size"
               value={pick.size}
               options={chart.sizes.map((s) => ({ key: s.key, label: s.label, hint: s.mm }))}

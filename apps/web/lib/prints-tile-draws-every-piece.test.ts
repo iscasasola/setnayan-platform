@@ -11,7 +11,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DETAILS_ITEM_GROUPS, FREE_PRINT_KEYS, type DetailsItemKey } from './maker-details-items';
+import { DETAILS_ITEM_GROUPS, EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemKey } from './maker-details-items';
 import { PRINT_SET_KEYS } from './print-pieces';
 import { STUDIO_TILES } from './studio-tiles';
 import { STUDIO_FORM_ITEMS, studioDetailsGroups } from './studio-details';
@@ -31,7 +31,9 @@ test('the Prints form holds every set piece and every print for the day — coun
   const p = prints[0]!;
   assert.equal(p.form, true, 'Prints is not one form — its pieces would be drawn one at a time');
   const keys = p.items.map((i) => i.key);
-  const pieces = keys.filter((k) => k !== 'download');
+  /* 🖨 "On every print" (owner 2026-10-16) heads the form — the whole set's QR line and NFC spot, not a piece. */
+  assert.equal(keys[0], EVERY_PRINT_ITEM, '"On every print" does not head the Prints form');
+  const pieces = keys.filter((k) => k !== 'download' && k !== EVERY_PRINT_ITEM);
   assert.equal(pieces.length, PRINT_SET_KEYS.length + FREE_PRINT_KEYS.length, 'the tile draws a different number of pieces than the lists hold');
   assert.deepEqual(pieces, [...PRINT_SET_KEYS, ...FREE_PRINT_KEYS], 'a piece is missing, doubled or out of the shipped order');
   assert.equal(new Set(keys).size, keys.length, 'a piece is drawn twice');

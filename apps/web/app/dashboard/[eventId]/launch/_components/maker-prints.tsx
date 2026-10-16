@@ -37,6 +37,7 @@ import {
 import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 import { DetailsGoTo } from './details-go';
 import { PASS_ZIP_PRO_NOTE } from '@/lib/studio-prints-six';
+import { printHeadLine } from '@/lib/print-head-line';
 import { StudioTool } from './details-lazy';
 import type { StudioChartInput, StudioPaper } from './print-paper';
 import {
@@ -319,7 +320,6 @@ export function PrintPieceEditor({
       </>
     );
   if (studio) {
-    const sizes = fam ? formatsFor(fam).map((f) => f.label) : [];
     const changed = (
       <ChangedSincePrinted
         eventId={input.eventId}
@@ -347,11 +347,12 @@ export function PrintPieceEditor({
     };
     return (
       <div data-print-editor={k} data-print-studio="" className="flex flex-col gap-1">
-        {/* The piece's name, its sizes and its size ▾ — ONE Form row (the chosen answer, or just the name where it has one size). */}
+        {/* The piece's name, its CHOSEN size and its size ▾ — ONE Form row. The line names only the size picked (owner 2026-10-16,
+            `lib/print-head-line.ts`); every size stays in the dropdown. */}
         <StudioTool
           part="print-head"
           name={spec.label.replace(/^the\s+/i, '')}
-          line={sizes.length > 1 ? sizes.join(sizes.length > 2 ? ' · ' : ' or ') : spec.size}
+          line={fam ? printHeadLine(k, formats[fam]) : spec.size}
           paper={paper}
           sheet={{ actions: saves, changed }}
           picker={

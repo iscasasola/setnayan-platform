@@ -119,7 +119,9 @@ test('3 · a print in Studio is one row of the list: name · sizes · size ▾ �
   const editor = src.slice(src.indexOf('export function PrintPieceEditor('), src.indexOf('export function PassCardsPanel('));
   assert.equal((editor.match(/variant="action"/g) ?? []).length, 3, 'a Studio Save is not the one ActionButton');
   assert.doesNotMatch(editor, /variant=\{studio \? 'chip'/, 'a Studio Save is still the old chip');
-  assert.match(editor.slice(editor.indexOf('if (studio) {')), /part="print-head"[\s\S]{0,200}line=\{sizes\.length > 1 \? sizes\.join\(sizes\.length > 2 \? ' · ' : ' or '\) : spec\.size\}/, 'the Studio row has no name · sizes · size ▾');
+  /* RE-AIMED 2026-10-16 (owner: "short size lines"): the row's line names the CHOSEN size only — every size stays in the ▾
+     (`lib/print-head-line.ts`, held by `studio-prints-navigation.test.ts`). */
+  assert.match(editor.slice(editor.indexOf('if (studio) {')), /part="print-head"[\s\S]{0,200}line=\{fam \? printHeadLine\(k, formats\[fam\]\) : spec\.size\}/, 'the Studio row has no name · chosen size · size ▾');
   const shipped = await html(React.createElement(PrintPieceEditor, { input, piece: 'invitation' }));
   assert.match(shipped, /This piece/, 'the shipped Details lost its block — flag-off must not change');
 });

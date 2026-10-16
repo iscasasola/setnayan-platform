@@ -18,7 +18,7 @@
  * Pure: the groups in, the groups out. Only while the new Maker is on
  * (`MakerDetails`'s `studio`); every couple today keeps the shipped list.
  */
-import { FREE_PRINT_KEYS, type DetailsItemKey } from '@/lib/maker-details-items';
+import { EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemGroup, type DetailsItemKey } from '@/lib/maker-details-items';
 import { PRINT_SET_KEYS } from '@/lib/print-pieces';
 import { STUDIO_TILE_ITEM } from '@/lib/studio-tile-defs';
 
@@ -67,6 +67,8 @@ export function studioDetailsGroups<I extends { key: DetailsItemKey }>(groups: r
    opens on the first input) — "Your event" and "Your Event Hub" are gone: what must be typed is simply first, and
    the optional rows are the fold "More for guests". */
 export const STUDIO_FORM_HEADS: Partial<Record<DetailsItemKey, { title: string; line?: string }>> = {
+  /* 🖨 The whole set's own settings, once, at the head of Prints (owner 2026-10-16) — the QR line and the NFC spot. */
+  [EVERY_PRINT_ITEM]: { title: 'On every print', line: 'QR · NFC spot' },
   invitation: { title: 'Your invitation set' },
   [FREE_PRINT_KEYS[0]!]: { title: 'For the day', line: 'free for every event' },
 };
@@ -90,6 +92,7 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
   'qr',
   ...STUDIO_GIFT_ITEMS,
   'rsvp',
+  EVERY_PRINT_ITEM,
   ...PRINT_SET_KEYS,
   ...FREE_PRINT_KEYS,
   'download',
@@ -97,6 +100,25 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
 /* 🎨 Mood Board & Dress Code (plan PR 5) fills the screen too — its four tabs and their tools are all in its body.
    🗓 So does the Schedule (owner 2026-10-07 "1. okay"): its timeline, + Add a moment and ⋯ are all in its body. */
 export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board', 'schedule'];
+
+/**
+ * 🧭 THE PIECE BAR'S LIST (owner 2026-10-16, Studio › Prints on a phone — `studio-prints-bar.tsx`): every piece of the Prints
+ * form, in the form's order, under the form's own group words — "Your invitation set" · "For the day · free for every event" ·
+ * "Download the set". "On every print" is first and has no heading (it IS the head of the form). `caption` is the small word
+ * over the piece's name on the bar. Read from `STUDIO_FORM_HEADS` and the items' own labels — never a second list of names.
+ */
+export type StudioPrintsBarPiece = { key: DetailsItemKey; label: string; group?: string; caption: string };
+export function studioPrintsBarPieces(items: ReadonlyArray<{ key: DetailsItemKey; label: string; group: DetailsItemGroup }>): StudioPrintsBarPiece[] {
+  const set = STUDIO_FORM_HEADS.invitation!.title;
+  const day = STUDIO_FORM_HEADS[FREE_PRINT_KEYS[0]!]!;
+  return items.map((i) => {
+    const label = i.label.replace(/^the\s+/i, '');
+    if (i.key === EVERY_PRINT_ITEM) return { key: i.key, label, caption: 'Prints' };
+    if (i.group === 'day') return { key: i.key, label, group: `${day.title} · ${day.line}`, caption: day.title };
+    if (i.group === 'download') return { key: i.key, label, group: 'Download the set', caption: 'Download the set' };
+    return { key: i.key, label, group: set, caption: set };
+  });
+}
 
 /** The top nav (52 px) — the panel fills the rest, edge to edge (prototype `.full`). The panel's own height is
  *  `--maker-lt-h` less 8 px (`MAKER_LT_TOOL`), so this is 52 − 8. (It was 104 − 8 while a 52-px title row — "INFO ▾" —

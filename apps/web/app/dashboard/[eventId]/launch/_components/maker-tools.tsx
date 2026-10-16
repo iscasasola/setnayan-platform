@@ -103,4 +103,7 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
      when a logo plays (so a page of still logos ships none of it). Warmed here
      so a Maker Play never waits for the download. */
   { key: 'maker:logo-player', label: 'Logo player', load: () => import('@/app/_components/couple-logo').then(warmDynamicExports) },
+  /* 👤 Studio › Prints' View as ▾ sheet with "Search guests" (2026-10-17) — its own small chunk, so the shared PickMenu never grows;
+     warmed here so the first tap on View as ▾ never waits for it. */
+  { key: 'maker:prints-guest-sheet', label: 'Guest picker', load: () => import(/* webpackChunkName: "prints-guest-sheet" */ './print-guest-sheet').then(warmDynamicExports) },
 ];

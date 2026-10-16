@@ -113,9 +113,7 @@ import { GuestMapCanvas } from './guest-map-canvas';
 import styles from './guests-screen.module.css';
 import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
 import type { GuestListRow } from '@/lib/guest-list-rows';
-import { LastSeenMark } from '@/app/_components/last-seen/last-seen-mark';
-import { createPortal } from 'react-dom';
-import { useHydrated } from '@/lib/use-hydrated';
+import { GuestCopyMark } from './guest-copy-mark';
 
 
 export type GuestsScreenProps = {
@@ -243,7 +241,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
         empty: null,
         initialQuery: '',
         initialSelect: false,
-        copy: { phase: 'failed', savedAt: unread.savedAt },
+        copy: { freshness: 'failed', savedAt: unread.savedAt },
       }
     : props;
   const {
@@ -276,7 +274,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [toast, toastNode] = usePeekToast();
   const inspector = useInspectorContext();
   const roleNames = useRoleNames();
-  const hydrated = useHydrated();
   // 📋 The fresh, measured List keeps itself on the phone for the next open (`guest-list-copy.ts`).
   useKeepGuestList(
     { guests: live.guests, hasSides, groupsByGuest, tableByGuest, faceByGuest, requests, rootLabel, roleNames },
@@ -832,23 +829,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
   return (
     <GuestListHasSidesContext.Provider value={hasSides}>
       {toastNode}
-      {copy ? (
-        // The mark is `fixed` under the top bar; drawn inside this screen it would be pinned to the screen's
-        // own transformed box instead, so it goes to the body (a copy only ever appears after hydration —
-        // `hydrated` is false only in a server/static render, which draws it in place).
-        hydrated ? (
-          createPortal(<LastSeenMark phase={copy.phase} savedAt={copy.savedAt} />, document.body)
-        ) : (
-          <LastSeenMark phase={copy.phase} savedAt={copy.savedAt} />
-        )
-      ) : null}
+      {copy ? <GuestCopyMark copy={copy} /> : null}
       <div
         ref={rootRef}
         className={styles.screen}
         data-settled={settled ? 'true' : 'false'}
         data-guests-screen={gview}
-        data-guests-copy={copy ? copy.phase : undefined}
-        style={copy?.phase === 'failed' ? { opacity: 0.7 } : undefined}
+        data-guests-copy={copy ? copy.freshness : undefined}
+        style={copy?.freshness === 'failed' ? { opacity: 0.7 } : undefined}
       >
         <div ref={stickRef} className={styles.stick} data-guests-stick="">
           {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
@@ -908,7 +896,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                     guests"). The server writes it fresh, in the import template's own columns, so the same
                     file can be edited and uploaded again (`guests/export/route.ts`). A plain link — no
                     JavaScript, nothing added to any bundle. */}
-                {copy?.phase === 'failed' ? null : (
+                {copy?.freshness === 'failed' ? null : (
                   <a
                     href={`/dashboard/${eventId}/guests/export`}
                     download

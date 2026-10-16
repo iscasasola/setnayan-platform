@@ -37,7 +37,7 @@ const guests = [
 const SAVED = Date.UTC(2026, 9, 15, 7, 42);
 
 test('1 · a failed refresh keeps the list and says so — never fresh, never empty', async () => {
-  const html = await renderGuestsScreen({ guests, copy: { phase: 'failed', savedAt: SAVED } });
+  const html = await renderGuestsScreen({ guests, copy: { freshness: 'failed', savedAt: SAVED } });
   assert.match(html, /data-last-seen-mark="failed"/);
   assert.match(html, /Couldn(’|&#x27;|&rsquo;|')t update — showing your last copy from /);
   assert.match(html, /It may be\s+out of date/);
@@ -49,7 +49,7 @@ test('1 · a failed refresh keeps the list and says so — never fresh, never em
 });
 
 test('2 · while the fresh list comes, the copy says it is the last copy — and offers nothing that writes', async () => {
-  const html = await renderGuestsScreen({ guests, copy: { phase: 'updating', savedAt: SAVED } });
+  const html = await renderGuestsScreen({ guests, copy: { freshness: 'updating', savedAt: SAVED } });
   assert.match(html, /Showing your last copy · updating…/);
   assert.doesNotMatch(html, /Updated just now/);
   for (const write of ['data-testid="thumb-select"', '>Remove<', 'data-testid="thumb-add"']) {
@@ -62,7 +62,7 @@ test('2 · while the fresh list comes, the copy says it is the last copy — and
 
 test('3 · a refused read shows the copy as failed (or the honest "couldn’t load"), and is never kept', () => {
   assert.match(SCREEN, /useKeptGuestList\(!props\.measured && props\.gview === 'list' && !props\.copy\)/);
-  assert.match(SCREEN, /copy: \{ phase: 'failed', savedAt: unread\.savedAt \}/, 'a refused read draws the copy as FAILED');
+  assert.match(SCREEN, /copy: \{ freshness: 'failed', savedAt: unread\.savedAt \}/, 'a refused read draws the copy as FAILED');
   assert.match(
     SCREEN,
     /useKeepGuestList\([\s\S]{0,200}?!copy && measured && gview === 'list' && !initialQuery && !initialSelect,\s*\)/,

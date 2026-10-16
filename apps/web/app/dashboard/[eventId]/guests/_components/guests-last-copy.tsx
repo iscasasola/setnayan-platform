@@ -69,7 +69,7 @@ export function GuestsLastCopy({ children }: { children: ReactNode }) {
                 faceByGuest={list.faceByGuest}
                 requests={list.requests}
                 rootLabel={list.rootLabel}
-                copy={{ phase: refreshPhase({ online, waitedMs: waited }), savedAt }}
+                copy={{ freshness: refreshPhase({ online, waitedMs: waited }), savedAt }}
               />
             </div>
           </section>

@@ -31,7 +31,7 @@ import type { RoleNames } from '@/lib/role-names';
 /** Where the list on screen came from, when it is NOT the fresh list. */
 export type GuestsCopyState = {
   /** `updating`: the fresh list is on its way · `failed`: it did not come (or the read was refused). */
-  phase: 'updating' | 'failed';
+  freshness: 'updating' | 'failed';
   savedAt: number;
 };
 

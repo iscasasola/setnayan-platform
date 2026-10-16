@@ -51,7 +51,7 @@ export async function renderGuestsScreen(opts: {
   /** A `?q=` from the top bar — a search opens every section with a hit. */
   initialQuery?: string;
   /** 📋 Draw it as the phone's last copy (`guest-list-copy.ts`). */
-  copy?: { phase: 'updating' | 'failed'; savedAt: number } | null;
+  copy?: { freshness: 'updating' | 'failed'; savedAt: number } | null;
   /** What the List shows when there is nothing to section (the page's EmptyState). */
   empty?: unknown;
 }): Promise<string> {

@@ -77,7 +77,13 @@ test('the guest list reads the LIVING list by default; only the roster and the d
     .sort();
   assert.deepEqual(
     optIns,
-    ['app/api/hub-print/[piece]/route.ts', 'app/dashboard/[eventId]/guests/page.tsx'],
+    [
+      'app/api/hub-print/[piece]/route.ts',
+      // 📥 The Guest list as a file (2026-10-16): it LISTS them as the list does — "In loving memory" in the
+      // RSVP column — and counts, seats and sends nothing.
+      'app/dashboard/[eventId]/guests/export/route.ts',
+      'app/dashboard/[eventId]/guests/page.tsx',
+    ],
     'a reader that COUNTS, SEATS or SENDS opted in to the guests who passed away',
   );
 });

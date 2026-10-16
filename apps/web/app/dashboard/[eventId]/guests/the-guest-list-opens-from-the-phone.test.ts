@@ -86,7 +86,7 @@ test('1 · the loading screen is the live list from the phone, not a picture of 
   assert.match(loading, /<GuestsLastCopy>/);
   assert.doesNotMatch(loading, /LastSeenFallback/, 'the inert html snapshot is not the Guest list’s loading screen');
   const shell = read('_components/guests-last-copy.tsx');
-  assert.match(shell, /<GuestsScreen[\s\S]*?copy=\{\{ phase: refreshPhase\(\{ online, waitedMs: waited \}\), savedAt \}\}/);
+  assert.match(shell, /<GuestsScreen[\s\S]*?copy=\{\{ freshness: refreshPhase\(\{ online, waitedMs: waited \}\), savedAt \}\}/);
   assert.match(shell, /useKeptGuestList\(true\)/);
 });
 
@@ -113,7 +113,7 @@ test('3 · a 200-guest copy is small, and holds only what a row shows', () => {
 test('4 · the copy’s first draw is the list’s own first draw — at most ROW_WINDOW rows', async () => {
   const back = guestListFromCopy(JSON.parse(JSON.stringify(copy)), Date.now());
   assert.ok(back);
-  const html = await renderGuestsScreen({ guests: back!.rows as never, copy: { phase: 'updating', savedAt: Date.now() } });
+  const html = await renderGuestsScreen({ guests: back!.rows as never, copy: { freshness: 'updating', savedAt: Date.now() } });
   const rows = (html.match(/data-guest-row=""/g) ?? []).length;
   assert.ok(rows > 0 && rows <= ROW_WINDOW, `${rows} rows drawn first (window ${ROW_WINDOW})`);
   assert.match(html, /List<b[^>]*>.*?200/s, '"List 200" — the copy’s own count');

@@ -86,7 +86,7 @@ import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { SEE_AS, SEE_AS_EDITING, seeAsDrawingLine, seeAsLabel, type SeeAs } from '@/lib/see-as';
-import { revealStubHtml } from './stage-panel/reveal-picture';
+import { revealPageInk, revealStubHtml } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
@@ -1100,8 +1100,8 @@ export function StageTools({
           doc.head.appendChild(css);
         }
         /* The event's colours, as the page wears them (the names · the eyebrow · the page). */
-        const ink = getComputedStyle(doc.querySelector('[data-el="names"]') ?? doc.body).color;
-        const accent = getComputedStyle(doc.querySelector('[data-el="eyebrow"]') ?? doc.body).color;
+        const ink = revealPageInk(doc, '[data-el="names"]');
+        const accent = revealPageInk(doc, '[data-el="eyebrow"]');
         const bodyBg = getComputedStyle(doc.body).backgroundColor;
         const neutral = !bodyBg || bodyBg === 'rgba(0, 0, 0, 0)' ? '#F7F2EC' : bodyBg;
         setStageRevealColours({ dominant: ink, supporting: `color-mix(in srgb, ${ink} 30%, white)`, accent, neutral });

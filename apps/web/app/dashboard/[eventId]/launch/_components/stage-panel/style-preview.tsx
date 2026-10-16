@@ -131,6 +131,29 @@ export function drawnContent(doc: Document, part: Element): { w: number; h: numb
   }
 }
 
+/**
+ * 📐 THE MINIATURE IS MEASURED AT THE HEIGHT IT IS SHOWN AT (owner 2026-10-16, live: *"previews are not showing
+ * properly. small caps shows a weird photo that is same on the other styles"*). The Cover Scene fills the first screen
+ * (`COVER_SCENE_SCREEN`, `min-h-[100svh]`, its words CENTRED) — and inside this frame `100svh` IS the frame's own
+ * height. The card measured the part while its frame was 1600 px tall, then drew it 900 px tall: the words moved up by
+ * half the difference (~350 px) and every card showed the same empty slice of the cover — the photo on his event, white
+ * on the theme's own (measured in the Maker lab, 2026-10-16). So the frame has ONE height for the measure and the
+ * picture: `MINI_FRAME_MIN`, grown only when the part ends below it — and a grown frame is measured again, never drawn
+ * on the old answer. Held by `lib/a-text-style-card-shows-its-words.test.ts`.
+ */
+export const MINI_FRAME_MIN = 900;
+/** Room kept under the part inside its frame. */
+const MINI_FRAME_FOOT = 40;
+/** The frame height a part ending at `bottom` needs — `null` when the frame it was measured in already holds it. */
+export function miniatureFrameGrow(bottom: number, frameH: number): number | null {
+  const need = Math.ceil(bottom + MINI_FRAME_FOOT);
+  return need > frameH ? need : null;
+}
+/** Has the part moved since the card was fitted (a font arrived, a picture loaded)? Then it is fitted again. */
+export function miniatureMoved(a: { top: number; left: number; width: number; height: number }, b: { top: number; left: number; width: number; height: number }): boolean {
+  return Math.abs(a.top - b.top) > 1 || Math.abs(a.left - b.left) > 1 || Math.abs(a.width - b.width) > 1 || Math.abs(a.height - b.height) > 1;
+}
+
 export function StylePreview({
   canvasKey,
   sceneType,
@@ -184,7 +207,11 @@ export function StylePreview({
   const src = asked && canvas && canvasKey ? stylePreviewSrc(canvas.src, canvasKey, sceneType, styleId, window.location.origin) : null;
   const width = canvas?.width ?? 375;
   const frame = useRef<HTMLIFrameElement>(null);
-  const [fit, setFit] = useState<{ k: number; x: number; y: number; h: number } | null>(null);
+  const [fit, setFit] = useState<{ k: number; x: number; y: number } | null>(null);
+  /* 📐 The frame's ONE height — what the part is measured at is what it is drawn at (`miniatureFrameGrow`). */
+  const [frameH, setFrameH] = useState(MINI_FRAME_MIN);
+  const frameHRef = useRef(MINI_FRAME_MIN);
+  const partRef = useRef<HTMLElement | null>(null);
   /** The part's box on its page, and the page's own ground — kept so the fit is worked out again when the card changes size. */
   const drawnRef = useRef<{ top: number; left: number; width: number; height: number } | null>(null);
   const [ground, setGround] = useState<string | null>(null);
@@ -198,6 +225,9 @@ export function StylePreview({
     setFit(null);
     setEmpty(false);
     drawnRef.current = null;
+    partRef.current = null;
+    frameHRef.current = MINI_FRAME_MIN;
+    setFrameH(MINI_FRAME_MIN);
   }, [src]);
   /** The picture, centred and scaled to fit the card as it is NOW. */
   const lay = () => {
@@ -205,7 +235,7 @@ export function StylePreview({
     const part = drawnRef.current;
     if (!b || !part || b.clientWidth < 1 || b.clientHeight < 1) return;
     const f = styleCardFit(part, { w: b.clientWidth, h: b.clientHeight });
-    setFit((was) => (was && was.k === f.k && was.x === f.x && was.y === f.y ? was : { ...f, h: part.top + part.height + 40 }));
+    setFit((was) => (was && was.k === f.k && was.x === f.x && was.y === f.y ? was : f));
   };
   const layRef = useRef(lay);
   layRef.current = lay;
@@ -259,8 +289,18 @@ export function StylePreview({
           }
           return;
         }
+        const at = { top: drawn.top + (d.defaultView?.scrollY ?? 0), left: drawn.left + (d.defaultView?.scrollX ?? 0), width: drawn.width, height: drawn.height };
+        /* 📐 A part ending below the frame: the frame grows, and the part is measured AGAIN at that height (a Cover
+           Scene's words move when its screen does) — never fitted on where it stood in a frame of another size. */
+        const grow = miniatureFrameGrow(at.top + at.height, frameHRef.current);
+        if (grow !== null) {
+          frameHRef.current = grow;
+          setFrameH(grow);
+          return;
+        }
         window.clearInterval(id);
-        drawnRef.current = { top: drawn.top + (d.defaultView?.scrollY ?? 0), left: drawn.left + (d.defaultView?.scrollX ?? 0), width: drawn.width, height: drawn.height };
+        partRef.current = part;
+        drawnRef.current = at;
         /* The card stands on the page's own ground, so the room round a small part is the page's, never a grey band. */
         const bg = getComputedStyle(d.body).backgroundColor;
         setGround(bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' ? bg : '#FFFFFF');
@@ -275,6 +315,36 @@ export function StylePreview({
     }, 60);
     return () => window.clearInterval(id);
   }, [src, canvasKey, loads, focus]);
+  /* 📐 …and once fitted, watched for a few seconds: a face or a picture that arrives late moves the part, and the card
+     is fitted again on where it now stands (a card never shows the slice its part has left). */
+  useEffect(() => {
+    if (!fit) return;
+    let n = 0;
+    const id = window.setInterval(() => {
+      n += 1;
+      try {
+        const part = partRef.current;
+        const was = drawnRef.current;
+        const view = part?.ownerDocument.defaultView;
+        if (!part || !was || !view || !part.isConnected) return window.clearInterval(id);
+        const r = part.getBoundingClientRect();
+        const now = { top: r.top + view.scrollY, left: r.left + view.scrollX, width: r.width, height: r.height };
+        if (r.width >= 1 && r.height >= 1 && miniatureMoved(was, now)) {
+          drawnRef.current = now;
+          const grow = miniatureFrameGrow(now.top + now.height, frameHRef.current);
+          if (grow !== null) {
+            frameHRef.current = grow;
+            setFrameH(grow);
+          }
+          layRef.current();
+        }
+      } catch {
+        window.clearInterval(id);
+      }
+      if (n >= 16) window.clearInterval(id);
+    }, 300);
+    return () => window.clearInterval(id);
+  }, [fit]);
 
   return (
     <span
@@ -297,7 +367,7 @@ export function StylePreview({
           className={`pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-transparent transition-opacity duration-200 ${fit ? 'opacity-100' : 'opacity-0'}`}
           style={{
             width,
-            height: Math.max(900, Math.ceil(fit?.h ?? 1600)),
+            height: frameH,
             transform: fit ? `translate(${fit.x}px, ${fit.y}px) scale(${fit.k})` : undefined,
           }}
         />

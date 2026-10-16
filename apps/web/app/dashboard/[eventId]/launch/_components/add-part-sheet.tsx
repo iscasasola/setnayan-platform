@@ -39,7 +39,7 @@ import {
 import { postEventRun, postEventShow, type PostEventDraft } from '@/lib/post-event-draft';
 import { stageTakesOwnScenes, swapsForDrop, type MakerTile } from '@/lib/maker-scene-list';
 import type { RevealStage } from '@/lib/reveal-stages';
-import { PART_EDGE_ROOM, STAGE_SHEET_ROW, partFrameEdges } from '@/lib/maker-stage-room';
+import { PART_EDGE_ROOM, STAGE_SHEET_ROW, partFrameEdges, partNeighbourIsLayer } from '@/lib/maker-stage-room';
 import { SceneTemplatePicker } from '../../website/editor/_components/scene-template-picker';
 import { MakerSheet } from './stages-studio-parts';
 import { PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, ownScenePlaceOrder } from '@/lib/own-scene-place';
@@ -209,7 +209,11 @@ function neighbourOf(node: Element, dir: -1 | 1): Element | null {
     let sib: Element | null = dir < 0 ? cur.previousElementSibling : cur.nextElementSibling;
     while (sib) {
       const sr = sib.getBoundingClientRect();
-      if (sr.height > 0 && sr.width > 0) return sib;
+      /* 🖼 A layer laid UNDER the parts is no neighbour (owner 2026-10-16, live: the Title's ＋ sat on "AND" and
+         "PARENTS"): the Cover Scene's background (`data-cover-scene-ground`) is the cover's FIRST child, as tall as the
+         screen and out of the flow — read as the part "above", the gap was 0 and the frame hugged the words. Only a
+         sibling in the flow lies above or below. Held by `lib/a-text-style-card-shows-its-words.test.ts`. */
+      if (sr.height > 0 && sr.width > 0 && !partNeighbourIsLayer(sib)) return sib;
       sib = dir < 0 ? sib.previousElementSibling : sib.nextElementSibling;
     }
     cur = cur.parentElement;

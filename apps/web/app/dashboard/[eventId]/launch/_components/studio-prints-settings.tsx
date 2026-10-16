@@ -225,7 +225,7 @@ export function StudioGuestPiece({
   guests,
   one,
   all,
-  count,
+  holds,
   none,
   changed = null,
 }: {
@@ -243,8 +243,8 @@ export function StudioGuestPiece({
   one: { href: string; file: string };
   /** Every guest's file — ◆ Event Hub Pro (`allInOneFile`). */
   all: AllInOneF;
-  /** What the all-guests file holds, said under both. */
-  count: string;
+  /** What the all-guests file holds, said under both (already worded — its numbers through `formatCount`). */
+  holds: string;
   /** Said in place when nobody has a pass yet. */
   none: string;
   changed?: ReactNode;
@@ -294,7 +294,7 @@ export function StudioGuestPiece({
         {actions}
       </div>
       <p data-print-guest-count={item} className="px-1 pb-2.5 text-[12px] text-ink/60">
-        {count}
+        {holds}
       </p>
       {changed}
     </div>
@@ -303,15 +303,15 @@ export function StudioGuestPiece({
 
 /* ── EVERYTHING ◆ ───────────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
-export function StudioEverything({ line, count, all }: { line: string; count?: string | null; all: AllInOneF }) {
-  useRegisterDownload('download', { name: 'Everything', line: count ?? undefined, one: null, all });
+export function StudioEverything({ line, holds, all }: { line: string; holds?: string | null; all: AllInOneF }) {
+  useRegisterDownload('download', { name: 'Everything', line: holds ?? undefined, one: null, all });
   return (
     <div data-print-everything="" data-print-studio="" className="flex flex-col gap-2 py-2">
       <p className="text-[14px] leading-snug text-ink/70">{line}</p>
       <div className="flex flex-wrap gap-1.5" data-print-piece-saves="download">
         <AllInOneButton f={all} main />
       </div>
-      {count ? <p className="text-[12px] text-ink/60">{count}</p> : null}
+      {holds ? <p className="text-[12px] text-ink/60">{holds}</p> : null}
     </div>
   );
 }

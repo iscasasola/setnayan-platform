@@ -425,7 +425,7 @@ export function PrintPieceEditor({
             guests={guests}
             one={{ href: `${one.href}&pass_guest=${GUEST_TOKEN}`, file: one.file.replace(/\.pdf$/, `-${GUEST_WORD_TOKEN}.pdf`) }}
             all={allInOneFile(input, { href: themedReady ? q('passes', 'print') : classic('passes'), file: themedReady ? file.themed('passes') : file.classic('passes'), label: 'All guests' }, PASSES_PRO_NOTE)}
-            count={guestPrintCountLine('pass', guests)}
+            holds={guestPrintCountLine('pass', guests)}
             none="No guest has a pass yet — a pass appears once a guest is on your list and coming."
             changed={changed}
           />
@@ -675,7 +675,7 @@ function studioFreeEditor(eventId: string, slug: string | null, fp: FreePrint, i
               : { href: `/dashboard/${e}/seating/print?format=pdf&guest=${GUEST_TOKEN}`, file: printFileName(slug, `place-card-${GUEST_WORD_TOKEN}`) }
           }
           all={proOf(fp.saves[0]!, ALL_GUESTS_NOTE[fp.key]!)}
-          count={guestPrintCountLine(fp.key, guests)}
+          holds={guestPrintCountLine(fp.key, guests)}
           none="No guest is on your list yet — add your guests, then pick one here."
         />
       </div>
@@ -882,7 +882,7 @@ export function DigitalTicketEditor({ input }: { input: PrintsInput }) {
         guests={guests}
         one={{ href: `${PASS_CARD_ROUTE}?guest=${GUEST_TOKEN}`, file: printFileName(slug, `ticket-${GUEST_WORD_TOKEN}`, 'png') }}
         all={zip}
-        count={guestPrintCountLine('digital-ticket', guests)}
+        holds={guestPrintCountLine('digital-ticket', guests)}
         none="No guest has a ticket yet — a ticket appears once a guest is on your list and coming."
       />
     </div>
@@ -909,7 +909,7 @@ export function PrintEverythingStudio({ input }: { input: PrintsInput }) {
   );
   return (
     <div data-print-editor="download" data-print-studio="">
-      <StudioTool part="everything" line={everythingLine(themedReady ? t.name : INVITE_THEMES[CLASSIC_PRINT_THEME].name)} count={passes} all={all} />
+      <StudioTool part="everything" line={everythingLine(themedReady ? t.name : INVITE_THEMES[CLASSIC_PRINT_THEME].name)} holds={passes} all={all} />
     </div>
   );
 }

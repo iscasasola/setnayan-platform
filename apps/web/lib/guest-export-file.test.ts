@@ -81,7 +81,7 @@ test('3 · nothing opens as a formula', () => {
 
 test('4 · uploaded again unchanged, the importer finds every guest already on the list', () => {
   const offered = resolveRoleSet('wedding').offeredRoles;
-  const csv = guestListCsv(guests, { hasSides: true, tableByGuest: { [guests[0].guest_id]: 'Table 3' } });
+  const csv = guestListCsv(guests, { hasSides: true, tableByGuest: { [guests[0]!.guest_id]: 'Table 3' } });
   const plan = planGuestImport(readGuestFile(csv), {
     offeredRoles: offered,
     singletonRoles: ['bride', 'groom'],

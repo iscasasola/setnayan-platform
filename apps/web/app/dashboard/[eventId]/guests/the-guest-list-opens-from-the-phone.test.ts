@@ -128,7 +128,7 @@ test('5 · saved, read back and drawn, the copy shows the same people', () => {
   const back = guestListFromCopy(hit!.data, hit!.savedAt);
   assert.ok(back);
   assert.equal(back!.rows.length, 200);
-  assert.equal(back!.rows[7].first_name, 'María Concepción 7', 'ñ and accents survive');
-  assert.deepEqual(back!.rows[7].custom_tags, [], 'a field the phone did not keep comes back empty, never undefined');
-  assert.equal(back!.tableByGuest[back!.rows[7].guest_id], 'Table 8');
+  assert.equal(back!.rows[7]!.first_name, 'María Concepción 7', 'ñ and accents survive');
+  assert.deepEqual(back!.rows[7]!.custom_tags, [], 'a field the phone did not keep comes back empty, never undefined');
+  assert.equal(back!.tableByGuest[back!.rows[7]!.guest_id], 'Table 8');
 });

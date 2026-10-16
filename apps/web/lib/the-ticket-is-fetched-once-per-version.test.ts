@@ -84,7 +84,7 @@ test('1 · the version changes with every input — the couple’s photo include
   assert.notEqual(v(kit({ still: [1, 2, 3], theme: 'cyber' })), base, 'a new theme → a new version');
   assert.notEqual(v(kit({ still: [1, 2, 3] }), { ...guest, qr_token: 'tok-2' }), base, 'a new QR → a new version');
   assert.notEqual(v(kit({ still: [1, 2, 3] }), { ...guest, first_name: 'Lolita' }), base, 'a new name → a new version');
-  assert.notEqual(passCardVersion(kit({ still: [1, 2, 3] }) as never, guest as never, 'boarding'), base, 'another design');
+  assert.notEqual(passCardVersion(kit({ still: [1, 2, 3] }) as never, guest as never, 'poster'), base, 'another design');
 });
 
 test('2 · immutable only at the CURRENT version, and always private', () => {

@@ -45,7 +45,7 @@ const ALL_COLUMNS = (() => {
   const src = readFileSync(join(HERE, '..', '..', '..', '..', 'lib', 'guests.ts'), 'utf8');
   const m = /const GUEST_FIELDS =\s*'([^']+)'/.exec(src);
   assert.ok(m, 'GUEST_FIELDS found');
-  return m![1].split(',');
+  return m![1]!.split(',');
 })();
 const ALLOWED = new Set<string>(GUEST_LIST_ROW_FIELDS);
 

@@ -115,7 +115,9 @@ test('(2) the RSVP button opens the shipped reply, and shows the three states', 
 
   // The page wires it: the guest's from the Reply card, the visitor's to the reply door; never on another stage.
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
-  assert.match(body, /const visitorRsvp = pageStage === 'rsvp' && !ticketUrl \? coverRsvpOf\(\{ card: null, visitorHref: replyDoor \}\) : null;/);
+  // A visitor without a key: the passcode first — the stranger's one door, never the reply page past it.
+  assert.match(body, /const visitorRsvp = pageStage === 'rsvp' && !ticketUrl && !viewerIsHost \? coverRsvpOf\(\{ card: null, visitorHref: `#\$\{STRANGER_DOOR_ID\}` \}\) : null;/);
+  assert.match(body, /<div className="sn-door-row" id=\{STRANGER_DOOR_ID\}>/, 'the visitor’s button leads nowhere');
   assert.match(body, /: coverRsvpOf\(\{ card: replyCard \}\);/, 'the guest’s button does not read their own Reply card');
   assert.equal((body.match(/rsvp=\{visitorRsvp\}/g) ?? []).length, 2, 'a stranger’s cover has no button');
   assert.equal((body.match(/rsvp=\{guestRsvp\}/g) ?? []).length, 2, 'a guest’s cover has no button');

@@ -170,6 +170,9 @@ export const STAGE_HOLD_MS = 500;
 /** "Exit preview" sits this far above the screen's safe area — and above the guests' 44-px bar where there is one. */
 export const STAGE_EXIT_GAP_PX = 12;
 export const STAGE_EXIT_OVER_BAR_PX = 44 + STAGE_EXIT_GAP_PX;
+/** 🔘 Where "Exit preview" parks on a stage's pages: the right edge, a little above the middle — the cover's foot is the
+ *  RSVP button's and the "Swipe up" hint's (owner 2026-10-16, prototype v2 `.exitp`). */
+export const STAGE_EXIT_EDGE_TOP = '36%';
 /** What ▶ says the first time it is tapped — the long press's twin for whoever never holds a button (once a visit). */
 export const STAGE_HOLD_HINT = 'Hold ▶ to preview the whole page.';
 export const STAGE_PREVIEW_REFUSED = { link: 'Links are switched off in preview.', send: 'Nothing is sent from a preview.' } as const;
@@ -1790,8 +1793,13 @@ export function StageTools({
               /* 🔘 OFF THE COVER'S FOOT (owner 2026-10-16, approved prototype v2): the foot is the RSVP button's and the
                  "Swipe up" hint's now, so on a stage's pages the pill parks at the RIGHT EDGE, a little above the middle
                  (`top: 36%`), its See as ▾ under it. The RSVP stage has no cover — its pill stays over its row of screens. */
-              className={`pointer-events-none absolute z-[31] flex gap-2 lg:hidden ${rsvpOpen ? 'inset-x-0 justify-center px-3' : 'right-3 top-[36%] flex-col items-end'}`}
-              style={rsvpOpen ? { bottom: `calc(env(safe-area-inset-bottom) + ${STAGE_EXIT_OVER_BAR_PX}px)` } : undefined}
+              className="pointer-events-none absolute z-[31] flex gap-2 lg:hidden"
+              data-stage-exit-at={rsvpOpen ? 'foot' : 'edge'}
+              style={
+                rsvpOpen
+                  ? { left: 0, right: 0, justifyContent: 'center', padding: '0 12px', bottom: `calc(env(safe-area-inset-bottom) + ${STAGE_EXIT_OVER_BAR_PX}px)` }
+                  : { right: 12, top: STAGE_EXIT_EDGE_TOP, flexDirection: 'column', alignItems: 'flex-end' }
+              }
             >
               <ActionButton tone="brand" main icon={X} label="Exit preview" onClick={exitPreview} className="pointer-events-auto shadow-lg" />
               {/* 👁 SEE AS ▾ — the phone's one See as (owner 2026-10-15, with the host strip removed: "See as on phone

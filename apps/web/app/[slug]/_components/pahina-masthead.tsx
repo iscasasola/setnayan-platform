@@ -220,8 +220,9 @@ export function PahinaMasthead({
     // ONE gated rule in globals.css reads (`[data-el-motion]`).
     ...hubElementMotionAttr(elements?.[key]),
     // A part the couple hid is never drawn — for a guest, and on the Maker's canvas too: a hidden line LEAVES the
-    // cover at once and comes back from Cover Scene › Edit's list (owner-approved 2026-10-16), never ghosted.
-    style: hubElementInlineStyle(elements?.[key]),
+    // cover at once and comes back from Cover Scene › Edit's list (owner-approved 2026-10-16), never ghosted. The
+    // joiner is no line of that list (it sits inside the Event title), so on the canvas it stays ghosted to be found.
+    style: hubElementInlineStyle(elements?.[key], { editor: stampElements && key === 'joiner' }),
   });
   /** ✍ In the Maker canvas only: each person's name, so a tap types in THAT
    *  person (`type-in-place-canvas.ts`) and the joiner stays the Joiner's. */

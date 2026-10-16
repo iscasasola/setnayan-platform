@@ -68,13 +68,15 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 /** The cover's words: every part drawn in the cover's section as one of its parts. */
 const WORDS = MAKER_PART_KEYS.filter((k) => MAKER_PARTS[k].canvas === 'f:hero' && MAKER_PARTS[k].el);
 
-test('(1) the group has Background only; a cover word’s Background names the group and ends in its one door', () => {
+test('(1) the group has Edit and Background (its Style and Animate follow); a cover word’s Background names the group and ends in its one door', () => {
   assert.ok(WORDS.length >= 7, `anti-vacuity: only ${WORDS.length} cover words`);
   assert.equal(MAKER_PARTS[MAKER_COVER_SCENE].canvas, 'f:hero');
   assert.equal(MAKER_PARTS[MAKER_COVER_SCENE].el, undefined, 'the group IS the section — it has no `el`');
   assert.equal(MAKER_PARTS[MAKER_COVER_SCENE].label, 'Cover Scene');
-  assert.deepEqual(MAKER_PART_TOOLS.filter((t) => makerPartToolWorks(MAKER_COVER_SCENE, t)), ['bg'], 'the Cover Scene has Background only');
-  for (const t of ['edit', 'style', 'animate'] as const) assert.match(makerPartToolWhy(MAKER_COVER_SCENE, t), /^Tap a word /, `the group's ${t} says to tap a word`);
+  /* 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN EDIT · STYLE (OPENING) · ANIMATE"): its Edit is its lines
+     (`the-cover-scene-has-its-own-edit.test.ts`); Style (the Opening) and Animate (one entrance) are the next step. */
+  assert.deepEqual(MAKER_PART_TOOLS.filter((t) => makerPartToolWorks(MAKER_COVER_SCENE, t)), ['edit', 'bg'], 'the Cover Scene has Edit and Background');
+  for (const t of ['style', 'animate'] as const) assert.match(makerPartToolWhy(MAKER_COVER_SCENE, t), /^Tap a word /, `the group's ${t} says to tap a word`);
   for (const k of WORDS) {
     assert.equal(makerPartParent(k), MAKER_COVER_SCENE, `${k} sits in the Cover Scene`);
     assert.equal(makerPartToolWorks(k, 'bg'), false, `${k} has a background of its own`);

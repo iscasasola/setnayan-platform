@@ -517,15 +517,18 @@ test('a motion change replays the In; a size, font or colour change does not', (
 
 /* ═══ 5 · THE KEYNOTE REBUILD'S ROWS PREVIEW EXACTLY AS THEY RENDER (2026-09-27) ═══ */
 
-test('the Text tab’s new rows and Hidden: the canvas lays exactly what the server draws (a hidden part ghosted)', () => {
+test('the Text tab’s new rows and Hidden: the canvas lays exactly what the server draws (a hidden line GONE)', () => {
+  /* 🖼 2026-10-16 (owner-approved, Cover Scene › Edit): a hidden cover line LEAVES the canvas at once — never ghosted —
+     and comes back from the Cover Scene's list; the Event title (names) cannot be hidden at all. */
   const style = { weight: 600, italic: true, underline: true, leading: 1.2, tracking: 8, hidden: true } as const;
   for (const el of ['names', 'eyebrow', 'date', 'time', 'line'] as const) {
-    const server = masthead({ [el]: style } as Styles).find('data-el', el);
+    const kept = es.sanitizeHubElementStyle(style, el);
+    const server = masthead({ [el]: kept } as Styles).find('data-el', el);
     const live = masthead(null).find('data-el', el);
-    bridge.applyHeroPartStyle(live as unknown as HTMLElement, es.sanitizeHubElementStyle(style, el), false);
+    bridge.applyHeroPartStyle(live as unknown as HTMLElement, kept, false);
     assert.deepEqual(styleOf(live), styleOf(server), `${el}: bridge ≠ server`);
-    assert.equal(live.style.getPropertyValue('opacity'), '0.3', `${el}: hidden is ghosted in the Maker, never gone`);
-    assert.equal(live.style.getPropertyValue('display'), '');
+    assert.equal(live.style.getPropertyValue('opacity'), '', `${el}: a hidden line is ghosted on the canvas`);
+    assert.equal(live.style.getPropertyValue('display'), el === 'names' ? '' : 'none', el === 'names' ? 'the Event title was hidden' : `${el}: a hidden line is still drawn`);
   }
 });
 

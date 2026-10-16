@@ -80,7 +80,7 @@ test('(3) a hidden line is absent for guests — and leaves the Maker’s canvas
     assert.doesNotMatch(html, /opacity:0\.3/, `${stampElements ? 'the Maker' : 'a guest'}: a hidden line is ghosted, not gone`);
   }
   // The instant preview lays the same answer (no `editor: true` ghost on a hero part).
-  assert.match(stripComments(read('app/[slug]/_components/editor-bridge.tsx')), /for \(const \[p, v\] of hubElementDeclarations\(style\)\) part\.style\.setProperty\(p, v\);/);
+  assert.match(stripComments(read('app/[slug]/_components/editor-bridge.tsx')), /for \(const \[p, v\] of hubElementDeclarations\(style, \{ editor: part\.getAttribute\('data-el'\) === 'joiner' \}\)\) part\.style\.setProperty\(p, v\);/, 'the instant preview ghosts a hidden cover line');
   // The switch writes the word's own `hidden` on the hero row, through the one draft door.
   assert.match(LINES, /withElementChoice\(before\.elements \?\? null, el, 'hidden', shown \? null : true\)/);
   assert.match(LINES, /JSON\.stringify\(\{ widgets: \{ hero: \{ canvas: next \} \} \}\)/);

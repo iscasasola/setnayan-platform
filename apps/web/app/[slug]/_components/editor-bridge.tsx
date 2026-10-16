@@ -311,7 +311,7 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
   for (const p of clear) part.style.removeProperty(p);
   // A hidden cover line LEAVES the canvas at once (owner-approved 2026-10-16) — as the server draws it — and comes
   // back from Cover Scene › Edit's list; it is never ghosted on the cover.
-  for (const [p, v] of hubElementDeclarations(style)) part.style.setProperty(p, v);
+  for (const [p, v] of hubElementDeclarations(style, { editor: part.getAttribute('data-el') === 'joiner' })) part.style.setProperty(p, v);
   if (!motion) return;
   /* The motion as the guest page carries it: three custom properties and the
      `data-el-motion` hook the one gated rule in globals.css reads. */

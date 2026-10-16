@@ -306,7 +306,8 @@ export const HUB_ELEMENT_SIZE_BOUNDS: Readonly<Record<HubElementKey, { min: HubE
   link: { min: 85, max: 145 },
   venue: { min: 85, max: 145 },
   caption: { min: 85, max: 160 },
-  rsvp: { min: 100, max: 100 },
+  /* (The RSVP button takes no size of its own — Look › Buttons' — the bounds are the line's, never offered.) */
+  rsvp: { min: 85, max: 145 },
   label: { min: 85, max: 145 },
   heading: { min: 70, max: 145 },
   body: { min: 85, max: 145 },

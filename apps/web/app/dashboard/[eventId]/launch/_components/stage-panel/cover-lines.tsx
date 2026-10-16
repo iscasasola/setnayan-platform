@@ -125,7 +125,12 @@ export function CoverLines({ lines, onPick, onSay }: { lines: readonly CoverLine
     setOwn((m) => ({ ...m, [l.part]: on }));
     start(async () => {
       const el = MAKER_PARTS[l.part].el;
-      const ok = l.part === 'logo' ? await keepLogo(on) : el ? await keepShown(el, on) : false;
+      let ok = false;
+      try {
+        ok = l.part === 'logo' ? await keepLogo(on) : el ? await keepShown(el, on) : false;
+      } catch {
+        ok = false;
+      }
       if (!ok) {
         setOwn((m) => ({ ...m, [l.part]: !on }));
         onSay(NOT_SAVED);

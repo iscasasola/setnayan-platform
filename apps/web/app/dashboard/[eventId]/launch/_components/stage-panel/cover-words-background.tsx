@@ -4,14 +4,26 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
-import { COVER_SCENE_SOURCE_IS_PRO, COVER_SCENE_THEME_LINE, coverGroundShape, coverGroundSource, type CoverSceneSource } from '@/lib/cover-scene';
+import {
+  COVER_SCENE_SOURCE_IS_PRO,
+  COVER_SCENE_THEME_LINE,
+  coverClipCardName,
+  coverGroundSource,
+  coverSceneTakesClips,
+  coverSceneUploadLabel,
+  coverSceneUploadRefusal,
+  type CoverSceneSource,
+} from '@/lib/cover-scene';
 import { HUB_GLASS_OPACITY_MAX, HUB_GLASS_OPACITY_MIN, HUB_GLASS_OPACITY_STEP, hubMovingBackgroundIds, sanitizeHubCanvas, type HubCoverGround, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave } from '@/lib/maker-refresh';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
-import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
+import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
+import { uploadStill } from '@/lib/upload-still';
+import { extractPosterFrame } from '../../../_components/std-media-picker';
+import type { SceneUpload } from '../../../website/editor/_components/scene-background-row';
 import { sceneShadeAt, sceneShadeOf } from '@/lib/scene-shade-bar';
 import { tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPhoto } from '@/lib/bg-tile-name';
 import { ColourSheet } from '../../../website/editor/_components/colour-well';
@@ -26,15 +38,18 @@ type ColourKind = (typeof COLOUR_KINDS)[number];
 const COLOUR_NAME: Readonly<Record<ColourKind, string>> = { color: 'Plain', diagonal: 'Diagonal', glow: 'Glow', glass: 'Opaque', frost: 'Frosted' };
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
-/** The one line under the upload: a clip is kept and counted, never worn on the cover while it cannot play for guests. */
-export const COVER_SCENE_CLIP_LINE = 'Videos are kept in your media — they don’t play for guests on the cover yet.';
 
 /**
  * 🖼 THE COVER SCENE'S BACKGROUND, IN THE TOOLBAR'S FOUR ROWS — the thin adapter the approved prototype names
  * (`cover-words-background.tsx`): it hands the group's saves to the UNCHANGED `StageBackground`, as
  * `scene-background-row.tsx` does for a scene. Sources: The theme's own (nothing stored — the written card) ·
- * Colour (free) · Scene ◆ (Setnayan's own loops — they play for guests) · Upload ◆ (the couple's photos). ◆ never
- * blocks the trying: Apply names it ("Unlock Pro and Apply").
+ * Colour (free) · Scene ◆ (Setnayan's own loops — they play for guests) · Upload ◆ (the couple's photos, and — owner
+ * 2026-10-16 — their own ≤ 15 s muted clip, which plays for guests on the event's own page). ◆ never blocks the
+ * trying: Apply names it ("Unlock Pro and Apply").
+ *
+ * 📤 AN UPLOAD LEADS STRAIGHT ON — the stage's own pattern (`scene-background-row.tsx`), copied: the file is read
+ * the moment it is picked (a clip's still grabbed and uploaded beside it), and when the upload lands its ref becomes
+ * the cover's background at once, the sheet closes on the Upload row with the new card ringed, and ✓ Apply counts it.
  *
  * 💾 One save of the hero row's canvas (`widgets.hero.canvas.ground`) through the shipped draft action — to the
  * DRAFT, live at Apply. The canvas redraws itself in place once it lands (`makerRedrawSave`).
@@ -46,6 +61,8 @@ export function CoverSceneGroundRows({
   themeColours,
   board,
   photoChoices = [],
+  videoChoice = null,
+  sceneUploads = [],
   mediaUsedBytes,
   mediaCapBytes,
   proHref,
@@ -60,6 +77,10 @@ export function CoverSceneGroundRows({
   themeColours: readonly string[];
   board?: readonly string[];
   photoChoices?: readonly { ref: string; url: string }[];
+  /** The event's one video (the hero clip) and its still — offered as a card, as on a stage's Upload. */
+  videoChoice?: { ref: string; url: string; poster?: string | null } | null;
+  /** Photos and clips the event already wears from its own upload folder (a scene's, or this cover's), signed. */
+  sceneUploads?: readonly SceneUpload[];
   mediaUsedBytes?: number;
   /** The PLAN's allowance for this event — `coupleMediaCapBytes(ownsPro)`, worked out by the caller from the real Pro
    *  gate (Free 10 MB · Pro 500 MB). A number, not the Pro flag: this panel draws no Pro control of its own. Required,
@@ -79,8 +100,12 @@ export function CoverSceneGroundRows({
     setShown(canvas);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasJson]);
-  const [uploaded, setUploaded] = useState<{ ref: string; url: string }[]>([]);
-  const [clipKept, setClipKept] = useState(false);
+  /* 📤 What was uploaded HERE, this visit — shown from the file itself until the save's refresh brings the signed one. */
+  const [justUploaded, setJustUploaded] = useState<SceneUpload[]>([]);
+  /** Each upload that became the cover's background — it closes the Upload sheet (`StageBackground`). */
+  const [uploadDone, setUploadDone] = useState(0);
+  const [reading, setReading] = useState(false);
+  const takesClips = coverSceneTakesClips();
   const ground = shown.ground ?? null;
   const stored = coverGroundSource(ground);
   const [view, setView] = useState<CoverSceneSource | null>(null);
@@ -135,7 +160,16 @@ export function CoverSceneGroundRows({
     return { key: k, name, picture: { background: tint }, ...tileNameOnFlat(tint) };
   };
   const loops = hubMovingBackgroundIds();
-  const photos = [...uploaded.filter((u) => !photoChoices.some((p) => p.ref === u.ref)), ...photoChoices];
+  const uploads: SceneUpload[] = [...justUploaded.filter((u) => !sceneUploads.some((s) => s.ref === u.ref)), ...sceneUploads];
+  const photos = [...uploads.filter((u) => u.kind === 'photo' && !photoChoices.some((p) => p.ref === u.ref)), ...photoChoices];
+  /* 🎞 The couple's clips — the hero clip and their own uploads — each a card beside "Your photo" (the stage's rule). */
+  const posterOf = (ref: string | null | undefined) => (ref ? (photoChoices.find((p) => p.ref === ref)?.url ?? null) : null);
+  const clips: { ref: string; poster: string | null; posterUrl: string | null }[] = takesClips
+    ? [
+        ...(videoChoice ? [{ ref: videoChoice.ref, poster: videoChoice.poster ?? null, posterUrl: posterOf(videoChoice.poster) }] : []),
+        ...uploads.filter((u) => u.kind === 'snippet' && u.ref !== videoChoice?.ref).map((u) => ({ ref: u.ref, poster: u.poster ?? null, posterUrl: u.posterUrl ?? null })),
+      ]
+    : [];
   const picture = (url: string | null) => (url ? { backgroundImage: `url("${url.replace(/"/g, '%22')}")`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: '#3a382f' });
   const tiles: StageBgTile[] =
     source === 'colour'
@@ -143,19 +177,56 @@ export function CoverSceneGroundRows({
       : source === 'scene'
         ? loops.map((id) => ({ key: id, name: INVITE_THEMES[id].name, moving: true, picture: picture(loopPosters[id] ?? null), ...tileNameOnPhoto(null) }))
         : source === 'own'
-          ? photos.map((p) => ({ key: p.ref, name: 'Your photo', picture: picture(p.url), ...tileNameOnPhoto(null) }))
+          ? [
+              ...clips.map((c) => ({ key: c.ref, name: coverClipCardName(c.ref, clips.length), moving: true, picture: picture(c.posterUrl), ...tileNameOnPhoto(null) })),
+              ...photos.map((p) => ({ key: p.ref, name: 'Your photo', picture: picture(p.url), ...tileNameOnPhoto(null) })),
+            ]
           : [];
-  const tile = !worn || !ground ? null : ground.kind === 'loop' ? ground.loop : ground.kind === 'photo' ? ground.media : ground.kind === 'snippet' ? null : ground.kind;
+  const tile = !worn || !ground ? null : ground.kind === 'loop' ? ground.loop : ground.kind === 'photo' || ground.kind === 'snippet' ? ground.media : ground.kind;
   const colourOn = worn && ground && (ground.kind === 'color' || ground.kind === 'diagonal' || ground.kind === 'glow' || ground.kind === 'glass' || ground.kind === 'frost');
   const glass = worn && ground && (ground.kind === 'glass' || ground.kind === 'frost') ? ground : null;
   const shaded = worn && ground && ground.kind !== 'glass' && ground.kind !== 'frost';
 
-  const kindRef = useRef<'clip' | { url: string } | null>(null);
+  /* 📤 UPLOAD IN PLACE — read the moment it is picked: a photo shows from the file itself, a clip has its still grabbed
+     and uploaded beside it (`extractPosterFrame` + `uploadStill`, the stage's own pair). */
+  const picked = useRef<Promise<{ kind: 'photo' | 'snippet'; local: string; poster: string | null; posterUrl: string | null }> | null>(null);
+  const onFilePicked = (file: File) => {
+    setError(null);
+    const kind = file.type.startsWith('video/') ? ('snippet' as const) : ('photo' as const);
+    const local = URL.createObjectURL(file);
+    if (kind === 'photo') {
+      picked.current = Promise.resolve({ kind, local, poster: null, posterUrl: null });
+      return;
+    }
+    setReading(true);
+    picked.current = (async () => {
+      try {
+        const still = await extractPosterFrame(file);
+        const poster = still ? await uploadStill(still, eventId, SCENE_BACKGROUND_FOLDER) : null;
+        return { kind, local, poster, posterUrl: still && poster ? URL.createObjectURL(still) : null };
+      } catch {
+        return { kind, local, poster: null, posterUrl: null };
+      } finally {
+        setReading(false);
+      }
+    })();
+  };
+  /* …and the upload's ref becomes the cover's background at once — a clip as a clip, never thrown away. */
+  const onUploaded = async (value: string | string[] | null) => {
+    const ref = typeof value === 'string' ? value : null;
+    const file = await picked.current;
+    picked.current = null;
+    if (!ref || !file) return;
+    setJustUploaded((was) => [{ ref, url: file.local, kind: file.kind, poster: file.poster, posterUrl: file.posterUrl }, ...was]);
+    put(file.kind === 'snippet' ? { kind: 'snippet', media: ref, ...(file.poster ? { poster: file.poster } : {}) } : { kind: 'photo', media: ref });
+    setUploadDone((n) => n + 1);
+  };
+  const durationOk = makeMakerVideoDurationValidator();
   const upload = (
     <div className="py-2.5" data-cover-scene-upload="">
       <FileUpload
         bucket="media"
-      refusalLink={coupleMediaRefusalLink(proHref)}
+        refusalLink={coupleMediaRefusalLink(proHref)}
         pathPrefix={sceneBackgroundPathPrefix(eventId)}
         multiple={false}
         maxSizeMB={100}
@@ -165,26 +236,19 @@ export function CoverSceneGroundRows({
         videoCompressProfile="maker"
         videoSilent
         maxVideoDurationS={MAKER_MAX_CLIP_SECONDS}
-        validateFile={makeMakerVideoDurationValidator()}
-        onFilePicked={(file) => {
-          kindRef.current = file.type.startsWith('video/') ? 'clip' : { url: URL.createObjectURL(file) };
-        }}
-        onChange={(value) => {
-          const ref = typeof value === 'string' ? value : null;
-          const kind = kindRef.current;
-          kindRef.current = null;
-          if (!ref || !kind) return;
-          /* 🔒 A clip is kept and counted, never worn on the cover while the hero clip may not reach guests. */
-          if (kind === 'clip') return setClipKept(true);
-          setUploaded((was) => [{ ref, url: kind.url }, ...was]);
-          put({ kind: 'photo', media: ref });
-        }}
+        /* 🔒 A video the cover cannot wear is refused HERE, before a byte is sent (`coverSceneUploadRefusal`); one it
+           can is held to the 15 s rule (`MAKER_MAX_CLIP_SECONDS`, said in place). */
+        validateFile={async (file) => coverSceneUploadRefusal(file.type) ?? durationOk(file)}
+        onFilePicked={onFilePicked}
+        onChange={onUploaded}
         disabled={pending}
-        label="Upload a photo"
+        label={coverSceneUploadLabel()}
       />
-      <p className="pt-1 text-[12px] text-ink/60" data-cover-scene-clip-line="" role={clipKept ? 'status' : undefined}>
-        {COVER_SCENE_CLIP_LINE}
-      </p>
+      {reading ? (
+        <p role="status" className="pt-1 text-[12px] text-ink/60" data-cover-scene-reading="">
+          Reading your clip…
+        </p>
+      ) : null}
       {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={mediaCapBytes} proHref={proHref} className="pt-2" /> : null}
     </div>
   );
@@ -213,10 +277,12 @@ export function CoverSceneGroundRows({
             const id = loops.find((l) => l === key);
             return id ? put({ kind: 'loop', loop: id }) : undefined;
           }
-          put({ kind: 'photo', media: key });
+          const clip = clips.find((c) => c.ref === key);
+          put(clip ? { kind: 'snippet', media: key, ...(clip.poster ? { poster: clip.poster } : {}) } : { kind: 'photo', media: key });
         }}
         onUpload={source === 'own'}
         upload={upload}
+        uploadDone={uploadDone}
         colour={colourOn ? tint : null}
         customColour={(close) => (
           <ColourSheet
@@ -241,9 +307,10 @@ export function CoverSceneGroundRows({
             : null
         }
         shade={shaded ? { at: sceneShadeAt(ground!.shade), onMove: () => {}, onKeep: (n) => putKeys({ shade: sceneShadeOf(n) as HubCoverGround['shade'] }) } : null}
-        /* Framed | Full width — the whole first screen tall either way (owner 2026-10-15). */
-        shape={worn && ground ? coverGroundShape(ground) : null}
-        onShape={(k) => putKeys({ shape: k === 'full' ? 'full' : undefined })}
+        /* No Framed | Full width: the Cover Scene is ALWAYS full screen, edge to edge (owner 2026-10-16, DECISION_LOG
+           "THE COVER SCENE IS ALWAYS FULL SCREEN" — superseding 2026-10-15). A stored shape is ignored (`coverGroundShape`). */
+        shape={null}
+        onShape={() => {}}
         motion={worn && ground?.kind === 'photo' ? (ground.motion ?? 'still') : null}
         onMotion={(k) => putKeys({ motion: k === 'parallax' ? 'parallax' : undefined } as Partial<HubCoverGround>)}
       />

@@ -124,6 +124,11 @@ test('(1) four rows, rendered: the source, its choices in one row, the choice’
   assert.deepEqual([...photo.matchAll(/data-seg="([a-z]+)"/g)].map((m) => m[1]), ['framed', 'full', 'still', 'parallax']);
   /* A clip has no Still | Parallax. */
   assert.deepEqual([...draw({ source: 'own', tiles: [], shade: { at: 0, onMove: () => {}, onKeep: () => {} }, shape: 'framed', motion: null }).matchAll(/data-seg="([a-z]+)"/g)].map((m) => m[1]), ['framed', 'full']);
+  /* 🖼 THE COVER SCENE has no Width (always full screen — owner 2026-10-16, "just for the cover scene"): `shape: null`
+     drops Framed | Full width ONLY, and its photo keeps Still | Parallax in row 4. A scene's Width (above) is unchanged. */
+  const cover = draw({ source: 'own', tiles: [], shade: { at: 0, onMove: () => {}, onKeep: () => {} }, shape: null, motion: 'still' });
+  assert.deepEqual([...cover.matchAll(/data-seg="([a-z]+)"/g)].map((m) => m[1]), ['still', 'parallax'], 'the cover lost its photo’s movement, or kept a Width');
+  assert.deepEqual(ROW(draw({ source: 'own', tiles: [], shape: null, motion: null })), ['1:source', '2:choices'], 'a part with no shape and no movement drew an empty row 4');
   /* UPLOAD: its first tile is "＋ Upload" (it opens the in-place upload), then the couple's own. */
   const own = draw({ source: 'own', onUpload: true, tiles: [{ key: 'r2://x', name: 'Your photo', picture: {} }] });
   assert.deepEqual([...own.matchAll(/data-stage-bg-tile="([^"]+)"/g)].map((m) => m[1]), ['upload', 'r2://x']);

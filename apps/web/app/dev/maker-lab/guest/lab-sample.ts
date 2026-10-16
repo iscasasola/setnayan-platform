@@ -67,13 +67,25 @@ const ROWS: Row[] = [
   ['fg', null, 'Sofia', 'Reyes', 'flower_girl', 17, 0],
 ];
 
+/**
+ * 🧍 `?entourage=` — the sample plus two more people who walk ALONE, so every kind of group holds a lone person
+ * (owner 2026-10-17, DECISION_LOG "A LONE PERSON IN THE ENTOURAGE / WEDDING MARCH / STANDING WITH US IS CENTRED"):
+ * a Ninang with no Ninong is already in the sample (ps13, a sided group), the Ring Bearer and the Flower Girl walk
+ * alone in groups of one role; these add a lone Coin sponsor (a by-role group) and a lone Bridesmaid (a group whose
+ * two columns are two roles). Every name is a stand-in.
+ */
+const LONE_ROWS: Row[] = [
+  ['cn1', 'Mr.', 'Ramon', 'Ilagan', 'coin_sponsor', 18, 0],
+  ['bmaid3', 'Ms.', 'Lea', 'Navarro', 'bridesmaid', 19, 0],
+];
+
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */
-export function labEntourage(cast: 'sample' | 'standin' = 'sample') {
+export function labEntourage(cast: 'sample' | 'standin' | 'lone' = 'sample') {
   /* 👫 A `lab_cast=standin` cookie: the owner's REAL entourage in shape (85 rows — roles, walks, 21 Ninongs to 17
      Ninangs), every name a stand-in (`lib/the-entourage-second-column-is-the-partner.cast.json`) — what the
      2026-10-15 entourage styles were drawn and walked on. */
   if (cast === 'standin') return buildEntourage(STAND_IN_CAST, null, null, DEFAULT_NAME_STYLE);
-  const rows: EntourageGuestRow[] = ROWS.map(([id, prefix, first, last, role, walk, place]) => ({
+  const rows: EntourageGuestRow[] = (cast === 'lone' ? [...ROWS, ...LONE_ROWS] : ROWS).map(([id, prefix, first, last, role, walk, place]) => ({
     guest_id: id,
     name_prefix: prefix,
     first_name: first,

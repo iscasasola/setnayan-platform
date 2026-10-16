@@ -283,6 +283,22 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </main>
     );
   }
+  /* 🧍 `?entourage=<style>` (default · roll-call · lines · march) — the REAL `EntourageSection` on the lone-person cast
+     (`labEntourage('lone')`: a lone Ninang, Coin sponsor, Bridesmaid, Ring Bearer and Flower Girl beside the pairs),
+     in a phone column; `&art=candlelight` draws it on the dark Look. Stand-in names only. */
+  if (typeof sp.entourage === 'string') {
+    const style = sp.entourage === 'default' ? null : sp.entourage;
+    return (
+      <main
+        className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[480px] bg-cream px-4 py-10 text-ink"
+        data-art={sp.art === 'candlelight' ? 'candlelight' : undefined}
+        data-lab-entourage={sp.entourage}
+      >
+        <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+        <EntourageSection groups={labEntourage('lone')} id="site-entourage" sceneStyle={style} />
+      </main>
+    );
+  }
   const rsvp = typeof sp.rsvp === 'string' ? sp.rsvp : null;
   /* 🎉 `?play=<pick>` plays the When yes celebration as a guest who just said
      yes (`&freeze=<s>` holds one still frame for a screenshot); without it the

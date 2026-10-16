@@ -11,6 +11,7 @@ import {
   WifiOff,
   Waypoints,
   ShieldAlert,
+  Timer,
 } from 'lucide-react';
 import {
   GridPageSkeleton,
@@ -28,6 +29,7 @@ import { ConnectionLogsSurface } from './_surfaces/connection-logs-surface';
 import { OfflineSurface } from './_surfaces/offline-surface';
 import { InterconnectionsSurface } from './_surfaces/interconnections-surface';
 import { BrowserBlocksSurface } from './_surfaces/browser-blocks-surface';
+import { SlowLoadsSurface } from './_surfaces/slow-loads-surface';
 
 /**
  * Insights Studio — the tabbed /admin/app-performance shell that consolidates
@@ -38,7 +40,8 @@ import { BrowserBlocksSurface } from './_surfaces/browser-blocks-surface';
  * every one a read-only analytics readout, so there's no mutation risk in
  * tabbing them together. (Interconnections joined 2026-07-31: same read-only
  * shape, reporting on the joints BETWEEN subsystems rather than on any one of
- * them.) Each tab's body was re-homed byte-identical into ./_surfaces/*;
+ * them.) Slow loads joined 2026-10-16: the load-time log — how long real
+ * people wait for each page, against each page's target. Each tab's body was re-homed byte-identical into ./_surfaces/*;
  * the seven non-cockpit legacy routes now redirect in, forwarding their query
  * params. The App Performance menu parent already lands here, so the parent =
  * the Overview tab.
@@ -67,6 +70,7 @@ const TABS = [
   'offline',
   'interconnections',
   'browser-blocks',
+  'slow-loads',
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -91,6 +95,7 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof Activity }[] = [
   { key: 'offline', label: 'Offline daemon', icon: WifiOff },
   { key: 'interconnections', label: 'Interconnections', icon: Waypoints },
   { key: 'browser-blocks', label: 'Browser blocks', icon: ShieldAlert },
+  { key: 'slow-loads', label: 'Slow loads', icon: Timer },
 ];
 
 // Per-tab <title> — restores what each standalone route used to set.
@@ -105,6 +110,7 @@ const TAB_TITLE: Record<Tab, string> = {
   offline: 'Offline daemon',
   interconnections: 'Interconnections',
   'browser-blocks': 'Browser blocks',
+  'slow-loads': 'Slow loads',
 };
 
 // Per-tab loading skeleton — the same shape each tab shipped as its own
@@ -116,6 +122,7 @@ function tabSkeleton(tab: Tab): ReactNode {
     case 'operations':
     case 'connection-logs':
     case 'interconnections':
+    case 'slow-loads':
       return <TablePageSkeleton />;
     case 'offline':
       return <ListPageSkeleton />;
@@ -180,6 +187,8 @@ function activeSurface(
       return <InterconnectionsSurface />;
     case 'browser-blocks':
       return <BrowserBlocksSurface />;
+    case 'slow-loads':
+      return <SlowLoadsSurface targetNotice={first(search.target)} />;
     default:
       return (
         <CockpitSurface

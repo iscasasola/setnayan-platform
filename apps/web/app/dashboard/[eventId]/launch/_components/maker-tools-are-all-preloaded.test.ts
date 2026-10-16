@@ -45,6 +45,7 @@ const LAYOUTS = ['app/layout.tsx', 'app/dashboard/layout.tsx', 'app/dashboard/[e
 const NOT_A_TOOL: Record<string, string> = {
   '@sentry/nextjs': 'error reporting — loaded at idle by its own path (deferred-observability), not a panel',
   'lib/telemetry/fault-observer.ts': 'the Problems observer — installed at idle by deferred-observability on every page, nothing a person taps opens it; not a panel',
+  'lib/telemetry/load-reporter.ts': 'the load-time log (2026-10-16) — installed at idle by deferred-observability on every page, beside the Problems observer; nothing a person taps opens it; not a panel',
   'posthog-js': 'analytics — only after cookie consent, never preloaded',
   'lib/maker-undo-run.ts': 'the ↺ that draws its own undo (2026-10-13, `rd/maker-undo-instant`) — not a panel: the draft bar warms it itself at idle the moment the first drawable step is noted (`onFirstUndoStep`), so a Maker visit with no edit never fetches it and the first ↺ never waits for it',
   'app/dashboard/[eventId]/website/hub-draft-actions.ts': 'the Event Hub draft\'s ONE server action (a reference, not a panel), reached by the Wedding March at its first drop (2026-10-06, the march waits for Apply) so opening the march reaches for no server door — and already in hand by then: `details-your-event.tsx`, warmed by the preloaded Details tool (`details-lazy`), imports it statically',

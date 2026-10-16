@@ -178,8 +178,9 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
          🚫 Two sides (`two-sides`) is WITHDRAWN (same day: *"two sides feels messy. the counter column must have
          significance to the first column."*) — it put a Ninong beside an unrelated name. A saved `two-sides`
          is no longer drawn anywhere, so the resolver reads it as the default. In every two-column style the
-         right cell is the left cell's PARTNER, from the existing pairing (`buildEntourage`), or blank. */
-      { id: 'roll-call', name: 'On the axis', line: 'Each pair meets at the centre; a single keeps his side.', stages: INV_DAY },
+         right cell is the left cell's PARTNER, from the existing pairing (`buildEntourage`); anyone alone is centred
+         across both columns (owner 2026-10-17, DECISION_LOG "A LONE PERSON … IS CENTRED"). */
+      { id: 'roll-call', name: 'On the axis', line: 'Each pair meets at the centre; anyone alone is centred.', stages: INV_DAY },
       { id: 'lines', name: 'Lines', line: 'Pairs in two columns; anyone alone centred with their role.', stages: INV_DAY },
       { id: 'march', name: 'The march', line: 'Numbered, in walking order, each role under its names.', stages: INV_DAY },
     ],

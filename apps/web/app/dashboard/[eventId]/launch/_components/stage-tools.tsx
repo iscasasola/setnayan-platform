@@ -110,7 +110,7 @@ import { PostEventShown } from './stage-panel/post-event-shown';
 import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
-import { filedOnCanvas, firstMarkerOnPage, makerStagesPages } from '@/lib/maker-stage-filing';
+import { filedOnCanvas, makerStagesPages } from '@/lib/maker-stage-filing';
 
 /**
  * 🎬 THE STAGES TOOLBAR — the new Maker's bottom bar on the Stages side, on a phone (owner 2026-10-09, the approved
@@ -1252,12 +1252,7 @@ export function StageTools({
    *  the rest have none. Grey, and a tap says the tool's own line. */
   /* …and on the stages, a fixed part whose Style is its scene's looks with fewer than two to choose from HERE
      (`partStyleIsEmptyOn` — E-Gifts on Save the Date): the same answer, asked of the stage the part is on. */
-  const emptyHere = (t: MakerPartTool) =>
-    t === 'style' &&
-    (rsvpOpen
-      ? !rsvpStyleHasRows(picked, rsvpLine)
-      : /* 🎭 The Cover Scene's Style is its Opening — none where no opening leads the page (Post Event). */
-        (picked === MAKER_COVER_SCENE && revealStage === null) || partStyleIsEmptyOn(stage, picked ? makerPartCanvasOn(stageKey, picked) : null));
+  const emptyHere = (t: MakerPartTool) => t === 'style' && (rsvpOpen ? !rsvpStyleHasRows(picked, rsvpLine) : partStyleIsEmptyOn(stage, picked ? makerPartCanvasOn(stageKey, picked) : null));
   const toolWorks = (t: MakerPartTool) => !picked || ownTool(t) || ((t === 'edit' || t === 'style' || !styleOnly) && makerPartToolWorks(picked, t) && !emptyHere(t));
   /** The tool the rows are showing: the remembered one, or the first that has something here (Edit; Style on the Camera). */
   const shownTool: MakerPartTool = toolWorks(tool) ? tool : (MAKER_PART_TOOLS.find(toolWorks) ?? 'style');
@@ -1535,7 +1530,9 @@ export function StageTools({
       data-stage-open={open ? '' : undefined}
       data-stage-edit-own={rsvpLineTypes && shownTool === 'edit' ? '' : undefined}
       data-stage-edit-card={rsvpCardEdits && shownTool === 'edit' ? '' : undefined}
-      data-stage-own-rows={blockRows || blockGround || coverStyle || coverAnimate ? '' : undefined}
+      data-stage-own-rows={blockRows || blockGround ? '' : undefined}
+      /* 🎭 🎬 …and the Cover Scene's Opening and its one entrance: rows of this toolbar's own too. */
+      data-stage-cover-rows={coverStyle || coverAnimate ? '' : undefined}
       data-stage-tool-now={shownTool}
       data-stage-row4={lookOn ? '' : undefined}
       aria-hidden={away || undefined}
@@ -1570,6 +1567,7 @@ export function StageTools({
           /* 🧱 …and the other way round: a fixed block's Animate is drawn HERE, in the toolbar's own rows
              (`BlockAnimateRows`), so the work area's tool stands aside for it as it does for Edit. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-own-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
+          '[data-maker-shell]:has([data-stage-tools][data-stage-cover-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* …and while the toolbar itself is AWAY (▶ playing, the whole-page preview, typing): the work area's tool lay
              over the four rows, so it goes with them — seen on the review copy, 2026-10-09: it stayed on the page under
              a toolbar that had gone, and covered "Exit preview". */

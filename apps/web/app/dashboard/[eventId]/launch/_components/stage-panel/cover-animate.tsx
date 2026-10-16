@@ -94,7 +94,13 @@ export function CoverAnimate({ words, onSay }: { words: readonly CoverWord[]; on
     const next = change({ ...canvas });
     setCanvas(next);
     start(async () => {
-      if (!(await keepHero(() => next))) {
+      let ok = false;
+      try {
+        ok = await keepHero(() => next);
+      } catch {
+        ok = false;
+      }
+      if (!ok) {
         setCanvas(was);
         onSay(NOT_SAVED);
       }

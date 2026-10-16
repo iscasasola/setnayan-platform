@@ -149,7 +149,7 @@ test('(2) four tools — Edit | Style | Background | Animate — words only, eac
     /* 🖼 (The Cover Scene — the group of the cover's words — has Edit (its lines) and Background: owner-approved
        2026-10-15 and 2026-10-16; its Style (the Opening) and Animate (one entrance) follow.) */
     if (k === 'coverscene') {
-      assert.deepEqual(MAKER_PART_TOOLS.filter((t) => makerPartToolWorks(k, t)), ['edit', 'bg'], 'the Cover Scene has Edit and Background');
+      assert.deepEqual(MAKER_PART_TOOLS.filter((t) => makerPartToolWorks(k, t)), [...MAKER_PART_TOOLS], 'the Cover Scene has all four tools');
       bg += 1;
       continue;
     }

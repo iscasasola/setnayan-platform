@@ -328,7 +328,7 @@ test('(7) nothing else writes — the callers’ Movement goes through the feel,
      loads through `details-lazy.tsx` (the `maker-details` chunk) — checked on the next lines, not assumed. */
   /* …and a fifth, 2026-10-10: a fixed block's own Animate (`stage-panel/block-animate.tsx`) — reached only through
      `details-lazy.tsx`'s dynamic import, checked below. */
-  assert.deepEqual(users.sort(), [`${L}/rsvp-line-look.tsx`, `${L}/stage-panel/block-animate.tsx`, `${L}/stage-panel/stage-animate.tsx`, `${E}/element-sheet.tsx`, `${E}/scene-animate-tab.tsx`].sort(), 'the feel is imported by a file that may load first');
+  assert.deepEqual(users.sort(), [`${L}/rsvp-line-look.tsx`, `${L}/stage-panel/block-animate.tsx`, `${L}/stage-panel/stage-animate.tsx`, `${L}/stage-panel/cover-animate.tsx`, `${E}/element-sheet.tsx`, `${E}/scene-animate-tab.tsx`].sort(), 'the feel is imported by a file that may load first');
   const importers: string[] = [];
   const whoImports = (dir: string) => {
     for (const e of readdirSync(join(WEB, dir), { withFileTypes: true })) {

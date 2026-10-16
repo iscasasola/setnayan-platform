@@ -59,14 +59,16 @@ test('the Reveal part writes ITS stage, through the one helper, to the draft', (
   assert.match(save, /hubDraftAction\(eventId, fd\)/);
 });
 
-test('the Reveal is the FIRST part of Save the Date, Invitation › Welcome and The Day › Live — nowhere else', () => {
-  assert.equal(MAKER_STAGE_PAGES.save_the_date.home![0], 'reveal');
-  assert.equal(MAKER_STAGE_PAGES.rsvp.home![0], 'reveal');
-  assert.equal(MAKER_STAGE_PAGES.event.live![0], 'reveal');
+test('the opening is the Cover Scene’s — on Save the Date, Invitation › Welcome and The Day › Live; no Reveal tile anywhere', () => {
+  /* 🎭 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN … STYLE (OPENING)"): the Reveal's tile is gone; the opening is
+     Cover Scene › Style on exactly the pages it played over. */
+  for (const parts of [MAKER_STAGE_PAGES.save_the_date.home!, MAKER_STAGE_PAGES.rsvp.home!, MAKER_STAGE_PAGES.event.live!]) {
+    assert.ok(parts.includes('coverscene'), 'a page the opening plays over has no Cover Scene');
+  }
   const elsewhere = Object.entries(MAKER_STAGE_PAGES).flatMap(([st, pages]) =>
     Object.entries(pages).flatMap(([pg, parts]) => (parts.includes('reveal') ? [`${st}:${pg}`] : [])),
   );
-  assert.deepEqual(elsewhere.sort(), ['event:live', 'rsvp:home', 'save_the_date:home']);
+  assert.deepEqual(elsewhere, [], 'the Reveal’s tile is back on a page');
 });
 
 test('it plays once over the cover: off the Save the Date, the first page only', () => {

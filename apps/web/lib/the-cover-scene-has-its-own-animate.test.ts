@@ -39,7 +39,8 @@ test('(1) the Cover Scene has all four tools', () => {
   assert.match(TOOLS, /const coverStyle = open && picked === MAKER_COVER_SCENE && !rsvpOpen && shownTool === 'style' && revealStage !== null;/);
   assert.match(TOOLS, /hidden=\{!\(\(open && revealOpen && !editOn\) \|\| coverStyle\)\}[^>]*>\s*<RevealPartTools stage=\{revealStage\} \/>/, 'Style does not mount the shipped Opening picker');
   assert.match(TOOLS, /\{coverAnimate \? \(\s*<CoverAnimate/, 'Animate does not mount the cover’s one entrance');
-  assert.match(TOOLS, /data-stage-own-rows=\{blockRows \|\| blockGround \|\| coverStyle \|\| coverAnimate \? '' : undefined\}/, 'the work area’s rows are not stood aside for the group’s own');
+  assert.match(TOOLS, /data-stage-cover-rows=\{coverStyle \|\| coverAnimate \? '' : undefined\}/, 'the group’s own rows are not marked');
+  assert.match(TOOLS, /'\[data-maker-shell\]:has\(\[data-stage-tools\]\[data-stage-cover-rows\]\) \[data-phone-chrome="panel"\]\{visibility:hidden;pointer-events:none\}'/, 'the work area’s rows are not stood aside for the group’s own');
 });
 
 test('(2) the entrance reaches every word with no Build in of its own, and none that has one', () => {

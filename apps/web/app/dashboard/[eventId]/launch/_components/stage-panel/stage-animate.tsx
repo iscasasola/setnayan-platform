@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { Chips } from '@/app/_components/chips';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { PillSelector } from '@/app/_components/pill-selector';
@@ -225,14 +227,20 @@ export function StageAnimate({
           <Dd small="Band" label="The shimmer's band" data="band" value={band.value} options={band.options} onPick={band.onPick} />
         </div>
       ) : note ? (
-        <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-animate-note="">
-          <p className="min-w-0 flex-1 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70">{note}</p>
-          {noteDoor ? (
-            <button type="button" onClick={noteDoor.onPress} data-stage-note-door="" className="sn-press inline-flex h-11 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold text-[var(--sp-cta)]">
-              {noteDoor.label}
-            </button>
-          ) : null}
-        </div>
+        noteDoor ? (
+          <div className={`${SP_ROWS_ROW} row-start-3`}>
+            <p className="min-w-0 flex-1 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70" data-stage-animate-note="">
+              {note}
+            </p>
+            <span data-stage-note-door="" className="shrink-0">
+              <ActionButton tone="neutral" icon={RotateCcw} label={noteDoor.label} onClick={noteDoor.onPress} />
+            </span>
+          </div>
+        ) : (
+          <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-animate-note="">
+            {note}
+          </p>
+        )
       ) : null}
       {/* ══ ROW 4 — this phase's own feel, and what drives it (Action has neither) ══ */}
       {end ? (

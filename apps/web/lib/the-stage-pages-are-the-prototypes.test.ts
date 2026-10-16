@@ -60,6 +60,14 @@ const ADDED: Record<string, readonly string[]> = {
   'rsvp_stage/thanks': ['logo', 'names', 'heroline'],
   'rsvp_stage/decline': ['logo', 'names', 'heroline'],
 };
+/** What a LATER owner ruling took off a prototype page, and why. */
+const REMOVED: Record<string, readonly string[]> = {
+  /* 🎭 The Reveal's tile (owner-approved 2026-10-16, "THE COVER SCENE'S OWN … STYLE (OPENING)"): the opening is the Cover
+     Scene's Style now, named in the cover's corner — no tile leads the page. */
+  'save_the_date/home': ['reveal'],
+  'rsvp/home': ['reveal'],
+  'event/live': ['reveal'],
+};
 /** Pages the code has that the prototype does not — each a tab the SHIPPED guest bar draws. */
 const BAR_PAGES: Record<string, readonly string[]> = {
   save_the_date: ['story', 'me'],
@@ -82,7 +90,9 @@ test('every prototype page is a page of its stage, with the prototype’s parts 
       assert.ok(have, `${stage} › ${label} (${page}) is a page`);
       /* The prototype's parts, in order, with only the named additions between them. */
       const added = ADDED[`${stage}/${page}`] ?? [];
-      assert.deepEqual(have!.filter((k) => !added.includes(k)), [...parts], `${stage} › ${label}: the prototype's parts, in order`);
+      const removed = REMOVED[`${stage}/${page}`] ?? [];
+      assert.deepEqual(have!.filter((k) => !added.includes(k)), parts.filter((k) => !removed.includes(k)), `${stage} › ${label}: the prototype's parts, in order`);
+      for (const k of removed) assert.ok(!have!.includes(k), `${stage} › ${label}: ${k} was ruled off and is back`);
       for (const k of added) assert.ok(have!.includes(k), `${stage} › ${label}: ${k} was named as added`);
     }
     const known = new Set([...pages.map(([, p]) => p).filter(Boolean), ...(BAR_PAGES[stage] ?? [])]);

@@ -66,7 +66,14 @@ export function PahinaMasthead({
   looks = null,
   ground = null,
   waiting = null,
+  kitSlot = null,
 }: {
+  /**
+   * 🕯 THE LOOK'S ART KIT AT THE COVER (`lib/art-kits.ts`, owner 2026-10-16) — the drape pair and the araña,
+   * `<KitSlot slot="cover">`. Drawn right after the ground, as the header's own child, so the kit's stylesheet can lay
+   * it UNDER the words and over the ground. Absent → the cover byte for byte as before.
+   */
+  kitSlot?: ReactNode;
   /**
    * 👻 THE LOADING SCREEN ONLY (`invitation-skeleton.tsx`): the parts the real cover will bring in with a Build in of
    * their own — each keeps its place but is not drawn for a moment (`data-el-waits`, globals.css). Absent on the page.
@@ -153,7 +160,13 @@ export function PahinaMasthead({
     [COVER_SCENE_ATTR]: ground ? ground.shape : '',
     ...(ground ? { 'data-cover-tone': ground.tone, ...(ground.tone === 'cream' ? { style: COVER_SCENE_CREAM_VARS } : {}) } : {}),
   };
-  const coverGround = ground ? <CoverSceneGround layer={ground} /> : null;
+  const coverGround =
+    ground || kitSlot ? (
+      <>
+        {ground ? <CoverSceneGround layer={ground} /> : null}
+        {kitSlot}
+      </>
+    ) : null;
   /* py-10: where the words are taller than the screen (a short window, the Maker's canvas) they still sit INSIDE the
      Framed edge, never on its margin (walked 2026-10-15: the title sat on the 12px margin above the picture). */
   const coverBox = ground ? ' relative isolate py-10' : '';

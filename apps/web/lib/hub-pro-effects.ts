@@ -37,6 +37,7 @@ import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { ART_KIT_IS_PRO, artKitFor, decorationsOn } from '@/lib/art-kits';
 import { hubMainGround, isHubMainChoice, isHubMainFollow, isHubMainLoop, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
   canvasFacetGrows,
@@ -132,16 +133,24 @@ const GROUP_NAME: Record<CanvasFacetGroup, { what: string; tab: 'format' | 'anim
 function eventEffect(
   column: HubDraftEventColumn,
   value: unknown,
+  decorations: unknown = null,
 ): { what: string; where: string; jump: HubProEffectJump | null } {
   switch (column) {
     case 'invite_theme': {
       const id = normalizeThemeId(value);
-      return { what: 'Theme', where: id ? INVITE_THEMES[id].name : 'Your theme', jump: { kind: 'look' } };
+      /* 🕯 A look that brings an art kit says so while its Decorations are on and Pro (owner 2026-10-16: "Name it
+         'Decorations' in the Apply sheet's Pro lines") — one line, the theme's, since paying for the theme is what
+         brings them: "Theme · Vintage, with its Decorations". */
+      const withKit = id !== null && ART_KIT_IS_PRO && artKitFor(id) !== null && decorationsOn(decorations);
+      return { what: 'Theme', where: id ? `${INVITE_THEMES[id].name}${withKit ? ', with its Decorations' : ''}` : 'Your theme', jump: { kind: 'look' } };
     }
     case 'site_font_key':
       return { what: 'Typeface', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'site_art_direction':
       return { what: 'Candlelight', where: 'Whole Event Hub', jump: { kind: 'look' } };
+    // 🕯 The look's art kit (owner 2026-10-16: "Name it 'Decorations' in the Apply sheet's Pro lines").
+    case 'site_decorations':
+      return { what: 'Decorations', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'site_magic_traveller':
       return { what: 'Magic move', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'site_bg_color':
@@ -229,7 +238,11 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
     // 🚶 …and so is every Wedding March move.
     if (item.kind === 'march') continue;
     if (item.kind === 'event') {
-      const named = eventEffect(item.column, item.value);
+      const named = eventEffect(
+        item.column,
+        item.value,
+        'site_decorations' in draft.events ? draft.events.site_decorations : (live.events.site_decorations ?? null),
+      );
       push({
         id: `event:${item.column}`,
         ...named,

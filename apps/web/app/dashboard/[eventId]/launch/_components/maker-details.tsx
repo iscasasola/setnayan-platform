@@ -239,6 +239,8 @@ export type MakerDetailsProps = {
      */
     wishList?: StudioWishList;
     qrShown?: boolean;
+    /** 🕯 Look › Decorations (owner 2026-10-16): the look's art kit on or off — drawn only when `kit`. */
+    decorations?: { kit: boolean; on: boolean; ownsPro: boolean };
     main?: HubMainGround | null;
     mainColours?: string[] | null;
     mainColourDraft?: MainColourDraft;
@@ -1155,9 +1157,18 @@ export function MakerDetails(props: MakerDetailsProps) {
        (owner 2026-10-07). */
     const lookExtras: Partial<Record<LookSectionItemKey, Partial<Record<LookPart, ReactNode>>>> = {
       background: st.main !== undefined ? { background: <StudioTool part="main-extras" eventId={eventId} main={st.main ?? null} /> } : undefined,
-      elements: st.mainColours
-        ? { colours: <StudioTool part="main-colours" eventId={eventId} colours={st.mainColours} drafted={st.mainColourDraft ?? {}} /> }
-        : undefined,
+      elements:
+        st.mainColours || st.decorations?.kit
+          ? {
+              ...(st.mainColours
+                ? { colours: <StudioTool part="main-colours" eventId={eventId} colours={st.mainColours} drafted={st.mainColourDraft ?? {}} /> }
+                : {}),
+              /* 🕯 Decorations — the look's art kit, under Elements' last part (owner 2026-10-16). Only for a look that brings one. */
+              ...(st.decorations?.kit
+                ? { buttons: <StudioTool part="decorations" eventId={eventId} on={st.decorations.on} ownsPro={st.decorations.ownsPro} /> }
+                : {}),
+            }
+          : undefined,
     };
     for (const k of LOOK_SECTION_ITEM_KEYS) {
       editors[k] = (

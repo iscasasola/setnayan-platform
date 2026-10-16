@@ -24,6 +24,7 @@ import { eventPapicActive } from '@/lib/papic-seats';
 import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
+import { artKitForSaved, decorationsOn } from '@/lib/art-kits';
 import { resolveHero } from '@/lib/event-hero';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -1085,7 +1086,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
        refusal here never blanks Your Event Hub; each refusal is said, never guessed. */
     const studioMissingP = stagesStudio
       ? Promise.all([
-          supabase.from('events').select('gift_registry_url, qr_shown').eq('event_id', eventId).maybeSingle(),
+          supabase.from('events').select('gift_registry_url, qr_shown, site_decorations').eq('event_id', eventId).maybeSingle(),
           /* ✍ …and the Photos scene's row, in the SAME read (owner 2026-10-15: its heading is typed in Info). */
           printAdmin.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId).in('widget_type', ['hero', 'our_photos']),
         ])
@@ -1660,7 +1661,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             const [fieldsRes, heroRes] = missing ?? [null, null];
             if (fieldsRes?.error) logQueryError('LaunchPage.studioMissingFields', fieldsRes.error, { event_id: eventId }, 'graceful_degrade');
             if (heroRes?.error) logQueryError('LaunchPage.studioMainGround', heroRes.error, { event_id: eventId }, 'graceful_degrade');
-            const fields = fieldsRes && !fieldsRes.error ? (fieldsRes.data as { gift_registry_url?: string | null; qr_shown?: boolean | null } | null) : null;
+            const fields = fieldsRes && !fieldsRes.error ? (fieldsRes.data as { gift_registry_url?: string | null; qr_shown?: boolean | null; site_decorations?: boolean | null } | null) : null;
             /* The main background as the Maker shows it: the drafted one over live. */
             const sceneRows = heroRes && !heroRes.error ? ((heroRes.data ?? []) as Array<{ widget_type: string; config_json?: unknown }>) : null;
             const liveMain = sceneRows ? hubMainGround(sceneRows.find((r) => r.widget_type === 'hero')?.config_json) : undefined;
@@ -1711,6 +1712,16 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               /* A refused read travels as `{ read: false }` — the section says so, never "No wishes yet". */
               wishList,
               qrShown: ('qr_shown' in draftedEvents ? draftedEvents.qr_shown : fields?.qr_shown) !== false,
+              /* 🕯 Look › Decorations (owner 2026-10-16) — drawn only while the look being edited brings an art kit; the
+                 switch reads the draft over live (NULL = on, as the look brings it). Undefined = the live read failed:
+                 no switch, never a guessed "on". */
+              decorations: fields
+                ? {
+                    kit: artKitForSaved(themeSaved) !== null,
+                    on: decorationsOn('site_decorations' in draftedEvents ? draftedEvents.site_decorations : fields.site_decorations),
+                    ownsPro: printPro,
+                  }
+                : undefined,
               main: studioMain,
               mainColours: mainColoursOf(dressedRow.role_palette, dressedRow.invite_theme),
               mainColourDraft: sanitizeMainColourDraft(draftedEvents.main_colours) ?? {},

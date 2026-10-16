@@ -129,6 +129,9 @@ export type EventRow = {
   /** Pahina art direction (migration 20271003190000). 'candlelight' flips the
    *  guest site to the dark direction; absent/'daylight' = today's look. */
   site_art_direction?: 'daylight' | 'candlelight' | null;
+  /** 🕯 Studio › Look › Decorations (events.site_decorations, owner 2026-10-16): the look's art kit on or off.
+   *  NULL/TRUE = on, FALSE = off. Read it through `artKitShows` (`lib/art-kits.ts`), never raw. */
+  site_decorations?: boolean | null;
   /** The theme the couple chose on their invite door (events.invite_theme,
    *  migration 20271219583821). The SITE wears it too since 2026-09-22 — read
    *  it through `resolveHubLook`, never raw: the Pro unlock and the

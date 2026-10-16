@@ -169,6 +169,7 @@ import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
+import { decorationsChangeIsPro } from '@/lib/art-kits';
 import { boardWithMainColours, mainColoursChanged, paintedPaletteKey, sanitizeMainColourDraft, sanitizePaintedPalette } from '@/lib/main-colours';
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
@@ -376,6 +377,10 @@ export const HUB_DRAFT_LOOK_COLUMNS = [
   // (`boardIsTheCouples`). It shares its theme's fate at Apply: a held Pro
   // theme holds its colours with it (`planHubDraftApply`).
   'role_palette',
+  // 🕯 STUDIO › LOOK › DECORATIONS (owner 2026-10-16, "APPROVED — THE VINTAGE ART KIT"): the look's art kit on or
+  // off (`lib/art-kits.ts`). NULL/true = on, false = off. Priced by its VALUE (`decorationsChangeIsPro`): turning it
+  // on is Event Hub Pro while `ART_KIT_IS_PRO` holds — tried free, named "Decorations" at Apply; off is never Pro.
+  'site_decorations',
 ] as const;
 
 /**
@@ -857,6 +862,9 @@ export function sanitizeHubDraftEventValue(
       return typeof raw === 'string' && HEX6.test(raw.trim()) ? raw.trim().toLowerCase() : undefined;
     case 'site_art_direction':
       return raw === 'candlelight' || raw === 'daylight' ? raw : undefined;
+    // 🕯 Decorations — a yes or a no; anything else is dropped.
+    case 'site_decorations':
+      return typeof raw === 'boolean' ? raw : undefined;
     case 'site_font_key':
       return sanitizeHubFontKey(raw) ?? undefined;
     case 'site_magic_traveller':
@@ -1587,7 +1595,9 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     }
     case 'papic_on':
     case 'gifts_on':
-    case 'qr_shown': {
+    case 'qr_shown':
+    // 🕯 Decorations come with the look: never set and On are the same page.
+    case 'site_decorations': {
       // On until someone says No: never answered and Yes are the same event.
       const on = (v: unknown) => (v === false ? 'off' : 'on');
       return on(live) === on(next) ? refChange('same', 'same') : refChange(on(live), on(next));
@@ -1739,6 +1749,9 @@ export function eventItemIsPro(
     const id = normalizeThemeId(value);
     return id !== null && INVITE_THEMES[id].tier === 'pro';
   }
+  // 🕯 Decorations ON is Event Hub Pro while the one switch says so (`ART_KIT_IS_PRO`, owner 2026-10-16: "the accents
+  // we added should be part of pro"); turning them OFF is a removal — always free.
+  if (column === 'site_decorations') return decorationsChangeIsPro(value);
   if (column === 'site_bg_color') {
     // 🌈 A plain colour is free (owner 2026-09-24). An OMBRÉ is free too unless
     // the one switch in `lib/ombre.ts` says otherwise — then it is tried here
@@ -2842,6 +2855,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_magic_traveller: 'Magic move',
   site_button_style: 'Your buttons',
   site_roles: 'Your fonts',
+  site_decorations: 'Decorations',
   invite_theme: 'Your theme',
   role_palette: 'Your Mood Board colours',
   site_bg_music_r2_key: 'Your background music',

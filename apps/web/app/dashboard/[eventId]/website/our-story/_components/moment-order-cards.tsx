@@ -347,7 +347,7 @@ function MomentRow({
       }}
       onLeave={onEndEdit}
       /* The start of its words, quiet, under the name (gallery § 13) — as they stand while they are being typed. */
-      sub={momentFirstLine(line || m.voices?.a || m.voices?.b)}
+      sub={momentFirstLine(line)}
       /* A plain save says its words — never an invented percentage. */
       note={keeping ? 'Keeping your photos…' : m.hidden ? 'Off the Event Hub — guests do not see this moment.' : null}
       problem={problem}

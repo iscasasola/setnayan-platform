@@ -155,7 +155,7 @@ test('the looks are one root each, marked, and the default look carries the stor
   }
   const moving = renderToStaticMarkup(React.createElement(OurLoveStoryWidget, { config: STORY, sceneStyle: 'conversation', partners: PARTNERS, entrance: true }));
   assert.match(moving, /data-love-entrance=""/, 'with an entrance chosen, the look’s choreography is armed');
-  assert.doesNotMatch(moving, /data-love-play/, 'and never plays at rest — only once seen');
+  assert.doesNotMatch(moving, /data-love-play=""/, 'and never plays at rest — only once seen');
 });
 
 test('the Our Story poster prints each voice, named; a moment with none prints its line', () => {

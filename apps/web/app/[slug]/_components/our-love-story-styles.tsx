@@ -145,6 +145,9 @@ function useEntrance(entrance: boolean) {
   };
 }
 
+/** The monogram dot's initial — decoration (aria-hidden); the name beside it is the words. */
+const INITIAL_SIZE = 'text-[9.5px]'; // legibility-ok — aria-hidden initial in an 18 px dot (prototype `.who i`)
+
 /** The partner's monogram dot and first name — the voice's colour. */
 function Who({ slot, name, flip = false }: { slot: MomentVoiceSlot; name: string; flip?: boolean }) {
   if (!name) return null;
@@ -152,7 +155,7 @@ function Who({ slot, name, flip = false }: { slot: MomentVoiceSlot; name: string
   const dot = slot === 'a' ? 'bg-gild' : 'bg-ink';
   return (
     <p className={`inline-flex items-center gap-2 font-mono text-[0.65rem] uppercase tracking-[0.2em] ${tone} ${flip ? 'flex-row-reverse' : ''}`}>
-      <span aria-hidden className={`grid h-[18px] w-[18px] place-items-center rounded-full font-sans text-[9.5px] font-semibold tracking-normal text-cream ${dot}`}>
+      <span aria-hidden className={`grid h-[18px] w-[18px] place-items-center rounded-full font-sans ${INITIAL_SIZE} font-semibold tracking-normal text-cream ${dot}`}>
         {name.charAt(0).toUpperCase()}
       </span>
       {name}
@@ -290,45 +293,51 @@ export function LoveStoryTimeline({ scenes, partners, mediaUrls, entrance = fals
       <p className="pahina-eyebrow">
         <span>Our love story</span>
       </p>
-      <div className="relative grid gap-8 pb-2.5 pt-1.5">
-        <span aria-hidden data-love-fx="draw" className="absolute bottom-0 left-1/2 top-0 w-px -translate-x-1/2 bg-ink/12" />
-        {scenes.map((s) => {
+      {/* The centre line is drawn in SEGMENTS — between one moment and the next, and down between the two lanes —
+          never behind a date or a title (no fill under words: the scene may wear its own background). */}
+      <div className="grid">
+        {scenes.map((s, idx) => {
           const voices = momentVoiceLines(s, partners);
           const photo = photosOf(s, mediaUrls)[0];
           const a = voices.find((v) => v.slot === 'a');
           const b = voices.find((v) => v.slot === 'b');
           return (
-            <article key={s.id} data-love-scene={s.id} className="relative grid grid-cols-2 gap-x-[22px]">
-              <p data-love-when="" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="col-span-2 justify-self-center bg-cream px-2 py-0.5 text-center font-mono text-[0.66rem] uppercase tracking-[0.26em] text-gild">
+            <article key={s.id} data-love-scene={s.id} className="grid justify-items-center">
+              {idx > 0 ? <span aria-hidden data-love-fx="draw" className="block h-8 w-px bg-ink/15" /> : null}
+              <p data-love-when="" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="py-0.5 text-center font-mono text-[0.66rem] uppercase tracking-[0.26em] text-gild">
                 {whenOf(s)}
               </p>
               {s.title ? (
-                <h3 data-love-title="" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="col-span-2 mt-1 justify-self-center bg-cream px-1.5 text-center font-pahina text-xl leading-tight text-ink">
+                <h3 data-love-title="" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="mt-1 text-center font-pahina text-xl leading-tight text-ink">
                   {s.title}
                 </h3>
               ) : null}
               {photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo} alt="" loading="lazy" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="col-span-2 mt-2.5 aspect-[4/5] w-[150px] max-w-full justify-self-center object-cover outline outline-[5px] outline-cream" />
+                <img src={photo} alt="" loading="lazy" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="mt-2.5 aspect-[4/5] w-[150px] max-w-full object-cover" />
               ) : null}
-              {a ? (
-                <div data-love-lane="a" data-love-fx="left" style={{ '--love-at': '0.9s' } as React.CSSProperties} className="col-start-1 mt-3.5 flex min-w-0 flex-col items-end border-r-2 border-gild pr-2.5 text-right">
-                  <Who slot="a" name={a.name} flip />
-                  <Said words={a.words} long={LONG_LANE} lines={6} slot="a" alignEnd />
+              {a || b ? (
+                <div className="relative mt-3.5 grid w-full grid-cols-2 gap-x-[22px]">
+                  <span aria-hidden data-love-fx="draw" className="absolute -top-3.5 bottom-0 left-1/2 w-px -translate-x-1/2 bg-ink/15" />
+                  {a ? (
+                    <div data-love-lane="a" data-love-fx="left" style={{ '--love-at': '0.9s' } as React.CSSProperties} className="col-start-1 flex min-w-0 flex-col items-end border-r-2 border-gild pr-2.5 text-right">
+                      <Who slot="a" name={a.name} flip />
+                      <Said words={a.words} long={LONG_LANE} lines={6} slot="a" alignEnd />
+                    </div>
+                  ) : null}
+                  {b ? (
+                    <div data-love-lane="b" data-love-fx="right" style={{ '--love-at': '1.25s' } as React.CSSProperties} className="col-start-2 flex min-w-0 flex-col items-start border-l-2 border-ink pl-2.5 text-left">
+                      <Who slot="b" name={b.name} />
+                      <Said words={b.words} long={LONG_LANE} lines={6} slot="b" />
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-              {b ? (
-                <div data-love-lane="b" data-love-fx="right" style={{ '--love-at': '1.25s' } as React.CSSProperties} className="col-start-2 mt-3.5 flex min-w-0 flex-col items-start border-l-2 border-ink pl-2.5 text-left">
-                  <Who slot="b" name={b.name} />
-                  <Said words={b.words} long={LONG_LANE} lines={6} slot="b" />
-                </div>
-              ) : null}
-              {voices.length === 0 && s.line ? (
-                <p data-love-line="" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="col-span-2 mt-2 justify-self-center whitespace-pre-line bg-cream px-2.5 text-center font-pahina text-[17px] font-light italic leading-snug text-ink">
+              ) : s.line ? (
+                <p data-love-line="" data-love-fx="in" style={{ '--love-at': '0.3s' } as React.CSSProperties} className="mt-2 whitespace-pre-line px-2.5 text-center font-pahina text-[17px] font-light italic leading-snug text-ink">
                   {s.line}
                 </p>
               ) : null}
-              <p data-love-place="" hidden={!s.place} className="col-span-2 mt-1.5 justify-self-center bg-cream px-2 text-center text-sm leading-relaxed text-ink/65">
+              <p data-love-place="" hidden={!s.place} className="mt-1.5 text-center text-sm leading-relaxed text-ink/65">
                 {s.place ?? ''}
               </p>
             </article>

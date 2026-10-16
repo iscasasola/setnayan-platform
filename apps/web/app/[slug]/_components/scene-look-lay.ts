@@ -12,6 +12,8 @@
 import { SCENE_LOOK_COPY_ATTR, SCENE_LOOK_HIDDEN_ATTR } from './maker-section-find';
 
 const RULE_ATTR = 'data-maker-look-rule';
+/** The bridge's mark on a section it listens to (`editor-bridge.tsx` `bind`). */
+const STALE_BOUND_ATTR = 'data-setnayan-editor-bound';
 
 /** Lay `html` (one section) over the section after the `key` marker. True when it is on the page. */
 export function layScenePicture(doc: Document, key: string, html: string): boolean {
@@ -27,6 +29,10 @@ export function layScenePicture(doc: Document, key: string, html: string): boole
   const pic = tpl.content.firstElementChild as HTMLElement | null;
   if (!pic) return false;
   pic.querySelectorAll('script').forEach((s) => s.remove());
+  /* 👆 The copy comes from a page another bridge bound (the Style card's own frame, or this canvas for a ↺): its
+     "bound" marks are that page's, with no listener behind them here. Taken off — the bridge binds the picture
+     itself once it is laid (`bindAll`), so a tap on it selects, as on the section it stands for. */
+  for (const e of [pic, ...Array.from(pic.querySelectorAll<HTMLElement>(`[${STALE_BOUND_ATTR}]`))]) e.removeAttribute(STALE_BOUND_ATTR);
   pic.setAttribute(SCENE_LOOK_COPY_ATTR, key);
   /* what the bridge drew on the page's own parts since that card was drawn: carried over, part by part */
   const parts = new Map<string, HTMLElement[]>();

@@ -16,7 +16,7 @@ import { PALETTE_LIMITS, sanitizePaletteStyle, type PaletteKey, type RolePalette
 import { derivedBoardFor, displayColorsFor } from '@/lib/mood-board-derive';
 import { FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS, lanePartColour, type LanePart } from '@/lib/colour-access';
 import { STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder, photoTag, type StudioInspirationSlot } from '@/lib/inspiration-slots';
-import { PICK_LABEL, attireRow, firstStyleOf, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
+import { PICK_LABEL, attireRow, firstStyleOf, pickOptions, picksOf, withFirstStyle, withSecondColours, withSecondStyle, type AttireTier } from '@/lib/attire-rows';
 import { STYLE_ORDER, garmentFor, type FigureWho } from '@/lib/attire-figures';
 import { isAttireStyle } from '@/lib/role-dress-code';
 import { RoleFigure } from '@/app/_components/role-figure';
@@ -863,14 +863,16 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                         ) : null}
                       </span>
                     ) : null;
-                    /* Wear ▾ — the house dropdown (one ChosenRow); each person's fitting styles first, from the ONE vocabulary. */
+                    /* Wear ▾ — the house dropdown (one ChosenRow): ONLY this column's person's styles (`pickOptions`, owner
+                       2026-10-16 — a men's column never offers "Long gown"), from the ONE vocabulary. Its figure above
+                       follows its own pick, and nothing else's. */
                     const wearRow = dress ? (
                       <FormRows width="short" data="mood-board-wear" className={two ? '[&_[data-form-row-name]]:sr-only' : undefined}>
                         <ChosenRow
                           name="Wear"
                           label={`${pickLabel} — what to wear`}
                           value={pick.style ?? ''}
-                          options={[{ key: '', label: 'Not said yet' }, ...STYLE_ORDER[pick.who].map((k) => ({ key: k, label: props.attireStyles.find((st) => st.key === k)?.label ?? k }))]}
+                          options={[{ key: '', label: 'Not said yet' }, ...(def ? pickOptions(def, pi === 0 ? 0 : 1) : STYLE_ORDER[pick.who]).map((k) => ({ key: k, label: props.attireStyles.find((st) => st.key === k)?.label ?? k }))]}
                           onPick={(k) => (pi === 0 ? wear(row, k || null) : wearSecond(row, k || null))}
                           buttonText={pick.style ? (props.attireStyles.find((st) => st.key === pick.style)?.label ?? pick.style) : 'Not said yet'}
                           dataAttr="data-mood-board-wear"

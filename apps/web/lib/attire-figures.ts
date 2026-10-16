@@ -42,25 +42,48 @@ export type FigureGarment =
 
 export const figureIsChild = (who: FigureWho) => who === 'boy' || who === 'girl';
 
-/** Style × who → the garment drawn (the prototype's `GARMENT`). Every style is drawable for everyone. */
-export const GARMENT_FOR: Readonly<Record<FigureWho, Readonly<Record<AttireStyle, FigureGarment>>>> = {
-  f: { long_gown: 'gown', cocktail_dress: 'cocktail', filipiniana: 'terno', barong_tagalog: 'barongf', suit: 'pantsuit', formal: 'gown', smart_casual: 'midi' },
-  m: { barong_tagalog: 'barong', suit: 'suit', formal: 'tux', smart_casual: 'shirt', long_gown: 'suit', cocktail_dress: 'suit', filipiniana: 'barong' },
-  girl: { cocktail_dress: 'flowergirl', filipiniana: 'flowergirl', long_gown: 'flowergirl', formal: 'flowergirl', smart_casual: 'flowergirl', suit: 'flowergirl', barong_tagalog: 'flowergirl' },
-  boy: { barong_tagalog: 'barongb', suit: 'suitb', formal: 'suitb', smart_casual: 'suitb', filipiniana: 'barongb', long_gown: 'suitb', cocktail_dress: 'suitb' },
-};
-
-/** The style list as one Wear ▾ shows it to this person — the fitting ones first (the prototype's `ORDER`). ONE vocabulary. */
+/**
+ * 👫 EACH PERSON IS OFFERED ONLY THEIR OWN STYLES (owner 2026-10-16, on his own sponsors' Attire: *"the drawing is not
+ * following the type of attire"* — the men's column read "Long gown" and drew a suit). The 2026-10-14 prototype listed
+ * every style for everyone, "the fitting ones first", and drew a man's "Long gown" as a suit; a column that names one
+ * garment and draws another is the defect. So a person's list is the styles drawn as THEIR OWN garment:
+ *   · a woman — all seven: each has a woman's drawing (a gown · a terno · a cocktail dress · a midi · a pantsuit · a
+ *     women's barong; "Formal" is the gown);
+ *   · a man — Barong Tagalog · Suit · Formal · Smart casual (a barong · a suit · black tie · an open shirt). A gown, a
+ *     cocktail dress and a Filipiniana are never a man's;
+ *   · a girl — the dresses (the flower-girl dress); never a suit or a barong;
+ *   · a boy — the man's four (his barong · his suit).
+ * The one vocabulary stays ONE (`ATTIRE_STYLES`): every style is someone's, and none is spelled twice.
+ */
 export const STYLE_ORDER: Readonly<Record<FigureWho, readonly AttireStyle[]>> = {
   f: ['long_gown', 'filipiniana', 'cocktail_dress', 'formal', 'smart_casual', 'suit', 'barong_tagalog'],
-  m: ['barong_tagalog', 'suit', 'formal', 'smart_casual', 'filipiniana', 'long_gown', 'cocktail_dress'],
-  girl: ['cocktail_dress', 'filipiniana', 'long_gown', 'formal', 'smart_casual', 'suit', 'barong_tagalog'],
-  boy: ['barong_tagalog', 'suit', 'formal', 'smart_casual', 'filipiniana', 'long_gown', 'cocktail_dress'],
+  m: ['barong_tagalog', 'suit', 'formal', 'smart_casual'],
+  girl: ['cocktail_dress', 'filipiniana', 'long_gown', 'formal', 'smart_casual'],
+  boy: ['barong_tagalog', 'suit', 'formal', 'smart_casual'],
 };
 
-/** The garment a style is drawn as for this person — the silhouette when nothing is said. */
+/** Style × who → the garment drawn — only for that person's own styles (`STYLE_ORDER`). */
+export const GARMENT_FOR: Readonly<Record<FigureWho, Readonly<Partial<Record<AttireStyle, Exclude<FigureGarment, 'unset'>>>>>> = {
+  f: { long_gown: 'gown', cocktail_dress: 'cocktail', filipiniana: 'terno', barong_tagalog: 'barongf', suit: 'pantsuit', formal: 'gown', smart_casual: 'midi' },
+  m: { barong_tagalog: 'barong', suit: 'suit', formal: 'tux', smart_casual: 'shirt' },
+  girl: { cocktail_dress: 'flowergirl', filipiniana: 'flowergirl', long_gown: 'flowergirl', formal: 'flowergirl', smart_casual: 'flowergirl' },
+  boy: { barong_tagalog: 'barongb', suit: 'suitb', formal: 'suitb', smart_casual: 'suitb' },
+};
+
+/** Is this style one this person wears (on their Wear ▾ list)? */
+export function fitsWho(who: FigureWho, style: AttireStyle | null | undefined): style is AttireStyle {
+  return Boolean(style) && STYLE_ORDER[who].includes(style as AttireStyle);
+}
+
+/** The other person of a pair: a man's is a woman, a boy's a girl. */
+export const COUNTERPART: Readonly<Record<FigureWho, FigureWho>> = { f: 'm', m: 'f', girl: 'boy', boy: 'girl' };
+
+/**
+ * The garment a style is drawn as for this person — the silhouette when nothing is said, AND when the style is not
+ * theirs (a man is never drawn in a suit under the words "Long gown"; the column names nothing it does not draw).
+ */
 export function garmentFor(who: FigureWho, style: AttireStyle | null | undefined): FigureGarment {
-  return style ? GARMENT_FOR[who][style] : 'unset';
+  return style ? (GARMENT_FOR[who][style] ?? 'unset') : 'unset';
 }
 
 /** Each drawing: its file, its garment mask, and its size (px) — every one 280 tall, standing on the same line. */

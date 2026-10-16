@@ -15,7 +15,7 @@ import {
 import { dressCodeForEveryone, ourColoursWith, speaksToThisReader } from '@/lib/dress-code-for-everyone';
 import { ATTIRE_STYLE_LABEL, STYLE_UNSET_LINE, STYLE_UNSET_LINE_FOR_HOST, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { PICK_LABEL, attireRowOfPalette, isTwoPick, picksOf, readerAttire } from '@/lib/attire-rows';
-import { roleFigures } from '@/lib/role-figure';
+import { singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { nearestColorName } from '@/lib/color-names';
 import { roleLabel } from '@/lib/entourage';
@@ -302,10 +302,7 @@ export function DressCodeWidget({
         style: resolved.panel.style,
         hexes: resolved.panel.hexes,
         label: (st) => ATTIRE_STYLE_LABEL[st],
-        single: (role) => {
-          const people = roleFigures(role, ['#000000']);
-          return people.length === 1 ? people[0]!.kind : null;
-        },
+        single: singleWearerOf,
       })
     : null;
   const mine = resolved.panel && mineDress ? { ...resolved.panel, styleLabel: mineDress.styleLabel, hexes: mineDress.hexes } : resolved.panel;

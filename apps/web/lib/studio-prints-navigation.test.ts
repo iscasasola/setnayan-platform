@@ -175,3 +175,36 @@ test('4 · a head line names the CHOSEN size only — every format of every fami
   assert.doesNotMatch(studio, /\.join\(/, 'a head line joins a list again');
   assert.match(read(`${L}/print-paper.tsx`), /line=\{chartHeadLine\(spec\)\}/, 'the entrance chart’s head line is not the chosen size');
 });
+
+test('5 · the Event pass offers EVERY guest’s pass in the size picked on its own row — and its one file says it is a sample', async () => {
+  const { renderSettled } = await import('./render-settled.test-helper');
+  const { formatFor } = await import('./print-pieces');
+  const { PrintPieceEditor, printPlan } = await import(`../${L}/maker-prints`);
+  for (const [fmt, label] of [['calling-card', 'Calling card'], ['train', 'Train ticket'], ['boarding', 'Boarding pass']] as const) {
+    for (const [theme, pro] of [['house', false], ['abaca', true], ['abaca', false]] as const) {
+      const input = { eventId: 'E1', slug: 'rosa-ben', theme, ownsPro: pro, storeShell: false, formats: { pass: formatFor('pass', fmt)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
+      /* The all-guests file's address carries THIS row's size — Classic always, the theme's own when it prints ready. */
+      const plan = printPlan(input);
+      assert.match(plan.classic('passes'), new RegExp(`^/api/hub-print/passes\\?.*&pass_format=${fmt}$`), `the all-guests file is not in the size picked (${fmt})`);
+      assert.match(plan.q('passes', 'print'), new RegExp(`pass_format=${fmt}`));
+      const drawn = await renderSettled(React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never));
+      const every = drawn.slice(drawn.indexOf('data-print-every-guest=""'));
+      assert.ok(drawn.includes('data-print-every-guest=""'), `${theme}/${pro}: the Event pass row offers no all-guests file`);
+      assert.match(every, /Every guest’s pass[^<]*\(PDF\)/, 'the all-guests file is not named "Every guest’s pass (PDF)"');
+      assert.match(every, new RegExp(`Guests who are coming · ${label}, ganged on A4 with cut lines`), 'the all-guests line does not name the size picked');
+      assert.doesNotMatch(every, /\b\d+ guests coming\b/, 'a count is said that nothing measured');
+      const row = drawn.match(/data-print-piece-saves="pass">([\s\S]*?)<\/div>/)?.[1] ?? '';
+      assert.match(row, /Sample[^<]*\(PDF\)/, 'the Event pass’s one file is not called a sample');
+      assert.doesNotMatch(row, /Save PDF|Every guest/, 'the one-pass file and the all-guests file can be confused');
+    }
+  }
+  const src = read(`${L}/maker-prints.tsx`);
+  const block = src.slice(src.indexOf('const everyGuest ='), src.indexOf('const changed = ('));
+  assert.match(block, /href=\{classic\('passes'\)\}/, 'the all-guests file is not the shipped Classic passes file');
+  assert.match(block, /themedReady \? \(\s*<PrintSaveButton href=\{q\('passes', 'print'\)\}/, 'the themed all-guests file does not follow the Download-the-set rule');
+  /* With nobody to print, the route answers in words — never an empty file — and the button shows those words in place. */
+  const route = read('app/api/hub-print/[piece]/route.ts');
+  assert.match(route, /if \(!docs\.length\) return new NextResponse\('No guest has a ticket yet[^']*', \{ status: 409 \}\)/, 'with nobody coming, the passes route no longer refuses in words');
+  const button = read(`${L}/print-save-button.tsx`);
+  assert.match(button, /if \(!res\.ok\) \{\s*const text = \(await res\.text\(\)/, 'a refused file’s words are no longer shown in place');
+});

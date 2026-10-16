@@ -294,11 +294,19 @@ export function PrintPieceEditor({
     ) : null;
   const saves =
     menuEmpty || storyMissing ? null : studio ? (
-      /* 🧭 Studio › Prints: THE ONE ActionButton — the row's one filled step is the file that prints in the theme (or the only one). */
+      /* 🧭 Studio › Prints: THE ONE ActionButton — the row's one filled step is the file that prints in the theme (or the only one).
+         🎟 The Event pass's own file is ONE pass — a sample (owner 2026-10-16, *"i only saw a sample of the event pass"*): it says so,
+         and the filled step is every guest's pass, below (`everyGuest`). */
       <>
-        <PrintSaveButton href={classic(k)} file={file.classic(k)} variant="action" main={!themed} label={themed ? 'Save · Classic (PDF)' : 'Save PDF'} />
+        <PrintSaveButton
+          href={classic(k)}
+          file={file.classic(k)}
+          variant="action"
+          main={!themed && k !== 'pass'}
+          label={k === 'pass' ? (themed ? 'Sample · Classic (PDF)' : 'Sample (PDF)') : themed ? 'Save · Classic (PDF)' : 'Save PDF'}
+        />
         {themedReady ? (
-          <PrintSaveButton href={q(k, 'print')} file={file.themed(k)} variant="action" main label={`Save · ${t.name} (PDF)`} />
+          <PrintSaveButton href={q(k, 'print')} file={file.themed(k)} variant="action" main={k !== 'pass'} label={k === 'pass' ? `Sample · ${t.name} (PDF)` : `Save · ${t.name} (PDF)`} />
         ) : themed ? (
           <PrintSaveButton href={q(k, 'sample')} file={file.sample(k)} variant="action" label={`Sample · ${t.name} (JPG)`} />
         ) : null}
@@ -320,6 +328,31 @@ export function PrintPieceEditor({
       </>
     );
   if (studio) {
+    /* 🎟 EVERY GUEST'S PASS, IN THE SIZE PICKED ABOVE (owner 2026-10-16, *"where can i see all the event Passes for print? i only saw a
+       sample of the event pass. don't know where the print file is"*): the SAME files as Download the set's "Every guest's ticket"
+       (`passes`, ganged on A4 with cut lines, its address carrying this row's `pass_format`), the SAME rule — Classic for every event,
+       the theme's own when it prints ready. Who it holds is the route's (everyone who has not said they can't come); with nobody,
+       the route says so and the button shows its words in place — no empty file. No count is read here, so none is said. */
+    const everyGuest =
+      k === 'pass' && fam ? (
+        <div data-print-every-guest="" className="flex flex-col items-start gap-1 pb-2">
+          <div className="flex flex-wrap gap-1.5">
+            {themedReady ? (
+              <PrintSaveButton href={q('passes', 'print')} file={file.themed('passes')} variant="action" main label={`Every guest’s pass · ${t.name} (PDF)`} />
+            ) : null}
+            <PrintSaveButton
+              href={classic('passes')}
+              file={file.classic('passes')}
+              variant="action"
+              main={!themedReady}
+              label={themed ? 'Every guest’s pass · Classic (PDF)' : 'Every guest’s pass (PDF)'}
+            />
+          </div>
+          <p data-print-every-guest-line="" className="text-[12px] text-ink/60">
+            Guests who are coming · {formats[fam].label}, ganged on A4 with cut lines
+          </p>
+        </div>
+      ) : null;
     const changed = (
       <ChangedSincePrinted
         eventId={input.eventId}
@@ -371,6 +404,7 @@ export function PrintPieceEditor({
             {saves}
           </div>
         ) : null}
+        {everyGuest}
         {/* 1 · Changed since you printed — the amber status line with one quiet "Save again" (the piece's main file). */}
         {changed}
         {children}

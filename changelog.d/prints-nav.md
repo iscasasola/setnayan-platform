@@ -26,3 +26,29 @@ once · NFC in "On every print" · head lines name the chosen size), each sabota
 
 SPEC IMPACT: None — the decision row already exists (corpus DECISION_LOG 2026-10-16 "STUDIO › PRINTS GETS A PIECE
 BAR, ONE 'ON EVERY PRINT' BLOCK AND SHORT SIZE LINES").
+
+## 2026-10-16 · feat(prints): every "download all" is Event Hub Pro; one guest's pass stays free; the Event pass offers every guest's pass
+
+Owner, 2026-10-16: *"where can i see all the event Passes for print? i only saw a sample of the event pass. don't know where the
+print file is"* — then the ruling (corpus DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"):
+*"Yes — Whole set (PDF) and Every guest's pass (PDF) become Pro. Each piece's own PDF, and each guest's own pass one at a time, stay free."*
+
+- **Event pass row (Studio):** "Every guest's pass (PDF)" (the shipped `passes` file, in the size picked on the row) beside the one-pass
+  "Sample (PDF)", the line under both "<N> guests coming · <size>, ganged on A4 with cut lines" — N is the file's own count
+  (`loadPassGuestNames`, the printed passes' read and rule); unread → "Guests who are coming"; nobody → said in place, no button.
+- **One guest's pass, free:** "Pass for ▾" (the Form row's dropdown, guests who have a pass) + "Save PDF" → `/api/hub-print/pass?…&pass_guest=<id>`
+  (new: the route prints that one guest's pass; `loadGuestPasses({ onlyGuest })`).
+- **Pro, server-enforced:** `/api/hub-print` refuses `passes` and the whole `set` (not its sample sheet) to an event without Event Hub Pro —
+  `printOwnsPro`, the ticket zip route's read (an internal host's event counts) — 403 with words, before drawing (`isAllInOnePrint`).
+- **Pro, marked:** the whole set, every guest's ticket, the Printed ticket batch and the new all-guests file wear the zip's ◆ pattern in
+  Studio and the shipped Details (owned: the file, ◆ unlocked; free: the door + centred note `StudioProDoor`; store shell: absent).
+  "Save again" on the set and the ticket batch only where the file can be saved.
+
+Guards: `apps/web/lib/all-in-one-prints-are-pro.test.ts` (the route's GET called with its I/O stood in for: free refused, Pro served, one pass
+and a piece free; the ◆ marks rendered) and test 5 of `studio-prints-navigation.test.ts` — each sabotaged red. Re-aimed to the ruling:
+`studio-prints-money-is-unchanged` (golden re-recorded, reason in its `_about`), `paid-mark`, `free-themes-are-free`, `print-pieces`,
+`changed-since-you-printed`, `printed-tickets-drop-who-cannot-come`, `studio-prints-are-the-templates`, `studio-screens-follow-the-prototype`,
+`the-maker-lower-third-holds-every-tool`.
+
+SPEC IMPACT: None — the decision row already exists (corpus DECISION_LOG 2026-10-16 "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL'
+IS EVENT HUB PRO").

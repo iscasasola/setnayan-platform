@@ -48,7 +48,8 @@ const ADDED: Record<string, readonly string[]> = {
   /* 🖼 …and the Cover Scene, the group of every word on the cover (owner-approved 2026-10-15,
      `maker_cover_group_background_2026-10-14_fable.html`), first among them on every page the cover leads. */
   'save_the_date/home': ['coverscene', 'heroline', 'herolink'],
-  'rsvp/home': ['coverscene', 'heroline', 'herolink'],
+  /* 🔘 + the cover's RSVP button (owner 2026-10-16, "THE COVER: … AN RSVP BUTTON … AT THE FOOT"). */
+  'rsvp/home': ['coverscene', 'heroline', 'herolink', 'rsvpbutton'],
   'editorial/home': ['coverscene'],
   /* …the Details page's "THE DETAILS · WHEN · WHERE" block. */
   'rsvp/details': ['details'],

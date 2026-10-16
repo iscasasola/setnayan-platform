@@ -139,7 +139,7 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
   /* 📜 The Invitation is one page (owner 2026-10-15): each group also names its PAGE — the one page, `home`. */
   assert.match(html, /<article data-pahina-chapters="true" class="space-y-12"><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="space-y-12 empty:hidden">/);
   /* 🖼 …as the Cover Scene: the whole first screen (owner 2026-10-15, `lib/cover-scene.ts`). */
-  assert.match(html, /<header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-center text-center">/, 'the cover (`PahinaMasthead`) is drawn');
+  assert.match(html, /<header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-start pt-\[clamp\(36px,7svh,58px\)\] text-center">/, 'the cover (`PahinaMasthead`) is drawn — its words in the upper part (owner 2026-10-16)');
   /* The cover: the two names, the mark, the date. */
   const [first, second] = FIXTURE_WORDS.names.split(' & ');
   assert.match(html, new RegExp(`<h1[^>]*data-hub-names=""[^>]*><span class="block">${first}</span><span[^>]*>and</span><span class="block">${second}</span></h1>`));
@@ -312,9 +312,11 @@ test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, wi
      the marked first-screen wrapper with the ONE door under it, the general details — and nothing of a guest's. */
   assert.equal(count(html, '<article data-pahina-chapters="true">'), 1, 'the stranger’s article');
   assert.equal(count(html, '<article data-pahina-chapters="true" class="space-y-12">'), 0, 'this is the guest’s tree');
-  assert.match(html, /<div data-pahina-first-screen="" class="space-y-6 text-center"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-center text-center">/, 'the text-only masthead, in its marked wrapper');
+  assert.match(html, /<div data-pahina-first-screen="" class="space-y-6 text-center"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-start pt-\[clamp\(36px,7svh,58px\)\] text-center">/, 'the text-only masthead, in its marked wrapper');
   /* (2026-10-11 on main: the door's row draws no box of its own now — `sn-door-row`, `display: contents`.) */
   assert.match(html, /<\/header><div class="sn-door-row">[\s\S]{0,400}data-get-inside="/, 'the one door, right under the masthead');
+  /* The stranger's cover draws no foot (2026-10-16): its first screen is the cover and the ONE door. */
+  assert.ok(!html.includes('data-cover-foot'), 'the stranger’s cover draws the guest’s foot — a second door');
   const [first, second] = FIXTURE_WORDS.names.split(' & ');
   assert.match(html, new RegExp(`<h1[^>]*data-hub-names=""[^>]*><span class="block">${first}</span><span[^>]*>and</span><span class="block">${second}</span></h1>`));
   assert.ok(html.includes('Until we say ‘I do’') && html.includes(FIXTURE_WORDS.venue), 'the general details');
@@ -323,7 +325,7 @@ test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, wi
   const photo = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), ...PHOTO });
   assert.deepEqual(photo.complaints, []);
   /* 📜 On the one page (owner 2026-10-15) Home's mark is no longer at the top: it lands AFTER the cover and its door. */
-  assert.match(photo.html, /<article data-pahina-chapters="true"><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-center text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">/, 'the photo cover is not the last thing in the first group, with the door in the next');
+  assert.match(photo.html, /<article data-pahina-chapters="true"><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-start pt-\[clamp\(36px,7svh,58px\)\] text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">/, 'the photo cover is not the last thing in the first group, with the door in the next');
   assert.ok(photo.html.includes('fixture-hero.jpg'));
 
   /* BYTE FOR BYTE: twice the same, and the committed page (`UPDATE_GOLDEN=1` to accept an intended change). */

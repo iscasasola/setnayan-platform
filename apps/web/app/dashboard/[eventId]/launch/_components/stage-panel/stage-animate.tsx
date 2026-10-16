@@ -92,6 +92,7 @@ export function StageAnimate({
   delay = null,
   does,
   leaves = null,
+  band = null,
   pending = false,
   error = null,
   only,
@@ -131,6 +132,8 @@ export function StageAnimate({
   does: AnimateDd;
   /** Build out's Leaves ◆ — the scene's hand-off to the next one (null on the stage's last scene). */
   leaves?: AnimateDd;
+  /** ✨ Action's Band ▾ — while the part shimmers (its own colour, lighter · Gold), in row 3. */
+  band?: AnimateDd;
   pending?: boolean;
   error?: string | null;
 }) {
@@ -176,8 +179,14 @@ export function StageAnimate({
         </div>
       ) : does ? (
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-does="">
-          {/* A two-way choice → the pill selector, its thumb sliding. A stored word that is neither presses nothing. */}
-          <PillSelector label="While on screen" data="does" value={does.options.some((o) => o.key === does.value) ? does.value : null} options={does.options.map((o) => ({ key: o.key, label: o.label }))} onPick={(k) => k !== does.value && does.onPick(k)} />
+          {/* A two-way choice → the pill selector, its thumb sliding. A stored word that is neither presses nothing.
+              ✨ Three or more (a text part: Still · Drift · Shimmer — owner 2026-10-16) → ONE dropdown, the house rule
+              ("any set of choices is a dropdown"). */}
+          {does.options.length >= 3 ? (
+            <Dd small="While on screen" label="While on screen" data="does" value={does.value} options={does.options} onPick={does.onPick} />
+          ) : (
+            <PillSelector label="While on screen" data="does" value={does.options.some((o) => o.key === does.value) ? does.value : null} options={does.options.map((o) => ({ key: o.key, label: o.label }))} onPick={(k) => k !== does.value && does.onPick(k)} />
+          )}
         </div>
       ) : null}
       {/* ══ ROW 3 — only what the ON ones need, a half each ══ */}
@@ -207,6 +216,10 @@ export function StageAnimate({
               <PillSelector label={`Size ${verb}`} data={`${end}-size`} value={fx.size === 'grow' || fx.size === 'shrink' ? fx.size : null} options={SIZES} onPick={(s) => s !== fx.size && set('size', s)} />
             </span>
           ) : null}
+        </div>
+      ) : at === 'act' && band ? (
+        <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-band="">
+          <Dd small="Band" label="The shimmer's band" data="band" value={band.value} options={band.options} onPick={band.onPick} />
         </div>
       ) : note ? (
         <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-animate-note="">

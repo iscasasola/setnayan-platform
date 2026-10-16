@@ -29,6 +29,21 @@ export const COVER_SCENE_SCREEN =
 export { COVER_SCENE_ABOVE_CANVAS, COVER_SCENE_ABOVE_PAGE } from './cover-scene-screen';
 /** …the centred column every design but The Letter lays its words in. */
 export const COVER_SCENE_CENTRED = `${COVER_SCENE_SCREEN} flex flex-col justify-center`;
+/**
+ * 📐 THE WORDS IN THE UPPER PART, THE RSVP BUTTON AND THE HINT AT THE FOOT (owner 2026-10-16, DECISION_LOG "THE COVER:
+ * WORDS IN THE UPPER PART, AN RSVP BUTTON AND A 'SWIPE UP' HINT AT THE FOOT", verbatim: *"the cover sheet can focus the
+ * header on upper part of the screen and the RSVP button and swipe up to view [the event] under it"*). Every design's
+ * column now starts at the TOP under ≈ 7 % of padding (the approved prototype's `clamp(36px, 7%, 58px)`) — never
+ * centred — and the foot (`COVER_SCENE_FOOT`) is pushed to the bottom of the full screen. `COVER_SCENE_CENTRED` above is
+ * kept for the readers that still name it; no design draws it. Held by `lib/the-cover-scene-has-its-own-tools.test.ts`.
+ */
+export const COVER_SCENE_UPPER = `${COVER_SCENE_SCREEN} flex flex-col justify-start pt-[clamp(36px,7svh,58px)]`;
+/** The foot: the RSVP button and under it the "Swipe up for the event" hint, at the bottom of the full screen. */
+export const COVER_SCENE_FOOT = 'mt-auto flex w-full flex-col items-center gap-3 self-stretch pt-8 pb-[max(14px,env(safe-area-inset-bottom))]';
+/** The attribute on the foot — the guard and the Maker find it by it. */
+export const COVER_FOOT_ATTR = 'data-cover-foot';
+/** The hint's words — "the event", never "website" (owner 2026-10-04 · 2026-10-16). */
+export const COVER_SWIPE_HINT = 'Swipe up for the event';
 
 /** The attribute the cover's first screen carries — the guard and the Maker find the Cover Scene by it. */
 export const COVER_SCENE_ATTR = 'data-cover-scene';

@@ -43,6 +43,7 @@ import { submitInviteReply } from '@/app/[slug]/invite/actions';
 import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
 import { LabReplyDoor, labWindow } from './lab-reply-door';
 import { replyCardOf } from '@/lib/guest-me-parts';
+import { coverRsvpOf } from '@/lib/cover-rsvp';
 import { resolveArrivalAction } from '@/lib/arrival-action';
 import { ReplyCardRow } from '@/app/[slug]/_components/guest-me-parts';
 import { RsvpNoteLines } from '@/app/[slug]/_components/rsvp-note-lines';
@@ -418,8 +419,24 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const heroCanvas = heroCanvasOf([rowOf('hero')] as never);
   /* ✍ The cover draws the DRAFTED names, as the real canvas does — so a cover drawn for one name can be typed into. */
   const labNames = labNamesFrom((await cookies()).get(LAB_NAMES_COOKIE)?.value, LAB_SAMPLE.names);
+  /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16), on the Invitation: `&rsvpstate=going|declined|closed|not_yet` draws
+     it as that guest would meet it (the real `coverRsvpOf` on the real Reply card); none — a guest who has not replied. */
+  const rsvpState = typeof sp.rsvpstate === 'string' ? sp.rsvpstate : 'ask';
+  const labRsvp =
+    stageNow === 'rsvp'
+      ? coverRsvpOf({
+          card: replyCardOf({
+            action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: rsvpState === 'going' ? 'attending' : rsvpState === 'declined' ? 'declined' : 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true }),
+            replyBy: null,
+            seats: 1,
+            window: rsvpState === 'closed' || rsvpState === 'not_yet' ? (labWindow(rsvpState) ?? undefined) : undefined,
+            organizer: 'the couple',
+          }),
+        })
+      : null;
   const masthead = (
     <PahinaMasthead
+      rsvp={labRsvp}
       displayName={labNames}
       eventDate={LAB_SAMPLE.date}
       venueName={LAB_SAMPLE.venueLine}

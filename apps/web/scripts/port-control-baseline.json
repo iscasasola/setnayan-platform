@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7b7aac4b8",
+  "generatedFromRef": "812d45b0e",
   "routeCount": 446,
   "destinations": 990,
   "actions": 663,
-  "blocks": 6484,
+  "blocks": 6483,
   "routes": {
     "/": {
       "files": [
@@ -6295,9 +6295,9 @@
         "GuestCardBody",
         "GuestCardData",
         "GuestConfirmActions",
-        "GuestCopyMark",
         "GuestHelperAccess",
         "GuestListHasSidesContext.Provider",
+        "GuestListStatus",
         "GuestMapCanvas",
         "GuestPopup",
         "GuestRemovalActions",
@@ -6337,7 +6337,6 @@
         "K.Toggle",
         "KeptGuestList",
         "LastSeenCapture",
-        "LastSeenMark",
         "Link",
         "MapActionResult",
         "MapArrange",

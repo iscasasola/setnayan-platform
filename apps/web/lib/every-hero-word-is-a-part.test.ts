@@ -51,6 +51,8 @@ const CARD = invitationCard({
 async function hero(props: Record<string, unknown>): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { PahinaMasthead } = await import('../app/[slug]/_components/pahina-masthead');
+  /* Each cover line's veil mark (`data-cover-line`) is held by `the-veil-hides-the-cover-words.test.ts`; taken out
+     here so these assertions read the look's attributes in their own order. */
   return renderToStaticMarkup(
     React.createElement(PahinaMasthead, {
       displayName: 'Cale & Ice',
@@ -59,7 +61,7 @@ async function hero(props: Record<string, unknown>): Promise<string> {
       card: CARD,
       ...props,
     }),
-  );
+  ).replace(/ data-cover-line="[^"]*"/g, '');
 }
 
 /** The link part: its opening tag and everything inside it. */

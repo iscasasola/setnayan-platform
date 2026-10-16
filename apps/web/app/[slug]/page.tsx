@@ -136,7 +136,6 @@ import {
 } from '@/lib/hub-draft';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { HostDraftLook } from './_components/host-draft-look';
-import { resolveHubTheme } from './_lib/hub-look';
 import {
   anonymousIdentity,
   guestIdentity,

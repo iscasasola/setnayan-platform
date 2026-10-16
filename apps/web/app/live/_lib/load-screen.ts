@@ -120,7 +120,7 @@ export async function loadLiveScreen(): Promise<LoadedScreen> {
   const [{ data: eventRaw, error: eventError }, urls] = await Promise.all([
     admin
       .from('events')
-      .select(`event_id, event_date, ${HERO_MONOGRAM_COLUMNS}`)
+      .select(`event_id, event_date, ${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
       .eq('event_id', row.event_id)
       .maybeSingle(),
     readEventWatchUrls(admin, row.event_id),

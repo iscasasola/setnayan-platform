@@ -538,6 +538,7 @@ const HELD_WITHOUT_DRAWING: Record<string, string> = {
   'launch/_components/studio-wish-list.tsx › gotWish': 'The Got it switch and its row are drawn first; a refusal puts that one wish back.',
   'launch/_components/studio-wish-list.tsx › removeWish': 'The row leaves at the second tap, and comes back in its place if refused.',
   'launch/_components/studio-wish-list.tsx › finish': 'The list is already in its new order when the grip is let go; this is the one write behind it.',
+  'website/_components/hub-draft-bar.tsx › applyHeld': '✓ Apply (2026-10-15): it changes NOTHING the canvas draws — the canvas shows the draft, which is now live — so there is nothing to post; "N changes are now live" and the count come back with its own answer, and the Maker render it still owes is asked for behind it with the canvas kept (`keepCanvasForRender`, `requestMakerRefresh`).',
   'launch/_components/studio-wish-list.tsx › changeGift': 'A gift record (5/5): the record, its wish’s sum and its Got it are drawn first by the server’s own rule (`settleDrawn`); a refusal puts back that one record.',
 };
 

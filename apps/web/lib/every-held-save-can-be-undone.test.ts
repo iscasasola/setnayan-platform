@@ -32,8 +32,6 @@ export const UNDO_NOT_DRAWN: Record<string, string> = {
   'app/dashboard/[eventId]/launch/_components/studio-info.tsx › studioDraftKeep': `Studio › Info / RSVP keep (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/launch/_components/studio-info.tsx › studioPhotosHeadingKeep': `Studio › Info Photos heading keep (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/fonts-look-rows.tsx › commit': `fonts (redrawn in place) — ${PHASE_2}`,
-  'app/dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx › <jsx handler>': `a fixed part's style (redrawn in place) — ${PHASE_2}`,
-  'app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts › save': `a scene's Style variant (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts › useHeldEventsSave': `a scene's look held on the events row (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx › pickLook': `the main background's look — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx › save': `a scene background (Colour · Plain · a photo) — ${PHASE_2}`,
@@ -118,7 +116,8 @@ function scan(): { blind: Hit[]; listed: Set<string>; held: number; drawn: numbe
       const isHeld = name === 'makerRedrawSave' || holds(opts);
       if (!isHeld) return;
       held += 1;
-      if (name === 'makerSave' && handsUndo(opts, sf)) {
+      /* (2026-10-15, rd/maker-fast-edits) `makerRedrawSave` carries an inverse too (`{ undo }`, `lib/maker-scene-look.ts`). */
+      if (handsUndo(opts, sf) && (name === 'makerSave' || (opts !== undefined && ts.isObjectLiteralExpression(opts)))) {
         drawn += 1;
         return;
       }
@@ -160,6 +159,15 @@ test('G6 the phase-1 kinds hand their inverse (each named, so dropping one is re
     ['app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx', /noteSceneStep\(\{ kind: 'move'/],
     ['app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx', /noteSceneStep\(\{ kind: 'remove'/],
     ['app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx', /noteSceneStep\(added, addSaved\)/],
+    /* 🎨 (2026-10-15) a style pick and every redraw pick: the BEFORE picture laid back (`lib/maker-scene-look.ts`) —
+       the 8.7 s slow ↺ measured on the production build. `styleTap` is the one door both style rows use. */
+    ['lib/maker-scene-look.ts', /undo: scenePictureUndo\(at\.canvasKey, before, at\.canvas, at\.onUndone\)/],
+    ['app/dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx', /styleTap\(\{[\s\S]*?save: makerRedrawSave,/],
+    ['app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts', /await styleTap\(\{[^}]*save: makerRedrawSave \}\)/],
+    ['app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts', /makerRedrawSave\(send, refresh, \{ undo: scenePictureUndo\(/],
+    /* 👗🎨 the Mood Board's attire and palette picks (held since 2026-10-15) */
+    ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx', /\{ undo: boardUndo\(\(undone\) => put\(undone \? was : wrote\)\) \}/],
+    ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx', /\{ undo: boardUndo\(\(undone\) => put\(undone \? before : \(next as typeof dress\)\)\) \}/],
   ];
   for (const [f, re] of must) assert.match(fs.readFileSync(path.join(WEB, f), 'utf8'), re, `${f}: its ↺ is no longer drawn at once`);
   for (const k of Object.keys(UNDO_NOT_DRAWN)) assert.ok(!/part-look\.ts|element-sheet\.tsx|maker-rsvp-ask\.tsx/.test(k), `a phase-1 kind was listed as slow: ${k}`);

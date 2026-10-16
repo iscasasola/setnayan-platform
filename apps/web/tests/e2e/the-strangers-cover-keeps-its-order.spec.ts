@@ -16,8 +16,8 @@ import { GIVE_WAY_ORDER } from '../../app/[slug]/_lib/first-screen-fit';
  * Every unit test passed: the static renders draw no fit, and the fit's own test runs on boxes, not on a page.
  *
  * So this renders the REAL stranger's page (`SiteBody`, the fixture invitation — Maria & Jose) under the app's own
- * compiled CSS, runs the REAL `FirstScreenDoor` on it (bundled by the renderer), and measures, at 375 × 812 and
- * 390 × 844, with and without the first-visit cookie notice, with no ground and with a Full / Framed ground:
+ * compiled CSS, runs the REAL `FirstScreenDoor` on it (bundled by the renderer), and measures, at 375 × 812,
+ * 390 × 844 and 375 × 667, with and without the first-visit cookie notice, with no ground and with a Full / Framed ground:
  *   • the cover's parts stand in the order the page writes them — eyebrow · mark · names · line · date · time · link —
  *     except the ones the fit moved below "Get inside", which follow it in that same order; the names never move;
  *   • no two of them overlap (each box ≥ 2px clear of the next);
@@ -105,6 +105,10 @@ async function parts(page: Page): Promise<{ parts: Part[]; door: Part; vh: numbe
 for (const [w, h] of [
   [375, 812],
   [390, 844],
+  /* 📱 A short phone (iPhone SE / 8 — Batch 9 walk R4, 2026-10-16): with the cookie notice up the first-screen block
+     started at −24 px and the eyebrow was cut off the top — the fit's "close up the air" pull (−1.5rem) ran on a
+     Cover Scene whose column has no top padding left to close. */
+  [375, 667],
 ] as const) {
   for (const ground of ['plain', 'full', 'framed']) {
     for (const banner of [0, 133]) {
@@ -130,6 +134,9 @@ for (const [w, h] of [
           // On a phone with no notice up, nothing of it moves below the door (only the link down may).
           expect(below.map((p) => p.key).filter((k) => k !== 'link'), 'on a clear phone screen the cover gave parts away below "Get inside" — the approved order is broken').toEqual([]);
         }
+        // Nothing is cut off the TOP of the screen: the first part the page writes starts on it (Batch 9 R4).
+        const first = [...written].sort((a, b) => a.top - b.top)[0]!;
+        expect(first.top, `"${first.key}" starts above the top of the screen (${first.top.toFixed(1)}px)`).toBeGreaterThanOrEqual(0);
         // Nothing overlaps: every box, door included, ≥ 2px clear of the one drawn after it.
         const drawn = [...written, door].sort((a, b) => a.top - b.top);
         for (let i = 1; i < drawn.length; i++) {

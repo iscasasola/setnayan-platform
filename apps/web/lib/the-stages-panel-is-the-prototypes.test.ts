@@ -483,13 +483,14 @@ test('the Dress code part’s Style draws its layouts as look cards and its pale
      surface with the room (Do's & Don'ts' too — they wait for their Studio row). */
   const { PaletteLookStrip, PaletteLookCards, DosLookCards } = await import(`../${EDITOR}/palette-look-row`);
   const strip = renderToStaticMarkup(React.createElement(PaletteLookStrip, { value: 'fabric', colours: ['#A9834B', '#2C2A29', '#C7A27C'], onPick: () => {} }));
-  assert.equal((strip.match(/role="radio"/g) ?? []).length, 5);
+  const { PALETTE_LOOK_IDS } = await import('./palette-looks');
+  assert.equal((strip.match(/role="radio"/g) ?? []).length, PALETTE_LOOK_IDS.length);
   assert.match(strip, /aria-checked="true"[^>]*data-palette-pick="fabric"|data-palette-pick="fabric"[^>]*aria-checked="true"/);
   assert.doesNotMatch(strip, /aria-haspopup/);
   const html =
     renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'fabric', onPick: () => {} })) +
     renderToStaticMarkup(React.createElement(DosLookCards, { value: 'marks', onPick: () => {} }));
-  assert.equal(html.split('data-style-card-preview=""').length - 1, 5 + 3, 'every card holds a picture');
+  assert.equal(html.split('data-style-card-preview=""').length - 1, PALETTE_LOOK_IDS.length + 3, 'every card holds a picture');
   assert.match(html, /aria-checked="true"[^>]*data-style-card="fabric"/);
   assert.match(html, /aria-checked="true"[^>]*data-style-card="marks"/);
   assert.doesNotMatch(html, /aria-haspopup/);

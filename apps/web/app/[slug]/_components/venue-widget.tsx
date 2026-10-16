@@ -161,6 +161,7 @@ function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventR
           // say "the venue" rather than the component's vendor-shaped default.
           label={venue.name ?? 'the venue'}
           flush
+          deferUntilNear
         />
       ) : null}
       <div className="pahina-plate space-y-3" style={VENUE_CHIP_GROUND}>

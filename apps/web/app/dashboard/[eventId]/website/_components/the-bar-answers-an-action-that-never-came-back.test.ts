@@ -44,9 +44,11 @@ test('the bar sends every intent through it — no bare await of the action is l
   assert.match(hook, /const r = await hubDraftAnswer\(intent, \(\) =>\s*makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: false \}\),?\s*\);/);
   assert.match(hook, /return hubDraftAnswer\('undo', \(\) => makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: true, undo: 'noted' \}\)\);/, 'the drawn ↺ is answered, never thrown');
   assert.doesNotMatch(hook, /await makerSave\(/, 'the action is awaited bare again — a throw takes the Maker down');
-  /* Two callers of the action in the whole bar, both in the hook and both answered: `slow` (Undo, Apply, Restore, Reset and
-     the sheet's × all use `run`) and the drawn ↺'s `drawnIo`. */
-  assert.equal((BAR.match(/\baction\(eventId, fd\)/g) ?? []).length, 2);
+  /* Three callers of the action in the whole bar, all in the hook and all answered: `slow` (Undo, Restore, Reset and the
+     sheet's × all use `run`), the drawn ↺'s `drawnIo`, and ✓ Apply's `applyHeld`. */
+  /* (2026-10-15, rd/maker-fast-edits) …and ✓ Apply's own held door (`applyHeld`), answered by the same `hubDraftAnswer`. */
+  assert.match(hook, /void hubDraftAnswer\('apply', \(\) => makerSave\(\(\) => action\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: true, undo: 'noted' \}\)\)\.then\(/, 'Apply is answered, never thrown');
+  assert.equal((BAR.match(/\baction\(eventId, fd\)/g) ?? []).length, 3);
   assert.doesNotMatch(BAR.replace(/draftAction = hubDraftAction,/, ''), /hubDraftAction\(/, 'something in the bar calls the action around the hook');
   /* A real Maker hands no door: the default is the one server action. */
   assert.match(BAR, /draftAction = hubDraftAction,\s*\}: HubDraftBarProps\)/);

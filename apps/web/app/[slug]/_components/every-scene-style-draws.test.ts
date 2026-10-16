@@ -271,10 +271,11 @@ test('venue · photo card (the default) with two located venues draws ONE map fo
   const { VenueWidget } = await import('./venue-widget');
   const two = decode(html(h(VenueWidget, { event: EVENT } as never)));
   assert.match(two, /data-venue-map-pins="2"/, 'one map holds both pins');
-  assert.doesNotMatch(two, /openstreetmap\.org\/export\/embed/, 'and no map per card');
+  /* 🗺 The embed itself loads only near the screen (Batch 9 W2), so its box (`data-osm-embed`) is what the server draws. */
+  assert.doesNotMatch(two, /data-osm-embed|openstreetmap\.org\/export\/embed/, 'and no map per card');
   const one = decode(html(h(VenueWidget, { event: { ...EVENT, venues: [VENUES[0]!] } } as never)));
   assert.doesNotMatch(one, /data-venue-map-pins/, 'one place: no shared map …');
-  assert.match(one, /openstreetmap\.org\/export\/embed/, '… its own map stays in its card, as shipped');
+  assert.match(one, /data-osm-embed=""[\s\S]*data-near-viewport="far"/, '… its own map stays in its card, as shipped, and waits until it is near');
 });
 
 test('venue · "No map" draws no map in any style', async () => {
@@ -282,7 +283,7 @@ test('venue · "No map" draws no map in any style', async () => {
   for (const sceneStyle of [null, 'photo-card', 'full-photo', 'journey']) {
     for (const venues of [VENUES, [VENUES[0]!]]) {
       const out = decode(html(h(VenueWidget, { event: { ...EVENT, venues }, sceneStyle, map: 'none', blocks: BLOCKS } as never)));
-      assert.doesNotMatch(out, /data-venue-map-pins|openstreetmap\.org\/export\/embed|tile\.openstreetmap/, `${sceneStyle} drew a map with "No map"`);
+      assert.doesNotMatch(out, /data-venue-map-pins|data-osm-embed|openstreetmap\.org\/export\/embed|tile\.openstreetmap/, `${sceneStyle} drew a map with "No map"`);
       for (const v of venues) assert.ok(out.includes(v.name), `${sceneStyle}: ${v.name} still named`);
     }
   }
@@ -299,7 +300,7 @@ test('venue · a WITHHELD venue gives no map pin and no directions in any style,
   for (const id of ['photo-card', 'full-photo', 'journey']) {
     const out = decode(html(h(VenueWidget, { event: withheld, sceneStyle: id, blocks: BLOCKS } as never)));
     assert.doesNotMatch(out, /Get directions|>Directions|maps\.google|google\.com\/maps|waze\.com|maps\.apple/, `${id} handed out directions to a withheld venue`);
-    assert.doesNotMatch(out, /data-venue-map-pins|openstreetmap\.org\/export/, `${id} drew a pin for a withheld venue`);
+    assert.doesNotMatch(out, /data-venue-map-pins|data-osm-embed|openstreetmap\.org\/export/, `${id} drew a pin for a withheld venue`);
     assert.equal(out.split(decode(VENUE_WITHHELD_LINE)).length - 1, 1, `${id}: the withheld line, once`);
     for (const v of VENUES) assert.ok(out.includes(v.name), `${id}: the name stays before the reply`);
   }
@@ -355,25 +356,18 @@ const GROUPS = [
   { key: 'bridesmaids_groomsmen', label: "Bride's Crew & Groom's Crew", rows: [[person('g7', 'Joy Lim', 'bridesmaid'), person('g8', 'Marco Tan', 'groomsman')]] },
 ];
 
-test('entourage · two sides puts each role on its side and keeps the side-less pairs under the rule', async () => {
+test('entourage · On the axis (the default) and Lines draw; a withdrawn Two sides pick draws On the axis (owner 2026-10-15)', async () => {
   const { EntourageSection } = await import('./entourage-section');
-  const out = decode(html(h(EntourageSection, { groups: GROUPS, sceneStyle: 'two-sides' } as never)));
-  assertStyled(out, 'two-sides', 'two sides');
-  const left = out.slice(out.indexOf('data-entourage-side="0"'), out.indexOf('data-entourage-side="1"'));
-  const right = out.slice(out.indexOf('data-entourage-side="1"'));
-  for (const n of ['Mia Villanueva', 'Cora Bautista', 'Joy Lim']) assert.ok(left.includes(n), `${n} on the first side`);
-  for (const n of ['Paolo Reyes', 'Hugo Cruz', 'Marco Tan']) assert.ok(right.includes(n) && !left.includes(n), `${n} on the second side`);
-  assert.ok(out.includes('Ben Ocampo & Rica Flores'), 'a candle pair stays a pair, on no side');
-  // `best_woman` stands where the best man stands — on the second side.
-  const withBestWoman = [{ key: 'honor', label: 'Maid of Honor & Best Woman', rows: [[person('b1', 'Lara Diaz', 'maid_of_honor'), person('b2', 'Nina Uy', 'best_woman')]] }];
-  const bw = decode(html(h(EntourageSection, { groups: withBestWoman, sceneStyle: 'two-sides' } as never)));
-  assert.ok(bw.slice(bw.indexOf('data-entourage-side="1"')).includes('Nina Uy'), 'the best woman stands on the best man’s side');
-  const oneSided = [GROUPS[2]!];
-  assert.doesNotMatch(
-    html(h(EntourageSection, { groups: oneSided, sceneStyle: 'two-sides' } as never)),
-    /data-scene-style="two-sides"/,
-    'with nobody on either side, the roll call draws',
-  );
+  for (const [picked, drawn] of [[null, 'roll-call'], ['roll-call', 'roll-call'], ['lines', 'lines'], ['two-sides', 'roll-call']] as const) {
+    const out = decode(html(h(EntourageSection, { groups: GROUPS, sceneStyle: picked } as never)));
+    assertStyled(out, drawn, `${picked ?? 'no pick'}`);
+    for (const n of ['Mia Villanueva', 'Paolo Reyes', 'Hugo Cruz', 'Cora Bautista', 'Ben Ocampo', 'Rica Flores', 'Joy Lim', 'Marco Tan']) {
+      assert.ok(out.includes(n), `${picked}: ${n} prints`);
+    }
+    assert.doesNotMatch(out, /data-entourage-side=/, `${picked}: the withdrawn Two sides columns drew`);
+    // Every pair is ONE row of two cells, partner beside partner — never two family columns.
+    assert.equal((out.match(/data-pair-row=/g) ?? []).length, 4, `${picked}: one pair row per walking pair`);
+  }
 });
 
 test('entourage · the march numbers every line in order and lifts only the signed-in member’s', async () => {

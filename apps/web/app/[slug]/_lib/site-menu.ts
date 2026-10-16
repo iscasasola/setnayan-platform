@@ -10,6 +10,19 @@
 // council's rejected "Program Board" dead-anchor bug (a menu with entries that
 // scroll to sections not in the DOM). Home (top of page) and Me (the QR /
 // account affordance) are always present.
+//
+// 📜 WHERE THESE ANCHORS ARE JUMPED TO, AND WHERE THEY ARE NOT (owner 2026-10-15,
+// DECISION_LOG "THE INVITATION AND SAVE THE DATE BECOME ONE PAGE — THE BOTTOM BAR
+// JUMPS TO SECTIONS · ME STAYS ITS OWN PAGE · THE DAY KEEPS ITS TABS"):
+//   · the Invitation and Save the Date are ONE page — the bar's Home · Details ·
+//     Story ARE these anchors (`#site-home` · `#site-details` · `#site-story`),
+//     lit by scroll-spy as their section is read; Home lands on the first section
+//     after the cover, never the cover itself. Me alone is a page of its own
+//     (`?tab=me`). The 2026-09-30 rule "each menu tab is its own full page — not
+//     one long scroll with jump marks" no longer applies to these two stages;
+//   · The Day keeps it: there each tab is its own full page (`?tab=<key>`), and
+//     the anchors only land a mark inside the page that holds it;
+//   · the rules themselves are `hub-tabs.ts` (`hubPageModeOf`, `hubTabHref`).
 
 export const SITE_MENU_ANCHORS = {
   home: 'site-home',

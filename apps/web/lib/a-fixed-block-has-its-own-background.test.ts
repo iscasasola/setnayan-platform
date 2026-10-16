@@ -261,7 +261,8 @@ test('4 · one card, never two: the markup each ground leans on is there', () =>
   assert.match(src(`${G}/spotlight-card.tsx`), /return \(\s*<Link\s+href=\{content\.href\}\s+className="group mt-6 flex items-center justify-between gap-4 rounded-2xl border border-ink\/10 bg-cream\/70 /);
   /* THE WEDDING MARCH: bare in all three drawings — no card of its own for a ground to double. */
   for (const file of [`${G}/entourage-section.tsx`, `${G}/entourage-styles.tsx`]) assert.doesNotMatch(src(file), /pahina-plate|rounded-2xl border/, `${file}: the March grew a card of its own`);
-  assert.match(src(`${G}/entourage-section.tsx`), /<section id=\{id\} className="scroll-mt-6 space-y-6">/);
+  /* The root names its style (On the axis · Lines, owner 2026-10-15) after its classes — still bare, no card. */
+  assert.match(src(`${G}/entourage-section.tsx`), /<section id=\{id\} className="scroll-mt-6 space-y-6" data-scene-style=\{[^}]*\}>/);
 
   /* 🪑 YOUR SEAT, each guest's own (`your-seat-block.tsx` · `your-seat-styles.tsx`): the Map's root is the plate; the
      Place card holds ONE paper card, the root's direct child; the Table number has neither. */

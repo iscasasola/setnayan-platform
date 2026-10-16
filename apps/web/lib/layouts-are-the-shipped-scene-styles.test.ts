@@ -110,6 +110,9 @@ test('🔒 no stored look id is renamed or dropped — every shipped id still dr
     ['what_to_bring', 'rsvp', ['note', 'list', 'gift-line']],
     ['our_love_story', 'rsvp', ['chapters', 'essay', 'years']],
     ['countdown', 'rsvp', ['four-tiles', 'big-number', 'offset', 'line', 'circle']],
+    /* 👫 `roll-call` keeps its id (now drawn as On the axis) and `lines` joins (owner 2026-10-15). */
+    ['entourage', 'rsvp', ['roll-call', 'lines', 'march']],
+    ['entourage', 'event', ['roll-call', 'lines', 'march']],
   ];
   for (const [type, stage, ids] of SHIPPED) {
     for (const id of ids) assert.equal(resolveSceneStyle(type, stage, id, 'wedding'), id, `${type}: a page that stored "${id}" no longer draws it`);
@@ -117,7 +120,11 @@ test('🔒 no stored look id is renamed or dropped — every shipped id still dr
     assert.equal(resolveSceneStyle(type, stage, 'no-such-style', 'wedding'), resolveSceneStyle(type, stage, null, 'wedding'));
     assert.ok(ids.includes(resolveSceneStyle(type, stage, null, 'wedding')!), `${type}: the default is not a shipped look`);
   }
-  assert.deepEqual([...PALETTE_LOOK_IDS], ['tags', 'fabric', 'chips', 'circles', 'ribbon']);
+  /* 🚫 THE ONE OWNER-RULED WITHDRAWAL: `two-sides` (2026-10-15, *"two sides feels messy"*) reads as the default — never as nothing. */
+  for (const stage of ['rsvp', 'event'] as const) {
+    assert.equal(resolveSceneStyle('entourage', stage, 'two-sides', 'wedding'), 'roll-call', `entourage on ${stage}: a stored two-sides`);
+  }
+  assert.deepEqual([...PALETTE_LOOK_IDS], ['tags', 'fabric', 'chips', 'circles', 'ribbon', 'arch', 'watercolour', 'strokes']);
   for (const id of PALETTE_LOOK_IDS) assert.equal(resolvePaletteLook(id), id);
   assert.equal(resolvePaletteLook(undefined), PALETTE_LOOK_DEFAULT);
   assert.equal(PALETTE_LOOK_DEFAULT, 'tags', 'an absent palette pick no longer draws today’s tags');

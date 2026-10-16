@@ -51,6 +51,7 @@ import {
 } from '@/lib/hub-part-words';
 import type { HubElementKey } from '@/lib/element-style';
 import { findMakerSection } from './maker-section-find';
+import { keepReactChildren } from './react-children-keep';
 
 export type TypeRect = { top: number; left: number; width: number; height: number };
 
@@ -178,7 +179,10 @@ export function partWords(part: HTMLElement): string {
 /** Put the part's words back, or new ones in (a Wording ▾ or Format ▾ pick, a refused save). */
 export function setPartWords(part: HTMLElement, text: string): void {
   if (layNames(part, text)) return;
-  (peopleOf(part)[0] ?? typeTargetOf(part)).textContent = text;
+  const target = peopleOf(part)[0] ?? typeTargetOf(part);
+  /* React's own nodes, noted before they are replaced — put back before its next redraw (`react-children-keep.ts`) */
+  keepReactChildren(target);
+  target.textContent = text;
 }
 
 /* ── the names, drawn as the page draws them ─────────────────────────────────────────────────────────────────── */
@@ -242,6 +246,8 @@ export function layNames(part: HTMLElement, text: string): boolean {
   if (!first || (!second && !holder && !PUT_AWAY.has(part))) return false;
   const names = splitCoupleNames(text, true);
   let joiner = joinerIn(part);
+  /* every node this rewrites or moves is React's — noted first (`react-children-keep.ts`) */
+  for (const el of [first, second, joiner, second?.parentElement, joiner?.parentElement, first.parentElement]) keepReactChildren(el);
   if (!names.second) {
     first.textContent = names.first;
     if (second) {
@@ -413,6 +419,7 @@ export function createCanvasTyping(
         });
       };
       if (caret) {
+        keepReactChildren(target);
         target.setAttribute('contenteditable', 'plaintext-only');
         if (target.contentEditable !== 'plaintext-only') target.setAttribute('contenteditable', 'true');
         target.addEventListener('input', onInput);

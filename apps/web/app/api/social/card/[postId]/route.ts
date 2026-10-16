@@ -169,7 +169,7 @@ async function coupleCreationContext(
     const { data: ev } = await admin
       .from('events')
       .select(
-        'display_name, monogram_custom_svg, monogram_uploaded_svg, monogram_text, monogram_color, monogram_font_key, monogram_style',
+        'display_name, monogram_custom_svg, monogram_uploaded_svg, monogram_text, monogram_color, monogram_font_key, monogram_style, logo_wanted',
       )
       .eq('event_id', consent.event_id)
       .maybeSingle();

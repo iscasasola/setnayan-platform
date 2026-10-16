@@ -35,7 +35,7 @@
  * message ("column events.venue does not exist") names schema, not people.
  */
 
-import { classifyPostgrest, isTargetedWrite, type PostgrestVerdict } from '@/lib/telemetry/fault-normalize';
+import { classifyPostgrest, describeUnreachable, isTargetedWrite, type PostgrestVerdict } from '@/lib/telemetry/fault-normalize';
 import { fetchWithinReadLimit } from '@/lib/read-limit';
 
 /** PostgREST error envelope. `details` is deliberately NOT read — it can echo row values. */
@@ -165,6 +165,42 @@ function absentIsFine(input: unknown, init: RequestInit | undefined): boolean {
   }
 }
 
+/**
+ * 🔁 ONE RETRY FOR A CONNECTION THAT FAILED — and only where repeating it cannot do anything twice.
+ *
+ * Production 2026-10-15/16 recorded `fetch failed` with causes it had never shown before #6571 kept
+ * them: `ECONNRESET: Client network socket disconnected before secure TLS connection was
+ * established`, `write ETIMEDOUT`, `UND_ERR_SOCKET: other side closed`. postgrest-js retries a GET on
+ * its own, but only after a 1 s pause, and never a POST — and the recorder (`rpc/record_app_fault`)
+ * and every RPC read on a page are POSTs. So, once, at once, on a fresh connection:
+ *   · the request NEVER LEFT (refused, no DNS answer, connect timeout, a reset before TLS was
+ *     established): no server saw it, so ANY method is safe to send again;
+ *   · the connection dropped AFTER it may have been sent (a reset, "other side closed", a write
+ *     timeout): only a READ (GET/HEAD) is repeated — a write might already have landed.
+ * Never an abort (the caller's, or a guest page's read limit), never a body that cannot be re-read.
+ * Only when the retry fails too is the failure recorded; one that a retry absorbed is a warning line.
+ */
+const NEVER_SENT = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT']);
+const DROPPED = new Set(['ECONNRESET', 'UND_ERR_SOCKET', 'UND_ERR_CLOSED', 'EPIPE', 'ETIMEDOUT']);
+
+export function worthOneRetry(err: unknown, method: string): boolean {
+  if (!(err instanceof Error) || err.name === 'AbortError') return false;
+  const cause = (err as { cause?: { code?: unknown; message?: unknown } }).cause;
+  const code = typeof cause?.code === 'string' ? cause.code : '';
+  const why = typeof cause?.message === 'string' ? cause.message : '';
+  if (NEVER_SENT.has(code)) return true;
+  if (code === 'ECONNRESET' && /before secure TLS connection was established/i.test(why)) return true;
+  const read = method === 'GET' || method === 'HEAD';
+  return read && DROPPED.has(code);
+}
+
+function canResend(input: unknown, init: RequestInit | undefined): boolean {
+  if (init?.signal?.aborted) return false;
+  if (input && typeof input === 'object' && 'body' in input && (input as Request).body) return false;
+  const body = init?.body;
+  return body === undefined || body === null || typeof body === 'string';
+}
+
 function methodOf(input: unknown, init: RequestInit | undefined): string {
   if (init?.method) return init.method.toUpperCase();
   if (input && typeof input === 'object' && 'method' in input) return String((input as Request).method).toUpperCase();
@@ -181,11 +217,8 @@ function methodOf(input: unknown, init: RequestInit | undefined): string {
 export function createLoggingFetch(label: string, sink: DbFaultSink = defaultSink): typeof fetch {
   return async function loggingFetch(input, init) {
     let res: Response;
-    try {
-      // The bounded wait for a guest page's reads (`lib/read-limit.ts`). Outside
-      // such a page this is `fetch`, untouched.
-      res = await fetchWithinReadLimit(input as Parameters<typeof fetch>[0], init);
-    } catch (err) {
+    const send = () => fetchWithinReadLimit(input as Parameters<typeof fetch>[0], init);
+    const recordUnreachable = (err: unknown) => {
       // No answer at all (DNS, reset, timeout). Recorded, then re-thrown
       // unchanged — the caller's own error path is untouched.
       try {
@@ -196,7 +229,29 @@ export function createLoggingFetch(label: string, sink: DbFaultSink = defaultSin
       } catch {
         /* never mask the original error */
       }
-      throw err;
+    };
+    try {
+      // The bounded wait for a guest page's reads (`lib/read-limit.ts`). Outside
+      // such a page this is `fetch`, untouched.
+      res = await send();
+    } catch (err) {
+      if (!canResend(input, init) || !worthOneRetry(err, methodOf(input, init))) {
+        recordUnreachable(err);
+        throw err;
+      }
+      // ONE immediate retry, on a fresh connection — see `worthOneRetry`.
+      try {
+        res = await send();
+      } catch (again) {
+        recordUnreachable(again);
+        throw again;
+      }
+      try {
+        const url = typeof input === 'string' ? input : (input as Request | URL).toString();
+        console.warn(`[supabase:${label}] ${methodOf(input, init)} ${safePath(url)} — ${describeUnreachable(err)}; one retry answered`);
+      } catch {
+        /* a log line never changes what the caller sees */
+      }
     }
     try {
       const url = typeof input === 'string' ? input : (input as Request | URL).toString();

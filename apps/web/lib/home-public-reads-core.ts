@@ -169,7 +169,7 @@ async function readHostRows(eventIds: string[]): Promise<HostRows> {
  * (`resolveEventMonogramSvg` — custom, then uploaded; both read, always).
  */
 const COVER_COLUMNS =
-  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, site_bg_color, site_button_color, site_font_key, site_art_direction';
+  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, site_bg_color, site_button_color, site_font_key, site_art_direction, logo_wanted';
 
 /**
  * The cover's columns, for the one other reader of them (`readEventCover`, the
@@ -194,6 +194,8 @@ export type CoverRow = {
   landing_page_hero_image_url: string | null;
   monogram_custom_svg: string | null;
   monogram_uploaded_svg: string | null;
+  /** The Logo switch: "No, use our names" draws the lettered mark on the card (Batch 9 W3). */
+  logo_wanted?: boolean | null;
   landing_page_hero_video_r2_key: string | null;
   role_palette: unknown;
   site_bg_color: string | null;

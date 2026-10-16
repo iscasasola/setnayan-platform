@@ -263,6 +263,8 @@ export type EventRow = {
   // 🗂 The host's "Accept gifts?" (events.gifts_on, owner 2026-10-02 — changed
   // in the Maker's Your info). false = no E-Gifts part anywhere; null = on.
   gifts_on?: boolean | null;
+  /** 🔘 The Logo switch (`logoSwitchedOff`, owner 2026-10-15): false ⇒ the cover draws no logo. */
+  logo_wanted?: boolean | null;
   // Couple-curated photo gallery (Increment A.4). JSONB array of r2:// refs
   // shipped 20260919000000; edited at /dashboard/[eventId]/website/our-photos.
   // Refs resolved to presigned display URLs (ourPhotoUrls) before render;

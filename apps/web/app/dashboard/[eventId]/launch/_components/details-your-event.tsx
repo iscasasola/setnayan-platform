@@ -816,9 +816,13 @@ function VenuePhotoPicker({
         <img src={drawing.webp} alt="" className="h-auto w-full max-w-md" data-venue-drawing-preview={drawing.key} />
       ) : null}
       {noneYet && !drawing ? null : (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-ink/70">Picture</p>
+        <div className="flex items-center gap-3">
+          <p className="shrink-0 text-sm text-ink/70">Picture</p>
+          {/* The pill takes the row: a list placed under a pill pinned to the right edge
+              is only as wide as the room left of the screen, and its labels wrapped
+              ("Your / photo") — under a wide pill each choice reads on one line. */}
           <PickMenu
+            className="flex-1 justify-between"
             label={`${slot.label} — picture`}
             value={uploading ? PICTURE_UPLOAD : drawingOn ? PICTURE_DRAWING : (current ?? PICTURE_NONE)}
             buttonText={drawingOn && mark === 'try' ? 'Our drawing ◆' : undefined}

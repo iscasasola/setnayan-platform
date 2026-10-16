@@ -21,7 +21,15 @@ couple's uploaded photo by itself.
   live venue door keeps whatever the row holds (never sets it).
 - ⚠ **cale-ice**: its ceremony card shows the couple's uploaded photo again (no stored pick) until they pick
   "Our drawing ◆" in the Maker.
-- Labs: `/dev/details-lab?tool=details&item=venues&venue=church&vpic=photo|drawing|none[&pro=1]`;
+- The Picture pill takes the rest of its row (`flex-1`), so the list under it is as wide as the pill and each choice
+  reads on one line at 375 px ("Your photo", "Upload a different photo", "Our drawing ◆ Pro") — a pill pinned to the
+  right edge left the list only the room to its right, and the labels wrapped.
+- ⚠ **Reachability (measured in the lab, 2026-10-17):** on a PHONE the new Maker (Stages | Studio — on in Production
+  for every couple) does not draw Details › Venues: its Venue scene's Edit tab is the one door "Change it in Suppliers"
+  (`lib/maker-parts.ts` `makerPartQuietRow`), and Studio › Info shows the venue read-only. The Picture choice is
+  therefore reachable on a computer (the shipped Maker's Details › Venues) and in the old phone Maker only — putting it
+  on the new Maker's Venue scene is a separate, unbuilt step.
+- Labs: `/dev/maker-lab?tool=details&item=venues&venue=church&vpic=…` (the old Maker, Details › Venues); `/dev/details-lab?tool=details&item=venues&venue=church&vpic=photo|drawing|none[&pro=1]`;
   `/dev/maker-lab/guest?venues=default&photo=1&drawing=1`.
 - Guard: `lib/a-venue-cards-picture-is-the-couples-choice.test.ts`; `the-ceremony-card-draws-its-parish.test.ts`
   now draws only picked cards.

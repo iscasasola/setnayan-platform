@@ -159,38 +159,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         venues: studioLab
           ? { resolved: [(mj ? { role: 'reception', name: LAB_SAMPLE.venue, address: LAB_SAMPLE.venueAddress } : { role: 'reception', name: 'The Garden at Tagaytay', address: 'Tagaytay City' }) as never], slots: [], city: null }
           : churchLab
-            ? {
-                resolved: [],
-                slots: [
-                  {
-                    label: 'Ceremony',
-                    slot: 'ceremony' as const,
-                    booked: null,
-                    columns: { name: 'std_film_ceremony_name' as const, address: 'ceremony_venue_address' as const, lat: 'ceremony_venue_latitude' as const, lng: 'ceremony_venue_longitude' as const },
-                    typed: 'Santuario de San Vicente de Paul Parish',
-                    address: '',
-                    pin: null,
-                    choice:
-                      vpic === 'none'
-                        ? { source: 'own' as const, ownPhoto: null }
-                        : { source: 'own' as const, ownPhoto: LAB_VENUE_PHOTO_REF, ...(vpic === 'drawing' ? { drawing: true as const } : {}) },
-                    photoUrls: { [LAB_VENUE_PHOTO_REF]: '/realstories/jack-jill-g3.jpg' },
-                  },
-                  {
-                    label: 'Reception',
-                    slot: 'reception' as const,
-                    booked: null,
-                    columns: { name: 'std_film_venue_name' as const, address: 'venue_address' as const, lat: 'venue_latitude' as const, lng: 'venue_longitude' as const },
-                    typed: 'Seda Hotel Vertis North',
-                    address: '',
-                    pin: null,
-                    choice: { source: 'own' as const },
-                    photoUrls: {},
-                  },
-                ],
-                city: null,
-                pro: { owns: pro, storeShell: false },
-              }
+            ? labChurchVenues(vpic, pro)
           : venueLab
             ? {
                 resolved: [],
@@ -440,4 +409,44 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         }
       />
   );
+}
+
+/**
+ * ⛪ `?venue=church` — Details › Venues with cale-ice's two venue NAMES typed by hand (no booking), the ceremony the
+ * Santuario (a parish the drawing library has) with a stand-in uploaded photo. Also handed to the Maker lab's shell as
+ * its `factEditors.venues`, so the new Maker's Venue scene draws the same editor (`/dev/maker-lab?studio=1&venue=church`).
+ */
+export function labChurchVenues(vpic: string | undefined, pro: boolean): YourEventInput['venues'] {
+  return {
+    resolved: [],
+    slots: [
+      {
+        label: 'Ceremony',
+        slot: 'ceremony' as const,
+        booked: null,
+        columns: { name: 'std_film_ceremony_name' as const, address: 'ceremony_venue_address' as const, lat: 'ceremony_venue_latitude' as const, lng: 'ceremony_venue_longitude' as const },
+        typed: 'Santuario de San Vicente de Paul Parish',
+        address: '',
+        pin: null,
+        choice:
+          vpic === 'none'
+            ? { source: 'own' as const, ownPhoto: null }
+            : { source: 'own' as const, ownPhoto: LAB_VENUE_PHOTO_REF, ...(vpic === 'drawing' ? { drawing: true as const } : {}) },
+        photoUrls: { [LAB_VENUE_PHOTO_REF]: '/realstories/jack-jill-g3.jpg' },
+      },
+      {
+        label: 'Reception',
+        slot: 'reception' as const,
+        booked: null,
+        columns: { name: 'std_film_venue_name' as const, address: 'venue_address' as const, lat: 'venue_latitude' as const, lng: 'venue_longitude' as const },
+        typed: 'Seda Hotel Vertis North',
+        address: '',
+        pin: null,
+        choice: { source: 'own' as const },
+        photoUrls: {},
+      },
+    ],
+    city: null,
+    pro: { owns: pro, storeShell: false },
+              };
 }

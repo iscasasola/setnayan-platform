@@ -1,35 +1,51 @@
-# HANDOVER — rd/load-time-log (real-user load-time log)
+# HANDOVER — rd/entourage-lone-centred (PR #6593, DRAFT, label do-not-auto-merge)
 
-Owner 2026-10-16: "can we make a page on admin that will log the loading time of each load done? or when a
-loading takes more that 1.5 seconds … or when it load longer than its target loading time?"
+Worktree: `~/Documents/Claude/Projects/wt-lone-centred` · branch `rd/entourage-lone-centred` · PR https://github.com/iscasasola/setnayan-platform/pull/6593
+Head sha: see `git log origin/rd/entourage-lone-centred -1` (this file's commit is the head; the code head before it was `9976f676f6`).
+⚠ DELETE THIS FILE before the PR leaves draft — it is a handover note, not repo content.
 
-## Decisions taken (not covered by the record — matched to locked docs/rulings)
-- ONE INGEST DOOR: loads ride `/api/telemetry/client-fault` as a third body shape `{ loads: [...] }`.
-  That route's own docblock forbids a second route ("the route budget is real").
-- RLS: same posture as `app_fault_issues` (RLS on, no policy, REVOKE ALL from anon/authenticated);
-  the admin reads through the service role behind `requireAdmin()`. An admin-read policy would be a
-  widening the exposure freeze rejects (the fault-log migration documents dropping one).
-- Targets: `platform_settings.load_time_targets` JSONB `{pattern: ms}`; default 1.5 s in code.
-  Admin targets are clamped to 1.0–30 s, because the browser ALWAYS sends a load ≥ 1.0 s and samples
-  ~10% of faster ones (weight 10) — so every load over any allowed target arrives.
-- "Slow" is judged at READ time against the CURRENT target (a target change re-judges history).
-- Route pattern: the browser blanks ids (`normalizePath`); the ingest maps to the app's route patterns
-  (Ugat screens registry + admin routes registry); unmatched segments become `[…]`. DB CHECK is the last line.
-- Signed-in flag + build SHA are stamped server-side (cookie presence; VERCEL_GIT_COMMIT_SHA).
+## The task
+Owner ruling (corpus DECISION_LOG 2026-10-17, "A LONE PERSON IN THE ENTOURAGE / WEDDING MARCH / STANDING WITH US IS CENTRED",
+corpus commit c0523c25): a pair row / role group holding ONE person with no partner draws that person CENTRED, not in one column.
+Only the layout of the lone case changes; pairs stay as shipped.
 
-## State
-See git log. Next steps are listed at the bottom as they are done.
+## Done
+- `apps/web/app/[slug]/_components/entourage-section.tsx` `PairRow`: On the axis (`roll-call`, default; heading "Standing with us")
+  lone row → centred `<li class="text-center" data-solo-row="centre">`, no grid, no blank cell. Its words are the axis's own as
+  shipped (`roleBesideName` + sr-only `said`) — a first cut gave it Lines' carried word and broke the owner's 2026-09-30
+  "no Ninong under a sponsor" rule (CI red in the-heading-says-the-role.test.ts); fixed in 9976f676f6.
+  Column words ("Ninong | Ninang") now show only when the group has at least one pair (both looks).
+- Lines already centred (unchanged). The march (`entourage-styles.tsx`) is one numbered column — no change; md5 of before/after
+  Lines + March screenshots identical. Post Event `EntourageScene` draws no pair columns — untouched. "Wedding March" =
+  Maker part `march` → canvas `f:entourage` = the same EntourageSection.
+- `apps/web/lib/scene-styles-stages.ts`: Maker card line "Each pair meets at the centre; anyone alone is centred."
+- Guard `apps/web/lib/a-lone-person-is-centred.test.ts` (property: one-person row is not a grid, no empty cell, no text-left/right,
+  is text-center; every registry style + null + two-sides; 2 casts). Proven RED on the old file (6 fails, all On the axis).
+- `apps/web/lib/the-entourage-second-column-is-the-partner.test.ts` updated to the new rule.
+- Lab: `/dev/maker-lab/guest?entourage=<default|lines|march>[&art=candlelight]` on `labEntourage('lone')` (lab-sample.ts).
+- Changelog fragment `changelog.d/entourage-lone-centred.md`.
+- Local: 92 targeted unit tests pass (run [slug] files with `app/[[]slug]/...` — a plain `[slug]` glob matches NOTHING);
+  30/30 CI guards pass locally (runner: scratchpad guards.py reads ci.yml guards job).
 
-## Progress (2026-10-16)
-- DONE: migration 20271270180398 (table + RPC + targets column), reporter (lazy chunk), ingest `{loads}` shape,
-  server read/write, Slow loads tab, two live overview cards, save-target action (desktop only), guards
-  (unit 18 tests + db 5 tests), every guard sabotaged once (red) and restored (green), exposure baseline +1.
-- Bundle baseline on main 89d1904a59 (CI run 38857969690): 201.7 KB shared.
-- Lab: scratchpad lab-stub.ts (PGlite-backed Supabase stand-in on :54321) + walk.mjs (Playwright, throttled).
-- DONE: build (shared 201.7 KB = main's 201.7 KB; reporter chunk 4.4 KB gz, lazy), lab walk (throttled 3G+4x CPU
-  phone: /about loaded in 2.25 s → row in app_load_timings → shown on the tab at 375 + 1280; target saved 2.0 s at 1280),
-  full preflight green (whole-tree 464 files, DB 34 files). Screens: controller-2026-10-12/load-time-log/.
-- LAB LIMIT: in the lab (next start + stub DB) dynamic-route taps fall back to full page loads — reproduced with the
-  reporter and the fault observer both disabled, so not caused by this branch. A soft tap to a prefetched page
-  measured 204 ms (sampled, weight 10).
-- NEXT: push → draft PR → corpus DECISION_LOG row + plan §5 → CI watch.
+## Left, in order
+1. Wait for CI on 9976f676f6 (previous head failed only unit 2/3 = the-heading-says-the-role, now fixed). `gh pr checks 6593`
+2. Re-take the On the axis AFTER screenshots (the current after-on-the-axis-*.png show the FIRST cut with "NINANG"/"BRIDESMAID"
+   under the lone names — stale). Lines/March after shots are valid.
+3. Copy fresh shots into `~/Documents/Claude/Projects/lone-centred-shots/`, delete this HANDOVER.md, push, report.
+
+## Exact next command (takes the WALK lane, starts dev on 3471, shoots, releases)
+```
+D=/private/tmp/claude-501/-Users-icecasasola-Documents-Claude-Projects-setnayan-platform/91c3089a-02b5-458f-bcf5-1c6db3bf4032/scratchpad/lone-centred; $D/walk.sh $D
+```
+If that scratchpad is gone: `heavy-lock.sh acquire "walk:lone-centred"`, `pnpm exec next dev --port 3471` in apps/web, then a
+playwright script at 375x812 dpr2 isMobile over `?entourage=default|lines|march` × (none | `&art=candlelight`), full-page,
+hiding `nextjs-portal`; release the lane.
+
+## Open questions (for the owner, flagged not decided)
+- Column words hidden when a group has NO pair (all solos) — a layout consequence, but flag it.
+- The host-side Wedding March DRAG editor (dashboard launch details-march) still shows an empty partner cell as a drop target —
+  intentionally not changed (editor, not the guest Hub).
+
+## Screenshots
+`~/Documents/Claude/Projects/lone-centred-shots/{before,after}-{on-the-axis,lines,march}-{light,dark}-375.png`
+(dark = the Candlelight dark Look; guest pages are light-locked otherwise).

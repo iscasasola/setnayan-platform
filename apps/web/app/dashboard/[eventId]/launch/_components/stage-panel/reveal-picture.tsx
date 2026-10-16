@@ -81,7 +81,7 @@ export function revealPictureHtml(kind: string, c: RevealColours, w: number = RE
  */
 export const COVER_OPENING_TAG_ATTR = 'data-maker-opening-tag';
 export const COVER_OPENING_TAG_CSS =
-  'position:absolute;right:10px;top:10px;z-index:4;pointer-events:none;white-space:nowrap;padding:4px 8px;border-radius:999px;' +
+  'position:absolute;right:10px;top:10px;z-index:4;pointer-events:none;white-space:nowrap;padding:4px 8px;border-radius:var(--m-r-full,999px);' +
   'font:600 10px/1 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:rgba(0,0,0,.62);' +
   'background:rgba(255,255,255,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)';
 export function coverOpeningTag(kind: string): string {

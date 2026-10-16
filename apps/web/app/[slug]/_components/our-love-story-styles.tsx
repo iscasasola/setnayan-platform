@@ -237,7 +237,7 @@ export function LoveStoryConversation({ scenes, partners, mediaUrls, entrance = 
             ) : null}
             {photo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={photo} alt="" loading="lazy" data-love-fx="in" className="aspect-[4/5] w-[72%] max-w-full justify-self-center rounded-[14px] object-cover" />
+              <img src={photo} alt="" loading="lazy" data-love-fx="in" className="aspect-[4/5] w-[72%] max-w-full justify-self-center rounded-xl object-cover" />
             ) : null}
             {voices.map((v, i) => (
               <div
@@ -247,8 +247,8 @@ export function LoveStoryConversation({ scenes, partners, mediaUrls, entrance = 
                 style={{ '--love-at': `${0.45 + i * 0.35}s` } as React.CSSProperties}
                 className={
                   v.slot === 'a'
-                    ? 'flex max-w-[86%] flex-col items-start justify-self-start rounded-[18px] rounded-bl-[4px] bg-gild/10 px-3.5 pb-3 pt-2.5'
-                    : 'flex max-w-[86%] flex-col items-end justify-self-end rounded-[18px] rounded-br-[4px] bg-ink/[0.06] px-3.5 pb-3 pt-2.5 text-right'
+                    ? 'flex max-w-[86%] flex-col items-start justify-self-start rounded-2xl rounded-bl-sm bg-gild/10 px-3.5 pb-3 pt-2.5'
+                    : 'flex max-w-[86%] flex-col items-end justify-self-end rounded-2xl rounded-br-sm bg-ink/[0.06] px-3.5 pb-3 pt-2.5 text-right'
                 }
               >
                 <Who slot={v.slot} name={v.name} flip={v.slot === 'b'} />

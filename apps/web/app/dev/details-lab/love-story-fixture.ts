@@ -20,12 +20,25 @@ export const LAB_PHOTOS: Record<string, string> = {
 /**
  * maria-and-jose's Love Story on fixtures — every state the Timeline row has: a chapter known only by its YEAR, one
  * by MONTH and year, one by FULL date; one with two photos, one kept off the Event Hub; each with 4c's title, in the
- * couple's own order.
+ * couple's own order; and every voice state (both · one · none, one long enough for Read more).
  */
 export const LAB_LOVE_STORY: LoveStoryBlob = {
   moments: [
-    { id: 'ls-umbrella', date: { y: 2019 }, title: 'One umbrella', line: 'A rainy Tuesday in Katipunan — one umbrella, two strangers, no bus for an hour.', anchor: 'met', order: 0, media: Object.keys(LAB_PHOTOS), canvas: {} },
-    { id: 'ls-trip', date: { y: 2021, m: 2, d: 14 }, title: 'Our first trip', line: 'Baguio, on a bus that left at four in the morning.', place: 'Baguio', order: 1, canvas: {} },
+    /* 🗣 TWO VOICES (owner 2026-10-17): both wrote here; only the second wrote on the trip; the yes keeps its line told
+       together — the three cases every look must draw. Invented words, the lab's own couple (Maria · Jose). */
+    {
+      id: 'ls-umbrella', date: { y: 2019 }, title: 'One umbrella', line: 'A rainy Tuesday in Katipunan — one umbrella, two strangers, no bus for an hour.',
+      voices: {
+        a: 'I had the umbrella. He had the patience to stand under it with a stranger for an hour, and the nerve to ask for my number when the bus finally came. I said no. I wrote it on his hand anyway, because the ink was already running and it seemed a shame to waste a good story on a dry evening in Katipunan.',
+        b: 'She held the umbrella like it was hers to share. I missed two buses on purpose.',
+      },
+      anchor: 'met', order: 0, media: Object.keys(LAB_PHOTOS), canvas: {},
+    },
+    {
+      id: 'ls-trip', date: { y: 2021, m: 2, d: 14 }, title: 'Our first trip', line: 'Baguio, on a bus that left at four in the morning.',
+      voices: { b: 'Baguio, on a bus that left at four in the morning. She slept on my shoulder the whole way up.' },
+      place: 'Baguio', order: 1, canvas: {},
+    },
     { id: 'ls-siargao', date: { y: 2022, m: 6 }, title: 'Siargao', line: 'He asked. She said yes before he finished the question.', place: 'Siargao', anchor: 'yes', order: 2, canvas: {} },
     { id: 'ls-fitting', date: { y: 2026, m: 9 }, title: 'The fitting', line: 'Her mother cried first.', hidden: true, order: 3, canvas: {} },
   ],

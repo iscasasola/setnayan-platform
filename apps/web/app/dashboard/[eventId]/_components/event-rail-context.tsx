@@ -77,6 +77,7 @@ export function EventRailContext({
   eventId,
   eventName,
   eventMonogram,
+  eventMonogramPlays,
   navSlots,
   hideKeys,
   websiteEnabled,
@@ -122,6 +123,9 @@ export function EventRailContext({
     /** The logo moves and the animation is on (`logoPlaysFor`) — it plays. */
     plays?: boolean;
   } | null;
+  /** Whether the mark plays, when `eventMonogram` is an object shared with the switcher
+   *  (one copy of the SVG on the page) and so cannot carry it. Wins over `eventMonogram.plays`. */
+  eventMonogramPlays?: boolean;
   navSlots?: Record<string, NavSlotLite>;
   hideKeys?: string[];
   websiteEnabled?: boolean;
@@ -233,7 +237,7 @@ export function EventRailContext({
       */}
       {eventMonogram ? (
         <div className="fd-rctx-mark">
-          <EventMonogram event={eventMonogram} size="sm" shape="square" plays={eventMonogram.plays} place="event-rail" />
+          <EventMonogram event={eventMonogram} size="sm" shape="square" plays={eventMonogramPlays ?? eventMonogram.plays} place="event-rail" />
         </div>
       ) : null}
       {/*

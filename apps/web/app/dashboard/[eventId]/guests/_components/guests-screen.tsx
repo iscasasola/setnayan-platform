@@ -163,6 +163,9 @@ export type GuestsScreenProps = {
   empty?: ReactNode;
 };
 
+/** ⚡ The most rows the first draw holds; the rest arrive at the first idle moment. */
+export const ROW_WINDOW = 50;
+
 const SECTION_ICON: Record<SectionIcon, typeof Star> = {
   celebrant: Heart,
   star: Star,
@@ -299,6 +302,44 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const isOpen = (key: string) => (q ? true : open.has(key));
   const allOpen = sections.length > 0 && sections.every((s) => isOpen(s.key));
 
+  // ── ⚡ ROWS EXIST WHERE THEY CAN BE SEEN (measured 2026-10-16, the owner's 84 guests at
+  // 375 px): 79 of 85 rows sat in FOLDED sections — 1,643 of the page's 2,103 nodes built,
+  // hydrated and fitted for nothing. A section's rows are now drawn once it is open (and kept
+  // after, so a fold still closes over them), and the first draw holds at most ROW_WINDOW rows;
+  // the rest arrive on the first idle moment after. Every count, "select all" and Remove still
+  // reads the DATA (`sec.guests`, `rosterStats`), never the drawn rows — so "List N", a
+  // section's "· N" and the rows a search finds are exactly what they were.
+  // 🔒 guests/the-guest-list-draws-what-can-be-seen.test.ts
+  const [everOpen, setEverOpen] = useState<Set<string>>(() => new Set(open));
+  useEffect(() => {
+    setEverOpen((prev) => {
+      const add = [...open].filter((k) => !prev.has(k));
+      return add.length ? new Set([...prev, ...add]) : prev;
+    });
+  }, [open]);
+  const [windowLifted, setWindowLifted] = useState(false);
+  useEffect(() => {
+    const idle = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (idle) {
+      const id = idle(() => setWindowLifted(true), { timeout: 400 });
+      return () => (window as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(id);
+    }
+    const t = setTimeout(() => setWindowLifted(true), 120);
+    return () => clearTimeout(t);
+  }, []);
+  /** The rows each section draws now: none while it has never been open; at most ROW_WINDOW in all until idle. */
+  const drawnRows = (() => {
+    let budget = windowLifted ? Number.POSITIVE_INFINITY : ROW_WINDOW;
+    const out = new Map<string, GuestRow[]>();
+    for (const sec of sections) {
+      const shown = isOpen(sec.key) || everOpen.has(sec.key) ? sec.guests.slice(0, Math.max(0, budget)) : [];
+      budget -= shown.length;
+      out.set(sec.key, shown);
+    }
+    return out;
+  })();
+  const drawnKey = sections.map((x) => `${x.key}:${drawnRows.get(x.key)?.length ?? 0}`).join('|');
+
   // ── Select mode.
   const [selectMode, setSelectMode] = useState(initialSelect);
   useEffect(() => {
@@ -372,7 +413,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   }, []);
 
   // ── ONE state for every guest row, and one for the thumb row (rules 3a/3b, G36).
-  useRowState(listRef, [sections, selectMode, gview]);
+  useRowState(listRef, [sections, selectMode, gview, drawnKey]);
   useRowState(thumbRef, [selectMode, gview, q && visible.length === 0, selected.size, view, arrange]);
 
   // ── Open a guest's card — the page's inspector (the same panel as before).
@@ -677,7 +718,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 {sec.guests.length === 0 ? (
                   <p className={styles.empty}>Nobody here yet.</p>
                 ) : (
-                  sec.guests.map((g) => (
+                  (drawnRows.get(sec.key) ?? []).map((g) => (
                     <GuestRowLine
                       key={g.guest_id}
                       g={g}

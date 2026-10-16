@@ -20,6 +20,8 @@ import 'server-only';
 import { cache } from 'react';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { chromeSnapshot } from '@/lib/chrome-snapshot';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { fetchUserEvents } from '@/lib/events';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -184,11 +186,34 @@ export async function resolveRailAccount(): Promise<FrontDoorAccount> {
   };
 
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    /* ⚡ THE ONE VERIFIED USER OF THIS REQUEST (`getCurrentUser`, cache()d) — this called
+       `auth.getUser()` itself, a second auth-server round trip on every signed-in page and
+       every prefetch, in front of the rail's reads (measured 2026-10-16: two `/auth/v1/user`
+       per render). Same check, same server, once. */
+    const user = await getCurrentUser();
     if (!user) return signedOut;
+    /* ⚡ A prefetch reuses this person's rail slot from their last page (≤ 20 s, only a
+       complete answer) — `lib/chrome-snapshot.ts`. */
+    return await chromeSnapshot(
+      'rail-account',
+      user.id,
+      () => loadRailAccount(user),
+      (a) => a.signedIn && a.eventCount !== null && a.storyChapterCount !== null,
+    );
+  } catch {
+    return signedOut;
+  }
+}
+
+async function loadRailAccount(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>): Promise<FrontDoorAccount> {
+  const signedOut: FrontDoorAccount = {
+    signedIn: false,
+    initials: '··',
+    shopName: null,
+    isAdmin: false,
+  };
+  try {
+    const supabase = await createClient();
 
     // ⚠ A REJECTED QUERY IS NOT A THROWN ERROR — `error` is checked, not
     // caught. A phantom column here would otherwise render a signed-in person

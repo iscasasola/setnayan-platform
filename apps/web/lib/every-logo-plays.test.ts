@@ -389,8 +389,8 @@ test('6 · every page-level screen hands its "animation on" answer down', () => 
   const HANDS = {
     'app/dashboard/(launcher)/page.tsx': /markPlays=\{markPlays\}[\s\S]*plays=\{markPlays\}/,
     'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx': /markPlays=\{markPlays\}/,
-    'app/dashboard/[eventId]/layout.tsx': /plays: railMarkPlays,/,
-    'app/dashboard/[eventId]/_components/event-rail-context.tsx': /plays=\{eventMonogram\.plays\}/,
+    'app/dashboard/[eventId]/layout.tsx': /eventMonogramPlays=\{railMarkPlays\}/,
+    'app/dashboard/[eventId]/_components/event-rail-context.tsx': /plays=\{eventMonogramPlays \?\? eventMonogram\.plays\}/,
     'app/dashboard/(account)/library/_components/album-shelf.tsx': /plays=\{album\.markPlays\}/,
     'app/dashboard/(account)/library/_components/photos-tab.tsx': /plays=\{album\.markPlays\}/,
     'app/[slug]/invite/_lib/load-invite-look.ts': /markPlays: await logoPlaysFor\(/,

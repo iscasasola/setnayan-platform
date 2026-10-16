@@ -186,7 +186,10 @@ test('the fixed bugs stay fixed: venues come from bookings, never a setting type
 });
 
 test('Event Home carries the Event Details button beside the event name', () => {
-  const home = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
+  // The cover band is its own file since 2026-10-16 (the Home's loading screen draws the same one);
+  // the Home still draws it.
+  assert.match(read('app/dashboard/[eventId]/_components/home-first-screen.tsx'), /<HomeCoverBand eventId=\{eventId\} cover=\{cover\}/);
+  const home = read('app/dashboard/[eventId]/_components/home-cover-band.tsx');
   assert.match(home, /href=\{`\/dashboard\/\$\{eventId\}\/details`\}[\s\S]{0,200}Event Details/);
   const cover = home.slice(home.indexOf('{cover.name}'), home.indexOf('{cover.name}') + 600);
   assert.ok(cover.includes('data-home-event-details'), 'the button is not on the cover beside the name');

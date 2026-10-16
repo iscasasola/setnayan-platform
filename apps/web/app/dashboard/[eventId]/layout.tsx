@@ -45,6 +45,9 @@ import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banne
 import { CohostWelcome } from './_components/cohost-welcome';
 import { AppPreload } from '@/app/_components/app-preload';
 import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
+import { HomeCoverWordsProvider } from './_components/home-loading-cover';
+import { homeCoverWords } from '@/lib/home-cover-words';
+import { withPickedDate } from '@/lib/event-anchor';
 import { appPreloadPlan } from '@/lib/app-preload-sets';
 
 type Props = {
@@ -227,7 +230,7 @@ export default async function EventLayout({ children, params }: Props) {
   const eventRead = (async () => {
     try {
       const fullSelect =
-        'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id';
+        'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id, date_candidates';
       const fullRes = await withSchemaRetry(() =>
         supabase.from('events').select(fullSelect).eq('event_id', eventId).maybeSingle(),
       );
@@ -711,7 +714,15 @@ export default async function EventLayout({ children, params }: Props) {
               precedence — an uploaded mark outranks a bespoke one — which
               `EventMonogram` cannot do alone because it reads one column.
             */
-            eventMonogram={{
+            eventMonogram={
+              /* ⚡ ONE COPY OF THE LOGO ON THE PAGE (measured 2026-10-16): the switcher in the top
+                 bar already carries this event's mark — gated by `resolveEventMonogramSvg`, WITH the
+                 couple's ink (get-switcher-data.ts) — and the rail drew its own copy, so every event
+                 page sent the same ~13 KB SVG twice. Handing the rail the switcher's own entry (the
+                 SAME object) lets the RSC payload send it once and point at it. The rail's own
+                 build stays as the fallback for a switcher that could not read the events.
+                 🔒 app/dashboard/[eventId]/the-logo-travels-once.test.ts */
+              switcherData.events.find((e) => e.event_id === eventId) ?? {
               display_name: (event.display_name as string | null) ?? null,
               monogram_text: (event.monogram_text as string | null) ?? null,
               monogram_color: (event.monogram_color as string | null) ?? null,
@@ -726,8 +737,9 @@ export default async function EventLayout({ children, params }: Props) {
                   monogram_custom_svg?: string | null;
                 },
               ),
-              plays: railMarkPlays,
-            }}
+              }
+            }
+            eventMonogramPlays={railMarkPlays}
           />
         }
         topBarSlot={topBar}
@@ -798,7 +810,18 @@ export default async function EventLayout({ children, params }: Props) {
                   INSTANTLY, THEN REFRESHES"). Context only — the store loads
                   with those pages, never with this layout. */}
               <LastSeenScope userId={user.id} eventId={eventId}>
-                {children}
+                {/* ⚡ The Home's cover words, from THIS read of the event — its loading screen
+                    draws the couple's names at the tap (home-loading-cover.tsx, 2026-10-16). */}
+                <HomeCoverWordsProvider
+                  eventId={eventId}
+                  words={homeCoverWords(
+                    withPickedDate(
+                      event as { event_type?: string | null; event_date?: string | null; date_candidates?: string[] | null; display_name?: string | null },
+                    ),
+                  )}
+                >
+                  {children}
+                </HomeCoverWordsProvider>
               </LastSeenScope>
             </div>
           </div>

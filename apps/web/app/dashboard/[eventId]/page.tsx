@@ -31,6 +31,7 @@ import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { loadAfterSummary, type AfterSummary } from '@/lib/after-summary';
 import { formatEventDate } from '@/lib/events';
+import { homeCoverWords } from '@/lib/home-cover-words';
 import { eventNoun } from '@/lib/event-noun';
 import { FinishedEventSummary } from './_components/after/finished-event-summary';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -715,20 +716,19 @@ export default async function EventHomePage({
         )
       : null,
   });
-  const homeTypeLabel = ((event.event_type as string | null) ?? 'wedding')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-  const homeDateLabel = event.event_date ? formatEventDate(event.event_date as string) || null : null;
+  // The cover's words — the ONE function the event layout also hands the loading screen.
+  const homeCover0 = homeCoverWords({
+    event_type: (event.event_type as string | null) ?? null,
+    event_date: (event.event_date as string | null) ?? null,
+    display_name: (event as { display_name?: string | null }).display_name ?? null,
+  });
   /* 🖼 The header wears the Event Hub's main background (owner 2026-10-07); a
      refused read keeps today's colour, never a broken Home. */
   const homeCover = await homeCoverRead;
   const homeFirstScreen = (
     <HomeFirstScreen
       eventId={eventId}
-      cover={{
-        eyebrow: homeDateLabel ? `${homeTypeLabel} · ${homeDateLabel}` : homeTypeLabel,
-        name: ((event as { display_name?: string | null }).display_name ?? '').trim() || `Your ${homeTypeLabel}`,
-      }}
+      cover={homeCover0}
       next={homeNext}
       days={facts.days}
       coming={facts.coming}

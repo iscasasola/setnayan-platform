@@ -197,3 +197,35 @@ test('(6) the cover clip stays the couple’s own — Apply holds it to this eve
   assert.deepEqual(listed, [{ ref: CLIP, kind: 'snippet', poster: STILL }], 'the cover’s own upload is not among the event’s uploads (its card vanishes after the refresh)');
   assert.deepEqual(sceneUploadRefs(EV, [{ canvas: { ground: { kind: 'snippet', media: 'r2://setnayan-media/events/other/scene-background/x.mp4' } } }]), [], 'another folder’s clip was listed');
 });
+
+test('(7) the Maker’s ▶ whole-page preview is the guest page: full window, and its bar waits for the cover to be gone', async () => {
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8').replace(/\s+/g, ' ');
+  assert.match(css, /\[data-maker-shell\]\[data-stage-previewing\] \[data-maker-canvas-frames\] \{ position: fixed; inset: 0; z-index: 20; border-radius: 0; box-shadow: none; \}/, 'the preview is still a card under a band (owner: "full screen?")');
+  assert.match(css, /\[data-maker-shell\]\[data-stage-previewing\]\[data-canvas-cover='wait'\] \[data-stage-guest-bar\] \{ translate: 0 100%; opacity: 0; visibility: hidden; \}/, 'the preview draws its guest bar over the cover');
+  /* The shown canvas frame mirrors its marker onto the Maker shell — run the shipped script in a frame. */
+  const { CoverSceneMenuWaits, MAKER_CANVAS_COVER_ATTR } = await import('@/app/[slug]/_components/cover-scene-menu');
+  assert.equal(MAKER_CANVAS_COVER_ATTR, 'data-canvas-cover');
+  const code = renderToStaticMarkup(React.createElement(CoverSceneMenuWaits)).replace(/^<script>|<\/script>$/g, '').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+  const run = (frameState: string | null) => {
+    const shellAttrs: Record<string, string> = {};
+    const shell = { setAttribute: (k: string, v: string) => void (shellAttrs[k] = v) };
+    const attrs: Record<string, string> = {};
+    const style = { setAttribute: (k: string, v: string) => void (attrs[k] = v), getAttribute: (k: string) => attrs[k] ?? null };
+    let y = 0;
+    const header = { offsetParent: {}, getBoundingClientRect: () => ({ top: -y, bottom: 800 - y }) };
+    const listeners: Record<string, Array<() => void>> = {};
+    const frameElement = frameState === null ? null : { getAttribute: () => frameState, ownerDocument: { querySelector: (s: string) => (s === '[data-maker-shell]' ? shell : null) } };
+    const win = { frameElement, addEventListener: (t: string, f: () => void) => void (listeners[t] ??= []).push(f) };
+    const doc = { readyState: 'complete', head: { appendChild: () => {} }, createElement: () => style, querySelector: (s: string) => (s.startsWith('style') ? null : header), addEventListener: () => {} };
+    new Function('window', 'document', 'addEventListener', 'removeEventListener', 'setTimeout', 'IntersectionObserver', code)(win, doc, win.addEventListener, () => {}, (f: () => void) => f(), undefined);
+    const scroll = (to: number) => { y = to; for (const f of listeners.scroll ?? []) f(); return shellAttrs[MAKER_CANVAS_COVER_ATTR]; };
+    return { now: () => shellAttrs[MAKER_CANVAS_COVER_ATTR], scroll };
+  };
+  const shown = run('shown');
+  assert.equal(shown.now(), 'wait', 'the preview’s bar is not held off the cover');
+  assert.equal(shown.scroll(799), 'wait');
+  assert.equal(shown.scroll(800), 'open', 'the preview’s bar does not come in once the cover is gone');
+  assert.equal(shown.scroll(10), 'wait');
+  assert.equal(run('hidden').now(), undefined, 'a warm hidden frame wrote onto the Maker shell');
+  assert.equal(run(null).now(), undefined, 'a guest page in no frame wrote somewhere');
+});

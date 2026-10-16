@@ -31,9 +31,21 @@ choice. The Cover Scene is always full screen, edge to edge", and "just for the 
   `COVER_SCENE_FRAMED` is removed. The Cover Scene's Background tool no longer offers Width. Its photo keeps
   Still · Parallax. A scene's own Framed | Full width is unchanged.
 
-Guards: `lib/the-cover-takes-a-video.test.ts` (new), `lib/the-cover-scene-is-one-group.test.ts` (4)(8)(10) and
-`lib/background-is-four-rows.test.ts` (the cover's row 4) were updated to the new rulings.
+- **The bars arrive only once the cover is fully gone** (owner 2026-10-16, "THE TOP AND BOTTOM BARS ARRIVE ONLY WHEN
+  THE COVER IS FULLY GONE"). The bars amend the 2026-10-15 "first swipe" rule. The one gate (`cover-scene-menu.tsx`,
+  the `<style data-cover-menu>` marker, never the root) now uses ONE IntersectionObserver on the cover, threshold 0.
+  The bars stay `wait` while any pixel of the cover shows, go `open` once its bottom edge passes the top, and go back
+  to `wait` when it shows again. A browser without IntersectionObserver measures the same edge on scroll.
+- **The Maker's ▶ whole-page preview is the guest page.** While previewing, the shown canvas fills the whole window
+  with no card and no band (`globals.css`, `[data-stage-previewing]`). The Maker's own guest bar keeps the same rule:
+  the shown canvas frame mirrors its marker onto the shell (`data-canvas-cover`). Hidden frames and pages that are not
+  in a frame write nothing.
 
-SPEC IMPACT: DECISION_LOG rows "COVER VIDEO PLAYS ON THE EVENT'S OWN PAGE" and "THE COVER SCENE IS ALWAYS FULL
-SCREEN" (2026-10-16) are recorded by the controller session. They supersede the 2026-10-15 "COVER SCENE APPROVED"
+Guards: `lib/the-cover-takes-a-video.test.ts` (new), `lib/the-cover-scene-is-one-group.test.ts` (4)(8)(10) and
+`lib/background-is-four-rows.test.ts` (the cover's row 4), `app/[slug]/_lib/the-invitation-is-one-page.test.ts` (5 — the
+fully-gone gate, run through both doors) and `lib/scene-upload-media.test.ts` (2b's Apply anchor) were updated to the
+new rulings.
+
+SPEC IMPACT: DECISION_LOG rows "COVER VIDEO PLAYS ON THE EVENT'S OWN PAGE", "THE COVER SCENE IS ALWAYS FULL SCREEN"
+and "THE TOP AND BOTTOM BARS ARRIVE ONLY WHEN THE COVER IS FULLY GONE" (2026-10-16) are recorded by the controller session. They supersede the 2026-10-15 "COVER SCENE APPROVED"
 Framed | Full width and "Upload ◆ (the couple's photos)".

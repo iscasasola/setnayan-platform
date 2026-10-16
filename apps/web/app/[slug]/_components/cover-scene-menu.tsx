@@ -37,6 +37,15 @@
 export const COVER_MENU_ATTR = 'data-cover-menu';
 export const COVER_MENU_WAIT = 'wait';
 export const COVER_MENU_OPEN = 'open';
+/**
+ * 👁 THE MAKER'S ▶ WHOLE-PAGE PREVIEW KEEPS THE SAME RULE (owner 2026-10-16, on cale-ice's preview: the Maker drew its
+ * own guest bar — Home · Details · Story · Me — under the cover from the first frame). The preview's bar is the
+ * Maker's, OUTSIDE this page's frame, so a CSS rule here cannot reach it: the Maker's SHOWN canvas frame
+ * (`iframe[data-maker-canvas-frame="shown"]`, same origin) mirrors the marker onto the Maker shell as
+ * `data-canvas-cover`, and `globals.css` holds the preview's bar off while it is `"wait"`. A page in no frame, in a
+ * warm hidden frame, or in a cross-origin frame writes nothing (the `try` swallows the cross-origin refusal).
+ */
+export const MAKER_CANVAS_COVER_ATTR = 'data-canvas-cover';
 
 export function CoverSceneMenuWaits() {
   return (
@@ -51,7 +60,8 @@ function cover(){var h=d.querySelector('header[data-cover-scene]');return h&&h.o
 var io=null,seen=null,vis=true;
 function gone(h){if(io)return !vis;return h.getBoundingClientRect().bottom<=0}
 function watch(h){if(!io||seen===h)return;if(seen)io.unobserve(seen);seen=h;vis=true;io.observe(h)}
-function check(){var h=cover();if(h)watch(h);var open=!h||gone(h);if(open!==isOpen())m.setAttribute('${COVER_MENU_ATTR}',open?'${COVER_MENU_OPEN}':'${COVER_MENU_WAIT}')}
+function mirror(open){try{var fe=window.frameElement;if(!fe||fe.getAttribute('data-maker-canvas-frame')!=='shown')return;var s=fe.ownerDocument.querySelector('[data-maker-shell]');if(s)s.setAttribute('${MAKER_CANVAS_COVER_ATTR}',open?'${COVER_MENU_OPEN}':'${COVER_MENU_WAIT}')}catch(e){}}
+function check(){var h=cover();if(h)watch(h);var open=!h||gone(h);if(open!==isOpen())m.setAttribute('${COVER_MENU_ATTR}',open?'${COVER_MENU_OPEN}':'${COVER_MENU_WAIT}');mirror(open)}
 function later(){setTimeout(check,60)}
 if(typeof IntersectionObserver==='function')io=new IntersectionObserver(function(es){var e=es[es.length-1];if(e&&e.target===seen){vis=e.isIntersecting;check()}},{threshold:0});
 else addEventListener('scroll',check,{passive:true});

@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { R2_BUCKETS, isR2Configured, r2SignedGet, r2Upload } from '@/lib/r2';
 import { EXPENSE_CATEGORIES } from '@/lib/admin/platform-expenses';
+import { clampTarget, coerceTargets } from '@/lib/telemetry/load-timing';
+import { routePatterns } from '@/lib/telemetry/load-timing.server';
 
 /**
  * Server actions for the Expenses & Receipts zone (App Performance PR 3).
@@ -144,4 +146,49 @@ export async function viewReceipt(formData: FormData): Promise<void> {
     expiresIn: 600,
   });
   redirect(url);
+}
+
+/**
+ * ⏱ A page's load-time target (the Slow loads tab, 2026-10-16). Seconds in,
+ * ms stored in platform_settings.load_time_targets, clamped to 1–30 s (never
+ * below what the browser always sends — lib/telemetry/load-timing.ts). Empty or
+ * "Use 1.5 s" removes the override, so the page falls back to the default.
+ * Only a route the app actually has (or one already holding a target) may be
+ * set — the map can never fill with invented keys. Desktop only: the phone
+ * admin answers, it does not edit (owner ruling 2026-08-26).
+ */
+export async function saveLoadTarget(formData: FormData): Promise<void> {
+  const userId = await requireAdmin();
+  const route = str(formData.get('route'));
+  const clear = formData.get('clear') === '1';
+  const seconds = Number.parseFloat(str(formData.get('target_s')));
+  const back = (q: string) => redirect(`/admin/app-performance?tab=slow-loads&${q}`);
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.from('platform_settings').select('load_time_targets').eq('id', 1).maybeSingle();
+  if (error) back(`target=${encodeURIComponent('unread')}`);
+  const targets = coerceTargets((data as { load_time_targets?: unknown } | null)?.load_time_targets);
+  if (!routePatterns().includes(route) && !(route in targets)) back('target=unknown');
+
+  if (clear || !str(formData.get('target_s'))) {
+    delete targets[route];
+  } else {
+    const ms = clampTarget(Number.isFinite(seconds) ? seconds * 1000 : NaN);
+    if (ms === null) back('target=invalid');
+    targets[route] = ms as number;
+  }
+
+  const { error: saveErr } = await admin
+    .from('platform_settings')
+    .update({ load_time_targets: targets, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+  if (saveErr) back(`target=${encodeURIComponent('refused')}`);
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'load_time_target_saved',
+    actor_user_id: userId,
+    metadata: { route, target_ms: targets[route] ?? null },
+  });
+  if (auditErr) console.error('[saveLoadTarget] audit insert failed (non-fatal):', auditErr);
+  revalidatePath('/admin/app-performance');
+  back('target=saved');
 }

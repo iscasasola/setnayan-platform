@@ -3,6 +3,7 @@
 // studio. Its actions/_components stay under /admin/app-performance; the legacy
 // route is now a redirect into /admin/app-performance?tab={tab}.
 import { Suspense } from 'react';
+import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { Activity } from 'lucide-react';
 
@@ -36,6 +37,8 @@ import { HealthNow } from '@/app/admin/app-performance/_components/health-now';
 import { ActionCenterZone } from '@/app/admin/app-performance/_components/action-center';
 import { ExpensesZone } from '@/app/admin/app-performance/_components/expenses';
 import { formatCount } from '@/lib/format-number';
+import { fetchLoadTimeStats } from '@/lib/telemetry/load-timing.server';
+import { formatMs } from '@/lib/telemetry/load-timing';
 
 /**
  * /admin/app-performance — the App Performance cockpit (owner lock 2026-07-03:
@@ -43,8 +46,9 @@ import { formatCount } from '@/lib/format-number';
  * 0023_admin_console/App_Performance_Plan_2026-07-03.md).
  *
  * PR 1 scope: context strip + Growth zone + Stability zone, LIVE charts only —
- * every chart is backed by a real table verified against origin/main. The
- * needs-wiring surfaces (error rate · p95 · Web Vitals · uptime history) ship
+ * every chart is backed by a real table verified against origin/main. Page
+ * loads (p50/p95) and Web Vitals went live 2026-10-16 (the load-time log,
+ * app_load_timings). The remaining needs-wiring surfaces (error rate · uptime history) ship
  * as clearly-muted cards stating exactly what wires them, per the
  * honest-empty rule. Action Center (PR 2) and Expenses & Receipts (PR 3)
  * land as their own zones above/below Growth per the plan.
@@ -106,9 +110,10 @@ export async function CockpitSurface({ searchParams }: Props) {
   // Growth entities reuse the existing fetcher verbatim (extend, don't fork).
   // The cockpit's own metrics have no demo builder yet — in demo mode they
   // render their honest empty states rather than inventing numbers.
-  const [growth, perf] = await Promise.all([
+  const [growth, perf, loads] = await Promise.all([
     demoActive ? Promise.resolve(buildDemoGrowthStats(range)) : fetchGrowthStats(range),
     fetchAppPerformanceStats(range),
+    fetchLoadTimeStats(MIN_N),
   ]);
   const rangeLabel =
     GROWTH_RANGE_OPTIONS.find((o) => o.value === range)?.label ?? 'window';
@@ -203,7 +208,12 @@ export async function CockpitSurface({ searchParams }: Props) {
     perf.reviews.sampled ||
     perf.reports.sampled;
 
-  const errors = [...growth.errors, ...perf.errors];
+  const errors = [...growth.errors, ...perf.errors, ...loads.errors];
+  // The busiest pages that clear the honest-empty floor — the card's list.
+  const loadPages = loads.pages
+    .filter((p) => p.p50 !== null)
+    .sort((a, b) => b.loads - a.loads)
+    .slice(0, 4);
 
   return (
     <div id="apx-root">
@@ -662,12 +672,78 @@ export async function CockpitSurface({ searchParams }: Props) {
           <ChartCard title="Error rate" pill="wiring" source="Sentry API — SDK is wired; the stats API token isn't" muted>
             <WiringNote text="Errors are captured today; charting the rate needs a Sentry API token + one fetcher." />
           </ChartCard>
-          <ChartCard title="API speed (p95)" pill="wiring" source="Vercel / Sentry Performance" muted>
-            <WiringNote text="Needs request-timing export from Vercel or Sentry Performance." />
-          </ChartCard>
-          <ChartCard title="Web Vitals (p75)" pill="wiring" source="web-vitals RUM — not instrumented yet" muted>
-            <WiringNote text="Lighthouse runs in CI per deploy; field LCP/INP/CLS needs the web-vitals beacon." />
-          </ChartCard>
+          {/* ⏱ The load-time log (2026-10-16) wired these two: measured in
+              real browsers, honest-empty below MIN_N. Each card is a door to
+              the Slow loads tab, so the frame is on something you press. */}
+          <Link href="/admin/app-performance?tab=slow-loads" className="block rounded-[inherit]">
+            <ChartCard
+              title="Page loads (p50 / p95)"
+              pill="live"
+              source="real browsers · tap → content painted · last 30 days"
+              className="h-full"
+            >
+              {loads.overall.p50 === null ? (
+                <WiringNote
+                  text={`Not enough loads measured yet (${nf.format(loads.overall.n)} of ${MIN_N} needed). The numbers appear once real people have loaded pages — never from a tiny base.`}
+                />
+              ) : (
+                <>
+                  <p className="text-2xl font-semibold tabular-nums" style={{ color: 'var(--sn-ink-900)' }}>
+                    {formatMs(loads.overall.p50)}
+                    <span className="text-sm font-normal" style={{ color: 'var(--sn-ink-500)' }}>
+                      {' '}/ {formatMs(loads.overall.p95)}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
+                    {loads.overall.overPct !== null ? `${Math.round(loads.overall.overPct * 100)}% over target · ` : ''}
+                    {nf.format(loads.slow.length)} slow loads listed
+                  </p>
+                  {loadPages.length > 0 ? (
+                    <ul className="mt-2 space-y-1">
+                      {loadPages.map((p) => (
+                        <li key={p.route} className="flex items-baseline justify-between gap-2 text-xs">
+                          <span className="min-w-0 truncate font-mono" style={{ color: 'var(--sn-ink-700)' }}>
+                            {p.route}
+                          </span>
+                          <span className="shrink-0 tabular-nums" style={{ color: 'var(--sn-ink-900)' }}>
+                            {formatMs(p.p50)} / {formatMs(p.p95)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </>
+              )}
+            </ChartCard>
+          </Link>
+          <Link href="/admin/app-performance?tab=slow-loads" className="block rounded-[inherit]">
+            <ChartCard title="Web Vitals (p75)" pill="live" source="real browsers · full page loads" className="h-full">
+              {loads.vitals.lcpP75 === null && loads.vitals.inpP75 === null ? (
+                <WiringNote
+                  text={`Not enough page loads measured yet (${nf.format(loads.vitals.lcpN)} of ${MIN_N} needed). Lighthouse still runs in CI per deploy.`}
+                />
+              ) : (
+                <dl className="grid grid-cols-2 gap-2">
+                  <div>
+                    <dt className="text-xs" style={{ color: 'var(--sn-ink-500)' }}>
+                      Largest paint
+                    </dt>
+                    <dd className="text-xl font-semibold tabular-nums" style={{ color: 'var(--sn-ink-900)' }}>
+                      {formatMs(loads.vitals.lcpP75)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs" style={{ color: 'var(--sn-ink-500)' }}>
+                      Slowest tap answer
+                    </dt>
+                    <dd className="text-xl font-semibold tabular-nums" style={{ color: 'var(--sn-ink-900)' }}>
+                      {formatMs(loads.vitals.inpP75)}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+            </ChartCard>
+          </Link>
           <ChartCard title="Uptime history" pill="wiring" source="probe persistence (Better Stack export or samples table)" muted>
             <WiringNote text="The live probe above is point-in-time; a timeline needs each sample stored." />
           </ChartCard>

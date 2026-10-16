@@ -892,7 +892,8 @@ function VenuePhotoPicker({
         data-venue-picture-row=""
         data-venue-picture-shown={drawingOn ? 'drawing' : shown ? 'photo' : 'none'}
       >
-        <p className="shrink-0 text-sm text-ink/70">{row.caption}</p>
+        {/* The stage panel's own ink (`--sp-ink2`, lib/maker-stage-room.ts) — the panel keeps its own ground. */}
+        <p className="shrink-0 text-sm text-[var(--sp-ink2)]">{row.caption}</p>
         {picture}
         {asSheet && sheet ? sheet({ label: `${row.caption} — upload`, onClose: () => setUploading(false), children: <div className="px-3 pb-2">{upload}</div> }) : uploading ? upload : null}
       </div>

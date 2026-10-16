@@ -220,8 +220,7 @@ test('(5) the page wears it: the button never floats, the component measures wha
   assert.match(door, /<details className=\{`group mx-auto max-w-md\$\{dock \? ' sn-door-dock' : ''\}`\} data-get-inside="door">/);
   assert.match(door, /\{dock \? <FirstScreenDoor \/> : null\}/);
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
-  /* (The row carries its id since 2026-10-16 — a visitor's RSVP button on the cover leads to it.) */
-  assert.match(body, /<div className="sn-door-row" id=\{STRANGER_DOOR_ID\}>[\s\S]{0,1600}<GetInside[\s\S]{0,200}dock=\{!isEditorCanvas\}/, 'the door’s row changed, or the canvas fits it');
+  assert.match(body, /<div className="sn-door-row">[\s\S]{0,1600}<GetInside[\s\S]{0,200}dock=\{!isEditorCanvas\}/, 'the door’s row changed, or the canvas fits it');
 
   // The component: three measurements, the rule, and the limit — the bar's top or the banner's, whichever is higher.
   // (RE-AIMED 2026-10-12: the measuring and writing moved, unchanged, to `_lib/first-screen-fit-dom.ts`, so the ONE fit

@@ -15,9 +15,6 @@
  */
 import type { ReplyCard } from './guest-me-parts';
 
-/** The stranger's one door ("Get inside") — where a visitor's RSVP button leads: the passcode first. */
-export const STRANGER_DOOR_ID = 'site-get-inside';
-
 /** What the cover's foot button draws for this reader. */
 export type CoverRsvp =
   | { kind: 'ask' | 'going' | 'declined'; href: string }

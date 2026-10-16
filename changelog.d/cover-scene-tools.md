@@ -11,8 +11,8 @@ WORDS IN THE UPPER PART, AN RSVP BUTTON AND A 'SWIPE UP' HINT AT THE FOOT", "SHI
 - **The RSVP button** at the foot — a new hero part `rsvp` ("RSVP button" in the Maker, words the couple's, default
   "Confirm attendance", look = Look › Buttons' `.button-primary`, 44 px). For a guest it opens the shipped reply page and
   reads their own state from the Reply card (`lib/cover-rsvp.ts`): "You're coming ✓ · Change", "You can't make it ·
-  Change", a shut window as plain words with no frame. A visitor without a key is led to the page's one door ("Get
-  inside") — the passcode first. While the cover holds the button, the Welcome's Reply card under the cover is not drawn
+  Change", a shut window as plain words with no frame. A visitor without a key keeps today's first screen — the cover
+  and its ONE door ("Get inside", the passcode first) — so the stranger's cover draws no foot. While the cover holds the button, the Welcome's Reply card under the cover is not drawn
   a second time (Me keeps its own).
 - **"Swipe up for the event"** under it — the page's own hint (not a part), a gently nodding chevron, still under reduced
   motion. Both are cover lines: hidden behind a closed veil and entering last. The phone's "Exit preview" pill moves off

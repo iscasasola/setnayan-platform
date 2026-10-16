@@ -7048,18 +7048,13 @@ html:active-view-transition .sn-page-enter { animation: none; }
 }
 
 /* 🔘 THE COVER'S FOOT — THE RSVP BUTTON AND THE "SWIPE UP" HINT (owner 2026-10-16, "THE COVER: WORDS IN THE UPPER PART,
-   AN RSVP BUTTON AND A 'SWIPE UP' HINT AT THE FOOT"): both enter LAST. Under a veil they are the last cover lines, so
-   the rule above already brings them in last (`--cover-at`). With no veil, a foot line with no Build in of its own
-   fades in after the words (the Long beat, 0.8 s). The hint's chevron nods gently — still under reduced motion
+   AN RSVP BUTTON AND A 'SWIPE UP' HINT AT THE FOOT"): both enter LAST — under a veil they are the last cover lines, so
+   the veil's own entrance brings them in last (`--cover-at`); with no veil they are drawn at once, like every line with
+   no Build in (`the-veil-hides-the-cover-words.spec.ts`). The hint's chevron nods gently — still under reduced motion
    (`motion-reduce:animate-none` on the drawing). `pahina-masthead.tsx` `foot`. */
 @keyframes cover-hint-nod {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-3px); }
-}
-@media screen and (prefers-reduced-motion: no-preference) {
-  html:not(:has(> head > style[data-veil-words])) [data-cover-foot] > [data-cover-line='']:not([data-el-motion]) {
-    animation: hub-in-fade 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) 0.8s backwards;
-  }
 }
 
 /* ── THE EVENT HUB MOVES, AND EVERY MOVEMENT MEANS SOMETHING (2026-09-21) ──

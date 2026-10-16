@@ -91,6 +91,11 @@ test('(2) a finished upload becomes the cover at once — a clip with its still 
   assert.ok(onUploaded.length > 100, 'anti-vacuity: the upload handler');
   assert.match(onUploaded, /put\(file\.kind === 'snippet' \? \{ kind: 'snippet', media: ref, \.\.\.\(file\.poster \? \{ poster: file\.poster \} : \{\}\) \} : \{ kind: 'photo', media: ref \}\);/, 'the upload is not saved as the cover’s background');
   assert.match(onUploaded, /setUploadDone\(\(n\) => n \+ 1\)/, 'a finished upload does not close the sheet');
+  /* …and nothing between "the upload landed" and its save may end the handler — the bug was exactly such a return. */
+  const landed = onUploaded.indexOf('if (!ref || !file) return;');
+  assert.ok(landed > 0, 'anti-vacuity: the landed guard');
+  const toSave = onUploaded.slice(landed + 'if (!ref || !file) return;'.length, onUploaded.indexOf('put(file.kind'));
+  assert.doesNotMatch(toSave, /\breturn\b/, 'a landed upload can end before it is saved (a clip thrown away again)');
   assert.match(rows, /uploadDone=\{uploadDone\}/);
   /* The still: grabbed from the picked file and uploaded beside the clip, into the event's own folder. */
   assert.match(rows, /const still = await extractPosterFrame\(file\);\s*const poster = still \? await uploadStill\(still, eventId, SCENE_BACKGROUND_FOLDER\) : null;/);

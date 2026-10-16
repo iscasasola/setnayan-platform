@@ -31,7 +31,7 @@ import { VenueWidget } from './venue-widget';
 import { WhatToBringWidget } from './what-to-bring-widget';
 import type { HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow } from '@/lib/scene-style-of-row';
-import type { ArtKit } from '@/lib/art-kits';
+import type { ArtKitView } from '@/lib/art-kits';
 import { KitSlot } from './kit-piece';
 
 /**
@@ -74,7 +74,7 @@ type PublicHideableWidgetProps = {
    * 🕯 THE LOOK'S ART KIT, already decided (`artKitShows`, `lib/art-kits.ts`) — the countdown card's narra posts.
    * Null/absent → nothing drawn, the card byte for byte as before.
    */
-  artKit?: ArtKit | null;
+  artKit?: ArtKitView | null;
   /**
    * 🎞 The couple's own Maker canvas (`isMakerCanvas`, a VERIFIED host): their
    * scene clip plays (`sceneGround`'s `ownClipPlays`). Never set for a guest —

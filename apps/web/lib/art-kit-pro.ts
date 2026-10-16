@@ -24,16 +24,3 @@ export const ART_KIT_IS_PRO: boolean = true;
  * `Object.keys(ART_KITS)` by the guard, so the Apply sheet can say "with its Decorations" without the registry.
  */
 export const ART_KIT_ORNAMENTS: readonly string[] = ['lace-postmark'];
-
-/** The switch, read: NULL (never set) and TRUE are on — the kit comes with the look; only FALSE is off. */
-export function decorationsOn(stored: unknown): boolean {
-  return stored !== false;
-}
-
-/**
- * Is a drafted Decorations value a Pro change at Apply? Only turning it ON (or leaving it as the look brings it) is
- * — turning it off is never Pro.
- */
-export function decorationsChangeIsPro(value: unknown, isPro: boolean = ART_KIT_IS_PRO): boolean {
-  return isPro && decorationsOn(value);
-}

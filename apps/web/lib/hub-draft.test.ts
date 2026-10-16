@@ -116,9 +116,7 @@ test('every drafted column is look, the one free colour, or the couple\'s words 
     // their columns are priced by their own rule, not the look list: switching
     // an existing song on or off is free; the QR's look (`style_preferences`,
     // drafted as `{ qr }` only) is Pro to add or change.
-    // 🕯 Decorations (owner 2026-10-16) — priced by its value: on is Pro while `ART_KIT_IS_PRO`, off never
-    // (`decorationsChangeIsPro`, the-vintage-art-kit.test.ts).
-    const own = ['site_bg_music_enabled', 'style_preferences', 'site_decorations'].includes(c);
+    const own = ['site_bg_music_enabled', 'style_preferences'].includes(c);
     // 🎨 The Mood Board palette a theme pick fills onto an EMPTY board (owner
     // 2026-10-05, "THE MOOD BOARD PALETTE IS THE PRIORITY") — never Pro.
     // 🎨 …and one main colour edited on its own (Studio › Look › Colours, owner 2026-10-07) — never Pro.

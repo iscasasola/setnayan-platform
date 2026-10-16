@@ -11,7 +11,7 @@ import { WelcomeGifts } from './guest-doorway-strip';
 import { WelcomeGiftsContent } from './welcome-gifts-content';
 import type { GiftPageContent } from '../pabuya/_lib/gift-cards';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from './maker-guest-scenes';
-import type { ArtKit } from '@/lib/art-kits';
+import type { ArtKitView } from '@/lib/art-kits';
 import { KitSlot } from './kit-piece';
 
 /**
@@ -83,7 +83,7 @@ export function GuestWelcome({
    * 🕯 THE LOOK'S ART KIT, already decided (`artKitShows`, `lib/art-kits.ts`, owner 2026-10-16): the divider above
    * E-Gifts and the spray + abaniko on its card. Null → E-Gifts byte for byte as before.
    */
-  artKit?: ArtKit | null;
+  artKit?: ArtKitView | null;
   /** 🧱 What to wear's own look (`lib/block-looks.ts`): its hidden mark, handed on to the reader's panel, which draws
    *  it right before its root only when it draws (`DressCodeWidget` `mark`). */
   lookMark?: ReactNode;

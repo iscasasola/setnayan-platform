@@ -233,7 +233,7 @@ import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { coverSceneLayer } from '../_lib/cover-scene-layer';
 import { PahinaMasthead } from './pahina-masthead';
-import { artKitShows } from '@/lib/art-kits';
+import { artKitView, sceneAccentsFromPreferences } from '@/lib/art-kits';
 import { KitClosing, KitSeal, KitSlot, KitStyle } from './kit-piece';
 import { ArtKitMotion } from './art-kit-motion';
 import { EntourageSection } from './entourage-section';
@@ -780,14 +780,15 @@ export async function SiteBody({
   const sceneTheme = (await resolveHubTheme(event)).theme;
 
   /*
-    🕯 THE LOOK'S ART KIT (owner 2026-10-16, DECISION_LOG "APPROVED — THE VINTAGE ART KIT, AS THE PROOF SHOWS") —
-    decided ONCE here and handed to each of its fixed places (`lib/art-kits.ts` · `kit-piece.tsx`). The theme is the
-    resolved one (a lapsed Pro theme is already House); the couple's Decorations switch (`site_decorations`, draft-
-    overlaid on the host's canvas); and, while `ART_KIT_IS_PRO`, the event's Event Hub Pro as the viewer is shown it
-    (`proWatermarkHidden` — `websiteProActiveFor`, an internal host included) or the host's own Maker canvas, where a
+    🕯 THE ART KIT'S ACCENTS (owner 2026-10-16, DECISION_LOG "APPROVED — THE VINTAGE ART KIT" and "AN ACCENT BELONGS TO
+    ITS SCENE AND IS ADDED FROM THAT SCENE'S STYLE") — decided ONCE here and handed to each fixed place
+    (`lib/art-kits.ts` · `kit-piece.tsx`): each scene's Accent pick (`style_preferences.scene_accents`, draft-overlaid
+    on the host's canvas) or the look's default; the look's own seal, flourish and divider when the RESOLVED theme brings
+    a kit; and, while `ART_KIT_IS_PRO`, only with the event's Event Hub Pro as the viewer is shown it
+    (`proWatermarkHidden` — `websiteProActiveFor`, an internal host included) or on the host's own Maker canvas, where a
     Pro look is tried free. Null → every mount draws nothing: the page byte for byte as before.
   */
-  const artKit = artKitShows({ theme: sceneTheme, decorations: event.site_decorations, ownsPro: proWatermarkHidden, tryOn: isEditorCanvas });
+  const artKit = artKitView({ theme: sceneTheme, accents: sceneAccentsFromPreferences((event as { style_preferences?: unknown }).style_preferences), ownsPro: proWatermarkHidden, tryOn: isEditorCanvas });
   const kitCover = artKit ? <KitSlot kit={artKit} slot="cover" eager /> : null;
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
@@ -4252,7 +4253,7 @@ export async function SiteBody({
       exitHref={makerWayBack || isMakerCanvas ? null : '/'}
       /* 🕯 The art kit's closing — the couple's OWN cover photo (`heroPhotoUrl`, signed for this event) or their mark. */
       kitClosing={
-        artKit
+        artKit?.pieces.closing?.length
           ? {
               kit: artKit,
               names: event.display_name,

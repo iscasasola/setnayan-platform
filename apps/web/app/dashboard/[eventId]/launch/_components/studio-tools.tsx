@@ -61,8 +61,6 @@ import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access
 import { StudioEventName } from './studio-event-name';
 import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioPhotosHeading, StudioWords, studioDraftKeep } from './studio-info';
 import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
-import { PaidMark } from '@/app/_components/paid-mark';
-import { ART_KIT_IS_PRO } from '@/lib/art-kit-pro';
 import { Fold } from '@/app/_components/fold';
 import { Check, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -973,42 +971,6 @@ export function StudioQrShown({ eventId, shown, children }: { eventId: string; s
   );
 }
 
-/**
- * 🕯 LOOK › DECORATIONS, ON OR OFF (owner 2026-10-16, DECISION_LOG "APPROVED — THE VINTAGE ART KIT, AS THE PROOF
- * SHOWS": *"decorations come with the Vintage look, with an On/Off switch"*). The look's art kit — the drapes and the
- * araña on the cover, the seal on the veil, the posts at the countdown, the florals, the garland and the closing oval
- * (`lib/art-kits.ts`). On as the look brings it. Drafted (`site_decorations`) — guests see it at Apply.
- *
- * 💎 While `ART_KIT_IS_PRO` (owner 2026-10-16, *"the accents we added should be part of pro"*): tried free here — the
- * canvas wears it — and named "Decorations" at ✓ Apply; ◆ on the row for a couple without Event Hub Pro. Off is free.
- */
-export function StudioDecorations({ eventId, on: shown, ownsPro }: { eventId: string; on: boolean; ownsPro: boolean }) {
-  const [on, setOn] = useState(shown);
-  useEffect(() => setOn(shown), [shown]);
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <SwitchRow
-      data="decorations"
-      name="Decorations"
-      about={{ words: 'The drapes, the chandelier, the flowers, the seal and the oval frame that come with this look. Off, none of them show.' }}
-      on={on}
-      attrs={{ 'data-studio-decorations': '', 'data-studio-switch': 'decorations' }}
-      note={ART_KIT_IS_PRO && !ownsPro ? <PaidMark state="try" label="Part of Event Hub Pro" text="Event Hub Pro" size="xs" /> : null}
-      onChange={(next) => {
-        setOn(next);
-        setError(null);
-        /* ⚡ ONE drafted write, no render of the Maker (`studioDraftKeep`). */
-        void studioDraftKeep(eventId, 'events:site_decorations', { site_decorations: next }).then((r) => {
-          if (r.ok) return;
-          setOn(!next);
-          setError('That did not save, so it is back as it was. Please try again.');
-        });
-      }}
-      problem={error}
-    />
-  );
-}
-
 /* ── 🖨 PRINTS ────────────────────────────────────────────────────────────── */
 
 /** The mark Studio › Prints' lists wear — the hairline runs between one list and the next (`lib/studio-details.ts`). */
@@ -1291,8 +1253,6 @@ export type StudioToolProps =
   | ({ part: 'look' } & Parameters<typeof StudioLookBar>[0])
   | ({ part: 'main-extras' } & Parameters<typeof StudioMainExtras>[0])
   | ({ part: 'main-colours' } & Parameters<typeof StudioMainColours>[0])
-  /* 🕯 Look › Decorations (owner 2026-10-16) — the same one lazy door. */
-  | ({ part: 'decorations' } & Parameters<typeof StudioDecorations>[0])
   | ({ part: 'words' } & Parameters<typeof StudioWords>[0])
   /* ✍ The Photos heading (owner 2026-10-15) — the same one lazy door. */
   | ({ part: 'photos-heading' } & Parameters<typeof StudioPhotosHeading>[0])
@@ -1339,8 +1299,6 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioMainExtras {...props} />;
     case 'main-colours':
       return <StudioMainColours {...props} />;
-    case 'decorations':
-      return <StudioDecorations {...props} />;
     case 'words':
       return <StudioWords {...props} />;
     case 'photos-heading':

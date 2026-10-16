@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { artKitCss, kitFile, kitPlacements, type ArtKit, type ArtKitPlacement, type ArtKitSlot } from '@/lib/art-kits';
+import { artKitCss, kitFile, viewPlacements, type ArtKit, type ArtKitPlacement, type ArtKitSlot, type ArtKitView } from '@/lib/art-kits';
 import { splitCoupleNames } from '@/lib/split-names';
 
 /**
@@ -21,8 +21,8 @@ import { splitCoupleNames } from '@/lib/split-names';
  */
 
 /** The kit's stylesheet, once per page — and the page's mark that a kit is drawn (`html:has([data-art-kit])`). */
-export function KitStyle({ kit }: { kit: ArtKit }) {
-  return <style data-art-kit={kit.ornament}>{artKitCss(kit)}</style>;
+export function KitStyle({ kit }: { kit: ArtKitView }) {
+  return <style data-art-kit={kit.kit.ornament}>{artKitCss(kit)}</style>;
 }
 
 /** One piece in its box. */
@@ -74,14 +74,14 @@ export function KitPiece({ kit, placement, eager = false }: { kit: ArtKit; place
   );
 }
 
-/** Every piece the registry places in one slot — the slot's ONE mount. */
-export function KitSlot({ kit, slot, eager = false }: { kit: ArtKit; slot: ArtKitSlot; eager?: boolean }) {
-  const placements = kitPlacements(kit, slot);
+/** Every piece this page places in one slot (its scene's Accent pick) — the slot's ONE mount; nothing for None. */
+export function KitSlot({ kit, slot, eager = false }: { kit: ArtKitView; slot: ArtKitSlot; eager?: boolean }) {
+  const placements = viewPlacements(kit, slot);
   if (placements.length === 0) return null;
   return (
     <span aria-hidden data-kit-slot={slot}>
       {placements.map((p, i) => (
-        <KitPiece key={`${p.piece}-${i}`} kit={kit} placement={p} eager={eager} />
+        <KitPiece key={`${p.piece}-${i}`} kit={kit.kit} placement={p} eager={eager} />
       ))}
     </span>
   );
@@ -97,8 +97,9 @@ export function sealLetters(mark: string | null | undefined): string {
 }
 
 /** 🔴 The veil's wax seal, with the couple's mark in its centre. A still; the tap falls through to the veil's. */
-export function KitSeal({ kit, mark }: { kit: ArtKit; mark: string | null }) {
-  const placements = kitPlacements(kit, 'veil');
+export function KitSeal({ kit: view, mark }: { kit: ArtKitView; mark: string | null }) {
+  const kit = view.kit;
+  const placements = viewPlacements(view, 'veil');
   if (placements.length === 0) return null;
   const letters = sealLetters(mark);
   return (
@@ -132,7 +133,7 @@ export function KitSeal({ kit, mark }: { kit: ArtKit; mark: string | null }) {
  * Black and white, as the proof shows it.
  */
 export function KitClosing({
-  kit,
+  kit: view,
   names,
   date,
   photoUrl,
@@ -140,7 +141,7 @@ export function KitClosing({
   hideWatermark,
   twoPeople = true,
 }: {
-  kit: ArtKit;
+  kit: ArtKitView;
   names: string;
   date: string | null;
   photoUrl: string | null;
@@ -148,7 +149,8 @@ export function KitClosing({
   hideWatermark: boolean;
   twoPeople?: boolean;
 }) {
-  const frame = kitPlacements(kit, 'closing')[0];
+  const kit = view.kit;
+  const frame = viewPlacements(view, 'closing')[0];
   const piece = frame ? kit.pieces[frame.piece] : undefined;
   const hole = kit.closing.photoHole;
   const split = splitCoupleNames(names, twoPeople);

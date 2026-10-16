@@ -35,7 +35,7 @@ import { sceneCardClass } from '@/lib/scene-card-look';
 import type { MarchPlace } from '@/lib/march-place';
 import type { HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow } from '@/lib/scene-style-of-row';
-import type { ArtKit } from '@/lib/art-kits';
+import type { ArtKitView } from '@/lib/art-kits';
 import { KitSlot } from './kit-piece';
 import { DetailsBigDate, DetailsCard } from './event-details-styles';
 
@@ -80,7 +80,7 @@ type HideableWidgetProps = {
    * 🕯 THE LOOK'S ART KIT, already decided (`artKitShows`, `lib/art-kits.ts`) — the countdown card's narra posts.
    * Null/absent → nothing drawn, the card byte for byte as before.
    */
-  artKit?: ArtKit | null;
+  artKit?: ArtKitView | null;
   /**
    * 🎞 The couple's own Maker canvas (`isMakerCanvas`, a VERIFIED host): their
    * scene clip plays (`sceneGround`'s `ownClipPlays`). Never set for a guest —

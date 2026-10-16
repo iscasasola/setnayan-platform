@@ -29,10 +29,10 @@
  */
 import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invite-themes';
 
-import { ART_KIT_IS_PRO, decorationsOn } from '@/lib/art-kit-pro';
+import { ART_KIT_IS_PRO } from '@/lib/art-kit-pro';
 
 /* 💎 The price switch and the switch's reading live in `lib/art-kit-pro.ts` (kept out of the Maker's first load). */
-export { ART_KIT_IS_PRO, ART_KIT_ORNAMENTS, decorationsChangeIsPro, decorationsOn } from '@/lib/art-kit-pro';
+export { ART_KIT_IS_PRO, ART_KIT_ORNAMENTS } from '@/lib/art-kit-pro';
 
 /** Where a piece is mounted. Each slot is ONE mount on the guest page (`KitSlot`), never two. */
 export const ART_KIT_SLOTS = ['veil', 'cover', 'countdown', 'gifts-card', 'gifts-divider', 'reply', 'closing', 'heading'] as const;
@@ -202,29 +202,75 @@ export function artKitForSaved(saved: unknown): ArtKit | null {
   return artKitFor(normalizeThemeId(saved));
 }
 
+/* ── 🎚 ACCENTS, SCENE BY SCENE — the model lives in `lib/art-kit-accents.ts` (the Maker's first load reads it). ── */
+export {
+  ACCENT_NONE,
+  ACCENT_SCENES,
+  ACCENT_SCENE_LABEL,
+  ACCENT_SLOT,
+  KIT_DEFAULT_ACCENTS,
+  SCENE_ACCENTS,
+  SCENE_ACCENTS_PREF_KEY,
+  accentsTurnOn,
+  isAccentScene,
+  resolvedAccent,
+  sanitizeSceneAccents,
+  sceneAccentsFromPreferences,
+  type AccentOption,
+  type AccentScene,
+  type SceneAccents,
+} from '@/lib/art-kit-accents';
+import { ACCENT_SCENES, ACCENT_SLOT, SCENE_ACCENTS, resolvedAccent, type SceneAccents } from '@/lib/art-kit-accents';
+
 /**
- * 🎚 THE ONE DECISION — does this page draw its kit?
- *
- *  · the RESOLVED theme (already gated: a Pro theme whose unlock lapsed is House here) carries a kit;
- *  · the couple's switch is not off;
- *  · and, while `ART_KIT_IS_PRO`, the event owns Event Hub Pro — or this is the host's own Maker canvas, where every
- *    Pro look is tried free (`tryOn`), never a guest's page.
- *
- * `isPro` is a parameter so the guard holds both values of the constant without editing it.
+ * What one page draws: the piece library, the pieces per slot, and whether the LOOK itself brings a kit (the seal on
+ * the veil, the heading flourish and the divider come with the look, not with a scene's pick).
  */
-export function artKitShows(input: {
+export type ArtKitView = { kit: ArtKit; pieces: Partial<Record<ArtKitSlot, readonly string[]>>; look: boolean };
+
+/** The library every look picks from — the Vintage kit, the one today. */
+export const ACCENT_LIBRARY: ArtKit = VINTAGE_KIT as ArtKit;
+
+/**
+ * 🎚 THE ONE DECISION — what does this page draw?
+ *
+ *  · each scene's accent: the couple's pick (draft-overlaid on the host's canvas), else the look's default;
+ *  · the look's own pieces (seal, flourish, divider) when the RESOLVED theme brings a kit (a lapsed Pro theme is
+ *    already House here);
+ *  · and, while `ART_KIT_IS_PRO`, only for an event that owns Event Hub Pro — or the host's own Maker canvas, where a
+ *    Pro look is tried free (`tryOn`), never a guest's page.
+ * Null when nothing is drawn — every mount then renders the page byte for byte as before.
+ */
+export function artKitView(input: {
   theme: InviteThemeId | null | undefined;
-  decorations: unknown;
+  accents: SceneAccents;
   ownsPro: boolean;
   tryOn: boolean;
   isPro?: boolean;
-}): ArtKit | null {
-  const kit = artKitFor(input.theme);
-  if (!kit) return null;
-  if (!decorationsOn(input.decorations)) return null;
+}): ArtKitView | null {
   const pro = input.isPro ?? ART_KIT_IS_PRO;
   if (pro && !input.ownsPro && !input.tryOn) return null;
-  return kit;
+  const look = artKitFor(input.theme) !== null;
+  const pieces: Partial<Record<ArtKitSlot, readonly string[]>> = {};
+  for (const scene of ACCENT_SCENES) {
+    const id = resolvedAccent(scene, input.accents, input.theme);
+    const option = SCENE_ACCENTS[scene].find((o) => o.id === id);
+    if (option) pieces[ACCENT_SLOT[scene]] = option.pieces;
+  }
+  if (look) {
+    pieces.veil = ['wax-seal'];
+    pieces['gifts-divider'] = ['divider'];
+    pieces.heading = ['heading-flourish'];
+  }
+  if (Object.keys(pieces).length === 0) return null;
+  return { kit: ACCENT_LIBRARY, pieces, look };
+}
+
+/** The placements a view draws in one slot, in order — none when the slot's scene picked None. */
+export function viewPlacements(view: ArtKitView, slot: ArtKitSlot): readonly ArtKitPlacement[] {
+  const wanted = view.pieces[slot];
+  if (!wanted || wanted.length === 0) return [];
+  return kitPlacements(view.kit, slot).filter((p) => wanted.includes(p.piece));
 }
 
 /** The placements of one slot, in order. */
@@ -265,8 +311,9 @@ export const ART_KIT_BYTE_CEILING = 600 * 1024;
  * THE PAGE: a piece may hang past the page's edge (the proof's posts and spray do), so the page clips sideways where
  * a kit is drawn — `clip`, not `hidden`, which would make a scroll container and break every sticky bar.
  */
-export function artKitCss(kit: ArtKit): string {
-  const flourish = kit.pieces['heading-flourish' as keyof typeof kit.pieces] as ArtKitPiece | undefined;
+export function artKitCss(view: ArtKitView): string {
+  const kit = view.kit;
+  const flourish = view.pieces.heading?.includes('heading-flourish') ? (kit.pieces['heading-flourish' as keyof typeof kit.pieces] as ArtKitPiece | undefined) : undefined;
   const flourishRule = flourish
     ? /* 🌹 The section eyebrows' plain rule becomes the flourish. Only inside the guest page's editorial scope, the
          same scope that draws the rule. */

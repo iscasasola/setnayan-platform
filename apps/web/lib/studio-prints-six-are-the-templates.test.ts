@@ -204,5 +204,7 @@ test('7 · no bare select, no colour of its own, and nothing of the six in the M
     const src = read(`${L}/${f}`).replace(/^import type [^;]*;$/gm, '').replace(/import\(\/\*[^*]*\*\/ '[^']*'\)/g, '');
     assert.doesNotMatch(src, /from '\.\/studio-prints-six'|from '@\/app\/_components\/(?:status-line|counter)'/, `${f} imports the six or a template statically`);
   }
-  assert.match(read(`${L}/studio-tools.tsx`), /import \{ StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto, StudioProDoor \} from '\.\/studio-prints-six';/);
+  assert.match(read(`${L}/studio-tools.tsx`), /import \{ StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto \} from '\.\/studio-prints-six';/);
+  /* The ◆ door reaches the lazy door through the Prints settings parts (2026-10-17) — the same chunk. */
+  assert.match(read(`${L}/studio-prints-settings.tsx`), /import \{ StudioProDoor \} from '\.\/studio-prints-six';/);
 });

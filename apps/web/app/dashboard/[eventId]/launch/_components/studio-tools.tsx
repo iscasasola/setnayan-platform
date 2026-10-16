@@ -1081,10 +1081,6 @@ export function StudioPrintSave({ form }: { form: string }) {
   );
 }
 
-/** A door that is an action button (the pass zip's door to the Event Hub Pro unlock): a link, drawn by the ONE ActionButton. */
-export function StudioActionDoor({ href, label, icon }: { href: string; label: string; icon: ReactElement }) {
-  return <ActionButton tone="neutral" href={href} label={label} icon={icon} />;
-}
 
 /* 🎫 "The ticket guests save" rows, the all-in-one part and "Pass for ▾" were retired on 2026-10-17 (owner *"ok on prints"*): each guest
    print's View as ▾ · Download · All guests ◆ is `StudioGuestPiece`, Everything ◆ is `StudioEverything` (`studio-prints-settings.tsx`). */
@@ -1124,7 +1120,6 @@ export type StudioToolProps =
   | ({ part: 'open-in-place' } & Parameters<typeof OpenInPlace>[0])
   /* 🖨 Studio › Prints (2026-10-09) — one lazy door, no door of its own (the Maker's first load). */
   | ({ part: 'print-head' } & Parameters<typeof StudioPrintHead>[0])
-  | ({ part: 'action-door' } & Parameters<typeof StudioActionDoor>[0])
   | ({ part: 'include-switch' } & Parameters<typeof StudioIncludeSwitch>[0])
   | ({ part: 'seat-kind' } & Parameters<typeof StudioSeatKind>[0])
   | ({ part: 'print-save' } & Parameters<typeof StudioPrintSave>[0])
@@ -1178,8 +1173,6 @@ export function StudioTool(props: StudioToolProps) {
       return <OpenInPlace {...props} />;
     case 'print-head':
       return <StudioPrintHead {...props} />;
-    case 'action-door':
-      return <StudioActionDoor {...props} />;
     case 'include-switch':
       return <StudioIncludeSwitch {...props} />;
     case 'seat-kind':

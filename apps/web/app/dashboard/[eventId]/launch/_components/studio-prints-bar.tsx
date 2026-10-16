@@ -167,7 +167,7 @@ export function StudioPrintsBar({
         aria-haspopup="dialog"
         data-prints-bar-step="download"
         onClick={() => setSaving(true)}
-        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-terracotta text-cream shadow-[0_6px_14px_-6px_rgba(180,80,40,.6)]"
+        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-cream shadow-[0_6px_14px_-6px_rgba(120,60,30,.6)]"
       >
         <Download aria-hidden className="h-5 w-5" strokeWidth={2} />
       </button>

@@ -80,7 +80,7 @@ export function StudioPrintSettings({ sections, save }: { sections: readonly Pri
         aria-modal="true"
         aria-labelledby={headId}
         data-print-settings-sheet=""
-        className="absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[22px] bg-[color-mix(in_srgb,rgb(var(--color-gild))_9%,rgb(var(--color-cream)))] shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] lg:inset-x-auto lg:left-1/2 lg:w-[30rem] lg:-translate-x-1/2"
+        className="absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-3xl bg-[color-mix(in_srgb,rgb(var(--color-gild))_9%,rgb(var(--color-cream)))] shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] lg:inset-x-auto lg:left-1/2 lg:w-[30rem] lg:-translate-x-1/2"
       >
         <div aria-hidden className="flex justify-center pt-2.5">
           <i className="h-1 w-10 rounded-full bg-ink/20" />
@@ -89,7 +89,7 @@ export function StudioPrintSettings({ sections, save }: { sections: readonly Pri
           <h2 id={headId} className="text-[10.5px] font-semibold uppercase tracking-[0.2em] text-ink/55">
             {PRINT_SETTINGS_LABEL}
           </h2>
-          <button type="button" data-print-settings-done="" onClick={() => setOpen(false)} className="sn-press min-h-11 px-1 text-[15px] font-semibold text-terracotta">
+          <button type="button" data-print-settings-done="" onClick={() => setOpen(false)} className="sn-press min-h-11 px-1 text-[15px] font-semibold text-sn-accent">
             Done
           </button>
         </div>
@@ -328,7 +328,7 @@ export function StudioPrintsDownloadSheet({ item, onClose }: { item: string | nu
   const node = (
     <div data-prints-download-layer="" className="fixed inset-0 z-[86]">
       <button type="button" aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 bg-ink/35" />
-      <div ref={box} role="dialog" aria-modal="true" aria-labelledby={headId} data-prints-download-sheet="" className="absolute inset-x-0 bottom-0 rounded-t-[22px] bg-cream px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] lg:inset-x-auto lg:left-1/2 lg:w-[26rem] lg:-translate-x-1/2">
+      <div ref={box} role="dialog" aria-modal="true" aria-labelledby={headId} data-prints-download-sheet="" className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-cream px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] lg:inset-x-auto lg:left-1/2 lg:w-[26rem] lg:-translate-x-1/2">
         <div aria-hidden className="flex justify-center pt-2.5">
           <i className="h-1 w-10 rounded-full bg-ink/20" />
         </div>

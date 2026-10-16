@@ -118,8 +118,13 @@ test('3 · every include switch is the Form row’s switch — a switch button o
   assert.ok(parts.length > 1500, 'the Studio Prints parts moved — re-read this guard');
   assert.doesNotMatch(parts, /<select\b|<textarea\b|type="checkbox"|type="radio"|<PickMenu\b/, 'a Studio Prints part draws a bare control');
   assert.doesNotMatch(parts, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|\bborder-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b|\bstyle=\{/, 'a Studio Prints part writes a colour of its own');
-  /* 2 since 2026-10-16: the seat plan's kind and "Pass for ▾" (one guest's pass) — each the Form row's one dropdown. */
-  assert.equal((parts.match(/<ChosenRow\b/g) ?? []).length, 2, 'the seat plan’s kind or "Pass for" is not the one dropdown');
+  /* 1 since 2026-10-17: the seat plan's kind ("Pass for ▾" is retired — View as ▾ lives in `studio-prints-settings.tsx`). */
+  assert.equal((parts.match(/<ChosenRow\b/g) ?? []).length, 1, 'the seat plan’s kind is not the one dropdown');
+  /* ⚙ The settings sheet, the rows' Download, View as ▾ and the two-file dropdowns (2026-10-17) — the same rules. */
+  const sheet = read(`${L}/studio-prints-settings.tsx`);
+  assert.doesNotMatch(sheet, /<select\b|<textarea\b|type="checkbox"|type="radio"|<PickMenu\b/, 'a Prints settings part draws a bare control');
+  assert.doesNotMatch(sheet, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|\bborder-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b|\bstyle=\{/, 'a Prints settings part writes a colour of its own');
+  assert.equal((sheet.match(/<ChosenRow\b/g) ?? []).length, 2, 'View as ▾ or a two-file dropdown is not the Form row’s one dropdown');
   assert.match(parts, /<SwitchRow[\s\S]{0,400}fieldName=\{name\}\s+formId=\{form\}/, 'the include switch does not post through the words form');
 });
 

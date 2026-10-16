@@ -2378,8 +2378,8 @@ export async function SiteBody({
                 <GuestWelcome
                   partLooks={welcomeLooks}
                   parts={parts}
-                  words={clientWords}
                   artKit={artKit}
+                  words={clientWords}
                   look={null}
                   reminders={
                     remindersScene ? (
@@ -2422,8 +2422,8 @@ export async function SiteBody({
                 <GuestWelcome
                   partLooks={welcomeLooks}
                   parts={dayWelcome}
-                  words={clientWords}
                   artKit={artKit}
+                  words={clientWords}
                   look={null}
                   reminders={
                     dayRemindersRow ? (
@@ -3776,8 +3776,8 @@ export async function SiteBody({
               <GuestWelcome
                 partLooks={welcomeLooks}
                 parts={welcomeHere}
-                words={clientWords}
                 artKit={artKit}
+                words={clientWords}
                 /* 🏠 One home per fact: once Me draws this guest's role and
                    outfit (`meParts`), the Welcome's look stands down. */
                 look={meParts.length > 0 ? null : guestLook}
@@ -3819,8 +3819,8 @@ export async function SiteBody({
                 <GuestWelcome
                   partLooks={welcomeLooks}
                   parts={dayWelcome}
-                  words={clientWords}
                   artKit={artKit}
+                  words={clientWords}
                   lookMark={blockMark('look')}
                   look={{
                     config: event.dress_code_config ?? null,

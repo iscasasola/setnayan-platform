@@ -44,9 +44,9 @@ const LAB_QR =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21" shape-rendering="crispEdges"><rect width="21" height="21" fill="#fff"/>' +
-      [
+      ([
         [0, 0], [14, 0], [0, 14],
-      ]
+      ] as const)
         .map(([x, y]) => `<rect x="${x}" y="${y}" width="7" height="7" fill="#000"/><rect x="${x + 1}" y="${y + 1}" width="5" height="5" fill="#fff"/><rect x="${x + 2}" y="${y + 2}" width="3" height="3" fill="#000"/>`)
         .join('') +
       Array.from({ length: 60 }, (_, i) => `<rect x="${8 + ((i * 7) % 13)}" y="${(i * 5) % 21}" width="1" height="1" fill="#000"/>`).join('') +

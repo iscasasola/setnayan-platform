@@ -102,7 +102,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { AccentRow, FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
 import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
@@ -120,7 +120,6 @@ import { floatOpenTips } from '@/lib/float-open-tips';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { ART_KIT_IS_PRO } from '@/lib/art-kit-pro';
 import { isAccentScene, type SceneAccents } from '@/lib/art-kit-accents';
-import { AccentRow } from './accent-row';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -2232,8 +2231,8 @@ export function MakerWork({
         <>
           {styleRow}
           {paletteRow}
-          {accentRow}
           {layoutRow}
+          {accentRow}
         </>
       ) : null;
     const backgroundRow =
@@ -3470,11 +3469,7 @@ export function MakerWork({
             /* 🎨 The hero, E-Gifts and the guest's look: the picked part's own styles (owner 2026-10-07) — the new Maker's. */
             if (maker?.stagesStudio && (fixed === 'hero' || fixed === 'gifts' || fixed === 'look')) {
               return (
-                <>
-                  <FixedSceneStyleRow key={`${fixed}:${stage}`} eventId={eventId} scene={fixed} stage={stage} eventType={sceneFormat?.eventType ?? null} styles={sceneFormat?.fixedStyles ?? null} draftAction={elementEditing.draftAction} />
-                  {/* 🕯 The cover's and E-Gifts' Accent ◆ ▾ (owner 2026-10-16). */}
-                  {fixed === 'hero' || fixed === 'gifts' ? accentRowFor(fixed) : null}
-                </>
+                <FixedSceneStyleRow key={`${fixed}:${stage}`} eventId={eventId} scene={fixed} stage={stage} eventType={sceneFormat?.eventType ?? null} styles={sceneFormat?.fixedStyles ?? null} draftAction={elementEditing.draftAction} accent={fixed === 'hero' || fixed === 'gifts' ? accentRowFor(fixed) : null} />
               );
             }
             if (!fixed || !isFixedStyleScene(fixed)) return null;

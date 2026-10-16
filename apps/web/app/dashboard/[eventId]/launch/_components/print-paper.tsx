@@ -732,7 +732,7 @@ export function StudioChartPaper({ chart }: { chart: StudioChartInput }) {
   );
   return (
     <div data-studio-chart="" data-print-studio="" className="flex flex-col gap-1">
-      <FormRows data="print-head" attrs={{ 'data-studio-print-rows': '' }}>
+      <FormRows data="print-head" width="short" attrs={{ 'data-studio-print-rows': '' }}>
         <div data-print-paper-head="seating-chart" className="flex items-center gap-3">
           <PrintThumb paper={paper} onOpen={show} facts={(x) => setFacts({ src: at.preview, f: x })} />
           <div

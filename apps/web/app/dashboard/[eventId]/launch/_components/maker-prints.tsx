@@ -116,7 +116,7 @@ export type PrintsInput = {
    * 🎟 Who has a pass, by name, in the printed passes' order (`loadPassGuestNames`; Studio only) — "Pass for ▾" and the count over
    * every guest's file. `null`: the list could not be read (said, never "nobody"); absent: not read here.
    */
-  passGuests?: Array<{ id: string; name: string }> | null;
+  passGuests?: Array<{ id: string; name: string; reply: 'attending' | 'pending' | 'maybe' }> | null;
   /**
    * ⚡ The hash of everything the pieces are drawn from (`printInputsVersion`),
    * put in each on-screen preview's address as `v` — a versioned preview is
@@ -403,11 +403,17 @@ export function PrintPieceEditor({
           </>
         )
       ) : null;
-    /* What every guest's file holds: the count when the list was read (its own rule — `loadPassGuestNames`), never a guess. */
-    const everyGuestLine =
-      Array.isArray(guests) && guests.length > 0
-        ? `${formatCount(guests.length)} ${guests.length === 1 ? 'guest' : 'guests'} coming`
-        : 'Guests who are coming';
+    /* What every guest's file holds — its own count and where those guests stand, from the SAME read and rule as the file
+       (`loadPassGuestNames`): "109 passes · 6 coming, 103 not replied yet" (coordinator 2026-10-16: the number IS the file, nothing
+       hidden; a part that is 0 is dropped). Never a guess: unread, it says only who the file is for. */
+    const everyGuestLine = (() => {
+      if (!Array.isArray(guests) || guests.length === 0) return 'Guests who are coming';
+      const n = (r: 'attending' | 'pending' | 'maybe') => guests.filter((g) => g.reply === r).length;
+      const parts = [`${formatCount(n('attending'))} coming`];
+      if (n('pending') > 0) parts.push(`${formatCount(n('pending'))} not replied yet`);
+      if (n('maybe') > 0) parts.push(`${formatCount(n('maybe'))} maybe`);
+      return `${formatCount(guests.length)} ${guests.length === 1 ? 'pass' : 'passes'} · ${parts.join(', ')}`;
+    })();
     const changed = (
       <ChangedSincePrinted
         eventId={input.eventId}

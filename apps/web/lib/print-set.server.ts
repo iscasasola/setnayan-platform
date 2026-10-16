@@ -776,20 +776,36 @@ export async function passGuestRows(eventId: string, ticketsOnly: boolean): Prom
   return { rows: all, measured: true };
 }
 
+/** Where a guest who has a pass stands — the reply the pass rule reads (`passCardEligibility`): their own, or for a plus-one with no
+ *  reply of their own, their bringer's. A pass is never printed for `declined`, so it is never one of these. */
+export type PassGuestReply = 'attending' | 'pending' | 'maybe';
+export function passGuestReply(row: { rsvp_status?: string | null; plus_one_of_guest_id?: string | null }, bringer: { rsvp_status?: string | null } | null): PassGuestReply {
+  let reply = row.rsvp_status ?? 'pending';
+  if (row.plus_one_of_guest_id && reply === 'pending') reply = bringer?.rsvp_status ?? 'pending';
+  return reply === 'attending' ? 'attending' : reply === 'maybe' ? 'maybe' : 'pending';
+}
+
 /**
  * 🎟 WHO HAS A PASS, BY NAME (owner 2026-10-16, Studio › Prints' Event pass: "Pass for ▾" and the count over every guest's file) —
- * the SAME guests, order and name as the printed passes (`passGuestRows` · `ticketName`). `null` when the list could not be read:
- * never an empty list that would say nobody is coming.
+ * the SAME guests, order and name as the printed passes (`passGuestRows` · `ticketName`), each with where they stand
+ * (`passGuestReply`), so the line over every guest's file says what the file holds: "109 passes · 6 coming, 103 not replied yet"
+ * (coordinator 2026-10-16 — the 2026-09-29 rule stands: a pass for everyone who has not declined). `null` when the list could not be
+ * read: never an empty list that would say nobody is coming.
  */
 export async function loadPassGuestNames(
   eventId: string,
   /** The event's `print_details` (its Name style) — awaited beside the guests, so the caller's own event read is not waited on. */
   printDetails: PromiseLike<unknown>,
-): Promise<Array<{ id: string; name: string }> | null> {
+): Promise<Array<{ id: string; name: string; reply: PassGuestReply }> | null> {
   const [read, details] = await Promise.all([passGuestRows(eventId, true), printDetails]);
   if (!read.measured) return null;
   const style = nameStyleOfPrintDetails(details);
-  return read.rows.map((g) => ({ id: g.guest_id, name: ticketName(g, style) }));
+  const byId = new Map(read.rows.map((g) => [g.guest_id, g]));
+  return read.rows.map((g) => ({
+    id: g.guest_id,
+    name: ticketName(g, style),
+    reply: passGuestReply(g, g.plus_one_of_guest_id ? (byId.get(g.plus_one_of_guest_id) ?? null) : null),
+  }));
 }
 
 /**

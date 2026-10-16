@@ -55,12 +55,12 @@ const EVENT = '00000000-0000-4000-8000-000000000000';
 
 /** 🎟 The lab's guests who have a pass — stand-in names (no database here). */
 const LAB_PASS_GUESTS = [
-  { id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes' },
-  { id: '00000000-0000-4000-8000-000000000102', name: 'Ben Cruz' },
-  { id: '00000000-0000-4000-8000-000000000103', name: 'Carla Dizon' },
-  { id: '00000000-0000-4000-8000-000000000104', name: 'Dante Lim' },
-  { id: '00000000-0000-4000-8000-000000000105', name: 'Elena Santos' },
-  { id: '00000000-0000-4000-8000-000000000106', name: 'Felix Tan' },
+  { id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000102', name: 'Ben Cruz', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000103', name: 'Carla Dizon', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000104', name: 'Dante Lim', reply: 'attending' as const },
+  { id: '00000000-0000-4000-8000-000000000105', name: 'Elena Santos', reply: 'pending' as const },
+  { id: '00000000-0000-4000-8000-000000000106', name: 'Felix Tan', reply: 'pending' as const },
 ];
 
 /** The lab's Event Details page — also mounted whole inside the Maker lab (`/dev/maker-lab`). */

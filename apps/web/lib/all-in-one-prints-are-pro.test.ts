@@ -109,7 +109,7 @@ test('2 · Studio › Prints marks every all-in-one file with the zip’s ◆ pa
     const input = {
       eventId: 'E1', slug: 'rosa-ben', theme: 'house', ownsPro, storeShell,
       formats: { pass: formatFor('pass', 'train')!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
-      passGuests: [{ id: GUEST, name: 'Ana Reyes' }, { id: '00000000-0000-4000-8000-000000000102', name: 'Ben Cruz' }],
+      passGuests: [{ id: GUEST, name: 'Ana Reyes', reply: 'attending' as const }, { id: '00000000-0000-4000-8000-000000000102', name: 'Ben Cruz', reply: 'pending' as const }],
     };
     const pass = await renderSettled(React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never));
     const set = await renderSettled(React.createElement(PrintSetDownloads as never, { input, studio: true } as never));

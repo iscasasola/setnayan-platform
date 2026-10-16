@@ -172,7 +172,7 @@ test('4 · a head line names the CHOSEN size only — every format of every fami
   const prints = read(`${L}/maker-prints.tsx`);
   const studio = prints.slice(prints.indexOf('if (studio) {'), prints.indexOf('return (\n    <div data-print-editor={k} className="flex flex-col gap-3">'));
   assert.match(studio, /line=\{fam \? printHeadLine\(k, formats\[fam\]\) : spec\.size\}/, 'a piece’s head line is not the chosen size');
-  assert.doesNotMatch(studio, /\.join\(/, 'a head line joins a list again');
+  assert.doesNotMatch(studio, /sizes\.join|\.map\(\(f\) => f\.label\)\s*(?:;|\.join)/, 'a head line joins a list of sizes again');
   assert.match(read(`${L}/print-paper.tsx`), /line=\{chartHeadLine\(spec\)\}/, 'the entrance chart’s head line is not the chosen size');
 });
 
@@ -210,4 +210,48 @@ test('5 · the Event pass offers EVERY guest’s pass in the size picked on its 
   assert.match(route, /if \(!docs\.length\) return new NextResponse\('No guest has a ticket yet[^']*', \{ status: 409 \}\)/, 'with nobody coming, the passes route no longer refuses in words');
   const button = read(`${L}/print-save-button.tsx`);
   assert.match(button, /if \(!res\.ok\) \{\s*const text = \(await res\.text\(\)/, 'a refused file’s words are no longer shown in place');
+});
+
+test('6 · the all-guests line says what the FILE holds — its passes, how many are coming and how many have not replied — from the file’s own rule', async () => {
+  const { renderSettled } = await import('./render-settled.test-helper');
+  const { formatFor } = await import('./print-pieces');
+  const { PrintPieceEditor } = await import(`../${L}/maker-prints`);
+  const { passGuestReply } = await import('./print-set.server');
+  const { passCardEligibility } = await import('./pass-card');
+  /* The reply a pass guest is counted under is the one the pass rule read: never `declined` for a guest who has a pass. */
+  const r = (o: Record<string, unknown> & { guest_id: string }) => ({ event_id: 'e', qr_token: 't', entry_source: 'host_seeded', rsvp_status: 'attending', ...o });
+  const rows = [
+    r({ guest_id: 'a' }),
+    r({ guest_id: 'b', rsvp_status: 'declined' }),
+    r({ guest_id: 'p', rsvp_status: 'pending' }),
+    r({ guest_id: 'm', rsvp_status: 'maybe' }),
+    r({ guest_id: 'a1', plus_one_of_guest_id: 'a', rsvp_status: 'pending' }),
+    r({ guest_id: 'p1', plus_one_of_guest_id: 'p', rsvp_status: 'pending' }),
+    r({ guest_id: 'p2', plus_one_of_guest_id: 'p', rsvp_status: 'attending' }),
+  ];
+  const by = new Map(rows.map((x) => [x.guest_id, x]));
+  const has = rows.filter((x) => passCardEligibility(x as never, x.plus_one_of_guest_id ? (by.get(x.plus_one_of_guest_id as string) as never) : null) === 'pass');
+  const replies = Object.fromEntries(has.map((x) => [x.guest_id, passGuestReply(x as never, x.plus_one_of_guest_id ? (by.get(x.plus_one_of_guest_id as string) ?? null) : null)]));
+  assert.deepEqual(replies, { a: 'attending', p: 'pending', m: 'maybe', a1: 'attending', p1: 'pending', p2: 'attending' }, 'a pass guest is counted under a reply the pass rule did not read');
+  /* cale-ice's shape: 6 coming, 103 not replied — the number IS the file. */
+  const draw = async (passGuests: Array<{ id: string; name: string; reply: 'attending' | 'pending' | 'maybe' }>) => {
+    const input = { eventId: 'E1', slug: 'rosa-ben', theme: 'house', ownsPro: true, storeShell: false, formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! }, passGuests };
+    const html = await renderSettled(React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never));
+    return html.match(/<p data-print-every-guest-line=""[^>]*>([^<]*)<\/p>/)?.[1] ?? '';
+  };
+  const guests = (a: number, p: number, m = 0) => [
+    ...Array.from({ length: a }, (_, i) => ({ id: `a${i}`, name: `A ${i}`, reply: 'attending' as const })),
+    ...Array.from({ length: p }, (_, i) => ({ id: `p${i}`, name: `P ${i}`, reply: 'pending' as const })),
+    ...Array.from({ length: m }, (_, i) => ({ id: `m${i}`, name: `M ${i}`, reply: 'maybe' as const })),
+  ];
+  assert.equal(await draw(guests(6, 103)), '109 passes · 6 coming, 103 not replied yet · Calling card, ganged on A4 with cut lines');
+  assert.equal(await draw(guests(6, 0)), '6 passes · 6 coming · Calling card, ganged on A4 with cut lines', 'a part that is 0 is not dropped');
+  assert.equal(await draw(guests(1, 0)), '1 pass · 1 coming · Calling card, ganged on A4 with cut lines');
+  assert.equal(await draw(guests(2, 1, 3)), '6 passes · 2 coming, 1 not replied yet, 3 maybe · Calling card, ganged on A4 with cut lines', 'a guest in the file is not counted anywhere');
+  /* The counts are the list the file is made from — no second read. */
+  const page = read('app/dashboard/[eventId]/launch/page.tsx');
+  assert.match(page, /passGuests: passGuestsP \? await passGuestsP : undefined/);
+  assert.match(page, /loadPassGuestNames\(eventId, /);
+  const loader = read('lib/print-set.server.ts');
+  assert.match(loader.slice(loader.indexOf('export async function loadPassGuestNames(')), /passGuestRows\(eventId, true\)/, 'the counts come from a read other than the file’s');
 });

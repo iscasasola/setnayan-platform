@@ -1059,6 +1059,30 @@ export function focalToObjectPosition(focal: HubFocalPoint): string {
 }
 
 /**
+ * 🎚 HOW FAR IN A SCROLL-DRIVEN ARRIVAL RUNS, per feel — the end of its `animation-range` (`--hub-in-end`).
+ *
+ * 🔴 THE OLD RANGE NEVER FINISHED WHILE THE GUEST READ (the 2026-10-15 Animate walk, F1). `entry 92%` is 92 % of the
+ * scene's OWN entry, which is as long as the scene is tall (up to a whole screen): measured, the Dress code scene was
+ * still at opacity 0.60, blurred and off-centre with its top half-way up the screen, and a scene already on the first
+ * screen never completed at all. Calm wrote no value, so every untouched scene had it.
+ *
+ * ✅ NOW EVERY FEEL ENDS BY THE TIME THE SCENE IS REASONABLY IN VIEW — fully on screen, or its top in the upper 60 %
+ * of the screen (40 % of a screen scrolled since its top came in), whichever comes first, at every height:
+ * `entry min(P%, Nvh)` — P % of its entry (a short scene finishes as it becomes fully visible) but never more than
+ * N vh of scroll (a tall one finishes with its top still low on the screen). Quick finishes soonest.
+ * Guard: `lib/a-scroll-arrival-finishes-in-view.test.ts` (models the range for every height and feel).
+ */
+export const HUB_SCROLL_IN_END = {
+  quick: 'entry min(50%, 28vh)',
+  calm: 'entry min(92%, 34vh)',
+  cinematic: 'entry min(100%, 40vh)',
+} as const;
+/** The feel a stored Build-in duration plays with the scroll: Quick under a second, Cinematic over Calm's 1.1 s. */
+export function scrollInFeel(duration: number | undefined): keyof typeof HUB_SCROLL_IN_END {
+  return !duration || duration === 1.1 ? 'calm' : duration < 1 ? 'quick' : 'cinematic';
+}
+
+/**
  * WHAT THE GUEST PAGE SETS — inline custom properties, and nothing else.
  *
  * 🔑 The guest page renders this with CSS. No script crosses to the public
@@ -1115,9 +1139,11 @@ export function hubCanvasVars(
     ...(canvas.inFx ? Object.fromEntries(motionFxVars(canvas.inFx, 'in', '--hub-in', HUB_SCENE_DIST)) : {}),
     ...(canvas.outFx ? Object.fromEntries(motionFxVars(canvas.outFx, 'out', '--hub-out', HUB_SCENE_DIST)) : {}),
     '--hub-duration': `${m.duration}s`,
-    /* 🎚 The feel of a SCROLL-DRIVEN end — only from a value the couple set themselves (a preset's own duration never
-       moved these ranges, and still does not: an old scene draws exactly what it drew). Absent = the stylesheet's. */
-    ...(m.timeline === 'scrub' && canvas.duration && canvas.duration !== 1.1 ? { '--hub-in-end': canvas.duration < 1 ? 'entry 50%' : 'cover 30%' } : {}),
+    /* 🎚 The feel of a SCROLL-DRIVEN arrival — how far in it runs (`HUB_SCROLL_IN_END`), written for EVERY scene that
+       follows the scroll, Calm included: the stylesheet's old fallback (`entry 92%`) scaled with the scene's height and
+       never finished on a tall one while the guest read it (the 2026-10-15 walk, F1). Only a duration the couple set
+       themselves picks Quick or Cinematic (a preset's own seconds never moved this range); anything else is Calm. */
+    ...(m.timeline === 'scrub' ? { '--hub-in-end': HUB_SCROLL_IN_END[scrollInFeel(canvas.duration)] } : {}),
     ...(canvas.outSpeed ? { '--hub-out-range': canvas.outSpeed === 'fast' ? 'exit 0% exit 50%' : 'cover 50% exit 100%' } : {}),
     /* 🔑 `--hub-stagger` IS EMITTED AGAIN, and this time a rule reads it. It was
        withdrawn when the frame held one child and there was nothing to stagger;
@@ -1137,6 +1163,17 @@ export function hubCanvasVars(
 /** A stored arrangement, or null — the closed set of four, nothing else. */
 export function hubArrangement(value: unknown): HubArrangement | null {
   return inSet(HUB_ARRANGEMENTS, value) ? value : null;
+}
+
+/**
+ * 🌄 DOES SLOW LIFT MOVE ANYTHING HERE? It moves the scene's PICTURE behind the words — the media layer
+ * (`.hub-during-lift.hub-has-media > .hub-canvas-media`, globals.css) — and nothing else: a scene with no photo or
+ * clip behind it (a colour, a glass, a list) does not move at all. The 2026-10-15 walk, F11: it was offered on every
+ * scene (Schedule, Dress code …) and did nothing there; Animate › Action now offers it only where this is true.
+ */
+export function hubLiftMoves(canvas: HubSectionCanvas): boolean {
+  const kind = resolveHubBackground(canvas)?.kind;
+  return (kind === 'photo' || kind === 'snippet') && hubPhotoPlacement(canvas, true) === 'behind';
 }
 
 /**

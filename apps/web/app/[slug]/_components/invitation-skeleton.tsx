@@ -110,7 +110,14 @@ export function InvitationSkeleton({
   mark = null,
   design = HERO_DESIGN_DEFAULT,
   quiet = false,
+  arriving = [],
 }: {
+  /**
+   * 👻 The hero parts that ARRIVE with a Build in of their own (`heroArrivingForSkeleton`): kept in place but not
+   * drawn for a moment, so the cover's own arrival is the first time the guest sees them — never drawn, gone, then
+   * faded in again (the 2026-10-15 walk, F4).
+   */
+  arriving?: readonly string[];
   /**
    * 🤫 THE QUIET SCREEN — the couple's mark on the page's own ground, and
    * nothing else: no band, no cover, no "invite you to…", no link down, no
@@ -261,6 +268,7 @@ export function InvitationSkeleton({
             venueName={venueName}
             card={card ?? undefined}
             monogramSlot={markSlot}
+            waiting={arriving}
             mediaSlot={
               heroMedia ? <span aria-hidden className="skeleton absolute inset-0 block" style={SHIMMER} /> : undefined
             }

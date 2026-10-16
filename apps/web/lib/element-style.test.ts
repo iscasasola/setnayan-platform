@@ -145,7 +145,7 @@ test("a scene's stored override renders for guests — a scoped style right afte
   assert.match(css, /zoom:1\.2 !important/);
   // The motion is inside BOTH gates, and "Plays once" binds only once the scene is reached.
   assert.match(css, /@supports \(animation-timeline: view\(\)\)\{@media \(prefers-reduced-motion: no-preference\)\{/);
-  assert.match(css, /\.pahina-in:has\(\+ style\[data-hub-els="schedule"\]\) :is\(h1, h2, h3, \.hub-tpl-h\):not\(#el-own\)\{animation:1\.1s [^;]* none el-in-fade/);
+  assert.match(css, /\.pahina-in:has\(\+ style\[data-hub-els="schedule"\]\) :is\(h1, h2, h3, \.hub-tpl-h\):not\(#el-own\)\{animation:1\.1s [^;]* backwards el-in-fade/);
   assert.doesNotMatch(html, /class="hub-canvas/, 'elements alone must not frame the scene');
 });
 
@@ -181,7 +181,7 @@ test("the hero's stored override renders for guests, inline on the part it names
   // "Plays once" arrives on the clock — no scroll timeline.
   const moving = await renderMasthead({ elements: { names: { motion: { in: 'rise' } } } });
   // As custom properties the ONE gated rule reads — never a bare inline animation.
-  assert.match(moving, /<h1 data-el-motion="" style="--el-anim:1\.1s [^"]* none el-in-rise;--el-tl:auto;--el-range:normal"/);
+  assert.match(moving, /<h1 data-el-motion="" style="--el-anim:1\.1s [^"]* backwards el-in-rise;--el-tl:auto;--el-range:normal;--el-anim-t:1\.1s [^"]* backwards el-in-rise"/);
   assert.doesNotMatch(moving, /style="([^"]*;)?animation(-timeline|-range)?:/);
 });
 

@@ -9,6 +9,7 @@ import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { LAB_SIGNED } from '../lab-own-media';
 import { CountdownWidget } from '@/app/[slug]/_components/countdown';
 import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
+import { PahinaMotionObserver, PahinaMotionRootFlag } from '@/app/[slug]/_components/pahina-motion';
 import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
 import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow } from '@/lib/scene-style-of-row';
 import { CustomSectionWidget } from '@/app/[slug]/_components/custom-section-widget';
@@ -23,6 +24,8 @@ import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMo
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, canvasOnlyScene, canvasStylePreview } from '@/app/[slug]/_lib/editor-canvas';
 import { withStylePreview } from '@/app/[slug]/_lib/style-preview';
 import { OurPhotosWidget } from '@/app/[slug]/_components/our-photos-widget';
+import { OpenUpScene } from '@/app/[slug]/_components/editorial/open-up-layer';
+import { GalleryPreview } from '@/app/[slug]/_components/editorial/post-event-scene-views';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import type { StyledScene } from '@/lib/fixed-scene-styles';
@@ -204,13 +207,34 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   /* 🎞 `?photos=<n>` — the couple's Photos scene with n stand-in pictures (our own drawn gradients, never anybody's
-     photo), in `&gstyle=` (mosaic · grid · film-strip · glimpse) with `&heading=` — the REAL `OurPhotosWidget`, so the
+     photo), in `&gstyle=` (mosaic · grid · film-strip · glimpse) with `&heading=` (and `&pe=1` for Post Event's gallery preview) — the REAL `OurPhotosWidget`, so the
      Glimpse rail, its drift and the shipped full-screen viewer are walked with no database. */
   if (typeof sp.photos === 'string') {
     const n = Math.max(1, Math.min(24, Number(sp.photos) || 5));
     const urls = labPhotoUrls(n);
     const gstyle = typeof sp.gstyle === 'string' ? sp.gstyle : 'glimpse';
     const heading = typeof sp.heading === 'string' && sp.heading.trim() ? sp.heading.trim() : null;
+    /* `&pe=1` — the SAME pictures as Post Event's gallery PREVIEW inside the real open-up (the preview is the open-up's
+       button, so Glimpse draws its non-interactive form): `GalleryPreview` + `OpenUpScene`, the page's own pair. */
+    if (sp.pe === '1') {
+      return (
+        <main className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[860px] bg-cream py-10 text-ink" data-lab-photos={n} data-lab-pe="">
+          <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+          <div className="px-5 sm:px-10">
+            <OpenUpScene
+              kind="gallery"
+              title="From the Day"
+              eyebrow="Maria · the gallery"
+              openLabel={`Open the gallery · ${n} ${n === 1 ? 'photo' : 'photos'}`}
+              preview={<GalleryPreview style={gstyle} photos={urls} total={n} names="Maria" words={{}} />}
+            >
+              <p className="py-20 text-center text-sm text-ink/70">The whole gallery opens here.</p>
+            </OpenUpScene>
+          </div>
+          <div className="h-[120vh]" aria-hidden />
+        </main>
+      );
+    }
     return (
       <main className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[860px] bg-cream px-4 py-10 text-ink" data-lab-photos={n}>
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
@@ -570,6 +594,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           given={stageGiven}
         />
         {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+        {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each
+            scene \`.pahina-in\` as a guest reaches it — what every "On arrival" Build in waits for. Without it the lab
+            showed every On-arrival scene, row and part standing still, and walks reported a working feature as broken
+            (the 2026-10-15 Animate walk, S3). Never in a miniature. */}
+        {!preview ? <PahinaMotionRootFlag /> : null}
+        {!preview ? <PahinaMotionObserver /> : null}
         {only ? <style>{canvasOnlyCss(only)}</style> : null}
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
         {/* 🧱 The fixed blocks' own looks on The Day's pages too, as the real page carries them — this branch had the
@@ -857,6 +887,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       </HubPageHold>
       {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. Never in a miniature. */}
       {sp.editor === '1' && !preview ? <EditorBridge /> : null}
+        {/* 👁 THE REAL PAGE'S ONE OBSERVER (`pahina-motion.tsx`, as `invitation-shell.tsx` mounts it): it marks each
+            scene \`.pahina-in\` as a guest reaches it — what every "On arrival" Build in waits for. Without it the lab
+            showed every On-arrival scene, row and part standing still, and walks reported a working feature as broken
+            (the 2026-10-15 Animate walk, S3). Never in a miniature. */}
+        {!preview ? <PahinaMotionRootFlag /> : null}
+        {!preview ? <PahinaMotionObserver /> : null}
       {only ? <style>{canvasOnlyCss(only)}</style> : null}
       {/* 🍪 As the REAL canvas does (`site-body.tsx`, `isEditorCanvas`): the app's floating notices — the cookie consent
           among them — are not drawn inside the Maker's sample; the host answers them on the Maker's own page. The lab

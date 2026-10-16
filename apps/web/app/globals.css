@@ -7046,6 +7046,13 @@ html:active-view-transition .sn-page-enter { animation: none; }
    the names for 0.18s, then faded. They now SETTLE: a small rise with no
    opacity at all, so the names and date are readable on the very first frame
    and the stagger is felt, not waited for. */
+/* 👻 Held undrawn — the loading screen's parts that the real cover brings in (`[data-el-waits]`, inside the motion gates). */
+@keyframes sn-el-waits {
+  from,
+  to {
+    visibility: hidden;
+  }
+}
 @keyframes sn-arrive-settle {
   from {
     transform: translateY(8px);
@@ -8132,7 +8139,7 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
       /* 🎚 Each end's own FEEL (owner 2026-10-09 "movement independent from each"): how far the scroll-driven arrival
          runs (`--hub-in-end`) and how much of the way out the hand-off takes (`--hub-out-range`), from
          `hubCanvasVars` — set only by a couple's own choice; absent, the ranges every scene had. */
-      animation-range: entry 0% var(--hub-in-end, entry 92%), var(--hub-out-range, exit 8% exit 100%);
+      animation-range: entry 0% var(--hub-in-end, entry min(92%, 34vh)), var(--hub-out-range, exit 8% exit 100%);
       animation-fill-mode: both, both;
       animation-timing-function: linear, linear;
       will-change: opacity, transform;
@@ -8181,18 +8188,18 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
     .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > * {
       --hub-part-in: var(--hub-in-kf, none);
       --hub-part-in-tl: view();
-      --hub-part-in-range: entry 0% var(--hub-in-end, entry 92%);
+      --hub-part-in-range: entry 0% var(--hub-in-end, entry min(92%, 34vh));
       --hub-part-out: var(--hub-out-kf, none);
       --hub-part-out-tl: view();
       --hub-part-out-range: var(--hub-out-range, exit 8% exit 100%);
     }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { --hub-part-in-range: entry 4% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: entry 8% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: entry 12% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: entry 16% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: entry 20% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: entry 24% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: entry 28% var(--hub-in-end, entry 92%); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { --hub-part-in-range: entry 4% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: entry 8% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: entry 12% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: entry 16% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: entry 20% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: entry 24% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: entry 28% var(--hub-in-end, entry min(92%, 34vh)); }
 
     /* ── DURING: the PICTURE drifts, never the words ──────────────────────
        🔑 It lives on the media layer on purpose. Put on the same element as
@@ -8315,7 +8322,7 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
         --hub-part-dur: 1s;
         --hub-part-ease: linear;
         --hub-part-in-tl: view();
-        --hub-part-in-range: entry 0% var(--hub-in-end, entry 92%);
+        --hub-part-in-range: entry 0% var(--hub-in-end, entry min(92%, 34vh));
         --hub-part-out: var(--hub-out-kf, none);
         --hub-part-out-tl: view();
         --hub-part-out-range: var(--hub-out-range, exit 8% exit 100%);
@@ -8341,6 +8348,12 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
       animation: var(--el-anim);
       animation-timeline: var(--el-tl);
       animation-range: var(--el-range);
+    }
+    /* 👻 THE LOADING SCREEN'S PARTS THAT WILL ARRIVE (`data-el-waits`, `heroArrivingForSkeleton`): kept in place, not
+       drawn, so the real cover's own Build in is the first time they are seen — never drawn, gone, faded in again
+       (the 2026-10-15 walk, F4: live, the names blinked on every load). At most 2.5 s: a slow server still shows them. */
+    [data-el-waits] {
+      animation: sn-el-waits 2.5s step-end;
     }
 
     /* ══ THE SCENES — THE PROGRESS MARK · AUTO RUNS ═══════════════════════
@@ -8576,6 +8589,97 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { animation-delay: calc(var(--hub-stagger, 0.12s) * 5); }
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { animation-delay: calc(var(--hub-stagger, 0.12s) * 6); }
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 8) { animation-delay: calc(var(--hub-stagger, 0.12s) * 7); }
+    @media screen {
+      /* 🧾 …and a list's rows ONE BY ONE, as the guest page brings them in (the 2026-10-15 walk, F7: ▶ showed every row
+         at the same instant whatever Rows said): the list's own part stands still, its rows arrive a stagger apart,
+         the first a stagger after the heading. */
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]) {
+        animation: none;
+      }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
+        animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) var(--hub-ease, ease-out) calc(var(--hub-stagger, 0.12s) * var(--sn-row, 8)) both;
+        animation-timeline: auto;
+        animation-range: normal;
+      }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(1) { --sn-row: 1; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(2) { --sn-row: 2; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(3) { --sn-row: 3; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(4) { --sn-row: 4; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(5) { --sn-row: 5; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(6) { --sn-row: 6; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(7) { --sn-row: 7; }
+    }
+  }
+}
+
+/* ══ ON ARRIVAL WITHOUT SCROLL TIMELINES (the 2026-10-15 Animate walk, F12) ════════════════════════════════════
+   🔴 EVERY rule above sits behind `@supports (animation-timeline: view())`, so an engine without scroll timelines —
+   Safari before 26 (iOS 18 and older), Firefox — moved NOTHING, not even a Build in that plays on arrival, which
+   needs no scroll timeline at all: the page's one observer (`PahinaMotionObserver`) marks the scene `.pahina-in`
+   and the clock plays it.
+   ✅ Those engines now play every scene's ARRIVAL on the clock, once, when the observer marks it — the same
+   keyframe (`--hub-in-kf`), the same seconds (`--hub-duration`), the same one-after-another gap (`--hub-stagger`),
+   the rows of a list one by one (`--hub-row-at`). A scene that FOLLOWS THE SCROLL arrives on arrival instead (the
+   owner's brief: "scroll-linked effects may fall back to On arrival"), and nothing ever LEAVES — a Build out follows
+   the scroll, and on a clock it would hide the words. A hero part plays its own `--el-anim-t`
+   (`hubElementArrivalOnly`), never `--el-anim`.
+   🔒 Fail-visible exactly as above: reduced motion, no script (no `.pahina-in`), print → the page at rest.
+   An auto run (`.hub-auto`) is the runs' own clock (gated on scroll timelines too) and is left at rest here.
+   Guard: `lib/arrival-plays-without-scroll-timelines.test.ts`. */
+@supports not (animation-timeline: view()) {
+  @media screen and (prefers-reduced-motion: no-preference) {
+    :not(.hub-auto) > .hub-seq-whole.pahina-in > .hub-canvas-body,
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *,
+    .hub-canvas.sn-replay.sn-replay.hub-seq-whole > .hub-canvas-body,
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > * {
+      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) cubic-bezier(0.22, 0.61, 0.36, 1) 0s both;
+    }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(2),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(2) { animation-delay: calc(var(--hub-stagger, 0.12s) * 1); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(3),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { animation-delay: calc(var(--hub-stagger, 0.12s) * 2); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(4),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { animation-delay: calc(var(--hub-stagger, 0.12s) * 3); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(5),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { animation-delay: calc(var(--hub-stagger, 0.12s) * 4); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(6),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { animation-delay: calc(var(--hub-stagger, 0.12s) * 5); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(7),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { animation-delay: calc(var(--hub-stagger, 0.12s) * 6); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(n + 8),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 8) { animation-delay: calc(var(--hub-stagger, 0.12s) * 7); }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
+      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) cubic-bezier(0.22, 0.61, 0.36, 1) calc(var(--hub-stagger, 0.12s) * var(--sn-row, 8)) both;
+    }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(1) { --sn-row: 1; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(2) { --sn-row: 2; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(3) { --sn-row: 3; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(4) { --sn-row: 4; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(5) { --sn-row: 5; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(6) { --sn-row: 6; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(7) { --sn-row: 7; }
+    /* A list's rows arrive one by one; the list's own part stands still (two opacities would multiply). */
+    :not(.hub-arun):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body [data-hub-rows] > .pahina-in {
+      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) cubic-bezier(0.22, 0.61, 0.36, 1) calc(var(--hub-stagger, 0.12s) * var(--hub-row-at, 1)) both;
+    }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > [data-hub-rows],
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:has([data-hub-rows]),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]),
+    .hub-in-none.hub-out-none > .hub-canvas-body,
+    .hub-in-none.hub-out-none.pahina-in > .hub-canvas-body,
+    .hub-in-none.hub-out-none > .hub-canvas-body > * > *,
+    .hub-in-none.hub-out-none > .hub-canvas-body [data-hub-rows] > * {
+      animation: none;
+    }
+    /* A hero part's own arrival (`--el-anim-t`): its Build in on the clock and its Drift — never its Build out. */
+    [data-el-motion]:not(#el-own) {
+      animation: var(--el-anim-t, none);
+    }
+    [data-el-waits] {
+      animation: sn-el-waits 2.5s step-end;
+    }
   }
 }
 

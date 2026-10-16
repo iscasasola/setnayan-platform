@@ -63,7 +63,13 @@ export function PahinaMasthead({
   design = HERO_DESIGN_DEFAULT,
   looks = null,
   ground = null,
+  waiting = null,
 }: {
+  /**
+   * 👻 THE LOADING SCREEN ONLY (`invitation-skeleton.tsx`): the parts the real cover will bring in with a Build in of
+   * their own — each keeps its place but is not drawn for a moment (`data-el-waits`, globals.css). Absent on the page.
+   */
+  waiting?: readonly string[] | null;
   /**
    * 🖼 THE COVER SCENE'S BACKGROUND, resolved (`_lib/cover-scene-layer.ts`) — drawn behind the words, the whole first
    * screen tall; the words take the tone measured over it. Absent → The theme's own: the cover byte for byte as before.
@@ -175,6 +181,7 @@ export function PahinaMasthead({
   /** The part's own style and, in the Maker canvas only, its key. */
   const el = (key: HubHeroElementKey) => ({
     ...(stampElements ? { 'data-el': key, ...makerFacts[key] } : {}),
+    ...(waiting?.includes(key) ? { 'data-el-waits': '' } : {}),
     ...(looks && key in looks && looks[key as keyof typeof looks] ? { 'data-part-look': looks[key as keyof typeof looks] } : {}),
     // The part's own motion rides as custom properties; this is the hook the
     // ONE gated rule in globals.css reads (`[data-el-motion]`).

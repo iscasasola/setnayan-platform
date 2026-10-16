@@ -9,10 +9,16 @@ import {
   HUB_MOTION_PRESET_LABEL,
   HUB_SEQUENCE_LABEL,
   HUB_TIMELINE_LABEL,
+  hubCanvasClass,
+  hubCanvasVars,
+  hubLiftMoves,
   hubSceneFxFields,
   resolveHubMotion,
+  sanitizeHubCanvas,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
+import { useEffect, useRef } from 'react';
+import { sceneMotionMessage, type SceneMotionMessage } from '@/app/[slug]/_components/scene-motion-lay';
 import { canvasHasMotion, HUB_CANVAS_MOTION_KEYS } from '@/lib/hub-look-pro';
 import {
   HUB_AUTO_SPEEDS,
@@ -33,6 +39,7 @@ import { HUB_DURING_LABEL, HUB_SEQUENCES, type HubDuring } from '@/lib/hub-canva
 import { makerSceneHasRows } from '@/lib/maker-parts';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
+import { useAnimatePhase } from '../../../launch/_components/stage-panel/store';
 import { offeredTransition, scrubOutOffered } from '@/lib/scrub-out-offered';
 import { FEEL_OFF, leavesOptions, autoFeel, autoSpeedOf, laySceneInFeel, laySceneOutFeel, sceneInFeel, sceneOutFeel } from '@/lib/animate-feel';
 
@@ -44,6 +51,11 @@ import { FEEL_OFF, leavesOptions, autoFeel, autoSpeedOf, laySceneInFeel, layScen
  * choice is ONE dropdown (owner: any set of choices is a dropdown — five pills
  * clipped "Cinematic" on a phone, handoff NEXT BUILDS 3). 💾 The draft, never live.
  */
+
+/** Said on Action where there is nothing for Slow lift to move. */
+export const LIFT_NEEDS_A_PHOTO = 'Slow lift moves a photo behind the scene — this scene has none.';
+/** The pages the Maker shows a scene on — the stage canvas on screen, and the old editor's page frame. */
+const MOTION_FRAMES = 'iframe[data-maker-canvas-frame="shown"], iframe[data-maker-page-frame]';
 
 function ErrorLine({ error }: { error: string | null }) {
   return error ? (
@@ -79,7 +91,39 @@ export function SceneAnimateTab({
   /** ▶ Preview — play this scene, then the move into the next. */
   onPreview: () => void;
 }) {
-  const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
+  const { shown, save: saveCanvas, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
+  const [animatePhase] = useAnimatePhase();
+  /* 🎬 EVERY MOTION PICK IS ON THE CANVAS AT THE TAP, AND PLAYS ONCE (the 2026-10-15 walk, F5 · F10 —
+     `app/[slug]/_components/scene-motion-lay.ts`): the scene's motion, worked out with the page's own functions from
+     the canvas this pick writes, laid on the frame on screen; the phase picked plays as ▶ plays it. The save goes on
+     behind it as before (`useSceneCanvas`). A frame that loads behind (a redraw) is told the latest pick on `ready`. */
+  const mine = useRef(canvas);
+  const sent = useRef<SceneMotionMessage | null>(null);
+  const json = JSON.stringify(canvas);
+  useEffect(() => {
+    mine.current = canvas;
+    sent.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [json, widgetType]);
+  useEffect(() => {
+    const onReady = (e: MessageEvent) => {
+      const d = e.data as { source?: unknown; t?: unknown } | null;
+      if (e.origin !== window.location.origin || !d || d.source !== 'setnayan-site' || d.t !== 'ready' || !sent.current) return;
+      (e.source as Window | null)?.postMessage({ ...sent.current, play: null }, window.location.origin);
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, []);
+  const save = (change: (c: Record<string, unknown>) => void, play: SceneMotionMessage['play'] = 'in') => {
+    const draft: Record<string, unknown> = { ...mine.current };
+    change(draft);
+    const next = sanitizeHubCanvas({ canvas: draft });
+    mine.current = next;
+    const msg = sceneMotionMessage(`w:${widgetType}`, hubCanvasClass(next), hubCanvasVars(next), play);
+    sent.current = msg;
+    for (const f of document.querySelectorAll<HTMLIFrameElement>(MOTION_FRAMES)) f.contentWindow?.postMessage(msg, window.location.origin);
+    saveCanvas(change);
+  };
   /* 🧭 The new Maker draws these same saves as the prototype's one column (`stage-panel/stage-animate.tsx`). */
   const ss = useMaker()?.stagesStudio === true;
 
@@ -106,7 +150,7 @@ export function SceneAnimateTab({
   const transition = offeredTransition(resolveTransition(shown));
   const speed = shown.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
   const setTransition = (t: string | null, s: string | null) =>
-    save((c) => {
+    saveCanvas((c) => {
       const step = nextTransition(shown, t, s);
       delete c.transition;
       delete c.autoSpeed;
@@ -114,6 +158,9 @@ export function SceneAnimateTab({
       if (step.autoSpeed) c.autoSpeed = step.autoSpeed;
     });
 
+  /* 🌄 Slow lift is offered where it moves something — or where it is already on, so it can come off. */
+  const liftMoves = hubLiftMoves(shown);
+  const lift = liftMoves || (shown.during ?? m.during) === 'lift';
   if (ss) {
     return (
       <div data-scene-tab="animate" className="contents">
@@ -125,7 +172,7 @@ export function SceneAnimateTab({
           move={{
             in: {
               value: sceneInFeel(shown, m),
-              onPick: (f) => save((c) => laySceneInFeel(c, f)),
+              onPick: (f) => save((c) => laySceneInFeel(c, f), 'in'),
               off: m.in === 'none' ? FEEL_OFF.noEffect : null,
             },
             out:
@@ -134,7 +181,7 @@ export function SceneAnimateTab({
                 ? { value: autoFeel(shown.autoSpeed), onPick: (f) => setTransition('auto', autoSpeedOf(f)) }
                 : {
                     value: sceneOutFeel(shown),
-                    onPick: (f) => save((c) => laySceneOutFeel(c, f)),
+                    onPick: (f) => save((c) => laySceneOutFeel(c, f), 'out'),
                     off: transition === 'scrub' ? FEEL_OFF.scrub : m.timeline === 'time' ? FEEL_OFF.arrival : m.out === 'none' ? FEEL_OFF.noEffect : null,
                   },
           }}
@@ -146,7 +193,7 @@ export function SceneAnimateTab({
           inFx={m.inFx}
           outFx={m.outFx}
           onIn={(fx) => save((c) => sceneFx(c, 'in', fx))}
-          onOut={(fx) => save((c) => sceneFx(c, 'out', fx))}
+          onOut={(fx) => save((c) => sceneFx(c, 'out', fx), 'out')}
           rows={
             makerSceneHasRows(widgetType)
               ? {
@@ -161,11 +208,14 @@ export function SceneAnimateTab({
               : null
           }
           does={{
-            /* Still | Slow lift — the pressed one is what guests see now (its own pick, else the preset's). */
+            /* Still | Slow lift — the pressed one is what guests see now (its own pick, else the preset's).
+               🌄 Slow lift moves the scene's PHOTO only (`hubLiftMoves`): offered only on a scene with one behind its
+               words — or where it is already chosen, so it can be taken off (the 2026-10-15 walk, F11). */
             value: shown.during ?? m.during,
-            options: (['still', 'lift'] as const).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] })),
-            onPick: (d) => save((c) => { c.during = d as HubDuring; }),
+            options: (lift ? (['still', 'lift'] as const) : (['still'] as const)).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] })),
+            onPick: (d) => save((c) => { c.during = d as HubDuring; }, 'act'),
           }}
+          note={!liftMoves && animatePhase === 'act' ? LIFT_NEEDS_A_PHOTO : null}
           leaves={isLast ? null : { value: transition, options: leavesOptions(), onPick: (t) => setTransition(t, null) }}
         />
       </div>
@@ -224,9 +274,9 @@ export function SceneAnimateTab({
           </div>
           <div data-motion-step="scene-out">
             <ISection>Goes out</ISection>
-            <MotionFxRows end="out" fx={m.outFx} onChange={(fx) => save((c) => sceneFx(c, 'out', fx))} />
+            <MotionFxRows end="out" fx={m.outFx} onChange={(fx) => save((c) => sceneFx(c, 'out', fx), 'out')} />
             {shown.out || shown.outFx ? (
-              <IReset data="scene-out-auto" onClick={() => save((c) => { delete c.out; delete c.outTo; delete c.outFx; })}>
+              <IReset data="scene-out-auto" onClick={() => save((c) => { delete c.out; delete c.outTo; delete c.outFx; }, 'out')}>
                 Back to Auto
               </IReset>
             ) : null}

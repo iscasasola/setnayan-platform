@@ -98,7 +98,7 @@ import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
 import { boardIsTheCouples, sampleBoardQuery, themeSeedPalettes } from '@/lib/theme-colours';
-import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { loadPassGuestNames, parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { printDraftOf } from '@/lib/ceremony-time';
 import { updateSpecialMessage } from '../website/special-message/actions';
@@ -1090,8 +1090,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           printAdmin.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId).in('widget_type', ['hero', 'our_photos']),
         ])
       : null;
+    /* 🎟 Studio › Prints' Event pass (owner 2026-10-16): who has a pass, by name — "Pass for ▾" and the count over every guest's
+       file. The printed passes' own read and rule (`loadPassGuestNames`); null when it could not be read. Studio only. */
+    const printEventP = readPrintEvent(printAdmin, eventId);
+    const passGuestsP = stagesStudio ? loadPassGuestNames(eventId, printEventP.then((e) => e?.print_details ?? null)).catch(() => null) : null;
     const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
-      readPrintEvent(printAdmin, eventId),
+      printEventP,
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
       parentGuestsForEvent(eventId),
@@ -1311,6 +1315,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         /* 🖼 The Our Story poster's own photo (owner 2026-09-29). */
         posterPhoto: stored.posterPhoto ?? null,
         passCardsZip: passCardsZipFileNameOf(printEvent),
+        passGuests: passGuestsP ? await passGuestsP : undefined,
         formats: {
           pass: formatFor('pass', one(search.pass_format))!,
           invitation: formatFor('invitation', one(search.invitation_format))!,

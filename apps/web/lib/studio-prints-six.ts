@@ -23,6 +23,25 @@ export const PASS_ZIP_PRO_NOTE = {
   body: 'With Event Hub Pro you save all your guests’ tickets at once. Each guest can still save their own ticket, free.',
 } as const;
 
+/**
+ * 🗂 THE ◆ NOTES ON THE OTHER ALL-IN-ONE FILES (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD
+ * ALL' IS EVENT HUB PRO") — the zip's note, said of each file. No price: the unlock page owns it. The route says the same words
+ * when it refuses (`allInOneRefusal`).
+ */
+export const PASSES_PRO_NOTE = {
+  title: 'Every guest’s pass in one file is Event Hub Pro',
+  body: 'With Event Hub Pro you save all your guests’ passes at once. Each guest’s own pass still saves free, one at a time.',
+} as const;
+export const WHOLE_SET_PRO_NOTE = {
+  title: 'The whole set in one file is Event Hub Pro',
+  body: 'With Event Hub Pro you save every piece at once. Each piece’s own PDF still saves free.',
+} as const;
+/** What `/api/hub-print` says when it refuses an all-in-one file to an event without Event Hub Pro. */
+export function allInOneRefusal(piece: string): string {
+  const n = piece === 'passes' ? PASSES_PRO_NOTE : WHOLE_SET_PRO_NOTE;
+  return `${n.title}. ${n.body}`;
+}
+
 /** Prints › Schedule — the printed programme lists only the moments for Everyone (controller 2026-10-13, 01:00 PHT). */
 export const PRINT_SCHEDULE_TIP = 'Only the moments marked for Everyone print here. A moment for the entourage or a smaller circle stays off the paper.';
 

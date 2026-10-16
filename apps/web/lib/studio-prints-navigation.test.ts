@@ -203,8 +203,8 @@ test('5 · the Event pass offers EVERY guest’s pass in the size picked on its 
   }
   const src = read(`${L}/maker-prints.tsx`);
   const block = src.slice(src.indexOf('const everyGuest ='), src.indexOf('const changed = ('));
-  assert.match(block, /href=\{classic\('passes'\)\}/, 'the all-guests file is not the shipped Classic passes file');
-  assert.match(block, /themedReady \? \(\s*<PrintSaveButton href=\{q\('passes', 'print'\)\}/, 'the themed all-guests file does not follow the Download-the-set rule');
+  assert.match(block, /everyGuestFile\(classic\('passes'\), file\.classic\('passes'\)/, 'the all-guests file is not the shipped Classic passes file');
+  assert.match(block, /themedReady \? \(\s*<StudioTool part="all-in-one" f=\{everyGuestFile\(q\('passes', 'print'\)/, 'the themed all-guests file does not follow the Download-the-set rule');
   /* With nobody to print, the route answers in words — never an empty file — and the button shows those words in place. */
   const route = read('app/api/hub-print/[piece]/route.ts');
   assert.match(route, /if \(!docs\.length\) return new NextResponse\('No guest has a ticket yet[^']*', \{ status: 409 \}\)/, 'with nobody coming, the passes route no longer refuses in words');

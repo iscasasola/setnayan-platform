@@ -36,7 +36,8 @@ import {
 /* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
 import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 import { DetailsGoTo } from './details-go';
-import { PASS_ZIP_PRO_NOTE } from '@/lib/studio-prints-six';
+import { PASSES_PRO_NOTE, PASS_ZIP_PRO_NOTE, WHOLE_SET_PRO_NOTE } from '@/lib/studio-prints-six';
+import { formatCount } from '@/lib/format-number';
 import { printHeadLine } from '@/lib/print-head-line';
 import { StudioTool } from './details-lazy';
 import type { StudioChartInput, StudioPaper } from './print-paper';
@@ -112,6 +113,11 @@ export type PrintsInput = {
   /** The zip's file name — `<Couple>-<date>-passes.zip` (`passCardsZipFileName`). */
   passCardsZip?: string;
   /**
+   * 🎟 Who has a pass, by name, in the printed passes' order (`loadPassGuestNames`; Studio only) — "Pass for ▾" and the count over
+   * every guest's file. `null`: the list could not be read (said, never "nobody"); absent: not read here.
+   */
+  passGuests?: Array<{ id: string; name: string }> | null;
+  /**
    * ⚡ The hash of everything the pieces are drawn from (`printInputsVersion`),
    * put in each on-screen preview's address as `v` — a versioned preview is
    * cached `immutable` by the route. Null (the read failed): the old 60 s.
@@ -173,6 +179,45 @@ export function printPlan({ eventId, slug, theme, ownsPro, storeShell, formats, 
     return detailsItemHref(eventId, item, `&pass_format=${f.pass}&invitation_format=${f.invitation}&card_format=${f.card}`);
   };
   return { access, t, themed, freeTheme, themedReady, spot, sizesFor, q, classic, file, hrefWith, formats };
+}
+
+/**
+ * 🗂 AN ALL-IN-ONE FILE IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL' IS
+ * EVENT HUB PRO"; `isAllInOnePrint`, refused by the route too). The ticket zip's pattern exactly (`makerProMark`): owned → the file,
+ * ◆ unlocked in the icon's place; a free couple on the web → the ◆ door that opens the centred note (`StudioProDoor`); the store
+ * shell without it → nothing. An unlock belongs to the event: an internal host's event reads as owned (`printOwnsPro`).
+ */
+export type AllInOneFile =
+  | { kind: 'save'; href: string; file: string; label: string; icon: React.ReactElement }
+  | { kind: 'door'; href: string; label: string; icon: React.ReactElement; note: { title: string; body: string } }
+  | null;
+export function allInOneFile(
+  input: Pick<PrintsInput, 'eventId' | 'ownsPro' | 'storeShell'>,
+  save: { href: string; file: string; label: string },
+  note: { title: string; body: string },
+): AllInOneFile {
+  const mark = makerProMark({ owns: input.ownsPro, storeShell: input.storeShell });
+  if (mark === null) return null;
+  if (mark === 'unlocked') return { kind: 'save', ...save, icon: <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} /> };
+  return { kind: 'door', href: `/dashboard/${input.eventId}/studio/website-pro`, label: save.label, icon: <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} />, note };
+}
+/** The shipped Details' look of the same file: the save with ◆ before its words, or the link to the unlock (the zip's own shipped look). */
+function AllInOneShipped({ f, children, primary = false, data }: { f: AllInOneFile; children: React.ReactNode; primary?: boolean; data?: string }) {
+  if (f === null) return null;
+  if (f.kind === 'save') {
+    return (
+      <PrintSaveButton href={f.href} file={f.file} variant={primary ? 'primary' : 'secondary'}>
+        <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" />
+        {data ? <span {...{ [data]: '' }}>{children}</span> : children}
+      </PrintSaveButton>
+    );
+  }
+  return (
+    <Link href={f.href} data-print-all-in-one-pro="" className="inline-flex min-h-10 items-center gap-1 rounded-full border border-ink/15 px-3 text-sm font-medium text-ink">
+      {f.icon}
+      {children}
+    </Link>
+  );
 }
 
 /** The pieces whose size is the couple's to choose — each warms its other sizes. */
@@ -333,22 +378,36 @@ export function PrintPieceEditor({
        (`passes`, ganged on A4 with cut lines, its address carrying this row's `pass_format`), the SAME rule — Classic for every event,
        the theme's own when it prints ready. Who it holds is the route's (everyone who has not said they can't come); with nobody,
        the route says so and the button shows its words in place — no empty file. No count is read here, so none is said. */
+    /* 🗂 …and it is Event Hub Pro (owner 2026-10-16, "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the zip's ◆ pattern (`allInOneFile`). */
+    const guests = input.passGuests;
+    const nobody = Array.isArray(guests) && guests.length === 0;
+    const everyGuestFile = (href: string, file: string, label: string) => allInOneFile(input, { href, file, label }, PASSES_PRO_NOTE);
     const everyGuest =
       k === 'pass' && fam ? (
-        <>
-          {themedReady ? (
-            <PrintSaveButton href={q('passes', 'print')} file={file.themed('passes')} variant="action" main wide label={`Every guest’s pass · ${t.name} (PDF)`} />
-          ) : null}
-          <PrintSaveButton
-            href={classic('passes')}
-            file={file.classic('passes')}
-            variant="action"
-            main={!themedReady}
-            wide={!themedReady}
-            label={themed ? 'Every guest’s pass · Classic (PDF)' : 'Every guest’s pass (PDF)'}
-          />
-        </>
+        nobody ? (
+          /* Nobody has a pass yet: said in place — never a button that would make an empty file. */
+          <p data-print-every-guest-none="" className="w-full py-2.5 text-[13px] text-ink/70">
+            No guest has a pass yet — a pass appears once a guest is on your list and coming.
+          </p>
+        ) : (
+          <>
+            {themedReady ? (
+              <StudioTool part="all-in-one" f={everyGuestFile(q('passes', 'print'), file.themed('passes'), `Every guest’s pass · ${t.name} (PDF)`)} main wide />
+            ) : null}
+            <StudioTool
+              part="all-in-one"
+              f={everyGuestFile(classic('passes'), file.classic('passes'), themed ? 'Every guest’s pass · Classic (PDF)' : 'Every guest’s pass (PDF)')}
+              main={!themedReady}
+              wide={!themedReady}
+            />
+          </>
+        )
       ) : null;
+    /* What every guest's file holds: the count when the list was read (its own rule — `loadPassGuestNames`), never a guess. */
+    const everyGuestLine =
+      Array.isArray(guests) && guests.length > 0
+        ? `${formatCount(guests.length)} ${guests.length === 1 ? 'guest' : 'guests'} coming`
+        : 'Guests who are coming';
     const changed = (
       <ChangedSincePrinted
         eventId={input.eventId}
@@ -403,10 +462,20 @@ export function PrintPieceEditor({
             {saves}
           </div>
         ) : null}
-        {everyGuest && fam ? (
+        {everyGuest && fam && !nobody ? (
           <p data-print-every-guest-line="" className="px-1 pb-2.5 text-[12px] text-ink/60">
-            Guests who are coming · {formats[fam].label}, ganged on A4 with cut lines
+            {everyGuestLine} · {formats[fam].label}, ganged on A4 with cut lines
           </p>
+        ) : null}
+        {/* 🎟 ONE GUEST'S PASS, FREE (owner 2026-10-16): "Pass for ▾" — the guests who have a pass, by name — and its Save PDF, in the size
+            picked above (`pass_guest=<id>` on the piece's own file). */}
+        {k === 'pass' && guests !== undefined ? (
+          <StudioTool
+            part="one-pass"
+            guests={guests}
+            href={themedReady ? q(k, 'print') : classic(k)}
+            fileStem={themedReady ? file.themed(k).replace(/\.pdf$/, '') : file.classic(k).replace(/\.pdf$/, '')}
+          />
         ) : null}
         {/* 1 · Changed since you printed — the amber status line with one quiet "Save again" (the piece's main file). */}
         {changed}
@@ -477,6 +546,16 @@ export function PassCardsPanel({ input, studio = false }: { input: PrintsInput; 
   // door to the one unlock) on the web, absent in the store shell.
   const zipMark = makerProMark({ owns: ownsPro, storeShell });
   const classicPhoneCards = `/api/hub-print/passes?event=${eventId}&mode=print&theme=${CLASSIC_PRINT_THEME}&pass_format=${PASS_CARD_FORMAT_ID}`;
+  /* 🗂 Every guest's ticket, Phone card, in one PDF — Event Hub Pro since 2026-10-16 (`allInOneFile`, the zip's ◆ pattern). */
+  const printedAll = allInOneFile(
+    input,
+    {
+      href: themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID),
+      file: themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes'),
+      label: `Every guest’s ${PASS_CARD_WORDS.noun} · ${PRINT_FORMATS[PASS_CARD_FORMAT_ID].label}`,
+    },
+    PASSES_PRO_NOTE,
+  );
   if (studio) {
     /* 🧭 Studio › Prints (owner "approved" 2026-10-13): the look as the style-card strip (kind 5), the two outputs as Form rows — the SAME
        words, files and Pro door as before, in the same order; a free couple's ◆ door opens the centred note (kind 20), never a page jump. */
@@ -488,10 +567,15 @@ export function PassCardsPanel({ input, studio = false }: { input: PrintsInput; 
           eventId={eventId}
           piece="passes"
           version={input.previewVersion}
-          again={{
-            href: themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID),
-            file: themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes'),
-          }}
+          /* 🗂 "Save again" is the all-in-one file — offered only where it can be saved (Event Hub Pro, 2026-10-16). */
+          again={
+            ownsPro
+              ? {
+                  href: themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID),
+                  file: themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes'),
+                }
+              : undefined
+          }
         />
         <PassCardDesignPicker
           eventId={eventId}
@@ -515,11 +599,7 @@ export function PassCardsPanel({ input, studio = false }: { input: PrintsInput; 
                 ? { kind: 'save', href: `${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`, file: passCardsZip, label: PASS_CARD_WORDS.downloadAll, icon: <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} /> }
                 : { kind: 'door', href: proDoor, label: PASS_CARD_WORDS.downloadAll, icon: <PaidMark state={zipMark} label={paidMarkLabel(zipMark, 'Event Hub Pro')} />, note: PASS_ZIP_PRO_NOTE }
           }
-          printed={{
-            href: themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID),
-            file: themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes'),
-            label: `Every guest’s ${PASS_CARD_WORDS.noun} · ${PRINT_FORMATS[PASS_CARD_FORMAT_ID].label}`,
-          }}
+          printed={printedAll}
         />
       </div>
     );
@@ -577,24 +657,15 @@ export function PassCardsPanel({ input, studio = false }: { input: PrintsInput; 
           )}
           <span className="text-xs text-ink/55">One PNG per guest who is coming. Each guest&rsquo;s own saves free.</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2" data-pass-cards-print="">
-          <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/60">{PASS_CARD_WORDS.print}</span>
-          {studio ? (
-            <PrintSaveButton
-              href={themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID)}
-              file={themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes')}
-              variant="action"
-              label={`Every guest’s ${PASS_CARD_WORDS.noun} · ${PRINT_FORMATS[PASS_CARD_FORMAT_ID].label}`}
-            />
-          ) : (
-            <PrintSaveButton
-              href={themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID)}
-              file={themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes')}
-            >
+        {/* 🗂 Every guest's ticket in one PDF is Event Hub Pro (2026-10-16): the row is absent where the file is (the store shell without it). */}
+        {printedAll === null ? null : (
+          <div className="flex flex-wrap items-center gap-2" data-pass-cards-print="">
+            <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/60">{PASS_CARD_WORDS.print}</span>
+            <AllInOneShipped f={printedAll}>
               Every guest&rsquo;s {PASS_CARD_WORDS.noun} · {PRINT_FORMATS[PASS_CARD_FORMAT_ID].label}
-            </PrintSaveButton>
-          )}
-        </div>
+            </AllInOneShipped>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -715,6 +786,10 @@ export function PrintSetBody({ input }: { input: PrintsInput }) {
 
 export function PrintSetDownloads({ input, studio = false }: { input: PrintsInput; studio?: boolean }) {
   const { access, t, themed, freeTheme, themedReady, spot, q, classic, file, formats } = printPlan(input);
+  /* 🗂 THE WHOLE SET AND EVERY GUEST'S TICKET ARE EVENT HUB PRO (owner 2026-10-16, "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): each is the
+     zip's ◆ pattern (`allInOneFile`); the route refuses them without it. Each piece's own PDF, on its own row, stays free. */
+  const wholeSet = (href: string, f: string, label: string) => allInOneFile(input, { href, file: f, label }, WHOLE_SET_PRO_NOTE);
+  const everyTicket = (href: string, f: string, label: string) => allInOneFile(input, { href, file: f, label }, PASSES_PRO_NOTE);
   return (
     <div
       data-prints-access={!themed ? 'classic' : freeTheme ? 'free-theme' : access.printReady ? 'print-ready' : 'sample'}
@@ -724,7 +799,7 @@ export function PrintSetDownloads({ input, studio = false }: { input: PrintsInpu
         eventId={input.eventId}
         piece="set"
         version={input.previewVersion}
-        again={studio ? (themedReady ? ({ href: q('set', 'print'), file: file.themed('set') }) : { href: classic('set'), file: file.classic('set') }) : undefined}
+        again={studio && input.ownsPro ? (themedReady ? ({ href: q('set', 'print'), file: file.themed('set') }) : { href: classic('set'), file: file.classic('set') }) : undefined}
       />
       <p className="text-sm text-ink/75">
         <span data-prints-free-themes="" className="font-semibold text-ink">
@@ -756,15 +831,16 @@ export function PrintSetDownloads({ input, studio = false }: { input: PrintsInpu
       {studio ? (
         /* 🧭 Studio: the same files, the ONE ActionButton — the set that prints in the theme (or Classic when it is the only one) is the filled step. */
         <div className="flex flex-col gap-2">
-          <PrintSaveButton href={classic('set')} file={file.classic('set')} variant="action" main={!themedReady} label="Whole set · Classic (PDF)" />
-          <PrintSaveButton href={classic('passes')} file={file.classic('passes')} variant="action" label={`Every guest’s ${PASS_CARD_WORDS.noun} · Classic`} />
+          <StudioTool part="all-in-one" f={wholeSet(classic('set'), file.classic('set'), 'Whole set · Classic (PDF)')} main={!themedReady} />
+          <StudioTool part="all-in-one" f={everyTicket(classic('passes'), file.classic('passes'), `Every guest’s ${PASS_CARD_WORDS.noun} · Classic`)} />
           {themedReady ? (
             <>
-              <span data-prints-print-ready="" className="inline-flex flex-col items-start">
-                <PrintSaveButton href={q('set', 'print')} file={file.themed('set')} variant="action" main label={`Whole set · ${t.name} (PDF)`} />
+              {/* The print-ready hooks mark a FILE — a free couple's ◆ door is not one (the shipped Details' own rule). */}
+              <span data-prints-print-ready={input.ownsPro ? '' : undefined} className="inline-flex flex-col items-start">
+                <StudioTool part="all-in-one" f={wholeSet(q('set', 'print'), file.themed('set'), `Whole set · ${t.name} (PDF)`)} main />
               </span>
-              <span data-prints-passes="" className="inline-flex flex-col items-start">
-                <PrintSaveButton href={q('passes', 'print')} file={file.themed('passes')} variant="action" label={`Every guest’s ${PASS_CARD_WORDS.noun} · ${t.name}`} />
+              <span data-prints-passes={input.ownsPro ? '' : undefined} className="inline-flex flex-col items-start">
+                <StudioTool part="all-in-one" f={everyTicket(q('passes', 'print'), file.themed('passes'), `Every guest’s ${PASS_CARD_WORDS.noun} · ${t.name}`)} />
               </span>
             </>
           ) : themed ? (
@@ -773,20 +849,20 @@ export function PrintSetDownloads({ input, studio = false }: { input: PrintsInpu
         </div>
       ) : (
       <div className="flex flex-col gap-2">
-        <PrintSaveButton href={classic('set')} file={file.classic('set')} variant={themedReady ? 'secondary' : 'primary'}>
+        <AllInOneShipped f={wholeSet(classic('set'), file.classic('set'), 'Whole set · Classic (PDF)')} primary={!themedReady}>
           Whole set · Classic (PDF)
-        </PrintSaveButton>
-        <PrintSaveButton href={classic('passes')} file={file.classic('passes')}>
+        </AllInOneShipped>
+        <AllInOneShipped f={everyTicket(classic('passes'), file.classic('passes'), `Every guest’s ${PASS_CARD_WORDS.noun} · Classic`)}>
           Every guest&rsquo;s {PASS_CARD_WORDS.noun} · Classic
-        </PrintSaveButton>
+        </AllInOneShipped>
         {themedReady ? (
           <>
-            <PrintSaveButton href={q('set', 'print')} file={file.themed('set')} variant="primary">
-              <span data-prints-print-ready="">Whole set · {t.name} (PDF)</span>
-            </PrintSaveButton>
-            <PrintSaveButton href={q('passes', 'print')} file={file.themed('passes')}>
-              <span data-prints-passes="">Every guest&rsquo;s {PASS_CARD_WORDS.noun} · {t.name}</span>
-            </PrintSaveButton>
+            <AllInOneShipped f={wholeSet(q('set', 'print'), file.themed('set'), `Whole set · ${t.name} (PDF)`)} primary data="data-prints-print-ready">
+              Whole set · {t.name} (PDF)
+            </AllInOneShipped>
+            <AllInOneShipped f={everyTicket(q('passes', 'print'), file.themed('passes'), `Every guest’s ${PASS_CARD_WORDS.noun} · ${t.name}`)} data="data-prints-passes">
+              Every guest&rsquo;s {PASS_CARD_WORDS.noun} · {t.name}
+            </AllInOneShipped>
           </>
         ) : themed ? (
           <PrintSaveButton href={q('set', 'sample')} file={file.sample('set')}>

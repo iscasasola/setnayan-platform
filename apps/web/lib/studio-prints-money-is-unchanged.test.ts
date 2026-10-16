@@ -119,7 +119,8 @@ test('3 · no price, no order, no confirm step on these panels — and the free 
     }
   }
   const free = await panels('abaca', false, false, true);
-  assert.equal(free.pass.proDoorHrefs, 1, 'a free couple’s zip is not the door to the Event Hub Pro unlock');
+  /* 2 since 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the zip AND the Printed ticket batch — the SAME one unlock page. */
+  assert.equal(free.pass.proDoorHrefs, 2, 'a free couple’s zip and ticket batch are not the door to the Event Hub Pro unlock');
   assert.equal(free.pass.zipDoor, true);
   const shell = await panels('abaca', false, true, true);
   assert.equal(shell.pass.proDoorHrefs, 0, 'the store shell shows the unlock door');

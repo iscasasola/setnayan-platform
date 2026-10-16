@@ -65,8 +65,10 @@ test('1 · every Save on Studio › Prints is the ONE ActionButton — a button 
         ...freePrintParts('E1', 'rosa-ben', undefined, true).map((f: { key: string; editor: React.ReactNode }) => React.createElement('div', { key: f.key }, f.editor)),
       ),
     );
+    /* + the ◆ doors: since 2026-10-16 a free couple's all-in-one files (the whole set, every guest's pass) are the door to Event Hub Pro. */
     const saves = [...drawn.matchAll(/<span data-print-save="[^"]*"[^>]*>[\s\S]*?<\/span>/g)].length;
-    assert.ok(saves >= 18, `${theme}/${pro}: only ${saves} saves drawn — the pieces were not all read`);
+    const doors = (drawn.match(/data-print-all-in-one-pro=""/g) ?? []).length;
+    assert.ok(saves + doors >= 18, `${theme}/${pro}: only ${saves} saves and ${doors} ◆ doors drawn — the pieces were not all read`);
     assert.doesNotMatch(drawn, /button-primary|button-secondary|<a\b[^>]*\bdownload=/, `${theme}/${pro}: a Studio save is the old look or a bare download link`);
     assert.doesNotMatch(drawn, /sn-press inline-flex h-9 items-center rounded-md bg-cream/, `${theme}/${pro}: the old chip is drawn`);
     /* Every save button (`<span data-print-save>` wraps ONE ActionButton) is the template's, with its tone. */
@@ -114,7 +116,8 @@ test('3 · every include switch is the Form row’s switch — a switch button o
   assert.ok(parts.length > 1500, 'the Studio Prints parts moved — re-read this guard');
   assert.doesNotMatch(parts, /<select\b|<textarea\b|type="checkbox"|type="radio"|<PickMenu\b/, 'a Studio Prints part draws a bare control');
   assert.doesNotMatch(parts, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|\bborder-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b|\bstyle=\{/, 'a Studio Prints part writes a colour of its own');
-  assert.equal((parts.match(/<ChosenRow\b/g) ?? []).length, 1, 'the seat plan’s kind is not the one dropdown');
+  /* 2 since 2026-10-16: the seat plan's kind and "Pass for ▾" (one guest's pass) — each the Form row's one dropdown. */
+  assert.equal((parts.match(/<ChosenRow\b/g) ?? []).length, 2, 'the seat plan’s kind or "Pass for" is not the one dropdown');
   assert.match(parts, /<SwitchRow[\s\S]{0,400}fieldName=\{name\}\s+formId=\{form\}/, 'the include switch does not post through the words form');
 });
 

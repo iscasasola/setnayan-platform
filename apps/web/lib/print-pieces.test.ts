@@ -340,8 +340,10 @@ test('the Maker workspace prints no price and hides the Pro path in the store sh
   assert.match(ws, /const themedReady = themed && \(freeTheme \|\| access\.printReady\);/, 'the one condition every themed print-ready control sits behind');
   assert.match(ws, /const freeTheme = !isProPrint\(theme\);/, 'a free theme is the registry\'s tier, never "is it Classic"');
   for (const m of themedPrint) {
-    const before = ws.slice(Math.max(0, m.index! - 420), m.index!);
-    assert.match(before, /themedReady \? \(/, 'a themed print-ready control renders only for a free theme or with Pro');
+    /* 900: each themed file is now the ◆ all-in-one part (2026-10-16) — longer lines between the condition and the address. */
+    const before = ws.slice(Math.max(0, m.index! - 900), m.index!);
+    /* `themedReady ? (` a control, or `themedReady ? q(…)` an address (one guest's pass, 2026-10-16) — either way behind the one condition. */
+    assert.match(before + ws.slice(m.index!, m.index! + 2), /themedReady \? (?:\(|q\()/, 'a themed print-ready control renders only for a free theme or with Pro');
   }
   // The Classic controls render for EVERYONE — no condition, and they ask for theme=house.
   assert.match(ws, /const classic = \(piece: string\) => `\/api\/hub-print\/\$\{piece\}\?event=\$\{eventId\}&mode=print&theme=\$\{CLASSIC_PRINT_THEME\}/);

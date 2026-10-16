@@ -152,8 +152,11 @@ test('4b · Details\' prints hand a free couple the Modern and Cyber Neon files 
     const html = await paintPrints(id, false);
     const name = INVITE_THEMES[id].name;
     assert.match(html, /data-prints-access="free-theme"/, `${id}: the access line`);
-    assert.match(html, /data-prints-print-ready=""/, `${id}: no print-ready set`);
-    assert.match(html, /data-prints-passes=""/, `${id}: no print-ready passes`);
+    /* RE-AIMED 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the theme's whole set and every guest's ticket are still
+       OFFERED in the free theme — as the ◆ door to Event Hub Pro, in every theme; each piece's own file stays free (below). */
+    assert.ok(html.includes(`Whole set · ${name} (PDF)`), `${id}: the theme's whole set is not offered`);
+    assert.ok(html.includes(`Every guest’s ticket · ${name}`), `${id}: the theme's passes are not offered`);
+    assert.match(html, /data-print-all-in-one-pro=""/, `${id}: the all-in-one files are not the ◆ door for a free couple`);
     assert.ok(html.includes(`Save · ${name} (PDF)`), `${id}: a piece has no print-ready save`);
     assert.ok(!html.includes(`Sample · ${name} (JPG)`), `${id}: still offered as a watermarked sample`);
     assert.doesNotMatch(html, /data-prints-go-pro/, `${id}: still pitched Pro`);

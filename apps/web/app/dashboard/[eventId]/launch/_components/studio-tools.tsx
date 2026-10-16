@@ -1103,7 +1103,8 @@ export function StudioPassRows({
     | { kind: 'save'; href: string; file: string; label: string; icon: ReactElement }
     | { kind: 'door'; href: string; label: string; icon: ReactElement; note: { title: string; body: string } }
     | null;
-  printed: { href: string; file: string; label: string };
+  /** 🗂 Every guest's ticket in one PDF — ◆ Event Hub Pro since 2026-10-16 (`StudioAllInOne`); null in the store shell without it. */
+  printed: Parameters<typeof StudioAllInOne>[0]['f'];
   digitalWord: string;
   printWord: string;
   digitalLine: string;
@@ -1128,16 +1129,100 @@ export function StudioPassRows({
           </div>
         }
       />
-      <FormRow
-        name={printWord}
-        data="pass-print"
-        attrs={{ 'data-pass-cards-print': '' }}
-        below={
-          <div className="pb-3">
-            <PrintSaveButton href={printed.href} file={printed.file} variant="action" label={printed.label} />
-          </div>
-        }
-      />
+      {printed === null ? null : (
+        <FormRow
+          name={printWord}
+          data="pass-print"
+          attrs={{ 'data-pass-cards-print': '' }}
+          below={
+            <div className="pb-3">
+              <StudioAllInOne f={printed} />
+            </div>
+          }
+        />
+      )}
+    </FormRows>
+  );
+}
+
+/**
+ * 🗂 AN ALL-IN-ONE FILE (owner 2026-10-16, "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO" — `allInOneFile` in `maker-prints.tsx`): owned, the
+ * file itself (◆ unlocked in the icon's place); a free couple, the ◆ door that opens the centred note (`StudioProDoor`) — the zip's
+ * row exactly; nothing in the store shell.
+ */
+export function StudioAllInOne({
+  f,
+  main = false,
+  wide = false,
+}: {
+  f: { kind: 'save'; href: string; file: string; label: string; icon: ReactElement } | { kind: 'door'; href: string; label: string; icon: ReactElement; note: { title: string; body: string } } | null;
+  main?: boolean;
+  wide?: boolean;
+}) {
+  if (f === null) return null;
+  if (f.kind === 'save') return <PrintSaveButton href={f.href} file={f.file} variant="action" main={main} wide={wide} icon={f.icon} label={f.label} />;
+  return (
+    <span data-print-all-in-one-pro="" className="inline-flex">
+      <StudioProDoor href={f.href} label={f.label} icon={f.icon} note={f.note} />
+    </span>
+  );
+}
+
+/**
+ * 🎟 ONE GUEST'S PASS, FREE (owner 2026-10-16, verbatim *"each guest's own pass one at a time, stay free"*): "Pass for ▾" — the guests
+ * who have a pass, by name, in the printed passes' order (the house dropdown) — and its Save PDF: the Event pass's own file with
+ * `pass_guest=<id>`, in the size picked on the row above. Nobody yet, or a list that could not be read, is said in place.
+ */
+export function StudioOnePass({
+  guests,
+  href,
+  fileStem,
+}: {
+  /** null: the list could not be read. */
+  guests: ReadonlyArray<{ id: string; name: string }> | null;
+  /** The Event pass's own print file (its size, its theme) — the guest is added to it. */
+  href: string;
+  /** `<slug>-pass[-<theme>]` — the guest's name is added to it. */
+  fileStem: string;
+}) {
+  const [who, setWho] = useState<string | null>(guests?.[0]?.id ?? null);
+  const picked = guests?.find((g) => g.id === who) ?? guests?.[0] ?? null;
+  const slugOf = (n: string) => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'guest';
+  return (
+    <FormRows data="one-pass" attrs={STUDIO_PRINT_ROWS}>
+      {guests !== null && picked ? (
+        /* The house dropdown as the Form row's own (`ChosenRow`) — its Save PDF right under it, in the same row. */
+        <ChosenRow
+          name="Pass for"
+          label="Pass for"
+          value={picked.id}
+          options={guests.map((g) => ({ key: g.id, label: g.name }))}
+          onPick={setWho}
+          dataAttr="data-print-one-pass-pick"
+          data="one-pass"
+          attrs={{ 'data-print-one-pass': '' }}
+          below={
+            <div className="pb-3">
+              <PrintSaveButton href={`${href}&pass_guest=${encodeURIComponent(picked.id)}`} file={`${fileStem}-${slugOf(picked.name)}.pdf`} variant="action" label="Save PDF" />
+            </div>
+          }
+        />
+      ) : (
+        <FormRow
+          name="Pass for"
+          data="one-pass"
+          attrs={{ 'data-print-one-pass': '' }}
+          below={
+            guests === null ? (
+              <p className="pb-3 text-[12.5px] text-ink/60">Your guest list could not be read just now — reopen Prints in a moment.</p>
+            ) : (
+              <p data-print-one-pass-none="" className="pb-3 text-[12.5px] text-ink/60">
+                No guest has a pass yet — a pass appears once a guest is on your list and coming.
+              </p>
+            )
+          }
+        />
+      )}
     </FormRows>
   );
 }
@@ -1193,7 +1278,10 @@ export type StudioToolProps =
   | ({ part: 'chart' } & Parameters<typeof StudioChartPaper>[0])
   | ({ part: 'chart-body' } & Parameters<typeof StudioChartBody>[0])
   /* 🧭 Studio › Prints' piece bar, phone only (owner 2026-10-16, `studio-prints-bar.tsx`) — the same one lazy door. */
-  | ({ part: 'prints-bar' } & Parameters<typeof StudioPrintsBar>[0]);
+  | ({ part: 'prints-bar' } & Parameters<typeof StudioPrintsBar>[0])
+  /* 🗂 An all-in-one file (◆ Event Hub Pro) and one guest's pass, free (owner 2026-10-16). */
+  | ({ part: 'all-in-one' } & Parameters<typeof StudioAllInOne>[0])
+  | ({ part: 'one-pass' } & Parameters<typeof StudioOnePass>[0]);
 
 export function StudioTool(props: StudioToolProps) {
   switch (props.part) {
@@ -1249,5 +1337,9 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioChartBody {...props} />;
     case 'prints-bar':
       return <StudioPrintsBar {...props} />;
+    case 'all-in-one':
+      return <StudioAllInOne {...props} />;
+    case 'one-pass':
+      return <StudioOnePass {...props} />;
   }
 }

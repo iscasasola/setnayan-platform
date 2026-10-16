@@ -747,6 +747,51 @@ export async function loadPrintSet(
   return { event, theme, look, data, images, appUrl, ownerSlug, qrLook };
 }
 
+export type PassGuestRow = PassCardRow & { guest_id: string; first_name: string | null; middle_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null; plus_one_name_confirmed_at: string | null };
+
+/** The guests a pass is printed for, in the files' order — ONE read and ONE rule for every guest's file, one guest's pass and the list that names them. */
+export async function passGuestRows(eventId: string, ticketsOnly: boolean): Promise<{ rows: PassGuestRow[]; measured: boolean }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('guests')
+    // The canonical entourage columns (the dup-rule guard's reference list) + the QR token.
+    .select(`${ENTOURAGE_COLUMNS}, qr_token, event_id, rsvp_status, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, passed_away, deleted_at`)
+    .eq('event_id', eventId)
+    .is('deleted_at', null)
+    // 🛂 No pass for a request until Keep or Link.
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+    .order('last_name', { ascending: true });
+  if (error) {
+    logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');
+    return { rows: [], measured: false };
+  }
+  type G = PassGuestRow;
+  const listed = ((data ?? []) as unknown as G[]).filter((g) => g.qr_token);
+  const all = ticketsOnly
+    ? filterPassCardRows(listed, (g) => ({
+        ...g,
+        tba: Boolean(g.plus_one_of_guest_id) && isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: g.plus_one_name_confirmed_at }),
+      }))
+    : listed;
+  return { rows: all, measured: true };
+}
+
+/**
+ * 🎟 WHO HAS A PASS, BY NAME (owner 2026-10-16, Studio › Prints' Event pass: "Pass for ▾" and the count over every guest's file) —
+ * the SAME guests, order and name as the printed passes (`passGuestRows` · `ticketName`). `null` when the list could not be read:
+ * never an empty list that would say nobody is coming.
+ */
+export async function loadPassGuestNames(
+  eventId: string,
+  /** The event's `print_details` (its Name style) — awaited beside the guests, so the caller's own event read is not waited on. */
+  printDetails: PromiseLike<unknown>,
+): Promise<Array<{ id: string; name: string }> | null> {
+  const [read, details] = await Promise.all([passGuestRows(eventId, true), printDetails]);
+  if (!read.measured) return null;
+  const style = nameStyleOfPrintDetails(details);
+  return read.rows.map((g) => ({ id: g.guest_id, name: ticketName(g, style) }));
+}
+
 /**
  * Every guest's pass (the Pro batch) or every guest's QR (the free sheet) —
  * one QR per guest, the SAME invitation URL their own QR encodes
@@ -774,32 +819,21 @@ export async function loadGuestPasses(
      * drawn only for the guests in this window (the page the preview shows). Never with `limit`.
      */
     drawOnly?: { from: number; count: number };
+    /**
+     * 🎟 ONE GUEST'S PASS (owner 2026-10-16, *"each guest's own pass one at a time, stay free"*): only this guest — when the
+     * rules above give them a pass; its serial is still their place in the whole list, so it matches every guest's file.
+     */
+    onlyGuest?: string;
   },
 ): Promise<{ passes: PrintPass[]; images: PrintImages; measured: boolean }> {
   const admin = createAdminClient();
   const eventId = set.event.event_id;
-  const { data, error } = await admin
-    .from('guests')
-    // The canonical entourage columns (the dup-rule guard's reference list) + the QR token.
-    .select(`${ENTOURAGE_COLUMNS}, qr_token, event_id, rsvp_status, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, passed_away, deleted_at`)
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    // 🛂 No pass for a request until Keep or Link.
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
-    .order('last_name', { ascending: true });
-  if (error) {
-    logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');
-    return { passes: [], images: {}, measured: false };
-  }
-  type G = PassCardRow & { guest_id: string; first_name: string | null; middle_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null; plus_one_name_confirmed_at: string | null };
-  const listed = ((data ?? []) as unknown as G[]).filter((g) => g.qr_token);
-  const all = opts.ticketsOnly
-    ? filterPassCardRows(listed, (g) => ({
-        ...g,
-        tba: Boolean(g.plus_one_of_guest_id) && isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: g.plus_one_name_confirmed_at }),
-      }))
-    : listed;
-  const guests = opts.limit ? all.slice(0, opts.limit) : all;
+  const read = await passGuestRows(eventId, Boolean(opts.ticketsOnly));
+  if (!read.measured) return { passes: [], images: {}, measured: false };
+  const all = read.rows;
+  const guests = opts.onlyGuest ? all.filter((g) => g.guest_id === opts.onlyGuest) : opts.limit ? all.slice(0, opts.limit) : all;
+  /** Each guest's place in the whole list — the serial every file prints (`Nº 0007`). */
+  const place = new Map(all.map((g, i) => [g.guest_id, i + 1]));
 
   const seatOf = new Map<string, string>();
   const seatNumberOf = new Map<string, string>();
@@ -827,7 +861,7 @@ export async function loadGuestPasses(
   const style = nameStyleOfPrintDetails(set.event.print_details);
   const drawn = (i: number) => !opts.drawOnly || (i >= opts.drawOnly.from && i < opts.drawOnly.from + opts.drawOnly.count);
   for (const g of guests) {
-    n += 1;
+    n = place.get(g.guest_id) ?? n + 1;
     const name = ticketName(g, style);
     const ref = `qr-${g.guest_id}`;
     /* 📄 Outside the page being shown: listed (its name, its place on the sheet), its QR not drawn. */

@@ -485,7 +485,9 @@ export function DressCodeWidget({
   // 🚶 A guest with a place in the march keeps the shipped card — its march line
   // ("you walk 5th") is theirs alone, and the general styles draw no such line.
   if (!mine && !march && (sceneStyle === 'palette' || sceneStyle === 'line')) {
-    const general = { title: shownTitle, description: shownDescription, palette, rows: everyone.rows, dos, donts, genderNote, dosLook: dosIn, makerSample };
+    /* 🏷 The palette style lists the names under its bands — said by name, never a hex a couple's editor stored as one. */
+    const named = palette.map((p) => ({ hex: p.hex, name: colourName(p.hex, p.name) }));
+    const general = { title: shownTitle, description: shownDescription, palette: named, rows: everyone.rows, dos, donts, genderNote, dosLook: dosIn, makerSample };
     return sceneStyle === 'palette' ? <DressCodePalette {...general} /> : <DressCodeLine {...general} />;
   }
 

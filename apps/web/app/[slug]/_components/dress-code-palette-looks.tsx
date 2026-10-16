@@ -31,6 +31,15 @@ import { HUB_SCENE_WORDS_CLASS } from '@/lib/scene-words-class';
  * A server component, CSS only — no client JavaScript.
  *
  * Row size (`size="row"`) is the same look shrunk for a role's row, with no words.
+ *
+ * 🏷 NO HEX, ANYWHERE A GUEST READS (2026-09-30 "a colour is said by name";
+ * owner re-affirmed 2026-10-15 "no hex"; live `/cale-ice` 2026-10-16 still read
+ * "Rosewood #5C0700" twice — the Circles' screen-reader line and its legend).
+ * A colour is its NAME: on the swatch, in its `title`, in its screen-reader
+ * words. A colour with no name says nothing rather than its hex — the shipped
+ * Tags look (`dress-code-widget.tsx`) already does exactly that. The hex is
+ * only ever the swatch's own colour (`--c`). Held by
+ * `the-guest-palette-never-reads-a-hex.test.ts`.
  */
 
 export type PaletteLookItem = { hex: string; name?: string };
@@ -54,7 +63,7 @@ export function PaletteLookList({
     return (
       <ul className={`sn-pal sn-pal-row sn-pal-${look}`} data-pal-row={look} aria-label={label}>
         {items.map((it, i) => (
-          <li key={`${it.hex}-${i}`} title={it.name || it.hex} {...swatchAttrs(it.hex, i)}>
+          <li key={`${it.hex}-${i}`} title={it.name || undefined} {...swatchAttrs(it.hex, i)}>
             <i aria-hidden />
           </li>
         ))}
@@ -66,7 +75,7 @@ export function PaletteLookList({
     <>
       <ul className={`sn-pal sn-pal-${look}`} data-pal-look={look} aria-label={label}>
         {items.map((it, i) => (
-          <li key={`${it.hex}-${i}`} title={it.name || it.hex} {...swatchAttrs(it.hex, i)}>
+          <li key={`${it.hex}-${i}`} title={it.name || undefined} {...swatchAttrs(it.hex, i)}>
             {look === 'arch' ? (
               <i aria-hidden>
                 <Sprig />
@@ -75,29 +84,19 @@ export function PaletteLookList({
               <i aria-hidden />
             )}
             {circles ? (
-              <span className="sr-only">{it.name ? `${it.name} ${it.hex}` : it.hex}</span>
+              /* The ONE accessible name per colour — the legend under the row is aria-hidden. */
+              it.name ? <span className="sr-only">{it.name}</span> : null
             ) : look === 'chips' ? (
-              <>
-                <b className={`font-pahina text-[1.2rem] font-light leading-none tracking-tight ${HUB_SCENE_WORDS_CLASS}`}>{it.name || it.hex}</b>
-                {it.name ? <small className={`font-mono text-[0.6rem] uppercase tracking-[0.1em] opacity-80 ${HUB_SCENE_WORDS_CLASS}`}>{it.hex}</small> : null}
-              </>
+              it.name ? <b className={`font-pahina text-[1.2rem] font-light leading-none tracking-tight ${HUB_SCENE_WORDS_CLASS}`}>{it.name}</b> : null
             ) : look === 'arch' || look === 'watercolour' || look === 'strokes' || look === 'fabric' ? (
-              /* The name alone — never the hex (2026-09-30 "a colour is said by name"; owner 2026-10-15 "no
-                 hex"). Its type and place are the look's own (globals.css): on the colour in the colour's ink
-                 for Arch tabs and Paint strokes, in the page's ink under (Watercolour) or above (Silk). */
-              it.name ? <b className={HUB_SCENE_WORDS_CLASS}>{it.name}</b> : <span className="sr-only">{it.hex}</span>
-            ) : (
-              <>
-                {it.name ? (
-                  <b className={`mt-2 block text-center font-mono text-[0.6rem] font-normal uppercase leading-tight tracking-[0.12em] text-ink/70 ${HUB_SCENE_WORDS_CLASS}`}>
-                    {it.name}
-                  </b>
-                ) : null}
-                <small className={`${it.name ? 'mt-0.5' : 'mt-2'} ${HUB_SCENE_WORDS_CLASS} block text-center font-mono text-[0.55rem] uppercase leading-tight tracking-[0.06em] text-ink/70`}>
-                  {it.hex}
-                </small>
-              </>
-            )}
+              /* The name alone — never the hex. Its type and place are the look's own (globals.css): on the colour
+                 in the colour's ink for Arch tabs and Paint strokes, in the page's ink under (Watercolour) or above (Silk). */
+              it.name ? <b className={HUB_SCENE_WORDS_CLASS}>{it.name}</b> : null
+            ) : it.name ? (
+              <b className={`mt-2 block text-center font-mono text-[0.6rem] font-normal uppercase leading-tight tracking-[0.12em] text-ink/70 ${HUB_SCENE_WORDS_CLASS}`}>
+                {it.name}
+              </b>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -109,8 +108,7 @@ export function PaletteLookList({
         <p aria-hidden className="sn-pal-legend font-mono text-[0.6rem] uppercase tracking-[0.12em] text-ink/70">
           {items.map((it, i) => (
             <span key={`${it.hex}-${i}`} style={swatchVars(it.hex)}>
-              {it.name || it.hex}
-              {it.name ? <small className="text-[0.55rem] tracking-[0.06em] text-ink/70">{it.hex}</small> : null}
+              {it.name ?? ''}
             </span>
           ))}
         </p>

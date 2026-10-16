@@ -343,7 +343,7 @@ export function PahinaMasthead({
      frame, not pressable. The hint is the page's own affordance — never a part, never hidden — and nods gently (still
      under reduced motion). Both are cover LINES (`line()`): behind a closed veil neither shows, and both enter last. */
   const rsvpWords = elements?.rsvp?.word ?? HUB_RSVP_DEFAULT_WORDS;
-  const rsvpPart = !rsvp ? null : rsvp.kind === 'closed' || rsvp.kind === 'not_yet' ? (
+  const rsvpPart = !rsvp ? null : !('href' in rsvp) ? (
     <p {...el('rsvp')} data-cover-rsvp={rsvp.kind} className="text-sm text-ink/70">
       {rsvp.line}
     </p>

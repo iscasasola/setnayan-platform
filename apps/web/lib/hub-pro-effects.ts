@@ -390,7 +390,10 @@ function canvasEffects(
         ? 'Video background'
         : first.group === 'slot-media' && facets.some((f) => drafted.slots?.[f.slot ?? -1]?.kind === 'snippet')
           ? 'Clip in the scene'
-          : name.what;
+          : /* ✨ A part's Shimmer is named as itself (owner 2026-10-16: "all animate, effects, styles, accents are pro"). */
+            first.group === 'part-motion' && first.element && drafted.elements?.[first.element]?.motion?.during === 'shimmer'
+            ? 'Shimmer'
+            : name.what;
     const where = first.element ? `${HUB_ELEMENT_LABEL[first.element]} on the ${scene}` : scene;
     let without = drafted;
     for (const f of facets) without = canvasWithoutFacet(live, without, f);

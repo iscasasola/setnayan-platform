@@ -34,7 +34,7 @@ export function coverRsvpOf(input: { card: ReplyCard | null; visitorHref?: strin
   const c = input.card;
   if (c) {
     if (c.kind === 'closed') return { kind: 'closed', line: COVER_RSVP_CLOSED };
-    if (c.kind === 'not_yet') return { kind: 'not_yet', line: c.line };
+    if (c.kind === 'not_yet' || c.href === null) return { kind: 'not_yet', line: c.line };
     return { kind: c.kind, href: c.href };
   }
   return input.visitorHref ? { kind: 'ask', href: input.visitorHref } : null;

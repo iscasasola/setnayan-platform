@@ -1181,6 +1181,10 @@ export async function SiteBody({
      own "RSVP page" opens the Event Hub with it up (`…&editor=1&as=replied#your-details`,
      `lib/maker-made-once-pages.ts`) and edits the card through it — pointing that at the reply page's own canvas is
      a Maker change. A guest is never served it. */
+  /* 🪪 THE LOGO SWITCH IS REAL ON THE COVER (owner 2026-10-15 (4): "Show the logo on Cover and QR" — on = the couple's
+     logo shows on the cover; off = it does not). Cover Scene › Edit's Logo line is the same fact (owner-approved
+     2026-10-16). Unanswered (null) keeps the mark, as before. */
+  const coverLogoOff = (event as { logo_wanted?: boolean | null }).logo_wanted === false;
   const replyDoor = inviteReplyPath(event.slug ?? '');
   /* 🔘 THE COVER'S RSVP BUTTON FOR A VISITOR WITHOUT A KEY (owner 2026-10-16): on the Invitation, the shipped reply
      door — which asks for the passcode first. Never on a ticketed public event (its door is "Get tickets"). */
@@ -2047,7 +2051,7 @@ export async function SiteBody({
             venueName={venueLine}
             badgeSlot={dayOfBadge}
             rsvp={visitorRsvp}
-            monogramSlot={
+            monogramSlot={coverLogoOff ? null : (
               <HeroMonogram
                 event={event}
                 monogram={monogram}
@@ -2055,7 +2059,7 @@ export async function SiteBody({
                 bespokeSvg={bespokeSvg}
                 shadow
               />
-            }
+            )}
             mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
             mediaCaption={venueLine}
           />
@@ -2092,14 +2096,14 @@ export async function SiteBody({
                   venueName={venueLine}
                   badgeSlot={dayOfBadge}
                   rsvp={visitorRsvp}
-                  monogramSlot={
+                  monogramSlot={coverLogoOff ? null : (
                     <HeroMonogram
                       event={event}
                       monogram={monogram}
                       animatedMonogram={animatedMonogram}
                       bespokeSvg={bespokeSvg}
                     />
-                  }
+                  )}
                 />
               ) : null}
                 </>}
@@ -3190,7 +3194,7 @@ export async function SiteBody({
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={venueLine}
-              monogramSlot={
+              monogramSlot={coverLogoOff ? null : (
                 <HeroMonogram
                   event={event}
                   monogram={monogram}
@@ -3198,7 +3202,7 @@ export async function SiteBody({
                   bespokeSvg={bespokeSvg}
                   shadow
                 />
-              }
+              )}
               mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
               mediaCaption={venueLine}
             />
@@ -3214,14 +3218,14 @@ export async function SiteBody({
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={venueLine}
-              monogramSlot={
+              monogramSlot={coverLogoOff ? null : (
                 <HeroMonogram
                   event={event}
                   monogram={monogram}
                   animatedMonogram={animatedMonogram}
                   bespokeSvg={bespokeSvg}
                 />
-              }
+              )}
             />
           ) : null
             }

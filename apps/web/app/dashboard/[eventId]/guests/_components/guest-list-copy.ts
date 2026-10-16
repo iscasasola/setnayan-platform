@@ -25,7 +25,7 @@
 import { useEffect, useState } from 'react';
 import { useLastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
 import { lastSeenPath } from '@/app/_components/last-seen/last-seen-mark';
-import { guestListCopyOf, guestListFromCopy, type GuestListCopy, type GuestListRow } from '@/lib/guest-list-rows';
+import { guestListCopyOf, guestListFromCopy, type GuestListFromCopy, type GuestListRow } from '@/lib/guest-list-rows';
 import type { RoleNames } from '@/lib/role-names';
 
 /** Where the list on screen came from, when it is NOT the fresh list. */
@@ -35,7 +35,7 @@ export type GuestsCopyState = {
   savedAt: number;
 };
 
-export type KeptGuestList = { list: Omit<GuestListCopy, 'rows'> & { rows: GuestListRow[] }; savedAt: number };
+export type KeptGuestList = { list: GuestListFromCopy; savedAt: number };
 
 /** Only the list as it opens from the menu — a filtered or deep-linked view is a different screen. */
 function onListAddress(eventId: string): boolean {

@@ -18,7 +18,11 @@ const read = (rel: string) => stripComments(readFileSync(join(__dirname, rel), '
 
 test('the quick-add sheet gets the very rows the list gets, not a copy of each', () => {
   const page = read('page.tsx');
-  assert.match(page, /const quickAddPool = guests;/);
+  // Since 2026-10-16 the rows are the LEAN ones (`toGuestListRow`, the-list-sends-only-what-it-draws.test.ts):
+  // ONE lean object per guest, made once, which both the list and the sheet receive.
+  assert.match(page, /const listRowById = new Map\(guests\.map\(\(g\) => \[g\.guest_id, toGuestListRow\(g\)\] as const\)\);/);
+  assert.match(page, /const quickAddPool = guests\.map\(listRowOf\);/);
+  assert.match(page, /const rosterAll = guests[\s\S]{0,400}?\.map\(listRowOf\);/, 'the list gets the same lean objects');
   assert.match(page, /existingGuests=\{quickAddPool\}/);
   // the sheet still reads extra_roles defensively, as the copy used to
   assert.match(read('_components/quick-add-sheet.tsx'), /extra_roles: g\.extra_roles \?\? \[\]/);

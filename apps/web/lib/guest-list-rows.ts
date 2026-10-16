@@ -93,17 +93,18 @@ export type GuestCopyRow = Pick<GuestRow, (typeof GUEST_COPY_ROW_FIELDS)[number]
 /** A face URL is a signed link that lasts a day; past this the copy draws initials instead of a broken picture. */
 export const COPY_FACES_MAX_AGE_MS = 20 * 60 * 60 * 1000;
 
-/** The kept Guest list — exactly what its List draws, nothing it does not. */
+/**
+ * The kept Guest list — exactly what its List draws, nothing it does not. COMPACT on purpose: one array per
+ * guest in `GUEST_COPY_ROW_FIELDS` order, then their groups, table and face — no key repeated 200 times, so a
+ * 200-guest list is ~60 KB on the phone and one `JSON.parse` to read back.
+ */
 export type GuestListCopy = {
-  v: 1;
-  rows: GuestCopyRow[];
+  v: 2;
+  /** The field order of each row (read back by name, so a reordered list still reads right). */
+  fields: string[];
+  /** Per guest: the fields' values, then [groups, table, face]. */
+  rows: unknown[][];
   hasSides: boolean;
-  /** guest_id → their groups' labels (a section under Sort › Group). */
-  groupsByGuest: Record<string, string[]>;
-  /** guest_id → "Table 9". */
-  tableByGuest: Record<string, string>;
-  /** guest_id → a face to draw (a signed link — see COPY_FACES_MAX_AGE_MS). */
-  faceByGuest: Record<string, string>;
   /** Requests to join, as the row said. */
   requests: number;
   rootLabel: string;
@@ -111,32 +112,33 @@ export type GuestListCopy = {
   roleNames: RoleNames;
 };
 
-/** What the list was showing → what the phone keeps. */
-export function guestListCopyOf(input: {
+export type GuestListCopyInput = {
   guests: readonly GuestListRow[];
   hasSides: boolean;
+  /** guest_id → their groups' labels (a section under Sort › Group). */
   groupsByGuest: Record<string, string[]>;
+  /** guest_id → "Table 9". */
   tableByGuest: Record<string, string>;
+  /** guest_id → a face to draw (a signed link — see COPY_FACES_MAX_AGE_MS). */
   faceByGuest: Record<string, string>;
   requests: number;
   rootLabel: string;
   roleNames: RoleNames;
-}): GuestListCopy {
-  const rows = input.guests.map((g) => {
-    const out = {} as Record<string, unknown>;
-    for (const k of GUEST_COPY_ROW_FIELDS) out[k] = (g as Record<string, unknown>)[k] ?? null;
-    out.extra_roles = g.extra_roles ?? [];
-    return out as GuestCopyRow;
-  });
-  const ids = new Set(rows.map((r) => r.guest_id));
-  const only = <T,>(m: Record<string, T>) => Object.fromEntries(Object.entries(m).filter(([id]) => ids.has(id)));
+};
+
+/** What the list was showing → what the phone keeps. */
+export function guestListCopyOf(input: GuestListCopyInput): GuestListCopy {
+  const rows = input.guests.map((g) => [
+    ...GUEST_COPY_ROW_FIELDS.map((k) => (g as Record<string, unknown>)[k] ?? null),
+    input.groupsByGuest[g.guest_id] ?? null,
+    input.tableByGuest[g.guest_id] ?? null,
+    input.faceByGuest[g.guest_id] ?? null,
+  ]);
   return {
-    v: 1,
+    v: 2,
+    fields: [...GUEST_COPY_ROW_FIELDS],
     rows,
     hasSides: input.hasSides,
-    groupsByGuest: only(input.groupsByGuest),
-    tableByGuest: only(input.tableByGuest),
-    faceByGuest: only(input.faceByGuest),
     requests: input.requests,
     rootLabel: input.rootLabel,
     roleNames: input.roleNames ?? {},
@@ -145,23 +147,29 @@ export function guestListCopyOf(input: {
 
 const isRecord = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 
+export type GuestListFromCopy = Omit<GuestListCopyInput, 'guests'> & { rows: GuestListRow[] };
+
 /**
- * A kept copy read back → rows the list can draw, or null when it is not a copy this code wrote. The search
+ * A kept copy read back → what the list draws, or null when it is not a copy this code wrote. The search
  * fields the phone never kept come back EMPTY (an empty tag list, no mobile) — never undefined, which the
- * search would trip on.
+ * search would trip on. A face older than COPY_FACES_MAX_AGE_MS is dropped (its signed link has expired).
  */
-export function guestListFromCopy(
-  raw: unknown,
-  savedAt: number,
-  now: number = Date.now(),
-): (Omit<GuestListCopy, 'rows'> & { rows: GuestListRow[] }) | null {
-  if (!isRecord(raw) || raw.v !== 1 || !Array.isArray(raw.rows)) return null;
+export function guestListFromCopy(raw: unknown, savedAt: number, now: number = Date.now()): GuestListFromCopy | null {
+  if (!isRecord(raw) || raw.v !== 2 || !Array.isArray(raw.rows) || !Array.isArray(raw.fields)) return null;
+  const fields = raw.fields as unknown[];
+  if (!fields.every((f) => typeof f === 'string')) return null;
+  const at = (name: string) => fields.indexOf(name);
+  const n = fields.length;
+  const facesOk = now - savedAt <= COPY_FACES_MAX_AGE_MS;
   const rows: GuestListRow[] = [];
+  const groupsByGuest: Record<string, string[]> = {};
+  const tableByGuest: Record<string, string> = {};
+  const faceByGuest: Record<string, string> = {};
   for (const r of raw.rows) {
-    if (!isRecord(r) || typeof r.guest_id !== 'string' || typeof r.first_name !== 'string' || typeof r.last_name !== 'string') return null;
-    rows.push({
+    if (!Array.isArray(r) || r.length !== n + 3) return null;
+    const row: Record<string, unknown> = {
       custom_tags: [],
-      group_category: null as unknown as GuestRow['group_category'],
+      group_category: null,
       email: null,
       mobile: null,
       meal_preference: null,
@@ -169,21 +177,25 @@ export function guestListFromCopy(
       notes: null,
       relation: null,
       plus_one_name: null,
-      ...(r as Partial<GuestListRow>),
-      extra_roles: Array.isArray(r.extra_roles) ? (r.extra_roles as GuestRow['extra_roles']) : [],
-    } as GuestListRow);
+    };
+    for (const k of GUEST_COPY_ROW_FIELDS) row[k] = at(k) >= 0 ? (r[at(k)] ?? null) : null;
+    if (typeof row.guest_id !== 'string' || typeof row.first_name !== 'string' || typeof row.last_name !== 'string') return null;
+    row.extra_roles = Array.isArray(row.extra_roles) ? row.extra_roles : [];
+    const id = row.guest_id as string;
+    const [groups, table, face] = r.slice(n) as [unknown, unknown, unknown];
+    if (Array.isArray(groups)) groupsByGuest[id] = groups.filter((x): x is string => typeof x === 'string');
+    if (typeof table === 'string') tableByGuest[id] = table;
+    if (facesOk && typeof face === 'string') faceByGuest[id] = face;
+    rows.push(row as GuestListRow);
   }
-  const rec = (v: unknown) => (isRecord(v) ? (v as Record<string, never>) : {});
   return {
-    v: 1,
     rows,
     hasSides: raw.hasSides === true,
-    groupsByGuest: rec(raw.groupsByGuest),
-    tableByGuest: rec(raw.tableByGuest),
-    // A day-old signed link no longer opens — initials, not a broken picture.
-    faceByGuest: now - savedAt > COPY_FACES_MAX_AGE_MS ? {} : rec(raw.faceByGuest),
+    groupsByGuest,
+    tableByGuest,
+    faceByGuest,
     requests: typeof raw.requests === 'number' ? raw.requests : 0,
     rootLabel: typeof raw.rootLabel === 'string' ? raw.rootLabel : '',
-    roleNames: rec(raw.roleNames) as RoleNames,
+    roleNames: (isRecord(raw.roleNames) ? raw.roleNames : {}) as RoleNames,
   };
 }

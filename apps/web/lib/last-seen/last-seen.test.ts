@@ -285,7 +285,9 @@ test('5 · a refresh that does not come says so — old data is never passed off
   assert.doesNotMatch(failed, /updating…/);
 
   // A failed READ is never kept as last-seen: each page passes its honest-read flag.
-  assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /<LastSeenCapture page="guests" fresh=\{guestsMeasured\}>/);
+  // (The Guest list keeps its ROWS, not a picture — `keepHtml={false}`; its own screen keeps the data, gated
+  // on the same measured read: guests/a-failed-refresh-shows-the-last-copy-as-old.test.ts.)
+  assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /<LastSeenCapture page="guests" fresh=\{guestsMeasured\} keepHtml=\{false\}>/);
   assert.match(read('app/dashboard/[eventId]/page.tsx'), /<LastSeenCapture page="home" fresh=\{guestsMeasured\}>/);
   assert.match(read('app/dashboard/[eventId]/details/page.tsx'), /<LastSeenCapture page="details" fresh=\{lastSeenFresh\}>/);
 });

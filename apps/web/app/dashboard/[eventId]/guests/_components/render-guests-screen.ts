@@ -50,6 +50,10 @@ export async function renderGuestsScreen(opts: {
   notLoaded?: string | null;
   /** A `?q=` from the top bar — a search opens every section with a hit. */
   initialQuery?: string;
+  /** 📋 Draw it as the phone's last copy (`guest-list-copy.ts`). */
+  copy?: { phase: 'updating' | 'failed'; savedAt: number } | null;
+  /** What the List shows when there is nothing to section (the page's EmptyState). */
+  empty?: unknown;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
@@ -81,7 +85,8 @@ export async function renderGuestsScreen(opts: {
           initialQuery: opts.initialQuery ?? '',
           initialSelect: false,
           setup: null,
-          empty: null,
+          empty: opts.empty ?? null,
+          copy: opts.copy ?? null,
         } as never),
       ),
     ),

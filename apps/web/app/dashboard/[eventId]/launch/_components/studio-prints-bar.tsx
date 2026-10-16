@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { StudioPrintsDownloadSheet } from './studio-prints-settings';
+import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { studioPrintsBarPieces } from '@/lib/studio-details';
 import type { DetailsItemGroup, DetailsItemKey } from '@/lib/maker-details-items';
@@ -161,16 +162,10 @@ export function StudioPrintsBar({
       <button type="button" aria-label="Next piece" data-prints-bar-step="next" disabled={i === pieces.length - 1} onClick={() => go(pieces[i + 1]!.key)} className={step}>
         <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
       </button>
-      <button
-        type="button"
-        aria-label="Download"
-        aria-haspopup="dialog"
-        data-prints-bar-step="download"
-        onClick={() => setSaving(true)}
-        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-cream shadow-[0_6px_14px_-6px_rgba(120,60,30,.6)]"
-      >
-        <Download aria-hidden className="h-5 w-5" strokeWidth={2} />
-      </button>
+      {/* ⬇ The row's one filled forward step — the house ActionButton (its brand fill), never a colour of its own. */}
+      <span data-prints-bar-step="download" className="inline-flex shrink-0">
+        <ActionButton tone="brand" main iconOnly icon={Download} label="Download" onClick={() => setSaving(true)} />
+      </span>
       {saving ? <StudioPrintsDownloadSheet item={here.key} onClose={() => setSaving(false)} /> : null}
     </div>
   );

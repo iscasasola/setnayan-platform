@@ -182,7 +182,7 @@ test('6 · the words: View as ▾’s groups, the count lines (the number IS the
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { StudioPrintsBar } = await import(`../${L}/studio-prints-bar`);
   const bar = renderToStaticMarkup(React.createElement(StudioPrintsBar, { items: [{ key: 'every-print', label: 'x', group: 'set' }, { key: 'pass', label: 'Event pass', group: 'set' }], box: { current: null }, onGo: () => {}, at: 'pass' }));
-  assert.match(bar, /aria-label="Download"[^>]*data-prints-bar-step="download"/, 'the bar has no ⬇');
+  assert.match(bar, /data-prints-bar-step="download"[^>]*><button[^>]*aria-label="Download"[^>]*class="ab ab-brand ab-main/, 'the bar has no ⬇ — the filled ActionButton');
   const sheet = read(`${L}/studio-prints-settings.tsx`);
   const dl = sheet.slice(sheet.indexOf('export function StudioPrintsDownloadSheet('));
   assert.match(dl, /<FormRow name="This piece"/);

@@ -197,7 +197,7 @@ export function StudioFileChoice({
   const [pick, setPick] = useState(choices[0]!.key);
   const chosen = choices.find((c) => c.key === pick) ?? choices[0]!;
   const row = (
-    <FormRows data="print-head" attrs={{ 'data-studio-print-rows': '' }}>
+    <FormRows data="print-head" width="short" attrs={{ 'data-studio-print-rows': '' }}>
       <ChosenRow name={name} line={line} label={label} value={chosen.key} options={choices.map((c) => ({ key: c.key, label: c.label }))} onPick={setPick} dataAttr="data-print-file-choice" data={`file-choice-${item}`} />
     </FormRows>
   );

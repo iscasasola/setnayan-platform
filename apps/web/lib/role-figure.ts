@@ -148,6 +148,12 @@ export function roleFigures(
   return kinds.map((kind) => ({ kind, color, ...(accent ? { accent } : {}) }));
 }
 
+/** A role's single wearer by the shipped figure rule — a gown or a suit — or null for a role that holds both (`readerAttire`'s `single`). */
+export function singleWearerOf(role: string): 'gown' | 'suit' | null {
+  const people = roleFigures(role, ['#000000']);
+  return people.length === 1 ? people[0]!.kind : null;
+}
+
 /* ── the people, drawn (owner 2026-10-14) ────────────────────────────────── */
 
 /** One person in a picture: who, what they wear, and the colour their garment is dyed (the role's hex, exactly). */
@@ -177,7 +183,9 @@ export function roleFigurePeople(key: string, hexes: readonly string[], _meaning
     for (const p of picks) {
       const colours = (p.colours && p.colours.length > 0 ? p.colours : hexes).filter((h) => HEX.test(h));
       if (!colours.length) continue;
-      out.push({ who: p.who, garment: p.style ? garmentFor(p.who, p.style) : PLAIN_GARMENT[p.who], main: colours[0]! });
+      /* Not said — or said, but not this person's (`garmentFor` → 'unset'): their plain garment, never another's. */
+      const garment = garmentFor(p.who, p.style);
+      out.push({ who: p.who, garment: garment === 'unset' ? PLAIN_GARMENT[p.who] : garment, main: colours[0]! });
     }
     return out;
   }

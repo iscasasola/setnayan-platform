@@ -26,4 +26,10 @@ See git log. Next steps are listed at the bottom as they are done.
   (unit 18 tests + db 5 tests), every guard sabotaged once (red) and restored (green), exposure baseline +1.
 - Bundle baseline on main 89d1904a59 (CI run 38857969690): 201.7 KB shared.
 - Lab: scratchpad lab-stub.ts (PGlite-backed Supabase stand-in on :54321) + walk.mjs (Playwright, throttled).
-- NEXT: build → bundle number → lab walk + screenshots → preflight → push → draft PR → corpus row.
+- DONE: build (shared 201.7 KB = main's 201.7 KB; reporter chunk 4.4 KB gz, lazy), lab walk (throttled 3G+4x CPU
+  phone: /about loaded in 2.25 s → row in app_load_timings → shown on the tab at 375 + 1280; target saved 2.0 s at 1280),
+  full preflight green (whole-tree 464 files, DB 34 files). Screens: controller-2026-10-12/load-time-log/.
+- LAB LIMIT: in the lab (next start + stub DB) dynamic-route taps fall back to full page loads — reproduced with the
+  reporter and the fault observer both disabled, so not caused by this branch. A soft tap to a prefetched page
+  measured 204 ms (sampled, weight 10).
+- NEXT: push → draft PR → corpus DECISION_LOG row + plan §5 → CI watch.

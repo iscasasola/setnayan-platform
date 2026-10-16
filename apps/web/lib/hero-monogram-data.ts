@@ -17,7 +17,7 @@ import { resolveMonogramMotion, type MonogramMotionKey } from '@/lib/monogram-mo
 import { sanitizeStudioConfig, markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { logoSwitchedOff, resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 
 /** Reusable SELECT column list for any page that resolves the hero monogram. */
@@ -49,6 +49,8 @@ export type HeroMonogramRow = {
   monogram_motion_key: string | null;
   monogram_studio_config: unknown;
   role_palette?: unknown;
+  /** The Logo switch — a select that names it lets `resolveEventMonogramSvg` honour "No, use our names". */
+  logo_wanted?: boolean | null;
 };
 
 /** Serializable bundle of the <HeroMonogram> inputs. */
@@ -71,6 +73,10 @@ export type HeroMonogramData = {
   bespokeSvg: string | null;
 };
 
+/** 🔘 THE LOGO SWITCH — asked inside `resolveEventMonogramSvg` (lib/monogram-svg-safe.ts), the one resolver every
+ *  mark goes through; re-exported here where its first callers import it. */
+export { logoSwitchedOff };
+
 /**
  * THE COUPLE'S LOGO, EXACTLY AS THE EVENT HUB HERO DRAWS IT — the one sanitised
  * mark (`resolveEventMonogramSvg`: the Maker's Logo composition first, then an
@@ -87,7 +93,9 @@ export function heroMarkSvg(row: {
   monogram_custom_svg?: string | null;
   monogram_uploaded_svg?: string | null;
   role_palette?: unknown;
+  logo_wanted?: boolean | null;
 }): string | null {
+  if (logoSwitchedOff(row)) return null;
   return resolveEventMonogramSvg(row, {
     ink: getPrimaryColor(sanitizeRolePalette(row.role_palette), 'reception') ?? null,
   });

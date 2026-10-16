@@ -3782,8 +3782,12 @@ html.dark [data-art='candlelight'] {
    PALETTE STYLES, PICKED ON THE TOOLBAR"; prototype `palette_styles_2026-09-29
    .html`) ─────────────────────────────────────────────────────────────────────
    How the Dress code scene draws "Our colours": A · Tags (the shipped
-   `.pahina-swatch`, the default, untouched above) · B · Fabric swatches ·
-   C · Paint chips · D · Circles · E · Ribbon. ONE markup for B–E
+   `.pahina-swatch`, the default, untouched above) · B · Fabric (redrawn
+   2026-10-15 as Silk swatches) · C · Paint chips · D · Circles · E · Ribbon ·
+   and, owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS" (2), prototype
+   `palette_styles_2026-10-15_fable.html` styles 2, 3, 5): F · Arch tabs ·
+   G · Watercolour dots · H · Paint strokes. The heading keeps its first name
+   as the block's anchor. ONE markup for B–H
    (`dress-code-palette-looks.tsx`): `<ul class="sn-pal sn-pal-<look>">`, one
    `<li style="--c;--k">` per colour holding `<i>` (the swatch) then its words.
    `--c` is the colour; `--k` the ink that reads on it, chosen by contrast
@@ -3792,7 +3796,10 @@ html.dark [data-art='candlelight'] {
    ✂ NO MOTION. The approved design gave each look an entrance; the owner cut
    palette animation on 2026-09-30 (DECISION_LOG "THE MAKER RE-PLAN IS CUT TO
    ITS CORE"). Every look is drawn still, like the shipped tags.
-   `palette-looks.test.ts` holds that nothing here animates. UNLAYERED. */
+   `palette-looks.test.ts` holds that nothing here animates. UNLAYERED.
+   🔠 Every name is drawn at 12 px or more (Batch 9 walk W4, 2026-10-16: the names measured 8.3–11.5 px against the
+   12 px Guest Legibility Floor). A name wraps on its own spaces; a word too long for its swatch breaks rather than
+   overflow. Held by `scripts/lint-guest-legibility.mjs`, which now reads this file too. */
 .sn-editorial .sn-pal {
   display: flex;
   flex-wrap: wrap;
@@ -3808,32 +3815,53 @@ html.dark [data-art='candlelight'] {
   background-color: var(--c);
 }
 
-/* B · FABRIC SWATCHES — cloth squares cut with pinking shears, a weave from two
-   repeating gradients, a stitch inside in the colour's own ink. */
+/* B · FABRIC — REDRAWN AS SILK SWATCHES (owner 2026-10-15: "redraw Fabric as
+   Silk"; prototype style 4). A tall pinked rectangle with silk folds — four
+   diagonal sheen bands in white and ink at low alpha over the colour — and the
+   name ABOVE it in small caps, in the page's ink. No card under it (frames only
+   on what you press). The same id, so a page that picked Fabric keeps its pick. */
+.sn-editorial .sn-pal-fabric {
+  gap: 12px 8px;
+  /* A one-line name and a two-line name sit over swatches that still line up along the row's foot. */
+  align-items: flex-end;
+}
 .sn-editorial .sn-pal-fabric > li {
-  width: 3.875rem;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  width: 76px;
 }
 .sn-editorial .sn-pal-fabric > li > i {
-  width: 3.875rem;
-  height: 3.875rem;
-  background-image:
-    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.09) 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.1) 0 1px, transparent 1px 3px);
+  width: 56px;
+  height: 72px;
+  background-image: linear-gradient(115deg, transparent 0 16%, rgb(255 255 255 / 0.3) 25%, rgb(0 0 0 / 0.08) 33%, rgb(255 255 255 / 0.14) 47%, rgb(0 0 0 / 0.14) 59%, rgb(255 255 255 / 0.24) 70%, rgb(0 0 0 / 0.07) 82%, transparent 90%);
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.2);
   clip-path: polygon(0% 4%, 5.6% 0%, 11.1% 4%, 16.7% 0%, 22.2% 4%, 27.8% 0%, 33.3% 4%, 38.9% 0%, 44.4% 4%, 50% 0%, 55.6% 4%, 61.1% 0%, 66.7% 4%, 72.2% 0%, 77.8% 4%, 83.3% 0%, 88.9% 4%, 94.4% 0%, 100% 0%, 96% 5.6%, 100% 11.1%, 96% 16.7%, 100% 22.2%, 96% 27.8%, 100% 33.3%, 96% 38.9%, 100% 44.4%, 96% 50%, 100% 55.6%, 96% 61.1%, 100% 66.7%, 96% 72.2%, 100% 77.8%, 96% 83.3%, 100% 88.9%, 96% 94.4%, 100% 100%, 94.4% 100%, 88.9% 96%, 83.3% 100%, 77.8% 96%, 72.2% 100%, 66.7% 96%, 61.1% 100%, 55.6% 96%, 50% 100%, 44.4% 96%, 38.9% 100%, 33.3% 96%, 27.8% 100%, 22.2% 96%, 16.7% 100%, 11.1% 96%, 5.6% 100%, 0% 96%, 4% 94.4%, 0% 88.9%, 4% 83.3%, 0% 77.8%, 4% 72.2%, 0% 66.7%, 4% 61.1%, 0% 55.6%, 4% 50%, 0% 44.4%, 4% 38.9%, 0% 33.3%, 4% 27.8%, 0% 22.2%, 4% 16.7%, 0% 11.1%, 4% 5.6%);
-  transform-origin: 50% 0;
 }
-.sn-editorial .sn-pal-fabric > li > i::before {
-  content: '';
-  position: absolute;
-  inset: 7px;
-  border: 1px dashed var(--k);
-  opacity: 0.55;
+.sn-editorial .sn-pal-fabric > li > b {
+  display: block;
+  margin-bottom: 6px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  color: rgb(var(--color-ink) / 0.72);
 }
-.sn-editorial .sn-pal-fabric > li > i::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgb(255 255 255 / 0.14), transparent 45%, rgb(0 0 0 / 0.1));
+@media (min-width: 768px) {
+  .sn-editorial .sn-pal-fabric {
+    gap: 14px 12px;
+  }
+  .sn-editorial .sn-pal-fabric > li {
+    width: 84px;
+  }
+  .sn-editorial .sn-pal-fabric > li > i {
+    width: 64px;
+    height: 82px;
+  }
 }
 
 /* C · PAINT CHIPS — one strip in a card, the name big ON the colour in its own
@@ -3978,20 +4006,203 @@ html.dark [data-art='candlelight'] {
   clip-path: polygon(0 0, 100% 0, calc(100% - 9px) 50%, 100% 100%, 0 100%, 9px 50%);
 }
 
+/* F · ARCH TABS (prototype style 2) — tall tabs rounded at the foot like an
+   inverted arch, set edge to edge, four to a row on a phone and one row of
+   eleven on a desk; a line-drawn sprig in the middle and the name at the foot
+   in spaced caps, both in the ink that reads on the colour (`--k`). NO hex at
+   the head (owner 2026-10-15: "no hex"), so the sprig rises into its place.
+   The inset ink edge draws a Cream tab's open sides. */
+.sn-editorial .sn-pal-arch {
+  gap: 0;
+  align-items: stretch;
+}
+.sn-editorial .sn-pal-arch > li {
+  /* Four to a row on a phone; never wider than a desk's tab, so a tablet-wide column does not draw domes. */
+  flex: 0 0 min(25%, 96px);
+  height: 118px;
+  color: var(--k);
+}
+.sn-editorial .sn-pal-arch > li > i {
+  position: absolute;
+  inset: 0;
+  border-radius: 0 0 999px 999px;
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--color-ink) / 0.16),
+    inset 0 -12px 18px -14px rgb(0 0 0 / 0.3);
+  color: var(--k);
+}
+.sn-editorial .sn-pal-arch > li > i > svg {
+  position: absolute;
+  left: 50%;
+  top: 22px;
+  width: 20px;
+  height: 38px;
+  margin-left: -10px;
+  opacity: 0.55;
+}
+.sn-editorial .sn-pal-arch > li > b {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 14px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.sn-editorial [data-dress-code='you'] .sn-pal-arch > li {
+  flex: 0 0 86px;
+}
+@media (min-width: 768px) {
+  .sn-editorial .sn-pal-arch > li {
+    /* (Was 100% / 11 — ~61 px, too narrow for a 12 px name; a desk now wraps the tabs, never shrinks the words.) */
+    flex: 0 0 min(calc(100% / 7), 96px);
+    height: 132px;
+  }
+  .sn-editorial .sn-pal-arch > li > i > svg {
+    top: 26px;
+  }
+  .sn-editorial .sn-pal-arch > li > b {
+    bottom: 18px;
+  }
+  .sn-editorial [data-dress-code='you'] .sn-pal-arch > li {
+    flex: 0 0 86px;
+  }
+}
+
+/* G · WATERCOLOUR DOTS (prototype style 3) — a pigment pool: a lighter centre,
+   the colour darkened with 22 % of the page's ink at the rim (watercolour dries
+   darker at the edge), the outline roughened by ONE SVG filter
+   (`#sn-pal-wc`, drawn beside the list). The name under each in the page's own
+   ink — no word ever sits on a colour, so no colour needs the fallback ink. */
+.sn-editorial .sn-pal-watercolour {
+  gap: 10px 8px;
+}
+.sn-editorial .sn-pal-watercolour > li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 76px;
+}
+.sn-editorial .sn-pal-watercolour > li > i {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  filter: url(#sn-pal-wc);
+  background:
+    radial-gradient(circle at 38% 36%, rgb(255 255 255 / 0.22), transparent 48%),
+    radial-gradient(circle at 60% 66%, color-mix(in srgb, var(--c), white 10%) 0 42%, var(--c) 62%, color-mix(in srgb, var(--c), rgb(var(--color-ink)) 22%) 100%);
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.25);
+}
+.sn-editorial .sn-pal-watercolour > li > b {
+  display: block;
+  margin-top: 7px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  color: rgb(var(--color-ink) / 0.72);
+}
+@media (min-width: 768px) {
+  .sn-editorial .sn-pal-watercolour {
+    gap: 12px 14px;
+  }
+  .sn-editorial .sn-pal-watercolour > li {
+    width: 84px;
+  }
+  .sn-editorial .sn-pal-watercolour > li > i {
+    width: 66px;
+    height: 66px;
+  }
+}
+
+/* H · PAINT STROKES (prototype style 5) — glossy pills tilted −7°, each
+   overlapping the one above by 12 px and stepping right by its place (`--i`),
+   a cascade down the phone; wider strokes and a longer step on a desk, still a
+   column. Gloss = a top highlight band, bristle lines along the stroke, a 2 px
+   drop shadow (paint has thickness — on a cream page the shadow is what keeps
+   a Cream stroke). The name on the stroke's uncovered left end, in `--k`. The
+   step never pushes a stroke past the list's right edge. */
+.sn-editorial .sn-pal-strokes {
+  display: block;
+  padding: 12px 0 10px 4px;
+}
+.sn-editorial .sn-pal-strokes > li {
+  width: min(230px, 100%);
+  height: 40px;
+  margin-left: min(calc(var(--i) * 9px), calc(100% - 230px));
+  transform: rotate(-7deg);
+  transform-origin: 0 50%;
+}
+.sn-editorial .sn-pal-strokes > li + li {
+  margin-top: -12px;
+}
+.sn-editorial .sn-pal-strokes > li > i {
+  width: 100%;
+  height: 100%;
+  border-radius: 22px 18px 20px 24px / 50% 50% 50% 50%;
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.36), rgb(255 255 255 / 0.06) 32%, rgb(0 0 0 / 0.06) 58%, rgb(0 0 0 / 0.22)),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.07) 0 1px, transparent 1px 5px);
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.25),
+    inset 0 0 0 1px rgb(var(--color-ink) / 0.12);
+}
+.sn-editorial .sn-pal-strokes > li > b {
+  position: absolute;
+  left: 18px;
+  top: 0;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--k);
+}
+.sn-editorial [data-dress-code='you'] .sn-pal-strokes > li {
+  width: 150px;
+  margin-left: min(calc(var(--i) * 9px), calc(100% - 150px));
+}
+@media (min-width: 768px) {
+  .sn-editorial .sn-pal-strokes {
+    padding: 16px 0 16px 4px;
+  }
+  .sn-editorial .sn-pal-strokes > li {
+    width: min(300px, 100%);
+    height: 42px;
+    margin-left: min(calc(var(--i) * 22px), calc(100% - 300px));
+  }
+  .sn-editorial .sn-pal-strokes > li > b {
+    height: 42px;
+  }
+  .sn-editorial [data-dress-code='you'] .sn-pal-strokes > li {
+    width: 150px;
+    margin-left: min(calc(var(--i) * 22px), calc(100% - 150px));
+  }
+}
+
 /* ROW SIZE — the same look beside a role's figure. No words, no entrance. */
 .sn-editorial .sn-pal-row {
   gap: 6px;
 }
+.sn-editorial .sn-pal-row.sn-pal-fabric {
+  gap: 4px;
+}
 .sn-editorial .sn-pal-row.sn-pal-fabric > li {
-  width: auto;
+  width: 18px;
 }
-.sn-editorial .sn-pal-row.sn-pal-fabric > li > i {
-  width: 22px;
-  height: 22px;
-}
-.sn-editorial .sn-pal-row.sn-pal-fabric > li > i::before {
-  inset: 4px;
-  opacity: 0.5;
+.sn-editorial .sn-pal-row.sn-pal-fabric > li > i,
+.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-fabric > li > i {
+  width: 18px;
+  height: 24px;
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.22);
 }
 .sn-editorial .sn-pal-row.sn-pal-chips {
   flex-direction: row;
@@ -4044,6 +4255,53 @@ html.dark [data-art='candlelight'] {
 .sn-editorial .sn-pal-row.sn-pal-ribbon > li:last-child > i {
   margin-right: 0;
   clip-path: polygon(0 0, 100% 0, calc(100% - 4px) 50%, 100% 100%, 0 100%);
+}
+
+.sn-editorial .sn-pal-row.sn-pal-arch {
+  gap: 1px;
+}
+.sn-editorial .sn-pal-row.sn-pal-arch > li,
+.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-arch > li {
+  flex: 0 0 14px;
+  height: 22px;
+}
+.sn-editorial .sn-pal-row.sn-pal-watercolour {
+  gap: 4px;
+}
+.sn-editorial .sn-pal-row.sn-pal-watercolour > li {
+  width: 20px;
+}
+.sn-editorial .sn-pal-row.sn-pal-watercolour > li > i {
+  width: 20px;
+  height: 20px;
+  filter: none;
+  border-radius: 48% 52% 46% 54% / 52% 44% 56% 48%;
+}
+.sn-editorial .sn-pal-row.sn-pal-watercolour > li:nth-child(2n) > i {
+  border-radius: 54% 46% 52% 48% / 46% 56% 44% 54%;
+}
+.sn-editorial .sn-pal-row.sn-pal-strokes,
+.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-strokes {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 4px 10px 4px 0;
+}
+.sn-editorial .sn-pal-row.sn-pal-strokes > li,
+.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-strokes > li {
+  width: 26px;
+  height: 11px;
+  margin: 0;
+  transform: rotate(-14deg);
+}
+.sn-editorial .sn-pal-row.sn-pal-strokes > li + li,
+.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-strokes > li + li {
+  margin-left: -8px;
+}
+.sn-editorial .sn-pal-row.sn-pal-strokes > li > i {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.3),
+    inset 0 0 0 1px rgb(var(--color-ink) / 0.15);
 }
 
 .sn-editorial {
@@ -8962,8 +9220,9 @@ html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
    `CoverSceneMenuWaits` (app/[slug]/_components/cover-scene-menu.tsx) puts ONE `<style data-cover-menu="wait">` in
    `<head>` — never a class on <html>, which React renders and would not patch after a pre-hydration change; while a
    Cover Scene leads the page the ONE top bar and the ONE bottom bar / rail are held off screen and the column's top
-   padding goes, so the cover is the whole screen. The first swipe or scroll sets it to "open": the bars slide in
-   and stay. No script → no marker → the bars as always. */
+   padding goes, so the cover is the whole screen. The first swipe or scroll sets it to "open": the bars slide in;
+   back at the cover it is "wait" again and they slide away (one-page Invitation, Q3, owner 2026-10-15). No script →
+   no marker → the bars as always. */
 html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-sticky-top] {
   position: fixed;
   left: 0;
@@ -9016,6 +9275,16 @@ html:has(> head > style[data-cover-menu='wait']):has(header[data-cover-scene]) n
 [data-pahina-first-screen]:has(> header[data-cover-scene]):has(> .sn-door-row > details) > header[data-cover-scene] {
   min-height: 0;
   flex: 1 0 auto;
+}
+/* 📱 …AND NOTHING PULLS IT ABOVE THE SCREEN (Batch 9 walk R4, 2026-10-16: 375 × 667, the first-visit notice up — the
+   block started at −24 px, the eyebrow cut off the top). With no room, the first-screen fit closes up "the first
+   screen's margin" by pulling the block up 1.5rem (`[data-first-screen-fit]`, `--fs-air` → 0). That margin is the
+   column's top padding — which the Cover Scene has already taken away (the rule above that sets `padding-top: 0`,
+   under the same marker), so the pull had nothing to close and lifted the cover off the screen instead. Under the
+   marker the pull is off; with no script (no marker) the padding is there and the fit closes it as before. Held by
+   `tests/e2e/the-strangers-cover-keeps-its-order.spec.ts` (375 × 667, "nothing is cut off the top"). */
+html:has(> head > style[data-cover-menu]) [data-first-screen-fit]:has(> header[data-cover-scene]) {
+  margin-top: 0;
 }
 @media (prefers-reduced-motion: reduce) {
   html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-sticky-top],

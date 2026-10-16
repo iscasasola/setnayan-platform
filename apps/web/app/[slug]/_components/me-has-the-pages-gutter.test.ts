@@ -113,40 +113,36 @@ function asARealGuest() {
 const NOTE = /<form[^>]*data-scan-trail=""[^>]*>/;
 
 test('(4) the record note and the sign-out have the page’s gutter at 320 · 375 · 390 · 768 — full-bleed and tabbed', async () => {
-  // The Save the Date with its film: no shell column, so the foot takes the page's own.
-  const std = await renderSiteBodyFixture({
-    identity: asARealGuest(),
-    event: { ...FIXTURE_EVENT, event_date: null },
-    lifecyclePhase: 'save_the_date',
-    stdFilm: true,
-    scheduleBlocks: [],
-  });
-  assert.match(std, NOTE, 'anti-vacuity: the record note is not on the Save the Date page');
-  const foot = std.match(/<div data-guest-foot="" class="([^"]*)">/)?.[1]?.split(/\s+/) ?? [];
-  assert.ok(foot.length > 0, 'the guest’s foot is not on the page');
-  for (const c of PAGE_COLUMN.split(/\s+/)) assert.ok(foot.includes(c), `the foot lacks "${c}" of the page’s column on a full-bleed stage (${foot.join(' ')})`);
-  assert.ok(foot.includes('px-4'), 'no gutter at 320 · 375 · 390');
-  assert.ok(foot.includes('sm:px-6'), 'no gutter at 768');
-  // Both of its things are inside it.
-  const inFoot = std.slice(std.indexOf('<div data-guest-foot=""'));
-  assert.ok(inFoot.search(NOTE) > 0 && inFoot.includes('/sign-out"'), 'the note or the sign-out is outside the foot');
-  assert.ok(inFoot.search(NOTE) < inFoot.indexOf('/sign-out"'), 'the note is not above the sign-out');
-  // The page's own column and the foot's are the same classes — not a new number.
+  /* 📜 RE-AIMED 2026-10-15. The Save the Date became ONE page with Me its own (owner 2026-10-15, `hub-tabs.ts`), so
+     wherever the guest's bar is drawn its foot is Me's — exactly as on the Invitation. The full-bleed foot is now
+     drawn only with NO bar (the menu switched off), which the fixture cannot render (it hides the environment); its
+     column is held from the source instead: the same expression, the page's own column on a full-bleed stage. */
+  const BODY = read('site-body.tsx');
+  assert.match(
+    BODY,
+    /\{tabs\.on \? null : \(\s*<div data-guest-foot="" className=\{plan\.fullBleed \? `\$\{PAGE_COLUMN\} space-y-6` : 'space-y-6'\}>\s*\{scanTrail\}\s*\{signOut\}/,
+    'the full-bleed foot no longer takes the page’s own column (note above the sign-out)',
+  );
+  assert.ok(PAGE_COLUMN.split(/\s+/).includes('px-4'), 'no gutter at 320 · 375 · 390');
+  assert.ok(PAGE_COLUMN.split(/\s+/).includes('sm:px-6'), 'no gutter at 768');
+  // The page's own column and the film's are the same classes — not a new number.
   const filmColumn = read('std-film-handoff.tsx').match(/<div className="(mx-auto w-full max-w-3xl px-4[^"]*)">\{children\}<\/div>/)?.[1]?.split(/\s+/) ?? [];
   for (const c of PAGE_COLUMN.split(/\s+/)) assert.ok(filmColumn.includes(c), `"${c}" is not on the Save the Date page’s own column`);
 
-  // The Invitation (tabbed): the shell's column holds the page, and the note is inside Me's gutter — no foot of its own.
-  const invite = await renderSiteBodyFixture({ identity: asARealGuest() });
-  assert.match(invite, NOTE, 'anti-vacuity: the record note is not on the Invitation');
-  assert.doesNotMatch(invite, /data-guest-foot/, 'a tabbed page draws a second foot');
-  const stage = invite.indexOf('data-me-stage=""');
-  assert.ok(stage > 0 && invite.search(NOTE) > stage, 'on a tabbed page the note is not inside Me');
-  assert.match(invite.slice(stage, stage + 200), /class="[^"]*\bpx-4\b/, 'Me’s stage lost its gutter');
-
-  // A page that is one scroll INSIDE the shell's column (the film switched off): no second gutter.
-  const still = await renderSiteBodyFixture({ identity: asARealGuest(), lifecyclePhase: 'save_the_date', stdFilm: false });
-  const stillFoot = still.match(/<div data-guest-foot="" class="([^"]*)">/)?.[1]?.split(/\s+/) ?? [];
-  assert.ok(stillFoot.length > 0 && !stillFoot.some((c) => /px-/.test(c)), `the foot doubles the shell’s gutter (${stillFoot.join(' ')})`);
+  // The Invitation and the Save the Date (film and no film): the note is inside Me's gutter — no foot of its own.
+  const pages = {
+    invitation: await renderSiteBodyFixture({ identity: asARealGuest() }),
+    'save the date (film)': await renderSiteBodyFixture({ identity: asARealGuest(), event: { ...FIXTURE_EVENT, event_date: null }, lifecyclePhase: 'save_the_date', stdFilm: true, scheduleBlocks: [] }),
+    'save the date (no film)': await renderSiteBodyFixture({ identity: asARealGuest(), lifecyclePhase: 'save_the_date', stdFilm: false }),
+  };
+  for (const [name, html] of Object.entries(pages)) {
+    assert.match(html, NOTE, `anti-vacuity: the record note is not on the ${name}`);
+    assert.doesNotMatch(html, /data-guest-foot/, `${name}: a page with Me draws a second foot`);
+    const stage = html.indexOf('data-me-stage=""');
+    assert.ok(stage > 0 && html.search(NOTE) > stage, `${name}: the note is not inside Me`);
+    assert.ok(html.slice(stage).includes('/sign-out"') && html.slice(stage).search(NOTE) < html.slice(stage).indexOf('/sign-out"'), `${name}: the note is not above the sign-out, in Me`);
+    assert.match(html.slice(stage, stage + 200), /class="[^"]*\bpx-4\b/, `${name}: Me’s stage lost its gutter`);
+  }
 });
 
 test('(5) the record note can be read and its button pressed', () => {

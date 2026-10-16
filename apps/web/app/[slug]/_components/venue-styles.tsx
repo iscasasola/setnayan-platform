@@ -6,6 +6,7 @@ import { appleMapsUrl, googleMapsNavUrl, googleMapsSearchByQuery, wazeNavUrl } f
 import { ceremonyBlock, firstBlockOf, type ScheduleBlockRow } from '@/lib/print-pieces';
 import { formatBlockTimeRange } from '@/lib/schedule';
 import { mapFrame } from '@/lib/scene-map-tiles';
+import { NearViewport } from '@/app/_components/near-viewport';
 
 /**
  * 🏛 THE VENUE SCENE'S OTHER TWO STYLES — Full photo · The journey (owner
@@ -79,6 +80,8 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
       className="relative w-full overflow-hidden bg-veil"
       style={{ aspectRatio: `${box.width} / ${box.height}` }}
     >
+      {/* 🗺 The tiles load only when the map nears the screen (Batch 9 walk W2) — never on landing. */}
+      <NearViewport className="absolute inset-0">
       {frame.tiles.map((t) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -92,6 +95,7 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
           style={{ left: `${t.leftPct}%`, top: `${t.topPct}%`, width: `${t.widthPct}%`, height: `${t.heightPct}%` }}
         />
       ))}
+      </NearViewport>
       {line ? (
         <svg aria-hidden data-venue-route="" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
           <polyline

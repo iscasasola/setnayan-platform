@@ -1,36 +1,41 @@
 /**
- * 📱 EACH MENU TAB IS ITS OWN FULL PAGE (owner 2026-09-30, verbatim: *"so this is
- * not a 1 page scroll jumping to different marks. this is each menu gets their
- * own full page scroll"*). DECISION_LOG "EACH MENU TAB IS ITS OWN FULL PAGE —
- * NOT ONE LONG SCROLL WITH JUMP MARKS", "THE GUEST MENUS, NAMED", "THE DAY'S
- * MENU HAS FIVE: LIVE · WELCOME · CAMERA · GALLERY · ME".
+ * 📜 THE INVITATION AND SAVE THE DATE ARE ONE PAGE · THE DAY KEEPS ITS TABS (owner 2026-10-15, DECISION_LOG
+ * "THE INVITATION AND SAVE THE DATE BECOME ONE PAGE — THE BOTTOM BAR JUMPS TO SECTIONS · ME STAYS ITS OWN PAGE ·
+ * THE DAY KEEPS ITS TABS", verbatim: *"can we return the idea of a unipage and the bottom nav will jump to
+ * different parts of the page?"* → *"Yes. Invitation and Save the Date become one page with the bottom bar jumping
+ * to sections. Me stays its own page, and The Day keeps its tabs."*; approved on
+ * `prototypes/event_hub_one_page_and_desktop_2026-10-15_fable.html` the same day).
  *
- *   The Invitation · Welcome · Details · Our Love Story · Me
- *   The Day        · Live · Welcome · Camera · Gallery · Me
+ *   The Invitation   · ONE scroll: Home · Details · Story are jump marks (`#site-home` …), lit by scroll-spy;
+ *                      Me is its own page (`?tab=me`).
+ *   Save the Date    · the same: Home · Story (when the story is on the page) · Me.
+ *   The Day          · Live · Home · Camera · Gallery · Me — each tab its own full page, as ruled 2026-09-30
+ *                      ("EACH MENU TAB IS ITS OWN FULL PAGE — NOT ONE LONG SCROLL WITH JUMP MARKS" stays in force
+ *                      for The Day only).
  *
- * Tapping a tab shows THAT tab's page, from its top; the other tabs are not on
- * it. Each tab has its own address — `?tab=<key>` — so a shared or bookmarked
- * link lands on the right page, and Back walks the tabs a guest opened.
+ * 🔑 THE KEYS DO NOT CHANGE: `home/details/story/me` (and `?tab=details` from an old shared link still lands — on
+ * the one page, scrolled to Details).
  *
- * 🔑 THE KEYS DO NOT CHANGE, ONLY THE WORDS DID ("labels only: the page keys
- * stay home/details/story/me so links keep working"). `home` is the guest's own
- * page — "Welcome" — on both stages; the day's first tab is the new `live`.
- *
- * ♻ ONE SHELL. The mechanism is the day-of hub's (`_components/hub/hub-shell.tsx`
- * — one route, a bottom menu that toggles full-screen panels, the server renders
- * every panel): the page renders every tab's content once, each group marked
- * `data-hub-tab`, and the shell shows one. This module is its rules, pure, so
- * each is executed by `each-tab-is-its-own-page.test.ts` rather than trusted.
+ * ♻ ONE MECHANISM. Every group of the page is still drawn once, marked with the TAB it is filed on
+ * (`data-hub-tab`, the Maker's filing — `lib/maker-stage-filing.ts`) AND the PAGE that tab is on
+ * (`data-hub-page`). On The Day a tab is its own page; on the one-page stages every jump-mark tab is on ONE page
+ * (`SCROLL_PAGE`) and only Me (`OWN_PAGE_TABS`) is a page of its own. The shell (`hub/hub-shell.tsx`) shows one
+ * PAGE at a time. These are the rules, pure, executed by `each-tab-is-its-own-page.test.ts` (The Day) and
+ * `the-invitation-is-one-page.test.ts` (the two one-page stages).
  *
  * Pure: no React, no DOM, no database.
  */
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
+import { SITE_MENU_ANCHORS, type SiteMenuTabKey } from './site-menu';
 
 /** The query parameter that names the tab — the tab's own address. */
 export const HUB_TAB_PARAM = 'tab';
 
-/** The attribute every tab's content carries. The shell shows the one that matches. */
+/** The attribute every tab's content carries — the tab it is FILED on (the Maker reads it: `filedOnCanvas`). */
 export const HUB_TAB_ATTR = 'data-hub-tab';
+
+/** The attribute every group carries — the PAGE its tab is on. The shell shows the page that matches. */
+export const HUB_PAGE_ATTR = 'data-hub-page';
 
 /**
  * The tabs' order on the page, top first — the order a tab's content falls back
@@ -42,12 +47,74 @@ export const HUB_TAB_ATTR = 'data-hub-tab';
 export const HUB_TAB_ORDER = ['live', 'home', 'details', 'story', 'gallery', 'me'] as const;
 export type HubTabKey = (typeof HUB_TAB_ORDER)[number];
 
-/** The stages whose menu is tabs, each its own page: the Invitation and The Day. */
-export const TABBED_STAGES: readonly LifecyclePhase[] = ['rsvp', 'event'];
+/** The stages whose menu is tabs, each its own page: The Day only (owner 2026-10-15). */
+export const TABBED_STAGES: readonly LifecyclePhase[] = ['event'];
 
-/** A tab's address: `?tab=<key>`. Relative on purpose — it stays on this page. */
-export function hubTabHref(key: string): string {
+/** 📜 The stages that are ONE page whose bar jumps to sections: the Invitation and Save the Date (owner 2026-10-15). */
+export const ONE_PAGE_STAGES: readonly LifecyclePhase[] = ['rsvp', 'save_the_date'];
+
+/** On a one-page stage, the tabs that are still a page of their own — Me (the guest's pass · reply · seat). */
+export const OWN_PAGE_TABS: readonly string[] = ['me'];
+
+/** On a one-page stage, the page every jump mark is on — keyed by the page's first tab, so `?tab=home` still lands. */
+export const SCROLL_PAGE = 'home';
+
+/** How a stage's menu works: each tab its own page, one page of jump marks, or neither (one scroll, no tabs). */
+export type HubPageMode = 'tabs' | 'one-page' | null;
+
+export function hubPageModeOf(stage: LifecyclePhase): HubPageMode {
+  if (TABBED_STAGES.includes(stage)) return 'tabs';
+  if (ONE_PAGE_STAGES.includes(stage)) return 'one-page';
+  return null;
+}
+
+/** Does this tab jump within the one page (rather than open a page of its own)? */
+export function isJumpMarkTab(key: string, onePage: boolean): boolean {
+  return onePage && !OWN_PAGE_TABS.includes(key);
+}
+
+/**
+ * A tab's address. A page of its own: `?tab=<key>` — relative on purpose, it stays on this event. On a one-page
+ * stage a jump-mark tab is its section's anchor instead (`#site-details`) — `SITE_MENU_ANCHORS`, the one list.
+ */
+export function hubTabHref(key: string, onePage = false): string {
+  if (isJumpMarkTab(key, onePage) && key in SITE_MENU_ANCHORS) return `#${SITE_MENU_ANCHORS[key as SiteMenuTabKey]}`;
   return `?${HUB_TAB_PARAM}=${encodeURIComponent(key)}`;
+}
+
+/** Is this href one of the page's section anchors (`#site-home` · `#site-details` · …)? */
+export function isJumpMarkHref(href: string | null | undefined): boolean {
+  return typeof href === 'string' && (Object.values(SITE_MENU_ANCHORS) as string[]).some((a) => href === `#${a}`);
+}
+
+/** The page a tab is on: on a one-page stage every jump mark is on `SCROLL_PAGE`; otherwise the tab is its page. */
+export function hubPageOf(tab: string, onePage: boolean): string {
+  return isJumpMarkTab(tab, onePage) ? SCROLL_PAGE : tab;
+}
+
+/**
+ * THE TABS A BAR FILES CONTENT ON — the Maker's filing reads these, so a part stands on the same tab on The Day's
+ * pages and on the one page alike. The Day: its `?tab=` pages. A one-page stage: its jump marks AND its pages, in
+ * bar order (`home · details · story · me`).
+ */
+export function filingTabs(slots: ReadonlyArray<{ key: string; href: string; state: 'live' | 'locked' }>, onePage: boolean): string[] {
+  if (!onePage) return inPageTabs(slots);
+  return slots.filter((s) => s.state === 'live' && (isHubTabHref(s.href) || isJumpMarkHref(s.href))).map((s) => s.key);
+}
+
+/** THE PAGES A BAR SWITCHES BETWEEN — what the shell shows one at a time. The one page first, then Me. */
+export function hubPagesOf(tabs: readonly string[], onePage: boolean): string[] {
+  const out: string[] = [];
+  for (const t of tabs) {
+    const p = hubPageOf(t, onePage);
+    if (!out.includes(p)) out.push(p);
+  }
+  return out;
+}
+
+/** Is this group shown, for the page the address asked for? A jump-mark tab is on the page whenever Me is not. */
+export function hubGroupShown(tab: string, activePage: string, onePage: boolean): boolean {
+  return hubPageOf(tab, onePage) === activePage;
 }
 
 /** Is this href a tab of this page (rather than a page of its own, like the Camera)? */
@@ -65,8 +132,10 @@ export function hubTabOfHref(href: string | null | undefined): string | null {
 /**
  * Is this page shown as tabs, each its own page?
  *
- *   · only the Invitation and The Day (the Save the Date film and the story
- *     after the day are one page each, and are not part of this ruling);
+ *   · only The Day (each tab its own page) and the two one-page stages, the
+ *     Invitation and Save the Date (one scroll of jump marks + Me its own page,
+ *     owner 2026-10-15) — the story after the day is one page and is not part
+ *     of either ruling;
  *   · only the page's ordinary body (`plan.body === 'normal'`);
  *   · only where the guest's bar is drawn — a bar is how a tab is reached, so a
  *     page without one (the menu switched off, the Maker's canvas with its
@@ -89,8 +158,14 @@ export function hubTabsOn(input: {
    *  single page that just jumps. this was not the plan"). Its navigator still lists every scene, under its tab
    *  (`drawnMakerOrder` measures every tab's groups). */
   stagesCanvas?: boolean;
+  /** 🎞 Save the Date's film body — the film over the stage's OWN ordinary body (`phasedBody` draws that body under
+   *  the film for every event since 2026-08-05), so the one page and its Me are there all the same. */
+  bodyFilm?: boolean;
 }): boolean {
-  return TABBED_STAGES.includes(input.stage) && input.bodyNormal && input.barDrawn && (!input.makerCanvas || input.stagesCanvas === true);
+  const mode = hubPageModeOf(input.stage);
+  if (mode === null || !input.barDrawn) return false;
+  const body = input.bodyNormal || (input.stage === 'save_the_date' && input.bodyFilm === true);
+  return body && (!input.makerCanvas || input.stagesCanvas === true);
 }
 
 /** The bar's tabs that are pages of this one (live, and addressed `?tab=`), in bar order. */

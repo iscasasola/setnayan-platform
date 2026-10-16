@@ -62,7 +62,7 @@ export default async function WallPage({ params }: Props) {
   // wall renders mark-free.
   const { data: monoRow } = await admin
     .from('events')
-    .select(HERO_MONOGRAM_COLUMNS)
+    .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
     .eq('event_id', eventId)
     .maybeSingle();
   const mono = await resolveEventMonogram(admin, eventId, monoRow);

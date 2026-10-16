@@ -84,7 +84,7 @@ test('1 · the door and the Event Hub hero ask the SAME resolver — no second o
     const select = /\.select\(\s*`([^`]*)`/.exec(src)?.[1] ?? '';
     assert.match(select, /\$\{INVITE_MARK_COLUMNS\}/, `${door} draws a crest without selecting the logo — it would say initials`);
   }
-  assert.match(LOOK, /export const INVITE_MARK_COLUMNS = 'monogram_custom_svg, monogram_uploaded_svg, role_palette'/);
+  assert.match(LOOK, /export const INVITE_MARK_COLUMNS = 'monogram_custom_svg, monogram_uploaded_svg, role_palette, logo_wanted'/);
 });
 
 test('1 · every seal on every door draws through SealMark — never the initials alone', () => {

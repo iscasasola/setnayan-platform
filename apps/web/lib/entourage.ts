@@ -111,6 +111,13 @@ export type EntourageGroup = {
    * the heading used: `roleLabel(person.role, group.names)`. `{}` = usual words.
    */
   names: RoleNames;
+  /**
+   * 🏷 THE TWO COLUMNS' WORDS — `[left, right]`, or absent when the group has no sides or only one column holds
+   * anybody. Read-only, for the page's two-column styles (On the axis · Lines, owner 2026-10-15): one small row
+   * at the head of the group says each side ONCE ("Ninong | Ninang", "Bride's Crew | Groom's Crew"). Built from the
+   * SAME words the heading uses (`groupHeading`), so a role the couple renamed shows their word here too.
+   */
+  sideWords?: readonly [string, string];
 };
 
 /** Everyone in a group, in printed order — the flat view, for counting and tests. */
@@ -466,18 +473,44 @@ function groupHeading(
     return roleNameMany(spec.roles[0], names) ?? spec.label;
   }
   if (!spec.sides || !spec.sideWords) return spec.label;
+  return columnWordLists(spec, names, present)
+    .map((words) => words.join(' / '))
+    .join(' & ');
+}
+
+/**
+ * Each column's words, `[left, right]` — the heading's own rule, shared with `sideWordsOf`. A column the couple did
+ * not rename (and holding no `unusual` role) is its usual `sideWords` word; otherwise the words of the roles
+ * standing in it. A sided group with no `sideWords` (Principal Sponsors, whose heading is a category) is always the
+ * words of the roles standing in each column ("Ninong", "Ninang").
+ */
+function columnWordLists(
+  spec: GroupSpec,
+  names: RoleNames | null | undefined,
+  present: ReadonlySet<string>,
+): string[][] {
   const unusual = new Set<string>(spec.unusual ?? []);
-  const words = spec.sides.map((sideRoles, i) => {
+  return (spec.sides ?? []).map((sideRoles, i) => {
     const here = sideRoles.filter((r) => present.has(r));
     const custom = here.some((r) => roleNameOne(r, names) !== null || unusual.has(r));
-    if (!custom) return spec.sideWords![i]!;
+    if (spec.sideWords && !custom) return [spec.sideWords[i]!];
     const shown = here.map((r) =>
       (spec.headingForm === 'many' ? roleNameMany(r, names) : roleNameOne(r, names)) ??
       (ROLE_LABEL[r] as string),
     );
-    return [...new Set(shown)].join(' / ');
+    return [...new Set(shown)];
   });
-  return words.join(' & ');
+}
+
+/** The group's two column words (see `EntourageGroup.sideWords`) — null with no sides, or a column nobody stands in. */
+function sideWordsOf(
+  spec: GroupSpec,
+  names: RoleNames | null | undefined,
+  present: ReadonlySet<string>,
+): readonly [string, string] | null {
+  if (!spec.sides || !spec.sides.every((roles) => roles.some((r) => present.has(r)))) return null;
+  const [l, r] = columnWordLists(spec, names, present).map((words) => words.join(' · '));
+  return l && r ? [l, r] : null;
 }
 
 /**
@@ -505,6 +538,21 @@ export function roleBesideName(group: EntourageGroup, person: EntouragePerson): 
   const distinct = new Set(peopleOf(group).map((p) => p.role));
   if (distinct.size <= 1) return null;
   return parentBesideOne(person, group.names) ?? roleLabel(person.role, group.names);
+}
+
+/**
+ * THE WORD UNDER SOMEONE WHO STANDS ALONE, CENTRED (Lines, owner 2026-10-15) — or null for none.
+ *
+ * A centred name sits in neither column, so the column words cannot say what he is: he carries his own role word
+ * ("Ninong", "Maid of Honor"). Where `roleBesideName` already gives one, that is it. Only a group whose people all
+ * hold one role (Flower Girls) carries none — its heading already says it.
+ */
+export function entourageCellWord(group: EntourageGroup, person: EntouragePerson): string | null {
+  const beside = roleBesideName(group, person);
+  if (beside) return beside;
+  if (GROUPS.find((g) => g.key === group.key)?.byRole) return null;
+  const distinct = new Set(peopleOf(group).map((p) => p.role));
+  return distinct.size > 1 ? roleLabel(person.role, group.names) : null;
 }
 
 /**
@@ -1128,7 +1176,14 @@ export function buildEntourage(
     if (built.length === 0) continue;
     const present = new Set<string>();
     for (const line of built) for (const p of line) if (p) present.add(p.role);
-    groups.push({ key: spec.key, label: groupHeading(spec, names, present), rows: built, names: names ?? {} });
+    const sideWords = sideWordsOf(spec, names, present);
+    groups.push({
+      key: spec.key,
+      label: groupHeading(spec, names, present),
+      rows: built,
+      names: names ?? {},
+      ...(sideWords ? { sideWords } : {}),
+    });
   }
   return groups;
 }

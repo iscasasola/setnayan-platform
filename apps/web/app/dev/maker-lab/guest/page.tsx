@@ -51,7 +51,7 @@ import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from '../la
 import { LAB_SCRUB_CHAIN, LAB_SCRUB_NAME, labScrubCanvases, labScrubLabel, labWidgetsCookie, type LabScrubScene } from '../lab-scrub';
 import { LabScrubBadge } from './scrub-badge';
 import { LabDayPages } from './lab-day';
-import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette } from './lab-sample';
+import { LAB_SAMPLE, labEntourage, labDressConfig, labRolePalette, labCaleDressConfig, labCaleRolePalette } from './lab-sample';
 import { LabStagePages } from './lab-stage';
 import { LAB_NAMES_COOKIE, LAB_OWN_COOKIE, LAB_OWN_SCENE, LAB_ROWS_COOKIE, labDraftedRows, labNamesFrom } from '../lab-draft';
 import { labSeen, labStageTiles } from '../lab-navigator';
@@ -264,6 +264,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* ⏱ A `lab_slow` cookie: the canvas page takes as long as production's to arrive. */
   if ((await cookies()).get('lab_slow')?.value === '1') await new Promise((r) => setTimeout(r, 2500));
   const labPhoto = (await cookies()).get('lab_photo')?.value === '1';
+  const labCast = (await cookies()).get('lab_cast')?.value === 'standin' ? 'standin' : 'sample';
   const stage: HubStage | null = (HUB_STAGES as readonly string[]).includes(phase) ? (phase as HubStage) : null;
   /* 🖼 A style's true miniature (`?only=` + `?style=`), as the real canvas honours them — the lab is a host canvas. */
   const only = canvasOnlyScene({ only: typeof sp.only === 'string' ? sp.only : undefined }, true);
@@ -354,14 +355,17 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       }
     />
   );
-  /* 👗 The REAL dress code, fed the sample (`./lab-sample.ts`) — the palette look it wears is the one picked in the Maker. */
+  /* 👗 The REAL dress code, fed the sample (`./lab-sample.ts`) — the palette look it wears is the one picked in the Maker.
+     `?board=cale` feeds it the palette prototype's real eleven colours instead (`&you=1`: as a Principal Sponsor). */
+  const cale = sp.board === 'cale';
   const dressCode = words ? (
     <DressCodeWidget
       words={words}
-      config={labDressConfig(LAB_BOARD)}
+      config={cale ? labCaleDressConfig() : labDressConfig(LAB_BOARD)}
       ceremonyType={null}
       genderSeparation={null}
-      rolePalette={labRolePalette(LAB_BOARD)}
+      rolePalette={cale ? labCaleRolePalette() : labRolePalette(LAB_BOARD)}
+      guestRole={cale && sp.you === '1' ? 'principal_sponsor_ninang' : null}
       roleNames={null}
       sceneStyle={sceneStyleOfRow(rowOf('dress_code'), stage, 'wedding')}
       paletteLook={paletteLookOfRow(rowOf('dress_code'))}
@@ -375,7 +379,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       {/* 🧱 The March's own mark, right BEFORE the real block as the real page puts it (`lib/block-looks.ts`) — inside
           the lab's wrapper, so a look lands on the block a guest sees and not on the lab's own padding. */}
       <span hidden {...{ [BLOCK_MARK_ATTR]: 'entourage' }} />
-      <EntourageSection groups={labEntourage()} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
+      <EntourageSection groups={labEntourage(labCast)} id="site-entourage" sceneStyle={fixedSceneStyleOf(labEvent.style_preferences, 'entourage', stage, 'wedding')} />
     </div>
   );
   /* 🧩 THE LAB'S SCENES, each drawn ONCE — placed by the ordinary sample below, or (`?scrub=1`) by the Scrub chain. */

@@ -8,6 +8,9 @@
  */
 import { buildEntourage, type EntourageGuestRow } from '@/lib/entourage';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
+import STAND_IN_JSON from '@/lib/the-entourage-second-column-is-the-partner.cast.json';
+
+const STAND_IN_CAST = STAND_IN_JSON as unknown as EntourageGuestRow[];
 
 /**
  * 🧾 THE SAMPLE EVENT'S FACTS — ONE COPY (the walk of 2026-10-11, P07). Studio › Info said December 18 at The Garden
@@ -65,7 +68,11 @@ const ROWS: Row[] = [
 ];
 
 /** The sample entourage, as `loadEntourage` hands it to the page: grouped and ordered by the real builder. */
-export function labEntourage() {
+export function labEntourage(cast: 'sample' | 'standin' = 'sample') {
+  /* 👫 A `lab_cast=standin` cookie: the owner's REAL entourage in shape (85 rows — roles, walks, 21 Ninongs to 17
+     Ninangs), every name a stand-in (`lib/the-entourage-second-column-is-the-partner.cast.json`) — what the
+     2026-10-15 entourage styles were drawn and walked on. */
+  if (cast === 'standin') return buildEntourage(STAND_IN_CAST, null, null, DEFAULT_NAME_STYLE);
   const rows: EntourageGuestRow[] = ROWS.map(([id, prefix, first, last, role, walk, place]) => ({
     guest_id: id,
     name_prefix: prefix,
@@ -108,5 +115,36 @@ export function labRolePalette(board: readonly string[]) {
     groomsmen: [board[1]],
     principal_sponsors: [board[0]],
     guest: [board[3], board[1]],
+  };
+}
+
+/**
+ * 🎨 `?board=cale` — the palette prototype's REAL colours (`prototypes/palette_styles_2026-10-15_fable.html`,
+ * cale-ice's `role_palette` + `dress_code_config`, exported there SELECT-only), so a palette look's lab shot can be
+ * set beside the design it was built from colour for colour: the Mood Board's five reception colours lead, the six
+ * typed in the dress-code editor follow (eleven in "Our colours"), and the Principal Sponsors wear Taupe — the one
+ * real colour that takes the third ink step — and Dim Gray. Fixture only; nothing here reaches a guest.
+ */
+export const LAB_CALE_BOARD = ['#5C0700', '#669C35', '#B51A00', '#F7F2EC', '#CFAFAF'] as const;
+export function labCaleDressConfig() {
+  return {
+    title: 'Formal',
+    palette: [
+      { name: 'Oxblood', hex: '#351115' },
+      { name: 'Olive Grove', hex: '#646B38' },
+      { name: 'Piña Cream', hex: '#F3E5B9' },
+      { name: 'Blush', hex: '#E6C0B3' },
+      { name: 'Burgundy', hex: '#803236' },
+      { name: 'Narra Brown', hex: '#6B4226' },
+    ],
+    roles: { principal_sponsor_ninang: { style: 'long_gown' } },
+  };
+}
+export function labCaleRolePalette() {
+  return {
+    reception: [...LAB_CALE_BOARD],
+    parents_immediate_family: ['#5C0700', '#669C35', '#B51A00'],
+    principal_sponsors: ['#8B7E74', '#6C6C6C'],
+    touched_roles: ['parents_immediate_family', 'principal_sponsors'],
   };
 }

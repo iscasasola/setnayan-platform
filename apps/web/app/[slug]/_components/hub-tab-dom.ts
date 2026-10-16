@@ -46,10 +46,24 @@ export function createPageTop(win: { readonly scrollY: number; scrollTo(to: { to
 /** What the Maker sends when a part is picked or played — each may bring that part into view, so each ends the hold. */
 export const HUB_TAB_FREES: readonly string[] = ['markEl', 'play', 'playEl', 'playSeq', 'playStage'];
 
-type TabGroup = { hidden: boolean; getAttribute(name: string): string | null };
+type TabGroup = { hidden: boolean; getAttribute(name: string): string | null; scrollIntoView?(opts?: { block?: 'start' }): void };
 type TabDoc = { querySelectorAll(sel: string): ArrayLike<TabGroup> };
 
-/** The tab on screen: the one whose groups are shown — null on a page that is one scroll. */
+/** 📜 The page a group is on (`data-hub-page`, `site-body.tsx`) — on the Invitation and Save the Date Home · Details ·
+ *  Story are ONE page (owner 2026-10-15); a group with no page mark is its tab's own page (The Day, the lab). */
+const pageOfGroup = (g: TabGroup): string | null => g.getAttribute('data-hub-page') ?? g.getAttribute('data-hub-tab');
+
+/** Is this tab a JUMP MARK — a place on a page that other tabs share — rather than a page of its own? */
+export function hubTabIsMark(doc: TabDoc, tab: string): boolean {
+  const groups = Array.from(doc.querySelectorAll('[data-hub-tab]'));
+  const mine = groups.find((g) => g.getAttribute('data-hub-tab') === tab);
+  if (!mine) return false;
+  const page = pageOfGroup(mine);
+  return groups.some((g) => pageOfGroup(g) === page && g.getAttribute('data-hub-tab') !== tab);
+}
+
+/** The tab on screen: the one whose groups are shown — null on a page that is one scroll. (On the one page, the
+ *  first tab on it — Home — whichever of its marks the page is scrolled to.) */
 export function shownHubTab(doc: TabDoc): string | null {
   for (const g of Array.from(doc.querySelectorAll('[data-hub-tab]'))) if (!g.hidden) return g.getAttribute('data-hub-tab');
   return null;
@@ -70,9 +84,16 @@ export function openHubTab(
   win: { scrollTo(to: { top: number; behavior: 'auto' }): void },
   lift: { forget(): void },
   tab: string,
-): boolean {
+): boolean | 'mark' {
   if (!showHubTab(doc, tab)) return false;
   lift.forget();
+  /* 📜 A JUMP MARK (the one page's Home · Details · Story, owner 2026-10-15) is a place on the page, not a page: the
+     Maker goes to it as the guest's bar does — to the tab's first group — and says so (`'mark'`), so the bridge does
+     not hold the page at its top. */
+  if (hubTabIsMark(doc, tab)) {
+    Array.from(doc.querySelectorAll('[data-hub-tab]')).find((g) => g.getAttribute('data-hub-tab') === tab)?.scrollIntoView?.({ block: 'start' });
+    return 'mark';
+  }
   win.scrollTo({ top: 0, behavior: 'auto' });
   return true;
 }
@@ -83,7 +104,10 @@ export function openHubTab(
  */
 export function showHubTab(doc: TabDoc, tab: string): boolean {
   const groups = Array.from(doc.querySelectorAll('[data-hub-tab]'));
-  if (!groups.some((g) => g.getAttribute('data-hub-tab') === tab)) return false;
-  for (const g of groups) g.hidden = g.getAttribute('data-hub-tab') !== tab;
+  const mine = groups.find((g) => g.getAttribute('data-hub-tab') === tab);
+  if (!mine) return false;
+  /* 📜 The tab's PAGE is shown — on the one page that is every jump mark's groups together. */
+  const page = pageOfGroup(mine);
+  for (const g of groups) g.hidden = pageOfGroup(g) !== page;
   return true;
 }

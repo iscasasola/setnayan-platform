@@ -11,7 +11,7 @@
  *     in Excel as #NAME?), any other cell starting = + - @ gets an apostrophe the importer strips again;
  *   · the route never sends an empty file for a refused read, and keeps it out of shared caches.
  *
- * Sabotage (2026-10-16): the BOM dropped → test 1 red; `exportMobile` returning the raw "+63…" → test 3 red.
+ * Sabotage (2026-10-16): the BOM dropped → red; `exportMobile` returning the raw "+63…" → red. Both reverted.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

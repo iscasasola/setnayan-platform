@@ -11,6 +11,8 @@
  * RECORD each field read. A read of any guest column outside GUEST_LIST_ROW_FIELDS fails, so a future row
  * that starts drawing `created_at` must add it to the list (and the payload) on purpose, never by accident.
  * The page's wiring is held too: the list and the quick-add sheet get the same lean objects.
+ *
+ * Sabotage (2026-10-16): `mobile` dropped from GUEST_LIST_ROW_FIELDS (the search reads it) → test 1 red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

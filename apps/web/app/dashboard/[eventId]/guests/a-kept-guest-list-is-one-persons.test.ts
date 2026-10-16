@@ -11,8 +11,7 @@
  *   · a copy older than the store's age limit is not shown;
  *   · only the Guest list's own copy module writes data entries (never budget, payments or orders).
  *
- * Sabotage (2026-10-16): `readLastSeenData` without its owner check → test 1 red; the wipe script's prefix
- * changed → test 3 red. Both reverted.
+ * Sabotage (2026-10-16): `readLastSeenData` without its owner check → test 1 red. Reverted.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

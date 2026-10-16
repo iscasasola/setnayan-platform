@@ -14,8 +14,8 @@
  *     empty list's "No guests yet";
  *   · a refused read is never kept as the copy, and a copy on screen never re-keeps itself.
  *
- * Sabotage (2026-10-16): the 'failed' mark reading "updating…" → test 1 red; the keep gate without
- * `measured` → test 3 red. Both reverted.
+ * Sabotage (2026-10-16): the 'failed' mark reading "Showing your last copy · updating…" → test 1 red; the
+ * keep gate without `measured` → test 3 red. Both reverted.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

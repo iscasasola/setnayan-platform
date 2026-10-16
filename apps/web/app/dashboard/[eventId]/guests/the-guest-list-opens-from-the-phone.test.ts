@@ -18,7 +18,7 @@
  *   5. it round-trips: saved, read back and drawn, the copy shows the same names and counts.
  *
  * Sabotage (2026-10-16, each turned this file red, then reverted): loading.tsx back to the html
- * `LastSeenFallback` (1) · a `fetch(` in guest-list-copy.ts (2) · `mobile` added to GUEST_COPY_ROW_FIELDS (3).
+ * `LastSeenFallback` → test 1 red · a second `import()` target in guest-list-copy.ts → test 2 red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

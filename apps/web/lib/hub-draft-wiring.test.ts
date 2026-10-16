@@ -178,7 +178,8 @@ test('Apply re-checks every slot picture is the couple\'s own, not only the back
   /* The background (and a clip's still) may also be the scene's own upload
      folder (`sceneIsOwn`, 2026-09-28 "Upload media"); a slot picture is held to
      the couple's pictures, as before. */
-  assert.match(body, /\[drafted\?\.media, drafted\?\.poster\]/);
+  /* …and the Cover Scene's own clip and still (`canvas.ground`, 2026-10-16) are held to the same rule. */
+  assert.match(body, /\[drafted\?\.media, drafted\?\.poster, cover\?\.media, cover\?\.poster\]/);
   assert.match(body, /\(drafted\?\.slots \?\? \[\]\)\.map\(\(s\) => s\.media\)/);
   assert.match(body, /ground\.some\(\(r\) => !sceneIsOwn\(r\)\) \|\| slotRefs\.some\(\(r\) => !ownRefs\.has\(r\)\)/);
 });

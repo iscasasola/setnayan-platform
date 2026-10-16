@@ -28,11 +28,18 @@ instead of always waiting for that 2.5 sec load everytime?"* · *"We want us to 
   covers every picture (the couple's photo, not only the mark). Thumb, full view, Save and Share use one
   address.
 
+- **No giant face on open** (owner: *"i see big pictures of the profile photo … a layer that is not fixed
+  before everything loads"*). Reproduced on main: the Guests loading screen painted the kept html picture on
+  Home, where the list's CSS module had not loaded, so row faces drew at 343 px (375) / 976 px (1280). Every
+  picture on the Guests screens and the shell's account avatar now carries `width`/`height`, and a last-seen
+  snapshot freezes each image at the size it was shown (`freezePictureSizes`).
+
 Guards: `guests/the-guest-list-opens-from-the-phone.test.ts` (repeat-open budget) ·
 `guests/a-kept-guest-list-is-one-persons.test.ts` (isolation per account/event, sign-out wipe) ·
 `guests/a-failed-refresh-shows-the-last-copy-as-old.test.ts` (failure-not-fresh) ·
 `guests/the-list-sends-only-what-it-draws.test.ts` (lean rows, executed) · `lib/guest-export-file.test.ts` ·
-`lib/the-ticket-is-fetched-once-per-version.test.ts`. Each sabotaged once.
+`lib/the-ticket-is-fetched-once-per-version.test.ts` · `guests/a-face-is-never-drawn-at-its-natural-size.test.ts`.
+Each sabotaged once.
 
 SPEC IMPACT: the last-seen mark's words change for all five pages ("Showing your last copy · updating…",
 "Couldn't update — showing your last copy from <when>…") and the Guest list keeps rows rather than a picture

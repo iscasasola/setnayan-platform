@@ -115,7 +115,7 @@ function SwitcherPanelBody({
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700">
           {data.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
+            <img src={data.photoUrl} alt="" width={36} height={36} className="h-full w-full object-cover" />
           ) : (
             initial
           )}
@@ -455,7 +455,7 @@ export function AccountSwitcher({ data, currentEventName, homeLabel, referHref, 
         <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink text-xs font-semibold text-cream">
           {data.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
+            <img src={data.photoUrl} alt="" width={32} height={32} className="h-full w-full object-cover" />
           ) : (
             initial
           )}
@@ -541,7 +541,7 @@ export function AccountSwitcherIconTrigger({
     >
       {data.photoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
+        <img src={data.photoUrl} alt="" width={44} height={44} className="h-full w-full object-cover" />
       ) : (
         <span>{initial}</span>
       )}

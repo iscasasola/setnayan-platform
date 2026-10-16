@@ -11,6 +11,7 @@ import {
   passCardDesignFor,
   passCardFileNameFor,
   passCardVersion,
+  PASS_CARD_VERSION_SHAPE,
   readPassCardGuest,
   renderPassCardFor,
 } from '@/lib/pass-card.server';
@@ -46,6 +47,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  */
 
 export const runtime = 'nodejs';
+
+/** A versioned ticket: one year, the phone only (never a shared cache — the QR signs its holder in). */
+const PASS_CARD_IMMUTABLE = 'private, max-age=31536000, immutable';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
@@ -117,11 +121,19 @@ export async function GET(req: Request) {
     }
   }
 
-  const etag = `"${passCardVersion(kit, target, design)}"`;
+  const version = passCardVersion(kit, target, design);
+  const etag = `"${version}"`;
+  // 🎟 ASKED FOR BY ITS CURRENT VERSION → KEPT FOR A YEAR (owner 2026-10-16: "it always reloads i thought we
+  // have cache"). The host's card puts the ticket's version in its address (`passCardTicketVersion`); when
+  // `v` IS the version just computed, that address can only ever mean this picture, so the phone keeps it
+  // and never asks again. A stale or missing `v` keeps the old answer (revalidate every time). Still
+  // `private`: the QR on it signs its holder in. 🔒 lib/the-ticket-is-fetched-once-per-version.test.ts
+  const askedVersion = url.searchParams.get('v');
+  const current = askedVersion !== null && PASS_CARD_VERSION_SHAPE.test(askedVersion) && askedVersion === version;
   const headers = {
     'Content-Type': 'image/png',
     'Content-Disposition': `attachment; filename="${passCardFileNameFor(kit, target)}"`,
-    'Cache-Control': 'private, no-cache',
+    'Cache-Control': current ? PASS_CARD_IMMUTABLE : 'private, no-cache',
     ETag: etag,
   };
   if (req.headers.get('if-none-match') === etag) return new NextResponse(null, { status: 304, headers });

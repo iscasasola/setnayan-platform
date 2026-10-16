@@ -322,6 +322,8 @@ export function SouvenirDesk({
               <img
                 src={selected.photoUrl}
                 alt=""
+                width={48}
+                height={48}
                 className="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-ink/10"
               />
             ) : (

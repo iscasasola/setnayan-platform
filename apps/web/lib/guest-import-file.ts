@@ -129,8 +129,11 @@ export function readGuestFile(text: string): CsvRow[] {
   const rows = parseCsv(lines.slice(headingLineIndex(lines)).join('\n'));
   return rows.map((row) => {
     const out: CsvRow = {};
-    for (const [k, v] of Object.entries(row)) {
+    for (const [k, raw] of Object.entries(row)) {
       const key = canonicalHeader(k);
+      // A cell our own download wrote as text ("'+1 555…", "'-") — the apostrophe that kept Excel from
+      // running it as a formula is not part of the value (`lib/guest-export-file.ts` csvCell).
+      const v = raw.replace(/^'(?=[=+\-@])/, '');
       // First non-empty wins if two headers land on one key.
       if (!(key in out) || (!out[key] && v)) out[key] = v;
     }

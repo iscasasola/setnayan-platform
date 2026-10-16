@@ -726,6 +726,9 @@ export type HubDraftWidget = {
    * (`config_json.venue`, lib/event-venues.ts `VenueChoice`), drafted with the
    * venues' words and pins (owner 2026-10-04). Merged slot by slot. Apply
    * re-reads it through `readVenueChoices` (this event's own photos only).
+   * ⛪ A card's `drawing: true` ("Our drawing ◆", owner 2026-10-16) is the one
+   * Pro key in the bag: turning it ON is held at Apply for a couple without
+   * Event Hub Pro (`venueBagNewDrawings`); the rest of the bag still goes live.
    */
   venue?: HubDraftVenueChoices;
   /**
@@ -739,7 +742,7 @@ export type HubDraftWidget = {
 };
 
 /** The Venue scene's per-card choices as the draft holds them (shape only — the event is checked at Apply). */
-export type HubDraftVenueChoice = { source?: 'supplier' | 'own'; supplierPhoto?: string | null; ownPhoto?: string | null };
+export type HubDraftVenueChoice = { source?: 'supplier' | 'own'; supplierPhoto?: string | null; ownPhoto?: string | null; drawing?: true };
 export type HubDraftVenueChoices = Partial<Record<'ceremony' | 'reception', HubDraftVenueChoice>>;
 
 /** A stored or posted `config_json.venue` bag → its shape, refs `r2://` only (the event is checked at Apply). */
@@ -754,7 +757,31 @@ export function draftVenueChoices(raw: unknown): HubDraftVenueChoices {
     if (r.source === 'supplier' || r.source === 'own') c.source = r.source;
     if (r.supplierPhoto === null || ref(r.supplierPhoto)) c.supplierPhoto = (r.supplierPhoto as string | null);
     if (r.ownPhoto === null || ref(r.ownPhoto)) c.ownPhoto = (r.ownPhoto as string | null);
+    if (r.drawing === true) c.drawing = true;
     if (Object.keys(c).length) out[key] = c;
+  }
+  return out;
+}
+
+/**
+ * ⛪ THE ONE PRO KEY IN A VENUE BAG (owner 2026-10-16, "A VENUE CARD'S PICTURE IS
+ * THE COUPLE'S CHOICE"): the cards whose "Our drawing ◆" the next bag turns ON
+ * where the live bag does not have it. Event Hub Pro — tried in the draft, held
+ * at Apply for a couple without it, and named on the Apply sheet. Turning a
+ * drawing OFF (back to the photo, or None) is never Pro.
+ */
+export function venueBagNewDrawings(live: HubDraftVenueChoices, next: HubDraftVenueChoices): Array<'ceremony' | 'reception'> {
+  return (['ceremony', 'reception'] as const).filter((k) => next[k]?.drawing === true && live[k]?.drawing !== true);
+}
+
+/** The bag with every NEW drawing taken off again — what goes live without Pro (photo and source edits kept). */
+export function venueBagFreePart(live: HubDraftVenueChoices, next: HubDraftVenueChoices): HubDraftVenueChoices {
+  const out: HubDraftVenueChoices = { ...next };
+  for (const k of venueBagNewDrawings(live, next)) {
+    const { drawing: _drawing, ...rest } = next[k]!;
+    void _drawing;
+    if (Object.keys(rest).length) out[k] = rest;
+    else delete out[k];
   }
   return out;
 }
@@ -2296,12 +2323,24 @@ export function classifyHubDraft(
       }
     }
     /* 🏛 The venue cards' source and photo — compared as the page reads the
-       bag; the value written is the WHOLE merged bag. Never Pro. */
+       bag; the value written is the WHOLE merged bag. Free — except ⛪ "Our
+       drawing ◆" turned ON on a card (owner 2026-10-16): that is Event Hub Pro,
+       an 'add' the gate holds for a couple without it (its free part — every
+       photo and source edit — still goes live; see `planHubDraftApply`). */
     if (w.venue !== undefined && type === 'venue_map') {
       const liveBag = draftVenueChoices(isPlainObject(row.config_json) ? row.config_json.venue : null);
-      const nextBag = configWithVenue(row.config_json, w.venue).venue;
+      const nextBag = configWithVenue(row.config_json, w.venue).venue as HubDraftVenueChoices;
       if (JSON.stringify(liveBag) !== JSON.stringify(nextBag)) {
-        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'venue', value: nextBag, change: 'change', pro: false });
+        const addsDrawing = venueBagNewDrawings(liveBag, nextBag).length > 0;
+        items.push({
+          kind: 'widget',
+          widgetType: type,
+          widgetId: row.widget_id,
+          field: 'venue',
+          value: nextBag,
+          change: addsDrawing ? 'add' : 'change',
+          pro: addsDrawing,
+        });
       }
     }
     if (w.canvas !== undefined) {
@@ -2422,6 +2461,18 @@ export function planHubDraftApply(
         apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free), pro: false, freePart: true });
       }
     }
+    /* ⛪ A held venue bag (a new "Our drawing ◆") still gets its free edits: every
+       photo and source pick is written now, the drawing left as live; the whole
+       drafted bag stays in the draft (below), where it differs from live only by
+       the drawing. */
+    if (!allowed && item.kind === 'widget' && item.field === 'venue') {
+      const cfg = live.widgets.find((r) => r.widget_type === item.widgetType)?.config_json;
+      const liveBag = draftVenueChoices(isPlainObject(cfg) ? cfg.venue : null);
+      const free = venueBagFreePart(liveBag, item.value as HubDraftVenueChoices);
+      if (JSON.stringify(free) !== JSON.stringify(liveBag)) {
+        apply.push({ ...item, value: free, change: 'change', pro: false, freePart: true });
+      }
+    }
     /* 🎉 A held RSVP config still gets its free edits: the words and switches
        drafted beside a Pro celebration are written now, with the LIVE
        celebration kept; the whole drafted config stays in the draft (below). */
@@ -2493,6 +2544,8 @@ export function planHubDraftApply(
       // 👁 …and so does a held per-stage choice (the whole merged key the classifier compared).
       else if (item.field === 'stage_show') w.stage_show = heldStageShow(item.value);
       else if (item.field === 'custom') w.custom = item.value as CustomSectionContent | null;
+      // ⛪ A held venue bag stays drafted WHOLE, its drawing still picked.
+      else if (item.field === 'venue') w.venue = item.value as HubDraftVenueChoices;
     }
   }
   return { apply, refused, remaining, orphans };

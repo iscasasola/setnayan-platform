@@ -1361,6 +1361,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         drafted: draftedEvents,
         draftedVenue,
         draftedMarch,
+        // ⛪ The venue card's "Our drawing ◆" — Pro as the celebration's mark reads it.
+        venuePro: { owns: printPro, storeShell },
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;

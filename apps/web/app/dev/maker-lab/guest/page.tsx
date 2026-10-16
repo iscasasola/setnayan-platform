@@ -260,7 +260,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   /* ⛪ `?venues=<style>` (default · photo-card · full-photo · journey) — the REAL `VenueWidget` with cale-ice's two venue
      NAMES (the names only — no address, no pin, no photo of theirs), as a guest who has not replied sees them.
      `&parish=0` swaps the ceremony for a church with no drawing; `&photo=1` gives both cards a stand-in photo (a file
-     this repo ships), to see the drawing take the photo's place; `&art=candlelight` draws it on the dark Look. */
+     this repo ships); `&drawing=1` is the couple having PICKED "Our drawing ◆" on the ceremony card (owner 2026-10-16 —
+     without it the drawing never shows); `&art=candlelight` draws it on the dark Look. */
   if (typeof sp.venues === 'string') {
     const style = sp.venues === 'default' ? null : sp.venues;
     const photo = sp.photo === '1' ? LAB_COVER_PHOTO : null;
@@ -268,7 +269,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       event_date: '2026-12-18',
       venue_withheld: true,
       venues: [
-        { role: 'ceremony', name: sp.parish === '0' ? 'Santuario de San Antonio' : 'Santuario de San Vicente de Paul Parish', address: null, latitude: null, longitude: null, photoUrl: photo },
+        { role: 'ceremony', name: sp.parish === '0' ? 'Santuario de San Antonio' : 'Santuario de San Vicente de Paul Parish', address: null, latitude: null, longitude: null, photoUrl: photo, ...(sp.drawing === '1' ? { drawingChosen: true } : {}) },
         { role: 'reception', name: 'Seda Hotel Vertis North', address: null, latitude: null, longitude: null, photoUrl: photo },
       ],
     };

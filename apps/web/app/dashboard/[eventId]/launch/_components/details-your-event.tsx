@@ -15,6 +15,17 @@ import { PickMenu, type PickOption } from '../../website/editor/_components/pick
 import { FileUpload } from '@/app/_components/file-upload';
 import type { VenueChoice, VenueSlotKey } from '@/lib/event-venues';
 import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
+import { parishDrawingFor, type ParishDrawing } from '@/lib/parish-drawings';
+import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
+import {
+  PICTURE_DRAWING,
+  PICTURE_NONE,
+  PICTURE_UPLOAD,
+  pickVenuePicture,
+  uploadedVenuePicture,
+  venueDrawingShown,
+  venuePictureOptions,
+} from '@/lib/venue-picture-choice';
 import { NAME_STYLE_CHOICES, type NameStyle } from '@/lib/name-style';
 import { nameStyleDraftPatch } from '@/lib/name-style-save';
 import { coupleNameColumns } from '@/lib/typed-names';
@@ -530,8 +541,6 @@ export type VenueSlot = {
 };
 
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-const PHOTO_NONE = 'none';
-const PHOTO_UPLOAD = 'upload';
 
 /**
  * 🏛 A venue card's choice → the Event Hub DRAFT (`widgets.venue_map.venue`),
@@ -562,11 +571,14 @@ export function VenuesEditor({
   eventId,
   slots,
   city,
+  pro = { owns: false, storeShell: false },
 }: {
   eventId: string;
   slots: readonly VenueSlot[];
   /** The reception's city or area (the Save-the-Date's line) — null where the film does not apply. */
   city: string | null;
+  /** ⛪ Event Hub Pro as the viewer is shown it — the "Our drawing ◆" mark (`makerProMark`). */
+  pro?: { owns: boolean; storeShell: boolean };
 }) {
   const [values, setValues] = useState<Record<string, { name: string; address: string; pin: LatLng | null }>>(() =>
     Object.fromEntries(slots.map((s) => [s.slot, { name: s.typed, address: s.address, pin: s.pin }])),
@@ -690,7 +702,25 @@ export function VenuesEditor({
                 />
               </>
             )}
-            <VenuePhotoPicker eventId={eventId} slot={s} own={own} choice={choices[s.slot] ?? {}} onChoose={(c) => choose(s.slot, c)} />
+            <VenuePhotoPicker
+              eventId={eventId}
+              slot={s}
+              own={own}
+              choice={choices[s.slot] ?? {}}
+              onChoose={(c) => choose(s.slot, c)}
+              /* ⛪ Does the library have a drawing of THIS place? Asked of the name the
+                 guest reads — the typed one on their own details, else the booking's —
+                 on the card's role (one place for both = "both"). */
+              drawing={
+                makerProUsable(pro)
+                  ? parishDrawingFor({
+                      role: slots.length === 1 ? 'both' : s.slot,
+                      name: own ? v.name : (s.booked?.name ?? null),
+                    })
+                  : null
+              }
+              pro={pro}
+            />
           </div>
         );
       })}
@@ -716,13 +746,22 @@ export function VenuesEditor({
 }
 
 /**
- * 🏛📷 THE VENUE CARD'S PHOTO — ONE chooser (owner 2026-09-30): the booked
- * supplier's public photos (their first by default), the couple's own upload
- * (always offered last; the only way when the supplier has none, or when the
- * card is on their own details), or no photo. Uploads go through the shipped
+ * 🏛📷 THE VENUE CARD'S PICTURE — ONE chooser, "Picture ▾" (owner 2026-09-30): the
+ * booked supplier's public photos (their first by default), the couple's own
+ * upload (always offered; the only way when the supplier has none, or when the
+ * card is on their own details), or None. Uploads go through the shipped
  * `<FileUpload>`, compressed in the browser, into the Maker's scene-media
  * folder (`sceneBackgroundPathPrefix` — the folder `lib/event-venues.ts`
  * `isOwnVenuePhotoRef` accepts).
+ *
+ * ⛪ "Our drawing ◆" (owner 2026-10-16, DECISION_LOG "A VENUE CARD'S PICTURE IS
+ * THE COUPLE'S CHOICE": *"on a church you can upload a photo or use our pro
+ * feature photos of the venue"*) — listed ONLY when the parish library has a
+ * drawing of this venue (`drawing`), marked ◆ Pro: a free couple may pick it
+ * (it is drafted and drawn at once), Apply names it and asks for Event Hub Pro
+ * (`venueBagNewDrawings`). Picking it keeps the photo refs, so picking the photo
+ * back restores it; the photo stays the default — the drawing never shows
+ * until it is picked here.
  */
 function VenuePhotoPicker({
   eventId,
@@ -730,12 +769,17 @@ function VenuePhotoPicker({
   own,
   choice,
   onChoose,
+  drawing = null,
+  pro = { owns: false, storeShell: false },
 }: {
   eventId: string;
   slot: VenueSlot;
   own: boolean;
   choice: VenueChoice;
   onChoose: (next: VenueChoice) => void;
+  /** The library's drawing of this venue, or null — "Our drawing" is offered only with one. */
+  drawing?: ParishDrawing | null;
+  pro?: { owns: boolean; storeShell: boolean };
 }) {
   const [local, setLocal] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
@@ -747,43 +791,50 @@ function VenuePhotoPicker({
     : choice.supplierPhoto === null
       ? null
       : (choice.supplierPhoto ?? supplierPhotos[0] ?? null);
-  const options: PickOption[] = [
-    ...supplierPhotos.map((ref, i) => ({
-      key: ref,
-      label: supplierPhotos.length > 1 ? `Supplier’s photo ${i + 1}` : 'Supplier’s photo',
-      thumb: url(ref) ?? undefined,
-    })),
-    ...(ownRef ? [{ key: ownRef, label: 'Your photo', thumb: url(ownRef) ?? undefined }] : []),
-    { key: PHOTO_UPLOAD, label: ownRef ? 'Upload a different photo' : 'Upload a photo' },
-    { key: PHOTO_NONE, label: 'No photo' },
-  ];
-  const pick = (ref: string | null) =>
-    onChoose(own ? { ...choice, ownPhoto: ref } : { ...choice, supplierPhoto: ref });
-  const shown = url(current);
+  /* ⛪ The drawing shows only where it was PICKED and the library has one. */
+  const drawingOn = venueDrawingShown(choice, drawing);
+  const mark = makerProMark(pro);
+  const options: PickOption[] = venuePictureOptions({
+    supplierPhotos,
+    ownRef,
+    drawing,
+    mark,
+    markLabel: (m) => paidMarkLabel(m, 'Event Hub Pro'),
+    url,
+  });
+  const shown = drawingOn ? null : url(current);
   const noneYet = supplierPhotos.length === 0 && !ownRef;
 
   return (
-    <div className="mt-1 flex flex-col gap-2" data-venue-photo-picker={slot.slot}>
+    <div className="mt-1 flex flex-col gap-2" data-venue-photo-picker={slot.slot} data-venue-picture-shown={drawingOn ? 'drawing' : shown ? 'photo' : 'none'}>
       {shown ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={shown} alt="" className="aspect-[16/9] w-full max-w-md rounded-md border border-ink/10 object-cover" />
       ) : null}
-      {noneYet ? null : (
-        <PickMenu
-          label={`${slot.label} — photo`}
-          value={uploading ? PHOTO_UPLOAD : (current ?? PHOTO_NONE)}
-          options={options}
-          onPick={(k) => {
-            if (k === PHOTO_UPLOAD) setUploading(true);
-            else {
-              setUploading(false);
-              pick(k === PHOTO_NONE ? null : k);
-            }
-          }}
-          dataAttr="data-venue-photo"
-        />
+      {drawingOn && drawing ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={drawing.webp} alt="" className="h-auto w-full max-w-md" data-venue-drawing-preview={drawing.key} />
+      ) : null}
+      {noneYet && !drawing ? null : (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-ink/70">Picture</p>
+          <PickMenu
+            label={`${slot.label} — picture`}
+            value={uploading ? PICTURE_UPLOAD : drawingOn ? PICTURE_DRAWING : (current ?? PICTURE_NONE)}
+            buttonText={drawingOn && mark === 'try' ? 'Our drawing ◆' : undefined}
+            options={options}
+            onPick={(k) => {
+              if (k === PICTURE_UPLOAD) setUploading(true);
+              else {
+                setUploading(false);
+                onChoose(pickVenuePicture(choice, k, own));
+              }
+            }}
+            dataAttr="data-venue-photo"
+          />
+        </div>
       )}
-      {uploading || noneYet ? (
+      {uploading || (noneYet && !drawingOn) ? (
         <FileUpload
           bucket="media"
           pathPrefix={sceneBackgroundPathPrefix(eventId)}
@@ -803,7 +854,8 @@ function VenuePhotoPicker({
             if (!ref) return;
             setLocal((l) => (l.__picked ? { ...l, [ref]: l.__picked } : l));
             setUploading(false);
-            onChoose(own ? { ...choice, ownPhoto: ref } : { ...choice, ownPhoto: ref, supplierPhoto: ref });
+            /* An upload is a pick of the photo — it takes the drawing off. */
+            onChoose(uploadedVenuePicture(choice, ref, own));
           }}
           label="Upload a photo of the place"
         />
